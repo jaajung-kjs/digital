@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, getErrorMessage } from '../utils/api';
 import { useIsAdmin } from '../stores/authStore';
@@ -37,6 +37,7 @@ interface HistoryState {
 
 export function FloorPlanEditorPage() {
   const { floorId } = useParams<{ floorId: string }>();
+  const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const queryClient = useQueryClient();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -50,6 +51,7 @@ export function FloorPlanEditorPage() {
   const [hasChanges, setHasChanges] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [rackModalOpen, setRackModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [newPlanName, setNewPlanName] = useState('');
   const [newRackName, setNewRackName] = useState('');
 
@@ -125,6 +127,18 @@ export function FloorPlanEditorPage() {
       // 저장 성공 후 삭제 목록 초기화
       setDeletedElementIds([]);
       setDeletedRackIds([]);
+    },
+  });
+
+  // 평면도 삭제
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/floor-plans/${floorPlan?.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
+      queryClient.invalidateQueries({ queryKey: ['floor', floorId] });
+      setDeleteModalOpen(false);
+      // 층 목록으로 이동
+      navigate(`/substations/${floor?.substationId}/floors`);
     },
   });
 
@@ -1096,6 +1110,16 @@ export function FloorPlanEditorPage() {
             >
               {saveMutation.isPending ? '저장 중...' : '저장'}
             </button>
+            <div className="border-l h-6 mx-2" />
+            <button
+              onClick={() => setDeleteModalOpen(true)}
+              className="p-2 hover:bg-red-50 rounded-lg text-red-600"
+              title="평면도 삭제"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
           </div>
         )}
       </div>
@@ -1525,6 +1549,41 @@ export function FloorPlanEditorPage() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 평면도 삭제 확인 모달 */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-red-600 mb-4">평면도 삭제</h3>
+            <p className="text-gray-600 mb-2">
+              <strong>{floorPlan?.name}</strong> 평면도를 삭제하시겠습니까?
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              평면도에 포함된 모든 구조물과 랙 배치 정보가 삭제됩니다.
+              이 작업은 되돌릴 수 없습니다.
+            </p>
+            {deleteMutation.error && (
+              <p className="text-red-600 text-sm mb-4">{getErrorMessage(deleteMutation.error)}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? '삭제 중...' : '삭제'}
               </button>
             </div>
           </div>
