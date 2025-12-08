@@ -13,6 +13,7 @@ export interface DoorProperties {
   width: number;
   wallId?: string;
   openDirection: 'inside' | 'outside';
+  rotation?: number; // 0, 90, 180, 270
 }
 
 export interface WindowProperties {
@@ -20,6 +21,7 @@ export interface WindowProperties {
   y: number;
   width: number;
   wallId?: string;
+  rotation?: number; // 0, 90, 180, 270
 }
 
 export interface ColumnProperties {

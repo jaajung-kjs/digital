@@ -58,10 +58,18 @@ export function FloorPlanEditorPage() {
   const [wallPoints, setWallPoints] = useState<[number, number][]>([]);
   const [wallPreviewEnd, setWallPreviewEnd] = useState<[number, number] | null>(null);
 
+  // 오브젝트 미리보기 상태
+  const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
+  const [previewRotation, setPreviewRotation] = useState(0); // 0, 90, 180, 270
+
   // 드래그 상태
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [dragTarget, setDragTarget] = useState<{ type: 'rack' | 'element'; id: string } | null>(null);
+
+  // 캔버스 팬 상태
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
 
   // Undo/Redo 히스토리
   const [history, setHistory] = useState<HistoryState[]>([]);
@@ -69,6 +77,10 @@ export function FloorPlanEditorPage() {
 
   // 새 랙 추가 위치
   const [newRackPosition, setNewRackPosition] = useState<{ x: number; y: number }>({ x: 100, y: 100 });
+
+  // 삭제된 요소/랙 ID 추적 (저장 시 백엔드에 전달)
+  const [deletedElementIds, setDeletedElementIds] = useState<string[]>([]);
+  const [deletedRackIds, setDeletedRackIds] = useState<string[]>([]);
 
   // 층 정보 조회
   const { data: floor, isLoading: floorLoading } = useQuery({
@@ -110,6 +122,9 @@ export function FloorPlanEditorPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
       setHasChanges(false);
+      // 저장 성공 후 삭제 목록 초기화
+      setDeletedElementIds([]);
+      setDeletedRackIds([]);
     },
   });
 
@@ -237,6 +252,7 @@ export function FloorPlanEditorPage() {
           const props = element.properties as DoorProperties;
           ctx.save();
           ctx.translate(props.x, props.y);
+          ctx.rotate(((props.rotation || 0) * Math.PI) / 180);
 
           // 문 그리기
           ctx.fillStyle = isSelected ? '#dbeafe' : '#fef3c7';
@@ -263,6 +279,7 @@ export function FloorPlanEditorPage() {
           const props = element.properties as WindowProperties;
           ctx.save();
           ctx.translate(props.x, props.y);
+          ctx.rotate(((props.rotation || 0) * Math.PI) / 180);
 
           // 창문 그리기
           ctx.fillStyle = isSelected ? '#dbeafe' : '#e0f2fe';
@@ -350,8 +367,83 @@ export function FloorPlanEditorPage() {
       }
     }
 
+    // 오브젝트 미리보기 렌더링
+    if (previewPosition) {
+      ctx.globalAlpha = 0.6;
+
+      switch (editorState.tool) {
+        case 'door': {
+          ctx.save();
+          ctx.translate(previewPosition.x, previewPosition.y);
+          ctx.rotate((previewRotation * Math.PI) / 180);
+
+          // 문 미리보기
+          ctx.fillStyle = '#fef3c7';
+          ctx.strokeStyle = '#d97706';
+          ctx.lineWidth = 2;
+          ctx.fillRect(0, 0, 60, 10);
+          ctx.strokeRect(0, 0, 60, 10);
+
+          // 문 열림 방향 표시 (호)
+          ctx.beginPath();
+          ctx.setLineDash([3, 3]);
+          ctx.arc(0, 10, 60, -Math.PI / 2, 0);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+          break;
+        }
+        case 'window': {
+          ctx.save();
+          ctx.translate(previewPosition.x, previewPosition.y);
+          ctx.rotate((previewRotation * Math.PI) / 180);
+
+          // 창문 미리보기
+          ctx.fillStyle = '#e0f2fe';
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 2;
+          ctx.fillRect(0, 0, 80, 8);
+          ctx.strokeRect(0, 0, 80, 8);
+
+          // 가운데 선
+          ctx.beginPath();
+          ctx.moveTo(40, 0);
+          ctx.lineTo(40, 8);
+          ctx.stroke();
+          ctx.restore();
+          break;
+        }
+        case 'column': {
+          // 기둥 미리보기
+          ctx.fillStyle = '#6b7280';
+          ctx.strokeStyle = '#374151';
+          ctx.lineWidth = 2;
+          ctx.fillRect(previewPosition.x, previewPosition.y, 40, 40);
+          ctx.strokeRect(previewPosition.x, previewPosition.y, 40, 40);
+          break;
+        }
+        case 'rack': {
+          // 랙 미리보기
+          ctx.fillStyle = '#f3f4f6';
+          ctx.strokeStyle = '#374151';
+          ctx.lineWidth = 1;
+          ctx.fillRect(previewPosition.x, previewPosition.y, 60, 100);
+          ctx.strokeRect(previewPosition.x, previewPosition.y, 60, 100);
+
+          ctx.fillStyle = '#111827';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('새 랙', previewPosition.x + 30, previewPosition.y + 50);
+          break;
+        }
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
     ctx.restore();
-  }, [floorPlan, localElements, localRacks, editorState, isDrawingWall, wallPoints, wallPreviewEnd]);
+  }, [floorPlan, localElements, localRacks, editorState, isDrawingWall, wallPoints, wallPreviewEnd, previewPosition, previewRotation]);
 
   // 캔버스 크기 조정 및 렌더링
   useEffect(() => {
@@ -389,6 +481,48 @@ export function FloorPlanEditorPage() {
     };
   };
 
+  // 점을 특정 중심 기준으로 역회전 (히트박스 계산용)
+  const rotatePointAroundOrigin = (px: number, py: number, cx: number, cy: number, angleDeg: number) => {
+    const angleRad = (-angleDeg * Math.PI) / 180; // 역회전
+    const cos = Math.cos(angleRad);
+    const sin = Math.sin(angleRad);
+    const dx = px - cx;
+    const dy = py - cy;
+    return {
+      x: cx + dx * cos - dy * sin,
+      y: cy + dx * sin + dy * cos,
+    };
+  };
+
+  // 점과 선분 사이의 거리 계산
+  const distanceToLineSegment = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
+    const A = px - x1;
+    const B = py - y1;
+    const C = x2 - x1;
+    const D = y2 - y1;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    if (lenSq !== 0) param = dot / lenSq;
+
+    let xx, yy;
+    if (param < 0) {
+      xx = x1;
+      yy = y1;
+    } else if (param > 1) {
+      xx = x2;
+      yy = y2;
+    } else {
+      xx = x1 + param * C;
+      yy = y1 + param * D;
+    }
+
+    const dx = px - xx;
+    const dy = py - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
   // 요소 찾기
   const findElementAt = (x: number, y: number) => {
     // 랙 찾기
@@ -398,20 +532,49 @@ export function FloorPlanEditorPage() {
     });
     if (rack) return { type: 'rack' as const, item: rack };
 
-    // 요소 찾기 (기둥, 문, 창문)
+    // 요소 찾기 (기둥, 문, 창문, 벽)
     const element = [...localElements].reverse().find(e => {
       if (!e.isVisible) return false;
 
       switch (e.elementType) {
+        case 'wall': {
+          const props = e.properties as WallProperties;
+          if (!props.points || props.points.length < 2) return false;
+          const thickness = (props.thickness || 10) / 2 + 5; // 클릭 여유 추가
+          // 모든 선분에 대해 거리 검사
+          for (let i = 0; i < props.points.length - 1; i++) {
+            const [x1, y1] = props.points[i];
+            const [x2, y2] = props.points[i + 1];
+            const dist = distanceToLineSegment(x, y, x1, y1, x2, y2);
+            if (dist <= thickness) return true;
+          }
+          return false;
+        }
         case 'door': {
           const props = e.properties as DoorProperties;
-          return x >= props.x && x <= props.x + props.width &&
-                 y >= props.y && y <= props.y + 10;
+          const doorWidth = props.width;
+          const doorHeight = 10;
+          const rotation = props.rotation || 0;
+          // 회전 중심 (문의 시작점 기준)
+          const cx = props.x;
+          const cy = props.y;
+          // 클릭 좌표를 역회전하여 원래 좌표계에서 확인
+          const rotated = rotatePointAroundOrigin(x, y, cx, cy, rotation);
+          return rotated.x >= props.x && rotated.x <= props.x + doorWidth &&
+                 rotated.y >= props.y && rotated.y <= props.y + doorHeight;
         }
         case 'window': {
           const props = e.properties as WindowProperties;
-          return x >= props.x && x <= props.x + props.width &&
-                 y >= props.y && y <= props.y + 8;
+          const windowWidth = props.width;
+          const windowHeight = 8;
+          const rotation = props.rotation || 0;
+          // 회전 중심 (창문의 시작점 기준)
+          const cx = props.x;
+          const cy = props.y;
+          // 클릭 좌표를 역회전하여 원래 좌표계에서 확인
+          const rotated = rotatePointAroundOrigin(x, y, cx, cy, rotation);
+          return rotated.x >= props.x && rotated.x <= props.x + windowWidth &&
+                 rotated.y >= props.y && rotated.y <= props.y + windowHeight;
         }
         case 'column': {
           const props = e.properties as ColumnProperties;
@@ -431,7 +594,18 @@ export function FloorPlanEditorPage() {
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan || !canvasRef.current) return;
 
+    const rect = canvasRef.current.getBoundingClientRect();
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
     const { x, y } = getCanvasCoordinates(e);
+
+    // 중간 버튼(휠 클릭)이면 무조건 팬 모드
+    if (e.button === 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: screenX, y: screenY });
+      return;
+    }
 
     if (editorState.tool === 'select') {
       const found = findElementAt(x, y);
@@ -449,6 +623,9 @@ export function FloorPlanEditorPage() {
           setSelectedRack(null);
         }
       } else {
+        // 빈 공간 클릭 시 팬 모드 시작
+        setIsPanning(true);
+        setPanStart({ x: screenX, y: screenY });
         setEditorState(prev => ({ ...prev, selectedIds: [] }));
         setSelectedRack(null);
         setSelectedElement(null);
@@ -458,6 +635,25 @@ export function FloorPlanEditorPage() {
 
   // 캔버스 마우스 이동
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const screenX = e.clientX - rect.left;
+    const screenY = e.clientY - rect.top;
+
+    // 캔버스 팬 처리
+    if (isPanning && panStart) {
+      const dx = screenX - panStart.x;
+      const dy = screenY - panStart.y;
+      setEditorState(prev => ({
+        ...prev,
+        panX: prev.panX + dx,
+        panY: prev.panY + dy,
+      }));
+      setPanStart({ x: screenX, y: screenY });
+      return;
+    }
+
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
 
@@ -467,34 +663,45 @@ export function FloorPlanEditorPage() {
       return;
     }
 
-    if (!isDragging || !dragStart || !dragTarget) return;
-    const dx = x - dragStart.x;
-    const dy = y - dragStart.y;
-    const snappedDx = editorState.gridSnap ? Math.round(dx / editorState.gridSize) * editorState.gridSize : dx;
-    const snappedDy = editorState.gridSnap ? Math.round(dy / editorState.gridSize) * editorState.gridSize : dy;
+    // 오브젝트 미리보기 위치 업데이트
+    if (['door', 'window', 'column', 'rack'].includes(editorState.tool)) {
+      setPreviewPosition({ x: snapped.x, y: snapped.y });
+    } else {
+      setPreviewPosition(null);
+    }
 
+    if (!isDragging || !dragStart || !dragTarget) return;
+
+    // 목표 위치를 그리드에 스냅 (X,Y 동시 이동 수정)
     if (dragTarget.type === 'rack') {
       setLocalRacks(prev => prev.map(r => {
         if (r.id === dragTarget.id) {
-          return { ...r, positionX: r.positionX + snappedDx, positionY: r.positionY + snappedDy };
+          const newX = snapped.x - (dragStart.x - r.positionX);
+          const newY = snapped.y - (dragStart.y - r.positionY);
+          const finalPos = snapToGrid(newX, newY);
+          return { ...r, positionX: finalPos.x, positionY: finalPos.y };
         }
         return r;
       }));
     } else {
-      setLocalElements(prev => prev.map(e => {
-        if (e.id === dragTarget.id) {
-          const props = { ...e.properties };
+      setLocalElements(prev => prev.map(el => {
+        if (el.id === dragTarget.id) {
+          const props = { ...el.properties };
           if ('x' in props && 'y' in props) {
-            (props as { x: number; y: number }).x += snappedDx;
-            (props as { x: number; y: number }).y += snappedDy;
+            const currentProps = props as { x: number; y: number };
+            const newX = snapped.x - (dragStart.x - currentProps.x);
+            const newY = snapped.y - (dragStart.y - currentProps.y);
+            const finalPos = snapToGrid(newX, newY);
+            currentProps.x = finalPos.x;
+            currentProps.y = finalPos.y;
           }
-          return { ...e, properties: props };
+          return { ...el, properties: props };
         }
-        return e;
+        return el;
       }));
     }
 
-    setDragStart({ x, y });
+    setDragStart(snapped);
     setHasChanges(true);
   };
 
@@ -506,6 +713,9 @@ export function FloorPlanEditorPage() {
     setIsDragging(false);
     setDragStart(null);
     setDragTarget(null);
+    // 팬 모드 종료
+    setIsPanning(false);
+    setPanStart(null);
   };
 
   // 캔버스 클릭 처리
@@ -556,6 +766,7 @@ export function FloorPlanEditorPage() {
             y: snapped.y,
             width: 60,
             openDirection: 'inside',
+            rotation: previewRotation,
           } as DoorProperties,
           zIndex: localElements.length,
           isVisible: true,
@@ -564,6 +775,7 @@ export function FloorPlanEditorPage() {
         setLocalElements(newElements);
         pushHistory(newElements, localRacks);
         setHasChanges(true);
+        setPreviewRotation(0); // 회전 초기화
         break;
       }
 
@@ -575,6 +787,7 @@ export function FloorPlanEditorPage() {
             x: snapped.x,
             y: snapped.y,
             width: 80,
+            rotation: previewRotation,
           } as WindowProperties,
           zIndex: localElements.length,
           isVisible: true,
@@ -583,6 +796,7 @@ export function FloorPlanEditorPage() {
         setLocalElements(newElements);
         pushHistory(newElements, localRacks);
         setHasChanges(true);
+        setPreviewRotation(0); // 회전 초기화
         break;
       }
 
@@ -619,10 +833,18 @@ export function FloorPlanEditorPage() {
             const newRacks = localRacks.filter(r => r.id !== found.item.id);
             setLocalRacks(newRacks);
             pushHistory(localElements, newRacks);
+            // 서버에 저장된 항목만 삭제 목록에 추가
+            if (!found.item.id.startsWith('temp-')) {
+              setDeletedRackIds(prev => [...prev, found.item.id]);
+            }
           } else {
             const newElements = localElements.filter(e => e.id !== found.item.id);
             setLocalElements(newElements);
             pushHistory(newElements, localRacks);
+            // 서버에 저장된 항목만 삭제 목록에 추가
+            if (!found.item.id.startsWith('temp-')) {
+              setDeletedElementIds(prev => [...prev, found.item.id]);
+            }
           }
           setHasChanges(true);
         }
@@ -662,8 +884,46 @@ export function FloorPlanEditorPage() {
       if (e.key === 'r') setEditorState(prev => ({ ...prev, tool: 'rack' }));
       if (e.key === 'g') setEditorState(prev => ({ ...prev, gridSnap: !prev.gridSnap }));
 
+      // Q 키로 회전 (미리보기 또는 선택된 문/창문)
+      if (e.key === 'q') {
+        if (selectedElement && ['door', 'window'].includes(selectedElement.elementType)) {
+          // 선택된 요소 회전
+          const newElements = localElements.map(el => {
+            if (el.id === selectedElement.id) {
+              const props = { ...el.properties } as DoorProperties | WindowProperties;
+              props.rotation = ((props.rotation || 0) + 90) % 360;
+              return { ...el, properties: props };
+            }
+            return el;
+          });
+          setLocalElements(newElements);
+          pushHistory(newElements, localRacks);
+          setHasChanges(true);
+          const updated = newElements.find(el => el.id === selectedElement.id);
+          if (updated) setSelectedElement(updated);
+        } else if (['door', 'window'].includes(editorState.tool)) {
+          // 미리보기 회전
+          setPreviewRotation(prev => (prev + 90) % 360);
+        }
+      }
+
       // Delete 키로 선택 항목 삭제
       if (e.key === 'Delete' && editorState.selectedIds.length > 0) {
+        // 삭제될 항목 중 서버에 저장된 것들의 ID를 추적
+        const deletedRacks = localRacks
+          .filter(r => editorState.selectedIds.includes(r.id) && !r.id.startsWith('temp-'))
+          .map(r => r.id);
+        const deletedElements = localElements
+          .filter(el => editorState.selectedIds.includes(el.id) && !el.id.startsWith('temp-'))
+          .map(el => el.id);
+
+        if (deletedRacks.length > 0) {
+          setDeletedRackIds(prev => [...prev, ...deletedRacks]);
+        }
+        if (deletedElements.length > 0) {
+          setDeletedElementIds(prev => [...prev, ...deletedElements]);
+        }
+
         const newRacks = localRacks.filter(r => !editorState.selectedIds.includes(r.id));
         const newElements = localElements.filter(el => !editorState.selectedIds.includes(el.id));
         setLocalRacks(newRacks);
@@ -696,7 +956,7 @@ export function FloorPlanEditorPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editorState.selectedIds, editorState.gridSnap, localElements, localRacks, undo, redo, pushHistory]);
+  }, [editorState.selectedIds, editorState.gridSnap, editorState.tool, localElements, localRacks, undo, redo, pushHistory, selectedElement]);
 
   // 저장 핸들러
   const handleSave = () => {
@@ -725,6 +985,9 @@ export function FloorPlanEditorPage() {
         totalU: r.totalU,
         description: r.description || undefined,
       })),
+      // 삭제된 항목 ID 전달
+      deletedElementIds: deletedElementIds.length > 0 ? deletedElementIds : undefined,
+      deletedRackIds: deletedRackIds.length > 0 ? deletedRackIds : undefined,
     };
 
     saveMutation.mutate(updateData);
@@ -861,23 +1124,25 @@ export function FloorPlanEditorPage() {
         ) : (
           <>
             {/* 도구 패널 */}
-            <div className="w-16 bg-white border-r flex flex-col items-center py-4 gap-2">
+            <div className="w-20 bg-white border-r flex flex-col items-center py-4 gap-1">
               <ToolButton
                 active={editorState.tool === 'select'}
                 onClick={() => setEditorState(prev => ({ ...prev, tool: 'select' }))}
                 title="선택 (V)"
+                label="선택"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
                 </svg>
               </ToolButton>
 
-              <div className="border-t w-10 my-2" />
+              <div className="border-t w-12 my-2" />
 
               <ToolButton
                 active={editorState.tool === 'wall'}
                 onClick={() => setEditorState(prev => ({ ...prev, tool: 'wall' }))}
                 title="벽 (W)"
+                label="벽"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" />
@@ -887,7 +1152,8 @@ export function FloorPlanEditorPage() {
               <ToolButton
                 active={editorState.tool === 'door'}
                 onClick={() => setEditorState(prev => ({ ...prev, tool: 'door' }))}
-                title="문 (D)"
+                title="문 (D) - Q로 회전"
+                label="문"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3v18M3 3h18v18H3V3z" />
@@ -897,7 +1163,8 @@ export function FloorPlanEditorPage() {
               <ToolButton
                 active={editorState.tool === 'window'}
                 onClick={() => setEditorState(prev => ({ ...prev, tool: 'window' }))}
-                title="창문 (N)"
+                title="창문 (N) - Q로 회전"
+                label="창문"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h16v16H4V4zm8 0v16M4 12h16" />
@@ -908,30 +1175,33 @@ export function FloorPlanEditorPage() {
                 active={editorState.tool === 'column'}
                 onClick={() => setEditorState(prev => ({ ...prev, tool: 'column' }))}
                 title="기둥 (C)"
+                label="기둥"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h4v16H4V4zm12 0h4v16h-4V4z" />
                 </svg>
               </ToolButton>
 
-              <div className="border-t w-10 my-2" />
+              <div className="border-t w-12 my-2" />
 
               <ToolButton
                 active={editorState.tool === 'rack'}
                 onClick={() => setEditorState(prev => ({ ...prev, tool: 'rack' }))}
                 title="랙 (R)"
+                label="랙"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 4h14v16H5V4zm2 3h10M7 10h10M7 13h10M7 16h10" />
                 </svg>
               </ToolButton>
 
-              <div className="border-t w-10 my-2" />
+              <div className="border-t w-12 my-2" />
 
               <ToolButton
                 active={editorState.tool === 'delete'}
                 onClick={() => setEditorState(prev => ({ ...prev, tool: 'delete' }))}
                 title="삭제 (Delete)"
+                label="삭제"
               >
                 <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -950,7 +1220,8 @@ export function FloorPlanEditorPage() {
                 onMouseUp={handleCanvasMouseUp}
                 onMouseLeave={handleCanvasMouseUp}
                 className={`${
-                  editorState.tool === 'select' ? 'cursor-default' :
+                  isPanning ? 'cursor-grabbing' :
+                  editorState.tool === 'select' ? 'cursor-grab' :
                   editorState.tool === 'delete' ? 'cursor-not-allowed' :
                   'cursor-crosshair'
                 }`}
@@ -1000,7 +1271,48 @@ export function FloorPlanEditorPage() {
               <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow px-3 py-1 text-sm text-gray-600">
                 그리드: {editorState.gridSize}px | 줌: {editorState.zoom}%
                 {isDrawingWall && ` | 벽 그리기 중 (끝점 클릭으로 완료, ESC 취소)`}
+                {['door', 'window'].includes(editorState.tool) && ` | 회전: ${previewRotation}° (Q키로 회전)`}
               </div>
+
+              {/* 회전 버튼 (문/창문 도구 선택 시 또는 문/창문 선택 시) */}
+              {(['door', 'window'].includes(editorState.tool) ||
+                (selectedElement && ['door', 'window'].includes(selectedElement.elementType))) && (
+                <div className="absolute top-4 left-4 bg-white rounded-lg shadow p-2">
+                  <button
+                    onClick={() => {
+                      if (selectedElement && ['door', 'window'].includes(selectedElement.elementType)) {
+                        // 선택된 요소 회전
+                        const newElements = localElements.map(el => {
+                          if (el.id === selectedElement.id) {
+                            const props = { ...el.properties } as DoorProperties | WindowProperties;
+                            props.rotation = ((props.rotation || 0) + 90) % 360;
+                            return { ...el, properties: props };
+                          }
+                          return el;
+                        });
+                        setLocalElements(newElements);
+                        pushHistory(newElements, localRacks);
+                        setHasChanges(true);
+                        // selectedElement 업데이트
+                        const updated = newElements.find(el => el.id === selectedElement.id);
+                        if (updated) setSelectedElement(updated);
+                      } else {
+                        // 미리보기 회전
+                        setPreviewRotation(prev => (prev + 90) % 360);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded text-sm"
+                    title="90도 회전 (Q)"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    회전 ({selectedElement && ['door', 'window'].includes(selectedElement.elementType)
+                      ? ((selectedElement.properties as DoorProperties | WindowProperties).rotation || 0)
+                      : previewRotation}°)
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 속성 패널 */}
@@ -1073,6 +1385,10 @@ export function FloorPlanEditorPage() {
                             <span className="font-medium">{(selectedElement.properties as DoorProperties).width}</span>
                           </div>
                           <div>
+                            <label className="block text-gray-500">회전</label>
+                            <span className="font-medium">{(selectedElement.properties as DoorProperties).rotation || 0}°</span>
+                          </div>
+                          <div>
                             <label className="block text-gray-500">열림 방향</label>
                             <span className="font-medium">
                               {(selectedElement.properties as DoorProperties).openDirection === 'inside' ? '안쪽' : '바깥쪽'}
@@ -1095,6 +1411,10 @@ export function FloorPlanEditorPage() {
                           <div>
                             <label className="block text-gray-500">너비</label>
                             <span className="font-medium">{(selectedElement.properties as WindowProperties).width}</span>
+                          </div>
+                          <div>
+                            <label className="block text-gray-500">회전</label>
+                            <span className="font-medium">{(selectedElement.properties as WindowProperties).rotation || 0}°</span>
                           </div>
                         </>
                       )}
@@ -1219,22 +1539,25 @@ function ToolButton({
   active,
   onClick,
   title,
+  label,
   children,
 }: {
   active: boolean;
   onClick: () => void;
   title: string;
+  label: string;
   children: React.ReactNode;
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
-      className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+      className={`w-14 py-2 flex flex-col items-center justify-center rounded-lg transition-colors ${
         active ? 'bg-blue-100 text-blue-600' : 'hover:bg-gray-100 text-gray-600'
       }`}
     >
       {children}
+      <span className="text-[10px] mt-1">{label}</span>
     </button>
   );
 }
