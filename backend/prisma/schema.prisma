@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 사용자 ====================
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique @db.VarChar(50)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  name          String    @db.VarChar(100)
+  role          UserRole  @default(VIEWER)
+  isActive      Boolean   @default(true) @map("is_active")
+  loginAttempts Int       @default(0) @map("login_attempts")
+  lockedUntil   DateTime? @map("locked_until")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+  createdSubstations Substation[] @relation("SubstationCreatedBy")
+  updatedSubstations Substation[] @relation("SubstationUpdatedBy")
+  createdFloors  Floor[] @relation("FloorCreatedBy")
+  updatedFloors  Floor[] @relation("FloorUpdatedBy")
+  createdFloorPlans FloorPlan[] @relation("FloorPlanCreatedBy")
+  updatedFloorPlans FloorPlan[] @relation("FloorPlanUpdatedBy")
+  createdRacks   Rack[] @relation("RackCreatedBy")
+  updatedRacks   Rack[] @relation("RackUpdatedBy")
+  createdEquipment Equipment[] @relation("EquipmentCreatedBy")
+  updatedEquipment Equipment[] @relation("EquipmentUpdatedBy")
+  createdCables  Cable[] @relation("CableCreatedBy")
+  updatedCables  Cable[] @relation("CableUpdatedBy")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+enum UserRole {
+  ADMIN
+  VIEWER
+}
+
+// ==================== 변전소/층 ====================
+
+model Substation {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(100)
+  code        String   @unique @db.VarChar(20)
+  address     String?  @db.VarChar(255)
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by")
+  updatedById String?  @map("updated_by")
+
+  createdBy User? @relation("SubstationCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("SubstationUpdatedBy", fields: [updatedById], references: [id])
+  floors    Floor[]
+
+  @@map("substations")
+}
+
+model Floor {
+  id           String   @id @default(uuid())
+  substationId String   @map("substation_id")
+  name         String   @db.VarChar(100)
+  floorNumber  String?  @map("floor_number") @db.VarChar(20)
+  description  String?  @db.Text
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdById  String?  @map("created_by")
+  updatedById  String?  @map("updated_by")
+
+  substation Substation @relation(fields: [substationId], references: [id], onDelete: Cascade)
+  createdBy  User?      @relation("FloorCreatedBy", fields: [createdById], references: [id])
+  updatedBy  User?      @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
+  floorPlan  FloorPlan?
+
+  @@unique([substationId, name])
+  @@map("floors")
+}
+
+// ==================== 평면도 ====================
+
+model FloorPlan {
+  id              String   @id @default(uuid())
+  floorId         String   @unique @map("floor_id")
+  name            String   @db.VarChar(100)
+  canvasWidth     Int      @default(2000) @map("canvas_width")
+  canvasHeight    Int      @default(1500) @map("canvas_height")
+  gridSize        Int      @default(20) @map("grid_size")
+  backgroundColor String   @default("#ffffff") @map("background_color") @db.VarChar(20)
+  version         Int      @default(1)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdById     String?  @map("created_by")
+  updatedById     String?  @map("updated_by")
+
+  floor     Floor               @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  createdBy User?               @relation("FloorPlanCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?               @relation("FloorPlanUpdatedBy", fields: [updatedById], references: [id])
+  elements  FloorPlanElement[]
+  racks     Rack[]
+
+  @@map("floor_plans")
+}
+
+model FloorPlanElement {
+  id          String   @id @default(uuid())
+  floorPlanId String   @map("floor_plan_id")
+  elementType String   @map("element_type") @db.VarChar(20) // wall, door, window, column
+  properties  Json     // 타입별 속성 JSON
+  zIndex      Int      @default(0) @map("z_index")
+  isVisible   Boolean  @default(true) @map("is_visible")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  floorPlan FloorPlan @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+
+  @@map("floor_plan_elements")
+}
+
+// ==================== 랙 ====================
+
+model Rack {
+  id            String   @id @default(uuid())
+  floorPlanId   String   @map("floor_plan_id")
+  name          String   @db.VarChar(100)
+  code          String?  @db.VarChar(50)
+  // 평면도 위치
+  positionX     Float    @map("position_x")
+  positionY     Float    @map("position_y")
+  width         Float    @default(60)
+  height        Float    @default(100)
+  rotation      Int      @default(0) // 0, 90, 180, 270
+  // 랙 사양
+  totalU        Int      @default(42) @map("total_u")
+  // 사진
+  frontImageUrl String?  @map("front_image_url") @db.VarChar(500)
+  rearImageUrl  String?  @map("rear_image_url") @db.VarChar(500)
+  // 메타
+  description   String?  @db.Text
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdById   String?  @map("created_by")
+  updatedById   String?  @map("updated_by")
+
+  floorPlan FloorPlan   @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+  createdBy User?       @relation("RackCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?       @relation("RackUpdatedBy", fields: [updatedById], references: [id])
+  equipment Equipment[]
+
+  @@unique([floorPlanId, name])
+  @@map("racks")
+}
+
+// ==================== 설비 ====================
+
+model Equipment {
+  id           String    @id @default(uuid())
+  rackId       String    @map("rack_id")
+  name         String    @db.VarChar(100)
+  model        String?   @db.VarChar(100)
+  manufacturer String?   @db.VarChar(100)
+  serialNumber String?   @map("serial_number") @db.VarChar(100)
+  // U 슬롯 위치
+  startU       Int       @map("start_u")
+  heightU      Int       @default(1) @map("height_u")
+  // 추가 정보
+  category     EquipmentCategory @default(OTHER)
+  installDate  DateTime? @map("install_date") @db.Date
+  manager      String?   @db.VarChar(100)
+  description  String?   @db.Text
+  properties   Json?     // 추가 속성
+  // 메타
+  sortOrder    Int       @default(0) @map("sort_order")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdById  String?   @map("created_by")
+  updatedById  String?   @map("updated_by")
+
+  rack      Rack   @relation(fields: [rackId], references: [id], onDelete: Cascade)
+  createdBy User?  @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?  @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
+  ports     Port[]
+
+  @@map("equipment")
+}
+
+enum EquipmentCategory {
+  SERVER
+  NETWORK
+  STORAGE
+  POWER
+  SECURITY
+  OTHER
+}
+
+// ==================== 포트 ====================
+
+model Port {
+  id            String   @id @default(uuid())
+  equipmentId   String   @map("equipment_id")
+  name          String   @db.VarChar(50)
+  portType      PortType @map("port_type")
+  portNumber    Int?     @map("port_number")
+  label         String?  @db.VarChar(100)
+  speed         String?  @db.VarChar(50)
+  connectorType String?  @map("connector_type") @db.VarChar(50)
+  description   String?  @db.Text
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  equipment     Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  sourceCables  Cable[]   @relation("CableSource")
+  targetCables  Cable[]   @relation("CableTarget")
+
+  @@unique([equipmentId, name])
+  @@map("ports")
+}
+
+enum PortType {
+  AC
+  DC
+  LAN
+  FIBER
+  CONSOLE
+  USB
+  OTHER
+}
+
+// ==================== 케이블 ====================
+
+model Cable {
+  id           String    @id @default(uuid())
+  sourcePortId String    @map("source_port_id")
+  targetPortId String    @map("target_port_id")
+  cableType    CableType @map("cable_type")
+  label        String?   @db.VarChar(100)
+  length       Float?    // 미터
+  color        String?   @db.VarChar(50)
+  pathPoints   Json?     @map("path_points") // [[x, y], ...]
+  description  String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdById  String?   @map("created_by")
+  updatedById  String?   @map("updated_by")
+
+  sourcePort Port  @relation("CableSource", fields: [sourcePortId], references: [id], onDelete: Cascade)
+  targetPort Port  @relation("CableTarget", fields: [targetPortId], references: [id], onDelete: Cascade)
+  createdBy  User? @relation("CableCreatedBy", fields: [createdById], references: [id])
+  updatedBy  User? @relation("CableUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([sourcePortId, targetPortId])
+  @@map("cables")
+}
+
+enum CableType {
+  AC
+  DC
+  LAN
+  FIBER
+}
+
+// ==================== 이력 ====================
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  entityType    String   @map("entity_type") @db.VarChar(50)
+  entityId      String   @map("entity_id")
+  entityName    String?  @map("entity_name") @db.VarChar(200)
+  action        String   @db.VarChar(20) // CREATE, UPDATE, DELETE, MOVE
+  actionDetail  String?  @map("action_detail") @db.VarChar(100)
+  oldValues     Json?    @map("old_values")
+  newValues     Json?    @map("new_values")
+  changedFields String[] @map("changed_fields")
+  context       Json?    // 추가 컨텍스트 정보
+  userId        String?  @map("user_id")
+  userName      String?  @map("user_name") @db.VarChar(100)
+  ipAddress     String?  @map("ip_address") @db.VarChar(50)
+  userAgent     String?  @map("user_agent") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
