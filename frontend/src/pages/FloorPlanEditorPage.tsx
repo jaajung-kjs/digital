@@ -56,6 +56,7 @@ export function FloorPlanEditorPage() {
   // 벽 그리기 상태
   const [isDrawingWall, setIsDrawingWall] = useState(false);
   const [wallPoints, setWallPoints] = useState<[number, number][]>([]);
+  const [wallPreviewEnd, setWallPreviewEnd] = useState<[number, number] | null>(null);
 
   // 드래그 상태
   const [isDragging, setIsDragging] = useState(false);
@@ -326,23 +327,31 @@ export function FloorPlanEditorPage() {
     });
 
     // 벽 그리기 미리보기
-    if (isDrawingWall && wallPoints.length > 0) {
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 10;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.setLineDash([5, 5]);
+    if (isDrawingWall && wallPoints.length === 1) {
+      const startPoint = wallPoints[0];
+
+      // 시작점 표시 (빨간 원)
+      ctx.fillStyle = '#ef4444';
       ctx.beginPath();
-      ctx.moveTo(wallPoints[0][0], wallPoints[0][1]);
-      for (let i = 1; i < wallPoints.length; i++) {
-        ctx.lineTo(wallPoints[i][0], wallPoints[i][1]);
+      ctx.arc(startPoint[0], startPoint[1], 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 미리보기 선 (마우스 위치까지)
+      if (wallPreviewEnd) {
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(startPoint[0], startPoint[1]);
+        ctx.lineTo(wallPreviewEnd[0], wallPreviewEnd[1]);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
-      ctx.stroke();
-      ctx.setLineDash([]);
     }
 
     ctx.restore();
-  }, [floorPlan, localElements, localRacks, editorState, isDrawingWall, wallPoints]);
+  }, [floorPlan, localElements, localRacks, editorState, isDrawingWall, wallPoints, wallPreviewEnd]);
 
   // 캔버스 크기 조정 및 렌더링
   useEffect(() => {
@@ -449,9 +458,16 @@ export function FloorPlanEditorPage() {
 
   // 캔버스 마우스 이동
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging || !dragStart || !dragTarget) return;
-
     const { x, y } = getCanvasCoordinates(e);
+    const snapped = snapToGrid(x, y);
+
+    // 벽 그리기 중 미리보기 업데이트
+    if (editorState.tool === 'wall' && isDrawingWall && wallPoints.length === 1) {
+      setWallPreviewEnd([snapped.x, snapped.y]);
+      return;
+    }
+
+    if (!isDragging || !dragStart || !dragTarget) return;
     const dx = x - dragStart.x;
     const dy = y - dragStart.y;
     const snappedDx = editorState.gridSnap ? Math.round(dx / editorState.gridSize) * editorState.gridSize : dx;
@@ -502,10 +518,32 @@ export function FloorPlanEditorPage() {
     switch (editorState.tool) {
       case 'wall':
         if (!isDrawingWall) {
+          // 첫 클릭: 시작점 설정
           setIsDrawingWall(true);
           setWallPoints([[snapped.x, snapped.y]]);
+          setWallPreviewEnd(null);
         } else {
-          setWallPoints(prev => [...prev, [snapped.x, snapped.y]]);
+          // 두 번째 클릭: 즉시 벽 확정
+          const newWall: FloorPlanElement = {
+            id: `temp-${Date.now()}`,
+            elementType: 'wall',
+            properties: {
+              points: [wallPoints[0], [snapped.x, snapped.y]],
+              thickness: 10,
+              color: '#333333',
+            },
+            zIndex: 0,
+            isVisible: true,
+          };
+          const newElements = [...localElements, newWall];
+          setLocalElements(newElements);
+          pushHistory(newElements, localRacks);
+
+          // 상태 초기화
+          setIsDrawingWall(false);
+          setWallPoints([]);
+          setWallPreviewEnd(null);
+          setHasChanges(true);
         }
         break;
 
@@ -593,27 +631,9 @@ export function FloorPlanEditorPage() {
     }
   };
 
-  // 벽 그리기 완료 (더블클릭)
+  // 더블클릭 핸들러 (벽은 이제 두 번 클릭으로 확정되므로 불필요)
   const handleCanvasDoubleClick = () => {
-    if (editorState.tool === 'wall' && isDrawingWall && wallPoints.length >= 2) {
-      const newWall: FloorPlanElement = {
-        id: `temp-${Date.now()}`,
-        elementType: 'wall',
-        properties: {
-          points: wallPoints,
-          thickness: 10,
-          color: '#333333',
-        },
-        zIndex: 0,
-        isVisible: true,
-      };
-      const newElements = [...localElements, newWall];
-      setLocalElements(newElements);
-      pushHistory(newElements, localRacks);
-      setIsDrawingWall(false);
-      setWallPoints([]);
-      setHasChanges(true);
-    }
+    // 현재 사용하지 않음 - 추후 다른 기능에 활용 가능
   };
 
   // 키보드 이벤트
@@ -627,6 +647,7 @@ export function FloorPlanEditorPage() {
       if (e.key === 'Escape') {
         setIsDrawingWall(false);
         setWallPoints([]);
+        setWallPreviewEnd(null);
         setEditorState(prev => ({ ...prev, selectedIds: [] }));
         setSelectedRack(null);
         setSelectedElement(null);
@@ -978,7 +999,7 @@ export function FloorPlanEditorPage() {
               {/* 상태 바 */}
               <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow px-3 py-1 text-sm text-gray-600">
                 그리드: {editorState.gridSize}px | 줌: {editorState.zoom}%
-                {isDrawingWall && ` | 벽 그리기 중 (더블클릭으로 완료)`}
+                {isDrawingWall && ` | 벽 그리기 중 (끝점 클릭으로 완료, ESC 취소)`}
               </div>
             </div>
 
