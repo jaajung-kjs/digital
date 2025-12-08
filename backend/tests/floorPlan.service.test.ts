@@ -69,7 +69,7 @@ describe('FloorPlanService', () => {
             width: 60,
             height: 100,
             rotation: 0,
-            totalU: 42,
+            totalU: 12,
             frontImageUrl: null,
             rearImageUrl: null,
             description: 'Main rack',

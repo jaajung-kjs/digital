@@ -126,4 +126,34 @@ export const rackController = {
       next(error);
     }
   },
+
+  /**
+   * DELETE /api/racks/:id/images/:type
+   * 랙 이미지 삭제
+   */
+  async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, type } = req.params;
+      const userId = req.user!.userId;
+
+      if (!['front', 'rear'].includes(type)) {
+        res.status(400).json({
+          error: {
+            code: 'INVALID_TYPE',
+            message: 'type은 front 또는 rear 중 하나여야 합니다.',
+          },
+        });
+        return;
+      }
+
+      const rack = await rackService.deleteImage(id, type as 'front' | 'rear', userId);
+
+      res.json({
+        data: rack,
+        message: '이미지가 삭제되었습니다.',
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

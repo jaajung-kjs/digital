@@ -17,6 +17,8 @@ import { floorsRouter } from './routes/floors.routes.js';
 import { floorPlansRouter } from './routes/floorPlans.routes.js';
 import { floorPlanElementsRouter } from './routes/floorPlanElements.routes.js';
 import { racksRouter } from './routes/racks.routes.js';
+import { equipmentRouter } from './routes/equipment.routes.js';
+import { portsRouter } from './routes/ports.routes.js';
 
 const app = express();
 
@@ -57,6 +59,8 @@ app.use('/api/floors', floorsRouter);
 app.use('/api/floor-plans', floorPlansRouter);
 app.use('/api/floor-plan-elements', floorPlanElementsRouter);
 app.use('/api/racks', racksRouter);
+app.use('/api/equipment', equipmentRouter);
+app.use('/api/ports', portsRouter);
 
 // 404 handler
 app.use((_req, res) => {

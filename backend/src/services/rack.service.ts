@@ -183,7 +183,7 @@ class RackService {
         width: input.width ?? 60,
         height: input.height ?? 100,
         rotation: input.rotation ?? 0,
-        totalU: input.totalU ?? 42,
+        totalU: input.totalU ?? 12,
         description: input.description,
         createdById: userId,
         updatedById: userId,
@@ -308,6 +308,66 @@ class RackService {
     await prisma.rack.delete({
       where: { id },
     });
+  }
+
+  /**
+   * 랙 이미지 삭제 (URL을 null로 설정)
+   */
+  async deleteImage(
+    id: string,
+    imageType: 'front' | 'rear',
+    userId: string
+  ): Promise<RackDetail> {
+    const existing = await prisma.rack.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundError('랙');
+    }
+
+    const updateData = imageType === 'front'
+      ? { frontImageUrl: null }
+      : { rearImageUrl: null };
+
+    const rack = await prisma.rack.update({
+      where: { id },
+      data: {
+        ...updateData,
+        updatedById: userId,
+      },
+      include: {
+        equipment: {
+          select: {
+            heightU: true,
+          },
+        },
+        _count: {
+          select: { equipment: true },
+        },
+      },
+    });
+
+    return {
+      id: rack.id,
+      floorPlanId: rack.floorPlanId,
+      name: rack.name,
+      code: rack.code,
+      positionX: rack.positionX,
+      positionY: rack.positionY,
+      width: rack.width,
+      height: rack.height,
+      rotation: rack.rotation,
+      totalU: rack.totalU,
+      frontImageUrl: rack.frontImageUrl,
+      rearImageUrl: rack.rearImageUrl,
+      description: rack.description,
+      sortOrder: rack.sortOrder,
+      equipmentCount: rack._count.equipment,
+      usedU: rack.equipment.reduce((sum, e) => sum + e.heightU, 0),
+      createdAt: rack.createdAt,
+      updatedAt: rack.updatedAt,
+    };
   }
 
   /**

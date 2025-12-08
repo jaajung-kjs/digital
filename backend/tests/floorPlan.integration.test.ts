@@ -223,7 +223,7 @@ describe('Floor Plan API Integration Tests', () => {
               width: 60,
               height: 100,
               rotation: 0,
-              totalU: 42,
+              totalU: 12,
             },
           ],
         })

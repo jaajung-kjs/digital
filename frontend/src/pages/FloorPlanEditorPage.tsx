@@ -867,9 +867,30 @@ export function FloorPlanEditorPage() {
     }
   };
 
-  // 더블클릭 핸들러 (벽은 이제 두 번 클릭으로 확정되므로 불필요)
-  const handleCanvasDoubleClick = () => {
-    // 현재 사용하지 않음 - 추후 다른 기능에 활용 가능
+  // 더블클릭 핸들러 - 랙 더블클릭 시 랙 에디터로 이동
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!floorPlan) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - editorState.panX) / (editorState.zoom / 100);
+    const y = (e.clientY - rect.top - editorState.panY) / (editorState.zoom / 100);
+
+    // 클릭된 랙 찾기
+    for (const rack of [...localRacks].reverse()) {
+      if (
+        x >= rack.positionX &&
+        x <= rack.positionX + rack.width &&
+        y >= rack.positionY &&
+        y <= rack.positionY + rack.height
+      ) {
+        // 랙 에디터로 이동
+        navigate(`/racks/${rack.id}`);
+        return;
+      }
+    }
   };
 
   // 키보드 이벤트
@@ -1026,7 +1047,7 @@ export function FloorPlanEditorPage() {
       width: 60,
       height: 100,
       rotation: 0,
-      totalU: 42,
+      totalU: 12,
       frontImageUrl: null,
       rearImageUrl: null,
       description: null,

@@ -59,7 +59,7 @@ describe('Rack API Integration Tests', () => {
       expect(response.body).toHaveProperty('name', 'Rack A1');
       expect(response.body).toHaveProperty('width', 60);
       expect(response.body).toHaveProperty('height', 100);
-      expect(response.body).toHaveProperty('totalU', 42);
+      expect(response.body).toHaveProperty('totalU', 12);
       expect(response.body).toHaveProperty('equipmentCount', 0);
       expect(response.body).toHaveProperty('usedU', 0);
 
@@ -78,7 +78,7 @@ describe('Rack API Integration Tests', () => {
           width: 80,
           height: 120,
           rotation: 90,
-          totalU: 48,
+          totalU: 12,
           description: 'Large rack for servers',
         })
         .expect(201);
@@ -87,7 +87,7 @@ describe('Rack API Integration Tests', () => {
       expect(response.body.width).toBe(80);
       expect(response.body.height).toBe(120);
       expect(response.body.rotation).toBe(90);
-      expect(response.body.totalU).toBe(48);
+      expect(response.body.totalU).toBe(12);
       expect(response.body.description).toBe('Large rack for servers');
     });
 
@@ -420,7 +420,7 @@ describe('Rack API Integration Tests', () => {
           code: 'WR1',
           positionX: 100,
           positionY: 100,
-          totalU: 42,
+          totalU: 12,
         })
         .expect(201);
 

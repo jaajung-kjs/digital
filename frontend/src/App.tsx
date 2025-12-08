@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { SubstationsPage } from './pages/SubstationsPage';
 import { FloorsPage } from './pages/FloorsPage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
+import { RackEditorPage } from './pages/RackEditorPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,7 +49,7 @@ function AppContent() {
         <Route path="/substations" element={<SubstationsPage />} />
         <Route path="/substations/:substationId/floors" element={<FloorsPage />} />
         <Route path="/floors/:floorId/plan" element={<FloorPlanEditorPage />} />
-        {/* <Route path="/racks/:id" element={<RackDetailPage />} /> */}
+        <Route path="/racks/:rackId" element={<RackEditorPage />} />
         {/* <Route path="/users" element={<UsersPage />} /> */}
         {/* <Route path="/audit-logs" element={<AuditLogsPage />} /> */}
       </Route>

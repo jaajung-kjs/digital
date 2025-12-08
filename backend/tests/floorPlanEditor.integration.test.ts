@@ -201,7 +201,7 @@ describe('Floor Plan Editor Integration Tests', () => {
               width: 60,
               height: 100,
               rotation: 0,
-              totalU: 42,
+              totalU: 12,
             },
             {
               name: 'Rack A2',
@@ -211,7 +211,7 @@ describe('Floor Plan Editor Integration Tests', () => {
               width: 60,
               height: 100,
               rotation: 90,
-              totalU: 42,
+              totalU: 12,
             },
           ],
         })
@@ -339,7 +339,7 @@ describe('Floor Plan Editor Integration Tests', () => {
               code: 'RB1',
               positionX: 350,
               positionY: 250,
-              totalU: 48,
+              totalU: 12,
             },
           ],
           // Update canvas settings

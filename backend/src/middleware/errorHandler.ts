@@ -24,11 +24,14 @@ export function errorHandler(
 
   // Custom AppError
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({
+    const response: { error: string; message: string; details?: unknown } = {
       error: err.code,
       message: err.message,
-      ...(err.details && { details: err.details }),
-    });
+    };
+    if (err.details) {
+      response.details = err.details;
+    }
+    res.status(err.statusCode).json(response);
     return;
   }
 

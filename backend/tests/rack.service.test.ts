@@ -41,7 +41,7 @@ describe('RackService', () => {
           width: 60,
           height: 100,
           rotation: 0,
-          totalU: 42,
+          totalU: 12,
           frontImageUrl: null,
           rearImageUrl: null,
           description: 'Main rack',
@@ -77,7 +77,7 @@ describe('RackService', () => {
           width: 60,
           height: 100,
           rotation: 0,
-          totalU: 42,
+          totalU: 12,
           frontImageUrl: null,
           rearImageUrl: null,
           description: null,
@@ -116,7 +116,7 @@ describe('RackService', () => {
         width: 60,
         height: 100,
         rotation: 0,
-        totalU: 42,
+        totalU: 12,
         frontImageUrl: '/images/rack-front.png',
         rearImageUrl: '/images/rack-rear.png',
         description: 'Main rack',
@@ -160,7 +160,7 @@ describe('RackService', () => {
         width: 60,
         height: 100,
         rotation: 0,
-        totalU: 42,
+        totalU: 12,
         frontImageUrl: null,
         rearImageUrl: null,
         description: null,
@@ -188,7 +188,7 @@ describe('RackService', () => {
       expect(result.name).toBe('New Rack');
       expect(result.width).toBe(60);
       expect(result.height).toBe(100);
-      expect(result.totalU).toBe(42);
+      expect(result.totalU).toBe(12);
       expect(result.equipmentCount).toBe(0);
     });
 
@@ -204,7 +204,7 @@ describe('RackService', () => {
         width: 80,
         height: 120,
         rotation: 90,
-        totalU: 48,
+        totalU: 12,
         frontImageUrl: null,
         rearImageUrl: null,
         description: 'Custom sized rack',
@@ -229,7 +229,7 @@ describe('RackService', () => {
           width: 80,
           height: 120,
           rotation: 90,
-          totalU: 48,
+          totalU: 12,
           description: 'Custom sized rack',
         },
         mockUserId
@@ -238,7 +238,7 @@ describe('RackService', () => {
       expect(result.width).toBe(80);
       expect(result.height).toBe(120);
       expect(result.rotation).toBe(90);
-      expect(result.totalU).toBe(48);
+      expect(result.totalU).toBe(12);
     });
 
     it('should throw NotFoundError when floor plan does not exist', async () => {
@@ -287,7 +287,7 @@ describe('RackService', () => {
         code: null,
         width: 60,
         height: 100,
-        totalU: 42,
+        totalU: 12,
         frontImageUrl: null,
         rearImageUrl: null,
         description: null,
@@ -353,7 +353,7 @@ describe('RackService', () => {
         width: 60,
         height: 100,
         rotation: 0,
-        totalU: 42,
+        totalU: 12,
         frontImageUrl: null,
         rearImageUrl: null,
         description: null,
@@ -439,7 +439,7 @@ describe('RackService', () => {
         width: 60,
         height: 100,
         rotation: 0,
-        totalU: 42,
+        totalU: 12,
         rearImageUrl: null,
         description: null,
         sortOrder: 1,
@@ -475,7 +475,7 @@ describe('RackService', () => {
         width: 60,
         height: 100,
         rotation: 0,
-        totalU: 42,
+        totalU: 12,
         frontImageUrl: null,
         description: null,
         sortOrder: 1,

@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { rackController } from '../controllers/rack.controller.js';
+import { equipmentController } from '../controllers/equipment.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { uploadRackImage } from '../middleware/upload.js';
+import { createEquipmentValidation } from './equipment.routes.js';
 
 const router = Router();
 
@@ -19,7 +21,7 @@ const updateRackSchema = z.object({
   rotation: z.number().int().refine((val) => [0, 90, 180, 270].includes(val), {
     message: '회전 값은 0, 90, 180, 270 중 하나여야 합니다.',
   }).optional(),
-  totalU: z.number().int().min(1).max(100).optional(),
+  totalU: z.number().int().min(1).max(12).optional(),
   description: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
@@ -49,5 +51,30 @@ router.post(
   uploadRackImage.single('file'),
   rackController.uploadImage
 );
+
+// 랙 이미지 삭제 (관리자만)
+router.delete(
+  '/:id/images/:type',
+  authenticate,
+  adminOnly,
+  rackController.deleteImage
+);
+
+// ==================== Equipment Routes (Nested under Rack) ====================
+
+// 랙 내 설비 목록 조회 (인증 불필요)
+router.get('/:rackId/equipment', equipmentController.getByRackId);
+
+// 설비 생성 (관리자만)
+router.post(
+  '/:rackId/equipment',
+  authenticate,
+  adminOnly,
+  createEquipmentValidation,
+  equipmentController.create
+);
+
+// 사용 가능한 U 슬롯 조회 (인증 불필요)
+router.get('/:rackId/available-slots', equipmentController.getAvailableSlots);
 
 export { router as racksRouter };

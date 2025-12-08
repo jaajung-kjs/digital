@@ -14,17 +14,15 @@ export interface RefreshTokenPayload {
 }
 
 export function generateAccessToken(payload: AccessTokenPayload): string {
-  const options: SignOptions = {
+  return jwt.sign(payload, config.jwt.accessSecret, {
     expiresIn: config.jwt.accessExpiresIn,
-  };
-  return jwt.sign(payload, config.jwt.accessSecret, options);
+  } as SignOptions);
 }
 
 export function generateRefreshToken(payload: RefreshTokenPayload): string {
-  const options: SignOptions = {
+  return jwt.sign(payload, config.jwt.refreshSecret, {
     expiresIn: config.jwt.refreshExpiresIn,
-  };
-  return jwt.sign(payload, config.jwt.refreshSecret, options);
+  } as SignOptions);
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
