@@ -7,7 +7,7 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // 기본 관리자 계정 생성
-  const adminPassword = await bcrypt.hash('admin1234', 10);
+  const adminPassword = await bcrypt.hash('admin123', 10);
 
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
