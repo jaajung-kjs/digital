@@ -137,7 +137,7 @@ export function RackEditorPage() {
     const containerHeight = container.clientHeight;
 
     // 랙 너비: 컨테이너의 60% (최소 200px, 최대 400px)
-    const rackWidth = Math.min(400, Math.max(200, containerWidth * 0.6));
+    const rackWidth = Math.min(400, Math.max(200, containerWidth * 0.7));
 
     // U 높이: 컨테이너 높이에 맞춰 동적 계산 (여백 60px 고려)
     // 12U 기준으로 컨테이너에 맞게 조절
