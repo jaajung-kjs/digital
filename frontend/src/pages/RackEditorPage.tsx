@@ -124,10 +124,28 @@ export function RackEditorPage() {
   // 호버 상태
   const [hoveredU, setHoveredU] = useState<number | null>(null);
 
-  // 캔버스 설정 - U 슬롯 높이 2배로 증가
-  const uHeight = 36; // 픽셀 per U (기존 18에서 36으로)
-  const rackWidth = 280;
-  const padding = 30; // 패딩 축소
+  // 캔버스 설정 - 기본값 (동적 계산에서 사용)
+  const baseUHeight = 54; // 기본 픽셀 per U
+  const padding = 24; // 패딩
+
+  // 컨테이너 크기에 맞춰 랙 크기 동적 계산
+  const getRackDimensions = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return { rackWidth: 240, uHeight: baseUHeight };
+
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+
+    // 랙 너비: 컨테이너의 60% (최소 200px, 최대 400px)
+    const rackWidth = Math.min(400, Math.max(200, containerWidth * 0.6));
+
+    // U 높이: 컨테이너 높이에 맞춰 동적 계산 (여백 60px 고려)
+    // 12U 기준으로 컨테이너에 맞게 조절
+    const availableHeight = containerHeight - padding * 2 - 60;
+    const uHeight = Math.min(baseUHeight, Math.max(20, availableHeight / 12));
+
+    return { rackWidth, uHeight };
+  }, []);
 
   // 데이터 조회
   const { data: rack, isLoading: isLoadingRack } = useQuery({
@@ -239,19 +257,21 @@ export function RackEditorPage() {
 
   // Y 좌표를 U 위치로 변환
   const yToU = useCallback((y: number, rackTotalU: number): number => {
+    const { uHeight } = getRackDimensions();
     const rackHeight = rackTotalU * uHeight;
     const rackY = padding;
     const relativeY = y - rackY;
     const u = Math.ceil((rackHeight - relativeY) / uHeight);
     return Math.max(1, Math.min(rackTotalU, u));
-  }, []);
+  }, [getRackDimensions]);
 
   // U 위치를 Y 좌표로 변환
   const uToY = useCallback((u: number, rackTotalU: number): number => {
+    const { uHeight } = getRackDimensions();
     const rackHeight = rackTotalU * uHeight;
     const rackY = padding;
     return rackY + rackHeight - u * uHeight;
-  }, []);
+  }, [getRackDimensions]);
 
   // 해당 U가 비어있는지 확인
   const isSlotAvailable = useCallback((startU: number, heightU: number, excludeId?: string): boolean => {
@@ -275,12 +295,15 @@ export function RackEditorPage() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // 컨테이너 크기에 맞춰 동적 계산
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
+    const { rackWidth, uHeight } = getRackDimensions();
     const rackHeight = rack.totalU * uHeight;
 
+    // 캔버스 크기를 컨테이너에 맞춤
     canvas.width = containerWidth;
-    canvas.height = Math.max(containerHeight, rackHeight + padding * 2);
+    canvas.height = containerHeight;
 
     // 배경
     ctx.fillStyle = '#f8fafc';
@@ -418,7 +441,7 @@ export function RackEditorPage() {
     ctx.font = '11px system-ui';
     ctx.fillText('빈 슬롯 클릭: 설비 추가 | 설비 더블클릭: 편집 | 드래그: 이동', canvas.width / 2, rackY + rackHeight + 45);
 
-  }, [rack, equipmentList, selectedEquipmentId, dragPreview, dragEquipmentId, dragMode, isSlotAvailable, uToY, hoveredU]);
+  }, [rack, equipmentList, selectedEquipmentId, dragPreview, dragEquipmentId, dragMode, isSlotAvailable, uToY, hoveredU, getRackDimensions]);
 
   // 캔버스 렌더링 트리거
   useEffect(() => {
@@ -437,6 +460,7 @@ export function RackEditorPage() {
     const canvas = canvasRef.current;
     if (!canvas) return null;
 
+    const { rackWidth, uHeight } = getRackDimensions();
     const rackX = (canvas.width - rackWidth) / 2;
 
     for (const equipment of equipmentList) {
@@ -448,7 +472,7 @@ export function RackEditorPage() {
       }
     }
     return null;
-  }, [rack, equipmentList, uToY]);
+  }, [rack, equipmentList, uToY, getRackDimensions]);
 
   // 마우스 다운 핸들러
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -471,6 +495,7 @@ export function RackEditorPage() {
       setDragPreview({ startU: equipment.startU, heightU: equipment.heightU });
     } else {
       // 빈 슬롯 클릭 - 설비 추가 모달 열기
+      const { rackWidth } = getRackDimensions();
       const rackX = (canvas.width - rackWidth) / 2;
       if (x >= rackX && x <= rackX + rackWidth) {
         const clickedU = yToU(y, rack.totalU);
@@ -483,7 +508,7 @@ export function RackEditorPage() {
         setSelectedEquipmentId(null);
       }
     }
-  }, [rack, findEquipmentAtPosition, yToU, isSlotAvailable]);
+  }, [rack, findEquipmentAtPosition, yToU, isSlotAvailable, getRackDimensions]);
 
   // 마우스 이동 핸들러
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -495,6 +520,7 @@ export function RackEditorPage() {
     const y = e.clientY - rect.top;
 
     // 호버 상태 업데이트
+    const { rackWidth } = getRackDimensions();
     const rackX = (canvas.width - rackWidth) / 2;
     if (x >= rackX && x <= rackX + rackWidth && dragMode === 'none') {
       const u = yToU(y, rack.totalU);
@@ -510,6 +536,7 @@ export function RackEditorPage() {
     // 드래그 처리
     if (dragMode === 'none') return;
 
+    const { uHeight } = getRackDimensions();
     const deltaY = y - dragStartY;
     const deltaU = Math.round(deltaY / uHeight);
 
@@ -520,7 +547,7 @@ export function RackEditorPage() {
       const newStartU = Math.max(1, Math.min(rack.totalU - equipment.heightU + 1, equipment.startU - deltaU));
       setDragPreview({ startU: newStartU, heightU: equipment.heightU });
     }
-  }, [rack, dragMode, dragStartY, dragEquipmentId, equipmentList, yToU, isSlotAvailable]);
+  }, [rack, dragMode, dragStartY, dragEquipmentId, equipmentList, yToU, isSlotAvailable, getRackDimensions]);
 
   // 마우스 업 핸들러
   const handleMouseUp = useCallback(() => {
@@ -653,105 +680,108 @@ export function RackEditorPage() {
         </div>
       )}
 
-      {/* 메인 */}
+      {/* 메인 - 4:4:2 비율 */}
       <div className="flex-1 flex overflow-hidden">
-        {/* 캔버스 영역 */}
-        <div ref={containerRef} className="flex-1 overflow-auto p-2">
-          {/* 캔버스 + 사진 묶음 */}
-          <div className="inline-flex items-start gap-2">
-            {/* 랙 캔버스 */}
-            <canvas
-              ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseLeave}
-              onDoubleClick={handleDoubleClick}
-              style={{ cursor: getCursorStyle() }}
-            />
-
-            {/* 랙 사진 (정면/후면에 따라 변경) */}
-            <div className="relative group">
-              <div
-                className="bg-gray-200 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer"
-                style={{
-                  width: '200px',
-                  height: `${rack.totalU * uHeight + padding * 2}px`
-                }}
-                onClick={() => {
-                  const imageUrl = viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl;
-                  if (imageUrl) setFullscreenImage(imageUrl);
-                }}
-              >
-                {(viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl) ? (
-                  <img
-                    src={(viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl)!}
-                    alt={viewMode === 'front' ? '정면 사진' : '후면 사진'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center text-gray-400">
-                    <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span className="text-sm">{viewMode === 'front' ? '정면' : '후면'} 사진 없음</span>
-                  </div>
-                )}
-              </div>
-              {/* 호버 오버레이 */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleImageUpload(viewMode); }}
-                  className="p-2 bg-white rounded-full text-gray-700 hover:bg-gray-100"
-                  title="업로드"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                  </svg>
-                </button>
-                {(viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl) && (
-                  <>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const imageUrl = viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl;
-                        if (imageUrl) setFullscreenImage(imageUrl);
-                      }}
-                      className="p-2 bg-white rounded-full text-gray-700 hover:bg-gray-100"
-                      title="전체화면"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteImageMutation.mutate(viewMode); }}
-                      className="p-2 bg-white rounded-full text-red-600 hover:bg-red-50"
-                      title="삭제"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-            {uploadImageMutation.isPending && (
-              <p className="text-xs text-blue-600 mt-1">업로드 중...</p>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </div>
+        {/* 캔버스 영역 - 40% */}
+        <div ref={containerRef} className="w-[40%] overflow-auto bg-gray-50 border-r flex items-center justify-center">
+          <canvas
+            ref={canvasRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            onDoubleClick={handleDoubleClick}
+            style={{ cursor: getCursorStyle() }}
+          />
         </div>
 
-        {/* 사이드 패널 */}
-        <aside className="w-72 bg-white border-l overflow-y-auto text-sm">
+        {/* 랙 사진 영역 - 40% */}
+        <div className="w-[40%] overflow-hidden bg-gray-100 border-r flex items-center justify-center p-4">
+          <div
+            className="relative group bg-gray-200 flex items-center justify-center overflow-hidden cursor-pointer w-full h-full rounded-xl shadow-lg"
+            onClick={() => {
+              const imageUrl = viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl;
+              if (imageUrl) setFullscreenImage(imageUrl);
+            }}
+          >
+            {(viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl) ? (
+              <img
+                src={(viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl)!}
+                alt={viewMode === 'front' ? '정면 사진' : '후면 사진'}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="flex flex-col items-center text-gray-400">
+                <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-sm">{viewMode === 'front' ? '정면' : '후면'} 사진 없음</span>
+              </div>
+            )}
+            {/* 호버 오버레이 */}
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); handleImageUpload(viewMode); }}
+                className="p-2 bg-white rounded-full text-gray-700 hover:bg-gray-100"
+                title="업로드"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </button>
+              {(viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl) && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const imageUrl = viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl;
+                      if (imageUrl) setFullscreenImage(imageUrl);
+                    }}
+                    className="p-2 bg-white rounded-full text-gray-700 hover:bg-gray-100"
+                    title="전체화면"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`${viewMode === 'front' ? '정면' : '후면'} 사진을 삭제하시겠습니까?`)) {
+                        deleteImageMutation.mutate(viewMode);
+                      }
+                    }}
+                    className="p-2 bg-white rounded-full text-red-600 hover:bg-red-50"
+                    title="삭제"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </>
+              )}
+            </div>
+            {uploadImageMutation.isPending && (
+              <p className="absolute bottom-2 left-0 right-0 text-center text-xs text-blue-600">업로드 중...</p>
+            )}
+            {/* 사진 수정일 표시 */}
+            {(viewMode === 'front' ? rack.frontImageUrl : rack.rearImageUrl) && (
+              <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                수정: {formatShortDate(rack.updatedAt)}
+              </div>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+
+        {/* 사이드 패널 - 20% */}
+        <aside className="w-[20%] bg-white overflow-y-auto text-sm">
           {/* 랙 정보 */}
           <div className="p-3 border-b">
             <h2 className="font-medium text-gray-900 mb-2">랙 정보</h2>
@@ -800,7 +830,7 @@ export function RackEditorPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-gray-900 truncate text-xs">{equipment.name}</p>
                         <p className="text-[10px] text-gray-500">
-                          {equipment.startU}U
+                          {equipment.manager || '담당자 미지정'}
                           {equipment.model && ` · ${equipment.model}`}
                         </p>
                         <p className="text-[10px] text-gray-400">

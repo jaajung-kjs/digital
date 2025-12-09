@@ -49,7 +49,7 @@ app.get('/health', (_req, res) => {
 });
 
 // Static files (uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../../uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // API Routes
 app.use('/api/auth', authRouter);
