@@ -17,8 +17,42 @@ import type {
   WindowProperties,
   TextProperties,
 } from '../types/floorPlan';
-import { LINE_STYLES } from '../types/floorPlan';
 import type { FloorDetail } from '../types';
+
+// 유틸리티 함수 import
+import { snapToGrid as snapToGridUtil } from '../utils/canvas/canvasTransform';
+import {
+  renderLinePreview,
+  renderCirclePreview,
+  renderRectPreview,
+  renderPlacementPreview,
+  renderElements,
+  renderRacks,
+  type DrawingToolType,
+} from '../utils/floorplan/renderers';
+import { findItemAt } from '../utils/floorplan/hitTestUtils';
+// 표준화된 시스템 import
+import {
+  type Position,
+  createPropertyUpdater as updateElementProperty,
+  createRotateUpdater,
+  createFlipHUpdater,
+  createFlipVUpdater,
+  createIncreaseStrokeWidthUpdater,
+  createDecreaseStrokeWidthUpdater,
+  createIncreaseFontSizeUpdater,
+  createDecreaseFontSizeUpdater,
+  createToggleFontWeightUpdater,
+  hasProperty,
+  getPropertyValue,
+  STROKE_WIDTH_PRESETS,
+  FONT_SIZE_PRESETS,
+} from '../utils/floorplan/elementSystem';
+import {
+  createDragSession,
+  applyDrag,
+  type DragSession,
+} from '../utils/floorplan/dragSystem';
 
 // 초기 에디터 상태
 const initialEditorState: EditorState = {
@@ -45,29 +79,6 @@ const GRID_CONFIG = {
     lineWidth: 0.5,
   },
 };
-
-// 둥근 모서리 사각형 헬퍼 함수
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + width - r, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-  ctx.lineTo(x + width, y + height - r);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-  ctx.lineTo(x + r, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
 
 // Undo/Redo를 위한 히스토리 타입
 interface HistoryState {
@@ -186,14 +197,11 @@ export function FloorPlanEditorPage() {
   const [textInputPosition, setTextInputPosition] = useState<{ x: number; y: number } | null>(null);
   const [textInputValue, setTextInputValue] = useState('');
 
-  // 오브젝트 미리보기 상태
+  // 오브젝트 미리보기 상태 (회전은 배치 후에만 가능)
   const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
-  const [previewRotation, setPreviewRotation] = useState(0); // 0, 90, 180, 270
 
-  // 드래그 상태
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
-  const [dragTarget, setDragTarget] = useState<{ type: 'rack' | 'element'; id: string; initialPos?: { x: number; y: number } } | null>(null);
+  // 드래그 상태 (표준화된 드래그 시스템 사용)
+  const [dragSession, setDragSession] = useState<DragSession | null>(null);
 
   // 캔버스 팬 상태
   const [isPanning, setIsPanning] = useState(false);
@@ -510,399 +518,34 @@ export function FloorPlanEditorPage() {
       }
     }
 
-    // 요소 렌더링 (선, 사각형, 원, 문, 창문, 텍스트) - zIndex 순서로 정렬, 텍스트는 항상 맨 앞
-    [...localElements].sort((a, b) => {
-      // 텍스트는 항상 맨 앞 (마지막에 렌더링)
-      if (a.elementType === 'text' && b.elementType !== 'text') return 1;
-      if (a.elementType !== 'text' && b.elementType === 'text') return -1;
-      return a.zIndex - b.zIndex;
-    }).forEach((element) => {
-      if (!element.isVisible) return;
+    // 요소 렌더링 (표준화된 렌더러 사용)
+    renderElements(ctx, localElements, editorState.selectedIds);
 
-      const isSelected = editorState.selectedIds.includes(element.id);
-
-      switch (element.elementType) {
-        case 'line': {
-          const props = element.properties as LineProperties;
-          if (props.points && props.points.length >= 2) {
-            ctx.strokeStyle = isSelected ? '#2563eb' : (props.strokeColor || '#1a1a1a');
-            ctx.lineWidth = props.strokeWidth || 2;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-
-            // 선 스타일 적용
-            const dashPattern = LINE_STYLES[props.strokeStyle || 'solid'];
-            ctx.setLineDash(dashPattern);
-
-            ctx.beginPath();
-            ctx.moveTo(props.points[0][0], props.points[0][1]);
-            for (let i = 1; i < props.points.length; i++) {
-              ctx.lineTo(props.points[i][0], props.points[i][1]);
-            }
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // 선택 하이라이트 - 끝점 표시
-            if (isSelected) {
-              ctx.fillStyle = '#2563eb';
-              for (const point of props.points) {
-                ctx.beginPath();
-                ctx.arc(point[0], point[1], 4, 0, Math.PI * 2);
-                ctx.fill();
-              }
-            }
-          }
-          break;
-        }
-        case 'rect': {
-          const props = element.properties as RectProperties;
-          ctx.save();
-
-          // 첫 클릭점(x, y) 기준 변환
-          ctx.translate(props.x, props.y);
-
-          // 회전 적용 (첫 클릭점 기준)
-          if (props.rotation) {
-            ctx.rotate((props.rotation * Math.PI) / 180);
-          }
-
-          // 반전 적용 (첫 클릭점 기준)
-          const scaleX = props.flipH ? -1 : 1;
-          const scaleY = props.flipV ? -1 : 1;
-          ctx.scale(scaleX, scaleY);
-
-          // 채움
-          if (props.fillColor && props.fillColor !== 'transparent') {
-            ctx.fillStyle = isSelected ? '#dbeafe' : props.fillColor;
-            if (props.cornerRadius > 0) {
-              roundRect(ctx, 0, 0, props.width, props.height, props.cornerRadius);
-              ctx.fill();
-            } else {
-              ctx.fillRect(0, 0, props.width, props.height);
-            }
-          }
-
-          // 테두리
-          ctx.strokeStyle = isSelected ? '#3b82f6' : (props.strokeColor || '#1a1a1a');
-          ctx.lineWidth = props.strokeWidth || 2;
-          const dashPattern = LINE_STYLES[props.strokeStyle || 'solid'];
-          ctx.setLineDash(dashPattern);
-
-          if (props.cornerRadius > 0) {
-            roundRect(ctx, 0, 0, props.width, props.height, props.cornerRadius);
-            ctx.stroke();
-          } else {
-            ctx.strokeRect(0, 0, props.width, props.height);
-          }
-          ctx.setLineDash([]);
-          ctx.restore();
-          break;
-        }
-        case 'circle': {
-          const props = element.properties as CircleProperties;
-
-          // 채움
-          if (props.fillColor && props.fillColor !== 'transparent') {
-            ctx.fillStyle = isSelected ? '#dbeafe' : props.fillColor;
-            ctx.beginPath();
-            ctx.arc(props.cx, props.cy, props.radius, 0, Math.PI * 2);
-            ctx.fill();
-          }
-
-          // 테두리
-          ctx.strokeStyle = isSelected ? '#3b82f6' : (props.strokeColor || '#1a1a1a');
-          ctx.lineWidth = props.strokeWidth || 2;
-          const dashPattern = LINE_STYLES[props.strokeStyle || 'solid'];
-          ctx.setLineDash(dashPattern);
-          ctx.beginPath();
-          ctx.arc(props.cx, props.cy, props.radius, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.setLineDash([]);
-
-          // 선택 시 중심점 표시
-          if (isSelected) {
-            ctx.fillStyle = '#2563eb';
-            ctx.beginPath();
-            ctx.arc(props.cx, props.cy, 3, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          break;
-        }
-        case 'door': {
-          const props = element.properties as DoorProperties;
-          const doorHeight = props.height || 10;
-          ctx.save();
-          ctx.translate(props.x, props.y);
-          ctx.rotate(((props.rotation || 0) * Math.PI) / 180);
-
-          // 반전 적용
-          if (props.flipH) ctx.scale(-1, 1);
-          if (props.flipV) ctx.scale(1, -1);
-
-          // 문 그리기
-          ctx.fillStyle = isSelected ? '#dbeafe' : '#fef3c7';
-          ctx.strokeStyle = isSelected ? '#3b82f6' : (props.strokeColor || '#d97706');
-          ctx.lineWidth = props.strokeWidth || 2;
-          ctx.fillRect(0, 0, props.width, doorHeight);
-          ctx.strokeRect(0, 0, props.width, doorHeight);
-
-          // 문 열림 방향 표시 (호)
-          ctx.beginPath();
-          ctx.strokeStyle = isSelected ? '#3b82f6' : (props.strokeColor || '#d97706');
-          ctx.setLineDash([3, 3]);
-          if ((props.openDirection === 'inside') !== props.flipV) {
-            ctx.arc(0, doorHeight, props.width, -Math.PI / 2, 0);
-          } else {
-            ctx.arc(0, 0, props.width, 0, Math.PI / 2);
-          }
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.restore();
-          break;
-        }
-        case 'window': {
-          const props = element.properties as WindowProperties;
-          const windowHeight = props.height || 8;
-          ctx.save();
-          ctx.translate(props.x, props.y);
-          ctx.rotate(((props.rotation || 0) * Math.PI) / 180);
-
-          // 반전 적용
-          if (props.flipH) ctx.scale(-1, 1);
-          if (props.flipV) ctx.scale(1, -1);
-
-          // 창문 그리기
-          ctx.fillStyle = isSelected ? '#dbeafe' : '#e0f2fe';
-          ctx.strokeStyle = isSelected ? '#3b82f6' : (props.strokeColor || '#0284c7');
-          ctx.lineWidth = props.strokeWidth || 2;
-          ctx.fillRect(0, 0, props.width, windowHeight);
-          ctx.strokeRect(0, 0, props.width, windowHeight);
-
-          // 가운데 선
-          ctx.beginPath();
-          ctx.moveTo(props.width / 2, 0);
-          ctx.lineTo(props.width / 2, windowHeight);
-          ctx.stroke();
-
-          ctx.restore();
-          break;
-        }
-        case 'text': {
-          const props = element.properties as TextProperties;
-          ctx.save();
-          ctx.translate(props.x, props.y);
-
-          // 회전 적용
-          if (props.rotation) {
-            ctx.rotate((props.rotation * Math.PI) / 180);
-          }
-
-          // 텍스트 스타일
-          ctx.font = `${props.fontWeight || 'normal'} ${props.fontSize || 14}px sans-serif`;
-          ctx.fillStyle = isSelected ? '#2563eb' : (props.color || '#1a1a1a');
-          ctx.textAlign = props.textAlign || 'left';
-          ctx.textBaseline = 'top';
-          ctx.fillText(props.text, 0, 0);
-
-          // 선택 시 밑줄 표시
-          if (isSelected) {
-            const textMetrics = ctx.measureText(props.text);
-            ctx.strokeStyle = '#2563eb';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            const offsetX = props.textAlign === 'center' ? -textMetrics.width / 2 :
-                           props.textAlign === 'right' ? -textMetrics.width : 0;
-            ctx.moveTo(offsetX, (props.fontSize || 14) + 2);
-            ctx.lineTo(offsetX + textMetrics.width, (props.fontSize || 14) + 2);
-            ctx.stroke();
-          }
-
-          ctx.restore();
-          break;
-        }
-      }
-    });
-
-    // 랙 렌더링
-    localRacks.forEach((rack) => {
-      const isSelected = editorState.selectedIds.includes(rack.id);
-
-      ctx.save();
-      ctx.translate(rack.positionX + rack.width / 2, rack.positionY + rack.height / 2);
-      ctx.rotate((rack.rotation * Math.PI) / 180);
-      ctx.translate(-rack.width / 2, -rack.height / 2);
-
-      // 랙 배경
-      ctx.fillStyle = isSelected ? '#dbeafe' : '#f3f4f6';
-      ctx.strokeStyle = isSelected ? '#3b82f6' : '#374151';
-      ctx.lineWidth = isSelected ? 2 : 1;
-      ctx.fillRect(0, 0, rack.width, rack.height);
-      ctx.strokeRect(0, 0, rack.width, rack.height);
-
-      // 랙 이름
-      ctx.fillStyle = '#111827';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(rack.name, rack.width / 2, rack.height / 2);
-
-      ctx.restore();
-    });
+    // 랙 렌더링 (표준화된 렌더러 사용)
+    renderRacks(ctx, localRacks, editorState.selectedIds);
 
     // 선 그리기 미리보기
     if (isDrawingLine && linePoints.length === 1) {
-      const startPoint = linePoints[0];
-
-      // 시작점 표시 (파란 원)
-      ctx.fillStyle = '#2563eb';
-      ctx.beginPath();
-      ctx.arc(startPoint[0], startPoint[1], 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 미리보기 선 (마우스 위치까지)
-      if (linePreviewEnd) {
-        ctx.strokeStyle = '#2563eb';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(startPoint[0], startPoint[1]);
-        ctx.lineTo(linePreviewEnd[0], linePreviewEnd[1]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // 끝점 표시
-        ctx.fillStyle = '#2563eb';
-        ctx.beginPath();
-        ctx.arc(linePreviewEnd[0], linePreviewEnd[1], 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      renderLinePreview(ctx, linePoints[0], linePreviewEnd);
     }
 
     // 원 그리기 미리보기
     if (isDrawingCircle && circleCenter) {
-      // 중심점 표시
-      ctx.fillStyle = '#2563eb';
-      ctx.beginPath();
-      ctx.arc(circleCenter.x, circleCenter.y, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 미리보기 원
-      if (circlePreviewRadius > 0) {
-        ctx.strokeStyle = '#2563eb';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.arc(circleCenter.x, circleCenter.y, circlePreviewRadius, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
+      renderCirclePreview(ctx, circleCenter, circlePreviewRadius);
     }
 
     // 사각형 그리기 미리보기
     if (isDrawingRect && rectStart) {
-      // 시작점 표시
-      ctx.fillStyle = '#2563eb';
-      ctx.beginPath();
-      ctx.arc(rectStart.x, rectStart.y, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 미리보기 사각형
-      if (rectPreviewEnd) {
-        const x = Math.min(rectStart.x, rectPreviewEnd.x);
-        const y = Math.min(rectStart.y, rectPreviewEnd.y);
-        const width = Math.abs(rectPreviewEnd.x - rectStart.x);
-        const height = Math.abs(rectPreviewEnd.y - rectStart.y);
-
-        ctx.strokeStyle = '#2563eb';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeRect(x, y, width, height);
-        ctx.setLineDash([]);
-
-        // 크기 표시
-        ctx.fillStyle = '#2563eb';
-        ctx.font = '12px sans-serif';
-        ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + width / 2 - 30, y - 8);
-      }
+      renderRectPreview(ctx, rectStart, rectPreviewEnd);
     }
 
-    // 오브젝트 미리보기 렌더링
-    if (previewPosition) {
-      ctx.globalAlpha = 0.6;
-
-      switch (editorState.tool) {
-        case 'door': {
-          ctx.save();
-          ctx.translate(previewPosition.x, previewPosition.y);
-          ctx.rotate((previewRotation * Math.PI) / 180);
-
-          // 문 미리보기
-          ctx.fillStyle = '#fef3c7';
-          ctx.strokeStyle = '#d97706';
-          ctx.lineWidth = 2;
-          ctx.fillRect(0, 0, 60, 10);
-          ctx.strokeRect(0, 0, 60, 10);
-
-          // 문 열림 방향 표시 (호)
-          ctx.beginPath();
-          ctx.setLineDash([3, 3]);
-          ctx.arc(0, 10, 60, -Math.PI / 2, 0);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.restore();
-          break;
-        }
-        case 'window': {
-          ctx.save();
-          ctx.translate(previewPosition.x, previewPosition.y);
-          ctx.rotate((previewRotation * Math.PI) / 180);
-
-          // 창문 미리보기
-          ctx.fillStyle = '#e0f2fe';
-          ctx.strokeStyle = '#0284c7';
-          ctx.lineWidth = 2;
-          ctx.fillRect(0, 0, 80, 8);
-          ctx.strokeRect(0, 0, 80, 8);
-
-          // 가운데 선
-          ctx.beginPath();
-          ctx.moveTo(40, 0);
-          ctx.lineTo(40, 8);
-          ctx.stroke();
-          ctx.restore();
-          break;
-        }
-        case 'rack': {
-          // 랙 미리보기
-          ctx.fillStyle = '#f3f4f6';
-          ctx.strokeStyle = '#374151';
-          ctx.lineWidth = 1;
-          ctx.fillRect(previewPosition.x, previewPosition.y, 60, 100);
-          ctx.strokeRect(previewPosition.x, previewPosition.y, 60, 100);
-
-          ctx.fillStyle = '#111827';
-          ctx.font = '10px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('새 랙', previewPosition.x + 30, previewPosition.y + 50);
-          break;
-        }
-        case 'text': {
-          // 텍스트 미리보기
-          ctx.font = '14px sans-serif';
-          ctx.fillStyle = '#1a1a1a';
-          ctx.textBaseline = 'top';
-          ctx.fillText('텍스트', previewPosition.x, previewPosition.y);
-          break;
-        }
-      }
-
-      ctx.globalAlpha = 1;
+    // 오브젝트 배치 미리보기 렌더링 (door, window, rack, text) - 회전 없이 기본 방향으로만
+    if (previewPosition && ['door', 'window', 'rack', 'text'].includes(editorState.tool)) {
+      renderPlacementPreview(ctx, editorState.tool as DrawingToolType, previewPosition, 0);
     }
 
     ctx.restore();
-  }, [floorPlan, localElements, localRacks, editorState, isDrawingLine, linePoints, linePreviewEnd, isDrawingCircle, circleCenter, circlePreviewRadius, isDrawingRect, rectStart, rectPreviewEnd, previewPosition, previewRotation]);
+  }, [floorPlan, localElements, localRacks, editorState, isDrawingLine, linePoints, linePreviewEnd, isDrawingCircle, circleCenter, circlePreviewRadius, isDrawingRect, rectStart, rectPreviewEnd, previewPosition]);
 
   // 캔버스 크기 조정 및 렌더링
   useEffect(() => {
@@ -931,161 +574,15 @@ export function FloorPlanEditorPage() {
     return { x, y };
   };
 
-  // 그리드 스냅
+  // 그리드 스냅 (유틸리티 래퍼)
   const snapToGrid = (x: number, y: number) => {
-    if (!editorState.gridSnap) return { x, y };
-    return {
-      x: Math.round(x / editorState.gridSize) * editorState.gridSize,
-      y: Math.round(y / editorState.gridSize) * editorState.gridSize,
-    };
-  };
-
-  // 점을 특정 중심 기준으로 역회전 (히트박스 계산용)
-  const rotatePointAroundOrigin = (px: number, py: number, cx: number, cy: number, angleDeg: number) => {
-    const angleRad = (-angleDeg * Math.PI) / 180; // 역회전
-    const cos = Math.cos(angleRad);
-    const sin = Math.sin(angleRad);
-    const dx = px - cx;
-    const dy = py - cy;
-    return {
-      x: cx + dx * cos - dy * sin,
-      y: cy + dx * sin + dy * cos,
-    };
-  };
-
-  // 점과 선분 사이의 거리 계산
-  const distanceToLineSegment = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
-    const A = px - x1;
-    const B = py - y1;
-    const C = x2 - x1;
-    const D = y2 - y1;
-
-    const dot = A * C + B * D;
-    const lenSq = C * C + D * D;
-    let param = -1;
-    if (lenSq !== 0) param = dot / lenSq;
-
-    let xx, yy;
-    if (param < 0) {
-      xx = x1;
-      yy = y1;
-    } else if (param > 1) {
-      xx = x2;
-      yy = y2;
-    } else {
-      xx = x1 + param * C;
-      yy = y1 + param * D;
-    }
-
-    const dx = px - xx;
-    const dy = py - yy;
-    return Math.sqrt(dx * dx + dy * dy);
+    return snapToGridUtil(x, y, editorState.gridSize, editorState.gridSnap);
   };
 
   // 요소 찾기
+  // 특정 좌표에서 Element 또는 Rack 찾기
   const findElementAt = (x: number, y: number) => {
-    // 랙 찾기
-    const rack = localRacks.find(r => {
-      return x >= r.positionX && x <= r.positionX + r.width &&
-             y >= r.positionY && y <= r.positionY + r.height;
-    });
-    if (rack) return { type: 'rack' as const, item: rack };
-
-    // 요소 찾기 (선, 사각형, 원, 문, 창문, 텍스트)
-    const element = [...localElements].reverse().find(e => {
-      if (!e.isVisible) return false;
-
-      switch (e.elementType) {
-        case 'line': {
-          const props = e.properties as LineProperties;
-          if (!props.points || props.points.length < 2) return false;
-          const thickness = (props.strokeWidth || 2) / 2 + 5; // 클릭 여유 추가
-          // 모든 선분에 대해 거리 검사
-          for (let i = 0; i < props.points.length - 1; i++) {
-            const [x1, y1] = props.points[i];
-            const [x2, y2] = props.points[i + 1];
-            const dist = distanceToLineSegment(x, y, x1, y1, x2, y2);
-            if (dist <= thickness) return true;
-          }
-          return false;
-        }
-        case 'rect': {
-          const props = e.properties as RectProperties;
-          const rotation = props.rotation || 0;
-          const cx = props.x + props.width / 2;
-          const cy = props.y + props.height / 2;
-          const rotated = rotatePointAroundOrigin(x, y, cx, cy, rotation);
-          const strokeWidth = (props.strokeWidth || 2) / 2 + 5;
-          const isTransparent = !props.fillColor || props.fillColor === 'transparent';
-
-          if (isTransparent) {
-            // 투명일 경우 테두리만 클릭 감지
-            const inOuter = rotated.x >= props.x - strokeWidth && rotated.x <= props.x + props.width + strokeWidth &&
-                           rotated.y >= props.y - strokeWidth && rotated.y <= props.y + props.height + strokeWidth;
-            const inInner = rotated.x > props.x + strokeWidth && rotated.x < props.x + props.width - strokeWidth &&
-                           rotated.y > props.y + strokeWidth && rotated.y < props.y + props.height - strokeWidth;
-            return inOuter && !inInner;
-          }
-          return rotated.x >= props.x && rotated.x <= props.x + props.width &&
-                 rotated.y >= props.y && rotated.y <= props.y + props.height;
-        }
-        case 'circle': {
-          const props = e.properties as CircleProperties;
-          const dx = x - props.cx;
-          const dy = y - props.cy;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const strokeWidth = (props.strokeWidth || 2) / 2 + 5;
-          const isTransparent = !props.fillColor || props.fillColor === 'transparent';
-
-          if (isTransparent) {
-            // 투명일 경우 테두리만 클릭 감지
-            return distance >= props.radius - strokeWidth && distance <= props.radius + strokeWidth;
-          }
-          return distance <= props.radius + 5; // 클릭 여유 추가
-        }
-        case 'door': {
-          const props = e.properties as DoorProperties;
-          const doorWidth = props.width;
-          const doorHeight = props.height || 10;
-          const rotation = props.rotation || 0;
-          const cx = props.x;
-          const cy = props.y;
-          const rotated = rotatePointAroundOrigin(x, y, cx, cy, rotation);
-          return rotated.x >= props.x && rotated.x <= props.x + doorWidth &&
-                 rotated.y >= props.y && rotated.y <= props.y + doorHeight;
-        }
-        case 'window': {
-          const props = e.properties as WindowProperties;
-          const windowWidth = props.width;
-          const windowHeight = props.height || 8;
-          const rotation = props.rotation || 0;
-          const cx = props.x;
-          const cy = props.y;
-          const rotated = rotatePointAroundOrigin(x, y, cx, cy, rotation);
-          return rotated.x >= props.x && rotated.x <= props.x + windowWidth &&
-                 rotated.y >= props.y && rotated.y <= props.y + windowHeight;
-        }
-        case 'text': {
-          const props = e.properties as TextProperties;
-          // 텍스트 바운딩 박스 근사 (폰트 크기 기반)
-          const fontSize = props.fontSize || 14;
-          const textWidth = props.text.length * fontSize * 0.6; // 대략적 너비
-          const textHeight = fontSize;
-          const rotation = props.rotation || 0;
-          const rotated = rotatePointAroundOrigin(x, y, props.x, props.y, rotation);
-          let offsetX = 0;
-          if (props.textAlign === 'center') offsetX = -textWidth / 2;
-          else if (props.textAlign === 'right') offsetX = -textWidth;
-          return rotated.x >= props.x + offsetX && rotated.x <= props.x + offsetX + textWidth &&
-                 rotated.y >= props.y && rotated.y <= props.y + textHeight;
-        }
-        default:
-          return false;
-      }
-    });
-    if (element) return { type: 'element' as const, item: element };
-
-    return null;
+    return findItemAt(x, y, localElements, localRacks);
   };
 
   // 캔버스 마우스 다운
@@ -1108,31 +605,9 @@ export function FloorPlanEditorPage() {
     if (editorState.tool === 'select') {
       const found = findElementAt(x, y);
       if (found) {
-        setIsDragging(true);
-        setDragStart({ x, y });
-
-        // 요소의 초기 위치 저장
-        let initialPos: { x: number; y: number } | undefined;
-        if (found.type === 'rack') {
-          const rack = found.item as RackItem;
-          initialPos = { x: rack.positionX, y: rack.positionY };
-        } else {
-          const el = found.item as FloorPlanElement;
-          if (el.elementType === 'line') {
-            const lineProps = el.properties as LineProperties;
-            initialPos = { x: lineProps.points[0][0], y: lineProps.points[0][1] };
-          } else if (el.elementType === 'circle') {
-            const circleProps = el.properties as CircleProperties;
-            initialPos = { x: circleProps.cx, y: circleProps.cy };
-          } else {
-            const props = el.properties as unknown as Record<string, unknown>;
-            if ('x' in props && 'y' in props) {
-              initialPos = { x: props.x as number, y: props.y as number };
-            }
-          }
-        }
-
-        setDragTarget({ type: found.type, id: found.item.id, initialPos });
+        // 표준화된 드래그 세션 생성
+        const session = createDragSession(found, { x, y });
+        setDragSession(session);
         setEditorState(prev => ({ ...prev, selectedIds: [found.item.id] }));
 
         if (found.type === 'rack') {
@@ -1209,68 +684,25 @@ export function FloorPlanEditorPage() {
       setPreviewPosition(null);
     }
 
-    if (!isDragging || !dragStart || !dragTarget || !dragTarget.initialPos) return;
+    // 표준화된 드래그 시스템 사용
+    if (!dragSession || !dragSession.isActive) return;
 
-    // 랙과 동일한 방식: 초기 위치 + (현재 마우스 - 드래그 시작점) = 새 위치
-    const offsetX = snapped.x - dragStart.x;
-    const offsetY = snapped.y - dragStart.y;
+    // 그리드 스냅 함수
+    const snapFn = (pos: Position) => snapToGrid(pos.x, pos.y);
 
-    if (dragTarget.type === 'rack') {
-      setLocalRacks(prev => prev.map(r => {
-        if (r.id === dragTarget.id) {
-          const newX = dragTarget.initialPos!.x + offsetX;
-          const newY = dragTarget.initialPos!.y + offsetY;
-          const finalPos = snapToGrid(newX, newY);
-          return { ...r, positionX: finalPos.x, positionY: finalPos.y };
-        }
-        return r;
-      }));
-    } else {
-      setLocalElements(prev => prev.map(el => {
-        if (el.id === dragTarget.id) {
-          const props = { ...el.properties };
-          const newX = dragTarget.initialPos!.x + offsetX;
-          const newY = dragTarget.initialPos!.y + offsetY;
-          const finalPos = snapToGrid(newX, newY);
-
-          // 요소 타입별 이동 처리 - 랙과 동일한 방식
-          if (el.elementType === 'line') {
-            const lineProps = props as LineProperties;
-            const origFirst = dragTarget.initialPos!;
-            const dx = finalPos.x - origFirst.x;
-            const dy = finalPos.y - origFirst.y;
-            // 원본에서 delta 적용 (원본 points 기준)
-            const origPoints = (el.properties as LineProperties).points;
-            lineProps.points = origPoints.map(([px, py], idx) => {
-              if (idx === 0) return [finalPos.x, finalPos.y] as [number, number];
-              return [px + dx, py + dy] as [number, number];
-            });
-          } else if (el.elementType === 'circle') {
-            const circleProps = props as CircleProperties;
-            circleProps.cx = finalPos.x;
-            circleProps.cy = finalPos.y;
-          } else if ('x' in props && 'y' in props) {
-            const currentProps = props as { x: number; y: number };
-            currentProps.x = finalPos.x;
-            currentProps.y = finalPos.y;
-          }
-          return { ...el, properties: props };
-        }
-        return el;
-      }));
-    }
-
+    // 통합 드래그 적용 (Element/Rack 자동 처리)
+    const result = applyDrag(localElements, localRacks, dragSession, snapped, snapFn);
+    setLocalElements(result.elements);
+    setLocalRacks(result.racks);
     setHasChanges(true);
   };
 
   // 캔버스 마우스 업
   const handleCanvasMouseUp = () => {
-    if (isDragging) {
+    if (dragSession?.isActive) {
       pushHistory(localElements, localRacks);
     }
-    setIsDragging(false);
-    setDragStart(null);
-    setDragTarget(null);
+    setDragSession(null);
     // 팬 모드 종료
     setIsPanning(false);
     setPanStart(null);
@@ -1407,6 +839,7 @@ export function FloorPlanEditorPage() {
         break;
 
       case 'door': {
+        // 클릭 위치에 기본 크기로 배치 (회전/반전은 배치 후에만 가능)
         const newDoor: FloorPlanElement = {
           id: `temp-${Date.now()}`,
           elementType: 'door',
@@ -1415,7 +848,7 @@ export function FloorPlanEditorPage() {
             y: snapped.y,
             width: 60,
             height: 10,
-            rotation: previewRotation,
+            rotation: 0,
             flipH: false,
             flipV: false,
             openDirection: 'inside',
@@ -1430,12 +863,12 @@ export function FloorPlanEditorPage() {
         setLocalElements(newElements);
         pushHistory(newElements, localRacks);
         setHasChanges(true);
-        setPreviewRotation(0);
         setEditorState(prev => ({ ...prev, tool: 'select' }));
         break;
       }
 
       case 'window': {
+        // 클릭 위치에 기본 크기로 배치 (회전/반전은 배치 후에만 가능)
         const newWindow: FloorPlanElement = {
           id: `temp-${Date.now()}`,
           elementType: 'window',
@@ -1444,7 +877,7 @@ export function FloorPlanEditorPage() {
             y: snapped.y,
             width: 80,
             height: 8,
-            rotation: previewRotation,
+            rotation: 0,
             flipH: false,
             flipV: false,
             strokeWidth: 2,
@@ -1458,7 +891,6 @@ export function FloorPlanEditorPage() {
         setLocalElements(newElements);
         pushHistory(newElements, localRacks);
         setHasChanges(true);
-        setPreviewRotation(0);
         setEditorState(prev => ({ ...prev, tool: 'select' }));
         break;
       }
@@ -1556,7 +988,6 @@ export function FloorPlanEditorPage() {
         setTextInputPosition(null);
         setTextInputValue('');
         setPreviewPosition(null);
-        setPreviewRotation(0);
         setEditorState(prev => ({ ...prev, tool: 'select', selectedIds: [] }));
         setSelectedRack(null);
         setSelectedElement(null);
@@ -1613,13 +1044,13 @@ export function FloorPlanEditorPage() {
         if (updated) setSelectedElement(updated);
       }
 
-      // Q 키로 회전 (미리보기 또는 선택된 문/창문)
-      if (e.key === 'q') {
-        if (selectedElement && ['door', 'window'].includes(selectedElement.elementType)) {
-          // 선택된 요소 회전
+      // Q 키로 회전 (캔버스에 배치된 요소만 - 회전 지원하는 모든 타입)
+      if (e.key === 'q' && selectedElement) {
+        const rotatable = ['rect', 'door', 'window', 'text'];
+        if (rotatable.includes(selectedElement.elementType)) {
           const newElements = localElements.map(el => {
             if (el.id === selectedElement.id) {
-              const props = { ...el.properties } as DoorProperties | WindowProperties;
+              const props = { ...el.properties } as RectProperties | DoorProperties | WindowProperties | TextProperties;
               props.rotation = ((props.rotation || 0) + 90) % 360;
               return { ...el, properties: props };
             }
@@ -1630,9 +1061,6 @@ export function FloorPlanEditorPage() {
           setHasChanges(true);
           const updated = newElements.find(el => el.id === selectedElement.id);
           if (updated) setSelectedElement(updated);
-        } else if (['door', 'window'].includes(editorState.tool)) {
-          // 미리보기 회전
-          setPreviewRotation(prev => (prev + 90) % 360);
         }
       }
 
@@ -1871,19 +1299,13 @@ export function FloorPlanEditorPage() {
               <button
                 onClick={() => {
                   if (!selectedElement) return;
-                  const props = selectedElement.properties as unknown as Record<string, unknown>;
-                  if ('rotation' in props) {
-                    const currentRotation = (props.rotation as number) || 0;
-                    const newRotation = (currentRotation + 90) % 360;
-                    setLocalElements(prev => prev.map(el =>
-                      el.id === selectedElement.id
-                        ? { ...el, properties: { ...el.properties, rotation: newRotation } }
-                        : el
-                    ));
+                  const updater = createRotateUpdater(selectedElement);
+                  if (updater) {
+                    setLocalElements(updater);
                     setHasChanges(true);
                   }
                 }}
-                disabled={!selectedElement || !('rotation' in (selectedElement?.properties || {}))}
+                disabled={!hasProperty(selectedElement, 'rotation')}
                 className="p-1.5 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
                 title="회전 90° (Q)"
               >
@@ -1896,18 +1318,13 @@ export function FloorPlanEditorPage() {
               <button
                 onClick={() => {
                   if (!selectedElement) return;
-                  const props = selectedElement.properties as unknown as Record<string, unknown>;
-                  if ('flipH' in props) {
-                    const newFlipH = !(props.flipH as boolean);
-                    setLocalElements(prev => prev.map(el =>
-                      el.id === selectedElement.id
-                        ? { ...el, properties: { ...el.properties, flipH: newFlipH } }
-                        : el
-                    ));
+                  const updater = createFlipHUpdater(selectedElement);
+                  if (updater) {
+                    setLocalElements(updater);
                     setHasChanges(true);
                   }
                 }}
-                disabled={!selectedElement || !('flipH' in (selectedElement?.properties || {}))}
+                disabled={!hasProperty(selectedElement, 'flipH')}
                 className="p-1.5 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
                 title="수평 반전 (H)"
               >
@@ -1920,18 +1337,13 @@ export function FloorPlanEditorPage() {
               <button
                 onClick={() => {
                   if (!selectedElement) return;
-                  const props = selectedElement.properties as unknown as Record<string, unknown>;
-                  if ('flipV' in props) {
-                    const newFlipV = !(props.flipV as boolean);
-                    setLocalElements(prev => prev.map(el =>
-                      el.id === selectedElement.id
-                        ? { ...el, properties: { ...el.properties, flipV: newFlipV } }
-                        : el
-                    ));
+                  const updater = createFlipVUpdater(selectedElement);
+                  if (updater) {
+                    setLocalElements(updater);
                     setHasChanges(true);
                   }
                 }}
-                disabled={!selectedElement || !('flipV' in (selectedElement?.properties || {}))}
+                disabled={!hasProperty(selectedElement, 'flipV')}
                 className="p-1.5 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
                 title="수직 반전 (F)"
               >
@@ -1947,20 +1359,13 @@ export function FloorPlanEditorPage() {
                 <button
                   onClick={() => {
                     if (!selectedElement) return;
-                    const widths = [1, 2, 3, 4, 6, 8];
-                    const current = ((selectedElement.properties as unknown as Record<string, unknown>).strokeWidth as number) || 2;
-                    const idx = widths.indexOf(current);
-                    if (idx > 0) {
-                      const newWidth = widths[idx - 1];
-                      setLocalElements(prev => prev.map(el =>
-                        el.id === selectedElement.id
-                          ? { ...el, properties: { ...el.properties, strokeWidth: newWidth } as typeof el.properties }
-                          : el
-                      ));
+                    const updater = createDecreaseStrokeWidthUpdater(selectedElement);
+                    if (updater) {
+                      setLocalElements(updater);
                       setHasChanges(true);
                     }
                   }}
-                  disabled={!selectedElement || !('strokeWidth' in (selectedElement?.properties || {}))}
+                  disabled={!hasProperty(selectedElement, 'strokeWidth')}
                   className="w-6 h-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
                   title="굵기 감소"
                 >
@@ -1969,45 +1374,30 @@ export function FloorPlanEditorPage() {
                   </svg>
                 </button>
                 <select
-                  value={selectedElement ? ((selectedElement.properties as unknown as Record<string, unknown>).strokeWidth as number) || 2 : 2}
+                  value={getPropertyValue(selectedElement, 'strokeWidth', 2)}
                   onChange={(e) => {
                     if (!selectedElement) return;
-                    const newWidth = parseInt(e.target.value);
-                    setLocalElements(prev => prev.map(el =>
-                      el.id === selectedElement.id
-                        ? { ...el, properties: { ...el.properties, strokeWidth: newWidth } as typeof el.properties }
-                        : el
-                    ));
+                    setLocalElements(updateElementProperty(selectedElement.id, 'strokeWidth', parseInt(e.target.value)));
                     setHasChanges(true);
                   }}
-                  disabled={!selectedElement || !('strokeWidth' in (selectedElement?.properties || {}))}
+                  disabled={!hasProperty(selectedElement, 'strokeWidth')}
                   className="h-full text-xs px-1 border-0 bg-transparent disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none"
                   title="선 굵기"
                 >
-                  <option value="1">1px</option>
-                  <option value="2">2px</option>
-                  <option value="3">3px</option>
-                  <option value="4">4px</option>
-                  <option value="6">6px</option>
-                  <option value="8">8px</option>
+                  {STROKE_WIDTH_PRESETS.map(w => (
+                    <option key={w} value={w}>{w}px</option>
+                  ))}
                 </select>
                 <button
                   onClick={() => {
                     if (!selectedElement) return;
-                    const widths = [1, 2, 3, 4, 6, 8];
-                    const current = ((selectedElement.properties as unknown as Record<string, unknown>).strokeWidth as number) || 2;
-                    const idx = widths.indexOf(current);
-                    if (idx < widths.length - 1) {
-                      const newWidth = widths[idx + 1];
-                      setLocalElements(prev => prev.map(el =>
-                        el.id === selectedElement.id
-                          ? { ...el, properties: { ...el.properties, strokeWidth: newWidth } as typeof el.properties }
-                          : el
-                      ));
+                    const updater = createIncreaseStrokeWidthUpdater(selectedElement);
+                    if (updater) {
+                      setLocalElements(updater);
                       setHasChanges(true);
                     }
                   }}
-                  disabled={!selectedElement || !('strokeWidth' in (selectedElement?.properties || {}))}
+                  disabled={!hasProperty(selectedElement, 'strokeWidth')}
                   className="w-6 h-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
                   title="굵기 증가"
                 >
@@ -2020,17 +1410,13 @@ export function FloorPlanEditorPage() {
               {/* 선 색상 */}
               <input
                 type="color"
-                value={selectedElement ? ((selectedElement.properties as unknown as Record<string, unknown>).strokeColor as string) || '#1a1a1a' : '#1a1a1a'}
+                value={getPropertyValue(selectedElement, 'strokeColor', '#1a1a1a')}
                 onChange={(e) => {
                   if (!selectedElement) return;
-                  setLocalElements(prev => prev.map(el =>
-                    el.id === selectedElement.id
-                      ? { ...el, properties: { ...el.properties, strokeColor: e.target.value } as typeof el.properties }
-                      : el
-                  ));
+                  setLocalElements(updateElementProperty(selectedElement.id, 'strokeColor', e.target.value));
                   setHasChanges(true);
                 }}
-                disabled={!selectedElement || !('strokeColor' in (selectedElement?.properties || {}))}
+                disabled={!hasProperty(selectedElement, 'strokeColor')}
                 className="w-7 h-7 border rounded cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 title="선 색상"
               />
@@ -2040,37 +1426,28 @@ export function FloorPlanEditorPage() {
                 <input
                   type="color"
                   value={(() => {
-                    if (!selectedElement) return '#ffffff';
-                    const fill = (selectedElement.properties as unknown as Record<string, unknown>).fillColor as string;
+                    const fill = getPropertyValue<string>(selectedElement, 'fillColor', '');
                     return (!fill || fill === 'transparent') ? '#ffffff' : fill;
                   })()}
                   onChange={(e) => {
                     if (!selectedElement) return;
-                    setLocalElements(prev => prev.map(el =>
-                      el.id === selectedElement.id
-                        ? { ...el, properties: { ...el.properties, fillColor: e.target.value } as typeof el.properties }
-                        : el
-                    ));
+                    setLocalElements(updateElementProperty(selectedElement.id, 'fillColor', e.target.value));
                     setHasChanges(true);
                   }}
-                  disabled={!selectedElement || !('fillColor' in (selectedElement?.properties || {})) || ((selectedElement?.properties as unknown as Record<string, unknown>)?.fillColor === 'transparent')}
+                  disabled={!hasProperty(selectedElement, 'fillColor') || getPropertyValue<string>(selectedElement, 'fillColor', '') === 'transparent'}
                   className="w-7 h-7 border rounded cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                   title="채움 색상"
                 />
                 <label className="flex items-center gap-0.5 text-xs text-gray-600">
                   <input
                     type="checkbox"
-                    checked={selectedElement ? ((selectedElement.properties as unknown as Record<string, unknown>).fillColor as string) === 'transparent' : false}
+                    checked={getPropertyValue<string>(selectedElement, 'fillColor', '') === 'transparent'}
                     onChange={(e) => {
                       if (!selectedElement) return;
-                      setLocalElements(prev => prev.map(el =>
-                        el.id === selectedElement.id
-                          ? { ...el, properties: { ...el.properties, fillColor: e.target.checked ? 'transparent' : '#ffffff' } as typeof el.properties }
-                          : el
-                      ));
+                      setLocalElements(updateElementProperty(selectedElement.id, 'fillColor', e.target.checked ? 'transparent' : '#ffffff'));
                       setHasChanges(true);
                     }}
-                    disabled={!selectedElement || !('fillColor' in (selectedElement?.properties || {}))}
+                    disabled={!hasProperty(selectedElement, 'fillColor')}
                     className="w-3 h-3"
                   />
                   투명
@@ -2083,17 +1460,10 @@ export function FloorPlanEditorPage() {
               <div className="flex items-center border rounded h-7 overflow-hidden">
                 <button
                   onClick={() => {
-                    if (!selectedElement || selectedElement.elementType !== 'text') return;
-                    const sizes = [10, 12, 14, 16, 18, 20, 24, 28, 32];
-                    const current = ((selectedElement.properties as TextProperties).fontSize || 14);
-                    const idx = sizes.indexOf(current);
-                    if (idx > 0) {
-                      const newSize = sizes[idx - 1];
-                      setLocalElements(prev => prev.map(el =>
-                        el.id === selectedElement.id
-                          ? { ...el, properties: { ...el.properties, fontSize: newSize } }
-                          : el
-                      ));
+                    if (!selectedElement) return;
+                    const updater = createDecreaseFontSizeUpdater(selectedElement);
+                    if (updater) {
+                      setLocalElements(updater);
                       setHasChanges(true);
                     }
                   }}
@@ -2106,44 +1476,26 @@ export function FloorPlanEditorPage() {
                   </svg>
                 </button>
                 <select
-                  value={selectedElement?.elementType === 'text' ? ((selectedElement.properties as TextProperties).fontSize || 14) : 14}
+                  value={selectedElement?.elementType === 'text' ? getPropertyValue(selectedElement, 'fontSize', 14) : 14}
                   onChange={(e) => {
-                    if (!selectedElement || selectedElement.elementType !== 'text') return;
-                    const newSize = parseInt(e.target.value);
-                    setLocalElements(prev => prev.map(el =>
-                      el.id === selectedElement.id
-                        ? { ...el, properties: { ...el.properties, fontSize: newSize } }
-                        : el
-                    ));
+                    if (!selectedElement) return;
+                    setLocalElements(updateElementProperty(selectedElement.id, 'fontSize', parseInt(e.target.value)));
                     setHasChanges(true);
                   }}
                   disabled={selectedElement?.elementType !== 'text'}
                   className="h-full text-xs px-1 border-0 bg-transparent disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none"
                   title="텍스트 크기"
                 >
-                  <option value="10">10px</option>
-                  <option value="12">12px</option>
-                  <option value="14">14px</option>
-                  <option value="16">16px</option>
-                  <option value="18">18px</option>
-                  <option value="20">20px</option>
-                  <option value="24">24px</option>
-                  <option value="28">28px</option>
-                  <option value="32">32px</option>
+                  {FONT_SIZE_PRESETS.map(s => (
+                    <option key={s} value={s}>{s}px</option>
+                  ))}
                 </select>
                 <button
                   onClick={() => {
-                    if (!selectedElement || selectedElement.elementType !== 'text') return;
-                    const sizes = [10, 12, 14, 16, 18, 20, 24, 28, 32];
-                    const current = ((selectedElement.properties as TextProperties).fontSize || 14);
-                    const idx = sizes.indexOf(current);
-                    if (idx < sizes.length - 1) {
-                      const newSize = sizes[idx + 1];
-                      setLocalElements(prev => prev.map(el =>
-                        el.id === selectedElement.id
-                          ? { ...el, properties: { ...el.properties, fontSize: newSize } }
-                          : el
-                      ));
+                    if (!selectedElement) return;
+                    const updater = createIncreaseFontSizeUpdater(selectedElement);
+                    if (updater) {
+                      setLocalElements(updater);
                       setHasChanges(true);
                     }
                   }}
@@ -2160,19 +1512,16 @@ export function FloorPlanEditorPage() {
               {/* 텍스트 굵기 */}
               <button
                 onClick={() => {
-                  if (!selectedElement || selectedElement.elementType !== 'text') return;
-                  const props = selectedElement.properties as TextProperties;
-                  const newWeight = props.fontWeight === 'bold' ? 'normal' : 'bold';
-                  setLocalElements(prev => prev.map(el =>
-                    el.id === selectedElement.id
-                      ? { ...el, properties: { ...el.properties, fontWeight: newWeight } }
-                      : el
-                  ));
-                  setHasChanges(true);
+                  if (!selectedElement) return;
+                  const updater = createToggleFontWeightUpdater(selectedElement);
+                  if (updater) {
+                    setLocalElements(updater);
+                    setHasChanges(true);
+                  }
                 }}
                 disabled={selectedElement?.elementType !== 'text'}
                 className={`p-1.5 rounded disabled:opacity-30 disabled:cursor-not-allowed ${
-                  selectedElement?.elementType === 'text' && (selectedElement.properties as TextProperties).fontWeight === 'bold'
+                  selectedElement?.elementType === 'text' && getPropertyValue<string>(selectedElement, 'fontWeight', '') === 'bold'
                     ? 'bg-gray-200'
                     : 'hover:bg-gray-100'
                 }`}
@@ -2183,18 +1532,13 @@ export function FloorPlanEditorPage() {
 
               {/* 선 스타일 */}
               <select
-                value={selectedElement ? ((selectedElement.properties as unknown as Record<string, unknown>).strokeStyle as string) || 'solid' : 'solid'}
+                value={getPropertyValue(selectedElement, 'strokeStyle', 'solid')}
                 onChange={(e) => {
                   if (!selectedElement) return;
-                  const newStyle = e.target.value as 'solid' | 'dashed' | 'dotted';
-                  setLocalElements(prev => prev.map(el =>
-                    el.id === selectedElement.id
-                      ? { ...el, properties: { ...el.properties, strokeStyle: newStyle } as typeof el.properties }
-                      : el
-                  ));
+                  setLocalElements(updateElementProperty(selectedElement.id, 'strokeStyle', e.target.value));
                   setHasChanges(true);
                 }}
-                disabled={!selectedElement || !('strokeStyle' in (selectedElement?.properties || {}))}
+                disabled={!hasProperty(selectedElement, 'strokeStyle')}
                 className="h-7 text-xs border rounded px-1 disabled:opacity-30 disabled:cursor-not-allowed"
                 title="선 스타일"
               >
@@ -2613,10 +1957,10 @@ export function FloorPlanEditorPage() {
                   )}
                   {editorState.tool === 'text' && <>클릭: 텍스트 입력 위치</>}
                   {editorState.tool === 'door' && (
-                    <><span className="text-orange-400">{previewRotation}°</span> | Q: 회전 | H/F: 반전 | 클릭: 배치</>
+                    <><span className="text-orange-400">문</span> | 클릭: 배치 (회전/반전은 배치 후 가능)</>
                   )}
                   {editorState.tool === 'window' && (
-                    <><span className="text-blue-400">{previewRotation}°</span> | Q: 회전 | H/F: 반전 | 클릭: 배치</>
+                    <><span className="text-blue-400">창문</span> | 클릭: 배치 (회전/반전은 배치 후 가능)</>
                   )}
                   {editorState.tool === 'rack' && <>클릭: 랙 배치 위치</>}
                   {editorState.tool === 'delete' && <><span className="text-red-400">삭제 모드</span> | 클릭하여 삭제</>}
