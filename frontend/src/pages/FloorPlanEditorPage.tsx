@@ -75,6 +75,77 @@ interface HistoryState {
   racks: RackItem[];
 }
 
+// 모든 오브젝트가 화면에 맞게 보이도록 zoom, panX, panY 계산
+function calculateFitToContent(
+  elements: FloorPlanElement[],
+  racks: RackItem[],
+  canvasWidth: number,
+  canvasHeight: number
+): { zoom: number; panX: number; panY: number } {
+  if (elements.length === 0 && racks.length === 0) {
+    return { zoom: 100, panX: 0, panY: 0 };
+  }
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  elements.forEach(el => {
+    if (!el.isVisible) return;
+    if (el.elementType === 'line') {
+      const props = el.properties as LineProperties;
+      props.points.forEach(([x, y]) => {
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      });
+    } else if (el.elementType === 'circle') {
+      const props = el.properties as CircleProperties;
+      minX = Math.min(minX, props.cx - props.radius);
+      minY = Math.min(minY, props.cy - props.radius);
+      maxX = Math.max(maxX, props.cx + props.radius);
+      maxY = Math.max(maxY, props.cy + props.radius);
+    } else {
+      const props = el.properties as unknown as { x?: number; y?: number; width?: number; height?: number };
+      if (props.x !== undefined && props.y !== undefined) {
+        minX = Math.min(minX, props.x);
+        minY = Math.min(minY, props.y);
+        maxX = Math.max(maxX, props.x + (props.width || 50));
+        maxY = Math.max(maxY, props.y + (props.height || 50));
+      }
+    }
+  });
+
+  racks.forEach(rack => {
+    minX = Math.min(minX, rack.positionX);
+    minY = Math.min(minY, rack.positionY);
+    maxX = Math.max(maxX, rack.positionX + rack.width);
+    maxY = Math.max(maxY, rack.positionY + rack.height);
+  });
+
+  // 오브젝트가 없으면 기본값
+  if (minX === Infinity) {
+    return { zoom: 100, panX: 0, panY: 0 };
+  }
+
+  // 여백 추가
+  const padding = 50;
+  minX -= padding; minY -= padding;
+  maxX += padding; maxY += padding;
+
+  const contentWidth = maxX - minX;
+  const contentHeight = maxY - minY;
+
+  // 화면에 맞는 zoom 계산
+  const zoomX = (canvasWidth / contentWidth) * 100;
+  const zoomY = (canvasHeight / contentHeight) * 100;
+  const zoom = Math.min(zoomX, zoomY, 100); // 최대 100%
+
+  // 콘텐츠 중앙 정렬을 위한 pan 계산
+  const scale = zoom / 100;
+  const panX = (canvasWidth - contentWidth * scale) / 2 - minX * scale;
+  const panY = (canvasHeight - contentHeight * scale) / 2 - minY * scale;
+
+  return { zoom: Math.round(zoom), panX, panY };
+}
+
 export function FloorPlanEditorPage() {
   const { floorId } = useParams<{ floorId: string }>();
   const navigate = useNavigate();
@@ -122,7 +193,7 @@ export function FloorPlanEditorPage() {
   // 드래그 상태
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
-  const [dragTarget, setDragTarget] = useState<{ type: 'rack' | 'element'; id: string } | null>(null);
+  const [dragTarget, setDragTarget] = useState<{ type: 'rack' | 'element'; id: string; initialPos?: { x: number; y: number } } | null>(null);
 
   // 캔버스 팬 상태
   const [isPanning, setIsPanning] = useState(false);
@@ -142,6 +213,9 @@ export function FloorPlanEditorPage() {
   // 삭제된 요소/랙 ID 추적 (저장 시 백엔드에 전달)
   const [deletedElementIds, setDeletedElementIds] = useState<string[]>([]);
   const [deletedRackIds, setDeletedRackIds] = useState<string[]>([]);
+
+  // 뷰포트 초기화 완료 여부
+  const [viewportInitialized, setViewportInitialized] = useState(false);
 
   // 층 정보 조회
   const { data: floor, isLoading: floorLoading } = useQuery({
@@ -267,8 +341,68 @@ export function FloorPlanEditorPage() {
       // 초기 히스토리 설정
       setHistory([{ elements, racks: floorPlan.racks }]);
       setHistoryIndex(0);
+      // 뷰포트 초기화 플래그 리셋 (데이터 로드 시마다)
+      setViewportInitialized(false);
     }
   }, [floorPlan]);
+
+  // 뷰포트 초기화 (localStorage 복원 또는 Fit to Content)
+  useEffect(() => {
+    if (!floorPlan || !containerRef.current || viewportInitialized) return;
+    // 캔버스 크기가 확정될 때까지 대기
+    const container = containerRef.current;
+    if (container.clientWidth === 0 || container.clientHeight === 0) return;
+
+    // floorPlan의 데이터가 localElements/localRacks에 반영될 때까지 대기
+    // floorPlan에 요소가 있는데 localElements가 비어있으면 아직 로드 중
+    const hasFloorPlanData = floorPlan.elements.length > 0 || floorPlan.racks.length > 0;
+    const hasLocalData = localElements.length > 0 || localRacks.length > 0;
+    if (hasFloorPlanData && !hasLocalData) return;
+
+    const savedViewport = localStorage.getItem(`floorplan-viewport-${floorId}`);
+
+    if (savedViewport) {
+      try {
+        const { zoom, panX, panY } = JSON.parse(savedViewport);
+        setEditorState(prev => ({
+          ...prev,
+          zoom: zoom ?? 100,
+          panX: panX ?? 0,
+          panY: panY ?? 0,
+        }));
+      } catch {
+        // 파싱 실패 시 Fit to Content
+        const fitView = calculateFitToContent(localElements, localRacks, container.clientWidth, container.clientHeight);
+        setEditorState(prev => ({ ...prev, ...fitView }));
+      }
+    } else {
+      // localStorage 없으면 Fit to Content
+      const fitView = calculateFitToContent(localElements, localRacks, container.clientWidth, container.clientHeight);
+      setEditorState(prev => ({ ...prev, ...fitView }));
+    }
+
+    setViewportInitialized(true);
+  }, [floorPlan, floorId, localElements, localRacks, viewportInitialized]);
+
+  // 뷰포트 상태 저장 함수
+  const saveViewportState = useCallback(() => {
+    if (!floorId) return;
+    localStorage.setItem(`floorplan-viewport-${floorId}`, JSON.stringify({
+      zoom: editorState.zoom,
+      panX: editorState.panX,
+      panY: editorState.panY,
+    }));
+  }, [floorId, editorState.zoom, editorState.panX, editorState.panY]);
+
+  // 페이지 이탈 시 뷰포트 상태 저장
+  useEffect(() => {
+    const handleBeforeUnload = () => saveViewportState();
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      saveViewportState(); // cleanup 시에도 저장
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [saveViewportState]);
 
   // 캔버스 렌더링 (무한 캔버스)
   const renderCanvas = useCallback(() => {
@@ -313,18 +447,10 @@ export function FloorPlanEditorPage() {
         // 30-50%: Major만
         majorSize = 200;
         minorSize = null;
-      } else if (zoomPercent <= 200) {
-        // 50-200%: 기본
-        majorSize = 100;
-        minorSize = 20;
-      } else if (zoomPercent <= 400) {
-        // 200-400%: 세분화
-        majorSize = 100;
-        minorSize = 20;
       } else {
-        // 400%+: 최대 확대
-        majorSize = 20;
-        minorSize = 4;
+        // 50% 이상: 기본 그리드 유지
+        majorSize = 100;
+        minorSize = 20;
       }
 
       const gridStartX = Math.floor(viewportLeft / majorSize) * majorSize;
@@ -384,8 +510,13 @@ export function FloorPlanEditorPage() {
       }
     }
 
-    // 요소 렌더링 (선, 사각형, 원, 문, 창문, 텍스트)
-    localElements.forEach((element) => {
+    // 요소 렌더링 (선, 사각형, 원, 문, 창문, 텍스트) - zIndex 순서로 정렬, 텍스트는 항상 맨 앞
+    [...localElements].sort((a, b) => {
+      // 텍스트는 항상 맨 앞 (마지막에 렌더링)
+      if (a.elementType === 'text' && b.elementType !== 'text') return 1;
+      if (a.elementType !== 'text' && b.elementType === 'text') return -1;
+      return a.zIndex - b.zIndex;
+    }).forEach((element) => {
       if (!element.isVisible) return;
 
       const isSelected = editorState.selectedIds.includes(element.id);
@@ -979,7 +1110,29 @@ export function FloorPlanEditorPage() {
       if (found) {
         setIsDragging(true);
         setDragStart({ x, y });
-        setDragTarget({ type: found.type, id: found.item.id });
+
+        // 요소의 초기 위치 저장
+        let initialPos: { x: number; y: number } | undefined;
+        if (found.type === 'rack') {
+          const rack = found.item as RackItem;
+          initialPos = { x: rack.positionX, y: rack.positionY };
+        } else {
+          const el = found.item as FloorPlanElement;
+          if (el.elementType === 'line') {
+            const lineProps = el.properties as LineProperties;
+            initialPos = { x: lineProps.points[0][0], y: lineProps.points[0][1] };
+          } else if (el.elementType === 'circle') {
+            const circleProps = el.properties as CircleProperties;
+            initialPos = { x: circleProps.cx, y: circleProps.cy };
+          } else {
+            const props = el.properties as unknown as Record<string, unknown>;
+            if ('x' in props && 'y' in props) {
+              initialPos = { x: props.x as number, y: props.y as number };
+            }
+          }
+        }
+
+        setDragTarget({ type: found.type, id: found.item.id, initialPos });
         setEditorState(prev => ({ ...prev, selectedIds: [found.item.id] }));
 
         if (found.type === 'rack') {
@@ -1056,14 +1209,17 @@ export function FloorPlanEditorPage() {
       setPreviewPosition(null);
     }
 
-    if (!isDragging || !dragStart || !dragTarget) return;
+    if (!isDragging || !dragStart || !dragTarget || !dragTarget.initialPos) return;
 
-    // 목표 위치를 그리드에 스냅 (X,Y 동시 이동 수정)
+    // 랙과 동일한 방식: 초기 위치 + (현재 마우스 - 드래그 시작점) = 새 위치
+    const offsetX = snapped.x - dragStart.x;
+    const offsetY = snapped.y - dragStart.y;
+
     if (dragTarget.type === 'rack') {
       setLocalRacks(prev => prev.map(r => {
         if (r.id === dragTarget.id) {
-          const newX = snapped.x - (dragStart.x - r.positionX);
-          const newY = snapped.y - (dragStart.y - r.positionY);
+          const newX = dragTarget.initialPos!.x + offsetX;
+          const newY = dragTarget.initialPos!.y + offsetY;
           const finalPos = snapToGrid(newX, newY);
           return { ...r, positionX: finalPos.x, positionY: finalPos.y };
         }
@@ -1073,24 +1229,30 @@ export function FloorPlanEditorPage() {
       setLocalElements(prev => prev.map(el => {
         if (el.id === dragTarget.id) {
           const props = { ...el.properties };
-          const dx = snapped.x - dragStart.x;
-          const dy = snapped.y - dragStart.y;
+          const newX = dragTarget.initialPos!.x + offsetX;
+          const newY = dragTarget.initialPos!.y + offsetY;
+          const finalPos = snapToGrid(newX, newY);
 
-          // 요소 타입별 이동 처리
+          // 요소 타입별 이동 처리 - 랙과 동일한 방식
           if (el.elementType === 'line') {
-            // 선: points 배열의 모든 점 이동
             const lineProps = props as LineProperties;
-            lineProps.points = lineProps.points.map(([px, py]) => [px + dx, py + dy] as [number, number]);
+            const origFirst = dragTarget.initialPos!;
+            const dx = finalPos.x - origFirst.x;
+            const dy = finalPos.y - origFirst.y;
+            // 원본에서 delta 적용 (원본 points 기준)
+            const origPoints = (el.properties as LineProperties).points;
+            lineProps.points = origPoints.map(([px, py], idx) => {
+              if (idx === 0) return [finalPos.x, finalPos.y] as [number, number];
+              return [px + dx, py + dy] as [number, number];
+            });
           } else if (el.elementType === 'circle') {
-            // 원: cx, cy 이동
             const circleProps = props as CircleProperties;
-            circleProps.cx += dx;
-            circleProps.cy += dy;
+            circleProps.cx = finalPos.x;
+            circleProps.cy = finalPos.y;
           } else if ('x' in props && 'y' in props) {
-            // 기타 요소: x, y 이동
             const currentProps = props as { x: number; y: number };
-            currentProps.x += dx;
-            currentProps.y += dy;
+            currentProps.x = finalPos.x;
+            currentProps.y = finalPos.y;
           }
           return { ...el, properties: props };
         }
@@ -1098,7 +1260,6 @@ export function FloorPlanEditorPage() {
       }));
     }
 
-    setDragStart(snapped);
     setHasChanges(true);
   };
 
@@ -1656,9 +1817,9 @@ export function FloorPlanEditorPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
+    <div className="h-screen w-full flex flex-col bg-gray-100 overflow-hidden">
       {/* 상단 툴바 */}
-      <div className="bg-white border-b px-4 py-2 flex items-center justify-between">
+      <div className="shrink-0 bg-white border-b px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
             to={`/substations/${floor?.substationId}/floors`}
@@ -2154,7 +2315,7 @@ export function FloorPlanEditorPage() {
       </div>
 
       {/* 메인 영역 */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* 평면도가 없는 경우 */}
         {isPlanNotFound ? (
           <div className="flex-1 flex items-center justify-center">
@@ -2177,7 +2338,7 @@ export function FloorPlanEditorPage() {
         ) : (
           <>
             {/* 도구 패널 */}
-            <div className="w-24 bg-white border-r flex flex-col py-2 px-1 gap-0.5">
+            <div className="w-28 shrink-0 bg-white border-r flex flex-col py-2 px-1 gap-0.5">
               <ToolButton
                 active={editorState.tool === 'select'}
                 onClick={() => setEditorState(prev => ({ ...prev, tool: 'select' }))}
@@ -2296,8 +2457,10 @@ export function FloorPlanEditorPage() {
               </ToolButton>
             </div>
 
-            {/* 캔버스 영역 */}
-            <div ref={containerRef} className="flex-1 relative overflow-hidden bg-gray-200">
+            {/* 캔버스 + 하단패널 영역 */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* 캔버스 영역 */}
+              <div ref={containerRef} className="flex-1 relative overflow-hidden bg-gray-200">
               <canvas
                 ref={canvasRef}
                 onClick={handleCanvasClick}
@@ -2543,15 +2706,11 @@ export function FloorPlanEditorPage() {
                   />
                 </div>
               )}
-            </div>
+              </div>
 
-          </>
-        )}
-      </div>
-
-      {/* 하단 속성바 - 화이트톤 스타일 */}
-      {floorPlan && (
-        <div className="h-9 bg-gray-50 border-t border-gray-200 flex items-center px-3 gap-2 text-xs">
+              {/* 하단 속성바 - 화이트톤 스타일 */}
+              {floorPlan && (
+                <div className="h-9 shrink-0 bg-gray-50 border-t border-gray-200 flex items-center px-3 gap-2 text-xs">
           {/* 선택된 요소 타입 표시 */}
           <div className="flex items-center gap-1.5 min-w-[100px]">
             <div className={`w-2 h-2 rounded-full ${
@@ -2659,8 +2818,13 @@ export function FloorPlanEditorPage() {
               <span className="bg-white px-2 py-0.5 rounded border border-gray-200 min-w-[50px] text-right">{mouseWorldPosition.y}</span>
             </div>
           </div>
-        </div>
-      )}
+                </div>
+              )}
+            </div>
+
+          </>
+        )}
+      </div>
 
       {/* 평면도 생성 모달 */}
       {createModalOpen && (
