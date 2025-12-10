@@ -1907,69 +1907,6 @@ export function FloorPlanEditorPage() {
                 </div>
               </div>
 
-              {/* 도구 안내 (좌상단) - CAD 스타일 커맨드 바 */}
-              <div className="absolute top-3 left-3 bg-gray-900/95 backdrop-blur text-white rounded shadow-lg min-w-[200px] overflow-hidden text-xs font-mono">
-                {/* 현재 도구 */}
-                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-700">
-                  <span className="text-gray-400">도구:</span>
-                  <span className="font-semibold text-green-400">
-                    {{
-                      select: '선택',
-                      line: '선',
-                      rect: '사각형',
-                      circle: '원',
-                      door: '문',
-                      window: '창문',
-                      rack: '랙',
-                      text: '텍스트',
-                      delete: '삭제',
-                    }[editorState.tool]}
-                  </span>
-                  <span className="text-gray-500 ml-auto">
-                    {{
-                      select: 'V',
-                      line: 'L',
-                      rect: 'R',
-                      circle: 'O',
-                      door: 'D',
-                      window: 'W',
-                      rack: 'K',
-                      text: 'T',
-                      delete: 'Del',
-                    }[editorState.tool]}
-                  </span>
-                </div>
-                {/* 상태별 안내 */}
-                <div className="px-3 py-1.5 text-gray-300">
-                  {editorState.tool === 'select' && (
-                    editorState.selectedIds.length > 0
-                      ? <><span className="text-yellow-400">{editorState.selectedIds.length}개 선택</span> | Del: 삭제 | H/F: 반전</>
-                      : <>클릭: 선택 | 드래그: 다중선택 | Space+드래그: 팬</>
-                  )}
-                  {editorState.tool === 'line' && (isDrawingLine
-                    ? <><span className="text-cyan-400">그리는 중</span> | 클릭: 완료 | ESC: 취소</>
-                    : <>클릭: 시작점 지정</>
-                  )}
-                  {editorState.tool === 'rect' && (isDrawingRect
-                    ? <><span className="text-cyan-400">그리는 중</span> | 클릭: 완료 | ESC: 취소</>
-                    : <>드래그: 대각선 방향으로 그리기</>
-                  )}
-                  {editorState.tool === 'circle' && (isDrawingCircle
-                    ? <><span className="text-cyan-400">반지름: {Math.round(circlePreviewRadius || 0)}px</span> | 클릭: 완료</>
-                    : <>클릭: 중심점 지정</>
-                  )}
-                  {editorState.tool === 'text' && <>클릭: 텍스트 입력 위치</>}
-                  {editorState.tool === 'door' && (
-                    <><span className="text-orange-400">문</span> | 클릭: 배치 (회전/반전은 배치 후 가능)</>
-                  )}
-                  {editorState.tool === 'window' && (
-                    <><span className="text-blue-400">창문</span> | 클릭: 배치 (회전/반전은 배치 후 가능)</>
-                  )}
-                  {editorState.tool === 'rack' && <>클릭: 랙 배치 위치</>}
-                  {editorState.tool === 'delete' && <><span className="text-red-400">삭제 모드</span> | 클릭하여 삭제</>}
-                </div>
-              </div>
-
               {/* 텍스트 입력 오버레이 */}
               {isEditingText && textInputPosition && (
                 <div
@@ -2057,13 +1994,13 @@ export function FloorPlanEditorPage() {
 
               {/* 하단 속성바 - 화이트톤 스타일 */}
               {floorPlan && (
-                <div className="h-9 shrink-0 bg-gray-50 border-t border-gray-200 flex items-center px-3 gap-2 text-xs">
+                <div className="h-14 shrink-0 bg-gray-50 border-t border-gray-200 flex items-center px-4 gap-4 text-sm">
           {/* 선택된 요소 타입 표시 */}
-          <div className="flex items-center gap-1.5 min-w-[100px]">
-            <div className={`w-2 h-2 rounded-full ${
+          <div className="flex items-center gap-2 min-w-[120px]">
+            <div className={`w-3 h-3 rounded-full ${
               editorState.selectedIds.length > 0 ? 'bg-blue-500' : 'bg-gray-400'
             }`} />
-            <span className="font-medium text-gray-700">
+            <span className="font-semibold text-gray-700">
               {editorState.selectedIds.length === 0 && '선택 없음'}
               {editorState.selectedIds.length === 1 && selectedElement && (
                 <>
@@ -2080,16 +2017,16 @@ export function FloorPlanEditorPage() {
             </span>
           </div>
 
-          <div className="w-px h-5 bg-gray-300" />
+          <div className="w-px h-7 bg-gray-300" />
 
           {/* 속성 편집 영역 */}
-          <div className="flex-1 flex items-center gap-3">
+          <div className="flex-1 flex items-center gap-4">
             {selectedElement?.elementType === 'line' && (
               <>
                 <PropertyGroup label="두께" value={`${(selectedElement.properties as LineProperties).strokeWidth || 2}px`} />
                 <PropertyGroup label="색상">
                   <span
-                    className="w-4 h-4 rounded border border-gray-300"
+                    className="w-6 h-6 rounded border border-gray-300"
                     style={{ backgroundColor: (selectedElement.properties as LineProperties).strokeColor || '#1a1a1a' }}
                   />
                 </PropertyGroup>
@@ -2152,17 +2089,17 @@ export function FloorPlanEditorPage() {
             )}
           </div>
 
-          <div className="w-px h-5 bg-gray-300" />
+          <div className="w-px h-7 bg-gray-300" />
 
           {/* 마우스 좌표 (우측 고정) - 화이트톤 스타일 */}
-          <div className="flex items-center gap-3 font-mono text-gray-600">
-            <div className="flex items-center gap-1">
-              <span className="text-gray-400">X</span>
-              <span className="bg-white px-2 py-0.5 rounded border border-gray-200 min-w-[50px] text-right">{mouseWorldPosition.x}</span>
+          <div className="flex items-center gap-4 font-mono text-gray-600">
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 font-semibold">X</span>
+              <span className="bg-white px-3 py-1 rounded border border-gray-200 min-w-[60px] text-right">{mouseWorldPosition.x}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="text-gray-400">Y</span>
-              <span className="bg-white px-2 py-0.5 rounded border border-gray-200 min-w-[50px] text-right">{mouseWorldPosition.y}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-gray-400 font-semibold">Y</span>
+              <span className="bg-white px-3 py-1 rounded border border-gray-200 min-w-[60px] text-right">{mouseWorldPosition.y}</span>
             </div>
           </div>
                 </div>
@@ -2334,10 +2271,10 @@ function PropertyGroup({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-1">
-      <span className="text-gray-500 text-[10px]">{label}</span>
+    <div className="flex items-center gap-1.5">
+      <span className="text-gray-500 text-xs font-medium">{label}</span>
       {children || (
-        <span className="bg-white px-1.5 py-0.5 rounded border border-gray-200 text-gray-700 font-mono text-[11px] min-w-[32px] text-center">
+        <span className="bg-white px-2 py-1 rounded border border-gray-200 text-gray-700 font-mono text-sm min-w-[40px] text-center">
           {value}
         </span>
       )}
