@@ -101,7 +101,7 @@ export function LoginPage() {
 
         {/* Footer */}
         <p className="text-center text-gray-500 text-sm mt-4">
-          © 2024 ICT 디지털 트윈 시스템
+          © 2026 ICT 디지털 트윈 시스템
         </p>
       </div>
     </div>
