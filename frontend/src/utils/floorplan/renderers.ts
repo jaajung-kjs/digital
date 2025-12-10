@@ -16,6 +16,96 @@ import type {
 import { LINE_STYLES } from '../../types/floorPlan';
 import { SELECTION_STYLES, ELEMENT_COLORS } from '../canvas/canvasDrawing';
 import { roundRect } from '../canvas/canvasTransform';
+import { distance } from '../geometry/geometryUtils';
+
+// ============================================
+// 길이 표시 유틸리티
+// ============================================
+
+/**
+ * 선분 중간에 길이(픽셀) 표시
+ * @param zoom 현재 줌 레벨 (100 = 100%)
+ */
+export function renderLengthLabel(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  zoom: number = 100,
+  color: string = '#1a1a1a',
+  backgroundColor: string = 'rgba(255, 255, 255, 0.9)'
+): void {
+  const length = Math.round(distance(x1, y1, x2, y2));
+  if (length < 10) return; // 너무 짧으면 표시 안함
+
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+
+  // 줌에 반비례하는 폰트 크기 (줌이 작을수록 글씨가 커짐)
+  const baseFontSize = 12;
+  const fontSize = Math.max(10, Math.min(16, baseFontSize * (100 / zoom)));
+
+  const text = `${length}px`;
+
+  ctx.save();
+  ctx.font = `${fontSize}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const textMetrics = ctx.measureText(text);
+  const padding = 3;
+  const bgWidth = textMetrics.width + padding * 2;
+  const bgHeight = fontSize + padding * 2;
+
+  // 배경
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(midX - bgWidth / 2, midY - bgHeight / 2, bgWidth, bgHeight);
+
+  // 텍스트
+  ctx.fillStyle = color;
+  ctx.fillText(text, midX, midY);
+  ctx.restore();
+}
+
+/**
+ * 미리보기용 길이 표시 (반투명 배경)
+ */
+function renderPreviewLengthLabel(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): void {
+  const length = Math.round(distance(x1, y1, x2, y2));
+  if (length < 5) return;
+
+  const midX = (x1 + x2) / 2;
+  const midY = (y1 + y2) / 2;
+
+  const text = `${length}px`;
+  const fontSize = 12;
+
+  ctx.save();
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const textMetrics = ctx.measureText(text);
+  const padding = 4;
+  const bgWidth = textMetrics.width + padding * 2;
+  const bgHeight = fontSize + padding * 2;
+
+  // 배경
+  ctx.fillStyle = 'rgba(59, 130, 246, 0.9)';
+  ctx.fillRect(midX - bgWidth / 2, midY - bgHeight / 2, bgWidth, bgHeight);
+
+  // 텍스트
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, midX, midY);
+  ctx.restore();
+}
 
 // ============================================
 // 변환 유틸리티
@@ -112,6 +202,9 @@ export function renderLinePreview(
     ctx.beginPath();
     ctx.arc(endPoint[0], endPoint[1], SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
     ctx.fill();
+
+    // 선분 길이 표시
+    renderPreviewLengthLabel(ctx, startPoint[0], startPoint[1], endPoint[0], endPoint[1]);
   }
 }
 
@@ -226,7 +319,8 @@ export function renderCircle(
 export function renderCirclePreview(
   ctx: CanvasRenderingContext2D,
   center: { x: number; y: number },
-  radius: number
+  radius: number,
+  endPoint?: { x: number; y: number }
 ): void {
   ctx.fillStyle = SELECTION_STYLES.point;
   ctx.beginPath();
@@ -234,6 +328,7 @@ export function renderCirclePreview(
   ctx.fill();
 
   if (radius > 0) {
+    // 원 미리보기
     ctx.strokeStyle = SELECTION_STYLES.stroke;
     ctx.lineWidth = 2;
     ctx.setLineDash([4, 4]);
@@ -241,6 +336,27 @@ export function renderCirclePreview(
     ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // 반지름 선분 미리보기 (중심 → 끝점)
+    if (endPoint) {
+      ctx.strokeStyle = SELECTION_STYLES.stroke;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(center.x, center.y);
+      ctx.lineTo(endPoint.x, endPoint.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 끝점 표시
+      ctx.fillStyle = SELECTION_STYLES.point;
+      ctx.beginPath();
+      ctx.arc(endPoint.x, endPoint.y, SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 반지름 길이 표시
+      renderPreviewLengthLabel(ctx, center.x, center.y, endPoint.x, endPoint.y);
+    }
   }
 }
 
@@ -564,4 +680,81 @@ export function renderPlacementPreview(
   }
 
   ctx.restore();
+}
+
+// ============================================
+// 픽셀 길이 표시 (토글 기능)
+// ============================================
+
+/**
+ * 모든 Element의 선분 길이 표시
+ * Line: 각 선분의 길이
+ * Circle: 반지름 길이
+ * Rect: 가로/세로 길이
+ */
+export function renderElementLengths(
+  ctx: CanvasRenderingContext2D,
+  elements: FloorPlanElement[],
+  zoom: number = 100
+): void {
+  elements.forEach(element => {
+    if (!element.isVisible) return;
+
+    if (element.elementType === 'line') {
+      const props = element.properties as LineProperties;
+      if (!props.points || props.points.length < 2) return;
+
+      // 각 선분에 길이 표시
+      for (let i = 0; i < props.points.length - 1; i++) {
+        const [x1, y1] = props.points[i];
+        const [x2, y2] = props.points[i + 1];
+        renderLengthLabel(ctx, x1, y1, x2, y2, zoom);
+      }
+    } else if (element.elementType === 'circle') {
+      const props = element.properties as CircleProperties;
+      // 반지름 선분 (중심 → 오른쪽)
+      const endX = props.cx + props.radius;
+      const endY = props.cy;
+
+      // 반지름 선 그리기
+      ctx.save();
+      ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(props.cx, props.cy);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      renderLengthLabel(ctx, props.cx, props.cy, endX, endY, zoom);
+    } else if (element.elementType === 'rect') {
+      const props = element.properties as RectProperties;
+      // 상단 변
+      renderLengthLabel(ctx, props.x, props.y, props.x + props.width, props.y, zoom);
+      // 하단 변
+      renderLengthLabel(ctx, props.x, props.y + props.height, props.x + props.width, props.y + props.height, zoom);
+      // 좌측 변
+      renderLengthLabel(ctx, props.x, props.y, props.x, props.y + props.height, zoom);
+      // 우측 변
+      renderLengthLabel(ctx, props.x + props.width, props.y, props.x + props.width, props.y + props.height, zoom);
+    }
+  });
+}
+
+/**
+ * 모든 Rack의 가로/세로 길이 표시
+ */
+export function renderRackLengths(
+  ctx: CanvasRenderingContext2D,
+  racks: RackItem[],
+  zoom: number = 100
+): void {
+  racks.forEach(rack => {
+    // 가로 (상단 변)
+    renderLengthLabel(ctx, rack.positionX, rack.positionY, rack.positionX + rack.width, rack.positionY, zoom);
+    // 세로 (좌측 변)
+    renderLengthLabel(ctx, rack.positionX, rack.positionY, rack.positionX, rack.positionY + rack.height, zoom);
+  });
 }

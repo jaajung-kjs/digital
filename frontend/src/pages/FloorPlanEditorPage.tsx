@@ -28,6 +28,8 @@ import {
   renderPlacementPreview,
   renderElements,
   renderRacks,
+  renderElementLengths,
+  renderRackLengths,
   type DrawingToolType,
 } from '../utils/floorplan/renderers';
 import { findItemAt } from '../utils/floorplan/hitTestUtils';
@@ -189,6 +191,7 @@ export function FloorPlanEditorPage() {
   const [isDrawingCircle, setIsDrawingCircle] = useState(false);
   const [circleCenter, setCircleCenter] = useState<{ x: number; y: number } | null>(null);
   const [circlePreviewRadius, setCirclePreviewRadius] = useState<number>(0);
+  const [circlePreviewEnd, setCirclePreviewEnd] = useState<{ x: number; y: number } | null>(null);
 
   // 사각형 드래그 그리기 상태
   const [isDrawingRect, setIsDrawingRect] = useState(false);
@@ -202,6 +205,9 @@ export function FloorPlanEditorPage() {
 
   // 오브젝트 미리보기 상태 (회전은 배치 후에만 가능)
   const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // 픽셀 길이 표시 토글
+  const [showLengths, setShowLengths] = useState(false);
 
   // 드래그 상태 (표준화된 드래그 시스템 사용)
   const [dragSession, setDragSession] = useState<DragSession | null>(null);
@@ -527,6 +533,12 @@ export function FloorPlanEditorPage() {
     // 랙 렌더링 (표준화된 렌더러 사용)
     renderRacks(ctx, localRacks, editorState.selectedIds);
 
+    // 픽셀 길이 표시 (토글)
+    if (showLengths) {
+      renderElementLengths(ctx, localElements, editorState.zoom);
+      renderRackLengths(ctx, localRacks, editorState.zoom);
+    }
+
     // 선 그리기 미리보기
     if (isDrawingLine && linePoints.length === 1) {
       renderLinePreview(ctx, linePoints[0], linePreviewEnd);
@@ -534,7 +546,7 @@ export function FloorPlanEditorPage() {
 
     // 원 그리기 미리보기
     if (isDrawingCircle && circleCenter) {
-      renderCirclePreview(ctx, circleCenter, circlePreviewRadius);
+      renderCirclePreview(ctx, circleCenter, circlePreviewRadius, circlePreviewEnd || undefined);
     }
 
     // 사각형 그리기 미리보기
@@ -548,7 +560,7 @@ export function FloorPlanEditorPage() {
     }
 
     ctx.restore();
-  }, [floorPlan, localElements, localRacks, editorState, isDrawingLine, linePoints, linePreviewEnd, isDrawingCircle, circleCenter, circlePreviewRadius, isDrawingRect, rectStart, rectPreviewEnd, previewPosition]);
+  }, [floorPlan, localElements, localRacks, editorState, isDrawingLine, linePoints, linePreviewEnd, isDrawingCircle, circleCenter, circlePreviewRadius, circlePreviewEnd, isDrawingRect, rectStart, rectPreviewEnd, previewPosition, showLengths]);
 
   // 캔버스 크기 조정 및 렌더링
   useEffect(() => {
@@ -671,6 +683,7 @@ export function FloorPlanEditorPage() {
       const dy = snapped.y - circleCenter.y;
       const radius = Math.sqrt(dx * dx + dy * dy);
       setCirclePreviewRadius(Math.max(5, radius));
+      setCirclePreviewEnd({ x: snapped.x, y: snapped.y });
       return;
     }
 
@@ -836,6 +849,7 @@ export function FloorPlanEditorPage() {
           setIsDrawingCircle(false);
           setCircleCenter(null);
           setCirclePreviewRadius(0);
+          setCirclePreviewEnd(null);
           setHasChanges(true);
           setEditorState(prev => ({ ...prev, tool: 'select' }));
         }
@@ -987,6 +1001,7 @@ export function FloorPlanEditorPage() {
         setIsDrawingCircle(false);
         setCircleCenter(null);
         setCirclePreviewRadius(0);
+        setCirclePreviewEnd(null);
         setIsEditingText(false);
         setTextInputPosition(null);
         setTextInputValue('');
@@ -1634,6 +1649,24 @@ export function FloorPlanEditorPage() {
                 </button>
               </div>
             </div>
+
+            <div className="border-l h-6 mx-2" />
+
+            {/* 픽셀 길이 표시 토글 */}
+            <button
+              onClick={() => setShowLengths(prev => !prev)}
+              className={`p-2 rounded-lg flex items-center gap-1 text-xs ${
+                showLengths
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'hover:bg-gray-100 text-gray-600'
+              }`}
+              title="픽셀 길이 표시 (선/원/사각형/랙)"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+              <span>px</span>
+            </button>
 
             <div className="border-l h-6 mx-2" />
             <button
