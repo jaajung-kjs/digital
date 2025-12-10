@@ -65,6 +65,15 @@ api.interceptors.response.use(
 
     // 401 에러이고 재시도하지 않은 경우
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // 인증 관련 요청은 토큰 갱신 로직 스킵 (로그인 실패 등은 그대로 전파)
+      const authEndpoints = ['/auth/login', '/auth/register'];
+      const isAuthRequest = authEndpoints.some((endpoint) =>
+        originalRequest.url?.includes(endpoint)
+      );
+      if (isAuthRequest) {
+        return Promise.reject(error);
+      }
+
       // refresh 요청 자체가 실패한 경우
       if (originalRequest.url?.includes('/auth/refresh')) {
         tokenStorage.clearTokens();
