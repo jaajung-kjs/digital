@@ -683,7 +683,7 @@ export function RackEditorPage() {
       {/* 메인 - 4:4:2 비율 (최대 높이 제한) */}
       <div className="flex-1 flex overflow-hidden max-h-[800px]">
         {/* 캔버스 영역 - 40% */}
-        <div ref={containerRef} className="w-[40%] overflow-auto bg-gray-50 border-r flex items-center justify-center">
+        <div ref={containerRef} className="w-[40%] overflow-hidden bg-gray-50 border-r flex items-center justify-center">
           <canvas
             ref={canvasRef}
             onMouseDown={handleMouseDown}
