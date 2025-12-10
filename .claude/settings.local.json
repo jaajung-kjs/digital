@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker logs:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(docker history:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:postgres123@localhost:5432/ict_digital_twin\" npx prisma migrate dev:*)",
+      "Bash(npm install:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:postgres123@localhost:5432/ict_digital_twin\" npx prisma migrate deploy:*)",
+      "Bash(DATABASE_URL=\"postgresql://postgres:postgres123@localhost:5432/ict_digital_twin\" npm run db:seed:*)",
+      "Bash(npx prisma:*)",
+      "Bash(git pull:*)",
+      "Bash(npm run build:*)",
+      "Bash(git checkout:*)",
+      "Bash(wc:*)"
+    ]
+  }
+}

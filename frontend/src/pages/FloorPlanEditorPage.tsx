@@ -150,9 +150,12 @@ function calculateFitToContent(
   const zoom = Math.min(zoomX, zoomY, 100); // 최대 100%
 
   // 콘텐츠 중앙 정렬을 위한 pan 계산
+  // 콘텐츠의 중심점을 캔버스 중심에 배치
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
   const scale = zoom / 100;
-  const panX = (canvasWidth - contentWidth * scale) / 2 - minX * scale;
-  const panY = (canvasHeight - contentHeight * scale) / 2 - minY * scale;
+  const panX = canvasWidth / 2 - centerX * scale;
+  const panY = canvasHeight / 2 - centerY * scale;
 
   return { zoom: Math.round(zoom), panX, panY };
 }
