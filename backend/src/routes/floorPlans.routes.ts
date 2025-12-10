@@ -17,23 +17,26 @@ const createFloorPlanSchema = z.object({
   gridSize: z.number().int().min(5).max(100).optional(),
 });
 
+// v2 CAD 스타일 요소 타입: line, rect, circle, door, window, text
+const elementTypeEnum = z.enum(['line', 'rect', 'circle', 'door', 'window', 'text']);
+
 const elementSchema = z.object({
   id: z.string().uuid().nullish(),
-  elementType: z.enum(['wall', 'door', 'window', 'column']),
+  elementType: elementTypeEnum,
   properties: z.record(z.unknown()),
   zIndex: z.number().int().optional(),
   isVisible: z.boolean().optional(),
 });
 
 const createElementSchema = z.object({
-  elementType: z.enum(['wall', 'door', 'window', 'column']),
+  elementType: elementTypeEnum,
   properties: z.record(z.unknown()),
   zIndex: z.number().int().optional(),
   isVisible: z.boolean().optional(),
 });
 
 const updateElementSchema = z.object({
-  elementType: z.enum(['wall', 'door', 'window', 'column']).optional(),
+  elementType: elementTypeEnum.optional(),
   properties: z.record(z.unknown()).optional(),
   zIndex: z.number().int().optional(),
   isVisible: z.boolean().optional(),

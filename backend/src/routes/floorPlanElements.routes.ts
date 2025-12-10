@@ -9,7 +9,7 @@ const router = Router();
 // ==================== Validation Schemas ====================
 
 const updateElementSchema = z.object({
-  elementType: z.enum(['wall', 'door', 'window', 'column']).optional(),
+  elementType: z.enum(['line', 'rect', 'circle', 'door', 'window', 'text']).optional(),
   properties: z.record(z.unknown()).optional(),
   zIndex: z.number().int().optional(),
   isVisible: z.boolean().optional(),

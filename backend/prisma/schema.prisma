@@ -128,7 +128,7 @@ model FloorPlan {
 model FloorPlanElement {
   id          String   @id @default(uuid())
   floorPlanId String   @map("floor_plan_id")
-  elementType String   @map("element_type") @db.VarChar(20) // wall, door, window, column
+  elementType String   @map("element_type") @db.VarChar(20) // line, rect, circle, door, window, text
   properties  Json     // 타입별 속성 JSON
   zIndex      Int      @default(0) @map("z_index")
   isVisible   Boolean  @default(true) @map("is_visible")
