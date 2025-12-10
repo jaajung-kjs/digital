@@ -21,6 +21,7 @@ import type { FloorDetail } from '../types';
 
 // 유틸리티 함수 import
 import { snapToGrid as snapToGridUtil } from '../utils/canvas/canvasTransform';
+import { distance } from '../utils/geometry/geometryUtils';
 import {
   renderLinePreview,
   renderCirclePreview,
@@ -2052,72 +2053,332 @@ export function FloorPlanEditorPage() {
 
           <div className="w-px h-7 bg-gray-300" />
 
-          {/* 속성 편집 영역 */}
-          <div className="flex-1 flex items-center gap-4">
-            {selectedElement?.elementType === 'line' && (
-              <>
-                <PropertyGroup label="두께" value={`${(selectedElement.properties as LineProperties).strokeWidth || 2}px`} />
-                <PropertyGroup label="색상">
-                  <span
-                    className="w-6 h-6 rounded border border-gray-300"
-                    style={{ backgroundColor: (selectedElement.properties as LineProperties).strokeColor || '#1a1a1a' }}
+          {/* 속성 편집 영역 - 위치/크기 정보 위주 */}
+          <div className="flex-1 flex items-center gap-3 overflow-x-auto">
+            {/* Line: 시작점, 끝점, 길이 */}
+            {selectedElement?.elementType === 'line' && (() => {
+              const props = selectedElement.properties as LineProperties;
+              const points = props.points || [];
+              const start = points[0] || [0, 0];
+              const end = points[points.length - 1] || [0, 0];
+              const len = points.length >= 2 ? Math.round(distance(start[0], start[1], end[0], end[1])) : 0;
+              return (
+                <>
+                  <PropertyInput
+                    label="X1"
+                    value={Math.round(start[0])}
+                    onChange={(v) => {
+                      const newPoints = [...points];
+                      newPoints[0] = [v as number, start[1]];
+                      setLocalElements(updateElementProperty(selectedElement.id, 'points', newPoints));
+                      setHasChanges(true);
+                    }}
                   />
-                </PropertyGroup>
-                <PropertyGroup label="스타일" value={(selectedElement.properties as LineProperties).strokeStyle || 'solid'} />
-              </>
-            )}
-            {selectedElement?.elementType === 'rect' && (
-              <>
-                <PropertyGroup label="X" value={(selectedElement.properties as RectProperties).x} />
-                <PropertyGroup label="Y" value={(selectedElement.properties as RectProperties).y} />
-                <PropertyGroup label="W" value={(selectedElement.properties as RectProperties).width} />
-                <PropertyGroup label="H" value={(selectedElement.properties as RectProperties).height} />
-                <PropertyGroup label="R" value={`${(selectedElement.properties as RectProperties).rotation || 0}°`} />
-              </>
-            )}
-            {selectedElement?.elementType === 'circle' && (
-              <>
-                <PropertyGroup label="X" value={(selectedElement.properties as CircleProperties).cx} />
-                <PropertyGroup label="Y" value={(selectedElement.properties as CircleProperties).cy} />
-                <PropertyGroup label="반지름" value={(selectedElement.properties as CircleProperties).radius} />
-              </>
-            )}
-            {selectedElement?.elementType === 'door' && (
-              <>
-                <PropertyGroup label="X" value={(selectedElement.properties as DoorProperties).x} />
-                <PropertyGroup label="Y" value={(selectedElement.properties as DoorProperties).y} />
-                <PropertyGroup label="W" value={(selectedElement.properties as DoorProperties).width} />
-                <PropertyGroup label="R" value={`${(selectedElement.properties as DoorProperties).rotation || 0}°`} />
-                <PropertyGroup label="FlipH" value={(selectedElement.properties as DoorProperties).flipH ? 'Y' : 'N'} />
-                <PropertyGroup label="FlipV" value={(selectedElement.properties as DoorProperties).flipV ? 'Y' : 'N'} />
-              </>
-            )}
-            {selectedElement?.elementType === 'window' && (
-              <>
-                <PropertyGroup label="X" value={(selectedElement.properties as WindowProperties).x} />
-                <PropertyGroup label="Y" value={(selectedElement.properties as WindowProperties).y} />
-                <PropertyGroup label="W" value={(selectedElement.properties as WindowProperties).width} />
-                <PropertyGroup label="R" value={`${(selectedElement.properties as WindowProperties).rotation || 0}°`} />
-                <PropertyGroup label="FlipH" value={(selectedElement.properties as WindowProperties).flipH ? 'Y' : 'N'} />
-                <PropertyGroup label="FlipV" value={(selectedElement.properties as WindowProperties).flipV ? 'Y' : 'N'} />
-              </>
-            )}
-            {selectedElement?.elementType === 'text' && (
-              <>
-                <PropertyGroup label="X" value={(selectedElement.properties as TextProperties).x} />
-                <PropertyGroup label="Y" value={(selectedElement.properties as TextProperties).y} />
-                <PropertyGroup label="크기" value={`${(selectedElement.properties as TextProperties).fontSize}px`} />
-                <PropertyGroup label="텍스트" value={(selectedElement.properties as TextProperties).text} />
-              </>
-            )}
+                  <PropertyInput
+                    label="Y1"
+                    value={Math.round(start[1])}
+                    onChange={(v) => {
+                      const newPoints = [...points];
+                      newPoints[0] = [start[0], v as number];
+                      setLocalElements(updateElementProperty(selectedElement.id, 'points', newPoints));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="X2"
+                    value={Math.round(end[0])}
+                    onChange={(v) => {
+                      const newPoints = [...points];
+                      newPoints[newPoints.length - 1] = [v as number, end[1]];
+                      setLocalElements(updateElementProperty(selectedElement.id, 'points', newPoints));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="Y2"
+                    value={Math.round(end[1])}
+                    onChange={(v) => {
+                      const newPoints = [...points];
+                      newPoints[newPoints.length - 1] = [end[0], v as number];
+                      setLocalElements(updateElementProperty(selectedElement.id, 'points', newPoints));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput label="길이" value={len} suffix="px" readOnly />
+                </>
+              );
+            })()}
+
+            {/* Rect: X, Y, W, H, 회전 */}
+            {selectedElement?.elementType === 'rect' && (() => {
+              const props = selectedElement.properties as RectProperties;
+              return (
+                <>
+                  <PropertyInput
+                    label="X"
+                    value={Math.round(props.x)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'x', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="Y"
+                    value={Math.round(props.y)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'y', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="W"
+                    value={Math.round(props.width)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'width', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="H"
+                    value={Math.round(props.height)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'height', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="R"
+                    value={props.rotation || 0}
+                    suffix="°"
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'rotation', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                </>
+              );
+            })()}
+
+            {/* Circle: 중심 X, Y, 반지름 */}
+            {selectedElement?.elementType === 'circle' && (() => {
+              const props = selectedElement.properties as CircleProperties;
+              return (
+                <>
+                  <PropertyInput
+                    label="X"
+                    value={Math.round(props.cx)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'cx', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="Y"
+                    value={Math.round(props.cy)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'cy', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="반지름"
+                    value={Math.round(props.radius)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'radius', v as number));
+                      setHasChanges(true);
+                    }}
+                    width="w-20"
+                  />
+                </>
+              );
+            })()}
+
+            {/* Door: X, Y, W, 회전 */}
+            {selectedElement?.elementType === 'door' && (() => {
+              const props = selectedElement.properties as DoorProperties;
+              return (
+                <>
+                  <PropertyInput
+                    label="X"
+                    value={Math.round(props.x)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'x', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="Y"
+                    value={Math.round(props.y)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'y', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="W"
+                    value={Math.round(props.width)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'width', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="R"
+                    value={props.rotation || 0}
+                    suffix="°"
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'rotation', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                </>
+              );
+            })()}
+
+            {/* Window: X, Y, W, 회전 */}
+            {selectedElement?.elementType === 'window' && (() => {
+              const props = selectedElement.properties as WindowProperties;
+              return (
+                <>
+                  <PropertyInput
+                    label="X"
+                    value={Math.round(props.x)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'x', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="Y"
+                    value={Math.round(props.y)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'y', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="W"
+                    value={Math.round(props.width)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'width', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="R"
+                    value={props.rotation || 0}
+                    suffix="°"
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'rotation', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                </>
+              );
+            })()}
+
+            {/* Text: X, Y, 크기, 텍스트 */}
+            {selectedElement?.elementType === 'text' && (() => {
+              const props = selectedElement.properties as TextProperties;
+              return (
+                <>
+                  <PropertyInput
+                    label="X"
+                    value={Math.round(props.x)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'x', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="Y"
+                    value={Math.round(props.y)}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'y', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="크기"
+                    value={props.fontSize || 14}
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'fontSize', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                  <PropertyInput
+                    label="R"
+                    value={props.rotation || 0}
+                    suffix="°"
+                    onChange={(v) => {
+                      setLocalElements(updateElementProperty(selectedElement.id, 'rotation', v as number));
+                      setHasChanges(true);
+                    }}
+                  />
+                </>
+              );
+            })()}
+
+            {/* Rack: X, Y, W, H, 회전 */}
             {selectedRack && (
               <>
-                <PropertyGroup label="X" value={selectedRack.positionX} />
-                <PropertyGroup label="Y" value={selectedRack.positionY} />
-                <PropertyGroup label="W" value={selectedRack.width} />
-                <PropertyGroup label="H" value={selectedRack.height} />
-                <PropertyGroup label="R" value={`${selectedRack.rotation}°`} />
-                <PropertyGroup label="U" value={`${selectedRack.totalU}U`} />
+                <PropertyInput
+                  label="X"
+                  value={Math.round(selectedRack.positionX)}
+                  onChange={(v) => {
+                    setLocalRacks(prev => prev.map(r =>
+                      r.id === selectedRack.id ? { ...r, positionX: v as number } : r
+                    ));
+                    setHasChanges(true);
+                  }}
+                />
+                <PropertyInput
+                  label="Y"
+                  value={Math.round(selectedRack.positionY)}
+                  onChange={(v) => {
+                    setLocalRacks(prev => prev.map(r =>
+                      r.id === selectedRack.id ? { ...r, positionY: v as number } : r
+                    ));
+                    setHasChanges(true);
+                  }}
+                />
+                <PropertyInput
+                  label="W"
+                  value={Math.round(selectedRack.width)}
+                  onChange={(v) => {
+                    setLocalRacks(prev => prev.map(r =>
+                      r.id === selectedRack.id ? { ...r, width: v as number } : r
+                    ));
+                    setHasChanges(true);
+                  }}
+                />
+                <PropertyInput
+                  label="H"
+                  value={Math.round(selectedRack.height)}
+                  onChange={(v) => {
+                    setLocalRacks(prev => prev.map(r =>
+                      r.id === selectedRack.id ? { ...r, height: v as number } : r
+                    ));
+                    setHasChanges(true);
+                  }}
+                />
+                <PropertyInput
+                  label="R"
+                  value={selectedRack.rotation}
+                  suffix="°"
+                  onChange={(v) => {
+                    setLocalRacks(prev => prev.map(r =>
+                      r.id === selectedRack.id ? { ...r, rotation: v as number } : r
+                    ));
+                    setHasChanges(true);
+                  }}
+                />
+                <PropertyInput
+                  label="U"
+                  value={selectedRack.totalU}
+                  suffix="U"
+                  readOnly
+                />
               </>
             )}
           </div>
@@ -2293,24 +2554,74 @@ function ToolButton({
   );
 }
 
-// 속성 그룹 컴포넌트 (하단 속성바용 - 화이트톤)
-function PropertyGroup({
+// 편집 가능한 속성 입력 컴포넌트 (하단 속성바용) - Enter로 반영
+function PropertyInput({
   label,
   value,
-  children
+  onChange,
+  type = 'number',
+  suffix = '',
+  readOnly = false,
+  width = 'w-16',
+  defaultValue = 0,
 }: {
   label: string;
-  value?: string | number;
-  children?: React.ReactNode;
+  value: string | number;
+  onChange?: (value: number | string) => void;
+  type?: 'number' | 'text';
+  suffix?: string;
+  readOnly?: boolean;
+  width?: string;
+  defaultValue?: number;
 }) {
+  const [localValue, setLocalValue] = useState<string>(String(value));
+
+  // 외부 value가 변경되면 localValue 동기화
+  useEffect(() => {
+    setLocalValue(String(value));
+  }, [value]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!onChange) return;
+      if (type === 'number') {
+        const num = parseFloat(localValue);
+        onChange(isNaN(num) ? defaultValue : num);
+      } else {
+        onChange(localValue || '');
+      }
+      (e.target as HTMLInputElement).blur();
+    } else if (e.key === 'Escape') {
+      setLocalValue(String(value));
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  const handleBlur = () => {
+    // blur 시에도 반영
+    if (!onChange) return;
+    if (type === 'number') {
+      const num = parseFloat(localValue);
+      onChange(isNaN(num) ? defaultValue : num);
+    } else {
+      onChange(localValue || '');
+    }
+  };
+
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-gray-500 text-xs font-medium">{label}</span>
-      {children || (
-        <span className="bg-white px-2 py-1 rounded border border-gray-200 text-gray-700 font-mono text-sm min-w-[40px] text-center">
-          {value}
-        </span>
-      )}
+    <div className="flex items-center gap-1">
+      <span className="text-gray-500 text-xs font-medium min-w-[24px]">{label}</span>
+      <input
+        type="text"
+        value={localValue}
+        onChange={(e) => setLocalValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
+        readOnly={readOnly}
+        className={`${width} px-1.5 py-0.5 rounded border border-gray-200 text-gray-700 font-mono text-sm text-center focus:border-blue-400 focus:outline-none ${readOnly ? 'bg-gray-100 cursor-default' : 'bg-white'}`}
+      />
+      {suffix && <span className="text-gray-400 text-xs">{suffix}</span>}
     </div>
   );
 }
