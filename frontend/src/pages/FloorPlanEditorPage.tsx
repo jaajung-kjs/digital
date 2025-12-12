@@ -170,6 +170,7 @@ export function FloorPlanEditorPage() {
   const queryClient = useQueryClient();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isSavingRef = useRef(false);  // 저장 중 여부 추적 (저장 후 refetch 시 뷰포트 유지용)
 
   const [editorState, setEditorState] = useState<EditorState>(initialEditorState);
   const [localElements, setLocalElements] = useState<FloorPlanElement[]>([]);
@@ -180,8 +181,16 @@ export function FloorPlanEditorPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [rackModalOpen, setRackModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [pasteRackModalOpen, setPasteRackModalOpen] = useState(false);  // Rack 붙여넣기 모달
   const [newPlanName, setNewPlanName] = useState('');
   const [newRackName, setNewRackName] = useState('');
+  const [pasteRackName, setPasteRackName] = useState('');  // 붙여넣기할 Rack 이름
+
+  // 클립보드 상태 (복사/붙여넣기용)
+  const [clipboard, setClipboard] = useState<{
+    type: 'element' | 'rack';
+    data: FloorPlanElement | RackItem;
+  } | null>(null);
 
   // 선 그리기 상태
   const [isDrawingLine, setIsDrawingLine] = useState(false);
@@ -270,8 +279,10 @@ export function FloorPlanEditorPage() {
 
   // 평면도 저장
   const saveMutation = useMutation({
-    mutationFn: (data: UpdateFloorPlanRequest) =>
-      api.put(`/floor-plans/${floorPlan?.id}`, data),
+    mutationFn: (data: UpdateFloorPlanRequest) => {
+      isSavingRef.current = true;  // 저장 시작 표시
+      return api.put(`/floor-plans/${floorPlan?.id}`, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
       setHasChanges(false);
@@ -356,10 +367,17 @@ export function FloorPlanEditorPage() {
         ...prev,
         gridSize: floorPlan.gridSize,
       }));
+
+      // 저장 후 refetch인 경우 히스토리/뷰포트 재초기화 스킵
+      if (isSavingRef.current) {
+        isSavingRef.current = false;
+        return;
+      }
+
       // 초기 히스토리 설정
       setHistory([{ elements, racks: floorPlan.racks }]);
       setHistoryIndex(0);
-      // 뷰포트 초기화 플래그 리셋 (데이터 로드 시마다)
+      // 뷰포트 초기화 플래그 리셋 (초기 로드 시만)
       setViewportInitialized(false);
     }
   }, [floorPlan]);
@@ -970,6 +988,11 @@ export function FloorPlanEditorPage() {
         y >= rack.positionY &&
         y <= rack.positionY + rack.height
       ) {
+        // 미저장 Rack인 경우 (temp- 접두사) 안내 메시지 표시
+        if (rack.id.startsWith('temp-')) {
+          alert('랙을 먼저 저장한 후 상세 설정을 수정할 수 있습니다.');
+          return;  // 페이지 이동 없음 - 모든 변경사항 유지됨
+        }
         // 랙 에디터로 이동
         navigate(`/racks/${rack.id}`);
         return;
@@ -1013,7 +1036,7 @@ export function FloorPlanEditorPage() {
       }
 
       // 도구 단축키 (CAD 스타일)
-      if (e.key === 'v' || e.key === 'V') setEditorState(prev => ({ ...prev, tool: 'select' }));
+      if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey) setEditorState(prev => ({ ...prev, tool: 'select' }));
       if (e.key === 'l' || e.key === 'L') setEditorState(prev => ({ ...prev, tool: 'line' }));
       if (e.key === 'r' || e.key === 'R') setEditorState(prev => ({ ...prev, tool: 'rect' }));
       if (e.key === 'o' || e.key === 'O') setEditorState(prev => ({ ...prev, tool: 'circle' }));
@@ -1128,6 +1151,54 @@ export function FloorPlanEditorPage() {
         e.preventDefault();
         redo();
       }
+
+      // Ctrl+C 복사
+      if (e.ctrlKey && e.key === 'c') {
+        if (selectedElement) {
+          e.preventDefault();
+          setClipboard({ type: 'element', data: { ...selectedElement } });
+        } else if (selectedRack) {
+          e.preventDefault();
+          setClipboard({ type: 'rack', data: { ...selectedRack } });
+        }
+      }
+
+      // Ctrl+V 붙여넣기
+      if (e.ctrlKey && e.key === 'v' && clipboard) {
+        e.preventDefault();
+        if (clipboard.type === 'element') {
+          // Element 붙여넣기: 새 ID 생성하고 위치 오프셋
+          const original = clipboard.data as FloorPlanElement;
+          const newElement: FloorPlanElement = {
+            ...original,
+            id: `temp-${Date.now()}`,
+            properties: { ...original.properties },
+          };
+          // 위치 오프셋 적용 (20px 이동)
+          const props = newElement.properties as unknown as Record<string, unknown>;
+          if ('x' in props && typeof props.x === 'number') props.x += 20;
+          if ('y' in props && typeof props.y === 'number') props.y += 20;
+          if ('cx' in props && typeof props.cx === 'number') props.cx += 20;
+          if ('cy' in props && typeof props.cy === 'number') props.cy += 20;
+          if ('points' in props && Array.isArray(props.points)) {
+            props.points = (props.points as [number, number][]).map(([px, py]) => [px + 20, py + 20]);
+          }
+
+          const newElements = [...localElements, newElement];
+          setLocalElements(newElements);
+          pushHistory(newElements, localRacks);
+          setHasChanges(true);
+          setSelectedElement(newElement);
+          setSelectedRack(null);
+          setEditorState(prev => ({ ...prev, selectedIds: [newElement.id] }));
+          // 클립보드 위치 업데이트 (다음 붙여넣기 시 연속 오프셋)
+          setClipboard({ type: 'element', data: newElement });
+        } else if (clipboard.type === 'rack') {
+          // Rack 붙여넣기: 모달 열어서 새 이름 입력받기
+          setPasteRackName('');
+          setPasteRackModalOpen(true);
+        }
+      }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -1143,7 +1214,7 @@ export function FloorPlanEditorPage() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [editorState.selectedIds, editorState.gridSnap, editorState.tool, localElements, localRacks, undo, redo, pushHistory, selectedElement]);
+  }, [editorState.selectedIds, editorState.gridSnap, editorState.tool, localElements, localRacks, undo, redo, pushHistory, selectedElement, selectedRack, clipboard]);
 
   // 저장 핸들러
   const handleSave = () => {
@@ -1248,6 +1319,31 @@ export function FloorPlanEditorPage() {
     setNewRackName('');
     setHasChanges(true);
     setEditorState(prev => ({ ...prev, tool: 'select' }));
+  };
+
+  // 랙 붙여넣기 (클립보드에서)
+  const handlePasteRack = () => {
+    if (!clipboard || clipboard.type !== 'rack') return;
+
+    const original = clipboard.data as RackItem;
+    const newRack: RackItem = {
+      ...original,
+      id: `temp-${Date.now()}`,
+      name: pasteRackName,  // 새로 입력받은 이름 사용
+      positionX: original.positionX + 20,  // 위치 오프셋
+      positionY: original.positionY + 20,
+    };
+    const newRacks = [...localRacks, newRack];
+    setLocalRacks(newRacks);
+    pushHistory(localElements, newRacks);
+    setPasteRackModalOpen(false);
+    setPasteRackName('');
+    setHasChanges(true);
+    setSelectedRack(newRack);
+    setSelectedElement(null);
+    setEditorState(prev => ({ ...prev, selectedIds: [newRack.id] }));
+    // 클립보드 위치 업데이트 (다음 붙여넣기 시 연속 오프셋)
+    setClipboard({ type: 'rack', data: newRack });
   };
 
   // 평면도가 없는 경우
@@ -2472,6 +2568,52 @@ export function FloorPlanEditorPage() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 랙 붙여넣기 모달 */}
+      {pasteRackModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">랙 붙여넣기</h3>
+            <p className="text-sm text-gray-500 mb-3">
+              복사한 랙의 새 이름을 입력하세요.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">랙 이름</label>
+              <input
+                type="text"
+                value={pasteRackName}
+                onChange={(e) => setPasteRackName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && pasteRackName) {
+                    handlePasteRack();
+                  }
+                }}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="예: RACK-A02"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setPasteRackModalOpen(false);
+                  setPasteRackName('');
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                취소
+              </button>
+              <button
+                onClick={handlePasteRack}
+                disabled={!pasteRackName}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                붙여넣기
               </button>
             </div>
           </div>
