@@ -76,14 +76,11 @@ jobs:
           docker pull postgres:15-alpine
           docker save postgres:15-alpine -o /tmp/postgres.tar
 
-      - name: Compress and encode images
+      - name: Encode images to base64
         run: |
-          gzip /tmp/backend.tar
-          gzip /tmp/frontend.tar
-          gzip /tmp/postgres.tar
-          base64 /tmp/backend.tar.gz > /tmp/backend.txt
-          base64 /tmp/frontend.tar.gz > /tmp/frontend.txt
-          base64 /tmp/postgres.tar.gz > /tmp/postgres.txt
+          base64 /tmp/backend.tar > /tmp/backend.txt
+          base64 /tmp/frontend.tar > /tmp/frontend.txt
+          base64 /tmp/postgres.tar > /tmp/postgres.txt
 
       - name: Get short SHA
         id: sha
@@ -95,9 +92,9 @@ jobs:
           tag_name: docker-${{ steps.sha.outputs.short }}
           name: Docker Images (${{ steps.sha.outputs.short }})
           files: |
-            /tmp/backend.tar.gz
-            /tmp/frontend.tar.gz
-            /tmp/postgres.tar.gz
+            /tmp/backend.tar
+            /tmp/frontend.tar
+            /tmp/postgres.tar
             /tmp/backend.txt
             /tmp/frontend.txt
             /tmp/postgres.txt
@@ -106,19 +103,20 @@ jobs:
 
             ## 사용 방법
 
-            ### tar.gz 파일
+            ### tar 파일
             ```bash
-            gunzip backend.tar.gz
             docker load -i backend.tar
+            docker load -i frontend.tar
+            docker load -i postgres.tar
             ```
 
             ### txt 파일 (base64)
             ```bash
             # Linux/Mac
-            base64 -d backend.txt > backend.tar.gz
-            gunzip backend.tar.gz
+            base64 -d backend.txt > backend.tar
             docker load -i backend.tar
 
             # Windows (certutil)
-            certutil -decode backend.txt backend.tar.gz
+            certutil -decode backend.txt backend.tar
+            docker load -i backend.tar
             ```
