@@ -108,7 +108,7 @@ model FloorPlan {
   name            String   @db.VarChar(100)
   canvasWidth     Int      @default(2000) @map("canvas_width")
   canvasHeight    Int      @default(1500) @map("canvas_height")
-  gridSize        Int      @default(20) @map("grid_size")
+  gridSize        Int      @default(10) @map("grid_size")
   backgroundColor String   @default("#ffffff") @map("background_color") @db.VarChar(20)
   version         Int      @default(1)
   createdAt       DateTime @default(now()) @map("created_at")

@@ -65,7 +65,7 @@ const initialEditorState: EditorState = {
   panX: 0,
   panY: 0,
   gridSnap: true,
-  gridSize: 20,
+  gridSize: 10,  // Minor Grid 크기에 맞춤
   showGrid: true,
 };
 
@@ -359,6 +359,26 @@ export function FloorPlanEditorPage() {
   // 평면도 데이터 로드
   useEffect(() => {
     if (floorPlan) {
+      // sessionStorage에서 임시 저장된 상태 복원 (랙 상세페이지에서 복귀 시)
+      const draftKey = `floorplan-draft-${floorId}`;
+      const draft = sessionStorage.getItem(draftKey);
+
+      if (draft) {
+        try {
+          const { elements: draftElements, racks: draftRacks, hasChanges: savedHasChanges } = JSON.parse(draft);
+          setLocalElements(draftElements);
+          setLocalRacks(draftRacks);
+          setHasChanges(savedHasChanges);
+          sessionStorage.removeItem(draftKey);
+          // 복원 시 히스토리도 설정
+          setHistory([{ elements: draftElements, racks: draftRacks }]);
+          setHistoryIndex(0);
+          return;
+        } catch {
+          sessionStorage.removeItem(draftKey);
+        }
+      }
+
       const elements = floorPlan.elements.map(e => ({
         ...e,
         isLocked: e.isLocked ?? false,
@@ -383,7 +403,7 @@ export function FloorPlanEditorPage() {
       // 뷰포트 초기화 플래그 리셋 (초기 로드 시만)
       setViewportInitialized(false);
     }
-  }, [floorPlan]);
+  }, [floorPlan, floorId]);
 
   // 뷰포트 초기화 (localStorage 복원 또는 Fit to Content)
   useEffect(() => {
@@ -977,7 +997,12 @@ export function FloorPlanEditorPage() {
           alert('랙을 먼저 저장한 후 상세 설정을 수정할 수 있습니다.');
           return;  // 페이지 이동 없음 - 모든 변경사항 유지됨
         }
-        // 랙 에디터로 이동
+        // 현재 상태를 sessionStorage에 임시 저장 후 랙 에디터로 이동
+        sessionStorage.setItem(`floorplan-draft-${floorId}`, JSON.stringify({
+          elements: localElements,
+          racks: localRacks,
+          hasChanges
+        }));
         navigate(`/racks/${rack.id}`);
         return;
       }
