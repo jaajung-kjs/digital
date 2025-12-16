@@ -71,12 +71,19 @@ jobs:
           cache-to: type=gha,mode=max
           outputs: type=docker,dest=/tmp/frontend.tar
 
+      - name: Pull and save PostgreSQL image
+        run: |
+          docker pull postgres:15-alpine
+          docker save postgres:15-alpine -o /tmp/postgres.tar
+
       - name: Compress and encode images
         run: |
           gzip /tmp/backend.tar
           gzip /tmp/frontend.tar
+          gzip /tmp/postgres.tar
           base64 /tmp/backend.tar.gz > /tmp/backend.txt
           base64 /tmp/frontend.tar.gz > /tmp/frontend.txt
+          base64 /tmp/postgres.tar.gz > /tmp/postgres.txt
 
       - name: Get short SHA
         id: sha
@@ -90,8 +97,10 @@ jobs:
           files: |
             /tmp/backend.tar.gz
             /tmp/frontend.tar.gz
+            /tmp/postgres.tar.gz
             /tmp/backend.txt
             /tmp/frontend.txt
+            /tmp/postgres.txt
           body: |
             Docker images for commit ${{ github.sha }}
 
