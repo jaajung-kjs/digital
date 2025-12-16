@@ -182,7 +182,7 @@ class FloorPlanService {
         name: input.name,
         canvasWidth: input.canvasWidth ?? 2000,
         canvasHeight: input.canvasHeight ?? 1500,
-        gridSize: input.gridSize ?? 20,
+        gridSize: input.gridSize ?? 10,
         createdById: userId,
         updatedById: userId,
       },
