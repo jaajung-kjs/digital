@@ -192,6 +192,9 @@ export function FloorPlanEditorPage() {
     data: FloorPlanElement | RackItem;
   } | null>(null);
 
+  // 그리드 크기 설정
+  const [majorGridSize, setMajorGridSize] = useState(60);  // 기본값 60px
+
   // 선 그리기 상태
   const [isDrawingLine, setIsDrawingLine] = useState(false);
   const [linePoints, setLinePoints] = useState<[number, number][]>([]);
@@ -467,27 +470,10 @@ export function FloorPlanEditorPage() {
     ctx.fillRect(viewportLeft, viewportTop, canvas.width / scale, canvas.height / scale);
 
     // 이중 격자 그리드 (CAD 스타일) - 뷰포트 영역만 렌더링 (무한 캔버스)
-    // 줌 레벨별 그리드 동적 조정
+    // 사용자 설정값 일관되게 사용 (줌 무관)
     if (showGrid) {
-      const zoomPercent = zoom;
-
-      // 줌 레벨별 그리드 크기 결정
-      let majorSize: number;
-      let minorSize: number | null;
-
-      if (zoomPercent < 30) {
-        // 10-30%: 큰 간격
-        majorSize = 500;
-        minorSize = 100;
-      } else if (zoomPercent < 50) {
-        // 30-50%: Major만
-        majorSize = 200;
-        minorSize = null;
-      } else {
-        // 50% 이상: 기본 그리드 유지
-        majorSize = 100;
-        minorSize = 20;
-      }
+      const majorSize = majorGridSize;
+      const minorSize = 10;  // Minor Grid 고정 10px
 
       const gridStartX = Math.floor(viewportLeft / majorSize) * majorSize;
       const gridStartY = Math.floor(viewportTop / majorSize) * majorSize;
@@ -495,26 +481,24 @@ export function FloorPlanEditorPage() {
       const gridEndY = Math.ceil(viewportBottom / majorSize) * majorSize;
 
       // Minor Grid 먼저 (아래 레이어)
-      if (minorSize !== null) {
-        const minorStartX = Math.floor(viewportLeft / minorSize) * minorSize;
-        const minorStartY = Math.floor(viewportTop / minorSize) * minorSize;
-        const minorEndX = Math.ceil(viewportRight / minorSize) * minorSize;
-        const minorEndY = Math.ceil(viewportBottom / minorSize) * minorSize;
+      const minorStartX = Math.floor(viewportLeft / minorSize) * minorSize;
+      const minorStartY = Math.floor(viewportTop / minorSize) * minorSize;
+      const minorEndX = Math.ceil(viewportRight / minorSize) * minorSize;
+      const minorEndY = Math.ceil(viewportBottom / minorSize) * minorSize;
 
-        ctx.strokeStyle = GRID_CONFIG.minorGrid.color;
-        ctx.lineWidth = GRID_CONFIG.minorGrid.lineWidth;
-        for (let x = minorStartX; x <= minorEndX; x += minorSize) {
-          ctx.beginPath();
-          ctx.moveTo(x, minorStartY);
-          ctx.lineTo(x, minorEndY);
-          ctx.stroke();
-        }
-        for (let y = minorStartY; y <= minorEndY; y += minorSize) {
-          ctx.beginPath();
-          ctx.moveTo(minorStartX, y);
-          ctx.lineTo(minorEndX, y);
-          ctx.stroke();
-        }
+      ctx.strokeStyle = GRID_CONFIG.minorGrid.color;
+      ctx.lineWidth = GRID_CONFIG.minorGrid.lineWidth;
+      for (let x = minorStartX; x <= minorEndX; x += minorSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, minorStartY);
+        ctx.lineTo(x, minorEndY);
+        ctx.stroke();
+      }
+      for (let y = minorStartY; y <= minorEndY; y += minorSize) {
+        ctx.beginPath();
+        ctx.moveTo(minorStartX, y);
+        ctx.lineTo(minorEndX, y);
+        ctx.stroke();
       }
 
       // Major Grid (위 레이어)
@@ -2034,6 +2018,22 @@ export function FloorPlanEditorPage() {
                       <circle cx="12" cy="12" r="3" />
                     </svg>
                   </button>
+                </div>
+
+                {/* 그리드 크기 설정 */}
+                <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-2 gap-1">
+                  <span className="text-xs text-gray-500">Grid</span>
+                  <input
+                    type="number"
+                    value={majorGridSize}
+                    onChange={(e) => setMajorGridSize(Math.max(10, Math.min(200, Number(e.target.value) || 60)))}
+                    className="w-12 h-6 px-1 text-xs text-center border border-gray-200 rounded focus:outline-none focus:border-blue-400"
+                    min={10}
+                    max={200}
+                    step={10}
+                    title={`그리드 크기 (Major: ${majorGridSize}px, Minor: 10px)`}
+                  />
+                  <span className="text-xs text-gray-400">px</span>
                 </div>
               </div>
 
