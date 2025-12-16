@@ -71,10 +71,12 @@ jobs:
           cache-to: type=gha,mode=max
           outputs: type=docker,dest=/tmp/frontend.tar
 
-      - name: Compress images
+      - name: Compress and encode images
         run: |
           gzip /tmp/backend.tar
           gzip /tmp/frontend.tar
+          base64 /tmp/backend.tar.gz > /tmp/backend.txt
+          base64 /tmp/frontend.tar.gz > /tmp/frontend.txt
 
       - name: Get short SHA
         id: sha
@@ -88,15 +90,26 @@ jobs:
           files: |
             /tmp/backend.tar.gz
             /tmp/frontend.tar.gz
+            /tmp/backend.txt
+            /tmp/frontend.txt
           body: |
             Docker images for commit ${{ github.sha }}
 
             ## 사용 방법
+
+            ### tar.gz 파일
             ```bash
-            # 다운로드 후
+            gunzip backend.tar.gz
+            docker load -i backend.tar
+            ```
+
+            ### txt 파일 (base64)
+            ```bash
+            # Linux/Mac
+            base64 -d backend.txt > backend.tar.gz
             gunzip backend.tar.gz
             docker load -i backend.tar
 
-            gunzip frontend.tar.gz
-            docker load -i frontend.tar
+            # Windows (certutil)
+            certutil -decode backend.txt backend.tar.gz
             ```
