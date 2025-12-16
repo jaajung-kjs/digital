@@ -12,7 +12,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -57,6 +57,7 @@ jobs:
           labels: ${{ steps.meta-backend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/backend.tar
 
       - name: Build and push Frontend
         uses: docker/build-push-action@v5
@@ -68,3 +69,34 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          outputs: type=docker,dest=/tmp/frontend.tar
+
+      - name: Compress images
+        run: |
+          gzip /tmp/backend.tar
+          gzip /tmp/frontend.tar
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: docker-${{ steps.sha.outputs.short }}
+          name: Docker Images (${{ steps.sha.outputs.short }})
+          files: |
+            /tmp/backend.tar.gz
+            /tmp/frontend.tar.gz
+          body: |
+            Docker images for commit ${{ github.sha }}
+
+            ## 사용 방법
+            ```bash
+            # 다운로드 후
+            gunzip backend.tar.gz
+            docker load -i backend.tar
+
+            gunzip frontend.tar.gz
+            docker load -i frontend.tar
+            ```
