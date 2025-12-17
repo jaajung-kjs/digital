@@ -21,6 +21,7 @@ services:
 
   # Backend API
   backend:
+    image: digital-backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -45,6 +46,7 @@ services:
 
   # Frontend (Nginx)
   frontend:
+    image: digital-frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
