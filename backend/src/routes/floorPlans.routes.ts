@@ -15,6 +15,7 @@ const createFloorPlanSchema = z.object({
   canvasWidth: z.number().int().min(100).max(10000).optional(),
   canvasHeight: z.number().int().min(100).max(10000).optional(),
   gridSize: z.number().int().min(5).max(100).optional(),
+  majorGridSize: z.number().int().min(10).max(200).optional(),
 });
 
 // v2 CAD 스타일 요소 타입: line, rect, circle, door, window, text
@@ -61,6 +62,7 @@ const bulkUpdateSchema = z.object({
   canvasWidth: z.number().int().min(100).max(10000).optional(),
   canvasHeight: z.number().int().min(100).max(10000).optional(),
   gridSize: z.number().int().min(5).max(100).optional(),
+  majorGridSize: z.number().int().min(10).max(200).optional(),
   backgroundColor: z.string().max(20).optional(),
   elements: z.array(elementSchema).optional(),
   racks: z.array(rackSchema).optional(),

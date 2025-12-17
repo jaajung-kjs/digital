@@ -35,6 +35,7 @@ export interface FloorPlanDetail {
   canvasWidth: number;
   canvasHeight: number;
   gridSize: number;
+  majorGridSize: number;
   backgroundColor: string;
   elements: FloorPlanElement[];
   racks: RackItem[];
@@ -47,12 +48,14 @@ export interface CreateFloorPlanInput {
   canvasWidth?: number;
   canvasHeight?: number;
   gridSize?: number;
+  majorGridSize?: number;
 }
 
 export interface UpdateFloorPlanInput {
   canvasWidth?: number;
   canvasHeight?: number;
   gridSize?: number;
+  majorGridSize?: number;
   backgroundColor?: string;
   elements?: {
     id?: string | null;
@@ -122,6 +125,7 @@ class FloorPlanService {
       canvasWidth: floorPlan.canvasWidth,
       canvasHeight: floorPlan.canvasHeight,
       gridSize: floorPlan.gridSize,
+      majorGridSize: floorPlan.majorGridSize,
       backgroundColor: floorPlan.backgroundColor,
       elements: floorPlan.elements.map((e) => ({
         id: e.id,
@@ -183,6 +187,7 @@ class FloorPlanService {
         canvasWidth: input.canvasWidth ?? 2000,
         canvasHeight: input.canvasHeight ?? 1500,
         gridSize: input.gridSize ?? 10,
+        majorGridSize: input.majorGridSize ?? 60,
         createdById: userId,
         updatedById: userId,
       },
@@ -195,6 +200,7 @@ class FloorPlanService {
       canvasWidth: floorPlan.canvasWidth,
       canvasHeight: floorPlan.canvasHeight,
       gridSize: floorPlan.gridSize,
+      majorGridSize: floorPlan.majorGridSize,
       backgroundColor: floorPlan.backgroundColor,
       elements: [],
       racks: [],
@@ -330,6 +336,7 @@ class FloorPlanService {
           canvasWidth: input.canvasWidth,
           canvasHeight: input.canvasHeight,
           gridSize: input.gridSize,
+          majorGridSize: input.majorGridSize,
           backgroundColor: input.backgroundColor,
           version: { increment: 1 },
           updatedById: userId,

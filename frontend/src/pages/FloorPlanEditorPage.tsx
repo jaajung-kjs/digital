@@ -66,6 +66,7 @@ const initialEditorState: EditorState = {
   panY: 0,
   gridSnap: true,
   gridSize: 10,  // Minor Grid 크기에 맞춤
+  majorGridSize: 60,
   showGrid: true,
 };
 
@@ -192,8 +193,7 @@ export function FloorPlanEditorPage() {
     data: FloorPlanElement | RackItem;
   } | null>(null);
 
-  // 그리드 크기 설정
-  const [majorGridSize, setMajorGridSize] = useState(60);  // 기본값 60px
+  // 그리드 크기는 editorState.majorGridSize 사용
 
   // 선 그리기 상태
   const [isDrawingLine, setIsDrawingLine] = useState(false);
@@ -389,6 +389,7 @@ export function FloorPlanEditorPage() {
       setEditorState(prev => ({
         ...prev,
         gridSize: floorPlan.gridSize,
+        majorGridSize: floorPlan.majorGridSize ?? 60,
       }));
 
       // 저장 후 refetch인 경우 히스토리/뷰포트 재초기화 스킵
@@ -492,7 +493,7 @@ export function FloorPlanEditorPage() {
     // 이중 격자 그리드 (CAD 스타일) - 뷰포트 영역만 렌더링 (무한 캔버스)
     // 사용자 설정값 일관되게 사용 (줌 무관)
     if (showGrid) {
-      const majorSize = majorGridSize;
+      const majorSize = editorState.majorGridSize;
       const minorSize = 10;  // Minor Grid 고정 10px
 
       const gridStartX = Math.floor(viewportLeft / majorSize) * majorSize;
@@ -1233,6 +1234,7 @@ export function FloorPlanEditorPage() {
       canvasWidth: floorPlan.canvasWidth,
       canvasHeight: floorPlan.canvasHeight,
       gridSize: editorState.gridSize,
+      majorGridSize: editorState.majorGridSize,
       elements: localElements.map(e => ({
         id: e.id.startsWith('temp-') ? null : e.id,
         elementType: e.elementType,
@@ -2050,13 +2052,17 @@ export function FloorPlanEditorPage() {
                   <span className="text-xs text-gray-500">Grid</span>
                   <input
                     type="number"
-                    value={majorGridSize}
-                    onChange={(e) => setMajorGridSize(Math.max(10, Math.min(200, Number(e.target.value) || 60)))}
+                    value={editorState.majorGridSize}
+                    onChange={(e) => {
+                      const value = Math.max(10, Math.min(200, Number(e.target.value) || 60));
+                      setEditorState(prev => ({ ...prev, majorGridSize: value }));
+                      setHasChanges(true);
+                    }}
                     className="w-12 h-6 px-1 text-xs text-center border border-gray-200 rounded focus:outline-none focus:border-blue-400"
                     min={10}
                     max={200}
                     step={10}
-                    title={`그리드 크기 (Major: ${majorGridSize}px, Minor: 10px)`}
+                    title={`그리드 크기 (Major: ${editorState.majorGridSize}px, Minor: 10px)`}
                   />
                   <span className="text-xs text-gray-400">px</span>
                 </div>
