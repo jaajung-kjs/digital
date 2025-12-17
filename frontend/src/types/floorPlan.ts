@@ -140,6 +140,7 @@ export interface FloorPlanDetail {
   canvasWidth: number;
   canvasHeight: number;
   gridSize: number;
+  majorGridSize: number;
   backgroundColor: string;
   elements: FloorPlanElement[];
   racks: RackItem[];
@@ -153,12 +154,14 @@ export interface CreateFloorPlanRequest {
   canvasWidth?: number;
   canvasHeight?: number;
   gridSize?: number;
+  majorGridSize?: number;
 }
 
 export interface UpdateFloorPlanRequest {
   canvasWidth?: number;
   canvasHeight?: number;
   gridSize?: number;
+  majorGridSize?: number;
   backgroundColor?: string;
   elements?: {
     id?: string | null;
@@ -223,6 +226,7 @@ export interface EditorState {
   panY: number;
   gridSnap: boolean;
   gridSize: number;
+  majorGridSize: number;
   showGrid: boolean;
 }
 
