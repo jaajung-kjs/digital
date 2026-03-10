@@ -22,6 +22,7 @@ export interface RackDetail {
   sortOrder: number;
   equipmentCount: number;
   usedU: number;
+  height3d?: number;
   createdAt: string;
   updatedAt: string;
 }
