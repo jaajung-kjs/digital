@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { roomController } from '../controllers/room.controller.js';
+import { equipmentController } from '../controllers/equipment.controller.js';
+import { cableController } from '../controllers/cable.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -61,5 +63,41 @@ router.put('/:id/plan', authenticate, adminOnly, validate(bulkUpdatePlanSchema),
 
 // 실 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, roomController.delete);
+
+// ==================== Equipment on Floor Plan ====================
+
+const createFloorPlanEquipmentSchema = z.object({
+  name: z.string().min(1, '이름은 필수입니다.').max(100),
+  model: z.string().max(100).optional(),
+  manufacturer: z.string().max(100).optional(),
+  serialNumber: z.string().max(100).optional(),
+  positionX: z.number(),
+  positionY: z.number(),
+  width2d: z.number().positive().optional(),
+  height2d: z.number().positive().optional(),
+  rotation: z.number().int().optional(),
+  heightU: z.number().int().min(1).max(12).optional(),
+  height3d: z.number().positive().optional(),
+  category: z.enum(['SERVER', 'NETWORK', 'STORAGE', 'POWER', 'SECURITY', 'OTHER']).optional(),
+  installDate: z.string().optional(),
+  manager: z.string().max(100).optional(),
+  description: z.string().optional(),
+  properties: z.unknown().optional(),
+});
+
+// 실에 배치된 설비 조회 (인증 불필요)
+router.get('/:id/equipment', equipmentController.getByRoomId);
+
+// 실에 설비 직접 배치 (관리자만)
+router.post(
+  '/:id/equipment',
+  authenticate,
+  adminOnly,
+  validate(createFloorPlanEquipmentSchema),
+  equipmentController.createOnFloorPlan
+);
+
+// 실의 케이블 연결 조회 (인증 불필요)
+router.get('/:id/connections', cableController.getByRoomId);
 
 export { router as roomsRouter };

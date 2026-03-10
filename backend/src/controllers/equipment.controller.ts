@@ -3,6 +3,37 @@ import { equipmentService } from '../services/equipment.service.js';
 
 export const equipmentController = {
   /**
+   * GET /api/rooms/:id/equipment
+   * 실에 직접 배치된 설비 목록 조회
+   */
+  async getByRoomId(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const equipment = await equipmentService.getByRoomId(id);
+
+      res.json({ data: equipment });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * POST /api/rooms/:id/equipment
+   * 평면도에 설비 직접 배치
+   */
+  async createOnFloorPlan(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const userId = req.user!.userId;
+      const equipment = await equipmentService.createOnFloorPlan(id, req.body, userId);
+
+      res.status(201).json({ data: equipment });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * GET /api/racks/:rackId/equipment
    * 랙 내 설비 목록 조회
    */

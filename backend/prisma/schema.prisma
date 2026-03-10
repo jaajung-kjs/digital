@@ -170,6 +170,7 @@ model Room {
   updatedBy User?              @relation("RoomUpdatedBy", fields: [updatedById], references: [id])
   elements  FloorPlanElement[]
   racks     Rack[]
+  equipment Equipment[]
 
   @@unique([floorId, name])
   @@map("rooms")
@@ -182,6 +183,8 @@ model FloorPlanElement {
   properties  Json
   zIndex      Int      @default(0) @map("z_index")
   isVisible   Boolean  @default(true) @map("is_visible")
+  height3d    Float?   @map("height_3d")
+  elevation3d Float?   @map("elevation_3d")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -216,6 +219,8 @@ model Rack {
   createdById   String?  @map("created_by")
   updatedById   String?  @map("updated_by")
 
+  height3d      Float?   @map("height_3d")
+
   room      Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
   createdBy User?       @relation("RackCreatedBy", fields: [createdById], references: [id])
   updatedBy User?       @relation("RackUpdatedBy", fields: [updatedById], references: [id])
@@ -229,14 +234,26 @@ model Rack {
 
 model Equipment {
   id           String    @id @default(uuid())
-  rackId       String    @map("rack_id")
+  rackId       String?   @map("rack_id")
+  roomId       String?   @map("room_id")
   name         String    @db.VarChar(100)
   model        String?   @db.VarChar(100)
   manufacturer String?   @db.VarChar(100)
   serialNumber String?   @map("serial_number") @db.VarChar(100)
   // U 슬롯 위치
-  startU       Int       @map("start_u")
+  startU       Int?      @map("start_u")
   heightU      Int       @default(1) @map("height_u")
+  // 평면도 위치 (2D 배치용)
+  positionX    Float?    @map("position_x_2d")
+  positionY    Float?    @map("position_y_2d")
+  width2d      Float?    @map("width_2d")
+  height2d     Float?    @map("height_2d")
+  rotation     Int?      @default(0)
+  // 3D 속성
+  height3d     Float?    @map("height_3d")
+  // 사진
+  frontImageUrl String?  @map("front_image_url") @db.VarChar(500)
+  rearImageUrl  String?  @map("rear_image_url") @db.VarChar(500)
   // 추가 정보
   category     EquipmentCategory @default(OTHER)
   installDate  DateTime? @map("install_date") @db.Date
@@ -250,10 +267,13 @@ model Equipment {
   createdById  String?   @map("created_by")
   updatedById  String?   @map("updated_by")
 
-  rack      Rack   @relation(fields: [rackId], references: [id], onDelete: Cascade)
-  createdBy User?  @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
-  updatedBy User?  @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
-  ports     Port[]
+  rack            Rack?            @relation(fields: [rackId], references: [id], onDelete: Cascade)
+  room            Room?            @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  createdBy       User?            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?            @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
+  ports           Port[]
+  photos          EquipmentPhoto[]
+  maintenanceLogs MaintenanceLog[]
 
   @@map("equipment")
 }
@@ -332,6 +352,42 @@ enum CableType {
   DC
   LAN
   FIBER
+  GROUND
+}
+
+// ==================== 설비 사진 ====================
+
+model EquipmentPhoto {
+  id           String    @id @default(uuid())
+  equipmentId  String    @map("equipment_id")
+  side         String    @db.VarChar(10) // 'front' | 'rear'
+  imageUrl     String    @map("image_url") @db.VarChar(500)
+  description  String?   @db.Text
+  takenAt      DateTime? @map("taken_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@map("equipment_photos")
+}
+
+// ==================== 유지보수 이력 ====================
+
+model MaintenanceLog {
+  id           String    @id @default(uuid())
+  equipmentId  String    @map("equipment_id")
+  logType      String    @db.VarChar(20) // MAINTENANCE, FAILURE, REPAIR, INSPECTION
+  title        String    @db.VarChar(200)
+  description  String?   @db.Text
+  severity     String?   @db.VarChar(20) // LOW, MEDIUM, HIGH, CRITICAL
+  status       String    @default("OPEN") @db.VarChar(20) // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  resolvedAt   DateTime? @map("resolved_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@map("maintenance_logs")
 }
 
 // ==================== 이력 ====================
