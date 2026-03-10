@@ -1,5 +1,6 @@
 import { api } from '../utils/api';
 import type { HeadquartersItem, BranchItem, BranchSubstationItem, FloorListItem, RoomItem } from '../types';
+import type { TreeNodeData, NodeType } from '../types/organization';
 
 export const organizationApi = {
   // ── Headquarters ──
@@ -43,12 +44,12 @@ export const organizationApi = {
   },
 
   // ── Substation CRUD (existing endpoints) ──
-  createSubstation: async (branchId: string, payload: { name: string; address?: string }): Promise<any> => {
-    const { data } = await api.post<{ data: any }>('/substations', { ...payload, branchId });
+  createSubstation: async (branchId: string, payload: { name: string; address?: string }): Promise<BranchSubstationItem> => {
+    const { data } = await api.post<{ data: BranchSubstationItem }>('/substations', { ...payload, branchId });
     return data.data;
   },
-  renameSubstation: async (id: string, payload: { name: string }): Promise<any> => {
-    const { data } = await api.put<{ data: any }>(`/substations/${id}`, payload);
+  renameSubstation: async (id: string, payload: { name: string }): Promise<BranchSubstationItem> => {
+    const { data } = await api.patch<{ data: BranchSubstationItem }>(`/substations/${id}`, payload);
     return data.data;
   },
   deleteSubstation: async (id: string): Promise<void> => {
@@ -60,12 +61,12 @@ export const organizationApi = {
     const { data } = await api.get<{ data: FloorListItem[] }>(`/substations/${substationId}/floors`);
     return data.data;
   },
-  createFloor: async (substationId: string, payload: { name: string; floorNumber?: string }): Promise<any> => {
-    const { data } = await api.post<{ data: any }>(`/substations/${substationId}/floors`, payload);
+  createFloor: async (substationId: string, payload: { name: string; floorNumber?: string }): Promise<FloorListItem> => {
+    const { data } = await api.post<{ data: FloorListItem }>(`/substations/${substationId}/floors`, payload);
     return data.data;
   },
-  renameFloor: async (id: string, payload: { name: string }): Promise<any> => {
-    const { data } = await api.put<{ data: any }>(`/floors/${id}`, payload);
+  renameFloor: async (id: string, payload: { name: string }): Promise<FloorListItem> => {
+    const { data } = await api.patch<{ data: FloorListItem }>(`/floors/${id}`, payload);
     return data.data;
   },
   deleteFloor: async (id: string): Promise<void> => {
@@ -81,8 +82,8 @@ export const organizationApi = {
     const { data } = await api.post<{ data: RoomItem }>(`/floors/${floorId}/rooms`, payload);
     return data.data;
   },
-  renameRoom: async (id: string, payload: { name: string }): Promise<any> => {
-    const { data } = await api.put<{ data: any }>(`/rooms/${id}`, payload);
+  renameRoom: async (id: string, payload: { name: string }): Promise<RoomItem> => {
+    const { data } = await api.patch<{ data: RoomItem }>(`/rooms/${id}`, payload);
     return data.data;
   },
   deleteRoom: async (id: string): Promise<void> => {
@@ -90,7 +91,44 @@ export const organizationApi = {
   },
 
   // ── Reorder ──
-  reorder: async (type: string, items: { id: string; sortOrder: number }[]): Promise<void> => {
+  reorder: async (type: NodeType, items: { id: string; sortOrder: number }[]): Promise<void> => {
     await api.patch('/organizations/reorder', { type, items });
   },
 };
+
+/** Fetch children for a tree node — shared by TreePanel and TreeVisualization */
+export async function fetchChildNodes(node: TreeNodeData): Promise<TreeNodeData[]> {
+  if (node.type === 'headquarters') {
+    const branches = await organizationApi.listBranches(node.id);
+    return branches.map((b) => ({
+      id: b.id, name: b.name, type: 'branch' as NodeType,
+      parentId: node.id, children: [], childrenLoaded: false, expanded: false,
+      meta: { substationCount: b.substationCount },
+    }));
+  }
+  if (node.type === 'branch') {
+    const subs = await organizationApi.listSubstations(node.id);
+    return subs.map((s) => ({
+      id: s.id, name: s.name, type: 'substation' as NodeType,
+      parentId: node.id, children: [], childrenLoaded: false, expanded: false,
+      meta: { floorCount: s.floorCount, address: s.address },
+    }));
+  }
+  if (node.type === 'substation') {
+    const floors = await organizationApi.listFloors(node.id);
+    return floors.map((f) => ({
+      id: f.id, name: f.name, type: 'floor' as NodeType,
+      parentId: node.id, children: [], childrenLoaded: false, expanded: false,
+      meta: { floorNumber: f.floorNumber, roomCount: f.roomCount },
+    }));
+  }
+  if (node.type === 'floor') {
+    const rooms = await organizationApi.listRooms(node.id);
+    return rooms.map((r) => ({
+      id: r.id, name: r.name, type: 'room' as NodeType,
+      parentId: node.id, children: [], childrenLoaded: true, expanded: false,
+      meta: {},
+    }));
+  }
+  return [];
+}

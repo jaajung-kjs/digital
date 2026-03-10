@@ -1,4 +1,5 @@
 import prisma from '../config/prisma.js';
+import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
 
 export interface BranchListItem {
@@ -21,6 +22,24 @@ export interface UpdateBranchInput {
   isActive?: boolean;
 }
 
+const BRANCH_COUNT_INCLUDE = {
+  _count: { select: { substations: true } },
+};
+
+type BranchWithCount = Prisma.BranchGetPayload<{ include: typeof BRANCH_COUNT_INCLUDE }>;
+
+function toListItem(b: BranchWithCount): BranchListItem {
+  return {
+    id: b.id,
+    headquartersId: b.headquartersId,
+    name: b.name,
+    sortOrder: b.sortOrder,
+    isActive: b.isActive,
+    substationCount: b._count.substations,
+    createdAt: b.createdAt,
+  };
+}
+
 class BranchService {
   async getListByHeadquarters(headquartersId: string): Promise<BranchListItem[]> {
     const hq = await prisma.headquarters.findUnique({ where: { id: headquartersId } });
@@ -28,21 +47,11 @@ class BranchService {
 
     const items = await prisma.branch.findMany({
       where: { headquartersId, isActive: true },
-      include: {
-        _count: { select: { substations: true } },
-      },
+      include: BRANCH_COUNT_INCLUDE,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
-    return items.map((b) => ({
-      id: b.id,
-      headquartersId: b.headquartersId,
-      name: b.name,
-      sortOrder: b.sortOrder,
-      isActive: b.isActive,
-      substationCount: b._count.substations,
-      createdAt: b.createdAt,
-    }));
+    return items.map(toListItem);
   }
 
   async create(headquartersId: string, input: CreateBranchInput, userId: string): Promise<BranchListItem> {
@@ -61,18 +70,10 @@ class BranchService {
         createdById: userId,
         updatedById: userId,
       },
-      include: { _count: { select: { substations: true } } },
+      include: BRANCH_COUNT_INCLUDE,
     });
 
-    return {
-      id: created.id,
-      headquartersId: created.headquartersId,
-      name: created.name,
-      sortOrder: created.sortOrder,
-      isActive: created.isActive,
-      substationCount: created._count.substations,
-      createdAt: created.createdAt,
-    };
+    return toListItem(created);
   }
 
   async update(id: string, input: UpdateBranchInput, userId: string): Promise<BranchListItem> {
@@ -89,18 +90,10 @@ class BranchService {
     const updated = await prisma.branch.update({
       where: { id },
       data: { ...input, updatedById: userId },
-      include: { _count: { select: { substations: true } } },
+      include: BRANCH_COUNT_INCLUDE,
     });
 
-    return {
-      id: updated.id,
-      headquartersId: updated.headquartersId,
-      name: updated.name,
-      sortOrder: updated.sortOrder,
-      isActive: updated.isActive,
-      substationCount: updated._count.substations,
-      createdAt: updated.createdAt,
-    };
+    return toListItem(updated);
   }
 
   async delete(id: string): Promise<void> {
@@ -115,9 +108,7 @@ class BranchService {
 
     const substations = await prisma.substation.findMany({
       where: { branchId, isActive: true },
-      include: {
-        _count: { select: { floors: true } },
-      },
+      include: { _count: { select: { floors: true } } },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
