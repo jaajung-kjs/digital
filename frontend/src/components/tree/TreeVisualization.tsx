@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOrganizationStore } from '../../stores/organizationStore';
-import { organizationApi } from '../../services/organizationApi';
+import { organizationApi, fetchChildNodes } from '../../services/organizationApi';
 import type { TreeNodeData, NodeType } from '../../types/organization';
+import { NODE_ICONS } from '../../types/organization';
 
 /* ── 색상 & 아이콘 ── */
 const NODE_STYLES: Record<NodeType, { bg: string; border: string; text: string; iconBg: string }> = {
@@ -11,14 +12,6 @@ const NODE_STYLES: Record<NodeType, { bg: string; border: string; text: string; 
   substation:   { bg: '#FFF7ED', border: '#F97316', text: '#9A3412', iconBg: '#FFEDD5' },
   floor:        { bg: '#FAF5FF', border: '#A855F7', text: '#6B21A8', iconBg: '#F3E8FF' },
   room:         { bg: '#FFF1F2', border: '#F43F5E', text: '#9F1239', iconBg: '#FFE4E6' },
-};
-
-const NODE_ICONS: Record<NodeType, string> = {
-  headquarters: '\uD83C\uDFE2',
-  branch: '\uD83C\uDFEC',
-  substation: '\u26A1',
-  floor: '\uD83D\uDCD0',
-  room: '\uD83D\uDEAA',
 };
 
 const LEVEL_LABELS: Record<NodeType, string> = {
@@ -68,6 +61,7 @@ function AddModal({ childType, onClose, onSubmit }: AddModalProps) {
         onClose();
       } catch (err: any) {
         setError(err?.response?.data?.message || '생성에 실패했습니다');
+      } finally {
         setLoading(false);
       }
       return;
@@ -324,82 +318,21 @@ export function TreeVisualization() {
     : CHILD_TYPE_MAP.root;
   const canAdd = viewingNode ? viewingNode.type !== 'room' : true;
 
-  /* ── viewingNodeId 변경 시 자동 자식 로딩 ── */
+  const ensureChildrenLoaded = useCallback(async (node: TreeNodeData) => {
+    if (node.childrenLoaded) return;
+    const children = await fetchChildNodes(node);
+    setChildren(node.id, children);
+  }, [setChildren]);
+
+  /* ── viewingNodeId 변경 시 자동 자식 로딩 + ref 정리 ── */
   useEffect(() => {
+    childRefs.current.clear();
     if (!viewingNodeId) return;
     const node = findNode(viewingNodeId);
     if (node && !node.childrenLoaded && node.type !== 'room') {
-      (async () => {
-        let children: TreeNodeData[] = [];
-        if (node.type === 'headquarters') {
-          const branches = await organizationApi.listBranches(node.id);
-          children = branches.map((b) => ({
-            id: b.id, name: b.name, type: 'branch' as NodeType,
-            parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-            meta: { substationCount: b.substationCount },
-          }));
-        } else if (node.type === 'branch') {
-          const subs = await organizationApi.listSubstations(node.id);
-          children = subs.map((s) => ({
-            id: s.id, name: s.name, type: 'substation' as NodeType,
-            parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-            meta: { floorCount: s.floorCount, address: s.address },
-          }));
-        } else if (node.type === 'substation') {
-          const floors = await organizationApi.listFloors(node.id);
-          children = floors.map((f) => ({
-            id: f.id, name: f.name, type: 'floor' as NodeType,
-            parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-            meta: { floorNumber: f.floorNumber, roomCount: f.roomCount },
-          }));
-        } else if (node.type === 'floor') {
-          const rooms = await organizationApi.listRooms(node.id);
-          children = rooms.map((r) => ({
-            id: r.id, name: r.name, type: 'room' as NodeType,
-            parentId: node.id, children: [], childrenLoaded: true, expanded: false,
-            meta: {},
-          }));
-        }
-        setChildren(node.id, children);
-      })();
+      ensureChildrenLoaded(node);
     }
-  }, [viewingNodeId]);
-
-  const ensureChildrenLoaded = useCallback(async (node: TreeNodeData) => {
-    if (node.childrenLoaded) return;
-
-    let children: TreeNodeData[] = [];
-    if (node.type === 'headquarters') {
-      const branches = await organizationApi.listBranches(node.id);
-      children = branches.map((b) => ({
-        id: b.id, name: b.name, type: 'branch' as NodeType,
-        parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-        meta: { substationCount: b.substationCount },
-      }));
-    } else if (node.type === 'branch') {
-      const subs = await organizationApi.listSubstations(node.id);
-      children = subs.map((s) => ({
-        id: s.id, name: s.name, type: 'substation' as NodeType,
-        parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-        meta: { floorCount: s.floorCount, address: s.address },
-      }));
-    } else if (node.type === 'substation') {
-      const floors = await organizationApi.listFloors(node.id);
-      children = floors.map((f) => ({
-        id: f.id, name: f.name, type: 'floor' as NodeType,
-        parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-        meta: { floorNumber: f.floorNumber, roomCount: f.roomCount },
-      }));
-    } else if (node.type === 'floor') {
-      const rooms = await organizationApi.listRooms(node.id);
-      children = rooms.map((r) => ({
-        id: r.id, name: r.name, type: 'room' as NodeType,
-        parentId: node.id, children: [], childrenLoaded: true, expanded: false,
-        meta: {},
-      }));
-    }
-    setChildren(node.id, children);
-  }, [setChildren]);
+  }, [viewingNodeId, findNode, ensureChildrenLoaded]);
 
   /* ── 추가 처리 ── */
   const handleAdd = useCallback(async (data: { name: string; extra: Record<string, string> }) => {
@@ -462,22 +395,30 @@ export function TreeVisualization() {
   }, [viewingNode, roots, setRoots, setChildren]);
 
   /* ── 삭제 처리 ── */
+  const DELETE_API: Record<NodeType, (id: string) => Promise<void>> = {
+    headquarters: organizationApi.deleteHeadquarters,
+    branch: organizationApi.deleteBranch,
+    substation: organizationApi.deleteSubstation,
+    floor: organizationApi.deleteFloor,
+    room: organizationApi.deleteRoom,
+  };
+
   const handleDelete = useCallback(async (node: TreeNodeData) => {
-    if (node.type === 'headquarters') await organizationApi.deleteHeadquarters(node.id);
-    else if (node.type === 'branch') await organizationApi.deleteBranch(node.id);
-    else if (node.type === 'substation') await organizationApi.deleteSubstation(node.id);
-    else if (node.type === 'floor') await organizationApi.deleteFloor(node.id);
-    else if (node.type === 'room') await organizationApi.deleteRoom(node.id);
+    await DELETE_API[node.type](node.id);
     removeNode(node.id);
   }, [removeNode]);
 
   /* ── 이름 수정 처리 ── */
+  const RENAME_API: Record<NodeType, (id: string, payload: { name: string }) => Promise<unknown>> = {
+    headquarters: organizationApi.renameHeadquarters,
+    branch: organizationApi.renameBranch,
+    substation: organizationApi.renameSubstation,
+    floor: organizationApi.renameFloor,
+    room: organizationApi.renameRoom,
+  };
+
   const handleRename = useCallback(async (node: TreeNodeData, newName: string) => {
-    if (node.type === 'headquarters') await organizationApi.renameHeadquarters(node.id, { name: newName });
-    else if (node.type === 'branch') await organizationApi.renameBranch(node.id, { name: newName });
-    else if (node.type === 'substation') await organizationApi.renameSubstation(node.id, { name: newName });
-    else if (node.type === 'floor') await organizationApi.renameFloor(node.id, { name: newName });
-    else if (node.type === 'room') await organizationApi.renameRoom(node.id, { name: newName });
+    await RENAME_API[node.type](node.id, { name: newName });
     renameNode(node.id, newName);
   }, [renameNode]);
 
@@ -491,10 +432,9 @@ export function TreeVisualization() {
   const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    // 카드의 왼쪽 절반이면 해당 인덱스 앞, 오른쪽이면 뒤
     const rect = e.currentTarget.getBoundingClientRect();
-    const mid = rect.left + rect.width / 2;
-    setDropIndex(e.clientX < mid ? index : index + 1);
+    const newIndex = e.clientX < rect.left + rect.width / 2 ? index : index + 1;
+    setDropIndex((prev) => prev === newIndex ? prev : newIndex);
   }, []);
 
   const handleDragEnd = useCallback(() => {
@@ -517,7 +457,7 @@ export function TreeVisualization() {
     const insertAt = dropIndex > oldIndex ? dropIndex - 1 : dropIndex;
     newItems.splice(insertAt, 0, moved);
 
-    if (newItems.map((n) => n.id).join() === items.map((n) => n.id).join()) {
+    if (newItems.every((n, i) => n.id === items[i].id)) {
       handleDragEnd();
       return;
     }

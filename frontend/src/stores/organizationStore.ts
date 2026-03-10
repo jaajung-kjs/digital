@@ -86,19 +86,24 @@ export const useOrganizationStore = create<OrganizationState>((set, get) => ({
 
   expandAncestors: (id) => {
     const { roots, findNode } = get();
-    const node = findNode(id);
-    if (!node) return;
-    let currentId = node.parentId;
-    let updatedRoots = roots;
-    while (currentId) {
-      updatedRoots = updateNodeInTree(updatedRoots, currentId, (n) => ({
-        ...n,
-        expanded: true,
-      }));
-      const parent = findNodeInTree(updatedRoots, currentId);
-      currentId = parent?.parentId ?? null;
+    // Collect all ancestor IDs first
+    const ancestorIds = new Set<string>();
+    let node = findNode(id);
+    while (node?.parentId) {
+      ancestorIds.add(node.parentId);
+      node = findNode(node.parentId);
     }
-    set({ roots: updatedRoots });
+    if (ancestorIds.size === 0) return;
+    // Single pass over the tree
+    const expandAll = (nodes: TreeNodeData[]): TreeNodeData[] =>
+      nodes.map((n) => {
+        const shouldExpand = ancestorIds.has(n.id);
+        const hasChildren = n.children.length > 0;
+        if (!shouldExpand && !hasChildren) return n;
+        const children = hasChildren ? expandAll(n.children) : n.children;
+        return shouldExpand ? { ...n, expanded: true, children } : (children !== n.children ? { ...n, children } : n);
+      });
+    set({ roots: expandAll(roots) });
   },
 
   setChildren: (parentId, children) =>
@@ -118,18 +123,18 @@ export const useOrganizationStore = create<OrganizationState>((set, get) => ({
 
   reorderChildren: (parentId, childIds) =>
     set((state) => {
+      const idOrder = new Map(childIds.map((id, i) => [id, i]));
+      const sortByOrder = <T extends { id: string }>(items: T[]) =>
+        [...items].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
+
       if (!parentId) {
-        // Reorder roots
-        const idOrder = new Map(childIds.map((id, i) => [id, i]));
-        const sorted = [...state.roots].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
-        return { roots: sorted };
+        return { roots: sortByOrder(state.roots) };
       }
       return {
-        roots: updateNodeInTree(state.roots, parentId, (node) => {
-          const idOrder = new Map(childIds.map((id, i) => [id, i]));
-          const sorted = [...node.children].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
-          return { ...node, children: sorted };
-        }),
+        roots: updateNodeInTree(state.roots, parentId, (node) => ({
+          ...node,
+          children: sortByOrder(node.children),
+        })),
       };
     }),
 

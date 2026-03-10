@@ -1,16 +1,9 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { organizationApi } from '../../services/organizationApi';
+import { organizationApi, fetchChildNodes } from '../../services/organizationApi';
 import { useOrganizationStore } from '../../stores/organizationStore';
-import type { TreeNodeData, NodeType } from '../../types/organization';
-
-const NODE_ICONS: Record<NodeType, string> = {
-  headquarters: '\uD83C\uDFE2',
-  branch: '\uD83C\uDFEC',
-  substation: '\u26A1',
-  floor: '\uD83D\uDCD0',
-  room: '\uD83D\uDEAA',
-};
+import type { TreeNodeData } from '../../types/organization';
+import { NODE_ICONS } from '../../types/organization';
 
 export function TreePanel() {
   const navigate = useNavigate();
@@ -30,7 +23,7 @@ export function TreePanel() {
         hqs.map((hq) => ({
           id: hq.id,
           name: hq.name,
-          type: 'headquarters' as NodeType,
+          type: 'headquarters',
           parentId: null,
           children: [],
           childrenLoaded: false,
@@ -47,59 +40,7 @@ export function TreePanel() {
         toggleNode(node.id);
         return;
       }
-
-      let children: TreeNodeData[] = [];
-
-      if (node.type === 'headquarters') {
-        const branches = await organizationApi.listBranches(node.id);
-        children = branches.map((b) => ({
-          id: b.id,
-          name: b.name,
-          type: 'branch' as NodeType,
-          parentId: node.id,
-          children: [],
-          childrenLoaded: false,
-          expanded: false,
-          meta: { substationCount: b.substationCount },
-        }));
-      } else if (node.type === 'branch') {
-        const subs = await organizationApi.listSubstations(node.id);
-        children = subs.map((s) => ({
-          id: s.id,
-          name: s.name,
-          type: 'substation' as NodeType,
-          parentId: node.id,
-          children: [],
-          childrenLoaded: false,
-          expanded: false,
-          meta: { floorCount: s.floorCount, address: s.address },
-        }));
-      } else if (node.type === 'substation') {
-        const floors = await organizationApi.listFloors(node.id);
-        children = floors.map((f) => ({
-          id: f.id,
-          name: f.name,
-          type: 'floor' as NodeType,
-          parentId: node.id,
-          children: [],
-          childrenLoaded: false,
-          expanded: false,
-          meta: { floorNumber: f.floorNumber, roomCount: f.roomCount },
-        }));
-      } else if (node.type === 'floor') {
-        const rooms = await organizationApi.listRooms(node.id);
-        children = rooms.map((r) => ({
-          id: r.id,
-          name: r.name,
-          type: 'room' as NodeType,
-          parentId: node.id,
-          children: [],
-          childrenLoaded: true,
-          expanded: false,
-          meta: {},
-        }));
-      }
-
+      const children = await fetchChildNodes(node);
       setChildren(node.id, children);
     },
     [toggleNode, setChildren],
@@ -142,8 +83,10 @@ export function TreePanel() {
     if (!dragNode || dragNode.type !== node.type || dragNode.parentId !== node.parentId) return;
     e.dataTransfer.dropEffect = 'move';
     const rect = e.currentTarget.getBoundingClientRect();
-    const mid = rect.top + rect.height / 2;
-    setDropTarget({ id: node.id, position: e.clientY < mid ? 'before' : 'after' });
+    const position = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    setDropTarget((prev) =>
+      prev?.id === node.id && prev.position === position ? prev : { id: node.id, position }
+    );
   }, [dragId, findNode]);
 
   const handleTreeDrop = useCallback(async (e: React.DragEvent) => {
@@ -167,7 +110,7 @@ export function TreePanel() {
     newItems.splice(targetIndex, 0, moved);
 
     const newIds = newItems.map((n) => n.id);
-    if (newIds.join() === siblings.map((n) => n.id).join()) {
+    if (newItems.every((n, i) => n.id === siblings[i].id)) {
       setDragId(null); setDropTarget(null); return;
     }
 

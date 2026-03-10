@@ -1,6 +1,7 @@
 import prisma from '../config/prisma.js';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
+import { RACK_DEFAULTS } from './rack.service.js';
 
 // ==================== Types ====================
 
@@ -95,6 +96,22 @@ export interface UpdatePlanInput {
   deletedRackIds?: string[];
 }
 
+// ==================== Shared ====================
+
+type RoomRecord = Prisma.RoomGetPayload<{}>;
+
+function toRoomDetail(r: RoomRecord): RoomDetail {
+  return {
+    id: r.id,
+    floorId: r.floorId,
+    name: r.name,
+    sortOrder: r.sortOrder,
+    isActive: r.isActive,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+  };
+}
+
 // ==================== Service ====================
 
 class RoomService {
@@ -119,16 +136,7 @@ class RoomService {
   async getById(id: string): Promise<RoomDetail> {
     const room = await prisma.room.findUnique({ where: { id } });
     if (!room) throw new NotFoundError('실');
-
-    return {
-      id: room.id,
-      floorId: room.floorId,
-      name: room.name,
-      sortOrder: room.sortOrder,
-      isActive: room.isActive,
-      createdAt: room.createdAt,
-      updatedAt: room.updatedAt,
-    };
+    return toRoomDetail(room);
   }
 
   async getPlan(id: string): Promise<RoomPlanDetail> {
@@ -203,15 +211,7 @@ class RoomService {
       },
     });
 
-    return {
-      id: room.id,
-      floorId: room.floorId,
-      name: room.name,
-      sortOrder: room.sortOrder,
-      isActive: room.isActive,
-      createdAt: room.createdAt,
-      updatedAt: room.updatedAt,
-    };
+    return toRoomDetail(room);
   }
 
   async update(id: string, input: UpdateRoomInput, userId: string): Promise<RoomDetail> {
@@ -230,15 +230,7 @@ class RoomService {
       data: { ...input, updatedById: userId },
     });
 
-    return {
-      id: room.id,
-      floorId: room.floorId,
-      name: room.name,
-      sortOrder: room.sortOrder,
-      isActive: room.isActive,
-      createdAt: room.createdAt,
-      updatedAt: room.updatedAt,
-    };
+    return toRoomDetail(room);
   }
 
   async delete(id: string): Promise<void> {
@@ -257,6 +249,8 @@ class RoomService {
   ): Promise<{ id: string; version: number; message: string }> {
     const room = await prisma.room.findUnique({ where: { id } });
     if (!room) throw new NotFoundError('실');
+
+    let newVersion = 0;
 
     await prisma.$transaction(async (tx) => {
       if (input.deletedElementIds && input.deletedElementIds.length > 0) {
@@ -307,10 +301,10 @@ class RoomService {
                 code: rack.code,
                 positionX: rack.positionX,
                 positionY: rack.positionY,
-                width: rack.width ?? 60,
-                height: rack.height ?? 100,
-                rotation: rack.rotation ?? 0,
-                totalU: rack.totalU ?? 12,
+                width: rack.width ?? RACK_DEFAULTS.width,
+                height: rack.height ?? RACK_DEFAULTS.height,
+                rotation: rack.rotation ?? RACK_DEFAULTS.rotation,
+                totalU: rack.totalU ?? RACK_DEFAULTS.totalU,
                 description: rack.description,
                 updatedById: userId,
               },
@@ -329,10 +323,10 @@ class RoomService {
                 code: rack.code,
                 positionX: rack.positionX,
                 positionY: rack.positionY,
-                width: rack.width ?? 60,
-                height: rack.height ?? 100,
-                rotation: rack.rotation ?? 0,
-                totalU: rack.totalU ?? 12,
+                width: rack.width ?? RACK_DEFAULTS.width,
+                height: rack.height ?? RACK_DEFAULTS.height,
+                rotation: rack.rotation ?? RACK_DEFAULTS.rotation,
+                totalU: rack.totalU ?? RACK_DEFAULTS.totalU,
                 description: rack.description,
                 createdById: userId,
                 updatedById: userId,
@@ -342,7 +336,7 @@ class RoomService {
         }
       }
 
-      await tx.room.update({
+      const updated = await tx.room.update({
         where: { id },
         data: {
           canvasWidth: input.canvasWidth,
@@ -354,13 +348,12 @@ class RoomService {
           updatedById: userId,
         },
       });
+      newVersion = updated.version;
     });
-
-    const updated = await prisma.room.findUnique({ where: { id } });
 
     return {
       id: id,
-      version: updated!.version,
+      version: newVersion,
       message: '저장되었습니다.',
     };
   }

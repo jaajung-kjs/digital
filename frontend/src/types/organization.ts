@@ -44,3 +44,11 @@ export interface RoomItem {
   sortOrder: number;
   isActive: boolean;
 }
+
+export const NODE_ICONS: Record<NodeType, string> = {
+  headquarters: '\uD83C\uDFE2',
+  branch: '\uD83C\uDFEC',
+  substation: '\u26A1',
+  floor: '\uD83D\uDCD0',
+  room: '\uD83D\uDEAA',
+};
