@@ -10,8 +10,7 @@ export interface FloorListItem {
   description: string | null;
   sortOrder: number;
   isActive: boolean;
-  hasFloorPlan: boolean;
-  rackCount: number;
+  roomCount: number;
 }
 
 export interface FloorDetail {
@@ -22,7 +21,7 @@ export interface FloorDetail {
   description: string | null;
   sortOrder: number;
   isActive: boolean;
-  hasFloorPlan: boolean;
+  roomCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,7 +47,6 @@ class FloorService {
    * 변전소의 층 목록 조회
    */
   async getListBySubstation(substationId: string): Promise<FloorListItem[]> {
-    // 변전소 존재 확인
     const substation = await prisma.substation.findUnique({
       where: { id: substationId },
     });
@@ -60,12 +58,8 @@ class FloorService {
     const floors = await prisma.floor.findMany({
       where: { substationId },
       include: {
-        floorPlan: {
-          include: {
-            _count: {
-              select: { racks: true },
-            },
-          },
+        _count: {
+          select: { rooms: true },
         },
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -78,8 +72,7 @@ class FloorService {
       description: f.description,
       sortOrder: f.sortOrder,
       isActive: f.isActive,
-      hasFloorPlan: !!f.floorPlan,
-      rackCount: f.floorPlan?._count.racks ?? 0,
+      roomCount: f._count.rooms,
     }));
   }
 
@@ -90,7 +83,9 @@ class FloorService {
     const floor = await prisma.floor.findUnique({
       where: { id },
       include: {
-        floorPlan: true,
+        _count: {
+          select: { rooms: true },
+        },
       },
     });
 
@@ -106,7 +101,7 @@ class FloorService {
       description: floor.description,
       sortOrder: floor.sortOrder,
       isActive: floor.isActive,
-      hasFloorPlan: !!floor.floorPlan,
+      roomCount: floor._count.rooms,
       createdAt: floor.createdAt,
       updatedAt: floor.updatedAt,
     };
@@ -120,7 +115,6 @@ class FloorService {
     input: CreateFloorInput,
     userId: string
   ): Promise<FloorDetail> {
-    // 변전소 존재 확인
     const substation = await prisma.substation.findUnique({
       where: { id: substationId },
     });
@@ -129,7 +123,6 @@ class FloorService {
       throw new NotFoundError('변전소');
     }
 
-    // 동일 변전소 내 이름 중복 확인
     const existing = await prisma.floor.findFirst({
       where: {
         substationId,
@@ -151,7 +144,9 @@ class FloorService {
         updatedById: userId,
       },
       include: {
-        floorPlan: true,
+        _count: {
+          select: { rooms: true },
+        },
       },
     });
 
@@ -163,7 +158,7 @@ class FloorService {
       description: floor.description,
       sortOrder: floor.sortOrder,
       isActive: floor.isActive,
-      hasFloorPlan: !!floor.floorPlan,
+      roomCount: floor._count.rooms,
       createdAt: floor.createdAt,
       updatedAt: floor.updatedAt,
     };
@@ -185,7 +180,6 @@ class FloorService {
       throw new NotFoundError('층');
     }
 
-    // 이름 변경 시 중복 확인
     if (input.name && input.name !== existing.name) {
       const nameExists = await prisma.floor.findFirst({
         where: {
@@ -207,7 +201,9 @@ class FloorService {
         updatedById: userId,
       },
       include: {
-        floorPlan: true,
+        _count: {
+          select: { rooms: true },
+        },
       },
     });
 
@@ -219,7 +215,7 @@ class FloorService {
       description: floor.description,
       sortOrder: floor.sortOrder,
       isActive: floor.isActive,
-      hasFloorPlan: !!floor.floorPlan,
+      roomCount: floor._count.rooms,
       createdAt: floor.createdAt,
       updatedAt: floor.updatedAt,
     };
@@ -231,18 +227,10 @@ class FloorService {
   async delete(id: string): Promise<void> {
     const floor = await prisma.floor.findUnique({
       where: { id },
-      include: {
-        floorPlan: true,
-      },
     });
 
     if (!floor) {
       throw new NotFoundError('층');
-    }
-
-    // 평면도가 있는 경우 삭제 불가 (또는 함께 삭제)
-    if (floor.floorPlan) {
-      throw new ConflictError('평면도가 존재하여 삭제할 수 없습니다. 먼저 평면도를 삭제하세요.');
     }
 
     await prisma.floor.delete({

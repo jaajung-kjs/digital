@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, getErrorMessage } from '../utils/api';
+import { api } from '../utils/api';
 import { useIsAdmin } from '../stores/authStore';
 import type {
   FloorPlanDetail,
-  CreateFloorPlanRequest,
   UpdateFloorPlanRequest,
   EditorState,
   RackItem,
@@ -17,7 +16,7 @@ import type {
   WindowProperties,
   TextProperties,
 } from '../types/floorPlan';
-import type { FloorDetail } from '../types';
+import type { RoomDetail } from '../types/substation';
 
 // 유틸리티 함수 import
 import { snapToGrid as snapToGridUtil } from '../utils/canvas/canvasTransform';
@@ -165,7 +164,7 @@ function calculateFitToContent(
 }
 
 export function FloorPlanEditorPage() {
-  const { floorId } = useParams<{ floorId: string }>();
+  const { roomId } = useParams<{ roomId: string }>();
   const navigate = useNavigate();
   const isAdmin = useIsAdmin();
   const queryClient = useQueryClient();
@@ -179,11 +178,9 @@ export function FloorPlanEditorPage() {
   const [selectedRack, setSelectedRack] = useState<RackItem | null>(null);
   const [selectedElement, setSelectedElement] = useState<FloorPlanElement | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [rackModalOpen, setRackModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+
   const [pasteRackModalOpen, setPasteRackModalOpen] = useState(false);  // Rack 붙여넣기 모달
-  const [newPlanName, setNewPlanName] = useState('');
   const [newRackName, setNewRackName] = useState('');
   const [pasteRackName, setPasteRackName] = useState('');  // 붙여넣기할 Rack 이름
 
@@ -248,62 +245,38 @@ export function FloorPlanEditorPage() {
   const [viewportInitialized, setViewportInitialized] = useState(false);
 
   // 층 정보 조회
-  const { data: floor, isLoading: floorLoading } = useQuery({
-    queryKey: ['floor', floorId],
+  const { data: room, isLoading: roomLoading } = useQuery({
+    queryKey: ['room', roomId],
     queryFn: async () => {
-      const response = await api.get<{ data: FloorDetail }>(`/floors/${floorId}`);
+      const response = await api.get<{ data: RoomDetail }>(`/rooms/${roomId}`);
       return response.data.data;
     },
-    enabled: !!floorId,
+    enabled: !!roomId,
   });
 
   // 평면도 조회
   const { data: floorPlan, isLoading: planLoading, error: planError } = useQuery({
-    queryKey: ['floorPlan', floorId],
+    queryKey: ['floorPlan', roomId],
     queryFn: async () => {
-      const response = await api.get<{ data: FloorPlanDetail }>(`/floors/${floorId}/floor-plan`);
+      const response = await api.get<{ data: FloorPlanDetail }>(`/rooms/${roomId}/plan`);
       return response.data.data;
     },
-    enabled: !!floorId,
+    enabled: !!roomId,
     retry: false,
-  });
-
-  // 평면도 생성
-  const createMutation = useMutation({
-    mutationFn: (data: CreateFloorPlanRequest) =>
-      api.post(`/floors/${floorId}/floor-plan`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
-      queryClient.invalidateQueries({ queryKey: ['floor', floorId] });
-      setCreateModalOpen(false);
-      setNewPlanName('');
-    },
   });
 
   // 평면도 저장
   const saveMutation = useMutation({
     mutationFn: (data: UpdateFloorPlanRequest) => {
       isSavingRef.current = true;  // 저장 시작 표시
-      return api.put(`/floor-plans/${floorPlan?.id}`, data);
+      return api.put(`/rooms/${roomId}/plan`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
+      queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
       setHasChanges(false);
       // 저장 성공 후 삭제 목록 초기화
       setDeletedElementIds([]);
       setDeletedRackIds([]);
-    },
-  });
-
-  // 평면도 삭제
-  const deleteMutation = useMutation({
-    mutationFn: () => api.delete(`/floor-plans/${floorPlan?.id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
-      queryClient.invalidateQueries({ queryKey: ['floor', floorId] });
-      setDeleteModalOpen(false);
-      // 층 목록으로 이동
-      navigate(`/substations/${floor?.substationId}/floors`);
     },
   });
 
@@ -360,7 +333,7 @@ export function FloorPlanEditorPage() {
   useEffect(() => {
     if (floorPlan) {
       // sessionStorage에서 임시 저장된 상태 복원 (랙 상세페이지에서 복귀 시)
-      const draftKey = `floorplan-draft-${floorId}`;
+      const draftKey = `floorplan-draft-${roomId}`;
       const draft = sessionStorage.getItem(draftKey);
 
       if (draft) {
@@ -404,7 +377,7 @@ export function FloorPlanEditorPage() {
       // 뷰포트 초기화 플래그 리셋 (초기 로드 시만)
       setViewportInitialized(false);
     }
-  }, [floorPlan, floorId]);
+  }, [floorPlan, roomId]);
 
   // 뷰포트 초기화 (localStorage 복원 또는 Fit to Content)
   useEffect(() => {
@@ -419,7 +392,7 @@ export function FloorPlanEditorPage() {
     const hasLocalData = localElements.length > 0 || localRacks.length > 0;
     if (hasFloorPlanData && !hasLocalData) return;
 
-    const savedViewport = localStorage.getItem(`floorplan-viewport-${floorId}`);
+    const savedViewport = localStorage.getItem(`floorplan-viewport-${roomId}`);
 
     if (savedViewport) {
       try {
@@ -442,17 +415,17 @@ export function FloorPlanEditorPage() {
     }
 
     setViewportInitialized(true);
-  }, [floorPlan, floorId, localElements, localRacks, viewportInitialized]);
+  }, [floorPlan, roomId, localElements, localRacks, viewportInitialized]);
 
   // 뷰포트 상태 저장 함수
   const saveViewportState = useCallback(() => {
-    if (!floorId) return;
-    localStorage.setItem(`floorplan-viewport-${floorId}`, JSON.stringify({
+    if (!roomId) return;
+    localStorage.setItem(`floorplan-viewport-${roomId}`, JSON.stringify({
       zoom: editorState.zoom,
       panX: editorState.panX,
       panY: editorState.panY,
     }));
-  }, [floorId, editorState.zoom, editorState.panX, editorState.panY]);
+  }, [roomId, editorState.zoom, editorState.panX, editorState.panY]);
 
   // 페이지 이탈 시 뷰포트 상태 저장
   useEffect(() => {
@@ -999,7 +972,7 @@ export function FloorPlanEditorPage() {
           return;  // 페이지 이동 없음 - 모든 변경사항 유지됨
         }
         // 현재 상태를 sessionStorage에 임시 저장 후 랙 에디터로 이동
-        sessionStorage.setItem(`floorplan-draft-${floorId}`, JSON.stringify({
+        sessionStorage.setItem(`floorplan-draft-${roomId}`, JSON.stringify({
           elements: localElements,
           racks: localRacks,
           hasChanges
@@ -1360,7 +1333,7 @@ export function FloorPlanEditorPage() {
   // 평면도가 없는 경우
   const isPlanNotFound = planError && (planError as { response?: { status: number } }).response?.status === 404;
 
-  const isLoading = floorLoading || planLoading;
+  const isLoading = roomLoading || planLoading;
 
   if (isLoading && !isPlanNotFound) {
     return (
@@ -1376,7 +1349,7 @@ export function FloorPlanEditorPage() {
       <div className="shrink-0 bg-white border-b px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link
-            to={`/substations/${floor?.substationId}/floors`}
+            to="/"
             className="p-2 hover:bg-gray-100 rounded-lg"
           >
             <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1385,7 +1358,7 @@ export function FloorPlanEditorPage() {
           </Link>
           <div>
             <h1 className="text-lg font-semibold text-gray-900">
-              {floor?.name} 평면도
+              {room?.name} 평면도
             </h1>
             {floorPlan && (
               <p className="text-xs text-gray-500">버전 {floorPlan.version}</p>
@@ -1788,39 +1761,24 @@ export function FloorPlanEditorPage() {
             >
               {saveMutation.isPending ? '저장 중...' : '저장'}
             </button>
-            <div className="border-l h-6 mx-2" />
-            <button
-              onClick={() => setDeleteModalOpen(true)}
-              className="p-2 hover:bg-red-50 rounded-lg text-red-600"
-              title="평면도 삭제"
-            >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
           </div>
         )}
       </div>
 
       {/* 메인 영역 */}
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* 평면도가 없는 경우 */}
+        {/* 평면도가 없는 경우 (비정상 상태) */}
         {isPlanNotFound ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
-              </svg>
-              <h3 className="mt-4 text-lg font-medium text-gray-900">평면도가 없습니다</h3>
-              <p className="mt-2 text-gray-500">새 평면도를 생성하세요.</p>
-              {isAdmin && (
-                <button
-                  onClick={() => setCreateModalOpen(true)}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  평면도 생성
-                </button>
-              )}
+              <h3 className="text-lg font-medium text-gray-900">평면도를 찾을 수 없습니다</h3>
+              <p className="mt-2 text-gray-500">이 실의 평면도 데이터가 없습니다.</p>
+              <Link
+                to="/"
+                className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                트리로 돌아가기
+              </Link>
             </div>
           </div>
         ) : (
@@ -2531,43 +2489,6 @@ export function FloorPlanEditorPage() {
         )}
       </div>
 
-      {/* 평면도 생성 모달 */}
-      {createModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">평면도 생성</h3>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">평면도 이름</label>
-              <input
-                type="text"
-                value={newPlanName}
-                onChange={(e) => setNewPlanName(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="예: B1층 ICT실 평면도"
-              />
-            </div>
-            {createMutation.error && (
-              <p className="text-red-600 text-sm mb-4">{getErrorMessage(createMutation.error)}</p>
-            )}
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setCreateModalOpen(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => createMutation.mutate({ name: newPlanName })}
-                disabled={!newPlanName || createMutation.isPending}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                {createMutation.isPending ? '생성 중...' : '생성'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 랙 추가 모달 */}
       {rackModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -2651,40 +2572,6 @@ export function FloorPlanEditorPage() {
         </div>
       )}
 
-      {/* 평면도 삭제 확인 모달 */}
-      {deleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-red-600 mb-4">평면도 삭제</h3>
-            <p className="text-gray-600 mb-2">
-              <strong>{floorPlan?.name}</strong> 평면도를 삭제하시겠습니까?
-            </p>
-            <p className="text-sm text-gray-500 mb-4">
-              평면도에 포함된 모든 구조물과 랙 배치 정보가 삭제됩니다.
-              이 작업은 되돌릴 수 없습니다.
-            </p>
-            {deleteMutation.error && (
-              <p className="text-red-600 text-sm mb-4">{getErrorMessage(deleteMutation.error)}</p>
-            )}
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteModalOpen(false)}
-                disabled={deleteMutation.isPending}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
-              >
-                취소
-              </button>
-              <button
-                onClick={() => deleteMutation.mutate()}
-                disabled={deleteMutation.isPending}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-              >
-                {deleteMutation.isPending ? '삭제 중...' : '삭제'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

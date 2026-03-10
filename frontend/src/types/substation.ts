@@ -2,7 +2,6 @@
 export interface SubstationListItem {
   id: string;
   name: string;
-  code: string;
   address: string | null;
   description: string | null;
   sortOrder: number;
@@ -15,7 +14,6 @@ export interface SubstationListItem {
 export interface SubstationDetail {
   id: string;
   name: string;
-  code: string;
   address: string | null;
   description: string | null;
   sortOrder: number;
@@ -32,7 +30,6 @@ export interface SubstationDetail {
 // 변전소 생성 요청
 export interface CreateSubstationRequest {
   name: string;
-  code: string;
   address?: string;
   description?: string;
 }
@@ -40,7 +37,6 @@ export interface CreateSubstationRequest {
 // 변전소 수정 요청
 export interface UpdateSubstationRequest {
   name?: string;
-  code?: string;
   address?: string;
   description?: string;
   sortOrder?: number;
@@ -55,8 +51,7 @@ export interface FloorListItem {
   description: string | null;
   sortOrder: number;
   isActive: boolean;
-  hasFloorPlan: boolean;
-  rackCount: number;
+  roomCount: number;
 }
 
 // 층 상세
@@ -68,7 +63,7 @@ export interface FloorDetail {
   description: string | null;
   sortOrder: number;
   isActive: boolean;
-  hasFloorPlan: boolean;
+  roomCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -87,6 +82,17 @@ export interface UpdateFloorRequest {
   description?: string;
   sortOrder?: number;
   isActive?: boolean;
+}
+
+// 실 상세
+export interface RoomDetail {
+  id: string;
+  floorId: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // API 응답 타입

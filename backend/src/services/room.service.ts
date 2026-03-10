@@ -4,54 +4,69 @@ import { NotFoundError, ConflictError } from '../utils/errors.js';
 
 // ==================== Types ====================
 
-export interface FloorPlanElement {
-  id: string;
-  elementType: string;
-  properties: Record<string, unknown>;
-  zIndex: number;
-  isVisible: boolean;
-}
-
-export interface RackItem {
-  id: string;
-  name: string;
-  code: string | null;
-  positionX: number;
-  positionY: number;
-  width: number;
-  height: number;
-  rotation: number;
-  totalU: number;
-  frontImageUrl: string | null;
-  rearImageUrl: string | null;
-  description: string | null;
-  equipmentCount?: number;
-}
-
-export interface FloorPlanDetail {
+export interface RoomListItem {
   id: string;
   floorId: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface RoomDetail {
+  id: string;
+  floorId: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface RoomPlanDetail {
+  id: string;
   name: string;
   canvasWidth: number;
   canvasHeight: number;
   gridSize: number;
   majorGridSize: number;
   backgroundColor: string;
-  elements: FloorPlanElement[];
-  racks: RackItem[];
+  elements: {
+    id: string;
+    elementType: string;
+    properties: Record<string, unknown>;
+    zIndex: number;
+    isVisible: boolean;
+  }[];
+  racks: {
+    id: string;
+    name: string;
+    code: string | null;
+    positionX: number;
+    positionY: number;
+    width: number;
+    height: number;
+    rotation: number;
+    totalU: number;
+    frontImageUrl: string | null;
+    rearImageUrl: string | null;
+    description: string | null;
+    equipmentCount?: number;
+  }[];
   version: number;
   updatedAt: Date;
 }
 
-export interface CreateFloorPlanInput {
+export interface CreateRoomInput {
   name: string;
-  canvasWidth?: number;
-  canvasHeight?: number;
-  gridSize?: number;
-  majorGridSize?: number;
 }
 
-export interface UpdateFloorPlanInput {
+export interface UpdateRoomInput {
+  name?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdatePlanInput {
   canvasWidth?: number;
   canvasHeight?: number;
   gridSize?: number;
@@ -82,22 +97,43 @@ export interface UpdateFloorPlanInput {
 
 // ==================== Service ====================
 
-class FloorPlanService {
-  /**
-   * 층의 평면도 조회
-   */
-  async getByFloorId(floorId: string): Promise<FloorPlanDetail | null> {
-    // 층 존재 확인
-    const floor = await prisma.floor.findUnique({
-      where: { id: floorId },
+class RoomService {
+  async getListByFloor(floorId: string): Promise<RoomListItem[]> {
+    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
+    if (!floor) throw new NotFoundError('층');
+
+    const rooms = await prisma.room.findMany({
+      where: { floorId, isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
-    if (!floor) {
-      throw new NotFoundError('층');
-    }
+    return rooms.map((r) => ({
+      id: r.id,
+      floorId: r.floorId,
+      name: r.name,
+      sortOrder: r.sortOrder,
+      isActive: r.isActive,
+    }));
+  }
 
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { floorId },
+  async getById(id: string): Promise<RoomDetail> {
+    const room = await prisma.room.findUnique({ where: { id } });
+    if (!room) throw new NotFoundError('실');
+
+    return {
+      id: room.id,
+      floorId: room.floorId,
+      name: room.name,
+      sortOrder: room.sortOrder,
+      isActive: room.isActive,
+      createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
+    };
+  }
+
+  async getPlan(id: string): Promise<RoomPlanDetail> {
+    const room = await prisma.room.findUnique({
+      where: { id },
       include: {
         elements: {
           where: { isVisible: true },
@@ -105,36 +141,31 @@ class FloorPlanService {
         },
         racks: {
           include: {
-            _count: {
-              select: { equipment: true },
-            },
+            _count: { select: { equipment: true } },
           },
           orderBy: { sortOrder: 'asc' },
         },
       },
     });
 
-    if (!floorPlan) {
-      return null;
-    }
+    if (!room) throw new NotFoundError('실');
 
     return {
-      id: floorPlan.id,
-      floorId: floorPlan.floorId,
-      name: floorPlan.name,
-      canvasWidth: floorPlan.canvasWidth,
-      canvasHeight: floorPlan.canvasHeight,
-      gridSize: floorPlan.gridSize,
-      majorGridSize: floorPlan.majorGridSize,
-      backgroundColor: floorPlan.backgroundColor,
-      elements: floorPlan.elements.map((e) => ({
+      id: room.id,
+      name: room.name,
+      canvasWidth: room.canvasWidth,
+      canvasHeight: room.canvasHeight,
+      gridSize: room.gridSize,
+      majorGridSize: room.majorGridSize,
+      backgroundColor: room.backgroundColor,
+      elements: room.elements.map((e) => ({
         id: e.id,
         elementType: e.elementType,
         properties: e.properties as Record<string, unknown>,
         zIndex: e.zIndex,
         isVisible: e.isVisible,
       })),
-      racks: floorPlan.racks.map((r) => ({
+      racks: room.racks.map((r) => ({
         id: r.id,
         name: r.name,
         code: r.code,
@@ -149,109 +180,100 @@ class FloorPlanService {
         description: r.description,
         equipmentCount: r._count.equipment,
       })),
-      version: floorPlan.version,
-      updatedAt: floorPlan.updatedAt,
+      version: room.version,
+      updatedAt: room.updatedAt,
     };
   }
 
-  /**
-   * 평면도 생성
-   */
-  async create(
-    floorId: string,
-    input: CreateFloorPlanInput,
-    userId: string
-  ): Promise<FloorPlanDetail> {
-    // 층 존재 확인
-    const floor = await prisma.floor.findUnique({
-      where: { id: floorId },
+  async create(floorId: string, input: CreateRoomInput, userId: string): Promise<RoomDetail> {
+    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
+    if (!floor) throw new NotFoundError('층');
+
+    const existing = await prisma.room.findFirst({
+      where: { floorId, name: input.name },
     });
+    if (existing) throw new ConflictError('동일한 이름의 실이 이미 존재합니다.');
 
-    if (!floor) {
-      throw new NotFoundError('층');
-    }
-
-    // 이미 평면도가 있는지 확인
-    const existing = await prisma.floorPlan.findUnique({
-      where: { floorId },
-    });
-
-    if (existing) {
-      throw new ConflictError('이미 평면도가 존재합니다.');
-    }
-
-    const floorPlan = await prisma.floorPlan.create({
+    const room = await prisma.room.create({
       data: {
         floorId,
         name: input.name,
-        canvasWidth: input.canvasWidth ?? 2000,
-        canvasHeight: input.canvasHeight ?? 1500,
-        gridSize: input.gridSize ?? 10,
-        majorGridSize: input.majorGridSize ?? 60,
         createdById: userId,
         updatedById: userId,
       },
     });
 
     return {
-      id: floorPlan.id,
-      floorId: floorPlan.floorId,
-      name: floorPlan.name,
-      canvasWidth: floorPlan.canvasWidth,
-      canvasHeight: floorPlan.canvasHeight,
-      gridSize: floorPlan.gridSize,
-      majorGridSize: floorPlan.majorGridSize,
-      backgroundColor: floorPlan.backgroundColor,
-      elements: [],
-      racks: [],
-      version: floorPlan.version,
-      updatedAt: floorPlan.updatedAt,
+      id: room.id,
+      floorId: room.floorId,
+      name: room.name,
+      sortOrder: room.sortOrder,
+      isActive: room.isActive,
+      createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
     };
   }
 
-  /**
-   * 평면도 전체 저장 (벌크 업데이트)
-   */
-  async bulkUpdate(
-    id: string,
-    input: UpdateFloorPlanInput,
-    userId: string
-  ): Promise<{ id: string; version: number; message: string }> {
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { id },
-    });
+  async update(id: string, input: UpdateRoomInput, userId: string): Promise<RoomDetail> {
+    const existing = await prisma.room.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('실');
 
-    if (!floorPlan) {
-      throw new NotFoundError('평면도');
+    if (input.name && input.name !== existing.name) {
+      const nameExists = await prisma.room.findFirst({
+        where: { floorId: existing.floorId, name: input.name, id: { not: id } },
+      });
+      if (nameExists) throw new ConflictError('동일한 이름의 실이 이미 존재합니다.');
     }
 
-    // 트랜잭션으로 처리
+    const room = await prisma.room.update({
+      where: { id },
+      data: { ...input, updatedById: userId },
+    });
+
+    return {
+      id: room.id,
+      floorId: room.floorId,
+      name: room.name,
+      sortOrder: room.sortOrder,
+      isActive: room.isActive,
+      createdAt: room.createdAt,
+      updatedAt: room.updatedAt,
+    };
+  }
+
+  async delete(id: string): Promise<void> {
+    const existing = await prisma.room.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('실');
+    await prisma.room.delete({ where: { id } });
+  }
+
+  /**
+   * 도면 전체 저장 (벌크 업데이트)
+   */
+  async bulkUpdatePlan(
+    id: string,
+    input: UpdatePlanInput,
+    userId: string
+  ): Promise<{ id: string; version: number; message: string }> {
+    const room = await prisma.room.findUnique({ where: { id } });
+    if (!room) throw new NotFoundError('실');
+
     await prisma.$transaction(async (tx) => {
-      // 1. 삭제할 요소 삭제
       if (input.deletedElementIds && input.deletedElementIds.length > 0) {
         await tx.floorPlanElement.deleteMany({
-          where: {
-            id: { in: input.deletedElementIds },
-            floorPlanId: id,
-          },
+          where: { id: { in: input.deletedElementIds }, roomId: id },
         });
       }
 
-      // 2. 삭제할 랙 삭제
       if (input.deletedRackIds && input.deletedRackIds.length > 0) {
         await tx.rack.deleteMany({
-          where: {
-            id: { in: input.deletedRackIds },
-            floorPlanId: id,
-          },
+          where: { id: { in: input.deletedRackIds }, roomId: id },
         });
       }
 
-      // 3. 요소 upsert
       if (input.elements && input.elements.length > 0) {
         for (const element of input.elements) {
           if (element.id) {
-            // 기존 요소 업데이트
             await tx.floorPlanElement.update({
               where: { id: element.id },
               data: {
@@ -262,10 +284,9 @@ class FloorPlanService {
               },
             });
           } else {
-            // 새 요소 생성
             await tx.floorPlanElement.create({
               data: {
-                floorPlanId: id,
+                roomId: id,
                 elementType: element.elementType,
                 properties: element.properties as Prisma.InputJsonValue,
                 zIndex: element.zIndex ?? 0,
@@ -276,11 +297,9 @@ class FloorPlanService {
         }
       }
 
-      // 4. 랙 upsert
       if (input.racks && input.racks.length > 0) {
         for (const rack of input.racks) {
           if (rack.id) {
-            // 기존 랙 업데이트
             await tx.rack.update({
               where: { id: rack.id },
               data: {
@@ -297,21 +316,15 @@ class FloorPlanService {
               },
             });
           } else {
-            // 새 랙 생성 - 이름 중복 체크
             const existingRack = await tx.rack.findFirst({
-              where: {
-                floorPlanId: id,
-                name: rack.name,
-              },
+              where: { roomId: id, name: rack.name },
             });
-
             if (existingRack) {
               throw new ConflictError(`랙 이름 '${rack.name}'이(가) 이미 존재합니다.`);
             }
-
             await tx.rack.create({
               data: {
-                floorPlanId: id,
+                roomId: id,
                 name: rack.name,
                 code: rack.code,
                 positionX: rack.positionX,
@@ -329,8 +342,7 @@ class FloorPlanService {
         }
       }
 
-      // 5. 평면도 정보 업데이트
-      await tx.floorPlan.update({
+      await tx.room.update({
         where: { id },
         data: {
           canvasWidth: input.canvasWidth,
@@ -344,9 +356,7 @@ class FloorPlanService {
       });
     });
 
-    const updated = await prisma.floorPlan.findUnique({
-      where: { id },
-    });
+    const updated = await prisma.room.findUnique({ where: { id } });
 
     return {
       id: id,
@@ -354,24 +364,6 @@ class FloorPlanService {
       message: '저장되었습니다.',
     };
   }
-
-  /**
-   * 평면도 삭제
-   */
-  async delete(id: string): Promise<void> {
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { id },
-    });
-
-    if (!floorPlan) {
-      throw new NotFoundError('평면도');
-    }
-
-    // Cascade로 요소, 랙도 함께 삭제됨
-    await prisma.floorPlan.delete({
-      where: { id },
-    });
-  }
 }
 
-export const floorPlanService = new FloorPlanService();
+export const roomService = new RoomService();

@@ -27,14 +27,18 @@ model User {
   updatedSubstations Substation[] @relation("SubstationUpdatedBy")
   createdFloors  Floor[] @relation("FloorCreatedBy")
   updatedFloors  Floor[] @relation("FloorUpdatedBy")
-  createdFloorPlans FloorPlan[] @relation("FloorPlanCreatedBy")
-  updatedFloorPlans FloorPlan[] @relation("FloorPlanUpdatedBy")
   createdRacks   Rack[] @relation("RackCreatedBy")
   updatedRacks   Rack[] @relation("RackUpdatedBy")
   createdEquipment Equipment[] @relation("EquipmentCreatedBy")
   updatedEquipment Equipment[] @relation("EquipmentUpdatedBy")
   createdCables  Cable[] @relation("CableCreatedBy")
   updatedCables  Cable[] @relation("CableUpdatedBy")
+  createdHeadquarters Headquarters[] @relation("HeadquartersCreatedBy")
+  updatedHeadquarters Headquarters[] @relation("HeadquartersUpdatedBy")
+  createdBranches Branch[] @relation("BranchCreatedBy")
+  updatedBranches Branch[] @relation("BranchUpdatedBy")
+  createdRooms   Room[] @relation("RoomCreatedBy")
+  updatedRooms   Room[] @relation("RoomUpdatedBy")
 
   @@map("users")
 }
@@ -56,12 +60,51 @@ enum UserRole {
   VIEWER
 }
 
+// ==================== 본부/지사 ====================
+
+model Headquarters {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(100)
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by")
+  updatedById String?  @map("updated_by")
+
+  createdBy User? @relation("HeadquartersCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("HeadquartersUpdatedBy", fields: [updatedById], references: [id])
+  branches  Branch[]
+
+  @@map("headquarters")
+}
+
+model Branch {
+  id              String   @id @default(uuid())
+  headquartersId  String   @map("headquarters_id")
+  name            String   @db.VarChar(100)
+  sortOrder       Int      @default(0) @map("sort_order")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  createdById     String?  @map("created_by")
+  updatedById     String?  @map("updated_by")
+
+  headquarters Headquarters @relation(fields: [headquartersId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("BranchCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?        @relation("BranchUpdatedBy", fields: [updatedById], references: [id])
+  substations  Substation[]
+
+  @@unique([headquartersId, name])
+  @@map("branches")
+}
+
 // ==================== 변전소/층 ====================
 
 model Substation {
   id          String   @id @default(uuid())
   name        String   @db.VarChar(100)
-  code        String   @unique @db.VarChar(20)
+  branchId    String?  @map("branch_id")
   address     String?  @db.VarChar(255)
   description String?  @db.Text
   sortOrder   Int      @default(0) @map("sort_order")
@@ -71,8 +114,9 @@ model Substation {
   createdById String?  @map("created_by")
   updatedById String?  @map("updated_by")
 
-  createdBy User? @relation("SubstationCreatedBy", fields: [createdById], references: [id])
-  updatedBy User? @relation("SubstationUpdatedBy", fields: [updatedById], references: [id])
+  branch    Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation("SubstationCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?   @relation("SubstationUpdatedBy", fields: [updatedById], references: [id])
   floors    Floor[]
 
   @@map("substations")
@@ -94,49 +138,54 @@ model Floor {
   substation Substation @relation(fields: [substationId], references: [id], onDelete: Cascade)
   createdBy  User?      @relation("FloorCreatedBy", fields: [createdById], references: [id])
   updatedBy  User?      @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
-  floorPlan  FloorPlan?
+  rooms      Room[]
 
   @@unique([substationId, name])
   @@map("floors")
 }
 
-// ==================== 평면도 ====================
+// ==================== 실(Room) = 도면 ====================
 
-model FloorPlan {
+model Room {
   id              String   @id @default(uuid())
-  floorId         String   @unique @map("floor_id")
+  floorId         String   @map("floor_id")
   name            String   @db.VarChar(100)
+  sortOrder       Int      @default(0) @map("sort_order")
+  isActive        Boolean  @default(true) @map("is_active")
+  // 도면 속성
   canvasWidth     Int      @default(2000) @map("canvas_width")
   canvasHeight    Int      @default(1500) @map("canvas_height")
   gridSize        Int      @default(10) @map("grid_size")
   majorGridSize   Int      @default(60) @map("major_grid_size")
   backgroundColor String   @default("#ffffff") @map("background_color") @db.VarChar(20)
   version         Int      @default(1)
+  // timestamps
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   createdById     String?  @map("created_by")
   updatedById     String?  @map("updated_by")
 
-  floor     Floor               @relation(fields: [floorId], references: [id], onDelete: Cascade)
-  createdBy User?               @relation("FloorPlanCreatedBy", fields: [createdById], references: [id])
-  updatedBy User?               @relation("FloorPlanUpdatedBy", fields: [updatedById], references: [id])
+  floor     Floor              @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  createdBy User?              @relation("RoomCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?              @relation("RoomUpdatedBy", fields: [updatedById], references: [id])
   elements  FloorPlanElement[]
   racks     Rack[]
 
-  @@map("floor_plans")
+  @@unique([floorId, name])
+  @@map("rooms")
 }
 
 model FloorPlanElement {
   id          String   @id @default(uuid())
-  floorPlanId String   @map("floor_plan_id")
-  elementType String   @map("element_type") @db.VarChar(20) // line, rect, circle, door, window, text
-  properties  Json     // 타입별 속성 JSON
+  roomId      String   @map("room_id")
+  elementType String   @map("element_type") @db.VarChar(20)
+  properties  Json
   zIndex      Int      @default(0) @map("z_index")
   isVisible   Boolean  @default(true) @map("is_visible")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  floorPlan FloorPlan @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@map("floor_plan_elements")
 }
@@ -145,7 +194,7 @@ model FloorPlanElement {
 
 model Rack {
   id            String   @id @default(uuid())
-  floorPlanId   String   @map("floor_plan_id")
+  roomId        String   @map("room_id")
   name          String   @db.VarChar(100)
   code          String?  @db.VarChar(50)
   // 평면도 위치
@@ -167,12 +216,12 @@ model Rack {
   createdById   String?  @map("created_by")
   updatedById   String?  @map("updated_by")
 
-  floorPlan FloorPlan   @relation(fields: [floorPlanId], references: [id], onDelete: Cascade)
+  room      Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
   createdBy User?       @relation("RackCreatedBy", fields: [createdById], references: [id])
   updatedBy User?       @relation("RackUpdatedBy", fields: [updatedById], references: [id])
   equipment Equipment[]
 
-  @@unique([floorPlanId, name])
+  @@unique([roomId, name])
   @@map("racks")
 }
 
