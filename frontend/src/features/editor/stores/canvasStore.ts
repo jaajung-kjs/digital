@@ -1,0 +1,156 @@
+import { create } from 'zustand';
+import type { DragSession } from '../../../utils/floorplan/dragSystem';
+
+interface CanvasStoreState {
+  // Line drawing state
+  isDrawingLine: boolean;
+  linePoints: [number, number][];
+  linePreviewEnd: [number, number] | null;
+
+  // Circle drawing state
+  isDrawingCircle: boolean;
+  circleCenter: { x: number; y: number } | null;
+  circlePreviewRadius: number;
+  circlePreviewEnd: { x: number; y: number } | null;
+
+  // Rect drawing state
+  isDrawingRect: boolean;
+  rectStart: { x: number; y: number } | null;
+  rectPreviewEnd: { x: number; y: number } | null;
+
+  // Text editing state
+  isEditingText: boolean;
+  textInputPosition: { x: number; y: number } | null;
+  textInputValue: string;
+
+  // Placement preview position (for door, window, rack, text)
+  previewPosition: { x: number; y: number } | null;
+
+  // Drag state
+  dragSession: DragSession | null;
+
+  // Pan state
+  isPanning: boolean;
+  panStart: { x: number; y: number } | null;
+  isSpacePressed: boolean;
+
+  // Rack modal states
+  rackModalOpen: boolean;
+  pasteRackModalOpen: boolean;
+  newRackName: string;
+  pasteRackName: string;
+  newRackPosition: { x: number; y: number };
+}
+
+interface CanvasStoreActions {
+  // Line drawing
+  setIsDrawingLine: (v: boolean) => void;
+  setLinePoints: (pts: [number, number][]) => void;
+  setLinePreviewEnd: (end: [number, number] | null) => void;
+
+  // Circle drawing
+  setIsDrawingCircle: (v: boolean) => void;
+  setCircleCenter: (c: { x: number; y: number } | null) => void;
+  setCirclePreviewRadius: (r: number) => void;
+  setCirclePreviewEnd: (e: { x: number; y: number } | null) => void;
+
+  // Rect drawing
+  setIsDrawingRect: (v: boolean) => void;
+  setRectStart: (s: { x: number; y: number } | null) => void;
+  setRectPreviewEnd: (e: { x: number; y: number } | null) => void;
+
+  // Text editing
+  setIsEditingText: (v: boolean) => void;
+  setTextInputPosition: (p: { x: number; y: number } | null) => void;
+  setTextInputValue: (v: string) => void;
+
+  // Preview
+  setPreviewPosition: (p: { x: number; y: number } | null) => void;
+
+  // Drag
+  setDragSession: (s: DragSession | null) => void;
+
+  // Pan
+  setIsPanning: (v: boolean) => void;
+  setPanStart: (p: { x: number; y: number } | null) => void;
+  setIsSpacePressed: (v: boolean) => void;
+
+  // Rack modals
+  setRackModalOpen: (v: boolean) => void;
+  setPasteRackModalOpen: (v: boolean) => void;
+  setNewRackName: (v: string) => void;
+  setPasteRackName: (v: string) => void;
+  setNewRackPosition: (p: { x: number; y: number }) => void;
+
+  // Reset all drawing/interaction state
+  resetDrawingState: () => void;
+}
+
+export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set) => ({
+  // Initial state
+  isDrawingLine: false,
+  linePoints: [],
+  linePreviewEnd: null,
+  isDrawingCircle: false,
+  circleCenter: null,
+  circlePreviewRadius: 0,
+  circlePreviewEnd: null,
+  isDrawingRect: false,
+  rectStart: null,
+  rectPreviewEnd: null,
+  isEditingText: false,
+  textInputPosition: null,
+  textInputValue: '',
+  previewPosition: null,
+  dragSession: null,
+  isPanning: false,
+  panStart: null,
+  isSpacePressed: false,
+  rackModalOpen: false,
+  pasteRackModalOpen: false,
+  newRackName: '',
+  pasteRackName: '',
+  newRackPosition: { x: 100, y: 100 },
+
+  // Actions
+  setIsDrawingLine: (isDrawingLine) => set({ isDrawingLine }),
+  setLinePoints: (linePoints) => set({ linePoints }),
+  setLinePreviewEnd: (linePreviewEnd) => set({ linePreviewEnd }),
+  setIsDrawingCircle: (isDrawingCircle) => set({ isDrawingCircle }),
+  setCircleCenter: (circleCenter) => set({ circleCenter }),
+  setCirclePreviewRadius: (circlePreviewRadius) => set({ circlePreviewRadius }),
+  setCirclePreviewEnd: (circlePreviewEnd) => set({ circlePreviewEnd }),
+  setIsDrawingRect: (isDrawingRect) => set({ isDrawingRect }),
+  setRectStart: (rectStart) => set({ rectStart }),
+  setRectPreviewEnd: (rectPreviewEnd) => set({ rectPreviewEnd }),
+  setIsEditingText: (isEditingText) => set({ isEditingText }),
+  setTextInputPosition: (textInputPosition) => set({ textInputPosition }),
+  setTextInputValue: (textInputValue) => set({ textInputValue }),
+  setPreviewPosition: (previewPosition) => set({ previewPosition }),
+  setDragSession: (dragSession) => set({ dragSession }),
+  setIsPanning: (isPanning) => set({ isPanning }),
+  setPanStart: (panStart) => set({ panStart }),
+  setIsSpacePressed: (isSpacePressed) => set({ isSpacePressed }),
+  setRackModalOpen: (rackModalOpen) => set({ rackModalOpen }),
+  setPasteRackModalOpen: (pasteRackModalOpen) => set({ pasteRackModalOpen }),
+  setNewRackName: (newRackName) => set({ newRackName }),
+  setPasteRackName: (pasteRackName) => set({ pasteRackName }),
+  setNewRackPosition: (newRackPosition) => set({ newRackPosition }),
+
+  resetDrawingState: () => set({
+    isDrawingLine: false,
+    linePoints: [],
+    linePreviewEnd: null,
+    isDrawingCircle: false,
+    circleCenter: null,
+    circlePreviewRadius: 0,
+    circlePreviewEnd: null,
+    isDrawingRect: false,
+    rectStart: null,
+    rectPreviewEnd: null,
+    isEditingText: false,
+    textInputPosition: null,
+    textInputValue: '',
+    previewPosition: null,
+  }),
+}));

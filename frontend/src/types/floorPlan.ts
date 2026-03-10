@@ -28,6 +28,8 @@ export interface RectProperties {
   strokeWidth: number;        // 기본 2
   strokeStyle: 'solid' | 'dashed' | 'dotted';
   cornerRadius: number;       // 둥근 모서리, 기본 0
+  height3d?: number;          // 3D 높이
+  elevation3d?: number;       // 3D 높이 오프셋
 }
 
 // 원 속성 (신규)
@@ -54,6 +56,8 @@ export interface DoorProperties {
   strokeWidth: number;        // 기본 2
   strokeColor: string;        // 기본 '#d97706'
   wallId?: string;            // 레거시 호환
+  height3d?: number;          // 3D 높이
+  elevation3d?: number;       // 3D 높이 오프셋
 }
 
 // 창문 속성 (확장)
@@ -68,6 +72,8 @@ export interface WindowProperties {
   strokeWidth: number;        // 기본 2
   strokeColor: string;        // 기본 '#0284c7'
   wallId?: string;            // 레거시 호환
+  height3d?: number;          // 3D 높이
+  elevation3d?: number;       // 3D 높이 오프셋
 }
 
 // 텍스트 속성 (신규)
@@ -130,6 +136,7 @@ export interface RackItem {
   description: string | null;
   equipmentCount?: number;
   usedU?: number;
+  height3d?: number;          // 3D 높이
 }
 
 // 평면도 타입
@@ -203,10 +210,33 @@ export interface UpdateRackRequest {
   sortOrder?: number;
 }
 
+// 뷰 모드 (2D 편집, 3D 뷰, 연결 네트워크 등)
+export type ViewMode = 'edit-2d' | 'view-3d' | 'connection-network' | 'connection-power' | 'connection-ground';
+
+// 평면도 위 장비 아이템
+export interface EquipmentItem {
+  id: string;
+  name: string;
+  model?: string;
+  manufacturer?: string;
+  category: string;
+  roomId: string;
+  positionX: number;
+  positionY: number;
+  width2d: number;
+  height2d: number;
+  rotation: number;
+  height3d?: number;
+  frontImageUrl?: string;
+  rearImageUrl?: string;
+  manager?: string;
+  description?: string;
+}
+
 // 에디터 도구 타입 (v2 - CAD 스타일)
 // 기존: 'select' | 'wall' | 'door' | 'window' | 'column' | 'rack' | 'cable' | 'delete'
-// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'rack' | 'text' | 'delete'
-export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'rack' | 'text' | 'delete';
+// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'rack' | 'text' | 'equipment' | 'delete'
+export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'rack' | 'text' | 'equipment' | 'delete';
 
 // 에디터 상태 타입
 export interface EditorState {
