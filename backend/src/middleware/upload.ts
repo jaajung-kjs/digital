@@ -44,3 +44,29 @@ export const uploadRackImage = multer({
     fileSize: 5 * 1024 * 1024, // 5MB
   },
 });
+
+// ==================== 설비 이미지 업로드 ====================
+
+const equipmentUploadDir = 'uploads/equipment';
+if (!fs.existsSync(equipmentUploadDir)) {
+  fs.mkdirSync(equipmentUploadDir, { recursive: true });
+}
+
+const equipmentStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, equipmentUploadDir);
+  },
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `${uuid()}${ext}`;
+    cb(null, filename);
+  },
+});
+
+export const uploadEquipmentImage = multer({
+  storage: equipmentStorage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+});

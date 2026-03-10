@@ -1,0 +1,61 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { cableController } from '../controllers/cable.controller.js';
+import { authenticate, adminOnly } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+
+const router = Router();
+
+// ==================== Validation Schemas ====================
+
+const cableTypeEnum = z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']);
+
+const createCableSchema = z.object({
+  sourcePortId: z.string().uuid('유효한 소스 포트 ID가 필요합니다.'),
+  targetPortId: z.string().uuid('유효한 타겟 포트 ID가 필요합니다.'),
+  cableType: cableTypeEnum,
+  label: z.string().max(100).optional(),
+  length: z.number().positive().optional(),
+  color: z.string().max(50).optional(),
+  description: z.string().optional(),
+});
+
+const updateCableSchema = z.object({
+  cableType: cableTypeEnum.optional(),
+  label: z.string().max(100).optional().nullable(),
+  length: z.number().positive().optional().nullable(),
+  color: z.string().max(50).optional().nullable(),
+  pathPoints: z.unknown().optional(),
+  description: z.string().optional().nullable(),
+});
+
+// ==================== Cable Routes ====================
+
+// 모든 케이블 조회 (인증 불필요)
+router.get('/', cableController.getAll);
+
+// 케이블 상세 조회 (인증 불필요)
+router.get('/:id', cableController.getById);
+
+// 케이블 생성 (관리자만)
+router.post(
+  '/',
+  authenticate,
+  adminOnly,
+  validate(createCableSchema),
+  cableController.create
+);
+
+// 케이블 수정 (관리자만)
+router.put(
+  '/:id',
+  authenticate,
+  adminOnly,
+  validate(updateCableSchema),
+  cableController.update
+);
+
+// 케이블 삭제 (관리자만)
+router.delete('/:id', authenticate, adminOnly, cableController.delete);
+
+export { router as cablesRouter };
