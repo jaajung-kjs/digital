@@ -4,7 +4,7 @@ import { floorPlanElementService } from '../services/floorPlanElement.service.js
 export const floorPlanElementController = {
   /**
    * POST /api/floor-plans/:id/elements
-   * 요소 생성
+   * 요소 생성 (:id is roomId)
    */
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

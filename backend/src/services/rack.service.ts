@@ -5,7 +5,7 @@ import { NotFoundError, ConflictError } from '../utils/errors.js';
 
 export interface RackDetail {
   id: string;
-  floorPlanId: string;
+  roomId: string;
   name: string;
   code: string | null;
   positionX: number;
@@ -53,19 +53,19 @@ export interface UpdateRackInput {
 
 class RackService {
   /**
-   * 평면도의 모든 랙 조회
+   * 실의 모든 랙 조회
    */
-  async getByFloorPlanId(floorPlanId: string): Promise<RackDetail[]> {
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { id: floorPlanId },
+  async getByRoomId(roomId: string): Promise<RackDetail[]> {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
     });
 
-    if (!floorPlan) {
-      throw new NotFoundError('평면도');
+    if (!room) {
+      throw new NotFoundError('실');
     }
 
     const racks = await prisma.rack.findMany({
-      where: { floorPlanId },
+      where: { roomId },
       include: {
         equipment: {
           select: {
@@ -81,7 +81,7 @@ class RackService {
 
     return racks.map((r) => ({
       id: r.id,
-      floorPlanId: r.floorPlanId,
+      roomId: r.roomId,
       name: r.name,
       code: r.code,
       positionX: r.positionX,
@@ -125,7 +125,7 @@ class RackService {
 
     return {
       id: rack.id,
-      floorPlanId: rack.floorPlanId,
+      roomId: rack.roomId,
       name: rack.name,
       code: rack.code,
       positionX: rack.positionX,
@@ -149,22 +149,22 @@ class RackService {
    * 랙 생성
    */
   async create(
-    floorPlanId: string,
+    roomId: string,
     input: CreateRackInput,
     userId: string
   ): Promise<RackDetail> {
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { id: floorPlanId },
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
     });
 
-    if (!floorPlan) {
-      throw new NotFoundError('평면도');
+    if (!room) {
+      throw new NotFoundError('실');
     }
 
-    // 동일 평면도 내 이름 중복 확인
+    // 동일 실 내 이름 중복 확인
     const existing = await prisma.rack.findFirst({
       where: {
-        floorPlanId,
+        roomId,
         name: input.name,
       },
     });
@@ -175,7 +175,7 @@ class RackService {
 
     const rack = await prisma.rack.create({
       data: {
-        floorPlanId,
+        roomId,
         name: input.name,
         code: input.code,
         positionX: input.positionX,
@@ -192,7 +192,7 @@ class RackService {
 
     return {
       id: rack.id,
-      floorPlanId: rack.floorPlanId,
+      roomId: rack.roomId,
       name: rack.name,
       code: rack.code,
       positionX: rack.positionX,
@@ -232,7 +232,7 @@ class RackService {
     if (input.name && input.name !== existing.name) {
       const nameExists = await prisma.rack.findFirst({
         where: {
-          floorPlanId: existing.floorPlanId,
+          roomId: existing.roomId,
           name: input.name,
           id: { not: id },
         },
@@ -263,7 +263,7 @@ class RackService {
 
     return {
       id: rack.id,
-      floorPlanId: rack.floorPlanId,
+      roomId: rack.roomId,
       name: rack.name,
       code: rack.code,
       positionX: rack.positionX,
@@ -350,7 +350,7 @@ class RackService {
 
     return {
       id: rack.id,
-      floorPlanId: rack.floorPlanId,
+      roomId: rack.roomId,
       name: rack.name,
       code: rack.code,
       positionX: rack.positionX,
@@ -411,7 +411,7 @@ class RackService {
 
     return {
       id: rack.id,
-      floorPlanId: rack.floorPlanId,
+      roomId: rack.roomId,
       name: rack.name,
       code: rack.code,
       positionX: rack.positionX,

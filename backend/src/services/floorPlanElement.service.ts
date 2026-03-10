@@ -6,7 +6,7 @@ import { NotFoundError } from '../utils/errors.js';
 
 export interface FloorPlanElementDetail {
   id: string;
-  floorPlanId: string;
+  roomId: string;
   elementType: string;
   properties: Record<string, unknown>;
   zIndex: number;
@@ -33,25 +33,25 @@ export interface UpdateElementInput {
 
 class FloorPlanElementService {
   /**
-   * 평면도의 모든 요소 조회
+   * 실의 모든 요소 조회
    */
-  async getByFloorPlanId(floorPlanId: string): Promise<FloorPlanElementDetail[]> {
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { id: floorPlanId },
+  async getByRoomId(roomId: string): Promise<FloorPlanElementDetail[]> {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
     });
 
-    if (!floorPlan) {
-      throw new NotFoundError('평면도');
+    if (!room) {
+      throw new NotFoundError('실');
     }
 
     const elements = await prisma.floorPlanElement.findMany({
-      where: { floorPlanId },
+      where: { roomId },
       orderBy: { zIndex: 'asc' },
     });
 
     return elements.map((e) => ({
       id: e.id,
-      floorPlanId: e.floorPlanId,
+      roomId: e.roomId,
       elementType: e.elementType,
       properties: e.properties as Record<string, unknown>,
       zIndex: e.zIndex,
@@ -65,20 +65,20 @@ class FloorPlanElementService {
    * 요소 생성
    */
   async create(
-    floorPlanId: string,
+    roomId: string,
     input: CreateElementInput
   ): Promise<FloorPlanElementDetail> {
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { id: floorPlanId },
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
     });
 
-    if (!floorPlan) {
-      throw new NotFoundError('평면도');
+    if (!room) {
+      throw new NotFoundError('실');
     }
 
     const element = await prisma.floorPlanElement.create({
       data: {
-        floorPlanId,
+        roomId,
         elementType: input.elementType,
         properties: input.properties as Prisma.InputJsonValue,
         zIndex: input.zIndex ?? 0,
@@ -88,7 +88,7 @@ class FloorPlanElementService {
 
     return {
       id: element.id,
-      floorPlanId: element.floorPlanId,
+      roomId: element.roomId,
       elementType: element.elementType,
       properties: element.properties as Record<string, unknown>,
       zIndex: element.zIndex,
@@ -125,7 +125,7 @@ class FloorPlanElementService {
 
     return {
       id: element.id,
-      floorPlanId: element.floorPlanId,
+      roomId: element.roomId,
       elementType: element.elementType,
       properties: element.properties as Record<string, unknown>,
       zIndex: element.zIndex,

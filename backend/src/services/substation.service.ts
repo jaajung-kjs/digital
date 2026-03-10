@@ -1,16 +1,11 @@
 import prisma from '../config/prisma.js';
-import {
-  NotFoundError,
-  ConflictError,
-  ValidationError,
-} from '../utils/errors.js';
+import { NotFoundError } from '../utils/errors.js';
 
 // ==================== Types ====================
 
 export interface SubstationListItem {
   id: string;
   name: string;
-  code: string;
   address: string | null;
   description: string | null;
   sortOrder: number;
@@ -22,7 +17,6 @@ export interface SubstationListItem {
 export interface SubstationDetail {
   id: string;
   name: string;
-  code: string;
   address: string | null;
   description: string | null;
   sortOrder: number;
@@ -38,14 +32,13 @@ export interface SubstationDetail {
 
 export interface CreateSubstationInput {
   name: string;
-  code: string;
+  branchId?: string;
   address?: string;
   description?: string;
 }
 
 export interface UpdateSubstationInput {
   name?: string;
-  code?: string;
   address?: string;
   description?: string;
   sortOrder?: number;
@@ -74,7 +67,6 @@ class SubstationService {
     return substations.map((s) => ({
       id: s.id,
       name: s.name,
-      code: s.code,
       address: s.address,
       description: s.description,
       sortOrder: s.sortOrder,
@@ -109,7 +101,6 @@ class SubstationService {
     return {
       id: substation.id,
       name: substation.name,
-      code: substation.code,
       address: substation.address,
       description: substation.description,
       sortOrder: substation.sortOrder,
@@ -127,22 +118,10 @@ class SubstationService {
     input: CreateSubstationInput,
     userId: string
   ): Promise<SubstationDetail> {
-    // 코드 형식 검증
-    this.validateCode(input.code);
-
-    // 코드 중복 확인
-    const existing = await prisma.substation.findUnique({
-      where: { code: input.code },
-    });
-
-    if (existing) {
-      throw new ConflictError('변전소 코드가 이미 존재합니다.');
-    }
-
     const substation = await prisma.substation.create({
       data: {
         name: input.name,
-        code: input.code,
+        branchId: input.branchId,
         address: input.address,
         description: input.description,
         createdById: userId,
@@ -162,7 +141,6 @@ class SubstationService {
     return {
       id: substation.id,
       name: substation.name,
-      code: substation.code,
       address: substation.address,
       description: substation.description,
       sortOrder: substation.sortOrder,
@@ -181,26 +159,12 @@ class SubstationService {
     input: UpdateSubstationInput,
     userId: string
   ): Promise<SubstationDetail> {
-    // 존재 여부 확인
     const existing = await prisma.substation.findUnique({
       where: { id },
     });
 
     if (!existing) {
       throw new NotFoundError('변전소');
-    }
-
-    // 코드 변경 시 검증
-    if (input.code && input.code !== existing.code) {
-      this.validateCode(input.code);
-
-      const codeExists = await prisma.substation.findUnique({
-        where: { code: input.code },
-      });
-
-      if (codeExists) {
-        throw new ConflictError('변전소 코드가 이미 존재합니다.');
-      }
     }
 
     const substation = await prisma.substation.update({
@@ -224,7 +188,6 @@ class SubstationService {
     return {
       id: substation.id,
       name: substation.name,
-      code: substation.code,
       address: substation.address,
       description: substation.description,
       sortOrder: substation.sortOrder,
@@ -241,37 +204,15 @@ class SubstationService {
   async delete(id: string): Promise<void> {
     const substation = await prisma.substation.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: { floors: true },
-        },
-      },
     });
 
     if (!substation) {
       throw new NotFoundError('변전소');
     }
 
-    // 하위 층이 있는 경우 삭제 불가
-    if (substation._count.floors > 0) {
-      throw new ConflictError('하위 층이 존재하여 삭제할 수 없습니다.');
-    }
-
     await prisma.substation.delete({
       where: { id },
     });
-  }
-
-  /**
-   * 코드 형식 검증 (영문 대문자 + 숫자 + 하이픈)
-   */
-  private validateCode(code: string): void {
-    const codePattern = /^[A-Z0-9-]+$/;
-    if (!codePattern.test(code)) {
-      throw new ValidationError(
-        '변전소 코드는 영문 대문자, 숫자, 하이픈만 사용할 수 있습니다.'
-      );
-    }
   }
 }
 

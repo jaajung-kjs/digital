@@ -135,7 +135,6 @@ export interface RackItem {
 // 평면도 타입
 export interface FloorPlanDetail {
   id: string;
-  floorId: string;
   name: string;
   canvasWidth: number;
   canvasHeight: number;
@@ -149,14 +148,6 @@ export interface FloorPlanDetail {
 }
 
 // API 요청 타입
-export interface CreateFloorPlanRequest {
-  name: string;
-  canvasWidth?: number;
-  canvasHeight?: number;
-  gridSize?: number;
-  majorGridSize?: number;
-}
-
 export interface UpdateFloorPlanRequest {
   canvasWidth?: number;
   canvasHeight?: number;
