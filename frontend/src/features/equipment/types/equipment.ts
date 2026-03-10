@@ -1,0 +1,86 @@
+export interface EquipmentFormData {
+  name: string;
+  model?: string;
+  manufacturer?: string;
+  serialNumber?: string;
+  category: string;
+  manager?: string;
+  description?: string;
+  positionX: number;
+  positionY: number;
+  width2d: number;
+  height2d: number;
+  rotation?: number;
+  height3d?: number;
+}
+
+export interface MaintenanceFormData {
+  logType: string;
+  title: string;
+  description?: string;
+  severity?: string;
+  status?: string;
+}
+
+export const CATEGORY_ICONS: Record<string, string> = {
+  SERVER: '\u{1F5A5}\uFE0F',
+  NETWORK: '\u{1F310}',
+  STORAGE: '\u{1F4BE}',
+  POWER: '\u26A1',
+  SECURITY: '\u{1F512}',
+  OTHER: '\u{1F4E6}',
+};
+
+export const CATEGORY_LABELS: Record<string, string> = {
+  SERVER: '\uC11C\uBC84',
+  NETWORK: '\uB124\uD2B8\uC6CC\uD06C',
+  STORAGE: '\uC2A4\uD1A0\uB9AC\uC9C0',
+  POWER: '\uC804\uC6D0',
+  SECURITY: '\uBCF4\uC548',
+  OTHER: '\uAE30\uD0C0',
+};
+
+export const EQUIPMENT_CATEGORIES = [
+  'SERVER',
+  'NETWORK',
+  'STORAGE',
+  'POWER',
+  'SECURITY',
+  'OTHER',
+] as const;
+
+export const LOG_TYPE_LABELS: Record<string, string> = {
+  MAINTENANCE: '\uC810\uAC80',
+  FAILURE: '\uACE0\uC7A5',
+  REPAIR: '\uC218\uB9AC',
+  INSPECTION: '\uAC80\uC0AC',
+};
+
+export const SEVERITY_COLORS: Record<string, string> = {
+  CRITICAL: 'bg-red-100 text-red-800',
+  HIGH: 'bg-orange-100 text-orange-800',
+  MEDIUM: 'bg-yellow-100 text-yellow-800',
+  LOW: 'bg-green-100 text-green-800',
+};
+
+export const STATUS_COLORS: Record<string, string> = {
+  OPEN: 'bg-blue-100 text-blue-800',
+  IN_PROGRESS: 'bg-purple-100 text-purple-800',
+  RESOLVED: 'bg-green-100 text-green-800',
+  CLOSED: 'bg-gray-100 text-gray-800',
+};
+
+export const STATUS_LABELS: Record<string, string> = {
+  OPEN: '\uC5F4\uB9BC',
+  IN_PROGRESS: '\uC9C4\uD589\uC911',
+  RESOLVED: '\uD574\uACB0',
+  CLOSED: '\uC885\uB8CC',
+};
+
+export const CABLE_TYPE_COLORS: Record<string, string> = {
+  AC: 'bg-red-100 text-red-700',
+  DC: 'bg-blue-100 text-blue-700',
+  LAN: 'bg-green-100 text-green-700',
+  FIBER: 'bg-yellow-100 text-yellow-700',
+  GROUND: 'bg-gray-100 text-gray-700',
+};
