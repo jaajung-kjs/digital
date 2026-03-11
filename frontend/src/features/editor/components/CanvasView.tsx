@@ -5,6 +5,7 @@ import { useCanvasEvents } from '../hooks/useCanvasEvents';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
+import { generateTempId } from '../../../utils/idHelpers';
 
 interface CanvasViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -55,7 +56,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, childre
   const createTextElement = (text: string) => {
     if (!textInputPosition || !text.trim()) return;
     const newText: FloorPlanElement = {
-      id: `temp-${Date.now()}`,
+      id: generateTempId(),
       elementType: 'text',
       properties: {
         x: textInputPosition.x,

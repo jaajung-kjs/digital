@@ -1,3 +1,5 @@
+import type { EquipmentCategory } from '../../../types/rack';
+
 export interface EquipmentFormData {
   name: string;
   model?: string;
@@ -23,19 +25,19 @@ export interface MaintenanceFormData {
   status?: string;
 }
 
-export const CATEGORY_ICONS: Record<string, string> = {
+export const CATEGORY_ICONS = {
   NETWORK: '\u{1F310}',
   POWER: '\u26A1',
   DISTRIBUTION_BOARD: '\u{1F4CB}',
   OFD: '\u{1F4E6}',
-};
+} satisfies Record<EquipmentCategory, string> as Record<string, string>;
 
-export const CATEGORY_LABELS: Record<string, string> = {
+export const CATEGORY_LABELS = {
   NETWORK: '\uB124\uD2B8\uC6CC\uD06C',
   POWER: '\uC804\uC6D0',
   DISTRIBUTION_BOARD: '\uBD84\uC804\uBC18',
   OFD: 'OFD',
-};
+} satisfies Record<EquipmentCategory, string> as Record<string, string>;
 
 export const EQUIPMENT_CATEGORIES = [
   'NETWORK',

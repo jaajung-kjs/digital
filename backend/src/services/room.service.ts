@@ -83,6 +83,7 @@ export interface UpdatePlanInput {
   }[];
   equipment?: {
     id?: string | null;
+    tempId?: string;
     name: string;
     category?: string;
     positionX: number;
@@ -268,12 +269,12 @@ class RoomService {
     id: string,
     input: UpdatePlanInput,
     userId: string
-  ): Promise<{ id: string; version: number; message: string; equipmentIdMap: Record<number, string> }> {
+  ): Promise<{ id: string; version: number; message: string; equipmentIdMap: Record<string, string> }> {
     const room = await prisma.room.findUnique({ where: { id } });
     if (!room) throw new NotFoundError('실');
 
     let newVersion = 0;
-    const equipmentIdMap: Record<number, string> = {};
+    const equipmentIdMap: Record<string, string> = {};
 
     await prisma.$transaction(async (tx) => {
       if (input.deletedElementIds && input.deletedElementIds.length > 0) {
@@ -315,8 +316,7 @@ class RoomService {
       }
 
       if (input.equipment && input.equipment.length > 0) {
-        for (let i = 0; i < input.equipment.length; i++) {
-          const equip = input.equipment[i];
+        for (const equip of input.equipment) {
           if (equip.id) {
             await tx.equipment.update({
               where: { id: equip.id },
@@ -356,7 +356,9 @@ class RoomService {
                 updatedById: userId,
               },
             });
-            equipmentIdMap[i] = created.id;
+            if (equip.tempId) {
+              equipmentIdMap[equip.tempId] = created.id;
+            }
           }
         }
       }

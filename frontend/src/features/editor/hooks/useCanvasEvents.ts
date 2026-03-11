@@ -17,6 +17,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useEditorHistory } from './useEditorHistory';
 import { useConnectionEditorStore } from '../../connections/hooks/useConnectionEditor';
+import { generateTempId, isTempId } from '../../../utils/idHelpers';
 
 /**
  * Hook for all mouse/wheel/touch event handlers on the canvas
@@ -215,7 +216,7 @@ export function useCanvasEvents(
           cs.setLinePreviewEnd(null);
         } else {
           const newLine: FloorPlanElement = {
-            id: `temp-${Date.now()}`,
+            id: generateTempId(),
             elementType: 'line',
             properties: {
               points: [cs.linePoints[0], [snapped.x, snapped.y]],
@@ -253,7 +254,7 @@ export function useCanvasEvents(
 
           if (width >= 10 && height >= 10) {
             const newRect: FloorPlanElement = {
-              id: `temp-${Date.now()}`,
+              id: generateTempId(),
               elementType: 'rect',
               properties: {
                 x: rx, y: ry, width, height,
@@ -284,7 +285,7 @@ export function useCanvasEvents(
           cs.setCirclePreviewRadius(0);
         } else {
           const newCircle: FloorPlanElement = {
-            id: `temp-${Date.now()}`,
+            id: generateTempId(),
             elementType: 'circle',
             properties: {
               cx: cs.circleCenter!.x,
@@ -313,7 +314,7 @@ export function useCanvasEvents(
 
       case 'door': {
         const newDoor: FloorPlanElement = {
-          id: `temp-${Date.now()}`,
+          id: generateTempId(),
           elementType: 'door',
           properties: {
             x: snapped.x, y: snapped.y, width: 60, height: 10,
@@ -334,7 +335,7 @@ export function useCanvasEvents(
 
       case 'window': {
         const newWindow: FloorPlanElement = {
-          id: `temp-${Date.now()}`,
+          id: generateTempId(),
           elementType: 'window',
           properties: {
             x: snapped.x, y: snapped.y, width: 80, height: 8,
@@ -368,8 +369,7 @@ export function useCanvasEvents(
 
           if (eqW >= 10 && eqH >= 10) {
             cs.setNewEquipmentPosition({ x: eqX, y: eqY });
-            // Store drawn size in position object (we'll read it from canvasStore)
-            cs.setEquipmentPreviewEnd({ x: eqW, y: eqH });
+            cs.setEquipmentDrawnSize({ width: eqW, height: eqH });
             cs.setEquipmentModalOpen(true);
           }
           cs.setIsDrawingEquipment(false);
@@ -390,14 +390,14 @@ export function useCanvasEvents(
             const newEquipment = localEquipment.filter(eq => eq.id !== found.item.id);
             editorStore.getState().setLocalEquipment(newEquipment);
             pushHistory(localElements, newEquipment);
-            if (!found.item.id.startsWith('temp-')) {
+            if (!isTempId(found.item.id)) {
               editorStore.getState().addDeletedEquipmentId(found.item.id);
             }
           } else {
             const newElements = localElements.filter(el => el.id !== found.item.id);
             editorStore.getState().setLocalElements(newElements);
             pushHistory(newElements, localEquipment);
-            if (!found.item.id.startsWith('temp-')) {
+            if (!isTempId(found.item.id)) {
               editorStore.getState().addDeletedElementId(found.item.id);
             }
           }

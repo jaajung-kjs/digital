@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
+import { isTempId } from '../../../utils/idHelpers';
 import type { EquipmentPhoto } from '../../../types/maintenance';
 
 const PHOTO_KEYS = {
@@ -17,7 +18,7 @@ export function useEquipmentPhotos(equipmentId: string) {
       );
       return data.data;
     },
-    enabled: !!equipmentId && !equipmentId.startsWith('temp-'),
+    enabled: !!equipmentId && !isTempId(equipmentId),
   });
 }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CableType } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { generateTempId } from '../../../utils/idHelpers';
 
 const CABLE_TYPE_OPTIONS: { value: CableType; label: string }[] = [
   { value: 'LAN', label: 'LAN' },
@@ -68,7 +69,7 @@ export function ConnectionEditor({
     } else {
       addChange({
         type: 'cable:create',
-        localId: `cable-temp-${Date.now()}`,
+        localId: generateTempId(),
         sourceEquipmentId,
         targetEquipmentId,
         cableType,

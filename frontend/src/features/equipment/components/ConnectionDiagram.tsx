@@ -4,6 +4,7 @@ import { CABLE_TYPE_COLORS } from '../types/equipment';
 import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useMergedConnections } from '../../connections/hooks/useMergedConnections';
+import { isTempId } from '../../../utils/idHelpers';
 
 interface ConnectionDiagramProps {
   roomId: string;
@@ -47,7 +48,7 @@ export function ConnectionDiagram({
           const isSource = conn.sourceEquipmentId === equipmentId;
           const localEq = isSource ? conn.sourceEquipment : conn.targetEquipment;
           const remoteEquipment = isSource ? conn.targetEquipment : conn.sourceEquipment;
-          const isPending = conn.id.startsWith('cable-temp-');
+          const isPending = isTempId(conn.id);
 
           return (
             <div

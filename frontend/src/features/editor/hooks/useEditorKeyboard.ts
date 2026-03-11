@@ -8,6 +8,7 @@ import type {
 } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
+import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useEditorHistory } from './useEditorHistory';
 
 /**
@@ -114,10 +115,10 @@ export function useEditorKeyboard(handleSave: () => void) {
       // Delete key
       if (e.key === 'Delete' && es.selectedIds.length > 0) {
         const deletedEquipmentIds = localEquipment
-          .filter(eq => es.selectedIds.includes(eq.id) && !eq.id.startsWith('temp-'))
+          .filter(eq => es.selectedIds.includes(eq.id) && !isTempId(eq.id))
           .map(eq => eq.id);
         const deletedElements = localElements
-          .filter(el => es.selectedIds.includes(el.id) && !el.id.startsWith('temp-'))
+          .filter(el => es.selectedIds.includes(el.id) && !isTempId(el.id))
           .map(el => el.id);
 
         if (deletedEquipmentIds.length > 0) es.addDeletedEquipmentIds(deletedEquipmentIds);
@@ -168,7 +169,7 @@ export function useEditorKeyboard(handleSave: () => void) {
           const original = es.clipboard.data as FloorPlanElement;
           const newElement: FloorPlanElement = {
             ...original,
-            id: `temp-${Date.now()}`,
+            id: generateTempId(),
             properties: { ...original.properties },
           };
           const props = newElement.properties as unknown as Record<string, unknown>;
