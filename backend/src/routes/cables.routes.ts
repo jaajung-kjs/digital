@@ -11,8 +11,8 @@ const router = Router();
 const cableTypeEnum = z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']);
 
 const createCableSchema = z.object({
-  sourcePortId: z.string().uuid('유효한 소스 포트 ID가 필요합니다.'),
-  targetPortId: z.string().uuid('유효한 타겟 포트 ID가 필요합니다.'),
+  sourceEquipmentId: z.string().uuid('유효한 소스 설비 ID가 필요합니다.'),
+  targetEquipmentId: z.string().uuid('유효한 타겟 설비 ID가 필요합니다.'),
   cableType: cableTypeEnum,
   label: z.string().max(100).optional(),
   length: z.number().positive().optional(),

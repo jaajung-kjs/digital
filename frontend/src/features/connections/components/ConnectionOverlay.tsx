@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ViewMode } from '../../../types/floorPlan';
 import type { RoomConnection } from '../../../types/connection';
 import { useRoomConnections } from '../hooks/useRoomConnections';
+import { useConnectionEditorStore } from '../hooks/useConnectionEditor';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import {
   renderConnections,
@@ -10,22 +11,23 @@ import {
   type ConnectionRenderContext,
 } from '../../editor/renderers/connectionRenderer';
 import { ConnectionLegend } from './ConnectionLegend';
+import { ConnectionEditor } from './ConnectionEditor';
 
 interface ConnectionOverlayProps {
   roomId: string;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
-/** Map equipment positions from the editor's localRacks */
+/** Map equipment positions to renderable connections */
 function mapConnectionsToRenderable(
   connections: RoomConnection[],
-  rackPositions: Map<string, { x: number; y: number; width: number; height: number }>
+  equipmentPositions: Map<string, { x: number; y: number; width: number; height: number }>
 ): RenderableConnection[] {
   const result: RenderableConnection[] = [];
 
   for (const conn of connections) {
-    const sourcePos = rackPositions.get(conn.sourcePort.equipmentId);
-    const targetPos = rackPositions.get(conn.targetPort.equipmentId);
+    const sourcePos = equipmentPositions.get(conn.sourceEquipment.id);
+    const targetPos = equipmentPositions.get(conn.targetEquipment.id);
 
     if (!sourcePos || !targetPos) continue;
 
@@ -51,36 +53,51 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
-  const localRacks = useEditorStore((s) => s.localRacks);
+  const localEquipment = useEditorStore((s) => s.localEquipment);
 
   const isConnectionMode = viewMode.startsWith('connection-');
+
+  const sourceEquipmentId = useConnectionEditorStore((s) => s.sourceEquipmentId);
+  const targetEquipmentId = useConnectionEditorStore((s) => s.targetEquipmentId);
+  const showEditor = useConnectionEditorStore((s) => s.showEditor);
+  const resetConnectionEditor = useConnectionEditorStore(
+    (s) => s.resetConnectionEditor
+  );
 
   const { data: connections } = useRoomConnections(roomId, isConnectionMode);
 
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
-  // Build rack positions map
-  const rackPositions = new Map<
-    string,
-    { x: number; y: number; width: number; height: number }
-  >();
-  for (const rack of localRacks) {
-    rackPositions.set(rack.id, {
-      x: rack.positionX,
-      y: rack.positionY,
-      width: rack.width,
-      height: rack.height,
-    });
-  }
+  // Build equipment positions map
+  const equipmentPositions = useMemo(() => {
+    const map = new Map<
+      string,
+      { x: number; y: number; width: number; height: number }
+    >();
+    for (const eq of localEquipment) {
+      map.set(eq.id, {
+        x: eq.positionX,
+        y: eq.positionY,
+        width: eq.width,
+        height: eq.height,
+      });
+    }
+    return map;
+  }, [localEquipment]);
 
+  // Build equipment list for the editor from localEquipment directly
+  const editorEquipmentList = useMemo(() => {
+    return localEquipment.map((eq) => ({ id: eq.id, name: eq.name }));
+  }, [localEquipment]);
+
+  // Render connections and source equipment highlight
   useEffect(() => {
-    if (!isConnectionMode || !connections || !overlayRef.current) return;
+    if (!isConnectionMode || !overlayRef.current) return;
 
     const canvas = overlayRef.current;
     const parentCanvas = canvasRef.current;
     if (!parentCanvas) return;
 
-    // Match overlay canvas size to main canvas
     canvas.width = parentCanvas.width;
     canvas.height = parentCanvas.height;
 
@@ -89,21 +106,127 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const renderableConnections = mapConnectionsToRenderable(
-      connections,
-      rackPositions
-    );
+    if (connections) {
+      const renderableConnections = mapConnectionsToRenderable(
+        connections,
+        equipmentPositions
+      );
 
-    const context: ConnectionRenderContext = {
-      ctx,
-      zoom,
-      panX,
-      panY,
-      viewMode: viewMode as ConnectionRenderContext['viewMode'],
+      const context: ConnectionRenderContext = {
+        ctx,
+        zoom,
+        panX,
+        panY,
+        viewMode: viewMode as ConnectionRenderContext['viewMode'],
+      };
+
+      renderConnections(context, renderableConnections);
+    }
+
+    // Highlight source equipment with dashed blue border
+    if (sourceEquipmentId) {
+      const sourcePos = equipmentPositions.get(sourceEquipmentId);
+      if (sourcePos) {
+        const scale = zoom / 100;
+        ctx.save();
+        ctx.setTransform(scale, 0, 0, scale, panX, panY);
+
+        // Glow effect
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(
+          sourcePos.x - 3,
+          sourcePos.y - 3,
+          sourcePos.width + 6,
+          sourcePos.height + 6
+        );
+        ctx.setLineDash([]);
+
+        // Source label
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#3b82f6';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          '출발',
+          sourcePos.x + sourcePos.width / 2,
+          sourcePos.y - 8
+        );
+
+        ctx.restore();
+      }
+    }
+
+    // Highlight target equipment with green border when selected
+    if (targetEquipmentId) {
+      const targetPos = equipmentPositions.get(targetEquipmentId);
+      if (targetPos) {
+        const scale = zoom / 100;
+        ctx.save();
+        ctx.setTransform(scale, 0, 0, scale, panX, panY);
+
+        ctx.shadowColor = '#22c55e';
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(
+          targetPos.x - 3,
+          targetPos.y - 3,
+          targetPos.width + 6,
+          targetPos.height + 6
+        );
+        ctx.setLineDash([]);
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#22c55e';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(
+          '도착',
+          targetPos.x + targetPos.width / 2,
+          targetPos.y - 8
+        );
+
+        ctx.restore();
+      }
+    }
+  }, [
+    isConnectionMode,
+    connections,
+    zoom,
+    panX,
+    panY,
+    viewMode,
+    equipmentPositions,
+    canvasRef,
+    sourceEquipmentId,
+    targetEquipmentId,
+  ]);
+
+  // ESC key to cancel connection editor flow
+  useEffect(() => {
+    if (!isConnectionMode) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        resetConnectionEditor();
+      }
     };
 
-    renderConnections(context, renderableConnections);
-  }, [isConnectionMode, connections, zoom, panX, panY, viewMode, localRacks, canvasRef]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isConnectionMode, resetConnectionEditor]);
+
+  // Reset connection editor when leaving connection mode
+  useEffect(() => {
+    if (!isConnectionMode) {
+      resetConnectionEditor();
+    }
+  }, [isConnectionMode, resetConnectionEditor]);
 
   if (!isConnectionMode) return null;
 
@@ -114,6 +237,49 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
         className="absolute inset-0 pointer-events-none"
         style={{ zIndex: 10 }}
       />
+
+      {/* Status bar */}
+      <div
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
+        style={{ zIndex: 15 }}
+      >
+        {!sourceEquipmentId && (
+          <span className="text-sm text-gray-600">
+            설비를 클릭하여 연결을 시작하세요
+          </span>
+        )}
+        {sourceEquipmentId && !showEditor && (
+          <span className="text-sm text-blue-600">
+            도착 설비를 클릭하세요{' '}
+            <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-300 rounded text-gray-500">
+              ESC
+            </kbd>{' '}
+            취소
+          </span>
+        )}
+        {showEditor && (
+          <span className="text-sm text-green-600">
+            케이블 정보를 입력하세요
+          </span>
+        )}
+      </div>
+
+      {/* Connection Editor popup */}
+      {showEditor && sourceEquipmentId && targetEquipmentId && (
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{ zIndex: 25 }}
+        >
+          <ConnectionEditor
+            roomId={roomId}
+            equipmentList={editorEquipmentList}
+            defaultSourceId={sourceEquipmentId}
+            defaultTargetId={targetEquipmentId}
+            onClose={resetConnectionEditor}
+          />
+        </div>
+      )}
+
       <ConnectionLegend viewMode={viewMode as ViewMode} />
     </>
   );

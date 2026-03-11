@@ -9,14 +9,14 @@
 
 import type {
   FloorPlanElement,
-  RackItem,
+  FloorPlanEquipment,
   LineProperties,
 } from '../../types/floorPlan';
 import {
   Position,
   getElementPosition,
   setElementPosition,
-  getRackPosition,
+  getEquipmentPosition,
 } from './elementSystem';
 
 // ============================================
@@ -28,7 +28,7 @@ export type LineInitialPoints = [number, number][];
 
 /** 드래그 대상 아이템 */
 export interface DragItem {
-  type: 'element' | 'rack';
+  type: 'element' | 'equipment';
   id: string;
   /** 드래그 시작 시 기준점 */
   initialPosition: Position;
@@ -79,34 +79,34 @@ export function createElementDragSession(
 }
 
 /**
- * Rack 드래그 세션 생성
+ * Equipment 드래그 세션 생성
  */
-export function createRackDragSession(
-  rack: RackItem,
+export function createEquipmentDragSession(
+  equipment: FloorPlanEquipment,
   mousePosition: Position
 ): DragSession {
   return {
     startMousePosition: { ...mousePosition },
     target: {
-      type: 'rack',
-      id: rack.id,
-      initialPosition: getRackPosition(rack),
+      type: 'equipment',
+      id: equipment.id,
+      initialPosition: getEquipmentPosition(equipment),
     },
     isActive: true,
   };
 }
 
 /**
- * 통합 드래그 세션 생성 (Element 또는 Rack)
+ * 통합 드래그 세션 생성 (Element 또는 Equipment)
  */
 export function createDragSession(
-  item: { type: 'element'; item: FloorPlanElement } | { type: 'rack'; item: RackItem },
+  item: { type: 'element'; item: FloorPlanElement } | { type: 'equipment'; item: FloorPlanEquipment },
   mousePosition: Position
 ): DragSession {
   if (item.type === 'element') {
     return createElementDragSession(item.item, mousePosition);
   } else {
-    return createRackDragSession(item.item, mousePosition);
+    return createEquipmentDragSession(item.item, mousePosition);
   }
 }
 
@@ -204,14 +204,14 @@ export function applyDragToElements(
 }
 
 // ============================================
-// Rack 드래그 적용
+// Equipment 드래그 적용
 // ============================================
 
 /**
- * 드래그 적용 - Rack
+ * 드래그 적용 - Equipment
  * @returns 새 positionX, positionY
  */
-export function applyDragToRack(
+export function applyDragToEquipment(
   session: DragSession,
   currentMousePosition: Position,
   snapFn?: (pos: Position) => Position
@@ -224,25 +224,25 @@ export function applyDragToRack(
 }
 
 /**
- * Racks 배열에 드래그 적용
+ * Equipment 배열에 드래그 적용
  */
-export function applyDragToRacks(
-  racks: RackItem[],
+export function applyDragToEquipmentItems(
+  equipment: FloorPlanEquipment[],
   session: DragSession,
   currentMousePosition: Position,
   snapFn?: (pos: Position) => Position
-): RackItem[] {
-  if (session.target.type !== 'rack') return racks;
+): FloorPlanEquipment[] {
+  if (session.target.type !== 'equipment') return equipment;
 
-  return racks.map(rack => {
-    if (rack.id === session.target.id) {
-      const newPosition = applyDragToRack(session, currentMousePosition, snapFn);
+  return equipment.map(item => {
+    if (item.id === session.target.id) {
+      const newPosition = applyDragToEquipment(session, currentMousePosition, snapFn);
       return {
-        ...rack,
+        ...item,
         ...newPosition,
       };
     }
-    return rack;
+    return item;
   });
 }
 
@@ -252,15 +252,15 @@ export function applyDragToRacks(
 
 export interface DragApplyResult {
   elements: FloorPlanElement[];
-  racks: RackItem[];
+  equipment: FloorPlanEquipment[];
 }
 
 /**
- * 통합 드래그 적용 (Element 또는 Rack 자동 감지)
+ * 통합 드래그 적용 (Element 또는 Equipment 자동 감지)
  */
 export function applyDrag(
   elements: FloorPlanElement[],
-  racks: RackItem[],
+  equipment: FloorPlanEquipment[],
   session: DragSession,
   currentMousePosition: Position,
   snapFn?: (pos: Position) => Position
@@ -268,12 +268,12 @@ export function applyDrag(
   if (session.target.type === 'element') {
     return {
       elements: applyDragToElements(elements, session, currentMousePosition, snapFn),
-      racks,
+      equipment,
     };
   } else {
     return {
       elements,
-      racks: applyDragToRacks(racks, session, currentMousePosition, snapFn),
+      equipment: applyDragToEquipmentItems(equipment, session, currentMousePosition, snapFn),
     };
   }
 }

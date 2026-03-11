@@ -18,7 +18,7 @@ import type {
   DoorProperties,
   WindowProperties,
   TextProperties,
-  RackItem,
+  FloorPlanEquipment,
 } from '../../types/floorPlan';
 
 // ============================================
@@ -424,38 +424,45 @@ export function supportsResize(elementType: ElementType): boolean {
 }
 
 // ============================================
-// 랙(Rack) 전용 함수
+// Equipment 전용 함수
 // ============================================
 
-export function getRackPosition(rack: RackItem): Position {
+export function getEquipmentPosition(equipment: FloorPlanEquipment): Position {
   return {
-    x: rack.positionX,
-    y: rack.positionY,
+    x: equipment.positionX,
+    y: equipment.positionY,
   };
 }
 
-export function getRackSize(rack: RackItem): Size {
+export function getEquipmentSize(equipment: FloorPlanEquipment): Size {
   return {
-    width: rack.width,
-    height: rack.height,
+    width: equipment.width,
+    height: equipment.height,
   };
 }
 
-export function getRackBoundingBox(rack: RackItem): BoundingBox {
+export function getEquipmentBoundingBox(equipment: FloorPlanEquipment): BoundingBox {
   return {
-    x: rack.positionX,
-    y: rack.positionY,
-    width: rack.width,
-    height: rack.height,
+    x: equipment.positionX,
+    y: equipment.positionY,
+    width: equipment.width,
+    height: equipment.height,
   };
 }
 
-export function moveRack(_rack: RackItem, newPos: Position): Partial<RackItem> {
+export function moveEquipment(_equipment: FloorPlanEquipment, newPos: Position): Partial<FloorPlanEquipment> {
   return {
     positionX: newPos.x,
     positionY: newPos.y,
   };
 }
+
+/** @deprecated Use getEquipmentPosition */
+export const getRackPosition = getEquipmentPosition;
+/** @deprecated Use getEquipmentSize */
+export const getRackSize = getEquipmentSize;
+/** @deprecated Use getEquipmentBoundingBox */
+export const getRackBoundingBox = getEquipmentBoundingBox;
 
 // ============================================
 // 통합 인터페이스 (요소 + 랙)
@@ -463,13 +470,13 @@ export function moveRack(_rack: RackItem, newPos: Position): Partial<RackItem> {
 
 export type CanvasItem =
   | { type: 'element'; item: FloorPlanElement }
-  | { type: 'rack'; item: RackItem };
+  | { type: 'equipment'; item: FloorPlanEquipment };
 
 export function getItemPosition(canvasItem: CanvasItem): Position {
   if (canvasItem.type === 'element') {
     return getElementPosition(canvasItem.item);
   } else {
-    return getRackPosition(canvasItem.item);
+    return getEquipmentPosition(canvasItem.item);
   }
 }
 
@@ -477,7 +484,7 @@ export function getItemSize(canvasItem: CanvasItem): Size {
   if (canvasItem.type === 'element') {
     return getElementSize(canvasItem.item);
   } else {
-    return getRackSize(canvasItem.item);
+    return getEquipmentSize(canvasItem.item);
   }
 }
 
@@ -485,7 +492,7 @@ export function getItemBoundingBox(canvasItem: CanvasItem): BoundingBox {
   if (canvasItem.type === 'element') {
     return getElementBoundingBox(canvasItem.item);
   } else {
-    return getRackBoundingBox(canvasItem.item);
+    return getEquipmentBoundingBox(canvasItem.item);
   }
 }
 

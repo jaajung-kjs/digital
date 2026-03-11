@@ -23,7 +23,7 @@ interface CanvasStoreState {
   textInputPosition: { x: number; y: number } | null;
   textInputValue: string;
 
-  // Placement preview position (for door, window, rack, text)
+  // Placement preview position (for door, window, equipment, text)
   previewPosition: { x: number; y: number } | null;
 
   // Drag state
@@ -34,12 +34,12 @@ interface CanvasStoreState {
   panStart: { x: number; y: number } | null;
   isSpacePressed: boolean;
 
-  // Rack modal states
-  rackModalOpen: boolean;
-  pasteRackModalOpen: boolean;
-  newRackName: string;
-  pasteRackName: string;
-  newRackPosition: { x: number; y: number };
+  // Equipment modal states
+  equipmentModalOpen: boolean;
+  pasteEquipmentModalOpen: boolean;
+  newEquipmentName: string;
+  pasteEquipmentName: string;
+  newEquipmentPosition: { x: number; y: number };
 }
 
 interface CanvasStoreActions {
@@ -75,12 +75,12 @@ interface CanvasStoreActions {
   setPanStart: (p: { x: number; y: number } | null) => void;
   setIsSpacePressed: (v: boolean) => void;
 
-  // Rack modals
-  setRackModalOpen: (v: boolean) => void;
-  setPasteRackModalOpen: (v: boolean) => void;
-  setNewRackName: (v: string) => void;
-  setPasteRackName: (v: string) => void;
-  setNewRackPosition: (p: { x: number; y: number }) => void;
+  // Equipment modals
+  setEquipmentModalOpen: (v: boolean) => void;
+  setPasteEquipmentModalOpen: (v: boolean) => void;
+  setNewEquipmentName: (v: string) => void;
+  setPasteEquipmentName: (v: string) => void;
+  setNewEquipmentPosition: (p: { x: number; y: number }) => void;
 
   // Reset all drawing/interaction state
   resetDrawingState: () => void;
@@ -106,11 +106,11 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   isPanning: false,
   panStart: null,
   isSpacePressed: false,
-  rackModalOpen: false,
-  pasteRackModalOpen: false,
-  newRackName: '',
-  pasteRackName: '',
-  newRackPosition: { x: 100, y: 100 },
+  equipmentModalOpen: false,
+  pasteEquipmentModalOpen: false,
+  newEquipmentName: '',
+  pasteEquipmentName: '',
+  newEquipmentPosition: { x: 100, y: 100 },
 
   // Actions
   setIsDrawingLine: (isDrawingLine) => set({ isDrawingLine }),
@@ -131,11 +131,11 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setIsPanning: (isPanning) => set({ isPanning }),
   setPanStart: (panStart) => set({ panStart }),
   setIsSpacePressed: (isSpacePressed) => set({ isSpacePressed }),
-  setRackModalOpen: (rackModalOpen) => set({ rackModalOpen }),
-  setPasteRackModalOpen: (pasteRackModalOpen) => set({ pasteRackModalOpen }),
-  setNewRackName: (newRackName) => set({ newRackName }),
-  setPasteRackName: (pasteRackName) => set({ pasteRackName }),
-  setNewRackPosition: (newRackPosition) => set({ newRackPosition }),
+  setEquipmentModalOpen: (equipmentModalOpen) => set({ equipmentModalOpen }),
+  setPasteEquipmentModalOpen: (pasteEquipmentModalOpen) => set({ pasteEquipmentModalOpen }),
+  setNewEquipmentName: (newEquipmentName) => set({ newEquipmentName }),
+  setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
+  setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
 
   resetDrawingState: () => set({
     isDrawingLine: false,

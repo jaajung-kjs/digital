@@ -14,9 +14,9 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
   const isSavingRef = useRef(false);
   const queryClient = useQueryClient();
   const {
-    localElements, localRacks, zoom, panX, panY,
-    gridSize, majorGridSize, deletedElementIds, deletedRackIds,
-    setLocalElements, setLocalRacks, setGridSize, setMajorGridSize,
+    localElements, localEquipment, zoom, panX, panY,
+    gridSize, majorGridSize, deletedElementIds, deletedEquipmentIds,
+    setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize,
     setHasChanges, clearDeletedIds, setViewportInitialized,
     setViewport, viewportInitialized,
   } = useEditorStore();
@@ -65,12 +65,12 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
       if (draft) {
         try {
-          const { elements: draftElements, racks: draftRacks, hasChanges: savedHasChanges } = JSON.parse(draft);
+          const { elements: draftElements, equipment: draftEquipment, hasChanges: savedHasChanges } = JSON.parse(draft);
           setLocalElements(draftElements);
-          setLocalRacks(draftRacks);
+          setLocalEquipment(draftEquipment);
           setHasChanges(savedHasChanges);
           sessionStorage.removeItem(draftKey);
-          initHistory(draftElements, draftRacks);
+          initHistory(draftElements, draftEquipment);
           return;
         } catch {
           sessionStorage.removeItem(draftKey);
@@ -83,7 +83,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       }));
 
       setLocalElements(elements);
-      setLocalRacks(floorPlan.racks);
+      setLocalEquipment(floorPlan.equipment);
       setGridSize(floorPlan.gridSize);
       setMajorGridSize(floorPlan.majorGridSize ?? 60);
 
@@ -92,10 +92,10 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         return;
       }
 
-      initHistory(elements, floorPlan.racks);
+      initHistory(elements, floorPlan.equipment);
       setViewportInitialized(false);
     }
-  }, [floorPlan, roomId, setLocalElements, setLocalRacks, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
+  }, [floorPlan, roomId, setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
 
   // Viewport initialization
   useEffect(() => {
@@ -103,19 +103,19 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     const container = containerRef.current;
     if (container.clientWidth === 0 || container.clientHeight === 0) return;
 
-    const hasFloorPlanData = floorPlan.elements.length > 0 || floorPlan.racks.length > 0;
-    const hasLocalData = localElements.length > 0 || localRacks.length > 0;
+    const hasFloorPlanData = floorPlan.elements.length > 0 || floorPlan.equipment.length > 0;
+    const hasLocalData = localElements.length > 0 || localEquipment.length > 0;
     if (hasFloorPlanData && !hasLocalData) return;
 
     const savedViewport = loadViewportState();
     if (savedViewport) {
       setViewport(savedViewport.zoom ?? 100, savedViewport.panX ?? 0, savedViewport.panY ?? 0);
     } else {
-      fitToContent(localElements, localRacks, container.clientWidth, container.clientHeight);
+      fitToContent(localElements, localEquipment, container.clientWidth, container.clientHeight);
     }
 
     setViewportInitialized(true);
-  }, [floorPlan, localElements, localRacks, viewportInitialized, containerRef, fitToContent, loadViewportState, setViewport, setViewportInitialized]);
+  }, [floorPlan, localElements, localEquipment, viewportInitialized, containerRef, fitToContent, loadViewportState, setViewport, setViewportInitialized]);
 
   // Save viewport state on unmount
   useEffect(() => {
@@ -143,20 +143,19 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         zIndex: e.zIndex,
         isVisible: e.isVisible,
       })),
-      racks: localRacks.map(r => ({
-        id: r.id.startsWith('temp-') ? null : r.id,
-        name: r.name,
-        code: r.code || undefined,
-        positionX: r.positionX,
-        positionY: r.positionY,
-        width: r.width,
-        height: r.height,
-        rotation: r.rotation,
-        totalU: r.totalU,
-        description: r.description || undefined,
+      equipment: localEquipment.map(eq => ({
+        id: eq.id.startsWith('temp-') ? null : eq.id,
+        name: eq.name,
+        category: eq.category || 'OTHER',
+        positionX: eq.positionX,
+        positionY: eq.positionY,
+        width: eq.width,
+        height: eq.height,
+        rotation: eq.rotation,
+        description: eq.description || undefined,
       })),
       deletedElementIds: deletedElementIds.length > 0 ? deletedElementIds : undefined,
-      deletedRackIds: deletedRackIds.length > 0 ? deletedRackIds : undefined,
+      deletedEquipmentIds: deletedEquipmentIds.length > 0 ? deletedEquipmentIds : undefined,
     };
 
     saveMutation.mutate(updateData);

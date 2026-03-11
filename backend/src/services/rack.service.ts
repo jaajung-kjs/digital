@@ -21,6 +21,7 @@ export interface RackDetail {
   sortOrder: number;
   equipmentCount: number;
   usedU: number;
+  equipment: { id: string; name: string; category: string; model: string | null; manufacturer: string | null }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,7 +56,7 @@ export const RACK_DEFAULTS = { width: 60, height: 100, rotation: 0, totalU: 12 }
 // ==================== Shared Constants ====================
 
 const RACK_DETAIL_INCLUDE = {
-  equipment: { select: { heightU: true } },
+  equipment: { select: { id: true, name: true, category: true, model: true, manufacturer: true, heightU: true } },
   _count: { select: { equipment: true } },
 };
 
@@ -79,6 +80,13 @@ function toRackDetail(rack: RackWithEquipment): RackDetail {
     sortOrder: rack.sortOrder,
     equipmentCount: rack._count.equipment,
     usedU: rack.equipment.reduce((sum, e) => sum + e.heightU, 0),
+    equipment: rack.equipment.map((e) => ({
+      id: e.id,
+      name: e.name,
+      category: e.category,
+      model: e.model,
+      manufacturer: e.manufacturer,
+    })),
     createdAt: rack.createdAt,
     updatedAt: rack.updatedAt,
   };
@@ -153,6 +161,7 @@ class RackService {
       sortOrder: rack.sortOrder,
       equipmentCount: 0,
       usedU: 0,
+      equipment: [],
       createdAt: rack.createdAt,
       updatedAt: rack.updatedAt,
     };

@@ -22,19 +22,20 @@ const elementSchema = z.object({
   isVisible: z.boolean().optional(),
 });
 
-const rackSchema = z.object({
-  id: z.string().uuid().nullish(),
+const equipmentSchema = z.object({
+  id: z.string().uuid().optional().nullable(),
   name: z.string().min(1).max(100),
-  code: z.string().max(50).optional(),
+  category: z.string().max(50).optional(),
   positionX: z.number(),
   positionY: z.number(),
-  width: z.number().positive().optional(),
-  height: z.number().positive().optional(),
-  rotation: z.number().int().refine((val) => [0, 90, 180, 270].includes(val), {
-    message: '회전 값은 0, 90, 180, 270 중 하나여야 합니다.',
-  }).optional(),
-  totalU: z.number().int().min(1).max(100).optional(),
-  description: z.string().optional(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  rotation: z.number().optional(),
+  description: z.string().optional().nullable(),
+  model: z.string().optional().nullable(),
+  manufacturer: z.string().optional().nullable(),
+  manager: z.string().optional().nullable(),
+  height3d: z.number().optional().nullable(),
 });
 
 const bulkUpdatePlanSchema = z.object({
@@ -44,9 +45,9 @@ const bulkUpdatePlanSchema = z.object({
   majorGridSize: z.number().int().min(10).max(200).optional(),
   backgroundColor: z.string().max(20).optional(),
   elements: z.array(elementSchema).optional(),
-  racks: z.array(rackSchema).optional(),
+  equipment: z.array(equipmentSchema).optional(),
   deletedElementIds: z.array(z.string().uuid()).optional(),
-  deletedRackIds: z.array(z.string().uuid()).optional(),
+  deletedEquipmentIds: z.array(z.string().uuid()).optional(),
 });
 
 // 실 상세 조회

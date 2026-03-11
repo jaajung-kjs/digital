@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { FloorPlanElement, RackItem } from '../../../types/floorPlan';
+import type { FloorPlanElement, FloorPlanEquipment } from '../../../types/floorPlan';
 import { useHistoryStore } from '../stores/historyStore';
 import { useEditorStore } from '../stores/editorStore';
 
@@ -8,29 +8,29 @@ import { useEditorStore } from '../stores/editorStore';
  */
 export function useEditorHistory() {
   const historyStore = useHistoryStore();
-  const { setLocalElements, setLocalRacks, setHasChanges } = useEditorStore();
+  const { setLocalElements, setLocalEquipment, setHasChanges } = useEditorStore();
 
-  const pushHistory = useCallback((elements: FloorPlanElement[], racks: RackItem[]) => {
-    historyStore.pushHistory(elements, racks);
+  const pushHistory = useCallback((elements: FloorPlanElement[], equipment: FloorPlanEquipment[]) => {
+    historyStore.pushHistory(elements, equipment);
   }, [historyStore]);
 
   const undo = useCallback(() => {
     const prevState = historyStore.undo();
     if (prevState) {
       setLocalElements(prevState.elements);
-      setLocalRacks(prevState.racks);
+      setLocalEquipment(prevState.equipment);
       setHasChanges(true);
     }
-  }, [historyStore, setLocalElements, setLocalRacks, setHasChanges]);
+  }, [historyStore, setLocalElements, setLocalEquipment, setHasChanges]);
 
   const redo = useCallback(() => {
     const nextState = historyStore.redo();
     if (nextState) {
       setLocalElements(nextState.elements);
-      setLocalRacks(nextState.racks);
+      setLocalEquipment(nextState.equipment);
       setHasChanges(true);
     }
-  }, [historyStore, setLocalElements, setLocalRacks, setHasChanges]);
+  }, [historyStore, setLocalElements, setLocalEquipment, setHasChanges]);
 
   return {
     pushHistory,

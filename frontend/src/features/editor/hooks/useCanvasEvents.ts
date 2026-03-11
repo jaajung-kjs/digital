@@ -1,5 +1,4 @@
 import { useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type {
   FloorPlanElement,
   FloorPlanDetail,
@@ -8,7 +7,7 @@ import type {
   CircleProperties,
   DoorProperties,
   WindowProperties,
-  RackItem,
+  FloorPlanEquipment,
 } from '../../../types/floorPlan';
 import { snapToGrid as snapToGridUtil } from '../../../utils/canvas/canvasTransform';
 import { findItemAt } from '../../../utils/floorplan/hitTestUtils';
@@ -17,6 +16,7 @@ import type { Position } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useEditorHistory } from './useEditorHistory';
+import { useConnectionEditorStore } from '../../connections/hooks/useConnectionEditor';
 
 /**
  * Hook for all mouse/wheel/touch event handlers on the canvas
@@ -24,9 +24,8 @@ import { useEditorHistory } from './useEditorHistory';
 export function useCanvasEvents(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   floorPlan: FloorPlanDetail | undefined,
-  roomId: string | undefined
+  _roomId: string | undefined
 ) {
-  const navigate = useNavigate();
   const { pushHistory } = useEditorHistory();
   const editorStore = useEditorStore;
   const canvasStore = useCanvasStore;
@@ -54,7 +53,7 @@ export function useCanvasEvents(
     const screenY = e.clientY - rect.top;
     const { x, y } = getCanvasCoordinates(e);
     const { isSpacePressed } = canvasStore.getState();
-    const { tool, localElements, localRacks } = editorStore.getState();
+    const { tool, localElements, localEquipment } = editorStore.getState();
 
     if (e.button === 1 || isSpacePressed) {
       e.preventDefault();
@@ -63,19 +62,32 @@ export function useCanvasEvents(
       return;
     }
 
+    const { viewMode } = editorStore.getState();
+
+    // In connection mode, allow panning on empty space but don't drag equipment
+    if (viewMode.startsWith('connection-')) {
+      const found = findItemAt(x, y, localElements, localEquipment);
+      if (!found) {
+        canvasStore.getState().setIsPanning(true);
+        canvasStore.getState().setPanStart({ x: screenX, y: screenY });
+      }
+      // Equipment clicks are handled in handleCanvasClick for connection flow
+      return;
+    }
+
     if (tool === 'select') {
-      const found = findItemAt(x, y, localElements, localRacks);
+      const found = findItemAt(x, y, localElements, localEquipment);
       if (found) {
         const session = createDragSession(found, { x, y });
         canvasStore.getState().setDragSession(session);
         editorStore.getState().setSelectedIds([found.item.id]);
 
-        if (found.type === 'rack') {
-          editorStore.getState().setSelectedRack(found.item as RackItem);
+        if (found.type === 'equipment') {
+          editorStore.getState().setSelectedEquipment(found.item as FloorPlanEquipment);
           editorStore.getState().setSelectedElement(null);
         } else {
           editorStore.getState().setSelectedElement(found.item as FloorPlanElement);
-          editorStore.getState().setSelectedRack(null);
+          editorStore.getState().setSelectedEquipment(null);
         }
       } else {
         canvasStore.getState().setIsPanning(true);
@@ -135,7 +147,7 @@ export function useCanvasEvents(
       return;
     }
 
-    if (['door', 'window', 'rack', 'text'].includes(tool)) {
+    if (['door', 'window', 'equipment', 'text'].includes(tool)) {
       canvasStore.getState().setPreviewPosition({ x: snapped.x, y: snapped.y });
     } else {
       canvasStore.getState().setPreviewPosition(null);
@@ -144,18 +156,18 @@ export function useCanvasEvents(
     if (!dragSession || !dragSession.isActive) return;
 
     const snapFn = (pos: Position) => snapToGrid(pos.x, pos.y);
-    const { localElements, localRacks } = editorStore.getState();
-    const result = applyDrag(localElements, localRacks, dragSession, snapped, snapFn);
+    const { localElements, localEquipment } = editorStore.getState();
+    const result = applyDrag(localElements, localEquipment, dragSession, snapped, snapFn);
     editorStore.getState().setLocalElements(result.elements);
-    editorStore.getState().setLocalRacks(result.racks);
+    editorStore.getState().setLocalEquipment(result.equipment);
     editorStore.getState().setHasChanges(true);
   }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore]);
 
   const handleCanvasMouseUp = useCallback(() => {
     const { dragSession } = canvasStore.getState();
     if (dragSession?.isActive) {
-      const { localElements, localRacks } = editorStore.getState();
-      pushHistory(localElements, localRacks);
+      const { localElements, localEquipment } = editorStore.getState();
+      pushHistory(localElements, localEquipment);
     }
     canvasStore.getState().setDragSession(null);
     canvasStore.getState().setIsPanning(false);
@@ -167,8 +179,27 @@ export function useCanvasEvents(
 
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
-    const { tool, localElements, localRacks } = editorStore.getState();
+    const { tool, localElements, localEquipment, viewMode } = editorStore.getState();
     const cs = canvasStore.getState();
+
+    // Connection mode: click equipment to create connections
+    if (viewMode.startsWith('connection-')) {
+      const found = findItemAt(x, y, localElements, localEquipment);
+      const connStore = useConnectionEditorStore.getState();
+
+      if (found?.type === 'equipment') {
+        if (!connStore.sourceEquipmentId) {
+          connStore.setSourceEquipment(found.item.id);
+        } else if (found.item.id !== connStore.sourceEquipmentId) {
+          connStore.setTargetEquipment(found.item.id);
+          connStore.setShowEditor(true);
+        }
+      } else {
+        // Click on empty space or non-equipment element: cancel selection
+        connStore.resetConnectionEditor();
+      }
+      return;
+    }
 
     switch (tool) {
       case 'line':
@@ -192,7 +223,7 @@ export function useCanvasEvents(
           };
           const newElements = [...localElements, newLine];
           editorStore.getState().setLocalElements(newElements);
-          pushHistory(newElements, localRacks);
+          pushHistory(newElements, localEquipment);
           cs.setIsDrawingLine(false);
           cs.setLinePoints([]);
           cs.setLinePreviewEnd(null);
@@ -230,7 +261,7 @@ export function useCanvasEvents(
             };
             const newElements = [...localElements, newRect];
             editorStore.getState().setLocalElements(newElements);
-            pushHistory(newElements, localRacks);
+            pushHistory(newElements, localEquipment);
             editorStore.getState().setHasChanges(true);
           }
           cs.setIsDrawingRect(false);
@@ -264,7 +295,7 @@ export function useCanvasEvents(
           };
           const newElements = [...localElements, newCircle];
           editorStore.getState().setLocalElements(newElements);
-          pushHistory(newElements, localRacks);
+          pushHistory(newElements, localEquipment);
           cs.setIsDrawingCircle(false);
           cs.setCircleCenter(null);
           cs.setCirclePreviewRadius(0);
@@ -289,7 +320,7 @@ export function useCanvasEvents(
         };
         const newElements = [...localElements, newDoor];
         editorStore.getState().setLocalElements(newElements);
-        pushHistory(newElements, localRacks);
+        pushHistory(newElements, localEquipment);
         editorStore.getState().setHasChanges(true);
         editorStore.getState().setTool('select');
         break;
@@ -310,15 +341,15 @@ export function useCanvasEvents(
         };
         const newElements = [...localElements, newWindow];
         editorStore.getState().setLocalElements(newElements);
-        pushHistory(newElements, localRacks);
+        pushHistory(newElements, localEquipment);
         editorStore.getState().setHasChanges(true);
         editorStore.getState().setTool('select');
         break;
       }
 
-      case 'rack':
-        cs.setNewRackPosition({ x: snapped.x, y: snapped.y });
-        cs.setRackModalOpen(true);
+      case 'equipment':
+        cs.setNewEquipmentPosition({ x: snapped.x, y: snapped.y });
+        cs.setEquipmentModalOpen(true);
         break;
 
       case 'text':
@@ -328,19 +359,19 @@ export function useCanvasEvents(
         break;
 
       case 'delete': {
-        const found = findItemAt(x, y, localElements, localRacks);
+        const found = findItemAt(x, y, localElements, localEquipment);
         if (found) {
-          if (found.type === 'rack') {
-            const newRacks = localRacks.filter(r => r.id !== found.item.id);
-            editorStore.getState().setLocalRacks(newRacks);
-            pushHistory(localElements, newRacks);
+          if (found.type === 'equipment') {
+            const newEquipment = localEquipment.filter(eq => eq.id !== found.item.id);
+            editorStore.getState().setLocalEquipment(newEquipment);
+            pushHistory(localElements, newEquipment);
             if (!found.item.id.startsWith('temp-')) {
-              editorStore.getState().addDeletedRackId(found.item.id);
+              editorStore.getState().addDeletedEquipmentId(found.item.id);
             }
           } else {
             const newElements = localElements.filter(el => el.id !== found.item.id);
             editorStore.getState().setLocalElements(newElements);
-            pushHistory(newElements, localRacks);
+            pushHistory(newElements, localEquipment);
             if (!found.item.id.startsWith('temp-')) {
               editorStore.getState().addDeletedElementId(found.item.id);
             }
@@ -358,31 +389,26 @@ export function useCanvasEvents(
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const { zoom, panX, panY, localElements, localRacks, hasChanges } = editorStore.getState();
+    const { zoom, panX, panY, localEquipment } = editorStore.getState();
     const x = (e.clientX - rect.left - panX) / (zoom / 100);
     const y = (e.clientY - rect.top - panY) / (zoom / 100);
 
-    for (const rack of [...localRacks].reverse()) {
+    for (const eq of [...localEquipment].reverse()) {
       if (
-        x >= rack.positionX &&
-        x <= rack.positionX + rack.width &&
-        y >= rack.positionY &&
-        y <= rack.positionY + rack.height
+        x >= eq.positionX &&
+        x <= eq.positionX + eq.width &&
+        y >= eq.positionY &&
+        y <= eq.positionY + eq.height
       ) {
-        if (rack.id.startsWith('temp-')) {
-          alert('랙을 먼저 저장한 후 상세 설정을 수정할 수 있습니다.');
+        if (eq.id.startsWith('temp-')) {
+          alert('장비를 먼저 저장한 후 상세 설정을 수정할 수 있습니다.');
           return;
         }
-        sessionStorage.setItem(`floorplan-draft-${roomId}`, JSON.stringify({
-          elements: localElements,
-          racks: localRacks,
-          hasChanges,
-        }));
-        navigate(`/racks/${rack.id}`);
+        editorStore.getState().setDetailPanelEquipmentId(eq.id);
         return;
       }
     }
-  }, [floorPlan, canvasRef, editorStore, roomId, navigate]);
+  }, [floorPlan, canvasRef, editorStore]);
 
   // Wheel zoom handler
   const handleWheel = useCallback((e: WheelEvent) => {

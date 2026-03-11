@@ -1,4 +1,4 @@
-import type { EquipmentItem } from '@/types/floorPlan';
+import type { FloorPlanEquipment } from '@/types/floorPlan';
 import { useImageTexture } from '../utils/textureLoader';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -13,19 +13,19 @@ const CATEGORY_COLORS: Record<string, string> = {
 const DEFAULT_EQUIPMENT_HEIGHT = 50;
 
 interface EquipmentMeshProps {
-  equipment: EquipmentItem;
+  equipment: FloorPlanEquipment;
   canvasWidth: number;
   canvasHeight: number;
 }
 
 /**
- * Renders equipment as a smaller 3D box, color-coded by category.
+ * Renders equipment as a 3D box, color-coded by category.
  * Applies front/rear photo textures when available.
  */
 export function EquipmentMesh({ equipment, canvasWidth, canvasHeight }: EquipmentMeshProps) {
-  const height3d = equipment.height3d ?? DEFAULT_EQUIPMENT_HEIGHT;
-  const worldX = equipment.positionX + equipment.width2d / 2 - canvasWidth / 2;
-  const worldZ = equipment.positionY + equipment.height2d / 2 - canvasHeight / 2;
+  const height3d = (equipment as FloorPlanEquipment & { height3d?: number }).height3d ?? DEFAULT_EQUIPMENT_HEIGHT;
+  const worldX = equipment.positionX + equipment.width / 2 - canvasWidth / 2;
+  const worldZ = equipment.positionY + equipment.height / 2 - canvasHeight / 2;
   const worldY = height3d / 2;
   const rotationY = -(equipment.rotation * Math.PI) / 180;
 
@@ -40,7 +40,7 @@ export function EquipmentMesh({ equipment, canvasWidth, canvasHeight }: Equipmen
       rotation={[0, rotationY, 0]}
       castShadow
     >
-      <boxGeometry args={[equipment.width2d, height3d, equipment.height2d]} />
+      <boxGeometry args={[equipment.width, height3d, equipment.height]} />
       {/* Right */}
       <meshStandardMaterial attach="material-0" color={baseColor} />
       {/* Left */}

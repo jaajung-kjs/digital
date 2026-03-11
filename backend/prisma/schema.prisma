@@ -274,6 +274,8 @@ model Equipment {
   ports           Port[]
   photos          EquipmentPhoto[]
   maintenanceLogs MaintenanceLog[]
+  sourceCables    Cable[]          @relation("CableSource")
+  targetCables    Cable[]          @relation("CableTarget")
 
   @@map("equipment")
 }
@@ -304,8 +306,6 @@ model Port {
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   equipment     Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  sourceCables  Cable[]   @relation("CableSource")
-  targetCables  Cable[]   @relation("CableTarget")
 
   @@unique([equipmentId, name])
   @@map("ports")
@@ -321,29 +321,29 @@ enum PortType {
   OTHER
 }
 
-// ==================== 케이블 ====================
+// ==================== 케이블 (설비-설비 직접 연결) ====================
 
 model Cable {
-  id           String    @id @default(uuid())
-  sourcePortId String    @map("source_port_id")
-  targetPortId String    @map("target_port_id")
-  cableType    CableType @map("cable_type")
-  label        String?   @db.VarChar(100)
-  length       Float?    // 미터
-  color        String?   @db.VarChar(50)
-  pathPoints   Json?     @map("path_points") // [[x, y], ...]
-  description  String?   @db.Text
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  createdById  String?   @map("created_by")
-  updatedById  String?   @map("updated_by")
+  id                  String    @id @default(uuid())
+  sourceEquipmentId   String    @map("source_equipment_id")
+  targetEquipmentId   String    @map("target_equipment_id")
+  cableType           CableType @map("cable_type")
+  label               String?   @db.VarChar(100)
+  length              Float?    // 미터
+  color               String?   @db.VarChar(50)
+  pathPoints          Json?     @map("path_points") // [[x, y], ...]
+  description         String?   @db.Text
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  createdById         String?   @map("created_by")
+  updatedById         String?   @map("updated_by")
 
-  sourcePort Port  @relation("CableSource", fields: [sourcePortId], references: [id], onDelete: Cascade)
-  targetPort Port  @relation("CableTarget", fields: [targetPortId], references: [id], onDelete: Cascade)
-  createdBy  User? @relation("CableCreatedBy", fields: [createdById], references: [id])
-  updatedBy  User? @relation("CableUpdatedBy", fields: [updatedById], references: [id])
+  sourceEquipment Equipment @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
+  targetEquipment Equipment @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
+  createdBy       User?     @relation("CableCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?     @relation("CableUpdatedBy", fields: [updatedById], references: [id])
 
-  @@unique([sourcePortId, targetPortId])
+  @@unique([sourceEquipmentId, targetEquipmentId, cableType])
   @@map("cables")
 }
 

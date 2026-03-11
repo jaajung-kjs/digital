@@ -58,10 +58,6 @@ class PortService {
 
     const ports = await prisma.port.findMany({
       where: { equipmentId },
-      include: {
-        sourceCables: { select: { id: true } },
-        targetCables: { select: { id: true } },
-      },
       orderBy: [{ sortOrder: 'asc' }, { portNumber: 'asc' }],
     });
 
@@ -76,7 +72,7 @@ class PortService {
       connectorType: p.connectorType,
       description: p.description,
       sortOrder: p.sortOrder,
-      isConnected: p.sourceCables.length > 0 || p.targetCables.length > 0,
+      isConnected: false,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     }));
@@ -88,10 +84,6 @@ class PortService {
   async getById(id: string): Promise<PortDetail> {
     const port = await prisma.port.findUnique({
       where: { id },
-      include: {
-        sourceCables: { select: { id: true } },
-        targetCables: { select: { id: true } },
-      },
     });
 
     if (!port) {
@@ -109,7 +101,7 @@ class PortService {
       connectorType: port.connectorType,
       description: port.description,
       sortOrder: port.sortOrder,
-      isConnected: port.sourceCables.length > 0 || port.targetCables.length > 0,
+      isConnected: false,
       createdAt: port.createdAt,
       updatedAt: port.updatedAt,
     };
@@ -256,10 +248,6 @@ class PortService {
         description: input.description,
         sortOrder: input.sortOrder,
       },
-      include: {
-        sourceCables: { select: { id: true } },
-        targetCables: { select: { id: true } },
-      },
     });
 
     return {
@@ -273,7 +261,7 @@ class PortService {
       connectorType: port.connectorType,
       description: port.description,
       sortOrder: port.sortOrder,
-      isConnected: port.sourceCables.length > 0 || port.targetCables.length > 0,
+      isConnected: false,
       createdAt: port.createdAt,
       updatedAt: port.updatedAt,
     };
@@ -285,22 +273,10 @@ class PortService {
   async delete(id: string): Promise<void> {
     const port = await prisma.port.findUnique({
       where: { id },
-      include: {
-        sourceCables: true,
-        targetCables: true,
-      },
     });
 
     if (!port) {
       throw new NotFoundError('포트');
-    }
-
-    // 연결된 케이블 확인
-    const connectionCount = port.sourceCables.length + port.targetCables.length;
-    if (connectionCount > 0) {
-      throw new ConflictError(
-        `연결된 케이블이 ${connectionCount}개 있어 삭제할 수 없습니다. 케이블을 먼저 제거하세요.`
-      );
     }
 
     await prisma.port.delete({

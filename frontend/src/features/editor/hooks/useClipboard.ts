@@ -1,39 +1,39 @@
 import { useCallback } from 'react';
-import type { RackItem } from '../../../types/floorPlan';
+import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useEditorHistory } from './useEditorHistory';
 
 /**
- * Hook for rack paste operations (element paste handled in keyboard hook)
+ * Hook for equipment paste operations (element paste handled in keyboard hook)
  */
 export function useClipboard() {
   const { pushHistory } = useEditorHistory();
 
-  const handlePasteRack = useCallback(() => {
+  const handlePasteEquipment = useCallback(() => {
     const es = useEditorStore.getState();
     const cs = useCanvasStore.getState();
-    if (!es.clipboard || es.clipboard.type !== 'rack') return;
+    if (!es.clipboard || es.clipboard.type !== 'equipment') return;
 
-    const original = es.clipboard.data as RackItem;
-    const newRack: RackItem = {
+    const original = es.clipboard.data as FloorPlanEquipment;
+    const newEquipment: FloorPlanEquipment = {
       ...original,
       id: `temp-${Date.now()}`,
-      name: cs.pasteRackName,
+      name: cs.pasteEquipmentName,
       positionX: original.positionX + 20,
       positionY: original.positionY + 20,
     };
-    const newRacks = [...es.localRacks, newRack];
-    es.setLocalRacks(newRacks);
-    pushHistory(es.localElements, newRacks);
-    cs.setPasteRackModalOpen(false);
-    cs.setPasteRackName('');
+    const newEquipmentList = [...es.localEquipment, newEquipment];
+    es.setLocalEquipment(newEquipmentList);
+    pushHistory(es.localElements, newEquipmentList);
+    cs.setPasteEquipmentModalOpen(false);
+    cs.setPasteEquipmentName('');
     es.setHasChanges(true);
-    es.setSelectedRack(newRack);
+    es.setSelectedEquipment(newEquipment);
     es.setSelectedElement(null);
-    es.setSelectedIds([newRack.id]);
-    es.setClipboard({ type: 'rack', data: newRack });
+    es.setSelectedIds([newEquipment.id]);
+    es.setClipboard({ type: 'equipment', data: newEquipment });
   }, [pushHistory]);
 
-  return { handlePasteRack };
+  return { handlePasteEquipment };
 }

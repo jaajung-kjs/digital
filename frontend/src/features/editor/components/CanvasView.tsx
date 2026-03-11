@@ -11,9 +11,10 @@ interface CanvasViewProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   floorPlan: FloorPlanDetail | undefined;
   roomId: string | undefined;
+  children?: React.ReactNode;
 }
 
-export function CanvasView({ canvasRef, containerRef, floorPlan, roomId }: CanvasViewProps) {
+export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, children }: CanvasViewProps) {
   useCanvas(canvasRef, containerRef, floorPlan);
   const {
     handleCanvasMouseDown,
@@ -39,7 +40,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId }: Canva
   const setHasChanges = useEditorStore(s => s.setHasChanges);
   const setLocalElements = useEditorStore(s => s.setLocalElements);
   const localElements = useEditorStore(s => s.localElements);
-  const localRacks = useEditorStore(s => s.localRacks);
+  const localEquipment = useEditorStore(s => s.localEquipment);
 
   const isPanning = useCanvasStore(s => s.isPanning);
   const isSpacePressed = useCanvasStore(s => s.isSpacePressed);
@@ -72,7 +73,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId }: Canva
     };
     const newElements = [...localElements, newText];
     setLocalElements(newElements);
-    pushHistory(newElements, localRacks);
+    pushHistory(newElements, localEquipment);
     setHasChanges(true);
     setTool('select');
   };
@@ -182,6 +183,8 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId }: Canva
           <span className="text-xs text-gray-400">px</span>
         </div>
       </div>
+
+      {children}
 
       {/* Text input overlay */}
       {isEditingText && textInputPosition && (

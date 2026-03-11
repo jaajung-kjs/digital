@@ -1,7 +1,7 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
-import type { RackItem } from '../../../types/floorPlan';
+import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useClipboard } from '../hooks/useClipboard';
@@ -12,6 +12,11 @@ import { Toolbar } from './Toolbar';
 import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
 import { PropertyBar } from './PropertyBar';
+import { HeightInput } from './HeightInput';
+import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
+import { EquipmentDetailPanel } from './EquipmentDetailPanel';
+
+const ThreeCanvas = lazy(() => import('../../viewer3d/components/ThreeCanvas').then(m => ({ default: m.ThreeCanvas })));
 
 interface FloorPlanEditorProps {
   roomId: string;
@@ -27,25 +32,27 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   } = useFloorPlanData(roomId, containerRef);
 
   useEditorKeyboard(handleSave);
-  const { handlePasteRack } = useClipboard();
+  const { handlePasteEquipment } = useClipboard();
   const { pushHistory } = useEditorHistory();
 
+  const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
+  const viewMode = useEditorStore(s => s.viewMode);
   const localElements = useEditorStore(s => s.localElements);
-  const localRacks = useEditorStore(s => s.localRacks);
+  const localEquipment = useEditorStore(s => s.localEquipment);
   const selectedElement = useEditorStore(s => s.selectedElement);
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
   const setHasChanges = useEditorStore(s => s.setHasChanges);
-  const setLocalRacks = useEditorStore(s => s.setLocalRacks);
+  const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
-  const rackModalOpen = useCanvasStore(s => s.rackModalOpen);
-  const setRackModalOpen = useCanvasStore(s => s.setRackModalOpen);
-  const newRackName = useCanvasStore(s => s.newRackName);
-  const setNewRackName = useCanvasStore(s => s.setNewRackName);
-  const newRackPosition = useCanvasStore(s => s.newRackPosition);
-  const pasteRackModalOpen = useCanvasStore(s => s.pasteRackModalOpen);
-  const setPasteRackModalOpen = useCanvasStore(s => s.setPasteRackModalOpen);
-  const pasteRackName = useCanvasStore(s => s.pasteRackName);
-  const setPasteRackName = useCanvasStore(s => s.setPasteRackName);
+  const equipmentModalOpen = useCanvasStore(s => s.equipmentModalOpen);
+  const setEquipmentModalOpen = useCanvasStore(s => s.setEquipmentModalOpen);
+  const newEquipmentName = useCanvasStore(s => s.newEquipmentName);
+  const setNewEquipmentName = useCanvasStore(s => s.setNewEquipmentName);
+  const newEquipmentPosition = useCanvasStore(s => s.newEquipmentPosition);
+  const pasteEquipmentModalOpen = useCanvasStore(s => s.pasteEquipmentModalOpen);
+  const setPasteEquipmentModalOpen = useCanvasStore(s => s.setPasteEquipmentModalOpen);
+  const pasteEquipmentName = useCanvasStore(s => s.pasteEquipmentName);
+  const setPasteEquipmentName = useCanvasStore(s => s.setPasteEquipmentName);
 
   // Sync selectedElement when localElements changes
   useEffect(() => {
@@ -59,26 +66,25 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
     }
   }, [localElements, selectedElement, setSelectedElement]);
 
-  const handleAddRack = () => {
-    const newRack: RackItem = {
+  const handleAddEquipment = () => {
+    const newEquip: FloorPlanEquipment = {
       id: `temp-${Date.now()}`,
-      name: newRackName,
-      code: null,
-      positionX: newRackPosition.x,
-      positionY: newRackPosition.y,
+      name: newEquipmentName,
+      category: 'OTHER',
+      positionX: newEquipmentPosition.x,
+      positionY: newEquipmentPosition.y,
       width: 60,
       height: 100,
       rotation: 0,
-      totalU: 12,
       frontImageUrl: null,
       rearImageUrl: null,
       description: null,
     };
-    const newRacks = [...localRacks, newRack];
-    setLocalRacks(newRacks);
-    pushHistory(localElements, newRacks);
-    setRackModalOpen(false);
-    setNewRackName('');
+    const newList = [...localEquipment, newEquip];
+    setLocalEquipment(newList);
+    pushHistory(localElements, newList);
+    setEquipmentModalOpen(false);
+    setNewEquipmentName('');
     setHasChanges(true);
     setTool('select');
   };
@@ -117,66 +123,100 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
           </div>
         ) : (
           <>
-            <ToolPanel />
+            {viewMode === 'edit-2d' && <ToolPanel />}
 
-            <div className="flex-1 flex flex-col min-w-0">
-              <CanvasView
-                canvasRef={canvasRef}
-                containerRef={containerRef}
-                floorPlan={floorPlan}
-                roomId={roomId}
-              />
+            <div className="flex-1 flex flex-col min-w-0 relative">
+              {viewMode === 'view-3d' ? (
+                <Suspense fallback={
+                  <div className="flex-1 flex items-center justify-center bg-gray-200">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">3D 뷰 로딩중...</p>
+                    </div>
+                  </div>
+                }>
+                  <div className="flex-1">
+                    <ThreeCanvas
+                      elements={localElements}
+                      racks={[]}
+                      equipment={localEquipment}
+                      canvasWidth={floorPlan?.canvasWidth ?? 1200}
+                      canvasHeight={floorPlan?.canvasHeight ?? 800}
+                    />
+                  </div>
+                </Suspense>
+              ) : (
+                <CanvasView
+                  canvasRef={canvasRef}
+                  containerRef={containerRef}
+                  floorPlan={floorPlan}
+                  roomId={roomId}
+                >
+                  {viewMode.startsWith('connection-') && (
+                    <ConnectionOverlay roomId={roomId} canvasRef={canvasRef} />
+                  )}
+                </CanvasView>
+              )}
 
-              {floorPlan && <PropertyBar />}
+              {detailPanelEquipmentId && (
+                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} roomId={roomId} />
+              )}
+
+              {floorPlan && viewMode === 'edit-2d' && (
+                <div className="flex items-center">
+                  <PropertyBar />
+                  <HeightInput />
+                </div>
+              )}
             </div>
           </>
         )}
       </div>
 
-      {/* Rack add modal */}
-      {rackModalOpen && (
+      {/* Equipment add modal */}
+      {equipmentModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">랙 추가</h3>
+            <h3 className="text-lg font-semibold mb-4">설비 추가</h3>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">랙 이름</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">설비 이름</label>
               <input
                 type="text"
-                value={newRackName}
-                onChange={(e) => setNewRackName(e.target.value)}
+                value={newEquipmentName}
+                onChange={(e) => setNewEquipmentName(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="예: RACK-A01"
+                placeholder="예: UPS-01"
               />
             </div>
             <div className="flex justify-end gap-3">
-              <button onClick={() => { setRackModalOpen(false); setNewRackName(''); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
-              <button onClick={handleAddRack} disabled={!newRackName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">추가</button>
+              <button onClick={() => { setEquipmentModalOpen(false); setNewEquipmentName(''); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
+              <button onClick={handleAddEquipment} disabled={!newEquipmentName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">추가</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Rack paste modal */}
-      {pasteRackModalOpen && (
+      {/* Equipment paste modal */}
+      {pasteEquipmentModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">랙 붙여넣기</h3>
-            <p className="text-sm text-gray-500 mb-3">복사한 랙의 새 이름을 입력하세요.</p>
+            <h3 className="text-lg font-semibold mb-4">설비 붙여넣기</h3>
+            <p className="text-sm text-gray-500 mb-3">복사한 설비의 새 이름을 입력하세요.</p>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">랙 이름</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">설비 이름</label>
               <input
                 type="text"
-                value={pasteRackName}
-                onChange={(e) => setPasteRackName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && pasteRackName) handlePasteRack(); }}
+                value={pasteEquipmentName}
+                onChange={(e) => setPasteEquipmentName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && pasteEquipmentName) handlePasteEquipment(); }}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="예: RACK-A02"
+                placeholder="예: UPS-02"
                 autoFocus
               />
             </div>
             <div className="flex justify-end gap-3">
-              <button onClick={() => { setPasteRackModalOpen(false); setPasteRackName(''); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
-              <button onClick={handlePasteRack} disabled={!pasteRackName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">붙여넣기</button>
+              <button onClick={() => { setPasteEquipmentModalOpen(false); setPasteEquipmentName(''); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
+              <button onClick={handlePasteEquipment} disabled={!pasteEquipmentName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">붙여넣기</button>
             </div>
           </div>
         </div>

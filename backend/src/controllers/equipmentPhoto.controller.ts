@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { equipmentPhotoService } from '../services/equipmentPhoto.service.js';
 
-interface MulterRequest extends Request {
+export interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
 
