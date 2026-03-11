@@ -147,7 +147,13 @@ export function useCanvasEvents(
       return;
     }
 
-    if (['door', 'window', 'equipment', 'text'].includes(tool)) {
+    const { isDrawingEquipment, equipmentStart } = canvasStore.getState();
+    if (tool === 'equipment' && isDrawingEquipment && equipmentStart) {
+      canvasStore.getState().setEquipmentPreviewEnd({ x: snapped.x, y: snapped.y });
+      return;
+    }
+
+    if (['door', 'window', 'text', 'equipment'].includes(tool)) {
       canvasStore.getState().setPreviewPosition({ x: snapped.x, y: snapped.y });
     } else {
       canvasStore.getState().setPreviewPosition(null);
@@ -348,8 +354,27 @@ export function useCanvasEvents(
       }
 
       case 'equipment':
-        cs.setNewEquipmentPosition({ x: snapped.x, y: snapped.y });
-        cs.setEquipmentModalOpen(true);
+        if (!cs.isDrawingEquipment) {
+          cs.setIsDrawingEquipment(true);
+          cs.setEquipmentStart({ x: snapped.x, y: snapped.y });
+          cs.setEquipmentPreviewEnd(null);
+        } else {
+          const eqEndX = snapped.x;
+          const eqEndY = snapped.y;
+          const eqX = Math.min(cs.equipmentStart!.x, eqEndX);
+          const eqY = Math.min(cs.equipmentStart!.y, eqEndY);
+          const eqW = Math.abs(eqEndX - cs.equipmentStart!.x);
+          const eqH = Math.abs(eqEndY - cs.equipmentStart!.y);
+
+          if (eqW >= 10 && eqH >= 10) {
+            cs.setNewEquipmentPosition({ x: eqX, y: eqY });
+            // Store drawn size in position object (we'll read it from canvasStore)
+            cs.setEquipmentPreviewEnd({ x: eqW, y: eqH });
+            cs.setEquipmentModalOpen(true);
+          }
+          cs.setIsDrawingEquipment(false);
+          cs.setEquipmentStart(null);
+        }
         break;
 
       case 'text':
@@ -400,10 +425,6 @@ export function useCanvasEvents(
         y >= eq.positionY &&
         y <= eq.positionY + eq.height
       ) {
-        if (eq.id.startsWith('temp-')) {
-          alert('장비를 먼저 저장한 후 상세 설정을 수정할 수 있습니다.');
-          return;
-        }
         editorStore.getState().setDetailPanelEquipmentId(eq.id);
         return;
       }

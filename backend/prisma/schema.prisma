@@ -287,6 +287,8 @@ enum EquipmentCategory {
   POWER
   SECURITY
   OTHER
+  DISTRIBUTION_BOARD
+  OFD
 }
 
 // ==================== 포트 ====================
@@ -376,9 +378,10 @@ model EquipmentPhoto {
 model MaintenanceLog {
   id           String    @id @default(uuid())
   equipmentId  String    @map("equipment_id")
-  logType      String    @db.VarChar(20) // MAINTENANCE, FAILURE, REPAIR, INSPECTION
+  logType      String    @db.VarChar(20) // MAINTENANCE, FAILURE, REPAIR
   title        String    @db.VarChar(200)
   description  String?   @db.Text
+  logDate      DateTime? @map("log_date") @db.Date
   severity     String?   @db.VarChar(20) // LOW, MEDIUM, HIGH, CRITICAL
   status       String    @default("OPEN") @db.VarChar(20) // OPEN, IN_PROGRESS, RESOLVED, CLOSED
   resolvedAt   DateTime? @map("resolved_at")

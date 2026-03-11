@@ -21,6 +21,8 @@ const equipmentCategoryEnum = z.enum([
   'POWER',
   'SECURITY',
   'OTHER',
+  'DISTRIBUTION_BOARD',
+  'OFD',
 ]);
 
 const createEquipmentSchema = z.object({
@@ -81,6 +83,18 @@ router.patch(
 
 // 설비 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, equipmentController.delete);
+
+// 설비 이미지 업로드 (관리자만)
+router.post(
+  '/:id/image',
+  authenticate,
+  adminOnly,
+  uploadEquipmentImage.single('image'),
+  equipmentController.uploadImage
+);
+
+// 설비 이미지 삭제 (관리자만)
+router.delete('/:id/image/:type', authenticate, adminOnly, equipmentController.deleteImage);
 
 // ==================== Port Routes (Nested under Equipment) ====================
 

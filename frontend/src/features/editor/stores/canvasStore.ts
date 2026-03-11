@@ -18,6 +18,11 @@ interface CanvasStoreState {
   rectStart: { x: number; y: number } | null;
   rectPreviewEnd: { x: number; y: number } | null;
 
+  // Equipment drawing state (drag-to-draw)
+  isDrawingEquipment: boolean;
+  equipmentStart: { x: number; y: number } | null;
+  equipmentPreviewEnd: { x: number; y: number } | null;
+
   // Text editing state
   isEditingText: boolean;
   textInputPosition: { x: number; y: number } | null;
@@ -38,6 +43,7 @@ interface CanvasStoreState {
   equipmentModalOpen: boolean;
   pasteEquipmentModalOpen: boolean;
   newEquipmentName: string;
+  newEquipmentCategory: string;
   pasteEquipmentName: string;
   newEquipmentPosition: { x: number; y: number };
 }
@@ -59,6 +65,11 @@ interface CanvasStoreActions {
   setRectStart: (s: { x: number; y: number } | null) => void;
   setRectPreviewEnd: (e: { x: number; y: number } | null) => void;
 
+  // Equipment drawing
+  setIsDrawingEquipment: (v: boolean) => void;
+  setEquipmentStart: (s: { x: number; y: number } | null) => void;
+  setEquipmentPreviewEnd: (e: { x: number; y: number } | null) => void;
+
   // Text editing
   setIsEditingText: (v: boolean) => void;
   setTextInputPosition: (p: { x: number; y: number } | null) => void;
@@ -79,6 +90,7 @@ interface CanvasStoreActions {
   setEquipmentModalOpen: (v: boolean) => void;
   setPasteEquipmentModalOpen: (v: boolean) => void;
   setNewEquipmentName: (v: string) => void;
+  setNewEquipmentCategory: (v: string) => void;
   setPasteEquipmentName: (v: string) => void;
   setNewEquipmentPosition: (p: { x: number; y: number }) => void;
 
@@ -98,6 +110,9 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   isDrawingRect: false,
   rectStart: null,
   rectPreviewEnd: null,
+  isDrawingEquipment: false,
+  equipmentStart: null,
+  equipmentPreviewEnd: null,
   isEditingText: false,
   textInputPosition: null,
   textInputValue: '',
@@ -109,6 +124,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   equipmentModalOpen: false,
   pasteEquipmentModalOpen: false,
   newEquipmentName: '',
+  newEquipmentCategory: 'NETWORK',
   pasteEquipmentName: '',
   newEquipmentPosition: { x: 100, y: 100 },
 
@@ -123,6 +139,9 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setIsDrawingRect: (isDrawingRect) => set({ isDrawingRect }),
   setRectStart: (rectStart) => set({ rectStart }),
   setRectPreviewEnd: (rectPreviewEnd) => set({ rectPreviewEnd }),
+  setIsDrawingEquipment: (isDrawingEquipment) => set({ isDrawingEquipment }),
+  setEquipmentStart: (equipmentStart) => set({ equipmentStart }),
+  setEquipmentPreviewEnd: (equipmentPreviewEnd) => set({ equipmentPreviewEnd }),
   setIsEditingText: (isEditingText) => set({ isEditingText }),
   setTextInputPosition: (textInputPosition) => set({ textInputPosition }),
   setTextInputValue: (textInputValue) => set({ textInputValue }),
@@ -134,6 +153,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setEquipmentModalOpen: (equipmentModalOpen) => set({ equipmentModalOpen }),
   setPasteEquipmentModalOpen: (pasteEquipmentModalOpen) => set({ pasteEquipmentModalOpen }),
   setNewEquipmentName: (newEquipmentName) => set({ newEquipmentName }),
+  setNewEquipmentCategory: (newEquipmentCategory) => set({ newEquipmentCategory }),
   setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
   setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
 
@@ -148,6 +168,9 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
     isDrawingRect: false,
     rectStart: null,
     rectPreviewEnd: null,
+    isDrawingEquipment: false,
+    equipmentStart: null,
+    equipmentPreviewEnd: null,
     isEditingText: false,
     textInputPosition: null,
     textInputValue: '',

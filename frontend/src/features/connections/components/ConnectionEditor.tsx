@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../utils/api';
 import type { CableType } from '../../../types/connection';
+import { useEditorStore } from '../../editor/stores/editorStore';
 
 const CABLE_TYPE_OPTIONS: { value: CableType; label: string }[] = [
   { value: 'LAN', label: 'LAN' },
@@ -18,13 +17,9 @@ interface EquipmentOption {
 
 interface ConnectionEditorProps {
   roomId: string;
-  /** Available equipment list */
   equipmentList: EquipmentOption[];
-  /** Pre-selected source equipment id */
   defaultSourceId?: string;
-  /** Pre-selected target equipment id */
   defaultTargetId?: string;
-  /** Existing cable to edit */
   editingCable?: {
     id: string;
     sourceEquipmentId: string;
@@ -38,14 +33,14 @@ interface ConnectionEditorProps {
 }
 
 export function ConnectionEditor({
-  roomId,
   equipmentList,
   defaultSourceId,
   defaultTargetId,
   editingCable,
   onClose,
 }: ConnectionEditorProps) {
-  const queryClient = useQueryClient();
+  const addChange = useEditorStore((s) => s.addChange);
+  const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
   const [sourceEquipmentId, setSourceEquipmentId] = useState(editingCable?.sourceEquipmentId ?? defaultSourceId ?? '');
   const [targetEquipmentId, setTargetEquipmentId] = useState(editingCable?.targetEquipmentId ?? defaultTargetId ?? '');
@@ -56,69 +51,46 @@ export function ConnectionEditor({
 
   const isEditing = !!editingCable;
 
-  const invalidateConnections = () => {
-    void queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
-  };
-
-  const createMutation = useMutation({
-    mutationFn: async (payload: Record<string, unknown>) => {
-      const { data } = await api.post('/cables', payload);
-      return data;
-    },
-    onSuccess: () => {
-      invalidateConnections();
-      onClose();
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: Record<string, unknown> }) => {
-      const { data } = await api.put(`/cables/${id}`, payload);
-      return data;
-    },
-    onSuccess: () => {
-      invalidateConnections();
-      onClose();
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/cables/${id}`);
-    },
-    onSuccess: () => {
-      invalidateConnections();
-      onClose();
-    },
-  });
-
   const handleSave = () => {
     if (!sourceEquipmentId || !targetEquipmentId) return;
 
-    const payload = {
-      sourceEquipmentId,
-      targetEquipmentId,
-      cableType,
-      label: label || undefined,
-      length: length ? Number(length) : undefined,
-      color: color || undefined,
-    };
-
     if (isEditing && editingCable) {
-      updateMutation.mutate({ id: editingCable.id, payload });
+      addChange({
+        type: 'cable:update',
+        id: editingCable.id,
+        sourceEquipmentId,
+        targetEquipmentId,
+        cableType,
+        label: label || undefined,
+        length: length ? Number(length) : undefined,
+        color: color || undefined,
+      });
     } else {
-      createMutation.mutate(payload);
+      addChange({
+        type: 'cable:create',
+        localId: `cable-temp-${Date.now()}`,
+        sourceEquipmentId,
+        targetEquipmentId,
+        cableType,
+        label: label || undefined,
+        length: length ? Number(length) : undefined,
+        color: color || undefined,
+      });
     }
+
+    setHasChanges(true);
+    onClose();
   };
 
   const handleDelete = () => {
     if (!editingCable) return;
     if (confirm('이 케이블을 삭제하시겠습니까?')) {
-      deleteMutation.mutate(editingCable.id);
+      addChange({ type: 'cable:delete', cableId: editingCable.id });
+      setHasChanges(true);
+      onClose();
     }
   };
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
   const isValid = sourceEquipmentId && targetEquipmentId && sourceEquipmentId !== targetEquipmentId;
 
   return (
@@ -221,10 +193,10 @@ export function ConnectionEditor({
       <div className="flex items-center gap-2">
         <button
           onClick={handleSave}
-          disabled={!isValid || isSaving}
+          disabled={!isValid}
           className="flex-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isSaving ? '저장 중...' : '저장'}
+          적용
         </button>
         <button
           onClick={onClose}
@@ -235,8 +207,7 @@ export function ConnectionEditor({
         {isEditing && (
           <button
             onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-            className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded hover:bg-red-50 disabled:opacity-50 transition-colors"
+            className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
           >
             삭제
           </button>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { ViewMode } from '../../../types/floorPlan';
 import type { RoomConnection } from '../../../types/connection';
 import { useRoomConnections } from '../hooks/useRoomConnections';
+import { useMergedConnections } from '../hooks/useMergedConnections';
 import { useConnectionEditorStore } from '../hooks/useConnectionEditor';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import {
@@ -26,21 +27,21 @@ function mapConnectionsToRenderable(
   const result: RenderableConnection[] = [];
 
   for (const conn of connections) {
-    const sourcePos = equipmentPositions.get(conn.sourceEquipment.id);
-    const targetPos = equipmentPositions.get(conn.targetEquipment.id);
+    const sourcePos = equipmentPositions.get(conn.sourceEquipmentId);
+    const targetPos = equipmentPositions.get(conn.targetEquipmentId);
 
     if (!sourcePos || !targetPos) continue;
 
     const color =
-      conn.cable.color || CABLE_COLORS[conn.cable.cableType] || '#6b7280';
+      conn.color || CABLE_COLORS[conn.cableType] || '#6b7280';
 
     result.push({
       sourceX: sourcePos.x + sourcePos.width / 2,
       sourceY: sourcePos.y + sourcePos.height / 2,
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
-      cableType: conn.cable.cableType,
-      label: conn.cable.label,
+      cableType: conn.cableType,
+      label: conn.label,
       color,
     });
   }
@@ -64,9 +65,13 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
     (s) => s.resetConnectionEditor
   );
 
-  const { data: connections } = useRoomConnections(roomId, isConnectionMode);
+  const changeSet = useEditorStore((s) => s.changeSet);
+
+  const { data: backendConnections } = useRoomConnections(roomId, isConnectionMode);
 
   const overlayRef = useRef<HTMLCanvasElement>(null);
+
+  const connections = useMergedConnections(backendConnections, changeSet, localEquipment);
 
   // Build equipment positions map
   const equipmentPositions = useMemo(() => {

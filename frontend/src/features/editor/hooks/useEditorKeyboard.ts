@@ -113,14 +113,14 @@ export function useEditorKeyboard(handleSave: () => void) {
 
       // Delete key
       if (e.key === 'Delete' && es.selectedIds.length > 0) {
-        const deletedEquipment = localEquipment
+        const deletedEquipmentIds = localEquipment
           .filter(eq => es.selectedIds.includes(eq.id) && !eq.id.startsWith('temp-'))
           .map(eq => eq.id);
         const deletedElements = localElements
           .filter(el => es.selectedIds.includes(el.id) && !el.id.startsWith('temp-'))
           .map(el => el.id);
 
-        if (deletedEquipment.length > 0) es.addDeletedEquipmentIds(deletedEquipment);
+        if (deletedEquipmentIds.length > 0) es.addDeletedEquipmentIds(deletedEquipmentIds);
         if (deletedElements.length > 0) es.addDeletedElementIds(deletedElements);
 
         const newEquipment = localEquipment.filter(eq => !es.selectedIds.includes(eq.id));

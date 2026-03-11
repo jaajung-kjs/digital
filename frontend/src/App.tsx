@@ -7,7 +7,6 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { TreePage } from './pages/TreePage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
-import { RackEditorPage } from './pages/RackEditorPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,15 +43,6 @@ function AppContent() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/racks/:rackId"
-        element={
-          <ProtectedRoute>
-            <RackEditorPage />
-          </ProtectedRoute>
-        }
-      />
-
       {/* Protected Routes - With Layout */}
       <Route
         element={

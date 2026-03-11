@@ -8,7 +8,7 @@ export interface EquipmentPhoto {
   createdAt: string;
 }
 
-export type LogType = 'MAINTENANCE' | 'FAILURE' | 'REPAIR' | 'INSPECTION';
+export type LogType = 'MAINTENANCE' | 'FAILURE' | 'REPAIR';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type LogStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
 
@@ -18,6 +18,7 @@ export interface MaintenanceLog {
   logType: LogType;
   title: string;
   description?: string;
+  logDate?: string;
   severity?: Severity;
   status: LogStatus;
   resolvedAt?: string;

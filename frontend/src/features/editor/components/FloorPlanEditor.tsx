@@ -35,24 +35,33 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const { handlePasteEquipment } = useClipboard();
   const { pushHistory } = useEditorHistory();
 
+  const resetEditor = useEditorStore(s => s.resetEditor);
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
   const viewMode = useEditorStore(s => s.viewMode);
   const localElements = useEditorStore(s => s.localElements);
   const localEquipment = useEditorStore(s => s.localEquipment);
   const selectedElement = useEditorStore(s => s.selectedElement);
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
-  const setHasChanges = useEditorStore(s => s.setHasChanges);
   const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
   const equipmentModalOpen = useCanvasStore(s => s.equipmentModalOpen);
   const setEquipmentModalOpen = useCanvasStore(s => s.setEquipmentModalOpen);
   const newEquipmentName = useCanvasStore(s => s.newEquipmentName);
   const setNewEquipmentName = useCanvasStore(s => s.setNewEquipmentName);
+  const newEquipmentCategory = useCanvasStore(s => s.newEquipmentCategory);
+  const setNewEquipmentCategory = useCanvasStore(s => s.setNewEquipmentCategory);
   const newEquipmentPosition = useCanvasStore(s => s.newEquipmentPosition);
   const pasteEquipmentModalOpen = useCanvasStore(s => s.pasteEquipmentModalOpen);
   const setPasteEquipmentModalOpen = useCanvasStore(s => s.setPasteEquipmentModalOpen);
   const pasteEquipmentName = useCanvasStore(s => s.pasteEquipmentName);
   const setPasteEquipmentName = useCanvasStore(s => s.setPasteEquipmentName);
+
+  // Reset editor store on unmount (discard all unsaved changes including pending photos)
+  useEffect(() => {
+    return () => {
+      resetEditor();
+    };
+  }, [resetEditor]);
 
   // Sync selectedElement when localElements changes
   useEffect(() => {
@@ -66,25 +75,31 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
     }
   }, [localElements, selectedElement, setSelectedElement]);
 
+  const equipmentPreviewEnd = useCanvasStore(s => s.equipmentPreviewEnd);
+  const setHasChanges = useEditorStore(s => s.setHasChanges);
+
   const handleAddEquipment = () => {
+    const drawnWidth = equipmentPreviewEnd?.x ?? 60;
+    const drawnHeight = equipmentPreviewEnd?.y ?? 100;
     const newEquip: FloorPlanEquipment = {
       id: `temp-${Date.now()}`,
       name: newEquipmentName,
-      category: 'OTHER',
+      category: newEquipmentCategory || 'NETWORK',
       positionX: newEquipmentPosition.x,
       positionY: newEquipmentPosition.y,
-      width: 60,
-      height: 100,
+      width: drawnWidth,
+      height: drawnHeight,
       rotation: 0,
       frontImageUrl: null,
       rearImageUrl: null,
       description: null,
     };
-    const newList = [...localEquipment, newEquip];
+    const newList = [...useEditorStore.getState().localEquipment, newEquip];
     setLocalEquipment(newList);
-    pushHistory(localElements, newList);
+    pushHistory(useEditorStore.getState().localElements, newList);
     setEquipmentModalOpen(false);
     setNewEquipmentName('');
+    setNewEquipmentCategory('NETWORK');
     setHasChanges(true);
     setTool('select');
   };
@@ -178,7 +193,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">설비 추가</h3>
-            <div className="mb-4">
+            <div className="mb-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">설비 이름</label>
               <input
                 type="text"
@@ -186,10 +201,24 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                 onChange={(e) => setNewEquipmentName(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="예: UPS-01"
+                autoFocus
               />
             </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">분류</label>
+              <select
+                value={newEquipmentCategory}
+                onChange={(e) => setNewEquipmentCategory(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="NETWORK">네트워크</option>
+                <option value="POWER">전원</option>
+                <option value="DISTRIBUTION_BOARD">분전반</option>
+                <option value="OFD">OFD</option>
+              </select>
+            </div>
             <div className="flex justify-end gap-3">
-              <button onClick={() => { setEquipmentModalOpen(false); setNewEquipmentName(''); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
+              <button onClick={() => { setEquipmentModalOpen(false); setNewEquipmentName(''); setNewEquipmentCategory('NETWORK'); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
               <button onClick={handleAddEquipment} disabled={!newEquipmentName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">추가</button>
             </div>
           </div>

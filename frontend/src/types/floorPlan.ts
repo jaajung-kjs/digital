@@ -182,6 +182,9 @@ export interface UpdateFloorPlanRequest {
     height?: number;
     rotation?: number;
     description?: string;
+    model?: string;
+    manufacturer?: string;
+    manager?: string;
   }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];

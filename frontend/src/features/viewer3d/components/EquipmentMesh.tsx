@@ -2,12 +2,10 @@ import type { FloorPlanEquipment } from '@/types/floorPlan';
 import { useImageTexture } from '../utils/textureLoader';
 
 const CATEGORY_COLORS: Record<string, string> = {
-  SERVER: '#3b82f6',
   NETWORK: '#22c55e',
-  STORAGE: '#a855f7',
   POWER: '#ef4444',
-  SECURITY: '#f97316',
-  OTHER: '#6b7280',
+  DISTRIBUTION_BOARD: '#a855f7',
+  OFD: '#3b82f6',
 };
 
 const DEFAULT_EQUIPMENT_HEIGHT = 50;
@@ -29,7 +27,7 @@ export function EquipmentMesh({ equipment, canvasWidth, canvasHeight }: Equipmen
   const worldY = height3d / 2;
   const rotationY = -(equipment.rotation * Math.PI) / 180;
 
-  const baseColor = CATEGORY_COLORS[equipment.category] ?? CATEGORY_COLORS.OTHER;
+  const baseColor = CATEGORY_COLORS[equipment.category] ?? '#6b7280';
 
   const frontTexture = useImageTexture(equipment.frontImageUrl ?? null);
   const rearTexture = useImageTexture(equipment.rearImageUrl ?? null);
