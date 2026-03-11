@@ -18,42 +18,36 @@ export interface MaintenanceFormData {
   logType: string;
   title: string;
   description?: string;
+  logDate?: string;
   severity?: string;
   status?: string;
 }
 
 export const CATEGORY_ICONS: Record<string, string> = {
-  SERVER: '\u{1F5A5}\uFE0F',
   NETWORK: '\u{1F310}',
-  STORAGE: '\u{1F4BE}',
   POWER: '\u26A1',
-  SECURITY: '\u{1F512}',
-  OTHER: '\u{1F4E6}',
+  DISTRIBUTION_BOARD: '\u{1F4CB}',
+  OFD: '\u{1F4E6}',
 };
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  SERVER: '\uC11C\uBC84',
   NETWORK: '\uB124\uD2B8\uC6CC\uD06C',
-  STORAGE: '\uC2A4\uD1A0\uB9AC\uC9C0',
   POWER: '\uC804\uC6D0',
-  SECURITY: '\uBCF4\uC548',
-  OTHER: '\uAE30\uD0C0',
+  DISTRIBUTION_BOARD: '\uBD84\uC804\uBC18',
+  OFD: 'OFD',
 };
 
 export const EQUIPMENT_CATEGORIES = [
-  'SERVER',
   'NETWORK',
-  'STORAGE',
   'POWER',
-  'SECURITY',
-  'OTHER',
+  'DISTRIBUTION_BOARD',
+  'OFD',
 ] as const;
 
 export const LOG_TYPE_LABELS: Record<string, string> = {
-  MAINTENANCE: '\uC810\uAC80',
-  FAILURE: '\uACE0\uC7A5',
-  REPAIR: '\uC218\uB9AC',
-  INSPECTION: '\uAC80\uC0AC',
+  MAINTENANCE: '점검',
+  FAILURE: '고장',
+  REPAIR: '수리',
 };
 
 export const SEVERITY_COLORS: Record<string, string> = {

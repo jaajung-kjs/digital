@@ -1,6 +1,14 @@
 export type CableType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'GROUND';
 
-export interface Cable {
+export interface EquipmentInfo {
+  id: string;
+  name: string;
+  rackId: string | null;
+  roomId: string | null;
+}
+
+/** API 응답 구조 (flat) */
+export interface RoomConnection {
   id: string;
   sourceEquipmentId: string;
   targetEquipmentId: string;
@@ -10,17 +18,6 @@ export interface Cable {
   color?: string;
   pathPoints?: [number, number][];
   description?: string;
-}
-
-export interface EquipmentInfo {
-  id: string;
-  name: string;
-  rackId: string | null;
-  roomId: string | null;
-}
-
-export interface RoomConnection {
-  cable: Cable;
   sourceEquipment: EquipmentInfo;
   targetEquipment: EquipmentInfo;
 }

@@ -3,12 +3,87 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type { FloorPlanDetail, UpdateFloorPlanRequest } from '../../../types/floorPlan';
 import type { RoomDetail } from '../../../types/substation';
-import { useEditorStore } from '../stores/editorStore';
+import { useEditorStore, type ChangeEntry } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
 
 /**
- * Hook for loading/saving floor plan data via TanStack Query
+ * Build temp equipment ID → real ID mapping from the backend response.
+ */
+function buildTempIdMap(
+  localEquipment: { id: string }[],
+  equipmentIdMap: Record<number, string>
+): Map<string, string> {
+  const map = new Map<string, string>();
+  localEquipment.forEach((eq, index) => {
+    if (eq.id.startsWith('temp-') && equipmentIdMap[index]) {
+      map.set(eq.id, equipmentIdMap[index]);
+    }
+  });
+  return map;
+}
+
+/**
+ * Process a single ChangeEntry into an API call.
+ * This is the ONLY place where changeSet entries become real mutations.
+ */
+async function processChange(entry: ChangeEntry, resolveId: (id: string) => string) {
+  switch (entry.type) {
+    case 'photo:upload': {
+      const formData = new FormData();
+      formData.append('file', entry.file);
+      formData.append('side', entry.side);
+      formData.append('takenAt', new Date().toISOString());
+      if (entry.description) formData.append('description', entry.description);
+      await api.post(`/equipment/${resolveId(entry.equipmentId)}/photos`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      break;
+    }
+    case 'photo:delete':
+      await api.delete(`/equipment-photos/${entry.photoId}`);
+      break;
+    case 'cable:create':
+      await api.post('/cables', {
+        sourceEquipmentId: resolveId(entry.sourceEquipmentId),
+        targetEquipmentId: resolveId(entry.targetEquipmentId),
+        cableType: entry.cableType,
+        label: entry.label || undefined,
+        length: entry.length || undefined,
+        color: entry.color || undefined,
+      });
+      break;
+    case 'cable:update':
+      await api.put(`/cables/${entry.id}`, {
+        sourceEquipmentId: resolveId(entry.sourceEquipmentId),
+        targetEquipmentId: resolveId(entry.targetEquipmentId),
+        cableType: entry.cableType,
+        label: entry.label || undefined,
+        length: entry.length || undefined,
+        color: entry.color || undefined,
+      });
+      break;
+    case 'cable:delete':
+      await api.delete(`/cables/${entry.cableId}`);
+      break;
+    case 'log:create':
+      await api.post(`/equipment/${resolveId(entry.equipmentId)}/maintenance-logs`, {
+        logType: entry.logType,
+        title: entry.title,
+        logDate: entry.logDate || undefined,
+        severity: entry.severity || undefined,
+        description: entry.description || undefined,
+      });
+      break;
+    case 'log:delete':
+      await api.delete(`/maintenance-logs/${entry.logId}`);
+      break;
+  }
+}
+
+/**
+ * Hook for loading/saving floor plan data.
+ * This is the SINGLE save path — all mutations flow through here.
  */
 export function useFloorPlanData(roomId: string | undefined, containerRef: React.RefObject<HTMLDivElement | null>) {
   const isSavingRef = useRef(false);
@@ -17,13 +92,12 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     localElements, localEquipment, zoom, panX, panY,
     gridSize, majorGridSize, deletedElementIds, deletedEquipmentIds,
     setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize,
-    setHasChanges, clearDeletedIds, setViewportInitialized,
+    setHasChanges, setViewportInitialized,
     setViewport, viewportInitialized,
   } = useEditorStore();
   const { initHistory } = useHistoryStore();
   const { fitToContent, loadViewportState, saveViewportState } = useViewport(roomId);
 
-  // Room info query
   const { data: room, isLoading: roomLoading } = useQuery({
     queryKey: ['room', roomId],
     queryFn: async () => {
@@ -33,7 +107,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     enabled: !!roomId,
   });
 
-  // Floor plan query
   const { data: floorPlan, isLoading: planLoading, error: planError } = useQuery({
     queryKey: ['floorPlan', roomId],
     queryFn: async () => {
@@ -44,16 +117,57 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     retry: false,
   });
 
-  // Save mutation
+  // === THE SINGLE SAVE MUTATION ===
   const saveMutation = useMutation({
     mutationFn: (data: UpdateFloorPlanRequest) => {
       isSavingRef.current = true;
-      return api.put(`/rooms/${roomId}/plan`, data);
+      return api.put<{ data: { id: string; version: number; equipmentIdMap: Record<number, string> } }>(
+        `/rooms/${roomId}/plan`,
+        data
+      );
     },
-    onSuccess: () => {
+    onSuccess: async (response) => {
+      // 1. Build temp ID → real ID mapping
+      const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
+      const { localEquipment: currentLocalEquipment, changeSet } = useEditorStore.getState();
+      const tempIdMap = buildTempIdMap(currentLocalEquipment, equipmentIdMap);
+      const resolveId = (id: string) => tempIdMap.get(id) ?? id;
+
+      // 2. Process changeSet — deletions first (parallel), then creates/updates (parallel)
+      const deletions = changeSet.filter((e) => e.type.endsWith(':delete'));
+      const others = changeSet.filter((e) => !e.type.endsWith(':delete'));
+
+      const failures: ChangeEntry[] = [];
+      const run = async (entries: ChangeEntry[]) => {
+        const results = await Promise.allSettled(
+          entries.map((entry) => processChange(entry, resolveId))
+        );
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') failures.push(entries[i]);
+        });
+      };
+
+      await run(deletions);
+      await run(others);
+
+      if (failures.length > 0) {
+        console.warn(`[Save] ${failures.length} change(s) failed to process:`, failures);
+      }
+
+      // 3. Clear and invalidate (only relevant query keys)
+      useEditorStore.getState().clearChangeSet();
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
+      if (changeSet.some((e) => e.type.startsWith('photo:'))) {
+        queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
+      }
+      if (changeSet.some((e) => e.type.startsWith('cable:'))) {
+        queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
+        queryClient.invalidateQueries({ queryKey: ['connections'] });
+      }
+      if (changeSet.some((e) => e.type.startsWith('log:'))) {
+        queryClient.invalidateQueries({ queryKey: ['maintenance-logs'] });
+      }
       setHasChanges(false);
-      clearDeletedIds();
     },
   });
 
@@ -117,7 +231,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     setViewportInitialized(true);
   }, [floorPlan, localElements, localEquipment, viewportInitialized, containerRef, fitToContent, loadViewportState, setViewport, setViewportInitialized]);
 
-  // Save viewport state on unmount
+  // Save viewport on unmount
   useEffect(() => {
     const handleBeforeUnload = () => saveViewportState(zoom, panX, panY);
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -127,7 +241,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     };
   }, [saveViewportState, zoom, panX, panY]);
 
-  // Save handler
   const handleSave = () => {
     if (!floorPlan) return;
 
@@ -146,13 +259,16 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       equipment: localEquipment.map(eq => ({
         id: eq.id.startsWith('temp-') ? null : eq.id,
         name: eq.name,
-        category: eq.category || 'OTHER',
+        category: eq.category || 'NETWORK',
         positionX: eq.positionX,
         positionY: eq.positionY,
         width: eq.width,
         height: eq.height,
         rotation: eq.rotation,
         description: eq.description || undefined,
+        model: eq.model || undefined,
+        manufacturer: eq.manufacturer || undefined,
+        manager: eq.manager || undefined,
       })),
       deletedElementIds: deletedElementIds.length > 0 ? deletedElementIds : undefined,
       deletedEquipmentIds: deletedEquipmentIds.length > 0 ? deletedEquipmentIds : undefined,

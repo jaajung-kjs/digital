@@ -606,6 +606,38 @@ class EquipmentService {
 
     return availableRanges;
   }
+
+  /**
+   * 설비 이미지 업데이트
+   */
+  async updateImage(id: string, imageType: 'front' | 'rear', imageUrl: string, userId: string) {
+    const existing = await prisma.equipment.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('설비');
+
+    return prisma.equipment.update({
+      where: { id },
+      data: {
+        ...(imageType === 'front' ? { frontImageUrl: imageUrl } : { rearImageUrl: imageUrl }),
+        updatedById: userId,
+      },
+    });
+  }
+
+  /**
+   * 설비 이미지 삭제
+   */
+  async deleteImage(id: string, imageType: 'front' | 'rear', userId: string) {
+    const existing = await prisma.equipment.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('설비');
+
+    return prisma.equipment.update({
+      where: { id },
+      data: {
+        ...(imageType === 'front' ? { frontImageUrl: null } : { rearImageUrl: null }),
+        updatedById: userId,
+      },
+    });
+  }
 }
 
 export const equipmentService = new EquipmentService();

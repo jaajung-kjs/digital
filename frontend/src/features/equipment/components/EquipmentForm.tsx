@@ -30,7 +30,7 @@ export function EquipmentForm({
     model: '',
     manufacturer: '',
     serialNumber: '',
-    category: 'OTHER',
+    category: 'NETWORK',
     manager: '',
     description: '',
     positionX: 0,

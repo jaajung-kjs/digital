@@ -5,49 +5,77 @@ import type {
   FloorPlanEquipment,
   ViewMode,
 } from '../../../types/floorPlan';
+import type { CableType } from '../../../types/connection';
+
+// ==================== Change Set ====================
+
+/**
+ * Discriminated union representing every possible buffered mutation.
+ * ALL changes to associated entities (photos, cables, logs) go through here.
+ * The save handler is the ONLY consumer that converts these into API calls.
+ *
+ * To add a new entity type:
+ *   1. Add variant(s) here
+ *   2. Add processing case in useFloorPlanData.ts save handler
+ *   3. Component calls addChange({ type: 'xxx:create', ... })
+ */
+export type ChangeEntry =
+  | { type: 'photo:upload'; id: string; equipmentId: string; side: 'front' | 'rear'; file: File; description: string; objectUrl: string }
+  | { type: 'photo:delete'; photoId: string }
+  | { type: 'cable:create'; localId: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; label?: string; length?: number; color?: string }
+  | { type: 'cable:update'; id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; label?: string; length?: number; color?: string }
+  | { type: 'cable:delete'; cableId: string }
+  | { type: 'log:create'; localId: string; equipmentId: string; logType: string; title: string; logDate?: string; severity?: string; description?: string }
+  | { type: 'log:delete'; logId: string };
+
+/** Type-safe filter: selectChanges(changeSet, 'cable:create') */
+export function selectChanges<T extends ChangeEntry['type']>(
+  changeSet: ChangeEntry[],
+  type: T
+): Extract<ChangeEntry, { type: T }>[] {
+  return changeSet.filter((c): c is Extract<ChangeEntry, { type: T }> => c.type === type);
+}
+
+// ==================== Store ====================
 
 export interface EditorStoreState {
-  // Tool selection
   tool: EditorTool;
   viewMode: ViewMode;
 
-  // Selected items
   selectedIds: string[];
   selectedElement: FloorPlanElement | null;
   selectedEquipment: FloorPlanEquipment | null;
 
-  // Viewport (zoom/pan)
   zoom: number;
   panX: number;
   panY: number;
 
-  // Grid settings
   gridSnap: boolean;
   gridSize: number;
   majorGridSize: number;
   showGrid: boolean;
 
-  // Data state
+  // Floor plan core state (full local copies)
   localElements: FloorPlanElement[];
   localEquipment: FloorPlanEquipment[];
   hasChanges: boolean;
 
-  // Deleted items tracking (for server sync)
+  // Element/Equipment deletions (part of bulkUpdatePlan request)
   deletedElementIds: string[];
   deletedEquipmentIds: string[];
 
-  // UI flags
+  // Single change set for ALL associated entity mutations
+  changeSet: ChangeEntry[];
+
   showLengths: boolean;
   viewportInitialized: boolean;
   mouseWorldPosition: { x: number; y: number };
 
-  // Clipboard
   clipboard: {
     type: 'element' | 'equipment';
     data: FloorPlanElement | FloorPlanEquipment;
   } | null;
 
-  // Detail panel
   detailPanelEquipmentId: string | null;
 }
 
@@ -71,7 +99,12 @@ export interface EditorStoreActions {
   addDeletedEquipmentId: (id: string) => void;
   addDeletedElementIds: (ids: string[]) => void;
   addDeletedEquipmentIds: (ids: string[]) => void;
-  clearDeletedIds: () => void;
+
+  // Single change set interface — the ONLY way to queue mutations
+  addChange: (entry: ChangeEntry) => void;
+  removeChanges: (predicate: (e: ChangeEntry) => boolean) => void;
+  clearChangeSet: () => void;
+
   setShowLengths: (show: boolean) => void;
   setViewportInitialized: (init: boolean) => void;
   setMouseWorldPosition: (pos: { x: number; y: number }) => void;
@@ -99,12 +132,22 @@ const initialState: EditorStoreState = {
   hasChanges: false,
   deletedElementIds: [],
   deletedEquipmentIds: [],
+  changeSet: [],
   showLengths: false,
   viewportInitialized: false,
   mouseWorldPosition: { x: 0, y: 0 },
   clipboard: null,
   detailPanelEquipmentId: null,
 };
+
+/** Revoke all photo:upload objectURLs in a changeSet to prevent memory leaks */
+function revokeObjectUrls(changeSet: ChangeEntry[]) {
+  for (const entry of changeSet) {
+    if (entry.type === 'photo:upload') {
+      URL.revokeObjectURL(entry.objectUrl);
+    }
+  }
+}
 
 export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set) => ({
   ...initialState,
@@ -140,7 +183,21 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   addDeletedEquipmentIds: (ids) => set((state) => ({
     deletedEquipmentIds: [...state.deletedEquipmentIds, ...ids],
   })),
-  clearDeletedIds: () => set({ deletedElementIds: [], deletedEquipmentIds: [] }),
+
+  // === Change Set ===
+  addChange: (entry) => set((state) => ({
+    changeSet: [...state.changeSet, entry],
+  })),
+  removeChanges: (predicate) => set((state) => {
+    const removed = state.changeSet.filter(predicate);
+    revokeObjectUrls(removed);
+    return { changeSet: state.changeSet.filter((e) => !predicate(e)) };
+  }),
+  clearChangeSet: () => set((state) => {
+    revokeObjectUrls(state.changeSet);
+    return { changeSet: [], deletedElementIds: [], deletedEquipmentIds: [] };
+  }),
+
   setShowLengths: (showLengths) => set({ showLengths }),
   setViewportInitialized: (viewportInitialized) => set({ viewportInitialized }),
   setMouseWorldPosition: (mouseWorldPosition) => set({ mouseWorldPosition }),
@@ -151,5 +208,8 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     selectedElement: null,
     selectedEquipment: null,
   }),
-  resetEditor: () => set(initialState),
+  resetEditor: () => set((state) => {
+    revokeObjectUrls(state.changeSet);
+    return initialState;
+  }),
 }));

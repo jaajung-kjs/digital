@@ -18,7 +18,7 @@ export function useMaintenanceLogs(equipmentId: string) {
       );
       return data.data;
     },
-    enabled: !!equipmentId,
+    enabled: !!equipmentId && !equipmentId.startsWith('temp-'),
   });
 }
 

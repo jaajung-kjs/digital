@@ -5,6 +5,7 @@ import {
   renderCirclePreview,
   renderRectPreview,
   renderPlacementPreview,
+  renderEquipmentDrawPreview,
   renderElements,
   renderEquipmentItems,
   renderElementLengths,
@@ -38,6 +39,7 @@ export function useCanvas(
       isDrawingLine, linePoints, linePreviewEnd,
       isDrawingCircle, circleCenter, circlePreviewRadius, circlePreviewEnd,
       isDrawingRect, rectStart, rectPreviewEnd,
+      isDrawingEquipment, equipmentStart, equipmentPreviewEnd,
       previewPosition,
     } = useCanvasStore.getState();
 
@@ -90,9 +92,16 @@ export function useCanvas(
       renderRectPreview(ctx, rectStart, rectPreviewEnd);
     }
 
+    // Equipment draw preview
+    if (isDrawingEquipment && equipmentStart) {
+      renderEquipmentDrawPreview(ctx, equipmentStart, equipmentPreviewEnd);
+    }
+
     // Placement preview
     if (previewPosition && ['door', 'window', 'equipment', 'text'].includes(tool)) {
-      renderPlacementPreview(ctx, tool as DrawingToolType, previewPosition, 0);
+      if (!(tool === 'equipment' && isDrawingEquipment)) {
+        renderPlacementPreview(ctx, tool as DrawingToolType, previewPosition, 0);
+      }
     }
 
     ctx.restore();

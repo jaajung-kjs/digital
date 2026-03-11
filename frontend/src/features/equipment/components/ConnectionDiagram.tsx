@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useRoomConnections } from '../hooks/useConnections';
 import { CABLE_TYPE_COLORS } from '../types/equipment';
 import type { RoomConnection } from '../../../types/connection';
+import { useEditorStore } from '../../editor/stores/editorStore';
+import { useMergedConnections } from '../../connections/hooks/useMergedConnections';
 
 interface ConnectionDiagramProps {
   roomId: string;
@@ -12,16 +14,19 @@ export function ConnectionDiagram({
   roomId,
   equipmentId,
 }: ConnectionDiagramProps) {
-  const { data: connections, isLoading } = useRoomConnections(roomId);
+  const { data: backendConnections, isLoading } = useRoomConnections(roomId);
+  const localEquipment = useEditorStore((s) => s.localEquipment);
+  const changeSet = useEditorStore((s) => s.changeSet);
+
+  const allConnections = useMergedConnections(backendConnections, changeSet, localEquipment);
 
   const relevantConnections = useMemo(() => {
-    if (!connections) return [];
-    return connections.filter(
-      (conn: RoomConnection) =>
-        conn.sourceEquipment.id === equipmentId ||
-        conn.targetEquipment.id === equipmentId
+    return allConnections.filter(
+      (conn) =>
+        conn.sourceEquipmentId === equipmentId ||
+        conn.targetEquipmentId === equipmentId
     );
-  }, [connections, equipmentId]);
+  }, [allConnections, equipmentId]);
 
   if (isLoading) {
     return <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>;
@@ -39,47 +44,48 @@ export function ConnectionDiagram({
     <div className="p-3">
       <div className="space-y-2">
         {relevantConnections.map((conn: RoomConnection) => {
-          const isSource = conn.sourceEquipment.id === equipmentId;
-          const localEquipment = isSource ? conn.sourceEquipment : conn.targetEquipment;
+          const isSource = conn.sourceEquipmentId === equipmentId;
+          const localEq = isSource ? conn.sourceEquipment : conn.targetEquipment;
           const remoteEquipment = isSource ? conn.targetEquipment : conn.sourceEquipment;
+          const isPending = conn.id.startsWith('cable-temp-');
 
           return (
             <div
-              key={conn.cable.id}
-              className="rounded border border-gray-200 bg-white px-3 py-2"
+              key={conn.id}
+              className={`rounded border px-3 py-2 ${isPending ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'}`}
             >
               <div className="flex items-center gap-2 text-sm">
-                {/* Local equipment */}
                 <div className="min-w-0 flex-1 text-right">
                   <p className="truncate text-xs font-medium text-gray-700">
-                    {localEquipment.name}
+                    {localEq.name}
                   </p>
                 </div>
 
-                {/* Cable */}
                 <div className="flex flex-col items-center">
                   <span
                     className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                      CABLE_TYPE_COLORS[conn.cable.cableType] || 'bg-gray-100 text-gray-600'
+                      CABLE_TYPE_COLORS[conn.cableType] || 'bg-gray-100 text-gray-600'
                     }`}
                   >
-                    {conn.cable.cableType}
+                    {conn.cableType}
                   </span>
                   <div className="my-0.5 h-px w-12 bg-gray-300" />
-                  {conn.cable.label && (
+                  {conn.label && (
                     <span className="text-xs text-gray-400">
-                      {conn.cable.label}
+                      {conn.label}
                     </span>
                   )}
                 </div>
 
-                {/* Remote equipment */}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium text-gray-700">
                     {remoteEquipment.name}
                   </p>
                 </div>
               </div>
+              {isPending && (
+                <p className="text-[10px] text-amber-600 mt-1 text-center">미저장</p>
+              )}
             </div>
           );
         })}

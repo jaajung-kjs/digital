@@ -17,7 +17,7 @@ export function useEquipmentPhotos(equipmentId: string) {
       );
       return data.data;
     },
-    enabled: !!equipmentId,
+    enabled: !!equipmentId && !equipmentId.startsWith('temp-'),
   });
 }
 

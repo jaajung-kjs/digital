@@ -8,7 +8,7 @@ const router = Router();
 
 // ==================== Validation Schemas ====================
 
-const logTypeEnum = z.enum(['MAINTENANCE', 'FAILURE', 'REPAIR', 'INSPECTION']);
+const logTypeEnum = z.enum(['MAINTENANCE', 'FAILURE', 'REPAIR']);
 const severityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 const statusEnum = z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']);
 
@@ -16,6 +16,7 @@ const updateMaintenanceLogSchema = z.object({
   logType: logTypeEnum.optional(),
   title: z.string().min(1).max(200).optional(),
   description: z.string().optional().nullable(),
+  logDate: z.string().optional().nullable(),
   severity: severityEnum.optional().nullable(),
   status: statusEnum.optional(),
   resolvedAt: z.string().optional().nullable(),
@@ -44,6 +45,7 @@ const createMaintenanceLogSchema = z.object({
   logType: logTypeEnum,
   title: z.string().min(1, '제목은 필수입니다.').max(200),
   description: z.string().optional(),
+  logDate: z.string().optional(),
   severity: severityEnum.optional(),
   status: statusEnum.optional(),
 });

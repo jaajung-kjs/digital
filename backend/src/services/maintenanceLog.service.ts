@@ -9,6 +9,7 @@ export interface MaintenanceLogDetail {
   logType: string;
   title: string;
   description: string | null;
+  logDate: Date | null;
   severity: string | null;
   status: string;
   resolvedAt: Date | null;
@@ -20,6 +21,7 @@ export interface CreateMaintenanceLogInput {
   logType: string;
   title: string;
   description?: string;
+  logDate?: string;
   severity?: string;
   status?: string;
 }
@@ -28,6 +30,7 @@ export interface UpdateMaintenanceLogInput {
   logType?: string;
   title?: string;
   description?: string;
+  logDate?: string;
   severity?: string;
   status?: string;
   resolvedAt?: string;
@@ -77,6 +80,7 @@ class MaintenanceLogService {
         logType: input.logType,
         title: input.title,
         description: input.description,
+        logDate: input.logDate ? new Date(input.logDate) : null,
         severity: input.severity,
         status: input.status ?? 'OPEN',
       },
@@ -106,6 +110,9 @@ class MaintenanceLogService {
         logType: input.logType,
         title: input.title,
         description: input.description,
+        logDate: input.logDate !== undefined
+          ? (input.logDate ? new Date(input.logDate) : null)
+          : undefined,
         severity: input.severity,
         status: input.status,
         resolvedAt: input.resolvedAt !== undefined
@@ -141,6 +148,7 @@ class MaintenanceLogService {
       logType: l.logType,
       title: l.title,
       description: l.description,
+      logDate: l.logDate,
       severity: l.severity,
       status: l.status,
       resolvedAt: l.resolvedAt,

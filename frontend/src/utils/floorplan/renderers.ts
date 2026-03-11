@@ -572,9 +572,8 @@ export function renderEquipmentItem(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Show category and name
-  const label = item.category ? `[${item.category}] ${item.name}` : item.name;
-  ctx.fillText(label, item.width / 2, item.height / 2);
+  // Show name only (no category prefix)
+  ctx.fillText(item.name, item.width / 2, item.height / 2);
 
   ctx.restore();
 }
@@ -583,20 +582,55 @@ export function renderEquipmentPreview(
   ctx: CanvasRenderingContext2D,
   position: { x: number; y: number }
 ): void {
+  // Crosshair cursor indicator (shown before first click)
   ctx.save();
   ctx.globalAlpha = 0.6;
+  ctx.strokeStyle = ELEMENT_COLORS.rack.stroke;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(position.x - 15, position.y);
+  ctx.lineTo(position.x + 15, position.y);
+  ctx.moveTo(position.x, position.y - 15);
+  ctx.lineTo(position.x, position.y + 15);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/**
+ * Equipment drag-to-draw preview (shown while drawing)
+ */
+export function renderEquipmentDrawPreview(
+  ctx: CanvasRenderingContext2D,
+  start: { x: number; y: number },
+  end: { x: number; y: number } | null
+): void {
+  if (!end) return;
+  ctx.save();
+  ctx.globalAlpha = 0.4;
+
+  const x = Math.min(start.x, end.x);
+  const y = Math.min(start.y, end.y);
+  const w = Math.abs(end.x - start.x);
+  const h = Math.abs(end.y - start.y);
 
   ctx.fillStyle = ELEMENT_COLORS.rack.fill;
   ctx.strokeStyle = ELEMENT_COLORS.rack.stroke;
   ctx.lineWidth = 1;
-  ctx.fillRect(position.x, position.y, 60, 100);
-  ctx.strokeRect(position.x, position.y, 60, 100);
+  ctx.setLineDash([4, 4]);
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
 
-  ctx.fillStyle = ELEMENT_COLORS.rack.text;
-  ctx.font = '10px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('새 장비', position.x + 30, position.y + 50);
+  if (w > 30 && h > 20) {
+    ctx.fillStyle = ELEMENT_COLORS.rack.text;
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.8;
+    ctx.fillText(`${Math.round(w)}x${Math.round(h)}`, x + w / 2, y + h / 2);
+  }
 
   ctx.restore();
 }
