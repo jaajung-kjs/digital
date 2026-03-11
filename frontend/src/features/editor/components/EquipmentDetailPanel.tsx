@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { compressImage } from '../../../utils/imageCompression';
+import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useEditorStore, selectChanges } from '../stores/editorStore';
 import { useEquipmentPhotos } from '../../equipment/hooks/useEquipmentPhotos';
 import { useMaintenanceLogs } from '../../equipment/hooks/useMaintenanceLogs';
@@ -50,7 +51,7 @@ const TABS: { key: TabKey; label: string }[] = [
 ];
 
 function useEquipmentDetail(equipmentId: string) {
-  const isTemp = equipmentId.startsWith('temp-');
+  const isTemp = isTempId(equipmentId);
   return useQuery({
     queryKey: ['equipment-detail', equipmentId],
     queryFn: async () => {
@@ -70,7 +71,7 @@ function useMergedEquipmentDetail(equipmentId: string): {
   isLoading: boolean;
   error: unknown;
 } {
-  const isTemp = equipmentId.startsWith('temp-');
+  const isTemp = isTempId(equipmentId);
   const { data: backendData, isLoading, error } = useEquipmentDetail(equipmentId);
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const localEq = localEquipment.find((e) => e.id === equipmentId);
@@ -106,7 +107,7 @@ function useMergedEquipmentDetail(equipmentId: string): {
 export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('photos');
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
-  const isTemp = equipmentId.startsWith('temp-');
+  const isTemp = isTempId(equipmentId);
   const { equipment, isLoading, error } = useMergedEquipmentDetail(equipmentId);
 
   return (
@@ -496,7 +497,7 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
     const objectUrl = URL.createObjectURL(compressed);
     addChange({
       type: 'photo:upload',
-      id: `upload-${Date.now()}`,
+      id: generateTempId(),
       equipmentId: equipment.id,
       side: photoSide,
       file: compressed,
@@ -777,7 +778,7 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
    ================================================================ */
 
 function LogsTab({ equipmentId }: { equipmentId: string }) {
-  const isTemp = equipmentId.startsWith('temp-');
+  const isTemp = isTempId(equipmentId);
   const { data: backendLogs, isLoading } = useMaintenanceLogs(equipmentId);
   const changeSet = useEditorStore((s) => s.changeSet);
   const addChange = useEditorStore((s) => s.addChange);
@@ -826,7 +827,7 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
     if (!formData.title.trim()) return;
     addChange({
       type: 'log:create',
-      localId: `log-temp-${Date.now()}`,
+      localId: generateTempId(),
       equipmentId,
       logType: formData.logType,
       title: formData.title,
@@ -841,7 +842,7 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
 
   const handleDeleteLog = (logId: string) => {
     if (!confirm('이 이력을 삭제하시겠습니까?')) return;
-    if (logId.startsWith('log-temp-')) {
+    if (isTempId(logId)) {
       removeChanges((e) => e.type === 'log:create' && e.localId === logId);
     } else {
       addChange({ type: 'log:delete', logId });

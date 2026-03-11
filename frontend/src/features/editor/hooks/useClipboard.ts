@@ -3,6 +3,7 @@ import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useEditorHistory } from './useEditorHistory';
+import { generateTempId } from '../../../utils/idHelpers';
 
 /**
  * Hook for equipment paste operations (element paste handled in keyboard hook)
@@ -18,7 +19,7 @@ export function useClipboard() {
     const original = es.clipboard.data as FloorPlanEquipment;
     const newEquipment: FloorPlanEquipment = {
       ...original,
-      id: `temp-${Date.now()}`,
+      id: generateTempId(),
       name: cs.pasteEquipmentName,
       positionX: original.positionX + 20,
       positionY: original.positionY + 20,

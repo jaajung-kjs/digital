@@ -6,21 +6,15 @@ import type { RoomDetail } from '../../../types/substation';
 import { useEditorStore, type ChangeEntry } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
+import { isTempId } from '../../../utils/idHelpers';
 
 /**
  * Build temp equipment ID → real ID mapping from the backend response.
  */
 function buildTempIdMap(
-  localEquipment: { id: string }[],
-  equipmentIdMap: Record<number, string>
+  equipmentIdMap: Record<string, string>
 ): Map<string, string> {
-  const map = new Map<string, string>();
-  localEquipment.forEach((eq, index) => {
-    if (eq.id.startsWith('temp-') && equipmentIdMap[index]) {
-      map.set(eq.id, equipmentIdMap[index]);
-    }
-  });
-  return map;
+  return new Map(Object.entries(equipmentIdMap));
 }
 
 /**
@@ -121,7 +115,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
   const saveMutation = useMutation({
     mutationFn: (data: UpdateFloorPlanRequest) => {
       isSavingRef.current = true;
-      return api.put<{ data: { id: string; version: number; equipmentIdMap: Record<number, string> } }>(
+      return api.put<{ data: { id: string; version: number; equipmentIdMap: Record<string, string> } }>(
         `/rooms/${roomId}/plan`,
         data
       );
@@ -129,8 +123,8 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     onSuccess: async (response) => {
       // 1. Build temp ID → real ID mapping
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
-      const { localEquipment: currentLocalEquipment, changeSet } = useEditorStore.getState();
-      const tempIdMap = buildTempIdMap(currentLocalEquipment, equipmentIdMap);
+      const { changeSet } = useEditorStore.getState();
+      const tempIdMap = buildTempIdMap(equipmentIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
 
       // 2. Process changeSet — deletions first (parallel), then creates/updates (parallel)
@@ -250,14 +244,15 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       gridSize,
       majorGridSize,
       elements: localElements.map(e => ({
-        id: e.id.startsWith('temp-') ? null : e.id,
+        id: isTempId(e.id) ? null : e.id,
         elementType: e.elementType,
         properties: e.properties,
         zIndex: e.zIndex,
         isVisible: e.isVisible,
       })),
       equipment: localEquipment.map(eq => ({
-        id: eq.id.startsWith('temp-') ? null : eq.id,
+        id: isTempId(eq.id) ? null : eq.id,
+        tempId: isTempId(eq.id) ? eq.id : undefined,
         name: eq.name,
         category: eq.category || 'NETWORK',
         positionX: eq.positionX,

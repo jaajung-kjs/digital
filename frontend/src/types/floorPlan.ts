@@ -174,6 +174,7 @@ export interface UpdateFloorPlanRequest {
   }[];
   equipment?: {
     id?: string | null;
+    tempId?: string;
     name: string;
     category?: string;
     positionX: number;

@@ -8,6 +8,7 @@ import { useClipboard } from '../hooks/useClipboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
+import { generateTempId } from '../../../utils/idHelpers';
 import { Toolbar } from './Toolbar';
 import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
@@ -75,14 +76,14 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
     }
   }, [localElements, selectedElement, setSelectedElement]);
 
-  const equipmentPreviewEnd = useCanvasStore(s => s.equipmentPreviewEnd);
+  const equipmentDrawnSize = useCanvasStore(s => s.equipmentDrawnSize);
   const setHasChanges = useEditorStore(s => s.setHasChanges);
 
   const handleAddEquipment = () => {
-    const drawnWidth = equipmentPreviewEnd?.x ?? 60;
-    const drawnHeight = equipmentPreviewEnd?.y ?? 100;
+    const drawnWidth = equipmentDrawnSize?.width ?? 60;
+    const drawnHeight = equipmentDrawnSize?.height ?? 100;
     const newEquip: FloorPlanEquipment = {
-      id: `temp-${Date.now()}`,
+      id: generateTempId(),
       name: newEquipmentName,
       category: newEquipmentCategory || 'NETWORK',
       positionX: newEquipmentPosition.x,

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
+import { isTempId } from '../../../utils/idHelpers';
 import type { MaintenanceLog } from '../../../types/maintenance';
 import type { MaintenanceFormData } from '../types/equipment';
 
@@ -18,7 +19,7 @@ export function useMaintenanceLogs(equipmentId: string) {
       );
       return data.data;
     },
-    enabled: !!equipmentId && !equipmentId.startsWith('temp-'),
+    enabled: !!equipmentId && !isTempId(equipmentId),
   });
 }
 

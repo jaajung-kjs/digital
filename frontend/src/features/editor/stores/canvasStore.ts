@@ -22,6 +22,7 @@ interface CanvasStoreState {
   isDrawingEquipment: boolean;
   equipmentStart: { x: number; y: number } | null;
   equipmentPreviewEnd: { x: number; y: number } | null;
+  equipmentDrawnSize: { width: number; height: number } | null;
 
   // Text editing state
   isEditingText: boolean;
@@ -69,6 +70,7 @@ interface CanvasStoreActions {
   setIsDrawingEquipment: (v: boolean) => void;
   setEquipmentStart: (s: { x: number; y: number } | null) => void;
   setEquipmentPreviewEnd: (e: { x: number; y: number } | null) => void;
+  setEquipmentDrawnSize: (s: { width: number; height: number } | null) => void;
 
   // Text editing
   setIsEditingText: (v: boolean) => void;
@@ -113,6 +115,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   isDrawingEquipment: false,
   equipmentStart: null,
   equipmentPreviewEnd: null,
+  equipmentDrawnSize: null,
   isEditingText: false,
   textInputPosition: null,
   textInputValue: '',
@@ -142,6 +145,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setIsDrawingEquipment: (isDrawingEquipment) => set({ isDrawingEquipment }),
   setEquipmentStart: (equipmentStart) => set({ equipmentStart }),
   setEquipmentPreviewEnd: (equipmentPreviewEnd) => set({ equipmentPreviewEnd }),
+  setEquipmentDrawnSize: (equipmentDrawnSize) => set({ equipmentDrawnSize }),
   setIsEditingText: (isEditingText) => set({ isEditingText }),
   setTextInputPosition: (textInputPosition) => set({ textInputPosition }),
   setTextInputValue: (textInputValue) => set({ textInputValue }),
@@ -171,6 +175,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
     isDrawingEquipment: false,
     equipmentStart: null,
     equipmentPreviewEnd: null,
+    equipmentDrawnSize: null,
     isEditingText: false,
     textInputPosition: null,
     textInputValue: '',
