@@ -534,12 +534,8 @@ class EquipmentService {
     const equipment = await prisma.equipment.findUnique({
       where: { id },
       include: {
-        ports: {
-          include: {
-            sourceCables: true,
-            targetCables: true,
-          },
-        },
+        sourceCables: { select: { id: true } },
+        targetCables: { select: { id: true } },
       },
     });
 
@@ -548,15 +544,8 @@ class EquipmentService {
     }
 
     // 연결된 케이블 확인
-    const hasConnections = equipment.ports.some(
-      (p) => p.sourceCables.length > 0 || p.targetCables.length > 0
-    );
-
-    if (hasConnections) {
-      const connectionCount = equipment.ports.reduce(
-        (sum, p) => sum + p.sourceCables.length + p.targetCables.length,
-        0
-      );
+    const connectionCount = equipment.sourceCables.length + equipment.targetCables.length;
+    if (connectionCount > 0) {
       throw new ConflictError(
         `연결된 케이블이 ${connectionCount}개 있어 삭제할 수 없습니다. 케이블을 먼저 제거하세요.`
       );

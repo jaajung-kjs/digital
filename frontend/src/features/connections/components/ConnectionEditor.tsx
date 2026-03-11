@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
-import type { CableType, Cable } from '../../../types/connection';
+import type { CableType } from '../../../types/connection';
 
 const CABLE_TYPE_OPTIONS: { value: CableType; label: string }[] = [
   { value: 'LAN', label: 'LAN' },
@@ -11,35 +11,44 @@ const CABLE_TYPE_OPTIONS: { value: CableType; label: string }[] = [
   { value: 'GROUND', label: '접지' },
 ];
 
-interface EquipmentPort {
-  equipmentId: string;
-  equipmentName: string;
-  portId: string;
-  portName: string;
+interface EquipmentOption {
+  id: string;
+  name: string;
 }
 
 interface ConnectionEditorProps {
   roomId: string;
-  /** Available source ports */
-  sourcePorts: EquipmentPort[];
-  /** Available target ports */
-  targetPorts: EquipmentPort[];
-  /** Existing cable to edit, or undefined for create */
-  editingCable?: Cable;
+  /** Available equipment list */
+  equipmentList: EquipmentOption[];
+  /** Pre-selected source equipment id */
+  defaultSourceId?: string;
+  /** Pre-selected target equipment id */
+  defaultTargetId?: string;
+  /** Existing cable to edit */
+  editingCable?: {
+    id: string;
+    sourceEquipmentId: string;
+    targetEquipmentId: string;
+    cableType: CableType;
+    label?: string;
+    length?: number;
+    color?: string;
+  };
   onClose: () => void;
 }
 
 export function ConnectionEditor({
   roomId,
-  sourcePorts,
-  targetPorts,
+  equipmentList,
+  defaultSourceId,
+  defaultTargetId,
   editingCable,
   onClose,
 }: ConnectionEditorProps) {
   const queryClient = useQueryClient();
 
-  const [sourcePortId, setSourcePortId] = useState(editingCable?.sourcePortId ?? '');
-  const [targetPortId, setTargetPortId] = useState(editingCable?.targetPortId ?? '');
+  const [sourceEquipmentId, setSourceEquipmentId] = useState(editingCable?.sourceEquipmentId ?? defaultSourceId ?? '');
+  const [targetEquipmentId, setTargetEquipmentId] = useState(editingCable?.targetEquipmentId ?? defaultTargetId ?? '');
   const [cableType, setCableType] = useState<CableType>(editingCable?.cableType ?? 'LAN');
   const [label, setLabel] = useState(editingCable?.label ?? '');
   const [length, setLength] = useState(editingCable?.length?.toString() ?? '');
@@ -52,7 +61,7 @@ export function ConnectionEditor({
   };
 
   const createMutation = useMutation({
-    mutationFn: async (payload: Partial<Cable>) => {
+    mutationFn: async (payload: Record<string, unknown>) => {
       const { data } = await api.post('/cables', payload);
       return data;
     },
@@ -63,7 +72,7 @@ export function ConnectionEditor({
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Cable> }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: Record<string, unknown> }) => {
       const { data } = await api.put(`/cables/${id}`, payload);
       return data;
     },
@@ -84,11 +93,11 @@ export function ConnectionEditor({
   });
 
   const handleSave = () => {
-    if (!sourcePortId || !targetPortId) return;
+    if (!sourceEquipmentId || !targetEquipmentId) return;
 
-    const payload: Partial<Cable> = {
-      sourcePortId,
-      targetPortId,
+    const payload = {
+      sourceEquipmentId,
+      targetEquipmentId,
       cableType,
       label: label || undefined,
       length: length ? Number(length) : undefined,
@@ -110,7 +119,7 @@ export function ConnectionEditor({
   };
 
   const isSaving = createMutation.isPending || updateMutation.isPending;
-  const isValid = sourcePortId && targetPortId && sourcePortId !== targetPortId;
+  const isValid = sourceEquipmentId && targetEquipmentId && sourceEquipmentId !== targetEquipmentId;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-80">
@@ -118,37 +127,39 @@ export function ConnectionEditor({
         {isEditing ? '케이블 수정' : '케이블 추가'}
       </h3>
 
-      {/* Source Port */}
+      {/* Source Equipment */}
       <div className="mb-2">
-        <label className="block text-xs text-gray-500 mb-1">출발 장비/포트</label>
+        <label className="block text-xs text-gray-500 mb-1">출발 설비</label>
         <select
-          value={sourcePortId}
-          onChange={(e) => setSourcePortId(e.target.value)}
+          value={sourceEquipmentId}
+          onChange={(e) => setSourceEquipmentId(e.target.value)}
           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
         >
           <option value="">선택...</option>
-          {sourcePorts.map((p) => (
-            <option key={p.portId} value={p.portId}>
-              {p.equipmentName} - {p.portName}
+          {equipmentList.map((eq) => (
+            <option key={eq.id} value={eq.id}>
+              {eq.name}
             </option>
           ))}
         </select>
       </div>
 
-      {/* Target Port */}
+      {/* Target Equipment */}
       <div className="mb-2">
-        <label className="block text-xs text-gray-500 mb-1">도착 장비/포트</label>
+        <label className="block text-xs text-gray-500 mb-1">도착 설비</label>
         <select
-          value={targetPortId}
-          onChange={(e) => setTargetPortId(e.target.value)}
+          value={targetEquipmentId}
+          onChange={(e) => setTargetEquipmentId(e.target.value)}
           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
         >
           <option value="">선택...</option>
-          {targetPorts.map((p) => (
-            <option key={p.portId} value={p.portId}>
-              {p.equipmentName} - {p.portName}
-            </option>
-          ))}
+          {equipmentList
+            .filter((eq) => eq.id !== sourceEquipmentId)
+            .map((eq) => (
+              <option key={eq.id} value={eq.id}>
+                {eq.name}
+              </option>
+            ))}
         </select>
       </div>
 

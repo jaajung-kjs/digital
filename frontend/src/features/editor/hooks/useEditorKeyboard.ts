@@ -44,12 +44,12 @@ export function useEditorKeyboard(handleSave: () => void) {
       if (e.key === 'o' || e.key === 'O') es.setTool('circle');
       if (e.key === 'd' || e.key === 'D') es.setTool('door');
       if (e.key === 'w' || e.key === 'W') es.setTool('window');
-      if (e.key === 'k' || e.key === 'K') es.setTool('rack');
+      if (e.key === 'k' || e.key === 'K') es.setTool('equipment');
       if (e.key === 't' || e.key === 'T') es.setTool('text');
       if (e.key === 'g' || e.key === 'G') es.setShowGrid(!es.showGrid);
       if (e.key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
 
-      const { selectedElement, localElements, localRacks } = es;
+      const { selectedElement, localElements, localEquipment } = es;
 
       // H key: horizontal flip
       if ((e.key === 'h' || e.key === 'H') && selectedElement) {
@@ -65,7 +65,7 @@ export function useEditorKeyboard(handleSave: () => void) {
           return el;
         });
         es.setLocalElements(newElements);
-        pushHistory(newElements, localRacks);
+        pushHistory(newElements, localEquipment);
         es.setHasChanges(true);
         const updated = newElements.find(el => el.id === selectedElement.id);
         if (updated) es.setSelectedElement(updated);
@@ -85,7 +85,7 @@ export function useEditorKeyboard(handleSave: () => void) {
           return el;
         });
         es.setLocalElements(newElements);
-        pushHistory(newElements, localRacks);
+        pushHistory(newElements, localEquipment);
         es.setHasChanges(true);
         const updated = newElements.find(el => el.id === selectedElement.id);
         if (updated) es.setSelectedElement(updated);
@@ -104,7 +104,7 @@ export function useEditorKeyboard(handleSave: () => void) {
             return el;
           });
           es.setLocalElements(newElements);
-          pushHistory(newElements, localRacks);
+          pushHistory(newElements, localEquipment);
           es.setHasChanges(true);
           const updated = newElements.find(el => el.id === selectedElement.id);
           if (updated) es.setSelectedElement(updated);
@@ -113,21 +113,21 @@ export function useEditorKeyboard(handleSave: () => void) {
 
       // Delete key
       if (e.key === 'Delete' && es.selectedIds.length > 0) {
-        const deletedRacks = localRacks
-          .filter(r => es.selectedIds.includes(r.id) && !r.id.startsWith('temp-'))
-          .map(r => r.id);
+        const deletedEquipment = localEquipment
+          .filter(eq => es.selectedIds.includes(eq.id) && !eq.id.startsWith('temp-'))
+          .map(eq => eq.id);
         const deletedElements = localElements
           .filter(el => es.selectedIds.includes(el.id) && !el.id.startsWith('temp-'))
           .map(el => el.id);
 
-        if (deletedRacks.length > 0) es.addDeletedRackIds(deletedRacks);
+        if (deletedEquipment.length > 0) es.addDeletedEquipmentIds(deletedEquipment);
         if (deletedElements.length > 0) es.addDeletedElementIds(deletedElements);
 
-        const newRacks = localRacks.filter(r => !es.selectedIds.includes(r.id));
+        const newEquipment = localEquipment.filter(eq => !es.selectedIds.includes(eq.id));
         const newElements = localElements.filter(el => !es.selectedIds.includes(el.id));
-        es.setLocalRacks(newRacks);
+        es.setLocalEquipment(newEquipment);
         es.setLocalElements(newElements);
-        pushHistory(newElements, newRacks);
+        pushHistory(newElements, newEquipment);
         es.clearSelection();
         es.setHasChanges(true);
       }
@@ -155,9 +155,9 @@ export function useEditorKeyboard(handleSave: () => void) {
         if (selectedElement) {
           e.preventDefault();
           es.setClipboard({ type: 'element', data: { ...selectedElement } });
-        } else if (es.selectedRack) {
+        } else if (es.selectedEquipment) {
           e.preventDefault();
-          es.setClipboard({ type: 'rack', data: { ...es.selectedRack } });
+          es.setClipboard({ type: 'equipment', data: { ...es.selectedEquipment } });
         }
       }
 
@@ -182,15 +182,15 @@ export function useEditorKeyboard(handleSave: () => void) {
 
           const newElements = [...localElements, newElement];
           es.setLocalElements(newElements);
-          pushHistory(newElements, localRacks);
+          pushHistory(newElements, localEquipment);
           es.setHasChanges(true);
           es.setSelectedElement(newElement);
-          es.setSelectedRack(null);
+          es.setSelectedEquipment(null);
           es.setSelectedIds([newElement.id]);
           es.setClipboard({ type: 'element', data: newElement });
-        } else if (es.clipboard.type === 'rack') {
-          cs.setPasteRackName('');
-          cs.setPasteRackModalOpen(true);
+        } else if (es.clipboard.type === 'equipment') {
+          cs.setPasteEquipmentName('');
+          cs.setPasteEquipmentModalOpen(true);
         }
       }
     };

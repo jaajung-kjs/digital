@@ -18,8 +18,8 @@ export function ConnectionDiagram({
     if (!connections) return [];
     return connections.filter(
       (conn: RoomConnection) =>
-        conn.sourcePort.equipmentId === equipmentId ||
-        conn.targetPort.equipmentId === equipmentId
+        conn.sourceEquipment.id === equipmentId ||
+        conn.targetEquipment.id === equipmentId
     );
   }, [connections, equipmentId]);
 
@@ -39,9 +39,9 @@ export function ConnectionDiagram({
     <div className="p-3">
       <div className="space-y-2">
         {relevantConnections.map((conn: RoomConnection) => {
-          const isSource = conn.sourcePort.equipmentId === equipmentId;
-          const localPort = isSource ? conn.sourcePort : conn.targetPort;
-          const remotePort = isSource ? conn.targetPort : conn.sourcePort;
+          const isSource = conn.sourceEquipment.id === equipmentId;
+          const localEquipment = isSource ? conn.sourceEquipment : conn.targetEquipment;
+          const remoteEquipment = isSource ? conn.targetEquipment : conn.sourceEquipment;
 
           return (
             <div
@@ -49,13 +49,10 @@ export function ConnectionDiagram({
               className="rounded border border-gray-200 bg-white px-3 py-2"
             >
               <div className="flex items-center gap-2 text-sm">
-                {/* Local port */}
+                {/* Local equipment */}
                 <div className="min-w-0 flex-1 text-right">
                   <p className="truncate text-xs font-medium text-gray-700">
-                    {localPort.name}
-                  </p>
-                  <p className="truncate text-xs text-gray-400">
-                    {localPort.portType}
+                    {localEquipment.name}
                   </p>
                 </div>
 
@@ -76,13 +73,10 @@ export function ConnectionDiagram({
                   )}
                 </div>
 
-                {/* Remote port */}
+                {/* Remote equipment */}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-medium text-gray-700">
-                    {remotePort.name}
-                  </p>
-                  <p className="truncate text-xs text-gray-400">
-                    {remotePort.equipmentName}
+                    {remoteEquipment.name}
                   </p>
                 </div>
               </div>

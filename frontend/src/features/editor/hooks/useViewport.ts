@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { FloorPlanElement, RackItem, LineProperties, CircleProperties } from '../../../types/floorPlan';
+import type { FloorPlanElement, FloorPlanEquipment, LineProperties, CircleProperties } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
 
 /**
@@ -7,11 +7,11 @@ import { useEditorStore } from '../stores/editorStore';
  */
 export function calculateFitToContent(
   elements: FloorPlanElement[],
-  racks: RackItem[],
+  equipment: FloorPlanEquipment[],
   canvasWidth: number,
   canvasHeight: number
 ): { zoom: number; panX: number; panY: number } {
-  if (elements.length === 0 && racks.length === 0) {
+  if (elements.length === 0 && equipment.length === 0) {
     return { zoom: 100, panX: 0, panY: 0 };
   }
 
@@ -42,11 +42,11 @@ export function calculateFitToContent(
     }
   });
 
-  racks.forEach(rack => {
-    minX = Math.min(minX, rack.positionX);
-    minY = Math.min(minY, rack.positionY);
-    maxX = Math.max(maxX, rack.positionX + rack.width);
-    maxY = Math.max(maxY, rack.positionY + rack.height);
+  equipment.forEach(eq => {
+    minX = Math.min(minX, eq.positionX);
+    minY = Math.min(minY, eq.positionY);
+    maxX = Math.max(maxX, eq.positionX + eq.width);
+    maxY = Math.max(maxY, eq.positionY + eq.height);
   });
 
   if (minX === Infinity) {
@@ -81,11 +81,11 @@ export function useViewport(roomId: string | undefined) {
 
   const fitToContent = useCallback((
     elements: FloorPlanElement[],
-    racks: RackItem[],
+    equipment: FloorPlanEquipment[],
     canvasWidth: number,
     canvasHeight: number
   ) => {
-    const fit = calculateFitToContent(elements, racks, canvasWidth, canvasHeight);
+    const fit = calculateFitToContent(elements, equipment, canvasWidth, canvasHeight);
     setViewport(fit.zoom, fit.panX, fit.panY);
   }, [setViewport]);
 

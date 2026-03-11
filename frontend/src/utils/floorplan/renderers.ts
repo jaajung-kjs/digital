@@ -5,7 +5,7 @@
 
 import type {
   FloorPlanElement,
-  RackItem,
+  FloorPlanEquipment,
   LineProperties,
   RectProperties,
   CircleProperties,
@@ -548,35 +548,38 @@ export function renderTextPreview(
 }
 
 // ============================================
-// Rack 렌더러
+// Equipment 렌더러
 // ============================================
 
-export function renderRack(
+export function renderEquipmentItem(
   ctx: CanvasRenderingContext2D,
-  rack: RackItem,
+  item: FloorPlanEquipment,
   isSelected: boolean
 ): void {
   ctx.save();
-  ctx.translate(rack.positionX + rack.width / 2, rack.positionY + rack.height / 2);
-  ctx.rotate((rack.rotation * Math.PI) / 180);
-  ctx.translate(-rack.width / 2, -rack.height / 2);
+  ctx.translate(item.positionX + item.width / 2, item.positionY + item.height / 2);
+  ctx.rotate((item.rotation * Math.PI) / 180);
+  ctx.translate(-item.width / 2, -item.height / 2);
 
   ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : ELEMENT_COLORS.rack.fill;
   ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : ELEMENT_COLORS.rack.stroke;
   ctx.lineWidth = isSelected ? 2 : 1;
-  ctx.fillRect(0, 0, rack.width, rack.height);
-  ctx.strokeRect(0, 0, rack.width, rack.height);
+  ctx.fillRect(0, 0, item.width, item.height);
+  ctx.strokeRect(0, 0, item.width, item.height);
 
   ctx.fillStyle = ELEMENT_COLORS.rack.text;
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(rack.name, rack.width / 2, rack.height / 2);
+
+  // Show category and name
+  const label = item.category ? `[${item.category}] ${item.name}` : item.name;
+  ctx.fillText(label, item.width / 2, item.height / 2);
 
   ctx.restore();
 }
 
-export function renderRackPreview(
+export function renderEquipmentPreview(
   ctx: CanvasRenderingContext2D,
   position: { x: number; y: number }
 ): void {
@@ -593,7 +596,7 @@ export function renderRackPreview(
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('새 랙', position.x + 30, position.y + 50);
+  ctx.fillText('새 장비', position.x + 30, position.y + 50);
 
   ctx.restore();
 }
@@ -642,15 +645,15 @@ export function renderElements(
 }
 
 /**
- * 여러 Rack을 렌더링
+ * 여러 Equipment를 렌더링
  */
-export function renderRacks(
+export function renderEquipmentItems(
   ctx: CanvasRenderingContext2D,
-  racks: RackItem[],
+  items: FloorPlanEquipment[],
   selectedIds: string[]
 ): void {
-  racks.forEach(rack => {
-    renderRack(ctx, rack, selectedIds.includes(rack.id));
+  items.forEach(item => {
+    renderEquipmentItem(ctx, item, selectedIds.includes(item.id));
   });
 }
 
@@ -658,7 +661,7 @@ export function renderRacks(
 // 미리보기 렌더링
 // ============================================
 
-export type DrawingToolType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'rack' | 'text';
+export type DrawingToolType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text';
 
 /**
  * 오브젝트 배치 미리보기 (패턴 B: 시작점만)
@@ -675,7 +678,7 @@ export function renderPlacementPreview(
   switch (tool) {
     case 'door': renderDoorPreview(ctx, position, 0); break;
     case 'window': renderWindowPreview(ctx, position, 0); break;
-    case 'rack': renderRackPreview(ctx, position); break;
+    case 'equipment': renderEquipmentPreview(ctx, position); break;
     case 'text': renderTextPreview(ctx, position); break;
   }
 
@@ -744,17 +747,17 @@ export function renderElementLengths(
 }
 
 /**
- * 모든 Rack의 가로/세로 길이 표시
+ * 모든 Equipment의 가로/세로 길이 표시
  */
-export function renderRackLengths(
+export function renderEquipmentLengths(
   ctx: CanvasRenderingContext2D,
-  racks: RackItem[],
+  items: FloorPlanEquipment[],
   zoom: number = 100
 ): void {
-  racks.forEach(rack => {
+  items.forEach(item => {
     // 가로 (상단 변)
-    renderLengthLabel(ctx, rack.positionX, rack.positionY, rack.positionX + rack.width, rack.positionY, zoom);
+    renderLengthLabel(ctx, item.positionX, item.positionY, item.positionX + item.width, item.positionY, zoom);
     // 세로 (좌측 변)
-    renderLengthLabel(ctx, rack.positionX, rack.positionY, rack.positionX, rack.positionY + rack.height, zoom);
+    renderLengthLabel(ctx, item.positionX, item.positionY, item.positionX, item.positionY + item.height, zoom);
   });
 }

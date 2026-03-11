@@ -1,9 +1,9 @@
 import { create } from 'zustand';
-import type { FloorPlanElement, RackItem } from '../../../types/floorPlan';
+import type { FloorPlanElement, FloorPlanEquipment } from '../../../types/floorPlan';
 
 interface HistoryState {
   elements: FloorPlanElement[];
-  racks: RackItem[];
+  equipment: FloorPlanEquipment[];
 }
 
 interface HistoryStoreState {
@@ -12,12 +12,12 @@ interface HistoryStoreState {
 }
 
 interface HistoryStoreActions {
-  pushHistory: (elements: FloorPlanElement[], racks: RackItem[]) => void;
+  pushHistory: (elements: FloorPlanElement[], equipment: FloorPlanEquipment[]) => void;
   undo: () => HistoryState | null;
   redo: () => HistoryState | null;
   canUndo: () => boolean;
   canRedo: () => boolean;
-  initHistory: (elements: FloorPlanElement[], racks: RackItem[]) => void;
+  initHistory: (elements: FloorPlanElement[], equipment: FloorPlanEquipment[]) => void;
   resetHistory: () => void;
 }
 
@@ -27,10 +27,10 @@ export const useHistoryStore = create<HistoryStoreState & HistoryStoreActions>((
   history: [],
   historyIndex: -1,
 
-  pushHistory: (elements, racks) => {
+  pushHistory: (elements, equipment) => {
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push({ elements: [...elements], racks: [...racks] });
+      newHistory.push({ elements: [...elements], equipment: [...equipment] });
       if (newHistory.length > MAX_HISTORY) {
         newHistory.shift();
       }
@@ -64,9 +64,9 @@ export const useHistoryStore = create<HistoryStoreState & HistoryStoreActions>((
   canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
 
-  initHistory: (elements, racks) => {
+  initHistory: (elements, equipment) => {
     set({
-      history: [{ elements: [...elements], racks: [...racks] }],
+      history: [{ elements: [...elements], equipment: [...equipment] }],
       historyIndex: 0,
     });
   },

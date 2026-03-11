@@ -3,6 +3,7 @@ import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { RoomDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
+import { ViewModeSelector } from './ViewModeSelector';
 import {
   createPropertyUpdater as updateElementProperty,
   createRotateUpdater,
@@ -46,6 +47,8 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving }: Tool
           <h1 className="text-lg font-semibold text-gray-900">{room?.name} 평면도</h1>
           {floorPlan && <p className="text-xs text-gray-500">버전 {floorPlan.version}</p>}
         </div>
+
+        {floorPlan && <ViewModeSelector />}
       </div>
 
       {floorPlan && isAdmin && (
@@ -374,7 +377,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving }: Tool
             className={`p-2 rounded-lg flex items-center gap-1 text-xs ${
               showLengths ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-600'
             }`}
-            title="픽셀 길이 표시 (선/원/사각형/랙)"
+            title="픽셀 길이 표시 (선/원/사각형/설비)"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />

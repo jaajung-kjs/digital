@@ -6,9 +6,9 @@ import {
   renderRectPreview,
   renderPlacementPreview,
   renderElements,
-  renderRacks,
+  renderEquipmentItems,
   renderElementLengths,
-  renderRackLengths,
+  renderEquipmentLengths,
   type DrawingToolType,
 } from '../../../utils/floorplan/renderers';
 import { renderGrid } from '../renderers/gridRenderer';
@@ -32,7 +32,7 @@ export function useCanvas(
 
     const {
       zoom, panX, panY, showGrid, majorGridSize,
-      localElements, localRacks, selectedIds, showLengths, tool,
+      localElements, localEquipment, selectedIds, showLengths, tool,
     } = useEditorStore.getState();
     const {
       isDrawingLine, linePoints, linePreviewEnd,
@@ -66,13 +66,13 @@ export function useCanvas(
     // Elements
     renderElements(ctx, localElements, selectedIds);
 
-    // Racks
-    renderRacks(ctx, localRacks, selectedIds);
+    // Equipment
+    renderEquipmentItems(ctx, localEquipment, selectedIds);
 
     // Length labels
     if (showLengths) {
       renderElementLengths(ctx, localElements, zoom);
-      renderRackLengths(ctx, localRacks, zoom);
+      renderEquipmentLengths(ctx, localEquipment, zoom);
     }
 
     // Line preview
@@ -91,7 +91,7 @@ export function useCanvas(
     }
 
     // Placement preview
-    if (previewPosition && ['door', 'window', 'rack', 'text'].includes(tool)) {
+    if (previewPosition && ['door', 'window', 'equipment', 'text'].includes(tool)) {
       renderPlacementPreview(ctx, tool as DrawingToolType, previewPosition, 0);
     }
 
@@ -111,8 +111,11 @@ export function useCanvas(
     };
 
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    return () => window.removeEventListener('resize', resizeCanvas);
+
+    const ro = new ResizeObserver(resizeCanvas);
+    ro.observe(container);
+
+    return () => ro.disconnect();
   }, [canvasRef, containerRef, renderCanvas]);
 
   // Subscribe to store changes and re-render

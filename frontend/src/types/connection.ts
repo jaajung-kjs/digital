@@ -2,8 +2,8 @@ export type CableType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'GROUND';
 
 export interface Cable {
   id: string;
-  sourcePortId: string;
-  targetPortId: string;
+  sourceEquipmentId: string;
+  targetEquipmentId: string;
   cableType: CableType;
   label?: string;
   length?: number;
@@ -12,16 +12,15 @@ export interface Cable {
   description?: string;
 }
 
-export interface PortInfo {
+export interface EquipmentInfo {
   id: string;
   name: string;
-  portType: string;
-  equipmentId: string;
-  equipmentName: string;
+  rackId: string | null;
+  roomId: string | null;
 }
 
 export interface RoomConnection {
   cable: Cable;
-  sourcePort: PortInfo;
-  targetPort: PortInfo;
+  sourceEquipment: EquipmentInfo;
+  targetEquipment: EquipmentInfo;
 }

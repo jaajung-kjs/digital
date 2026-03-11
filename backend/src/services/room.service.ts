@@ -1,7 +1,6 @@
 import prisma from '../config/prisma.js';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
-import { RACK_DEFAULTS } from './rack.service.js';
 
 // ==================== Types ====================
 
@@ -38,20 +37,22 @@ export interface RoomPlanDetail {
     zIndex: number;
     isVisible: boolean;
   }[];
-  racks: {
+  equipment: {
     id: string;
     name: string;
-    code: string | null;
-    positionX: number;
-    positionY: number;
-    width: number;
-    height: number;
+    category: string;
+    positionX: number | null;
+    positionY: number | null;
+    width: number | null;
+    height: number | null;
     rotation: number;
-    totalU: number;
     frontImageUrl: string | null;
     rearImageUrl: string | null;
     description: string | null;
-    equipmentCount?: number;
+    model: string | null;
+    manufacturer: string | null;
+    manager: string | null;
+    height3d: number | null;
   }[];
   version: number;
   updatedAt: Date;
@@ -80,20 +81,23 @@ export interface UpdatePlanInput {
     zIndex?: number;
     isVisible?: boolean;
   }[];
-  racks?: {
+  equipment?: {
     id?: string | null;
     name: string;
-    code?: string;
+    category?: string;
     positionX: number;
     positionY: number;
-    width?: number;
-    height?: number;
+    width: number;
+    height: number;
     rotation?: number;
-    totalU?: number;
-    description?: string;
+    description?: string | null;
+    model?: string | null;
+    manufacturer?: string | null;
+    manager?: string | null;
+    height3d?: number | null;
   }[];
   deletedElementIds?: string[];
-  deletedRackIds?: string[];
+  deletedEquipmentIds?: string[];
 }
 
 // ==================== Shared ====================
@@ -147,16 +151,32 @@ class RoomService {
           where: { isVisible: true },
           orderBy: { zIndex: 'asc' },
         },
-        racks: {
-          include: {
-            _count: { select: { equipment: true } },
-          },
-          orderBy: { sortOrder: 'asc' },
-        },
       },
     });
 
     if (!room) throw new NotFoundError('실');
+
+    const equipment = await prisma.equipment.findMany({
+      where: { roomId: id },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        positionX: true,
+        positionY: true,
+        width2d: true,
+        height2d: true,
+        rotation: true,
+        frontImageUrl: true,
+        rearImageUrl: true,
+        description: true,
+        model: true,
+        manufacturer: true,
+        manager: true,
+        height3d: true,
+      },
+      orderBy: { sortOrder: 'asc' },
+    });
 
     return {
       id: room.id,
@@ -173,20 +193,22 @@ class RoomService {
         zIndex: e.zIndex,
         isVisible: e.isVisible,
       })),
-      racks: room.racks.map((r) => ({
-        id: r.id,
-        name: r.name,
-        code: r.code,
-        positionX: r.positionX,
-        positionY: r.positionY,
-        width: r.width,
-        height: r.height,
-        rotation: r.rotation,
-        totalU: r.totalU,
-        frontImageUrl: r.frontImageUrl,
-        rearImageUrl: r.rearImageUrl,
-        description: r.description,
-        equipmentCount: r._count.equipment,
+      equipment: equipment.map((e) => ({
+        id: e.id,
+        name: e.name,
+        category: e.category,
+        positionX: e.positionX,
+        positionY: e.positionY,
+        width: e.width2d,
+        height: e.height2d,
+        rotation: e.rotation ?? 0,
+        frontImageUrl: e.frontImageUrl,
+        rearImageUrl: e.rearImageUrl,
+        description: e.description,
+        model: e.model,
+        manufacturer: e.manufacturer,
+        manager: e.manager,
+        height3d: e.height3d,
       })),
       version: room.version,
       updatedAt: room.updatedAt,
@@ -259,9 +281,9 @@ class RoomService {
         });
       }
 
-      if (input.deletedRackIds && input.deletedRackIds.length > 0) {
-        await tx.rack.deleteMany({
-          where: { id: { in: input.deletedRackIds }, roomId: id },
+      if (input.deletedEquipmentIds && input.deletedEquipmentIds.length > 0) {
+        await tx.equipment.deleteMany({
+          where: { id: { in: input.deletedEquipmentIds }, roomId: id },
         });
       }
 
@@ -291,43 +313,42 @@ class RoomService {
         }
       }
 
-      if (input.racks && input.racks.length > 0) {
-        for (const rack of input.racks) {
-          if (rack.id) {
-            await tx.rack.update({
-              where: { id: rack.id },
+      if (input.equipment && input.equipment.length > 0) {
+        for (const equip of input.equipment) {
+          if (equip.id) {
+            await tx.equipment.update({
+              where: { id: equip.id },
               data: {
-                name: rack.name,
-                code: rack.code,
-                positionX: rack.positionX,
-                positionY: rack.positionY,
-                width: rack.width ?? RACK_DEFAULTS.width,
-                height: rack.height ?? RACK_DEFAULTS.height,
-                rotation: rack.rotation ?? RACK_DEFAULTS.rotation,
-                totalU: rack.totalU ?? RACK_DEFAULTS.totalU,
-                description: rack.description,
+                name: equip.name,
+                positionX: equip.positionX,
+                positionY: equip.positionY,
+                width2d: equip.width,
+                height2d: equip.height,
+                rotation: equip.rotation ?? 0,
+                description: equip.description,
+                model: equip.model,
+                manufacturer: equip.manufacturer,
+                manager: equip.manager,
+                height3d: equip.height3d,
                 updatedById: userId,
               },
             });
           } else {
-            const existingRack = await tx.rack.findFirst({
-              where: { roomId: id, name: rack.name },
-            });
-            if (existingRack) {
-              throw new ConflictError(`랙 이름 '${rack.name}'이(가) 이미 존재합니다.`);
-            }
-            await tx.rack.create({
+            await tx.equipment.create({
               data: {
                 roomId: id,
-                name: rack.name,
-                code: rack.code,
-                positionX: rack.positionX,
-                positionY: rack.positionY,
-                width: rack.width ?? RACK_DEFAULTS.width,
-                height: rack.height ?? RACK_DEFAULTS.height,
-                rotation: rack.rotation ?? RACK_DEFAULTS.rotation,
-                totalU: rack.totalU ?? RACK_DEFAULTS.totalU,
-                description: rack.description,
+                name: equip.name,
+                category: (equip.category as 'SERVER' | 'NETWORK' | 'STORAGE' | 'POWER' | 'SECURITY' | 'OTHER') ?? 'OTHER',
+                positionX: equip.positionX,
+                positionY: equip.positionY,
+                width2d: equip.width,
+                height2d: equip.height,
+                rotation: equip.rotation ?? 0,
+                description: equip.description,
+                model: equip.model,
+                manufacturer: equip.manufacturer,
+                manager: equip.manager,
+                height3d: equip.height3d,
                 createdById: userId,
                 updatedById: userId,
               },

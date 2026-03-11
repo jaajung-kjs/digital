@@ -58,7 +58,7 @@ export function ToolPanel() {
 
       <div className="border-t my-1" />
 
-      <ToolButton active={tool === 'rack'} onClick={() => selectTool('rack')} title="랙 배치" label="랙" shortcut="K">
+      <ToolButton active={tool === 'equipment'} onClick={() => selectTool('equipment')} title="설비 배치" label="설비" shortcut="K">
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 4h14v16H5V4zm2 3h10M7 10h10M7 13h10M7 16h10" />
         </svg>

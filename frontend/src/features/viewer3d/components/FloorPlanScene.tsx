@@ -1,7 +1,7 @@
 import type {
   FloorPlanElement,
   RackItem,
-  EquipmentItem,
+  FloorPlanEquipment,
   LineProperties,
   RectProperties,
   CircleProperties,
@@ -17,7 +17,7 @@ import { EquipmentMesh } from './EquipmentMesh';
 interface FloorPlanSceneProps {
   elements: FloorPlanElement[];
   racks: RackItem[];
-  equipment: EquipmentItem[];
+  equipment: FloorPlanEquipment[];
   canvasWidth: number;
   canvasHeight: number;
 }

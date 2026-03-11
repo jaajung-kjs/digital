@@ -13,11 +13,11 @@ import { useEditorStore } from '../stores/editorStore';
 
 export function PropertyBar() {
   const selectedElement = useEditorStore(s => s.selectedElement);
-  const selectedRack = useEditorStore(s => s.selectedRack);
+  const selectedEquipment = useEditorStore(s => s.selectedEquipment);
   const selectedIds = useEditorStore(s => s.selectedIds);
   const mouseWorldPosition = useEditorStore(s => s.mouseWorldPosition);
   const setLocalElements = useEditorStore(s => s.setLocalElements);
-  const setLocalRacks = useEditorStore(s => s.setLocalRacks);
+  const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setHasChanges = useEditorStore(s => s.setHasChanges);
 
   return (
@@ -37,7 +37,7 @@ export function PropertyBar() {
               {selectedElement.elementType === 'text' && '텍스트 (Text)'}
             </>
           )}
-          {selectedIds.length === 1 && selectedRack && `랙: ${selectedRack.name}`}
+          {selectedIds.length === 1 && selectedEquipment && `설비: ${selectedEquipment.name}`}
           {selectedIds.length > 1 && `${selectedIds.length}개 선택됨`}
         </span>
       </div>
@@ -141,30 +141,30 @@ export function PropertyBar() {
           );
         })()}
 
-        {/* Rack */}
-        {selectedRack && (
+        {/* Equipment */}
+        {selectedEquipment && (
           <>
-            <PropertyInput label="X" value={Math.round(selectedRack.positionX)} onChange={(v) => {
-              setLocalRacks(prev => prev.map(r => r.id === selectedRack.id ? { ...r, positionX: v as number } : r));
+            <PropertyInput label="X" value={Math.round(selectedEquipment.positionX)} onChange={(v) => {
+              setLocalEquipment(prev => prev.map(r => r.id === selectedEquipment.id ? { ...r, positionX: v as number } : r));
               setHasChanges(true);
             }} />
-            <PropertyInput label="Y" value={Math.round(selectedRack.positionY)} onChange={(v) => {
-              setLocalRacks(prev => prev.map(r => r.id === selectedRack.id ? { ...r, positionY: v as number } : r));
+            <PropertyInput label="Y" value={Math.round(selectedEquipment.positionY)} onChange={(v) => {
+              setLocalEquipment(prev => prev.map(r => r.id === selectedEquipment.id ? { ...r, positionY: v as number } : r));
               setHasChanges(true);
             }} />
-            <PropertyInput label="W" value={Math.round(selectedRack.width)} onChange={(v) => {
-              setLocalRacks(prev => prev.map(r => r.id === selectedRack.id ? { ...r, width: v as number } : r));
+            <PropertyInput label="W" value={Math.round(selectedEquipment.width)} onChange={(v) => {
+              setLocalEquipment(prev => prev.map(r => r.id === selectedEquipment.id ? { ...r, width: v as number } : r));
               setHasChanges(true);
             }} />
-            <PropertyInput label="H" value={Math.round(selectedRack.height)} onChange={(v) => {
-              setLocalRacks(prev => prev.map(r => r.id === selectedRack.id ? { ...r, height: v as number } : r));
+            <PropertyInput label="H" value={Math.round(selectedEquipment.height)} onChange={(v) => {
+              setLocalEquipment(prev => prev.map(r => r.id === selectedEquipment.id ? { ...r, height: v as number } : r));
               setHasChanges(true);
             }} />
-            <PropertyInput label="R" value={selectedRack.rotation} suffix="°" onChange={(v) => {
-              setLocalRacks(prev => prev.map(r => r.id === selectedRack.id ? { ...r, rotation: v as number } : r));
+            <PropertyInput label="R" value={selectedEquipment.rotation} suffix="°" onChange={(v) => {
+              setLocalEquipment(prev => prev.map(r => r.id === selectedEquipment.id ? { ...r, rotation: v as number } : r));
               setHasChanges(true);
             }} />
-            <PropertyInput label="U" value={selectedRack.totalU} suffix="U" readOnly />
+            <PropertyInput label="분류" value={selectedEquipment.category ?? ''} readOnly />
           </>
         )}
       </div>
