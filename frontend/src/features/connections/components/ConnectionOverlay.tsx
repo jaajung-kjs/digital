@@ -4,7 +4,8 @@ import type { CableType, RoomConnection } from '../../../types/connection';
 import { useRoomConnections } from '../hooks/useRoomConnections';
 import { useMergedConnections } from '../hooks/useMergedConnections';
 import { useConnectionEditorStore } from '../hooks/useConnectionEditor';
-import { useEditorStore } from '../../editor/stores/editorStore';
+import { useEditorStore, type ChangeEntry } from '../../editor/stores/editorStore';
+import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import {
   renderConnections,
   CABLE_COLORS,
@@ -54,8 +55,15 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
-  const localEquipment = useEditorStore((s) => s.localEquipment);
+  const editorEquipment = useEditorStore((s) => s.localEquipment);
   const connectionFilters = useEditorStore((s) => s.connectionFilters);
+
+  const snapshotActive = useSnapshotStore((s) => s.active);
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
+  const snapshotCables = useSnapshotStore((s) => s.cables);
+
+  // Branch data source: snapshot overlay vs editor
+  const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
 
   const isConnectionMode = viewMode.startsWith('connection-');
 
@@ -72,7 +80,14 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
 
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
-  const connections = useMergedConnections(backendConnections, changeSet, localEquipment);
+  // In snapshot mode, skip merge computation entirely — use snapshot cables directly
+  const emptyChangeSet = useMemo(() => [] as ChangeEntry[], []);
+  const mergedConnections = useMergedConnections(
+    snapshotActive ? undefined : backendConnections,
+    snapshotActive ? emptyChangeSet : changeSet,
+    localEquipment,
+  );
+  const connections = snapshotActive ? snapshotCables : mergedConnections;
 
   // Build equipment positions map
   const equipmentPositions = useMemo(() => {

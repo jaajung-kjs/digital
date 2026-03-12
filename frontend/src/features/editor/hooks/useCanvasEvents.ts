@@ -15,6 +15,7 @@ import { createDragSession, applyDrag } from '../../../utils/floorplan/dragSyste
 import type { Position } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from './useEditorHistory';
 import { useConnectionEditorStore } from '../../connections/hooks/useConnectionEditor';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
@@ -64,6 +65,28 @@ export function useCanvasEvents(
     }
 
     const { viewMode } = editorStore.getState();
+
+    // Snapshot preview: allow selection, detail panel, and panning only
+    const snap = useSnapshotStore.getState();
+    if (snap.active) {
+      const found = findItemAt(x, y, snap.elements, snap.equipment);
+      if (found) {
+        editorStore.getState().setSelectedIds([found.item.id]);
+        if (found.type === 'equipment') {
+          editorStore.getState().setSelectedEquipment(found.item as FloorPlanEquipment);
+          editorStore.getState().setSelectedElement(null);
+          editorStore.getState().setDetailPanelEquipmentId(found.item.id);
+        } else {
+          editorStore.getState().setSelectedElement(found.item as FloorPlanElement);
+          editorStore.getState().setSelectedEquipment(null);
+        }
+      } else {
+        canvasStore.getState().setIsPanning(true);
+        canvasStore.getState().setPanStart({ x: screenX, y: screenY });
+        editorStore.getState().clearSelection();
+      }
+      return;
+    }
 
     // In connection mode, allow panning on empty space but don't drag equipment
     if (viewMode.startsWith('connection-')) {
@@ -183,6 +206,8 @@ export function useCanvasEvents(
 
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan || !canvasRef.current) return;
+    // In snapshot preview, block all editing actions
+    if (useSnapshotStore.getState().active) return;
 
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
@@ -414,11 +439,15 @@ export function useCanvasEvents(
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const { zoom, panX, panY, localEquipment } = editorStore.getState();
+    const { zoom, panX, panY } = editorStore.getState();
     const x = (e.clientX - rect.left - panX) / (zoom / 100);
     const y = (e.clientY - rect.top - panY) / (zoom / 100);
 
-    for (const eq of [...localEquipment].reverse()) {
+    // Use snapshot equipment when in preview mode
+    const snapState = useSnapshotStore.getState();
+    const equipment = snapState.active ? snapState.equipment : editorStore.getState().localEquipment;
+
+    for (const eq of [...equipment].reverse()) {
       if (
         x >= eq.positionX &&
         x <= eq.positionX + eq.width &&

@@ -80,6 +80,7 @@ export interface EditorStoreState {
   } | null;
 
   detailPanelEquipmentId: string | null;
+
 }
 
 export interface EditorStoreActions {
@@ -116,6 +117,7 @@ export interface EditorStoreActions {
   setDetailPanelEquipmentId: (id: string | null) => void;
   clearSelection: () => void;
   resetEditor: () => void;
+
 }
 
 const initialState: EditorStoreState = {
