@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { ViewMode } from '../../../types/floorPlan';
-import type { RoomConnection } from '../../../types/connection';
+import type { CableType, RoomConnection } from '../../../types/connection';
 import { useRoomConnections } from '../hooks/useRoomConnections';
 import { useMergedConnections } from '../hooks/useMergedConnections';
 import { useConnectionEditorStore } from '../hooks/useConnectionEditor';
@@ -55,6 +55,7 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
   const localEquipment = useEditorStore((s) => s.localEquipment);
+  const connectionFilters = useEditorStore((s) => s.connectionFilters);
 
   const isConnectionMode = viewMode.startsWith('connection-');
 
@@ -117,6 +118,11 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
         equipmentPositions
       );
 
+      // Apply user cable type filters
+      const userFiltered = connectionFilters.length > 0
+        ? renderableConnections.filter((c) => connectionFilters.includes(c.cableType as CableType))
+        : renderableConnections;
+
       const context: ConnectionRenderContext = {
         ctx,
         zoom,
@@ -125,7 +131,7 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
         viewMode: viewMode as ConnectionRenderContext['viewMode'],
       };
 
-      renderConnections(context, renderableConnections);
+      renderConnections(context, userFiltered);
     }
 
     // Highlight source equipment with dashed blue border
@@ -210,6 +216,7 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
     canvasRef,
     sourceEquipmentId,
     targetEquipmentId,
+    connectionFilters,
   ]);
 
   // ESC key to cancel connection editor flow

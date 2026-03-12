@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useRoomConnections } from '../hooks/useConnections';
+import { useRoomConnections } from '../../connections/hooks/useRoomConnections';
 import { CABLE_TYPE_COLORS } from '../types/equipment';
 import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
@@ -56,13 +56,13 @@ export function ConnectionDiagram({
               className={`rounded border px-3 py-2 ${isPending ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'}`}
             >
               <div className="flex items-center gap-2 text-sm">
-                <div className="min-w-0 flex-1 text-right">
-                  <p className="truncate text-xs font-medium text-gray-700">
+                <div className="min-w-0 flex-1 text-center">
+                  <p className="truncate text-sm font-medium text-gray-700">
                     {localEq.name}
                   </p>
                 </div>
 
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-center shrink-0">
                   <span
                     className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                       CABLE_TYPE_COLORS[conn.cableType] || 'bg-gray-100 text-gray-600'
@@ -78,8 +78,8 @@ export function ConnectionDiagram({
                   )}
                 </div>
 
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-gray-700">
+                <div className="min-w-0 flex-1 text-center">
+                  <p className="truncate text-sm font-medium text-gray-700">
                     {remoteEquipment.name}
                   </p>
                 </div>

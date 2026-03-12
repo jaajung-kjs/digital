@@ -9,9 +9,8 @@ import { useMaintenanceLogs } from '../../equipment/hooks/useMaintenanceLogs';
 import { ConnectionDiagram } from '../../equipment/components/ConnectionDiagram';
 import {
   LOG_TYPE_LABELS,
+  LOG_TYPE_COLORS,
   SEVERITY_COLORS,
-  STATUS_COLORS,
-  STATUS_LABELS,
   CATEGORY_LABELS,
   EQUIPMENT_CATEGORIES,
 } from '../../equipment/types/equipment';
@@ -62,10 +61,6 @@ function useEquipmentDetail(equipmentId: string) {
   });
 }
 
-/**
- * Build EquipmentDetail from localEquipment store, overlaying on backend data if available.
- * localEquipment is always the source of truth for editable fields.
- */
 function useMergedEquipmentDetail(equipmentId: string): {
   equipment: EquipmentDetail | null;
   isLoading: boolean;
@@ -77,12 +72,9 @@ function useMergedEquipmentDetail(equipmentId: string): {
   const localEq = localEquipment.find((e) => e.id === equipmentId);
 
   if (!localEq) {
-    // Equipment was deleted locally or not found
     return { equipment: null, isLoading: isTemp ? false : isLoading, error };
   }
 
-  // Build merged detail: local store fields override backend
-  // Use 'in' check so explicit null from local edits is preserved (not overridden by backend)
   const pick = <T,>(localVal: T | undefined | null, backendVal: T | undefined | null): T | null =>
     localVal !== undefined ? (localVal ?? null) : (backendVal ?? null);
 
@@ -125,16 +117,16 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900 truncate">
+          <h3 className="text-sm font-bold text-gray-900 truncate">
             {!isTemp && isLoading ? '로딩 중...' : equipment?.name ?? '설비 상세'}
           </h3>
           {equipment && (
-            <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
+            <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
               {CATEGORY_LABELS[equipment.category] ?? equipment.category}
             </span>
           )}
           {isTemp && (
-            <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
+            <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
               미저장
             </span>
           )}
@@ -156,7 +148,7 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 px-2 py-2 text-xs font-medium transition-colors ${
+            className={`flex-1 px-2 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.key
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-500 hover:text-gray-700'
@@ -201,7 +193,7 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
 
 
 /* ================================================================
-   Photo Lightbox Viewer - 전체화면, 확대, 화살표 네비게이션
+   Photo Lightbox Viewer
    ================================================================ */
 
 interface LightboxPhoto {
@@ -272,7 +264,6 @@ function PhotoLightbox({
     if (!photo.id || !onDelete) return;
     if (!confirm('이 사진을 삭제하시겠습니까?')) return;
     onDelete(photo.id);
-    // After delete, adjust index
     if (photos.length <= 1) {
       onClose();
     } else if (index >= photos.length - 1) {
@@ -285,11 +276,8 @@ function PhotoLightbox({
       className="fixed inset-0 z-[100] bg-black/90 flex flex-col"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 text-white shrink-0">
-        <span className="text-sm">
-          {index + 1} / {photos.length}
-        </span>
+        <span className="text-sm">{index + 1} / {photos.length}</span>
         <div className="flex items-center gap-2">
           <button onClick={() => setScale((s) => Math.min(s + 0.5, 5))} className="p-1.5 hover:bg-white/20 rounded" title="확대">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -321,9 +309,7 @@ function PhotoLightbox({
         </div>
       </div>
 
-      {/* Image area */}
       <div className="flex-1 relative flex items-center justify-center overflow-hidden min-h-0">
-        {/* Prev button */}
         {hasPrev && (
           <button
             onClick={() => goTo(index - 1)}
@@ -334,8 +320,6 @@ function PhotoLightbox({
             </svg>
           </button>
         )}
-
-        {/* Next button */}
         {hasNext && (
           <button
             onClick={() => goTo(index + 1)}
@@ -346,7 +330,6 @@ function PhotoLightbox({
             </svg>
           </button>
         )}
-
         <img
           src={photo.url}
           alt={photo.description || '사진'}
@@ -364,11 +347,8 @@ function PhotoLightbox({
         />
       </div>
 
-      {/* Bottom info */}
       <div className="shrink-0 px-4 py-3 text-white text-center">
-        <p className="text-sm">
-          {photo.date}
-        </p>
+        <p className="text-sm">{photo.date}</p>
         {photo.description && (
           <p className="text-sm text-white/70 mt-0.5">{photo.description}</p>
         )}
@@ -448,10 +428,8 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
   const removeChanges = useEditorStore((s) => s.removeChanges);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
-  // Fetch saved photos from backend
   const { data: savedPhotos } = useEquipmentPhotos(equipment.id);
 
-  // Derive merged photo list from changeSet + backend
   const allPhotos: LightboxPhoto[] = useMemo(() => {
     const uploads = selectChanges(changeSet, 'photo:upload')
       .filter((u) => u.equipmentId === equipment.id && u.side === photoSide);
@@ -529,7 +507,6 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
     <div className="flex flex-col h-full">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
 
-      {/* Upload dialog */}
       {pendingFile && (
         <UploadDialog
           fileName={pendingFile.name}
@@ -540,7 +517,6 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
         />
       )}
 
-      {/* Lightbox */}
       {lightboxIndex !== null && allPhotos.length > 0 && (
         <PhotoLightbox
           photos={allPhotos}
@@ -550,9 +526,7 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
         />
       )}
 
-      {/* Current photo - fills available space */}
       <div className="relative bg-gray-900 flex-1 flex items-center justify-center min-h-0">
-        {/* Front/Rear toggle */}
         <div className="absolute top-2 left-2 z-10 flex rounded-md overflow-hidden border border-white/30 shadow-sm">
           <button
             onClick={() => setPhotoSide('front')}
@@ -572,7 +546,6 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
           </button>
         </div>
 
-        {/* Action buttons */}
         <div className="absolute top-2 right-2 z-10 flex gap-1">
           <button
             onClick={handleUploadClick}
@@ -596,7 +569,6 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
           )}
         </div>
 
-        {/* Past photos count badge */}
         {allPhotos.length > 1 && (
           <div className="absolute bottom-2 left-2 z-10">
             <span className="px-2 py-1 bg-black/50 rounded text-[10px] text-white/80">
@@ -605,7 +577,6 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
           </div>
         )}
 
-        {/* Photo date/description overlay */}
         {latestPhoto && (
           <div className="absolute bottom-2 right-2 z-10 text-right">
             <span className="px-2 py-1 bg-black/50 rounded text-[10px] text-white/80">
@@ -615,7 +586,6 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
           </div>
         )}
 
-        {/* Image - clickable to open lightbox */}
         {currentImageUrl ? (
           <img
             src={currentImageUrl}
@@ -640,7 +610,7 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
 }
 
 /* ================================================================
-   Info Tab - 설비 속성 전체 표시 + 수정 기능
+   Info Tab
    ================================================================ */
 
 function InfoTab({ equipment }: { equipment: EquipmentDetail }) {
@@ -667,7 +637,7 @@ function InfoTab({ equipment }: { equipment: EquipmentDetail }) {
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-semibold text-gray-800">설비 정보</span>
+        <span className="text-sm font-bold text-gray-800">설비 정보</span>
         <button
           onClick={() => setIsEditing(true)}
           className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -774,7 +744,7 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
 }
 
 /* ================================================================
-   Logs Tab
+   Logs Tab - with edit, author display, category colors
    ================================================================ */
 
 function LogsTab({ equipmentId }: { equipmentId: string }) {
@@ -786,6 +756,7 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
   const [showForm, setShowForm] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     logType: 'MAINTENANCE',
     title: '',
@@ -794,7 +765,6 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
     description: '',
   });
 
-  // Merge backend logs (excluding pending deletions) + pending creates from changeSet
   const allLogs = useMemo(() => {
     const logCreates = selectChanges(changeSet, 'log:create');
     const logDeletions = selectChanges(changeSet, 'log:delete');
@@ -817,27 +787,55 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
         status: 'OPEN' as const,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        createdByName: null as string | null,
+        updatedByName: null as string | null,
         isPending: true,
       }));
 
-    return [...pendingLogs, ...savedLogs];
+    return [...pendingLogs, ...savedLogs].sort((a, b) => {
+      const dateA = a.logDate || a.createdAt;
+      const dateB = b.logDate || b.createdAt;
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
   }, [backendLogs, changeSet, equipmentId]);
+
+  const resetForm = () => {
+    setFormData({ logType: 'MAINTENANCE', title: '', logDate: new Date().toISOString().slice(0, 10), severity: 'LOW', description: '' });
+    setEditingLogId(null);
+    setShowForm(false);
+  };
 
   const handleSubmit = () => {
     if (!formData.title.trim()) return;
-    addChange({
-      type: 'log:create',
-      localId: generateTempId(),
-      equipmentId,
+
+    const common = {
       logType: formData.logType,
       title: formData.title,
       logDate: formData.logDate || undefined,
       severity: formData.severity,
       description: formData.description || undefined,
-    });
+    };
+
+    if (editingLogId) {
+      addChange({ type: 'log:update', logId: editingLogId, ...common });
+    } else {
+      addChange({ type: 'log:create', localId: generateTempId(), equipmentId, ...common });
+    }
     setHasChanges(true);
-    setFormData({ logType: 'MAINTENANCE', title: '', logDate: new Date().toISOString().slice(0, 10), severity: 'LOW', description: '' });
-    setShowForm(false);
+    resetForm();
+  };
+
+  const handleEditLog = (log: typeof allLogs[0]) => {
+    if (log.isPending) return; // Can't edit pending logs, they're already editable via changeSet
+    setFormData({
+      logType: log.logType,
+      title: log.title,
+      logDate: log.logDate ? new Date(log.logDate).toISOString().slice(0, 10) : '',
+      severity: log.severity ?? 'LOW',
+      description: log.description ?? '',
+    });
+    setEditingLogId(log.id);
+    setShowForm(true);
   };
 
   const handleDeleteLog = (logId: string) => {
@@ -862,7 +860,7 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
     <div>
       <div className="px-4 pt-3">
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => { if (showForm) resetForm(); else setShowForm(true); }}
           className="text-sm text-blue-600 hover:text-blue-700 font-medium"
         >
           {showForm ? '취소' : '+ 새 이력 추가'}
@@ -914,7 +912,7 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
             disabled={!formData.title.trim()}
             className="w-full text-sm px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >
-            적용
+            {editingLogId ? '수정 적용' : '적용'}
           </button>
         </div>
       )}
@@ -927,7 +925,7 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
             <div key={log.id} className={`p-3 rounded-lg border ${log.isPending ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-gray-50'}`}>
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-700">
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${LOG_TYPE_COLORS[log.logType] ?? 'bg-gray-200 text-gray-700'}`}>
                     {LOG_TYPE_LABELS[log.logType] ?? log.logType}
                   </span>
                   {log.severity && (
@@ -935,30 +933,47 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
                       {log.severity}
                     </span>
                   )}
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[log.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {STATUS_LABELS[log.status] ?? log.status}
-                  </span>
                   {log.isPending && (
                     <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">미저장</span>
                   )}
                 </div>
-                <button
-                  onClick={() => handleDeleteLog(log.id)}
-                  className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
-                  title="삭제"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-0.5">
+                  {!log.isPending && (
+                    <button
+                      onClick={() => handleEditLog(log)}
+                      className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
+                      title="수정"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteLog(log.id)}
+                    className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                    title="삭제"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               <p className="text-sm font-medium text-gray-900">{log.title}</p>
               {log.description && <p className="text-sm text-gray-500 mt-1">{log.description}</p>}
-              <p className="text-xs text-gray-400 mt-1.5">
-                {log.logDate
-                  ? new Date(log.logDate).toLocaleDateString('ko-KR')
-                  : new Date(log.createdAt).toLocaleDateString('ko-KR')}
-              </p>
+              <div className="flex items-center justify-between mt-1.5">
+                <p className="text-xs text-gray-400">
+                  {log.logDate
+                    ? new Date(log.logDate).toLocaleDateString('ko-KR')
+                    : new Date(log.createdAt).toLocaleDateString('ko-KR')}
+                </p>
+                {log.createdByName && (
+                  <p className="text-xs text-gray-400">
+                    작성: {log.createdByName}
+                  </p>
+                )}
+              </div>
             </div>
           ))
         )}
@@ -968,7 +983,7 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
 }
 
 /* ================================================================
-   Connections Tab
+   Connections Tab - center aligned text
    ================================================================ */
 
 function ConnectionsTab({ equipmentId, roomId }: { equipmentId: string; roomId: string }) {

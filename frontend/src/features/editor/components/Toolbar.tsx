@@ -26,9 +26,10 @@ interface ToolbarProps {
   isAdmin: boolean;
   handleSave: () => void;
   isSaving: boolean;
+  onToggleHistory?: () => void;
 }
 
-export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving }: ToolbarProps) {
+export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory }: ToolbarProps) {
   const {
     selectedElement, localElements, hasChanges, showLengths,
     setLocalElements, setHasChanges, setShowLengths,
@@ -386,6 +387,18 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving }: Tool
           </button>
 
           <div className="border-l h-6 mx-2" />
+
+          {onToggleHistory && (
+            <button
+              onClick={onToggleHistory}
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+              title="변경 이력"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          )}
 
           <button
             onClick={handleSave}

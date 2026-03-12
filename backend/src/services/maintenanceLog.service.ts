@@ -15,6 +15,8 @@ export interface MaintenanceLogDetail {
   resolvedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  createdByName: string | null;
+  updatedByName: string | null;
 }
 
 export interface CreateMaintenanceLogInput {
@@ -36,12 +38,14 @@ export interface UpdateMaintenanceLogInput {
   resolvedAt?: string;
 }
 
+const LOG_INCLUDE = {
+  createdBy: { select: { name: true } },
+  updatedBy: { select: { name: true } },
+} as const;
+
 // ==================== Service ====================
 
 class MaintenanceLogService {
-  /**
-   * 설비 유지보수 이력 조회
-   */
   async getByEquipmentId(equipmentId: string): Promise<MaintenanceLogDetail[]> {
     const equipment = await prisma.equipment.findUnique({
       where: { id: equipmentId },
@@ -53,18 +57,17 @@ class MaintenanceLogService {
 
     const logs = await prisma.maintenanceLog.findMany({
       where: { equipmentId },
+      include: LOG_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
 
     return logs.map((l) => this.mapToDetail(l));
   }
 
-  /**
-   * 유지보수 이력 생성
-   */
   async create(
     equipmentId: string,
-    input: CreateMaintenanceLogInput
+    input: CreateMaintenanceLogInput,
+    userId: string
   ): Promise<MaintenanceLogDetail> {
     const equipment = await prisma.equipment.findUnique({
       where: { id: equipmentId },
@@ -83,18 +86,19 @@ class MaintenanceLogService {
         logDate: input.logDate ? new Date(input.logDate) : null,
         severity: input.severity,
         status: input.status ?? 'OPEN',
+        createdById: userId,
+        updatedById: userId,
       },
+      include: LOG_INCLUDE,
     });
 
     return this.mapToDetail(log);
   }
 
-  /**
-   * 유지보수 이력 수정
-   */
   async update(
     id: string,
-    input: UpdateMaintenanceLogInput
+    input: UpdateMaintenanceLogInput,
+    userId: string
   ): Promise<MaintenanceLogDetail> {
     const existing = await prisma.maintenanceLog.findUnique({
       where: { id },
@@ -118,15 +122,14 @@ class MaintenanceLogService {
         resolvedAt: input.resolvedAt !== undefined
           ? (input.resolvedAt ? new Date(input.resolvedAt) : null)
           : undefined,
+        updatedById: userId,
       },
+      include: LOG_INCLUDE,
     });
 
     return this.mapToDetail(log);
   }
 
-  /**
-   * 유지보수 이력 삭제
-   */
   async delete(id: string): Promise<void> {
     const log = await prisma.maintenanceLog.findUnique({
       where: { id },
@@ -154,6 +157,8 @@ class MaintenanceLogService {
       resolvedAt: l.resolvedAt,
       createdAt: l.createdAt,
       updatedAt: l.updatedAt,
+      createdByName: l.createdBy?.name ?? null,
+      updatedByName: l.updatedBy?.name ?? null,
     };
   }
 }

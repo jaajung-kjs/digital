@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { CableType } from '../../../types/connection';
+import type { ViewMode } from '../../../types/floorPlan';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { generateTempId } from '../../../utils/idHelpers';
+import { RemoteEquipmentSelector } from './RemoteEquipmentSelector';
 
 const CABLE_TYPE_OPTIONS: { value: CableType; label: string }[] = [
   { value: 'LAN', label: 'LAN' },
@@ -10,6 +12,12 @@ const CABLE_TYPE_OPTIONS: { value: CableType; label: string }[] = [
   { value: 'DC', label: 'DC 전원' },
   { value: 'GROUND', label: '접지' },
 ];
+
+const CABLE_TYPES_BY_VIEW: Partial<Record<ViewMode, CableType[]>> = {
+  'connection-network': ['LAN', 'FIBER'],
+  'connection-power': ['AC', 'DC'],
+  'connection-ground': ['GROUND'],
+};
 
 interface EquipmentOption {
   id: string;
@@ -42,14 +50,18 @@ export function ConnectionEditor({
 }: ConnectionEditorProps) {
   const addChange = useEditorStore((s) => s.addChange);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const viewMode = useEditorStore((s) => s.viewMode);
+
+  const allowedTypes = CABLE_TYPES_BY_VIEW[viewMode];
+  const filteredOptions = allowedTypes
+    ? CABLE_TYPE_OPTIONS.filter((o) => allowedTypes.includes(o.value))
+    : CABLE_TYPE_OPTIONS;
 
   const [sourceEquipmentId, setSourceEquipmentId] = useState(editingCable?.sourceEquipmentId ?? defaultSourceId ?? '');
   const [targetEquipmentId, setTargetEquipmentId] = useState(editingCable?.targetEquipmentId ?? defaultTargetId ?? '');
-  const [cableType, setCableType] = useState<CableType>(editingCable?.cableType ?? 'LAN');
+  const [cableType, setCableType] = useState<CableType>(editingCable?.cableType ?? (allowedTypes?.[0] ?? 'LAN'));
   const [label, setLabel] = useState(editingCable?.label ?? '');
   const [length, setLength] = useState(editingCable?.length?.toString() ?? '');
-  const [color, setColor] = useState(editingCable?.color ?? '');
-
   const isEditing = !!editingCable;
 
   const handleSave = () => {
@@ -64,7 +76,6 @@ export function ConnectionEditor({
         cableType,
         label: label || undefined,
         length: length ? Number(length) : undefined,
-        color: color || undefined,
       });
     } else {
       addChange({
@@ -75,7 +86,6 @@ export function ConnectionEditor({
         cableType,
         label: label || undefined,
         length: length ? Number(length) : undefined,
-        color: color || undefined,
       });
     }
 
@@ -101,40 +111,21 @@ export function ConnectionEditor({
       </h3>
 
       {/* Source Equipment */}
-      <div className="mb-2">
-        <label className="block text-xs text-gray-500 mb-1">출발 설비</label>
-        <select
-          value={sourceEquipmentId}
-          onChange={(e) => setSourceEquipmentId(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
-        >
-          <option value="">선택...</option>
-          {equipmentList.map((eq) => (
-            <option key={eq.id} value={eq.id}>
-              {eq.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <RemoteEquipmentSelector
+        label="출발 설비"
+        selectedEquipmentId={sourceEquipmentId}
+        onSelect={(id) => setSourceEquipmentId(id)}
+        localEquipmentList={equipmentList}
+      />
 
       {/* Target Equipment */}
-      <div className="mb-2">
-        <label className="block text-xs text-gray-500 mb-1">도착 설비</label>
-        <select
-          value={targetEquipmentId}
-          onChange={(e) => setTargetEquipmentId(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
-        >
-          <option value="">선택...</option>
-          {equipmentList
-            .filter((eq) => eq.id !== sourceEquipmentId)
-            .map((eq) => (
-              <option key={eq.id} value={eq.id}>
-                {eq.name}
-              </option>
-            ))}
-        </select>
-      </div>
+      <RemoteEquipmentSelector
+        label="도착 설비"
+        selectedEquipmentId={targetEquipmentId}
+        onSelect={(id) => setTargetEquipmentId(id)}
+        localEquipmentList={equipmentList}
+        excludeId={sourceEquipmentId}
+      />
 
       {/* Cable Type */}
       <div className="mb-2">
@@ -144,7 +135,7 @@ export function ConnectionEditor({
           onChange={(e) => setCableType(e.target.value as CableType)}
           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
         >
-          {CABLE_TYPE_OPTIONS.map((opt) => (
+          {filteredOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
@@ -175,18 +166,6 @@ export function ConnectionEditor({
           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
           min={0}
           step={0.1}
-        />
-      </div>
-
-      {/* Color */}
-      <div className="mb-3">
-        <label className="block text-xs text-gray-500 mb-1">색상</label>
-        <input
-          type="text"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          placeholder="기본 색상 사용"
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
         />
       </div>
 

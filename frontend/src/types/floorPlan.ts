@@ -187,8 +187,18 @@ export interface UpdateFloorPlanRequest {
     manufacturer?: string;
     manager?: string;
   }[];
+  cables?: {
+    id?: string | null;
+    sourceEquipmentId: string;
+    targetEquipmentId: string;
+    cableType: string;
+    label?: string | null;
+    length?: number | null;
+    color?: string | null;
+  }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
+  deletedCableIds?: string[];
 }
 
 export interface CreateFloorPlanEquipmentRequest {

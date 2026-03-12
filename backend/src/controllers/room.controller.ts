@@ -74,4 +74,34 @@ export const roomController = {
       next(error);
     }
   },
+
+  async getAuditLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const logs = await roomService.getAuditLogs(id);
+      res.json({ data: logs });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getAuditLogSnapshot(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, logId } = req.params;
+      const result = await roomService.getAuditLogSnapshot(id, logId);
+      res.json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async deleteAuditLog(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { logId } = req.params;
+      await roomService.deleteAuditLog(logId);
+      res.json({ message: '변경 이력이 삭제되었습니다.' });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

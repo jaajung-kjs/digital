@@ -39,6 +39,8 @@ model User {
   updatedBranches Branch[] @relation("BranchUpdatedBy")
   createdRooms   Room[] @relation("RoomCreatedBy")
   updatedRooms   Room[] @relation("RoomUpdatedBy")
+  createdMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogCreatedBy")
+  updatedMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogUpdatedBy")
 
   @@map("users")
 }
@@ -387,8 +389,12 @@ model MaintenanceLog {
   resolvedAt   DateTime? @map("resolved_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdById  String?   @map("created_by")
+  updatedById  String?   @map("updated_by")
 
   equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("MaintenanceLogCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?     @relation("MaintenanceLogUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("maintenance_logs")
 }

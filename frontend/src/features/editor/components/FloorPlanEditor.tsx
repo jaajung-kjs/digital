@@ -1,4 +1,4 @@
-import { useRef, useEffect, Suspense, lazy } from 'react';
+import { useRef, useState, useEffect, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
@@ -16,6 +16,7 @@ import { PropertyBar } from './PropertyBar';
 import { HeightInput } from './HeightInput';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
+import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 
 const ThreeCanvas = lazy(() => import('../../viewer3d/components/ThreeCanvas').then(m => ({ default: m.ThreeCanvas })));
 
@@ -27,6 +28,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isAdmin = useIsAdmin();
+  const [showHistory, setShowHistory] = useState(false);
 
   const {
     room, floorPlan, roomLoading, planLoading, planError, saveMutation, handleSave,
@@ -124,6 +126,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
         isAdmin={isAdmin}
         handleSave={handleSave}
         isSaving={saveMutation.isPending}
+        onToggleHistory={() => setShowHistory(p => !p)}
       />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -176,6 +179,10 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
               {detailPanelEquipmentId && (
                 <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} roomId={roomId} />
+              )}
+
+              {showHistory && (
+                <ChangeHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />
               )}
 
               {floorPlan && viewMode === 'edit-2d' && (

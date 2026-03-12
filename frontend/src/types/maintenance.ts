@@ -24,4 +24,19 @@ export interface MaintenanceLog {
   resolvedAt?: string;
   createdAt: string;
   updatedAt: string;
+  createdByName?: string | null;
+  updatedByName?: string | null;
+}
+
+export interface AuditLog {
+  id: string;
+  entityType: string;
+  entityId: string;
+  entityName?: string;
+  action: string;
+  actionDetail?: string;
+  changedFields: string[];
+  newValues?: Record<string, unknown>;
+  userName?: string;
+  createdAt: string;
 }
