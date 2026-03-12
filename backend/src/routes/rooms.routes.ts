@@ -24,6 +24,7 @@ const elementSchema = z.object({
 
 const equipmentSchema = z.object({
   id: z.string().uuid().optional().nullable(),
+  tempId: z.string().optional(),
   name: z.string().min(1).max(100),
   category: z.string().max(50).optional(),
   positionX: z.number(),

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { compressImage } from '../../../utils/imageCompression';
@@ -273,7 +274,7 @@ function PhotoLightbox({
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] bg-black/90 flex flex-col"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -355,7 +356,8 @@ function PhotoLightbox({
           <p className="text-sm text-white/70 mt-0.5">{photo.description}</p>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
