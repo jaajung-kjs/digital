@@ -15,6 +15,7 @@ import {
 import { renderGrid } from '../renderers/gridRenderer';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useSnapshotStore } from '../stores/snapshotStore';
 
 /**
  * Hook managing canvas ref, resize, and render loop
@@ -31,10 +32,18 @@ export function useCanvas(
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || !floorPlan) return;
 
+    const editorState = useEditorStore.getState();
+    const snapshot = useSnapshotStore.getState();
+
     const {
-      zoom, panX, panY, showGrid, majorGridSize,
-      localElements, localEquipment, selectedIds, showLengths, tool,
-    } = useEditorStore.getState();
+      zoom, panX, panY, showGrid, selectedIds, showLengths, tool,
+    } = editorState;
+
+    // Branch data source: snapshot overlay vs editor
+    const localElements = snapshot.active ? snapshot.elements : editorState.localElements;
+    const localEquipment = snapshot.active ? snapshot.equipment : editorState.localEquipment;
+    const majorGridSize = snapshot.active ? snapshot.majorGridSize : editorState.majorGridSize;
+
     const {
       isDrawingLine, linePoints, linePreviewEnd,
       isDrawingCircle, circleCenter, circlePreviewRadius, circlePreviewEnd,
@@ -129,18 +138,18 @@ export function useCanvas(
 
   // Subscribe to store changes and re-render
   useEffect(() => {
-    const unsubEditor = useEditorStore.subscribe(() => {
+    const scheduleRender = () => {
       if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);
       renderRequestRef.current = requestAnimationFrame(renderCanvas);
-    });
-    const unsubCanvas = useCanvasStore.subscribe(() => {
-      if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);
-      renderRequestRef.current = requestAnimationFrame(renderCanvas);
-    });
+    };
+    const unsubEditor = useEditorStore.subscribe(scheduleRender);
+    const unsubCanvas = useCanvasStore.subscribe(scheduleRender);
+    const unsubSnapshot = useSnapshotStore.subscribe(scheduleRender);
 
     return () => {
       unsubEditor();
       unsubCanvas();
+      unsubSnapshot();
       if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);
     };
   }, [renderCanvas]);

@@ -7,6 +7,7 @@ import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useClipboard } from '../hooks/useClipboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
 import { Toolbar } from './Toolbar';
@@ -41,6 +42,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const resetEditor = useEditorStore(s => s.resetEditor);
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
   const viewMode = useEditorStore(s => s.viewMode);
+  const snapshotActive = useSnapshotStore(s => s.active);
+  const snapshotLabel = useSnapshotStore(s => s.label);
   const localElements = useEditorStore(s => s.localElements);
   const localEquipment = useEditorStore(s => s.localEquipment);
   const selectedElement = useEditorStore(s => s.selectedElement);
@@ -59,10 +62,11 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const pasteEquipmentName = useCanvasStore(s => s.pasteEquipmentName);
   const setPasteEquipmentName = useCanvasStore(s => s.setPasteEquipmentName);
 
-  // Reset editor store on unmount (discard all unsaved changes including pending photos)
+  // Reset editor store and snapshot on unmount
   useEffect(() => {
     return () => {
       resetEditor();
+      useSnapshotStore.getState().exit();
     };
   }, [resetEditor]);
 
@@ -142,7 +146,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
           </div>
         ) : (
           <>
-            {viewMode === 'edit-2d' && <ToolPanel />}
+            {viewMode === 'edit-2d' && !snapshotActive && <ToolPanel />}
 
             <div className="flex-1 flex flex-col min-w-0 relative">
               {viewMode === 'view-3d' ? (
@@ -185,10 +189,17 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                 <ChangeHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />
               )}
 
-              {floorPlan && viewMode === 'edit-2d' && (
+              {floorPlan && viewMode === 'edit-2d' && !snapshotActive && (
                 <div className="flex items-center">
                   <PropertyBar />
                   <HeightInput />
+                </div>
+              )}
+
+              {/* Preview mode banner (top of canvas area) */}
+              {snapshotActive && !showHistory && (
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-amber-50 border border-amber-300 rounded-lg shadow-sm">
+                  <span className="text-xs font-medium text-amber-800">과거 도면 보기 — {snapshotLabel}</span>
                 </div>
               )}
             </div>

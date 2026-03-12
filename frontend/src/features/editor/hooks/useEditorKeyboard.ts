@@ -8,6 +8,7 @@ import type {
 } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useSnapshotStore } from '../stores/snapshotStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useEditorHistory } from './useEditorHistory';
 
@@ -26,7 +27,7 @@ export function useEditorKeyboard(handleSave: () => void) {
       const es = useEditorStore.getState();
       const cs = useCanvasStore.getState();
 
-      // Space key for pan mode
+      // Space key for pan mode (allowed in preview)
       if (e.key === ' ' && !e.repeat) {
         e.preventDefault();
         cs.setIsSpacePressed(true);
@@ -37,6 +38,9 @@ export function useEditorKeyboard(handleSave: () => void) {
         es.setTool('select');
         es.clearSelection();
       }
+
+      // Block all editing shortcuts in snapshot preview
+      if (useSnapshotStore.getState().active) return;
 
       // Tool shortcuts
       if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey) es.setTool('select');

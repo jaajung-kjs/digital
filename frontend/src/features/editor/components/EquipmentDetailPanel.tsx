@@ -4,6 +4,7 @@ import { api } from '../../../utils/api';
 import { compressImage } from '../../../utils/imageCompression';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useEditorStore, selectChanges } from '../stores/editorStore';
+import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEquipmentPhotos } from '../../equipment/hooks/useEquipmentPhotos';
 import { useMaintenanceLogs } from '../../equipment/hooks/useMaintenanceLogs';
 import { ConnectionDiagram } from '../../equipment/components/ConnectionDiagram';
@@ -99,6 +100,7 @@ function useMergedEquipmentDetail(equipmentId: string): {
 export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('photos');
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
+  const snapshotActive = useSnapshotStore((s) => s.active);
   const isTemp = isTempId(equipmentId);
   const { equipment, isLoading, error } = useMergedEquipmentDetail(equipmentId);
 
@@ -172,13 +174,13 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
         ) : equipment ? (
           <>
             {activeTab === 'photos' && (
-              <PhotosTab equipment={equipment} />
+              <PhotosTab equipment={equipment} readOnly={snapshotActive} />
             )}
             {activeTab === 'info' && (
-              <InfoTab equipment={equipment} />
+              <InfoTab equipment={equipment} readOnly={snapshotActive} />
             )}
             {activeTab === 'logs' && (
-              <LogsTab equipmentId={equipmentId} />
+              <LogsTab equipmentId={equipmentId} readOnly={snapshotActive} />
             )}
             {activeTab === 'connections' && (
               <ConnectionsTab equipmentId={equipmentId} roomId={roomId} />
@@ -417,7 +419,7 @@ function UploadDialog({
    Photos Tab
    ================================================================ */
 
-function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
+function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly?: boolean }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoSide, setPhotoSide] = useState<'front' | 'rear'>('front');
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -522,7 +524,7 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
           photos={allPhotos}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
-          onDelete={handleDeletePhoto}
+          onDelete={readOnly ? undefined : handleDeletePhoto}
         />
       )}
 
@@ -546,28 +548,30 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
           </button>
         </div>
 
-        <div className="absolute top-2 right-2 z-10 flex gap-1">
-          <button
-            onClick={handleUploadClick}
-            className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-white transition-colors shadow-sm"
-            title={currentImageUrl ? '사진 변경' : '사진 업로드'}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </button>
-          {currentImageUrl && (
+        {!readOnly && (
+          <div className="absolute top-2 right-2 z-10 flex gap-1">
             <button
-              onClick={handleDeleteCurrent}
-              className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-red-400 transition-colors shadow-sm"
-              title="사진 삭제"
+              onClick={handleUploadClick}
+              className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-white transition-colors shadow-sm"
+              title={currentImageUrl ? '사진 변경' : '사진 업로드'}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </button>
-          )}
-        </div>
+            {currentImageUrl && (
+              <button
+                onClick={handleDeleteCurrent}
+                className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-red-400 transition-colors shadow-sm"
+                title="사진 삭제"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
 
         {allPhotos.length > 1 && (
           <div className="absolute bottom-2 left-2 z-10">
@@ -593,6 +597,13 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
             className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
             onClick={() => setLightboxIndex(0)}
           />
+        ) : readOnly ? (
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
+            <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm">{photoSide === 'front' ? '전면' : '후면'} 사진 없음</span>
+          </div>
         ) : (
           <button
             onClick={handleUploadClick}
@@ -613,10 +624,10 @@ function PhotosTab({ equipment }: { equipment: EquipmentDetail }) {
    Info Tab
    ================================================================ */
 
-function InfoTab({ equipment }: { equipment: EquipmentDetail }) {
+function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly?: boolean }) {
   const [isEditing, setIsEditing] = useState(false);
 
-  if (isEditing) {
+  if (isEditing && !readOnly) {
     return <EditForm equipment={equipment} onClose={() => setIsEditing(false)} />;
   }
 
@@ -638,15 +649,17 @@ function InfoTab({ equipment }: { equipment: EquipmentDetail }) {
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-bold text-gray-800">설비 정보</span>
-        <button
-          onClick={() => setIsEditing(true)}
-          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-          </svg>
-          수정
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+            수정
+          </button>
+        )}
       </div>
       <div className="space-y-3">
         {fields.map((f) => (
@@ -747,7 +760,7 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
    Logs Tab - with edit, author display, category colors
    ================================================================ */
 
-function LogsTab({ equipmentId }: { equipmentId: string }) {
+function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: boolean }) {
   const isTemp = isTempId(equipmentId);
   const { data: backendLogs, isLoading } = useMaintenanceLogs(equipmentId);
   const changeSet = useEditorStore((s) => s.changeSet);
@@ -858,16 +871,18 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
 
   return (
     <div>
-      <div className="px-4 pt-3">
-        <button
-          onClick={() => { if (showForm) resetForm(); else setShowForm(true); }}
-          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-        >
-          {showForm ? '취소' : '+ 새 이력 추가'}
-        </button>
-      </div>
+      {!readOnly && (
+        <div className="px-4 pt-3">
+          <button
+            onClick={() => { if (showForm) resetForm(); else setShowForm(true); }}
+            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            {showForm ? '취소' : '+ 새 이력 추가'}
+          </button>
+        </div>
+      )}
 
-      {showForm && (
+      {showForm && !readOnly && (
         <div className="mx-4 mt-2 p-3 rounded-lg border border-blue-200 bg-blue-50 space-y-2.5">
           <div className="flex gap-2">
             <select
@@ -937,28 +952,30 @@ function LogsTab({ equipmentId }: { equipmentId: string }) {
                     <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">미저장</span>
                   )}
                 </div>
-                <div className="flex items-center gap-0.5">
-                  {!log.isPending && (
+                {!readOnly && (
+                  <div className="flex items-center gap-0.5">
+                    {!log.isPending && (
+                      <button
+                        onClick={() => handleEditLog(log)}
+                        className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
+                        title="수정"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleEditLog(log)}
-                      className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
-                      title="수정"
+                      onClick={() => handleDeleteLog(log.id)}
+                      className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                      title="삭제"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
-                  )}
-                  <button
-                    onClick={() => handleDeleteLog(log.id)}
-                    className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
-                    title="삭제"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
               <p className="text-sm font-medium text-gray-900">{log.title}</p>
               {log.description && <p className="text-sm text-gray-500 mt-1">{log.description}</p>}
