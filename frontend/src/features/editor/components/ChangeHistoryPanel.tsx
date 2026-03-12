@@ -50,15 +50,8 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
 
   return (
     <div
-      className="absolute left-0 top-0 bottom-0 w-[320px] bg-white border-r border-gray-200 shadow-[4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col"
-      style={{ animation: 'slideInLeft 0.25s ease-out' }}
+      className="absolute left-0 top-0 bottom-0 w-[320px] bg-white border-r border-gray-200 shadow-[4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col animate-slide-in-left"
     >
-      <style>{`
-        @keyframes slideInLeft {
-          from { transform: translateX(-100%); }
-          to { transform: translateX(0); }
-        }
-      `}</style>
 
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
         <h3 className="text-sm font-bold text-gray-900">도면 변경 이력</h3>
