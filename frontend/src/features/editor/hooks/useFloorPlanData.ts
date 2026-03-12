@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type { FloorPlanDetail, UpdateFloorPlanRequest } from '../../../types/floorPlan';
 import type { RoomDetail } from '../../../types/substation';
-import { useEditorStore, type ChangeEntry } from '../stores/editorStore';
+import { useEditorStore, selectChanges, type ChangeEntry } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
@@ -18,8 +18,8 @@ function buildTempIdMap(
 }
 
 /**
- * Process a single ChangeEntry into an API call.
- * This is the ONLY place where changeSet entries become real mutations.
+ * Process a single non-cable ChangeEntry into an API call.
+ * Cables are now part of the bulk save request — only photos and logs go here.
  */
 async function processChange(entry: ChangeEntry, resolveId: (id: string) => string) {
   switch (entry.type) {
@@ -37,31 +37,17 @@ async function processChange(entry: ChangeEntry, resolveId: (id: string) => stri
     case 'photo:delete':
       await api.delete(`/equipment-photos/${entry.photoId}`);
       break;
-    case 'cable:create':
-      await api.post('/cables', {
-        sourceEquipmentId: resolveId(entry.sourceEquipmentId),
-        targetEquipmentId: resolveId(entry.targetEquipmentId),
-        cableType: entry.cableType,
-        label: entry.label || undefined,
-        length: entry.length || undefined,
-        color: entry.color || undefined,
-      });
-      break;
-    case 'cable:update':
-      await api.put(`/cables/${entry.id}`, {
-        sourceEquipmentId: resolveId(entry.sourceEquipmentId),
-        targetEquipmentId: resolveId(entry.targetEquipmentId),
-        cableType: entry.cableType,
-        label: entry.label || undefined,
-        length: entry.length || undefined,
-        color: entry.color || undefined,
-      });
-      break;
-    case 'cable:delete':
-      await api.delete(`/cables/${entry.cableId}`);
-      break;
     case 'log:create':
       await api.post(`/equipment/${resolveId(entry.equipmentId)}/maintenance-logs`, {
+        logType: entry.logType,
+        title: entry.title,
+        logDate: entry.logDate || undefined,
+        severity: entry.severity || undefined,
+        description: entry.description || undefined,
+      });
+      break;
+    case 'log:update':
+      await api.put(`/maintenance-logs/${entry.logId}`, {
         logType: entry.logType,
         title: entry.title,
         logDate: entry.logDate || undefined,
@@ -121,47 +107,47 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       );
     },
     onSuccess: async (response) => {
-      // 1. Build temp ID → real ID mapping
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
       const { changeSet } = useEditorStore.getState();
       const tempIdMap = buildTempIdMap(equipmentIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
 
-      // 2. Process changeSet — deletions first (parallel), then creates/updates (parallel)
-      const deletions = changeSet.filter((e) => e.type.endsWith(':delete'));
-      const others = changeSet.filter((e) => !e.type.endsWith(':delete'));
+      // Process remaining changeSet (photos and logs only — cables already saved atomically)
+      const nonCableChanges = changeSet.filter((e) => !e.type.startsWith('cable:'));
+      if (nonCableChanges.length > 0) {
+        const deletions = nonCableChanges.filter((e) => e.type.endsWith(':delete'));
+        const others = nonCableChanges.filter((e) => !e.type.endsWith(':delete'));
 
-      const failures: ChangeEntry[] = [];
-      const run = async (entries: ChangeEntry[]) => {
-        const results = await Promise.allSettled(
-          entries.map((entry) => processChange(entry, resolveId))
-        );
-        results.forEach((r, i) => {
-          if (r.status === 'rejected') failures.push(entries[i]);
-        });
-      };
-
-      await run(deletions);
-      await run(others);
-
-      if (failures.length > 0) {
-        console.warn(`[Save] ${failures.length} change(s) failed to process:`, failures);
+        const run = async (entries: ChangeEntry[]) => {
+          const results = await Promise.allSettled(
+            entries.map((entry) => processChange(entry, resolveId))
+          );
+          const failures = results
+            .map((r, i) => r.status === 'rejected' ? entries[i] : null)
+            .filter(Boolean);
+          if (failures.length > 0) {
+            console.warn(`[Save] ${failures.length} change(s) failed:`, failures);
+          }
+        };
+        await run(deletions);
+        await run(others);
       }
 
-      // 3. Clear and invalidate (only relevant query keys)
+      // Clear and invalidate
       useEditorStore.getState().clearChangeSet();
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
-      if (changeSet.some((e) => e.type.startsWith('photo:'))) {
+      queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
+      if (nonCableChanges.some((e) => e.type.startsWith('photo:'))) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
       }
-      if (changeSet.some((e) => e.type.startsWith('cable:'))) {
-        queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
-        queryClient.invalidateQueries({ queryKey: ['connections'] });
-      }
-      if (changeSet.some((e) => e.type.startsWith('log:'))) {
+      if (nonCableChanges.some((e) => e.type.startsWith('log:'))) {
         queryClient.invalidateQueries({ queryKey: ['maintenance-logs'] });
       }
       setHasChanges(false);
+
+      // Reset undo/redo history after successful save
+      const { localElements: currentElements, localEquipment: currentEquipment } = useEditorStore.getState();
+      initHistory(currentElements, currentEquipment);
     },
   });
 
@@ -237,6 +223,28 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
   const handleSave = () => {
     if (!floorPlan) return;
+    const { changeSet } = useEditorStore.getState();
+
+    // Build cable payload from changeSet
+    const cableCreates = selectChanges(changeSet, 'cable:create')
+      .map((c) => ({
+        sourceEquipmentId: c.sourceEquipmentId,
+        targetEquipmentId: c.targetEquipmentId,
+        cableType: c.cableType,
+        label: c.label, length: c.length, color: c.color,
+      }));
+    const cableUpdates = selectChanges(changeSet, 'cable:update')
+      .map((c) => ({
+        id: c.id,
+        sourceEquipmentId: c.sourceEquipmentId,
+        targetEquipmentId: c.targetEquipmentId,
+        cableType: c.cableType,
+        label: c.label, length: c.length, color: c.color,
+      }));
+    const deletedCableIds = selectChanges(changeSet, 'cable:delete')
+      .map((c) => c.cableId);
+
+    const cables = [...cableCreates, ...cableUpdates];
 
     const updateData: UpdateFloorPlanRequest = {
       canvasWidth: floorPlan.canvasWidth,
@@ -265,8 +273,10 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         manufacturer: eq.manufacturer || undefined,
         manager: eq.manager || undefined,
       })),
+      cables: cables.length > 0 ? cables : undefined,
       deletedElementIds: deletedElementIds.length > 0 ? deletedElementIds : undefined,
       deletedEquipmentIds: deletedEquipmentIds.length > 0 ? deletedEquipmentIds : undefined,
+      deletedCableIds: deletedCableIds.length > 0 ? deletedCableIds : undefined,
     };
 
     saveMutation.mutate(updateData);

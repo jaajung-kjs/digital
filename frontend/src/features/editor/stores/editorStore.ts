@@ -26,6 +26,7 @@ export type ChangeEntry =
   | { type: 'cable:update'; id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; label?: string; length?: number; color?: string }
   | { type: 'cable:delete'; cableId: string }
   | { type: 'log:create'; localId: string; equipmentId: string; logType: string; title: string; logDate?: string; severity?: string; description?: string }
+  | { type: 'log:update'; logId: string; logType: string; title: string; logDate?: string; severity?: string; description?: string }
   | { type: 'log:delete'; logId: string };
 
 /** Type-safe filter: selectChanges(changeSet, 'cable:create') */
@@ -67,6 +68,8 @@ export interface EditorStoreState {
   // Single change set for ALL associated entity mutations
   changeSet: ChangeEntry[];
 
+  connectionFilters: CableType[];
+
   showLengths: boolean;
   viewportInitialized: boolean;
   mouseWorldPosition: { x: number; y: number };
@@ -105,6 +108,7 @@ export interface EditorStoreActions {
   removeChanges: (predicate: (e: ChangeEntry) => boolean) => void;
   clearChangeSet: () => void;
 
+  setConnectionFilters: (filters: CableType[]) => void;
   setShowLengths: (show: boolean) => void;
   setViewportInitialized: (init: boolean) => void;
   setMouseWorldPosition: (pos: { x: number; y: number }) => void;
@@ -133,6 +137,7 @@ const initialState: EditorStoreState = {
   deletedElementIds: [],
   deletedEquipmentIds: [],
   changeSet: [],
+  connectionFilters: [] as CableType[],
   showLengths: false,
   viewportInitialized: false,
   mouseWorldPosition: { x: 0, y: 0 },
@@ -198,6 +203,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     return { changeSet: [], deletedElementIds: [], deletedEquipmentIds: [] };
   }),
 
+  setConnectionFilters: (connectionFilters) => set({ connectionFilters }),
   setShowLengths: (showLengths) => set({ showLengths }),
   setViewportInitialized: (viewportInitialized) => set({ viewportInitialized }),
   setMouseWorldPosition: (mouseWorldPosition) => set({ mouseWorldPosition }),

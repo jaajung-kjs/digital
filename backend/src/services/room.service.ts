@@ -1,5 +1,5 @@
 import prisma from '../config/prisma.js';
-import { Prisma, EquipmentCategory } from '@prisma/client';
+import { Prisma, EquipmentCategory, CableType } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
 
 // ==================== Types ====================
@@ -97,8 +97,18 @@ export interface UpdatePlanInput {
     manager?: string | null;
     height3d?: number | null;
   }[];
+  cables?: {
+    id?: string | null;
+    sourceEquipmentId: string;
+    targetEquipmentId: string;
+    cableType: string;
+    label?: string | null;
+    length?: number | null;
+    color?: string | null;
+  }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
+  deletedCableIds?: string[];
 }
 
 // ==================== Shared ====================
@@ -283,6 +293,12 @@ class RoomService {
         });
       }
 
+      if (input.deletedCableIds && input.deletedCableIds.length > 0) {
+        await tx.cable.deleteMany({
+          where: { id: { in: input.deletedCableIds } },
+        });
+      }
+
       if (input.deletedEquipmentIds && input.deletedEquipmentIds.length > 0) {
         await tx.equipment.deleteMany({
           where: { id: { in: input.deletedEquipmentIds }, roomId: id },
@@ -363,6 +379,42 @@ class RoomService {
         }
       }
 
+      // Cable create/update (after equipment so tempIds are resolved)
+      if (input.cables && input.cables.length > 0) {
+        for (const cable of input.cables) {
+          const srcId = equipmentIdMap[cable.sourceEquipmentId] ?? cable.sourceEquipmentId;
+          const tgtId = equipmentIdMap[cable.targetEquipmentId] ?? cable.targetEquipmentId;
+
+          if (cable.id) {
+            await tx.cable.update({
+              where: { id: cable.id },
+              data: {
+                sourceEquipmentId: srcId,
+                targetEquipmentId: tgtId,
+                cableType: cable.cableType as CableType,
+                label: cable.label,
+                length: cable.length,
+                color: cable.color,
+                updatedById: userId,
+              },
+            });
+          } else {
+            await tx.cable.create({
+              data: {
+                sourceEquipmentId: srcId,
+                targetEquipmentId: tgtId,
+                cableType: cable.cableType as CableType,
+                label: cable.label,
+                length: cable.length,
+                color: cable.color,
+                createdById: userId,
+                updatedById: userId,
+              },
+            });
+          }
+        }
+      }
+
       const updated = await tx.room.update({
         where: { id },
         data: {
@@ -376,6 +428,85 @@ class RoomService {
         },
       });
       newVersion = updated.version;
+
+      // Capture snapshot inside transaction (all changes visible via tx)
+      const snapshotElements = await tx.floorPlanElement.findMany({
+        where: { roomId: id },
+        orderBy: { zIndex: 'asc' },
+      });
+      const snapshotEquipment = await tx.equipment.findMany({
+        where: { roomId: id },
+        select: {
+          id: true, name: true, category: true,
+          positionX: true, positionY: true, width2d: true, height2d: true,
+          rotation: true, frontImageUrl: true, rearImageUrl: true,
+          description: true, model: true, manufacturer: true, manager: true, height3d: true,
+        },
+        orderBy: { sortOrder: 'asc' },
+      });
+      const snapshotCables = await tx.cable.findMany({
+        where: {
+          OR: [
+            { sourceEquipment: { roomId: id } },
+            { targetEquipment: { roomId: id } },
+          ],
+        },
+        include: {
+          sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
+          targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
+        },
+      });
+
+      const snapshot = {
+        plan: {
+          id: updated.id, name: updated.name,
+          canvasWidth: updated.canvasWidth, canvasHeight: updated.canvasHeight,
+          gridSize: updated.gridSize, majorGridSize: updated.majorGridSize,
+          backgroundColor: updated.backgroundColor,
+          elements: snapshotElements.map((e) => ({
+            id: e.id, elementType: e.elementType,
+            properties: e.properties as Record<string, unknown>,
+            zIndex: e.zIndex, isVisible: e.isVisible,
+          })),
+          equipment: snapshotEquipment.map((e) => ({
+            id: e.id, name: e.name, category: e.category,
+            positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
+            width: e.width2d ?? 60, height: e.height2d ?? 100,
+            rotation: e.rotation ?? 0,
+            frontImageUrl: e.frontImageUrl, rearImageUrl: e.rearImageUrl,
+            description: e.description, model: e.model,
+            manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
+          })),
+          version: newVersion, updatedAt: updated.updatedAt,
+        },
+        cables: snapshotCables.map((c) => ({
+          id: c.id,
+          sourceEquipmentId: c.sourceEquipmentId, targetEquipmentId: c.targetEquipmentId,
+          cableType: c.cableType, label: c.label, length: c.length, color: c.color,
+          pathPoints: c.pathPoints, description: c.description,
+          sourceEquipment: c.sourceEquipment, targetEquipment: c.targetEquipment,
+        })),
+      };
+
+      // Record audit log with complete snapshot
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { name: true } });
+      const changedFields: string[] = [];
+      if (input.elements) changedFields.push('elements');
+      if (input.equipment) changedFields.push('equipment');
+      if (input.cables?.length || input.deletedCableIds?.length) changedFields.push('cables');
+      if (input.deletedElementIds?.length) changedFields.push('deletedElements');
+      if (input.deletedEquipmentIds?.length) changedFields.push('deletedEquipment');
+      if (input.canvasWidth || input.canvasHeight) changedFields.push('canvas');
+      if (input.gridSize || input.majorGridSize) changedFields.push('grid');
+
+      await tx.auditLog.create({
+        data: {
+          entityType: 'Room', entityId: id, entityName: room.name,
+          action: 'UPDATE', actionDetail: `v${newVersion} 저장`,
+          changedFields, newValues: snapshot as any,
+          userId, userName: user?.name ?? null,
+        },
+      });
     });
 
     return {
@@ -384,6 +515,77 @@ class RoomService {
       message: '저장되었습니다.',
       equipmentIdMap,
     };
+  }
+
+  /**
+   * 도면 변경 이력 조회
+   */
+  async getAuditLogs(roomId: string) {
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundError('실');
+
+    return prisma.auditLog.findMany({
+      where: { entityType: 'Room', entityId: roomId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * 특정 변경 이력의 스냅샷 데이터 반환 (DB 수정 없음)
+   */
+  async getAuditLogSnapshot(roomId: string, auditLogId: string) {
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundError('실');
+
+    const log = await prisma.auditLog.findUnique({ where: { id: auditLogId } });
+    if (!log) throw new NotFoundError('변경 이력');
+    if (log.entityType !== 'Room' || log.entityId !== roomId) {
+      throw new NotFoundError('변경 이력');
+    }
+
+    const snapshot = log.newValues as any;
+    if (!snapshot) {
+      throw new ConflictError('이 버전에는 되돌리기 데이터가 없습니다.');
+    }
+
+    // New format: { plan: RoomPlanDetail, cables: [...] }
+    if (snapshot.plan) {
+      return {
+        plan: snapshot.plan,
+        cables: snapshot.cables ?? [],
+      };
+    }
+
+    // Legacy format: { elements, equipment, cables, canvasWidth, ... }
+    if (snapshot.elements && snapshot.equipment) {
+      return {
+        plan: {
+          id: roomId,
+          name: room?.name ?? '',
+          canvasWidth: snapshot.canvasWidth,
+          canvasHeight: snapshot.canvasHeight,
+          gridSize: snapshot.gridSize,
+          majorGridSize: snapshot.majorGridSize,
+          backgroundColor: snapshot.backgroundColor,
+          elements: snapshot.elements,
+          equipment: snapshot.equipment,
+          version: 0,
+          updatedAt: log.createdAt,
+        },
+        cables: snapshot.cables ?? [],
+      };
+    }
+
+    throw new ConflictError('이 버전에는 되돌리기 데이터가 없습니다.');
+  }
+
+  /**
+   * 도면 변경 이력 삭제
+   */
+  async deleteAuditLog(logId: string) {
+    const log = await prisma.auditLog.findUnique({ where: { id: logId } });
+    if (!log) throw new NotFoundError('변경 이력');
+    await prisma.auditLog.delete({ where: { id: logId } });
   }
 }
 

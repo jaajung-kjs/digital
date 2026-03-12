@@ -38,6 +38,16 @@ const equipmentSchema = z.object({
   height3d: z.number().optional().nullable(),
 });
 
+const cableSchema = z.object({
+  id: z.string().uuid().nullish(),
+  sourceEquipmentId: z.string(),
+  targetEquipmentId: z.string(),
+  cableType: z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']),
+  label: z.string().nullish(),
+  length: z.number().nullish(),
+  color: z.string().nullish(),
+});
+
 const bulkUpdatePlanSchema = z.object({
   canvasWidth: z.number().int().min(100).max(10000).optional(),
   canvasHeight: z.number().int().min(100).max(10000).optional(),
@@ -46,8 +56,10 @@ const bulkUpdatePlanSchema = z.object({
   backgroundColor: z.string().max(20).optional(),
   elements: z.array(elementSchema).optional(),
   equipment: z.array(equipmentSchema).optional(),
+  cables: z.array(cableSchema).optional(),
   deletedElementIds: z.array(z.string().uuid()).optional(),
   deletedEquipmentIds: z.array(z.string().uuid()).optional(),
+  deletedCableIds: z.array(z.string().uuid()).optional(),
 });
 
 // 실 상세 조회
@@ -100,5 +112,16 @@ router.post(
 
 // 실의 케이블 연결 조회 (인증 불필요)
 router.get('/:id/connections', cableController.getByRoomId);
+
+// ==================== Audit Logs (Change History) ====================
+
+// 도면 변경 이력 조회
+router.get('/:id/audit-logs', roomController.getAuditLogs);
+
+// 도면 변경 이력 스냅샷 조회
+router.get('/:id/audit-logs/:logId/snapshot', roomController.getAuditLogSnapshot);
+
+// 도면 변경 이력 삭제 (관리자만)
+router.delete('/:id/audit-logs/:logId', authenticate, adminOnly, roomController.deleteAuditLog);
 
 export { router as roomsRouter };

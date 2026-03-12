@@ -551,6 +551,9 @@ export function renderTextPreview(
 // Equipment 렌더러
 // ============================================
 
+/** Cache font sizes to avoid per-frame measureText binary search */
+const fontSizeCache = new Map<string, number>();
+
 export function renderEquipmentItem(
   ctx: CanvasRenderingContext2D,
   item: FloorPlanEquipment,
@@ -567,13 +570,35 @@ export function renderEquipmentItem(
   ctx.fillRect(0, 0, item.width, item.height);
   ctx.strokeRect(0, 0, item.width, item.height);
 
+  // Auto-fit text to equipment box (cached to avoid per-frame measureText)
   ctx.fillStyle = ELEMENT_COLORS.rack.text;
-  ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Show name only (no category prefix)
-  ctx.fillText(item.name, item.width / 2, item.height / 2);
+  const padding = 4;
+  const maxWidth = item.width - padding * 2;
+  const maxHeight = item.height - padding * 2;
+
+  if (maxWidth > 5 && maxHeight > 5) {
+    const cacheKey = `${item.name}|${item.width}|${item.height}`;
+    let fontSize = fontSizeCache.get(cacheKey);
+    if (fontSize === undefined) {
+      let lo = 6, hi = Math.min(maxHeight, 40);
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        ctx.font = `bold ${mid}px sans-serif`;
+        if (ctx.measureText(item.name).width <= maxWidth && mid <= maxHeight) {
+          lo = mid;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      fontSize = lo;
+      fontSizeCache.set(cacheKey, fontSize);
+    }
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.fillText(item.name, item.width / 2, item.height / 2, maxWidth);
+  }
 
   ctx.restore();
 }

@@ -52,6 +52,12 @@ export const LOG_TYPE_LABELS: Record<string, string> = {
   REPAIR: '수리',
 };
 
+export const LOG_TYPE_COLORS: Record<string, string> = {
+  MAINTENANCE: 'bg-blue-100 text-blue-700',
+  FAILURE: 'bg-red-100 text-red-700',
+  REPAIR: 'bg-emerald-100 text-emerald-700',
+};
+
 export const SEVERITY_COLORS: Record<string, string> = {
   CRITICAL: 'bg-red-100 text-red-800',
   HIGH: 'bg-orange-100 text-orange-800',
