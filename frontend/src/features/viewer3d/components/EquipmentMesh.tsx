@@ -3,7 +3,8 @@ import { useImageTexture } from '../utils/textureLoader';
 
 const CATEGORY_COLORS: Record<string, string> = {
   NETWORK: '#22c55e',
-  POWER: '#ef4444',
+  CHARGER: '#f97316',
+  UPS: '#ef4444',
   DISTRIBUTION_BOARD: '#a855f7',
   OFD: '#3b82f6',
 };
