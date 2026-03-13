@@ -27,21 +27,24 @@ export interface MaintenanceFormData {
 
 export const CATEGORY_ICONS = {
   NETWORK: '\u{1F310}',
-  POWER: '\u26A1',
+  CHARGER: '\u{1F50C}',
+  UPS: '\u{1F50B}',
   DISTRIBUTION_BOARD: '\u{1F4CB}',
   OFD: '\u{1F4E6}',
 } satisfies Record<EquipmentCategory, string> as Record<string, string>;
 
 export const CATEGORY_LABELS = {
-  NETWORK: '\uB124\uD2B8\uC6CC\uD06C',
-  POWER: '\uC804\uC6D0',
-  DISTRIBUTION_BOARD: '\uBD84\uC804\uBC18',
+  NETWORK: '네트워크',
+  CHARGER: '충전기',
+  UPS: 'UPS',
+  DISTRIBUTION_BOARD: '분전반',
   OFD: 'OFD',
 } satisfies Record<EquipmentCategory, string> as Record<string, string>;
 
 export const EQUIPMENT_CATEGORIES = [
   'NETWORK',
-  'POWER',
+  'CHARGER',
+  'UPS',
   'DISTRIBUTION_BOARD',
   'OFD',
 ] as const;

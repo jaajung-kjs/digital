@@ -1,5 +1,5 @@
 // 설비 카테고리
-export type EquipmentCategory = 'NETWORK' | 'POWER' | 'DISTRIBUTION_BOARD' | 'OFD';
+export type EquipmentCategory = 'NETWORK' | 'CHARGER' | 'UPS' | 'DISTRIBUTION_BOARD' | 'OFD';
 
 // 포트 타입
 export type PortType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'CONSOLE' | 'USB' | 'OTHER';
@@ -129,7 +129,8 @@ export interface UpdatePortRequest {
 // 설비 카테고리 정보
 export const EQUIPMENT_CATEGORIES: { value: EquipmentCategory; label: string; color: string }[] = [
   { value: 'NETWORK', label: '네트워크', color: '#50C878' },
-  { value: 'POWER', label: '전원', color: '#E67E22' },
+  { value: 'CHARGER', label: '충전기', color: '#E67E22' },
+  { value: 'UPS', label: 'UPS', color: '#E74C3C' },
   { value: 'DISTRIBUTION_BOARD', label: '분전반', color: '#9B59B6' },
   { value: 'OFD', label: 'OFD', color: '#4A90D9' },
 ];

@@ -92,7 +92,7 @@ const createFloorPlanEquipmentSchema = z.object({
   rotation: z.number().int().optional(),
   heightU: z.number().int().min(1).max(12).optional(),
   height3d: z.number().positive().optional(),
-  category: z.enum(['SERVER', 'NETWORK', 'STORAGE', 'POWER', 'SECURITY', 'OTHER', 'DISTRIBUTION_BOARD', 'OFD']).optional(),
+  category: z.enum(['SERVER', 'NETWORK', 'STORAGE', 'CHARGER', 'UPS', 'SECURITY', 'OTHER', 'DISTRIBUTION_BOARD', 'OFD']).optional(),
   installDate: z.string().optional(),
   manager: z.string().max(100).optional(),
   description: z.string().optional(),

@@ -231,7 +231,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                 className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="NETWORK">네트워크</option>
-                <option value="POWER">전원</option>
+                <option value="CHARGER">충전기</option>
+                <option value="UPS">UPS</option>
                 <option value="DISTRIBUTION_BOARD">분전반</option>
                 <option value="OFD">OFD</option>
               </select>
