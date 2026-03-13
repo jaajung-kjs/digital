@@ -92,7 +92,7 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
 
       {!snapshotActive && (
         <div className="px-4 py-2 border-b border-gray-100 bg-gray-50/50 shrink-0">
-          <p className="text-xs text-gray-500">클릭하면 해당 시점의 도면을 미리 볼 수 있습니다.</p>
+          <p className="text-xs text-gray-500">도면 변경 항목을 클릭하면 해당 시점의 도면을 미리 볼 수 있습니다.</p>
         </div>
       )}
 
@@ -109,35 +109,38 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
           <div className="p-3 space-y-2">
             {logs.map((log) => {
               const isActive = snapshotActive && snapshotId === log.id;
+              const canPreview = log.hasSnapshot;
               return (
                 <div
                   key={log.id}
-                  onClick={() => !isFetching && handlePreview(log.id, log.actionDetail)}
+                  onClick={() => canPreview && !isFetching && handlePreview(log.id, log.actionDetail)}
                   className={`p-3 rounded-lg border group transition-colors ${
                     isActive
                       ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-300'
-                      : isFetching
-                        ? 'border-blue-300 bg-blue-50 cursor-wait'
-                        : 'border-gray-100 bg-gray-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50'
+                      : canPreview
+                        ? isFetching
+                          ? 'border-blue-300 bg-blue-50 cursor-wait'
+                          : 'border-gray-100 bg-gray-50 cursor-pointer hover:border-blue-300 hover:bg-blue-50'
+                        : 'border-gray-100 bg-gray-50/60'
                   }`}
                 >
-                  <div className="flex items-start justify-between mb-1">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
                       {isActive && (
                         <span className="inline-block w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                       )}
-                      <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-                        {log.actionDetail || log.action}
+                      <span className="text-sm font-semibold text-gray-900">
+                        {log.actionDetail}
                       </span>
-                      {isFetching && (
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                      {isFetching && isActive && (
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600 shrink-0" />
                       )}
                     </div>
                     {isAdmin && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleDelete(log.id); }}
                         disabled={deletingId === log.id}
-                        className="p-0.5 text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-0.5 text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
                         title="이력 삭제"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -147,28 +150,23 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
                     )}
                   </div>
 
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {new Date(log.createdAt).toLocaleString('ko-KR', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                    {log.userName && ` · ${log.userName}`}
+                  </p>
+
+                  {/* Change summary */}
                   {log.changedFields.length > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      변경: {log.changedFields.join(', ')}
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      {log.changedFields.join(', ')}
                     </p>
                   )}
-
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-400">
-                      {new Date(log.createdAt).toLocaleString('ko-KR', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                    {log.userName && (
-                      <p className="text-xs text-gray-400">
-                        {log.userName}
-                      </p>
-                    )}
-                  </div>
                 </div>
               );
             })}
