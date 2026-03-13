@@ -167,7 +167,29 @@ class CableTraceService {
       }
     };
 
-    // 2. BFS
+    // 2. Load ALL cables of this cableType upfront (avoid N+1)
+    const allCables = await prisma.cable.findMany({
+      where: { cableType },
+      include: {
+        sourceEquipment: { select: equipmentNodeSelect },
+        targetEquipment: { select: equipmentNodeSelect },
+      },
+    });
+
+    // Build in-memory adjacency map: equipmentId -> cable[]
+    const cableAdjacency = new Map<string, typeof allCables>();
+    for (const cable of allCables) {
+      if (!cableAdjacency.has(cable.sourceEquipmentId)) {
+        cableAdjacency.set(cable.sourceEquipmentId, []);
+      }
+      if (!cableAdjacency.has(cable.targetEquipmentId)) {
+        cableAdjacency.set(cable.targetEquipmentId, []);
+      }
+      cableAdjacency.get(cable.sourceEquipmentId)!.push(cable);
+      cableAdjacency.get(cable.targetEquipmentId)!.push(cable);
+    }
+
+    // 3. BFS using in-memory adjacency
     const visited = new Set<string>(); // visited equipment IDs
     const visitedEdges = new Set<string>(); // visited edge keys
     const queue: string[] = [];
@@ -193,20 +215,8 @@ class CableTraceService {
     while (queue.length > 0) {
       const equipId = queue.shift()!;
 
-      // Find all cables of the same type connected to this equipment
-      const cables = await prisma.cable.findMany({
-        where: {
-          OR: [
-            { sourceEquipmentId: equipId },
-            { targetEquipmentId: equipId },
-          ],
-          cableType,
-        },
-        include: {
-          sourceEquipment: { select: equipmentNodeSelect },
-          targetEquipment: { select: equipmentNodeSelect },
-        },
-      });
+      // Find all cables of the same type connected to this equipment (in-memory)
+      const cables = cableAdjacency.get(equipId) ?? [];
 
       for (const cable of cables) {
         if (visitedEdges.has(cable.id)) continue;
@@ -245,7 +255,6 @@ class CableTraceService {
             visited,
             visitedEdges,
             queue,
-            nodeMap,
             addNode,
             addEdge,
           );
@@ -272,7 +281,6 @@ class CableTraceService {
     visited: Set<string>,
     visitedEdges: Set<string>,
     queue: string[],
-    _nodeMap: Map<string, TraceNode>,
     addNode: (equip: EquipmentRow) => void,
     addEdge: (edge: TraceEdge) => void,
   ): Promise<void> {
@@ -298,6 +306,7 @@ class CableTraceService {
         sourceEquipmentId: fp.ofdAId,
         targetEquipmentId: fp.ofdBId,
         type: 'fiberPath',
+        cableType: 'FIBER',
         fiberPathId: fp.id,
         portCount: fp.portCount,
       });
@@ -324,51 +333,70 @@ class CableTraceService {
     const visited = new Set<string>();
     let ringCounter = 0;
 
-    // Build edge lookup: "nodeA-nodeB" -> edgeId (sorted to deduplicate)
-    const edgeLookup = new Map<string, string>();
+    // Build edge lookup: "nodeA-nodeB" -> edgeId[] (sorted to deduplicate)
+    // Use string[] to support parallel edges between the same pair
+    const edgeLookup = new Map<string, string[]>();
     for (const [edgeId, edge] of edgeMap) {
       const key = [edge.sourceEquipmentId, edge.targetEquipmentId].sort().join('-');
-      // Multiple edges between same pair possible, just keep one per pair
       if (!edgeLookup.has(key)) {
-        edgeLookup.set(key, edgeId);
+        edgeLookup.set(key, []);
       }
+      edgeLookup.get(key)!.push(edgeId);
     }
 
-    // DFS-based cycle detection
+    // Iterative DFS-based cycle detection (avoids stack overflow)
     const parent = new Map<string, string | null>();
 
-    const dfs = (nodeId: string, parentId: string | null) => {
-      visited.add(nodeId);
-      parent.set(nodeId, parentId);
+    for (const startNodeId of adjacency.keys()) {
+      if (visited.has(startNodeId)) continue;
 
-      const neighbors = adjacency.get(nodeId);
-      if (!neighbors) return;
+      const stack: Array<{ nodeId: string; parentId: string | null; neighborIter: Iterator<string> }> = [];
+      visited.add(startNodeId);
+      parent.set(startNodeId, null);
+      const neighbors = adjacency.get(startNodeId);
+      if (neighbors) {
+        stack.push({ nodeId: startNodeId, parentId: null, neighborIter: neighbors.values() });
+      }
 
-      for (const neighborId of neighbors) {
+      while (stack.length > 0) {
+        const frame = stack[stack.length - 1];
+        const next = frame.neighborIter.next();
+
+        if (next.done) {
+          stack.pop();
+          continue;
+        }
+
+        const neighborId = next.value;
         if (!visited.has(neighborId)) {
-          dfs(neighborId, nodeId);
-        } else if (neighborId !== parentId && visited.has(neighborId)) {
-          // Found a cycle: backtrack from nodeId to neighborId via parent chain
+          visited.add(neighborId);
+          parent.set(neighborId, frame.nodeId);
+          const nbNeighbors = adjacency.get(neighborId);
+          if (nbNeighbors) {
+            stack.push({ nodeId: neighborId, parentId: frame.nodeId, neighborIter: nbNeighbors.values() });
+          }
+        } else if (neighborId !== frame.parentId) {
+          // Found a cycle: backtrack from frame.nodeId to neighborId via parent chain
           const ringNodeIds: string[] = [];
           const ringEdgeIds: string[] = [];
 
-          let current: string | null = nodeId;
+          let current: string | null = frame.nodeId;
           while (current && current !== neighborId) {
             ringNodeIds.push(current);
             const prev: string | null = parent.get(current) ?? null;
             if (prev) {
               const edgeKey = [current, prev].sort().join('-');
-              const edgeId = edgeLookup.get(edgeKey);
-              if (edgeId) ringEdgeIds.push(edgeId);
+              const edgeIds = edgeLookup.get(edgeKey);
+              if (edgeIds) ringEdgeIds.push(...edgeIds);
             }
             current = prev;
           }
           if (current === neighborId) {
             ringNodeIds.push(neighborId);
             // Close the ring edge
-            const closeKey = [nodeId, neighborId].sort().join('-');
-            const closeEdgeId = edgeLookup.get(closeKey);
-            if (closeEdgeId) ringEdgeIds.push(closeEdgeId);
+            const closeKey = [frame.nodeId, neighborId].sort().join('-');
+            const closeEdgeIds = edgeLookup.get(closeKey);
+            if (closeEdgeIds) ringEdgeIds.push(...closeEdgeIds);
           }
 
           // Build label from unique substation names
@@ -386,12 +414,6 @@ class CableTraceService {
             edgeIds: ringEdgeIds,
           });
         }
-      }
-    };
-
-    for (const nodeId of adjacency.keys()) {
-      if (!visited.has(nodeId)) {
-        dfs(nodeId, null);
       }
     }
 

@@ -75,7 +75,7 @@ describe('CableTraceService', () => {
       const cable = makeCable('cable-1', 'eq-a', 'eq-b', 'AC');
 
       vi.mocked(prisma.cable.findUnique).mockResolvedValue(cable as any);
-      // BFS from eq-a: returns the same cable (already visited)
+      // Single upfront query returns all cables of this cableType
       vi.mocked(prisma.cable.findMany).mockResolvedValue([cable as any]);
 
       const result = await cableTraceService.trace('cable-1');
@@ -100,11 +100,8 @@ describe('CableTraceService', () => {
 
       vi.mocked(prisma.cable.findUnique).mockResolvedValue(cable1 as any);
 
-      // BFS from eq-a returns cable1, BFS from eq-b returns cable1+cable2, BFS from eq-c returns cable2
-      vi.mocked(prisma.cable.findMany)
-        .mockResolvedValueOnce([cable1 as any]) // eq-a's cables
-        .mockResolvedValueOnce([cable1 as any, cable2 as any]) // eq-b's cables
-        .mockResolvedValueOnce([cable2 as any]); // eq-c's cables
+      // Single upfront query returns all LAN cables
+      vi.mocked(prisma.cable.findMany).mockResolvedValue([cable1 as any, cable2 as any]);
 
       const result = await cableTraceService.trace('cable-1');
 
@@ -119,10 +116,12 @@ describe('CableTraceService', () => {
 
       vi.mocked(prisma.cable.findUnique).mockResolvedValue(cable1 as any);
 
-      vi.mocked(prisma.cable.findMany)
-        .mockResolvedValueOnce([cable1 as any, cable3 as any]) // eq-a
-        .mockResolvedValueOnce([cable1 as any, cable2 as any]) // eq-b
-        .mockResolvedValueOnce([cable2 as any, cable3 as any]); // eq-c
+      // Single upfront query returns all DC cables
+      vi.mocked(prisma.cable.findMany).mockResolvedValue([
+        cable1 as any,
+        cable2 as any,
+        cable3 as any,
+      ]);
 
       const result = await cableTraceService.trace('cable-1');
 
@@ -154,11 +153,8 @@ describe('CableTraceService', () => {
 
       vi.mocked(prisma.cable.findUnique).mockResolvedValue(fiberCable as any);
 
-      // BFS cable queries
-      vi.mocked(prisma.cable.findMany)
-        .mockResolvedValueOnce([fiberCable as any]) // srv-a's cables
-        .mockResolvedValueOnce([fiberCable as any]) // ofd-a's cables
-        .mockResolvedValueOnce([]); // ofd-b's cables
+      // Single upfront query returns all FIBER cables
+      vi.mocked(prisma.cable.findMany).mockResolvedValue([fiberCable as any]);
 
       // FiberPath query when visiting ofd-a, then ofd-b
       vi.mocked(prisma.fiberPath.findMany)
@@ -174,6 +170,7 @@ describe('CableTraceService', () => {
       expect(fpEdge).toBeDefined();
       expect(fpEdge!.fiberPathId).toBe('fp-1');
       expect(fpEdge!.portCount).toBe(24);
+      expect(fpEdge!.cableType).toBe('FIBER');
       expect(fpEdge!.id).toBe('fp:fp-1');
     });
   });

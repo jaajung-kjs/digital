@@ -8,6 +8,7 @@ interface PathHighlightState {
   traceResult: TraceResult | null;
   tracingCableId: string | null;
   isLoading: boolean;
+  error: string | null;
   selectedRingId: string | null;
   highlightedNodeIds: Set<string>;
   highlightedEdgeIds: Set<string>;
@@ -28,12 +29,13 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
   traceResult: null,
   tracingCableId: null,
   isLoading: false,
+  error: null,
   selectedRingId: null,
   highlightedNodeIds: new Set(),
   highlightedEdgeIds: new Set(),
 
   startTrace: async (cableId, currentRoomId) => {
-    set({ isLoading: true, tracingCableId: cableId });
+    set({ isLoading: true, tracingCableId: cableId, error: null });
     try {
       const { data } = await api.get<{ data: TraceResult }>(`/cables/${cableId}/trace`);
       const result = data.data;
@@ -49,8 +51,9 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
         highlightedNodeIds: nodeIds,
         highlightedEdgeIds: edgeIds,
       });
-    } catch {
-      set({ isLoading: false, tracingCableId: null });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '경로 추적에 실패했습니다.';
+      set({ isLoading: false, tracingCableId: null, error: message });
     }
   },
 
@@ -81,6 +84,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
       traceResult: null,
       tracingCableId: null,
       isLoading: false,
+      error: null,
       selectedRingId: null,
       highlightedNodeIds: new Set(),
       highlightedEdgeIds: new Set(),

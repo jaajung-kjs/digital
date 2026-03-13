@@ -1,4 +1,4 @@
-import type { TraceNode, TraceEdge } from '../types';
+import type { TraceNode } from '../types';
 
 export interface LayoutNode {
   equipmentId: string;
@@ -32,7 +32,7 @@ const SUBSTATION_HEADER = 32;
 const SUBSTATION_GAP = 60;
 const COLS = 3;
 
-export function computeLayout(nodes: TraceNode[], _edges: TraceEdge[]): LayoutResult {
+export function computeLayout(nodes: TraceNode[]): LayoutResult {
   // Group nodes by substationId
   const groups = new Map<string, { name: string; nodes: TraceNode[] }>();
   for (const node of nodes) {
