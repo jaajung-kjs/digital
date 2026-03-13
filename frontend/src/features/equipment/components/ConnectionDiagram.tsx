@@ -5,6 +5,7 @@ import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useMergedConnections } from '../../connections/hooks/useMergedConnections';
 import { isTempId } from '../../../utils/idHelpers';
+import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 
 interface ConnectionDiagramProps {
   roomId: string;
@@ -18,6 +19,9 @@ export function ConnectionDiagram({
   const { data: backendConnections, isLoading } = useRoomConnections(roomId);
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const changeSet = useEditorStore((s) => s.changeSet);
+  const startTrace = usePathHighlightStore((s) => s.startTrace);
+  const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
+  const isTraceLoading = usePathHighlightStore((s) => s.isLoading);
 
   const allConnections = useMergedConnections(backendConnections, changeSet, localEquipment);
 
@@ -49,11 +53,18 @@ export function ConnectionDiagram({
           const localEq = isSource ? conn.sourceEquipment : conn.targetEquipment;
           const remoteEquipment = isSource ? conn.targetEquipment : conn.sourceEquipment;
           const isPending = isTempId(conn.id);
+          const isTracing = tracingCableId === conn.id && isTraceLoading;
+          const canTrace = !isPending;
 
           return (
             <div
               key={conn.id}
-              className={`rounded border px-3 py-2 ${isPending ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'}`}
+              onClick={canTrace ? () => startTrace(conn.id, roomId) : undefined}
+              className={`rounded border px-3 py-2 transition-colors ${
+                isPending
+                  ? 'border-amber-200 bg-amber-50'
+                  : 'border-gray-200 bg-white hover:bg-blue-50 cursor-pointer'
+              } ${isTracing ? 'ring-2 ring-blue-400' : ''}`}
             >
               <div className="flex items-center gap-2 text-sm">
                 <div className="min-w-0 flex-1 text-center">
@@ -85,7 +96,7 @@ export function ConnectionDiagram({
                 </div>
               </div>
               {isPending && (
-                <p className="text-[10px] text-amber-600 mt-1 text-center">미저장</p>
+                <p className="text-[10px] text-amber-600 mt-1 text-center">미저장 · 저장 후 추적 가능</p>
               )}
             </div>
           );
