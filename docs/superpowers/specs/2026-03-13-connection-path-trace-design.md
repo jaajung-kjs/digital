@@ -10,6 +10,15 @@ Any equipment's connection tab에서 케이블을 클릭하면, 해당 케이블
 - 모든 cableType (AC/DC/LAN/FIBER/GROUND)에 대해 동일한 경로 추적이 필요
 - OFD 절체, OFD간 내부 연결, 중간 설비 분기, 대규모 링 등 복잡한 토폴로지 지원 필수
 
+## Migration Strategy
+
+- 기존 `pathTrace.service.ts` (FIBER 전용, equipment 기반)는 **새 서비스로 교체**
+- 기존 엔드포인트 `GET /api/equipment/:equipmentId/paths` → 유지 (하위 호환), 내부적으로 새 서비스 호출하도록 리팩토링
+- 새 엔드포인트 `GET /api/cables/:cableId/trace` 추가 (cable 기반, 모든 cableType)
+- 기존 프론트엔드 `pathTrace/` 컴포넌트 (PathTracePanel, PathDiagram, RingDiagram) → 새 토폴로지 컴포넌트로 대체, 기존 파일 삭제
+- 기존 `pathTrace/types.ts` → 새 타입으로 교체 (graph 기반: nodes/edges/rings)
+- 비 FIBER 타입의 BFS: 포트 수준 라우팅 없음. 동일 cableType 케이블이 연결된 설비를 단순 pass-through로 취급
+
 ---
 
 ## Section 1: Universal Path Trace Algorithm
@@ -64,8 +73,10 @@ interface TraceNode {
   equipmentName: string;
   substationId: string;
   substationName: string;
+  roomId: string | null;       // 같은 방 감지용
   category: string;
-  isStart: boolean;
+  isSource: boolean;           // 클릭한 케이블의 source 설비
+  isTarget: boolean;           // 클릭한 케이블의 target 설비
 }
 
 interface TraceEdge {
@@ -197,6 +208,12 @@ interface PathHighlightState {
   selectRing: (ringId: string | null) => void;
   clearHighlight: () => void;
 }
+### 소비 컴포넌트
+
+- `ConnectionOverlay.tsx`: `active && mode === 'canvas'`일 때 highlightedNodeIds/EdgeIds로 렌더링 분기
+- `ConnectionDiagram.tsx`: trace 진행 상태 표시 (로딩, 선택된 행)
+- `TopologyModal.tsx` (신규): `active && mode === 'modal'`일 때 SVG 토폴로지 렌더링
+- mode 판단: traceResult의 모든 노드의 `roomId`가 현재 편집 roomId와 같으면 'canvas', 아니면 'modal'
 ```
 
 ---
@@ -237,4 +254,6 @@ EquipmentDetailPanel → ConnectionsTab → ConnectionDiagram
 
 - 최대 노드 100개 초과 시 경고 + 변전소 축소 모드
 - FiberPath 없는 FIBER 케이블: 직접 연결로 표시
-- pending 케이블(changeSet): trace 대상 제외 (저장 후 trace 가능)
+- pending 케이블(changeSet): trace 대상 제외 — 프론트엔드에서 temp ID 감지 시 trace 버튼 비활성화 + "저장 후 추적 가능" 메시지
+- 0개 링 + 크로스 변전소: 모달에서 링 섹션 숨김, 노드/엣지만 표시
+- TraceEdge의 source/target 방향: BFS 탐색 순서가 아닌 DB 저장 방향 유지
