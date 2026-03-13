@@ -14,6 +14,7 @@ import {
 import { ConnectionLegend } from './ConnectionLegend';
 import { ConnectionCreatePopover, ConnectionEditDialog } from './ConnectionEditor';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 
 interface ConnectionOverlayProps {
   roomId: string;
@@ -67,6 +68,8 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
   const showEditor = useConnectionEditorStore((s) => s.showEditor);
   const editingCable = useConnectionEditorStore((s) => s.editingCable);
   const resetConnectionEditor = useConnectionEditorStore((s) => s.resetConnectionEditor);
+
+  const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
 
   const changeSet = useEditorStore((s) => s.changeSet);
 
@@ -218,6 +221,7 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
       if (e.key === 'Escape') {
         resetConnectionEditor();
         clearHighlight();
+        useOfdConnectionFlowStore.getState().cancel();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -229,6 +233,7 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
     if (!isConnectionMode) {
       resetConnectionEditor();
       clearHighlight();
+      useOfdConnectionFlowStore.getState().cancel();
     }
   }, [isConnectionMode, resetConnectionEditor, clearHighlight]);
 
@@ -254,25 +259,31 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
         className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
         style={{ zIndex: 15 }}
       >
-        {!sourceEquipmentId && !editingCable && (
+        {ofdPhase === 'selectingPort' && (
+          <span className="text-sm text-blue-600">상세 패널에서 포트를 선택하세요</span>
+        )}
+        {ofdPhase === 'selectingTarget' && (
+          <span className="text-sm text-green-600">대상 설비를 클릭하세요</span>
+        )}
+        {ofdPhase === 'idle' && !sourceEquipmentId && !editingCable && (
           <span className="text-sm text-gray-600">
             설비를 클릭하여 연결 &middot; 케이블을 더블클릭하여 수정
           </span>
         )}
-        {sourceEquipmentId && !showEditor && (
+        {ofdPhase === 'idle' && sourceEquipmentId && !showEditor && (
           <span className="text-sm text-blue-600">
             도착 설비를 클릭하세요{' '}
             <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-300 rounded text-gray-500">ESC</kbd>{' '}
             취소
           </span>
         )}
-        {showEditor && (
+        {ofdPhase === 'idle' && showEditor && (
           <span className="text-sm text-green-600">케이블 타입을 선택하세요</span>
         )}
       </div>
 
       {/* Create popover */}
-      {showEditor && sourceEquipmentId && targetEquipmentId && (
+      {showEditor && sourceEquipmentId && targetEquipmentId && ofdPhase === 'idle' && (
         <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
           style={{ zIndex: 25 }}

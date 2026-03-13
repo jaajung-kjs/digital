@@ -158,6 +158,38 @@ class EquipmentService {
   }
 
   /**
+   * 설비 목록 조회 (카테고리 필터 지원)
+   */
+  async getAll(filters?: { category?: EquipmentCategory }): Promise<(EquipmentDetail & { substationName?: string })[]> {
+    const where: Record<string, unknown> = {};
+    if (filters?.category) {
+      where.category = filters.category;
+    }
+
+    const equipment = await prisma.equipment.findMany({
+      where,
+      include: {
+        _count: { select: { ports: true } },
+        room: {
+          include: {
+            floor: {
+              include: {
+                substation: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    return equipment.map((e) => ({
+      ...this.mapToDetail(e),
+      substationName: e.room?.floor?.substation?.name ?? undefined,
+    }));
+  }
+
+  /**
    * 랙 내 모든 설비 조회
    */
   async getByRackId(rackId: string): Promise<EquipmentDetail[]> {
@@ -393,6 +425,11 @@ class EquipmentService {
       }
     }
 
+    // OFD 변전소당 1개 제약 (카테고리가 OFD로 변경되는 경우)
+    if (input.category === 'OFD' && existing.category !== 'OFD' && existing.roomId) {
+      await this.validateOfdUniqueness(existing.roomId, id);
+    }
+
     const equipment = await prisma.equipment.update({
       where: { id },
       data: {
@@ -480,6 +517,33 @@ class EquipmentService {
   }
 
   /**
+   * 변전소 내 OFD 중복 검사 (변전소당 OFD 1개만 허용)
+   */
+  async validateOfdUniqueness(roomId: string, excludeEquipmentId?: string): Promise<void> {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: { floor: { select: { substationId: true, substation: { select: { name: true } } } } },
+    });
+    if (!room) return;
+
+    const substationId = room.floor.substationId;
+    const existingOfd = await prisma.equipment.findFirst({
+      where: {
+        category: 'OFD',
+        id: excludeEquipmentId ? { not: excludeEquipmentId } : undefined,
+        room: { floor: { substationId } },
+      },
+      select: { id: true, name: true },
+    });
+
+    if (existingOfd) {
+      throw new ConflictError(
+        `${room.floor.substation.name} 변전소에 이미 OFD가 존재합니다. (${existingOfd.name})`
+      );
+    }
+  }
+
+  /**
    * 평면도(Room)에 직접 배치하는 설비 생성
    */
   async createOnFloorPlan(
@@ -493,6 +557,11 @@ class EquipmentService {
 
     if (!room) {
       throw new NotFoundError('실');
+    }
+
+    // OFD 변전소당 1개 제약
+    if (input.category === 'OFD') {
+      await this.validateOfdUniqueness(roomId);
     }
 
     const equipment = await prisma.equipment.create({

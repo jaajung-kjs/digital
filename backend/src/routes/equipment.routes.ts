@@ -61,6 +61,9 @@ const moveEquipmentSchema = z.object({
 
 // ==================== Equipment Routes ====================
 
+// 설비 목록 조회 (카테고리 필터 지원, 인증 불필요)
+router.get('/', equipmentController.getAll);
+
 // 설비 상세 조회 (인증 불필요)
 router.get('/:id', equipmentController.getById);
 

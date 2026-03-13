@@ -24,6 +24,7 @@ export interface TraceEdge {
   length?: number;
   fiberPathId?: string;
   portCount?: number;
+  fiberPortNumber?: number;
 }
 
 export interface TraceRing {
@@ -273,8 +274,9 @@ class CableTraceService {
   }
 
   /**
-   * For a given OFD equipment, find ALL FiberPaths it belongs to,
-   * add them as fiberPath edges, and enqueue the remote OFDs.
+   * For a given OFD equipment, find cables with fiberPath+port info,
+   * then traverse only through ports where BOTH sides are occupied.
+   * This ensures port-level connectivity validation (not path-level).
    */
   private async traverseFiberPaths(
     ofdId: string,
@@ -284,20 +286,63 @@ class CableTraceService {
     addNode: (equip: EquipmentRow) => void,
     addEdge: (edge: TraceEdge) => void,
   ): Promise<void> {
-    const fiberPaths = await prisma.fiberPath.findMany({
+    // Find all fiber cables connected to this OFD with fiber path info
+    const ofdCables = await prisma.cable.findMany({
       where: {
-        OR: [{ ofdAId: ofdId }, { ofdBId: ofdId }],
+        cableType: 'FIBER',
+        fiberPathId: { not: null },
+        fiberPortNumber: { not: null },
+        OR: [{ sourceEquipmentId: ofdId }, { targetEquipmentId: ofdId }],
       },
-      include: {
-        ofdA: { select: equipmentNodeSelect },
-        ofdB: { select: equipmentNodeSelect },
+      select: {
+        fiberPathId: true,
+        fiberPortNumber: true,
       },
     });
 
-    for (const fp of fiberPaths) {
-      const edgeKey = `fp:${fp.id}`;
+    if (ofdCables.length === 0) return;
+
+    // Batch-fetch all referenced fiber paths and other-side cables (avoids N+1)
+    const uniqueFpIds = [...new Set(ofdCables.map((c) => c.fiberPathId!))];
+    const [allFiberPaths, allOtherSideCables] = await Promise.all([
+      prisma.fiberPath.findMany({
+        where: { id: { in: uniqueFpIds } },
+        include: {
+          ofdA: { select: equipmentNodeSelect },
+          ofdB: { select: equipmentNodeSelect },
+        },
+      }),
+      prisma.cable.findMany({
+        where: {
+          fiberPathId: { in: uniqueFpIds },
+          fiberPortNumber: { not: null },
+          NOT: { OR: [{ sourceEquipmentId: ofdId }, { targetEquipmentId: ofdId }] },
+        },
+        include: {
+          sourceEquipment: { select: equipmentNodeSelect },
+          targetEquipment: { select: equipmentNodeSelect },
+        },
+      }),
+    ]);
+    const fpById = new Map(allFiberPaths.map((fp) => [fp.id, fp]));
+    const otherSideByKey = new Map(
+      allOtherSideCables
+        .filter((c) => c.fiberPortNumber != null)
+        .map((c) => [`${c.fiberPathId}:${c.fiberPortNumber}`, c]),
+    );
+
+    for (const ofdCable of ofdCables) {
+      const fpId = ofdCable.fiberPathId!;
+      const portNum = ofdCable.fiberPortNumber!;
+      const edgeKey = `fp:${fpId}:${portNum}`;
       if (visitedEdges.has(edgeKey)) continue;
       visitedEdges.add(edgeKey);
+
+      const otherSideCable = otherSideByKey.get(`${fpId}:${portNum}`);
+      if (!otherSideCable) continue; // No cable on the other side of this port
+
+      const fp = fpById.get(fpId);
+      if (!fp) continue;
 
       addNode(fp.ofdA as EquipmentRow);
       addNode(fp.ofdB as EquipmentRow);
@@ -309,6 +354,7 @@ class CableTraceService {
         cableType: 'FIBER',
         fiberPathId: fp.id,
         portCount: fp.portCount,
+        fiberPortNumber: portNum,
       });
 
       // Queue the remote OFD

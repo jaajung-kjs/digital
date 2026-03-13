@@ -1,16 +1,12 @@
 /**
  * Connection overlay renderer for cable connections on the floor plan canvas.
- * Draws curved lines between equipment with labels and glow effects.
  */
-
-import type { CableType } from '../../../types/connection';
 
 export interface ConnectionRenderContext {
   ctx: CanvasRenderingContext2D;
   zoom: number;
   panX: number;
   panY: number;
-  viewMode: 'connection-network' | 'connection-power' | 'connection-ground';
 }
 
 export interface RenderableConnection {
@@ -22,6 +18,8 @@ export interface RenderableConnection {
   label?: string;
   color: string;
   highlighted?: boolean;
+  /** Cable ID for hit-testing */
+  id?: string;
 }
 
 /** Color scheme for cable types */
@@ -33,42 +31,19 @@ export const CABLE_COLORS: Record<string, string> = {
   GROUND: '#eab308',
 };
 
-/** Cable types shown per view mode */
-const VIEW_MODE_CABLE_TYPES: Record<string, CableType[]> = {
-  'connection-network': ['LAN', 'FIBER'],
-  'connection-power': ['AC', 'DC'],
-  'connection-ground': ['GROUND'],
-};
-
-/** Filter connections by view mode */
-export function filterConnectionsByMode(
-  connections: RenderableConnection[],
-  viewMode: string
-): RenderableConnection[] {
-  const allowedTypes = VIEW_MODE_CABLE_TYPES[viewMode];
-  if (!allowedTypes) return connections;
-  return connections.filter((c) => allowedTypes.includes(c.cableType as CableType));
-}
-
 /** Draw a single curved connection line */
 function drawConnectionCurve(
   ctx: CanvasRenderingContext2D,
   conn: RenderableConnection
 ): void {
   const { sourceX, sourceY, targetX, targetY } = conn;
-  const dx = targetX - sourceX;
-  const dy = targetY - sourceY;
 
-  // Control point offset for the bezier curve
-  const offset = Math.min(Math.abs(dx), Math.abs(dy), 80) + 30;
-
-  // Determine curve direction based on relative position
+  const offset = Math.min(Math.abs(targetX - sourceX), Math.abs(targetY - sourceY), 80) + 30;
   const cp1x = sourceX + offset;
   const cp1y = sourceY;
   const cp2x = targetX - offset;
   const cp2y = targetY;
 
-  // Glow effect for highlighted cables
   if (conn.highlighted) {
     ctx.save();
     ctx.shadowColor = conn.color;
@@ -83,7 +58,6 @@ function drawConnectionCurve(
     ctx.restore();
   }
 
-  // Main line
   ctx.strokeStyle = conn.color;
   ctx.lineWidth = 2;
   ctx.globalAlpha = 1;
@@ -92,7 +66,6 @@ function drawConnectionCurve(
   ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, targetX, targetY);
   ctx.stroke();
 
-  // Port dots at endpoints
   ctx.fillStyle = conn.color;
   ctx.beginPath();
   ctx.arc(sourceX, sourceY, 4, 0, Math.PI * 2);
@@ -102,14 +75,13 @@ function drawConnectionCurve(
   ctx.fill();
 }
 
-/** Draw cable type label at the midpoint of the connection */
+/** Draw cable type label at the midpoint */
 function drawConnectionLabel(
   ctx: CanvasRenderingContext2D,
   conn: RenderableConnection
 ): void {
   const midX = (conn.sourceX + conn.targetX) / 2;
   const midY = (conn.sourceY + conn.targetY) / 2;
-
   const text = conn.label ? `${conn.cableType} - ${conn.label}` : conn.cableType;
 
   ctx.font = '11px sans-serif';
@@ -118,32 +90,17 @@ function drawConnectionLabel(
   const bgWidth = metrics.width + padding * 2;
   const bgHeight = 16;
 
-  // Background pill
   ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
   ctx.beginPath();
-  ctx.roundRect(
-    midX - bgWidth / 2,
-    midY - bgHeight / 2,
-    bgWidth,
-    bgHeight,
-    4
-  );
+  ctx.roundRect(midX - bgWidth / 2, midY - bgHeight / 2, bgWidth, bgHeight, 4);
   ctx.fill();
 
-  // Border
   ctx.strokeStyle = conn.color;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.roundRect(
-    midX - bgWidth / 2,
-    midY - bgHeight / 2,
-    bgWidth,
-    bgHeight,
-    4
-  );
+  ctx.roundRect(midX - bgWidth / 2, midY - bgHeight / 2, bgWidth, bgHeight, 4);
   ctx.stroke();
 
-  // Text
   ctx.fillStyle = conn.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -155,25 +112,59 @@ export function renderConnections(
   context: ConnectionRenderContext,
   connections: RenderableConnection[]
 ): void {
-  const { ctx, zoom, panX, panY, viewMode } = context;
-
-  const filtered = filterConnectionsByMode(connections, viewMode);
-  if (filtered.length === 0) return;
+  const { ctx, zoom, panX, panY } = context;
+  if (connections.length === 0) return;
 
   ctx.save();
-
-  // Apply viewport transform
   const scale = zoom / 100;
   ctx.setTransform(scale, 0, 0, scale, panX, panY);
 
-  for (const conn of filtered) {
+  for (const conn of connections) {
     drawConnectionCurve(ctx, conn);
   }
-
-  // Draw labels on top of all lines
-  for (const conn of filtered) {
+  for (const conn of connections) {
     drawConnectionLabel(ctx, conn);
   }
 
   ctx.restore();
+}
+
+/**
+ * Hit-test: find if a point is near any connection line.
+ * Returns the connection if found within threshold distance.
+ */
+export function findConnectionAtPoint(
+  connections: RenderableConnection[],
+  worldX: number,
+  worldY: number,
+  threshold = 8
+): RenderableConnection | null {
+  for (let i = connections.length - 1; i >= 0; i--) {
+    const conn = connections[i];
+    const { sourceX, sourceY, targetX, targetY } = conn;
+    const offset = Math.min(Math.abs(targetX - sourceX), Math.abs(targetY - sourceY), 80) + 30;
+
+    // Sample bezier curve points and check distance
+    for (let t = 0; t <= 1; t += 0.05) {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const mt3 = mt2 * mt;
+
+      const cp1x = sourceX + offset;
+      const cp1y = sourceY;
+      const cp2x = targetX - offset;
+      const cp2y = targetY;
+
+      const px = mt3 * sourceX + 3 * mt2 * t * cp1x + 3 * mt * t2 * cp2x + t3 * targetX;
+      const py = mt3 * sourceY + 3 * mt2 * t * cp1y + 3 * mt * t2 * cp2y + t3 * targetY;
+
+      const dist = Math.sqrt((px - worldX) ** 2 + (py - worldY) ** 2);
+      if (dist <= threshold) {
+        return conn;
+      }
+    }
+  }
+  return null;
 }

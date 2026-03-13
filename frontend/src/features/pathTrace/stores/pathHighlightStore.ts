@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api } from '../../../utils/api';
+import { useEditorStore } from '../../editor/stores/editorStore';
 import type { TraceResult } from '../types';
 
 interface PathHighlightState {
@@ -15,12 +16,19 @@ interface PathHighlightState {
 
   startTrace: (cableId: string, currentRoomId: string) => Promise<void>;
   selectRing: (ringId: string | null) => void;
+  closeModal: () => void;
   clearHighlight: () => void;
 }
 
 function determineMode(result: TraceResult, currentRoomId: string): 'canvas' | 'modal' {
   const allSameRoom = result.nodes.every((n) => n.roomId === currentRoomId);
-  return allSameRoom ? 'canvas' : 'modal';
+  if (!allSameRoom) return 'modal';
+  // Auto-switch to connection viewMode for canvas highlight
+  const { viewMode, setViewMode } = useEditorStore.getState();
+  if (viewMode !== 'connection') {
+    setViewMode('connection');
+  }
+  return 'canvas';
 }
 
 export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
@@ -76,6 +84,8 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
       highlightedEdgeIds: new Set(ring.edgeIds),
     });
   },
+
+  closeModal: () => set({ mode: null }),
 
   clearHighlight: () =>
     set({

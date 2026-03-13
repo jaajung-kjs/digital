@@ -15,7 +15,7 @@ export function TopologyModal() {
     highlightedNodeIds,
     highlightedEdgeIds,
     selectRing,
-    clearHighlight,
+    closeModal,
   } = usePathHighlightStore();
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -28,11 +28,11 @@ export function TopologyModal() {
   useEffect(() => {
     if (!active) return;
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') clearHighlight();
+      if (e.key === 'Escape') closeModal();
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [active, clearHighlight]);
+  }, [active, closeModal]);
 
   // Reset zoom/pan when trace changes
   useEffect(() => {
@@ -113,7 +113,7 @@ export function TopologyModal() {
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
           <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
           <button
-            onClick={clearHighlight}
+            onClick={closeModal}
             className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

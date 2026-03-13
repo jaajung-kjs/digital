@@ -24,6 +24,8 @@ import { roomsRouter } from './routes/rooms.routes.js';
 import { cablesRouter } from './routes/cables.routes.js';
 import { equipmentPhotosRouter } from './routes/equipmentPhotos.routes.js';
 import { maintenanceLogsRouter } from './routes/maintenanceLogs.routes.js';
+import { fiberPathsRouter } from './routes/fiberPaths.routes.js';
+import { pathTraceRouter } from './routes/pathTrace.routes.js';
 
 const app = express();
 
@@ -71,6 +73,8 @@ app.use('/api/rooms', roomsRouter);
 app.use('/api/cables', cablesRouter);
 app.use('/api/equipment-photos', equipmentPhotosRouter);
 app.use('/api/maintenance-logs', maintenanceLogsRouter);
+app.use('/api', fiberPathsRouter);
+app.use('/api', pathTraceRouter);
 
 // 404 handler
 app.use((_req, res) => {
