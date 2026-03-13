@@ -16,6 +16,7 @@ import { CanvasView } from './CanvasView';
 import { PropertyBar } from './PropertyBar';
 import { HeightInput } from './HeightInput';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
+import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 
@@ -175,11 +176,13 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                   floorPlan={floorPlan}
                   roomId={roomId}
                 >
-                  {viewMode.startsWith('connection-') && (
+                  {viewMode === 'connection' && (
                     <ConnectionOverlay roomId={roomId} canvasRef={canvasRef} />
                   )}
                 </CanvasView>
               )}
+
+              <TopologyModal />
 
               {detailPanelEquipmentId && (
                 <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} roomId={roomId} />
