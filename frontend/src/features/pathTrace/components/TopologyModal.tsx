@@ -26,12 +26,13 @@ export function TopologyModal() {
 
   // ESC to close
   useEffect(() => {
+    if (!active) return;
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') clearHighlight();
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [clearHighlight]);
+  }, [active, clearHighlight]);
 
   // Reset zoom/pan when trace changes
   useEffect(() => {
@@ -41,7 +42,7 @@ export function TopologyModal() {
 
   const layout = useMemo(() => {
     if (!traceResult) return null;
-    return computeLayout(traceResult.nodes, traceResult.edges);
+    return computeLayout(traceResult.nodes);
   }, [traceResult]);
 
   const nodeMap = useMemo(() => {

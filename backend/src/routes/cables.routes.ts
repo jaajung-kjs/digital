@@ -36,7 +36,8 @@ const updateCableSchema = z.object({
 router.get('/', cableController.getAll);
 
 // 케이블 경로 추적 (인증 불필요) - /:id 보다 먼저 등록
-router.get('/:id/trace', cableTraceController.trace);
+const cableIdParamSchema = z.object({ id: z.string().uuid() });
+router.get('/:id/trace', validate(cableIdParamSchema, 'params'), cableTraceController.trace);
 
 // 케이블 상세 조회 (인증 불필요)
 router.get('/:id', cableController.getById);
