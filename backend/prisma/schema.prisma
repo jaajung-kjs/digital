@@ -41,6 +41,8 @@ model User {
   updatedRooms   Room[] @relation("RoomUpdatedBy")
   createdMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogCreatedBy")
   updatedMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogUpdatedBy")
+  createdFiberPaths FiberPath[] @relation("FiberPathCreator")
+  updatedFiberPaths FiberPath[] @relation("FiberPathUpdater")
 
   @@map("users")
 }
@@ -278,6 +280,8 @@ model Equipment {
   maintenanceLogs MaintenanceLog[]
   sourceCables    Cable[]          @relation("CableSource")
   targetCables    Cable[]          @relation("CableTarget")
+  fiberPathsAsA   FiberPath[]      @relation("FiberPathOfdA")
+  fiberPathsAsB   FiberPath[]      @relation("FiberPathOfdB")
 
   @@map("equipment")
 }
@@ -343,10 +347,14 @@ model Cable {
   createdById         String?   @map("created_by")
   updatedById         String?   @map("updated_by")
 
-  sourceEquipment Equipment @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
-  targetEquipment Equipment @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
-  createdBy       User?     @relation("CableCreatedBy", fields: [createdById], references: [id])
-  updatedBy       User?     @relation("CableUpdatedBy", fields: [updatedById], references: [id])
+  fiberPathId     String?   @map("fiber_path_id")
+  fiberPortNumber Int?      @map("fiber_port_number")
+
+  sourceEquipment Equipment  @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
+  targetEquipment Equipment  @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
+  fiberPath       FiberPath? @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
+  createdBy       User?      @relation("CableCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?      @relation("CableUpdatedBy", fields: [updatedById], references: [id])
 
   @@unique([sourceEquipmentId, targetEquipmentId, cableType])
   @@map("cables")
@@ -358,6 +366,29 @@ enum CableType {
   LAN
   FIBER
   GROUND
+}
+
+// ==================== 광경로 (변전소간 OFD 연결) ====================
+
+model FiberPath {
+  id          String   @id @default(uuid())
+  ofdAId      String   @map("ofd_a_id")
+  ofdBId      String   @map("ofd_b_id")
+  portCount   Int      @map("port_count") // 24 or 48
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by_id")
+  updatedById String?  @map("updated_by_id")
+
+  ofdA      Equipment @relation("FiberPathOfdA", fields: [ofdAId], references: [id], onDelete: Cascade)
+  ofdB      Equipment @relation("FiberPathOfdB", fields: [ofdBId], references: [id], onDelete: Cascade)
+  cables    Cable[]   @relation("CableFiberPath")
+  createdBy User?     @relation("FiberPathCreator", fields: [createdById], references: [id])
+  updatedBy User?     @relation("FiberPathUpdater", fields: [updatedById], references: [id])
+
+  @@unique([ofdAId, ofdBId])
+  @@map("fiber_paths")
 }
 
 // ==================== 설비 사진 ====================

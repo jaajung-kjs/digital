@@ -1,6 +1,7 @@
 import prisma from '../config/prisma.js';
 import { Prisma, EquipmentCategory, CableType } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
+import { equipmentService } from './equipment.service.js';
 
 // ==================== Types ====================
 
@@ -105,6 +106,8 @@ export interface UpdatePlanInput {
     label?: string | null;
     length?: number | null;
     color?: string | null;
+    fiberPathId?: string | null;
+    fiberPortNumber?: number | null;
   }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
@@ -283,7 +286,7 @@ async function detectCableChanges(
   if (updatedCables.length > 0) {
     const existingCables = await tx.cable.findMany({
       where: { id: { in: updatedCables.map(c => c.id!) } },
-      select: { id: true, sourceEquipmentId: true, targetEquipmentId: true, cableType: true },
+      select: { id: true, sourceEquipmentId: true, targetEquipmentId: true, cableType: true, fiberPathId: true, fiberPortNumber: true },
     });
     const existingMap = new Map(existingCables.map(c => [c.id, c]));
 
@@ -295,7 +298,9 @@ async function detectCableChanges(
       const topologyChanged =
         cable.sourceEquipmentId !== cur.sourceEquipmentId ||
         cable.targetEquipmentId !== cur.targetEquipmentId ||
-        cable.cableType !== cur.cableType;
+        cable.cableType !== cur.cableType ||
+        (cable.fiberPathId ?? null) !== cur.fiberPathId ||
+        (cable.fiberPortNumber ?? null) !== cur.fiberPortNumber;
       if (topologyChanged) topologyCount++;
       else metadataCount++;
     }
@@ -412,6 +417,7 @@ async function captureRoomSnapshot(
       sourceEquipmentId: c.sourceEquipmentId, targetEquipmentId: c.targetEquipmentId,
       cableType: c.cableType, label: c.label, length: c.length, color: c.color,
       pathPoints: c.pathPoints, description: c.description,
+      fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
       sourceEquipment: c.sourceEquipment, targetEquipment: c.targetEquipment,
     })),
   };
@@ -605,6 +611,16 @@ class RoomService {
         }
       }
 
+      // OFD 변전소당 1개 제약 검사 (equipmentService의 공유 메서드 재사용)
+      if (input.equipment && input.equipment.length > 0) {
+        const newOfdEquipment = input.equipment.filter(
+          (e) => e.category === 'OFD' && !e.id
+        );
+        if (newOfdEquipment.length > 0) {
+          await equipmentService.validateOfdUniqueness(id);
+        }
+      }
+
       if (input.equipment && input.equipment.length > 0) {
         for (const equip of input.equipment) {
           if (equip.id) {
@@ -669,10 +685,25 @@ class RoomService {
                 label: cable.label,
                 length: cable.length,
                 color: cable.color,
+                fiberPathId: cable.fiberPathId ?? null,
+                fiberPortNumber: cable.fiberPortNumber ?? null,
                 updatedById: userId,
               },
             });
           } else {
+            // Port exclusivity: prevent duplicate fiber port assignment
+            if (cable.fiberPathId && cable.fiberPortNumber) {
+              const existingOnPort = await tx.cable.findFirst({
+                where: {
+                  fiberPathId: cable.fiberPathId,
+                  fiberPortNumber: cable.fiberPortNumber,
+                  OR: [{ sourceEquipmentId: tgtId }, { targetEquipmentId: tgtId }],
+                },
+              });
+              if (existingOnPort) {
+                throw new ConflictError(`광경로 포트 ${cable.fiberPortNumber}번이 이미 사용 중입니다.`);
+              }
+            }
             await tx.cable.create({
               data: {
                 sourceEquipmentId: srcId,
@@ -681,6 +712,8 @@ class RoomService {
                 label: cable.label,
                 length: cable.length,
                 color: cable.color,
+                fiberPathId: cable.fiberPathId ?? null,
+                fiberPortNumber: cable.fiberPortNumber ?? null,
                 createdById: userId,
                 updatedById: userId,
               },

@@ -137,6 +137,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       useEditorStore.getState().clearChangeSet();
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
       queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
+      queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
       if (nonCableChanges.some((e) => e.type.startsWith('photo:'))) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
       }
@@ -232,6 +233,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         targetEquipmentId: c.targetEquipmentId,
         cableType: c.cableType,
         label: c.label, length: c.length, color: c.color,
+        fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
       }));
     const cableUpdates = selectChanges(changeSet, 'cable:update')
       .map((c) => ({
@@ -240,6 +242,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         targetEquipmentId: c.targetEquipmentId,
         cableType: c.cableType,
         label: c.label, length: c.length, color: c.color,
+        fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
       }));
     const deletedCableIds = selectChanges(changeSet, 'cable:delete')
       .map((c) => c.cableId);

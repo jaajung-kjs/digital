@@ -18,6 +18,8 @@ export interface RoomConnection {
   color?: string;
   pathPoints?: [number, number][];
   description?: string;
+  fiberPathId?: string | null;
+  fiberPortNumber?: number | null;
   sourceEquipment: EquipmentInfo;
   targetEquipment: EquipmentInfo;
 }

@@ -229,7 +229,7 @@ export type CreateRackRequest = CreateFloorPlanEquipmentRequest;
 export type UpdateRackRequest = UpdateFloorPlanEquipmentRequest;
 
 // 뷰 모드 (2D 편집, 3D 뷰, 연결 네트워크 등)
-export type ViewMode = 'edit-2d' | 'view-3d' | 'connection-network' | 'connection-power' | 'connection-ground';
+export type ViewMode = 'edit-2d' | 'view-3d' | 'connection';
 
 // 평면도 위 장비 아이템
 export interface EquipmentItem {

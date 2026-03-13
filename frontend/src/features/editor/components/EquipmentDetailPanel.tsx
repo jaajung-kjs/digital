@@ -1,14 +1,17 @@
-import { useState, useRef, useCallback, useMemo } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { compressImage } from '../../../utils/imageCompression';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useEditorStore, selectChanges } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
+import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { useEquipmentPhotos } from '../../equipment/hooks/useEquipmentPhotos';
 import { useMaintenanceLogs } from '../../equipment/hooks/useMaintenanceLogs';
 import { ConnectionDiagram } from '../../equipment/components/ConnectionDiagram';
+import { FiberPathManager } from '../../fiber/components/FiberPathManager';
 import {
   LOG_TYPE_LABELS,
   LOG_TYPE_COLORS,
@@ -104,6 +107,15 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
   const snapshotActive = useSnapshotStore((s) => s.active);
   const isTemp = isTempId(equipmentId);
   const { equipment, isLoading, error } = useMergedEquipmentDetail(equipmentId);
+  const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
+  const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
+
+  // Auto-switch to connections tab when OFD flow targets this equipment
+  useEffect(() => {
+    if (ofdPhase === 'selectingPort' && ofdFlowOfdId === equipmentId) {
+      setActiveTab('connections');
+    }
+  }, [ofdPhase, ofdFlowOfdId, equipmentId]);
 
   return (
     <div
@@ -184,7 +196,7 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
               <LogsTab equipmentId={equipmentId} readOnly={snapshotActive} />
             )}
             {activeTab === 'connections' && (
-              <ConnectionsTab equipmentId={equipmentId} roomId={roomId} />
+              <ConnectionsTab equipmentId={equipmentId} roomId={roomId} category={equipment.category} />
             )}
           </>
         ) : null}
@@ -1005,10 +1017,79 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
    Connections Tab - center aligned text
    ================================================================ */
 
-function ConnectionsTab({ equipmentId, roomId }: { equipmentId: string; roomId: string }) {
+function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string; roomId: string; category?: string }) {
+  const isOfd = category === 'OFD';
+  const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
+  const ofdDirection = useOfdConnectionFlowStore((s) => s.direction);
+  const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
+  const selectPort = useOfdConnectionFlowStore((s) => s.selectPort);
+  const cancelOfd = useOfdConnectionFlowStore((s) => s.cancel);
+  const addChange = useEditorStore((s) => s.addChange);
+  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const navigate = useNavigate();
+
+  // Is the OFD flow active and targeting THIS equipment?
+  const isFlowActive = ofdPhase === 'selectingPort' && ofdFlowOfdId === equipmentId;
+
+  const handlePortConnect = useCallback((portNumber: number, fiberPathId: string) => {
+    if (isFlowActive) {
+      // OFD flow is active (either direction): delegate to state machine
+      selectPort(fiberPathId, portNumber);
+    } else {
+      // Direct port click without active flow: start OFD-as-source
+      const store = useOfdConnectionFlowStore.getState();
+      store.startFromOfd(equipmentId);
+      store.selectPort(fiberPathId, portNumber);
+      // Enter connection mode so canvas accepts target clicks
+      useEditorStore.getState().setViewMode('connection');
+    }
+  }, [isFlowActive, selectPort, equipmentId]);
+
+  const handlePortDelete = useCallback((cableId: string) => {
+    addChange({ type: 'cable:delete', cableId });
+    setHasChanges(true);
+  }, [addChange, setHasChanges]);
+
   return (
-    <div className="p-4">
-      <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} />
+    <div>
+      {/* Banner: OFD port selection */}
+      {isFlowActive && (
+        <div className="mx-4 mt-3 mb-1 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+          <p className="text-xs text-blue-700">
+            {ofdDirection === 'ofdAsTarget' ? '포트를 선택하여 연결을 완료하세요' : '포트를 선택하세요'}
+          </p>
+          <button onClick={cancelOfd} className="text-xs text-blue-500 hover:text-blue-700 font-medium">취소</button>
+        </div>
+      )}
+      {/* Banner: waiting for target on canvas */}
+      {ofdPhase === 'selectingTarget' && ofdFlowOfdId === equipmentId && (
+        <div className="mx-4 mt-3 mb-1 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+          <p className="text-xs text-green-700">캔버스에서 대상 설비를 클릭하세요</p>
+        </div>
+      )}
+      {isOfd && (
+        <FiberPathManager
+          ofdId={equipmentId}
+          onPortConnect={handlePortConnect}
+          onPortDelete={handlePortDelete}
+          onNavigateRemote={(remoteRoomId) => {
+            const { hasChanges, localElements, localEquipment } = useEditorStore.getState();
+            if (hasChanges) {
+              if (!confirm('저장하지 않은 변경사항이 있습니다. 대국 도면으로 이동하시겠습니까?')) return;
+              const draftKey = `floorplan-draft-${roomId}`;
+              sessionStorage.setItem(draftKey, JSON.stringify({
+                elements: localElements,
+                equipment: localEquipment,
+                hasChanges: true,
+              }));
+            }
+            navigate(`/rooms/${remoteRoomId}/plan`);
+          }}
+        />
+      )}
+      <div className="p-4">
+        <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} />
+      </div>
     </div>
   );
 }

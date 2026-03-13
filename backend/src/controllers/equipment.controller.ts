@@ -7,6 +7,23 @@ interface MulterRequest extends Request {
 
 export const equipmentController = {
   /**
+   * GET /api/equipment
+   * 설비 목록 조회 (카테고리 필터 지원)
+   */
+  async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const category = req.query.category as string | undefined;
+      const equipment = await equipmentService.getAll(
+        category ? { category: category as never } : undefined
+      );
+
+      res.json({ data: equipment });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * GET /api/rooms/:id/equipment
    * 실에 직접 배치된 설비 목록 조회
    */

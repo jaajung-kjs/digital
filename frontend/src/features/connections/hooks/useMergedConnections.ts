@@ -13,7 +13,7 @@ export function useMergedConnections(
   localEquipment: FloorPlanEquipment[],
 ): RoomConnection[] {
   return useMemo(() => {
-    if (!backendConnections) return [];
+    const base = backendConnections ?? [];
 
     const cableCreates = selectChanges(changeSet, 'cable:create');
     const cableUpdates = selectChanges(changeSet, 'cable:update');
@@ -23,7 +23,7 @@ export function useMergedConnections(
     const deletedIds = new Set(cableDeletions.map((c) => c.cableId));
     const equipById = new Map(localEquipment.map((e) => [e.id, e]));
 
-    const merged = backendConnections
+    const merged = base
       .filter((c) => !deletedIds.has(c.id))
       .map((c) => {
         if (updatedIds.has(c.id)) {
@@ -44,6 +44,8 @@ export function useMergedConnections(
         label: cable.label,
         length: cable.length,
         color: cable.color,
+        fiberPathId: cable.fiberPathId,
+        fiberPortNumber: cable.fiberPortNumber,
         sourceEquipment: { id: cable.sourceEquipmentId, name: srcEq?.name ?? '', rackId: null, roomId: null },
         targetEquipment: { id: cable.targetEquipmentId, name: tgtEq?.name ?? '', rackId: null, roomId: null },
       });

@@ -47,6 +47,8 @@ const cableSchema = z.object({
   label: z.string().nullish(),
   length: z.number().nullish(),
   color: z.string().nullish(),
+  fiberPathId: z.string().uuid().nullish(),
+  fiberPortNumber: z.number().int().min(1).max(48).nullish(),
 });
 
 const bulkUpdatePlanSchema = z.object({
