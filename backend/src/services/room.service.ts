@@ -127,6 +127,296 @@ function toRoomDetail(r: RoomRecord): RoomDetail {
   };
 }
 
+// ==================== Shared Constants & Helpers ====================
+
+const DEFAULT_EQUIPMENT_WIDTH = 60;
+const DEFAULT_EQUIPMENT_HEIGHT = 100;
+
+const EQUIPMENT_SELECT = {
+  id: true, name: true, category: true,
+  positionX: true, positionY: true, width2d: true, height2d: true,
+  rotation: true, frontImageUrl: true, rearImageUrl: true,
+  description: true, model: true, manufacturer: true, manager: true, height3d: true,
+} as const;
+
+type EquipmentRow = Prisma.EquipmentGetPayload<{ select: typeof EQUIPMENT_SELECT }>;
+
+function mapEquipmentRow(e: EquipmentRow) {
+  return {
+    id: e.id, name: e.name, category: e.category,
+    positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
+    width: e.width2d ?? DEFAULT_EQUIPMENT_WIDTH, height: e.height2d ?? DEFAULT_EQUIPMENT_HEIGHT,
+    rotation: e.rotation ?? 0,
+    frontImageUrl: e.frontImageUrl, rearImageUrl: e.rearImageUrl,
+    description: e.description, model: e.model,
+    manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
+  };
+}
+
+/** Normalize undefined→null for comparing optional fields against DB nulls */
+function nullableChanged(incoming: unknown, current: unknown): boolean {
+  return (incoming ?? null) !== current;
+}
+
+function truncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str;
+  return str.substring(0, maxLen - 3) + '...';
+}
+
+// ==================== Change Detection ====================
+
+interface DetailedChange {
+  description: string;
+  isStructural: boolean;
+}
+
+type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/**
+ * Compare current DB equipment with input to detect what actually changed.
+ */
+async function detectEquipmentChanges(
+  tx: TxClient,
+  roomId: string,
+  inputEquipment: UpdatePlanInput['equipment'],
+  deletedEquipmentIds: string[] | undefined,
+): Promise<DetailedChange[]> {
+  const changes: DetailedChange[] = [];
+  if (!inputEquipment?.length && !deletedEquipmentIds?.length) return changes;
+
+  const currentEquipment = await tx.equipment.findMany({
+    where: { roomId },
+    select: {
+      id: true, name: true, category: true,
+      positionX: true, positionY: true, width2d: true, height2d: true,
+      rotation: true, description: true, model: true, manufacturer: true,
+      manager: true, height3d: true,
+    },
+  });
+  const currentMap = new Map(currentEquipment.map(e => [e.id, e]));
+
+  // Deleted equipment
+  for (const id of deletedEquipmentIds ?? []) {
+    const existing = currentMap.get(id);
+    changes.push({ description: `${existing?.name ?? '설비'} 삭제`, isStructural: true });
+  }
+
+  for (const eq of inputEquipment ?? []) {
+    if (!eq.id) {
+      changes.push({ description: `${eq.name} 추가`, isStructural: true });
+      continue;
+    }
+    const cur = currentMap.get(eq.id);
+    if (!cur) continue;
+
+    // Layout (structural)
+    const layoutChanged =
+      eq.positionX !== (cur.positionX ?? 0) ||
+      eq.positionY !== (cur.positionY ?? 0) ||
+      eq.width !== (cur.width2d ?? DEFAULT_EQUIPMENT_WIDTH) ||
+      eq.height !== (cur.height2d ?? DEFAULT_EQUIPMENT_HEIGHT) ||
+      (eq.rotation ?? 0) !== (cur.rotation ?? 0);
+    if (layoutChanged) {
+      changes.push({ description: `${cur.name} 위치/크기 변경`, isStructural: true });
+    }
+
+    // Metadata (non-structural)
+    const metaFields: string[] = [];
+    if (eq.name !== cur.name) metaFields.push('이름');
+    if (nullableChanged(eq.description, cur.description)) metaFields.push('설명');
+    if (nullableChanged(eq.model, cur.model)) metaFields.push('모델');
+    if (nullableChanged(eq.manufacturer, cur.manufacturer)) metaFields.push('제조사');
+    if (nullableChanged(eq.manager, cur.manager)) metaFields.push('담당자');
+    if (nullableChanged(eq.height3d, cur.height3d)) metaFields.push('높이(3D)');
+    if (eq.category !== undefined && eq.category !== cur.category) metaFields.push('카테고리');
+    if (metaFields.length > 0) {
+      changes.push({
+        description: `${cur.name} 정보 수정 (${metaFields.join(', ')})`,
+        isStructural: false,
+      });
+    }
+  }
+
+  return changes;
+}
+
+function detectElementChanges(
+  inputElements: UpdatePlanInput['elements'],
+  deletedElementIds: string[] | undefined,
+): DetailedChange[] {
+  const changes: DetailedChange[] = [];
+  if (deletedElementIds?.length) {
+    changes.push({ description: `구조 요소 ${deletedElementIds.length}개 삭제`, isStructural: true });
+  }
+  // Frontend always sends ALL elements — new ones have no id
+  const newElements = inputElements?.filter(e => !e.id) ?? [];
+  if (newElements.length > 0) {
+    changes.push({ description: `구조 요소 ${newElements.length}개 추가`, isStructural: true });
+  }
+  // Existing elements are always resent by the frontend even when unchanged.
+  // We cannot efficiently diff JSON properties, so we only detect adds/deletes.
+  // Property-only element edits (e.g., moving a wall) will still be saved to DB
+  // but won't trigger a version bump on their own — they're typically part of
+  // a larger save that includes detectable equipment/cable changes.
+  return changes;
+}
+
+async function detectCableChanges(
+  tx: TxClient,
+  inputCables: UpdatePlanInput['cables'],
+  deletedCableIds: string[] | undefined,
+): Promise<DetailedChange[]> {
+  const changes: DetailedChange[] = [];
+  if (deletedCableIds?.length) {
+    changes.push({ description: `케이블 ${deletedCableIds.length}개 해제`, isStructural: true });
+  }
+  if (!inputCables?.length) return changes;
+
+  const newCables = inputCables.filter(c => !c.id);
+  const updatedCables = inputCables.filter(c => c.id);
+
+  if (newCables.length > 0) {
+    changes.push({ description: `케이블 ${newCables.length}개 연결`, isStructural: true });
+  }
+
+  // For updated cables, distinguish topology changes (structural) from metadata (label/color/length)
+  if (updatedCables.length > 0) {
+    const existingCables = await tx.cable.findMany({
+      where: { id: { in: updatedCables.map(c => c.id!) } },
+      select: { id: true, sourceEquipmentId: true, targetEquipmentId: true, cableType: true },
+    });
+    const existingMap = new Map(existingCables.map(c => [c.id, c]));
+
+    let topologyCount = 0;
+    let metadataCount = 0;
+    for (const cable of updatedCables) {
+      const cur = existingMap.get(cable.id!);
+      if (!cur) { topologyCount++; continue; }
+      const topologyChanged =
+        cable.sourceEquipmentId !== cur.sourceEquipmentId ||
+        cable.targetEquipmentId !== cur.targetEquipmentId ||
+        cable.cableType !== cur.cableType;
+      if (topologyChanged) topologyCount++;
+      else metadataCount++;
+    }
+    if (topologyCount > 0) {
+      changes.push({ description: `케이블 ${topologyCount}개 연결 변경`, isStructural: true });
+    }
+    if (metadataCount > 0) {
+      changes.push({ description: `케이블 ${metadataCount}개 정보 수정`, isStructural: false });
+    }
+  }
+
+  return changes;
+}
+
+function detectCanvasChanges(
+  input: UpdatePlanInput,
+  room: { canvasWidth: number; canvasHeight: number; gridSize: number; majorGridSize: number; backgroundColor: string },
+): DetailedChange[] {
+  const changes: DetailedChange[] = [];
+  if (input.canvasWidth !== undefined && input.canvasWidth !== room.canvasWidth) {
+    changes.push({ description: '캔버스 너비 변경', isStructural: true });
+  }
+  if (input.canvasHeight !== undefined && input.canvasHeight !== room.canvasHeight) {
+    changes.push({ description: '캔버스 높이 변경', isStructural: true });
+  }
+  if (input.gridSize !== undefined && input.gridSize !== room.gridSize) {
+    changes.push({ description: '그리드 크기 변경', isStructural: true });
+  }
+  if (input.majorGridSize !== undefined && input.majorGridSize !== room.majorGridSize) {
+    changes.push({ description: '주요 그리드 크기 변경', isStructural: true });
+  }
+  if (input.backgroundColor !== undefined && input.backgroundColor !== room.backgroundColor) {
+    changes.push({ description: '배경색 변경', isStructural: true });
+  }
+  return changes;
+}
+
+/** VarChar(100) limit for actionDetail column */
+const ACTION_DETAIL_MAX_LEN = 100;
+
+/**
+ * Build a concise summary of changes for the audit log.
+ * Groups individual changes into categories for readability.
+ */
+function buildChangeSummary(changes: DetailedChange[]): string[] {
+  if (changes.length === 0) return [];
+
+  // Group by category for concise output
+  const summary: string[] = [];
+
+  const equipAdd = changes.filter(c => c.isStructural && c.description.includes('추가') && !c.description.includes('요소') && !c.description.includes('케이블'));
+  const equipDel = changes.filter(c => c.isStructural && c.description.includes('삭제') && !c.description.includes('요소') && !c.description.includes('케이블'));
+  const equipMove = changes.filter(c => c.isStructural && c.description.includes('위치/크기'));
+  const equipMeta = changes.filter(c => !c.isStructural && c.description.includes('정보 수정'));
+  const elemAdd = changes.filter(c => c.description.includes('구조 요소') && c.description.includes('추가'));
+  const elemDel = changes.filter(c => c.description.includes('구조 요소') && c.description.includes('삭제'));
+  const cableChanges = changes.filter(c => c.description.includes('케이블'));
+  const canvasChanges = changes.filter(c => c.description.includes('캔버스') || c.description.includes('그리드') || c.description.includes('배경색'));
+
+  if (equipAdd.length > 0) summary.push(`설비 ${equipAdd.length}개 추가`);
+  if (equipDel.length > 0) summary.push(`설비 ${equipDel.length}개 삭제`);
+  if (equipMove.length > 0) summary.push(`설비 ${equipMove.length}개 이동/크기 변경`);
+  if (equipMeta.length > 0) summary.push(`설비 ${equipMeta.length}개 정보 수정`);
+  if (elemAdd.length > 0) summary.push(elemAdd[0].description);
+  if (elemDel.length > 0) summary.push(elemDel[0].description);
+  if (cableChanges.length > 0) {
+    const total = cableChanges.reduce((n, c) => {
+      const match = c.description.match(/(\d+)개/);
+      return n + (match ? parseInt(match[1]) : 1);
+    }, 0);
+    summary.push(`케이블 ${total}건 변경`);
+  }
+  if (canvasChanges.length > 0) summary.push('캔버스 설정 변경');
+
+  return summary;
+}
+
+// ==================== Snapshot Capture ====================
+
+async function captureRoomSnapshot(
+  tx: TxClient,
+  roomId: string,
+  updated: { id: string; name: string; canvasWidth: number; canvasHeight: number; gridSize: number; majorGridSize: number; backgroundColor: string; updatedAt: Date },
+  version: number,
+) {
+  const [snapshotElements, snapshotEquipment, snapshotCables] = await Promise.all([
+    tx.floorPlanElement.findMany({ where: { roomId }, orderBy: { zIndex: 'asc' } }),
+    tx.equipment.findMany({ where: { roomId }, select: EQUIPMENT_SELECT, orderBy: { sortOrder: 'asc' } }),
+    tx.cable.findMany({
+      where: { sourceEquipment: { roomId }, targetEquipment: { roomId } },
+      include: {
+        sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
+        targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
+      },
+    }),
+  ]);
+
+  return {
+    plan: {
+      id: updated.id, name: updated.name,
+      canvasWidth: updated.canvasWidth, canvasHeight: updated.canvasHeight,
+      gridSize: updated.gridSize, majorGridSize: updated.majorGridSize,
+      backgroundColor: updated.backgroundColor,
+      elements: snapshotElements.map((e) => ({
+        id: e.id, elementType: e.elementType,
+        properties: e.properties as Record<string, unknown>,
+        zIndex: e.zIndex, isVisible: e.isVisible,
+      })),
+      equipment: snapshotEquipment.map(mapEquipmentRow),
+      version, updatedAt: updated.updatedAt,
+    },
+    cables: snapshotCables.map((c) => ({
+      id: c.id,
+      sourceEquipmentId: c.sourceEquipmentId, targetEquipmentId: c.targetEquipmentId,
+      cableType: c.cableType, label: c.label, length: c.length, color: c.color,
+      pathPoints: c.pathPoints, description: c.description,
+      sourceEquipment: c.sourceEquipment, targetEquipment: c.targetEquipment,
+    })),
+  };
+}
+
 // ==================== Service ====================
 
 class RoomService {
@@ -169,23 +459,7 @@ class RoomService {
 
     const equipment = await prisma.equipment.findMany({
       where: { roomId: id },
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        positionX: true,
-        positionY: true,
-        width2d: true,
-        height2d: true,
-        rotation: true,
-        frontImageUrl: true,
-        rearImageUrl: true,
-        description: true,
-        model: true,
-        manufacturer: true,
-        manager: true,
-        height3d: true,
-      },
+      select: EQUIPMENT_SELECT,
       orderBy: { sortOrder: 'asc' },
     });
 
@@ -204,23 +478,7 @@ class RoomService {
         zIndex: e.zIndex,
         isVisible: e.isVisible,
       })),
-      equipment: equipment.map((e) => ({
-        id: e.id,
-        name: e.name,
-        category: e.category,
-        positionX: e.positionX ?? 0,
-        positionY: e.positionY ?? 0,
-        width: e.width2d ?? 60,
-        height: e.height2d ?? 100,
-        rotation: e.rotation ?? 0,
-        frontImageUrl: e.frontImageUrl,
-        rearImageUrl: e.rearImageUrl,
-        description: e.description,
-        model: e.model,
-        manufacturer: e.manufacturer,
-        manager: e.manager,
-        height3d: e.height3d,
-      })),
+      equipment: equipment.map(mapEquipmentRow),
       version: room.version,
       updatedAt: room.updatedAt,
     };
@@ -274,6 +532,11 @@ class RoomService {
 
   /**
    * 도면 전체 저장 (벌크 업데이트)
+   *
+   * Change detection determines whether the save is structural (layout change)
+   * or metadata-only. Structural changes increment the version and capture a
+   * full snapshot for historical preview. Metadata-only changes are recorded
+   * as a lightweight audit entry without a snapshot.
    */
   async bulkUpdatePlan(
     id: string,
@@ -283,10 +546,21 @@ class RoomService {
     const room = await prisma.room.findUnique({ where: { id } });
     if (!room) throw new NotFoundError('실');
 
-    let newVersion = 0;
+    let newVersion = room.version;
     const equipmentIdMap: Record<string, string> = {};
 
     await prisma.$transaction(async (tx) => {
+      // ── Step 1: Detect changes BEFORE applying mutations ──
+      const equipmentChanges = await detectEquipmentChanges(tx, id, input.equipment, input.deletedEquipmentIds);
+      const elementChanges = detectElementChanges(input.elements, input.deletedElementIds);
+      const cableChanges = await detectCableChanges(tx, input.cables, input.deletedCableIds);
+      const canvasChanges = detectCanvasChanges(input, room);
+
+      const allChanges = [...equipmentChanges, ...elementChanges, ...cableChanges, ...canvasChanges];
+      const hasStructuralChange = allChanges.some(c => c.isStructural);
+      const hasAnyChange = allChanges.length > 0;
+
+      // ── Step 2: Apply mutations (same as before) ──
       if (input.deletedElementIds && input.deletedElementIds.length > 0) {
         await tx.floorPlanElement.deleteMany({
           where: { id: { in: input.deletedElementIds }, roomId: id },
@@ -415,6 +689,7 @@ class RoomService {
         }
       }
 
+      // ── Step 3: Conditional version increment ──
       const updated = await tx.room.update({
         where: { id },
         data: {
@@ -423,90 +698,45 @@ class RoomService {
           gridSize: input.gridSize,
           majorGridSize: input.majorGridSize,
           backgroundColor: input.backgroundColor,
-          version: { increment: 1 },
+          ...(hasStructuralChange ? { version: { increment: 1 } } : {}),
           updatedById: userId,
         },
       });
       newVersion = updated.version;
 
-      // Capture snapshot inside transaction (all changes visible via tx)
-      const snapshotElements = await tx.floorPlanElement.findMany({
-        where: { roomId: id },
-        orderBy: { zIndex: 'asc' },
-      });
-      const snapshotEquipment = await tx.equipment.findMany({
-        where: { roomId: id },
-        select: {
-          id: true, name: true, category: true,
-          positionX: true, positionY: true, width2d: true, height2d: true,
-          rotation: true, frontImageUrl: true, rearImageUrl: true,
-          description: true, model: true, manufacturer: true, manager: true, height3d: true,
-        },
-        orderBy: { sortOrder: 'asc' },
-      });
-      const snapshotCables = await tx.cable.findMany({
-        where: {
-          OR: [
-            { sourceEquipment: { roomId: id } },
-            { targetEquipment: { roomId: id } },
-          ],
-        },
-        include: {
-          sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
-          targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
-        },
-      });
+      // ── Step 4: Audit log ──
+      if (!hasAnyChange) return; // No actual changes — skip audit entirely
 
-      const snapshot = {
-        plan: {
-          id: updated.id, name: updated.name,
-          canvasWidth: updated.canvasWidth, canvasHeight: updated.canvasHeight,
-          gridSize: updated.gridSize, majorGridSize: updated.majorGridSize,
-          backgroundColor: updated.backgroundColor,
-          elements: snapshotElements.map((e) => ({
-            id: e.id, elementType: e.elementType,
-            properties: e.properties as Record<string, unknown>,
-            zIndex: e.zIndex, isVisible: e.isVisible,
-          })),
-          equipment: snapshotEquipment.map((e) => ({
-            id: e.id, name: e.name, category: e.category,
-            positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
-            width: e.width2d ?? 60, height: e.height2d ?? 100,
-            rotation: e.rotation ?? 0,
-            frontImageUrl: e.frontImageUrl, rearImageUrl: e.rearImageUrl,
-            description: e.description, model: e.model,
-            manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
-          })),
-          version: newVersion, updatedAt: updated.updatedAt,
-        },
-        cables: snapshotCables.map((c) => ({
-          id: c.id,
-          sourceEquipmentId: c.sourceEquipmentId, targetEquipmentId: c.targetEquipmentId,
-          cableType: c.cableType, label: c.label, length: c.length, color: c.color,
-          pathPoints: c.pathPoints, description: c.description,
-          sourceEquipment: c.sourceEquipment, targetEquipment: c.targetEquipment,
-        })),
-      };
-
-      // Record audit log with complete snapshot
       const user = await tx.user.findUnique({ where: { id: userId }, select: { name: true } });
-      const changedFields: string[] = [];
-      if (input.elements) changedFields.push('elements');
-      if (input.equipment) changedFields.push('equipment');
-      if (input.cables?.length || input.deletedCableIds?.length) changedFields.push('cables');
-      if (input.deletedElementIds?.length) changedFields.push('deletedElements');
-      if (input.deletedEquipmentIds?.length) changedFields.push('deletedEquipment');
-      if (input.canvasWidth || input.canvasHeight) changedFields.push('canvas');
-      if (input.gridSize || input.majorGridSize) changedFields.push('grid');
+      const changedFields = buildChangeSummary(allChanges);
+      const actionDetail = hasStructuralChange
+        ? truncate(`v${newVersion}`, ACTION_DETAIL_MAX_LEN)
+        : truncate('정보 수정', ACTION_DETAIL_MAX_LEN);
 
-      await tx.auditLog.create({
-        data: {
-          entityType: 'Room', entityId: id, entityName: room.name,
-          action: 'UPDATE', actionDetail: `v${newVersion} 저장`,
-          changedFields, newValues: snapshot as any,
-          userId, userName: user?.name ?? null,
-        },
-      });
+      if (hasStructuralChange) {
+        // Structural change: capture complete snapshot for historical preview
+        const snapshot = await captureRoomSnapshot(tx, id, updated, newVersion);
+
+        await tx.auditLog.create({
+          data: {
+            entityType: 'Room', entityId: id, entityName: room.name,
+            action: 'UPDATE', actionDetail,
+            changedFields, newValues: snapshot as any,
+            userId, userName: user?.name ?? null,
+          },
+        });
+      } else {
+        // Metadata-only change: lightweight audit entry without snapshot
+        // newValues omitted (SQL NULL) — hasSnapshot check relies on this
+        await tx.auditLog.create({
+          data: {
+            entityType: 'Room', entityId: id, entityName: room.name,
+            action: 'UPDATE', actionDetail,
+            changedFields,
+            userId, userName: user?.name ?? null,
+          },
+        });
+      }
     });
 
     return {
@@ -524,10 +754,27 @@ class RoomService {
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) throw new NotFoundError('실');
 
-    return prisma.auditLog.findMany({
+    const logs = await prisma.auditLog.findMany({
       where: { entityType: 'Room', entityId: roomId },
       orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        entityType: true,
+        entityId: true,
+        entityName: true,
+        action: true,
+        actionDetail: true,
+        changedFields: true,
+        newValues: true,
+        userName: true,
+        createdAt: true,
+      },
     });
+
+    return logs.map(({ newValues, ...rest }) => ({
+      ...rest,
+      hasSnapshot: newValues !== null,
+    }));
   }
 
   /**
@@ -537,11 +784,10 @@ class RoomService {
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) throw new NotFoundError('실');
 
-    const log = await prisma.auditLog.findUnique({ where: { id: auditLogId } });
+    const log = await prisma.auditLog.findFirst({
+      where: { id: auditLogId, entityType: 'Room', entityId: roomId },
+    });
     if (!log) throw new NotFoundError('변경 이력');
-    if (log.entityType !== 'Room' || log.entityId !== roomId) {
-      throw new NotFoundError('변경 이력');
-    }
 
     const snapshot = log.newValues as any;
     if (!snapshot) {
