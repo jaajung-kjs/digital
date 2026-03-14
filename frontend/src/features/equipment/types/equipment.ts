@@ -81,11 +81,3 @@ export const STATUS_LABELS: Record<string, string> = {
   RESOLVED: '\uD574\uACB0',
   CLOSED: '\uC885\uB8CC',
 };
-
-export const CABLE_TYPE_COLORS: Record<string, string> = {
-  AC: 'bg-red-100 text-red-700',
-  DC: 'bg-blue-100 text-blue-700',
-  LAN: 'bg-green-100 text-green-700',
-  FIBER: 'bg-yellow-100 text-yellow-700',
-  GROUND: 'bg-gray-100 text-gray-700',
-};

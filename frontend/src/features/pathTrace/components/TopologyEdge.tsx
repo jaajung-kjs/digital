@@ -1,6 +1,6 @@
 import type { TraceEdge } from '../types';
 import type { LayoutNode } from '../utils/layoutEngine';
-import { CABLE_COLORS } from '../../editor/renderers/connectionRenderer';
+import { CABLE_COLORS } from '../../../types/connection';
 
 interface TopologyEdgeProps {
   edge: TraceEdge;
@@ -37,7 +37,7 @@ export function TopologyEdge({ edge, nodeMap, isHighlighted }: TopologyEdgeProps
         strokeWidth={strokeWidth}
         strokeDasharray={isFiber ? '6 3' : undefined}
       />
-      {isFiber && edge.portCount != null && (
+      {isFiber && (
         <text
           x={midX}
           y={midY - 6}
@@ -45,7 +45,8 @@ export function TopologyEdge({ edge, nodeMap, isHighlighted }: TopologyEdgeProps
           fontSize={9}
           fill="#7c3aed"
         >
-          {edge.portCount}p
+          {edge.fiberPathLabel ?? 'FiberPath'}
+          {edge.fiberPortNumber ? ` #${edge.fiberPortNumber}` : ''}
         </text>
       )}
     </g>

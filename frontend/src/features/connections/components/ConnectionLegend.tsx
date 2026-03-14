@@ -1,48 +1,34 @@
-import { useEffect } from 'react';
-import type { CableType } from '../../../types/connection';
-import { CABLE_COLORS } from '../../editor/renderers/connectionRenderer';
+import { useEffect, useRef } from 'react';
+import { CABLE_TYPES, type CableType } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
-
-interface LegendItem {
-  type: CableType;
-  label: string;
-  color: string;
-}
-
-const ALL_LEGEND_ITEMS: LegendItem[] = [
-  { type: 'LAN', label: 'LAN', color: CABLE_COLORS.LAN },
-  { type: 'FIBER', label: 'FIBER', color: CABLE_COLORS.FIBER },
-  { type: 'AC', label: 'AC 전원', color: CABLE_COLORS.AC },
-  { type: 'DC', label: 'DC 전원', color: CABLE_COLORS.DC },
-  { type: 'GROUND', label: '접지', color: CABLE_COLORS.GROUND },
-];
 
 export function ConnectionLegend() {
   const connectionFilters = useEditorStore((s) => s.connectionFilters);
   const setConnectionFilters = useEditorStore((s) => s.setConnectionFilters);
+  const initialized = useRef(false);
 
-  // Initialize filters to show all only if empty (avoid resetting on re-mount)
+  // Initialize filters to show all on first mount only
   useEffect(() => {
-    if (connectionFilters.length === 0) {
-      setConnectionFilters(ALL_LEGEND_ITEMS.map((i) => i.type));
+    if (!initialized.current && connectionFilters.length === 0) {
+      setConnectionFilters(CABLE_TYPES.map((t) => t.value));
     }
+    initialized.current = true;
   }, [connectionFilters.length, setConnectionFilters]);
 
   const toggleFilter = (type: CableType) => {
     if (connectionFilters.includes(type)) {
-      if (connectionFilters.length <= 1) return;
       setConnectionFilters(connectionFilters.filter((t) => t !== type));
     } else {
       setConnectionFilters([...connectionFilters, type]);
     }
   };
 
-  const allSelected = ALL_LEGEND_ITEMS.every((i) => connectionFilters.includes(i.type));
+  const allSelected = CABLE_TYPES.every((t) => connectionFilters.includes(t.value));
   const toggleAll = () => {
     if (allSelected) {
-      setConnectionFilters([ALL_LEGEND_ITEMS[0].type]);
+      setConnectionFilters([]);
     } else {
-      setConnectionFilters(ALL_LEGEND_ITEMS.map((i) => i.type));
+      setConnectionFilters(CABLE_TYPES.map((t) => t.value));
     }
   };
 
@@ -59,12 +45,12 @@ export function ConnectionLegend() {
         <span className="text-xs text-gray-600 font-medium">전체</span>
       </label>
       <div className="flex flex-col gap-1">
-        {ALL_LEGEND_ITEMS.map((item) => (
-          <label key={item.type} className="flex items-center gap-2 cursor-pointer">
+        {CABLE_TYPES.map((item) => (
+          <label key={item.value} className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
-              checked={connectionFilters.includes(item.type)}
-              onChange={() => toggleFilter(item.type)}
+              checked={connectionFilters.includes(item.value)}
+              onChange={() => toggleFilter(item.value)}
               className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <div
