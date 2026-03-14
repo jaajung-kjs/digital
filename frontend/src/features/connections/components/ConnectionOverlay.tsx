@@ -2,18 +2,17 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { CableType, RoomConnection } from '../../../types/connection';
 import { useRoomConnections } from '../hooks/useRoomConnections';
 import { useMergedConnections } from '../hooks/useMergedConnections';
-import { useConnectionEditorStore, setHitTestData } from '../hooks/useConnectionEditor';
 import { useEditorStore, type ChangeEntry } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
+import { CABLE_COLORS } from '../../../types/connection';
 import {
   renderConnections,
-  CABLE_COLORS,
   type RenderableConnection,
   type ConnectionRenderContext,
 } from '../../editor/renderers/connectionRenderer';
 import { ConnectionLegend } from './ConnectionLegend';
-import { ConnectionCreatePopover, ConnectionEditDialog } from './ConnectionEditor';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useConnectionCreationStore } from '../stores/connectionCreationStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 
 interface ConnectionOverlayProps {
@@ -26,12 +25,10 @@ function mapConnectionsToRenderable(
   equipmentPositions: Map<string, { x: number; y: number; width: number; height: number }>
 ): RenderableConnection[] {
   const result: RenderableConnection[] = [];
-
   for (const conn of connections) {
     const sourcePos = equipmentPositions.get(conn.sourceEquipmentId);
     const targetPos = equipmentPositions.get(conn.targetEquipmentId);
     if (!sourcePos || !targetPos) continue;
-
     result.push({
       id: conn.id,
       sourceX: sourcePos.x + sourcePos.width / 2,
@@ -43,7 +40,6 @@ function mapConnectionsToRenderable(
       color: conn.color || CABLE_COLORS[conn.cableType] || '#6b7280',
     });
   }
-
   return result;
 }
 
@@ -61,25 +57,23 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
 
   const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
 
-  const isConnectionMode = viewMode === 'connection';
-
-  const sourceEquipmentId = useConnectionEditorStore((s) => s.sourceEquipmentId);
-  const targetEquipmentId = useConnectionEditorStore((s) => s.targetEquipmentId);
-  const showEditor = useConnectionEditorStore((s) => s.showEditor);
-  const editingCable = useConnectionEditorStore((s) => s.editingCable);
-  const resetConnectionEditor = useConnectionEditorStore((s) => s.resetConnectionEditor);
-
-  const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
-
   const changeSet = useEditorStore((s) => s.changeSet);
 
   const highlightActive = usePathHighlightStore((s) => s.active);
-  const highlightMode = usePathHighlightStore((s) => s.mode);
   const highlightedNodeIds = usePathHighlightStore((s) => s.highlightedNodeIds);
   const highlightedEdgeIds = usePathHighlightStore((s) => s.highlightedEdgeIds);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
 
-  const { data: backendConnections } = useRoomConnections(roomId, isConnectionMode);
+  const creationPhase = useConnectionCreationStore((s) => s.phase);
+  const creationSourceId = useConnectionCreationStore((s) => s.sourceEquipmentId);
+  const hoveredEquipmentId = useConnectionCreationStore((s) => s.hoveredEquipmentId);
+  const cancelCreation = useConnectionCreationStore((s) => s.cancel);
+
+  const ofdFlowPhase = useOfdConnectionFlowStore((s) => s.phase);
+  const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
+  const ofdFlowHoveredId = useOfdConnectionFlowStore((s) => s.hoveredEquipmentId);
+
+  const { data: backendConnections } = useRoomConnections(roomId, viewMode === 'edit-2d');
 
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
@@ -99,26 +93,16 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
     return map;
   }, [localEquipment]);
 
-  const editorEquipmentList = useMemo(() => {
-    return localEquipment.map((eq) => ({ id: eq.id, name: eq.name, category: eq.category }));
-  }, [localEquipment]);
-
-  // Build renderable connections with cable type filter applied
   const renderableConnections = useMemo(() => {
     if (!connections) return [];
     const all = mapConnectionsToRenderable(connections, equipmentPositions);
-    if (connectionFilters.length === 0) return all;
+    if (connectionFilters.length === 0) return [];
     return all.filter((c) => connectionFilters.includes(c.cableType as CableType));
   }, [connections, equipmentPositions, connectionFilters]);
 
-  // Update module-level hit-test data for useCanvasEvents double-click handling
+  // Render cables on overlay canvas
   useEffect(() => {
-    setHitTestData(renderableConnections, connections ?? []);
-  }, [renderableConnections, connections]);
-
-  // Render
-  useEffect(() => {
-    if (!isConnectionMode || !overlayRef.current) return;
+    if (viewMode !== 'edit-2d' || !overlayRef.current) return;
 
     const canvas = overlayRef.current;
     const parentCanvas = canvasRef.current;
@@ -134,23 +118,14 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
 
     const context: ConnectionRenderContext = { ctx, zoom, panX, panY };
 
-    // Path highlight: split into dimmed vs emphasized connections
-    const isHighlighting = highlightActive && highlightMode === 'canvas';
+    // Path highlight: show only trace cables, hide the rest
+    const isHighlighting = highlightActive;
     if (isHighlighting) {
-      // Render non-highlighted connections dimmed
-      const dimmed = renderableConnections.filter((c) => !c.id || !highlightedEdgeIds.has(c.id));
       const emphasized = renderableConnections.filter((c) => c.id && highlightedEdgeIds.has(c.id));
-
-      ctx.save();
-      ctx.globalAlpha = 0.15;
-      renderConnections(context, dimmed);
-      ctx.restore();
-
-      // Render highlighted connections with emphasis
       const emphasizedWithHighlight = emphasized.map((c) => ({ ...c, highlighted: true }));
       renderConnections(context, emphasizedWithHighlight);
 
-      // Draw glow rects around highlighted equipment
+      // Glow rects around highlighted equipment
       const scale = zoom / 100;
       ctx.save();
       ctx.setTransform(scale, 0, 0, scale, panX, panY);
@@ -167,9 +142,9 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
       renderConnections(context, renderableConnections);
     }
 
-    // Highlight source equipment
-    if (sourceEquipmentId) {
-      const sourcePos = equipmentPositions.get(sourceEquipmentId);
+    // Connection creation: highlight source equipment
+    if (creationPhase === 'selectingTarget' && creationSourceId) {
+      const sourcePos = equipmentPositions.get(creationSourceId);
       if (sourcePos) {
         const scale = zoom / 100;
         ctx.save();
@@ -190,61 +165,94 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
       }
     }
 
-    // Highlight target equipment
-    if (targetEquipmentId) {
-      const targetPos = equipmentPositions.get(targetEquipmentId);
-      if (targetPos) {
+    // Connection creation: hover highlight on target
+    if (creationPhase === 'selectingTarget' && hoveredEquipmentId && hoveredEquipmentId !== creationSourceId) {
+      const hoverPos = equipmentPositions.get(hoveredEquipmentId);
+      if (hoverPos) {
         const scale = zoom / 100;
         ctx.save();
         ctx.setTransform(scale, 0, 0, scale, panX, panY);
         ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 10;
         ctx.strokeStyle = '#22c55e';
         ctx.lineWidth = 3;
         ctx.setLineDash([6, 3]);
-        ctx.strokeRect(targetPos.x - 3, targetPos.y - 3, targetPos.width + 6, targetPos.height + 6);
+        ctx.strokeRect(hoverPos.x - 3, hoverPos.y - 3, hoverPos.width + 6, hoverPos.height + 6);
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#22c55e';
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('도착', targetPos.x + targetPos.width / 2, targetPos.y - 8);
+        ctx.fillText('도착', hoverPos.x + hoverPos.width / 2, hoverPos.y - 8);
         ctx.restore();
       }
     }
-  }, [isConnectionMode, renderableConnections, zoom, panX, panY, equipmentPositions, canvasRef, sourceEquipmentId, targetEquipmentId, highlightActive, highlightMode, highlightedNodeIds, highlightedEdgeIds]);
 
-  // ESC key
+    // OFD flow: highlight OFD source
+    if (ofdFlowPhase === 'selectingTarget' && ofdFlowOfdId) {
+      const ofdPos = equipmentPositions.get(ofdFlowOfdId);
+      if (ofdPos) {
+        const scale = zoom / 100;
+        ctx.save();
+        ctx.setTransform(scale, 0, 0, scale, panX, panY);
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(ofdPos.x - 3, ofdPos.y - 3, ofdPos.width + 6, ofdPos.height + 6);
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#3b82f6';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('출발', ofdPos.x + ofdPos.width / 2, ofdPos.y - 8);
+        ctx.restore();
+      }
+    }
+
+    // OFD flow: hover highlight on target
+    if (ofdFlowPhase === 'selectingTarget' && ofdFlowHoveredId && ofdFlowHoveredId !== ofdFlowOfdId) {
+      const hoverPos = equipmentPositions.get(ofdFlowHoveredId);
+      if (hoverPos) {
+        const scale = zoom / 100;
+        ctx.save();
+        ctx.setTransform(scale, 0, 0, scale, panX, panY);
+        ctx.shadowColor = '#22c55e';
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(hoverPos.x - 3, hoverPos.y - 3, hoverPos.width + 6, hoverPos.height + 6);
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#22c55e';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('도착', hoverPos.x + hoverPos.width / 2, hoverPos.y - 8);
+        ctx.restore();
+      }
+    }
+  }, [viewMode, renderableConnections, zoom, panX, panY, equipmentPositions, canvasRef,
+    highlightActive, highlightedNodeIds, highlightedEdgeIds,
+    creationPhase, creationSourceId, hoveredEquipmentId,
+    ofdFlowPhase, ofdFlowOfdId, ofdFlowHoveredId]);
+
+  // ESC key: cancel creation or clear highlight
   useEffect(() => {
-    if (!isConnectionMode) return;
+    if (viewMode !== 'edit-2d') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        resetConnectionEditor();
-        clearHighlight();
-        useOfdConnectionFlowStore.getState().cancel();
+        if (creationPhase !== 'idle') cancelCreation();
+        if (ofdFlowPhase !== 'idle') useOfdConnectionFlowStore.getState().cancel();
+        if (highlightActive) clearHighlight();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isConnectionMode, resetConnectionEditor, clearHighlight]);
+  }, [viewMode, creationPhase, cancelCreation, ofdFlowPhase, highlightActive, clearHighlight]);
 
-  // Reset on leave
-  useEffect(() => {
-    if (!isConnectionMode) {
-      resetConnectionEditor();
-      clearHighlight();
-      useOfdConnectionFlowStore.getState().cancel();
-    }
-  }, [isConnectionMode, resetConnectionEditor, clearHighlight]);
-
-  // Clean up hit-test data when leaving connection mode
-  useEffect(() => {
-    if (!isConnectionMode) {
-      setHitTestData([], []);
-    }
-  }, [isConnectionMode]);
-
-  if (!isConnectionMode) return null;
+  if (viewMode !== 'edit-2d') return null;
 
   return (
     <>
@@ -254,60 +262,27 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
         style={{ zIndex: 10 }}
       />
 
-      {/* Status bar */}
-      <div
-        className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
-        style={{ zIndex: 15 }}
-      >
-        {ofdPhase === 'selectingPort' && (
-          <span className="text-sm text-blue-600">상세 패널에서 포트를 선택하세요</span>
-        )}
-        {ofdPhase === 'selectingTarget' && (
-          <span className="text-sm text-green-600">대상 설비를 클릭하세요</span>
-        )}
-        {ofdPhase === 'idle' && !sourceEquipmentId && !editingCable && (
-          <span className="text-sm text-gray-600">
-            설비를 클릭하여 연결 &middot; 케이블을 더블클릭하여 수정
-          </span>
-        )}
-        {ofdPhase === 'idle' && sourceEquipmentId && !showEditor && (
-          <span className="text-sm text-blue-600">
-            도착 설비를 클릭하세요{' '}
-            <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 border border-gray-300 rounded text-gray-500">ESC</kbd>{' '}
-            취소
-          </span>
-        )}
-        {ofdPhase === 'idle' && showEditor && (
-          <span className="text-sm text-green-600">케이블 타입을 선택하세요</span>
-        )}
-      </div>
-
-      {/* Create popover */}
-      {showEditor && sourceEquipmentId && targetEquipmentId && ofdPhase === 'idle' && (
+      {/* Status bar: connection creation mode */}
+      {creationPhase === 'selectingTarget' && (
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          style={{ zIndex: 25 }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
+          style={{ zIndex: 15 }}
         >
-          <ConnectionCreatePopover
-            sourceEquipmentId={sourceEquipmentId}
-            targetEquipmentId={targetEquipmentId}
-            equipmentList={editorEquipmentList}
-            onClose={resetConnectionEditor}
-          />
+          <span className="text-sm text-blue-600">
+            연결할 설비를 클릭하세요
+          </span>
         </div>
       )}
 
-      {/* Edit dialog (double-click) */}
-      {editingCable && (
+      {/* Status bar: OFD connection flow */}
+      {ofdFlowPhase === 'selectingTarget' && (
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-          style={{ zIndex: 25 }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
+          style={{ zIndex: 15 }}
         >
-          <ConnectionEditDialog
-            cable={editingCable}
-            equipmentList={editorEquipmentList}
-            onClose={resetConnectionEditor}
-          />
+          <span className="text-sm text-blue-600">
+            연결할 설비를 클릭하세요
+          </span>
         </div>
       )}
 

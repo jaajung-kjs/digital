@@ -20,7 +20,9 @@ export interface TraceEdge {
   label?: string;
   length?: number;
   fiberPathId?: string;
+  fiberPathLabel?: string;
   portCount?: number;
+  fiberPortNumber?: number;
 }
 
 export interface TraceRing {
@@ -34,4 +36,22 @@ export interface TraceResult {
   nodes: TraceNode[];
   edges: TraceEdge[];
   rings: TraceRing[];
+  segments: PathSegment[];
+}
+
+/** A node in a path segment with its incoming edge (ID references) */
+export interface SegmentNode {
+  nodeId: string;
+  /** Edge ID connecting from previous node in this segment (null for segment start) */
+  edgeId: string | null;
+}
+
+/**
+ * A linear segment of directly connected nodes.
+ * Branch segments reference the node they fork from.
+ */
+export interface PathSegment {
+  nodes: SegmentNode[];
+  /** equipmentId of the node this branch forks from (null for main segment) */
+  branchPointId: string | null;
 }

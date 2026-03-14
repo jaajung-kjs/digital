@@ -22,15 +22,6 @@ export interface RenderableConnection {
   id?: string;
 }
 
-/** Color scheme for cable types */
-export const CABLE_COLORS: Record<string, string> = {
-  LAN: '#3b82f6',
-  FIBER: '#22c55e',
-  AC: '#ef4444',
-  DC: '#f97316',
-  GROUND: '#eab308',
-};
-
 /** Draw a single curved connection line */
 function drawConnectionCurve(
   ctx: CanvasRenderingContext2D,
@@ -127,44 +118,4 @@ export function renderConnections(
   }
 
   ctx.restore();
-}
-
-/**
- * Hit-test: find if a point is near any connection line.
- * Returns the connection if found within threshold distance.
- */
-export function findConnectionAtPoint(
-  connections: RenderableConnection[],
-  worldX: number,
-  worldY: number,
-  threshold = 8
-): RenderableConnection | null {
-  for (let i = connections.length - 1; i >= 0; i--) {
-    const conn = connections[i];
-    const { sourceX, sourceY, targetX, targetY } = conn;
-    const offset = Math.min(Math.abs(targetX - sourceX), Math.abs(targetY - sourceY), 80) + 30;
-
-    // Sample bezier curve points and check distance
-    for (let t = 0; t <= 1; t += 0.05) {
-      const t2 = t * t;
-      const t3 = t2 * t;
-      const mt = 1 - t;
-      const mt2 = mt * mt;
-      const mt3 = mt2 * mt;
-
-      const cp1x = sourceX + offset;
-      const cp1y = sourceY;
-      const cp2x = targetX - offset;
-      const cp2y = targetY;
-
-      const px = mt3 * sourceX + 3 * mt2 * t * cp1x + 3 * mt * t2 * cp2x + t3 * targetX;
-      const py = mt3 * sourceY + 3 * mt2 * t * cp1y + 3 * mt * t2 * cp2y + t3 * targetY;
-
-      const dist = Math.sqrt((px - worldX) ** 2 + (py - worldY) ** 2);
-      if (dist <= threshold) {
-        return conn;
-      }
-    }
-  }
-  return null;
 }
