@@ -9,7 +9,7 @@ import { RingSelector } from './RingSelector';
 export function TopologyModal() {
   const {
     active,
-    mode,
+    modalOpen,
     traceResult,
     selectedRingId,
     highlightedNodeIds,
@@ -101,7 +101,7 @@ export function TopologyModal() {
     setDragging(false);
   }, []);
 
-  if (!active || mode !== 'modal' || !traceResult || !layout) return null;
+  if (!active || !modalOpen || !traceResult || !layout) return null;
 
   const vb = layout.viewBox;
   const viewBox = `${-pan.x} ${-pan.y} ${vb.width / zoom} ${vb.height / zoom}`;

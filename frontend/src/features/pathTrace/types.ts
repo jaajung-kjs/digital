@@ -30,6 +30,10 @@ export interface TraceRing {
   label: string;
   nodeIds: string[];
   edgeIds: string[];
+  /** 0 = fundamental (소링), 1 = composite (대링) */
+  level: number;
+  /** For composite rings: IDs of the fundamental rings inside */
+  childRingIds: string[];
 }
 
 export interface TraceResult {

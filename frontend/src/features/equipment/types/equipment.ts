@@ -1,4 +1,4 @@
-import type { EquipmentCategory } from '../../../types/rack';
+import type { EquipmentCategory } from '../../../types/enums';
 
 export interface EquipmentFormData {
   name: string;
@@ -26,25 +26,37 @@ export interface MaintenanceFormData {
 }
 
 export const CATEGORY_ICONS = {
+  SERVER: '\u{1F5A5}',
   NETWORK: '\u{1F310}',
+  STORAGE: '\u{1F4BE}',
   CHARGER: '\u{1F50C}',
   UPS: '\u{1F50B}',
+  SECURITY: '\u{1F512}',
+  OTHER: '\u{1F4E6}',
   DISTRIBUTION_BOARD: '\u{1F4CB}',
   OFD: '\u{1F4E6}',
 } satisfies Record<EquipmentCategory, string> as Record<string, string>;
 
 export const CATEGORY_LABELS = {
+  SERVER: '서버',
   NETWORK: '네트워크',
+  STORAGE: '스토리지',
   CHARGER: '충전기',
   UPS: 'UPS',
+  SECURITY: '보안장비',
+  OTHER: '기타',
   DISTRIBUTION_BOARD: '분전반',
   OFD: 'OFD',
 } satisfies Record<EquipmentCategory, string> as Record<string, string>;
 
 export const EQUIPMENT_CATEGORIES = [
+  'SERVER',
   'NETWORK',
+  'STORAGE',
   'CHARGER',
   'UPS',
+  'SECURITY',
+  'OTHER',
   'DISTRIBUTION_BOARD',
   'OFD',
 ] as const;

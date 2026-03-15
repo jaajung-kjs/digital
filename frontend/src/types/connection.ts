@@ -1,4 +1,5 @@
-export type CableType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'GROUND';
+import type { CableType } from './enums';
+export type { CableType };
 
 /** Single source of truth for cable type metadata */
 export interface CableTypeMeta {
@@ -48,6 +49,7 @@ export interface RoomConnection {
   description?: string;
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
+  fiberPathDescription?: string | null;
   sourceEquipment: EquipmentInfo;
   targetEquipment: EquipmentInfo;
 }

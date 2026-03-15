@@ -356,7 +356,8 @@ model Cable {
   createdBy       User?      @relation("CableCreatedBy", fields: [createdById], references: [id])
   updatedBy       User?      @relation("CableUpdatedBy", fields: [updatedById], references: [id])
 
-  @@unique([sourceEquipmentId, targetEquipmentId, cableType])
+  // Unique constraints are enforced via partial indexes in migration
+  // (non-fiber: source+target+type, fiber: source+target+type+port)
   @@map("cables")
 }
 

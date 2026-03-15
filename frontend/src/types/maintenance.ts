@@ -8,9 +8,8 @@ export interface EquipmentPhoto {
   createdAt: string;
 }
 
-export type LogType = 'MAINTENANCE' | 'FAILURE' | 'REPAIR';
-export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type LogStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+import type { LogType, Severity, LogStatus } from './enums';
+export type { LogType, Severity, LogStatus };
 
 export interface MaintenanceLog {
   id: string;

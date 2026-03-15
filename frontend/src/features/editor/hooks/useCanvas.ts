@@ -16,6 +16,7 @@ import { renderGrid } from '../renderers/gridRenderer';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
+import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 
 /**
  * Hook managing canvas ref, resize, and render loop
@@ -77,8 +78,21 @@ export function useCanvas(
     // Elements
     renderElements(ctx, localElements, selectedIds);
 
-    // Equipment
-    renderEquipmentItems(ctx, localEquipment, selectedIds);
+    // Equipment — dim non-highlighted when path trace active
+    const pathHighlight = usePathHighlightStore.getState();
+    const isTraceHighlighting = pathHighlight.active;
+    if (isTraceHighlighting) {
+      const highlightedIds = pathHighlight.highlightedNodeIds;
+      const dimmed = localEquipment.filter((eq) => !highlightedIds.has(eq.id));
+      const highlighted = localEquipment.filter((eq) => highlightedIds.has(eq.id));
+      ctx.save();
+      ctx.globalAlpha = 0.2;
+      renderEquipmentItems(ctx, dimmed, selectedIds);
+      ctx.restore();
+      renderEquipmentItems(ctx, highlighted, selectedIds);
+    } else {
+      renderEquipmentItems(ctx, localEquipment, selectedIds);
+    }
 
     // Length labels
     if (showLengths) {
@@ -145,11 +159,13 @@ export function useCanvas(
     const unsubEditor = useEditorStore.subscribe(scheduleRender);
     const unsubCanvas = useCanvasStore.subscribe(scheduleRender);
     const unsubSnapshot = useSnapshotStore.subscribe(scheduleRender);
+    const unsubPathHighlight = usePathHighlightStore.subscribe(scheduleRender);
 
     return () => {
       unsubEditor();
       unsubCanvas();
       unsubSnapshot();
+      unsubPathHighlight();
       if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);
     };
   }, [renderCanvas]);

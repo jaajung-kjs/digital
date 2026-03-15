@@ -17,9 +17,9 @@ import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from './useEditorHistory';
-import { useConnectionEditorStore, getHitTestData } from '../../connections/hooks/useConnectionEditor';
+import { useConnectionCreationStore } from '../../connections/stores/connectionCreationStore';
+import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
-import { findConnectionAtPoint } from '../renderers/connectionRenderer';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 
 /**
@@ -66,8 +66,6 @@ export function useCanvasEvents(
       return;
     }
 
-    const { viewMode } = editorStore.getState();
-
     // Snapshot preview: allow selection, detail panel, and panning only
     const snap = useSnapshotStore.getState();
     if (snap.active) {
@@ -90,14 +88,14 @@ export function useCanvasEvents(
       return;
     }
 
-    // In connection mode, allow panning on empty space but don't drag equipment
-    if (viewMode === 'connection') {
+    // Connection creation mode: don't start dragging equipment
+    const creationStore = useConnectionCreationStore.getState();
+    if (creationStore.phase === 'selectingTarget') {
       const found = findItemAt(x, y, localElements, localEquipment);
       if (!found) {
         canvasStore.getState().setIsPanning(true);
         canvasStore.getState().setPanStart({ x: screenX, y: screenY });
       }
-      // Equipment clicks are handled in handleCanvasClick for connection flow
       return;
     }
 
@@ -119,6 +117,8 @@ export function useCanvasEvents(
         canvasStore.getState().setIsPanning(true);
         canvasStore.getState().setPanStart({ x: screenX, y: screenY });
         editorStore.getState().clearSelection();
+        // Clear path trace highlight when clicking empty canvas
+        usePathHighlightStore.getState().clearHighlight();
       }
     }
   }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, canvasStore]);
@@ -142,6 +142,30 @@ export function useCanvasEvents(
       const { panX, panY } = editorStore.getState();
       editorStore.getState().setPan(panX + dx, panY + dy);
       canvasStore.getState().setPanStart({ x: screenX, y: screenY });
+      return;
+    }
+
+    // Connection creation: track hover over equipment
+    const creationStore = useConnectionCreationStore.getState();
+    if (creationStore.phase === 'selectingTarget') {
+      const { localElements, localEquipment } = editorStore.getState();
+      const found = findItemAt(worldX, worldY, localElements, localEquipment);
+      const newHovered = found?.type === 'equipment' ? found.item.id : null;
+      if (newHovered !== creationStore.hoveredEquipmentId) {
+        creationStore.setHovered(newHovered);
+      }
+      return;
+    }
+
+    // OFD flow: track hover over equipment when selecting target
+    const ofdFlow = useOfdConnectionFlowStore.getState();
+    if (ofdFlow.phase === 'selectingTarget') {
+      const { localElements, localEquipment } = editorStore.getState();
+      const found = findItemAt(worldX, worldY, localElements, localEquipment);
+      const newHovered = found?.type === 'equipment' ? found.item.id : null;
+      if (newHovered !== ofdFlow.hoveredEquipmentId) {
+        ofdFlow.setHovered(newHovered);
+      }
       return;
     }
 
@@ -208,63 +232,54 @@ export function useCanvasEvents(
 
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan || !canvasRef.current) return;
-    // In snapshot preview, block all editing actions
     if (useSnapshotStore.getState().active) return;
 
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
-    const { tool, localElements, localEquipment, viewMode } = editorStore.getState();
+    const { tool, localElements, localEquipment } = editorStore.getState();
     const cs = canvasStore.getState();
 
-    // Connection mode: click equipment to create connections
-    if (viewMode === 'connection') {
+    // Connection creation: click on equipment to complete
+    const creationStore = useConnectionCreationStore.getState();
+    if (creationStore.phase === 'selectingTarget') {
       const found = findItemAt(x, y, localElements, localEquipment);
-      const connStore = useConnectionEditorStore.getState();
+      if (found?.type === 'equipment' && found.item.id !== creationStore.sourceEquipmentId) {
+        const targetEquipment = localEquipment.find((eq) => eq.id === found.item.id);
+        const isTargetOfd = targetEquipment?.category === 'OFD';
 
-      // If edit dialog is open, clicking outside closes it
-      if (connStore.editingCable) {
-        connStore.setEditingCable(null);
-        return;
+        if (isTargetOfd && creationStore.cableType === 'FIBER') {
+          // Target is OFD + FIBER: use OFD flow for port selection
+          const ofdFlow = useOfdConnectionFlowStore.getState();
+          ofdFlow.startToOfd(creationStore.sourceEquipmentId!, found.item.id);
+          editorStore.getState().setDetailPanelEquipmentId(found.item.id);
+          creationStore.cancel();
+        } else {
+          // Normal cable: create directly
+          editorStore.getState().addChange({
+            type: 'cable:create',
+            localId: generateTempId(),
+            sourceEquipmentId: creationStore.sourceEquipmentId!,
+            targetEquipmentId: found.item.id,
+            cableType: creationStore.cableType!,
+          });
+          editorStore.getState().setHasChanges(true);
+          creationStore.cancel();
+        }
+      } else if (!found) {
+        // Click on empty space: cancel creation
+        creationStore.cancel();
       }
+      return;
+    }
 
-      if (found?.type === 'equipment') {
-        const clickedEquipment = localEquipment.find((eq) => eq.id === found.item.id);
-        const isClickedOfd = clickedEquipment?.category === 'OFD';
-        const ofdFlow = useOfdConnectionFlowStore.getState();
-
-        if (ofdFlow.phase === 'selectingTarget') {
-          // OFD flow waiting for target: complete the connection
-          if (found.item.id !== ofdFlow.ofdId) {
-            ofdFlow.completeConnection(found.item.id);
-          }
-        } else if (!connStore.sourceEquipmentId && ofdFlow.phase === 'idle') {
-          // First click: selecting source
-          if (isClickedOfd) {
-            ofdFlow.startFromOfd(found.item.id);
-            editorStore.getState().setDetailPanelEquipmentId(found.item.id);
-          } else {
-            connStore.setSourceEquipment(found.item.id);
-          }
-        } else if (connStore.sourceEquipmentId && found.item.id !== connStore.sourceEquipmentId) {
-          // Second click: selecting target (normal flow has source set)
-          if (isClickedOfd) {
-            const sourceId = connStore.sourceEquipmentId;
-            connStore.resetConnectionEditor();
-            ofdFlow.startToOfd(sourceId, found.item.id);
-            editorStore.getState().setDetailPanelEquipmentId(found.item.id);
-          } else {
-            connStore.setTargetEquipment(found.item.id);
-            connStore.setShowEditor(true);
-          }
-        }
-      } else {
-        // Click on empty space or non-equipment element: cancel create flow
-        if (connStore.sourceEquipmentId || connStore.showEditor) {
-          connStore.resetConnectionEditor();
-        }
-        if (useOfdConnectionFlowStore.getState().phase !== 'idle') {
-          useOfdConnectionFlowStore.getState().cancel();
-        }
+    // OFD flow: selecting target
+    const ofdFlow = useOfdConnectionFlowStore.getState();
+    if (ofdFlow.phase === 'selectingTarget') {
+      const found = findItemAt(x, y, localElements, localEquipment);
+      if (found?.type === 'equipment' && found.item.id !== ofdFlow.ofdId) {
+        ofdFlow.completeConnection(found.item.id);
+      } else if (!found) {
+        ofdFlow.cancel();
       }
       return;
     }
@@ -475,35 +490,9 @@ export function useCanvasEvents(
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const { zoom, panX, panY, viewMode } = editorStore.getState();
+    const { zoom, panX, panY } = editorStore.getState();
     const x = (e.clientX - rect.left - panX) / (zoom / 100);
     const y = (e.clientY - rect.top - panY) / (zoom / 100);
-
-    // In connection mode, double-click on cables opens the edit dialog
-    if (viewMode === 'connection') {
-      const connStore = useConnectionEditorStore.getState();
-      if (connStore.showEditor || connStore.sourceEquipmentId) return;
-
-      const { renderable, raw } = getHitTestData();
-      const hit = findConnectionAtPoint(renderable, x, y);
-      if (hit?.id) {
-        const rawConn = raw.find((c) => c.id === hit.id);
-        if (rawConn) {
-          connStore.setEditingCable({
-            id: rawConn.id,
-            sourceEquipmentId: rawConn.sourceEquipmentId,
-            targetEquipmentId: rawConn.targetEquipmentId,
-            cableType: rawConn.cableType,
-            label: rawConn.label,
-            length: rawConn.length,
-            color: rawConn.color,
-            fiberPathId: rawConn.fiberPathId,
-            fiberPortNumber: rawConn.fiberPortNumber,
-          });
-        }
-      }
-      return;
-    }
 
     // Use snapshot equipment when in preview mode
     const snapState = useSnapshotStore.getState();

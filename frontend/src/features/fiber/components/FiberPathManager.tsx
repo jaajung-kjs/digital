@@ -16,10 +16,11 @@ interface FiberPathManagerProps {
   ofdId: string;
   onPortConnect?: (portNumber: number, fiberPathId: string) => void;
   onPortDelete?: (cableId: string) => void;
+  onPortSwitch?: (cableId: string, connectedEquipmentId: string, newFiberPathId: string, newPortNumber: number) => void;
   onNavigateRemote?: (remoteRoomId: string) => void;
 }
 
-export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigateRemote }: FiberPathManagerProps) {
+export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwitch, onNavigateRemote }: FiberPathManagerProps) {
   const { mergedPaths, isLoading } = usePortStatus(ofdId);
   const createPath = useCreateFiberPath();
   const deletePath = useDeleteFiberPath();
@@ -193,7 +194,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
 
                 {isExpanded && (
                   <div className="border-t border-gray-100 p-3">
-                    <FiberPortGrid fiberPath={path} localOfdId={ofdId} onPortConnect={onPortConnect} onPortDelete={onPortDelete} onNavigateRemote={onNavigateRemote} />
+                    <FiberPortGrid fiberPath={path} localOfdId={ofdId} onPortConnect={onPortConnect} onPortDelete={onPortDelete} onPortSwitch={onPortSwitch} onNavigateRemote={onNavigateRemote} />
                   </div>
                 )}
               </div>

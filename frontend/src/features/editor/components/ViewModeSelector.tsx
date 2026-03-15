@@ -4,7 +4,6 @@ import { useEditorStore } from '../stores/editorStore';
 const VIEW_MODES: { value: ViewMode; label: string }[] = [
   { value: 'edit-2d', label: '2D편집' },
   { value: 'view-3d', label: '3D뷰' },
-  { value: 'connection', label: '연결' },
 ];
 
 export function ViewModeSelector() {

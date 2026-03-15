@@ -227,7 +227,9 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     const { changeSet } = useEditorStore.getState();
 
     // Build cable payload from changeSet
+    const allDeletions = new Set(selectChanges(changeSet, 'cable:delete').map((c) => c.cableId));
     const cableCreates = selectChanges(changeSet, 'cable:create')
+      .filter((c) => !allDeletions.has(c.localId))
       .map((c) => ({
         sourceEquipmentId: c.sourceEquipmentId,
         targetEquipmentId: c.targetEquipmentId,
@@ -236,6 +238,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
       }));
     const cableUpdates = selectChanges(changeSet, 'cable:update')
+      .filter((c) => !allDeletions.has(c.id))
       .map((c) => ({
         id: c.id,
         sourceEquipmentId: c.sourceEquipmentId,
@@ -244,8 +247,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         label: c.label, length: c.length, color: c.color,
         fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
       }));
-    const deletedCableIds = selectChanges(changeSet, 'cable:delete')
-      .map((c) => c.cableId);
+    const deletedCableIds = [...allDeletions].filter((id) => !isTempId(id));
 
     const cables = [...cableCreates, ...cableUpdates];
 
