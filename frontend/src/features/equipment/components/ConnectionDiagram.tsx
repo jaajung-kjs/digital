@@ -13,11 +13,14 @@ import { useConnectionCreationStore } from '../../connections/stores/connectionC
 interface ConnectionDiagramProps {
   roomId: string;
   equipmentId: string;
+  /** Equipment category from SSOT — OFD connections are managed via FiberPathManager */
+  category?: string;
 }
 
 export function ConnectionDiagram({
   roomId,
   equipmentId,
+  category,
 }: ConnectionDiagramProps) {
   const { data: backendConnections, isLoading } = useRoomConnections(roomId);
   const localEquipment = useEditorStore((s) => s.localEquipment);
@@ -60,7 +63,8 @@ export function ConnectionDiagram({
   return (
     <div>
       <div className="p-3">
-        {/* Add connection button */}
+        {/* Add connection button — OFD connections are managed via FiberPathManager */}
+        {category !== 'OFD' && (
         <div className="mb-3">
           {creationPhase === 'selectingTarget' ? (
             <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
@@ -75,6 +79,7 @@ export function ConnectionDiagram({
             </button>
           )}
         </div>
+        )}
 
         {/* Cable type selector modal */}
         {showCableSelector && (

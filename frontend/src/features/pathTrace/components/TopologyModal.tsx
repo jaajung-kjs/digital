@@ -34,15 +34,22 @@ export function TopologyModal() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [active, closeModal]);
 
-  // Reset zoom/pan when trace changes
+  // Native wheel handler to prevent page scroll (React onWheel is passive)
   useEffect(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, [traceResult]);
+    const svg = svgRef.current;
+    if (!svg) return;
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      e.stopPropagation();
+      setZoom((prev) => Math.max(0.2, Math.min(3, prev - e.deltaY * 0.001)));
+    }
+    svg.addEventListener('wheel', onWheel, { passive: false });
+    return () => svg.removeEventListener('wheel', onWheel);
+  }, []);
 
   const layout = useMemo(() => {
     if (!traceResult) return null;
-    return computeLayout(traceResult.nodes);
+    return computeLayout(traceResult.nodes, traceResult.edges, traceResult.rings);
   }, [traceResult]);
 
   const nodeMap = useMemo(() => {
@@ -63,6 +70,56 @@ export function TopologyModal() {
     );
   }, [traceResult]);
 
+  // Equipment → substation mapping for separating intra/inter-substation edges
+  const equipToSubstation = useMemo(() => {
+    if (!traceResult) return new Map<string, string>();
+    const map = new Map<string, string>();
+    for (const n of traceResult.nodes) {
+      map.set(n.equipmentId, n.substationId);
+    }
+    return map;
+  }, [traceResult]);
+
+
+  // Compute bounding box of relevant substations (all or highlighted ring)
+  const fitBounds = useMemo(() => {
+    if (!layout) return null;
+
+    let subs = layout.substations;
+    if (highlightedNodeIds.size > 0) {
+      const filtered = subs.filter((s) =>
+        s.nodes.some((n) => highlightedNodeIds.has(n.equipmentId)),
+      );
+      if (filtered.length > 0) subs = filtered;
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const s of subs) {
+      minX = Math.min(minX, s.x);
+      minY = Math.min(minY, s.y);
+      maxX = Math.max(maxX, s.x + s.width);
+      maxY = Math.max(maxY, s.y + s.height);
+    }
+
+    const pad = 60;
+    return {
+      x: minX - pad,
+      y: minY - pad,
+      w: maxX - minX + pad * 2,
+      h: maxY - minY + pad * 2,
+    };
+  }, [layout, highlightedNodeIds]);
+
+  // Auto-fit: reset zoom/pan when fitBounds changes (trace change or ring selection)
+  useEffect(() => {
+    if (!fitBounds) return;
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [fitBounds]);
+
   // Derive title from trace result
   const title = useMemo(() => {
     if (!traceResult || traceResult.edges.length === 0) return '연결 경로 상세';
@@ -73,10 +130,6 @@ export function TopologyModal() {
     return `연결 경로 상세 — ${cableType} (${startName} 기준)`;
   }, [traceResult]);
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    setZoom((prev) => Math.max(0.2, Math.min(3, prev - e.deltaY * 0.001)));
-  }, []);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -101,14 +154,14 @@ export function TopologyModal() {
     setDragging(false);
   }, []);
 
-  if (!active || !modalOpen || !traceResult || !layout) return null;
+  if (!active || !modalOpen || !traceResult || !layout || !fitBounds) return null;
 
-  const vb = layout.viewBox;
-  const viewBox = `${-pan.x} ${-pan.y} ${vb.width / zoom} ${vb.height / zoom}`;
+  // viewBox based on fitBounds: auto-fits to content, zoom/pan offsets from there
+  const viewBox = `${fitBounds.x - pan.x} ${fitBounds.y - pan.y} ${fitBounds.w / zoom} ${fitBounds.h / zoom}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="flex max-h-[90vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onWheel={(e) => e.stopPropagation()}>
+      <div className="flex h-[85vh] w-[90vw] max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3">
           <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
@@ -128,27 +181,32 @@ export function TopologyModal() {
         </div>
 
         {/* SVG area */}
-        <div className="relative flex-1 overflow-hidden">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
           <svg
             ref={svgRef}
             className="h-full w-full"
             viewBox={viewBox}
-            onWheel={handleWheel}
+            preserveAspectRatio="xMidYMid meet"
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
             style={{ cursor: dragging ? 'grabbing' : 'grab' }}
           >
-            {/* Edges */}
-            {traceResult.edges.map((edge) => (
-              <TopologyEdge
-                key={edge.id}
-                edge={edge}
-                nodeMap={nodeMap}
-                isHighlighted={highlightedEdgeIds.has(edge.id)}
-              />
-            ))}
+            {/* Inter-substation edges (behind boxes) */}
+            {traceResult.edges.map((edge) => {
+              const srcSub = equipToSubstation.get(edge.sourceEquipmentId);
+              const tgtSub = equipToSubstation.get(edge.targetEquipmentId);
+              if (srcSub === tgtSub) return null; // rendered on top later
+              return (
+                <TopologyEdge
+                  key={edge.id}
+                  edge={edge}
+                  nodeMap={nodeMap}
+                  isHighlighted={highlightedEdgeIds.has(edge.id)}
+                />
+              );
+            })}
             {/* Substation boxes */}
             {layout.substations.map((sub) => (
               <SubstationBox
@@ -158,6 +216,20 @@ export function TopologyModal() {
                 sourceNodeIds={sourceNodeIds}
               />
             ))}
+            {/* Intra-substation cable edges (on top of boxes) */}
+            {traceResult.edges.map((edge) => {
+              const srcSub = equipToSubstation.get(edge.sourceEquipmentId);
+              const tgtSub = equipToSubstation.get(edge.targetEquipmentId);
+              if (srcSub !== tgtSub) return null;
+              return (
+                <TopologyEdge
+                  key={edge.id}
+                  edge={edge}
+                  nodeMap={nodeMap}
+                  isHighlighted={highlightedEdgeIds.has(edge.id)}
+                />
+              );
+            })}
           </svg>
         </div>
 
