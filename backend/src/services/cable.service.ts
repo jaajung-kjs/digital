@@ -74,7 +74,10 @@ const cableInclude = {
   fiberPath: {
     select: {
       id: true,
-      description: true,
+      ofdAId: true,
+      ofdBId: true,
+      ofdA: { select: { room: { select: { floor: { select: { substation: { select: { name: true } } } } } } } },
+      ofdB: { select: { room: { select: { floor: { select: { substation: { select: { name: true } } } } } } } },
     },
   },
 } as const;
@@ -219,7 +222,7 @@ class CableService {
       description: c.description,
       fiberPathId: c.fiberPathId ?? null,
       fiberPortNumber: c.fiberPortNumber ?? null,
-      fiberPathDescription: c.fiberPath?.description ?? null,
+      fiberPathDescription: this.buildFiberPathLabel(c),
       sourceEquipment: {
         id: c.sourceEquipment.id,
         name: c.sourceEquipment.name,
@@ -235,6 +238,29 @@ class CableService {
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     };
+  }
+
+  /**
+   * Build fiber path label oriented as "자국-대국" (local substation first).
+   * The cable connects an equipment to an OFD; that OFD sits on one side of the fiber path.
+   * The local substation is the OFD side the cable touches; remote is the other side.
+   */
+  private buildFiberPathLabel(c: any): string | null {
+    const fp = c.fiberPath;
+    if (!fp) return null;
+
+    const nameA = fp.ofdA?.room?.floor?.substation?.name;
+    const nameB = fp.ofdB?.room?.floor?.substation?.name;
+    if (!nameA || !nameB) return null;
+
+    // Cable connects to source or target OFD — determine which side is "local"
+    const cableOfdId = c.sourceEquipmentId === fp.ofdAId || c.targetEquipmentId === fp.ofdAId
+      ? fp.ofdAId
+      : fp.ofdBId;
+
+    const localName = cableOfdId === fp.ofdAId ? nameA : nameB;
+    const remoteName = cableOfdId === fp.ofdAId ? nameB : nameA;
+    return `${localName}-${remoteName}`;
   }
 }
 

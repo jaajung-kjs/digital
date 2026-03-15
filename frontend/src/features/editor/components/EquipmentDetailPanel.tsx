@@ -1100,7 +1100,7 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
         />
       )}
       <div className="p-4">
-        <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} />
+        <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} category={category} />
       </div>
     </div>
   );

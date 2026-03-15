@@ -69,7 +69,38 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
     }
   },
 
-  openModal: () => set({ modalOpen: true }),
+  openModal: () => {
+    const { traceResult, tracingCableId } = get();
+    if (!traceResult || !tracingCableId) {
+      set({ modalOpen: true });
+      return;
+    }
+    // Find the ring containing the traced cable.
+    // The cable connects equipment (e.g., 송광치↔OFD). The OFD is in the ring's nodeIds.
+    // SSOT: match cable's endpoint equipment against ring.nodeIds.
+    const tracedEdge = traceResult.edges.find((e) => e.id === tracingCableId);
+    let myRing = null;
+    if (tracedEdge) {
+      const endpoints = [tracedEdge.sourceEquipmentId, tracedEdge.targetEquipmentId];
+      for (const ring of traceResult.rings) {
+        if (ring.level !== 0) continue;
+        if (endpoints.some((eqId) => ring.nodeIds.includes(eqId))) {
+          myRing = ring;
+          break;
+        }
+      }
+    }
+    if (myRing) {
+      set({
+        modalOpen: true,
+        selectedRingId: myRing.id,
+        highlightedNodeIds: new Set(myRing.nodeIds),
+        highlightedEdgeIds: new Set(myRing.edgeIds),
+      });
+    } else {
+      set({ modalOpen: true });
+    }
+  },
 
   closeModal: () => set({ modalOpen: false }),
 
