@@ -176,9 +176,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                   floorPlan={floorPlan}
                   roomId={roomId}
                 >
-                  {viewMode === 'connection' && (
-                    <ConnectionOverlay roomId={roomId} canvasRef={canvasRef} />
-                  )}
+                  <ConnectionOverlay roomId={roomId} canvasRef={canvasRef} />
                 </CanvasView>
               )}
 

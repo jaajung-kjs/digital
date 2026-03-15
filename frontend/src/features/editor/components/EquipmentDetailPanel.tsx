@@ -109,7 +109,6 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
   const { equipment, isLoading, error } = useMergedEquipmentDetail(equipmentId);
   const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
   const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
-
   // Auto-switch to connections tab when OFD flow targets this equipment
   useEffect(() => {
     if (ofdPhase === 'selectingPort' && ofdFlowOfdId === equipmentId) {
@@ -1040,8 +1039,6 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
       const store = useOfdConnectionFlowStore.getState();
       store.startFromOfd(equipmentId);
       store.selectPort(fiberPathId, portNumber);
-      // Enter connection mode so canvas accepts target clicks
-      useEditorStore.getState().setViewMode('connection');
     }
   }, [isFlowActive, selectPort, equipmentId]);
 
@@ -1049,6 +1046,20 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
     addChange({ type: 'cable:delete', cableId });
     setHasChanges(true);
   }, [addChange, setHasChanges]);
+
+  const handlePortSwitch = useCallback((cableId: string, connectedEquipmentId: string, newFiberPathId: string, newPortNumber: number) => {
+    // Cable connects OFD (equipmentId) ↔ connectedEquipmentId, type is always FIBER
+    addChange({
+      type: 'cable:update',
+      id: cableId,
+      sourceEquipmentId: equipmentId,
+      targetEquipmentId: connectedEquipmentId,
+      cableType: 'FIBER',
+      fiberPathId: newFiberPathId,
+      fiberPortNumber: newPortNumber,
+    });
+    setHasChanges(true);
+  }, [addChange, setHasChanges, equipmentId]);
 
   return (
     <div>
@@ -1072,6 +1083,7 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
           ofdId={equipmentId}
           onPortConnect={handlePortConnect}
           onPortDelete={handlePortDelete}
+          onPortSwitch={handlePortSwitch}
           onNavigateRemote={(remoteRoomId) => {
             const { hasChanges, localElements, localEquipment } = useEditorStore.getState();
             if (hasChanges) {

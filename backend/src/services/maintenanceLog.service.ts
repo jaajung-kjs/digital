@@ -3,18 +3,19 @@ import { NotFoundError } from '../utils/errors.js';
 
 // ==================== Types ====================
 
+/** Serialized to JSON — Date fields become ISO strings via res.json() */
 export interface MaintenanceLogDetail {
   id: string;
   equipmentId: string;
   logType: string;
   title: string;
   description: string | null;
-  logDate: Date | null;
+  logDate: string | null;
   severity: string | null;
   status: string;
-  resolvedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   createdByName: string | null;
   updatedByName: string | null;
 }
@@ -151,12 +152,12 @@ class MaintenanceLogService {
       logType: l.logType,
       title: l.title,
       description: l.description,
-      logDate: l.logDate,
+      logDate: l.logDate?.toISOString() ?? null,
       severity: l.severity,
       status: l.status,
-      resolvedAt: l.resolvedAt,
-      createdAt: l.createdAt,
-      updatedAt: l.updatedAt,
+      resolvedAt: l.resolvedAt?.toISOString() ?? null,
+      createdAt: l.createdAt.toISOString(),
+      updatedAt: l.updatedAt.toISOString(),
       createdByName: l.createdBy?.name ?? null,
       updatedByName: l.updatedBy?.name ?? null,
     };

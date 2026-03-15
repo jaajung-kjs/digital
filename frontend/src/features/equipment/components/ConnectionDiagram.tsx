@@ -176,6 +176,12 @@ export function ConnectionDiagram({
                       </p>
                     </div>
                   </div>
+                  {conn.cableType === 'FIBER' && (conn.fiberPathDescription || conn.fiberPortNumber) && (
+                    <p className="mt-1 text-[11px] text-gray-400 text-center truncate">
+                      {conn.fiberPathDescription ?? '광경로'}
+                      {conn.fiberPortNumber != null && ` #${conn.fiberPortNumber}`}
+                    </p>
+                  )}
                 </div>
                 {isCardSelected && (
                   <div className="flex justify-end pr-1">

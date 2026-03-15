@@ -1,8 +1,5 @@
-// 설비 카테고리
-export type EquipmentCategory = 'NETWORK' | 'CHARGER' | 'UPS' | 'DISTRIBUTION_BOARD' | 'OFD';
-
-// 포트 타입
-export type PortType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'CONSOLE' | 'USB' | 'OTHER';
+import type { EquipmentCategory, PortType } from './enums';
+export type { EquipmentCategory, PortType };
 
 // 랙 상세 정보
 export interface RackDetail {
@@ -128,9 +125,13 @@ export interface UpdatePortRequest {
 
 // 설비 카테고리 정보
 export const EQUIPMENT_CATEGORIES: { value: EquipmentCategory; label: string; color: string }[] = [
+  { value: 'SERVER', label: '서버', color: '#3498DB' },
   { value: 'NETWORK', label: '네트워크', color: '#50C878' },
+  { value: 'STORAGE', label: '스토리지', color: '#1ABC9C' },
   { value: 'CHARGER', label: '충전기', color: '#E67E22' },
   { value: 'UPS', label: 'UPS', color: '#E74C3C' },
+  { value: 'SECURITY', label: '보안장비', color: '#34495E' },
+  { value: 'OTHER', label: '기타', color: '#95A5A6' },
   { value: 'DISTRIBUTION_BOARD', label: '분전반', color: '#9B59B6' },
   { value: 'OFD', label: 'OFD', color: '#4A90D9' },
 ];

@@ -14,6 +14,9 @@ export interface CableDetail {
   color: string | null;
   pathPoints: unknown;
   description: string | null;
+  fiberPathId: string | null;
+  fiberPortNumber: number | null;
+  fiberPathDescription: string | null;
   sourceEquipment: {
     id: string;
     name: string;
@@ -66,6 +69,12 @@ const cableInclude = {
       name: true,
       rackId: true,
       roomId: true,
+    },
+  },
+  fiberPath: {
+    select: {
+      id: true,
+      description: true,
     },
   },
 } as const;
@@ -208,6 +217,9 @@ class CableService {
       color: c.color,
       pathPoints: c.pathPoints,
       description: c.description,
+      fiberPathId: c.fiberPathId ?? null,
+      fiberPortNumber: c.fiberPortNumber ?? null,
+      fiberPathDescription: c.fiberPath?.description ?? null,
       sourceEquipment: {
         id: c.sourceEquipment.id,
         name: c.sourceEquipment.name,

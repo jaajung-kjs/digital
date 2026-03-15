@@ -1,3 +1,4 @@
+import type { CableType } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
 
@@ -19,7 +20,7 @@ export interface TraceEdge {
   sourceEquipmentId: string;
   targetEquipmentId: string;
   type: 'cable' | 'fiberPath';
-  cableType?: string;
+  cableType?: CableType;
   label?: string;
   length?: number;
   fiberPathId?: string;
@@ -33,6 +34,10 @@ export interface TraceRing {
   label: string;
   nodeIds: string[];
   edgeIds: string[];
+  /** 0 = fundamental (소링), 1 = composite (대링) */
+  level: number;
+  /** For composite rings: IDs of the fundamental rings that compose it */
+  childRingIds: string[];
 }
 
 /** A node in a path segment with its incoming edge (ID references to avoid payload duplication) */
@@ -100,6 +105,11 @@ type EquipmentRow = {
   room?: { floor: { substation: { id: string; name: string } } } | null;
   rack?: { roomId: string; room: { floor: { substation: { id: string; name: string } } } } | null;
 };
+
+/** Canonical key for a node pair (order-independent) */
+function pairKey(a: string, b: string): string {
+  return a < b ? `${a}\0${b}` : `${b}\0${a}`;
+}
 
 function getSubstation(equip: EquipmentRow): { id: string; name: string } {
   return equip.room?.floor?.substation
@@ -363,19 +373,19 @@ class CableTraceService {
         // This prevents non-OFD nodes from freely entering OFDs on unrelated ports.
         if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber) {
           const portKey = `${cable.fiberPathId}:${cable.fiberPortNumber}`;
-          const otherId2 =
-            cable.sourceEquipmentId === equipId
-              ? cable.targetEquipmentId
-              : cable.sourceEquipmentId;
-          // Check outgoing from OFD
+          // Port isolation: only applies at OFDs, and only for cables to other OFDs.
+          // Cables between OFD ↔ 송광치 (non-OFD) are always allowed.
           if (isOfd) {
-            const reachable = ofdReachablePorts.get(equipId);
-            if (!reachable || !reachable.has(portKey)) continue;
-          }
-          // Check incoming to OFD from non-OFD equipment
-          if (!isOfd && ofdIds.has(otherId2)) {
-            const reachable = ofdReachablePorts.get(otherId2);
-            if (!reachable || !reachable.has(portKey)) continue;
+            const otherId2 =
+              cable.sourceEquipmentId === equipId
+                ? cable.targetEquipmentId
+                : cable.sourceEquipmentId;
+            if (ofdIds.has(otherId2)) {
+              // OFD ↔ OFD cable: enforce port isolation
+              const reachable = ofdReachablePorts.get(equipId);
+              if (!reachable || !reachable.has(portKey)) continue;
+            }
+            // OFD ↔ non-OFD (송광치): always allow
           }
         }
 
@@ -399,12 +409,19 @@ class CableTraceService {
             ? cable.targetEquipmentId
             : cable.sourceEquipmentId;
 
-        // Propagate port context to the other end if it's also an OFD
+        // Propagate port context for FIBER cables
         if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber) {
           const portKey = `${cable.fiberPathId}:${cable.fiberPortNumber}`;
+          // Register on the other end if it's an OFD
           if (ofdIds.has(otherId)) {
             if (!ofdReachablePorts.has(otherId)) ofdReachablePorts.set(otherId, new Set());
             ofdReachablePorts.get(otherId)!.add(portKey);
+          }
+          // Also register on current equipment if it's an OFD
+          // (e.g., OFD discovers its own ports via cables to 송광치)
+          if (isOfd) {
+            if (!ofdReachablePorts.has(equipId)) ofdReachablePorts.set(equipId, new Set());
+            ofdReachablePorts.get(equipId)!.add(portKey);
           }
         }
 
@@ -537,99 +554,205 @@ class CableTraceService {
   }
 
   /**
-   * Detect cycles in the undirected graph using DFS.
-   * Returns TraceRing[] with ring labels built from substation names.
+   * Detect rings using fundamental cycle basis algorithm.
+   *
+   * 1. Build BFS spanning tree → identify chords (non-tree edges)
+   * 2. Each chord produces one fundamental cycle (소링) via LCA
+   * 3. Fundamental cycles sharing edges are grouped (Union-Find)
+   * 4. Groups with 2+ cycles get a composite ring (대링) via edge XOR
    */
   private detectRings(
     adjacency: Map<string, Set<string>>,
     edgeMap: Map<string, TraceEdge>,
     nodeMap: Map<string, TraceNode>,
   ): TraceRing[] {
-    const rings: TraceRing[] = [];
-    const visited = new Set<string>();
-    let ringCounter = 0;
+    if (edgeMap.size === 0) return [];
 
-    // Build edge lookup: "nodeA-nodeB" -> edgeId[] (sorted to deduplicate)
-    // Use string[] to support parallel edges between the same pair
-    const edgeLookup = new Map<string, string[]>();
+    // ── 1. Pair → edgeIds lookup (supports parallel edges) ──
+    const pairToEdgeIds = new Map<string, string[]>();
     for (const [edgeId, edge] of edgeMap) {
-      const key = [edge.sourceEquipmentId, edge.targetEquipmentId].sort().join('-');
-      if (!edgeLookup.has(key)) {
-        edgeLookup.set(key, []);
-      }
-      edgeLookup.get(key)!.push(edgeId);
+      const key = pairKey(edge.sourceEquipmentId, edge.targetEquipmentId);
+      if (!pairToEdgeIds.has(key)) pairToEdgeIds.set(key, []);
+      pairToEdgeIds.get(key)!.push(edgeId);
     }
 
-    // Iterative DFS-based cycle detection (avoids stack overflow)
-    const parent = new Map<string, string | null>();
+    // ── 2. BFS spanning tree ──
+    const treeParent = new Map<string, { parentId: string; edgeId: string } | null>();
+    const treeEdgeIds = new Set<string>();
+    const visited = new Set<string>();
 
-    for (const startNodeId of adjacency.keys()) {
-      if (visited.has(startNodeId)) continue;
+    for (const startId of adjacency.keys()) {
+      if (visited.has(startId)) continue;
+      visited.add(startId);
+      treeParent.set(startId, null);
+      const queue = [startId];
 
-      const stack: Array<{ nodeId: string; parentId: string | null; neighborIter: Iterator<string> }> = [];
-      visited.add(startNodeId);
-      parent.set(startNodeId, null);
-      const neighbors = adjacency.get(startNodeId);
-      if (neighbors) {
-        stack.push({ nodeId: startNodeId, parentId: null, neighborIter: neighbors.values() });
+      while (queue.length > 0) {
+        const nodeId = queue.shift()!;
+        for (const neighborId of adjacency.get(nodeId) ?? []) {
+          if (visited.has(neighborId)) continue;
+          visited.add(neighborId);
+          const key = pairKey(nodeId, neighborId);
+          const edgeIds = pairToEdgeIds.get(key);
+          if (!edgeIds || edgeIds.length === 0) continue;
+          treeParent.set(neighborId, { parentId: nodeId, edgeId: edgeIds[0] });
+          treeEdgeIds.add(edgeIds[0]);
+          queue.push(neighborId);
+        }
+      }
+    }
+
+    // ── 3. Identify chords (non-tree edges) ──
+    const chords: { edgeId: string; u: string; v: string }[] = [];
+    for (const [edgeId, edge] of edgeMap) {
+      if (!treeEdgeIds.has(edgeId)) {
+        chords.push({ edgeId, u: edge.sourceEquipmentId, v: edge.targetEquipmentId });
+      }
+    }
+    if (chords.length === 0) return [];
+
+    // ── 4. For each chord, find fundamental cycle via LCA ──
+    function ancestorList(nodeId: string): string[] {
+      const path = [nodeId];
+      let cur = nodeId;
+      while (treeParent.get(cur)) {
+        cur = treeParent.get(cur)!.parentId;
+        path.push(cur);
+      }
+      return path;
+    }
+
+    function pathTo(from: string, to: string): { nodeIds: string[]; edgeIds: string[] } {
+      const nodeIds = [from];
+      const edgeIds: string[] = [];
+      let cur = from;
+      while (cur !== to) {
+        const p = treeParent.get(cur);
+        if (!p) break;
+        edgeIds.push(p.edgeId);
+        nodeIds.push(p.parentId);
+        cur = p.parentId;
+      }
+      return { nodeIds, edgeIds };
+    }
+
+    const fundamentals: { nodeIds: string[]; edgeIds: string[] }[] = [];
+
+    for (const chord of chords) {
+      const ancestorsU = ancestorList(chord.u);
+      const ancestorSetU = new Set(ancestorsU);
+      const ancestorsV = ancestorList(chord.v);
+
+      let lca: string | null = null;
+      for (const a of ancestorsV) {
+        if (ancestorSetU.has(a)) { lca = a; break; }
+      }
+      if (!lca) continue;
+
+      const pathU = pathTo(chord.u, lca);
+      const pathV = pathTo(chord.v, lca);
+
+      // Merge: u→LCA + reverse(v→LCA without LCA) + chord
+      const cycleNodeIds = [...new Set([
+        ...pathU.nodeIds,
+        ...pathV.nodeIds.slice(0, -1).reverse(),
+      ])];
+      const cycleEdgeIds = [...pathU.edgeIds, ...pathV.edgeIds, chord.edgeId];
+
+      // Skip degenerate cycles (parallel edges between 2 nodes)
+      if (cycleNodeIds.length >= 3) {
+        fundamentals.push({ nodeIds: cycleNodeIds, edgeIds: cycleEdgeIds });
+      }
+    }
+    if (fundamentals.length === 0) return [];
+
+    // ── 5. Group cycles sharing edges (Union-Find) ──
+    const n = fundamentals.length;
+    const uf = Array.from({ length: n }, (_, i) => i);
+    function find(x: number): number {
+      while (uf[x] !== x) { uf[x] = uf[uf[x]]; x = uf[x]; }
+      return x;
+    }
+
+    const edgeSets = fundamentals.map((c) => new Set(c.edgeIds));
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        for (const eid of edgeSets[i]) {
+          if (edgeSets[j].has(eid)) { uf[find(i)] = find(j); break; }
+        }
+      }
+    }
+
+    const groups = new Map<number, number[]>();
+    for (let i = 0; i < n; i++) {
+      const root = find(i);
+      if (!groups.has(root)) groups.set(root, []);
+      groups.get(root)!.push(i);
+    }
+
+    // ── 6. Build TraceRings (level 0 + level 1) ──
+    const rings: TraceRing[] = [];
+    let counter = 0;
+
+    function buildLabel(nodeIds: Iterable<string>): string {
+      const names = new Set<string>();
+      for (const nid of nodeIds) {
+        const node = nodeMap.get(nid);
+        if (node?.substationName) names.add(node.substationName);
+      }
+      return Array.from(names).join('↔');
+    }
+
+    for (const cycleIndices of groups.values()) {
+      const childIds: string[] = [];
+
+      // Fundamental rings (level 0)
+      for (const idx of cycleIndices) {
+        counter++;
+        const id = `ring-${counter}`;
+        childIds.push(id);
+        rings.push({
+          id,
+          label: buildLabel(fundamentals[idx].nodeIds),
+          nodeIds: fundamentals[idx].nodeIds,
+          edgeIds: fundamentals[idx].edgeIds,
+          level: 0,
+          childRingIds: [],
+        });
       }
 
-      while (stack.length > 0) {
-        const frame = stack[stack.length - 1];
-        const next = frame.neighborIter.next();
-
-        if (next.done) {
-          stack.pop();
-          continue;
+      // Composite ring (level 1) — only when multiple cycles share edges
+      if (cycleIndices.length > 1) {
+        const edgeCount = new Map<string, number>();
+        for (const idx of cycleIndices) {
+          for (const eid of fundamentals[idx].edgeIds) {
+            edgeCount.set(eid, (edgeCount.get(eid) ?? 0) + 1);
+          }
         }
 
-        const neighborId = next.value;
-        if (!visited.has(neighborId)) {
-          visited.add(neighborId);
-          parent.set(neighborId, frame.nodeId);
-          const nbNeighbors = adjacency.get(neighborId);
-          if (nbNeighbors) {
-            stack.push({ nodeId: neighborId, parentId: frame.nodeId, neighborIter: nbNeighbors.values() });
-          }
-        } else if (neighborId !== frame.parentId) {
-          // Found a cycle: backtrack from frame.nodeId to neighborId via parent chain
-          const ringNodeIds: string[] = [];
-          const ringEdgeIds: string[] = [];
+        // XOR: edges appearing odd times form the outer perimeter
+        const outerEdgeIds = [...edgeCount.entries()]
+          .filter(([, c]) => c % 2 === 1)
+          .map(([eid]) => eid);
 
-          let current: string | null = frame.nodeId;
-          while (current && current !== neighborId) {
-            ringNodeIds.push(current);
-            const prev: string | null = parent.get(current) ?? null;
-            if (prev) {
-              const edgeKey = [current, prev].sort().join('-');
-              const edgeIds = edgeLookup.get(edgeKey);
-              if (edgeIds) ringEdgeIds.push(...edgeIds);
-            }
-            current = prev;
+        const outerNodeIds = new Set<string>();
+        for (const eid of outerEdgeIds) {
+          const edge = edgeMap.get(eid);
+          if (edge) {
+            outerNodeIds.add(edge.sourceEquipmentId);
+            outerNodeIds.add(edge.targetEquipmentId);
           }
-          if (current === neighborId) {
-            ringNodeIds.push(neighborId);
-            // Close the ring edge
-            const closeKey = [frame.nodeId, neighborId].sort().join('-');
-            const closeEdgeIds = edgeLookup.get(closeKey);
-            if (closeEdgeIds) ringEdgeIds.push(...closeEdgeIds);
-          }
-
-          // Build label from unique substation names
-          const substationNames = new Set<string>();
-          for (const nid of ringNodeIds) {
-            const node = nodeMap.get(nid);
-            if (node?.substationName) substationNames.add(node.substationName);
-          }
-
-          ringCounter++;
-          rings.push({
-            id: `ring-${ringCounter}`,
-            label: Array.from(substationNames).join('↔'),
-            nodeIds: ringNodeIds,
-            edgeIds: ringEdgeIds,
-          });
         }
+
+        counter++;
+        rings.push({
+          id: `ring-${counter}`,
+          label: buildLabel(outerNodeIds),
+          nodeIds: [...outerNodeIds],
+          edgeIds: outerEdgeIds,
+          level: 1,
+          childRingIds: childIds,
+        });
       }
     }
 

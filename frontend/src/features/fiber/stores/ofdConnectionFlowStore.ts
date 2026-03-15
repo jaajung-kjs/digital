@@ -20,6 +20,7 @@ interface OfdConnectionFlowState {
   sourceEquipmentId: string | null;
   fiberPathId: string | null;
   portNumber: number | null;
+  hoveredEquipmentId: string | null;
 }
 
 interface OfdConnectionFlowActions {
@@ -31,6 +32,8 @@ interface OfdConnectionFlowActions {
   selectPort: (fiberPathId: string, portNumber: number) => void;
   /** User clicked target equipment on canvas (only when phase='selectingTarget') */
   completeConnection: (targetEquipmentId: string) => void;
+  /** Track hovered equipment during target selection */
+  setHovered: (equipmentId: string | null) => void;
   /** Cancel the flow, return to idle */
   cancel: () => void;
 }
@@ -44,6 +47,7 @@ const initialState: OfdConnectionFlowState = {
   sourceEquipmentId: null,
   fiberPathId: null,
   portNumber: null,
+  hoveredEquipmentId: null,
 };
 
 // ==================== Store ====================
@@ -112,6 +116,8 @@ export const useOfdConnectionFlowStore = create<OfdConnectionFlowState & OfdConn
     useEditorStore.getState().setHasChanges(true);
     set(initialState);
   },
+
+  setHovered: (hoveredEquipmentId) => set({ hoveredEquipmentId }),
 
   cancel: () => set(initialState),
 }));

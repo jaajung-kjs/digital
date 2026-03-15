@@ -34,6 +34,7 @@ export function useMergedConnections(
       });
 
     for (const cable of cableCreates) {
+      if (deletedIds.has(cable.localId)) continue;
       const srcEq = equipById.get(cable.sourceEquipmentId);
       const tgtEq = equipById.get(cable.targetEquipmentId);
       merged.push({
