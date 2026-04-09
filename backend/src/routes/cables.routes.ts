@@ -19,6 +19,7 @@ const createCableSchema = z.object({
   length: z.number().positive().optional(),
   color: z.string().max(50).optional(),
   description: z.string().optional(),
+  materialCategoryId: z.string().uuid().nullish(),
 });
 
 const updateCableSchema = z.object({
@@ -28,6 +29,7 @@ const updateCableSchema = z.object({
   color: z.string().max(50).optional().nullable(),
   pathPoints: z.unknown().optional(),
   description: z.string().optional().nullable(),
+  materialCategoryId: z.string().uuid().nullish(),
 });
 
 // ==================== Cable Routes ====================

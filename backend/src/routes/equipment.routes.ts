@@ -38,6 +38,7 @@ const createEquipmentSchema = z.object({
   manager: z.string().max(100).optional(),
   description: z.string().optional(),
   properties: z.unknown().optional(),
+  materialCategoryId: z.string().uuid().nullish(),
 });
 
 const updateEquipmentSchema = z.object({
@@ -53,6 +54,7 @@ const updateEquipmentSchema = z.object({
   description: z.string().optional().nullable(),
   properties: z.unknown().optional(),
   sortOrder: z.number().int().min(0).optional(),
+  materialCategoryId: z.string().uuid().nullish(),
 });
 
 const moveEquipmentSchema = z.object({

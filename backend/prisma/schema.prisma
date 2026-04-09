@@ -271,6 +271,9 @@ model Equipment {
   createdById  String?   @map("created_by")
   updatedById  String?   @map("updated_by")
 
+  materialCategoryId String? @map("material_category_id")
+  materialCategory   MaterialCategory? @relation("EquipmentMaterialCategory", fields: [materialCategoryId], references: [id])
+
   rack            Rack?            @relation(fields: [rackId], references: [id], onDelete: Cascade)
   room            Room?            @relation(fields: [roomId], references: [id], onDelete: SetNull)
   createdBy       User?            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
@@ -349,6 +352,9 @@ model Cable {
 
   fiberPathId     String?   @map("fiber_path_id")
   fiberPortNumber Int?      @map("fiber_port_number")
+
+  materialCategoryId String? @map("material_category_id")
+  materialCategory   MaterialCategory? @relation("CableMaterialCategory", fields: [materialCategoryId], references: [id])
 
   sourceEquipment Equipment  @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
   targetEquipment Equipment  @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
@@ -491,6 +497,8 @@ model MaterialCategory {
   children MaterialCategory[] @relation("CategoryHierarchy")
   materials Material[]
   aliases  MaterialAlias[]
+  cables     Cable[]     @relation("CableMaterialCategory")
+  equipments Equipment[] @relation("EquipmentMaterialCategory")
 
   @@map("material_categories")
 }

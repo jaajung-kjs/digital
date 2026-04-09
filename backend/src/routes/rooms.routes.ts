@@ -37,6 +37,7 @@ const equipmentSchema = z.object({
   manufacturer: z.string().optional().nullable(),
   manager: z.string().optional().nullable(),
   height3d: z.number().optional().nullable(),
+  materialCategoryId: z.string().uuid().nullish(),
 });
 
 const cableSchema = z.object({
@@ -49,6 +50,7 @@ const cableSchema = z.object({
   color: z.string().nullish(),
   fiberPathId: z.string().uuid().nullish(),
   fiberPortNumber: z.number().int().min(1).max(48).nullish(),
+  materialCategoryId: z.string().uuid().nullish(),
 });
 
 const bulkUpdatePlanSchema = z.object({
