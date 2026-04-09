@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { floorPlanController } from '../controllers/floorPlan.controller.js';
 import { floorPlanElementController } from '../controllers/floorPlanElement.controller.js';
 import { rackController } from '../controllers/rack.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
@@ -21,14 +20,6 @@ const createFloorPlanSchema = z.object({
 // v2 CAD 스타일 요소 타입: line, rect, circle, door, window, text
 const elementTypeEnum = z.enum(['line', 'rect', 'circle', 'door', 'window', 'text']);
 
-const elementSchema = z.object({
-  id: z.string().uuid().nullish(),
-  elementType: elementTypeEnum,
-  properties: z.record(z.unknown()),
-  zIndex: z.number().int().optional(),
-  isVisible: z.boolean().optional(),
-});
-
 const createElementSchema = z.object({
   elementType: elementTypeEnum,
   properties: z.record(z.unknown()),
@@ -42,64 +33,6 @@ const updateElementSchema = z.object({
   zIndex: z.number().int().optional(),
   isVisible: z.boolean().optional(),
 });
-
-const rackSchema = z.object({
-  id: z.string().uuid().nullish(),
-  name: z.string().min(1).max(100),
-  code: z.string().max(50).optional(),
-  positionX: z.number(),
-  positionY: z.number(),
-  width: z.number().positive().optional(),
-  height: z.number().positive().optional(),
-  rotation: z.number().int().refine((val) => [0, 90, 180, 270].includes(val), {
-    message: '회전 값은 0, 90, 180, 270 중 하나여야 합니다.',
-  }).optional(),
-  totalU: z.number().int().min(1).max(100).optional(),
-  description: z.string().optional(),
-});
-
-const cableTypeEnum = z.enum(['AC', 'DC', 'LAN', 'FIBER']);
-
-const cableSchema = z.object({
-  id: z.string().uuid().nullish(),
-  sourcePortId: z.string().uuid(),
-  targetPortId: z.string().uuid(),
-  cableType: cableTypeEnum,
-  label: z.string().max(100).nullish(),
-  length: z.number().positive().nullish(),
-  color: z.string().max(50).nullish(),
-  pathPoints: z.array(z.tuple([z.number(), z.number()])).nullish(),
-  description: z.string().nullish(),
-});
-
-const bulkUpdateSchema = z.object({
-  canvasWidth: z.number().int().min(100).max(10000).optional(),
-  canvasHeight: z.number().int().min(100).max(10000).optional(),
-  gridSize: z.number().int().min(5).max(100).optional(),
-  majorGridSize: z.number().int().min(10).max(200).optional(),
-  backgroundColor: z.string().max(20).optional(),
-  pixelsPerMeter: z.number().positive().optional(),
-  elements: z.array(elementSchema).optional(),
-  racks: z.array(rackSchema).optional(),
-  cables: z.array(cableSchema).optional(),
-  deletedElementIds: z.array(z.string().uuid()).optional(),
-  deletedRackIds: z.array(z.string().uuid()).optional(),
-  deletedCableIds: z.array(z.string().uuid()).optional(),
-});
-
-// ==================== Floor Plan Routes ====================
-
-// 평면도 전체 저장 (관리자만)
-router.put(
-  '/:id',
-  authenticate,
-  adminOnly,
-  validate(bulkUpdateSchema),
-  floorPlanController.bulkUpdate
-);
-
-// 평면도 삭제 (관리자만)
-router.delete('/:id', authenticate, adminOnly, floorPlanController.delete);
 
 // ==================== Floor Plan Element Routes ====================
 
@@ -129,7 +62,7 @@ const createRackSchema = z.object({
 });
 
 // 평면도의 랙 목록 조회 (인증 불필요)
-router.get('/:id/racks', rackController.getByFloorPlanId);
+router.get('/:id/racks', rackController.getByRoomId);
 
 // 랙 생성 (관리자만)
 router.post(
