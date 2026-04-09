@@ -42,6 +42,7 @@ export function useMergedConnections(
         sourceEquipmentId: cable.sourceEquipmentId,
         targetEquipmentId: cable.targetEquipmentId,
         cableType: cable.cableType,
+        materialCategoryId: cable.materialCategoryId,
         label: cable.label,
         length: cable.length,
         color: cable.color,

@@ -1,4 +1,6 @@
 import type { CableType } from './enums';
+import type { MaterialCategory } from './materialCategory';
+import { MATERIAL_TO_CABLE_TYPE } from '../constants/materialCategoryMapping';
 export type { CableType };
 
 /** Single source of truth for cable type metadata */
@@ -42,6 +44,7 @@ export interface RoomConnection {
   sourceEquipmentId: string;
   targetEquipmentId: string;
   cableType: CableType;
+  materialCategoryId?: string;
   label?: string;
   length?: number;
   color?: string;
@@ -52,4 +55,22 @@ export interface RoomConnection {
   fiberPathDescription?: string | null;
   sourceEquipment: EquipmentInfo;
   targetEquipment: EquipmentInfo;
+}
+
+/** Extended CableTypeMeta with MaterialCategory info for transition period */
+export interface MaterialCableTypeMeta extends CableTypeMeta {
+  materialCategoryId: string;
+  materialCategoryCode: string;
+}
+
+/** Build cable type metadata from MaterialCategory API data */
+export function buildCableTypesFromCategories(categories: MaterialCategory[]): MaterialCableTypeMeta[] {
+  return categories.map(cat => ({
+    value: MATERIAL_TO_CABLE_TYPE[cat.code] ?? 'AC' as CableType,
+    label: cat.name,
+    color: cat.displayColor ?? '#94a3b8',
+    badgeClass: 'bg-opacity-10 text-opacity-90',
+    materialCategoryId: cat.id,
+    materialCategoryCode: cat.code,
+  }));
 }

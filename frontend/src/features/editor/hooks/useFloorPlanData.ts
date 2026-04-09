@@ -234,6 +234,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         sourceEquipmentId: c.sourceEquipmentId,
         targetEquipmentId: c.targetEquipmentId,
         cableType: c.cableType,
+        materialCategoryId: c.materialCategoryId,
         label: c.label, length: c.length, color: c.color,
         fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
       }));
@@ -244,6 +245,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         sourceEquipmentId: c.sourceEquipmentId,
         targetEquipmentId: c.targetEquipmentId,
         cableType: c.cableType,
+        materialCategoryId: c.materialCategoryId,
         label: c.label, length: c.length, color: c.color,
         fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
       }));

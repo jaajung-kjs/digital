@@ -247,7 +247,7 @@ export function useCanvasEvents(
         const targetEquipment = localEquipment.find((eq) => eq.id === found.item.id);
         const isTargetOfd = targetEquipment?.category === 'OFD';
 
-        if (isTargetOfd && creationStore.cableType === 'FIBER') {
+        if (isTargetOfd && (creationStore.cableType === 'FIBER' || creationStore.materialCategoryCode?.startsWith('CBL-FIBER'))) {
           // Target is OFD + FIBER: use OFD flow for port selection
           const ofdFlow = useOfdConnectionFlowStore.getState();
           ofdFlow.startToOfd(creationStore.sourceEquipmentId!, found.item.id);
@@ -261,6 +261,7 @@ export function useCanvasEvents(
             sourceEquipmentId: creationStore.sourceEquipmentId!,
             targetEquipmentId: found.item.id,
             cableType: creationStore.cableType!,
+            materialCategoryId: creationStore.materialCategoryId ?? undefined,
           });
           editorStore.getState().setHasChanges(true);
           creationStore.cancel();
