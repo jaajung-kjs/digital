@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedMaterialCategories } from './seed-material-categories';
 
 const prisma = new PrismaClient();
 
@@ -41,6 +42,8 @@ async function main() {
 
     console.log(`✅ Viewer user created: ${viewer.username}`);
   }
+
+  await seedMaterialCategories();
 
   console.log('🎉 Seeding completed!');
 }

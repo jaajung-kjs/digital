@@ -498,7 +498,7 @@ model MaterialCategory {
 model MaterialAlias {
   id         String   @id @default(uuid())
   categoryId String   @map("category_id")
-  aliasName  String   @unique @db.VarChar(200)
+  aliasName  String   @unique @map("alias_name") @db.VarChar(200)
   source     String?  @db.VarChar(50)
   createdAt  DateTime @default(now()) @map("created_at")
 
