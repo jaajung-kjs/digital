@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useUpdateEquipment } from '../hooks/useEquipment';
 import {
   EQUIPMENT_CATEGORIES,
   CATEGORY_LABELS,
+  buildEquipmentCategoriesFromAPI,
 } from '../types/equipment';
 import type { EquipmentFormData } from '../types/equipment';
 import type { EquipmentItem } from '../../../types/floorPlan';
+import { useEquipmentCategories } from '../../../hooks/useMaterialCategories';
 
 interface EquipmentFormProps {
   equipment?: EquipmentItem | null;
@@ -24,6 +26,12 @@ export function EquipmentForm({
 }: EquipmentFormProps) {
   const updateEquipment = useUpdateEquipment();
   const isEdit = !!equipment;
+
+  const { data: equipmentCategoryData } = useEquipmentCategories();
+  const dynamicCategories = useMemo(
+    () => equipmentCategoryData ? buildEquipmentCategoriesFromAPI(equipmentCategoryData) : null,
+    [equipmentCategoryData]
+  );
 
   const [formData, setFormData] = useState<EquipmentFormData>({
     name: '',
@@ -49,6 +57,7 @@ export function EquipmentForm({
         manufacturer: equipment.manufacturer || '',
         serialNumber: '',
         category: equipment.category,
+        materialCategoryId: equipment.materialCategoryId,
         manager: equipment.manager || '',
         description: equipment.description || '',
         positionX: equipment.positionX,
@@ -106,15 +115,40 @@ export function EquipmentForm({
           카테고리
         </label>
         <select
-          value={formData.category}
-          onChange={(e) => updateField('category', e.target.value)}
+          value={dynamicCategories
+            ? (dynamicCategories.list.find(c => c.materialCategoryId === formData.materialCategoryId)?.code ?? formData.category)
+            : formData.category
+          }
+          onChange={(e) => {
+            const selectedValue = e.target.value;
+            if (dynamicCategories) {
+              const selected = dynamicCategories.list.find(c => c.code === selectedValue);
+              if (selected) {
+                setFormData(prev => ({
+                  ...prev,
+                  category: selected.legacyCategory,
+                  materialCategoryId: selected.materialCategoryId,
+                }));
+                return;
+              }
+            }
+            updateField('category', selectedValue);
+          }}
           className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm focus:border-blue-400 focus:outline-none"
         >
-          {EQUIPMENT_CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {CATEGORY_LABELS[cat]}
-            </option>
-          ))}
+          {dynamicCategories ? (
+            dynamicCategories.list.map((cat) => (
+              <option key={cat.code} value={cat.code}>
+                {cat.icon} {cat.name}
+              </option>
+            ))
+          ) : (
+            EQUIPMENT_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {CATEGORY_LABELS[cat]}
+              </option>
+            ))
+          )}
         </select>
       </div>
 

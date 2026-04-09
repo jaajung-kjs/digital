@@ -125,6 +125,7 @@ export interface FloorPlanEquipment {
   id: string;
   name: string;
   category: string;
+  materialCategoryId?: string;
   positionX: number;
   positionY: number;
   width: number;
@@ -177,6 +178,7 @@ export interface UpdateFloorPlanRequest {
     tempId?: string;
     name: string;
     category?: string;
+    materialCategoryId?: string;
     positionX: number;
     positionY: number;
     width?: number;
@@ -204,6 +206,7 @@ export interface UpdateFloorPlanRequest {
 export interface CreateFloorPlanEquipmentRequest {
   name: string;
   category?: string;
+  materialCategoryId?: string;
   positionX: number;
   positionY: number;
   width?: number;
@@ -215,6 +218,7 @@ export interface CreateFloorPlanEquipmentRequest {
 export interface UpdateFloorPlanEquipmentRequest {
   name?: string;
   category?: string;
+  materialCategoryId?: string;
   positionX?: number;
   positionY?: number;
   width?: number;
@@ -238,6 +242,7 @@ export interface EquipmentItem {
   model?: string;
   manufacturer?: string;
   category: string;
+  materialCategoryId?: string;
   roomId: string;
   positionX: number;
   positionY: number;

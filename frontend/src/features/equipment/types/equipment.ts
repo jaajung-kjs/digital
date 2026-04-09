@@ -1,4 +1,6 @@
 import type { EquipmentCategory } from '../../../types/enums';
+import type { MaterialCategory } from '../../../types/materialCategory';
+import { MATERIAL_TO_EQUIPMENT_CATEGORY } from '../../../constants/materialCategoryMapping';
 
 export interface EquipmentFormData {
   name: string;
@@ -6,6 +8,7 @@ export interface EquipmentFormData {
   manufacturer?: string;
   serialNumber?: string;
   category: string;
+  materialCategoryId?: string;
   manager?: string;
   description?: string;
   positionX: number;
@@ -93,3 +96,20 @@ export const STATUS_LABELS: Record<string, string> = {
   RESOLVED: '\uD574\uACB0',
   CLOSED: '\uC885\uB8CC',
 };
+
+/** Build dynamic equipment category metadata from MaterialCategory API data */
+export function buildEquipmentCategoriesFromAPI(categories: MaterialCategory[]) {
+  return {
+    labels: Object.fromEntries(categories.map(c => [c.code, c.name])) as Record<string, string>,
+    icons: Object.fromEntries(categories.map(c => [c.code, c.iconName ?? '\u{1F4E6}'])) as Record<string, string>,
+    colors: Object.fromEntries(categories.map(c => [c.code, c.displayColor ?? '#94a3b8'])) as Record<string, string>,
+    list: categories.map(c => ({
+      code: c.code,
+      name: c.name,
+      icon: c.iconName ?? '\u{1F4E6}',
+      color: c.displayColor ?? '#94a3b8',
+      legacyCategory: MATERIAL_TO_EQUIPMENT_CATEGORY[c.code] ?? 'OTHER',
+      materialCategoryId: c.id,
+    })),
+  };
+}

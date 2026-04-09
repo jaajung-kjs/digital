@@ -270,6 +270,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         tempId: isTempId(eq.id) ? eq.id : undefined,
         name: eq.name,
         category: eq.category || 'NETWORK',
+        materialCategoryId: eq.materialCategoryId || undefined,
         positionX: eq.positionX,
         positionY: eq.positionY,
         width: eq.width,
