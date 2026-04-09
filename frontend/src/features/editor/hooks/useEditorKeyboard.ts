@@ -8,6 +8,7 @@ import type {
 } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useToolStore } from '../stores/toolStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useEditorHistory } from './useEditorHistory';
@@ -30,7 +31,7 @@ export function useEditorKeyboard(handleSave: () => void) {
       // Space key for pan mode (allowed in preview)
       if (e.key === ' ' && !e.repeat) {
         e.preventDefault();
-        cs.setIsSpacePressed(true);
+        useToolStore.getState().setSpacePressed(true);
       }
 
       if (e.key === 'Escape') {
@@ -202,7 +203,7 @@ export function useEditorKeyboard(handleSave: () => void) {
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === ' ') {
-        useCanvasStore.getState().setIsSpacePressed(false);
+        useToolStore.getState().setSpacePressed(false);
       }
     };
 

@@ -35,11 +35,6 @@ interface CanvasStoreState {
   // Drag state
   dragSession: DragSession | null;
 
-  // Pan state
-  isPanning: boolean;
-  panStart: { x: number; y: number } | null;
-  isSpacePressed: boolean;
-
   // Equipment modal states
   equipmentModalOpen: boolean;
   pasteEquipmentModalOpen: boolean;
@@ -83,11 +78,6 @@ interface CanvasStoreActions {
   // Drag
   setDragSession: (s: DragSession | null) => void;
 
-  // Pan
-  setIsPanning: (v: boolean) => void;
-  setPanStart: (p: { x: number; y: number } | null) => void;
-  setIsSpacePressed: (v: boolean) => void;
-
   // Equipment modals
   setEquipmentModalOpen: (v: boolean) => void;
   setPasteEquipmentModalOpen: (v: boolean) => void;
@@ -121,9 +111,6 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   textInputValue: '',
   previewPosition: null,
   dragSession: null,
-  isPanning: false,
-  panStart: null,
-  isSpacePressed: false,
   equipmentModalOpen: false,
   pasteEquipmentModalOpen: false,
   newEquipmentName: '',
@@ -151,9 +138,6 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setTextInputValue: (textInputValue) => set({ textInputValue }),
   setPreviewPosition: (previewPosition) => set({ previewPosition }),
   setDragSession: (dragSession) => set({ dragSession }),
-  setIsPanning: (isPanning) => set({ isPanning }),
-  setPanStart: (panStart) => set({ panStart }),
-  setIsSpacePressed: (isSpacePressed) => set({ isSpacePressed }),
   setEquipmentModalOpen: (equipmentModalOpen) => set({ equipmentModalOpen }),
   setPasteEquipmentModalOpen: (pasteEquipmentModalOpen) => set({ pasteEquipmentModalOpen }),
   setNewEquipmentName: (newEquipmentName) => set({ newEquipmentName }),

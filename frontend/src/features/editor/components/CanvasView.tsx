@@ -3,6 +3,7 @@ import type { FloorPlanDetail, FloorPlanElement, TextProperties } from '../../..
 import { useCanvas } from '../hooks/useCanvas';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
+import { useToolStore } from '../stores/toolStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
 
@@ -35,8 +36,8 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId: _roomId
   const localElements = useEditorStore(s => s.localElements);
   const localEquipment = useEditorStore(s => s.localEquipment);
 
-  const isPanning = useCanvasStore(s => s.isPanning);
-  const isSpacePressed = useCanvasStore(s => s.isSpacePressed);
+  const isPanning = useToolStore(s => s.isPanning);
+  const isSpacePressed = useToolStore(s => s.isSpacePressed);
   const isEditingText = useCanvasStore(s => s.isEditingText);
   const textInputPosition = useCanvasStore(s => s.textInputPosition);
   const textInputValue = useCanvasStore(s => s.textInputValue);
