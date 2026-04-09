@@ -65,12 +65,15 @@ export interface MaterialCableTypeMeta extends CableTypeMeta {
 
 /** Build cable type metadata from MaterialCategory API data */
 export function buildCableTypesFromCategories(categories: MaterialCategory[]): MaterialCableTypeMeta[] {
-  return categories.map(cat => ({
-    value: MATERIAL_TO_CABLE_TYPE[cat.code] ?? 'AC' as CableType,
-    label: cat.name,
-    color: cat.displayColor ?? '#94a3b8',
-    badgeClass: 'bg-opacity-10 text-opacity-90',
-    materialCategoryId: cat.id,
-    materialCategoryCode: cat.code,
-  }));
+  return categories.map(cat => {
+    const legacyType = MATERIAL_TO_CABLE_TYPE[cat.code] ?? 'AC' as CableType;
+    return {
+      value: legacyType,
+      label: cat.name,
+      color: cat.displayColor ?? '#94a3b8',
+      badgeClass: CABLE_BADGE_CLASSES[legacyType] || 'bg-gray-100 text-gray-600',
+      materialCategoryId: cat.id,
+      materialCategoryCode: cat.code,
+    };
+  });
 }

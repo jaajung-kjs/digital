@@ -12,11 +12,15 @@ export function ConnectionLegend() {
 
   const legendItems = useMemo(() => {
     if (cableCategoryData) {
-      return buildCableTypesFromCategories(cableCategoryData).map(c => ({
-        key: c.value,
-        color: c.color,
-        label: c.label,
-      }));
+      const cats = buildCableTypesFromCategories(cableCategoryData);
+      // Deduplicate by CableType value — show 5 groups, not 16 individual categories
+      const seen = new Map<string, { key: string; color: string; label: string }>();
+      for (const c of cats) {
+        if (!seen.has(c.value)) {
+          seen.set(c.value, { key: c.value, color: c.color, label: c.value });
+        }
+      }
+      return [...seen.values()];
     }
     return CABLE_TYPES.map(t => ({ key: t.value, color: t.color, label: t.label }));
   }, [cableCategoryData]);
