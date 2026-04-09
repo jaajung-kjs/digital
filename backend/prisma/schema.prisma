@@ -459,3 +459,205 @@ model AuditLog {
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
 }
+
+// ==================== 공사설계 — 자재 마스터 ====================
+
+enum MaterialCategoryType {
+  CABLE      // 케이블류
+  EQUIPMENT  // 장비류
+  ACCESSORY  // 부속자재
+}
+
+model MaterialCategory {
+  id           String               @id @default(uuid())
+  code         String               @unique @db.VarChar(30)
+  name         String               @db.VarChar(100)
+  categoryType MaterialCategoryType @map("category_type")
+  parentId     String?              @map("parent_id")
+  description  String?              @db.Text
+  sortOrder    Int                  @default(0) @map("sort_order")
+  isActive     Boolean              @default(true) @map("is_active")
+
+  // ── Phase 1 NEW ──
+  displayColor String?  @map("display_color") @db.VarChar(7)
+  iconName     String?  @map("icon_name") @db.VarChar(30)
+  unit         String?  @db.VarChar(20)
+  specTemplate Json?    @map("spec_template")
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  parent   MaterialCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children MaterialCategory[] @relation("CategoryHierarchy")
+  materials Material[]
+  aliases  MaterialAlias[]
+
+  @@map("material_categories")
+}
+
+model MaterialAlias {
+  id         String   @id @default(uuid())
+  categoryId String   @map("category_id")
+  aliasName  String   @unique @db.VarChar(200)
+  source     String?  @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  category   MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("material_aliases")
+}
+
+model Material {
+  id            String   @id @default(uuid())
+  categoryId    String   @map("category_id")
+  code          String   @unique @db.VarChar(50)
+  name          String   @db.VarChar(200)
+  specification String   @db.VarChar(300)
+  unit          String   @db.VarChar(20)
+  properties    Json?
+  description   String?  @db.Text
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  category      MaterialCategory         @relation(fields: [categoryId], references: [id])
+  templateItems ConstructionTemplateItem[]
+
+  @@map("materials")
+}
+
+// ==================== 공사설계 — 노무 직종 ====================
+
+model LaborType {
+  id          String   @id @default(uuid())
+  code        String   @unique @db.VarChar(30)
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workItemLabors WorkItemLabor[]
+
+  @@map("labor_types")
+}
+
+// ==================== 공사설계 — 공종 마스터 ====================
+
+enum WorkActionType {
+  INSTALL   // 시설/설치
+  REMOVE    // 철거
+  RELOCATE  // 이설
+  TEST      // 시험
+  WIRING    // 배선/결선
+  CONNECT   // 접속/성단
+}
+
+model WorkItem {
+  id           String         @id @default(uuid())
+  code         String         @unique @db.VarChar(50)
+  name         String         @db.VarChar(200)
+  actionType   WorkActionType @map("action_type")
+  standardCode String?        @map("standard_code") @db.VarChar(30)
+  unit         String         @db.VarChar(20)
+  description  String?        @db.Text
+  isActive     Boolean        @default(true) @map("is_active")
+  sortOrder    Int            @default(0) @map("sort_order")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  labors        WorkItemLabor[]
+  templateItems ConstructionTemplateItem[]
+
+  @@map("work_items")
+}
+
+model WorkItemLabor {
+  id          String   @id @default(uuid())
+  workItemId  String   @map("work_item_id")
+  laborTypeId String   @map("labor_type_id")
+  manHours    Float    @map("man_hours")
+  isPrimary   Boolean  @default(true) @map("is_primary")
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workItem  WorkItem  @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  laborType LaborType @relation(fields: [laborTypeId], references: [id])
+
+  @@unique([workItemId, laborTypeId])
+  @@map("work_item_labors")
+}
+
+// ==================== 공사설계 — 할증 규칙 ====================
+
+model SurchargeRule {
+  id           String   @id @default(uuid())
+  code         String   @unique @db.VarChar(30)
+  name         String   @db.VarChar(100)
+  multiplier   Float
+  condition    String?  @db.Text
+  isStackable  Boolean  @default(false) @map("is_stackable")
+  standardCode String?  @map("standard_code") @db.VarChar(30)
+  isActive     Boolean  @default(true) @map("is_active")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("surcharge_rules")
+}
+
+// ==================== 공사설계 — 공사 유형 템플릿 ====================
+
+enum QuantityBasis {
+  PER_DISTANCE  // 거리(m) 기준
+  PER_UNIT      // 대/개 기준
+  PER_LINE      // 회선(T/L) 기준
+  PER_CABLE     // 케이블당
+  PERCENTAGE    // 주자재의 %
+  FIXED         // 고정 수량
+  FORMULA       // 사용자 정의 수식
+}
+
+model ConstructionType {
+  id          String   @id @default(uuid())
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(200)
+  category    String   @db.VarChar(50)
+  description String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  templateItems ConstructionTemplateItem[]
+
+  @@map("construction_types")
+}
+
+model ConstructionTemplateItem {
+  id                   String        @id @default(uuid())
+  constructionTypeId   String        @map("construction_type_id")
+  materialId           String?       @map("material_id")
+  workItemId           String?       @map("work_item_id")
+  quantityBasis        QuantityBasis @map("quantity_basis")
+  baseQuantity         Float?        @map("base_quantity")
+  quantityFormula      String?       @map("quantity_formula") @db.Text
+  percentageOf         String?       @map("percentage_of") @db.VarChar(50)
+  percentageRate       Float?        @map("percentage_rate")
+  isOptional           Boolean       @default(false) @map("is_optional")
+  conditionJson        Json?         @map("condition_json")
+  defaultSurchargeIds  String[]      @map("default_surcharge_ids")
+  sortOrder            Int           @default(0) @map("sort_order")
+  description          String?       @db.Text
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  constructionType ConstructionType @relation(fields: [constructionTypeId], references: [id], onDelete: Cascade)
+  material         Material?        @relation(fields: [materialId], references: [id])
+  workItem         WorkItem?        @relation(fields: [workItemId], references: [id])
+
+  @@map("construction_template_items")
+}
