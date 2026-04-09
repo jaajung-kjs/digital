@@ -2,7 +2,7 @@
  * Tool Registry
  *
  * Maps ToolId to the corresponding CanvasTool implementation.
- * Tools not yet implemented (equipment, cable, rack) fall through
+ * Tools not yet implemented (rack) fall through
  * to undefined and the dispatcher handles them gracefully.
  */
 
@@ -16,11 +16,12 @@ import { windowTool } from './windowTool';
 import { textTool } from './textTool';
 import { deleteTool } from './deleteTool';
 import { equipmentTool } from './equipmentTool';
+import { cableTool } from './cableTool';
 
 /**
  * Registry of all available tools.
  * Lookup with `toolRegistry[toolId]`.
- * Returns `undefined` for tools not yet implemented (rack, cable).
+ * Returns `undefined` for tools not yet implemented (rack).
  */
 export const toolRegistry: Partial<Record<ToolId, CanvasTool>> = {
   select: selectTool,
@@ -32,6 +33,6 @@ export const toolRegistry: Partial<Record<ToolId, CanvasTool>> = {
   text: textTool,
   delete: deleteTool,
   equipment: equipmentTool,
+  cable: cableTool,
   // rack: not yet migrated — handled by legacy FloorPlanEditorPage logic
-  // cable: stub — Phase 2
 };

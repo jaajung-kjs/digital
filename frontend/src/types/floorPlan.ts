@@ -202,6 +202,7 @@ export interface UpdateFloorPlanRequest {
     label?: string | null;
     length?: number | null;
     color?: string | null;
+    pathPoints?: [number, number][];
   }[];
   /** @deprecated Use equipment instead */
   racks?: {
@@ -282,7 +283,7 @@ export interface EquipmentItem {
 // 에디터 도구 타입 (v2 - CAD 스타일)
 // 기존: 'select' | 'wall' | 'door' | 'window' | 'column' | 'rack' | 'cable' | 'delete'
 // 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete'
-export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'rack' | 'text' | 'delete';
+export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'rack' | 'cable' | 'text' | 'delete';
 
 // 에디터 상태 타입
 export interface EditorState {

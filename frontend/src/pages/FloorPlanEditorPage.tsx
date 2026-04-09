@@ -60,6 +60,10 @@ import { useToolStore } from '../features/editor/stores/toolStore';
 import { useToolContext } from '../features/editor/hooks/useToolContext';
 import { useCanvasEvents } from '../features/editor/hooks/useCanvasEvents';
 import type { ToolId } from '../features/editor/tools/types';
+import type { CableToolState } from '../features/editor/tools/cableTool';
+import { renderCablePathPreview } from '../features/editor/renderers/toolPreviewRenderer';
+import { MaterialCategoryPicker } from '../features/materialPicker/components/MaterialCategoryPicker';
+import type { MaterialCategory } from '../types/materialCategory';
 
 // 초기 에디터 상태
 const initialEditorState: EditorState = {
@@ -624,6 +628,15 @@ export function FloorPlanEditorPage() {
       renderPlacementPreview(ctx, 'rack' as DrawingToolType, previewPosition, 0);
     }
 
+    // Cable path preview (from toolStore)
+    if (editorState.tool === 'cable') {
+      const cableState = (toolStoreState.toolState as unknown as CableToolState);
+      if (cableState.phase === 'drawingPath' || cableState.phase === 'selectSource') {
+        const displayColor = (toolStoreState.toolConfig?.displayColor as string) || undefined;
+        renderCablePathPreview(ctx, cableState, localRacks, displayColor);
+      }
+    }
+
     ctx.restore();
   }, [floorPlan, localElements, localRacks, editorState, isDrawingLine, linePoints, linePreviewEnd, isDrawingCircle, circleCenter, circlePreviewRadius, circlePreviewEnd, isDrawingRect, rectStart, rectPreviewEnd, previewPosition, showLengths, toolStoreState.toolState]);
 
@@ -855,6 +868,7 @@ export function FloorPlanEditorPage() {
       if (e.key === 'd' || e.key === 'D') setEditorState(prev => ({ ...prev, tool: 'door' }));
       if (e.key === 'w' || e.key === 'W') setEditorState(prev => ({ ...prev, tool: 'window' }));
       if (e.key === 'k' || e.key === 'K') setEditorState(prev => ({ ...prev, tool: 'rack' }));
+      if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey) setEditorState(prev => ({ ...prev, tool: 'cable' }));
       if (e.key === 't' || e.key === 'T') setEditorState(prev => ({ ...prev, tool: 'text' }));
       if (e.key === 'g' || e.key === 'G') setEditorState(prev => ({ ...prev, showGrid: !prev.showGrid }));
       if (e.key === 's' && !e.ctrlKey) setEditorState(prev => ({ ...prev, gridSnap: !prev.gridSnap }));
@@ -1732,6 +1746,18 @@ export function FloorPlanEditorPage() {
                 </svg>
               </ToolButton>
 
+              <ToolButton
+                active={editorState.tool === 'cable'}
+                onClick={() => setEditorState(prev => ({ ...prev, tool: 'cable' as EditorState['tool'] }))}
+                title="케이블 배선"
+                label="케이블"
+                shortcut="C"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </ToolButton>
+
               <div className="border-t my-1" />
 
               <ToolButton
@@ -2408,6 +2434,25 @@ export function FloorPlanEditorPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 케이블 카테고리 선택 모달 */}
+      {editorState.tool === 'cable' && ((toolStoreState.toolState as unknown as CableToolState)).phase === 'selectCategory' && (
+        <MaterialCategoryPicker
+          categoryType="CABLE"
+          onSelect={(category: MaterialCategory, _specValues: Record<string, unknown>) => {
+            toolStoreState.setToolConfig({
+              materialCategoryId: category.id,
+              materialCategoryCode: category.code,
+              displayColor: category.displayColor ?? undefined,
+              materialCategoryName: category.name,
+            });
+            toolStoreState.setToolState<CableToolState>({ phase: 'selectSource' });
+          }}
+          onCancel={() => {
+            setEditorState(prev => ({ ...prev, tool: 'select' }));
+          }}
+        />
       )}
 
       {/* 랙 붙여넣기 모달 */}

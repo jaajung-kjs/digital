@@ -13,7 +13,7 @@ import type { DragSession } from '../../../utils/floorplan/dragSystem';
 // ============================================
 
 /** All tool identifiers — mirrors EditorTool + future tools */
-export type ToolId = EditorTool | 'equipment' | 'cable';
+export type ToolId = EditorTool | 'equipment';
 
 // ============================================
 // Canvas Pointer Event

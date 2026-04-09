@@ -237,6 +237,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         materialCategoryId: c.materialCategoryId,
         label: c.label, length: c.length, color: c.color,
         fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
+        pathPoints: c.pathPoints,
       }));
     const cableUpdates = selectChanges(changeSet, 'cable:update')
       .filter((c) => !allDeletions.has(c.id))
@@ -248,6 +249,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         materialCategoryId: c.materialCategoryId,
         label: c.label, length: c.length, color: c.color,
         fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
+        pathPoints: c.pathPoints,
       }));
     const deletedCableIds = [...allDeletions].filter((id) => !isTempId(id));
 

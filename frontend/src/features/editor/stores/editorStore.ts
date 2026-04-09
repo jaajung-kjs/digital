@@ -22,8 +22,8 @@ import type { CableType } from '../../../types/connection';
 export type ChangeEntry =
   | { type: 'photo:upload'; id: string; equipmentId: string; side: 'front' | 'rear'; file: File; description: string; objectUrl: string }
   | { type: 'photo:delete'; photoId: string }
-  | { type: 'cable:create'; localId: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; materialCategoryId?: string; label?: string; length?: number; color?: string; fiberPathId?: string; fiberPortNumber?: number }
-  | { type: 'cable:update'; id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; materialCategoryId?: string; label?: string; length?: number; color?: string; fiberPathId?: string; fiberPortNumber?: number }
+  | { type: 'cable:create'; localId: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; materialCategoryId?: string; label?: string; length?: number; color?: string; fiberPathId?: string; fiberPortNumber?: number; pathPoints?: [number, number][] }
+  | { type: 'cable:update'; id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; materialCategoryId?: string; label?: string; length?: number; color?: string; fiberPathId?: string; fiberPortNumber?: number; pathPoints?: [number, number][] }
   | { type: 'cable:delete'; cableId: string }
   | { type: 'log:create'; localId: string; equipmentId: string; logType: string; title: string; logDate?: string; severity?: string; description?: string }
   | { type: 'log:update'; logId: string; logType: string; title: string; logDate?: string; severity?: string; description?: string }
