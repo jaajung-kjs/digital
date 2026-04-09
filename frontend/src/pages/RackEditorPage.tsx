@@ -855,7 +855,7 @@ export function RackEditorPage() {
             setClickedStartU(null);
             setError(null);
           }}
-          onSubmit={(data) => createEquipmentMutation.mutate(data)}
+          onSubmit={(data: import('../types/rack').CreateEquipmentRequest) => createEquipmentMutation.mutate(data)}
           isLoading={createEquipmentMutation.isPending}
           error={error}
         />

@@ -15,7 +15,7 @@ export const deleteTool: CanvasTool = {
     const found = findItemAt(e.canvasX, e.canvasY, ctx.localElements, ctx.localRacks);
     if (!found) return;
 
-    if (found.type === 'rack') {
+    if (found.type === 'equipment') {
       const newRacks = ctx.localRacks.filter(r => r.id !== found.item.id);
       ctx.setLocalRacks(newRacks);
       ctx.pushHistory(ctx.localElements, newRacks);

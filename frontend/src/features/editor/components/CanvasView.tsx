@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import type { FloorPlanDetail, FloorPlanElement, TextProperties } from '../../../types/floorPlan';
 import { useCanvas } from '../hooks/useCanvas';
-import { useCanvasEvents } from '../hooks/useCanvasEvents';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
@@ -15,15 +14,8 @@ interface CanvasViewProps {
   children?: React.ReactNode;
 }
 
-export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, children }: CanvasViewProps) {
+export function CanvasView({ canvasRef, containerRef, floorPlan, roomId: _roomId, children }: CanvasViewProps) {
   useCanvas(canvasRef, containerRef, floorPlan);
-  const {
-    handleCanvasMouseDown,
-    handleCanvasMouseMove,
-    handleCanvasMouseUp,
-    handleCanvasClick,
-    handleCanvasDoubleClick,
-  } = useCanvasEvents(canvasRef, floorPlan, roomId);
 
   const { pushHistory } = useEditorHistory();
 
@@ -52,6 +44,13 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, childre
   const setTextInputPosition = useCanvasStore(s => s.setTextInputPosition);
   const setTextInputValue = useCanvasStore(s => s.setTextInputValue);
   const setTool = useEditorStore(s => s.setTool);
+
+  // Placeholder event handlers — full tool-system wiring is done in FloorPlanEditorPage
+  const handleCanvasMouseDown = useCallback((_e: React.MouseEvent<HTMLCanvasElement>) => { /* noop */ }, []);
+  const handleCanvasMouseMove = useCallback((_e: React.MouseEvent<HTMLCanvasElement>) => { /* noop */ }, []);
+  const handleCanvasMouseUp = useCallback((_e: React.MouseEvent<HTMLCanvasElement>) => { /* noop */ }, []);
+  const handleCanvasClick = useCallback((_e: React.MouseEvent<HTMLCanvasElement>) => { /* noop */ }, []);
+  const handleCanvasDoubleClick = useCallback((_e: React.MouseEvent<HTMLCanvasElement>) => { /* noop */ }, []);
 
   const createTextElement = (text: string) => {
     if (!textInputPosition || !text.trim()) return;

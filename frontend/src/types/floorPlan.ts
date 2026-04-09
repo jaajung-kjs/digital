@@ -138,6 +138,8 @@ export interface FloorPlanEquipment {
   manufacturer?: string | null;
   manager?: string | null;
   height3d?: number;
+  code?: string | null;
+  totalU?: number;
 }
 
 /** @deprecated Use FloorPlanEquipment instead */
@@ -154,12 +156,15 @@ export interface FloorPlanDetail {
   backgroundColor: string;
   elements: FloorPlanElement[];
   equipment: FloorPlanEquipment[];
+  /** @deprecated Use equipment instead */
+  racks: FloorPlanEquipment[];
   version: number;
   updatedAt: string;
 }
 
 // API 요청 타입
 export interface UpdateFloorPlanRequest {
+  name?: string;
   canvasWidth?: number;
   canvasHeight?: number;
   gridSize?: number;
@@ -198,10 +203,28 @@ export interface UpdateFloorPlanRequest {
     length?: number | null;
     color?: string | null;
   }[];
+  /** @deprecated Use equipment instead */
+  racks?: {
+    id?: string | null;
+    name: string;
+    code?: string;
+    positionX: number;
+    positionY: number;
+    width?: number;
+    height?: number;
+    rotation?: number;
+    totalU?: number;
+    description?: string;
+  }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
+  /** @deprecated Use deletedEquipmentIds instead */
+  deletedRackIds?: string[];
   deletedCableIds?: string[];
 }
+
+/** @deprecated Use UpdateFloorPlanRequest instead */
+export type CreateFloorPlanRequest = UpdateFloorPlanRequest;
 
 export interface CreateFloorPlanEquipmentRequest {
   name: string;
@@ -259,7 +282,7 @@ export interface EquipmentItem {
 // 에디터 도구 타입 (v2 - CAD 스타일)
 // 기존: 'select' | 'wall' | 'door' | 'window' | 'column' | 'rack' | 'cable' | 'delete'
 // 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete'
-export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete';
+export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'rack' | 'text' | 'delete';
 
 // 에디터 상태 타입
 export interface EditorState {

@@ -28,9 +28,9 @@ import {
   renderRectPreview,
   renderPlacementPreview,
   renderElements,
-  renderRacks,
+  renderEquipmentItems as renderRacks,
   renderElementLengths,
-  renderRackLengths,
+  renderEquipmentLengths as renderRackLengths,
   type DrawingToolType,
 } from '../utils/floorplan/renderers';
 // findItemAt is now used by tool implementations directly
@@ -1114,6 +1114,7 @@ export function FloorPlanEditorPage() {
     const newRack: RackItem = {
       id: `temp-${Date.now()}`,
       name: newRackName,
+      category: 'RACK',
       code: null,
       positionX: newRackPosition.x,
       positionY: newRackPosition.y,
@@ -2304,7 +2305,7 @@ export function FloorPlanEditorPage() {
                 />
                 <PropertyInput
                   label="U"
-                  value={selectedRack.totalU}
+                  value={selectedRack.totalU ?? 0}
                   suffix="U"
                   readOnly
                 />

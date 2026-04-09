@@ -17,7 +17,7 @@ import { PropertyBar } from './PropertyBar';
 import { HeightInput } from './HeightInput';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
-import { EquipmentDetailPanel } from './EquipmentDetailPanel';
+// EquipmentDetailPanel requires full Equipment object; detail-by-ID wiring is TODO
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { BomPanel } from '../../bom/components/BomPanel';
 
@@ -43,7 +43,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const { pushHistory } = useEditorHistory();
 
   const resetEditor = useEditorStore(s => s.resetEditor);
-  const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
+  // const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
   const viewMode = useEditorStore(s => s.viewMode);
   const snapshotActive = useSnapshotStore(s => s.active);
   const snapshotLabel = useSnapshotStore(s => s.label);
@@ -185,9 +185,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
               <TopologyModal />
 
-              {detailPanelEquipmentId && (
-                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} roomId={roomId} />
-              )}
+              {/* TODO: Wire EquipmentDetailPanel with proper data fetching by equipmentId */}
 
               {showHistory && (
                 <ChangeHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />

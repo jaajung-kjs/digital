@@ -24,7 +24,7 @@ export const selectTool: CanvasTool = {
       ctx.setDragSession(session);
       ctx.setSelectedIds([found.item.id]);
 
-      if (found.type === 'rack') {
+      if (found.type === 'equipment') {
         ctx.setSelectedRack(found.item as RackItem);
         ctx.setSelectedElement(null);
       } else {
@@ -53,7 +53,7 @@ export const selectTool: CanvasTool = {
       snapFn,
     );
     ctx.setLocalElements(result.elements);
-    ctx.setLocalRacks(result.racks);
+    ctx.setLocalRacks(result.equipment);
     ctx.setHasChanges(true);
   },
 
