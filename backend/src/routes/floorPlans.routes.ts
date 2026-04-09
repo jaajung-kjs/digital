@@ -58,16 +58,33 @@ const rackSchema = z.object({
   description: z.string().optional(),
 });
 
+const cableTypeEnum = z.enum(['AC', 'DC', 'LAN', 'FIBER']);
+
+const cableSchema = z.object({
+  id: z.string().uuid().nullish(),
+  sourcePortId: z.string().uuid(),
+  targetPortId: z.string().uuid(),
+  cableType: cableTypeEnum,
+  label: z.string().max(100).nullish(),
+  length: z.number().positive().nullish(),
+  color: z.string().max(50).nullish(),
+  pathPoints: z.array(z.tuple([z.number(), z.number()])).nullish(),
+  description: z.string().nullish(),
+});
+
 const bulkUpdateSchema = z.object({
   canvasWidth: z.number().int().min(100).max(10000).optional(),
   canvasHeight: z.number().int().min(100).max(10000).optional(),
   gridSize: z.number().int().min(5).max(100).optional(),
   majorGridSize: z.number().int().min(10).max(200).optional(),
   backgroundColor: z.string().max(20).optional(),
+  pixelsPerMeter: z.number().positive().optional(),
   elements: z.array(elementSchema).optional(),
   racks: z.array(rackSchema).optional(),
+  cables: z.array(cableSchema).optional(),
   deletedElementIds: z.array(z.string().uuid()).optional(),
   deletedRackIds: z.array(z.string().uuid()).optional(),
+  deletedCableIds: z.array(z.string().uuid()).optional(),
 });
 
 // ==================== Floor Plan Routes ====================

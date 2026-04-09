@@ -51,12 +51,25 @@ export interface CreateFloorPlanInput {
   majorGridSize?: number;
 }
 
+export interface CableItem {
+  id?: string | null;
+  sourcePortId: string;
+  targetPortId: string;
+  cableType: string;
+  label?: string | null;
+  length?: number | null;
+  color?: string | null;
+  pathPoints?: [number, number][] | null;
+  description?: string | null;
+}
+
 export interface UpdateFloorPlanInput {
   canvasWidth?: number;
   canvasHeight?: number;
   gridSize?: number;
   majorGridSize?: number;
   backgroundColor?: string;
+  pixelsPerMeter?: number;
   elements?: {
     id?: string | null;
     elementType: string;
@@ -76,8 +89,10 @@ export interface UpdateFloorPlanInput {
     totalU?: number;
     description?: string;
   }[];
+  cables?: CableItem[];
   deletedElementIds?: string[];
   deletedRackIds?: string[];
+  deletedCableIds?: string[];
 }
 
 // ==================== Service ====================
@@ -329,7 +344,55 @@ class FloorPlanService {
         }
       }
 
-      // 5. 평면도 정보 업데이트
+      // 5. 삭제할 케이블 삭제
+      if (input.deletedCableIds && input.deletedCableIds.length > 0) {
+        await tx.cable.deleteMany({
+          where: {
+            id: { in: input.deletedCableIds },
+          },
+        });
+      }
+
+      // 6. 케이블 upsert
+      if (input.cables && input.cables.length > 0) {
+        for (const cable of input.cables) {
+          if (cable.id) {
+            // 기존 케이블 업데이트
+            await tx.cable.update({
+              where: { id: cable.id },
+              data: {
+                sourcePortId: cable.sourcePortId,
+                targetPortId: cable.targetPortId,
+                cableType: cable.cableType as any,
+                label: cable.label,
+                length: cable.length,
+                color: cable.color,
+                pathPoints: cable.pathPoints as Prisma.InputJsonValue ?? Prisma.JsonNull,
+                description: cable.description,
+                updatedById: userId,
+              },
+            });
+          } else {
+            // 새 케이블 생성
+            await tx.cable.create({
+              data: {
+                sourcePortId: cable.sourcePortId,
+                targetPortId: cable.targetPortId,
+                cableType: cable.cableType as any,
+                label: cable.label,
+                length: cable.length,
+                color: cable.color,
+                pathPoints: cable.pathPoints as Prisma.InputJsonValue ?? Prisma.JsonNull,
+                description: cable.description,
+                createdById: userId,
+                updatedById: userId,
+              },
+            });
+          }
+        }
+      }
+
+      // 7. 평면도 정보 업데이트
       await tx.floorPlan.update({
         where: { id },
         data: {
@@ -338,6 +401,7 @@ class FloorPlanService {
           gridSize: input.gridSize,
           majorGridSize: input.majorGridSize,
           backgroundColor: input.backgroundColor,
+          pixelsPerMeter: input.pixelsPerMeter,
           version: { increment: 1 },
           updatedById: userId,
         },
