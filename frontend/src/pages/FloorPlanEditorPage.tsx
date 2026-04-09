@@ -33,10 +33,9 @@ import {
   renderRackLengths,
   type DrawingToolType,
 } from '../utils/floorplan/renderers';
-import { findItemAt } from '../utils/floorplan/hitTestUtils';
+// findItemAt is now used by tool implementations directly
 // 표준화된 시스템 import
 import {
-  type Position,
   createPropertyUpdater as updateElementProperty,
   createRotateUpdater,
   createFlipHUpdater,
@@ -52,10 +51,14 @@ import {
   FONT_SIZE_PRESETS,
 } from '../utils/floorplan/elementSystem';
 import {
-  createDragSession,
-  applyDrag,
   type DragSession,
 } from '../utils/floorplan/dragSystem';
+
+// Tool system imports
+import { useToolStore } from '../features/editor/stores/toolStore';
+import { useToolContext } from '../features/editor/hooks/useToolContext';
+import { useCanvasEvents } from '../features/editor/hooks/useCanvasEvents';
+import type { ToolId } from '../features/editor/tools/types';
 
 // 초기 에디터 상태
 const initialEditorState: EditorState = {
@@ -173,6 +176,9 @@ export function FloorPlanEditorPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const isSavingRef = useRef(false);  // 저장 중 여부 추적 (저장 후 refetch 시 뷰포트 유지용)
 
+  // Tool system store (must be before renderCanvas which reads toolState)
+  const toolStoreState = useToolStore();
+
   const [editorState, setEditorState] = useState<EditorState>(initialEditorState);
   const [localElements, setLocalElements] = useState<FloorPlanElement[]>([]);
   const [localRacks, setLocalRacks] = useState<RackItem[]>([]);
@@ -225,10 +231,7 @@ export function FloorPlanEditorPage() {
   // 드래그 상태 (표준화된 드래그 시스템 사용)
   const [dragSession, setDragSession] = useState<DragSession | null>(null);
 
-  // 캔버스 팬 상태
-  const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
-  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  // 캔버스 팬 상태 — now managed by toolStore (isPanning, panStart, isSpacePressed)
 
   // Undo/Redo 히스토리
   const [history, setHistory] = useState<HistoryState[]>([]);
@@ -563,28 +566,65 @@ export function FloorPlanEditorPage() {
       renderRackLengths(ctx, localRacks, editorState.zoom);
     }
 
-    // 선 그리기 미리보기
+    // 선 그리기 미리보기 (from toolStore)
+    const lineState = toolStoreState.toolState as {
+      isDrawing?: boolean;
+      startPoint?: [number, number] | null;
+      previewEnd?: [number, number] | null;
+    };
+    if (editorState.tool === 'line' && lineState.isDrawing && lineState.startPoint) {
+      renderLinePreview(ctx, lineState.startPoint, lineState.previewEnd ?? null);
+    }
+    // Legacy fallback for line preview
     if (isDrawingLine && linePoints.length === 1) {
       renderLinePreview(ctx, linePoints[0], linePreviewEnd);
     }
 
-    // 원 그리기 미리보기
+    // 원 그리기 미리보기 (from toolStore)
+    const circleState = toolStoreState.toolState as {
+      isDrawing?: boolean;
+      center?: { x: number; y: number } | null;
+      previewRadius?: number;
+      previewEnd?: { x: number; y: number } | null;
+    };
+    if (editorState.tool === 'circle' && circleState.isDrawing && circleState.center) {
+      renderCirclePreview(ctx, circleState.center, circleState.previewRadius || 0, circleState.previewEnd || undefined);
+    }
+    // Legacy fallback for circle preview
     if (isDrawingCircle && circleCenter) {
       renderCirclePreview(ctx, circleCenter, circlePreviewRadius, circlePreviewEnd || undefined);
     }
 
-    // 사각형 그리기 미리보기
+    // 사각형 그리기 미리보기 (from toolStore)
+    const rectState = toolStoreState.toolState as {
+      isDrawing?: boolean;
+      start?: { x: number; y: number } | null;
+      previewEnd?: { x: number; y: number } | null;
+    };
+    if (editorState.tool === 'rect' && rectState.isDrawing && rectState.start) {
+      renderRectPreview(ctx, rectState.start, rectState.previewEnd ?? null);
+    }
+    // Legacy fallback for rect preview
     if (isDrawingRect && rectStart) {
       renderRectPreview(ctx, rectStart, rectPreviewEnd);
     }
 
     // 오브젝트 배치 미리보기 렌더링 (door, window, rack, text) - 회전 없이 기본 방향으로만
-    if (previewPosition && ['door', 'window', 'rack', 'text'].includes(editorState.tool)) {
-      renderPlacementPreview(ctx, editorState.tool as DrawingToolType, previewPosition, 0);
+    // For door/window/text, check toolStore preview position
+    const placementState = toolStoreState.toolState as {
+      previewPosition?: { x: number; y: number } | null;
+    };
+    const toolPreviewPos = placementState.previewPosition;
+    if (toolPreviewPos && ['door', 'window', 'text'].includes(editorState.tool)) {
+      renderPlacementPreview(ctx, editorState.tool as DrawingToolType, toolPreviewPos, 0);
+    }
+    // Legacy: rack preview uses previewPosition state
+    if (previewPosition && editorState.tool === 'rack') {
+      renderPlacementPreview(ctx, 'rack' as DrawingToolType, previewPosition, 0);
     }
 
     ctx.restore();
-  }, [floorPlan, localElements, localRacks, editorState, isDrawingLine, linePoints, linePreviewEnd, isDrawingCircle, circleCenter, circlePreviewRadius, circlePreviewEnd, isDrawingRect, rectStart, rectPreviewEnd, previewPosition, showLengths]);
+  }, [floorPlan, localElements, localRacks, editorState, isDrawingLine, linePoints, linePreviewEnd, isDrawingCircle, circleCenter, circlePreviewRadius, circlePreviewEnd, isDrawingRect, rectStart, rectPreviewEnd, previewPosition, showLengths, toolStoreState.toolState]);
 
   // 캔버스 크기 조정 및 렌더링
   useEffect(() => {
@@ -618,360 +658,122 @@ export function FloorPlanEditorPage() {
     return snapToGridUtil(x, y, editorState.gridSize, editorState.gridSnap);
   };
 
-  // 요소 찾기
-  // 특정 좌표에서 Element 또는 Rack 찾기
-  const findElementAt = (x: number, y: number) => {
-    return findItemAt(x, y, localElements, localRacks);
-  };
+  // ============================================
+  // Tool System Integration (Strategy Pattern)
+  // ============================================
 
-  // 캔버스 마우스 다운
+  const toolCtx = useToolContext({
+    localElements,
+    localRacks,
+    editorState,
+    selectedElement,
+    selectedRack,
+    dragSession,
+    floorPlanLoaded: !!floorPlan,
+    hasChanges,
+    floorId,
+    canvasRef,
+    setLocalElements,
+    setLocalRacks,
+    setSelectedElement,
+    setSelectedRack,
+    setEditorState,
+    setHasChanges,
+    setDragSession,
+    pushHistory,
+    setDeletedElementIds,
+    setDeletedRackIds,
+    navigate,
+  });
+
+  // Tool system handles: select, line, rect, circle, door, window, text, delete
+  // Legacy handling remains for: rack (uses modal), double-click (rack navigation)
+  const toolEvents = useCanvasEvents(
+    editorState.tool as ToolId,
+    toolCtx,
+    setEditorState,
+  );
+
+  // Keep toolStore activeTool in sync with editorState.tool
+  useEffect(() => {
+    if (toolStoreState.activeTool !== editorState.tool) {
+      toolStoreState.setActiveTool(editorState.tool as ToolId);
+    }
+  }, [editorState.tool]);
+
+  // ============================================
+  // Canvas Event Handlers (Thin Dispatcher)
+  // ============================================
+
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan || !canvasRef.current) return;
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const screenX = e.clientX - rect.left;
-    const screenY = e.clientY - rect.top;
-    const { x, y } = getCanvasCoordinates(e);
-
-    // 중간 버튼(휠 클릭) 또는 Space+클릭이면 팬 모드
-    if (e.button === 1 || isSpacePressed) {
-      e.preventDefault();
-      setIsPanning(true);
-      setPanStart({ x: screenX, y: screenY });
-      return;
-    }
-
-    if (editorState.tool === 'select') {
-      const found = findElementAt(x, y);
-      if (found) {
-        // 표준화된 드래그 세션 생성
-        const session = createDragSession(found, { x, y });
-        setDragSession(session);
-        setEditorState(prev => ({ ...prev, selectedIds: [found.item.id] }));
-
-        if (found.type === 'rack') {
-          setSelectedRack(found.item as RackItem);
-          setSelectedElement(null);
-        } else {
-          setSelectedElement(found.item as FloorPlanElement);
-          setSelectedRack(null);
-        }
-      } else {
-        // 빈 공간 클릭 시 팬 모드 시작
-        setIsPanning(true);
-        setPanStart({ x: screenX, y: screenY });
-        setEditorState(prev => ({ ...prev, selectedIds: [] }));
-        setSelectedRack(null);
-        setSelectedElement(null);
-      }
-    }
+    toolEvents.handleMouseDown(e);
   };
 
-  // 캔버스 마우스 이동
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const screenX = e.clientX - rect.left;
-    const screenY = e.clientY - rect.top;
-
-    // 실시간 마우스 좌표 업데이트 (월드 좌표)
+    // Update world mouse position for status bar
     const { x: worldX, y: worldY } = getCanvasCoordinates(e);
     setMouseWorldPosition({ x: Math.round(worldX), y: Math.round(worldY) });
 
-    // 캔버스 팬 처리
-    if (isPanning && panStart) {
-      const dx = screenX - panStart.x;
-      const dy = screenY - panStart.y;
-      setEditorState(prev => ({
-        ...prev,
-        panX: prev.panX + dx,
-        panY: prev.panY + dy,
-      }));
-      setPanStart({ x: screenX, y: screenY });
-      return;
-    }
-
-    const { x, y } = getCanvasCoordinates(e);
-    const snapped = snapToGrid(x, y);
-
-    // 선 그리기 중 미리보기 업데이트
-    if (editorState.tool === 'line' && isDrawingLine && linePoints.length === 1) {
-      setLinePreviewEnd([snapped.x, snapped.y]);
-      return;
-    }
-
-    // 원 그리기 중 미리보기 업데이트
-    if (editorState.tool === 'circle' && isDrawingCircle && circleCenter) {
-      const dx = snapped.x - circleCenter.x;
-      const dy = snapped.y - circleCenter.y;
-      const radius = Math.sqrt(dx * dx + dy * dy);
-      setCirclePreviewRadius(Math.max(5, radius));
-      setCirclePreviewEnd({ x: snapped.x, y: snapped.y });
-      return;
-    }
-
-    // 사각형 그리기 중 미리보기 업데이트
-    if (editorState.tool === 'rect' && isDrawingRect && rectStart) {
-      setRectPreviewEnd({ x: snapped.x, y: snapped.y });
-      return;
-    }
-
-    // 오브젝트 미리보기 위치 업데이트
-    if (['door', 'window', 'rack', 'text'].includes(editorState.tool)) {
+    // Update preview position for rack tool (legacy)
+    if (editorState.tool === 'rack') {
+      const snapped = snapToGrid(worldX, worldY);
       setPreviewPosition({ x: snapped.x, y: snapped.y });
-    } else {
+    } else if (!['door', 'window', 'text'].includes(editorState.tool)) {
+      // Non-placement tools: clear preview
+      // (door/window/text previews are managed by their tool's toolState)
       setPreviewPosition(null);
     }
 
-    // 표준화된 드래그 시스템 사용
-    if (!dragSession || !dragSession.isActive) return;
-
-    // 그리드 스냅 함수
-    const snapFn = (pos: Position) => snapToGrid(pos.x, pos.y);
-
-    // 통합 드래그 적용 (Element/Rack 자동 처리)
-    const result = applyDrag(localElements, localRacks, dragSession, snapped, snapFn);
-    setLocalElements(result.elements);
-    setLocalRacks(result.racks);
-    setHasChanges(true);
+    toolEvents.handleMouseMove(e);
   };
 
-  // 캔버스 마우스 업
-  const handleCanvasMouseUp = () => {
-    if (dragSession?.isActive) {
-      pushHistory(localElements, localRacks);
+  const handleCanvasMouseUp = (e?: React.MouseEvent<HTMLCanvasElement>) => {
+    // Create a synthetic event for onMouseLeave (which has no event arg)
+    if (e) {
+      toolEvents.handleMouseUp(e);
+    } else {
+      // Mouse leave — just stop panning and drag
+      if (dragSession?.isActive) {
+        pushHistory(localElements, localRacks);
+      }
+      setDragSession(null);
+      toolStoreState.setPanning(false);
+      toolStoreState.setPanStart(null);
     }
-    setDragSession(null);
-    // 팬 모드 종료
-    setIsPanning(false);
-    setPanStart(null);
   };
 
-  // 캔버스 클릭 처리
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan || !canvasRef.current) return;
 
-    const { x, y } = getCanvasCoordinates(e);
-    const snapped = snapToGrid(x, y);
-
-    switch (editorState.tool) {
-      case 'line':
-        if (!isDrawingLine) {
-          // 첫 클릭: 시작점 설정
-          setIsDrawingLine(true);
-          setLinePoints([[snapped.x, snapped.y]]);
-          setLinePreviewEnd(null);
-        } else {
-          // 두 번째 클릭: 선 확정
-          const newLine: FloorPlanElement = {
-            id: `temp-${Date.now()}`,
-            elementType: 'line',
-            properties: {
-              points: [linePoints[0], [snapped.x, snapped.y]],
-              strokeWidth: 2,
-              strokeColor: '#1a1a1a',
-              strokeStyle: 'solid',
-            } as LineProperties,
-            zIndex: localElements.length,
-            isVisible: true,
-            isLocked: false,
-          };
-          const newElements = [...localElements, newLine];
-          setLocalElements(newElements);
-          pushHistory(newElements, localRacks);
-
-          // 상태 초기화 및 선택 도구로 전환
-          setIsDrawingLine(false);
-          setLinePoints([]);
-          setLinePreviewEnd(null);
-          setHasChanges(true);
-          setEditorState(prev => ({ ...prev, tool: 'select' }));
-        }
-        break;
-
-      case 'rect':
-        if (!isDrawingRect) {
-          // 첫 클릭: 시작점 설정
-          setIsDrawingRect(true);
-          setRectStart({ x: snapped.x, y: snapped.y });
-          setRectPreviewEnd(null);
-        } else {
-          // 두 번째 클릭: 사각형 확정
-          const endX = snapped.x;
-          const endY = snapped.y;
-          const x = Math.min(rectStart!.x, endX);
-          const y = Math.min(rectStart!.y, endY);
-          const width = Math.abs(endX - rectStart!.x);
-          const height = Math.abs(endY - rectStart!.y);
-
-          if (width >= 10 && height >= 10) {
-            const newRect: FloorPlanElement = {
-              id: `temp-${Date.now()}`,
-              elementType: 'rect',
-              properties: {
-                x,
-                y,
-                width,
-                height,
-                rotation: 0,
-                flipH: false,
-                flipV: false,
-                fillColor: 'transparent',
-                strokeColor: '#1a1a1a',
-                strokeWidth: 2,
-                strokeStyle: 'solid',
-                cornerRadius: 0,
-              } as RectProperties,
-              zIndex: localElements.length,
-              isVisible: true,
-              isLocked: false,
-            };
-            const newElements = [...localElements, newRect];
-            setLocalElements(newElements);
-            pushHistory(newElements, localRacks);
-            setHasChanges(true);
-          }
-
-          // 상태 초기화 및 선택 도구로 전환
-          setIsDrawingRect(false);
-          setRectStart(null);
-          setRectPreviewEnd(null);
-          setEditorState(prev => ({ ...prev, tool: 'select' }));
-        }
-        break;
-
-      case 'circle':
-        if (!isDrawingCircle) {
-          // 첫 클릭: 중심점 설정
-          setIsDrawingCircle(true);
-          setCircleCenter({ x: snapped.x, y: snapped.y });
-          setCirclePreviewRadius(0);
-        } else {
-          // 두 번째 클릭: 원 확정
-          const newCircle: FloorPlanElement = {
-            id: `temp-${Date.now()}`,
-            elementType: 'circle',
-            properties: {
-              cx: circleCenter!.x,
-              cy: circleCenter!.y,
-              radius: Math.max(5, circlePreviewRadius),
-              fillColor: 'transparent',
-              strokeColor: '#1a1a1a',
-              strokeWidth: 2,
-              strokeStyle: 'solid',
-            } as CircleProperties,
-            zIndex: localElements.length,
-            isVisible: true,
-            isLocked: false,
-          };
-          const newElements = [...localElements, newCircle];
-          setLocalElements(newElements);
-          pushHistory(newElements, localRacks);
-
-          // 상태 초기화 및 선택 도구로 전환
-          setIsDrawingCircle(false);
-          setCircleCenter(null);
-          setCirclePreviewRadius(0);
-          setCirclePreviewEnd(null);
-          setHasChanges(true);
-          setEditorState(prev => ({ ...prev, tool: 'select' }));
-        }
-        break;
-
-      case 'door': {
-        // 클릭 위치에 기본 크기로 배치 (회전/반전은 배치 후에만 가능)
-        const newDoor: FloorPlanElement = {
-          id: `temp-${Date.now()}`,
-          elementType: 'door',
-          properties: {
-            x: snapped.x,
-            y: snapped.y,
-            width: 60,
-            height: 10,
-            rotation: 0,
-            flipH: false,
-            flipV: false,
-            openDirection: 'inside',
-            strokeWidth: 2,
-            strokeColor: '#d97706',
-          } as DoorProperties,
-          zIndex: localElements.length,
-          isVisible: true,
-          isLocked: false,
-        };
-        const newElements = [...localElements, newDoor];
-        setLocalElements(newElements);
-        pushHistory(newElements, localRacks);
-        setHasChanges(true);
-        setEditorState(prev => ({ ...prev, tool: 'select' }));
-        break;
-      }
-
-      case 'window': {
-        // 클릭 위치에 기본 크기로 배치 (회전/반전은 배치 후에만 가능)
-        const newWindow: FloorPlanElement = {
-          id: `temp-${Date.now()}`,
-          elementType: 'window',
-          properties: {
-            x: snapped.x,
-            y: snapped.y,
-            width: 80,
-            height: 8,
-            rotation: 0,
-            flipH: false,
-            flipV: false,
-            strokeWidth: 2,
-            strokeColor: '#0284c7',
-          } as WindowProperties,
-          zIndex: localElements.length,
-          isVisible: true,
-          isLocked: false,
-        };
-        const newElements = [...localElements, newWindow];
-        setLocalElements(newElements);
-        pushHistory(newElements, localRacks);
-        setHasChanges(true);
-        setEditorState(prev => ({ ...prev, tool: 'select' }));
-        break;
-      }
-
-      case 'rack':
-        setNewRackPosition({ x: snapped.x, y: snapped.y });
-        setRackModalOpen(true);
-        break;
-
-      case 'text': {
-        // 텍스트 입력 모드 시작
-        setIsEditingText(true);
-        setTextInputPosition({ x: snapped.x, y: snapped.y });
-        setTextInputValue('');
-        break;
-      }
-
-      case 'delete': {
-        const found = findElementAt(x, y);
-        if (found) {
-          if (found.type === 'rack') {
-            const newRacks = localRacks.filter(r => r.id !== found.item.id);
-            setLocalRacks(newRacks);
-            pushHistory(localElements, newRacks);
-            if (!found.item.id.startsWith('temp-')) {
-              setDeletedRackIds(prev => [...prev, found.item.id]);
-            }
-          } else {
-            const newElements = localElements.filter(e => e.id !== found.item.id);
-            setLocalElements(newElements);
-            pushHistory(newElements, localRacks);
-            if (!found.item.id.startsWith('temp-')) {
-              setDeletedElementIds(prev => [...prev, found.item.id]);
-            }
-          }
-          setHasChanges(true);
-        }
-        break;
-      }
+    // Rack tool: legacy handler (uses modal)
+    if (editorState.tool === 'rack') {
+      const { x, y } = getCanvasCoordinates(e);
+      const snapped = snapToGrid(x, y);
+      setNewRackPosition({ x: snapped.x, y: snapped.y });
+      setRackModalOpen(true);
+      return;
     }
+
+    // Text tool: read tool state to sync legacy text input UI
+    if (editorState.tool === 'text') {
+      toolEvents.handleClick(e);
+      // Sync text editing state from toolStore for the overlay input
+      const textState = toolStoreState.getToolState<{
+        isEditing?: boolean;
+        inputPosition?: { x: number; y: number } | null;
+        inputValue?: string;
+      }>();
+      if (textState.isEditing && textState.inputPosition) {
+        setIsEditingText(true);
+        setTextInputPosition(textState.inputPosition);
+        setTextInputValue(textState.inputValue || '');
+      }
+      return;
+    }
+
+    // All other tools: delegate to tool system
+    toolEvents.handleClick(e);
   };
 
   // 더블클릭 핸들러 - 랙 더블클릭 시 랙 에디터로 이동
@@ -1021,11 +823,12 @@ export function FloorPlanEditorPage() {
       // Space 키 누름 (팬 모드)
       if (e.key === ' ' && !e.repeat) {
         e.preventDefault();
-        setIsSpacePressed(true);
+        toolStoreState.setSpacePressed(true);
       }
 
       if (e.key === 'Escape') {
         // ESC: 선택 도구로 전환 + 선택 해제 + 그리기 취소
+        // Reset legacy drawing state
         setIsDrawingLine(false);
         setLinePoints([]);
         setLinePreviewEnd(null);
@@ -1040,6 +843,8 @@ export function FloorPlanEditorPage() {
         setTextInputPosition(null);
         setTextInputValue('');
         setPreviewPosition(null);
+        // Reset tool store state
+        toolStoreState.resetToolState();
         setEditorState(prev => ({ ...prev, tool: 'select', selectedIds: [] }));
         setSelectedRack(null);
         setSelectedElement(null);
@@ -1214,7 +1019,7 @@ export function FloorPlanEditorPage() {
     const handleKeyUp = (e: KeyboardEvent) => {
       // Space 키 놓음
       if (e.key === ' ') {
-        setIsSpacePressed(false);
+        toolStoreState.setSpacePressed(false);
       }
     };
 
@@ -1224,7 +1029,7 @@ export function FloorPlanEditorPage() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [editorState.selectedIds, editorState.gridSnap, editorState.tool, localElements, localRacks, undo, redo, pushHistory, selectedElement, selectedRack, clipboard]);
+  }, [editorState.selectedIds, editorState.gridSnap, editorState.tool, localElements, localRacks, undo, redo, pushHistory, selectedElement, selectedRack, clipboard, toolStoreState]);
 
   // 저장 핸들러
   const handleSave = () => {
@@ -1956,10 +1761,10 @@ export function FloorPlanEditorPage() {
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleCanvasMouseMove}
                 onMouseUp={handleCanvasMouseUp}
-                onMouseLeave={handleCanvasMouseUp}
+                onMouseLeave={() => handleCanvasMouseUp()}
                 className={`${
-                  isPanning ? 'cursor-grabbing' :
-                  isSpacePressed ? 'cursor-grab' :
+                  toolStoreState.isPanning ? 'cursor-grabbing' :
+                  toolStoreState.isSpacePressed ? 'cursor-grab' :
                   editorState.tool === 'select' ? 'cursor-default' :
                   editorState.tool === 'delete' ? 'cursor-not-allowed' :
                   'cursor-crosshair'
