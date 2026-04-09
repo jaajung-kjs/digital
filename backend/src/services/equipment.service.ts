@@ -6,13 +6,22 @@ import { EquipmentCategory, Prisma } from '@prisma/client';
 
 export interface EquipmentDetail {
   id: string;
-  rackId: string;
+  rackId: string | null;
+  roomId: string | null;
   name: string;
   model: string | null;
   manufacturer: string | null;
   serialNumber: string | null;
-  startU: number;
+  startU: number | null;
   heightU: number;
+  positionX: number | null;
+  positionY: number | null;
+  width2d: number | null;
+  height2d: number | null;
+  rotation: number | null;
+  height3d: number | null;
+  frontImageUrl: string | null;
+  rearImageUrl: string | null;
   category: EquipmentCategory;
   installDate: Date | null;
   manager: string | null;
@@ -38,6 +47,25 @@ export interface CreateEquipmentInput {
   properties?: unknown;
 }
 
+export interface CreateFloorPlanEquipmentInput {
+  name: string;
+  model?: string;
+  manufacturer?: string;
+  serialNumber?: string;
+  positionX: number;
+  positionY: number;
+  width2d?: number;
+  height2d?: number;
+  rotation?: number;
+  heightU?: number;
+  height3d?: number;
+  category?: EquipmentCategory;
+  installDate?: string;
+  manager?: string;
+  description?: string;
+  properties?: unknown;
+}
+
 export interface UpdateEquipmentInput {
   name?: string;
   model?: string;
@@ -45,6 +73,14 @@ export interface UpdateEquipmentInput {
   serialNumber?: string;
   startU?: number;
   heightU?: number;
+  positionX?: number;
+  positionY?: number;
+  width2d?: number;
+  height2d?: number;
+  rotation?: number;
+  height3d?: number;
+  frontImageUrl?: string;
+  rearImageUrl?: string;
   category?: EquipmentCategory;
   installDate?: string;
   manager?: string;
@@ -60,6 +96,99 @@ export interface MoveEquipmentInput {
 // ==================== Service ====================
 
 class EquipmentService {
+  /**
+   * Equipment 엔티티를 EquipmentDetail로 매핑
+   */
+  private mapToDetail(e: {
+    id: string;
+    rackId: string | null;
+    roomId: string | null;
+    name: string;
+    model: string | null;
+    manufacturer: string | null;
+    serialNumber: string | null;
+    startU: number | null;
+    heightU: number;
+    positionX: number | null;
+    positionY: number | null;
+    width2d: number | null;
+    height2d: number | null;
+    rotation: number | null;
+    height3d: number | null;
+    frontImageUrl: string | null;
+    rearImageUrl: string | null;
+    category: EquipmentCategory;
+    installDate: Date | null;
+    manager: string | null;
+    description: string | null;
+    properties: unknown;
+    sortOrder: number;
+    createdAt: Date;
+    updatedAt: Date;
+    _count: { ports: number };
+  }): EquipmentDetail {
+    return {
+      id: e.id,
+      rackId: e.rackId,
+      roomId: e.roomId,
+      name: e.name,
+      model: e.model,
+      manufacturer: e.manufacturer,
+      serialNumber: e.serialNumber,
+      startU: e.startU,
+      heightU: e.heightU,
+      positionX: e.positionX,
+      positionY: e.positionY,
+      width2d: e.width2d,
+      height2d: e.height2d,
+      rotation: e.rotation,
+      height3d: e.height3d,
+      frontImageUrl: e.frontImageUrl,
+      rearImageUrl: e.rearImageUrl,
+      category: e.category,
+      installDate: e.installDate,
+      manager: e.manager,
+      description: e.description,
+      properties: e.properties,
+      sortOrder: e.sortOrder,
+      portCount: e._count.ports,
+      createdAt: e.createdAt,
+      updatedAt: e.updatedAt,
+    };
+  }
+
+  /**
+   * 설비 목록 조회 (카테고리 필터 지원)
+   */
+  async getAll(filters?: { category?: EquipmentCategory }): Promise<(EquipmentDetail & { substationName?: string })[]> {
+    const where: Record<string, unknown> = {};
+    if (filters?.category) {
+      where.category = filters.category;
+    }
+
+    const equipment = await prisma.equipment.findMany({
+      where,
+      include: {
+        _count: { select: { ports: true } },
+        room: {
+          include: {
+            floor: {
+              include: {
+                substation: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    return equipment.map((e) => ({
+      ...this.mapToDetail(e),
+      substationName: e.room?.floor?.substation?.name ?? undefined,
+    }));
+  }
+
   /**
    * 랙 내 모든 설비 조회
    */
@@ -82,25 +211,32 @@ class EquipmentService {
       orderBy: [{ startU: 'desc' }, { sortOrder: 'asc' }],
     });
 
-    return equipment.map((e) => ({
-      id: e.id,
-      rackId: e.rackId,
-      name: e.name,
-      model: e.model,
-      manufacturer: e.manufacturer,
-      serialNumber: e.serialNumber,
-      startU: e.startU,
-      heightU: e.heightU,
-      category: e.category,
-      installDate: e.installDate,
-      manager: e.manager,
-      description: e.description,
-      properties: e.properties,
-      sortOrder: e.sortOrder,
-      portCount: e._count.ports,
-      createdAt: e.createdAt,
-      updatedAt: e.updatedAt,
-    }));
+    return equipment.map((e) => this.mapToDetail(e));
+  }
+
+  /**
+   * 실(Room)에 직접 배치된 설비 조회
+   */
+  async getByRoomId(roomId: string): Promise<EquipmentDetail[]> {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) {
+      throw new NotFoundError('실');
+    }
+
+    const equipment = await prisma.equipment.findMany({
+      where: { roomId },
+      include: {
+        _count: {
+          select: { ports: true },
+        },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+
+    return equipment.map((e) => this.mapToDetail(e));
   }
 
   /**
@@ -120,25 +256,7 @@ class EquipmentService {
       throw new NotFoundError('설비');
     }
 
-    return {
-      id: equipment.id,
-      rackId: equipment.rackId,
-      name: equipment.name,
-      model: equipment.model,
-      manufacturer: equipment.manufacturer,
-      serialNumber: equipment.serialNumber,
-      startU: equipment.startU,
-      heightU: equipment.heightU,
-      category: equipment.category,
-      installDate: equipment.installDate,
-      manager: equipment.manager,
-      description: equipment.description,
-      properties: equipment.properties,
-      sortOrder: equipment.sortOrder,
-      portCount: equipment._count.ports,
-      createdAt: equipment.createdAt,
-      updatedAt: equipment.updatedAt,
-    };
+    return this.mapToDetail(equipment);
   }
 
   /**
@@ -167,30 +285,13 @@ class EquipmentService {
 
     // 슬롯 충돌 검사
     for (const e of equipmentList) {
+      if (e.startU === null) continue;
       const eEndU = e.startU + e.heightU - 1;
       // 겹침 조건: NOT (endU < e.startU OR startU > eEndU)
       if (!(endU < e.startU || startU > eEndU)) {
         return {
           hasConflict: true,
-          conflictingEquipment: {
-            id: e.id,
-            rackId: e.rackId,
-            name: e.name,
-            model: e.model,
-            manufacturer: e.manufacturer,
-            serialNumber: e.serialNumber,
-            startU: e.startU,
-            heightU: e.heightU,
-            category: e.category,
-            installDate: e.installDate,
-            manager: e.manager,
-            description: e.description,
-            properties: e.properties,
-            sortOrder: e.sortOrder,
-            portCount: e._count.ports,
-            createdAt: e.createdAt,
-            updatedAt: e.updatedAt,
-          },
+          conflictingEquipment: this.mapToDetail(e),
         };
       }
     }
@@ -256,7 +357,7 @@ class EquipmentService {
 
     if (hasConflict && conflictingEquipment) {
       throw new ConflictError(
-        `해당 U 슬롯에 이미 설비가 있습니다. (${conflictingEquipment.name}: ${conflictingEquipment.startU}U~${conflictingEquipment.startU + conflictingEquipment.heightU - 1}U)`
+        `해당 U 슬롯에 이미 설비가 있습니다. (${conflictingEquipment.name}: ${conflictingEquipment.startU ?? 0}U~${(conflictingEquipment.startU ?? 0) + conflictingEquipment.heightU - 1}U)`
       );
     }
 
@@ -277,27 +378,14 @@ class EquipmentService {
         createdById: userId,
         updatedById: userId,
       },
+      include: {
+        _count: {
+          select: { ports: true },
+        },
+      },
     });
 
-    return {
-      id: equipment.id,
-      rackId: equipment.rackId,
-      name: equipment.name,
-      model: equipment.model,
-      manufacturer: equipment.manufacturer,
-      serialNumber: equipment.serialNumber,
-      startU: equipment.startU,
-      heightU: equipment.heightU,
-      category: equipment.category,
-      installDate: equipment.installDate,
-      manager: equipment.manager,
-      description: equipment.description,
-      properties: equipment.properties,
-      sortOrder: equipment.sortOrder,
-      portCount: 0,
-      createdAt: equipment.createdAt,
-      updatedAt: equipment.updatedAt,
-    };
+    return this.mapToDetail(equipment);
   }
 
   /**
@@ -316,11 +404,11 @@ class EquipmentService {
       throw new NotFoundError('설비');
     }
 
-    const newStartU = input.startU ?? existing.startU;
+    const newStartU = input.startU ?? existing.startU ?? 1;
     const newHeightU = input.heightU ?? existing.heightU;
 
-    // U 위치가 변경된 경우 검사
-    if (input.startU !== undefined || input.heightU !== undefined) {
+    // U 위치가 변경된 경우 검사 (랙에 배치된 설비만)
+    if (existing.rackId && (input.startU !== undefined || input.heightU !== undefined)) {
       await this.validateURange(existing.rackId, newStartU, newHeightU);
 
       const { hasConflict, conflictingEquipment } = await this.checkUSlotConflict(
@@ -332,9 +420,14 @@ class EquipmentService {
 
       if (hasConflict && conflictingEquipment) {
         throw new ConflictError(
-          `해당 U 슬롯에 이미 설비가 있습니다. (${conflictingEquipment.name}: ${conflictingEquipment.startU}U~${conflictingEquipment.startU + conflictingEquipment.heightU - 1}U)`
+          `해당 U 슬롯에 이미 설비가 있습니다. (${conflictingEquipment.name}: ${conflictingEquipment.startU}U~${(conflictingEquipment.startU ?? 0) + conflictingEquipment.heightU - 1}U)`
         );
       }
+    }
+
+    // OFD 변전소당 1개 제약 (카테고리가 OFD로 변경되는 경우)
+    if (input.category === 'OFD' && existing.category !== 'OFD' && existing.roomId) {
+      await this.validateOfdUniqueness(existing.roomId, id);
     }
 
     const equipment = await prisma.equipment.update({
@@ -346,6 +439,14 @@ class EquipmentService {
         serialNumber: input.serialNumber,
         startU: input.startU,
         heightU: input.heightU,
+        positionX: input.positionX,
+        positionY: input.positionY,
+        width2d: input.width2d,
+        height2d: input.height2d,
+        rotation: input.rotation,
+        height3d: input.height3d,
+        frontImageUrl: input.frontImageUrl,
+        rearImageUrl: input.rearImageUrl,
         category: input.category,
         installDate: input.installDate !== undefined
           ? (input.installDate ? new Date(input.installDate) : null)
@@ -363,25 +464,7 @@ class EquipmentService {
       },
     });
 
-    return {
-      id: equipment.id,
-      rackId: equipment.rackId,
-      name: equipment.name,
-      model: equipment.model,
-      manufacturer: equipment.manufacturer,
-      serialNumber: equipment.serialNumber,
-      startU: equipment.startU,
-      heightU: equipment.heightU,
-      category: equipment.category,
-      installDate: equipment.installDate,
-      manager: equipment.manager,
-      description: equipment.description,
-      properties: equipment.properties,
-      sortOrder: equipment.sortOrder,
-      portCount: equipment._count.ports,
-      createdAt: equipment.createdAt,
-      updatedAt: equipment.updatedAt,
-    };
+    return this.mapToDetail(equipment);
   }
 
   /**
@@ -394,6 +477,10 @@ class EquipmentService {
 
     if (!existing) {
       throw new NotFoundError('설비');
+    }
+
+    if (!existing.rackId) {
+      throw new ValidationError('랙에 배치된 설비만 U 위치를 이동할 수 있습니다.');
     }
 
     // U 범위 유효성 검사
@@ -409,7 +496,7 @@ class EquipmentService {
 
     if (hasConflict && conflictingEquipment) {
       throw new ConflictError(
-        `해당 U 슬롯에 이미 설비가 있습니다. (${conflictingEquipment.name}: ${conflictingEquipment.startU}U~${conflictingEquipment.startU + conflictingEquipment.heightU - 1}U)`
+        `해당 U 슬롯에 이미 설비가 있습니다. (${conflictingEquipment.name}: ${conflictingEquipment.startU}U~${(conflictingEquipment.startU ?? 0) + conflictingEquipment.heightU - 1}U)`
       );
     }
 
@@ -426,25 +513,87 @@ class EquipmentService {
       },
     });
 
-    return {
-      id: equipment.id,
-      rackId: equipment.rackId,
-      name: equipment.name,
-      model: equipment.model,
-      manufacturer: equipment.manufacturer,
-      serialNumber: equipment.serialNumber,
-      startU: equipment.startU,
-      heightU: equipment.heightU,
-      category: equipment.category,
-      installDate: equipment.installDate,
-      manager: equipment.manager,
-      description: equipment.description,
-      properties: equipment.properties,
-      sortOrder: equipment.sortOrder,
-      portCount: equipment._count.ports,
-      createdAt: equipment.createdAt,
-      updatedAt: equipment.updatedAt,
-    };
+    return this.mapToDetail(equipment);
+  }
+
+  /**
+   * 변전소 내 OFD 중복 검사 (변전소당 OFD 1개만 허용)
+   */
+  async validateOfdUniqueness(roomId: string, excludeEquipmentId?: string): Promise<void> {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: { floor: { select: { substationId: true, substation: { select: { name: true } } } } },
+    });
+    if (!room) return;
+
+    const substationId = room.floor.substationId;
+    const existingOfd = await prisma.equipment.findFirst({
+      where: {
+        category: 'OFD',
+        id: excludeEquipmentId ? { not: excludeEquipmentId } : undefined,
+        room: { floor: { substationId } },
+      },
+      select: { id: true, name: true },
+    });
+
+    if (existingOfd) {
+      throw new ConflictError(
+        `${room.floor.substation.name} 변전소에 이미 OFD가 존재합니다. (${existingOfd.name})`
+      );
+    }
+  }
+
+  /**
+   * 평면도(Room)에 직접 배치하는 설비 생성
+   */
+  async createOnFloorPlan(
+    roomId: string,
+    input: CreateFloorPlanEquipmentInput,
+    userId: string
+  ): Promise<EquipmentDetail> {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) {
+      throw new NotFoundError('실');
+    }
+
+    // OFD 변전소당 1개 제약
+    if (input.category === 'OFD') {
+      await this.validateOfdUniqueness(roomId);
+    }
+
+    const equipment = await prisma.equipment.create({
+      data: {
+        roomId,
+        name: input.name,
+        model: input.model,
+        manufacturer: input.manufacturer,
+        serialNumber: input.serialNumber,
+        positionX: input.positionX,
+        positionY: input.positionY,
+        width2d: input.width2d,
+        height2d: input.height2d,
+        rotation: input.rotation ?? 0,
+        heightU: input.heightU ?? 1,
+        height3d: input.height3d,
+        category: input.category ?? 'OTHER',
+        installDate: input.installDate ? new Date(input.installDate) : null,
+        manager: input.manager,
+        description: input.description,
+        properties: (input.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        createdById: userId,
+        updatedById: userId,
+      },
+      include: {
+        _count: {
+          select: { ports: true },
+        },
+      },
+    });
+
+    return this.mapToDetail(equipment);
   }
 
   /**
@@ -454,12 +603,8 @@ class EquipmentService {
     const equipment = await prisma.equipment.findUnique({
       where: { id },
       include: {
-        ports: {
-          include: {
-            sourceCables: true,
-            targetCables: true,
-          },
-        },
+        sourceCables: { select: { id: true } },
+        targetCables: { select: { id: true } },
       },
     });
 
@@ -468,15 +613,8 @@ class EquipmentService {
     }
 
     // 연결된 케이블 확인
-    const hasConnections = equipment.ports.some(
-      (p) => p.sourceCables.length > 0 || p.targetCables.length > 0
-    );
-
-    if (hasConnections) {
-      const connectionCount = equipment.ports.reduce(
-        (sum, p) => sum + p.sourceCables.length + p.targetCables.length,
-        0
-      );
+    const connectionCount = equipment.sourceCables.length + equipment.targetCables.length;
+    if (connectionCount > 0) {
       throw new ConflictError(
         `연결된 케이블이 ${connectionCount}개 있어 삭제할 수 없습니다. 케이블을 먼저 제거하세요.`
       );
@@ -507,6 +645,7 @@ class EquipmentService {
     // 사용 중인 슬롯 계산
     const usedSlots = new Set<number>();
     for (const e of equipment) {
+      if (e.startU === null) continue;
       for (let u = e.startU; u < e.startU + e.heightU; u++) {
         usedSlots.add(u);
       }
@@ -535,6 +674,38 @@ class EquipmentService {
     }
 
     return availableRanges;
+  }
+
+  /**
+   * 설비 이미지 업데이트
+   */
+  async updateImage(id: string, imageType: 'front' | 'rear', imageUrl: string, userId: string) {
+    const existing = await prisma.equipment.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('설비');
+
+    return prisma.equipment.update({
+      where: { id },
+      data: {
+        ...(imageType === 'front' ? { frontImageUrl: imageUrl } : { rearImageUrl: imageUrl }),
+        updatedById: userId,
+      },
+    });
+  }
+
+  /**
+   * 설비 이미지 삭제
+   */
+  async deleteImage(id: string, imageType: 'front' | 'rear', userId: string) {
+    const existing = await prisma.equipment.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundError('설비');
+
+    return prisma.equipment.update({
+      where: { id },
+      data: {
+        ...(imageType === 'front' ? { frontImageUrl: null } : { rearImageUrl: null }),
+        updatedById: userId,
+      },
+    });
   }
 }
 

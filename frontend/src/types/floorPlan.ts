@@ -28,6 +28,8 @@ export interface RectProperties {
   strokeWidth: number;        // 기본 2
   strokeStyle: 'solid' | 'dashed' | 'dotted';
   cornerRadius: number;       // 둥근 모서리, 기본 0
+  height3d?: number;          // 3D 높이
+  elevation3d?: number;       // 3D 높이 오프셋
 }
 
 // 원 속성 (신규)
@@ -54,6 +56,8 @@ export interface DoorProperties {
   strokeWidth: number;        // 기본 2
   strokeColor: string;        // 기본 '#d97706'
   wallId?: string;            // 레거시 호환
+  height3d?: number;          // 3D 높이
+  elevation3d?: number;       // 3D 높이 오프셋
 }
 
 // 창문 속성 (확장)
@@ -68,6 +72,8 @@ export interface WindowProperties {
   strokeWidth: number;        // 기본 2
   strokeColor: string;        // 기본 '#0284c7'
   wallId?: string;            // 레거시 호환
+  height3d?: number;          // 3D 높이
+  elevation3d?: number;       // 3D 높이 오프셋
 }
 
 // 텍스트 속성 (신규)
@@ -114,28 +120,32 @@ export interface FloorPlanElement {
   isLocked: boolean;          // 신규: 잠금 상태
 }
 
-// 랙 타입
-export interface RackItem {
+// 평면도 장비 타입 (Rack 통합)
+export interface FloorPlanEquipment {
   id: string;
   name: string;
-  code: string | null;
+  category: string;
+  materialCategoryId?: string;
   positionX: number;
   positionY: number;
   width: number;
   height: number;
   rotation: number;
-  totalU: number;
-  frontImageUrl: string | null;
-  rearImageUrl: string | null;
-  description: string | null;
-  equipmentCount?: number;
-  usedU?: number;
+  frontImageUrl?: string | null;
+  rearImageUrl?: string | null;
+  description?: string | null;
+  model?: string | null;
+  manufacturer?: string | null;
+  manager?: string | null;
+  height3d?: number;
 }
+
+/** @deprecated Use FloorPlanEquipment instead */
+export type RackItem = FloorPlanEquipment;
 
 // 평면도 타입
 export interface FloorPlanDetail {
   id: string;
-  floorId: string;
   name: string;
   canvasWidth: number;
   canvasHeight: number;
@@ -143,20 +153,12 @@ export interface FloorPlanDetail {
   majorGridSize: number;
   backgroundColor: string;
   elements: FloorPlanElement[];
-  racks: RackItem[];
+  equipment: FloorPlanEquipment[];
   version: number;
   updatedAt: string;
 }
 
 // API 요청 타입
-export interface CreateFloorPlanRequest {
-  name: string;
-  canvasWidth?: number;
-  canvasHeight?: number;
-  gridSize?: number;
-  majorGridSize?: number;
-}
-
 export interface UpdateFloorPlanRequest {
   canvasWidth?: number;
   canvasHeight?: number;
@@ -171,51 +173,93 @@ export interface UpdateFloorPlanRequest {
     isVisible?: boolean;
     isLocked?: boolean;
   }[];
-  racks?: {
+  equipment?: {
     id?: string | null;
+    tempId?: string;
     name: string;
-    code?: string;
+    category?: string;
+    materialCategoryId?: string;
     positionX: number;
     positionY: number;
     width?: number;
     height?: number;
     rotation?: number;
-    totalU?: number;
     description?: string;
+    model?: string;
+    manufacturer?: string;
+    manager?: string;
+  }[];
+  cables?: {
+    id?: string | null;
+    sourceEquipmentId: string;
+    targetEquipmentId: string;
+    cableType: string;
+    label?: string | null;
+    length?: number | null;
+    color?: string | null;
   }[];
   deletedElementIds?: string[];
-  deletedRackIds?: string[];
+  deletedEquipmentIds?: string[];
+  deletedCableIds?: string[];
 }
 
-export interface CreateRackRequest {
+export interface CreateFloorPlanEquipmentRequest {
   name: string;
-  code?: string;
+  category?: string;
+  materialCategoryId?: string;
   positionX: number;
   positionY: number;
   width?: number;
   height?: number;
   rotation?: number;
-  totalU?: number;
   description?: string;
 }
 
-export interface UpdateRackRequest {
+export interface UpdateFloorPlanEquipmentRequest {
   name?: string;
-  code?: string;
+  category?: string;
+  materialCategoryId?: string;
   positionX?: number;
   positionY?: number;
   width?: number;
   height?: number;
   rotation?: number;
-  totalU?: number;
   description?: string;
-  sortOrder?: number;
+}
+
+/** @deprecated Use CreateFloorPlanEquipmentRequest */
+export type CreateRackRequest = CreateFloorPlanEquipmentRequest;
+/** @deprecated Use UpdateFloorPlanEquipmentRequest */
+export type UpdateRackRequest = UpdateFloorPlanEquipmentRequest;
+
+// 뷰 모드
+export type ViewMode = 'edit-2d' | 'view-3d';
+
+// 평면도 위 장비 아이템
+export interface EquipmentItem {
+  id: string;
+  name: string;
+  model?: string;
+  manufacturer?: string;
+  category: string;
+  materialCategoryId?: string;
+  roomId: string;
+  positionX: number;
+  positionY: number;
+  width2d: number;
+  height2d: number;
+  rotation: number;
+  height3d?: number;
+  frontImageUrl?: string;
+  rearImageUrl?: string;
+  manager?: string;
+  description?: string;
 }
 
 // 에디터 도구 타입 (v2 - CAD 스타일)
 // 기존: 'select' | 'wall' | 'door' | 'window' | 'column' | 'rack' | 'cable' | 'delete'
-// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'rack' | 'text' | 'delete'
-export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'rack' | 'text' | 'delete';
+// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete'
+export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete';
 
 // 에디터 상태 타입
 export interface EditorState {
@@ -272,7 +316,7 @@ export interface ClipboardData {
   version: 1;
   timestamp: number;
   elements: FloorPlanElement[];
-  racks: RackItem[];
+  equipment: FloorPlanEquipment[];
   boundingBox: {
     x: number;
     y: number;

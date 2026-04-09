@@ -19,6 +19,13 @@ import { floorPlanElementsRouter } from './routes/floorPlanElements.routes.js';
 import { racksRouter } from './routes/racks.routes.js';
 import { equipmentRouter } from './routes/equipment.routes.js';
 import { portsRouter } from './routes/ports.routes.js';
+import { organizationRouter } from './routes/organization.routes.js';
+import { roomsRouter } from './routes/rooms.routes.js';
+import { cablesRouter } from './routes/cables.routes.js';
+import { equipmentPhotosRouter } from './routes/equipmentPhotos.routes.js';
+import { maintenanceLogsRouter } from './routes/maintenanceLogs.routes.js';
+import { fiberPathsRouter } from './routes/fiberPaths.routes.js';
+import { materialCategoriesRouter } from './routes/materialCategories.routes.js';
 
 const app = express();
 
@@ -61,6 +68,13 @@ app.use('/api/floor-plan-elements', floorPlanElementsRouter);
 app.use('/api/racks', racksRouter);
 app.use('/api/equipment', equipmentRouter);
 app.use('/api/ports', portsRouter);
+app.use('/api/organizations', organizationRouter);
+app.use('/api/rooms', roomsRouter);
+app.use('/api/cables', cablesRouter);
+app.use('/api/equipment-photos', equipmentPhotosRouter);
+app.use('/api/maintenance-logs', maintenanceLogsRouter);
+app.use('/api', fiberPathsRouter);
+app.use('/api/material-categories', materialCategoriesRouter);
 
 // 404 handler
 app.use((_req, res) => {

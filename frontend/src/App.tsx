@@ -5,11 +5,8 @@ import { useAuthStore } from './stores/authStore';
 import { Layout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { SubstationsPage } from './pages/SubstationsPage';
-import { FloorsPage } from './pages/FloorsPage';
+import { TreePage } from './pages/TreePage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
-import { RackEditorPage } from './pages/RackEditorPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,22 +36,13 @@ function AppContent() {
 
       {/* Protected Routes - Full screen pages (no Layout) */}
       <Route
-        path="/floors/:floorId/plan"
+        path="/rooms/:roomId/plan"
         element={
           <ProtectedRoute>
             <FloorPlanEditorPage />
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/racks/:rackId"
-        element={
-          <ProtectedRoute>
-            <RackEditorPage />
-          </ProtectedRoute>
-        }
-      />
-
       {/* Protected Routes - With Layout */}
       <Route
         element={
@@ -63,9 +51,7 @@ function AppContent() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<DashboardPage />} />
-        <Route path="/substations" element={<SubstationsPage />} />
-        <Route path="/substations/:substationId/floors" element={<FloorsPage />} />
+        <Route index element={<TreePage />} />
         {/* <Route path="/users" element={<UsersPage />} /> */}
         {/* <Route path="/audit-logs" element={<AuditLogsPage />} /> */}
       </Route>
