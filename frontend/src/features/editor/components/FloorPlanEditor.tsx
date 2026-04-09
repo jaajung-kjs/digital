@@ -2,14 +2,19 @@ import { useRef, useState, useEffect, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
+import type { MaterialCategory } from '../../../types/materialCategory';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useClipboard } from '../hooks/useClipboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
+import { useToolStore } from '../stores/toolStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
+import { MaterialCategoryPicker } from '../../materialPicker';
+import type { EquipmentToolState } from '../tools/equipmentTool';
+import { EQUIPMENT_INITIAL_STATE } from '../tools/equipmentTool';
 import { Toolbar } from './Toolbar';
 import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
@@ -87,6 +92,68 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
   const equipmentDrawnSize = useCanvasStore(s => s.equipmentDrawnSize);
   const setHasChanges = useEditorStore(s => s.setHasChanges);
+
+  // Equipment tool state (new tool-system flow)
+  const activeTool = useToolStore(s => s.activeTool);
+  const toolConfig = useToolStore(s => s.toolConfig);
+  const toolStateRaw = useToolStore(s => s.toolState);
+  const toolState = toolStateRaw as unknown as EquipmentToolState;
+  const setToolConfig = useToolStore(s => s.setToolConfig);
+  const setToolState = useToolStore(s => s.setToolState);
+  const [equipmentNameInput, setEquipmentNameInput] = useState('');
+
+  const equipmentPhase = activeTool === 'equipment' ? toolState.phase : null;
+
+  const handleCategorySelected = (category: MaterialCategory, _specValues: Record<string, unknown>) => {
+    setToolConfig({
+      materialCategoryId: category.id,
+      materialCategoryName: category.name,
+      materialCategoryCode: category.code,
+    });
+    setToolState<EquipmentToolState>({ phase: 'placing' });
+  };
+
+  const handleCategoryCancel = () => {
+    setToolState<EquipmentToolState>(EQUIPMENT_INITIAL_STATE);
+    useToolStore.getState().setActiveTool('select');
+  };
+
+  const handleConfirmEquipment = () => {
+    if (!equipmentNameInput || !toolState.drawnRect) return;
+    const { x, y, width, height } = toolState.drawnRect;
+    const newEquip: FloorPlanEquipment = {
+      id: generateTempId(),
+      name: equipmentNameInput,
+      category: toolConfig?.materialCategoryCode as string || 'NETWORK',
+      materialCategoryId: toolConfig?.materialCategoryId as string || undefined,
+      positionX: x,
+      positionY: y,
+      width,
+      height,
+      rotation: 0,
+      frontImageUrl: null,
+      rearImageUrl: null,
+      description: null,
+    };
+    const newList = [...useEditorStore.getState().localEquipment, newEquip];
+    setLocalEquipment(newList);
+    pushHistory(useEditorStore.getState().localElements, newList);
+    setHasChanges(true);
+    setEquipmentNameInput('');
+    useToolStore.getState().setActiveTool('select');
+  };
+
+  const handleConfirmCancel = () => {
+    setEquipmentNameInput('');
+    // Go back to placing phase so user can redraw
+    setToolState<EquipmentToolState>({
+      phase: 'placing',
+      drawnRect: null,
+      startPoint: null,
+      currentPoint: null,
+      isDrawing: false,
+    });
+  };
 
   const handleAddEquipment = () => {
     const drawnWidth = equipmentDrawnSize?.width ?? 60;
@@ -272,6 +339,45 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
             <div className="flex justify-end gap-3">
               <button onClick={() => { setPasteEquipmentModalOpen(false); setPasteEquipmentName(''); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
               <button onClick={handlePasteEquipment} disabled={!pasteEquipmentName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">붙여넣기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Equipment tool: MaterialCategoryPicker (phase 1) */}
+      {equipmentPhase === 'selectCategory' && (
+        <MaterialCategoryPicker
+          categoryType="EQUIPMENT"
+          onSelect={handleCategorySelected}
+          onCancel={handleCategoryCancel}
+        />
+      )}
+
+      {/* Equipment tool: Name confirmation modal (phase 3) */}
+      {equipmentPhase === 'confirmName' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">설비 추가</h3>
+            <p className="text-sm text-gray-500 mb-3">
+              {toolConfig?.materialCategoryName
+                ? `종류: ${toolConfig.materialCategoryName as string}`
+                : '설비 정보를 입력하세요.'}
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">설비 이름</label>
+              <input
+                type="text"
+                value={equipmentNameInput}
+                onChange={(e) => setEquipmentNameInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && equipmentNameInput) handleConfirmEquipment(); }}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="예: UPS-01"
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={handleConfirmCancel} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
+              <button onClick={handleConfirmEquipment} disabled={!equipmentNameInput} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">추가</button>
             </div>
           </div>
         </div>
