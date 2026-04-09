@@ -19,6 +19,7 @@ import { ConnectionOverlay } from '../../connections/components/ConnectionOverla
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
+import { BomPanel } from '../../bom/components/BomPanel';
 
 const ThreeCanvas = lazy(() => import('../../viewer3d/components/ThreeCanvas').then(m => ({ default: m.ThreeCanvas })));
 
@@ -31,6 +32,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isAdmin = useIsAdmin();
   const [showHistory, setShowHistory] = useState(false);
+  const [showBom, setShowBom] = useState(false);
 
   const {
     room, floorPlan, roomLoading, planLoading, planError, saveMutation, handleSave,
@@ -132,6 +134,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
         handleSave={handleSave}
         isSaving={saveMutation.isPending}
         onToggleHistory={() => setShowHistory(p => !p)}
+        onToggleBom={() => setShowBom(p => !p)}
       />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -188,6 +191,10 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
               {showHistory && (
                 <ChangeHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />
+              )}
+
+              {showBom && viewMode === 'edit-2d' && (
+                <BomPanel roomId={roomId} roomName={room?.name} onClose={() => setShowBom(false)} />
               )}
 
               {floorPlan && viewMode === 'edit-2d' && !snapshotActive && (

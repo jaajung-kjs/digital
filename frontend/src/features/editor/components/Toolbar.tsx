@@ -28,9 +28,10 @@ interface ToolbarProps {
   handleSave: () => void;
   isSaving: boolean;
   onToggleHistory?: () => void;
+  onToggleBom?: () => void;
 }
 
-export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory }: ToolbarProps) {
+export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory, onToggleBom }: ToolbarProps) {
   const {
     selectedElement, localElements, hasChanges, showLengths,
     setLocalElements, setHasChanges, setShowLengths,
@@ -404,6 +405,19 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          )}
+
+          {/* BOM toggle */}
+          {onToggleBom && (
+            <button
+              onClick={onToggleBom}
+              className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+              title="자재산출 (BOM)"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </button>
           )}
