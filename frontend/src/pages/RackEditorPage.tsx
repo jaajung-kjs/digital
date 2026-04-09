@@ -10,7 +10,7 @@ import type {
 } from '../types/rack';
 import { getCategoryColor } from '../types/rack';
 import { EquipmentModal } from '../components/EquipmentModal';
-import { EquipmentDetailModal } from '../components/EquipmentDetailModal';
+import { EquipmentDetailPanel } from '../features/editor/components/EquipmentDetailPanel';
 
 // ==================== API 호출 함수 ====================
 
@@ -863,7 +863,7 @@ export function RackEditorPage() {
 
       {/* 설비 상세 모달 */}
       {showDetailModal && selectedEquipment && (
-        <EquipmentDetailModal
+        <EquipmentDetailPanel
           equipment={selectedEquipment}
           onClose={() => {
             setShowDetailModal(false);
