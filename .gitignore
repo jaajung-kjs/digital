@@ -47,3 +47,6 @@ uploads/*
 # Prisma
 prisma/*.db
 prisma/*.db-journal
+
+# Worktrees
+.worktrees/

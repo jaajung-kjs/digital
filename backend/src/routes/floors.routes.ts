@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { floorController } from '../controllers/floor.controller.js';
-import { floorPlanController } from '../controllers/floorPlan.controller.js';
+import { roomController } from '../controllers/room.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -15,13 +15,6 @@ const updateFloorSchema = z.object({
   description: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
-});
-
-const createFloorPlanSchema = z.object({
-  name: z.string().min(1).max(100),
-  canvasWidth: z.number().int().min(100).max(10000).optional(),
-  canvasHeight: z.number().int().min(100).max(10000).optional(),
-  gridSize: z.number().int().min(5).max(100).optional(),
 });
 
 // ==================== Floor Routes ====================
@@ -41,18 +34,22 @@ router.put(
 // 층 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, floorController.delete);
 
-// ==================== Floor Plan Routes (nested under floors) ====================
+// ==================== Room Routes (nested under floors) ====================
 
-// 층의 평면도 조회 (인증 불필요)
-router.get('/:floorId/floor-plan', floorPlanController.getByFloorId);
+const createRoomSchema = z.object({
+  name: z.string().min(1, '실 이름을 입력하세요.').max(100),
+});
 
-// 층의 평면도 생성 (관리자만)
+// 실 목록 조회 (인증 불필요)
+router.get('/:floorId/rooms', roomController.getList);
+
+// 실 생성 (관리자만)
 router.post(
-  '/:floorId/floor-plan',
+  '/:floorId/rooms',
   authenticate,
   adminOnly,
-  validate(createFloorPlanSchema),
-  floorPlanController.create
+  validate(createRoomSchema),
+  roomController.create
 );
 
 export { router as floorsRouter };

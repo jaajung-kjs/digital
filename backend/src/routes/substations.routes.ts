@@ -11,22 +11,13 @@ const router = Router();
 
 const createSubstationSchema = z.object({
   name: z.string().min(1, '변전소명을 입력하세요.').max(100),
-  code: z
-    .string()
-    .min(1, '코드를 입력하세요.')
-    .max(20)
-    .regex(/^[A-Z0-9-]+$/, '코드는 영문 대문자, 숫자, 하이픈만 사용할 수 있습니다.'),
+  branchId: z.string().uuid().optional(),
   address: z.string().max(255).optional(),
   description: z.string().optional(),
 });
 
 const updateSubstationSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  code: z
-    .string()
-    .max(20)
-    .regex(/^[A-Z0-9-]+$/, '코드는 영문 대문자, 숫자, 하이픈만 사용할 수 있습니다.')
-    .optional(),
   address: z.string().max(255).optional(),
   description: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),

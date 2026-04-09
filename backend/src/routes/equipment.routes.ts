@@ -2,9 +2,13 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { equipmentController } from '../controllers/equipment.controller.js';
 import { portController } from '../controllers/port.controller.js';
+import { equipmentPhotoController } from '../controllers/equipmentPhoto.controller.js';
+import { maintenanceLogController } from '../controllers/maintenanceLog.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { uploadEquipmentImage } from '../middleware/upload.js';
 import { createPortValidation, createBulkPortsValidation } from './ports.routes.js';
+import { createMaintenanceLogValidation } from './maintenanceLogs.routes.js';
 
 const router = Router();
 
@@ -14,9 +18,12 @@ const equipmentCategoryEnum = z.enum([
   'SERVER',
   'NETWORK',
   'STORAGE',
-  'POWER',
+  'CHARGER',
+  'UPS',
   'SECURITY',
   'OTHER',
+  'DISTRIBUTION_BOARD',
+  'OFD',
 ]);
 
 const createEquipmentSchema = z.object({
@@ -31,6 +38,7 @@ const createEquipmentSchema = z.object({
   manager: z.string().max(100).optional(),
   description: z.string().optional(),
   properties: z.unknown().optional(),
+  materialCategoryId: z.string().uuid().nullish(),
 });
 
 const updateEquipmentSchema = z.object({
@@ -46,6 +54,7 @@ const updateEquipmentSchema = z.object({
   description: z.string().optional().nullable(),
   properties: z.unknown().optional(),
   sortOrder: z.number().int().min(0).optional(),
+  materialCategoryId: z.string().uuid().nullish(),
 });
 
 const moveEquipmentSchema = z.object({
@@ -53,6 +62,9 @@ const moveEquipmentSchema = z.object({
 });
 
 // ==================== Equipment Routes ====================
+
+// 설비 목록 조회 (카테고리 필터 지원, 인증 불필요)
+router.get('/', equipmentController.getAll);
 
 // 설비 상세 조회 (인증 불필요)
 router.get('/:id', equipmentController.getById);
@@ -78,6 +90,18 @@ router.patch(
 // 설비 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, equipmentController.delete);
 
+// 설비 이미지 업로드 (관리자만)
+router.post(
+  '/:id/image',
+  authenticate,
+  adminOnly,
+  uploadEquipmentImage.single('image'),
+  equipmentController.uploadImage
+);
+
+// 설비 이미지 삭제 (관리자만)
+router.delete('/:id/image/:type', authenticate, adminOnly, equipmentController.deleteImage);
+
 // ==================== Port Routes (Nested under Equipment) ====================
 
 // 설비 내 포트 목록 조회 (인증 불필요)
@@ -99,6 +123,34 @@ router.post(
   adminOnly,
   createBulkPortsValidation,
   portController.createBulk
+);
+
+// ==================== Equipment Photo Routes (Nested under Equipment) ====================
+
+// 설비 사진 목록 조회 (인증 불필요)
+router.get('/:equipmentId/photos', equipmentPhotoController.getByEquipmentId);
+
+// 설비 사진 업로드 (관리자만)
+router.post(
+  '/:equipmentId/photos',
+  authenticate,
+  adminOnly,
+  uploadEquipmentImage.single('file'),
+  equipmentPhotoController.create
+);
+
+// ==================== Maintenance Log Routes (Nested under Equipment) ====================
+
+// 설비 유지보수 이력 조회 (인증 불필요)
+router.get('/:equipmentId/maintenance-logs', maintenanceLogController.getByEquipmentId);
+
+// 유지보수 이력 생성 (관리자만)
+router.post(
+  '/:equipmentId/maintenance-logs',
+  authenticate,
+  adminOnly,
+  createMaintenanceLogValidation,
+  maintenanceLogController.create
 );
 
 export { router as equipmentRouter };

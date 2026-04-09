@@ -5,7 +5,7 @@
 
 import type {
   FloorPlanElement,
-  RackItem,
+  FloorPlanEquipment,
   LineProperties,
   RectProperties,
   CircleProperties,
@@ -151,15 +151,15 @@ export function hitTestText(
 }
 
 /**
- * Rack 히트 테스트
+ * Equipment 히트 테스트
  */
-export function hitTestRack(
+export function hitTestEquipment(
   x: number,
   y: number,
-  rack: RackItem
+  item: FloorPlanEquipment
 ): boolean {
-  return x >= rack.positionX && x <= rack.positionX + rack.width &&
-         y >= rack.positionY && y <= rack.positionY + rack.height;
+  return x >= item.positionX && x <= item.positionX + item.width &&
+         y >= item.positionY && y <= item.positionY + item.height;
 }
 
 /**
@@ -194,27 +194,27 @@ export function hitTestElement(
  * 히트 테스트 결과 타입
  */
 export type HitTestResult =
-  | { type: 'rack'; item: RackItem }
+  | { type: 'equipment'; item: FloorPlanEquipment }
   | { type: 'element'; item: FloorPlanElement }
   | null;
 
 /**
- * 특정 좌표에서 Element 또는 Rack 찾기
+ * 특정 좌표에서 Element 또는 Equipment 찾기
  * @param x 월드 좌표 X
  * @param y 월드 좌표 Y
  * @param elements Element 배열
- * @param racks Rack 배열
+ * @param equipment Equipment 배열
  * @returns 찾은 아이템 또는 null
  */
 export function findItemAt(
   x: number,
   y: number,
   elements: FloorPlanElement[],
-  racks: RackItem[]
+  equipment: FloorPlanEquipment[]
 ): HitTestResult {
-  // 랙 찾기
-  const rack = racks.find(r => hitTestRack(x, y, r));
-  if (rack) return { type: 'rack', item: rack };
+  // 장비 찾기
+  const eq = equipment.find(item => hitTestEquipment(x, y, item));
+  if (eq) return { type: 'equipment', item: eq };
 
   // 요소 찾기 (역순으로 검색하여 위에 있는 것 우선)
   const element = [...elements].reverse().find(e => hitTestElement(x, y, e));

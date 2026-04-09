@@ -1,9 +1,8 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { useAuthStore, useIsAdmin } from '../stores/authStore';
+import { useAuthStore } from '../stores/authStore';
 
 export function Layout() {
   const { user, logout } = useAuthStore();
-  const isAdmin = useIsAdmin();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -12,7 +11,7 @@ export function Layout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -23,24 +22,6 @@ export function Layout() {
                 ICT 디지털 트윈
               </span>
             </Link>
-
-            {/* Navigation */}
-            <nav className="flex items-center space-x-4">
-              <Link
-                to="/"
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-              >
-                대시보드
-              </Link>
-              {isAdmin && (
-                <Link
-                  to="/users"
-                  className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  사용자 관리
-                </Link>
-              )}
-            </nav>
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
@@ -62,7 +43,7 @@ export function Layout() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 overflow-hidden">
         <Outlet />
       </main>
     </div>

@@ -1,4 +1,5 @@
-export type UserRole = 'ADMIN' | 'VIEWER';
+import type { UserRole } from './enums';
+export type { UserRole };
 
 export interface User {
   id: string;

@@ -53,6 +53,7 @@ import {
 import {
   type DragSession,
 } from '../utils/floorplan/dragSystem';
+import { RackPanel, useRackPanelStore } from '../features/rack';
 
 // Tool system imports
 import { useToolStore } from '../features/editor/stores/toolStore';
@@ -776,7 +777,8 @@ export function FloorPlanEditorPage() {
     toolEvents.handleClick(e);
   };
 
-  // 더블클릭 핸들러 - 랙 더블클릭 시 랙 에디터로 이동
+  // 더블클릭 핸들러 - 랙 더블클릭 시 사이드 패널 열기
+  const openRackPanel = useRackPanelStore((s) => s.openPanel);
   const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan) return;
 
@@ -798,15 +800,10 @@ export function FloorPlanEditorPage() {
         // 미저장 Rack인 경우 (temp- 접두사) 안내 메시지 표시
         if (rack.id.startsWith('temp-')) {
           alert('랙을 먼저 저장한 후 상세 설정을 수정할 수 있습니다.');
-          return;  // 페이지 이동 없음 - 모든 변경사항 유지됨
+          return;
         }
-        // 현재 상태를 sessionStorage에 임시 저장 후 랙 에디터로 이동
-        sessionStorage.setItem(`floorplan-draft-${floorId}`, JSON.stringify({
-          elements: localElements,
-          racks: localRacks,
-          hasChanges
-        }));
-        navigate(`/racks/${rack.id}`);
+        // 사이드 패널에서 랙 상세 열기
+        openRackPanel(rack.id);
         return;
       }
     }
@@ -2332,6 +2329,8 @@ export function FloorPlanEditorPage() {
               )}
             </div>
 
+            {/* 랙 사이드 패널 */}
+            <RackPanel />
           </>
         )}
       </div>

@@ -5,7 +5,7 @@
 
 import type {
   FloorPlanElement,
-  RackItem,
+  FloorPlanEquipment,
   LineProperties,
   RectProperties,
   CircleProperties,
@@ -548,52 +548,114 @@ export function renderTextPreview(
 }
 
 // ============================================
-// Rack 렌더러
+// Equipment 렌더러
 // ============================================
 
-export function renderRack(
+/** Cache font sizes to avoid per-frame measureText binary search */
+const fontSizeCache = new Map<string, number>();
+
+export function renderEquipmentItem(
   ctx: CanvasRenderingContext2D,
-  rack: RackItem,
+  item: FloorPlanEquipment,
   isSelected: boolean
 ): void {
   ctx.save();
-  ctx.translate(rack.positionX + rack.width / 2, rack.positionY + rack.height / 2);
-  ctx.rotate((rack.rotation * Math.PI) / 180);
-  ctx.translate(-rack.width / 2, -rack.height / 2);
+  ctx.translate(item.positionX + item.width / 2, item.positionY + item.height / 2);
+  ctx.rotate((item.rotation * Math.PI) / 180);
+  ctx.translate(-item.width / 2, -item.height / 2);
 
   ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : ELEMENT_COLORS.rack.fill;
   ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : ELEMENT_COLORS.rack.stroke;
   ctx.lineWidth = isSelected ? 2 : 1;
-  ctx.fillRect(0, 0, rack.width, rack.height);
-  ctx.strokeRect(0, 0, rack.width, rack.height);
+  ctx.fillRect(0, 0, item.width, item.height);
+  ctx.strokeRect(0, 0, item.width, item.height);
 
+  // Auto-fit text to equipment box (cached to avoid per-frame measureText)
   ctx.fillStyle = ELEMENT_COLORS.rack.text;
-  ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(rack.name, rack.width / 2, rack.height / 2);
+
+  const padding = 4;
+  const maxWidth = item.width - padding * 2;
+  const maxHeight = item.height - padding * 2;
+
+  if (maxWidth > 5 && maxHeight > 5) {
+    const cacheKey = `${item.name}|${item.width}|${item.height}`;
+    let fontSize = fontSizeCache.get(cacheKey);
+    if (fontSize === undefined) {
+      let lo = 6, hi = Math.min(maxHeight, 40);
+      while (lo < hi) {
+        const mid = Math.ceil((lo + hi) / 2);
+        ctx.font = `bold ${mid}px sans-serif`;
+        if (ctx.measureText(item.name).width <= maxWidth && mid <= maxHeight) {
+          lo = mid;
+        } else {
+          hi = mid - 1;
+        }
+      }
+      fontSize = lo;
+      fontSizeCache.set(cacheKey, fontSize);
+    }
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.fillText(item.name, item.width / 2, item.height / 2, maxWidth);
+  }
 
   ctx.restore();
 }
 
-export function renderRackPreview(
+export function renderEquipmentPreview(
   ctx: CanvasRenderingContext2D,
   position: { x: number; y: number }
 ): void {
+  // Crosshair cursor indicator (shown before first click)
   ctx.save();
   ctx.globalAlpha = 0.6;
+  ctx.strokeStyle = ELEMENT_COLORS.rack.stroke;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(position.x - 15, position.y);
+  ctx.lineTo(position.x + 15, position.y);
+  ctx.moveTo(position.x, position.y - 15);
+  ctx.lineTo(position.x, position.y + 15);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+/**
+ * Equipment drag-to-draw preview (shown while drawing)
+ */
+export function renderEquipmentDrawPreview(
+  ctx: CanvasRenderingContext2D,
+  start: { x: number; y: number },
+  end: { x: number; y: number } | null
+): void {
+  if (!end) return;
+  ctx.save();
+  ctx.globalAlpha = 0.4;
+
+  const x = Math.min(start.x, end.x);
+  const y = Math.min(start.y, end.y);
+  const w = Math.abs(end.x - start.x);
+  const h = Math.abs(end.y - start.y);
 
   ctx.fillStyle = ELEMENT_COLORS.rack.fill;
   ctx.strokeStyle = ELEMENT_COLORS.rack.stroke;
   ctx.lineWidth = 1;
-  ctx.fillRect(position.x, position.y, 60, 100);
-  ctx.strokeRect(position.x, position.y, 60, 100);
+  ctx.setLineDash([4, 4]);
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
 
-  ctx.fillStyle = ELEMENT_COLORS.rack.text;
-  ctx.font = '10px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('새 랙', position.x + 30, position.y + 50);
+  if (w > 30 && h > 20) {
+    ctx.fillStyle = ELEMENT_COLORS.rack.text;
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.globalAlpha = 0.8;
+    ctx.fillText(`${Math.round(w)}x${Math.round(h)}`, x + w / 2, y + h / 2);
+  }
 
   ctx.restore();
 }
@@ -642,15 +704,15 @@ export function renderElements(
 }
 
 /**
- * 여러 Rack을 렌더링
+ * 여러 Equipment를 렌더링
  */
-export function renderRacks(
+export function renderEquipmentItems(
   ctx: CanvasRenderingContext2D,
-  racks: RackItem[],
+  items: FloorPlanEquipment[],
   selectedIds: string[]
 ): void {
-  racks.forEach(rack => {
-    renderRack(ctx, rack, selectedIds.includes(rack.id));
+  items.forEach(item => {
+    renderEquipmentItem(ctx, item, selectedIds.includes(item.id));
   });
 }
 
@@ -658,7 +720,7 @@ export function renderRacks(
 // 미리보기 렌더링
 // ============================================
 
-export type DrawingToolType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'rack' | 'text';
+export type DrawingToolType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text';
 
 /**
  * 오브젝트 배치 미리보기 (패턴 B: 시작점만)
@@ -675,7 +737,7 @@ export function renderPlacementPreview(
   switch (tool) {
     case 'door': renderDoorPreview(ctx, position, 0); break;
     case 'window': renderWindowPreview(ctx, position, 0); break;
-    case 'rack': renderRackPreview(ctx, position); break;
+    case 'equipment': renderEquipmentPreview(ctx, position); break;
     case 'text': renderTextPreview(ctx, position); break;
   }
 
@@ -744,17 +806,17 @@ export function renderElementLengths(
 }
 
 /**
- * 모든 Rack의 가로/세로 길이 표시
+ * 모든 Equipment의 가로/세로 길이 표시
  */
-export function renderRackLengths(
+export function renderEquipmentLengths(
   ctx: CanvasRenderingContext2D,
-  racks: RackItem[],
+  items: FloorPlanEquipment[],
   zoom: number = 100
 ): void {
-  racks.forEach(rack => {
+  items.forEach(item => {
     // 가로 (상단 변)
-    renderLengthLabel(ctx, rack.positionX, rack.positionY, rack.positionX + rack.width, rack.positionY, zoom);
+    renderLengthLabel(ctx, item.positionX, item.positionY, item.positionX + item.width, item.positionY, zoom);
     // 세로 (좌측 변)
-    renderLengthLabel(ctx, rack.positionX, rack.positionY, rack.positionX, rack.positionY + rack.height, zoom);
+    renderLengthLabel(ctx, item.positionX, item.positionY, item.positionX, item.positionY + item.height, zoom);
   });
 }
