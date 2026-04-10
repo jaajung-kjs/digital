@@ -25,6 +25,11 @@ interface CanvasStoreState {
   equipmentPreviewEnd: { x: number; y: number } | null;
   equipmentDrawnSize: { width: number; height: number } | null;
 
+  // Rack drawing state (drag-to-draw, same pattern as equipment)
+  isDrawingRack: boolean;
+  rackStart: { x: number; y: number } | null;
+  rackPreviewEnd: { x: number; y: number } | null;
+
   // Text editing state
   isEditingText: boolean;
   textInputPosition: { x: number; y: number } | null;
@@ -58,6 +63,13 @@ interface CanvasStoreState {
   // Conduit/tray/pullbox material selection
   infraMaterialModalOpen: boolean;
   infraMaterialElementId: string | null;
+
+  // Rack creation modal
+  rackModalOpen: boolean;
+  newRackName: string;
+  newRackTotalU: number;
+  newRackPosition: { x: number; y: number };
+  rackDrawnSize: { width: number; height: number } | null;
 }
 
 interface CanvasStoreActions {
@@ -82,6 +94,11 @@ interface CanvasStoreActions {
   setEquipmentStart: (s: { x: number; y: number } | null) => void;
   setEquipmentPreviewEnd: (e: { x: number; y: number } | null) => void;
   setEquipmentDrawnSize: (s: { width: number; height: number } | null) => void;
+
+  // Rack drawing
+  setIsDrawingRack: (v: boolean) => void;
+  setRackStart: (s: { x: number; y: number } | null) => void;
+  setRackPreviewEnd: (e: { x: number; y: number } | null) => void;
 
   // Text editing
   setIsEditingText: (v: boolean) => void;
@@ -120,6 +137,13 @@ interface CanvasStoreActions {
   setInfraMaterialModalOpen: (v: boolean) => void;
   setInfraMaterialElementId: (id: string | null) => void;
 
+  // Rack creation modal
+  setRackModalOpen: (v: boolean) => void;
+  setNewRackName: (v: string) => void;
+  setNewRackTotalU: (v: number) => void;
+  setNewRackPosition: (p: { x: number; y: number }) => void;
+  setRackDrawnSize: (s: { width: number; height: number } | null) => void;
+
   // Reset all drawing/interaction state
   resetDrawingState: () => void;
 }
@@ -140,6 +164,9 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   equipmentStart: null,
   equipmentPreviewEnd: null,
   equipmentDrawnSize: null,
+  isDrawingRack: false,
+  rackStart: null,
+  rackPreviewEnd: null,
   isEditingText: false,
   textInputPosition: null,
   textInputValue: '',
@@ -160,6 +187,11 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   newEquipmentSpecification: null,
   infraMaterialModalOpen: false,
   infraMaterialElementId: null,
+  rackModalOpen: false,
+  newRackName: '',
+  newRackTotalU: 42,
+  newRackPosition: { x: 100, y: 100 },
+  rackDrawnSize: null,
 
   // Actions
   setIsDrawingLine: (isDrawingLine) => set({ isDrawingLine }),
@@ -176,6 +208,9 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setEquipmentStart: (equipmentStart) => set({ equipmentStart }),
   setEquipmentPreviewEnd: (equipmentPreviewEnd) => set({ equipmentPreviewEnd }),
   setEquipmentDrawnSize: (equipmentDrawnSize) => set({ equipmentDrawnSize }),
+  setIsDrawingRack: (isDrawingRack) => set({ isDrawingRack }),
+  setRackStart: (rackStart) => set({ rackStart }),
+  setRackPreviewEnd: (rackPreviewEnd) => set({ rackPreviewEnd }),
   setIsEditingText: (isEditingText) => set({ isEditingText }),
   setTextInputPosition: (textInputPosition) => set({ textInputPosition }),
   setTextInputValue: (textInputValue) => set({ textInputValue }),
@@ -213,6 +248,12 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setInfraMaterialModalOpen: (infraMaterialModalOpen) => set({ infraMaterialModalOpen }),
   setInfraMaterialElementId: (infraMaterialElementId) => set({ infraMaterialElementId }),
 
+  setRackModalOpen: (rackModalOpen) => set({ rackModalOpen }),
+  setNewRackName: (newRackName) => set({ newRackName }),
+  setNewRackTotalU: (newRackTotalU) => set({ newRackTotalU }),
+  setNewRackPosition: (newRackPosition) => set({ newRackPosition }),
+  setRackDrawnSize: (rackDrawnSize) => set({ rackDrawnSize }),
+
   resetDrawingState: () => set({
     isDrawingLine: false,
     linePoints: [],
@@ -228,6 +269,9 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
     equipmentStart: null,
     equipmentPreviewEnd: null,
     equipmentDrawnSize: null,
+    isDrawingRack: false,
+    rackStart: null,
+    rackPreviewEnd: null,
     isEditingText: false,
     textInputPosition: null,
     textInputValue: '',
