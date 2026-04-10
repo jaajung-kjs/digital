@@ -59,6 +59,9 @@ export interface RoomPlanDetail {
     materialCategoryCode: string | null;
     materialId: string | null;
     specParams: unknown;
+    parentEquipmentId: string | null;
+    startU: number | null;
+    heightU: number;
   }[];
   version: number;
   updatedAt: Date;
@@ -109,6 +112,10 @@ export interface UpdatePlanInput {
     materialCategoryId?: string | null;
     materialCategoryCode?: string | null;
     specParams?: any;
+    // Rack-internal equipment fields
+    parentEquipmentId?: string | null;
+    startU?: number | null;
+    heightU?: number | null;
   }[];
   cables?: {
     id?: string | null;
@@ -128,9 +135,17 @@ export interface UpdatePlanInput {
     totalLength?: number;
     description?: string | null;
   }[];
+  fiberPaths?: {
+    id?: string;
+    ofdAId: string;
+    ofdBId: string;
+    portCount: number;
+    description?: string | null;
+  }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
   deletedCableIds?: string[];
+  deletedFiberPathIds?: string[];
 }
 
 // ==================== Shared ====================
@@ -161,11 +176,12 @@ const EQUIPMENT_SELECT = {
   description: true, model: true, manufacturer: true, manager: true, height3d: true,
   materialCategoryId: true, materialId: true, specParams: true,
   materialCategory: { select: { code: true } },
+  rackId: true, startU: true, heightU: true,
 } as const;
 
 type EquipmentRow = Prisma.EquipmentGetPayload<{ select: typeof EQUIPMENT_SELECT }>;
 
-function mapEquipmentRow(e: EquipmentRow) {
+function mapEquipmentRow(e: EquipmentRow, rackToEquipmentMap?: Map<string, string>) {
   return {
     id: e.id, name: e.name, category: e.category,
     positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
@@ -176,6 +192,8 @@ function mapEquipmentRow(e: EquipmentRow) {
     manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
     materialCategoryId: e.materialCategoryId, materialCategoryCode: e.materialCategory?.code ?? null,
     materialId: e.materialId, specParams: e.specParams,
+    parentEquipmentId: e.rackId && rackToEquipmentMap ? (rackToEquipmentMap.get(e.rackId) ?? null) : null,
+    startU: e.startU, heightU: e.heightU,
   };
 }
 
@@ -304,7 +322,7 @@ async function captureRoomSnapshot(
         specParams: e.specParams,
         pathLength: e.pathLength,
       })),
-      equipment: snapshotEquipment.map(mapEquipmentRow),
+      equipment: snapshotEquipment.map(e => mapEquipmentRow(e)),
       version, updatedAt: updated.updatedAt,
     },
     cables: snapshotCables.map((c) => ({
@@ -358,11 +376,30 @@ class RoomService {
 
     if (!room) throw new NotFoundError('실');
 
-    const equipment = await prisma.equipment.findMany({
-      where: { roomId: id },
-      select: EQUIPMENT_SELECT,
-      orderBy: { sortOrder: 'asc' },
-    });
+    const [equipment, racks] = await Promise.all([
+      prisma.equipment.findMany({
+        where: { roomId: id },
+        select: EQUIPMENT_SELECT,
+        orderBy: { sortOrder: 'asc' },
+      }),
+      prisma.rack.findMany({
+        where: { roomId: id },
+        select: { id: true, positionX: true, positionY: true },
+      }),
+    ]);
+
+    // Build rackId → parentEquipmentId map by position matching
+    const rackToEquipmentMap = new Map<string, string>();
+    for (const rack of racks) {
+      const parentEq = equipment.find(e =>
+        e.materialCategory?.code?.startsWith('EQP-RACK') &&
+        Math.abs((e.positionX ?? 0) - rack.positionX) < RACK_POSITION_TOLERANCE &&
+        Math.abs((e.positionY ?? 0) - rack.positionY) < RACK_POSITION_TOLERANCE
+      );
+      if (parentEq) {
+        rackToEquipmentMap.set(rack.id, parentEq.id);
+      }
+    }
 
     return {
       id: room.id,
@@ -383,7 +420,7 @@ class RoomService {
         specParams: e.specParams,
         pathLength: e.pathLength,
       })),
-      equipment: equipment.map(mapEquipmentRow),
+      equipment: equipment.map(e => mapEquipmentRow(e, rackToEquipmentMap)),
       version: room.version,
       updatedAt: room.updatedAt,
     };
@@ -454,12 +491,13 @@ class RoomService {
     id: string,
     input: UpdatePlanInput,
     userId: string
-  ): Promise<{ id: string; version: number; message: string; equipmentIdMap: Record<string, string> }> {
+  ): Promise<{ id: string; version: number; message: string; equipmentIdMap: Record<string, string>; fiberPathIdMap: Record<string, string> }> {
     const room = await prisma.room.findUnique({ where: { id } });
     if (!room) throw new NotFoundError('실');
 
     let newVersion = room.version;
     const equipmentIdMap: Record<string, string> = {};
+    let finalFiberPathIdMap: Record<string, string> = {};
 
     await prisma.$transaction(async (tx) => {
       // ── Step 0: Load current DB state for reconciliation ──
@@ -774,10 +812,97 @@ class RoomService {
         }
       }
 
-      // 2g. Reconcile cables (after equipment so tempIds are resolved)
+      // 2g. Resolve rack-internal equipment (parentEquipmentId → rackId)
+      const rackInternalEquipment = (input.equipment ?? []).filter(e => e.parentEquipmentId);
+      if (rackInternalEquipment.length > 0) {
+        // Load all racks for this room
+        const roomRacks = await tx.rack.findMany({ where: { roomId: id } });
+        // Load all equipment (including newly created) to resolve parent positions
+        const allEquipment = await tx.equipment.findMany({
+          where: { roomId: id },
+          select: { id: true, positionX: true, positionY: true, materialCategoryId: true, materialCategory: { select: { code: true } } },
+        });
+
+        for (const equip of rackInternalEquipment) {
+          // Resolve parentEquipmentId (could be temp ID)
+          const resolvedParentId = equipmentIdMap[equip.parentEquipmentId!] ?? equip.parentEquipmentId!;
+          // Find the parent equipment to get its position
+          const parentEq = allEquipment.find(e => e.id === resolvedParentId);
+          if (!parentEq) continue;
+
+          // Find the Rack at the same position as the parent equipment
+          const matchingRack = roomRacks.find(r =>
+            Math.abs(r.positionX - (parentEq.positionX ?? 0)) < RACK_POSITION_TOLERANCE &&
+            Math.abs(r.positionY - (parentEq.positionY ?? 0)) < RACK_POSITION_TOLERANCE
+          );
+          if (!matchingRack) continue;
+
+          // Resolve the equipment's own ID (could be temp ID)
+          const resolvedEquipId = equip.tempId ? equipmentIdMap[equip.tempId] : equip.id;
+          if (!resolvedEquipId) continue;
+
+          await tx.equipment.update({
+            where: { id: resolvedEquipId },
+            data: {
+              rackId: matchingRack.id,
+              startU: equip.startU ?? null,
+              heightU: equip.heightU ?? 1,
+            },
+          });
+        }
+      }
+
+      // 2h. Process fiber paths (after equipment so tempIds are resolved)
+      const fiberPathIdMap: Record<string, string> = {};
+      if (input.fiberPaths && input.fiberPaths.length > 0) {
+        for (const fp of input.fiberPaths) {
+          const resolvedOfdAId = equipmentIdMap[fp.ofdAId] ?? fp.ofdAId;
+
+          if (isRealId(fp.id)) {
+            // UPDATE existing fiber path
+            await tx.fiberPath.update({
+              where: { id: fp.id },
+              data: {
+                ofdAId: resolvedOfdAId,
+                ofdBId: fp.ofdBId,
+                portCount: fp.portCount,
+                description: fp.description ?? null,
+                updatedById: userId,
+              },
+            });
+          } else {
+            // CREATE new fiber path
+            const created = await tx.fiberPath.create({
+              data: {
+                ofdAId: resolvedOfdAId,
+                ofdBId: fp.ofdBId,
+                portCount: fp.portCount,
+                description: fp.description ?? null,
+                createdById: userId,
+                updatedById: userId,
+              },
+            });
+            if (fp.id) {
+              fiberPathIdMap[fp.id] = created.id;
+            }
+          }
+        }
+      }
+
+      // 2h-2. Delete fiber paths
+      if (input.deletedFiberPathIds && input.deletedFiberPathIds.length > 0) {
+        await tx.fiberPath.deleteMany({
+          where: { id: { in: input.deletedFiberPathIds } },
+        });
+      }
+
+      // 2i. Reconcile cables (after equipment and fiber paths so tempIds are resolved)
       for (const cable of input.cables ?? []) {
         const srcId = equipmentIdMap[cable.sourceEquipmentId] ?? cable.sourceEquipmentId;
         const tgtId = equipmentIdMap[cable.targetEquipmentId] ?? cable.targetEquipmentId;
+        const resolvedFiberPathId = cable.fiberPathId
+          ? (fiberPathIdMap[cable.fiberPathId] ?? cable.fiberPathId)
+          : null;
 
         // Skip cables whose source/target equipment doesn't exist
         if (!isRealId(srcId) || !isRealId(tgtId)) continue;
@@ -794,7 +919,7 @@ class RoomService {
               length: cable.length,
               color: cable.color,
               description: cable.description,
-              fiberPathId: cable.fiberPathId ?? null,
+              fiberPathId: resolvedFiberPathId,
               fiberPortNumber: cable.fiberPortNumber ?? null,
               materialCategoryId: cable.materialCategoryId,
               specParams: cable.specParams as Prisma.InputJsonValue | undefined,
@@ -808,10 +933,10 @@ class RoomService {
         } else {
           // CREATE new cable
           // Port exclusivity: prevent duplicate fiber port assignment
-          if (cable.fiberPathId && cable.fiberPortNumber) {
+          if (resolvedFiberPathId && cable.fiberPortNumber) {
             const existingOnPort = await tx.cable.findFirst({
               where: {
-                fiberPathId: cable.fiberPathId,
+                fiberPathId: resolvedFiberPathId,
                 fiberPortNumber: cable.fiberPortNumber,
                 OR: [{ sourceEquipmentId: tgtId }, { targetEquipmentId: tgtId }],
               },
@@ -829,7 +954,7 @@ class RoomService {
               length: cable.length,
               color: cable.color,
               description: cable.description,
-              fiberPathId: cable.fiberPathId ?? null,
+              fiberPathId: resolvedFiberPathId,
               fiberPortNumber: cable.fiberPortNumber ?? null,
               materialCategoryId: cable.materialCategoryId,
               specParams: cable.specParams as Prisma.InputJsonValue | undefined,
@@ -892,6 +1017,8 @@ class RoomService {
           },
         });
       }
+
+      finalFiberPathIdMap = fiberPathIdMap;
     });
 
     return {
@@ -899,6 +1026,7 @@ class RoomService {
       version: newVersion,
       message: '저장되었습니다.',
       equipmentIdMap,
+      fiberPathIdMap: finalFiberPathIdMap,
     };
   }
 
