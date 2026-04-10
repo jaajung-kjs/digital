@@ -16,10 +16,13 @@ const updateRoomSchema = z.object({
 
 const elementSchema = z.object({
   id: z.string().uuid().nullish(),
-  elementType: z.enum(['line', 'rect', 'circle', 'door', 'window', 'text']),
+  elementType: z.enum(['line', 'rect', 'circle', 'door', 'window', 'text', 'conduit', 'tray', 'pullbox']),
   properties: z.record(z.unknown()),
   zIndex: z.number().int().optional(),
   isVisible: z.boolean().optional(),
+  materialCategoryId: z.string().uuid().optional().nullable(),
+  specParams: z.any().optional().nullable(),
+  pathLength: z.number().optional().nullable(),
 });
 
 const equipmentSchema = z.object({
@@ -49,6 +52,10 @@ const cableSchema = z.object({
   color: z.string().nullish(),
   fiberPathId: z.string().uuid().nullish(),
   fiberPortNumber: z.number().int().min(1).max(48).nullish(),
+  pathPoints: z.array(z.array(z.number()).length(2)).nullish(),
+  pathLength: z.number().nullish(),
+  bufferLength: z.number().nullish(),
+  totalLength: z.number().nullish(),
 });
 
 const bulkUpdatePlanSchema = z.object({
@@ -57,6 +64,7 @@ const bulkUpdatePlanSchema = z.object({
   gridSize: z.number().int().min(5).max(100).optional(),
   majorGridSize: z.number().int().min(10).max(200).optional(),
   backgroundColor: z.string().max(20).optional(),
+  scaleRatio: z.number().positive().optional(),
   elements: z.array(elementSchema).optional(),
   equipment: z.array(equipmentSchema).optional(),
   cables: z.array(cableSchema).optional(),

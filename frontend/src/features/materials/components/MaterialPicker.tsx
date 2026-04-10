@@ -13,6 +13,7 @@ export interface MaterialPickerValue {
 
 interface MaterialPickerProps {
   categoryType: MaterialCategoryType;
+  filterParentCode?: string; // ACCESSORY 하위 필터: 'ACC-PIPE', 'ACC-TRAY', 'ACC-BOX' 등
   value: { categoryId: string; specParams: Record<string, unknown> } | null;
   onChange: (value: MaterialPickerValue) => void;
   recentItems?: RecentMaterial[];
@@ -20,11 +21,22 @@ interface MaterialPickerProps {
 
 export function MaterialPicker({
   categoryType,
+  filterParentCode,
   value,
   onChange,
   recentItems,
 }: MaterialPickerProps) {
-  const { data: categories, isLoading } = useMaterialCategories(categoryType);
+  const { data: allCategories, isLoading } = useMaterialCategories(categoryType);
+
+  // filterParentCode가 있으면 해당 parent의 children만 표시
+  const categories = useMemo(() => {
+    if (!allCategories || !filterParentCode) return allCategories;
+    const parent = allCategories.find((c) => c.code === filterParentCode);
+    if (parent?.children && parent.children.length > 0) return parent.children;
+    // parent 자체가 leaf인 경우 (ACC-BOX처럼 하위 없는 경우)
+    if (parent) return [parent];
+    return allCategories;
+  }, [allCategories, filterParentCode]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     value?.categoryId ?? null,
   );

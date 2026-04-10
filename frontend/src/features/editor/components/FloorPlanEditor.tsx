@@ -144,6 +144,15 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
 }
 
 function InfraMaterialModal({ elementId }: { elementId: string }) {
+  const element = useEditorStore.getState().localElements.find((el) => el.id === elementId);
+  const elementType = element?.elementType ?? 'conduit';
+
+  // elementType에 따라 표시할 카테고리 필터링
+  const titleMap: Record<string, string> = { conduit: '배관 선택', tray: '케이블트레이 선택', pullbox: '풀박스 선택' };
+  const parentCodeMap: Record<string, string> = { conduit: 'ACC-PIPE', tray: 'ACC-TRAY', pullbox: 'ACC-BOX' };
+  const title = titleMap[elementType] ?? '부속자재 선택';
+  const filterParentCode = parentCodeMap[elementType] ?? undefined;
+
   const [pendingValue, setPendingValue] = useState<{
     categoryId: string;
     specParams: Record<string, unknown>;
@@ -179,10 +188,11 @@ function InfraMaterialModal({ elementId }: { elementId: string }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 className="text-lg font-semibold mb-4">부속자재 선택</h3>
+        <h3 className="text-lg font-semibold mb-4">{title}</h3>
         <div className="mb-4">
           <MaterialPicker
             categoryType="ACCESSORY"
+            filterParentCode={filterParentCode}
             value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
             onChange={({ categoryId, specParams: sp, specification }) => {
               setPendingValue({ categoryId, specParams: sp, specification });
