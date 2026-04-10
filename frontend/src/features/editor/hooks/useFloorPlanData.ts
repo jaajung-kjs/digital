@@ -4,7 +4,8 @@ import { api } from '../../../utils/api';
 import type { FloorPlanDetail, UpdateFloorPlanRequest } from '../../../types/floorPlan';
 import type { RoomDetail } from '../../../types/substation';
 import type { RackDetail } from '../../../types/rack';
-import { useEditorStore, selectChanges, type ChangeEntry } from '../stores/editorStore';
+import type { RoomConnection } from '../../../types/connection';
+import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
@@ -20,47 +21,25 @@ function buildTempIdMap(
 }
 
 /**
- * Process a single non-cable ChangeEntry into an API call.
- * Cables are now part of the bulk save request — only photos and logs go here.
+ * Convert RoomConnection[] from backend into LocalCable[] for the editor store.
  */
-async function processChange(entry: ChangeEntry, resolveId: (id: string) => string) {
-  switch (entry.type) {
-    case 'photo:upload': {
-      const formData = new FormData();
-      formData.append('file', entry.file);
-      formData.append('side', entry.side);
-      formData.append('takenAt', new Date().toISOString());
-      if (entry.description) formData.append('description', entry.description);
-      await api.post(`/equipment/${resolveId(entry.equipmentId)}/photos`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      break;
-    }
-    case 'photo:delete':
-      await api.delete(`/equipment-photos/${entry.photoId}`);
-      break;
-    case 'log:create':
-      await api.post(`/equipment/${resolveId(entry.equipmentId)}/maintenance-logs`, {
-        logType: entry.logType,
-        title: entry.title,
-        logDate: entry.logDate || undefined,
-        severity: entry.severity || undefined,
-        description: entry.description || undefined,
-      });
-      break;
-    case 'log:update':
-      await api.put(`/maintenance-logs/${entry.logId}`, {
-        logType: entry.logType,
-        title: entry.title,
-        logDate: entry.logDate || undefined,
-        severity: entry.severity || undefined,
-        description: entry.description || undefined,
-      });
-      break;
-    case 'log:delete':
-      await api.delete(`/maintenance-logs/${entry.logId}`);
-      break;
-  }
+function connectionsToLocalCables(connections: RoomConnection[]): LocalCable[] {
+  return connections.map((conn) => ({
+    id: conn.id,
+    sourceEquipmentId: conn.sourceEquipmentId,
+    targetEquipmentId: conn.targetEquipmentId,
+    cableType: conn.cableType,
+    materialCategoryId: conn.materialCategoryId ?? null,
+    materialCategoryCode: conn.materialCategoryCode ?? null,
+    specParams: conn.specParams ?? null,
+    pathPoints: conn.pathPoints ?? null,
+    pathLength: conn.pathLength ?? null,
+    totalLength: conn.totalLength ?? null,
+    label: conn.label ?? null,
+    color: conn.color ?? null,
+    fiberPathId: conn.fiberPathId ?? null,
+    fiberPortNumber: conn.fiberPortNumber ?? null,
+  }));
 }
 
 /**
@@ -111,6 +90,16 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     staleTime: 30_000,
   });
 
+  // Load connections (cables) for this room
+  const { data: backendConnections } = useQuery({
+    queryKey: ['room-connections', roomId],
+    queryFn: async () => {
+      const response = await api.get<{ data: RoomConnection[] }>(`/rooms/${roomId}/connections`);
+      return response.data.data;
+    },
+    enabled: !!roomId,
+  });
+
   // === THE SINGLE SAVE MUTATION ===
   const saveMutation = useMutation({
     mutationFn: (data: UpdateFloorPlanRequest) => {
@@ -122,21 +111,17 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     },
     onSuccess: async (response) => {
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
-      const { changeSet, localEquipment: preInvalidateEquipment, localRacks: existingRacks } = useEditorStore.getState();
+      const { localEquipment: preInvalidateEquipment, localRacks: existingRacks, pendingUploads, pendingLogs } = useEditorStore.getState();
       const tempIdMap = buildTempIdMap(equipmentIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
 
       // Identify new EQP-RACK equipment BEFORE any async work or query invalidation.
-      // At this point localEquipment still has temp IDs and materialCategoryCode intact.
       let hadNewRacks = false;
       let newRackEquipment: typeof preInvalidateEquipment = [];
       if (Object.keys(equipmentIdMap).length > 0) {
         newRackEquipment = preInvalidateEquipment.filter((eq) => {
-          // Only process equipment that was just created (has a tempId mapping)
           if (!tempIdMap.has(eq.id)) return false;
-          // Check if this is a rack-type equipment
           if (!eq.materialCategoryCode?.startsWith('EQP-RACK')) return false;
-          // Check that no rack already exists at this position
           const alreadyHasRack = existingRacks.some(
             (r) => Math.abs(r.positionX - eq.positionX) < RACK_EQUIPMENT_POSITION_TOLERANCE && Math.abs(r.positionY - eq.positionY) < RACK_EQUIPMENT_POSITION_TOLERANCE
           );
@@ -145,25 +130,43 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         hadNewRacks = newRackEquipment.length > 0;
       }
 
-      // Process remaining changeSet (photos and logs only — cables already saved atomically)
-      const nonCableChanges = changeSet.filter((e) => !e.type.startsWith('cable:'));
-      if (nonCableChanges.length > 0) {
-        const deletions = nonCableChanges.filter((e) => e.type.endsWith(':delete'));
-        const others = nonCableChanges.filter((e) => !e.type.endsWith(':delete'));
+      // Process pending uploads (photos)
+      if (pendingUploads.length > 0) {
+        const results = await Promise.allSettled(
+          pendingUploads.map(async (upload) => {
+            const formData = new FormData();
+            formData.append('file', upload.file);
+            formData.append('side', upload.side);
+            formData.append('takenAt', new Date().toISOString());
+            if (upload.description) formData.append('description', upload.description);
+            await api.post(`/equipment/${resolveId(upload.equipmentId)}/photos`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+          })
+        );
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) {
+          console.warn(`[Save] ${failures.length} photo upload(s) failed:`, failures);
+        }
+      }
 
-        const run = async (entries: ChangeEntry[]) => {
-          const results = await Promise.allSettled(
-            entries.map((entry) => processChange(entry, resolveId))
-          );
-          const failures = results
-            .map((r, i) => r.status === 'rejected' ? entries[i] : null)
-            .filter(Boolean);
-          if (failures.length > 0) {
-            console.warn(`[Save] ${failures.length} change(s) failed:`, failures);
-          }
-        };
-        await run(deletions);
-        await run(others);
+      // Process pending logs
+      if (pendingLogs.length > 0) {
+        const results = await Promise.allSettled(
+          pendingLogs.map(async (log) => {
+            await api.post(`/equipment/${resolveId(log.equipmentId)}/maintenance-logs`, {
+              logType: log.logType,
+              title: log.title,
+              logDate: log.logDate || undefined,
+              severity: log.severity || undefined,
+              description: log.description || undefined,
+            });
+          })
+        );
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) {
+          console.warn(`[Save] ${failures.length} log creation(s) failed:`, failures);
+        }
       }
 
       // Auto-create Rack entities for newly saved EQP-RACK equipment
@@ -185,25 +188,31 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         }
       }
 
-      // Clear and invalidate
-      useEditorStore.getState().clearChangeSet();
+      // Clear pending data and invalidate queries
+      useEditorStore.getState().clearPendingData();
+
+      // Delete localStorage draft on successful save
+      if (roomId) {
+        localStorage.removeItem(`draft-plan-${roomId}`);
+      }
+
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
       queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
       if (hadNewRacks) {
         queryClient.invalidateQueries({ queryKey: ['floor-plan-racks', roomId] });
       }
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
-      if (nonCableChanges.some((e) => e.type.startsWith('photo:'))) {
+      if (pendingUploads.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
       }
-      if (nonCableChanges.some((e) => e.type.startsWith('log:'))) {
+      if (pendingLogs.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['maintenance-logs'] });
       }
       setHasChanges(false);
 
       // Reset undo/redo history after successful save
-      const { localElements: currentElements, localEquipment: currentEquipment } = useEditorStore.getState();
-      initHistory(currentElements, currentEquipment);
+      const { localElements: currentElements, localEquipment: currentEquipment, localCables: currentCables } = useEditorStore.getState();
+      initHistory(currentElements, currentEquipment, currentCables);
     },
     onError: (error: unknown) => {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
@@ -254,6 +263,14 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     }
   }, [floorPlan, roomId, setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
 
+  // Sync connections into store as localCables
+  useEffect(() => {
+    if (backendConnections && !isSavingRef.current) {
+      const cables = connectionsToLocalCables(backendConnections);
+      useEditorStore.getState().setCables(cables);
+    }
+  }, [backendConnections]);
+
   // Sync racks into store
   useEffect(() => {
     if (racks) {
@@ -293,39 +310,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
   const handleSave = () => {
     if (!floorPlan) return;
-    const { changeSet } = useEditorStore.getState();
-
-    // Build cable payload from changeSet
-    const allDeletions = new Set(selectChanges(changeSet, 'cable:delete').map((c) => c.cableId));
-    // 삭제된 설비를 참조하는 케이블도 제외 (temp ID 설비 삭제 → localEquipment에서 제거됨)
-    const existingEquipmentIds = new Set(localEquipment.map((eq) => eq.id));
-    const isEquipmentAlive = (eqId: string) => existingEquipmentIds.has(eqId);
-    const cableCreates = selectChanges(changeSet, 'cable:create')
-      .filter((c) => !allDeletions.has(c.localId) && isEquipmentAlive(c.sourceEquipmentId) && isEquipmentAlive(c.targetEquipmentId))
-      .map((c) => ({
-        sourceEquipmentId: c.sourceEquipmentId,
-        targetEquipmentId: c.targetEquipmentId,
-        cableType: c.cableType,
-        label: c.label, length: c.length, color: c.color,
-        fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
-        materialCategoryId: c.materialCategoryId, specParams: c.specParams,
-        pathPoints: c.pathPoints, pathLength: c.pathLength,
-        bufferLength: c.bufferLength, totalLength: c.totalLength,
-      }));
-    const cableUpdates = selectChanges(changeSet, 'cable:update')
-      .filter((c) => !allDeletions.has(c.id))
-      .map((c) => ({
-        id: c.id,
-        sourceEquipmentId: c.sourceEquipmentId,
-        targetEquipmentId: c.targetEquipmentId,
-        cableType: c.cableType,
-        label: c.label, length: c.length, color: c.color,
-        fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
-        materialCategoryId: c.materialCategoryId, specParams: c.specParams,
-      }));
-    const deletedCableIds = [...allDeletions].filter((id) => !isTempId(id));
-
-    const cables = [...cableCreates, ...cableUpdates];
+    const { localCables } = useEditorStore.getState();
 
     const currentScaleRatio = useEditorStore.getState().scaleRatio;
     const updateData: UpdateFloorPlanRequest = {
@@ -361,10 +346,25 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         materialCategoryId: eq.materialCategoryId || undefined,
         specParams: eq.specParams || undefined,
       })),
-      cables: cables.length > 0 ? cables : undefined,
+      cables: localCables.map(c => ({
+        id: isTempId(c.id) ? null : c.id,
+        sourceEquipmentId: c.sourceEquipmentId,
+        targetEquipmentId: c.targetEquipmentId,
+        cableType: c.cableType,
+        materialCategoryId: c.materialCategoryId,
+        materialCategoryCode: c.materialCategoryCode,
+        specParams: c.specParams,
+        pathPoints: c.pathPoints,
+        pathLength: c.pathLength,
+        bufferLength: c.bufferLength,
+        totalLength: c.totalLength,
+        label: c.label,
+        color: c.color,
+        fiberPathId: c.fiberPathId,
+        fiberPortNumber: c.fiberPortNumber,
+      })),
       deletedElementIds: deletedElementIds.length > 0 ? deletedElementIds : undefined,
       deletedEquipmentIds: deletedEquipmentIds.length > 0 ? deletedEquipmentIds : undefined,
-      deletedCableIds: deletedCableIds.length > 0 ? deletedCableIds : undefined,
     };
 
     saveMutation.mutate(updateData);

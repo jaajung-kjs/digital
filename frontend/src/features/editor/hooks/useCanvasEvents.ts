@@ -287,7 +287,7 @@ export function useCanvasEvents(
   const handleCanvasMouseUp = useCallback(() => {
     const { dragSession } = canvasStore.getState();
     if (dragSession?.isActive) {
-      const { localElements, localEquipment, changeSet } = editorStore.getState();
+      const { localElements, localEquipment, localCables } = editorStore.getState();
       pushHistory(localElements, localEquipment);
 
       // Update cable pathPoints when equipment is dragged
@@ -300,34 +300,23 @@ export function useCanvasEvents(
             movedEq.positionY + movedEq.height / 2,
           ];
 
-          // Update pending cable:create and cable:update entries in changeSet
-          let anyChanged = false;
-          const updatedChangeSet = changeSet.map((entry) => {
-            if (
-              (entry.type === 'cable:create' || entry.type === 'cable:update') &&
-              entry.pathPoints &&
-              entry.pathPoints.length >= 2
-            ) {
+          // Update cable pathPoints in localCables
+          for (const cable of localCables) {
+            if (cable.pathPoints && cable.pathPoints.length >= 2) {
               let updated = false;
-              const pts = entry.pathPoints.map((p) => [...p] as [number, number]);
-              if (entry.sourceEquipmentId === movedEqId) {
+              const pts = cable.pathPoints.map((p) => [...p] as [number, number]);
+              if (cable.sourceEquipmentId === movedEqId) {
                 pts[0] = newCenter;
                 updated = true;
               }
-              if (entry.targetEquipmentId === movedEqId) {
+              if (cable.targetEquipmentId === movedEqId) {
                 pts[pts.length - 1] = newCenter;
                 updated = true;
               }
               if (updated) {
-                anyChanged = true;
-                return { ...entry, pathPoints: pts };
+                editorStore.getState().updateCable(cable.id, { pathPoints: pts });
               }
             }
-            return entry;
-          });
-
-          if (anyChanged) {
-            editorStore.getState().replaceChangeSet(updatedChangeSet);
           }
         }
       }
@@ -407,16 +396,14 @@ export function useCanvasEvents(
           creationStore.cancel();
         } else {
           // Normal cable: create directly
-          editorStore.getState().addChange({
-            type: 'cable:create',
-            localId: generateTempId(),
+          editorStore.getState().addCable({
+            id: generateTempId(),
             sourceEquipmentId: creationStore.sourceEquipmentId!,
             targetEquipmentId: found.item.id,
             cableType: creationStore.cableType!,
             materialCategoryId: creationStore.materialCategoryId || undefined,
             specParams: creationStore.specParams || undefined,
           });
-          editorStore.getState().setHasChanges(true);
           creationStore.cancel();
         }
       } else if (!found) {
@@ -700,12 +687,12 @@ export function useCanvasEvents(
         const found = findItemAt(x, y, localElements, localEquipment);
         if (found) {
           if (found.type === 'equipment') {
-            const newEquipment = localEquipment.filter(eq => eq.id !== found.item.id);
-            editorStore.getState().setLocalEquipment(newEquipment);
-            pushHistory(localElements, newEquipment);
             if (!isTempId(found.item.id)) {
               editorStore.getState().addDeletedEquipmentId(found.item.id);
             }
+            editorStore.getState().deleteEquipmentWithCascade(found.item.id);
+            const currentEquipment = editorStore.getState().localEquipment;
+            pushHistory(localElements, currentEquipment);
           } else {
             const newElements = localElements.filter(el => el.id !== found.item.id);
             editorStore.getState().setLocalElements(newElements);

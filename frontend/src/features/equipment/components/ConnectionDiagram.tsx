@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useRoomConnections } from '../../connections/hooks/useRoomConnections';
 import { CABLE_BADGE_CLASSES } from '../../../types/connection';
-import type { RoomConnection } from '../../../types/connection';
 import { getCableTypeFromMaterial } from '../../../types/material';
-import { useEditorStore } from '../../editor/stores/editorStore';
-import { useMergedConnections } from '../../connections/hooks/useMergedConnections';
+import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import { isTempId } from '../../../utils/idHelpers';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
@@ -25,11 +22,9 @@ export function ConnectionDiagram({
   equipmentId,
   category,
 }: ConnectionDiagramProps) {
-  const { data: backendConnections, isLoading } = useRoomConnections(roomId);
   const localEquipment = useEditorStore((s) => s.localEquipment);
-  const changeSet = useEditorStore((s) => s.changeSet);
-  const addChange = useEditorStore((s) => s.addChange);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const localCables = useEditorStore((s) => s.localCables);
+  const deleteCable = useEditorStore((s) => s.deleteCable);
   const selectCable = usePathHighlightStore((s) => s.selectCable);
   const startTrace = usePathHighlightStore((s) => s.startTrace);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
@@ -42,22 +37,15 @@ export function ConnectionDiagram({
   const [showCableSelector, setShowCableSelector] = useState(false);
 
   // Unmount = context gone → clear highlight automatically.
-  // Covers: tab switch, equipment change, panel close — no heuristic calls needed.
   useEffect(() => () => clearHighlight(), [clearHighlight]);
 
-  const allConnections = useMergedConnections(backendConnections, changeSet, localEquipment);
-
-  const relevantConnections = useMemo(() => {
-    return allConnections.filter(
-      (conn) =>
-        conn.sourceEquipmentId === equipmentId ||
-        conn.targetEquipmentId === equipmentId
+  const relevantCables = useMemo(() => {
+    return localCables.filter(
+      (cable) =>
+        cable.sourceEquipmentId === equipmentId ||
+        cable.targetEquipmentId === equipmentId
     );
-  }, [allConnections, equipmentId]);
-
-  if (isLoading) {
-    return <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>;
-  }
+  }, [localCables, equipmentId]);
 
   const handleMaterialSelect = ({ categoryId, categoryCode, specParams, specification }: {
     categoryId: string;
@@ -121,46 +109,46 @@ export function ConnectionDiagram({
           </div>
         )}
 
-        {relevantConnections.length === 0 ? (
+        {relevantCables.length === 0 ? (
           <div className="text-center text-sm text-gray-400 py-2">
             연결 정보가 없습니다.
           </div>
         ) : (
         <div className="space-y-2">
-          {relevantConnections.map((conn: RoomConnection) => {
-            const isSource = conn.sourceEquipmentId === equipmentId;
-            const localEq = isSource ? conn.sourceEquipment : conn.targetEquipment;
-            const remoteEquipment = isSource ? conn.targetEquipment : conn.sourceEquipment;
-            const isTracing = tracingCableId === conn.id && isTraceLoading;
-            const isCardSelected = traceActive && tracingCableId === conn.id;
+          {relevantCables.map((cable: LocalCable) => {
+            const isSource = cable.sourceEquipmentId === equipmentId;
+            const localEqSelf = localEquipment.find((e) => e.id === (isSource ? cable.sourceEquipmentId : cable.targetEquipmentId));
+            const remoteEq = localEquipment.find((e) => e.id === (isSource ? cable.targetEquipmentId : cable.sourceEquipmentId));
+            const localEqName = localEqSelf?.name ?? '';
+            const remoteName = remoteEq?.name ?? '';
+            const isTracing = tracingCableId === cable.id && isTraceLoading;
+            const isCardSelected = traceActive && tracingCableId === cable.id;
 
             const handleClick = () => {
               if (isCardSelected) {
                 clearHighlight();
-              } else if (isTempId(conn.id)) {
-                // Pending cables: select without API trace
-                selectCable(conn.id);
+              } else if (isTempId(cable.id)) {
+                selectCable(cable.id);
               } else {
-                startTrace(conn.id, roomId);
+                startTrace(cable.id, roomId);
               }
             };
 
             const handleDelete = (e: React.MouseEvent) => {
               e.stopPropagation();
-              if (!confirm(`${remoteEquipment.name} 연결을 삭제하시겠습니까?`)) return;
-              addChange({ type: 'cable:delete', cableId: conn.id });
-              setHasChanges(true);
+              if (!confirm(`${remoteName} 연결을 삭제하시겠습니까?`)) return;
+              deleteCable(cable.id);
               clearHighlight();
             };
 
             return (
-              <div key={conn.id}>
+              <div key={cable.id}>
                 <div
                   onClick={handleClick}
                   className={`group relative rounded border px-3 py-2 transition-colors cursor-pointer ${
                     isCardSelected
                       ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300'
-                      : isTempId(conn.id)
+                      : isTempId(cable.id)
                         ? 'border-amber-200 bg-amber-50 hover:bg-amber-100'
                         : 'border-gray-200 bg-white hover:bg-blue-50'
                   } ${isTracing ? 'ring-2 ring-blue-400 animate-pulse' : ''}`}
@@ -168,31 +156,31 @@ export function ConnectionDiagram({
                   <div className="flex items-center gap-2 text-sm">
                     <div className="min-w-0 flex-1 text-center">
                       <p className="truncate text-sm font-medium text-gray-700">
-                        {localEq.name}
+                        {localEqName}
                       </p>
                     </div>
 
                     <div className="flex flex-col items-center shrink-0">
                       <span
                         className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                          CABLE_BADGE_CLASSES[conn.cableType] || 'bg-gray-100 text-gray-600'
+                          CABLE_BADGE_CLASSES[cable.cableType] || 'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {conn.materialCategoryCode || conn.cableType}
+                        {cable.materialCategoryCode || cable.cableType}
                       </span>
                       <div className="my-0.5 h-px w-12 bg-gray-300" />
                     </div>
 
                     <div className="min-w-0 flex-1 text-center">
                       <p className="truncate text-sm font-medium text-gray-700">
-                        {remoteEquipment.name}
+                        {remoteName}
                       </p>
                     </div>
                   </div>
-                  {conn.cableType === 'FIBER' && (conn.fiberPathDescription || conn.fiberPortNumber) && (
+                  {cable.cableType === 'FIBER' && cable.fiberPortNumber != null && (
                     <p className="mt-1 text-[11px] text-gray-400 text-center truncate">
-                      {conn.fiberPathDescription ?? '광경로'}
-                      {conn.fiberPortNumber != null && ` #${conn.fiberPortNumber}`}
+                      광경로
+                      {` #${cable.fiberPortNumber}`}
                     </p>
                   )}
                 </div>

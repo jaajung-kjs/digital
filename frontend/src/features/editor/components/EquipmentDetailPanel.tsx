@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { compressImage } from '../../../utils/imageCompression';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
-import { useEditorStore, selectChanges } from '../stores/editorStore';
+import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { useEquipmentPhotos } from '../../equipment/hooks/useEquipmentPhotos';
@@ -468,22 +468,18 @@ function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOn
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const changeSet = useEditorStore((s) => s.changeSet);
-  const addChange = useEditorStore((s) => s.addChange);
-  const removeChanges = useEditorStore((s) => s.removeChanges);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const pendingUploads = useEditorStore((s) => s.pendingUploads);
+  const addPendingUpload = useEditorStore((s) => s.addPendingUpload);
+  const removePendingUpload = useEditorStore((s) => s.removePendingUpload);
 
   const { data: savedPhotos } = useEquipmentPhotos(equipment.id);
 
   const allPhotos: LightboxPhoto[] = useMemo(() => {
-    const uploads = selectChanges(changeSet, 'photo:upload')
+    const uploads = pendingUploads
       .filter((u) => u.equipmentId === equipment.id && u.side === photoSide);
-    const deletedIds = new Set(
-      selectChanges(changeSet, 'photo:delete').map((d) => d.photoId)
-    );
 
     const saved = (savedPhotos ?? [])
-      .filter((p) => !deletedIds.has(p.id) && p.side === photoSide);
+      .filter((p) => p.side === photoSide);
 
     return [
       ...uploads.map((u) => ({
@@ -501,7 +497,7 @@ function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOn
         description: p.description,
       })),
     ];
-  }, [changeSet, savedPhotos, equipment.id, photoSide]);
+  }, [pendingUploads, savedPhotos, equipment.id, photoSide]);
 
   const latestPhoto = allPhotos.length > 0 ? allPhotos[0] : null;
   const currentImageUrl = latestPhoto?.url ?? null;
@@ -518,8 +514,7 @@ function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOn
     if (!pendingFile) return;
     const compressed = await compressImage(pendingFile);
     const objectUrl = URL.createObjectURL(compressed);
-    addChange({
-      type: 'photo:upload',
+    addPendingUpload({
       id: generateTempId(),
       equipmentId: equipment.id,
       side: photoSide,
@@ -527,18 +522,16 @@ function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOn
       description,
       objectUrl,
     });
-    setHasChanges(true);
     setPendingFile(null);
   };
 
   const handleDeletePhoto = (photoId: string) => {
     if (photoId.startsWith('pending-')) {
       const uploadId = photoId.replace('pending-', '');
-      removeChanges((e) => e.type === 'photo:upload' && e.id === uploadId);
-    } else {
-      addChange({ type: 'photo:delete', photoId });
+      removePendingUpload(uploadId);
     }
-    setHasChanges(true);
+    // Note: server-side photo deletion is not supported in local-only mode.
+    // Photos can only be deleted after save via the backend API.
   };
 
   const handleDeleteCurrent = () => {
@@ -806,10 +799,10 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
 function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: boolean }) {
   const isTemp = isTempId(equipmentId);
   const { data: backendLogs, isLoading } = useMaintenanceLogs(equipmentId);
-  const changeSet = useEditorStore((s) => s.changeSet);
-  const addChange = useEditorStore((s) => s.addChange);
-  const removeChanges = useEditorStore((s) => s.removeChanges);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const pendingLogs = useEditorStore((s) => s.pendingLogs);
+  const addPendingLog = useEditorStore((s) => s.addPendingLog);
+  const updatePendingLog = useEditorStore((s) => s.updatePendingLog);
+  const removePendingLog = useEditorStore((s) => s.removePendingLog);
 
   const [showForm, setShowForm] = useState(false);
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
@@ -822,25 +815,20 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
   });
 
   const allLogs = useMemo(() => {
-    const logCreates = selectChanges(changeSet, 'log:create');
-    const logDeletions = selectChanges(changeSet, 'log:delete');
-    const deletedIds = new Set(logDeletions.map((d) => d.logId));
-
     const savedLogs = (backendLogs ?? [])
-      .filter((l) => !deletedIds.has(l.id))
       .map((l) => ({ ...l, isPending: false }));
 
-    const pendingLogs = logCreates
+    const pending = pendingLogs
       .filter((l) => l.equipmentId === equipmentId)
       .map((l) => ({
-        id: l.localId,
+        id: l.id,
         equipmentId: l.equipmentId,
         logType: l.logType as 'MAINTENANCE' | 'FAILURE' | 'REPAIR',
         title: l.title,
         description: l.description,
         logDate: l.logDate,
         severity: l.severity as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | undefined,
-        status: 'OPEN' as const,
+        status: (l.status ?? 'OPEN') as 'OPEN',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         createdByName: null as string | null,
@@ -848,12 +836,12 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
         isPending: true,
       }));
 
-    return [...pendingLogs, ...savedLogs].sort((a, b) => {
+    return [...pending, ...savedLogs].sort((a, b) => {
       const dateA = a.logDate || a.createdAt;
       const dateB = b.logDate || b.createdAt;
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
-  }, [backendLogs, changeSet, equipmentId]);
+  }, [backendLogs, pendingLogs, equipmentId]);
 
   const resetForm = () => {
     setFormData({ logType: 'MAINTENANCE', title: '', logDate: new Date().toISOString().slice(0, 10), severity: 'LOW', description: '' });
@@ -873,16 +861,20 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
     };
 
     if (editingLogId) {
-      addChange({ type: 'log:update', logId: editingLogId, ...common });
+      // Check if it's a pending log (editable)
+      const isPending = pendingLogs.some((l) => l.id === editingLogId);
+      if (isPending) {
+        updatePendingLog(editingLogId, common);
+      }
+      // Backend logs cannot be edited in local-only mode
     } else {
-      addChange({ type: 'log:create', localId: generateTempId(), equipmentId, ...common });
+      addPendingLog({ id: generateTempId(), equipmentId, ...common });
     }
-    setHasChanges(true);
     resetForm();
   };
 
   const handleEditLog = (log: typeof allLogs[0]) => {
-    if (log.isPending) return; // Can't edit pending logs, they're already editable via changeSet
+    // Now we CAN edit pending logs too
     setFormData({
       logType: log.logType,
       title: log.title,
@@ -896,12 +888,11 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
 
   const handleDeleteLog = (logId: string) => {
     if (!confirm('이 이력을 삭제하시겠습니까?')) return;
-    if (isTempId(logId)) {
-      removeChanges((e) => e.type === 'log:create' && e.localId === logId);
-    } else {
-      addChange({ type: 'log:delete', logId });
+    const isPending = pendingLogs.some((l) => l.id === logId);
+    if (isPending) {
+      removePendingLog(logId);
     }
-    setHasChanges(true);
+    // Backend logs cannot be deleted in local-only mode
   };
 
   if (!isTemp && isLoading) {
@@ -997,7 +988,7 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
                 </div>
                 {!readOnly && (
                   <div className="flex items-center gap-0.5">
-                    {!log.isPending && (
+                    {log.isPending && (
                       <button
                         onClick={() => handleEditLog(log)}
                         className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
@@ -1053,8 +1044,8 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
   const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
   const selectPort = useOfdConnectionFlowStore((s) => s.selectPort);
   const cancelOfd = useOfdConnectionFlowStore((s) => s.cancel);
-  const addChange = useEditorStore((s) => s.addChange);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const deleteCable = useEditorStore((s) => s.deleteCable);
+  const updateCable = useEditorStore((s) => s.updateCable);
   const navigate = useNavigate();
 
   // Is the OFD flow active and targeting THIS equipment?
@@ -1073,23 +1064,15 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
   }, [isFlowActive, selectPort, equipmentId]);
 
   const handlePortDelete = useCallback((cableId: string) => {
-    addChange({ type: 'cable:delete', cableId });
-    setHasChanges(true);
-  }, [addChange, setHasChanges]);
+    deleteCable(cableId);
+  }, [deleteCable]);
 
-  const handlePortSwitch = useCallback((cableId: string, connectedEquipmentId: string, newFiberPathId: string, newPortNumber: number) => {
-    // Cable connects OFD (equipmentId) ↔ connectedEquipmentId, type is always FIBER
-    addChange({
-      type: 'cable:update',
-      id: cableId,
-      sourceEquipmentId: equipmentId,
-      targetEquipmentId: connectedEquipmentId,
-      cableType: 'FIBER',
+  const handlePortSwitch = useCallback((cableId: string, _connectedEquipmentId: string, newFiberPathId: string, newPortNumber: number) => {
+    updateCable(cableId, {
       fiberPathId: newFiberPathId,
       fiberPortNumber: newPortNumber,
     });
-    setHasChanges(true);
-  }, [addChange, setHasChanges, equipmentId]);
+  }, [updateCable]);
 
   return (
     <div>

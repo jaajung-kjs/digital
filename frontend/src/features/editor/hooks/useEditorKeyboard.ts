@@ -147,21 +147,27 @@ export function useEditorKeyboard(handleSave: () => void) {
 
       // Delete key
       if (e.key === 'Delete' && es.selectedIds.length > 0) {
-        const deletedEquipmentIds = localEquipment
+        const deletedEquipIds = localEquipment
           .filter(eq => es.selectedIds.includes(eq.id) && !isTempId(eq.id))
           .map(eq => eq.id);
-        const deletedElements = localElements
+        const deletedElemIds = localElements
           .filter(el => es.selectedIds.includes(el.id) && !isTempId(el.id))
           .map(el => el.id);
 
-        if (deletedEquipmentIds.length > 0) es.addDeletedEquipmentIds(deletedEquipmentIds);
-        if (deletedElements.length > 0) es.addDeletedElementIds(deletedElements);
+        if (deletedEquipIds.length > 0) es.addDeletedEquipmentIds(deletedEquipIds);
+        if (deletedElemIds.length > 0) es.addDeletedElementIds(deletedElemIds);
 
-        const newEquipment = localEquipment.filter(eq => !es.selectedIds.includes(eq.id));
+        // Use deleteEquipmentWithCascade for equipment (removes cables + pending data)
+        const equipmentToDelete = localEquipment.filter(eq => es.selectedIds.includes(eq.id));
+        for (const eq of equipmentToDelete) {
+          es.deleteEquipmentWithCascade(eq.id);
+        }
+
         const newElements = localElements.filter(el => !es.selectedIds.includes(el.id));
-        es.setLocalEquipment(newEquipment);
         es.setLocalElements(newElements);
-        pushHistory(newElements, newEquipment);
+
+        const currentEquipment = useEditorStore.getState().localEquipment;
+        pushHistory(newElements, currentEquipment);
         es.clearSelection();
         es.setHasChanges(true);
       }

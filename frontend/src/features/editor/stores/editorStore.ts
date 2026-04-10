@@ -6,39 +6,50 @@ import type {
   ViewMode,
 } from '../../../types/floorPlan';
 import type { RackDetail } from '../../../types/rack';
-import type { CableType } from '../../../types/connection';
 
 /** Filter key: either a materialCategoryCode (DB) or a CableType (legacy fallback) */
 export type ConnectionFilterKey = string;
 
-// ==================== Change Set ====================
+// ==================== Local Cable ====================
 
-/**
- * Discriminated union representing every possible buffered mutation.
- * ALL changes to associated entities (photos, cables, logs) go through here.
- * The save handler is the ONLY consumer that converts these into API calls.
- *
- * To add a new entity type:
- *   1. Add variant(s) here
- *   2. Add processing case in useFloorPlanData.ts save handler
- *   3. Component calls addChange({ type: 'xxx:create', ... })
- */
-export type ChangeEntry =
-  | { type: 'photo:upload'; id: string; equipmentId: string; side: 'front' | 'rear'; file: File; description: string; objectUrl: string }
-  | { type: 'photo:delete'; photoId: string }
-  | { type: 'cable:create'; localId: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; label?: string; length?: number; color?: string; fiberPathId?: string; fiberPortNumber?: number; materialCategoryId?: string; specParams?: Record<string, unknown>; pathPoints?: [number, number][]; pathLength?: number; bufferLength?: number; totalLength?: number }
-  | { type: 'cable:update'; id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: CableType; label?: string; length?: number; color?: string; fiberPathId?: string; fiberPortNumber?: number; materialCategoryId?: string; specParams?: Record<string, unknown>; pathPoints?: [number, number][]; pathLength?: number; bufferLength?: number; totalLength?: number }
-  | { type: 'cable:delete'; cableId: string }
-  | { type: 'log:create'; localId: string; equipmentId: string; logType: string; title: string; logDate?: string; severity?: string; description?: string }
-  | { type: 'log:update'; logId: string; logType: string; title: string; logDate?: string; severity?: string; description?: string }
-  | { type: 'log:delete'; logId: string };
+export interface LocalCable {
+  id: string;  // real UUID or temp ID
+  sourceEquipmentId: string;
+  targetEquipmentId: string;
+  cableType: string;
+  materialCategoryId?: string | null;
+  materialCategoryCode?: string | null;
+  specParams?: Record<string, unknown> | null;
+  pathPoints?: [number, number][] | null;
+  pathLength?: number | null;
+  bufferLength?: number;
+  totalLength?: number | null;
+  label?: string | null;
+  color?: string | null;
+  fiberPathId?: string | null;
+  fiberPortNumber?: number | null;
+}
 
-/** Type-safe filter: selectChanges(changeSet, 'cable:create') */
-export function selectChanges<T extends ChangeEntry['type']>(
-  changeSet: ChangeEntry[],
-  type: T
-): Extract<ChangeEntry, { type: T }>[] {
-  return changeSet.filter((c): c is Extract<ChangeEntry, { type: T }> => c.type === type);
+// ==================== Pending Uploads & Logs ====================
+
+export interface PendingUpload {
+  id: string;  // local ID
+  equipmentId: string;  // can be temp ID
+  side: 'front' | 'rear';
+  file: File;
+  description: string;
+  objectUrl: string;  // for preview
+}
+
+export interface PendingLog {
+  id: string;  // local ID
+  equipmentId: string;  // can be temp ID
+  logType: string;
+  title: string;
+  description?: string;
+  logDate?: string;
+  severity?: string;
+  status?: string;
 }
 
 // ==================== Store ====================
@@ -63,15 +74,19 @@ export interface EditorStoreState {
   // Floor plan core state (full local copies)
   localElements: FloorPlanElement[];
   localEquipment: FloorPlanEquipment[];
+  localCables: LocalCable[];
   localRacks: RackDetail[];
   hasChanges: boolean;
 
-  // Element/Equipment deletions (part of bulkUpdatePlan request)
+  // Element/Equipment deletions (tracked for backward compat with server)
   deletedElementIds: string[];
   deletedEquipmentIds: string[];
 
-  // Single change set for ALL associated entity mutations
-  changeSet: ChangeEntry[];
+  // Pending binary uploads (can't be in JSON)
+  pendingUploads: PendingUpload[];
+
+  // Pending log entries
+  pendingLogs: PendingLog[];
 
   connectionFilters: ConnectionFilterKey[];
 
@@ -113,11 +128,22 @@ export interface EditorStoreActions {
   addDeletedElementIds: (ids: string[]) => void;
   addDeletedEquipmentIds: (ids: string[]) => void;
 
-  // Single change set interface — the ONLY way to queue mutations
-  addChange: (entry: ChangeEntry) => void;
-  removeChanges: (predicate: (e: ChangeEntry) => boolean) => void;
-  replaceChangeSet: (entries: ChangeEntry[]) => void;
-  clearChangeSet: () => void;
+  // Cable CRUD
+  addCable: (cable: LocalCable) => void;
+  updateCable: (id: string, updates: Partial<LocalCable>) => void;
+  deleteCable: (id: string) => void;
+  setCables: (cables: LocalCable[]) => void;
+
+  // Pending data
+  addPendingUpload: (upload: PendingUpload) => void;
+  removePendingUpload: (id: string) => void;
+  addPendingLog: (log: PendingLog) => void;
+  updatePendingLog: (id: string, updates: Partial<PendingLog>) => void;
+  removePendingLog: (id: string) => void;
+  clearPendingData: () => void;
+
+  // Equipment delete with cascade
+  deleteEquipmentWithCascade: (equipmentId: string) => void;
 
   setScaleRatio: (ratio: number | null) => void;
   setConnectionFilters: (filters: ConnectionFilterKey[]) => void;
@@ -129,7 +155,6 @@ export interface EditorStoreActions {
   setSelectedCableId: (id: string | null) => void;
   clearSelection: () => void;
   resetEditor: () => void;
-
 }
 
 const initialState: EditorStoreState = {
@@ -147,11 +172,13 @@ const initialState: EditorStoreState = {
   showGrid: true,
   localElements: [],
   localEquipment: [],
+  localCables: [],
   localRacks: [],
   hasChanges: false,
   deletedElementIds: [],
   deletedEquipmentIds: [],
-  changeSet: [],
+  pendingUploads: [],
+  pendingLogs: [],
   scaleRatio: null,
   connectionFilters: [] as ConnectionFilterKey[],
   showLengths: false,
@@ -162,12 +189,10 @@ const initialState: EditorStoreState = {
   selectedCableId: null,
 };
 
-/** Revoke all photo:upload objectURLs in a changeSet to prevent memory leaks */
-function revokeObjectUrls(changeSet: ChangeEntry[]) {
-  for (const entry of changeSet) {
-    if (entry.type === 'photo:upload') {
-      URL.revokeObjectURL(entry.objectUrl);
-    }
+/** Revoke all pending upload objectURLs to prevent memory leaks */
+function revokeUploadUrls(uploads: PendingUpload[]) {
+  for (const upload of uploads) {
+    URL.revokeObjectURL(upload.objectUrl);
   }
 }
 
@@ -207,20 +232,56 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     deletedEquipmentIds: [...state.deletedEquipmentIds, ...ids],
   })),
 
-  // === Change Set ===
-  addChange: (entry) => set((state) => ({
-    changeSet: [...state.changeSet, entry],
+  // === Cable CRUD ===
+  addCable: (cable) => set((state) => ({
+    localCables: [...state.localCables, cable],
+    hasChanges: true,
   })),
-  removeChanges: (predicate) => set((state) => {
-    const removed = state.changeSet.filter(predicate);
-    revokeObjectUrls(removed);
-    return { changeSet: state.changeSet.filter((e) => !predicate(e)) };
+  updateCable: (id, updates) => set((state) => ({
+    localCables: state.localCables.map((c) => c.id === id ? { ...c, ...updates } : c),
+    hasChanges: true,
+  })),
+  deleteCable: (id) => set((state) => ({
+    localCables: state.localCables.filter((c) => c.id !== id),
+    hasChanges: true,
+  })),
+  setCables: (cables) => set({ localCables: cables }),
+
+  // === Pending Data ===
+  addPendingUpload: (upload) => set((state) => ({
+    pendingUploads: [...state.pendingUploads, upload],
+    hasChanges: true,
+  })),
+  removePendingUpload: (id) => set((state) => {
+    const upload = state.pendingUploads.find((u) => u.id === id);
+    if (upload) URL.revokeObjectURL(upload.objectUrl);
+    return { pendingUploads: state.pendingUploads.filter((u) => u.id !== id) };
   }),
-  replaceChangeSet: (entries) => set({ changeSet: entries }),
-  clearChangeSet: () => set((state) => {
-    revokeObjectUrls(state.changeSet);
-    return { changeSet: [], deletedElementIds: [], deletedEquipmentIds: [] };
+  addPendingLog: (log) => set((state) => ({
+    pendingLogs: [...state.pendingLogs, log],
+    hasChanges: true,
+  })),
+  updatePendingLog: (id, updates) => set((state) => ({
+    pendingLogs: state.pendingLogs.map((l) => l.id === id ? { ...l, ...updates } : l),
+  })),
+  removePendingLog: (id) => set((state) => ({
+    pendingLogs: state.pendingLogs.filter((l) => l.id !== id),
+  })),
+  clearPendingData: () => set((state) => {
+    revokeUploadUrls(state.pendingUploads);
+    return { pendingUploads: [], pendingLogs: [], deletedElementIds: [], deletedEquipmentIds: [] };
   }),
+
+  // === Equipment delete with cascade ===
+  deleteEquipmentWithCascade: (equipmentId) => set((state) => ({
+    localEquipment: state.localEquipment.filter((eq) => eq.id !== equipmentId),
+    localCables: state.localCables.filter(
+      (c) => c.sourceEquipmentId !== equipmentId && c.targetEquipmentId !== equipmentId
+    ),
+    pendingUploads: state.pendingUploads.filter((u) => u.equipmentId !== equipmentId),
+    pendingLogs: state.pendingLogs.filter((l) => l.equipmentId !== equipmentId),
+    hasChanges: true,
+  })),
 
   setScaleRatio: (scaleRatio) => set({ scaleRatio }),
   setConnectionFilters: (connectionFilters) => set({ connectionFilters }),
@@ -237,7 +298,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     selectedCableId: null,
   }),
   resetEditor: () => set((state) => {
-    revokeObjectUrls(state.changeSet);
+    revokeUploadUrls(state.pendingUploads);
     return initialState;
   }),
 }));

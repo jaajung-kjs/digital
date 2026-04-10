@@ -82,16 +82,14 @@ export const useOfdConnectionFlowStore = create<OfdConnectionFlowState & OfdConn
 
     if (direction === 'ofdAsTarget' && sourceEquipmentId && ofdId) {
       // OFD is target: port selection completes the flow → create cable immediately
-      useEditorStore.getState().addChange({
-        type: 'cable:create',
-        localId: generateTempId(),
+      useEditorStore.getState().addCable({
+        id: generateTempId(),
         sourceEquipmentId,
         targetEquipmentId: ofdId,
         cableType: 'FIBER',
         fiberPathId,
         fiberPortNumber: portNumber,
       });
-      useEditorStore.getState().setHasChanges(true);
       set(initialState);
     } else {
       // OFD is source: store port info, wait for target selection on canvas
@@ -104,16 +102,14 @@ export const useOfdConnectionFlowStore = create<OfdConnectionFlowState & OfdConn
     if (phase !== 'selectingTarget' || direction !== 'ofdAsSource') return;
     if (!ofdId || !fiberPathId || !portNumber) return;
 
-    useEditorStore.getState().addChange({
-      type: 'cable:create',
-      localId: generateTempId(),
+    useEditorStore.getState().addCable({
+      id: generateTempId(),
       sourceEquipmentId: ofdId,
       targetEquipmentId,
       cableType: 'FIBER',
       fiberPathId,
       fiberPortNumber: portNumber,
     });
-    useEditorStore.getState().setHasChanges(true);
     set(initialState);
   },
 

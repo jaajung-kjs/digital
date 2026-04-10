@@ -43,8 +43,7 @@ function CableSpecModalWrapper() {
 
 function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
   const phase = useCableDrawingStore((s) => s.phase);
-  const addChange = useEditorStore((s) => s.addChange);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const addCable = useEditorStore((s) => s.addCable);
   const addRecentCable = useRecentMaterialsStore((s) => s.addRecent);
   const [pendingValue, setPendingValue] = useState<{
     categoryId: string;
@@ -79,9 +78,8 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
       totalLength = calc.totalLength;
     }
 
-    addChange({
-      type: 'cable:create',
-      localId: generateTempId(),
+    addCable({
+      id: generateTempId(),
       sourceEquipmentId: store.sourceEquipmentId!,
       targetEquipmentId: store.targetEquipmentId!,
       cableType,
@@ -92,7 +90,6 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
       bufferLength,
       totalLength,
     });
-    setHasChanges(true);
 
     addRecentCable('cable', {
       categoryId,
@@ -233,6 +230,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const isAdmin = useIsAdmin();
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const draftCheckedRef = useRef(false);
 
   const {
     room, floorPlan, roomLoading, planLoading, planError, saveError, saveMutation, handleSave,
@@ -281,6 +280,78 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       useSnapshotStore.getState().exit();
     };
   }, [resetEditor]);
+
+  // Check for localStorage draft on initial load
+  useEffect(() => {
+    if (draftCheckedRef.current || !floorPlan) return;
+    draftCheckedRef.current = true;
+    const draftKey = `draft-plan-${roomId}`;
+    const raw = localStorage.getItem(draftKey);
+    if (raw) {
+      try {
+        const draft = JSON.parse(raw);
+        if (draft && draft.savedAt) {
+          setShowDraftDialog(true);
+        }
+      } catch {
+        localStorage.removeItem(draftKey);
+      }
+    }
+  }, [roomId, floorPlan]);
+
+  const handleRestoreDraft = useCallback(() => {
+    const draftKey = `draft-plan-${roomId}`;
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) { setShowDraftDialog(false); return; }
+    try {
+      const draft = JSON.parse(raw);
+      if (draft.localElements) useEditorStore.getState().setLocalElements(draft.localElements);
+      if (draft.localEquipment) useEditorStore.getState().setLocalEquipment(draft.localEquipment);
+      if (draft.localCables) useEditorStore.getState().setCables(draft.localCables);
+      if (draft.pendingLogs) {
+        for (const log of draft.pendingLogs) {
+          useEditorStore.getState().addPendingLog(log);
+        }
+      }
+      if (draft.metadata) {
+        if (draft.metadata.gridSize) useEditorStore.getState().setGridSize(draft.metadata.gridSize);
+        if (draft.metadata.majorGridSize) useEditorStore.getState().setMajorGridSize(draft.metadata.majorGridSize);
+        if (draft.metadata.scaleRatio !== undefined) useEditorStore.getState().setScaleRatio(draft.metadata.scaleRatio);
+      }
+      useEditorStore.getState().setHasChanges(true);
+    } catch { /* ignore */ }
+    setShowDraftDialog(false);
+  }, [roomId]);
+
+  const handleDiscardDraft = useCallback(() => {
+    localStorage.removeItem(`draft-plan-${roomId}`);
+    setShowDraftDialog(false);
+  }, [roomId]);
+
+  // Debounced auto-backup to localStorage
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const state = useEditorStore.getState();
+      if (!state.hasChanges) return;
+      const draftKey = `draft-plan-${roomId}`;
+      try {
+        const draft = {
+          localElements: state.localElements,
+          localEquipment: state.localEquipment,
+          localCables: state.localCables,
+          pendingLogs: state.pendingLogs,
+          metadata: {
+            gridSize: state.gridSize,
+            majorGridSize: state.majorGridSize,
+            scaleRatio: state.scaleRatio,
+          },
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch { /* quota exceeded or serialization error */ }
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [roomId]);
 
   // Navigation guard: warn on unsaved changes
   useEffect(() => {
@@ -503,6 +574,32 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       {/* Infra material selection modal (conduit/tray/pullbox) */}
       {infraMaterialModalOpen && infraMaterialElementId && (
         <InfraMaterialModal elementId={infraMaterialElementId} />
+      )}
+
+      {/* Draft recovery dialog */}
+      {showDraftDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-2">작업 중이던 도면이 있습니다</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              이전에 저장하지 않은 변경사항이 있습니다. 불러오시겠습니까?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={handleDiscardDraft}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                새로 불러오기
+              </button>
+              <button
+                onClick={handleRestoreDraft}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                불러오기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Equipment paste modal */}
