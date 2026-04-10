@@ -86,6 +86,9 @@ export interface UpdatePlanInput {
     properties: Record<string, unknown>;
     zIndex?: number;
     isVisible?: boolean;
+    materialCategoryId?: string | null;
+    specParams?: unknown;
+    pathLength?: number | null;
   }[];
   equipment?: {
     id?: string | null;
@@ -423,6 +426,9 @@ async function captureRoomSnapshot(
         id: e.id, elementType: e.elementType,
         properties: e.properties as Record<string, unknown>,
         zIndex: e.zIndex, isVisible: e.isVisible,
+        materialCategoryId: e.materialCategoryId,
+        specParams: e.specParams,
+        pathLength: e.pathLength,
       })),
       equipment: snapshotEquipment.map(mapEquipmentRow),
       version, updatedAt: updated.updatedAt,
@@ -499,6 +505,9 @@ class RoomService {
         properties: e.properties as Record<string, unknown>,
         zIndex: e.zIndex,
         isVisible: e.isVisible,
+        materialCategoryId: e.materialCategoryId,
+        specParams: e.specParams,
+        pathLength: e.pathLength,
       })),
       equipment: equipment.map(mapEquipmentRow),
       version: room.version,
@@ -611,6 +620,9 @@ class RoomService {
                 properties: element.properties as Prisma.InputJsonValue,
                 zIndex: element.zIndex ?? 0,
                 isVisible: element.isVisible ?? true,
+                materialCategoryId: element.materialCategoryId,
+                specParams: element.specParams as Prisma.InputJsonValue | undefined,
+                pathLength: element.pathLength,
               },
             });
           } else {
@@ -620,6 +632,9 @@ class RoomService {
                 elementType: element.elementType,
                 properties: element.properties as Prisma.InputJsonValue,
                 zIndex: element.zIndex ?? 0,
+                materialCategoryId: element.materialCategoryId,
+                specParams: element.specParams as Prisma.InputJsonValue | undefined,
+                pathLength: element.pathLength,
                 isVisible: element.isVisible ?? true,
               },
             });

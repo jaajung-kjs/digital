@@ -81,6 +81,7 @@ export interface EditorStoreState {
   } | null;
 
   detailPanelEquipmentId: string | null;
+  selectedRackId: string | null;
 
 }
 
@@ -117,6 +118,7 @@ export interface EditorStoreActions {
   setMouseWorldPosition: (pos: { x: number; y: number }) => void;
   setClipboard: (cb: EditorStoreState['clipboard']) => void;
   setDetailPanelEquipmentId: (id: string | null) => void;
+  setSelectedRackId: (id: string | null) => void;
   clearSelection: () => void;
   resetEditor: () => void;
 
@@ -148,6 +150,7 @@ const initialState: EditorStoreState = {
   mouseWorldPosition: { x: 0, y: 0 },
   clipboard: null,
   detailPanelEquipmentId: null,
+  selectedRackId: null,
 };
 
 /** Revoke all photo:upload objectURLs in a changeSet to prevent memory leaks */
@@ -215,6 +218,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setMouseWorldPosition: (mouseWorldPosition) => set({ mouseWorldPosition }),
   setClipboard: (clipboard) => set({ clipboard }),
   setDetailPanelEquipmentId: (detailPanelEquipmentId) => set({ detailPanelEquipmentId }),
+  setSelectedRackId: (selectedRackId) => set({ selectedRackId }),
   clearSelection: () => set({
     selectedIds: [],
     selectedElement: null,

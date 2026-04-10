@@ -1,7 +1,7 @@
 // 평면도 요소 타입 (v2 - CAD 스타일)
 // 기존: 'wall' | 'door' | 'window' | 'column'
 // 신규: 'line' | 'rect' | 'circle' | 'door' | 'window' | 'text'
-export type ElementType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'text';
+export type ElementType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'text' | 'conduit' | 'tray' | 'pullbox';
 
 // 레거시 타입 (마이그레이션용)
 export type LegacyElementType = 'wall' | 'door' | 'window' | 'column';
@@ -118,6 +118,9 @@ export interface FloorPlanElement {
   zIndex: number;
   isVisible: boolean;
   isLocked: boolean;          // 신규: 잠금 상태
+  materialCategoryId?: string | null;
+  specParams?: Record<string, unknown> | null;
+  pathLength?: number | null;
 }
 
 // 평면도 장비 타입 (Rack 통합)
@@ -177,6 +180,9 @@ export interface UpdateFloorPlanRequest {
     zIndex?: number;
     isVisible?: boolean;
     isLocked?: boolean;
+    materialCategoryId?: string | null;
+    specParams?: Record<string, unknown> | null;
+    pathLength?: number | null;
   }[];
   equipment?: {
     id?: string | null;
@@ -268,7 +274,7 @@ export interface EquipmentItem {
 // 에디터 도구 타입 (v2 - CAD 스타일)
 // 기존: 'select' | 'wall' | 'door' | 'window' | 'column' | 'rack' | 'cable' | 'delete'
 // 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete'
-export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'cable' | 'delete';
+export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'cable' | 'conduit' | 'tray' | 'pullbox' | 'delete';
 
 // 에디터 상태 타입
 export interface EditorState {
@@ -531,6 +537,43 @@ export function migrateElement(element: {
           color: props.color || '#1a1a1a',
           rotation: props.rotation || 0,
           textAlign: props.textAlign || 'left',
+        },
+      };
+    }
+
+    case 'conduit':
+    case 'tray': {
+      const props = element.properties as unknown as LineProperties;
+      return {
+        ...baseElement,
+        elementType: element.elementType as ElementType,
+        properties: {
+          points: props.points,
+          strokeWidth: props.strokeWidth || 2,
+          strokeColor: props.strokeColor || (element.elementType === 'conduit' ? '#6366f1' : '#f59e0b'),
+          strokeStyle: props.strokeStyle || (element.elementType === 'conduit' ? 'dashed' : 'solid'),
+        },
+      };
+    }
+
+    case 'pullbox': {
+      const props = element.properties as unknown as RectProperties;
+      return {
+        ...baseElement,
+        elementType: 'pullbox',
+        properties: {
+          x: props.x,
+          y: props.y,
+          width: props.width || 30,
+          height: props.height || 30,
+          rotation: props.rotation || 0,
+          flipH: props.flipH || false,
+          flipV: props.flipV || false,
+          fillColor: props.fillColor || 'transparent',
+          strokeColor: props.strokeColor || '#10b981',
+          strokeWidth: props.strokeWidth || 2,
+          strokeStyle: props.strokeStyle || 'solid',
+          cornerRadius: props.cornerRadius || 0,
         },
       };
     }

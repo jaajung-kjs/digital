@@ -49,6 +49,14 @@ export function useEditorKeyboard(handleSave: () => void) {
       }
 
       if (e.key === 'Escape') {
+        // Cancel infra material modal if open
+        const canvasState = cs;
+        if (canvasState.infraMaterialModalOpen && canvasState.infraMaterialElementId) {
+          const elements = es.localElements.filter((el) => el.id !== canvasState.infraMaterialElementId);
+          es.setLocalElements(elements);
+          cs.setInfraMaterialModalOpen(false);
+          cs.setInfraMaterialElementId(null);
+        }
         cs.resetDrawingState();
         es.setTool('select');
         es.clearSelection();

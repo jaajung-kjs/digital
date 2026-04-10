@@ -24,6 +24,7 @@ import { CableMaterialPicker } from '../../materials/components/CableMaterialPic
 import { getCableTypeFromMaterial } from '../../../types/material';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
+import { RackDetailPanel } from './RackDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { RoomSettingsPanel } from './RoomSettingsPanel';
 
@@ -141,6 +142,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
   const resetEditor = useEditorStore(s => s.resetEditor);
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
+  const selectedRackId = useEditorStore(s => s.selectedRackId);
   const viewMode = useEditorStore(s => s.viewMode);
   const snapshotActive = useSnapshotStore(s => s.active);
   const snapshotLabel = useSnapshotStore(s => s.label);
@@ -169,6 +171,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const setPasteEquipmentModalOpen = useCanvasStore(s => s.setPasteEquipmentModalOpen);
   const pasteEquipmentName = useCanvasStore(s => s.pasteEquipmentName);
   const setPasteEquipmentName = useCanvasStore(s => s.setPasteEquipmentName);
+  const infraMaterialModalOpen = useCanvasStore(s => s.infraMaterialModalOpen);
+  const infraMaterialElementId = useCanvasStore(s => s.infraMaterialElementId);
 
   // Reset editor store and snapshot on unmount
   useEffect(() => {
@@ -311,6 +315,10 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                 <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} roomId={roomId} />
               )}
 
+              {selectedRackId && !detailPanelEquipmentId && (
+                <RackDetailPanel rackId={selectedRackId} roomId={roomId} />
+              )}
+
               {showHistory && (
                 <ChangeHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />
               )}
@@ -373,6 +381,51 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
       {/* Cable spec selection modal */}
       <CableSpecModalWrapper />
+
+      {/* Infra material selection modal (conduit/tray/pullbox) */}
+      {infraMaterialModalOpen && infraMaterialElementId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">부속자재 선택</h3>
+            <div className="mb-4">
+              <MaterialPicker
+                categoryType="ACCESSORY"
+                value={null}
+                onChange={({ categoryId, specParams: sp }) => {
+                  const store = useEditorStore.getState();
+                  const elements = store.localElements.map((el) =>
+                    el.id === infraMaterialElementId
+                      ? { ...el, materialCategoryId: categoryId, specParams: sp }
+                      : el
+                  );
+                  store.setLocalElements(elements);
+                  store.setHasChanges(true);
+                  useCanvasStore.getState().setInfraMaterialModalOpen(false);
+                  useCanvasStore.getState().setInfraMaterialElementId(null);
+                  store.setTool('select');
+                }}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  // Cancel: remove the element that was just created
+                  const store = useEditorStore.getState();
+                  const elements = store.localElements.filter((el) => el.id !== infraMaterialElementId);
+                  store.setLocalElements(elements);
+                  store.setHasChanges(true);
+                  useCanvasStore.getState().setInfraMaterialModalOpen(false);
+                  useCanvasStore.getState().setInfraMaterialElementId(null);
+                  store.setTool('select');
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Equipment paste modal */}
       {pasteEquipmentModalOpen && (

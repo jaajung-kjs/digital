@@ -661,6 +661,181 @@ export function renderEquipmentDrawPreview(
 }
 
 // ============================================
+// Conduit 렌더러
+// ============================================
+
+export function renderConduit(
+  ctx: CanvasRenderingContext2D,
+  element: FloorPlanElement,
+  isSelected: boolean
+): void {
+  const props = element.properties as LineProperties;
+  if (!props.points || props.points.length < 2) return;
+
+  const strokeColor = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#6366f1');
+
+  // Dashed line for conduit
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = props.strokeWidth || 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.setLineDash([8, 4]);
+
+  ctx.beginPath();
+  ctx.moveTo(props.points[0][0], props.points[0][1]);
+  for (let i = 1; i < props.points.length; i++) {
+    ctx.lineTo(props.points[i][0], props.points[i][1]);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // End markers (small circles)
+  const markerRadius = 4;
+  ctx.fillStyle = strokeColor;
+  for (const point of [props.points[0], props.points[props.points.length - 1]]) {
+    ctx.beginPath();
+    ctx.arc(point[0], point[1], markerRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (isSelected) {
+    ctx.fillStyle = SELECTION_STYLES.point;
+    for (const point of props.points) {
+      ctx.beginPath();
+      ctx.arc(point[0], point[1], SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// ============================================
+// Tray 렌더러
+// ============================================
+
+export function renderTray(
+  ctx: CanvasRenderingContext2D,
+  element: FloorPlanElement,
+  isSelected: boolean
+): void {
+  const props = element.properties as LineProperties;
+  if (!props.points || props.points.length < 2) return;
+
+  const strokeColor = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#f59e0b');
+  const trayWidth = 6; // Half-width of the tray visualization
+
+  // Draw double lines for tray
+  for (let i = 0; i < props.points.length - 1; i++) {
+    const [x1, y1] = props.points[i];
+    const [x2, y2] = props.points[i + 1];
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len === 0) continue;
+
+    // Perpendicular direction
+    const nx = -dy / len * trayWidth;
+    const ny = dx / len * trayWidth;
+
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = (props.strokeWidth || 2) * 0.75;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([]);
+
+    // Top line
+    ctx.beginPath();
+    ctx.moveTo(x1 + nx, y1 + ny);
+    ctx.lineTo(x2 + nx, y2 + ny);
+    ctx.stroke();
+
+    // Bottom line
+    ctx.beginPath();
+    ctx.moveTo(x1 - nx, y1 - ny);
+    ctx.lineTo(x2 - nx, y2 - ny);
+    ctx.stroke();
+  }
+
+  if (isSelected) {
+    ctx.fillStyle = SELECTION_STYLES.point;
+    for (const point of props.points) {
+      ctx.beginPath();
+      ctx.arc(point[0], point[1], SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// ============================================
+// Pullbox 렌더러
+// ============================================
+
+export function renderPullbox(
+  ctx: CanvasRenderingContext2D,
+  element: FloorPlanElement,
+  isSelected: boolean
+): void {
+  const props = element.properties as RectProperties;
+
+  ctx.save();
+  applyStandardTransform(ctx, {
+    x: props.x,
+    y: props.y,
+    width: props.width,
+    height: props.height,
+    rotation: props.rotation,
+  });
+
+  const strokeColor = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#10b981');
+
+  // Square outline
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = props.strokeWidth || 2;
+  ctx.setLineDash([]);
+  ctx.strokeRect(0, 0, props.width, props.height);
+
+  // Diagonal X
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(props.width, props.height);
+  ctx.moveTo(props.width, 0);
+  ctx.lineTo(0, props.height);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  if (isSelected) {
+    ctx.fillStyle = SELECTION_STYLES.fill;
+    ctx.fillRect(0, 0, props.width, props.height);
+  }
+
+  ctx.restore();
+}
+
+export function renderPullboxPreview(
+  ctx: CanvasRenderingContext2D,
+  position: { x: number; y: number }
+): void {
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  const size = 30;
+  const x = position.x - size / 2;
+  const y = position.y - size / 2;
+
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, size, size);
+
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + size, y + size);
+  ctx.moveTo(x + size, y);
+  ctx.lineTo(x, y + size);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ============================================
 // 통합 렌더링 함수
 // ============================================
 
@@ -681,6 +856,9 @@ export function renderElement(
     case 'door': renderDoor(ctx, element, isSelected); break;
     case 'window': renderWindow(ctx, element, isSelected); break;
     case 'text': renderText(ctx, element, isSelected); break;
+    case 'conduit': renderConduit(ctx, element, isSelected); break;
+    case 'tray': renderTray(ctx, element, isSelected); break;
+    case 'pullbox': renderPullbox(ctx, element, isSelected); break;
   }
 }
 
@@ -720,7 +898,7 @@ export function renderEquipmentItems(
 // 미리보기 렌더링
 // ============================================
 
-export type DrawingToolType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text';
+export type DrawingToolType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'pullbox';
 
 /**
  * 오브젝트 배치 미리보기 (패턴 B: 시작점만)
@@ -739,6 +917,7 @@ export function renderPlacementPreview(
     case 'window': renderWindowPreview(ctx, position, 0); break;
     case 'equipment': renderEquipmentPreview(ctx, position); break;
     case 'text': renderTextPreview(ctx, position); break;
+    case 'pullbox': renderPullboxPreview(ctx, position); break;
   }
 
   ctx.restore();

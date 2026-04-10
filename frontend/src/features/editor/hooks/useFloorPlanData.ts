@@ -272,6 +272,9 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         properties: e.properties,
         zIndex: e.zIndex,
         isVisible: e.isVisible,
+        materialCategoryId: e.materialCategoryId || undefined,
+        specParams: e.specParams || undefined,
+        pathLength: e.pathLength ?? undefined,
       })),
       equipment: localEquipment.map(eq => ({
         id: isTempId(eq.id) ? null : eq.id,
