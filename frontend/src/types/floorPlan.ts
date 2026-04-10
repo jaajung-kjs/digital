@@ -203,6 +203,10 @@ export interface UpdateFloorPlanRequest {
     color?: string | null;
     materialCategoryId?: string;
     specParams?: Record<string, unknown>;
+    pathPoints?: [number, number][];
+    pathLength?: number;
+    bufferLength?: number;
+    totalLength?: number;
   }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];

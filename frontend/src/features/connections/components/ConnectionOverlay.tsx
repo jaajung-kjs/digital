@@ -38,6 +38,9 @@ function mapConnectionsToRenderable(
       cableType: conn.cableType,
       label: conn.label || conn.materialCategoryCode || undefined,
       color: conn.color || CABLE_COLORS[conn.cableType] || '#6b7280',
+      pathPoints: conn.pathPoints,
+      pathLength: conn.pathLength,
+      totalLength: conn.totalLength,
     });
   }
   return result;
