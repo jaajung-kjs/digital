@@ -37,7 +37,7 @@ interface RackViewProps {
 
 /**
  * Shared rack U-slot visualization + equipment list + add button.
- * Used by both RackDetailPanel (standalone) and EquipmentDetailPanel (RackContentTab).
+ * Used by EquipmentDetailPanel's "내부 설비" tab for EQP-RACK equipment.
  */
 export function RackView({ rackId }: RackViewProps) {
   const { data: rack, isLoading } = useRackDetail(rackId);
