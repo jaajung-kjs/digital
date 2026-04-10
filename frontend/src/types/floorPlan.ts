@@ -169,7 +169,7 @@ export interface UpdateFloorPlanRequest {
   gridSize?: number;
   majorGridSize?: number;
   backgroundColor?: string;
-  scaleRatio?: number;
+  scaleRatio?: number | null;
   elements?: {
     id?: string | null;
     elementType: ElementType;

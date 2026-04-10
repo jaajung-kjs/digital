@@ -262,7 +262,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       canvasHeight: floorPlan.canvasHeight,
       gridSize,
       majorGridSize,
-      scaleRatio: currentScaleRatio ?? undefined,
+      scaleRatio: currentScaleRatio,
       elements: localElements.map(e => ({
         id: isTempId(e.id) ? null : e.id,
         elementType: e.elementType,
