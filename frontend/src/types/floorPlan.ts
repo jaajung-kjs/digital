@@ -273,7 +273,7 @@ export interface EquipmentItem {
 
 // 에디터 도구 타입 (v2 - CAD 스타일)
 // 기존: 'select' | 'wall' | 'door' | 'window' | 'column' | 'rack' | 'cable' | 'delete'
-// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete'
+// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'rack' | 'text' | 'delete'
 export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'rack' | 'text' | 'cable' | 'conduit' | 'tray' | 'pullbox' | 'delete';
 
 // 에디터 상태 타입
