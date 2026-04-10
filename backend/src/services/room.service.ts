@@ -31,6 +31,7 @@ export interface RoomPlanDetail {
   gridSize: number;
   majorGridSize: number;
   backgroundColor: string;
+  scaleRatio: number | null;
   elements: {
     id: string;
     elementType: string;
@@ -78,6 +79,7 @@ export interface UpdatePlanInput {
   gridSize?: number;
   majorGridSize?: number;
   backgroundColor?: string;
+  scaleRatio?: number;
   elements?: {
     id?: string | null;
     elementType: string;
@@ -115,6 +117,10 @@ export interface UpdatePlanInput {
     fiberPortNumber?: number | null;
     materialCategoryId?: string | null;
     specParams?: any;
+    pathPoints?: any;
+    pathLength?: number;
+    bufferLength?: number;
+    totalLength?: number;
   }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
@@ -486,6 +492,7 @@ class RoomService {
       gridSize: room.gridSize,
       majorGridSize: room.majorGridSize,
       backgroundColor: room.backgroundColor,
+      scaleRatio: room.scaleRatio ?? null,
       elements: room.elements.map((e) => ({
         id: e.id,
         elementType: e.elementType,
@@ -702,6 +709,10 @@ class RoomService {
                 fiberPortNumber: cable.fiberPortNumber ?? null,
                 materialCategoryId: cable.materialCategoryId,
                 specParams: cable.specParams as Prisma.InputJsonValue | undefined,
+                pathPoints: cable.pathPoints as Prisma.InputJsonValue | undefined,
+                pathLength: cable.pathLength,
+                bufferLength: cable.bufferLength,
+                totalLength: cable.totalLength,
                 updatedById: userId,
               },
             });
@@ -731,6 +742,10 @@ class RoomService {
                 fiberPortNumber: cable.fiberPortNumber ?? null,
                 materialCategoryId: cable.materialCategoryId,
                 specParams: cable.specParams as Prisma.InputJsonValue | undefined,
+                pathPoints: cable.pathPoints as Prisma.InputJsonValue | undefined,
+                pathLength: cable.pathLength,
+                bufferLength: cable.bufferLength,
+                totalLength: cable.totalLength,
                 createdById: userId,
                 updatedById: userId,
               },
@@ -748,6 +763,7 @@ class RoomService {
           gridSize: input.gridSize,
           majorGridSize: input.majorGridSize,
           backgroundColor: input.backgroundColor,
+          ...(input.scaleRatio !== undefined ? { scaleRatio: input.scaleRatio } : {}),
           ...(hasStructuralChange ? { version: { increment: 1 } } : {}),
           updatedById: userId,
         },
