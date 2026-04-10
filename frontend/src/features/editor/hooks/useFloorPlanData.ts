@@ -145,10 +145,46 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         await run(others);
       }
 
+      // Auto-create Rack entities for newly saved EQP-RACK equipment
+      if (Object.keys(equipmentIdMap).length > 0) {
+        const { localEquipment: savedEquipment, localRacks: existingRacks } = useEditorStore.getState();
+        const newRackEquipment = savedEquipment.filter((eq) => {
+          // Only process equipment that was just created (has a tempId mapping)
+          const realId = tempIdMap.get(eq.id);
+          if (!realId) return false;
+          // Check if this is a rack-type equipment
+          if (!eq.materialCategoryCode?.startsWith('EQP-RACK')) return false;
+          // Check that no rack already exists at this position
+          const alreadyHasRack = existingRacks.some(
+            (r) => Math.abs(r.positionX - eq.positionX) < 5 && Math.abs(r.positionY - eq.positionY) < 5
+          );
+          return !alreadyHasRack;
+        });
+
+        if (newRackEquipment.length > 0) {
+          const rackResults = await Promise.allSettled(
+            newRackEquipment.map((eq) =>
+              api.post(`/floor-plans/${roomId}/racks`, {
+                name: eq.name,
+                positionX: eq.positionX,
+                positionY: eq.positionY,
+                width: eq.width,
+                height: eq.height,
+              })
+            )
+          );
+          const rackFailures = rackResults.filter((r) => r.status === 'rejected');
+          if (rackFailures.length > 0) {
+            console.warn(`[Save] ${rackFailures.length} rack auto-creation(s) failed:`, rackFailures);
+          }
+        }
+      }
+
       // Clear and invalidate
       useEditorStore.getState().clearChangeSet();
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
       queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
+      queryClient.invalidateQueries({ queryKey: ['floor-plan-racks', roomId] });
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
       if (nonCableChanges.some((e) => e.type.startsWith('photo:'))) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
