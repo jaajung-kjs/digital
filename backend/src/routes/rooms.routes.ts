@@ -99,6 +99,8 @@ const createFloorPlanEquipmentSchema = z.object({
   manager: z.string().max(100).optional(),
   description: z.string().optional(),
   properties: z.unknown().optional(),
+  materialCategoryId: z.string().uuid().optional(),
+  specParams: z.any().optional(),
 });
 
 // 실에 배치된 설비 조회 (인증 불필요)

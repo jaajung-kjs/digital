@@ -45,6 +45,8 @@ export interface CreateEquipmentInput {
   manager?: string;
   description?: string;
   properties?: unknown;
+  materialCategoryId?: string;
+  specParams?: unknown;
 }
 
 export interface CreateFloorPlanEquipmentInput {
@@ -64,6 +66,8 @@ export interface CreateFloorPlanEquipmentInput {
   manager?: string;
   description?: string;
   properties?: unknown;
+  materialCategoryId?: string;
+  specParams?: unknown;
 }
 
 export interface UpdateEquipmentInput {
@@ -375,6 +379,8 @@ class EquipmentService {
         manager: input.manager,
         description: input.description,
         properties: (input.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        materialCategoryId: input.materialCategoryId,
+        specParams: input.specParams != null ? (input.specParams as Prisma.InputJsonValue) : undefined,
         createdById: userId,
         updatedById: userId,
       },
@@ -583,6 +589,8 @@ class EquipmentService {
         manager: input.manager,
         description: input.description,
         properties: (input.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        materialCategoryId: input.materialCategoryId,
+        specParams: input.specParams != null ? (input.specParams as Prisma.InputJsonValue) : undefined,
         createdById: userId,
         updatedById: userId,
       },
