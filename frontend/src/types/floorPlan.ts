@@ -155,6 +155,7 @@ export interface FloorPlanDetail {
   gridSize: number;
   majorGridSize: number;
   backgroundColor: string;
+  scaleRatio?: number | null; // 1px = ?mm
   elements: FloorPlanElement[];
   equipment: FloorPlanEquipment[];
   version: number;
@@ -168,6 +169,7 @@ export interface UpdateFloorPlanRequest {
   gridSize?: number;
   majorGridSize?: number;
   backgroundColor?: string;
+  scaleRatio?: number;
   elements?: {
     id?: string | null;
     elementType: ElementType;

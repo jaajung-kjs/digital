@@ -181,6 +181,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       setLocalEquipment(floorPlan.equipment);
       setGridSize(floorPlan.gridSize);
       setMajorGridSize(floorPlan.majorGridSize ?? 60);
+      useEditorStore.getState().setScaleRatio(floorPlan.scaleRatio ?? null);
 
       if (isSavingRef.current) {
         isSavingRef.current = false;
@@ -255,11 +256,13 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
     const cables = [...cableCreates, ...cableUpdates];
 
+    const currentScaleRatio = useEditorStore.getState().scaleRatio;
     const updateData: UpdateFloorPlanRequest = {
       canvasWidth: floorPlan.canvasWidth,
       canvasHeight: floorPlan.canvasHeight,
       gridSize,
       majorGridSize,
+      scaleRatio: currentScaleRatio ?? undefined,
       elements: localElements.map(e => ({
         id: isTempId(e.id) ? null : e.id,
         elementType: e.elementType,
