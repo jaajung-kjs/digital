@@ -10,6 +10,8 @@ import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
+import { MaterialPicker } from '../../materials/components/MaterialPicker';
+import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
 import { Toolbar } from './Toolbar';
 import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
@@ -58,6 +60,14 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const newEquipmentCategory = useCanvasStore(s => s.newEquipmentCategory);
   const setNewEquipmentCategory = useCanvasStore(s => s.setNewEquipmentCategory);
   const newEquipmentPosition = useCanvasStore(s => s.newEquipmentPosition);
+  const newEquipmentMaterialCategoryId = useCanvasStore(s => s.newEquipmentMaterialCategoryId);
+  const newEquipmentMaterialCategoryCode = useCanvasStore(s => s.newEquipmentMaterialCategoryCode);
+  const newEquipmentSpecParams = useCanvasStore(s => s.newEquipmentSpecParams);
+  const newEquipmentSpecification = useCanvasStore(s => s.newEquipmentSpecification);
+  const setNewEquipmentMaterial = useCanvasStore(s => s.setNewEquipmentMaterial);
+  const resetNewEquipmentMaterial = useCanvasStore(s => s.resetNewEquipmentMaterial);
+  const recentEquipment = useRecentMaterialsStore(s => s.recentEquipment);
+  const addRecent = useRecentMaterialsStore(s => s.addRecent);
   const pasteEquipmentModalOpen = useCanvasStore(s => s.pasteEquipmentModalOpen);
   const setPasteEquipmentModalOpen = useCanvasStore(s => s.setPasteEquipmentModalOpen);
   const pasteEquipmentName = useCanvasStore(s => s.pasteEquipmentName);
@@ -101,13 +111,29 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       frontImageUrl: null,
       rearImageUrl: null,
       description: null,
+      materialCategoryId: newEquipmentMaterialCategoryId,
+      materialCategoryCode: newEquipmentMaterialCategoryCode,
+      specParams: newEquipmentSpecParams,
     };
     const newList = [...useEditorStore.getState().localEquipment, newEquip];
     setLocalEquipment(newList);
     pushHistory(useEditorStore.getState().localElements, newList);
+
+    // Track recent material usage
+    if (newEquipmentMaterialCategoryId && newEquipmentMaterialCategoryCode && newEquipmentSpecification) {
+      addRecent('equipment', {
+        categoryId: newEquipmentMaterialCategoryId,
+        categoryCode: newEquipmentMaterialCategoryCode,
+        categoryName: newEquipmentSpecification,
+        specParams: newEquipmentSpecParams ?? {},
+        specification: newEquipmentSpecification,
+      });
+    }
+
     setEquipmentModalOpen(false);
     setNewEquipmentName('');
     setNewEquipmentCategory('NETWORK');
+    resetNewEquipmentMaterial();
     setHasChanges(true);
     setTool('select');
   };
@@ -225,21 +251,17 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
               />
             </div>
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">분류</label>
-              <select
-                value={newEquipmentCategory}
-                onChange={(e) => setNewEquipmentCategory(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="NETWORK">네트워크</option>
-                <option value="CHARGER">충전기</option>
-                <option value="UPS">UPS</option>
-                <option value="DISTRIBUTION_BOARD">분전반</option>
-                <option value="OFD">OFD</option>
-              </select>
+              <MaterialPicker
+                categoryType="EQUIPMENT"
+                value={newEquipmentMaterialCategoryId ? { categoryId: newEquipmentMaterialCategoryId, specParams: newEquipmentSpecParams ?? {} } : null}
+                onChange={({ categoryId, categoryCode, specParams, specification }) => {
+                  setNewEquipmentMaterial(categoryId, categoryCode, specParams, specification);
+                }}
+                recentItems={recentEquipment}
+              />
             </div>
             <div className="flex justify-end gap-3">
-              <button onClick={() => { setEquipmentModalOpen(false); setNewEquipmentName(''); setNewEquipmentCategory('NETWORK'); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
+              <button onClick={() => { setEquipmentModalOpen(false); setNewEquipmentName(''); setNewEquipmentCategory('NETWORK'); resetNewEquipmentMaterial(); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
               <button onClick={handleAddEquipment} disabled={!newEquipmentName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">추가</button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
+import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 
 interface CanvasStoreState {
   // Line drawing state
@@ -47,6 +48,12 @@ interface CanvasStoreState {
   newEquipmentCategory: string;
   pasteEquipmentName: string;
   newEquipmentPosition: { x: number; y: number };
+
+  // Material-based equipment selection
+  newEquipmentMaterialCategoryId: string | null;
+  newEquipmentMaterialCategoryCode: string | null;
+  newEquipmentSpecParams: Record<string, unknown> | null;
+  newEquipmentSpecification: string | null;
 }
 
 interface CanvasStoreActions {
@@ -96,6 +103,15 @@ interface CanvasStoreActions {
   setPasteEquipmentName: (v: string) => void;
   setNewEquipmentPosition: (p: { x: number; y: number }) => void;
 
+  // Material-based equipment selection
+  setNewEquipmentMaterial: (
+    categoryId: string | null,
+    categoryCode: string | null,
+    specParams: Record<string, unknown> | null,
+    specification: string | null,
+  ) => void;
+  resetNewEquipmentMaterial: () => void;
+
   // Reset all drawing/interaction state
   resetDrawingState: () => void;
 }
@@ -130,6 +146,10 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   newEquipmentCategory: 'NETWORK',
   pasteEquipmentName: '',
   newEquipmentPosition: { x: 100, y: 100 },
+  newEquipmentMaterialCategoryId: null,
+  newEquipmentMaterialCategoryCode: null,
+  newEquipmentSpecParams: null,
+  newEquipmentSpecification: null,
 
   // Actions
   setIsDrawingLine: (isDrawingLine) => set({ isDrawingLine }),
@@ -160,6 +180,25 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setNewEquipmentCategory: (newEquipmentCategory) => set({ newEquipmentCategory }),
   setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
   setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
+
+  setNewEquipmentMaterial: (categoryId, categoryCode, specParams, specification) =>
+    set({
+      newEquipmentMaterialCategoryId: categoryId,
+      newEquipmentMaterialCategoryCode: categoryCode,
+      newEquipmentSpecParams: specParams,
+      newEquipmentSpecification: specification,
+      // Auto-map to old enum for backwards compatibility
+      newEquipmentCategory: categoryCode
+        ? getEquipmentCategoryFromMaterial(categoryCode)
+        : 'NETWORK',
+    }),
+  resetNewEquipmentMaterial: () =>
+    set({
+      newEquipmentMaterialCategoryId: null,
+      newEquipmentMaterialCategoryCode: null,
+      newEquipmentSpecParams: null,
+      newEquipmentSpecification: null,
+    }),
 
   resetDrawingState: () => set({
     isDrawingLine: false,
