@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { RoomConnection } from '../../../types/connection';
-import { useRoomConnections } from '../hooks/useRoomConnections';
-import { useMergedConnections } from '../hooks/useMergedConnections';
-import { useEditorStore, type ChangeEntry } from '../../editor/stores/editorStore';
+import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { CABLE_COLORS } from '../../../types/connection';
 import {
@@ -20,6 +18,33 @@ import { useCableHitTestStore } from '../stores/cableHitTestStore';
 interface ConnectionOverlayProps {
   roomId: string;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+}
+
+function mapCablesToRenderable(
+  cables: LocalCable[],
+  equipmentPositions: Map<string, { x: number; y: number; width: number; height: number }>
+): RenderableConnection[] {
+  const result: RenderableConnection[] = [];
+  for (const cable of cables) {
+    const sourcePos = equipmentPositions.get(cable.sourceEquipmentId);
+    const targetPos = equipmentPositions.get(cable.targetEquipmentId);
+    if (!sourcePos || !targetPos) continue;
+    result.push({
+      id: cable.id,
+      sourceX: sourcePos.x + sourcePos.width / 2,
+      sourceY: sourcePos.y + sourcePos.height / 2,
+      targetX: targetPos.x + targetPos.width / 2,
+      targetY: targetPos.y + targetPos.height / 2,
+      cableType: cable.cableType,
+      label: cable.label || cable.materialCategoryCode || undefined,
+      color: cable.color || CABLE_COLORS[cable.cableType] || '#6b7280',
+      pathPoints: cable.pathPoints ?? undefined,
+      pathLength: cable.pathLength ?? undefined,
+      totalLength: cable.totalLength ?? undefined,
+      materialCategoryCode: cable.materialCategoryCode ?? undefined,
+    });
+  }
+  return result;
 }
 
 function mapConnectionsToRenderable(
@@ -49,7 +74,7 @@ function mapConnectionsToRenderable(
   return result;
 }
 
-export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps) {
+export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOverlayProps) {
   const viewMode = useEditorStore((s) => s.viewMode);
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
@@ -65,7 +90,7 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
 
   const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
 
-  const changeSet = useEditorStore((s) => s.changeSet);
+  const editorCables = useEditorStore((s) => s.localCables);
 
   const highlightActive = usePathHighlightStore((s) => s.active);
   const highlightedNodeIds = usePathHighlightStore((s) => s.highlightedNodeIds);
@@ -81,17 +106,11 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
   const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
   const ofdFlowHoveredId = useOfdConnectionFlowStore((s) => s.hoveredEquipmentId);
 
-  const { data: backendConnections } = useRoomConnections(roomId, viewMode === 'edit-2d');
-
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
-  const emptyChangeSet = useMemo(() => [] as ChangeEntry[], []);
-  const mergedConnections = useMergedConnections(
-    snapshotActive ? undefined : backendConnections,
-    snapshotActive ? emptyChangeSet : changeSet,
-    localEquipment,
-  );
-  const connections = snapshotActive ? snapshotCables : mergedConnections;
+  // Use localCables directly (no merge needed), or snapshot cables in preview mode
+  const connections = snapshotActive ? snapshotCables : null;
+  const cables = snapshotActive ? null : editorCables;
 
   const equipmentPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; width: number; height: number }>();
@@ -102,28 +121,30 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
   }, [localEquipment]);
 
   const renderableConnections = useMemo(() => {
-    if (!connections) return [];
-    const all = mapConnectionsToRenderable(connections, equipmentPositions);
+    const all = snapshotActive
+      ? (connections ? mapConnectionsToRenderable(connections, equipmentPositions) : [])
+      : (cables ? mapCablesToRenderable(cables, equipmentPositions) : []);
     if (connectionFilters.length === 0) return [];
     return all.filter((c) => {
       // Match by materialCategoryCode first, then fall back to cableType
       const filterKey = c.materialCategoryCode || c.cableType;
       return connectionFilters.includes(filterKey);
     });
-  }, [connections, equipmentPositions, connectionFilters]);
+  }, [connections, cables, snapshotActive, equipmentPositions, connectionFilters]);
 
   // Build hit-test entries from connection identity only (not viewport-dependent)
   const hitTestEntries = useMemo(() => {
-    if (!connections) return [];
-    const filtered = mapConnectionsToRenderable(connections, equipmentPositions);
+    const all = snapshotActive
+      ? (connections ? mapConnectionsToRenderable(connections, equipmentPositions) : [])
+      : (cables ? mapCablesToRenderable(cables, equipmentPositions) : []);
     if (connectionFilters.length === 0) return [];
-    return filtered
+    return all
       .filter((c) => {
         const filterKey = c.materialCategoryCode || c.cableType;
         return connectionFilters.includes(filterKey) && c.id && c.pathPoints && c.pathPoints.length >= 2;
       })
       .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
-  }, [connections, equipmentPositions, connectionFilters]);
+  }, [connections, cables, snapshotActive, equipmentPositions, connectionFilters]);
 
   // Populate cable hit test store for useCanvasEvents
   const setCableHitEntries = useCableHitTestStore((s) => s.setCables);
@@ -284,11 +305,33 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [viewMode, creationPhase, cancelCreation, ofdFlowPhase, highlightActive, clearHighlight, selectedCableId, setSelectedCableId]);
 
-  // Find selected cable's connection data for waypoint handles
-  const selectedCableConnection = useMemo(() => {
-    if (!selectedCableId || !connections) return null;
-    return connections.find((c) => c.id === selectedCableId) ?? null;
-  }, [selectedCableId, connections]);
+  // Find selected cable for waypoint handles
+  const selectedCable = useMemo(() => {
+    if (!selectedCableId) return null;
+    if (snapshotActive && connections) {
+      return connections.find((c) => c.id === selectedCableId) ?? null;
+    }
+    if (cables) {
+      const cable = cables.find((c) => c.id === selectedCableId);
+      if (!cable) return null;
+      // Convert LocalCable to RoomConnection shape for CableWaypointHandles
+      return {
+        id: cable.id,
+        sourceEquipmentId: cable.sourceEquipmentId,
+        targetEquipmentId: cable.targetEquipmentId,
+        cableType: cable.cableType,
+        pathPoints: cable.pathPoints ?? undefined,
+        pathLength: cable.pathLength ?? undefined,
+        totalLength: cable.totalLength ?? undefined,
+        color: cable.color ?? undefined,
+        label: cable.label ?? undefined,
+        materialCategoryCode: cable.materialCategoryCode ?? undefined,
+        sourceEquipment: { id: cable.sourceEquipmentId, name: '', rackId: null, roomId: null },
+        targetEquipment: { id: cable.targetEquipmentId, name: '', rackId: null, roomId: null },
+      } as RoomConnection;
+    }
+    return null;
+  }, [selectedCableId, connections, cables, snapshotActive]);
 
   if (viewMode !== 'edit-2d') return null;
 
@@ -302,9 +345,9 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
 
 
       {/* Waypoint handles for selected cable */}
-      {selectedCableConnection && selectedCableConnection.pathPoints && selectedCableConnection.pathPoints.length >= 2 && (
+      {selectedCable && selectedCable.pathPoints && selectedCable.pathPoints.length >= 2 && (
         <CableWaypointHandles
-          cable={selectedCableConnection}
+          cable={selectedCable}
           zoom={zoom}
           panX={panX}
           panY={panY}

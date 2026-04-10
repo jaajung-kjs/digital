@@ -1,7 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
-import { isTempId } from '../../../utils/idHelpers';
 import { CABLE_COLORS } from '../../../types/connection';
 
 interface CableWaypointHandlesProps {
@@ -142,47 +141,12 @@ function WaypointHandle({
           realTotalLength = bufferLength;
         }
 
-        if (isTempId(cable.id)) {
-          // Update the pending cable:create entry
-          const updatedChangeSet = store.changeSet.map((entry) => {
-            if (entry.type === 'cable:create' && entry.localId === cable.id) {
-              return {
-                ...entry,
-                pathPoints: newPathPoints,
-                pathLength: realPathLength ?? entry.pathLength,
-                totalLength: realTotalLength ?? entry.totalLength,
-              };
-            }
-            return entry;
-          });
-          store.replaceChangeSet(updatedChangeSet);
-        } else {
-          // Check if there's already a cable:update for this cable
-          const existingUpdate = store.changeSet.find(
-            (e) => e.type === 'cable:update' && e.id === cable.id
-          );
-          if (existingUpdate && existingUpdate.type === 'cable:update') {
-            const updatedChangeSet = store.changeSet.map((entry) => {
-              if (entry.type === 'cable:update' && entry.id === cable.id) {
-                return { ...entry, pathPoints: newPathPoints, pathLength: realPathLength, totalLength: realTotalLength };
-              }
-              return entry;
-            });
-            store.replaceChangeSet(updatedChangeSet);
-          } else {
-            store.addChange({
-              type: 'cable:update',
-              id: cable.id,
-              sourceEquipmentId: cable.sourceEquipmentId,
-              targetEquipmentId: cable.targetEquipmentId,
-              cableType: cable.cableType,
-              pathPoints: newPathPoints,
-              pathLength: realPathLength,
-              totalLength: realTotalLength,
-            });
-          }
-          store.setHasChanges(true);
-        }
+        // Update cable directly in localCables
+        store.updateCable(cable.id, {
+          pathPoints: newPathPoints,
+          pathLength: realPathLength ?? undefined,
+          totalLength: realTotalLength ?? undefined,
+        });
 
         setDragPos(null);
         startRef.current = null;

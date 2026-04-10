@@ -101,7 +101,7 @@ function applySnapshotToEditor(snapshot: SnapshotResponse, roomId: string, query
 
   useSnapshotStore.getState().exit();
 
-  store.clearChangeSet();
+  store.clearPendingData();
   clearEditorFocus();
 
   const elements = snapshot.plan.elements.map((e) => ({
