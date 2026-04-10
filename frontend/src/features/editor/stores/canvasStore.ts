@@ -235,7 +235,6 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
       newEquipmentMaterialCategoryCode: categoryCode,
       newEquipmentSpecParams: specParams,
       newEquipmentSpecification: specification,
-      // Auto-map to old enum for backwards compatibility
       newEquipmentCategory: categoryCode
         ? getEquipmentCategoryFromMaterial(categoryCode)
         : 'NETWORK',

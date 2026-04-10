@@ -287,7 +287,6 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const setRackModalName = useCanvasStore(s => s.setNewRackName);
   const setRackModalTotalU = useCanvasStore(s => s.setNewRackTotalU);
   const queryClient = useQueryClient();
-
   // Reset editor store and snapshot on unmount
   useEffect(() => {
     return () => {
