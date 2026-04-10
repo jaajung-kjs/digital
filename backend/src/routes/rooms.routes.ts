@@ -40,6 +40,9 @@ const equipmentSchema = z.object({
   manufacturer: z.string().optional().nullable(),
   manager: z.string().optional().nullable(),
   height3d: z.number().optional().nullable(),
+  materialCategoryId: z.string().uuid().optional().nullable(),
+  materialCategoryCode: z.string().optional().nullable(),
+  specParams: z.any().optional().nullable(),
 });
 
 const cableSchema = z.object({
@@ -50,8 +53,11 @@ const cableSchema = z.object({
   label: z.string().nullish(),
   length: z.number().nullish(),
   color: z.string().nullish(),
+  description: z.string().nullish(),
   fiberPathId: z.string().uuid().nullish(),
   fiberPortNumber: z.number().int().min(1).max(48).nullish(),
+  materialCategoryId: z.string().uuid().nullish(),
+  specParams: z.any().nullish(),
   pathPoints: z.array(z.array(z.number()).length(2)).nullish(),
   pathLength: z.number().nullish(),
   bufferLength: z.number().nullish(),

@@ -107,6 +107,7 @@ export interface UpdatePlanInput {
     manager?: string | null;
     height3d?: number | null;
     materialCategoryId?: string | null;
+    materialCategoryCode?: string | null;
     specParams?: any;
   }[];
   cables?: {
@@ -125,6 +126,7 @@ export interface UpdatePlanInput {
     pathLength?: number;
     bufferLength?: number;
     totalLength?: number;
+    description?: string | null;
   }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
@@ -187,6 +189,15 @@ function truncate(str: string, maxLen: number): string {
   return str.substring(0, maxLen - 3) + '...';
 }
 
+/** Check if a string is a valid UUID v4 (i.e., a real DB id, not a temp id) */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isRealId(id: string | null | undefined): id is string {
+  return typeof id === 'string' && UUID_RE.test(id);
+}
+
+/** Position tolerance for rack matching (pixels) */
+const RACK_POSITION_TOLERANCE = 5;
+
 // ==================== Change Detection ====================
 
 interface DetailedChange {
@@ -195,146 +206,6 @@ interface DetailedChange {
 }
 
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
-
-/**
- * Compare current DB equipment with input to detect what actually changed.
- */
-async function detectEquipmentChanges(
-  tx: TxClient,
-  roomId: string,
-  inputEquipment: UpdatePlanInput['equipment'],
-  deletedEquipmentIds: string[] | undefined,
-): Promise<DetailedChange[]> {
-  const changes: DetailedChange[] = [];
-  if (!inputEquipment?.length && !deletedEquipmentIds?.length) return changes;
-
-  const currentEquipment = await tx.equipment.findMany({
-    where: { roomId },
-    select: {
-      id: true, name: true, category: true,
-      positionX: true, positionY: true, width2d: true, height2d: true,
-      rotation: true, description: true, model: true, manufacturer: true,
-      manager: true, height3d: true,
-    },
-  });
-  const currentMap = new Map(currentEquipment.map(e => [e.id, e]));
-
-  // Deleted equipment
-  for (const id of deletedEquipmentIds ?? []) {
-    const existing = currentMap.get(id);
-    changes.push({ description: `${existing?.name ?? '설비'} 삭제`, isStructural: true });
-  }
-
-  for (const eq of inputEquipment ?? []) {
-    if (!eq.id) {
-      changes.push({ description: `${eq.name} 추가`, isStructural: true });
-      continue;
-    }
-    const cur = currentMap.get(eq.id);
-    if (!cur) continue;
-
-    // Layout (structural)
-    const layoutChanged =
-      eq.positionX !== (cur.positionX ?? 0) ||
-      eq.positionY !== (cur.positionY ?? 0) ||
-      eq.width !== (cur.width2d ?? DEFAULT_EQUIPMENT_WIDTH) ||
-      eq.height !== (cur.height2d ?? DEFAULT_EQUIPMENT_HEIGHT) ||
-      (eq.rotation ?? 0) !== (cur.rotation ?? 0);
-    if (layoutChanged) {
-      changes.push({ description: `${cur.name} 위치/크기 변경`, isStructural: true });
-    }
-
-    // Metadata (non-structural)
-    const metaFields: string[] = [];
-    if (eq.name !== cur.name) metaFields.push('이름');
-    if (nullableChanged(eq.description, cur.description)) metaFields.push('설명');
-    if (nullableChanged(eq.model, cur.model)) metaFields.push('모델');
-    if (nullableChanged(eq.manufacturer, cur.manufacturer)) metaFields.push('제조사');
-    if (nullableChanged(eq.manager, cur.manager)) metaFields.push('담당자');
-    if (nullableChanged(eq.height3d, cur.height3d)) metaFields.push('높이(3D)');
-    if (eq.category !== undefined && eq.category !== cur.category) metaFields.push('카테고리');
-    if (metaFields.length > 0) {
-      changes.push({
-        description: `${cur.name} 정보 수정 (${metaFields.join(', ')})`,
-        isStructural: false,
-      });
-    }
-  }
-
-  return changes;
-}
-
-function detectElementChanges(
-  inputElements: UpdatePlanInput['elements'],
-  deletedElementIds: string[] | undefined,
-): DetailedChange[] {
-  const changes: DetailedChange[] = [];
-  if (deletedElementIds?.length) {
-    changes.push({ description: `구조 요소 ${deletedElementIds.length}개 삭제`, isStructural: true });
-  }
-  // Frontend always sends ALL elements — new ones have no id
-  const newElements = inputElements?.filter(e => !e.id) ?? [];
-  if (newElements.length > 0) {
-    changes.push({ description: `구조 요소 ${newElements.length}개 추가`, isStructural: true });
-  }
-  // Existing elements are always resent by the frontend even when unchanged.
-  // We cannot efficiently diff JSON properties, so we only detect adds/deletes.
-  // Property-only element edits (e.g., moving a wall) will still be saved to DB
-  // but won't trigger a version bump on their own — they're typically part of
-  // a larger save that includes detectable equipment/cable changes.
-  return changes;
-}
-
-async function detectCableChanges(
-  tx: TxClient,
-  inputCables: UpdatePlanInput['cables'],
-  deletedCableIds: string[] | undefined,
-): Promise<DetailedChange[]> {
-  const changes: DetailedChange[] = [];
-  if (deletedCableIds?.length) {
-    changes.push({ description: `케이블 ${deletedCableIds.length}개 해제`, isStructural: true });
-  }
-  if (!inputCables?.length) return changes;
-
-  const newCables = inputCables.filter(c => !c.id);
-  const updatedCables = inputCables.filter(c => c.id);
-
-  if (newCables.length > 0) {
-    changes.push({ description: `케이블 ${newCables.length}개 연결`, isStructural: true });
-  }
-
-  // For updated cables, distinguish topology changes (structural) from metadata (label/color/length)
-  if (updatedCables.length > 0) {
-    const existingCables = await tx.cable.findMany({
-      where: { id: { in: updatedCables.map(c => c.id!) } },
-      select: { id: true, sourceEquipmentId: true, targetEquipmentId: true, cableType: true, fiberPathId: true, fiberPortNumber: true },
-    });
-    const existingMap = new Map(existingCables.map(c => [c.id, c]));
-
-    let topologyCount = 0;
-    let metadataCount = 0;
-    for (const cable of updatedCables) {
-      const cur = existingMap.get(cable.id!);
-      if (!cur) { topologyCount++; continue; }
-      const topologyChanged =
-        cable.sourceEquipmentId !== cur.sourceEquipmentId ||
-        cable.targetEquipmentId !== cur.targetEquipmentId ||
-        cable.cableType !== cur.cableType ||
-        (cable.fiberPathId ?? null) !== cur.fiberPathId ||
-        (cable.fiberPortNumber ?? null) !== cur.fiberPortNumber;
-      if (topologyChanged) topologyCount++;
-      else metadataCount++;
-    }
-    if (topologyCount > 0) {
-      changes.push({ description: `케이블 ${topologyCount}개 연결 변경`, isStructural: true });
-    }
-    if (metadataCount > 0) {
-      changes.push({ description: `케이블 ${metadataCount}개 정보 수정`, isStructural: false });
-    }
-  }
-
-  return changes;
-}
 
 function detectCanvasChanges(
   input: UpdatePlanInput,
@@ -565,12 +436,19 @@ class RoomService {
   }
 
   /**
-   * 도면 전체 저장 (벌크 업데이트)
+   * 도면 전체 저장 — State Reconciliation (Git-like save)
+   *
+   * Receives the COMPLETE desired state and reconciles against DB:
+   * - Element/Equipment/Cable in received with valid UUID in DB → UPDATE
+   * - Element/Equipment/Cable in received without ID or temp ID → CREATE
+   * - Element/Equipment/Cable in DB but NOT in received → DELETE
+   *
+   * For backward compatibility, explicit deletedXxxIds arrays are still
+   * accepted and merged with the reconciliation-computed deletions.
    *
    * Change detection determines whether the save is structural (layout change)
    * or metadata-only. Structural changes increment the version and capture a
-   * full snapshot for historical preview. Metadata-only changes are recorded
-   * as a lightweight audit entry without a snapshot.
+   * full snapshot for historical preview.
    */
   async bulkUpdatePlan(
     id: string,
@@ -584,191 +462,385 @@ class RoomService {
     const equipmentIdMap: Record<string, string> = {};
 
     await prisma.$transaction(async (tx) => {
-      // ── Step 1: Detect changes BEFORE applying mutations ──
-      const equipmentChanges = await detectEquipmentChanges(tx, id, input.equipment, input.deletedEquipmentIds);
-      const elementChanges = detectElementChanges(input.elements, input.deletedElementIds);
-      const cableChanges = await detectCableChanges(tx, input.cables, input.deletedCableIds);
-      const canvasChanges = detectCanvasChanges(input, room);
+      // ── Step 0: Load current DB state for reconciliation ──
+      const [dbElements, dbEquipment, dbCables] = await Promise.all([
+        tx.floorPlanElement.findMany({ where: { roomId: id }, select: { id: true } }),
+        tx.equipment.findMany({
+          where: { roomId: id },
+          select: {
+            id: true, name: true, category: true,
+            positionX: true, positionY: true, width2d: true, height2d: true,
+            rotation: true, description: true, model: true, manufacturer: true,
+            manager: true, height3d: true, materialCategoryId: true,
+            materialCategory: { select: { code: true } },
+          },
+        }),
+        tx.cable.findMany({
+          where: {
+            OR: [
+              { sourceEquipment: { roomId: id } },
+              { targetEquipment: { roomId: id } },
+            ],
+          },
+          select: {
+            id: true, sourceEquipmentId: true, targetEquipmentId: true,
+            cableType: true, fiberPathId: true, fiberPortNumber: true,
+          },
+        }),
+      ]);
 
-      const allChanges = [...equipmentChanges, ...elementChanges, ...cableChanges, ...canvasChanges];
-      const hasStructuralChange = allChanges.some(c => c.isStructural);
-      const hasAnyChange = allChanges.length > 0;
+      const dbElementIds = new Set(dbElements.map(e => e.id));
+      const dbEquipmentIds = new Set(dbEquipment.map(e => e.id));
+      const dbEquipmentMap = new Map(dbEquipment.map(e => [e.id, e]));
+      const dbCableIds = new Set(dbCables.map(c => c.id));
+      const dbCableMap = new Map(dbCables.map(c => [c.id, c]));
 
-      // ── Step 2: Apply mutations (same as before) ──
-      if (input.deletedElementIds && input.deletedElementIds.length > 0) {
-        await tx.floorPlanElement.deleteMany({
-          where: { id: { in: input.deletedElementIds }, roomId: id },
-        });
+      // ── Step 1: Compute reconciliation diffs ──
+
+      // Elements diff
+      const receivedElementIds = new Set(
+        (input.elements ?? []).filter(e => isRealId(e.id)).map(e => e.id!)
+      );
+      const computedDeleteElementIds = [...dbElementIds].filter(id => !receivedElementIds.has(id));
+      const deleteElementIds = new Set([
+        ...computedDeleteElementIds,
+        ...(input.deletedElementIds ?? []),
+      ]);
+
+      // Equipment diff
+      const receivedEquipmentIds = new Set(
+        (input.equipment ?? []).filter(e => isRealId(e.id)).map(e => e.id!)
+      );
+      const computedDeleteEquipmentIds = [...dbEquipmentIds].filter(id => !receivedEquipmentIds.has(id));
+      const deleteEquipmentIds = new Set([
+        ...computedDeleteEquipmentIds,
+        ...(input.deletedEquipmentIds ?? []),
+      ]);
+
+      // Cables diff (computed after equipment processing for tempId resolution)
+      const receivedCableIds = new Set(
+        (input.cables ?? []).filter(c => isRealId(c.id)).map(c => c.id!)
+      );
+      const computedDeleteCableIds = [...dbCableIds].filter(id => !receivedCableIds.has(id));
+      const deleteCableIds = new Set([
+        ...computedDeleteCableIds,
+        ...(input.deletedCableIds ?? []),
+      ]);
+
+      // ── Step 1.5: Detect changes BEFORE applying mutations ──
+      const allChanges: DetailedChange[] = [];
+
+      // Element changes
+      if (deleteElementIds.size > 0) {
+        allChanges.push({ description: `구조 요소 ${deleteElementIds.size}개 삭제`, isStructural: true });
+      }
+      const newElements = (input.elements ?? []).filter(e => !isRealId(e.id));
+      if (newElements.length > 0) {
+        allChanges.push({ description: `구조 요소 ${newElements.length}개 추가`, isStructural: true });
       }
 
-      if (input.deletedCableIds && input.deletedCableIds.length > 0) {
-        await tx.cable.deleteMany({
-          where: { id: { in: input.deletedCableIds } },
-        });
+      // Equipment changes
+      for (const eqId of deleteEquipmentIds) {
+        const existing = dbEquipmentMap.get(eqId);
+        allChanges.push({ description: `${existing?.name ?? '설비'} 삭제`, isStructural: true });
       }
-
-      if (input.deletedEquipmentIds && input.deletedEquipmentIds.length > 0) {
-        await tx.equipment.deleteMany({
-          where: { id: { in: input.deletedEquipmentIds }, roomId: id },
-        });
-      }
-
-      if (input.elements && input.elements.length > 0) {
-        for (const element of input.elements) {
-          if (element.id) {
-            await tx.floorPlanElement.update({
-              where: { id: element.id },
-              data: {
-                elementType: element.elementType,
-                properties: element.properties as Prisma.InputJsonValue,
-                zIndex: element.zIndex ?? 0,
-                isVisible: element.isVisible ?? true,
-                materialCategoryId: element.materialCategoryId,
-                specParams: element.specParams as Prisma.InputJsonValue | undefined,
-                pathLength: element.pathLength,
-              },
-            });
-          } else {
-            await tx.floorPlanElement.create({
-              data: {
-                roomId: id,
-                elementType: element.elementType,
-                properties: element.properties as Prisma.InputJsonValue,
-                zIndex: element.zIndex ?? 0,
-                materialCategoryId: element.materialCategoryId,
-                specParams: element.specParams as Prisma.InputJsonValue | undefined,
-                pathLength: element.pathLength,
-                isVisible: element.isVisible ?? true,
-              },
-            });
-          }
+      for (const eq of input.equipment ?? []) {
+        if (!isRealId(eq.id)) {
+          allChanges.push({ description: `${eq.name} 추가`, isStructural: true });
+          continue;
+        }
+        const cur = dbEquipmentMap.get(eq.id!);
+        if (!cur) continue;
+        const layoutChanged =
+          eq.positionX !== (cur.positionX ?? 0) ||
+          eq.positionY !== (cur.positionY ?? 0) ||
+          eq.width !== (cur.width2d ?? DEFAULT_EQUIPMENT_WIDTH) ||
+          eq.height !== (cur.height2d ?? DEFAULT_EQUIPMENT_HEIGHT) ||
+          (eq.rotation ?? 0) !== (cur.rotation ?? 0);
+        if (layoutChanged) {
+          allChanges.push({ description: `${cur.name} 위치/크기 변경`, isStructural: true });
+        }
+        const metaFields: string[] = [];
+        if (eq.name !== cur.name) metaFields.push('이름');
+        if (nullableChanged(eq.description, cur.description)) metaFields.push('설명');
+        if (nullableChanged(eq.model, cur.model)) metaFields.push('모델');
+        if (nullableChanged(eq.manufacturer, cur.manufacturer)) metaFields.push('제조사');
+        if (nullableChanged(eq.manager, cur.manager)) metaFields.push('담당자');
+        if (nullableChanged(eq.height3d, cur.height3d)) metaFields.push('높이(3D)');
+        if (eq.category !== undefined && eq.category !== cur.category) metaFields.push('카테고리');
+        if (metaFields.length > 0) {
+          allChanges.push({ description: `${cur.name} 정보 수정 (${metaFields.join(', ')})`, isStructural: false });
         }
       }
 
-      // OFD 변전소당 1개 제약 검사 (equipmentService의 공유 메서드 재사용)
+      // Cable changes
+      if (deleteCableIds.size > 0) {
+        allChanges.push({ description: `케이블 ${deleteCableIds.size}개 해제`, isStructural: true });
+      }
+      const newCables = (input.cables ?? []).filter(c => !isRealId(c.id));
+      const updatedCables = (input.cables ?? []).filter(c => isRealId(c.id));
+      if (newCables.length > 0) {
+        allChanges.push({ description: `케이블 ${newCables.length}개 연결`, isStructural: true });
+      }
+      if (updatedCables.length > 0) {
+        let topologyCount = 0;
+        let metadataCount = 0;
+        for (const cable of updatedCables) {
+          const cur = dbCableMap.get(cable.id!);
+          if (!cur) { topologyCount++; continue; }
+          const topologyChanged =
+            cable.sourceEquipmentId !== cur.sourceEquipmentId ||
+            cable.targetEquipmentId !== cur.targetEquipmentId ||
+            cable.cableType !== cur.cableType ||
+            (cable.fiberPathId ?? null) !== cur.fiberPathId ||
+            (cable.fiberPortNumber ?? null) !== cur.fiberPortNumber;
+          if (topologyChanged) topologyCount++;
+          else metadataCount++;
+        }
+        if (topologyCount > 0) {
+          allChanges.push({ description: `케이블 ${topologyCount}개 연결 변경`, isStructural: true });
+        }
+        if (metadataCount > 0) {
+          allChanges.push({ description: `케이블 ${metadataCount}개 정보 수정`, isStructural: false });
+        }
+      }
+
+      // Canvas changes
+      allChanges.push(...detectCanvasChanges(input, room));
+
+      const hasStructuralChange = allChanges.some(c => c.isStructural);
+      const hasAnyChange = allChanges.length > 0;
+
+      // ── Step 2: Apply mutations ──
+
+      // 2a. Delete elements
+      if (deleteElementIds.size > 0) {
+        await tx.floorPlanElement.deleteMany({
+          where: { id: { in: [...deleteElementIds] }, roomId: id },
+        });
+      }
+
+      // 2b. Delete cables (before equipment, since cascade from equipment delete
+      //     would handle cables automatically, but we want explicit control for
+      //     cables that are removed independently)
+      if (deleteCableIds.size > 0) {
+        await tx.cable.deleteMany({
+          where: { id: { in: [...deleteCableIds] } },
+        });
+      }
+
+      // 2c. Delete equipment + auto-delete associated Rack for EQP-RACK
+      if (deleteEquipmentIds.size > 0) {
+        // Check for EQP-RACK equipment being deleted → delete corresponding Rack
+        for (const eqId of deleteEquipmentIds) {
+          const eq = dbEquipmentMap.get(eqId);
+          if (eq?.materialCategory?.code?.startsWith('EQP-RACK')) {
+            // Find rack at same position (within tolerance)
+            const racks = await tx.rack.findMany({
+              where: { roomId: id },
+            });
+            const matchingRack = racks.find(r =>
+              Math.abs(r.positionX - (eq.positionX ?? 0)) < RACK_POSITION_TOLERANCE &&
+              Math.abs(r.positionY - (eq.positionY ?? 0)) < RACK_POSITION_TOLERANCE
+            );
+            if (matchingRack) {
+              await tx.rack.delete({ where: { id: matchingRack.id } });
+            }
+          }
+        }
+        await tx.equipment.deleteMany({
+          where: { id: { in: [...deleteEquipmentIds] }, roomId: id },
+        });
+      }
+
+      // 2d. Upsert elements
+      for (const element of input.elements ?? []) {
+        if (isRealId(element.id) && dbElementIds.has(element.id)) {
+          await tx.floorPlanElement.update({
+            where: { id: element.id },
+            data: {
+              elementType: element.elementType,
+              properties: element.properties as Prisma.InputJsonValue,
+              zIndex: element.zIndex ?? 0,
+              isVisible: element.isVisible ?? true,
+              materialCategoryId: element.materialCategoryId,
+              specParams: element.specParams as Prisma.InputJsonValue | undefined,
+              pathLength: element.pathLength,
+            },
+          });
+        } else if (!isRealId(element.id)) {
+          await tx.floorPlanElement.create({
+            data: {
+              roomId: id,
+              elementType: element.elementType,
+              properties: element.properties as Prisma.InputJsonValue,
+              zIndex: element.zIndex ?? 0,
+              materialCategoryId: element.materialCategoryId,
+              specParams: element.specParams as Prisma.InputJsonValue | undefined,
+              pathLength: element.pathLength,
+              isVisible: element.isVisible ?? true,
+            },
+          });
+        }
+      }
+
+      // 2e. OFD uniqueness check
       if (input.equipment && input.equipment.length > 0) {
         const newOfdEquipment = input.equipment.filter(
-          (e) => e.category === 'OFD' && !e.id
+          (e) => e.category === 'OFD' && !isRealId(e.id)
         );
         if (newOfdEquipment.length > 0) {
           await equipmentService.validateOfdUniqueness(id);
         }
       }
 
-      if (input.equipment && input.equipment.length > 0) {
-        for (const equip of input.equipment) {
-          if (equip.id) {
-            await tx.equipment.update({
-              where: { id: equip.id },
-              data: {
-                name: equip.name,
-                category: equip.category as EquipmentCategory | undefined,
-                positionX: equip.positionX,
-                positionY: equip.positionY,
-                width2d: equip.width,
-                height2d: equip.height,
-                rotation: equip.rotation ?? 0,
-                description: equip.description,
-                model: equip.model,
-                manufacturer: equip.manufacturer,
-                manager: equip.manager,
-                height3d: equip.height3d,
-                materialCategoryId: equip.materialCategoryId,
-                specParams: equip.specParams as Prisma.InputJsonValue | undefined,
-                updatedById: userId,
-              },
-            });
-          } else {
-            const created = await tx.equipment.create({
-              data: {
-                roomId: id,
-                name: equip.name,
-                category: (equip.category as EquipmentCategory) ?? 'NETWORK',
-                positionX: equip.positionX,
-                positionY: equip.positionY,
-                width2d: equip.width,
-                height2d: equip.height,
-                rotation: equip.rotation ?? 0,
-                description: equip.description,
-                model: equip.model,
-                manufacturer: equip.manufacturer,
-                manager: equip.manager,
-                height3d: equip.height3d,
-                materialCategoryId: equip.materialCategoryId,
-                specParams: equip.specParams as Prisma.InputJsonValue | undefined,
-                createdById: userId,
-                updatedById: userId,
-              },
-            });
-            if (equip.tempId) {
-              equipmentIdMap[equip.tempId] = created.id;
+      // 2f. Upsert equipment
+      for (const equip of input.equipment ?? []) {
+        if (isRealId(equip.id) && dbEquipmentIds.has(equip.id)) {
+          // UPDATE existing equipment
+          await tx.equipment.update({
+            where: { id: equip.id },
+            data: {
+              name: equip.name,
+              category: equip.category as EquipmentCategory | undefined,
+              positionX: equip.positionX,
+              positionY: equip.positionY,
+              width2d: equip.width,
+              height2d: equip.height,
+              rotation: equip.rotation ?? 0,
+              description: equip.description,
+              model: equip.model,
+              manufacturer: equip.manufacturer,
+              manager: equip.manager,
+              height3d: equip.height3d,
+              materialCategoryId: equip.materialCategoryId,
+              specParams: equip.specParams as Prisma.InputJsonValue | undefined,
+              updatedById: userId,
+            },
+          });
+        } else {
+          // CREATE new equipment
+          const created = await tx.equipment.create({
+            data: {
+              roomId: id,
+              name: equip.name,
+              category: (equip.category as EquipmentCategory) ?? 'NETWORK',
+              positionX: equip.positionX,
+              positionY: equip.positionY,
+              width2d: equip.width,
+              height2d: equip.height,
+              rotation: equip.rotation ?? 0,
+              description: equip.description,
+              model: equip.model,
+              manufacturer: equip.manufacturer,
+              manager: equip.manager,
+              height3d: equip.height3d,
+              materialCategoryId: equip.materialCategoryId,
+              specParams: equip.specParams as Prisma.InputJsonValue | undefined,
+              createdById: userId,
+              updatedById: userId,
+            },
+          });
+          if (equip.tempId) {
+            equipmentIdMap[equip.tempId] = created.id;
+          }
+
+          // Auto-Rack creation for EQP-RACK equipment
+          const matCode = equip.materialCategoryCode;
+          if (matCode?.startsWith('EQP-RACK')) {
+            // Check if a Rack already exists at this position (within tolerance)
+            const existingRacks = await tx.rack.findMany({ where: { roomId: id } });
+            const alreadyExists = existingRacks.some(r =>
+              Math.abs(r.positionX - equip.positionX) < RACK_POSITION_TOLERANCE &&
+              Math.abs(r.positionY - equip.positionY) < RACK_POSITION_TOLERANCE
+            );
+            if (!alreadyExists) {
+              await tx.rack.create({
+                data: {
+                  roomId: id,
+                  name: equip.name,
+                  positionX: equip.positionX,
+                  positionY: equip.positionY,
+                  width: equip.width,
+                  height: equip.height,
+                  rotation: equip.rotation ?? 0,
+                  totalU: 42,
+                  createdById: userId,
+                  updatedById: userId,
+                },
+              });
             }
           }
         }
       }
 
-      // Cable create/update (after equipment so tempIds are resolved)
-      if (input.cables && input.cables.length > 0) {
-        for (const cable of input.cables) {
-          const srcId = equipmentIdMap[cable.sourceEquipmentId] ?? cable.sourceEquipmentId;
-          const tgtId = equipmentIdMap[cable.targetEquipmentId] ?? cable.targetEquipmentId;
+      // 2g. Reconcile cables (after equipment so tempIds are resolved)
+      for (const cable of input.cables ?? []) {
+        const srcId = equipmentIdMap[cable.sourceEquipmentId] ?? cable.sourceEquipmentId;
+        const tgtId = equipmentIdMap[cable.targetEquipmentId] ?? cable.targetEquipmentId;
 
-          if (cable.id) {
-            await tx.cable.update({
-              where: { id: cable.id },
-              data: {
-                sourceEquipmentId: srcId,
-                targetEquipmentId: tgtId,
-                cableType: cable.cableType as CableType,
-                label: cable.label,
-                length: cable.length,
-                color: cable.color,
-                fiberPathId: cable.fiberPathId ?? null,
-                fiberPortNumber: cable.fiberPortNumber ?? null,
-                materialCategoryId: cable.materialCategoryId,
-                specParams: cable.specParams as Prisma.InputJsonValue | undefined,
-                pathPoints: cable.pathPoints as Prisma.InputJsonValue | undefined,
-                pathLength: cable.pathLength,
-                bufferLength: cable.bufferLength,
-                totalLength: cable.totalLength,
-                updatedById: userId,
+        // Skip cables whose source/target equipment doesn't exist
+        if (!isRealId(srcId) || !isRealId(tgtId)) continue;
+
+        if (isRealId(cable.id) && dbCableIds.has(cable.id!)) {
+          // UPDATE existing cable
+          await tx.cable.update({
+            where: { id: cable.id! },
+            data: {
+              sourceEquipmentId: srcId,
+              targetEquipmentId: tgtId,
+              cableType: cable.cableType as CableType,
+              label: cable.label,
+              length: cable.length,
+              color: cable.color,
+              description: cable.description,
+              fiberPathId: cable.fiberPathId ?? null,
+              fiberPortNumber: cable.fiberPortNumber ?? null,
+              materialCategoryId: cable.materialCategoryId,
+              specParams: cable.specParams as Prisma.InputJsonValue | undefined,
+              pathPoints: cable.pathPoints as Prisma.InputJsonValue | undefined,
+              pathLength: cable.pathLength,
+              bufferLength: cable.bufferLength,
+              totalLength: cable.totalLength,
+              updatedById: userId,
+            },
+          });
+        } else {
+          // CREATE new cable
+          // Port exclusivity: prevent duplicate fiber port assignment
+          if (cable.fiberPathId && cable.fiberPortNumber) {
+            const existingOnPort = await tx.cable.findFirst({
+              where: {
+                fiberPathId: cable.fiberPathId,
+                fiberPortNumber: cable.fiberPortNumber,
+                OR: [{ sourceEquipmentId: tgtId }, { targetEquipmentId: tgtId }],
               },
             });
-          } else {
-            // Port exclusivity: prevent duplicate fiber port assignment
-            if (cable.fiberPathId && cable.fiberPortNumber) {
-              const existingOnPort = await tx.cable.findFirst({
-                where: {
-                  fiberPathId: cable.fiberPathId,
-                  fiberPortNumber: cable.fiberPortNumber,
-                  OR: [{ sourceEquipmentId: tgtId }, { targetEquipmentId: tgtId }],
-                },
-              });
-              if (existingOnPort) {
-                throw new ConflictError(`광경로 포트 ${cable.fiberPortNumber}번이 이미 사용 중입니다.`);
-              }
+            if (existingOnPort) {
+              throw new ConflictError(`광경로 포트 ${cable.fiberPortNumber}번이 이미 사용 중입니다.`);
             }
-            await tx.cable.create({
-              data: {
-                sourceEquipmentId: srcId,
-                targetEquipmentId: tgtId,
-                cableType: cable.cableType as CableType,
-                label: cable.label,
-                length: cable.length,
-                color: cable.color,
-                fiberPathId: cable.fiberPathId ?? null,
-                fiberPortNumber: cable.fiberPortNumber ?? null,
-                materialCategoryId: cable.materialCategoryId,
-                specParams: cable.specParams as Prisma.InputJsonValue | undefined,
-                pathPoints: cable.pathPoints as Prisma.InputJsonValue | undefined,
-                pathLength: cable.pathLength,
-                bufferLength: cable.bufferLength,
-                totalLength: cable.totalLength,
-                createdById: userId,
-                updatedById: userId,
-              },
-            });
           }
+          await tx.cable.create({
+            data: {
+              sourceEquipmentId: srcId,
+              targetEquipmentId: tgtId,
+              cableType: cable.cableType as CableType,
+              label: cable.label,
+              length: cable.length,
+              color: cable.color,
+              description: cable.description,
+              fiberPathId: cable.fiberPathId ?? null,
+              fiberPortNumber: cable.fiberPortNumber ?? null,
+              materialCategoryId: cable.materialCategoryId,
+              specParams: cable.specParams as Prisma.InputJsonValue | undefined,
+              pathPoints: cable.pathPoints as Prisma.InputJsonValue | undefined,
+              pathLength: cable.pathLength,
+              bufferLength: cable.bufferLength,
+              totalLength: cable.totalLength,
+              createdById: userId,
+              updatedById: userId,
+            },
+          });
         }
       }
 
@@ -811,7 +883,6 @@ class RoomService {
         });
       } else {
         // Metadata-only change: lightweight audit entry without snapshot
-        // newValues omitted (SQL NULL) — hasSnapshot check relies on this
         await tx.auditLog.create({
           data: {
             entityType: 'Room', entityId: id, entityName: room.name,
