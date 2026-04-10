@@ -59,3 +59,6 @@ export interface RoomConnection {
   sourceEquipment: EquipmentInfo;
   targetEquipment: EquipmentInfo;
 }
+
+/** Alias for floor-plan-scoped connections (same shape as RoomConnection) */
+export type FloorPlanConnection = RoomConnection;
