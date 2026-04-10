@@ -13,7 +13,6 @@ import { useMaintenanceLogs } from '../../equipment/hooks/useMaintenanceLogs';
 import { ConnectionDiagram } from '../../equipment/components/ConnectionDiagram';
 import { FiberPathManager } from '../../fiber/components/FiberPathManager';
 import { RackView } from './RackView';
-import { RACK_EQUIPMENT_POSITION_TOLERANCE } from '../../../utils/floorplan/constants';
 import {
   LOG_TYPE_LABELS,
   LOG_TYPE_COLORS,
@@ -112,27 +111,18 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
   const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
   const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
 
-  // Find linked rack for EQP-RACK equipment (match by position proximity)
+  // Determine if this is a rack equipment
   const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localRacks = useEditorStore((s) => s.localRacks);
   const localEq = localEquipment.find((e) => e.id === equipmentId);
   const isRackEquipment = localEq?.materialCategoryCode?.startsWith('EQP-RACK') ?? false;
-  const linkedRack = useMemo(() => {
-    if (!isRackEquipment || !localEq) return null;
-    return localRacks.find(
-      (r) =>
-        Math.abs(r.positionX - localEq.positionX) < RACK_EQUIPMENT_POSITION_TOLERANCE &&
-        Math.abs(r.positionY - localEq.positionY) < RACK_EQUIPMENT_POSITION_TOLERANCE
-    ) ?? null;
-  }, [isRackEquipment, localEq, localRacks]);
 
-  // Build tab list: add "내부 설비" tab when linked rack exists
+  // Build tab list: add "내부 설비" tab when equipment is EQP-RACK (regardless of Rack entity)
   const tabs = useMemo(() => {
-    if (linkedRack) {
+    if (isRackEquipment) {
       return [...BASE_TABS, { key: 'rack' as TabKey, label: '내부 설비' }];
     }
     return BASE_TABS;
-  }, [linkedRack]);
+  }, [isRackEquipment]);
 
   // Auto-switch to connections tab when OFD flow targets this equipment
   useEffect(() => {
@@ -224,8 +214,8 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
             {activeTab === 'connections' && (
               <ConnectionsTab equipmentId={equipmentId} roomId={roomId} category={equipment.category} />
             )}
-            {activeTab === 'rack' && linkedRack && (
-              <RackContentTab rackId={linkedRack.id} />
+            {activeTab === 'rack' && isRackEquipment && (
+              <RackView equipmentId={equipmentId} />
             )}
           </>
         ) : null}
@@ -1124,6 +1114,3 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
    Rack Content Tab (내부 설비) — delegates to shared RackView
    ================================================================ */
 
-function RackContentTab({ rackId }: { rackId: string }) {
-  return <RackView rackId={rackId} />;
-}

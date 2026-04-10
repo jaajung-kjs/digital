@@ -144,6 +144,9 @@ export interface FloorPlanEquipment {
   materialCategoryCode?: string | null;
   materialId?: string | null;
   specParams?: Record<string, unknown> | null;
+  parentEquipmentId?: string | null;  // ID of parent EQP-RACK equipment (rack containment)
+  startU?: number | null;             // U-slot position in rack
+  heightU?: number | null;            // Height in U units
 }
 
 /** @deprecated Use FloorPlanEquipment instead */
@@ -200,6 +203,9 @@ export interface UpdateFloorPlanRequest {
     manager?: string;
     materialCategoryId?: string | null;
     specParams?: Record<string, unknown> | null;
+    parentEquipmentId?: string | null;
+    startU?: number | null;
+    heightU?: number | null;
   }[];
   cables?: {
     id?: string | null;
@@ -220,6 +226,14 @@ export interface UpdateFloorPlanRequest {
     fiberPortNumber?: number | null;
     description?: string | null;
   }[];
+  fiberPaths?: {
+    id: string;
+    ofdAId: string;
+    ofdBId: string;
+    portCount: number;
+    description?: string;
+  }[];
+  deletedFiberPathIds?: string[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
   deletedCableIds?: string[];

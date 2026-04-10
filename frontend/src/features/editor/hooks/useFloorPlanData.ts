@@ -310,7 +310,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
   const handleSave = () => {
     if (!floorPlan) return;
-    const { localCables } = useEditorStore.getState();
+    const { localCables, pendingFiberPaths, deletedFiberPathIds } = useEditorStore.getState();
 
     const currentScaleRatio = useEditorStore.getState().scaleRatio;
     const updateData: UpdateFloorPlanRequest = {
@@ -345,6 +345,9 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         manager: eq.manager || undefined,
         materialCategoryId: eq.materialCategoryId || undefined,
         specParams: eq.specParams || undefined,
+        parentEquipmentId: eq.parentEquipmentId || undefined,
+        startU: eq.startU ?? undefined,
+        heightU: eq.heightU ?? undefined,
       })),
       cables: localCables.map(c => ({
         id: isTempId(c.id) ? null : c.id,
@@ -363,6 +366,14 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         fiberPathId: c.fiberPathId,
         fiberPortNumber: c.fiberPortNumber,
       })),
+      fiberPaths: pendingFiberPaths.length > 0 ? pendingFiberPaths.map((fp) => ({
+        id: fp.id,
+        ofdAId: fp.ofdAId,
+        ofdBId: fp.ofdBId,
+        portCount: fp.portCount,
+        description: fp.description,
+      })) : undefined,
+      deletedFiberPathIds: deletedFiberPathIds.length > 0 ? deletedFiberPathIds : undefined,
       deletedElementIds: deletedElementIds.length > 0 ? deletedElementIds : undefined,
       deletedEquipmentIds: deletedEquipmentIds.length > 0 ? deletedEquipmentIds : undefined,
     };

@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../utils/api';
+import { generateTempId } from '../../../utils/idHelpers';
+import { getEquipmentCategoryFromMaterial } from '../../../types/material';
+import { useEditorStore } from '../stores/editorStore';
 import { MaterialPicker } from '../../materials/components/MaterialPicker';
-import type { CreateEquipmentRequest } from '../../../types/rack';
 
 interface RackEquipmentFormProps {
-  rackId: string;
+  rackEquipmentId: string;  // the parent EQP-RACK equipment ID
   totalU: number;
   occupiedSlots: Map<number, unknown>;
   onSuccess: () => void;
@@ -13,7 +13,7 @@ interface RackEquipmentFormProps {
 }
 
 export function RackEquipmentForm({
-  rackId,
+  rackEquipmentId,
   totalU,
   occupiedSlots,
   onSuccess,
@@ -23,9 +23,8 @@ export function RackEquipmentForm({
   const [heightU, setHeightU] = useState(1);
   const [startU, setStartU] = useState<number | null>(null);
   const [materialCategoryId, setMaterialCategoryId] = useState<string | null>(null);
+  const [materialCategoryCode, setMaterialCategoryCode] = useState<string | null>(null);
   const [specParams, setSpecParams] = useState<Record<string, unknown> | null>(null);
-
-  const queryClient = useQueryClient();
 
   // Calculate available start positions based on equipment height
   const availablePositions = useMemo(() => {
@@ -50,26 +49,31 @@ export function RackEquipmentForm({
     ? startU
     : availablePositions[0] ?? null;
 
-  const createMutation = useMutation({
-    mutationFn: async (data: CreateEquipmentRequest) => {
-      await api.post(`/racks/${rackId}/equipment`, data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rack-detail', rackId] });
-      onSuccess();
-    },
-  });
-
   const handleSubmit = () => {
     if (!name.trim() || effectiveStartU == null) return;
 
-    createMutation.mutate({
+    const category = materialCategoryCode
+      ? getEquipmentCategoryFromMaterial(materialCategoryCode)
+      : 'NETWORK';
+
+    useEditorStore.getState().setLocalEquipment((prev) => [...prev, {
+      id: generateTempId(),
       name: name.trim(),
+      category,
+      positionX: 0,
+      positionY: 0,
+      width: 0,
+      height: 0,
+      rotation: 0,
+      materialCategoryId,
+      materialCategoryCode,
+      specParams,
+      parentEquipmentId: rackEquipmentId,
       startU: effectiveStartU,
       heightU,
-      materialCategoryId: materialCategoryId ?? undefined,
-      specParams: specParams ?? undefined,
-    });
+    }]);
+    useEditorStore.getState().setHasChanges(true);
+    onSuccess();
   };
 
   return (
@@ -95,8 +99,9 @@ export function RackEquipmentForm({
           <MaterialPicker
             categoryType="EQUIPMENT"
             value={materialCategoryId ? { categoryId: materialCategoryId, specParams: specParams ?? {} } : null}
-            onChange={({ categoryId, specParams: sp }) => {
+            onChange={({ categoryId, categoryCode, specParams: sp }) => {
               setMaterialCategoryId(categoryId);
+              setMaterialCategoryCode(categoryCode ?? null);
               setSpecParams(sp);
             }}
           />
@@ -144,13 +149,6 @@ export function RackEquipmentForm({
           )}
         </div>
 
-        {/* Error */}
-        {createMutation.isError && (
-          <p className="text-sm text-red-500 mb-3">
-            설비 추가에 실패했습니다. 다시 시도해주세요.
-          </p>
-        )}
-
         {/* Actions */}
         <div className="flex justify-end gap-3">
           <button
@@ -161,10 +159,10 @@ export function RackEquipmentForm({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!name.trim() || effectiveStartU == null || createMutation.isPending}
+            disabled={!name.trim() || effectiveStartU == null}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {createMutation.isPending ? '추가 중...' : '추가'}
+            추가
           </button>
         </div>
       </div>
