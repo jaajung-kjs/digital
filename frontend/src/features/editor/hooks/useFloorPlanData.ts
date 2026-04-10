@@ -229,8 +229,11 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
     // Build cable payload from changeSet
     const allDeletions = new Set(selectChanges(changeSet, 'cable:delete').map((c) => c.cableId));
+    // 삭제된 설비를 참조하는 케이블도 제외 (temp ID 설비 삭제 → localEquipment에서 제거됨)
+    const existingEquipmentIds = new Set(localEquipment.map((eq) => eq.id));
+    const isEquipmentAlive = (eqId: string) => existingEquipmentIds.has(eqId);
     const cableCreates = selectChanges(changeSet, 'cable:create')
-      .filter((c) => !allDeletions.has(c.localId))
+      .filter((c) => !allDeletions.has(c.localId) && isEquipmentAlive(c.sourceEquipmentId) && isEquipmentAlive(c.targetEquipmentId))
       .map((c) => ({
         sourceEquipmentId: c.sourceEquipmentId,
         targetEquipmentId: c.targetEquipmentId,
