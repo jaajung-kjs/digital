@@ -1,7 +1,9 @@
 import { useRef, useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
+import { api } from '../../../utils/api';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useClipboard } from '../hooks/useClipboard';
@@ -276,6 +278,15 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const setPasteEquipmentName = useCanvasStore(s => s.setPasteEquipmentName);
   const infraMaterialModalOpen = useCanvasStore(s => s.infraMaterialModalOpen);
   const infraMaterialElementId = useCanvasStore(s => s.infraMaterialElementId);
+  const rackModalOpen = useCanvasStore(s => s.rackModalOpen);
+  const rackModalName = useCanvasStore(s => s.newRackName);
+  const rackModalTotalU = useCanvasStore(s => s.newRackTotalU);
+  const rackModalPosition = useCanvasStore(s => s.newRackPosition);
+  const rackDrawnSize = useCanvasStore(s => s.rackDrawnSize);
+  const setRackModalOpen = useCanvasStore(s => s.setRackModalOpen);
+  const setRackModalName = useCanvasStore(s => s.setNewRackName);
+  const setRackModalTotalU = useCanvasStore(s => s.setNewRackTotalU);
+  const queryClient = useQueryClient();
 
   // Reset editor store and snapshot on unmount
   useEffect(() => {
@@ -340,6 +351,27 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
     resetNewEquipmentMaterial();
     setHasChanges(true);
     setTool('select');
+  };
+
+  const handleAddRack = async () => {
+    if (!rackModalName || !roomId) return;
+    try {
+      await api.post(`/floor-plans/${roomId}/racks`, {
+        name: rackModalName,
+        positionX: rackModalPosition.x,
+        positionY: rackModalPosition.y,
+        width: rackDrawnSize?.width ?? 60,
+        height: rackDrawnSize?.height ?? 100,
+        totalU: rackModalTotalU,
+      });
+      queryClient.invalidateQueries({ queryKey: ['floor-plan-racks', roomId] });
+      setRackModalOpen(false);
+      setRackModalName('');
+      setRackModalTotalU(42);
+      setTool('select');
+    } catch (err) {
+      console.error('Failed to create rack:', err);
+    }
   };
 
   const isPlanNotFound = planError && (planError as { response?: { status: number } }).response?.status === 404;
@@ -488,6 +520,41 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       {/* Infra material selection modal (conduit/tray/pullbox) */}
       {infraMaterialModalOpen && infraMaterialElementId && (
         <InfraMaterialModal elementId={infraMaterialElementId} />
+      )}
+
+      {/* Rack creation modal */}
+      {rackModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">랙 추가</h3>
+            <div className="mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">랙 이름</label>
+              <input
+                type="text"
+                value={rackModalName}
+                onChange={(e) => setRackModalName(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="예: RACK-01"
+                autoFocus
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">총 U 수</label>
+              <input
+                type="number"
+                value={rackModalTotalU}
+                onChange={(e) => setRackModalTotalU(Number(e.target.value))}
+                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                min={1}
+                max={99}
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => { setRackModalOpen(false); setRackModalName(''); setRackModalTotalU(42); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
+              <button onClick={handleAddRack} disabled={!rackModalName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">추가</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Equipment paste modal */}
