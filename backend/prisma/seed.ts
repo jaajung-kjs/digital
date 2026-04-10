@@ -1,7 +1,27 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedMaterialCategories } from './seed/materialCategories.js';
 
 const prisma = new PrismaClient();
+
+// 한전 15개 본부 + 직할 + 전력지사
+const headquartersData: { name: string; branches: string[] }[] = [
+  { name: '서울본부', branches: ['직할', '강남전력지사', '강서전력지사', '동부전력지사', '북부전력지사', '서부전력지사'] },
+  { name: '인천본부', branches: ['직할', '부평전력지사', '남동전력지사', '서인천전력지사'] },
+  { name: '경기본부', branches: ['직할', '수원전력지사', '성남전력지사', '안양전력지사', '안산전력지사', '의정부전력지사', '고양전력지사', '용인전력지사', '평택전력지사'] },
+  { name: '강원본부', branches: ['직할', '강릉전력지사', '동해전력지사', '원주전력지사', '태백전력지사'] },
+  { name: '충북본부', branches: ['직할', '충주전력지사', '제천전력지사'] },
+  { name: '대전세종충남본부', branches: ['직할', '천안전력지사', '아산전력지사', '서산전력지사', '논산전력지사', '공주전력지사'] },
+  { name: '전북본부', branches: ['직할', '군산전력지사', '익산전력지사', '남원전력지사', '정읍전력지사'] },
+  { name: '광주전남본부', branches: ['직할', '목포전력지사', '순천전력지사', '여수전력지사', '나주전력지사', '해남전력지사'] },
+  { name: '대구본부', branches: ['직할', '경산전력지사', '칠곡전력지사', '서대구전력지사'] },
+  { name: '경북본부', branches: ['직할', '포항전력지사', '경주전력지사', '안동전력지사', '구미전력지사', '영주전력지사', '김천전력지사'] },
+  { name: '부산본부', branches: ['직할', '동래전력지사', '해운대전력지사', '사상전력지사', '남부산전력지사'] },
+  { name: '울산본부', branches: ['직할', '남울산전력지사', '울주전력지사'] },
+  { name: '경남본부', branches: ['직할', '창원전력지사', '김해전력지사', '진주전력지사', '통영전력지사', '양산전력지사', '거제전력지사'] },
+  { name: '전남동부본부', branches: ['직할', '광양전력지사', '보성전력지사'] },
+  { name: '제주본부', branches: ['직할', '서귀포전력지사'] },
+];
 
 async function main() {
   console.log('🌱 Seeding database...');
@@ -41,6 +61,45 @@ async function main() {
 
     console.log(`✅ Viewer user created: ${viewer.username}`);
   }
+
+  // 한전 15개 본부 + 전력지사 시드
+  for (let i = 0; i < headquartersData.length; i++) {
+    const hqData = headquartersData[i];
+
+    const hq = await prisma.headquarters.upsert({
+      where: { id: `hq-${i + 1}` },
+      update: { name: hqData.name, sortOrder: i },
+      create: {
+        id: `hq-${i + 1}`,
+        name: hqData.name,
+        sortOrder: i,
+        createdById: admin.id,
+      },
+    });
+
+    for (let j = 0; j < hqData.branches.length; j++) {
+      await prisma.branch.upsert({
+        where: {
+          headquartersId_name: {
+            headquartersId: hq.id,
+            name: hqData.branches[j],
+          },
+        },
+        update: { sortOrder: j },
+        create: {
+          headquartersId: hq.id,
+          name: hqData.branches[j],
+          sortOrder: j,
+          createdById: admin.id,
+        },
+      });
+    }
+
+    console.log(`✅ ${hqData.name}: ${hqData.branches.length}개 지사`);
+  }
+
+  // 자재 카테고리 시드 (63종)
+  await seedMaterialCategories(prisma);
 
   console.log('🎉 Seeding completed!');
 }
