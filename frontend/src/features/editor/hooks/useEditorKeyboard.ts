@@ -49,11 +49,6 @@ export function useEditorKeyboard(handleSave: () => void) {
       }
 
       if (e.key === 'Escape') {
-        // Close rack detail panel if open
-        if (es.selectedRackId) {
-          es.setSelectedRackId(null);
-          return;
-        }
         // Close equipment detail panel if open
         if (es.detailPanelEquipmentId) {
           es.setDetailPanelEquipmentId(null);

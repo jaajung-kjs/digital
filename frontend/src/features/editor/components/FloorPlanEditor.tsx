@@ -26,7 +26,6 @@ import { CableMaterialPicker } from '../../materials/components/CableMaterialPic
 import { getCableTypeFromMaterial } from '../../../types/material';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
-import { RackDetailPanel } from './RackDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { RoomSettingsPanel } from './RoomSettingsPanel';
 
@@ -245,7 +244,6 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
   const resetEditor = useEditorStore(s => s.resetEditor);
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
-  const selectedRackId = useEditorStore(s => s.selectedRackId);
   const viewMode = useEditorStore(s => s.viewMode);
   const snapshotActive = useSnapshotStore(s => s.active);
   const snapshotLabel = useSnapshotStore(s => s.label);
@@ -438,9 +436,6 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                 <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} roomId={roomId} />
               )}
 
-              {selectedRackId && !detailPanelEquipmentId && (
-                <RackDetailPanel rackId={selectedRackId} roomId={roomId} />
-              )}
 
               {showHistory && (
                 <ChangeHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />

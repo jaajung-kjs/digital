@@ -38,7 +38,7 @@ export function useCanvas(
     const snapshot = useSnapshotStore.getState();
 
     const {
-      zoom, panX, panY, showGrid, selectedIds, selectedRackId, showLengths, tool,
+      zoom, panX, panY, showGrid, selectedIds, showLengths, tool,
     } = editorState;
 
     // Branch data source: snapshot overlay vs editor
@@ -82,7 +82,7 @@ export function useCanvas(
 
     // Racks
     if (localRacks.length > 0) {
-      renderRacks(ctx, localRacks, selectedRackId);
+      renderRacks(ctx, localRacks, null);
     }
 
     // Equipment — dim non-highlighted when path trace active

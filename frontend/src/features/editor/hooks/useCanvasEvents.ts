@@ -154,8 +154,6 @@ export function useCanvasEvents(
           canvasStore.getState().setIsPanning(true);
           canvasStore.getState().setPanStart({ x: screenX, y: screenY });
           editorStore.getState().clearSelection();
-          // Close rack/equipment detail panels when clicking empty canvas
-          editorStore.getState().setSelectedRackId(null);
           // Clear path trace highlight when clicking empty canvas
           usePathHighlightStore.getState().clearHighlight();
         }
@@ -768,9 +766,6 @@ export function useCanvasEvents(
         );
         if (matchingEq) {
           editorStore.getState().setDetailPanelEquipmentId(matchingEq.id);
-        } else {
-          // Legacy rack without linked equipment — fall back to RackDetailPanel
-          editorStore.getState().setSelectedRackId(rack.id);
         }
         return;
       }
