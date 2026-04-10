@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import type { FloorPlanElement, FloorPlanEquipment } from '../../../types/floorPlan';
+import type { ChangeEntry } from './editorStore';
 
 interface HistoryState {
   elements: FloorPlanElement[];
   equipment: FloorPlanEquipment[];
+  changeSet: ChangeEntry[];
 }
 
 interface HistoryStoreState {
@@ -12,12 +14,12 @@ interface HistoryStoreState {
 }
 
 interface HistoryStoreActions {
-  pushHistory: (elements: FloorPlanElement[], equipment: FloorPlanEquipment[]) => void;
+  pushHistory: (elements: FloorPlanElement[], equipment: FloorPlanEquipment[], changeSet?: ChangeEntry[]) => void;
   undo: () => HistoryState | null;
   redo: () => HistoryState | null;
   canUndo: () => boolean;
   canRedo: () => boolean;
-  initHistory: (elements: FloorPlanElement[], equipment: FloorPlanEquipment[]) => void;
+  initHistory: (elements: FloorPlanElement[], equipment: FloorPlanEquipment[], changeSet?: ChangeEntry[]) => void;
   resetHistory: () => void;
 }
 
@@ -27,10 +29,14 @@ export const useHistoryStore = create<HistoryStoreState & HistoryStoreActions>((
   history: [],
   historyIndex: -1,
 
-  pushHistory: (elements, equipment) => {
+  pushHistory: (elements, equipment, changeSet) => {
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push({ elements: [...elements], equipment: [...equipment] });
+      newHistory.push({
+        elements: [...elements],
+        equipment: [...equipment],
+        changeSet: changeSet ? [...changeSet] : [],
+      });
       if (newHistory.length > MAX_HISTORY) {
         newHistory.shift();
       }
@@ -64,9 +70,13 @@ export const useHistoryStore = create<HistoryStoreState & HistoryStoreActions>((
   canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
 
-  initHistory: (elements, equipment) => {
+  initHistory: (elements, equipment, changeSet) => {
     set({
-      history: [{ elements: [...elements], equipment: [...equipment] }],
+      history: [{
+        elements: [...elements],
+        equipment: [...equipment],
+        changeSet: changeSet ? [...changeSet] : [],
+      }],
       historyIndex: 0,
     });
   },
