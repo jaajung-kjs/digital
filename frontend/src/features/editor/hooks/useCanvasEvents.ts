@@ -18,6 +18,7 @@ import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from './useEditorHistory';
 import { useConnectionCreationStore } from '../../connections/stores/connectionCreationStore';
+import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
@@ -88,6 +89,20 @@ export function useCanvasEvents(
       return;
     }
 
+    // Cable drawing mode: don't start dragging equipment
+    const cableDrawing = useCableDrawingStore.getState();
+    if (cableDrawing.phase !== 'idle') {
+      // Allow panning on empty space during selectingSource
+      if (cableDrawing.phase === 'selectingSource') {
+        const found = findItemAt(x, y, localElements, localEquipment);
+        if (!found) {
+          canvasStore.getState().setIsPanning(true);
+          canvasStore.getState().setPanStart({ x: screenX, y: screenY });
+        }
+      }
+      return;
+    }
+
     // Connection creation mode: don't start dragging equipment
     const creationStore = useConnectionCreationStore.getState();
     if (creationStore.phase === 'selectingTarget') {
@@ -142,6 +157,20 @@ export function useCanvasEvents(
       const { panX, panY } = editorStore.getState();
       editorStore.getState().setPan(panX + dx, panY + dy);
       canvasStore.getState().setPanStart({ x: screenX, y: screenY });
+      return;
+    }
+
+    // Cable drawing: track preview and hover during drawingPath
+    const cableDrawing = useCableDrawingStore.getState();
+    if (cableDrawing.phase === 'drawingPath') {
+      const snapped = snapToGrid(worldX, worldY);
+      cableDrawing.setPreviewPoint({ x: snapped.x, y: snapped.y });
+      const { localElements, localEquipment } = editorStore.getState();
+      const found = findItemAt(worldX, worldY, localElements, localEquipment);
+      const newHovered = found?.type === 'equipment' ? found.item.id : null;
+      if (newHovered !== cableDrawing.hoveredEquipmentId) {
+        cableDrawing.setHovered(newHovered);
+      }
       return;
     }
 
@@ -238,6 +267,51 @@ export function useCanvasEvents(
     const snapped = snapToGrid(x, y);
     const { tool, localElements, localEquipment } = editorStore.getState();
     const cs = canvasStore.getState();
+
+    // Cable drawing: handle source/waypoint/target clicks
+    const cableDrawing = useCableDrawingStore.getState();
+    if (cableDrawing.phase === 'selectingSource') {
+      const found = findItemAt(x, y, localElements, localEquipment);
+      if (found?.type === 'equipment') {
+        const eq = found.item as FloorPlanEquipment;
+        cableDrawing.setSource(eq.id, {
+          x: eq.positionX + eq.width / 2,
+          y: eq.positionY + eq.height / 2,
+        });
+      }
+      return;
+    }
+    if (cableDrawing.phase === 'drawingPath') {
+      const found = findItemAt(x, y, localElements, localEquipment);
+      if (found?.type === 'equipment' && found.item.id !== cableDrawing.sourceEquipmentId) {
+        const eq = found.item as FloorPlanEquipment;
+        cableDrawing.setTarget(eq.id, {
+          x: eq.positionX + eq.width / 2,
+          y: eq.positionY + eq.height / 2,
+        });
+      } else if (!found || found.type !== 'equipment') {
+        cableDrawing.addWaypoint(snapped.x, snapped.y);
+      }
+      return;
+    }
+    if (cableDrawing.phase === 'selectingSpec') {
+      // Clicks are handled by the spec popup, ignore canvas clicks
+      return;
+    }
+
+    // If cable tool is selected but phase is idle, activate
+    if (tool === 'cable') {
+      cableDrawing.activate();
+      const found = findItemAt(x, y, localElements, localEquipment);
+      if (found?.type === 'equipment') {
+        const eq = found.item as FloorPlanEquipment;
+        useCableDrawingStore.getState().setSource(eq.id, {
+          x: eq.positionX + eq.width / 2,
+          y: eq.positionY + eq.height / 2,
+        });
+      }
+      return;
+    }
 
     // Connection creation: click on equipment to complete
     const creationStore = useConnectionCreationStore.getState();
