@@ -122,9 +122,28 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     },
     onSuccess: async (response) => {
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
-      const { changeSet } = useEditorStore.getState();
+      const { changeSet, localEquipment: preInvalidateEquipment, localRacks: existingRacks } = useEditorStore.getState();
       const tempIdMap = buildTempIdMap(equipmentIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
+
+      // Identify new EQP-RACK equipment BEFORE any async work or query invalidation.
+      // At this point localEquipment still has temp IDs and materialCategoryCode intact.
+      let hadNewRacks = false;
+      let newRackEquipment: typeof preInvalidateEquipment = [];
+      if (Object.keys(equipmentIdMap).length > 0) {
+        newRackEquipment = preInvalidateEquipment.filter((eq) => {
+          // Only process equipment that was just created (has a tempId mapping)
+          if (!tempIdMap.has(eq.id)) return false;
+          // Check if this is a rack-type equipment
+          if (!eq.materialCategoryCode?.startsWith('EQP-RACK')) return false;
+          // Check that no rack already exists at this position
+          const alreadyHasRack = existingRacks.some(
+            (r) => Math.abs(r.positionX - eq.positionX) < RACK_EQUIPMENT_POSITION_TOLERANCE && Math.abs(r.positionY - eq.positionY) < RACK_EQUIPMENT_POSITION_TOLERANCE
+          );
+          return !alreadyHasRack;
+        });
+        hadNewRacks = newRackEquipment.length > 0;
+      }
 
       // Process remaining changeSet (photos and logs only — cables already saved atomically)
       const nonCableChanges = changeSet.filter((e) => !e.type.startsWith('cable:'));
@@ -148,39 +167,21 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       }
 
       // Auto-create Rack entities for newly saved EQP-RACK equipment
-      let hadNewRacks = false;
-      if (Object.keys(equipmentIdMap).length > 0) {
-        const { localEquipment: savedEquipment, localRacks: existingRacks } = useEditorStore.getState();
-        const newRackEquipment = savedEquipment.filter((eq) => {
-          // Only process equipment that was just created (has a tempId mapping)
-          const realId = tempIdMap.get(eq.id);
-          if (!realId) return false;
-          // Check if this is a rack-type equipment
-          if (!eq.materialCategoryCode?.startsWith('EQP-RACK')) return false;
-          // Check that no rack already exists at this position
-          const alreadyHasRack = existingRacks.some(
-            (r) => Math.abs(r.positionX - eq.positionX) < RACK_EQUIPMENT_POSITION_TOLERANCE && Math.abs(r.positionY - eq.positionY) < RACK_EQUIPMENT_POSITION_TOLERANCE
-          );
-          return !alreadyHasRack;
-        });
-
-        hadNewRacks = newRackEquipment.length > 0;
-        if (hadNewRacks) {
-          const rackResults = await Promise.allSettled(
-            newRackEquipment.map((eq) =>
-              api.post(`/floor-plans/${roomId}/racks`, {
-                name: eq.name,
-                positionX: eq.positionX,
-                positionY: eq.positionY,
-                width: eq.width,
-                height: eq.height,
-              })
-            )
-          );
-          const rackFailures = rackResults.filter((r) => r.status === 'rejected');
-          if (rackFailures.length > 0) {
-            console.warn(`[Save] ${rackFailures.length} rack auto-creation(s) failed:`, rackFailures);
-          }
+      if (hadNewRacks) {
+        const rackResults = await Promise.allSettled(
+          newRackEquipment.map((eq) =>
+            api.post(`/floor-plans/${roomId}/racks`, {
+              name: eq.name,
+              positionX: eq.positionX,
+              positionY: eq.positionY,
+              width: eq.width,
+              height: eq.height,
+            })
+          )
+        );
+        const rackFailures = rackResults.filter((r) => r.status === 'rejected');
+        if (rackFailures.length > 0) {
+          console.warn(`[Save] ${rackFailures.length} rack auto-creation(s) failed:`, rackFailures);
         }
       }
 

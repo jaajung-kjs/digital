@@ -56,6 +56,7 @@ export interface RoomPlanDetail {
     manager: string | null;
     height3d: number | null;
     materialCategoryId: string | null;
+    materialCategoryCode: string | null;
     materialId: string | null;
     specParams: unknown;
   }[];
@@ -157,6 +158,7 @@ const EQUIPMENT_SELECT = {
   rotation: true, frontImageUrl: true, rearImageUrl: true,
   description: true, model: true, manufacturer: true, manager: true, height3d: true,
   materialCategoryId: true, materialId: true, specParams: true,
+  materialCategory: { select: { code: true } },
 } as const;
 
 type EquipmentRow = Prisma.EquipmentGetPayload<{ select: typeof EQUIPMENT_SELECT }>;
@@ -170,7 +172,8 @@ function mapEquipmentRow(e: EquipmentRow) {
     frontImageUrl: e.frontImageUrl, rearImageUrl: e.rearImageUrl,
     description: e.description, model: e.model,
     manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
-    materialCategoryId: e.materialCategoryId, materialId: e.materialId, specParams: e.specParams,
+    materialCategoryId: e.materialCategoryId, materialCategoryCode: e.materialCategory?.code ?? null,
+    materialId: e.materialId, specParams: e.specParams,
   };
 }
 
