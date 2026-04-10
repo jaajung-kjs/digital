@@ -50,6 +50,7 @@ export function useEditorKeyboard(handleSave: () => void) {
       if (e.key === 'd' || e.key === 'D') es.setTool('door');
       if (e.key === 'w' || e.key === 'W') es.setTool('window');
       if (e.key === 'k' || e.key === 'K') es.setTool('equipment');
+      if (e.key === 'c' || e.key === 'C') es.setTool('cable');
       if (e.key === 't' || e.key === 'T') es.setTool('text');
       if (e.key === 'g' || e.key === 'G') es.setShowGrid(!es.showGrid);
       if (e.key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
