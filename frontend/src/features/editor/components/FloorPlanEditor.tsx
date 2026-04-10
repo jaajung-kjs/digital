@@ -238,7 +238,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const [showSettings, setShowSettings] = useState(false);
 
   const {
-    room, floorPlan, roomLoading, planLoading, planError, saveMutation, handleSave,
+    room, floorPlan, roomLoading, planLoading, planError, saveError, saveMutation, handleSave,
   } = useFloorPlanData(roomId, containerRef);
 
   useEditorKeyboard(handleSave);
@@ -387,6 +387,14 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
   return (
     <div className="h-screen w-full flex flex-col bg-gray-100 overflow-hidden">
+      {saveError && (
+        <div className="bg-red-600 text-white px-4 py-2 text-sm font-medium flex items-center justify-between">
+          <span>저장 실패: {saveError}</span>
+          <button onClick={() => {/* auto-dismiss */}} className="ml-4 text-white/80 hover:text-white text-xs">
+            자동으로 사라집니다
+          </button>
+        </div>
+      )}
       <Toolbar
         room={room}
         floorPlan={floorPlan}

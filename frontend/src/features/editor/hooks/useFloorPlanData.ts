@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type { FloorPlanDetail, UpdateFloorPlanRequest } from '../../../types/floorPlan';
@@ -67,6 +67,7 @@ async function processChange(entry: ChangeEntry, resolveId: (id: string) => stri
  * This is the SINGLE save path — all mutations flow through here.
  */
 export function useFloorPlanData(roomId: string | undefined, containerRef: React.RefObject<HTMLDivElement | null>) {
+  const [saveError, setSaveError] = useState<string | null>(null);
   const isSavingRef = useRef(false);
   const queryClient = useQueryClient();
   const {
@@ -160,6 +161,12 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       // Reset undo/redo history after successful save
       const { localElements: currentElements, localEquipment: currentEquipment } = useEditorStore.getState();
       initHistory(currentElements, currentEquipment);
+    },
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      const message = err?.response?.data?.message || err?.message || '저장에 실패했습니다.';
+      setSaveError(message);
+      setTimeout(() => setSaveError(null), 5000);
     },
   });
 
@@ -326,6 +333,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     roomLoading,
     planLoading,
     planError,
+    saveError,
     saveMutation,
     handleSave,
   };
