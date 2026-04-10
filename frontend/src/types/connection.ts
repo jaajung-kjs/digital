@@ -50,6 +50,12 @@ export interface RoomConnection {
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
   fiberPathDescription?: string | null;
+  materialCategoryId?: string | null;
+  materialCategoryCode?: string | null;
+  materialId?: string | null;
+  specParams?: Record<string, unknown> | null;
+  pathLength?: number | null;
+  totalLength?: number | null;
   sourceEquipment: EquipmentInfo;
   targetEquipment: EquipmentInfo;
 }

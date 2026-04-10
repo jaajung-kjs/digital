@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRoomConnections } from '../../connections/hooks/useRoomConnections';
-import { CABLE_TYPES, CABLE_BADGE_CLASSES } from '../../../types/connection';
-import type { CableType, RoomConnection } from '../../../types/connection';
+import { CABLE_BADGE_CLASSES } from '../../../types/connection';
+import type { RoomConnection } from '../../../types/connection';
+import { getCableTypeFromMaterial } from '../../../types/material';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useMergedConnections } from '../../connections/hooks/useMergedConnections';
 import { isTempId } from '../../../utils/idHelpers';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
 import { useConnectionCreationStore } from '../../connections/stores/connectionCreationStore';
+import { CableMaterialPicker } from '../../materials/components/CableMaterialPicker';
+import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
 
 
 interface ConnectionDiagramProps {
@@ -35,6 +38,7 @@ export function ConnectionDiagram({
   const traceActive = usePathHighlightStore((s) => s.active);
   const startCreation = useConnectionCreationStore((s) => s.startCreation);
   const creationPhase = useConnectionCreationStore((s) => s.phase);
+  const addRecent = useRecentMaterialsStore((s) => s.addRecent);
   const [showCableSelector, setShowCableSelector] = useState(false);
 
   // Unmount = context gone → clear highlight automatically.
@@ -55,8 +59,21 @@ export function ConnectionDiagram({
     return <div className="p-4 text-center text-sm text-gray-500">로딩 중...</div>;
   }
 
-  const handleStartCreation = (cableType: CableType) => {
-    startCreation(equipmentId, cableType);
+  const handleMaterialSelect = ({ categoryId, categoryCode, specParams, specification }: {
+    categoryId: string;
+    categoryCode: string;
+    specParams: Record<string, unknown>;
+    specification: string;
+  }) => {
+    const cableType = getCableTypeFromMaterial(categoryCode);
+    startCreation(equipmentId, cableType, categoryId, categoryCode, specParams, specification);
+    addRecent('cable', {
+      categoryId,
+      categoryCode,
+      categoryName: specification,
+      specParams,
+      specification,
+    });
     setShowCableSelector(false);
   };
 
@@ -81,33 +98,24 @@ export function ConnectionDiagram({
         </div>
         )}
 
-        {/* Cable type selector modal */}
+        {/* Cable material selector modal */}
         {showCableSelector && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
             onClick={() => setShowCableSelector(false)}
           >
             <div
-              className="bg-white rounded-xl shadow-xl w-64 overflow-hidden"
+              className="bg-white rounded-xl shadow-xl w-80 overflow-hidden max-h-[80vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-4 py-3 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-800">케이블 종류 선택</h3>
+                <h3 className="text-sm font-semibold text-gray-800">케이블 종류/규격 선택</h3>
               </div>
-              <div className="p-2">
-                {CABLE_TYPES.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => handleStartCreation(opt.value)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <span
-                      className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: opt.color }}
-                    />
-                    <span className="text-sm font-medium text-gray-700">{opt.label}</span>
-                  </button>
-                ))}
+              <div className="p-4">
+                <CableMaterialPicker
+                  value={null}
+                  onChange={handleMaterialSelect}
+                />
               </div>
             </div>
           </div>

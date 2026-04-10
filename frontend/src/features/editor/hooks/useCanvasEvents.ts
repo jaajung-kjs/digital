@@ -261,6 +261,8 @@ export function useCanvasEvents(
             sourceEquipmentId: creationStore.sourceEquipmentId!,
             targetEquipmentId: found.item.id,
             cableType: creationStore.cableType!,
+            materialCategoryId: creationStore.materialCategoryId || undefined,
+            specParams: creationStore.specParams || undefined,
           });
           editorStore.getState().setHasChanges(true);
           creationStore.cancel();
