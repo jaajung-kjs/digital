@@ -23,6 +23,7 @@ import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
+import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
 
 /**
  * Hook for all mouse/wheel/touch event handlers on the canvas
@@ -121,6 +122,7 @@ export function useCanvasEvents(
         const session = createDragSession(found, { x, y });
         canvasStore.getState().setDragSession(session);
         editorStore.getState().setSelectedIds([found.item.id]);
+        editorStore.getState().setSelectedCableId(null);
 
         if (found.type === 'equipment') {
           editorStore.getState().setSelectedEquipment(found.item as FloorPlanEquipment);
@@ -130,13 +132,31 @@ export function useCanvasEvents(
           editorStore.getState().setSelectedEquipment(null);
         }
       } else {
-        canvasStore.getState().setIsPanning(true);
-        canvasStore.getState().setPanStart({ x: screenX, y: screenY });
-        editorStore.getState().clearSelection();
-        // Close rack/equipment detail panels when clicking empty canvas
-        editorStore.getState().setSelectedRackId(null);
-        // Clear path trace highlight when clicking empty canvas
-        usePathHighlightStore.getState().clearHighlight();
+        // Check if clicked near a cable polyline
+        const { cables: hitCables } = useCableHitTestStore.getState();
+        const { zoom: currentZoom } = editorStore.getState();
+        const hitThreshold = 8 / (currentZoom / 100);
+        let closestCableId: string | null = null;
+        let closestDist = Infinity;
+        for (const cable of hitCables) {
+          const dist = pointToPolylineDistance(x, y, cable.pathPoints);
+          if (dist < hitThreshold && dist < closestDist) {
+            closestDist = dist;
+            closestCableId = cable.id;
+          }
+        }
+
+        if (closestCableId) {
+          editorStore.getState().setSelectedCableId(closestCableId);
+        } else {
+          canvasStore.getState().setIsPanning(true);
+          canvasStore.getState().setPanStart({ x: screenX, y: screenY });
+          editorStore.getState().clearSelection();
+          // Close rack/equipment detail panels when clicking empty canvas
+          editorStore.getState().setSelectedRackId(null);
+          // Clear path trace highlight when clicking empty canvas
+          usePathHighlightStore.getState().clearHighlight();
+        }
       }
     }
   }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, canvasStore]);
