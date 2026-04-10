@@ -144,6 +144,9 @@ interface CanvasStoreActions {
   setNewRackPosition: (p: { x: number; y: number }) => void;
   setRackDrawnSize: (s: { width: number; height: number } | null) => void;
 
+  // Close all modals (mutual exclusion)
+  closeAllModals: () => void;
+
   // Reset all drawing/interaction state
   resetDrawingState: () => void;
 }
@@ -253,6 +256,14 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setNewRackTotalU: (newRackTotalU) => set({ newRackTotalU }),
   setNewRackPosition: (newRackPosition) => set({ newRackPosition }),
   setRackDrawnSize: (rackDrawnSize) => set({ rackDrawnSize }),
+
+  closeAllModals: () => set({
+    equipmentModalOpen: false,
+    pasteEquipmentModalOpen: false,
+    infraMaterialModalOpen: false,
+    infraMaterialElementId: null,
+    rackModalOpen: false,
+  }),
 
   resetDrawingState: () => set({
     isDrawingLine: false,

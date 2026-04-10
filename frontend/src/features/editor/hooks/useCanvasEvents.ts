@@ -593,6 +593,7 @@ export function useCanvasEvents(
           if (eqW >= 10 && eqH >= 10) {
             cs.setNewEquipmentPosition({ x: eqX, y: eqY });
             cs.setEquipmentDrawnSize({ width: eqW, height: eqH });
+            cs.closeAllModals();
             cs.setEquipmentModalOpen(true);
           }
           cs.setIsDrawingEquipment(false);
@@ -616,6 +617,7 @@ export function useCanvasEvents(
           if (rkW >= 10 && rkH >= 10) {
             cs.setNewRackPosition({ x: rkX, y: rkY });
             cs.setRackDrawnSize({ width: rkW, height: rkH });
+            cs.closeAllModals();
             cs.setRackModalOpen(true);
           }
           cs.setIsDrawingRack(false);
@@ -670,6 +672,7 @@ export function useCanvasEvents(
           editorStore.getState().setHasChanges(true);
 
           // Open material picker for the new element
+          cs.closeAllModals();
           cs.setInfraMaterialElementId(newElement.id);
           cs.setInfraMaterialModalOpen(true);
         }
@@ -704,6 +707,7 @@ export function useCanvasEvents(
         editorStore.getState().setHasChanges(true);
 
         // Open material picker for the new element
+        cs.closeAllModals();
         cs.setInfraMaterialElementId(newPullbox.id);
         cs.setInfraMaterialModalOpen(true);
         break;
