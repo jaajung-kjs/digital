@@ -40,8 +40,8 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThanOrEqual(63);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.length).toBeGreaterThanOrEqual(63);
     });
 
     it('should filter by type=CABLE and return 16 categories', async () => {
@@ -50,8 +50,8 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.length).toBe(16);
-      expect(response.body.every((c: any) => c.categoryType === 'CABLE')).toBe(true);
+      expect(response.body.data.length).toBe(16);
+      expect(response.body.data.every((c: any) => c.categoryType === 'CABLE')).toBe(true);
     });
 
     it('should filter by type=EQUIPMENT and return 13 categories', async () => {
@@ -60,7 +60,7 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.length).toBe(13);
+      expect(response.body.data.length).toBe(13);
     });
 
     it('should filter by type=ACCESSORY and return 34 categories', async () => {
@@ -69,7 +69,7 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.length).toBe(34);
+      expect(response.body.data.length).toBe(34);
     });
 
     it('should filter top-level only with parentId=null', async () => {
@@ -78,9 +78,9 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.every((c: any) => c.parentId === null)).toBe(true);
+      expect(response.body.data.every((c: any) => c.parentId === null)).toBe(true);
       // 16 cable + 13 equipment + 9 accessory parent = 38
-      expect(response.body.length).toBe(38);
+      expect(response.body.data.length).toBe(38);
     });
 
     it('should fail without authentication', async () => {
@@ -97,9 +97,9 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.length).toBe(16);
+      expect(response.body.data.length).toBe(16);
       // Cable categories have no children
-      response.body.forEach((cat: any) => {
+      response.body.data.forEach((cat: any) => {
         expect(cat.children).toBeDefined();
       });
     });
@@ -111,15 +111,15 @@ describe('MaterialCategory API Integration Tests', () => {
         .expect(200);
 
       // 9 parent categories
-      expect(response.body.length).toBe(9);
+      expect(response.body.data.length).toBe(9);
 
       // ACC-PIPE should have 5 children
-      const pipe = response.body.find((c: any) => c.code === 'ACC-PIPE');
+      const pipe = response.body.data.find((c: any) => c.code === 'ACC-PIPE');
       expect(pipe).toBeDefined();
       expect(pipe.children.length).toBe(5);
 
       // ACC-CONN should have 4 children
-      const conn = response.body.find((c: any) => c.code === 'ACC-CONN');
+      const conn = response.body.data.find((c: any) => c.code === 'ACC-CONN');
       expect(conn).toBeDefined();
       expect(conn.children.length).toBe(4);
     });
@@ -130,7 +130,7 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.length).toBe(13);
+      expect(response.body.data.length).toBe(13);
     });
   });
 
@@ -142,7 +142,7 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      const utpCategory = listResponse.body.find((c: any) => c.code === 'CBL-UTP');
+      const utpCategory = listResponse.body.data.find((c: any) => c.code === 'CBL-UTP');
       expect(utpCategory).toBeDefined();
 
       const response = await request(app)
@@ -150,13 +150,13 @@ describe('MaterialCategory API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(response.body.code).toBe('CBL-UTP');
-      expect(response.body.name).toBe('UTP/S-FTP케이블');
-      expect(response.body.specTemplate).toBeDefined();
-      expect(response.body.specTemplate.params).toHaveLength(3);
-      expect(response.body.specTemplate.format).toBe('{shield} CAT.{cat} {pairs}P');
-      expect(response.body.children).toBeDefined();
-      expect(response.body.aliases).toBeDefined();
+      expect(response.body.data.code).toBe('CBL-UTP');
+      expect(response.body.data.name).toBe('UTP/S-FTP케이블');
+      expect(response.body.data.specTemplate).toBeDefined();
+      expect(response.body.data.specTemplate.params).toHaveLength(3);
+      expect(response.body.data.specTemplate.format).toBe('{shield} CAT.{cat} {pairs}P');
+      expect(response.body.data.children).toBeDefined();
+      expect(response.body.data.aliases).toBeDefined();
     });
 
     it('should return 404 for non-existent ID', async () => {

@@ -14,14 +14,14 @@ class MaterialCategoryController {
       const categories = await materialCategoryService.getAll(
         Object.keys(filters).length > 0 ? filters : undefined
       );
-      res.json(categories);
+      res.json({ data: categories });
     } catch (err) { next(err); }
   }
 
   async getById(req: Request, res: Response, next: NextFunction) {
     try {
       const category = await materialCategoryService.getById(req.params.id);
-      res.json(category);
+      res.json({ data: category });
     } catch (err) { next(err); }
   }
 
@@ -29,7 +29,7 @@ class MaterialCategoryController {
     try {
       const type = req.params.type.toUpperCase() as MaterialCategoryType;
       const categories = await materialCategoryService.getByType(type);
-      res.json(categories);
+      res.json({ data: categories });
     } catch (err) { next(err); }
   }
 }

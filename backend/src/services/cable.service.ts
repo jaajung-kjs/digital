@@ -17,6 +17,11 @@ export interface CableDetail {
   fiberPathId: string | null;
   fiberPortNumber: number | null;
   fiberPathDescription: string | null;
+  materialCategoryId: string | null;
+  specParams: unknown;
+  pathLength: number | null;
+  bufferLength: number;
+  totalLength: number | null;
   sourceEquipment: {
     id: string;
     name: string;
@@ -223,6 +228,11 @@ class CableService {
       fiberPathId: c.fiberPathId ?? null,
       fiberPortNumber: c.fiberPortNumber ?? null,
       fiberPathDescription: this.buildFiberPathLabel(c),
+      materialCategoryId: c.materialCategoryId ?? null,
+      specParams: c.specParams ?? null,
+      pathLength: c.pathLength ?? null,
+      bufferLength: c.bufferLength ?? 4,
+      totalLength: c.totalLength ?? null,
       sourceEquipment: {
         id: c.sourceEquipment.id,
         name: c.sourceEquipment.name,

@@ -54,6 +54,9 @@ export interface RoomPlanDetail {
     manufacturer: string | null;
     manager: string | null;
     height3d: number | null;
+    materialCategoryId: string | null;
+    materialId: string | null;
+    specParams: unknown;
   }[];
   version: number;
   updatedAt: Date;
@@ -97,6 +100,8 @@ export interface UpdatePlanInput {
     manufacturer?: string | null;
     manager?: string | null;
     height3d?: number | null;
+    materialCategoryId?: string | null;
+    specParams?: any;
   }[];
   cables?: {
     id?: string | null;
@@ -108,6 +113,8 @@ export interface UpdatePlanInput {
     color?: string | null;
     fiberPathId?: string | null;
     fiberPortNumber?: number | null;
+    materialCategoryId?: string | null;
+    specParams?: any;
   }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
@@ -140,6 +147,7 @@ const EQUIPMENT_SELECT = {
   positionX: true, positionY: true, width2d: true, height2d: true,
   rotation: true, frontImageUrl: true, rearImageUrl: true,
   description: true, model: true, manufacturer: true, manager: true, height3d: true,
+  materialCategoryId: true, materialId: true, specParams: true,
 } as const;
 
 type EquipmentRow = Prisma.EquipmentGetPayload<{ select: typeof EQUIPMENT_SELECT }>;
@@ -153,6 +161,7 @@ function mapEquipmentRow(e: EquipmentRow) {
     frontImageUrl: e.frontImageUrl, rearImageUrl: e.rearImageUrl,
     description: e.description, model: e.model,
     manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
+    materialCategoryId: e.materialCategoryId, materialId: e.materialId, specParams: e.specParams,
   };
 }
 
@@ -639,6 +648,8 @@ class RoomService {
                 manufacturer: equip.manufacturer,
                 manager: equip.manager,
                 height3d: equip.height3d,
+                materialCategoryId: equip.materialCategoryId,
+                specParams: equip.specParams as Prisma.InputJsonValue | undefined,
                 updatedById: userId,
               },
             });
@@ -658,6 +669,8 @@ class RoomService {
                 manufacturer: equip.manufacturer,
                 manager: equip.manager,
                 height3d: equip.height3d,
+                materialCategoryId: equip.materialCategoryId,
+                specParams: equip.specParams as Prisma.InputJsonValue | undefined,
                 createdById: userId,
                 updatedById: userId,
               },
@@ -687,6 +700,8 @@ class RoomService {
                 color: cable.color,
                 fiberPathId: cable.fiberPathId ?? null,
                 fiberPortNumber: cable.fiberPortNumber ?? null,
+                materialCategoryId: cable.materialCategoryId,
+                specParams: cable.specParams as Prisma.InputJsonValue | undefined,
                 updatedById: userId,
               },
             });
@@ -714,6 +729,8 @@ class RoomService {
                 color: cable.color,
                 fiberPathId: cable.fiberPathId ?? null,
                 fiberPortNumber: cable.fiberPortNumber ?? null,
+                materialCategoryId: cable.materialCategoryId,
+                specParams: cable.specParams as Prisma.InputJsonValue | undefined,
                 createdById: userId,
                 updatedById: userId,
               },
