@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
-import type { FloorPlanEquipment } from '../../../types/floorPlan';
+import type { FloorPlanDetail, FloorPlanEquipment } from '../../../types/floorPlan';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useClipboard } from '../hooks/useClipboard';
@@ -18,6 +18,7 @@ import { CanvasView } from './CanvasView';
 import { PropertyBar } from './PropertyBar';
 import { HeightInput } from './HeightInput';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
+import { CablePathOverlay } from './CablePathOverlay';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
@@ -203,6 +204,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                   roomId={roomId}
                 >
                   <ConnectionOverlay roomId={roomId} canvasRef={canvasRef} />
+                  <CablePathOverlay canvasRef={canvasRef} scaleRatio={(floorPlan as FloorPlanDetail & { scaleRatio?: number | null })?.scaleRatio ?? null} />
                 </CanvasView>
               )}
 
