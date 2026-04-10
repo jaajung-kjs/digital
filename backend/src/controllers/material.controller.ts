@@ -6,14 +6,14 @@ class MaterialController {
     try {
       const { categoryId, specParams } = req.body;
       const result = await materialService.resolve(categoryId, specParams);
-      res.json(result);
+      res.json({ data: result });
     } catch (err) { next(err); }
   }
 
   async getByCategoryId(req: Request, res: Response, next: NextFunction) {
     try {
       const materials = await materialService.getByCategoryId(req.query.categoryId as string);
-      res.json(materials);
+      res.json({ data: materials });
     } catch (err) { next(err); }
   }
 }
