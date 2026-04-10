@@ -201,6 +201,8 @@ export interface UpdateFloorPlanRequest {
     label?: string | null;
     length?: number | null;
     color?: string | null;
+    materialCategoryId?: string;
+    specParams?: Record<string, unknown>;
   }[];
   deletedElementIds?: string[];
   deletedEquipmentIds?: string[];
