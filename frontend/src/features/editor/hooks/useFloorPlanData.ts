@@ -8,6 +8,7 @@ import { useEditorStore, selectChanges, type ChangeEntry } from '../stores/edito
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
+import { RACK_EQUIPMENT_POSITION_TOLERANCE } from '../../../utils/floorplan/constants';
 
 /**
  * Build temp equipment ID → real ID mapping from the backend response.
@@ -107,6 +108,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       return response.data.data;
     },
     enabled: !!roomId,
+    staleTime: 30_000,
   });
 
   // === THE SINGLE SAVE MUTATION ===
@@ -146,6 +148,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       }
 
       // Auto-create Rack entities for newly saved EQP-RACK equipment
+      let hadNewRacks = false;
       if (Object.keys(equipmentIdMap).length > 0) {
         const { localEquipment: savedEquipment, localRacks: existingRacks } = useEditorStore.getState();
         const newRackEquipment = savedEquipment.filter((eq) => {
@@ -156,12 +159,13 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
           if (!eq.materialCategoryCode?.startsWith('EQP-RACK')) return false;
           // Check that no rack already exists at this position
           const alreadyHasRack = existingRacks.some(
-            (r) => Math.abs(r.positionX - eq.positionX) < 5 && Math.abs(r.positionY - eq.positionY) < 5
+            (r) => Math.abs(r.positionX - eq.positionX) < RACK_EQUIPMENT_POSITION_TOLERANCE && Math.abs(r.positionY - eq.positionY) < RACK_EQUIPMENT_POSITION_TOLERANCE
           );
           return !alreadyHasRack;
         });
 
-        if (newRackEquipment.length > 0) {
+        hadNewRacks = newRackEquipment.length > 0;
+        if (hadNewRacks) {
           const rackResults = await Promise.allSettled(
             newRackEquipment.map((eq) =>
               api.post(`/floor-plans/${roomId}/racks`, {
@@ -184,7 +188,9 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       useEditorStore.getState().clearChangeSet();
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
       queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
-      queryClient.invalidateQueries({ queryKey: ['floor-plan-racks', roomId] });
+      if (hadNewRacks) {
+        queryClient.invalidateQueries({ queryKey: ['floor-plan-racks', roomId] });
+      }
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
       if (nonCableChanges.some((e) => e.type.startsWith('photo:'))) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });

@@ -18,7 +18,9 @@ import { CanvasView } from './CanvasView';
 import { PropertyBar } from './PropertyBar';
 import { HeightInput } from './HeightInput';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
-import { CablePathOverlay, calculatePathLength } from './CablePathOverlay';
+import { CablePathOverlay } from './CablePathOverlay';
+import { calculatePathLength } from '../../../utils/cable/pathLength';
+import { MaterialSelectionModal } from './MaterialSelectionModal';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
 import { CableMaterialPicker } from '../../materials/components/CableMaterialPicker';
 import { getCableTypeFromMaterial } from '../../../types/material';
@@ -109,37 +111,18 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 className="text-lg font-semibold mb-4">케이블 자재 선택</h3>
-        <div className="mb-4">
-          <CableMaterialPicker
-            value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
-            onChange={setPendingValue}
-          />
-        </div>
-        {pendingValue && (
-          <div className="mb-3 p-2 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">선택: {pendingValue.specification}</p>
-          </div>
-        )}
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={handleCancel}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!pendingValue}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            확인
-          </button>
-        </div>
-      </div>
-    </div>
+    <MaterialSelectionModal
+      title="케이블 자재 선택"
+      onConfirm={handleConfirm}
+      onCancel={handleCancel}
+      confirmDisabled={!pendingValue}
+      selectedLabel={pendingValue?.specification}
+    >
+      <CableMaterialPicker
+        value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
+        onChange={setPendingValue}
+      />
+    </MaterialSelectionModal>
   );
 }
 
@@ -186,41 +169,22 @@ function InfraMaterialModal({ elementId }: { elementId: string }) {
   }, [elementId]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 className="text-lg font-semibold mb-4">{title}</h3>
-        <div className="mb-4">
-          <MaterialPicker
-            categoryType="ACCESSORY"
-            filterParentCode={filterParentCode}
-            value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
-            onChange={({ categoryId, specParams: sp, specification }) => {
-              setPendingValue({ categoryId, specParams: sp, specification });
-            }}
-          />
-        </div>
-        {pendingValue && (
-          <div className="mb-3 p-2 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">선택: {pendingValue.specification}</p>
-          </div>
-        )}
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={handleCancel}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!pendingValue}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            확인
-          </button>
-        </div>
-      </div>
-    </div>
+    <MaterialSelectionModal
+      title={title}
+      onConfirm={handleConfirm}
+      onCancel={handleCancel}
+      confirmDisabled={!pendingValue}
+      selectedLabel={pendingValue?.specification}
+    >
+      <MaterialPicker
+        categoryType="ACCESSORY"
+        filterParentCode={filterParentCode}
+        value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
+        onChange={({ categoryId, specParams: sp, specification }) => {
+          setPendingValue({ categoryId, specParams: sp, specification });
+        }}
+      />
+    </MaterialSelectionModal>
   );
 }
 
@@ -229,7 +193,6 @@ function ToolStatusBar() {
   const tool = useEditorStore(s => s.tool);
   const isDrawingLine = useCanvasStore(s => s.isDrawingLine);
   const isDrawingEquipment = useCanvasStore(s => s.isDrawingEquipment);
-  const isDrawingRack = useCanvasStore(s => s.isDrawingRack);
 
   const getMessage = (): string | null => {
     switch (tool) {
@@ -241,8 +204,6 @@ function ToolStatusBar() {
         return '풀박스 설치 위치를 클릭하세요';
       case 'equipment':
         return isDrawingEquipment ? '끝점을 클릭하여 크기를 결정하세요' : '설비 시작점을 클릭하세요';
-      case 'rack':
-        return isDrawingRack ? '끝점을 클릭하여 크기를 결정하세요' : '랙 시작점을 클릭하세요';
       case 'line':
         return isDrawingLine ? '끝점을 클릭하세요' : '선 시작점을 클릭하세요';
       default:
