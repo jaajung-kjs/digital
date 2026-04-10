@@ -115,6 +115,7 @@ export interface EditorStoreActions {
   // Single change set interface — the ONLY way to queue mutations
   addChange: (entry: ChangeEntry) => void;
   removeChanges: (predicate: (e: ChangeEntry) => boolean) => void;
+  replaceChangeSet: (entries: ChangeEntry[]) => void;
   clearChangeSet: () => void;
 
   setScaleRatio: (ratio: number | null) => void;
@@ -214,6 +215,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     revokeObjectUrls(removed);
     return { changeSet: state.changeSet.filter((e) => !predicate(e)) };
   }),
+  replaceChangeSet: (entries) => set({ changeSet: entries }),
   clearChangeSet: () => set((state) => {
     revokeObjectUrls(state.changeSet);
     return { changeSet: [], deletedElementIds: [], deletedEquipmentIds: [] };

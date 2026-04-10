@@ -254,8 +254,50 @@ export function useCanvasEvents(
   const handleCanvasMouseUp = useCallback(() => {
     const { dragSession } = canvasStore.getState();
     if (dragSession?.isActive) {
-      const { localElements, localEquipment } = editorStore.getState();
+      const { localElements, localEquipment, changeSet } = editorStore.getState();
       pushHistory(localElements, localEquipment);
+
+      // Update cable pathPoints when equipment is dragged
+      if (dragSession.target.type === 'equipment') {
+        const movedEqId = dragSession.target.id;
+        const movedEq = localEquipment.find((eq) => eq.id === movedEqId);
+        if (movedEq) {
+          const newCenter: [number, number] = [
+            movedEq.positionX + movedEq.width / 2,
+            movedEq.positionY + movedEq.height / 2,
+          ];
+
+          // Update pending cable:create and cable:update entries in changeSet
+          let anyChanged = false;
+          const updatedChangeSet = changeSet.map((entry) => {
+            if (
+              (entry.type === 'cable:create' || entry.type === 'cable:update') &&
+              entry.pathPoints &&
+              entry.pathPoints.length >= 2
+            ) {
+              let updated = false;
+              const pts = entry.pathPoints.map((p) => [...p] as [number, number]);
+              if (entry.sourceEquipmentId === movedEqId) {
+                pts[0] = newCenter;
+                updated = true;
+              }
+              if (entry.targetEquipmentId === movedEqId) {
+                pts[pts.length - 1] = newCenter;
+                updated = true;
+              }
+              if (updated) {
+                anyChanged = true;
+                return { ...entry, pathPoints: pts };
+              }
+            }
+            return entry;
+          });
+
+          if (anyChanged) {
+            editorStore.getState().replaceChangeSet(updatedChangeSet);
+          }
+        }
+      }
     }
     canvasStore.getState().setDragSession(null);
     canvasStore.getState().setIsPanning(false);
