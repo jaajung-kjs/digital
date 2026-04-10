@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type { FloorPlanDetail, UpdateFloorPlanRequest } from '../../../types/floorPlan';
 import type { RoomDetail } from '../../../types/substation';
+import type { RackDetail } from '../../../types/rack';
 import { useEditorStore, selectChanges, type ChangeEntry } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
@@ -95,6 +96,16 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     },
     enabled: !!roomId,
     retry: false,
+  });
+
+  // Load racks for this room
+  const { data: racks } = useQuery({
+    queryKey: ['floor-plan-racks', roomId],
+    queryFn: async () => {
+      const response = await api.get<{ data: RackDetail[] }>(`/floor-plans/${roomId}/racks`);
+      return response.data.data;
+    },
+    enabled: !!roomId,
   });
 
   // === THE SINGLE SAVE MUTATION ===
@@ -192,6 +203,13 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       setViewportInitialized(false);
     }
   }, [floorPlan, roomId, setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
+
+  // Sync racks into store
+  useEffect(() => {
+    if (racks) {
+      useEditorStore.getState().setLocalRacks(racks);
+    }
+  }, [racks]);
 
   // Viewport initialization
   useEffect(() => {
