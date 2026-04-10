@@ -36,7 +36,7 @@ function mapConnectionsToRenderable(
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
       cableType: conn.cableType,
-      label: conn.label,
+      label: conn.label || conn.materialCategoryCode || undefined,
       color: conn.color || CABLE_COLORS[conn.cableType] || '#6b7280',
     });
   }

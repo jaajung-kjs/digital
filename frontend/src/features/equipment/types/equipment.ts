@@ -93,3 +93,20 @@ export const STATUS_LABELS: Record<string, string> = {
   RESOLVED: '\uD574\uACB0',
   CLOSED: '\uC885\uB8CC',
 };
+
+/**
+ * Display name for equipment considering material category info.
+ * Falls back to CATEGORY_LABELS for legacy equipment without material data.
+ */
+export function getEquipmentDisplayName(equipment: {
+  category: string;
+  materialCategoryCode?: string | null;
+  specParams?: Record<string, unknown> | null;
+}): string {
+  if (equipment.materialCategoryCode) {
+    // Material category available — show code as-is for now
+    // TODO: could resolve to full spec string if specTemplate is cached
+    return equipment.materialCategoryCode;
+  }
+  return CATEGORY_LABELS[equipment.category] || equipment.category;
+}

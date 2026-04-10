@@ -47,6 +47,7 @@ export function useMergedConnections(
         color: cable.color,
         fiberPathId: cable.fiberPathId,
         fiberPortNumber: cable.fiberPortNumber,
+        materialCategoryId: cable.materialCategoryId,
         sourceEquipment: { id: cable.sourceEquipmentId, name: srcEq?.name ?? '', rackId: null, roomId: null },
         targetEquipment: { id: cable.targetEquipmentId, name: tgtEq?.name ?? '', rackId: null, roomId: null },
       });
