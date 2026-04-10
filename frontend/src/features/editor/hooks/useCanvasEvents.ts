@@ -255,13 +255,7 @@ export function useCanvasEvents(
       return;
     }
 
-    const { isDrawingRack, rackStart } = canvasStore.getState();
-    if (tool === 'rack' && isDrawingRack && rackStart) {
-      canvasStore.getState().setRackPreviewEnd({ x: snapped.x, y: snapped.y });
-      return;
-    }
-
-    if (['door', 'window', 'text', 'equipment', 'rack', 'pullbox'].includes(tool)) {
+    if (['door', 'window', 'text', 'equipment', 'pullbox'].includes(tool)) {
       canvasStore.getState().setPreviewPosition({ x: snapped.x, y: snapped.y });
     } else {
       canvasStore.getState().setPreviewPosition(null);
@@ -601,30 +595,6 @@ export function useCanvasEvents(
         }
         break;
 
-      case 'rack':
-        if (!cs.isDrawingRack) {
-          cs.setIsDrawingRack(true);
-          cs.setRackStart({ x: snapped.x, y: snapped.y });
-          cs.setRackPreviewEnd(null);
-        } else {
-          const rkEndX = snapped.x;
-          const rkEndY = snapped.y;
-          const rkX = Math.min(cs.rackStart!.x, rkEndX);
-          const rkY = Math.min(cs.rackStart!.y, rkEndY);
-          const rkW = Math.abs(rkEndX - cs.rackStart!.x);
-          const rkH = Math.abs(rkEndY - cs.rackStart!.y);
-
-          if (rkW >= 10 && rkH >= 10) {
-            cs.setNewRackPosition({ x: rkX, y: rkY });
-            cs.setRackDrawnSize({ width: rkW, height: rkH });
-            cs.closeAllModals();
-            cs.setRackModalOpen(true);
-          }
-          cs.setIsDrawingRack(false);
-          cs.setRackStart(null);
-        }
-        break;
-
       case 'text':
         cs.setIsEditingText(true);
         cs.setTextInputPosition({ x: snapped.x, y: snapped.y });
@@ -765,7 +735,7 @@ export function useCanvasEvents(
       }
     }
 
-    // Check racks
+    // Check racks — try to find matching equipment at the same position (EQP-RACK unification)
     const { localRacks } = editorStore.getState();
     for (const rack of [...localRacks].reverse()) {
       if (
@@ -774,7 +744,19 @@ export function useCanvasEvents(
         y >= rack.positionY &&
         y <= rack.positionY + rack.height
       ) {
-        editorStore.getState().setSelectedRackId(rack.id);
+        // Find the equipment that corresponds to this rack (position proximity match)
+        const matchingEq = equipment.find(
+          (eq) =>
+            eq.materialCategoryCode?.startsWith('EQP-RACK') &&
+            Math.abs(eq.positionX - rack.positionX) < 5 &&
+            Math.abs(eq.positionY - rack.positionY) < 5
+        );
+        if (matchingEq) {
+          editorStore.getState().setDetailPanelEquipmentId(matchingEq.id);
+        } else {
+          // Legacy rack without linked equipment — fall back to RackDetailPanel
+          editorStore.getState().setSelectedRackId(rack.id);
+        }
         return;
       }
     }

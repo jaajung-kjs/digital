@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { compressImage } from '../../../utils/imageCompression';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
@@ -12,6 +12,8 @@ import { useEquipmentPhotos } from '../../equipment/hooks/useEquipmentPhotos';
 import { useMaintenanceLogs } from '../../equipment/hooks/useMaintenanceLogs';
 import { ConnectionDiagram } from '../../equipment/components/ConnectionDiagram';
 import { FiberPathManager } from '../../fiber/components/FiberPathManager';
+import { RackEquipmentForm } from './RackEquipmentForm';
+import { getCategoryColor, EQUIPMENT_CATEGORIES as RACK_EQUIPMENT_CATEGORIES } from '../../../types/rack';
 import {
   LOG_TYPE_LABELS,
   LOG_TYPE_COLORS,
@@ -45,9 +47,9 @@ const CATEGORY_OPTIONS = EQUIPMENT_CATEGORIES.map((cat) => ({
   label: CATEGORY_LABELS[cat] ?? cat,
 }));
 
-type TabKey = 'photos' | 'info' | 'logs' | 'connections';
+type TabKey = 'photos' | 'info' | 'logs' | 'connections' | 'rack';
 
-const TABS: { key: TabKey; label: string }[] = [
+const BASE_TABS: { key: TabKey; label: string }[] = [
   { key: 'photos', label: '사진' },
   { key: 'info', label: '정보' },
   { key: 'logs', label: '점검/고장' },
@@ -109,6 +111,29 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
   const { equipment, isLoading, error } = useMergedEquipmentDetail(equipmentId);
   const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
   const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
+
+  // Find linked rack for EQP-RACK equipment (match by position proximity)
+  const localEquipment = useEditorStore((s) => s.localEquipment);
+  const localRacks = useEditorStore((s) => s.localRacks);
+  const localEq = localEquipment.find((e) => e.id === equipmentId);
+  const isRackEquipment = localEq?.materialCategoryCode?.startsWith('EQP-RACK') ?? false;
+  const linkedRack = useMemo(() => {
+    if (!isRackEquipment || !localEq) return null;
+    return localRacks.find(
+      (r) =>
+        Math.abs(r.positionX - localEq.positionX) < 5 &&
+        Math.abs(r.positionY - localEq.positionY) < 5
+    ) ?? null;
+  }, [isRackEquipment, localEq, localRacks]);
+
+  // Build tab list: add "내부 설비" tab when linked rack exists
+  const tabs = useMemo(() => {
+    if (linkedRack) {
+      return [...BASE_TABS, { key: 'rack' as TabKey, label: '내부 설비' }];
+    }
+    return BASE_TABS;
+  }, [linkedRack]);
+
   // Auto-switch to connections tab when OFD flow targets this equipment
   useEffect(() => {
     if (ofdPhase === 'selectingPort' && ofdFlowOfdId === equipmentId) {
@@ -118,7 +143,9 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
 
   return (
     <div
-      className="absolute right-0 top-0 bottom-0 w-[360px] bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col"
+      className={`absolute right-0 top-0 bottom-0 bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col ${
+        activeTab === 'rack' ? 'w-[480px]' : 'w-[360px]'
+      }`}
       style={{ animation: 'slideInRight 0.25s ease-out' }}
     >
       <style>{`
@@ -158,7 +185,7 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 shrink-0">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -196,6 +223,9 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
             )}
             {activeTab === 'connections' && (
               <ConnectionsTab equipmentId={equipmentId} roomId={roomId} category={equipment.category} />
+            )}
+            {activeTab === 'rack' && linkedRack && (
+              <RackContentTab rackId={linkedRack.id} />
             )}
           </>
         ) : null}
@@ -1102,6 +1132,198 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
       <div className="p-4">
         <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} category={category} />
       </div>
+    </div>
+  );
+}
+
+
+/* ================================================================
+   Rack Content Tab (내부 설비) — Inline U-slot visualization
+   Reuses rack detail data to show equipment inside the rack
+   ================================================================ */
+
+interface RackEquipmentItem {
+  id: string;
+  name: string;
+  category: string;
+  model: string | null;
+  manufacturer: string | null;
+  startU: number | null;
+  heightU: number;
+  materialCategoryId: string | null;
+  specParams: unknown;
+}
+
+function RackContentTab({ rackId }: { rackId: string }) {
+  const { data: rack, isLoading } = useQuery({
+    queryKey: ['rack-detail', rackId],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: { totalU: number; name: string; equipment: RackEquipmentItem[] } }>(`/racks/${rackId}`);
+      return data.data;
+    },
+    enabled: !!rackId,
+  });
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
+  const queryClient = useQueryClient();
+
+  const totalU = rack?.totalU ?? 42;
+  const equipment = rack?.equipment ?? [];
+  const usedU = useMemo(() => equipment.reduce((sum, eq) => sum + eq.heightU, 0), [equipment]);
+  const usagePercent = totalU > 0 ? Math.round((usedU / totalU) * 100) : 0;
+
+  const slotMap = useMemo(() => {
+    const map = new Map<number, RackEquipmentItem>();
+    for (const eq of equipment) {
+      if (eq.startU != null) {
+        for (let u = eq.startU; u < eq.startU + eq.heightU; u++) {
+          map.set(u, eq);
+        }
+      }
+    }
+    return map;
+  }, [equipment]);
+
+  const handleEquipmentClick = (equipmentId: string) => {
+    setDetailPanelEquipmentId(equipmentId);
+  };
+
+  const handleAddSuccess = () => {
+    setShowAddForm(false);
+    queryClient.invalidateQueries({ queryKey: ['rack-detail', rackId] });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* U-slot + Equipment list body */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: U-slot visualization */}
+        <div className="w-[200px] border-r overflow-y-auto p-3">
+          <div className="text-xs font-medium text-gray-500 mb-2">전면 뷰</div>
+          <div className="border border-gray-300 rounded">
+            {Array.from({ length: totalU }, (_, i) => {
+              const uNumber = totalU - i;
+              const eq = slotMap.get(uNumber);
+              if (eq && eq.startU != null) {
+                if (uNumber === eq.startU + eq.heightU - 1) {
+                  const catColor = getCategoryColor(eq.category as Parameters<typeof getCategoryColor>[0]);
+                  return (
+                    <div
+                      key={uNumber}
+                      className="flex cursor-pointer hover:brightness-110 transition-all"
+                      style={{ height: `${eq.heightU * 20}px` }}
+                      onClick={() => handleEquipmentClick(eq.id)}
+                      title={`${eq.name} (${eq.startU}-${eq.startU + eq.heightU - 1}U)`}
+                    >
+                      <div className="w-8 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
+                        {uNumber}U
+                      </div>
+                      <div
+                        className="flex-1 flex items-center justify-center text-xs font-medium text-white border-b border-gray-200 px-1"
+                        style={{ backgroundColor: catColor }}
+                      >
+                        <span className="truncate">{eq.name}</span>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              }
+
+              return (
+                <div key={uNumber} className="flex" style={{ height: '20px' }}>
+                  <div className="w-8 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
+                    {uNumber}U
+                  </div>
+                  <div className="flex-1 border-b border-gray-100" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right: Equipment list */}
+        <div className="flex-1 overflow-y-auto p-3">
+          <div className="text-xs font-medium text-gray-500 mb-2">
+            설비 목록 ({equipment.length}개)
+          </div>
+
+          {equipment.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">설비가 없습니다</p>
+          ) : (
+            <div className="space-y-1.5">
+              {equipment.map((eq) => {
+                const catInfo = RACK_EQUIPMENT_CATEGORIES.find((c) => c.value === eq.category);
+                return (
+                  <button
+                    key={eq.id}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 border border-gray-100 transition-colors"
+                    onClick={() => handleEquipmentClick(eq.id)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: catInfo?.color ?? '#95A5A6' }}
+                      />
+                      <span className="text-sm font-medium text-gray-800 truncate">{eq.name}</span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5 ml-4">
+                      {eq.startU != null
+                        ? `${eq.startU}-${eq.startU + eq.heightU - 1}U`
+                        : '미배치'
+                      }
+                      {eq.model && ` | ${eq.model}`}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="border-t px-4 py-3 bg-gray-50 shrink-0">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-gray-500">
+            사용: {usedU}/{totalU}U ({usagePercent}%)
+          </span>
+          <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${usagePercent}%`,
+                backgroundColor: usagePercent > 80 ? '#ef4444' : usagePercent > 50 ? '#f59e0b' : '#22c55e',
+              }}
+            />
+          </div>
+        </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          설비 추가
+        </button>
+      </div>
+
+      {showAddForm && (
+        <RackEquipmentForm
+          rackId={rackId}
+          totalU={totalU}
+          occupiedSlots={slotMap}
+          onSuccess={handleAddSuccess}
+          onCancel={() => setShowAddForm(false)}
+        />
+      )}
     </div>
   );
 }
