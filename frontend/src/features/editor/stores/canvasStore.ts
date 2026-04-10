@@ -25,7 +25,7 @@ interface CanvasStoreState {
   equipmentPreviewEnd: { x: number; y: number } | null;
   equipmentDrawnSize: { width: number; height: number } | null;
 
-  // Rack drawing state (drag-to-draw, same pattern as equipment)
+  // Rack drawing state (drag-to-draw)
   isDrawingRack: boolean;
   rackStart: { x: number; y: number } | null;
   rackPreviewEnd: { x: number; y: number } | null;
