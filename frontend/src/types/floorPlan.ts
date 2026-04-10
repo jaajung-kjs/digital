@@ -137,6 +137,10 @@ export interface FloorPlanEquipment {
   manufacturer?: string | null;
   manager?: string | null;
   height3d?: number;
+  materialCategoryId?: string | null;
+  materialCategoryCode?: string | null;
+  materialId?: string | null;
+  specParams?: Record<string, unknown> | null;
 }
 
 /** @deprecated Use FloorPlanEquipment instead */
@@ -186,6 +190,8 @@ export interface UpdateFloorPlanRequest {
     model?: string;
     manufacturer?: string;
     manager?: string;
+    materialCategoryId?: string | null;
+    specParams?: Record<string, unknown> | null;
   }[];
   cables?: {
     id?: string | null;

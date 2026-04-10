@@ -277,6 +277,8 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         model: eq.model || undefined,
         manufacturer: eq.manufacturer || undefined,
         manager: eq.manager || undefined,
+        materialCategoryId: eq.materialCategoryId || undefined,
+        specParams: eq.specParams || undefined,
       })),
       cables: cables.length > 0 ? cables : undefined,
       deletedElementIds: deletedElementIds.length > 0 ? deletedElementIds : undefined,
