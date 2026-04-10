@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { distanceToLineSegment } from '../../../utils/geometry/geometryUtils';
 
 interface CableHitEntry {
   id: string;
@@ -23,15 +24,7 @@ export const useCableHitTestStore = create<CableHitTestState>((set) => ({
 export function pointToPolylineDistance(px: number, py: number, points: [number, number][]): number {
   let minDist = Infinity;
   for (let i = 0; i < points.length - 1; i++) {
-    const [ax, ay] = points[i];
-    const [bx, by] = points[i + 1];
-    const dx = bx - ax;
-    const dy = by - ay;
-    const lenSq = dx * dx + dy * dy;
-    const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
-    const cx = ax + t * dx;
-    const cy = ay + t * dy;
-    const dist = Math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy));
+    const dist = distanceToLineSegment(px, py, points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
     if (dist < minDist) minDist = dist;
   }
   return minDist;

@@ -112,14 +112,24 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
     });
   }, [connections, equipmentPositions, connectionFilters]);
 
+  // Build hit-test entries from connection identity only (not viewport-dependent)
+  const hitTestEntries = useMemo(() => {
+    if (!connections) return [];
+    const filtered = mapConnectionsToRenderable(connections, equipmentPositions);
+    if (connectionFilters.length === 0) return [];
+    return filtered
+      .filter((c) => {
+        const filterKey = c.materialCategoryCode || c.cableType;
+        return connectionFilters.includes(filterKey) && c.id && c.pathPoints && c.pathPoints.length >= 2;
+      })
+      .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
+  }, [connections, equipmentPositions, connectionFilters]);
+
   // Populate cable hit test store for useCanvasEvents
   const setCableHitEntries = useCableHitTestStore((s) => s.setCables);
   useEffect(() => {
-    const entries = renderableConnections
-      .filter((c) => c.id && c.pathPoints && c.pathPoints.length >= 2)
-      .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
-    setCableHitEntries(entries);
-  }, [renderableConnections, setCableHitEntries]);
+    setCableHitEntries(hitTestEntries);
+  }, [hitTestEntries, setCableHitEntries]);
 
   // Render cables on overlay canvas
   useEffect(() => {

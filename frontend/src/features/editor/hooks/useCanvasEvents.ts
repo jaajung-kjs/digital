@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type {
   FloorPlanElement,
   FloorPlanDetail,
@@ -24,6 +24,7 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
+import { RACK_EQUIPMENT_POSITION_TOLERANCE } from '../../../utils/floorplan/constants';
 
 /**
  * Hook for all mouse/wheel/touch event handlers on the canvas
@@ -36,6 +37,7 @@ export function useCanvasEvents(
   const { pushHistory } = useEditorHistory();
   const editorStore = useEditorStore;
   const canvasStore = useCanvasStore;
+  const lastHoverPos = useRef<{ x: number; y: number } | null>(null);
 
   const getCanvasCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
@@ -188,11 +190,16 @@ export function useCanvasEvents(
     if (cableDrawing.phase === 'drawingPath') {
       const snapped = snapToGrid(worldX, worldY);
       cableDrawing.setPreviewPoint({ x: snapped.x, y: snapped.y });
-      const { localElements, localEquipment } = editorStore.getState();
-      const found = findItemAt(worldX, worldY, localElements, localEquipment);
-      const newHovered = found?.type === 'equipment' ? found.item.id : null;
-      if (newHovered !== cableDrawing.hoveredEquipmentId) {
-        cableDrawing.setHovered(newHovered);
+      // Skip hit test if moved less than 2px since last check
+      const last = lastHoverPos.current;
+      if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
+        lastHoverPos.current = { x: worldX, y: worldY };
+        const { localElements, localEquipment } = editorStore.getState();
+        const found = findItemAt(worldX, worldY, localElements, localEquipment);
+        const newHovered = found?.type === 'equipment' ? found.item.id : null;
+        if (newHovered !== cableDrawing.hoveredEquipmentId) {
+          cableDrawing.setHovered(newHovered);
+        }
       }
       return;
     }
@@ -200,11 +207,15 @@ export function useCanvasEvents(
     // Connection creation: track hover over equipment
     const creationStore = useConnectionCreationStore.getState();
     if (creationStore.phase === 'selectingTarget') {
-      const { localElements, localEquipment } = editorStore.getState();
-      const found = findItemAt(worldX, worldY, localElements, localEquipment);
-      const newHovered = found?.type === 'equipment' ? found.item.id : null;
-      if (newHovered !== creationStore.hoveredEquipmentId) {
-        creationStore.setHovered(newHovered);
+      const last = lastHoverPos.current;
+      if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
+        lastHoverPos.current = { x: worldX, y: worldY };
+        const { localElements, localEquipment } = editorStore.getState();
+        const found = findItemAt(worldX, worldY, localElements, localEquipment);
+        const newHovered = found?.type === 'equipment' ? found.item.id : null;
+        if (newHovered !== creationStore.hoveredEquipmentId) {
+          creationStore.setHovered(newHovered);
+        }
       }
       return;
     }
@@ -212,11 +223,15 @@ export function useCanvasEvents(
     // OFD flow: track hover over equipment when selecting target
     const ofdFlow = useOfdConnectionFlowStore.getState();
     if (ofdFlow.phase === 'selectingTarget') {
-      const { localElements, localEquipment } = editorStore.getState();
-      const found = findItemAt(worldX, worldY, localElements, localEquipment);
-      const newHovered = found?.type === 'equipment' ? found.item.id : null;
-      if (newHovered !== ofdFlow.hoveredEquipmentId) {
-        ofdFlow.setHovered(newHovered);
+      const last = lastHoverPos.current;
+      if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
+        lastHoverPos.current = { x: worldX, y: worldY };
+        const { localElements, localEquipment } = editorStore.getState();
+        const found = findItemAt(worldX, worldY, localElements, localEquipment);
+        const newHovered = found?.type === 'equipment' ? found.item.id : null;
+        if (newHovered !== ofdFlow.hoveredEquipmentId) {
+          ofdFlow.setHovered(newHovered);
+        }
       }
       return;
     }
@@ -748,8 +763,8 @@ export function useCanvasEvents(
         const matchingEq = equipment.find(
           (eq) =>
             eq.materialCategoryCode?.startsWith('EQP-RACK') &&
-            Math.abs(eq.positionX - rack.positionX) < 5 &&
-            Math.abs(eq.positionY - rack.positionY) < 5
+            Math.abs(eq.positionX - rack.positionX) < RACK_EQUIPMENT_POSITION_TOLERANCE &&
+            Math.abs(eq.positionY - rack.positionY) < RACK_EQUIPMENT_POSITION_TOLERANCE
         );
         if (matchingEq) {
           editorStore.getState().setDetailPanelEquipmentId(matchingEq.id);

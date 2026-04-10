@@ -7,7 +7,7 @@ import { validate } from '../middleware/validate.js';
 
 const router = Router();
 
-const elementTypeEnum = z.enum(['line', 'rect', 'circle', 'door', 'window', 'text']);
+const elementTypeEnum = z.enum(['line', 'rect', 'circle', 'door', 'window', 'text', 'conduit', 'tray', 'pullbox']);
 
 const createElementSchema = z.object({
   elementType: elementTypeEnum,
