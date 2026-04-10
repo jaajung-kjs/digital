@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, Suspense, lazy } from 'react';
+import { useRef, useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
@@ -45,15 +45,25 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
   const addChange = useEditorStore((s) => s.addChange);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const addRecentCable = useRecentMaterialsStore((s) => s.addRecent);
-
-  if (phase !== 'selectingSpec') return null;
-
-  const handleSelect = ({ categoryId, categoryCode, specParams, specification }: {
+  const [pendingValue, setPendingValue] = useState<{
     categoryId: string;
     categoryCode: string;
     specParams: Record<string, unknown>;
     specification: string;
-  }) => {
+  } | null>(null);
+
+  // Reset pending value when modal opens
+  useEffect(() => {
+    if (phase === 'selectingSpec') {
+      setPendingValue(null);
+    }
+  }, [phase]);
+
+  if (phase !== 'selectingSpec') return null;
+
+  const handleConfirm = () => {
+    if (!pendingValue) return;
+    const { categoryId, categoryCode, specParams, specification } = pendingValue;
     const store = useCableDrawingStore.getState();
     const pathPoints = store.getPathPoints();
     const cableType = getCableTypeFromMaterial(categoryCode);
@@ -104,16 +114,99 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
         <h3 className="text-lg font-semibold mb-4">케이블 자재 선택</h3>
         <div className="mb-4">
           <CableMaterialPicker
-            value={null}
-            onChange={handleSelect}
+            value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
+            onChange={setPendingValue}
           />
         </div>
+        {pendingValue && (
+          <div className="mb-3 p-2 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">선택: {pendingValue.specification}</p>
+          </div>
+        )}
         <div className="flex justify-end gap-3">
           <button
             onClick={handleCancel}
             className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
           >
             취소
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!pendingValue}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfraMaterialModal({ elementId }: { elementId: string }) {
+  const [pendingValue, setPendingValue] = useState<{
+    categoryId: string;
+    specParams: Record<string, unknown>;
+    specification: string;
+  } | null>(null);
+
+  const handleConfirm = useCallback(() => {
+    if (!pendingValue) return;
+    const store = useEditorStore.getState();
+    const elements = store.localElements.map((el) =>
+      el.id === elementId
+        ? { ...el, materialCategoryId: pendingValue.categoryId, specParams: pendingValue.specParams }
+        : el
+    );
+    store.setLocalElements(elements);
+    store.setHasChanges(true);
+    useCanvasStore.getState().setInfraMaterialModalOpen(false);
+    useCanvasStore.getState().setInfraMaterialElementId(null);
+    store.setTool('select');
+  }, [elementId, pendingValue]);
+
+  const handleCancel = useCallback(() => {
+    // Cancel: remove the element that was just created
+    const store = useEditorStore.getState();
+    const elements = store.localElements.filter((el) => el.id !== elementId);
+    store.setLocalElements(elements);
+    store.setHasChanges(true);
+    useCanvasStore.getState().setInfraMaterialModalOpen(false);
+    useCanvasStore.getState().setInfraMaterialElementId(null);
+    store.setTool('select');
+  }, [elementId]);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 className="text-lg font-semibold mb-4">부속자재 선택</h3>
+        <div className="mb-4">
+          <MaterialPicker
+            categoryType="ACCESSORY"
+            value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
+            onChange={({ categoryId, specParams: sp, specification }) => {
+              setPendingValue({ categoryId, specParams: sp, specification });
+            }}
+          />
+        </div>
+        {pendingValue && (
+          <div className="mb-3 p-2 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-700">선택: {pendingValue.specification}</p>
+          </div>
+        )}
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!pendingValue}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            확인
           </button>
         </div>
       </div>
@@ -384,47 +477,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
       {/* Infra material selection modal (conduit/tray/pullbox) */}
       {infraMaterialModalOpen && infraMaterialElementId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">부속자재 선택</h3>
-            <div className="mb-4">
-              <MaterialPicker
-                categoryType="ACCESSORY"
-                value={null}
-                onChange={({ categoryId, specParams: sp }) => {
-                  const store = useEditorStore.getState();
-                  const elements = store.localElements.map((el) =>
-                    el.id === infraMaterialElementId
-                      ? { ...el, materialCategoryId: categoryId, specParams: sp }
-                      : el
-                  );
-                  store.setLocalElements(elements);
-                  store.setHasChanges(true);
-                  useCanvasStore.getState().setInfraMaterialModalOpen(false);
-                  useCanvasStore.getState().setInfraMaterialElementId(null);
-                  store.setTool('select');
-                }}
-              />
-            </div>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  // Cancel: remove the element that was just created
-                  const store = useEditorStore.getState();
-                  const elements = store.localElements.filter((el) => el.id !== infraMaterialElementId);
-                  store.setLocalElements(elements);
-                  store.setHasChanges(true);
-                  useCanvasStore.getState().setInfraMaterialModalOpen(false);
-                  useCanvasStore.getState().setInfraMaterialElementId(null);
-                  store.setTool('select');
-                }}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
-              >
-                취소
-              </button>
-            </div>
-          </div>
-        </div>
+        <InfraMaterialModal elementId={infraMaterialElementId} />
       )}
 
       {/* Equipment paste modal */}
