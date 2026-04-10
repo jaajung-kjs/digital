@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
-import type { FloorPlanDetail, FloorPlanEquipment } from '../../../types/floorPlan';
+import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useClipboard } from '../hooks/useClipboard';
@@ -25,8 +25,19 @@ import { getCableTypeFromMaterial } from '../../../types/material';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
+import { RoomSettingsPanel } from './RoomSettingsPanel';
 
 const ThreeCanvas = lazy(() => import('../../viewer3d/components/ThreeCanvas').then(m => ({ default: m.ThreeCanvas })));
+
+function CablePathOverlayWrapper({ canvasRef }: { canvasRef: React.RefObject<HTMLCanvasElement | null> }) {
+  const scaleRatio = useEditorStore((s) => s.scaleRatio);
+  return <CablePathOverlay canvasRef={canvasRef} scaleRatio={scaleRatio} />;
+}
+
+function CableSpecModalWrapper() {
+  const scaleRatio = useEditorStore((s) => s.scaleRatio);
+  return <CableSpecModal scaleRatio={scaleRatio} />;
+}
 
 function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
   const phase = useCableDrawingStore((s) => s.phase);
@@ -118,6 +129,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isAdmin = useIsAdmin();
   const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const {
     room, floorPlan, roomLoading, planLoading, planError, saveMutation, handleSave,
@@ -243,6 +255,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
         handleSave={handleSave}
         isSaving={saveMutation.isPending}
         onToggleHistory={() => setShowHistory(p => !p)}
+        onToggleSettings={() => setShowSettings(p => !p)}
       />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -288,7 +301,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                   roomId={roomId}
                 >
                   <ConnectionOverlay roomId={roomId} canvasRef={canvasRef} />
-                  <CablePathOverlay canvasRef={canvasRef} scaleRatio={(floorPlan as FloorPlanDetail & { scaleRatio?: number | null })?.scaleRatio ?? null} />
+                  <CablePathOverlayWrapper canvasRef={canvasRef} />
                 </CanvasView>
               )}
 
@@ -300,6 +313,10 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
               {showHistory && (
                 <ChangeHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />
+              )}
+
+              {showSettings && !snapshotActive && (
+                <RoomSettingsPanel onClose={() => setShowSettings(false)} />
               )}
 
               {floorPlan && viewMode === 'edit-2d' && !snapshotActive && (
@@ -355,9 +372,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       )}
 
       {/* Cable spec selection modal */}
-      <CableSpecModal
-        scaleRatio={(floorPlan as FloorPlanDetail & { scaleRatio?: number | null })?.scaleRatio ?? null}
-      />
+      <CableSpecModalWrapper />
 
       {/* Equipment paste modal */}
       {pasteEquipmentModalOpen && (

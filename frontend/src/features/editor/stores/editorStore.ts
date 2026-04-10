@@ -70,6 +70,7 @@ export interface EditorStoreState {
 
   connectionFilters: CableType[];
 
+  scaleRatio: number | null;
   showLengths: boolean;
   viewportInitialized: boolean;
   mouseWorldPosition: { x: number; y: number };
@@ -109,6 +110,7 @@ export interface EditorStoreActions {
   removeChanges: (predicate: (e: ChangeEntry) => boolean) => void;
   clearChangeSet: () => void;
 
+  setScaleRatio: (ratio: number | null) => void;
   setConnectionFilters: (filters: CableType[]) => void;
   setShowLengths: (show: boolean) => void;
   setViewportInitialized: (init: boolean) => void;
@@ -139,6 +141,7 @@ const initialState: EditorStoreState = {
   deletedElementIds: [],
   deletedEquipmentIds: [],
   changeSet: [],
+  scaleRatio: null,
   connectionFilters: [] as CableType[],
   showLengths: false,
   viewportInitialized: false,
@@ -205,6 +208,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     return { changeSet: [], deletedElementIds: [], deletedEquipmentIds: [] };
   }),
 
+  setScaleRatio: (scaleRatio) => set({ scaleRatio }),
   setConnectionFilters: (connectionFilters) => set({ connectionFilters }),
   setShowLengths: (showLengths) => set({ showLengths }),
   setViewportInitialized: (viewportInitialized) => set({ viewportInitialized }),
