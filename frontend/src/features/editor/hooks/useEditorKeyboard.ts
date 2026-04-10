@@ -9,6 +9,7 @@ import type {
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
+import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useEditorHistory } from './useEditorHistory';
 
@@ -33,6 +34,20 @@ export function useEditorKeyboard(handleSave: () => void) {
         cs.setIsSpacePressed(true);
       }
 
+      // Cable drawing: Backspace removes last waypoint, ESC cancels
+      const cbd = useCableDrawingStore.getState();
+      if (cbd.phase === 'drawingPath' && e.key === 'Backspace') {
+        e.preventDefault();
+        cbd.removeLastWaypoint();
+        return;
+      }
+      if (cbd.phase !== 'idle' && e.key === 'Escape') {
+        e.preventDefault();
+        cbd.cancel();
+        es.setTool('select');
+        return;
+      }
+
       if (e.key === 'Escape') {
         cs.resetDrawingState();
         es.setTool('select');
@@ -50,7 +65,7 @@ export function useEditorKeyboard(handleSave: () => void) {
       if (e.key === 'd' || e.key === 'D') es.setTool('door');
       if (e.key === 'w' || e.key === 'W') es.setTool('window');
       if (e.key === 'k' || e.key === 'K') es.setTool('equipment');
-      if (e.key === 'c' || e.key === 'C') es.setTool('cable');
+      if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey) es.setTool('cable');
       if (e.key === 't' || e.key === 'T') es.setTool('text');
       if (e.key === 'g' || e.key === 'G') es.setShowGrid(!es.showGrid);
       if (e.key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
