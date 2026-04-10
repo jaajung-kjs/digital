@@ -43,6 +43,10 @@ const equipmentSchema = z.object({
   materialCategoryId: z.string().uuid().optional().nullable(),
   materialCategoryCode: z.string().optional().nullable(),
   specParams: z.any().optional().nullable(),
+  // Rack-internal equipment fields
+  parentEquipmentId: z.string().optional().nullable(),
+  startU: z.number().int().min(1).optional().nullable(),
+  heightU: z.number().int().min(1).max(12).optional().nullable(),
 });
 
 const cableSchema = z.object({
@@ -64,6 +68,14 @@ const cableSchema = z.object({
   totalLength: z.number().nullish(),
 });
 
+const fiberPathSchema = z.object({
+  id: z.string().optional(),
+  ofdAId: z.string(),
+  ofdBId: z.string(),
+  portCount: z.number().int().refine(v => v === 24 || v === 48, { message: 'portCount must be 24 or 48' }),
+  description: z.string().optional().nullable(),
+});
+
 const bulkUpdatePlanSchema = z.object({
   canvasWidth: z.number().int().min(100).max(10000).optional(),
   canvasHeight: z.number().int().min(100).max(10000).optional(),
@@ -74,9 +86,11 @@ const bulkUpdatePlanSchema = z.object({
   elements: z.array(elementSchema).optional(),
   equipment: z.array(equipmentSchema).optional(),
   cables: z.array(cableSchema).optional(),
+  fiberPaths: z.array(fiberPathSchema).optional(),
   deletedElementIds: z.array(z.string().uuid()).optional(),
   deletedEquipmentIds: z.array(z.string().uuid()).optional(),
   deletedCableIds: z.array(z.string().uuid()).optional(),
+  deletedFiberPathIds: z.array(z.string().uuid()).optional(),
 });
 
 // 실 상세 조회
