@@ -163,6 +163,9 @@ model Room {
   majorGridSize   Int      @default(60) @map("major_grid_size")
   backgroundColor String   @default("#ffffff") @map("background_color") @db.VarChar(20)
   version         Int      @default(1)
+  // 자재 체계 확장
+  scaleRatio         Float?   @map("scale_ratio")
+  asBuiltSnapshotId  String?  @map("as_built_snapshot_id")
   // timestamps
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -189,10 +192,17 @@ model FloorPlanElement {
   isVisible   Boolean  @default(true) @map("is_visible")
   height3d    Float?   @map("height_3d")
   elevation3d Float?   @map("elevation_3d")
+  // 자재 체계 확장
+  materialCategoryId  String?  @map("material_category_id")
+  materialId          String?  @map("material_id")
+  specParams          Json?    @map("spec_params")
+  pathLength          Float?   @map("path_length")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room             Room              @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  materialCategory MaterialCategory? @relation("ElementMaterialCategory", fields: [materialCategoryId], references: [id])
+  material         Material?         @relation("ElementMaterial", fields: [materialId], references: [id])
 
   @@map("floor_plan_elements")
 }
@@ -224,6 +234,10 @@ model Rack {
   updatedById   String?  @map("updated_by")
 
   height3d      Float?   @map("height_3d")
+  // 자재 체계 확장 — 내진가대
+  hasSeismicBrace     Boolean  @default(false) @map("has_seismic_brace")
+  seismicMaterialId   String?  @map("seismic_material_id")
+  seismicSpecParams   Json?    @map("seismic_spec_params")
 
   room      Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
   createdBy User?       @relation("RackCreatedBy", fields: [createdById], references: [id])
@@ -264,6 +278,10 @@ model Equipment {
   manager      String?   @db.VarChar(100)
   description  String?   @db.Text
   properties   Json?     // 추가 속성
+  // 자재 체계 확장
+  materialCategoryId  String?  @map("material_category_id")
+  materialId          String?  @map("material_id")
+  specParams          Json?    @map("spec_params")
   // 메타
   sortOrder    Int       @default(0) @map("sort_order")
   createdAt    DateTime  @default(now()) @map("created_at")
@@ -275,6 +293,8 @@ model Equipment {
   room            Room?            @relation(fields: [roomId], references: [id], onDelete: SetNull)
   createdBy       User?            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
   updatedBy       User?            @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
+  materialCategory MaterialCategory? @relation("EquipmentMaterialCategory", fields: [materialCategoryId], references: [id])
+  material         Material?         @relation("EquipmentMaterial", fields: [materialId], references: [id])
   ports           Port[]
   photos          EquipmentPhoto[]
   maintenanceLogs MaintenanceLog[]
@@ -342,6 +362,14 @@ model Cable {
   color               String?   @db.VarChar(50)
   pathPoints          Json?     @map("path_points") // [[x, y], ...]
   description         String?   @db.Text
+  // 자재 체계 확장
+  materialCategoryId  String?  @map("material_category_id")
+  materialId          String?  @map("material_id")
+  specParams          Json?    @map("spec_params")
+  pathLength          Float?   @map("path_length")
+  bufferLength        Float    @default(4) @map("buffer_length")
+  totalLength         Float?   @map("total_length")
+  // timestamps
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
   createdById         String?   @map("created_by")
@@ -350,11 +378,13 @@ model Cable {
   fiberPathId     String?   @map("fiber_path_id")
   fiberPortNumber Int?      @map("fiber_port_number")
 
-  sourceEquipment Equipment  @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
-  targetEquipment Equipment  @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
-  fiberPath       FiberPath? @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
-  createdBy       User?      @relation("CableCreatedBy", fields: [createdById], references: [id])
-  updatedBy       User?      @relation("CableUpdatedBy", fields: [updatedById], references: [id])
+  sourceEquipment  Equipment  @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
+  targetEquipment  Equipment  @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
+  fiberPath        FiberPath? @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
+  materialCategory MaterialCategory? @relation("CableMaterialCategory", fields: [materialCategoryId], references: [id])
+  material         Material?         @relation("CableMaterial", fields: [materialId], references: [id])
+  createdBy        User?      @relation("CableCreatedBy", fields: [createdById], references: [id])
+  updatedBy        User?      @relation("CableUpdatedBy", fields: [updatedById], references: [id])
 
   // Unique constraints are enforced via partial indexes in migration
   // (non-fiber: source+target+type, fiber: source+target+type+port)
@@ -458,4 +488,72 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
+}
+
+// ==================== 자재 체계 ====================
+
+enum MaterialCategoryType {
+  CABLE
+  EQUIPMENT
+  ACCESSORY
+}
+
+model MaterialCategory {
+  id           String               @id @default(uuid())
+  code         String               @unique @db.VarChar(30)
+  name         String               @db.VarChar(100)
+  categoryType MaterialCategoryType @map("category_type")
+  parentId     String?              @map("parent_id")
+  description  String?              @db.Text
+  displayColor String?              @map("display_color") @db.VarChar(7)
+  iconName     String?              @map("icon_name") @db.VarChar(30)
+  unit         String?              @db.VarChar(20)
+  specTemplate Json?                @map("spec_template")
+  sortOrder    Int                  @default(0) @map("sort_order")
+  isActive     Boolean              @default(true) @map("is_active")
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  parent   MaterialCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children MaterialCategory[] @relation("CategoryHierarchy")
+  materials Material[]
+  aliases  MaterialAlias[]
+  cables     Cable[]            @relation("CableMaterialCategory")
+  equipment  Equipment[]        @relation("EquipmentMaterialCategory")
+  elements   FloorPlanElement[] @relation("ElementMaterialCategory")
+
+  @@map("material_categories")
+}
+
+model MaterialAlias {
+  id         String   @id @default(uuid())
+  categoryId String   @map("category_id")
+  aliasName  String   @unique @db.VarChar(200)
+  source     String?  @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  category MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("material_aliases")
+}
+
+model Material {
+  id            String   @id @default(uuid())
+  categoryId    String   @map("category_id")
+  code          String   @unique @db.VarChar(50)
+  name          String   @db.VarChar(200)
+  specification String   @db.VarChar(200)
+  unit          String   @db.VarChar(20)
+  properties    Json?
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  category  MaterialCategory @relation(fields: [categoryId], references: [id])
+  cables    Cable[]          @relation("CableMaterial")
+  equipment Equipment[]      @relation("EquipmentMaterial")
+  elements  FloorPlanElement[] @relation("ElementMaterial")
+
+  @@unique([categoryId, specification])
+  @@map("materials")
 }
