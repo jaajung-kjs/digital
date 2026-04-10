@@ -1,27 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { floorPlanElementController } from '../controllers/floorPlanElement.controller.js';
 import { rackController } from '../controllers/rack.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
-
-const elementTypeEnum = z.enum(['line', 'rect', 'circle', 'door', 'window', 'text', 'conduit', 'tray', 'pullbox']);
-
-const createElementSchema = z.object({
-  elementType: elementTypeEnum,
-  properties: z.record(z.unknown()),
-  zIndex: z.number().int().optional(),
-  isVisible: z.boolean().optional(),
-});
-
-const updateElementSchema = z.object({
-  elementType: elementTypeEnum.optional(),
-  properties: z.record(z.unknown()).optional(),
-  zIndex: z.number().int().optional(),
-  isVisible: z.boolean().optional(),
-});
 
 const createRackSchema = z.object({
   name: z.string().min(1).max(100),
@@ -37,17 +20,6 @@ const createRackSchema = z.object({
   description: z.string().optional(),
 });
 
-// ==================== Element Routes (nested under rooms) ====================
-
-// 요소 생성 (관리자만) - :id is roomId
-router.post(
-  '/:id/elements',
-  authenticate,
-  adminOnly,
-  validate(createElementSchema),
-  floorPlanElementController.create
-);
-
 // ==================== Rack Routes (nested under rooms) ====================
 
 // 실의 랙 목록 조회 - :id is roomId
@@ -62,4 +34,4 @@ router.post(
   rackController.create
 );
 
-export { router as floorPlansRouter, updateElementSchema };
+export { router as floorPlansRouter };

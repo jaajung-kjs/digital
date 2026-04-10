@@ -52,8 +52,6 @@ function AppContent() {
         }
       >
         <Route index element={<TreePage />} />
-        {/* <Route path="/users" element={<UsersPage />} /> */}
-        {/* <Route path="/audit-logs" element={<AuditLogsPage />} /> */}
       </Route>
 
       {/* Catch all */}

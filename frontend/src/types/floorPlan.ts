@@ -243,11 +243,6 @@ export interface UpdateFloorPlanEquipmentRequest {
   description?: string;
 }
 
-/** @deprecated Use CreateFloorPlanEquipmentRequest */
-export type CreateRackRequest = CreateFloorPlanEquipmentRequest;
-/** @deprecated Use UpdateFloorPlanEquipmentRequest */
-export type UpdateRackRequest = UpdateFloorPlanEquipmentRequest;
-
 // 뷰 모드
 export type ViewMode = 'edit-2d' | 'view-3d';
 
@@ -273,75 +268,10 @@ export interface EquipmentItem {
 
 // 에디터 도구 타입 (v2 - CAD 스타일)
 // 기존: 'select' | 'wall' | 'door' | 'window' | 'column' | 'rack' | 'cable' | 'delete'
-// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'rack' | 'text' | 'delete'
+// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete'
 // 랙은 별도 도구 없이 설비(equipment) 도구로 EQP-RACK 카테고리 선택 시 자동 생성
-export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'rack' | 'text' | 'cable' | 'conduit' | 'tray' | 'pullbox' | 'delete';
+export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'cable' | 'conduit' | 'tray' | 'pullbox' | 'delete';
 
-// 에디터 상태 타입
-export interface EditorState {
-  tool: EditorTool;
-  selectedIds: string[];
-  zoom: number;
-  panX: number;
-  panY: number;
-  gridSnap: boolean;
-  gridSize: number;
-  majorGridSize: number;
-  showGrid: boolean;
-}
-
-// 카메라 시스템 (무한 캔버스)
-export interface Camera {
-  x: number;          // 팬 X (월드 좌표, 음수 가능)
-  y: number;          // 팬 Y (월드 좌표, 음수 가능)
-  zoom: number;       // 줌 레벨 (0.1 ~ 10.0, 즉 10% ~ 1000%)
-}
-
-// 선택 시스템
-export interface SelectionState {
-  selectedIds: string[];
-  selectionBox: SelectionBox | null;
-  activeGrip: Grip | null;
-}
-
-export interface SelectionBox {
-  startX: number;
-  startY: number;
-  endX: number;
-  endY: number;
-  mode: 'contain' | 'intersect';
-}
-
-// Grip 시스템
-export type GripType =
-  | 'corner-nw' | 'corner-ne' | 'corner-se' | 'corner-sw'
-  | 'edge-n' | 'edge-e' | 'edge-s' | 'edge-w'
-  | 'rotation'
-  | 'endpoint-start' | 'endpoint-end';
-
-export interface Grip {
-  type: GripType;
-  position: { x: number; y: number };
-  cursor: string;
-  elementId: string;
-}
-
-// 클립보드 데이터
-export interface ClipboardData {
-  type: 'floorplan-clipboard';
-  version: 1;
-  timestamp: number;
-  elements: FloorPlanElement[];
-  equipment: FloorPlanEquipment[];
-  boundingBox: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    centerX: number;
-    centerY: number;
-  };
-}
 
 // ============================================
 // 데이터 마이그레이션 유틸리티
