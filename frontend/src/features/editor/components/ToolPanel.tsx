@@ -72,6 +72,29 @@ export function ToolPanel() {
 
       <div className="border-t my-1" />
 
+      <ToolButton active={tool === 'conduit'} onClick={() => selectTool('conduit')} title="배관 그리기" label="배관">
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} strokeDasharray="4 3" d="M4 12h16" />
+          <circle cx="4" cy="12" r="2" strokeWidth={1.5} />
+          <circle cx="20" cy="12" r="2" strokeWidth={1.5} />
+        </svg>
+      </ToolButton>
+
+      <ToolButton active={tool === 'tray'} onClick={() => selectTool('tray')} title="트레이 그리기" label="트레이">
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 10h16M4 14h16" />
+        </svg>
+      </ToolButton>
+
+      <ToolButton active={tool === 'pullbox'} onClick={() => selectTool('pullbox')} title="풀박스 배치" label="풀박스">
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <rect x="6" y="6" width="12" height="12" strokeWidth={2} />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </ToolButton>
+
+      <div className="border-t my-1" />
+
       <ToolButton active={tool === 'delete'} onClick={() => selectTool('delete')} title="삭제 모드" label="삭제" shortcut="Del" danger>
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

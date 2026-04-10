@@ -1,11 +1,11 @@
 import React from 'react';
 
-interface ToolButtonProps {
+export interface ToolButtonProps {
   active: boolean;
   onClick: () => void;
   title: string;
   label: string;
-  shortcut: string;
+  shortcut?: string;
   danger?: boolean;
   children: React.ReactNode;
 }
@@ -34,7 +34,7 @@ export function ToolButton({
       }`}
     >
       <div className="w-5 h-5 flex-shrink-0">{children}</div>
-      <span className="text-xs whitespace-nowrap">{label} <span className="text-gray-400">({shortcut})</span></span>
+      <span className="text-xs whitespace-nowrap">{label}{shortcut && <> <span className="text-gray-400">({shortcut})</span></>}</span>
     </button>
   );
 }

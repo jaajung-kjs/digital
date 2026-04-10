@@ -185,6 +185,11 @@ export function hitTestElement(
       return hitTestWindow(x, y, element.properties as WindowProperties);
     case 'text':
       return hitTestText(x, y, element.properties as TextProperties);
+    case 'conduit':
+    case 'tray':
+      return hitTestLine(x, y, element.properties as LineProperties);
+    case 'pullbox':
+      return hitTestRect(x, y, element.properties as RectProperties);
     default:
       return false;
   }

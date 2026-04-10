@@ -9,6 +9,7 @@ import type {
   WindowProperties,
   FloorPlanEquipment,
 } from '../../../types/floorPlan';
+import { distance } from '../../../utils/geometry/geometryUtils';
 import { snapToGrid as snapToGridUtil } from '../../../utils/canvas/canvasTransform';
 import { findItemAt } from '../../../utils/floorplan/hitTestUtils';
 import { createDragSession, applyDrag } from '../../../utils/floorplan/dragSystem';
@@ -207,7 +208,7 @@ export function useCanvasEvents(
       isDrawingRect, rectStart,
     } = canvasStore.getState();
 
-    if (tool === 'line' && isDrawingLine && linePoints.length === 1) {
+    if ((tool === 'line' || tool === 'conduit' || tool === 'tray') && isDrawingLine && linePoints.length === 1) {
       canvasStore.getState().setLinePreviewEnd([snapped.x, snapped.y]);
       return;
     }
@@ -232,7 +233,7 @@ export function useCanvasEvents(
       return;
     }
 
-    if (['door', 'window', 'text', 'equipment'].includes(tool)) {
+    if (['door', 'window', 'text', 'equipment', 'pullbox'].includes(tool)) {
       canvasStore.getState().setPreviewPosition({ x: snapped.x, y: snapped.y });
     } else {
       canvasStore.getState().setPreviewPosition(null);
@@ -534,6 +535,86 @@ export function useCanvasEvents(
         cs.setTextInputPosition({ x: snapped.x, y: snapped.y });
         cs.setTextInputValue('');
         break;
+
+      case 'conduit':
+      case 'tray': {
+        if (!cs.isDrawingLine) {
+          cs.setIsDrawingLine(true);
+          cs.setLinePoints([[snapped.x, snapped.y]]);
+          cs.setLinePreviewEnd(null);
+        } else {
+          const elementType = tool === 'conduit' ? 'conduit' : 'tray';
+          const startPt = cs.linePoints[0];
+          const endPt: [number, number] = [snapped.x, snapped.y];
+          const pathLen = distance(startPt[0], startPt[1], endPt[0], endPt[1]);
+
+          // Calculate real-world length if scaleRatio is set
+          const scaleRatio = editorStore.getState().scaleRatio;
+          const realLength = scaleRatio && scaleRatio > 0
+            ? Math.round(pathLen * scaleRatio) / 1000  // mm to m
+            : null;
+
+          const newElement: FloorPlanElement = {
+            id: generateTempId(),
+            elementType: elementType as FloorPlanElement['elementType'],
+            properties: {
+              points: [startPt, endPt],
+              strokeWidth: tool === 'tray' ? 4 : 2,
+              strokeColor: tool === 'conduit' ? '#6366f1' : '#f59e0b',
+              strokeStyle: tool === 'conduit' ? 'dashed' : 'solid',
+            } as LineProperties,
+            zIndex: localElements.length,
+            isVisible: true,
+            isLocked: false,
+            pathLength: realLength,
+          };
+          const newElements = [...localElements, newElement];
+          editorStore.getState().setLocalElements(newElements);
+          pushHistory(newElements, localEquipment);
+          cs.setIsDrawingLine(false);
+          cs.setLinePoints([]);
+          cs.setLinePreviewEnd(null);
+          editorStore.getState().setHasChanges(true);
+
+          // Open material picker for the new element
+          cs.setInfraMaterialElementId(newElement.id);
+          cs.setInfraMaterialModalOpen(true);
+        }
+        break;
+      }
+
+      case 'pullbox': {
+        const newPullbox: FloorPlanElement = {
+          id: generateTempId(),
+          elementType: 'pullbox',
+          properties: {
+            x: snapped.x - 15,
+            y: snapped.y - 15,
+            width: 30,
+            height: 30,
+            rotation: 0,
+            flipH: false,
+            flipV: false,
+            fillColor: 'transparent',
+            strokeColor: '#10b981',
+            strokeWidth: 2,
+            strokeStyle: 'solid',
+            cornerRadius: 0,
+          } as RectProperties,
+          zIndex: localElements.length,
+          isVisible: true,
+          isLocked: false,
+        };
+        const newElements = [...localElements, newPullbox];
+        editorStore.getState().setLocalElements(newElements);
+        pushHistory(newElements, localEquipment);
+        editorStore.getState().setHasChanges(true);
+
+        // Open material picker for the new element
+        cs.setInfraMaterialElementId(newPullbox.id);
+        cs.setInfraMaterialModalOpen(true);
+        break;
+      }
 
       case 'delete': {
         const found = findItemAt(x, y, localElements, localEquipment);

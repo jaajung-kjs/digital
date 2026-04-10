@@ -54,6 +54,10 @@ interface CanvasStoreState {
   newEquipmentMaterialCategoryCode: string | null;
   newEquipmentSpecParams: Record<string, unknown> | null;
   newEquipmentSpecification: string | null;
+
+  // Conduit/tray/pullbox material selection
+  infraMaterialModalOpen: boolean;
+  infraMaterialElementId: string | null;
 }
 
 interface CanvasStoreActions {
@@ -112,6 +116,10 @@ interface CanvasStoreActions {
   ) => void;
   resetNewEquipmentMaterial: () => void;
 
+  // Conduit/tray/pullbox material selection
+  setInfraMaterialModalOpen: (v: boolean) => void;
+  setInfraMaterialElementId: (id: string | null) => void;
+
   // Reset all drawing/interaction state
   resetDrawingState: () => void;
 }
@@ -150,6 +158,8 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   newEquipmentMaterialCategoryCode: null,
   newEquipmentSpecParams: null,
   newEquipmentSpecification: null,
+  infraMaterialModalOpen: false,
+  infraMaterialElementId: null,
 
   // Actions
   setIsDrawingLine: (isDrawingLine) => set({ isDrawingLine }),
@@ -199,6 +209,9 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
       newEquipmentSpecParams: null,
       newEquipmentSpecification: null,
     }),
+
+  setInfraMaterialModalOpen: (infraMaterialModalOpen) => set({ infraMaterialModalOpen }),
+  setInfraMaterialElementId: (infraMaterialElementId) => set({ infraMaterialElementId }),
 
   resetDrawingState: () => set({
     isDrawingLine: false,

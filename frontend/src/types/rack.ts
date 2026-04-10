@@ -81,6 +81,8 @@ export interface CreateEquipmentRequest {
   manager?: string;
   description?: string;
   properties?: unknown;
+  materialCategoryId?: string;
+  specParams?: unknown;
 }
 
 export interface UpdateEquipmentRequest {

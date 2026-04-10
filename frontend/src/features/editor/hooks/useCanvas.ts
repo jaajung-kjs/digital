@@ -100,7 +100,7 @@ export function useCanvas(
       renderEquipmentLengths(ctx, localEquipment, zoom);
     }
 
-    // Line preview
+    // Line preview (also used for conduit/tray)
     if (isDrawingLine && linePoints.length === 1) {
       renderLinePreview(ctx, linePoints[0], linePreviewEnd);
     }
@@ -121,7 +121,7 @@ export function useCanvas(
     }
 
     // Placement preview
-    if (previewPosition && ['door', 'window', 'equipment', 'text'].includes(tool)) {
+    if (previewPosition && ['door', 'window', 'equipment', 'text', 'pullbox'].includes(tool)) {
       if (!(tool === 'equipment' && isDrawingEquipment)) {
         renderPlacementPreview(ctx, tool as DrawingToolType, previewPosition, 0);
       }

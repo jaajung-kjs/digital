@@ -107,6 +107,25 @@ const ELEMENT_CONFIG: Record<ElementType, ElementTypeConfig> = {
     supportsFlip: false,
     defaultSize: { width: 100, height: 20 },
   },
+  conduit: {
+    positionKeys: { x: 'points[0][0]', y: 'points[0][1]' },
+    sizeKeys: null,
+    supportsRotation: false,
+    supportsFlip: false,
+  },
+  tray: {
+    positionKeys: { x: 'points[0][0]', y: 'points[0][1]' },
+    sizeKeys: null,
+    supportsRotation: false,
+    supportsFlip: false,
+  },
+  pullbox: {
+    positionKeys: { x: 'x', y: 'y' },
+    sizeKeys: { width: 'width', height: 'height' },
+    supportsRotation: true,
+    supportsFlip: false,
+    defaultSize: { width: 30, height: 30 },
+  },
 };
 
 // ============================================
