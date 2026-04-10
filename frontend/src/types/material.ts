@@ -32,6 +32,8 @@ export interface MaterialCategory {
   specTemplate: SpecTemplate | null;
   sortOrder: number;
   isActive: boolean;
+  description?: string | null;
+  aliases?: { id: string; aliasName: string; source: string | null }[];
   children?: MaterialCategory[];
 }
 
