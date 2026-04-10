@@ -178,7 +178,7 @@ export function ConnectionDiagram({
                           CABLE_BADGE_CLASSES[conn.cableType] || 'bg-gray-100 text-gray-600'
                         }`}
                       >
-                        {conn.cableType}
+                        {conn.materialCategoryCode || conn.cableType}
                       </span>
                       <div className="my-0.5 h-px w-12 bg-gray-300" />
                     </div>
