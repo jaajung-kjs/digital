@@ -18,12 +18,96 @@ import { CanvasView } from './CanvasView';
 import { PropertyBar } from './PropertyBar';
 import { HeightInput } from './HeightInput';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
-import { CablePathOverlay } from './CablePathOverlay';
+import { CablePathOverlay, calculatePathLength } from './CablePathOverlay';
+import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
+import { CableMaterialPicker } from '../../materials/components/CableMaterialPicker';
+import { getCableTypeFromMaterial } from '../../../types/material';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 
 const ThreeCanvas = lazy(() => import('../../viewer3d/components/ThreeCanvas').then(m => ({ default: m.ThreeCanvas })));
+
+function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
+  const phase = useCableDrawingStore((s) => s.phase);
+  const addChange = useEditorStore((s) => s.addChange);
+  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const addRecentCable = useRecentMaterialsStore((s) => s.addRecent);
+
+  if (phase !== 'selectingSpec') return null;
+
+  const handleSelect = ({ categoryId, categoryCode, specParams, specification }: {
+    categoryId: string;
+    categoryCode: string;
+    specParams: Record<string, unknown>;
+    specification: string;
+  }) => {
+    const store = useCableDrawingStore.getState();
+    const pathPoints = store.getPathPoints();
+    const cableType = getCableTypeFromMaterial(categoryCode);
+
+    let pathLength = 0;
+    let bufferLength = 4;
+    let totalLength = 4;
+    if (scaleRatio && scaleRatio > 0) {
+      const calc = calculatePathLength(pathPoints, scaleRatio);
+      pathLength = calc.pathLength;
+      bufferLength = calc.bufferLength;
+      totalLength = calc.totalLength;
+    }
+
+    addChange({
+      type: 'cable:create',
+      localId: generateTempId(),
+      sourceEquipmentId: store.sourceEquipmentId!,
+      targetEquipmentId: store.targetEquipmentId!,
+      cableType,
+      materialCategoryId: categoryId,
+      specParams,
+      pathPoints,
+      pathLength,
+      bufferLength,
+      totalLength,
+    });
+    setHasChanges(true);
+
+    addRecentCable('cable', {
+      categoryId,
+      categoryCode,
+      categoryName: specification,
+      specParams,
+      specification,
+    });
+
+    store.complete();
+  };
+
+  const handleCancel = () => {
+    useCableDrawingStore.getState().cancel();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 className="text-lg font-semibold mb-4">케이블 자재 선택</h3>
+        <div className="mb-4">
+          <CableMaterialPicker
+            value={null}
+            onChange={handleSelect}
+          />
+        </div>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={handleCancel}
+            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+          >
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface FloorPlanEditorProps {
   roomId: string;
@@ -269,6 +353,11 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
           </div>
         </div>
       )}
+
+      {/* Cable spec selection modal */}
+      <CableSpecModal
+        scaleRatio={(floorPlan as FloorPlanDetail & { scaleRatio?: number | null })?.scaleRatio ?? null}
+      />
 
       {/* Equipment paste modal */}
       {pasteEquipmentModalOpen && (
