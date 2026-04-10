@@ -228,6 +228,7 @@ export function useEditorKeyboard(handleSave: () => void) {
           es.setSelectedIds([newElement.id]);
           es.setClipboard({ type: 'element', data: newElement });
         } else if (es.clipboard.type === 'equipment') {
+          cs.closeAllModals();
           cs.setPasteEquipmentName('');
           cs.setPasteEquipmentModalOpen(true);
         }
