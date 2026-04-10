@@ -11,9 +11,11 @@ import {
   type ConnectionRenderContext,
 } from '../../editor/renderers/connectionRenderer';
 import { ConnectionLegend } from './ConnectionLegend';
+import { CableWaypointHandles } from './CableWaypointHandles';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useConnectionCreationStore } from '../stores/connectionCreationStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
+import { useCableHitTestStore } from '../stores/cableHitTestStore';
 
 interface ConnectionOverlayProps {
   roomId: string;
@@ -54,6 +56,8 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
   const panY = useEditorStore((s) => s.panY);
   const editorEquipment = useEditorStore((s) => s.localEquipment);
   const connectionFilters = useEditorStore((s) => s.connectionFilters);
+  const selectedCableId = useEditorStore((s) => s.selectedCableId);
+  const setSelectedCableId = useEditorStore((s) => s.setSelectedCableId);
 
   const snapshotActive = useSnapshotStore((s) => s.active);
   const snapshotEquipment = useSnapshotStore((s) => s.equipment);
@@ -107,6 +111,15 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
       return connectionFilters.includes(filterKey);
     });
   }, [connections, equipmentPositions, connectionFilters]);
+
+  // Populate cable hit test store for useCanvasEvents
+  const setCableHitEntries = useCableHitTestStore((s) => s.setCables);
+  useEffect(() => {
+    const entries = renderableConnections
+      .filter((c) => c.id && c.pathPoints && c.pathPoints.length >= 2)
+      .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
+    setCableHitEntries(entries);
+  }, [renderableConnections, setCableHitEntries]);
 
   // Render cables on overlay canvas
   useEffect(() => {
@@ -254,11 +267,18 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
         if (creationPhase !== 'idle') cancelCreation();
         if (ofdFlowPhase !== 'idle') useOfdConnectionFlowStore.getState().cancel();
         if (highlightActive) clearHighlight();
+        if (selectedCableId) setSelectedCableId(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, creationPhase, cancelCreation, ofdFlowPhase, highlightActive, clearHighlight]);
+  }, [viewMode, creationPhase, cancelCreation, ofdFlowPhase, highlightActive, clearHighlight, selectedCableId, setSelectedCableId]);
+
+  // Find selected cable's connection data for waypoint handles
+  const selectedCableConnection = useMemo(() => {
+    if (!selectedCableId || !connections) return null;
+    return connections.find((c) => c.id === selectedCableId) ?? null;
+  }, [selectedCableId, connections]);
 
   if (viewMode !== 'edit-2d') return null;
 
@@ -269,6 +289,17 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
         className="absolute inset-0 pointer-events-none"
         style={{ zIndex: 10 }}
       />
+
+
+      {/* Waypoint handles for selected cable */}
+      {selectedCableConnection && selectedCableConnection.pathPoints && selectedCableConnection.pathPoints.length >= 2 && (
+        <CableWaypointHandles
+          cable={selectedCableConnection}
+          zoom={zoom}
+          panX={panX}
+          panY={panY}
+        />
+      )}
 
       {/* Status bar: connection creation mode */}
       {creationPhase === 'selectingTarget' && (

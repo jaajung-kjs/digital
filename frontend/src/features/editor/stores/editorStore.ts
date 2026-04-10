@@ -88,6 +88,8 @@ export interface EditorStoreState {
   detailPanelEquipmentId: string | null;
   selectedRackId: string | null;
 
+  /** Currently selected cable ID for waypoint editing */
+  selectedCableId: string | null;
 }
 
 export interface EditorStoreActions {
@@ -126,6 +128,7 @@ export interface EditorStoreActions {
   setClipboard: (cb: EditorStoreState['clipboard']) => void;
   setDetailPanelEquipmentId: (id: string | null) => void;
   setSelectedRackId: (id: string | null) => void;
+  setSelectedCableId: (id: string | null) => void;
   clearSelection: () => void;
   resetEditor: () => void;
 
@@ -159,6 +162,7 @@ const initialState: EditorStoreState = {
   clipboard: null,
   detailPanelEquipmentId: null,
   selectedRackId: null,
+  selectedCableId: null,
 };
 
 /** Revoke all photo:upload objectURLs in a changeSet to prevent memory leaks */
@@ -229,10 +233,12 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setClipboard: (clipboard) => set({ clipboard }),
   setDetailPanelEquipmentId: (detailPanelEquipmentId) => set({ detailPanelEquipmentId }),
   setSelectedRackId: (selectedRackId) => set({ selectedRackId }),
+  setSelectedCableId: (selectedCableId) => set({ selectedCableId }),
   clearSelection: () => set({
     selectedIds: [],
     selectedElement: null,
     selectedEquipment: null,
+    selectedCableId: null,
   }),
   resetEditor: () => set((state) => {
     revokeObjectUrls(state.changeSet);
