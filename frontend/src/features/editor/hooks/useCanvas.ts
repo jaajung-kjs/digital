@@ -85,20 +85,23 @@ export function useCanvas(
       renderRacks(ctx, localRacks, null);
     }
 
-    // Equipment — dim non-highlighted when path trace active
+    // Equipment — filter out rack-internal equipment (they live inside racks, not on floor plan)
+    const floorEquipment = localEquipment.filter((eq) => !eq.parentEquipmentId);
+
+    // Dim non-highlighted when path trace active
     const pathHighlight = usePathHighlightStore.getState();
     const isTraceHighlighting = pathHighlight.active;
     if (isTraceHighlighting) {
       const highlightedIds = pathHighlight.highlightedNodeIds;
-      const dimmed = localEquipment.filter((eq) => !highlightedIds.has(eq.id));
-      const highlighted = localEquipment.filter((eq) => highlightedIds.has(eq.id));
+      const dimmed = floorEquipment.filter((eq) => !highlightedIds.has(eq.id));
+      const highlighted = floorEquipment.filter((eq) => highlightedIds.has(eq.id));
       ctx.save();
       ctx.globalAlpha = 0.2;
       renderEquipmentItems(ctx, dimmed, selectedIds);
       ctx.restore();
       renderEquipmentItems(ctx, highlighted, selectedIds);
     } else {
-      renderEquipmentItems(ctx, localEquipment, selectedIds);
+      renderEquipmentItems(ctx, floorEquipment, selectedIds);
     }
 
     // Length labels

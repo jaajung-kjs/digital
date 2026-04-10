@@ -313,6 +313,16 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
           useEditorStore.getState().addPendingLog(log);
         }
       }
+      if (draft.pendingFiberPaths) {
+        for (const fp of draft.pendingFiberPaths) {
+          useEditorStore.getState().addPendingFiberPath(fp);
+        }
+      }
+      if (draft.deletedFiberPathIds) {
+        for (const id of draft.deletedFiberPathIds) {
+          useEditorStore.getState().deleteFiberPath(id);
+        }
+      }
       if (draft.metadata) {
         if (draft.metadata.gridSize) useEditorStore.getState().setGridSize(draft.metadata.gridSize);
         if (draft.metadata.majorGridSize) useEditorStore.getState().setMajorGridSize(draft.metadata.majorGridSize);
@@ -340,6 +350,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
           localEquipment: state.localEquipment,
           localCables: state.localCables,
           pendingLogs: state.pendingLogs,
+          pendingFiberPaths: state.pendingFiberPaths,
+          deletedFiberPathIds: state.deletedFiberPathIds,
           metadata: {
             gridSize: state.gridSize,
             majorGridSize: state.majorGridSize,

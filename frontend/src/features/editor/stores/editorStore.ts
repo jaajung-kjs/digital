@@ -30,6 +30,16 @@ export interface LocalCable {
   fiberPortNumber?: number | null;
 }
 
+// ==================== Pending Fiber Paths ====================
+
+export interface PendingFiberPath {
+  id: string;  // temp ID
+  ofdAId: string;  // local equipment ID (could be temp)
+  ofdBId: string;  // remote OFD ID (real, from server)
+  portCount: number;  // 24 or 48
+  description?: string;
+}
+
 // ==================== Pending Uploads & Logs ====================
 
 export interface PendingUpload {
@@ -88,6 +98,10 @@ export interface EditorStoreState {
   // Pending log entries
   pendingLogs: PendingLog[];
 
+  // Pending fiber paths (buffered until save)
+  pendingFiberPaths: PendingFiberPath[];
+  deletedFiberPathIds: string[];
+
   connectionFilters: ConnectionFilterKey[];
 
   scaleRatio: number | null;
@@ -142,6 +156,11 @@ export interface EditorStoreActions {
   removePendingLog: (id: string) => void;
   clearPendingData: () => void;
 
+  // Pending fiber paths
+  addPendingFiberPath: (fp: PendingFiberPath) => void;
+  removePendingFiberPath: (id: string) => void;
+  deleteFiberPath: (id: string) => void;  // real ID → deletedFiberPathIds
+
   // Equipment delete with cascade
   deleteEquipmentWithCascade: (equipmentId: string) => void;
 
@@ -179,6 +198,8 @@ const initialState: EditorStoreState = {
   deletedEquipmentIds: [],
   pendingUploads: [],
   pendingLogs: [],
+  pendingFiberPaths: [],
+  deletedFiberPathIds: [],
   scaleRatio: null,
   connectionFilters: [] as ConnectionFilterKey[],
   showLengths: false,
@@ -269,8 +290,22 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   })),
   clearPendingData: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);
-    return { pendingUploads: [], pendingLogs: [], deletedElementIds: [], deletedEquipmentIds: [] };
+    return { pendingUploads: [], pendingLogs: [], pendingFiberPaths: [], deletedFiberPathIds: [], deletedElementIds: [], deletedEquipmentIds: [] };
   }),
+
+  // === Pending Fiber Paths ===
+  addPendingFiberPath: (fp) => set((state) => ({
+    pendingFiberPaths: [...state.pendingFiberPaths, fp],
+    hasChanges: true,
+  })),
+  removePendingFiberPath: (id) => set((state) => ({
+    pendingFiberPaths: state.pendingFiberPaths.filter((fp) => fp.id !== id),
+    hasChanges: true,
+  })),
+  deleteFiberPath: (id) => set((state) => ({
+    deletedFiberPathIds: [...state.deletedFiberPathIds, id],
+    hasChanges: true,
+  })),
 
   // === Equipment delete with cascade ===
   deleteEquipmentWithCascade: (equipmentId) => set((state) => ({

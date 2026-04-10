@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useFiberPaths } from './useFiberPaths';
-import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
+import { useEditorStore, type LocalCable, type PendingFiberPath } from '../../editor/stores/editorStore';
 import type { FiberPathDetail, FiberPortStatus } from '../types';
 
 /**
@@ -56,18 +56,64 @@ function mergePendingCables(
 }
 
 /**
- * Single source of truth for port status: backend data + local cables merged.
+ * Convert pending fiber paths into FiberPathDetail-like objects for display.
+ */
+function pendingToFiberPaths(
+  pendingPaths: PendingFiberPath[],
+  ofdId: string,
+  localEquipment: { id: string; name: string }[],
+): FiberPathDetail[] {
+  const equipMap = new Map(localEquipment.map((e) => [e.id, e.name]));
+
+  return pendingPaths
+    .filter((fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId)
+    .map((fp) => ({
+      id: fp.id,
+      ofdA: {
+        id: fp.ofdAId,
+        name: equipMap.get(fp.ofdAId) ?? '?',
+        substationName: equipMap.get(fp.ofdAId) ?? '?',
+        roomId: null,
+      },
+      ofdB: {
+        id: fp.ofdBId,
+        name: equipMap.get(fp.ofdBId) ?? '?',
+        substationName: equipMap.get(fp.ofdBId) ?? '?',
+        roomId: null,
+      },
+      portCount: fp.portCount,
+      description: fp.description ?? null,
+      ports: Array.from({ length: fp.portCount }, (_, i) => ({
+        portNumber: i + 1,
+        sideA: null,
+        sideB: null,
+      })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+}
+
+/**
+ * Single source of truth for port status: backend data + local cables + pending fiber paths merged.
  * Used by FiberPathManager and ConnectionDiagram.
  */
 export function usePortStatus(ofdId: string) {
   const { data: paths, isLoading } = useFiberPaths(ofdId);
   const localCables = useEditorStore((s) => s.localCables);
   const localEquipment = useEditorStore((s) => s.localEquipment);
+  const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
+  const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
 
   const mergedPaths = useMemo(() => {
     if (!paths) return [];
-    return mergePendingCables(paths, localCables, localEquipment, ofdId);
-  }, [paths, localCables, localEquipment, ofdId]);
+    // Filter out deleted paths
+    const activePaths = paths.filter((p) => !deletedFiberPathIds.includes(p.id));
+    // Merge local cables into saved paths
+    const withCables = mergePendingCables(activePaths, localCables, localEquipment, ofdId);
+    // Add pending fiber paths
+    const pending = pendingToFiberPaths(pendingFiberPaths, ofdId, localEquipment);
+    return [...withCables, ...pending];
+  }, [paths, localCables, localEquipment, ofdId, pendingFiberPaths, deletedFiberPathIds]);
 
   return { mergedPaths, isLoading };
 }

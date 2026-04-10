@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
-import { useCreateFiberPath, useDeleteFiberPath } from '../hooks/useFiberPaths';
 import { usePortStatus } from '../hooks/usePortStatus';
+import { useEditorStore } from '../../editor/stores/editorStore';
+import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { FiberPortGrid } from './FiberPortGrid';
 import type { FiberPathDetail } from '../types';
 
@@ -22,8 +23,10 @@ interface FiberPathManagerProps {
 
 export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwitch, onNavigateRemote }: FiberPathManagerProps) {
   const { mergedPaths, isLoading } = usePortStatus(ofdId);
-  const createPath = useCreateFiberPath();
-  const deletePath = useDeleteFiberPath();
+  const addPendingFiberPath = useEditorStore((s) => s.addPendingFiberPath);
+  const removePendingFiberPath = useEditorStore((s) => s.removePendingFiberPath);
+  const deleteFiberPath = useEditorStore((s) => s.deleteFiberPath);
+  const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
 
   const [expandedPathId, setExpandedPathId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -50,8 +53,9 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
       return (eq.substationName ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     }) ?? [];
 
-  const handleCreate = async (targetOfdId: string) => {
-    await createPath.mutateAsync({
+  const handleCreate = (targetOfdId: string) => {
+    addPendingFiberPath({
+      id: generateTempId(),
       ofdAId: ofdId,
       ofdBId: targetOfdId,
       portCount,
@@ -62,8 +66,19 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
 
   const handleDelete = async (pathId: string) => {
     if (!confirm('이 광경로를 삭제하시겠습니까?')) return;
-    await deletePath.mutateAsync(pathId);
+    if (isTempId(pathId)) {
+      // Pending path: just remove from store
+      removePendingFiberPath(pathId);
+    } else {
+      // Saved path: mark for deletion on save
+      deleteFiberPath(pathId);
+    }
   };
+
+  // Build pending paths as FiberPathDetail-like objects for display
+  const pendingPathsForThisOfd = pendingFiberPaths.filter(
+    (fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId
+  );
 
   const getUsageCount = (path: FiberPathDetail): number => {
     return path.ports.filter((p) => p.sideA || p.sideB).length;
@@ -72,6 +87,10 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
   if (isLoading) {
     return <div className="p-4 text-sm text-gray-500">불러오는 중...</div>;
   }
+
+  // Filter out paths marked for deletion
+  const deletedFiberPathIds = useEditorStore.getState().deletedFiberPathIds;
+  const activePaths = mergedPaths.filter((p) => !deletedFiberPathIds.includes(p.id));
 
   return (
     <div className="p-4 border-b border-gray-200">
@@ -129,8 +148,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
                   <button
                     key={eq.id}
                     onClick={() => handleCreate(eq.id)}
-                    disabled={createPath.isPending}
-                    className="block w-full text-left rounded px-2 py-1.5 text-sm hover:bg-blue-100 disabled:opacity-50"
+                    className="block w-full text-left rounded px-2 py-1.5 text-sm hover:bg-blue-100"
                   >
                     <span className="font-medium text-gray-700">
                       {eq.substationName || '알 수 없음'}
@@ -144,12 +162,41 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
         </div>
       )}
 
-      {/* Path list */}
-      {mergedPaths.length === 0 ? (
+      {/* Pending fiber paths */}
+      {pendingPathsForThisOfd.length > 0 && (
+        <div className="space-y-2 mb-2">
+          {pendingPathsForThisOfd.map((fp) => (
+            <div key={fp.id} className="rounded border border-amber-200 bg-amber-50">
+              <div className="flex items-center justify-between px-3 py-2">
+                <div>
+                  <span className="text-sm font-medium text-gray-700">
+                    새 광경로
+                  </span>
+                  <span className="ml-2 text-xs text-gray-400">
+                    {fp.portCount}코어
+                  </span>
+                  <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
+                    미저장
+                  </span>
+                </div>
+                <button
+                  onClick={() => removePendingFiberPath(fp.id)}
+                  className="rounded px-2 py-0.5 text-xs text-red-500 hover:bg-red-50"
+                >
+                  삭제
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Saved path list */}
+      {activePaths.length === 0 && pendingPathsForThisOfd.length === 0 ? (
         <p className="text-sm text-gray-400">등록된 광경로가 없습니다.</p>
       ) : (
         <div className="space-y-2">
-          {mergedPaths.map((path) => {
+          {activePaths.map((path) => {
             const local = path.ofdA.id === ofdId ? path.ofdA : path.ofdB;
             const remote = path.ofdA.id === ofdId ? path.ofdB : path.ofdA;
             const usage = getUsageCount(path);
@@ -181,7 +228,6 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
                         e.stopPropagation();
                         handleDelete(path.id);
                       }}
-                      disabled={deletePath.isPending}
                       className="rounded px-2 py-0.5 text-xs text-red-500 hover:bg-red-50"
                     >
                       삭제

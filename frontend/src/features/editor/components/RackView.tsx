@@ -1,84 +1,59 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../utils/api';
 import { useEditorStore } from '../stores/editorStore';
 import { RackEquipmentForm } from './RackEquipmentForm';
 import { getCategoryColor, EQUIPMENT_CATEGORIES } from '../../../types/rack';
 
-interface RackEquipmentItem {
-  id: string;
-  name: string;
-  category: string;
-  model: string | null;
-  manufacturer: string | null;
-  startU: number | null;
-  heightU: number;
-  materialCategoryId: string | null;
-  specParams: unknown;
-}
-
-export function useRackDetail(rackId: string) {
-  return useQuery({
-    queryKey: ['rack-detail', rackId],
-    queryFn: async () => {
-      const { data } = await api.get<{
-        data: { totalU: number; name: string; equipment: RackEquipmentItem[] };
-      }>(`/racks/${rackId}`);
-      return data.data;
-    },
-    enabled: !!rackId,
-    staleTime: 30_000,
-  });
-}
-
 interface RackViewProps {
-  rackId: string;
+  equipmentId: string;  // the EQP-RACK equipment ID (can be temp ID)
 }
 
 /**
  * Shared rack U-slot visualization + equipment list + add button.
  * Used by EquipmentDetailPanel's "내부 설비" tab for EQP-RACK equipment.
+ * Works entirely from local state (editorStore) — no server API calls.
  */
-export function RackView({ rackId }: RackViewProps) {
-  const { data: rack, isLoading } = useRackDetail(rackId);
-  const [showAddForm, setShowAddForm] = useState(false);
+export function RackView({ equipmentId }: RackViewProps) {
+  const rackEquipment = useEditorStore((s) => s.localEquipment.find((e) => e.id === equipmentId));
+  const internalEquipment = useEditorStore((s) =>
+    s.localEquipment.filter((e) => e.parentEquipmentId === equipmentId)
+  );
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
-  const queryClient = useQueryClient();
 
-  const totalU = rack?.totalU ?? 42;
-  const equipment = rack?.equipment ?? [];
+  const [showAddForm, setShowAddForm] = useState(false);
+
+  const totalU = (rackEquipment?.specParams as Record<string, unknown> | null)?.u as number ?? 42;
 
   const usedU = useMemo(() => {
-    return equipment.reduce((sum, eq) => sum + eq.heightU, 0);
-  }, [equipment]);
+    return internalEquipment.reduce((sum, eq) => sum + (eq.heightU ?? 1), 0);
+  }, [internalEquipment]);
 
   const usagePercent = totalU > 0 ? Math.round((usedU / totalU) * 100) : 0;
 
   const slotMap = useMemo(() => {
-    const map = new Map<number, RackEquipmentItem>();
-    for (const eq of equipment) {
+    const map = new Map<number, typeof internalEquipment[number]>();
+    for (const eq of internalEquipment) {
       if (eq.startU != null) {
-        for (let u = eq.startU; u < eq.startU + eq.heightU; u++) {
+        const h = eq.heightU ?? 1;
+        for (let u = eq.startU; u < eq.startU + h; u++) {
           map.set(u, eq);
         }
       }
     }
     return map;
-  }, [equipment]);
+  }, [internalEquipment]);
 
-  const handleEquipmentClick = (equipmentId: string) => {
-    setDetailPanelEquipmentId(equipmentId);
+  const handleEquipmentClick = (eqId: string) => {
+    setDetailPanelEquipmentId(eqId);
   };
 
   const handleAddSuccess = () => {
     setShowAddForm(false);
-    queryClient.invalidateQueries({ queryKey: ['rack-detail', rackId] });
   };
 
-  if (isLoading) {
+  if (!rackEquipment) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+        <p className="text-sm text-gray-400">랙 장비를 찾을 수 없습니다.</p>
       </div>
     );
   }
@@ -95,15 +70,16 @@ export function RackView({ rackId }: RackViewProps) {
               const uNumber = totalU - i;
               const eq = slotMap.get(uNumber);
               if (eq && eq.startU != null) {
-                if (uNumber === eq.startU + eq.heightU - 1) {
+                const h = eq.heightU ?? 1;
+                if (uNumber === eq.startU + h - 1) {
                   const catColor = getCategoryColor(eq.category as Parameters<typeof getCategoryColor>[0]);
                   return (
                     <div
                       key={uNumber}
                       className="flex cursor-pointer hover:brightness-110 transition-all"
-                      style={{ height: `${eq.heightU * 20}px` }}
+                      style={{ height: `${h * 20}px` }}
                       onClick={() => handleEquipmentClick(eq.id)}
-                      title={`${eq.name} (${eq.startU}-${eq.startU + eq.heightU - 1}U)`}
+                      title={`${eq.name} (${eq.startU}-${eq.startU + h - 1}U)`}
                     >
                       <div className="w-8 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
                         {uNumber}U
@@ -135,15 +111,16 @@ export function RackView({ rackId }: RackViewProps) {
         {/* Right: Equipment list */}
         <div className="flex-1 overflow-y-auto p-3">
           <div className="text-xs font-medium text-gray-500 mb-2">
-            설비 목록 ({equipment.length}개)
+            설비 목록 ({internalEquipment.length}개)
           </div>
 
-          {equipment.length === 0 ? (
+          {internalEquipment.length === 0 ? (
             <p className="text-sm text-gray-400 py-4 text-center">설비가 없습니다</p>
           ) : (
             <div className="space-y-1.5">
-              {equipment.map((eq) => {
+              {internalEquipment.map((eq) => {
                 const catInfo = EQUIPMENT_CATEGORIES.find((c) => c.value === eq.category);
+                const h = eq.heightU ?? 1;
                 return (
                   <button
                     key={eq.id}
@@ -159,7 +136,7 @@ export function RackView({ rackId }: RackViewProps) {
                     </div>
                     <div className="text-xs text-gray-400 mt-0.5 ml-4">
                       {eq.startU != null
-                        ? `${eq.startU}-${eq.startU + eq.heightU - 1}U`
+                        ? `${eq.startU}-${eq.startU + h - 1}U`
                         : '미배치'
                       }
                       {eq.model && ` | ${eq.model}`}
@@ -198,7 +175,7 @@ export function RackView({ rackId }: RackViewProps) {
 
       {showAddForm && (
         <RackEquipmentForm
-          rackId={rackId}
+          rackEquipmentId={equipmentId}
           totalU={totalU}
           occupiedSlots={slotMap}
           onSuccess={handleAddSuccess}
