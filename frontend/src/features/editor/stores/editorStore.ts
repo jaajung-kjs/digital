@@ -5,6 +5,7 @@ import type {
   FloorPlanEquipment,
   ViewMode,
 } from '../../../types/floorPlan';
+import type { RackDetail } from '../../../types/rack';
 import type { CableType } from '../../../types/connection';
 
 // ==================== Change Set ====================
@@ -59,6 +60,7 @@ export interface EditorStoreState {
   // Floor plan core state (full local copies)
   localElements: FloorPlanElement[];
   localEquipment: FloorPlanEquipment[];
+  localRacks: RackDetail[];
   hasChanges: boolean;
 
   // Element/Equipment deletions (part of bulkUpdatePlan request)
@@ -100,6 +102,7 @@ export interface EditorStoreActions {
   setShowGrid: (show: boolean) => void;
   setLocalElements: (elements: FloorPlanElement[] | ((prev: FloorPlanElement[]) => FloorPlanElement[])) => void;
   setLocalEquipment: (equipment: FloorPlanEquipment[] | ((prev: FloorPlanEquipment[]) => FloorPlanEquipment[])) => void;
+  setLocalRacks: (racks: RackDetail[]) => void;
   setHasChanges: (has: boolean) => void;
   addDeletedElementId: (id: string) => void;
   addDeletedEquipmentId: (id: string) => void;
@@ -139,6 +142,7 @@ const initialState: EditorStoreState = {
   showGrid: true,
   localElements: [],
   localEquipment: [],
+  localRacks: [],
   hasChanges: false,
   deletedElementIds: [],
   deletedEquipmentIds: [],
@@ -183,6 +187,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setLocalEquipment: (equipment) => set((state) => ({
     localEquipment: typeof equipment === 'function' ? equipment(state.localEquipment) : equipment,
   })),
+  setLocalRacks: (localRacks) => set({ localRacks }),
   setHasChanges: (hasChanges) => set({ hasChanges }),
   addDeletedElementId: (id) => set((state) => ({
     deletedElementIds: [...state.deletedElementIds, id],

@@ -133,6 +133,8 @@ export function useCanvasEvents(
         canvasStore.getState().setIsPanning(true);
         canvasStore.getState().setPanStart({ x: screenX, y: screenY });
         editorStore.getState().clearSelection();
+        // Close rack/equipment detail panels when clicking empty canvas
+        editorStore.getState().setSelectedRackId(null);
         // Clear path trace highlight when clicking empty canvas
         usePathHighlightStore.getState().clearHighlight();
       }
@@ -655,6 +657,7 @@ export function useCanvasEvents(
     const snapState = useSnapshotStore.getState();
     const equipment = snapState.active ? snapState.equipment : editorStore.getState().localEquipment;
 
+    // Check equipment first (equipment renders on top of racks)
     for (const eq of [...equipment].reverse()) {
       if (
         x >= eq.positionX &&
@@ -663,6 +666,20 @@ export function useCanvasEvents(
         y <= eq.positionY + eq.height
       ) {
         editorStore.getState().setDetailPanelEquipmentId(eq.id);
+        return;
+      }
+    }
+
+    // Check racks
+    const { localRacks } = editorStore.getState();
+    for (const rack of [...localRacks].reverse()) {
+      if (
+        x >= rack.positionX &&
+        x <= rack.positionX + rack.width &&
+        y >= rack.positionY &&
+        y <= rack.positionY + rack.height
+      ) {
+        editorStore.getState().setSelectedRackId(rack.id);
         return;
       }
     }
