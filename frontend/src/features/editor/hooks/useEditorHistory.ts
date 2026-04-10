@@ -4,14 +4,16 @@ import { useHistoryStore } from '../stores/historyStore';
 import { useEditorStore } from '../stores/editorStore';
 
 /**
- * Hook wrapping history store with editor store integration
+ * Hook wrapping history store with editor store integration.
+ * Includes changeSet in history snapshots so undo/redo covers cable changes.
  */
 export function useEditorHistory() {
   const historyStore = useHistoryStore();
   const { setLocalElements, setLocalEquipment, setHasChanges } = useEditorStore();
 
   const pushHistory = useCallback((elements: FloorPlanElement[], equipment: FloorPlanEquipment[]) => {
-    historyStore.pushHistory(elements, equipment);
+    const { changeSet } = useEditorStore.getState();
+    historyStore.pushHistory(elements, equipment, changeSet);
   }, [historyStore]);
 
   const undo = useCallback(() => {
@@ -19,6 +21,7 @@ export function useEditorHistory() {
     if (prevState) {
       setLocalElements(prevState.elements);
       setLocalEquipment(prevState.equipment);
+      useEditorStore.getState().replaceChangeSet(prevState.changeSet);
       setHasChanges(true);
     }
   }, [historyStore, setLocalElements, setLocalEquipment, setHasChanges]);
@@ -28,6 +31,7 @@ export function useEditorHistory() {
     if (nextState) {
       setLocalElements(nextState.elements);
       setLocalEquipment(nextState.equipment);
+      useEditorStore.getState().replaceChangeSet(nextState.changeSet);
       setHasChanges(true);
     }
   }, [historyStore, setLocalElements, setLocalEquipment, setHasChanges]);
