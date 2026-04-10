@@ -255,7 +255,13 @@ export function useCanvasEvents(
       return;
     }
 
-    if (['door', 'window', 'text', 'equipment', 'pullbox'].includes(tool)) {
+    const { isDrawingRack, rackStart } = canvasStore.getState();
+    if (tool === 'rack' && isDrawingRack && rackStart) {
+      canvasStore.getState().setRackPreviewEnd({ x: snapped.x, y: snapped.y });
+      return;
+    }
+
+    if (['door', 'window', 'text', 'equipment', 'rack', 'pullbox'].includes(tool)) {
       canvasStore.getState().setPreviewPosition({ x: snapped.x, y: snapped.y });
     } else {
       canvasStore.getState().setPreviewPosition(null);
@@ -592,6 +598,30 @@ export function useCanvasEvents(
           }
           cs.setIsDrawingEquipment(false);
           cs.setEquipmentStart(null);
+        }
+        break;
+
+      case 'rack':
+        if (!cs.isDrawingRack) {
+          cs.setIsDrawingRack(true);
+          cs.setRackStart({ x: snapped.x, y: snapped.y });
+          cs.setRackPreviewEnd(null);
+        } else {
+          const rkEndX = snapped.x;
+          const rkEndY = snapped.y;
+          const rkX = Math.min(cs.rackStart!.x, rkEndX);
+          const rkY = Math.min(cs.rackStart!.y, rkEndY);
+          const rkW = Math.abs(rkEndX - cs.rackStart!.x);
+          const rkH = Math.abs(rkEndY - cs.rackStart!.y);
+
+          if (rkW >= 10 && rkH >= 10) {
+            cs.setNewRackPosition({ x: rkX, y: rkY });
+            cs.setRackDrawnSize({ width: rkW, height: rkH });
+            cs.closeAllModals();
+            cs.setRackModalOpen(true);
+          }
+          cs.setIsDrawingRack(false);
+          cs.setRackStart(null);
         }
         break;
 
