@@ -25,6 +25,8 @@ export interface RenderableConnection {
   /** Path length details for hover display */
   pathLength?: number | null;
   totalLength?: number | null;
+  /** Material category code from DB (used for filtering) */
+  materialCategoryCode?: string | null;
 }
 
 /** Draw a polyline connection (used when pathPoints are available) */
