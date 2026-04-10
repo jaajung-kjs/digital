@@ -38,6 +38,8 @@ const createEquipmentSchema = z.object({
   manager: z.string().max(100).optional(),
   description: z.string().optional(),
   properties: z.unknown().optional(),
+  materialCategoryId: z.string().uuid().optional(),
+  specParams: z.any().optional(),
 });
 
 const updateEquipmentSchema = z.object({
