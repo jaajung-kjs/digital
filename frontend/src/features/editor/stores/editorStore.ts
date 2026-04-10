@@ -8,6 +8,9 @@ import type {
 import type { RackDetail } from '../../../types/rack';
 import type { CableType } from '../../../types/connection';
 
+/** Filter key: either a materialCategoryCode (DB) or a CableType (legacy fallback) */
+export type ConnectionFilterKey = string;
+
 // ==================== Change Set ====================
 
 /**
@@ -70,7 +73,7 @@ export interface EditorStoreState {
   // Single change set for ALL associated entity mutations
   changeSet: ChangeEntry[];
 
-  connectionFilters: CableType[];
+  connectionFilters: ConnectionFilterKey[];
 
   scaleRatio: number | null;
   showLengths: boolean;
@@ -115,7 +118,7 @@ export interface EditorStoreActions {
   clearChangeSet: () => void;
 
   setScaleRatio: (ratio: number | null) => void;
-  setConnectionFilters: (filters: CableType[]) => void;
+  setConnectionFilters: (filters: ConnectionFilterKey[]) => void;
   setShowLengths: (show: boolean) => void;
   setViewportInitialized: (init: boolean) => void;
   setMouseWorldPosition: (pos: { x: number; y: number }) => void;
@@ -148,7 +151,7 @@ const initialState: EditorStoreState = {
   deletedEquipmentIds: [],
   changeSet: [],
   scaleRatio: null,
-  connectionFilters: [] as CableType[],
+  connectionFilters: [] as ConnectionFilterKey[],
   showLengths: false,
   viewportInitialized: false,
   mouseWorldPosition: { x: 0, y: 0 },

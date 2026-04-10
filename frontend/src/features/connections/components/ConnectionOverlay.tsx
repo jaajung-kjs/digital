@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import type { CableType, RoomConnection } from '../../../types/connection';
+import type { RoomConnection } from '../../../types/connection';
 import { useRoomConnections } from '../hooks/useRoomConnections';
 import { useMergedConnections } from '../hooks/useMergedConnections';
 import { useEditorStore, type ChangeEntry } from '../../editor/stores/editorStore';
@@ -41,6 +41,7 @@ function mapConnectionsToRenderable(
       pathPoints: conn.pathPoints,
       pathLength: conn.pathLength,
       totalLength: conn.totalLength,
+      materialCategoryCode: conn.materialCategoryCode,
     });
   }
   return result;
@@ -100,7 +101,11 @@ export function ConnectionOverlay({ roomId, canvasRef }: ConnectionOverlayProps)
     if (!connections) return [];
     const all = mapConnectionsToRenderable(connections, equipmentPositions);
     if (connectionFilters.length === 0) return [];
-    return all.filter((c) => connectionFilters.includes(c.cableType as CableType));
+    return all.filter((c) => {
+      // Match by materialCategoryCode first, then fall back to cableType
+      const filterKey = c.materialCategoryCode || c.cableType;
+      return connectionFilters.includes(filterKey);
+    });
   }, [connections, equipmentPositions, connectionFilters]);
 
   // Render cables on overlay canvas
