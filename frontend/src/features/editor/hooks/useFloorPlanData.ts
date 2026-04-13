@@ -176,6 +176,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         queryClient.invalidateQueries({ queryKey: ['maintenance-logs'] });
       }
       setHasChanges(false);
+      useEditorStore.getState().setRestoredFromVersion(null);
 
       // Reset undo/redo history after successful save
       const { localElements: currentElements, localEquipment: currentEquipment, localCables: currentCables } = useEditorStore.getState();

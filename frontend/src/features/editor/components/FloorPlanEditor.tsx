@@ -196,13 +196,11 @@ function ToolStatusBar() {
   const tool = useEditorStore(s => s.tool);
   const isDrawingLine = useCanvasStore(s => s.isDrawingLine);
   const isDrawingEquipment = useCanvasStore(s => s.isDrawingEquipment);
-  const cablePhase = useCableDrawingStore(s => s.phase);
 
   const getMessage = (): string | null => {
     switch (tool) {
       case 'cable':
-        if (cablePhase === 'selectingSource') return '시작 설비를 클릭하세요';
-        if (cablePhase === 'drawingPath') return '경유점을 클릭하거나 도착 설비를 클릭하세요 (Backspace: 되돌리기, ESC: 취소)';
+        // Cable status bar is handled by CablePathOverlay to avoid duplication
         return null;
       case 'conduit':
         return isDrawingLine ? '끝점을 클릭하세요 (ESC: 취소)' : '배관 시작점을 클릭하세요';
@@ -249,7 +247,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
     room, floorPlan, roomLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
   } = useFloorPlanData(roomId, containerRef);
 
-  useEditorKeyboard(handleSave);
+  useEditorKeyboard(handleSave, roomId);
   const { handlePasteEquipment } = useClipboard();
   const { pushHistory } = useEditorHistory();
 
@@ -258,6 +256,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const viewMode = useEditorStore(s => s.viewMode);
   const snapshotActive = useSnapshotStore(s => s.active);
   const snapshotLabel = useSnapshotStore(s => s.label);
+  const restoredFromVersion = useEditorStore(s => s.restoredFromVersion);
+  const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
   const localElements = useEditorStore(s => s.localElements);
   const localEquipment = useEditorStore(s => s.localEquipment);
   const selectedElement = useEditorStore(s => s.selectedElement);
@@ -562,6 +562,22 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
               {snapshotActive && !showHistory && (
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-amber-50 border border-amber-300 rounded-lg shadow-sm">
                   <span className="text-xs font-medium text-amber-800">과거 도면 보기 — {snapshotLabel}</span>
+                </div>
+              )}
+
+              {/* Restore banner — shown after restoring from a past version until save */}
+              {restoredFromVersion && !snapshotActive && (
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-300 rounded-lg shadow-sm">
+                  <span className="text-xs font-medium text-blue-800">
+                    {restoredFromVersion} 버전에서 복원됨 — 저장하지 않으면 반영되지 않습니다
+                  </span>
+                  <button
+                    onClick={() => setRestoredFromVersion(null)}
+                    className="text-blue-400 hover:text-blue-600 text-xs"
+                    title="닫기"
+                  >
+                    &times;
+                  </button>
                 </div>
               )}
             </div>
