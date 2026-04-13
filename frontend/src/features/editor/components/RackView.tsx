@@ -13,11 +13,17 @@ interface RackViewProps {
  * Works entirely from local state (editorStore) — no server API calls.
  */
 export function RackView({ equipmentId }: RackViewProps) {
-  const rackEquipment = useEditorStore((s) => s.localEquipment.find((e) => e.id === equipmentId));
-  const internalEquipment = useEditorStore((s) =>
-    s.localEquipment.filter((e) => e.parentEquipmentId === equipmentId)
-  );
+  const localEquipment = useEditorStore((s) => s.localEquipment);
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
+
+  const rackEquipment = useMemo(
+    () => localEquipment.find((e) => e.id === equipmentId),
+    [localEquipment, equipmentId]
+  );
+  const internalEquipment = useMemo(
+    () => localEquipment.filter((e) => e.parentEquipmentId === equipmentId),
+    [localEquipment, equipmentId]
+  );
 
   const [showAddForm, setShowAddForm] = useState(false);
 

@@ -1088,15 +1088,10 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
           onPortDelete={handlePortDelete}
           onPortSwitch={handlePortSwitch}
           onNavigateRemote={(remoteRoomId) => {
-            const { hasChanges, localElements, localEquipment } = useEditorStore.getState();
+            const { hasChanges } = useEditorStore.getState();
             if (hasChanges) {
               if (!confirm('저장하지 않은 변경사항이 있습니다. 대국 도면으로 이동하시겠습니까?')) return;
-              const draftKey = `floorplan-draft-${roomId}`;
-              sessionStorage.setItem(draftKey, JSON.stringify({
-                elements: localElements,
-                equipment: localEquipment,
-                hasChanges: true,
-              }));
+              // localStorage 자동 백업이 동작 중이므로 별도 저장 불필요
             }
             navigate(`/rooms/${remoteRoomId}/plan`);
           }}

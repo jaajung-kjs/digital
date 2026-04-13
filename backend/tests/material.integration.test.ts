@@ -35,7 +35,7 @@ describe('Material API Integration Tests', () => {
       .get('/api/material-categories?type=CABLE')
       .set('Authorization', `Bearer ${adminToken}`);
 
-    const utpCat = catResponse.body.find((c: any) => c.code === 'CBL-UTP');
+    const utpCat = catResponse.body.data.find((c: any) => c.code === 'CBL-UTP');
     utpCategoryId = utpCat.id;
 
     console.log('🔧 Material integration test initialized');
@@ -56,11 +56,11 @@ describe('Material API Integration Tests', () => {
         })
         .expect(200);
 
-      expect(response.body.specification).toBe('UTP CAT.6 4P');
-      expect(response.body.name).toBe('UTP CAT.6 4P');
-      expect(response.body.unit).toBe('m');
-      expect(typeof response.body.created).toBe('boolean');
-      expect(response.body.categoryId).toBe(utpCategoryId);
+      expect(response.body.data.specification).toBe('UTP CAT.6 4P');
+      expect(response.body.data.name).toBe('UTP CAT.6 4P');
+      expect(response.body.data.unit).toBe('m');
+      expect(typeof response.body.data.created).toBe('boolean');
+      expect(response.body.data.categoryId).toBe(utpCategoryId);
     });
 
     it('should return existing material on duplicate resolve', async () => {
@@ -73,8 +73,8 @@ describe('Material API Integration Tests', () => {
         })
         .expect(200);
 
-      expect(response.body.specification).toBe('UTP CAT.6 4P');
-      expect(response.body.created).toBe(false);
+      expect(response.body.data.specification).toBe('UTP CAT.6 4P');
+      expect(response.body.data.created).toBe(false);
     });
 
     it('should resolve different material for different spec', async () => {
@@ -87,8 +87,8 @@ describe('Material API Integration Tests', () => {
         })
         .expect(200);
 
-      expect(response.body.specification).toBe('S-FTP CAT.6A 4P');
-      expect(typeof response.body.created).toBe('boolean');
+      expect(response.body.data.specification).toBe('S-FTP CAT.6A 4P');
+      expect(typeof response.body.data.created).toBe('boolean');
     });
 
     it('should return 404 for non-existent categoryId', async () => {
@@ -128,10 +128,10 @@ describe('Material API Integration Tests', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThanOrEqual(2);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.length).toBeGreaterThanOrEqual(2);
       // Should have the 2 materials we created above
-      const specs = response.body.map((m: any) => m.specification);
+      const specs = response.body.data.map((m: any) => m.specification);
       expect(specs).toContain('UTP CAT.6 4P');
       expect(specs).toContain('S-FTP CAT.6A 4P');
     });
