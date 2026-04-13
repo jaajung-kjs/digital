@@ -27,6 +27,9 @@ export interface EquipmentDetail {
   manager: string | null;
   description: string | null;
   properties: unknown;
+  materialCategoryId: string | null;
+  materialId: string | null;
+  specParams: unknown;
   sortOrder: number;
   portCount: number;
   createdAt: Date;
@@ -126,6 +129,9 @@ class EquipmentService {
     manager: string | null;
     description: string | null;
     properties: unknown;
+    materialCategoryId: string | null;
+    materialId: string | null;
+    specParams: unknown;
     sortOrder: number;
     createdAt: Date;
     updatedAt: Date;
@@ -154,6 +160,9 @@ class EquipmentService {
       manager: e.manager,
       description: e.description,
       properties: e.properties,
+      materialCategoryId: e.materialCategoryId,
+      materialId: e.materialId,
+      specParams: e.specParams,
       sortOrder: e.sortOrder,
       portCount: e._count.ports,
       createdAt: e.createdAt,

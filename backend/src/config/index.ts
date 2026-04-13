@@ -20,7 +20,7 @@ export const config = {
 
   // Login Policy
   loginPolicy: {
-    maxAttempts: 5,
+    maxAttempts: process.env.NODE_ENV === 'production' ? 5 : 0, // 0 = 잠금 비활성화
     lockDurationMinutes: 5,
   },
 

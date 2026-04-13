@@ -9,7 +9,6 @@ import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
-import { RACK_EQUIPMENT_POSITION_TOLERANCE } from '../../../utils/floorplan/constants';
 
 /**
  * Build temp equipment ID → real ID mapping from the backend response.
@@ -111,24 +110,9 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     },
     onSuccess: async (response) => {
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
-      const { localEquipment: preInvalidateEquipment, localRacks: existingRacks, pendingUploads, pendingLogs } = useEditorStore.getState();
+      const { pendingUploads, pendingLogs } = useEditorStore.getState();
       const tempIdMap = buildTempIdMap(equipmentIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
-
-      // Identify new EQP-RACK equipment BEFORE any async work or query invalidation.
-      let hadNewRacks = false;
-      let newRackEquipment: typeof preInvalidateEquipment = [];
-      if (Object.keys(equipmentIdMap).length > 0) {
-        newRackEquipment = preInvalidateEquipment.filter((eq) => {
-          if (!tempIdMap.has(eq.id)) return false;
-          if (!eq.materialCategoryCode?.startsWith('EQP-RACK')) return false;
-          const alreadyHasRack = existingRacks.some(
-            (r) => Math.abs(r.positionX - eq.positionX) < RACK_EQUIPMENT_POSITION_TOLERANCE && Math.abs(r.positionY - eq.positionY) < RACK_EQUIPMENT_POSITION_TOLERANCE
-          );
-          return !alreadyHasRack;
-        });
-        hadNewRacks = newRackEquipment.length > 0;
-      }
 
       // Process pending uploads (photos)
       if (pendingUploads.length > 0) {
@@ -169,25 +153,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         }
       }
 
-      // Auto-create Rack entities for newly saved EQP-RACK equipment
-      if (hadNewRacks) {
-        const rackResults = await Promise.allSettled(
-          newRackEquipment.map((eq) =>
-            api.post(`/floor-plans/${roomId}/racks`, {
-              name: eq.name,
-              positionX: eq.positionX,
-              positionY: eq.positionY,
-              width: eq.width,
-              height: eq.height,
-            })
-          )
-        );
-        const rackFailures = rackResults.filter((r) => r.status === 'rejected');
-        if (rackFailures.length > 0) {
-          console.warn(`[Save] ${rackFailures.length} rack auto-creation(s) failed:`, rackFailures);
-        }
-      }
-
       // Clear pending data and invalidate queries
       useEditorStore.getState().clearPendingData();
 
@@ -198,9 +163,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
       queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
-      if (hadNewRacks) {
-        queryClient.invalidateQueries({ queryKey: ['floor-plan-racks', roomId] });
-      }
+      queryClient.invalidateQueries({ queryKey: ['floor-plan-racks', roomId] });
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
       if (pendingUploads.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
@@ -222,50 +185,36 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     },
   });
 
-  // Load floor plan data into store
+  // Load floor plan data into store (from server)
   useEffect(() => {
-    if (floorPlan) {
-      const draftKey = `floorplan-draft-${roomId}`;
-      const draft = sessionStorage.getItem(draftKey);
+    if (!floorPlan) return;
 
-      if (draft) {
-        try {
-          const { elements: draftElements, equipment: draftEquipment, hasChanges: savedHasChanges } = JSON.parse(draft);
-          setLocalElements(draftElements);
-          setLocalEquipment(draftEquipment);
-          setHasChanges(savedHasChanges);
-          sessionStorage.removeItem(draftKey);
-          initHistory(draftElements, draftEquipment);
-          return;
-        } catch {
-          sessionStorage.removeItem(draftKey);
-        }
-      }
+    const elements = floorPlan.elements.map(e => ({
+      ...e,
+      isLocked: e.isLocked ?? false,
+    }));
 
-      const elements = floorPlan.elements.map(e => ({
-        ...e,
-        isLocked: e.isLocked ?? false,
-      }));
+    setLocalElements(elements);
+    setLocalEquipment(floorPlan.equipment);
+    setGridSize(floorPlan.gridSize);
+    setMajorGridSize(floorPlan.majorGridSize ?? 60);
+    useEditorStore.getState().setScaleRatio(floorPlan.scaleRatio ?? null);
 
-      setLocalElements(elements);
-      setLocalEquipment(floorPlan.equipment);
-      setGridSize(floorPlan.gridSize);
-      setMajorGridSize(floorPlan.majorGridSize ?? 60);
-      useEditorStore.getState().setScaleRatio(floorPlan.scaleRatio ?? null);
-
-      if (isSavingRef.current) {
-        isSavingRef.current = false;
-        return;
-      }
-
-      initHistory(elements, floorPlan.equipment);
-      setViewportInitialized(false);
+    if (isSavingRef.current) {
+      isSavingRef.current = false;
+      return;
     }
+
+    // Fresh load (not after save): reset pending data + history
+    useEditorStore.getState().clearPendingData();
+    setHasChanges(false);
+    initHistory(elements, floorPlan.equipment);
+    setViewportInitialized(false);
   }, [floorPlan, roomId, setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
 
-  // Sync connections into store as localCables
+  // Sync connections into store as localCables (only when not restoring a draft)
   useEffect(() => {
-    if (backendConnections && !isSavingRef.current) {
+    if (backendConnections && !isSavingRef.current && !useEditorStore.getState().hasChanges) {
       const cables = connectionsToLocalCables(backendConnections);
       useEditorStore.getState().setCables(cables);
     }

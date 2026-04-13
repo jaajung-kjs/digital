@@ -124,8 +124,8 @@ class AuthService {
       loginAttempts: newAttempts,
     };
 
-    // 최대 시도 횟수 초과 시 계정 잠금
-    if (newAttempts >= config.loginPolicy.maxAttempts) {
+    // 최대 시도 횟수 초과 시 계정 잠금 (0이면 비활성화)
+    if (config.loginPolicy.maxAttempts > 0 && newAttempts >= config.loginPolicy.maxAttempts) {
       updateData.lockedUntil = new Date(
         Date.now() + config.loginPolicy.lockDurationMinutes * 60 * 1000
       );
