@@ -186,10 +186,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
   useEffect(() => {
     if (!floorPlan) return;
 
-    const elements = floorPlan.elements.map(e => ({
-      ...e,
-      isLocked: e.isLocked ?? false,
-    }));
+    const elements = floorPlan.elements;
 
     setLocalElements(elements);
     setLocalEquipment(floorPlan.equipment);

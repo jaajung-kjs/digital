@@ -117,7 +117,6 @@ export interface FloorPlanElement {
   properties: ElementProperties;
   zIndex: number;
   isVisible: boolean;
-  isLocked: boolean;          // 신규: 잠금 상태
   materialCategoryId?: string | null;
   specParams?: Record<string, unknown> | null;
   pathLength?: number | null;
@@ -179,7 +178,6 @@ export interface UpdateFloorPlanRequest {
     properties: ElementProperties;
     zIndex?: number;
     isVisible?: boolean;
-    isLocked?: boolean;
     materialCategoryId?: string | null;
     specParams?: Record<string, unknown> | null;
     pathLength?: number | null;
@@ -299,13 +297,11 @@ export function migrateElement(element: {
   properties: Record<string, unknown>;
   zIndex: number;
   isVisible: boolean;
-  isLocked?: boolean;
 }): FloorPlanElement {
   const baseElement = {
     id: element.id,
     zIndex: element.zIndex,
     isVisible: element.isVisible,
-    isLocked: element.isLocked ?? false,
   };
 
   switch (element.elementType) {
@@ -546,7 +542,6 @@ export function migrateFloorPlanElements(elements: Array<{
   properties: Record<string, unknown>;
   zIndex: number;
   isVisible: boolean;
-  isLocked?: boolean;
 }>): FloorPlanElement[] {
   return elements.map(migrateElement);
 }

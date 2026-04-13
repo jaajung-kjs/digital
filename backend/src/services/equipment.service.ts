@@ -28,6 +28,8 @@ export interface EquipmentDetail {
   description: string | null;
   properties: unknown;
   materialCategoryId: string | null;
+  materialCategoryCode: string | null;
+  displayColor: string | null;
   materialId: string | null;
   specParams: unknown;
   sortOrder: number;
@@ -130,6 +132,7 @@ class EquipmentService {
     description: string | null;
     properties: unknown;
     materialCategoryId: string | null;
+    materialCategory?: { code: string; displayColor: string | null } | null;
     materialId: string | null;
     specParams: unknown;
     sortOrder: number;
@@ -161,6 +164,8 @@ class EquipmentService {
       description: e.description,
       properties: e.properties,
       materialCategoryId: e.materialCategoryId,
+      materialCategoryCode: e.materialCategory?.code ?? null,
+      displayColor: e.materialCategory?.displayColor ?? null,
       materialId: e.materialId,
       specParams: e.specParams,
       sortOrder: e.sortOrder,
@@ -183,6 +188,7 @@ class EquipmentService {
       where,
       include: {
         _count: { select: { ports: true } },
+        materialCategory: { select: { code: true, displayColor: true } },
         room: {
           include: {
             floor: {
@@ -220,6 +226,7 @@ class EquipmentService {
         _count: {
           select: { ports: true },
         },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
       orderBy: [{ startU: 'desc' }, { sortOrder: 'asc' }],
     });
@@ -245,6 +252,7 @@ class EquipmentService {
         _count: {
           select: { ports: true },
         },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
@@ -262,6 +270,7 @@ class EquipmentService {
         _count: {
           select: { ports: true },
         },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     });
 
@@ -293,6 +302,7 @@ class EquipmentService {
         _count: {
           select: { ports: true },
         },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     });
 
@@ -397,6 +407,7 @@ class EquipmentService {
         _count: {
           select: { ports: true },
         },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     });
 
@@ -476,6 +487,7 @@ class EquipmentService {
         _count: {
           select: { ports: true },
         },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     });
 
@@ -525,6 +537,7 @@ class EquipmentService {
         _count: {
           select: { ports: true },
         },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     });
 
@@ -607,6 +620,7 @@ class EquipmentService {
         _count: {
           select: { ports: true },
         },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     });
 

@@ -70,7 +70,6 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, childre
       } as TextProperties,
       zIndex: localElements.length,
       isVisible: true,
-      isLocked: false,
     };
     const newElements = [...localElements, newText];
     setLocalElements(newElements);
