@@ -70,6 +70,9 @@ export interface RoomPlanDetail {
     height3d: number | null;
     materialCategoryId: string | null;
     materialCategoryCode: string | null;
+    materialCategoryName: string | null;
+    displayColor: string | null;
+    specification: string | null;
     materialId: string | null;
     specParams: unknown;
     parentEquipmentId: string | null;
@@ -90,7 +93,9 @@ export interface RoomPlanDetail {
     fiberPortNumber: number | null;
     materialCategoryId: string | null;
     materialCategoryCode: string | null;
+    materialCategoryName: string | null;
     displayColor: string | null;
+    specification: string | null;
     specParams: unknown;
     pathLength: number | null;
     bufferLength: number;

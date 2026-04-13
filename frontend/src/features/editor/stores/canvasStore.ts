@@ -53,6 +53,7 @@ interface CanvasStoreState {
   newEquipmentMaterialCategoryId: string | null;
   newEquipmentMaterialCategoryCode: string | null;
   newEquipmentMaterialCategoryName: string | null;
+  newEquipmentDisplayColor: string | null;
   newEquipmentSpecParams: Record<string, unknown> | null;
   newEquipmentSpecification: string | null;
 
@@ -113,6 +114,7 @@ interface CanvasStoreActions {
     categoryId: string | null,
     categoryCode: string | null,
     categoryName: string | null,
+    displayColor: string | null,
     specParams: Record<string, unknown> | null,
     specification: string | null,
   ) => void;
@@ -162,6 +164,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   newEquipmentMaterialCategoryId: null,
   newEquipmentMaterialCategoryCode: null,
   newEquipmentMaterialCategoryName: null,
+  newEquipmentDisplayColor: null,
   newEquipmentSpecParams: null,
   newEquipmentSpecification: null,
   infraMaterialModalOpen: false,
@@ -197,11 +200,12 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
   setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
 
-  setNewEquipmentMaterial: (categoryId, categoryCode, categoryName, specParams, specification) =>
+  setNewEquipmentMaterial: (categoryId, categoryCode, categoryName, displayColor, specParams, specification) =>
     set({
       newEquipmentMaterialCategoryId: categoryId,
       newEquipmentMaterialCategoryCode: categoryCode,
       newEquipmentMaterialCategoryName: categoryName,
+      newEquipmentDisplayColor: displayColor,
       newEquipmentSpecParams: specParams,
       newEquipmentSpecification: specification,
       // Auto-map to old enum for backwards compatibility
@@ -214,6 +218,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
       newEquipmentMaterialCategoryId: null,
       newEquipmentMaterialCategoryCode: null,
       newEquipmentMaterialCategoryName: null,
+      newEquipmentDisplayColor: null,
       newEquipmentSpecParams: null,
       newEquipmentSpecification: null,
     }),

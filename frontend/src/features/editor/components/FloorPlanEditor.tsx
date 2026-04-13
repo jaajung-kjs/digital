@@ -50,6 +50,7 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
     categoryId: string;
     categoryCode: string;
     categoryName: string;
+    displayColor: string | null;
     specParams: Record<string, unknown>;
     specification: string;
   } | null>(null);
@@ -65,7 +66,7 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
 
   const handleConfirm = () => {
     if (!pendingValue) return;
-    const { categoryId, categoryCode, categoryName, specParams, specification } = pendingValue;
+    const { categoryId, categoryCode, categoryName, displayColor, specParams, specification } = pendingValue;
     const store = useCableDrawingStore.getState();
     const pathPoints = store.getPathPoints();
     const cableType = getCableTypeFromMaterial(categoryCode);
@@ -88,6 +89,7 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
       materialCategoryId: categoryId,
       materialCategoryCode: categoryCode,
       materialCategoryName: categoryName,
+      displayColor,
       specParams,
       specification,
       pathPoints,
@@ -272,6 +274,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const newEquipmentMaterialCategoryId = useCanvasStore(s => s.newEquipmentMaterialCategoryId);
   const newEquipmentMaterialCategoryCode = useCanvasStore(s => s.newEquipmentMaterialCategoryCode);
   const newEquipmentMaterialCategoryName = useCanvasStore(s => s.newEquipmentMaterialCategoryName);
+  const newEquipmentDisplayColor = useCanvasStore(s => s.newEquipmentDisplayColor);
   const newEquipmentSpecParams = useCanvasStore(s => s.newEquipmentSpecParams);
   const newEquipmentSpecification = useCanvasStore(s => s.newEquipmentSpecification);
   const setNewEquipmentMaterial = useCanvasStore(s => s.setNewEquipmentMaterial);
@@ -427,6 +430,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       materialCategoryId: newEquipmentMaterialCategoryId,
       materialCategoryCode: newEquipmentMaterialCategoryCode,
       materialCategoryName: newEquipmentMaterialCategoryName,
+      displayColor: newEquipmentDisplayColor,
       specParams: newEquipmentSpecParams,
       specification: newEquipmentSpecification,
     };
@@ -585,8 +589,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
               <MaterialPicker
                 categoryType="EQUIPMENT"
                 value={newEquipmentMaterialCategoryId ? { categoryId: newEquipmentMaterialCategoryId, specParams: newEquipmentSpecParams ?? {} } : null}
-                onChange={({ categoryId, categoryCode, categoryName, specParams, specification }) => {
-                  setNewEquipmentMaterial(categoryId, categoryCode, categoryName, specParams, specification);
+                onChange={({ categoryId, categoryCode, categoryName, displayColor, specParams, specification }) => {
+                  setNewEquipmentMaterial(categoryId, categoryCode, categoryName, displayColor, specParams, specification);
                 }}
                 recentItems={recentEquipment}
               />

@@ -24,19 +24,6 @@ export interface MaintenanceFormData {
   status?: string;
 }
 
-/** @deprecated Legacy enum labels - prefer materialCategoryName from DB */
-export const CATEGORY_LABELS: Record<string, string> = {
-  SERVER: '서버',
-  NETWORK: '네트워크',
-  STORAGE: '스토리지',
-  CHARGER: '충전기',
-  UPS: 'UPS',
-  SECURITY: '보안장비',
-  OTHER: '기타',
-  DISTRIBUTION_BOARD: '분전반',
-  OFD: 'OFD',
-};
-
 export const LOG_TYPE_LABELS: Record<string, string> = {
   MAINTENANCE: '점검',
   FAILURE: '고장',
@@ -77,16 +64,3 @@ export const STATUS_LABELS: Record<string, string> = {
   CLOSED: '\uC885\uB8CC',
 };
 
-/**
- * Display name for equipment considering material category info.
- * Prefers materialCategoryName from DB, falls back to code then category.
- */
-export function getEquipmentDisplayName(equipment: {
-  category: string;
-  materialCategoryCode?: string | null;
-  materialCategoryName?: string | null;
-}): string {
-  if (equipment.materialCategoryName) return equipment.materialCategoryName;
-  if (equipment.materialCategoryCode) return equipment.materialCategoryCode;
-  return CATEGORY_LABELS[equipment.category] || equipment.category;
-}
