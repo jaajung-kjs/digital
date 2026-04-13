@@ -17,6 +17,7 @@ import {
   LOG_TYPE_LABELS,
   LOG_TYPE_COLORS,
   SEVERITY_COLORS,
+  SEVERITY_LABELS,
   CATEGORY_LABELS,
   EQUIPMENT_CATEGORIES,
 } from '../../equipment/types/equipment';
@@ -39,6 +40,8 @@ interface EquipmentDetail {
   height2d?: number | null;
   frontImageUrl?: string | null;
   rearImageUrl?: string | null;
+  materialCategoryCode?: string | null;
+  specParams?: Record<string, unknown> | null;
 }
 
 const CATEGORY_OPTIONS = EQUIPMENT_CATEGORIES.map((cat) => ({
@@ -97,6 +100,8 @@ function useMergedEquipmentDetail(equipmentId: string): {
     height2d: localEq.height,
     frontImageUrl: backendData?.frontImageUrl ?? null,
     rearImageUrl: backendData?.rearImageUrl ?? null,
+    materialCategoryCode: localEq.materialCategoryCode ?? null,
+    specParams: localEq.specParams ?? null,
   };
 
   return { equipment, isLoading: isTemp ? false : isLoading, error: isTemp ? null : error };
@@ -153,7 +158,7 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
           </h3>
           {equipment && (
             <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-              {CATEGORY_LABELS[equipment.category] ?? equipment.category}
+              {localEq?.materialCategoryCode ?? CATEGORY_LABELS[equipment.category] ?? equipment.category}
             </span>
           )}
         </div>
@@ -655,14 +660,21 @@ function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly
   const widthCm = equipment.width2d != null ? Math.round(equipment.width2d) : '-';
   const heightCm = equipment.height2d != null ? Math.round(equipment.height2d) : '-';
 
+  const specParamsStr = equipment.specParams
+    ? Object.entries(equipment.specParams).map(([k, v]) => `${k}: ${v}`).join(', ')
+    : null;
+
   const fields: { label: string; value: string }[] = [
     { label: '이름', value: equipment.name },
     { label: '분류', value: CATEGORY_LABELS[equipment.category] ?? equipment.category },
+    ...(equipment.materialCategoryCode
+      ? [{ label: '자재분류', value: equipment.materialCategoryCode + (specParamsStr ? ` (${specParamsStr})` : '') }]
+      : []),
     { label: '모델', value: equipment.model || '-' },
     { label: '제조사', value: equipment.manufacturer || '-' },
     { label: '담당자', value: equipment.manager || '-' },
     { label: '설치일', value: equipment.installDate ? new Date(equipment.installDate).toLocaleDateString('ko-KR') : '-' },
-    { label: '크기', value: `${widthCm} x ${heightCm} cm` },
+    { label: '크기 (px)', value: `${widthCm} x ${heightCm}` },
     { label: '설명', value: equipment.description || '-' },
   ];
 
@@ -917,7 +929,7 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
               className="flex-1 text-sm border border-gray-300 rounded px-2.5 py-2"
             >
               {Object.entries(SEVERITY_COLORS).map(([key]) => (
-                <option key={key} value={key}>{key}</option>
+                <option key={key} value={key}>{SEVERITY_LABELS[key] ?? key}</option>
               ))}
             </select>
           </div>
@@ -962,7 +974,7 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
                   </span>
                   {log.severity && (
                     <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${SEVERITY_COLORS[log.severity] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {log.severity}
+                      {SEVERITY_LABELS[log.severity] ?? log.severity}
                     </span>
                   )}
                 </div>

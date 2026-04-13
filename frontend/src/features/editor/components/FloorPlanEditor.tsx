@@ -12,6 +12,7 @@ import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
 import { MaterialPicker } from '../../materials/components/MaterialPicker';
 import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
+import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import { Toolbar } from './Toolbar';
 import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
@@ -190,9 +191,14 @@ function ToolStatusBar() {
   const tool = useEditorStore(s => s.tool);
   const isDrawingLine = useCanvasStore(s => s.isDrawingLine);
   const isDrawingEquipment = useCanvasStore(s => s.isDrawingEquipment);
+  const cablePhase = useCableDrawingStore(s => s.phase);
 
   const getMessage = (): string | null => {
     switch (tool) {
+      case 'cable':
+        if (cablePhase === 'selectingSource') return '시작 설비를 클릭하세요';
+        if (cablePhase === 'drawingPath') return '경유점을 클릭하거나 도착 설비를 클릭하세요 (Backspace: 되돌리기, ESC: 취소)';
+        return null;
       case 'conduit':
         return isDrawingLine ? '끝점을 클릭하세요 (ESC: 취소)' : '배관 시작점을 클릭하세요';
       case 'tray':
@@ -235,7 +241,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const draftCheckedRef = useRef(false);
 
   const {
-    room, floorPlan, roomLoading, planLoading, planError, saveError, saveMutation, handleSave,
+    room, floorPlan, roomLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
   } = useFloorPlanData(roomId, containerRef);
 
   useEditorKeyboard(handleSave);
@@ -399,10 +405,13 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const handleAddEquipment = () => {
     const drawnWidth = equipmentDrawnSize?.width ?? 60;
     const drawnHeight = equipmentDrawnSize?.height ?? 100;
+    const derivedCategory = newEquipmentMaterialCategoryCode
+      ? getEquipmentCategoryFromMaterial(newEquipmentMaterialCategoryCode)
+      : (newEquipmentCategory || 'NETWORK');
     const newEquip: FloorPlanEquipment = {
       id: generateTempId(),
       name: newEquipmentName,
-      category: newEquipmentCategory || 'NETWORK',
+      category: derivedCategory,
       positionX: newEquipmentPosition.x,
       positionY: newEquipmentPosition.y,
       width: drawnWidth,
@@ -454,8 +463,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       {saveError && (
         <div className="bg-red-600 text-white px-4 py-2 text-sm font-medium flex items-center justify-between">
           <span>저장 실패: {saveError}</span>
-          <button onClick={() => {/* auto-dismiss */}} className="ml-4 text-white/80 hover:text-white text-xs">
-            자동으로 사라집니다
+          <button onClick={clearSaveError} className="ml-4 text-white/80 hover:text-white text-xs">
+            닫기
           </button>
         </div>
       )}

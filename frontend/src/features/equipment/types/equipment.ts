@@ -80,6 +80,13 @@ export const SEVERITY_COLORS: Record<string, string> = {
   LOW: 'bg-green-100 text-green-800',
 };
 
+export const SEVERITY_LABELS: Record<string, string> = {
+  CRITICAL: '심각',
+  HIGH: '높음',
+  MEDIUM: '보통',
+  LOW: '낮음',
+};
+
 export const STATUS_COLORS: Record<string, string> = {
   OPEN: 'bg-blue-100 text-blue-800',
   IN_PROGRESS: 'bg-purple-100 text-purple-800',
