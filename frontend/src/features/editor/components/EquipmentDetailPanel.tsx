@@ -73,9 +73,37 @@ function useMergedEquipmentDetail(equipmentId: string): {
   isLoading: boolean;
   error: unknown;
 } {
+  const snapshotActive = useSnapshotStore((s) => s.active);
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
   const isTemp = isTempId(equipmentId);
   const { data: backendData, isLoading, error } = useEquipmentDetail(equipmentId);
   const localEquipment = useEditorStore((s) => s.localEquipment);
+
+  // In snapshot mode, read from snapshot data — no backend or editor state
+  if (snapshotActive) {
+    const snapEq = snapshotEquipment.find((e) => e.id === equipmentId);
+    if (!snapEq) {
+      return { equipment: null, isLoading: false, error: null };
+    }
+    const equipment: EquipmentDetail = {
+      id: snapEq.id,
+      name: snapEq.name,
+      category: snapEq.category || 'NETWORK',
+      model: snapEq.model ?? null,
+      manufacturer: snapEq.manufacturer ?? null,
+      manager: snapEq.manager ?? null,
+      description: snapEq.description ?? null,
+      installDate: null,
+      width2d: snapEq.width,
+      height2d: snapEq.height,
+      frontImageUrl: null,
+      rearImageUrl: null,
+      materialCategoryCode: snapEq.materialCategoryCode ?? null,
+      specParams: snapEq.specParams ?? null,
+    };
+    return { equipment, isLoading: false, error: null };
+  }
+
   const localEq = localEquipment.find((e) => e.id === equipmentId);
 
   if (!localEq) {
@@ -114,8 +142,10 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
   const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
   const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
 
-  // Determine if this is a rack equipment
-  const localEquipment = useEditorStore((s) => s.localEquipment);
+  // Determine if this is a rack equipment — use snapshot data when active
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
+  const editorEquipment = useEditorStore((s) => s.localEquipment);
+  const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
   const localEq = localEquipment.find((e) => e.id === equipmentId);
   const isRackEquipment = localEq?.materialCategoryCode?.startsWith('EQP-RACK') ?? false;
 
@@ -171,6 +201,13 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
         </button>
       </div>
 
+      {/* Snapshot read-only banner */}
+      {snapshotActive && (
+        <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-700 font-medium text-center shrink-0">
+          과거 도면 보기 중 (읽기 전용)
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="flex border-b border-gray-200 shrink-0">
         {tabs.map((tab) => (
@@ -201,19 +238,35 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
         ) : equipment ? (
           <>
             {activeTab === 'photos' && (
-              <PhotosTab equipment={equipment} readOnly={snapshotActive} />
+              snapshotActive ? (
+                <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+                  이 버전의 사진 데이터는 포함되어 있지 않습니다
+                </div>
+              ) : (
+                <PhotosTab equipment={equipment} readOnly={false} />
+              )
             )}
             {activeTab === 'info' && (
               <InfoTab equipment={equipment} readOnly={snapshotActive} />
             )}
             {activeTab === 'logs' && (
-              <LogsTab equipmentId={equipmentId} readOnly={snapshotActive} />
+              snapshotActive ? (
+                <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+                  이 버전의 점검/고장 이력은 포함되어 있지 않습니다
+                </div>
+              ) : (
+                <LogsTab equipmentId={equipmentId} readOnly={false} />
+              )
             )}
             {activeTab === 'connections' && (
               <ConnectionsTab equipmentId={equipmentId} roomId={roomId} category={equipment.category} />
             )}
             {activeTab === 'rack' && isRackEquipment && (
-              <RackView equipmentId={equipmentId} />
+              snapshotActive ? (
+                <SnapshotRackView equipmentId={equipmentId} />
+              ) : (
+                <RackView equipmentId={equipmentId} />
+              )
             )}
           </>
         ) : null}
@@ -223,6 +276,45 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
 }
 
 
+
+/* ================================================================
+   Snapshot Rack View — read-only internal equipment from snapshot
+   ================================================================ */
+
+function SnapshotRackView({ equipmentId }: { equipmentId: string }) {
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
+  const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
+
+  const internalEquipment = useMemo(
+    () => snapshotEquipment.filter((e) => e.parentEquipmentId === equipmentId),
+    [snapshotEquipment, equipmentId]
+  );
+
+  if (internalEquipment.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+        내부 설비 없음
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-2">
+      {internalEquipment.map((eq) => (
+        <div
+          key={eq.id}
+          onClick={() => setDetailPanelEquipmentId(eq.id)}
+          className="border border-gray-200 rounded px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors"
+        >
+          <p className="text-sm font-medium text-gray-700 truncate">{eq.name}</p>
+          {eq.materialCategoryCode && (
+            <p className="text-xs text-gray-400">{eq.materialCategoryCode}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ================================================================
    Photo Lightbox Viewer
