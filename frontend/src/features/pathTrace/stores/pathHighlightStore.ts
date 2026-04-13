@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { traceCable } from '../../../utils/cableTracer';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { api } from '../../../utils/api';
+import { isTempId } from '../../../utils/idHelpers';
 import type { TraceResult, PathSegment } from '../types';
 import type { FiberPathDetail } from '../../fiber/types';
 
@@ -32,9 +34,7 @@ interface PathHighlightState {
   highlightedEdgeIds: Set<string>;
   segments: PathSegment[];
 
-  /** Select a cable and run local trace */
-  selectCable: (cableId: string) => void;
-  startTrace: (cableId: string, currentRoomId: string, savedFiberPaths?: FiberPathDetail[]) => void;
+  startTrace: (cableId: string, currentRoomId: string) => void;
   openModal: () => void;
   closeModal: () => void;
   selectRing: (ringId: string | null) => void;
@@ -45,48 +45,42 @@ interface PathHighlightState {
 export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
   ...IDLE_STATE,
 
-  selectCable: (cableId) => {
-    // Run local trace immediately for temp/unsaved cables too
-    const { localCables, localEquipment } = useEditorStore.getState();
-
-    const result = traceCable({
-      cableId,
-      cables: localCables,
-      equipment: localEquipment,
-      fiberPaths: [], // No saved fiber paths for quick select
-    });
-
-    if (result.nodes.length === 0) {
-      // Cable not found in local state — just mark active
-      set({ active: true, tracingCableId: cableId, traceResult: null, segments: [] });
-      return;
-    }
-
-    const nodeIds = new Set(result.nodes.map((n) => n.equipmentId));
-    const edgeIds = new Set(result.edges.map((e) => e.id));
-    set({
-      active: true,
-      tracingCableId: cableId,
-      traceResult: result,
-      isLoading: false,
-      selectedRingId: null,
-      highlightedNodeIds: nodeIds,
-      highlightedEdgeIds: edgeIds,
-      segments: result.segments,
-    });
-  },
-
-  startTrace: (cableId, _currentRoomId, savedFiberPaths) => {
+  startTrace: async (cableId, _currentRoomId) => {
     const editorState = useEditorStore.getState();
     const { localCables, localEquipment, pendingFiberPaths } = editorState;
 
-    set({ isLoading: true, tracingCableId: cableId, error: null });
+    // isLoading is reserved for potential future async trace UI feedback
+    set({ tracingCableId: cableId, error: null });
 
     try {
+      // Fetch saved fiber paths from API for all non-temp OFD equipment
+      const ofdEquipment = localEquipment.filter(
+        (e) => e.category === 'OFD' && !isTempId(e.id),
+      );
+      const savedFiberPaths: FiberPathDetail[] = [];
+      const seenFpIds = new Set<string>();
+      await Promise.all(
+        ofdEquipment.map(async (ofd) => {
+          try {
+            const { data } = await api.get<{ data: FiberPathDetail[] }>(
+              `/equipment/${ofd.id}/fiber-paths`,
+            );
+            for (const fp of data.data) {
+              if (!seenFpIds.has(fp.id)) {
+                seenFpIds.add(fp.id);
+                savedFiberPaths.push(fp);
+              }
+            }
+          } catch {
+            // OFD fiber path fetch failed — trace without it
+          }
+        }),
+      );
+
       // Merge saved fiber paths with pending ones
       const equipMap = new Map(localEquipment.map((e) => [e.id, e]));
       const allFiberPaths: FiberPathDetail[] = [
-        ...(savedFiberPaths ?? []),
+        ...savedFiberPaths,
         // Convert pending fiber paths to FiberPathDetail-like objects
         ...pendingFiberPaths.map((fp) => {
           const ofdA = equipMap.get(fp.ofdAId);
@@ -107,14 +101,9 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
             },
             portCount: fp.portCount,
             description: fp.description ?? null,
-            ports: Array.from({ length: fp.portCount }, (_, i) => ({
-              portNumber: i + 1,
-              sideA: null,
-              sideB: null,
-            })),
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-          } satisfies FiberPathDetail;
+          } as FiberPathDetail;
         }),
       ];
 

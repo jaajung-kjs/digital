@@ -289,20 +289,19 @@ class EquipmentService {
     startU: number,
     heightU: number,
     excludeEquipmentId?: string
-  ): Promise<{ hasConflict: boolean; conflictingEquipment?: EquipmentDetail }> {
+  ): Promise<{ hasConflict: boolean; conflictingEquipment?: { name: string; startU: number | null; heightU: number } }> {
     const endU = startU + heightU - 1;
 
-    // 해당 랙의 모든 설비 조회
+    // 해당 랙의 설비 조회 — 충돌 검사에 필요한 최소 필드만 선택
     const equipmentList = await prisma.equipment.findMany({
       where: {
         rackId,
         id: excludeEquipmentId ? { not: excludeEquipmentId } : undefined,
       },
-      include: {
-        _count: {
-          select: { ports: true },
-        },
-        materialCategory: { select: { code: true, displayColor: true } },
+      select: {
+        name: true,
+        startU: true,
+        heightU: true,
       },
     });
 
@@ -314,7 +313,7 @@ class EquipmentService {
       if (!(endU < e.startU || startU > eEndU)) {
         return {
           hasConflict: true,
-          conflictingEquipment: this.mapToDetail(e),
+          conflictingEquipment: e,
         };
       }
     }
