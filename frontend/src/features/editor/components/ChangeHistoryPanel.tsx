@@ -12,6 +12,7 @@ import {
   exportReportToCSV,
   actionBadgeColor,
   actionIcon,
+  actionLabel,
 } from '../../../utils/constructionCalc';
 import type {
   ReportOverrides,
@@ -382,7 +383,9 @@ function DiffView({ log }: { log: AuditLog; allLogs: AuditLog[] | undefined }) {
                 <span className={`px-1.5 py-0.5 rounded font-mono ${actionBadgeColor(d.action)}`}>
                   {actionIcon(d.action)}
                 </span>
-                <span className="text-gray-700 truncate">{d.name}</span>
+                <span className="text-gray-700 truncate">
+                  {d.name}{d.specification ? ` ${d.specification}` : ''}
+                </span>
                 {d.length != null && (
                   <span className="text-gray-400 shrink-0">{d.length}m</span>
                 )}
@@ -533,14 +536,18 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
             <thead>
               <tr className="text-gray-500 border-b">
                 <th className="text-left py-1 font-medium">분류</th>
-                <th className="text-right py-1 font-medium w-16">수량</th>
-                <th className="text-left py-1 font-medium w-10">단위</th>
+                <th className="text-left py-1 font-medium">규격</th>
+                <th className="text-left py-1 font-medium w-12">구분</th>
+                <th className="text-right py-1 font-medium w-14">수량</th>
+                <th className="text-left py-1 font-medium w-8">단위</th>
               </tr>
             </thead>
             <tbody>
               {report.bom.filter((b) => !b.isAccessory).map((b) => (
-                <tr key={b.materialCategoryCode + b.name} className="border-b border-gray-50">
+                <tr key={b.materialCategoryCode + (b.action ?? '') + b.name} className="border-b border-gray-50">
                   <td className="py-1 text-gray-700">{b.name}</td>
+                  <td className="py-1 text-gray-500">{b.specification || '-'}</td>
+                  <td className="py-1"><span className={`px-1 py-0.5 rounded text-[10px] ${b.action ? actionBadgeColor(b.action) : ''}`}>{b.action ? actionLabel(b.action) : ''}</span></td>
                   <td className="py-1 text-right">
                     {editMode ? (
                       <input
