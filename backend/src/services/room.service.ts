@@ -647,13 +647,14 @@ class RoomService {
     id: string,
     input: UpdatePlanInput,
     userId: string
-  ): Promise<{ id: string; version: number; message: string; equipmentIdMap: Record<string, string>; fiberPathIdMap: Record<string, string> }> {
+  ): Promise<{ id: string; version: number; message: string; equipmentIdMap: Record<string, string>; fiberPathIdMap: Record<string, string>; auditLogId: string | null }> {
     const room = await prisma.room.findUnique({ where: { id } });
     if (!room) throw new NotFoundError('실');
 
     let newVersion = room.version;
     const equipmentIdMap: Record<string, string> = {};
     let finalFiberPathIdMap: Record<string, string> = {};
+    let auditLogId: string | null = null;
 
     await prisma.$transaction(async (tx) => {
       // ── Step 0: Load current DB state for reconciliation ──
@@ -1186,7 +1187,7 @@ class RoomService {
         // Structural change: capture complete snapshot for historical preview
         const snapshot = await captureRoomSnapshot(tx, id, updated, newVersion);
 
-        await tx.auditLog.create({
+        const auditEntry = await tx.auditLog.create({
           data: {
             entityType: 'Room', entityId: id, entityName: room.name,
             action: 'UPDATE', actionDetail,
@@ -1197,9 +1198,10 @@ class RoomService {
             userId, userName: user?.name ?? null,
           },
         });
+        auditLogId = auditEntry.id;
       } else {
         // Metadata-only change: lightweight audit entry without snapshot
-        await tx.auditLog.create({
+        const auditEntry = await tx.auditLog.create({
           data: {
             entityType: 'Room', entityId: id, entityName: room.name,
             action: 'UPDATE', actionDetail,
@@ -1209,6 +1211,7 @@ class RoomService {
             userId, userName: user?.name ?? null,
           },
         });
+        auditLogId = auditEntry.id;
       }
 
       finalFiberPathIdMap = fiberPathIdMap;
@@ -1220,6 +1223,7 @@ class RoomService {
       message: '저장되었습니다.',
       equipmentIdMap,
       fiberPathIdMap: finalFiberPathIdMap,
+      auditLogId,
     };
   }
 
@@ -1241,17 +1245,17 @@ class RoomService {
         action: true,
         actionDetail: true,
         changedFields: true,
-        oldValues: true,
-        newValues: true,
+        // oldValues omitted — large payload, not needed for list
+        newValues: true, // only used to derive hasSnapshot flag
         context: true,
         userName: true,
         createdAt: true,
       },
     });
 
-    return logs.map((log) => ({
-      ...log,
-      hasSnapshot: log.newValues !== null,
+    return logs.map(({ oldValues, newValues, ...rest }) => ({
+      ...rest,
+      hasSnapshot: newValues !== null,
     }));
   }
 

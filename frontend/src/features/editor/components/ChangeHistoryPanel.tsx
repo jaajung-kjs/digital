@@ -9,13 +9,11 @@ import {
   usePatchAuditLogContext,
 } from '../hooks/useRoomAuditLogs';
 import {
-  calculateConstructionReport,
   exportReportToCSV,
   actionBadgeColor,
   actionIcon,
 } from '../../../utils/constructionCalc';
 import type {
-  PlanSnapshot,
   ReportOverrides,
   ConstructionReport,
 } from '../../../utils/constructionCalc';
@@ -342,43 +340,15 @@ function LogList({
 }
 
 // ============================================================
-// Helper — resolve old/new snapshots, falling back to the
-//          previous log's newValues when oldValues is absent
-// ============================================================
-
-
-function resolveSnapshots(
-  log: AuditLog,
-  allLogs: AuditLog[] | undefined,
-): { oldVals: PlanSnapshot | null; newVals: PlanSnapshot | null } {
-  const newVals = (log.newValues as unknown as PlanSnapshot) ?? null;
-  let oldVals = (log.oldValues as unknown as PlanSnapshot) ?? null;
-
-  // Fallback: use the previous log entry's newValues as the "before" state
-  if (!oldVals && allLogs) {
-    const idx = allLogs.findIndex((l) => l.id === log.id);
-    if (idx >= 0 && idx < allLogs.length - 1) {
-      const prevLog = allLogs[idx + 1];
-      oldVals = (prevLog.newValues as unknown as PlanSnapshot) ?? null;
-    }
-  }
-
-  return { oldVals, newVals };
-}
-
-// ============================================================
 // DiffView — show change details for a log entry
 // ============================================================
 
-function DiffView({ log, allLogs }: { log: AuditLog; allLogs: AuditLog[] | undefined }) {
-  // Build a lightweight report from oldValues/newValues if available
+function DiffView({ log }: { log: AuditLog; allLogs: AuditLog[] | undefined }) {
+  // Read pre-computed report from context (stored at save time)
   const report = useMemo(() => {
-    const { oldVals, newVals } = resolveSnapshots(log, allLogs);
-
-    if (!newVals) return null;
-
-    return calculateConstructionReport(oldVals, newVals);
-  }, [log, allLogs]);
+    const ctx = log.context as Record<string, unknown> | null | undefined;
+    return (ctx?.constructionReport as ConstructionReport | undefined) ?? null;
+  }, [log]);
 
   return (
     <div className="p-4 space-y-3">
@@ -441,9 +411,10 @@ interface ReportViewProps {
   isSaving: boolean;
 }
 
-function ReportView({ log, allLogs, roomId: _roomId, onSaveOverrides, isSaving }: ReportViewProps) {
-  const { oldVals, newVals } = resolveSnapshots(log, allLogs);
-  const savedOverrides = ((log.context as Record<string, unknown>)?.reportOverrides as ReportOverrides) ?? null;
+function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, isSaving }: ReportViewProps) {
+  const ctx = log.context as Record<string, unknown> | null | undefined;
+  const baseReport = (ctx?.constructionReport as ConstructionReport | undefined) ?? null;
+  const savedOverrides = (ctx?.reportOverrides as ReportOverrides) ?? null;
 
   const [editMode, setEditMode] = useState(false);
   const [surcharges, setSurcharges] = useState<string[]>(savedOverrides?.surcharges ?? []);
@@ -460,37 +431,86 @@ function ReportView({ log, allLogs, roomId: _roomId, onSaveOverrides, isSaving }
     surcharges,
   }), [bomEdits, laborEdits, surcharges, savedOverrides]);
 
-  const isFirstSave = !oldVals && !!newVals;
-
+  // Apply overrides on top of the pre-computed base report
   const report: ConstructionReport | null = useMemo(() => {
-    if (!newVals) return null;
-    return calculateConstructionReport(oldVals, newVals, overrides);
-  }, [oldVals, newVals, overrides]);
+    if (!baseReport) return null;
+
+    // If no overrides are active, return the base report as-is
+    const hasOverrides = overrides.modifiedItems.length > 0
+      || overrides.addedItems.length > 0
+      || overrides.removedItemIds.length > 0
+      || overrides.surcharges.length > 0;
+
+    if (!hasOverrides) return baseReport;
+
+    // Apply overrides to a copy of the base report
+    let bom = [...baseReport.bom.map(b => ({ ...b }))];
+    let labor = [...baseReport.labor.map(l => ({ ...l }))];
+
+    // Remove items
+    if (overrides.removedItemIds.length > 0) {
+      const removed = new Set(overrides.removedItemIds);
+      bom = bom.filter((b) => !removed.has(b.materialCategoryCode));
+    }
+
+    // Modify quantities
+    for (const mod of overrides.modifiedItems) {
+      const bomItem = bom.find((b) => b.materialCategoryCode === mod.itemId);
+      if (bomItem) bomItem.quantity = mod.quantity;
+      const laborItem = labor.find((l) => l.workName === mod.itemId);
+      if (laborItem) laborItem.hours = mod.quantity;
+    }
+
+    // Add manual items
+    for (const added of overrides.addedItems) {
+      bom.push({
+        materialCategoryCode: added.materialCategoryCode ?? 'MANUAL',
+        name: added.description,
+        quantity: added.quantity,
+        unit: added.unit,
+        isAccessory: false,
+        isManual: true,
+      });
+      if (added.laborHours) {
+        labor.push({ workName: added.description, laborType: '통신내선공', hours: added.laborHours });
+      }
+    }
+
+    // Apply surcharges
+    if (overrides.surcharges.length > 0) {
+      let multiplier = 1;
+      for (const code of overrides.surcharges) {
+        const rule = SURCHARGE_RULES.find((r) => r.code === code);
+        if (rule) multiplier *= rule.multiplier;
+      }
+      for (const l of labor) { l.hours *= multiplier; }
+    }
+
+    // Round
+    for (const b of bom) { b.quantity = Math.ceil(b.quantity * 100) / 100; }
+    for (const l of labor) { l.hours = Math.round(l.hours * 100) / 100; }
+
+    const totalLaborHours = Math.round(labor.reduce((sum, l) => sum + l.hours, 0) * 100) / 100;
+
+    return { diff: baseReport.diff, bom, labor, totalLaborHours };
+  }, [baseReport, overrides]);
 
   const handleSave = useCallback(() => {
     onSaveOverrides(overrides);
   }, [overrides, onSaveOverrides]);
 
-  if (!newVals) {
+  if (!baseReport) {
     return (
       <div className="p-4 text-center text-sm text-gray-400 py-12">
-        스냅샷 데이터가 없어 설계서를 생성할 수 없습니다.
+        이 버전의 설계서가 없습니다.
       </div>
     );
   }
 
-  if (isFirstSave && (!report || report.diff.length === 0)) {
+  if (!report || report.diff.length === 0) {
     return (
       <div className="p-4 text-center text-sm text-gray-400 py-12">
-        첫 저장 — 비교할 이전 버전이 없습니다.
-      </div>
-    );
-  }
-
-  if (!report) {
-    return (
-      <div className="p-4 text-center text-sm text-gray-400 py-12">
-        설계서를 생성할 수 없습니다.
+        변경 내역이 없습니다.
       </div>
     );
   }
