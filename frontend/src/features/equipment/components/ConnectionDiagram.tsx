@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { CABLE_BADGE_CLASSES } from '../../../types/connection';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
+import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
@@ -18,9 +19,17 @@ export function ConnectionDiagram({
   equipmentId,
   category,
 }: ConnectionDiagramProps) {
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localCables = useEditorStore((s) => s.localCables);
+  const editorEquipment = useEditorStore((s) => s.localEquipment);
+  const editorCables = useEditorStore((s) => s.localCables);
   const deleteCable = useEditorStore((s) => s.deleteCable);
+
+  // Snapshot overlay: when active, show snapshot data instead of editor data
+  const snapshotActive = useSnapshotStore((s) => s.active);
+  const snapshotCables = useSnapshotStore((s) => s.cables);
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
+
+  const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
+  const localCables = snapshotActive ? (snapshotCables as unknown as LocalCable[]) : editorCables;
   const startTrace = usePathHighlightStore((s) => s.startTrace);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
@@ -55,8 +64,8 @@ export function ConnectionDiagram({
   return (
     <div>
       <div className="p-3">
-        {/* Add connection button — OFD connections are managed via FiberPathManager */}
-        {category !== 'OFD' && (
+        {/* Add connection button — OFD connections are managed via FiberPathManager, hidden during snapshot preview */}
+        {!snapshotActive && category !== 'OFD' && (
         <div className="mb-3">
           {cableDrawingPhase !== 'idle' ? (
             <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
@@ -147,7 +156,7 @@ export function ConnectionDiagram({
                     </p>
                   )}
                 </div>
-                {isCardSelected && (
+                {isCardSelected && !snapshotActive && (
                   <div className="flex justify-end pr-1">
                     <button
                       onClick={handleDelete}

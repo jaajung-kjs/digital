@@ -69,7 +69,7 @@ export function useCanvasEvents(
       return;
     }
 
-    // Snapshot preview: allow selection, detail panel, and panning only
+    // Snapshot preview: allow selection highlighting and panning only — no detail panel
     const snap = useSnapshotStore.getState();
     if (snap.active) {
       const found = findItemAt(x, y, snap.elements, snap.equipment);
@@ -78,7 +78,7 @@ export function useCanvasEvents(
         if (found.type === 'equipment') {
           editorStore.getState().setSelectedEquipment(found.item as FloorPlanEquipment);
           editorStore.getState().setSelectedElement(null);
-          editorStore.getState().setDetailPanelEquipmentId(found.item.id);
+          // Do NOT open detail panel in snapshot mode to avoid current/past data mixing
         } else {
           editorStore.getState().setSelectedElement(found.item as FloorPlanElement);
           editorStore.getState().setSelectedEquipment(null);
@@ -638,14 +638,16 @@ export function useCanvasEvents(
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Block detail panel opening in snapshot preview mode
+    const snapState = useSnapshotStore.getState();
+    if (snapState.active) return;
+
     const rect = canvas.getBoundingClientRect();
     const { zoom, panX, panY } = editorStore.getState();
     const x = (e.clientX - rect.left - panX) / (zoom / 100);
     const y = (e.clientY - rect.top - panY) / (zoom / 100);
 
-    // Use snapshot equipment when in preview mode
-    const snapState = useSnapshotStore.getState();
-    const equipment = snapState.active ? snapState.equipment : editorStore.getState().localEquipment;
+    const equipment = editorStore.getState().localEquipment;
 
     for (const eq of [...equipment].reverse()) {
       if (
