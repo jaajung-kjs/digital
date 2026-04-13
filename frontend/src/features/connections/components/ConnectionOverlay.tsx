@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { RoomConnection } from '../../../types/connection';
+import type { FloorPlanCable } from '../../../types/floorPlan';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { CABLE_COLORS } from '../../../types/connection';
@@ -55,28 +56,28 @@ function mapCablesToRenderable(
   return result;
 }
 
-function mapConnectionsToRenderable(
-  connections: RoomConnection[],
+function mapPlanCablesToRenderable(
+  cables: FloorPlanCable[],
   equipmentPositions: Map<string, { x: number; y: number; width: number; height: number }>
 ): RenderableConnection[] {
   const result: RenderableConnection[] = [];
-  for (const conn of connections) {
-    const sourcePos = equipmentPositions.get(conn.sourceEquipmentId);
-    const targetPos = equipmentPositions.get(conn.targetEquipmentId);
+  for (const cable of cables) {
+    const sourcePos = equipmentPositions.get(cable.sourceEquipmentId);
+    const targetPos = equipmentPositions.get(cable.targetEquipmentId);
     if (!sourcePos || !targetPos) continue;
     result.push({
-      id: conn.id,
+      id: cable.id,
       sourceX: sourcePos.x + sourcePos.width / 2,
       sourceY: sourcePos.y + sourcePos.height / 2,
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
-      cableType: conn.cableType,
-      label: conn.label || conn.materialCategoryCode || undefined,
-      color: conn.color || conn.displayColor || CABLE_COLORS[conn.cableType] || '#6b7280',
-      pathPoints: conn.pathPoints,
-      pathLength: conn.pathLength,
-      totalLength: conn.totalLength,
-      materialCategoryCode: conn.materialCategoryCode,
+      cableType: cable.cableType,
+      label: cable.label || cable.materialCategoryCode || undefined,
+      color: cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
+      pathPoints: cable.pathPoints ?? undefined,
+      pathLength: cable.pathLength,
+      totalLength: cable.totalLength,
+      materialCategoryCode: cable.materialCategoryCode,
     });
   }
   return result;
@@ -125,7 +126,7 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
 
   const renderableConnections = useMemo(() => {
     const all = snapshotActive
-      ? (connections ? mapConnectionsToRenderable(connections, equipmentPositions) : [])
+      ? (connections ? mapPlanCablesToRenderable(connections, equipmentPositions) : [])
       : (cables ? mapCablesToRenderable(cables, equipmentPositions) : []);
     // null = filters not yet initialized → show all cables
     if (connectionFilters === null) return all;
@@ -137,7 +138,7 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
   // Build hit-test entries from connection identity only (not viewport-dependent)
   const hitTestEntries = useMemo(() => {
     const all = snapshotActive
-      ? (connections ? mapConnectionsToRenderable(connections, equipmentPositions) : [])
+      ? (connections ? mapPlanCablesToRenderable(connections, equipmentPositions) : [])
       : (cables ? mapCablesToRenderable(cables, equipmentPositions) : []);
     // null = filters not yet initialized → include all for hit testing
     if (connectionFilters === null) {
@@ -267,27 +268,30 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
   // Find selected cable for waypoint handles
   const selectedCable = useMemo(() => {
     if (!selectedCableId) return null;
+    // Build a RoomConnection-compatible shape for CableWaypointHandles
+    const toWaypointCable = (c: FloorPlanCable | LocalCable): RoomConnection => ({
+      id: c.id,
+      sourceEquipmentId: c.sourceEquipmentId,
+      targetEquipmentId: c.targetEquipmentId,
+      cableType: c.cableType,
+      pathPoints: c.pathPoints ?? undefined,
+      pathLength: c.pathLength ?? undefined,
+      totalLength: c.totalLength ?? undefined,
+      color: c.color ?? undefined,
+      label: c.label ?? undefined,
+      materialCategoryCode: c.materialCategoryCode ?? undefined,
+      sourceEquipment: { id: c.sourceEquipmentId, name: '', rackId: null, roomId: null },
+      targetEquipment: { id: c.targetEquipmentId, name: '', rackId: null, roomId: null },
+    } as RoomConnection);
+
     if (snapshotActive && connections) {
-      return connections.find((c) => c.id === selectedCableId) ?? null;
+      const found = connections.find((c) => c.id === selectedCableId);
+      return found ? toWaypointCable(found) : null;
     }
     if (cables) {
       const cable = cables.find((c) => c.id === selectedCableId);
       if (!cable) return null;
-      // Convert LocalCable to RoomConnection shape for CableWaypointHandles
-      return {
-        id: cable.id,
-        sourceEquipmentId: cable.sourceEquipmentId,
-        targetEquipmentId: cable.targetEquipmentId,
-        cableType: cable.cableType,
-        pathPoints: cable.pathPoints ?? undefined,
-        pathLength: cable.pathLength ?? undefined,
-        totalLength: cable.totalLength ?? undefined,
-        color: cable.color ?? undefined,
-        label: cable.label ?? undefined,
-        materialCategoryCode: cable.materialCategoryCode ?? undefined,
-        sourceEquipment: { id: cable.sourceEquipmentId, name: '', rackId: null, roomId: null },
-        targetEquipment: { id: cable.targetEquipmentId, name: '', rackId: null, roomId: null },
-      } as RoomConnection;
+      return toWaypointCable(cable);
     }
     return null;
   }, [selectedCableId, connections, cables, snapshotActive]);

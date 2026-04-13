@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-import type { FloorPlanElement, FloorPlanEquipment } from '../../../types/floorPlan';
-import type { RoomConnection } from '../../../types/connection';
+import type { FloorPlanElement, FloorPlanEquipment, FloorPlanCable, FloorPlanFiberPath } from '../../../types/floorPlan';
 
 export interface SnapshotPhoto {
   id: string;
@@ -8,14 +7,6 @@ export interface SnapshotPhoto {
   imageUrl: string;
   description?: string | null;
   takenAt?: string | null;
-}
-
-export interface SnapshotFiberPath {
-  id: string;
-  ofdAId: string;
-  ofdBId: string;
-  portCount: number;
-  description?: string | null;
 }
 
 export type SnapshotEquipment = FloorPlanEquipment & { photos?: SnapshotPhoto[] };
@@ -32,8 +23,8 @@ export interface SnapshotStoreState {
   label: string;
   elements: FloorPlanElement[];
   equipment: SnapshotEquipment[];
-  cables: RoomConnection[];
-  fiberPaths: SnapshotFiberPath[];
+  cables: FloorPlanCable[];
+  fiberPaths: FloorPlanFiberPath[];
   gridSize: number;
   majorGridSize: number;
 }
@@ -42,8 +33,8 @@ export interface SnapshotStoreActions {
   enter: (id: string, label: string, data: {
     elements: FloorPlanElement[];
     equipment: SnapshotEquipment[];
-    cables: RoomConnection[];
-    fiberPaths: SnapshotFiberPath[];
+    cables: FloorPlanCable[];
+    fiberPaths: FloorPlanFiberPath[];
     gridSize: number;
     majorGridSize: number;
   }) => void;

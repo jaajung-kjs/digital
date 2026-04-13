@@ -5,25 +5,21 @@ import { useHistoryStore } from '../stores/historyStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import type { AuditLog } from '../../../types/maintenance';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
-import type { RoomConnection } from '../../../types/connection';
-import type { SnapshotFiberPath } from '../stores/snapshotStore';
 
-const AUDIT_KEYS = {
-  all: ['room-audit-logs'] as const,
-  list: (roomId: string) => [...AUDIT_KEYS.all, roomId] as const,
+const VERSION_KEYS = {
+  all: ['room-versions'] as const,
+  list: (roomId: string) => [...VERSION_KEYS.all, roomId] as const,
 };
 
 const DEFAULT_MAJOR_GRID_SIZE = 60;
 
-interface SnapshotResponse {
-  plan: FloorPlanDetail & { equipment: (FloorPlanDetail['equipment'][number] & { photos?: unknown[] })[] };
-  cables: RoomConnection[];
-  fiberPaths: SnapshotFiberPath[];
-}
-
-async function fetchSnapshot(roomId: string, logId: string): Promise<SnapshotResponse> {
-  const { data } = await api.get<{ data: SnapshotResponse }>(
-    `/rooms/${roomId}/audit-logs/${logId}/snapshot`
+/**
+ * Fetch a past version of the plan. The response has the SAME structure
+ * as the current plan (FloorPlanDetail) — cables and fiberPaths included.
+ */
+async function fetchVersionPlan(roomId: string, version: number): Promise<FloorPlanDetail> {
+  const { data } = await api.get<{ data: FloorPlanDetail }>(
+    `/rooms/${roomId}/plan?version=${version}`
   );
   return data.data;
 }
@@ -37,10 +33,10 @@ function clearEditorFocus() {
 
 export function useRoomAuditLogs(roomId: string | undefined) {
   return useQuery({
-    queryKey: AUDIT_KEYS.list(roomId!),
+    queryKey: VERSION_KEYS.list(roomId!),
     queryFn: async () => {
       const { data } = await api.get<{ data: AuditLog[] }>(
-        `/rooms/${roomId}/audit-logs`
+        `/rooms/${roomId}/versions`
       );
       return data.data;
     },
@@ -52,10 +48,10 @@ export function useDeleteAuditLog(roomId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (logId: string) => {
-      await api.delete(`/rooms/${roomId}/audit-logs/${logId}`);
+      await api.delete(`/rooms/${roomId}/versions/${logId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUDIT_KEYS.list(roomId!) });
+      queryClient.invalidateQueries({ queryKey: VERSION_KEYS.list(roomId!) });
     },
   });
 }
@@ -64,36 +60,37 @@ export function usePatchAuditLogContext(roomId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ logId, context }: { logId: string; context: Record<string, unknown> }) => {
-      await api.patch(`/rooms/${roomId}/audit-logs/${logId}`, { context });
+      await api.patch(`/rooms/${roomId}/versions/${logId}`, { context });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUDIT_KEYS.list(roomId!) });
+      queryClient.invalidateQueries({ queryKey: VERSION_KEYS.list(roomId!) });
     },
   });
 }
 
 /**
- * Preview a snapshot via the Snapshot Overlay — editor state is never touched.
+ * Preview a past version via the Snapshot Overlay — editor state is never touched.
+ * Uses the same plan API with a version query parameter.
  */
 export function usePreviewSnapshot(roomId: string | undefined) {
   const mutation = useMutation({
-    mutationFn: async (logId: string) => {
+    mutationFn: async ({ version }: { version: number }) => {
       if (!roomId) throw new Error('roomId is required');
-      return fetchSnapshot(roomId, logId);
+      return fetchVersionPlan(roomId, version);
     },
   });
 
-  const enter = async (logId: string, label: string) => {
+  const enter = async (logId: string, label: string, version: number) => {
     if (!roomId) return;
-    const snapshot = await mutation.mutateAsync(logId);
+    const plan = await mutation.mutateAsync({ version });
 
     useSnapshotStore.getState().enter(logId, label, {
-      elements: snapshot.plan.elements,
-      equipment: snapshot.plan.equipment,
-      cables: snapshot.cables,
-      fiberPaths: snapshot.fiberPaths ?? [],
-      gridSize: snapshot.plan.gridSize,
-      majorGridSize: snapshot.plan.majorGridSize ?? DEFAULT_MAJOR_GRID_SIZE,
+      elements: plan.elements,
+      equipment: plan.equipment,
+      cables: plan.cables ?? [],
+      fiberPaths: plan.fiberPaths ?? [],
+      gridSize: plan.gridSize,
+      majorGridSize: plan.majorGridSize ?? DEFAULT_MAJOR_GRID_SIZE,
     });
 
     clearEditorFocus();
@@ -107,10 +104,10 @@ export function usePreviewSnapshot(roomId: string | undefined) {
 }
 
 /**
- * Apply snapshot data into editor for actual editing (marks hasChanges).
- * Can accept data from the snapshot store to avoid a redundant API call.
+ * Apply plan data into editor for actual editing (marks hasChanges).
+ * Accepts the unified FloorPlanDetail shape (same for current and past versions).
  */
-function applySnapshotToEditor(snapshot: SnapshotResponse, _roomId: string, _queryClient: ReturnType<typeof useQueryClient>) {
+function applyPlanToEditor(plan: FloorPlanDetail) {
   const store = useEditorStore.getState();
   const { initHistory } = useHistoryStore.getState();
 
@@ -119,12 +116,12 @@ function applySnapshotToEditor(snapshot: SnapshotResponse, _roomId: string, _que
   store.clearPendingData();
   clearEditorFocus();
 
-  const elements = snapshot.plan.elements;
+  const elements = plan.elements;
   store.setLocalElements(elements);
-  store.setLocalEquipment(snapshot.plan.equipment);
+  store.setLocalEquipment(plan.equipment);
 
-  // Restore cables from snapshot data (not from server)
-  const snapshotCables = (snapshot.cables ?? []).map((c: any) => ({
+  // Restore cables from plan data
+  const cables = (plan.cables ?? []).map((c) => ({
     id: c.id ?? '',
     sourceEquipmentId: c.sourceEquipmentId ?? '',
     targetEquipmentId: c.targetEquipmentId ?? '',
@@ -134,7 +131,7 @@ function applySnapshotToEditor(snapshot: SnapshotResponse, _roomId: string, _que
     specParams: c.specParams ?? undefined,
     pathPoints: c.pathPoints ?? undefined,
     pathLength: c.pathLength ?? undefined,
-    bufferLength: c.bufferLength ?? 4,
+    bufferLength: 4,
     totalLength: c.totalLength ?? undefined,
     label: c.label ?? undefined,
     color: c.color ?? undefined,
@@ -142,54 +139,46 @@ function applySnapshotToEditor(snapshot: SnapshotResponse, _roomId: string, _que
     fiberPathId: c.fiberPathId ?? undefined,
     fiberPortNumber: c.fiberPortNumber ?? undefined,
   }));
-  store.setCables(snapshotCables);
+  store.setCables(cables);
 
-  store.setGridSize(snapshot.plan.gridSize);
-  store.setMajorGridSize(snapshot.plan.majorGridSize ?? DEFAULT_MAJOR_GRID_SIZE);
+  store.setGridSize(plan.gridSize);
+  store.setMajorGridSize(plan.majorGridSize ?? DEFAULT_MAJOR_GRID_SIZE);
 
   store.setHasChanges(true);
-  initHistory(elements, snapshot.plan.equipment);
-
-  // Do NOT invalidate floorPlan or connections — we restored from snapshot.
-  // The floorPlan effect in useFloorPlanData would overwrite our restored data.
+  initHistory(elements, plan.equipment);
 }
 
 /**
- * Restore a snapshot: load into editor for actual editing.
- * If snapshot data is already in the store (from preview), reuses it — no extra API call.
+ * Restore a past version: load into editor for actual editing.
+ * If plan data is already in the store (from preview), reuses it — no extra API call.
  */
 export function useLoadSnapshot(roomId: string | undefined) {
-  const queryClient = useQueryClient();
-
   const mutation = useMutation({
-    mutationFn: async (logId: string) => {
+    mutationFn: async (version: number) => {
       if (!roomId) throw new Error('roomId is required');
-      return fetchSnapshot(roomId, logId);
+      return fetchVersionPlan(roomId, version);
     },
-    onSuccess: (snapshot) => {
-      if (!roomId) return;
-      applySnapshotToEditor(snapshot, roomId, queryClient);
+    onSuccess: (plan) => {
+      applyPlanToEditor(plan);
     },
   });
 
-  /** Restore from preview — reuses snapshot data already in the store */
+  /** Restore from preview — reuses plan data already in the snapshot store */
   const restoreFromPreview = () => {
     if (!roomId) return;
     const snap = useSnapshotStore.getState();
     if (!snap.active || !snap.snapshotId) return;
 
-    // Reconstruct SnapshotResponse from store data (fiberPaths not needed for editor restore)
-    const snapshot: SnapshotResponse = {
-      plan: {
-        elements: snap.elements,
-        equipment: snap.equipment,
-        gridSize: snap.gridSize,
-        majorGridSize: snap.majorGridSize,
-      } as SnapshotResponse['plan'],
+    // Reconstruct FloorPlanDetail from store data
+    const plan = {
+      elements: snap.elements,
+      equipment: snap.equipment,
       cables: snap.cables,
       fiberPaths: snap.fiberPaths,
-    };
-    applySnapshotToEditor(snapshot, roomId, queryClient);
+      gridSize: snap.gridSize,
+      majorGridSize: snap.majorGridSize,
+    } as FloorPlanDetail;
+    applyPlanToEditor(plan);
   };
 
   return { mutateAsync: mutation.mutateAsync, isPending: mutation.isPending, restoreFromPreview };
