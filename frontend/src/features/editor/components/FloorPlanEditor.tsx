@@ -84,6 +84,7 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
       targetEquipmentId: store.targetEquipmentId!,
       cableType,
       materialCategoryId: categoryId,
+      materialCategoryCode: categoryCode,
       specParams,
       pathPoints,
       pathLength,
