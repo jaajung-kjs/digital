@@ -104,4 +104,15 @@ export const roomController = {
       next(error);
     }
   },
+
+  async patchAuditLogContext(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, logId } = req.params;
+      const { context } = req.body;
+      const result = await roomService.patchAuditLogContext(id, logId, context);
+      res.json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

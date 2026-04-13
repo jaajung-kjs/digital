@@ -287,6 +287,126 @@ function buildChangeSummary(changes: DetailedChange[]): string[] {
 
 // ==================== Snapshot Capture ====================
 
+/**
+ * Build a "before" snapshot from the already-loaded DB rows.
+ * Same shape as captureRoomSnapshot so the frontend can diff old ↔ new.
+ */
+function buildOldSnapshot(
+  room: { id: string; name: string; canvasWidth: number; canvasHeight: number; gridSize: number; majorGridSize: number; backgroundColor: string; version: number; updatedAt: Date },
+  dbElements: { id: string; elementType?: string; properties?: unknown; zIndex?: number; isVisible?: boolean; materialCategoryId?: string | null; specParams?: unknown; pathLength?: number | null }[],
+  dbEquipment: { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; description: string | null; model: string | null; manufacturer: string | null; manager: string | null; height3d: number | null; materialCategoryId: string | null; materialCategory: { code: string } | null; specParams?: unknown }[],
+  dbCables: { id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: string; fiberPathId: string | null; fiberPortNumber: number | null }[],
+) {
+  return {
+    plan: {
+      id: room.id, name: room.name,
+      canvasWidth: room.canvasWidth, canvasHeight: room.canvasHeight,
+      gridSize: room.gridSize, majorGridSize: room.majorGridSize,
+      backgroundColor: room.backgroundColor,
+      elements: dbElements.map(e => ({
+        id: e.id, elementType: e.elementType ?? '',
+        properties: (e.properties ?? {}) as Record<string, unknown>,
+        zIndex: e.zIndex ?? 0, isVisible: e.isVisible ?? true,
+        materialCategoryId: e.materialCategoryId ?? null,
+        specParams: e.specParams ?? null,
+        pathLength: e.pathLength ?? null,
+      })),
+      equipment: dbEquipment.map(e => ({
+        id: e.id, name: e.name, category: e.category,
+        positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
+        width: e.width2d ?? DEFAULT_EQUIPMENT_WIDTH, height: e.height2d ?? DEFAULT_EQUIPMENT_HEIGHT,
+        rotation: e.rotation ?? 0,
+        description: e.description, model: e.model,
+        manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
+        materialCategoryId: e.materialCategoryId, materialCategoryCode: e.materialCategory?.code ?? null,
+        specParams: e.specParams ?? null,
+      })),
+      version: room.version, updatedAt: room.updatedAt,
+    },
+    cables: dbCables.map(c => ({
+      id: c.id,
+      sourceEquipmentId: c.sourceEquipmentId, targetEquipmentId: c.targetEquipmentId,
+      cableType: c.cableType,
+      fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
+    })),
+  };
+}
+
+/**
+ * Build structured diff for AuditLog.context from reconciliation data.
+ */
+function buildStructuredDiff(
+  input: UpdatePlanInput,
+  dbEquipmentMap: Map<string, { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; materialCategory: { code: string } | null }>,
+  dbCableMap: Map<string, { id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: string }>,
+  deleteEquipmentIds: Set<string>,
+  deleteCableIds: Set<string>,
+  deleteElementIds: Set<string>,
+) {
+  const diff: Record<string, { created: unknown[]; deleted: unknown[]; modified: unknown[] }> = {
+    equipment: { created: [], deleted: [], modified: [] },
+    cables: { created: [], deleted: [], modified: [] },
+    elements: { created: [], deleted: [], modified: [] },
+  };
+
+  // Equipment
+  for (const eqId of deleteEquipmentIds) {
+    const eq = dbEquipmentMap.get(eqId);
+    if (eq) diff.equipment.deleted.push({ id: eq.id, name: eq.name, materialCategoryCode: eq.materialCategory?.code ?? null });
+  }
+  for (const eq of input.equipment ?? []) {
+    if (!isRealId(eq.id)) {
+      diff.equipment.created.push({ id: eq.id ?? null, name: eq.name, materialCategoryCode: eq.materialCategoryCode ?? null });
+    } else {
+      const cur = dbEquipmentMap.get(eq.id!);
+      if (!cur) continue;
+      const changes: string[] = [];
+      const layoutChanged =
+        eq.positionX !== (cur.positionX ?? 0) || eq.positionY !== (cur.positionY ?? 0) ||
+        eq.width !== (cur.width2d ?? DEFAULT_EQUIPMENT_WIDTH) || eq.height !== (cur.height2d ?? DEFAULT_EQUIPMENT_HEIGHT) ||
+        (eq.rotation ?? 0) !== (cur.rotation ?? 0);
+      if (layoutChanged) changes.push('위치 변경');
+      if (eq.name !== cur.name) changes.push('이름 변경');
+      if (changes.length > 0) {
+        diff.equipment.modified.push({ id: eq.id, name: cur.name, materialCategoryCode: cur.materialCategory?.code ?? null, changes });
+      }
+    }
+  }
+
+  // Cables
+  for (const cId of deleteCableIds) {
+    const c = dbCableMap.get(cId);
+    if (c) diff.cables.deleted.push({ id: c.id, cableType: c.cableType });
+  }
+  for (const cable of input.cables ?? []) {
+    if (!isRealId(cable.id)) {
+      diff.cables.created.push({ id: cable.id ?? null, cableType: cable.cableType, totalLength: cable.totalLength ?? null });
+    } else {
+      const cur = dbCableMap.get(cable.id!);
+      if (!cur) continue;
+      const changes: string[] = [];
+      if (cable.sourceEquipmentId !== cur.sourceEquipmentId || cable.targetEquipmentId !== cur.targetEquipmentId) changes.push('연결 변경');
+      if (cable.cableType !== cur.cableType) changes.push('종류 변경');
+      if (changes.length > 0) {
+        diff.cables.modified.push({ id: cable.id, cableType: cable.cableType, changes });
+      }
+    }
+  }
+
+  // Elements
+  for (const elId of deleteElementIds) {
+    diff.elements.deleted.push({ id: elId });
+  }
+  for (const el of input.elements ?? []) {
+    if (!isRealId(el.id)) {
+      diff.elements.created.push({ id: el.id ?? null, elementType: el.elementType });
+    }
+    // element modifications are not tracked in detail
+  }
+
+  return diff;
+}
+
 async function captureRoomSnapshot(
   tx: TxClient,
   roomId: string,
@@ -506,7 +626,13 @@ class RoomService {
     await prisma.$transaction(async (tx) => {
       // ── Step 0: Load current DB state for reconciliation ──
       const [dbElements, dbEquipment, dbCables] = await Promise.all([
-        tx.floorPlanElement.findMany({ where: { roomId: id }, select: { id: true } }),
+        tx.floorPlanElement.findMany({
+          where: { roomId: id },
+          select: {
+            id: true, elementType: true, properties: true, zIndex: true, isVisible: true,
+            materialCategoryId: true, specParams: true, pathLength: true,
+          },
+        }),
         tx.equipment.findMany({
           where: { roomId: id },
           select: {
@@ -515,6 +641,7 @@ class RoomService {
             rotation: true, description: true, model: true, manufacturer: true,
             manager: true, height3d: true, materialCategoryId: true,
             materialCategory: { select: { code: true } },
+            specParams: true,
           },
         }),
         tx.cable.findMany({
@@ -530,6 +657,9 @@ class RoomService {
           },
         }),
       ]);
+
+      // Build old snapshot (Before state) for audit log oldValues
+      const oldSnapshot = buildOldSnapshot(room, dbElements, dbEquipment, dbCables);
 
       const dbElementIds = new Set(dbElements.map(e => e.id));
       const dbEquipmentIds = new Set(dbEquipment.map(e => e.id));
@@ -652,6 +782,12 @@ class RoomService {
 
       const hasStructuralChange = allChanges.some(c => c.isStructural);
       const hasAnyChange = allChanges.length > 0;
+
+      // Build structured diff for audit context
+      const structuredDiff = buildStructuredDiff(
+        input, dbEquipmentMap, dbCableMap,
+        deleteEquipmentIds, deleteCableIds, deleteElementIds,
+      );
 
       // ── Step 2: Apply mutations ──
 
@@ -1010,7 +1146,10 @@ class RoomService {
           data: {
             entityType: 'Room', entityId: id, entityName: room.name,
             action: 'UPDATE', actionDetail,
-            changedFields, newValues: snapshot as any,
+            changedFields,
+            oldValues: oldSnapshot as any,
+            newValues: snapshot as any,
+            context: { diff: structuredDiff } as any,
             userId, userName: user?.name ?? null,
           },
         });
@@ -1021,6 +1160,8 @@ class RoomService {
             entityType: 'Room', entityId: id, entityName: room.name,
             action: 'UPDATE', actionDetail,
             changedFields,
+            oldValues: oldSnapshot as any,
+            context: { diff: structuredDiff } as any,
             userId, userName: user?.name ?? null,
           },
         });
@@ -1057,6 +1198,7 @@ class RoomService {
         actionDetail: true,
         changedFields: true,
         newValues: true,
+        context: true,
         userName: true,
         createdAt: true,
       },
@@ -1114,6 +1256,29 @@ class RoomService {
     }
 
     throw new ConflictError('이 버전에는 되돌리기 데이터가 없습니다.');
+  }
+
+  /**
+   * 도면 변경 이력 context 부분 업데이트 (merge)
+   */
+  async patchAuditLogContext(roomId: string, logId: string, context: Record<string, unknown>) {
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundError('실');
+
+    const log = await prisma.auditLog.findFirst({
+      where: { id: logId, entityType: 'Room', entityId: roomId },
+    });
+    if (!log) throw new NotFoundError('변경 이력');
+
+    const existingContext = (log.context as Record<string, unknown>) || {};
+    const merged = { ...existingContext, ...context };
+
+    await prisma.auditLog.update({
+      where: { id: logId },
+      data: { context: merged as any },
+    });
+
+    return { id: logId, context: merged };
   }
 
   /**
