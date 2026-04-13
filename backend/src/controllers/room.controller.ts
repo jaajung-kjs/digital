@@ -25,7 +25,8 @@ export const roomController = {
   async getPlan(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const plan = await roomService.getPlan(id);
+      const version = req.query.version ? Number(req.query.version) : undefined;
+      const plan = await roomService.getPlan(id, version);
       res.json({ data: plan });
     } catch (error) {
       next(error);

@@ -63,6 +63,35 @@ export interface RoomPlanDetail {
     startU: number | null;
     heightU: number;
   }[];
+  cables: {
+    id: string;
+    sourceEquipmentId: string;
+    targetEquipmentId: string;
+    cableType: string;
+    label: string | null;
+    length: number | null;
+    color: string | null;
+    pathPoints: unknown;
+    description: string | null;
+    fiberPathId: string | null;
+    fiberPortNumber: number | null;
+    materialCategoryId: string | null;
+    materialCategoryCode: string | null;
+    displayColor: string | null;
+    specParams: unknown;
+    pathLength: number | null;
+    bufferLength: number;
+    totalLength: number | null;
+    sourceEquipment: { id: string; name: string; rackId: string | null; roomId: string | null };
+    targetEquipment: { id: string; name: string; rackId: string | null; roomId: string | null };
+  }[];
+  fiberPaths: {
+    id: string;
+    ofdAId: string;
+    ofdBId: string;
+    portCount: number;
+    description: string | null;
+  }[];
   version: number;
   updatedAt: Date;
 }
@@ -520,7 +549,52 @@ class RoomService {
     return toRoomDetail(room);
   }
 
-  async getPlan(id: string): Promise<RoomPlanDetail> {
+  async getPlan(id: string, version?: number): Promise<RoomPlanDetail> {
+    // Version query: load from audit log snapshot
+    if (version !== undefined) {
+      const log = await prisma.auditLog.findFirst({
+        where: { entityType: 'Room', entityId: id, actionDetail: `v${version}` },
+        select: { newValues: true },
+      });
+      if (!log?.newValues) throw new NotFoundError('해당 버전');
+
+      const snapshot = log.newValues as any;
+
+      // New format: { plan, cables, fiberPaths }
+      if (snapshot.plan) {
+        return {
+          ...snapshot.plan,
+          scaleRatio: snapshot.plan.scaleRatio ?? null,
+          cables: snapshot.cables ?? [],
+          fiberPaths: snapshot.fiberPaths ?? [],
+        };
+      }
+
+      // Legacy format: flat structure
+      if (snapshot.elements && snapshot.equipment) {
+        const room = await prisma.room.findUnique({ where: { id }, select: { name: true } });
+        return {
+          id,
+          name: room?.name ?? '',
+          canvasWidth: snapshot.canvasWidth,
+          canvasHeight: snapshot.canvasHeight,
+          gridSize: snapshot.gridSize,
+          majorGridSize: snapshot.majorGridSize,
+          backgroundColor: snapshot.backgroundColor,
+          scaleRatio: snapshot.scaleRatio ?? null,
+          elements: snapshot.elements,
+          equipment: snapshot.equipment,
+          cables: snapshot.cables ?? [],
+          fiberPaths: [],
+          version: 0,
+          updatedAt: snapshot.updatedAt ?? new Date(),
+        };
+      }
+
+      throw new NotFoundError('해당 버전');
+    }
+
+    // Current version: load from live DB
     const room = await prisma.room.findUnique({
       where: { id },
       include: {
@@ -532,7 +606,7 @@ class RoomService {
 
     if (!room) throw new NotFoundError('실');
 
-    const [equipment, racks] = await Promise.all([
+    const [equipment, racks, cables, allOfdEquipment] = await Promise.all([
       prisma.equipment.findMany({
         where: { roomId: id },
         select: EQUIPMENT_SELECT,
@@ -541,6 +615,24 @@ class RoomService {
       prisma.rack.findMany({
         where: { roomId: id },
         select: { id: true, positionX: true, positionY: true },
+      }),
+      prisma.cable.findMany({
+        where: {
+          OR: [
+            { sourceEquipment: { OR: [{ rack: { roomId: id } }, { roomId: id }] } },
+            { targetEquipment: { OR: [{ rack: { roomId: id } }, { roomId: id }] } },
+          ],
+        },
+        include: {
+          sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
+          targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
+          materialCategory: { select: { code: true, displayColor: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.equipment.findMany({
+        where: { roomId: id, materialCategory: { code: { startsWith: 'EQP-OFD' } } },
+        select: { id: true },
       }),
     ]);
 
@@ -556,6 +648,15 @@ class RoomService {
         rackToEquipmentMap.set(rack.id, parentEq.id);
       }
     }
+
+    // Fiber paths connected to OFDs in this room
+    const ofdIds = allOfdEquipment.map(e => e.id);
+    const fiberPaths = ofdIds.length > 0
+      ? await prisma.fiberPath.findMany({
+          where: { OR: [{ ofdAId: { in: ofdIds } }, { ofdBId: { in: ofdIds } }] },
+          select: { id: true, ofdAId: true, ofdBId: true, portCount: true, description: true },
+        })
+      : [];
 
     return {
       id: room.id,
@@ -577,6 +678,29 @@ class RoomService {
         pathLength: e.pathLength,
       })),
       equipment: equipment.map(e => mapEquipmentRow(e, rackToEquipmentMap)),
+      cables: cables.map(c => ({
+        id: c.id,
+        sourceEquipmentId: c.sourceEquipmentId,
+        targetEquipmentId: c.targetEquipmentId,
+        cableType: c.cableType,
+        label: c.label,
+        length: c.length,
+        color: c.color,
+        pathPoints: c.pathPoints,
+        description: c.description,
+        fiberPathId: c.fiberPathId,
+        fiberPortNumber: c.fiberPortNumber,
+        materialCategoryId: c.materialCategoryId,
+        materialCategoryCode: c.materialCategory?.code ?? null,
+        displayColor: c.materialCategory?.displayColor ?? null,
+        specParams: c.specParams,
+        pathLength: c.pathLength,
+        bufferLength: c.bufferLength ?? 4,
+        totalLength: c.totalLength,
+        sourceEquipment: c.sourceEquipment,
+        targetEquipment: c.targetEquipment,
+      })),
+      fiberPaths,
       version: room.version,
       updatedAt: room.updatedAt,
     };
@@ -1253,7 +1377,7 @@ class RoomService {
       },
     });
 
-    return logs.map(({ oldValues, newValues, ...rest }) => ({
+    return logs.map(({ newValues, ...rest }) => ({
       ...rest,
       hasSnapshot: newValues !== null,
     }));

@@ -143,21 +143,30 @@ router.post(
 // 실의 케이블 연결 조회 (인증 불필요)
 router.get('/:id/connections', cableController.getByRoomId);
 
-// ==================== Audit Logs (Change History) ====================
+// ==================== Versions (Change History) ====================
 
-// 도면 변경 이력 조회
-router.get('/:id/audit-logs', roomController.getAuditLogs);
-
-// 도면 변경 이력 스냅샷 조회
-router.get('/:id/audit-logs/:logId/snapshot', roomController.getAuditLogSnapshot);
-
-// 도면 변경 이력 context 수정 (관리자만)
-const patchAuditLogContextSchema = z.object({
+const patchVersionContextSchema = z.object({
   context: z.record(z.unknown()),
 });
-router.patch('/:id/audit-logs/:logId', authenticate, adminOnly, validate(patchAuditLogContextSchema), roomController.patchAuditLogContext);
 
-// 도면 변경 이력 삭제 (관리자만)
+// 도면 버전 목록 조회
+router.get('/:id/versions', roomController.getAuditLogs);
+
+// 도면 버전 context 수정 (관리자만)
+router.patch('/:id/versions/:logId', authenticate, adminOnly, validate(patchVersionContextSchema), roomController.patchAuditLogContext);
+
+// 도면 버전 삭제 (관리자만)
+router.delete('/:id/versions/:logId', authenticate, adminOnly, roomController.deleteAuditLog);
+
+// ==================== Backward Compat (audit-logs) ====================
+
+// 도면 변경 이력 조회 (backward compat)
+router.get('/:id/audit-logs', roomController.getAuditLogs);
+
+// 도면 변경 이력 context 수정 (backward compat)
+router.patch('/:id/audit-logs/:logId', authenticate, adminOnly, validate(patchVersionContextSchema), roomController.patchAuditLogContext);
+
+// 도면 변경 이력 삭제 (backward compat)
 router.delete('/:id/audit-logs/:logId', authenticate, adminOnly, roomController.deleteAuditLog);
 
 export { router as roomsRouter };
