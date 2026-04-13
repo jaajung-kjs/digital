@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { cableController } from '../controllers/cable.controller.js';
-import { cableTraceController } from '../controllers/cableTrace.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -34,10 +33,6 @@ const updateCableSchema = z.object({
 
 // 모든 케이블 조회 (인증 불필요)
 router.get('/', cableController.getAll);
-
-// 케이블 경로 추적 (인증 불필요) - /:id 보다 먼저 등록
-const cableIdParamSchema = z.object({ id: z.string().uuid() });
-router.get('/:id/trace', validate(cableIdParamSchema, 'params'), cableTraceController.trace);
 
 // 케이블 상세 조회 (인증 불필요)
 router.get('/:id', cableController.getById);

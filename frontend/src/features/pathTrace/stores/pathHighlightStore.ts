@@ -1,6 +1,8 @@
 import { create } from 'zustand';
-import { api } from '../../../utils/api';
+import { traceCable } from '../../../utils/cableTracer';
+import { useEditorStore } from '../../editor/stores/editorStore';
 import type { TraceResult, PathSegment } from '../types';
+import type { FiberPathDetail } from '../../fiber/types';
 
 /** Initial (idle) state — single source of truth for "nothing active" */
 const IDLE_STATE = {
@@ -30,9 +32,9 @@ interface PathHighlightState {
   highlightedEdgeIds: Set<string>;
   segments: PathSegment[];
 
-  /** Select a cable without tracing (e.g. pending/unsaved cables) */
+  /** Select a cable and run local trace */
   selectCable: (cableId: string) => void;
-  startTrace: (cableId: string, currentRoomId: string) => Promise<void>;
+  startTrace: (cableId: string, currentRoomId: string, savedFiberPaths?: FiberPathDetail[]) => void;
   openModal: () => void;
   closeModal: () => void;
   selectRing: (ringId: string | null) => void;
@@ -43,14 +45,86 @@ interface PathHighlightState {
 export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
   ...IDLE_STATE,
 
-  selectCable: (cableId) =>
-    set({ active: true, tracingCableId: cableId, traceResult: null, segments: [] }),
+  selectCable: (cableId) => {
+    // Run local trace immediately for temp/unsaved cables too
+    const { localCables, localEquipment } = useEditorStore.getState();
 
-  startTrace: async (cableId, _currentRoomId) => {
+    const result = traceCable({
+      cableId,
+      cables: localCables,
+      equipment: localEquipment,
+      fiberPaths: [], // No saved fiber paths for quick select
+    });
+
+    if (result.nodes.length === 0) {
+      // Cable not found in local state — just mark active
+      set({ active: true, tracingCableId: cableId, traceResult: null, segments: [] });
+      return;
+    }
+
+    const nodeIds = new Set(result.nodes.map((n) => n.equipmentId));
+    const edgeIds = new Set(result.edges.map((e) => e.id));
+    set({
+      active: true,
+      tracingCableId: cableId,
+      traceResult: result,
+      isLoading: false,
+      selectedRingId: null,
+      highlightedNodeIds: nodeIds,
+      highlightedEdgeIds: edgeIds,
+      segments: result.segments,
+    });
+  },
+
+  startTrace: (cableId, _currentRoomId, savedFiberPaths) => {
+    const editorState = useEditorStore.getState();
+    const { localCables, localEquipment, pendingFiberPaths } = editorState;
+
     set({ isLoading: true, tracingCableId: cableId, error: null });
+
     try {
-      const { data } = await api.get<{ data: TraceResult }>(`/cables/${cableId}/trace`);
-      const result = data.data;
+      // Merge saved fiber paths with pending ones
+      const equipMap = new Map(localEquipment.map((e) => [e.id, e]));
+      const allFiberPaths: FiberPathDetail[] = [
+        ...(savedFiberPaths ?? []),
+        // Convert pending fiber paths to FiberPathDetail-like objects
+        ...pendingFiberPaths.map((fp) => {
+          const ofdA = equipMap.get(fp.ofdAId);
+          const ofdB = equipMap.get(fp.ofdBId);
+          return {
+            id: fp.id,
+            ofdA: {
+              id: fp.ofdAId,
+              name: ofdA?.name ?? '?',
+              substationName: '',
+              roomId: null,
+            },
+            ofdB: {
+              id: fp.ofdBId,
+              name: ofdB?.name ?? '?',
+              substationName: '',
+              roomId: null,
+            },
+            portCount: fp.portCount,
+            description: fp.description ?? null,
+            ports: Array.from({ length: fp.portCount }, (_, i) => ({
+              portNumber: i + 1,
+              sideA: null,
+              sideB: null,
+            })),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          } satisfies FiberPathDetail;
+        }),
+      ];
+
+      const result = traceCable({
+        cableId,
+        cables: localCables,
+        equipment: localEquipment,
+        fiberPaths: allFiberPaths,
+      });
+
       const nodeIds = new Set(result.nodes.map((n) => n.equipmentId));
       const edgeIds = new Set(result.edges.map((e) => e.id));
       set({
@@ -76,8 +150,6 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
       return;
     }
     // Find the ring containing the traced cable.
-    // The cable connects equipment (e.g., 송광치↔OFD). The OFD is in the ring's nodeIds.
-    // SSOT: match cable's endpoint equipment against ring.nodeIds.
     const tracedEdge = traceResult.edges.find((e) => e.id === tracingCableId);
     let myRing = null;
     if (tracedEdge) {
