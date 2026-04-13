@@ -141,8 +141,11 @@ export interface FloorPlanEquipment {
   height3d?: number;
   materialCategoryId?: string | null;
   materialCategoryCode?: string | null;
+  materialCategoryName?: string | null;
+  displayColor?: string | null;
   materialId?: string | null;
   specParams?: Record<string, unknown> | null;
+  specification?: string | null;
   parentEquipmentId?: string | null;  // ID of parent EQP-RACK equipment (rack containment)
   startU?: number | null;             // U-slot position in rack
   heightU?: number | null;            // Height in U units
@@ -156,8 +159,10 @@ export interface FloorPlanCable {
   cableType: string;
   materialCategoryId?: string | null;
   materialCategoryCode?: string | null;
+  materialCategoryName?: string | null;
   displayColor?: string | null;
   specParams?: Record<string, unknown> | null;
+  specification?: string | null;
   pathPoints?: [number, number][] | null;
   pathLength?: number | null;
   totalLength?: number | null;

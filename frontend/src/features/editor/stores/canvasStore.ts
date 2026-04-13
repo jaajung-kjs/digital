@@ -52,6 +52,7 @@ interface CanvasStoreState {
   // Material-based equipment selection
   newEquipmentMaterialCategoryId: string | null;
   newEquipmentMaterialCategoryCode: string | null;
+  newEquipmentMaterialCategoryName: string | null;
   newEquipmentSpecParams: Record<string, unknown> | null;
   newEquipmentSpecification: string | null;
 
@@ -111,6 +112,7 @@ interface CanvasStoreActions {
   setNewEquipmentMaterial: (
     categoryId: string | null,
     categoryCode: string | null,
+    categoryName: string | null,
     specParams: Record<string, unknown> | null,
     specification: string | null,
   ) => void;
@@ -159,6 +161,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   newEquipmentPosition: { x: 100, y: 100 },
   newEquipmentMaterialCategoryId: null,
   newEquipmentMaterialCategoryCode: null,
+  newEquipmentMaterialCategoryName: null,
   newEquipmentSpecParams: null,
   newEquipmentSpecification: null,
   infraMaterialModalOpen: false,
@@ -194,10 +197,11 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
   setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
 
-  setNewEquipmentMaterial: (categoryId, categoryCode, specParams, specification) =>
+  setNewEquipmentMaterial: (categoryId, categoryCode, categoryName, specParams, specification) =>
     set({
       newEquipmentMaterialCategoryId: categoryId,
       newEquipmentMaterialCategoryCode: categoryCode,
+      newEquipmentMaterialCategoryName: categoryName,
       newEquipmentSpecParams: specParams,
       newEquipmentSpecification: specification,
       // Auto-map to old enum for backwards compatibility
@@ -209,6 +213,7 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
     set({
       newEquipmentMaterialCategoryId: null,
       newEquipmentMaterialCategoryCode: null,
+      newEquipmentMaterialCategoryName: null,
       newEquipmentSpecParams: null,
       newEquipmentSpecification: null,
     }),

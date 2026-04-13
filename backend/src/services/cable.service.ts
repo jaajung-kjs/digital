@@ -19,6 +19,7 @@ export interface CableDetail {
   fiberPathDescription: string | null;
   materialCategoryId: string | null;
   materialCategoryCode: string | null;
+  materialCategoryName: string | null;
   displayColor: string | null;
   specParams: unknown;
   pathLength: number | null;
@@ -90,6 +91,7 @@ const cableInclude = {
   materialCategory: {
     select: {
       code: true,
+      name: true,
       displayColor: true,
     },
   },
@@ -238,6 +240,7 @@ class CableService {
       fiberPathDescription: this.buildFiberPathLabel(c),
       materialCategoryId: c.materialCategoryId ?? null,
       materialCategoryCode: c.materialCategory?.code ?? null,
+      materialCategoryName: c.materialCategory?.name ?? null,
       displayColor: c.materialCategory?.displayColor ?? null,
       specParams: c.specParams ?? null,
       pathLength: c.pathLength ?? null,

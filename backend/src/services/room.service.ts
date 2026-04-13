@@ -201,7 +201,7 @@ const EQUIPMENT_SELECT = {
   rotation: true, frontImageUrl: true, rearImageUrl: true,
   description: true, model: true, manufacturer: true, manager: true, height3d: true,
   materialCategoryId: true, materialId: true, specParams: true,
-  materialCategory: { select: { code: true } },
+  materialCategory: { select: { code: true, name: true, displayColor: true } },
   rackId: true, startU: true, heightU: true,
 } as const;
 
@@ -217,6 +217,8 @@ function mapEquipmentRow(e: EquipmentRow, rackToEquipmentMap?: Map<string, strin
     description: e.description, model: e.model,
     manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
     materialCategoryId: e.materialCategoryId, materialCategoryCode: e.materialCategory?.code ?? null,
+    materialCategoryName: e.materialCategory?.name ?? null,
+    displayColor: e.materialCategory?.displayColor ?? null,
     materialId: e.materialId, specParams: e.specParams,
     parentEquipmentId: e.rackId && rackToEquipmentMap ? (rackToEquipmentMap.get(e.rackId) ?? null) : null,
     startU: e.startU, heightU: e.heightU,
@@ -323,7 +325,7 @@ function buildChangeSummary(changes: DetailedChange[]): string[] {
 function buildOldSnapshot(
   room: { id: string; name: string; canvasWidth: number; canvasHeight: number; gridSize: number; majorGridSize: number; backgroundColor: string; version: number; updatedAt: Date },
   dbElements: { id: string; elementType?: string; properties?: unknown; zIndex?: number; isVisible?: boolean; materialCategoryId?: string | null; specParams?: unknown; pathLength?: number | null }[],
-  dbEquipment: { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; description: string | null; model: string | null; manufacturer: string | null; manager: string | null; height3d: number | null; materialCategoryId: string | null; materialCategory: { code: string } | null; specParams?: unknown }[],
+  dbEquipment: { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; description: string | null; model: string | null; manufacturer: string | null; manager: string | null; height3d: number | null; materialCategoryId: string | null; materialCategory: { code: string; name?: string; displayColor?: string | null } | null; specParams?: unknown }[],
   dbCables: { id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: string; fiberPathId: string | null; fiberPortNumber: number | null }[],
 ) {
   return {
@@ -348,6 +350,8 @@ function buildOldSnapshot(
         description: e.description, model: e.model,
         manufacturer: e.manufacturer, manager: e.manager, height3d: e.height3d,
         materialCategoryId: e.materialCategoryId, materialCategoryCode: e.materialCategory?.code ?? null,
+        materialCategoryName: e.materialCategory?.name ?? null,
+        displayColor: e.materialCategory?.displayColor ?? null,
         specParams: e.specParams ?? null,
       })),
       version: room.version, updatedAt: room.updatedAt,
@@ -366,7 +370,7 @@ function buildOldSnapshot(
  */
 function buildStructuredDiff(
   input: UpdatePlanInput,
-  dbEquipmentMap: Map<string, { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; materialCategory: { code: string } | null }>,
+  dbEquipmentMap: Map<string, { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; materialCategory: { code: string; name?: string; displayColor?: string | null } | null }>,
   dbCableMap: Map<string, { id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: string }>,
   deleteEquipmentIds: Set<string>,
   deleteCableIds: Set<string>,
@@ -460,7 +464,7 @@ async function captureRoomSnapshot(
       include: {
         sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
         targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
-        materialCategory: { select: { code: true, displayColor: true } },
+        materialCategory: { select: { code: true, name: true, displayColor: true } },
       },
     }),
   ]);
@@ -511,6 +515,7 @@ async function captureRoomSnapshot(
       fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
       materialCategoryId: c.materialCategoryId,
       materialCategoryCode: c.materialCategory?.code ?? null,
+      materialCategoryName: c.materialCategory?.name ?? null,
       displayColor: c.materialCategory?.displayColor ?? null,
       specParams: c.specParams,
       pathLength: c.pathLength,
@@ -626,7 +631,7 @@ class RoomService {
         include: {
           sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
           targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
-          materialCategory: { select: { code: true, displayColor: true } },
+          materialCategory: { select: { code: true, name: true, displayColor: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -692,6 +697,7 @@ class RoomService {
         fiberPortNumber: c.fiberPortNumber,
         materialCategoryId: c.materialCategoryId,
         materialCategoryCode: c.materialCategory?.code ?? null,
+        materialCategoryName: c.materialCategory?.name ?? null,
         displayColor: c.materialCategory?.displayColor ?? null,
         specParams: c.specParams,
         pathLength: c.pathLength,
@@ -797,7 +803,7 @@ class RoomService {
             positionX: true, positionY: true, width2d: true, height2d: true,
             rotation: true, description: true, model: true, manufacturer: true,
             manager: true, height3d: true, materialCategoryId: true,
-            materialCategory: { select: { code: true } },
+            materialCategory: { select: { code: true, name: true, displayColor: true } },
             specParams: true,
           },
         }),
@@ -1126,7 +1132,7 @@ class RoomService {
         // Load all equipment (including newly created) to resolve parent positions
         const allEquipment = await tx.equipment.findMany({
           where: { roomId: id },
-          select: { id: true, positionX: true, positionY: true, materialCategoryId: true, materialCategory: { select: { code: true } } },
+          select: { id: true, positionX: true, positionY: true, materialCategoryId: true, materialCategory: { select: { code: true, name: true, displayColor: true } } },
         });
 
         for (const equip of rackInternalEquipment) {

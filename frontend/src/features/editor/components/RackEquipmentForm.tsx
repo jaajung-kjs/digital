@@ -24,6 +24,8 @@ export function RackEquipmentForm({
   const [startU, setStartU] = useState<number | null>(null);
   const [materialCategoryId, setMaterialCategoryId] = useState<string | null>(null);
   const [materialCategoryCode, setMaterialCategoryCode] = useState<string | null>(null);
+  const [materialCategoryName, setMaterialCategoryName] = useState<string | null>(null);
+  const [specification, setSpecification] = useState<string | null>(null);
   const [specParams, setSpecParams] = useState<Record<string, unknown> | null>(null);
 
   // Calculate available start positions based on equipment height
@@ -67,6 +69,8 @@ export function RackEquipmentForm({
       rotation: 0,
       materialCategoryId,
       materialCategoryCode,
+      materialCategoryName,
+      specification,
       specParams,
       parentEquipmentId: rackEquipmentId,
       startU: effectiveStartU,
@@ -99,9 +103,11 @@ export function RackEquipmentForm({
           <MaterialPicker
             categoryType="EQUIPMENT"
             value={materialCategoryId ? { categoryId: materialCategoryId, specParams: specParams ?? {} } : null}
-            onChange={({ categoryId, categoryCode, specParams: sp }) => {
+            onChange={({ categoryId, categoryCode, categoryName, specParams: sp, specification: spec }) => {
               setMaterialCategoryId(categoryId);
               setMaterialCategoryCode(categoryCode ?? null);
+              setMaterialCategoryName(categoryName ?? null);
+              setSpecification(spec ?? null);
               setSpecParams(sp);
             }}
           />

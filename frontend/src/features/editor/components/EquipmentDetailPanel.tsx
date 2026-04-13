@@ -20,7 +20,6 @@ import {
   LOG_TYPE_COLORS,
   SEVERITY_COLORS,
   SEVERITY_LABELS,
-  CATEGORY_LABELS,
 } from '../../equipment/types/equipment';
 
 interface EquipmentDetailPanelProps {
@@ -43,6 +42,8 @@ interface EquipmentDetail {
   rearImageUrl?: string | null;
   materialCategoryId?: string | null;
   materialCategoryCode?: string | null;
+  materialCategoryName?: string | null;
+  displayColor?: string | null;
   specParams?: Record<string, unknown> | null;
 }
 
@@ -99,6 +100,8 @@ function useMergedEquipmentDetail(equipmentId: string): {
       frontImageUrl: null,
       rearImageUrl: null,
       materialCategoryCode: snapEq.materialCategoryCode ?? null,
+      materialCategoryName: snapEq.materialCategoryName ?? null,
+      displayColor: snapEq.displayColor ?? null,
       specParams: snapEq.specParams ?? null,
     };
     return { equipment, isLoading: false, error: null };
@@ -127,6 +130,8 @@ function useMergedEquipmentDetail(equipmentId: string): {
     frontImageUrl: backendData?.frontImageUrl ?? null,
     rearImageUrl: backendData?.rearImageUrl ?? null,
     materialCategoryCode: localEq.materialCategoryCode ?? null,
+    materialCategoryName: localEq.materialCategoryName ?? null,
+    displayColor: localEq.displayColor ?? null,
     specParams: localEq.specParams ?? null,
   };
 
@@ -186,7 +191,7 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
           </h3>
           {equipment && (
             <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-              {localEq?.materialCategoryCode ?? CATEGORY_LABELS[equipment.category] ?? equipment.category}
+              {localEq?.materialCategoryName ?? localEq?.materialCategoryCode ?? equipment.category}
             </span>
           )}
         </div>
@@ -845,9 +850,9 @@ function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly
 
   const fields: { label: string; value: string }[] = [
     { label: '이름', value: equipment.name },
-    { label: '분류', value: equipment.materialCategoryCode
-      ? equipment.materialCategoryCode + (specParamsStr ? ` (${specParamsStr})` : '')
-      : CATEGORY_LABELS[equipment.category] ?? equipment.category },
+    { label: '분류', value: equipment.materialCategoryName
+      ? equipment.materialCategoryName + (specParamsStr ? ` (${specParamsStr})` : '')
+      : (equipment.materialCategoryCode ?? equipment.category) },
     { label: '모델', value: equipment.model || '-' },
     { label: '제조사', value: equipment.manufacturer || '-' },
     { label: '담당자', value: equipment.manager || '-' },

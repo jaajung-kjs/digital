@@ -126,7 +126,7 @@ export const PORT_TYPES: { value: PortType; label: string; color: string }[] = [
   { value: 'OTHER', label: '기타', color: '#95A5A6' },
 ];
 
-// 카테고리 색상 가져오기
+/** @deprecated Use equipment.displayColor from DB instead */
 export function getCategoryColor(category: EquipmentCategory): string {
   return EQUIPMENT_CATEGORIES.find((c) => c.value === category)?.color ?? '#95A5A6';
 }

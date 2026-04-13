@@ -24,6 +24,7 @@ export interface TraceEdge {
   portCount?: number;
   fiberPortNumber?: number;
   materialCategoryCode?: string;
+  materialCategoryName?: string;
   displayColor?: string;
 }
 
