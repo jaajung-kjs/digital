@@ -116,6 +116,9 @@ export interface EditorStoreState {
 
   /** Currently selected cable ID for waypoint editing */
   selectedCableId: string | null;
+
+  /** Set after restoring from a past version — cleared on save */
+  restoredFromVersion: string | null;
 }
 
 export interface EditorStoreActions {
@@ -165,6 +168,7 @@ export interface EditorStoreActions {
   setClipboard: (cb: EditorStoreState['clipboard']) => void;
   setDetailPanelEquipmentId: (id: string | null) => void;
   setSelectedCableId: (id: string | null) => void;
+  setRestoredFromVersion: (v: string | null) => void;
   clearSelection: () => void;
   resetEditor: () => void;
 }
@@ -198,6 +202,7 @@ const initialState: EditorStoreState = {
   clipboard: null,
   detailPanelEquipmentId: null,
   selectedCableId: null,
+  restoredFromVersion: null,
 };
 
 /** Revoke all pending upload objectURLs to prevent memory leaks */
@@ -303,6 +308,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setClipboard: (clipboard) => set({ clipboard }),
   setDetailPanelEquipmentId: (detailPanelEquipmentId) => set({ detailPanelEquipmentId }),
   setSelectedCableId: (selectedCableId) => set({ selectedCableId }),
+  setRestoredFromVersion: (restoredFromVersion) => set({ restoredFromVersion }),
   clearSelection: () => set({
     selectedIds: [],
     selectedElement: null,

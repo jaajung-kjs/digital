@@ -571,7 +571,11 @@ export function exportReportToCSV(report: ConstructionReport): void {
   csv += '=== 자재 수량표 ===\n';
   csv += '분류코드,자재명,수량,단위,비고\n';
   for (const b of report.bom) {
-    csv += `${esc(b.materialCategoryCode)},${esc(b.name)},${b.quantity},${esc(b.unit)},${b.isAccessory ? '부속자재' : b.isManual ? '수동추가' : ''}\n`;
+    // Strip `:action` suffix (e.g. "CAT6:install" → "CAT6") for clean export
+    const cleanCode = b.materialCategoryCode.includes(':')
+      ? b.materialCategoryCode.split(':')[0]
+      : b.materialCategoryCode;
+    csv += `${esc(cleanCode)},${esc(b.name)},${b.quantity},${esc(b.unit)},${b.isAccessory ? '부속자재' : b.isManual ? '수동추가' : ''}\n`;
   }
 
   csv += '\n=== 노무량표 ===\n';
@@ -592,7 +596,9 @@ export function exportReportToCSV(report: ConstructionReport): void {
   const a = document.createElement('a');
   a.href = url;
   a.download = `설계서_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 

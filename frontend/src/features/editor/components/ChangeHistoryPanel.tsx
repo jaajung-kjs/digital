@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useIsAdmin } from '../../../stores/authStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import {
@@ -26,7 +26,18 @@ interface ChangeHistoryPanelProps {
   onClose: () => void;
 }
 
-type ReportTab = 'history' | 'report' | 'preview';
+type ReportTab = 'history' | 'report';
+
+const FIELD_LABELS: Record<string, string> = {
+  elements: '배치 요소',
+  equipment: '설비',
+  cables: '케이블',
+  fiberPaths: '광경로',
+  gridSize: '그리드',
+  scaleRatio: '축척',
+  positions: '위치',
+  connections: '연결',
+};
 
 export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps) {
   const { data: logs, isLoading } = useRoomAuditLogs(roomId);
@@ -84,6 +95,10 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
   const handleSelectLog = (log: AuditLog) => {
     setSelectedLogId(log.id);
     setActiveTab('history');
+    // Auto-preview: trigger canvas preview when a version is selected
+    if (log.hasSnapshot && log.version) {
+      handlePreview(log);
+    }
   };
 
   const hasReport = (log: AuditLog) => log.hasSnapshot;
@@ -137,14 +152,9 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
             변경 내역
           </TabButton>
           {selectedLog && hasReport(selectedLog) && (
-            <>
-              <TabButton active={activeTab === 'report'} onClick={() => setActiveTab('report')}>
-                설계서
-              </TabButton>
-              <TabButton active={activeTab === 'preview'} onClick={() => setActiveTab('preview')}>
-                도면 보기
-              </TabButton>
-            </>
+            <TabButton active={activeTab === 'report'} onClick={() => setActiveTab('report')}>
+              설계서
+            </TabButton>
           )}
           <button
             onClick={() => { setSelectedLogId(null); setActiveTab('history'); }}
@@ -175,7 +185,7 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
         ) : selectedLogId && selectedLog ? (
           activeTab === 'history' ? (
             <DiffView log={selectedLog} allLogs={logs} />
-          ) : activeTab === 'report' ? (
+          ) : (
             <ReportView
               log={selectedLog}
               allLogs={logs}
@@ -189,16 +199,6 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
               }}
               isSaving={patchContext.isPending}
             />
-          ) : (
-            <div className="p-4">
-              <button
-                onClick={() => handlePreview(selectedLog)}
-                disabled={isFetching || !selectedLog.version}
-                className="w-full px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                {isFetching ? '로딩 중...' : '도면 미리보기'}
-              </button>
-            </div>
           )
         ) : (
           <LogList
@@ -209,7 +209,6 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
             isAdmin={isAdmin}
             deletingId={deletingId}
             onSelect={handleSelectLog}
-            onPreview={handlePreview}
             onDelete={handleDelete}
           />
         )}
@@ -245,13 +244,12 @@ interface LogListProps {
   isAdmin: boolean;
   deletingId: string | null;
   onSelect: (log: AuditLog) => void;
-  onPreview: (log: AuditLog) => void;
   onDelete: (logId: string) => void;
 }
 
 function LogList({
   logs, snapshotActive, snapshotId, isFetching,
-  isAdmin, deletingId, onSelect, onPreview, onDelete,
+  isAdmin, deletingId, onSelect, onDelete,
 }: LogListProps) {
   return (
     <div className="p-3 space-y-2">
@@ -290,18 +288,6 @@ function LogList({
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {canPreview && log.version && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onPreview(log); }}
-                    className="p-0.5 text-gray-300 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
-                    title="도면 미리보기"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  </button>
-                )}
                 {isAdmin && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(log.id); }}
@@ -330,7 +316,7 @@ function LogList({
 
             {log.changedFields.length > 0 && (
               <p className="text-xs text-gray-500 mt-1.5">
-                {log.changedFields.join(', ')}
+                {log.changedFields.map((f) => FIELD_LABELS[f] ?? f).join(', ')}
               </p>
             )}
           </div>
@@ -367,7 +353,7 @@ function DiffView({ log }: { log: AuditLog; allLogs: AuditLog[] | undefined }) {
           <div className="flex flex-wrap gap-1">
             {log.changedFields.map((f) => (
               <span key={f} className="inline-block px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded">
-                {f}
+                {FIELD_LABELS[f] ?? f}
               </span>
             ))}
           </div>
@@ -421,18 +407,44 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
 
   const [editMode, setEditMode] = useState(false);
   const [surcharges, setSurcharges] = useState<string[]>(savedOverrides?.surcharges ?? []);
-  const [bomEdits, setBomEdits] = useState<Record<string, number>>({});
-  const [laborEdits, setLaborEdits] = useState<Record<string, number>>({});
+  const [addedItems, setAddedItems] = useState<ReportOverrides['addedItems']>(savedOverrides?.addedItems ?? []);
+  const [removedItemIds, setRemovedItemIds] = useState<string[]>(savedOverrides?.removedItemIds ?? []);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newItem, setNewItem] = useState({ description: '', quantity: 1, unit: '개', laborHours: 0 });
 
-  const overrides = useMemo((): ReportOverrides => ({
-    modifiedItems: [
-      ...Object.entries(bomEdits).map(([k, v]) => ({ itemId: k, quantity: v })),
-      ...Object.entries(laborEdits).map(([k, v]) => ({ itemId: k, quantity: v })),
-    ],
-    addedItems: savedOverrides?.addedItems ?? [],
-    removedItemIds: savedOverrides?.removedItemIds ?? [],
-    surcharges,
-  }), [bomEdits, laborEdits, surcharges, savedOverrides]);
+  // C3+C4: Initialize bomEdits/laborEdits from savedOverrides.modifiedItems
+  const [bomEdits, setBomEdits] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    if (savedOverrides?.modifiedItems) {
+      for (const m of savedOverrides.modifiedItems) {
+        // We store all modified items; will be matched against bom/labor later
+        init[m.itemId] = m.quantity;
+      }
+    }
+    return init;
+  });
+  const [laborEdits, setLaborEdits] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    if (savedOverrides?.modifiedItems) {
+      for (const m of savedOverrides.modifiedItems) {
+        init[m.itemId] = m.quantity;
+      }
+    }
+    return init;
+  });
+
+  const overrides = useMemo((): ReportOverrides => {
+    // Merge bomEdits and laborEdits, deduplicating by itemId
+    const modMap = new Map<string, number>();
+    for (const [k, v] of Object.entries(bomEdits)) modMap.set(k, v);
+    for (const [k, v] of Object.entries(laborEdits)) modMap.set(k, v);
+    return {
+      modifiedItems: [...modMap.entries()].map(([k, v]) => ({ itemId: k, quantity: v })),
+      addedItems,
+      removedItemIds,
+      surcharges,
+    };
+  }, [bomEdits, laborEdits, surcharges, addedItems, removedItemIds]);
 
   // Apply overrides on top of the pre-computed base report
   const report: ConstructionReport | null = useMemo(() => {
@@ -498,9 +510,32 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
     return { diff: baseReport.diff, bom, labor, totalLaborHours };
   }, [baseReport, overrides]);
 
+  // Track previous isSaving to detect save completion
+  const [wasSaving, setWasSaving] = useState(false);
+  useEffect(() => {
+    if (wasSaving && !isSaving) {
+      // Save completed — reset edits
+      setBomEdits({});
+      setLaborEdits({});
+      setEditMode(false);
+    }
+    setWasSaving(isSaving);
+  }, [isSaving, wasSaving]);
+
   const handleSave = useCallback(() => {
     onSaveOverrides(overrides);
   }, [overrides, onSaveOverrides]);
+
+  const handleAddItem = () => {
+    if (!newItem.description.trim()) return;
+    setAddedItems((prev) => [...prev, { ...newItem }]);
+    setNewItem({ description: '', quantity: 1, unit: '개', laborHours: 0 });
+    setShowAddForm(false);
+  };
+
+  const handleRemoveItem = (materialCategoryCode: string) => {
+    setRemovedItemIds((prev) => [...prev, materialCategoryCode]);
+  };
 
   if (!baseReport) {
     return (
@@ -540,6 +575,7 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
                 <th className="text-left py-1 font-medium w-12">구분</th>
                 <th className="text-right py-1 font-medium w-14">수량</th>
                 <th className="text-left py-1 font-medium w-8">단위</th>
+                {editMode && <th className="w-6" />}
               </tr>
             </thead>
             <tbody>
@@ -553,7 +589,7 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
                       <input
                         type="number"
                         className="w-14 text-right border rounded px-1 py-0.5"
-                        defaultValue={b.quantity}
+                        value={bomEdits[b.materialCategoryCode] ?? b.quantity}
                         min={0}
                         step={0.01}
                         onChange={(e) =>
@@ -565,6 +601,15 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
                     )}
                   </td>
                   <td className="py-1 text-gray-400">{b.unit}</td>
+                  {editMode && (
+                    <td className="py-1 text-center">
+                      <button
+                        onClick={() => handleRemoveItem(b.materialCategoryCode)}
+                        className="text-red-400 hover:text-red-600 text-xs"
+                        title="삭제"
+                      >&times;</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -595,7 +640,7 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
                       <input
                         type="number"
                         className="w-14 text-right border rounded px-1 py-0.5"
-                        defaultValue={b.quantity}
+                        value={bomEdits[b.materialCategoryCode] ?? b.quantity}
                         min={0}
                         step={0.01}
                         onChange={(e) =>
@@ -636,7 +681,7 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
                       <input
                         type="number"
                         className="w-12 text-right border rounded px-1 py-0.5"
-                        defaultValue={l.hours}
+                        value={laborEdits[l.workName] ?? l.hours}
                         min={0}
                         step={0.01}
                         onChange={(e) =>
@@ -663,6 +708,7 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
               <input
                 type="checkbox"
                 checked={surcharges.includes(rule.code)}
+                disabled={!editMode}
                 onChange={(e) => {
                   setSurcharges((prev) =>
                     e.target.checked
@@ -670,14 +716,69 @@ function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, 
                       : prev.filter((c) => c !== rule.code),
                   );
                 }}
-                className="rounded border-gray-300"
+                className="rounded border-gray-300 disabled:opacity-50"
               />
-              <span className="text-gray-700">{rule.name}</span>
+              <span className={editMode ? 'text-gray-700' : 'text-gray-400'}>{rule.name}</span>
               <span className="text-gray-400">x{rule.multiplier}</span>
             </label>
           ))}
         </div>
       </section>
+
+      {/* Add item (I26) */}
+      {editMode && (
+        <section>
+          {showAddForm ? (
+            <div className="space-y-2 p-2 bg-gray-50 rounded border border-gray-200">
+              <input
+                type="text"
+                placeholder="항목명"
+                value={newItem.description}
+                onChange={(e) => setNewItem((p) => ({ ...p, description: e.target.value }))}
+                className="w-full text-xs border rounded px-2 py-1"
+              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="수량"
+                  value={newItem.quantity}
+                  min={0}
+                  step={0.01}
+                  onChange={(e) => setNewItem((p) => ({ ...p, quantity: parseFloat(e.target.value) || 0 }))}
+                  className="w-16 text-xs border rounded px-2 py-1"
+                />
+                <input
+                  type="text"
+                  placeholder="단위"
+                  value={newItem.unit}
+                  onChange={(e) => setNewItem((p) => ({ ...p, unit: e.target.value }))}
+                  className="w-12 text-xs border rounded px-2 py-1"
+                />
+                <input
+                  type="number"
+                  placeholder="공수"
+                  value={newItem.laborHours}
+                  min={0}
+                  step={0.01}
+                  onChange={(e) => setNewItem((p) => ({ ...p, laborHours: parseFloat(e.target.value) || 0 }))}
+                  className="w-16 text-xs border rounded px-2 py-1"
+                />
+              </div>
+              <div className="flex gap-1">
+                <button onClick={handleAddItem} className="flex-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">추가</button>
+                <button onClick={() => setShowAddForm(false)} className="flex-1 px-2 py-1 text-xs bg-white text-gray-600 border rounded hover:bg-gray-50">취소</button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="w-full px-2 py-1.5 text-xs text-blue-600 border border-dashed border-blue-300 rounded hover:bg-blue-50"
+            >
+              + 항목 추가
+            </button>
+          )}
+        </section>
+      )}
 
       {/* Total */}
       <section className="border-t pt-2">

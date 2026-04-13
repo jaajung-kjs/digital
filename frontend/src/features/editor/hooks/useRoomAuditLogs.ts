@@ -169,6 +169,8 @@ export function useLoadSnapshot(roomId: string | undefined) {
     const snap = useSnapshotStore.getState();
     if (!snap.active || !snap.snapshotId) return;
 
+    const versionLabel = snap.label ?? '이전 버전';
+
     // Reconstruct FloorPlanDetail from store data
     const plan = {
       elements: snap.elements,
@@ -179,6 +181,9 @@ export function useLoadSnapshot(roomId: string | undefined) {
       majorGridSize: snap.majorGridSize,
     } as FloorPlanDetail;
     applyPlanToEditor(plan);
+
+    // Show restore banner in editor
+    useEditorStore.getState().setRestoredFromVersion(versionLabel);
   };
 
   return { mutateAsync: mutation.mutateAsync, isPending: mutation.isPending, restoreFromPreview };
