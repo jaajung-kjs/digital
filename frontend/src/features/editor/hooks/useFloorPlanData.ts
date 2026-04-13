@@ -285,23 +285,28 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         startU: eq.startU ?? undefined,
         heightU: eq.heightU ?? undefined,
       })),
-      cables: localCables.map(c => ({
-        id: isTempId(c.id) ? null : c.id,
-        sourceEquipmentId: c.sourceEquipmentId,
-        targetEquipmentId: c.targetEquipmentId,
-        cableType: c.cableType,
-        materialCategoryId: c.materialCategoryId,
-        materialCategoryCode: c.materialCategoryCode,
-        specParams: c.specParams,
-        pathPoints: c.pathPoints,
-        pathLength: c.pathLength,
-        bufferLength: c.bufferLength,
-        totalLength: c.totalLength,
-        label: c.label,
-        color: c.color,
-        fiberPathId: c.fiberPathId,
-        fiberPortNumber: c.fiberPortNumber,
-      })),
+      cables: (() => {
+        const equipIds = new Set(localEquipment.map(eq => eq.id));
+        return localCables.filter(c =>
+          equipIds.has(c.sourceEquipmentId) && equipIds.has(c.targetEquipmentId)
+        );
+      })()
+        .map(c => ({
+          id: isTempId(c.id) ? null : c.id,
+          sourceEquipmentId: c.sourceEquipmentId,
+          targetEquipmentId: c.targetEquipmentId,
+          cableType: c.cableType,
+          materialCategoryId: c.materialCategoryId,
+          specParams: c.specParams,
+          pathPoints: c.pathPoints,
+          pathLength: c.pathLength,
+          bufferLength: c.bufferLength,
+          totalLength: c.totalLength,
+          label: c.label,
+          color: c.color,
+          fiberPathId: c.fiberPathId,
+          fiberPortNumber: c.fiberPortNumber,
+        })),
       fiberPaths: pendingFiberPaths.length > 0 ? pendingFiberPaths.map((fp) => ({
         id: fp.id,
         ofdAId: fp.ofdAId,
