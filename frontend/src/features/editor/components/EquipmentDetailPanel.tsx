@@ -13,13 +13,14 @@ import { useMaintenanceLogs } from '../../equipment/hooks/useMaintenanceLogs';
 import { ConnectionDiagram } from '../../equipment/components/ConnectionDiagram';
 import { FiberPathManager } from '../../fiber/components/FiberPathManager';
 import { RackView } from './RackView';
+import { MaterialPicker } from '../../materials/components/MaterialPicker';
+import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import {
   LOG_TYPE_LABELS,
   LOG_TYPE_COLORS,
   SEVERITY_COLORS,
   SEVERITY_LABELS,
   CATEGORY_LABELS,
-  EQUIPMENT_CATEGORIES,
 } from '../../equipment/types/equipment';
 
 interface EquipmentDetailPanelProps {
@@ -40,14 +41,11 @@ interface EquipmentDetail {
   height2d?: number | null;
   frontImageUrl?: string | null;
   rearImageUrl?: string | null;
+  materialCategoryId?: string | null;
   materialCategoryCode?: string | null;
   specParams?: Record<string, unknown> | null;
 }
 
-const CATEGORY_OPTIONS = EQUIPMENT_CATEGORIES.map((cat) => ({
-  value: cat,
-  label: CATEGORY_LABELS[cat] ?? cat,
-}));
 
 type TabKey = 'photos' | 'info' | 'logs' | 'connections' | 'rack';
 
@@ -666,10 +664,9 @@ function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly
 
   const fields: { label: string; value: string }[] = [
     { label: '이름', value: equipment.name },
-    { label: '분류', value: CATEGORY_LABELS[equipment.category] ?? equipment.category },
-    ...(equipment.materialCategoryCode
-      ? [{ label: '자재분류', value: equipment.materialCategoryCode + (specParamsStr ? ` (${specParamsStr})` : '') }]
-      : []),
+    { label: '분류', value: equipment.materialCategoryCode
+      ? equipment.materialCategoryCode + (specParamsStr ? ` (${specParamsStr})` : '')
+      : CATEGORY_LABELS[equipment.category] ?? equipment.category },
     { label: '모델', value: equipment.model || '-' },
     { label: '제조사', value: equipment.manufacturer || '-' },
     { label: '담당자', value: equipment.manager || '-' },
@@ -714,19 +711,27 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
   const [editName, setEditName] = useState(equipment.name);
-  const [editCategory, setEditCategory] = useState(equipment.category);
+  const [editMaterialCategoryId, setEditMaterialCategoryId] = useState(equipment.materialCategoryId ?? null);
+  const [editMaterialCategoryCode, setEditMaterialCategoryCode] = useState(equipment.materialCategoryCode ?? null);
+  const [editSpecParams, setEditSpecParams] = useState<Record<string, unknown>>(equipment.specParams as Record<string, unknown> ?? {});
   const [editModel, setEditModel] = useState(equipment.model ?? '');
   const [editManufacturer, setEditManufacturer] = useState(equipment.manufacturer ?? '');
   const [editManager, setEditManager] = useState(equipment.manager ?? '');
   const [editDescription, setEditDescription] = useState(equipment.description ?? '');
 
   const handleApply = () => {
+    const category = editMaterialCategoryCode
+      ? getEquipmentCategoryFromMaterial(editMaterialCategoryCode)
+      : equipment.category;
     const updated = localEquipment.map((eq) =>
       eq.id === equipment.id
         ? {
             ...eq,
             name: editName,
-            category: editCategory,
+            category,
+            materialCategoryId: editMaterialCategoryId,
+            materialCategoryCode: editMaterialCategoryCode,
+            specParams: editSpecParams,
             description: editDescription || null,
             model: editModel || null,
             manufacturer: editManufacturer || null,
@@ -747,13 +752,16 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
           className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400" />
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">분류</label>
-        <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400">
-          {CATEGORY_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        <label className="block text-xs font-medium text-gray-500 mb-1">자재 분류</label>
+        <MaterialPicker
+          categoryType="EQUIPMENT"
+          value={editMaterialCategoryId ? { categoryId: editMaterialCategoryId, specParams: editSpecParams } : null}
+          onChange={({ categoryId, categoryCode, specParams }) => {
+            setEditMaterialCategoryId(categoryId);
+            setEditMaterialCategoryCode(categoryCode);
+            setEditSpecParams(specParams);
+          }}
+        />
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">모델</label>
