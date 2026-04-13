@@ -8,6 +8,8 @@ import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
+import { calculateConstructionReport } from '../../../utils/constructionCalc';
+import type { PlanSnapshot, ConstructionReport } from '../../../utils/constructionCalc';
 
 /**
  * Build temp equipment ID → real ID mapping from the backend response.
@@ -48,6 +50,7 @@ function connectionsToLocalCables(connections: RoomConnection[]): LocalCable[] {
 export function useFloorPlanData(roomId: string | undefined, containerRef: React.RefObject<HTMLDivElement | null>) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const isSavingRef = useRef(false);
+  const pendingReportRef = useRef<ConstructionReport | null>(null);
   const queryClient = useQueryClient();
   const {
     localElements, localEquipment, zoom, panX, panY,
@@ -92,13 +95,14 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
   const saveMutation = useMutation({
     mutationFn: (data: UpdateFloorPlanRequest) => {
       isSavingRef.current = true;
-      return api.put<{ data: { id: string; version: number; equipmentIdMap: Record<string, string> } }>(
+      return api.put<{ data: { id: string; version: number; equipmentIdMap: Record<string, string>; auditLogId: string | null } }>(
         `/rooms/${roomId}/plan`,
         data
       );
     },
     onSuccess: async (response) => {
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
+      const auditLogId = response.data?.data?.auditLogId ?? null;
       const { pendingUploads, pendingLogs } = useEditorStore.getState();
       const tempIdMap = buildTempIdMap(equipmentIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
@@ -150,6 +154,19 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       }
 
       await Promise.all(pendingTasks);
+
+      // Store pre-computed construction report in the audit log context
+      const report = pendingReportRef.current;
+      if (auditLogId && report && report.diff.length > 0) {
+        try {
+          await api.patch(`/rooms/${roomId}/audit-logs/${auditLogId}`, {
+            context: { constructionReport: report },
+          });
+        } catch (err) {
+          console.warn('[Save] Failed to store construction report:', err);
+        }
+      }
+      pendingReportRef.current = null;
 
       // Clear pending data and invalidate queries
       useEditorStore.getState().clearPendingData();
@@ -247,6 +264,69 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
   const handleSave = () => {
     if (!floorPlan) return;
     const { localCables, pendingFiberPaths, deletedFiberPathIds } = useEditorStore.getState();
+
+    // Pre-compute construction report using before (cached server state) and after (local state)
+    const cachedPlan = queryClient.getQueryData<FloorPlanDetail>(['floorPlan', roomId]);
+    const cachedConnections = queryClient.getQueryData<RoomConnection[]>(['room-connections', roomId]);
+    if (cachedPlan) {
+      const beforeSnapshot: PlanSnapshot = {
+        elements: cachedPlan.elements.map(e => ({
+          id: e.id,
+          elementType: e.elementType,
+          materialCategoryCode: null, // elements don't carry materialCategoryCode on frontend
+          pathLength: e.pathLength ?? null,
+          properties: e.properties as unknown as Record<string, unknown>,
+        })),
+        equipment: cachedPlan.equipment.map(eq => ({
+          id: eq.id,
+          name: eq.name,
+          category: eq.category,
+          materialCategoryCode: eq.materialCategoryCode ?? null,
+          specParams: eq.specParams ?? null,
+          positionX: eq.positionX,
+          positionY: eq.positionY,
+        })),
+        cables: (cachedConnections ?? []).map(c => ({
+          id: c.id,
+          cableType: c.cableType,
+          materialCategoryCode: c.materialCategoryCode ?? null,
+          totalLength: c.totalLength ?? null,
+          sourceEquipmentId: c.sourceEquipmentId,
+          targetEquipmentId: c.targetEquipmentId,
+          label: c.label ?? null,
+        })),
+      };
+      const afterSnapshot: PlanSnapshot = {
+        elements: localElements.map(e => ({
+          id: e.id,
+          elementType: e.elementType,
+          materialCategoryCode: null,
+          pathLength: e.pathLength ?? null,
+          properties: e.properties as unknown as Record<string, unknown>,
+        })),
+        equipment: localEquipment.map(eq => ({
+          id: eq.id,
+          name: eq.name,
+          category: eq.category,
+          materialCategoryCode: eq.materialCategoryCode ?? null,
+          specParams: eq.specParams ?? null,
+          positionX: eq.positionX,
+          positionY: eq.positionY,
+        })),
+        cables: localCables.map(c => ({
+          id: c.id,
+          cableType: c.cableType,
+          materialCategoryCode: c.materialCategoryCode ?? null,
+          totalLength: c.totalLength ?? null,
+          sourceEquipmentId: c.sourceEquipmentId,
+          targetEquipmentId: c.targetEquipmentId,
+          label: c.label ?? null,
+        })),
+      };
+      pendingReportRef.current = calculateConstructionReport(beforeSnapshot, afterSnapshot);
+    } else {
+      pendingReportRef.current = null;
+    }
 
     const currentScaleRatio = useEditorStore.getState().scaleRatio;
     const updateData: UpdateFloorPlanRequest = {
