@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { traceCable } from '../../../utils/cableTracer';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { api } from '../../../utils/api';
 import { isTempId } from '../../../utils/idHelpers';
 import type { TraceResult, PathSegment } from '../types';
@@ -46,14 +47,48 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
   ...IDLE_STATE,
 
   startTrace: async (cableId, _currentRoomId) => {
+    // Use snapshot data if preview is active, otherwise use current editor state
+    const snapshotState = useSnapshotStore.getState();
     const editorState = useEditorStore.getState();
-    const { localCables, localEquipment, pendingFiberPaths } = editorState;
+    const localCables = snapshotState.active ? snapshotState.cables : editorState.localCables;
+    const localEquipment = snapshotState.active ? snapshotState.equipment : editorState.localEquipment;
+    const pendingFiberPaths = snapshotState.active ? [] : editorState.pendingFiberPaths;
 
     // isLoading is reserved for potential future async trace UI feedback
     set({ tracingCableId: cableId, error: null });
 
     try {
-      // Fetch saved fiber paths from API for all non-temp OFD equipment
+      // In snapshot mode, use snapshot fiber paths directly (no server fetch)
+      if (snapshotState.active) {
+        const snapshotFiberPaths: FiberPathDetail[] = (snapshotState.fiberPaths ?? []).map((fp: any) => ({
+          id: fp.id,
+          ofdA: { id: fp.ofdAId, name: '?', substationName: '', roomId: null },
+          ofdB: { id: fp.ofdBId, name: '?', substationName: '', roomId: null },
+          portCount: fp.portCount,
+          description: fp.description ?? null,
+          createdAt: '', updatedAt: '',
+        } as FiberPathDetail));
+
+        const result = traceCable({
+          cableId,
+          cables: localCables,
+          equipment: localEquipment,
+          fiberPaths: snapshotFiberPaths,
+        });
+
+        set({
+          active: true,
+          traceResult: result,
+          highlightedNodeIds: new Set(result.nodes.map((n) => n.equipmentId)),
+          highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
+          segments: result.segments,
+          modalOpen: false,
+          selectedRingId: null,
+        });
+        return;
+      }
+
+      // Normal mode: fetch saved fiber paths from API
       const ofdEquipment = localEquipment.filter(
         (e) => e.category === 'OFD' && !isTempId(e.id),
       );

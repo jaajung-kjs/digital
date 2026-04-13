@@ -110,7 +110,7 @@ export function usePreviewSnapshot(roomId: string | undefined) {
  * Apply snapshot data into editor for actual editing (marks hasChanges).
  * Can accept data from the snapshot store to avoid a redundant API call.
  */
-function applySnapshotToEditor(snapshot: SnapshotResponse, roomId: string, queryClient: ReturnType<typeof useQueryClient>) {
+function applySnapshotToEditor(snapshot: SnapshotResponse, _roomId: string, _queryClient: ReturnType<typeof useQueryClient>) {
   const store = useEditorStore.getState();
   const { initHistory } = useHistoryStore.getState();
 
@@ -122,14 +122,36 @@ function applySnapshotToEditor(snapshot: SnapshotResponse, roomId: string, query
   const elements = snapshot.plan.elements;
   store.setLocalElements(elements);
   store.setLocalEquipment(snapshot.plan.equipment);
+
+  // Restore cables from snapshot data (not from server)
+  const snapshotCables = (snapshot.cables ?? []).map((c: any) => ({
+    id: c.id ?? '',
+    sourceEquipmentId: c.sourceEquipmentId ?? '',
+    targetEquipmentId: c.targetEquipmentId ?? '',
+    cableType: c.cableType ?? 'LAN',
+    materialCategoryId: c.materialCategoryId ?? undefined,
+    materialCategoryCode: c.materialCategoryCode ?? undefined,
+    specParams: c.specParams ?? undefined,
+    pathPoints: c.pathPoints ?? undefined,
+    pathLength: c.pathLength ?? undefined,
+    bufferLength: c.bufferLength ?? 4,
+    totalLength: c.totalLength ?? undefined,
+    label: c.label ?? undefined,
+    color: c.color ?? undefined,
+    displayColor: c.displayColor ?? undefined,
+    fiberPathId: c.fiberPathId ?? undefined,
+    fiberPortNumber: c.fiberPortNumber ?? undefined,
+  }));
+  store.setCables(snapshotCables);
+
   store.setGridSize(snapshot.plan.gridSize);
   store.setMajorGridSize(snapshot.plan.majorGridSize ?? DEFAULT_MAJOR_GRID_SIZE);
 
   store.setHasChanges(true);
   initHistory(elements, snapshot.plan.equipment);
 
-  queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
-  queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
+  // Do NOT invalidate floorPlan or connections — we restored from snapshot.
+  // The floorPlan effect in useFloorPlanData would overwrite our restored data.
 }
 
 /**
