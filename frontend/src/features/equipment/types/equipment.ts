@@ -1,4 +1,3 @@
-import type { EquipmentCategory } from '../../../types/enums';
 
 export interface EquipmentFormData {
   name: string;
@@ -25,19 +24,8 @@ export interface MaintenanceFormData {
   status?: string;
 }
 
-export const CATEGORY_ICONS = {
-  SERVER: '\u{1F5A5}',
-  NETWORK: '\u{1F310}',
-  STORAGE: '\u{1F4BE}',
-  CHARGER: '\u{1F50C}',
-  UPS: '\u{1F50B}',
-  SECURITY: '\u{1F512}',
-  OTHER: '\u{1F4E6}',
-  DISTRIBUTION_BOARD: '\u{1F4CB}',
-  OFD: '\u{1F4E6}',
-} satisfies Record<EquipmentCategory, string> as Record<string, string>;
-
-export const CATEGORY_LABELS = {
+/** @deprecated Legacy enum labels - prefer materialCategoryName from DB */
+export const CATEGORY_LABELS: Record<string, string> = {
   SERVER: '서버',
   NETWORK: '네트워크',
   STORAGE: '스토리지',
@@ -47,19 +35,7 @@ export const CATEGORY_LABELS = {
   OTHER: '기타',
   DISTRIBUTION_BOARD: '분전반',
   OFD: 'OFD',
-} satisfies Record<EquipmentCategory, string> as Record<string, string>;
-
-export const EQUIPMENT_CATEGORIES = [
-  'SERVER',
-  'NETWORK',
-  'STORAGE',
-  'CHARGER',
-  'UPS',
-  'SECURITY',
-  'OTHER',
-  'DISTRIBUTION_BOARD',
-  'OFD',
-] as const;
+};
 
 export const LOG_TYPE_LABELS: Record<string, string> = {
   MAINTENANCE: '점검',
@@ -103,17 +79,14 @@ export const STATUS_LABELS: Record<string, string> = {
 
 /**
  * Display name for equipment considering material category info.
- * Falls back to CATEGORY_LABELS for legacy equipment without material data.
+ * Prefers materialCategoryName from DB, falls back to code then category.
  */
 export function getEquipmentDisplayName(equipment: {
   category: string;
   materialCategoryCode?: string | null;
-  specParams?: Record<string, unknown> | null;
+  materialCategoryName?: string | null;
 }): string {
-  if (equipment.materialCategoryCode) {
-    // Material category available — show code as-is for now
-    // TODO: could resolve to full spec string if specTemplate is cached
-    return equipment.materialCategoryCode;
-  }
+  if (equipment.materialCategoryName) return equipment.materialCategoryName;
+  if (equipment.materialCategoryCode) return equipment.materialCategoryCode;
   return CATEGORY_LABELS[equipment.category] || equipment.category;
 }

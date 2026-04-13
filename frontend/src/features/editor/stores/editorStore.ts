@@ -18,8 +18,10 @@ export interface LocalCable {
   cableType: string;
   materialCategoryId?: string | null;
   materialCategoryCode?: string | null;
+  materialCategoryName?: string | null;
   displayColor?: string | null;
   specParams?: Record<string, unknown> | null;
+  specification?: string | null;
   pathPoints?: [number, number][] | null;
   pathLength?: number | null;
   bufferLength?: number;

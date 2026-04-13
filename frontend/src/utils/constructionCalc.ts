@@ -5,41 +5,28 @@
 
 import { CONSTRUCTION_TEMPLATES, SURCHARGE_RULES } from '../config/constructionTemplates';
 import type { AccessoryRule } from '../config/constructionTemplates';
-/** Resolve display name: materialCategory name + specification from specParams */
+/** Resolve display name: materialCategory name + specification from DB data */
 function resolveDisplayName(
   materialCategoryCode: string | null | undefined,
   specParams: Record<string, unknown> | null | undefined,
   fallbackName: string,
+  materialCategoryName?: string | null,
+  specification?: string | null,
 ): { displayName: string; specification: string | undefined } {
   if (!materialCategoryCode) return { displayName: fallbackName, specification: undefined };
 
-  // Category name lookup (code → Korean name)
-  const CATEGORY_NAMES: Record<string, string> = {
-    'EQP-RTU': 'SCADA/RTU', 'EQP-RACK': '랙/함체', 'EQP-OFD': 'OFD/IDF/MDF',
-    'EQP-UPS': 'UPS/전원설비', 'EQP-NET': '네트워크장비', 'EQP-SEC': '보안장비',
-    'EQP-PITR': 'PITR/PIU', 'EQP-SEIS': '내진가대', 'EQP-SURGE': '서지보호장치',
-    'EQP-BRK': '차단기/개폐기', 'EQP-SYNC': '시각동기장치', 'EQP-COOL': '냉각/환경설비',
-    'EQP-PDAS': 'PDAS장비',
-    'CBL-FCV': 'F-CV 전력케이블', 'CBL-FR': '난연/내화케이블', 'CBL-VCT': '캡타이어 VCT',
-    'CBL-HIV': '비닐절연전선', 'CBL-UTP': 'UTP/S-FTP케이블', 'CBL-OPT': '광케이블',
-    'CBL-OPJ': '광점퍼코드', 'CBL-OPT-B': '브레이크아웃케이블', 'CBL-IV': '접지전선',
-    'CBL-BARE': '나동연선', 'CBL-CVV': '제어케이블', 'CBL-CPEV': '통신케이블',
-    'CBL-PCM': 'PCM케이블', 'CBL-COAX': '동축케이블', 'CBL-CHAMP': '챔프케이블',
-    'CBL-SIG': '데이터/신호케이블',
-  };
+  // Use DB-provided materialCategoryName, fall back to code
+  const categoryName = materialCategoryName || materialCategoryCode;
 
-  const categoryName = CATEGORY_NAMES[materialCategoryCode] ?? materialCategoryCode;
-  let specification: string | undefined;
-
-  // Build specification from specParams if available
-  if (specParams && Object.keys(specParams).length > 0) {
-    // Try to build spec string from format template (simplified — just join values)
+  // Use pre-built specification if available, otherwise build from specParams
+  let spec = specification ?? undefined;
+  if (!spec && specParams && Object.keys(specParams).length > 0) {
     const values = Object.values(specParams).filter(v => v != null && v !== '');
-    specification = values.length > 0 ? values.join(' ') : undefined;
+    spec = values.length > 0 ? values.join(' ') : undefined;
   }
 
-  const displayName = specification ? `${categoryName} ${specification}` : categoryName;
-  return { displayName, specification };
+  const displayName = spec ? `${categoryName} ${spec}` : categoryName;
+  return { displayName, specification: spec };
 }
 
 // ============================================================
@@ -59,6 +46,8 @@ export interface PlanSnapshot {
     name: string;
     category: string;
     materialCategoryCode?: string | null;
+    materialCategoryName?: string | null;
+    specification?: string | null;
     specParams?: Record<string, unknown> | null;
     positionX?: number;
     positionY?: number;
@@ -67,6 +56,8 @@ export interface PlanSnapshot {
     id: string;
     cableType: string;
     materialCategoryCode?: string | null;
+    materialCategoryName?: string | null;
+    specification?: string | null;
     totalLength?: number | null;
     sourceEquipmentId: string;
     targetEquipmentId: string;
@@ -141,7 +132,7 @@ function computeEquipmentDiff(
   // New installs
   for (const [id, eq] of afterMap) {
     if (!beforeMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(eq.materialCategoryCode, eq.specParams, eq.name);
+      const { displayName, specification } = resolveDisplayName(eq.materialCategoryCode, eq.specParams, eq.name, eq.materialCategoryName, eq.specification);
       items.push({
         id,
         type: 'equipment',
@@ -158,7 +149,7 @@ function computeEquipmentDiff(
   // Removals
   for (const [id, eq] of beforeMap) {
     if (!afterMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(eq.materialCategoryCode, eq.specParams, eq.name);
+      const { displayName, specification } = resolveDisplayName(eq.materialCategoryCode, eq.specParams, eq.name, eq.materialCategoryName, eq.specification);
       items.push({
         id,
         type: 'equipment',
@@ -182,7 +173,7 @@ function computeEquipmentDiff(
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance > POSITION_THRESHOLD) {
-      const { displayName, specification } = resolveDisplayName(afterEq.materialCategoryCode, afterEq.specParams, afterEq.name);
+      const { displayName, specification } = resolveDisplayName(afterEq.materialCategoryCode, afterEq.specParams, afterEq.name, afterEq.materialCategoryName, afterEq.specification);
       items.push({
         id,
         type: 'equipment',
@@ -201,7 +192,7 @@ function computeEquipmentDiff(
         JSON.stringify(afterEq.specParams) !== JSON.stringify(beforeEq.specParams);
 
       if (changed) {
-        const { displayName, specification } = resolveDisplayName(afterEq.materialCategoryCode, afterEq.specParams, afterEq.name);
+        const { displayName, specification } = resolveDisplayName(afterEq.materialCategoryCode, afterEq.specParams, afterEq.name, afterEq.materialCategoryName, afterEq.specification);
         items.push({
           id,
           type: 'equipment',
@@ -229,7 +220,7 @@ function computeCableDiff(
 
   for (const [id, cable] of afterMap) {
     if (!beforeMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType);
+      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType, cable.materialCategoryName, cable.specification);
       items.push({
         id,
         type: 'cable',
@@ -246,7 +237,7 @@ function computeCableDiff(
 
   for (const [id, cable] of beforeMap) {
     if (!afterMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType);
+      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType, cable.materialCategoryName, cable.specification);
       items.push({
         id,
         type: 'cable',
@@ -273,7 +264,7 @@ function computeCableDiff(
       afterCable.targetEquipmentId !== beforeCable.targetEquipmentId;
 
     if (changed) {
-      const { displayName, specification } = resolveDisplayName(afterCable.materialCategoryCode, null, afterCable.label || afterCable.cableType);
+      const { displayName, specification } = resolveDisplayName(afterCable.materialCategoryCode, null, afterCable.label || afterCable.cableType, afterCable.materialCategoryName, afterCable.specification);
       items.push({
         id,
         type: 'cable',

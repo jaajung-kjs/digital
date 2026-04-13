@@ -49,6 +49,7 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
   const [pendingValue, setPendingValue] = useState<{
     categoryId: string;
     categoryCode: string;
+    categoryName: string;
     specParams: Record<string, unknown>;
     specification: string;
   } | null>(null);
@@ -64,7 +65,7 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
 
   const handleConfirm = () => {
     if (!pendingValue) return;
-    const { categoryId, categoryCode, specParams, specification } = pendingValue;
+    const { categoryId, categoryCode, categoryName, specParams, specification } = pendingValue;
     const store = useCableDrawingStore.getState();
     const pathPoints = store.getPathPoints();
     const cableType = getCableTypeFromMaterial(categoryCode);
@@ -86,7 +87,9 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
       cableType,
       materialCategoryId: categoryId,
       materialCategoryCode: categoryCode,
+      materialCategoryName: categoryName,
       specParams,
+      specification,
       pathPoints,
       pathLength,
       bufferLength,
@@ -96,7 +99,7 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
     addRecentCable('cable', {
       categoryId,
       categoryCode,
-      categoryName: specification,
+      categoryName,
       specParams,
       specification,
     });
@@ -268,6 +271,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   const newEquipmentPosition = useCanvasStore(s => s.newEquipmentPosition);
   const newEquipmentMaterialCategoryId = useCanvasStore(s => s.newEquipmentMaterialCategoryId);
   const newEquipmentMaterialCategoryCode = useCanvasStore(s => s.newEquipmentMaterialCategoryCode);
+  const newEquipmentMaterialCategoryName = useCanvasStore(s => s.newEquipmentMaterialCategoryName);
   const newEquipmentSpecParams = useCanvasStore(s => s.newEquipmentSpecParams);
   const newEquipmentSpecification = useCanvasStore(s => s.newEquipmentSpecification);
   const setNewEquipmentMaterial = useCanvasStore(s => s.setNewEquipmentMaterial);
@@ -422,7 +426,9 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       description: null,
       materialCategoryId: newEquipmentMaterialCategoryId,
       materialCategoryCode: newEquipmentMaterialCategoryCode,
+      materialCategoryName: newEquipmentMaterialCategoryName,
       specParams: newEquipmentSpecParams,
+      specification: newEquipmentSpecification,
     };
     const newList = [...useEditorStore.getState().localEquipment, newEquip];
     setLocalEquipment(newList);
@@ -579,8 +585,8 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
               <MaterialPicker
                 categoryType="EQUIPMENT"
                 value={newEquipmentMaterialCategoryId ? { categoryId: newEquipmentMaterialCategoryId, specParams: newEquipmentSpecParams ?? {} } : null}
-                onChange={({ categoryId, categoryCode, specParams, specification }) => {
-                  setNewEquipmentMaterial(categoryId, categoryCode, specParams, specification);
+                onChange={({ categoryId, categoryCode, categoryName, specParams, specification }) => {
+                  setNewEquipmentMaterial(categoryId, categoryCode, categoryName, specParams, specification);
                 }}
                 recentItems={recentEquipment}
               />

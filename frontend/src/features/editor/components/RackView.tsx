@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { RackEquipmentForm } from './RackEquipmentForm';
-import { getCategoryColor, EQUIPMENT_CATEGORIES } from '../../../types/rack';
 
 interface RackViewProps {
   equipmentId: string;  // the EQP-RACK equipment ID (can be temp ID)
@@ -78,7 +77,7 @@ export function RackView({ equipmentId }: RackViewProps) {
               if (eq && eq.startU != null) {
                 const h = eq.heightU ?? 1;
                 if (uNumber === eq.startU + h - 1) {
-                  const catColor = getCategoryColor(eq.category as Parameters<typeof getCategoryColor>[0]);
+                  const catColor = eq.displayColor ?? '#95A5A6';
                   return (
                     <div
                       key={uNumber}
@@ -125,7 +124,6 @@ export function RackView({ equipmentId }: RackViewProps) {
           ) : (
             <div className="space-y-1.5">
               {internalEquipment.map((eq) => {
-                const catInfo = EQUIPMENT_CATEGORIES.find((c) => c.value === eq.category);
                 const h = eq.heightU ?? 1;
                 return (
                   <button
@@ -136,7 +134,7 @@ export function RackView({ equipmentId }: RackViewProps) {
                     <div className="flex items-center gap-2">
                       <div
                         className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: catInfo?.color ?? '#95A5A6' }}
+                        style={{ backgroundColor: eq.displayColor ?? '#95A5A6' }}
                       />
                       <span className="text-sm font-medium text-gray-800 truncate">{eq.name}</span>
                     </div>

@@ -138,7 +138,7 @@ export function ConnectionDiagram({
                           ? { backgroundColor: cable.displayColor, color: '#ffffff' }
                           : undefined}
                       >
-                        {cable.materialCategoryCode || cable.cableType}
+                        {cable.materialCategoryName || cable.materialCategoryCode || cable.cableType}
                       </span>
                       <div className="my-0.5 h-px w-12 bg-gray-300" />
                     </div>

@@ -7,6 +7,7 @@ import type { RecentMaterial } from '../stores/recentMaterialsStore';
 export interface MaterialPickerValue {
   categoryId: string;
   categoryCode: string;
+  categoryName: string;
   specParams: Record<string, unknown>;
   specification: string;
 }
@@ -69,6 +70,7 @@ export function MaterialPicker({
         onChange({
           categoryId: selectedCategory.id,
           categoryCode: selectedCategory.code,
+          categoryName: selectedCategory.name,
           specParams: autoParams,
           specification: spec,
         });
@@ -103,6 +105,7 @@ export function MaterialPicker({
         onChange({
           categoryId: selectedCategory.id,
           categoryCode: selectedCategory.code,
+          categoryName: selectedCategory.name,
           specParams: next,
           specification: spec,
         });
@@ -118,6 +121,7 @@ export function MaterialPicker({
       onChange({
         categoryId: item.categoryId,
         categoryCode: item.categoryCode,
+        categoryName: item.categoryName,
         specParams: item.specParams,
         specification: item.specification,
       });

@@ -495,6 +495,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
     label: startCable.label ?? undefined,
     length: startCable.totalLength ?? undefined,
     materialCategoryCode: startCable.materialCategoryCode ?? undefined,
+    materialCategoryName: startCable.materialCategoryName ?? undefined,
     displayColor: startCable.displayColor ?? undefined,
   });
   visitedEdges.add(startCable.id);
@@ -570,6 +571,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
         label: cable.label ?? undefined,
         length: cable.totalLength ?? undefined,
         materialCategoryCode: cable.materialCategoryCode ?? undefined,
+        materialCategoryName: cable.materialCategoryName ?? undefined,
         displayColor: cable.displayColor ?? undefined,
       });
 

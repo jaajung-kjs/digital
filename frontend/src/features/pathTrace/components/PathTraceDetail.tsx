@@ -154,7 +154,7 @@ export function PathTraceDetail() {
 
   const firstEdge = traceResult.edges[0];
   const cableType = firstEdge?.cableType ?? '';
-  const badgeLabel = firstEdge?.materialCategoryCode || cableType;
+  const badgeLabel = firstEdge?.materialCategoryName || firstEdge?.materialCategoryCode || cableType;
   const badgeDisplayColor = firstEdge?.displayColor;
 
   return (
