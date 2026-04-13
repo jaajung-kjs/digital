@@ -45,7 +45,7 @@ function mapCablesToRenderable(
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
       cableType: cable.cableType,
-      label: cable.label || cable.materialCategoryCode || undefined,
+      label: cable.label || cable.materialCategoryName || cable.materialCategoryCode || undefined,
       color: cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength ?? undefined,
@@ -72,7 +72,7 @@ function mapPlanCablesToRenderable(
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
       cableType: cable.cableType,
-      label: cable.label || cable.materialCategoryCode || undefined,
+      label: cable.label || cable.materialCategoryName || cable.materialCategoryCode || undefined,
       color: cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength,
@@ -176,7 +176,7 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const context: ConnectionRenderContext = { ctx, zoom, panX, panY };
+    const context: ConnectionRenderContext = { ctx, zoom, panX, panY, selectedCableId };
 
     // Path highlight: show only trace cables, hide the rest
     const isHighlighting = highlightActive;

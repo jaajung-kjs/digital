@@ -247,7 +247,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
     room, floorPlan, roomLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
   } = useFloorPlanData(roomId, containerRef);
 
-  useEditorKeyboard(handleSave, roomId);
+  useEditorKeyboard(handleSave, roomId, containerRef);
   const { handlePasteEquipment } = useClipboard();
   const { pushHistory } = useEditorHistory();
 

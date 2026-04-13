@@ -53,6 +53,21 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, childre
   const setTextInputValue = useCanvasStore(s => s.setTextInputValue);
   const setTool = useEditorStore(s => s.setTool);
 
+  /** Zoom to a new level, keeping the viewport center stable */
+  const zoomToCenter = (newZoom: number) => {
+    const container = containerRef?.current;
+    if (!container) { setViewport(newZoom, panX, panY); return; }
+    const cx = container.clientWidth / 2;
+    const cy = container.clientHeight / 2;
+    const oldScale = zoom / 100;
+    const newScale = newZoom / 100;
+    const worldX = (cx - panX) / oldScale;
+    const worldY = (cy - panY) / oldScale;
+    const newPanX = cx - worldX * newScale;
+    const newPanY = cy - worldY * newScale;
+    setViewport(newZoom, newPanX, newPanY);
+  };
+
   const createTextElement = (text: string) => {
     if (!textInputPosition || !text.trim()) return;
     const newText: FloorPlanElement = {
@@ -101,7 +116,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, childre
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-1 gap-0.5">
           <button
-            onClick={() => setViewport(Math.max(10, zoom - 10), panX, panY)}
+            onClick={() => zoomToCenter(Math.max(10, zoom - 10))}
             className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
             title="축소"
           >
@@ -109,13 +124,13 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, childre
           </button>
           <div
             className="w-14 h-6 flex items-center justify-center text-xs font-mono text-gray-700 cursor-pointer hover:bg-gray-100 rounded"
-            onClick={() => setViewport(100, panX, panY)}
+            onClick={() => zoomToCenter(100)}
             title="100%로 리셋 (클릭)"
           >
             {zoom}%
           </div>
           <button
-            onClick={() => setViewport(Math.min(1000, zoom + 10), panX, panY)}
+            onClick={() => zoomToCenter(Math.min(1000, zoom + 10))}
             className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
             title="확대"
           >
@@ -124,7 +139,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, childre
           <div className="w-px h-4 bg-gray-300 mx-0.5" />
           <select
             value=""
-            onChange={(e) => { if (e.target.value) setViewport(parseInt(e.target.value), panX, panY); }}
+            onChange={(e) => { if (e.target.value) zoomToCenter(parseInt(e.target.value)); }}
             className="w-6 h-6 bg-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded cursor-pointer appearance-none text-center text-xs"
             title="줌 프리셋"
           >
