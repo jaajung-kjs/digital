@@ -5,7 +5,7 @@
 
 import { CONSTRUCTION_TEMPLATES, SURCHARGE_RULES } from '../config/constructionTemplates';
 import type { AccessoryRule } from '../config/constructionTemplates';
-/** Resolve display name: materialCategory name + specification from DB data */
+/** Resolve category name + specification separately from DB data */
 function resolveDisplayName(
   materialCategoryCode: string | null | undefined,
   specParams: Record<string, unknown> | null | undefined,
@@ -13,11 +13,6 @@ function resolveDisplayName(
   materialCategoryName?: string | null,
   specification?: string | null,
 ): { displayName: string; specification: string | undefined } {
-  if (!materialCategoryCode) return { displayName: fallbackName, specification: undefined };
-
-  // Use DB-provided materialCategoryName, fall back to code
-  const categoryName = materialCategoryName || materialCategoryCode;
-
   // Use pre-built specification if available, otherwise build from specParams
   let spec = specification ?? undefined;
   if (!spec && specParams && Object.keys(specParams).length > 0) {
@@ -25,7 +20,8 @@ function resolveDisplayName(
     spec = values.length > 0 ? values.join(' ') : undefined;
   }
 
-  const displayName = spec ? `${categoryName} ${spec}` : categoryName;
+  // displayName = category name only (no spec appended)
+  const displayName = materialCategoryName || materialCategoryCode || fallbackName;
   return { displayName, specification: spec };
 }
 
@@ -83,6 +79,7 @@ export interface BOMItem {
   materialCategoryCode: string;
   name: string;
   specification?: string;
+  action?: DiffAction;
   quantity: number;
   unit: string;
   isAccessory: boolean;
@@ -347,7 +344,9 @@ function computeBOM(diff: DiffItem[]): BOMItem[] {
     } else {
       bomMap.set(key, {
         materialCategoryCode: code,
-        name: `${item.name} (${actionLabel(item.action)})`,
+        name: item.name,
+        specification: item.specification,
+        action: item.action,
         quantity: item.length ?? item.quantity,
         unit: item.unit,
         isAccessory: false,
@@ -533,7 +532,7 @@ export function calculateConstructionReport(
 // Helpers
 // ============================================================
 
-function actionLabel(action: DiffAction): string {
+export function actionLabel(action: DiffAction): string {
   switch (action) {
     case 'install': return '신설';
     case 'remove': return '철거';
