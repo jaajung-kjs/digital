@@ -346,27 +346,20 @@ function LogList({
 //          previous log's newValues when oldValues is absent
 // ============================================================
 
-type AuditLogWithValues = AuditLog & {
-  oldValues?: unknown;
-  newValues?: unknown;
-  context?: Record<string, unknown>;
-};
 
 function resolveSnapshots(
   log: AuditLog,
   allLogs: AuditLog[] | undefined,
 ): { oldVals: PlanSnapshot | null; newVals: PlanSnapshot | null } {
-  const logAny = log as AuditLogWithValues;
-  const newVals = (logAny.newValues as PlanSnapshot) ?? null;
-  let oldVals = (logAny.oldValues as PlanSnapshot) ?? null;
+  const newVals = (log.newValues as unknown as PlanSnapshot) ?? null;
+  let oldVals = (log.oldValues as unknown as PlanSnapshot) ?? null;
 
   // Fallback: use the previous log entry's newValues as the "before" state
   if (!oldVals && allLogs) {
     const idx = allLogs.findIndex((l) => l.id === log.id);
     if (idx >= 0 && idx < allLogs.length - 1) {
-      // Logs are in reverse chronological order — the previous version is the next item
-      const prevLog = allLogs[idx + 1] as AuditLogWithValues;
-      oldVals = (prevLog.newValues as PlanSnapshot) ?? null;
+      const prevLog = allLogs[idx + 1];
+      oldVals = (prevLog.newValues as unknown as PlanSnapshot) ?? null;
     }
   }
 
@@ -449,9 +442,8 @@ interface ReportViewProps {
 }
 
 function ReportView({ log, allLogs, roomId: _roomId, onSaveOverrides, isSaving }: ReportViewProps) {
-  const logAny = log as AuditLogWithValues;
   const { oldVals, newVals } = resolveSnapshots(log, allLogs);
-  const savedOverrides = (logAny.context?.reportOverrides as ReportOverrides) ?? null;
+  const savedOverrides = ((log.context as Record<string, unknown>)?.reportOverrides as ReportOverrides) ?? null;
 
   const [editMode, setEditMode] = useState(false);
   const [surcharges, setSurcharges] = useState<string[]>(savedOverrides?.surcharges ?? []);

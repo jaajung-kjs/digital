@@ -35,6 +35,9 @@ export interface AuditLog {
   action: string;
   actionDetail?: string;
   changedFields: string[];
+  oldValues?: Record<string, unknown> | null;
+  newValues?: Record<string, unknown> | null;
+  context?: Record<string, unknown> | null;
   hasSnapshot: boolean;
   userName?: string;
   createdAt: string;

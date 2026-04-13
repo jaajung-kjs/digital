@@ -1241,6 +1241,7 @@ class RoomService {
         action: true,
         actionDetail: true,
         changedFields: true,
+        oldValues: true,
         newValues: true,
         context: true,
         userName: true,
@@ -1248,9 +1249,9 @@ class RoomService {
       },
     });
 
-    return logs.map(({ newValues, ...rest }) => ({
-      ...rest,
-      hasSnapshot: newValues !== null,
+    return logs.map((log) => ({
+      ...log,
+      hasSnapshot: log.newValues !== null,
     }));
   }
 
