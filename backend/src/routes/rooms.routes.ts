@@ -151,6 +151,12 @@ router.get('/:id/audit-logs', roomController.getAuditLogs);
 // 도면 변경 이력 스냅샷 조회
 router.get('/:id/audit-logs/:logId/snapshot', roomController.getAuditLogSnapshot);
 
+// 도면 변경 이력 context 수정 (관리자만)
+const patchAuditLogContextSchema = z.object({
+  context: z.record(z.unknown()),
+});
+router.patch('/:id/audit-logs/:logId', authenticate, adminOnly, validate(patchAuditLogContextSchema), roomController.patchAuditLogContext);
+
 // 도면 변경 이력 삭제 (관리자만)
 router.delete('/:id/audit-logs/:logId', authenticate, adminOnly, roomController.deleteAuditLog);
 
