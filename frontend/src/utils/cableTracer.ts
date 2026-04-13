@@ -127,7 +127,10 @@ function buildPathSegments(nodes: TraceNode[], edges: TraceEdge[]): PathSegment[
     if (visited.has(branch.neighborId)) continue;
     visited.add(branch.neighborId);
     walkSegment(
-      [{ nodeId: branch.neighborId, edgeId: branch.edgeId }],
+      [
+        { nodeId: branch.branchNodeId, edgeId: null },
+        { nodeId: branch.neighborId, edgeId: branch.edgeId },
+      ],
       branch.branchNodeId,
     );
   }
@@ -177,9 +180,10 @@ function detectRings(
     visited.add(startId);
     treeParent.set(startId, null);
     const queue = [startId];
+    let qHead = 0;
 
-    while (queue.length > 0) {
-      const nodeId = queue.shift()!;
+    while (qHead < queue.length) {
+      const nodeId = queue[qHead++]!;
       for (const neighborId of adjacency.get(nodeId) ?? []) {
         if (visited.has(neighborId)) continue;
         visited.add(neighborId);
@@ -510,9 +514,25 @@ export function traceCable(input: TraceCableInput): TraceResult {
   visited.add(sourceId);
   visited.add(targetId);
 
+  // Pre-build fiber cable lookup by fiberPathId for traverseFiberPaths
+  const fiberCablesByPathId = new Map<string, LocalCable[]>();
+  if (cableType === 'FIBER') {
+    for (const cable of sameCables) {
+      if (cable.fiberPathId) {
+        let list = fiberCablesByPathId.get(cable.fiberPathId);
+        if (!list) {
+          list = [];
+          fiberCablesByPathId.set(cable.fiberPathId, list);
+        }
+        list.push(cable);
+      }
+    }
+  }
+
   // 4. BFS
-  while (queue.length > 0) {
-    const equipId = queue.shift()!;
+  let qHead = 0;
+  while (qHead < queue.length) {
+    const equipId = queue[qHead++]!;
     const isOfd = ofdIds.has(equipId);
 
     const connectedCables = cableAdjacency.get(equipId) ?? [];
@@ -582,8 +602,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
       traverseFiberPaths(
         equipId,
         fiberPaths,
-        cables,
-        equipMap,
+        fiberCablesByPathId,
         visited,
         visitedEdges,
         ofdReachablePorts,
@@ -614,8 +633,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
 function traverseFiberPaths(
   ofdId: string,
   fiberPaths: FiberPathDetail[],
-  allCables: LocalCable[],
-  _equipMap: Map<string, FloorPlanEquipment>,
+  fiberCablesByPathId: Map<string, LocalCable[]>,
   visited: Set<string>,
   visitedEdges: Set<string>,
   ofdReachablePorts: Map<string, Set<string>>,
@@ -636,18 +654,19 @@ function traverseFiberPaths(
       (fp.ofdA.id === ofdId || fp.ofdB.id === ofdId),
   );
 
-  // Build lookup of other-side cables: cables on relevant fiber paths NOT connected to this OFD
+  // Build lookup of other-side cables using pre-built fiberCablesByPathId map
   const otherSideByKey = new Map<string, LocalCable>();
-  for (const cable of allCables) {
-    if (
-      cable.cableType === 'FIBER' &&
-      cable.fiberPathId &&
-      cable.fiberPortNumber != null &&
-      reachableFpIds.has(cable.fiberPathId) &&
-      cable.sourceEquipmentId !== ofdId &&
-      cable.targetEquipmentId !== ofdId
-    ) {
-      otherSideByKey.set(`${cable.fiberPathId}:${cable.fiberPortNumber}`, cable);
+  for (const fpId of reachableFpIds) {
+    const cables = fiberCablesByPathId.get(fpId);
+    if (!cables) continue;
+    for (const cable of cables) {
+      if (
+        cable.fiberPortNumber != null &&
+        cable.sourceEquipmentId !== ofdId &&
+        cable.targetEquipmentId !== ofdId
+      ) {
+        otherSideByKey.set(`${cable.fiberPathId}:${cable.fiberPortNumber}`, cable);
+      }
     }
   }
 

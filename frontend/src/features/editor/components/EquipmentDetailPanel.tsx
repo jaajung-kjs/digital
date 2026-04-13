@@ -800,8 +800,7 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
   });
 
   const allLogs = useMemo(() => {
-    const savedLogs = (backendLogs ?? [])
-      .map((l) => ({ ...l, isPending: false }));
+    const savedLogs = (backendLogs ?? []);
 
     const pending = pendingLogs
       .filter((l) => l.equipmentId === equipmentId)
@@ -818,7 +817,6 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
         updatedAt: new Date().toISOString(),
         createdByName: null as string | null,
         updatedByName: null as string | null,
-        isPending: true,
       }));
 
     return [...pending, ...savedLogs].sort((a, b) => {
@@ -968,7 +966,7 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
                     </span>
                   )}
                 </div>
-                {!readOnly && (
+                {!readOnly && pendingLogs.some((l) => l.id === log.id) && (
                   <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => handleEditLog(log)}
