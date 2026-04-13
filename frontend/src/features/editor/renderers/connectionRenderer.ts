@@ -146,7 +146,7 @@ function drawConnectionLabel(
     midY = (conn.sourceY + conn.targetY) / 2;
   }
 
-  let text = conn.label ? `${conn.cableType} - ${conn.label}` : conn.cableType;
+  let text = conn.label || conn.materialCategoryCode || conn.cableType;
   if (conn.totalLength != null) {
     text += ` (${conn.totalLength}m)`;
   }
