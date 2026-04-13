@@ -145,7 +145,15 @@ export function useEditorKeyboard(handleSave: () => void) {
         }
       }
 
-      // Delete key
+      // Delete key — cable deletion
+      if (e.key === 'Delete' && es.selectedCableId) {
+        es.deleteCable(es.selectedCableId);
+        es.setSelectedCableId(null);
+        es.setHasChanges(true);
+        return;
+      }
+
+      // Delete key — element/equipment deletion
       if (e.key === 'Delete' && es.selectedIds.length > 0) {
         // Use deleteEquipmentWithCascade for equipment (removes cables + pending data)
         const equipmentToDelete = localEquipment.filter(eq => es.selectedIds.includes(eq.id));

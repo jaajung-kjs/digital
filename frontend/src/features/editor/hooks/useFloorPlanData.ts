@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type { FloorPlanDetail, UpdateFloorPlanRequest } from '../../../types/floorPlan';
@@ -315,6 +315,8 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     saveMutation.mutate(updateData);
   };
 
+  const clearSaveError = useCallback(() => setSaveError(null), []);
+
   return {
     room,
     floorPlan,
@@ -322,6 +324,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     planLoading,
     planError,
     saveError,
+    clearSaveError,
     saveMutation,
     handleSave,
   };
