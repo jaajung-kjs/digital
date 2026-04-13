@@ -44,6 +44,7 @@ interface EquipmentDetail {
   materialCategoryCode?: string | null;
   materialCategoryName?: string | null;
   displayColor?: string | null;
+  specification?: string | null;
   specParams?: Record<string, unknown> | null;
 }
 
@@ -899,6 +900,9 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
   const [editName, setEditName] = useState(equipment.name);
   const [editMaterialCategoryId, setEditMaterialCategoryId] = useState(equipment.materialCategoryId ?? null);
   const [editMaterialCategoryCode, setEditMaterialCategoryCode] = useState(equipment.materialCategoryCode ?? null);
+  const [editMaterialCategoryName, setEditMaterialCategoryName] = useState(equipment.materialCategoryName ?? null);
+  const [editDisplayColor, setEditDisplayColor] = useState(equipment.displayColor ?? null);
+  const [editSpecification, setEditSpecification] = useState(equipment.specification ?? null);
   const [editSpecParams, setEditSpecParams] = useState<Record<string, unknown>>(equipment.specParams as Record<string, unknown> ?? {});
   const [editModel, setEditModel] = useState(equipment.model ?? '');
   const [editManufacturer, setEditManufacturer] = useState(equipment.manufacturer ?? '');
@@ -917,6 +921,9 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
             category,
             materialCategoryId: editMaterialCategoryId,
             materialCategoryCode: editMaterialCategoryCode,
+            materialCategoryName: editMaterialCategoryName,
+            displayColor: editDisplayColor,
+            specification: editSpecification,
             specParams: editSpecParams,
             description: editDescription || null,
             model: editModel || null,
@@ -942,9 +949,12 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
         <MaterialPicker
           categoryType="EQUIPMENT"
           value={editMaterialCategoryId ? { categoryId: editMaterialCategoryId, specParams: editSpecParams } : null}
-          onChange={({ categoryId, categoryCode, specParams }) => {
+          onChange={({ categoryId, categoryCode, categoryName, displayColor, specParams, specification }) => {
             setEditMaterialCategoryId(categoryId);
             setEditMaterialCategoryCode(categoryCode);
+            setEditMaterialCategoryName(categoryName);
+            setEditDisplayColor(displayColor);
+            setEditSpecification(specification);
             setEditSpecParams(specParams);
           }}
         />

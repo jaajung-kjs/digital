@@ -8,6 +8,7 @@ export interface MaterialPickerValue {
   categoryId: string;
   categoryCode: string;
   categoryName: string;
+  displayColor: string | null;
   specParams: Record<string, unknown>;
   specification: string;
 }
@@ -71,6 +72,7 @@ export function MaterialPicker({
           categoryId: selectedCategory.id,
           categoryCode: selectedCategory.code,
           categoryName: selectedCategory.name,
+          displayColor: selectedCategory.displayColor ?? null,
           specParams: autoParams,
           specification: spec,
         });
@@ -106,6 +108,7 @@ export function MaterialPicker({
           categoryId: selectedCategory.id,
           categoryCode: selectedCategory.code,
           categoryName: selectedCategory.name,
+          displayColor: selectedCategory.displayColor ?? null,
           specParams: next,
           specification: spec,
         });
@@ -122,6 +125,7 @@ export function MaterialPicker({
         categoryId: item.categoryId,
         categoryCode: item.categoryCode,
         categoryName: item.categoryName,
+        displayColor: null,
         specParams: item.specParams,
         specification: item.specification,
       });

@@ -25,6 +25,7 @@ export function RackEquipmentForm({
   const [materialCategoryId, setMaterialCategoryId] = useState<string | null>(null);
   const [materialCategoryCode, setMaterialCategoryCode] = useState<string | null>(null);
   const [materialCategoryName, setMaterialCategoryName] = useState<string | null>(null);
+  const [displayColor, setDisplayColor] = useState<string | null>(null);
   const [specification, setSpecification] = useState<string | null>(null);
   const [specParams, setSpecParams] = useState<Record<string, unknown> | null>(null);
 
@@ -70,6 +71,7 @@ export function RackEquipmentForm({
       materialCategoryId,
       materialCategoryCode,
       materialCategoryName,
+      displayColor,
       specification,
       specParams,
       parentEquipmentId: rackEquipmentId,
@@ -103,10 +105,11 @@ export function RackEquipmentForm({
           <MaterialPicker
             categoryType="EQUIPMENT"
             value={materialCategoryId ? { categoryId: materialCategoryId, specParams: specParams ?? {} } : null}
-            onChange={({ categoryId, categoryCode, categoryName, specParams: sp, specification: spec }) => {
+            onChange={({ categoryId, categoryCode, categoryName, displayColor: dc, specParams: sp, specification: spec }) => {
               setMaterialCategoryId(categoryId);
               setMaterialCategoryCode(categoryCode ?? null);
               setMaterialCategoryName(categoryName ?? null);
+              setDisplayColor(dc ?? null);
               setSpecification(spec ?? null);
               setSpecParams(sp);
             }}
