@@ -18,7 +18,6 @@ import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from './useEditorHistory';
-import { useConnectionCreationStore } from '../../connections/stores/connectionCreationStore';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
@@ -106,17 +105,6 @@ export function useCanvasEvents(
       return;
     }
 
-    // Connection creation mode: don't start dragging equipment
-    const creationStore = useConnectionCreationStore.getState();
-    if (creationStore.phase === 'selectingTarget') {
-      const found = findItemAt(x, y, localElements, localEquipment);
-      if (!found) {
-        canvasStore.getState().setIsPanning(true);
-        canvasStore.getState().setPanStart({ x: screenX, y: screenY });
-      }
-      return;
-    }
-
     if (tool === 'select') {
       const found = findItemAt(x, y, localElements, localEquipment);
       if (found) {
@@ -196,22 +184,6 @@ export function useCanvasEvents(
         const newHovered = found?.type === 'equipment' ? found.item.id : null;
         if (newHovered !== cableDrawing.hoveredEquipmentId) {
           cableDrawing.setHovered(newHovered);
-        }
-      }
-      return;
-    }
-
-    // Connection creation: track hover over equipment
-    const creationStore = useConnectionCreationStore.getState();
-    if (creationStore.phase === 'selectingTarget') {
-      const last = lastHoverPos.current;
-      if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
-        lastHoverPos.current = { x: worldX, y: worldY };
-        const { localElements, localEquipment } = editorStore.getState();
-        const found = findItemAt(worldX, worldY, localElements, localEquipment);
-        const newHovered = found?.type === 'equipment' ? found.item.id : null;
-        if (newHovered !== creationStore.hoveredEquipmentId) {
-          creationStore.setHovered(newHovered);
         }
       }
       return;
@@ -379,40 +351,6 @@ export function useCanvasEvents(
       return;
     }
 
-    // Connection creation: click on equipment to complete
-    const creationStore = useConnectionCreationStore.getState();
-    if (creationStore.phase === 'selectingTarget') {
-      const found = findItemAt(x, y, localElements, localEquipment);
-      if (found?.type === 'equipment' && found.item.id !== creationStore.sourceEquipmentId) {
-        const targetEquipment = localEquipment.find((eq) => eq.id === found.item.id);
-        const isTargetOfd = targetEquipment?.category === 'OFD';
-
-        if (isTargetOfd && creationStore.cableType === 'FIBER') {
-          // Target is OFD + FIBER: use OFD flow for port selection
-          const ofdFlow = useOfdConnectionFlowStore.getState();
-          ofdFlow.startToOfd(creationStore.sourceEquipmentId!, found.item.id);
-          editorStore.getState().setDetailPanelEquipmentId(found.item.id);
-          creationStore.cancel();
-        } else {
-          // Normal cable: create directly
-          editorStore.getState().addCable({
-            id: generateTempId(),
-            sourceEquipmentId: creationStore.sourceEquipmentId!,
-            targetEquipmentId: found.item.id,
-            cableType: creationStore.cableType!,
-            materialCategoryId: creationStore.materialCategoryId || undefined,
-            materialCategoryCode: creationStore.materialCategoryCode || undefined,
-            specParams: creationStore.specParams || undefined,
-          });
-          creationStore.cancel();
-        }
-      } else if (!found) {
-        // Click on empty space: cancel creation
-        creationStore.cancel();
-      }
-      return;
-    }
-
     // OFD flow: selecting target
     const ofdFlow = useOfdConnectionFlowStore.getState();
     if (ofdFlow.phase === 'selectingTarget') {
@@ -443,7 +381,6 @@ export function useCanvasEvents(
             } as LineProperties,
             zIndex: localElements.length,
             isVisible: true,
-            isLocked: false,
           };
           const newElements = [...localElements, newLine];
           editorStore.getState().setLocalElements(newElements);
@@ -481,8 +418,7 @@ export function useCanvasEvents(
               } as RectProperties,
               zIndex: localElements.length,
               isVisible: true,
-              isLocked: false,
-            };
+              };
             const newElements = [...localElements, newRect];
             editorStore.getState().setLocalElements(newElements);
             pushHistory(newElements, localEquipment);
@@ -515,7 +451,6 @@ export function useCanvasEvents(
             } as CircleProperties,
             zIndex: localElements.length,
             isVisible: true,
-            isLocked: false,
           };
           const newElements = [...localElements, newCircle];
           editorStore.getState().setLocalElements(newElements);
@@ -540,7 +475,6 @@ export function useCanvasEvents(
           } as DoorProperties,
           zIndex: localElements.length,
           isVisible: true,
-          isLocked: false,
         };
         const newElements = [...localElements, newDoor];
         editorStore.getState().setLocalElements(newElements);
@@ -561,7 +495,6 @@ export function useCanvasEvents(
           } as WindowProperties,
           zIndex: localElements.length,
           isVisible: true,
-          isLocked: false,
         };
         const newElements = [...localElements, newWindow];
         editorStore.getState().setLocalElements(newElements);
@@ -630,7 +563,6 @@ export function useCanvasEvents(
             } as LineProperties,
             zIndex: localElements.length,
             isVisible: true,
-            isLocked: false,
             pathLength: realLength,
           };
           const newElements = [...localElements, newElement];
@@ -669,7 +601,6 @@ export function useCanvasEvents(
           } as RectProperties,
           zIndex: localElements.length,
           isVisible: true,
-          isLocked: false,
         };
         const newElements = [...localElements, newPullbox];
         editorStore.getState().setLocalElements(newElements);

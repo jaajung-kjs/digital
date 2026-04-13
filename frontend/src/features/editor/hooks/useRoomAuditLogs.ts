@@ -104,10 +104,7 @@ function applySnapshotToEditor(snapshot: SnapshotResponse, roomId: string, query
   store.clearPendingData();
   clearEditorFocus();
 
-  const elements = snapshot.plan.elements.map((e) => ({
-    ...e,
-    isLocked: false,
-  }));
+  const elements = snapshot.plan.elements;
   store.setLocalElements(elements);
   store.setLocalEquipment(snapshot.plan.equipment);
   store.setGridSize(snapshot.plan.gridSize);

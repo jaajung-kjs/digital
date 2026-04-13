@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
+import { isTempId } from '../../../utils/idHelpers';
 import type { FiberPathDetail, CreateFiberPathInput } from '../types';
 
 const FIBER_PATH_KEYS = {
@@ -17,7 +18,7 @@ export function useFiberPaths(ofdId: string, enabled = true) {
       );
       return data.data;
     },
-    enabled: enabled && !!ofdId,
+    enabled: enabled && !!ofdId && !isTempId(ofdId),
   });
 }
 

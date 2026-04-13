@@ -301,6 +301,7 @@ async function captureRoomSnapshot(
       include: {
         sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
         targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     }),
   ]);
@@ -328,6 +329,13 @@ async function captureRoomSnapshot(
       cableType: c.cableType, label: c.label, length: c.length, color: c.color,
       pathPoints: c.pathPoints, description: c.description,
       fiberPathId: c.fiberPathId, fiberPortNumber: c.fiberPortNumber,
+      materialCategoryId: c.materialCategoryId,
+      materialCategoryCode: c.materialCategory?.code ?? null,
+      displayColor: c.materialCategory?.displayColor ?? null,
+      specParams: c.specParams,
+      pathLength: c.pathLength,
+      bufferLength: c.bufferLength,
+      totalLength: c.totalLength,
       sourceEquipment: c.sourceEquipment, targetEquipment: c.targetEquipment,
     })),
   };

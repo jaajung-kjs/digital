@@ -46,13 +46,24 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
     enabled: showCreate,
   });
 
+  // Merge unsaved OFD equipment from local store
+  const localEquipment = useEditorStore((s) => s.localEquipment);
+  const unsavedOfds: OfdEquipment[] = localEquipment
+    .filter((eq) => isTempId(eq.id) && eq.materialCategoryCode?.startsWith('EQP-OFD'))
+    .map((eq) => ({ id: eq.id, name: eq.name }));
+
+  const mergedOfdList = [
+    ...(ofdList ?? []),
+    ...unsavedOfds.filter((u) => !(ofdList ?? []).some((s) => s.id === u.id)),
+  ];
+
   // 자기 자신만 제외, 변전소명으로 필터
-  const filteredList = ofdList
-    ?.filter((eq) => eq.id !== ofdId)
+  const filteredList = mergedOfdList
+    .filter((eq) => eq.id !== ofdId)
     .filter((eq) => {
       if (!searchTerm) return true;
-      return (eq.substationName ?? '').toLowerCase().includes(searchTerm.toLowerCase());
-    }) ?? [];
+      return (eq.substationName ?? eq.name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+    });
 
   const handleCreate = (targetOfdId: string) => {
     addPendingFiberPath({

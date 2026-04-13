@@ -48,7 +48,7 @@ export const useSnapshotStore = create<SnapshotStoreState & SnapshotStoreActions
     active: true,
     snapshotId: id,
     label,
-    elements: data.elements.map(e => ({ ...e, isLocked: false })),
+    elements: data.elements,
     equipment: data.equipment,
     cables: data.cables,
     gridSize: data.gridSize,
