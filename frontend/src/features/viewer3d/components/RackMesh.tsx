@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import type { RackItem } from '@/types/floorPlan';
+import type { FloorPlanEquipment } from '@/types/floorPlan';
 import { useImageTexture } from '../utils/textureLoader';
 import { DEFAULT_RACK_HEIGHT } from '../utils/meshBuilder';
 
 interface RackMeshProps {
-  rack: RackItem;
+  rack: FloorPlanEquipment;
   canvasWidth: number;
   canvasHeight: number;
 }

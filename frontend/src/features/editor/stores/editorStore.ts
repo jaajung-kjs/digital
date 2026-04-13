@@ -86,10 +86,6 @@ export interface EditorStoreState {
   localCables: LocalCable[];
   hasChanges: boolean;
 
-  // Element/Equipment deletions (tracked for backward compat with server)
-  deletedElementIds: string[];
-  deletedEquipmentIds: string[];
-
   // Pending binary uploads (can't be in JSON)
   pendingUploads: PendingUpload[];
 
@@ -134,10 +130,6 @@ export interface EditorStoreActions {
   setLocalElements: (elements: FloorPlanElement[] | ((prev: FloorPlanElement[]) => FloorPlanElement[])) => void;
   setLocalEquipment: (equipment: FloorPlanEquipment[] | ((prev: FloorPlanEquipment[]) => FloorPlanEquipment[])) => void;
   setHasChanges: (has: boolean) => void;
-  addDeletedElementId: (id: string) => void;
-  addDeletedEquipmentId: (id: string) => void;
-  addDeletedElementIds: (ids: string[]) => void;
-  addDeletedEquipmentIds: (ids: string[]) => void;
 
   // Cable CRUD
   addCable: (cable: LocalCable) => void;
@@ -190,8 +182,6 @@ const initialState: EditorStoreState = {
   localEquipment: [],
   localCables: [],
   hasChanges: false,
-  deletedElementIds: [],
-  deletedEquipmentIds: [],
   pendingUploads: [],
   pendingLogs: [],
   pendingFiberPaths: [],
@@ -235,18 +225,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     localEquipment: typeof equipment === 'function' ? equipment(state.localEquipment) : equipment,
   })),
   setHasChanges: (hasChanges) => set({ hasChanges }),
-  addDeletedElementId: (id) => set((state) => ({
-    deletedElementIds: [...state.deletedElementIds, id],
-  })),
-  addDeletedEquipmentId: (id) => set((state) => ({
-    deletedEquipmentIds: [...state.deletedEquipmentIds, id],
-  })),
-  addDeletedElementIds: (ids) => set((state) => ({
-    deletedElementIds: [...state.deletedElementIds, ...ids],
-  })),
-  addDeletedEquipmentIds: (ids) => set((state) => ({
-    deletedEquipmentIds: [...state.deletedEquipmentIds, ...ids],
-  })),
 
   // === Cable CRUD ===
   addCable: (cable) => set((state) => ({
@@ -285,7 +263,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   })),
   clearPendingData: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);
-    return { pendingUploads: [], pendingLogs: [], pendingFiberPaths: [], deletedFiberPathIds: [], deletedElementIds: [], deletedEquipmentIds: [] };
+    return { pendingUploads: [], pendingLogs: [], pendingFiberPaths: [], deletedFiberPathIds: [] };
   }),
 
   // === Pending Fiber Paths ===

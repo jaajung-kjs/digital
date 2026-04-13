@@ -142,9 +142,6 @@ export interface UpdatePlanInput {
     portCount: number;
     description?: string | null;
   }[];
-  deletedElementIds?: string[];
-  deletedEquipmentIds?: string[];
-  deletedCableIds?: string[];
   deletedFiberPathIds?: string[];
 }
 
@@ -368,7 +365,6 @@ class RoomService {
       where: { id },
       include: {
         elements: {
-          where: { isVisible: true },
           orderBy: { zIndex: 'asc' },
         },
       },
@@ -540,30 +536,30 @@ class RoomService {
         (input.elements ?? []).filter(e => isRealId(e.id)).map(e => e.id!)
       );
       const computedDeleteElementIds = [...dbElementIds].filter(id => !receivedElementIds.has(id));
-      const deleteElementIds = new Set([
-        ...computedDeleteElementIds,
-        ...(input.deletedElementIds ?? []),
-      ]);
+      const deleteElementIds = new Set(computedDeleteElementIds);
 
       // Equipment diff
       const receivedEquipmentIds = new Set(
         (input.equipment ?? []).filter(e => isRealId(e.id)).map(e => e.id!)
       );
       const computedDeleteEquipmentIds = [...dbEquipmentIds].filter(id => !receivedEquipmentIds.has(id));
-      const deleteEquipmentIds = new Set([
-        ...computedDeleteEquipmentIds,
-        ...(input.deletedEquipmentIds ?? []),
-      ]);
+      const deleteEquipmentIds = new Set(computedDeleteEquipmentIds);
 
       // Cables diff (computed after equipment processing for tempId resolution)
       const receivedCableIds = new Set(
         (input.cables ?? []).filter(c => isRealId(c.id)).map(c => c.id!)
       );
-      const computedDeleteCableIds = [...dbCableIds].filter(id => !receivedCableIds.has(id));
-      const deleteCableIds = new Set([
-        ...computedDeleteCableIds,
-        ...(input.deletedCableIds ?? []),
-      ]);
+      // Only delete cables where BOTH endpoints belong to this room's equipment
+      const roomEquipmentIds = new Set([...dbEquipmentMap.keys()]);
+      const computedDeleteCableIds = [...dbCableIds].filter(id => {
+        if (receivedCableIds.has(id)) return false;
+        const cable = dbCableMap.get(id);
+        if (!cable) return false;
+        const sourceInRoom = roomEquipmentIds.has(cable.sourceEquipmentId);
+        const targetInRoom = roomEquipmentIds.has(cable.targetEquipmentId);
+        return sourceInRoom && targetInRoom;
+      });
+      const deleteCableIds = new Set(computedDeleteCableIds);
 
       // ── Step 1.5: Detect changes BEFORE applying mutations ──
       const allChanges: DetailedChange[] = [];
@@ -670,14 +666,18 @@ class RoomService {
       // 2c. Delete equipment + auto-delete associated Rack for EQP-RACK
       if (deleteEquipmentIds.size > 0) {
         // Check for EQP-RACK equipment being deleted → delete corresponding Rack
+        const hasRackEquipment = [...deleteEquipmentIds].some(eqId => {
+          const eq = dbEquipmentMap.get(eqId);
+          return eq?.materialCategory?.code?.startsWith('EQP-RACK');
+        });
+        const roomRacksForDelete = hasRackEquipment
+          ? await tx.rack.findMany({ where: { roomId: id } })
+          : [];
+
         for (const eqId of deleteEquipmentIds) {
           const eq = dbEquipmentMap.get(eqId);
           if (eq?.materialCategory?.code?.startsWith('EQP-RACK')) {
-            // Find rack at same position (within tolerance)
-            const racks = await tx.rack.findMany({
-              where: { roomId: id },
-            });
-            const matchingRack = racks.find(r =>
+            const matchingRack = roomRacksForDelete.find(r =>
               Math.abs(r.positionX - (eq.positionX ?? 0)) < RACK_POSITION_TOLERANCE &&
               Math.abs(r.positionY - (eq.positionY ?? 0)) < RACK_POSITION_TOLERANCE
             );

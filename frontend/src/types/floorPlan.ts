@@ -149,9 +149,6 @@ export interface FloorPlanEquipment {
   heightU?: number | null;            // Height in U units
 }
 
-/** @deprecated Use FloorPlanEquipment instead */
-export type RackItem = FloorPlanEquipment;
-
 // 평면도 타입
 export interface FloorPlanDetail {
   id: string;
@@ -234,9 +231,6 @@ export interface UpdateFloorPlanRequest {
     description?: string;
   }[];
   deletedFiberPathIds?: string[];
-  deletedElementIds?: string[];
-  deletedEquipmentIds?: string[];
-  deletedCableIds?: string[];
 }
 
 export interface CreateFloorPlanEquipmentRequest {

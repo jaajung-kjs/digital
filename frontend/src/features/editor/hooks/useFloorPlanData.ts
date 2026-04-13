@@ -50,7 +50,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
   const queryClient = useQueryClient();
   const {
     localElements, localEquipment, zoom, panX, panY,
-    gridSize, majorGridSize, deletedElementIds, deletedEquipmentIds,
+    gridSize, majorGridSize,
     setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize,
     setHasChanges, setViewportInitialized,
     setViewport, viewportInitialized,
@@ -102,44 +102,53 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       const tempIdMap = buildTempIdMap(equipmentIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
 
-      // Process pending uploads (photos)
+      // Process pending uploads and logs in parallel
+      const pendingTasks: Promise<void>[] = [];
+
       if (pendingUploads.length > 0) {
-        const results = await Promise.allSettled(
-          pendingUploads.map(async (upload) => {
-            const formData = new FormData();
-            formData.append('file', upload.file);
-            formData.append('side', upload.side);
-            formData.append('takenAt', new Date().toISOString());
-            if (upload.description) formData.append('description', upload.description);
-            await api.post(`/equipment/${resolveId(upload.equipmentId)}/photos`, formData, {
-              headers: { 'Content-Type': 'multipart/form-data' },
-            });
+        pendingTasks.push(
+          Promise.allSettled(
+            pendingUploads.map(async (upload) => {
+              const formData = new FormData();
+              formData.append('file', upload.file);
+              formData.append('side', upload.side);
+              formData.append('takenAt', new Date().toISOString());
+              if (upload.description) formData.append('description', upload.description);
+              await api.post(`/equipment/${resolveId(upload.equipmentId)}/photos`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+              });
+            })
+          ).then((results) => {
+            const failures = results.filter((r) => r.status === 'rejected');
+            if (failures.length > 0) {
+              console.warn(`[Save] ${failures.length} photo upload(s) failed:`, failures);
+            }
           })
         );
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0) {
-          console.warn(`[Save] ${failures.length} photo upload(s) failed:`, failures);
-        }
       }
 
-      // Process pending logs
       if (pendingLogs.length > 0) {
-        const results = await Promise.allSettled(
-          pendingLogs.map(async (log) => {
-            await api.post(`/equipment/${resolveId(log.equipmentId)}/maintenance-logs`, {
-              logType: log.logType,
-              title: log.title,
-              logDate: log.logDate || undefined,
-              severity: log.severity || undefined,
-              description: log.description || undefined,
-            });
+        pendingTasks.push(
+          Promise.allSettled(
+            pendingLogs.map(async (log) => {
+              await api.post(`/equipment/${resolveId(log.equipmentId)}/maintenance-logs`, {
+                logType: log.logType,
+                title: log.title,
+                logDate: log.logDate || undefined,
+                severity: log.severity || undefined,
+                description: log.description || undefined,
+              });
+            })
+          ).then((results) => {
+            const failures = results.filter((r) => r.status === 'rejected');
+            if (failures.length > 0) {
+              console.warn(`[Save] ${failures.length} log creation(s) failed:`, failures);
+            }
           })
         );
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0) {
-          console.warn(`[Save] ${failures.length} log creation(s) failed:`, failures);
-        }
       }
+
+      await Promise.all(pendingTasks);
 
       // Clear pending data and invalidate queries
       useEditorStore.getState().clearPendingData();
@@ -201,7 +210,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
   // Sync connections into store as localCables (only when not restoring a draft)
   useEffect(() => {
-    if (backendConnections && !isSavingRef.current && !useEditorStore.getState().hasChanges) {
+    if (backendConnections && !saveMutation.isPending && !useEditorStore.getState().hasChanges) {
       const cables = connectionsToLocalCables(backendConnections);
       useEditorStore.getState().setCables(cables);
     }
@@ -303,8 +312,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
         description: fp.description,
       })) : undefined,
       deletedFiberPathIds: deletedFiberPathIds.length > 0 ? deletedFiberPathIds : undefined,
-      deletedElementIds: deletedElementIds.length > 0 ? deletedElementIds : undefined,
-      deletedEquipmentIds: deletedEquipmentIds.length > 0 ? deletedEquipmentIds : undefined,
     };
 
     saveMutation.mutate(updateData);
