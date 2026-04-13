@@ -33,11 +33,11 @@ interface ToolbarProps {
 
 export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory, onToggleSettings }: ToolbarProps) {
   const {
-    selectedElement, localElements, hasChanges, showLengths,
+    selectedElement, localElements, localEquipment, hasChanges, showLengths,
     setLocalElements, setHasChanges, setShowLengths,
   } = useEditorStore();
   const snapshotActive = useSnapshotStore(s => s.active);
-  const { undo, redo, canUndo, canRedo } = useEditorHistory();
+  const { pushHistory, undo, redo, canUndo, canRedo } = useEditorHistory();
 
   return (
     <div className="shrink-0 bg-white border-b px-4 py-2 flex items-center justify-between">
@@ -80,7 +80,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                   onClick={() => {
                     if (!selectedElement) return;
                     const updater = createRotateUpdater(selectedElement);
-                    if (updater) { setLocalElements(updater); setHasChanges(true); }
+                    if (updater) { pushHistory(localElements, localEquipment); setLocalElements(updater); setHasChanges(true); }
                   }}
                   disabled={!hasProperty(selectedElement, 'rotation')}
                   className="p-1.5 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
@@ -96,7 +96,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                   onClick={() => {
                     if (!selectedElement) return;
                     const updater = createFlipHUpdater(selectedElement);
-                    if (updater) { setLocalElements(updater); setHasChanges(true); }
+                    if (updater) { pushHistory(localElements, localEquipment); setLocalElements(updater); setHasChanges(true); }
                   }}
                   disabled={!hasProperty(selectedElement, 'flipH')}
                   className="p-1.5 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
@@ -112,7 +112,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                   onClick={() => {
                     if (!selectedElement) return;
                     const updater = createFlipVUpdater(selectedElement);
-                    if (updater) { setLocalElements(updater); setHasChanges(true); }
+                    if (updater) { pushHistory(localElements, localEquipment); setLocalElements(updater); setHasChanges(true); }
                   }}
                   disabled={!hasProperty(selectedElement, 'flipV')}
                   className="p-1.5 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
@@ -131,7 +131,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                     onClick={() => {
                       if (!selectedElement) return;
                       const updater = createDecreaseStrokeWidthUpdater(selectedElement);
-                      if (updater) { setLocalElements(updater); setHasChanges(true); }
+                      if (updater) { pushHistory(localElements, localEquipment); setLocalElements(updater); setHasChanges(true); }
                     }}
                     disabled={!hasProperty(selectedElement, 'strokeWidth')}
                     className="w-6 h-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -143,6 +143,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                     value={getPropertyValue(selectedElement, 'strokeWidth', 2)}
                     onChange={(e) => {
                       if (!selectedElement) return;
+                      pushHistory(localElements, localEquipment);
                       setLocalElements(updateElementProperty(selectedElement.id, 'strokeWidth', parseInt(e.target.value)));
                       setHasChanges(true);
                     }}
@@ -156,7 +157,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                     onClick={() => {
                       if (!selectedElement) return;
                       const updater = createIncreaseStrokeWidthUpdater(selectedElement);
-                      if (updater) { setLocalElements(updater); setHasChanges(true); }
+                      if (updater) { pushHistory(localElements, localEquipment); setLocalElements(updater); setHasChanges(true); }
                     }}
                     disabled={!hasProperty(selectedElement, 'strokeWidth')}
                     className="w-6 h-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -172,6 +173,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                   value={getPropertyValue(selectedElement, 'strokeColor', '#1a1a1a')}
                   onChange={(e) => {
                     if (!selectedElement) return;
+                    pushHistory(localElements, localEquipment);
                     setLocalElements(updateElementProperty(selectedElement.id, 'strokeColor', e.target.value));
                     setHasChanges(true);
                   }}
@@ -190,6 +192,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                     })()}
                     onChange={(e) => {
                       if (!selectedElement) return;
+                      pushHistory(localElements, localEquipment);
                       setLocalElements(updateElementProperty(selectedElement.id, 'fillColor', e.target.value));
                       setHasChanges(true);
                     }}
@@ -203,6 +206,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                       checked={getPropertyValue<string>(selectedElement, 'fillColor', '') === 'transparent'}
                       onChange={(e) => {
                         if (!selectedElement) return;
+                        pushHistory(localElements, localEquipment);
                         setLocalElements(updateElementProperty(selectedElement.id, 'fillColor', e.target.checked ? 'transparent' : '#ffffff'));
                         setHasChanges(true);
                       }}
@@ -221,7 +225,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                     onClick={() => {
                       if (!selectedElement) return;
                       const updater = createDecreaseFontSizeUpdater(selectedElement);
-                      if (updater) { setLocalElements(updater); setHasChanges(true); }
+                      if (updater) { pushHistory(localElements, localEquipment); setLocalElements(updater); setHasChanges(true); }
                     }}
                     disabled={selectedElement?.elementType !== 'text'}
                     className="w-6 h-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -233,6 +237,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                     value={selectedElement?.elementType === 'text' ? getPropertyValue(selectedElement, 'fontSize', 14) : 14}
                     onChange={(e) => {
                       if (!selectedElement) return;
+                      pushHistory(localElements, localEquipment);
                       setLocalElements(updateElementProperty(selectedElement.id, 'fontSize', parseInt(e.target.value)));
                       setHasChanges(true);
                     }}
@@ -246,7 +251,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                     onClick={() => {
                       if (!selectedElement) return;
                       const updater = createIncreaseFontSizeUpdater(selectedElement);
-                      if (updater) { setLocalElements(updater); setHasChanges(true); }
+                      if (updater) { pushHistory(localElements, localEquipment); setLocalElements(updater); setHasChanges(true); }
                     }}
                     disabled={selectedElement?.elementType !== 'text'}
                     className="w-6 h-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -261,7 +266,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                   onClick={() => {
                     if (!selectedElement) return;
                     const updater = createToggleFontWeightUpdater(selectedElement);
-                    if (updater) { setLocalElements(updater); setHasChanges(true); }
+                    if (updater) { pushHistory(localElements, localEquipment); setLocalElements(updater); setHasChanges(true); }
                   }}
                   disabled={selectedElement?.elementType !== 'text'}
                   className={`p-1.5 rounded disabled:opacity-30 disabled:cursor-not-allowed ${
@@ -279,6 +284,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                   value={getPropertyValue(selectedElement, 'strokeStyle', 'solid')}
                   onChange={(e) => {
                     if (!selectedElement) return;
+                    pushHistory(localElements, localEquipment);
                     setLocalElements(updateElementProperty(selectedElement.id, 'strokeStyle', e.target.value));
                     setHasChanges(true);
                   }}
@@ -298,6 +304,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                   <button
                     onClick={() => {
                       if (!selectedElement) return;
+                      pushHistory(localElements, localEquipment);
                       const maxZ = Math.max(...localElements.map(e => e.zIndex));
                       setLocalElements(prev => prev.map(el =>
                         el.id === selectedElement.id ? { ...el, zIndex: maxZ + 1 } : el
@@ -318,6 +325,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                       const currentZ = selectedElement.zIndex;
                       const higherElements = localElements.filter(e => e.zIndex > currentZ);
                       if (higherElements.length === 0) return;
+                      pushHistory(localElements, localEquipment);
                       const nextZ = Math.min(...higherElements.map(e => e.zIndex));
                       setLocalElements(prev => prev.map(el => {
                         if (el.id === selectedElement.id) return { ...el, zIndex: nextZ + 1 };
@@ -340,6 +348,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                       const currentZ = selectedElement.zIndex;
                       const lowerElements = localElements.filter(e => e.zIndex < currentZ);
                       if (lowerElements.length === 0) return;
+                      pushHistory(localElements, localEquipment);
                       const prevZ = Math.max(...lowerElements.map(e => e.zIndex));
                       setLocalElements(prev => prev.map(el => {
                         if (el.id === selectedElement.id) return { ...el, zIndex: prevZ - 1 };
@@ -359,6 +368,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
                   <button
                     onClick={() => {
                       if (!selectedElement) return;
+                      pushHistory(localElements, localEquipment);
                       const minZ = Math.min(...localElements.map(e => e.zIndex));
                       setLocalElements(prev => prev.map(el =>
                         el.id === selectedElement.id ? { ...el, zIndex: minZ - 1 } : el

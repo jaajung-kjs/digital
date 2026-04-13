@@ -74,7 +74,7 @@ export function createElementDragSession(
       initialPosition,
       initialPoints,
     },
-    isActive: true,
+    isActive: false,
   };
 }
 
@@ -92,7 +92,7 @@ export function createEquipmentDragSession(
       id: equipment.id,
       initialPosition: getEquipmentPosition(equipment),
     },
-    isActive: true,
+    isActive: false,
   };
 }
 

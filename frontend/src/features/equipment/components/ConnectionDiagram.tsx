@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { CABLE_BADGE_CLASSES } from '../../../types/connection';
+import { CABLE_COLORS } from '../../../types/connection';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -131,12 +131,11 @@ export function ConnectionDiagram({
 
                     <div className="flex flex-col items-center shrink-0">
                       <span
-                        className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                          cable.displayColor ? '' : (CABLE_BADGE_CLASSES[cable.cableType] || 'bg-gray-100 text-gray-600')
-                        }`}
-                        style={cable.displayColor
-                          ? { backgroundColor: cable.displayColor, color: '#ffffff' }
-                          : undefined}
+                        className="rounded px-1.5 py-0.5 text-xs font-medium"
+                        style={{
+                          backgroundColor: cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
+                          color: '#ffffff',
+                        }}
                       >
                         {cable.materialCategoryName || cable.materialCategoryCode || cable.cableType}
                       </span>

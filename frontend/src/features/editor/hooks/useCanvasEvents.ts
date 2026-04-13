@@ -12,7 +12,7 @@ import type {
 import { distance } from '../../../utils/geometry/geometryUtils';
 import { snapToGrid as snapToGridUtil } from '../../../utils/canvas/canvasTransform';
 import { findItemAt } from '../../../utils/floorplan/hitTestUtils';
-import { createDragSession, applyDrag } from '../../../utils/floorplan/dragSystem';
+import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils/floorplan/dragSystem';
 import type { Position } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
@@ -173,6 +173,23 @@ export function useCanvasEvents(
     const cableDrawing = useCableDrawingStore.getState();
     if (cableDrawing.phase === 'drawingPath') {
       const snapped = snapToGrid(worldX, worldY);
+      // Shift key: constrain preview to horizontal or vertical from last point
+      if (e.shiftKey) {
+        const lastPt = cableDrawing.waypoints.length > 0
+          ? cableDrawing.waypoints[cableDrawing.waypoints.length - 1]
+          : cableDrawing.sourcePosition
+            ? [cableDrawing.sourcePosition.x, cableDrawing.sourcePosition.y]
+            : null;
+        if (lastPt) {
+          const dx = Math.abs(snapped.x - lastPt[0]);
+          const dy = Math.abs(snapped.y - lastPt[1]);
+          if (dx > dy) {
+            snapped.y = lastPt[1];
+          } else {
+            snapped.x = lastPt[0];
+          }
+        }
+      }
       cableDrawing.setPreviewPoint({ x: snapped.x, y: snapped.y });
       // Skip hit test if moved less than 2px since last check
       const last = lastHoverPos.current;
@@ -242,6 +259,22 @@ export function useCanvasEvents(
       canvasStore.getState().setPreviewPosition({ x: snapped.x, y: snapped.y });
     } else {
       canvasStore.getState().setPreviewPosition(null);
+    }
+
+    // Drag threshold: activate drag only after 3px of movement
+    if (dragSession && !dragSession.isActive) {
+      if (isDragThresholdMet(dragSession, { x: worldX, y: worldY })) {
+        dragSession.isActive = true;
+        canvasStore.getState().setDragSession({ ...dragSession, isActive: true });
+      }
+      return;
+    }
+
+    // Hover cursor in select mode (no drag active)
+    if (tool === 'select' && !dragSession && canvasRef.current) {
+      const { localElements: els, localEquipment: eqs } = editorStore.getState();
+      const found = findItemAt(worldX, worldY, els, eqs);
+      canvasRef.current.style.cursor = found ? 'pointer' : 'default';
     }
 
     if (!dragSession || !dragSession.isActive) return;
@@ -327,6 +360,25 @@ export function useCanvasEvents(
           y: eq.positionY + eq.height / 2,
         });
       } else if (!found || found.type !== 'equipment') {
+        // Shift key: constrain to horizontal or vertical from last point
+        if (e.shiftKey && cableDrawing.waypoints.length > 0) {
+          const lastPt = cableDrawing.waypoints[cableDrawing.waypoints.length - 1];
+          const dx = Math.abs(snapped.x - lastPt[0]);
+          const dy = Math.abs(snapped.y - lastPt[1]);
+          if (dx > dy) {
+            snapped.y = lastPt[1]; // horizontal constraint
+          } else {
+            snapped.x = lastPt[0]; // vertical constraint
+          }
+        } else if (e.shiftKey && cableDrawing.sourcePosition) {
+          const dx = Math.abs(snapped.x - cableDrawing.sourcePosition.x);
+          const dy = Math.abs(snapped.y - cableDrawing.sourcePosition.y);
+          if (dx > dy) {
+            snapped.y = cableDrawing.sourcePosition.y;
+          } else {
+            snapped.x = cableDrawing.sourcePosition.x;
+          }
+        }
         cableDrawing.addWaypoint(snapped.x, snapped.y);
       }
       return;

@@ -7,6 +7,7 @@ export interface ConnectionRenderContext {
   zoom: number;
   panX: number;
   panY: number;
+  selectedCableId?: string | null;
 }
 
 export interface RenderableConnection {
@@ -27,6 +28,8 @@ export interface RenderableConnection {
   totalLength?: number | null;
   /** Material category code from DB (used for filtering) */
   materialCategoryCode?: string | null;
+  /** Internal flag: set by renderConnections when cable is selected */
+  _selected?: boolean;
 }
 
 /** Draw a polyline connection (used when pathPoints are available) */
@@ -53,15 +56,24 @@ function drawConnectionPolyline(
     ctx.restore();
   }
 
+  const isSelected = conn._selected;
   ctx.strokeStyle = conn.color;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = isSelected ? 3.5 : 2;
   ctx.globalAlpha = 1;
+  if (isSelected) {
+    ctx.shadowColor = conn.color;
+    ctx.shadowBlur = 8;
+  }
   ctx.beginPath();
   ctx.moveTo(points[0][0], points[0][1]);
   for (let i = 1; i < points.length; i++) {
     ctx.lineTo(points[i][0], points[i][1]);
   }
   ctx.stroke();
+  if (isSelected) {
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+  }
 
   // Endpoint markers
   ctx.fillStyle = conn.color;
@@ -105,13 +117,22 @@ function drawConnectionCurve(
     ctx.restore();
   }
 
+  const isSelected = conn._selected;
   ctx.strokeStyle = conn.color;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = isSelected ? 3.5 : 2;
   ctx.globalAlpha = 1;
+  if (isSelected) {
+    ctx.shadowColor = conn.color;
+    ctx.shadowBlur = 8;
+  }
   ctx.beginPath();
   ctx.moveTo(sourceX, sourceY);
   ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, targetX, targetY);
   ctx.stroke();
+  if (isSelected) {
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+  }
 
   ctx.fillStyle = conn.color;
   ctx.beginPath();
@@ -179,12 +200,19 @@ export function renderConnections(
   context: ConnectionRenderContext,
   connections: RenderableConnection[]
 ): void {
-  const { ctx, zoom, panX, panY } = context;
+  const { ctx, zoom, panX, panY, selectedCableId } = context;
   if (connections.length === 0) return;
 
   ctx.save();
   const scale = zoom / 100;
   ctx.setTransform(scale, 0, 0, scale, panX, panY);
+
+  // Mark selected cable
+  if (selectedCableId) {
+    for (const conn of connections) {
+      conn._selected = conn.id === selectedCableId;
+    }
+  }
 
   for (const conn of connections) {
     if (conn.pathPoints && conn.pathPoints.length >= 2) {

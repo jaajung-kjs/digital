@@ -172,7 +172,7 @@ export function CablePathOverlay({ canvasRef, scaleRatio }: CablePathOverlayProp
         <span className="text-sm text-blue-600">
           {phase === 'selectingSource'
             ? '출발 설비를 클릭하세요'
-            : '경유점을 클릭하거나, 도착 설비를 클릭하세요 (Backspace: 되돌리기, ESC: 취소)'}
+            : '경유점을 클릭하거나, 도착 설비를 클릭하세요 (Shift: 직선, Backspace: 되돌리기, ESC: 취소)'}
         </span>
       </div>
     </>

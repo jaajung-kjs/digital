@@ -108,8 +108,11 @@ function WaypointHandle({
         if (!startRef.current) return;
         const dx = (ev.clientX - startRef.current.mouseX) / scale;
         const dy = (ev.clientY - startRef.current.mouseY) / scale;
-        const newX = Math.round(startRef.current.ptX + dx);
-        const newY = Math.round(startRef.current.ptY + dy);
+        const { gridSize, gridSnap } = useEditorStore.getState();
+        const rawX = startRef.current.ptX + dx;
+        const rawY = startRef.current.ptY + dy;
+        const newX = gridSnap ? Math.round(rawX / gridSize) * gridSize : Math.round(rawX);
+        const newY = gridSnap ? Math.round(rawY / gridSize) * gridSize : Math.round(rawY);
 
         // Skip if no meaningful movement
         if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {

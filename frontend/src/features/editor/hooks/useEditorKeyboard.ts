@@ -1,22 +1,64 @@
 import { useEffect } from 'react';
 import type {
   FloorPlanElement,
+  FloorPlanEquipment,
   DoorProperties,
   WindowProperties,
   RectProperties,
   TextProperties,
+  LineProperties,
+  CircleProperties,
 } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
+import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { generateTempId } from '../../../utils/idHelpers';
 import { useEditorHistory } from './useEditorHistory';
+import { calculateFitToContent } from './useViewport';
+
+/**
+ * Move element by delta (dx, dy)
+ */
+function nudgeElement(el: FloorPlanElement, dx: number, dy: number): FloorPlanElement {
+  const props = { ...el.properties };
+  switch (el.elementType) {
+    case 'line':
+    case 'conduit':
+    case 'tray': {
+      const lineProps = props as LineProperties;
+      lineProps.points = lineProps.points.map(([px, py]) => [px + dx, py + dy] as [number, number]);
+      break;
+    }
+    case 'circle': {
+      const circleProps = props as CircleProperties;
+      circleProps.cx += dx;
+      circleProps.cy += dy;
+      break;
+    }
+    default: {
+      const p = props as unknown as Record<string, unknown>;
+      if ('x' in p && typeof p.x === 'number') p.x += dx;
+      if ('y' in p && typeof p.y === 'number') p.y += dy;
+      break;
+    }
+  }
+  return { ...el, properties: props };
+}
+
+function nudgeEquipment(eq: FloorPlanEquipment, dx: number, dy: number): FloorPlanEquipment {
+  return { ...eq, positionX: eq.positionX + dx, positionY: eq.positionY + dy };
+}
 
 /**
  * Hook for all keyboard shortcuts
  */
-export function useEditorKeyboard(handleSave: () => void) {
+export function useEditorKeyboard(
+  handleSave: () => void,
+  roomId?: string,
+  containerRef?: React.RefObject<HTMLDivElement | null>,
+) {
   const { pushHistory, undo, redo } = useEditorHistory();
 
   useEffect(() => {
@@ -27,6 +69,7 @@ export function useEditorKeyboard(handleSave: () => void) {
 
       const es = useEditorStore.getState();
       const cs = useCanvasStore.getState();
+      const key = e.key.toLowerCase();
 
       // Space key for pan mode (allowed in preview)
       if (e.key === ' ' && !e.repeat) {
@@ -70,23 +113,23 @@ export function useEditorKeyboard(handleSave: () => void) {
       // Block all editing shortcuts in snapshot preview
       if (useSnapshotStore.getState().active) return;
 
-      // Tool shortcuts
-      if ((e.key === 'v' || e.key === 'V') && !e.ctrlKey) es.setTool('select');
-      if (e.key === 'l' || e.key === 'L') es.setTool('line');
-      if (e.key === 'r' || e.key === 'R') es.setTool('rect');
-      if (e.key === 'o' || e.key === 'O') es.setTool('circle');
-      if (e.key === 'd' || e.key === 'D') es.setTool('door');
-      if (e.key === 'w' || e.key === 'W') es.setTool('window');
-      if (e.key === 'k' || e.key === 'K') es.setTool('equipment');
-      if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey) es.setTool('cable');
-      if (e.key === 't' || e.key === 'T') es.setTool('text');
-      if (e.key === 'g' || e.key === 'G') es.setShowGrid(!es.showGrid);
-      if (e.key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
+      // Tool shortcuts (case-insensitive)
+      if (key === 'v' && !e.ctrlKey) es.setTool('select');
+      if (key === 'l') es.setTool('line');
+      if (key === 'r') es.setTool('rect');
+      if (key === 'o') es.setTool('circle');
+      if (key === 'd') es.setTool('door');
+      if (key === 'w') es.setTool('window');
+      if (key === 'k') es.setTool('equipment');
+      if (key === 'c' && !e.ctrlKey) es.setTool('cable');
+      if (key === 't') es.setTool('text');
+      if (key === 'g') es.setShowGrid(!es.showGrid);
+      if (key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
 
-      const { selectedElement, localElements, localEquipment } = es;
+      const { selectedElement, selectedEquipment, localElements, localEquipment } = es;
 
       // H key: horizontal flip
-      if ((e.key === 'h' || e.key === 'H') && selectedElement) {
+      if (key === 'h' && selectedElement) {
         const newElements = localElements.map(el => {
           if (el.id === selectedElement.id) {
             const props = { ...el.properties };
@@ -105,8 +148,8 @@ export function useEditorKeyboard(handleSave: () => void) {
         if (updated) es.setSelectedElement(updated);
       }
 
-      // F key: vertical flip
-      if ((e.key === 'f' || e.key === 'F') && selectedElement) {
+      // F key: vertical flip (only when element selected)
+      if (key === 'f' && !e.ctrlKey && selectedElement) {
         const newElements = localElements.map(el => {
           if (el.id === selectedElement.id) {
             const props = { ...el.properties };
@@ -126,7 +169,7 @@ export function useEditorKeyboard(handleSave: () => void) {
       }
 
       // Q key: rotate 90 degrees
-      if (e.key === 'q' && selectedElement) {
+      if (key === 'q' && selectedElement) {
         const rotatable = ['rect', 'door', 'window', 'text'];
         if (rotatable.includes(selectedElement.elementType)) {
           const newElements = localElements.map(el => {
@@ -145,8 +188,56 @@ export function useEditorKeyboard(handleSave: () => void) {
         }
       }
 
+      // Arrow key nudge for selected items
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !e.ctrlKey) {
+        const hasSelectedElement = selectedElement && es.selectedIds.length > 0;
+        const hasSelectedEquipment = selectedEquipment && es.selectedIds.length > 0;
+        if (!hasSelectedElement && !hasSelectedEquipment) return;
+
+        e.preventDefault();
+        const { gridSize, gridSnap: snap } = es;
+        const baseStep = snap ? gridSize : 1;
+        const step = e.shiftKey ? baseStep * 5 : baseStep;
+        let dx = 0, dy = 0;
+        if (e.key === 'ArrowLeft') dx = -step;
+        if (e.key === 'ArrowRight') dx = step;
+        if (e.key === 'ArrowUp') dy = -step;
+        if (e.key === 'ArrowDown') dy = step;
+
+        pushHistory(localElements, localEquipment);
+
+        if (hasSelectedElement) {
+          const newElements = localElements.map(el =>
+            es.selectedIds.includes(el.id) ? nudgeElement(el, dx, dy) : el
+          );
+          es.setLocalElements(newElements);
+          const updated = newElements.find(el => el.id === selectedElement.id);
+          if (updated) es.setSelectedElement(updated);
+        }
+
+        if (hasSelectedEquipment) {
+          const newEquipment = localEquipment.map(eq =>
+            es.selectedIds.includes(eq.id) ? nudgeEquipment(eq, dx, dy) : eq
+          );
+          es.setLocalEquipment(newEquipment);
+          const updated = newEquipment.find(eq => eq.id === selectedEquipment.id);
+          if (updated) es.setSelectedEquipment(updated);
+        }
+
+        es.setHasChanges(true);
+        return;
+      }
+
+      // Enter key — trace selected cable path
+      if (e.key === 'Enter' && es.selectedCableId && roomId) {
+        e.preventDefault();
+        usePathHighlightStore.getState().startTrace(es.selectedCableId, roomId);
+        return;
+      }
+
       // Delete key — cable deletion
       if (e.key === 'Delete' && es.selectedCableId) {
+        pushHistory(localElements, localEquipment);
         es.deleteCable(es.selectedCableId);
         es.setSelectedCableId(null);
         es.setHasChanges(true);
@@ -171,25 +262,39 @@ export function useEditorKeyboard(handleSave: () => void) {
       }
 
       // Ctrl+S save
-      if (e.ctrlKey && e.key === 's') {
+      if (e.ctrlKey && key === 's') {
         e.preventDefault();
         handleSave();
       }
 
       // Ctrl+Z undo
-      if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
+      if (e.ctrlKey && key === 'z' && !e.shiftKey) {
         e.preventDefault();
         undo();
       }
 
       // Ctrl+Shift+Z or Ctrl+Y redo
-      if ((e.ctrlKey && e.shiftKey && e.key === 'z') || (e.ctrlKey && e.key === 'y')) {
+      if ((e.ctrlKey && e.shiftKey && key === 'z') || (e.ctrlKey && key === 'y')) {
         e.preventDefault();
         redo();
       }
 
+      // Ctrl+0: Fit to content
+      if (e.ctrlKey && e.key === '0') {
+        e.preventDefault();
+        const container = containerRef?.current;
+        if (container) {
+          const fit = calculateFitToContent(
+            localElements, localEquipment,
+            container.clientWidth, container.clientHeight,
+          );
+          es.setViewport(fit.zoom, fit.panX, fit.panY);
+        }
+        return;
+      }
+
       // Ctrl+C copy
-      if (e.ctrlKey && e.key === 'c') {
+      if (e.ctrlKey && key === 'c') {
         if (selectedElement) {
           e.preventDefault();
           es.setClipboard({ type: 'element', data: { ...selectedElement } });
@@ -200,7 +305,7 @@ export function useEditorKeyboard(handleSave: () => void) {
       }
 
       // Ctrl+V paste
-      if (e.ctrlKey && e.key === 'v' && es.clipboard) {
+      if (e.ctrlKey && key === 'v' && es.clipboard) {
         e.preventDefault();
         if (es.clipboard.type === 'element') {
           const original = es.clipboard.data as FloorPlanElement;
@@ -246,5 +351,5 @@ export function useEditorKeyboard(handleSave: () => void) {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleSave, pushHistory, undo, redo]);
+  }, [handleSave, pushHistory, undo, redo, roomId, containerRef]);
 }
