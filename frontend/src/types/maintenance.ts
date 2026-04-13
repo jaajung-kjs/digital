@@ -39,6 +39,7 @@ export interface AuditLog {
   newValues?: Record<string, unknown> | null;
   context?: Record<string, unknown> | null;
   hasSnapshot: boolean;
+  version?: number;
   userName?: string;
   createdAt: string;
 }

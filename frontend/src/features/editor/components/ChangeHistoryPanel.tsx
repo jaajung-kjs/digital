@@ -63,9 +63,9 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
     }
   };
 
-  const handlePreview = async (logId: string, actionDetail?: string) => {
-    if (isFetching) return;
-    await preview.enter(logId, actionDetail || '이전 버전');
+  const handlePreview = async (log: AuditLog) => {
+    if (isFetching || !log.version) return;
+    await preview.enter(log.id, log.actionDetail || '이전 버전', log.version);
   };
 
   const handleRestore = () => {
@@ -191,8 +191,8 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
           ) : (
             <div className="p-4">
               <button
-                onClick={() => handlePreview(selectedLog.id, selectedLog.actionDetail)}
-                disabled={isFetching}
+                onClick={() => handlePreview(selectedLog)}
+                disabled={isFetching || !selectedLog.version}
                 className="w-full px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               >
                 {isFetching ? '로딩 중...' : '도면 미리보기'}
@@ -244,7 +244,7 @@ interface LogListProps {
   isAdmin: boolean;
   deletingId: string | null;
   onSelect: (log: AuditLog) => void;
-  onPreview: (logId: string, actionDetail?: string) => void;
+  onPreview: (log: AuditLog) => void;
   onDelete: (logId: string) => void;
 }
 
@@ -289,9 +289,9 @@ function LogList({
                 )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {canPreview && (
+                {canPreview && log.version && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); onPreview(log.id, log.actionDetail); }}
+                    onClick={(e) => { e.stopPropagation(); onPreview(log); }}
                     className="p-0.5 text-gray-300 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
                     title="도면 미리보기"
                   >

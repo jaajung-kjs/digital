@@ -149,6 +149,32 @@ export interface FloorPlanEquipment {
 }
 
 // 평면도 타입
+export interface FloorPlanCable {
+  id: string;
+  sourceEquipmentId: string;
+  targetEquipmentId: string;
+  cableType: string;
+  materialCategoryId?: string | null;
+  materialCategoryCode?: string | null;
+  displayColor?: string | null;
+  specParams?: Record<string, unknown> | null;
+  pathPoints?: [number, number][] | null;
+  pathLength?: number | null;
+  totalLength?: number | null;
+  label?: string | null;
+  color?: string | null;
+  fiberPathId?: string | null;
+  fiberPortNumber?: number | null;
+}
+
+export interface FloorPlanFiberPath {
+  id: string;
+  ofdAId: string;
+  ofdBId: string;
+  portCount: number;
+  description?: string | null;
+}
+
 export interface FloorPlanDetail {
   id: string;
   name: string;
@@ -160,6 +186,8 @@ export interface FloorPlanDetail {
   scaleRatio?: number | null; // 1px = ?mm
   elements: FloorPlanElement[];
   equipment: FloorPlanEquipment[];
+  cables: FloorPlanCable[];
+  fiberPaths: FloorPlanFiberPath[];
   version: number;
   updatedAt: string;
 }

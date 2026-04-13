@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
-import type { FloorPlanDetail, UpdateFloorPlanRequest } from '../../../types/floorPlan';
+import type { FloorPlanDetail, FloorPlanCable, UpdateFloorPlanRequest } from '../../../types/floorPlan';
 import type { RoomDetail } from '../../../types/substation';
-import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
@@ -21,25 +20,25 @@ function buildTempIdMap(
 }
 
 /**
- * Convert RoomConnection[] from backend into LocalCable[] for the editor store.
+ * Convert FloorPlanCable[] from the plan response into LocalCable[] for the editor store.
  */
-function connectionsToLocalCables(connections: RoomConnection[]): LocalCable[] {
-  return connections.map((conn) => ({
-    id: conn.id,
-    sourceEquipmentId: conn.sourceEquipmentId,
-    targetEquipmentId: conn.targetEquipmentId,
-    cableType: conn.cableType,
-    materialCategoryId: conn.materialCategoryId ?? null,
-    materialCategoryCode: conn.materialCategoryCode ?? null,
-    displayColor: conn.displayColor ?? null,
-    specParams: conn.specParams ?? null,
-    pathPoints: conn.pathPoints ?? null,
-    pathLength: conn.pathLength ?? null,
-    totalLength: conn.totalLength ?? null,
-    label: conn.label ?? null,
-    color: conn.color ?? null,
-    fiberPathId: conn.fiberPathId ?? null,
-    fiberPortNumber: conn.fiberPortNumber ?? null,
+function planCablesToLocalCables(cables: FloorPlanCable[]): LocalCable[] {
+  return cables.map((c) => ({
+    id: c.id,
+    sourceEquipmentId: c.sourceEquipmentId,
+    targetEquipmentId: c.targetEquipmentId,
+    cableType: c.cableType,
+    materialCategoryId: c.materialCategoryId ?? null,
+    materialCategoryCode: c.materialCategoryCode ?? null,
+    displayColor: c.displayColor ?? null,
+    specParams: c.specParams ?? null,
+    pathPoints: c.pathPoints ?? null,
+    pathLength: c.pathLength ?? null,
+    totalLength: c.totalLength ?? null,
+    label: c.label ?? null,
+    color: c.color ?? null,
+    fiberPathId: c.fiberPathId ?? null,
+    fiberPortNumber: c.fiberPortNumber ?? null,
   }));
 }
 
@@ -79,16 +78,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     },
     enabled: !!roomId,
     retry: false,
-  });
-
-  // Load connections (cables) for this room
-  const { data: backendConnections } = useQuery({
-    queryKey: ['room-connections', roomId],
-    queryFn: async () => {
-      const response = await api.get<{ data: RoomConnection[] }>(`/rooms/${roomId}/connections`);
-      return response.data.data;
-    },
-    enabled: !!roomId,
   });
 
   // === THE SINGLE SAVE MUTATION ===
@@ -155,11 +144,11 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
       await Promise.all(pendingTasks);
 
-      // Store pre-computed construction report in the audit log context
+      // Store pre-computed construction report in the version context
       const report = pendingReportRef.current;
       if (auditLogId && report && report.diff.length > 0) {
         try {
-          await api.patch(`/rooms/${roomId}/audit-logs/${auditLogId}`, {
+          await api.patch(`/rooms/${roomId}/versions/${auditLogId}`, {
             context: { constructionReport: report },
           });
         } catch (err) {
@@ -177,7 +166,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       }
 
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
-      queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
       if (pendingUploads.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
@@ -204,9 +192,11 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     if (!floorPlan) return;
 
     const elements = floorPlan.elements;
+    const cables = planCablesToLocalCables(floorPlan.cables ?? []);
 
     setLocalElements(elements);
     setLocalEquipment(floorPlan.equipment);
+    useEditorStore.getState().setCables(cables);
     setGridSize(floorPlan.gridSize);
     setMajorGridSize(floorPlan.majorGridSize ?? 60);
     useEditorStore.getState().setScaleRatio(floorPlan.scaleRatio ?? null);
@@ -219,17 +209,9 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     // Fresh load (not after save): reset pending data + history
     useEditorStore.getState().clearPendingData();
     setHasChanges(false);
-    initHistory(elements, floorPlan.equipment);
+    initHistory(elements, floorPlan.equipment, cables);
     setViewportInitialized(false);
   }, [floorPlan, roomId, setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
-
-  // Sync connections into store as localCables (only when not restoring a draft)
-  useEffect(() => {
-    if (backendConnections && !saveMutation.isPending && !useEditorStore.getState().hasChanges) {
-      const cables = connectionsToLocalCables(backendConnections);
-      useEditorStore.getState().setCables(cables);
-    }
-  }, [backendConnections]);
 
   // Viewport initialization
   useEffect(() => {
@@ -267,7 +249,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
     // Pre-compute construction report using before (cached server state) and after (local state)
     const cachedPlan = queryClient.getQueryData<FloorPlanDetail>(['floorPlan', roomId]);
-    const cachedConnections = queryClient.getQueryData<RoomConnection[]>(['room-connections', roomId]);
     if (cachedPlan) {
       const beforeSnapshot: PlanSnapshot = {
         elements: cachedPlan.elements.map(e => ({
@@ -286,7 +267,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
           positionX: eq.positionX,
           positionY: eq.positionY,
         })),
-        cables: (cachedConnections ?? []).map(c => ({
+        cables: (cachedPlan.cables ?? []).map(c => ({
           id: c.id,
           cableType: c.cableType,
           materialCategoryCode: c.materialCategoryCode ?? null,
