@@ -8,7 +8,6 @@ import {
   renderEquipmentDrawPreview,
   renderElements,
   renderEquipmentItems,
-  renderRacks,
   renderElementLengths,
   renderEquipmentLengths,
   type DrawingToolType,
@@ -44,7 +43,6 @@ export function useCanvas(
     // Branch data source: snapshot overlay vs editor
     const localElements = snapshot.active ? snapshot.elements : editorState.localElements;
     const localEquipment = snapshot.active ? snapshot.equipment : editorState.localEquipment;
-    const localRacks = editorState.localRacks;
     const majorGridSize = snapshot.active ? snapshot.majorGridSize : editorState.majorGridSize;
 
     const {
@@ -79,11 +77,6 @@ export function useCanvas(
 
     // Elements
     renderElements(ctx, localElements, selectedIds);
-
-    // Racks
-    if (localRacks.length > 0) {
-      renderRacks(ctx, localRacks, null);
-    }
 
     // Equipment — filter out rack-internal equipment (they live inside racks, not on floor plan)
     const floorEquipment = localEquipment.filter((eq) => !eq.parentEquipmentId);
