@@ -52,6 +52,7 @@ export interface RoomConnection {
   fiberPathDescription?: string | null;
   materialCategoryId?: string | null;
   materialCategoryCode?: string | null;
+  displayColor?: string | null;
   materialId?: string | null;
   specParams?: Record<string, unknown> | null;
   pathLength?: number | null;

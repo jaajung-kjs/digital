@@ -1,5 +1,5 @@
 import { useEffect, useRef, useMemo } from 'react';
-import { CABLE_TYPES, CABLE_COLORS } from '../../../types/connection';
+import { CABLE_TYPES } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useMaterialCategories } from '../../materials/hooks/useMaterialCategories';
 
@@ -21,7 +21,7 @@ export function ConnectionLegend() {
       return cableCategories.map((cat) => ({
         key: cat.code,
         label: cat.name,
-        color: cat.displayColor || CABLE_COLORS[cat.code] || '#6b7280',
+        color: cat.displayColor || '#6b7280',
       }));
     }
     // Fallback to hardcoded CABLE_TYPES
@@ -32,28 +32,35 @@ export function ConnectionLegend() {
     }));
   }, [cableCategories]);
 
-  // Initialize filters to show all on first mount only
+  // Initialize filters to show all — only once, after filterItems are available.
+  // connectionFilters === null means "not yet initialized".
+  // Filter keys are DB category codes ONLY (CBL-UTP, CBL-FCV, etc.)
   useEffect(() => {
-    if (!initialized.current && connectionFilters.length === 0 && filterItems.length > 0) {
+    if (filterItems.length === 0) return;
+    if (initialized.current) return;
+    initialized.current = true;
+    if (connectionFilters === null) {
       setConnectionFilters(filterItems.map((item) => item.key));
     }
-    initialized.current = true;
-  }, [connectionFilters.length, setConnectionFilters, filterItems]);
+  }, [connectionFilters, setConnectionFilters, filterItems]);
+
+  const allKeys = useMemo(() => filterItems.map((item) => item.key), [filterItems]);
+  const activeFilters = connectionFilters ?? allKeys;
 
   const toggleFilter = (key: string) => {
-    if (connectionFilters.includes(key)) {
-      setConnectionFilters(connectionFilters.filter((t) => t !== key));
+    if (activeFilters.includes(key)) {
+      setConnectionFilters(activeFilters.filter((t) => t !== key));
     } else {
-      setConnectionFilters([...connectionFilters, key]);
+      setConnectionFilters([...activeFilters, key]);
     }
   };
 
-  const allSelected = filterItems.every((item) => connectionFilters.includes(item.key));
+  const allSelected = filterItems.every((item) => activeFilters.includes(item.key));
   const toggleAll = () => {
     if (allSelected) {
       setConnectionFilters([]);
     } else {
-      setConnectionFilters(filterItems.map((item) => item.key));
+      setConnectionFilters(allKeys);
     }
   };
 
@@ -74,7 +81,7 @@ export function ConnectionLegend() {
           <label key={item.key} className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
-              checked={connectionFilters.includes(item.key)}
+              checked={activeFilters.includes(item.key)}
               onChange={() => toggleFilter(item.key)}
               className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />

@@ -18,6 +18,7 @@ export interface LocalCable {
   cableType: string;
   materialCategoryId?: string | null;
   materialCategoryCode?: string | null;
+  displayColor?: string | null;
   specParams?: Record<string, unknown> | null;
   pathPoints?: [number, number][] | null;
   pathLength?: number | null;
@@ -96,7 +97,8 @@ export interface EditorStoreState {
   pendingFiberPaths: PendingFiberPath[];
   deletedFiberPathIds: string[];
 
-  connectionFilters: ConnectionFilterKey[];
+  /** null = not yet initialized (show all); [] = user explicitly hid all */
+  connectionFilters: ConnectionFilterKey[] | null;
 
   scaleRatio: number | null;
   showLengths: boolean;
@@ -154,7 +156,7 @@ export interface EditorStoreActions {
   deleteEquipmentWithCascade: (equipmentId: string) => void;
 
   setScaleRatio: (ratio: number | null) => void;
-  setConnectionFilters: (filters: ConnectionFilterKey[]) => void;
+  setConnectionFilters: (filters: ConnectionFilterKey[] | null) => void;
   setShowLengths: (show: boolean) => void;
   setViewportInitialized: (init: boolean) => void;
   setMouseWorldPosition: (pos: { x: number; y: number }) => void;
@@ -187,7 +189,7 @@ const initialState: EditorStoreState = {
   pendingFiberPaths: [],
   deletedFiberPathIds: [],
   scaleRatio: null,
-  connectionFilters: [] as ConnectionFilterKey[],
+  connectionFilters: null,
   showLengths: false,
   viewportInitialized: false,
   mouseWorldPosition: { x: 0, y: 0 },

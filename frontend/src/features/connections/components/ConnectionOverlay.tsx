@@ -3,6 +3,15 @@ import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { CABLE_COLORS } from '../../../types/connection';
+
+/** Check if a cable matches the current filter set (DB category codes) */
+function cableMatchesFilter(
+  materialCategoryCode: string | undefined | null,
+  filters: string[]
+): boolean {
+  if (!materialCategoryCode) return true; // no category = always show
+  return filters.includes(materialCategoryCode);
+}
 import {
   renderConnections,
   type RenderableConnection,
@@ -11,7 +20,6 @@ import {
 import { ConnectionLegend } from './ConnectionLegend';
 import { CableWaypointHandles } from './CableWaypointHandles';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
-import { useConnectionCreationStore } from '../stores/connectionCreationStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { useCableHitTestStore } from '../stores/cableHitTestStore';
 
@@ -37,7 +45,7 @@ function mapCablesToRenderable(
       targetY: targetPos.y + targetPos.height / 2,
       cableType: cable.cableType,
       label: cable.label || cable.materialCategoryCode || undefined,
-      color: cable.color || CABLE_COLORS[cable.cableType] || '#6b7280',
+      color: cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength ?? undefined,
       totalLength: cable.totalLength ?? undefined,
@@ -64,7 +72,7 @@ function mapConnectionsToRenderable(
       targetY: targetPos.y + targetPos.height / 2,
       cableType: conn.cableType,
       label: conn.label || conn.materialCategoryCode || undefined,
-      color: conn.color || CABLE_COLORS[conn.cableType] || '#6b7280',
+      color: conn.color || conn.displayColor || CABLE_COLORS[conn.cableType] || '#6b7280',
       pathPoints: conn.pathPoints,
       pathLength: conn.pathLength,
       totalLength: conn.totalLength,
@@ -97,11 +105,6 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
   const highlightedEdgeIds = usePathHighlightStore((s) => s.highlightedEdgeIds);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
 
-  const creationPhase = useConnectionCreationStore((s) => s.phase);
-  const creationSourceId = useConnectionCreationStore((s) => s.sourceEquipmentId);
-  const hoveredEquipmentId = useConnectionCreationStore((s) => s.hoveredEquipmentId);
-  const cancelCreation = useConnectionCreationStore((s) => s.cancel);
-
   const ofdFlowPhase = useOfdConnectionFlowStore((s) => s.phase);
   const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
   const ofdFlowHoveredId = useOfdConnectionFlowStore((s) => s.hoveredEquipmentId);
@@ -124,12 +127,11 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
     const all = snapshotActive
       ? (connections ? mapConnectionsToRenderable(connections, equipmentPositions) : [])
       : (cables ? mapCablesToRenderable(cables, equipmentPositions) : []);
-    if (connectionFilters.length === 0) return [];
-    return all.filter((c) => {
-      // Match by materialCategoryCode first, then fall back to cableType
-      const filterKey = c.materialCategoryCode || c.cableType;
-      return connectionFilters.includes(filterKey);
-    });
+    // null = filters not yet initialized → show all cables
+    if (connectionFilters === null) return all;
+    return all.filter((c) =>
+      cableMatchesFilter(c.materialCategoryCode, connectionFilters)
+    );
   }, [connections, cables, snapshotActive, equipmentPositions, connectionFilters]);
 
   // Build hit-test entries from connection identity only (not viewport-dependent)
@@ -137,12 +139,17 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
     const all = snapshotActive
       ? (connections ? mapConnectionsToRenderable(connections, equipmentPositions) : [])
       : (cables ? mapCablesToRenderable(cables, equipmentPositions) : []);
-    if (connectionFilters.length === 0) return [];
+    // null = filters not yet initialized → include all for hit testing
+    if (connectionFilters === null) {
+      return all
+        .filter((c) => c.id && c.pathPoints && c.pathPoints.length >= 2)
+        .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
+    }
     return all
-      .filter((c) => {
-        const filterKey = c.materialCategoryCode || c.cableType;
-        return connectionFilters.includes(filterKey) && c.id && c.pathPoints && c.pathPoints.length >= 2;
-      })
+      .filter((c) =>
+        cableMatchesFilter(c.materialCategoryCode, connectionFilters)
+        && c.id && c.pathPoints && c.pathPoints.length >= 2
+      )
       .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
   }, [connections, cables, snapshotActive, equipmentPositions, connectionFilters]);
 
@@ -194,52 +201,6 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
       renderConnections(context, renderableConnections);
     }
 
-    // Connection creation: highlight source equipment
-    if (creationPhase === 'selectingTarget' && creationSourceId) {
-      const sourcePos = equipmentPositions.get(creationSourceId);
-      if (sourcePos) {
-        const scale = zoom / 100;
-        ctx.save();
-        ctx.setTransform(scale, 0, 0, scale, panX, panY);
-        ctx.shadowColor = '#3b82f6';
-        ctx.shadowBlur = 8;
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([6, 3]);
-        ctx.strokeRect(sourcePos.x - 3, sourcePos.y - 3, sourcePos.width + 6, sourcePos.height + 6);
-        ctx.setLineDash([]);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#3b82f6';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('출발', sourcePos.x + sourcePos.width / 2, sourcePos.y - 8);
-        ctx.restore();
-      }
-    }
-
-    // Connection creation: hover highlight on target
-    if (creationPhase === 'selectingTarget' && hoveredEquipmentId && hoveredEquipmentId !== creationSourceId) {
-      const hoverPos = equipmentPositions.get(hoveredEquipmentId);
-      if (hoverPos) {
-        const scale = zoom / 100;
-        ctx.save();
-        ctx.setTransform(scale, 0, 0, scale, panX, panY);
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 10;
-        ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([6, 3]);
-        ctx.strokeRect(hoverPos.x - 3, hoverPos.y - 3, hoverPos.width + 6, hoverPos.height + 6);
-        ctx.setLineDash([]);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#22c55e';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('도착', hoverPos.x + hoverPos.width / 2, hoverPos.y - 8);
-        ctx.restore();
-      }
-    }
-
     // OFD flow: highlight OFD source
     if (ofdFlowPhase === 'selectingTarget' && ofdFlowOfdId) {
       const ofdPos = equipmentPositions.get(ofdFlowOfdId);
@@ -287,7 +248,6 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
     }
   }, [viewMode, renderableConnections, zoom, panX, panY, equipmentPositions, canvasRef,
     highlightActive, highlightedNodeIds, highlightedEdgeIds,
-    creationPhase, creationSourceId, hoveredEquipmentId,
     ofdFlowPhase, ofdFlowOfdId, ofdFlowHoveredId]);
 
   // ESC key: cancel creation or clear highlight
@@ -295,7 +255,6 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
     if (viewMode !== 'edit-2d') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (creationPhase !== 'idle') cancelCreation();
         if (ofdFlowPhase !== 'idle') useOfdConnectionFlowStore.getState().cancel();
         if (highlightActive) clearHighlight();
         if (selectedCableId) setSelectedCableId(null);
@@ -303,7 +262,7 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, creationPhase, cancelCreation, ofdFlowPhase, highlightActive, clearHighlight, selectedCableId, setSelectedCableId]);
+  }, [viewMode, ofdFlowPhase, highlightActive, clearHighlight, selectedCableId, setSelectedCableId]);
 
   // Find selected cable for waypoint handles
   const selectedCable = useMemo(() => {
@@ -352,18 +311,6 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
           panX={panX}
           panY={panY}
         />
-      )}
-
-      {/* Status bar: connection creation mode */}
-      {creationPhase === 'selectingTarget' && (
-        <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
-          style={{ zIndex: 15 }}
-        >
-          <span className="text-sm text-blue-600">
-            연결할 설비를 클릭하세요
-          </span>
-        </div>
       )}
 
       {/* Status bar: OFD connection flow */}

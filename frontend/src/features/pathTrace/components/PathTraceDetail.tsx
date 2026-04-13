@@ -152,7 +152,10 @@ export function PathTraceDetail() {
 
   if (!active || !traceResult || displayItems.length === 0) return null;
 
-  const cableType = traceResult.edges[0]?.cableType ?? '';
+  const firstEdge = traceResult.edges[0];
+  const cableType = firstEdge?.cableType ?? '';
+  const badgeLabel = firstEdge?.materialCategoryCode || cableType;
+  const badgeDisplayColor = firstEdge?.displayColor;
 
   return (
     <div className="border-t border-gray-200 bg-blue-50/50 px-3 py-2">
@@ -161,10 +164,13 @@ export function PathTraceDetail() {
           <span className="text-xs font-semibold text-blue-700">경로</span>
           <span
             className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-              CABLE_BADGE_CLASSES[cableType] || 'bg-gray-100 text-gray-600'
+              badgeDisplayColor ? '' : (CABLE_BADGE_CLASSES[cableType] || 'bg-gray-100 text-gray-600')
             }`}
+            style={badgeDisplayColor
+              ? { backgroundColor: badgeDisplayColor, color: '#ffffff' }
+              : undefined}
           >
-            {cableType}
+            {badgeLabel}
           </span>
         </div>
         <div className="flex items-center gap-2">

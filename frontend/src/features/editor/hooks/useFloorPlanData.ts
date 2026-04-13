@@ -29,6 +29,7 @@ function connectionsToLocalCables(connections: RoomConnection[]): LocalCable[] {
     cableType: conn.cableType,
     materialCategoryId: conn.materialCategoryId ?? null,
     materialCategoryCode: conn.materialCategoryCode ?? null,
+    displayColor: conn.displayColor ?? null,
     specParams: conn.specParams ?? null,
     pathPoints: conn.pathPoints ?? null,
     pathLength: conn.pathLength ?? null,

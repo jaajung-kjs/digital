@@ -27,6 +27,8 @@ export interface TraceEdge {
   fiberPathLabel?: string; // e.g. "남춘천-춘천"
   portCount?: number;
   fiberPortNumber?: number;
+  materialCategoryCode?: string;
+  displayColor?: string;
 }
 
 export interface TraceRing {
@@ -241,6 +243,7 @@ class CableTraceService {
       include: {
         sourceEquipment: { select: equipmentNodeSelect },
         targetEquipment: { select: equipmentNodeSelect },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     });
 
@@ -286,6 +289,7 @@ class CableTraceService {
       include: {
         sourceEquipment: { select: equipmentNodeSelect },
         targetEquipment: { select: equipmentNodeSelect },
+        materialCategory: { select: { code: true, displayColor: true } },
       },
     });
 
@@ -340,6 +344,8 @@ class CableTraceService {
       cableType: startCable.cableType,
       label: startCable.label ?? undefined,
       length: startCable.length ?? undefined,
+      materialCategoryCode: startCable.materialCategory?.code ?? undefined,
+      displayColor: startCable.materialCategory?.displayColor ?? undefined,
     });
     visitedEdges.add(startCable.id);
 
@@ -401,6 +407,8 @@ class CableTraceService {
           cableType: cable.cableType,
           label: cable.label ?? undefined,
           length: cable.length ?? undefined,
+          materialCategoryCode: (cable as any).materialCategory?.code ?? undefined,
+          displayColor: (cable as any).materialCategory?.displayColor ?? undefined,
         });
 
         // Queue the other end
