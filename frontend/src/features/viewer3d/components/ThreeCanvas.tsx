@@ -1,11 +1,11 @@
 import { Canvas } from '@react-three/fiber';
-import type { FloorPlanElement, RackItem, FloorPlanEquipment } from '@/types/floorPlan';
+import type { FloorPlanElement, FloorPlanEquipment } from '@/types/floorPlan';
 import { FloorPlanScene } from './FloorPlanScene';
 import { CameraControls } from './CameraControls';
 
 interface ThreeCanvasProps {
   elements: FloorPlanElement[];
-  racks: RackItem[];
+  racks: FloorPlanEquipment[];
   equipment: FloorPlanEquipment[];
   canvasWidth: number;
   canvasHeight: number;

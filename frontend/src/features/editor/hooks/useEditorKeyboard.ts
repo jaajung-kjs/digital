@@ -10,7 +10,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
-import { generateTempId, isTempId } from '../../../utils/idHelpers';
+import { generateTempId } from '../../../utils/idHelpers';
 import { useEditorHistory } from './useEditorHistory';
 
 /**
@@ -147,16 +147,6 @@ export function useEditorKeyboard(handleSave: () => void) {
 
       // Delete key
       if (e.key === 'Delete' && es.selectedIds.length > 0) {
-        const deletedEquipIds = localEquipment
-          .filter(eq => es.selectedIds.includes(eq.id) && !isTempId(eq.id))
-          .map(eq => eq.id);
-        const deletedElemIds = localElements
-          .filter(el => es.selectedIds.includes(el.id) && !isTempId(el.id))
-          .map(el => el.id);
-
-        if (deletedEquipIds.length > 0) es.addDeletedEquipmentIds(deletedEquipIds);
-        if (deletedElemIds.length > 0) es.addDeletedElementIds(deletedElemIds);
-
         // Use deleteEquipmentWithCascade for equipment (removes cables + pending data)
         const equipmentToDelete = localEquipment.filter(eq => es.selectedIds.includes(eq.id));
         for (const eq of equipmentToDelete) {

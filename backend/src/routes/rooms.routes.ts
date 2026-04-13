@@ -87,9 +87,6 @@ const bulkUpdatePlanSchema = z.object({
   equipment: z.array(equipmentSchema).optional(),
   cables: z.array(cableSchema).optional(),
   fiberPaths: z.array(fiberPathSchema).optional(),
-  deletedElementIds: z.array(z.string().uuid()).optional(),
-  deletedEquipmentIds: z.array(z.string().uuid()).optional(),
-  deletedCableIds: z.array(z.string().uuid()).optional(),
   deletedFiberPathIds: z.array(z.string().uuid()).optional(),
 });
 

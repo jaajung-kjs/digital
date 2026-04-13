@@ -22,7 +22,7 @@ import { useConnectionCreationStore } from '../../connections/stores/connectionC
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
-import { generateTempId, isTempId } from '../../../utils/idHelpers';
+import { generateTempId } from '../../../utils/idHelpers';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
 
 /**
@@ -401,6 +401,7 @@ export function useCanvasEvents(
             targetEquipmentId: found.item.id,
             cableType: creationStore.cableType!,
             materialCategoryId: creationStore.materialCategoryId || undefined,
+            materialCategoryCode: creationStore.materialCategoryCode || undefined,
             specParams: creationStore.specParams || undefined,
           });
           creationStore.cancel();
@@ -686,9 +687,6 @@ export function useCanvasEvents(
         const found = findItemAt(x, y, localElements, localEquipment);
         if (found) {
           if (found.type === 'equipment') {
-            if (!isTempId(found.item.id)) {
-              editorStore.getState().addDeletedEquipmentId(found.item.id);
-            }
             editorStore.getState().deleteEquipmentWithCascade(found.item.id);
             const currentEquipment = editorStore.getState().localEquipment;
             pushHistory(localElements, currentEquipment);
@@ -696,9 +694,6 @@ export function useCanvasEvents(
             const newElements = localElements.filter(el => el.id !== found.item.id);
             editorStore.getState().setLocalElements(newElements);
             pushHistory(newElements, localEquipment);
-            if (!isTempId(found.item.id)) {
-              editorStore.getState().addDeletedElementId(found.item.id);
-            }
           }
           editorStore.getState().setHasChanges(true);
         }

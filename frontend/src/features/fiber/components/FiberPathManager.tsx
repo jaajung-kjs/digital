@@ -27,6 +27,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
   const removePendingFiberPath = useEditorStore((s) => s.removePendingFiberPath);
   const deleteFiberPath = useEditorStore((s) => s.deleteFiberPath);
   const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
+  const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
 
   const [expandedPathId, setExpandedPathId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -89,7 +90,6 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
   }
 
   // Filter out paths marked for deletion
-  const deletedFiberPathIds = useEditorStore.getState().deletedFiberPathIds;
   const activePaths = mergedPaths.filter((p) => !deletedFiberPathIds.includes(p.id));
 
   return (
