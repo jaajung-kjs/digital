@@ -156,11 +156,6 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
               {CATEGORY_LABELS[equipment.category] ?? equipment.category}
             </span>
           )}
-          {isTemp && (
-            <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-              미저장
-            </span>
-          )}
         </div>
         <button
           onClick={() => setDetailPanelEquipmentId(null)}
@@ -475,7 +470,7 @@ function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOn
       ...uploads.map((u) => ({
         id: `pending-${u.id}`,
         url: u.objectUrl,
-        date: '미저장',
+        date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
         description: u.description || null,
       })),
       ...saved.map((p) => ({
@@ -961,7 +956,7 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
           <p className="text-sm text-gray-400 text-center py-4">이력이 없습니다.</p>
         ) : (
           allLogs.map((log) => (
-            <div key={log.id} className={`p-3 rounded-lg border ${log.isPending ? 'border-amber-200 bg-amber-50' : 'border-gray-100 bg-gray-50'}`}>
+            <div key={log.id} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-1.5">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${LOG_TYPE_COLORS[log.logType] ?? 'bg-gray-200 text-gray-700'}`}>
@@ -972,13 +967,9 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
                       {log.severity}
                     </span>
                   )}
-                  {log.isPending && (
-                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">미저장</span>
-                  )}
                 </div>
                 {!readOnly && (
                   <div className="flex items-center gap-0.5">
-                    {log.isPending && (
                       <button
                         onClick={() => handleEditLog(log)}
                         className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
@@ -988,7 +979,6 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                       </button>
-                    )}
                     <button
                       onClick={() => handleDeleteLog(log.id)}
                       className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"

@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { CABLE_BADGE_CLASSES } from '../../../types/connection';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
-import { isTempId } from '../../../utils/idHelpers';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
@@ -22,7 +21,6 @@ export function ConnectionDiagram({
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const localCables = useEditorStore((s) => s.localCables);
   const deleteCable = useEditorStore((s) => s.deleteCable);
-  const selectCable = usePathHighlightStore((s) => s.selectCable);
   const startTrace = usePathHighlightStore((s) => s.startTrace);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
@@ -93,8 +91,6 @@ export function ConnectionDiagram({
             const handleClick = () => {
               if (isCardSelected) {
                 clearHighlight();
-              } else if (isTempId(cable.id)) {
-                selectCable(cable.id);
               } else {
                 startTrace(cable.id, roomId);
               }
@@ -114,9 +110,7 @@ export function ConnectionDiagram({
                   className={`group relative rounded border px-3 py-2 transition-colors cursor-pointer ${
                     isCardSelected
                       ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300'
-                      : isTempId(cable.id)
-                        ? 'border-amber-200 bg-amber-50 hover:bg-amber-100'
-                        : 'border-gray-200 bg-white hover:bg-blue-50'
+                      : 'border-gray-200 bg-white hover:bg-blue-50'
                   } ${isTracing ? 'ring-2 ring-blue-400 animate-pulse' : ''}`}
                 >
                   <div className="flex items-center gap-2 text-sm">

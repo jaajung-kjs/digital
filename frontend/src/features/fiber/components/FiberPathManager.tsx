@@ -177,7 +177,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
       {pendingPathsForThisOfd.length > 0 && (
         <div className="space-y-2 mb-2">
           {pendingPathsForThisOfd.map((fp) => (
-            <div key={fp.id} className="rounded border border-amber-200 bg-amber-50">
+            <div key={fp.id} className="rounded border border-gray-200 bg-white">
               <div className="flex items-center justify-between px-3 py-2">
                 <div>
                   <span className="text-sm font-medium text-gray-700">
@@ -185,9 +185,6 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
                   </span>
                   <span className="ml-2 text-xs text-gray-400">
                     {fp.portCount}코어
-                  </span>
-                  <span className="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">
-                    미저장
                   </span>
                 </div>
                 <button
