@@ -1377,10 +1377,15 @@ class RoomService {
       },
     });
 
-    return logs.map(({ newValues, ...rest }) => ({
-      ...rest,
-      hasSnapshot: newValues !== null,
-    }));
+    return logs.map(({ newValues, ...rest }) => {
+      // Extract version number from actionDetail (e.g., "v7" → 7)
+      const versionMatch = rest.actionDetail?.match(/^v(\d+)$/);
+      return {
+        ...rest,
+        hasSnapshot: newValues !== null,
+        version: versionMatch ? parseInt(versionMatch[1], 10) : null,
+      };
+    });
   }
 
   /**

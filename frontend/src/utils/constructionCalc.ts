@@ -5,6 +5,42 @@
 
 import { CONSTRUCTION_TEMPLATES, SURCHARGE_RULES } from '../config/constructionTemplates';
 import type { AccessoryRule } from '../config/constructionTemplates';
+/** Resolve display name: materialCategory name + specification from specParams */
+function resolveDisplayName(
+  materialCategoryCode: string | null | undefined,
+  specParams: Record<string, unknown> | null | undefined,
+  fallbackName: string,
+): { displayName: string; specification: string | undefined } {
+  if (!materialCategoryCode) return { displayName: fallbackName, specification: undefined };
+
+  // Category name lookup (code → Korean name)
+  const CATEGORY_NAMES: Record<string, string> = {
+    'EQP-RTU': 'SCADA/RTU', 'EQP-RACK': '랙/함체', 'EQP-OFD': 'OFD/IDF/MDF',
+    'EQP-UPS': 'UPS/전원설비', 'EQP-NET': '네트워크장비', 'EQP-SEC': '보안장비',
+    'EQP-PITR': 'PITR/PIU', 'EQP-SEIS': '내진가대', 'EQP-SURGE': '서지보호장치',
+    'EQP-BRK': '차단기/개폐기', 'EQP-SYNC': '시각동기장치', 'EQP-COOL': '냉각/환경설비',
+    'EQP-PDAS': 'PDAS장비',
+    'CBL-FCV': 'F-CV 전력케이블', 'CBL-FR': '난연/내화케이블', 'CBL-VCT': '캡타이어 VCT',
+    'CBL-HIV': '비닐절연전선', 'CBL-UTP': 'UTP/S-FTP케이블', 'CBL-OPT': '광케이블',
+    'CBL-OPJ': '광점퍼코드', 'CBL-OPT-B': '브레이크아웃케이블', 'CBL-IV': '접지전선',
+    'CBL-BARE': '나동연선', 'CBL-CVV': '제어케이블', 'CBL-CPEV': '통신케이블',
+    'CBL-PCM': 'PCM케이블', 'CBL-COAX': '동축케이블', 'CBL-CHAMP': '챔프케이블',
+    'CBL-SIG': '데이터/신호케이블',
+  };
+
+  const categoryName = CATEGORY_NAMES[materialCategoryCode] ?? materialCategoryCode;
+  let specification: string | undefined;
+
+  // Build specification from specParams if available
+  if (specParams && Object.keys(specParams).length > 0) {
+    // Try to build spec string from format template (simplified — just join values)
+    const values = Object.values(specParams).filter(v => v != null && v !== '');
+    specification = values.length > 0 ? values.join(' ') : undefined;
+  }
+
+  const displayName = specification ? `${categoryName} ${specification}` : categoryName;
+  return { displayName, specification };
+}
 
 // ============================================================
 // Types
@@ -105,12 +141,14 @@ function computeEquipmentDiff(
   // New installs
   for (const [id, eq] of afterMap) {
     if (!beforeMap.has(id)) {
+      const { displayName, specification } = resolveDisplayName(eq.materialCategoryCode, eq.specParams, eq.name);
       items.push({
         id,
         type: 'equipment',
         action: 'install',
-        name: eq.name,
+        name: displayName,
         materialCategoryCode: eq.materialCategoryCode ?? null,
+        specification,
         quantity: 1,
         unit: '대',
       });
@@ -120,12 +158,14 @@ function computeEquipmentDiff(
   // Removals
   for (const [id, eq] of beforeMap) {
     if (!afterMap.has(id)) {
+      const { displayName, specification } = resolveDisplayName(eq.materialCategoryCode, eq.specParams, eq.name);
       items.push({
         id,
         type: 'equipment',
         action: 'remove',
-        name: eq.name,
+        name: displayName,
         materialCategoryCode: eq.materialCategoryCode ?? null,
+        specification,
         quantity: 1,
         unit: '대',
       });
@@ -142,12 +182,14 @@ function computeEquipmentDiff(
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance > POSITION_THRESHOLD) {
+      const { displayName, specification } = resolveDisplayName(afterEq.materialCategoryCode, afterEq.specParams, afterEq.name);
       items.push({
         id,
         type: 'equipment',
         action: 'relocate',
-        name: afterEq.name,
+        name: displayName,
         materialCategoryCode: afterEq.materialCategoryCode ?? null,
+        specification,
         quantity: 1,
         unit: '대',
       });
@@ -159,12 +201,14 @@ function computeEquipmentDiff(
         JSON.stringify(afterEq.specParams) !== JSON.stringify(beforeEq.specParams);
 
       if (changed) {
+        const { displayName, specification } = resolveDisplayName(afterEq.materialCategoryCode, afterEq.specParams, afterEq.name);
         items.push({
           id,
           type: 'equipment',
           action: 'modify',
-          name: afterEq.name,
+          name: displayName,
           materialCategoryCode: afterEq.materialCategoryCode ?? null,
+          specification,
           quantity: 1,
           unit: '대',
         });
@@ -185,12 +229,14 @@ function computeCableDiff(
 
   for (const [id, cable] of afterMap) {
     if (!beforeMap.has(id)) {
+      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType);
       items.push({
         id,
         type: 'cable',
         action: 'install',
-        name: cable.label || cable.cableType,
+        name: displayName,
         materialCategoryCode: cable.materialCategoryCode ?? null,
+        specification,
         quantity: 1,
         unit: 'm',
         length: cable.totalLength ?? undefined,
@@ -200,12 +246,14 @@ function computeCableDiff(
 
   for (const [id, cable] of beforeMap) {
     if (!afterMap.has(id)) {
+      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType);
       items.push({
         id,
         type: 'cable',
         action: 'remove',
-        name: cable.label || cable.cableType,
+        name: displayName,
         materialCategoryCode: cable.materialCategoryCode ?? null,
+        specification,
         quantity: 1,
         unit: 'm',
         length: cable.totalLength ?? undefined,
@@ -225,12 +273,14 @@ function computeCableDiff(
       afterCable.targetEquipmentId !== beforeCable.targetEquipmentId;
 
     if (changed) {
+      const { displayName, specification } = resolveDisplayName(afterCable.materialCategoryCode, null, afterCable.label || afterCable.cableType);
       items.push({
         id,
         type: 'cable',
         action: 'modify',
-        name: afterCable.label || afterCable.cableType,
+        name: displayName,
         materialCategoryCode: afterCable.materialCategoryCode ?? null,
+        specification,
         quantity: 1,
         unit: 'm',
         length: afterCable.totalLength ?? undefined,
