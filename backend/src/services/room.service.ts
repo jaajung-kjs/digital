@@ -3,6 +3,19 @@ import { Prisma, EquipmentCategory, CableType } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
 import { equipmentService } from './equipment.service.js';
 
+/** Build specification string from specTemplate format + specParams */
+function buildSpecification(specTemplate: unknown, specParams: unknown): string | null {
+  if (!specTemplate || !specParams || typeof specTemplate !== 'object') return null;
+  const tmpl = specTemplate as { format?: string };
+  const params = specParams as Record<string, unknown>;
+  if (!tmpl.format) return null;
+  let result = tmpl.format;
+  for (const [key, value] of Object.entries(params)) {
+    result = result.replace(`{${key}}`, String(value ?? ''));
+  }
+  return result;
+}
+
 // ==================== Types ====================
 
 export interface RoomListItem {
@@ -201,7 +214,7 @@ const EQUIPMENT_SELECT = {
   rotation: true, frontImageUrl: true, rearImageUrl: true,
   description: true, model: true, manufacturer: true, manager: true, height3d: true,
   materialCategoryId: true, materialId: true, specParams: true,
-  materialCategory: { select: { code: true, name: true, displayColor: true } },
+  materialCategory: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
   rackId: true, startU: true, heightU: true,
 } as const;
 
@@ -219,6 +232,7 @@ function mapEquipmentRow(e: EquipmentRow, rackToEquipmentMap?: Map<string, strin
     materialCategoryId: e.materialCategoryId, materialCategoryCode: e.materialCategory?.code ?? null,
     materialCategoryName: e.materialCategory?.name ?? null,
     displayColor: e.materialCategory?.displayColor ?? null,
+    specification: buildSpecification(e.materialCategory?.specTemplate, e.specParams),
     materialId: e.materialId, specParams: e.specParams,
     parentEquipmentId: e.rackId && rackToEquipmentMap ? (rackToEquipmentMap.get(e.rackId) ?? null) : null,
     startU: e.startU, heightU: e.heightU,
@@ -352,6 +366,7 @@ function buildOldSnapshot(
         materialCategoryId: e.materialCategoryId, materialCategoryCode: e.materialCategory?.code ?? null,
         materialCategoryName: e.materialCategory?.name ?? null,
         displayColor: e.materialCategory?.displayColor ?? null,
+        specification: buildSpecification(e.materialCategory?.specTemplate, e.specParams),
         specParams: e.specParams ?? null,
       })),
       version: room.version, updatedAt: room.updatedAt,
@@ -464,7 +479,7 @@ async function captureRoomSnapshot(
       include: {
         sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
         targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
-        materialCategory: { select: { code: true, name: true, displayColor: true } },
+        materialCategory: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
       },
     }),
   ]);
@@ -517,6 +532,7 @@ async function captureRoomSnapshot(
       materialCategoryCode: c.materialCategory?.code ?? null,
       materialCategoryName: c.materialCategory?.name ?? null,
       displayColor: c.materialCategory?.displayColor ?? null,
+      specification: buildSpecification(c.materialCategory?.specTemplate, c.specParams),
       specParams: c.specParams,
       pathLength: c.pathLength,
       bufferLength: c.bufferLength,
@@ -631,7 +647,7 @@ class RoomService {
         include: {
           sourceEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
           targetEquipment: { select: { id: true, name: true, rackId: true, roomId: true } },
-          materialCategory: { select: { code: true, name: true, displayColor: true } },
+          materialCategory: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -699,6 +715,7 @@ class RoomService {
         materialCategoryCode: c.materialCategory?.code ?? null,
         materialCategoryName: c.materialCategory?.name ?? null,
         displayColor: c.materialCategory?.displayColor ?? null,
+        specification: buildSpecification(c.materialCategory?.specTemplate, c.specParams),
         specParams: c.specParams,
         pathLength: c.pathLength,
         bufferLength: c.bufferLength ?? 4,
@@ -803,7 +820,7 @@ class RoomService {
             positionX: true, positionY: true, width2d: true, height2d: true,
             rotation: true, description: true, model: true, manufacturer: true,
             manager: true, height3d: true, materialCategoryId: true,
-            materialCategory: { select: { code: true, name: true, displayColor: true } },
+            materialCategory: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
             specParams: true,
           },
         }),

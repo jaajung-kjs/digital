@@ -2,6 +2,19 @@ import prisma from '../config/prisma.js';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
 import { CableType } from '@prisma/client';
 
+/** Build specification string from specTemplate format + specParams */
+function buildCableSpecification(specTemplate: unknown, specParams: unknown): string | null {
+  if (!specTemplate || !specParams || typeof specTemplate !== 'object') return null;
+  const tmpl = specTemplate as { format?: string };
+  const params = specParams as Record<string, unknown>;
+  if (!tmpl.format) return null;
+  let result = tmpl.format;
+  for (const [key, value] of Object.entries(params)) {
+    result = result.replace(`{${key}}`, String(value ?? ''));
+  }
+  return result;
+}
+
 // ==================== Types ====================
 
 export interface CableDetail {
@@ -21,6 +34,7 @@ export interface CableDetail {
   materialCategoryCode: string | null;
   materialCategoryName: string | null;
   displayColor: string | null;
+  specification: string | null;
   specParams: unknown;
   pathLength: number | null;
   bufferLength: number;
@@ -93,6 +107,7 @@ const cableInclude = {
       code: true,
       name: true,
       displayColor: true,
+      specTemplate: true,
     },
   },
 } as const;
@@ -242,6 +257,7 @@ class CableService {
       materialCategoryCode: c.materialCategory?.code ?? null,
       materialCategoryName: c.materialCategory?.name ?? null,
       displayColor: c.materialCategory?.displayColor ?? null,
+      specification: buildCableSpecification(c.materialCategory?.specTemplate, c.specParams),
       specParams: c.specParams ?? null,
       pathLength: c.pathLength ?? null,
       bufferLength: c.bufferLength ?? 4,
