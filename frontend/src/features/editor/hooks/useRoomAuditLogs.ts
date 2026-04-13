@@ -6,6 +6,7 @@ import { useSnapshotStore } from '../stores/snapshotStore';
 import type { AuditLog } from '../../../types/maintenance';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { RoomConnection } from '../../../types/connection';
+import type { SnapshotFiberPath } from '../stores/snapshotStore';
 
 const AUDIT_KEYS = {
   all: ['room-audit-logs'] as const,
@@ -15,8 +16,9 @@ const AUDIT_KEYS = {
 const DEFAULT_MAJOR_GRID_SIZE = 60;
 
 interface SnapshotResponse {
-  plan: FloorPlanDetail;
+  plan: FloorPlanDetail & { equipment: (FloorPlanDetail['equipment'][number] & { photos?: unknown[] })[] };
   cables: RoomConnection[];
+  fiberPaths: SnapshotFiberPath[];
 }
 
 async function fetchSnapshot(roomId: string, logId: string): Promise<SnapshotResponse> {
@@ -58,6 +60,18 @@ export function useDeleteAuditLog(roomId: string | undefined) {
   });
 }
 
+export function usePatchAuditLogContext(roomId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ logId, context }: { logId: string; context: Record<string, unknown> }) => {
+      await api.patch(`/rooms/${roomId}/audit-logs/${logId}`, { context });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUDIT_KEYS.list(roomId!) });
+    },
+  });
+}
+
 /**
  * Preview a snapshot via the Snapshot Overlay — editor state is never touched.
  */
@@ -77,6 +91,7 @@ export function usePreviewSnapshot(roomId: string | undefined) {
       elements: snapshot.plan.elements,
       equipment: snapshot.plan.equipment,
       cables: snapshot.cables,
+      fiberPaths: snapshot.fiberPaths ?? [],
       gridSize: snapshot.plan.gridSize,
       majorGridSize: snapshot.plan.majorGridSize ?? DEFAULT_MAJOR_GRID_SIZE,
     });
@@ -141,15 +156,16 @@ export function useLoadSnapshot(roomId: string | undefined) {
     const snap = useSnapshotStore.getState();
     if (!snap.active || !snap.snapshotId) return;
 
-    // Reconstruct SnapshotResponse from store data
+    // Reconstruct SnapshotResponse from store data (fiberPaths not needed for editor restore)
     const snapshot: SnapshotResponse = {
       plan: {
         elements: snap.elements,
         equipment: snap.equipment,
         gridSize: snap.gridSize,
         majorGridSize: snap.majorGridSize,
-      } as FloorPlanDetail,
+      } as SnapshotResponse['plan'],
       cables: snap.cables,
+      fiberPaths: snap.fiberPaths,
     };
     applySnapshotToEditor(snapshot, roomId, queryClient);
   };

@@ -239,9 +239,7 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
           <>
             {activeTab === 'photos' && (
               snapshotActive ? (
-                <div className="flex items-center justify-center py-12 text-sm text-gray-400">
-                  이 버전의 사진 데이터는 포함되어 있지 않습니다
-                </div>
+                <SnapshotPhotosTab equipmentId={equipmentId} />
               ) : (
                 <PhotosTab equipment={equipment} readOnly={false} />
               )
@@ -534,6 +532,97 @@ function UploadDialog({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   Snapshot Photos Tab — read-only display of photos from snapshot data
+   ================================================================ */
+
+function SnapshotPhotosTab({ equipmentId }: { equipmentId: string }) {
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
+  const [photoSide, setPhotoSide] = useState<'front' | 'rear'>('front');
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const snapEq = snapshotEquipment.find((e) => e.id === equipmentId);
+  const allPhotos = (snapEq?.photos ?? []).filter((p) => p.side === photoSide);
+  const latestPhoto = allPhotos.length > 0 ? allPhotos[0] : null;
+
+  return (
+    <div className="p-4">
+      {/* Side toggle */}
+      <div className="mb-4 flex gap-2">
+        {(['front', 'rear'] as const).map((side) => (
+          <button
+            key={side}
+            onClick={() => setPhotoSide(side)}
+            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+              photoSide === side
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {side === 'front' ? '전면' : '후면'}
+          </button>
+        ))}
+      </div>
+
+      {/* Main photo */}
+      {latestPhoto ? (
+        <div className="mb-4 overflow-hidden rounded-lg border border-gray-200">
+          <img
+            src={latestPhoto.imageUrl}
+            alt={`${photoSide === 'front' ? '전면' : '후면'} 사진`}
+            className="w-full cursor-pointer object-contain"
+            style={{ maxHeight: '240px' }}
+            onClick={() => setLightboxIndex(0)}
+          />
+        </div>
+      ) : (
+        <div className="mb-4 flex h-40 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-sm text-gray-400">
+          {photoSide === 'front' ? '전면' : '후면'} 사진 없음
+        </div>
+      )}
+
+      {/* Gallery */}
+      {allPhotos.length > 1 && (
+        <div className="grid grid-cols-4 gap-2">
+          {allPhotos.map((photo, idx) => (
+            <div
+              key={photo.id}
+              className="cursor-pointer overflow-hidden rounded border border-gray-200 hover:border-blue-400"
+              onClick={() => setLightboxIndex(idx)}
+            >
+              <img src={photo.imageUrl} alt="" className="h-16 w-full object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && allPhotos[lightboxIndex] && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
+          onClick={() => setLightboxIndex(null)}
+        >
+          <img
+            src={allPhotos[lightboxIndex].imageUrl}
+            alt="확대 사진"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxIndex(null)}
+            className="absolute right-6 top-6 rounded-full bg-white/20 p-2 text-white hover:bg-white/40"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -1129,6 +1218,9 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
 
 function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string; roomId: string; category?: string }) {
   const isOfd = category === 'OFD';
+  const snapshotActive = useSnapshotStore((s) => s.active);
+  const snapshotFiberPaths = useSnapshotStore((s) => s.fiberPaths);
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
   const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
   const ofdDirection = useOfdConnectionFlowStore((s) => s.direction);
   const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
@@ -1163,6 +1255,49 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
       fiberPortNumber: newPortNumber,
     });
   }, [updateCable]);
+
+  // In snapshot mode, show read-only fiber paths for OFD
+  if (snapshotActive && isOfd) {
+    const ofdPaths = snapshotFiberPaths.filter(
+      (fp) => fp.ofdAId === equipmentId || fp.ofdBId === equipmentId
+    );
+    const equipMap = new Map(snapshotEquipment.map((e) => [e.id, e.name]));
+
+    return (
+      <div>
+        <div className="p-4 border-b border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">광경로 슬롯</h3>
+          {ofdPaths.length === 0 ? (
+            <p className="text-sm text-gray-400">등록된 광경로가 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {ofdPaths.map((path) => {
+                const remoteId = path.ofdAId === equipmentId ? path.ofdBId : path.ofdAId;
+                const remoteName = equipMap.get(remoteId) ?? '알 수 없음';
+                const localName = equipMap.get(equipmentId) ?? '알 수 없음';
+                return (
+                  <div key={path.id} className="rounded border border-gray-200 bg-white px-3 py-2">
+                    <span className="text-sm font-medium text-gray-700">
+                      {localName} - {remoteName}
+                    </span>
+                    <span className="ml-2 text-xs text-gray-400">
+                      {path.portCount}코어
+                    </span>
+                    {path.description && (
+                      <p className="mt-1 text-xs text-gray-500">{path.description}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="p-4">
+          <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} category={category} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

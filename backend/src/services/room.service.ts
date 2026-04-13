@@ -413,9 +413,19 @@ async function captureRoomSnapshot(
   updated: { id: string; name: string; canvasWidth: number; canvasHeight: number; gridSize: number; majorGridSize: number; backgroundColor: string; updatedAt: Date },
   version: number,
 ) {
-  const [snapshotElements, snapshotEquipment, snapshotCables] = await Promise.all([
+  const [snapshotElements, snapshotEquipmentWithPhotos, snapshotCables] = await Promise.all([
     tx.floorPlanElement.findMany({ where: { roomId }, orderBy: { zIndex: 'asc' } }),
-    tx.equipment.findMany({ where: { roomId }, select: EQUIPMENT_SELECT, orderBy: { sortOrder: 'asc' } }),
+    tx.equipment.findMany({
+      where: { roomId },
+      select: {
+        ...EQUIPMENT_SELECT,
+        photos: {
+          select: { id: true, side: true, imageUrl: true, description: true, takenAt: true },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: { sortOrder: 'asc' },
+    }),
     tx.cable.findMany({
       where: { sourceEquipment: { roomId }, targetEquipment: { roomId } },
       include: {
@@ -425,6 +435,18 @@ async function captureRoomSnapshot(
       },
     }),
   ]);
+
+  // Collect OFD equipment IDs for fiber path query
+  const ofdIds = snapshotEquipmentWithPhotos
+    .filter(e => e.materialCategory?.code?.startsWith('EQP-OFD'))
+    .map(e => e.id);
+
+  const fiberPaths = ofdIds.length > 0
+    ? await tx.fiberPath.findMany({
+        where: { OR: [{ ofdAId: { in: ofdIds } }, { ofdBId: { in: ofdIds } }] },
+        select: { id: true, ofdAId: true, ofdBId: true, portCount: true, description: true },
+      })
+    : [];
 
   return {
     plan: {
@@ -440,7 +462,16 @@ async function captureRoomSnapshot(
         specParams: e.specParams,
         pathLength: e.pathLength,
       })),
-      equipment: snapshotEquipment.map(e => mapEquipmentRow(e)),
+      equipment: snapshotEquipmentWithPhotos.map(e => ({
+        ...mapEquipmentRow(e),
+        photos: e.photos.map(p => ({
+          id: p.id,
+          side: p.side,
+          imageUrl: p.imageUrl,
+          description: p.description,
+          takenAt: p.takenAt?.toISOString() ?? null,
+        })),
+      })),
       version, updatedAt: updated.updatedAt,
     },
     cables: snapshotCables.map((c) => ({
@@ -458,6 +489,7 @@ async function captureRoomSnapshot(
       totalLength: c.totalLength,
       sourceEquipment: c.sourceEquipment, targetEquipment: c.targetEquipment,
     })),
+    fiberPaths,
   };
 }
 
@@ -923,8 +955,13 @@ class RoomService {
               updatedById: userId,
             },
           });
+          // Map old ID → new ID so cables can resolve references
           if (equip.tempId) {
             equipmentIdMap[equip.tempId] = created.id;
+          }
+          // Also map the original real UUID (if equipment was recreated because it didn't exist in DB)
+          if (equip.id && equip.id !== created.id) {
+            equipmentIdMap[equip.id] = created.id;
           }
 
           // Auto-Rack creation for EQP-RACK equipment
@@ -1048,8 +1085,15 @@ class RoomService {
           ? (fiberPathIdMap[cable.fiberPathId] ?? cable.fiberPathId)
           : null;
 
-        // Skip cables whose source/target equipment doesn't exist
+        // Skip cables whose source/target equipment doesn't exist (unresolvable)
         if (!isRealId(srcId) || !isRealId(tgtId)) continue;
+
+        // Verify endpoints actually exist in DB (guard against stale references)
+        const [srcExists, tgtExists] = await Promise.all([
+          tx.equipment.findUnique({ where: { id: srcId }, select: { id: true } }),
+          tx.equipment.findUnique({ where: { id: tgtId }, select: { id: true } }),
+        ]);
+        if (!srcExists || !tgtExists) continue;
 
         if (isRealId(cable.id) && dbCableIds.has(cable.id!)) {
           // UPDATE existing cable
@@ -1227,11 +1271,12 @@ class RoomService {
       throw new ConflictError('이 버전에는 되돌리기 데이터가 없습니다.');
     }
 
-    // New format: { plan: RoomPlanDetail, cables: [...] }
+    // New format: { plan: RoomPlanDetail, cables: [...], fiberPaths: [...] }
     if (snapshot.plan) {
       return {
         plan: snapshot.plan,
         cables: snapshot.cables ?? [],
+        fiberPaths: snapshot.fiberPaths ?? [],
       };
     }
 
@@ -1252,6 +1297,7 @@ class RoomService {
           updatedAt: log.createdAt,
         },
         cables: snapshot.cables ?? [],
+        fiberPaths: [],
       };
     }
 

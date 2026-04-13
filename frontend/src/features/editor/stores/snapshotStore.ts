@@ -2,6 +2,24 @@ import { create } from 'zustand';
 import type { FloorPlanElement, FloorPlanEquipment } from '../../../types/floorPlan';
 import type { RoomConnection } from '../../../types/connection';
 
+export interface SnapshotPhoto {
+  id: string;
+  side: string;
+  imageUrl: string;
+  description?: string | null;
+  takenAt?: string | null;
+}
+
+export interface SnapshotFiberPath {
+  id: string;
+  ofdAId: string;
+  ofdBId: string;
+  portCount: number;
+  description?: string | null;
+}
+
+export type SnapshotEquipment = FloorPlanEquipment & { photos?: SnapshotPhoto[] };
+
 /**
  * Snapshot Overlay Store — completely independent from editorStore.
  *
@@ -13,8 +31,9 @@ export interface SnapshotStoreState {
   snapshotId: string | null;
   label: string;
   elements: FloorPlanElement[];
-  equipment: FloorPlanEquipment[];
+  equipment: SnapshotEquipment[];
   cables: RoomConnection[];
+  fiberPaths: SnapshotFiberPath[];
   gridSize: number;
   majorGridSize: number;
 }
@@ -22,8 +41,9 @@ export interface SnapshotStoreState {
 export interface SnapshotStoreActions {
   enter: (id: string, label: string, data: {
     elements: FloorPlanElement[];
-    equipment: FloorPlanEquipment[];
+    equipment: SnapshotEquipment[];
     cables: RoomConnection[];
+    fiberPaths: SnapshotFiberPath[];
     gridSize: number;
     majorGridSize: number;
   }) => void;
@@ -37,6 +57,7 @@ const initialState: SnapshotStoreState = {
   elements: [],
   equipment: [],
   cables: [],
+  fiberPaths: [],
   gridSize: 10,
   majorGridSize: 60,
 };
@@ -51,6 +72,7 @@ export const useSnapshotStore = create<SnapshotStoreState & SnapshotStoreActions
     elements: data.elements,
     equipment: data.equipment,
     cables: data.cables,
+    fiberPaths: data.fiberPaths,
     gridSize: data.gridSize,
     majorGridSize: data.majorGridSize,
   }),
