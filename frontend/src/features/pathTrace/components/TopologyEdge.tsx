@@ -19,7 +19,7 @@ export function TopologyEdge({ edge, nodeMap, isHighlighted }: TopologyEdgeProps
   const y2 = target.y + target.height / 2;
 
   const isFiber = edge.type === 'fiberPath';
-  const color = isFiber ? '#8b5cf6' : CABLE_COLORS[edge.cableType ?? ''] ?? '#6b7280';
+  const color = isFiber ? '#8b5cf6' : (edge.displayColor || CABLE_COLORS[edge.cableType ?? ''] || '#6b7280');
   const strokeWidth = isHighlighted ? 2.5 : 1.5;
   const opacity = isHighlighted ? 1 : 0.2;
 

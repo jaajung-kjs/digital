@@ -23,6 +23,8 @@ export interface TraceEdge {
   fiberPathLabel?: string;
   portCount?: number;
   fiberPortNumber?: number;
+  materialCategoryCode?: string;
+  displayColor?: string;
 }
 
 export interface TraceRing {

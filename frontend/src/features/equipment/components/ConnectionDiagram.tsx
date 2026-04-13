@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { CABLE_BADGE_CLASSES } from '../../../types/connection';
-import { getCableTypeFromMaterial } from '../../../types/material';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import { isTempId } from '../../../utils/idHelpers';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
-import { useConnectionCreationStore } from '../../connections/stores/connectionCreationStore';
-import { CableMaterialPicker } from '../../materials/components/CableMaterialPicker';
-import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
+import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
 
 
 interface ConnectionDiagramProps {
@@ -31,10 +28,7 @@ export function ConnectionDiagram({
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const isTraceLoading = usePathHighlightStore((s) => s.isLoading);
   const traceActive = usePathHighlightStore((s) => s.active);
-  const startCreation = useConnectionCreationStore((s) => s.startCreation);
-  const creationPhase = useConnectionCreationStore((s) => s.phase);
-  const addRecent = useRecentMaterialsStore((s) => s.addRecent);
-  const [showCableSelector, setShowCableSelector] = useState(false);
+  const cableDrawingPhase = useCableDrawingStore((s) => s.phase);
 
   // Unmount = context gone → clear highlight automatically.
   useEffect(() => () => clearHighlight(), [clearHighlight]);
@@ -47,22 +41,17 @@ export function ConnectionDiagram({
     );
   }, [localCables, equipmentId]);
 
-  const handleMaterialSelect = ({ categoryId, categoryCode, specParams, specification }: {
-    categoryId: string;
-    categoryCode: string;
-    specParams: Record<string, unknown>;
-    specification: string;
-  }) => {
-    const cableType = getCableTypeFromMaterial(categoryCode);
-    startCreation(equipmentId, cableType, categoryId, categoryCode, specParams, specification);
-    addRecent('cable', {
-      categoryId,
-      categoryCode,
-      categoryName: specification,
-      specParams,
-      specification,
-    });
-    setShowCableSelector(false);
+  const handleStartCableDrawing = () => {
+    clearHighlight();
+    // Find this equipment to compute its center position
+    const eq = localEquipment.find((e) => e.id === equipmentId);
+    if (!eq) return;
+    const center = { x: eq.positionX + eq.width / 2, y: eq.positionY + eq.height / 2 };
+    // Activate cable tool and pre-set source (skip selectingSource phase)
+    useEditorStore.getState().setTool('cable');
+    useCableDrawingStore.getState().setSource(equipmentId, center);
+    // Close equipment detail panel so user can draw on canvas
+    useEditorStore.getState().setDetailPanelEquipmentId(null);
   };
 
   return (
@@ -71,42 +60,19 @@ export function ConnectionDiagram({
         {/* Add connection button — OFD connections are managed via FiberPathManager */}
         {category !== 'OFD' && (
         <div className="mb-3">
-          {creationPhase === 'selectingTarget' ? (
+          {cableDrawingPhase !== 'idle' ? (
             <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
-              캔버스에서 연결할 설비를 클릭하세요
+              캔버스에서 경로를 그리세요
             </div>
           ) : (
             <button
-              onClick={() => { setShowCableSelector(true); clearHighlight(); }}
+              onClick={handleStartCableDrawing}
               className="w-full px-3 py-1.5 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors font-medium"
             >
               + 연결 추가
             </button>
           )}
         </div>
-        )}
-
-        {/* Cable material selector modal */}
-        {showCableSelector && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-            onClick={() => setShowCableSelector(false)}
-          >
-            <div
-              className="bg-white rounded-xl shadow-xl w-80 overflow-hidden max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="px-4 py-3 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-800">케이블 종류/규격 선택</h3>
-              </div>
-              <div className="p-4">
-                <CableMaterialPicker
-                  value={null}
-                  onChange={handleMaterialSelect}
-                />
-              </div>
-            </div>
-          </div>
         )}
 
         {relevantCables.length === 0 ? (
@@ -163,8 +129,11 @@ export function ConnectionDiagram({
                     <div className="flex flex-col items-center shrink-0">
                       <span
                         className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                          CABLE_BADGE_CLASSES[cable.cableType] || 'bg-gray-100 text-gray-600'
+                          cable.displayColor ? '' : (CABLE_BADGE_CLASSES[cable.cableType] || 'bg-gray-100 text-gray-600')
                         }`}
+                        style={cable.displayColor
+                          ? { backgroundColor: cable.displayColor, color: '#ffffff' }
+                          : undefined}
                       >
                         {cable.materialCategoryCode || cable.cableType}
                       </span>

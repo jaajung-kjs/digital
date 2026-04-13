@@ -18,6 +18,8 @@ export interface CableDetail {
   fiberPortNumber: number | null;
   fiberPathDescription: string | null;
   materialCategoryId: string | null;
+  materialCategoryCode: string | null;
+  displayColor: string | null;
   specParams: unknown;
   pathLength: number | null;
   bufferLength: number;
@@ -83,6 +85,12 @@ const cableInclude = {
       ofdBId: true,
       ofdA: { select: { room: { select: { floor: { select: { substation: { select: { name: true } } } } } } } },
       ofdB: { select: { room: { select: { floor: { select: { substation: { select: { name: true } } } } } } } },
+    },
+  },
+  materialCategory: {
+    select: {
+      code: true,
+      displayColor: true,
     },
   },
 } as const;
@@ -229,6 +237,8 @@ class CableService {
       fiberPortNumber: c.fiberPortNumber ?? null,
       fiberPathDescription: this.buildFiberPathLabel(c),
       materialCategoryId: c.materialCategoryId ?? null,
+      materialCategoryCode: c.materialCategory?.code ?? null,
+      displayColor: c.materialCategory?.displayColor ?? null,
       specParams: c.specParams ?? null,
       pathLength: c.pathLength ?? null,
       bufferLength: c.bufferLength ?? 4,
