@@ -1,6 +1,6 @@
 /**
  * FloorPlan 통합 렌더러
- * 모든 Element/Rack 렌더링 함수를 단일 파일로 통합
+ * 모든 Element/Equipment 렌더링 함수를 단일 파일로 통합
  */
 
 import type {
@@ -13,7 +13,6 @@ import type {
   WindowProperties,
   TextProperties,
 } from '../../types/floorPlan';
-import type { RackDetail } from '../../types/rack';
 import { LINE_STYLES } from '../../types/floorPlan';
 import { SELECTION_STYLES, ELEMENT_COLORS } from '../canvas/canvasDrawing';
 import { roundRect } from '../canvas/canvasTransform';
@@ -893,87 +892,6 @@ export function renderEquipmentItems(
   items.forEach(item => {
     renderEquipmentItem(ctx, item, selectedIds.includes(item.id));
   });
-}
-
-// ============================================
-// 랙 렌더링
-// ============================================
-
-const RACK_COLORS = {
-  fill: '#e5e7eb',   // gray-200
-  stroke: '#6b7280', // gray-500
-  text: '#1f2937',   // gray-800
-  badge: '#3b82f6',  // blue-500
-} as const;
-
-/**
- * 랙 하나를 캔버스에 렌더링
- */
-function renderRackItem(
-  ctx: CanvasRenderingContext2D,
-  rack: RackDetail,
-  isSelected: boolean
-): void {
-  ctx.save();
-  ctx.translate(rack.positionX + rack.width / 2, rack.positionY + rack.height / 2);
-  ctx.rotate((rack.rotation * Math.PI) / 180);
-  ctx.translate(-rack.width / 2, -rack.height / 2);
-
-  // Fill & stroke
-  ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : RACK_COLORS.fill;
-  ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : RACK_COLORS.stroke;
-  ctx.lineWidth = isSelected ? 2.5 : 1.5;
-  ctx.setLineDash([6, 3]);
-  ctx.fillRect(0, 0, rack.width, rack.height);
-  ctx.strokeRect(0, 0, rack.width, rack.height);
-  ctx.setLineDash([]);
-
-  // Name label
-  const padding = 4;
-  const maxWidth = rack.width - padding * 2;
-  const maxHeight = rack.height - padding * 2;
-
-  if (maxWidth > 10 && maxHeight > 10) {
-    ctx.fillStyle = RACK_COLORS.text;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    let lo = 6, hi = Math.min(maxHeight, 32);
-    while (lo < hi) {
-      const mid = Math.ceil((lo + hi) / 2);
-      ctx.font = `600 ${mid}px sans-serif`;
-      if (ctx.measureText(rack.name).width <= maxWidth && mid <= maxHeight * 0.6) {
-        lo = mid;
-      } else {
-        hi = mid - 1;
-      }
-    }
-    ctx.font = `600 ${lo}px sans-serif`;
-    ctx.fillText(rack.name, rack.width / 2, rack.height / 2, maxWidth);
-
-    // U count badge below name
-    if (lo >= 8 && maxHeight > lo + 12) {
-      const badgeText = `${rack.totalU}U`;
-      ctx.font = `500 ${Math.max(8, lo - 3)}px sans-serif`;
-      ctx.fillStyle = RACK_COLORS.badge;
-      ctx.fillText(badgeText, rack.width / 2, rack.height / 2 + lo, maxWidth);
-    }
-  }
-
-  ctx.restore();
-}
-
-/**
- * 모든 랙 렌더링
- */
-export function renderRacks(
-  ctx: CanvasRenderingContext2D,
-  racks: RackDetail[],
-  selectedRackId: string | null
-): void {
-  for (const rack of racks) {
-    renderRackItem(ctx, rack, rack.id === selectedRackId);
-  }
 }
 
 // ============================================

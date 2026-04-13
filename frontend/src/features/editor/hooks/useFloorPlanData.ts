@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type { FloorPlanDetail, UpdateFloorPlanRequest } from '../../../types/floorPlan';
 import type { RoomDetail } from '../../../types/substation';
-import type { RackDetail } from '../../../types/rack';
 import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
@@ -76,17 +75,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     },
     enabled: !!roomId,
     retry: false,
-  });
-
-  // Load racks for this room
-  const { data: racks } = useQuery({
-    queryKey: ['floor-plan-racks', roomId],
-    queryFn: async () => {
-      const response = await api.get<{ data: RackDetail[] }>(`/floor-plans/${roomId}/racks`);
-      return response.data.data;
-    },
-    enabled: !!roomId,
-    staleTime: 30_000,
   });
 
   // Load connections (cables) for this room
@@ -163,7 +151,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
 
       queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
       queryClient.invalidateQueries({ queryKey: ['room-connections', roomId] });
-      queryClient.invalidateQueries({ queryKey: ['floor-plan-racks', roomId] });
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
       if (pendingUploads.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
@@ -219,13 +206,6 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       useEditorStore.getState().setCables(cables);
     }
   }, [backendConnections]);
-
-  // Sync racks into store
-  useEffect(() => {
-    if (racks) {
-      useEditorStore.getState().setLocalRacks(racks);
-    }
-  }, [racks]);
 
   // Viewport initialization
   useEffect(() => {

@@ -24,7 +24,6 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
-import { RACK_EQUIPMENT_POSITION_TOLERANCE } from '../../../utils/floorplan/constants';
 
 /**
  * Hook for all mouse/wheel/touch event handlers on the canvas
@@ -722,7 +721,6 @@ export function useCanvasEvents(
     const snapState = useSnapshotStore.getState();
     const equipment = snapState.active ? snapState.equipment : editorStore.getState().localEquipment;
 
-    // Check equipment first (equipment renders on top of racks)
     for (const eq of [...equipment].reverse()) {
       if (
         x >= eq.positionX &&
@@ -731,29 +729,6 @@ export function useCanvasEvents(
         y <= eq.positionY + eq.height
       ) {
         editorStore.getState().setDetailPanelEquipmentId(eq.id);
-        return;
-      }
-    }
-
-    // Check racks — try to find matching equipment at the same position (EQP-RACK unification)
-    const { localRacks } = editorStore.getState();
-    for (const rack of [...localRacks].reverse()) {
-      if (
-        x >= rack.positionX &&
-        x <= rack.positionX + rack.width &&
-        y >= rack.positionY &&
-        y <= rack.positionY + rack.height
-      ) {
-        // Find the equipment that corresponds to this rack (position proximity match)
-        const matchingEq = equipment.find(
-          (eq) =>
-            eq.materialCategoryCode?.startsWith('EQP-RACK') &&
-            Math.abs(eq.positionX - rack.positionX) < RACK_EQUIPMENT_POSITION_TOLERANCE &&
-            Math.abs(eq.positionY - rack.positionY) < RACK_EQUIPMENT_POSITION_TOLERANCE
-        );
-        if (matchingEq) {
-          editorStore.getState().setDetailPanelEquipmentId(matchingEq.id);
-        }
         return;
       }
     }

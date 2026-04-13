@@ -5,7 +5,6 @@ import type {
   FloorPlanEquipment,
   ViewMode,
 } from '../../../types/floorPlan';
-import type { RackDetail } from '../../../types/rack';
 
 /** Filter key: either a materialCategoryCode (DB) or a CableType (legacy fallback) */
 export type ConnectionFilterKey = string;
@@ -85,7 +84,6 @@ export interface EditorStoreState {
   localElements: FloorPlanElement[];
   localEquipment: FloorPlanEquipment[];
   localCables: LocalCable[];
-  localRacks: RackDetail[];
   hasChanges: boolean;
 
   // Element/Equipment deletions (tracked for backward compat with server)
@@ -135,7 +133,6 @@ export interface EditorStoreActions {
   setShowGrid: (show: boolean) => void;
   setLocalElements: (elements: FloorPlanElement[] | ((prev: FloorPlanElement[]) => FloorPlanElement[])) => void;
   setLocalEquipment: (equipment: FloorPlanEquipment[] | ((prev: FloorPlanEquipment[]) => FloorPlanEquipment[])) => void;
-  setLocalRacks: (racks: RackDetail[]) => void;
   setHasChanges: (has: boolean) => void;
   addDeletedElementId: (id: string) => void;
   addDeletedEquipmentId: (id: string) => void;
@@ -192,7 +189,6 @@ const initialState: EditorStoreState = {
   localElements: [],
   localEquipment: [],
   localCables: [],
-  localRacks: [],
   hasChanges: false,
   deletedElementIds: [],
   deletedEquipmentIds: [],
@@ -238,7 +234,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setLocalEquipment: (equipment) => set((state) => ({
     localEquipment: typeof equipment === 'function' ? equipment(state.localEquipment) : equipment,
   })),
-  setLocalRacks: (localRacks) => set({ localRacks }),
   setHasChanges: (hasChanges) => set({ hasChanges }),
   addDeletedElementId: (id) => set((state) => ({
     deletedElementIds: [...state.deletedElementIds, id],
