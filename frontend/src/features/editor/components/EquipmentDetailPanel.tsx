@@ -14,6 +14,7 @@ import { ConnectionDiagram } from '../../equipment/components/ConnectionDiagram'
 import { FiberPathManager } from '../../fiber/components/FiberPathManager';
 import { RackView } from './RackView';
 import { MaterialPicker } from '../../materials/components/MaterialPicker';
+import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
 import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import {
   LOG_TYPE_LABELS,
@@ -103,6 +104,7 @@ function useMergedEquipmentDetail(equipmentId: string): {
       materialCategoryCode: snapEq.materialCategoryCode ?? null,
       materialCategoryName: snapEq.materialCategoryName ?? null,
       displayColor: snapEq.displayColor ?? null,
+      specification: snapEq.specification ?? null,
       specParams: snapEq.specParams ?? null,
     };
     return { equipment, isLoading: false, error: null };
@@ -130,9 +132,11 @@ function useMergedEquipmentDetail(equipmentId: string): {
     height2d: localEq.height,
     frontImageUrl: backendData?.frontImageUrl ?? null,
     rearImageUrl: backendData?.rearImageUrl ?? null,
+    materialCategoryId: localEq.materialCategoryId ?? null,
     materialCategoryCode: localEq.materialCategoryCode ?? null,
     materialCategoryName: localEq.materialCategoryName ?? null,
     displayColor: localEq.displayColor ?? null,
+    specification: localEq.specification ?? null,
     specParams: localEq.specParams ?? null,
   };
 
@@ -140,7 +144,7 @@ function useMergedEquipmentDetail(equipmentId: string): {
 }
 
 export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>('photos');
+  const [activeTab, setActiveTab] = useState<TabKey>('info');
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
   const snapshotActive = useSnapshotStore((s) => s.active);
   const isTemp = isTempId(equipmentId);
@@ -162,6 +166,23 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
     }
     return BASE_TABS;
   }, [isRackEquipment]);
+
+  // Check if this is a child of a rack (has parentEquipmentId)
+  const parentEquipmentId = localEq?.parentEquipmentId ?? null;
+
+  // I35: ESC to close panel (when no modal/lightbox is open)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        // Don't close if a modal/lightbox/dialog is open (check for z-index 50+ overlays)
+        const overlays = document.querySelectorAll('[class*="fixed inset-0"]');
+        if (overlays.length > 0) return;
+        setDetailPanelEquipmentId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setDetailPanelEquipmentId]);
 
   // Auto-switch to connections tab when OFD flow targets this equipment
   useEffect(() => {
@@ -187,6 +208,18 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
+          {/* I33: Back button for rack child equipment */}
+          {parentEquipmentId && (
+            <button
+              onClick={() => setDetailPanelEquipmentId(parentEquipmentId)}
+              className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors shrink-0"
+              title="랙으로 돌아가기"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
           <h3 className="text-sm font-bold text-gray-900 truncate">
             {!isTemp && isLoading ? '로딩 중...' : equipment?.name ?? '설비 상세'}
           </h3>
@@ -422,7 +455,7 @@ function PhotoLightbox({
               {Math.round(scale * 100)}%
             </button>
           )}
-          {photo.id && onDelete && (
+          {photo.id && photo.id.startsWith('pending-') && onDelete && (
             <button onClick={handleDelete} className="p-1.5 hover:bg-red-500/50 rounded" title="사진 삭제">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -845,15 +878,11 @@ function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly
   const widthCm = equipment.width2d != null ? Math.round(equipment.width2d) : '-';
   const heightCm = equipment.height2d != null ? Math.round(equipment.height2d) : '-';
 
-  const specParamsStr = equipment.specParams
-    ? Object.entries(equipment.specParams).map(([k, v]) => `${k}: ${v}`).join(', ')
-    : null;
-
   const fields: { label: string; value: string }[] = [
     { label: '이름', value: equipment.name },
-    { label: '분류', value: equipment.materialCategoryName
-      ? equipment.materialCategoryName + (specParamsStr ? ` (${specParamsStr})` : '')
-      : (equipment.materialCategoryCode ?? equipment.category) },
+    { label: '분류', value: equipment.specification
+      ? equipment.specification
+      : (equipment.materialCategoryName ?? equipment.materialCategoryCode ?? equipment.category) },
     { label: '모델', value: equipment.model || '-' },
     { label: '제조사', value: equipment.manufacturer || '-' },
     { label: '담당자', value: equipment.manager || '-' },
@@ -896,6 +925,8 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const setLocalEquipment = useEditorStore((s) => s.setLocalEquipment);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const recentEquipment = useRecentMaterialsStore((s) => s.recentEquipment);
+  const addRecent = useRecentMaterialsStore((s) => s.addRecent);
 
   const [editName, setEditName] = useState(equipment.name);
   const [editMaterialCategoryId, setEditMaterialCategoryId] = useState(equipment.materialCategoryId ?? null);
@@ -934,6 +965,18 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
     );
     setLocalEquipment(updated);
     setHasChanges(true);
+
+    // C1: Track recent material usage after edit
+    if (editMaterialCategoryId && editMaterialCategoryCode && editSpecification) {
+      addRecent('equipment', {
+        categoryId: editMaterialCategoryId,
+        categoryCode: editMaterialCategoryCode,
+        categoryName: editMaterialCategoryName ?? editSpecification,
+        specParams: editSpecParams,
+        specification: editSpecification,
+      });
+    }
+
     onClose();
   };
 
@@ -957,6 +1000,7 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
             setEditSpecification(specification);
             setEditSpecParams(specParams);
           }}
+          recentItems={recentEquipment}
         />
       </div>
       <div>
@@ -1307,6 +1351,25 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
             </div>
           )}
         </div>
+        <div className="p-4">
+          <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} category={category} />
+        </div>
+      </div>
+    );
+  }
+
+  // C2: In snapshot mode, block all destructive actions
+  if (snapshotActive) {
+    return (
+      <div>
+        {isOfd && (
+          <FiberPathManager
+            ofdId={equipmentId}
+            onNavigateRemote={(remoteRoomId) => {
+              navigate(`/rooms/${remoteRoomId}/plan`);
+            }}
+          />
+        )}
         <div className="p-4">
           <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} category={category} />
         </div>

@@ -3,6 +3,7 @@ import { generateTempId } from '../../../utils/idHelpers';
 import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import { useEditorStore } from '../stores/editorStore';
 import { MaterialPicker } from '../../materials/components/MaterialPicker';
+import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
 
 interface RackEquipmentFormProps {
   rackEquipmentId: string;  // the parent EQP-RACK equipment ID
@@ -28,6 +29,7 @@ export function RackEquipmentForm({
   const [displayColor, setDisplayColor] = useState<string | null>(null);
   const [specification, setSpecification] = useState<string | null>(null);
   const [specParams, setSpecParams] = useState<Record<string, unknown> | null>(null);
+  const recentEquipment = useRecentMaterialsStore((s) => s.recentEquipment);
 
   // Calculate available start positions based on equipment height
   const availablePositions = useMemo(() => {
@@ -79,6 +81,18 @@ export function RackEquipmentForm({
       heightU,
     }]);
     useEditorStore.getState().setHasChanges(true);
+
+    // C1: Track recent material usage
+    if (materialCategoryId && materialCategoryCode && specification) {
+      useRecentMaterialsStore.getState().addRecent('equipment', {
+        categoryId: materialCategoryId,
+        categoryCode: materialCategoryCode,
+        categoryName: materialCategoryName ?? specification,
+        specParams: specParams ?? {},
+        specification,
+      });
+    }
+
     onSuccess();
   };
 
@@ -113,6 +127,7 @@ export function RackEquipmentForm({
               setSpecification(spec ?? null);
               setSpecParams(sp);
             }}
+            recentItems={recentEquipment}
           />
         </div>
 
