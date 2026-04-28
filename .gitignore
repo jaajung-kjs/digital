@@ -50,3 +50,8 @@ prisma/*.db-journal
 
 # Worktrees
 .worktrees/
+
+# Local data / source drawings (not for git)
+downloads/
+downloads.zip
+plan/
