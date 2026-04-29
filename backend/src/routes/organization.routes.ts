@@ -91,7 +91,7 @@ router.get('/branches/:branchId/substations', branchController.getSubstations);
 // ==================== Reorder (순서 변경) ====================
 
 const reorderSchema = z.object({
-  type: z.enum(['headquarters', 'branch', 'substation', 'floor', 'room']),
+  type: z.enum(['headquarters', 'branch', 'substation', 'floor']),
   items: z.array(z.object({
     id: z.string().uuid(),
     sortOrder: z.number().int().min(0),
