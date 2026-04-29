@@ -32,11 +32,20 @@ export const CABLE_BADGE_CLASSES: Record<string, string> = Object.fromEntries(
 export interface EquipmentInfo {
   id: string;
   name: string;
+  /**
+   * @deprecated P8 — Equipment no longer has parentEquipmentId (rack children
+   * are now `RackModule`). Adapter shape only; removed in P9.
+   */
   parentEquipmentId: string | null;
   floorId: string | null;
 }
 
-/** API 응답 구조 (flat) */
+/**
+ * API 응답 구조 (flat) — legacy room/connection 응답.
+ *
+ * NOTE (P8): cable category 메타는 신규 `categoryId/Code/Name` 그리고 legacy
+ * `materialCategoryId/Code` 둘 다 노출한다. P9 에서 신규 필드만 사용하도록 정리.
+ */
 export interface RoomConnection {
   id: string;
   sourceEquipmentId: string;
@@ -50,10 +59,17 @@ export interface RoomConnection {
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
   fiberPathDescription?: string | null;
+  /** @deprecated P8 — use `categoryId`. */
   materialCategoryId?: string | null;
+  /** @deprecated P8 — use `categoryCode`. */
   materialCategoryCode?: string | null;
-  displayColor?: string | null;
+  /** @deprecated P8 — Material model removed; always null. */
   materialId?: string | null;
+  /** New cable-category fields (P8). */
+  categoryId?: string | null;
+  categoryCode?: string | null;
+  categoryName?: string | null;
+  displayColor?: string | null;
   specParams?: Record<string, unknown> | null;
   pathLength?: number | null;
   totalLength?: number | null;

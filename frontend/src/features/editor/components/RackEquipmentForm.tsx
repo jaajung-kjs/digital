@@ -56,14 +56,19 @@ export function RackEquipmentForm({
   const handleSubmit = () => {
     if (!name.trim() || effectiveStartU == null) return;
 
+    // P8: this whole form is being replaced by RackModule UI in P9.
+    // We keep the call shape compiling but stamp `kind: 'OFD'` + `totalU: null`
+    // as placeholders — UX is intentionally broken until P9.
     useEditorStore.getState().setLocalEquipment((prev) => [...prev, {
       id: generateTempId(),
+      kind: 'OFD',
       name: name.trim(),
       positionX: 0,
       positionY: 0,
       width: 0,
       height: 0,
       rotation: 0,
+      totalU: null,
       materialCategoryId,
       materialCategoryCode,
       materialCategoryName,

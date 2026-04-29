@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
-import type { FloorPlanDetail, FloorPlanCable, UpdateFloorPlanRequest } from '../../../types/floorPlan';
+import type {
+  FloorPlanDetail,
+  FloorPlanCable,
+  UpdateFloorPlanRequest,
+  BulkUpdatePlanResponse,
+} from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useViewport } from './useViewport';
@@ -18,16 +23,27 @@ function buildTempIdMap(
 
 /**
  * Convert FloorPlanCable[] from the plan response into LocalCable[] for the editor store.
+ *
+ * P8: backend now returns polymorphic source/target (equipmentId | moduleId).
+ * `LocalCable.sourceEquipmentId / targetEquipmentId` is still required for the
+ * canvas hit testing path — for module-only endpoints we fall back to the rack
+ * equipment id ('' if missing) until P9 wires real RackModule positions.
  */
 function planCablesToLocalCables(cables: FloorPlanCable[]): LocalCable[] {
   return cables.map((c) => ({
     id: c.id,
-    sourceEquipmentId: c.sourceEquipmentId,
-    targetEquipmentId: c.targetEquipmentId,
+    sourceEquipmentId: c.sourceEquipmentId ?? c.sourceModuleId ?? '',
+    targetEquipmentId: c.targetEquipmentId ?? c.targetModuleId ?? '',
+    sourceModuleId: c.sourceModuleId ?? null,
+    targetModuleId: c.targetModuleId ?? null,
     cableType: c.cableType,
-    materialCategoryId: c.materialCategoryId ?? null,
-    materialCategoryCode: c.materialCategoryCode ?? null,
-    materialCategoryName: c.materialCategoryName ?? null,
+    categoryId: c.categoryId ?? null,
+    categoryCode: c.categoryCode ?? null,
+    categoryName: c.categoryName ?? null,
+    // legacy aliases — P9 will drop these
+    materialCategoryId: c.categoryId ?? null,
+    materialCategoryCode: c.categoryCode ?? null,
+    materialCategoryName: c.categoryName ?? null,
     displayColor: c.displayColor ?? null,
     specParams: c.specParams ?? null,
     specification: c.specification ?? null,
@@ -82,13 +98,15 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   const saveMutation = useMutation({
     mutationFn: (data: UpdateFloorPlanRequest) => {
       isSavingRef.current = true;
-      return api.put<{ data: { id: string; version: number; equipmentIdMap: Record<string, string>; auditLogId: string | null } }>(
+      return api.put<{ data: BulkUpdatePlanResponse }>(
         `/floors/${floorId}/plan`,
         data
       );
     },
     onSuccess: async (response) => {
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
+      // P8: rackModuleIdMap is now returned by the backend; consumers (e.g. a
+      // future RackModule editor pane in P9) can read it from the response.
       const { pendingUploads, pendingLogs } = useEditorStore.getState();
       const tempIdMap = buildTempIdMap(equipmentIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
@@ -231,6 +249,18 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     const { localCables, pendingFiberPaths, deletedFiberPathIds } = useEditorStore.getState();
 
     const currentScaleRatio = useEditorStore.getState().scaleRatio;
+
+    // P8 NOTE — payload shape now matches the new bulkUpdatePlan input:
+    //   - equipment: requires `kind` (EquipmentKind)
+    //   - cables:    polymorphic source/target ({equipmentId|moduleId})
+    //   - rackModules: new top-level array (omitted for now; P9 wires it from
+    //                  a localRackModules store slice yet to be added)
+    //
+    // The editor UI hasn't been migrated yet, so we map best-effort:
+    //   - eq.kind defaults to 'RACK' when totalU is set, else 'OFD'. P9 will
+    //     replace this heuristic with explicit kind selection in the sidebar.
+    //   - cable source/target equipmentIds always become {equipmentId} (no
+    //     moduleId path until RackModule UI lands).
     const updateData: UpdateFloorPlanRequest = {
       canvasWidth: floorPlan.canvasWidth,
       canvasHeight: floorPlan.canvasHeight,
@@ -240,24 +270,21 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       equipment: localEquipment.map(eq => ({
         id: isTempId(eq.id) ? null : eq.id,
         tempId: isTempId(eq.id) ? eq.id : undefined,
+        kind: eq.kind ?? (eq.totalU != null ? 'RACK' : 'OFD'),
         name: eq.name,
         positionX: eq.positionX,
         positionY: eq.positionY,
         width: eq.width,
         height: eq.height,
         rotation: eq.rotation,
-        description: eq.description || undefined,
-        model: eq.model || undefined,
-        manufacturer: eq.manufacturer || undefined,
-        manager: eq.manager || undefined,
-        materialCategoryId: eq.materialCategoryId || undefined,
-        materialCategoryCode: eq.materialCategoryCode || undefined,
-        specParams: eq.specParams || undefined,
-        parentEquipmentId: eq.parentEquipmentId || undefined,
-        startU: eq.startU ?? undefined,
-        heightU: eq.heightU ?? undefined,
-        totalU: eq.totalU ?? undefined,
+        totalU: eq.totalU ?? null,
+        description: eq.description ?? null,
+        manager: eq.manager ?? null,
+        height3d: eq.height3d ?? null,
+        properties: eq.properties ?? null,
       })),
+      // P8: rackModules omitted until the editor store gains a localRackModules slice (P9).
+      rackModules: undefined,
       cables: (() => {
         const equipIds = new Set(localEquipment.map(eq => eq.id));
         return localCables.filter(c =>
@@ -266,10 +293,10 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       })()
         .map(c => ({
           id: isTempId(c.id) ? null : c.id,
-          sourceEquipmentId: c.sourceEquipmentId,
-          targetEquipmentId: c.targetEquipmentId,
+          source: { equipmentId: c.sourceEquipmentId, moduleId: c.sourceModuleId ?? null },
+          target: { equipmentId: c.targetEquipmentId, moduleId: c.targetModuleId ?? null },
           cableType: c.cableType,
-          materialCategoryId: c.materialCategoryId,
+          categoryId: c.categoryId ?? c.materialCategoryId ?? null,
           specParams: c.specParams,
           pathPoints: c.pathPoints,
           pathLength: c.pathLength,
