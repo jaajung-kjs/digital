@@ -16,11 +16,7 @@ export type EquipmentDetailPanelKind =
   | 'grounding'
   | 'hvac';
 
-/**
- * Detail panel kind including the `'generic'` fallback used by the panel
- * registry (frontend/src/features/equipment/components/detail/panels/registry.ts).
- */
-export type DetailPanelKind = EquipmentDetailPanelKind | 'generic';
+export type DetailPanelKind = EquipmentDetailPanelKind;
 
 export interface EquipmentKindMeta {
   label: string;
