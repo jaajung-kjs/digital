@@ -13,6 +13,7 @@ import {
   type DrawingToolType,
 } from '../../../utils/floorplan/renderers';
 import { renderGrid } from '../renderers/gridRenderer';
+import { renderBackgroundDrawing } from '../renderers/backgroundLayerRenderer';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
@@ -69,6 +70,11 @@ export function useCanvas(
     // Background
     ctx.fillStyle = floorPlan.backgroundColor || '#ffffff';
     ctx.fillRect(viewportLeft, viewportTop, canvas.width / scale, canvas.height / scale);
+
+    // Imported DWG background (under grid + user elements)
+    if (floorPlan.backgroundDrawing) {
+      renderBackgroundDrawing(ctx, floorPlan.backgroundDrawing, floorPlan.backgroundOpacity ?? 0.3);
+    }
 
     // Grid
     if (showGrid) {
