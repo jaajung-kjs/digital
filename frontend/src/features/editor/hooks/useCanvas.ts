@@ -1,14 +1,10 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import {
-  renderLinePreview,
-  renderPlacementPreview,
   renderEquipmentDrawPreview,
-  renderElements,
   renderEquipmentItems,
-  renderElementLengths,
   renderEquipmentLengths,
-  type DrawingToolType,
+  renderEquipmentPreview,
 } from '../../../utils/floorplan/renderers';
 import { renderGrid } from '../renderers/gridRenderer';
 import { renderBackgroundDrawing } from '../renderers/backgroundLayerRenderer';
@@ -18,7 +14,8 @@ import { useSnapshotStore } from '../stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 
 /**
- * Hook managing canvas ref, resize, and render loop
+ * Hook managing canvas ref, resize, and render loop.
+ * Renders: backgroundColor → DWG outline → grid → equipment → previews
  */
 export function useCanvas(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -35,17 +32,12 @@ export function useCanvas(
     const editorState = useEditorStore.getState();
     const snapshot = useSnapshotStore.getState();
 
-    const {
-      zoom, panX, panY, showGrid, selectedIds, showLengths, tool,
-    } = editorState;
+    const { zoom, panX, panY, showGrid, selectedIds, showLengths, tool } = editorState;
 
-    // Branch data source: snapshot overlay vs editor
-    const localElements = snapshot.active ? snapshot.elements : editorState.localElements;
     const localEquipment = snapshot.active ? snapshot.equipment : editorState.localEquipment;
     const majorGridSize = snapshot.active ? snapshot.majorGridSize : editorState.majorGridSize;
 
     const {
-      isDrawingLine, linePoints, linePreviewEnd,
       isDrawingEquipment, equipmentStart, equipmentPreviewEnd,
       previewPosition,
     } = useCanvasStore.getState();
@@ -63,30 +55,22 @@ export function useCanvas(
     ctx.translate(panX, panY);
     ctx.scale(scale, scale);
 
-    // Background
     ctx.fillStyle = floorPlan.backgroundColor || '#ffffff';
     ctx.fillRect(viewportLeft, viewportTop, canvas.width / scale, canvas.height / scale);
 
-    // Imported DWG background (under grid + user elements)
     if (floorPlan.backgroundDrawing) {
       renderBackgroundDrawing(ctx, floorPlan.backgroundDrawing, floorPlan.backgroundOpacity ?? 0.3);
     }
 
-    // Grid
     if (showGrid) {
       renderGrid(ctx, majorGridSize, viewportLeft, viewportTop, viewportRight, viewportBottom);
     }
 
-    // Elements
-    renderElements(ctx, localElements, selectedIds);
-
-    // Equipment — filter out rack-internal equipment (they live inside racks, not on floor plan)
+    // Equipment (excluding rack-internal — those render inside the rack view)
     const floorEquipment = localEquipment.filter((eq) => !eq.parentEquipmentId);
 
-    // Dim non-highlighted when path trace active
     const pathHighlight = usePathHighlightStore.getState();
-    const isTraceHighlighting = pathHighlight.active;
-    if (isTraceHighlighting) {
+    if (pathHighlight.active) {
       const highlightedIds = pathHighlight.highlightedNodeIds;
       const dimmed = floorEquipment.filter((eq) => !highlightedIds.has(eq.id));
       const highlighted = floorEquipment.filter((eq) => highlightedIds.has(eq.id));
@@ -99,33 +83,21 @@ export function useCanvas(
       renderEquipmentItems(ctx, floorEquipment, selectedIds);
     }
 
-    // Length labels
     if (showLengths) {
-      renderElementLengths(ctx, localElements, zoom);
       renderEquipmentLengths(ctx, localEquipment, zoom);
     }
 
-    // Polyline preview (conduit/tray)
-    if (isDrawingLine && linePoints.length === 1) {
-      renderLinePreview(ctx, linePoints[0], linePreviewEnd);
-    }
-
-    // Equipment draw preview
     if (isDrawingEquipment && equipmentStart) {
       renderEquipmentDrawPreview(ctx, equipmentStart, equipmentPreviewEnd);
     }
 
-    // Placement preview (text, pullbox, equipment hover)
-    if (previewPosition && ['equipment', 'text', 'pullbox'].includes(tool)) {
-      if (!(tool === 'equipment' && isDrawingEquipment)) {
-        renderPlacementPreview(ctx, tool as DrawingToolType, previewPosition, 0);
-      }
+    if (previewPosition && tool === 'equipment' && !isDrawingEquipment) {
+      renderEquipmentPreview(ctx, previewPosition);
     }
 
     ctx.restore();
   }, [canvasRef, floorPlan]);
 
-  // Canvas resize and render
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -145,7 +117,6 @@ export function useCanvas(
     return () => ro.disconnect();
   }, [canvasRef, containerRef, renderCanvas]);
 
-  // Subscribe to store changes and re-render
   useEffect(() => {
     const scheduleRender = () => {
       if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);

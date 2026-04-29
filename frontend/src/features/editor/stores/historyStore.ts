@@ -1,9 +1,8 @@
 import { create } from 'zustand';
-import type { FloorPlanElement, FloorPlanEquipment } from '../../../types/floorPlan';
+import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import type { LocalCable } from './editorStore';
 
 interface HistoryState {
-  elements: FloorPlanElement[];
   equipment: FloorPlanEquipment[];
   cables: LocalCable[];
 }
@@ -14,12 +13,12 @@ interface HistoryStoreState {
 }
 
 interface HistoryStoreActions {
-  pushHistory: (elements: FloorPlanElement[], equipment: FloorPlanEquipment[], cables?: LocalCable[]) => void;
+  pushHistory: (equipment: FloorPlanEquipment[], cables?: LocalCable[]) => void;
   undo: () => HistoryState | null;
   redo: () => HistoryState | null;
   canUndo: () => boolean;
   canRedo: () => boolean;
-  initHistory: (elements: FloorPlanElement[], equipment: FloorPlanEquipment[], cables?: LocalCable[]) => void;
+  initHistory: (equipment: FloorPlanEquipment[], cables?: LocalCable[]) => void;
   resetHistory: () => void;
 }
 
@@ -29,11 +28,10 @@ export const useHistoryStore = create<HistoryStoreState & HistoryStoreActions>((
   history: [],
   historyIndex: -1,
 
-  pushHistory: (elements, equipment, cables) => {
+  pushHistory: (equipment, cables) => {
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);
       newHistory.push({
-        elements: [...elements],
         equipment: [...equipment],
         cables: cables ? [...cables] : [],
       });
@@ -50,9 +48,9 @@ export const useHistoryStore = create<HistoryStoreState & HistoryStoreActions>((
   undo: () => {
     const state = get();
     if (state.historyIndex > 0) {
-      const prevState = state.history[state.historyIndex - 1];
+      const prev = state.history[state.historyIndex - 1];
       set({ historyIndex: state.historyIndex - 1 });
-      return prevState;
+      return prev;
     }
     return null;
   },
@@ -60,9 +58,9 @@ export const useHistoryStore = create<HistoryStoreState & HistoryStoreActions>((
   redo: () => {
     const state = get();
     if (state.historyIndex < state.history.length - 1) {
-      const nextState = state.history[state.historyIndex + 1];
+      const next = state.history[state.historyIndex + 1];
       set({ historyIndex: state.historyIndex + 1 });
-      return nextState;
+      return next;
     }
     return null;
   },
@@ -70,10 +68,9 @@ export const useHistoryStore = create<HistoryStoreState & HistoryStoreActions>((
   canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
 
-  initHistory: (elements, equipment, cables) => {
+  initHistory: (equipment, cables) => {
     set({
       history: [{
-        elements: [...elements],
         equipment: [...equipment],
         cables: cables ? [...cables] : [],
       }],

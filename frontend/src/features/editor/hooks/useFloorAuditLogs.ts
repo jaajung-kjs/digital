@@ -85,7 +85,6 @@ export function usePreviewSnapshot(floorId: string | undefined) {
     const plan = await mutation.mutateAsync({ version });
 
     useSnapshotStore.getState().enter(logId, label, {
-      elements: plan.elements,
       equipment: plan.equipment,
       cables: plan.cables ?? [],
       fiberPaths: plan.fiberPaths ?? [],
@@ -116,11 +115,8 @@ function applyPlanToEditor(plan: FloorPlanDetail) {
   store.clearPendingData();
   clearEditorFocus();
 
-  const elements = plan.elements;
-  store.setLocalElements(elements);
   store.setLocalEquipment(plan.equipment);
 
-  // Restore cables from plan data
   const cables = (plan.cables ?? []).map((c) => ({
     id: c.id ?? '',
     sourceEquipmentId: c.sourceEquipmentId ?? '',
@@ -145,7 +141,7 @@ function applyPlanToEditor(plan: FloorPlanDetail) {
   store.setMajorGridSize(plan.majorGridSize ?? DEFAULT_MAJOR_GRID_SIZE);
 
   store.setHasChanges(true);
-  initHistory(elements, plan.equipment);
+  initHistory(plan.equipment, cables);
 }
 
 /**
@@ -171,15 +167,13 @@ export function useLoadSnapshot(floorId: string | undefined) {
 
     const versionLabel = snap.label ?? '이전 버전';
 
-    // Reconstruct FloorPlanDetail from store data
     const plan = {
-      elements: snap.elements,
       equipment: snap.equipment,
       cables: snap.cables,
       fiberPaths: snap.fiberPaths,
       gridSize: snap.gridSize,
       majorGridSize: snap.majorGridSize,
-    } as FloorPlanDetail;
+    } as unknown as FloorPlanDetail;
     applyPlanToEditor(plan);
 
     // Show restore banner in editor

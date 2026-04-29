@@ -154,39 +154,14 @@ model Floor {
   createdById       String?  @map("created_by")
   updatedById       String?  @map("updated_by")
 
-  substation Substation         @relation(fields: [substationId], references: [id], onDelete: Cascade)
-  createdBy  User?              @relation("FloorCreatedBy", fields: [createdById], references: [id])
-  updatedBy  User?              @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
-  elements   FloorPlanElement[]
+  substation Substation  @relation(fields: [substationId], references: [id], onDelete: Cascade)
+  createdBy  User?       @relation("FloorCreatedBy", fields: [createdById], references: [id])
+  updatedBy  User?       @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
   racks      Rack[]
   equipment  Equipment[]
 
   @@unique([substationId, name])
   @@map("floors")
-}
-
-model FloorPlanElement {
-  id                 String   @id @default(uuid())
-  floorId            String   @map("floor_id")
-  elementType        String   @map("element_type") @db.VarChar(20)
-  properties         Json
-  zIndex             Int      @default(0) @map("z_index")
-  isVisible          Boolean  @default(true) @map("is_visible")
-  height3d           Float?   @map("height_3d")
-  elevation3d        Float?   @map("elevation_3d")
-  // 자재 체계 확장
-  materialCategoryId String?  @map("material_category_id")
-  materialId         String?  @map("material_id")
-  specParams         Json?    @map("spec_params")
-  pathLength         Float?   @map("path_length")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
-
-  floor            Floor             @relation(fields: [floorId], references: [id], onDelete: Cascade)
-  materialCategory MaterialCategory? @relation("ElementMaterialCategory", fields: [materialCategoryId], references: [id])
-  material         Material?         @relation("ElementMaterial", fields: [materialId], references: [id])
-
-  @@map("floor_plan_elements")
 }
 
 // ==================== 랙 ====================
@@ -502,7 +477,6 @@ model MaterialCategory {
   aliases   MaterialAlias[]
   cables    Cable[]            @relation("CableMaterialCategory")
   equipment Equipment[]        @relation("EquipmentMaterialCategory")
-  elements  FloorPlanElement[] @relation("ElementMaterialCategory")
 
   @@map("material_categories")
 }
@@ -531,10 +505,9 @@ model Material {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  category  MaterialCategory   @relation(fields: [categoryId], references: [id])
-  cables    Cable[]            @relation("CableMaterial")
-  equipment Equipment[]        @relation("EquipmentMaterial")
-  elements  FloorPlanElement[] @relation("ElementMaterial")
+  category  MaterialCategory @relation(fields: [categoryId], references: [id])
+  cables    Cable[]          @relation("CableMaterial")
+  equipment Equipment[]      @relation("EquipmentMaterial")
 
   @@unique([categoryId, specification])
   @@map("materials")

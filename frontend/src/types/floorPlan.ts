@@ -1,110 +1,10 @@
-// 평면도 요소 타입.
-// 사용자가 직접 그리는 툴은 EditorTool에서 좁혀져 있지만 (text/conduit/tray/pullbox만),
-// ElementType 자체는 넓게 유지한다 — DWG에서 promote될 line/rect 같은 케이스를 위해.
-export type ElementType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'text' | 'conduit' | 'tray' | 'pullbox';
+// ============================================
+// 평면도 (Floor Plan) 타입
+// ============================================
+// 사용자는 설비(Equipment) 배치와 케이블(Cable) 연결만 한다.
+// 도면 윤곽은 임포트한 backgroundDrawing(DWG)이 담당한다.
 
-// 선 속성 (기존 WallProperties 대체)
-export interface LineProperties {
-  points: [number, number][];
-  strokeWidth: number;        // 1-20, 기본 2
-  strokeColor: string;        // 기본 '#1a1a1a'
-  strokeStyle: 'solid' | 'dashed' | 'dotted';  // 기본 'solid'
-}
-
-// 사각형 속성 (기존 ColumnProperties 대체)
-export interface RectProperties {
-  x: number;
-  y: number;
-  width: number;              // 최소 10
-  height: number;             // 최소 10
-  rotation: number;           // 0-360
-  flipH: boolean;             // 수평 반전
-  flipV: boolean;             // 수직 반전
-  fillColor: string;          // 기본 'transparent'
-  strokeColor: string;        // 기본 '#1a1a1a'
-  strokeWidth: number;        // 기본 2
-  strokeStyle: 'solid' | 'dashed' | 'dotted';
-  cornerRadius: number;       // 둥근 모서리, 기본 0
-  height3d?: number;          // 3D 높이
-  elevation3d?: number;       // 3D 높이 오프셋
-}
-
-// 원 속성 (신규)
-export interface CircleProperties {
-  cx: number;                 // 중심 X
-  cy: number;                 // 중심 Y
-  radius: number;             // 반지름, 최소 5
-  fillColor: string;          // 기본 'transparent'
-  strokeColor: string;        // 기본 '#1a1a1a'
-  strokeWidth: number;        // 기본 2
-  strokeStyle: 'solid' | 'dashed' | 'dotted';
-}
-
-// 문 속성 (확장)
-export interface DoorProperties {
-  x: number;
-  y: number;
-  width: number;              // 40-200, 기본 60
-  height: number;             // 문 두께, 6-20, 기본 10
-  rotation: number;           // 0, 90, 180, 270
-  flipH: boolean;             // 수평 반전 (힌지 위치)
-  flipV: boolean;             // 수직 반전 (열림 방향)
-  openDirection: 'inside' | 'outside';
-  strokeWidth: number;        // 기본 2
-  strokeColor: string;        // 기본 '#d97706'
-  wallId?: string;            // 레거시 호환
-  height3d?: number;          // 3D 높이
-  elevation3d?: number;       // 3D 높이 오프셋
-}
-
-// 창문 속성 (확장)
-export interface WindowProperties {
-  x: number;
-  y: number;
-  width: number;              // 40-300, 기본 80
-  height: number;             // 창문 두께, 4-16, 기본 8
-  rotation: number;           // 0, 90, 180, 270
-  flipH: boolean;             // 수평 반전
-  flipV: boolean;             // 수직 반전
-  strokeWidth: number;        // 기본 2
-  strokeColor: string;        // 기본 '#0284c7'
-  wallId?: string;            // 레거시 호환
-  height3d?: number;          // 3D 높이
-  elevation3d?: number;       // 3D 높이 오프셋
-}
-
-// 텍스트 속성 (신규)
-export interface TextProperties {
-  x: number;
-  y: number;
-  text: string;
-  fontSize: number;           // 10-72, 기본 14
-  fontWeight: 'normal' | 'bold';  // 기본 'normal'
-  color: string;              // 기본 '#1a1a1a'
-  rotation: number;           // 0-360
-  textAlign: 'left' | 'center' | 'right';  // 기본 'left'
-}
-
-export type ElementProperties =
-  | LineProperties
-  | RectProperties
-  | CircleProperties
-  | DoorProperties
-  | WindowProperties
-  | TextProperties;
-
-export interface FloorPlanElement {
-  id: string;
-  elementType: ElementType;
-  properties: ElementProperties;
-  zIndex: number;
-  isVisible: boolean;
-  materialCategoryId?: string | null;
-  specParams?: Record<string, unknown> | null;
-  pathLength?: number | null;
-}
-
-// 평면도 장비 타입 (Rack 통합)
+// 평면도 장비 (Rack 통합 — EQP-RACK 카테고리 선택 시 Rack 자동 생성)
 export interface FloorPlanEquipment {
   id: string;
   name: string;
@@ -128,12 +28,12 @@ export interface FloorPlanEquipment {
   materialId?: string | null;
   specParams?: Record<string, unknown> | null;
   specification?: string | null;
-  parentEquipmentId?: string | null;  // ID of parent EQP-RACK equipment (rack containment)
-  startU?: number | null;             // U-slot position in rack
-  heightU?: number | null;            // Height in U units
+  parentEquipmentId?: string | null; // 부모 EQP-RACK equipment ID (랙 장착 슬롯용)
+  startU?: number | null;
+  heightU?: number | null;
 }
 
-// 평면도 타입
+// 평면도 케이블
 export interface FloorPlanCable {
   id: string;
   sourceEquipmentId: string;
@@ -170,10 +70,9 @@ export interface FloorPlanDetail {
   gridSize: number;
   majorGridSize: number;
   backgroundColor: string;
-  scaleRatio?: number | null; // 1px = ?mm
+  scaleRatio?: number | null;
   backgroundDrawing?: BackgroundDrawing | null;
   backgroundOpacity?: number;
-  elements: FloorPlanElement[];
   equipment: FloorPlanEquipment[];
   cables: FloorPlanCable[];
   fiberPaths: FloorPlanFiberPath[];
@@ -225,7 +124,10 @@ export interface DwgImportResult {
   committed: boolean;
 }
 
+// ============================================
 // API 요청 타입
+// ============================================
+
 export interface UpdateFloorPlanRequest {
   canvasWidth?: number;
   canvasHeight?: number;
@@ -233,16 +135,7 @@ export interface UpdateFloorPlanRequest {
   majorGridSize?: number;
   backgroundColor?: string;
   scaleRatio?: number | null;
-  elements?: {
-    id?: string | null;
-    elementType: ElementType;
-    properties: ElementProperties;
-    zIndex?: number;
-    isVisible?: boolean;
-    materialCategoryId?: string | null;
-    specParams?: Record<string, unknown> | null;
-    pathLength?: number | null;
-  }[];
+  backgroundOpacity?: number;
   equipment?: {
     id?: string | null;
     tempId?: string;
@@ -292,30 +185,7 @@ export interface UpdateFloorPlanRequest {
   deletedFiberPathIds?: string[];
 }
 
-export interface CreateFloorPlanEquipmentRequest {
-  name: string;
-  category?: string;
-  positionX: number;
-  positionY: number;
-  width?: number;
-  height?: number;
-  rotation?: number;
-  description?: string;
-}
-
-export interface UpdateFloorPlanEquipmentRequest {
-  name?: string;
-  category?: string;
-  positionX?: number;
-  positionY?: number;
-  width?: number;
-  height?: number;
-  rotation?: number;
-  description?: string;
-}
-
-
-// 평면도 위 장비 아이템
+// 평면도 위 장비 아이템 (테이블/요약 표시용)
 export interface EquipmentItem {
   id: string;
   name: string;
@@ -335,24 +205,5 @@ export interface EquipmentItem {
   description?: string;
 }
 
-// 에디터 도구 타입
-// DWG 임포트가 도면 윤곽을 담당하므로 line/rect/circle/door/window 도구는 제거.
-// 랙은 별도 도구 없이 설비(equipment) 도구로 EQP-RACK 카테고리 선택 시 자동 생성.
-export type EditorTool = 'select' | 'equipment' | 'text' | 'cable' | 'conduit' | 'tray' | 'pullbox' | 'delete';
-
-
-// 선 스타일 옵션
-export const LINE_STYLES = {
-  solid: [],
-  dashed: [8, 4],
-  dotted: [2, 2],
-};
-
-// 색상 프리셋
-export const COLOR_PRESETS = [
-  '#1a1a1a', '#374151', '#6b7280',  // 회색 계열
-  '#dc2626', '#ea580c', '#d97706',  // 따뜻한 색
-  '#16a34a', '#0d9488', '#0284c7',  // 차가운 색
-  '#2563eb', '#7c3aed', '#c026d3',  // 보라/분홍
-  'transparent',                     // 투명
-];
+// 에디터 도구
+export type EditorTool = 'select' | 'equipment' | 'cable' | 'delete';

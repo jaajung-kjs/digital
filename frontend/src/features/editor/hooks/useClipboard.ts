@@ -26,12 +26,11 @@ export function useClipboard() {
     };
     const newEquipmentList = [...es.localEquipment, newEquipment];
     es.setLocalEquipment(newEquipmentList);
-    pushHistory(es.localElements, newEquipmentList);
+    pushHistory(newEquipmentList);
     cs.setPasteEquipmentModalOpen(false);
     cs.setPasteEquipmentName('');
     es.setHasChanges(true);
     es.setSelectedEquipment(newEquipment);
-    es.setSelectedElement(null);
     es.setSelectedIds([newEquipment.id]);
     es.setClipboard({ type: 'equipment', data: newEquipment });
   }, [pushHistory]);

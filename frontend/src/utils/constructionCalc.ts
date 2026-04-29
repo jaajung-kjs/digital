@@ -30,13 +30,6 @@ function resolveDisplayName(
 // ============================================================
 
 export interface PlanSnapshot {
-  elements: {
-    id: string;
-    elementType: string;
-    materialCategoryCode?: string | null;
-    pathLength?: number | null;
-    properties?: Record<string, unknown>;
-  }[];
   equipment: {
     id: string;
     name: string;
@@ -65,7 +58,7 @@ export type DiffAction = 'install' | 'remove' | 'relocate' | 'modify';
 
 export interface DiffItem {
   id: string;
-  type: 'equipment' | 'cable' | 'element';
+  type: 'equipment' | 'cable';
   action: DiffAction;
   name: string;
   materialCategoryCode: string | null;
@@ -279,50 +272,6 @@ function computeCableDiff(
   return items;
 }
 
-function computeElementDiff(
-  before: PlanSnapshot['elements'],
-  after: PlanSnapshot['elements'],
-): DiffItem[] {
-  const beforeMap = new Map(before.map((e) => [e.id, e]));
-  const afterMap = new Map(after.map((e) => [e.id, e]));
-  const items: DiffItem[] = [];
-
-  // Only track elements with materialCategoryCode (conduit, tray, pullbox)
-  for (const [id, el] of afterMap) {
-    if (!el.materialCategoryCode) continue;
-    if (!beforeMap.has(id)) {
-      items.push({
-        id,
-        type: 'element',
-        action: 'install',
-        name: el.elementType,
-        materialCategoryCode: el.materialCategoryCode,
-        quantity: 1,
-        unit: el.pathLength ? 'm' : '개',
-        length: el.pathLength ?? undefined,
-      });
-    }
-  }
-
-  for (const [id, el] of beforeMap) {
-    if (!el.materialCategoryCode) continue;
-    if (!afterMap.has(id)) {
-      items.push({
-        id,
-        type: 'element',
-        action: 'remove',
-        name: el.elementType,
-        materialCategoryCode: el.materialCategoryCode,
-        quantity: 1,
-        unit: el.pathLength ? 'm' : '개',
-        length: el.pathLength ?? undefined,
-      });
-    }
-  }
-
-  return items;
-}
-
 // ============================================================
 // BOM computation
 // ============================================================
@@ -446,7 +395,7 @@ function computeLabor(diff: DiffItem[]): LaborItem[] {
 // Main function
 // ============================================================
 
-const EMPTY_SNAPSHOT: PlanSnapshot = { elements: [], equipment: [], cables: [] };
+const EMPTY_SNAPSHOT: PlanSnapshot = { equipment: [], cables: [] };
 
 export function calculateConstructionReport(
   beforeSnapshot: PlanSnapshot | null,
@@ -455,11 +404,10 @@ export function calculateConstructionReport(
 ): ConstructionReport {
   const before = beforeSnapshot ?? EMPTY_SNAPSHOT;
 
-  // 1. Compute diff
+  // 1. Compute diff (equipment + cables only)
   const diff: DiffItem[] = [
     ...computeEquipmentDiff(before.equipment, afterSnapshot.equipment),
     ...computeCableDiff(before.cables, afterSnapshot.cables),
-    ...computeElementDiff(before.elements, afterSnapshot.elements),
   ];
 
   // 2. Compute BOM & labor

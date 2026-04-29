@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FloorPlanElement, FloorPlanEquipment, FloorPlanCable, FloorPlanFiberPath } from '../../../types/floorPlan';
+import type { FloorPlanEquipment, FloorPlanCable, FloorPlanFiberPath } from '../../../types/floorPlan';
 
 export interface SnapshotPhoto {
   id: string;
@@ -12,16 +12,15 @@ export interface SnapshotPhoto {
 export type SnapshotEquipment = FloorPlanEquipment & { photos?: SnapshotPhoto[] };
 
 /**
- * Snapshot Overlay Store — completely independent from editorStore.
+ * Snapshot Overlay Store — read-only past version preview.
  *
  * When active, rendering components read from here instead of editorStore.
- * Editor state is NEVER modified during preview — no save/restore needed.
+ * Editor state is NEVER modified during preview.
  */
 export interface SnapshotStoreState {
   active: boolean;
   snapshotId: string | null;
   label: string;
-  elements: FloorPlanElement[];
   equipment: SnapshotEquipment[];
   cables: FloorPlanCable[];
   fiberPaths: FloorPlanFiberPath[];
@@ -31,7 +30,6 @@ export interface SnapshotStoreState {
 
 export interface SnapshotStoreActions {
   enter: (id: string, label: string, data: {
-    elements: FloorPlanElement[];
     equipment: SnapshotEquipment[];
     cables: FloorPlanCable[];
     fiberPaths: FloorPlanFiberPath[];
@@ -45,7 +43,6 @@ const initialState: SnapshotStoreState = {
   active: false,
   snapshotId: null,
   label: '',
-  elements: [],
   equipment: [],
   cables: [],
   fiberPaths: [],
@@ -60,7 +57,6 @@ export const useSnapshotStore = create<SnapshotStoreState & SnapshotStoreActions
     active: true,
     snapshotId: id,
     label,
-    elements: data.elements,
     equipment: data.equipment,
     cables: data.cables,
     fiberPaths: data.fiberPaths,

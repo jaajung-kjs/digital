@@ -1,31 +1,16 @@
 /**
- * FloorPlan 통합 렌더러
- * 모든 Element/Equipment 렌더링 함수를 단일 파일로 통합
+ * 평면도 캔버스 렌더러 — 설비(Equipment) 전용.
+ * FloorPlanElement가 제거된 이후 이 파일은 설비 그리기/미리보기/길이표시만 담당한다.
  */
 
-import type {
-  FloorPlanElement,
-  FloorPlanEquipment,
-  LineProperties,
-  RectProperties,
-  CircleProperties,
-  DoorProperties,
-  WindowProperties,
-  TextProperties,
-} from '../../types/floorPlan';
-import { LINE_STYLES } from '../../types/floorPlan';
+import type { FloorPlanEquipment } from '../../types/floorPlan';
 import { SELECTION_STYLES, ELEMENT_COLORS } from '../canvas/canvasDrawing';
-import { roundRect } from '../canvas/canvasTransform';
 import { distance } from '../geometry/geometryUtils';
 
 // ============================================
-// 길이 표시 유틸리티
+// 길이 라벨 (선분 중간에 픽셀 길이 표시)
 // ============================================
 
-/**
- * 선분 중간에 길이(픽셀) 표시
- * @param zoom 현재 줌 레벨 (100 = 100%)
- */
 export function renderLengthLabel(
   ctx: CanvasRenderingContext2D,
   x1: number,
@@ -34,18 +19,14 @@ export function renderLengthLabel(
   y2: number,
   zoom: number = 100,
   color: string = '#1a1a1a',
-  backgroundColor: string = 'rgba(255, 255, 255, 0.9)'
+  backgroundColor: string = 'rgba(255, 255, 255, 0.9)',
 ): void {
   const length = Math.round(distance(x1, y1, x2, y2));
-  if (length < 10) return; // 너무 짧으면 표시 안함
+  if (length < 10) return;
 
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
-
-  // 줌에 반비례하는 폰트 크기 (줌이 작을수록 글씨가 커짐)
-  const baseFontSize = 12;
-  const fontSize = Math.max(10, Math.min(16, baseFontSize * (100 / zoom)));
-
+  const fontSize = Math.max(10, Math.min(16, 12 * (100 / zoom)));
   const text = `${length}px`;
 
   ctx.save();
@@ -53,380 +34,26 @@ export function renderLengthLabel(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  const textMetrics = ctx.measureText(text);
-  const padding = 3;
-  const bgWidth = textMetrics.width + padding * 2;
-  const bgHeight = fontSize + padding * 2;
-
-  // 배경
+  const w = ctx.measureText(text).width + 6;
+  const h = fontSize + 6;
   ctx.fillStyle = backgroundColor;
-  ctx.fillRect(midX - bgWidth / 2, midY - bgHeight / 2, bgWidth, bgHeight);
+  ctx.fillRect(midX - w / 2, midY - h / 2, w, h);
 
-  // 텍스트
   ctx.fillStyle = color;
   ctx.fillText(text, midX, midY);
   ctx.restore();
 }
 
-/**
- * 미리보기용 길이 표시 (반투명 배경)
- */
-function renderPreviewLengthLabel(
-  ctx: CanvasRenderingContext2D,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number
-): void {
-  const length = Math.round(distance(x1, y1, x2, y2));
-  if (length < 5) return;
-
-  const midX = (x1 + x2) / 2;
-  const midY = (y1 + y2) / 2;
-
-  const text = `${length}px`;
-  const fontSize = 12;
-
-  ctx.save();
-  ctx.font = `bold ${fontSize}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
-  const textMetrics = ctx.measureText(text);
-  const padding = 4;
-  const bgWidth = textMetrics.width + padding * 2;
-  const bgHeight = fontSize + padding * 2;
-
-  // 배경
-  ctx.fillStyle = 'rgba(59, 130, 246, 0.9)';
-  ctx.fillRect(midX - bgWidth / 2, midY - bgHeight / 2, bgWidth, bgHeight);
-
-  // 텍스트
-  ctx.fillStyle = '#ffffff';
-  ctx.fillText(text, midX, midY);
-  ctx.restore();
-}
-
 // ============================================
-// 변환 유틸리티
+// Equipment 렌더링
 // ============================================
 
-interface TransformParams {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation?: number;
-  flipH?: boolean;
-  flipV?: boolean;
-}
-
-/**
- * 표준 변환 적용 (translate → rotate → flip)
- */
-function applyStandardTransform(
-  ctx: CanvasRenderingContext2D,
-  params: TransformParams
-): void {
-  const { x, y, width, height, rotation = 0, flipH = false, flipV = false } = params;
-
-  ctx.translate(x, y);
-  if (rotation !== 0) {
-    ctx.rotate((rotation * Math.PI) / 180);
-  }
-  if (flipH || flipV) {
-    const centerX = width / 2;
-    const centerY = height / 2;
-    ctx.translate(centerX, centerY);
-    ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-    ctx.translate(-centerX, -centerY);
-  }
-}
-
-// ============================================
-// Line 렌더러
-// ============================================
-
-export function renderLine(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as LineProperties;
-  if (!props.points || props.points.length < 2) return;
-
-  ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#1a1a1a');
-  ctx.lineWidth = props.strokeWidth || 2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.setLineDash(LINE_STYLES[props.strokeStyle || 'solid']);
-
-  ctx.beginPath();
-  ctx.moveTo(props.points[0][0], props.points[0][1]);
-  for (let i = 1; i < props.points.length; i++) {
-    ctx.lineTo(props.points[i][0], props.points[i][1]);
-  }
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  if (isSelected) {
-    ctx.fillStyle = SELECTION_STYLES.point;
-    for (const point of props.points) {
-      ctx.beginPath();
-      ctx.arc(point[0], point[1], SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-}
-
-export function renderLinePreview(
-  ctx: CanvasRenderingContext2D,
-  startPoint: [number, number],
-  endPoint: [number, number] | null
-): void {
-  ctx.fillStyle = SELECTION_STYLES.point;
-  ctx.beginPath();
-  ctx.arc(startPoint[0], startPoint[1], SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (endPoint) {
-    ctx.strokeStyle = SELECTION_STYLES.stroke;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(startPoint[0], startPoint[1]);
-    ctx.lineTo(endPoint[0], endPoint[1]);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.beginPath();
-    ctx.arc(endPoint[0], endPoint[1], SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 선분 길이 표시
-    renderPreviewLengthLabel(ctx, startPoint[0], startPoint[1], endPoint[0], endPoint[1]);
-  }
-}
-
-// ============================================
-// Rect 렌더러
-// ============================================
-
-export function renderRect(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as RectProperties;
-
-  ctx.save();
-  applyStandardTransform(ctx, {
-    x: props.x,
-    y: props.y,
-    width: props.width,
-    height: props.height,
-    rotation: props.rotation,
-    flipH: props.flipH,
-    flipV: props.flipV,
-  });
-
-  if (props.fillColor && props.fillColor !== 'transparent') {
-    ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : props.fillColor;
-    if (props.cornerRadius > 0) {
-      roundRect(ctx, 0, 0, props.width, props.height, props.cornerRadius);
-      ctx.fill();
-    } else {
-      ctx.fillRect(0, 0, props.width, props.height);
-    }
-  }
-
-  ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#1a1a1a');
-  ctx.lineWidth = props.strokeWidth || 2;
-  ctx.setLineDash(LINE_STYLES[props.strokeStyle || 'solid']);
-
-  if (props.cornerRadius > 0) {
-    roundRect(ctx, 0, 0, props.width, props.height, props.cornerRadius);
-    ctx.stroke();
-  } else {
-    ctx.strokeRect(0, 0, props.width, props.height);
-  }
-  ctx.setLineDash([]);
-  ctx.restore();
-}
-
-// ============================================
-// Circle 렌더러
-// ============================================
-
-export function renderCircle(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as CircleProperties;
-
-  if (props.fillColor && props.fillColor !== 'transparent') {
-    ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : props.fillColor;
-    ctx.beginPath();
-    ctx.arc(props.cx, props.cy, props.radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#1a1a1a');
-  ctx.lineWidth = props.strokeWidth || 2;
-  ctx.setLineDash(LINE_STYLES[props.strokeStyle || 'solid']);
-  ctx.beginPath();
-  ctx.arc(props.cx, props.cy, props.radius, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  if (isSelected) {
-    ctx.fillStyle = SELECTION_STYLES.point;
-    ctx.beginPath();
-    ctx.arc(props.cx, props.cy, 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-// ============================================
-// Door 렌더러
-// ============================================
-
-export function renderDoor(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as DoorProperties;
-  const doorHeight = props.height || 10;
-
-  ctx.save();
-  applyStandardTransform(ctx, {
-    x: props.x,
-    y: props.y,
-    width: props.width,
-    height: doorHeight,
-    rotation: props.rotation,
-    flipH: props.flipH,
-    flipV: props.flipV,
-  });
-
-  ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : ELEMENT_COLORS.door.fill;
-  ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || ELEMENT_COLORS.door.stroke);
-  ctx.lineWidth = props.strokeWidth || 2;
-  ctx.fillRect(0, 0, props.width, doorHeight);
-  ctx.strokeRect(0, 0, props.width, doorHeight);
-
-  // 문 열림 방향 호
-  ctx.beginPath();
-  ctx.setLineDash([3, 3]);
-  ctx.arc(0, doorHeight, props.width, -Math.PI / 2, 0);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.restore();
-}
-
-// ============================================
-// Window 렌더러
-// ============================================
-
-export function renderWindow(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as WindowProperties;
-  const windowHeight = props.height || 8;
-
-  ctx.save();
-  applyStandardTransform(ctx, {
-    x: props.x,
-    y: props.y,
-    width: props.width,
-    height: windowHeight,
-    rotation: props.rotation,
-    flipH: props.flipH,
-    flipV: props.flipV,
-  });
-
-  ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : ELEMENT_COLORS.window.fill;
-  ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || ELEMENT_COLORS.window.stroke);
-  ctx.lineWidth = props.strokeWidth || 2;
-  ctx.fillRect(0, 0, props.width, windowHeight);
-  ctx.strokeRect(0, 0, props.width, windowHeight);
-
-  // 가운데 선
-  ctx.beginPath();
-  ctx.moveTo(props.width / 2, 0);
-  ctx.lineTo(props.width / 2, windowHeight);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-// ============================================
-// Text 렌더러
-// ============================================
-
-export function renderText(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as TextProperties;
-
-  ctx.save();
-  ctx.translate(props.x, props.y);
-  if (props.rotation) {
-    ctx.rotate((props.rotation * Math.PI) / 180);
-  }
-
-  ctx.font = `${props.fontWeight || 'normal'} ${props.fontSize || 14}px sans-serif`;
-  ctx.fillStyle = isSelected ? SELECTION_STYLES.stroke : (props.color || '#1a1a1a');
-  ctx.textAlign = props.textAlign || 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillText(props.text, 0, 0);
-
-  if (isSelected) {
-    const textMetrics = ctx.measureText(props.text);
-    ctx.strokeStyle = SELECTION_STYLES.stroke;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    const offsetX = props.textAlign === 'center' ? -textMetrics.width / 2 :
-                   props.textAlign === 'right' ? -textMetrics.width : 0;
-    ctx.moveTo(offsetX, (props.fontSize || 14) + 2);
-    ctx.lineTo(offsetX + textMetrics.width, (props.fontSize || 14) + 2);
-    ctx.stroke();
-  }
-
-  ctx.restore();
-}
-
-export function renderTextPreview(
-  ctx: CanvasRenderingContext2D,
-  position: { x: number; y: number }
-): void {
-  ctx.save();
-  ctx.globalAlpha = 0.6;
-  ctx.font = '14px sans-serif';
-  ctx.fillStyle = '#1a1a1a';
-  ctx.textBaseline = 'top';
-  ctx.fillText('텍스트', position.x, position.y);
-  ctx.restore();
-}
-
-// ============================================
-// Equipment 렌더러
-// ============================================
-
-/** Cache font sizes to avoid per-frame measureText binary search */
 const fontSizeCache = new Map<string, number>();
 
 export function renderEquipmentItem(
   ctx: CanvasRenderingContext2D,
   item: FloorPlanEquipment,
-  isSelected: boolean
+  isSelected: boolean,
 ): void {
   ctx.save();
   ctx.translate(item.positionX + item.width / 2, item.positionY + item.height / 2);
@@ -439,7 +66,6 @@ export function renderEquipmentItem(
   ctx.fillRect(0, 0, item.width, item.height);
   ctx.strokeRect(0, 0, item.width, item.height);
 
-  // Auto-fit text to equipment box (cached to avoid per-frame measureText)
   ctx.fillStyle = ELEMENT_COLORS.rack.text;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -452,7 +78,8 @@ export function renderEquipmentItem(
     const cacheKey = `${item.name}|${item.width}|${item.height}`;
     let fontSize = fontSizeCache.get(cacheKey);
     if (fontSize === undefined) {
-      let lo = 6, hi = Math.min(maxHeight, 40);
+      let lo = 6;
+      let hi = Math.min(maxHeight, 40);
       while (lo < hi) {
         const mid = Math.ceil((lo + hi) / 2);
         ctx.font = `bold ${mid}px sans-serif`;
@@ -472,11 +99,21 @@ export function renderEquipmentItem(
   ctx.restore();
 }
 
+export function renderEquipmentItems(
+  ctx: CanvasRenderingContext2D,
+  items: FloorPlanEquipment[],
+  selectedIds: string[],
+): void {
+  for (const item of items) {
+    renderEquipmentItem(ctx, item, selectedIds.includes(item.id));
+  }
+}
+
+/** 설비 배치 직전, 마우스 hover 위치에 십자선 표시 */
 export function renderEquipmentPreview(
   ctx: CanvasRenderingContext2D,
-  position: { x: number; y: number }
+  position: { x: number; y: number },
 ): void {
-  // Crosshair cursor indicator (shown before first click)
   ctx.save();
   ctx.globalAlpha = 0.6;
   ctx.strokeStyle = ELEMENT_COLORS.rack.stroke;
@@ -492,13 +129,11 @@ export function renderEquipmentPreview(
   ctx.restore();
 }
 
-/**
- * Equipment drag-to-draw preview (shown while drawing)
- */
+/** drag-to-draw 중 설비 박스 미리보기 */
 export function renderEquipmentDrawPreview(
   ctx: CanvasRenderingContext2D,
   start: { x: number; y: number },
-  end: { x: number; y: number } | null
+  end: { x: number; y: number } | null,
 ): void {
   if (!end) return;
   ctx.save();
@@ -529,340 +164,14 @@ export function renderEquipmentDrawPreview(
   ctx.restore();
 }
 
-// ============================================
-// Conduit 렌더러
-// ============================================
-
-export function renderConduit(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as LineProperties;
-  if (!props.points || props.points.length < 2) return;
-
-  const strokeColor = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#6366f1');
-
-  // Dashed line for conduit
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = props.strokeWidth || 2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.setLineDash([8, 4]);
-
-  ctx.beginPath();
-  ctx.moveTo(props.points[0][0], props.points[0][1]);
-  for (let i = 1; i < props.points.length; i++) {
-    ctx.lineTo(props.points[i][0], props.points[i][1]);
-  }
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // End markers (small circles)
-  const markerRadius = 4;
-  ctx.fillStyle = strokeColor;
-  for (const point of [props.points[0], props.points[props.points.length - 1]]) {
-    ctx.beginPath();
-    ctx.arc(point[0], point[1], markerRadius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  if (isSelected) {
-    ctx.fillStyle = SELECTION_STYLES.point;
-    for (const point of props.points) {
-      ctx.beginPath();
-      ctx.arc(point[0], point[1], SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-}
-
-// ============================================
-// Tray 렌더러
-// ============================================
-
-export function renderTray(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as LineProperties;
-  if (!props.points || props.points.length < 2) return;
-
-  const strokeColor = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#f59e0b');
-  const trayWidth = 6; // Half-width of the tray visualization
-
-  // Draw double lines for tray
-  for (let i = 0; i < props.points.length - 1; i++) {
-    const [x1, y1] = props.points[i];
-    const [x2, y2] = props.points[i + 1];
-
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len === 0) continue;
-
-    // Perpendicular direction
-    const nx = -dy / len * trayWidth;
-    const ny = dx / len * trayWidth;
-
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = (props.strokeWidth || 2) * 0.75;
-    ctx.lineCap = 'round';
-    ctx.setLineDash([]);
-
-    // Top line
-    ctx.beginPath();
-    ctx.moveTo(x1 + nx, y1 + ny);
-    ctx.lineTo(x2 + nx, y2 + ny);
-    ctx.stroke();
-
-    // Bottom line
-    ctx.beginPath();
-    ctx.moveTo(x1 - nx, y1 - ny);
-    ctx.lineTo(x2 - nx, y2 - ny);
-    ctx.stroke();
-  }
-
-  if (isSelected) {
-    ctx.fillStyle = SELECTION_STYLES.point;
-    for (const point of props.points) {
-      ctx.beginPath();
-      ctx.arc(point[0], point[1], SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-}
-
-// ============================================
-// Pullbox 렌더러
-// ============================================
-
-export function renderPullbox(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  const props = element.properties as RectProperties;
-
-  ctx.save();
-  applyStandardTransform(ctx, {
-    x: props.x,
-    y: props.y,
-    width: props.width,
-    height: props.height,
-    rotation: props.rotation,
-  });
-
-  const strokeColor = isSelected ? SELECTION_STYLES.stroke : (props.strokeColor || '#10b981');
-
-  // Square outline
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = props.strokeWidth || 2;
-  ctx.setLineDash([]);
-  ctx.strokeRect(0, 0, props.width, props.height);
-
-  // Diagonal X
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(props.width, props.height);
-  ctx.moveTo(props.width, 0);
-  ctx.lineTo(0, props.height);
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  if (isSelected) {
-    ctx.fillStyle = SELECTION_STYLES.fill;
-    ctx.fillRect(0, 0, props.width, props.height);
-  }
-
-  ctx.restore();
-}
-
-export function renderPullboxPreview(
-  ctx: CanvasRenderingContext2D,
-  position: { x: number; y: number }
-): void {
-  ctx.save();
-  ctx.globalAlpha = 0.6;
-  const size = 30;
-  const x = position.x - size / 2;
-  const y = position.y - size / 2;
-
-  ctx.strokeStyle = '#10b981';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x, y, size, size);
-
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + size, y + size);
-  ctx.moveTo(x + size, y);
-  ctx.lineTo(x, y + size);
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-// ============================================
-// 통합 렌더링 함수
-// ============================================
-
-/**
- * Element 타입에 따라 렌더러 호출
- */
-export function renderElement(
-  ctx: CanvasRenderingContext2D,
-  element: FloorPlanElement,
-  isSelected: boolean
-): void {
-  if (!element.isVisible) return;
-
-  switch (element.elementType) {
-    case 'line': renderLine(ctx, element, isSelected); break;
-    case 'rect': renderRect(ctx, element, isSelected); break;
-    case 'circle': renderCircle(ctx, element, isSelected); break;
-    case 'door': renderDoor(ctx, element, isSelected); break;
-    case 'window': renderWindow(ctx, element, isSelected); break;
-    case 'text': renderText(ctx, element, isSelected); break;
-    case 'conduit': renderConduit(ctx, element, isSelected); break;
-    case 'tray': renderTray(ctx, element, isSelected); break;
-    case 'pullbox': renderPullbox(ctx, element, isSelected); break;
-  }
-}
-
-/**
- * 여러 Element를 zIndex 순서로 렌더링
- */
-export function renderElements(
-  ctx: CanvasRenderingContext2D,
-  elements: FloorPlanElement[],
-  selectedIds: string[]
-): void {
-  const sorted = [...elements].sort((a, b) => {
-    if (a.elementType === 'text' && b.elementType !== 'text') return 1;
-    if (a.elementType !== 'text' && b.elementType === 'text') return -1;
-    return a.zIndex - b.zIndex;
-  });
-
-  sorted.forEach(element => {
-    renderElement(ctx, element, selectedIds.includes(element.id));
-  });
-}
-
-/**
- * 여러 Equipment를 렌더링
- */
-export function renderEquipmentItems(
-  ctx: CanvasRenderingContext2D,
-  items: FloorPlanEquipment[],
-  selectedIds: string[]
-): void {
-  items.forEach(item => {
-    renderEquipmentItem(ctx, item, selectedIds.includes(item.id));
-  });
-}
-
-// ============================================
-// 미리보기 렌더링
-// ============================================
-
-export type DrawingToolType = 'equipment' | 'text' | 'pullbox';
-
-/**
- * 오브젝트 배치 미리보기 (마우스 hover 시작점 표시)
- */
-export function renderPlacementPreview(
-  ctx: CanvasRenderingContext2D,
-  tool: DrawingToolType,
-  position: { x: number; y: number },
-  _rotation: number = 0
-): void {
-  ctx.save();
-  ctx.globalAlpha = 0.6;
-
-  switch (tool) {
-    case 'equipment': renderEquipmentPreview(ctx, position); break;
-    case 'text': renderTextPreview(ctx, position); break;
-    case 'pullbox': renderPullboxPreview(ctx, position); break;
-  }
-
-  ctx.restore();
-}
-
-// ============================================
-// 픽셀 길이 표시 (토글 기능)
-// ============================================
-
-/**
- * 모든 Element의 선분 길이 표시
- * Line: 각 선분의 길이
- * Circle: 반지름 길이
- * Rect: 가로/세로 길이
- */
-export function renderElementLengths(
-  ctx: CanvasRenderingContext2D,
-  elements: FloorPlanElement[],
-  zoom: number = 100
-): void {
-  elements.forEach(element => {
-    if (!element.isVisible) return;
-
-    if (element.elementType === 'line') {
-      const props = element.properties as LineProperties;
-      if (!props.points || props.points.length < 2) return;
-
-      // 각 선분에 길이 표시
-      for (let i = 0; i < props.points.length - 1; i++) {
-        const [x1, y1] = props.points[i];
-        const [x2, y2] = props.points[i + 1];
-        renderLengthLabel(ctx, x1, y1, x2, y2, zoom);
-      }
-    } else if (element.elementType === 'circle') {
-      const props = element.properties as CircleProperties;
-      // 반지름 선분 (중심 → 오른쪽)
-      const endX = props.cx + props.radius;
-      const endY = props.cy;
-
-      // 반지름 선 그리기
-      ctx.save();
-      ctx.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(props.cx, props.cy);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-
-      renderLengthLabel(ctx, props.cx, props.cy, endX, endY, zoom);
-    } else if (element.elementType === 'rect') {
-      const props = element.properties as RectProperties;
-      // 상단 변
-      renderLengthLabel(ctx, props.x, props.y, props.x + props.width, props.y, zoom);
-      // 하단 변
-      renderLengthLabel(ctx, props.x, props.y + props.height, props.x + props.width, props.y + props.height, zoom);
-      // 좌측 변
-      renderLengthLabel(ctx, props.x, props.y, props.x, props.y + props.height, zoom);
-      // 우측 변
-      renderLengthLabel(ctx, props.x + props.width, props.y, props.x + props.width, props.y + props.height, zoom);
-    }
-  });
-}
-
-/**
- * 모든 Equipment의 가로/세로 길이 표시
- */
+/** 설비 가로/세로 길이 표시 */
 export function renderEquipmentLengths(
   ctx: CanvasRenderingContext2D,
   items: FloorPlanEquipment[],
-  zoom: number = 100
+  zoom: number = 100,
 ): void {
-  items.forEach(item => {
-    // 가로 (상단 변)
+  for (const item of items) {
     renderLengthLabel(ctx, item.positionX, item.positionY, item.positionX + item.width, item.positionY, zoom);
-    // 세로 (좌측 변)
     renderLengthLabel(ctx, item.positionX, item.positionY, item.positionX, item.positionY + item.height, zoom);
-  });
+  }
 }

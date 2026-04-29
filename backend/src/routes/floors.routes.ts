@@ -31,17 +31,6 @@ const updateFloorSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const elementSchema = z.object({
-  id: z.string().uuid().nullish(),
-  elementType: z.enum(['text', 'conduit', 'tray', 'pullbox']),
-  properties: z.record(z.unknown()),
-  zIndex: z.number().int().optional(),
-  isVisible: z.boolean().optional(),
-  materialCategoryId: z.string().uuid().optional().nullable(),
-  specParams: z.any().optional().nullable(),
-  pathLength: z.number().optional().nullable(),
-});
-
 const equipmentSchema = z.object({
   id: z.string().uuid().optional().nullable(),
   tempId: z.string().optional(),
@@ -100,7 +89,6 @@ const bulkUpdatePlanSchema = z.object({
   backgroundColor: z.string().max(20).optional(),
   scaleRatio: z.number().positive().nullish(),
   backgroundOpacity: z.number().min(0).max(1).optional(),
-  elements: z.array(elementSchema).optional(),
   equipment: z.array(equipmentSchema).optional(),
   cables: z.array(cableSchema).optional(),
   fiberPaths: z.array(fiberPathSchema).optional(),

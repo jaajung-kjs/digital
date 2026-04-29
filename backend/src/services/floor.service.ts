@@ -51,13 +51,6 @@ export interface FloorPlanDetail {
   scaleRatio: number | null;
   backgroundDrawing: unknown;
   backgroundOpacity: number;
-  elements: {
-    id: string;
-    elementType: string;
-    properties: Record<string, unknown>;
-    zIndex: number;
-    isVisible: boolean;
-  }[];
   equipment: {
     id: string;
     name: string;
@@ -142,16 +135,6 @@ export interface UpdatePlanInput {
   backgroundColor?: string;
   scaleRatio?: number;
   backgroundOpacity?: number;
-  elements?: {
-    id?: string | null;
-    elementType: string;
-    properties: Record<string, unknown>;
-    zIndex?: number;
-    isVisible?: boolean;
-    materialCategoryId?: string | null;
-    specParams?: unknown;
-    pathLength?: number | null;
-  }[];
   equipment?: {
     id?: string | null;
     tempId?: string;
@@ -356,7 +339,6 @@ function buildChangeSummary(changes: DetailedChange[]): string[] {
  */
 function buildOldSnapshot(
   floor: { id: string; name: string; canvasWidth: number; canvasHeight: number; gridSize: number; majorGridSize: number; backgroundColor: string; version: number; updatedAt: Date },
-  dbElements: { id: string; elementType?: string; properties?: unknown; zIndex?: number; isVisible?: boolean; materialCategoryId?: string | null; specParams?: unknown; pathLength?: number | null }[],
   dbEquipment: { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; description: string | null; model: string | null; manufacturer: string | null; manager: string | null; height3d: number | null; materialCategoryId: string | null; materialCategory: { code: string; name?: string; displayColor?: string | null; specTemplate?: unknown } | null; specParams?: unknown }[],
   dbCables: { id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: string; fiberPathId: string | null; fiberPortNumber: number | null }[],
 ) {
@@ -366,14 +348,6 @@ function buildOldSnapshot(
       canvasWidth: floor.canvasWidth, canvasHeight: floor.canvasHeight,
       gridSize: floor.gridSize, majorGridSize: floor.majorGridSize,
       backgroundColor: floor.backgroundColor,
-      elements: dbElements.map(e => ({
-        id: e.id, elementType: e.elementType ?? '',
-        properties: (e.properties ?? {}) as Record<string, unknown>,
-        zIndex: e.zIndex ?? 0, isVisible: e.isVisible ?? true,
-        materialCategoryId: e.materialCategoryId ?? null,
-        specParams: e.specParams ?? null,
-        pathLength: e.pathLength ?? null,
-      })),
       equipment: dbEquipment.map(e => ({
         id: e.id, name: e.name, category: e.category,
         positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
@@ -407,12 +381,10 @@ function buildStructuredDiff(
   dbCableMap: Map<string, { id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: string }>,
   deleteEquipmentIds: Set<string>,
   deleteCableIds: Set<string>,
-  deleteElementIds: Set<string>,
 ) {
   const diff: Record<string, { created: unknown[]; deleted: unknown[]; modified: unknown[] }> = {
     equipment: { created: [], deleted: [], modified: [] },
     cables: { created: [], deleted: [], modified: [] },
-    elements: { created: [], deleted: [], modified: [] },
   };
 
   // Equipment
@@ -459,17 +431,6 @@ function buildStructuredDiff(
     }
   }
 
-  // Elements
-  for (const elId of deleteElementIds) {
-    diff.elements.deleted.push({ id: elId });
-  }
-  for (const el of input.elements ?? []) {
-    if (!isRealId(el.id)) {
-      diff.elements.created.push({ id: el.id ?? null, elementType: el.elementType });
-    }
-    // element modifications are not tracked in detail
-  }
-
   return diff;
 }
 
@@ -479,8 +440,7 @@ async function captureFloorSnapshot(
   updated: { id: string; name: string; canvasWidth: number; canvasHeight: number; gridSize: number; majorGridSize: number; backgroundColor: string; updatedAt: Date },
   version: number,
 ) {
-  const [snapshotElements, snapshotEquipmentWithPhotos, snapshotCables] = await Promise.all([
-    tx.floorPlanElement.findMany({ where: { floorId }, orderBy: { zIndex: 'asc' } }),
+  const [snapshotEquipmentWithPhotos, snapshotCables] = await Promise.all([
     tx.equipment.findMany({
       where: { floorId },
       select: {
@@ -520,14 +480,6 @@ async function captureFloorSnapshot(
       canvasWidth: updated.canvasWidth, canvasHeight: updated.canvasHeight,
       gridSize: updated.gridSize, majorGridSize: updated.majorGridSize,
       backgroundColor: updated.backgroundColor,
-      elements: snapshotElements.map((e) => ({
-        id: e.id, elementType: e.elementType,
-        properties: e.properties as Record<string, unknown>,
-        zIndex: e.zIndex, isVisible: e.isVisible,
-        materialCategoryId: e.materialCategoryId,
-        specParams: e.specParams,
-        pathLength: e.pathLength,
-      })),
       equipment: snapshotEquipmentWithPhotos.map(e => ({
         ...mapEquipmentRow(e),
         photos: e.photos.map(p => ({
@@ -614,7 +566,7 @@ class FloorService {
       }
 
       // Legacy format: flat structure
-      if (snapshot.elements && snapshot.equipment) {
+      if (snapshot.equipment) {
         const floor = await prisma.floor.findUnique({ where: { id }, select: { name: true } });
         return {
           id,
@@ -627,7 +579,6 @@ class FloorService {
           scaleRatio: snapshot.scaleRatio ?? null,
           backgroundDrawing: null,
           backgroundOpacity: 0.3,
-          elements: snapshot.elements,
           equipment: snapshot.equipment,
           cables: snapshot.cables ?? [],
           fiberPaths: [],
@@ -640,15 +591,7 @@ class FloorService {
     }
 
     // Current version: load from live DB
-    const floor = await prisma.floor.findUnique({
-      where: { id },
-      include: {
-        elements: {
-          orderBy: { zIndex: 'asc' },
-        },
-      },
-    });
-
+    const floor = await prisma.floor.findUnique({ where: { id } });
     if (!floor) throw new NotFoundError('층');
 
     const [equipment, racks, cables, allOfdEquipment] = await Promise.all([
@@ -714,16 +657,6 @@ class FloorService {
       scaleRatio: floor.scaleRatio ?? null,
       backgroundDrawing: floor.backgroundDrawing,
       backgroundOpacity: floor.backgroundOpacity,
-      elements: floor.elements.map((e) => ({
-        id: e.id,
-        elementType: e.elementType,
-        properties: e.properties as Record<string, unknown>,
-        zIndex: e.zIndex,
-        isVisible: e.isVisible,
-        materialCategoryId: e.materialCategoryId,
-        specParams: e.specParams,
-        pathLength: e.pathLength,
-      })),
       equipment: equipment.map(e => mapEquipmentRow(e, rackToEquipmentMap)),
       cables: cables.map(c => ({
         id: c.id,
@@ -833,14 +766,7 @@ class FloorService {
 
     await prisma.$transaction(async (tx) => {
       // ── Step 0: Load current DB state for reconciliation ──
-      const [dbElements, dbEquipment, dbCables] = await Promise.all([
-        tx.floorPlanElement.findMany({
-          where: { floorId: id },
-          select: {
-            id: true, elementType: true, properties: true, zIndex: true, isVisible: true,
-            materialCategoryId: true, specParams: true, pathLength: true,
-          },
-        }),
+      const [dbEquipment, dbCables] = await Promise.all([
         tx.equipment.findMany({
           where: { floorId: id },
           select: {
@@ -867,22 +793,14 @@ class FloorService {
       ]);
 
       // Build old snapshot (Before state) for audit log oldValues
-      const oldSnapshot = buildOldSnapshot(floor, dbElements, dbEquipment, dbCables);
+      const oldSnapshot = buildOldSnapshot(floor, dbEquipment, dbCables);
 
-      const dbElementIds = new Set(dbElements.map(e => e.id));
       const dbEquipmentIds = new Set(dbEquipment.map(e => e.id));
       const dbEquipmentMap = new Map(dbEquipment.map(e => [e.id, e]));
       const dbCableIds = new Set(dbCables.map(c => c.id));
       const dbCableMap = new Map(dbCables.map(c => [c.id, c]));
 
       // ── Step 1: Compute reconciliation diffs ──
-
-      // Elements diff
-      const receivedElementIds = new Set(
-        (input.elements ?? []).filter(e => isRealId(e.id)).map(e => e.id!)
-      );
-      const computedDeleteElementIds = [...dbElementIds].filter(id => !receivedElementIds.has(id));
-      const deleteElementIds = new Set(computedDeleteElementIds);
 
       // Equipment diff
       const receivedEquipmentIds = new Set(
@@ -896,28 +814,17 @@ class FloorService {
         (input.cables ?? []).filter(c => isRealId(c.id)).map(c => c.id!)
       );
       // Only delete cables where BOTH endpoints belong to this floor
-      const roomEquipmentIds = new Set([...dbEquipmentMap.keys()]);
+      const floorEquipmentIds = new Set([...dbEquipmentMap.keys()]);
       const computedDeleteCableIds = [...dbCableIds].filter(id => {
         if (receivedCableIds.has(id)) return false;
         const cable = dbCableMap.get(id);
         if (!cable) return false;
-        const sourceInRoom = roomEquipmentIds.has(cable.sourceEquipmentId);
-        const targetInRoom = roomEquipmentIds.has(cable.targetEquipmentId);
-        return sourceInRoom && targetInRoom;
+        return floorEquipmentIds.has(cable.sourceEquipmentId) && floorEquipmentIds.has(cable.targetEquipmentId);
       });
       const deleteCableIds = new Set(computedDeleteCableIds);
 
       // ── Step 1.5: Detect changes BEFORE applying mutations ──
       const allChanges: DetailedChange[] = [];
-
-      // Element changes
-      if (deleteElementIds.size > 0) {
-        allChanges.push({ description: `구조 요소 ${deleteElementIds.size}개 삭제`, isStructural: true });
-      }
-      const newElements = (input.elements ?? []).filter(e => !isRealId(e.id));
-      if (newElements.length > 0) {
-        allChanges.push({ description: `구조 요소 ${newElements.length}개 추가`, isStructural: true });
-      }
 
       // Equipment changes
       for (const eqId of deleteEquipmentIds) {
@@ -994,19 +901,12 @@ class FloorService {
       // Build structured diff for audit context
       const structuredDiff = buildStructuredDiff(
         input, dbEquipmentMap, dbCableMap,
-        deleteEquipmentIds, deleteCableIds, deleteElementIds,
+        deleteEquipmentIds, deleteCableIds,
       );
 
       // ── Step 2: Apply mutations ──
 
-      // 2a. Delete elements
-      if (deleteElementIds.size > 0) {
-        await tx.floorPlanElement.deleteMany({
-          where: { id: { in: [...deleteElementIds] }, floorId: id },
-        });
-      }
-
-      // 2b. Delete cables (before equipment, since cascade from equipment delete
+      // 2a. Delete cables (before equipment, since cascade from equipment delete
       //     would handle cables automatically, but we want explicit control for
       //     cables that are removed independently)
       if (deleteCableIds.size > 0) {
@@ -1015,7 +915,7 @@ class FloorService {
         });
       }
 
-      // 2c. Delete equipment + auto-delete associated Rack for EQP-RACK
+      // 2b. Delete equipment + auto-delete associated Rack for EQP-RACK
       if (deleteEquipmentIds.size > 0) {
         // Check for EQP-RACK equipment being deleted → delete corresponding Rack
         const hasRackEquipment = [...deleteEquipmentIds].some(eqId => {
@@ -1043,38 +943,7 @@ class FloorService {
         });
       }
 
-      // 2d. Upsert elements
-      for (const element of input.elements ?? []) {
-        if (isRealId(element.id) && dbElementIds.has(element.id)) {
-          await tx.floorPlanElement.update({
-            where: { id: element.id },
-            data: {
-              elementType: element.elementType,
-              properties: element.properties as Prisma.InputJsonValue,
-              zIndex: element.zIndex ?? 0,
-              isVisible: element.isVisible ?? true,
-              materialCategoryId: element.materialCategoryId,
-              specParams: element.specParams as Prisma.InputJsonValue | undefined,
-              pathLength: element.pathLength,
-            },
-          });
-        } else if (!isRealId(element.id)) {
-          await tx.floorPlanElement.create({
-            data: {
-              floorId: id,
-              elementType: element.elementType,
-              properties: element.properties as Prisma.InputJsonValue,
-              zIndex: element.zIndex ?? 0,
-              materialCategoryId: element.materialCategoryId,
-              specParams: element.specParams as Prisma.InputJsonValue | undefined,
-              pathLength: element.pathLength,
-              isVisible: element.isVisible ?? true,
-            },
-          });
-        }
-      }
-
-      // 2e. OFD uniqueness check
+      // 2c. OFD uniqueness check
       if (input.equipment && input.equipment.length > 0) {
         const newOfdEquipment = input.equipment.filter(
           (e) => e.category === 'OFD' && !isRealId(e.id)
@@ -1467,7 +1336,7 @@ class FloorService {
     }
 
     // Legacy format: { elements, equipment, cables, canvasWidth, ... }
-    if (snapshot.elements && snapshot.equipment) {
+    if (snapshot.equipment) {
       return {
         plan: {
           id: floorId,
@@ -1477,7 +1346,6 @@ class FloorService {
           gridSize: snapshot.gridSize,
           majorGridSize: snapshot.majorGridSize,
           backgroundColor: snapshot.backgroundColor,
-          elements: snapshot.elements,
           equipment: snapshot.equipment,
           version: 0,
           updatedAt: log.createdAt,

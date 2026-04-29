@@ -54,9 +54,9 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   const pendingReportRef = useRef<ConstructionReport | null>(null);
   const queryClient = useQueryClient();
   const {
-    localElements, localEquipment, zoom, panX, panY,
+    localEquipment, zoom, panX, panY,
     gridSize, majorGridSize,
-    setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize,
+    setLocalEquipment, setGridSize, setMajorGridSize,
     setHasChanges, setViewportInitialized,
     setViewport, viewportInitialized,
   } = useEditorStore();
@@ -179,8 +179,8 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       useEditorStore.getState().setRestoredFromVersion(null);
 
       // Reset undo/redo history after successful save
-      const { localElements: currentElements, localEquipment: currentEquipment, localCables: currentCables } = useEditorStore.getState();
-      initHistory(currentElements, currentEquipment, currentCables);
+      const { localEquipment: currentEquipment, localCables: currentCables } = useEditorStore.getState();
+      initHistory(currentEquipment, currentCables);
     },
     onError: (error: unknown) => {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
@@ -194,10 +194,8 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   useEffect(() => {
     if (!floorPlan) return;
 
-    const elements = floorPlan.elements;
     const cables = planCablesToLocalCables(floorPlan.cables ?? []);
 
-    setLocalElements(elements);
     setLocalEquipment(floorPlan.equipment);
     useEditorStore.getState().setCables(cables);
     setGridSize(floorPlan.gridSize);
@@ -209,12 +207,11 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       return;
     }
 
-    // Fresh load (not after save): reset pending data + history
     useEditorStore.getState().clearPendingData();
     setHasChanges(false);
-    initHistory(elements, floorPlan.equipment, cables);
+    initHistory(floorPlan.equipment, cables);
     setViewportInitialized(false);
-  }, [floorPlan, floorId, setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
+  }, [floorPlan, floorId, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
 
   // Viewport initialization
   useEffect(() => {
@@ -222,19 +219,17 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     const container = containerRef.current;
     if (container.clientWidth === 0 || container.clientHeight === 0) return;
 
-    const hasFloorPlanData = floorPlan.elements.length > 0 || floorPlan.equipment.length > 0;
-    const hasLocalData = localElements.length > 0 || localEquipment.length > 0;
-    if (hasFloorPlanData && !hasLocalData) return;
+    if (floorPlan.equipment.length > 0 && localEquipment.length === 0) return;
 
     const savedViewport = loadViewportState();
     if (savedViewport) {
       setViewport(savedViewport.zoom ?? 100, savedViewport.panX ?? 0, savedViewport.panY ?? 0);
     } else {
-      fitToContent(localElements, localEquipment, container.clientWidth, container.clientHeight);
+      fitToContent(localEquipment, container.clientWidth, container.clientHeight);
     }
 
     setViewportInitialized(true);
-  }, [floorPlan, localElements, localEquipment, viewportInitialized, containerRef, fitToContent, loadViewportState, setViewport, setViewportInitialized]);
+  }, [floorPlan, localEquipment, viewportInitialized, containerRef, fitToContent, loadViewportState, setViewport, setViewportInitialized]);
 
   // Save viewport on unmount
   useEffect(() => {
@@ -254,13 +249,6 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     const cachedPlan = queryClient.getQueryData<FloorPlanDetail>(['floorPlan', floorId]);
     if (cachedPlan) {
       const beforeSnapshot: PlanSnapshot = {
-        elements: cachedPlan.elements.map(e => ({
-          id: e.id,
-          elementType: e.elementType,
-          materialCategoryCode: null, // elements don't carry materialCategoryCode on frontend
-          pathLength: e.pathLength ?? null,
-          properties: e.properties as unknown as Record<string, unknown>,
-        })),
         equipment: cachedPlan.equipment.map(eq => ({
           id: eq.id,
           name: eq.name,
@@ -285,13 +273,6 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         })),
       };
       const afterSnapshot: PlanSnapshot = {
-        elements: localElements.map(e => ({
-          id: e.id,
-          elementType: e.elementType,
-          materialCategoryCode: null,
-          pathLength: e.pathLength ?? null,
-          properties: e.properties as unknown as Record<string, unknown>,
-        })),
         equipment: localEquipment.map(eq => ({
           id: eq.id,
           name: eq.name,
@@ -327,16 +308,6 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       gridSize,
       majorGridSize,
       scaleRatio: currentScaleRatio,
-      elements: localElements.map(e => ({
-        id: isTempId(e.id) ? null : e.id,
-        elementType: e.elementType,
-        properties: e.properties,
-        zIndex: e.zIndex,
-        isVisible: e.isVisible,
-        materialCategoryId: e.materialCategoryId || undefined,
-        specParams: e.specParams || undefined,
-        pathLength: e.pathLength ?? undefined,
-      })),
       equipment: localEquipment.map(eq => ({
         id: isTempId(eq.id) ? null : eq.id,
         tempId: isTempId(eq.id) ? eq.id : undefined,
