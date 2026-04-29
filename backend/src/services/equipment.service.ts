@@ -1,6 +1,6 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
-import { EquipmentCategory, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 // ==================== Types ====================
 
@@ -23,7 +23,6 @@ export interface EquipmentDetail {
   height3d: number | null;
   frontImageUrl: string | null;
   rearImageUrl: string | null;
-  category: EquipmentCategory;
   installDate: Date | null;
   manager: string | null;
   description: string | null;
@@ -46,7 +45,6 @@ export interface CreateEquipmentInput {
   serialNumber?: string;
   startU: number;
   heightU?: number;
-  category?: EquipmentCategory;
   installDate?: string;
   manager?: string;
   description?: string;
@@ -68,7 +66,6 @@ export interface CreateFloorPlanEquipmentInput {
   heightU?: number;
   totalU?: number;
   height3d?: number;
-  category?: EquipmentCategory;
   installDate?: string;
   manager?: string;
   description?: string;
@@ -92,11 +89,12 @@ export interface UpdateEquipmentInput {
   height3d?: number;
   frontImageUrl?: string;
   rearImageUrl?: string;
-  category?: EquipmentCategory;
   installDate?: string;
   manager?: string;
   description?: string;
   properties?: unknown;
+  materialCategoryId?: string | null;
+  specParams?: unknown;
   sortOrder?: number;
 }
 
@@ -129,7 +127,6 @@ class EquipmentService {
     height3d: number | null;
     frontImageUrl: string | null;
     rearImageUrl: string | null;
-    category: EquipmentCategory;
     installDate: Date | null;
     manager: string | null;
     description: string | null;
@@ -162,7 +159,6 @@ class EquipmentService {
       height3d: e.height3d,
       frontImageUrl: e.frontImageUrl,
       rearImageUrl: e.rearImageUrl,
-      category: e.category,
       installDate: e.installDate,
       manager: e.manager,
       description: e.description,
@@ -180,12 +176,18 @@ class EquipmentService {
   }
 
   /**
-   * 설비 목록 조회 (카테고리 필터 지원)
+   * 설비 목록 조회 (materialCategoryCode 필터 지원)
+   *
+   * `materialCategoryCode` is a MaterialCategory.code value such as
+   * `EQP-OFD`, `EQP-RACK`, etc. Filters are matched via prefix
+   * (e.g. `EQP-RACK` also matches `EQP-RACK-EMPTY42`).
    */
-  async getAll(filters?: { category?: EquipmentCategory }): Promise<(EquipmentDetail & { substationName?: string })[]> {
-    const where: Record<string, unknown> = {};
-    if (filters?.category) {
-      where.category = filters.category;
+  async getAll(filters?: { materialCategoryCode?: string }): Promise<(EquipmentDetail & { substationName?: string })[]> {
+    const where: Prisma.EquipmentWhereInput = {};
+    if (filters?.materialCategoryCode) {
+      where.materialCategory = {
+        code: { startsWith: filters.materialCategoryCode },
+      };
     }
 
     const equipment = await prisma.equipment.findMany({
@@ -390,7 +392,6 @@ class EquipmentService {
         serialNumber: input.serialNumber,
         startU: input.startU,
         heightU,
-        category: input.category ?? 'OTHER',
         installDate: input.installDate ? new Date(input.installDate) : null,
         manager: input.manager,
         description: input.description,
@@ -447,8 +448,14 @@ class EquipmentService {
       }
     }
 
-    if (input.category === 'OFD' && existing.category !== 'OFD' && existing.floorId) {
-      await this.validateOfdUniqueness(existing.floorId, id);
+    // OFD identity is now derived from MaterialCategory.code === 'EQP-OFD'.
+    // Re-validate uniqueness only when the equipment is becoming an OFD.
+    if (input.materialCategoryId !== undefined && existing.floorId) {
+      const newIsOfd = await this.isOfdMaterialCategoryId(input.materialCategoryId);
+      const existingIsOfd = await this.isOfdMaterialCategoryId(existing.materialCategoryId);
+      if (newIsOfd && !existingIsOfd) {
+        await this.validateOfdUniqueness(existing.floorId, id);
+      }
     }
 
     const equipment = await prisma.equipment.update({
@@ -468,13 +475,14 @@ class EquipmentService {
         height3d: input.height3d,
         frontImageUrl: input.frontImageUrl,
         rearImageUrl: input.rearImageUrl,
-        category: input.category,
         installDate: input.installDate !== undefined
           ? (input.installDate ? new Date(input.installDate) : null)
           : undefined,
         manager: input.manager,
         description: input.description,
         properties: input.properties as Prisma.InputJsonValue | undefined,
+        materialCategoryId: input.materialCategoryId,
+        specParams: input.specParams != null ? (input.specParams as Prisma.InputJsonValue) : undefined,
         sortOrder: input.sortOrder,
         updatedById: userId,
       },
@@ -487,6 +495,18 @@ class EquipmentService {
     });
 
     return this.mapToDetail(equipment);
+  }
+
+  /**
+   * 주어진 materialCategoryId가 OFD 카테고리(EQP-OFD)인지 판정.
+   */
+  private async isOfdMaterialCategoryId(materialCategoryId: string | null | undefined): Promise<boolean> {
+    if (!materialCategoryId) return false;
+    const cat = await prisma.materialCategory.findUnique({
+      where: { id: materialCategoryId },
+      select: { code: true },
+    });
+    return cat?.code === 'EQP-OFD';
   }
 
   /**
@@ -539,6 +559,7 @@ class EquipmentService {
 
   /**
    * 변전소 내 OFD 중복 검사 (변전소당 OFD 1개만 허용)
+   * OFD 식별은 MaterialCategory.code === 'EQP-OFD' 기준.
    */
   async validateOfdUniqueness(floorId: string, excludeEquipmentId?: string): Promise<void> {
     const floor = await prisma.floor.findUnique({
@@ -550,7 +571,7 @@ class EquipmentService {
     const substationId = floor.substationId;
     const existingOfd = await prisma.equipment.findFirst({
       where: {
-        category: 'OFD',
+        materialCategory: { code: 'EQP-OFD' },
         id: excludeEquipmentId ? { not: excludeEquipmentId } : undefined,
         floor: { substationId },
       },
@@ -580,7 +601,7 @@ class EquipmentService {
       throw new NotFoundError('층');
     }
 
-    if (input.category === 'OFD') {
+    if (await this.isOfdMaterialCategoryId(input.materialCategoryId)) {
       await this.validateOfdUniqueness(floorId);
     }
 
@@ -599,7 +620,6 @@ class EquipmentService {
         heightU: input.heightU ?? 1,
         totalU: input.totalU,
         height3d: input.height3d,
-        category: input.category ?? 'OTHER',
         installDate: input.installDate ? new Date(input.installDate) : null,
         manager: input.manager,
         description: input.description,

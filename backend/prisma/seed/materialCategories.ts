@@ -16,6 +16,18 @@ interface SpecTemplate {
   format: string;
 }
 
+interface RackPresetModule {
+  slotU: number;
+  heightU: number;
+  materialCategoryCode: string;
+  name?: string;
+}
+
+interface RackPreset {
+  totalU: number;
+  modules: RackPresetModule[];
+}
+
 interface CategorySeedData {
   code: string;
   name: string;
@@ -27,6 +39,11 @@ interface CategorySeedData {
   unit?: string;
   specTemplate?: SpecTemplate;
   sortOrder: number;
+  // 단일 그루핑 소스 메타데이터
+  placementType?: 'rack_mounted' | 'standalone';
+  detailPanelKind?: 'rack' | 'ofd' | 'distribution' | 'grounding' | 'hvac' | 'generic';
+  rackPreset?: RackPreset;
+  displayGroup?: '전원' | '접지' | '네트워크' | '광' | '제어';
 }
 
 // ==================== 케이블 16종 ====================
@@ -40,6 +57,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-power',
     unit: 'm',
     sortOrder: 1,
+    displayGroup: '전원',
     description: '가교PE절연 비닐시스 전력케이블 (KS C IEC 60502-1)',
     specTemplate: {
       params: [
@@ -58,6 +76,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-fire',
     unit: 'm',
     sortOrder: 2,
+    displayGroup: '전원',
     description: '난연 차폐 제어케이블 FR-CVVS, 내화케이블 FFR-8',
     specTemplate: {
       params: [
@@ -76,6 +95,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-vct',
     unit: 'm',
     sortOrder: 3,
+    displayGroup: '전원',
     description: '비닐캡타이어 케이블 (이동용 전원)',
     specTemplate: {
       params: [
@@ -93,6 +113,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-hiv',
     unit: 'm',
     sortOrder: 4,
+    displayGroup: '전원',
     description: '비닐절연전선 HIV (단심)',
     specTemplate: {
       params: [
@@ -109,6 +130,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-utp',
     unit: 'm',
     sortOrder: 5,
+    displayGroup: '네트워크',
     description: 'UTP/S-FTP 데이터케이블 (KS C 3342, TIA/EIA-568)',
     specTemplate: {
       params: [
@@ -127,6 +149,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-fiber',
     unit: 'm',
     sortOrder: 6,
+    displayGroup: '광',
     description: '광케이블 SM/MM (KS C 6710, ITU-T G.652)',
     specTemplate: {
       params: [
@@ -144,6 +167,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-jumper',
     unit: '본',
     sortOrder: 7,
+    displayGroup: '광',
     description: '광점퍼코드 (ITU-T G.652, IEC 61754)',
     specTemplate: {
       params: [
@@ -162,6 +186,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-breakout',
     unit: 'm',
     sortOrder: 8,
+    displayGroup: '광',
     description: '브레이크아웃케이블 — 다심 광케이블 개별 커넥터 분기',
     specTemplate: {
       params: [
@@ -180,6 +205,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-ground',
     unit: 'm',
     sortOrder: 9,
+    displayGroup: '접지',
     description: '접지전선 IV/F-GV (KS C IEC 60502-1)',
     specTemplate: {
       params: [
@@ -196,6 +222,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-bare',
     unit: 'm',
     sortOrder: 10,
+    displayGroup: '접지',
     description: '나동연선 — 매설용 접지선',
     specTemplate: {
       params: [
@@ -212,6 +239,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-control',
     unit: 'm',
     sortOrder: 11,
+    displayGroup: '전원',
     description: '제어케이블 CVV-S (KS C IEC 60502-1)',
     specTemplate: {
       params: [
@@ -229,6 +257,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-comm',
     unit: 'm',
     sortOrder: 12,
+    displayGroup: '네트워크',
     description: '통신케이블 CPEV-S (KS C 3603)',
     specTemplate: {
       params: [
@@ -246,6 +275,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-pcm',
     unit: 'm',
     sortOrder: 13,
+    displayGroup: '제어',
     description: 'PCM케이블 — 전력통신 디지털 회선',
     specTemplate: {
       params: [
@@ -262,6 +292,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-coax',
     unit: 'm',
     sortOrder: 14,
+    displayGroup: '제어',
     description: '동축케이블 (KS C 3610, KS C 3617)',
     specTemplate: {
       params: [
@@ -278,6 +309,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-champ',
     unit: 'm',
     sortOrder: 15,
+    displayGroup: '네트워크',
     description: '챔프케이블 — MDF↔교환기 접속 (RJ21 Amphenol 50-pin)',
     specTemplate: {
       params: [
@@ -294,6 +326,7 @@ const cableCategories: CategorySeedData[] = [
     iconName: 'cable-signal',
     unit: 'm',
     sortOrder: 16,
+    displayGroup: '제어',
     description: '데이터/신호케이블 — RS-232C/485, I/O접속',
     specTemplate: {
       params: [
@@ -315,6 +348,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-rtu',
     unit: '대',
     sortOrder: 1,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: '변전소 원격감시제어 (SCADA/RTU 시스템)',
     specTemplate: {
       params: [
@@ -331,6 +366,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-rack',
     unit: '대',
     sortOrder: 2,
+    placementType: 'standalone',
+    detailPanelKind: 'rack',
     description: '19" 표준랙/함체 (EIA-310-D, IEC 60297)',
     specTemplate: {
       params: [
@@ -349,6 +386,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-ofd',
     unit: '대',
     sortOrder: 3,
+    placementType: 'standalone',
+    detailPanelKind: 'ofd',
     description: '광/동 케이블 종단, 배선 분배',
     specTemplate: {
       params: [
@@ -366,6 +405,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-ups',
     unit: '대',
     sortOrder: 4,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: '무정전 전원공급, 배터리 백업 (KS C IEC 62040)',
     specTemplate: {
       params: [
@@ -383,6 +424,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-network',
     unit: '대',
     sortOrder: 5,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: 'LAN 스위칭, 광변환, 원격 접속',
     specTemplate: {
       params: [
@@ -400,6 +443,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-security',
     unit: '대',
     sortOrder: 6,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: '무인변전소 보안감시',
     specTemplate: {
       params: [
@@ -416,6 +461,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-pitr',
     unit: '대',
     sortOrder: 7,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: '송변전 광단말장치 (전류차동보호, 광통신)',
     specTemplate: {
       params: [
@@ -432,6 +479,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-seismic',
     unit: '대',
     sortOrder: 8,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: '랙/함체 지진 대비 고정 (KEPCO 내진설계기준, KDS 41 17 00)',
     specTemplate: {
       params: [
@@ -451,6 +500,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-surge',
     unit: '개',
     sortOrder: 9,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: '낙뢰/서지 보호 (KS C IEC 61643)',
     specTemplate: {
       params: [
@@ -467,6 +518,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-breaker',
     unit: '개',
     sortOrder: 10,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: 'ICT 장비 전원 차단/보호 (KS C IEC 60947)',
     specTemplate: {
       params: [
@@ -483,6 +536,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-sync',
     unit: '대',
     sortOrder: 11,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: 'GPS 기반 시각 동기 (SCADA 타임스탬프)',
     specTemplate: {
       params: [
@@ -499,6 +554,8 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-cooling',
     unit: '대',
     sortOrder: 12,
+    placementType: 'standalone',
+    detailPanelKind: 'hvac',
     description: 'ICT실 온도/습도 관리',
     specTemplate: {
       params: [
@@ -515,10 +572,124 @@ const equipmentCategories: CategorySeedData[] = [
     iconName: 'equip-pdas',
     unit: '대',
     sortOrder: 13,
+    placementType: 'rack_mounted',
+    detailPanelKind: 'generic',
     description: '부분방전 감시',
     specTemplate: {
       params: [],
       format: 'PDAS 본체',
+    },
+  },
+  {
+    code: 'EQP-DIST',
+    name: '분전반',
+    categoryType: 'EQUIPMENT',
+    displayColor: '#f97316',
+    iconName: 'equip-distribution',
+    unit: '대',
+    sortOrder: 14,
+    placementType: 'standalone',
+    detailPanelKind: 'distribution',
+    description: 'AC/DC 전원 분전반 — ICT실 전력 분배',
+    specTemplate: {
+      params: [
+        { key: 'type', label: '종류', inputType: 'select', options: ['AC 분전반', 'DC 분전반', '복합 분전반'] },
+        { key: 'capacity', label: '용량', inputType: 'text' },
+      ],
+      format: '{type} {capacity}',
+    },
+  },
+  {
+    code: 'EQP-GROUND',
+    name: '접지함체',
+    categoryType: 'EQUIPMENT',
+    displayColor: '#eab308',
+    iconName: 'equip-grounding',
+    unit: '대',
+    sortOrder: 15,
+    placementType: 'standalone',
+    detailPanelKind: 'grounding',
+    description: '접지단자함/접지함체 — 단독 설치형 접지 통합',
+    specTemplate: {
+      params: [
+        { key: 'type', label: '종류', inputType: 'select', options: ['접지단자함', '통합접지함체', '메인접지바'] },
+        { key: 'spec', label: '규격', inputType: 'text' },
+      ],
+      format: '{type} {spec}',
+    },
+  },
+];
+
+// ==================== 랙 프리셋 4종 (EQP-RACK 자식) ====================
+
+const rackPresetCategories: CategorySeedData[] = [
+  {
+    code: 'EQP-RACK-EMPTY42',
+    name: '빈 42U 랙',
+    categoryType: 'EQUIPMENT',
+    parentCode: 'EQP-RACK',
+    displayColor: '#6b7280',
+    iconName: 'equip-rack',
+    unit: '대',
+    sortOrder: 1,
+    placementType: 'standalone',
+    detailPanelKind: 'rack',
+    description: '빈 42U 표준 랙 (모듈 없음)',
+    rackPreset: { totalU: 42, modules: [] },
+  },
+  {
+    code: 'EQP-RACK-EMPTY22',
+    name: '빈 22U 랙',
+    categoryType: 'EQUIPMENT',
+    parentCode: 'EQP-RACK',
+    displayColor: '#6b7280',
+    iconName: 'equip-rack',
+    unit: '대',
+    sortOrder: 2,
+    placementType: 'standalone',
+    detailPanelKind: 'rack',
+    description: '빈 22U 표준 랙 (모듈 없음)',
+    rackPreset: { totalU: 22, modules: [] },
+  },
+  {
+    code: 'EQP-RACK-PITR5000',
+    name: 'PITR-5000 표준 랙(임시)',
+    categoryType: 'EQUIPMENT',
+    parentCode: 'EQP-RACK',
+    displayColor: '#a855f7',
+    iconName: 'equip-rack',
+    unit: '대',
+    sortOrder: 3,
+    placementType: 'standalone',
+    detailPanelKind: 'rack',
+    description: 'PITR-5000 표준 랙 — placeholder (Phase 4 에서 실제 슬롯 채울 예정)',
+    rackPreset: {
+      totalU: 42,
+      modules: [
+        { slotU: 1, heightU: 2, materialCategoryCode: 'EQP-PITR', name: 'PITR 본체' },
+        { slotU: 4, heightU: 1, materialCategoryCode: 'EQP-NET', name: '네트워크 스위치' },
+        { slotU: 6, heightU: 2, materialCategoryCode: 'EQP-UPS', name: 'UPS' },
+      ],
+    },
+  },
+  {
+    code: 'EQP-RACK-SONGGWANG',
+    name: '송광치 표준 랙(임시)',
+    categoryType: 'EQUIPMENT',
+    parentCode: 'EQP-RACK',
+    displayColor: '#ef4444',
+    iconName: 'equip-rack',
+    unit: '대',
+    sortOrder: 4,
+    placementType: 'standalone',
+    detailPanelKind: 'rack',
+    description: '송광치 표준 랙 — placeholder (Phase 4 에서 실제 슬롯 채울 예정)',
+    rackPreset: {
+      totalU: 42,
+      modules: [
+        { slotU: 1, heightU: 2, materialCategoryCode: 'EQP-RTU', name: 'RTU' },
+        { slotU: 4, heightU: 1, materialCategoryCode: 'EQP-NET', name: '네트워크 스위치' },
+      ],
     },
   },
 ];
@@ -1091,6 +1262,26 @@ const accessoryLeafCategories: CategorySeedData[] = [
 
 // ==================== 시드 실행 함수 ====================
 
+/** Build the metadata payload that's common to both create and update. */
+function buildMetadataPayload(cat: CategorySeedData, parentId?: string | null) {
+  return {
+    name: cat.name,
+    categoryType: cat.categoryType,
+    parentId: parentId ?? null,
+    description: cat.description,
+    displayColor: cat.displayColor,
+    iconName: cat.iconName,
+    unit: cat.unit,
+    specTemplate: (cat.specTemplate as any) ?? undefined,
+    sortOrder: cat.sortOrder,
+    // 단일 그루핑 소스 메타데이터
+    placementType: cat.placementType ?? null,
+    detailPanelKind: cat.detailPanelKind ?? null,
+    rackPreset: cat.rackPreset ? (cat.rackPreset as any) : undefined,
+    displayGroup: cat.displayGroup ?? null,
+  };
+}
+
 export async function seedMaterialCategories(prisma: PrismaClient) {
   console.log('🌱 Seeding material categories...');
 
@@ -1105,74 +1296,38 @@ export async function seedMaterialCategories(prisma: PrismaClient) {
   const codeToId: Record<string, string> = {};
 
   for (const cat of allParents) {
+    const payload = buildMetadataPayload(cat, null);
     const result = await prisma.materialCategory.upsert({
       where: { code: cat.code },
-      update: {
-        name: cat.name,
-        categoryType: cat.categoryType,
-        description: cat.description,
-        displayColor: cat.displayColor,
-        iconName: cat.iconName,
-        unit: cat.unit,
-        specTemplate: cat.specTemplate as any ?? undefined,
-        sortOrder: cat.sortOrder,
-      },
-      create: {
-        code: cat.code,
-        name: cat.name,
-        categoryType: cat.categoryType,
-        description: cat.description,
-        displayColor: cat.displayColor,
-        iconName: cat.iconName,
-        unit: cat.unit,
-        specTemplate: cat.specTemplate as any ?? undefined,
-        sortOrder: cat.sortOrder,
-      },
+      update: payload,
+      create: { code: cat.code, ...payload },
     });
     codeToId[cat.code] = result.id;
   }
 
   console.log(`  ✅ ${allParents.length}개 상위 카테고리 (케이블 ${cableCategories.length} + 설비 ${equipmentCategories.length} + 부속 parent ${accessoryParentCategories.length})`);
 
-  // 2단계: 부속자재 leaf (parentId 참조)
-  for (const cat of accessoryLeafCategories) {
+  // 2단계: 자식 카테고리 (랙 프리셋 + 부속자재 leaf — parentId 참조)
+  const allChildren = [...rackPresetCategories, ...accessoryLeafCategories];
+
+  for (const cat of allChildren) {
     const parentId = cat.parentCode ? codeToId[cat.parentCode] : undefined;
     if (cat.parentCode && !parentId) {
       console.warn(`  ⚠️ parent code '${cat.parentCode}' not found for '${cat.code}'`);
       continue;
     }
 
+    const payload = buildMetadataPayload(cat, parentId ?? null);
     const result = await prisma.materialCategory.upsert({
       where: { code: cat.code },
-      update: {
-        name: cat.name,
-        categoryType: cat.categoryType,
-        parentId: parentId ?? null,
-        description: cat.description,
-        displayColor: cat.displayColor,
-        iconName: cat.iconName,
-        unit: cat.unit,
-        specTemplate: cat.specTemplate as any ?? undefined,
-        sortOrder: cat.sortOrder,
-      },
-      create: {
-        code: cat.code,
-        name: cat.name,
-        categoryType: cat.categoryType,
-        parentId: parentId ?? null,
-        description: cat.description,
-        displayColor: cat.displayColor,
-        iconName: cat.iconName,
-        unit: cat.unit,
-        specTemplate: cat.specTemplate as any ?? undefined,
-        sortOrder: cat.sortOrder,
-      },
+      update: payload,
+      create: { code: cat.code, ...payload },
     });
     codeToId[cat.code] = result.id;
   }
 
-  console.log(`  ✅ ${accessoryLeafCategories.length}개 부속자재 leaf 카테고리`);
+  console.log(`  ✅ ${rackPresetCategories.length}개 랙 프리셋 + ${accessoryLeafCategories.length}개 부속자재 leaf 카테고리`);
 
-  const totalCount = allParents.length + accessoryLeafCategories.length;
+  const totalCount = allParents.length + allChildren.length;
   console.log(`🎉 총 ${totalCount}개 자재 카테고리 시드 완료`);
 }

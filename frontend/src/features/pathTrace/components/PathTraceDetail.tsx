@@ -65,7 +65,7 @@ function buildDisplayItems(
     const incomingIsFiber = step.edge?.type === 'fiberPath';
     const outgoingIsFiber = nextEdge?.type === 'fiberPath';
 
-    if (step.node.category === 'OFD') {
+    if (step.node.materialCategoryCode === 'EQP-OFD') {
       if (outgoingIsFiber && nextStep) {
         // OFD with outgoing fiberPath: derive label from substationNames (SSOT)
         const from = step.node.substationName;

@@ -59,7 +59,6 @@ function useMergedEquipmentDetail(equipmentId: string): {
     const equipment: EquipmentDetail = {
       id: snapEq.id,
       name: snapEq.name,
-      category: snapEq.category || 'NETWORK',
       model: snapEq.model ?? null,
       manufacturer: snapEq.manufacturer ?? null,
       manager: snapEq.manager ?? null,
@@ -90,7 +89,6 @@ function useMergedEquipmentDetail(equipmentId: string): {
   const equipment: EquipmentDetail = {
     id: localEq.id,
     name: localEq.name,
-    category: localEq.category || 'NETWORK',
     model: pick(localEq.model, backendData?.model),
     manufacturer: pick(localEq.manufacturer, backendData?.manufacturer),
     manager: pick(localEq.manager, backendData?.manager),
@@ -193,7 +191,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
           </h3>
           {equipment && (
             <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-              {localEq?.materialCategoryName ?? localEq?.materialCategoryCode ?? equipment.category}
+              {localEq?.materialCategoryName ?? localEq?.materialCategoryCode ?? '-'}
             </span>
           )}
         </div>
@@ -264,7 +262,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
               )
             )}
             {activeTab === 'connections' && (
-              <ConnectionsTab equipmentId={equipmentId} floorId={floorId} category={equipment.category} />
+              <ConnectionsTab equipmentId={equipmentId} floorId={floorId} materialCategoryCode={equipment.materialCategoryCode} />
             )}
             {activeTab === 'rack' && isRackEquipment && (
               snapshotActive ? (

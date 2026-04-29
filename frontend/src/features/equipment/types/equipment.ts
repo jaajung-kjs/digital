@@ -4,7 +4,6 @@ export interface EquipmentFormData {
   model?: string;
   manufacturer?: string;
   serialNumber?: string;
-  category: string;
   manager?: string;
   description?: string;
   positionX: number;
@@ -13,6 +12,8 @@ export interface EquipmentFormData {
   height2d: number;
   rotation?: number;
   height3d?: number;
+  materialCategoryId?: string | null;
+  materialCategoryCode?: string | null;
 }
 
 export interface MaintenanceFormData {

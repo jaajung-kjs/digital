@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useEditorStore } from '../../../editor/stores/editorStore';
 import { MaterialPicker } from '../../../materials/components/MaterialPicker';
 import { useRecentMaterialsStore } from '../../../materials/stores/recentMaterialsStore';
-import { getEquipmentCategoryFromMaterial } from '../../../../types/material';
 import type { EquipmentDetail } from './types';
 
 /* ================================================================
@@ -23,7 +22,7 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
     { label: '이름', value: equipment.name },
     { label: '분류', value: equipment.specification
       ? equipment.specification
-      : (equipment.materialCategoryName ?? equipment.materialCategoryCode ?? equipment.category) },
+      : (equipment.materialCategoryName ?? equipment.materialCategoryCode ?? '-') },
     { label: '모델', value: equipment.model || '-' },
     { label: '제조사', value: equipment.manufacturer || '-' },
     { label: '담당자', value: equipment.manager || '-' },
@@ -82,15 +81,11 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
   const [editDescription, setEditDescription] = useState(equipment.description ?? '');
 
   const handleApply = () => {
-    const category = editMaterialCategoryCode
-      ? getEquipmentCategoryFromMaterial(editMaterialCategoryCode)
-      : equipment.category;
     const updated = localEquipment.map((eq) =>
       eq.id === equipment.id
         ? {
             ...eq,
             name: editName,
-            category,
             materialCategoryId: editMaterialCategoryId,
             materialCategoryCode: editMaterialCategoryCode,
             materialCategoryName: editMaterialCategoryName,

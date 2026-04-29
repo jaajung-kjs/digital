@@ -39,7 +39,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
     queryKey: ['equipment', 'ofd-list'],
     queryFn: async () => {
       const { data } = await api.get<{ data: OfdEquipment[] }>('/equipment', {
-        params: { category: 'OFD' },
+        params: { materialCategoryCode: 'EQP-OFD' },
       });
       return data.data;
     },

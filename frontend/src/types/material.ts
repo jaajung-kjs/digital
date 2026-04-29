@@ -1,4 +1,4 @@
-import type { EquipmentCategory, CableType } from './enums';
+import type { CableType } from './enums';
 
 // ── API 응답 타입 ──
 
@@ -20,6 +20,27 @@ export interface SpecTemplate {
 
 export type MaterialCategoryType = 'CABLE' | 'EQUIPMENT' | 'ACCESSORY';
 
+/**
+ * Single grouping source for an equipment material category.
+ * Mirrors `MaterialCategory.placementType` / `detailPanelKind` /
+ * `rackPreset` / `displayGroup` on the backend (Phase 1).
+ */
+export type PlacementType = 'rack_mounted' | 'standalone';
+export type DetailPanelKind = 'rack' | 'ofd' | 'distribution' | 'grounding' | 'hvac' | 'generic';
+export type CableDisplayGroup = '전원' | '접지' | '네트워크' | '광' | '제어';
+
+export interface RackPresetModule {
+  slotU: number;
+  heightU: number;
+  materialCategoryCode: string;
+  name?: string;
+}
+
+export interface RackPreset {
+  totalU: number;
+  modules: RackPresetModule[];
+}
+
 export interface MaterialCategory {
   id: string;
   code: string;
@@ -35,6 +56,11 @@ export interface MaterialCategory {
   description?: string | null;
   aliases?: { id: string; aliasName: string; source: string | null }[];
   children?: MaterialCategory[];
+  // 단일 그루핑 소스 메타데이터
+  placementType?: PlacementType | null;
+  detailPanelKind?: DetailPanelKind | null;
+  rackPreset?: RackPreset | null;
+  displayGroup?: CableDisplayGroup | null;
 }
 
 export interface Material {
@@ -51,22 +77,6 @@ export interface Material {
 
 // ── enum 매핑 ──
 
-export const MATERIAL_TO_EQUIPMENT_CATEGORY: Record<string, EquipmentCategory> = {
-  'EQP-RTU': 'SERVER',
-  'EQP-RACK': 'OTHER',
-  'EQP-OFD': 'OFD',
-  'EQP-UPS': 'UPS',
-  'EQP-NET': 'NETWORK',
-  'EQP-SEC': 'SECURITY',
-  'EQP-PITR': 'SERVER',
-  'EQP-SEIS': 'OTHER',
-  'EQP-SURGE': 'OTHER',
-  'EQP-BRK': 'DISTRIBUTION_BOARD',
-  'EQP-SYNC': 'SERVER',
-  'EQP-COOL': 'OTHER',
-  'EQP-PDAS': 'OTHER',
-};
-
 export const MATERIAL_TO_CABLE_TYPE: Record<string, CableType> = {
   'CBL-FCV': 'AC', 'CBL-FR': 'AC', 'CBL-VCT': 'AC', 'CBL-HIV': 'AC',
   'CBL-UTP': 'LAN',
@@ -75,10 +85,6 @@ export const MATERIAL_TO_CABLE_TYPE: Record<string, CableType> = {
   'CBL-CVV': 'DC', 'CBL-CPEV': 'LAN', 'CBL-PCM': 'LAN',
   'CBL-COAX': 'LAN', 'CBL-CHAMP': 'LAN', 'CBL-SIG': 'DC',
 };
-
-export function getEquipmentCategoryFromMaterial(code: string): EquipmentCategory {
-  return MATERIAL_TO_EQUIPMENT_CATEGORY[code] || 'OTHER';
-}
 
 export function getCableTypeFromMaterial(code: string): CableType {
   return MATERIAL_TO_CABLE_TYPE[code] || 'LAN';

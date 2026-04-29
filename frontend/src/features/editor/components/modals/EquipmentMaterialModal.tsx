@@ -15,7 +15,6 @@ export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
   const setOpen = useEditorStore((s) => s.setEquipmentModalOpen);
   const newEquipmentName = useEditorStore((s) => s.newEquipmentName);
   const setNewEquipmentName = useEditorStore((s) => s.setNewEquipmentName);
-  const setNewEquipmentCategory = useEditorStore((s) => s.setNewEquipmentCategory);
   const newEquipmentMaterialCategoryId = useEditorStore((s) => s.newEquipmentMaterialCategoryId);
   const newEquipmentSpecParams = useEditorStore((s) => s.newEquipmentSpecParams);
   const setNewEquipmentMaterial = useEditorStore((s) => s.setNewEquipmentMaterial);
@@ -27,7 +26,6 @@ export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
   const handleCancel = () => {
     setOpen(false);
     setNewEquipmentName('');
-    setNewEquipmentCategory('NETWORK');
     resetNewEquipmentMaterial();
   };
 

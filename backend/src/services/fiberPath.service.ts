@@ -129,19 +129,25 @@ class FiberPathService {
       throw new ValidationError('OFD A와 OFD B는 서로 달라야 합니다.');
     }
 
-    // Validate both equipment exist and are OFD category
+    // Validate both equipment exist and are OFD (MaterialCategory.code === 'EQP-OFD')
     const [ofdA, ofdB] = await Promise.all([
-      prisma.equipment.findUnique({ where: { id: input.ofdAId }, select: { id: true, category: true } }),
-      prisma.equipment.findUnique({ where: { id: input.ofdBId }, select: { id: true, category: true } }),
+      prisma.equipment.findUnique({
+        where: { id: input.ofdAId },
+        select: { id: true, materialCategory: { select: { code: true } } },
+      }),
+      prisma.equipment.findUnique({
+        where: { id: input.ofdBId },
+        select: { id: true, materialCategory: { select: { code: true } } },
+      }),
     ]);
 
     if (!ofdA) throw new NotFoundError('OFD A 설비');
     if (!ofdB) throw new NotFoundError('OFD B 설비');
 
-    if (ofdA.category !== 'OFD') {
+    if (ofdA.materialCategory?.code !== 'EQP-OFD') {
       throw new ValidationError('OFD A 설비의 카테고리가 OFD가 아닙니다.');
     }
-    if (ofdB.category !== 'OFD') {
+    if (ofdB.materialCategory?.code !== 'EQP-OFD') {
       throw new ValidationError('OFD B 설비의 카테고리가 OFD가 아닙니다.');
     }
 

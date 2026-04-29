@@ -241,7 +241,6 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         id: isTempId(eq.id) ? null : eq.id,
         tempId: isTempId(eq.id) ? eq.id : undefined,
         name: eq.name,
-        category: eq.category || 'NETWORK',
         positionX: eq.positionX,
         positionY: eq.positionY,
         width: eq.width,

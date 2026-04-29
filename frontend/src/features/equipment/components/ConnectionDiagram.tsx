@@ -10,14 +10,14 @@ import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore
 interface ConnectionDiagramProps {
   floorId: string;
   equipmentId: string;
-  /** Equipment category from SSOT — OFD connections are managed via FiberPathManager */
-  category?: string;
+  /** MaterialCategory.code such as 'EQP-OFD'; replaces legacy `category` prop. */
+  materialCategoryCode?: string | null;
 }
 
 export function ConnectionDiagram({
   floorId,
   equipmentId,
-  category,
+  materialCategoryCode,
 }: ConnectionDiagramProps) {
   const editorEquipment = useEditorStore((s) => s.localEquipment);
   const editorCables = useEditorStore((s) => s.localCables);
@@ -65,7 +65,7 @@ export function ConnectionDiagram({
     <div>
       <div className="p-3">
         {/* Add connection button — OFD connections are managed via FiberPathManager, hidden during snapshot preview */}
-        {!snapshotActive && category !== 'OFD' && (
+        {!snapshotActive && materialCategoryCode !== 'EQP-OFD' && (
         <div className="mb-3">
           {cableDrawingPhase !== 'idle' ? (
             <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">

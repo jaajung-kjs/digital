@@ -9,7 +9,6 @@ import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
 import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
-import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import { Toolbar } from './Toolbar';
 import { CanvasView } from './CanvasView';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
@@ -221,13 +220,9 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     const cs = useEditorStore.getState();
     const drawnWidth = cs.equipmentDrawnSize?.width ?? 60;
     const drawnHeight = cs.equipmentDrawnSize?.height ?? 100;
-    const derivedCategory = cs.newEquipmentMaterialCategoryCode
-      ? getEquipmentCategoryFromMaterial(cs.newEquipmentMaterialCategoryCode)
-      : (cs.newEquipmentCategory || 'NETWORK');
     const newEquip: FloorPlanEquipment = {
       id: generateTempId(),
       name: cs.newEquipmentName,
-      category: derivedCategory,
       positionX: cs.newEquipmentPosition.x,
       positionY: cs.newEquipmentPosition.y,
       width: drawnWidth,
@@ -260,7 +255,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
     cs.setEquipmentModalOpen(false);
     cs.setNewEquipmentName('');
-    cs.setNewEquipmentCategory('NETWORK');
     cs.resetNewEquipmentMaterial();
     setHasChanges(true);
     setTool('select');

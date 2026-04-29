@@ -1,5 +1,5 @@
 import prisma from '../config/prisma.js';
-import { Prisma, EquipmentCategory, CableType } from '@prisma/client';
+import { Prisma, CableType } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
 import { equipmentService } from './equipment.service.js';
 import {
@@ -58,7 +58,6 @@ export interface FloorPlanDetail {
   equipment: {
     id: string;
     name: string;
-    category: string;
     positionX: number | null;
     positionY: number | null;
     width: number | null;
@@ -144,7 +143,6 @@ export interface UpdatePlanInput {
     id?: string | null;
     tempId?: string;
     name: string;
-    category?: string;
     positionX: number;
     positionY: number;
     width: number;
@@ -217,7 +215,7 @@ const DEFAULT_EQUIPMENT_WIDTH = 60;
 const DEFAULT_EQUIPMENT_HEIGHT = 100;
 
 const EQUIPMENT_SELECT = {
-  id: true, name: true, category: true,
+  id: true, name: true,
   positionX: true, positionY: true, width2d: true, height2d: true,
   rotation: true, frontImageUrl: true, rearImageUrl: true,
   description: true, model: true, manufacturer: true, manager: true, height3d: true,
@@ -230,7 +228,7 @@ type EquipmentRow = Prisma.EquipmentGetPayload<{ select: typeof EQUIPMENT_SELECT
 
 function mapEquipmentRow(e: EquipmentRow) {
   return {
-    id: e.id, name: e.name, category: e.category,
+    id: e.id, name: e.name,
     positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
     width: e.width2d ?? DEFAULT_EQUIPMENT_WIDTH, height: e.height2d ?? DEFAULT_EQUIPMENT_HEIGHT,
     rotation: e.rotation ?? 0,
@@ -343,7 +341,7 @@ function buildChangeSummary(changes: DetailedChange[]): string[] {
  */
 function buildOldSnapshot(
   floor: { id: string; name: string; canvasWidth: number; canvasHeight: number; gridSize: number; majorGridSize: number; backgroundColor: string; version: number; updatedAt: Date },
-  dbEquipment: { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; description: string | null; model: string | null; manufacturer: string | null; manager: string | null; height3d: number | null; materialCategoryId: string | null; materialCategory: { code: string; name?: string; displayColor?: string | null; specTemplate?: unknown } | null; specParams?: unknown }[],
+  dbEquipment: { id: string; name: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; description: string | null; model: string | null; manufacturer: string | null; manager: string | null; height3d: number | null; materialCategoryId: string | null; materialCategory: { code: string; name?: string; displayColor?: string | null; specTemplate?: unknown } | null; specParams?: unknown }[],
   dbCables: { id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: string; fiberPathId: string | null; fiberPortNumber: number | null }[],
 ) {
   return {
@@ -353,7 +351,7 @@ function buildOldSnapshot(
       gridSize: floor.gridSize, majorGridSize: floor.majorGridSize,
       backgroundColor: floor.backgroundColor,
       equipment: dbEquipment.map(e => ({
-        id: e.id, name: e.name, category: e.category,
+        id: e.id, name: e.name,
         positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
         width: e.width2d ?? DEFAULT_EQUIPMENT_WIDTH, height: e.height2d ?? DEFAULT_EQUIPMENT_HEIGHT,
         rotation: e.rotation ?? 0,
@@ -381,7 +379,7 @@ function buildOldSnapshot(
  */
 function buildStructuredDiff(
   input: UpdatePlanInput,
-  dbEquipmentMap: Map<string, { id: string; name: string; category: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; materialCategory: { code: string; name?: string; displayColor?: string | null } | null }>,
+  dbEquipmentMap: Map<string, { id: string; name: string; positionX: number | null; positionY: number | null; width2d: number | null; height2d: number | null; rotation: number | null; materialCategory: { code: string; name?: string; displayColor?: string | null } | null }>,
   dbCableMap: Map<string, { id: string; sourceEquipmentId: string; targetEquipmentId: string; cableType: string }>,
   deleteEquipmentIds: Set<string>,
   deleteCableIds: Set<string>,
@@ -758,7 +756,7 @@ class FloorService {
         tx.equipment.findMany({
           where: { floorId: id },
           select: {
-            id: true, name: true, category: true,
+            id: true, name: true,
             positionX: true, positionY: true, width2d: true, height2d: true,
             rotation: true, description: true, model: true, manufacturer: true,
             manager: true, height3d: true, materialCategoryId: true,
@@ -845,7 +843,7 @@ class FloorService {
         if (nullableChanged(eq.manufacturer, cur.manufacturer)) metaFields.push('제조사');
         if (nullableChanged(eq.manager, cur.manager)) metaFields.push('담당자');
         if (nullableChanged(eq.height3d, cur.height3d)) metaFields.push('높이(3D)');
-        if (eq.category !== undefined && eq.category !== cur.category) metaFields.push('카테고리');
+        if (eq.materialCategoryId !== undefined && eq.materialCategoryId !== cur.materialCategoryId) metaFields.push('카테고리');
         if (metaFields.length > 0) {
           allChanges.push({ description: `${cur.name} 정보 수정 (${metaFields.join(', ')})`, isStructural: false });
         }
@@ -913,10 +911,10 @@ class FloorService {
         });
       }
 
-      // 2c. OFD uniqueness check
+      // 2c. OFD uniqueness check (OFD identity = MaterialCategory.code === 'EQP-OFD')
       if (input.equipment && input.equipment.length > 0) {
         const newOfdEquipment = input.equipment.filter(
-          (e) => e.category === 'OFD' && !isRealId(e.id)
+          (e) => e.materialCategoryCode === 'EQP-OFD' && !isRealId(e.id)
         );
         if (newOfdEquipment.length > 0) {
           await equipmentService.validateOfdUniqueness(id);
@@ -944,7 +942,6 @@ class FloorService {
             where: { id: equip.id },
             data: {
               name: equip.name,
-              category: equip.category as EquipmentCategory | undefined,
               positionX: equip.positionX,
               positionY: equip.positionY,
               width2d: equip.width,
@@ -970,7 +967,6 @@ class FloorService {
             data: {
               floorId: id,
               name: equip.name,
-              category: (equip.category as EquipmentCategory) ?? 'NETWORK',
               positionX: equip.positionX,
               positionY: equip.positionY,
               width2d: equip.width,
@@ -1161,7 +1157,6 @@ class FloorService {
           equipment: dbEquipment.map(e => ({
             id: e.id,
             name: e.name,
-            category: e.category,
             materialCategoryCode: e.materialCategory?.code ?? null,
             materialCategoryName: e.materialCategory?.name ?? null,
             specification: buildSpecification(e.materialCategory?.specTemplate, e.specParams),
@@ -1185,7 +1180,7 @@ class FloorService {
         };
         const snapshotPlan = snapshot.plan as unknown as {
           equipment: {
-            id: string; name: string; category: string;
+            id: string; name: string;
             materialCategoryCode?: string | null; materialCategoryName?: string | null;
             specification?: string | null; specParams?: Record<string, unknown> | null;
             positionX?: number; positionY?: number;
@@ -1195,7 +1190,6 @@ class FloorService {
           equipment: snapshotPlan.equipment.map(e => ({
             id: e.id,
             name: e.name,
-            category: e.category,
             materialCategoryCode: e.materialCategoryCode ?? null,
             materialCategoryName: e.materialCategoryName ?? null,
             specification: e.specification ?? null,

@@ -1,5 +1,5 @@
-import type { EquipmentCategory, PortType } from './enums';
-export type { EquipmentCategory, PortType };
+import type { PortType } from './enums';
+export type { PortType };
 
 // 포트 정보
 export interface Port {
@@ -32,7 +32,6 @@ export interface CreateEquipmentRequest {
   serialNumber?: string;
   startU: number;
   heightU?: number;
-  category?: EquipmentCategory;
   installDate?: string;
   manager?: string;
   description?: string;
@@ -48,11 +47,12 @@ export interface UpdateEquipmentRequest {
   serialNumber?: string | null;
   startU?: number;
   heightU?: number;
-  category?: EquipmentCategory;
   installDate?: string | null;
   manager?: string | null;
   description?: string | null;
   properties?: unknown;
+  materialCategoryId?: string | null;
+  specParams?: unknown;
   sortOrder?: number;
 }
 

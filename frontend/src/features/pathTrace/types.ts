@@ -6,7 +6,8 @@ export interface TraceNode {
   substationId: string;
   substationName: string;
   floorId: string | null;
-  category: string;
+  /** MaterialCategory.code (e.g. 'EQP-OFD'); replaces the legacy enum-based category. */
+  materialCategoryCode?: string | null;
   isSource: boolean;
   isTarget: boolean;
 }

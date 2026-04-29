@@ -164,45 +164,44 @@ model Floor {
 // ==================== 설비 ====================
 
 model Equipment {
-  id                 String            @id @default(uuid())
-  parentEquipmentId  String?           @map("parent_equipment_id")
-  floorId            String?           @map("floor_id")
-  name               String            @db.VarChar(100)
-  model              String?           @db.VarChar(100)
-  manufacturer       String?           @db.VarChar(100)
-  serialNumber       String?           @map("serial_number") @db.VarChar(100)
+  id                 String    @id @default(uuid())
+  parentEquipmentId  String?   @map("parent_equipment_id")
+  floorId            String?   @map("floor_id")
+  name               String    @db.VarChar(100)
+  model              String?   @db.VarChar(100)
+  manufacturer       String?   @db.VarChar(100)
+  serialNumber       String?   @map("serial_number") @db.VarChar(100)
   // U 슬롯 위치 (rack-mounted equipment)
-  startU             Int?              @map("start_u")
-  heightU            Int               @default(1) @map("height_u")
+  startU             Int?      @map("start_u")
+  heightU            Int       @default(1) @map("height_u")
   // EQP-RACK용 슬롯 수 (rack equipment의 경우)
-  totalU             Int?              @map("total_u")
+  totalU             Int?      @map("total_u")
   // 평면도 위치 (2D 배치용)
-  positionX          Float?            @map("position_x_2d")
-  positionY          Float?            @map("position_y_2d")
-  width2d            Float?            @map("width_2d")
-  height2d           Float?            @map("height_2d")
-  rotation           Int?              @default(0)
+  positionX          Float?    @map("position_x_2d")
+  positionY          Float?    @map("position_y_2d")
+  width2d            Float?    @map("width_2d")
+  height2d           Float?    @map("height_2d")
+  rotation           Int?      @default(0)
   // 3D 속성
-  height3d           Float?            @map("height_3d")
+  height3d           Float?    @map("height_3d")
   // 사진
-  frontImageUrl      String?           @map("front_image_url") @db.VarChar(500)
-  rearImageUrl       String?           @map("rear_image_url") @db.VarChar(500)
+  frontImageUrl      String?   @map("front_image_url") @db.VarChar(500)
+  rearImageUrl       String?   @map("rear_image_url") @db.VarChar(500)
   // 추가 정보
-  category           EquipmentCategory @default(OTHER)
-  installDate        DateTime?         @map("install_date") @db.Date
-  manager            String?           @db.VarChar(100)
-  description        String?           @db.Text
+  installDate        DateTime? @map("install_date") @db.Date
+  manager            String?   @db.VarChar(100)
+  description        String?   @db.Text
   properties         Json? // 추가 속성
   // 자재 체계 확장
-  materialCategoryId String?           @map("material_category_id")
-  materialId         String?           @map("material_id")
-  specParams         Json?             @map("spec_params")
+  materialCategoryId String?   @map("material_category_id")
+  materialId         String?   @map("material_id")
+  specParams         Json?     @map("spec_params")
   // 메타
-  sortOrder          Int               @default(0) @map("sort_order")
-  createdAt          DateTime          @default(now()) @map("created_at")
-  updatedAt          DateTime          @updatedAt @map("updated_at")
-  createdById        String?           @map("created_by")
-  updatedById        String?           @map("updated_by")
+  sortOrder          Int       @default(0) @map("sort_order")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  createdById        String?   @map("created_by")
+  updatedById        String?   @map("updated_by")
 
   parent           Equipment?        @relation("EquipmentChildren", fields: [parentEquipmentId], references: [id], onDelete: Cascade)
   children         Equipment[]       @relation("EquipmentChildren")
@@ -220,18 +219,6 @@ model Equipment {
   fiberPathsAsB    FiberPath[]       @relation("FiberPathOfdB")
 
   @@map("equipment")
-}
-
-enum EquipmentCategory {
-  SERVER
-  NETWORK
-  STORAGE
-  CHARGER
-  UPS
-  SECURITY
-  OTHER
-  DISTRIBUTION_BOARD
-  OFD
 }
 
 // ==================== 포트 ====================
@@ -415,20 +402,25 @@ enum MaterialCategoryType {
 }
 
 model MaterialCategory {
-  id           String               @id @default(uuid())
-  code         String               @unique @db.VarChar(30)
-  name         String               @db.VarChar(100)
-  categoryType MaterialCategoryType @map("category_type")
-  parentId     String?              @map("parent_id")
-  description  String?              @db.Text
-  displayColor String?              @map("display_color") @db.VarChar(7)
-  iconName     String?              @map("icon_name") @db.VarChar(30)
-  unit         String?              @db.VarChar(20)
-  specTemplate Json?                @map("spec_template")
-  sortOrder    Int                  @default(0) @map("sort_order")
-  isActive     Boolean              @default(true) @map("is_active")
-  createdAt    DateTime             @default(now()) @map("created_at")
-  updatedAt    DateTime             @updatedAt @map("updated_at")
+  id              String               @id @default(uuid())
+  code            String               @unique @db.VarChar(30)
+  name            String               @db.VarChar(100)
+  categoryType    MaterialCategoryType @map("category_type")
+  parentId        String?              @map("parent_id")
+  description     String?              @db.Text
+  displayColor    String?              @map("display_color") @db.VarChar(7)
+  iconName        String?              @map("icon_name") @db.VarChar(30)
+  unit            String?              @db.VarChar(20)
+  specTemplate    Json?                @map("spec_template")
+  // 단일 그루핑 소스 메타데이터
+  placementType   String?              @map("placement_type") @db.VarChar(20) // 'rack_mounted' | 'standalone' | null
+  detailPanelKind String?              @map("detail_panel_kind") @db.VarChar(20) // 'rack' | 'ofd' | 'distribution' | 'grounding' | 'hvac' | 'generic' | null
+  rackPreset      Json?                @map("rack_preset") // EQP-RACK-* 프리셋 정의
+  displayGroup    String?              @map("display_group") @db.VarChar(20) // 케이블: 전원 | 접지 | 네트워크 | 광 | 제어
+  sortOrder       Int                  @default(0) @map("sort_order")
+  isActive        Boolean              @default(true) @map("is_active")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
 
   parent    MaterialCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children  MaterialCategory[] @relation("CategoryHierarchy")
