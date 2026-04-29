@@ -1,13 +1,12 @@
 import prisma from '../config/prisma.js';
 
-type ReorderableType = 'headquarters' | 'branch' | 'substation' | 'floor' | 'room';
+type ReorderableType = 'headquarters' | 'branch' | 'substation' | 'floor';
 
 const PRISMA_MODEL_MAP: Record<ReorderableType, keyof typeof prisma> = {
   headquarters: 'headquarters',
   branch: 'branch',
   substation: 'substation',
   floor: 'floor',
-  room: 'room',
 };
 
 class OrganizationService {

@@ -6,7 +6,7 @@ import { NotFoundError, ConflictError } from '../utils/errors.js';
 
 export interface RackDetail {
   id: string;
-  roomId: string;
+  floorId: string;
   name: string;
   code: string | null;
   positionX: number;
@@ -65,7 +65,7 @@ type RackWithEquipment = Prisma.RackGetPayload<{ include: typeof RACK_DETAIL_INC
 function toRackDetail(rack: RackWithEquipment): RackDetail {
   return {
     id: rack.id,
-    roomId: rack.roomId,
+    floorId: rack.floorId,
     name: rack.name,
     code: rack.code,
     positionX: rack.positionX,
@@ -99,12 +99,12 @@ function toRackDetail(rack: RackWithEquipment): RackDetail {
 // ==================== Service ====================
 
 class RackService {
-  async getByRoomId(roomId: string): Promise<RackDetail[]> {
-    const room = await prisma.room.findUnique({ where: { id: roomId } });
-    if (!room) throw new NotFoundError('실');
+  async getByFloorId(floorId: string): Promise<RackDetail[]> {
+    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
+    if (!floor) throw new NotFoundError('층');
 
     const racks = await prisma.rack.findMany({
-      where: { roomId },
+      where: { floorId },
       include: RACK_DETAIL_INCLUDE,
       orderBy: { sortOrder: 'asc' },
     });
@@ -122,18 +122,18 @@ class RackService {
     return toRackDetail(rack);
   }
 
-  async create(roomId: string, input: CreateRackInput, userId: string): Promise<RackDetail> {
-    const room = await prisma.room.findUnique({ where: { id: roomId } });
-    if (!room) throw new NotFoundError('실');
+  async create(floorId: string, input: CreateRackInput, userId: string): Promise<RackDetail> {
+    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
+    if (!floor) throw new NotFoundError('층');
 
     const existing = await prisma.rack.findFirst({
-      where: { roomId, name: input.name },
+      where: { floorId, name: input.name },
     });
     if (existing) throw new ConflictError('동일한 이름의 랙이 이미 존재합니다.');
 
     const rack = await prisma.rack.create({
       data: {
-        roomId,
+        floorId,
         name: input.name,
         code: input.code,
         positionX: input.positionX,
@@ -150,7 +150,7 @@ class RackService {
 
     return {
       id: rack.id,
-      roomId: rack.roomId,
+      floorId: rack.floorId,
       name: rack.name,
       code: rack.code,
       positionX: rack.positionX,
@@ -177,7 +177,7 @@ class RackService {
 
     if (input.name && input.name !== existing.name) {
       const nameExists = await prisma.rack.findFirst({
-        where: { roomId: existing.roomId, name: input.name, id: { not: id } },
+        where: { floorId: existing.floorId, name: input.name, id: { not: id } },
       });
       if (nameExists) throw new ConflictError('동일한 이름의 랙이 이미 존재합니다.');
     }

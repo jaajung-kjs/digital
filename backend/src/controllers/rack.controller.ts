@@ -8,12 +8,12 @@ interface MulterRequest extends Request {
 export const rackController = {
   /**
    * GET /api/floor-plans/:id/racks
-   * 실의 랙 목록 조회 (:id is roomId)
+   * 실의 랙 목록 조회 (:id is floorId)
    */
-  async getByRoomId(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getByFloorId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const racks = await rackService.getByRoomId(id);
+      const racks = await rackService.getByFloorId(id);
 
       res.json({ data: racks });
     } catch (error) {
@@ -38,7 +38,7 @@ export const rackController = {
 
   /**
    * POST /api/floor-plans/:id/racks
-   * 랙 생성 (:id is roomId)
+   * 랙 생성 (:id is floorId)
    */
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

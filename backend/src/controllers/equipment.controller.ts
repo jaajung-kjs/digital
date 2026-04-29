@@ -27,10 +27,10 @@ export const equipmentController = {
    * GET /api/rooms/:id/equipment
    * 실에 직접 배치된 설비 목록 조회
    */
-  async getByRoomId(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getByFloorId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const equipment = await equipmentService.getByRoomId(id);
+      const equipment = await equipmentService.getByFloorId(id);
 
       res.json({ data: equipment });
     } catch (error) {
