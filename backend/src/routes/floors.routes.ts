@@ -50,13 +50,15 @@ const equipmentSchema = z.object({
   properties: z.unknown().optional(),
 });
 
+// Endpoint id는 real uuid 또는 'temp-{uuid}' 둘 다 허용 — bulkUpdatePlan 트랜잭션이
+// equipmentIdMap / rackModuleIdMap 으로 tempId를 resolve.
 const endpointSchema = z.object({
-  equipmentId: z.string().uuid().optional().nullable(),
-  moduleId: z.string().uuid().optional().nullable(),
+  equipmentId: z.string().optional().nullable(),
+  moduleId: z.string().optional().nullable(),
 });
 
 const cableSchema = z.object({
-  id: z.string().uuid().nullish(),
+  id: z.string().nullish(),
   source: endpointSchema,
   target: endpointSchema,
   cableType: z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']),
@@ -64,7 +66,8 @@ const cableSchema = z.object({
   length: z.number().nullish(),
   color: z.string().nullish(),
   description: z.string().nullish(),
-  fiberPathId: z.string().uuid().nullish(),
+  // fiberPathId 도 tempId 가능 (새 광경로) — fiberPathIdMap 으로 resolve.
+  fiberPathId: z.string().nullish(),
   fiberPortNumber: z.number().int().min(1).max(48).nullish(),
   categoryId: z.string().uuid().nullish(),
   specParams: z.any().nullish(),
@@ -82,6 +85,21 @@ const fiberPathSchema = z.object({
   description: z.string().optional().nullable(),
 });
 
+const rackModuleSchema = z.object({
+  id: z.string().optional().nullable(),
+  tempId: z.string().optional(),
+  rackEquipmentId: z.string(),
+  categoryId: z.string().uuid(),
+  name: z.string().min(1).max(100),
+  startU: z.number().int().min(1),
+  heightU: z.number().int().min(1),
+  installDate: z.string().optional().nullable(),
+  manager: z.string().max(100).optional().nullable(),
+  description: z.string().optional().nullable(),
+  properties: z.unknown().optional(),
+  sortOrder: z.number().int().optional(),
+});
+
 const bulkUpdatePlanSchema = z.object({
   canvasWidth: z.number().int().min(100).max(10000).optional(),
   canvasHeight: z.number().int().min(100).max(10000).optional(),
@@ -91,6 +109,7 @@ const bulkUpdatePlanSchema = z.object({
   scaleRatio: z.number().positive().nullish(),
   backgroundOpacity: z.number().min(0).max(1).optional(),
   equipment: z.array(equipmentSchema).optional(),
+  rackModules: z.array(rackModuleSchema).optional(),
   cables: z.array(cableSchema).optional(),
   fiberPaths: z.array(fiberPathSchema).optional(),
   deletedFiberPathIds: z.array(z.string().uuid()).optional(),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { CABLE_COLORS } from '../../../types/connection';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
@@ -18,6 +18,7 @@ export function ConnectionDiagram({
 }: ConnectionDiagramProps) {
   const editorEquipment = useEditorStore((s) => s.localEquipment);
   const editorCables = useEditorStore((s) => s.localCables);
+  const editorRackModules = useEditorStore((s) => s.localRackModules);
   const deleteCable = useEditorStore((s) => s.deleteCable);
 
   // P9: derive OFD-ness from kind on the local equipment row.
@@ -41,13 +42,30 @@ export function ConnectionDiagram({
   // Unmount = context gone → clear highlight automatically.
   useEffect(() => () => clearHighlight(), [clearHighlight]);
 
+  // 랙이면 자식 모듈에 연결된 cable 도 "이 랙의 연결" 로 포함.
+  const childModuleIds = useMemo(
+    () =>
+      new Set(
+        editorRackModules
+          .filter((m) => m.rackEquipmentId === equipmentId)
+          .map((m) => m.id),
+      ),
+    [editorRackModules, equipmentId],
+  );
+
+  const isSelfSide = useCallback(
+    (eqId: string | null | undefined, modId: string | null | undefined) =>
+      eqId === equipmentId || (!!modId && childModuleIds.has(modId)),
+    [equipmentId, childModuleIds],
+  );
+
   const relevantCables = useMemo(() => {
     return localCables.filter(
       (cable) =>
-        cable.sourceEquipmentId === equipmentId ||
-        cable.targetEquipmentId === equipmentId
+        isSelfSide(cable.sourceEquipmentId, cable.sourceModuleId) ||
+        isSelfSide(cable.targetEquipmentId, cable.targetModuleId),
     );
-  }, [localCables, equipmentId]);
+  }, [localCables, isSelfSide]);
 
   const handleStartCableDrawing = () => {
     clearHighlight();
@@ -90,11 +108,23 @@ export function ConnectionDiagram({
         ) : (
         <div className="space-y-2">
           {relevantCables.map((cable: LocalCable) => {
-            const isSource = cable.sourceEquipmentId === equipmentId;
-            const localEqSelf = localEquipment.find((e) => e.id === (isSource ? cable.sourceEquipmentId : cable.targetEquipmentId));
-            const remoteEq = localEquipment.find((e) => e.id === (isSource ? cable.targetEquipmentId : cable.sourceEquipmentId));
-            const localEqName = localEqSelf?.name ?? '';
-            const remoteName = remoteEq?.name ?? '';
+            const sourceIsSelf = isSelfSide(cable.sourceEquipmentId, cable.sourceModuleId);
+            const selfModuleId = sourceIsSelf ? cable.sourceModuleId : cable.targetModuleId;
+            const remoteEqId = sourceIsSelf ? cable.targetEquipmentId : cable.sourceEquipmentId;
+            const remoteModuleId = sourceIsSelf ? cable.targetModuleId : cable.sourceModuleId;
+
+            const selfModule = selfModuleId
+              ? editorRackModules.find((m) => m.id === selfModuleId)
+              : null;
+            const localEqName =
+              selfModule?.name ?? localEquipment.find((e) => e.id === equipmentId)?.name ?? '';
+
+            const remoteModule = remoteModuleId
+              ? editorRackModules.find((m) => m.id === remoteModuleId)
+              : null;
+            const remoteName =
+              remoteModule?.name ??
+              (remoteEqId ? localEquipment.find((e) => e.id === remoteEqId)?.name ?? '' : '');
             const isTracing = tracingCableId === cable.id && isTraceLoading;
             const isCardSelected = traceActive && tracingCableId === cable.id;
 
