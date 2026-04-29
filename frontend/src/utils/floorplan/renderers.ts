@@ -254,34 +254,6 @@ export function renderRect(
   ctx.restore();
 }
 
-export function renderRectPreview(
-  ctx: CanvasRenderingContext2D,
-  startPoint: { x: number; y: number },
-  endPoint: { x: number; y: number } | null
-): void {
-  ctx.fillStyle = SELECTION_STYLES.point;
-  ctx.beginPath();
-  ctx.arc(startPoint.x, startPoint.y, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (endPoint) {
-    const x = Math.min(startPoint.x, endPoint.x);
-    const y = Math.min(startPoint.y, endPoint.y);
-    const width = Math.abs(endPoint.x - startPoint.x);
-    const height = Math.abs(endPoint.y - startPoint.y);
-
-    ctx.strokeStyle = SELECTION_STYLES.stroke;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.strokeRect(x, y, width, height);
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = SELECTION_STYLES.stroke;
-    ctx.font = '12px sans-serif';
-    ctx.fillText(`${Math.round(width)} x ${Math.round(height)}`, x + width / 2 - 30, y - 8);
-  }
-}
-
 // ============================================
 // Circle 렌더러
 // ============================================
@@ -313,50 +285,6 @@ export function renderCircle(
     ctx.beginPath();
     ctx.arc(props.cx, props.cy, 3, 0, Math.PI * 2);
     ctx.fill();
-  }
-}
-
-export function renderCirclePreview(
-  ctx: CanvasRenderingContext2D,
-  center: { x: number; y: number },
-  radius: number,
-  endPoint?: { x: number; y: number }
-): void {
-  ctx.fillStyle = SELECTION_STYLES.point;
-  ctx.beginPath();
-  ctx.arc(center.x, center.y, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (radius > 0) {
-    // 원 미리보기
-    ctx.strokeStyle = SELECTION_STYLES.stroke;
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // 반지름 선분 미리보기 (중심 → 끝점)
-    if (endPoint) {
-      ctx.strokeStyle = SELECTION_STYLES.stroke;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(center.x, center.y);
-      ctx.lineTo(endPoint.x, endPoint.y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // 끝점 표시
-      ctx.fillStyle = SELECTION_STYLES.point;
-      ctx.beginPath();
-      ctx.arc(endPoint.x, endPoint.y, SELECTION_STYLES.pointRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 반지름 길이 표시
-      renderPreviewLengthLabel(ctx, center.x, center.y, endPoint.x, endPoint.y);
-    }
   }
 }
 
@@ -399,36 +327,6 @@ export function renderDoor(
   ctx.restore();
 }
 
-export function renderDoorPreview(
-  ctx: CanvasRenderingContext2D,
-  position: { x: number; y: number },
-  rotation: number
-): void {
-  ctx.save();
-  ctx.globalAlpha = 0.6;
-  applyStandardTransform(ctx, {
-    x: position.x,
-    y: position.y,
-    width: 60,
-    height: 10,
-    rotation: rotation,
-  });
-
-  ctx.fillStyle = ELEMENT_COLORS.door.fill;
-  ctx.strokeStyle = ELEMENT_COLORS.door.stroke;
-  ctx.lineWidth = 2;
-  ctx.fillRect(0, 0, 60, 10);
-  ctx.strokeRect(0, 0, 60, 10);
-
-  ctx.beginPath();
-  ctx.setLineDash([3, 3]);
-  ctx.arc(0, 10, 60, -Math.PI / 2, 0);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.restore();
-}
-
 // ============================================
 // Window 렌더러
 // ============================================
@@ -462,35 +360,6 @@ export function renderWindow(
   ctx.beginPath();
   ctx.moveTo(props.width / 2, 0);
   ctx.lineTo(props.width / 2, windowHeight);
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-export function renderWindowPreview(
-  ctx: CanvasRenderingContext2D,
-  position: { x: number; y: number },
-  rotation: number
-): void {
-  ctx.save();
-  ctx.globalAlpha = 0.6;
-  applyStandardTransform(ctx, {
-    x: position.x,
-    y: position.y,
-    width: 80,
-    height: 8,
-    rotation: rotation,
-  });
-
-  ctx.fillStyle = ELEMENT_COLORS.window.fill;
-  ctx.strokeStyle = ELEMENT_COLORS.window.stroke;
-  ctx.lineWidth = 2;
-  ctx.fillRect(0, 0, 80, 8);
-  ctx.strokeRect(0, 0, 80, 8);
-
-  ctx.beginPath();
-  ctx.moveTo(40, 0);
-  ctx.lineTo(40, 8);
   ctx.stroke();
 
   ctx.restore();
@@ -898,10 +767,10 @@ export function renderEquipmentItems(
 // 미리보기 렌더링
 // ============================================
 
-export type DrawingToolType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'pullbox';
+export type DrawingToolType = 'equipment' | 'text' | 'pullbox';
 
 /**
- * 오브젝트 배치 미리보기 (패턴 B: 시작점만)
+ * 오브젝트 배치 미리보기 (마우스 hover 시작점 표시)
  */
 export function renderPlacementPreview(
   ctx: CanvasRenderingContext2D,
@@ -913,8 +782,6 @@ export function renderPlacementPreview(
   ctx.globalAlpha = 0.6;
 
   switch (tool) {
-    case 'door': renderDoorPreview(ctx, position, 0); break;
-    case 'window': renderWindowPreview(ctx, position, 0); break;
     case 'equipment': renderEquipmentPreview(ctx, position); break;
     case 'text': renderTextPreview(ctx, position); break;
     case 'pullbox': renderPullboxPreview(ctx, position); break;
