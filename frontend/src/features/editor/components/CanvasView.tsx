@@ -1,11 +1,9 @@
 import React from 'react';
-import type { FloorPlanDetail, FloorPlanElement, TextProperties } from '../../../types/floorPlan';
+import type { FloorPlanDetail } from '../../../types/floorPlan';
 import { useCanvas } from '../hooks/useCanvas';
 import { useCanvasEvents } from '../hooks/useCanvasEvents';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
-import { useEditorHistory } from '../hooks/useEditorHistory';
-import { generateTempId } from '../../../utils/idHelpers';
 
 interface CanvasViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -25,72 +23,36 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
     handleCanvasDoubleClick,
   } = useCanvasEvents(canvasRef, floorPlan, floorId);
 
-  const { pushHistory } = useEditorHistory();
+  const tool = useEditorStore((s) => s.tool);
+  const zoom = useEditorStore((s) => s.zoom);
+  const panX = useEditorStore((s) => s.panX);
+  const panY = useEditorStore((s) => s.panY);
+  const showGrid = useEditorStore((s) => s.showGrid);
+  const gridSnap = useEditorStore((s) => s.gridSnap);
+  const majorGridSize = useEditorStore((s) => s.majorGridSize);
+  const setViewport = useEditorStore((s) => s.setViewport);
+  const setShowGrid = useEditorStore((s) => s.setShowGrid);
+  const setGridSnap = useEditorStore((s) => s.setGridSnap);
+  const setMajorGridSize = useEditorStore((s) => s.setMajorGridSize);
+  const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
-  const tool = useEditorStore(s => s.tool);
-  const zoom = useEditorStore(s => s.zoom);
-  const panX = useEditorStore(s => s.panX);
-  const panY = useEditorStore(s => s.panY);
-  const showGrid = useEditorStore(s => s.showGrid);
-  const gridSnap = useEditorStore(s => s.gridSnap);
-  const majorGridSize = useEditorStore(s => s.majorGridSize);
-  const setViewport = useEditorStore(s => s.setViewport);
-  const setShowGrid = useEditorStore(s => s.setShowGrid);
-  const setGridSnap = useEditorStore(s => s.setGridSnap);
-  const setMajorGridSize = useEditorStore(s => s.setMajorGridSize);
-  const setHasChanges = useEditorStore(s => s.setHasChanges);
-  const setLocalElements = useEditorStore(s => s.setLocalElements);
-  const localElements = useEditorStore(s => s.localElements);
-  const localEquipment = useEditorStore(s => s.localEquipment);
-
-  const isPanning = useCanvasStore(s => s.isPanning);
-  const isSpacePressed = useCanvasStore(s => s.isSpacePressed);
-  const isEditingText = useCanvasStore(s => s.isEditingText);
-  const textInputPosition = useCanvasStore(s => s.textInputPosition);
-  const textInputValue = useCanvasStore(s => s.textInputValue);
-  const setIsEditingText = useCanvasStore(s => s.setIsEditingText);
-  const setTextInputPosition = useCanvasStore(s => s.setTextInputPosition);
-  const setTextInputValue = useCanvasStore(s => s.setTextInputValue);
-  const setTool = useEditorStore(s => s.setTool);
+  const isPanning = useCanvasStore((s) => s.isPanning);
+  const isSpacePressed = useCanvasStore((s) => s.isSpacePressed);
 
   /** Zoom to a new level, keeping the viewport center stable */
   const zoomToCenter = (newZoom: number) => {
     const container = containerRef?.current;
-    if (!container) { setViewport(newZoom, panX, panY); return; }
+    if (!container) {
+      setViewport(newZoom, panX, panY);
+      return;
+    }
     const cx = container.clientWidth / 2;
     const cy = container.clientHeight / 2;
     const oldScale = zoom / 100;
     const newScale = newZoom / 100;
     const worldX = (cx - panX) / oldScale;
     const worldY = (cy - panY) / oldScale;
-    const newPanX = cx - worldX * newScale;
-    const newPanY = cy - worldY * newScale;
-    setViewport(newZoom, newPanX, newPanY);
-  };
-
-  const createTextElement = (text: string) => {
-    if (!textInputPosition || !text.trim()) return;
-    const newText: FloorPlanElement = {
-      id: generateTempId(),
-      elementType: 'text',
-      properties: {
-        x: textInputPosition.x,
-        y: textInputPosition.y,
-        text,
-        fontSize: 14,
-        fontWeight: 'normal',
-        color: '#1a1a1a',
-        rotation: 0,
-        textAlign: 'left',
-      } as TextProperties,
-      zIndex: localElements.length,
-      isVisible: true,
-    };
-    const newElements = [...localElements, newText];
-    setLocalElements(newElements);
-    pushHistory(newElements, localEquipment);
-    setHasChanges(true);
-    setTool('select');
+    setViewport(newZoom, cx - worldX * newScale, cy - worldY * newScale);
   };
 
   return (
@@ -112,28 +74,19 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
         }`}
       />
 
-      {/* Zoom controls (top-right) */}
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-1 gap-0.5">
-          <button
-            onClick={() => zoomToCenter(Math.max(10, zoom - 10))}
-            className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-            title="축소"
-          >
+          <button onClick={() => zoomToCenter(Math.max(10, zoom - 10))} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="축소">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 12H4" /></svg>
           </button>
           <div
             className="w-14 h-6 flex items-center justify-center text-xs font-mono text-gray-700 cursor-pointer hover:bg-gray-100 rounded"
             onClick={() => zoomToCenter(100)}
-            title="100%로 리셋 (클릭)"
+            title="100%로 리셋"
           >
             {zoom}%
           </div>
-          <button
-            onClick={() => zoomToCenter(Math.min(1000, zoom + 10))}
-            className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
-            title="확대"
-          >
+          <button onClick={() => zoomToCenter(Math.min(1000, zoom + 10))} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="확대">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M12 4v16m8-8H4" /></svg>
           </button>
           <div className="w-px h-4 bg-gray-300 mx-0.5" />
@@ -153,7 +106,6 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
           </select>
         </div>
 
-        {/* Grid/Snap toggles */}
         <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-0.5">
           <button
             onClick={() => setShowGrid(!showGrid)}
@@ -180,7 +132,6 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
           </button>
         </div>
 
-        {/* Grid size */}
         <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-2 gap-1">
           <span className="text-xs text-gray-500">Grid</span>
           <input
@@ -192,54 +143,16 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
               setHasChanges(true);
             }}
             className="w-12 h-6 px-1 text-xs text-center border border-gray-200 rounded focus:outline-none focus:border-blue-400"
-            min={10} max={200} step={10}
-            title={`그리드 크기 (Major: ${majorGridSize}px, Minor: 10px)`}
+            min={10}
+            max={200}
+            step={10}
+            title="그리드 크기"
           />
           <span className="text-xs text-gray-400">px</span>
         </div>
       </div>
 
       {children}
-
-      {/* Text input overlay */}
-      {isEditingText && textInputPosition && (
-        <div
-          className="absolute"
-          style={{
-            left: textInputPosition.x * (zoom / 100) + panX,
-            top: textInputPosition.y * (zoom / 100) + panY,
-          }}
-        >
-          <input
-            type="text"
-            autoFocus
-            value={textInputValue}
-            onChange={(e) => setTextInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && textInputValue.trim()) {
-                createTextElement(textInputValue);
-                setIsEditingText(false);
-                setTextInputPosition(null);
-                setTextInputValue('');
-              } else if (e.key === 'Escape') {
-                setIsEditingText(false);
-                setTextInputPosition(null);
-                setTextInputValue('');
-              }
-            }}
-            onBlur={() => {
-              if (textInputValue.trim()) {
-                createTextElement(textInputValue);
-              }
-              setIsEditingText(false);
-              setTextInputPosition(null);
-              setTextInputValue('');
-            }}
-            className="px-2 py-1 border border-blue-500 rounded text-sm outline-none bg-white shadow-lg min-w-[120px]"
-            placeholder="텍스트 입력..."
-          />
-        </div>
-      )}
     </div>
   );
 }

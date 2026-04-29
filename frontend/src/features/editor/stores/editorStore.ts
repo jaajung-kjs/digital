@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type {
   EditorTool,
-  FloorPlanElement,
   FloorPlanEquipment,
 } from '../../../types/floorPlan';
 
@@ -11,7 +10,7 @@ export type ConnectionFilterKey = string;
 // ==================== Local Cable ====================
 
 export interface LocalCable {
-  id: string;  // real UUID or temp ID
+  id: string; // real UUID or temp ID
   sourceEquipmentId: string;
   targetEquipmentId: string;
   cableType: string;
@@ -31,30 +30,26 @@ export interface LocalCable {
   fiberPortNumber?: number | null;
 }
 
-// ==================== Pending Fiber Paths ====================
-
 export interface PendingFiberPath {
-  id: string;  // temp ID
-  ofdAId: string;  // local equipment ID (could be temp)
-  ofdBId: string;  // remote OFD ID (real, from server)
-  portCount: number;  // 24 or 48
+  id: string;
+  ofdAId: string;
+  ofdBId: string;
+  portCount: number;
   description?: string;
 }
 
-// ==================== Pending Uploads & Logs ====================
-
 export interface PendingUpload {
-  id: string;  // local ID
-  equipmentId: string;  // can be temp ID
+  id: string;
+  equipmentId: string;
   side: 'front' | 'rear';
   file: File;
   description: string;
-  objectUrl: string;  // for preview
+  objectUrl: string;
 }
 
 export interface PendingLog {
-  id: string;  // local ID
-  equipmentId: string;  // can be temp ID
+  id: string;
+  equipmentId: string;
   logType: string;
   title: string;
   description?: string;
@@ -69,7 +64,6 @@ export interface EditorStoreState {
   tool: EditorTool;
 
   selectedIds: string[];
-  selectedElement: FloorPlanElement | null;
   selectedEquipment: FloorPlanEquipment | null;
 
   zoom: number;
@@ -81,19 +75,12 @@ export interface EditorStoreState {
   majorGridSize: number;
   showGrid: boolean;
 
-  // Floor plan core state (full local copies)
-  localElements: FloorPlanElement[];
   localEquipment: FloorPlanEquipment[];
   localCables: LocalCable[];
   hasChanges: boolean;
 
-  // Pending binary uploads (can't be in JSON)
   pendingUploads: PendingUpload[];
-
-  // Pending log entries
   pendingLogs: PendingLog[];
-
-  // Pending fiber paths (buffered until save)
   pendingFiberPaths: PendingFiberPath[];
   deletedFiberPathIds: string[];
 
@@ -105,10 +92,7 @@ export interface EditorStoreState {
   viewportInitialized: boolean;
   mouseWorldPosition: { x: number; y: number };
 
-  clipboard: {
-    type: 'element' | 'equipment';
-    data: FloorPlanElement | FloorPlanEquipment;
-  } | null;
+  clipboard: { type: 'equipment'; data: FloorPlanEquipment } | null;
 
   detailPanelEquipmentId: string | null;
 
@@ -122,7 +106,6 @@ export interface EditorStoreState {
 export interface EditorStoreActions {
   setTool: (tool: EditorTool) => void;
   setSelectedIds: (ids: string[]) => void;
-  setSelectedElement: (el: FloorPlanElement | null) => void;
   setSelectedEquipment: (eq: FloorPlanEquipment | null) => void;
   setZoom: (zoom: number) => void;
   setPan: (panX: number, panY: number) => void;
@@ -131,17 +114,14 @@ export interface EditorStoreActions {
   setGridSize: (size: number) => void;
   setMajorGridSize: (size: number) => void;
   setShowGrid: (show: boolean) => void;
-  setLocalElements: (elements: FloorPlanElement[] | ((prev: FloorPlanElement[]) => FloorPlanElement[])) => void;
   setLocalEquipment: (equipment: FloorPlanEquipment[] | ((prev: FloorPlanEquipment[]) => FloorPlanEquipment[])) => void;
   setHasChanges: (has: boolean) => void;
 
-  // Cable CRUD
   addCable: (cable: LocalCable) => void;
   updateCable: (id: string, updates: Partial<LocalCable>) => void;
   deleteCable: (id: string) => void;
   setCables: (cables: LocalCable[]) => void;
 
-  // Pending data
   addPendingUpload: (upload: PendingUpload) => void;
   removePendingUpload: (id: string) => void;
   addPendingLog: (log: PendingLog) => void;
@@ -149,12 +129,10 @@ export interface EditorStoreActions {
   removePendingLog: (id: string) => void;
   clearPendingData: () => void;
 
-  // Pending fiber paths
   addPendingFiberPath: (fp: PendingFiberPath) => void;
   removePendingFiberPath: (id: string) => void;
-  deleteFiberPath: (id: string) => void;  // real ID → deletedFiberPathIds
+  deleteFiberPath: (id: string) => void;
 
-  // Equipment delete with cascade
   deleteEquipmentWithCascade: (equipmentId: string) => void;
 
   setScaleRatio: (ratio: number | null) => void;
@@ -173,7 +151,6 @@ export interface EditorStoreActions {
 const initialState: EditorStoreState = {
   tool: 'select',
   selectedIds: [],
-  selectedElement: null,
   selectedEquipment: null,
   zoom: 100,
   panX: 0,
@@ -182,7 +159,6 @@ const initialState: EditorStoreState = {
   gridSize: 10,
   majorGridSize: 60,
   showGrid: true,
-  localElements: [],
   localEquipment: [],
   localCables: [],
   hasChanges: false,
@@ -201,7 +177,6 @@ const initialState: EditorStoreState = {
   restoredFromVersion: null,
 };
 
-/** Revoke all pending upload objectURLs to prevent memory leaks */
 function revokeUploadUrls(uploads: PendingUpload[]) {
   for (const upload of uploads) {
     URL.revokeObjectURL(upload.objectUrl);
@@ -213,7 +188,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
 
   setTool: (tool) => set({ tool }),
   setSelectedIds: (selectedIds) => set({ selectedIds }),
-  setSelectedElement: (selectedElement) => set({ selectedElement }),
   setSelectedEquipment: (selectedEquipment) => set({ selectedEquipment }),
   setZoom: (zoom) => set({ zoom }),
   setPan: (panX, panY) => set({ panX, panY }),
@@ -222,15 +196,11 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setGridSize: (gridSize) => set({ gridSize }),
   setMajorGridSize: (majorGridSize) => set({ majorGridSize }),
   setShowGrid: (showGrid) => set({ showGrid }),
-  setLocalElements: (elements) => set((state) => ({
-    localElements: typeof elements === 'function' ? elements(state.localElements) : elements,
-  })),
   setLocalEquipment: (equipment) => set((state) => ({
     localEquipment: typeof equipment === 'function' ? equipment(state.localEquipment) : equipment,
   })),
   setHasChanges: (hasChanges) => set({ hasChanges }),
 
-  // === Cable CRUD ===
   addCable: (cable) => set((state) => ({
     localCables: [...state.localCables, cable],
     hasChanges: true,
@@ -245,7 +215,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   })),
   setCables: (cables) => set({ localCables: cables }),
 
-  // === Pending Data ===
   addPendingUpload: (upload) => set((state) => ({
     pendingUploads: [...state.pendingUploads, upload],
     hasChanges: true,
@@ -270,7 +239,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     return { pendingUploads: [], pendingLogs: [], pendingFiberPaths: [], deletedFiberPathIds: [] };
   }),
 
-  // === Pending Fiber Paths ===
   addPendingFiberPath: (fp) => set((state) => ({
     pendingFiberPaths: [...state.pendingFiberPaths, fp],
     hasChanges: true,
@@ -284,7 +252,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     hasChanges: true,
   })),
 
-  // === Equipment delete with cascade ===
   deleteEquipmentWithCascade: (equipmentId) => set((state) => ({
     localEquipment: state.localEquipment.filter((eq) => eq.id !== equipmentId),
     localCables: state.localCables.filter(
@@ -306,7 +273,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setRestoredFromVersion: (restoredFromVersion) => set({ restoredFromVersion }),
   clearSelection: () => set({
     selectedIds: [],
-    selectedElement: null,
     selectedEquipment: null,
     selectedCableId: null,
   }),

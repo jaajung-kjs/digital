@@ -16,7 +16,6 @@ import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import { Toolbar } from './Toolbar';
 import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
-import { PropertyBar } from './PropertyBar';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
@@ -126,72 +125,8 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
   );
 }
 
-function InfraMaterialModal({ elementId }: { elementId: string }) {
-  const element = useEditorStore.getState().localElements.find((el) => el.id === elementId);
-  const elementType = element?.elementType ?? 'conduit';
-
-  // elementType에 따라 표시할 카테고리 필터링
-  const titleMap: Record<string, string> = { conduit: '배관 선택', tray: '케이블트레이 선택', pullbox: '풀박스 선택' };
-  const parentCodeMap: Record<string, string> = { conduit: 'ACC-PIPE', tray: 'ACC-TRAY', pullbox: 'ACC-BOX' };
-  const title = titleMap[elementType] ?? '부속자재 선택';
-  const filterParentCode = parentCodeMap[elementType] ?? undefined;
-
-  const [pendingValue, setPendingValue] = useState<{
-    categoryId: string;
-    specParams: Record<string, unknown>;
-    specification: string;
-  } | null>(null);
-
-  const handleConfirm = useCallback(() => {
-    if (!pendingValue) return;
-    const store = useEditorStore.getState();
-    const elements = store.localElements.map((el) =>
-      el.id === elementId
-        ? { ...el, materialCategoryId: pendingValue.categoryId, specParams: pendingValue.specParams }
-        : el
-    );
-    store.setLocalElements(elements);
-    store.setHasChanges(true);
-    useCanvasStore.getState().setInfraMaterialModalOpen(false);
-    useCanvasStore.getState().setInfraMaterialElementId(null);
-    store.setTool('select');
-  }, [elementId, pendingValue]);
-
-  const handleCancel = useCallback(() => {
-    // Cancel: remove the element that was just created
-    const store = useEditorStore.getState();
-    const elements = store.localElements.filter((el) => el.id !== elementId);
-    store.setLocalElements(elements);
-    store.setHasChanges(true);
-    useCanvasStore.getState().setInfraMaterialModalOpen(false);
-    useCanvasStore.getState().setInfraMaterialElementId(null);
-    store.setTool('select');
-  }, [elementId]);
-
-  return (
-    <MaterialSelectionModal
-      title={title}
-      onConfirm={handleConfirm}
-      onCancel={handleCancel}
-      confirmDisabled={!pendingValue}
-      selectedLabel={pendingValue?.specification}
-    >
-      <MaterialPicker
-        categoryType="ACCESSORY"
-        filterParentCode={filterParentCode}
-        value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
-        onChange={({ categoryId, specParams: sp, specification }) => {
-          setPendingValue({ categoryId, specParams: sp, specification });
-        }}
-      />
-    </MaterialSelectionModal>
-  );
-}
-
-
 function ToolStatusBar() {
   const tool = useEditorStore(s => s.tool);
-  const isDrawingLine = useCanvasStore(s => s.isDrawingLine);
   const isDrawingEquipment = useCanvasStore(s => s.isDrawingEquipment);
 
   const getMessage = (): string | null => {
@@ -199,12 +134,6 @@ function ToolStatusBar() {
       case 'cable':
         // Cable status bar is handled by CablePathOverlay to avoid duplication
         return null;
-      case 'conduit':
-        return isDrawingLine ? '끝점을 클릭하세요 (ESC: 취소)' : '배관 시작점을 클릭하세요';
-      case 'tray':
-        return isDrawingLine ? '끝점을 클릭하세요 (ESC: 취소)' : '트레이 시작점을 클릭하세요';
-      case 'pullbox':
-        return '풀박스 설치 위치를 클릭하세요';
       case 'equipment':
         return isDrawingEquipment ? '끝점을 클릭하여 크기를 결정하세요' : '설비 시작점을 클릭하세요';
       default:
@@ -252,9 +181,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const snapshotLabel = useSnapshotStore(s => s.label);
   const restoredFromVersion = useEditorStore(s => s.restoredFromVersion);
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
-  const localElements = useEditorStore(s => s.localElements);
-  const selectedElement = useEditorStore(s => s.selectedElement);
-  const setSelectedElement = useEditorStore(s => s.setSelectedElement);
   const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
   const equipmentModalOpen = useCanvasStore(s => s.equipmentModalOpen);
@@ -278,8 +204,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const setPasteEquipmentModalOpen = useCanvasStore(s => s.setPasteEquipmentModalOpen);
   const pasteEquipmentName = useCanvasStore(s => s.pasteEquipmentName);
   const setPasteEquipmentName = useCanvasStore(s => s.setPasteEquipmentName);
-  const infraMaterialModalOpen = useCanvasStore(s => s.infraMaterialModalOpen);
-  const infraMaterialElementId = useCanvasStore(s => s.infraMaterialElementId);
   // Reset editor store and snapshot on unmount
   useEffect(() => {
     return () => {
@@ -312,7 +236,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     if (!raw) { setShowDraftDialog(false); return; }
     try {
       const draft = JSON.parse(raw);
-      if (draft.localElements) useEditorStore.getState().setLocalElements(draft.localElements);
       if (draft.localEquipment) useEditorStore.getState().setLocalEquipment(draft.localEquipment);
       if (draft.localCables) useEditorStore.getState().setCables(draft.localCables);
       if (draft.pendingLogs) {
@@ -356,7 +279,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       const draftKey = `draft-plan-${floorId}`;
       try {
         const draft = {
-          localElements: state.localElements,
           localEquipment: state.localEquipment,
           localCables: state.localCables,
           pendingLogs: state.pendingLogs,
@@ -386,18 +308,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
-
-  // Sync selectedElement when localElements changes
-  useEffect(() => {
-    if (selectedElement) {
-      const updated = localElements.find(el => el.id === selectedElement.id);
-      if (updated) {
-        setSelectedElement(updated);
-      } else {
-        setSelectedElement(null);
-      }
-    }
-  }, [localElements, selectedElement, setSelectedElement]);
 
   const equipmentDrawnSize = useCanvasStore(s => s.equipmentDrawnSize);
   const setHasChanges = useEditorStore(s => s.setHasChanges);
@@ -429,7 +339,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     };
     const newList = [...useEditorStore.getState().localEquipment, newEquip];
     setLocalEquipment(newList);
-    pushHistory(useEditorStore.getState().localElements, newList);
+    pushHistory(newList);
 
     // Track recent material usage
     if (newEquipmentMaterialCategoryId && newEquipmentMaterialCategoryCode && newEquipmentSpecification) {
@@ -523,12 +433,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 <FloorSettingsPanel floorId={floorId} floorPlan={floorPlan} onClose={() => setShowSettings(false)} />
               )}
 
-              {floorPlan && !snapshotActive && (
-                <div className="flex items-center">
-                  <PropertyBar />
-                </div>
-              )}
-
               {/* Preview mode banner (top of canvas area) */}
               {snapshotActive && !showHistory && (
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-amber-50 border border-amber-300 rounded-lg shadow-sm">
@@ -592,11 +496,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
       {/* Cable spec selection modal */}
       <CableSpecModalWrapper />
-
-      {/* Infra material selection modal (conduit/tray/pullbox) */}
-      {infraMaterialModalOpen && infraMaterialElementId && (
-        <InfraMaterialModal elementId={infraMaterialElementId} />
-      )}
 
       {/* Draft recovery dialog */}
       {showDraftDialog && (

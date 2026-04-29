@@ -3,8 +3,8 @@ import { ToolButton } from './ToolButton';
 import type { EditorTool } from '../../../types/floorPlan';
 
 export function ToolPanel() {
-  const tool = useEditorStore(s => s.tool);
-  const setTool = useEditorStore(s => s.setTool);
+  const tool = useEditorStore((s) => s.tool);
+  const setTool = useEditorStore((s) => s.setTool);
 
   const selectTool = (t: EditorTool) => setTool(t);
 
@@ -13,14 +13,6 @@ export function ToolPanel() {
       <ToolButton active={tool === 'select'} onClick={() => selectTool('select')} title="선택 도구" label="선택" shortcut="V">
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-        </svg>
-      </ToolButton>
-
-      <div className="border-t my-1" />
-
-      <ToolButton active={tool === 'text'} onClick={() => selectTool('text')} title="텍스트 입력" label="텍스트" shortcut="T">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M12 6v12M8 18h8" />
         </svg>
       </ToolButton>
 
@@ -35,29 +27,6 @@ export function ToolPanel() {
       <ToolButton active={tool === 'cable'} onClick={() => selectTool('cable')} title="케이블 경로 그리기" label="케이블" shortcut="C">
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      </ToolButton>
-
-      <div className="border-t my-1" />
-
-      <ToolButton active={tool === 'conduit'} onClick={() => selectTool('conduit')} title="배관 그리기" label="배관">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} strokeDasharray="4 3" d="M4 12h16" />
-          <circle cx="4" cy="12" r="2" strokeWidth={1.5} />
-          <circle cx="20" cy="12" r="2" strokeWidth={1.5} />
-        </svg>
-      </ToolButton>
-
-      <ToolButton active={tool === 'tray'} onClick={() => selectTool('tray')} title="트레이 그리기" label="트레이">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 10h16M4 14h16" />
-        </svg>
-      </ToolButton>
-
-      <ToolButton active={tool === 'pullbox'} onClick={() => selectTool('pullbox')} title="풀박스 배치" label="풀박스">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <rect x="6" y="6" width="12" height="12" strokeWidth={2} />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 6l12 12M18 6L6 18" />
         </svg>
       </ToolButton>
 
