@@ -314,8 +314,6 @@ export interface UpdateFloorPlanEquipmentRequest {
   description?: string;
 }
 
-// 뷰 모드
-export type ViewMode = 'edit-2d' | 'view-3d';
 
 // 평면도 위 장비 아이템
 export interface EquipmentItem {

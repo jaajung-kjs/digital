@@ -3,7 +3,6 @@ import type {
   EditorTool,
   FloorPlanElement,
   FloorPlanEquipment,
-  ViewMode,
 } from '../../../types/floorPlan';
 
 /** Filter key: either a materialCategoryCode (DB) or a CableType (legacy fallback) */
@@ -68,7 +67,6 @@ export interface PendingLog {
 
 export interface EditorStoreState {
   tool: EditorTool;
-  viewMode: ViewMode;
 
   selectedIds: string[];
   selectedElement: FloorPlanElement | null;
@@ -123,7 +121,6 @@ export interface EditorStoreState {
 
 export interface EditorStoreActions {
   setTool: (tool: EditorTool) => void;
-  setViewMode: (mode: ViewMode) => void;
   setSelectedIds: (ids: string[]) => void;
   setSelectedElement: (el: FloorPlanElement | null) => void;
   setSelectedEquipment: (eq: FloorPlanEquipment | null) => void;
@@ -175,7 +172,6 @@ export interface EditorStoreActions {
 
 const initialState: EditorStoreState = {
   tool: 'select',
-  viewMode: 'edit-2d',
   selectedIds: [],
   selectedElement: null,
   selectedEquipment: null,
@@ -216,7 +212,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   ...initialState,
 
   setTool: (tool) => set({ tool }),
-  setViewMode: (viewMode) => set({ viewMode }),
   setSelectedIds: (selectedIds) => set({ selectedIds }),
   setSelectedElement: (selectedElement) => set({ selectedElement }),
   setSelectedEquipment: (selectedEquipment) => set({ selectedEquipment }),

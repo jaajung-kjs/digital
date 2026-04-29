@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
@@ -17,7 +17,6 @@ import { Toolbar } from './Toolbar';
 import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
 import { PropertyBar } from './PropertyBar';
-import { HeightInput } from './HeightInput';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
@@ -29,8 +28,6 @@ import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { FloorSettingsPanel } from './FloorSettingsPanel';
-
-const ThreeCanvas = lazy(() => import('../../viewer3d/components/ThreeCanvas').then(m => ({ default: m.ThreeCanvas })));
 
 function CablePathOverlayWrapper({ canvasRef }: { canvasRef: React.RefObject<HTMLCanvasElement | null> }) {
   const scaleRatio = useEditorStore((s) => s.scaleRatio);
@@ -251,13 +248,11 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
   const resetEditor = useEditorStore(s => s.resetEditor);
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
-  const viewMode = useEditorStore(s => s.viewMode);
   const snapshotActive = useSnapshotStore(s => s.active);
   const snapshotLabel = useSnapshotStore(s => s.label);
   const restoredFromVersion = useEditorStore(s => s.restoredFromVersion);
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
   const localElements = useEditorStore(s => s.localElements);
-  const localEquipment = useEditorStore(s => s.localEquipment);
   const selectedElement = useEditorStore(s => s.selectedElement);
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
   const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
@@ -499,40 +494,19 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
           </div>
         ) : (
           <>
-            {viewMode === 'edit-2d' && !snapshotActive && <ToolPanel />}
+            {!snapshotActive && <ToolPanel />}
 
             <div className="flex-1 flex flex-col min-w-0 relative">
-              {viewMode === 'view-3d' ? (
-                <Suspense fallback={
-                  <div className="flex-1 flex items-center justify-center bg-gray-200">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">3D 뷰 로딩중...</p>
-                    </div>
-                  </div>
-                }>
-                  <div className="flex-1">
-                    <ThreeCanvas
-                      elements={localElements}
-                      racks={[]}
-                      equipment={localEquipment}
-                      canvasWidth={floorPlan?.canvasWidth ?? 1200}
-                      canvasHeight={floorPlan?.canvasHeight ?? 800}
-                    />
-                  </div>
-                </Suspense>
-              ) : (
-                <CanvasView
-                  canvasRef={canvasRef}
-                  containerRef={containerRef}
-                  floorPlan={floorPlan}
-                  floorId={floorId}
-                >
-                  <ConnectionOverlay floorId={floorId} canvasRef={canvasRef} />
-                  <CablePathOverlayWrapper canvasRef={canvasRef} />
-                  <ToolStatusBar />
-                </CanvasView>
-              )}
+              <CanvasView
+                canvasRef={canvasRef}
+                containerRef={containerRef}
+                floorPlan={floorPlan}
+                floorId={floorId}
+              >
+                <ConnectionOverlay floorId={floorId} canvasRef={canvasRef} />
+                <CablePathOverlayWrapper canvasRef={canvasRef} />
+                <ToolStatusBar />
+              </CanvasView>
 
               <TopologyModal />
 
@@ -549,10 +523,9 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 <FloorSettingsPanel floorId={floorId} floorPlan={floorPlan} onClose={() => setShowSettings(false)} />
               )}
 
-              {floorPlan && viewMode === 'edit-2d' && !snapshotActive && (
+              {floorPlan && !snapshotActive && (
                 <div className="flex items-center">
                   <PropertyBar />
-                  <HeightInput />
                 </div>
               )}
 
