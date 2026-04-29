@@ -3,6 +3,7 @@ import type { FloorPlanDetail } from '../../../types/floorPlan';
 import { useCanvas } from '../hooks/useCanvas';
 import { useCanvasEvents } from '../hooks/useCanvasEvents';
 import { useEditorStore } from '../stores/editorStore';
+import { EmptyStateGuide } from './EmptyStateGuide';
 
 interface CanvasViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -71,6 +72,8 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
           'cursor-crosshair'
         }`}
       />
+
+      <EmptyStateGuide floorPlan={floorPlan} />
 
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-1 gap-0.5">
