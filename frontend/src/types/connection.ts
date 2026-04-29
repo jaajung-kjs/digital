@@ -32,7 +32,7 @@ export const CABLE_BADGE_CLASSES: Record<string, string> = Object.fromEntries(
 export interface EquipmentInfo {
   id: string;
   name: string;
-  rackId: string | null;
+  parentEquipmentId: string | null;
   floorId: string | null;
 }
 

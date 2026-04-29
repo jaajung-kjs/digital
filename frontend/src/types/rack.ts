@@ -1,27 +1,6 @@
 import type { EquipmentCategory, PortType } from './enums';
 export type { EquipmentCategory, PortType };
 
-// 설비 정보
-export interface Equipment {
-  id: string;
-  rackId: string;
-  name: string;
-  model: string | null;
-  manufacturer: string | null;
-  serialNumber: string | null;
-  startU: number;
-  heightU: number;
-  category: EquipmentCategory;
-  installDate: string | null;
-  manager: string | null;
-  description: string | null;
-  properties: unknown;
-  sortOrder: number;
-  portCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // 포트 정보
 export interface Port {
   id: string;

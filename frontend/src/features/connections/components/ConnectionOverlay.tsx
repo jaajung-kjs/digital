@@ -278,8 +278,8 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
       color: c.color ?? undefined,
       label: c.label ?? undefined,
       materialCategoryCode: c.materialCategoryCode ?? undefined,
-      sourceEquipment: { id: c.sourceEquipmentId, name: '', rackId: null, floorId: null },
-      targetEquipment: { id: c.targetEquipmentId, name: '', rackId: null, floorId: null },
+      sourceEquipment: { id: c.sourceEquipmentId, name: '', parentEquipmentId: null, floorId: null },
+      targetEquipment: { id: c.targetEquipmentId, name: '', parentEquipmentId: null, floorId: null },
     } as RoomConnection);
 
     if (snapshotActive && connections) {

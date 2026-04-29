@@ -27,8 +27,6 @@ model User {
   updatedSubstations     Substation[]     @relation("SubstationUpdatedBy")
   createdFloors          Floor[]          @relation("FloorCreatedBy")
   updatedFloors          Floor[]          @relation("FloorUpdatedBy")
-  createdRacks           Rack[]           @relation("RackCreatedBy")
-  updatedRacks           Rack[]           @relation("RackUpdatedBy")
   createdEquipment       Equipment[]      @relation("EquipmentCreatedBy")
   updatedEquipment       Equipment[]      @relation("EquipmentUpdatedBy")
   createdCables          Cable[]          @relation("CableCreatedBy")
@@ -157,67 +155,27 @@ model Floor {
   substation Substation  @relation(fields: [substationId], references: [id], onDelete: Cascade)
   createdBy  User?       @relation("FloorCreatedBy", fields: [createdById], references: [id])
   updatedBy  User?       @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
-  racks      Rack[]
   equipment  Equipment[]
 
   @@unique([substationId, name])
   @@map("floors")
 }
 
-// ==================== 랙 ====================
-
-model Rack {
-  id            String   @id @default(uuid())
-  floorId       String   @map("floor_id")
-  name          String   @db.VarChar(100)
-  code          String?  @db.VarChar(50)
-  // 평면도 위치
-  positionX     Float    @map("position_x")
-  positionY     Float    @map("position_y")
-  width         Float    @default(60)
-  height        Float    @default(100)
-  rotation      Int      @default(0) // 0, 90, 180, 270
-  // 랙 사양
-  totalU        Int      @default(42) @map("total_u")
-  // 사진
-  frontImageUrl String?  @map("front_image_url") @db.VarChar(500)
-  rearImageUrl  String?  @map("rear_image_url") @db.VarChar(500)
-  // 메타
-  description   String?  @db.Text
-  sortOrder     Int      @default(0) @map("sort_order")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  createdById   String?  @map("created_by")
-  updatedById   String?  @map("updated_by")
-
-  height3d          Float?  @map("height_3d")
-  // 자재 체계 확장 — 내진가대
-  hasSeismicBrace   Boolean @default(false) @map("has_seismic_brace")
-  seismicMaterialId String? @map("seismic_material_id")
-  seismicSpecParams Json?   @map("seismic_spec_params")
-
-  floor     Floor       @relation(fields: [floorId], references: [id], onDelete: Cascade)
-  createdBy User?       @relation("RackCreatedBy", fields: [createdById], references: [id])
-  updatedBy User?       @relation("RackUpdatedBy", fields: [updatedById], references: [id])
-  equipment Equipment[]
-
-  @@unique([floorId, name])
-  @@map("racks")
-}
-
 // ==================== 설비 ====================
 
 model Equipment {
   id                 String            @id @default(uuid())
-  rackId             String?           @map("rack_id")
+  parentEquipmentId  String?           @map("parent_equipment_id")
   floorId            String?           @map("floor_id")
   name               String            @db.VarChar(100)
   model              String?           @db.VarChar(100)
   manufacturer       String?           @db.VarChar(100)
   serialNumber       String?           @map("serial_number") @db.VarChar(100)
-  // U 슬롯 위치
+  // U 슬롯 위치 (rack-mounted equipment)
   startU             Int?              @map("start_u")
   heightU            Int               @default(1) @map("height_u")
+  // EQP-RACK용 슬롯 수 (rack equipment의 경우)
+  totalU             Int?              @map("total_u")
   // 평면도 위치 (2D 배치용)
   positionX          Float?            @map("position_x_2d")
   positionY          Float?            @map("position_y_2d")
@@ -246,7 +204,8 @@ model Equipment {
   createdById        String?           @map("created_by")
   updatedById        String?           @map("updated_by")
 
-  rack             Rack?             @relation(fields: [rackId], references: [id], onDelete: Cascade)
+  parent           Equipment?        @relation("EquipmentChildren", fields: [parentEquipmentId], references: [id], onDelete: Cascade)
+  children         Equipment[]       @relation("EquipmentChildren")
   floor            Floor?            @relation(fields: [floorId], references: [id], onDelete: SetNull)
   createdBy        User?             @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
   updatedBy        User?             @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])

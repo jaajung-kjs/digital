@@ -81,6 +81,7 @@ export interface FloorPlanDetail {
     parentEquipmentId: string | null;
     startU: number | null;
     heightU: number;
+    totalU: number | null;
   }[];
   cables: {
     id: string;
@@ -103,8 +104,8 @@ export interface FloorPlanDetail {
     pathLength: number | null;
     bufferLength: number;
     totalLength: number | null;
-    sourceEquipment: { id: string; name: string; rackId: string | null; floorId: string | null };
-    targetEquipment: { id: string; name: string; rackId: string | null; floorId: string | null };
+    sourceEquipment: { id: string; name: string; parentEquipmentId: string | null; floorId: string | null };
+    targetEquipment: { id: string; name: string; parentEquipmentId: string | null; floorId: string | null };
   }[];
   fiberPaths: {
     id: string;
@@ -161,6 +162,8 @@ export interface UpdatePlanInput {
     parentEquipmentId?: string | null;
     startU?: number | null;
     heightU?: number | null;
+    // Rack equipment field (EQP-RACK)
+    totalU?: number | null;
   }[];
   cables?: {
     id?: string | null;
@@ -220,12 +223,12 @@ const EQUIPMENT_SELECT = {
   description: true, model: true, manufacturer: true, manager: true, height3d: true,
   materialCategoryId: true, materialId: true, specParams: true,
   materialCategory: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
-  rackId: true, startU: true, heightU: true,
+  parentEquipmentId: true, startU: true, heightU: true, totalU: true,
 } as const;
 
 type EquipmentRow = Prisma.EquipmentGetPayload<{ select: typeof EQUIPMENT_SELECT }>;
 
-function mapEquipmentRow(e: EquipmentRow, rackToEquipmentMap?: Map<string, string>) {
+function mapEquipmentRow(e: EquipmentRow) {
   return {
     id: e.id, name: e.name, category: e.category,
     positionX: e.positionX ?? 0, positionY: e.positionY ?? 0,
@@ -239,8 +242,8 @@ function mapEquipmentRow(e: EquipmentRow, rackToEquipmentMap?: Map<string, strin
     displayColor: e.materialCategory?.displayColor ?? null,
     specification: buildSpecification(e.materialCategory?.specTemplate, e.specParams),
     materialId: e.materialId, specParams: e.specParams,
-    parentEquipmentId: e.rackId && rackToEquipmentMap ? (rackToEquipmentMap.get(e.rackId) ?? null) : null,
-    startU: e.startU, heightU: e.heightU,
+    parentEquipmentId: e.parentEquipmentId,
+    startU: e.startU, heightU: e.heightU, totalU: e.totalU,
   };
 }
 
@@ -259,9 +262,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 function isRealId(id: string | null | undefined): id is string {
   return typeof id === 'string' && UUID_RE.test(id);
 }
-
-/** Position tolerance for rack matching (pixels) */
-const RACK_POSITION_TOLERANCE = 5;
 
 // ==================== Change Detection ====================
 
@@ -459,8 +459,8 @@ async function captureFloorSnapshot(
     tx.cable.findMany({
       where: { sourceEquipment: { floorId }, targetEquipment: { floorId } },
       include: {
-        sourceEquipment: { select: { id: true, name: true, rackId: true, floorId: true } },
-        targetEquipment: { select: { id: true, name: true, rackId: true, floorId: true } },
+        sourceEquipment: { select: { id: true, name: true, parentEquipmentId: true, floorId: true } },
+        targetEquipment: { select: { id: true, name: true, parentEquipmentId: true, floorId: true } },
         materialCategory: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
       },
     }),
@@ -598,26 +598,22 @@ class FloorService {
     const floor = await prisma.floor.findUnique({ where: { id } });
     if (!floor) throw new NotFoundError('층');
 
-    const [equipment, racks, cables, allOfdEquipment] = await Promise.all([
+    const [equipment, cables, allOfdEquipment] = await Promise.all([
       prisma.equipment.findMany({
         where: { floorId: id },
         select: EQUIPMENT_SELECT,
         orderBy: { sortOrder: 'asc' },
       }),
-      prisma.rack.findMany({
-        where: { floorId: id },
-        select: { id: true, positionX: true, positionY: true },
-      }),
       prisma.cable.findMany({
         where: {
           OR: [
-            { sourceEquipment: { OR: [{ rack: { floorId: id } }, { floorId: id }] } },
-            { targetEquipment: { OR: [{ rack: { floorId: id } }, { floorId: id }] } },
+            { sourceEquipment: { floorId: id } },
+            { targetEquipment: { floorId: id } },
           ],
         },
         include: {
-          sourceEquipment: { select: { id: true, name: true, rackId: true, floorId: true } },
-          targetEquipment: { select: { id: true, name: true, rackId: true, floorId: true } },
+          sourceEquipment: { select: { id: true, name: true, parentEquipmentId: true, floorId: true } },
+          targetEquipment: { select: { id: true, name: true, parentEquipmentId: true, floorId: true } },
           materialCategory: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
         },
         orderBy: { createdAt: 'desc' },
@@ -627,19 +623,6 @@ class FloorService {
         select: { id: true },
       }),
     ]);
-
-    // Build rackId → parentEquipmentId map by position matching
-    const rackToEquipmentMap = new Map<string, string>();
-    for (const rack of racks) {
-      const parentEq = equipment.find(e =>
-        e.materialCategory?.code?.startsWith('EQP-RACK') &&
-        Math.abs((e.positionX ?? 0) - rack.positionX) < RACK_POSITION_TOLERANCE &&
-        Math.abs((e.positionY ?? 0) - rack.positionY) < RACK_POSITION_TOLERANCE
-      );
-      if (parentEq) {
-        rackToEquipmentMap.set(rack.id, parentEq.id);
-      }
-    }
 
     // Fiber paths connected to OFDs in this floor
     const ofdIds = allOfdEquipment.map(e => e.id);
@@ -661,7 +644,7 @@ class FloorService {
       scaleRatio: floor.scaleRatio ?? null,
       backgroundDrawing: floor.backgroundDrawing,
       backgroundOpacity: floor.backgroundOpacity,
-      equipment: equipment.map(e => mapEquipmentRow(e, rackToEquipmentMap)),
+      equipment: equipment.map(e => mapEquipmentRow(e)),
       cables: cables.map(c => ({
         id: c.id,
         sourceEquipmentId: c.sourceEquipmentId,
@@ -781,6 +764,7 @@ class FloorService {
             manager: true, height3d: true, materialCategoryId: true,
             materialCategory: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
             specParams: true,
+            parentEquipmentId: true, startU: true, heightU: true, totalU: true,
           },
         }),
         tx.cable.findMany({
@@ -922,29 +906,8 @@ class FloorService {
         });
       }
 
-      // 2b. Delete equipment + auto-delete associated Rack for EQP-RACK
+      // 2b. Delete equipment (children cascade via parentEquipmentId FK)
       if (deleteEquipmentIds.size > 0) {
-        // Check for EQP-RACK equipment being deleted → delete corresponding Rack
-        const hasRackEquipment = [...deleteEquipmentIds].some(eqId => {
-          const eq = dbEquipmentMap.get(eqId);
-          return eq?.materialCategory?.code?.startsWith('EQP-RACK');
-        });
-        const roomRacksForDelete = hasRackEquipment
-          ? await tx.rack.findMany({ where: { floorId: id } })
-          : [];
-
-        for (const eqId of deleteEquipmentIds) {
-          const eq = dbEquipmentMap.get(eqId);
-          if (eq?.materialCategory?.code?.startsWith('EQP-RACK')) {
-            const matchingRack = roomRacksForDelete.find(r =>
-              Math.abs(r.positionX - (eq.positionX ?? 0)) < RACK_POSITION_TOLERANCE &&
-              Math.abs(r.positionY - (eq.positionY ?? 0)) < RACK_POSITION_TOLERANCE
-            );
-            if (matchingRack) {
-              await tx.rack.delete({ where: { id: matchingRack.id } });
-            }
-          }
-        }
         await tx.equipment.deleteMany({
           where: { id: { in: [...deleteEquipmentIds] }, floorId: id },
         });
@@ -960,8 +923,21 @@ class FloorService {
         }
       }
 
-      // 2f. Upsert equipment
-      for (const equip of input.equipment ?? []) {
+      // 2f. Upsert equipment in two passes:
+      // pass 1 — create/update parent (non-child) equipment so their IDs are known
+      // pass 2 — create/update child equipment (parentEquipmentId can be resolved)
+      const equipmentInputs = input.equipment ?? [];
+      const sortedEquipment = [
+        ...equipmentInputs.filter(e => !e.parentEquipmentId),
+        ...equipmentInputs.filter(e => !!e.parentEquipmentId),
+      ];
+
+      for (const equip of sortedEquipment) {
+        // Resolve parentEquipmentId (could be a temp id mapped in pass 1)
+        const resolvedParentId = equip.parentEquipmentId
+          ? (equipmentIdMap[equip.parentEquipmentId] ?? equip.parentEquipmentId)
+          : null;
+
         if (isRealId(equip.id) && dbEquipmentIds.has(equip.id)) {
           // UPDATE existing equipment
           await tx.equipment.update({
@@ -981,6 +957,10 @@ class FloorService {
               height3d: equip.height3d,
               materialCategoryId: equip.materialCategoryId,
               specParams: equip.specParams as Prisma.InputJsonValue | undefined,
+              parentEquipmentId: resolvedParentId,
+              startU: equip.startU ?? null,
+              heightU: equip.heightU ?? 1,
+              totalU: equip.totalU ?? null,
               updatedById: userId,
             },
           });
@@ -1003,6 +983,10 @@ class FloorService {
               height3d: equip.height3d,
               materialCategoryId: equip.materialCategoryId,
               specParams: equip.specParams as Prisma.InputJsonValue | undefined,
+              parentEquipmentId: resolvedParentId,
+              startU: equip.startU ?? null,
+              heightU: equip.heightU ?? 1,
+              totalU: equip.totalU ?? (equip.materialCategoryCode?.startsWith('EQP-RACK') ? 42 : null),
               createdById: userId,
               updatedById: userId,
             },
@@ -1015,73 +999,6 @@ class FloorService {
           if (equip.id && equip.id !== created.id) {
             equipmentIdMap[equip.id] = created.id;
           }
-
-          // Auto-Rack creation for EQP-RACK equipment
-          const matCode = equip.materialCategoryCode;
-          if (matCode?.startsWith('EQP-RACK')) {
-            // Check if a Rack already exists at this position (within tolerance)
-            const existingRacks = await tx.rack.findMany({ where: { floorId: id } });
-            const alreadyExists = existingRacks.some(r =>
-              Math.abs(r.positionX - equip.positionX) < RACK_POSITION_TOLERANCE &&
-              Math.abs(r.positionY - equip.positionY) < RACK_POSITION_TOLERANCE
-            );
-            if (!alreadyExists) {
-              await tx.rack.create({
-                data: {
-                  floorId: id,
-                  name: equip.name,
-                  positionX: equip.positionX,
-                  positionY: equip.positionY,
-                  width: equip.width,
-                  height: equip.height,
-                  rotation: equip.rotation ?? 0,
-                  totalU: 42,
-                  createdById: userId,
-                  updatedById: userId,
-                },
-              });
-            }
-          }
-        }
-      }
-
-      // 2g. Resolve rack-internal equipment (parentEquipmentId → rackId)
-      const rackInternalEquipment = (input.equipment ?? []).filter(e => e.parentEquipmentId);
-      if (rackInternalEquipment.length > 0) {
-        // Load all racks for this floor
-        const roomRacks = await tx.rack.findMany({ where: { floorId: id } });
-        // Load all equipment (including newly created) to resolve parent positions
-        const allEquipment = await tx.equipment.findMany({
-          where: { floorId: id },
-          select: { id: true, positionX: true, positionY: true, materialCategoryId: true, materialCategory: { select: { code: true, name: true, displayColor: true } } },
-        });
-
-        for (const equip of rackInternalEquipment) {
-          // Resolve parentEquipmentId (could be temp ID)
-          const resolvedParentId = equipmentIdMap[equip.parentEquipmentId!] ?? equip.parentEquipmentId!;
-          // Find the parent equipment to get its position
-          const parentEq = allEquipment.find(e => e.id === resolvedParentId);
-          if (!parentEq) continue;
-
-          // Find the Rack at the same position as the parent equipment
-          const matchingRack = roomRacks.find(r =>
-            Math.abs(r.positionX - (parentEq.positionX ?? 0)) < RACK_POSITION_TOLERANCE &&
-            Math.abs(r.positionY - (parentEq.positionY ?? 0)) < RACK_POSITION_TOLERANCE
-          );
-          if (!matchingRack) continue;
-
-          // Resolve the equipment's own ID (could be temp ID)
-          const resolvedEquipId = equip.tempId ? equipmentIdMap[equip.tempId] : equip.id;
-          if (!resolvedEquipId) continue;
-
-          await tx.equipment.update({
-            where: { id: resolvedEquipId },
-            data: {
-              rackId: matchingRack.id,
-              startU: equip.startU ?? null,
-              heightU: equip.heightU ?? 1,
-            },
-          });
         }
       }
 
