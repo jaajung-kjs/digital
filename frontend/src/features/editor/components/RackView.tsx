@@ -26,7 +26,9 @@ export function RackView({ equipmentId }: RackViewProps) {
 
   const [showAddForm, setShowAddForm] = useState(false);
 
-  const totalU = (rackEquipment?.specParams as Record<string, unknown> | null)?.u as number ?? 42;
+  const totalU = rackEquipment?.totalU
+    ?? ((rackEquipment?.specParams as Record<string, unknown> | null)?.u as number)
+    ?? 42;
 
   const usedU = useMemo(() => {
     return internalEquipment.reduce((sum, eq) => sum + (eq.heightU ?? 1), 0);

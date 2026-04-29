@@ -252,10 +252,12 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         manufacturer: eq.manufacturer || undefined,
         manager: eq.manager || undefined,
         materialCategoryId: eq.materialCategoryId || undefined,
+        materialCategoryCode: eq.materialCategoryCode || undefined,
         specParams: eq.specParams || undefined,
         parentEquipmentId: eq.parentEquipmentId || undefined,
         startU: eq.startU ?? undefined,
         heightU: eq.heightU ?? undefined,
+        totalU: eq.totalU ?? undefined,
       })),
       cables: (() => {
         const equipIds = new Set(localEquipment.map(eq => eq.id));

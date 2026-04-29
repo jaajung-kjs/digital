@@ -42,13 +42,13 @@ export interface CableDetail {
   sourceEquipment: {
     id: string;
     name: string;
-    rackId: string | null;
+    parentEquipmentId: string | null;
     floorId: string | null;
   };
   targetEquipment: {
     id: string;
     name: string;
-    rackId: string | null;
+    parentEquipmentId: string | null;
     floorId: string | null;
   };
   createdAt: Date;
@@ -81,7 +81,7 @@ const cableInclude = {
     select: {
       id: true,
       name: true,
-      rackId: true,
+      parentEquipmentId: true,
       floorId: true,
     },
   },
@@ -89,7 +89,7 @@ const cableInclude = {
     select: {
       id: true,
       name: true,
-      rackId: true,
+      parentEquipmentId: true,
       floorId: true,
     },
   },
@@ -214,22 +214,8 @@ class CableService {
     const cables = await prisma.cable.findMany({
       where: {
         OR: [
-          {
-            sourceEquipment: {
-              OR: [
-                { rack: { floorId } },
-                { floorId },
-              ],
-            },
-          },
-          {
-            targetEquipment: {
-              OR: [
-                { rack: { floorId } },
-                { floorId },
-              ],
-            },
-          },
+          { sourceEquipment: { floorId } },
+          { targetEquipment: { floorId } },
         ],
       },
       include: cableInclude,
@@ -265,13 +251,13 @@ class CableService {
       sourceEquipment: {
         id: c.sourceEquipment.id,
         name: c.sourceEquipment.name,
-        rackId: c.sourceEquipment.rackId,
+        parentEquipmentId: c.sourceEquipment.parentEquipmentId,
         floorId: c.sourceEquipment.floorId,
       },
       targetEquipment: {
         id: c.targetEquipment.id,
         name: c.targetEquipment.name,
-        rackId: c.targetEquipment.rackId,
+        parentEquipmentId: c.targetEquipment.parentEquipmentId,
         floorId: c.targetEquipment.floorId,
       },
       createdAt: c.createdAt,

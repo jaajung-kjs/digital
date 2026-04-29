@@ -43,7 +43,7 @@ const equipmentWithSubstation = {
         },
       },
     },
-    rack: {
+    parent: {
       select: {
         floor: {
           select: {
@@ -62,8 +62,8 @@ function getSubstationName(equipment: any): string {
   if (equipment.floor?.substation?.name) {
     return equipment.floor.substation.name;
   }
-  if (equipment.rack?.floor?.substation?.name) {
-    return equipment.rack.floor.substation.name;
+  if (equipment.parent?.floor?.substation?.name) {
+    return equipment.parent.floor.substation.name;
   }
   return '';
 }
@@ -71,7 +71,7 @@ function getSubstationName(equipment: any): string {
 function getFloorId(equipment: any): string | null {
   if (equipment.floorId) return equipment.floorId;
   if (equipment.floor?.id) return equipment.floor.id;
-  if (equipment.rack?.floor?.id) return equipment.rack.floor.id;
+  if (equipment.parent?.floor?.id) return equipment.parent.floor.id;
   return null;
 }
 

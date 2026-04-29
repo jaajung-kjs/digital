@@ -155,7 +155,5 @@ router.post(
 
 export { router as equipmentRouter };
 
-// ==================== Rack Nested Routes (for racks.routes.ts) ====================
-// 아래 라우트들은 racks.routes.ts에서 마운트됨
-
+// Re-export for any future nested routes (currently unused)
 export const createEquipmentValidation = validate(createEquipmentSchema);

@@ -6,7 +6,7 @@ import { EquipmentCategory, Prisma } from '@prisma/client';
 
 export interface EquipmentDetail {
   id: string;
-  rackId: string | null;
+  parentEquipmentId: string | null;
   floorId: string | null;
   name: string;
   model: string | null;
@@ -14,6 +14,7 @@ export interface EquipmentDetail {
   serialNumber: string | null;
   startU: number | null;
   heightU: number;
+  totalU: number | null;
   positionX: number | null;
   positionY: number | null;
   width2d: number | null;
@@ -65,6 +66,7 @@ export interface CreateFloorPlanEquipmentInput {
   height2d?: number;
   rotation?: number;
   heightU?: number;
+  totalU?: number;
   height3d?: number;
   category?: EquipmentCategory;
   installDate?: string;
@@ -110,7 +112,7 @@ class EquipmentService {
    */
   private mapToDetail(e: {
     id: string;
-    rackId: string | null;
+    parentEquipmentId: string | null;
     floorId: string | null;
     name: string;
     model: string | null;
@@ -118,6 +120,7 @@ class EquipmentService {
     serialNumber: string | null;
     startU: number | null;
     heightU: number;
+    totalU: number | null;
     positionX: number | null;
     positionY: number | null;
     width2d: number | null;
@@ -142,7 +145,7 @@ class EquipmentService {
   }): EquipmentDetail {
     return {
       id: e.id,
-      rackId: e.rackId,
+      parentEquipmentId: e.parentEquipmentId,
       floorId: e.floorId,
       name: e.name,
       model: e.model,
@@ -150,6 +153,7 @@ class EquipmentService {
       serialNumber: e.serialNumber,
       startU: e.startU,
       heightU: e.heightU,
+      totalU: e.totalU,
       positionX: e.positionX,
       positionY: e.positionY,
       width2d: e.width2d,
@@ -205,19 +209,19 @@ class EquipmentService {
   }
 
   /**
-   * 랙 내 모든 설비 조회
+   * 부모 EQP-RACK 설비 내의 모든 자식 설비 조회
    */
-  async getByRackId(rackId: string): Promise<EquipmentDetail[]> {
-    const rack = await prisma.rack.findUnique({
-      where: { id: rackId },
+  async getByParentId(parentEquipmentId: string): Promise<EquipmentDetail[]> {
+    const parent = await prisma.equipment.findUnique({
+      where: { id: parentEquipmentId },
     });
 
-    if (!rack) {
-      throw new NotFoundError('랙');
+    if (!parent) {
+      throw new NotFoundError('상위 설비');
     }
 
     const equipment = await prisma.equipment.findMany({
-      where: { rackId },
+      where: { parentEquipmentId },
       include: {
         _count: {
           select: { ports: true },
@@ -278,20 +282,19 @@ class EquipmentService {
   }
 
   /**
-   * U 슬롯 충돌 검사
+   * U 슬롯 충돌 검사 (랙 자식 설비 대상)
    */
   private async checkUSlotConflict(
-    rackId: string,
+    parentEquipmentId: string,
     startU: number,
     heightU: number,
     excludeEquipmentId?: string
   ): Promise<{ hasConflict: boolean; conflictingEquipment?: { name: string; startU: number | null; heightU: number } }> {
     const endU = startU + heightU - 1;
 
-    // 해당 랙의 설비 조회 — 충돌 검사에 필요한 최소 필드만 선택
     const equipmentList = await prisma.equipment.findMany({
       where: {
-        rackId,
+        parentEquipmentId,
         id: excludeEquipmentId ? { not: excludeEquipmentId } : undefined,
       },
       select: {
@@ -301,11 +304,9 @@ class EquipmentService {
       },
     });
 
-    // 슬롯 충돌 검사
     for (const e of equipmentList) {
       if (e.startU === null) continue;
       const eEndU = e.startU + e.heightU - 1;
-      // 겹침 조건: NOT (endU < e.startU OR startU > eEndU)
       if (!(endU < e.startU || startU > eEndU)) {
         return {
           hasConflict: true,
@@ -318,15 +319,16 @@ class EquipmentService {
   }
 
   /**
-   * U 범위 유효성 검사
+   * U 범위 유효성 검사 (부모 EQP-RACK의 totalU 기준)
    */
-  private async validateURange(rackId: string, startU: number, heightU: number): Promise<void> {
-    const rack = await prisma.rack.findUnique({
-      where: { id: rackId },
+  private async validateURange(parentEquipmentId: string, startU: number, heightU: number): Promise<void> {
+    const parent = await prisma.equipment.findUnique({
+      where: { id: parentEquipmentId },
+      select: { totalU: true },
     });
 
-    if (!rack) {
-      throw new NotFoundError('랙');
+    if (!parent) {
+      throw new NotFoundError('상위 설비');
     }
 
     if (startU < 1) {
@@ -337,38 +339,37 @@ class EquipmentService {
       throw new ValidationError('높이는 1U 이상이어야 합니다.');
     }
 
+    const totalU = parent.totalU ?? 42;
     const endU = startU + heightU - 1;
-    if (endU > rack.totalU) {
+    if (endU > totalU) {
       throw new ValidationError(
-        `설비가 랙 범위를 초과합니다. (랙 총 U: ${rack.totalU}, 설비 종료 U: ${endU})`
+        `설비가 랙 범위를 초과합니다. (랙 총 U: ${totalU}, 설비 종료 U: ${endU})`
       );
     }
   }
 
   /**
-   * 설비 생성
+   * 랙 자식 설비 생성
    */
   async create(
-    rackId: string,
+    parentEquipmentId: string,
     input: CreateEquipmentInput,
     userId: string
   ): Promise<EquipmentDetail> {
-    const rack = await prisma.rack.findUnique({
-      where: { id: rackId },
+    const parent = await prisma.equipment.findUnique({
+      where: { id: parentEquipmentId },
     });
 
-    if (!rack) {
-      throw new NotFoundError('랙');
+    if (!parent) {
+      throw new NotFoundError('상위 설비');
     }
 
     const heightU = input.heightU ?? 1;
 
-    // U 범위 유효성 검사
-    await this.validateURange(rackId, input.startU, heightU);
+    await this.validateURange(parentEquipmentId, input.startU, heightU);
 
-    // U 슬롯 충돌 검사
     const { hasConflict, conflictingEquipment } = await this.checkUSlotConflict(
-      rackId,
+      parentEquipmentId,
       input.startU,
       heightU
     );
@@ -381,7 +382,8 @@ class EquipmentService {
 
     const equipment = await prisma.equipment.create({
       data: {
-        rackId,
+        parentEquipmentId,
+        floorId: parent.floorId,
         name: input.name,
         model: input.model,
         manufacturer: input.manufacturer,
@@ -428,12 +430,11 @@ class EquipmentService {
     const newStartU = input.startU ?? existing.startU ?? 1;
     const newHeightU = input.heightU ?? existing.heightU;
 
-    // U 위치가 변경된 경우 검사 (랙에 배치된 설비만)
-    if (existing.rackId && (input.startU !== undefined || input.heightU !== undefined)) {
-      await this.validateURange(existing.rackId, newStartU, newHeightU);
+    if (existing.parentEquipmentId && (input.startU !== undefined || input.heightU !== undefined)) {
+      await this.validateURange(existing.parentEquipmentId, newStartU, newHeightU);
 
       const { hasConflict, conflictingEquipment } = await this.checkUSlotConflict(
-        existing.rackId,
+        existing.parentEquipmentId,
         newStartU,
         newHeightU,
         id
@@ -446,7 +447,6 @@ class EquipmentService {
       }
     }
 
-    // OFD 변전소당 1개 제약 (카테고리가 OFD로 변경되는 경우)
     if (input.category === 'OFD' && existing.category !== 'OFD' && existing.floorId) {
       await this.validateOfdUniqueness(existing.floorId, id);
     }
@@ -490,7 +490,7 @@ class EquipmentService {
   }
 
   /**
-   * 설비 이동 (U 위치 변경)
+   * 설비 이동 (U 위치 변경, 랙 자식 설비 대상)
    */
   async move(id: string, input: MoveEquipmentInput, userId: string): Promise<EquipmentDetail> {
     const existing = await prisma.equipment.findUnique({
@@ -501,16 +501,14 @@ class EquipmentService {
       throw new NotFoundError('설비');
     }
 
-    if (!existing.rackId) {
+    if (!existing.parentEquipmentId) {
       throw new ValidationError('랙에 배치된 설비만 U 위치를 이동할 수 있습니다.');
     }
 
-    // U 범위 유효성 검사
-    await this.validateURange(existing.rackId, input.startU, existing.heightU);
+    await this.validateURange(existing.parentEquipmentId, input.startU, existing.heightU);
 
-    // U 슬롯 충돌 검사
     const { hasConflict, conflictingEquipment } = await this.checkUSlotConflict(
-      existing.rackId,
+      existing.parentEquipmentId,
       input.startU,
       existing.heightU,
       id
@@ -582,7 +580,6 @@ class EquipmentService {
       throw new NotFoundError('층');
     }
 
-    // OFD 변전소당 1개 제약
     if (input.category === 'OFD') {
       await this.validateOfdUniqueness(floorId);
     }
@@ -600,6 +597,7 @@ class EquipmentService {
         height2d: input.height2d,
         rotation: input.rotation ?? 0,
         heightU: input.heightU ?? 1,
+        totalU: input.totalU,
         height3d: input.height3d,
         category: input.category ?? 'OTHER',
         installDate: input.installDate ? new Date(input.installDate) : null,
@@ -638,7 +636,6 @@ class EquipmentService {
       throw new NotFoundError('설비');
     }
 
-    // 연결된 케이블 확인
     const connectionCount = equipment.sourceCables.length + equipment.targetCables.length;
     if (connectionCount > 0) {
       throw new ConflictError(
@@ -652,23 +649,23 @@ class EquipmentService {
   }
 
   /**
-   * 랙의 사용 가능한 U 슬롯 조회
+   * 부모 EQP-RACK 설비의 사용 가능한 U 슬롯 조회
    */
-  async getAvailableSlots(rackId: string): Promise<{ start: number; end: number }[]> {
-    const rack = await prisma.rack.findUnique({
-      where: { id: rackId },
+  async getAvailableSlots(parentEquipmentId: string): Promise<{ start: number; end: number }[]> {
+    const parent = await prisma.equipment.findUnique({
+      where: { id: parentEquipmentId },
+      select: { totalU: true },
     });
 
-    if (!rack) {
-      throw new NotFoundError('랙');
+    if (!parent) {
+      throw new NotFoundError('상위 설비');
     }
 
     const equipment = await prisma.equipment.findMany({
-      where: { rackId },
+      where: { parentEquipmentId },
       orderBy: { startU: 'asc' },
     });
 
-    // 사용 중인 슬롯 계산
     const usedSlots = new Set<number>();
     for (const e of equipment) {
       if (e.startU === null) continue;
@@ -677,11 +674,11 @@ class EquipmentService {
       }
     }
 
-    // 연속된 빈 슬롯 영역 찾기
     const availableRanges: { start: number; end: number }[] = [];
     let rangeStart: number | null = null;
 
-    for (let u = 1; u <= rack.totalU; u++) {
+    const totalU = parent.totalU ?? 42;
+    for (let u = 1; u <= totalU; u++) {
       if (!usedSlots.has(u)) {
         if (rangeStart === null) {
           rangeStart = u;
@@ -694,9 +691,8 @@ class EquipmentService {
       }
     }
 
-    // 마지막 범위 처리
     if (rangeStart !== null) {
-      availableRanges.push({ start: rangeStart, end: rack.totalU });
+      availableRanges.push({ start: rangeStart, end: totalU });
     }
 
     return availableRanges;

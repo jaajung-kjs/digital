@@ -4,7 +4,8 @@
 // 사용자는 설비(Equipment) 배치와 케이블(Cable) 연결만 한다.
 // 도면 윤곽은 임포트한 backgroundDrawing(DWG)이 담당한다.
 
-// 평면도 장비 (Rack 통합 — EQP-RACK 카테고리 선택 시 Rack 자동 생성)
+// 평면도 장비 — EQP-RACK 카테고리는 totalU(슬롯 수)를 가지며,
+// 자식 설비는 parentEquipmentId + startU + heightU로 부모 랙에 장착됨.
 export interface FloorPlanEquipment {
   id: string;
   name: string;
@@ -31,6 +32,7 @@ export interface FloorPlanEquipment {
   parentEquipmentId?: string | null; // 부모 EQP-RACK equipment ID (랙 장착 슬롯용)
   startU?: number | null;
   heightU?: number | null;
+  totalU?: number | null; // EQP-RACK 설비의 슬롯 수
 }
 
 // 평면도 케이블
@@ -151,10 +153,12 @@ export interface UpdateFloorPlanRequest {
     manufacturer?: string;
     manager?: string;
     materialCategoryId?: string | null;
+    materialCategoryCode?: string | null;
     specParams?: Record<string, unknown> | null;
     parentEquipmentId?: string | null;
     startU?: number | null;
     heightU?: number | null;
+    totalU?: number | null;
   }[];
   cables?: {
     id?: string | null;
