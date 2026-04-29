@@ -18,7 +18,6 @@ export interface PlanSnapshot {
   equipment: {
     id: string;
     name: string;
-    category: string;
     materialCategoryCode?: string | null;
     materialCategoryName?: string | null;
     specification?: string | null;
@@ -170,7 +169,6 @@ function computeEquipmentDiff(
     } else {
       const changed =
         afterEq.name !== beforeEq.name ||
-        afterEq.category !== beforeEq.category ||
         afterEq.materialCategoryCode !== beforeEq.materialCategoryCode ||
         JSON.stringify(afterEq.specParams) !== JSON.stringify(beforeEq.specParams);
 

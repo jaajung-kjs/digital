@@ -6,17 +6,9 @@
 // schema.prisma: enum UserRole
 export type UserRole = 'ADMIN' | 'VIEWER';
 
-// schema.prisma: enum EquipmentCategory
-export type EquipmentCategory =
-  | 'SERVER'
-  | 'NETWORK'
-  | 'STORAGE'
-  | 'CHARGER'
-  | 'UPS'
-  | 'SECURITY'
-  | 'OTHER'
-  | 'DISTRIBUTION_BOARD'
-  | 'OFD';
+// NOTE: EquipmentCategory enum was removed. Equipment grouping/identity now
+// derives from MaterialCategory.code (e.g. 'EQP-OFD', 'EQP-RACK'). See
+// frontend/src/types/material.ts for category metadata.
 
 // schema.prisma: enum PortType
 export type PortType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'CONSOLE' | 'USB' | 'OTHER';

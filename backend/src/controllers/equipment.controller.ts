@@ -8,13 +8,22 @@ interface MulterRequest extends Request {
 export const equipmentController = {
   /**
    * GET /api/equipment
-   * 설비 목록 조회 (카테고리 필터 지원)
+   * 설비 목록 조회 (materialCategoryCode 필터 지원, prefix 매칭)
+   *
+   * Query parameter mapping (back-compat):
+   *   ?materialCategoryCode=EQP-OFD     ← preferred
+   *   ?category=OFD                     ← legacy alias (mapped to EQP-OFD)
    */
   async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const category = req.query.category as string | undefined;
+      const explicitCode = req.query.materialCategoryCode as string | undefined;
+      const legacyCategory = req.query.category as string | undefined;
+      // Translate legacy `category=OFD` to `materialCategoryCode=EQP-OFD` so existing
+      // frontend callers (FiberPathManager) don't break before they migrate.
+      const legacyCode = legacyCategory === 'OFD' ? 'EQP-OFD' : undefined;
+      const code = explicitCode ?? legacyCode;
       const equipment = await equipmentService.getAll(
-        category ? { category: category as never } : undefined
+        code ? { materialCategoryCode: code } : undefined
       );
 
       res.json({ data: equipment });

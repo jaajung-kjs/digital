@@ -10,8 +10,17 @@ import { FiberPathManager } from '../../../fiber/components/FiberPathManager';
    Connections Tab - center aligned text
    ================================================================ */
 
-export function ConnectionsTab({ equipmentId, floorId, category }: { equipmentId: string; floorId: string; category?: string }) {
-  const isOfd = category === 'OFD';
+export function ConnectionsTab({
+  equipmentId,
+  floorId,
+  materialCategoryCode,
+}: {
+  equipmentId: string;
+  floorId: string;
+  /** MaterialCategory.code such as 'EQP-OFD'; replaces legacy `category` prop. */
+  materialCategoryCode?: string | null;
+}) {
+  const isOfd = materialCategoryCode === 'EQP-OFD';
   const snapshotActive = useSnapshotStore((s) => s.active);
   const snapshotFiberPaths = useSnapshotStore((s) => s.fiberPaths);
   const snapshotEquipment = useSnapshotStore((s) => s.equipment);
@@ -87,7 +96,7 @@ export function ConnectionsTab({ equipmentId, floorId, category }: { equipmentId
           )}
         </div>
         <div className="p-4">
-          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} category={category} />
+          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} materialCategoryCode={materialCategoryCode} />
         </div>
       </div>
     );
@@ -106,7 +115,7 @@ export function ConnectionsTab({ equipmentId, floorId, category }: { equipmentId
           />
         )}
         <div className="p-4">
-          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} category={category} />
+          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} materialCategoryCode={materialCategoryCode} />
         </div>
       </div>
     );
@@ -146,7 +155,7 @@ export function ConnectionsTab({ equipmentId, floorId, category }: { equipmentId
         />
       )}
       <div className="p-4">
-        <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} category={category} />
+        <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} materialCategoryCode={materialCategoryCode} />
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { generateTempId } from '../../../utils/idHelpers';
-import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import { useEditorStore } from '../stores/editorStore';
 import { MaterialPicker } from '../../materials/components/MaterialPicker';
 import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
@@ -57,14 +56,9 @@ export function RackEquipmentForm({
   const handleSubmit = () => {
     if (!name.trim() || effectiveStartU == null) return;
 
-    const category = materialCategoryCode
-      ? getEquipmentCategoryFromMaterial(materialCategoryCode)
-      : 'NETWORK';
-
     useEditorStore.getState().setLocalEquipment((prev) => [...prev, {
       id: generateTempId(),
       name: name.trim(),
-      category,
       positionX: 0,
       positionY: 0,
       width: 0,

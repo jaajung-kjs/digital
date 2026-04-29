@@ -1,7 +1,6 @@
 export interface EquipmentDetail {
   id: string;
   name: string;
-  category: string;
   model?: string | null;
   manufacturer?: string | null;
   manager?: string | null;

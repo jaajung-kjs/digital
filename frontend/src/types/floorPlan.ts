@@ -6,10 +6,12 @@
 
 // 평면도 장비 — EQP-RACK 카테고리는 totalU(슬롯 수)를 가지며,
 // 자식 설비는 parentEquipmentId + startU + heightU로 부모 랙에 장착됨.
+//
+// NOTE: Equipment 자체에는 더 이상 `category` 필드가 없다. 그루핑/식별은
+// `materialCategoryCode` (예: 'EQP-OFD', 'EQP-RACK') 로 한다.
 export interface FloorPlanEquipment {
   id: string;
   name: string;
-  category: string;
   positionX: number;
   positionY: number;
   width: number;
@@ -142,7 +144,6 @@ export interface UpdateFloorPlanRequest {
     id?: string | null;
     tempId?: string;
     name: string;
-    category?: string;
     positionX: number;
     positionY: number;
     width?: number;
@@ -195,7 +196,6 @@ export interface EquipmentItem {
   name: string;
   model?: string;
   manufacturer?: string;
-  category: string;
   floorId: string;
   positionX: number;
   positionY: number;
@@ -207,6 +207,8 @@ export interface EquipmentItem {
   rearImageUrl?: string;
   manager?: string;
   description?: string;
+  materialCategoryCode?: string | null;
+  materialCategoryName?: string | null;
 }
 
 // 에디터 도구

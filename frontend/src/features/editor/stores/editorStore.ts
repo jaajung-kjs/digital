@@ -4,7 +4,6 @@ import type {
   FloorPlanEquipment,
 } from '../../../types/floorPlan';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
-import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 
 /** Filter key: either a materialCategoryCode (DB) or a CableType (legacy fallback) */
 export type ConnectionFilterKey = string;
@@ -136,7 +135,6 @@ export interface EditorStoreState {
   equipmentModalOpen: boolean;
   pasteEquipmentModalOpen: boolean;
   newEquipmentName: string;
-  newEquipmentCategory: string;
   pasteEquipmentName: string;
   newEquipmentPosition: { x: number; y: number };
 
@@ -216,7 +214,6 @@ export interface EditorStoreActions {
   setEquipmentModalOpen: (v: boolean) => void;
   setPasteEquipmentModalOpen: (v: boolean) => void;
   setNewEquipmentName: (v: string) => void;
-  setNewEquipmentCategory: (v: string) => void;
   setPasteEquipmentName: (v: string) => void;
   setNewEquipmentPosition: (p: { x: number; y: number }) => void;
 
@@ -285,7 +282,6 @@ const initialState: EditorStoreState = {
   equipmentModalOpen: false,
   pasteEquipmentModalOpen: false,
   newEquipmentName: '',
-  newEquipmentCategory: 'NETWORK',
   pasteEquipmentName: '',
   newEquipmentPosition: { x: 100, y: 100 },
   newEquipmentMaterialCategoryId: null,
@@ -418,7 +414,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setEquipmentModalOpen: (equipmentModalOpen) => set({ equipmentModalOpen }),
   setPasteEquipmentModalOpen: (pasteEquipmentModalOpen) => set({ pasteEquipmentModalOpen }),
   setNewEquipmentName: (newEquipmentName) => set({ newEquipmentName }),
-  setNewEquipmentCategory: (newEquipmentCategory) => set({ newEquipmentCategory }),
   setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
   setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
 
@@ -430,9 +425,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       newEquipmentDisplayColor: displayColor,
       newEquipmentSpecParams: specParams,
       newEquipmentSpecification: specification,
-      newEquipmentCategory: categoryCode
-        ? getEquipmentCategoryFromMaterial(categoryCode)
-        : 'NETWORK',
     }),
   resetNewEquipmentMaterial: () =>
     set({

@@ -35,7 +35,6 @@ const equipmentSchema = z.object({
   id: z.string().uuid().optional().nullable(),
   tempId: z.string().optional(),
   name: z.string().min(1).max(100),
-  category: z.string().max(50).optional(),
   positionX: z.number(),
   positionY: z.number(),
   width: z.number().min(0),
@@ -52,6 +51,7 @@ const equipmentSchema = z.object({
   parentEquipmentId: z.string().optional().nullable(),
   startU: z.number().int().min(1).optional().nullable(),
   heightU: z.number().int().min(1).max(12).optional().nullable(),
+  totalU: z.number().int().min(1).optional().nullable(),
 });
 
 const cableSchema = z.object({
@@ -111,7 +111,6 @@ const createFloorPlanEquipmentSchema = z.object({
   rotation: z.number().int().optional(),
   heightU: z.number().int().min(1).max(12).optional(),
   height3d: z.number().positive().optional(),
-  category: z.enum(['SERVER', 'NETWORK', 'STORAGE', 'CHARGER', 'UPS', 'SECURITY', 'OTHER', 'DISTRIBUTION_BOARD', 'OFD']).optional(),
   installDate: z.string().optional(),
   manager: z.string().max(100).optional(),
   description: z.string().optional(),

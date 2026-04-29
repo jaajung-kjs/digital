@@ -42,7 +42,7 @@ function toTraceNode(
     substationId,
     substationName,
     floorId,
-    category: equip.category,
+    materialCategoryCode: equip.materialCategoryCode ?? null,
     isSource,
     isTarget,
   };
@@ -431,7 +431,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
         substationId: '',
         substationName: '',
         floorId: null,
-        category: 'OFD',
+        materialCategoryCode: 'EQP-OFD',
         isSource,
         isTarget,
       });
@@ -471,8 +471,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
     for (const cable of sameCables) {
       const srcEquip = equipMap.get(cable.sourceEquipmentId);
       const tgtEquip = equipMap.get(cable.targetEquipmentId);
-      if (srcEquip?.category === 'OFD') ofdIds.add(cable.sourceEquipmentId);
-      if (tgtEquip?.category === 'OFD') ofdIds.add(cable.targetEquipmentId);
+      if (srcEquip?.materialCategoryCode === 'EQP-OFD') ofdIds.add(cable.sourceEquipmentId);
+      if (tgtEquip?.materialCategoryCode === 'EQP-OFD') ofdIds.add(cable.targetEquipmentId);
     }
   }
 

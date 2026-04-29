@@ -14,18 +14,6 @@ const router = Router();
 
 // ==================== Validation Schemas ====================
 
-const equipmentCategoryEnum = z.enum([
-  'SERVER',
-  'NETWORK',
-  'STORAGE',
-  'CHARGER',
-  'UPS',
-  'SECURITY',
-  'OTHER',
-  'DISTRIBUTION_BOARD',
-  'OFD',
-]);
-
 const createEquipmentSchema = z.object({
   name: z.string().min(1, '이름은 필수입니다.').max(100),
   model: z.string().max(100).optional(),
@@ -33,7 +21,6 @@ const createEquipmentSchema = z.object({
   serialNumber: z.string().max(100).optional(),
   startU: z.number().int().min(1, '시작 U는 1 이상이어야 합니다.'),
   heightU: z.number().int().min(1).max(12).default(1),
-  category: equipmentCategoryEnum.optional(),
   installDate: z.string().optional(), // ISO date string
   manager: z.string().max(100).optional(),
   description: z.string().optional(),
@@ -49,11 +36,12 @@ const updateEquipmentSchema = z.object({
   serialNumber: z.string().max(100).optional().nullable(),
   startU: z.number().int().min(1).optional(),
   heightU: z.number().int().min(1).max(12).optional(),
-  category: equipmentCategoryEnum.optional(),
   installDate: z.string().optional().nullable(),
   manager: z.string().max(100).optional().nullable(),
   description: z.string().optional().nullable(),
   properties: z.unknown().optional(),
+  materialCategoryId: z.string().uuid().optional().nullable(),
+  specParams: z.any().optional().nullable(),
   sortOrder: z.number().int().min(0).optional(),
 });
 
