@@ -2,6 +2,8 @@ import prisma from '../config/prisma.js';
 import { Prisma, CableType, EquipmentKind } from '@prisma/client';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
 import { equipmentService } from './equipment.service.js';
+import { assertOfdFiberPath } from './cable.service.js';
+import { assertNoSlotCollision } from './rackModule.service.js';
 import {
   calculateConstructionReport,
   type PlanSnapshot,
@@ -159,6 +161,24 @@ interface PlanCableInput {
   description?: string | null;
 }
 
+/**
+ * 랙 모듈 입력. rackEquipmentId 는 부모 랙의 real id 또는 input.equipment[].tempId.
+ */
+interface PlanRackModuleInput {
+  id?: string | null;
+  tempId?: string;
+  rackEquipmentId: string;
+  categoryId: string;
+  name: string;
+  startU: number;
+  heightU: number;
+  installDate?: string | null;
+  manager?: string | null;
+  description?: string | null;
+  properties?: unknown;
+  sortOrder?: number;
+}
+
 export interface UpdatePlanInput {
   canvasWidth?: number;
   canvasHeight?: number;
@@ -168,6 +188,7 @@ export interface UpdatePlanInput {
   scaleRatio?: number | null;
   backgroundOpacity?: number;
   equipment?: PlanEquipmentInput[];
+  rackModules?: PlanRackModuleInput[];
   cables?: PlanCableInput[];
   fiberPaths?: {
     id?: string;
@@ -414,6 +435,7 @@ class FloorService {
     version: number;
     message: string;
     equipmentIdMap: Record<string, string>;
+    rackModuleIdMap: Record<string, string>;
     fiberPathIdMap: Record<string, string>;
     auditLogId: string | null;
     constructionReport: ReturnType<typeof calculateConstructionReport> | null;
@@ -423,13 +445,14 @@ class FloorService {
 
     let newVersion = floor.version;
     const equipmentIdMap: Record<string, string> = {};
+    const rackModuleIdMap: Record<string, string> = {};
     let finalFiberPathIdMap: Record<string, string> = {};
     let auditLogId: string | null = null;
     let finalConstructionReport: ReturnType<typeof calculateConstructionReport> | null = null;
 
     await prisma.$transaction(async (tx) => {
       // ── Step 0: load current state ──
-      const [dbEquipment, dbCables] = await Promise.all([
+      const [dbEquipment, dbCables, dbRackModules] = await Promise.all([
         tx.equipment.findMany({ where: { floorId: id } }),
         tx.cable.findMany({
           where: {
@@ -444,11 +467,15 @@ class FloorService {
             category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
           },
         }),
+        tx.rackModule.findMany({
+          where: { rack: { floorId: id } },
+        }),
       ]);
 
       const dbEquipmentIds = new Set(dbEquipment.map((e) => e.id));
       const dbEquipmentMap = new Map(dbEquipment.map((e) => [e.id, e]));
       const dbCableIds = new Set(dbCables.map((c) => c.id));
+      const dbRackModuleIds = new Set(dbRackModules.map((m) => m.id));
 
       // ── Step 1: reconciliation diffs ──
       const receivedEquipmentIds = new Set(
@@ -461,9 +488,29 @@ class FloorService {
       );
       const deleteCableIds = [...dbCableIds].filter((cid) => !receivedCableIds.has(cid));
 
+      // RackModules: input.rackModules undefined → 기존 유지 (full-replace 의도가 없는 경우).
+      //              input.rackModules 가 배열이면 reconciliation (없는 항목은 delete).
+      const rackModulesReceived = Array.isArray(input.rackModules);
+      const receivedRackModuleIds = rackModulesReceived
+        ? new Set(input.rackModules!.filter((m) => isRealId(m.id)).map((m) => m.id!))
+        : new Set<string>();
+      const deleteRackModuleIds = rackModulesReceived
+        ? [...dbRackModuleIds].filter((mid) => !receivedRackModuleIds.has(mid))
+        : [];
+
       // ── Step 2: detect changes (lightweight — full diff handled by audit context) ──
       let hasStructuralChange = false;
-      if (deleteEquipmentIds.length > 0 || deleteCableIds.length > 0) hasStructuralChange = true;
+      if (deleteEquipmentIds.length > 0 || deleteCableIds.length > 0 || deleteRackModuleIds.length > 0) {
+        hasStructuralChange = true;
+      }
+      if (rackModulesReceived) {
+        for (const m of input.rackModules!) {
+          if (!isRealId(m.id)) {
+            hasStructuralChange = true;
+            break;
+          }
+        }
+      }
       for (const eq of input.equipment ?? []) {
         if (!isRealId(eq.id)) {
           hasStructuralChange = true;
@@ -565,6 +612,125 @@ class FloorService {
         }
       }
 
+      // ── RackModule reconciliation ──
+      // 부모 랙 ID 는 equipmentIdMap 으로 tempId → real id 해석.
+      // 슬롯 충돌 검사는 in-memory + DB 잔존 모듈 모두 고려.
+      if (rackModulesReceived) {
+        if (deleteRackModuleIds.length > 0) {
+          await tx.rackModule.deleteMany({ where: { id: { in: deleteRackModuleIds } } });
+        }
+
+        // 처리 후 각 랙별 잔존 슬롯 추적 (충돌 검사용).
+        // 초기 상태: DB 잔존 - 삭제분.
+        const liveByRack = new Map<string, { id: string; startU: number; heightU: number }[]>();
+        for (const m of dbRackModules) {
+          if (deleteRackModuleIds.includes(m.id)) continue;
+          if (!liveByRack.has(m.rackEquipmentId)) liveByRack.set(m.rackEquipmentId, []);
+          liveByRack.get(m.rackEquipmentId)!.push({
+            id: m.id,
+            startU: m.startU,
+            heightU: m.heightU,
+          });
+        }
+
+        for (const mod of input.rackModules!) {
+          // 부모 랙 해석 (tempId 가능)
+          const resolvedRackId = equipmentIdMap[mod.rackEquipmentId] ?? mod.rackEquipmentId;
+          const rack = await tx.equipment.findUnique({
+            where: { id: resolvedRackId },
+            select: { id: true, kind: true, totalU: true },
+          });
+          if (!rack) {
+            throw new ValidationError(
+              `랙 모듈의 부모 설비를 찾을 수 없습니다 (rackEquipmentId=${mod.rackEquipmentId}).`,
+            );
+          }
+          if (rack.kind !== EquipmentKind.RACK) {
+            throw new ValidationError(
+              `랙 모듈의 부모가 RACK 이 아닙니다 (kind=${rack.kind}).`,
+            );
+          }
+          const totalU = rack.totalU ?? 42;
+
+          // 카테고리 확인 — categoryId 는 real (시드된 RackModuleCategory.id) 만 가능.
+          const category = await tx.rackModuleCategory.findUnique({
+            where: { id: mod.categoryId },
+            select: { id: true },
+          });
+          if (!category) {
+            throw new ValidationError(
+              `랙 모듈 카테고리를 찾을 수 없습니다 (categoryId=${mod.categoryId}).`,
+            );
+          }
+
+          // 슬롯 충돌 검사 — update 의 경우 자기 자신은 제외.
+          const liveSlots = liveByRack.get(rack.id) ?? [];
+          const isUpdate = isRealId(mod.id) && dbRackModuleIds.has(mod.id!);
+          assertNoSlotCollision(
+            mod.startU,
+            mod.heightU,
+            totalU,
+            liveSlots,
+            isUpdate ? mod.id! : undefined,
+          );
+
+          if (isUpdate) {
+            const updated = await tx.rackModule.update({
+              where: { id: mod.id! },
+              data: {
+                rackEquipmentId: rack.id,
+                categoryId: category.id,
+                name: mod.name,
+                startU: mod.startU,
+                heightU: mod.heightU,
+                installDate:
+                  mod.installDate !== undefined && mod.installDate !== null
+                    ? new Date(mod.installDate)
+                    : mod.installDate === null
+                      ? null
+                      : undefined,
+                manager: mod.manager,
+                description: mod.description,
+                properties: mod.properties as Prisma.InputJsonValue | undefined,
+                sortOrder: mod.sortOrder,
+                updatedById: userId,
+              },
+            });
+            // 슬롯 추적 업데이트
+            const arr = liveByRack.get(rack.id) ?? [];
+            const idx = arr.findIndex((s) => s.id === updated.id);
+            if (idx >= 0) {
+              arr[idx] = { id: updated.id, startU: updated.startU, heightU: updated.heightU };
+            } else {
+              arr.push({ id: updated.id, startU: updated.startU, heightU: updated.heightU });
+            }
+            liveByRack.set(rack.id, arr);
+          } else {
+            const created = await tx.rackModule.create({
+              data: {
+                rackEquipmentId: rack.id,
+                categoryId: category.id,
+                name: mod.name,
+                startU: mod.startU,
+                heightU: mod.heightU,
+                installDate: mod.installDate ? new Date(mod.installDate) : null,
+                manager: mod.manager ?? null,
+                description: mod.description ?? null,
+                properties: (mod.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+                sortOrder: mod.sortOrder ?? 0,
+                createdById: userId,
+                updatedById: userId,
+              },
+            });
+            if (mod.tempId) rackModuleIdMap[mod.tempId] = created.id;
+            if (mod.id && mod.id !== created.id) rackModuleIdMap[mod.id] = created.id;
+            const arr = liveByRack.get(rack.id) ?? [];
+            arr.push({ id: created.id, startU: created.startU, heightU: created.heightU });
+            liveByRack.set(rack.id, arr);
+          }
+        }
+      }
+
       // Fiber paths
       const fiberPathIdMap: Record<string, string> = {};
       if (input.fiberPaths) {
@@ -605,6 +771,19 @@ class FloorService {
       }
 
       // Cables
+      // 한 번 조회한 endpoint kind 캐시 (같은 트랜잭션에서 반복 조회 방지)
+      const equipmentKindCache = new Map<string, EquipmentKind>();
+      const getEquipmentKind = async (eqId: string): Promise<EquipmentKind | null> => {
+        if (equipmentKindCache.has(eqId)) return equipmentKindCache.get(eqId)!;
+        const e = await tx.equipment.findUnique({
+          where: { id: eqId },
+          select: { kind: true },
+        });
+        if (!e) return null;
+        equipmentKindCache.set(eqId, e.kind);
+        return e.kind;
+      };
+
       for (const cable of input.cables ?? []) {
         const srcEqId = cable.source.equipmentId
           ? equipmentIdMap[cable.source.equipmentId] ?? cable.source.equipmentId
@@ -612,8 +791,12 @@ class FloorService {
         const tgtEqId = cable.target.equipmentId
           ? equipmentIdMap[cable.target.equipmentId] ?? cable.target.equipmentId
           : null;
-        const srcModId = cable.source.moduleId ?? null;
-        const tgtModId = cable.target.moduleId ?? null;
+        const srcModId = cable.source.moduleId
+          ? rackModuleIdMap[cable.source.moduleId] ?? cable.source.moduleId
+          : null;
+        const tgtModId = cable.target.moduleId
+          ? rackModuleIdMap[cable.target.moduleId] ?? cable.target.moduleId
+          : null;
         const resolvedFiberPathId = cable.fiberPathId
           ? fiberPathIdMap[cable.fiberPathId] ?? cable.fiberPathId
           : null;
@@ -625,6 +808,29 @@ class FloorService {
         if ((!!tgtEqId) === (!!tgtModId)) {
           throw new ValidationError('target endpoint 는 equipmentId 또는 moduleId 중 하나여야 합니다.');
         }
+
+        // RACK Equipment 는 endpoint 불가 (랙 안 모듈에 연결해야 한다)
+        const srcKind = srcEqId ? await getEquipmentKind(srcEqId) : null;
+        const tgtKind = tgtEqId ? await getEquipmentKind(tgtEqId) : null;
+        if (srcEqId) {
+          if (srcKind === null) {
+            throw new ValidationError(`source 설비를 찾을 수 없습니다 (id=${srcEqId}).`);
+          }
+          if (srcKind === EquipmentKind.RACK) {
+            throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
+          }
+        }
+        if (tgtEqId) {
+          if (tgtKind === null) {
+            throw new ValidationError(`target 설비를 찾을 수 없습니다 (id=${tgtEqId}).`);
+          }
+          if (tgtKind === EquipmentKind.RACK) {
+            throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
+          }
+        }
+
+        // OFD endpoint 면 fiberPathId + fiberPortNumber 필수
+        assertOfdFiberPath(srcKind, tgtKind, resolvedFiberPathId, cable.fiberPortNumber);
 
         if (isRealId(cable.id) && dbCableIds.has(cable.id!)) {
           await tx.cable.update({
@@ -805,6 +1011,7 @@ class FloorService {
       version: newVersion,
       message: '저장되었습니다.',
       equipmentIdMap,
+      rackModuleIdMap,
       fiberPathIdMap: finalFiberPathIdMap,
       auditLogId,
       constructionReport: finalConstructionReport,

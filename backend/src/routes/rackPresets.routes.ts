@@ -1,0 +1,60 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { rackPresetController } from '../controllers/rackPreset.controller.js';
+import { authenticate, adminOnly } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+
+const router = Router();
+
+// ==================== Validation Schemas ====================
+
+const presetModuleSchema = z.object({
+  slotU: z.number().int().min(1),
+  heightU: z.number().int().min(1),
+  categoryCode: z.string().min(1).max(30),
+  defaultName: z.string().max(100).optional().nullable(),
+});
+
+const createRackPresetSchema = z.object({
+  code: z.string().min(1).max(30).optional(),
+  name: z.string().min(1).max(100),
+  totalU: z.number().int().min(1),
+  canvasWidth: z.number().positive(),
+  canvasHeight: z.number().positive(),
+  description: z.string().optional().nullable(),
+  modules: z.array(presetModuleSchema),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+const updateRackPresetSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  totalU: z.number().int().min(1).optional(),
+  canvasWidth: z.number().positive().optional(),
+  canvasHeight: z.number().positive().optional(),
+  description: z.string().optional().nullable(),
+  modules: z.array(presetModuleSchema).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  isActive: z.boolean().optional(),
+});
+
+// ==================== Routes ====================
+
+router.get('/', rackPresetController.getAll);
+router.get('/:id', rackPresetController.getById);
+router.post(
+  '/',
+  authenticate,
+  adminOnly,
+  validate(createRackPresetSchema),
+  rackPresetController.create,
+);
+router.patch(
+  '/:id',
+  authenticate,
+  adminOnly,
+  validate(updateRackPresetSchema),
+  rackPresetController.update,
+);
+router.delete('/:id', authenticate, adminOnly, rackPresetController.delete);
+
+export { router as rackPresetsRouter };
