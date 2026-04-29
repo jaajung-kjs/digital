@@ -46,12 +46,12 @@ export interface UpdateSubstationRequest {
 // 층 목록 아이템
 export interface FloorListItem {
   id: string;
+  substationId: string;
   name: string;
   floorNumber: string | null;
   description: string | null;
   sortOrder: number;
   isActive: boolean;
-  roomCount: number;
 }
 
 // 층 상세
@@ -63,7 +63,6 @@ export interface FloorDetail {
   description: string | null;
   sortOrder: number;
   isActive: boolean;
-  roomCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,17 +81,6 @@ export interface UpdateFloorRequest {
   description?: string;
   sortOrder?: number;
   isActive?: boolean;
-}
-
-// 실 상세
-export interface FloorDetailLegacy {
-  id: string;
-  floorId: string;
-  name: string;
-  sortOrder: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 // API 응답 타입

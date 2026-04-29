@@ -242,7 +242,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const draftCheckedRef = useRef(false);
 
   const {
-    room, floorPlan, roomLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
+    floor, floorPlan, floorLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
   } = useFloorPlanData(floorId, containerRef);
 
   useEditorKeyboard(handleSave, floorId, containerRef);
@@ -456,7 +456,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   };
 
   const isPlanNotFound = planError && (planError as { response?: { status: number } }).response?.status === 404;
-  const isLoading = roomLoading || planLoading;
+  const isLoading = floorLoading || planLoading;
 
   if (isLoading && !isPlanNotFound) {
     return (
@@ -477,7 +477,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         </div>
       )}
       <Toolbar
-        room={room}
+        floor={floor}
         floorPlan={floorPlan}
         isAdmin={isAdmin}
         handleSave={handleSave}

@@ -11,7 +11,6 @@ const NODE_STYLES: Record<NodeType, { bg: string; border: string; text: string; 
   branch:       { bg: '#F0FDF4', border: '#22C55E', text: '#166534', iconBg: '#DCFCE7' },
   substation:   { bg: '#FFF7ED', border: '#F97316', text: '#9A3412', iconBg: '#FFEDD5' },
   floor:        { bg: '#FAF5FF', border: '#A855F7', text: '#6B21A8', iconBg: '#F3E8FF' },
-  room:         { bg: '#FFF1F2', border: '#F43F5E', text: '#9F1239', iconBg: '#FFE4E6' },
 };
 
 const LEVEL_LABELS: Record<NodeType, string> = {
@@ -19,7 +18,6 @@ const LEVEL_LABELS: Record<NodeType, string> = {
   branch: '지사',
   substation: '변전소',
   floor: '층',
-  room: '실',
 };
 
 const CHILD_TYPE_MAP: Record<NodeType | 'root', NodeType> = {
@@ -27,8 +25,7 @@ const CHILD_TYPE_MAP: Record<NodeType | 'root', NodeType> = {
   headquarters: 'branch',
   branch: 'substation',
   substation: 'floor',
-  floor: 'room',
-  room: 'room',
+  floor: 'floor',
 };
 
 /* ── 추가 모달 ── */
@@ -316,7 +313,7 @@ export function TreeVisualization() {
   const addableChildType: NodeType = viewingNode
     ? CHILD_TYPE_MAP[viewingNode.type]
     : CHILD_TYPE_MAP.root;
-  const canAdd = viewingNode ? viewingNode.type !== 'room' : true;
+  const canAdd = viewingNode ? viewingNode.type !== 'floor' : true;
 
   const ensureChildrenLoaded = useCallback(async (node: TreeNodeData) => {
     if (node.childrenLoaded) return;
@@ -329,7 +326,7 @@ export function TreeVisualization() {
     childRefs.current.clear();
     if (!viewingNodeId) return;
     const node = findNode(viewingNodeId);
-    if (node && !node.childrenLoaded && node.type !== 'room') {
+    if (node && !node.childrenLoaded && node.type !== 'floor') {
       ensureChildrenLoaded(node);
     }
   }, [viewingNodeId, findNode, ensureChildrenLoaded]);
@@ -375,17 +372,8 @@ export function TreeVisualization() {
       });
       newNode = {
         id: created.id, name: created.name, type: 'floor',
-        parentId, children: [], childrenLoaded: false, expanded: false,
-        meta: { floorNumber: data.extra.floorNumber, roomCount: 0 },
-      };
-    } else if (viewingNode.type === 'floor') {
-      const created = await organizationApi.createRoom(parentId, {
-        name: data.name,
-      });
-      newNode = {
-        id: created.id, name: created.name, type: 'room',
         parentId, children: [], childrenLoaded: true, expanded: false,
-        meta: {},
+        meta: { floorNumber: data.extra.floorNumber },
       };
     }
 
@@ -400,7 +388,6 @@ export function TreeVisualization() {
     branch: organizationApi.deleteBranch,
     substation: organizationApi.deleteSubstation,
     floor: organizationApi.deleteFloor,
-    room: organizationApi.deleteRoom,
   };
 
   const handleDelete = useCallback(async (node: TreeNodeData) => {
@@ -414,7 +401,6 @@ export function TreeVisualization() {
     branch: organizationApi.renameBranch,
     substation: organizationApi.renameSubstation,
     floor: organizationApi.renameFloor,
-    room: organizationApi.renameRoom,
   };
 
   const handleRename = useCallback(async (node: TreeNodeData, newName: string) => {
@@ -482,7 +468,8 @@ export function TreeVisualization() {
   const handleChildClick = useCallback(async (node: TreeNodeData) => {
     selectNode(node.id, node.type);
 
-    if (node.type === 'room') {
+    // Floor가 도면 단위 — 클릭하면 에디터로 진입
+    if (node.type === 'floor') {
       navigate(`/floors/${node.id}/plan`);
       return;
     }
@@ -651,7 +638,7 @@ export function TreeVisualization() {
           {displayChildren.map((child, idx) => {
             const style = NODE_STYLES[child.type];
             const isSelected = selectedNodeId === child.id;
-            const isRoom = child.type === 'room';
+            const isLeaf = child.type === 'floor'; // Floor는 도면 — 클릭하면 에디터로
             const isDragging = dragId === child.id;
 
             return (
@@ -719,15 +706,14 @@ export function TreeVisualization() {
                     {child.meta.address}
                   </span>
                 )}
-                {!isRoom && (
+                {!isLeaf && (
                   <span className="text-[10px] text-gray-400 mt-1">
                     {child.type === 'headquarters' && child.meta?.branchCount != null && `지사 ${child.meta.branchCount}개`}
                     {child.type === 'branch' && child.meta?.substationCount != null && `변전소 ${child.meta.substationCount}개`}
                     {child.type === 'substation' && child.meta?.floorCount != null && `${child.meta.floorCount}개 층`}
-                    {child.type === 'floor' && child.meta?.roomCount != null && `${child.meta.roomCount}개 실`}
                   </span>
                 )}
-                {isRoom && (
+                {isLeaf && (
                   <span className="text-[10px] mt-1 font-medium" style={{ color: style.border }}>
                     클릭하여 도면 열기
                   </span>
