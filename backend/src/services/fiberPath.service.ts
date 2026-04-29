@@ -5,8 +5,8 @@ import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.j
 
 export interface FiberPathDetail {
   id: string;
-  ofdA: { id: string; name: string; substationName: string; roomId: string | null };
-  ofdB: { id: string; name: string; substationName: string; roomId: string | null };
+  ofdA: { id: string; name: string; substationName: string; floorId: string | null };
+  ofdB: { id: string; name: string; substationName: string; floorId: string | null };
   portCount: number;
   description: string | null;
   ports: FiberPortStatus[];
@@ -34,30 +34,22 @@ const equipmentWithSubstation = {
     id: true,
     name: true,
     category: true,
-    roomId: true,
-    room: {
+    floorId: true,
+    floor: {
       select: {
         id: true,
-        floor: {
-          select: {
-            substation: {
-              select: { name: true },
-            },
-          },
+        substation: {
+          select: { name: true },
         },
       },
     },
     rack: {
       select: {
-        room: {
+        floor: {
           select: {
             id: true,
-            floor: {
-              select: {
-                substation: {
-                  select: { name: true },
-                },
-              },
+            substation: {
+              select: { name: true },
             },
           },
         },
@@ -67,19 +59,19 @@ const equipmentWithSubstation = {
 } as const;
 
 function getSubstationName(equipment: any): string {
-  if (equipment.room?.floor?.substation?.name) {
-    return equipment.room.floor.substation.name;
+  if (equipment.floor?.substation?.name) {
+    return equipment.floor.substation.name;
   }
-  if (equipment.rack?.room?.floor?.substation?.name) {
-    return equipment.rack.room.floor.substation.name;
+  if (equipment.rack?.floor?.substation?.name) {
+    return equipment.rack.floor.substation.name;
   }
   return '';
 }
 
-function getRoomId(equipment: any): string | null {
-  if (equipment.roomId) return equipment.roomId;
-  if (equipment.room?.id) return equipment.room.id;
-  if (equipment.rack?.room?.id) return equipment.rack.room.id;
+function getFloorId(equipment: any): string | null {
+  if (equipment.floorId) return equipment.floorId;
+  if (equipment.floor?.id) return equipment.floor.id;
+  if (equipment.rack?.floor?.id) return equipment.rack.floor.id;
   return null;
 }
 
@@ -251,13 +243,13 @@ class FiberPathService {
         id: p.ofdA.id,
         name: p.ofdA.name,
         substationName: getSubstationName(p.ofdA),
-        roomId: getRoomId(p.ofdA),
+        floorId: getFloorId(p.ofdA),
       },
       ofdB: {
         id: p.ofdB.id,
         name: p.ofdB.name,
         substationName: getSubstationName(p.ofdB),
-        roomId: getRoomId(p.ofdB),
+        floorId: getFloorId(p.ofdB),
       },
       portCount: p.portCount,
       description: p.description,

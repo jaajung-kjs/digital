@@ -7,7 +7,7 @@ import { EquipmentCategory, Prisma } from '@prisma/client';
 export interface EquipmentDetail {
   id: string;
   rackId: string | null;
-  roomId: string | null;
+  floorId: string | null;
   name: string;
   model: string | null;
   manufacturer: string | null;
@@ -111,7 +111,7 @@ class EquipmentService {
   private mapToDetail(e: {
     id: string;
     rackId: string | null;
-    roomId: string | null;
+    floorId: string | null;
     name: string;
     model: string | null;
     manufacturer: string | null;
@@ -143,7 +143,7 @@ class EquipmentService {
     return {
       id: e.id,
       rackId: e.rackId,
-      roomId: e.roomId,
+      floorId: e.floorId,
       name: e.name,
       model: e.model,
       manufacturer: e.manufacturer,
@@ -189,13 +189,9 @@ class EquipmentService {
       include: {
         _count: { select: { ports: true } },
         materialCategory: { select: { code: true, displayColor: true } },
-        room: {
+        floor: {
           include: {
-            floor: {
-              include: {
-                substation: { select: { name: true } },
-              },
-            },
+            substation: { select: { name: true } },
           },
         },
       },
@@ -204,7 +200,7 @@ class EquipmentService {
 
     return equipment.map((e) => ({
       ...this.mapToDetail(e),
-      substationName: e.room?.floor?.substation?.name ?? undefined,
+      substationName: e.floor?.substation?.name ?? undefined,
     }));
   }
 
@@ -237,17 +233,17 @@ class EquipmentService {
   /**
    * 실(Room)에 직접 배치된 설비 조회
    */
-  async getByRoomId(roomId: string): Promise<EquipmentDetail[]> {
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
+  async getByFloorId(floorId: string): Promise<EquipmentDetail[]> {
+    const floor = await prisma.floor.findUnique({
+      where: { id: floorId },
     });
 
-    if (!room) {
-      throw new NotFoundError('실');
+    if (!floor) {
+      throw new NotFoundError('층');
     }
 
     const equipment = await prisma.equipment.findMany({
-      where: { roomId },
+      where: { floorId },
       include: {
         _count: {
           select: { ports: true },
@@ -451,8 +447,8 @@ class EquipmentService {
     }
 
     // OFD 변전소당 1개 제약 (카테고리가 OFD로 변경되는 경우)
-    if (input.category === 'OFD' && existing.category !== 'OFD' && existing.roomId) {
-      await this.validateOfdUniqueness(existing.roomId, id);
+    if (input.category === 'OFD' && existing.category !== 'OFD' && existing.floorId) {
+      await this.validateOfdUniqueness(existing.floorId, id);
     }
 
     const equipment = await prisma.equipment.update({
@@ -546,26 +542,26 @@ class EquipmentService {
   /**
    * 변전소 내 OFD 중복 검사 (변전소당 OFD 1개만 허용)
    */
-  async validateOfdUniqueness(roomId: string, excludeEquipmentId?: string): Promise<void> {
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-      include: { floor: { select: { substationId: true, substation: { select: { name: true } } } } },
+  async validateOfdUniqueness(floorId: string, excludeEquipmentId?: string): Promise<void> {
+    const floor = await prisma.floor.findUnique({
+      where: { id: floorId },
+      include: { substation: { select: { name: true } } },
     });
-    if (!room) return;
+    if (!floor) return;
 
-    const substationId = room.floor.substationId;
+    const substationId = floor.substationId;
     const existingOfd = await prisma.equipment.findFirst({
       where: {
         category: 'OFD',
         id: excludeEquipmentId ? { not: excludeEquipmentId } : undefined,
-        room: { floor: { substationId } },
+        floor: { substationId },
       },
       select: { id: true, name: true },
     });
 
     if (existingOfd) {
       throw new ConflictError(
-        `${room.floor.substation.name} 변전소에 이미 OFD가 존재합니다. (${existingOfd.name})`
+        `${floor.substation?.name ?? ''} 변전소에 이미 OFD가 존재합니다. (${existingOfd.name})`
       );
     }
   }
@@ -574,26 +570,26 @@ class EquipmentService {
    * 평면도(Room)에 직접 배치하는 설비 생성
    */
   async createOnFloorPlan(
-    roomId: string,
+    floorId: string,
     input: CreateFloorPlanEquipmentInput,
     userId: string
   ): Promise<EquipmentDetail> {
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
+    const floor = await prisma.floor.findUnique({
+      where: { id: floorId },
     });
 
-    if (!room) {
-      throw new NotFoundError('실');
+    if (!floor) {
+      throw new NotFoundError('층');
     }
 
     // OFD 변전소당 1개 제약
     if (input.category === 'OFD') {
-      await this.validateOfdUniqueness(roomId);
+      await this.validateOfdUniqueness(floorId);
     }
 
     const equipment = await prisma.equipment.create({
       data: {
-        roomId,
+        floorId,
         name: input.name,
         model: input.model,
         manufacturer: input.manufacturer,

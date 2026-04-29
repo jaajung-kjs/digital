@@ -21,28 +21,26 @@ model User {
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
-  refreshTokens  RefreshToken[]
-  auditLogs      AuditLog[]
-  createdSubstations Substation[] @relation("SubstationCreatedBy")
-  updatedSubstations Substation[] @relation("SubstationUpdatedBy")
-  createdFloors  Floor[] @relation("FloorCreatedBy")
-  updatedFloors  Floor[] @relation("FloorUpdatedBy")
-  createdRacks   Rack[] @relation("RackCreatedBy")
-  updatedRacks   Rack[] @relation("RackUpdatedBy")
-  createdEquipment Equipment[] @relation("EquipmentCreatedBy")
-  updatedEquipment Equipment[] @relation("EquipmentUpdatedBy")
-  createdCables  Cable[] @relation("CableCreatedBy")
-  updatedCables  Cable[] @relation("CableUpdatedBy")
-  createdHeadquarters Headquarters[] @relation("HeadquartersCreatedBy")
-  updatedHeadquarters Headquarters[] @relation("HeadquartersUpdatedBy")
-  createdBranches Branch[] @relation("BranchCreatedBy")
-  updatedBranches Branch[] @relation("BranchUpdatedBy")
-  createdRooms   Room[] @relation("RoomCreatedBy")
-  updatedRooms   Room[] @relation("RoomUpdatedBy")
+  refreshTokens          RefreshToken[]
+  auditLogs              AuditLog[]
+  createdSubstations     Substation[]     @relation("SubstationCreatedBy")
+  updatedSubstations     Substation[]     @relation("SubstationUpdatedBy")
+  createdFloors          Floor[]          @relation("FloorCreatedBy")
+  updatedFloors          Floor[]          @relation("FloorUpdatedBy")
+  createdRacks           Rack[]           @relation("RackCreatedBy")
+  updatedRacks           Rack[]           @relation("RackUpdatedBy")
+  createdEquipment       Equipment[]      @relation("EquipmentCreatedBy")
+  updatedEquipment       Equipment[]      @relation("EquipmentUpdatedBy")
+  createdCables          Cable[]          @relation("CableCreatedBy")
+  updatedCables          Cable[]          @relation("CableUpdatedBy")
+  createdHeadquarters    Headquarters[]   @relation("HeadquartersCreatedBy")
+  updatedHeadquarters    Headquarters[]   @relation("HeadquartersUpdatedBy")
+  createdBranches        Branch[]         @relation("BranchCreatedBy")
+  updatedBranches        Branch[]         @relation("BranchUpdatedBy")
   createdMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogCreatedBy")
   updatedMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogUpdatedBy")
-  createdFiberPaths FiberPath[] @relation("FiberPathCreator")
-  updatedFiberPaths FiberPath[] @relation("FiberPathUpdater")
+  createdFiberPaths      FiberPath[]      @relation("FiberPathCreator")
+  updatedFiberPaths      FiberPath[]      @relation("FiberPathUpdater")
 
   @@map("users")
 }
@@ -76,23 +74,23 @@ model Headquarters {
   createdById String?  @map("created_by")
   updatedById String?  @map("updated_by")
 
-  createdBy User? @relation("HeadquartersCreatedBy", fields: [createdById], references: [id])
-  updatedBy User? @relation("HeadquartersUpdatedBy", fields: [updatedById], references: [id])
+  createdBy User?    @relation("HeadquartersCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?    @relation("HeadquartersUpdatedBy", fields: [updatedById], references: [id])
   branches  Branch[]
 
   @@map("headquarters")
 }
 
 model Branch {
-  id              String   @id @default(uuid())
-  headquartersId  String   @map("headquarters_id")
-  name            String   @db.VarChar(100)
-  sortOrder       Int      @default(0) @map("sort_order")
-  isActive        Boolean  @default(true) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  createdById     String?  @map("created_by")
-  updatedById     String?  @map("updated_by")
+  id             String   @id @default(uuid())
+  headquartersId String   @map("headquarters_id")
+  name           String   @db.VarChar(100)
+  sortOrder      Int      @default(0) @map("sort_order")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdById    String?  @map("created_by")
+  updatedById    String?  @map("updated_by")
 
   headquarters Headquarters @relation(fields: [headquartersId], references: [id], onDelete: Cascade)
   createdBy    User?        @relation("BranchCreatedBy", fields: [createdById], references: [id])
@@ -126,81 +124,65 @@ model Substation {
   @@map("substations")
 }
 
-model Floor {
-  id           String   @id @default(uuid())
-  substationId String   @map("substation_id")
-  name         String   @db.VarChar(100)
-  floorNumber  String?  @map("floor_number") @db.VarChar(20)
-  description  String?  @db.Text
-  sortOrder    Int      @default(0) @map("sort_order")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  createdById  String?  @map("created_by")
-  updatedById  String?  @map("updated_by")
+// ==================== 층(Floor) = 도면 ====================
+// Floor가 캔버스이자 도면 단위. 통신실/UPS실 같은 영역 구분은
+// 임포트한 backgroundDrawing의 라벨로 시각적으로 표현된다.
 
-  substation Substation @relation(fields: [substationId], references: [id], onDelete: Cascade)
-  createdBy  User?      @relation("FloorCreatedBy", fields: [createdById], references: [id])
-  updatedBy  User?      @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
-  rooms      Room[]
+model Floor {
+  id                String   @id @default(uuid())
+  substationId      String   @map("substation_id")
+  name              String   @db.VarChar(100)
+  floorNumber       String?  @map("floor_number") @db.VarChar(20)
+  description       String?  @db.Text
+  sortOrder         Int      @default(0) @map("sort_order")
+  isActive          Boolean  @default(true) @map("is_active")
+  // 도면 속성
+  canvasWidth       Int      @default(2000) @map("canvas_width")
+  canvasHeight      Int      @default(1500) @map("canvas_height")
+  gridSize          Int      @default(10) @map("grid_size")
+  majorGridSize     Int      @default(60) @map("major_grid_size")
+  backgroundColor   String   @default("#ffffff") @map("background_color") @db.VarChar(20)
+  version           Int      @default(1)
+  scaleRatio        Float?   @map("scale_ratio")
+  asBuiltSnapshotId String?  @map("as_built_snapshot_id")
+  // 임포트된 DWG 배경 (윤곽 + 라벨)
+  backgroundDrawing Json?    @map("background_drawing")
+  backgroundOpacity Float    @default(0.3) @map("background_opacity")
+  // timestamps
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  createdById       String?  @map("created_by")
+  updatedById       String?  @map("updated_by")
+
+  substation Substation         @relation(fields: [substationId], references: [id], onDelete: Cascade)
+  createdBy  User?              @relation("FloorCreatedBy", fields: [createdById], references: [id])
+  updatedBy  User?              @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
+  elements   FloorPlanElement[]
+  racks      Rack[]
+  equipment  Equipment[]
 
   @@unique([substationId, name])
   @@map("floors")
 }
 
-// ==================== 실(Room) = 도면 ====================
-
-model Room {
-  id              String   @id @default(uuid())
-  floorId         String   @map("floor_id")
-  name            String   @db.VarChar(100)
-  sortOrder       Int      @default(0) @map("sort_order")
-  isActive        Boolean  @default(true) @map("is_active")
-  // 도면 속성
-  canvasWidth     Int      @default(2000) @map("canvas_width")
-  canvasHeight    Int      @default(1500) @map("canvas_height")
-  gridSize        Int      @default(10) @map("grid_size")
-  majorGridSize   Int      @default(60) @map("major_grid_size")
-  backgroundColor String   @default("#ffffff") @map("background_color") @db.VarChar(20)
-  version         Int      @default(1)
-  // 자재 체계 확장
-  scaleRatio         Float?   @map("scale_ratio")
-  asBuiltSnapshotId  String?  @map("as_built_snapshot_id")
-  // timestamps
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-  createdById     String?  @map("created_by")
-  updatedById     String?  @map("updated_by")
-
-  floor     Floor              @relation(fields: [floorId], references: [id], onDelete: Cascade)
-  createdBy User?              @relation("RoomCreatedBy", fields: [createdById], references: [id])
-  updatedBy User?              @relation("RoomUpdatedBy", fields: [updatedById], references: [id])
-  elements  FloorPlanElement[]
-  racks     Rack[]
-  equipment Equipment[]
-
-  @@unique([floorId, name])
-  @@map("rooms")
-}
-
 model FloorPlanElement {
-  id          String   @id @default(uuid())
-  roomId      String   @map("room_id")
-  elementType String   @map("element_type") @db.VarChar(20)
-  properties  Json
-  zIndex      Int      @default(0) @map("z_index")
-  isVisible   Boolean  @default(true) @map("is_visible")
-  height3d    Float?   @map("height_3d")
-  elevation3d Float?   @map("elevation_3d")
+  id                 String   @id @default(uuid())
+  floorId            String   @map("floor_id")
+  elementType        String   @map("element_type") @db.VarChar(20)
+  properties         Json
+  zIndex             Int      @default(0) @map("z_index")
+  isVisible          Boolean  @default(true) @map("is_visible")
+  height3d           Float?   @map("height_3d")
+  elevation3d        Float?   @map("elevation_3d")
   // 자재 체계 확장
-  materialCategoryId  String?  @map("material_category_id")
-  materialId          String?  @map("material_id")
-  specParams          Json?    @map("spec_params")
-  pathLength          Float?   @map("path_length")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  materialCategoryId String?  @map("material_category_id")
+  materialId         String?  @map("material_id")
+  specParams         Json?    @map("spec_params")
+  pathLength         Float?   @map("path_length")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  room             Room              @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  floor            Floor             @relation(fields: [floorId], references: [id], onDelete: Cascade)
   materialCategory MaterialCategory? @relation("ElementMaterialCategory", fields: [materialCategoryId], references: [id])
   material         Material?         @relation("ElementMaterial", fields: [materialId], references: [id])
 
@@ -211,7 +193,7 @@ model FloorPlanElement {
 
 model Rack {
   id            String   @id @default(uuid())
-  roomId        String   @map("room_id")
+  floorId       String   @map("floor_id")
   name          String   @db.VarChar(100)
   code          String?  @db.VarChar(50)
   // 평면도 위치
@@ -233,75 +215,75 @@ model Rack {
   createdById   String?  @map("created_by")
   updatedById   String?  @map("updated_by")
 
-  height3d      Float?   @map("height_3d")
+  height3d          Float?  @map("height_3d")
   // 자재 체계 확장 — 내진가대
-  hasSeismicBrace     Boolean  @default(false) @map("has_seismic_brace")
-  seismicMaterialId   String?  @map("seismic_material_id")
-  seismicSpecParams   Json?    @map("seismic_spec_params")
+  hasSeismicBrace   Boolean @default(false) @map("has_seismic_brace")
+  seismicMaterialId String? @map("seismic_material_id")
+  seismicSpecParams Json?   @map("seismic_spec_params")
 
-  room      Room         @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  floor     Floor       @relation(fields: [floorId], references: [id], onDelete: Cascade)
   createdBy User?       @relation("RackCreatedBy", fields: [createdById], references: [id])
   updatedBy User?       @relation("RackUpdatedBy", fields: [updatedById], references: [id])
   equipment Equipment[]
 
-  @@unique([roomId, name])
+  @@unique([floorId, name])
   @@map("racks")
 }
 
 // ==================== 설비 ====================
 
 model Equipment {
-  id           String    @id @default(uuid())
-  rackId       String?   @map("rack_id")
-  roomId       String?   @map("room_id")
-  name         String    @db.VarChar(100)
-  model        String?   @db.VarChar(100)
-  manufacturer String?   @db.VarChar(100)
-  serialNumber String?   @map("serial_number") @db.VarChar(100)
+  id                 String            @id @default(uuid())
+  rackId             String?           @map("rack_id")
+  floorId            String?           @map("floor_id")
+  name               String            @db.VarChar(100)
+  model              String?           @db.VarChar(100)
+  manufacturer       String?           @db.VarChar(100)
+  serialNumber       String?           @map("serial_number") @db.VarChar(100)
   // U 슬롯 위치
-  startU       Int?      @map("start_u")
-  heightU      Int       @default(1) @map("height_u")
+  startU             Int?              @map("start_u")
+  heightU            Int               @default(1) @map("height_u")
   // 평면도 위치 (2D 배치용)
-  positionX    Float?    @map("position_x_2d")
-  positionY    Float?    @map("position_y_2d")
-  width2d      Float?    @map("width_2d")
-  height2d     Float?    @map("height_2d")
-  rotation     Int?      @default(0)
+  positionX          Float?            @map("position_x_2d")
+  positionY          Float?            @map("position_y_2d")
+  width2d            Float?            @map("width_2d")
+  height2d           Float?            @map("height_2d")
+  rotation           Int?              @default(0)
   // 3D 속성
-  height3d     Float?    @map("height_3d")
+  height3d           Float?            @map("height_3d")
   // 사진
-  frontImageUrl String?  @map("front_image_url") @db.VarChar(500)
-  rearImageUrl  String?  @map("rear_image_url") @db.VarChar(500)
+  frontImageUrl      String?           @map("front_image_url") @db.VarChar(500)
+  rearImageUrl       String?           @map("rear_image_url") @db.VarChar(500)
   // 추가 정보
-  category     EquipmentCategory @default(OTHER)
-  installDate  DateTime? @map("install_date") @db.Date
-  manager      String?   @db.VarChar(100)
-  description  String?   @db.Text
-  properties   Json?     // 추가 속성
+  category           EquipmentCategory @default(OTHER)
+  installDate        DateTime?         @map("install_date") @db.Date
+  manager            String?           @db.VarChar(100)
+  description        String?           @db.Text
+  properties         Json? // 추가 속성
   // 자재 체계 확장
-  materialCategoryId  String?  @map("material_category_id")
-  materialId          String?  @map("material_id")
-  specParams          Json?    @map("spec_params")
+  materialCategoryId String?           @map("material_category_id")
+  materialId         String?           @map("material_id")
+  specParams         Json?             @map("spec_params")
   // 메타
-  sortOrder    Int       @default(0) @map("sort_order")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  createdById  String?   @map("created_by")
-  updatedById  String?   @map("updated_by")
+  sortOrder          Int               @default(0) @map("sort_order")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  createdById        String?           @map("created_by")
+  updatedById        String?           @map("updated_by")
 
-  rack            Rack?            @relation(fields: [rackId], references: [id], onDelete: Cascade)
-  room            Room?            @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  createdBy       User?            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
-  updatedBy       User?            @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
+  rack             Rack?             @relation(fields: [rackId], references: [id], onDelete: Cascade)
+  floor            Floor?            @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  createdBy        User?             @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+  updatedBy        User?             @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
   materialCategory MaterialCategory? @relation("EquipmentMaterialCategory", fields: [materialCategoryId], references: [id])
   material         Material?         @relation("EquipmentMaterial", fields: [materialId], references: [id])
-  ports           Port[]
-  photos          EquipmentPhoto[]
-  maintenanceLogs MaintenanceLog[]
-  sourceCables    Cable[]          @relation("CableSource")
-  targetCables    Cable[]          @relation("CableTarget")
-  fiberPathsAsA   FiberPath[]      @relation("FiberPathOfdA")
-  fiberPathsAsB   FiberPath[]      @relation("FiberPathOfdB")
+  ports            Port[]
+  photos           EquipmentPhoto[]
+  maintenanceLogs  MaintenanceLog[]
+  sourceCables     Cable[]           @relation("CableSource")
+  targetCables     Cable[]           @relation("CableTarget")
+  fiberPathsAsA    FiberPath[]       @relation("FiberPathOfdA")
+  fiberPathsAsB    FiberPath[]       @relation("FiberPathOfdB")
 
   @@map("equipment")
 }
@@ -334,7 +316,7 @@ model Port {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  equipment     Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@unique([equipmentId, name])
   @@map("ports")
@@ -353,38 +335,38 @@ enum PortType {
 // ==================== 케이블 (설비-설비 직접 연결) ====================
 
 model Cable {
-  id                  String    @id @default(uuid())
-  sourceEquipmentId   String    @map("source_equipment_id")
-  targetEquipmentId   String    @map("target_equipment_id")
-  cableType           CableType @map("cable_type")
-  label               String?   @db.VarChar(100)
-  length              Float?    // 미터
-  color               String?   @db.VarChar(50)
-  pathPoints          Json?     @map("path_points") // [[x, y], ...]
-  description         String?   @db.Text
+  id                 String    @id @default(uuid())
+  sourceEquipmentId  String    @map("source_equipment_id")
+  targetEquipmentId  String    @map("target_equipment_id")
+  cableType          CableType @map("cable_type")
+  label              String?   @db.VarChar(100)
+  length             Float? // 미터
+  color              String?   @db.VarChar(50)
+  pathPoints         Json?     @map("path_points") // [[x, y], ...]
+  description        String?   @db.Text
   // 자재 체계 확장
-  materialCategoryId  String?  @map("material_category_id")
-  materialId          String?  @map("material_id")
-  specParams          Json?    @map("spec_params")
-  pathLength          Float?   @map("path_length")
-  bufferLength        Float    @default(4) @map("buffer_length")
-  totalLength         Float?   @map("total_length")
+  materialCategoryId String?   @map("material_category_id")
+  materialId         String?   @map("material_id")
+  specParams         Json?     @map("spec_params")
+  pathLength         Float?    @map("path_length")
+  bufferLength       Float     @default(4) @map("buffer_length")
+  totalLength        Float?    @map("total_length")
   // timestamps
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
-  createdById         String?   @map("created_by")
-  updatedById         String?   @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  createdById        String?   @map("created_by")
+  updatedById        String?   @map("updated_by")
 
-  fiberPathId     String?   @map("fiber_path_id")
-  fiberPortNumber Int?      @map("fiber_port_number")
+  fiberPathId     String? @map("fiber_path_id")
+  fiberPortNumber Int?    @map("fiber_port_number")
 
-  sourceEquipment  Equipment  @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
-  targetEquipment  Equipment  @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
-  fiberPath        FiberPath? @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
+  sourceEquipment  Equipment         @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
+  targetEquipment  Equipment         @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
+  fiberPath        FiberPath?        @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
   materialCategory MaterialCategory? @relation("CableMaterialCategory", fields: [materialCategoryId], references: [id])
   material         Material?         @relation("CableMaterial", fields: [materialId], references: [id])
-  createdBy        User?      @relation("CableCreatedBy", fields: [createdById], references: [id])
-  updatedBy        User?      @relation("CableUpdatedBy", fields: [updatedById], references: [id])
+  createdBy        User?             @relation("CableCreatedBy", fields: [createdById], references: [id])
+  updatedBy        User?             @relation("CableUpdatedBy", fields: [updatedById], references: [id])
 
   // Unique constraints are enforced via partial indexes in migration
   // (non-fiber: source+target+type, fiber: source+target+type+port)
@@ -425,13 +407,13 @@ model FiberPath {
 // ==================== 설비 사진 ====================
 
 model EquipmentPhoto {
-  id           String    @id @default(uuid())
-  equipmentId  String    @map("equipment_id")
-  side         String    @db.VarChar(10) // 'front' | 'rear'
-  imageUrl     String    @map("image_url") @db.VarChar(500)
-  description  String?   @db.Text
-  takenAt      DateTime? @map("taken_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id          String    @id @default(uuid())
+  equipmentId String    @map("equipment_id")
+  side        String    @db.VarChar(10) // 'front' | 'rear'
+  imageUrl    String    @map("image_url") @db.VarChar(500)
+  description String?   @db.Text
+  takenAt     DateTime? @map("taken_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
@@ -441,19 +423,19 @@ model EquipmentPhoto {
 // ==================== 유지보수 이력 ====================
 
 model MaintenanceLog {
-  id           String    @id @default(uuid())
-  equipmentId  String    @map("equipment_id")
-  logType      String    @db.VarChar(20) // MAINTENANCE, FAILURE, REPAIR
-  title        String    @db.VarChar(200)
-  description  String?   @db.Text
-  logDate      DateTime? @map("log_date") @db.Date
-  severity     String?   @db.VarChar(20) // LOW, MEDIUM, HIGH, CRITICAL
-  status       String    @default("OPEN") @db.VarChar(20) // OPEN, IN_PROGRESS, RESOLVED, CLOSED
-  resolvedAt   DateTime? @map("resolved_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  createdById  String?   @map("created_by")
-  updatedById  String?   @map("updated_by")
+  id          String    @id @default(uuid())
+  equipmentId String    @map("equipment_id")
+  logType     String    @db.VarChar(20) // MAINTENANCE, FAILURE, REPAIR
+  title       String    @db.VarChar(200)
+  description String?   @db.Text
+  logDate     DateTime? @map("log_date") @db.Date
+  severity    String?   @db.VarChar(20) // LOW, MEDIUM, HIGH, CRITICAL
+  status      String    @default("OPEN") @db.VarChar(20) // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdById String?   @map("created_by")
+  updatedById String?   @map("updated_by")
 
   equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
   createdBy User?     @relation("MaintenanceLogCreatedBy", fields: [createdById], references: [id])
@@ -474,7 +456,7 @@ model AuditLog {
   oldValues     Json?    @map("old_values")
   newValues     Json?    @map("new_values")
   changedFields String[] @map("changed_fields")
-  context       Json?    // 추가 컨텍스트 정보
+  context       Json? // 추가 컨텍스트 정보
   userId        String?  @map("user_id")
   userName      String?  @map("user_name") @db.VarChar(100)
   ipAddress     String?  @map("ip_address") @db.VarChar(50)
@@ -514,13 +496,13 @@ model MaterialCategory {
   createdAt    DateTime             @default(now()) @map("created_at")
   updatedAt    DateTime             @updatedAt @map("updated_at")
 
-  parent   MaterialCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children MaterialCategory[] @relation("CategoryHierarchy")
+  parent    MaterialCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  MaterialCategory[] @relation("CategoryHierarchy")
   materials Material[]
-  aliases  MaterialAlias[]
-  cables     Cable[]            @relation("CableMaterialCategory")
-  equipment  Equipment[]        @relation("EquipmentMaterialCategory")
-  elements   FloorPlanElement[] @relation("ElementMaterialCategory")
+  aliases   MaterialAlias[]
+  cables    Cable[]            @relation("CableMaterialCategory")
+  equipment Equipment[]        @relation("EquipmentMaterialCategory")
+  elements  FloorPlanElement[] @relation("ElementMaterialCategory")
 
   @@map("material_categories")
 }
@@ -549,9 +531,9 @@ model Material {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  category  MaterialCategory @relation(fields: [categoryId], references: [id])
-  cables    Cable[]          @relation("CableMaterial")
-  equipment Equipment[]      @relation("EquipmentMaterial")
+  category  MaterialCategory   @relation(fields: [categoryId], references: [id])
+  cables    Cable[]            @relation("CableMaterial")
+  equipment Equipment[]        @relation("EquipmentMaterial")
   elements  FloorPlanElement[] @relation("ElementMaterial")
 
   @@unique([categoryId, specification])

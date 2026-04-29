@@ -43,13 +43,13 @@ export interface CableDetail {
     id: string;
     name: string;
     rackId: string | null;
-    roomId: string | null;
+    floorId: string | null;
   };
   targetEquipment: {
     id: string;
     name: string;
     rackId: string | null;
-    roomId: string | null;
+    floorId: string | null;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -82,7 +82,7 @@ const cableInclude = {
       id: true,
       name: true,
       rackId: true,
-      roomId: true,
+      floorId: true,
     },
   },
   targetEquipment: {
@@ -90,7 +90,7 @@ const cableInclude = {
       id: true,
       name: true,
       rackId: true,
-      roomId: true,
+      floorId: true,
     },
   },
   fiberPath: {
@@ -98,8 +98,8 @@ const cableInclude = {
       id: true,
       ofdAId: true,
       ofdBId: true,
-      ofdA: { select: { room: { select: { floor: { select: { substation: { select: { name: true } } } } } } } },
-      ofdB: { select: { room: { select: { floor: { select: { substation: { select: { name: true } } } } } } } },
+      ofdA: { select: { floor: { select: { substation: { select: { name: true } } } } } },
+      ofdB: { select: { floor: { select: { substation: { select: { name: true } } } } } },
     },
   },
   materialCategory: {
@@ -207,9 +207,9 @@ class CableService {
    * 실(Room)에 연결된 모든 케이블 조회
    * 해당 Room의 랙에 속한 설비 + Room에 직접 배치된 설비 간의 케이블
    */
-  async getByRoomId(roomId: string): Promise<CableDetail[]> {
-    const room = await prisma.room.findUnique({ where: { id: roomId } });
-    if (!room) throw new NotFoundError('실');
+  async getByFloorId(floorId: string): Promise<CableDetail[]> {
+    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
+    if (!floor) throw new NotFoundError('층');
 
     const cables = await prisma.cable.findMany({
       where: {
@@ -217,16 +217,16 @@ class CableService {
           {
             sourceEquipment: {
               OR: [
-                { rack: { roomId } },
-                { roomId },
+                { rack: { floorId } },
+                { floorId },
               ],
             },
           },
           {
             targetEquipment: {
               OR: [
-                { rack: { roomId } },
-                { roomId },
+                { rack: { floorId } },
+                { floorId },
               ],
             },
           },
@@ -266,13 +266,13 @@ class CableService {
         id: c.sourceEquipment.id,
         name: c.sourceEquipment.name,
         rackId: c.sourceEquipment.rackId,
-        roomId: c.sourceEquipment.roomId,
+        floorId: c.sourceEquipment.floorId,
       },
       targetEquipment: {
         id: c.targetEquipment.id,
         name: c.targetEquipment.name,
         rackId: c.targetEquipment.rackId,
-        roomId: c.targetEquipment.roomId,
+        floorId: c.targetEquipment.floorId,
       },
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
@@ -288,8 +288,8 @@ class CableService {
     const fp = c.fiberPath;
     if (!fp) return null;
 
-    const nameA = fp.ofdA?.room?.floor?.substation?.name;
-    const nameB = fp.ofdB?.room?.floor?.substation?.name;
+    const nameA = fp.ofdA?.floor?.substation?.name;
+    const nameB = fp.ofdB?.floor?.substation?.name;
     if (!nameA || !nameB) return null;
 
     // Cable connects to source or target OFD — determine which side is "local"

@@ -78,13 +78,13 @@ export const cableController = {
   },
 
   /**
-   * GET /api/rooms/:roomId/connections
+   * GET /api/rooms/:floorId/connections
    * 실에 연결된 모든 케이블 조회
    */
-  async getByRoomId(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getByFloorId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const cables = await cableService.getByRoomId(id);
+      const cables = await cableService.getByFloorId(id);
 
       res.json({ data: cables });
     } catch (error) {
