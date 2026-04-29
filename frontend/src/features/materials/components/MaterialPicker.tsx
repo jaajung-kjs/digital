@@ -1,7 +1,11 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useMaterialCategories } from '../hooks/useMaterialCategories';
 import { buildSpecificationString } from '../../../types/material';
-import type { MaterialCategoryType, SpecParam } from '../../../types/material';
+import type {
+  MaterialCategoryType,
+  SpecParam,
+  CableDisplayGroup,
+} from '../../../types/material';
 import type { RecentMaterial } from '../stores/recentMaterialsStore';
 
 export interface MaterialPickerValue {
@@ -16,6 +20,8 @@ export interface MaterialPickerValue {
 interface MaterialPickerProps {
   categoryType: MaterialCategoryType;
   filterParentCode?: string; // ACCESSORY 하위 필터: 'ACC-PIPE', 'ACC-TRAY', 'ACC-BOX' 등
+  /** 케이블 displayGroup 필터: '전원' | '접지' | '네트워크' | '광' | '제어' */
+  filterDisplayGroup?: CableDisplayGroup;
   value: { categoryId: string; specParams: Record<string, unknown> } | null;
   onChange: (value: MaterialPickerValue) => void;
   recentItems?: RecentMaterial[];
@@ -24,6 +30,7 @@ interface MaterialPickerProps {
 export function MaterialPicker({
   categoryType,
   filterParentCode,
+  filterDisplayGroup,
   value,
   onChange,
   recentItems,
@@ -31,14 +38,20 @@ export function MaterialPicker({
   const { data: allCategories, isLoading } = useMaterialCategories(categoryType);
 
   // filterParentCode가 있으면 해당 parent의 children만 표시
+  // filterDisplayGroup가 있으면 displayGroup가 일치하는 카테고리만 표시 (cable 계열)
   const categories = useMemo(() => {
-    if (!allCategories || !filterParentCode) return allCategories;
-    const parent = allCategories.find((c) => c.code === filterParentCode);
-    if (parent?.children && parent.children.length > 0) return parent.children;
-    // parent 자체가 leaf인 경우 (ACC-BOX처럼 하위 없는 경우)
-    if (parent) return [parent];
-    return allCategories;
-  }, [allCategories, filterParentCode]);
+    if (!allCategories) return allCategories;
+    let list: typeof allCategories = allCategories;
+    if (filterParentCode) {
+      const parent = allCategories.find((c) => c.code === filterParentCode);
+      if (parent?.children && parent.children.length > 0) list = parent.children;
+      else if (parent) list = [parent];
+    }
+    if (filterDisplayGroup) {
+      list = list.filter((c) => c.displayGroup === filterDisplayGroup);
+    }
+    return list;
+  }, [allCategories, filterParentCode, filterDisplayGroup]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
     value?.categoryId ?? null,
   );

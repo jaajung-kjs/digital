@@ -146,6 +146,9 @@ export interface EditorStoreState {
   newEquipmentSpecParams: Record<string, unknown> | null;
   newEquipmentSpecification: string | null;
 
+  // Sidebar-driven cable preselection (used by CableSpecModal initial value)
+  preselectedCableCategoryId: string | null;
+
   // ==================== History (formerly historyStore) ====================
 
   history: HistoryState[];
@@ -227,6 +230,8 @@ export interface EditorStoreActions {
   ) => void;
   resetNewEquipmentMaterial: () => void;
 
+  setPreselectedCableCategory: (id: string | null) => void;
+
   closeAllModals: () => void;
   resetDrawingState: () => void;
 
@@ -290,6 +295,7 @@ const initialState: EditorStoreState = {
   newEquipmentDisplayColor: null,
   newEquipmentSpecParams: null,
   newEquipmentSpecification: null,
+  preselectedCableCategoryId: null,
 
   // History
   history: [],
@@ -435,6 +441,8 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       newEquipmentSpecParams: null,
       newEquipmentSpecification: null,
     }),
+
+  setPreselectedCableCategory: (preselectedCableCategoryId) => set({ preselectedCableCategoryId }),
 
   closeAllModals: () => set({
     equipmentModalOpen: false,
