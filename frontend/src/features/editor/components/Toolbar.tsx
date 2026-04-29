@@ -4,7 +4,6 @@ import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
-import { ViewModeSelector } from './ViewModeSelector';
 import {
   createPropertyUpdater as updateElementProperty,
   createRotateUpdater,
@@ -51,8 +50,6 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
           <h1 className="text-lg font-semibold text-gray-900">{floor?.name} 평면도</h1>
           {floorPlan && <p className="text-xs text-gray-500">버전 {floorPlan.version}</p>}
         </div>
-
-        {floorPlan && <ViewModeSelector />}
       </div>
 
       {floorPlan && (

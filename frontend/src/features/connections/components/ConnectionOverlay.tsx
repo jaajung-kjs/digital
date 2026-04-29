@@ -84,7 +84,6 @@ function mapPlanCablesToRenderable(
 }
 
 export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOverlayProps) {
-  const viewMode = useEditorStore((s) => s.viewMode);
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
@@ -162,7 +161,7 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
 
   // Render cables on overlay canvas
   useEffect(() => {
-    if (viewMode !== 'edit-2d' || !overlayRef.current) return;
+    if (!overlayRef.current) return;
 
     const canvas = overlayRef.current;
     const parentCanvas = canvasRef.current;
@@ -247,13 +246,12 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
         ctx.restore();
       }
     }
-  }, [viewMode, renderableConnections, zoom, panX, panY, equipmentPositions, canvasRef,
+  }, [renderableConnections, zoom, panX, panY, equipmentPositions, canvasRef,
     highlightActive, highlightedNodeIds, highlightedEdgeIds,
     ofdFlowPhase, ofdFlowOfdId, ofdFlowHoveredId]);
 
   // ESC key: cancel creation or clear highlight
   useEffect(() => {
-    if (viewMode !== 'edit-2d') return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (ofdFlowPhase !== 'idle') useOfdConnectionFlowStore.getState().cancel();
@@ -263,7 +261,7 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, ofdFlowPhase, highlightActive, clearHighlight, selectedCableId, setSelectedCableId]);
+  }, [ofdFlowPhase, highlightActive, clearHighlight, selectedCableId, setSelectedCableId]);
 
   // Find selected cable for waypoint handles
   const selectedCable = useMemo(() => {
@@ -295,8 +293,6 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
     }
     return null;
   }, [selectedCableId, connections, cables, snapshotActive]);
-
-  if (viewMode !== 'edit-2d') return null;
 
   return (
     <>
