@@ -63,7 +63,10 @@ export function useEditorKeyboard(
 
       if (useSnapshotStore.getState().active) return;
 
-      // Tool shortcuts
+      // Tool shortcuts — number keys (preferred) and legacy letters
+      if (e.key === '1' && !e.ctrlKey) es.setTool('select');
+      if (e.key === '2' && !e.ctrlKey) es.setTool('equipment');
+      if (e.key === '3' && !e.ctrlKey) es.setTool('cable');
       if (key === 'v' && !e.ctrlKey) es.setTool('select');
       if (key === 'k') es.setTool('equipment');
       if (key === 'c' && !e.ctrlKey) es.setTool('cable');

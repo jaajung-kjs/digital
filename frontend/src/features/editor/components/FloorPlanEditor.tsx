@@ -11,7 +11,6 @@ import { generateTempId } from '../../../utils/idHelpers';
 import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
 import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import { Toolbar } from './Toolbar';
-import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
@@ -311,8 +310,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
           </div>
         ) : (
           <>
-            {!snapshotActive && <ToolPanel />}
-
             <div className="flex-1 flex flex-col min-w-0 relative">
               <CanvasView
                 canvasRef={canvasRef}
