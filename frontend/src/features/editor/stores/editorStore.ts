@@ -3,6 +3,8 @@ import type {
   EditorTool,
   FloorPlanEquipment,
 } from '../../../types/floorPlan';
+import type { DragSession } from '../../../utils/floorplan/dragSystem';
+import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 
 /** Filter key: either a materialCategoryCode (DB) or a CableType (legacy fallback) */
 export type ConnectionFilterKey = string;
@@ -58,6 +60,15 @@ export interface PendingLog {
   status?: string;
 }
 
+// ==================== History ====================
+
+export interface HistoryState {
+  equipment: FloorPlanEquipment[];
+  cables: LocalCable[];
+}
+
+const MAX_HISTORY = 50;
+
 // ==================== Store ====================
 
 export interface EditorStoreState {
@@ -101,6 +112,46 @@ export interface EditorStoreState {
 
   /** Set after restoring from a past version — cleared on save */
   restoredFromVersion: string | null;
+
+  // ==================== Canvas interaction (formerly canvasStore) ====================
+
+  // Equipment drawing state (drag-to-draw)
+  isDrawingEquipment: boolean;
+  equipmentStart: { x: number; y: number } | null;
+  equipmentPreviewEnd: { x: number; y: number } | null;
+  equipmentDrawnSize: { width: number; height: number } | null;
+
+  // Placement preview position (for equipment)
+  previewPosition: { x: number; y: number } | null;
+
+  // Drag state
+  dragSession: DragSession | null;
+
+  // Pan state
+  isPanning: boolean;
+  panStart: { x: number; y: number } | null;
+  isSpacePressed: boolean;
+
+  // Equipment modal states
+  equipmentModalOpen: boolean;
+  pasteEquipmentModalOpen: boolean;
+  newEquipmentName: string;
+  newEquipmentCategory: string;
+  pasteEquipmentName: string;
+  newEquipmentPosition: { x: number; y: number };
+
+  // Material-based equipment selection
+  newEquipmentMaterialCategoryId: string | null;
+  newEquipmentMaterialCategoryCode: string | null;
+  newEquipmentMaterialCategoryName: string | null;
+  newEquipmentDisplayColor: string | null;
+  newEquipmentSpecParams: Record<string, unknown> | null;
+  newEquipmentSpecification: string | null;
+
+  // ==================== History (formerly historyStore) ====================
+
+  history: HistoryState[];
+  historyIndex: number;
 }
 
 export interface EditorStoreActions {
@@ -146,6 +197,51 @@ export interface EditorStoreActions {
   setRestoredFromVersion: (v: string | null) => void;
   clearSelection: () => void;
   resetEditor: () => void;
+
+  // ==================== Canvas interaction actions ====================
+
+  setIsDrawingEquipment: (v: boolean) => void;
+  setEquipmentStart: (s: { x: number; y: number } | null) => void;
+  setEquipmentPreviewEnd: (e: { x: number; y: number } | null) => void;
+  setEquipmentDrawnSize: (s: { width: number; height: number } | null) => void;
+
+  setPreviewPosition: (p: { x: number; y: number } | null) => void;
+
+  setDragSession: (s: DragSession | null) => void;
+
+  setIsPanning: (v: boolean) => void;
+  setPanStart: (p: { x: number; y: number } | null) => void;
+  setIsSpacePressed: (v: boolean) => void;
+
+  setEquipmentModalOpen: (v: boolean) => void;
+  setPasteEquipmentModalOpen: (v: boolean) => void;
+  setNewEquipmentName: (v: string) => void;
+  setNewEquipmentCategory: (v: string) => void;
+  setPasteEquipmentName: (v: string) => void;
+  setNewEquipmentPosition: (p: { x: number; y: number }) => void;
+
+  setNewEquipmentMaterial: (
+    categoryId: string | null,
+    categoryCode: string | null,
+    categoryName: string | null,
+    displayColor: string | null,
+    specParams: Record<string, unknown> | null,
+    specification: string | null,
+  ) => void;
+  resetNewEquipmentMaterial: () => void;
+
+  closeAllModals: () => void;
+  resetDrawingState: () => void;
+
+  // ==================== History actions ====================
+
+  pushHistory: (equipment: FloorPlanEquipment[], cables?: LocalCable[]) => void;
+  undo: () => HistoryState | null;
+  redo: () => HistoryState | null;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+  initHistory: (equipment: FloorPlanEquipment[], cables?: LocalCable[]) => void;
+  resetHistory: () => void;
 }
 
 const initialState: EditorStoreState = {
@@ -175,6 +271,33 @@ const initialState: EditorStoreState = {
   detailPanelEquipmentId: null,
   selectedCableId: null,
   restoredFromVersion: null,
+
+  // Canvas interaction
+  isDrawingEquipment: false,
+  equipmentStart: null,
+  equipmentPreviewEnd: null,
+  equipmentDrawnSize: null,
+  previewPosition: null,
+  dragSession: null,
+  isPanning: false,
+  panStart: null,
+  isSpacePressed: false,
+  equipmentModalOpen: false,
+  pasteEquipmentModalOpen: false,
+  newEquipmentName: '',
+  newEquipmentCategory: 'NETWORK',
+  pasteEquipmentName: '',
+  newEquipmentPosition: { x: 100, y: 100 },
+  newEquipmentMaterialCategoryId: null,
+  newEquipmentMaterialCategoryCode: null,
+  newEquipmentMaterialCategoryName: null,
+  newEquipmentDisplayColor: null,
+  newEquipmentSpecParams: null,
+  newEquipmentSpecification: null,
+
+  // History
+  history: [],
+  historyIndex: -1,
 };
 
 function revokeUploadUrls(uploads: PendingUpload[]) {
@@ -183,7 +306,7 @@ function revokeUploadUrls(uploads: PendingUpload[]) {
   }
 }
 
-export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set) => ({
+export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set, get) => ({
   ...initialState,
 
   setTool: (tool) => set({ tool }),
@@ -280,4 +403,111 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     revokeUploadUrls(state.pendingUploads);
     return initialState;
   }),
+
+  // ==================== Canvas interaction actions ====================
+
+  setIsDrawingEquipment: (isDrawingEquipment) => set({ isDrawingEquipment }),
+  setEquipmentStart: (equipmentStart) => set({ equipmentStart }),
+  setEquipmentPreviewEnd: (equipmentPreviewEnd) => set({ equipmentPreviewEnd }),
+  setEquipmentDrawnSize: (equipmentDrawnSize) => set({ equipmentDrawnSize }),
+  setPreviewPosition: (previewPosition) => set({ previewPosition }),
+  setDragSession: (dragSession) => set({ dragSession }),
+  setIsPanning: (isPanning) => set({ isPanning }),
+  setPanStart: (panStart) => set({ panStart }),
+  setIsSpacePressed: (isSpacePressed) => set({ isSpacePressed }),
+  setEquipmentModalOpen: (equipmentModalOpen) => set({ equipmentModalOpen }),
+  setPasteEquipmentModalOpen: (pasteEquipmentModalOpen) => set({ pasteEquipmentModalOpen }),
+  setNewEquipmentName: (newEquipmentName) => set({ newEquipmentName }),
+  setNewEquipmentCategory: (newEquipmentCategory) => set({ newEquipmentCategory }),
+  setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
+  setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
+
+  setNewEquipmentMaterial: (categoryId, categoryCode, categoryName, displayColor, specParams, specification) =>
+    set({
+      newEquipmentMaterialCategoryId: categoryId,
+      newEquipmentMaterialCategoryCode: categoryCode,
+      newEquipmentMaterialCategoryName: categoryName,
+      newEquipmentDisplayColor: displayColor,
+      newEquipmentSpecParams: specParams,
+      newEquipmentSpecification: specification,
+      newEquipmentCategory: categoryCode
+        ? getEquipmentCategoryFromMaterial(categoryCode)
+        : 'NETWORK',
+    }),
+  resetNewEquipmentMaterial: () =>
+    set({
+      newEquipmentMaterialCategoryId: null,
+      newEquipmentMaterialCategoryCode: null,
+      newEquipmentMaterialCategoryName: null,
+      newEquipmentDisplayColor: null,
+      newEquipmentSpecParams: null,
+      newEquipmentSpecification: null,
+    }),
+
+  closeAllModals: () => set({
+    equipmentModalOpen: false,
+    pasteEquipmentModalOpen: false,
+  }),
+
+  resetDrawingState: () => set({
+    isDrawingEquipment: false,
+    equipmentStart: null,
+    equipmentPreviewEnd: null,
+    equipmentDrawnSize: null,
+    previewPosition: null,
+  }),
+
+  // ==================== History actions ====================
+
+  pushHistory: (equipment, cables) => {
+    set((state) => {
+      const newHistory = state.history.slice(0, state.historyIndex + 1);
+      newHistory.push({
+        equipment: [...equipment],
+        cables: cables ? [...cables] : [],
+      });
+      if (newHistory.length > MAX_HISTORY) {
+        newHistory.shift();
+      }
+      return {
+        history: newHistory,
+        historyIndex: Math.min(newHistory.length - 1, MAX_HISTORY - 1),
+      };
+    });
+  },
+
+  undo: () => {
+    const state = get();
+    if (state.historyIndex > 0) {
+      const prev = state.history[state.historyIndex - 1];
+      set({ historyIndex: state.historyIndex - 1 });
+      return prev;
+    }
+    return null;
+  },
+
+  redo: () => {
+    const state = get();
+    if (state.historyIndex < state.history.length - 1) {
+      const next = state.history[state.historyIndex + 1];
+      set({ historyIndex: state.historyIndex + 1 });
+      return next;
+    }
+    return null;
+  },
+
+  canUndo: () => get().historyIndex > 0,
+  canRedo: () => get().historyIndex < get().history.length - 1,
+
+  initHistory: (equipment, cables) => {
+    set({
+      history: [{
+        equipment: [...equipment],
+        cables: cables ? [...cables] : [],
+      }],
+      historyIndex: 0,
+    });
+  },
+
+  resetHistory: () => set({ history: [], historyIndex: -1 }),
 }));

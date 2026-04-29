@@ -5,7 +5,6 @@ import { findItemAt } from '../../../utils/floorplan/hitTestUtils';
 import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils/floorplan/dragSystem';
 import type { Position } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
-import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from './useEditorHistory';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
@@ -24,7 +23,8 @@ export function useCanvasEvents(
 ) {
   const { pushHistory } = useEditorHistory();
   const editorStore = useEditorStore;
-  const canvasStore = useCanvasStore;
+  // Canvas interaction state has been merged into editorStore (Tier D)
+  const canvasStore = useEditorStore;
   const lastHoverPos = useRef<{ x: number; y: number } | null>(null);
 
   const getCanvasCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
