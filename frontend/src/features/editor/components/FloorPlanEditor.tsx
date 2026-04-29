@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
+import type { MaterialCategory } from '../../../types/material';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore } from '../stores/editorStore';
@@ -9,6 +10,7 @@ import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
 import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
+import { useMaterialCategories } from '../../materials/hooks/useMaterialCategories';
 import { Toolbar } from './Toolbar';
 import { EditorSidebar } from './EditorSidebar';
 import { CanvasView } from './CanvasView';
@@ -110,6 +112,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
   const addRecent = useRecentMaterialsStore(s => s.addRecent);
+  const { data: equipmentCats } = useMaterialCategories('EQUIPMENT');
   // Reset editor store and snapshot on unmount
   useEffect(() => {
     return () => {
@@ -221,6 +224,16 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     const cs = useEditorStore.getState();
     const drawnWidth = cs.equipmentDrawnSize?.width ?? 60;
     const drawnHeight = cs.equipmentDrawnSize?.height ?? 100;
+
+    // Locate the active category in the equipment tree (root + children).
+    // by-type returns parents only with children embedded — flatten for lookup.
+    const flatten = (cats: MaterialCategory[]): MaterialCategory[] =>
+      cats.flatMap((c) => [c, ...(c.children ? flatten(c.children) : [])]);
+    const allCats: MaterialCategory[] = flatten(equipmentCats ?? []);
+    const activeCat = allCats.find((c) => c.id === cs.newEquipmentMaterialCategoryId);
+    const preset = activeCat?.rackPreset ?? null;
+    const isRackPreset = !!preset;
+
     const newEquip: FloorPlanEquipment = {
       id: generateTempId(),
       name: cs.newEquipmentName,
@@ -238,8 +251,55 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       displayColor: cs.newEquipmentDisplayColor,
       specParams: cs.newEquipmentSpecParams,
       specification: cs.newEquipmentSpecification,
+      // Phase 4: stamp totalU on parent rack from preset metadata
+      totalU: isRackPreset ? preset!.totalU : null,
     };
-    const newList = [...useEditorStore.getState().localEquipment, newEquip];
+
+    let newList: FloorPlanEquipment[] = [...useEditorStore.getState().localEquipment, newEquip];
+
+    // Phase 4: auto-expand rack preset modules into child Equipment.
+    // parentEquipmentId points at the parent's tempId; backend bulkUpdatePlan
+    // resolves tempId → real id in pass 2 (floor.service.ts:927~999) so this
+    // flows through the existing save path unchanged.
+    if (isRackPreset && preset!.modules.length > 0) {
+      for (const mod of preset!.modules) {
+        const childCat = allCats.find((c) => c.code === mod.materialCategoryCode);
+        if (!childCat) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[rack-preset] module category '${mod.materialCategoryCode}' not found — skipping`,
+          );
+          continue;
+        }
+        const child: FloorPlanEquipment = {
+          id: generateTempId(),
+          name: mod.name ?? childCat.name,
+          // Children are not rendered on the canvas (useCanvas.ts:69 filters
+          // out parentEquipmentId !== null); they only appear inside RackView.
+          // Position mirrors the parent so coords stay sensible if anyone ever
+          // unparents them.
+          positionX: cs.newEquipmentPosition.x,
+          positionY: cs.newEquipmentPosition.y,
+          width: Math.max(8, drawnWidth - 8),
+          height: 16,
+          rotation: 0,
+          frontImageUrl: null,
+          rearImageUrl: null,
+          description: null,
+          parentEquipmentId: newEquip.id,
+          startU: mod.slotU,
+          heightU: mod.heightU,
+          materialCategoryId: childCat.id,
+          materialCategoryCode: childCat.code,
+          materialCategoryName: childCat.name,
+          displayColor: childCat.displayColor ?? null,
+          specParams: {},
+          specification: mod.name ?? childCat.name,
+        };
+        newList = [...newList, child];
+      }
+    }
+
     setLocalEquipment(newList);
     pushHistory(newList);
 
