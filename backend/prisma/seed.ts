@@ -101,6 +101,54 @@ async function main() {
   // 자재 카테고리 시드 (63종)
   await seedMaterialCategories(prisma);
 
+  // 샘플 변전소 + 층 (개발 테스트용)
+  if (process.env.NODE_ENV === 'development') {
+    const substationFixtures = [
+      { hqName: '강원본부', branchName: '직할', subName: '춘천변전소', floors: ['B1F', '1F'] },
+      { hqName: '서울본부', branchName: '강남전력지사', subName: '강남변전소', floors: ['1F'] },
+      { hqName: '경기본부', branchName: '수원전력지사', subName: '수원변전소', floors: ['1F'] },
+    ];
+
+    for (const fix of substationFixtures) {
+      const hq = await prisma.headquarters.findFirst({ where: { name: fix.hqName } });
+      if (!hq) continue;
+      const branch = await prisma.branch.findFirst({
+        where: { headquartersId: hq.id, name: fix.branchName },
+      });
+      if (!branch) continue;
+
+      const sub = await prisma.substation.upsert({
+        where: { id: `sub-${fix.subName}` },
+        update: { name: fix.subName },
+        create: {
+          id: `sub-${fix.subName}`,
+          branchId: branch.id,
+          name: fix.subName,
+          createdById: admin.id,
+          updatedById: admin.id,
+        },
+      });
+
+      for (let i = 0; i < fix.floors.length; i++) {
+        const floorName = fix.floors[i];
+        await prisma.floor.upsert({
+          where: { substationId_name: { substationId: sub.id, name: floorName } },
+          update: { sortOrder: i, floorNumber: floorName },
+          create: {
+            substationId: sub.id,
+            name: floorName,
+            floorNumber: floorName,
+            sortOrder: i,
+            createdById: admin.id,
+            updatedById: admin.id,
+          },
+        });
+      }
+
+      console.log(`✅ ${fix.subName} (${fix.floors.length}개 층)`);
+    }
+  }
+
   console.log('🎉 Seeding completed!');
 }
 
