@@ -171,12 +171,58 @@ export interface FloorPlanDetail {
   majorGridSize: number;
   backgroundColor: string;
   scaleRatio?: number | null; // 1px = ?mm
+  backgroundDrawing?: BackgroundDrawing | null;
+  backgroundOpacity?: number;
   elements: FloorPlanElement[];
   equipment: FloorPlanEquipment[];
   cables: FloorPlanCable[];
   fiberPaths: FloorPlanFiberPath[];
   version: number;
   updatedAt: string;
+}
+
+// ============================================
+// 임포트된 배경 도면 (DWG/DXF에서 추출)
+// ============================================
+
+export interface BackgroundOutline {
+  /** 각 폴리라인은 [x1,y1,x2,y2,...] flat 배열 */
+  polylines: number[][];
+  color: string;
+  strokeWidth: number;
+}
+
+export interface BackgroundLabel {
+  x: number;
+  y: number;
+  text: string;
+  size: number;
+}
+
+export interface BackgroundDrawing {
+  source: { fileName: string; importedAt: string; fileType: 'DWG' | 'DXF' };
+  bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  scaleMmPerUnit: number;
+  outline: BackgroundOutline | null;
+  labels: BackgroundLabel[];
+  outlineLayers: string[];
+  labelLayers: string[];
+}
+
+export interface DwgLayerInfo {
+  name: string;
+  entityCount: number;
+  byType: Record<string, number>;
+  polylineRatio: number;
+  hasText: boolean;
+  outlineScore: number;
+}
+
+export interface DwgImportResult {
+  backgroundDrawing: BackgroundDrawing;
+  availableLayers: DwgLayerInfo[];
+  smartChoice: { outline: string[]; labels: string[] };
+  committed: boolean;
 }
 
 // API 요청 타입
