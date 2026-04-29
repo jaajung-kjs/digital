@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useEditorStore } from '../stores/editorStore';
-import { useRackPresets } from '../../rack/hooks/useRackPresets';
+import { useDeleteRackPreset, useRackPresets } from '../../rack/hooks/useRackPresets';
+import { EditRackPresetDialog } from '../../rack/components/EditRackPresetDialog';
+import { useIsAdmin } from '../../../stores/authStore';
 import {
   EQUIPMENT_KINDS,
   EQUIPMENT_KIND_INFO,
@@ -70,10 +72,20 @@ export function EditorSidebar() {
   );
 
   const { data: rackPresets } = useRackPresets();
+  const isAdmin = useIsAdmin();
+  const deletePreset = useDeleteRackPreset();
 
   const [equipmentOpen, setEquipmentOpen] = useState(SECTION_DEFAULT_OPEN);
   const [presetOpen, setPresetOpen] = useState(SECTION_DEFAULT_OPEN);
   const [cableOpen, setCableOpen] = useState(SECTION_DEFAULT_OPEN);
+
+  // P10: right-click context menu state for the preset list.
+  const [contextMenu, setContextMenu] = useState<{
+    preset: RackPreset;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [editTarget, setEditTarget] = useState<RackPreset | null>(null);
 
   // ───── Click handlers ─────
   const handleSelect = () => {
@@ -92,6 +104,28 @@ export function EditorSidebar() {
     setTool('equipment');
     setPreselectedCableDisplayGroup(null);
     setNewEquipmentPreset(preset);
+  };
+
+  // P10: right-click → context menu (admin only).
+  const handlePresetContextMenu = (e: React.MouseEvent, preset: RackPreset) => {
+    if (!isAdmin) return;
+    e.preventDefault();
+    setContextMenu({ preset, x: e.clientX, y: e.clientY });
+  };
+
+  const handleDeletePreset = async (preset: RackPreset) => {
+    setContextMenu(null);
+    if (!window.confirm(`"${preset.name}" 프리셋을 삭제하시겠습니까?`)) return;
+    try {
+      await deletePreset.mutateAsync(preset.id);
+    } catch (e: unknown) {
+      const msg =
+        (e as { response?: { data?: { message?: string } }; message?: string })
+          ?.response?.data?.message ??
+        (e as { message?: string })?.message ??
+        '삭제에 실패했습니다.';
+      window.alert(msg);
+    }
   };
 
   const handleCableGroupClick = (group: CableDisplayGroup) => {
@@ -157,6 +191,7 @@ export function EditorSidebar() {
                     preset={preset}
                     active={active}
                     onClick={() => handlePresetClick(preset)}
+                    onContextMenu={(e) => handlePresetContextMenu(e, preset)}
                   />
                 );
               })
@@ -205,6 +240,49 @@ export function EditorSidebar() {
           </div>
         </CollapsibleSection>
       </nav>
+
+      {/* P10: right-click context menu for user-saved presets */}
+      {contextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu(null);
+            }}
+          />
+          <div
+            className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[140px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-50"
+              onClick={() => {
+                setEditTarget(contextMenu.preset);
+                setContextMenu(null);
+              }}
+            >
+              수정
+            </button>
+            <button
+              type="button"
+              className="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50"
+              onClick={() => handleDeletePreset(contextMenu.preset)}
+            >
+              삭제
+            </button>
+          </div>
+        </>
+      )}
+
+      {editTarget && (
+        <EditRackPresetDialog
+          preset={editTarget}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
     </aside>
   );
 }
@@ -314,14 +392,17 @@ function PresetLeaf({
   preset,
   active,
   onClick,
+  onContextMenu,
 }: {
   preset: RackPreset;
   active: boolean;
   onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }) {
   return (
     <button
       onClick={onClick}
+      onContextMenu={onContextMenu}
       title={preset.description ?? `${preset.totalU}U 랙 — 클릭 후 캔버스에 클릭하면 즉시 배치`}
       className={`w-full text-left px-2 py-1.5 flex items-center gap-2 rounded text-sm transition-colors ${
         active
