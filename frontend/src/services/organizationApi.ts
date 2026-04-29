@@ -1,5 +1,5 @@
 import { api } from '../utils/api';
-import type { HeadquartersItem, BranchItem, BranchSubstationItem, FloorListItem, RoomItem } from '../types';
+import type { HeadquartersItem, BranchItem, BranchSubstationItem, FloorListItem } from '../types';
 import type { TreeNodeData, NodeType } from '../types/organization';
 
 export const organizationApi = {
@@ -73,23 +73,6 @@ export const organizationApi = {
     await api.delete(`/floors/${id}`);
   },
 
-  // ── Rooms ──
-  listRooms: async (floorId: string): Promise<RoomItem[]> => {
-    const { data } = await api.get<{ data: RoomItem[] }>(`/floors/${floorId}/rooms`);
-    return data.data;
-  },
-  createRoom: async (floorId: string, payload: { name: string }): Promise<RoomItem> => {
-    const { data } = await api.post<{ data: RoomItem }>(`/floors/${floorId}/rooms`, payload);
-    return data.data;
-  },
-  renameRoom: async (id: string, payload: { name: string }): Promise<RoomItem> => {
-    const { data } = await api.patch<{ data: RoomItem }>(`/floors/${id}`, payload);
-    return data.data;
-  },
-  deleteRoom: async (id: string): Promise<void> => {
-    await api.delete(`/floors/${id}`);
-  },
-
   // ── Reorder ──
   reorder: async (type: NodeType, items: { id: string; sortOrder: number }[]): Promise<void> => {
     await api.patch('/organizations/reorder', { type, items });
@@ -116,18 +99,11 @@ export async function fetchChildNodes(node: TreeNodeData): Promise<TreeNodeData[
   }
   if (node.type === 'substation') {
     const floors = await organizationApi.listFloors(node.id);
+    // Floor는 leaf — 클릭으로 에디터 진입, 자식 펼치지 않음
     return floors.map((f) => ({
       id: f.id, name: f.name, type: 'floor' as NodeType,
-      parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-      meta: { floorNumber: f.floorNumber, roomCount: f.roomCount },
-    }));
-  }
-  if (node.type === 'floor') {
-    const rooms = await organizationApi.listRooms(node.id);
-    return rooms.map((r) => ({
-      id: r.id, name: r.name, type: 'room' as NodeType,
       parentId: node.id, children: [], childrenLoaded: true, expanded: false,
-      meta: {},
+      meta: { floorNumber: f.floorNumber },
     }));
   }
   return [];

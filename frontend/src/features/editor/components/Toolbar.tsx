@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
-import type { FloorDetailLegacy } from '../../../types/substation';
+import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
@@ -22,7 +22,7 @@ import {
 } from '../../../utils/floorplan/elementSystem';
 
 interface ToolbarProps {
-  room: FloorDetailLegacy | undefined;
+  floor: FloorDetail | undefined;
   floorPlan: FloorPlanDetail | undefined;
   isAdmin: boolean;
   handleSave: () => void;
@@ -31,7 +31,7 @@ interface ToolbarProps {
   onToggleSettings?: () => void;
 }
 
-export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory, onToggleSettings }: ToolbarProps) {
+export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory, onToggleSettings }: ToolbarProps) {
   const {
     selectedElement, localElements, localEquipment, hasChanges, showLengths,
     setLocalElements, setHasChanges, setShowLengths,
@@ -48,7 +48,7 @@ export function Toolbar({ room, floorPlan, isAdmin, handleSave, isSaving, onTogg
           </svg>
         </Link>
         <div>
-          <h1 className="text-lg font-semibold text-gray-900">{room?.name} 평면도</h1>
+          <h1 className="text-lg font-semibold text-gray-900">{floor?.name} 평면도</h1>
           {floorPlan && <p className="text-xs text-gray-500">버전 {floorPlan.version}</p>}
         </div>
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type { FloorPlanDetail, FloorPlanCable, UpdateFloorPlanRequest } from '../../../types/floorPlan';
-import type { FloorDetailLegacy } from '../../../types/substation';
+import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
@@ -63,10 +63,10 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   const { initHistory } = useHistoryStore();
   const { fitToContent, loadViewportState, saveViewportState } = useViewport(floorId);
 
-  const { data: room, isLoading: roomLoading } = useQuery({
-    queryKey: ['room', floorId],
+  const { data: floor, isLoading: floorLoading } = useQuery({
+    queryKey: ['floor', floorId],
     queryFn: async () => {
-      const response = await api.get<{ data: FloorDetailLegacy }>(`/floors/${floorId}`);
+      const response = await api.get<{ data: FloorDetail }>(`/floors/${floorId}`);
       return response.data.data;
     },
     enabled: !!floorId,
@@ -395,9 +395,9 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   const clearSaveError = useCallback(() => setSaveError(null), []);
 
   return {
-    room,
+    floor,
     floorPlan,
-    roomLoading,
+    floorLoading,
     planLoading,
     planError,
     saveError,

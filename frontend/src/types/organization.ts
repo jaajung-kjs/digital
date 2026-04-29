@@ -1,4 +1,5 @@
-export type NodeType = 'headquarters' | 'branch' | 'substation' | 'floor' | 'room';
+// Floor\uAC00 \uB3C4\uBA74(canvas) \uB2E8\uC704 \u2014 \uD2B8\uB9AC leaf
+export type NodeType = 'headquarters' | 'branch' | 'substation' | 'floor';
 
 export interface TreeNodeData {
   id: string;
@@ -37,18 +38,9 @@ export interface BranchSubstationItem {
   floorCount: number;
 }
 
-export interface RoomItem {
-  id: string;
-  floorId: string;
-  name: string;
-  sortOrder: number;
-  isActive: boolean;
-}
-
 export const NODE_ICONS: Record<NodeType, string> = {
   headquarters: '\uD83C\uDFE2',
   branch: '\uD83C\uDFEC',
   substation: '\u26A1',
   floor: '\uD83D\uDCD0',
-  room: '\uD83D\uDEAA',
 };

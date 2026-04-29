@@ -49,7 +49,7 @@ export function TreePanel() {
   const handleClick = useCallback(
     async (node: TreeNodeData) => {
       selectNode(node.id, node.type);
-      if (node.type !== 'room') {
+      if (node.type !== 'floor') {
         if (!node.childrenLoaded) {
           await loadChildren(node);
         } else {
@@ -63,7 +63,7 @@ export function TreePanel() {
 
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
-      if (node.type === 'room') {
+      if (node.type === 'floor') {
         navigate(`/floors/${node.id}/plan`);
       }
     },
@@ -125,12 +125,11 @@ export function TreePanel() {
   }, [dragId, dropTarget, findNode, roots, reorderChildren]);
 
   const hasChildren = (node: TreeNodeData) => {
-    if (node.type === 'room') return false;
+    if (node.type === 'floor') return false; // Floor는 leaf
     if (node.childrenLoaded) return node.children.length > 0;
     if (node.type === 'headquarters') return (node.meta?.branchCount ?? 0) > 0;
     if (node.type === 'branch') return (node.meta?.substationCount ?? 0) > 0;
     if (node.type === 'substation') return (node.meta?.floorCount ?? 0) > 0;
-    if (node.type === 'floor') return (node.meta?.roomCount ?? 0) > 0;
     return true;
   };
 
