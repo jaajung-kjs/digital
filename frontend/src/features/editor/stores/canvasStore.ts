@@ -3,23 +3,13 @@ import type { DragSession } from '../../../utils/floorplan/dragSystem';
 import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 
 interface CanvasStoreState {
-  // Polyline (conduit/tray) drawing state
-  isDrawingLine: boolean;
-  linePoints: [number, number][];
-  linePreviewEnd: [number, number] | null;
-
   // Equipment drawing state (drag-to-draw)
   isDrawingEquipment: boolean;
   equipmentStart: { x: number; y: number } | null;
   equipmentPreviewEnd: { x: number; y: number } | null;
   equipmentDrawnSize: { width: number; height: number } | null;
 
-  // Text editing state
-  isEditingText: boolean;
-  textInputPosition: { x: number; y: number } | null;
-  textInputValue: string;
-
-  // Placement preview position (for text, equipment, pullbox)
+  // Placement preview position (for equipment)
   previewPosition: { x: number; y: number } | null;
 
   // Drag state
@@ -45,25 +35,13 @@ interface CanvasStoreState {
   newEquipmentDisplayColor: string | null;
   newEquipmentSpecParams: Record<string, unknown> | null;
   newEquipmentSpecification: string | null;
-
-  // Conduit/tray/pullbox material selection
-  infraMaterialModalOpen: boolean;
-  infraMaterialElementId: string | null;
 }
 
 interface CanvasStoreActions {
-  setIsDrawingLine: (v: boolean) => void;
-  setLinePoints: (pts: [number, number][]) => void;
-  setLinePreviewEnd: (end: [number, number] | null) => void;
-
   setIsDrawingEquipment: (v: boolean) => void;
   setEquipmentStart: (s: { x: number; y: number } | null) => void;
   setEquipmentPreviewEnd: (e: { x: number; y: number } | null) => void;
   setEquipmentDrawnSize: (s: { width: number; height: number } | null) => void;
-
-  setIsEditingText: (v: boolean) => void;
-  setTextInputPosition: (p: { x: number; y: number } | null) => void;
-  setTextInputValue: (v: string) => void;
 
   setPreviewPosition: (p: { x: number; y: number } | null) => void;
 
@@ -90,24 +68,15 @@ interface CanvasStoreActions {
   ) => void;
   resetNewEquipmentMaterial: () => void;
 
-  setInfraMaterialModalOpen: (v: boolean) => void;
-  setInfraMaterialElementId: (id: string | null) => void;
-
   closeAllModals: () => void;
   resetDrawingState: () => void;
 }
 
 export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set) => ({
-  isDrawingLine: false,
-  linePoints: [],
-  linePreviewEnd: null,
   isDrawingEquipment: false,
   equipmentStart: null,
   equipmentPreviewEnd: null,
   equipmentDrawnSize: null,
-  isEditingText: false,
-  textInputPosition: null,
-  textInputValue: '',
   previewPosition: null,
   dragSession: null,
   isPanning: false,
@@ -125,19 +94,11 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   newEquipmentDisplayColor: null,
   newEquipmentSpecParams: null,
   newEquipmentSpecification: null,
-  infraMaterialModalOpen: false,
-  infraMaterialElementId: null,
 
-  setIsDrawingLine: (isDrawingLine) => set({ isDrawingLine }),
-  setLinePoints: (linePoints) => set({ linePoints }),
-  setLinePreviewEnd: (linePreviewEnd) => set({ linePreviewEnd }),
   setIsDrawingEquipment: (isDrawingEquipment) => set({ isDrawingEquipment }),
   setEquipmentStart: (equipmentStart) => set({ equipmentStart }),
   setEquipmentPreviewEnd: (equipmentPreviewEnd) => set({ equipmentPreviewEnd }),
   setEquipmentDrawnSize: (equipmentDrawnSize) => set({ equipmentDrawnSize }),
-  setIsEditingText: (isEditingText) => set({ isEditingText }),
-  setTextInputPosition: (textInputPosition) => set({ textInputPosition }),
-  setTextInputValue: (textInputValue) => set({ textInputValue }),
   setPreviewPosition: (previewPosition) => set({ previewPosition }),
   setDragSession: (dragSession) => set({ dragSession }),
   setIsPanning: (isPanning) => set({ isPanning }),
@@ -172,27 +133,16 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
       newEquipmentSpecification: null,
     }),
 
-  setInfraMaterialModalOpen: (infraMaterialModalOpen) => set({ infraMaterialModalOpen }),
-  setInfraMaterialElementId: (infraMaterialElementId) => set({ infraMaterialElementId }),
-
   closeAllModals: () => set({
     equipmentModalOpen: false,
     pasteEquipmentModalOpen: false,
-    infraMaterialModalOpen: false,
-    infraMaterialElementId: null,
   }),
 
   resetDrawingState: () => set({
-    isDrawingLine: false,
-    linePoints: [],
-    linePreviewEnd: null,
     isDrawingEquipment: false,
     equipmentStart: null,
     equipmentPreviewEnd: null,
     equipmentDrawnSize: null,
-    isEditingText: false,
-    textInputPosition: null,
-    textInputValue: '',
     previewPosition: null,
   }),
 }));

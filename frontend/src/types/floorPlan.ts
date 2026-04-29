@@ -206,4 +206,4 @@ export interface EquipmentItem {
 }
 
 // 에디터 도구
-export type EditorTool = 'select' | 'equipment' | 'cable' | 'delete';
+export type EditorTool = 'select' | 'equipment' | 'cable';
