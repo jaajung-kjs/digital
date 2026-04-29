@@ -4,7 +4,6 @@ import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
-import { useClipboard } from '../hooks/useClipboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
@@ -172,8 +171,31 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   } = useFloorPlanData(floorId, containerRef);
 
   useEditorKeyboard(handleSave, floorId, containerRef);
-  const { handlePasteEquipment } = useClipboard();
   const { pushHistory } = useEditorHistory();
+
+  const handlePasteEquipment = useCallback(() => {
+    const es = useEditorStore.getState();
+    const cs = useCanvasStore.getState();
+    if (!es.clipboard || es.clipboard.type !== 'equipment') return;
+
+    const original = es.clipboard.data as FloorPlanEquipment;
+    const newEquipment: FloorPlanEquipment = {
+      ...original,
+      id: generateTempId(),
+      name: cs.pasteEquipmentName,
+      positionX: original.positionX + 20,
+      positionY: original.positionY + 20,
+    };
+    const newEquipmentList = [...es.localEquipment, newEquipment];
+    es.setLocalEquipment(newEquipmentList);
+    pushHistory(newEquipmentList);
+    cs.setPasteEquipmentModalOpen(false);
+    cs.setPasteEquipmentName('');
+    es.setHasChanges(true);
+    es.setSelectedEquipment(newEquipment);
+    es.setSelectedIds([newEquipment.id]);
+    es.setClipboard({ type: 'equipment', data: newEquipment });
+  }, [pushHistory]);
 
   const resetEditor = useEditorStore(s => s.resetEditor);
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);

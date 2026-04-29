@@ -15,7 +15,7 @@ import { useCableHitTestStore, pointToPolylineDistance } from '../../connections
 
 /**
  * Mouse/wheel event handlers for the canvas.
- * Tools: select, equipment, cable, delete.
+ * Tools: select, equipment, cable. (Delete via Delete key on selection.)
  */
 export function useCanvasEvents(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -352,16 +352,6 @@ export function useCanvasEvents(
           }
           cs.setIsDrawingEquipment(false);
           cs.setEquipmentStart(null);
-        }
-        break;
-      }
-
-      case 'delete': {
-        const found = findItemAt(x, y, null, localEquipment);
-        if (found && found.type === 'equipment') {
-          editorStore.getState().deleteEquipmentWithCascade(found.item.id);
-          pushHistory(editorStore.getState().localEquipment);
-          editorStore.getState().setHasChanges(true);
         }
         break;
       }

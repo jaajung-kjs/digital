@@ -69,7 +69,6 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
           isPanning ? 'cursor-grabbing' :
           isSpacePressed ? 'cursor-grab' :
           tool === 'select' ? 'cursor-default' :
-          tool === 'delete' ? 'cursor-not-allowed' :
           'cursor-crosshair'
         }`}
       />
