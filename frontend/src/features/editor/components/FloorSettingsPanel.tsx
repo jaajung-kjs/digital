@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEditorStore } from '../stores/editorStore';
 import { dwgImportApi } from '../../../services/dwgImportApi';
 import { DwgImportModal } from './DwgImportModal';
@@ -7,6 +7,7 @@ import type { FloorPlanDetail } from '../../../types/floorPlan';
 
 interface FloorSettingsPanelProps {
   floorId: string | undefined;
+  floorPlan: FloorPlanDetail | undefined;
   onClose: () => void;
 }
 
@@ -15,7 +16,7 @@ interface FloorSettingsPanelProps {
  * User inputs "grid 1칸 = ?m" and we derive scaleRatio (mm/px).
  * Formula: scaleRatio = (metersPerGrid * 1000) / gridSize
  */
-export function FloorSettingsPanel({ floorId, onClose }: FloorSettingsPanelProps) {
+export function FloorSettingsPanel({ floorId, floorPlan, onClose }: FloorSettingsPanelProps) {
   const gridSize = useEditorStore((s) => s.gridSize);
   const scaleRatio = useEditorStore((s) => s.scaleRatio);
   const setScaleRatio = useEditorStore((s) => s.setScaleRatio);
@@ -23,11 +24,6 @@ export function FloorSettingsPanel({ floorId, onClose }: FloorSettingsPanelProps
   const queryClient = useQueryClient();
   const [showImportModal, setShowImportModal] = useState(false);
 
-  // Read backgroundDrawing state from React Query cache (already loaded by useFloorPlanData)
-  const floorPlan = useQuery<FloorPlanDetail>({
-    queryKey: ['floorPlan', floorId],
-    enabled: false, // don't refetch — read cached
-  }).data;
   const hasBackground = !!floorPlan?.backgroundDrawing;
   const opacity = floorPlan?.backgroundOpacity ?? 0.3;
   const [opacityInput, setOpacityInput] = useState(opacity);
