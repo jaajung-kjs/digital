@@ -546,7 +546,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               )}
 
               {showSettings && !snapshotActive && (
-                <FloorSettingsPanel floorId={floorId} onClose={() => setShowSettings(false)} />
+                <FloorSettingsPanel floorId={floorId} floorPlan={floorPlan} onClose={() => setShowSettings(false)} />
               )}
 
               {floorPlan && viewMode === 'edit-2d' && !snapshotActive && (
