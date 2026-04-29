@@ -57,7 +57,7 @@ export function EmptyStateGuide({ floorPlan }: EmptyStateGuideProps) {
               <span className="mr-1">🏗️</span>
               <span className="font-medium">설비 배치</span>
               <span className="block text-xs text-gray-500 mt-0.5">
-                왼쪽 [설비] 메뉴에서 카테고리 선택 후 캔버스에 배치
+                왼쪽 [설비]에서 종류 선택 후 캔버스에 드래그 — [랙 프리셋]은 클릭 한 번으로 배치
               </span>
             </div>
           </li>
@@ -69,7 +69,7 @@ export function EmptyStateGuide({ floorPlan }: EmptyStateGuideProps) {
               <span className="mr-1">🔌</span>
               <span className="font-medium">케이블 연결</span>
               <span className="block text-xs text-gray-500 mt-0.5">
-                왼쪽 [케이블] 메뉴에서 종류 선택 후 설비 두 개 연결
+                왼쪽 [케이블]에서 그룹 선택 후 두 객체를 클릭 — 랙/OFD는 모듈/포트 선택 모달이 열립니다
               </span>
             </div>
           </li>

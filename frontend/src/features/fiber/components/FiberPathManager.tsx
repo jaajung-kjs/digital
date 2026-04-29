@@ -39,7 +39,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
     queryKey: ['equipment', 'ofd-list'],
     queryFn: async () => {
       const { data } = await api.get<{ data: OfdEquipment[] }>('/equipment', {
-        params: { materialCategoryCode: 'EQP-OFD' },
+        params: { kind: 'OFD' },
       });
       return data.data;
     },
@@ -49,7 +49,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
   // Merge unsaved OFD equipment from local store
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const unsavedOfds: OfdEquipment[] = localEquipment
-    .filter((eq) => isTempId(eq.id) && eq.materialCategoryCode?.startsWith('EQP-OFD'))
+    .filter((eq) => isTempId(eq.id) && eq.kind === 'OFD')
     .map((eq) => ({ id: eq.id, name: eq.name }));
 
   const mergedOfdList = [

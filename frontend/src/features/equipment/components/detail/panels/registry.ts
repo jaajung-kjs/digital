@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { DetailPanelKind } from '../../../../../types/material';
+import type { DetailPanelKind } from '../../../../../types/equipmentKind';
 import { GenericEquipmentPanel } from './GenericEquipmentPanel';
 import { RackEquipmentPanel } from './RackEquipmentPanel';
 import { OfdEquipmentPanel } from './OfdEquipmentPanel';

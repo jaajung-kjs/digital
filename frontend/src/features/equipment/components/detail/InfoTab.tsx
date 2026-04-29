@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { useEditorStore } from '../../../editor/stores/editorStore';
-import { MaterialPicker } from '../../../materials/components/MaterialPicker';
-import { useRecentMaterialsStore } from '../../../materials/stores/recentMaterialsStore';
+import { EQUIPMENT_KIND_INFO } from '../../../../types/equipmentKind';
 import type { EquipmentDetail } from './types';
 
 /* ================================================================
-   Info Tab
+   Info Tab — P9: kind-driven, no MaterialPicker.
    ================================================================ */
 
 export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly?: boolean }) {
   const [isEditing, setIsEditing] = useState(false);
+
+  // Lookup the local store's row to get `kind` (EquipmentDetail doesn't carry it).
+  const localEquipment = useEditorStore((s) => s.localEquipment);
+  const localEq = localEquipment.find((e) => e.id === equipment.id);
+  const kindLabel = localEq ? EQUIPMENT_KIND_INFO[localEq.kind]?.label ?? localEq.kind : '-';
 
   if (isEditing && !readOnly) {
     return <EditForm equipment={equipment} onClose={() => setIsEditing(false)} />;
@@ -20,13 +24,14 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
 
   const fields: { label: string; value: string }[] = [
     { label: '이름', value: equipment.name },
-    { label: '분류', value: equipment.specification
-      ? equipment.specification
-      : (equipment.materialCategoryName ?? equipment.materialCategoryCode ?? '-') },
-    { label: '모델', value: equipment.model || '-' },
-    { label: '제조사', value: equipment.manufacturer || '-' },
+    { label: '종류', value: kindLabel },
     { label: '담당자', value: equipment.manager || '-' },
-    { label: '설치일', value: equipment.installDate ? new Date(equipment.installDate).toLocaleDateString('ko-KR') : '-' },
+    {
+      label: '설치일',
+      value: equipment.installDate
+        ? new Date(equipment.installDate).toLocaleDateString('ko-KR')
+        : '-',
+    },
     { label: '크기 (px)', value: `${widthCm} x ${heightCm}` },
     { label: '설명', value: equipment.description || '-' },
   ];
@@ -59,24 +64,14 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
   );
 }
 
-/* --- Edit Form --- */
+/* --- Edit Form — P9: name/manager/description only. --- */
 
 function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose: () => void }) {
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const setLocalEquipment = useEditorStore((s) => s.setLocalEquipment);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
-  const recentEquipment = useRecentMaterialsStore((s) => s.recentEquipment);
-  const addRecent = useRecentMaterialsStore((s) => s.addRecent);
 
   const [editName, setEditName] = useState(equipment.name);
-  const [editMaterialCategoryId, setEditMaterialCategoryId] = useState(equipment.materialCategoryId ?? null);
-  const [editMaterialCategoryCode, setEditMaterialCategoryCode] = useState(equipment.materialCategoryCode ?? null);
-  const [editMaterialCategoryName, setEditMaterialCategoryName] = useState(equipment.materialCategoryName ?? null);
-  const [editDisplayColor, setEditDisplayColor] = useState(equipment.displayColor ?? null);
-  const [editSpecification, setEditSpecification] = useState(equipment.specification ?? null);
-  const [editSpecParams, setEditSpecParams] = useState<Record<string, unknown>>(equipment.specParams as Record<string, unknown> ?? {});
-  const [editModel, setEditModel] = useState(equipment.model ?? '');
-  const [editManufacturer, setEditManufacturer] = useState(equipment.manufacturer ?? '');
   const [editManager, setEditManager] = useState(equipment.manager ?? '');
   const [editDescription, setEditDescription] = useState(equipment.description ?? '');
 
@@ -86,33 +81,13 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
         ? {
             ...eq,
             name: editName,
-            materialCategoryId: editMaterialCategoryId,
-            materialCategoryCode: editMaterialCategoryCode,
-            materialCategoryName: editMaterialCategoryName,
-            displayColor: editDisplayColor,
-            specification: editSpecification,
-            specParams: editSpecParams,
-            description: editDescription || null,
-            model: editModel || null,
-            manufacturer: editManufacturer || null,
             manager: editManager || null,
+            description: editDescription || null,
           }
-        : eq
+        : eq,
     );
     setLocalEquipment(updated);
     setHasChanges(true);
-
-    // C1: Track recent material usage after edit
-    if (editMaterialCategoryId && editMaterialCategoryCode && editSpecification) {
-      addRecent('equipment', {
-        categoryId: editMaterialCategoryId,
-        categoryCode: editMaterialCategoryCode,
-        categoryName: editMaterialCategoryName ?? editSpecification,
-        specParams: editSpecParams,
-        specification: editSpecification,
-      });
-    }
-
     onClose();
   };
 
@@ -120,52 +95,45 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
     <div className="p-4 space-y-3">
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">이름 *</label>
-        <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400" />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">자재 분류</label>
-        <MaterialPicker
-          categoryType="EQUIPMENT"
-          value={editMaterialCategoryId ? { categoryId: editMaterialCategoryId, specParams: editSpecParams } : null}
-          onChange={({ categoryId, categoryCode, categoryName, displayColor, specParams, specification }) => {
-            setEditMaterialCategoryId(categoryId);
-            setEditMaterialCategoryCode(categoryCode);
-            setEditMaterialCategoryName(categoryName);
-            setEditDisplayColor(displayColor);
-            setEditSpecification(specification);
-            setEditSpecParams(specParams);
-          }}
-          recentItems={recentEquipment}
+        <input
+          type="text"
+          value={editName}
+          onChange={(e) => setEditName(e.target.value)}
+          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400"
         />
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">모델</label>
-        <input type="text" value={editModel} onChange={(e) => setEditModel(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400" placeholder="선택 사항" />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">제조사</label>
-        <input type="text" value={editManufacturer} onChange={(e) => setEditManufacturer(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400" placeholder="선택 사항" />
-      </div>
-      <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">담당자</label>
-        <input type="text" value={editManager} onChange={(e) => setEditManager(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400" placeholder="선택 사항" />
+        <input
+          type="text"
+          value={editManager}
+          onChange={(e) => setEditManager(e.target.value)}
+          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400"
+          placeholder="선택 사항"
+        />
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">설명</label>
-        <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400 resize-none" rows={3} placeholder="선택 사항" />
+        <textarea
+          value={editDescription}
+          onChange={(e) => setEditDescription(e.target.value)}
+          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400 resize-none"
+          rows={3}
+          placeholder="선택 사항"
+        />
       </div>
       <div className="flex gap-2 pt-1">
-        <button onClick={handleApply} disabled={!editName.trim()}
-          className="flex-1 text-sm px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
+        <button
+          onClick={handleApply}
+          disabled={!editName.trim()}
+          className="flex-1 text-sm px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+        >
           적용
         </button>
-        <button onClick={onClose}
-          className="flex-1 text-sm px-3 py-2 border border-gray-300 text-gray-600 rounded hover:bg-gray-50">
+        <button
+          onClick={onClose}
+          className="flex-1 text-sm px-3 py-2 border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+        >
           취소
         </button>
       </div>

@@ -1,35 +1,24 @@
 import { useEffect, useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
-import { useMaterialCategories } from '../../materials/hooks/useMaterialCategories';
 import { isTempId } from '../../../utils/idHelpers';
 import {
   resolveDetailPanel,
   type PanelProps,
 } from '../../equipment/components/detail/panels/registry';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/panels/GenericEquipmentPanel';
-import type { DetailPanelKind, MaterialCategory } from '../../../types/material';
+import {
+  EQUIPMENT_KIND_INFO,
+  type DetailPanelKind,
+} from '../../../types/equipmentKind';
 
 interface EquipmentDetailPanelProps extends PanelProps {}
 
 /**
- * Flatten a parents-only `by-type` response (with nested `children`) into one
- * lookup-friendly map of MaterialCategory by id.
+ * P9: detail panel routing now derives from `Equipment.kind` directly —
+ * no MaterialCategory lookup. RACK keeps the wider 480px layout to fit the
+ * U-slot grid; everything else uses the standard 360px panel.
  */
-function flattenMaterialCategories(
-  list: MaterialCategory[] | undefined,
-): Map<string, MaterialCategory> {
-  const map = new Map<string, MaterialCategory>();
-  if (!list) return map;
-  for (const parent of list) {
-    map.set(parent.id, parent);
-    for (const child of parent.children ?? []) {
-      map.set(child.id, child);
-    }
-  }
-  return map;
-}
-
 export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
   const snapshotActive = useSnapshotStore((s) => s.active);
@@ -42,22 +31,13 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
   const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
   const localEq = localEquipment.find((e) => e.id === equipmentId);
 
-  // Resolve detail panel kind via MaterialCategory metadata
-  const { data: equipmentCats } = useMaterialCategories('EQUIPMENT');
-  const catKind = useMemo<DetailPanelKind | null>(() => {
-    const map = flattenMaterialCategories(equipmentCats);
-    const cat = localEq?.materialCategoryId ? map.get(localEq.materialCategoryId) : undefined;
-    if (cat?.detailPanelKind) return cat.detailPanelKind;
-    // Fallback: rack via legacy code prefix
-    if (localEq?.materialCategoryCode?.startsWith('EQP-RACK')) return 'rack';
-    return null;
-  }, [equipmentCats, localEq?.materialCategoryId, localEq?.materialCategoryCode]);
+  const detailKind = useMemo<DetailPanelKind | null>(() => {
+    if (!localEq) return null;
+    return EQUIPMENT_KIND_INFO[localEq.kind]?.detailPanelKind ?? null;
+  }, [localEq]);
 
-  const PanelComponent = useMemo(() => resolveDetailPanel(catKind), [catKind]);
-  const isRackPanel = catKind === 'rack';
-
-  // Parent rack — for back button
-  const parentEquipmentId = localEq?.parentEquipmentId ?? null;
+  const PanelComponent = useMemo(() => resolveDetailPanel(detailKind), [detailKind]);
+  const isRackPanel = detailKind === 'rack';
 
   // I35: ESC to close panel (when no modal/lightbox is open)
   useEffect(() => {
@@ -89,23 +69,12 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          {parentEquipmentId && (
-            <button
-              onClick={() => setDetailPanelEquipmentId(parentEquipmentId)}
-              className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors shrink-0"
-              title="랙으로 돌아가기"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-          )}
           <h3 className="text-sm font-bold text-gray-900 truncate">
             {!isTemp && isLoading ? '로딩 중...' : equipment?.name ?? '설비 상세'}
           </h3>
-          {equipment && (
+          {localEq && (
             <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-              {localEq?.materialCategoryName ?? localEq?.materialCategoryCode ?? '-'}
+              {EQUIPMENT_KIND_INFO[localEq.kind]?.label ?? localEq.kind}
             </span>
           )}
         </div>

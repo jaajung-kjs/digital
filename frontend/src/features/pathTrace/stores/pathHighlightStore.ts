@@ -90,7 +90,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
 
       // Normal mode: fetch saved fiber paths from API
       const ofdEquipment = localEquipment.filter(
-        (e) => e.materialCategoryCode === 'EQP-OFD' && !isTempId(e.id),
+        (e) => e.kind === 'OFD' && !isTempId(e.id),
       );
       const savedFiberPaths: FiberPathDetail[] = [];
       const seenFpIds = new Set<string>();
