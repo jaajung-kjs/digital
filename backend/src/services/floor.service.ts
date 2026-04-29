@@ -66,8 +66,10 @@ interface PlanEquipmentDTO {
 
 interface PlanCableDTO {
   id: string;
-  source: { equipmentId: string | null; moduleId: string | null };
-  target: { equipmentId: string | null; moduleId: string | null };
+  sourceEquipmentId: string | null;
+  sourceModuleId: string | null;
+  targetEquipmentId: string | null;
+  targetModuleId: string | null;
   cableType: string;
   label: string | null;
   length: number | null;
@@ -346,8 +348,10 @@ class FloorService {
       })),
       cables: cables.map((c) => ({
         id: c.id,
-        source: { equipmentId: c.sourceEquipmentId, moduleId: c.sourceModuleId },
-        target: { equipmentId: c.targetEquipmentId, moduleId: c.targetModuleId },
+        sourceEquipmentId: c.sourceEquipmentId,
+        sourceModuleId: c.sourceModuleId,
+        targetEquipmentId: c.targetEquipmentId,
+        targetModuleId: c.targetModuleId,
         cableType: c.cableType,
         label: c.label,
         length: c.length,
@@ -1201,8 +1205,10 @@ async function captureFloorSnapshot(
     },
     cables: cables.map((c) => ({
       id: c.id,
-      source: { equipmentId: c.sourceEquipmentId, moduleId: c.sourceModuleId },
-      target: { equipmentId: c.targetEquipmentId, moduleId: c.targetModuleId },
+      sourceEquipmentId: c.sourceEquipmentId,
+      sourceModuleId: c.sourceModuleId,
+      targetEquipmentId: c.targetEquipmentId,
+      targetModuleId: c.targetModuleId,
       cableType: c.cableType,
       label: c.label,
       length: c.length,

@@ -99,6 +99,7 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
   const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
 
   const editorCables = useEditorStore((s) => s.localCables);
+  const editorRackModules = useEditorStore((s) => s.localRackModules);
 
   const highlightActive = usePathHighlightStore((s) => s.active);
   const highlightedNodeIds = usePathHighlightStore((s) => s.highlightedNodeIds);
@@ -115,13 +116,29 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
   const connections = snapshotActive ? snapshotCables : null;
   const cables = snapshotActive ? null : editorCables;
 
+  // 모듈 endpoint cable 의 좌표는 부모 랙 좌표로 fallback (도면에서는 모듈을 별도로
+  // 그리지 않음). cable 의 source/targetEquipmentId 자리에 모듈 id 가 들어와도 lookup
+  // 성공하도록 module id → 부모 rack 좌표 매핑을 같은 맵에 둔다.
   const equipmentPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; width: number; height: number }>();
     for (const eq of localEquipment) {
       map.set(eq.id, { x: eq.positionX, y: eq.positionY, width: eq.width, height: eq.height });
     }
+    if (!snapshotActive) {
+      const rackById = new Map(localEquipment.map((eq) => [eq.id, eq]));
+      for (const m of editorRackModules) {
+        const parent = rackById.get(m.rackEquipmentId);
+        if (!parent) continue;
+        map.set(m.id, {
+          x: parent.positionX,
+          y: parent.positionY,
+          width: parent.width,
+          height: parent.height,
+        });
+      }
+    }
     return map;
-  }, [localEquipment]);
+  }, [localEquipment, editorRackModules, snapshotActive]);
 
   const renderableConnections = useMemo(() => {
     const all = snapshotActive
