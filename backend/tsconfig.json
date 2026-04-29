@@ -19,7 +19,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@mlightcad/libredwg-web": ["../node_modules/@mlightcad/libredwg-web/lib/index"]
     }
   },
   "include": ["src/**/*"],
