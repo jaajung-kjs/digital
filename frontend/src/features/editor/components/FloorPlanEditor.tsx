@@ -9,7 +9,6 @@ import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
-import { MaterialPicker } from '../../materials/components/MaterialPicker';
 import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
 import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 import { Toolbar } from './Toolbar';
@@ -17,111 +16,18 @@ import { ToolPanel } from './ToolPanel';
 import { CanvasView } from './CanvasView';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
-import { calculatePathLength } from '../../../utils/cable/pathLength';
-import { MaterialSelectionModal } from './MaterialSelectionModal';
-import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
-import { CableMaterialPicker } from '../../materials/components/CableMaterialPicker';
-import { getCableTypeFromMaterial } from '../../../types/material';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { FloorSettingsPanel } from './FloorSettingsPanel';
+import { CableSpecModalWrapper } from './modals/CableSpecModal';
+import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
+import { EquipmentPasteModal } from './modals/EquipmentPasteModal';
+import { DraftRecoveryDialog } from './modals/DraftRecoveryDialog';
 
 function CablePathOverlayWrapper({ canvasRef }: { canvasRef: React.RefObject<HTMLCanvasElement | null> }) {
   const scaleRatio = useEditorStore((s) => s.scaleRatio);
   return <CablePathOverlay canvasRef={canvasRef} scaleRatio={scaleRatio} />;
-}
-
-function CableSpecModalWrapper() {
-  const scaleRatio = useEditorStore((s) => s.scaleRatio);
-  return <CableSpecModal scaleRatio={scaleRatio} />;
-}
-
-function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
-  const phase = useCableDrawingStore((s) => s.phase);
-  const addCable = useEditorStore((s) => s.addCable);
-  const addRecentCable = useRecentMaterialsStore((s) => s.addRecent);
-  const [pendingValue, setPendingValue] = useState<{
-    categoryId: string;
-    categoryCode: string;
-    categoryName: string;
-    displayColor: string | null;
-    specParams: Record<string, unknown>;
-    specification: string;
-  } | null>(null);
-
-  // Reset pending value when modal opens
-  useEffect(() => {
-    if (phase === 'selectingSpec') {
-      setPendingValue(null);
-    }
-  }, [phase]);
-
-  if (phase !== 'selectingSpec') return null;
-
-  const handleConfirm = () => {
-    if (!pendingValue) return;
-    const { categoryId, categoryCode, categoryName, displayColor, specParams, specification } = pendingValue;
-    const store = useCableDrawingStore.getState();
-    const pathPoints = store.getPathPoints();
-    const cableType = getCableTypeFromMaterial(categoryCode);
-
-    let pathLength = 0;
-    let bufferLength = 4;
-    let totalLength = 4;
-    if (scaleRatio && scaleRatio > 0) {
-      const calc = calculatePathLength(pathPoints, scaleRatio);
-      pathLength = calc.pathLength;
-      bufferLength = calc.bufferLength;
-      totalLength = calc.totalLength;
-    }
-
-    addCable({
-      id: generateTempId(),
-      sourceEquipmentId: store.sourceEquipmentId!,
-      targetEquipmentId: store.targetEquipmentId!,
-      cableType,
-      materialCategoryId: categoryId,
-      materialCategoryCode: categoryCode,
-      materialCategoryName: categoryName,
-      displayColor,
-      specParams,
-      specification,
-      pathPoints,
-      pathLength,
-      bufferLength,
-      totalLength,
-    });
-
-    addRecentCable('cable', {
-      categoryId,
-      categoryCode,
-      categoryName,
-      specParams,
-      specification,
-    });
-
-    store.complete();
-  };
-
-  const handleCancel = () => {
-    useCableDrawingStore.getState().cancel();
-  };
-
-  return (
-    <MaterialSelectionModal
-      title="케이블 자재 선택"
-      onConfirm={handleConfirm}
-      onCancel={handleCancel}
-      confirmDisabled={!pendingValue}
-      selectedLabel={pendingValue?.specification}
-    >
-      <CableMaterialPicker
-        value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
-        onChange={setPendingValue}
-      />
-    </MaterialSelectionModal>
-  );
 }
 
 function ToolStatusBar() {
@@ -205,27 +111,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
   const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
-  const equipmentModalOpen = useCanvasStore(s => s.equipmentModalOpen);
-  const setEquipmentModalOpen = useCanvasStore(s => s.setEquipmentModalOpen);
-  const newEquipmentName = useCanvasStore(s => s.newEquipmentName);
-  const setNewEquipmentName = useCanvasStore(s => s.setNewEquipmentName);
-  const newEquipmentCategory = useCanvasStore(s => s.newEquipmentCategory);
-  const setNewEquipmentCategory = useCanvasStore(s => s.setNewEquipmentCategory);
-  const newEquipmentPosition = useCanvasStore(s => s.newEquipmentPosition);
-  const newEquipmentMaterialCategoryId = useCanvasStore(s => s.newEquipmentMaterialCategoryId);
-  const newEquipmentMaterialCategoryCode = useCanvasStore(s => s.newEquipmentMaterialCategoryCode);
-  const newEquipmentMaterialCategoryName = useCanvasStore(s => s.newEquipmentMaterialCategoryName);
-  const newEquipmentDisplayColor = useCanvasStore(s => s.newEquipmentDisplayColor);
-  const newEquipmentSpecParams = useCanvasStore(s => s.newEquipmentSpecParams);
-  const newEquipmentSpecification = useCanvasStore(s => s.newEquipmentSpecification);
-  const setNewEquipmentMaterial = useCanvasStore(s => s.setNewEquipmentMaterial);
-  const resetNewEquipmentMaterial = useCanvasStore(s => s.resetNewEquipmentMaterial);
-  const recentEquipment = useRecentMaterialsStore(s => s.recentEquipment);
   const addRecent = useRecentMaterialsStore(s => s.addRecent);
-  const pasteEquipmentModalOpen = useCanvasStore(s => s.pasteEquipmentModalOpen);
-  const setPasteEquipmentModalOpen = useCanvasStore(s => s.setPasteEquipmentModalOpen);
-  const pasteEquipmentName = useCanvasStore(s => s.pasteEquipmentName);
-  const setPasteEquipmentName = useCanvasStore(s => s.setPasteEquipmentName);
   // Reset editor store and snapshot on unmount
   useEffect(() => {
     return () => {
@@ -331,53 +217,53 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
-  const equipmentDrawnSize = useCanvasStore(s => s.equipmentDrawnSize);
   const setHasChanges = useEditorStore(s => s.setHasChanges);
 
   const handleAddEquipment = () => {
-    const drawnWidth = equipmentDrawnSize?.width ?? 60;
-    const drawnHeight = equipmentDrawnSize?.height ?? 100;
-    const derivedCategory = newEquipmentMaterialCategoryCode
-      ? getEquipmentCategoryFromMaterial(newEquipmentMaterialCategoryCode)
-      : (newEquipmentCategory || 'NETWORK');
+    const cs = useCanvasStore.getState();
+    const drawnWidth = cs.equipmentDrawnSize?.width ?? 60;
+    const drawnHeight = cs.equipmentDrawnSize?.height ?? 100;
+    const derivedCategory = cs.newEquipmentMaterialCategoryCode
+      ? getEquipmentCategoryFromMaterial(cs.newEquipmentMaterialCategoryCode)
+      : (cs.newEquipmentCategory || 'NETWORK');
     const newEquip: FloorPlanEquipment = {
       id: generateTempId(),
-      name: newEquipmentName,
+      name: cs.newEquipmentName,
       category: derivedCategory,
-      positionX: newEquipmentPosition.x,
-      positionY: newEquipmentPosition.y,
+      positionX: cs.newEquipmentPosition.x,
+      positionY: cs.newEquipmentPosition.y,
       width: drawnWidth,
       height: drawnHeight,
       rotation: 0,
       frontImageUrl: null,
       rearImageUrl: null,
       description: null,
-      materialCategoryId: newEquipmentMaterialCategoryId,
-      materialCategoryCode: newEquipmentMaterialCategoryCode,
-      materialCategoryName: newEquipmentMaterialCategoryName,
-      displayColor: newEquipmentDisplayColor,
-      specParams: newEquipmentSpecParams,
-      specification: newEquipmentSpecification,
+      materialCategoryId: cs.newEquipmentMaterialCategoryId,
+      materialCategoryCode: cs.newEquipmentMaterialCategoryCode,
+      materialCategoryName: cs.newEquipmentMaterialCategoryName,
+      displayColor: cs.newEquipmentDisplayColor,
+      specParams: cs.newEquipmentSpecParams,
+      specification: cs.newEquipmentSpecification,
     };
     const newList = [...useEditorStore.getState().localEquipment, newEquip];
     setLocalEquipment(newList);
     pushHistory(newList);
 
     // Track recent material usage
-    if (newEquipmentMaterialCategoryId && newEquipmentMaterialCategoryCode && newEquipmentSpecification) {
+    if (cs.newEquipmentMaterialCategoryId && cs.newEquipmentMaterialCategoryCode && cs.newEquipmentSpecification) {
       addRecent('equipment', {
-        categoryId: newEquipmentMaterialCategoryId,
-        categoryCode: newEquipmentMaterialCategoryCode,
-        categoryName: newEquipmentSpecification,
-        specParams: newEquipmentSpecParams ?? {},
-        specification: newEquipmentSpecification,
+        categoryId: cs.newEquipmentMaterialCategoryId,
+        categoryCode: cs.newEquipmentMaterialCategoryCode,
+        categoryName: cs.newEquipmentSpecification,
+        specParams: cs.newEquipmentSpecParams ?? {},
+        specification: cs.newEquipmentSpecification,
       });
     }
 
-    setEquipmentModalOpen(false);
-    setNewEquipmentName('');
-    setNewEquipmentCategory('NETWORK');
-    resetNewEquipmentMaterial();
+    cs.setEquipmentModalOpen(false);
+    cs.setNewEquipmentName('');
+    cs.setNewEquipmentCategory('NETWORK');
+    cs.resetNewEquipmentMaterial();
     setHasChanges(true);
     setTool('select');
   };
@@ -482,94 +368,12 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         )}
       </div>
 
-      {/* Equipment add modal */}
-      {equipmentModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">설비 추가</h3>
-            <div className="mb-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">설비 이름</label>
-              <input
-                type="text"
-                value={newEquipmentName}
-                onChange={(e) => setNewEquipmentName(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="예: UPS-01"
-                autoFocus
-              />
-            </div>
-            <div className="mb-4">
-              <MaterialPicker
-                categoryType="EQUIPMENT"
-                value={newEquipmentMaterialCategoryId ? { categoryId: newEquipmentMaterialCategoryId, specParams: newEquipmentSpecParams ?? {} } : null}
-                onChange={({ categoryId, categoryCode, categoryName, displayColor, specParams, specification }) => {
-                  setNewEquipmentMaterial(categoryId, categoryCode, categoryName, displayColor, specParams, specification);
-                }}
-                recentItems={recentEquipment}
-              />
-            </div>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => { setEquipmentModalOpen(false); setNewEquipmentName(''); setNewEquipmentCategory('NETWORK'); resetNewEquipmentMaterial(); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
-              <button onClick={handleAddEquipment} disabled={!newEquipmentName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">추가</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cable spec selection modal */}
+      <EquipmentMaterialModal onAdd={handleAddEquipment} />
       <CableSpecModalWrapper />
-
-      {/* Draft recovery dialog */}
       {showDraftDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-2">저장하지 않은 변경사항이 있습니다</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              이전에 작업하던 내용을 이어서 편집하거나, 변경사항을 폐기하고 최신 도면을 불러올 수 있습니다.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={handleDiscardDraft}
-                className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg"
-              >
-                변경사항 폐기
-              </button>
-              <button
-                onClick={handleRestoreDraft}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                이어서 편집
-              </button>
-            </div>
-          </div>
-        </div>
+        <DraftRecoveryDialog onRestore={handleRestoreDraft} onDiscard={handleDiscardDraft} />
       )}
-
-      {/* Equipment paste modal */}
-      {pasteEquipmentModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">설비 붙여넣기</h3>
-            <p className="text-sm text-gray-500 mb-3">복사한 설비의 새 이름을 입력하세요.</p>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">설비 이름</label>
-              <input
-                type="text"
-                value={pasteEquipmentName}
-                onChange={(e) => setPasteEquipmentName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && pasteEquipmentName) handlePasteEquipment(); }}
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="예: UPS-02"
-                autoFocus
-              />
-            </div>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => { setPasteEquipmentModalOpen(false); setPasteEquipmentName(''); }} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">취소</button>
-              <button onClick={handlePasteEquipment} disabled={!pasteEquipmentName} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">붙여넣기</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EquipmentPasteModal onPaste={handlePasteEquipment} />
     </div>
   );
 }
