@@ -93,7 +93,7 @@ async function getLibreDwg() {
 
 async function parseFile(buffer: Buffer, fileType: 'DWG' | 'DXF'): Promise<DwgDatabase> {
   const lib = await getLibreDwg();
-  const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
   const ftCode = fileType === 'DXF' ? Dwg_File_Type.DXF : Dwg_File_Type.DWG;
   const dwgPtr = lib.dwg_read_data(ab, ftCode);
   if (dwgPtr == null) {
@@ -239,7 +239,7 @@ function extractGeometry(db: DwgDatabase, layerNames: Set<string>): {
 type Point = [number, number];
 
 function entityToPolyline(e: DwgEntity): Point[] | null {
-  const any = e as Record<string, unknown>;
+  const any = e as unknown as Record<string, unknown>;
   switch (e.type) {
     case 'LINE': {
       const start = any.startPoint as { x: number; y: number } | undefined;
@@ -299,7 +299,7 @@ function approximateArc(cx: number, cy: number, r: number, startA: number, endA:
 }
 
 function entityToText(e: DwgEntity): { x: number; y: number; text: string; size: number } | null {
-  const any = e as Record<string, unknown>;
+  const any = e as unknown as Record<string, unknown>;
   if (e.type === 'TEXT') {
     const ip = any.insertionPoint as { x: number; y: number } | undefined;
     const txt = any.text as string | undefined;
