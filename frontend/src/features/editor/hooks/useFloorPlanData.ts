@@ -8,9 +8,11 @@ import type {
   BulkUpdatePlanResponse,
 } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
+import type { RackModule } from '../../../types/rackModule';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
+import { RACK_MODULE_KEYS } from '../../rack/hooks/useRackModules';
 
 /**
  * Build temp equipment ID → real ID mapping from the backend response.
@@ -40,10 +42,6 @@ function planCablesToLocalCables(cables: FloorPlanCable[]): LocalCable[] {
     categoryId: c.categoryId ?? null,
     categoryCode: c.categoryCode ?? null,
     categoryName: c.categoryName ?? null,
-    // legacy aliases — P9 will drop these
-    materialCategoryId: c.categoryId ?? null,
-    materialCategoryCode: c.categoryCode ?? null,
-    materialCategoryName: c.categoryName ?? null,
     displayColor: c.displayColor ?? null,
     specParams: c.specParams ?? null,
     specification: c.specification ?? null,
@@ -105,11 +103,13 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     },
     onSuccess: async (response) => {
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
-      // P8: rackModuleIdMap is now returned by the backend; consumers (e.g. a
-      // future RackModule editor pane in P9) can read it from the response.
+      // P9: tempId → real id maps for both equipment and rack modules.
+      const rackModuleIdMap = response.data?.data?.rackModuleIdMap ?? {};
       const { pendingUploads, pendingLogs } = useEditorStore.getState();
       const tempIdMap = buildTempIdMap(equipmentIdMap);
+      const moduleIdMap = buildTempIdMap(rackModuleIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
+      const resolveModuleId = (id: string) => moduleIdMap.get(id) ?? id;
 
       // Process pending uploads and logs in parallel
       const pendingTasks: Promise<void>[] = [];
@@ -162,6 +162,22 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       // Construction report is computed server-side and stored in the audit
       // log context atomically with the save — no extra round-trip needed.
 
+      // P9: rewrite tempId references in localCables / localRackModules so the
+      // store reflects real ids without an extra round-trip.
+      const { localCables: cablesAfterSave, localRackModules: modulesAfterSave } = useEditorStore.getState();
+      useEditorStore.getState().setCables(cablesAfterSave.map((c) => ({
+        ...c,
+        sourceEquipmentId: resolveId(c.sourceEquipmentId),
+        targetEquipmentId: resolveId(c.targetEquipmentId),
+        sourceModuleId: c.sourceModuleId ? resolveModuleId(c.sourceModuleId) : null,
+        targetModuleId: c.targetModuleId ? resolveModuleId(c.targetModuleId) : null,
+      })));
+      useEditorStore.getState().setRackModules(modulesAfterSave.map((m) => ({
+        ...m,
+        id: resolveModuleId(m.id),
+        rackEquipmentId: resolveId(m.rackEquipmentId),
+      })));
+
       // Clear pending data and invalidate queries
       useEditorStore.getState().clearPendingData();
 
@@ -172,6 +188,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
 
       queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
+      queryClient.invalidateQueries({ queryKey: RACK_MODULE_KEYS.all });
       if (pendingUploads.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
       }
@@ -191,6 +208,32 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       setSaveError(message);
       setTimeout(() => setSaveError(null), 5000);
     },
+  });
+
+  // P9: aggregate rack modules across all rack equipment on the floor.
+  const rackEquipmentIds = (floorPlan?.equipment ?? [])
+    .filter((eq) => eq.kind === 'RACK')
+    .map((eq) => eq.id)
+    .sort()
+    .join('|');
+
+  const { data: aggregateRackModules } = useQuery({
+    queryKey: ['floorPlan-rack-modules', floorId, rackEquipmentIds],
+    queryFn: async () => {
+      const ids = rackEquipmentIds.split('|').filter(Boolean);
+      if (ids.length === 0) return [] as RackModule[];
+      const results = await Promise.all(
+        ids.map((id) =>
+          api
+            .get<{ data: RackModule[] }>('/rack-modules', { params: { rackId: id } })
+            .then((r) => r.data.data)
+            .catch(() => [] as RackModule[]),
+        ),
+      );
+      return results.flat();
+    },
+    enabled: !!floorPlan && rackEquipmentIds.length > 0,
+    staleTime: 1000 * 30,
   });
 
   // Load floor plan data into store (from server)
@@ -215,6 +258,14 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     initHistory(floorPlan.equipment, cables);
     setViewportInitialized(false);
   }, [floorPlan, floorId, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
+
+  // P9: seed `localRackModules` once the aggregate fetch lands. The hook above
+  // re-runs whenever the rack equipment id set changes, so the working copy
+  // stays in sync with the server snapshot until the user edits modules.
+  useEffect(() => {
+    if (!aggregateRackModules) return;
+    useEditorStore.getState().setRackModules(aggregateRackModules);
+  }, [aggregateRackModules]);
 
   // Viewport initialization
   useEffect(() => {
@@ -246,21 +297,21 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
 
   const handleSave = () => {
     if (!floorPlan) return;
-    const { localCables, pendingFiberPaths, deletedFiberPathIds } = useEditorStore.getState();
+    const {
+      localCables,
+      pendingFiberPaths,
+      deletedFiberPathIds,
+      localRackModules,
+    } = useEditorStore.getState();
 
     const currentScaleRatio = useEditorStore.getState().scaleRatio;
 
-    // P8 NOTE — payload shape now matches the new bulkUpdatePlan input:
-    //   - equipment: requires `kind` (EquipmentKind)
-    //   - cables:    polymorphic source/target ({equipmentId|moduleId})
-    //   - rackModules: new top-level array (omitted for now; P9 wires it from
-    //                  a localRackModules store slice yet to be added)
-    //
-    // The editor UI hasn't been migrated yet, so we map best-effort:
-    //   - eq.kind defaults to 'RACK' when totalU is set, else 'OFD'. P9 will
-    //     replace this heuristic with explicit kind selection in the sidebar.
-    //   - cable source/target equipmentIds always become {equipmentId} (no
-    //     moduleId path until RackModule UI lands).
+    // P9: full payload — equipment.kind drives placement type, rackModules carry
+    // 랙 슬롯 정보, cables source/target are polymorphic. tempIds resolve via
+    // equipmentIdMap / rackModuleIdMap in the response.
+    const equipIds = new Set(localEquipment.map((eq) => eq.id));
+    const moduleIds = new Set(localRackModules.map((m) => m.id));
+
     const updateData: UpdateFloorPlanRequest = {
       canvasWidth: floorPlan.canvasWidth,
       canvasHeight: floorPlan.canvasHeight,
@@ -270,7 +321,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       equipment: localEquipment.map(eq => ({
         id: isTempId(eq.id) ? null : eq.id,
         tempId: isTempId(eq.id) ? eq.id : undefined,
-        kind: eq.kind ?? (eq.totalU != null ? 'RACK' : 'OFD'),
+        kind: eq.kind,
         name: eq.name,
         positionX: eq.positionX,
         positionY: eq.positionY,
@@ -283,20 +334,41 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         height3d: eq.height3d ?? null,
         properties: eq.properties ?? null,
       })),
-      // P8: rackModules omitted until the editor store gains a localRackModules slice (P9).
-      rackModules: undefined,
-      cables: (() => {
-        const equipIds = new Set(localEquipment.map(eq => eq.id));
-        return localCables.filter(c =>
-          equipIds.has(c.sourceEquipmentId) && equipIds.has(c.targetEquipmentId)
-        );
-      })()
-        .map(c => ({
+      rackModules: localRackModules.map((m) => ({
+        id: isTempId(m.id) ? null : m.id,
+        tempId: isTempId(m.id) ? m.id : undefined,
+        rackEquipmentId: m.rackEquipmentId,
+        categoryId: m.categoryId,
+        name: m.name,
+        startU: m.startU,
+        heightU: m.heightU,
+        installDate: m.installDate,
+        manager: m.manager,
+        description: m.description,
+        properties: m.properties,
+        sortOrder: m.sortOrder,
+      })),
+      cables: localCables
+        // Drop dangling references — endpoints must resolve to a current equipment or module.
+        .filter((c) => {
+          const sourceOk = c.sourceModuleId
+            ? moduleIds.has(c.sourceModuleId)
+            : equipIds.has(c.sourceEquipmentId);
+          const targetOk = c.targetModuleId
+            ? moduleIds.has(c.targetModuleId)
+            : equipIds.has(c.targetEquipmentId);
+          return sourceOk && targetOk;
+        })
+        .map((c) => ({
           id: isTempId(c.id) ? null : c.id,
-          source: { equipmentId: c.sourceEquipmentId, moduleId: c.sourceModuleId ?? null },
-          target: { equipmentId: c.targetEquipmentId, moduleId: c.targetModuleId ?? null },
+          source: c.sourceModuleId
+            ? { equipmentId: null, moduleId: c.sourceModuleId }
+            : { equipmentId: c.sourceEquipmentId, moduleId: null },
+          target: c.targetModuleId
+            ? { equipmentId: null, moduleId: c.targetModuleId }
+            : { equipmentId: c.targetEquipmentId, moduleId: null },
           cableType: c.cableType,
-          categoryId: c.categoryId ?? c.materialCategoryId ?? null,
+          categoryId: c.categoryId ?? null,
           specParams: c.specParams,
           pathPoints: c.pathPoints,
           pathLength: c.pathLength,

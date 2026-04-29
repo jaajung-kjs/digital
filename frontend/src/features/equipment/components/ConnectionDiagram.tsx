@@ -10,18 +10,19 @@ import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore
 interface ConnectionDiagramProps {
   floorId: string;
   equipmentId: string;
-  /** MaterialCategory.code such as 'EQP-OFD'; replaces legacy `category` prop. */
-  materialCategoryCode?: string | null;
 }
 
 export function ConnectionDiagram({
   floorId,
   equipmentId,
-  materialCategoryCode,
 }: ConnectionDiagramProps) {
   const editorEquipment = useEditorStore((s) => s.localEquipment);
   const editorCables = useEditorStore((s) => s.localCables);
   const deleteCable = useEditorStore((s) => s.deleteCable);
+
+  // P9: derive OFD-ness from kind on the local equipment row.
+  const localEqKind = editorEquipment.find((e) => e.id === equipmentId)?.kind;
+  const isOfd = localEqKind === 'OFD';
 
   // Snapshot overlay: when active, show snapshot data instead of editor data
   const snapshotActive = useSnapshotStore((s) => s.active);
@@ -65,7 +66,7 @@ export function ConnectionDiagram({
     <div>
       <div className="p-3">
         {/* Add connection button — OFD connections are managed via FiberPathManager, hidden during snapshot preview */}
-        {!snapshotActive && materialCategoryCode !== 'EQP-OFD' && (
+        {!snapshotActive && !isOfd && (
         <div className="mb-3">
           {cableDrawingPhase !== 'idle' ? (
             <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
@@ -137,7 +138,7 @@ export function ConnectionDiagram({
                           color: '#ffffff',
                         }}
                       >
-                        {cable.materialCategoryName || cable.materialCategoryCode || cable.cableType}
+                        {cable.categoryName || cable.categoryCode || cable.cableType}
                       </span>
                       <div className="my-0.5 h-px w-12 bg-gray-300" />
                     </div>

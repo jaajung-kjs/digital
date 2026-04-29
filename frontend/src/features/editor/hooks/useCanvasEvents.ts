@@ -15,11 +15,16 @@ import { useCableHitTestStore, pointToPolylineDistance } from '../../connections
 /**
  * Mouse/wheel event handlers for the canvas.
  * Tools: select, equipment, cable. (Delete via Delete key on selection.)
+ *
+ * P9: when a rack preset is armed (`newEquipmentPreset`), the equipment tool
+ * switches from drag-to-draw to single-click placement; the host component
+ * supplies an `onPlacePreset` callback that creates the rack + modules.
  */
 export function useCanvasEvents(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   floorPlan: FloorPlanDetail | undefined,
   _floorId: string | undefined,
+  onPlacePreset?: () => void,
 ) {
   const { pushHistory } = useEditorHistory();
   const editorStore = useEditorStore;
@@ -281,15 +286,36 @@ export function useCanvasEvents(
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment') {
         const eq = found.item as FloorPlanEquipment;
-        cableDrawing.setSource(eq.id, { x: eq.positionX + eq.width / 2, y: eq.positionY + eq.height / 2 });
+        const center = {
+          x: eq.positionX + eq.width / 2,
+          y: eq.positionY + eq.height / 2,
+        };
+        // P9: RACK / OFD endpoints require a module / port selection step.
+        if (eq.kind === 'RACK' || eq.kind === 'OFD') {
+          cableDrawing.setPendingSource(eq.id, center);
+        } else {
+          cableDrawing.setSource(eq.id, center);
+        }
       }
+      return;
+    }
+    if (cableDrawing.phase === 'pickingSourceModule' || cableDrawing.phase === 'pickingTargetModule') {
+      // Picker modals own the click flow; ignore canvas clicks.
       return;
     }
     if (cableDrawing.phase === 'drawingPath') {
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment' && found.item.id !== cableDrawing.sourceEquipmentId) {
         const eq = found.item as FloorPlanEquipment;
-        cableDrawing.setTarget(eq.id, { x: eq.positionX + eq.width / 2, y: eq.positionY + eq.height / 2 });
+        const center = {
+          x: eq.positionX + eq.width / 2,
+          y: eq.positionY + eq.height / 2,
+        };
+        if (eq.kind === 'RACK' || eq.kind === 'OFD') {
+          cableDrawing.setPendingTarget(eq.id, center);
+        } else {
+          cableDrawing.setTarget(eq.id, center);
+        }
       } else if (!found || found.type !== 'equipment') {
         if (e.shiftKey && cableDrawing.waypoints.length > 0) {
           const lastPt = cableDrawing.waypoints[cableDrawing.waypoints.length - 1];
@@ -314,7 +340,15 @@ export function useCanvasEvents(
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment') {
         const eq = found.item as FloorPlanEquipment;
-        useCableDrawingStore.getState().setSource(eq.id, { x: eq.positionX + eq.width / 2, y: eq.positionY + eq.height / 2 });
+        const center = {
+          x: eq.positionX + eq.width / 2,
+          y: eq.positionY + eq.height / 2,
+        };
+        if (eq.kind === 'RACK' || eq.kind === 'OFD') {
+          useCableDrawingStore.getState().setPendingSource(eq.id, center);
+        } else {
+          useCableDrawingStore.getState().setSource(eq.id, center);
+        }
       }
       return;
     }
@@ -333,6 +367,19 @@ export function useCanvasEvents(
 
     switch (tool) {
       case 'equipment': {
+        // P9: rack preset armed → single click places the rack at the cursor
+        // and auto-expands the preset modules. No drag, no name modal.
+        if (cs.newEquipmentPreset) {
+          const preset = cs.newEquipmentPreset;
+          cs.setNewEquipmentPosition({ x: snapped.x, y: snapped.y });
+          cs.setEquipmentDrawnSize({
+            width: preset.canvasWidth,
+            height: preset.canvasHeight,
+          });
+          onPlacePreset?.();
+          break;
+        }
+
         if (!cs.isDrawingEquipment) {
           cs.setIsDrawingEquipment(true);
           cs.setEquipmentStart({ x: snapped.x, y: snapped.y });
@@ -356,7 +403,7 @@ export function useCanvasEvents(
         break;
       }
     }
-  }, [floorPlan, canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, pushHistory]);
+  }, [floorPlan, canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, pushHistory, onPlacePreset]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan) return;

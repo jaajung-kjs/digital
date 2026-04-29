@@ -68,8 +68,6 @@ export function useMergedEquipmentDetail(equipmentId: string): {
     const equipment: EquipmentDetail = {
       id: snapEq.id,
       name: snapEq.name,
-      model: snapEq.model ?? null,
-      manufacturer: snapEq.manufacturer ?? null,
       manager: snapEq.manager ?? null,
       description: snapEq.description ?? null,
       installDate: null,
@@ -77,11 +75,6 @@ export function useMergedEquipmentDetail(equipmentId: string): {
       height2d: snapEq.height,
       frontImageUrl: null,
       rearImageUrl: null,
-      materialCategoryCode: snapEq.materialCategoryCode ?? null,
-      materialCategoryName: snapEq.materialCategoryName ?? null,
-      displayColor: snapEq.displayColor ?? null,
-      specification: snapEq.specification ?? null,
-      specParams: snapEq.specParams ?? null,
     };
     return { equipment, isLoading: false, error: null };
   }
@@ -97,8 +90,6 @@ export function useMergedEquipmentDetail(equipmentId: string): {
   const equipment: EquipmentDetail = {
     id: localEq.id,
     name: localEq.name,
-    model: pick(localEq.model, backendData?.model),
-    manufacturer: pick(localEq.manufacturer, backendData?.manufacturer),
     manager: pick(localEq.manager, backendData?.manager),
     description: pick(localEq.description, backendData?.description),
     installDate: backendData?.installDate ?? null,
@@ -106,12 +97,6 @@ export function useMergedEquipmentDetail(equipmentId: string): {
     height2d: localEq.height,
     frontImageUrl: backendData?.frontImageUrl ?? null,
     rearImageUrl: backendData?.rearImageUrl ?? null,
-    materialCategoryId: localEq.materialCategoryId ?? null,
-    materialCategoryCode: localEq.materialCategoryCode ?? null,
-    materialCategoryName: localEq.materialCategoryName ?? null,
-    displayColor: localEq.displayColor ?? null,
-    specification: localEq.specification ?? null,
-    specParams: localEq.specParams ?? null,
   };
   return { equipment, isLoading: isTemp ? false : isLoading, error: isTemp ? null : error };
 }
@@ -202,11 +187,7 @@ export function GenericEquipmentPanel({
               )
             )}
             {!overrideBaseTabs && activeTab === 'connections' && (
-              <ConnectionsTab
-                equipmentId={equipmentId}
-                floorId={floorId}
-                materialCategoryCode={equipment.materialCategoryCode}
-              />
+              <ConnectionsTab equipmentId={equipmentId} floorId={floorId} />
             )}
           </>
         ) : null}

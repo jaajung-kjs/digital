@@ -13,14 +13,14 @@ import { FiberPathManager } from '../../../fiber/components/FiberPathManager';
 export function ConnectionsTab({
   equipmentId,
   floorId,
-  materialCategoryCode,
 }: {
   equipmentId: string;
   floorId: string;
-  /** MaterialCategory.code such as 'EQP-OFD'; replaces legacy `category` prop. */
-  materialCategoryCode?: string | null;
 }) {
-  const isOfd = materialCategoryCode === 'EQP-OFD';
+  // P9: kind sourced from the editor store, dropping the legacy materialCategoryCode prop.
+  const localEquipment = useEditorStore((s) => s.localEquipment);
+  const localKind = localEquipment.find((e) => e.id === equipmentId)?.kind;
+  const isOfd = localKind === 'OFD';
   const snapshotActive = useSnapshotStore((s) => s.active);
   const snapshotFiberPaths = useSnapshotStore((s) => s.fiberPaths);
   const snapshotEquipment = useSnapshotStore((s) => s.equipment);
@@ -96,7 +96,7 @@ export function ConnectionsTab({
           )}
         </div>
         <div className="p-4">
-          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} materialCategoryCode={materialCategoryCode} />
+          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} />
         </div>
       </div>
     );
@@ -115,7 +115,7 @@ export function ConnectionsTab({
           />
         )}
         <div className="p-4">
-          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} materialCategoryCode={materialCategoryCode} />
+          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} />
         </div>
       </div>
     );
@@ -155,7 +155,7 @@ export function ConnectionsTab({
         />
       )}
       <div className="p-4">
-        <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} materialCategoryCode={materialCategoryCode} />
+        <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} />
       </div>
     </div>
   );

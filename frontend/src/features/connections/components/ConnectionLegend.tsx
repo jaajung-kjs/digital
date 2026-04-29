@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
-import { useMaterialCategories } from '../../materials/hooks/useMaterialCategories';
-import type { CableDisplayGroup } from '../../../types/material';
+import { useCableCategories } from '../../cables/hooks/useCableCategories';
+import type { CableDisplayGroup } from '../../../types/cableCategory';
 
 const CABLE_DISPLAY_GROUPS: CableDisplayGroup[] = [
   '전원',
@@ -28,7 +28,7 @@ type GroupState = 'on' | 'off' | 'partial';
 export function ConnectionLegend() {
   const connectionFilters = useEditorStore((s) => s.connectionFilters);
   const setConnectionFilters = useEditorStore((s) => s.setConnectionFilters);
-  const { data: cableCategories } = useMaterialCategories('CABLE');
+  const { data: cableCategories } = useCableCategories();
   const initialized = useRef(false);
 
   // Map: displayGroup -> [category code, ...] (only categories with displayGroup)

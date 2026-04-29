@@ -53,7 +53,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
         orig.width !== eq.width ||
         orig.height !== eq.height ||
         orig.rotation !== eq.rotation ||
-        orig.materialCategoryId !== eq.materialCategoryId ||
+        orig.kind !== eq.kind ||
         orig.name !== eq.name
       ) {
         eqChanged++;
@@ -78,7 +78,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
       const bPath = JSON.stringify(orig.pathPoints ?? null);
       if (
         aPath !== bPath ||
-        cb.materialCategoryId !== orig.materialCategoryId ||
+        cb.categoryId !== orig.categoryId ||
         cb.label !== orig.label
       ) {
         cbChanged++;

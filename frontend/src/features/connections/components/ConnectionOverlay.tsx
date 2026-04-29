@@ -7,11 +7,11 @@ import { CABLE_COLORS } from '../../../types/connection';
 
 /** Check if a cable matches the current filter set (DB category codes) */
 function cableMatchesFilter(
-  materialCategoryCode: string | undefined | null,
-  filters: string[]
+  categoryCode: string | undefined | null,
+  filters: string[],
 ): boolean {
-  if (!materialCategoryCode) return true; // no category = always show
-  return filters.includes(materialCategoryCode);
+  if (!categoryCode) return true; // no category = always show
+  return filters.includes(categoryCode);
 }
 import {
   renderConnections,
@@ -45,12 +45,12 @@ function mapCablesToRenderable(
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
       cableType: cable.cableType,
-      label: cable.label || cable.materialCategoryName || cable.materialCategoryCode || undefined,
+      label: cable.label || cable.categoryName || cable.categoryCode || undefined,
       color: cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength ?? undefined,
       totalLength: cable.totalLength ?? undefined,
-      materialCategoryCode: cable.materialCategoryCode ?? undefined,
+      materialCategoryCode: cable.categoryCode ?? undefined,
     });
   }
   return result;
@@ -72,12 +72,12 @@ function mapPlanCablesToRenderable(
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
       cableType: cable.cableType,
-      label: cable.label || cable.materialCategoryName || cable.materialCategoryCode || undefined,
+      label: cable.label || cable.categoryName || cable.categoryCode || undefined,
       color: cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength,
       totalLength: cable.totalLength,
-      materialCategoryCode: cable.materialCategoryCode,
+      materialCategoryCode: cable.categoryCode ?? undefined,
     });
   }
   return result;
@@ -277,7 +277,7 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
       totalLength: c.totalLength ?? undefined,
       color: c.color ?? undefined,
       label: c.label ?? undefined,
-      materialCategoryCode: c.materialCategoryCode ?? undefined,
+      materialCategoryCode: c.categoryCode ?? undefined,
       sourceEquipment: { id: c.sourceEquipmentId, name: '', parentEquipmentId: null, floorId: null },
       targetEquipment: { id: c.targetEquipmentId, name: '', parentEquipmentId: null, floorId: null },
     } as RoomConnection);

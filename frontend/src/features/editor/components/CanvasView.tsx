@@ -10,10 +10,12 @@ interface CanvasViewProps {
   containerRef: React.RefObject<HTMLDivElement | null>;
   floorPlan: FloorPlanDetail | undefined;
   floorId: string | undefined;
+  /** P9: invoked when the user clicks the canvas with a rack preset armed. */
+  onPlacePreset?: () => void;
   children?: React.ReactNode;
 }
 
-export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, children }: CanvasViewProps) {
+export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlacePreset, children }: CanvasViewProps) {
   useCanvas(canvasRef, containerRef, floorPlan);
   const {
     handleCanvasMouseDown,
@@ -21,7 +23,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
     handleCanvasMouseUp,
     handleCanvasClick,
     handleCanvasDoubleClick,
-  } = useCanvasEvents(canvasRef, floorPlan, floorId);
+  } = useCanvasEvents(canvasRef, floorPlan, floorId, onPlacePreset);
 
   const tool = useEditorStore((s) => s.tool);
   const zoom = useEditorStore((s) => s.zoom);

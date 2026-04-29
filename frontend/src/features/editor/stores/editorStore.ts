@@ -3,9 +3,13 @@ import type {
   EditorTool,
   FloorPlanEquipment,
 } from '../../../types/floorPlan';
+import type { EquipmentKind } from '../../../types/equipmentKind';
+import type { RackPreset } from '../../../types/rackPreset';
+import type { RackModule } from '../../../types/rackModule';
+import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
 
-/** Filter key: either a materialCategoryCode (DB) or a CableType (legacy fallback) */
+/** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
 export type ConnectionFilterKey = string;
 
 // ==================== Local Cable ====================
@@ -16,26 +20,21 @@ export type ConnectionFilterKey = string;
 
 export interface LocalCable {
   id: string; // real UUID or temp ID
-  /** P8: nullable — endpoint may be RackModule instead of Equipment. */
+  /**
+   * P9: equipment endpoint id. When the endpoint is a RackModule, this still
+   * carries the parent rack's id so existing position lookups work — the
+   * polymorphic resolution is via the corresponding *moduleId being non-null.
+   */
   sourceEquipmentId: string;
   targetEquipmentId: string;
-  /** P8 신규: rack module endpoint id (둘 중 하나만 set). */
+  /** Rack module endpoint id — null when endpoint is the Equipment itself. */
   sourceModuleId?: string | null;
   targetModuleId?: string | null;
   cableType: string;
-  /** P8 신규 — 정식 필드. */
+  /** CableCategory join — name/displayColor surfaced for UI labels. */
   categoryId?: string | null;
   categoryCode?: string | null;
   categoryName?: string | null;
-  /**
-   * @deprecated P8 — legacy alias for `categoryId`. Removed in P9.
-   * Kept so editor UI compiles without an immediate rewrite.
-   */
-  materialCategoryId?: string | null;
-  /** @deprecated P8 — alias for `categoryCode`. Removed in P9. */
-  materialCategoryCode?: string | null;
-  /** @deprecated P8 — alias for `categoryName`. Removed in P9. */
-  materialCategoryName?: string | null;
   displayColor?: string | null;
   specParams?: Record<string, unknown> | null;
   specification?: string | null;
@@ -156,16 +155,23 @@ export interface EditorStoreState {
   pasteEquipmentName: string;
   newEquipmentPosition: { x: number; y: number };
 
-  // Material-based equipment selection
-  newEquipmentMaterialCategoryId: string | null;
-  newEquipmentMaterialCategoryCode: string | null;
-  newEquipmentMaterialCategoryName: string | null;
-  newEquipmentDisplayColor: string | null;
-  newEquipmentSpecParams: Record<string, unknown> | null;
-  newEquipmentSpecification: string | null;
+  // P9: kind-based equipment placement.
+  // Either `newEquipmentKind` (drag-to-draw 5종 단독설비) or
+  // `newEquipmentPreset` (single-click rack preset placement) is set when
+  // tool === 'equipment'. Both are cleared on tool change / placement done.
+  newEquipmentKind: EquipmentKind | null;
+  newEquipmentPreset: RackPreset | null;
 
-  // Sidebar-driven cable preselection (used by CableSpecModal initial value)
-  preselectedCableCategoryId: string | null;
+  // P9: cable tool preselection — sidebar pill click sets a displayGroup,
+  // CableSpecModal then filters categories by that group.
+  preselectedCableDisplayGroup: CableDisplayGroup | null;
+
+  // P9: rack module working copy. Mirrors UpdateFloorPlanRackModuleInput;
+  // tempIds resolved server-side via rackModuleIdMap.
+  localRackModules: RackModule[];
+
+  // P9: rack module dialog selection (RackEquipmentPanel slot click).
+  selectedRackModuleId: string | null;
 
   // ==================== History (formerly historyStore) ====================
 
@@ -238,17 +244,21 @@ export interface EditorStoreActions {
   setPasteEquipmentName: (v: string) => void;
   setNewEquipmentPosition: (p: { x: number; y: number }) => void;
 
-  setNewEquipmentMaterial: (
-    categoryId: string | null,
-    categoryCode: string | null,
-    categoryName: string | null,
-    displayColor: string | null,
-    specParams: Record<string, unknown> | null,
-    specification: string | null,
-  ) => void;
-  resetNewEquipmentMaterial: () => void;
+  // P9: kind / preset selection for the equipment tool.
+  setNewEquipmentKind: (kind: EquipmentKind | null) => void;
+  setNewEquipmentPreset: (preset: RackPreset | null) => void;
+  resetNewEquipmentSelection: () => void;
 
-  setPreselectedCableCategory: (id: string | null) => void;
+  // P9: cable group preselection.
+  setPreselectedCableDisplayGroup: (group: CableDisplayGroup | null) => void;
+
+  // P9: rack modules.
+  setRackModules: (modules: RackModule[]) => void;
+  addRackModule: (m: RackModule) => void;
+  updateRackModule: (id: string, partial: Partial<RackModule>) => void;
+  removeRackModule: (id: string) => void;
+
+  setSelectedRackModuleId: (id: string | null) => void;
 
   closeAllModals: () => void;
   resetDrawingState: () => void;
@@ -307,13 +317,11 @@ const initialState: EditorStoreState = {
   newEquipmentName: '',
   pasteEquipmentName: '',
   newEquipmentPosition: { x: 100, y: 100 },
-  newEquipmentMaterialCategoryId: null,
-  newEquipmentMaterialCategoryCode: null,
-  newEquipmentMaterialCategoryName: null,
-  newEquipmentDisplayColor: null,
-  newEquipmentSpecParams: null,
-  newEquipmentSpecification: null,
-  preselectedCableCategoryId: null,
+  newEquipmentKind: null,
+  newEquipmentPreset: null,
+  preselectedCableDisplayGroup: null,
+  localRackModules: [],
+  selectedRackModuleId: null,
 
   // History
   history: [],
@@ -395,15 +403,28 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     hasChanges: true,
   })),
 
-  deleteEquipmentWithCascade: (equipmentId) => set((state) => ({
-    localEquipment: state.localEquipment.filter((eq) => eq.id !== equipmentId),
-    localCables: state.localCables.filter(
-      (c) => c.sourceEquipmentId !== equipmentId && c.targetEquipmentId !== equipmentId
-    ),
-    pendingUploads: state.pendingUploads.filter((u) => u.equipmentId !== equipmentId),
-    pendingLogs: state.pendingLogs.filter((l) => l.equipmentId !== equipmentId),
-    hasChanges: true,
-  })),
+  deleteEquipmentWithCascade: (equipmentId) => set((state) => {
+    // P9: also drop rack modules belonging to this rack and any cable
+    // referencing those modules. Modules' tempIds may be present on cables.
+    const moduleIdsBelongingToThisRack = new Set(
+      state.localRackModules
+        .filter((m) => m.rackEquipmentId === equipmentId)
+        .map((m) => m.id),
+    );
+    return {
+      localEquipment: state.localEquipment.filter((eq) => eq.id !== equipmentId),
+      localCables: state.localCables.filter((c) => {
+        if (c.sourceEquipmentId === equipmentId || c.targetEquipmentId === equipmentId) return false;
+        if (c.sourceModuleId && moduleIdsBelongingToThisRack.has(c.sourceModuleId)) return false;
+        if (c.targetModuleId && moduleIdsBelongingToThisRack.has(c.targetModuleId)) return false;
+        return true;
+      }),
+      localRackModules: state.localRackModules.filter((m) => m.rackEquipmentId !== equipmentId),
+      pendingUploads: state.pendingUploads.filter((u) => u.equipmentId !== equipmentId),
+      pendingLogs: state.pendingLogs.filter((l) => l.equipmentId !== equipmentId),
+      hasChanges: true,
+    };
+  }),
 
   setScaleRatio: (scaleRatio) => set({ scaleRatio }),
   setConnectionFilters: (connectionFilters) => set({ connectionFilters }),
@@ -441,26 +462,32 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
   setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
 
-  setNewEquipmentMaterial: (categoryId, categoryCode, categoryName, displayColor, specParams, specification) =>
-    set({
-      newEquipmentMaterialCategoryId: categoryId,
-      newEquipmentMaterialCategoryCode: categoryCode,
-      newEquipmentMaterialCategoryName: categoryName,
-      newEquipmentDisplayColor: displayColor,
-      newEquipmentSpecParams: specParams,
-      newEquipmentSpecification: specification,
-    }),
-  resetNewEquipmentMaterial: () =>
-    set({
-      newEquipmentMaterialCategoryId: null,
-      newEquipmentMaterialCategoryCode: null,
-      newEquipmentMaterialCategoryName: null,
-      newEquipmentDisplayColor: null,
-      newEquipmentSpecParams: null,
-      newEquipmentSpecification: null,
-    }),
+  setNewEquipmentKind: (newEquipmentKind) =>
+    set({ newEquipmentKind, newEquipmentPreset: null }),
+  setNewEquipmentPreset: (newEquipmentPreset) =>
+    set({ newEquipmentPreset, newEquipmentKind: null }),
+  resetNewEquipmentSelection: () =>
+    set({ newEquipmentKind: null, newEquipmentPreset: null }),
 
-  setPreselectedCableCategory: (preselectedCableCategoryId) => set({ preselectedCableCategoryId }),
+  setPreselectedCableDisplayGroup: (preselectedCableDisplayGroup) =>
+    set({ preselectedCableDisplayGroup }),
+
+  setRackModules: (modules) => set({ localRackModules: modules }),
+  addRackModule: (m) =>
+    set((state) => ({ localRackModules: [...state.localRackModules, m], hasChanges: true })),
+  updateRackModule: (id, partial) =>
+    set((state) => ({
+      localRackModules: state.localRackModules.map((m) =>
+        m.id === id ? { ...m, ...partial } : m,
+      ),
+      hasChanges: true,
+    })),
+  removeRackModule: (id) =>
+    set((state) => ({
+      localRackModules: state.localRackModules.filter((m) => m.id !== id),
+      hasChanges: true,
+    })),
+  setSelectedRackModuleId: (selectedRackModuleId) => set({ selectedRackModuleId }),
 
   closeAllModals: () => set({
     equipmentModalOpen: false,

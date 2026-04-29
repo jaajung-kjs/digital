@@ -2,15 +2,14 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
-import type { MaterialCategory } from '../../../types/material';
+import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
+import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
 import { generateTempId } from '../../../utils/idHelpers';
-import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
-import { useMaterialCategories } from '../../materials/hooks/useMaterialCategories';
 import { Toolbar } from './Toolbar';
 import { EditorSidebar } from './EditorSidebar';
 import { CanvasView } from './CanvasView';
@@ -24,6 +23,8 @@ import { CableSpecModalWrapper } from './modals/CableSpecModal';
 import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
 import { EquipmentPasteModal } from './modals/EquipmentPasteModal';
 import { DraftRecoveryDialog } from './modals/DraftRecoveryDialog';
+import { CableEndpointPickerHost } from './CableEndpointPickerHost';
+import { RackModuleDialog } from '../../rack/components/RackModuleDialog';
 
 function CablePathOverlayWrapper({ canvasRef }: { canvasRef: React.RefObject<HTMLCanvasElement | null> }) {
   const scaleRatio = useEditorStore((s) => s.scaleRatio);
@@ -111,8 +112,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
   const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
-  const addRecent = useRecentMaterialsStore(s => s.addRecent);
-  const { data: equipmentCats } = useMaterialCategories('EQUIPMENT');
+  const { data: rackModuleCategories } = useRackModuleCategories();
   // Reset editor store and snapshot on unmount
   useEffect(() => {
     return () => {
@@ -220,26 +220,23 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
   const setHasChanges = useEditorStore(s => s.setHasChanges);
 
+  /**
+   * P9: name-modal commit handler for the kind-based flow. Invoked from
+   * EquipmentMaterialModal after the user finishes drag-to-draw and types a
+   * name. Always uses `newEquipmentKind` — preset placement uses
+   * `handlePlacePreset` instead and does not open this modal.
+   */
   const handleAddEquipment = () => {
     const cs = useEditorStore.getState();
     const drawnWidth = cs.equipmentDrawnSize?.width ?? 60;
     const drawnHeight = cs.equipmentDrawnSize?.height ?? 100;
+    // RACK kind via the standalone "랙" sidebar entry creates an empty 42U
+    // rack on the canvas; the rack-preset path doesn't go through this modal.
+    const kind = cs.newEquipmentKind ?? 'OFD';
 
-    // Locate the active category in the equipment tree (root + children).
-    // by-type returns parents only with children embedded — flatten for lookup.
-    const flatten = (cats: MaterialCategory[]): MaterialCategory[] =>
-      cats.flatMap((c) => [c, ...(c.children ? flatten(c.children) : [])]);
-    const allCats: MaterialCategory[] = flatten(equipmentCats ?? []);
-    const activeCat = allCats.find((c) => c.id === cs.newEquipmentMaterialCategoryId);
-    const preset = activeCat?.rackPreset ?? null;
-    const isRackPreset = !!preset;
-
-    // P8: kind defaults to RACK if a rack preset is active, else OFD as a
-    // placeholder. P9 will replace this with explicit kind selection in the
-    // sidebar / picker.
-    const newEquip: FloorPlanEquipment = {
+    const baseEquip: FloorPlanEquipment = {
       id: generateTempId(),
-      kind: isRackPreset ? 'RACK' : 'OFD',
+      kind,
       name: cs.newEquipmentName,
       positionX: cs.newEquipmentPosition.x,
       positionY: cs.newEquipmentPosition.y,
@@ -249,84 +246,109 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       frontImageUrl: null,
       rearImageUrl: null,
       description: null,
-      materialCategoryId: cs.newEquipmentMaterialCategoryId,
-      materialCategoryCode: cs.newEquipmentMaterialCategoryCode,
-      materialCategoryName: cs.newEquipmentMaterialCategoryName,
-      displayColor: cs.newEquipmentDisplayColor,
-      specParams: cs.newEquipmentSpecParams,
-      specification: cs.newEquipmentSpecification,
-      // Phase 4: stamp totalU on parent rack from preset metadata
-      totalU: isRackPreset ? preset!.totalU : null,
+      properties: null,
+      // Plain rack via the "랙" kind leaf → empty 42U; preset path doesn't go through this modal.
+      totalU: kind === 'RACK' ? 42 : null,
     };
 
-    let newList: FloorPlanEquipment[] = [...useEditorStore.getState().localEquipment, newEquip];
-
-    // Phase 4: auto-expand rack preset modules into child Equipment.
-    // parentEquipmentId points at the parent's tempId; backend bulkUpdatePlan
-    // resolves tempId → real id in pass 2 (floor.service.ts:927~999) so this
-    // flows through the existing save path unchanged.
-    if (isRackPreset && preset!.modules.length > 0) {
-      for (const mod of preset!.modules) {
-        const childCat = allCats.find((c) => c.code === mod.materialCategoryCode);
-        if (!childCat) {
-          // eslint-disable-next-line no-console
-          console.warn(
-            `[rack-preset] module category '${mod.materialCategoryCode}' not found — skipping`,
-          );
-          continue;
-        }
-        // P8: rack preset children used to be Equipment rows; in the new
-        // model they're RackModule rows on a separate table. The expansion
-        // path is broken until P9 wires it into a `localRackModules` slice.
-        // We still produce a placeholder Equipment so typecheck holds and the
-        // existing save path doesn't crash.
-        const child: FloorPlanEquipment = {
-          id: generateTempId(),
-          kind: 'OFD',
-          name: mod.name ?? childCat.name,
-          positionX: cs.newEquipmentPosition.x,
-          positionY: cs.newEquipmentPosition.y,
-          width: Math.max(8, drawnWidth - 8),
-          height: 16,
-          rotation: 0,
-          totalU: null,
-          frontImageUrl: null,
-          rearImageUrl: null,
-          description: null,
-          parentEquipmentId: newEquip.id,
-          startU: mod.slotU,
-          heightU: mod.heightU,
-          materialCategoryId: childCat.id,
-          materialCategoryCode: childCat.code,
-          materialCategoryName: childCat.name,
-          displayColor: childCat.displayColor ?? null,
-          specParams: {},
-          specification: mod.name ?? childCat.name,
-        };
-        newList = [...newList, child];
-      }
-    }
-
+    const newList = [...useEditorStore.getState().localEquipment, baseEquip];
     setLocalEquipment(newList);
     pushHistory(newList);
 
-    // Track recent material usage
-    if (cs.newEquipmentMaterialCategoryId && cs.newEquipmentMaterialCategoryCode && cs.newEquipmentSpecification) {
-      addRecent('equipment', {
-        categoryId: cs.newEquipmentMaterialCategoryId,
-        categoryCode: cs.newEquipmentMaterialCategoryCode,
-        categoryName: cs.newEquipmentSpecification,
-        specParams: cs.newEquipmentSpecParams ?? {},
-        specification: cs.newEquipmentSpecification,
-      });
-    }
-
     cs.setEquipmentModalOpen(false);
     cs.setNewEquipmentName('');
-    cs.resetNewEquipmentMaterial();
+    cs.resetNewEquipmentSelection();
     setHasChanges(true);
     setTool('select');
   };
+
+  /**
+   * P9: rack preset placement — single click on canvas. The arming click
+   * (sidebar) sets `newEquipmentPreset`; the canvas click (useCanvasEvents)
+   * sets `newEquipmentPosition` and calls this. We add the rack equipment
+   * + auto-expand the preset modules into RackModule rows on the editor store.
+   */
+  const handlePlacePreset = useCallback(() => {
+    const cs = useEditorStore.getState();
+    const preset = cs.newEquipmentPreset;
+    if (!preset) return;
+
+    const rackId = generateTempId();
+    const baseName = preset.name;
+    // Pick a non-conflicting name — append -2/-3/... if there's already a rack with the same name.
+    const existingNames = new Set(cs.localEquipment.map((eq) => eq.name));
+    let resolvedName = baseName;
+    let suffix = 2;
+    while (existingNames.has(resolvedName)) {
+      resolvedName = `${baseName}-${suffix++}`;
+    }
+
+    const rackEquip: FloorPlanEquipment = {
+      id: rackId,
+      kind: 'RACK',
+      name: resolvedName,
+      positionX: cs.newEquipmentPosition.x,
+      positionY: cs.newEquipmentPosition.y,
+      width: preset.canvasWidth,
+      height: preset.canvasHeight,
+      rotation: 0,
+      totalU: preset.totalU,
+      description: null,
+      manager: null,
+      frontImageUrl: null,
+      rearImageUrl: null,
+      properties: null,
+    };
+
+    const newEquipmentList = [...cs.localEquipment, rackEquip];
+    setLocalEquipment(newEquipmentList);
+
+    // Resolve module categories by code; skip silently if a preset references
+    // an unknown code (data drift). Emit one console warning per occurrence.
+    const codeToCategory = new Map<string, RackModuleCategory>(
+      (rackModuleCategories ?? []).map((c) => [c.code, c]),
+    );
+    const newModules: RackModule[] = [];
+    preset.modules.forEach((mod, idx) => {
+      const cat = codeToCategory.get(mod.categoryCode);
+      if (!cat) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[rack-preset] module category code '${mod.categoryCode}' not in rack-module-categories — skipped`,
+        );
+        return;
+      }
+      newModules.push({
+        id: generateTempId(),
+        rackEquipmentId: rackId,
+        categoryId: cat.id,
+        categoryCode: cat.code,
+        categoryName: cat.name,
+        categoryDisplayColor: cat.displayColor,
+        name: mod.defaultName ?? cat.name,
+        startU: mod.slotU,
+        heightU: mod.heightU,
+        installDate: null,
+        manager: null,
+        description: null,
+        properties: null,
+        sortOrder: idx,
+        createdAt: '',
+        updatedAt: '',
+      });
+    });
+
+    if (newModules.length > 0) {
+      const merged = [...cs.localRackModules, ...newModules];
+      cs.setRackModules(merged);
+    }
+
+    pushHistory(newEquipmentList);
+    cs.resetNewEquipmentSelection();
+    setHasChanges(true);
+    setTool('select');
+  }, [pushHistory, rackModuleCategories, setLocalEquipment, setTool]);
+
 
   const isPlanNotFound = planError && (planError as { response?: { status: number } }).response?.status === 404;
   const isLoading = floorLoading || planLoading;
@@ -379,6 +401,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 containerRef={containerRef}
                 floorPlan={floorPlan}
                 floorId={floorId}
+                onPlacePreset={handlePlacePreset}
               >
                 <ConnectionOverlay floorId={floorId} canvasRef={canvasRef} />
                 <CablePathOverlayWrapper canvasRef={canvasRef} />
@@ -428,6 +451,8 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       </div>
 
       <EquipmentMaterialModal onAdd={handleAddEquipment} />
+      <CableEndpointPickerHost />
+      <RackModuleDialog />
       <CableSpecModalWrapper />
       {showDraftDialog && (
         <DraftRecoveryDialog onRestore={handleRestoreDraft} onDiscard={handleDiscardDraft} />
