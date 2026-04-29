@@ -10,14 +10,31 @@ const router = Router();
 
 const cableTypeEnum = z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']);
 
+// 다형 endpoint: equipmentId XOR moduleId
+const endpointSchema = z.object({
+  equipmentId: z.string().uuid().optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
+}).refine(
+  (v) => (!!v.equipmentId) !== (!!v.moduleId),
+  '엔드포인트는 equipmentId 또는 moduleId 중 정확히 한 쪽만 지정해야 합니다.',
+);
+
 const createCableSchema = z.object({
-  sourceEquipmentId: z.string().uuid('유효한 소스 설비 ID가 필요합니다.'),
-  targetEquipmentId: z.string().uuid('유효한 타겟 설비 ID가 필요합니다.'),
+  source: endpointSchema,
+  target: endpointSchema,
   cableType: cableTypeEnum,
-  label: z.string().max(100).optional(),
-  length: z.number().positive().optional(),
-  color: z.string().max(50).optional(),
-  description: z.string().optional(),
+  categoryId: z.string().uuid().optional().nullable(),
+  specParams: z.unknown().optional(),
+  label: z.string().max(100).optional().nullable(),
+  length: z.number().positive().optional().nullable(),
+  color: z.string().max(50).optional().nullable(),
+  description: z.string().optional().nullable(),
+  fiberPathId: z.string().uuid().optional().nullable(),
+  fiberPortNumber: z.number().int().min(1).max(48).optional().nullable(),
+  pathPoints: z.unknown().optional(),
+  pathLength: z.number().optional().nullable(),
+  bufferLength: z.number().optional().nullable(),
+  totalLength: z.number().optional().nullable(),
 });
 
 const updateCableSchema = z.object({
@@ -27,35 +44,21 @@ const updateCableSchema = z.object({
   color: z.string().max(50).optional().nullable(),
   pathPoints: z.unknown().optional(),
   description: z.string().optional().nullable(),
+  categoryId: z.string().uuid().optional().nullable(),
+  specParams: z.unknown().optional(),
+  fiberPathId: z.string().uuid().optional().nullable(),
+  fiberPortNumber: z.number().int().min(1).max(48).optional().nullable(),
+  pathLength: z.number().optional().nullable(),
+  bufferLength: z.number().optional().nullable(),
+  totalLength: z.number().optional().nullable(),
 });
 
 // ==================== Cable Routes ====================
 
-// 모든 케이블 조회 (인증 불필요)
 router.get('/', cableController.getAll);
-
-// 케이블 상세 조회 (인증 불필요)
 router.get('/:id', cableController.getById);
-
-// 케이블 생성 (관리자만)
-router.post(
-  '/',
-  authenticate,
-  adminOnly,
-  validate(createCableSchema),
-  cableController.create
-);
-
-// 케이블 수정 (관리자만)
-router.put(
-  '/:id',
-  authenticate,
-  adminOnly,
-  validate(updateCableSchema),
-  cableController.update
-);
-
-// 케이블 삭제 (관리자만)
+router.post('/', authenticate, adminOnly, validate(createCableSchema), cableController.create);
+router.put('/:id', authenticate, adminOnly, validate(updateCableSchema), cableController.update);
 router.delete('/:id', authenticate, adminOnly, cableController.delete);
 
 export { router as cablesRouter };

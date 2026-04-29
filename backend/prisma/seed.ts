@@ -1,6 +1,9 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { seedMaterialCategories } from './seed/materialCategories.js';
+import { seedCableCategories } from './seed/cableCategories.js';
+import { seedRackModuleCategories } from './seed/rackModuleCategories.js';
+import { seedBomMaterials } from './seed/bomMaterials.js';
+import { seedRackPresets } from './seed/rackPresets.js';
 
 const prisma = new PrismaClient();
 
@@ -98,8 +101,15 @@ async function main() {
     console.log(`✅ ${hqData.name}: ${hqData.branches.length}개 지사`);
   }
 
-  // 자재 카테고리 시드 (63종)
-  await seedMaterialCategories(prisma);
+  // 신규 분리된 4개 도메인 시드 (P6)
+  //   - CableCategory       (16종)
+  //   - RackModuleCategory  (12종)
+  //   - BomMaterial         (34종 = 9 parent + 25 leaf)
+  //   - RackPreset          (1종)
+  await seedCableCategories(prisma);
+  await seedRackModuleCategories(prisma);
+  await seedBomMaterials(prisma);
+  await seedRackPresets(prisma);
 
   // 샘플 변전소 + 층 (개발 테스트용)
   if (process.env.NODE_ENV === 'development') {

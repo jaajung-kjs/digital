@@ -39,6 +39,10 @@ model User {
   updatedMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogUpdatedBy")
   createdFiberPaths      FiberPath[]      @relation("FiberPathCreator")
   updatedFiberPaths      FiberPath[]      @relation("FiberPathUpdater")
+  createdRackModules     RackModule[]     @relation("RackModuleCreatedBy")
+  updatedRackModules     RackModule[]     @relation("RackModuleUpdatedBy")
+  createdRackPresets     RackPreset[]     @relation("RackPresetCreatedBy")
+  updatedRackPresets     RackPreset[]     @relation("RackPresetUpdatedBy")
 
   @@map("users")
 }
@@ -161,64 +165,183 @@ model Floor {
   @@map("floors")
 }
 
-// ==================== 설비 ====================
+// ==================== 도면 객체 (5종 hardcoded) ====================
+// Equipment 는 도면 위에 직접 배치되는 5가지 객체만:
+//   RACK / OFD / DISTRIBUTION / GROUNDING / HVAC
+// 랙 안 모듈은 RackModule 별도 테이블 (도면 좌표 없음)
+
+enum EquipmentKind {
+  RACK
+  OFD
+  DISTRIBUTION
+  GROUNDING
+  HVAC
+}
 
 model Equipment {
-  id                 String    @id @default(uuid())
-  parentEquipmentId  String?   @map("parent_equipment_id")
-  floorId            String?   @map("floor_id")
-  name               String    @db.VarChar(100)
-  model              String?   @db.VarChar(100)
-  manufacturer       String?   @db.VarChar(100)
-  serialNumber       String?   @map("serial_number") @db.VarChar(100)
-  // U 슬롯 위치 (rack-mounted equipment)
-  startU             Int?      @map("start_u")
-  heightU            Int       @default(1) @map("height_u")
-  // EQP-RACK용 슬롯 수 (rack equipment의 경우)
-  totalU             Int?      @map("total_u")
-  // 평면도 위치 (2D 배치용)
-  positionX          Float?    @map("position_x_2d")
-  positionY          Float?    @map("position_y_2d")
-  width2d            Float?    @map("width_2d")
-  height2d           Float?    @map("height_2d")
-  rotation           Int?      @default(0)
-  // 3D 속성
-  height3d           Float?    @map("height_3d")
-  // 사진
-  frontImageUrl      String?   @map("front_image_url") @db.VarChar(500)
-  rearImageUrl       String?   @map("rear_image_url") @db.VarChar(500)
-  // 추가 정보
-  installDate        DateTime? @map("install_date") @db.Date
-  manager            String?   @db.VarChar(100)
-  description        String?   @db.Text
-  properties         Json? // 추가 속성
-  // 자재 체계 확장
-  materialCategoryId String?   @map("material_category_id")
-  materialId         String?   @map("material_id")
-  specParams         Json?     @map("spec_params")
+  id           String        @id @default(uuid())
+  floorId      String        @map("floor_id")
+  kind         EquipmentKind
+  name         String        @db.VarChar(100)
+  // 도면 좌표 (NOT NULL — 도면 객체는 항상 위치를 가짐)
+  positionX    Float         @map("position_x_2d")
+  positionY    Float         @map("position_y_2d")
+  width2d      Float         @map("width_2d")
+  height2d     Float         @map("height_2d")
+  rotation     Int           @default(0)
+  // RACK 전용
+  totalU       Int?          @map("total_u")
   // 메타
-  sortOrder          Int       @default(0) @map("sort_order")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-  createdById        String?   @map("created_by")
-  updatedById        String?   @map("updated_by")
+  installDate  DateTime?     @map("install_date") @db.Date
+  manager      String?       @db.VarChar(100)
+  description  String?       @db.Text
+  // kind 별 도메인 데이터 (OFD/DIST/GROUND/HVAC). RACK 은 거의 비어 있음.
+  properties   Json?
 
-  parent           Equipment?        @relation("EquipmentChildren", fields: [parentEquipmentId], references: [id], onDelete: Cascade)
-  children         Equipment[]       @relation("EquipmentChildren")
-  floor            Floor?            @relation(fields: [floorId], references: [id], onDelete: SetNull)
-  createdBy        User?             @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
-  updatedBy        User?             @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
-  materialCategory MaterialCategory? @relation("EquipmentMaterialCategory", fields: [materialCategoryId], references: [id])
-  material         Material?         @relation("EquipmentMaterial", fields: [materialId], references: [id])
-  ports            Port[]
-  photos           EquipmentPhoto[]
-  maintenanceLogs  MaintenanceLog[]
-  sourceCables     Cable[]           @relation("CableSource")
-  targetCables     Cable[]           @relation("CableTarget")
-  fiberPathsAsA    FiberPath[]       @relation("FiberPathOfdA")
-  fiberPathsAsB    FiberPath[]       @relation("FiberPathOfdB")
+  // 사진
+  frontImageUrl String? @map("front_image_url") @db.VarChar(500)
+  rearImageUrl  String? @map("rear_image_url") @db.VarChar(500)
+  // 3D 속성
+  height3d      Float?  @map("height_3d")
+  // 메타
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdById   String?  @map("created_by")
+  updatedById   String?  @map("updated_by")
+
+  floor           Floor            @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  createdBy       User?            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?            @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
+  modules         RackModule[]                                       // RACK kind 만 의미 있음
+  ports           Port[]                                              // OFD 전용
+  photos          EquipmentPhoto[]
+  maintenanceLogs MaintenanceLog[]
+  sourceCables    Cable[]          @relation("CableSourceEquipment")
+  targetCables    Cable[]          @relation("CableTargetEquipment")
+  fiberPathsAsA   FiberPath[]      @relation("FiberPathOfdA")
+  fiberPathsAsB   FiberPath[]      @relation("FiberPathOfdB")
 
   @@map("equipment")
+}
+
+// ==================== 랙 모듈 (도면 좌표 없음) ====================
+// 부모 RACK Equipment 안에 들어가는 모듈. 12개 카테고리 중 하나에 속함.
+
+model RackModule {
+  id              String    @id @default(uuid())
+  rackEquipmentId String    @map("rack_equipment_id")
+  categoryId      String    @map("category_id")
+  name            String    @db.VarChar(100)
+  startU          Int       @map("start_u")     // 1..totalU
+  heightU         Int       @map("height_u")    // 1..N
+  // 메타
+  installDate     DateTime? @map("install_date") @db.Date
+  manager         String?   @db.VarChar(100)
+  description     String?   @db.Text
+  properties      Json?
+  sortOrder       Int       @default(0) @map("sort_order")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  createdById     String?   @map("created_by")
+  updatedById     String?   @map("updated_by")
+
+  rack         Equipment          @relation(fields: [rackEquipmentId], references: [id], onDelete: Cascade)
+  category     RackModuleCategory @relation(fields: [categoryId], references: [id])
+  sourceCables Cable[]            @relation("CableSourceModule")
+  targetCables Cable[]            @relation("CableTargetModule")
+  createdBy    User?              @relation("RackModuleCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?              @relation("RackModuleUpdatedBy", fields: [updatedById], references: [id])
+
+  @@map("rack_modules")
+}
+
+model RackModuleCategory {
+  id           String   @id @default(uuid())
+  code         String   @unique @db.VarChar(30) // 'EQP-PITR-5000' 등
+  name         String   @db.VarChar(100)
+  description  String?  @db.Text
+  displayColor String?  @map("display_color") @db.VarChar(7)
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  modules RackModule[]
+
+  @@map("rack_module_categories")
+}
+
+// ==================== 랙 프리셋 (사용자 CRUD) ====================
+// modules: [{ slotU, heightU, categoryCode, defaultName }]
+
+model RackPreset {
+  id           String   @id @default(uuid())
+  code         String   @unique @db.VarChar(30)
+  name         String   @db.VarChar(100)
+  totalU       Int      @map("total_u")
+  canvasWidth  Float    @map("canvas_width")
+  canvasHeight Float    @map("canvas_height")
+  modules      Json
+  description  String?  @db.Text
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  createdById  String?  @map("created_by")
+  updatedById  String?  @map("updated_by")
+
+  createdBy User? @relation("RackPresetCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("RackPresetUpdatedBy", fields: [updatedById], references: [id])
+
+  @@map("rack_presets")
+}
+
+// ==================== 케이블 카테고리 (16종 시드) ====================
+
+model CableCategory {
+  id           String   @id @default(uuid())
+  code         String   @unique @db.VarChar(30) // 'CBL-FCV' 등
+  name         String   @db.VarChar(100)
+  description  String?  @db.Text
+  displayColor String?  @map("display_color") @db.VarChar(7)
+  displayGroup String?  @map("display_group") @db.VarChar(20) // 전원|접지|네트워크|광|제어
+  iconName     String?  @map("icon_name") @db.VarChar(30)
+  unit         String?  @db.VarChar(20)
+  specTemplate Json?    @map("spec_template")
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  cables Cable[]
+
+  @@map("cable_categories")
+}
+
+// ==================== BOM 자재 (시공 보고서 전용) ====================
+// 사용자에게 노출되지 않는 부속자재. 34개 시드.
+// Parent-child 트리 구조 유지 (PIPE > PIPE-PVC 등)
+
+model BomMaterial {
+  id           String   @id @default(uuid())
+  code         String   @unique @db.VarChar(30) // 'ACC-PIPE-PVC' 등
+  name         String   @db.VarChar(100)
+  parentId     String?  @map("parent_id")
+  description  String?  @db.Text
+  iconName     String?  @map("icon_name") @db.VarChar(30)
+  unit         String?  @db.VarChar(20)
+  specTemplate Json?    @map("spec_template")
+  displayColor String?  @map("display_color") @db.VarChar(7)
+  sortOrder    Int      @default(0) @map("sort_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  parent   BomMaterial?  @relation("BomMaterialHierarchy", fields: [parentId], references: [id])
+  children BomMaterial[] @relation("BomMaterialHierarchy")
+
+  @@map("bom_materials")
 }
 
 // ==================== 포트 ====================
@@ -253,44 +376,50 @@ enum PortType {
   OTHER
 }
 
-// ==================== 케이블 (설비-설비 직접 연결) ====================
+// ==================== 케이블 (다형 endpoint) ====================
+// 각 side 한 쪽만 NOT NULL — CHECK constraint로 강제
+// RACK kind Equipment 는 endpoint 불가 (service validation)
+// OFD endpoint 는 fiberPathId + fiberPortNumber 필수 (service validation)
 
 model Cable {
-  id                 String    @id @default(uuid())
-  sourceEquipmentId  String    @map("source_equipment_id")
-  targetEquipmentId  String    @map("target_equipment_id")
-  cableType          CableType @map("cable_type")
-  label              String?   @db.VarChar(100)
-  length             Float? // 미터
-  color              String?   @db.VarChar(50)
-  pathPoints         Json?     @map("path_points") // [[x, y], ...]
-  description        String?   @db.Text
-  // 자재 체계 확장
-  materialCategoryId String?   @map("material_category_id")
-  materialId         String?   @map("material_id")
-  specParams         Json?     @map("spec_params")
-  pathLength         Float?    @map("path_length")
-  bufferLength       Float     @default(4) @map("buffer_length")
-  totalLength        Float?    @map("total_length")
-  // timestamps
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-  createdById        String?   @map("created_by")
-  updatedById        String?   @map("updated_by")
+  id String @id @default(uuid())
+  // 다형 endpoint
+  sourceEquipmentId String? @map("source_equipment_id")
+  sourceModuleId    String? @map("source_module_id")
+  targetEquipmentId String? @map("target_equipment_id")
+  targetModuleId    String? @map("target_module_id")
 
+  cableType  CableType @map("cable_type")
+  categoryId String?   @map("category_id") // CableCategory FK
+  specParams Json?     @map("spec_params")
+  pathPoints Json?     @map("path_points")
+
+  // OFD 광경로 식별
   fiberPathId     String? @map("fiber_path_id")
   fiberPortNumber Int?    @map("fiber_port_number")
 
-  sourceEquipment  Equipment         @relation("CableSource", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
-  targetEquipment  Equipment         @relation("CableTarget", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
-  fiberPath        FiberPath?        @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
-  materialCategory MaterialCategory? @relation("CableMaterialCategory", fields: [materialCategoryId], references: [id])
-  material         Material?         @relation("CableMaterial", fields: [materialId], references: [id])
-  createdBy        User?             @relation("CableCreatedBy", fields: [createdById], references: [id])
-  updatedBy        User?             @relation("CableUpdatedBy", fields: [updatedById], references: [id])
+  label        String? @db.VarChar(100)
+  length       Float?
+  pathLength   Float?  @map("path_length")
+  bufferLength Float   @default(4) @map("buffer_length")
+  totalLength  Float?  @map("total_length")
+  color        String? @db.VarChar(50)
+  description  String? @db.Text
 
-  // Unique constraints are enforced via partial indexes in migration
-  // (non-fiber: source+target+type, fiber: source+target+type+port)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by")
+  updatedById String?  @map("updated_by")
+
+  sourceEquipment Equipment?     @relation("CableSourceEquipment", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
+  sourceModule    RackModule?    @relation("CableSourceModule", fields: [sourceModuleId], references: [id], onDelete: Cascade)
+  targetEquipment Equipment?     @relation("CableTargetEquipment", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
+  targetModule    RackModule?    @relation("CableTargetModule", fields: [targetModuleId], references: [id], onDelete: Cascade)
+  fiberPath       FiberPath?     @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
+  category        CableCategory? @relation(fields: [categoryId], references: [id])
+  createdBy       User?          @relation("CableCreatedBy", fields: [createdById], references: [id])
+  updatedBy       User?          @relation("CableUpdatedBy", fields: [updatedById], references: [id])
+
   @@map("cables")
 }
 
@@ -391,75 +520,4 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
-}
-
-// ==================== 자재 체계 ====================
-
-enum MaterialCategoryType {
-  CABLE
-  EQUIPMENT
-  ACCESSORY
-}
-
-model MaterialCategory {
-  id              String               @id @default(uuid())
-  code            String               @unique @db.VarChar(30)
-  name            String               @db.VarChar(100)
-  categoryType    MaterialCategoryType @map("category_type")
-  parentId        String?              @map("parent_id")
-  description     String?              @db.Text
-  displayColor    String?              @map("display_color") @db.VarChar(7)
-  iconName        String?              @map("icon_name") @db.VarChar(30)
-  unit            String?              @db.VarChar(20)
-  specTemplate    Json?                @map("spec_template")
-  // 단일 그루핑 소스 메타데이터
-  placementType   String?              @map("placement_type") @db.VarChar(20) // 'rack_mounted' | 'standalone' | null
-  detailPanelKind String?              @map("detail_panel_kind") @db.VarChar(20) // 'rack' | 'ofd' | 'distribution' | 'grounding' | 'hvac' | 'generic' | null
-  rackPreset      Json?                @map("rack_preset") // EQP-RACK-* 프리셋 정의
-  displayGroup    String?              @map("display_group") @db.VarChar(20) // 케이블: 전원 | 접지 | 네트워크 | 광 | 제어
-  sortOrder       Int                  @default(0) @map("sort_order")
-  isActive        Boolean              @default(true) @map("is_active")
-  createdAt       DateTime             @default(now()) @map("created_at")
-  updatedAt       DateTime             @updatedAt @map("updated_at")
-
-  parent    MaterialCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children  MaterialCategory[] @relation("CategoryHierarchy")
-  materials Material[]
-  aliases   MaterialAlias[]
-  cables    Cable[]            @relation("CableMaterialCategory")
-  equipment Equipment[]        @relation("EquipmentMaterialCategory")
-
-  @@map("material_categories")
-}
-
-model MaterialAlias {
-  id         String   @id @default(uuid())
-  categoryId String   @map("category_id")
-  aliasName  String   @unique @db.VarChar(200)
-  source     String?  @db.VarChar(50)
-  createdAt  DateTime @default(now()) @map("created_at")
-
-  category MaterialCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@map("material_aliases")
-}
-
-model Material {
-  id            String   @id @default(uuid())
-  categoryId    String   @map("category_id")
-  code          String   @unique @db.VarChar(50)
-  name          String   @db.VarChar(200)
-  specification String   @db.VarChar(200)
-  unit          String   @db.VarChar(20)
-  properties    Json?
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  category  MaterialCategory @relation(fields: [categoryId], references: [id])
-  cables    Cable[]          @relation("CableMaterial")
-  equipment Equipment[]      @relation("EquipmentMaterial")
-
-  @@unique([categoryId, specification])
-  @@map("materials")
 }
