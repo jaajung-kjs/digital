@@ -2,8 +2,6 @@ import { useEffect, useCallback, useRef } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import {
   renderLinePreview,
-  renderCirclePreview,
-  renderRectPreview,
   renderPlacementPreview,
   renderEquipmentDrawPreview,
   renderElements,
@@ -48,8 +46,6 @@ export function useCanvas(
 
     const {
       isDrawingLine, linePoints, linePreviewEnd,
-      isDrawingCircle, circleCenter, circlePreviewRadius, circlePreviewEnd,
-      isDrawingRect, rectStart, rectPreviewEnd,
       isDrawingEquipment, equipmentStart, equipmentPreviewEnd,
       previewPosition,
     } = useCanvasStore.getState();
@@ -109,19 +105,9 @@ export function useCanvas(
       renderEquipmentLengths(ctx, localEquipment, zoom);
     }
 
-    // Line preview (also used for conduit/tray)
+    // Polyline preview (conduit/tray)
     if (isDrawingLine && linePoints.length === 1) {
       renderLinePreview(ctx, linePoints[0], linePreviewEnd);
-    }
-
-    // Circle preview
-    if (isDrawingCircle && circleCenter) {
-      renderCirclePreview(ctx, circleCenter, circlePreviewRadius, circlePreviewEnd || undefined);
-    }
-
-    // Rect preview
-    if (isDrawingRect && rectStart) {
-      renderRectPreview(ctx, rectStart, rectPreviewEnd);
     }
 
     // Equipment draw preview
@@ -129,8 +115,8 @@ export function useCanvas(
       renderEquipmentDrawPreview(ctx, equipmentStart, equipmentPreviewEnd);
     }
 
-    // Placement preview
-    if (previewPosition && ['door', 'window', 'equipment', 'text', 'pullbox'].includes(tool)) {
+    // Placement preview (text, pullbox, equipment hover)
+    if (previewPosition && ['equipment', 'text', 'pullbox'].includes(tool)) {
       if (!(tool === 'equipment' && isDrawingEquipment)) {
         renderPlacementPreview(ctx, tool as DrawingToolType, previewPosition, 0);
       }

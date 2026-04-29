@@ -3,21 +3,10 @@ import type { DragSession } from '../../../utils/floorplan/dragSystem';
 import { getEquipmentCategoryFromMaterial } from '../../../types/material';
 
 interface CanvasStoreState {
-  // Line drawing state
+  // Polyline (conduit/tray) drawing state
   isDrawingLine: boolean;
   linePoints: [number, number][];
   linePreviewEnd: [number, number] | null;
-
-  // Circle drawing state
-  isDrawingCircle: boolean;
-  circleCenter: { x: number; y: number } | null;
-  circlePreviewRadius: number;
-  circlePreviewEnd: { x: number; y: number } | null;
-
-  // Rect drawing state
-  isDrawingRect: boolean;
-  rectStart: { x: number; y: number } | null;
-  rectPreviewEnd: { x: number; y: number } | null;
 
   // Equipment drawing state (drag-to-draw)
   isDrawingEquipment: boolean;
@@ -30,7 +19,7 @@ interface CanvasStoreState {
   textInputPosition: { x: number; y: number } | null;
   textInputValue: string;
 
-  // Placement preview position (for door, window, equipment, text)
+  // Placement preview position (for text, equipment, pullbox)
   previewPosition: { x: number; y: number } | null;
 
   // Drag state
@@ -63,45 +52,27 @@ interface CanvasStoreState {
 }
 
 interface CanvasStoreActions {
-  // Line drawing
   setIsDrawingLine: (v: boolean) => void;
   setLinePoints: (pts: [number, number][]) => void;
   setLinePreviewEnd: (end: [number, number] | null) => void;
 
-  // Circle drawing
-  setIsDrawingCircle: (v: boolean) => void;
-  setCircleCenter: (c: { x: number; y: number } | null) => void;
-  setCirclePreviewRadius: (r: number) => void;
-  setCirclePreviewEnd: (e: { x: number; y: number } | null) => void;
-
-  // Rect drawing
-  setIsDrawingRect: (v: boolean) => void;
-  setRectStart: (s: { x: number; y: number } | null) => void;
-  setRectPreviewEnd: (e: { x: number; y: number } | null) => void;
-
-  // Equipment drawing
   setIsDrawingEquipment: (v: boolean) => void;
   setEquipmentStart: (s: { x: number; y: number } | null) => void;
   setEquipmentPreviewEnd: (e: { x: number; y: number } | null) => void;
   setEquipmentDrawnSize: (s: { width: number; height: number } | null) => void;
 
-  // Text editing
   setIsEditingText: (v: boolean) => void;
   setTextInputPosition: (p: { x: number; y: number } | null) => void;
   setTextInputValue: (v: string) => void;
 
-  // Preview
   setPreviewPosition: (p: { x: number; y: number } | null) => void;
 
-  // Drag
   setDragSession: (s: DragSession | null) => void;
 
-  // Pan
   setIsPanning: (v: boolean) => void;
   setPanStart: (p: { x: number; y: number } | null) => void;
   setIsSpacePressed: (v: boolean) => void;
 
-  // Equipment modals
   setEquipmentModalOpen: (v: boolean) => void;
   setPasteEquipmentModalOpen: (v: boolean) => void;
   setNewEquipmentName: (v: string) => void;
@@ -109,7 +80,6 @@ interface CanvasStoreActions {
   setPasteEquipmentName: (v: string) => void;
   setNewEquipmentPosition: (p: { x: number; y: number }) => void;
 
-  // Material-based equipment selection
   setNewEquipmentMaterial: (
     categoryId: string | null,
     categoryCode: string | null,
@@ -120,29 +90,17 @@ interface CanvasStoreActions {
   ) => void;
   resetNewEquipmentMaterial: () => void;
 
-  // Conduit/tray/pullbox material selection
   setInfraMaterialModalOpen: (v: boolean) => void;
   setInfraMaterialElementId: (id: string | null) => void;
 
-  // Close all modals (mutual exclusion)
   closeAllModals: () => void;
-
-  // Reset all drawing/interaction state
   resetDrawingState: () => void;
 }
 
 export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set) => ({
-  // Initial state
   isDrawingLine: false,
   linePoints: [],
   linePreviewEnd: null,
-  isDrawingCircle: false,
-  circleCenter: null,
-  circlePreviewRadius: 0,
-  circlePreviewEnd: null,
-  isDrawingRect: false,
-  rectStart: null,
-  rectPreviewEnd: null,
   isDrawingEquipment: false,
   equipmentStart: null,
   equipmentPreviewEnd: null,
@@ -170,17 +128,9 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
   infraMaterialModalOpen: false,
   infraMaterialElementId: null,
 
-  // Actions
   setIsDrawingLine: (isDrawingLine) => set({ isDrawingLine }),
   setLinePoints: (linePoints) => set({ linePoints }),
   setLinePreviewEnd: (linePreviewEnd) => set({ linePreviewEnd }),
-  setIsDrawingCircle: (isDrawingCircle) => set({ isDrawingCircle }),
-  setCircleCenter: (circleCenter) => set({ circleCenter }),
-  setCirclePreviewRadius: (circlePreviewRadius) => set({ circlePreviewRadius }),
-  setCirclePreviewEnd: (circlePreviewEnd) => set({ circlePreviewEnd }),
-  setIsDrawingRect: (isDrawingRect) => set({ isDrawingRect }),
-  setRectStart: (rectStart) => set({ rectStart }),
-  setRectPreviewEnd: (rectPreviewEnd) => set({ rectPreviewEnd }),
   setIsDrawingEquipment: (isDrawingEquipment) => set({ isDrawingEquipment }),
   setEquipmentStart: (equipmentStart) => set({ equipmentStart }),
   setEquipmentPreviewEnd: (equipmentPreviewEnd) => set({ equipmentPreviewEnd }),
@@ -208,7 +158,6 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
       newEquipmentDisplayColor: displayColor,
       newEquipmentSpecParams: specParams,
       newEquipmentSpecification: specification,
-      // Auto-map to old enum for backwards compatibility
       newEquipmentCategory: categoryCode
         ? getEquipmentCategoryFromMaterial(categoryCode)
         : 'NETWORK',
@@ -237,13 +186,6 @@ export const useCanvasStore = create<CanvasStoreState & CanvasStoreActions>((set
     isDrawingLine: false,
     linePoints: [],
     linePreviewEnd: null,
-    isDrawingCircle: false,
-    circleCenter: null,
-    circlePreviewRadius: 0,
-    circlePreviewEnd: null,
-    isDrawingRect: false,
-    rectStart: null,
-    rectPreviewEnd: null,
     isDrawingEquipment: false,
     equipmentStart: null,
     equipmentPreviewEnd: null,
