@@ -6,7 +6,7 @@ import {
   resolveDetailPanel,
   type PanelProps,
 } from '../../equipment/components/detail/panels/registry';
-import { useMergedEquipmentDetail } from '../../equipment/components/detail/panels/GenericEquipmentPanel';
+import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
 import {
   EQUIPMENT_KIND_INFO,
   type DetailPanelKind,
@@ -36,8 +36,10 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     return EQUIPMENT_KIND_INFO[localEq.kind]?.detailPanelKind ?? null;
   }, [localEq]);
 
-  const PanelComponent = useMemo(() => resolveDetailPanel(detailKind), [detailKind]);
-  const isRackPanel = detailKind === 'rack';
+  const PanelComponent = useMemo(
+    () => (detailKind ? resolveDetailPanel(detailKind) : null),
+    [detailKind],
+  );
 
   // I35: ESC to close panel (when no modal/lightbox is open)
   useEffect(() => {
@@ -54,9 +56,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
 
   return (
     <div
-      className={`absolute right-0 top-0 bottom-0 bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col ${
-        isRackPanel ? 'w-[480px]' : 'w-[360px]'
-      }`}
+      className="absolute right-0 top-0 bottom-0 w-[360px] bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col"
       style={{ animation: 'slideInRight 0.25s ease-out' }}
     >
       <style>{`
@@ -98,7 +98,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
 
       {/* Body — delegated to resolved panel */}
       <div className="flex-1 min-h-0 flex flex-col">
-        <PanelComponent equipmentId={equipmentId} floorId={floorId} />
+        {PanelComponent && <PanelComponent equipmentId={equipmentId} floorId={floorId} />}
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import type { ComponentType } from 'react';
 import type { DetailPanelKind } from '../../../../../types/equipmentKind';
-import { GenericEquipmentPanel } from './GenericEquipmentPanel';
 import { RackEquipmentPanel } from './RackEquipmentPanel';
 import { OfdEquipmentPanel } from './OfdEquipmentPanel';
 import { DistributionPanel } from './DistributionPanel';
@@ -18,11 +17,8 @@ const REGISTRY: Record<DetailPanelKind, ComponentType<PanelProps>> = {
   distribution: DistributionPanel,
   grounding: GroundingPanel,
   hvac: HvacPanel,
-  generic: GenericEquipmentPanel,
 };
 
-export function resolveDetailPanel(
-  kind: DetailPanelKind | null | undefined,
-): ComponentType<PanelProps> {
-  return REGISTRY[kind ?? 'generic'] ?? GenericEquipmentPanel;
+export function resolveDetailPanel(kind: DetailPanelKind): ComponentType<PanelProps> {
+  return REGISTRY[kind];
 }
