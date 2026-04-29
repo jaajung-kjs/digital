@@ -1,5 +1,6 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
+import { EquipmentKind } from '@prisma/client';
 
 // ==================== Types ====================
 
@@ -33,46 +34,23 @@ const equipmentWithSubstation = {
   select: {
     id: true,
     name: true,
-    category: true,
+    kind: true,
     floorId: true,
     floor: {
       select: {
         id: true,
-        substation: {
-          select: { name: true },
-        },
-      },
-    },
-    parent: {
-      select: {
-        floor: {
-          select: {
-            id: true,
-            substation: {
-              select: { name: true },
-            },
-          },
-        },
+        substation: { select: { name: true } },
       },
     },
   },
 } as const;
 
 function getSubstationName(equipment: any): string {
-  if (equipment.floor?.substation?.name) {
-    return equipment.floor.substation.name;
-  }
-  if (equipment.parent?.floor?.substation?.name) {
-    return equipment.parent.floor.substation.name;
-  }
-  return '';
+  return equipment.floor?.substation?.name ?? '';
 }
 
 function getFloorId(equipment: any): string | null {
-  if (equipment.floorId) return equipment.floorId;
-  if (equipment.floor?.id) return equipment.floor.id;
-  if (equipment.parent?.floor?.id) return equipment.parent.floor.id;
-  return null;
+  return equipment.floorId ?? equipment.floor?.id ?? null;
 }
 
 // ==================== Service ====================
@@ -129,26 +107,26 @@ class FiberPathService {
       throw new ValidationError('OFD A와 OFD B는 서로 달라야 합니다.');
     }
 
-    // Validate both equipment exist and are OFD (MaterialCategory.code === 'EQP-OFD')
+    // Validate both equipment exist and are OFD (Equipment.kind === 'OFD')
     const [ofdA, ofdB] = await Promise.all([
       prisma.equipment.findUnique({
         where: { id: input.ofdAId },
-        select: { id: true, materialCategory: { select: { code: true } } },
+        select: { id: true, kind: true },
       }),
       prisma.equipment.findUnique({
         where: { id: input.ofdBId },
-        select: { id: true, materialCategory: { select: { code: true } } },
+        select: { id: true, kind: true },
       }),
     ]);
 
     if (!ofdA) throw new NotFoundError('OFD A 설비');
     if (!ofdB) throw new NotFoundError('OFD B 설비');
 
-    if (ofdA.materialCategory?.code !== 'EQP-OFD') {
-      throw new ValidationError('OFD A 설비의 카테고리가 OFD가 아닙니다.');
+    if (ofdA.kind !== EquipmentKind.OFD) {
+      throw new ValidationError('OFD A 설비의 종류가 OFD가 아닙니다.');
     }
-    if (ofdB.materialCategory?.code !== 'EQP-OFD') {
-      throw new ValidationError('OFD B 설비의 카테고리가 OFD가 아닙니다.');
+    if (ofdB.kind !== EquipmentKind.OFD) {
+      throw new ValidationError('OFD B 설비의 종류가 OFD가 아닙니다.');
     }
 
     // Normalize UUID order: ofdAId < ofdBId (alphabetical)

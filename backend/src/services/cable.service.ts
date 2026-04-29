@@ -1,6 +1,6 @@
 import prisma from '../config/prisma.js';
-import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
-import { CableType } from '@prisma/client';
+import { NotFoundError, ValidationError } from '../utils/errors.js';
+import { CableType, EquipmentKind, Prisma } from '@prisma/client';
 
 /** Build specification string from specTemplate format + specParams */
 function buildCableSpecification(specTemplate: unknown, specParams: unknown): string | null {
@@ -17,10 +17,17 @@ function buildCableSpecification(specTemplate: unknown, specParams: unknown): st
 
 // ==================== Types ====================
 
+export interface CableEndpointRef {
+  equipmentId: string | null;
+  moduleId: string | null;
+  name: string;
+  floorId: string | null;
+}
+
 export interface CableDetail {
   id: string;
-  sourceEquipmentId: string;
-  targetEquipmentId: string;
+  source: CableEndpointRef;
+  target: CableEndpointRef;
   cableType: CableType;
   label: string | null;
   length: number | null;
@@ -30,67 +37,80 @@ export interface CableDetail {
   fiberPathId: string | null;
   fiberPortNumber: number | null;
   fiberPathDescription: string | null;
-  materialCategoryId: string | null;
-  materialCategoryCode: string | null;
-  materialCategoryName: string | null;
+  categoryId: string | null;
+  categoryCode: string | null;
+  categoryName: string | null;
   displayColor: string | null;
   specification: string | null;
   specParams: unknown;
   pathLength: number | null;
   bufferLength: number;
   totalLength: number | null;
-  sourceEquipment: {
-    id: string;
-    name: string;
-    parentEquipmentId: string | null;
-    floorId: string | null;
-  };
-  targetEquipment: {
-    id: string;
-    name: string;
-    parentEquipmentId: string | null;
-    floorId: string | null;
-  };
   createdAt: Date;
   updatedAt: Date;
 }
 
+/**
+ * 케이블 endpoint 입력. equipmentId XOR moduleId — 한 쪽만 채워야 한다.
+ */
+export interface CableEndpointInput {
+  equipmentId?: string | null;
+  moduleId?: string | null;
+}
+
 export interface CreateCableInput {
-  sourceEquipmentId: string;
-  targetEquipmentId: string;
+  source: CableEndpointInput;
+  target: CableEndpointInput;
   cableType: CableType;
-  label?: string;
-  length?: number;
-  color?: string;
-  description?: string;
+  categoryId?: string | null;
+  specParams?: unknown;
+  label?: string | null;
+  length?: number | null;
+  color?: string | null;
+  description?: string | null;
+  fiberPathId?: string | null;
+  fiberPortNumber?: number | null;
+  pathPoints?: unknown;
+  pathLength?: number | null;
+  bufferLength?: number | null;
+  totalLength?: number | null;
 }
 
 export interface UpdateCableInput {
   cableType?: CableType;
-  label?: string;
-  length?: number;
-  color?: string;
+  label?: string | null;
+  length?: number | null;
+  color?: string | null;
   pathPoints?: unknown;
-  description?: string;
+  description?: string | null;
+  categoryId?: string | null;
+  specParams?: unknown;
+  fiberPathId?: string | null;
+  fiberPortNumber?: number | null;
+  pathLength?: number | null;
+  bufferLength?: number | null;
+  totalLength?: number | null;
 }
 
-// ==================== Service ====================
+// ==================== Helpers ====================
 
 const cableInclude = {
-  sourceEquipment: {
+  sourceEquipment: { select: { id: true, name: true, floorId: true, kind: true } },
+  sourceModule: {
     select: {
       id: true,
       name: true,
-      parentEquipmentId: true,
-      floorId: true,
+      rackEquipmentId: true,
+      rack: { select: { id: true, floorId: true } },
     },
   },
-  targetEquipment: {
+  targetEquipment: { select: { id: true, name: true, floorId: true, kind: true } },
+  targetModule: {
     select: {
       id: true,
       name: true,
-      parentEquipmentId: true,
-      floorId: true,
+      rackEquipmentId: true,
+      rack: { select: { id: true, floorId: true } },
     },
   },
   fiberPath: {
@@ -102,15 +122,47 @@ const cableInclude = {
       ofdB: { select: { floor: { select: { substation: { select: { name: true } } } } } },
     },
   },
-  materialCategory: {
-    select: {
-      code: true,
-      name: true,
-      displayColor: true,
-      specTemplate: true,
-    },
-  },
+  category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
 } as const;
+
+/**
+ * Resolve an endpoint payload into validated FK fields.
+ * Throws if neither/both are populated, if the equipment is RACK kind, or if
+ * the referenced row doesn't exist.
+ */
+async function resolveEndpoint(
+  side: 'source' | 'target',
+  ep: CableEndpointInput,
+): Promise<{ equipmentId: string | null; moduleId: string | null; floorId: string | null }> {
+  const hasEq = !!ep.equipmentId;
+  const hasMod = !!ep.moduleId;
+  if (hasEq === hasMod) {
+    throw new ValidationError(
+      `${side} endpoint 는 equipmentId 또는 moduleId 중 정확히 한 쪽만 지정해야 합니다.`,
+    );
+  }
+
+  if (hasEq) {
+    const eq = await prisma.equipment.findUnique({
+      where: { id: ep.equipmentId! },
+      select: { id: true, kind: true, floorId: true },
+    });
+    if (!eq) throw new NotFoundError(`${side} 설비`);
+    if (eq.kind === EquipmentKind.RACK) {
+      throw new ValidationError(`RACK 설비는 케이블 endpoint 가 될 수 없습니다. 랙 안 모듈에 연결하세요.`);
+    }
+    return { equipmentId: eq.id, moduleId: null, floorId: eq.floorId };
+  }
+
+  const mod = await prisma.rackModule.findUnique({
+    where: { id: ep.moduleId! },
+    select: { id: true, rack: { select: { floorId: true } } },
+  });
+  if (!mod) throw new NotFoundError(`${side} 랙 모듈`);
+  return { equipmentId: null, moduleId: mod.id, floorId: mod.rack.floorId };
+}
+
+// ==================== Service ====================
 
 class CableService {
   async getAll(): Promise<CableDetail[]> {
@@ -122,51 +174,41 @@ class CableService {
   }
 
   async getById(id: string): Promise<CableDetail> {
-    const cable = await prisma.cable.findUnique({
-      where: { id },
-      include: cableInclude,
-    });
+    const cable = await prisma.cable.findUnique({ where: { id }, include: cableInclude });
     if (!cable) throw new NotFoundError('케이블');
     return this.mapToDetail(cable);
   }
 
   async create(input: CreateCableInput, userId: string): Promise<CableDetail> {
-    const [source, target] = await Promise.all([
-      prisma.equipment.findUnique({ where: { id: input.sourceEquipmentId } }),
-      prisma.equipment.findUnique({ where: { id: input.targetEquipmentId } }),
-    ]);
+    const source = await resolveEndpoint('source', input.source);
+    const target = await resolveEndpoint('target', input.target);
 
-    if (!source) throw new NotFoundError('소스 설비');
-    if (!target) throw new NotFoundError('타겟 설비');
-
-    if (input.sourceEquipmentId === input.targetEquipmentId) {
-      throw new ValidationError('소스 설비와 타겟 설비는 서로 달라야 합니다.');
-    }
-
-    // 동일 타입 중복 연결 확인
-    const existing = await prisma.cable.findFirst({
-      where: {
-        cableType: input.cableType,
-        OR: [
-          { sourceEquipmentId: input.sourceEquipmentId, targetEquipmentId: input.targetEquipmentId },
-          { sourceEquipmentId: input.targetEquipmentId, targetEquipmentId: input.sourceEquipmentId },
-        ],
-      },
-    });
-
-    if (existing) {
-      throw new ConflictError('해당 설비 간 동일 타입 케이블이 이미 존재합니다.');
+    const sameEndpoint =
+      (source.equipmentId && source.equipmentId === target.equipmentId) ||
+      (source.moduleId && source.moduleId === target.moduleId);
+    if (sameEndpoint) {
+      throw new ValidationError('소스와 타겟 endpoint 는 서로 달라야 합니다.');
     }
 
     const cable = await prisma.cable.create({
       data: {
-        sourceEquipmentId: input.sourceEquipmentId,
-        targetEquipmentId: input.targetEquipmentId,
+        sourceEquipmentId: source.equipmentId,
+        sourceModuleId: source.moduleId,
+        targetEquipmentId: target.equipmentId,
+        targetModuleId: target.moduleId,
         cableType: input.cableType,
+        categoryId: input.categoryId ?? null,
+        specParams: input.specParams as Prisma.InputJsonValue | undefined,
         label: input.label,
         length: input.length,
         color: input.color,
         description: input.description,
+        fiberPathId: input.fiberPathId ?? null,
+        fiberPortNumber: input.fiberPortNumber ?? null,
+        pathPoints: input.pathPoints as Prisma.InputJsonValue | undefined,
+        pathLength: input.pathLength ?? null,
+        bufferLength: input.bufferLength ?? 4,
+        totalLength: input.totalLength ?? null,
         createdById: userId,
         updatedById: userId,
       },
@@ -187,8 +229,15 @@ class CableService {
         label: input.label,
         length: input.length,
         color: input.color,
-        pathPoints: input.pathPoints as any,
+        pathPoints: input.pathPoints as Prisma.InputJsonValue | undefined,
         description: input.description,
+        categoryId: input.categoryId,
+        specParams: input.specParams as Prisma.InputJsonValue | undefined,
+        fiberPathId: input.fiberPathId,
+        fiberPortNumber: input.fiberPortNumber,
+        pathLength: input.pathLength,
+        bufferLength: input.bufferLength ?? undefined,
+        totalLength: input.totalLength,
         updatedById: userId,
       },
       include: cableInclude,
@@ -204,8 +253,8 @@ class CableService {
   }
 
   /**
-   * 실(Room)에 연결된 모든 케이블 조회
-   * 해당 Room의 랙에 속한 설비 + Room에 직접 배치된 설비 간의 케이블
+   * 도면(Floor) 에 연결된 모든 케이블 조회.
+   * Equipment endpoint 의 floorId 또는 RackModule.rack.floorId 가 매칭되는 케이블.
    */
   async getByFloorId(floorId: string): Promise<CableDetail[]> {
     const floor = await prisma.floor.findUnique({ where: { id: floorId } });
@@ -216,6 +265,8 @@ class CableService {
         OR: [
           { sourceEquipment: { floorId } },
           { targetEquipment: { floorId } },
+          { sourceModule: { rack: { floorId } } },
+          { targetModule: { rack: { floorId } } },
         ],
       },
       include: cableInclude,
@@ -225,11 +276,37 @@ class CableService {
     return cables.map((c) => this.mapToDetail(c));
   }
 
+  // 내부 — endpoint 모양을 정규화
+  private endpointFromIncluded(
+    side: 'source' | 'target',
+    c: any,
+  ): CableEndpointRef {
+    const equipment = side === 'source' ? c.sourceEquipment : c.targetEquipment;
+    const module = side === 'source' ? c.sourceModule : c.targetModule;
+    if (equipment) {
+      return {
+        equipmentId: equipment.id,
+        moduleId: null,
+        name: equipment.name,
+        floorId: equipment.floorId ?? null,
+      };
+    }
+    if (module) {
+      return {
+        equipmentId: null,
+        moduleId: module.id,
+        name: module.name,
+        floorId: module.rack?.floorId ?? null,
+      };
+    }
+    return { equipmentId: null, moduleId: null, name: '', floorId: null };
+  }
+
   private mapToDetail(c: any): CableDetail {
     return {
       id: c.id,
-      sourceEquipmentId: c.sourceEquipmentId,
-      targetEquipmentId: c.targetEquipmentId,
+      source: this.endpointFromIncluded('source', c),
+      target: this.endpointFromIncluded('target', c),
       cableType: c.cableType,
       label: c.label,
       length: c.length,
@@ -239,36 +316,22 @@ class CableService {
       fiberPathId: c.fiberPathId ?? null,
       fiberPortNumber: c.fiberPortNumber ?? null,
       fiberPathDescription: this.buildFiberPathLabel(c),
-      materialCategoryId: c.materialCategoryId ?? null,
-      materialCategoryCode: c.materialCategory?.code ?? null,
-      materialCategoryName: c.materialCategory?.name ?? null,
-      displayColor: c.materialCategory?.displayColor ?? null,
-      specification: buildCableSpecification(c.materialCategory?.specTemplate, c.specParams),
+      categoryId: c.categoryId ?? null,
+      categoryCode: c.category?.code ?? null,
+      categoryName: c.category?.name ?? null,
+      displayColor: c.category?.displayColor ?? null,
+      specification: buildCableSpecification(c.category?.specTemplate, c.specParams),
       specParams: c.specParams ?? null,
       pathLength: c.pathLength ?? null,
       bufferLength: c.bufferLength ?? 4,
       totalLength: c.totalLength ?? null,
-      sourceEquipment: {
-        id: c.sourceEquipment.id,
-        name: c.sourceEquipment.name,
-        parentEquipmentId: c.sourceEquipment.parentEquipmentId,
-        floorId: c.sourceEquipment.floorId,
-      },
-      targetEquipment: {
-        id: c.targetEquipment.id,
-        name: c.targetEquipment.name,
-        parentEquipmentId: c.targetEquipment.parentEquipmentId,
-        floorId: c.targetEquipment.floorId,
-      },
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     };
   }
 
   /**
-   * Build fiber path label oriented as "자국-대국" (local substation first).
-   * The cable connects an equipment to an OFD; that OFD sits on one side of the fiber path.
-   * The local substation is the OFD side the cable touches; remote is the other side.
+   * Build fiber path label oriented "자국-대국".
    */
   private buildFiberPathLabel(c: any): string | null {
     const fp = c.fiberPath;
@@ -278,15 +341,19 @@ class CableService {
     const nameB = fp.ofdB?.floor?.substation?.name;
     if (!nameA || !nameB) return null;
 
-    // Cable connects to source or target OFD — determine which side is "local"
+    // 케이블의 한 쪽이 OFD Equipment 면 그쪽이 local
     const cableOfdId = c.sourceEquipmentId === fp.ofdAId || c.targetEquipmentId === fp.ofdAId
       ? fp.ofdAId
-      : fp.ofdBId;
+      : c.sourceEquipmentId === fp.ofdBId || c.targetEquipmentId === fp.ofdBId
+        ? fp.ofdBId
+        : null;
+    if (!cableOfdId) return `${nameA}-${nameB}`;
 
     const localName = cableOfdId === fp.ofdAId ? nameA : nameB;
     const remoteName = cableOfdId === fp.ofdAId ? nameB : nameA;
     return `${localName}-${remoteName}`;
   }
+
 }
 
 export const cableService = new CableService();

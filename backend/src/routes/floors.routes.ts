@@ -31,33 +31,34 @@ const updateFloorSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+const equipmentKindEnum = z.enum(['RACK', 'OFD', 'DISTRIBUTION', 'GROUNDING', 'HVAC']);
+
 const equipmentSchema = z.object({
   id: z.string().uuid().optional().nullable(),
   tempId: z.string().optional(),
+  kind: equipmentKindEnum,
   name: z.string().min(1).max(100),
   positionX: z.number(),
   positionY: z.number(),
   width: z.number().min(0),
   height: z.number().min(0),
   rotation: z.number().optional(),
+  totalU: z.number().int().min(1).optional().nullable(),
   description: z.string().optional().nullable(),
-  model: z.string().optional().nullable(),
-  manufacturer: z.string().optional().nullable(),
   manager: z.string().optional().nullable(),
   height3d: z.number().optional().nullable(),
-  materialCategoryId: z.string().uuid().optional().nullable(),
-  materialCategoryCode: z.string().optional().nullable(),
-  specParams: z.any().optional().nullable(),
-  parentEquipmentId: z.string().optional().nullable(),
-  startU: z.number().int().min(1).optional().nullable(),
-  heightU: z.number().int().min(1).max(12).optional().nullable(),
-  totalU: z.number().int().min(1).optional().nullable(),
+  properties: z.unknown().optional(),
+});
+
+const endpointSchema = z.object({
+  equipmentId: z.string().uuid().optional().nullable(),
+  moduleId: z.string().uuid().optional().nullable(),
 });
 
 const cableSchema = z.object({
   id: z.string().uuid().nullish(),
-  sourceEquipmentId: z.string(),
-  targetEquipmentId: z.string(),
+  source: endpointSchema,
+  target: endpointSchema,
   cableType: z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']),
   label: z.string().nullish(),
   length: z.number().nullish(),
@@ -65,7 +66,7 @@ const cableSchema = z.object({
   description: z.string().nullish(),
   fiberPathId: z.string().uuid().nullish(),
   fiberPortNumber: z.number().int().min(1).max(48).nullish(),
-  materialCategoryId: z.string().uuid().nullish(),
+  categoryId: z.string().uuid().nullish(),
   specParams: z.any().nullish(),
   pathPoints: z.array(z.array(z.number()).length(2)).nullish(),
   pathLength: z.number().nullish(),
@@ -100,23 +101,19 @@ const patchVersionContextSchema = z.object({
 });
 
 const createFloorPlanEquipmentSchema = z.object({
+  kind: equipmentKindEnum,
   name: z.string().min(1, '이름은 필수입니다.').max(100),
-  model: z.string().max(100).optional(),
-  manufacturer: z.string().max(100).optional(),
-  serialNumber: z.string().max(100).optional(),
   positionX: z.number(),
   positionY: z.number(),
-  width2d: z.number().positive().optional(),
-  height2d: z.number().positive().optional(),
+  width2d: z.number().positive(),
+  height2d: z.number().positive(),
   rotation: z.number().int().optional(),
-  heightU: z.number().int().min(1).max(12).optional(),
-  height3d: z.number().positive().optional(),
+  totalU: z.number().int().min(1).optional().nullable(),
+  height3d: z.number().positive().optional().nullable(),
   installDate: z.string().optional(),
   manager: z.string().max(100).optional(),
   description: z.string().optional(),
   properties: z.unknown().optional(),
-  materialCategoryId: z.string().uuid().optional(),
-  specParams: z.any().optional(),
 });
 
 // ==================== Floor Routes ====================

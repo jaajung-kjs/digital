@@ -21,8 +21,6 @@ import { cablesRouter } from './routes/cables.routes.js';
 import { equipmentPhotosRouter } from './routes/equipmentPhotos.routes.js';
 import { maintenanceLogsRouter } from './routes/maintenanceLogs.routes.js';
 import { fiberPathsRouter } from './routes/fiberPaths.routes.js';
-import { materialCategoriesRouter } from './routes/materialCategories.routes.js';
-import { materialsRouter } from './routes/materials.routes.js';
 
 const app = express();
 
@@ -67,8 +65,9 @@ app.use('/api/cables', cablesRouter);
 app.use('/api/equipment-photos', equipmentPhotosRouter);
 app.use('/api/maintenance-logs', maintenanceLogsRouter);
 app.use('/api', fiberPathsRouter);
-app.use('/api/material-categories', materialCategoriesRouter);
-app.use('/api/materials', materialsRouter);
+// MaterialCategory/Material 라우트는 P6 에서 제거됨.
+// 신규 cable-categories / rack-modules / rack-presets / bom-materials
+// 라우트는 P7 에서 추가 예정.
 
 // 404 handler
 app.use((_req, res) => {
