@@ -10,6 +10,7 @@ import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
 import { useRecentMaterialsStore } from '../../materials/stores/recentMaterialsStore';
 import { Toolbar } from './Toolbar';
+import { EditorSidebar } from './EditorSidebar';
 import { CanvasView } from './CanvasView';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
@@ -304,6 +305,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
           </div>
         ) : (
           <>
+            {!snapshotActive && <EditorSidebar />}
             <div className="flex-1 flex flex-col min-w-0 relative">
               <CanvasView
                 canvasRef={canvasRef}

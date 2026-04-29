@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import type { FloorPlanDetail, EditorTool } from '../../../types/floorPlan';
+import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
@@ -16,36 +16,7 @@ interface ToolbarProps {
   onToggleSettings?: () => void;
 }
 
-interface ToolPillProps {
-  active: boolean;
-  onClick: () => void;
-  title: string;
-  label: string;
-  shortcut: string;
-  children: React.ReactNode;
-}
-
-function ToolPill({ active, onClick, title, label, shortcut, children }: ToolPillProps) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`px-2.5 py-1.5 flex items-center gap-1.5 rounded-md text-xs transition-colors ${
-        active
-          ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
-          : 'hover:bg-gray-100 text-gray-600'
-      }`}
-    >
-      <span className="w-4 h-4 flex-shrink-0">{children}</span>
-      <span className="font-medium">{label}</span>
-      <span className={`text-[10px] ${active ? 'text-blue-400' : 'text-gray-400'}`}>{shortcut}</span>
-    </button>
-  );
-}
-
 export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory, onToggleSettings }: ToolbarProps) {
-  const tool = useEditorStore((s) => s.tool);
-  const setTool = useEditorStore((s) => s.setTool);
   const hasChanges = useEditorStore((s) => s.hasChanges);
   const showLengths = useEditorStore((s) => s.showLengths);
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
@@ -57,8 +28,6 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
   const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
   const snapshotActive = useSnapshotStore((s) => s.active);
   const { undo, redo, canUndo, canRedo } = useEditorHistory();
-
-  const selectTool = (t: EditorTool) => setTool(t);
 
   // Compute change count by diffing local state vs server-cached floorPlan.
   // Counts: equipment add/remove, equipment moved/material-changed,
@@ -150,44 +119,6 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
           {floorPlan && <p className="text-xs text-gray-500">버전 {floorPlan.version}</p>}
         </div>
       </div>
-
-      {floorPlan && !snapshotActive && (
-        <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-200">
-          <ToolPill
-            active={tool === 'select'}
-            onClick={() => selectTool('select')}
-            title="선택 도구 (1 / V)"
-            label="선택"
-            shortcut="1"
-          >
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
-            </svg>
-          </ToolPill>
-          <ToolPill
-            active={tool === 'equipment'}
-            onClick={() => selectTool('equipment')}
-            title="설비 배치 (2 / K)"
-            label="설비"
-            shortcut="2"
-          >
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 4h14v16H5V4zm2 3h10M7 10h10M7 13h10M7 16h10" />
-            </svg>
-          </ToolPill>
-          <ToolPill
-            active={tool === 'cable'}
-            onClick={() => selectTool('cable')}
-            title="케이블 경로 그리기 (3 / C)"
-            label="케이블"
-            shortcut="3"
-          >
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </ToolPill>
-        </div>
-      )}
 
       {floorPlan && (
         <div className="flex items-center gap-2 flex-shrink-0">

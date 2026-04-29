@@ -16,6 +16,9 @@ export function CableSpecModalWrapper() {
 function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
   const phase = useCableDrawingStore((s) => s.phase);
   const addCable = useEditorStore((s) => s.addCable);
+  const preselectedCableCategoryId = useEditorStore(
+    (s) => s.preselectedCableCategoryId,
+  );
   const addRecentCable = useRecentMaterialsStore((s) => s.addRecent);
   const [pendingValue, setPendingValue] = useState<{
     categoryId: string;
@@ -34,6 +37,18 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
   }, [phase]);
 
   if (phase !== 'selectingSpec') return null;
+
+  // Seed CableMaterialPicker's initial selection from sidebar preselection.
+  // The picker reads `value.categoryId` only on mount, so passing a non-null
+  // value when the modal first appears is sufficient.
+  const initialPickerValue = preselectedCableCategoryId
+    ? { categoryId: preselectedCableCategoryId, specParams: {} }
+    : pendingValue
+      ? {
+          categoryId: pendingValue.categoryId,
+          specParams: pendingValue.specParams,
+        }
+      : null;
 
   const handleConfirm = () => {
     if (!pendingValue) return;
@@ -93,7 +108,7 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
       selectedLabel={pendingValue?.specification}
     >
       <CableMaterialPicker
-        value={pendingValue ? { categoryId: pendingValue.categoryId, specParams: pendingValue.specParams } : null}
+        value={initialPickerValue}
         onChange={setPendingValue}
       />
     </MaterialSelectionModal>
