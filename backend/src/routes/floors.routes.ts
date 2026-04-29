@@ -1,10 +1,23 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
 import { floorController } from '../controllers/floor.controller.js';
 import { equipmentController } from '../controllers/equipment.controller.js';
 import { cableController } from '../controllers/cable.controller.js';
+import { dwgImportController } from '../controllers/dwgImport.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+
+// DWG/DXF 업로드 (메모리 — 파일은 파싱 후 즉시 폐기)
+const dwgUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB
+  fileFilter: (_req, file, cb) => {
+    const name = file.originalname.toLowerCase();
+    if (name.endsWith('.dwg') || name.endsWith('.dxf')) cb(null, true);
+    else cb(new Error('지원하지 않는 파일 형식입니다. (.dwg 또는 .dxf만 허용)'));
+  },
+});
 
 const router = Router();
 
@@ -169,5 +182,22 @@ router.patch(
 
 // 도면 변경 이력 삭제 (관리자만)
 router.delete('/:id/versions/:logId', authenticate, adminOnly, floorController.deleteAuditLog);
+
+// ==================== DWG Background Drawing ====================
+
+// 도면(DWG/DXF) 임포트 (관리자만, multipart)
+router.post(
+  '/:id/background/import',
+  authenticate,
+  adminOnly,
+  dwgUpload.single('file'),
+  dwgImportController.import
+);
+
+// 임포트된 배경 도면 제거 (관리자만)
+router.delete('/:id/background', authenticate, adminOnly, dwgImportController.clear);
+
+// 배경 투명도 조정 (관리자만)
+router.patch('/:id/background/opacity', authenticate, adminOnly, dwgImportController.setOpacity);
 
 export { router as floorsRouter };
