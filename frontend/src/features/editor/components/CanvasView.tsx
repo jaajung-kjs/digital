@@ -3,7 +3,6 @@ import type { FloorPlanDetail } from '../../../types/floorPlan';
 import { useCanvas } from '../hooks/useCanvas';
 import { useCanvasEvents } from '../hooks/useCanvasEvents';
 import { useEditorStore } from '../stores/editorStore';
-import { useCanvasStore } from '../stores/canvasStore';
 
 interface CanvasViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -36,8 +35,8 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, childr
   const setMajorGridSize = useEditorStore((s) => s.setMajorGridSize);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
-  const isPanning = useCanvasStore((s) => s.isPanning);
-  const isSpacePressed = useCanvasStore((s) => s.isSpacePressed);
+  const isPanning = useEditorStore((s) => s.isPanning);
+  const isSpacePressed = useEditorStore((s) => s.isSpacePressed);
 
   /** Zoom to a new level, keeping the viewport center stable */
   const zoomToCenter = (newZoom: number) => {

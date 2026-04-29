@@ -9,7 +9,6 @@ import {
 import { renderGrid } from '../renderers/gridRenderer';
 import { renderBackgroundDrawing } from '../renderers/backgroundLayerRenderer';
 import { useEditorStore } from '../stores/editorStore';
-import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 
@@ -40,7 +39,7 @@ export function useCanvas(
     const {
       isDrawingEquipment, equipmentStart, equipmentPreviewEnd,
       previewPosition,
-    } = useCanvasStore.getState();
+    } = editorState;
 
     const scale = zoom / 100;
 
@@ -123,13 +122,11 @@ export function useCanvas(
       renderRequestRef.current = requestAnimationFrame(renderCanvas);
     };
     const unsubEditor = useEditorStore.subscribe(scheduleRender);
-    const unsubCanvas = useCanvasStore.subscribe(scheduleRender);
     const unsubSnapshot = useSnapshotStore.subscribe(scheduleRender);
     const unsubPathHighlight = usePathHighlightStore.subscribe(scheduleRender);
 
     return () => {
       unsubEditor();
-      unsubCanvas();
       unsubSnapshot();
       unsubPathHighlight();
       if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);

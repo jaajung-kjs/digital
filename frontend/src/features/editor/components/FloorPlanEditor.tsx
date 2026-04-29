@@ -5,7 +5,6 @@ import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore } from '../stores/editorStore';
-import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { generateTempId } from '../../../utils/idHelpers';
@@ -32,7 +31,7 @@ function CablePathOverlayWrapper({ canvasRef }: { canvasRef: React.RefObject<HTM
 
 function ToolStatusBar() {
   const tool = useEditorStore(s => s.tool);
-  const isDrawingEquipment = useCanvasStore(s => s.isDrawingEquipment);
+  const isDrawingEquipment = useEditorStore(s => s.isDrawingEquipment);
 
   const getMessage = (): string | null => {
     switch (tool) {
@@ -81,7 +80,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
   const handlePasteEquipment = useCallback(() => {
     const es = useEditorStore.getState();
-    const cs = useCanvasStore.getState();
+    const cs = es;
     if (!es.clipboard || es.clipboard.type !== 'equipment') return;
 
     const original = es.clipboard.data as FloorPlanEquipment;
@@ -220,7 +219,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const setHasChanges = useEditorStore(s => s.setHasChanges);
 
   const handleAddEquipment = () => {
-    const cs = useCanvasStore.getState();
+    const cs = useEditorStore.getState();
     const drawnWidth = cs.equipmentDrawnSize?.width ?? 60;
     const drawnHeight = cs.equipmentDrawnSize?.height ?? 100;
     const derivedCategory = cs.newEquipmentMaterialCategoryCode

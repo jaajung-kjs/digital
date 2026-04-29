@@ -1,4 +1,4 @@
-import { useCanvasStore } from '../../stores/canvasStore';
+import { useEditorStore } from '../../stores/editorStore';
 
 interface EquipmentPasteModalProps {
   onPaste: () => void;
@@ -9,10 +9,10 @@ interface EquipmentPasteModalProps {
  * before committing the paste via `onPaste`.
  */
 export function EquipmentPasteModal({ onPaste }: EquipmentPasteModalProps) {
-  const open = useCanvasStore((s) => s.pasteEquipmentModalOpen);
-  const setOpen = useCanvasStore((s) => s.setPasteEquipmentModalOpen);
-  const pasteEquipmentName = useCanvasStore((s) => s.pasteEquipmentName);
-  const setPasteEquipmentName = useCanvasStore((s) => s.setPasteEquipmentName);
+  const open = useEditorStore((s) => s.pasteEquipmentModalOpen);
+  const setOpen = useEditorStore((s) => s.setPasteEquipmentModalOpen);
+  const pasteEquipmentName = useEditorStore((s) => s.pasteEquipmentName);
+  const setPasteEquipmentName = useEditorStore((s) => s.setPasteEquipmentName);
 
   if (!open) return null;
 

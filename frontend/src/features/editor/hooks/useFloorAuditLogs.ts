@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { useEditorStore } from '../stores/editorStore';
-import { useHistoryStore } from '../stores/historyStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import type { AuditLog } from '../../../types/maintenance';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
@@ -108,7 +107,7 @@ export function usePreviewSnapshot(floorId: string | undefined) {
  */
 function applyPlanToEditor(plan: FloorPlanDetail) {
   const store = useEditorStore.getState();
-  const { initHistory } = useHistoryStore.getState();
+  const { initHistory } = store;
 
   useSnapshotStore.getState().exit();
 

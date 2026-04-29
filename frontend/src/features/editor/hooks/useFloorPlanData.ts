@@ -4,7 +4,6 @@ import { api } from '../../../utils/api';
 import type { FloorPlanDetail, FloorPlanCable, UpdateFloorPlanRequest } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
-import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
 
@@ -56,8 +55,8 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     setLocalEquipment, setGridSize, setMajorGridSize,
     setHasChanges, setViewportInitialized,
     setViewport, viewportInitialized,
+    initHistory,
   } = useEditorStore();
-  const { initHistory } = useHistoryStore();
   const { fitToContent, loadViewportState, saveViewportState } = useViewport(floorId);
 
   const { data: floor, isLoading: floorLoading } = useQuery({

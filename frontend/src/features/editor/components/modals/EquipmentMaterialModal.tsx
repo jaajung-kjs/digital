@@ -1,4 +1,4 @@
-import { useCanvasStore } from '../../stores/canvasStore';
+import { useEditorStore } from '../../stores/editorStore';
 import { useRecentMaterialsStore } from '../../../materials/stores/recentMaterialsStore';
 import { MaterialPicker } from '../../../materials/components/MaterialPicker';
 
@@ -11,15 +11,15 @@ interface EquipmentMaterialModalProps {
  * Lets the user pick the material category and name, then commits via `onAdd`.
  */
 export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
-  const open = useCanvasStore((s) => s.equipmentModalOpen);
-  const setOpen = useCanvasStore((s) => s.setEquipmentModalOpen);
-  const newEquipmentName = useCanvasStore((s) => s.newEquipmentName);
-  const setNewEquipmentName = useCanvasStore((s) => s.setNewEquipmentName);
-  const setNewEquipmentCategory = useCanvasStore((s) => s.setNewEquipmentCategory);
-  const newEquipmentMaterialCategoryId = useCanvasStore((s) => s.newEquipmentMaterialCategoryId);
-  const newEquipmentSpecParams = useCanvasStore((s) => s.newEquipmentSpecParams);
-  const setNewEquipmentMaterial = useCanvasStore((s) => s.setNewEquipmentMaterial);
-  const resetNewEquipmentMaterial = useCanvasStore((s) => s.resetNewEquipmentMaterial);
+  const open = useEditorStore((s) => s.equipmentModalOpen);
+  const setOpen = useEditorStore((s) => s.setEquipmentModalOpen);
+  const newEquipmentName = useEditorStore((s) => s.newEquipmentName);
+  const setNewEquipmentName = useEditorStore((s) => s.setNewEquipmentName);
+  const setNewEquipmentCategory = useEditorStore((s) => s.setNewEquipmentCategory);
+  const newEquipmentMaterialCategoryId = useEditorStore((s) => s.newEquipmentMaterialCategoryId);
+  const newEquipmentSpecParams = useEditorStore((s) => s.newEquipmentSpecParams);
+  const setNewEquipmentMaterial = useEditorStore((s) => s.setNewEquipmentMaterial);
+  const resetNewEquipmentMaterial = useEditorStore((s) => s.resetNewEquipmentMaterial);
   const recentEquipment = useRecentMaterialsStore((s) => s.recentEquipment);
 
   if (!open) return null;

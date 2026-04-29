@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
-import { useCanvasStore } from '../stores/canvasStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -30,7 +29,7 @@ export function useEditorKeyboard(
       }
 
       const es = useEditorStore.getState();
-      const cs = useCanvasStore.getState();
+      const cs = es;
       const key = e.key.toLowerCase();
 
       if (e.key === ' ' && !e.repeat) {
@@ -166,7 +165,7 @@ export function useEditorKeyboard(
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === ' ') useCanvasStore.getState().setIsSpacePressed(false);
+      if (e.key === ' ') useEditorStore.getState().setIsSpacePressed(false);
     };
 
     window.addEventListener('keydown', handleKeyDown);

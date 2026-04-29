@@ -1,44 +1,50 @@
 import { useCallback } from 'react';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
-import { useHistoryStore } from '../stores/historyStore';
 import { useEditorStore } from '../stores/editorStore';
 
 /**
- * Hook wrapping history store with editor store integration.
+ * Hook wrapping history actions on the editor store.
  * History captures equipment + cables (no elements — they were removed).
+ *
+ * Note: `canUndo`/`canRedo` are subscribed via selectors so the hook
+ * re-renders when history advances. Other actions are pulled lazily.
  */
 export function useEditorHistory() {
-  const historyStore = useHistoryStore();
-  const { setLocalEquipment, setHasChanges } = useEditorStore();
+  const setLocalEquipment = useEditorStore((s) => s.setLocalEquipment);
+  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+
+  // Subscribe to indices so consumers re-render on history changes
+  const historyIndex = useEditorStore((s) => s.historyIndex);
+  const historyLength = useEditorStore((s) => s.history.length);
 
   const pushHistory = useCallback((equipment: FloorPlanEquipment[]) => {
-    const { localCables } = useEditorStore.getState();
-    historyStore.pushHistory(equipment, localCables);
-  }, [historyStore]);
+    const { localCables, pushHistory: push } = useEditorStore.getState();
+    push(equipment, localCables);
+  }, []);
 
   const undo = useCallback(() => {
-    const prev = historyStore.undo();
+    const prev = useEditorStore.getState().undo();
     if (prev) {
       setLocalEquipment(prev.equipment);
       useEditorStore.getState().setCables(prev.cables);
       setHasChanges(true);
     }
-  }, [historyStore, setLocalEquipment, setHasChanges]);
+  }, [setLocalEquipment, setHasChanges]);
 
   const redo = useCallback(() => {
-    const next = historyStore.redo();
+    const next = useEditorStore.getState().redo();
     if (next) {
       setLocalEquipment(next.equipment);
       useEditorStore.getState().setCables(next.cables);
       setHasChanges(true);
     }
-  }, [historyStore, setLocalEquipment, setHasChanges]);
+  }, [setLocalEquipment, setHasChanges]);
 
   return {
     pushHistory,
     undo,
     redo,
-    canUndo: historyStore.canUndo(),
-    canRedo: historyStore.canRedo(),
+    canUndo: historyIndex > 0,
+    canRedo: historyIndex < historyLength - 1,
   };
 }
