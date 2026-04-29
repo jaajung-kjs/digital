@@ -9,14 +9,32 @@ import type { DragSession } from '../../../utils/floorplan/dragSystem';
 export type ConnectionFilterKey = string;
 
 // ==================== Local Cable ====================
+//
+// P8: cable endpoint 는 polymorphic — Equipment 또는 RackModule 한 쪽만 not-null.
+// 기존 `materialCategoryId/Code/Name` 은 `categoryId/Code/Name` 로 이름 변경되었으나
+// editor UI 가 P9 까지는 legacy 이름을 참조하므로 둘 다 둔다.
 
 export interface LocalCable {
   id: string; // real UUID or temp ID
+  /** P8: nullable — endpoint may be RackModule instead of Equipment. */
   sourceEquipmentId: string;
   targetEquipmentId: string;
+  /** P8 신규: rack module endpoint id (둘 중 하나만 set). */
+  sourceModuleId?: string | null;
+  targetModuleId?: string | null;
   cableType: string;
+  /** P8 신규 — 정식 필드. */
+  categoryId?: string | null;
+  categoryCode?: string | null;
+  categoryName?: string | null;
+  /**
+   * @deprecated P8 — legacy alias for `categoryId`. Removed in P9.
+   * Kept so editor UI compiles without an immediate rewrite.
+   */
   materialCategoryId?: string | null;
+  /** @deprecated P8 — alias for `categoryCode`. Removed in P9. */
   materialCategoryCode?: string | null;
+  /** @deprecated P8 — alias for `categoryName`. Removed in P9. */
   materialCategoryName?: string | null;
   displayColor?: string | null;
   specParams?: Record<string, unknown> | null;

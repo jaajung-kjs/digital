@@ -234,8 +234,12 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     const preset = activeCat?.rackPreset ?? null;
     const isRackPreset = !!preset;
 
+    // P8: kind defaults to RACK if a rack preset is active, else OFD as a
+    // placeholder. P9 will replace this with explicit kind selection in the
+    // sidebar / picker.
     const newEquip: FloorPlanEquipment = {
       id: generateTempId(),
+      kind: isRackPreset ? 'RACK' : 'OFD',
       name: cs.newEquipmentName,
       positionX: cs.newEquipmentPosition.x,
       positionY: cs.newEquipmentPosition.y,
@@ -271,18 +275,21 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
           );
           continue;
         }
+        // P8: rack preset children used to be Equipment rows; in the new
+        // model they're RackModule rows on a separate table. The expansion
+        // path is broken until P9 wires it into a `localRackModules` slice.
+        // We still produce a placeholder Equipment so typecheck holds and the
+        // existing save path doesn't crash.
         const child: FloorPlanEquipment = {
           id: generateTempId(),
+          kind: 'OFD',
           name: mod.name ?? childCat.name,
-          // Children are not rendered on the canvas (useCanvas.ts:69 filters
-          // out parentEquipmentId !== null); they only appear inside RackView.
-          // Position mirrors the parent so coords stay sensible if anyone ever
-          // unparents them.
           positionX: cs.newEquipmentPosition.x,
           positionY: cs.newEquipmentPosition.y,
           width: Math.max(8, drawnWidth - 8),
           height: 16,
           rotation: 0,
+          totalU: null,
           frontImageUrl: null,
           rearImageUrl: null,
           description: null,
