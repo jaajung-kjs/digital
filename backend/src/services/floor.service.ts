@@ -2,6 +2,10 @@ import prisma from '../config/prisma.js';
 import { Prisma, EquipmentCategory, CableType } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
 import { equipmentService } from './equipment.service.js';
+import {
+  calculateConstructionReport,
+  type PlanSnapshot,
+} from './constructionReport.service.js';
 
 /** Build specification string from specTemplate format + specParams */
 function buildSpecification(specTemplate: unknown, specParams: unknown): string | null {
@@ -755,7 +759,7 @@ class FloorService {
     id: string,
     input: UpdatePlanInput,
     userId: string
-  ): Promise<{ id: string; version: number; message: string; equipmentIdMap: Record<string, string>; fiberPathIdMap: Record<string, string>; auditLogId: string | null }> {
+  ): Promise<{ id: string; version: number; message: string; equipmentIdMap: Record<string, string>; fiberPathIdMap: Record<string, string>; auditLogId: string | null; constructionReport: ReturnType<typeof calculateConstructionReport> | null }> {
     const floor = await prisma.floor.findUnique({ where: { id } });
     if (!floor) throw new NotFoundError('층');
 
@@ -763,6 +767,7 @@ class FloorService {
     const equipmentIdMap: Record<string, string> = {};
     let finalFiberPathIdMap: Record<string, string> = {};
     let auditLogId: string | null = null;
+    let finalConstructionReport: ReturnType<typeof calculateConstructionReport> | null = null;
 
     await prisma.$transaction(async (tx) => {
       // ── Step 0: Load current DB state for reconciliation ──
@@ -788,6 +793,8 @@ class FloorService {
           select: {
             id: true, sourceEquipmentId: true, targetEquipmentId: true,
             cableType: true, fiberPathId: true, fiberPortNumber: true,
+            label: true, totalLength: true, specParams: true,
+            materialCategory: { select: { code: true, name: true, specTemplate: true } },
           },
         }),
       ]);
@@ -1232,6 +1239,67 @@ class FloorService {
         // Structural change: capture complete snapshot for historical preview
         const snapshot = await captureFloorSnapshot(tx, id, updated, newVersion);
 
+        // Build PlanSnapshots and compute construction report (before/after diff)
+        const beforePlan: PlanSnapshot = {
+          equipment: dbEquipment.map(e => ({
+            id: e.id,
+            name: e.name,
+            category: e.category,
+            materialCategoryCode: e.materialCategory?.code ?? null,
+            materialCategoryName: e.materialCategory?.name ?? null,
+            specification: buildSpecification(e.materialCategory?.specTemplate, e.specParams),
+            specParams: (e.specParams as Record<string, unknown> | null) ?? null,
+            positionX: e.positionX ?? 0,
+            positionY: e.positionY ?? 0,
+          })),
+          cables: dbCables
+            .filter(c => floorEquipmentIds.has(c.sourceEquipmentId) && floorEquipmentIds.has(c.targetEquipmentId))
+            .map(c => ({
+              id: c.id,
+              cableType: c.cableType,
+              materialCategoryCode: c.materialCategory?.code ?? null,
+              materialCategoryName: c.materialCategory?.name ?? null,
+              specification: buildSpecification(c.materialCategory?.specTemplate, c.specParams),
+              totalLength: c.totalLength ?? null,
+              sourceEquipmentId: c.sourceEquipmentId,
+              targetEquipmentId: c.targetEquipmentId,
+              label: c.label ?? null,
+            })),
+        };
+        const snapshotPlan = snapshot.plan as unknown as {
+          equipment: {
+            id: string; name: string; category: string;
+            materialCategoryCode?: string | null; materialCategoryName?: string | null;
+            specification?: string | null; specParams?: Record<string, unknown> | null;
+            positionX?: number; positionY?: number;
+          }[];
+        };
+        const afterPlan: PlanSnapshot = {
+          equipment: snapshotPlan.equipment.map(e => ({
+            id: e.id,
+            name: e.name,
+            category: e.category,
+            materialCategoryCode: e.materialCategoryCode ?? null,
+            materialCategoryName: e.materialCategoryName ?? null,
+            specification: e.specification ?? null,
+            specParams: e.specParams ?? null,
+            positionX: e.positionX ?? 0,
+            positionY: e.positionY ?? 0,
+          })),
+          cables: snapshot.cables.map(c => ({
+            id: c.id,
+            cableType: c.cableType,
+            materialCategoryCode: c.materialCategoryCode ?? null,
+            materialCategoryName: c.materialCategoryName ?? null,
+            specification: c.specification ?? null,
+            totalLength: c.totalLength ?? null,
+            sourceEquipmentId: c.sourceEquipmentId,
+            targetEquipmentId: c.targetEquipmentId,
+            label: c.label ?? null,
+          })),
+        };
+        const constructionReport = calculateConstructionReport(beforePlan, afterPlan);
+
         const auditEntry = await tx.auditLog.create({
           data: {
             entityType: 'Floor', entityId: id, entityName: floor.name,
@@ -1239,11 +1307,12 @@ class FloorService {
             changedFields,
             oldValues: oldSnapshot as any,
             newValues: snapshot as any,
-            context: { diff: structuredDiff } as any,
+            context: { diff: structuredDiff, constructionReport } as any,
             userId, userName: user?.name ?? null,
           },
         });
         auditLogId = auditEntry.id;
+        finalConstructionReport = constructionReport;
       } else {
         // Metadata-only change: lightweight audit entry without snapshot
         const auditEntry = await tx.auditLog.create({
@@ -1269,6 +1338,7 @@ class FloorService {
       equipmentIdMap,
       fiberPathIdMap: finalFiberPathIdMap,
       auditLogId,
+      constructionReport: finalConstructionReport,
     };
   }
 
