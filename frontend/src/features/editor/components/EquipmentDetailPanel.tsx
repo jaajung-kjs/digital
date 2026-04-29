@@ -25,7 +25,7 @@ import {
 
 interface EquipmentDetailPanelProps {
   equipmentId: string;
-  roomId: string;
+  floorId: string;
 }
 
 interface EquipmentDetail {
@@ -143,7 +143,7 @@ function useMergedEquipmentDetail(equipmentId: string): {
   return { equipment, isLoading: isTemp ? false : isLoading, error: isTemp ? null : error };
 }
 
-export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPanelProps) {
+export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('info');
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
   const snapshotActive = useSnapshotStore((s) => s.active);
@@ -296,7 +296,7 @@ export function EquipmentDetailPanel({ equipmentId, roomId }: EquipmentDetailPan
               )
             )}
             {activeTab === 'connections' && (
-              <ConnectionsTab equipmentId={equipmentId} roomId={roomId} category={equipment.category} />
+              <ConnectionsTab equipmentId={equipmentId} floorId={floorId} category={equipment.category} />
             )}
             {activeTab === 'rack' && isRackEquipment && (
               snapshotActive ? (
@@ -1275,7 +1275,7 @@ function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: bo
    Connections Tab - center aligned text
    ================================================================ */
 
-function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string; roomId: string; category?: string }) {
+function ConnectionsTab({ equipmentId, floorId, category }: { equipmentId: string; floorId: string; category?: string }) {
   const isOfd = category === 'OFD';
   const snapshotActive = useSnapshotStore((s) => s.active);
   const snapshotFiberPaths = useSnapshotStore((s) => s.fiberPaths);
@@ -1352,7 +1352,7 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
           )}
         </div>
         <div className="p-4">
-          <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} category={category} />
+          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} category={category} />
         </div>
       </div>
     );
@@ -1366,12 +1366,12 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
           <FiberPathManager
             ofdId={equipmentId}
             onNavigateRemote={(remoteRoomId) => {
-              navigate(`/rooms/${remoteRoomId}/plan`);
+              navigate(`/floors/${remoteRoomId}/plan`);
             }}
           />
         )}
         <div className="p-4">
-          <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} category={category} />
+          <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} category={category} />
         </div>
       </div>
     );
@@ -1406,12 +1406,12 @@ function ConnectionsTab({ equipmentId, roomId, category }: { equipmentId: string
               if (!confirm('저장하지 않은 변경사항이 있습니다. 대국 도면으로 이동하시겠습니까?')) return;
               // localStorage 자동 백업이 동작 중이므로 별도 저장 불필요
             }
-            navigate(`/rooms/${remoteRoomId}/plan`);
+            navigate(`/floors/${remoteRoomId}/plan`);
           }}
         />
       )}
       <div className="p-4">
-        <ConnectionDiagram roomId={roomId} equipmentId={equipmentId} category={category} />
+        <ConnectionDiagram floorId={floorId} equipmentId={equipmentId} category={category} />
       </div>
     </div>
   );

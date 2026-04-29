@@ -4,9 +4,6 @@ import type {
   FloorPlanDetail,
   LineProperties,
   RectProperties,
-  CircleProperties,
-  DoorProperties,
-  WindowProperties,
   FloorPlanEquipment,
 } from '../../../types/floorPlan';
 import { distance } from '../../../utils/geometry/geometryUtils';
@@ -224,28 +221,10 @@ export function useCanvasEvents(
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
 
-    const {
-      isDrawingLine, linePoints,
-      isDrawingCircle, circleCenter,
-      isDrawingRect, rectStart,
-    } = canvasStore.getState();
+    const { isDrawingLine, linePoints } = canvasStore.getState();
 
-    if ((tool === 'line' || tool === 'conduit' || tool === 'tray') && isDrawingLine && linePoints.length === 1) {
+    if ((tool === 'conduit' || tool === 'tray') && isDrawingLine && linePoints.length === 1) {
       canvasStore.getState().setLinePreviewEnd([snapped.x, snapped.y]);
-      return;
-    }
-
-    if (tool === 'circle' && isDrawingCircle && circleCenter) {
-      const dx = snapped.x - circleCenter.x;
-      const dy = snapped.y - circleCenter.y;
-      const radius = Math.sqrt(dx * dx + dy * dy);
-      canvasStore.getState().setCirclePreviewRadius(Math.max(5, radius));
-      canvasStore.getState().setCirclePreviewEnd({ x: snapped.x, y: snapped.y });
-      return;
-    }
-
-    if (tool === 'rect' && isDrawingRect && rectStart) {
-      canvasStore.getState().setRectPreviewEnd({ x: snapped.x, y: snapped.y });
       return;
     }
 
@@ -255,7 +234,7 @@ export function useCanvasEvents(
       return;
     }
 
-    if (['door', 'window', 'text', 'equipment', 'pullbox'].includes(tool)) {
+    if (['text', 'equipment', 'pullbox'].includes(tool)) {
       canvasStore.getState().setPreviewPosition({ x: snapped.x, y: snapped.y });
     } else {
       canvasStore.getState().setPreviewPosition(null);
@@ -415,146 +394,6 @@ export function useCanvasEvents(
     }
 
     switch (tool) {
-      case 'line':
-        if (!cs.isDrawingLine) {
-          cs.setIsDrawingLine(true);
-          cs.setLinePoints([[snapped.x, snapped.y]]);
-          cs.setLinePreviewEnd(null);
-        } else {
-          const newLine: FloorPlanElement = {
-            id: generateTempId(),
-            elementType: 'line',
-            properties: {
-              points: [cs.linePoints[0], [snapped.x, snapped.y]],
-              strokeWidth: 2,
-              strokeColor: '#1a1a1a',
-              strokeStyle: 'solid',
-            } as LineProperties,
-            zIndex: localElements.length,
-            isVisible: true,
-          };
-          const newElements = [...localElements, newLine];
-          editorStore.getState().setLocalElements(newElements);
-          pushHistory(newElements, localEquipment);
-          cs.setIsDrawingLine(false);
-          cs.setLinePoints([]);
-          cs.setLinePreviewEnd(null);
-          editorStore.getState().setHasChanges(true);
-          editorStore.getState().setTool('select');
-        }
-        break;
-
-      case 'rect':
-        if (!cs.isDrawingRect) {
-          cs.setIsDrawingRect(true);
-          cs.setRectStart({ x: snapped.x, y: snapped.y });
-          cs.setRectPreviewEnd(null);
-        } else {
-          const endX = snapped.x;
-          const endY = snapped.y;
-          const rx = Math.min(cs.rectStart!.x, endX);
-          const ry = Math.min(cs.rectStart!.y, endY);
-          const width = Math.abs(endX - cs.rectStart!.x);
-          const height = Math.abs(endY - cs.rectStart!.y);
-
-          if (width >= 10 && height >= 10) {
-            const newRect: FloorPlanElement = {
-              id: generateTempId(),
-              elementType: 'rect',
-              properties: {
-                x: rx, y: ry, width, height,
-                rotation: 0, flipH: false, flipV: false,
-                fillColor: 'transparent', strokeColor: '#1a1a1a',
-                strokeWidth: 2, strokeStyle: 'solid', cornerRadius: 0,
-              } as RectProperties,
-              zIndex: localElements.length,
-              isVisible: true,
-              };
-            const newElements = [...localElements, newRect];
-            editorStore.getState().setLocalElements(newElements);
-            pushHistory(newElements, localEquipment);
-            editorStore.getState().setHasChanges(true);
-          }
-          cs.setIsDrawingRect(false);
-          cs.setRectStart(null);
-          cs.setRectPreviewEnd(null);
-          editorStore.getState().setTool('select');
-        }
-        break;
-
-      case 'circle':
-        if (!cs.isDrawingCircle) {
-          cs.setIsDrawingCircle(true);
-          cs.setCircleCenter({ x: snapped.x, y: snapped.y });
-          cs.setCirclePreviewRadius(0);
-        } else {
-          const newCircle: FloorPlanElement = {
-            id: generateTempId(),
-            elementType: 'circle',
-            properties: {
-              cx: cs.circleCenter!.x,
-              cy: cs.circleCenter!.y,
-              radius: Math.max(5, cs.circlePreviewRadius),
-              fillColor: 'transparent',
-              strokeColor: '#1a1a1a',
-              strokeWidth: 2,
-              strokeStyle: 'solid',
-            } as CircleProperties,
-            zIndex: localElements.length,
-            isVisible: true,
-          };
-          const newElements = [...localElements, newCircle];
-          editorStore.getState().setLocalElements(newElements);
-          pushHistory(newElements, localEquipment);
-          cs.setIsDrawingCircle(false);
-          cs.setCircleCenter(null);
-          cs.setCirclePreviewRadius(0);
-          cs.setCirclePreviewEnd(null);
-          editorStore.getState().setHasChanges(true);
-          editorStore.getState().setTool('select');
-        }
-        break;
-
-      case 'door': {
-        const newDoor: FloorPlanElement = {
-          id: generateTempId(),
-          elementType: 'door',
-          properties: {
-            x: snapped.x, y: snapped.y, width: 60, height: 10,
-            rotation: 0, flipH: false, flipV: false,
-            openDirection: 'inside', strokeWidth: 2, strokeColor: '#d97706',
-          } as DoorProperties,
-          zIndex: localElements.length,
-          isVisible: true,
-        };
-        const newElements = [...localElements, newDoor];
-        editorStore.getState().setLocalElements(newElements);
-        pushHistory(newElements, localEquipment);
-        editorStore.getState().setHasChanges(true);
-        editorStore.getState().setTool('select');
-        break;
-      }
-
-      case 'window': {
-        const newWindow: FloorPlanElement = {
-          id: generateTempId(),
-          elementType: 'window',
-          properties: {
-            x: snapped.x, y: snapped.y, width: 80, height: 8,
-            rotation: 0, flipH: false, flipV: false,
-            strokeWidth: 2, strokeColor: '#0284c7',
-          } as WindowProperties,
-          zIndex: localElements.length,
-          isVisible: true,
-        };
-        const newElements = [...localElements, newWindow];
-        editorStore.getState().setLocalElements(newElements);
-        pushHistory(newElements, localEquipment);
-        editorStore.getState().setHasChanges(true);
-        editorStore.getState().setTool('select');
-        break;
-      }
-
       case 'equipment':
         if (!cs.isDrawingEquipment) {
           cs.setIsDrawingEquipment(true);

@@ -10,7 +10,7 @@ interface RoomSettingsPanelProps {
  * User inputs "grid 1칸 = ?m" and we derive scaleRatio (mm/px).
  * Formula: scaleRatio = (metersPerGrid * 1000) / gridSize
  */
-export function RoomSettingsPanel({ onClose }: RoomSettingsPanelProps) {
+export function FloorSettingsPanel({ onClose }: RoomSettingsPanelProps) {
   const gridSize = useEditorStore((s) => s.gridSize);
   const scaleRatio = useEditorStore((s) => s.scaleRatio);
   const setScaleRatio = useEditorStore((s) => s.setScaleRatio);

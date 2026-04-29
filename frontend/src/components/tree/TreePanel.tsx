@@ -64,7 +64,7 @@ export function TreePanel() {
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
       if (node.type === 'room') {
-        navigate(`/rooms/${node.id}/plan`);
+        navigate(`/floors/${node.id}/plan`);
       }
     },
     [navigate],

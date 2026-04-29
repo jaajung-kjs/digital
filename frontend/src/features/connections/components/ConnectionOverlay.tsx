@@ -25,7 +25,7 @@ import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowS
 import { useCableHitTestStore } from '../stores/cableHitTestStore';
 
 interface ConnectionOverlayProps {
-  roomId: string;
+  floorId: string;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
@@ -83,7 +83,7 @@ function mapPlanCablesToRenderable(
   return result;
 }
 
-export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOverlayProps) {
+export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOverlayProps) {
   const viewMode = useEditorStore((s) => s.viewMode);
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
@@ -280,8 +280,8 @@ export function ConnectionOverlay({ roomId: _roomId, canvasRef }: ConnectionOver
       color: c.color ?? undefined,
       label: c.label ?? undefined,
       materialCategoryCode: c.materialCategoryCode ?? undefined,
-      sourceEquipment: { id: c.sourceEquipmentId, name: '', rackId: null, roomId: null },
-      targetEquipment: { id: c.targetEquipmentId, name: '', rackId: null, roomId: null },
+      sourceEquipment: { id: c.sourceEquipmentId, name: '', rackId: null, floorId: null },
+      targetEquipment: { id: c.targetEquipmentId, name: '', rackId: null, floorId: null },
     } as RoomConnection);
 
     if (snapshotActive && connections) {

@@ -8,14 +8,14 @@ import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore
 
 
 interface ConnectionDiagramProps {
-  roomId: string;
+  floorId: string;
   equipmentId: string;
   /** Equipment category from SSOT — OFD connections are managed via FiberPathManager */
   category?: string;
 }
 
 export function ConnectionDiagram({
-  roomId,
+  floorId,
   equipmentId,
   category,
 }: ConnectionDiagramProps) {
@@ -101,7 +101,7 @@ export function ConnectionDiagram({
               if (isCardSelected) {
                 clearHighlight();
               } else {
-                startTrace(cable.id, roomId);
+                startTrace(cable.id, floorId);
               }
             };
 

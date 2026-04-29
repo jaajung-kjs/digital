@@ -76,7 +76,7 @@ export function calculateFitToContent(
 /**
  * Hook for viewport initialization, fit-to-content, and zoom-to-point
  */
-export function useViewport(roomId: string | undefined) {
+export function useViewport(floorId: string | undefined) {
   const { setViewport } = useEditorStore();
 
   const fitToContent = useCallback((
@@ -90,20 +90,20 @@ export function useViewport(roomId: string | undefined) {
   }, [setViewport]);
 
   const saveViewportState = useCallback((zoom: number, panX: number, panY: number) => {
-    if (!roomId) return;
-    localStorage.setItem(`floorplan-viewport-${roomId}`, JSON.stringify({ zoom, panX, panY }));
-  }, [roomId]);
+    if (!floorId) return;
+    localStorage.setItem(`floorplan-viewport-${floorId}`, JSON.stringify({ zoom, panX, panY }));
+  }, [floorId]);
 
   const loadViewportState = useCallback((): { zoom: number; panX: number; panY: number } | null => {
-    if (!roomId) return null;
-    const saved = localStorage.getItem(`floorplan-viewport-${roomId}`);
+    if (!floorId) return null;
+    const saved = localStorage.getItem(`floorplan-viewport-${floorId}`);
     if (!saved) return null;
     try {
       return JSON.parse(saved);
     } catch {
       return null;
     }
-  }, [roomId]);
+  }, [floorId]);
 
   return {
     fitToContent,

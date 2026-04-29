@@ -56,7 +56,7 @@ function nudgeEquipment(eq: FloorPlanEquipment, dx: number, dy: number): FloorPl
  */
 export function useEditorKeyboard(
   handleSave: () => void,
-  roomId?: string,
+  floorId?: string,
   containerRef?: React.RefObject<HTMLDivElement | null>,
 ) {
   const { pushHistory, undo, redo } = useEditorHistory();
@@ -115,11 +115,6 @@ export function useEditorKeyboard(
 
       // Tool shortcuts (case-insensitive)
       if (key === 'v' && !e.ctrlKey) es.setTool('select');
-      if (key === 'l') es.setTool('line');
-      if (key === 'r') es.setTool('rect');
-      if (key === 'o') es.setTool('circle');
-      if (key === 'd') es.setTool('door');
-      if (key === 'w') es.setTool('window');
       if (key === 'k') es.setTool('equipment');
       if (key === 'c' && !e.ctrlKey) es.setTool('cable');
       if (key === 't') es.setTool('text');
@@ -229,9 +224,9 @@ export function useEditorKeyboard(
       }
 
       // Enter key — trace selected cable path
-      if (e.key === 'Enter' && es.selectedCableId && roomId) {
+      if (e.key === 'Enter' && es.selectedCableId && floorId) {
         e.preventDefault();
-        usePathHighlightStore.getState().startTrace(es.selectedCableId, roomId);
+        usePathHighlightStore.getState().startTrace(es.selectedCableId, floorId);
         return;
       }
 
@@ -351,5 +346,5 @@ export function useEditorKeyboard(
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleSave, pushHistory, undo, redo, roomId, containerRef]);
+  }, [handleSave, pushHistory, undo, redo, floorId, containerRef]);
 }

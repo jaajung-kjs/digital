@@ -8,7 +8,7 @@ import type { FloorPlanDetail } from '../../../types/floorPlan';
 
 const VERSION_KEYS = {
   all: ['room-versions'] as const,
-  list: (roomId: string) => [...VERSION_KEYS.all, roomId] as const,
+  list: (floorId: string) => [...VERSION_KEYS.all, floorId] as const,
 };
 
 const DEFAULT_MAJOR_GRID_SIZE = 60;
@@ -17,9 +17,9 @@ const DEFAULT_MAJOR_GRID_SIZE = 60;
  * Fetch a past version of the plan. The response has the SAME structure
  * as the current plan (FloorPlanDetail) — cables and fiberPaths included.
  */
-async function fetchVersionPlan(roomId: string, version: number): Promise<FloorPlanDetail> {
+async function fetchVersionPlan(floorId: string, version: number): Promise<FloorPlanDetail> {
   const { data } = await api.get<{ data: FloorPlanDetail }>(
-    `/rooms/${roomId}/plan?version=${version}`
+    `/floors/${floorId}/plan?version=${version}`
   );
   return data.data;
 }
@@ -31,39 +31,39 @@ function clearEditorFocus() {
   store.setDetailPanelEquipmentId(null);
 }
 
-export function useRoomAuditLogs(roomId: string | undefined) {
+export function useFloorAuditLogs(floorId: string | undefined) {
   return useQuery({
-    queryKey: VERSION_KEYS.list(roomId!),
+    queryKey: VERSION_KEYS.list(floorId!),
     queryFn: async () => {
       const { data } = await api.get<{ data: AuditLog[] }>(
-        `/rooms/${roomId}/versions`
+        `/floors/${floorId}/versions`
       );
       return data.data;
     },
-    enabled: !!roomId,
+    enabled: !!floorId,
   });
 }
 
-export function useDeleteAuditLog(roomId: string | undefined) {
+export function useDeleteAuditLog(floorId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (logId: string) => {
-      await api.delete(`/rooms/${roomId}/versions/${logId}`);
+      await api.delete(`/floors/${floorId}/versions/${logId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: VERSION_KEYS.list(roomId!) });
+      queryClient.invalidateQueries({ queryKey: VERSION_KEYS.list(floorId!) });
     },
   });
 }
 
-export function usePatchAuditLogContext(roomId: string | undefined) {
+export function usePatchAuditLogContext(floorId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ logId, context }: { logId: string; context: Record<string, unknown> }) => {
-      await api.patch(`/rooms/${roomId}/versions/${logId}`, { context });
+      await api.patch(`/floors/${floorId}/versions/${logId}`, { context });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: VERSION_KEYS.list(roomId!) });
+      queryClient.invalidateQueries({ queryKey: VERSION_KEYS.list(floorId!) });
     },
   });
 }
@@ -72,16 +72,16 @@ export function usePatchAuditLogContext(roomId: string | undefined) {
  * Preview a past version via the Snapshot Overlay — editor state is never touched.
  * Uses the same plan API with a version query parameter.
  */
-export function usePreviewSnapshot(roomId: string | undefined) {
+export function usePreviewSnapshot(floorId: string | undefined) {
   const mutation = useMutation({
     mutationFn: async ({ version }: { version: number }) => {
-      if (!roomId) throw new Error('roomId is required');
-      return fetchVersionPlan(roomId, version);
+      if (!floorId) throw new Error('floorId is required');
+      return fetchVersionPlan(floorId, version);
     },
   });
 
   const enter = async (logId: string, label: string, version: number) => {
-    if (!roomId) return;
+    if (!floorId) return;
     const plan = await mutation.mutateAsync({ version });
 
     useSnapshotStore.getState().enter(logId, label, {
@@ -152,11 +152,11 @@ function applyPlanToEditor(plan: FloorPlanDetail) {
  * Restore a past version: load into editor for actual editing.
  * If plan data is already in the store (from preview), reuses it — no extra API call.
  */
-export function useLoadSnapshot(roomId: string | undefined) {
+export function useLoadSnapshot(floorId: string | undefined) {
   const mutation = useMutation({
     mutationFn: async (version: number) => {
-      if (!roomId) throw new Error('roomId is required');
-      return fetchVersionPlan(roomId, version);
+      if (!floorId) throw new Error('floorId is required');
+      return fetchVersionPlan(floorId, version);
     },
     onSuccess: (plan) => {
       applyPlanToEditor(plan);
@@ -165,7 +165,7 @@ export function useLoadSnapshot(roomId: string | undefined) {
 
   /** Restore from preview — reuses plan data already in the snapshot store */
   const restoreFromPreview = () => {
-    if (!roomId) return;
+    if (!floorId) return;
     const snap = useSnapshotStore.getState();
     if (!snap.active || !snap.snapshotId) return;
 

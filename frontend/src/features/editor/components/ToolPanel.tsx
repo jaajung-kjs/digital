@@ -18,41 +18,9 @@ export function ToolPanel() {
 
       <div className="border-t my-1" />
 
-      <ToolButton active={tool === 'line'} onClick={() => selectTool('line')} title="선 그리기" label="선" shortcut="L">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 20L20 4" />
-        </svg>
-      </ToolButton>
-
-      <ToolButton active={tool === 'rect'} onClick={() => selectTool('rect')} title="사각형 그리기" label="사각형" shortcut="R">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h16v16H4V4z" />
-        </svg>
-      </ToolButton>
-
-      <ToolButton active={tool === 'circle'} onClick={() => selectTool('circle')} title="원 그리기" label="원" shortcut="O">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <circle cx="12" cy="12" r="8" strokeWidth={2} />
-        </svg>
-      </ToolButton>
-
       <ToolButton active={tool === 'text'} onClick={() => selectTool('text')} title="텍스트 입력" label="텍스트" shortcut="T">
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M12 6v12M8 18h8" />
-        </svg>
-      </ToolButton>
-
-      <div className="border-t my-1" />
-
-      <ToolButton active={tool === 'door'} onClick={() => selectTool('door')} title="문 배치" label="문" shortcut="D">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3v18M3 3h18v18H3V3z" />
-        </svg>
-      </ToolButton>
-
-      <ToolButton active={tool === 'window'} onClick={() => selectTool('window')} title="창문 배치" label="창문" shortcut="W">
-        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h16v16H4V4zm8 0v16M4 12h16" />
         </svg>
       </ToolButton>
 

@@ -83,11 +83,11 @@ export const organizationApi = {
     return data.data;
   },
   renameRoom: async (id: string, payload: { name: string }): Promise<RoomItem> => {
-    const { data } = await api.patch<{ data: RoomItem }>(`/rooms/${id}`, payload);
+    const { data } = await api.patch<{ data: RoomItem }>(`/floors/${id}`, payload);
     return data.data;
   },
   deleteRoom: async (id: string): Promise<void> => {
-    await api.delete(`/rooms/${id}`);
+    await api.delete(`/floors/${id}`);
   },
 
   // ── Reorder ──

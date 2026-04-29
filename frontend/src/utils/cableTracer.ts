@@ -34,14 +34,14 @@ function toTraceNode(
   isTarget: boolean,
   substationId: string,
   substationName: string,
-  roomId: string | null,
+  floorId: string | null,
 ): TraceNode {
   return {
     equipmentId: equip.id,
     equipmentName: equip.name,
     substationId,
     substationName,
-    roomId,
+    floorId,
     category: equip.category,
     isSource,
     isTarget,
@@ -373,9 +373,9 @@ export interface TraceCableInput {
   equipment: FloorPlanEquipment[];
   /** Fiber paths (saved + pending, merged) */
   fiberPaths: FiberPathDetail[];
-  /** Room context for substationId/Name (optional) */
+  /** Floor context for substationId/Name (optional) */
   roomContext?: {
-    roomId: string;
+    floorId: string;
     substationId?: string;
     substationName?: string;
   };
@@ -394,7 +394,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
   // Default substation context
   const substationId = roomContext?.substationId ?? '';
   const substationName = roomContext?.substationName ?? '';
-  const defaultRoomId = roomContext?.roomId ?? null;
+  const defaultRoomId = roomContext?.floorId ?? null;
 
   // Equipment lookup
   const equipMap = new Map(equipment.map((e) => [e.id, e]));
@@ -430,7 +430,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
         equipmentName: equipId,
         substationId: '',
         substationName: '',
-        roomId: null,
+        floorId: null,
         category: 'OFD',
         isSource,
         isTarget,

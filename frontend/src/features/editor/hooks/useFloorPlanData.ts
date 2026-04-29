@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type { FloorPlanDetail, FloorPlanCable, UpdateFloorPlanRequest } from '../../../types/floorPlan';
-import type { RoomDetail } from '../../../types/substation';
+import type { FloorDetailLegacy } from '../../../types/substation';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useViewport } from './useViewport';
@@ -48,7 +48,7 @@ function planCablesToLocalCables(cables: FloorPlanCable[]): LocalCable[] {
  * Hook for loading/saving floor plan data.
  * This is the SINGLE save path — all mutations flow through here.
  */
-export function useFloorPlanData(roomId: string | undefined, containerRef: React.RefObject<HTMLDivElement | null>) {
+export function useFloorPlanData(floorId: string | undefined, containerRef: React.RefObject<HTMLDivElement | null>) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const isSavingRef = useRef(false);
   const pendingReportRef = useRef<ConstructionReport | null>(null);
@@ -61,24 +61,24 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     setViewport, viewportInitialized,
   } = useEditorStore();
   const { initHistory } = useHistoryStore();
-  const { fitToContent, loadViewportState, saveViewportState } = useViewport(roomId);
+  const { fitToContent, loadViewportState, saveViewportState } = useViewport(floorId);
 
   const { data: room, isLoading: roomLoading } = useQuery({
-    queryKey: ['room', roomId],
+    queryKey: ['room', floorId],
     queryFn: async () => {
-      const response = await api.get<{ data: RoomDetail }>(`/rooms/${roomId}`);
+      const response = await api.get<{ data: FloorDetailLegacy }>(`/floors/${floorId}`);
       return response.data.data;
     },
-    enabled: !!roomId,
+    enabled: !!floorId,
   });
 
   const { data: floorPlan, isLoading: planLoading, error: planError } = useQuery({
-    queryKey: ['floorPlan', roomId],
+    queryKey: ['floorPlan', floorId],
     queryFn: async () => {
-      const response = await api.get<{ data: FloorPlanDetail }>(`/rooms/${roomId}/plan`);
+      const response = await api.get<{ data: FloorPlanDetail }>(`/floors/${floorId}/plan`);
       return response.data.data;
     },
-    enabled: !!roomId,
+    enabled: !!floorId,
     retry: false,
   });
 
@@ -87,7 +87,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     mutationFn: (data: UpdateFloorPlanRequest) => {
       isSavingRef.current = true;
       return api.put<{ data: { id: string; version: number; equipmentIdMap: Record<string, string>; auditLogId: string | null } }>(
-        `/rooms/${roomId}/plan`,
+        `/floors/${floorId}/plan`,
         data
       );
     },
@@ -150,7 +150,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       const report = pendingReportRef.current;
       if (auditLogId && report && report.diff.length > 0) {
         try {
-          await api.patch(`/rooms/${roomId}/versions/${auditLogId}`, {
+          await api.patch(`/floors/${floorId}/versions/${auditLogId}`, {
             context: { constructionReport: report },
           });
         } catch (err) {
@@ -163,11 +163,11 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
       useEditorStore.getState().clearPendingData();
 
       // Delete localStorage draft on successful save
-      if (roomId) {
-        localStorage.removeItem(`draft-plan-${roomId}`);
+      if (floorId) {
+        localStorage.removeItem(`draft-plan-${floorId}`);
       }
 
-      queryClient.invalidateQueries({ queryKey: ['floorPlan', roomId] });
+      queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
       if (pendingUploads.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
@@ -214,7 +214,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     setHasChanges(false);
     initHistory(elements, floorPlan.equipment, cables);
     setViewportInitialized(false);
-  }, [floorPlan, roomId, setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
+  }, [floorPlan, floorId, setLocalElements, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
 
   // Viewport initialization
   useEffect(() => {
@@ -251,7 +251,7 @@ export function useFloorPlanData(roomId: string | undefined, containerRef: React
     const { localCables, pendingFiberPaths, deletedFiberPathIds } = useEditorStore.getState();
 
     // Pre-compute construction report using before (cached server state) and after (local state)
-    const cachedPlan = queryClient.getQueryData<FloorPlanDetail>(['floorPlan', roomId]);
+    const cachedPlan = queryClient.getQueryData<FloorPlanDetail>(['floorPlan', floorId]);
     if (cachedPlan) {
       const beforeSnapshot: PlanSnapshot = {
         elements: cachedPlan.elements.map(e => ({
