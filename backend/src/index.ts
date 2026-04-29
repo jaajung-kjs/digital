@@ -21,6 +21,11 @@ import { cablesRouter } from './routes/cables.routes.js';
 import { equipmentPhotosRouter } from './routes/equipmentPhotos.routes.js';
 import { maintenanceLogsRouter } from './routes/maintenanceLogs.routes.js';
 import { fiberPathsRouter } from './routes/fiberPaths.routes.js';
+import { cableCategoriesRouter } from './routes/cableCategories.routes.js';
+import { rackModuleCategoriesRouter } from './routes/rackModuleCategories.routes.js';
+import { rackModulesRouter } from './routes/rackModules.routes.js';
+import { rackPresetsRouter } from './routes/rackPresets.routes.js';
+import { bomMaterialsRouter } from './routes/bomMaterials.routes.js';
 
 const app = express();
 
@@ -65,9 +70,12 @@ app.use('/api/cables', cablesRouter);
 app.use('/api/equipment-photos', equipmentPhotosRouter);
 app.use('/api/maintenance-logs', maintenanceLogsRouter);
 app.use('/api', fiberPathsRouter);
-// MaterialCategory/Material 라우트는 P6 에서 제거됨.
-// 신규 cable-categories / rack-modules / rack-presets / bom-materials
-// 라우트는 P7 에서 추가 예정.
+// 카테고리/프리셋/BOM 자재 라우트 (P7) — MaterialCategory/Material 폐기 후 신규 분리.
+app.use('/api/cable-categories', cableCategoriesRouter);
+app.use('/api/rack-module-categories', rackModuleCategoriesRouter);
+app.use('/api/rack-modules', rackModulesRouter);
+app.use('/api/rack-presets', rackPresetsRouter);
+app.use('/api/bom-materials', bomMaterialsRouter);
 
 // 404 handler
 app.use((_req, res) => {

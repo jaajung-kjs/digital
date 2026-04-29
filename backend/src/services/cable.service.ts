@@ -129,11 +129,18 @@ const cableInclude = {
  * Resolve an endpoint payload into validated FK fields.
  * Throws if neither/both are populated, if the equipment is RACK kind, or if
  * the referenced row doesn't exist.
+ *
+ * Returns kind for upstream OFD-fiberPath validation.
  */
 async function resolveEndpoint(
   side: 'source' | 'target',
   ep: CableEndpointInput,
-): Promise<{ equipmentId: string | null; moduleId: string | null; floorId: string | null }> {
+): Promise<{
+  equipmentId: string | null;
+  moduleId: string | null;
+  floorId: string | null;
+  kind: EquipmentKind | null;
+}> {
   const hasEq = !!ep.equipmentId;
   const hasMod = !!ep.moduleId;
   if (hasEq === hasMod) {
@@ -151,7 +158,7 @@ async function resolveEndpoint(
     if (eq.kind === EquipmentKind.RACK) {
       throw new ValidationError(`RACK 설비는 케이블 endpoint 가 될 수 없습니다. 랙 안 모듈에 연결하세요.`);
     }
-    return { equipmentId: eq.id, moduleId: null, floorId: eq.floorId };
+    return { equipmentId: eq.id, moduleId: null, floorId: eq.floorId, kind: eq.kind };
   }
 
   const mod = await prisma.rackModule.findUnique({
@@ -159,7 +166,26 @@ async function resolveEndpoint(
     select: { id: true, rack: { select: { floorId: true } } },
   });
   if (!mod) throw new NotFoundError(`${side} 랙 모듈`);
-  return { equipmentId: null, moduleId: mod.id, floorId: mod.rack.floorId };
+  return { equipmentId: null, moduleId: mod.id, floorId: mod.rack.floorId, kind: null };
+}
+
+/**
+ * OFD 한 쪽이라도 endpoint 면 fiberPathId + fiberPortNumber 필수.
+ * 외부에서 호출하므로 export.
+ */
+export function assertOfdFiberPath(
+  sourceKind: EquipmentKind | null,
+  targetKind: EquipmentKind | null,
+  fiberPathId: string | null | undefined,
+  fiberPortNumber: number | null | undefined,
+): void {
+  const hasOfd = sourceKind === EquipmentKind.OFD || targetKind === EquipmentKind.OFD;
+  if (!hasOfd) return;
+  if (!fiberPathId || !fiberPortNumber) {
+    throw new ValidationError(
+      'OFD 가 endpoint 인 케이블은 fiberPathId 와 fiberPortNumber 가 필요합니다.',
+    );
+  }
 }
 
 // ==================== Service ====================
@@ -189,6 +215,8 @@ class CableService {
     if (sameEndpoint) {
       throw new ValidationError('소스와 타겟 endpoint 는 서로 달라야 합니다.');
     }
+
+    assertOfdFiberPath(source.kind, target.kind, input.fiberPathId, input.fiberPortNumber);
 
     const cable = await prisma.cable.create({
       data: {
@@ -221,6 +249,29 @@ class CableService {
   async update(id: string, input: UpdateCableInput, userId: string): Promise<CableDetail> {
     const existing = await prisma.cable.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError('케이블');
+
+    // Re-check OFD fiberPath requirement when fiber-related fields are touched.
+    if (
+      input.fiberPathId !== undefined ||
+      input.fiberPortNumber !== undefined
+    ) {
+      const [srcKind, tgtKind] = await Promise.all([
+        existing.sourceEquipmentId
+          ? prisma.equipment
+              .findUnique({ where: { id: existing.sourceEquipmentId }, select: { kind: true } })
+              .then((e) => e?.kind ?? null)
+          : Promise.resolve<EquipmentKind | null>(null),
+        existing.targetEquipmentId
+          ? prisma.equipment
+              .findUnique({ where: { id: existing.targetEquipmentId }, select: { kind: true } })
+              .then((e) => e?.kind ?? null)
+          : Promise.resolve<EquipmentKind | null>(null),
+      ]);
+      const nextFiberPathId = input.fiberPathId !== undefined ? input.fiberPathId : existing.fiberPathId;
+      const nextFiberPortNumber =
+        input.fiberPortNumber !== undefined ? input.fiberPortNumber : existing.fiberPortNumber;
+      assertOfdFiberPath(srcKind, tgtKind, nextFiberPathId, nextFiberPortNumber);
+    }
 
     const cable = await prisma.cable.update({
       where: { id },

@@ -220,6 +220,21 @@ class EquipmentService {
       await this.validateOfdUniqueness(existing.floorId, id);
     }
 
+    // totalU 정규화: RACK kind 만 의미를 가짐.
+    //   - RACK 인데 totalU 가 명시적 null/undefined 면 기존 값 유지(없으면 42)
+    //   - kind 가 RACK 이 아니면 totalU 강제로 null
+    let totalU: number | null | undefined = input.totalU;
+    const effectiveKind = input.kind ?? existing.kind;
+    if (effectiveKind === EquipmentKind.RACK) {
+      if (input.kind === EquipmentKind.RACK && existing.kind !== EquipmentKind.RACK) {
+        // 다른 kind → RACK 으로 전환: totalU 가 없으면 42 부여
+        totalU = input.totalU ?? 42;
+      }
+    } else if (input.kind !== undefined) {
+      // 명시적으로 RACK 이 아닌 kind 로 변경 → totalU null 강제
+      totalU = null;
+    }
+
     const equipment = await prisma.equipment.update({
       where: { id },
       data: {
@@ -230,7 +245,7 @@ class EquipmentService {
         width2d: input.width2d,
         height2d: input.height2d,
         rotation: input.rotation,
-        totalU: input.totalU,
+        totalU,
         height3d: input.height3d,
         frontImageUrl: input.frontImageUrl,
         rearImageUrl: input.rearImageUrl,
