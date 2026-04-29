@@ -1,10 +1,7 @@
-// 평면도 요소 타입 (v2 - CAD 스타일)
-// 기존: 'wall' | 'door' | 'window' | 'column'
-// 신규: 'line' | 'rect' | 'circle' | 'door' | 'window' | 'text'
+// 평면도 요소 타입.
+// 사용자가 직접 그리는 툴은 EditorTool에서 좁혀져 있지만 (text/conduit/tray/pullbox만),
+// ElementType 자체는 넓게 유지한다 — DWG에서 promote될 line/rect 같은 케이스를 위해.
 export type ElementType = 'line' | 'rect' | 'circle' | 'door' | 'window' | 'text' | 'conduit' | 'tray' | 'pullbox';
-
-// 레거시 타입 (마이그레이션용)
-export type LegacyElementType = 'wall' | 'door' | 'window' | 'column';
 
 // 선 속성 (기존 WallProperties 대체)
 export interface LineProperties {
@@ -86,21 +83,6 @@ export interface TextProperties {
   color: string;              // 기본 '#1a1a1a'
   rotation: number;           // 0-360
   textAlign: 'left' | 'center' | 'right';  // 기본 'left'
-}
-
-// 레거시 속성 타입 (마이그레이션용)
-export interface LegacyWallProperties {
-  points: [number, number][];
-  thickness: number;
-  color: string;
-}
-
-export interface LegacyColumnProperties {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  shape: 'rect' | 'circle';
 }
 
 export type ElementProperties =
@@ -296,7 +278,7 @@ export interface EquipmentItem {
   model?: string;
   manufacturer?: string;
   category: string;
-  roomId: string;
+  floorId: string;
   positionX: number;
   positionY: number;
   width2d: number;
@@ -309,282 +291,11 @@ export interface EquipmentItem {
   description?: string;
 }
 
-// 에디터 도구 타입 (v2 - CAD 스타일)
-// 기존: 'select' | 'wall' | 'door' | 'window' | 'column' | 'rack' | 'cable' | 'delete'
-// 신규: 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'delete'
-// 랙은 별도 도구 없이 설비(equipment) 도구로 EQP-RACK 카테고리 선택 시 자동 생성
-export type EditorTool = 'select' | 'line' | 'rect' | 'circle' | 'door' | 'window' | 'equipment' | 'text' | 'cable' | 'conduit' | 'tray' | 'pullbox' | 'delete';
+// 에디터 도구 타입
+// DWG 임포트가 도면 윤곽을 담당하므로 line/rect/circle/door/window 도구는 제거.
+// 랙은 별도 도구 없이 설비(equipment) 도구로 EQP-RACK 카테고리 선택 시 자동 생성.
+export type EditorTool = 'select' | 'equipment' | 'text' | 'cable' | 'conduit' | 'tray' | 'pullbox' | 'delete';
 
-
-// ============================================
-// 데이터 마이그레이션 유틸리티
-// ============================================
-
-/**
- * 레거시 요소를 새 형식으로 마이그레이션
- * wall → line, column → rect
- */
-export function migrateElement(element: {
-  id: string;
-  elementType: string;
-  properties: Record<string, unknown>;
-  zIndex: number;
-  isVisible: boolean;
-}): FloorPlanElement {
-  const baseElement = {
-    id: element.id,
-    zIndex: element.zIndex,
-    isVisible: element.isVisible,
-  };
-
-  switch (element.elementType) {
-    case 'wall': {
-      // wall → line
-      const props = element.properties as unknown as LegacyWallProperties;
-      return {
-        ...baseElement,
-        elementType: 'line',
-        properties: {
-          points: props.points,
-          strokeWidth: props.thickness || 2,
-          strokeColor: props.color || '#1a1a1a',
-          strokeStyle: 'solid',
-        } as LineProperties,
-      };
-    }
-
-    case 'column': {
-      // column → rect (또는 circle)
-      const props = element.properties as unknown as LegacyColumnProperties;
-
-      if (props.shape === 'circle') {
-        // 원형 기둥은 circle로 변환
-        return {
-          ...baseElement,
-          elementType: 'circle',
-          properties: {
-            cx: props.x + props.width / 2,
-            cy: props.y + props.height / 2,
-            radius: Math.min(props.width, props.height) / 2,
-            fillColor: '#6b7280',
-            strokeColor: '#374151',
-            strokeWidth: 2,
-            strokeStyle: 'solid',
-          } as CircleProperties,
-        };
-      } else {
-        // 사각형 기둥은 rect로 변환
-        return {
-          ...baseElement,
-          elementType: 'rect',
-          properties: {
-            x: props.x,
-            y: props.y,
-            width: props.width,
-            height: props.height,
-            rotation: 0,
-            flipH: false,
-            flipV: false,
-            fillColor: '#6b7280',
-            strokeColor: '#374151',
-            strokeWidth: 2,
-            strokeStyle: 'solid',
-            cornerRadius: 0,
-          } as RectProperties,
-        };
-      }
-    }
-
-    case 'door': {
-      // door 확장
-      const props = element.properties as Record<string, unknown>;
-      return {
-        ...baseElement,
-        elementType: 'door',
-        properties: {
-          x: (props.x as number) || 0,
-          y: (props.y as number) || 0,
-          width: (props.width as number) || 60,
-          height: (props.height as number) || 10,
-          rotation: (props.rotation as number) || 0,
-          flipH: (props.flipH as boolean) || false,
-          flipV: (props.flipV as boolean) || false,
-          openDirection: (props.openDirection as 'inside' | 'outside') || 'inside',
-          strokeWidth: (props.strokeWidth as number) || 2,
-          strokeColor: (props.strokeColor as string) || '#d97706',
-          wallId: props.wallId as string | undefined,
-        } as DoorProperties,
-      };
-    }
-
-    case 'window': {
-      // window 확장
-      const props = element.properties as Record<string, unknown>;
-      return {
-        ...baseElement,
-        elementType: 'window',
-        properties: {
-          x: (props.x as number) || 0,
-          y: (props.y as number) || 0,
-          width: (props.width as number) || 80,
-          height: (props.height as number) || 8,
-          rotation: (props.rotation as number) || 0,
-          flipH: (props.flipH as boolean) || false,
-          flipV: (props.flipV as boolean) || false,
-          strokeWidth: (props.strokeWidth as number) || 2,
-          strokeColor: (props.strokeColor as string) || '#0284c7',
-          wallId: props.wallId as string | undefined,
-        } as WindowProperties,
-      };
-    }
-
-    case 'line': {
-      // 이미 line 타입인 경우
-      const props = element.properties as unknown as LineProperties;
-      return {
-        ...baseElement,
-        elementType: 'line',
-        properties: {
-          points: props.points,
-          strokeWidth: props.strokeWidth || 2,
-          strokeColor: props.strokeColor || '#1a1a1a',
-          strokeStyle: props.strokeStyle || 'solid',
-        },
-      };
-    }
-
-    case 'rect': {
-      // 이미 rect 타입인 경우
-      const props = element.properties as unknown as RectProperties;
-      return {
-        ...baseElement,
-        elementType: 'rect',
-        properties: {
-          x: props.x,
-          y: props.y,
-          width: props.width,
-          height: props.height,
-          rotation: props.rotation || 0,
-          flipH: props.flipH || false,
-          flipV: props.flipV || false,
-          fillColor: props.fillColor || 'transparent',
-          strokeColor: props.strokeColor || '#1a1a1a',
-          strokeWidth: props.strokeWidth || 2,
-          strokeStyle: props.strokeStyle || 'solid',
-          cornerRadius: props.cornerRadius || 0,
-        },
-      };
-    }
-
-    case 'circle': {
-      // 이미 circle 타입인 경우
-      const props = element.properties as unknown as CircleProperties;
-      return {
-        ...baseElement,
-        elementType: 'circle',
-        properties: {
-          cx: props.cx,
-          cy: props.cy,
-          radius: props.radius,
-          fillColor: props.fillColor || 'transparent',
-          strokeColor: props.strokeColor || '#1a1a1a',
-          strokeWidth: props.strokeWidth || 2,
-          strokeStyle: props.strokeStyle || 'solid',
-        },
-      };
-    }
-
-    case 'text': {
-      // 이미 text 타입인 경우
-      const props = element.properties as unknown as TextProperties;
-      return {
-        ...baseElement,
-        elementType: 'text',
-        properties: {
-          x: props.x,
-          y: props.y,
-          text: props.text || '',
-          fontSize: props.fontSize || 14,
-          fontWeight: props.fontWeight || 'normal',
-          color: props.color || '#1a1a1a',
-          rotation: props.rotation || 0,
-          textAlign: props.textAlign || 'left',
-        },
-      };
-    }
-
-    case 'conduit':
-    case 'tray': {
-      const props = element.properties as unknown as LineProperties;
-      return {
-        ...baseElement,
-        elementType: element.elementType as ElementType,
-        properties: {
-          points: props.points,
-          strokeWidth: props.strokeWidth || 2,
-          strokeColor: props.strokeColor || (element.elementType === 'conduit' ? '#6366f1' : '#f59e0b'),
-          strokeStyle: props.strokeStyle || (element.elementType === 'conduit' ? 'dashed' : 'solid'),
-        },
-      };
-    }
-
-    case 'pullbox': {
-      const props = element.properties as unknown as RectProperties;
-      return {
-        ...baseElement,
-        elementType: 'pullbox',
-        properties: {
-          x: props.x,
-          y: props.y,
-          width: props.width || 30,
-          height: props.height || 30,
-          rotation: props.rotation || 0,
-          flipH: props.flipH || false,
-          flipV: props.flipV || false,
-          fillColor: props.fillColor || 'transparent',
-          strokeColor: props.strokeColor || '#10b981',
-          strokeWidth: props.strokeWidth || 2,
-          strokeStyle: props.strokeStyle || 'solid',
-          cornerRadius: props.cornerRadius || 0,
-        },
-      };
-    }
-
-    default:
-      // 알 수 없는 타입은 line으로 기본 처리
-      console.warn(`Unknown element type: ${element.elementType}, converting to line`);
-      return {
-        ...baseElement,
-        elementType: 'line',
-        properties: {
-          points: [[0, 0], [100, 100]],
-          strokeWidth: 2,
-          strokeColor: '#1a1a1a',
-          strokeStyle: 'solid',
-        } as LineProperties,
-      };
-  }
-}
-
-/**
- * 전체 평면도 데이터 마이그레이션
- */
-export function migrateFloorPlanElements(elements: Array<{
-  id: string;
-  elementType: string;
-  properties: Record<string, unknown>;
-  zIndex: number;
-  isVisible: boolean;
-}>): FloorPlanElement[] {
-  return elements.map(migrateElement);
-}
-
-/**
- * 레거시 타입인지 확인
- */
-export function isLegacyElementType(type: string): boolean {
-  return type === 'wall' || type === 'column';
-}
 
 // 선 스타일 옵션
 export const LINE_STYLES = {

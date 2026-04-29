@@ -40,7 +40,7 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
   const isLocalA = fiberPath.ofdA.id === localOfdId;
   const localSub = isLocalA ? fiberPath.ofdA.substationName : fiberPath.ofdB.substationName;
   const remoteSub = isLocalA ? fiberPath.ofdB.substationName : fiberPath.ofdA.substationName;
-  const remoteRoomId = isLocalA ? fiberPath.ofdB.roomId : fiberPath.ofdA.roomId;
+  const remoteRoomId = isLocalA ? fiberPath.ofdB.floorId : fiberPath.ofdA.floorId;
 
   const getLocalSide = (port: FiberPortStatus): FiberPortUsage | null =>
     isLocalA ? port.sideA : port.sideB;

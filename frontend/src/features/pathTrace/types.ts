@@ -5,7 +5,7 @@ export interface TraceNode {
   equipmentName: string;
   substationId: string;
   substationName: string;
-  roomId: string | null;
+  floorId: string | null;
   category: string;
   isSource: boolean;
   isTarget: boolean;

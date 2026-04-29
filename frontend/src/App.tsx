@@ -36,7 +36,7 @@ function AppContent() {
 
       {/* Protected Routes - Full screen pages (no Layout) */}
       <Route
-        path="/rooms/:roomId/plan"
+        path="/floors/:floorId/plan"
         element={
           <ProtectedRoute>
             <FloorPlanEditorPage />

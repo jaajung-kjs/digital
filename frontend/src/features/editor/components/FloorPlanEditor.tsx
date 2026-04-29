@@ -28,7 +28,7 @@ import { getCableTypeFromMaterial } from '../../../types/material';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
-import { RoomSettingsPanel } from './RoomSettingsPanel';
+import { FloorSettingsPanel } from './FloorSettingsPanel';
 
 const ThreeCanvas = lazy(() => import('../../viewer3d/components/ThreeCanvas').then(m => ({ default: m.ThreeCanvas })));
 
@@ -210,8 +210,6 @@ function ToolStatusBar() {
         return '풀박스 설치 위치를 클릭하세요';
       case 'equipment':
         return isDrawingEquipment ? '끝점을 클릭하여 크기를 결정하세요' : '설비 시작점을 클릭하세요';
-      case 'line':
-        return isDrawingLine ? '끝점을 클릭하세요' : '선 시작점을 클릭하세요';
       default:
         return null;
     }
@@ -231,10 +229,10 @@ function ToolStatusBar() {
 }
 
 interface FloorPlanEditorProps {
-  roomId: string;
+  floorId: string;
 }
 
-export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
+export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isAdmin = useIsAdmin();
@@ -245,9 +243,9 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
 
   const {
     room, floorPlan, roomLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
-  } = useFloorPlanData(roomId, containerRef);
+  } = useFloorPlanData(floorId, containerRef);
 
-  useEditorKeyboard(handleSave, roomId, containerRef);
+  useEditorKeyboard(handleSave, floorId, containerRef);
   const { handlePasteEquipment } = useClipboard();
   const { pushHistory } = useEditorHistory();
 
@@ -299,7 +297,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
   useEffect(() => {
     if (draftCheckedRef.current || !floorPlan) return;
     draftCheckedRef.current = true;
-    const draftKey = `draft-plan-${roomId}`;
+    const draftKey = `draft-plan-${floorId}`;
     const raw = localStorage.getItem(draftKey);
     if (raw) {
       try {
@@ -311,10 +309,10 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
         localStorage.removeItem(draftKey);
       }
     }
-  }, [roomId, floorPlan]);
+  }, [floorId, floorPlan]);
 
   const handleRestoreDraft = useCallback(() => {
-    const draftKey = `draft-plan-${roomId}`;
+    const draftKey = `draft-plan-${floorId}`;
     const raw = localStorage.getItem(draftKey);
     if (!raw) { setShowDraftDialog(false); return; }
     try {
@@ -345,22 +343,22 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       useEditorStore.getState().setHasChanges(true);
     } catch { /* ignore */ }
     setShowDraftDialog(false);
-  }, [roomId]);
+  }, [floorId]);
 
   const handleDiscardDraft = useCallback(() => {
-    localStorage.removeItem(`draft-plan-${roomId}`);
+    localStorage.removeItem(`draft-plan-${floorId}`);
     // Reset local state to server data
     useEditorStore.getState().clearPendingData();
     useEditorStore.getState().setHasChanges(false);
     setShowDraftDialog(false);
-  }, [roomId]);
+  }, [floorId]);
 
   // Debounced auto-backup to localStorage
   useEffect(() => {
     const timer = setInterval(() => {
       const state = useEditorStore.getState();
       if (!state.hasChanges) return;
-      const draftKey = `draft-plan-${roomId}`;
+      const draftKey = `draft-plan-${floorId}`;
       try {
         const draft = {
           localElements: state.localElements,
@@ -380,7 +378,7 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
       } catch { /* quota exceeded or serialization error */ }
     }, 2000);
     return () => clearInterval(timer);
-  }, [roomId]);
+  }, [floorId]);
 
   // Navigation guard: warn on unsaved changes
   useEffect(() => {
@@ -528,9 +526,9 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
                   canvasRef={canvasRef}
                   containerRef={containerRef}
                   floorPlan={floorPlan}
-                  roomId={roomId}
+                  floorId={floorId}
                 >
-                  <ConnectionOverlay roomId={roomId} canvasRef={canvasRef} />
+                  <ConnectionOverlay floorId={floorId} canvasRef={canvasRef} />
                   <CablePathOverlayWrapper canvasRef={canvasRef} />
                   <ToolStatusBar />
                 </CanvasView>
@@ -539,16 +537,16 @@ export function FloorPlanEditor({ roomId }: FloorPlanEditorProps) {
               <TopologyModal />
 
               {detailPanelEquipmentId && (
-                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} roomId={roomId} />
+                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} floorId={floorId} />
               )}
 
 
               {showHistory && (
-                <ChangeHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />
+                <ChangeHistoryPanel floorId={floorId} onClose={() => setShowHistory(false)} />
               )}
 
               {showSettings && !snapshotActive && (
-                <RoomSettingsPanel onClose={() => setShowSettings(false)} />
+                <FloorSettingsPanel onClose={() => setShowSettings(false)} />
               )}
 
               {floorPlan && viewMode === 'edit-2d' && !snapshotActive && (

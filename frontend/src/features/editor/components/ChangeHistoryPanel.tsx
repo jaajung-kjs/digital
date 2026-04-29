@@ -2,12 +2,12 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useIsAdmin } from '../../../stores/authStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import {
-  useRoomAuditLogs,
+  useFloorAuditLogs,
   useDeleteAuditLog,
   usePreviewSnapshot,
   useLoadSnapshot,
   usePatchAuditLogContext,
-} from '../hooks/useRoomAuditLogs';
+} from '../hooks/useFloorAuditLogs';
 import {
   exportReportToCSV,
   actionBadgeColor,
@@ -22,7 +22,7 @@ import { SURCHARGE_RULES } from '../../../config/constructionTemplates';
 import type { AuditLog } from '../../../types/maintenance';
 
 interface ChangeHistoryPanelProps {
-  roomId: string;
+  floorId: string;
   onClose: () => void;
 }
 
@@ -39,12 +39,12 @@ const FIELD_LABELS: Record<string, string> = {
   connections: '연결',
 };
 
-export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps) {
-  const { data: logs, isLoading } = useRoomAuditLogs(roomId);
-  const deleteMutation = useDeleteAuditLog(roomId);
-  const preview = usePreviewSnapshot(roomId);
-  const loadSnapshot = useLoadSnapshot(roomId);
-  const patchContext = usePatchAuditLogContext(roomId);
+export function ChangeHistoryPanel({ floorId, onClose }: ChangeHistoryPanelProps) {
+  const { data: logs, isLoading } = useFloorAuditLogs(floorId);
+  const deleteMutation = useDeleteAuditLog(floorId);
+  const preview = usePreviewSnapshot(floorId);
+  const loadSnapshot = useLoadSnapshot(floorId);
+  const patchContext = usePatchAuditLogContext(floorId);
   const isAdmin = useIsAdmin();
 
   const snapshotActive = useSnapshotStore((s) => s.active);
@@ -189,7 +189,7 @@ export function ChangeHistoryPanel({ roomId, onClose }: ChangeHistoryPanelProps)
             <ReportView
               log={selectedLog}
               allLogs={logs}
-              roomId={roomId}
+              floorId={floorId}
               onSaveOverrides={(overrides) => {
                 const ctx = (selectedLog as AuditLog & { context?: Record<string, unknown> }).context ?? {};
                 patchContext.mutate({
@@ -395,12 +395,12 @@ function DiffView({ log }: { log: AuditLog; allLogs: AuditLog[] | undefined }) {
 interface ReportViewProps {
   log: AuditLog;
   allLogs: AuditLog[] | undefined;
-  roomId: string;
+  floorId: string;
   onSaveOverrides: (overrides: ReportOverrides) => void;
   isSaving: boolean;
 }
 
-function ReportView({ log, allLogs: _allLogs, roomId: _roomId, onSaveOverrides, isSaving }: ReportViewProps) {
+function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOverrides, isSaving }: ReportViewProps) {
   const ctx = log.context as Record<string, unknown> | null | undefined;
   const baseReport = (ctx?.constructionReport as ConstructionReport | undefined) ?? null;
   const savedOverrides = (ctx?.reportOverrides as ReportOverrides) ?? null;

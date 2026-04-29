@@ -33,7 +33,7 @@ export interface EquipmentInfo {
   id: string;
   name: string;
   rackId: string | null;
-  roomId: string | null;
+  floorId: string | null;
 }
 
 /** API 응답 구조 (flat) */

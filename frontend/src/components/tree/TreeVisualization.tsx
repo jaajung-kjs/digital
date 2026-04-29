@@ -483,7 +483,7 @@ export function TreeVisualization() {
     selectNode(node.id, node.type);
 
     if (node.type === 'room') {
-      navigate(`/rooms/${node.id}/plan`);
+      navigate(`/floors/${node.id}/plan`);
       return;
     }
 

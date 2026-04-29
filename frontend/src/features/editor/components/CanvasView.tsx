@@ -11,11 +11,11 @@ interface CanvasViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
   floorPlan: FloorPlanDetail | undefined;
-  roomId: string | undefined;
+  floorId: string | undefined;
   children?: React.ReactNode;
 }
 
-export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, children }: CanvasViewProps) {
+export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, children }: CanvasViewProps) {
   useCanvas(canvasRef, containerRef, floorPlan);
   const {
     handleCanvasMouseDown,
@@ -23,7 +23,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, roomId, childre
     handleCanvasMouseUp,
     handleCanvasClick,
     handleCanvasDoubleClick,
-  } = useCanvasEvents(canvasRef, floorPlan, roomId);
+  } = useCanvasEvents(canvasRef, floorPlan, floorId);
 
   const { pushHistory } = useEditorHistory();
 

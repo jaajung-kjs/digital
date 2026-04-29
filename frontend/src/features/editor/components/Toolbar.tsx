@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
-import type { RoomDetail } from '../../../types/substation';
+import type { FloorDetailLegacy } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
@@ -22,7 +22,7 @@ import {
 } from '../../../utils/floorplan/elementSystem';
 
 interface ToolbarProps {
-  room: RoomDetail | undefined;
+  room: FloorDetailLegacy | undefined;
   floorPlan: FloorPlanDetail | undefined;
   isAdmin: boolean;
   handleSave: () => void;

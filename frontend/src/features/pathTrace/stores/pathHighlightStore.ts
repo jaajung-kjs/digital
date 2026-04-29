@@ -62,8 +62,8 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
       if (snapshotState.active) {
         const snapshotFiberPaths: FiberPathDetail[] = (snapshotState.fiberPaths ?? []).map((fp: any) => ({
           id: fp.id,
-          ofdA: { id: fp.ofdAId, name: '?', substationName: '', roomId: null },
-          ofdB: { id: fp.ofdBId, name: '?', substationName: '', roomId: null },
+          ofdA: { id: fp.ofdAId, name: '?', substationName: '', floorId: null },
+          ofdB: { id: fp.ofdBId, name: '?', substationName: '', floorId: null },
           portCount: fp.portCount,
           description: fp.description ?? null,
           createdAt: '', updatedAt: '',
@@ -126,13 +126,13 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
               id: fp.ofdAId,
               name: ofdA?.name ?? '?',
               substationName: '',
-              roomId: null,
+              floorId: null,
             },
             ofdB: {
               id: fp.ofdBId,
               name: ofdB?.name ?? '?',
               substationName: '',
-              roomId: null,
+              floorId: null,
             },
             portCount: fp.portCount,
             description: fp.description ?? null,

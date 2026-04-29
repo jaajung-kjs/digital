@@ -85,7 +85,7 @@ export interface UpdateFloorRequest {
 }
 
 // 실 상세
-export interface RoomDetail {
+export interface FloorDetailLegacy {
   id: string;
   floorId: string;
   name: string;

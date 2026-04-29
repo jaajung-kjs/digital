@@ -1,7 +1,7 @@
 export interface FiberPathDetail {
   id: string;
-  ofdA: { id: string; name: string; substationName: string; roomId: string | null };
-  ofdB: { id: string; name: string; substationName: string; roomId: string | null };
+  ofdA: { id: string; name: string; substationName: string; floorId: string | null };
+  ofdB: { id: string; name: string; substationName: string; floorId: string | null };
   portCount: number;
   description: string | null;
   ports: FiberPortStatus[];
