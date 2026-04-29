@@ -1,0 +1,299 @@
+import { useState, useRef, useMemo } from 'react';
+import { compressImage } from '../../../../utils/imageCompression';
+import { generateTempId } from '../../../../utils/idHelpers';
+import { useEditorStore } from '../../../editor/stores/editorStore';
+import { useSnapshotStore } from '../../../editor/stores/snapshotStore';
+import { useEquipmentPhotos } from '../../hooks/useEquipmentPhotos';
+import { PhotoLightbox } from './PhotoLightbox';
+import { UploadDialog } from './UploadDialog';
+import { createPortal } from 'react-dom';
+import type { EquipmentDetail, LightboxPhoto } from './types';
+
+/* ================================================================
+   Snapshot Photos Tab — read-only display of photos from snapshot data
+   ================================================================ */
+
+export function SnapshotPhotosTab({ equipmentId }: { equipmentId: string }) {
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
+  const [photoSide, setPhotoSide] = useState<'front' | 'rear'>('front');
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const snapEq = snapshotEquipment.find((e) => e.id === equipmentId);
+  const allPhotos = (snapEq?.photos ?? []).filter((p) => p.side === photoSide);
+  const latestPhoto = allPhotos.length > 0 ? allPhotos[0] : null;
+
+  return (
+    <div className="p-4">
+      {/* Side toggle */}
+      <div className="mb-4 flex gap-2">
+        {(['front', 'rear'] as const).map((side) => (
+          <button
+            key={side}
+            onClick={() => setPhotoSide(side)}
+            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+              photoSide === side
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {side === 'front' ? '전면' : '후면'}
+          </button>
+        ))}
+      </div>
+
+      {/* Main photo */}
+      {latestPhoto ? (
+        <div className="mb-4 overflow-hidden rounded-lg border border-gray-200">
+          <img
+            src={latestPhoto.imageUrl}
+            alt={`${photoSide === 'front' ? '전면' : '후면'} 사진`}
+            className="w-full cursor-pointer object-contain"
+            style={{ maxHeight: '240px' }}
+            onClick={() => setLightboxIndex(0)}
+          />
+        </div>
+      ) : (
+        <div className="mb-4 flex h-40 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-sm text-gray-400">
+          {photoSide === 'front' ? '전면' : '후면'} 사진 없음
+        </div>
+      )}
+
+      {/* Gallery */}
+      {allPhotos.length > 1 && (
+        <div className="grid grid-cols-4 gap-2">
+          {allPhotos.map((photo, idx) => (
+            <div
+              key={photo.id}
+              className="cursor-pointer overflow-hidden rounded border border-gray-200 hover:border-blue-400"
+              onClick={() => setLightboxIndex(idx)}
+            >
+              <img src={photo.imageUrl} alt="" className="h-16 w-full object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && allPhotos[lightboxIndex] && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
+          onClick={() => setLightboxIndex(null)}
+        >
+          <img
+            src={allPhotos[lightboxIndex].imageUrl}
+            alt="확대 사진"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxIndex(null)}
+            className="absolute right-6 top-6 rounded-full bg-white/20 p-2 text-white hover:bg-white/40"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   Photos Tab
+   ================================================================ */
+
+export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly?: boolean }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoSide, setPhotoSide] = useState<'front' | 'rear'>('front');
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const pendingUploads = useEditorStore((s) => s.pendingUploads);
+  const addPendingUpload = useEditorStore((s) => s.addPendingUpload);
+  const removePendingUpload = useEditorStore((s) => s.removePendingUpload);
+
+  const { data: savedPhotos } = useEquipmentPhotos(equipment.id);
+
+  const allPhotos: LightboxPhoto[] = useMemo(() => {
+    const uploads = pendingUploads
+      .filter((u) => u.equipmentId === equipment.id && u.side === photoSide);
+
+    const saved = (savedPhotos ?? [])
+      .filter((p) => p.side === photoSide);
+
+    return [
+      ...uploads.map((u) => ({
+        id: `pending-${u.id}`,
+        url: u.objectUrl,
+        date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
+        description: u.description || null,
+      })),
+      ...saved.map((p) => ({
+        id: p.id,
+        url: p.imageUrl,
+        date: new Date(p.takenAt || p.createdAt).toLocaleDateString('ko-KR', {
+          year: 'numeric', month: 'long', day: 'numeric',
+        }),
+        description: p.description,
+      })),
+    ];
+  }, [pendingUploads, savedPhotos, equipment.id, photoSide]);
+
+  const latestPhoto = allPhotos.length > 0 ? allPhotos[0] : null;
+  const currentImageUrl = latestPhoto?.url ?? null;
+
+  const handleUploadClick = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setPendingFile(file);
+    e.target.value = '';
+  };
+
+  const handleConfirmUpload = async (description: string) => {
+    if (!pendingFile) return;
+    const compressed = await compressImage(pendingFile);
+    const objectUrl = URL.createObjectURL(compressed);
+    addPendingUpload({
+      id: generateTempId(),
+      equipmentId: equipment.id,
+      side: photoSide,
+      file: compressed,
+      description,
+      objectUrl,
+    });
+    setPendingFile(null);
+  };
+
+  const handleDeletePhoto = (photoId: string) => {
+    if (photoId.startsWith('pending-')) {
+      const uploadId = photoId.replace('pending-', '');
+      removePendingUpload(uploadId);
+    }
+    // Note: server-side photo deletion is not supported in local-only mode.
+    // Photos can only be deleted after save via the backend API.
+  };
+
+  const handleDeleteCurrent = () => {
+    if (!latestPhoto?.id) return;
+    if (confirm(`${photoSide === 'front' ? '전면' : '후면'} 현재 사진을 삭제하시겠습니까?`)) {
+      handleDeletePhoto(latestPhoto.id);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
+      {pendingFile && (
+        <UploadDialog
+          fileName={pendingFile.name}
+          side={photoSide}
+          onConfirm={handleConfirmUpload}
+          onCancel={() => setPendingFile(null)}
+          isPending={false}
+        />
+      )}
+
+      {lightboxIndex !== null && allPhotos.length > 0 && (
+        <PhotoLightbox
+          photos={allPhotos}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onDelete={readOnly ? undefined : handleDeletePhoto}
+        />
+      )}
+
+      <div className="relative bg-gray-900 flex-1 flex items-center justify-center min-h-0">
+        <div className="absolute top-2 left-2 z-10 flex rounded-md overflow-hidden border border-white/30 shadow-sm">
+          <button
+            onClick={() => setPhotoSide('front')}
+            className={`px-3 py-1 text-xs font-medium transition-colors ${
+              photoSide === 'front' ? 'bg-blue-600 text-white' : 'bg-black/50 text-white/80 hover:bg-black/70'
+            }`}
+          >
+            전면
+          </button>
+          <button
+            onClick={() => setPhotoSide('rear')}
+            className={`px-3 py-1 text-xs font-medium transition-colors ${
+              photoSide === 'rear' ? 'bg-blue-600 text-white' : 'bg-black/50 text-white/80 hover:bg-black/70'
+            }`}
+          >
+            후면
+          </button>
+        </div>
+
+        {!readOnly && (
+          <div className="absolute top-2 right-2 z-10 flex gap-1">
+            <button
+              onClick={handleUploadClick}
+              className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-white transition-colors shadow-sm"
+              title={currentImageUrl ? '사진 변경' : '사진 업로드'}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
+            {currentImageUrl && (
+              <button
+                onClick={handleDeleteCurrent}
+                className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-red-400 transition-colors shadow-sm"
+                title="사진 삭제"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+
+        {allPhotos.length > 1 && (
+          <div className="absolute bottom-2 left-2 z-10">
+            <span className="px-2 py-1 bg-black/50 rounded text-[10px] text-white/80">
+              이력 {allPhotos.length}장 - 클릭하여 탐색
+            </span>
+          </div>
+        )}
+
+        {latestPhoto && (
+          <div className="absolute bottom-2 right-2 z-10 text-right">
+            <span className="px-2 py-1 bg-black/50 rounded text-[10px] text-white/80">
+              {latestPhoto.date}
+              {latestPhoto.description && ` · ${latestPhoto.description}`}
+            </span>
+          </div>
+        )}
+
+        {currentImageUrl ? (
+          <img
+            src={currentImageUrl}
+            alt={photoSide === 'front' ? '전면' : '후면'}
+            className="w-full h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => setLightboxIndex(0)}
+          />
+        ) : readOnly ? (
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
+            <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm">{photoSide === 'front' ? '전면' : '후면'} 사진 없음</span>
+          </div>
+        ) : (
+          <button
+            onClick={handleUploadClick}
+            className="w-full h-full flex flex-col items-center justify-center text-gray-500 hover:text-blue-400 transition-colors"
+          >
+            <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span className="text-sm">{photoSide === 'front' ? '전면' : '후면'} 사진 추가</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
