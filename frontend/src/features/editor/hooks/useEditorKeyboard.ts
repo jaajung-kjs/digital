@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { FloorPlanEquipment } from '../../../types/floorPlan';
+import type { FloorPlanDetail, FloorPlanEquipment } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
@@ -19,6 +19,7 @@ export function useEditorKeyboard(
   handleSave: () => void,
   floorId?: string,
   containerRef?: React.RefObject<HTMLDivElement | null>,
+  floorPlan?: FloorPlanDetail,
 ) {
   const { pushHistory, undo, redo } = useEditorHistory();
 
@@ -158,12 +159,18 @@ export function useEditorKeyboard(
         redo();
       }
 
-      // Ctrl+0 fit to content
+      // Ctrl+0 fit to content (equipment + DWG bg, with canvas fallback)
       if (e.ctrlKey && e.key === '0') {
         e.preventDefault();
         const container = containerRef?.current;
         if (container) {
-          const fit = calculateFitToContent(localEquipment, container.clientWidth, container.clientHeight);
+          const fit = calculateFitToContent(
+            localEquipment,
+            floorPlan?.backgroundDrawing ?? null,
+            floorPlan ? { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight } : null,
+            container.clientWidth,
+            container.clientHeight,
+          );
           es.setViewport(fit.zoom, fit.panX, fit.panY);
         }
         return;
@@ -194,5 +201,5 @@ export function useEditorKeyboard(
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleSave, pushHistory, undo, redo, floorId, containerRef]);
+  }, [handleSave, pushHistory, undo, redo, floorId, containerRef, floorPlan]);
 }

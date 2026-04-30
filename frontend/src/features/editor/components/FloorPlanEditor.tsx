@@ -82,7 +82,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     floor, floorPlan, floorLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
   } = useFloorPlanData(floorId, containerRef);
 
-  useEditorKeyboard(handleSave, floorId, containerRef);
+  useEditorKeyboard(handleSave, floorId, containerRef, floorPlan);
   const { pushHistory } = useEditorHistory();
 
   const handlePasteEquipment = useCallback(() => {
