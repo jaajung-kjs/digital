@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LibreDwg, Dwg_File_Type } from '@mlightcad/libredwg-web';
 import type { DwgDatabase, DwgEntity } from '@mlightcad/libredwg-web';
+import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 
@@ -22,7 +23,12 @@ export interface ImportOptions {
   /** Smart mode toggles. */
   includeOutline?: boolean;
   includeLabels?: boolean;
-  /** Manual scale override (mm per canvas unit). Otherwise computed from drawing extent. */
+  /**
+   * Legacy manual scale override (mm per canvas unit). Ignored under the
+   * "1 canvas unit = 1 cm" convention — DWG imports always preserve real
+   * size (mm ÷ 10 → cm). Kept on the input shape for backward-compat with
+   * older clients; will be dropped once the frontend stops sending it.
+   */
   scaleMmPerUnit?: number;
 }
 
@@ -31,35 +37,39 @@ export interface ImportOptions {
  * these defaults when their `colorIndex` / `lineType` / `lineweight` differ
  * from the layer's. The frontend can use these defaults to avoid embedding
  * styling in every path/text/filled record.
+ *
+ * Units: under the "1 canvas unit = 1 cm" convention, `lineweight` and
+ * `dashArray` are emitted in **cm**. The renderer scales them to screen
+ * px via the active zoom factor.
  */
 export interface BgLayer {
   name: string;
   color: string; // '#RRGGBB' (ACI → RGB)
-  lineweight: number; // px (already scale-adjusted)
+  lineweight: number; // cm (1 unit = 1 cm); renderer multiplies by zoom for px
   linetype: string; // 'solid' | 'dashed' | 'center' | 'hidden' | 'dashdot' | 'phantom' | name
-  dashArray?: number[]; // px-units; absent when linetype='solid'
+  dashArray?: number[]; // cm-units; absent when linetype='solid'
   isVisible: boolean; // false when off or frozen
 }
 
 export interface BgPath {
   layer: string;
-  /** Flat [x1,y1,x2,y2,...] in canvas coords (Y already flipped). */
+  /** Flat [x1,y1,x2,y2,...] in canvas coords, **cm** (Y already flipped). */
   points: number[];
   closed?: boolean;
   // BYLAYER overrides — present only when entity differs from layer default.
   color?: string;
-  lineweight?: number;
+  lineweight?: number; // cm
   linetype?: string;
-  dashArray?: number[];
+  dashArray?: number[]; // cm
 }
 
 export interface BgText {
   layer: string;
-  /** Anchor in canvas coords (already alignment-corrected by halign/valign). */
+  /** Anchor in canvas coords (cm), already alignment-corrected by halign/valign. */
   x: number;
   y: number;
   text: string;
-  /** Pixel font size. */
+  /** Font height in **cm** (real-world text size on the drawing). */
   size: number;
   /** Radians, canvas coords. 0 omitted. */
   rotation?: number;
@@ -80,7 +90,13 @@ export interface BgFilled {
 
 export interface BackgroundDrawing {
   source: { fileName: string; importedAt: string; fileType: 'DWG' | 'DXF' };
+  /** Bounds in canvas units (cm) after Y-flip and origin offset. */
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  /**
+   * Legacy field. Under the new "1 canvas unit = 1 cm" convention this is
+   * always 10 (10 mm per unit). Kept in the response to ease the frontend
+   * transition; consumers will be removed in a follow-up phase.
+   */
   scaleMmPerUnit: number;
   layers: BgLayer[];
   paths: BgPath[];
@@ -213,35 +229,38 @@ function aciToRgb(idx: number | undefined, layerColor?: string): string {
  *  -1 = BYLAYER, -2 = BYBLOCK, -3 = DEFAULT.
  *  positive = 0.01mm units.
  *
- * Canvas-px conversion: 1 canvas-unit = scaleMmPerUnit mm,
- * therefore 1 mm = (1 / scaleMmPerUnit) canvas-units (= px since the canvas
- * coords already are screen px after normalize).
+ * Under the "1 canvas unit = 1 cm" convention we emit lineweight in **cm**
+ * (mm·100 → mm → cm = lw / 1000). The renderer multiplies by the active zoom
+ * factor (px/cm) to get screen pixels and clamps for legibility there.
  *
- * Clamp to [0.5, 4] px so lineweights stay legible across drawing scales.
+ * Default (DEFAULT/BYLAYER/missing) → 0.025 cm (≈ 0.25 mm), the AutoCAD
+ * out-of-the-box default lineweight.
  */
-function lineweightToPx(lw: number, scaleMmPerUnit: number): number {
-  if (lw == null || lw < 0) return 1.0;
-  const mm = lw / 100;
-  if (mm <= 0) return 1.0;
-  const px = mm / scaleMmPerUnit;
-  return Math.max(0.5, Math.min(4, px));
+function lineweightToCm(lw: number): number {
+  if (lw == null || lw < 0) return 0.025;
+  const cm = lw / 1000;
+  if (cm <= 0) return 0.025;
+  return cm;
 }
 
 // ==================== Linetype ====================
 
+// Fallback dash patterns in **cm** units (1 canvas unit = 1 cm).
+// Calibrated for architectural drawings: a CENTER line should be visible
+// at typical zoom (~1 px/cm to 10 px/cm) without being noisy.
 const LINETYPE_FALLBACK: Record<string, number[] | null> = {
   CONTINUOUS: null,
   BYLAYER: null,
   BYBLOCK: null,
-  DASHED: [8, 4],
-  CENTER: [16, 4, 4, 4],
-  CENTER2: [8, 2, 2, 2],
-  HIDDEN: [4, 4],
-  HIDDEN2: [2, 2],
-  DASHDOT: [8, 4, 1, 4],
-  PHANTOM: [16, 4, 4, 4, 4, 4],
-  DOT: [1, 4],
-  DIVIDE: [12, 4, 1, 4, 1, 4],
+  DASHED: [4, 2],
+  CENTER: [10, 2, 2, 2],
+  CENTER2: [4, 1, 1, 1],
+  HIDDEN: [2, 2],
+  HIDDEN2: [1, 1],
+  DASHDOT: [4, 2, 0.5, 2],
+  PHANTOM: [10, 2, 2, 2, 2, 2],
+  DOT: [0.5, 2],
+  DIVIDE: [6, 2, 0.5, 2, 0.5, 2],
 };
 
 interface LtypeEntry {
@@ -269,18 +288,14 @@ function buildLtypeMap(db: DwgDatabase): Map<string, number[] | null> {
       map.set(name, LINETYPE_FALLBACK[name] ?? null);
       continue;
     }
-    // Convert each element to absolute pixel length.
-    // elementLength is in drawing units (mm in our case after normalize),
-    // but normalize hasn't run yet on these source-units. We rely on the
-    // simple proxy: 1 unit ≈ scaleMmPerUnit px (after canvas mapping the
-    // proportions stay roughly the same, and dashArray works on px regardless).
-    // Convert: drawing-unit → mm (scaleMmPerUnit) → px (1mm = 1/scaleMmPerUnit px).
-    // i.e. drawing-unit → px ratio = 1. So we use absolute pattern values directly,
-    // clamped to a sane visual range.
+    // elementLength is in drawing units (mm). Convert to cm (÷10) to match
+    // the "1 canvas unit = 1 cm" coordinate convention. A 0-length entry
+    // (pure dot) gets a tiny non-zero cm so dasharray doesn't degenerate.
     const out: number[] = [];
     for (const p of pattern) {
-      const v = Math.abs(p.elementLength ?? 0);
-      out.push(v === 0 ? 1 : Math.max(1, Math.min(20, v)));
+      const mm = Math.abs(p.elementLength ?? 0);
+      const cm = mm / 10;
+      out.push(cm <= 0 ? 0.1 : cm);
     }
     if (out.length === 0) map.set(name, LINETYPE_FALLBACK[name] ?? null);
     else map.set(name, out);
@@ -317,7 +332,6 @@ interface RawLayer {
 
 function buildBgLayers(
   db: DwgDatabase,
-  scaleMmPerUnit: number,
   ltypeMap: Map<string, number[] | null>,
 ): { layers: BgLayer[]; byName: Map<string, BgLayer> } {
   const entries = (db.tables.LAYER?.entries ?? []) as unknown as RawLayer[];
@@ -329,11 +343,11 @@ function buildBgLayers(
     const ltRaw = l.lineType ?? 'CONTINUOUS';
     const ltUpper = normalizeLinetypeName(ltRaw);
     const dashArr = ltypeMap.get(ltUpper) ?? LINETYPE_FALLBACK[ltUpper] ?? null;
-    const lwPx = lineweightToPx(l.lineweight ?? -3, scaleMmPerUnit);
+    const lwCm = lineweightToCm(l.lineweight ?? -3);
     const layer: BgLayer = {
       name,
       color: aciToRgb(colorIndex),
-      lineweight: lwPx,
+      lineweight: lwCm,
       linetype: linetypeKey(ltUpper),
       dashArray: dashArr ?? undefined,
       isVisible: !(l.off === true) && !(l.frozen === true),
@@ -346,7 +360,7 @@ function buildBgLayers(
     const def: BgLayer = {
       name: '0',
       color: '#000000',
-      lineweight: 1.0,
+      lineweight: 0.025, // cm — AutoCAD's default "DEFAULT" lineweight (≈0.25 mm)
       linetype: 'solid',
       isVisible: true,
     };
@@ -534,7 +548,6 @@ interface ResolvedOverride {
 function resolveOverride(
   raw: RawStyleOverride,
   layer: BgLayer,
-  scaleMmPerUnit: number,
   ltypeMap: Map<string, number[] | null>,
 ): ResolvedOverride {
   const out: ResolvedOverride = {};
@@ -545,8 +558,9 @@ function resolveOverride(
   }
   const lw = raw.lineweight;
   if (lw != null && lw >= 0) {
-    const px = lineweightToPx(lw, scaleMmPerUnit);
-    if (Math.abs(px - layer.lineweight) > 0.05) out.lineweight = px;
+    const cm = lineweightToCm(lw);
+    // Significant difference threshold: 0.005 cm = 0.05 mm.
+    if (Math.abs(cm - layer.lineweight) > 0.005) out.lineweight = cm;
   }
   const lt = raw.lineType;
   if (lt && lt !== '' && lt.toUpperCase() !== 'BYLAYER' && lt.toUpperCase() !== 'BYBLOCK') {
@@ -891,10 +905,17 @@ function perpendicularDist(p: Point, a: Point, b: Point): number {
 
 // ==================== Normalization ====================
 
-const TARGET_CANVAS_WIDTH = 2000;
-const TARGET_CANVAS_HEIGHT = 1500;
-const TARGET_MARGIN = 50;
-
+/**
+ * Under the "1 canvas unit = 1 cm" convention, importing a DWG no longer
+ * fits the drawing into the canvas — it preserves real-world size. The
+ * source DWG coords (mm) are divided by 10 to land in cm, the Y axis is
+ * flipped (CAD: Y up → canvas: Y down), and an offset shifts the bounds
+ * so they start at (0, 0).
+ *
+ * Resulting frame:
+ *   x ∈ [0, (srcMaxX - srcMinX) / 10]
+ *   y ∈ [0, (srcMaxY - srcMinY) / 10]
+ */
 function computeBounds(paths: RawPath[], texts: RawText[], filled: RawFilled[]) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   const eat = (x: number, y: number) => {
@@ -910,36 +931,35 @@ function computeBounds(paths: RawPath[], texts: RawText[], filled: RawFilled[]) 
   return { minX, minY, maxX, maxY };
 }
 
-interface NormalizeOptions {
-  canvasWidth: number;
-  canvasHeight: number;
-  margin: number;
-  manualScale?: number;
-}
+/** mm → cm scale factor, hard-coded under the new convention. */
+const MM_PER_CM = 10;
+const SRC_TO_CM = 1 / MM_PER_CM;
 
-function normalize(raw: ExtractedRaw, opts: NormalizeOptions) {
+function normalize(raw: ExtractedRaw) {
   const src = computeBounds(raw.paths, raw.texts, raw.filled);
-  const srcW = Math.max(1, src.maxX - src.minX);
-  const srcH = Math.max(1, src.maxY - src.minY);
-  const targetW = opts.canvasWidth - opts.margin * 2;
-  const targetH = opts.canvasHeight - opts.margin * 2;
-  const scale = Math.min(targetW / srcW, targetH / srcH);
-  const offsetX = opts.margin - src.minX * scale;
-  // Y-flip
-  const offsetY = opts.canvasHeight - opts.margin - (src.maxY - src.minY) * scale + src.minY * scale;
-  const epsilonSrc = 0.5 / scale;
-  const project = ([x, y]: Point): Point => [x * scale + offsetX, -y * scale + offsetY];
+  // Canvas-frame dimensions in cm.
+  const widthCm = (src.maxX - src.minX) * SRC_TO_CM;
+  const heightCm = (src.maxY - src.minY) * SRC_TO_CM;
+  // Project: source-mm → cm, with origin at (0,0) and Y flipped.
+  //   x_canvas = (x_src - minX) / 10
+  //   y_canvas = (maxY - y_src) / 10
+  const project = ([x, y]: Point): Point => [
+    (x - src.minX) * SRC_TO_CM,
+    (src.maxY - y) * SRC_TO_CM,
+  ];
+  // Simplification tolerance: ~0.5 cm ⇒ 5 mm in source units.
+  const epsilonSrc = 5;
 
   return {
     project,
-    scale,
-    offsetX,
-    offsetY,
     epsilonSrc,
     srcBounds: src,
-    canvasWidth: opts.canvasWidth,
-    canvasHeight: opts.canvasHeight,
-    scaleMmPerUnit: opts.manualScale ?? 1 / scale,
+    /** Output frame width, in cm. */
+    widthCm,
+    /** Output frame height, in cm. */
+    heightCm,
+    /** mm → cm conversion factor (for entity-local sizes like text height). */
+    srcToCm: SRC_TO_CM,
   };
 }
 
@@ -970,17 +990,12 @@ class DwgImportService {
     // 1) Extract raw geometry (source-unit coords + raw entity styling).
     const raw = extractGeometry(db);
 
-    // 2) Compute canvas projection.
-    const norm = normalize(raw, {
-      canvasWidth: floor.canvasWidth || TARGET_CANVAS_WIDTH,
-      canvasHeight: floor.canvasHeight || TARGET_CANVAS_HEIGHT,
-      margin: TARGET_MARGIN,
-      manualScale: options.scaleMmPerUnit,
-    });
+    // 2) Compute canvas projection (mm → cm + Y-flip + origin offset).
+    const norm = normalize(raw);
 
-    // 3) Now that scaleMmPerUnit is known, build LTYPE map + layers.
+    // 3) Build LTYPE map + layers (lineweights/dashArrays already in cm).
     const ltypeMap = buildLtypeMap(db);
-    const { layers, byName: layerByName } = buildBgLayers(db, norm.scaleMmPerUnit, ltypeMap);
+    const { layers, byName: layerByName } = buildBgLayers(db, ltypeMap);
 
     // 4) Optional layer filter (advanced mode).
     const layerFilter: Set<string> | null =
@@ -995,15 +1010,15 @@ class DwgImportService {
       if (!layer) continue;
       const simplified = simplifyPolyline(p.pts, norm.epsilonSrc);
       const projected = simplified.map(norm.project);
-      // Drop trivial-length paths (< 1 px after projection).
       if (projected.length < 2) continue;
+      // Drop trivial-length paths: < 0.1 cm (1 mm) after projection.
       let total = 0;
       for (let i = 1; i < projected.length; i++) {
         total += Math.hypot(projected[i][0] - projected[i - 1][0], projected[i][1] - projected[i - 1][1]);
-        if (total >= 1) break;
+        if (total >= 0.1) break;
       }
-      if (total < 1) continue;
-      const override = resolveOverride(p.raw, layer, norm.scaleMmPerUnit, ltypeMap);
+      if (total < 0.1) continue;
+      const override = resolveOverride(p.raw, layer, ltypeMap);
       paths.push({
         layer: p.layer,
         points: flattenPoints(projected),
@@ -1017,17 +1032,18 @@ class DwgImportService {
       if (!includeLayer(t.layer)) continue;
       const layer = layerByName.get(t.layer);
       if (!layer) continue;
-      const [px, py] = norm.project([t.x, t.y]);
+      const [cx, cy] = norm.project([t.x, t.y]);
       // Y-flip inverts rotation sign.
       const rotation = -t.rotation;
-      const pxSize = Math.max(8, Math.min(48, t.size * norm.scale));
-      const override = resolveOverride(t.raw, layer, norm.scaleMmPerUnit, ltypeMap);
+      // Source text height is mm; convert to cm.
+      const sizeCm = t.size * norm.srcToCm;
+      const override = resolveOverride(t.raw, layer, ltypeMap);
       texts.push({
         layer: t.layer,
-        x: px,
-        y: py,
+        x: cx,
+        y: cy,
         text: t.text,
-        size: pxSize,
+        size: sizeCm,
         rotation: Math.abs(rotation) > 1e-3 ? rotation : undefined,
         hAlign: t.hAlign,
         vAlign: t.vAlign,
@@ -1045,7 +1061,7 @@ class DwgImportService {
         .map((loop) => loop.map(norm.project))
         .filter((loop) => loop.length >= 3);
       if (projectedLoops.length === 0) continue;
-      const override = resolveOverride(f.raw, layer, norm.scaleMmPerUnit, ltypeMap);
+      const override = resolveOverride(f.raw, layer, ltypeMap);
       filled.push({
         layer: f.layer,
         loops: projectedLoops.map(flattenPoints),
@@ -1054,7 +1070,7 @@ class DwgImportService {
       });
     }
 
-    // 6) Compute output bounds for the projected scene.
+    // 6) Compute output bounds (in cm) for the projected scene.
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     const eat = (x: number, y: number) => {
       if (x < minX) minX = x;
@@ -1072,13 +1088,14 @@ class DwgImportService {
       }
     }
     if (!isFinite(minX)) {
-      minX = 0; minY = 0; maxX = norm.canvasWidth; maxY = norm.canvasHeight;
+      minX = 0; minY = 0; maxX = Math.max(1, norm.widthCm); maxY = Math.max(1, norm.heightCm);
     }
 
     const backgroundDrawing: BackgroundDrawing = {
       source: { fileName, importedAt: new Date().toISOString(), fileType },
       bounds: { minX, minY, maxX, maxY },
-      scaleMmPerUnit: norm.scaleMmPerUnit,
+      // Legacy field — under the cm convention, 1 unit = 1 cm = 10 mm.
+      scaleMmPerUnit: 10,
       layers,
       paths,
       texts,
@@ -1086,10 +1103,17 @@ class DwgImportService {
     };
 
     if (options.commit) {
-      await prisma.floor.update({
-        where: { id: floorId },
-        data: { backgroundDrawing: backgroundDrawing as unknown as object },
-      });
+      // Auto-expand the floor canvas if the imported drawing is larger.
+      // canvasWidth/canvasHeight are now interpreted as cm too, so they
+      // can be compared directly with the cm-space bounds.
+      const expandedW = Math.max(floor.canvasWidth, Math.ceil(maxX));
+      const expandedH = Math.max(floor.canvasHeight, Math.ceil(maxY));
+      const updateData: Prisma.FloorUpdateInput = {
+        backgroundDrawing: backgroundDrawing as unknown as object,
+      };
+      if (expandedW !== floor.canvasWidth) updateData.canvasWidth = expandedW;
+      if (expandedH !== floor.canvasHeight) updateData.canvasHeight = expandedH;
+      await prisma.floor.update({ where: { id: floorId }, data: updateData });
     }
 
     return {
