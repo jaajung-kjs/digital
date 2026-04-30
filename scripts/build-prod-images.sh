@@ -56,7 +56,8 @@ docker save --platform "$PLATFORM" digital-backend:latest    | gzip > "$TMPDIR/b
 docker save --platform "$PLATFORM" digital-frontend:latest   | gzip > "$TMPDIR/frontend.tar.gz"
 
 # Bundle the deploy artefacts that should land next to the loaded images.
-cp "$ROOT/docker-compose.prod.yml" "$TMPDIR/"
+# docker-compose.prod.yml is no longer shipped — the server runs `podman run`
+# directly via the embedded helper, so no compose tool is required.
 cp "$ROOT/.env.prod.example"        "$TMPDIR/env.example"
 
 # Write a server-side decoder + deploy script.
@@ -67,12 +68,11 @@ cp "$ROOT/.env.prod.example"        "$TMPDIR/env.example"
 # and the existing .env untouched.
 cat > "$TMPDIR/decode-and-deploy.sh" <<'DECODE'
 #!/usr/bin/env bash
-# Run on the air-gapped RHEL 9.4 server.
+# Run on the air-gapped RHEL 9.4 server (podman, no podman-compose).
 #
 # First deploy:
-#   1) place all six *.txt files in one directory:
-#        postgres.txt  backend.txt  frontend.txt
-#        compose.txt   env.txt      deploy.txt
+#   1) place all five *.txt files in one directory:
+#        postgres.txt  backend.txt  frontend.txt  env.txt  deploy.txt
 #   2) base64 -d deploy.txt > decode-and-deploy.sh
 #      chmod +x decode-and-deploy.sh
 #   3) ./decode-and-deploy.sh
@@ -81,19 +81,17 @@ cat > "$TMPDIR/decode-and-deploy.sh" <<'DECODE'
 #
 # Incremental update:
 #   only overwrite the .txt files you changed (e.g. backend.txt). Older
-#   .txt files left untouched mean the same image stays loaded.
-#   `podman load` is idempotent for unchanged tarballs, and
-#   `podman-compose up -d` only recreates containers whose image hash
-#   actually changed. Named volumes (postgres_data, uploads_data) and the
-#   existing .env are never touched.
+#   .txt files left untouched mean the same image stays loaded. The script
+#   recreates only the containers whose image was reloaded; named volumes
+#   (postgres_data, uploads_data) and the existing .env are never touched.
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
+NETWORK=ict-twin-net
+
 # Decode only when the .txt is newer than the previously-decoded artefact.
-# `out -nt txt` returns true if `out` is strictly newer than `txt` — i.e. the
-# decoded file is up-to-date and we can skip the work. Re-uploading a single
-# .txt overwrites its mtime and makes the .txt newer, triggering a re-decode.
+# Re-uploading a single .txt overwrites its mtime, triggering a re-decode.
 decode_if_changed() {
   local txt="$1" out="$2"
   if [[ ! -f "$txt" ]]; then
@@ -111,20 +109,19 @@ decode_if_changed() {
 decode_if_changed postgres.txt   postgres.tar.gz
 decode_if_changed backend.txt    backend.tar.gz
 decode_if_changed frontend.txt   frontend.tar.gz
-decode_if_changed compose.txt    docker-compose.prod.yml
 decode_if_changed env.txt        env.example
 
-if [[ ! -f docker-compose.prod.yml ]]; then
-  echo "❌ docker-compose.prod.yml is missing. Upload compose.txt at least once."
-  exit 1
-fi
-
 # `podman load` only when the tarball actually changed since last load.
-# We mark a `.{img}.loaded` stamp with the moment of a successful load and
-# compare its mtime against the tarball's mtime on subsequent runs.
+# Records the load with `.{img}.loaded` mtime; reloads when tarball is newer.
+# A new image hash implies the matching container must be recreated, so we
+# track which images need a container restart this run.
+RESTART_POSTGRES=0
+RESTART_BACKEND=0
+RESTART_FRONTEND=0
+
 echo "▶ loading container images (skipping unchanged) …"
 load_if_changed() {
-  local img="$1" stamp=".${1}.loaded"
+  local img="$1" var="$2" stamp=".${1}.loaded"
   if [[ ! -f "$img" ]]; then return; fi
   if [[ -f "$stamp" && "$stamp" -nt "$img" ]]; then
     echo "  · $img already loaded"
@@ -133,11 +130,16 @@ load_if_changed() {
   echo "  · podman load -i $img"
   podman load -i "$img"
   touch "$stamp"
+  printf -v "$var" "1"
+  declare -g "$var"
 }
-load_if_changed postgres.tar.gz
-load_if_changed backend.tar.gz
-load_if_changed frontend.tar.gz
+load_if_changed postgres.tar.gz   RESTART_POSTGRES
+load_if_changed backend.tar.gz    RESTART_BACKEND
+load_if_changed frontend.tar.gz   RESTART_FRONTEND
 
+# First-time setup: create .env from template and ask the user to edit it
+# before re-running. We bail before launching any containers so a half-
+# configured deploy never sees the network.
 if [[ ! -f .env ]]; then
   if [[ ! -f env.example ]]; then
     echo "❌ Neither .env nor env.example present — upload env.txt at least once."
@@ -146,20 +148,124 @@ if [[ ! -f .env ]]; then
   cp env.example .env
   echo
   echo "⚠️  .env created from env.example — edit it before starting:"
-  echo "    nano .env       # set DB_PASSWORD / JWT_*_SECRET / CORS_ORIGIN"
+  echo "    vi .env       # set DB_PASSWORD / JWT_*_SECRET / CORS_ORIGIN"
   echo
   echo "Then run this script again:"
   echo "    ./decode-and-deploy.sh"
   exit 0
 fi
 
-echo "▶ podman-compose up -d (only changed images recreate their container) …"
-podman-compose -f docker-compose.prod.yml up -d
+# Load env vars from .env into this shell (the `set -a` exports each
+# assignment; required by the podman -e flags below).
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
+# Sanity: refuse to start with placeholder secrets still in .env.
+if grep -qE '__CHANGE_ME' .env; then
+  echo "❌ .env still contains __CHANGE_ME placeholders. Replace them first."
+  exit 1
+fi
+
+# Network + volumes (idempotent — these create only when missing)
+podman network exists "$NETWORK"        || podman network create "$NETWORK"
+podman volume  exists postgres_data     || podman volume  create postgres_data
+podman volume  exists uploads_data      || podman volume  create uploads_data
+
+run_postgres() {
+  podman rm -f ict-twin-postgres 2>/dev/null || true
+  podman run -d --name ict-twin-postgres \
+    --network "$NETWORK" \
+    --network-alias postgres \
+    --restart unless-stopped \
+    -e POSTGRES_USER="${DB_USER:-postgres}" \
+    -e POSTGRES_PASSWORD="$DB_PASSWORD" \
+    -e POSTGRES_DB="${DB_NAME:-ict_digital_twin}" \
+    -v postgres_data:/var/lib/postgresql/data \
+    --health-cmd="pg_isready -U ${DB_USER:-postgres}" \
+    --health-interval=10s \
+    --health-timeout=5s \
+    --health-retries=5 \
+    postgres:15-alpine
+}
+
+run_backend() {
+  podman rm -f ict-twin-backend 2>/dev/null || true
+  podman run -d --name ict-twin-backend \
+    --network "$NETWORK" \
+    --network-alias backend \
+    --restart unless-stopped \
+    -e NODE_ENV=production \
+    -e DATABASE_URL="postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-ict_digital_twin}" \
+    -e JWT_ACCESS_SECRET="$JWT_ACCESS_SECRET" \
+    -e JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET" \
+    -e JWT_ACCESS_EXPIRES_IN="${JWT_ACCESS_EXPIRES_IN:-1h}" \
+    -e JWT_REFRESH_EXPIRES_IN="${JWT_REFRESH_EXPIRES_IN:-7d}" \
+    -e PORT=3000 \
+    -e CORS_ORIGIN="$CORS_ORIGIN" \
+    -v uploads_data:/app/uploads \
+    digital-backend:latest
+}
+
+run_frontend() {
+  podman rm -f ict-twin-frontend 2>/dev/null || true
+  podman run -d --name ict-twin-frontend \
+    --network "$NETWORK" \
+    --restart unless-stopped \
+    -p "${FRONTEND_PORT:-80}:80" \
+    digital-frontend:latest
+}
+
+wait_for_healthy() {
+  local container="$1" tries=30
+  echo "▶ waiting for $container healthy …"
+  while (( tries-- > 0 )); do
+    local s
+    s="$(podman inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || echo none)"
+    [[ "$s" == "healthy" ]] && return 0
+    sleep 2
+  done
+  echo "❌ $container did not become healthy"
+  podman logs --tail=40 "$container" || true
+  return 1
+}
+
+# Container existence checks — first deploy starts everything, partial
+# updates restart only what changed.
+needs_create() {
+  ! podman container exists "$1"
+}
+
+if needs_create ict-twin-postgres || (( RESTART_POSTGRES )); then
+  echo "▶ (re)starting postgres …"
+  run_postgres
+  wait_for_healthy ict-twin-postgres
+else
+  echo "  · postgres unchanged"
+fi
+
+# Backend depends on postgres being healthy; if either changed, recreate
+# backend so the new image picks up an already-healthy DB.
+if needs_create ict-twin-backend || (( RESTART_BACKEND || RESTART_POSTGRES )); then
+  echo "▶ (re)starting backend …"
+  run_backend
+else
+  echo "  · backend unchanged"
+fi
+
+if needs_create ict-twin-frontend || (( RESTART_FRONTEND )); then
+  echo "▶ (re)starting frontend …"
+  run_frontend
+else
+  echo "  · frontend unchanged"
+fi
 
 echo
 echo "✅ Done. Volumes preserved across deploys."
 echo "Health check:"
-echo "    podman-compose -f docker-compose.prod.yml ps"
+echo "    podman ps"
+echo "    podman logs --tail=20 ict-twin-backend"
 echo "    curl http://localhost/api/health"
 DECODE
 chmod +x "$TMPDIR/decode-and-deploy.sh"
@@ -178,7 +284,6 @@ encode() {
 encode postgres.tar.gz            postgres.txt
 encode backend.tar.gz             backend.txt
 encode frontend.tar.gz            frontend.txt
-encode docker-compose.prod.yml    compose.txt
 encode env.example                env.txt
 encode decode-and-deploy.sh       deploy.txt
 
@@ -186,8 +291,8 @@ echo
 echo "✅ Done. Transfer the .txt files in $OUT to the server:"
 ls -lh "$OUT"
 echo
-echo "On the server (RHEL 9.4 / podman):"
-echo "  1) place all six .txt files in one directory"
+echo "On the server (RHEL 9.4 / podman, no podman-compose needed):"
+echo "  1) place all five .txt files in one directory"
 echo "  2) base64 -d deploy.txt > decode-and-deploy.sh"
 echo "  3) chmod +x decode-and-deploy.sh"
 echo "  4) ./decode-and-deploy.sh"
