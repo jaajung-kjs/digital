@@ -30,6 +30,9 @@ export function renderBackgroundDrawing(
   hiddenLayers?: Set<string>,
 ): void {
   if (opacity <= 0) return;
+  // Pre-DWG-A imports stored a flat outline/labels shape; ignore them so the
+  // canvas does not crash. The user can re-import to get the new layer model.
+  if (!bg || !Array.isArray(bg.layers) || !Array.isArray(bg.paths)) return;
 
   const layerMap = new Map<string, BgLayer>(bg.layers.map((l) => [l.name, l]));
   const isHidden = (name: string): boolean => {
@@ -44,7 +47,7 @@ export function renderBackgroundDrawing(
   ctx.globalAlpha = opacity;
 
   // 1. filled — even-odd fills (outer + holes per entity)
-  for (const f of bg.filled) {
+  for (const f of bg.filled ?? []) {
     if (isHidden(f.layer)) continue;
     if (f.loops.length === 0) continue;
     const layer = layerMap.get(f.layer);
@@ -85,7 +88,7 @@ export function renderBackgroundDrawing(
   ctx.setLineDash([]); // reset for safety
 
   // 3. texts — rotation + alignment via canvas transform
-  for (const t of bg.texts) {
+  for (const t of bg.texts ?? []) {
     if (isHidden(t.layer)) continue;
     const layer = layerMap.get(t.layer);
     ctx.save();
@@ -154,6 +157,7 @@ export function collectBackgroundSnapPoints(
   maxPoints = 2000,
 ): Array<{ x: number; y: number }> {
   if (!bg?.paths || bg.paths.length === 0) return [];
+  if (!Array.isArray(bg.layers)) return [];
   const layerMap = new Map<string, BgLayer>(bg.layers.map((l) => [l.name, l]));
   const out: Array<{ x: number; y: number }> = [];
   for (const p of bg.paths) {
