@@ -267,36 +267,57 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     useEditorStore.getState().setRackModules(aggregateRackModules);
   }, [aggregateRackModules]);
 
-  // Viewport initialization
+  // Viewport initialization. Container layout is async — on first mount the
+  // ref is set but clientWidth/Height can still be 0 for a frame. Without a
+  // dependency on container size the effect would never re-fire after layout
+  // settled, leaving the canvas at the store's (0,0,100) default and giving
+  // the user a "stuck at top-left" feeling. RAF-poll until the box is
+  // measurable, then fit/restore.
   useEffect(() => {
     if (!floorPlan || !containerRef.current || viewportInitialized) return;
-    const container = containerRef.current;
-    if (container.clientWidth === 0 || container.clientHeight === 0) return;
-
     if (floorPlan.equipment.length > 0 && localEquipment.length === 0) return;
 
-    const savedViewport = loadViewportState();
-    if (savedViewport) {
-      setViewport(savedViewport.zoom ?? 100, savedViewport.panX ?? 0, savedViewport.panY ?? 0);
-    } else {
-      fitToContent(
-        localEquipment,
-        floorPlan.backgroundDrawing,
-        { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight },
-        container.clientWidth,
-        container.clientHeight,
-      );
-    }
-
-    setViewportInitialized(true);
+    let cancelled = false;
+    const tryInit = () => {
+      if (cancelled) return;
+      const container = containerRef.current;
+      if (!container) return;
+      if (container.clientWidth === 0 || container.clientHeight === 0) {
+        requestAnimationFrame(tryInit);
+        return;
+      }
+      const savedViewport = loadViewportState();
+      if (savedViewport && savedViewport.zoom > 0) {
+        setViewport(savedViewport.zoom, savedViewport.panX ?? 0, savedViewport.panY ?? 0);
+      } else {
+        fitToContent(
+          localEquipment,
+          floorPlan.backgroundDrawing,
+          { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight },
+          container.clientWidth,
+          container.clientHeight,
+        );
+      }
+      setViewportInitialized(true);
+    };
+    tryInit();
+    return () => { cancelled = true; };
   }, [floorPlan, localEquipment, viewportInitialized, containerRef, fitToContent, loadViewportState, setViewport, setViewportInitialized]);
 
-  // Save viewport on unmount
+  // Save viewport on unmount + beforeunload. Skip the save when the viewport
+  // never finished initializing — otherwise we'd persist the store's default
+  // (zoom=100, pan=0,0) over a perfectly good cached entry on fast unmount.
   useEffect(() => {
-    const handleBeforeUnload = () => saveViewportState(zoom, panX, panY);
+    const handleBeforeUnload = () => {
+      if (useEditorStore.getState().viewportInitialized) {
+        saveViewportState(zoom, panX, panY);
+      }
+    };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
-      saveViewportState(zoom, panX, panY);
+      if (useEditorStore.getState().viewportInitialized) {
+        saveViewportState(zoom, panX, panY);
+      }
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [saveViewportState, zoom, panX, panY]);
