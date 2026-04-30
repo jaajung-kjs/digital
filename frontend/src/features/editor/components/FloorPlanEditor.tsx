@@ -19,6 +19,7 @@ import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { FloorSettingsPanel } from './FloorSettingsPanel';
+import { DwgImportModal } from './DwgImportModal';
 import { BackgroundLayersPanel } from './BackgroundLayersPanel';
 import { CableSpecModalWrapper } from './modals/CableSpecModal';
 import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
@@ -73,6 +74,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [showDraftDialog, setShowDraftDialog] = useState(false);
   const draftCheckedRef = useRef(false);
 
@@ -405,6 +407,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 floorPlan={floorPlan}
                 floorId={floorId}
                 onPlacePreset={handlePlacePreset}
+                onImportClick={() => setShowImportModal(true)}
               >
                 <ConnectionOverlay floorId={floorId} canvasRef={canvasRef} />
                 <CablePathOverlayWrapper canvasRef={canvasRef} />
@@ -423,7 +426,12 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               )}
 
               {showSettings && !snapshotActive && (
-                <FloorSettingsPanel floorId={floorId} floorPlan={floorPlan} onClose={() => setShowSettings(false)} />
+                <FloorSettingsPanel
+                  floorId={floorId}
+                  floorPlan={floorPlan}
+                  onClose={() => setShowSettings(false)}
+                  onImportClick={() => setShowImportModal(true)}
+                />
               )}
 
               {showLayers && floorPlan?.backgroundDrawing && (
@@ -464,6 +472,13 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       <CableEndpointPickerHost />
       <RackModuleDialog />
       <CableSpecModalWrapper />
+      {showImportModal && floorId && (
+        <DwgImportModal
+          floorId={floorId}
+          onClose={() => setShowImportModal(false)}
+          onImported={() => { /* invalidation handled inside modal */ }}
+        />
+      )}
       {showDraftDialog && (
         <DraftRecoveryDialog onRestore={handleRestoreDraft} onDiscard={handleDiscardDraft} />
       )}

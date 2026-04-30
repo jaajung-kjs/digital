@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEditorStore } from '../stores/editorStore';
 import { dwgImportApi } from '../../../services/dwgImportApi';
-import { DwgImportModal } from './DwgImportModal';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 
 interface FloorSettingsPanelProps {
   floorId: string | undefined;
   floorPlan: FloorPlanDetail | undefined;
   onClose: () => void;
+  /** [임포트]/[교체] 클릭 시 부모가 DwgImportModal 을 띄움. */
+  onImportClick: () => void;
 }
 
 /**
@@ -19,14 +20,13 @@ interface FloorSettingsPanelProps {
  * cm 단위로 직접 입력한다. 캔버스 사이즈는 도면 import 시 자동 확장되므로
  * 별도 입력 없음.
  */
-export function FloorSettingsPanel({ floorId, floorPlan, onClose }: FloorSettingsPanelProps) {
+export function FloorSettingsPanel({ floorId, floorPlan, onClose, onImportClick }: FloorSettingsPanelProps) {
   const gridSize = useEditorStore((s) => s.gridSize);
   const majorGridSize = useEditorStore((s) => s.majorGridSize);
   const setGridSize = useEditorStore((s) => s.setGridSize);
   const setMajorGridSize = useEditorStore((s) => s.setMajorGridSize);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const queryClient = useQueryClient();
-  const [showImportModal, setShowImportModal] = useState(false);
 
   const hasBackground = !!floorPlan?.backgroundDrawing;
   const opacity = floorPlan?.backgroundOpacity ?? 0.3;
@@ -163,7 +163,7 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose }: FloorSetting
               />
               <div className="flex gap-2 mt-2">
                 <button
-                  onClick={() => setShowImportModal(true)}
+                  onClick={() => onImportClick()}
                   className="flex-1 px-3 py-1.5 text-xs border rounded hover:bg-gray-50"
                 >
                   교체
@@ -178,7 +178,7 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose }: FloorSetting
             </>
           ) : (
             <button
-              onClick={() => setShowImportModal(true)}
+              onClick={() => onImportClick()}
               disabled={!floorId}
               className="w-full px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded border-2 border-dashed border-gray-300 disabled:opacity-50"
             >
@@ -188,13 +188,6 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose }: FloorSetting
         </div>
       </div>
 
-      {showImportModal && floorId && (
-        <DwgImportModal
-          floorId={floorId}
-          onClose={() => setShowImportModal(false)}
-          onImported={() => { /* invalidation handled inside modal */ }}
-        />
-      )}
     </div>
   );
 }
