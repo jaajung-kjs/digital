@@ -279,7 +279,13 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     if (savedViewport) {
       setViewport(savedViewport.zoom ?? 100, savedViewport.panX ?? 0, savedViewport.panY ?? 0);
     } else {
-      fitToContent(localEquipment, container.clientWidth, container.clientHeight);
+      fitToContent(
+        localEquipment,
+        floorPlan.backgroundDrawing,
+        { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight },
+        container.clientWidth,
+        container.clientHeight,
+      );
     }
 
     setViewportInitialized(true);
