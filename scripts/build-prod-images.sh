@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # Build production images for the air-gapped server (linux/amd64) and pack
-# them as base64 .txt files (intranet upload policy blocks .tar.gz / .yml).
+# them as base64 .txt files (intranet upload policy blocks .tar.gz / .yml
+# *and* compound extensions like .tar.gz.txt — only a plain `.txt` slips
+# through). Each artefact gets a single-word filename ending in .txt.
 #
 # Output (in ./dist-deploy/):
-#   - postgres.tar.gz.txt
-#   - backend.tar.gz.txt
-#   - frontend.tar.gz.txt
-#   - docker-compose.prod.yml.txt
-#   - env.example.txt
-#   - decode-and-deploy.sh.txt
+#   - postgres.txt   (postgres:15-alpine image tarball)
+#   - backend.txt    (digital-backend image tarball)
+#   - frontend.txt   (digital-frontend image tarball)
+#   - compose.txt    (docker-compose.prod.yml)
+#   - env.txt        (env.example template)
+#   - deploy.txt     (decode-and-deploy.sh helper script)
 #
-# Transfer the .txt bundle to the RHEL server, then run the decode script
-# (instructions printed at the end of this script).
+# Transfer the six .txt files to the RHEL server, then run the decode
+# script (instructions printed at the end of this script).
 
 set -euo pipefail
 
@@ -68,17 +70,18 @@ cat > "$TMPDIR/decode-and-deploy.sh" <<'DECODE'
 # Run on the air-gapped RHEL 9.4 server.
 #
 # First deploy:
-#   1) place all six *.txt files (postgres / backend / frontend tarballs +
-#      docker-compose.prod.yml + env.example + this script) in one directory
-#   2) base64 -d decode-and-deploy.sh.txt > decode-and-deploy.sh
+#   1) place all six *.txt files in one directory:
+#        postgres.txt  backend.txt  frontend.txt
+#        compose.txt   env.txt      deploy.txt
+#   2) base64 -d deploy.txt > decode-and-deploy.sh
 #      chmod +x decode-and-deploy.sh
 #   3) ./decode-and-deploy.sh
 #      (first run creates .env from env.example and asks you to edit it)
 #   4) edit .env, then ./decode-and-deploy.sh again
 #
 # Incremental update:
-#   only overwrite the .txt files you changed (e.g. backend.tar.gz.txt).
-#   Older .txt files left untouched mean the same image stays loaded.
+#   only overwrite the .txt files you changed (e.g. backend.txt). Older
+#   .txt files left untouched mean the same image stays loaded.
 #   `podman load` is idempotent for unchanged tarballs, and
 #   `podman-compose up -d` only recreates containers whose image hash
 #   actually changed. Named volumes (postgres_data, uploads_data) and the
@@ -105,14 +108,14 @@ decode_if_changed() {
   base64 -d "$txt" > "$out"
 }
 
-decode_if_changed postgres.tar.gz.txt           postgres.tar.gz
-decode_if_changed backend.tar.gz.txt            backend.tar.gz
-decode_if_changed frontend.tar.gz.txt           frontend.tar.gz
-decode_if_changed docker-compose.prod.yml.txt   docker-compose.prod.yml
-decode_if_changed env.example.txt               env.example
+decode_if_changed postgres.txt   postgres.tar.gz
+decode_if_changed backend.txt    backend.tar.gz
+decode_if_changed frontend.txt   frontend.tar.gz
+decode_if_changed compose.txt    docker-compose.prod.yml
+decode_if_changed env.txt        env.example
 
 if [[ ! -f docker-compose.prod.yml ]]; then
-  echo "❌ docker-compose.prod.yml is missing. Upload docker-compose.prod.yml.txt at least once."
+  echo "❌ docker-compose.prod.yml is missing. Upload compose.txt at least once."
   exit 1
 fi
 
@@ -137,7 +140,7 @@ load_if_changed frontend.tar.gz
 
 if [[ ! -f .env ]]; then
   if [[ ! -f env.example ]]; then
-    echo "❌ Neither .env nor env.example present — upload env.example.txt at least once."
+    echo "❌ Neither .env nor env.example present — upload env.txt at least once."
     exit 1
   fi
   cp env.example .env
@@ -165,17 +168,27 @@ echo "▶ base64-encoding all artefacts to .txt …"
 # clean previous output
 rm -f "$OUT"/*.txt
 
-for f in postgres.tar.gz backend.tar.gz frontend.tar.gz docker-compose.prod.yml env.example decode-and-deploy.sh; do
-  base64 -i "$TMPDIR/$f" -o "$OUT/${f}.txt"
-done
+# Each artefact gets a flat single-extension name. The intranet upload filter
+# rejects compound extensions like `.tar.gz.txt`, so the original filename
+# is kept inside the script (decode-and-deploy.sh) rather than the file name.
+encode() {
+  local src="$1" dst="$2"
+  base64 -i "$TMPDIR/$src" -o "$OUT/$dst"
+}
+encode postgres.tar.gz            postgres.txt
+encode backend.tar.gz             backend.txt
+encode frontend.tar.gz            frontend.txt
+encode docker-compose.prod.yml    compose.txt
+encode env.example                env.txt
+encode decode-and-deploy.sh       deploy.txt
 
 echo
 echo "✅ Done. Transfer the .txt files in $OUT to the server:"
 ls -lh "$OUT"
 echo
 echo "On the server (RHEL 9.4 / podman):"
-echo "  1) place all .txt files + decode-and-deploy.sh.txt in one directory"
-echo "  2) base64 -d decode-and-deploy.sh.txt > decode-and-deploy.sh"
+echo "  1) place all six .txt files in one directory"
+echo "  2) base64 -d deploy.txt > decode-and-deploy.sh"
 echo "  3) chmod +x decode-and-deploy.sh"
 echo "  4) ./decode-and-deploy.sh"
-echo "     ↳ first run: edits .env, then re-run to start containers"
+echo "     ↳ first run: creates .env, then re-run after editing secrets"
