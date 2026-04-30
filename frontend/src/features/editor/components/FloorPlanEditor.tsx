@@ -19,6 +19,7 @@ import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { FloorSettingsPanel } from './FloorSettingsPanel';
+import { BackgroundLayersPanel } from './BackgroundLayersPanel';
 import { CableSpecModalWrapper } from './modals/CableSpecModal';
 import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
 import { EquipmentPasteModal } from './modals/EquipmentPasteModal';
@@ -70,6 +71,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const isAdmin = useIsAdmin();
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLayers, setShowLayers] = useState(false);
   const [showDraftDialog, setShowDraftDialog] = useState(false);
   const draftCheckedRef = useRef(false);
 
@@ -379,6 +381,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         isSaving={saveMutation.isPending}
         onToggleHistory={() => setShowHistory(p => !p)}
         onToggleSettings={() => setShowSettings(p => !p)}
+        onToggleLayers={() => setShowLayers(p => !p)}
       />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -421,6 +424,13 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
               {showSettings && !snapshotActive && (
                 <FloorSettingsPanel floorId={floorId} floorPlan={floorPlan} onClose={() => setShowSettings(false)} />
+              )}
+
+              {showLayers && floorPlan?.backgroundDrawing && (
+                <BackgroundLayersPanel
+                  bg={floorPlan.backgroundDrawing}
+                  onClose={() => setShowLayers(false)}
+                />
               )}
 
               {/* Preview mode banner (top of canvas area) */}

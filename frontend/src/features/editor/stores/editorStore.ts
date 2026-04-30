@@ -173,6 +173,12 @@ export interface EditorStoreState {
   // P9: rack module dialog selection (RackEquipmentPanel slot click).
   selectedRackModuleId: string | null;
 
+  // DWG-C: client-side per-layer visibility override for the imported
+  // BackgroundDrawing. A layer name in this Set is hidden in the renderer
+  // and skipped by the snap collector — independent of layer.isVisible
+  // (which reflects the source DWG's frozen/off state at import time).
+  hiddenBgLayers: Set<string>;
+
   // ==================== History (formerly historyStore) ====================
 
   history: HistoryState[];
@@ -260,6 +266,12 @@ export interface EditorStoreActions {
 
   setSelectedRackModuleId: (id: string | null) => void;
 
+  // DWG-C: background layer visibility actions.
+  setHiddenBgLayers: (next: Set<string>) => void;
+  toggleBgLayerVisibility: (layerName: string) => void;
+  showAllBgLayers: () => void;
+  hideAllBgLayers: (layerNames: string[]) => void;
+
   closeAllModals: () => void;
   resetDrawingState: () => void;
 
@@ -322,6 +334,7 @@ const initialState: EditorStoreState = {
   preselectedCableDisplayGroup: null,
   localRackModules: [],
   selectedRackModuleId: null,
+  hiddenBgLayers: new Set<string>(),
 
   // History
   history: [],
@@ -442,7 +455,9 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   }),
   resetEditor: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);
-    return initialState;
+    // Allocate a fresh hiddenBgLayers Set so a stale reference from
+    // `initialState` isn't shared across editor sessions.
+    return { ...initialState, hiddenBgLayers: new Set<string>() };
   }),
 
   // ==================== Canvas interaction actions ====================
@@ -488,6 +503,25 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       hasChanges: true,
     })),
   setSelectedRackModuleId: (selectedRackModuleId) => set({ selectedRackModuleId }),
+
+  // DWG-C: replace the entire hidden-layer set in one go (e.g. when bulk
+  // showing all). A new Set instance is required for React rerenders.
+  setHiddenBgLayers: (next) => set({ hiddenBgLayers: new Set(next) }),
+
+  // Toggle a single layer's hidden state. Always allocates a new Set so the
+  // canvas subscription fires.
+  toggleBgLayerVisibility: (layerName) =>
+    set((state) => {
+      const next = new Set(state.hiddenBgLayers);
+      if (next.has(layerName)) next.delete(layerName);
+      else next.add(layerName);
+      return { hiddenBgLayers: next };
+    }),
+
+  showAllBgLayers: () => set({ hiddenBgLayers: new Set() }),
+
+  hideAllBgLayers: (layerNames) =>
+    set({ hiddenBgLayers: new Set(layerNames) }),
 
   closeAllModals: () => set({
     equipmentModalOpen: false,

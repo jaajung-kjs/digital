@@ -58,13 +58,13 @@ export function useCanvas(
     ctx.fillRect(viewportLeft, viewportTop, canvas.width / scale, canvas.height / scale);
 
     if (floorPlan.backgroundDrawing) {
-      // hiddenLayers: Phase C will source this from editorStore.hiddenBgLayers.
-      // For now, undefined — every visible layer (per layer.isVisible) renders.
+      // DWG-C: hiddenBgLayers is the live user-toggled set. The renderer
+      // applies it on top of layer.isVisible (frozen/off at import time).
       renderBackgroundDrawing(
         ctx,
         floorPlan.backgroundDrawing,
         floorPlan.backgroundOpacity ?? 0.3,
-        undefined,
+        editorState.hiddenBgLayers,
       );
     }
 
