@@ -114,7 +114,6 @@ export interface EditorStoreState {
   /** null = not yet initialized (show all); [] = user explicitly hid all */
   connectionFilters: ConnectionFilterKey[] | null;
 
-  scaleRatio: number | null;
   showLengths: boolean;
   viewportInitialized: boolean;
   mouseWorldPosition: { x: number; y: number };
@@ -217,7 +216,6 @@ export interface EditorStoreActions {
 
   deleteEquipmentWithCascade: (equipmentId: string) => void;
 
-  setScaleRatio: (ratio: number | null) => void;
   setConnectionFilters: (filters: ConnectionFilterKey[] | null) => void;
   setShowLengths: (show: boolean) => void;
   setViewportInitialized: (init: boolean) => void;
@@ -304,7 +302,6 @@ const initialState: EditorStoreState = {
   pendingLogs: [],
   pendingFiberPaths: [],
   deletedFiberPathIds: [],
-  scaleRatio: null,
   connectionFilters: null,
   showLengths: false,
   viewportInitialized: false,
@@ -439,7 +436,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     };
   }),
 
-  setScaleRatio: (scaleRatio) => set({ scaleRatio }),
   setConnectionFilters: (connectionFilters) => set({ connectionFilters }),
   setShowLengths: (showLengths) => set({ showLengths }),
   setViewportInitialized: (viewportInitialized) => set({ viewportInitialized }),

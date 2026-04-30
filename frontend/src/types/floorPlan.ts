@@ -124,7 +124,8 @@ export interface FloorPlanDetail {
   gridSize: number;
   majorGridSize: number;
   backgroundColor: string;
-  scaleRatio?: number | null;
+  // CM-B: scaleRatio 필드 제거 — 캔버스 1 unit = 1 cm 통일 후 의미 없음.
+  // 백엔드는 응답에 여전히 포함하지만 프론트엔드 타입에서는 노출하지 않는다.
   backgroundDrawing?: BackgroundDrawing | null;
   backgroundOpacity?: number;
   equipment: FloorPlanEquipment[];
@@ -152,11 +153,11 @@ export interface BgLayer {
   name: string;
   /** '#RRGGBB' (ACI → RGB). */
   color: string;
-  /** px (이미 scale-adjusted). */
+  /** cm. 캔버스 1 unit = 1 cm 약속에 맞춰 cm 단위로 저장 (CM-A 이후). */
   lineweight: number;
   /** 'solid' | 'dashed' | 'center' | 'hidden' | 'dashdot' | 'phantom' | name */
   linetype: string;
-  /** px-units. linetype='solid' 면 absent. */
+  /** cm. linetype='solid' 면 absent. */
   dashArray?: number[];
   /** layer off / frozen 이면 false. */
   isVisible: boolean;
@@ -180,7 +181,7 @@ export interface BgText {
   x: number;
   y: number;
   text: string;
-  /** Pixel font size. */
+  /** cm. 캔버스 1 unit = 1 cm 약속 — 폰트 크기도 cm 로 저장 (렌더 시 zoom 곱). */
   size: number;
   /** Radians, canvas coords. 0 이면 omitted. */
   rotation?: number;
@@ -203,7 +204,8 @@ export interface BgFilled {
 export interface BackgroundDrawing {
   source: { fileName: string; importedAt: string; fileType: 'DWG' | 'DXF' };
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
-  scaleMmPerUnit: number;
+  // CM-B: scaleMmPerUnit 필드 제거 — 캔버스 1 unit = 1 cm 통일 후 의미 없음
+  // (backend 는 호환을 위해 = 10 으로 계속 emit 하지만 프론트는 무시).
   layers: BgLayer[];
   paths: BgPath[];
   texts: BgText[];
@@ -283,7 +285,7 @@ export interface UpdateFloorPlanRequest {
   gridSize?: number;
   majorGridSize?: number;
   backgroundColor?: string;
-  scaleRatio?: number | null;
+  // CM-B: scaleRatio 폐기 — 더 이상 클라이언트가 보내지 않는다.
   backgroundOpacity?: number;
   equipment?: UpdateFloorPlanEquipmentInput[];
   rackModules?: UpdateFloorPlanRackModuleInput[];

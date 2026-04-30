@@ -7,10 +7,9 @@ export { calculatePathLength };
 
 interface CablePathOverlayProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  scaleRatio: number | null;
 }
 
-export function CablePathOverlay({ canvasRef, scaleRatio }: CablePathOverlayProps) {
+export function CablePathOverlay({ canvasRef }: CablePathOverlayProps) {
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
   const phase = useCableDrawingStore((s) => s.phase);
@@ -121,10 +120,11 @@ export function CablePathOverlay({ canvasRef, scaleRatio }: CablePathOverlayProp
       }
     }
 
-    // Length display near preview point
-    if (previewPoint && scaleRatio && scaleRatio > 0) {
-      const { pathLength, bufferLength, totalLength } = calculatePathLength(allPoints, scaleRatio);
-      const text = `현재: ${pathLength}m (+${bufferLength}m 여유 = ${totalLength}m)`;
+    // Length display near preview point.
+    // CM-B: pathLength is already in cm (좌표가 cm). m 환산 = ÷100.
+    if (previewPoint) {
+      const { pathLength, bufferLength, totalLength } = calculatePathLength(allPoints);
+      const text = `현재: ${(pathLength / 100).toFixed(2)}m (+${bufferLength}cm 여유 = ${(totalLength / 100).toFixed(2)}m)`;
 
       ctx.font = '12px sans-serif';
       const metrics = ctx.measureText(text);
@@ -151,7 +151,7 @@ export function CablePathOverlay({ canvasRef, scaleRatio }: CablePathOverlayProp
     ctx.restore();
   }, [
     phase, sourcePosition, waypoints, previewPoint, hoveredEquipmentId,
-    sourceEquipmentId, zoom, panX, panY, localEquipment, scaleRatio, canvasRef,
+    sourceEquipmentId, zoom, panX, panY, localEquipment, canvasRef,
   ]);
 
   if (phase !== 'drawingPath' && phase !== 'selectingSource') return null;

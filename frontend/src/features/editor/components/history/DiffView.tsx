@@ -12,7 +12,7 @@ const FIELD_LABELS: Record<string, string> = {
   cables: '케이블',
   fiberPaths: '광경로',
   gridSize: '그리드',
-  scaleRatio: '축척',
+  // CM-B: scaleRatio 항목 폐기 — 캔버스 1 unit = 1 cm 통일 후 의미 없음.
   positions: '위치',
   connections: '연결',
 };
@@ -64,7 +64,7 @@ export function DiffView({ log }: { log: AuditLog; allLogs?: AuditLog[] | undefi
                   {d.name}{d.specification ? ` ${d.specification}` : ''}
                 </span>
                 {d.length != null && (
-                  <span className="text-gray-400 shrink-0">{d.length}m</span>
+                  <span className="text-gray-400 shrink-0">{d.length}cm</span>
                 )}
               </div>
             ))}

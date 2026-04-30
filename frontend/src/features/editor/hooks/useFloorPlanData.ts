@@ -246,7 +246,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     useEditorStore.getState().setCables(cables);
     setGridSize(floorPlan.gridSize);
     setMajorGridSize(floorPlan.majorGridSize ?? 60);
-    useEditorStore.getState().setScaleRatio(floorPlan.scaleRatio ?? null);
+    // CM-B: scaleRatio 더 이상 동기화하지 않음 — 캔버스 1 unit = 1 cm 통일.
 
     if (isSavingRef.current) {
       isSavingRef.current = false;
@@ -304,11 +304,10 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       localRackModules,
     } = useEditorStore.getState();
 
-    const currentScaleRatio = useEditorStore.getState().scaleRatio;
-
     // P9: full payload — equipment.kind drives placement type, rackModules carry
     // 랙 슬롯 정보, cables source/target are polymorphic. tempIds resolve via
     // equipmentIdMap / rackModuleIdMap in the response.
+    // CM-B: scaleRatio 송신 폐기 — 캔버스 1 unit = 1 cm 통일.
     const equipIds = new Set(localEquipment.map((eq) => eq.id));
     const moduleIds = new Set(localRackModules.map((m) => m.id));
 
@@ -317,7 +316,6 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       canvasHeight: floorPlan.canvasHeight,
       gridSize,
       majorGridSize,
-      scaleRatio: currentScaleRatio,
       equipment: localEquipment.map(eq => ({
         id: isTempId(eq.id) ? null : eq.id,
         tempId: isTempId(eq.id) ? eq.id : undefined,

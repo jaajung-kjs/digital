@@ -126,29 +126,23 @@ function WaypointHandle({
           i === pointIndex ? [newX, newY] as [number, number] : [...p] as [number, number]
         );
 
-        // Calculate new path length
+        // CM-B: 좌표가 cm 단위이므로 점-점 거리 합 자체가 cm 길이.
         let pathLength = 0;
         for (let i = 0; i < newPathPoints.length - 1; i++) {
           const dx2 = newPathPoints[i + 1][0] - newPathPoints[i][0];
           const dy2 = newPathPoints[i + 1][1] - newPathPoints[i][1];
           pathLength += Math.sqrt(dx2 * dx2 + dy2 * dy2);
         }
-
-        const store = useEditorStore.getState();
-        const scaleRatio = store.scaleRatio;
-        let realPathLength: number | undefined;
-        let realTotalLength: number | undefined;
-        if (scaleRatio && scaleRatio > 0) {
-          realPathLength = Math.round(pathLength * scaleRatio) / 1000; // px to m
-          const bufferLength = Math.ceil(realPathLength) + 4;
-          realTotalLength = bufferLength;
-        }
+        const pathLengthCm = Math.round(pathLength);
+        const bufferLengthCm = 4; // cm
+        const totalLengthCm = pathLengthCm + bufferLengthCm;
 
         // Update cable directly in localCables
-        store.updateCable(cable.id, {
+        useEditorStore.getState().updateCable(cable.id, {
           pathPoints: newPathPoints,
-          pathLength: realPathLength ?? undefined,
-          totalLength: realTotalLength ?? undefined,
+          pathLength: pathLengthCm,
+          bufferLength: bufferLengthCm,
+          totalLength: totalLengthCm,
         });
 
         setDragPos(null);

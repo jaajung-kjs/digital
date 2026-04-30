@@ -8,7 +8,7 @@ import { SELECTION_STYLES, ELEMENT_COLORS } from '../canvas/canvasDrawing';
 import { distance } from '../geometry/geometryUtils';
 
 // ============================================
-// 길이 라벨 (선분 중간에 픽셀 길이 표시)
+// 길이 라벨 (선분 중간에 cm 길이 표시 — CM-B: 캔버스 1 unit = 1 cm)
 // ============================================
 
 export function renderLengthLabel(
@@ -27,7 +27,8 @@ export function renderLengthLabel(
   const midX = (x1 + x2) / 2;
   const midY = (y1 + y2) / 2;
   const fontSize = Math.max(10, Math.min(16, 12 * (100 / zoom)));
-  const text = `${length}px`;
+  // CM-B: distance() 는 캔버스 좌표 단위 = cm 이므로 cm 라벨로 표시.
+  const text = `${length}cm`;
 
   ctx.save();
   ctx.font = `${fontSize}px sans-serif`;

@@ -12,14 +12,18 @@ interface FloorSettingsPanelProps {
 }
 
 /**
- * Panel for configuring room scale ratio.
- * User inputs "grid 1칸 = ?m" and we derive scaleRatio (mm/px).
- * Formula: scaleRatio = (metersPerGrid * 1000) / gridSize
+ * Panel for floor-level settings.
+ *
+ * CM-B: 캔버스 1 unit = 1 cm 약속이 적용된 후 사용자에게 노출되는 단위는 cm.
+ * 따라서 "격자 1칸 = ?m" 위젯은 폐기되었고, 사용자는 보조/주 격자 크기를
+ * cm 단위로 직접 입력한다. 캔버스 사이즈는 도면 import 시 자동 확장되므로
+ * 별도 입력 없음.
  */
 export function FloorSettingsPanel({ floorId, floorPlan, onClose }: FloorSettingsPanelProps) {
   const gridSize = useEditorStore((s) => s.gridSize);
-  const scaleRatio = useEditorStore((s) => s.scaleRatio);
-  const setScaleRatio = useEditorStore((s) => s.setScaleRatio);
+  const majorGridSize = useEditorStore((s) => s.majorGridSize);
+  const setGridSize = useEditorStore((s) => s.setGridSize);
+  const setMajorGridSize = useEditorStore((s) => s.setMajorGridSize);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const queryClient = useQueryClient();
   const [showImportModal, setShowImportModal] = useState(false);
@@ -50,42 +54,36 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose }: FloorSetting
     await queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
   };
 
-  // Derive metersPerGrid from current scaleRatio
-  const currentMetersPerGrid =
-    scaleRatio != null && scaleRatio > 0
-      ? (scaleRatio * gridSize) / 1000
-      : '';
-
-  const [inputValue, setInputValue] = useState(
-    currentMetersPerGrid !== '' ? String(currentMetersPerGrid) : ''
-  );
+  const [minorInput, setMinorInput] = useState(String(gridSize));
+  const [majorInput, setMajorInput] = useState(String(majorGridSize));
 
   useEffect(() => {
-    if (scaleRatio != null && scaleRatio > 0) {
-      const val = (scaleRatio * gridSize) / 1000;
-      setInputValue(String(parseFloat(val.toFixed(4))));
-    }
-  }, [scaleRatio, gridSize]);
+    setMinorInput(String(gridSize));
+  }, [gridSize]);
 
-  const handleApply = () => {
-    const meters = parseFloat(inputValue);
-    if (!isNaN(meters) && meters > 0) {
-      const newScaleRatio = (meters * 1000) / gridSize; // mm/px
-      setScaleRatio(newScaleRatio);
+  useEffect(() => {
+    setMajorInput(String(majorGridSize));
+  }, [majorGridSize]);
+
+  const applyMinor = () => {
+    const v = parseFloat(minorInput);
+    if (!isNaN(v) && v > 0 && v !== gridSize) {
+      setGridSize(v);
       setHasChanges(true);
     }
   };
 
-  const handleClear = () => {
-    setScaleRatio(null);
-    setInputValue('');
-    setHasChanges(true);
+  const applyMajor = () => {
+    const v = parseFloat(majorInput);
+    if (!isNaN(v) && v > 0 && v !== majorGridSize) {
+      setMajorGridSize(v);
+      setHasChanges(true);
+    }
   };
 
-  const derivedScaleRatio =
-    inputValue && !isNaN(parseFloat(inputValue)) && parseFloat(inputValue) > 0
-      ? (parseFloat(inputValue) * 1000) / gridSize
-      : null;
+  // 도면 크기 표시용 (자동 확장된 캔버스 — 사용자 입력 X).
+  const canvasWidthM = floorPlan ? (floorPlan.canvasWidth / 100).toFixed(1) : '—';
+  const canvasHeightM = floorPlan ? (floorPlan.canvasHeight / 100).toFixed(1) : '—';
 
   return (
     <div className="absolute top-12 right-4 z-30 bg-white rounded-lg shadow-lg border border-gray-200 p-4 w-72">
@@ -101,49 +99,43 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose }: FloorSetting
 
       <div className="space-y-3">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            격자 1칸 = ? m
-          </label>
+          <label className="block text-xs text-gray-600 mb-1">주 격자 크기</label>
           <div className="flex items-center gap-2">
             <input
               type="number"
-              min="0.01"
-              step="0.01"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleApply();
-              }}
+              min="1"
+              step="1"
+              value={majorInput}
+              onChange={(e) => setMajorInput(e.target.value)}
+              onBlur={applyMajor}
+              onKeyDown={(e) => { if (e.key === 'Enter') applyMajor(); }}
               className="flex-1 px-2 py-1.5 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="0.1"
             />
-            <span className="text-sm text-gray-500">m</span>
+            <span className="text-sm text-gray-500">cm</span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            (격자 크기: {gridSize}px)
-          </p>
+          <p className="text-xs text-gray-400 mt-1">화면에 굵게 그려지는 격자 (예: 60cm)</p>
         </div>
 
-        {derivedScaleRatio != null && (
-          <div className="bg-blue-50 rounded px-3 py-2 text-xs text-blue-700">
-            scaleRatio = {parseFloat(derivedScaleRatio.toFixed(2))} (1px = {parseFloat(derivedScaleRatio.toFixed(2))}mm)
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">보조 격자 크기</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={minorInput}
+              onChange={(e) => setMinorInput(e.target.value)}
+              onBlur={applyMinor}
+              onKeyDown={(e) => { if (e.key === 'Enter') applyMinor(); }}
+              className="flex-1 px-2 py-1.5 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <span className="text-sm text-gray-500">cm</span>
           </div>
-        )}
+          <p className="text-xs text-gray-400 mt-1">스냅 단위 (예: 10cm)</p>
+        </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleApply}
-            disabled={!inputValue || isNaN(parseFloat(inputValue)) || parseFloat(inputValue) <= 0}
-            className="flex-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-          >
-            적용
-          </button>
-          <button
-            onClick={handleClear}
-            className="px-3 py-1.5 text-gray-600 text-sm border rounded hover:bg-gray-50"
-          >
-            초기화
-          </button>
+        <div className="bg-gray-50 rounded px-3 py-2 text-xs text-gray-600">
+          도면 크기: {canvasWidthM} m × {canvasHeightM} m
         </div>
 
         {/* ── 배경 도면(DWG) 영역 ── */}
