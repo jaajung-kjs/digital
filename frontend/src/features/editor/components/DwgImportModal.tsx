@@ -15,9 +15,6 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
   const queryClient = useQueryClient();
   const [stage, setStage] = useState<Stage>('upload');
   const [file, setFile] = useState<File | null>(null);
-  const [advanced, setAdvanced] = useState(false);
-  /** advanced 모드에서 사용자가 import 하길 원하는 layer 이름 화이트리스트. */
-  const [selectedLayers, setSelectedLayers] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<DwgImportResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -25,25 +22,14 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parseFile = useCallback(
-    async (f: File, mode: 'smart' | 'advanced', layers?: string[]) => {
+    async (f: File) => {
       setBusy(true);
       setErrorMessage(null);
       try {
-        const opts: ImportOptions = {
-          mode,
-          commit: false,
-          ...(mode === 'advanced' ? { layers } : {}),
-        };
+        const opts: ImportOptions = { mode: 'smart', commit: false };
         const r = await dwgImportApi.importToFloor(floorId, f, opts);
         setResult(r);
         setStage('preview');
-        // smart 결과로 처음 들어왔을 때 — 모든 visible layer 를 기본 선택해 두기.
-        if (mode === 'smart' && selectedLayers.size === 0) {
-          const initial = new Set(
-            r.backgroundDrawing.layers.filter((l) => l.isVisible).map((l) => l.name),
-          );
-          setSelectedLayers(initial);
-        }
       } catch (e: unknown) {
         const msg =
           (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
@@ -55,35 +41,23 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
         setBusy(false);
       }
     },
-    [floorId, selectedLayers.size],
+    [floorId],
   );
 
   const handleFileSelected = useCallback(
     (f: File) => {
       setFile(f);
-      parseFile(f, 'smart');
+      parseFile(f);
     },
     [parseFile],
   );
-
-  const handleReparse = useCallback(async () => {
-    if (!file) return;
-    if (advanced) {
-      await parseFile(file, 'advanced', [...selectedLayers]);
-    } else {
-      await parseFile(file, 'smart');
-    }
-  }, [file, advanced, selectedLayers, parseFile]);
 
   const handleCommit = useCallback(async () => {
     if (!file) return;
     setStage('committing');
     setBusy(true);
     try {
-      const opts: ImportOptions = advanced
-        ? { mode: 'advanced', commit: true, layers: [...selectedLayers] }
-        : { mode: 'smart', commit: true };
-      await dwgImportApi.importToFloor(floorId, file, opts);
+      await dwgImportApi.importToFloor(floorId, file, { mode: 'smart', commit: true });
       await queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
       setStage('done');
       onImported();
@@ -97,7 +71,7 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [file, advanced, selectedLayers, floorId, queryClient, onClose, onImported]);
+  }, [file, floorId, queryClient, onClose, onImported]);
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -107,15 +81,6 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
     },
     [handleFileSelected],
   );
-
-  const toggleLayer = (name: string) => {
-    setSelectedLayers((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -155,8 +120,7 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
             </div>
             <p className="text-xs text-gray-500">
               모든 레이어가 불러와지며, 각 entity 의 색상 · 선 굵기 · 선 종류가 함께 보존됩니다.
-              불러온 후 [레이어] 패널에서 가시성을 조절할 수 있습니다. 특정 레이어만 import 하려면
-              [고급 모드]를 사용하세요.
+              불러온 후 우측 [레이어] 패널에서 layer 별 가시성을 조절할 수 있습니다.
             </p>
           </div>
         )}
@@ -169,89 +133,6 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
               <span className="text-gray-500">({(file!.size / 1024 / 1024).toFixed(1)}MB)</span>
             </div>
 
-            {/* Mode switch */}
-            <div className="flex gap-2 mb-4">
-              <button
-                disabled={busy}
-                onClick={() => {
-                  setAdvanced(false);
-                  parseFile(file!, 'smart');
-                }}
-                className={`px-3 py-1.5 text-sm rounded ${
-                  !advanced ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                자동 (모든 레이어)
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => setAdvanced(true)}
-                className={`px-3 py-1.5 text-sm rounded ${
-                  advanced ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                고급 (레이어 직접 선택)
-              </button>
-            </div>
-
-            {/* Advanced mode: layer list */}
-            {advanced && (
-              <div className="bg-gray-50 rounded p-3 mb-4 max-h-72 overflow-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-gray-600">
-                    레이어 선택 ({selectedLayers.size}/{result.backgroundDrawing.layers.length})
-                  </p>
-                  <button
-                    onClick={handleReparse}
-                    disabled={busy}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    선택 적용
-                  </button>
-                </div>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-gray-500 text-left">
-                      <th className="w-6"></th>
-                      <th className="w-6"></th>
-                      <th>이름</th>
-                      <th className="w-12 text-right">선굵기</th>
-                      <th className="w-16 text-right">선종류</th>
-                      <th className="w-12 text-center">보임</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.backgroundDrawing.layers.map((layer) => (
-                      <tr key={layer.name} className="border-t border-gray-200">
-                        <td className="py-1">
-                          <input
-                            type="checkbox"
-                            checked={selectedLayers.has(layer.name)}
-                            onChange={() => toggleLayer(layer.name)}
-                          />
-                        </td>
-                        <td className="py-1">
-                          <span
-                            className="inline-block w-3 h-3 rounded-sm border border-gray-300"
-                            style={{ backgroundColor: layer.color }}
-                          />
-                        </td>
-                        <td className="py-1 font-mono">{layer.name}</td>
-                        <td className="py-1 text-right text-gray-500">
-                          {layer.lineweight.toFixed(2)}
-                        </td>
-                        <td className="py-1 text-right text-gray-500">{layer.linetype}</td>
-                        <td className="py-1 text-center text-gray-500">
-                          {layer.isVisible ? '✓' : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Result preview */}
             <PreviewCanvas result={result} />
 
             <div className="text-xs text-gray-500 mt-3">
@@ -377,7 +258,7 @@ function PreviewCanvas({ result }: { result: DwgImportResult }) {
               fill="none"
               stroke={stroke}
               strokeWidth={Math.max(0.4, lw * 0.5)}
-              strokeDasharray={dash?.map((d) => d * scale).join(' ')}
+              strokeDasharray={dash?.map((d: number) => d * scale).join(' ')}
             />
           );
         })}

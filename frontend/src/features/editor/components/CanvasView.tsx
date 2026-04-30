@@ -12,10 +12,12 @@ interface CanvasViewProps {
   floorId: string | undefined;
   /** P9: invoked when the user clicks the canvas with a rack preset armed. */
   onPlacePreset?: () => void;
+  /** EmptyStateGuide step 1 의 직접 import 버튼 핸들러. */
+  onImportClick?: () => void;
   children?: React.ReactNode;
 }
 
-export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlacePreset, children }: CanvasViewProps) {
+export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlacePreset, onImportClick, children }: CanvasViewProps) {
   useCanvas(canvasRef, containerRef, floorPlan);
   const {
     handleCanvasMouseDown,
@@ -31,12 +33,9 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
   const panY = useEditorStore((s) => s.panY);
   const showGrid = useEditorStore((s) => s.showGrid);
   const gridSnap = useEditorStore((s) => s.gridSnap);
-  const majorGridSize = useEditorStore((s) => s.majorGridSize);
   const setViewport = useEditorStore((s) => s.setViewport);
   const setShowGrid = useEditorStore((s) => s.setShowGrid);
   const setGridSnap = useEditorStore((s) => s.setGridSnap);
-  const setMajorGridSize = useEditorStore((s) => s.setMajorGridSize);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
   const isPanning = useEditorStore((s) => s.isPanning);
   const isSpacePressed = useEditorStore((s) => s.isSpacePressed);
@@ -75,7 +74,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
         }`}
       />
 
-      <EmptyStateGuide floorPlan={floorPlan} />
+      <EmptyStateGuide floorPlan={floorPlan} onImportClick={onImportClick} />
 
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-1 gap-0.5">
@@ -135,24 +134,6 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
           </button>
         </div>
 
-        <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-2 gap-1">
-          <span className="text-xs text-gray-500">Grid</span>
-          <input
-            type="number"
-            value={majorGridSize}
-            onChange={(e) => {
-              const value = Math.max(10, Math.min(200, Number(e.target.value) || 60));
-              setMajorGridSize(value);
-              setHasChanges(true);
-            }}
-            className="w-12 h-6 px-1 text-xs text-center border border-gray-200 rounded focus:outline-none focus:border-blue-400"
-            min={10}
-            max={200}
-            step={10}
-            title="그리드 크기"
-          />
-          <span className="text-xs text-gray-400">px</span>
-        </div>
       </div>
 
       {children}
