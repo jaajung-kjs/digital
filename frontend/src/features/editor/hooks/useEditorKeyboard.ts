@@ -107,8 +107,14 @@ export function useEditorKeyboard(
         return;
       }
 
+      // macOS 의 ⌫ 키는 Backspace 로 발화 (Delete 는 fn+⌫). 둘 다 "삭제" 로 받는다.
+      // 케이블 그리는 중 Backspace 는 waypoint 제거로 위에서 이미 처리됐으므로,
+      // 여기 도달했다면 cable drawing 이 아닌 상태. Backspace 도 안전하게 삭제용.
+      const isDeleteKey = e.key === 'Delete' || e.key === 'Backspace';
+
       // Delete — cable
-      if (e.key === 'Delete' && es.selectedCableId) {
+      if (isDeleteKey && es.selectedCableId) {
+        e.preventDefault();
         pushHistory(localEquipment);
         es.deleteCable(es.selectedCableId);
         es.setSelectedCableId(null);
@@ -116,8 +122,19 @@ export function useEditorKeyboard(
         return;
       }
 
+      // Delete — rack module (다이얼로그 안의 [삭제] 와 동일하게 키보드도)
+      if (isDeleteKey && es.selectedRackModuleId) {
+        e.preventDefault();
+        const modId = es.selectedRackModuleId;
+        es.removeRackModule(modId);
+        es.setSelectedRackModuleId(null);
+        es.setHasChanges(true);
+        return;
+      }
+
       // Delete — equipment (cascades cables + pending data)
-      if (e.key === 'Delete' && es.selectedIds.length > 0) {
+      if (isDeleteKey && es.selectedIds.length > 0) {
+        e.preventDefault();
         const equipmentToDelete = localEquipment.filter((eq) => es.selectedIds.includes(eq.id));
         for (const eq of equipmentToDelete) es.deleteEquipmentWithCascade(eq.id);
         pushHistory(useEditorStore.getState().localEquipment);

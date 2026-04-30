@@ -63,96 +63,26 @@ export function RackView({ equipmentId }: RackViewProps) {
     setSelectedRackModuleId(mod.id);
   };
 
+  // 빈 슬롯 클릭 → 그 위치를 startU 로 미리 set 한 추가 폼 열기
+  const [addFormStartU, setAddFormStartU] = useState<number | null>(null);
+  const handleEmptySlotClick = (uNumber: number) => {
+    setAddFormStartU(uNumber);
+    setShowAddForm(true);
+  };
+
+  // 슬롯 한 칸 높이 (px). 도면 크기와 무관 — 슬롯 시각이 잘 보이게 32.
+  const SLOT_PX = 32;
+
   return (
     <div className="flex flex-col h-full">
-      {/* U-slot + module list body */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left: U-slot visualization */}
-        <div className="w-[200px] border-r overflow-y-auto p-3">
-          <div className="text-xs font-medium text-gray-500 mb-2">전면 뷰</div>
-          <div className="border border-gray-300 rounded">
-            {Array.from({ length: totalU }, (_, i) => {
-              const uNumber = totalU - i;
-              const mod = slotMap.get(uNumber);
-              if (mod) {
-                if (uNumber === mod.startU + mod.heightU - 1) {
-                  const color = mod.categoryDisplayColor ?? '#95A5A6';
-                  return (
-                    <div
-                      key={uNumber}
-                      className="flex cursor-pointer hover:brightness-110 transition-all"
-                      style={{ height: `${mod.heightU * 20}px` }}
-                      onClick={() => handleSlotClick(mod)}
-                      title={`${mod.name} (${mod.startU}-${mod.startU + mod.heightU - 1}U)`}
-                    >
-                      <div className="w-8 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
-                        {uNumber}U
-                      </div>
-                      <div
-                        className="flex-1 flex items-center justify-center text-xs font-medium text-white border-b border-gray-200 px-1"
-                        style={{ backgroundColor: color }}
-                      >
-                        <span className="truncate">{mod.name}</span>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              }
-
-              return (
-                <div key={uNumber} className="flex" style={{ height: '20px' }}>
-                  <div className="w-8 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
-                    {uNumber}U
-                  </div>
-                  <div className="flex-1 border-b border-gray-100" />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Right: module list */}
-        <div className="flex-1 overflow-y-auto p-3">
-          <div className="text-xs font-medium text-gray-500 mb-2">
-            모듈 ({modules.length}개)
-          </div>
-
-          {modules.length === 0 ? (
-            <p className="text-sm text-gray-400 py-4 text-center">모듈이 없습니다</p>
-          ) : (
-            <div className="space-y-1.5">
-              {modules.map((m) => (
-                <button
-                  key={m.id}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-gray-50 border border-gray-100 transition-colors"
-                  onClick={() => handleSlotClick(m)}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: m.categoryDisplayColor ?? '#95A5A6' }}
-                    />
-                    <span className="text-sm font-medium text-gray-800 truncate">{m.name}</span>
-                  </div>
-                  <div className="text-xs text-gray-400 mt-0.5 ml-4">
-                    {m.startU}-{m.startU + m.heightU - 1}U
-                    {m.categoryName && ` | ${m.categoryName}`}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="border-t px-4 py-3 bg-gray-50 shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-gray-500">
-            사용: {usedU}/{totalU}U ({usagePercent}%)
+      {/* Slot grid — full width */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="text-xs text-gray-500 mb-2 flex items-center gap-2">
+          <span>전면 뷰 — 빈 슬롯 클릭으로 추가, 모듈 클릭으로 편집</span>
+          <span className="ml-auto text-[11px]">
+            사용 <strong className="text-gray-700">{usedU}</strong>/{totalU}U ({usagePercent}%)
           </span>
-          <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+          <div className="w-20 h-1 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all"
               style={{
@@ -162,12 +92,64 @@ export function RackView({ equipmentId }: RackViewProps) {
             />
           </div>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          모듈 추가
-        </button>
+        <div className="border border-gray-300 rounded-md overflow-hidden bg-white">
+          {Array.from({ length: totalU }, (_, i) => {
+            const uNumber = totalU - i;
+            const mod = slotMap.get(uNumber);
+            if (mod) {
+              // 모듈의 가장 위 칸에서 한 번에 그리기
+              if (uNumber === mod.startU + mod.heightU - 1) {
+                const color = mod.categoryDisplayColor ?? '#95A5A6';
+                return (
+                  <div
+                    key={uNumber}
+                    className="flex cursor-pointer hover:brightness-110 transition-all"
+                    style={{ height: `${mod.heightU * SLOT_PX}px` }}
+                    onClick={() => handleSlotClick(mod)}
+                    title={`${mod.name} (${mod.startU}-${mod.startU + mod.heightU - 1}U) — 클릭해서 편집`}
+                  >
+                    <div className="w-12 flex flex-col items-center justify-center text-[11px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0 leading-tight">
+                      <span>{mod.startU + mod.heightU - 1}U</span>
+                      {mod.heightU > 1 && (
+                        <span className="text-gray-300">|</span>
+                      )}
+                      {mod.heightU > 1 && <span>{mod.startU}U</span>}
+                    </div>
+                    <div
+                      className="flex-1 flex items-center justify-between text-sm font-medium text-white px-3"
+                      style={{ backgroundColor: color }}
+                    >
+                      <span className="truncate">{mod.name}</span>
+                      {mod.categoryName && (
+                        <span className="text-[11px] opacity-80 ml-2 shrink-0">
+                          {mod.categoryName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            }
+
+            return (
+              <div
+                key={uNumber}
+                className="flex group cursor-pointer hover:bg-blue-50 transition-colors"
+                style={{ height: `${SLOT_PX}px` }}
+                onClick={() => handleEmptySlotClick(uNumber)}
+                title={`${uNumber}U — 클릭해서 추가`}
+              >
+                <div className="w-12 flex items-center justify-center text-[11px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
+                  {uNumber}U
+                </div>
+                <div className="flex-1 border-b border-gray-100 flex items-center justify-center text-[11px] text-gray-300 group-hover:text-blue-500 transition-colors">
+                  <span className="opacity-0 group-hover:opacity-100">+ 모듈 추가</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {showAddForm && (
@@ -175,11 +157,16 @@ export function RackView({ equipmentId }: RackViewProps) {
           rackEquipmentId={equipmentId}
           totalU={totalU}
           occupiedSlots={slotMap}
-          onCancel={() => setShowAddForm(false)}
+          initialStartU={addFormStartU}
+          onCancel={() => {
+            setShowAddForm(false);
+            setAddFormStartU(null);
+          }}
           onAdd={(input) => {
             addRackModule(input);
             setHasChanges(true);
             setShowAddForm(false);
+            setAddFormStartU(null);
           }}
         />
       )}
@@ -196,12 +183,14 @@ function RackModuleAddDialog({
   rackEquipmentId,
   totalU,
   occupiedSlots,
+  initialStartU,
   onCancel,
   onAdd,
 }: {
   rackEquipmentId: string;
   totalU: number;
   occupiedSlots: Map<number, RackModule>;
+  initialStartU?: number | null;
   onCancel: () => void;
   onAdd: (m: RackModule) => void;
 }) {
@@ -209,7 +198,7 @@ function RackModuleAddDialog({
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [heightU, setHeightU] = useState(1);
-  const [startU, setStartU] = useState<number | null>(null);
+  const [startU, setStartU] = useState<number | null>(initialStartU ?? null);
 
   const availablePositions = useMemo(() => {
     const positions: number[] = [];
