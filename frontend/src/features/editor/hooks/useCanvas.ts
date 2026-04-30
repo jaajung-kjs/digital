@@ -58,7 +58,14 @@ export function useCanvas(
     ctx.fillRect(viewportLeft, viewportTop, canvas.width / scale, canvas.height / scale);
 
     if (floorPlan.backgroundDrawing) {
-      renderBackgroundDrawing(ctx, floorPlan.backgroundDrawing, floorPlan.backgroundOpacity ?? 0.3);
+      // hiddenLayers: Phase C will source this from editorStore.hiddenBgLayers.
+      // For now, undefined — every visible layer (per layer.isVisible) renders.
+      renderBackgroundDrawing(
+        ctx,
+        floorPlan.backgroundDrawing,
+        floorPlan.backgroundOpacity ?? 0.3,
+        undefined,
+      );
     }
 
     if (showGrid) {

@@ -141,46 +141,77 @@ export interface FloorPlanDetail {
 }
 
 // ============================================
-// 임포트된 배경 도면 (DWG/DXF에서 추출)
+// 임포트된 배경 도면 (DWG/DXF에서 추출) — DWG-A 신규 모델
 // ============================================
+//
+// Backend `dwgImport.service.ts` 의 BgLayer/BgPath/BgText/BgFilled/BackgroundDrawing
+// 과 1:1 대응. BYLAYER 규칙: entity 의 color/lineweight/linetype/dashArray 가
+// undefined 면 layer 의 default 를 사용하고, 정의되어 있으면 override.
 
-export interface BackgroundOutline {
-  /** 각 폴리라인은 [x1,y1,x2,y2,...] flat 배열 */
-  polylines: number[][];
+export interface BgLayer {
+  name: string;
+  /** '#RRGGBB' (ACI → RGB). */
   color: string;
-  strokeWidth: number;
+  /** px (이미 scale-adjusted). */
+  lineweight: number;
+  /** 'solid' | 'dashed' | 'center' | 'hidden' | 'dashdot' | 'phantom' | name */
+  linetype: string;
+  /** px-units. linetype='solid' 면 absent. */
+  dashArray?: number[];
+  /** layer off / frozen 이면 false. */
+  isVisible: boolean;
 }
 
-export interface BackgroundLabel {
+export interface BgPath {
+  layer: string;
+  /** Flat [x1,y1,x2,y2,...] in canvas coords (Y already flipped). */
+  points: number[];
+  closed?: boolean;
+  // BYLAYER overrides — entity 가 layer default 와 다를 때만 채워진다.
+  color?: string;
+  lineweight?: number;
+  linetype?: string;
+  dashArray?: number[];
+}
+
+export interface BgText {
+  layer: string;
+  /** Anchor in canvas coords (이미 hAlign/vAlign 으로 정렬된 값). */
   x: number;
   y: number;
   text: string;
+  /** Pixel font size. */
   size: number;
+  /** Radians, canvas coords. 0 이면 omitted. */
+  rotation?: number;
+  hAlign?: 'left' | 'center' | 'right';
+  vAlign?: 'top' | 'middle' | 'bottom' | 'baseline';
+  color?: string;
+  fontFamily?: string;
+  isMultiLine?: boolean;
+}
+
+export interface BgFilled {
+  layer: string;
+  /** loops[0] = outer, loops[1..] = holes. 각 loop 는 flat [x1,y1,...] (closed implicit). */
+  loops: number[][];
+  color?: string;
+  /** v1: 'solid' 만 — HATCH patterned fill TBD. */
+  pattern?: 'solid';
 }
 
 export interface BackgroundDrawing {
   source: { fileName: string; importedAt: string; fileType: 'DWG' | 'DXF' };
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
   scaleMmPerUnit: number;
-  outline: BackgroundOutline | null;
-  labels: BackgroundLabel[];
-  outlineLayers: string[];
-  labelLayers: string[];
-}
-
-export interface DwgLayerInfo {
-  name: string;
-  entityCount: number;
-  byType: Record<string, number>;
-  polylineRatio: number;
-  hasText: boolean;
-  outlineScore: number;
+  layers: BgLayer[];
+  paths: BgPath[];
+  texts: BgText[];
+  filled: BgFilled[];
 }
 
 export interface DwgImportResult {
   backgroundDrawing: BackgroundDrawing;
-  availableLayers: DwgLayerInfo[];
-  smartChoice: { outline: string[]; labels: string[] };
   committed: boolean;
 }
 
