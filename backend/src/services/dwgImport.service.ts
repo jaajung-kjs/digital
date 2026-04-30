@@ -172,26 +172,18 @@ function buildLayerInfo(db: DwgDatabase): LayerInfo[] {
   return infos.sort((a, b) => b.outlineScore - a.outlineScore || b.entityCount - a.entityCount);
 }
 
+/**
+ * Smart pick — option A: take everything.
+ * Background drawing is a visual reference, not an editable layer set;
+ * filtering aggressively (score-based) leaves architectural plans
+ * (RXBLWL/COL/STAIR/WINDOW/DOOR …) almost empty because their layer
+ * names rarely match generic outline keywords. We grab every layer
+ * and let the renderer dim it with low opacity. Advanced mode still
+ * lets the user pick a subset.
+ */
 function pickSmartLayers(layers: LayerInfo[]): { outline: string[]; labels: string[] } {
-  // Outline: top-scoring layers above threshold, capped at 3
-  const outlineCandidates = layers.filter((l) => l.outlineScore >= 30);
-  const outline = outlineCandidates.slice(0, 3).map((l) => l.name);
-
-  // If no clear winner, fall back to layer with most polylines (excluding default '0' if it's huge)
-  if (outline.length === 0) {
-    const byPoly = [...layers].sort((a, b) => {
-      const aPoly = a.entityCount * a.polylineRatio;
-      const bPoly = b.entityCount * b.polylineRatio;
-      return bPoly - aPoly;
-    });
-    const fallback = byPoly.find((l) => l.entityCount * l.polylineRatio > 5);
-    if (fallback) outline.push(fallback.name);
-  }
-
-  // Labels: any layer with TEXT/MTEXT
-  const labels = layers.filter((l) => l.hasText).map((l) => l.name);
-
-  return { outline, labels };
+  const all = layers.map((l) => l.name);
+  return { outline: all, labels: all };
 }
 
 // ==================== Geometry extraction ====================
@@ -209,34 +201,102 @@ interface RawText {
   layer: string;
 }
 
+type Point = [number, number];
+
 /**
- * Extract polylines and text entities from selected layers.
- * Handles LINE, LWPOLYLINE, POLYLINE2D, ARC (approximated), CIRCLE (approximated).
+ * 2D affine transform [a b tx ; c d ty]. Identity = [1,0,0,1,0,0].
+ * Composition: M = parent · child.
  */
-function extractGeometry(db: DwgDatabase, layerNames: Set<string>): {
+type Affine = [number, number, number, number, number, number];
+const IDENTITY: Affine = [1, 0, 0, 1, 0, 0];
+
+function applyAffine([a, b, c, d, tx, ty]: Affine, [x, y]: Point): Point {
+  return [a * x + b * y + tx, c * x + d * y + ty];
+}
+
+function composeAffine(parent: Affine, child: Affine): Affine {
+  const [pa, pb, pc, pd, ptx, pty] = parent;
+  const [ca, cb, cc, cd, ctx, cty] = child;
+  return [
+    pa * ca + pb * cc,
+    pa * cb + pb * cd,
+    pc * ca + pd * cc,
+    pc * cb + pd * cd,
+    pa * ctx + pb * cty + ptx,
+    pc * ctx + pd * cty + pty,
+  ];
+}
+
+function insertAffine(insert: Record<string, unknown>): Affine {
+  const ip = insert.insertionPoint as { x: number; y: number } | undefined;
+  const sx = (insert.xScale as number | undefined) ?? 1;
+  const sy = (insert.yScale as number | undefined) ?? 1;
+  const rot = (insert.rotation as number | undefined) ?? 0;
+  const cosR = Math.cos(rot);
+  const sinR = Math.sin(rot);
+  return [sx * cosR, -sy * sinR, sx * sinR, sy * cosR, ip?.x ?? 0, ip?.y ?? 0];
+}
+
+interface BlockEntry {
+  name: string;
+  entities?: DwgEntity[];
+}
+
+function buildBlockMap(db: DwgDatabase): Map<string, BlockEntry> {
+  const map = new Map<string, BlockEntry>();
+  const entries = (db.tables.BLOCK_RECORD?.entries ?? []) as BlockEntry[];
+  for (const b of entries) if (b.name) map.set(b.name, b);
+  return map;
+}
+
+const MAX_INSERT_DEPTH = 4;
+
+/**
+ * Extract polylines + text from a flat entity list, recursively expanding
+ * INSERT references into their block's sub-entities. Layer filter applies
+ * to top-level entities; once we descend into a block, sub-entities keep
+ * their own layer (which is what AutoCAD does — "BYBLOCK" inheritance is
+ * not handled here for simplicity).
+ */
+function extractGeometry(db: DwgDatabase, layerNames: Set<string> | null): {
   polylines: RawPolyline[];
   texts: RawText[];
 } {
   const polylines: RawPolyline[] = [];
   const texts: RawText[] = [];
+  const blockMap = buildBlockMap(db);
 
-  for (const e of db.entities) {
-    if (!layerNames.has(e.layer || '0')) continue;
-    const lp = entityToPolyline(e);
-    if (lp) {
-      polylines.push({ points: lp, layer: e.layer || '0' });
-      continue;
-    }
-    const t = entityToText(e);
-    if (t) {
-      texts.push({ ...t, layer: e.layer || '0' });
+  function visit(entities: DwgEntity[], xform: Affine, depth: number, applyLayerFilter: boolean) {
+    for (const e of entities) {
+      if (applyLayerFilter && layerNames && !layerNames.has(e.layer || '0')) continue;
+      if (e.type === 'INSERT') {
+        if (depth >= MAX_INSERT_DEPTH) continue;
+        const ins = e as unknown as Record<string, unknown>;
+        const blockName = ins.name as string | undefined;
+        if (!blockName) continue;
+        const block = blockMap.get(blockName);
+        const subEntities = block?.entities;
+        if (!subEntities || subEntities.length === 0) continue;
+        const local = insertAffine(ins);
+        visit(subEntities, composeAffine(xform, local), depth + 1, false);
+        continue;
+      }
+      const lp = entityToPolyline(e);
+      if (lp) {
+        polylines.push({ points: lp.map((p) => applyAffine(xform, p)), layer: e.layer || '0' });
+        continue;
+      }
+      const t = entityToText(e);
+      if (t) {
+        const [tx, ty] = applyAffine(xform, [t.x, t.y]);
+        texts.push({ ...t, x: tx, y: ty, layer: e.layer || '0' });
+      }
     }
   }
 
+  visit(db.entities, IDENTITY, 0, true);
   return { polylines, texts };
 }
-
-type Point = [number, number];
 
 function entityToPolyline(e: DwgEntity): Point[] | null {
   const any = e as unknown as Record<string, unknown>;
@@ -279,6 +339,43 @@ function entityToPolyline(e: DwgEntity): Point[] | null {
       if (c && r != null) return approximateArc(c.x, c.y, r, 0, Math.PI * 2, 16);
       return null;
     }
+    case 'ELLIPSE': {
+      const c = any.center as { x: number; y: number; z?: number } | undefined;
+      const major = any.majorAxisEndpoint as { x: number; y: number; z?: number } | undefined;
+      const ratio = (any.minorAxisRatio as number | undefined) ?? 1;
+      const sa = (any.startAngle as number | undefined) ?? 0;
+      const ea = (any.endAngle as number | undefined) ?? Math.PI * 2;
+      if (c && major) {
+        const a = Math.hypot(major.x, major.y);
+        const b = a * ratio;
+        const rotation = Math.atan2(major.y, major.x);
+        const segs = 24;
+        let a0 = sa;
+        let a1 = ea;
+        if (a1 < a0) a1 += Math.PI * 2;
+        const pts: Point[] = [];
+        for (let i = 0; i <= segs; i++) {
+          const t = i / segs;
+          const ang = a0 + (a1 - a0) * t;
+          // local ellipse → rotate around center
+          const lx = a * Math.cos(ang);
+          const ly = b * Math.sin(ang);
+          const cosR = Math.cos(rotation);
+          const sinR = Math.sin(rotation);
+          pts.push([c.x + lx * cosR - ly * sinR, c.y + lx * sinR + ly * cosR]);
+        }
+        return pts;
+      }
+      return null;
+    }
+    case 'SPLINE': {
+      // Approximate by fit points if present, else control points (control polygon).
+      const fit = any.fitPoints as Array<{ x: number; y: number }> | undefined;
+      const ctrl = any.controlPoints as Array<{ x: number; y: number }> | undefined;
+      const verts = (fit && fit.length >= 2) ? fit : (ctrl && ctrl.length >= 2 ? ctrl : null);
+      if (verts) return verts.map((v) => [v.x, v.y]);
+      return null;
+    }
     default:
       return null;
   }
@@ -299,20 +396,29 @@ function approximateArc(cx: number, cy: number, r: number, startA: number, endA:
 }
 
 function entityToText(e: DwgEntity): { x: number; y: number; text: string; size: number } | null {
+  // libredwg-web exposes TEXT's position as `startPoint` (and `endPoint` for the
+  // alignment box), not `insertionPoint`. MTEXT does use `insertionPoint`. We
+  // accept both for robustness across library versions.
   const any = e as unknown as Record<string, unknown>;
+  const pickPoint = (...keys: string[]) => {
+    for (const k of keys) {
+      const p = any[k] as { x: number; y: number } | undefined;
+      if (p && typeof p.x === 'number' && typeof p.y === 'number') return p;
+    }
+    return undefined;
+  };
   if (e.type === 'TEXT') {
-    const ip = any.insertionPoint as { x: number; y: number } | undefined;
+    const ip = pickPoint('startPoint', 'insertionPoint', 'alignmentPoint');
     const txt = any.text as string | undefined;
     const h = (any.textHeight as number | undefined) ?? 14;
     if (ip && txt && txt.trim()) return { x: ip.x, y: ip.y, text: txt.trim(), size: h };
     return null;
   }
   if (e.type === 'MTEXT') {
-    const ip = any.insertionPoint as { x: number; y: number } | undefined;
+    const ip = pickPoint('insertionPoint', 'startPoint');
     const txt = any.text as string | undefined;
     const h = (any.textHeight as number | undefined) ?? 14;
     if (ip && txt && txt.trim()) {
-      // MTEXT may contain formatting codes — strip them
       const cleaned = txt.replace(/\\[A-Za-z][^;]*;/g, '').replace(/[{}]/g, '').trim();
       if (cleaned) return { x: ip.x, y: ip.y, text: cleaned, size: h };
     }
@@ -501,25 +607,14 @@ class DwgImportService {
     const layers = buildLayerInfo(db);
     const smartChoice = pickSmartLayers(layers);
 
-    let outlineLayerSet: Set<string>;
-    let labelLayerSet: Set<string>;
+    // Smart mode = take everything (background drawing is a visual reference,
+    // not a curated subset). Advanced mode honours the user's explicit pick.
+    const layerFilter: Set<string> | null =
+      options.mode === 'smart' ? null : new Set(options.layers ?? []);
 
-    if (options.mode === 'smart') {
-      outlineLayerSet = new Set(options.includeOutline === false ? [] : smartChoice.outline);
-      labelLayerSet = new Set(options.includeLabels === false ? [] : smartChoice.labels);
-    } else {
-      // Advanced: user-picked layers. Texts come from same set automatically.
-      const picked = options.layers ?? [];
-      outlineLayerSet = new Set(picked);
-      labelLayerSet = new Set(picked);
-    }
-
-    const allSelected = new Set([...outlineLayerSet, ...labelLayerSet]);
-    const { polylines, texts } = extractGeometry(db, allSelected);
-
-    // Split: polylines tagged with outline-layers vs text-layers (texts always go to labels)
-    const outlinePolys = polylines.filter((p) => outlineLayerSet.has(p.layer));
-    const labelTexts = texts.filter((t) => labelLayerSet.has(t.layer));
+    const { polylines, texts } = extractGeometry(db, layerFilter);
+    const outlinePolys = polylines;
+    const labelTexts = texts;
 
     const { outPolylines, outTexts, bounds, scaleMmPerUnit } = normalize(
       outlinePolys,
@@ -548,8 +643,8 @@ class DwgImportService {
           }
         : null,
       labels: outTexts.map((t) => ({ x: t.x, y: t.y, text: t.text, size: t.size })),
-      outlineLayers: [...outlineLayerSet],
-      labelLayers: [...labelLayerSet],
+      outlineLayers: layerFilter ? [...layerFilter] : layers.map((l) => l.name),
+      labelLayers: layerFilter ? [...layerFilter] : layers.map((l) => l.name),
     };
 
     if (options.commit) {
