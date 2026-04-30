@@ -169,7 +169,10 @@ function drawConnectionLabel(
 
   let text = conn.label || conn.materialCategoryCode || conn.cableType;
   if (conn.totalLength != null) {
-    text += ` (${conn.totalLength}m)`;
+    // CM-B: totalLength 가 cm 단위. 1m 이상이면 m 로, 미만이면 cm 로 표시.
+    text += conn.totalLength >= 100
+      ? ` (${(conn.totalLength / 100).toFixed(2)}m)`
+      : ` (${Math.round(conn.totalLength)}cm)`;
   }
 
   ctx.font = '11px sans-serif';

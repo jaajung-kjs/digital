@@ -10,8 +10,12 @@ import type {
  * Render the imported DWG background as a faded reference layer.
  * Drawn under user-editable elements but above the canvas background color.
  *
- * Coordinates in BackgroundDrawing are already in canvas pixels (post-normalization
- * on import), so no transform is needed beyond the caller's panX/panY/zoom.
+ * CM-B: BackgroundDrawing 의 좌표 + lineweight + dashArray 가 모두 cm 단위
+ * (캔버스 1 unit = 1 cm). 호출자는 ctx 에 이미 zoom scale 을 적용해 두지만
+ * lineweight 는 그 transform 의 영향을 받지 않게 하고 싶을 수도 있고 ─ 여기서는
+ * cm 그대로 두면 zoom 이 곱해져 화면 px 가 된다. 단, 너무 가는 선은 보이지
+ * 않으므로 화면 px 환산 후 0.5 px 미만이면 0.5 px 로 강제. 이를 위해 호출자가
+ * `zoom (px/cm)` 을 알려주면 더 정확한 강제값을 잡을 수 있다.
  *
  * BYLAYER resolution: every entity (path/text/filled) may carry its own
  * color/lineweight/dashArray. If absent, we fall back to the owning layer's
@@ -27,6 +31,7 @@ export function renderBackgroundDrawing(
   ctx: CanvasRenderingContext2D,
   bg: BackgroundDrawing,
   opacity: number,
+  zoom: number,
   hiddenLayers?: Set<string>,
 ): void {
   if (opacity <= 0) return;
@@ -42,6 +47,12 @@ export function renderBackgroundDrawing(
     if (hiddenLayers?.has(name)) return true;
     return false;
   };
+
+  // Caller has applied ctx.scale(zoom, zoom). lineweight stored in cm needs
+  // a screen-px floor of 0.5px so very thin lines remain visible at low zoom.
+  // ctx.lineWidth is in canvas-units (cm), so the floor in cm is 0.5 / zoom.
+  const safeZoom = Math.max(zoom, 0.0001);
+  const minLineCm = 0.5 / safeZoom;
 
   ctx.save();
   ctx.globalAlpha = opacity;
@@ -75,7 +86,7 @@ export function renderBackgroundDrawing(
     const layer = layerMap.get(p.layer);
     const style = resolveStyle(p, layer);
     ctx.strokeStyle = style.color;
-    ctx.lineWidth = style.lineweight;
+    ctx.lineWidth = Math.max(minLineCm, style.lineweight);
     ctx.setLineDash(style.dashArray ?? []);
     ctx.beginPath();
     ctx.moveTo(p.points[0], p.points[1]);

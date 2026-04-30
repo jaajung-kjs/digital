@@ -76,7 +76,8 @@ export function exportReportToCSV(report: ConstructionReport): void {
   csv += `총 노무,,"${report.totalLaborHours}"\n`;
 
   csv += '\n=== 변경 내역 ===\n';
-  csv += '구분,작업,항목명,자재코드,수량,단위,연장(m)\n';
+  // CM-B: d.length 는 cm 단위 (캔버스 1 unit = 1 cm).
+  csv += '구분,작업,항목명,자재코드,수량,단위,연장(cm)\n';
   for (const d of report.diff) {
     csv += `${esc(d.type)},${actionLabel(d.action)},${esc(d.name)},${esc(d.materialCategoryCode ?? '')},${d.quantity},${esc(d.unit)},${d.length ?? ''}\n`;
   }

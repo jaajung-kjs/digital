@@ -27,9 +27,10 @@ import { DraftRecoveryDialog } from './modals/DraftRecoveryDialog';
 import { CableEndpointPickerHost } from './CableEndpointPickerHost';
 import { RackModuleDialog } from '../../rack/components/RackModuleDialog';
 
+// CM-B: scaleRatio 폐기 — CablePathOverlay 가 더 이상 인자가 필요 없다.
+// (직접 import 해서 쓰지만 명명 일관성을 위해 wrapper 유지)
 function CablePathOverlayWrapper({ canvasRef }: { canvasRef: React.RefObject<HTMLCanvasElement | null> }) {
-  const scaleRatio = useEditorStore((s) => s.scaleRatio);
-  return <CablePathOverlay canvasRef={canvasRef} scaleRatio={scaleRatio} />;
+  return <CablePathOverlay canvasRef={canvasRef} />;
 }
 
 function ToolStatusBar() {
@@ -167,7 +168,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       if (draft.metadata) {
         if (draft.metadata.gridSize) useEditorStore.getState().setGridSize(draft.metadata.gridSize);
         if (draft.metadata.majorGridSize) useEditorStore.getState().setMajorGridSize(draft.metadata.majorGridSize);
-        if (draft.metadata.scaleRatio !== undefined) useEditorStore.getState().setScaleRatio(draft.metadata.scaleRatio);
+        // CM-B: scaleRatio 폐기 — draft.metadata.scaleRatio 가 있어도 무시.
       }
       useEditorStore.getState().setHasChanges(true);
     } catch { /* ignore */ }
@@ -198,7 +199,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
           metadata: {
             gridSize: state.gridSize,
             majorGridSize: state.majorGridSize,
-            scaleRatio: state.scaleRatio,
           },
           savedAt: Date.now(),
         };

@@ -60,10 +60,12 @@ export function useCanvas(
     if (floorPlan.backgroundDrawing) {
       // DWG-C: hiddenBgLayers is the live user-toggled set. The renderer
       // applies it on top of layer.isVisible (frozen/off at import time).
+      // CM-B: scale 인자로 lineweight 의 화면 px 환산값을 산출.
       renderBackgroundDrawing(
         ctx,
         floorPlan.backgroundDrawing,
         floorPlan.backgroundOpacity ?? 0.3,
+        scale,
         editorState.hiddenBgLayers,
       );
     }

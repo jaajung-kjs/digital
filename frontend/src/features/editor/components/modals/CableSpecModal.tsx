@@ -9,16 +9,17 @@ import { generateTempId } from '../../../../utils/idHelpers';
 import { MaterialSelectionModal } from '../MaterialSelectionModal';
 
 export function CableSpecModalWrapper() {
-  const scaleRatio = useEditorStore((s) => s.scaleRatio);
-  return <CableSpecModal scaleRatio={scaleRatio} />;
+  return <CableSpecModal />;
 }
 
 /**
  * P9: cable category picker shown after the user finishes drawing source →
  * waypoints → target. Categories filtered by `preselectedCableDisplayGroup`
  * (sidebar pill), or all categories when no group is preselected.
+ *
+ * CM-B: pathPoints 자체가 cm 단위이므로 scaleRatio 인자 없이 길이 계산.
  */
-function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
+function CableSpecModal() {
   const phase = useCableDrawingStore((s) => s.phase);
   const addCable = useEditorStore((s) => s.addCable);
   const preselectedGroup = useEditorStore(
@@ -53,15 +54,8 @@ function CableSpecModal({ scaleRatio }: { scaleRatio: number | null }) {
     const pathPoints = store.getPathPoints();
     const cableType = getCableTypeFromMaterial(selectedCat.code);
 
-    let pathLength = 0;
-    let bufferLength = 4;
-    let totalLength = 4;
-    if (scaleRatio && scaleRatio > 0) {
-      const calc = calculatePathLength(pathPoints, scaleRatio);
-      pathLength = calc.pathLength;
-      bufferLength = calc.bufferLength;
-      totalLength = calc.totalLength;
-    }
+    // pathPoints 가 cm 좌표 — calculatePathLength 가 cm 길이를 직접 돌려준다.
+    const { pathLength, bufferLength, totalLength } = calculatePathLength(pathPoints);
 
     // For OFD ports we attach the fiberPath via either side. The model uses
     // single `fiberPathId / fiberPortNumber` fields so target-side wins when
