@@ -22,22 +22,31 @@ cd "$ROOT"
 echo "▶ Pulling postgres:15-alpine for $PLATFORM …"
 docker pull --platform "$PLATFORM" postgres:15-alpine
 
+# `--provenance=false`: Docker Desktop 27+ attaches an attestation manifest by
+# default which `docker save` cannot serialise into a single-arch archive
+# ("unable to create manifests file"). Disabling provenance keeps the output
+# a plain image manifest that `docker load` / `podman load` accept anywhere.
 echo "▶ Building digital-backend:latest …"
 docker buildx build --platform "$PLATFORM" \
+  --provenance=false \
   -t digital-backend:latest \
   -f backend/Dockerfile backend/ \
   --load
 
 echo "▶ Building digital-frontend:latest …"
 docker buildx build --platform "$PLATFORM" \
+  --provenance=false \
   -t digital-frontend:latest \
   -f frontend/Dockerfile frontend/ \
   --load
 
+# `--platform`: the host is arm64 (Apple Silicon) but the cached image is a
+# multi-arch index, so docker save defaults to the host arch's variant. We
+# explicitly pin amd64 since the deploy target is RHEL 9.4 / amd64.
 echo "▶ Saving images to $OUT …"
-docker save postgres:15-alpine        | gzip > "$OUT/postgres.tar.gz"
-docker save digital-backend:latest    | gzip > "$OUT/backend.tar.gz"
-docker save digital-frontend:latest   | gzip > "$OUT/frontend.tar.gz"
+docker save --platform "$PLATFORM" postgres:15-alpine        | gzip > "$OUT/postgres.tar.gz"
+docker save --platform "$PLATFORM" digital-backend:latest    | gzip > "$OUT/backend.tar.gz"
+docker save --platform "$PLATFORM" digital-frontend:latest   | gzip > "$OUT/frontend.tar.gz"
 
 cp "$ROOT/docker-compose.prod.yml" "$OUT/"
 cp "$ROOT/.env.prod.example"      "$OUT/.env.example"
