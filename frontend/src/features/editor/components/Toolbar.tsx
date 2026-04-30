@@ -14,9 +14,10 @@ interface ToolbarProps {
   isSaving: boolean;
   onToggleHistory?: () => void;
   onToggleSettings?: () => void;
+  onToggleLayers?: () => void;
 }
 
-export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory, onToggleSettings }: ToolbarProps) {
+export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory, onToggleSettings, onToggleLayers }: ToolbarProps) {
   const hasChanges = useEditorStore((s) => s.hasChanges);
   const showLengths = useEditorStore((s) => s.showLengths);
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
@@ -162,6 +163,17 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
           </button>
 
           <div className="border-l h-6 mx-2" />
+
+          {onToggleLayers && floorPlan.backgroundDrawing && (
+            <button onClick={onToggleLayers} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600" title="배경 레이어">
+              {/* Stacked layers icon — ✱ matches the panel header */}
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6l8-4 8 4-8 4-8-4z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12l8 4 8-4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 18l8 4 8-4" />
+              </svg>
+            </button>
+          )}
 
           {onToggleSettings && !snapshotActive && (
             <button onClick={onToggleSettings} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600" title="도면 설정">
