@@ -181,6 +181,17 @@ interface PlanRackModuleInput {
   sortOrder?: number;
 }
 
+/**
+ * Minimal shape we rely on from the parsed DWG. The full BackgroundDrawing
+ * lives in `dwgImport.service.ts`; everything beyond `bounds` and `source`
+ * passes through verbatim to the JSON column.
+ */
+type BackgroundDrawingInput = {
+  source: { fileName: string; importedAt: string; fileType: 'DWG' | 'DXF' };
+  bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  [k: string]: unknown;
+};
+
 export interface UpdatePlanInput {
   canvasWidth?: number;
   canvasHeight?: number;
@@ -189,6 +200,8 @@ export interface UpdatePlanInput {
   backgroundColor?: string;
   scaleRatio?: number | null;
   backgroundOpacity?: number;
+  /** 3-state: undefined = unchanged, null = clear, object = replace. */
+  backgroundDrawing?: BackgroundDrawingInput | null;
   equipment?: PlanEquipmentInput[];
   rackModules?: PlanRackModuleInput[];
   cables?: PlanCableInput[];
@@ -550,6 +563,9 @@ class FloorService {
         (input.majorGridSize !== undefined && input.majorGridSize !== floor.majorGridSize) ||
         (input.backgroundColor !== undefined && input.backgroundColor !== floor.backgroundColor);
       if (canvasChanged) hasStructuralChange = true;
+      // Background drawing change (import / replace / clear) is structural —
+      // we want a versioned snapshot so users can roll back.
+      if (input.backgroundDrawing !== undefined) hasStructuralChange = true;
 
       // ── Step 3: apply mutations ──
       if (deleteCableIds.length > 0) {
@@ -903,16 +919,38 @@ class FloorService {
       }
 
       // ── Step 4: bump floor ──
+      // Background drawing patch (3-state) + auto-expand canvas if the
+      // imported drawing is bigger than the current canvas. The expansion
+      // logic was previously in dwgImport.service.ts's commit=true branch;
+      // it now lives here so DWG changes are part of the same atomic save.
+      let effectiveCanvasW = input.canvasWidth;
+      let effectiveCanvasH = input.canvasHeight;
+      if (input.backgroundDrawing) {
+        const bounds = input.backgroundDrawing.bounds;
+        const expandW = Math.max(effectiveCanvasW ?? floor.canvasWidth, Math.ceil(bounds.maxX));
+        const expandH = Math.max(effectiveCanvasH ?? floor.canvasHeight, Math.ceil(bounds.maxY));
+        if (expandW !== floor.canvasWidth) effectiveCanvasW = expandW;
+        if (expandH !== floor.canvasHeight) effectiveCanvasH = expandH;
+      }
+
       const updated = await tx.floor.update({
         where: { id },
         data: {
-          canvasWidth: input.canvasWidth,
-          canvasHeight: input.canvasHeight,
+          canvasWidth: effectiveCanvasW,
+          canvasHeight: effectiveCanvasH,
           gridSize: input.gridSize,
           majorGridSize: input.majorGridSize,
           backgroundColor: input.backgroundColor,
           ...(input.scaleRatio !== undefined ? { scaleRatio: input.scaleRatio } : {}),
           ...(input.backgroundOpacity !== undefined ? { backgroundOpacity: input.backgroundOpacity } : {}),
+          ...(input.backgroundDrawing !== undefined
+            ? {
+                backgroundDrawing:
+                  input.backgroundDrawing === null
+                    ? Prisma.JsonNull
+                    : (input.backgroundDrawing as unknown as Prisma.InputJsonValue),
+              }
+            : {}),
           ...(hasStructuralChange ? { version: { increment: 1 } } : {}),
           updatedById: userId,
         },

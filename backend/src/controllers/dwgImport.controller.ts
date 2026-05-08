@@ -28,11 +28,15 @@ function parseBool(raw: unknown, def = false): boolean {
 
 export const dwgImportController = {
   /**
-   * POST /api/floors/:id/background/import
+   * POST /api/floors/:id/background/import — parse-only.
+   *
+   * Returns the parsed BackgroundDrawing JSON. The caller stages it client-side
+   * and commits via PUT /api/floors/:id/plan (backgroundDrawing field) so DWG
+   * import lives inside the same git-like draft envelope as equipment/cables.
+   *
    * multipart/form-data:
    *   file: .dwg or .dxf
    *   mode: 'smart' | 'advanced'
-   *   commit: 'true' | 'false'
    *   layers: comma-separated names or JSON array (advanced mode)
    *   includeOutline / includeLabels: bool (smart mode)
    *   scaleMmPerUnit: number (optional override)
@@ -48,9 +52,14 @@ export const dwgImportController = {
         throw new ValidationError(`알 수 없는 mode: ${mode}`);
       }
 
-      const result = await dwgImportService.importToFloor(floorId, file.originalname, file.buffer, {
+      // Multer/Busboy decodes multipart filenames as latin1 by default, so a
+      // Korean filename like `평면도.dwg` arrives as mojibake. Re-decode the
+      // raw bytes as UTF-8 to recover the original characters before any
+      // downstream code (or the persisted `source.fileName`) sees it.
+      const filename = Buffer.from(file.originalname, 'latin1').toString('utf-8');
+
+      const result = await dwgImportService.importToFloor(floorId, filename, file.buffer, {
         mode,
-        commit: parseBool(req.body.commit, false),
         layers: parseLayers(req.body.layers),
         includeOutline: req.body.includeOutline == null ? undefined : parseBool(req.body.includeOutline, true),
         includeLabels: req.body.includeLabels == null ? undefined : parseBool(req.body.includeLabels, true),
@@ -58,34 +67,6 @@ export const dwgImportController = {
       });
 
       res.json({ data: result });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * DELETE /api/floors/:id/background — clear imported drawing
-   */
-  async clear(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      await dwgImportService.clearBackground(id);
-      res.status(204).send();
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * PATCH /api/floors/:id/background/opacity { opacity: 0..1 }
-   */
-  async setOpacity(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const { opacity } = req.body;
-      if (typeof opacity !== 'number') throw new ValidationError('opacity는 숫자여야 합니다.');
-      await dwgImportService.setOpacity(id, opacity);
-      res.status(204).send();
     } catch (error) {
       next(error);
     }

@@ -214,7 +214,6 @@ export interface BackgroundDrawing {
 
 export interface DwgImportResult {
   backgroundDrawing: BackgroundDrawing;
-  committed: boolean;
 }
 
 // ============================================
@@ -287,6 +286,8 @@ export interface UpdateFloorPlanRequest {
   backgroundColor?: string;
   // CM-B: scaleRatio 폐기 — 더 이상 클라이언트가 보내지 않는다.
   backgroundOpacity?: number;
+  // 3-state: undefined = unchanged, null = clear, object = replace.
+  backgroundDrawing?: BackgroundDrawing | null;
   equipment?: UpdateFloorPlanEquipmentInput[];
   rackModules?: UpdateFloorPlanRackModuleInput[];
   cables?: UpdateFloorPlanCableInput[];

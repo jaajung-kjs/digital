@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type {
+  BackgroundDrawing,
   EditorTool,
   FloorPlanEquipment,
 } from '../../../types/floorPlan';
@@ -111,6 +112,16 @@ export interface EditorStoreState {
   pendingFiberPaths: PendingFiberPath[];
   deletedFiberPathIds: string[];
 
+  // Staged background drawing & opacity. Like the rest of the editor, DWG
+  // changes (import / clear / opacity) are git-like — they live here until
+  // the user clicks 저장, then flushed via PUT /floors/:id/plan.
+  // 3-state semantics:
+  //   undefined = unchanged from server (server's value wins),
+  //   null      = user staged a clear,
+  //   object    = user staged an import or replacement.
+  stagedBackgroundDrawing: BackgroundDrawing | null | undefined;
+  stagedBackgroundOpacity: number | undefined;
+
   /** null = not yet initialized (show all); [] = user explicitly hid all */
   connectionFilters: ConnectionFilterKey[] | null;
 
@@ -214,6 +225,15 @@ export interface EditorStoreActions {
   removePendingFiberPath: (id: string) => void;
   deleteFiberPath: (id: string) => void;
 
+  /** Stage a freshly-parsed DWG. Caller is responsible for fitting viewport. */
+  stageBackgroundDrawing: (drawing: BackgroundDrawing) => void;
+  /** Stage a clear (will null `Floor.backgroundDrawing` on next save). */
+  stageBackgroundClear: () => void;
+  /** Stage an opacity change (0..1). */
+  stageBackgroundOpacity: (value: number) => void;
+  /** Reset both staged background fields to undefined (server's value wins). */
+  resetStagedBackground: () => void;
+
   deleteEquipmentWithCascade: (equipmentId: string) => void;
 
   setConnectionFilters: (filters: ConnectionFilterKey[] | null) => void;
@@ -302,6 +322,8 @@ const initialState: EditorStoreState = {
   pendingLogs: [],
   pendingFiberPaths: [],
   deletedFiberPathIds: [],
+  stagedBackgroundDrawing: undefined,
+  stagedBackgroundOpacity: undefined,
   connectionFilters: null,
   showLengths: false,
   viewportInitialized: false,
@@ -397,7 +419,14 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   })),
   clearPendingData: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);
-    return { pendingUploads: [], pendingLogs: [], pendingFiberPaths: [], deletedFiberPathIds: [] };
+    return {
+      pendingUploads: [],
+      pendingLogs: [],
+      pendingFiberPaths: [],
+      deletedFiberPathIds: [],
+      stagedBackgroundDrawing: undefined,
+      stagedBackgroundOpacity: undefined,
+    };
   }),
 
   addPendingFiberPath: (fp) => set((state) => ({
@@ -412,6 +441,19 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     deletedFiberPathIds: [...state.deletedFiberPathIds, id],
     hasChanges: true,
   })),
+
+  // Staging a drawing or a clear changes the canvas geometry — flip
+  // viewportInitialized off so the viewport-init effect re-runs and
+  // fits to the new content (option C: auto-fit on stage). Opacity
+  // doesn't change geometry so no re-fit needed.
+  stageBackgroundDrawing: (drawing) =>
+    set({ stagedBackgroundDrawing: drawing, hasChanges: true, viewportInitialized: false }),
+  stageBackgroundClear: () =>
+    set({ stagedBackgroundDrawing: null, hasChanges: true, viewportInitialized: false }),
+  stageBackgroundOpacity: (value) =>
+    set({ stagedBackgroundOpacity: Math.max(0, Math.min(1, value)), hasChanges: true }),
+  resetStagedBackground: () =>
+    set({ stagedBackgroundDrawing: undefined, stagedBackgroundOpacity: undefined }),
 
   deleteEquipmentWithCascade: (equipmentId) => set((state) => {
     // P9: also drop rack modules belonging to this rack and any cable

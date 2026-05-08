@@ -9,18 +9,20 @@ import type { DwgImportResult } from '../types/floorPlan';
  *
  * CM-B: scaleMmPerUnit 옵션 폐기 — 캔버스 1 unit = 1 cm 통일 후 의미 없음.
  * (backend 는 mm 좌표를 ÷10 으로 cm 변환하여 실측 보존.)
+ *
+ * Staged-DWG 전환 이후: backend 는 항상 parse-only 로 동작한다. 실제 적용
+ * (clear / opacity / replace) 은 PUT /floors/:id/plan 의 backgroundDrawing /
+ * backgroundOpacity 필드로 처리된다 — 따라서 setOpacity / clearBackground 같은
+ * 즉시반영 메서드는 더 이상 존재하지 않는다.
  */
 export interface ImportOptions {
   mode: 'smart' | 'advanced';
-  commit: boolean;
   /** advanced 모드에서만 사용 — 화이트리스트할 레이어 이름들. */
   layers?: string[];
 }
 
 export const dwgImportApi = {
-  /**
-   * 도면 파일을 업로드 + 파싱 + (commit 옵션) — preview 또는 commit 둘 다 처리.
-   */
+  /** 도면 파일 파싱 — 결과는 staging 으로 들어가고 저장 시점에 커밋된다. */
   async importToFloor(
     floorId: string,
     file: File,
@@ -29,7 +31,6 @@ export const dwgImportApi = {
     const form = new FormData();
     form.append('file', file);
     form.append('mode', options.mode);
-    form.append('commit', String(options.commit));
     if (options.layers && options.layers.length > 0) {
       form.append('layers', JSON.stringify(options.layers));
     }
@@ -40,13 +41,5 @@ export const dwgImportApi = {
       { headers: { 'Content-Type': 'multipart/form-data' } },
     );
     return data.data;
-  },
-
-  async clearBackground(floorId: string): Promise<void> {
-    await api.delete(`/floors/${floorId}/background`);
-  },
-
-  async setOpacity(floorId: string, opacity: number): Promise<void> {
-    await api.patch(`/floors/${floorId}/background/opacity`, { opacity });
   },
 };

@@ -1,9 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { dwgImportApi, type ImportOptions } from '../../../services/dwgImportApi';
+import { useEditorStore } from '../stores/editorStore';
 import type { DwgImportResult, BgLayer } from '../../../types/floorPlan';
 
-type Stage = 'upload' | 'preview' | 'committing' | 'done' | 'error';
+type Stage = 'upload' | 'preview' | 'done' | 'error';
 
 interface Props {
   floorId: string;
@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function DwgImportModal({ floorId, onClose, onImported }: Props) {
-  const queryClient = useQueryClient();
+  const stageBackgroundDrawing = useEditorStore((s) => s.stageBackgroundDrawing);
   const [stage, setStage] = useState<Stage>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<DwgImportResult | null>(null);
@@ -26,7 +26,7 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
       setBusy(true);
       setErrorMessage(null);
       try {
-        const opts: ImportOptions = { mode: 'smart', commit: false };
+        const opts: ImportOptions = { mode: 'smart' };
         const r = await dwgImportApi.importToFloor(floorId, f, opts);
         setResult(r);
         setStage('preview');
@@ -52,26 +52,16 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
     [parseFile],
   );
 
-  const handleCommit = useCallback(async () => {
-    if (!file) return;
-    setStage('committing');
-    setBusy(true);
-    try {
-      await dwgImportApi.importToFloor(floorId, file, { mode: 'smart', commit: true });
-      await queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
-      setStage('done');
-      onImported();
-      setTimeout(onClose, 600);
-    } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
-        ?? '저장에 실패했습니다.';
-      setErrorMessage(msg);
-      setStage('error');
-    } finally {
-      setBusy(false);
-    }
-  }, [file, floorId, queryClient, onClose, onImported]);
+  // Stage the parsed DWG into the editor store. The viewport-init effect in
+  // useFloorPlanData notices the new `source.importedAt` and re-fits.
+  // Actual DB write happens on the next 저장 click via PUT /floors/:id/plan.
+  const handleCommit = useCallback(() => {
+    if (!result) return;
+    stageBackgroundDrawing(result.backgroundDrawing);
+    setStage('done');
+    onImported();
+    setTimeout(onClose, 400);
+  }, [result, stageBackgroundDrawing, onClose, onImported]);
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -144,12 +134,10 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
           </div>
         )}
 
-        {stage === 'committing' && (
-          <div className="flex-1 flex items-center justify-center text-gray-600">저장 중...</div>
-        )}
-
         {stage === 'done' && (
-          <div className="flex-1 flex items-center justify-center text-green-600">완료!</div>
+          <div className="flex-1 flex items-center justify-center text-green-600">
+            가져왔습니다 — 저장 버튼을 눌러야 영구 적용됩니다.
+          </div>
         )}
 
         {stage === 'error' && (
@@ -182,7 +170,7 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
               disabled={busy}
               className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              저장
+              가져오기
             </button>
           </div>
         )}
