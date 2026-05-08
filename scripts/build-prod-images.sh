@@ -90,6 +90,17 @@ cd "$(dirname "$0")"
 
 NETWORK=ict-twin-net
 
+# Rootful podman by default. Rootless podman on RHEL adds slirp4netns
+# (single-thread userspace network proxy), rootlessport (per-port Go proxy),
+# and fuse-overlayfs (userspace storage) — all of which compound to make a
+# 4-core/8GB VM feel unusable even on idle browsers. Rootful uses kernel
+# bridge + native overlay and behaves like docker. Set ROOTLESS=1 to opt out.
+if [[ "${ROOTLESS:-0}" == "1" ]]; then
+  PODMAN="podman"
+else
+  PODMAN="sudo podman"
+fi
+
 # Decode only when the .txt is newer than the previously-decoded artefact.
 # Re-uploading a single .txt overwrites its mtime, triggering a re-decode.
 decode_if_changed() {
@@ -127,8 +138,8 @@ load_if_changed() {
     echo "  · $img already loaded"
     return
   fi
-  echo "  · podman load -i $img"
-  podman load -i "$img"
+  echo "  · $PODMAN load -i $img"
+  $PODMAN load -i "$img"
   touch "$stamp"
   printf -v "$var" "1"
   declare -g "$var"
@@ -169,13 +180,13 @@ if grep -qE '__CHANGE_ME' .env; then
 fi
 
 # Network + volumes (idempotent — these create only when missing)
-podman network exists "$NETWORK"        || podman network create "$NETWORK"
-podman volume  exists postgres_data     || podman volume  create postgres_data
-podman volume  exists uploads_data      || podman volume  create uploads_data
+$PODMAN network exists "$NETWORK"        || $PODMAN network create "$NETWORK"
+$PODMAN volume  exists postgres_data     || $PODMAN volume  create postgres_data
+$PODMAN volume  exists uploads_data      || $PODMAN volume  create uploads_data
 
 run_postgres() {
-  podman rm -f ict-twin-postgres 2>/dev/null || true
-  podman run -d --name ict-twin-postgres \
+  $PODMAN rm -f ict-twin-postgres 2>/dev/null || true
+  $PODMAN run -d --name ict-twin-postgres \
     --network "$NETWORK" \
     --network-alias postgres \
     --restart unless-stopped \
@@ -191,8 +202,8 @@ run_postgres() {
 }
 
 run_backend() {
-  podman rm -f ict-twin-backend 2>/dev/null || true
-  podman run -d --name ict-twin-backend \
+  $PODMAN rm -f ict-twin-backend 2>/dev/null || true
+  $PODMAN run -d --name ict-twin-backend \
     --network "$NETWORK" \
     --network-alias backend \
     --restart unless-stopped \
@@ -209,10 +220,13 @@ run_backend() {
 }
 
 run_frontend() {
-  podman rm -f ict-twin-frontend 2>/dev/null || true
-  podman run -d --name ict-twin-frontend \
+  $PODMAN rm -f ict-twin-frontend 2>/dev/null || true
+  # In rootful mode the container runs as real root → can bind 80 freely,
+  # no per-netns sysctl tweak needed. The flag is harmless either way.
+  $PODMAN run -d --name ict-twin-frontend \
     --network "$NETWORK" \
     --restart unless-stopped \
+    --sysctl net.ipv4.ip_unprivileged_port_start=80 \
     -p "${FRONTEND_PORT:-80}:80" \
     digital-frontend:latest
 }
@@ -222,19 +236,26 @@ wait_for_healthy() {
   echo "▶ waiting for $container healthy …"
   while (( tries-- > 0 )); do
     local s
-    s="$(podman inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || echo none)"
+    s="$($PODMAN inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || echo none)"
     [[ "$s" == "healthy" ]] && return 0
     sleep 2
   done
   echo "❌ $container did not become healthy"
-  podman logs --tail=40 "$container" || true
+  $PODMAN logs --tail=40 "$container" || true
   return 1
 }
 
-# Container existence checks — first deploy starts everything, partial
-# updates restart only what changed.
+# Container "needs to be (re)created" check.
+# Returns true when the container is missing OR exists but is not running.
+# After a host reboot podman leaves containers in Created/Exited state — by
+# treating "exists but not running" the same as "missing", a re-run of this
+# script after a reboot brings every container back up cleanly.
 needs_create() {
-  ! podman container exists "$1"
+  local name="$1"
+  $PODMAN container exists "$name" || return 0
+  local state
+  state=$($PODMAN inspect --format '{{.State.Status}}' "$name" 2>/dev/null)
+  [[ "$state" != "running" ]]
 }
 
 if needs_create ict-twin-postgres || (( RESTART_POSTGRES )); then
@@ -264,8 +285,8 @@ fi
 echo
 echo "✅ Done. Volumes preserved across deploys."
 echo "Health check:"
-echo "    podman ps"
-echo "    podman logs --tail=20 ict-twin-backend"
+echo "    $PODMAN ps"
+echo "    $PODMAN logs --tail=20 ict-twin-backend"
 echo "    curl http://localhost/api/health"
 DECODE
 chmod +x "$TMPDIR/decode-and-deploy.sh"

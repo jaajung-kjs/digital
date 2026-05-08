@@ -8,7 +8,7 @@
  * without updating frontend/src/types/constructionReport.ts at the same time.
  */
 
-import { CONSTRUCTION_TEMPLATES, SURCHARGE_RULES, type AccessoryRule } from '../config/constructionTemplates';
+import { CONSTRUCTION_TEMPLATES, SURCHARGE_RULES, type AccessoryRule } from '../config/constructionTemplates.js';
 
 // ============================================================
 // Types (mirror frontend/src/types/constructionReport.ts)
