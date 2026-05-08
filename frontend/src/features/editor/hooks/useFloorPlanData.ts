@@ -70,8 +70,18 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     setHasChanges, setViewportInitialized,
     setViewport, viewportInitialized,
     initHistory,
+    stagedBackgroundDrawing, stagedBackgroundOpacity,
   } = useEditorStore();
-  const { fitToContent, loadViewportState, saveViewportState } = useViewport(floorId);
+  const { fitToContent, loadViewportState, saveViewportState, clearViewportState } = useViewport(floorId);
+
+  // Track the previous backgroundDrawing **identity** across renders. We use
+  // `source.importedAt` (or `null` when absent) instead of the object
+  // reference itself: every floorPlan refetch creates a brand-new object,
+  // including when only `backgroundOpacity` changed — that would falsely
+  // trigger "DWG replaced" and re-fit, jumping the viewport while the user
+  // drags the opacity slider. importedAt is stamped once at import and
+  // stable across refetches. `undefined` = never initialized (first run).
+  const prevBgIdRef = useRef<string | null | undefined>(undefined);
 
   const { data: floor, isLoading: floorLoading } = useQuery({
     queryKey: ['floor', floorId],
@@ -177,6 +187,26 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         id: resolveModuleId(m.id),
         rackEquipmentId: resolveId(m.rackEquipmentId),
       })));
+
+      // Optimistically push the staged background into the floorPlan cache
+      // BEFORE clearPendingData wipes the staged values. Without this, the
+      // canvas would briefly fall back to the pre-save floorPlan in the gap
+      // between clearPendingData and the refetch landing.
+      const stagedBgNow = useEditorStore.getState().stagedBackgroundDrawing;
+      const stagedOpacityNow = useEditorStore.getState().stagedBackgroundOpacity;
+      if (stagedBgNow !== undefined || stagedOpacityNow !== undefined) {
+        queryClient.setQueryData<FloorPlanDetail | undefined>(
+          ['floorPlan', floorId],
+          (old) => {
+            if (!old) return old;
+            return {
+              ...old,
+              ...(stagedBgNow !== undefined ? { backgroundDrawing: stagedBgNow } : {}),
+              ...(stagedOpacityNow !== undefined ? { backgroundOpacity: stagedOpacityNow } : {}),
+            };
+          },
+        );
+      }
 
       // Clear pending data and invalidate queries
       useEditorStore.getState().clearPendingData();
@@ -286,23 +316,46 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         requestAnimationFrame(tryInit);
         return;
       }
-      const savedViewport = loadViewportState();
+      // Effective background = staged value (if user staged one this session)
+      // ?? server. Staging produces a fresh `source.importedAt` from the
+      // parser, so the identity check below detects staged uploads too.
+      const effectiveBg =
+        stagedBackgroundDrawing !== undefined
+          ? stagedBackgroundDrawing
+          : floorPlan.backgroundDrawing ?? null;
+      const newBgId = effectiveBg?.source?.importedAt ?? null;
+      const isFirstRun = prevBgIdRef.current === undefined;
+      const bgChangedAfterInit = !isFirstRun && newBgId !== prevBgIdRef.current;
+
+      // Same-floor refetch with the same DWG (opacity slider, post-save sync,
+      // etc.) — the viewport store already has whatever zoom/pan the user is
+      // currently looking at. Restoring from localStorage here would snap
+      // back to a one-step-old value and make the viewport flicker. Skip.
+      if (!isFirstRun && !bgChangedAfterInit) {
+        setViewportInitialized(true);
+        return;
+      }
+
+      if (bgChangedAfterInit) clearViewportState();
+
+      const savedViewport = bgChangedAfterInit ? null : loadViewportState();
       if (savedViewport && savedViewport.zoom > 0) {
         setViewport(savedViewport.zoom, savedViewport.panX ?? 0, savedViewport.panY ?? 0);
       } else {
         fitToContent(
           localEquipment,
-          floorPlan.backgroundDrawing,
+          effectiveBg,
           { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight },
           container.clientWidth,
           container.clientHeight,
         );
       }
+      prevBgIdRef.current = newBgId;
       setViewportInitialized(true);
     };
     tryInit();
     return () => { cancelled = true; };
-  }, [floorPlan, localEquipment, viewportInitialized, containerRef, fitToContent, loadViewportState, setViewport, setViewportInitialized]);
+  }, [floorPlan, localEquipment, viewportInitialized, containerRef, fitToContent, loadViewportState, clearViewportState, setViewport, setViewportInitialized, stagedBackgroundDrawing]);
 
   // Save viewport on unmount + beforeunload. Skip the save when the viewport
   // never finished initializing — otherwise we'd persist the store's default
@@ -343,6 +396,11 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       canvasHeight: floorPlan.canvasHeight,
       gridSize,
       majorGridSize,
+      // Include staged background only when user changed it. The 3-state
+      // (undefined / null / object) round-trips through JSON cleanly because
+      // we omit the key entirely when undefined.
+      ...(stagedBackgroundDrawing !== undefined ? { backgroundDrawing: stagedBackgroundDrawing } : {}),
+      ...(stagedBackgroundOpacity !== undefined ? { backgroundOpacity: stagedBackgroundOpacity } : {}),
       equipment: localEquipment.map(eq => ({
         id: isTempId(eq.id) ? null : eq.id,
         tempId: isTempId(eq.id) ? eq.id : undefined,

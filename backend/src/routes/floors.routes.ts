@@ -100,6 +100,28 @@ const rackModuleSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
+// Parsed DWG/DXF output. We re-validate the minimum shape the service depends
+// on (`bounds` for canvas auto-expansion, `source` for identity) and
+// passthrough the rest — the JSON is produced by our own /background/import
+// parser and consumed verbatim by the renderer.
+const backgroundDrawingSchema = z.object({
+  source: z.object({
+    fileName: z.string(),
+    importedAt: z.string(),
+    fileType: z.enum(['DWG', 'DXF']),
+  }),
+  bounds: z.object({
+    minX: z.number(),
+    minY: z.number(),
+    maxX: z.number(),
+    maxY: z.number(),
+  }),
+  layers: z.array(z.unknown()),
+  paths: z.array(z.unknown()),
+  texts: z.array(z.unknown()),
+  filled: z.array(z.unknown()),
+}).passthrough();
+
 const bulkUpdatePlanSchema = z.object({
   canvasWidth: z.number().int().min(100).max(10000).optional(),
   canvasHeight: z.number().int().min(100).max(10000).optional(),
@@ -108,6 +130,8 @@ const bulkUpdatePlanSchema = z.object({
   backgroundColor: z.string().max(20).optional(),
   scaleRatio: z.number().positive().nullish(),
   backgroundOpacity: z.number().min(0).max(1).optional(),
+  // 3-state semantics — absent: unchanged, null: clear, object: replace.
+  backgroundDrawing: z.union([z.null(), backgroundDrawingSchema]).optional(),
   equipment: z.array(equipmentSchema).optional(),
   rackModules: z.array(rackModuleSchema).optional(),
   cables: z.array(cableSchema).optional(),
@@ -188,7 +212,9 @@ router.delete('/:id/versions/:logId', authenticate, adminOnly, floorController.d
 
 // ==================== DWG Background Drawing ====================
 
-// 도면(DWG/DXF) 임포트 (관리자만, multipart)
+// 도면(DWG/DXF) 파싱 — 항상 parse-only. 실제 적용은 staged 상태로 프론트에
+// 보관됐다가 PUT /:id/plan 의 backgroundDrawing 필드로 커밋된다.
+// (clear/opacity 도 동일하게 PUT /:id/plan 으로 처리되므로 별도 라우트 없음.)
 router.post(
   '/:id/background/import',
   authenticate,
@@ -196,11 +222,5 @@ router.post(
   dwgUpload.single('file'),
   dwgImportController.import
 );
-
-// 임포트된 배경 도면 제거 (관리자만)
-router.delete('/:id/background', authenticate, adminOnly, dwgImportController.clear);
-
-// 배경 투명도 조정 (관리자만)
-router.patch('/:id/background/opacity', authenticate, adminOnly, dwgImportController.setOpacity);
 
 export { router as floorsRouter };

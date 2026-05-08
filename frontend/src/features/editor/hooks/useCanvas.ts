@@ -57,14 +57,23 @@ export function useCanvas(
     ctx.fillStyle = floorPlan.backgroundColor || '#ffffff';
     ctx.fillRect(viewportLeft, viewportTop, canvas.width / scale, canvas.height / scale);
 
-    if (floorPlan.backgroundDrawing) {
+    // Effective background = staged value (if user is editing) ?? server.
+    // 3-state staging: undefined=unchanged, null=staged-clear, object=staged-replace.
+    const effectiveBg =
+      editorState.stagedBackgroundDrawing !== undefined
+        ? editorState.stagedBackgroundDrawing
+        : floorPlan.backgroundDrawing ?? null;
+    const effectiveOpacity =
+      editorState.stagedBackgroundOpacity ?? floorPlan.backgroundOpacity ?? 0.3;
+
+    if (effectiveBg) {
       // DWG-C: hiddenBgLayers is the live user-toggled set. The renderer
       // applies it on top of layer.isVisible (frozen/off at import time).
       // CM-B: scale 인자로 lineweight 의 화면 px 환산값을 산출.
       renderBackgroundDrawing(
         ctx,
-        floorPlan.backgroundDrawing,
-        floorPlan.backgroundOpacity ?? 0.3,
+        effectiveBg,
+        effectiveOpacity,
         scale,
         editorState.hiddenBgLayers,
       );

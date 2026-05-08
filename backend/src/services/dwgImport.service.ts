@@ -1,15 +1,27 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { LibreDwg, Dwg_File_Type } from '@mlightcad/libredwg-web';
 import type { DwgDatabase, DwgEntity } from '@mlightcad/libredwg-web';
-import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// __dirname = backend/src/services → up 3 to project root
-const WASM_DIR = path.resolve(__dirname, '../../../node_modules/@mlightcad/libredwg-web/wasm/');
+// Resolve WASM dir from the actual package location instead of a hardcoded
+// relative path. The compiled output lives in dist/services/, while the
+// source lives in src/services/ — a fixed `../../../` works in dev (hoisted
+// node_modules at project root) but resolves to `/` inside the production
+// container (WORKDIR=/app, so dist/services + ../../../ = /).
+//
+// Resolving via the main entry (rather than `<pkg>/package.json`) avoids the
+// package's `exports` allowlist — libredwg-web only exports the bundle, not
+// `./package.json` or `./wasm/*`, so a direct subpath resolve throws
+// ERR_PACKAGE_PATH_NOT_EXPORTED. The main entry lives at `<pkg>/dist/...`,
+// so going up one level lands on the package root.
+const require = createRequire(import.meta.url);
+const WASM_DIR = path.resolve(
+  path.dirname(require.resolve('@mlightcad/libredwg-web')),
+  '..',
+  'wasm',
+);
 
 // ==================== Types ====================
 
@@ -17,7 +29,6 @@ export type ImportMode = 'smart' | 'advanced';
 
 export interface ImportOptions {
   mode: ImportMode;
-  commit: boolean;
   /** Advanced mode: explicit layer names to include. Smart mode: ignored. */
   layers?: string[];
   /** Smart mode toggles. */
@@ -106,7 +117,6 @@ export interface BackgroundDrawing {
 
 export interface ImportResult {
   backgroundDrawing: BackgroundDrawing;
-  committed: boolean;
 }
 
 // ==================== WASM lifecycle ====================
@@ -1102,43 +1112,7 @@ class DwgImportService {
       filled,
     };
 
-    if (options.commit) {
-      // Auto-expand the floor canvas if the imported drawing is larger.
-      // canvasWidth/canvasHeight are now interpreted as cm too, so they
-      // can be compared directly with the cm-space bounds.
-      const expandedW = Math.max(floor.canvasWidth, Math.ceil(maxX));
-      const expandedH = Math.max(floor.canvasHeight, Math.ceil(maxY));
-      const updateData: Prisma.FloorUpdateInput = {
-        backgroundDrawing: backgroundDrawing as unknown as object,
-      };
-      if (expandedW !== floor.canvasWidth) updateData.canvasWidth = expandedW;
-      if (expandedH !== floor.canvasHeight) updateData.canvasHeight = expandedH;
-      await prisma.floor.update({ where: { id: floorId }, data: updateData });
-    }
-
-    return {
-      backgroundDrawing,
-      committed: options.commit,
-    };
-  }
-
-  async clearBackground(floorId: string): Promise<void> {
-    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
-    if (!floor) throw new NotFoundError('층');
-    await prisma.floor.update({
-      where: { id: floorId },
-      data: { backgroundDrawing: null as unknown as object },
-    });
-  }
-
-  async setOpacity(floorId: string, opacity: number): Promise<void> {
-    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
-    if (!floor) throw new NotFoundError('층');
-    const clamped = Math.max(0, Math.min(1, opacity));
-    await prisma.floor.update({
-      where: { id: floorId },
-      data: { backgroundOpacity: clamped },
-    });
+    return { backgroundDrawing };
   }
 }
 

@@ -150,29 +150,34 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     if (!raw) { setShowDraftDialog(false); return; }
     try {
       const draft = JSON.parse(raw);
-      if (draft.localEquipment) useEditorStore.getState().setLocalEquipment(draft.localEquipment);
-      if (draft.localCables) useEditorStore.getState().setCables(draft.localCables);
+      const store = useEditorStore.getState();
+      if (draft.localEquipment) store.setLocalEquipment(draft.localEquipment);
+      if (draft.localCables) store.setCables(draft.localCables);
       if (draft.pendingLogs) {
-        for (const log of draft.pendingLogs) {
-          useEditorStore.getState().addPendingLog(log);
-        }
+        for (const log of draft.pendingLogs) store.addPendingLog(log);
       }
       if (draft.pendingFiberPaths) {
-        for (const fp of draft.pendingFiberPaths) {
-          useEditorStore.getState().addPendingFiberPath(fp);
-        }
+        for (const fp of draft.pendingFiberPaths) store.addPendingFiberPath(fp);
       }
       if (draft.deletedFiberPathIds) {
-        for (const id of draft.deletedFiberPathIds) {
-          useEditorStore.getState().deleteFiberPath(id);
-        }
+        for (const id of draft.deletedFiberPathIds) store.deleteFiberPath(id);
+      }
+      // Restore staged background (3-state). undefined branch is implicit
+      // — we just don't call any stage action.
+      if (draft.stagedBackgroundDrawing === null) {
+        store.stageBackgroundClear();
+      } else if (draft.stagedBackgroundDrawing) {
+        store.stageBackgroundDrawing(draft.stagedBackgroundDrawing);
+      }
+      if (typeof draft.stagedBackgroundOpacity === 'number') {
+        store.stageBackgroundOpacity(draft.stagedBackgroundOpacity);
       }
       if (draft.metadata) {
-        if (draft.metadata.gridSize) useEditorStore.getState().setGridSize(draft.metadata.gridSize);
-        if (draft.metadata.majorGridSize) useEditorStore.getState().setMajorGridSize(draft.metadata.majorGridSize);
+        if (draft.metadata.gridSize) store.setGridSize(draft.metadata.gridSize);
+        if (draft.metadata.majorGridSize) store.setMajorGridSize(draft.metadata.majorGridSize);
         // CM-B: scaleRatio 폐기 — draft.metadata.scaleRatio 가 있어도 무시.
       }
-      useEditorStore.getState().setHasChanges(true);
+      store.setHasChanges(true);
     } catch { /* ignore */ }
     setShowDraftDialog(false);
   }, [floorId]);
@@ -182,30 +187,59 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     // Reset local state to server data
     useEditorStore.getState().clearPendingData();
     useEditorStore.getState().setHasChanges(false);
+    // Option C: discarding a draft also clears the persisted viewport so the
+    // canvas re-fits to the (possibly different) server-side drawing on the
+    // next viewport-init pass. Without this, users land at a zoom/pan that
+    // was fitted to the now-discarded staged DWG.
+    const viewportKey = `floorplan-viewport-${floorId}-v2`;
+    localStorage.removeItem(viewportKey);
     setShowDraftDialog(false);
   }, [floorId]);
 
-  // Debounced auto-backup to localStorage
+  // Debounced auto-backup to localStorage. Includes staged DWG so a
+  // refresh after upload survives. localStorage cap is ~5MB/origin —
+  // large DWGs may blow the quota; we fall back to saving everything
+  // *except* the DWG so equipment/cables/etc. still recover cleanly.
   useEffect(() => {
     const timer = setInterval(() => {
       const state = useEditorStore.getState();
       if (!state.hasChanges) return;
       const draftKey = `draft-plan-${floorId}`;
+      const draft = {
+        localEquipment: state.localEquipment,
+        localCables: state.localCables,
+        pendingLogs: state.pendingLogs,
+        pendingFiberPaths: state.pendingFiberPaths,
+        deletedFiberPathIds: state.deletedFiberPathIds,
+        stagedBackgroundDrawing: state.stagedBackgroundDrawing,
+        stagedBackgroundOpacity: state.stagedBackgroundOpacity,
+        metadata: {
+          gridSize: state.gridSize,
+          majorGridSize: state.majorGridSize,
+        },
+        savedAt: Date.now(),
+      };
       try {
-        const draft = {
-          localEquipment: state.localEquipment,
-          localCables: state.localCables,
-          pendingLogs: state.pendingLogs,
-          pendingFiberPaths: state.pendingFiberPaths,
-          deletedFiberPathIds: state.deletedFiberPathIds,
-          metadata: {
-            gridSize: state.gridSize,
-            majorGridSize: state.majorGridSize,
-          },
-          savedAt: Date.now(),
-        };
         localStorage.setItem(draftKey, JSON.stringify(draft));
-      } catch { /* quota exceeded or serialization error */ }
+      } catch (err) {
+        if (
+          err instanceof DOMException &&
+          err.name === 'QuotaExceededError' &&
+          draft.stagedBackgroundDrawing
+        ) {
+          // Drop the heavy field, retry. If the slim version also fails,
+          // we just give up this tick — next tick will retry.
+          const slim = { ...draft, stagedBackgroundDrawing: undefined };
+          try {
+            localStorage.setItem(draftKey, JSON.stringify(slim));
+            // eslint-disable-next-line no-console
+            console.warn(
+              '[draft] localStorage quota exceeded — DWG dropped from draft. ' +
+                'On refresh, equipment/cables will recover but the DWG will need to be re-imported.',
+            );
+          } catch { /* both attempts failed */ }
+        }
+      }
     }, 2000);
     return () => clearInterval(timer);
   }, [floorId]);
@@ -223,6 +257,12 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   }, []);
 
   const setHasChanges = useEditorStore(s => s.setHasChanges);
+  const stagedBackgroundDrawing = useEditorStore(s => s.stagedBackgroundDrawing);
+  // Effective drawing — staged value (if user staged one this session)
+  // ?? server. Used by the layers panel so a freshly-imported but
+  // not-yet-saved DWG still drives the layer toggles.
+  const effectiveBackgroundDrawing =
+    stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
 
   /**
    * P9: name-modal commit handler for the kind-based flow. Invoked from
@@ -434,9 +474,9 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 />
               )}
 
-              {showLayers && floorPlan?.backgroundDrawing && (
+              {showLayers && effectiveBackgroundDrawing && (
                 <BackgroundLayersPanel
-                  bg={floorPlan.backgroundDrawing}
+                  bg={effectiveBackgroundDrawing}
                   onClose={() => setShowLayers(false)}
                 />
               )}

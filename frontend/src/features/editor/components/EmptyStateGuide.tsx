@@ -16,12 +16,17 @@ interface EmptyStateGuideProps {
 export function EmptyStateGuide({ floorPlan, onImportClick }: EmptyStateGuideProps) {
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const localCables = useEditorStore((s) => s.localCables);
+  const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
 
   if (!floorPlan) return null;
 
   const hasEquipment = localEquipment.length > 0 || floorPlan.equipment.length > 0;
   const hasCables = localCables.length > 0 || floorPlan.cables.length > 0;
-  const hasBackground = floorPlan.backgroundDrawing != null;
+  // Background can be staged client-side before save — fall through to the
+  // server value only when nothing is staged.
+  const effectiveBackground =
+    stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan.backgroundDrawing;
+  const hasBackground = effectiveBackground != null;
 
   if (hasEquipment || hasCables || hasBackground) return null;
 

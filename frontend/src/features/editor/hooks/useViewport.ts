@@ -83,6 +83,9 @@ export function calculateFitToContent(
  * versioned (`-v2`) so CM-B unit changes invalidate any old px-based
  * positions silently.
  */
+const viewportKey = (floorId: string) =>
+  `floorplan-viewport-${floorId}-${VIEWPORT_KEY_VERSION}`;
+
 export function useViewport(floorId: string | undefined) {
   const { setViewport } = useEditorStore();
 
@@ -105,14 +108,12 @@ export function useViewport(floorId: string | undefined) {
 
   const saveViewportState = useCallback((zoom: number, panX: number, panY: number) => {
     if (!floorId) return;
-    const key = `floorplan-viewport-${floorId}-${VIEWPORT_KEY_VERSION}`;
-    localStorage.setItem(key, JSON.stringify({ zoom, panX, panY }));
+    localStorage.setItem(viewportKey(floorId), JSON.stringify({ zoom, panX, panY }));
   }, [floorId]);
 
   const loadViewportState = useCallback((): { zoom: number; panX: number; panY: number } | null => {
     if (!floorId) return null;
-    const key = `floorplan-viewport-${floorId}-${VIEWPORT_KEY_VERSION}`;
-    const saved = localStorage.getItem(key);
+    const saved = localStorage.getItem(viewportKey(floorId));
     if (!saved) return null;
     try {
       return JSON.parse(saved);
@@ -121,9 +122,15 @@ export function useViewport(floorId: string | undefined) {
     }
   }, [floorId]);
 
+  const clearViewportState = useCallback(() => {
+    if (!floorId) return;
+    localStorage.removeItem(viewportKey(floorId));
+  }, [floorId]);
+
   return {
     fitToContent,
     saveViewportState,
     loadViewportState,
+    clearViewportState,
   };
 }

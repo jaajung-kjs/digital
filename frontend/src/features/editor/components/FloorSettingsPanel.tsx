@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useEditorStore } from '../stores/editorStore';
-import { dwgImportApi } from '../../../services/dwgImportApi';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 
 interface FloorSettingsPanelProps {
@@ -19,6 +17,10 @@ interface FloorSettingsPanelProps {
  * 따라서 "격자 1칸 = ?m" 위젯은 폐기되었고, 사용자는 보조/주 격자 크기를
  * cm 단위로 직접 입력한다. 캔버스 사이즈는 도면 import 시 자동 확장되므로
  * 별도 입력 없음.
+ *
+ * Background drawing / opacity / clear: all staged via the editor store and
+ * flushed on 저장 (PUT /floors/:id/plan). Reads are "effective" — staged
+ * value when set, otherwise server's value.
  */
 export function FloorSettingsPanel({ floorId, floorPlan, onClose, onImportClick }: FloorSettingsPanelProps) {
   const gridSize = useEditorStore((s) => s.gridSize);
@@ -26,32 +28,31 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose, onImportClick 
   const setGridSize = useEditorStore((s) => s.setGridSize);
   const setMajorGridSize = useEditorStore((s) => s.setMajorGridSize);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
-  const queryClient = useQueryClient();
+  const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
+  const stagedBackgroundOpacity = useEditorStore((s) => s.stagedBackgroundOpacity);
+  const stageBackgroundOpacity = useEditorStore((s) => s.stageBackgroundOpacity);
+  const stageBackgroundClear = useEditorStore((s) => s.stageBackgroundClear);
 
-  const hasBackground = !!floorPlan?.backgroundDrawing;
-  const opacity = floorPlan?.backgroundOpacity ?? 0.3;
+  const effectiveDrawing =
+    stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
+  const hasBackground = !!effectiveDrawing;
+  const opacity = stagedBackgroundOpacity ?? floorPlan?.backgroundOpacity ?? 0.3;
   const [opacityInput, setOpacityInput] = useState(opacity);
 
   useEffect(() => {
     setOpacityInput(opacity);
   }, [opacity]);
 
-  const applyOpacity = async (v: number) => {
+  const applyOpacity = (v: number) => {
     if (!floorId) return;
     setOpacityInput(v);
-    try {
-      await dwgImportApi.setOpacity(floorId, v);
-      await queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
-    } catch {
-      /* noop */
-    }
+    stageBackgroundOpacity(v);
   };
 
-  const handleClearBackground = async () => {
+  const handleClearBackground = () => {
     if (!floorId) return;
-    if (!confirm('임포트된 배경 도면을 제거하시겠습니까?')) return;
-    await dwgImportApi.clearBackground(floorId);
-    await queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
+    if (!confirm('배경 도면을 제거하시겠습니까? (저장 전까지는 되돌릴 수 있습니다.)')) return;
+    stageBackgroundClear();
   };
 
   const [minorInput, setMinorInput] = useState(String(gridSize));
@@ -143,8 +144,8 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose, onImportClick 
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-xs font-semibold text-gray-700">배경 도면</h4>
             {hasBackground && (
-              <span className="text-[10px] text-gray-500 truncate max-w-[140px]" title={floorPlan?.backgroundDrawing?.source.fileName ?? ''}>
-                {floorPlan?.backgroundDrawing?.source.fileName}
+              <span className="text-[10px] text-gray-500 truncate max-w-[140px]" title={effectiveDrawing?.source.fileName ?? ''}>
+                {effectiveDrawing?.source.fileName}
               </span>
             )}
           </div>

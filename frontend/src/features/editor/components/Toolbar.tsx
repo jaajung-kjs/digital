@@ -27,7 +27,11 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
   const pendingLogs = useEditorStore((s) => s.pendingLogs);
   const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
   const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
+  const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
   const snapshotActive = useSnapshotStore((s) => s.active);
+  // Effective background — staged value (if user is editing) ?? server.
+  const effectiveBackgroundDrawing =
+    stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
   const { undo, redo, canUndo, canRedo } = useEditorHistory();
 
   // Compute change count by diffing local state vs server-cached floorPlan.
@@ -164,7 +168,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
 
           <div className="border-l h-6 mx-2" />
 
-          {onToggleLayers && floorPlan.backgroundDrawing && (
+          {onToggleLayers && effectiveBackgroundDrawing && (
             <button onClick={onToggleLayers} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600" title="배경 레이어">
               {/* Stacked layers icon — ✱ matches the panel header */}
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
