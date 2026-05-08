@@ -29,8 +29,20 @@ import { bomMaterialsRouter } from './routes/bomMaterials.routes.js';
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Security middleware. We deploy over plain HTTP on the air-gapped intranet,
+// so disable HSTS and CSP's `upgrade-insecure-requests` — both ask the
+// browser to switch every subsequent request to HTTPS, which then hangs on
+// SYN to port 443 (no TLS listener), accumulates half-open connections in
+// conntrack, and ends up taking the host network down (even ssh).
+app.use(
+  helmet({
+    hsts: false,
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: { 'upgrade-insecure-requests': null },
+    },
+  }),
+);
 app.use(
   cors({
     origin: config.corsOrigin,
@@ -87,6 +99,18 @@ app.use((_req, res) => {
 
 // Error handler
 app.use(errorHandler);
+
+// Last-resort safety net: a single async error inside a request handler
+// (eg. WASM init failure in dwgImport, or any uncaught throw in a Promise
+// chain not covered by Express's errorHandler) used to abort the whole
+// process — `--restart unless-stopped` then re-ran prisma migrate+seed
+// each cycle, looking like a server-wide crash. Log and keep serving.
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
 
 // Start server
 app.listen(config.port, () => {

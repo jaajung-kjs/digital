@@ -17,7 +17,11 @@
       "Bash(git pull:*)",
       "Bash(npm run build:*)",
       "Bash(git checkout:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(rm -f /Users/jsk/1210/digital/dist-deploy/*)",
+      "Bash(./scripts/build-prod-images.sh)",
+      "Bash(disown)",
+      "Bash(echo \"PID=$!\")"
     ]
   }
 }
