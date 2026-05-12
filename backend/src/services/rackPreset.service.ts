@@ -5,8 +5,8 @@ import { NotFoundError, ValidationError, ConflictError } from '../utils/errors.j
 // ==================== Types ====================
 
 export interface RackPresetModule {
-  slotU: number;
-  heightU: number;
+  slotIndex: number;
+  slotSpan: number;
   categoryCode: string;
   defaultName: string | null;
 }
@@ -27,8 +27,8 @@ export interface RackPresetDetail {
 }
 
 export interface RackPresetModuleInput {
-  slotU: number;
-  heightU: number;
+  slotIndex: number;
+  slotSpan: number;
   categoryCode: string;
   defaultName?: string | null;
 }
@@ -59,8 +59,8 @@ export interface UpdateRackPresetInput {
 
 /**
  * Validate the modules[] array of a preset:
- * - slotU, heightU >= 1
- * - slotU + heightU - 1 <= totalU
+ * - slotIndex >= 0, slotSpan >= 1
+ * - slotIndex + slotSpan - 1 < totalU (0-based slots)
  * - no slot collisions among modules
  * - every categoryCode resolves to an existing RackModuleCategory
  */
@@ -75,36 +75,36 @@ async function validatePresetModules(
   // 슬롯 검사 + 정규화
   const normalized: RackPresetModule[] = [];
   for (const m of modules) {
-    if (m.slotU < 1) {
-      throw new ValidationError(`프리셋 모듈 slotU 는 1 이상이어야 합니다 (입력값: ${m.slotU}).`);
+    if (m.slotIndex < 0) {
+      throw new ValidationError(`프리셋 모듈 slotIndex 는 0 이상이어야 합니다 (입력값: ${m.slotIndex}).`);
     }
-    if (m.heightU < 1) {
-      throw new ValidationError(`프리셋 모듈 heightU 는 1 이상이어야 합니다 (입력값: ${m.heightU}).`);
+    if (m.slotSpan < 1) {
+      throw new ValidationError(`프리셋 모듈 slotSpan 는 1 이상이어야 합니다 (입력값: ${m.slotSpan}).`);
     }
-    const endU = m.slotU + m.heightU - 1;
-    if (endU > totalU) {
+    const endSlot = m.slotIndex + m.slotSpan - 1;
+    if (endSlot >= totalU) {
       throw new ValidationError(
-        `프리셋 모듈 ${m.categoryCode} 가 랙 totalU(${totalU}) 를 초과합니다 (${m.slotU}U-${endU}U).`,
+        `프리셋 모듈 ${m.categoryCode} 가 랙 totalU(${totalU}) 를 초과합니다 (slot ${m.slotIndex}-${endSlot}).`,
       );
     }
     normalized.push({
-      slotU: m.slotU,
-      heightU: m.heightU,
+      slotIndex: m.slotIndex,
+      slotSpan: m.slotSpan,
       categoryCode: m.categoryCode,
       defaultName: m.defaultName ?? null,
     });
   }
 
   // 슬롯 겹침
-  const sorted = [...normalized].sort((a, b) => a.slotU - b.slotU);
+  const sorted = [...normalized].sort((a, b) => a.slotIndex - b.slotIndex);
   for (let i = 0; i + 1 < sorted.length; i++) {
     const a = sorted[i];
     const b = sorted[i + 1];
-    const aEnd = a.slotU + a.heightU - 1;
-    if (aEnd >= b.slotU) {
-      const bEnd = b.slotU + b.heightU - 1;
+    const aEnd = a.slotIndex + a.slotSpan - 1;
+    if (aEnd >= b.slotIndex) {
+      const bEnd = b.slotIndex + b.slotSpan - 1;
       throw new ConflictError(
-        `프리셋 모듈 슬롯 충돌: ${a.categoryCode} (${a.slotU}U-${aEnd}U) ↔ ${b.categoryCode} (${b.slotU}U-${bEnd}U).`,
+        `프리셋 모듈 슬롯 충돌: ${a.categoryCode} (slot ${a.slotIndex}-${aEnd}) ↔ ${b.categoryCode} (slot ${b.slotIndex}-${bEnd}).`,
       );
     }
   }
@@ -156,8 +156,8 @@ class RackPresetService {
   }): RackPresetDetail {
     const rawModules = Array.isArray(p.modules) ? (p.modules as Array<Record<string, unknown>>) : [];
     const modules: RackPresetModule[] = rawModules.map((m) => ({
-      slotU: Number(m.slotU ?? 0),
-      heightU: Number(m.heightU ?? 0),
+      slotIndex: Number(m.slotIndex ?? 0),
+      slotSpan: Number(m.slotSpan ?? 1),
       categoryCode: String(m.categoryCode ?? ''),
       defaultName: m.defaultName == null ? null : String(m.defaultName),
     }));
@@ -258,8 +258,8 @@ class RackPresetService {
         ? (existing.modules as Array<Record<string, unknown>>)
         : []
       ).map((m) => ({
-        slotU: Number(m.slotU ?? 0),
-        heightU: Number(m.heightU ?? 0),
+        slotIndex: Number(m.slotIndex ?? 0),
+        slotSpan: Number(m.slotSpan ?? 1),
         categoryCode: String(m.categoryCode ?? ''),
         defaultName: m.defaultName == null ? null : String(m.defaultName),
       })) as RackPresetModuleInput[];
