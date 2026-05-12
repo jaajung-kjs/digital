@@ -233,8 +233,8 @@ model RackModule {
   rackEquipmentId String    @map("rack_equipment_id")
   categoryId      String    @map("category_id")
   name            String    @db.VarChar(100)
-  startU          Int       @map("start_u")     // 1..totalU
-  heightU         Int       @map("height_u")    // 1..N
+  slotIndex       Int       @map("slot_index")   // 0..11
+  slotSpan        Int       @map("slot_span")    // 1..12, slotIndex + slotSpan ≤ 12
   // 메타
   installDate     DateTime? @map("install_date") @db.Date
   manager         String?   @db.VarChar(100)
@@ -253,6 +253,7 @@ model RackModule {
   createdBy    User?              @relation("RackModuleCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?              @relation("RackModuleUpdatedBy", fields: [updatedById], references: [id])
 
+  @@index([rackEquipmentId, slotIndex])
   @@map("rack_modules")
 }
 
@@ -262,6 +263,7 @@ model RackModuleCategory {
   name         String   @db.VarChar(100)
   description  String?  @db.Text
   displayColor String?  @map("display_color") @db.VarChar(7)
+  defaultSlotSpan Int   @default(1) @map("default_slot_span")
   sortOrder    Int      @default(0) @map("sort_order")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
