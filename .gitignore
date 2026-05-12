@@ -28,6 +28,9 @@ Thumbs.db
 logs/
 *.log
 npm-debug.log*
+
+# Brainstorming mockups (visual companion)
+.superpowers/
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
