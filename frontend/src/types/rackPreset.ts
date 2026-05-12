@@ -7,8 +7,8 @@
  */
 
 export interface RackPresetModule {
-  slotU: number;
-  heightU: number;
+  slotIndex: number;
+  slotSpan: number;
   /** RackModuleCategory.code — categories are resolved at apply time. */
   categoryCode: string;
   defaultName: string | null;
@@ -34,8 +34,8 @@ export interface RackPreset {
 // ============================================
 
 export interface RackPresetModuleInput {
-  slotU: number;
-  heightU: number;
+  slotIndex: number;
+  slotSpan: number;
   categoryCode: string;
   defaultName?: string | null;
 }

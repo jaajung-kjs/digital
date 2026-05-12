@@ -17,7 +17,7 @@ interface SaveRackAsPresetDialogProps {
  *   - canvasWidth  ← Equipment.width
  *   - canvasHeight ← Equipment.height
  *   - modules      ← localRackModules filtered to this rack, mapped to
- *                    `{ slotU, heightU, categoryCode, defaultName }`
+ *                    `{ slotIndex, slotSpan, categoryCode, defaultName }`
  *
  * `code` is left undefined so the backend assigns USR-{shortId}.
  */
@@ -42,7 +42,7 @@ export function SaveRackAsPresetDialog({
     () =>
       localRackModules
         .filter((m) => m.rackEquipmentId === rackEquipmentId)
-        .sort((a, b) => a.startU - b.startU),
+        .sort((a, b) => a.slotIndex - b.slotIndex),
     [localRackModules, rackEquipmentId],
   );
 
@@ -70,8 +70,8 @@ export function SaveRackAsPresetDialog({
     const moduleInputs: RackPresetModuleInput[] = modules
       .filter((m) => !!m.categoryCode)
       .map((m) => ({
-        slotU: m.startU,
-        heightU: m.heightU,
+        slotIndex: m.slotIndex,
+        slotSpan: m.slotSpan,
         categoryCode: m.categoryCode as string,
         defaultName: m.name || null,
       }));

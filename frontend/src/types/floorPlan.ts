@@ -16,12 +16,9 @@ import type { RackModule } from './rackModule';
 // 평면도 장비.
 //
 // NOTE: P6 이후 Equipment 자체에는 `category`, `materialCategoryId/Code/Name`,
-// `parentEquipmentId / startU / heightU`, `model / manufacturer / specification`
+// `parentEquipmentId`, `model / manufacturer / specification`
 // 등 그루핑·세부 메타데이터가 더 이상 없다. 대신 `kind` 와 `properties` (JSON) 를 사용한다.
-// 랙 슬롯 자식은 `RackModule` 별도 모델로 분리.
-//
-// 아래 `@deprecated` 필드들은 P8 호환 shim — UI 가 P9 에서 RackModule/EquipmentKind
-// 기반으로 재구성될 때 모두 제거된다. 새 코드에서는 사용 금지.
+// 랙 슬롯 자식은 `RackModule` 별도 모델로 분리 (slotIndex / slotSpan).
 export interface FloorPlanEquipment {
   id: string;
   kind: EquipmentKind;
@@ -41,29 +38,25 @@ export interface FloorPlanEquipment {
   /** kind-specific metadata — 자유 형식 JSON. */
   properties?: Record<string, unknown> | null;
 
-  // ── P8 deprecation shims — removed in P9 ──
-  /** @deprecated P8 — 백엔드 응답엔 없음. UI 호환용 자리만 유지. */
+  // ── P8 deprecation shims — do not use in new code ──
+  /** @deprecated P8 */
   model?: string | null;
-  /** @deprecated P8 — 백엔드 응답엔 없음. */
+  /** @deprecated P8 */
   manufacturer?: string | null;
-  /** @deprecated P8 — 그루핑은 `kind` 사용. */
+  /** @deprecated P8 */
   materialCategoryId?: string | null;
-  /** @deprecated P8 — 그루핑은 `kind` 사용. */
+  /** @deprecated P8 */
   materialCategoryCode?: string | null;
-  /** @deprecated P8 — 그루핑은 `kind` 사용. */
+  /** @deprecated P8 */
   materialCategoryName?: string | null;
-  /** @deprecated P8 — 색상은 RackModuleCategory.displayColor 등에서 가져온다. */
+  /** @deprecated P8 */
   displayColor?: string | null;
-  /** @deprecated P8 — 자유 메타는 `properties` 로 통합. */
+  /** @deprecated P8 */
   specParams?: Record<string, unknown> | null;
-  /** @deprecated P8 — 자유 메타는 `properties` 로 통합. */
+  /** @deprecated P8 */
   specification?: string | null;
-  /** @deprecated P8 — 랙 자식은 RackModule 모델로 분리. */
+  /** @deprecated P8 */
   parentEquipmentId?: string | null;
-  /** @deprecated P8 — RackModule.startU 사용. */
-  startU?: number | null;
-  /** @deprecated P8 — RackModule.heightU 사용. */
-  heightU?: number | null;
 }
 
 // 평면도 케이블.
@@ -250,8 +243,8 @@ export interface UpdateFloorPlanRackModuleInput {
   rackEquipmentId: string;
   categoryId: string;
   name: string;
-  startU: number;
-  heightU: number;
+  slotIndex: number;
+  slotSpan: number;
   installDate?: string | null;
   manager?: string | null;
   description?: string | null;
