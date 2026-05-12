@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
-import { RackHeader } from './rack/RackHeader';
 import { RackSlotGrid } from './rack/RackSlotGrid';
 
 interface Props {
@@ -28,8 +27,6 @@ export function RackView({ equipmentId }: Props) {
     [localRackModules, equipmentId],
   );
 
-  const used = modules.reduce((sum, m) => sum + m.slotSpan, 0);
-
   if (!rack) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -40,7 +37,6 @@ export function RackView({ equipmentId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <RackHeader used={used} />
       <RackSlotGrid rackEquipmentId={equipmentId} modules={modules} />
     </div>
   );

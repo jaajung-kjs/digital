@@ -28,6 +28,8 @@ interface UseSlotDragOptions {
 export function useSlotDrag({ module, siblings, gridRef, onClick, onCommit }: UseSlotDragOptions) {
   const liveRef = useRef<DragLive | null>(null);
   const [livePlan, setLivePlan] = useState<PlanResult | null>(null);
+  const [liveCandidate, setLiveCandidate] = useState<ModuleSlotUpdate | null>(null);
+  const [liveMode, setLiveMode] = useState<DragMode | null>(null);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLElement>, mode: DragMode) => {
@@ -72,6 +74,8 @@ export function useSlotDrag({ module, siblings, gridRef, onClick, onCommit }: Us
     live.candidate = candidate;
     live.plan = plan;
     setLivePlan(plan);
+    setLiveCandidate(candidate);
+    setLiveMode(live.mode);
   }, []);
 
   const handlePointerUp = useCallback(
@@ -79,6 +83,8 @@ export function useSlotDrag({ module, siblings, gridRef, onClick, onCommit }: Us
       const live = liveRef.current;
       liveRef.current = null;
       setLivePlan(null);
+      setLiveCandidate(null);
+      setLiveMode(null);
       if (!live) return;
       (e.target as Element).releasePointerCapture?.(e.pointerId);
       if (!live.active) {
@@ -96,5 +102,7 @@ export function useSlotDrag({ module, siblings, gridRef, onClick, onCommit }: Us
     handlePointerMove,
     handlePointerUp,
     livePlan,
+    liveCandidate,
+    liveMode,
   };
 }
