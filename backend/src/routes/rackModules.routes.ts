@@ -6,14 +6,15 @@ import { validate } from '../middleware/validate.js';
 
 const router = Router();
 
-// ==================== Validation Schemas ====================
+const slotIndexSchema = z.number().int().min(0).max(11);
+const slotSpanSchema = z.number().int().min(1).max(12);
 
 const createRackModuleSchema = z.object({
   rackEquipmentId: z.string().uuid(),
   categoryId: z.string().uuid(),
-  name: z.string().min(1).max(100),
-  startU: z.number().int().min(1),
-  heightU: z.number().int().min(1),
+  name: z.string().min(1).max(100).optional(),
+  slotIndex: slotIndexSchema,
+  slotSpan: slotSpanSchema,
   installDate: z.string().optional().nullable(),
   manager: z.string().max(100).optional().nullable(),
   description: z.string().optional().nullable(),
@@ -23,8 +24,8 @@ const createRackModuleSchema = z.object({
 
 const updateRackModuleSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  startU: z.number().int().min(1).optional(),
-  heightU: z.number().int().min(1).optional(),
+  slotIndex: slotIndexSchema.optional(),
+  slotSpan: slotSpanSchema.optional(),
   installDate: z.string().optional().nullable(),
   manager: z.string().max(100).optional().nullable(),
   description: z.string().optional().nullable(),
@@ -32,7 +33,15 @@ const updateRackModuleSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 
-// ==================== Routes ====================
+const batchUpdateSchema = z.object({
+  updates: z.array(
+    z.object({
+      id: z.string().uuid(),
+      slotIndex: slotIndexSchema,
+      slotSpan: slotSpanSchema,
+    }),
+  ).min(1),
+});
 
 router.get('/', rackModuleController.getAll);
 router.get('/:id', rackModuleController.getById);
@@ -42,6 +51,13 @@ router.post(
   adminOnly,
   validate(createRackModuleSchema),
   rackModuleController.create,
+);
+router.post(
+  '/batch',
+  authenticate,
+  adminOnly,
+  validate(batchUpdateSchema),
+  rackModuleController.batch,
 );
 router.patch(
   '/:id',
