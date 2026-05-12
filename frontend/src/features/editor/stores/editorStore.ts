@@ -6,9 +6,11 @@ import type {
 } from '../../../types/floorPlan';
 import type { EquipmentKind } from '../../../types/equipmentKind';
 import type { RackPreset } from '../../../types/rackPreset';
-import type { RackModule } from '../../../types/rackModule';
+import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
+import { generateTempId } from '../../../utils/idHelpers';
+import { nextNameFor } from '../utils/slotGeometry';
 
 /** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
 export type ConnectionFilterKey = string;
@@ -183,6 +185,9 @@ export interface EditorStoreState {
   // P9: rack module dialog selection (RackEquipmentPanel slot click).
   selectedRackModuleId: string | null;
 
+  /** Which rack slot is currently showing the inline "add module" popover. */
+  addingAtSlot: { rackEquipmentId: string; slotIndex: number } | null;
+
   // DWG-C: client-side per-layer visibility override for the imported
   // BackgroundDrawing. A layer name in this Set is hidden in the renderer
   // and skipped by the snap collector — independent of layer.isVisible
@@ -283,6 +288,13 @@ export interface EditorStoreActions {
   removeRackModule: (id: string) => void;
 
   setSelectedRackModuleId: (id: string | null) => void;
+  setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
+  addRackModuleInline: (input: {
+    rackEquipmentId: string;
+    category: RackModuleCategory;
+    slotIndex: number;
+    slotSpan: number;
+  }) => void;
 
   // DWG-C: background layer visibility actions.
   setHiddenBgLayers: (next: Set<string>) => void;
@@ -353,6 +365,7 @@ const initialState: EditorStoreState = {
   preselectedCableDisplayGroup: null,
   localRackModules: [],
   selectedRackModuleId: null,
+  addingAtSlot: null,
   hiddenBgLayers: new Set<string>(),
 
   // History
@@ -541,6 +554,38 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       hasChanges: true,
     })),
   setSelectedRackModuleId: (selectedRackModuleId) => set({ selectedRackModuleId }),
+  setAddingAtSlot: (s) => set({ addingAtSlot: s }),
+  addRackModuleInline: ({ rackEquipmentId, category, slotIndex, slotSpan }) => {
+    const tempId = generateTempId();
+    const now = new Date().toISOString();
+    const allModules = get().localRackModules;
+    const rackModules = allModules.filter((m) => m.rackEquipmentId === rackEquipmentId);
+    const autoName = nextNameFor(rackModules, category);
+    const newModule: RackModule = {
+      id: tempId,
+      rackEquipmentId,
+      categoryId: category.id,
+      categoryCode: category.code,
+      categoryName: category.name,
+      categoryDisplayColor: category.displayColor,
+      categoryDefaultSlotSpan: category.defaultSlotSpan,
+      name: autoName,
+      slotIndex,
+      slotSpan,
+      installDate: null,
+      manager: null,
+      description: null,
+      properties: null,
+      sortOrder: slotIndex,
+      createdAt: now,
+      updatedAt: now,
+    };
+    set((state) => ({
+      localRackModules: [...state.localRackModules, newModule],
+      hasChanges: true,
+      addingAtSlot: null,
+    }));
+  },
 
   // DWG-C: replace the entire hidden-layer set in one go (e.g. when bulk
   // showing all). A new Set instance is required for React rerenders.
