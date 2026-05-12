@@ -54,9 +54,11 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setDetailPanelEquipmentId]);
 
+  const panelWidthClass = localEq?.kind === 'RACK' ? 'w-[480px]' : 'w-[360px]';
+
   return (
     <div
-      className="absolute right-0 top-0 bottom-0 w-[360px] bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col"
+      className={`absolute right-0 top-0 bottom-0 ${panelWidthClass} bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col`}
       style={{ animation: 'slideInRight 0.25s ease-out' }}
     >
       <style>{`

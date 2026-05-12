@@ -165,6 +165,7 @@ export function EditorSidebar() {
                   label={info.label}
                   active={active}
                   onClick={() => handleKindClick(kind)}
+                  title={kind === 'RACK' ? '빈 랙 (12 슬롯) — 캔버스에 드래그로 배치' : undefined}
                 />
               );
             })}
@@ -363,15 +364,17 @@ function KindLeaf({
   label,
   active,
   onClick,
+  title,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  title?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      title={`${label} — 캔버스에 드래그로 배치`}
+      title={title ?? `${label} — 캔버스에 드래그로 배치`}
       className={`w-full text-left px-2 py-1.5 flex items-center gap-2 rounded text-sm transition-colors ${
         active
           ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200'

@@ -14,6 +14,7 @@ export function RackEquipmentPanel({ equipmentId, floorId }: PanelProps) {
     <BaseEquipmentTabsPanel
       equipmentId={equipmentId}
       floorId={floorId}
+      defaultTabIndex={4}
       fifthTab={{
         label: '내부 설비',
         render: () => <RackInternal equipmentId={equipmentId} />,
