@@ -9,7 +9,7 @@ import type { RackModule } from '../../../types/rackModule';
  * Opened by setting `selectedRackModuleId` on the editor store (typically
  * from a slot click in `RackEquipmentPanel`). Closed via 닫기 / ESC / 저장.
  *
- * Shows: name (editable), category (read-only), slot/heightU, install date,
+ * Shows: name (editable), category (read-only), slot position/span (read-only), install date,
  * manager, description, and small read-only lists of connected cables /
  * recent maintenance (placeholder until backend wires module-scoped logs).
  */
@@ -41,8 +41,8 @@ export function RackModuleDialog() {
     }
     setDraft({
       name: mod.name,
-      startU: mod.startU,
-      heightU: mod.heightU,
+      slotIndex: mod.slotIndex,
+      slotSpan: mod.slotSpan,
       installDate: mod.installDate,
       manager: mod.manager,
       description: mod.description,
@@ -72,8 +72,6 @@ export function RackModuleDialog() {
   const handleSave = () => {
     updateRackModule(mod.id, {
       name: draft.name ?? mod.name,
-      startU: draft.startU ?? mod.startU,
-      heightU: draft.heightU ?? mod.heightU,
       installDate: draft.installDate ?? null,
       manager: draft.manager ?? null,
       description: draft.description ?? null,
@@ -108,7 +106,7 @@ export function RackModuleDialog() {
               {mod.categoryName ?? category?.name ?? '-'}
             </span>
             <span className="ml-1 text-[11px] text-gray-400 shrink-0">
-              {mod.startU}-{mod.startU + mod.heightU - 1}U
+              슬롯 {mod.slotIndex}-{mod.slotIndex + mod.slotSpan - 1}
             </span>
           </div>
           <button
@@ -145,27 +143,21 @@ export function RackModuleDialog() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">시작 U</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">슬롯 위치 (드래그로 변경)</label>
               <input
                 type="number"
-                min={1}
-                value={draft.startU ?? mod.startU}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, startU: Math.max(1, parseInt(e.target.value, 10) || 1) }))
-                }
-                className="w-full text-sm border border-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-400"
+                readOnly
+                value={mod.slotIndex}
+                className="w-full text-sm border border-gray-200 bg-gray-50 rounded px-2.5 py-1.5 text-gray-600"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">높이 (U)</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">크기 — 슬롯 (드래그로 변경)</label>
               <input
                 type="number"
-                min={1}
-                value={draft.heightU ?? mod.heightU}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, heightU: Math.max(1, parseInt(e.target.value, 10) || 1) }))
-                }
-                className="w-full text-sm border border-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-400"
+                readOnly
+                value={mod.slotSpan}
+                className="w-full text-sm border border-gray-200 bg-gray-50 rounded px-2.5 py-1.5 text-gray-600"
               />
             </div>
           </div>
