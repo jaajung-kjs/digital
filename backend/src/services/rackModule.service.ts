@@ -276,6 +276,10 @@ async function batchUpdate(
   if (items.length === 0) return [];
 
   const ids = items.map((i) => i.id);
+  const uniqueIds = new Set(ids);
+  if (uniqueIds.size !== ids.length) {
+    throw new ValidationError('batch update 항목에 중복된 모듈 ID가 있습니다.');
+  }
   const existing = await prisma.rackModule.findMany({
     where: { id: { in: ids } },
     select: { id: true, rackEquipmentId: true },
@@ -298,15 +302,9 @@ async function batchUpdate(
   });
   const itemMap = new Map(items.map((i) => [i.id, i]));
   const projected = siblings.map((s) => itemMap.get(s.id) ?? s);
-  for (const a of projected) {
-    for (const b of projected) {
-      if (a.id === b.id) continue;
-      const aEnd = a.slotIndex + a.slotSpan;
-      const bEnd = b.slotIndex + b.slotSpan;
-      if (a.slotIndex < bEnd && b.slotIndex < aEnd) {
-        throw new ConflictError(`모듈 ${a.id} 와 ${b.id} 가 겹칩니다.`);
-      }
-    }
+  for (const it of items) {
+    const others = projected.filter((p) => p.id !== it.id);
+    assertNoSlotCollision(it.slotIndex, it.slotSpan, others);
   }
 
   // 트랜잭션으로 일괄 적용

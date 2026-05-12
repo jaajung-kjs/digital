@@ -3,7 +3,7 @@ import { Prisma, CableType, EquipmentKind } from '@prisma/client';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
 import { equipmentService } from './equipment.service.js';
 import { assertOfdFiberPath } from './cable.service.js';
-import { assertNoSlotCollision } from './rackModule.service.js';
+import { assertNoSlotCollision, assertSlotValid } from './rackModule.service.js';
 import {
   calculateConstructionReport,
   type PlanSnapshot,
@@ -685,6 +685,7 @@ class FloorService {
           // 슬롯 충돌 검사 — update 의 경우 자기 자신은 제외.
           const liveSlots = liveByRack.get(rack.id) ?? [];
           const isUpdate = isRealId(mod.id) && dbRackModuleIds.has(mod.id!);
+          assertSlotValid(mod.slotIndex, mod.slotSpan);
           assertNoSlotCollision(
             mod.slotIndex,
             mod.slotSpan,
