@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { RACK_SLOT_COUNT } from '../../../types/rackModule';
 import { useEditorStore } from '../../editor/stores/editorStore';
 
 interface RackModulePickerProps {
@@ -28,31 +29,24 @@ export function RackModulePicker({
   onCancel,
 }: RackModulePickerProps) {
   const localRackModules = useEditorStore((s) => s.localRackModules);
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-
-  const rack = useMemo(
-    () => localEquipment.find((eq) => eq.id === rackEquipmentId),
-    [localEquipment, rackEquipmentId],
-  );
-  const totalU = rack?.totalU ?? 42;
 
   const modules = useMemo(
     () =>
       localRackModules
         .filter((m) => m.rackEquipmentId === rackEquipmentId)
-        .sort((a, b) => a.startU - b.startU),
+        .sort((a, b) => a.slotIndex - b.slotIndex),
     [localRackModules, rackEquipmentId],
   );
 
   /**
-   * Map U index → owning module (for slot rendering). Top of the rack is
-   * `totalU`, bottom is 1 — identical convention to RackView.
+   * Map slot index → owning module (for rendering). slotIndex 0 is the top
+   * slot, RACK_SLOT_COUNT-1 is the bottom — identical to RackSlotGrid.
    */
   const slotMap = useMemo(() => {
     const map = new Map<number, (typeof modules)[number]>();
     for (const m of modules) {
-      for (let u = m.startU; u < m.startU + m.heightU; u++) {
-        map.set(u, m);
+      for (let i = m.slotIndex; i < m.slotIndex + m.slotSpan; i++) {
+        map.set(i, m);
       }
     }
     return map;
@@ -102,39 +96,37 @@ export function RackModulePicker({
 
           <div className="text-[11px] text-gray-400 mb-1">전면 뷰</div>
           <div className="border border-gray-300 rounded">
-            {Array.from({ length: totalU }, (_, i) => {
-              const uNumber = totalU - i;
-              const mod = slotMap.get(uNumber);
+            {Array.from({ length: RACK_SLOT_COUNT }, (_, slotIdx) => {
+              const mod = slotMap.get(slotIdx);
               if (mod) {
-                if (uNumber === mod.startU + mod.heightU - 1) {
-                  const color = mod.categoryDisplayColor ?? '#6b7280';
-                  return (
-                    <button
-                      key={uNumber}
-                      type="button"
-                      onClick={() => onSelect(mod.id)}
-                      className="w-full flex cursor-pointer hover:brightness-110 transition-all"
-                      style={{ height: `${mod.heightU * 22}px` }}
-                      title={`${mod.name} (${mod.startU}-${mod.startU + mod.heightU - 1}U)`}
+                // Only render at the first (top) slot of the module.
+                if (slotIdx !== mod.slotIndex) return null;
+                const color = mod.categoryDisplayColor ?? '#6b7280';
+                return (
+                  <button
+                    key={slotIdx}
+                    type="button"
+                    onClick={() => onSelect(mod.id)}
+                    className="w-full flex cursor-pointer hover:brightness-110 transition-all"
+                    style={{ height: `${mod.slotSpan * 22}px` }}
+                    title={`${mod.name} (슬롯 ${mod.slotIndex + 1}–${mod.slotIndex + mod.slotSpan})`}
+                  >
+                    <div className="w-9 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
+                      {slotIdx + 1}
+                    </div>
+                    <div
+                      className="flex-1 flex items-center justify-center text-xs font-medium text-white border-b border-gray-200 px-1 truncate"
+                      style={{ backgroundColor: color }}
                     >
-                      <div className="w-9 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
-                        {uNumber}U
-                      </div>
-                      <div
-                        className="flex-1 flex items-center justify-center text-xs font-medium text-white border-b border-gray-200 px-1 truncate"
-                        style={{ backgroundColor: color }}
-                      >
-                        {mod.name}
-                      </div>
-                    </button>
-                  );
-                }
-                return null;
+                      {mod.name}
+                    </div>
+                  </button>
+                );
               }
               return (
-                <div key={uNumber} className="flex" style={{ height: '22px' }}>
+                <div key={slotIdx} className="flex" style={{ height: '22px' }}>
                   <div className="w-9 flex items-center justify-center text-[10px] text-gray-300 border-r border-gray-200 bg-gray-50 shrink-0">
-                    {uNumber}U
+                    {slotIdx + 1}
                   </div>
                   <div className="flex-1 border-b border-gray-100 bg-white" />
                 </div>

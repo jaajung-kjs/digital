@@ -24,14 +24,12 @@ export interface AvailableSlotRange {
   end: number;
 }
 
-// API 요청 타입
+// API 요청 타입 (legacy — rack module endpoints use RackModule / slotIndex / slotSpan)
 export interface CreateEquipmentRequest {
   name: string;
   model?: string;
   manufacturer?: string;
   serialNumber?: string;
-  startU: number;
-  heightU?: number;
   installDate?: string;
   manager?: string;
   description?: string;
@@ -45,8 +43,6 @@ export interface UpdateEquipmentRequest {
   model?: string | null;
   manufacturer?: string | null;
   serialNumber?: string | null;
-  startU?: number;
-  heightU?: number;
   installDate?: string | null;
   manager?: string | null;
   description?: string | null;
@@ -54,10 +50,6 @@ export interface UpdateEquipmentRequest {
   materialCategoryId?: string | null;
   specParams?: unknown;
   sortOrder?: number;
-}
-
-export interface MoveEquipmentRequest {
-  startU: number;
 }
 
 export interface CreatePortRequest {

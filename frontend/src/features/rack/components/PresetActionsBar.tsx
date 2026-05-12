@@ -34,6 +34,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const { data: categories } = useRackModuleCategories();
   const isAdmin = useIsAdmin();
   const localEquipment = useEditorStore((s) => s.localEquipment);
+  const localRackModules = useEditorStore((s) => s.localRackModules);
 
   const [pendingPreset, setPendingPreset] = useState<RackPreset | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -47,6 +48,11 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const rackEquipment = useMemo(
     () => localEquipment.find((e) => e.id === rackEquipmentId),
     [localEquipment, rackEquipmentId],
+  );
+
+  const existingModuleCount = useMemo(
+    () => localRackModules.filter((m) => m.rackEquipmentId === rackEquipmentId).length,
+    [localRackModules, rackEquipmentId],
   );
 
   if (!rackEquipment) return null;
@@ -136,6 +142,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
       {pendingPreset && (
         <ApplyPresetConfirmDialog
           preset={pendingPreset}
+          existingModuleCount={existingModuleCount}
           onCancel={() => setPendingPreset(null)}
           onConfirm={handleConfirmApply}
         />
@@ -206,9 +213,10 @@ function applyPresetToRack(
       categoryCode: cat.code,
       categoryName: cat.name,
       categoryDisplayColor: cat.displayColor,
+      categoryDefaultSlotSpan: cat.defaultSlotSpan,
       name: mod.defaultName ?? cat.name,
-      startU: mod.slotU,
-      heightU: mod.heightU,
+      slotIndex: mod.slotIndex,
+      slotSpan: mod.slotSpan,
       installDate: null,
       manager: null,
       description: null,
@@ -229,10 +237,12 @@ function applyPresetToRack(
 
 function ApplyPresetConfirmDialog({
   preset,
+  existingModuleCount,
   onCancel,
   onConfirm,
 }: {
   preset: RackPreset;
+  existingModuleCount: number;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -241,9 +251,9 @@ function ApplyPresetConfirmDialog({
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <h3 className="text-lg font-semibold mb-3">프리셋 적용</h3>
         <p className="text-sm text-gray-600 mb-2">
-          현재 랙의 모든 모듈이 삭제되고{' '}
-          <strong className="text-gray-900">{preset.name}</strong> 구성
-          (모듈 {preset.modules.length}개, {preset.totalU}U)으로 교체됩니다.
+          현재 {existingModuleCount}개 모듈이 모두 삭제되고 프리셋{' '}
+          <strong className="text-gray-900">'{preset.name}'</strong> 의{' '}
+          {preset.modules.length}개 모듈로 교체됩니다.
         </p>
         <p className="text-xs text-gray-400 mb-4">
           저장 전까지는 작업 사본에만 반영되며, 플로어 플랜을 저장하면 확정됩니다.
