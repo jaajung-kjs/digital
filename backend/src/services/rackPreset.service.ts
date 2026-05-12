@@ -1,6 +1,7 @@
 import prisma from '../config/prisma.js';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../utils/errors.js';
+import { RACK_SLOT_COUNT } from './rackModule.service.js';
 
 // ==================== Types ====================
 
@@ -60,18 +61,18 @@ export interface UpdateRackPresetInput {
 /**
  * Validate the modules[] array of a preset:
  * - slotIndex >= 0, slotSpan >= 1
- * - slotIndex + slotSpan - 1 < totalU (0-based slots)
+ * - slotIndex + slotSpan - 1 < RACK_SLOT_COUNT (0-based slots; fixed 12-slot grid)
  * - no slot collisions among modules
  * - every categoryCode resolves to an existing RackModuleCategory
+ *
+ * NOTE: totalU is accepted for API signature stability but is NOT used for
+ * bounds validation — the display grid is always RACK_SLOT_COUNT (12) slots.
  */
 async function validatePresetModules(
   modules: RackPresetModuleInput[],
-  totalU: number,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _totalU: number,
 ): Promise<RackPresetModule[]> {
-  if (totalU < 1) {
-    throw new ValidationError(`totalU 는 1 이상이어야 합니다 (입력값: ${totalU}).`);
-  }
-
   // 슬롯 검사 + 정규화
   const normalized: RackPresetModule[] = [];
   for (const m of modules) {
@@ -82,9 +83,9 @@ async function validatePresetModules(
       throw new ValidationError(`프리셋 모듈 slotSpan 는 1 이상이어야 합니다 (입력값: ${m.slotSpan}).`);
     }
     const endSlot = m.slotIndex + m.slotSpan - 1;
-    if (endSlot >= totalU) {
+    if (endSlot >= RACK_SLOT_COUNT) {
       throw new ValidationError(
-        `프리셋 모듈 ${m.categoryCode} 가 랙 totalU(${totalU}) 를 초과합니다 (slot ${m.slotIndex}-${endSlot}).`,
+        `프리셋 모듈 ${m.categoryCode} 가 슬롯 ${RACK_SLOT_COUNT - 1} 를 초과합니다 (slot ${m.slotIndex}-${endSlot}).`,
       );
     }
     normalized.push({
