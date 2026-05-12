@@ -9,9 +9,12 @@ export const rackModuleController = {
    */
   async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const rackId = typeof req.query.rackId === 'string' ? req.query.rackId : undefined;
+      // Accept both rackEquipmentId and legacy rackId for backward compatibility
+      const rackId =
+        (typeof req.query.rackEquipmentId === 'string' ? req.query.rackEquipmentId : undefined) ??
+        (typeof req.query.rackId === 'string' ? req.query.rackId : undefined);
       if (!rackId) {
-        throw new ValidationError('rackId 쿼리 파라미터가 필요합니다.');
+        throw new ValidationError('rackId 또는 rackEquipmentId 쿼리 파라미터가 필요합니다.');
       }
       const modules = await rackModuleService.getByRackId(rackId);
       res.json({ data: modules });
