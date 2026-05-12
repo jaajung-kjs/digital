@@ -66,10 +66,23 @@ export const rackModuleController = {
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      await rackModuleService.delete(id);
+      await rackModuleService.remove(id);
       res.json({ message: '랙 모듈이 삭제되었습니다.' });
     } catch (error) {
       next(error);
+    }
+  },
+
+  /**
+   * POST /api/rack-modules/batch
+   */
+  async batch(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user?.userId ?? null;
+      const result = await rackModuleService.batchUpdate(req.body.updates, userId);
+      res.json({ data: result });
+    } catch (err) {
+      next(err);
     }
   },
 };
