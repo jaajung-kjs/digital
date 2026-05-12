@@ -275,7 +275,7 @@ model RackModuleCategory {
 }
 
 // ==================== 랙 프리셋 (사용자 CRUD) ====================
-// modules: [{ slotU, heightU, categoryCode, defaultName }]
+// modules: [{ slotIndex, slotSpan, categoryCode, defaultName }]
 
 model RackPreset {
   id           String   @id @default(uuid())

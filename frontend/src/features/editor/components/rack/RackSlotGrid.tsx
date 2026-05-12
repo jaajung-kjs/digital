@@ -70,6 +70,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
               />
             );
           }
+          // 이미 위쪽 ModuleCell이 grid-row span 으로 차지한 슬롯 — null 반환 (실제 셀은 위에서 그려짐).
           if (occupiedAny.has(i)) return null;
           return (
             <EmptySlot

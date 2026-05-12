@@ -351,5 +351,4 @@ export const rackModuleService = {
   update,
   batchUpdate,
   remove,
-  delete: remove,
 };

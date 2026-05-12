@@ -109,7 +109,7 @@ export function RackModulePicker({
                     onClick={() => onSelect(mod.id)}
                     className="w-full flex cursor-pointer hover:brightness-110 transition-all"
                     style={{ height: `${mod.slotSpan * 22}px` }}
-                    title={`${mod.name} (슬롯 ${mod.slotIndex + 1}–${mod.slotIndex + mod.slotSpan})`}
+                    title={`${mod.name} (슬롯 ${mod.slotIndex}~${mod.slotIndex + mod.slotSpan - 1})`}
                   >
                     <div className="w-9 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
                       {slotIdx + 1}
