@@ -22,6 +22,20 @@ interface Props {
   /** 5번째 탭 추가. 기본 없음. */
   fifthTab?: BaseTabSlot;
   initialTab?: BaseTabKey;
+  /** 탭 인덱스 기반 초기 탭 (0=사진, 1=정보, 2=점검/고장, 3=연결, 4=fifth). initialTab보다 우선. */
+  defaultTabIndex?: number;
+}
+
+const TAB_KEYS: BaseTabKey[] = ['photos', 'info', 'logs', 'fourth', 'fifth'];
+
+function resolveInitialTab(
+  defaultTabIndex?: number,
+  initialTab?: BaseTabKey,
+): BaseTabKey {
+  if (defaultTabIndex !== undefined) {
+    return TAB_KEYS[defaultTabIndex] ?? 'info';
+  }
+  return initialTab ?? 'info';
 }
 
 export function BaseEquipmentTabsPanel({
@@ -29,12 +43,15 @@ export function BaseEquipmentTabsPanel({
   floorId,
   fourthTab,
   fifthTab,
-  initialTab = 'info',
+  initialTab,
+  defaultTabIndex,
 }: Props) {
   const snapshotActive = useSnapshotStore((s) => s.active);
   const isTemp = isTempId(equipmentId);
   const { equipment, isLoading, error } = useMergedEquipmentDetail(equipmentId);
-  const [activeTab, setActiveTab] = useState<BaseTabKey>(initialTab);
+  const [activeTab, setActiveTab] = useState<BaseTabKey>(() =>
+    resolveInitialTab(defaultTabIndex, initialTab),
+  );
 
   const tabs: { key: BaseTabKey; label: string }[] = [
     { key: 'photos', label: '사진' },
