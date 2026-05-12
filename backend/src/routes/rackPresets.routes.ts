@@ -9,8 +9,8 @@ const router = Router();
 // ==================== Validation Schemas ====================
 
 const presetModuleSchema = z.object({
-  slotU: z.number().int().min(1),
-  heightU: z.number().int().min(1),
+  slotIndex: z.number().int().min(0),
+  slotSpan: z.number().int().min(1),
   categoryCode: z.string().min(1).max(30),
   defaultName: z.string().max(100).optional().nullable(),
 });
