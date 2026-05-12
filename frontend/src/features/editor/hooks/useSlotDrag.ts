@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { planMove, planResize, type PlanResult } from '../utils/slotGeometry';
+import { RACK_SLOT_COUNT } from '../../../types/rackModule';
 import type { ModuleSlotUpdate, RackModule } from '../../../types/rackModule';
 
 type DragMode = 'move' | 'resize';
@@ -33,7 +34,7 @@ export function useSlotDrag({ module, siblings, gridRef, onClick, onCommit }: Us
       e.stopPropagation();
       if (!gridRef.current) return;
       const gridHeight = gridRef.current.clientHeight;
-      const slotPixelHeight = gridHeight / 12;
+      const slotPixelHeight = gridHeight / RACK_SLOT_COUNT;
       liveRef.current = {
         mode,
         startY: e.clientY,
