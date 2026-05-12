@@ -172,8 +172,8 @@ interface PlanRackModuleInput {
   rackEquipmentId: string;
   categoryId: string;
   name: string;
-  startU: number;
-  heightU: number;
+  slotIndex: number;
+  slotSpan: number;
   installDate?: string | null;
   manager?: string | null;
   description?: string | null;
@@ -642,14 +642,14 @@ class FloorService {
 
         // 처리 후 각 랙별 잔존 슬롯 추적 (충돌 검사용).
         // 초기 상태: DB 잔존 - 삭제분.
-        const liveByRack = new Map<string, { id: string; startU: number; heightU: number }[]>();
+        const liveByRack = new Map<string, { id: string; slotIndex: number; slotSpan: number }[]>();
         for (const m of dbRackModules) {
           if (deleteRackModuleIds.includes(m.id)) continue;
           if (!liveByRack.has(m.rackEquipmentId)) liveByRack.set(m.rackEquipmentId, []);
           liveByRack.get(m.rackEquipmentId)!.push({
             id: m.id,
-            startU: m.startU,
-            heightU: m.heightU,
+            slotIndex: m.slotIndex,
+            slotSpan: m.slotSpan,
           });
         }
 
@@ -658,7 +658,7 @@ class FloorService {
           const resolvedRackId = equipmentIdMap[mod.rackEquipmentId] ?? mod.rackEquipmentId;
           const rack = await tx.equipment.findUnique({
             where: { id: resolvedRackId },
-            select: { id: true, kind: true, totalU: true },
+            select: { id: true, kind: true },
           });
           if (!rack) {
             throw new ValidationError(
@@ -670,7 +670,6 @@ class FloorService {
               `랙 모듈의 부모가 RACK 이 아닙니다 (kind=${rack.kind}).`,
             );
           }
-          const totalU = rack.totalU ?? 42;
 
           // 카테고리 확인 — categoryId 는 real (시드된 RackModuleCategory.id) 만 가능.
           const category = await tx.rackModuleCategory.findUnique({
@@ -687,11 +686,10 @@ class FloorService {
           const liveSlots = liveByRack.get(rack.id) ?? [];
           const isUpdate = isRealId(mod.id) && dbRackModuleIds.has(mod.id!);
           assertNoSlotCollision(
-            mod.startU,
-            mod.heightU,
-            totalU,
+            mod.slotIndex,
+            mod.slotSpan,
             liveSlots,
-            isUpdate ? mod.id! : undefined,
+            isUpdate ? [mod.id!] : [],
           );
 
           if (isUpdate) {
@@ -701,8 +699,8 @@ class FloorService {
                 rackEquipmentId: rack.id,
                 categoryId: category.id,
                 name: mod.name,
-                startU: mod.startU,
-                heightU: mod.heightU,
+                slotIndex: mod.slotIndex,
+                slotSpan: mod.slotSpan,
                 installDate:
                   mod.installDate !== undefined && mod.installDate !== null
                     ? new Date(mod.installDate)
@@ -720,9 +718,9 @@ class FloorService {
             const arr = liveByRack.get(rack.id) ?? [];
             const idx = arr.findIndex((s) => s.id === updated.id);
             if (idx >= 0) {
-              arr[idx] = { id: updated.id, startU: updated.startU, heightU: updated.heightU };
+              arr[idx] = { id: updated.id, slotIndex: updated.slotIndex, slotSpan: updated.slotSpan };
             } else {
-              arr.push({ id: updated.id, startU: updated.startU, heightU: updated.heightU });
+              arr.push({ id: updated.id, slotIndex: updated.slotIndex, slotSpan: updated.slotSpan });
             }
             liveByRack.set(rack.id, arr);
           } else {
@@ -731,8 +729,8 @@ class FloorService {
                 rackEquipmentId: rack.id,
                 categoryId: category.id,
                 name: mod.name,
-                startU: mod.startU,
-                heightU: mod.heightU,
+                slotIndex: mod.slotIndex,
+                slotSpan: mod.slotSpan,
                 installDate: mod.installDate ? new Date(mod.installDate) : null,
                 manager: mod.manager ?? null,
                 description: mod.description ?? null,
@@ -745,7 +743,7 @@ class FloorService {
             if (mod.tempId) rackModuleIdMap[mod.tempId] = created.id;
             if (mod.id && mod.id !== created.id) rackModuleIdMap[mod.id] = created.id;
             const arr = liveByRack.get(rack.id) ?? [];
-            arr.push({ id: created.id, startU: created.startU, heightU: created.heightU });
+            arr.push({ id: created.id, slotIndex: created.slotIndex, slotSpan: created.slotSpan });
             liveByRack.set(rack.id, arr);
           }
         }
