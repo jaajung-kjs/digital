@@ -11,34 +11,7 @@ import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
-
-/**
- * 설비가 움직일 때 그 설비를 source/target 으로 가진 케이블의 endpoint
- * (pathPoints[0] / [last]) 를 새 설비 중심으로 갱신. 드래그 중에 호출돼서
- * 케이블이 설비를 따라 라이브로 끌려 보이게 한다.
- */
-function syncCableEndpointsTo(
-  store: typeof useEditorStore,
-  movedEquipmentId: string,
-): void {
-  const { localEquipment, localCables } = store.getState();
-  const eq = localEquipment.find((e) => e.id === movedEquipmentId);
-  if (!eq) return;
-  const newCenter: [number, number] = [
-    eq.positionX + eq.width / 2,
-    eq.positionY + eq.height / 2,
-  ];
-  for (const cable of localCables) {
-    if (!cable.pathPoints || cable.pathPoints.length < 2) continue;
-    const isSource = cable.sourceEquipmentId === movedEquipmentId;
-    const isTarget = cable.targetEquipmentId === movedEquipmentId;
-    if (!isSource && !isTarget) continue;
-    const pts = cable.pathPoints.map((p) => [...p] as [number, number]);
-    if (isSource) pts[0] = newCenter;
-    if (isTarget) pts[pts.length - 1] = newCenter;
-    store.getState().updateCable(cable.id, { pathPoints: pts });
-  }
-}
+import { syncCableEndpointsTo } from '../utils/cableSync';
 
 /**
  * Mouse/wheel event handlers for the canvas.
@@ -261,7 +234,7 @@ export function useCanvasEvents(
     // 함께 따라오게 즉시 갱신 (예전엔 mouseUp 시점에만 반영돼 드래그 중엔
     // 케이블이 고정으로 남아 어색했음).
     if (dragSession.target.type === 'equipment') {
-      syncCableEndpointsTo(editorStore, dragSession.target.id);
+      syncCableEndpointsTo(dragSession.target.id);
     }
   }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore]);
 
