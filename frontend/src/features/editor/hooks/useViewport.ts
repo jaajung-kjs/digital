@@ -86,6 +86,36 @@ export function calculateFitToContent(
  * - 설비 주위 padding(cm 단위) 만큼 여유, max zoom 300%로 클램프해서 너무 가까이
  *   확대되지 않게.
  */
+/**
+ * 임의 bounds(설비/케이블 경로/그 외) 를 가시 영역 중앙에 fit. detail panel
+ * 진입 시 단일 설비 focus, 케이블 경로 하이라이트 시 path bounds focus 등
+ * 같은 헬퍼로 처리.
+ */
+export function calculateCenterOnBounds(
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  canvasWidth: number,
+  canvasHeight: number,
+  rightPanelWidth: number,
+  paddingCm = 320,
+  maxZoom = 80,
+): { zoom: number; panX: number; panY: number } {
+  const visibleWidth = Math.max(1, canvasWidth - rightPanelWidth);
+  const visibleHeight = Math.max(1, canvasHeight);
+  const contentWidth = Math.max(1, bounds.maxX - bounds.minX) + paddingCm * 2;
+  const contentHeight = Math.max(1, bounds.maxY - bounds.minY) + paddingCm * 2;
+  const zoomX = (visibleWidth / contentWidth) * 100;
+  const zoomY = (visibleHeight / contentHeight) * 100;
+  const zoom = Math.max(20, Math.min(zoomX, zoomY, maxZoom));
+  const scale = zoom / 100;
+  const cx = (bounds.minX + bounds.maxX) / 2;
+  const cy = (bounds.minY + bounds.maxY) / 2;
+  return {
+    zoom: Math.round(zoom),
+    panX: visibleWidth / 2 - cx * scale,
+    panY: visibleHeight / 2 - cy * scale,
+  };
+}
+
 export function calculateCenterOnEquipment(
   eq: FloorPlanEquipment,
   canvasWidth: number,
@@ -93,23 +123,19 @@ export function calculateCenterOnEquipment(
   rightPanelWidth: number,
   paddingCm = 320,
 ): { zoom: number; panX: number; panY: number } {
-  const visibleWidth = Math.max(1, canvasWidth - rightPanelWidth);
-  const visibleHeight = Math.max(1, canvasHeight);
-  const contentWidth = eq.width + paddingCm * 2;
-  const contentHeight = eq.height + paddingCm * 2;
-  const zoomX = (visibleWidth / contentWidth) * 100;
-  const zoomY = (visibleHeight / contentHeight) * 100;
-  // max 80% — 설비 주위 컨텍스트(주변 설비/배경)가 보이도록 확대 자제.
-  // padding 320cm 으로 설비 주변 여유 공간 충분히 확보.
-  const zoom = Math.max(30, Math.min(zoomX, zoomY, 80));
-  const scale = zoom / 100;
-  const eqCenterX = eq.positionX + eq.width / 2;
-  const eqCenterY = eq.positionY + eq.height / 2;
-  return {
-    zoom: Math.round(zoom),
-    panX: visibleWidth / 2 - eqCenterX * scale,
-    panY: visibleHeight / 2 - eqCenterY * scale,
-  };
+  return calculateCenterOnBounds(
+    {
+      minX: eq.positionX,
+      minY: eq.positionY,
+      maxX: eq.positionX + eq.width,
+      maxY: eq.positionY + eq.height,
+    },
+    canvasWidth,
+    canvasHeight,
+    rightPanelWidth,
+    paddingCm,
+    80,
+  );
 }
 
 /**

@@ -8,8 +8,9 @@ import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
-import { calculateCenterOnEquipment } from '../hooks/useViewport';
+import { calculateCenterOnBounds, calculateCenterOnEquipment } from '../hooks/useViewport';
 import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
+import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { generateTempId } from '../../../utils/idHelpers';
 import { Toolbar } from './Toolbar';
 import { EditorSidebar } from './EditorSidebar';
@@ -128,27 +129,61 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     };
   }, [resetEditor]);
 
-  // Detail panel 진입(또는 다른 설비로 전환) 시 해당 설비를 좌측 사이드바와
-  // 우측 detail panel 사이의 가시 영역 중앙으로 자동 정렬 + 확대.
-  // ID 가 바뀔 때만 동작 (드래그/리사이즈로 데이터가 바뀔 때마다 재정렬되면 거슬림).
-  const lastCenteredRef = useRef<string | null>(null);
+  // 우측 detail panel 폭 (EquipmentDetailPanel.tsx 의 w-[360px] 와 동기화).
+  const RIGHT_PANEL_WIDTH = 360;
+
+  // (1) Detail panel 진입 / 같은 설비를 재 더블클릭 시 viewport 정렬.
+  //     focusTick 을 deps 에 포함시켜 같은 ID 에서도 재실행되게 함.
+  //     ID 변경(다른 설비) + 클릭 반복 둘 다 한 효과로 처리.
+  const focusTick = useEditorStore((s) => s.focusTick);
   useEffect(() => {
-    if (!detailPanelEquipmentId) {
-      lastCenteredRef.current = null;
-      return;
-    }
-    if (lastCenteredRef.current === detailPanelEquipmentId) return;
+    if (!detailPanelEquipmentId) return;
     const eq = useEditorStore
       .getState()
       .localEquipment.find((e) => e.id === detailPanelEquipmentId);
     if (!eq || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
-    const RIGHT_PANEL_WIDTH = 360; // EquipmentDetailPanel.tsx 의 w-[360px] 와 동기화
     const fit = calculateCenterOnEquipment(eq, rect.width, rect.height, RIGHT_PANEL_WIDTH);
     useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
-    lastCenteredRef.current = detailPanelEquipmentId;
-  }, [detailPanelEquipmentId]);
+  }, [detailPanelEquipmentId, focusTick]);
+
+  // (2) 케이블 경로 하이라이트 시 viewport 정렬 — 연결 탭에서 케이블 카드 클릭마다
+  //     pathHighlightStore.tracingCableId 가 새 값으로 set 되므로 deps 가 그 ID 와
+  //     active 상태. 같은 케이블 카드 두 번 클릭하면 active false→true 전환 또는
+  //     tracingCableId 변경으로 재실행.
+  const pathHighlightActive = usePathHighlightStore((s) => s.active);
+  const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
+  const highlightedEdgeIds = usePathHighlightStore((s) => s.highlightedEdgeIds);
+  useEffect(() => {
+    if (!pathHighlightActive || highlightedEdgeIds.size === 0) return;
+    const cables = useEditorStore.getState().localCables;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const cable of cables) {
+      if (!highlightedEdgeIds.has(cable.id)) continue;
+      const pts = cable.pathPoints;
+      if (!pts) continue;
+      for (const [x, y] of pts) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (!isFinite(minX) || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const fit = calculateCenterOnBounds(
+      { minX, minY, maxX, maxY },
+      rect.width,
+      rect.height,
+      RIGHT_PANEL_WIDTH,
+      // 케이블 경로는 endpoint 가 이미 설비 중심이라 padding 조금만 줘도 양 끝 설비가 보임.
+      200,
+      100,
+    );
+    useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
+  }, [pathHighlightActive, tracingCableId, highlightedEdgeIds]);
 
   // Check for localStorage draft on initial load
   useEffect(() => {

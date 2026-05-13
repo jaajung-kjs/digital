@@ -135,6 +135,9 @@ export interface EditorStoreState {
   clipboard: { type: 'equipment'; data: FloorPlanEquipment } | null;
 
   detailPanelEquipmentId: string | null;
+  /** Detail panel 진입 / 캔버스 focus 요청 시마다 증가하는 카운터.
+   *  같은 설비를 재 더블클릭해도 이 값이 바뀌어 viewport 가 재정렬됨. */
+  focusTick: number;
 
   /** Currently selected cable ID for waypoint editing */
   selectedCableId: string | null;
@@ -253,6 +256,7 @@ export interface EditorStoreActions {
   setMouseWorldPosition: (pos: { x: number; y: number }) => void;
   setClipboard: (cb: EditorStoreState['clipboard']) => void;
   setDetailPanelEquipmentId: (id: string | null) => void;
+  bumpFocusTick: () => void;
   setSelectedCableId: (id: string | null) => void;
   setRestoredFromVersion: (v: string | null) => void;
   clearSelection: () => void;
@@ -349,6 +353,7 @@ const initialState: EditorStoreState = {
   mouseWorldPosition: { x: 0, y: 0 },
   clipboard: null,
   detailPanelEquipmentId: null,
+  focusTick: 0,
   selectedCableId: null,
   restoredFromVersion: null,
 
@@ -505,6 +510,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setMouseWorldPosition: (mouseWorldPosition) => set({ mouseWorldPosition }),
   setClipboard: (clipboard) => set({ clipboard }),
   setDetailPanelEquipmentId: (detailPanelEquipmentId) => set({ detailPanelEquipmentId }),
+  bumpFocusTick: () => set((state) => ({ focusTick: state.focusTick + 1 })),
   setSelectedCableId: (selectedCableId) => set({ selectedCableId }),
   setRestoredFromVersion: (restoredFromVersion) => set({ restoredFromVersion }),
   clearSelection: () => set({
