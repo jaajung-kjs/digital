@@ -74,6 +74,8 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
         style={{
           gridRowStart: cellStart,
           gridRowEnd: cellEnd,
+          gridColumnStart: 1,
+          gridColumnEnd: 2,
           backgroundColor: rejected && isResize ? '#ef4444' : color,
           opacity: dragging && !isResize ? 0.35 : 1,
         }}
@@ -114,7 +116,8 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
             style={{
               gridRowStart: area.start,
               gridRowEnd: area.end,
-              gridColumn: '1 / -1',
+              gridColumnStart: 1,
+              gridColumnEnd: 2,
               boxShadow: `inset 0 0 0 2.5px ${borderColor}`,
               backgroundColor: 'transparent',
               zIndex: 10,
