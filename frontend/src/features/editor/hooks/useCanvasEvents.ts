@@ -13,6 +13,34 @@ import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowS
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
 
 /**
+ * 설비가 움직일 때 그 설비를 source/target 으로 가진 케이블의 endpoint
+ * (pathPoints[0] / [last]) 를 새 설비 중심으로 갱신. 드래그 중에 호출돼서
+ * 케이블이 설비를 따라 라이브로 끌려 보이게 한다.
+ */
+function syncCableEndpointsTo(
+  store: typeof useEditorStore,
+  movedEquipmentId: string,
+): void {
+  const { localEquipment, localCables } = store.getState();
+  const eq = localEquipment.find((e) => e.id === movedEquipmentId);
+  if (!eq) return;
+  const newCenter: [number, number] = [
+    eq.positionX + eq.width / 2,
+    eq.positionY + eq.height / 2,
+  ];
+  for (const cable of localCables) {
+    if (!cable.pathPoints || cable.pathPoints.length < 2) continue;
+    const isSource = cable.sourceEquipmentId === movedEquipmentId;
+    const isTarget = cable.targetEquipmentId === movedEquipmentId;
+    if (!isSource && !isTarget) continue;
+    const pts = cable.pathPoints.map((p) => [...p] as [number, number]);
+    if (isSource) pts[0] = newCenter;
+    if (isTarget) pts[pts.length - 1] = newCenter;
+    store.getState().updateCable(cable.id, { pathPoints: pts });
+  }
+}
+
+/**
  * Mouse/wheel event handlers for the canvas.
  * Tools: select, equipment, cable. (Delete via Delete key on selection.)
  *
@@ -229,42 +257,20 @@ export function useCanvasEvents(
     const result = applyDrag(null, localEquipment, dragSession, snapped, snapFn);
     editorStore.getState().setLocalEquipment(result.equipment);
     editorStore.getState().setHasChanges(true);
+    // 라이브 케이블 프리뷰 — 설비가 움직이는 동안 연결된 케이블의 양 끝점도
+    // 함께 따라오게 즉시 갱신 (예전엔 mouseUp 시점에만 반영돼 드래그 중엔
+    // 케이블이 고정으로 남아 어색했음).
+    if (dragSession.target.type === 'equipment') {
+      syncCableEndpointsTo(editorStore, dragSession.target.id);
+    }
   }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore]);
 
   const handleCanvasMouseUp = useCallback(() => {
     const { dragSession } = canvasStore.getState();
     if (dragSession?.isActive) {
-      const { localEquipment, localCables } = editorStore.getState();
-      pushHistory(localEquipment);
-
-      // Update cable pathPoints when equipment is dragged
-      if (dragSession.target.type === 'equipment') {
-        const movedEqId = dragSession.target.id;
-        const movedEq = localEquipment.find((eq) => eq.id === movedEqId);
-        if (movedEq) {
-          const newCenter: [number, number] = [
-            movedEq.positionX + movedEq.width / 2,
-            movedEq.positionY + movedEq.height / 2,
-          ];
-          for (const cable of localCables) {
-            if (cable.pathPoints && cable.pathPoints.length >= 2) {
-              let updated = false;
-              const pts = cable.pathPoints.map((p) => [...p] as [number, number]);
-              if (cable.sourceEquipmentId === movedEqId) {
-                pts[0] = newCenter;
-                updated = true;
-              }
-              if (cable.targetEquipmentId === movedEqId) {
-                pts[pts.length - 1] = newCenter;
-                updated = true;
-              }
-              if (updated) {
-                editorStore.getState().updateCable(cable.id, { pathPoints: pts });
-              }
-            }
-          }
-        }
-      }
+      // 케이블 endpoint 는 이미 mouseMove 에서 라이브로 동기화돼 있으므로
+      // 여기선 단순히 history snapshot 만 찍어 undo 지원.
+      pushHistory(editorStore.getState().localEquipment);
     }
     canvasStore.getState().setDragSession(null);
     canvasStore.getState().setIsPanning(false);
