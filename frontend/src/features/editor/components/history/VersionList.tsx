@@ -4,7 +4,7 @@ const FIELD_LABELS: Record<string, string> = {
   elements: '배치 요소',
   equipment: '설비',
   cables: '케이블',
-  fiberPaths: '광경로',
+  fiberPaths: '경로',
   gridSize: '그리드',
   // CM-B: scaleRatio 항목 폐기.
   positions: '위치',

@@ -86,11 +86,11 @@ export function OfdPortPicker({
             <div className="py-8 text-center text-xs text-gray-400">불러오는 중...</div>
           ) : mergedPaths.length === 0 ? (
             <p className="text-xs text-gray-400 text-center py-6">
-              이 OFD에는 광경로가 없습니다 — OFD 본체에 연결하세요.
+              이 OFD에는 경로가 없습니다 — OFD 본체에 연결하세요.
             </p>
           ) : (
             <>
-              <div className="text-[11px] text-gray-400 mb-1">광경로</div>
+              <div className="text-[11px] text-gray-400 mb-1">경로</div>
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {mergedPaths.map((p) => {
                   const remote =

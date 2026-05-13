@@ -219,7 +219,7 @@ function SideRow({
             onChange={(e) => { setTargetPathId(e.target.value); setTargetPort(undefined); }}
             className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:border-blue-400"
           >
-            <option value="">광경로 선택</option>
+            <option value="">경로 선택</option>
             {otherPaths.map((fp) => {
               const remote = fp.ofdA.id === localOfdId ? fp.ofdB : fp.ofdA;
               const local = fp.ofdA.id === localOfdId ? fp.ofdA : fp.ofdB;
