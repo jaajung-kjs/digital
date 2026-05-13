@@ -1,80 +1,37 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useRackPresets } from '../hooks/useRackPresets';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
 import { useIsAdmin } from '../../../stores/authStore';
 import { generateTempId } from '../../../utils/idHelpers';
-import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import type { RackPreset } from '../../../types/rackPreset';
 import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
+import { readSourcePresetId, updateRackSourcePreset } from '../utils/sourcePreset';
 import { SaveRackAsPresetDialog } from './SaveRackAsPresetDialog';
-
-// ============================================================
-// Source-preset tracking on Equipment.properties
-// ============================================================
-// 랙이 어느 프리셋에서 왔는지 (또는 마지막으로 저장한 프리셋이 무엇인지) 를
-// rack equipment 의 properties JSON 에 기록한다. 이렇게 하면 도면을 닫았다가
-// 다시 열어도, 다른 랙을 선택했다가 돌아와도 드롭다운에 그 프리셋이
-// 자동으로 선택돼있다. (모듈 구성 비교 같은 휴리스틱이 아니라 명시적 추적.)
-//
-// Equipment.properties 는 kind 별 임의 도메인 데이터를 담는 Json? 필드 —
-// RACK kind 는 거의 비어있다는 스키마 주석이 있어 여기 metadata 를 얹어도
-// 다른 kind 와 충돌하지 않는다.
-
-interface RackProperties {
-  sourcePresetId?: string;
-  [key: string]: unknown;
-}
-
-function readSourcePresetId(eq: FloorPlanEquipment | undefined): string | null {
-  if (!eq) return null;
-  const props = (eq.properties as RackProperties | null | undefined) ?? null;
-  const id = props?.sourcePresetId;
-  return typeof id === 'string' ? id : null;
-}
-
-function withSourcePresetId(eq: FloorPlanEquipment, presetId: string | null): FloorPlanEquipment {
-  const prev = (eq.properties as RackProperties | null | undefined) ?? {};
-  const next: RackProperties = { ...prev };
-  if (presetId) {
-    next.sourcePresetId = presetId;
-  } else {
-    delete next.sourcePresetId;
-  }
-  // 빈 객체면 null 로 — DB JSON 컬럼이 noise 안 쌓이게.
-  const hasKeys = Object.keys(next).length > 0;
-  return { ...eq, properties: hasKeys ? next : null };
-}
-
-function updateRackSourcePreset(rackEquipmentId: string, presetId: string | null) {
-  const store = useEditorStore.getState();
-  const next = store.localEquipment.map((eq) =>
-    eq.id === rackEquipmentId ? withSourcePresetId(eq, presetId) : eq,
-  );
-  store.setLocalEquipment(next);
-  store.setHasChanges(true);
-}
 
 interface PresetActionsBarProps {
   rackEquipmentId: string;
 }
 
 /**
- * 랙 detail 의 "내부 설비" 탭 상단 액션 행.
+ * 랙 detail 의 "내부 설비" 탭 상단 액션 행 — load / save 문서 편집 패턴.
  *
  *  ┌──────────────────────────────────────────────────┐
  *  │ [프리셋 선택 ▾]  [불러오기]  [저장]               │
  *  └──────────────────────────────────────────────────┘
  *
- * 문서 편집 패턴 (load / save):
- * - **프리셋 선택**: 활성 프리셋 리스트 + "(새 프리셋…)". 즉시 apply 안 함.
- * - **불러오기**: 선택된 프리셋의 모듈을 현재 랙에 복제 (기존 모듈 있으면 confirm).
- * - **저장**: 이름 입력 다이얼로그를 띄움. 다이얼로그에서 이름이
- *   선택된 프리셋의 이름과 같으면 → 그 프리셋 덮어쓰기(PATCH).
- *   이름을 바꿨거나 "(새 프리셋…)" 이었으면 → 새 프리셋 생성(POST).
+ * Lifecycle:
+ *   부모 (RackEquipmentPanel) 가 `key={equipmentId}` 로 랙 전환 시 이 컴포넌트를
+ *   강제 remount 시킴. → useState 의 lazy init 이 매번 새 랙의 rack.properties.
+ *   sourcePresetId 를 다시 읽어 드롭다운 초기값으로 잡힘. 동기화 useEffect 같은
+ *   안전망이 필요 없음 (마운트 자체가 동기화).
  *
- * Note: 불러오기는 working copy 만 건드림 (floor plan 저장 전까진 미확정).
- *       저장은 즉시 백엔드에 반영 (admin 전용).
+ * 두 버튼:
+ *   - **불러오기**: 선택된 프리셋의 modules 를 working copy 에 복제.
+ *     기존 모듈이 있으면 확인 다이얼로그. updateRackSourcePreset 으로 랙의
+ *     source 도 갱신.
+ *   - **저장**: SaveRackAsPresetDialog 가 PATCH (덮어쓰기) / POST (새로) 모두 처리.
+ *     이름이 selectedPreset 과 같으면 덮어쓰기, 바뀌면 새로.
  */
 export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const { data: presets } = useRackPresets();
@@ -93,33 +50,23 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
     [localEquipment, rackEquipmentId],
   );
 
-  // 랙의 sourcePresetId 가 활성 프리셋 중 하나면 그것을 default 선택값으로.
-  // 프리셋이 삭제됐거나 (orphan) 한 번도 적용 안 한 랙이면 null → (새 프리셋…).
-  const trackedPresetId = useMemo(() => {
-    const id = readSourcePresetId(rackEquipment);
-    if (!id) return null;
-    return activePresets.some((p) => p.id === id) ? id : null;
-  }, [rackEquipment, activePresets]);
-
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(trackedPresetId);
-  const [pendingApply, setPendingApply] = useState<RackPreset | null>(null);
-  const [saveOpen, setSaveOpen] = useState(false);
-
-  // 랙이 바뀌거나 (다른 rackEquipmentId), 백엔드 응답으로 properties 가
-  // 갱신되면 드롭다운을 그 source 로 재동기화.
-  useEffect(() => {
-    setSelectedPresetId(trackedPresetId);
-  }, [trackedPresetId]);
-
   const existingModuleCount = useMemo(
     () => localRackModules.filter((m) => m.rackEquipmentId === rackEquipmentId).length,
     [localRackModules, rackEquipmentId],
   );
 
-  const selectedPreset = useMemo(
-    () => (selectedPresetId ? activePresets.find((p) => p.id === selectedPresetId) ?? null : null),
-    [selectedPresetId, activePresets],
+  // 랙 진입 시점의 source preset 을 그대로 드롭다운 초기값으로 잡는다.
+  // RackEquipmentPanel 의 key={equipmentId} 가 매 랙마다 이 컴포넌트를 remount
+  // 시키므로 lazy init 이 fresh rack 으로 매번 실행됨 (sync useEffect 불필요).
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(
+    () => readSourcePresetId(rackEquipment),
   );
+  const [pendingApply, setPendingApply] = useState<RackPreset | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
+
+  // 드롭다운 표시값: orphan(삭제된 프리셋) 이면 빈 문자열로 fallback → "(새 프리셋…)".
+  const selectedPreset =
+    activePresets.find((p) => p.id === selectedPresetId) ?? null;
 
   if (!rackEquipment) return null;
 
@@ -144,7 +91,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
     <div className="px-3 py-2 border-b bg-gray-50 flex items-center gap-2">
       {/* 프리셋 선택 */}
       <select
-        value={selectedPresetId ?? ''}
+        value={selectedPreset?.id ?? ''}
         onChange={(e) => setSelectedPresetId(e.target.value || null)}
         className="flex-1 min-w-0 px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         aria-label="프리셋 선택"
