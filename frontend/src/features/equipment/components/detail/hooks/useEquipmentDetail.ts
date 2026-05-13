@@ -58,7 +58,7 @@ export function useMergedEquipmentDetail(equipmentId: string): {
     name: localEq.name,
     manager: pick(localEq.manager, backendData?.manager),
     description: pick(localEq.description, backendData?.description),
-    installDate: backendData?.installDate ?? null,
+    installDate: pick(localEq.installDate, backendData?.installDate),
     width2d: localEq.width,
     height2d: localEq.height,
     frontImageUrl: backendData?.frontImageUrl ?? null,

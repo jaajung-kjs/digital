@@ -140,6 +140,7 @@ interface PlanEquipmentInput {
   totalU?: number | null;
   description?: string | null;
   manager?: string | null;
+  installDate?: string | null;
   height3d?: number | null;
   properties?: unknown;
 }
@@ -354,6 +355,7 @@ class FloorService {
         totalU: e.totalU,
         description: e.description,
         manager: e.manager,
+        installDate: e.installDate?.toISOString().slice(0, 10) ?? null,
         height3d: e.height3d,
         frontImageUrl: e.frontImageUrl,
         rearImageUrl: e.rearImageUrl,
@@ -602,6 +604,7 @@ class FloorService {
               totalU: equip.kind === EquipmentKind.RACK ? equip.totalU ?? 42 : null,
               description: equip.description,
               manager: equip.manager,
+              installDate: equip.installDate ? new Date(equip.installDate) : null,
               height3d: equip.height3d,
               properties: equip.properties as Prisma.InputJsonValue | undefined,
               updatedById: userId,
@@ -621,6 +624,7 @@ class FloorService {
               totalU: equip.kind === EquipmentKind.RACK ? equip.totalU ?? 42 : null,
               description: equip.description,
               manager: equip.manager,
+              installDate: equip.installDate ? new Date(equip.installDate) : null,
               height3d: equip.height3d,
               properties: equip.properties as Prisma.InputJsonValue | undefined,
               createdById: userId,
@@ -1225,6 +1229,7 @@ async function captureFloorSnapshot(
         totalU: e.totalU,
         description: e.description,
         manager: e.manager,
+        installDate: e.installDate?.toISOString().slice(0, 10) ?? null,
         height3d: e.height3d,
         frontImageUrl: e.frontImageUrl,
         rearImageUrl: e.rearImageUrl,

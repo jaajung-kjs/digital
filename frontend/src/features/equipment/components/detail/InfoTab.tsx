@@ -73,6 +73,11 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
 
   const [editName, setEditName] = useState(equipment.name);
   const [editManager, setEditManager] = useState(equipment.manager ?? '');
+  const [editInstallDate, setEditInstallDate] = useState(
+    // <input type="date"> 가 기대하는 YYYY-MM-DD 로 정규화. backend 에서는 이미
+    // 'YYYY-MM-DD' 슬라이스로 내려보내지만 과거 데이터가 ISO datetime 일 수도 있어 방어.
+    equipment.installDate ? equipment.installDate.slice(0, 10) : '',
+  );
   const [editDescription, setEditDescription] = useState(equipment.description ?? '');
 
   const handleApply = () => {
@@ -82,6 +87,7 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
             ...eq,
             name: editName,
             manager: editManager || null,
+            installDate: editInstallDate || null,
             description: editDescription || null,
           }
         : eq,
@@ -110,6 +116,15 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
           onChange={(e) => setEditManager(e.target.value)}
           className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400"
           placeholder="선택 사항"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-500 mb-1">설치일</label>
+        <input
+          type="date"
+          value={editInstallDate}
+          onChange={(e) => setEditInstallDate(e.target.value)}
+          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400"
         />
       </div>
       <div>
