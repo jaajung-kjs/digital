@@ -9,7 +9,7 @@ interface RackModulePickerProps {
    * Module endpoint chosen — moduleId is null when the user opted to use
    * the rack itself as the endpoint instead of a specific module.
    */
-  onSelect: (moduleId: string | null) => void;
+  onSelect: (moduleId: string) => void;
   onCancel: () => void;
 }
 
@@ -85,15 +85,6 @@ export function RackModulePicker({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <button
-            onClick={() => onSelect(null)}
-            className="w-full text-left px-3 py-2 mb-3 rounded border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
-            title="모듈을 지정하지 않고 랙 자체를 끝점으로 사용합니다."
-          >
-            <span className="font-medium">랙 본체에 연결</span>
-            <span className="ml-2 text-xs text-gray-400">(모듈 미지정)</span>
-          </button>
-
           <div className="text-[11px] text-gray-400 mb-1">전면 뷰</div>
           <div className="border border-gray-300 rounded">
             {Array.from({ length: RACK_SLOT_COUNT }, (_, slotIdx) => {
