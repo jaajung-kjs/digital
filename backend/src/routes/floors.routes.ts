@@ -46,6 +46,7 @@ const equipmentSchema = z.object({
   totalU: z.number().int().min(1).optional().nullable(),
   description: z.string().optional().nullable(),
   manager: z.string().optional().nullable(),
+  installDate: z.string().optional().nullable(),
   height3d: z.number().optional().nullable(),
   properties: z.unknown().optional(),
 });

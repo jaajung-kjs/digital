@@ -11,6 +11,12 @@ export function errorHandler(
 ): void {
   // Zod validation errors
   if (err instanceof ZodError) {
+    if (config.nodeEnv === 'development') {
+      console.error(
+        'ZodError:',
+        err.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+      );
+    }
     res.status(400).json({
       error: 'VALIDATION_ERROR',
       message: '입력값이 올바르지 않습니다.',
