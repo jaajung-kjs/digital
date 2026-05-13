@@ -52,6 +52,9 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
     const editorState = useEditorStore.getState();
     const localCables = snapshotState.active ? snapshotState.cables : editorState.localCables;
     const localEquipment = snapshotState.active ? snapshotState.equipment : editorState.localEquipment;
+    // snapshot store 는 모듈 record 를 따로 들고 있지 않으므로 빈 배열. 모듈 이름
+    // 미해상되면 부모 랙 이름 fallback 으로 떨어지는 게 자연스러움.
+    const localRackModules = snapshotState.active ? [] : editorState.localRackModules;
     const pendingFiberPaths = snapshotState.active ? [] : editorState.pendingFiberPaths;
 
     // isLoading is reserved for potential future async trace UI feedback
@@ -73,6 +76,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
           cableId,
           cables: localCables,
           equipment: localEquipment,
+          rackModules: localRackModules,
           fiberPaths: snapshotFiberPaths,
         });
 
@@ -146,6 +150,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
         cableId,
         cables: localCables,
         equipment: localEquipment,
+        rackModules: localRackModules,
         fiberPaths: allFiberPaths,
       });
 
