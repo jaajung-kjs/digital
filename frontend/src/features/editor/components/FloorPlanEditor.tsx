@@ -18,6 +18,7 @@ import { ConnectionOverlay } from '../../connections/components/ConnectionOverla
 import { CablePathOverlay } from './CablePathOverlay';
 import { TopologyModal } from '../../pathTrace/components/TopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
+import { EquipmentResizeHandlesHost } from './EquipmentResizeHandlesHost';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { FloorSettingsPanel } from './FloorSettingsPanel';
 import { DwgImportModal } from './DwgImportModal';
@@ -479,6 +480,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               >
                 <ConnectionOverlay floorId={floorId} canvasRef={canvasRef} />
                 <CablePathOverlayWrapper canvasRef={canvasRef} />
+                <EquipmentResizeHandlesHost />
                 <ToolStatusBar />
               </CanvasView>
 
