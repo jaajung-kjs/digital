@@ -414,6 +414,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         totalU: eq.totalU ?? null,
         description: eq.description ?? null,
         manager: eq.manager ?? null,
+        installDate: eq.installDate ?? null,
         height3d: eq.height3d ?? null,
         properties: eq.properties ?? null,
       })),

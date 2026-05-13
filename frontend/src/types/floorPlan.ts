@@ -32,6 +32,8 @@ export interface FloorPlanEquipment {
   totalU: number | null;
   description?: string | null;
   manager?: string | null;
+  /** 설치일 (ISO date string). InfoTab 편집 / 도면 저장 경로로 동기화. */
+  installDate?: string | null;
   height3d?: number | null;
   frontImageUrl?: string | null;
   rearImageUrl?: string | null;
@@ -232,6 +234,7 @@ export interface UpdateFloorPlanEquipmentInput {
   totalU?: number | null;
   description?: string | null;
   manager?: string | null;
+  installDate?: string | null;
   height3d?: number | null;
   properties?: Record<string, unknown> | null;
 }
