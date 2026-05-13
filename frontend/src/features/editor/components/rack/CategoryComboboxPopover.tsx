@@ -17,22 +17,28 @@ export function CategoryComboboxPopover({ anchorRect, availableSpan, onPick, onC
   const { data: categories } = useRackModuleCategories();
   const ref = useRef<HTMLDivElement | null>(null);
 
-  // 바깥 클릭 / ESC 로 닫기. mousedown은 한 틱 늦게 등록해서 슬롯 클릭이 즉시 popover를 닫는 일을 막는다.
+  // 바깥 클릭 / ESC 로 닫기.
+  // - mousedown은 한 틱 늦게 등록해서 슬롯 클릭이 즉시 popover를 닫는 일을 막는다.
+  // - keydown은 capture 단계로 등록 + stopImmediatePropagation 으로
+  //   상위 EquipmentDetailPanel 의 ESC 핸들러가 panel 까지 닫는 일을 막는다.
   useEffect(() => {
     const handleDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onCancel();
     };
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation();
+        onCancel();
+      }
     };
     const armTimer = window.setTimeout(() => {
       document.addEventListener('mousedown', handleDown);
     }, 0);
-    document.addEventListener('keydown', handleKey);
+    document.addEventListener('keydown', handleKey, { capture: true });
     return () => {
       window.clearTimeout(armTimer);
       document.removeEventListener('mousedown', handleDown);
-      document.removeEventListener('keydown', handleKey);
+      document.removeEventListener('keydown', handleKey, { capture: true });
     };
   }, [onCancel]);
 
