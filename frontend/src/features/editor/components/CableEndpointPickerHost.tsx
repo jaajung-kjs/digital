@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
-import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
+import { useCableDrawing, useInteractionStore } from '../stores/interactionStore';
 import { RackModulePicker } from '../../connections/components/RackModulePicker';
 import { OfdPortPicker } from '../../connections/components/OfdPortPicker';
 
@@ -16,11 +16,12 @@ import { OfdPortPicker } from '../../connections/components/OfdPortPicker';
  * (or back to selectingSource for a cancel).
  */
 export function CableEndpointPickerHost() {
-  const phase = useCableDrawingStore((s) => s.phase);
-  const sourceEquipmentId = useCableDrawingStore((s) => s.sourceEquipmentId);
-  const sourcePosition = useCableDrawingStore((s) => s.sourcePosition);
-  const targetEquipmentId = useCableDrawingStore((s) => s.targetEquipmentId);
-  const targetPosition = useCableDrawingStore((s) => s.targetPosition);
+  const cable = useCableDrawing();
+  const phase = cable?.phase ?? 'idle';
+  const sourceEquipmentId = cable?.sourceEquipmentId ?? null;
+  const sourcePosition = cable?.sourcePosition ?? null;
+  const targetEquipmentId = cable?.targetEquipmentId ?? null;
+  const targetPosition = cable?.targetPosition ?? null;
 
   const localEquipment = useEditorStore((s) => s.localEquipment);
 
@@ -49,7 +50,7 @@ export function CableEndpointPickerHost() {
   const handleCancel = () => {
     // Cancel the whole drawing flow — easier than trying to back up to the
     // previous phase since the user has already committed an endpoint click.
-    useCableDrawingStore.getState().cancel();
+    useInteractionStore.getState().cancel();
   };
 
   if (activeEquipment.kind === 'RACK') {
@@ -59,11 +60,11 @@ export function CableEndpointPickerHost() {
         rackName={activeEquipment.name}
         onSelect={(moduleId) => {
           if (isSource) {
-            useCableDrawingStore.getState().setSource(activeEquipment.id, center, {
+            useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
               moduleId,
             });
           } else {
-            useCableDrawingStore.getState().setTarget(activeEquipment.id, center, {
+            useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
               moduleId,
             });
           }
@@ -80,12 +81,12 @@ export function CableEndpointPickerHost() {
         ofdName={activeEquipment.name}
         onSelect={({ fiberPathId, portNumber }) => {
           if (isSource) {
-            useCableDrawingStore.getState().setSource(activeEquipment.id, center, {
+            useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
               fiberPathId,
               portNumber,
             });
           } else {
-            useCableDrawingStore.getState().setTarget(activeEquipment.id, center, {
+            useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
               fiberPathId,
               portNumber,
             });

@@ -21,7 +21,7 @@ import {
 import { ConnectionLegend } from './ConnectionLegend';
 import { CableWaypointHandles } from './CableWaypointHandles';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
-import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
+import { useInteractionStore, useOfdFlow, type OfdFlowPhase } from '../../editor/stores/interactionStore';
 import { useCableHitTestStore } from '../stores/cableHitTestStore';
 
 interface ConnectionOverlayProps {
@@ -106,9 +106,10 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
   const highlightedEdgeIds = usePathHighlightStore((s) => s.highlightedEdgeIds);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
 
-  const ofdFlowPhase = useOfdConnectionFlowStore((s) => s.phase);
-  const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
-  const ofdFlowHoveredId = useOfdConnectionFlowStore((s) => s.hoveredEquipmentId);
+  const ofdFlow = useOfdFlow();
+  const ofdFlowPhase: 'idle' | OfdFlowPhase = ofdFlow?.phase ?? 'idle';
+  const ofdFlowOfdId = ofdFlow?.ofdId ?? null;
+  const ofdFlowHoveredId = ofdFlow?.hoveredEquipmentId ?? null;
 
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
@@ -264,6 +265,7 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
       }
     }
   }, [renderableConnections, zoom, panX, panY, equipmentPositions, canvasRef,
+    selectedCableId,
     highlightActive, highlightedNodeIds, highlightedEdgeIds,
     ofdFlowPhase, ofdFlowOfdId, ofdFlowHoveredId]);
 
@@ -271,7 +273,7 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (ofdFlowPhase !== 'idle') useOfdConnectionFlowStore.getState().cancel();
+        if (ofdFlowPhase !== 'idle') useInteractionStore.getState().cancel();
         if (highlightActive) clearHighlight();
         if (selectedCableId) setSelectedCableId(null);
       }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FiberPathDetail, FiberPortStatus, FiberPortUsage } from '../types';
 import { useFiberPaths } from '../hooks/useFiberPaths';
-import { useOfdConnectionFlowStore } from '../stores/ofdConnectionFlowStore';
+import { useOfdFlow } from '../../editor/stores/interactionStore';
 
 interface FiberPortGridProps {
   fiberPath: FiberPathDetail;
@@ -34,8 +34,8 @@ function getSelectedColor(port: FiberPortStatus): string {
 
 export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDelete, onPortSwitch, onNavigateRemote }: FiberPortGridProps) {
   const [selectedPort, setSelectedPort] = useState<number | null>(null);
-  const ofdFlowPhase = useOfdConnectionFlowStore((s) => s.phase);
-  const isPortSelecting = ofdFlowPhase === 'selectingPort';
+  const ofdFlow = useOfdFlow();
+  const isPortSelecting = ofdFlow?.phase === 'selectingPort';
 
   const isLocalA = fiberPath.ofdA.id === localOfdId;
   const localSub = isLocalA ? fiberPath.ofdA.substationName : fiberPath.ofdB.substationName;

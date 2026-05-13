@@ -95,7 +95,6 @@ export interface EditorStoreState {
   tool: EditorTool;
 
   selectedIds: string[];
-  selectedEquipment: FloorPlanEquipment | null;
 
   zoom: number;
   panX: number;
@@ -212,7 +211,6 @@ export interface EditorStoreState {
 export interface EditorStoreActions {
   setTool: (tool: EditorTool) => void;
   setSelectedIds: (ids: string[]) => void;
-  setSelectedEquipment: (eq: FloorPlanEquipment | null) => void;
   setZoom: (zoom: number) => void;
   setPan: (panX: number, panY: number) => void;
   setViewport: (zoom: number, panX: number, panY: number) => void;
@@ -330,7 +328,6 @@ export interface EditorStoreActions {
 const initialState: EditorStoreState = {
   tool: 'select',
   selectedIds: [],
-  selectedEquipment: null,
   zoom: 100,
   panX: 0,
   panY: 0,
@@ -396,8 +393,17 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   ...initialState,
 
   setTool: (tool) => set({ tool }),
-  setSelectedIds: (selectedIds) => set({ selectedIds }),
-  setSelectedEquipment: (selectedEquipment) => set({ selectedEquipment }),
+  // ── Selection mutex ────────────────────────────────────────────────────────
+  // 설비 / 케이블 / 랙 모듈 셋 중 동시에 하나만 활성화되도록 setter 가 서로의
+  // 필드를 같이 비운다. 호출자 코드가 "다른 선택도 비워야 하나?" 를 매번
+  // 신경 쓸 필요 없게 invariant 를 store 에 박는다.
+  setSelectedIds: (selectedIds) =>
+    set({
+      selectedIds,
+      ...(selectedIds.length > 0
+        ? { selectedCableId: null, selectedRackModuleId: null }
+        : {}),
+    }),
   setZoom: (zoom) => set({ zoom }),
   setPan: (panX, panY) => set({ panX, panY }),
   setViewport: (zoom, panX, panY) => set({ zoom, panX, panY }),
@@ -509,13 +515,30 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   setViewportInitialized: (viewportInitialized) => set({ viewportInitialized }),
   setMouseWorldPosition: (mouseWorldPosition) => set({ mouseWorldPosition }),
   setClipboard: (clipboard) => set({ clipboard }),
-  setDetailPanelEquipmentId: (detailPanelEquipmentId) => set({ detailPanelEquipmentId }),
+  setDetailPanelEquipmentId: (detailPanelEquipmentId) =>
+    // 다른 설비를 더블클릭하거나 패널을 닫을 때, 직전 설비에 매여 있던
+    // 랙 모듈 다이얼로그 / 슬롯 추가 팝오버 상태도 같이 닫는다.
+    // 이걸 안 비우면 다이얼로그가 다른 랙으로 전환된 뒤에도 옛 모듈을
+    // 그대로 띄워서 데이터가 어긋난 상태로 노출됨.
+    set({
+      detailPanelEquipmentId,
+      selectedRackModuleId: null,
+      addingAtSlot: null,
+    }),
   bumpFocusTick: () => set((state) => ({ focusTick: state.focusTick + 1 })),
-  setSelectedCableId: (selectedCableId) => set({ selectedCableId }),
+  setSelectedCableId: (selectedCableId) =>
+    set(
+      selectedCableId
+        ? {
+            selectedCableId,
+            selectedIds: [],
+            selectedRackModuleId: null,
+          }
+        : { selectedCableId: null },
+    ),
   setRestoredFromVersion: (restoredFromVersion) => set({ restoredFromVersion }),
   clearSelection: () => set({
     selectedIds: [],
-    selectedEquipment: null,
     selectedCableId: null,
   }),
   resetEditor: () => set((state) => {
@@ -572,7 +595,16 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       ),
       hasChanges: true,
     })),
-  setSelectedRackModuleId: (selectedRackModuleId) => set({ selectedRackModuleId }),
+  setSelectedRackModuleId: (selectedRackModuleId) =>
+    set(
+      selectedRackModuleId
+        ? {
+            selectedRackModuleId,
+            selectedIds: [],
+            selectedCableId: null,
+          }
+        : { selectedRackModuleId: null },
+    ),
   setAddingAtSlot: (s) => set({ addingAtSlot: s }),
   setIsDraggingRackModule: (v) => set({ isDraggingRackModule: v }),
   addRackModuleInline: ({ rackEquipmentId, category, slotIndex, slotSpan }) => {
@@ -695,3 +727,24 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
 
   resetHistory: () => set({ history: [], historyIndex: -1 }),
 }));
+
+// ── Derived selectors ────────────────────────────────────────────────────────
+// "현재 선택된 설비" 는 selectedIds[0] + localEquipment 로 자명하게 도출됨.
+// 별도 selectedEquipment 필드를 두지 않고 셀렉터로 매번 계산해 stale 동기화
+// 부담을 없앤다. localEquipment 를 불변 업데이트하는 한, 해당 설비가 바뀌지
+// 않은 프레임에서는 같은 참조가 반환되어 hook 결과도 안정적.
+export function useSelectedEquipment(): FloorPlanEquipment | null {
+  return useEditorStore((s) => {
+    const id = s.selectedIds[0];
+    if (!id) return null;
+    return s.localEquipment.find((e) => e.id === id) ?? null;
+  });
+}
+
+/** Non-hook context (event handler / store action) 에서 같은 의미 도출. */
+export function getSelectedEquipment(): FloorPlanEquipment | null {
+  const s = useEditorStore.getState();
+  const id = s.selectedIds[0];
+  if (!id) return null;
+  return s.localEquipment.find((e) => e.id === id) ?? null;
+}

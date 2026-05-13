@@ -210,11 +210,10 @@ export function renderConnections(
   const scale = zoom / 100;
   ctx.setTransform(scale, 0, 0, scale, panX, panY);
 
-  // Mark selected cable
-  if (selectedCableId) {
-    for (const conn of connections) {
-      conn._selected = conn.id === selectedCableId;
-    }
+  // Mark/unmark selected cable. selectedCableId 가 null 로 바뀌었을 때도
+  // 직전 프레임에 남은 _selected = true 플래그가 stale 로 남지 않도록 항상 갱신.
+  for (const conn of connections) {
+    conn._selected = !!selectedCableId && conn.id === selectedCableId;
   }
 
   for (const conn of connections) {

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useEditorStore } from '../../../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
-import { useOfdConnectionFlowStore } from '../../../../fiber/stores/ofdConnectionFlowStore';
+import { useOfdFlow, useInteractionStore } from '../../../../editor/stores/interactionStore';
 import { FiberPathManager } from '../../../../fiber/components/FiberPathManager';
 import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
 
@@ -11,9 +11,8 @@ interface PanelProps {
 }
 
 export function OfdEquipmentPanel({ equipmentId, floorId }: PanelProps) {
-  const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
-  const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
-  const isFlowActive = ofdPhase === 'selectingPort' && ofdFlowOfdId === equipmentId;
+  const ofdFlow = useOfdFlow();
+  const isFlowActive = ofdFlow?.phase === 'selectingPort' && ofdFlow?.ofdId === equipmentId;
 
   return (
     <BaseEquipmentTabsPanel
@@ -31,11 +30,12 @@ export function OfdEquipmentPanel({ equipmentId, floorId }: PanelProps) {
 function OfdPathsView({ equipmentId }: { equipmentId: string }) {
   const navigate = useNavigate();
   const snapshotActive = useSnapshotStore((s) => s.active);
-  const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
-  const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
-  const ofdDirection = useOfdConnectionFlowStore((s) => s.direction);
-  const cancelOfd = useOfdConnectionFlowStore((s) => s.cancel);
-  const selectPort = useOfdConnectionFlowStore((s) => s.selectPort);
+  const ofdFlow = useOfdFlow();
+  const ofdPhase = ofdFlow?.phase ?? 'idle';
+  const ofdFlowOfdId = ofdFlow?.ofdId ?? null;
+  const ofdDirection = ofdFlow?.direction ?? null;
+  const cancelOfd = useInteractionStore((s) => s.cancel);
+  const selectPort = useInteractionStore((s) => s.ofdSelectPort);
   const deleteCable = useEditorStore((s) => s.deleteCable);
   const updateCable = useEditorStore((s) => s.updateCable);
   const isFlowActive = ofdPhase === 'selectingPort' && ofdFlowOfdId === equipmentId;
@@ -72,9 +72,9 @@ function OfdPathsView({ equipmentId }: { equipmentId: string }) {
           if (isFlowActive) {
             selectPort(fiberPathId, portNumber);
           } else {
-            const store = useOfdConnectionFlowStore.getState();
-            store.startFromOfd(equipmentId);
-            store.selectPort(fiberPathId, portNumber);
+            const store = useInteractionStore.getState();
+            store.ofdStartFromOfd(equipmentId);
+            store.ofdSelectPort(fiberPathId, portNumber);
           }
         }}
         onPortDelete={(cableId) => deleteCable(cableId)}

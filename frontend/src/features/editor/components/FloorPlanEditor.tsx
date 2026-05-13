@@ -11,6 +11,7 @@ import { useEditorHistory } from '../hooks/useEditorHistory';
 import { calculateCenterOnBounds, calculateCenterOnEquipment } from '../hooks/useViewport';
 import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useInteractionStore } from '../stores/interactionStore';
 import { generateTempId } from '../../../utils/idHelpers';
 import { Toolbar } from './Toolbar';
 import { EditorSidebar } from './EditorSidebar';
@@ -107,7 +108,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     cs.setPasteEquipmentModalOpen(false);
     cs.setPasteEquipmentName('');
     es.setHasChanges(true);
-    es.setSelectedEquipment(newEquipment);
     es.setSelectedIds([newEquipment.id]);
     es.setClipboard({ type: 'equipment', data: newEquipment });
   }, [pushHistory]);
@@ -120,6 +120,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
   const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
+  const tool = useEditorStore(s => s.tool);
   const { data: rackModuleCategories } = useRackModuleCategories();
   // Reset editor store and snapshot on unmount
   useEffect(() => {
@@ -128,6 +129,27 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       useSnapshotStore.getState().exit();
     };
   }, [resetEditor]);
+
+  // ── tool / 컨텍스트 ↔ interaction mode sync ────────────────────────────────
+  // 케이블 도구 선택 시 cableDrawing 모드 진입, 다른 도구 전환 시 종료.
+  // OFD 흐름은 detail panel + 캔버스의 합성이므로 컨텍스트 깨지면 종료.
+  // 단일 union 으로 통합되어 모순 상태 자체가 불가능해 sync effect 도 한 곳에서.
+  useEffect(() => {
+    const interaction = useInteractionStore.getState();
+    const mode = interaction.mode;
+
+    if (tool === 'cable') {
+      if (mode.kind !== 'cableDrawing') interaction.cableActivate();
+    } else if (mode.kind === 'cableDrawing') {
+      interaction.cancel();
+    }
+
+    if (mode.kind === 'ofdFlow') {
+      const phase = mode.data.phase;
+      if (!detailPanelEquipmentId && phase === 'selectingPort') interaction.cancel();
+      if (tool !== 'select' && phase === 'selectingTarget') interaction.cancel();
+    }
+  }, [tool, detailPanelEquipmentId]);
 
   // 우측 detail panel 폭 (EquipmentDetailPanel.tsx 의 w-[360px] 와 동기화).
   const RIGHT_PANEL_WIDTH = 360;
