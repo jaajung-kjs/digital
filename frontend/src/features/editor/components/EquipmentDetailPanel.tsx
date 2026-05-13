@@ -21,6 +21,7 @@ interface EquipmentDetailPanelProps extends PanelProps {}
  */
 export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
+  const focusTick = useEditorStore((s) => s.focusTick);
   const snapshotActive = useSnapshotStore((s) => s.active);
   const isTemp = isTempId(equipmentId);
   const { equipment, isLoading } = useMergedEquipmentDetail(equipmentId);
@@ -96,9 +97,18 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
         </div>
       )}
 
-      {/* Body — delegated to resolved panel */}
+      {/* Body — delegated to resolved panel.
+          key 로 equipmentId+focusTick 을 묶어 다른 설비로 전환하거나 같은 설비를
+          재더블클릭할 때 패널 서브트리 전체를 remount. 탭/편집 폼/라이트박스 같은
+          내부 useState 들이 직전 설비의 잔여 상태를 끌고 오지 않게 한다. */}
       <div className="flex-1 min-h-0 flex flex-col">
-        {PanelComponent && <PanelComponent equipmentId={equipmentId} floorId={floorId} />}
+        {PanelComponent && (
+          <PanelComponent
+            key={`${equipmentId}-${focusTick}`}
+            equipmentId={equipmentId}
+            floorId={floorId}
+          />
+        )}
       </div>
     </div>
   );

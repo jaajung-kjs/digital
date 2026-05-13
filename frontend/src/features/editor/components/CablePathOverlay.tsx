@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
+import { useCableDrawing } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
 
@@ -12,12 +12,13 @@ interface CablePathOverlayProps {
 export function CablePathOverlay({ canvasRef }: CablePathOverlayProps) {
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
-  const phase = useCableDrawingStore((s) => s.phase);
-  const sourcePosition = useCableDrawingStore((s) => s.sourcePosition);
-  const waypoints = useCableDrawingStore((s) => s.waypoints);
-  const previewPoint = useCableDrawingStore((s) => s.previewPoint);
-  const hoveredEquipmentId = useCableDrawingStore((s) => s.hoveredEquipmentId);
-  const sourceEquipmentId = useCableDrawingStore((s) => s.sourceEquipmentId);
+  const cable = useCableDrawing();
+  const phase = cable?.phase ?? 'idle';
+  const sourcePosition = cable?.sourcePosition ?? null;
+  const waypoints = cable?.waypoints ?? [];
+  const previewPoint = cable?.previewPoint ?? null;
+  const hoveredEquipmentId = cable?.hoveredEquipmentId ?? null;
+  const sourceEquipmentId = cable?.sourceEquipmentId ?? null;
 
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
@@ -37,7 +38,32 @@ export function CablePathOverlay({ canvasRef }: CablePathOverlayProps) {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (phase === 'selectingSource') return;
+    // selectingSource: 호버된 설비가 있으면 "출발 후보" 로 미리 강조.
+    // 이 단계에선 sourcePosition 이 아직 없으므로 별도 분기.
+    if (phase === 'selectingSource') {
+      if (hoveredEquipmentId) {
+        const eq = localEquipment.find((e) => e.id === hoveredEquipmentId);
+        if (eq) {
+          const scale = zoom / 100;
+          ctx.save();
+          ctx.setTransform(scale, 0, 0, scale, panX, panY);
+          ctx.shadowColor = '#3b82f6';
+          ctx.shadowBlur = 10;
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 3]);
+          ctx.strokeRect(eq.positionX - 3, eq.positionY - 3, eq.width + 6, eq.height + 6);
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#3b82f6';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('출발', eq.positionX + eq.width / 2, eq.positionY - 8);
+          ctx.restore();
+        }
+      }
+      return;
+    }
     if (!sourcePosition) return;
 
     const scale = zoom / 100;

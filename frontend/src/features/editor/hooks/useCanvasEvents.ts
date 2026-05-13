@@ -7,9 +7,12 @@ import type { Position } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from './useEditorHistory';
-import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
+import {
+  useInteractionStore,
+  getCableDrawing,
+  getOfdFlow,
+} from '../stores/interactionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
-import { useOfdConnectionFlowStore } from '../../fiber/stores/ofdConnectionFlowStore';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
 
@@ -72,7 +75,6 @@ export function useCanvasEvents(
       const found = findItemAt(x, y, null, snap.equipment);
       if (found) {
         editorStore.getState().setSelectedIds([found.item.id]);
-        editorStore.getState().setSelectedEquipment(found.item as FloorPlanEquipment);
       } else {
         canvasStore.getState().setIsPanning(true);
         canvasStore.getState().setPanStart({ x: screenX, y: screenY });
@@ -82,8 +84,8 @@ export function useCanvasEvents(
     }
 
     // Cable drawing mode
-    const cableDrawing = useCableDrawingStore.getState();
-    if (cableDrawing.phase !== 'idle') {
+    const cableDrawing = getCableDrawing();
+    if (cableDrawing) {
       if (cableDrawing.phase === 'selectingSource') {
         const found = findItemAt(x, y, null, localEquipment);
         if (!found) {
@@ -99,9 +101,9 @@ export function useCanvasEvents(
       if (found) {
         const session = createDragSession(found, { x, y });
         canvasStore.getState().setDragSession(session);
+        // setSelectedIds 가 mutex 를 보장 → selectedCableId / selectedRackModuleId 자동 클리어.
         editorStore.getState().setSelectedIds([found.item.id]);
-        editorStore.getState().setSelectedCableId(null);
-        editorStore.getState().setSelectedEquipment(found.item as FloorPlanEquipment);
+        usePathHighlightStore.getState().clearHighlight();
       } else {
         // Cable hit test
         const { cables: hitCables } = useCableHitTestStore.getState();
@@ -118,6 +120,8 @@ export function useCanvasEvents(
         }
         if (closestCableId) {
           editorStore.getState().setSelectedCableId(closestCableId);
+          // 다른 케이블을 새로 선택했으면 직전 경로 추적 하이라이트도 같이 해제.
+          usePathHighlightStore.getState().clearHighlight();
         } else {
           canvasStore.getState().setIsPanning(true);
           canvasStore.getState().setPanStart({ x: screenX, y: screenY });
@@ -150,8 +154,23 @@ export function useCanvasEvents(
     }
 
     // Cable drawing
-    const cableDrawing = useCableDrawingStore.getState();
-    if (cableDrawing.phase === 'drawingPath') {
+    const cableDrawing = getCableDrawing();
+    if (cableDrawing?.phase === 'selectingSource') {
+      // 출발 설비 후보 위에 마우스가 올라갔을 때 미리 강조 표시. drawingPath
+      // 단계의 hovered 처리와 같은 throttle (2cm) 을 적용.
+      const last = lastHoverPos.current;
+      if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
+        lastHoverPos.current = { x: worldX, y: worldY };
+        const { localEquipment } = editorStore.getState();
+        const found = findItemAt(worldX, worldY, null, localEquipment);
+        const newHovered = found?.type === 'equipment' ? found.item.id : null;
+        if (newHovered !== cableDrawing.hoveredEquipmentId) {
+          useInteractionStore.getState().cableSetHovered(newHovered);
+        }
+      }
+      return;
+    }
+    if (cableDrawing?.phase === 'drawingPath') {
       const snapped = snapToGrid(worldX, worldY);
       if (e.shiftKey) {
         const lastPt = cableDrawing.waypoints.length > 0
@@ -166,7 +185,7 @@ export function useCanvasEvents(
           else snapped.x = lastPt[0];
         }
       }
-      cableDrawing.setPreviewPoint({ x: snapped.x, y: snapped.y });
+      useInteractionStore.getState().cableSetPreviewPoint({ x: snapped.x, y: snapped.y });
       const last = lastHoverPos.current;
       if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
         lastHoverPos.current = { x: worldX, y: worldY };
@@ -174,22 +193,24 @@ export function useCanvasEvents(
         const found = findItemAt(worldX, worldY, null, localEquipment);
         const newHovered = found?.type === 'equipment' ? found.item.id : null;
         if (newHovered !== cableDrawing.hoveredEquipmentId) {
-          cableDrawing.setHovered(newHovered);
+          useInteractionStore.getState().cableSetHovered(newHovered);
         }
       }
       return;
     }
 
     // OFD flow target hover
-    const ofdFlow = useOfdConnectionFlowStore.getState();
-    if (ofdFlow.phase === 'selectingTarget') {
+    const ofdFlow = getOfdFlow();
+    if (ofdFlow?.phase === 'selectingTarget') {
       const last = lastHoverPos.current;
       if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
         lastHoverPos.current = { x: worldX, y: worldY };
         const { localEquipment } = editorStore.getState();
         const found = findItemAt(worldX, worldY, null, localEquipment);
         const newHovered = found?.type === 'equipment' ? found.item.id : null;
-        if (newHovered !== ofdFlow.hoveredEquipmentId) ofdFlow.setHovered(newHovered);
+        if (newHovered !== ofdFlow.hoveredEquipmentId) {
+          useInteractionStore.getState().ofdSetHovered(newHovered);
+        }
       }
       return;
     }
@@ -260,8 +281,9 @@ export function useCanvasEvents(
     const cs = canvasStore.getState();
 
     // Cable drawing
-    const cableDrawing = useCableDrawingStore.getState();
-    if (cableDrawing.phase === 'selectingSource') {
+    const cableDrawing = getCableDrawing();
+    const interaction = useInteractionStore.getState();
+    if (cableDrawing?.phase === 'selectingSource') {
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment') {
         const eq = found.item as FloorPlanEquipment;
@@ -271,18 +293,18 @@ export function useCanvasEvents(
         };
         // P9: RACK / OFD endpoints require a module / port selection step.
         if (eq.kind === 'RACK' || eq.kind === 'OFD') {
-          cableDrawing.setPendingSource(eq.id, center);
+          interaction.cableSetPendingSource(eq.id, center);
         } else {
-          cableDrawing.setSource(eq.id, center);
+          interaction.cableSetSource(eq.id, center);
         }
       }
       return;
     }
-    if (cableDrawing.phase === 'pickingSourceModule' || cableDrawing.phase === 'pickingTargetModule') {
+    if (cableDrawing?.phase === 'pickingSourceModule' || cableDrawing?.phase === 'pickingTargetModule') {
       // Picker modals own the click flow; ignore canvas clicks.
       return;
     }
-    if (cableDrawing.phase === 'drawingPath') {
+    if (cableDrawing?.phase === 'drawingPath') {
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment' && found.item.id !== cableDrawing.sourceEquipmentId) {
         const eq = found.item as FloorPlanEquipment;
@@ -291,9 +313,9 @@ export function useCanvasEvents(
           y: eq.positionY + eq.height / 2,
         };
         if (eq.kind === 'RACK' || eq.kind === 'OFD') {
-          cableDrawing.setPendingTarget(eq.id, center);
+          interaction.cableSetPendingTarget(eq.id, center);
         } else {
-          cableDrawing.setTarget(eq.id, center);
+          interaction.cableSetTarget(eq.id, center);
         }
       } else if (!found || found.type !== 'equipment') {
         if (e.shiftKey && cableDrawing.waypoints.length > 0) {
@@ -308,14 +330,16 @@ export function useCanvasEvents(
           if (dx > dy) snapped.y = cableDrawing.sourcePosition.y;
           else snapped.x = cableDrawing.sourcePosition.x;
         }
-        cableDrawing.addWaypoint(snapped.x, snapped.y);
+        interaction.cableAddWaypoint(snapped.x, snapped.y);
       }
       return;
     }
-    if (cableDrawing.phase === 'selectingSpec') return;
+    if (cableDrawing?.phase === 'selectingSpec') return;
 
     if (tool === 'cable') {
-      cableDrawing.activate();
+      // tool 동기화 effect 가 이미 cableDrawing 을 activate 시켰지만,
+      // 안전을 위해 idle 인 경우 명시적으로 activate.
+      if (!cableDrawing) interaction.cableActivate();
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment') {
         const eq = found.item as FloorPlanEquipment;
@@ -324,22 +348,22 @@ export function useCanvasEvents(
           y: eq.positionY + eq.height / 2,
         };
         if (eq.kind === 'RACK' || eq.kind === 'OFD') {
-          useCableDrawingStore.getState().setPendingSource(eq.id, center);
+          interaction.cableSetPendingSource(eq.id, center);
         } else {
-          useCableDrawingStore.getState().setSource(eq.id, center);
+          interaction.cableSetSource(eq.id, center);
         }
       }
       return;
     }
 
     // OFD flow target
-    const ofdFlow = useOfdConnectionFlowStore.getState();
-    if (ofdFlow.phase === 'selectingTarget') {
+    const ofdFlow = getOfdFlow();
+    if (ofdFlow?.phase === 'selectingTarget') {
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment' && found.item.id !== ofdFlow.ofdId) {
-        ofdFlow.completeConnection(found.item.id);
+        interaction.ofdCompleteConnection(found.item.id);
       } else if (!found) {
-        ofdFlow.cancel();
+        interaction.cancel();
       }
       return;
     }
@@ -407,7 +431,6 @@ export function useCanvasEvents(
         // 패널 진입과 동시에 선택 상태도 고정 — 캔버스 하이라이트(2px 파란 외곽)가
         // 더블클릭 흐름 전체에서 일관되게 유지된다.
         editorStore.getState().setSelectedIds([eq.id]);
-        editorStore.getState().setSelectedEquipment(eq as FloorPlanEquipment);
         editorStore.getState().setDetailPanelEquipmentId(eq.id);
         // 매 더블클릭마다 focusTick 증가 → 같은 설비를 재 더블클릭해도
         // viewport useEffect 가 다시 실행되어 재정렬.

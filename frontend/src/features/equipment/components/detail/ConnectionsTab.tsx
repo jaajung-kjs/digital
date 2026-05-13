@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEditorStore } from '../../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../../editor/stores/snapshotStore';
-import { useOfdConnectionFlowStore } from '../../../fiber/stores/ofdConnectionFlowStore';
+import { useOfdFlow, useInteractionStore } from '../../../editor/stores/interactionStore';
 import { ConnectionDiagram } from '../ConnectionDiagram';
 import { FiberPathManager } from '../../../fiber/components/FiberPathManager';
 
@@ -24,11 +24,12 @@ export function ConnectionsTab({
   const snapshotActive = useSnapshotStore((s) => s.active);
   const snapshotFiberPaths = useSnapshotStore((s) => s.fiberPaths);
   const snapshotEquipment = useSnapshotStore((s) => s.equipment);
-  const ofdPhase = useOfdConnectionFlowStore((s) => s.phase);
-  const ofdDirection = useOfdConnectionFlowStore((s) => s.direction);
-  const ofdFlowOfdId = useOfdConnectionFlowStore((s) => s.ofdId);
-  const selectPort = useOfdConnectionFlowStore((s) => s.selectPort);
-  const cancelOfd = useOfdConnectionFlowStore((s) => s.cancel);
+  const ofdFlow = useOfdFlow();
+  const ofdPhase = ofdFlow?.phase ?? 'idle';
+  const ofdDirection = ofdFlow?.direction ?? null;
+  const ofdFlowOfdId = ofdFlow?.ofdId ?? null;
+  const selectPort = useInteractionStore((s) => s.ofdSelectPort);
+  const cancelOfd = useInteractionStore((s) => s.cancel);
   const deleteCable = useEditorStore((s) => s.deleteCable);
   const updateCable = useEditorStore((s) => s.updateCable);
   const navigate = useNavigate();
@@ -42,9 +43,9 @@ export function ConnectionsTab({
       selectPort(fiberPathId, portNumber);
     } else {
       // Direct port click without active flow: start OFD-as-source
-      const store = useOfdConnectionFlowStore.getState();
-      store.startFromOfd(equipmentId);
-      store.selectPort(fiberPathId, portNumber);
+      const store = useInteractionStore.getState();
+      store.ofdStartFromOfd(equipmentId);
+      store.ofdSelectPort(fiberPathId, portNumber);
     }
   }, [isFlowActive, selectPort, equipmentId]);
 

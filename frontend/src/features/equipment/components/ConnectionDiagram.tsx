@@ -4,7 +4,7 @@ import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
-import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
+import { useCableDrawing, useInteractionStore } from '../../editor/stores/interactionStore';
 
 
 interface ConnectionDiagramProps {
@@ -37,7 +37,8 @@ export function ConnectionDiagram({
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const isTraceLoading = usePathHighlightStore((s) => s.isLoading);
   const traceActive = usePathHighlightStore((s) => s.active);
-  const cableDrawingPhase = useCableDrawingStore((s) => s.phase);
+  const cableDrawing = useCableDrawing();
+  const cableDrawingPhase = cableDrawing?.phase ?? 'idle';
 
   // Unmount = context gone → clear highlight automatically.
   useEffect(() => () => clearHighlight(), [clearHighlight]);
@@ -75,7 +76,7 @@ export function ConnectionDiagram({
     const center = { x: eq.positionX + eq.width / 2, y: eq.positionY + eq.height / 2 };
     // Activate cable tool and pre-set source (skip selectingSource phase)
     useEditorStore.getState().setTool('cable');
-    useCableDrawingStore.getState().setSource(equipmentId, center);
+    useInteractionStore.getState().cableSetSource(equipmentId, center);
     // Close equipment detail panel so user can draw on canvas
     useEditorStore.getState().setDetailPanelEquipmentId(null);
   };

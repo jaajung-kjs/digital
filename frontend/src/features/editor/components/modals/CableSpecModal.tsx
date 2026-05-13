@@ -1,6 +1,10 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
-import { useCableDrawingStore } from '../../../connections/stores/cableDrawingStore';
+import {
+  useCableDrawing,
+  useInteractionStore,
+  getCableDrawing,
+} from '../../stores/interactionStore';
 import { useCableCategories } from '../../../cables/hooks/useCableCategories';
 import { getCableTypeFromMaterial } from '../../../../types/material';
 import type { CableCategory } from '../../../../types/cableCategory';
@@ -20,7 +24,8 @@ export function CableSpecModalWrapper() {
  * CM-B: pathPoints 자체가 cm 단위이므로 scaleRatio 인자 없이 길이 계산.
  */
 function CableSpecModal() {
-  const phase = useCableDrawingStore((s) => s.phase);
+  const cable = useCableDrawing();
+  const phase = cable?.phase ?? 'idle';
   const addCable = useEditorStore((s) => s.addCable);
   const preselectedGroup = useEditorStore(
     (s) => s.preselectedCableDisplayGroup,
@@ -50,8 +55,9 @@ function CableSpecModal() {
 
   const handleConfirm = () => {
     if (!selectedCat) return;
-    const store = useCableDrawingStore.getState();
-    const pathPoints = store.getPathPoints();
+    const data = getCableDrawing();
+    if (!data) return;
+    const pathPoints = useInteractionStore.getState().cableGetPathPoints();
     const cableType = getCableTypeFromMaterial(selectedCat.code);
 
     // pathPoints 가 cm 좌표 — calculatePathLength 가 cm 길이를 직접 돌려준다.
@@ -60,15 +66,15 @@ function CableSpecModal() {
     // For OFD ports we attach the fiberPath via either side. The model uses
     // single `fiberPathId / fiberPortNumber` fields so target-side wins when
     // both endpoints are OFDs (rare; usually only one side is fiber-tracked).
-    const fiberPathId = store.targetFiberPathId ?? store.sourceFiberPathId ?? null;
-    const fiberPortNumber = store.targetPortNumber ?? store.sourcePortNumber ?? null;
+    const fiberPathId = data.targetFiberPathId ?? data.sourceFiberPathId ?? null;
+    const fiberPortNumber = data.targetPortNumber ?? data.sourcePortNumber ?? null;
 
     addCable({
       id: generateTempId(),
-      sourceEquipmentId: store.sourceEquipmentId ?? '',
-      targetEquipmentId: store.targetEquipmentId ?? '',
-      sourceModuleId: store.sourceModuleId ?? null,
-      targetModuleId: store.targetModuleId ?? null,
+      sourceEquipmentId: data.sourceEquipmentId ?? '',
+      targetEquipmentId: data.targetEquipmentId ?? '',
+      sourceModuleId: data.sourceModuleId ?? null,
+      targetModuleId: data.targetModuleId ?? null,
       cableType,
       categoryId: selectedCat.id,
       categoryCode: selectedCat.code,
@@ -84,11 +90,11 @@ function CableSpecModal() {
       fiberPortNumber,
     });
 
-    store.complete();
+    useInteractionStore.getState().cancel();
   };
 
   const handleCancel = () => {
-    useCableDrawingStore.getState().cancel();
+    useInteractionStore.getState().cancel();
   };
 
   return (

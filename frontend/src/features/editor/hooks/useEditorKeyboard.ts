@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import type { FloorPlanDetail, FloorPlanEquipment } from '../../../types/floorPlan';
-import { useEditorStore } from '../stores/editorStore';
+import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
-import { useCableDrawingStore } from '../../connections/stores/cableDrawingStore';
+import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useEditorHistory } from './useEditorHistory';
 import { calculateFitToContent } from './useViewport';
@@ -39,15 +39,15 @@ export function useEditorKeyboard(
       }
 
       // Cable drawing
-      const cbd = useCableDrawingStore.getState();
-      if (cbd.phase === 'drawingPath' && e.key === 'Backspace') {
+      const cbd = getCableDrawing();
+      if (cbd?.phase === 'drawingPath' && e.key === 'Backspace') {
         e.preventDefault();
-        cbd.removeLastWaypoint();
+        useInteractionStore.getState().cableRemoveLastWaypoint();
         return;
       }
-      if (cbd.phase !== 'idle' && e.key === 'Escape') {
+      if (cbd && e.key === 'Escape') {
         e.preventDefault();
-        cbd.cancel();
+        useInteractionStore.getState().cancel();
         es.setTool('select');
         return;
       }
@@ -74,11 +74,12 @@ export function useEditorKeyboard(
       if (key === 'g') es.setShowGrid(!es.showGrid);
       if (key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
 
-      const { selectedEquipment, localEquipment } = es;
+      const { localEquipment } = es;
+      const selectedEquipment = getSelectedEquipment();
 
       // Arrow nudge for equipment
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !e.ctrlKey) {
-        if (!selectedEquipment || es.selectedIds.length === 0) return;
+        if (!selectedEquipment) return;
         e.preventDefault();
         const { gridSize, gridSnap: snap } = es;
         const baseStep = snap ? gridSize : 1;
@@ -95,8 +96,7 @@ export function useEditorKeyboard(
           es.selectedIds.includes(eq.id) ? nudgeEquipment(eq, dx, dy) : eq,
         );
         es.setLocalEquipment(newEquipment);
-        const updated = newEquipment.find((eq) => eq.id === selectedEquipment.id);
-        if (updated) es.setSelectedEquipment(updated);
+        // selectedEquipment 가 selector 로 도출되므로 별도 동기화 불필요.
         es.setHasChanges(true);
         return;
       }
