@@ -153,21 +153,26 @@ export function useCanvasEvents(
       return;
     }
 
+    // 2cm throttle 로 hovered 설비 갱신. cable selectingSource / drawingPath /
+    // ofd selectingTarget 세 흐름이 동일 패턴이라 헬퍼로 통합.
+    const updateHoveredEquipment = (
+      currentHovered: string | null,
+      setHovered: (id: string | null) => void,
+    ) => {
+      const last = lastHoverPos.current;
+      if (last && Math.abs(worldX - last.x) < 2 && Math.abs(worldY - last.y) < 2) return;
+      lastHoverPos.current = { x: worldX, y: worldY };
+      const { localEquipment } = editorStore.getState();
+      const found = findItemAt(worldX, worldY, null, localEquipment);
+      const newHovered = found?.type === 'equipment' ? found.item.id : null;
+      if (newHovered !== currentHovered) setHovered(newHovered);
+    };
+
     // Cable drawing
     const cableDrawing = getCableDrawing();
+    const interaction = useInteractionStore.getState();
     if (cableDrawing?.phase === 'selectingSource') {
-      // 출발 설비 후보 위에 마우스가 올라갔을 때 미리 강조 표시. drawingPath
-      // 단계의 hovered 처리와 같은 throttle (2cm) 을 적용.
-      const last = lastHoverPos.current;
-      if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
-        lastHoverPos.current = { x: worldX, y: worldY };
-        const { localEquipment } = editorStore.getState();
-        const found = findItemAt(worldX, worldY, null, localEquipment);
-        const newHovered = found?.type === 'equipment' ? found.item.id : null;
-        if (newHovered !== cableDrawing.hoveredEquipmentId) {
-          useInteractionStore.getState().cableSetHovered(newHovered);
-        }
-      }
+      updateHoveredEquipment(cableDrawing.hoveredEquipmentId, interaction.cableSetHovered);
       return;
     }
     if (cableDrawing?.phase === 'drawingPath') {
@@ -185,33 +190,15 @@ export function useCanvasEvents(
           else snapped.x = lastPt[0];
         }
       }
-      useInteractionStore.getState().cableSetPreviewPoint({ x: snapped.x, y: snapped.y });
-      const last = lastHoverPos.current;
-      if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
-        lastHoverPos.current = { x: worldX, y: worldY };
-        const { localEquipment } = editorStore.getState();
-        const found = findItemAt(worldX, worldY, null, localEquipment);
-        const newHovered = found?.type === 'equipment' ? found.item.id : null;
-        if (newHovered !== cableDrawing.hoveredEquipmentId) {
-          useInteractionStore.getState().cableSetHovered(newHovered);
-        }
-      }
+      interaction.cableSetPreviewPoint({ x: snapped.x, y: snapped.y });
+      updateHoveredEquipment(cableDrawing.hoveredEquipmentId, interaction.cableSetHovered);
       return;
     }
 
     // OFD flow target hover
     const ofdFlow = getOfdFlow();
     if (ofdFlow?.phase === 'selectingTarget') {
-      const last = lastHoverPos.current;
-      if (!last || Math.abs(worldX - last.x) >= 2 || Math.abs(worldY - last.y) >= 2) {
-        lastHoverPos.current = { x: worldX, y: worldY };
-        const { localEquipment } = editorStore.getState();
-        const found = findItemAt(worldX, worldY, null, localEquipment);
-        const newHovered = found?.type === 'equipment' ? found.item.id : null;
-        if (newHovered !== ofdFlow.hoveredEquipmentId) {
-          useInteractionStore.getState().ofdSetHovered(newHovered);
-        }
-      }
+      updateHoveredEquipment(ofdFlow.hoveredEquipmentId, interaction.ofdSetHovered);
       return;
     }
 
@@ -337,9 +324,6 @@ export function useCanvasEvents(
     if (cableDrawing?.phase === 'selectingSpec') return;
 
     if (tool === 'cable') {
-      // tool 동기화 effect 가 이미 cableDrawing 을 activate 시켰지만,
-      // 안전을 위해 idle 인 경우 명시적으로 activate.
-      if (!cableDrawing) interaction.cableActivate();
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment') {
         const eq = found.item as FloorPlanEquipment;

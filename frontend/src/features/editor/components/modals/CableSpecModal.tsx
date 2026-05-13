@@ -57,7 +57,10 @@ function CableSpecModal() {
     if (!selectedCat) return;
     const data = getCableDrawing();
     if (!data) return;
-    const pathPoints = useInteractionStore.getState().cableGetPathPoints();
+    const pathPoints: [number, number][] = [];
+    if (data.sourcePosition) pathPoints.push([data.sourcePosition.x, data.sourcePosition.y]);
+    pathPoints.push(...data.waypoints);
+    if (data.targetPosition) pathPoints.push([data.targetPosition.x, data.targetPosition.y]);
     const cableType = getCableTypeFromMaterial(selectedCat.code);
 
     // pathPoints 가 cm 좌표 — calculatePathLength 가 cm 길이를 직접 돌려준다.
