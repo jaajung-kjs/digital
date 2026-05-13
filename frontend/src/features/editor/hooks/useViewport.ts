@@ -91,7 +91,7 @@ export function calculateCenterOnEquipment(
   canvasWidth: number,
   canvasHeight: number,
   rightPanelWidth: number,
-  paddingCm = 80,
+  paddingCm = 160,
 ): { zoom: number; panX: number; panY: number } {
   const visibleWidth = Math.max(1, canvasWidth - rightPanelWidth);
   const visibleHeight = Math.max(1, canvasHeight);
@@ -99,7 +99,9 @@ export function calculateCenterOnEquipment(
   const contentHeight = eq.height + paddingCm * 2;
   const zoomX = (visibleWidth / contentWidth) * 100;
   const zoomY = (visibleHeight / contentHeight) * 100;
-  const zoom = Math.max(50, Math.min(zoomX, zoomY, 300));
+  // max 150% — 이전엔 300% 였는데 너무 확대됨. paddingCm 도 두 배(80→160)로 늘려
+  // 작은 설비도 과도하게 확대되지 않게.
+  const zoom = Math.max(50, Math.min(zoomX, zoomY, 150));
   const scale = zoom / 100;
   const eqCenterX = eq.positionX + eq.width / 2;
   const eqCenterY = eq.positionY + eq.height / 2;

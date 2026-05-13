@@ -101,6 +101,22 @@ export function useCanvas(
       renderEquipmentItems(ctx, floorEquipment, selectedIds);
     }
 
+    // Detail panel 진입 설비를 케이블 path highlight 와 동일한 푸른 글로우로 강조.
+    // (ConnectionOverlay 의 highlighted-equipment 와 같은 스타일: shadowBlur + 2px stroke)
+    const detailPanelEqId = editorState.detailPanelEquipmentId;
+    if (detailPanelEqId) {
+      const eq = floorEquipment.find((e) => e.id === detailPanelEqId);
+      if (eq) {
+        ctx.save();
+        ctx.shadowColor = '#3b82f6';
+        ctx.shadowBlur = 10;
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(eq.positionX - 2, eq.positionY - 2, eq.width + 4, eq.height + 4);
+        ctx.restore();
+      }
+    }
+
     if (showLengths) {
       renderEquipmentLengths(ctx, localEquipment, zoom);
     }
