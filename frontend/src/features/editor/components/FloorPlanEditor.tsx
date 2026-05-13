@@ -153,6 +153,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       const store = useEditorStore.getState();
       if (draft.localEquipment) store.setLocalEquipment(draft.localEquipment);
       if (draft.localCables) store.setCables(draft.localCables);
+      if (draft.localRackModules) store.setRackModules(draft.localRackModules);
       if (draft.pendingLogs) {
         for (const log of draft.pendingLogs) store.addPendingLog(log);
       }
@@ -208,6 +209,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       const draft = {
         localEquipment: state.localEquipment,
         localCables: state.localCables,
+        localRackModules: state.localRackModules,
         pendingLogs: state.pendingLogs,
         pendingFiberPaths: state.pendingFiberPaths,
         deletedFiberPathIds: state.deletedFiberPathIds,
