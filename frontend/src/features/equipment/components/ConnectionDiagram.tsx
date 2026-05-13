@@ -4,7 +4,6 @@ import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
-import { useCableDrawing, useInteractionStore } from '../../editor/stores/interactionStore';
 
 
 interface ConnectionDiagramProps {
@@ -21,10 +20,6 @@ export function ConnectionDiagram({
   const editorRackModules = useEditorStore((s) => s.localRackModules);
   const deleteCable = useEditorStore((s) => s.deleteCable);
 
-  // P9: derive OFD-ness from kind on the local equipment row.
-  const localEqKind = editorEquipment.find((e) => e.id === equipmentId)?.kind;
-  const isOfd = localEqKind === 'OFD';
-
   // Snapshot overlay: when active, show snapshot data instead of editor data
   const snapshotActive = useSnapshotStore((s) => s.active);
   const snapshotCables = useSnapshotStore((s) => s.cables);
@@ -37,8 +32,6 @@ export function ConnectionDiagram({
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const isTraceLoading = usePathHighlightStore((s) => s.isLoading);
   const traceActive = usePathHighlightStore((s) => s.active);
-  const cableDrawing = useCableDrawing();
-  const cableDrawingPhase = cableDrawing?.phase ?? 'idle';
 
   // Unmount = context gone → clear highlight automatically.
   useEffect(() => () => clearHighlight(), [clearHighlight]);
@@ -68,40 +61,9 @@ export function ConnectionDiagram({
     );
   }, [localCables, isSelfSide]);
 
-  const handleStartCableDrawing = () => {
-    clearHighlight();
-    // Find this equipment to compute its center position
-    const eq = localEquipment.find((e) => e.id === equipmentId);
-    if (!eq) return;
-    const center = { x: eq.positionX + eq.width / 2, y: eq.positionY + eq.height / 2 };
-    // Activate cable tool and pre-set source (skip selectingSource phase)
-    useEditorStore.getState().setTool('cable');
-    useInteractionStore.getState().cableSetSource(equipmentId, center);
-    // Close equipment detail panel so user can draw on canvas
-    useEditorStore.getState().setDetailPanelEquipmentId(null);
-  };
-
   return (
     <div>
       <div className="p-3">
-        {/* Add connection button — OFD connections are managed via FiberPathManager, hidden during snapshot preview */}
-        {!snapshotActive && !isOfd && (
-        <div className="mb-3">
-          {cableDrawingPhase !== 'idle' ? (
-            <div className="text-center text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2 border border-blue-200">
-              캔버스에서 경로를 그리세요
-            </div>
-          ) : (
-            <button
-              onClick={handleStartCableDrawing}
-              className="w-full px-3 py-1.5 text-sm text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors font-medium"
-            >
-              + 연결 추가
-            </button>
-          )}
-        </div>
-        )}
-
         {relevantCables.length === 0 ? (
           <div className="text-center text-sm text-gray-400 py-2">
             연결 정보가 없습니다.
