@@ -189,6 +189,11 @@ export interface EditorStoreState {
   /** Which rack slot is currently showing the inline "add module" popover. */
   addingAtSlot: { rackEquipmentId: string; slotIndex: number } | null;
 
+  /** True while a rack module is being dragged (move or resize). Used to
+   *  suppress :hover effects on empty slots so they don't flicker as the
+   *  cursor passes over them mid-drag. */
+  isDraggingRackModule: boolean;
+
   // DWG-C: client-side per-layer visibility override for the imported
   // BackgroundDrawing. A layer name in this Set is hidden in the renderer
   // and skipped by the snap collector — independent of layer.isVisible
@@ -290,6 +295,7 @@ export interface EditorStoreActions {
 
   setSelectedRackModuleId: (id: string | null) => void;
   setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
+  setIsDraggingRackModule: (v: boolean) => void;
   addRackModuleInline: (input: {
     rackEquipmentId: string;
     category: RackModuleCategory;
@@ -367,6 +373,7 @@ const initialState: EditorStoreState = {
   localRackModules: [],
   selectedRackModuleId: null,
   addingAtSlot: null,
+  isDraggingRackModule: false,
   hiddenBgLayers: new Set<string>(),
 
   // History
@@ -561,6 +568,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     })),
   setSelectedRackModuleId: (selectedRackModuleId) => set({ selectedRackModuleId }),
   setAddingAtSlot: (s) => set({ addingAtSlot: s }),
+  setIsDraggingRackModule: (v) => set({ isDraggingRackModule: v }),
   addRackModuleInline: ({ rackEquipmentId, category, slotIndex, slotSpan }) => {
     const tempId = generateTempId();
     const now = new Date().toISOString();

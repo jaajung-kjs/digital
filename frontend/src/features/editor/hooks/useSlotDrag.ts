@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { planMove, planResize, type PlanResult } from '../utils/slotGeometry';
+import { useEditorStore } from '../stores/editorStore';
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule } from '../../../types/rackModule';
 
 type DragMode = 'move' | 'resize';
@@ -87,6 +88,8 @@ export function useSlotDrag({ module, siblings, gridRef, onClick, onCommit }: Us
       const live = internalRef.current;
       internalRef.current = null;
       setDragState(null);
+      // 글로벌 드래그 플래그 해제 (빈 슬롯 hover 차단 해제).
+      useEditorStore.getState().setIsDraggingRackModule(false);
       if (!live) return;
       if (!commit) return; // cancel / Escape
       if (!live.active) {
@@ -136,6 +139,8 @@ export function useSlotDrag({ module, siblings, gridRef, onClick, onCommit }: Us
       };
       internalRef.current = initial;
       setDragState({ mode, candidate: initial.candidate, plan: initial.plan });
+      // 글로벌 드래그 플래그 — 빈 슬롯이 hover 효과를 꺼버리도록 알림.
+      useEditorStore.getState().setIsDraggingRackModule(true);
     },
     [module, siblings, gridRef],
   );
