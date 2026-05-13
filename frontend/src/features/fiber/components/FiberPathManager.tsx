@@ -77,7 +77,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
   };
 
   const handleDelete = async (pathId: string) => {
-    if (!confirm('이 광경로를 삭제하시겠습니까?')) return;
+    if (!confirm('이 경로를 삭제하시겠습니까?')) return;
     if (isTempId(pathId)) {
       // Pending path: just remove from store
       removePendingFiberPath(pathId);
@@ -106,12 +106,12 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
   return (
     <div className="p-4 border-b border-gray-200">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">광경로 슬롯</h3>
+        <h3 className="text-sm font-semibold text-gray-700">경로 슬롯</h3>
         <button
           onClick={() => setShowCreate(!showCreate)}
           className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
         >
-          {showCreate ? '취소' : '광경로 추가'}
+          {showCreate ? '취소' : '경로 추가'}
         </button>
       </div>
 
@@ -181,7 +181,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
               <div className="flex items-center justify-between px-3 py-2">
                 <div>
                   <span className="text-sm font-medium text-gray-700">
-                    새 광경로
+                    새 경로
                   </span>
                   <span className="ml-2 text-xs text-gray-400">
                     {fp.portCount}코어
@@ -201,7 +201,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
 
       {/* Saved path list */}
       {activePaths.length === 0 && pendingPathsForThisOfd.length === 0 ? (
-        <p className="text-sm text-gray-400">등록된 광경로가 없습니다.</p>
+        <p className="text-sm text-gray-400">등록된 경로가 없습니다.</p>
       ) : (
         <div className="space-y-2">
           {activePaths.map((path) => {

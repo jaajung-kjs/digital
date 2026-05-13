@@ -253,7 +253,7 @@ export function TopologyModal() {
                 strokeDasharray="4 2"
               />
             </svg>
-            광경로
+            경로
           </span>
           <span className="flex items-center gap-1.5">
             <svg width="12" height="12">

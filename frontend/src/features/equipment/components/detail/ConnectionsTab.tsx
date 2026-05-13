@@ -70,9 +70,9 @@ export function ConnectionsTab({
     return (
       <div>
         <div className="p-4 border-b border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">광경로 슬롯</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">경로 슬롯</h3>
           {ofdPaths.length === 0 ? (
-            <p className="text-sm text-gray-400">등록된 광경로가 없습니다.</p>
+            <p className="text-sm text-gray-400">등록된 경로가 없습니다.</p>
           ) : (
             <div className="space-y-2">
               {ofdPaths.map((path) => {
