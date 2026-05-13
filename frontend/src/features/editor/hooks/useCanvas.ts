@@ -5,6 +5,7 @@ import {
   renderEquipmentItems,
   renderEquipmentLengths,
   renderEquipmentPreview,
+  renderPresetPreview,
 } from '../../../utils/floorplan/renderers';
 import { renderGrid } from '../renderers/gridRenderer';
 import { renderBackgroundDrawing } from '../renderers/backgroundLayerRenderer';
@@ -38,7 +39,7 @@ export function useCanvas(
 
     const {
       isDrawingEquipment, equipmentStart, equipmentPreviewEnd,
-      previewPosition,
+      previewPosition, newEquipmentPreset,
     } = editorState;
 
     const scale = zoom / 100;
@@ -109,7 +110,19 @@ export function useCanvas(
     }
 
     if (previewPosition && tool === 'equipment' && !isDrawingEquipment) {
-      renderEquipmentPreview(ctx, previewPosition);
+      // 프리셋이 armed 상태면 프리셋 크기로 사각형 미리보기,
+      // 아니면 단순 십자선.
+      if (newEquipmentPreset) {
+        renderPresetPreview(
+          ctx,
+          previewPosition,
+          newEquipmentPreset.canvasWidth,
+          newEquipmentPreset.canvasHeight,
+          newEquipmentPreset.name,
+        );
+      } else {
+        renderEquipmentPreview(ctx, previewPosition);
+      }
     }
 
     ctx.restore();

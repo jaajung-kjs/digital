@@ -95,6 +95,25 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
         </div>
       </div>
 
+      {/* RESIZE 중 원본 크기 outline — 셀이 늘어나는 동안 "원래 어디까지였는지"
+          를 옅은 회색 점선으로 표시 → before/after 가 한눈에 보임. */}
+      {dragging && isResize && (
+        <div
+          aria-hidden
+          className="pointer-events-none rounded-md"
+          style={{
+            gridRowStart: module.slotIndex + 1,
+            gridRowEnd: module.slotIndex + module.slotSpan + 1,
+            gridColumnStart: 1,
+            gridColumnEnd: 2,
+            boxShadow: 'inset 0 0 0 2px rgba(0,0,0,0.4)',
+            backgroundColor: 'transparent',
+            // 원본 outline 은 셀 위(zIndex 11)에 떠야 펄스 셀의 색으로도 안 가려짐.
+            zIndex: 11,
+          }}
+        />
+      )}
+
       {/* MOVE 인디케이터 — outline only. RESIZE 중에는 셀 자체가 늘어나므로 불필요. */}
       {dragging && !isResize && dragState && (() => {
         const area = indicatorGridArea(dragState.candidate.slotIndex, dragState.candidate.slotSpan);
