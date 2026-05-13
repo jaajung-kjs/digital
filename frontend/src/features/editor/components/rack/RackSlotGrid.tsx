@@ -12,6 +12,14 @@ interface Props {
   modules: RackModule[];
 }
 
+/**
+ * 12-슬롯 고정 그리드.
+ *
+ * 중요: 모든 그리드 아이템 (ModuleCell, EmptySlot, 드래그 인디케이터) 은
+ * 자기 자리를 **explicit gridRowStart/End** 로 선언한다. auto-flow 를 쓰지
+ * 않으므로 드래그 인디케이터가 원본 셀과 같은 슬롯에 겹쳐도 원본 셀이
+ * 다른 슬롯으로 밀려나지 않는다 (이전 버전 버그).
+ */
 export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const addingAtSlot = useEditorStore((s) => s.addingAtSlot);
@@ -44,11 +52,37 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
     });
   };
 
-  const occupiedTop = new Map<number, RackModule>();
+  // 각 슬롯이 어떤 모듈에 속하는지 (없으면 빈 슬롯).
+  // 자식들은 모두 explicit grid 위치를 가지므로 순서/구분 신경 안 써도 됨.
+  const moduleBySlot = new Map<number, RackModule>();
+  for (const m of modules) moduleBySlot.set(m.slotIndex, m);
   const occupiedAny = new Set<number>();
   for (const m of modules) {
-    occupiedTop.set(m.slotIndex, m);
     for (let i = m.slotIndex; i < m.slotIndex + m.slotSpan; i++) occupiedAny.add(i);
+  }
+
+  const children: React.ReactNode[] = [];
+  for (let i = 0; i < RACK_SLOT_COUNT; i++) {
+    const mod = moduleBySlot.get(i);
+    if (mod) {
+      children.push(
+        <ModuleCell
+          key={mod.id}
+          module={mod}
+          siblings={modules}
+          gridRef={gridRef}
+        />,
+      );
+      continue;
+    }
+    if (occupiedAny.has(i)) continue; // 위쪽 모듈이 차지한 slot — 아무 것도 안 그림
+    children.push(
+      <EmptySlot
+        key={`empty-${i}`}
+        slotIndex={i}
+        onClick={(anchor) => handleEmptyClick(i, anchor)}
+      />,
+    );
   }
 
   return (
@@ -58,28 +92,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
         className="h-full border border-gray-300 rounded-md overflow-hidden bg-white grid gap-1"
         style={{ gridTemplateRows: `repeat(${RACK_SLOT_COUNT}, minmax(0, 1fr))` }}
       >
-        {Array.from({ length: RACK_SLOT_COUNT }, (_, i) => {
-          if (occupiedTop.has(i)) {
-            const m = occupiedTop.get(i)!;
-            return (
-              <ModuleCell
-                key={m.id}
-                module={m}
-                siblings={modules}
-                gridRef={gridRef}
-              />
-            );
-          }
-          // 이미 위쪽 ModuleCell이 grid-row span 으로 차지한 슬롯 — null 반환 (실제 셀은 위에서 그려짐).
-          if (occupiedAny.has(i)) return null;
-          return (
-            <EmptySlot
-              key={`empty-${i}`}
-              slotIndex={i}
-              onClick={(anchor) => handleEmptyClick(i, anchor)}
-            />
-          );
-        })}
+        {children}
       </div>
       {addingAtSlot && addingAtSlot.rackEquipmentId === rackEquipmentId && anchorRef.current && (
         <CategoryComboboxPopover
