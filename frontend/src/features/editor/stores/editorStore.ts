@@ -223,6 +223,8 @@ export interface EditorStoreActions {
 
   addCable: (cable: LocalCable) => void;
   updateCable: (id: string, updates: Partial<LocalCable>) => void;
+  /** Batch cable patch — single set + single map pass. */
+  updateCables: (updates: Map<string, Partial<LocalCable>>) => void;
   deleteCable: (id: string) => void;
   setCables: (cables: LocalCable[]) => void;
 
@@ -424,6 +426,19 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     localCables: state.localCables.map((c) => c.id === id ? { ...c, ...updates } : c),
     hasChanges: true,
   })),
+  // 설비 드래그/리사이즈마다 syncCableEndpointsTo 가 영향받는 케이블 N개에
+  // 동시에 patch 를 적용하는데, updateCable 을 N번 부르면 N번의 set + N번의
+  // localCables.map 이 발생. 한 번의 set + 한 번의 map 으로 끝낸다.
+  updateCables: (updates) => set((state) => {
+    if (updates.size === 0) return state;
+    return {
+      localCables: state.localCables.map((c) => {
+        const patch = updates.get(c.id);
+        return patch ? { ...c, ...patch } : c;
+      }),
+      hasChanges: true,
+    };
+  }),
   deleteCable: (id) => set((state) => ({
     localCables: state.localCables.filter((c) => c.id !== id),
     hasChanges: true,

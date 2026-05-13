@@ -56,7 +56,7 @@ export const fiberPathController = {
       const { id } = req.params;
       await fiberPathService.delete(id);
 
-      res.json({ message: '광경로가 삭제되었습니다.' });
+      res.json({ message: '경로가 삭제되었습니다.' });
     } catch (error) {
       next(error);
     }

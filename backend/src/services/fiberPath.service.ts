@@ -92,7 +92,7 @@ class FiberPathService {
       },
     });
 
-    if (!path) throw new NotFoundError('광경로');
+    if (!path) throw new NotFoundError('경로');
     return this.mapToDetail(path);
   }
 
@@ -141,7 +141,7 @@ class FiberPathService {
     });
 
     if (existing) {
-      throw new ConflictError('해당 OFD 간 광경로가 이미 존재합니다.');
+      throw new ConflictError('해당 OFD 간 경로가 이미 존재합니다.');
     }
 
     const created = await prisma.fiberPath.create({
@@ -170,7 +170,7 @@ class FiberPathService {
 
   async delete(id: string): Promise<void> {
     const path = await prisma.fiberPath.findUnique({ where: { id } });
-    if (!path) throw new NotFoundError('광경로');
+    if (!path) throw new NotFoundError('경로');
     await prisma.fiberPath.delete({ where: { id } });
   }
 

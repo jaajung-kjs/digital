@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useEditorStore } from '../../../editor/stores/editorStore';
 import { EQUIPMENT_KIND_INFO } from '../../../../types/equipmentKind';
+import { toDateInputValue } from '../../../../utils/date';
 import type { EquipmentDetail } from './types';
 
 /* ================================================================
@@ -73,11 +74,7 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
 
   const [editName, setEditName] = useState(equipment.name);
   const [editManager, setEditManager] = useState(equipment.manager ?? '');
-  const [editInstallDate, setEditInstallDate] = useState(
-    // <input type="date"> 가 기대하는 YYYY-MM-DD 로 정규화. backend 에서는 이미
-    // 'YYYY-MM-DD' 슬라이스로 내려보내지만 과거 데이터가 ISO datetime 일 수도 있어 방어.
-    equipment.installDate ? equipment.installDate.slice(0, 10) : '',
-  );
+  const [editInstallDate, setEditInstallDate] = useState(toDateInputValue(equipment.installDate));
   const [editDescription, setEditDescription] = useState(equipment.description ?? '');
 
   const handleApply = () => {

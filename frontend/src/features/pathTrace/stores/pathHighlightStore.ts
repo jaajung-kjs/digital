@@ -17,9 +17,23 @@ const IDLE_STATE = {
   error: null as string | null,
   selectedRingId: null as string | null,
   highlightedNodeIds: new Set<string>(),
+  /** highlightedNodeIds 에 module id 가 섞여 들어올 수 있는데 캔버스는 모듈을
+   *  별도로 그리지 않으므로, dim/highlight 분기가 매 프레임 부모 랙으로 펼치는
+   *  loop 를 돌렸다. 그걸 한 번만 — trace 결정 시점에 — 계산해 두는 사전 set. */
+  highlightedEquipmentIds: new Set<string>(),
   highlightedEdgeIds: new Set<string>(),
   segments: [] as PathSegment[],
 } as const;
+
+/** module id 가 들어 있으면 그 부모 랙 id 도 함께 포함하는 equipment id set. */
+function expandToEquipmentIds(nodeIds: Set<string>): Set<string> {
+  const result = new Set(nodeIds);
+  const rackModules = useEditorStore.getState().localRackModules;
+  for (const mod of rackModules) {
+    if (nodeIds.has(mod.id)) result.add(mod.rackEquipmentId);
+  }
+  return result;
+}
 
 interface PathHighlightState {
   /** Trace is active — controls canvas highlight, path detail panel, card selection */
@@ -32,6 +46,8 @@ interface PathHighlightState {
   error: string | null;
   selectedRingId: string | null;
   highlightedNodeIds: Set<string>;
+  /** equipmentId 단위 강조 set — 모듈 id 가 부모 랙 id 로 펼쳐진 형태. */
+  highlightedEquipmentIds: Set<string>;
   highlightedEdgeIds: Set<string>;
   segments: PathSegment[];
 
@@ -80,10 +96,12 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
           fiberPaths: snapshotFiberPaths,
         });
 
+        const snapshotNodeIds = new Set(result.nodes.map((n) => n.equipmentId));
         set({
           active: true,
           traceResult: result,
-          highlightedNodeIds: new Set(result.nodes.map((n) => n.equipmentId)),
+          highlightedNodeIds: snapshotNodeIds,
+          highlightedEquipmentIds: expandToEquipmentIds(snapshotNodeIds),
           highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
           segments: result.segments,
           modalOpen: false,
@@ -163,6 +181,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
         isLoading: false,
         selectedRingId: null,
         highlightedNodeIds: nodeIds,
+        highlightedEquipmentIds: expandToEquipmentIds(nodeIds),
         highlightedEdgeIds: edgeIds,
         segments: result.segments,
       });
@@ -192,10 +211,12 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
       }
     }
     if (myRing) {
+      const ringNodeIds = new Set(myRing.nodeIds);
       set({
         modalOpen: true,
         selectedRingId: myRing.id,
-        highlightedNodeIds: new Set(myRing.nodeIds),
+        highlightedNodeIds: ringNodeIds,
+        highlightedEquipmentIds: expandToEquipmentIds(ringNodeIds),
         highlightedEdgeIds: new Set(myRing.edgeIds),
       });
     } else {
@@ -209,18 +230,22 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
     const { traceResult, selectedRingId } = get();
     if (!traceResult || ringId === selectedRingId) return;
     if (!ringId) {
+      const allNodeIds = new Set(traceResult.nodes.map((n) => n.equipmentId));
       set({
         selectedRingId: null,
-        highlightedNodeIds: new Set(traceResult.nodes.map((n) => n.equipmentId)),
+        highlightedNodeIds: allNodeIds,
+        highlightedEquipmentIds: expandToEquipmentIds(allNodeIds),
         highlightedEdgeIds: new Set(traceResult.edges.map((e) => e.id)),
       });
       return;
     }
     const ring = traceResult.rings.find((r) => r.id === ringId);
     if (!ring) return;
+    const ringNodeIds = new Set(ring.nodeIds);
     set({
       selectedRingId: ringId,
-      highlightedNodeIds: new Set(ring.nodeIds),
+      highlightedNodeIds: ringNodeIds,
+      highlightedEquipmentIds: expandToEquipmentIds(ringNodeIds),
       highlightedEdgeIds: new Set(ring.edgeIds),
     });
   },
@@ -235,6 +260,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
       error: null,
       selectedRingId: null,
       highlightedNodeIds: new Set(),
+      highlightedEquipmentIds: new Set(),
       highlightedEdgeIds: new Set(),
       segments: [],
     }),
