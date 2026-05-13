@@ -13,21 +13,21 @@ interface PresetActionsBarProps {
 }
 
 /**
- * P10: action row injected at the top of the rack detail "내부 설비" tab.
+ * 랙 detail 의 "내부 설비" 탭 상단 액션 행.
  *
  *  ┌──────────────────────────────────────────────────┐
- *  │ [프리셋 적용 ▾]  [프리셋으로 저장]                  │
+ *  │ [프리셋 선택 ▾]  [불러오기]  [저장]               │
  *  └──────────────────────────────────────────────────┘
  *
- * - "프리셋 적용": replaces the rack's working modules with the chosen preset
- *    (also bumps `totalU` so the slot grid resizes immediately).
- * - "프리셋으로 저장": opens SaveRackAsPresetDialog which snapshots the
- *    current working copy into a brand-new RackPreset row.
+ * 문서 편집 패턴 (load / save):
+ * - **프리셋 선택**: 활성 프리셋 리스트 + "(새 프리셋…)". 즉시 apply 안 함.
+ * - **불러오기**: 선택된 프리셋의 모듈을 현재 랙에 복제 (기존 모듈 있으면 confirm).
+ * - **저장**: 이름 입력 다이얼로그를 띄움. 다이얼로그에서 이름이
+ *   선택된 프리셋의 이름과 같으면 → 그 프리셋 덮어쓰기(PATCH).
+ *   이름을 바꿨거나 "(새 프리셋…)" 이었으면 → 새 프리셋 생성(POST).
  *
- * Note: writes ALL go through `useEditorStore` mutators, so the action only
- * touches the working copy — nothing is persisted until the user saves the
- * floor plan. The "프리셋으로 저장" path is the one exception: it POSTs a
- * new preset definition immediately (admin-only on the backend).
+ * Note: 불러오기는 working copy 만 건드림 (floor plan 저장 전까진 미확정).
+ *       저장은 즉시 백엔드에 반영 (admin 전용).
  */
 export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const { data: presets } = useRackPresets();
@@ -36,8 +36,8 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const localRackModules = useEditorStore((s) => s.localRackModules);
 
-  const [pendingPreset, setPendingPreset] = useState<RackPreset | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [pendingApply, setPendingApply] = useState<RackPreset | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
 
   const activePresets = useMemo(
@@ -55,104 +55,94 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
     [localRackModules, rackEquipmentId],
   );
 
+  const selectedPreset = useMemo(
+    () => (selectedPresetId ? activePresets.find((p) => p.id === selectedPresetId) ?? null : null),
+    [selectedPresetId, activePresets],
+  );
+
   if (!rackEquipment) return null;
 
-  const handlePickPreset = (preset: RackPreset) => {
-    setDropdownOpen(false);
-    setPendingPreset(preset);
+  const handleLoadClick = () => {
+    if (!selectedPreset) return;
+    if (existingModuleCount > 0) {
+      setPendingApply(selectedPreset);
+    } else {
+      applyPresetToRack(rackEquipmentId, selectedPreset, categories ?? []);
+    }
   };
 
   const handleConfirmApply = () => {
-    if (!pendingPreset) return;
-    applyPresetToRack(rackEquipmentId, pendingPreset, categories ?? []);
-    setPendingPreset(null);
+    if (!pendingApply) return;
+    applyPresetToRack(rackEquipmentId, pendingApply, categories ?? []);
+    setPendingApply(null);
   };
 
   return (
     <div className="px-3 py-2 border-b bg-gray-50 flex items-center gap-2">
-      {/* 프리셋 적용 ▾ */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setDropdownOpen((v) => !v)}
-          className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-1"
-        >
-          프리셋 적용
-          <svg
-            className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
-              dropdownOpen ? 'rotate-180' : ''
-            }`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {dropdownOpen && (
-          <>
-            {/* click-outside backdrop */}
-            <div
-              className="fixed inset-0 z-30"
-              onClick={() => setDropdownOpen(false)}
-            />
-            <div className="absolute left-0 mt-1 w-64 max-h-72 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-40">
-              {activePresets.length === 0 ? (
-                <div className="px-3 py-3 text-xs text-gray-400">
-                  사용 가능한 프리셋이 없습니다.
-                </div>
-              ) : (
-                activePresets.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handlePickPreset(p)}
-                    className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0 border-gray-100"
-                  >
-                    <div className="text-sm font-medium text-gray-800 truncate">
-                      {p.name}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-0.5">
-                      {p.totalU}U · 모듈 {p.modules.length}개
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </>
-        )}
-      </div>
+      {/* 프리셋 선택 */}
+      <select
+        value={selectedPresetId ?? ''}
+        onChange={(e) => setSelectedPresetId(e.target.value || null)}
+        className="flex-1 min-w-0 px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        aria-label="프리셋 선택"
+      >
+        <option value="">(새 프리셋…)</option>
+        {activePresets.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name} · 모듈 {p.modules.length}개
+          </option>
+        ))}
+      </select>
 
-      {/* 프리셋으로 저장 */}
+      {/* 불러오기 */}
+      <button
+        type="button"
+        onClick={handleLoadClick}
+        disabled={!selectedPreset}
+        title={
+          selectedPreset
+            ? `'${selectedPreset.name}' 을 현재 랙에 적용`
+            : '프리셋을 먼저 선택하세요'
+        }
+        className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+      >
+        불러오기
+      </button>
+
+      {/* 저장 */}
       <button
         type="button"
         onClick={() => setSaveOpen(true)}
         disabled={!isAdmin}
         title={
-          isAdmin
-            ? '현재 랙 구성을 새 프리셋으로 저장합니다.'
-            : '관리자만 프리셋을 생성할 수 있습니다.'
+          !isAdmin
+            ? '관리자만 프리셋을 저장할 수 있습니다.'
+            : selectedPreset
+              ? `'${selectedPreset.name}' 덮어쓰기 (이름 바꾸면 새 프리셋)`
+              : '현재 랙 구성을 새 프리셋으로 저장'
         }
-        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
       >
-        프리셋으로 저장
+        저장
       </button>
 
-      {/* 적용 confirmation modal */}
-      {pendingPreset && (
+      {/* 적용 confirmation modal — 기존 모듈이 있을 때만 호출됨 */}
+      {pendingApply && (
         <ApplyPresetConfirmDialog
-          preset={pendingPreset}
+          preset={pendingApply}
           existingModuleCount={existingModuleCount}
-          onCancel={() => setPendingPreset(null)}
+          onCancel={() => setPendingApply(null)}
           onConfirm={handleConfirmApply}
         />
       )}
 
-      {/* 저장 dialog */}
+      {/* 저장 dialog — selectedPreset 이 있으면 덮어쓰기 흐름, 없으면 새로 저장 */}
       {saveOpen && (
         <SaveRackAsPresetDialog
           rackEquipmentId={rackEquipmentId}
+          originalPreset={selectedPreset}
           onClose={() => setSaveOpen(false)}
+          onSaved={(savedId) => setSelectedPresetId(savedId)}
         />
       )}
     </div>
