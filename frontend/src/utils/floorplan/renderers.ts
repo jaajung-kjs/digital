@@ -130,6 +130,36 @@ export function renderEquipmentPreview(
   ctx.restore();
 }
 
+/** 프리셋 armed 상태에서 hover 위치에 프리셋 크기의 사각형 미리보기 */
+export function renderPresetPreview(
+  ctx: CanvasRenderingContext2D,
+  position: { x: number; y: number },
+  width: number,
+  height: number,
+  label?: string,
+): void {
+  ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = ELEMENT_COLORS.rack.fill;
+  ctx.fillRect(position.x, position.y, width, height);
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = ELEMENT_COLORS.rack.stroke;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([5, 4]);
+  ctx.strokeRect(position.x, position.y, width, height);
+  ctx.setLineDash([]);
+
+  if (label && width > 30 && height > 18) {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = ELEMENT_COLORS.rack.text;
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, position.x + width / 2, position.y + height / 2);
+  }
+  ctx.restore();
+}
+
 /** drag-to-draw 중 설비 박스 미리보기 */
 export function renderEquipmentDrawPreview(
   ctx: CanvasRenderingContext2D,

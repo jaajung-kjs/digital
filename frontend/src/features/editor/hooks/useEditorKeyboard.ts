@@ -116,6 +116,7 @@ export function useEditorKeyboard(
       // Delete — cable
       if (isDeleteKey && es.selectedCableId) {
         e.preventDefault();
+        if (!window.confirm('선택한 케이블을 삭제하시겠습니까?')) return;
         pushHistory(localEquipment);
         es.deleteCable(es.selectedCableId);
         es.setSelectedCableId(null);
@@ -123,10 +124,13 @@ export function useEditorKeyboard(
         return;
       }
 
-      // Delete — rack module (다이얼로그 안의 [삭제] 와 동일하게 키보드도)
+      // Delete — rack module
       if (isDeleteKey && es.selectedRackModuleId) {
         e.preventDefault();
         const modId = es.selectedRackModuleId;
+        const mod = useEditorStore.getState().localRackModules.find((m) => m.id === modId);
+        const name = mod?.name ?? '모듈';
+        if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
         es.removeRackModule(modId);
         es.setSelectedRackModuleId(null);
         es.setHasChanges(true);
@@ -137,6 +141,10 @@ export function useEditorKeyboard(
       if (isDeleteKey && es.selectedIds.length > 0) {
         e.preventDefault();
         const equipmentToDelete = localEquipment.filter((eq) => es.selectedIds.includes(eq.id));
+        const summary = equipmentToDelete.length === 1
+          ? `'${equipmentToDelete[0].name}' 설비를 삭제하시겠습니까?`
+          : `${equipmentToDelete.length}개 설비를 삭제하시겠습니까?`;
+        if (!window.confirm(`${summary} 연결된 케이블도 함께 삭제됩니다.`)) return;
         for (const eq of equipmentToDelete) es.deleteEquipmentWithCascade(eq.id);
         pushHistory(useEditorStore.getState().localEquipment);
         es.clearSelection();
