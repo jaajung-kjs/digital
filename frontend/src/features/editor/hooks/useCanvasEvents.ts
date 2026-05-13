@@ -409,6 +409,9 @@ export function useCanvasEvents(
         editorStore.getState().setSelectedIds([eq.id]);
         editorStore.getState().setSelectedEquipment(eq as FloorPlanEquipment);
         editorStore.getState().setDetailPanelEquipmentId(eq.id);
+        // 매 더블클릭마다 focusTick 증가 → 같은 설비를 재 더블클릭해도
+        // viewport useEffect 가 다시 실행되어 재정렬.
+        editorStore.getState().bumpFocusTick();
         return;
       }
     }
