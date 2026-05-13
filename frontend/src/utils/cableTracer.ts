@@ -8,6 +8,7 @@
 
 import type { LocalCable } from '../features/editor/stores/editorStore';
 import type { FloorPlanEquipment } from '../types/floorPlan';
+import type { RackModule } from '../types/rackModule';
 import type { FiberPathDetail } from '../features/fiber/types';
 import type {
   TraceResult,
@@ -371,6 +372,8 @@ export interface TraceCableInput {
   cables: LocalCable[];
   /** All equipment (local state) */
   equipment: FloorPlanEquipment[];
+  /** Rack modules (local state) — endpoint id 가 모듈 id 일 때 이름 lookup 용 */
+  rackModules?: RackModule[];
   /** Fiber paths (saved + pending, merged) */
   fiberPaths: FiberPathDetail[];
   /** Floor context for substationId/Name (optional) */
@@ -389,7 +392,7 @@ export interface TraceCableInput {
  * Runs entirely in-browser on local data.
  */
 export function traceCable(input: TraceCableInput): TraceResult {
-  const { cableId, cables, equipment, fiberPaths, roomContext } = input;
+  const { cableId, cables, equipment, rackModules, fiberPaths, roomContext } = input;
 
   // Default substation context
   const substationId = roomContext?.substationId ?? '';
@@ -398,6 +401,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
 
   // Equipment lookup
   const equipMap = new Map(equipment.map((e) => [e.id, e]));
+  // 모듈 id → 모듈 record. cable endpoint 가 모듈 id 인 경우 이름 lookup.
+  const moduleMap = new Map((rackModules ?? []).map((m) => [m.id, m]));
 
   // 1. Find the starting cable
   const startCable = cables.find((c) => c.id === cableId);
@@ -423,19 +428,36 @@ export function traceCable(input: TraceCableInput): TraceResult {
         equipId,
         toTraceNode(equip, isSource, isTarget, substationId, substationName, defaultRoomId),
       );
-    } else {
-      // Equipment from fiber paths (remote OFDs) -- create a minimal node
+      return;
+    }
+    // 모듈 endpoint: cable.sourceEquipmentId 자리에 module id 가 들어 있는 케이스.
+    // 모듈 이름으로 노출하고, 도메인상 위치/식별은 부모 랙으로 처리.
+    const mod = moduleMap.get(equipId);
+    if (mod) {
+      const parentRack = equipMap.get(mod.rackEquipmentId);
       nodeMap.set(equipId, {
         equipmentId: equipId,
-        equipmentName: equipId,
-        substationId: '',
-        substationName: '',
-        floorId: null,
-        materialCategoryCode: 'EQP-OFD',
+        equipmentName: mod.name,
+        substationId: parentRack ? substationId : '',
+        substationName: parentRack ? substationName : '',
+        floorId: parentRack ? defaultRoomId : null,
+        materialCategoryCode: null,
         isSource,
         isTarget,
       });
+      return;
     }
+    // Equipment from fiber paths (remote OFDs) -- create a minimal node
+    nodeMap.set(equipId, {
+      equipmentId: equipId,
+      equipmentName: equipId,
+      substationId: '',
+      substationName: '',
+      floorId: null,
+      materialCategoryCode: 'EQP-OFD',
+      isSource,
+      isTarget,
+    });
   };
 
   const addEdge = (edge: TraceEdge) => {
