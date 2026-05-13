@@ -366,7 +366,9 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       manager: null,
       frontImageUrl: null,
       rearImageUrl: null,
-      properties: null,
+      // 사이드바에서 프리셋으로 배치하면 그 프리셋을 source 로 기록 →
+      // 나중에 detail panel 열었을 때 드롭다운에 자동으로 그 프리셋이 선택됨.
+      properties: { sourcePresetId: preset.id },
     };
 
     const newEquipmentList = [...cs.localEquipment, rackEquip];
