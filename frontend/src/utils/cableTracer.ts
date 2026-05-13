@@ -430,8 +430,6 @@ export function traceCable(input: TraceCableInput): TraceResult {
       );
       return;
     }
-    // 모듈 endpoint: cable.sourceEquipmentId 자리에 module id 가 들어 있는 케이스.
-    // 모듈 이름으로 노출하고, 도메인상 위치/식별은 부모 랙으로 처리.
     const mod = moduleMap.get(equipId);
     if (mod) {
       const parentRack = equipMap.get(mod.rackEquipmentId);

@@ -89,15 +89,7 @@ export function useCanvas(
 
     const pathHighlight = usePathHighlightStore.getState();
     if (pathHighlight.active) {
-      const traceNodeIds = pathHighlight.highlightedNodeIds;
-      // traceNodeIds 에는 설비 id 와 (모듈 endpoint 케이블의 경우) 모듈 id 가
-      // 섞여 있다. 캔버스에선 모듈을 따로 그리지 않고 부모 랙으로 노출하므로,
-      // 모듈 id 가 들어 있으면 그 부모 랙 id 를 강조 set 에 함께 넣는다.
-      const localRackModules = snapshot.active ? [] : editorState.localRackModules;
-      const highlightedIds = new Set(traceNodeIds);
-      for (const mod of localRackModules) {
-        if (traceNodeIds.has(mod.id)) highlightedIds.add(mod.rackEquipmentId);
-      }
+      const highlightedIds = pathHighlight.highlightedEquipmentIds;
       const dimmed = floorEquipment.filter((eq) => !highlightedIds.has(eq.id));
       const highlighted = floorEquipment.filter((eq) => highlightedIds.has(eq.id));
       ctx.save();

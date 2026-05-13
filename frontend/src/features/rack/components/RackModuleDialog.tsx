@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useEditorHistory } from '../../editor/hooks/useEditorHistory';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
+import { toDateInputValue } from '../../../utils/date';
 import type { RackModule } from '../../../types/rackModule';
 
 /**
@@ -160,7 +161,7 @@ export function RackModuleDialog() {
             <label className="block text-xs font-medium text-gray-500 mb-1">설치일</label>
             <input
               type="date"
-              value={draft.installDate ?? ''}
+              value={toDateInputValue(draft.installDate)}
               onChange={(e) => setDraft((d) => ({ ...d, installDate: e.target.value || null }))}
               className="w-full text-sm border border-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-blue-400"
             />

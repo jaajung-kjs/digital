@@ -892,7 +892,7 @@ class FloorService {
               },
             });
             if (existingOnPort) {
-              throw new ConflictError(`광경로 포트 ${cable.fiberPortNumber}번이 이미 사용 중입니다.`);
+              throw new ConflictError(`경로 포트 ${cable.fiberPortNumber}번이 이미 사용 중입니다.`);
             }
           }
           await tx.cable.create({

@@ -1,4 +1,4 @@
-import { useEditorStore } from '../stores/editorStore';
+import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
 
 /**
@@ -17,14 +17,14 @@ export function syncCableEndpointsTo(movedEquipmentId: string): void {
     eq.positionX + eq.width / 2,
     eq.positionY + eq.height / 2,
   ];
-  // 랙이 움직였으면 그 안 모듈에 endpoint 가 박힌 케이블도 같이 따라와야 한다.
-  // 모듈은 별도 좌표가 없고 부모 랙의 중심을 endpoint 로 렌더하므로, 부모 랙 id
-  // 로 모듈 id 집합을 만들어 sourceModuleId / targetModuleId 매칭을 추가.
+  // 모듈 endpoint 케이블도 부모 랙 이동에 따라와야 함 — 모듈은 별도 좌표 없이
+  // 부모 랙 중심으로 렌더됨.
   const ownedModuleIds = new Set(
     store.localRackModules
       .filter((m) => m.rackEquipmentId === movedEquipmentId)
       .map((m) => m.id),
   );
+  const patches = new Map<string, Partial<LocalCable>>();
   for (const cable of store.localCables) {
     if (!cable.pathPoints || cable.pathPoints.length < 2) continue;
     const isSource =
@@ -37,9 +37,7 @@ export function syncCableEndpointsTo(movedEquipmentId: string): void {
     const pts = cable.pathPoints.map((p) => [...p] as [number, number]);
     if (isSource) pts[0] = newCenter;
     if (isTarget) pts[pts.length - 1] = newCenter;
-    // pathPoints 가 바뀌면 표시상 길이도 함께 재계산. 안 그러면 케이블이 옮겨졌는데
-    // pathLength / totalLength 가 옛 값으로 남아 BoM / 합계가 어긋남.
-    const lengths = calculatePathLength(pts);
-    store.updateCable(cable.id, { pathPoints: pts, ...lengths });
+    patches.set(cable.id, { pathPoints: pts, ...calculatePathLength(pts) });
   }
+  store.updateCables(patches);
 }

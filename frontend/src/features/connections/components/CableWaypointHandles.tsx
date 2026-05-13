@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { CABLE_COLORS } from '../../../types/connection';
+import { calculatePathLength } from '../../../utils/cable/pathLength';
 
 interface CableWaypointHandlesProps {
   cable: RoomConnection;
@@ -59,22 +60,6 @@ interface WaypointHandleProps {
   scale: number;
 }
 
-function computeLengths(pts: [number, number][]): {
-  pathLength: number;
-  bufferLength: number;
-  totalLength: number;
-} {
-  let length = 0;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const dx = pts[i + 1][0] - pts[i][0];
-    const dy = pts[i + 1][1] - pts[i][1];
-    length += Math.sqrt(dx * dx + dy * dy);
-  }
-  const pathLength = Math.round(length);
-  const bufferLength = 4; // cm
-  return { pathLength, bufferLength, totalLength: pathLength + bufferLength };
-}
-
 function WaypointHandle({
   cable,
   pointIndex,
@@ -120,7 +105,7 @@ function WaypointHandle({
         const next = live.originalPoints.map(
           (p, i) => (i === pointIndex ? ([newX, newY] as [number, number]) : ([...p] as [number, number])),
         );
-        const lengths = computeLengths(next);
+        const lengths = calculatePathLength(next);
         useEditorStore.getState().updateCable(cable.id, {
           pathPoints: next,
           ...lengths,
