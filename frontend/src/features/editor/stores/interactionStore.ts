@@ -1,19 +1,7 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import { useEditorStore } from './editorStore';
 import { generateTempId } from '../../../utils/idHelpers';
-
-/**
- * Interaction Mode — 캔버스에서 동시에 진행될 수 없는 다단계 흐름들을 하나의
- * discriminated union 으로 통합. 이전엔 cableDrawingStore / ofdConnectionFlowStore
- * 2개로 분리돼 있어 둘이 동시에 non-idle 일 수 있다는 모순 상태가 타입상 허용
- * 됐었고, 그걸 sync effect 로 사후 보정해야 했다. 이제 mode.kind 가 정확히 하나
- * 이므로 모순 자체가 표현 불가.
- *
- * Phases:
- *   idle              — 어떤 흐름도 진행 중 아님 (기본 도구 동작만)
- *   cableDrawing      — 좌측 도구모음에서 케이블 선택 후 source/target 클릭 흐름
- *   ofdFlow           — OFD 패널에서 시작된 광 코어 연결 흐름
- */
 
 // ── Cable drawing ────────────────────────────────────────────────────────────
 
@@ -113,8 +101,6 @@ interface InteractionActions {
   cableRemoveLastWaypoint: () => void;
   cableSetPreviewPoint: (point: { x: number; y: number } | null) => void;
   cableSetHovered: (id: string | null) => void;
-  cableGetPathPoints: () => [number, number][];
-
   /** OFD flow 시작 — OFD 를 출발로 클릭한 경우 */
   ofdStartFromOfd: (ofdId: string) => void;
   /** OFD flow 시작 — 비-OFD 출발 선택 + OFD 를 도착으로 클릭한 경우 */
@@ -257,6 +243,8 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
   cableSetPreviewPoint: (point) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
+      const prev = state.mode.data.previewPoint;
+      if (prev?.x === point?.x && prev?.y === point?.y) return state;
       return {
         mode: { kind: 'cableDrawing', data: { ...state.mode.data, previewPoint: point } },
       };
@@ -265,21 +253,11 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
   cableSetHovered: (id) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
+      if (state.mode.data.hoveredEquipmentId === id) return state;
       return {
         mode: { kind: 'cableDrawing', data: { ...state.mode.data, hoveredEquipmentId: id } },
       };
     }),
-
-  cableGetPathPoints: () => {
-    const m = get().mode;
-    if (m.kind !== 'cableDrawing') return [];
-    const { sourcePosition, waypoints, targetPosition } = m.data;
-    const points: [number, number][] = [];
-    if (sourcePosition) points.push([sourcePosition.x, sourcePosition.y]);
-    points.push(...waypoints);
-    if (targetPosition) points.push([targetPosition.x, targetPosition.y]);
-    return points;
-  },
 
   // ── OFD flow actions ─────────────────────────────────────────────────────
   ofdStartFromOfd: (ofdId) =>
@@ -362,25 +340,30 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
   ofdSetHovered: (id) =>
     set((state) => {
       if (state.mode.kind !== 'ofdFlow') return state;
+      if (state.mode.data.hoveredEquipmentId === id) return state;
       return {
         mode: { kind: 'ofdFlow', data: { ...state.mode.data, hoveredEquipmentId: id } },
       };
     }),
 
-  // ── Universal exit ───────────────────────────────────────────────────────
-  cancel: () => set({ mode: { kind: 'idle' } }),
+  cancel: () =>
+    set((state) => (state.mode.kind === 'idle' ? state : { mode: { kind: 'idle' } })),
 }));
 
 // ── Selector hooks ───────────────────────────────────────────────────────────
+// shallow equality: data 안 필드가 실제로 바뀌었을 때만 재렌더. 마우스 hover /
+// previewPoint 같은 빈번한 액션이 무관한 consumer 를 깨우지 않게.
 
-/** 현재 cable drawing 데이터를 반환. mode 가 cableDrawing 이 아니면 null. */
 export function useCableDrawing(): CableDrawingData | null {
-  return useInteractionStore((s) => (s.mode.kind === 'cableDrawing' ? s.mode.data : null));
+  return useInteractionStore(
+    useShallow((s) => (s.mode.kind === 'cableDrawing' ? s.mode.data : null)),
+  );
 }
 
-/** 현재 OFD flow 데이터를 반환. mode 가 ofdFlow 가 아니면 null. */
 export function useOfdFlow(): OfdFlowData | null {
-  return useInteractionStore((s) => (s.mode.kind === 'ofdFlow' ? s.mode.data : null));
+  return useInteractionStore(
+    useShallow((s) => (s.mode.kind === 'ofdFlow' ? s.mode.data : null)),
+  );
 }
 
 // ── Imperative getters (event handlers / actions) ────────────────────────────

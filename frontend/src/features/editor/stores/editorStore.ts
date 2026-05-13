@@ -540,6 +540,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   clearSelection: () => set({
     selectedIds: [],
     selectedCableId: null,
+    selectedRackModuleId: null,
   }),
   resetEditor: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);

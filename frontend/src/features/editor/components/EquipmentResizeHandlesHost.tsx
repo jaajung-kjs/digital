@@ -1,4 +1,4 @@
-import { useEditorStore } from '../stores/editorStore';
+import { useEditorStore, useSelectedEquipment } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { EquipmentResizeHandles } from './EquipmentResizeHandles';
 
@@ -9,18 +9,14 @@ import { EquipmentResizeHandles } from './EquipmentResizeHandles';
  */
 export function EquipmentResizeHandlesHost() {
   const tool = useEditorStore((s) => s.tool);
-  const selectedIds = useEditorStore((s) => s.selectedIds);
-  const localEquipment = useEditorStore((s) => s.localEquipment);
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
   const snapshotActive = useSnapshotStore((s) => s.active);
+  const selected = useSelectedEquipment();
 
   if (snapshotActive) return null;
   if (tool !== 'select') return null;
-  if (selectedIds.length !== 1) return null;
-
-  const selected = localEquipment.find((eq) => eq.id === selectedIds[0]);
   if (!selected) return null;
 
   return (
