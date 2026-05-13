@@ -13,7 +13,10 @@ interface CableWaypointHandlesProps {
 /**
  * Renders draggable waypoint handles for a selected cable's pathPoints.
  * First and last points (equipment endpoints) are shown as non-draggable indicators.
- * Intermediate waypoints can be dragged to reposition them.
+ * Intermediate waypoints can be dragged to reposition them — and the cable line
+ * follows live (updateCable is called on every pointermove, so the canvas
+ * redraws the new path in real time, matching the equipment-drag pattern in
+ * useCanvasEvents.syncCableEndpointsTo).
  */
 export function CableWaypointHandles({ cable, zoom, panX, panY }: CableWaypointHandlesProps) {
   const points = cable.pathPoints;
@@ -39,8 +42,6 @@ export function CableWaypointHandles({ cable, zoom, panX, panY }: CableWaypointH
             isEndpoint={isEndpoint}
             color={color}
             scale={scale}
-            panX={panX}
-            panY={panY}
           />
         );
       })}
@@ -56,8 +57,22 @@ interface WaypointHandleProps {
   isEndpoint: boolean;
   color: string;
   scale: number;
-  panX: number;
-  panY: number;
+}
+
+function computeLengths(pts: [number, number][]): {
+  pathLength: number;
+  bufferLength: number;
+  totalLength: number;
+} {
+  let length = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const dx = pts[i + 1][0] - pts[i][0];
+    const dy = pts[i + 1][1] - pts[i][1];
+    length += Math.sqrt(dx * dx + dy * dy);
+  }
+  const pathLength = Math.round(length);
+  const bufferLength = 4; // cm
+  return { pathLength, bufferLength, totalLength: pathLength + bufferLength };
 }
 
 function WaypointHandle({
@@ -68,12 +83,14 @@ function WaypointHandle({
   isEndpoint,
   color,
   scale,
-  panX,
-  panY,
 }: WaypointHandleProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const startRef = useRef<{ mouseX: number; mouseY: number; ptX: number; ptY: number } | null>(null);
+  const startRef = useRef<{
+    mouseX: number;
+    mouseY: number;
+    originalPoints: [number, number][];
+    historyPushed: boolean;
+  } | null>(null);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -81,82 +98,70 @@ function WaypointHandle({
       e.preventDefault();
       e.stopPropagation();
 
-      const pt = cable.pathPoints![pointIndex];
+      const original = cable.pathPoints!.map((p) => [...p] as [number, number]);
       startRef.current = {
         mouseX: e.clientX,
         mouseY: e.clientY,
-        ptX: pt[0],
-        ptY: pt[1],
+        originalPoints: original,
+        historyPushed: false,
       };
       setIsDragging(true);
 
-      const handleMouseMove = (ev: MouseEvent) => {
-        if (!startRef.current) return;
-        const dx = (ev.clientX - startRef.current.mouseX) / scale;
-        const dy = (ev.clientY - startRef.current.mouseY) / scale;
-        setDragPos({
-          x: startRef.current.ptX + dx,
-          y: startRef.current.ptY + dy,
+      const apply = (mouseX: number, mouseY: number) => {
+        const live = startRef.current;
+        if (!live) return;
+        const dx = (mouseX - live.mouseX) / scale;
+        const dy = (mouseY - live.mouseY) / scale;
+        const { gridSize, gridSnap } = useEditorStore.getState();
+        const rawX = live.originalPoints[pointIndex][0] + dx;
+        const rawY = live.originalPoints[pointIndex][1] + dy;
+        const newX = gridSnap ? Math.round(rawX / gridSize) * gridSize : Math.round(rawX);
+        const newY = gridSnap ? Math.round(rawY / gridSize) * gridSize : Math.round(rawY);
+        const next = live.originalPoints.map(
+          (p, i) => (i === pointIndex ? ([newX, newY] as [number, number]) : ([...p] as [number, number])),
+        );
+        const lengths = computeLengths(next);
+        useEditorStore.getState().updateCable(cable.id, {
+          pathPoints: next,
+          ...lengths,
         });
       };
 
-      const handleMouseUp = (ev: MouseEvent) => {
+      const handleMouseMove = (ev: MouseEvent) => {
+        const live = startRef.current;
+        if (!live) return;
+        // 첫 의미 있는 움직임이 발생하는 순간 history 한 번 push → undo 가
+        // drag 시작 시점으로 복귀.
+        if (!live.historyPushed) {
+          const dx = ev.clientX - live.mouseX;
+          const dy = ev.clientY - live.mouseY;
+          if (Math.abs(dx) >= 2 || Math.abs(dy) >= 2) {
+            const { localEquipment, localCables, localRackModules } =
+              useEditorStore.getState();
+            useEditorStore.getState().pushHistory(
+              localEquipment,
+              localCables,
+              localRackModules,
+            );
+            live.historyPushed = true;
+          }
+        }
+        apply(ev.clientX, ev.clientY);
+      };
+
+      const handleMouseUp = () => {
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
         setIsDragging(false);
-
-        if (!startRef.current) return;
-        const dx = (ev.clientX - startRef.current.mouseX) / scale;
-        const dy = (ev.clientY - startRef.current.mouseY) / scale;
-        const { gridSize, gridSnap } = useEditorStore.getState();
-        const rawX = startRef.current.ptX + dx;
-        const rawY = startRef.current.ptY + dy;
-        const newX = gridSnap ? Math.round(rawX / gridSize) * gridSize : Math.round(rawX);
-        const newY = gridSnap ? Math.round(rawY / gridSize) * gridSize : Math.round(rawY);
-
-        // Skip if no meaningful movement
-        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
-          setDragPos(null);
-          startRef.current = null;
-          return;
-        }
-
-        // Build updated pathPoints
-        const newPathPoints = cable.pathPoints!.map((p, i) =>
-          i === pointIndex ? [newX, newY] as [number, number] : [...p] as [number, number]
-        );
-
-        // CM-B: 좌표가 cm 단위이므로 점-점 거리 합 자체가 cm 길이.
-        let pathLength = 0;
-        for (let i = 0; i < newPathPoints.length - 1; i++) {
-          const dx2 = newPathPoints[i + 1][0] - newPathPoints[i][0];
-          const dy2 = newPathPoints[i + 1][1] - newPathPoints[i][1];
-          pathLength += Math.sqrt(dx2 * dx2 + dy2 * dy2);
-        }
-        const pathLengthCm = Math.round(pathLength);
-        const bufferLengthCm = 4; // cm
-        const totalLengthCm = pathLengthCm + bufferLengthCm;
-
-        // Update cable directly in localCables
-        useEditorStore.getState().updateCable(cable.id, {
-          pathPoints: newPathPoints,
-          pathLength: pathLengthCm,
-          bufferLength: bufferLengthCm,
-          totalLength: totalLengthCm,
-        });
-
-        setDragPos(null);
         startRef.current = null;
       };
 
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
     },
-    [cable, pointIndex, isEndpoint, scale]
+    [cable, pointIndex, isEndpoint, scale],
   );
 
-  const displayX = dragPos ? dragPos.x * scale + panX : screenX;
-  const displayY = dragPos ? dragPos.y * scale + panY : screenY;
   const size = isEndpoint ? 6 : 8;
 
   return (
@@ -164,8 +169,8 @@ function WaypointHandle({
       onMouseDown={handleMouseDown}
       className="pointer-events-auto absolute"
       style={{
-        left: displayX - size / 2,
-        top: displayY - size / 2,
+        left: screenX - size / 2,
+        top: screenY - size / 2,
         width: size,
         height: size,
         backgroundColor: isEndpoint ? color : '#ffffff',
