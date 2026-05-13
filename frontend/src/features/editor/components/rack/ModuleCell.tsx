@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSlotDrag } from '../../hooks/useSlotDrag';
+import { useEditorHistory } from '../../hooks/useEditorHistory';
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule } from '../../../../types/rackModule';
 
 interface Props {
@@ -27,14 +28,19 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   const updateRackModule = useEditorStore((s) => s.updateRackModule);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
+  const { pushHistory } = useEditorHistory();
+
   // stable callbacks → useSlotDrag 의 callbacksRef 가 매 렌더마다 재할당돼도
   // useEffect 가 재실행되지 않음.
   const onCommit = useCallback((updates: ModuleSlotUpdate[]) => {
+    // Snapshot BEFORE mutation so Ctrl+Z restores the pre-drag state.
+    const { localEquipment } = useEditorStore.getState();
+    pushHistory(localEquipment);
     for (const u of updates) {
       updateRackModule(u.id, { slotIndex: u.slotIndex, slotSpan: u.slotSpan });
     }
     setHasChanges(true);
-  }, [updateRackModule, setHasChanges]);
+  }, [updateRackModule, setHasChanges, pushHistory]);
 
   const onClick = useCallback(() => {
     setSelectedRackModuleId(module.id);
@@ -79,19 +85,19 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
         className={`relative flex items-center px-2 text-white text-xs font-medium rounded select-none cursor-grab hover:brightness-110 transition-opacity overflow-hidden min-h-0 ${
           rejected && isResize ? 'animate-pulse' : ''
         }`}
-        title={`${module.name} (슬롯 ${module.slotIndex}~${module.slotIndex + module.slotSpan - 1}) — 클릭=편집, 드래그=이동, 하단 핸들=리사이즈`}
+        aria-label={`${module.name}, 슬롯 ${module.slotIndex + 1}-${module.slotIndex + module.slotSpan} (${module.slotSpan}슬롯) — 클릭하여 편집`}
+        title="클릭=편집, 드래그=이동, 하단 핸들=리사이즈"
       >
         <span className="truncate flex-1">{module.name}</span>
-        {module.categoryName && (
-          <span className="text-[10px] opacity-80 ml-1.5 shrink-0">{module.categoryName}</span>
-        )}
-        {/* 리사이즈 핸들 — pointerdown 만 받음. 이후 이벤트는 window 레벨에서 처리. */}
+        {/* 리사이즈 핸들 — 그립을 항상 표시해 핸들 영역이 발견 가능하게 한다.
+            opacity-70 (기본) → hover 시 100%. pointerdown 만 받고 이후는 window 레벨. */}
         <div
           onPointerDown={(e) => handlePointerDown(e, 'resize')}
-          className="absolute left-0 right-0 bottom-0 h-3 flex items-center justify-center cursor-ns-resize bg-black/10 hover:bg-black/25 transition-colors"
+          className="absolute left-0 right-0 bottom-0 h-3 flex items-center justify-center cursor-ns-resize bg-black/15 hover:bg-black/30 transition-colors"
           title="드래그해서 크기 조절"
+          aria-label="크기 조절 핸들"
         >
-          <span aria-hidden className="block w-6 h-0.5 rounded-full bg-white/70 mb-0.5" />
+          <span aria-hidden className="block w-7 h-0.5 rounded-full bg-white opacity-70 mb-0.5" />
         </div>
       </div>
 

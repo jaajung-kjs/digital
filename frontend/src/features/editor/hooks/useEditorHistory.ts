@@ -27,6 +27,7 @@ export function useEditorHistory() {
     if (prev) {
       setLocalEquipment(prev.equipment);
       useEditorStore.getState().setCables(prev.cables);
+      useEditorStore.getState().setRackModules(prev.rackModules);
       setHasChanges(true);
     }
   }, [setLocalEquipment, setHasChanges]);
@@ -36,6 +37,7 @@ export function useEditorHistory() {
     if (next) {
       setLocalEquipment(next.equipment);
       useEditorStore.getState().setCables(next.cables);
+      useEditorStore.getState().setRackModules(next.rackModules);
       setHasChanges(true);
     }
   }, [setLocalEquipment, setHasChanges]);

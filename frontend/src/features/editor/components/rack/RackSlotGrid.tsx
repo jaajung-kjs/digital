@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { useEditorHistory } from '../../hooks/useEditorHistory';
 import { RACK_SLOT_COUNT, type RackModule } from '../../../../types/rackModule';
 import { EmptySlot } from './EmptySlot';
 import { ModuleCell } from './ModuleCell';
@@ -25,6 +26,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
   const addingAtSlot = useEditorStore((s) => s.addingAtSlot);
   const setAddingAtSlot = useEditorStore((s) => s.setAddingAtSlot);
   const addRackModuleInline = useEditorStore((s) => s.addRackModuleInline);
+  const { pushHistory } = useEditorHistory();
   const { data: categories } = useRackModuleCategories();
 
   const anchorRef = useRef<DOMRect | null>(null);
@@ -44,6 +46,8 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
       return;
     }
     const slotSpan = Math.min(cat.defaultSlotSpan, avail);
+    // Snapshot pre-add so Ctrl+Z restores empty slot.
+    pushHistory(useEditorStore.getState().localEquipment);
     addRackModuleInline({
       rackEquipmentId,
       category: cat,
@@ -85,8 +89,10 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
     );
   }
 
+  const isEmpty = modules.length === 0;
+
   return (
-    <div className="flex-1 px-2 pb-2 min-h-0">
+    <div className="flex-1 px-2 pb-2 min-h-0 relative">
       <div
         ref={gridRef}
         className="h-full border border-gray-300 rounded-md overflow-hidden bg-white grid gap-1"
@@ -102,6 +108,18 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
       >
         {children}
       </div>
+      {isEmpty && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center justify-center px-4"
+        >
+          <div className="bg-white/90 backdrop-blur-sm border border-blue-200 rounded-lg px-4 py-3 text-center shadow-sm">
+            <p className="text-xs text-gray-700 font-medium">비어 있는 랙입니다</p>
+            <p className="text-[11px] text-gray-500 mt-1">슬롯을 클릭해서 모듈 추가</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">또는 상단 [프리셋 적용]</p>
+          </div>
+        </div>
+      )}
       {addingAtSlot && addingAtSlot.rackEquipmentId === rackEquipmentId && anchorRef.current && (
         <CategoryComboboxPopover
           anchorRect={anchorRef.current}

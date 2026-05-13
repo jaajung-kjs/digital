@@ -16,6 +16,18 @@ const GAP = 6;
 export function CategoryComboboxPopover({ anchorRect, availableSpan, onPick, onCancel }: Props) {
   const { data: categories } = useRackModuleCategories();
   const ref = useRef<HTMLDivElement | null>(null);
+  // 팝오버 열기 직전 포커스를 잡아뒀다가 닫힘 시 복원.
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    // 첫 옵션으로 자동 포커스 — 키보드 사용자 친화.
+    const firstButton = ref.current?.querySelector('button');
+    firstButton?.focus();
+    return () => {
+      previousFocusRef.current?.focus?.();
+    };
+  }, []);
 
   // 바깥 클릭 / ESC 로 닫기.
   // - mousedown은 한 틱 늦게 등록해서 슬롯 클릭이 즉시 popover를 닫는 일을 막는다.

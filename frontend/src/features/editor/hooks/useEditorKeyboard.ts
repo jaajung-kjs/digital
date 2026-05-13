@@ -131,6 +131,7 @@ export function useEditorKeyboard(
         const mod = useEditorStore.getState().localRackModules.find((m) => m.id === modId);
         const name = mod?.name ?? '모듈';
         if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
+        pushHistory(localEquipment);
         es.removeRackModule(modId);
         es.setSelectedRackModuleId(null);
         es.setHasChanges(true);
