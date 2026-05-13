@@ -90,7 +90,15 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
       <div
         ref={gridRef}
         className="h-full border border-gray-300 rounded-md overflow-hidden bg-white grid gap-1"
-        style={{ gridTemplateRows: `repeat(${RACK_SLOT_COUNT}, minmax(0, 1fr))` }}
+        style={{
+          // 1 열 고정. column 을 explicit 으로 지정하지 않으면 같은 row 에
+          // 여러 아이템이 있을 때 implicit column 이 추가되어 grid 가 2 열로
+          // 갈라진다 (드래그 인디케이터가 원본 셀과 같은 row 일 때).
+          gridTemplateColumns: 'minmax(0, 1fr)',
+          gridTemplateRows: `repeat(${RACK_SLOT_COUNT}, minmax(0, 1fr))`,
+          // 혹시라도 implicit column 이 만들어지지 않도록 폭 0 으로 고정.
+          gridAutoColumns: '0',
+        }}
       >
         {children}
       </div>
