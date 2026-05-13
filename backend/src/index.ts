@@ -50,9 +50,12 @@ app.use(
   })
 );
 
-// Body parsing
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing.
+// PUT /plan 은 도면 전체 (설비 + 케이블 + 랙 모듈 + DWG background drawing JSON)
+// 를 하나의 트랜잭션으로 받기 때문에 express 기본 100KB 한계에 쉽게 걸린다.
+// DWG layer/entity 메타가 큰 도면을 고려해 20MB 까지 허용.
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Compression
 app.use(compression());

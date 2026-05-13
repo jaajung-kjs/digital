@@ -22,6 +22,17 @@ export function errorHandler(
     return;
   }
 
+  // express body-parser PayloadTooLargeError — 도면 저장 시 DWG background
+  // 가 limit 을 넘으면 여기로 떨어짐. 500 generic 으로 묶이면 원인 파악이
+  // 어려워 명시적으로 413 으로 회신.
+  if ((err as { type?: string }).type === 'entity.too.large') {
+    res.status(413).json({
+      error: 'PAYLOAD_TOO_LARGE',
+      message: '요청 본문이 너무 큽니다. 파일/도면 크기를 줄여주세요.',
+    });
+    return;
+  }
+
   // Custom AppError
   if (err instanceof AppError) {
     const response: { error: string; message: string; details?: unknown } = {
