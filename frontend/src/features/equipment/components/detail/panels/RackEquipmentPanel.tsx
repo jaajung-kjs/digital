@@ -17,7 +17,10 @@ export function RackEquipmentPanel({ equipmentId, floorId }: PanelProps) {
       defaultTabIndex={4}
       fifthTab={{
         label: '내부 설비',
-        render: () => <RackInternal equipmentId={equipmentId} />,
+        // key={equipmentId} 로 랙 전환 시 RackInternal (PresetActionsBar 포함)
+        // 을 강제 remount → useState 가 새 랙의 trackedPresetId 로 init,
+        // 진행 중인 다이얼로그/팝오버도 자연스럽게 초기화.
+        render: () => <RackInternal key={equipmentId} equipmentId={equipmentId} />,
       }}
     />
   );
