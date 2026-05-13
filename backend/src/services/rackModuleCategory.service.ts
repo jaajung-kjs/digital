@@ -9,6 +9,7 @@ export interface RackModuleCategoryDetail {
   name: string;
   description: string | null;
   displayColor: string | null;
+  defaultSlotSpan: number;
   sortOrder: number;
   isActive: boolean;
   createdAt: Date;
@@ -24,6 +25,7 @@ class RackModuleCategoryService {
     name: string;
     description: string | null;
     displayColor: string | null;
+    defaultSlotSpan: number;
     sortOrder: number;
     isActive: boolean;
     createdAt: Date;
@@ -35,6 +37,7 @@ class RackModuleCategoryService {
       name: c.name,
       description: c.description,
       displayColor: c.displayColor,
+      defaultSlotSpan: c.defaultSlotSpan,
       sortOrder: c.sortOrder,
       isActive: c.isActive,
       createdAt: c.createdAt,
