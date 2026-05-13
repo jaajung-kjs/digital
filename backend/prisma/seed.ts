@@ -29,12 +29,17 @@ const headquartersData: { name: string; branches: string[] }[] = [
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // 기본 관리자 계정 생성
+  // 기본 관리자 계정 — 신규 설치 시에만 'admin123' 으로 생성.
+  // 기존 admin 이 이미 있으면 passwordHash 는 손대지 않는다. 운영 환경에서
+  // 비밀번호를 바꾼 뒤 재배포할 때마다 초기화되는 일이 없게.
+  // 다만 계정 잠금(loginAttempts/lockedUntil) 은 재배포 시 풀어주는 게
+  // 운영상 안전망으로 유효 — 운영자가 로컬에서 잠긴 채 떠 있어도 다음 배포로
+  // 복구 가능.
   const adminPassword = await bcrypt.hash('admin123', 10);
 
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
-    update: { passwordHash: adminPassword, loginAttempts: 0, lockedUntil: null },
+    update: { loginAttempts: 0, lockedUntil: null },
     create: {
       username: 'admin',
       passwordHash: adminPassword,
