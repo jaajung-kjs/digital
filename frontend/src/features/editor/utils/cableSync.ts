@@ -1,4 +1,5 @@
 import { useEditorStore } from '../stores/editorStore';
+import { calculatePathLength } from '../../../utils/cable/pathLength';
 
 /**
  * 설비가 움직이거나 크기가 변할 때 그 설비를 source/target 으로 가진 케이블의
@@ -36,6 +37,9 @@ export function syncCableEndpointsTo(movedEquipmentId: string): void {
     const pts = cable.pathPoints.map((p) => [...p] as [number, number]);
     if (isSource) pts[0] = newCenter;
     if (isTarget) pts[pts.length - 1] = newCenter;
-    store.updateCable(cable.id, { pathPoints: pts });
+    // pathPoints 가 바뀌면 표시상 길이도 함께 재계산. 안 그러면 케이블이 옮겨졌는데
+    // pathLength / totalLength 가 옛 값으로 남아 BoM / 합계가 어긋남.
+    const lengths = calculatePathLength(pts);
+    store.updateCable(cable.id, { pathPoints: pts, ...lengths });
   }
 }
