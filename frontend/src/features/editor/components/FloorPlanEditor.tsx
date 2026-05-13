@@ -8,6 +8,7 @@ import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
+import { calculateCenterOnEquipment } from '../hooks/useViewport';
 import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
 import { generateTempId } from '../../../utils/idHelpers';
 import { Toolbar } from './Toolbar';
@@ -125,6 +126,28 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       useSnapshotStore.getState().exit();
     };
   }, [resetEditor]);
+
+  // Detail panel 진입(또는 다른 설비로 전환) 시 해당 설비를 좌측 사이드바와
+  // 우측 detail panel 사이의 가시 영역 중앙으로 자동 정렬 + 확대.
+  // ID 가 바뀔 때만 동작 (드래그/리사이즈로 데이터가 바뀔 때마다 재정렬되면 거슬림).
+  const lastCenteredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!detailPanelEquipmentId) {
+      lastCenteredRef.current = null;
+      return;
+    }
+    if (lastCenteredRef.current === detailPanelEquipmentId) return;
+    const eq = useEditorStore
+      .getState()
+      .localEquipment.find((e) => e.id === detailPanelEquipmentId);
+    if (!eq || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const RIGHT_PANEL_WIDTH = 360; // EquipmentDetailPanel.tsx 의 w-[360px] 와 동기화
+    const fit = calculateCenterOnEquipment(eq, rect.width, rect.height, RIGHT_PANEL_WIDTH);
+    useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
+    lastCenteredRef.current = detailPanelEquipmentId;
+  }, [detailPanelEquipmentId]);
 
   // Check for localStorage draft on initial load
   useEffect(() => {

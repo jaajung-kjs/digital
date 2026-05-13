@@ -79,6 +79,38 @@ export function calculateFitToContent(
 }
 
 /**
+ * 단일 설비에 초점 맞춰 가시 영역(우측 detail panel 만큼 빼고) 가운데로
+ * 화면을 정렬. 더블클릭으로 detail panel 진입할 때 사용한다.
+ *
+ * - 가시 영역 = canvasWidth - rightPanelWidth
+ * - 설비 주위 padding(cm 단위) 만큼 여유, max zoom 300%로 클램프해서 너무 가까이
+ *   확대되지 않게.
+ */
+export function calculateCenterOnEquipment(
+  eq: FloorPlanEquipment,
+  canvasWidth: number,
+  canvasHeight: number,
+  rightPanelWidth: number,
+  paddingCm = 80,
+): { zoom: number; panX: number; panY: number } {
+  const visibleWidth = Math.max(1, canvasWidth - rightPanelWidth);
+  const visibleHeight = Math.max(1, canvasHeight);
+  const contentWidth = eq.width + paddingCm * 2;
+  const contentHeight = eq.height + paddingCm * 2;
+  const zoomX = (visibleWidth / contentWidth) * 100;
+  const zoomY = (visibleHeight / contentHeight) * 100;
+  const zoom = Math.max(50, Math.min(zoomX, zoomY, 300));
+  const scale = zoom / 100;
+  const eqCenterX = eq.positionX + eq.width / 2;
+  const eqCenterY = eq.positionY + eq.height / 2;
+  return {
+    zoom: Math.round(zoom),
+    panX: visibleWidth / 2 - eqCenterX * scale,
+    panY: visibleHeight / 2 - eqCenterY * scale,
+  };
+}
+
+/**
  * Viewport state persistence + fit-to-content. Saved cache is
  * versioned (`-v2`) so CM-B unit changes invalidate any old px-based
  * positions silently.

@@ -425,6 +425,10 @@ export function useCanvasEvents(
         y >= eq.positionY &&
         y <= eq.positionY + eq.height
       ) {
+        // 패널 진입과 동시에 선택 상태도 고정 — 캔버스 하이라이트(2px 파란 외곽)가
+        // 더블클릭 흐름 전체에서 일관되게 유지된다.
+        editorStore.getState().setSelectedIds([eq.id]);
+        editorStore.getState().setSelectedEquipment(eq as FloorPlanEquipment);
         editorStore.getState().setDetailPanelEquipmentId(eq.id);
         return;
       }
