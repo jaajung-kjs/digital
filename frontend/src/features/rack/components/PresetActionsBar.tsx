@@ -1,12 +1,59 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useRackPresets } from '../hooks/useRackPresets';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
 import { useIsAdmin } from '../../../stores/authStore';
 import { generateTempId } from '../../../utils/idHelpers';
+import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import type { RackPreset } from '../../../types/rackPreset';
 import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
 import { SaveRackAsPresetDialog } from './SaveRackAsPresetDialog';
+
+// ============================================================
+// Source-preset tracking on Equipment.properties
+// ============================================================
+// 랙이 어느 프리셋에서 왔는지 (또는 마지막으로 저장한 프리셋이 무엇인지) 를
+// rack equipment 의 properties JSON 에 기록한다. 이렇게 하면 도면을 닫았다가
+// 다시 열어도, 다른 랙을 선택했다가 돌아와도 드롭다운에 그 프리셋이
+// 자동으로 선택돼있다. (모듈 구성 비교 같은 휴리스틱이 아니라 명시적 추적.)
+//
+// Equipment.properties 는 kind 별 임의 도메인 데이터를 담는 Json? 필드 —
+// RACK kind 는 거의 비어있다는 스키마 주석이 있어 여기 metadata 를 얹어도
+// 다른 kind 와 충돌하지 않는다.
+
+interface RackProperties {
+  sourcePresetId?: string;
+  [key: string]: unknown;
+}
+
+function readSourcePresetId(eq: FloorPlanEquipment | undefined): string | null {
+  if (!eq) return null;
+  const props = (eq.properties as RackProperties | null | undefined) ?? null;
+  const id = props?.sourcePresetId;
+  return typeof id === 'string' ? id : null;
+}
+
+function withSourcePresetId(eq: FloorPlanEquipment, presetId: string | null): FloorPlanEquipment {
+  const prev = (eq.properties as RackProperties | null | undefined) ?? {};
+  const next: RackProperties = { ...prev };
+  if (presetId) {
+    next.sourcePresetId = presetId;
+  } else {
+    delete next.sourcePresetId;
+  }
+  // 빈 객체면 null 로 — DB JSON 컬럼이 noise 안 쌓이게.
+  const hasKeys = Object.keys(next).length > 0;
+  return { ...eq, properties: hasKeys ? next : null };
+}
+
+function updateRackSourcePreset(rackEquipmentId: string, presetId: string | null) {
+  const store = useEditorStore.getState();
+  const next = store.localEquipment.map((eq) =>
+    eq.id === rackEquipmentId ? withSourcePresetId(eq, presetId) : eq,
+  );
+  store.setLocalEquipment(next);
+  store.setHasChanges(true);
+}
 
 interface PresetActionsBarProps {
   rackEquipmentId: string;
@@ -36,10 +83,6 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const localRackModules = useEditorStore((s) => s.localRackModules);
 
-  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
-  const [pendingApply, setPendingApply] = useState<RackPreset | null>(null);
-  const [saveOpen, setSaveOpen] = useState(false);
-
   const activePresets = useMemo(
     () => (presets ?? []).filter((p) => p.isActive),
     [presets],
@@ -49,6 +92,24 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
     () => localEquipment.find((e) => e.id === rackEquipmentId),
     [localEquipment, rackEquipmentId],
   );
+
+  // 랙의 sourcePresetId 가 활성 프리셋 중 하나면 그것을 default 선택값으로.
+  // 프리셋이 삭제됐거나 (orphan) 한 번도 적용 안 한 랙이면 null → (새 프리셋…).
+  const trackedPresetId = useMemo(() => {
+    const id = readSourcePresetId(rackEquipment);
+    if (!id) return null;
+    return activePresets.some((p) => p.id === id) ? id : null;
+  }, [rackEquipment, activePresets]);
+
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(trackedPresetId);
+  const [pendingApply, setPendingApply] = useState<RackPreset | null>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
+
+  // 랙이 바뀌거나 (다른 rackEquipmentId), 백엔드 응답으로 properties 가
+  // 갱신되면 드롭다운을 그 source 로 재동기화.
+  useEffect(() => {
+    setSelectedPresetId(trackedPresetId);
+  }, [trackedPresetId]);
 
   const existingModuleCount = useMemo(
     () => localRackModules.filter((m) => m.rackEquipmentId === rackEquipmentId).length,
@@ -68,12 +129,14 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
       setPendingApply(selectedPreset);
     } else {
       applyPresetToRack(rackEquipmentId, selectedPreset, categories ?? []);
+      updateRackSourcePreset(rackEquipmentId, selectedPreset.id);
     }
   };
 
   const handleConfirmApply = () => {
     if (!pendingApply) return;
     applyPresetToRack(rackEquipmentId, pendingApply, categories ?? []);
+    updateRackSourcePreset(rackEquipmentId, pendingApply.id);
     setPendingApply(null);
   };
 
@@ -142,7 +205,11 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
           rackEquipmentId={rackEquipmentId}
           originalPreset={selectedPreset}
           onClose={() => setSaveOpen(false)}
-          onSaved={(savedId) => setSelectedPresetId(savedId)}
+          onSaved={(savedId) => {
+            // 저장된 프리셋을 이 랙의 source 로 기록 → 닫았다 열어도 유지.
+            updateRackSourcePreset(rackEquipmentId, savedId);
+            setSelectedPresetId(savedId);
+          }}
         />
       )}
     </div>
