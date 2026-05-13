@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { useEditorHistory } from '../../editor/hooks/useEditorHistory';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
 import type { RackModule } from '../../../types/rackModule';
 
@@ -23,7 +24,6 @@ export function RackModuleDialog() {
   const removeRackModule = useEditorStore((s) => s.removeRackModule);
   const localCables = useEditorStore((s) => s.localCables);
   const localEquipment = useEditorStore((s) => s.localEquipment);
-  const deleteCable = useEditorStore((s) => s.deleteCable);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const { data: categories } = useRackModuleCategories();
 
@@ -69,7 +69,10 @@ export function RackModuleDialog() {
     (c) => c.sourceModuleId === mod.id || c.targetModuleId === mod.id,
   );
 
+  const { pushHistory } = useEditorHistory();
+
   const handleSave = () => {
+    pushHistory(useEditorStore.getState().localEquipment);
     updateRackModule(mod.id, {
       name: draft.name ?? mod.name,
       installDate: draft.installDate ?? null,
@@ -81,11 +84,11 @@ export function RackModuleDialog() {
   };
 
   const handleDelete = () => {
-    if (!confirm(`'${mod.name}' 모듈을 삭제하시겠습니까? 이 모듈에 연결된 케이블도 함께 삭제됩니다.`)) {
+    if (!confirm(`'${mod.name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) {
       return;
     }
-    // Cascade-delete cables that referenced this module.
-    for (const c of connectedCables) deleteCable(c.id);
+    pushHistory(useEditorStore.getState().localEquipment);
+    // removeRackModule 가 store 차원에서 cascade 처리.
     removeRackModule(mod.id);
     setHasChanges(true);
     setSelectedRackModuleId(null);
@@ -141,24 +144,16 @@ export function RackModuleDialog() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">슬롯 위치 (드래그로 변경)</label>
-              <input
-                type="number"
-                readOnly
-                value={mod.slotIndex}
-                className="w-full text-sm border border-gray-200 bg-gray-50 rounded px-2.5 py-1.5 text-gray-600"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">크기 — 슬롯 (드래그로 변경)</label>
-              <input
-                type="number"
-                readOnly
-                value={mod.slotSpan}
-                className="w-full text-sm border border-gray-200 bg-gray-50 rounded px-2.5 py-1.5 text-gray-600"
-              />
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">슬롯 위치 / 크기</div>
+            <div className="flex items-baseline gap-2 px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded">
+              <span className="text-sm font-medium text-gray-700 tabular-nums">
+                슬롯 {mod.slotIndex + 1}–{mod.slotIndex + mod.slotSpan}
+              </span>
+              <span className="text-xs text-gray-400">({mod.slotSpan}슬롯)</span>
+              <span className="ml-auto text-[11px] text-gray-400">
+                위치/크기는 그리드에서 드래그
+              </span>
             </div>
           </div>
 

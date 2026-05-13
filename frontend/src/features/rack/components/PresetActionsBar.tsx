@@ -164,11 +164,12 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
 // ============================================================
 
 /**
- * P10: replace the current rack's working modules with `preset.modules`
- * and update the parent rack's `totalU`. Canvas size (width/height) is
- * left untouched on purpose — the user may have already arranged the
- * physical rack on the floor plan and resizing it would shift other
- * equipment around.
+ * P10/12-slot: replace the current rack's working modules with `preset.modules`.
+ * 12-슬롯 고정 시스템에서 슬롯 수는 totalU 와 무관하므로 totalU 는 건드리지 않는다.
+ * (totalU 는 인벤토리 메타데이터로 남아있되 레이아웃에 영향 없음.)
+ * Canvas size (width/height) is left untouched on purpose — the user may have
+ * already arranged the physical rack on the floor plan and resizing it would
+ * shift other equipment around.
  */
 function applyPresetToRack(
   rackEquipmentId: string,
@@ -176,6 +177,9 @@ function applyPresetToRack(
   categories: RackModuleCategory[],
 ) {
   const store = useEditorStore.getState();
+
+  // Snapshot pre-apply so Ctrl+Z restores prior arrangement.
+  store.pushHistory(store.localEquipment, store.localCables, store.localRackModules);
 
   // 1) drop all existing modules for this rack from the working copy
   const existing = store.localRackModules.filter(
@@ -185,14 +189,7 @@ function applyPresetToRack(
     store.removeRackModule(m.id);
   }
 
-  // 2) bump rack's totalU so the slot grid matches the preset
-  store.setLocalEquipment((prev) =>
-    prev.map((eq) =>
-      eq.id === rackEquipmentId ? { ...eq, totalU: preset.totalU } : eq,
-    ),
-  );
-
-  // 3) expand preset.modules into RackModule rows
+  // 2) expand preset.modules into RackModule rows
   const codeToCategory = new Map<string, RackModuleCategory>(
     categories.map((c) => [c.code, c]),
   );

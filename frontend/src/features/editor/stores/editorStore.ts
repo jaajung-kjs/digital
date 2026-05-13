@@ -84,6 +84,7 @@ export interface PendingLog {
 export interface HistoryState {
   equipment: FloorPlanEquipment[];
   cables: LocalCable[];
+  rackModules: RackModule[];
 }
 
 const MAX_HISTORY = 50;
@@ -307,7 +308,7 @@ export interface EditorStoreActions {
 
   // ==================== History actions ====================
 
-  pushHistory: (equipment: FloorPlanEquipment[], cables?: LocalCable[]) => void;
+  pushHistory: (equipment: FloorPlanEquipment[], cables?: LocalCable[], rackModules?: RackModule[]) => void;
   undo: () => HistoryState | null;
   redo: () => HistoryState | null;
   canUndo: () => boolean;
@@ -549,8 +550,13 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       hasChanges: true,
     })),
   removeRackModule: (id) =>
+    // 모듈 삭제 시 연결 케이블도 동시에 제거. 키보드(Delete) 와 다이얼로그
+    // 양쪽 호출자가 같은 동작을 보장하도록 store 차원에서 cascade.
     set((state) => ({
       localRackModules: state.localRackModules.filter((m) => m.id !== id),
+      localCables: state.localCables.filter(
+        (c) => c.sourceModuleId !== id && c.targetModuleId !== id,
+      ),
       hasChanges: true,
     })),
   setSelectedRackModuleId: (selectedRackModuleId) => set({ selectedRackModuleId }),
@@ -621,12 +627,13 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
 
   // ==================== History actions ====================
 
-  pushHistory: (equipment, cables) => {
+  pushHistory: (equipment, cables, rackModules) => {
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);
       newHistory.push({
         equipment: [...equipment],
-        cables: cables ? [...cables] : [],
+        cables: cables ? [...cables] : [...state.localCables],
+        rackModules: rackModules ? [...rackModules] : [...state.localRackModules],
       });
       if (newHistory.length > MAX_HISTORY) {
         newHistory.shift();
@@ -662,13 +669,14 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   canRedo: () => get().historyIndex < get().history.length - 1,
 
   initHistory: (equipment, cables) => {
-    set({
+    set((state) => ({
       history: [{
         equipment: [...equipment],
         cables: cables ? [...cables] : [],
+        rackModules: [...state.localRackModules],
       }],
       historyIndex: 0,
-    });
+    }));
   },
 
   resetHistory: () => set({ history: [], historyIndex: -1 }),

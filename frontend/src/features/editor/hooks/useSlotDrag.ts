@@ -3,7 +3,8 @@ import { planMove, planResize, type PlanResult } from '../utils/slotGeometry';
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule } from '../../../types/rackModule';
 
 type DragMode = 'move' | 'resize';
-const CLICK_THRESHOLD_PX = 5;
+// 8px: 리사이즈 핸들(h=12) 위에서 짧은 클릭이 잘못 드래그로 분류되는 일을 줄임.
+const CLICK_THRESHOLD_PX = 8;
 
 export interface DragState {
   mode: DragMode;
