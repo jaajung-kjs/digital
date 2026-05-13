@@ -6,7 +6,8 @@ interface RackPresetSeed {
   totalU: number;
   canvasWidth: number;
   canvasHeight: number;
-  modules: { slotU: number; heightU: number; categoryCode: string; defaultName: string }[];
+  // 12-slot 스키마: slotIndex(0..11) + slotSpan(1..12), slotIndex + slotSpan ≤ 12.
+  modules: { slotIndex: number; slotSpan: number; categoryCode: string; defaultName: string }[];
   description?: string;
   sortOrder: number;
 }
@@ -21,9 +22,9 @@ const rackPresets: RackPresetSeed[] = [
     canvasHeight: 200,
     description: 'PITR-5000 본체 + 네트워크스위치 + UPS 표준 구성 (임시)',
     modules: [
-      { slotU: 1, heightU: 2, categoryCode: 'EQP-PITR-5000', defaultName: 'PITR-5000' },
-      { slotU: 4, heightU: 1, categoryCode: 'EQP-NET-SW',    defaultName: '네트워크 스위치' },
-      { slotU: 6, heightU: 2, categoryCode: 'EQP-UPS',       defaultName: 'UPS' },
+      { slotIndex: 0, slotSpan: 2, categoryCode: 'EQP-PITR-5000', defaultName: 'PITR-5000' },
+      { slotIndex: 3, slotSpan: 1, categoryCode: 'EQP-NET-SW',    defaultName: '네트워크 스위치' },
+      { slotIndex: 5, slotSpan: 2, categoryCode: 'EQP-UPS',       defaultName: 'UPS' },
     ],
     sortOrder: 1,
   },
