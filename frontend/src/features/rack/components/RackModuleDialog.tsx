@@ -26,6 +26,7 @@ export function RackModuleDialog() {
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const { data: categories } = useRackModuleCategories();
+  const { pushHistory } = useEditorHistory();
 
   const mod = useMemo(
     () => (moduleId ? localRackModules.find((m) => m.id === moduleId) ?? null : null),
@@ -68,8 +69,6 @@ export function RackModuleDialog() {
   const connectedCables = localCables.filter(
     (c) => c.sourceModuleId === mod.id || c.targetModuleId === mod.id,
   );
-
-  const { pushHistory } = useEditorHistory();
 
   const handleSave = () => {
     pushHistory(useEditorStore.getState().localEquipment);
