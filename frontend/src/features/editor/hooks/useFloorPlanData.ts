@@ -9,6 +9,7 @@ import type {
 } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
 import type { RackModule } from '../../../types/rackModule';
+import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
@@ -249,6 +250,13 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     .sort()
     .join('|');
 
+  // 분전반 회로도 동일 — DISTRIBUTION 설비별로 회로 목록을 모아 store 에 적재.
+  const distEquipmentIds = (floorPlan?.equipment ?? [])
+    .filter((eq) => eq.kind === 'DISTRIBUTION')
+    .map((eq) => eq.id)
+    .sort()
+    .join('|');
+
   const { data: aggregateRackModules } = useQuery({
     queryKey: ['floorPlan-rack-modules', floorId, rackEquipmentIds],
     queryFn: async () => {
@@ -265,6 +273,27 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       return results.flat();
     },
     enabled: !!floorPlan && rackEquipmentIds.length > 0,
+    staleTime: 1000 * 30,
+  });
+
+  const { data: aggregateDistCircuits } = useQuery({
+    queryKey: ['floorPlan-dist-circuits', floorId, distEquipmentIds],
+    queryFn: async () => {
+      const ids = distEquipmentIds.split('|').filter(Boolean);
+      if (ids.length === 0) return [] as DistributionCircuit[];
+      const results = await Promise.all(
+        ids.map((id) =>
+          api
+            .get<{ data: DistributionCircuit[] }>('/distribution-circuits', {
+              params: { distributionId: id },
+            })
+            .then((r) => r.data.data)
+            .catch(() => [] as DistributionCircuit[]),
+        ),
+      );
+      return results.flat();
+    },
+    enabled: !!floorPlan && distEquipmentIds.length > 0,
     staleTime: 1000 * 30,
   });
 
@@ -298,6 +327,11 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     if (!aggregateRackModules) return;
     useEditorStore.getState().setRackModules(aggregateRackModules);
   }, [aggregateRackModules]);
+
+  useEffect(() => {
+    if (!aggregateDistCircuits) return;
+    useEditorStore.getState().setDistributionCircuits(aggregateDistCircuits);
+  }, [aggregateDistCircuits]);
 
   // Viewport initialization. Container layout is async — on first mount the
   // ref is set but clientWidth/Height can still be 0 for a frame. Without a
@@ -384,6 +418,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       pendingFiberPaths,
       deletedFiberPathIds,
       localRackModules,
+      localDistributionCircuits,
     } = useEditorStore.getState();
 
     // P9: full payload — equipment.kind drives placement type, rackModules carry
@@ -433,6 +468,15 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         description: m.description,
         properties: m.properties as Record<string, unknown> | null,
         sortOrder: m.sortOrder,
+      })),
+      distributionCircuits: localDistributionCircuits.map((c) => ({
+        id: isTempId(c.id) ? null : c.id,
+        tempId: isTempId(c.id) ? c.id : undefined,
+        distributionEquipmentId: c.distributionEquipmentId,
+        feederName: c.feederName,
+        branchName: c.branchName,
+        description: c.description,
+        sortOrder: c.sortOrder,
       })),
       cables: localCables
         // Drop dangling references — endpoints must resolve to a current equipment or module.

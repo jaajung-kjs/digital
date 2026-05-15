@@ -7,6 +7,7 @@ import type {
 import type { EquipmentKind } from '../../../types/equipmentKind';
 import type { RackPreset } from '../../../types/rackPreset';
 import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
+import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
 import { generateTempId } from '../../../utils/idHelpers';
@@ -185,6 +186,10 @@ export interface EditorStoreState {
   // tempIds resolved server-side via rackModuleIdMap.
   localRackModules: RackModule[];
 
+  // 분전반 회로 working copy. RackModule 과 동일 — bulk plan save 로 동기화,
+  // tempId 는 서버에서 distCircuitIdMap 으로 해석.
+  localDistributionCircuits: DistributionCircuit[];
+
   // P9: rack module dialog selection (RackEquipmentPanel slot click).
   selectedRackModuleId: string | null;
 
@@ -297,6 +302,12 @@ export interface EditorStoreActions {
   updateRackModule: (id: string, partial: Partial<RackModule>) => void;
   removeRackModule: (id: string) => void;
 
+  // 분전반 회로.
+  setDistributionCircuits: (circuits: DistributionCircuit[]) => void;
+  addDistributionCircuit: (c: DistributionCircuit) => void;
+  updateDistributionCircuit: (id: string, partial: Partial<DistributionCircuit>) => void;
+  removeDistributionCircuit: (id: string) => void;
+
   setSelectedRackModuleId: (id: string | null) => void;
   setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
   setIsDraggingRackModule: (v: boolean) => void;
@@ -375,6 +386,7 @@ const initialState: EditorStoreState = {
   newEquipmentPreset: null,
   preselectedCableDisplayGroup: null,
   localRackModules: [],
+  localDistributionCircuits: [],
   selectedRackModuleId: null,
   addingAtSlot: null,
   isDraggingRackModule: false,
@@ -611,6 +623,26 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       ),
       hasChanges: true,
     })),
+
+  setDistributionCircuits: (circuits) => set({ localDistributionCircuits: circuits }),
+  addDistributionCircuit: (c) =>
+    set((state) => ({
+      localDistributionCircuits: [...state.localDistributionCircuits, c],
+      hasChanges: true,
+    })),
+  updateDistributionCircuit: (id, partial) =>
+    set((state) => ({
+      localDistributionCircuits: state.localDistributionCircuits.map((c) =>
+        c.id === id ? { ...c, ...partial } : c,
+      ),
+      hasChanges: true,
+    })),
+  removeDistributionCircuit: (id) =>
+    set((state) => ({
+      localDistributionCircuits: state.localDistributionCircuits.filter((c) => c.id !== id),
+      hasChanges: true,
+    })),
+
   setSelectedRackModuleId: (selectedRackModuleId) =>
     set(
       selectedRackModuleId

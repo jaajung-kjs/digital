@@ -43,6 +43,8 @@ model User {
   updatedRackModules     RackModule[]     @relation("RackModuleUpdatedBy")
   createdRackPresets     RackPreset[]     @relation("RackPresetCreatedBy")
   updatedRackPresets     RackPreset[]     @relation("RackPresetUpdatedBy")
+  createdDistCircuits    DistributionCircuit[] @relation("DistributionCircuitCreatedBy")
+  updatedDistCircuits    DistributionCircuit[] @relation("DistributionCircuitUpdatedBy")
 
   @@map("users")
 }
@@ -214,6 +216,7 @@ model Equipment {
   createdBy       User?            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
   updatedBy       User?            @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
   modules         RackModule[]                                       // RACK kind 만 의미 있음
+  circuits        DistributionCircuit[]                               // DISTRIBUTION kind 만 의미 있음
   ports           Port[]                                              // OFD 전용
   photos          EquipmentPhoto[]
   maintenanceLogs MaintenanceLog[]
@@ -255,6 +258,30 @@ model RackModule {
 
   @@index([rackEquipmentId, slotIndex])
   @@map("rack_modules")
+}
+
+// ==================== 분전반 회로 (도면 좌표 없음) ====================
+// 부모 DISTRIBUTION Equipment 안의 분기 회로. feederName 으로 전원 계통
+// (예: "AC Main(소내)", "DC 48V Main") 을 문자열 그룹핑하고, branchName 이
+// 실제 분기 (L1, L2 ...). 케이블은 회로 단위로 연결된다 (Phase 2).
+model DistributionCircuit {
+  id                      String   @id @default(uuid())
+  distributionEquipmentId String   @map("distribution_equipment_id")
+  feederName              String   @map("feeder_name") @db.VarChar(100)
+  branchName              String   @map("branch_name") @db.VarChar(100)
+  description             String?  @db.Text
+  sortOrder               Int      @default(0) @map("sort_order")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  createdById             String?  @map("created_by")
+  updatedById             String?  @map("updated_by")
+
+  distribution Equipment @relation(fields: [distributionEquipmentId], references: [id], onDelete: Cascade)
+  createdBy    User?     @relation("DistributionCircuitCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?     @relation("DistributionCircuitUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([distributionEquipmentId])
+  @@map("distribution_circuits")
 }
 
 model RackModuleCategory {
