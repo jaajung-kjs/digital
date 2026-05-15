@@ -26,6 +26,7 @@ import { rackModuleCategoriesRouter } from './routes/rackModuleCategories.routes
 import { rackModulesRouter } from './routes/rackModules.routes.js';
 import { rackPresetsRouter } from './routes/rackPresets.routes.js';
 import { bomMaterialsRouter } from './routes/bomMaterials.routes.js';
+import { statsRouter } from './routes/stats.routes.js';
 
 const app = express();
 
@@ -91,6 +92,7 @@ app.use('/api/rack-module-categories', rackModuleCategoriesRouter);
 app.use('/api/rack-modules', rackModulesRouter);
 app.use('/api/rack-presets', rackPresetsRouter);
 app.use('/api/bom-materials', bomMaterialsRouter);
+app.use('/api/stats', statsRouter);
 
 // 404 handler
 app.use((_req, res) => {
