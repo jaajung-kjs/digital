@@ -183,6 +183,20 @@ interface PlanRackModuleInput {
 }
 
 /**
+ * 분전반 회로 입력. distributionEquipmentId 는 부모 분전반의 real id 또는
+ * input.equipment[].tempId.
+ */
+interface PlanDistributionCircuitInput {
+  id?: string | null;
+  tempId?: string;
+  distributionEquipmentId: string;
+  feederName: string;
+  branchName: string;
+  description?: string | null;
+  sortOrder?: number;
+}
+
+/**
  * Minimal shape we rely on from the parsed DWG. The full BackgroundDrawing
  * lives in `dwgImport.service.ts`; everything beyond `bounds` and `source`
  * passes through verbatim to the JSON column.
@@ -205,6 +219,7 @@ export interface UpdatePlanInput {
   backgroundDrawing?: BackgroundDrawingInput | null;
   equipment?: PlanEquipmentInput[];
   rackModules?: PlanRackModuleInput[];
+  distributionCircuits?: PlanDistributionCircuitInput[];
   cables?: PlanCableInput[];
   fiberPaths?: {
     id?: string;
@@ -455,6 +470,7 @@ class FloorService {
     message: string;
     equipmentIdMap: Record<string, string>;
     rackModuleIdMap: Record<string, string>;
+    distCircuitIdMap: Record<string, string>;
     fiberPathIdMap: Record<string, string>;
     auditLogId: string | null;
     constructionReport: ReturnType<typeof calculateConstructionReport> | null;
@@ -465,13 +481,14 @@ class FloorService {
     let newVersion = floor.version;
     const equipmentIdMap: Record<string, string> = {};
     const rackModuleIdMap: Record<string, string> = {};
+    const distCircuitIdMap: Record<string, string> = {};
     let finalFiberPathIdMap: Record<string, string> = {};
     let auditLogId: string | null = null;
     let finalConstructionReport: ReturnType<typeof calculateConstructionReport> | null = null;
 
     await prisma.$transaction(async (tx) => {
       // ── Step 0: load current state ──
-      const [dbEquipment, dbCables, dbRackModules] = await Promise.all([
+      const [dbEquipment, dbCables, dbRackModules, dbDistCircuits] = await Promise.all([
         tx.equipment.findMany({ where: { floorId: id } }),
         tx.cable.findMany({
           where: {
@@ -489,12 +506,16 @@ class FloorService {
         tx.rackModule.findMany({
           where: { rack: { floorId: id } },
         }),
+        tx.distributionCircuit.findMany({
+          where: { distribution: { floorId: id } },
+        }),
       ]);
 
       const dbEquipmentIds = new Set(dbEquipment.map((e) => e.id));
       const dbEquipmentMap = new Map(dbEquipment.map((e) => [e.id, e]));
       const dbCableIds = new Set(dbCables.map((c) => c.id));
       const dbRackModuleIds = new Set(dbRackModules.map((m) => m.id));
+      const dbDistCircuitIds = new Set(dbDistCircuits.map((c) => c.id));
 
       // ── Step 1: reconciliation diffs ──
       const receivedEquipmentIds = new Set(
@@ -517,9 +538,23 @@ class FloorService {
         ? [...dbRackModuleIds].filter((mid) => !receivedRackModuleIds.has(mid))
         : [];
 
+      // DistributionCircuits: rackModules 와 동일한 reconciliation 규칙.
+      const distCircuitsReceived = Array.isArray(input.distributionCircuits);
+      const receivedDistCircuitIds = distCircuitsReceived
+        ? new Set(input.distributionCircuits!.filter((c) => isRealId(c.id)).map((c) => c.id!))
+        : new Set<string>();
+      const deleteDistCircuitIds = distCircuitsReceived
+        ? [...dbDistCircuitIds].filter((cid) => !receivedDistCircuitIds.has(cid))
+        : [];
+
       // ── Step 2: detect changes (lightweight — full diff handled by audit context) ──
       let hasStructuralChange = false;
-      if (deleteEquipmentIds.length > 0 || deleteCableIds.length > 0 || deleteRackModuleIds.length > 0) {
+      if (
+        deleteEquipmentIds.length > 0 ||
+        deleteCableIds.length > 0 ||
+        deleteRackModuleIds.length > 0 ||
+        deleteDistCircuitIds.length > 0
+      ) {
         hasStructuralChange = true;
       }
       if (rackModulesReceived) {
@@ -750,6 +785,64 @@ class FloorService {
             const arr = liveByRack.get(rack.id) ?? [];
             arr.push({ id: created.id, slotIndex: created.slotIndex, slotSpan: created.slotSpan });
             liveByRack.set(rack.id, arr);
+          }
+        }
+      }
+
+      // ── DistributionCircuit reconciliation ──
+      // RackModule 과 동일 규칙. 부모 분전반 ID 는 equipmentIdMap 으로 tempId 해석.
+      // 슬롯 같은 위치 제약은 없고 feeder/branch 자유 입력.
+      if (distCircuitsReceived) {
+        if (deleteDistCircuitIds.length > 0) {
+          await tx.distributionCircuit.deleteMany({
+            where: { id: { in: deleteDistCircuitIds } },
+          });
+        }
+        for (const c of input.distributionCircuits!) {
+          const resolvedDistId =
+            equipmentIdMap[c.distributionEquipmentId] ?? c.distributionEquipmentId;
+          const dist = await tx.equipment.findUnique({
+            where: { id: resolvedDistId },
+            select: { id: true, kind: true },
+          });
+          if (!dist) {
+            throw new ValidationError(
+              `분전반 회로의 부모 설비를 찾을 수 없습니다 (distributionEquipmentId=${c.distributionEquipmentId}).`,
+            );
+          }
+          if (dist.kind !== EquipmentKind.DISTRIBUTION) {
+            throw new ValidationError(
+              `분전반 회로의 부모가 DISTRIBUTION 이 아닙니다 (kind=${dist.kind}).`,
+            );
+          }
+
+          const isUpdate = isRealId(c.id) && dbDistCircuitIds.has(c.id!);
+          if (isUpdate) {
+            await tx.distributionCircuit.update({
+              where: { id: c.id! },
+              data: {
+                distributionEquipmentId: dist.id,
+                feederName: c.feederName,
+                branchName: c.branchName,
+                description: c.description,
+                sortOrder: c.sortOrder,
+                updatedById: userId,
+              },
+            });
+          } else {
+            const created = await tx.distributionCircuit.create({
+              data: {
+                distributionEquipmentId: dist.id,
+                feederName: c.feederName,
+                branchName: c.branchName,
+                description: c.description ?? null,
+                sortOrder: c.sortOrder ?? 0,
+                createdById: userId,
+                updatedById: userId,
+              },
+            });
+            if (c.tempId) distCircuitIdMap[c.tempId] = created.id;
+            if (c.id && c.id !== created.id) distCircuitIdMap[c.id] = created.id;
           }
         }
       }
@@ -1057,6 +1150,7 @@ class FloorService {
       message: '저장되었습니다.',
       equipmentIdMap,
       rackModuleIdMap,
+      distCircuitIdMap,
       fiberPathIdMap: finalFiberPathIdMap,
       auditLogId,
       constructionReport: finalConstructionReport,

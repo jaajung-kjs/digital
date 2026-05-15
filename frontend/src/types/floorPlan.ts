@@ -12,6 +12,7 @@
 
 import type { EquipmentKind } from './equipmentKind';
 import type { RackModule } from './rackModule';
+import type { UpdateFloorPlanDistributionCircuitInput } from './distributionCircuit';
 
 // 평면도 장비.
 //
@@ -286,6 +287,7 @@ export interface UpdateFloorPlanRequest {
   backgroundDrawing?: BackgroundDrawing | null;
   equipment?: UpdateFloorPlanEquipmentInput[];
   rackModules?: UpdateFloorPlanRackModuleInput[];
+  distributionCircuits?: UpdateFloorPlanDistributionCircuitInput[];
   cables?: UpdateFloorPlanCableInput[];
   fiberPaths?: {
     id: string;
