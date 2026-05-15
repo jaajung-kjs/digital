@@ -18,6 +18,22 @@ export interface NodeStatsResponse {
   children: { id: string; total: number }[];
 }
 
+/** 카테고리 클릭 시 inline 분포. 본부/지사 → 변전소, 변전소 → 랙. */
+export type DistributionScope = 'substation' | 'rack';
+
+export interface DistributionItem {
+  id: string;
+  name: string;
+  count: number;
+  /** scope='rack' 일 때만. navigate /floors/{floorId}/plan?equipmentId={id} 용. */
+  floorId?: string;
+}
+
+export interface DistributionResponse {
+  scope: DistributionScope;
+  items: DistributionItem[];
+}
+
 class RackModuleStatsService {
   /**
    * 노드 (본부 / 지사 / 변전소) 하위의 RackModule 을 카테고리별로 집계.
@@ -128,6 +144,60 @@ class RackModuleStatsService {
     return prisma.rackModule.count({
       where: { rack: { kind: EquipmentKind.RACK, floorId: { in: floorIds } } },
     });
+  }
+
+  /** 카테고리 클릭 시 어디에 얼마나 있는지 분포 — 본부/지사면 변전소, 변전소면 랙. */
+  async getCategoryDistribution(
+    nodeType: NodeType,
+    nodeId: string,
+    categoryId: string,
+  ): Promise<DistributionResponse> {
+    if (nodeType === 'substation') {
+      // 자기 자신의 RACK 설비별 모듈 카운트.
+      const racks = await prisma.equipment.findMany({
+        where: { floor: { substationId: nodeId }, kind: EquipmentKind.RACK },
+        select: {
+          id: true,
+          name: true,
+          floorId: true,
+          _count: { select: { modules: { where: { categoryId } } } },
+        },
+      });
+      const items: DistributionItem[] = racks
+        .filter((r) => r._count.modules > 0)
+        .map((r) => ({ id: r.id, name: r.name, count: r._count.modules, floorId: r.floorId }))
+        .sort((a, b) => b.count - a.count);
+      return { scope: 'rack', items };
+    }
+
+    // 본부 / 지사: 변전소 단위 합계.
+    const substations =
+      nodeType === 'headquarters'
+        ? await prisma.substation.findMany({
+            where: { branch: { headquartersId: nodeId } },
+            select: { id: true, name: true },
+          })
+        : await prisma.substation.findMany({
+            where: { branchId: nodeId },
+            select: { id: true, name: true },
+          });
+
+    const items = await Promise.all(
+      substations.map(async (s) => {
+        const count = await prisma.rackModule.count({
+          where: {
+            categoryId,
+            rack: { kind: EquipmentKind.RACK, floor: { substationId: s.id } },
+          },
+        });
+        return { id: s.id, name: s.name, count };
+      }),
+    );
+
+    return {
+      scope: 'substation',
+      items: items.filter((i) => i.count > 0).sort((a, b) => b.count - a.count),
+    };
   }
 
   private async collectFloorIds(nodeType: NodeType, nodeId: string): Promise<string[]> {

@@ -20,4 +20,27 @@ export const rackModuleStatsController = {
       next(error);
     }
   },
+
+  async getCategoryDistribution(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { nodeType, nodeId, categoryId } = req.query;
+      if (typeof nodeType !== 'string' || !NODE_TYPES.includes(nodeType as NodeType)) {
+        throw new ValidationError('nodeType 은 headquarters | branch | substation 중 하나여야 합니다.');
+      }
+      if (typeof nodeId !== 'string' || !nodeId) {
+        throw new ValidationError('nodeId 가 필요합니다.');
+      }
+      if (typeof categoryId !== 'string' || !categoryId) {
+        throw new ValidationError('categoryId 가 필요합니다.');
+      }
+      const dist = await rackModuleStatsService.getCategoryDistribution(
+        nodeType as NodeType,
+        nodeId,
+        categoryId,
+      );
+      res.json({ data: dist });
+    } catch (error) {
+      next(error);
+    }
+  },
 };
