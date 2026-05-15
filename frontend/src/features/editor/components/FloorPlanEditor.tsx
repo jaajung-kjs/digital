@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
@@ -129,6 +129,29 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       useSnapshotStore.getState().exit();
     };
   }, [resetEditor]);
+
+  // ── URL query 로 들어온 equipmentId 자동 진입 ─────────────────────────────
+  // /tree 페이지 통계 패널에서 랙 클릭 시 navigate(`?equipmentId=X`) → 도면 로드
+  // 후 해당 설비의 detail panel + viewport focus 를 자동 트리거. 한 번 처리하면
+  // URL query 를 비워서 새로고침/뒤로가기 후 재실행 방지.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const handledQueryRef = useRef(false);
+  useEffect(() => {
+    if (handledQueryRef.current) return;
+    const targetId = searchParams.get('equipmentId');
+    if (!targetId) return;
+    const eq = useEditorStore.getState().localEquipment.find((e) => e.id === targetId);
+    if (!eq) return; // 도면 데이터 아직 로드 전 — 다음 render 에 재시도.
+    handledQueryRef.current = true;
+    const es = useEditorStore.getState();
+    es.setSelectedIds([targetId]);
+    es.setDetailPanelEquipmentId(targetId);
+    es.bumpFocusTick();
+    // URL 정리.
+    const next = new URLSearchParams(searchParams);
+    next.delete('equipmentId');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, floorPlan]);
 
   // ── tool / 컨텍스트 ↔ interaction mode sync ────────────────────────────────
   // 케이블 도구 선택 시 cableDrawing 모드 진입, 다른 도구 전환 시 종료.
