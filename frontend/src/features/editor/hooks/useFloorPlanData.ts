@@ -219,6 +219,8 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
       queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
       queryClient.invalidateQueries({ queryKey: RACK_MODULE_KEYS.all });
+      // 도면 저장 시 모듈 카운트가 바뀌므로 노드 통계 캐시도 무효화.
+      queryClient.invalidateQueries({ queryKey: ['stats', 'rack-modules'] });
       if (pendingUploads.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
       }
