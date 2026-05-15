@@ -4,6 +4,8 @@ import { RACK_SLOT_COUNT } from '../../../../types/rackModule';
 
 interface Props {
   slotIndex: number;
+  /** popover 가 이 슬롯에서 열려 있을 때 true — hover 효과를 잠금처럼 유지. */
+  isActive?: boolean;
   onClick: (anchor: DOMRect) => void;
 }
 
@@ -12,7 +14,7 @@ interface Props {
  * 키보드(Enter/Space) 활성화 + 슬롯 번호 포함 aria-label 로 a11y 보장.
  * 드래그 중에는 hover 효과를 꺼서 시각 노이즈를 제거.
  */
-export function EmptySlot({ slotIndex, onClick }: Props) {
+export function EmptySlot({ slotIndex, isActive, onClick }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const isDragging = useEditorStore((s) => s.isDraggingRackModule);
 
@@ -20,6 +22,10 @@ export function EmptySlot({ slotIndex, onClick }: Props) {
     if (!ref.current) return;
     onClick(ref.current.getBoundingClientRect());
   };
+
+  const activeClasses = 'border-blue-400 bg-blue-50 text-blue-500 opacity-100';
+  const hoverClasses =
+    'hover:border-blue-400 hover:bg-blue-50 hover:text-blue-500 hover:opacity-100';
 
   return (
     <div
@@ -42,9 +48,7 @@ export function EmptySlot({ slotIndex, onClick }: Props) {
         pointerEvents: isDragging ? 'none' : undefined,
       }}
       className={`flex items-center justify-center min-h-0 overflow-hidden text-[11px] text-gray-300 border border-dashed border-gray-200 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 cursor-pointer opacity-75 ${
-        isDragging
-          ? ''
-          : 'hover:border-blue-400 hover:bg-blue-50 hover:text-blue-500 hover:opacity-100'
+        isActive ? activeClasses : isDragging ? '' : hoverClasses
       }`}
       aria-label={`슬롯 ${slotIndex + 1}/${RACK_SLOT_COUNT} — 모듈 추가`}
       title={`슬롯 ${slotIndex + 1} — 클릭해서 추가`}

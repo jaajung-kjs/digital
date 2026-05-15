@@ -80,10 +80,15 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
       continue;
     }
     if (occupiedAny.has(i)) continue; // 위쪽 모듈이 차지한 slot — 아무 것도 안 그림
+    const isActive =
+      !!addingAtSlot &&
+      addingAtSlot.rackEquipmentId === rackEquipmentId &&
+      addingAtSlot.slotIndex === i;
     children.push(
       <EmptySlot
         key={`empty-${i}`}
         slotIndex={i}
+        isActive={isActive}
         onClick={(anchor) => handleEmptyClick(i, anchor)}
       />,
     );

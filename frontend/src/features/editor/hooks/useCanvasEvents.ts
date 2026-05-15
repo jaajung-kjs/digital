@@ -55,6 +55,13 @@ export function useCanvasEvents(
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan || !canvasRef.current) return;
 
+    // 도면 어디든 mousedown 이면 슬롯 추가 popover 가 열려 있더라도 닫는다.
+    // popover 의 document mousedown listener 가 canvas 의 React 합성 이벤트를
+    // 못 받는 케이스가 있어 명시적으로 처리.
+    if (editorStore.getState().addingAtSlot) {
+      editorStore.getState().setAddingAtSlot(null);
+    }
+
     const rect = canvasRef.current.getBoundingClientRect();
     const screenX = e.clientX - rect.left;
     const screenY = e.clientY - rect.top;
