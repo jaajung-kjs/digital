@@ -22,6 +22,8 @@ const rackModuleCategories: RackModuleCategorySeed[] = [
   { code: 'EQP-UPS',       name: 'UPS', displayColor: '#f97316', sortOrder: 10 },
   { code: 'EQP-CHARGER',   name: '충전기', displayColor: '#f97316', sortOrder: 11 },
   { code: 'EQP-BATTERY',   name: '축전지', displayColor: '#f97316', sortOrder: 12 },
+  { code: 'EQP-PWR-AC',    name: '전원(AC)', displayColor: '#f97316', sortOrder: 13 },
+  { code: 'EQP-PWR-DC',    name: '전원(DC)', displayColor: '#f97316', sortOrder: 14 },
 ];
 
 export async function seedRackModuleCategories(prisma: PrismaClient) {
