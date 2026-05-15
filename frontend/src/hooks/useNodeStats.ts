@@ -33,3 +33,38 @@ export function useNodeStats(nodeType: StatsNodeType | null, nodeId: string | nu
     staleTime: 30_000,
   });
 }
+
+export type DistributionScope = 'substation' | 'rack';
+
+export interface DistributionItem {
+  id: string;
+  name: string;
+  count: number;
+  /** scope='rack' 일 때만. navigate /floors/{floorId}/plan?equipmentId={id} 용. */
+  floorId?: string;
+}
+
+export interface CategoryDistribution {
+  scope: DistributionScope;
+  items: DistributionItem[];
+}
+
+/** 카테고리 클릭 시 한 단계 아래 분포 lazy fetch (categoryId 가 있을 때만). */
+export function useCategoryDistribution(
+  nodeType: StatsNodeType | null,
+  nodeId: string | null,
+  categoryId: string | null,
+) {
+  return useQuery({
+    queryKey: ['stats', 'rack-modules', 'distribution', nodeType, nodeId, categoryId],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: CategoryDistribution }>(
+        '/stats/rack-modules/distribution',
+        { params: { nodeType, nodeId, categoryId } },
+      );
+      return data.data;
+    },
+    enabled: !!nodeType && !!nodeId && !!categoryId,
+    staleTime: 30_000,
+  });
+}
