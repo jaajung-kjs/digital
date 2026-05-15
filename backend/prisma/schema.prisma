@@ -277,6 +277,8 @@ model DistributionCircuit {
   updatedById             String?  @map("updated_by")
 
   distribution Equipment @relation(fields: [distributionEquipmentId], references: [id], onDelete: Cascade)
+  sourceCables Cable[]   @relation("CableSourceCircuit")
+  targetCables Cable[]   @relation("CableTargetCircuit")
   createdBy    User?     @relation("DistributionCircuitCreatedBy", fields: [createdById], references: [id])
   updatedBy    User?     @relation("DistributionCircuitUpdatedBy", fields: [updatedById], references: [id])
 
@@ -415,8 +417,10 @@ model Cable {
   // 다형 endpoint
   sourceEquipmentId String? @map("source_equipment_id")
   sourceModuleId    String? @map("source_module_id")
+  sourceCircuitId   String? @map("source_circuit_id")
   targetEquipmentId String? @map("target_equipment_id")
   targetModuleId    String? @map("target_module_id")
+  targetCircuitId   String? @map("target_circuit_id")
 
   cableType  CableType @map("cable_type")
   categoryId String?   @map("category_id") // CableCategory FK
@@ -442,8 +446,10 @@ model Cable {
 
   sourceEquipment Equipment?     @relation("CableSourceEquipment", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
   sourceModule    RackModule?    @relation("CableSourceModule", fields: [sourceModuleId], references: [id], onDelete: Cascade)
+  sourceCircuit   DistributionCircuit? @relation("CableSourceCircuit", fields: [sourceCircuitId], references: [id], onDelete: Cascade)
   targetEquipment Equipment?     @relation("CableTargetEquipment", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
   targetModule    RackModule?    @relation("CableTargetModule", fields: [targetModuleId], references: [id], onDelete: Cascade)
+  targetCircuit   DistributionCircuit? @relation("CableTargetCircuit", fields: [targetCircuitId], references: [id], onDelete: Cascade)
   fiberPath       FiberPath?     @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
   category        CableCategory? @relation(fields: [categoryId], references: [id])
   createdBy       User?          @relation("CableCreatedBy", fields: [createdById], references: [id])
