@@ -147,8 +147,8 @@ interface PlanEquipmentInput {
 
 interface PlanCableInput {
   id?: string | null;
-  source: { equipmentId?: string | null; moduleId?: string | null };
-  target: { equipmentId?: string | null; moduleId?: string | null };
+  source: { equipmentId?: string | null; moduleId?: string | null; circuitId?: string | null };
+  target: { equipmentId?: string | null; moduleId?: string | null; circuitId?: string | null };
   cableType: string;
   label?: string | null;
   length?: number | null;
@@ -326,6 +326,8 @@ class FloorService {
             { targetEquipment: { floorId: id } },
             { sourceModule: { rack: { floorId: id } } },
             { targetModule: { rack: { floorId: id } } },
+            { sourceCircuit: { distribution: { floorId: id } } },
+            { targetCircuit: { distribution: { floorId: id } } },
           ],
         },
         include: {
@@ -380,8 +382,10 @@ class FloorService {
         id: c.id,
         sourceEquipmentId: c.sourceEquipmentId,
         sourceModuleId: c.sourceModuleId,
+        sourceCircuitId: c.sourceCircuitId,
         targetEquipmentId: c.targetEquipmentId,
         targetModuleId: c.targetModuleId,
+        targetCircuitId: c.targetCircuitId,
         cableType: c.cableType,
         label: c.label,
         length: c.length,
@@ -497,6 +501,8 @@ class FloorService {
               { targetEquipment: { floorId: id } },
               { sourceModule: { rack: { floorId: id } } },
               { targetModule: { rack: { floorId: id } } },
+              { sourceCircuit: { distribution: { floorId: id } } },
+              { targetCircuit: { distribution: { floorId: id } } },
             ],
           },
           include: {
@@ -913,19 +919,27 @@ class FloorService {
         const tgtModId = cable.target.moduleId
           ? rackModuleIdMap[cable.target.moduleId] ?? cable.target.moduleId
           : null;
+        const srcCircuitId = cable.source.circuitId
+          ? distCircuitIdMap[cable.source.circuitId] ?? cable.source.circuitId
+          : null;
+        const tgtCircuitId = cable.target.circuitId
+          ? distCircuitIdMap[cable.target.circuitId] ?? cable.target.circuitId
+          : null;
         const resolvedFiberPathId = cable.fiberPathId
           ? fiberPathIdMap[cable.fiberPathId] ?? cable.fiberPathId
           : null;
 
-        // Each side must have exactly one
-        if ((!!srcEqId) === (!!srcModId)) {
-          throw new ValidationError('source endpoint 는 equipmentId 또는 moduleId 중 하나여야 합니다.');
+        // 각 endpoint 는 equipment | module | circuit 중 정확히 하나.
+        const srcCount = [srcEqId, srcModId, srcCircuitId].filter(Boolean).length;
+        const tgtCount = [tgtEqId, tgtModId, tgtCircuitId].filter(Boolean).length;
+        if (srcCount !== 1) {
+          throw new ValidationError('source endpoint 는 equipmentId / moduleId / circuitId 중 정확히 하나여야 합니다.');
         }
-        if ((!!tgtEqId) === (!!tgtModId)) {
-          throw new ValidationError('target endpoint 는 equipmentId 또는 moduleId 중 하나여야 합니다.');
+        if (tgtCount !== 1) {
+          throw new ValidationError('target endpoint 는 equipmentId / moduleId / circuitId 중 정확히 하나여야 합니다.');
         }
 
-        // RACK Equipment 는 endpoint 불가 (랙 안 모듈에 연결해야 한다)
+        // RACK Equipment 는 endpoint 불가 (모듈에), DISTRIBUTION 도 불가 (회로에).
         const srcKind = srcEqId ? await getEquipmentKind(srcEqId) : null;
         const tgtKind = tgtEqId ? await getEquipmentKind(tgtEqId) : null;
         if (srcEqId) {
@@ -935,6 +949,9 @@ class FloorService {
           if (srcKind === EquipmentKind.RACK) {
             throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
           }
+          if (srcKind === EquipmentKind.DISTRIBUTION) {
+            throw new ValidationError('분전반은 케이블 endpoint 가 될 수 없습니다 — 회로에 연결하세요.');
+          }
         }
         if (tgtEqId) {
           if (tgtKind === null) {
@@ -942,6 +959,9 @@ class FloorService {
           }
           if (tgtKind === EquipmentKind.RACK) {
             throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
+          }
+          if (tgtKind === EquipmentKind.DISTRIBUTION) {
+            throw new ValidationError('분전반은 케이블 endpoint 가 될 수 없습니다 — 회로에 연결하세요.');
           }
         }
 
@@ -954,8 +974,10 @@ class FloorService {
             data: {
               sourceEquipmentId: srcEqId,
               sourceModuleId: srcModId,
+              sourceCircuitId: srcCircuitId,
               targetEquipmentId: tgtEqId,
               targetModuleId: tgtModId,
+              targetCircuitId: tgtCircuitId,
               cableType: cable.cableType as CableType,
               label: cable.label,
               length: cable.length,
@@ -992,8 +1014,10 @@ class FloorService {
             data: {
               sourceEquipmentId: srcEqId,
               sourceModuleId: srcModId,
+              sourceCircuitId: srcCircuitId,
               targetEquipmentId: tgtEqId,
               targetModuleId: tgtModId,
+              targetCircuitId: tgtCircuitId,
               cableType: cable.cableType as CableType,
               label: cable.label,
               length: cable.length,
@@ -1286,6 +1310,8 @@ async function captureFloorSnapshot(
           { targetEquipment: { floorId } },
           { sourceModule: { rack: { floorId } } },
           { targetModule: { rack: { floorId } } },
+          { sourceCircuit: { distribution: { floorId } } },
+          { targetCircuit: { distribution: { floorId } } },
         ],
       },
       include: {
@@ -1343,8 +1369,10 @@ async function captureFloorSnapshot(
       id: c.id,
       sourceEquipmentId: c.sourceEquipmentId,
       sourceModuleId: c.sourceModuleId,
+      sourceCircuitId: c.sourceCircuitId,
       targetEquipmentId: c.targetEquipmentId,
       targetModuleId: c.targetModuleId,
+      targetCircuitId: c.targetCircuitId,
       cableType: c.cableType,
       label: c.label,
       length: c.length,

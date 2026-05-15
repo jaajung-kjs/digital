@@ -56,6 +56,7 @@ const equipmentSchema = z.object({
 const endpointSchema = z.object({
   equipmentId: z.string().optional().nullable(),
   moduleId: z.string().optional().nullable(),
+  circuitId: z.string().optional().nullable(),
 });
 
 const cableSchema = z.object({
@@ -101,6 +102,16 @@ const rackModuleSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
+const distributionCircuitSchema = z.object({
+  id: z.string().optional().nullable(),
+  tempId: z.string().optional(),
+  distributionEquipmentId: z.string(),
+  feederName: z.string().min(1).max(100),
+  branchName: z.string().min(1).max(100),
+  description: z.string().optional().nullable(),
+  sortOrder: z.number().int().optional(),
+});
+
 // Parsed DWG/DXF output. We re-validate the minimum shape the service depends
 // on (`bounds` for canvas auto-expansion, `source` for identity) and
 // passthrough the rest — the JSON is produced by our own /background/import
@@ -135,6 +146,7 @@ const bulkUpdatePlanSchema = z.object({
   backgroundDrawing: z.union([z.null(), backgroundDrawingSchema]).optional(),
   equipment: z.array(equipmentSchema).optional(),
   rackModules: z.array(rackModuleSchema).optional(),
+  distributionCircuits: z.array(distributionCircuitSchema).optional(),
   cables: z.array(cableSchema).optional(),
   fiberPaths: z.array(fiberPathSchema).optional(),
   deletedFiberPathIds: z.array(z.string().uuid()).optional(),
