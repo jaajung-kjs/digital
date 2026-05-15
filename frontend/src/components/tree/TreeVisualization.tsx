@@ -4,7 +4,6 @@ import { useOrganizationStore } from '../../stores/organizationStore';
 import { organizationApi, fetchChildNodes } from '../../services/organizationApi';
 import type { TreeNodeData, NodeType } from '../../types/organization';
 import { NODE_ICONS } from '../../types/organization';
-import { useNodeStats, type StatsNodeType } from '../../hooks/useNodeStats';
 
 /* ── 색상 & 아이콘 ── */
 const NODE_STYLES: Record<NodeType, { bg: string; border: string; text: string; iconBg: string }> = {
@@ -294,18 +293,6 @@ export function TreeVisualization() {
     if (!viewingNodeId) return null;
     return findNode(viewingNodeId);
   }, [viewingNodeId, findNode, roots]);
-
-  // 통계 fetch — viewingNode 가 본부/지사/변전소 일 때만. floor / null 은 disabled.
-  const statsNodeType: StatsNodeType | null =
-    viewingNode && viewingNode.type !== 'floor'
-      ? (viewingNode.type as StatsNodeType)
-      : null;
-  const { data: nodeStats } = useNodeStats(statsNodeType, viewingNode?.id ?? null);
-  const childTotalById = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const c of nodeStats?.children ?? []) m.set(c.id, c.total);
-    return m;
-  }, [nodeStats]);
 
   const displayChildren = useMemo(() => {
     if (!viewingNode) return roots;
@@ -634,37 +621,6 @@ export function TreeVisualization() {
           </div>
         )}
 
-        {/* ── 모듈 현황 패널 (본부/지사/변전소 진입 시) ── */}
-        {nodeStats && viewingNode && (
-          <div className="mt-6 w-full max-w-2xl rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-            <div className="flex items-baseline justify-between mb-3">
-              <h4 className="text-sm font-semibold text-gray-700">
-                📊 {viewingNode.name} 모듈 현황
-              </h4>
-              <span className="text-xs text-gray-500">
-                총 <span className="font-bold text-gray-800">{nodeStats.self.total.toLocaleString()}</span>개
-              </span>
-            </div>
-            {nodeStats.self.byCategory.length === 0 ? (
-              <p className="text-xs text-gray-400 py-2">등록된 모듈이 없습니다.</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-x-6 gap-y-1.5">
-                {nodeStats.self.byCategory.map((c) => (
-                  <div key={c.categoryId} className="flex items-center gap-2 text-sm">
-                    <span
-                      aria-hidden
-                      className="w-2.5 h-2.5 rounded-sm flex-shrink-0 ring-1 ring-black/5"
-                      style={{ backgroundColor: c.displayColor ?? '#9ca3af' }}
-                    />
-                    <span className="flex-1 truncate text-gray-700">{c.name}</span>
-                    <span className="tabular-nums font-medium text-gray-800">{c.count}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* ── 현재 레벨 라벨 ── */}
         <div className="mt-6 mb-4 text-xs font-semibold text-gray-400 uppercase tracking-widest">
           {childType ? LEVEL_LABELS[childType] : (viewingNode ? LEVEL_LABELS[addableChildType] : LEVEL_LABELS.headquarters)}
@@ -755,11 +711,6 @@ export function TreeVisualization() {
                     {child.type === 'headquarters' && child.meta?.branchCount != null && `지사 ${child.meta.branchCount}개`}
                     {child.type === 'branch' && child.meta?.substationCount != null && `변전소 ${child.meta.substationCount}개`}
                     {child.type === 'substation' && child.meta?.floorCount != null && `${child.meta.floorCount}개 층`}
-                  </span>
-                )}
-                {!isLeaf && childTotalById.has(child.id) && (
-                  <span className="text-[10px] mt-0.5 font-medium" style={{ color: style.border }}>
-                    모듈 {childTotalById.get(child.id)!.toLocaleString()}개
                   </span>
                 )}
                 {isLeaf && (
