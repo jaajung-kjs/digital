@@ -1,22 +1,28 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOrganizationStore } from '../../stores/organizationStore';
-import { fetchChildNodes } from '../../services/organizationApi';
+import { NODE_ICONS } from '../../types/organization';
 import {
   useNodeStats,
   useCategoryDistribution,
   type StatsNodeType,
+  type DistributionScope,
+  type DistributionItem,
   type CategoryCount,
 } from '../../hooks/useNodeStats';
 
 /**
- * /tree 페이지 우측 사이드 패널 — viewingNode (현재 진입한 본부/지사/변전소) 의
- * 카테고리별 모듈 카운트. 카테고리 클릭 시 한 단계 아래 분포 (본부/지사 → 변전소,
- * 변전소 → 랙) 가 inline expand. 랙 클릭 시 도면 페이지로 navigate.
+ * /tree 우측 패널 — viewingNode 의 카테고리별 분포를 트리로 단계별 펼침.
+ * viewingNode 를 root 로 두고 그 아래 카테고리, 카테고리 아래 직계 자식 (지사 →
+ * 변전소 → 랙) 순서로 재귀적으로 펼침. 시각 패턴은 좌측 TreePanel.renderNode 와
+ * 동일 — 들여쓰기 16px × level + +/− 토글 + hover:bg-gray-100.
+ *
+ * 우측 트리에서 노드 클릭 = 그 노드 펼치기. 좌측 트리 / 메인 GUI 의 viewingNode
+ * 는 영향받지 않음. 최종 랙 행 클릭 시에만 /floors/.../plan?equipmentId=... 로
+ * navigate (도면 + detail panel + viewport focus 자동 트리거).
  */
 export function StatsSidePanel() {
-  const { viewingNodeId, findNode, selectNode, setViewingNodeId, expandNode, expandAncestors, setChildren } =
-    useOrganizationStore();
+  const { viewingNodeId, findNode } = useOrganizationStore();
   const viewingNode = useMemo(() => {
     if (!viewingNodeId) return null;
     return findNode(viewingNodeId);
@@ -26,13 +32,6 @@ export function StatsSidePanel() {
     viewingNode && viewingNode.type !== 'floor'
       ? (viewingNode.type as StatsNodeType)
       : null;
-  const { data: nodeStats, isLoading } = useNodeStats(statsNodeType, viewingNode?.id ?? null);
-
-  // viewingNode 가 바뀌면 expand 닫힘.
-  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
-  useEffect(() => {
-    setExpandedCategoryId(null);
-  }, [viewingNodeId]);
 
   if (!viewingNode || viewingNode.type === 'floor') {
     return (
@@ -42,122 +41,231 @@ export function StatsSidePanel() {
     );
   }
 
-  const handleSubstationClick = async (substationId: string) => {
-    const node = findNode(substationId);
-    if (!node) return;
-    selectNode(node.id, node.type);
-    if (!node.childrenLoaded && node.type !== 'floor') {
-      const children = await fetchChildNodes(node);
-      setChildren(node.id, children);
-    }
-    expandNode(node.id);
-    expandAncestors(node.id);
-    setViewingNodeId(node.id);
-  };
-
   return (
-    <div className="h-full overflow-y-auto px-5 py-5">
-      <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-1">
+    // viewingNode 가 바뀌면 자식 컴포넌트의 expand state 전체 reset.
+    <div className="py-2" key={viewingNode.id}>
+      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
         현황
       </div>
-      <h3 className="text-base font-bold text-gray-800 mb-4 truncate" title={viewingNode.name}>
-        {viewingNode.name}
-      </h3>
-
-      {isLoading && !nodeStats ? (
-        <p className="text-xs text-gray-400">로딩 중...</p>
-      ) : !nodeStats || nodeStats.self.byCategory.length === 0 ? (
-        <p className="text-xs text-gray-400">등록된 모듈이 없습니다.</p>
-      ) : (
-        <ul className="space-y-1">
-          {nodeStats.self.byCategory.map((c) => (
-            <CategoryRow
-              key={c.categoryId}
-              category={c}
-              statsNodeType={statsNodeType!}
-              nodeId={viewingNode.id}
-              expanded={expandedCategoryId === c.categoryId}
-              onToggle={() =>
-                setExpandedCategoryId((prev) => (prev === c.categoryId ? null : c.categoryId))
-              }
-              onSubstationClick={handleSubstationClick}
-            />
-          ))}
-        </ul>
-      )}
+      <StatsTreeRow
+        level={0}
+        icon={NODE_ICONS[viewingNode.type]}
+        label={viewingNode.name}
+      />
+      <CategoryList nodeType={statsNodeType!} nodeId={viewingNode.id} level={1} />
     </div>
   );
 }
 
-interface CategoryRowProps {
-  category: CategoryCount;
-  statsNodeType: StatsNodeType;
+interface CategoryListProps {
+  nodeType: StatsNodeType;
   nodeId: string;
-  expanded: boolean;
-  onToggle: () => void;
-  onSubstationClick: (id: string) => void;
+  level: number;
 }
 
-function CategoryRow({
-  category,
-  statsNodeType,
-  nodeId,
-  expanded,
-  onToggle,
-  onSubstationClick,
-}: CategoryRowProps) {
-  const navigate = useNavigate();
-  const { data: distribution, isLoading } = useCategoryDistribution(
-    statsNodeType,
-    nodeId,
-    expanded ? category.categoryId : null,
+function CategoryList({ nodeType, nodeId, level }: CategoryListProps) {
+  const { data: nodeStats, isLoading } = useNodeStats(nodeType, nodeId);
+  if (isLoading && !nodeStats) {
+    return <StatsTreeRow level={level} label="로딩 중..." muted />;
+  }
+  if (!nodeStats || nodeStats.self.byCategory.length === 0) {
+    return <StatsTreeRow level={level} label="등록된 모듈이 없습니다." muted />;
+  }
+  return (
+    <>
+      {nodeStats.self.byCategory.map((cat) => (
+        <CategoryNode
+          key={cat.categoryId}
+          category={cat}
+          parentType={nodeType}
+          parentId={nodeId}
+          level={level}
+        />
+      ))}
+    </>
   );
+}
+
+interface CategoryNodeProps {
+  category: CategoryCount;
+  parentType: StatsNodeType;
+  parentId: string;
+  level: number;
+}
+
+function CategoryNode({ category, parentType, parentId, level }: CategoryNodeProps) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <>
+      <StatsTreeRow
+        level={level}
+        color={category.displayColor}
+        label={category.name}
+        count={category.count}
+        expandable
+        expanded={expanded}
+        onToggle={() => setExpanded((p) => !p)}
+        onClick={() => setExpanded((p) => !p)}
+      />
+      {expanded && (
+        <DistributionNodes
+          parentType={parentType}
+          parentId={parentId}
+          categoryId={category.categoryId}
+          level={level + 1}
+        />
+      )}
+    </>
+  );
+}
+
+interface DistributionNodesProps {
+  parentType: StatsNodeType;
+  parentId: string;
+  categoryId: string;
+  level: number;
+}
+
+function DistributionNodes({
+  parentType,
+  parentId,
+  categoryId,
+  level,
+}: DistributionNodesProps) {
+  const { data, isLoading } = useCategoryDistribution(parentType, parentId, categoryId);
+  if (isLoading && !data) {
+    return <StatsTreeRow level={level} label="로딩 중..." muted />;
+  }
+  if (!data || data.items.length === 0) {
+    return <StatsTreeRow level={level} label="분포 정보가 없습니다." muted />;
+  }
+  return (
+    <>
+      {data.items.map((item) => (
+        <DistributionNode
+          key={item.id}
+          item={item}
+          scope={data.scope}
+          categoryId={categoryId}
+          level={level}
+        />
+      ))}
+    </>
+  );
+}
+
+interface DistributionNodeProps {
+  item: DistributionItem;
+  scope: DistributionScope;
+  categoryId: string;
+  level: number;
+}
+
+/** 분포 노드 — scope 가 rack 이면 leaf (navigate), 그 외에는 expandable. */
+function DistributionNode({ item, scope, categoryId, level }: DistributionNodeProps) {
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
+
+  if (scope === 'rack') {
+    return (
+      <StatsTreeRow
+        level={level}
+        label={item.name}
+        count={item.count}
+        onClick={() => {
+          if (item.floorId) navigate(`/floors/${item.floorId}/plan?equipmentId=${item.id}`);
+        }}
+      />
+    );
+  }
+
+  // 다음 단계: branch → substation, substation → rack
+  const childParentType: StatsNodeType = scope === 'branch' ? 'branch' : 'substation';
 
   return (
-    <li>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 text-sm py-1 px-1 -mx-1 rounded hover:bg-gray-50 transition-colors"
-      >
+    <>
+      <StatsTreeRow
+        level={level}
+        label={item.name}
+        count={item.count}
+        expandable
+        expanded={expanded}
+        onToggle={() => setExpanded((p) => !p)}
+        onClick={() => setExpanded((p) => !p)}
+      />
+      {expanded && (
+        <DistributionNodes
+          parentType={childParentType}
+          parentId={item.id}
+          categoryId={categoryId}
+          level={level + 1}
+        />
+      )}
+    </>
+  );
+}
+
+interface StatsTreeRowProps {
+  level: number;
+  label: string;
+  icon?: string;
+  /** 카테고리 행의 displayColor 칩. */
+  color?: string | null;
+  count?: number;
+  expandable?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+  onClick?: () => void;
+  muted?: boolean;
+}
+
+/** TreePanel.renderNode 와 동일 시각 패턴 — 들여쓰기 + +/− + hover bg. */
+function StatsTreeRow({
+  level,
+  label,
+  icon,
+  color,
+  count,
+  expandable,
+  expanded,
+  onToggle,
+  onClick,
+  muted,
+}: StatsTreeRowProps) {
+  return (
+    <div
+      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors ${
+        muted ? 'text-gray-400' : 'text-gray-700'
+      } ${onClick && !muted ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+      style={{ paddingLeft: `${level * 16 + 8}px` }}
+      onClick={onClick}
+    >
+      {expandable ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle?.();
+          }}
+          className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 flex-shrink-0"
+        >
+          {expanded ? '−' : '+'}
+        </button>
+      ) : (
+        <span className="w-4 flex-shrink-0" />
+      )}
+      {color && (
         <span
           aria-hidden
           className="w-2.5 h-2.5 rounded-sm flex-shrink-0 ring-1 ring-black/5"
-          style={{ backgroundColor: category.displayColor ?? '#9ca3af' }}
+          style={{ backgroundColor: color }}
         />
-        <span className="flex-1 truncate text-gray-700 text-left">{category.name}</span>
-        <span className="tabular-nums font-semibold text-gray-800">{category.count}</span>
-        <span className="text-gray-300 text-xs w-3">{expanded ? '▾' : '▸'}</span>
-      </button>
-
-      {expanded && (
-        <ul className="ml-4 mt-1 mb-2 space-y-0.5 border-l border-gray-200 pl-3">
-          {isLoading && !distribution ? (
-            <li className="text-xs text-gray-400 py-0.5">로딩 중...</li>
-          ) : !distribution || distribution.items.length === 0 ? (
-            <li className="text-xs text-gray-400 py-0.5">분포 정보가 없습니다.</li>
-          ) : (
-            distribution.items.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (distribution.scope === 'rack' && item.floorId) {
-                      navigate(`/floors/${item.floorId}/plan?equipmentId=${item.id}`);
-                    } else if (distribution.scope === 'substation') {
-                      onSubstationClick(item.id);
-                    }
-                  }}
-                  className="w-full flex items-center gap-2 text-xs py-0.5 px-1 -mx-1 rounded hover:bg-gray-50 transition-colors"
-                >
-                  <span className="flex-1 truncate text-gray-600 text-left">{item.name}</span>
-                  <span className="tabular-nums text-gray-700">{item.count}</span>
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
       )}
-    </li>
+      {icon && <span className="flex-shrink-0 text-xs">{icon}</span>}
+      <span className="truncate flex-1">{label}</span>
+      {count != null && (
+        <span className="tabular-nums text-xs text-gray-600 flex-shrink-0">{count}</span>
+      )}
+    </div>
   );
 }

@@ -18,8 +18,9 @@ export interface NodeStatsResponse {
   children: { id: string; total: number }[];
 }
 
-/** 카테고리 클릭 시 inline 분포. 본부/지사 → 변전소, 변전소 → 랙. */
-export type DistributionScope = 'substation' | 'rack';
+/** 카테고리/노드 클릭 시 한 단계 아래 자식 단위 분포.
+ *  headquarters → branch, branch → substation, substation → rack. */
+export type DistributionScope = 'branch' | 'substation' | 'rack';
 
 export interface DistributionItem {
   id: string;
@@ -146,58 +147,71 @@ class RackModuleStatsService {
     });
   }
 
-  /** 카테고리 클릭 시 어디에 얼마나 있는지 분포 — 본부/지사면 변전소, 변전소면 랙. */
+  /** 카테고리 클릭 시 직계 자식 단위 분포 — 본부→지사, 지사→변전소, 변전소→랙. */
   async getCategoryDistribution(
     nodeType: NodeType,
     nodeId: string,
     categoryId: string,
   ): Promise<DistributionResponse> {
-    if (nodeType === 'substation') {
-      // 자기 자신의 RACK 설비별 모듈 카운트.
-      const racks = await prisma.equipment.findMany({
-        where: { floor: { substationId: nodeId }, kind: EquipmentKind.RACK },
-        select: {
-          id: true,
-          name: true,
-          floorId: true,
-          _count: { select: { modules: { where: { categoryId } } } },
-        },
+    if (nodeType === 'headquarters') {
+      const branches = await prisma.branch.findMany({
+        where: { headquartersId: nodeId },
+        select: { id: true, name: true },
       });
-      const items: DistributionItem[] = racks
-        .filter((r) => r._count.modules > 0)
-        .map((r) => ({ id: r.id, name: r.name, count: r._count.modules, floorId: r.floorId }))
-        .sort((a, b) => b.count - a.count);
-      return { scope: 'rack', items };
+      const items = await Promise.all(
+        branches.map(async (b) => {
+          const count = await prisma.rackModule.count({
+            where: {
+              categoryId,
+              rack: { kind: EquipmentKind.RACK, floor: { substation: { branchId: b.id } } },
+            },
+          });
+          return { id: b.id, name: b.name, count };
+        }),
+      );
+      return {
+        scope: 'branch',
+        items: items.filter((i) => i.count > 0).sort((a, b) => b.count - a.count),
+      };
     }
 
-    // 본부 / 지사: 변전소 단위 합계.
-    const substations =
-      nodeType === 'headquarters'
-        ? await prisma.substation.findMany({
-            where: { branch: { headquartersId: nodeId } },
-            select: { id: true, name: true },
-          })
-        : await prisma.substation.findMany({
-            where: { branchId: nodeId },
-            select: { id: true, name: true },
+    if (nodeType === 'branch') {
+      const substations = await prisma.substation.findMany({
+        where: { branchId: nodeId },
+        select: { id: true, name: true },
+      });
+      const items = await Promise.all(
+        substations.map(async (s) => {
+          const count = await prisma.rackModule.count({
+            where: {
+              categoryId,
+              rack: { kind: EquipmentKind.RACK, floor: { substationId: s.id } },
+            },
           });
+          return { id: s.id, name: s.name, count };
+        }),
+      );
+      return {
+        scope: 'substation',
+        items: items.filter((i) => i.count > 0).sort((a, b) => b.count - a.count),
+      };
+    }
 
-    const items = await Promise.all(
-      substations.map(async (s) => {
-        const count = await prisma.rackModule.count({
-          where: {
-            categoryId,
-            rack: { kind: EquipmentKind.RACK, floor: { substationId: s.id } },
-          },
-        });
-        return { id: s.id, name: s.name, count };
-      }),
-    );
-
-    return {
-      scope: 'substation',
-      items: items.filter((i) => i.count > 0).sort((a, b) => b.count - a.count),
-    };
+    // substation → rack
+    const racks = await prisma.equipment.findMany({
+      where: { floor: { substationId: nodeId }, kind: EquipmentKind.RACK },
+      select: {
+        id: true,
+        name: true,
+        floorId: true,
+        _count: { select: { modules: { where: { categoryId } } } },
+      },
+    });
+    const items: DistributionItem[] = racks
+      .filter((r) => r._count.modules > 0)
+      .map((r) => ({ id: r.id, name: r.name, count: r._count.modules, floorId: r.floorId }))
+      .sort((a, b) => b.count - a.count);
+    return { scope: 'rack', items };
   }
 
   private async collectFloorIds(nodeType: NodeType, nodeId: string): Promise<string[]> {

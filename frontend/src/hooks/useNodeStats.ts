@@ -34,7 +34,7 @@ export function useNodeStats(nodeType: StatsNodeType | null, nodeId: string | nu
   });
 }
 
-export type DistributionScope = 'substation' | 'rack';
+export type DistributionScope = 'branch' | 'substation' | 'rack';
 
 export interface DistributionItem {
   id: string;
