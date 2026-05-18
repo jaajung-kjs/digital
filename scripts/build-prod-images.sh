@@ -90,16 +90,10 @@ cd "$(dirname "$0")"
 
 NETWORK=ict-twin-net
 
-# Rootful podman by default. Rootless podman on RHEL adds slirp4netns
-# (single-thread userspace network proxy), rootlessport (per-port Go proxy),
-# and fuse-overlayfs (userspace storage) — all of which compound to make a
-# 4-core/8GB VM feel unusable even on idle browsers. Rootful uses kernel
-# bridge + native overlay and behaves like docker. Set ROOTLESS=1 to opt out.
-if [[ "${ROOTLESS:-0}" == "1" ]]; then
-  PODMAN="podman"
-else
-  PODMAN="sudo podman"
-fi
+# Rootless podman, no sudo. The frontend is published on 8080 (>1024) so
+# rootless can bind it directly — the earlier rootful detour was a misdiagnosis
+# of a network-level port-80 block, not a podman binding limitation.
+PODMAN="podman"
 
 # Decode only when the .txt is newer than the previously-decoded artefact.
 # Re-uploading a single .txt overwrites its mtime, triggering a re-decode.
@@ -221,13 +215,10 @@ run_backend() {
 
 run_frontend() {
   $PODMAN rm -f ict-twin-frontend 2>/dev/null || true
-  # In rootful mode the container runs as real root → can bind 80 freely,
-  # no per-netns sysctl tweak needed. The flag is harmless either way.
   $PODMAN run -d --name ict-twin-frontend \
     --network "$NETWORK" \
     --restart unless-stopped \
-    --sysctl net.ipv4.ip_unprivileged_port_start=80 \
-    -p "${FRONTEND_PORT:-80}:80" \
+    -p "${FRONTEND_PORT:-8080}:80" \
     digital-frontend:latest
 }
 
@@ -287,7 +278,7 @@ echo "✅ Done. Volumes preserved across deploys."
 echo "Health check:"
 echo "    $PODMAN ps"
 echo "    $PODMAN logs --tail=20 ict-twin-backend"
-echo "    curl http://localhost/api/health"
+echo "    curl http://localhost:${FRONTEND_PORT:-8080}/api/health"
 DECODE
 chmod +x "$TMPDIR/decode-and-deploy.sh"
 
