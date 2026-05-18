@@ -9,7 +9,7 @@
 import type { LocalCable } from '../features/editor/stores/editorStore';
 import type { FloorPlanEquipment } from '../types/floorPlan';
 import type { RackModule } from '../types/rackModule';
-import type { DistributionCircuit } from '../types/distributionCircuit';
+import { type DistributionCircuit, circuitLabel } from '../types/distributionCircuit';
 import type { FiberPathDetail } from '../features/fiber/types';
 import type {
   TraceResult,
@@ -457,8 +457,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
         equipmentId: equipId,
         // "분전반명 · feeder/branch" 로 노출 — trace 경로에서 어느 회로인지 식별.
         equipmentName: parentDist
-          ? `${parentDist.name} · ${circuit.feederName}/${circuit.branchName}`
-          : `${circuit.feederName}/${circuit.branchName}`,
+          ? `${parentDist.name} · ${circuitLabel(circuit)}`
+          : circuitLabel(circuit),
         substationId: parentDist ? substationId : '',
         substationName: parentDist ? substationName : '',
         floorId: parentDist ? defaultRoomId : null,

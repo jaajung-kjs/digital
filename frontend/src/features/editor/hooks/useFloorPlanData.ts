@@ -266,7 +266,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     .sort()
     .join('|');
 
-  // 분전반 회로도 동일 — DISTRIBUTION 설비별로 회로 목록을 모아 store 에 적재.
+  // DISTRIBUTION 설비 id 들을 join-key 로 묶어 회로 목록을 aggregate fetch.
   const distEquipmentIds = (floorPlan?.equipment ?? [])
     .filter((eq) => eq.kind === 'DISTRIBUTION')
     .map((eq) => eq.id)
