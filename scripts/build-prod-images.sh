@@ -8,11 +8,10 @@
 #   - postgres.txt   (postgres:15-alpine image tarball)
 #   - backend.txt    (digital-backend image tarball)
 #   - frontend.txt   (digital-frontend image tarball)
-#   - compose.txt    (docker-compose.prod.yml)
 #   - env.txt        (env.example template)
 #   - deploy.txt     (decode-and-deploy.sh helper script)
 #
-# Transfer the six .txt files to the RHEL server, then run the decode
+# Transfer the five .txt files to the RHEL server, then run the decode
 # script (instructions printed at the end of this script).
 
 set -euo pipefail
@@ -56,8 +55,8 @@ docker save --platform "$PLATFORM" digital-backend:latest    | gzip > "$TMPDIR/b
 docker save --platform "$PLATFORM" digital-frontend:latest   | gzip > "$TMPDIR/frontend.tar.gz"
 
 # Bundle the deploy artefacts that should land next to the loaded images.
-# docker-compose.prod.yml is no longer shipped — the server runs `podman run`
-# directly via the embedded helper, so no compose tool is required.
+# The server runs `podman run` directly via the embedded helper — no compose
+# tool required.
 cp "$ROOT/.env.prod.example"        "$TMPDIR/env.example"
 
 # Write a server-side decoder + deploy script.
