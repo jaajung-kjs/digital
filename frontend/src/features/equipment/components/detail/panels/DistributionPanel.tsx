@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useEditorStore } from '../../../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
+import { usePathHighlightStore } from '../../../../pathTrace/stores/pathHighlightStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
 import type { DistributionCircuit } from '../../../../../types/distributionCircuit';
 import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
@@ -29,6 +30,7 @@ function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const allCircuits = useEditorStore((s) => s.localDistributionCircuits);
   const addCircuit = useEditorStore((s) => s.addDistributionCircuit);
   const removeCircuit = useEditorStore((s) => s.removeDistributionCircuit);
+  const startCircuitTrace = usePathHighlightStore((s) => s.startCircuitTrace);
 
   const circuits = useMemo(
     () =>
@@ -94,21 +96,30 @@ function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
       ) : (
         [...byFeeder.entries()].map(([feederName, branches]) => (
           <div key={feederName} className="rounded-md border border-gray-200">
-            <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => startCircuitTrace(branches.map((b) => b.id))}
+              className="w-full px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between hover:bg-blue-50 transition-colors"
+              title="이 계통 전체 연결 추적"
+            >
               <span className="text-sm font-semibold text-gray-700 truncate">{feederName}</span>
               <span className="text-[11px] text-gray-400">{branches.length}개 분기</span>
-            </div>
+            </button>
             <ul className="divide-y divide-gray-100">
               {branches.map((c) => (
-                <li
-                  key={c.id}
-                  className="px-3 py-1.5 flex items-center gap-2 text-sm group"
-                >
-                  <span className="flex-1 truncate text-gray-700">{c.branchName}</span>
+                <li key={c.id} className="group flex items-center text-sm">
+                  <button
+                    type="button"
+                    onClick={() => startCircuitTrace([c.id])}
+                    className="flex-1 px-3 py-1.5 text-left truncate text-gray-700 hover:bg-blue-50 transition-colors"
+                    title="이 분기 연결 추적"
+                  >
+                    {c.branchName}
+                  </button>
                   <button
                     type="button"
                     onClick={() => removeCircuit(c.id)}
-                    className="opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-700 transition-opacity"
+                    className="px-3 py-1.5 opacity-0 group-hover:opacity-100 text-xs text-red-500 hover:text-red-700 transition-opacity"
                     title="분기 삭제"
                   >
                     삭제

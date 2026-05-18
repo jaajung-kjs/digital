@@ -56,6 +56,13 @@ interface PathHighlightState {
   segments: PathSegment[];
 
   startTrace: (cableId: string, currentRoomId: string) => void;
+  /**
+   * 전원 계통 추적 (상위 진입) — 분전반 회로(feeder/branch) 에서 fan-out.
+   * 주어진 circuitId 들에 물린 케이블 + 반대편 endpoint 를 1-hop 하이라이트.
+   * 하위(설비)→상위 path 는 기존 startTrace 가 회로 노드에서 자연 종단하므로
+   * 별도 로직 불필요 — 같은 highlight set / 렌더 인프라를 공유한다.
+   */
+  startCircuitTrace: (circuitIds: string[]) => void;
   openModal: () => void;
   closeModal: () => void;
   selectRing: (ringId: string | null) => void;
@@ -196,6 +203,36 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
       const message = err instanceof Error ? err.message : '경로 추적에 실패했습니다.';
       set({ isLoading: false, tracingCableId: null, error: message });
     }
+  },
+
+  startCircuitTrace: (circuitIds) => {
+    if (circuitIds.length === 0) return;
+    const editorState = useEditorStore.getState();
+    const circuitSet = new Set(circuitIds);
+    const nodeIds = new Set<string>(circuitIds);
+    const edgeIds = new Set<string>();
+    for (const cable of editorState.localCables) {
+      const srcHit = !!cable.sourceCircuitId && circuitSet.has(cable.sourceCircuitId);
+      const tgtHit = !!cable.targetCircuitId && circuitSet.has(cable.targetCircuitId);
+      if (!srcHit && !tgtHit) continue;
+      edgeIds.add(cable.id);
+      // 양 끝 노드 id — circuit/module endpoint 면 fallback id 가 그대로 들어가 있음.
+      nodeIds.add(cable.sourceEquipmentId);
+      nodeIds.add(cable.targetEquipmentId);
+    }
+    set({
+      active: true,
+      modalOpen: false,
+      traceResult: null,
+      tracingCableId: null,
+      isLoading: false,
+      error: null,
+      selectedRingId: null,
+      highlightedNodeIds: nodeIds,
+      highlightedEquipmentIds: expandToEquipmentIds(nodeIds),
+      highlightedEdgeIds: edgeIds,
+      segments: [],
+    });
   },
 
   openModal: () => {
