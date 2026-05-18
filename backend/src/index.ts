@@ -55,9 +55,12 @@ app.use(
 // Body parsing.
 // PUT /plan 은 도면 전체 (설비 + 케이블 + 랙 모듈 + DWG background drawing JSON)
 // 를 하나의 트랜잭션으로 받기 때문에 express 기본 100KB 한계에 쉽게 걸린다.
-// DWG layer/entity 메타가 큰 도면을 고려해 20MB 까지 허용.
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+// DWG layer/entity 메타가 큰 도면을 고려해 50MB 까지 허용.
+// MUST match the nginx client_max_body_size in frontend/nginx.conf.
+// dev 에는 nginx 가 없어 이 한도가 곧 상한이지만, prod 는 nginx → express
+// 2단이라 둘 중 작은 쪽이 상한이 된다. 두 값을 항상 같이 올릴 것.
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Compression
 app.use(compression());
