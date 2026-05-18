@@ -100,6 +100,7 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
 
   const editorCables = useEditorStore((s) => s.localCables);
   const editorRackModules = useEditorStore((s) => s.localRackModules);
+  const editorDistCircuits = useEditorStore((s) => s.localDistributionCircuits);
 
   const highlightActive = usePathHighlightStore((s) => s.active);
   const highlightedNodeIds = usePathHighlightStore((s) => s.highlightedNodeIds);
@@ -126,9 +127,9 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
       map.set(eq.id, { x: eq.positionX, y: eq.positionY, width: eq.width, height: eq.height });
     }
     if (!snapshotActive) {
-      const rackById = new Map(localEquipment.map((eq) => [eq.id, eq]));
+      const eqById = new Map(localEquipment.map((eq) => [eq.id, eq]));
       for (const m of editorRackModules) {
-        const parent = rackById.get(m.rackEquipmentId);
+        const parent = eqById.get(m.rackEquipmentId);
         if (!parent) continue;
         map.set(m.id, {
           x: parent.positionX,
@@ -137,9 +138,20 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
           height: parent.height,
         });
       }
+      // 분전반 회로 id → 부모 분전반 좌표 (모듈과 동일 fallback).
+      for (const c of editorDistCircuits) {
+        const parent = eqById.get(c.distributionEquipmentId);
+        if (!parent) continue;
+        map.set(c.id, {
+          x: parent.positionX,
+          y: parent.positionY,
+          width: parent.width,
+          height: parent.height,
+        });
+      }
     }
     return map;
-  }, [localEquipment, editorRackModules, snapshotActive]);
+  }, [localEquipment, editorRackModules, editorDistCircuits, snapshotActive]);
 
   const renderableConnections = useMemo(() => {
     const all = snapshotActive

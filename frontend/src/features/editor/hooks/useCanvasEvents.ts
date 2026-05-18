@@ -286,7 +286,7 @@ export function useCanvasEvents(
           y: eq.positionY + eq.height / 2,
         };
         // P9: RACK / OFD endpoints require a module / port selection step.
-        if (eq.kind === 'RACK' || eq.kind === 'OFD') {
+        if (eq.kind === 'RACK' || eq.kind === 'OFD' || eq.kind === 'DISTRIBUTION') {
           interaction.cableSetPendingSource(eq.id, center);
         } else {
           interaction.cableSetSource(eq.id, center);
@@ -306,7 +306,7 @@ export function useCanvasEvents(
           x: eq.positionX + eq.width / 2,
           y: eq.positionY + eq.height / 2,
         };
-        if (eq.kind === 'RACK' || eq.kind === 'OFD') {
+        if (eq.kind === 'RACK' || eq.kind === 'OFD' || eq.kind === 'DISTRIBUTION') {
           interaction.cableSetPendingTarget(eq.id, center);
         } else {
           interaction.cableSetTarget(eq.id, center);
@@ -338,7 +338,7 @@ export function useCanvasEvents(
           x: eq.positionX + eq.width / 2,
           y: eq.positionY + eq.height / 2,
         };
-        if (eq.kind === 'RACK' || eq.kind === 'OFD') {
+        if (eq.kind === 'RACK' || eq.kind === 'OFD' || eq.kind === 'DISTRIBUTION') {
           interaction.cableSetPendingSource(eq.id, center);
         } else {
           interaction.cableSetSource(eq.id, center);
