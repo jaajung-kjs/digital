@@ -25,12 +25,16 @@ const IDLE_STATE = {
   segments: [] as PathSegment[],
 } as const;
 
-/** module id 가 들어 있으면 그 부모 랙 id 도 함께 포함하는 equipment id set. */
+/** module / circuit id 가 들어 있으면 그 부모 설비(랙/분전반) id 도 함께
+ *  포함하는 equipment id set. 캔버스는 모듈·회로를 별도로 그리지 않음. */
 function expandToEquipmentIds(nodeIds: Set<string>): Set<string> {
   const result = new Set(nodeIds);
-  const rackModules = useEditorStore.getState().localRackModules;
-  for (const mod of rackModules) {
+  const state = useEditorStore.getState();
+  for (const mod of state.localRackModules) {
     if (nodeIds.has(mod.id)) result.add(mod.rackEquipmentId);
+  }
+  for (const c of state.localDistributionCircuits) {
+    if (nodeIds.has(c.id)) result.add(c.distributionEquipmentId);
   }
   return result;
 }
@@ -71,6 +75,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
     // snapshot store 는 모듈 record 를 따로 들고 있지 않으므로 빈 배열. 모듈 이름
     // 미해상되면 부모 랙 이름 fallback 으로 떨어지는 게 자연스러움.
     const localRackModules = snapshotState.active ? [] : editorState.localRackModules;
+    const localDistCircuits = snapshotState.active ? [] : editorState.localDistributionCircuits;
     const pendingFiberPaths = snapshotState.active ? [] : editorState.pendingFiberPaths;
 
     // isLoading is reserved for potential future async trace UI feedback
@@ -93,6 +98,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
           cables: localCables,
           equipment: localEquipment,
           rackModules: localRackModules,
+          distributionCircuits: localDistCircuits,
           fiberPaths: snapshotFiberPaths,
         });
 
@@ -169,6 +175,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
         cables: localCables,
         equipment: localEquipment,
         rackModules: localRackModules,
+        distributionCircuits: localDistCircuits,
         fiberPaths: allFiberPaths,
       });
 
