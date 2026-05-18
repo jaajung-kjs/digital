@@ -18,6 +18,7 @@ export function ConnectionDiagram({
   const editorEquipment = useEditorStore((s) => s.localEquipment);
   const editorCables = useEditorStore((s) => s.localCables);
   const editorRackModules = useEditorStore((s) => s.localRackModules);
+  const editorDistCircuits = useEditorStore((s) => s.localDistributionCircuits);
   const deleteCable = useEditorStore((s) => s.deleteCable);
 
   // Snapshot overlay: when active, show snapshot data instead of editor data
@@ -36,7 +37,7 @@ export function ConnectionDiagram({
   // Unmount = context gone → clear highlight automatically.
   useEffect(() => () => clearHighlight(), [clearHighlight]);
 
-  // 랙이면 자식 모듈에 연결된 cable 도 "이 랙의 연결" 로 포함.
+  // 랙이면 자식 모듈, 분전반이면 자식 회로에 연결된 cable 도 "이 설비의 연결".
   const childModuleIds = useMemo(
     () =>
       new Set(
@@ -46,18 +47,33 @@ export function ConnectionDiagram({
       ),
     [editorRackModules, equipmentId],
   );
+  const childCircuitIds = useMemo(
+    () =>
+      new Set(
+        editorDistCircuits
+          .filter((c) => c.distributionEquipmentId === equipmentId)
+          .map((c) => c.id),
+      ),
+    [editorDistCircuits, equipmentId],
+  );
 
   const isSelfSide = useCallback(
-    (eqId: string | null | undefined, modId: string | null | undefined) =>
-      eqId === equipmentId || (!!modId && childModuleIds.has(modId)),
-    [equipmentId, childModuleIds],
+    (
+      eqId: string | null | undefined,
+      modId: string | null | undefined,
+      circuitId: string | null | undefined,
+    ) =>
+      eqId === equipmentId ||
+      (!!modId && childModuleIds.has(modId)) ||
+      (!!circuitId && childCircuitIds.has(circuitId)),
+    [equipmentId, childModuleIds, childCircuitIds],
   );
 
   const relevantCables = useMemo(() => {
     return localCables.filter(
       (cable) =>
-        isSelfSide(cable.sourceEquipmentId, cable.sourceModuleId) ||
-        isSelfSide(cable.targetEquipmentId, cable.targetModuleId),
+        isSelfSide(cable.sourceEquipmentId, cable.sourceModuleId, cable.sourceCircuitId) ||
+        isSelfSide(cable.targetEquipmentId, cable.targetModuleId, cable.targetCircuitId),
     );
   }, [localCables, isSelfSide]);
 
@@ -71,22 +87,40 @@ export function ConnectionDiagram({
         ) : (
         <div className="space-y-2">
           {relevantCables.map((cable: LocalCable) => {
-            const sourceIsSelf = isSelfSide(cable.sourceEquipmentId, cable.sourceModuleId);
+            const sourceIsSelf = isSelfSide(
+              cable.sourceEquipmentId,
+              cable.sourceModuleId,
+              cable.sourceCircuitId,
+            );
             const selfModuleId = sourceIsSelf ? cable.sourceModuleId : cable.targetModuleId;
+            const selfCircuitId = sourceIsSelf ? cable.sourceCircuitId : cable.targetCircuitId;
             const remoteEqId = sourceIsSelf ? cable.targetEquipmentId : cable.sourceEquipmentId;
             const remoteModuleId = sourceIsSelf ? cable.targetModuleId : cable.sourceModuleId;
+            const remoteCircuitId = sourceIsSelf ? cable.targetCircuitId : cable.sourceCircuitId;
 
             const selfModule = selfModuleId
               ? editorRackModules.find((m) => m.id === selfModuleId)
               : null;
+            const selfCircuit = selfCircuitId
+              ? editorDistCircuits.find((c) => c.id === selfCircuitId)
+              : null;
             const localEqName =
-              selfModule?.name ?? localEquipment.find((e) => e.id === equipmentId)?.name ?? '';
+              selfModule?.name ??
+              (selfCircuit ? `${selfCircuit.feederName}/${selfCircuit.branchName}` : null) ??
+              localEquipment.find((e) => e.id === equipmentId)?.name ??
+              '';
 
             const remoteModule = remoteModuleId
               ? editorRackModules.find((m) => m.id === remoteModuleId)
               : null;
+            const remoteCircuit = remoteCircuitId
+              ? editorDistCircuits.find((c) => c.id === remoteCircuitId)
+              : null;
             const remoteName =
               remoteModule?.name ??
+              (remoteCircuit
+                ? `${remoteCircuit.feederName}/${remoteCircuit.branchName}`
+                : null) ??
               (remoteEqId ? localEquipment.find((e) => e.id === remoteEqId)?.name ?? '' : '');
             const isTracing = tracingCableId === cable.id && isTraceLoading;
             const isCardSelected = traceActive && tracingCableId === cable.id;

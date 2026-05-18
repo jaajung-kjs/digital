@@ -9,6 +9,7 @@
 import type { LocalCable } from '../features/editor/stores/editorStore';
 import type { FloorPlanEquipment } from '../types/floorPlan';
 import type { RackModule } from '../types/rackModule';
+import type { DistributionCircuit } from '../types/distributionCircuit';
 import type { FiberPathDetail } from '../features/fiber/types';
 import type {
   TraceResult,
@@ -374,6 +375,8 @@ export interface TraceCableInput {
   equipment: FloorPlanEquipment[];
   /** Rack modules (local state) — endpoint id 가 모듈 id 일 때 이름 lookup 용 */
   rackModules?: RackModule[];
+  /** 분전반 회로 (local state) — endpoint id 가 회로 id 일 때 이름 lookup 용 */
+  distributionCircuits?: DistributionCircuit[];
   /** Fiber paths (saved + pending, merged) */
   fiberPaths: FiberPathDetail[];
   /** Floor context for substationId/Name (optional) */
@@ -392,7 +395,7 @@ export interface TraceCableInput {
  * Runs entirely in-browser on local data.
  */
 export function traceCable(input: TraceCableInput): TraceResult {
-  const { cableId, cables, equipment, rackModules, fiberPaths, roomContext } = input;
+  const { cableId, cables, equipment, rackModules, distributionCircuits, fiberPaths, roomContext } = input;
 
   // Default substation context
   const substationId = roomContext?.substationId ?? '';
@@ -403,6 +406,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
   const equipMap = new Map(equipment.map((e) => [e.id, e]));
   // 모듈 id → 모듈 record. cable endpoint 가 모듈 id 인 경우 이름 lookup.
   const moduleMap = new Map((rackModules ?? []).map((m) => [m.id, m]));
+  // 회로 id → 회로 record. cable endpoint 가 회로 id 인 경우 이름 lookup.
+  const circuitMap = new Map((distributionCircuits ?? []).map((c) => [c.id, c]));
 
   // 1. Find the starting cable
   const startCable = cables.find((c) => c.id === cableId);
@@ -439,6 +444,24 @@ export function traceCable(input: TraceCableInput): TraceResult {
         substationId: parentRack ? substationId : '',
         substationName: parentRack ? substationName : '',
         floorId: parentRack ? defaultRoomId : null,
+        materialCategoryCode: null,
+        isSource,
+        isTarget,
+      });
+      return;
+    }
+    const circuit = circuitMap.get(equipId);
+    if (circuit) {
+      const parentDist = equipMap.get(circuit.distributionEquipmentId);
+      nodeMap.set(equipId, {
+        equipmentId: equipId,
+        // "분전반명 · feeder/branch" 로 노출 — trace 경로에서 어느 회로인지 식별.
+        equipmentName: parentDist
+          ? `${parentDist.name} · ${circuit.feederName}/${circuit.branchName}`
+          : `${circuit.feederName}/${circuit.branchName}`,
+        substationId: parentDist ? substationId : '',
+        substationName: parentDist ? substationName : '',
+        floorId: parentDist ? defaultRoomId : null,
         materialCategoryCode: null,
         isSource,
         isTarget,
