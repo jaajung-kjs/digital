@@ -35,10 +35,12 @@ function buildTempIdMap(
 function planCablesToLocalCables(cables: FloorPlanCable[]): LocalCable[] {
   return cables.map((c) => ({
     id: c.id,
-    sourceEquipmentId: c.sourceEquipmentId ?? c.sourceModuleId ?? '',
-    targetEquipmentId: c.targetEquipmentId ?? c.targetModuleId ?? '',
+    sourceEquipmentId: c.sourceEquipmentId ?? c.sourceModuleId ?? c.sourceCircuitId ?? '',
+    targetEquipmentId: c.targetEquipmentId ?? c.targetModuleId ?? c.targetCircuitId ?? '',
     sourceModuleId: c.sourceModuleId ?? null,
     targetModuleId: c.targetModuleId ?? null,
+    sourceCircuitId: c.sourceCircuitId ?? null,
+    targetCircuitId: c.targetCircuitId ?? null,
     cableType: c.cableType,
     categoryId: c.categoryId ?? null,
     categoryCode: c.categoryCode ?? null,
@@ -116,11 +118,14 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
       // P9: tempId → real id maps for both equipment and rack modules.
       const rackModuleIdMap = response.data?.data?.rackModuleIdMap ?? {};
+      const distCircuitIdMap = response.data?.data?.distCircuitIdMap ?? {};
       const { pendingUploads, pendingLogs } = useEditorStore.getState();
       const tempIdMap = buildTempIdMap(equipmentIdMap);
       const moduleIdMap = buildTempIdMap(rackModuleIdMap);
+      const circuitIdMap = buildTempIdMap(distCircuitIdMap);
       const resolveId = (id: string) => tempIdMap.get(id) ?? id;
       const resolveModuleId = (id: string) => moduleIdMap.get(id) ?? id;
+      const resolveCircuitId = (id: string) => circuitIdMap.get(id) ?? id;
 
       // Process pending uploads and logs in parallel
       const pendingTasks: Promise<void>[] = [];
@@ -175,18 +180,29 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
 
       // P9: rewrite tempId references in localCables / localRackModules so the
       // store reflects real ids without an extra round-trip.
-      const { localCables: cablesAfterSave, localRackModules: modulesAfterSave } = useEditorStore.getState();
+      const {
+        localCables: cablesAfterSave,
+        localRackModules: modulesAfterSave,
+        localDistributionCircuits: circuitsAfterSave,
+      } = useEditorStore.getState();
       useEditorStore.getState().setCables(cablesAfterSave.map((c) => ({
         ...c,
         sourceEquipmentId: resolveId(c.sourceEquipmentId),
         targetEquipmentId: resolveId(c.targetEquipmentId),
         sourceModuleId: c.sourceModuleId ? resolveModuleId(c.sourceModuleId) : null,
         targetModuleId: c.targetModuleId ? resolveModuleId(c.targetModuleId) : null,
+        sourceCircuitId: c.sourceCircuitId ? resolveCircuitId(c.sourceCircuitId) : null,
+        targetCircuitId: c.targetCircuitId ? resolveCircuitId(c.targetCircuitId) : null,
       })));
       useEditorStore.getState().setRackModules(modulesAfterSave.map((m) => ({
         ...m,
         id: resolveModuleId(m.id),
         rackEquipmentId: resolveId(m.rackEquipmentId),
+      })));
+      useEditorStore.getState().setDistributionCircuits(circuitsAfterSave.map((c) => ({
+        ...c,
+        id: resolveCircuitId(c.id),
+        distributionEquipmentId: resolveId(c.distributionEquipmentId),
       })));
 
       // Optimistically push the staged background into the floorPlan cache
@@ -427,6 +443,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     // CM-B: scaleRatio 송신 폐기 — 캔버스 1 unit = 1 cm 통일.
     const equipIds = new Set(localEquipment.map((eq) => eq.id));
     const moduleIds = new Set(localRackModules.map((m) => m.id));
+    const circuitIds = new Set(localDistributionCircuits.map((c) => c.id));
 
     const updateData: UpdateFloorPlanRequest = {
       canvasWidth: floorPlan.canvasWidth,
@@ -479,24 +496,33 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         sortOrder: c.sortOrder,
       })),
       cables: localCables
-        // Drop dangling references — endpoints must resolve to a current equipment or module.
+        // Drop dangling references — endpoint 는 현재 equipment / module / circuit
+        // 중 하나로 resolve 돼야 한다.
         .filter((c) => {
-          const sourceOk = c.sourceModuleId
-            ? moduleIds.has(c.sourceModuleId)
-            : equipIds.has(c.sourceEquipmentId);
-          const targetOk = c.targetModuleId
-            ? moduleIds.has(c.targetModuleId)
-            : equipIds.has(c.targetEquipmentId);
+          const sourceOk = c.sourceCircuitId
+            ? circuitIds.has(c.sourceCircuitId)
+            : c.sourceModuleId
+              ? moduleIds.has(c.sourceModuleId)
+              : equipIds.has(c.sourceEquipmentId);
+          const targetOk = c.targetCircuitId
+            ? circuitIds.has(c.targetCircuitId)
+            : c.targetModuleId
+              ? moduleIds.has(c.targetModuleId)
+              : equipIds.has(c.targetEquipmentId);
           return sourceOk && targetOk;
         })
         .map((c) => ({
           id: isTempId(c.id) ? null : c.id,
-          source: c.sourceModuleId
-            ? { equipmentId: null, moduleId: c.sourceModuleId }
-            : { equipmentId: c.sourceEquipmentId, moduleId: null },
-          target: c.targetModuleId
-            ? { equipmentId: null, moduleId: c.targetModuleId }
-            : { equipmentId: c.targetEquipmentId, moduleId: null },
+          source: c.sourceCircuitId
+            ? { equipmentId: null, moduleId: null, circuitId: c.sourceCircuitId }
+            : c.sourceModuleId
+              ? { equipmentId: null, moduleId: c.sourceModuleId, circuitId: null }
+              : { equipmentId: c.sourceEquipmentId, moduleId: null, circuitId: null },
+          target: c.targetCircuitId
+            ? { equipmentId: null, moduleId: null, circuitId: c.targetCircuitId }
+            : c.targetModuleId
+              ? { equipmentId: null, moduleId: c.targetModuleId, circuitId: null }
+              : { equipmentId: c.targetEquipmentId, moduleId: null, circuitId: null },
           cableType: c.cableType,
           categoryId: c.categoryId ?? null,
           specParams: c.specParams,

@@ -34,6 +34,9 @@ export interface LocalCable {
   /** Rack module endpoint id — null when endpoint is the Equipment itself. */
   sourceModuleId?: string | null;
   targetModuleId?: string | null;
+  /** 분전반 회로 endpoint id — null when endpoint 가 회로가 아닐 때. */
+  sourceCircuitId?: string | null;
+  targetCircuitId?: string | null;
   cableType: string;
   /** CableCategory join — name/displayColor surfaced for UI labels. */
   categoryId?: string | null;
