@@ -217,7 +217,7 @@ run_frontend() {
   $PODMAN run -d --name ict-twin-frontend \
     --network "$NETWORK" \
     --restart unless-stopped \
-    -p "${FRONTEND_PORT:-8080}:80" \
+    -p "${FRONTEND_PORT:-8080}:8080" \
     digital-frontend:latest
 }
 
