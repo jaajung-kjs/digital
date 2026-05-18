@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { FloorPlanDetail, FloorPlanEquipment } from '../../../types/floorPlan';
+import { needsEndpointPicker } from '../../../types/equipmentKind';
 import { snapToGrid as snapToGridUtil } from '../../../utils/canvas/canvasTransform';
 import { findItemAt } from '../../../utils/floorplan/hitTestUtils';
 import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils/floorplan/dragSystem';
@@ -286,7 +287,7 @@ export function useCanvasEvents(
           y: eq.positionY + eq.height / 2,
         };
         // P9: RACK / OFD endpoints require a module / port selection step.
-        if (eq.kind === 'RACK' || eq.kind === 'OFD' || eq.kind === 'DISTRIBUTION') {
+        if (needsEndpointPicker(eq.kind)) {
           interaction.cableSetPendingSource(eq.id, center);
         } else {
           interaction.cableSetSource(eq.id, center);
@@ -306,7 +307,7 @@ export function useCanvasEvents(
           x: eq.positionX + eq.width / 2,
           y: eq.positionY + eq.height / 2,
         };
-        if (eq.kind === 'RACK' || eq.kind === 'OFD' || eq.kind === 'DISTRIBUTION') {
+        if (needsEndpointPicker(eq.kind)) {
           interaction.cableSetPendingTarget(eq.id, center);
         } else {
           interaction.cableSetTarget(eq.id, center);
@@ -338,7 +339,7 @@ export function useCanvasEvents(
           x: eq.positionX + eq.width / 2,
           y: eq.positionY + eq.height / 2,
         };
-        if (eq.kind === 'RACK' || eq.kind === 'OFD' || eq.kind === 'DISTRIBUTION') {
+        if (needsEndpointPicker(eq.kind)) {
           interaction.cableSetPendingSource(eq.id, center);
         } else {
           interaction.cableSetSource(eq.id, center);

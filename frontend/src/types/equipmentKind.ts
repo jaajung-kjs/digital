@@ -46,3 +46,13 @@ export const EQUIPMENT_KINDS: EquipmentKind[] = [
 export function getEquipmentKindLabel(kind: EquipmentKind): string {
   return EQUIPMENT_KIND_INFO[kind]?.label ?? kind;
 }
+
+/**
+ * 케이블 그리기에서 설비 직결이 아닌 하위 endpoint 선택(picker)을 거쳐야 하는
+ * kind. RACK→모듈, OFD→포트, DISTRIBUTION→회로. 새 kind 추가 시 여기 한 줄.
+ */
+const PICKER_REQUIRED_KINDS = new Set<EquipmentKind>(['RACK', 'OFD', 'DISTRIBUTION']);
+
+export function needsEndpointPicker(kind: EquipmentKind): boolean {
+  return PICKER_REQUIRED_KINDS.has(kind);
+}

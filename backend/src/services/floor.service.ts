@@ -544,7 +544,7 @@ class FloorService {
         ? [...dbRackModuleIds].filter((mid) => !receivedRackModuleIds.has(mid))
         : [];
 
-      // DistributionCircuits: rackModules 와 동일한 reconciliation 규칙.
+      // undefined → 기존 유지(삭제 안 함), 배열 → reconciliation.
       const distCircuitsReceived = Array.isArray(input.distributionCircuits);
       const receivedDistCircuitIds = distCircuitsReceived
         ? new Set(input.distributionCircuits!.filter((c) => isRealId(c.id)).map((c) => c.id!))
@@ -796,8 +796,8 @@ class FloorService {
       }
 
       // ── DistributionCircuit reconciliation ──
-      // RackModule 과 동일 규칙. 부모 분전반 ID 는 equipmentIdMap 으로 tempId 해석.
-      // 슬롯 같은 위치 제약은 없고 feeder/branch 자유 입력.
+      // 부모 분전반 ID 는 equipmentIdMap 으로 tempId 해석. 슬롯 같은 위치
+      // 제약 없이 feeder/branch 자유 입력 (랙 모듈과 달리 충돌 검사 불필요).
       if (distCircuitsReceived) {
         if (deleteDistCircuitIds.length > 0) {
           await tx.distributionCircuit.deleteMany({
@@ -939,31 +939,11 @@ class FloorService {
           throw new ValidationError('target endpoint 는 equipmentId / moduleId / circuitId 중 정확히 하나여야 합니다.');
         }
 
-        // RACK Equipment 는 endpoint 불가 (모듈에), DISTRIBUTION 도 불가 (회로에).
+        // RACK→모듈, DISTRIBUTION→회로 에만 연결 가능 (직결 금지).
         const srcKind = srcEqId ? await getEquipmentKind(srcEqId) : null;
         const tgtKind = tgtEqId ? await getEquipmentKind(tgtEqId) : null;
-        if (srcEqId) {
-          if (srcKind === null) {
-            throw new ValidationError(`source 설비를 찾을 수 없습니다 (id=${srcEqId}).`);
-          }
-          if (srcKind === EquipmentKind.RACK) {
-            throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
-          }
-          if (srcKind === EquipmentKind.DISTRIBUTION) {
-            throw new ValidationError('분전반은 케이블 endpoint 가 될 수 없습니다 — 회로에 연결하세요.');
-          }
-        }
-        if (tgtEqId) {
-          if (tgtKind === null) {
-            throw new ValidationError(`target 설비를 찾을 수 없습니다 (id=${tgtEqId}).`);
-          }
-          if (tgtKind === EquipmentKind.RACK) {
-            throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
-          }
-          if (tgtKind === EquipmentKind.DISTRIBUTION) {
-            throw new ValidationError('분전반은 케이블 endpoint 가 될 수 없습니다 — 회로에 연결하세요.');
-          }
-        }
+        if (srcEqId) assertDirectEndpointKind(srcKind, srcEqId, 'source');
+        if (tgtEqId) assertDirectEndpointKind(tgtKind, tgtEqId, 'target');
 
         // OFD endpoint 면 fiberPathId + fiberPortNumber 필수
         assertOfdFiberPath(srcKind, tgtKind, resolvedFiberPathId, cable.fiberPortNumber);
@@ -1262,6 +1242,27 @@ class FloorService {
     const log = await prisma.auditLog.findUnique({ where: { id: logId } });
     if (!log) throw new NotFoundError('변경 이력');
     await prisma.auditLog.delete({ where: { id: logId } });
+  }
+}
+
+/**
+ * 케이블 직결 endpoint 의 kind 검증 — source/target 양쪽 동일 규칙.
+ * RACK 은 모듈에, DISTRIBUTION 은 회로에 연결해야 하므로 설비 직결 거부.
+ */
+function assertDirectEndpointKind(
+  kind: EquipmentKind | null,
+  eqId: string,
+  side: 'source' | 'target',
+): void {
+  const label = side === 'source' ? 'source' : 'target';
+  if (kind === null) {
+    throw new ValidationError(`${label} 설비를 찾을 수 없습니다 (id=${eqId}).`);
+  }
+  if (kind === EquipmentKind.RACK) {
+    throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
+  }
+  if (kind === EquipmentKind.DISTRIBUTION) {
+    throw new ValidationError('분전반은 케이블 endpoint 가 될 수 없습니다 — 회로에 연결하세요.');
   }
 }
 

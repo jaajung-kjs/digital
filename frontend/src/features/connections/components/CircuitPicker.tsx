@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { groupCircuitsByFeeder } from '../../../types/distributionCircuit';
 
 interface CircuitPickerProps {
   distributionEquipmentId: string;
@@ -22,20 +23,10 @@ export function CircuitPicker({
 }: CircuitPickerProps) {
   const localCircuits = useEditorStore((s) => s.localDistributionCircuits);
 
-  const byFeeder = useMemo(() => {
-    const list = localCircuits
-      .filter((c) => c.distributionEquipmentId === distributionEquipmentId)
-      .sort(
-        (a, b) =>
-          a.feederName.localeCompare(b.feederName) || a.sortOrder - b.sortOrder,
-      );
-    const m = new Map<string, typeof list>();
-    for (const c of list) {
-      if (!m.has(c.feederName)) m.set(c.feederName, []);
-      m.get(c.feederName)!.push(c);
-    }
-    return m;
-  }, [localCircuits, distributionEquipmentId]);
+  const byFeeder = useMemo(
+    () => groupCircuitsByFeeder(localCircuits, distributionEquipmentId),
+    [localCircuits, distributionEquipmentId],
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

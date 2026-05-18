@@ -3,7 +3,7 @@ import { useEditorStore } from '../../../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../../../pathTrace/stores/pathHighlightStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
-import type { DistributionCircuit } from '../../../../../types/distributionCircuit';
+import { groupCircuitsByFeeder } from '../../../../../types/distributionCircuit';
 import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
 
 interface PanelProps {
@@ -32,23 +32,10 @@ function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const removeCircuit = useEditorStore((s) => s.removeDistributionCircuit);
   const startCircuitTrace = usePathHighlightStore((s) => s.startCircuitTrace);
 
-  const circuits = useMemo(
-    () =>
-      allCircuits
-        .filter((c) => c.distributionEquipmentId === equipmentId)
-        .sort((a, b) => a.feederName.localeCompare(b.feederName) || a.sortOrder - b.sortOrder),
+  const byFeeder = useMemo(
+    () => groupCircuitsByFeeder(allCircuits, equipmentId),
     [allCircuits, equipmentId],
   );
-
-  // feederName → 회로 배열 그룹핑.
-  const byFeeder = useMemo(() => {
-    const m = new Map<string, DistributionCircuit[]>();
-    for (const c of circuits) {
-      if (!m.has(c.feederName)) m.set(c.feederName, []);
-      m.get(c.feederName)!.push(c);
-    }
-    return m;
-  }, [circuits]);
 
   const [newFeeder, setNewFeeder] = useState('');
 

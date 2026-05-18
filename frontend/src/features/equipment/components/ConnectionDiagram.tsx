@@ -4,6 +4,7 @@ import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
+import { circuitLabel } from '../../../types/distributionCircuit';
 
 
 interface ConnectionDiagramProps {
@@ -106,7 +107,7 @@ export function ConnectionDiagram({
               : null;
             const localEqName =
               selfModule?.name ??
-              (selfCircuit ? `${selfCircuit.feederName}/${selfCircuit.branchName}` : null) ??
+              (selfCircuit ? circuitLabel(selfCircuit) : null) ??
               localEquipment.find((e) => e.id === equipmentId)?.name ??
               '';
 
@@ -119,7 +120,7 @@ export function ConnectionDiagram({
             const remoteName =
               remoteModule?.name ??
               (remoteCircuit
-                ? `${remoteCircuit.feederName}/${remoteCircuit.branchName}`
+                ? circuitLabel(remoteCircuit)
                 : null) ??
               (remoteEqId ? localEquipment.find((e) => e.id === remoteEqId)?.name ?? '' : '');
             const isTracing = tracingCableId === cable.id && isTraceLoading;
