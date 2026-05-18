@@ -3,6 +3,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useCableDrawing, useInteractionStore } from '../stores/interactionStore';
 import { RackModulePicker } from '../../connections/components/RackModulePicker';
 import { OfdPortPicker } from '../../connections/components/OfdPortPicker';
+import { CircuitPicker } from '../../connections/components/CircuitPicker';
 
 /**
  * P9 host: opens the right endpoint picker (rack module / OFD port) based on
@@ -66,6 +67,27 @@ export function CableEndpointPickerHost() {
           } else {
             useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
               moduleId,
+            });
+          }
+        }}
+        onCancel={handleCancel}
+      />
+    );
+  }
+
+  if (activeEquipment.kind === 'DISTRIBUTION') {
+    return (
+      <CircuitPicker
+        distributionEquipmentId={activeEquipment.id}
+        distributionName={activeEquipment.name}
+        onSelect={(circuitId) => {
+          if (isSource) {
+            useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
+              circuitId,
+            });
+          } else {
+            useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
+              circuitId,
             });
           }
         }}

@@ -15,9 +15,11 @@ export type CableDrawingPhase =
 export interface CableDrawingData {
   phase: CableDrawingPhase;
 
-  /** Source endpoint — 부모 설비 id (랙이면 모듈의 부모 랙 id, OFD 면 OFD id) */
+  /** Source endpoint — 부모 설비 id (랙이면 모듈의 부모 랙 id, OFD 면 OFD id,
+   *  분전반이면 회로의 부모 분전반 id) */
   sourceEquipmentId: string | null;
   sourceModuleId: string | null;
+  sourceCircuitId: string | null;
   sourcePosition: { x: number; y: number } | null;
   sourceFiberPathId: string | null;
   sourcePortNumber: number | null;
@@ -26,6 +28,7 @@ export interface CableDrawingData {
 
   targetEquipmentId: string | null;
   targetModuleId: string | null;
+  targetCircuitId: string | null;
   targetPosition: { x: number; y: number } | null;
   targetFiberPathId: string | null;
   targetPortNumber: number | null;
@@ -39,12 +42,14 @@ const cableInitial: CableDrawingData = {
   phase: 'selectingSource',
   sourceEquipmentId: null,
   sourceModuleId: null,
+  sourceCircuitId: null,
   sourcePosition: null,
   sourceFiberPathId: null,
   sourcePortNumber: null,
   waypoints: [],
   targetEquipmentId: null,
   targetModuleId: null,
+  targetCircuitId: null,
   targetPosition: null,
   targetFiberPathId: null,
   targetPortNumber: null,
@@ -89,13 +94,13 @@ interface InteractionActions {
   cableSetSource: (
     equipmentId: string,
     position: { x: number; y: number },
-    extras?: { moduleId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
+    extras?: { moduleId?: string | null; circuitId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
   ) => void;
   cableSetPendingTarget: (equipmentId: string, position: { x: number; y: number }) => void;
   cableSetTarget: (
     equipmentId: string,
     position: { x: number; y: number },
-    extras?: { moduleId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
+    extras?: { moduleId?: string | null; circuitId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
   ) => void;
   cableAddWaypoint: (x: number, y: number) => void;
   cableRemoveLastWaypoint: () => void;
@@ -135,6 +140,7 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
             phase: 'pickingSourceModule',
             sourceEquipmentId: equipmentId,
             sourceModuleId: null,
+            sourceCircuitId: null,
             sourceFiberPathId: null,
             sourcePortNumber: null,
             sourcePosition: position,
@@ -156,12 +162,14 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
             phase: 'drawingPath',
             sourceEquipmentId: equipmentId,
             sourceModuleId: extras?.moduleId ?? null,
+            sourceCircuitId: extras?.circuitId ?? null,
             sourceFiberPathId: extras?.fiberPathId ?? null,
             sourcePortNumber: extras?.portNumber ?? null,
             sourcePosition: position,
             waypoints: [],
             targetEquipmentId: null,
             targetModuleId: null,
+            targetCircuitId: null,
             targetFiberPathId: null,
             targetPortNumber: null,
             targetPosition: null,
@@ -183,6 +191,7 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
             phase: 'pickingTargetModule',
             targetEquipmentId: equipmentId,
             targetModuleId: null,
+            targetCircuitId: null,
             targetFiberPathId: null,
             targetPortNumber: null,
             targetPosition: position,
@@ -202,6 +211,7 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
             phase: 'selectingSpec',
             targetEquipmentId: equipmentId,
             targetModuleId: extras?.moduleId ?? null,
+            targetCircuitId: extras?.circuitId ?? null,
             targetFiberPathId: extras?.fiberPathId ?? null,
             targetPortNumber: extras?.portNumber ?? null,
             targetPosition: position,

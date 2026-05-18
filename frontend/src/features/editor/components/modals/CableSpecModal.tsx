@@ -74,10 +74,16 @@ function CableSpecModal() {
 
     addCable({
       id: generateTempId(),
-      sourceEquipmentId: data.sourceEquipmentId ?? '',
-      targetEquipmentId: data.targetEquipmentId ?? '',
+      // circuit / module endpoint 면 sourceEquipmentId 자리에 회로/모듈 id 를
+      // fallback 으로 채워 두는 게 RACK 패턴 (위치 lookup·tracer 가 이걸 씀).
+      sourceEquipmentId:
+        data.sourceCircuitId ?? data.sourceModuleId ?? data.sourceEquipmentId ?? '',
+      targetEquipmentId:
+        data.targetCircuitId ?? data.targetModuleId ?? data.targetEquipmentId ?? '',
       sourceModuleId: data.sourceModuleId ?? null,
       targetModuleId: data.targetModuleId ?? null,
+      sourceCircuitId: data.sourceCircuitId ?? null,
+      targetCircuitId: data.targetCircuitId ?? null,
       cableType,
       categoryId: selectedCat.id,
       categoryCode: selectedCat.code,
