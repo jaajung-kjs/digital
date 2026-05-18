@@ -77,6 +77,9 @@ export interface FloorPlanCable {
   /** P8 신규: rack module endpoint id. Equipment 쪽은 비어있을 수 있다. */
   sourceModuleId?: string | null;
   targetModuleId?: string | null;
+  /** 분전반 회로 endpoint id. */
+  sourceCircuitId?: string | null;
+  targetCircuitId?: string | null;
   cableType: string;
   /** CableCategory join — 백엔드가 채워줌. */
   categoryId?: string | null;
@@ -258,8 +261,8 @@ export interface UpdateFloorPlanRackModuleInput {
 
 export interface UpdateFloorPlanCableInput {
   id?: string | null;
-  source: { equipmentId?: string | null; moduleId?: string | null };
-  target: { equipmentId?: string | null; moduleId?: string | null };
+  source: { equipmentId?: string | null; moduleId?: string | null; circuitId?: string | null };
+  target: { equipmentId?: string | null; moduleId?: string | null; circuitId?: string | null };
   cableType: string;
   label?: string | null;
   length?: number | null;
@@ -305,6 +308,7 @@ export interface BulkUpdatePlanResponse {
   message: string;
   equipmentIdMap: Record<string, string>;
   rackModuleIdMap: Record<string, string>;
+  distCircuitIdMap: Record<string, string>;
   fiberPathIdMap: Record<string, string>;
   auditLogId: string | null;
   // constructionReport: opaque on the client — we only store/display it.
