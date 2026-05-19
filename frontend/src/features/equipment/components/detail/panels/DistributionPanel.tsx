@@ -129,14 +129,14 @@ function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                 className="rounded-md border border-gray-300 bg-white overflow-hidden"
               >
                 {/* feeder 헤더 — 메인 차단기 라벨. 추적 / 삭제 */}
-                <div className="bg-gray-100 border-b border-gray-300 group/feeder">
+                <div className="relative bg-gray-100 border-b border-gray-300 group/feeder">
                   <button
                     type="button"
                     onClick={() => startCircuitTrace(branches.map((b) => b.id))}
-                    className="w-full px-2 py-1.5 text-left hover:bg-blue-100 transition-colors"
+                    className="w-full px-2 py-2.5 pr-7 text-left hover:bg-blue-100 transition-colors"
                     title="이 계통 전체 연결 추적"
                   >
-                    <span className="block text-xs font-semibold text-gray-700 truncate">
+                    <span className="block text-sm font-semibold text-gray-700 truncate">
                       {feederName}
                     </span>
                   </button>
@@ -149,9 +149,10 @@ function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                         branches.forEach((b) => removeCircuit(b.id));
                       }
                     }}
-                    className="w-full px-2 py-0.5 text-[10px] text-red-500 opacity-0 group-hover/feeder:opacity-100 hover:bg-red-50 transition-all"
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white border border-gray-300 text-xs text-red-500 leading-none opacity-0 group-hover/feeder:opacity-100 hover:bg-red-50 transition-opacity flex items-center justify-center"
+                    title="계통 삭제"
                   >
-                    계통 삭제
+                    ×
                   </button>
                 </div>
 
@@ -175,7 +176,7 @@ function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                         </button>
                         <button
                           type="button"
-                          onClick={() => removeCircuit(c.id)}
+                          onClick={() => { if (confirm(`'${c.branchName}' 분기를 삭제할까요?`)) removeCircuit(c.id); }}
                           className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-[10px] text-red-500 leading-none opacity-0 group-hover/branch:opacity-100 hover:bg-red-50 transition-opacity"
                           title="분기 삭제"
                         >

@@ -17,6 +17,8 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
 
+type PointerLike = Pick<MouseEvent, 'clientX' | 'clientY' | 'shiftKey'>;
+
 /**
  * Mouse/wheel event handlers for the canvas.
  * Tools: select, equipment, cable. (Delete via Delete key on selection.)
@@ -37,7 +39,7 @@ export function useCanvasEvents(
   const canvasStore = useEditorStore;
   const lastHoverPos = useRef<{ x: number; y: number } | null>(null);
 
-  const getCanvasCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoordinates = useCallback((e: PointerLike) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
     const rect = canvasRef.current.getBoundingClientRect();
     const { zoom, panX, panY } = editorStore.getState();
@@ -140,7 +142,7 @@ export function useCanvasEvents(
     }
   }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, canvasStore]);
 
-  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasMouseMove = useCallback((e: PointerLike) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -265,6 +267,24 @@ export function useCanvasEvents(
     canvasStore.getState().setIsPanning(false);
     canvasStore.getState().setPanStart(null);
   }, [editorStore, canvasStore, pushHistory]);
+
+  useEffect(() => {
+    const onWinMove = (e: MouseEvent) => {
+      if (e.target === canvasRef.current) return; // 캔버스 위에서는 캔버스의 React 합성 onMouseMove 가 처리
+      const { dragSession, isPanning } = canvasStore.getState();
+      if (!dragSession && !isPanning) return;
+      handleCanvasMouseMove(e);
+    };
+    const onWinUp = () => handleCanvasMouseUp();
+    window.addEventListener('mousemove', onWinMove);
+    window.addEventListener('mouseup', onWinUp);
+    window.addEventListener('blur', onWinUp);
+    return () => {
+      window.removeEventListener('mousemove', onWinMove);
+      window.removeEventListener('mouseup', onWinUp);
+      window.removeEventListener('blur', onWinUp);
+    };
+  }, [handleCanvasMouseMove, handleCanvasMouseUp, canvasRef, canvasStore]);
 
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan || !canvasRef.current) return;
