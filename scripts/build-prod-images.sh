@@ -195,6 +195,10 @@ run_postgres() {
 }
 
 run_backend() {
+  # libredwg-web 는 WASM 모듈이라 DWG 디코드 시 큰 선형 메모리를 grow/mmap
+  # 한다. rootless podman 기본 한도(/dev/shm 64MB, 낮은 memlock, 빡빡한
+  # seccomp)에 걸리면 디코드가 중단돼 빈 도면(error 2048)이 된다. rootful
+  # 시절엔 자동으로 넉넉했던 값들을 명시적으로 복원 — sudo 없이 해결.
   $PODMAN rm -f ict-twin-backend 2>/dev/null || true
   $PODMAN run -d --name ict-twin-backend \
     --network "$NETWORK" \
@@ -209,6 +213,10 @@ run_backend() {
     -e PORT=3000 \
     -e CORS_ORIGIN="$CORS_ORIGIN" \
     -v uploads_data:/app/uploads \
+    --shm-size=1g \
+    --ulimit memlock=-1:-1 \
+    --ulimit nofile=65536:65536 \
+    --security-opt seccomp=unconfined \
     digital-backend:latest
 }
 
