@@ -89,6 +89,16 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
         {/* Stage: upload */}
         {stage === 'upload' && (
           <div className="p-5 flex-1 flex flex-col gap-4">
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
+              <p className="text-sm font-semibold text-amber-800">
+                ⚠️ DRM(문서보안)이 걸린 파일은 가져올 수 없습니다
+              </p>
+              <p className="mt-1 text-xs text-amber-700 leading-relaxed">
+                사내 보안솔루션으로 암호화된 도면은 CAD에서는 열려도 업로드 시
+                암호화된 상태로 전송되어 깨진 파일로 인식됩니다. 업로드 전
+                반드시 <strong>DRM 해제(반출)</strong> 후 가져오세요.
+              </p>
+            </div>
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDrop}
@@ -143,6 +153,10 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
         {stage === 'error' && (
           <div className="p-5">
             <p className="text-red-600 text-sm">{errorMessage}</p>
+            <p className="mt-2 text-xs text-amber-700">
+              파일이 정상 DWG인데도 실패한다면 <strong>DRM(문서보안)</strong>이
+              걸려 있을 수 있습니다. DRM 해제(반출) 후 다시 시도하세요.
+            </p>
             <button
               onClick={() => {
                 setStage('upload');

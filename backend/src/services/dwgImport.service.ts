@@ -1,8 +1,6 @@
-import crypto from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { LibreDwg, createModule, Dwg_File_Type } from '@mlightcad/libredwg-web';
+import { LibreDwg, Dwg_File_Type } from '@mlightcad/libredwg-web';
 import type { DwgDatabase, DwgEntity } from '@mlightcad/libredwg-web';
 import prisma from '../config/prisma.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
@@ -123,20 +121,11 @@ export interface ImportResult {
 
 // ==================== WASM lifecycle ====================
 
-let _libredwg: ReturnType<typeof LibreDwg.createByWasmInstance> | null = null;
+let _libredwg: Awaited<ReturnType<typeof LibreDwg.create>> | null = null;
 
 async function getLibreDwg() {
   if (!_libredwg) {
-    // Read the .wasm bytes ourselves and hand them to Emscripten via
-    // `wasmBinary`. LibreDwg.create(dir) depends on Emscripten's locateFile
-    // resolving to a real file; when that resolution fails (notably in the
-    // production container) it silently falls back to the embedded base64
-    // `data:` URI, which Node then tries to readFileSync as a path →
-    // ENAMETOOLONG, and every import returns an empty drawing. Passing the
-    // bytes directly is environment-independent and deterministic.
-    const wasmBinary = fs.readFileSync(path.join(WASM_DIR, 'libredwg-web.wasm'));
-    const wasmInstance = await createModule({ wasmBinary });
-    _libredwg = LibreDwg.createByWasmInstance(wasmInstance);
+    _libredwg = await LibreDwg.create(WASM_DIR);
   }
   return _libredwg;
 }
@@ -145,21 +134,10 @@ async function getLibreDwg() {
 
 async function parseFile(buffer: Buffer, fileType: 'DWG' | 'DXF'): Promise<DwgDatabase> {
   const lib = await getLibreDwg();
-  // Pinpoint diagnostics: distinguishes transport truncation/corruption from
-  // an unsupported DWG version. A real DWG starts with a 6-byte version magic
-  // (AC1015 / AC1018 / AC1024 / AC1027 / AC1032 …). If size/magic here don't
-  // match the original file, the upload was corrupted in transit (nginx /
-  // proxy), not a libredwg problem.
-  const magic = buffer.subarray(0, 6).toString('latin1');
-  const sha = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 16);
-  console.log(
-    `[dwg-parse] received bytes=${buffer.length} magic=${JSON.stringify(magic)} sha256=${sha} fileType=${fileType}`,
-  );
   const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
   const ftCode = fileType === 'DXF' ? Dwg_File_Type.DXF : Dwg_File_Type.DWG;
   const dwgPtr = lib.dwg_read_data(ab, ftCode);
   if (dwgPtr == null) {
-    console.log(`[dwg-parse] dwg_read_data returned NULL (bytes=${buffer.length} magic=${JSON.stringify(magic)})`);
     throw new ValidationError('도면 파일을 읽을 수 없습니다. (지원되지 않는 형식이거나 손상된 파일)');
   }
   try {
