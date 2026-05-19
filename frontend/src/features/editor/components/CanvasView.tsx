@@ -22,7 +22,6 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
   const {
     handleCanvasMouseDown,
     handleCanvasMouseMove,
-    handleCanvasMouseUp,
     handleCanvasClick,
     handleCanvasDoubleClick,
   } = useCanvasEvents(canvasRef, floorPlan, floorId, onPlacePreset);
@@ -64,8 +63,6 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
         onDoubleClick={handleCanvasDoubleClick}
         onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleCanvasMouseMove}
-        onMouseUp={handleCanvasMouseUp}
-        onMouseLeave={handleCanvasMouseUp}
         className={`${
           isPanning ? 'cursor-grabbing' :
           isSpacePressed ? 'cursor-grab' :
