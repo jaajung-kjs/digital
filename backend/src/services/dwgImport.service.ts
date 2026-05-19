@@ -1,6 +1,7 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { LibreDwg, Dwg_File_Type } from '@mlightcad/libredwg-web';
+import { LibreDwg, createModule, Dwg_File_Type } from '@mlightcad/libredwg-web';
 import type { DwgDatabase, DwgEntity } from '@mlightcad/libredwg-web';
 import prisma from '../config/prisma.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
@@ -121,11 +122,20 @@ export interface ImportResult {
 
 // ==================== WASM lifecycle ====================
 
-let _libredwg: Awaited<ReturnType<typeof LibreDwg.create>> | null = null;
+let _libredwg: ReturnType<typeof LibreDwg.createByWasmInstance> | null = null;
 
 async function getLibreDwg() {
   if (!_libredwg) {
-    _libredwg = await LibreDwg.create(WASM_DIR);
+    // Read the .wasm bytes ourselves and hand them to Emscripten via
+    // `wasmBinary`. LibreDwg.create(dir) depends on Emscripten's locateFile
+    // resolving to a real file; when that resolution fails (notably in the
+    // production container) it silently falls back to the embedded base64
+    // `data:` URI, which Node then tries to readFileSync as a path →
+    // ENAMETOOLONG, and every import returns an empty drawing. Passing the
+    // bytes directly is environment-independent and deterministic.
+    const wasmBinary = fs.readFileSync(path.join(WASM_DIR, 'libredwg-web.wasm'));
+    const wasmInstance = await createModule({ wasmBinary });
+    _libredwg = LibreDwg.createByWasmInstance(wasmInstance);
   }
   return _libredwg;
 }
