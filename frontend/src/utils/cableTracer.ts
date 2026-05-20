@@ -30,26 +30,6 @@ export type { TraceResult };
 
 // ==================== Helpers ====================
 
-function toTraceNode(
-  equip: FloorPlanEquipment,
-  isSource: boolean,
-  isTarget: boolean,
-  substationId: string,
-  substationName: string,
-  floorId: string | null,
-): TraceNode {
-  return {
-    equipmentId: equip.id,
-    equipmentName: equip.name,
-    substationId,
-    substationName,
-    floorId,
-    materialCategoryCode: equip.materialCategoryCode ?? null,
-    isSource,
-    isTarget,
-  };
-}
-
 // ==================== Segment Builder ====================
 
 /**
@@ -181,8 +161,7 @@ export interface TraceCableInput {
 export function traceCable(input: TraceCableInput): TraceResult {
   const { cableId, cables, equipment, rackModules, distributionCircuits, fiberPaths, roomContext } = input;
 
-  // Default substation context
-  const substationId = roomContext?.substationId ?? '';
+  // Default substation context — externalInfo 가 없을 때 fallback.
   const substationName = roomContext?.substationName ?? '';
   const defaultRoomId = roomContext?.floorId ?? null;
 
@@ -190,6 +169,33 @@ export function traceCable(input: TraceCableInput): TraceResult {
   const equipMap = new Map(equipment.map((e) => [e.id, e]));
   const moduleMap = new Map((rackModules ?? []).map((m) => [m.id, m]));
   const circuitMap = new Map((distributionCircuits ?? []).map((c) => [c.id, c]));
+
+  // fiberPaths 응답이 *모든 변전소 의 OFD/모듈 이름·변전소명* 정보를 이미 갖고 있다.
+  // (ofdA/B.name + substationName, ports[].sideX.equipmentName)
+  // 현재 floor 의 equipMap/moduleMap 에 없는 noded (다른 변전소) 도 이걸로 이름 채움.
+  // Map: equipmentId → { name, substationName, isOfd }
+  type ExternalInfo = { name: string; substationName: string; isOfd: boolean };
+  const externalInfo = new Map<string, ExternalInfo>();
+  for (const fp of fiberPaths) {
+    externalInfo.set(fp.ofdA.id, { name: fp.ofdA.name, substationName: fp.ofdA.substationName, isOfd: true });
+    externalInfo.set(fp.ofdB.id, { name: fp.ofdB.name, substationName: fp.ofdB.substationName, isOfd: true });
+    for (const port of fp.ports) {
+      if (port.sideA) {
+        externalInfo.set(port.sideA.equipmentId, {
+          name: port.sideA.equipmentName,
+          substationName: fp.ofdA.substationName,
+          isOfd: false,
+        });
+      }
+      if (port.sideB) {
+        externalInfo.set(port.sideB.equipmentId, {
+          name: port.sideB.equipmentName,
+          substationName: fp.ofdB.substationName,
+          isOfd: false,
+        });
+      }
+    }
+  }
 
   // 1. Find the starting cable
   const startCable = cables.find((c) => c.id === cableId);
@@ -208,22 +214,33 @@ export function traceCable(input: TraceCableInput): TraceResult {
 
   const addNode = (equipId: string, isSource: boolean, isTarget: boolean) => {
     if (nodeMap.has(equipId)) return;
+    const ext = externalInfo.get(equipId); // fiberPaths 응답에서 알아낸 정확한 이름/변전소명
+    const subName = ext?.substationName || substationName;
+
     const equip = equipMap.get(equipId);
     if (equip) {
-      nodeMap.set(
-        equipId,
-        toTraceNode(equip, isSource, isTarget, substationId, substationName, defaultRoomId),
-      );
+      // 로컬 equipment 정상 분기. roomContext 가 비었어도 ext 가 채움.
+      nodeMap.set(equipId, {
+        equipmentId: equip.id,
+        equipmentName: equip.name,
+        substationId: subName, // substationId 자리에 substationName 사용 — layout 그룹 key
+        substationName: subName,
+        floorId: defaultRoomId,
+        materialCategoryCode: equip.materialCategoryCode ?? (ext?.isOfd ? 'EQP-OFD' : null),
+        isSource,
+        isTarget,
+      });
       return;
     }
     const mod = moduleMap.get(equipId);
     if (mod) {
+      // 모듈 — 부모 랙이 현재 floor 에 있으면 substationName 채움.
       const parentRack = equipMap.get(mod.rackEquipmentId);
       nodeMap.set(equipId, {
         equipmentId: equipId,
         equipmentName: mod.name,
-        substationId: parentRack ? substationId : '',
-        substationName: parentRack ? substationName : '',
+        substationId: parentRack ? subName : (ext?.substationName ?? ''),
+        substationName: parentRack ? subName : (ext?.substationName ?? ''),
         floorId: parentRack ? defaultRoomId : null,
         materialCategoryCode: null,
         isSource,
@@ -239,8 +256,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
         equipmentName: parentDist
           ? `${parentDist.name} · ${circuitLabel(circuit)}`
           : circuitLabel(circuit),
-        substationId: parentDist ? substationId : '',
-        substationName: parentDist ? substationName : '',
+        substationId: parentDist ? subName : '',
+        substationName: parentDist ? subName : '',
         floorId: parentDist ? defaultRoomId : null,
         materialCategoryCode: null,
         isSource,
@@ -248,14 +265,14 @@ export function traceCable(input: TraceCableInput): TraceResult {
       });
       return;
     }
-    // Equipment not found locally (다른 floor 의 OFD) — minimal node
+    // Equipment 가 로컬에 없음 (다른 변전소 OFD/모듈). fiberPaths 정보로 채움.
     nodeMap.set(equipId, {
       equipmentId: equipId,
-      equipmentName: equipId,
-      substationId: '',
-      substationName: '',
+      equipmentName: ext?.name ?? equipId,
+      substationId: ext?.substationName ?? '',
+      substationName: ext?.substationName ?? '',
       floorId: null,
-      materialCategoryCode: 'EQP-OFD',
+      materialCategoryCode: ext?.isOfd === false ? null : 'EQP-OFD',
       isSource,
       isTarget,
     });
