@@ -301,11 +301,17 @@ export function traceCable(input: TraceCableInput): TraceResult {
     cableAdjacency.get(cable.targetEquipmentId)!.push(cable);
   }
 
-  // 3. OFD ids (P6 이후 정식 식별자: kind === 'OFD')
+  // 3. OFD ids — 로컬 equipment(현재 floor) + fiberPaths.ofdA/B (모든 변전소).
+  //    BFS 가 *원격* OFD 에 도달했을 때도 isOfd 분기가 true 여야 traverseFiberPaths
+  //    가 호출됨. ofdA/B 는 정의상 OFD 이므로 데이터에서 정당한 추론.
   const ofdIds = new Set<string>();
   if (cableType === 'FIBER') {
     for (const eq of equipment) {
       if (eq.kind === 'OFD') ofdIds.add(eq.id);
+    }
+    for (const fp of fiberPaths) {
+      ofdIds.add(fp.ofdA.id);
+      ofdIds.add(fp.ofdB.id);
     }
   }
 
