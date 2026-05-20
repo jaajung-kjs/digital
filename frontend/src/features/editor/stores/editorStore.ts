@@ -53,6 +53,7 @@ export interface LocalCable {
   color?: string | null;
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
+  fiberPathLabel?: string | null;
 }
 
 export interface PendingFiberPath {

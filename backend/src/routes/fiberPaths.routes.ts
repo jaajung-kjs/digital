@@ -19,6 +19,10 @@ const createFiberPathSchema = z.object({
 
 // ==================== Routes ====================
 
+// 전체 광경로 리스트 (인증 불필요) — 네트워크 토폴로지의 single source.
+// 주의: /fiber-paths/:id 보다 먼저 등록해야 express 가 정적 경로로 매칭.
+router.get('/fiber-paths', fiberPathController.getAll);
+
 // OFD 설비의 광경로 목록 조회 (인증 불필요)
 router.get('/equipment/:ofdId/fiber-paths', fiberPathController.getByOfdId);
 

@@ -170,6 +170,32 @@ async function resolveEndpoint(
 }
 
 /**
+ * Build fiber path label oriented "자국-대국".
+ * Module-level export so other services (e.g. floor.service) can reuse without
+ * duplicating the orientation logic.
+ */
+export function buildFiberPathLabel(c: any): string | null {
+  const fp = c.fiberPath;
+  if (!fp) return null;
+
+  const nameA = fp.ofdA?.floor?.substation?.name;
+  const nameB = fp.ofdB?.floor?.substation?.name;
+  if (!nameA || !nameB) return null;
+
+  // 케이블의 한 쪽이 OFD Equipment 면 그쪽이 local
+  const cableOfdId = c.sourceEquipmentId === fp.ofdAId || c.targetEquipmentId === fp.ofdAId
+    ? fp.ofdAId
+    : c.sourceEquipmentId === fp.ofdBId || c.targetEquipmentId === fp.ofdBId
+      ? fp.ofdBId
+      : null;
+  if (!cableOfdId) return `${nameA}-${nameB}`;
+
+  const localName = cableOfdId === fp.ofdAId ? nameA : nameB;
+  const remoteName = cableOfdId === fp.ofdAId ? nameB : nameA;
+  return `${localName}-${remoteName}`;
+}
+
+/**
  * OFD 한 쪽이라도 endpoint 면 fiberPathId + fiberPortNumber 필수.
  * 외부에서 호출하므로 export.
  */
@@ -366,7 +392,7 @@ class CableService {
       description: c.description,
       fiberPathId: c.fiberPathId ?? null,
       fiberPortNumber: c.fiberPortNumber ?? null,
-      fiberPathDescription: this.buildFiberPathLabel(c),
+      fiberPathDescription: buildFiberPathLabel(c),
       categoryId: c.categoryId ?? null,
       categoryCode: c.category?.code ?? null,
       categoryName: c.category?.name ?? null,
@@ -379,30 +405,6 @@ class CableService {
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     };
-  }
-
-  /**
-   * Build fiber path label oriented "자국-대국".
-   */
-  private buildFiberPathLabel(c: any): string | null {
-    const fp = c.fiberPath;
-    if (!fp) return null;
-
-    const nameA = fp.ofdA?.floor?.substation?.name;
-    const nameB = fp.ofdB?.floor?.substation?.name;
-    if (!nameA || !nameB) return null;
-
-    // 케이블의 한 쪽이 OFD Equipment 면 그쪽이 local
-    const cableOfdId = c.sourceEquipmentId === fp.ofdAId || c.targetEquipmentId === fp.ofdAId
-      ? fp.ofdAId
-      : c.sourceEquipmentId === fp.ofdBId || c.targetEquipmentId === fp.ofdBId
-        ? fp.ofdBId
-        : null;
-    if (!cableOfdId) return `${nameA}-${nameB}`;
-
-    const localName = cableOfdId === fp.ofdAId ? nameA : nameB;
-    const remoteName = cableOfdId === fp.ofdAId ? nameB : nameA;
-    return `${localName}-${remoteName}`;
   }
 
 }

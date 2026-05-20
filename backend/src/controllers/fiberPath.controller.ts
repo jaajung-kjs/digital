@@ -3,6 +3,19 @@ import { fiberPathService } from '../services/fiberPath.service.js';
 
 export const fiberPathController = {
   /**
+   * GET /api/fiber-paths
+   * 전체 광경로 리스트 — 네트워크 토폴로지의 single source.
+   */
+  async getAll(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const paths = await fiberPathService.getAll();
+      res.json({ data: paths });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * GET /api/equipment/:ofdId/fiber-paths
    * OFD 설비의 광경로 목록 조회
    */

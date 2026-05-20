@@ -1,9 +1,15 @@
 /**
- * Client-side cable trace utility.
+ * Cable trace — 한 cable 시드에서 시작해 같은 cableType cable 들을 따라가며
+ * 도달 가능한 모든 endpoint 와 cable 을 모은다. OFD 의 경우 FiberPath 를 통해
+ * 반대편 OFD 로 hop (port-isolated). 결과는 캔버스 하이라이트, 경로 상세 텍스트,
+ * 그리고 ring 인식(공유 cycleDetection 호출)에 사용된다.
  *
- * Ported from backend/src/services/cableTrace.service.ts.
- * Operates on local in-memory data (localCables + localEquipment)
- * instead of Prisma queries.
+ * 책임 분리:
+ *   - 이 파일: BFS path traversal + segments
+ *   - utils/graph/cycleDetection: ring detection (공유 모듈, network topology 도 사용)
+ *
+ * 외부 네트워크망 시각화는 별도 흐름 (features/network) — 이 함수에 ring topology
+ * 책임을 욱여넣지 않는다.
  */
 
 import type { LocalCable } from '../features/editor/stores/editorStore';
@@ -15,20 +21,14 @@ import type {
   TraceResult,
   TraceNode,
   TraceEdge,
-  TraceRing,
   PathSegment,
   SegmentNode,
 } from '../features/pathTrace/types';
+import { detectRings } from './graph/cycleDetection';
 
-// Re-export types for convenience
 export type { TraceResult };
 
 // ==================== Helpers ====================
-
-/** Canonical key for a node pair (order-independent) */
-function pairKey(a: string, b: string): string {
-  return a < b ? `${a}\0${b}` : `${b}\0${a}`;
-}
 
 function toTraceNode(
   equip: FloorPlanEquipment,
@@ -147,223 +147,6 @@ function buildPathSegments(nodes: TraceNode[], edges: TraceEdge[]): PathSegment[
   return segments;
 }
 
-// ==================== Ring Detection ====================
-
-/**
- * Detect rings using fundamental cycle basis algorithm.
- *
- * 1. Build BFS spanning tree -> identify chords (non-tree edges)
- * 2. Each chord produces one fundamental cycle (소링) via LCA
- * 3. Fundamental cycles sharing edges are grouped (Union-Find)
- * 4. Groups with 2+ cycles get a composite ring (대링) via edge XOR
- */
-function detectRings(
-  adjacency: Map<string, Set<string>>,
-  edgeMap: Map<string, TraceEdge>,
-  nodeMap: Map<string, TraceNode>,
-): TraceRing[] {
-  if (edgeMap.size === 0) return [];
-
-  // 1. Pair -> edgeIds lookup (supports parallel edges)
-  const pairToEdgeIds = new Map<string, string[]>();
-  for (const [edgeId, edge] of edgeMap) {
-    const key = pairKey(edge.sourceEquipmentId, edge.targetEquipmentId);
-    if (!pairToEdgeIds.has(key)) pairToEdgeIds.set(key, []);
-    pairToEdgeIds.get(key)!.push(edgeId);
-  }
-
-  // 2. BFS spanning tree
-  const treeParent = new Map<string, { parentId: string; edgeId: string } | null>();
-  const treeEdgeIds = new Set<string>();
-  const visited = new Set<string>();
-
-  for (const startId of adjacency.keys()) {
-    if (visited.has(startId)) continue;
-    visited.add(startId);
-    treeParent.set(startId, null);
-    const queue = [startId];
-    let qHead = 0;
-
-    while (qHead < queue.length) {
-      const nodeId = queue[qHead++]!;
-      for (const neighborId of adjacency.get(nodeId) ?? []) {
-        if (visited.has(neighborId)) continue;
-        visited.add(neighborId);
-        const key = pairKey(nodeId, neighborId);
-        const edgeIds = pairToEdgeIds.get(key);
-        if (!edgeIds || edgeIds.length === 0) continue;
-        treeParent.set(neighborId, { parentId: nodeId, edgeId: edgeIds[0] });
-        treeEdgeIds.add(edgeIds[0]);
-        queue.push(neighborId);
-      }
-    }
-  }
-
-  // 3. Identify chords (non-tree edges)
-  const chords: { edgeId: string; u: string; v: string }[] = [];
-  for (const [edgeId, edge] of edgeMap) {
-    if (!treeEdgeIds.has(edgeId)) {
-      chords.push({ edgeId, u: edge.sourceEquipmentId, v: edge.targetEquipmentId });
-    }
-  }
-  if (chords.length === 0) return [];
-
-  // 4. For each chord, find fundamental cycle via LCA
-  function ancestorList(nodeId: string): string[] {
-    const path = [nodeId];
-    let cur = nodeId;
-    while (treeParent.get(cur)) {
-      cur = treeParent.get(cur)!.parentId;
-      path.push(cur);
-    }
-    return path;
-  }
-
-  function pathTo(from: string, to: string): { nodeIds: string[]; edgeIds: string[] } {
-    const nodeIds = [from];
-    const edgeIds: string[] = [];
-    let cur = from;
-    while (cur !== to) {
-      const p = treeParent.get(cur);
-      if (!p) break;
-      edgeIds.push(p.edgeId);
-      nodeIds.push(p.parentId);
-      cur = p.parentId;
-    }
-    return { nodeIds, edgeIds };
-  }
-
-  const fundamentals: { nodeIds: string[]; edgeIds: string[] }[] = [];
-
-  for (const chord of chords) {
-    const ancestorsU = ancestorList(chord.u);
-    const ancestorSetU = new Set(ancestorsU);
-    const ancestorsV = ancestorList(chord.v);
-
-    let lca: string | null = null;
-    for (const a of ancestorsV) {
-      if (ancestorSetU.has(a)) {
-        lca = a;
-        break;
-      }
-    }
-    if (!lca) continue;
-
-    const pathU = pathTo(chord.u, lca);
-    const pathV = pathTo(chord.v, lca);
-
-    // Merge: u->LCA + reverse(v->LCA without LCA) + chord
-    const cycleNodeIds = [
-      ...new Set([...pathU.nodeIds, ...pathV.nodeIds.slice(0, -1).reverse()]),
-    ];
-    const cycleEdgeIds = [...pathU.edgeIds, ...pathV.edgeIds, chord.edgeId];
-
-    // Skip degenerate cycles (parallel edges between 2 nodes)
-    if (cycleNodeIds.length >= 3) {
-      fundamentals.push({ nodeIds: cycleNodeIds, edgeIds: cycleEdgeIds });
-    }
-  }
-  if (fundamentals.length === 0) return [];
-
-  // 5. Group cycles sharing edges (Union-Find)
-  const n = fundamentals.length;
-  const uf = Array.from({ length: n }, (_, i) => i);
-  function find(x: number): number {
-    while (uf[x] !== x) {
-      uf[x] = uf[uf[x]];
-      x = uf[x];
-    }
-    return x;
-  }
-
-  const edgeSets = fundamentals.map((c) => new Set(c.edgeIds));
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      for (const eid of edgeSets[i]) {
-        if (edgeSets[j].has(eid)) {
-          uf[find(i)] = find(j);
-          break;
-        }
-      }
-    }
-  }
-
-  const groups = new Map<number, number[]>();
-  for (let i = 0; i < n; i++) {
-    const root = find(i);
-    if (!groups.has(root)) groups.set(root, []);
-    groups.get(root)!.push(i);
-  }
-
-  // 6. Build TraceRings (level 0 + level 1)
-  const rings: TraceRing[] = [];
-  let counter = 0;
-
-  function buildLabel(nodeIds: Iterable<string>): string {
-    const names = new Set<string>();
-    for (const nid of nodeIds) {
-      const node = nodeMap.get(nid);
-      if (node?.substationName) names.add(node.substationName);
-    }
-    return Array.from(names).join('\u2194');
-  }
-
-  for (const cycleIndices of groups.values()) {
-    const childIds: string[] = [];
-
-    // Fundamental rings (level 0)
-    for (const idx of cycleIndices) {
-      counter++;
-      const id = `ring-${counter}`;
-      childIds.push(id);
-      rings.push({
-        id,
-        label: buildLabel(fundamentals[idx].nodeIds),
-        nodeIds: fundamentals[idx].nodeIds,
-        edgeIds: fundamentals[idx].edgeIds,
-        level: 0,
-        childRingIds: [],
-      });
-    }
-
-    // Composite ring (level 1) -- only when multiple cycles share edges
-    if (cycleIndices.length > 1) {
-      const edgeCount = new Map<string, number>();
-      for (const idx of cycleIndices) {
-        for (const eid of fundamentals[idx].edgeIds) {
-          edgeCount.set(eid, (edgeCount.get(eid) ?? 0) + 1);
-        }
-      }
-
-      // XOR: edges appearing odd times form the outer perimeter
-      const outerEdgeIds = [...edgeCount.entries()]
-        .filter(([, c]) => c % 2 === 1)
-        .map(([eid]) => eid);
-
-      const outerNodeIds = new Set<string>();
-      for (const eid of outerEdgeIds) {
-        const edge = edgeMap.get(eid);
-        if (edge) {
-          outerNodeIds.add(edge.sourceEquipmentId);
-          outerNodeIds.add(edge.targetEquipmentId);
-        }
-      }
-
-      counter++;
-      rings.push({
-        id: `ring-${counter}`,
-        label: buildLabel(outerNodeIds),
-        nodeIds: [...outerNodeIds],
-        edgeIds: outerEdgeIds,
-        level: 1,
-        childRingIds: childIds,
-      });
-    }
-  }
-
-  return rings;
-}
-
 // ==================== Main Trace Function ====================
 
 export interface TraceCableInput {
@@ -377,7 +160,7 @@ export interface TraceCableInput {
   rackModules?: RackModule[];
   /** 분전반 회로 (local state) — endpoint id 가 회로 id 일 때 이름 lookup 용 */
   distributionCircuits?: DistributionCircuit[];
-  /** Fiber paths (saved + pending, merged) */
+  /** Fiber paths (saved + pending, merged) — OFD↔OFD hop 시 port-isolated 라우팅에 사용 */
   fiberPaths: FiberPathDetail[];
   /** Floor context for substationId/Name (optional) */
   roomContext?: {
@@ -390,7 +173,8 @@ export interface TraceCableInput {
 /**
  * Trace all connected equipment from a given cable using BFS.
  * Follows only cables of the same cableType.
- * For FIBER: traverses FiberPaths at OFDs (supporting port isolation).
+ * For FIBER: traverses FiberPaths at OFDs with port isolation
+ * (한 cable 의 (fpId, portN) 에서 시작해 같은 portN 의 반대편 endpoint 로만 hop).
  *
  * Runs entirely in-browser on local data.
  */
@@ -402,11 +186,9 @@ export function traceCable(input: TraceCableInput): TraceResult {
   const substationName = roomContext?.substationName ?? '';
   const defaultRoomId = roomContext?.floorId ?? null;
 
-  // Equipment lookup
+  // Lookups
   const equipMap = new Map(equipment.map((e) => [e.id, e]));
-  // 모듈 id → 모듈 record. cable endpoint 가 모듈 id 인 경우 이름 lookup.
   const moduleMap = new Map((rackModules ?? []).map((m) => [m.id, m]));
-  // 회로 id → 회로 record. cable endpoint 가 회로 id 인 경우 이름 lookup.
   const circuitMap = new Map((distributionCircuits ?? []).map((c) => [c.id, c]));
 
   // 1. Find the starting cable
@@ -422,7 +204,6 @@ export function traceCable(input: TraceCableInput): TraceResult {
   // Node and edge maps
   const nodeMap = new Map<string, TraceNode>();
   const edgeMap = new Map<string, TraceEdge>();
-  // Adjacency list for ring detection
   const adjacency = new Map<string, Set<string>>();
 
   const addNode = (equipId: string, isSource: boolean, isTarget: boolean) => {
@@ -455,7 +236,6 @@ export function traceCable(input: TraceCableInput): TraceResult {
       const parentDist = equipMap.get(circuit.distributionEquipmentId);
       nodeMap.set(equipId, {
         equipmentId: equipId,
-        // "분전반명 · feeder/branch" 로 노출 — trace 경로에서 어느 회로인지 식별.
         equipmentName: parentDist
           ? `${parentDist.name} · ${circuitLabel(circuit)}`
           : circuitLabel(circuit),
@@ -468,7 +248,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
       });
       return;
     }
-    // Equipment from fiber paths (remote OFDs) -- create a minimal node
+    // Equipment not found locally (다른 floor 의 OFD) — minimal node
     nodeMap.set(equipId, {
       equipmentId: equipId,
       equipmentName: equipId,
@@ -494,39 +274,32 @@ export function traceCable(input: TraceCableInput): TraceResult {
     adjacency.get(edge.targetEquipmentId)!.add(edge.sourceEquipmentId);
   };
 
-  // 2. Build in-memory adjacency: equipmentId -> cables of same cableType
+  // 2. In-memory adjacency by cableType
   const sameCables = cables.filter((c) => c.cableType === cableType);
   const cableAdjacency = new Map<string, LocalCable[]>();
   for (const cable of sameCables) {
-    if (!cableAdjacency.has(cable.sourceEquipmentId)) {
-      cableAdjacency.set(cable.sourceEquipmentId, []);
-    }
-    if (!cableAdjacency.has(cable.targetEquipmentId)) {
-      cableAdjacency.set(cable.targetEquipmentId, []);
-    }
+    if (!cableAdjacency.has(cable.sourceEquipmentId)) cableAdjacency.set(cable.sourceEquipmentId, []);
+    if (!cableAdjacency.has(cable.targetEquipmentId)) cableAdjacency.set(cable.targetEquipmentId, []);
     cableAdjacency.get(cable.sourceEquipmentId)!.push(cable);
     cableAdjacency.get(cable.targetEquipmentId)!.push(cable);
   }
 
-  // 3. Identify OFD equipment for port-aware FIBER routing
+  // 3. OFD ids (P6 이후 정식 식별자: kind === 'OFD')
   const ofdIds = new Set<string>();
   if (cableType === 'FIBER') {
-    for (const cable of sameCables) {
-      const srcEquip = equipMap.get(cable.sourceEquipmentId);
-      const tgtEquip = equipMap.get(cable.targetEquipmentId);
-      if (srcEquip?.materialCategoryCode === 'EQP-OFD') ofdIds.add(cable.sourceEquipmentId);
-      if (tgtEquip?.materialCategoryCode === 'EQP-OFD') ofdIds.add(cable.targetEquipmentId);
+    for (const eq of equipment) {
+      if (eq.kind === 'OFD') ofdIds.add(eq.id);
     }
   }
 
   // BFS state
   const visited = new Set<string>();
   const visitedEdges = new Set<string>();
-  // For OFDs: track reachable ports. Key = ofdId, Value = Set<"fpId:portNum">
+  /** OFD 별 reachable port — port-isolated 라우팅. key: "fpId:portNum" */
   const ofdReachablePorts = new Map<string, Set<string>>();
   const queue: string[] = [];
 
-  // Seed BFS with the starting cable's endpoints
+  // Seed
   addNode(sourceId, true, false);
   addNode(targetId, false, true);
   addEdge({
@@ -543,7 +316,6 @@ export function traceCable(input: TraceCableInput): TraceResult {
   });
   visitedEdges.add(startCable.id);
 
-  // Register OFD port context from the starting cable
   if (cableType === 'FIBER' && startCable.fiberPathId && startCable.fiberPortNumber) {
     const portKey = `${startCable.fiberPathId}:${startCable.fiberPortNumber}`;
     for (const eqId of [sourceId, targetId]) {
@@ -558,17 +330,13 @@ export function traceCable(input: TraceCableInput): TraceResult {
   visited.add(sourceId);
   visited.add(targetId);
 
-  // Pre-build fiber cable lookup by fiberPathId for traverseFiberPaths
+  // Fiber cable lookup by fiberPathId
   const fiberCablesByPathId = new Map<string, LocalCable[]>();
   if (cableType === 'FIBER') {
     for (const cable of sameCables) {
       if (cable.fiberPathId) {
-        let list = fiberCablesByPathId.get(cable.fiberPathId);
-        if (!list) {
-          list = [];
-          fiberCablesByPathId.set(cable.fiberPathId, list);
-        }
-        list.push(cable);
+        if (!fiberCablesByPathId.has(cable.fiberPathId)) fiberCablesByPathId.set(cable.fiberPathId, []);
+        fiberCablesByPathId.get(cable.fiberPathId)!.push(cable);
       }
     }
   }
@@ -579,26 +347,19 @@ export function traceCable(input: TraceCableInput): TraceResult {
     const equipId = queue[qHead++]!;
     const isOfd = ofdIds.has(equipId);
 
-    const connectedCables = cableAdjacency.get(equipId) ?? [];
-
-    for (const cable of connectedCables) {
+    for (const cable of cableAdjacency.get(equipId) ?? []) {
       if (visitedEdges.has(cable.id)) continue;
 
-      // FIBER + OFD port isolation
-      if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber) {
+      // FIBER + OFD↔OFD cable: port isolation
+      if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber && isOfd) {
         const portKey = `${cable.fiberPathId}:${cable.fiberPortNumber}`;
-        if (isOfd) {
-          const otherId2 =
-            cable.sourceEquipmentId === equipId
-              ? cable.targetEquipmentId
-              : cable.sourceEquipmentId;
-          if (ofdIds.has(otherId2)) {
-            // OFD <-> OFD cable: enforce port isolation
-            const reachable = ofdReachablePorts.get(equipId);
-            if (!reachable || !reachable.has(portKey)) continue;
-          }
-          // OFD <-> non-OFD: always allow
+        const otherId2 =
+          cable.sourceEquipmentId === equipId ? cable.targetEquipmentId : cable.sourceEquipmentId;
+        if (ofdIds.has(otherId2)) {
+          const reachable = ofdReachablePorts.get(equipId);
+          if (!reachable || !reachable.has(portKey)) continue;
         }
+        // OFD ↔ non-OFD: always allow
       }
 
       visitedEdges.add(cable.id);
@@ -619,11 +380,9 @@ export function traceCable(input: TraceCableInput): TraceResult {
       });
 
       const otherId =
-        cable.sourceEquipmentId === equipId
-          ? cable.targetEquipmentId
-          : cable.sourceEquipmentId;
+        cable.sourceEquipmentId === equipId ? cable.targetEquipmentId : cable.sourceEquipmentId;
 
-      // Propagate port context for FIBER cables
+      // Propagate port context across FIBER cables
       if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber) {
         const portKey = `${cable.fiberPathId}:${cable.fiberPortNumber}`;
         if (ofdIds.has(otherId)) {
@@ -642,7 +401,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
       }
     }
 
-    // FIBER only: if this equipment is an OFD, traverse FiberPaths (port-aware)
+    // FIBER OFD: traverse FiberPaths via reachable ports (port-isolated)
     if (cableType === 'FIBER' && isOfd) {
       traverseFiberPaths(
         equipId,
@@ -658,12 +417,12 @@ export function traceCable(input: TraceCableInput): TraceResult {
     }
   }
 
-  // 5. Ring detection
+  // 5. Ring detection (공유 모듈)
   const nodes = Array.from(nodeMap.values());
   const edgesArr = Array.from(edgeMap.values());
   const rings = detectRings(adjacency, edgeMap, nodeMap);
 
-  // 6. Build display segments
+  // 6. Display segments
   const segments = buildPathSegments(nodes, edgesArr);
 
   return { nodes, edges: edgesArr, rings, segments };
@@ -672,8 +431,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
 // ==================== Fiber Path Traversal ====================
 
 /**
- * For a given OFD equipment, traverse fiber paths through ports
- * that were reached during BFS (port-level connectivity).
+ * 이 OFD 의 reachable port 들을 통해 같은 fiberPath 의 반대편 OFD 로 hop.
+ * port-isolated — 시드 cable 의 (fpId, portN) 만 따라가야 하므로 reachable port 만 처리.
  */
 function traverseFiberPaths(
   ofdId: string,
@@ -689,17 +448,13 @@ function traverseFiberPaths(
   const reachable = ofdReachablePorts.get(ofdId);
   if (!reachable || reachable.size === 0) return;
 
-  // Extract unique fiberPath IDs from reachable ports
   const reachableFpIds = new Set([...reachable].map((k) => k.split(':')[0]));
-
-  // Filter fiber paths relevant to this OFD
   const relevantFps = fiberPaths.filter(
-    (fp) =>
-      reachableFpIds.has(fp.id) &&
-      (fp.ofdA.id === ofdId || fp.ofdB.id === ofdId),
+    (fp) => reachableFpIds.has(fp.id) && (fp.ofdA.id === ofdId || fp.ofdB.id === ofdId),
   );
+  const fpById = new Map(relevantFps.map((fp) => [fp.id, fp]));
 
-  // Build lookup of other-side cables using pre-built fiberCablesByPathId map
+  // 반대편 cable lookup (이 OFD 가 endpoint 아닌 cable)
   const otherSideByKey = new Map<string, LocalCable>();
   for (const fpId of reachableFpIds) {
     const cables = fiberCablesByPathId.get(fpId);
@@ -714,8 +469,6 @@ function traverseFiberPaths(
       }
     }
   }
-
-  const fpById = new Map(relevantFps.map((fp) => [fp.id, fp]));
 
   for (const portKey of reachable) {
     const [fpId, portNumStr] = portKey.split(':');
@@ -733,7 +486,6 @@ function traverseFiberPaths(
     addNode(fp.ofdA.id, false, false);
     addNode(fp.ofdB.id, false, false);
 
-    // Build label: "local substation - remote substation"
     const localOfd = fp.ofdA.id === ofdId ? fp.ofdA : fp.ofdB;
     const remoteOfd = fp.ofdA.id === ofdId ? fp.ofdB : fp.ofdA;
     const fiberPathLabel = `${localOfd.substationName || localOfd.name}-${remoteOfd.substationName || remoteOfd.name}`;
@@ -750,7 +502,6 @@ function traverseFiberPaths(
       fiberPortNumber: portNum,
     });
 
-    // Queue the remote OFD and propagate port context
     const remoteOfdId = fp.ofdA.id === ofdId ? fp.ofdB.id : fp.ofdA.id;
     if (!ofdReachablePorts.has(remoteOfdId)) ofdReachablePorts.set(remoteOfdId, new Set());
     ofdReachablePorts.get(remoteOfdId)!.add(portKey);
