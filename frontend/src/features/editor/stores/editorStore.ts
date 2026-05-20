@@ -10,7 +10,7 @@ import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
 import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
-import { generateTempId } from '../../../utils/idHelpers';
+import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { nextNameFor } from '../utils/slotGeometry';
 
 /** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
@@ -118,6 +118,13 @@ export interface EditorStoreState {
   pendingLogs: PendingLog[];
   pendingFiberPaths: PendingFiberPath[];
   deletedFiberPathIds: string[];
+  /**
+   * saved cable 삭제 추적 — frontend overlay (usePortStatus, network/store) 가
+   * port grid / 토폴로지에서 즉시 제거할 수 있게 set. save 시 backend 가
+   * receivedCableIds 차집합으로 DELETE 처리하므로 별도 endpoint 불요.
+   * pending(tempId) cable 삭제는 localCables 에서 빠지는 것으로 충분 — 이 set 에 안 들어감.
+   */
+  deletedCableIds: string[];
 
   // Staged background drawing & opacity. Like the rest of the editor, DWG
   // changes (import / clear / opacity) are git-like — they live here until
@@ -359,6 +366,7 @@ const initialState: EditorStoreState = {
   pendingLogs: [],
   pendingFiberPaths: [],
   deletedFiberPathIds: [],
+  deletedCableIds: [],
   stagedBackgroundDrawing: undefined,
   stagedBackgroundOpacity: undefined,
   connectionFilters: null,
@@ -455,10 +463,18 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       hasChanges: true,
     };
   }),
-  deleteCable: (id) => set((state) => ({
-    localCables: state.localCables.filter((c) => c.id !== id),
-    hasChanges: true,
-  })),
+  deleteCable: (id) => set((state) => {
+    // saved cable 이면 deletedCableIds 에 추적 (overlay 가 즉시 반영).
+    // pending(tempId) cable 은 localCables 에서 빠지면 끝 — set 에 안 들어감.
+    const isSaved = !isTempId(id);
+    return {
+      localCables: state.localCables.filter((c) => c.id !== id),
+      deletedCableIds: isSaved && !state.deletedCableIds.includes(id)
+        ? [...state.deletedCableIds, id]
+        : state.deletedCableIds,
+      hasChanges: true,
+    };
+  }),
   setCables: (cables) => set({ localCables: cables }),
 
   addPendingUpload: (upload) => set((state) => ({
@@ -487,6 +503,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       pendingLogs: [],
       pendingFiberPaths: [],
       deletedFiberPathIds: [],
+      deletedCableIds: [],
       stagedBackgroundDrawing: undefined,
       stagedBackgroundOpacity: undefined,
     };
