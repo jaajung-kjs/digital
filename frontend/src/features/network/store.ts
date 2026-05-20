@@ -92,9 +92,19 @@ export const useNetworkTopologyStore = create<State>((set) => ({
 function buildGraph(savedFiberPaths: FiberPathDetail[]): NetworkGraph {
   const ed = useEditorStore.getState();
   const deletedFps = new Set(ed.deletedFiberPathIds);
+  const deletedCables = new Set(ed.deletedCableIds);
 
-  // 1. FiberPath list (saved - deleted + pending)
-  const activeSaved = savedFiberPaths.filter((fp) => !deletedFps.has(fp.id));
+  // 1. FiberPath list (saved - deleted + pending). saved fp.ports 의 sideA/sideB 중
+  //    deleted cable 은 빈 자리로 환원 — 사용자가 frontend 에서 cable 지운 직후 그래프
+  //    leaf 도 즉시 사라져야 git-like UX 일관.
+  const activeSaved = savedFiberPaths.map((fp) => ({
+    ...fp,
+    ports: fp.ports.map((p) => ({
+      portNumber: p.portNumber,
+      sideA: p.sideA && deletedCables.has(p.sideA.cableId) ? null : p.sideA,
+      sideB: p.sideB && deletedCables.has(p.sideB.cableId) ? null : p.sideB,
+    })),
+  })).filter((fp) => !deletedFps.has(fp.id));
 
   /**
    * Pending FiberPath 는 ofdA/ofdB 가 *equipment ref* 로만. saved 와 같은 FiberPathDetail

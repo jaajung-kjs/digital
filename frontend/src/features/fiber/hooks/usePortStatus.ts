@@ -12,7 +12,10 @@ function mergePendingCables(
   localCables: LocalCable[],
   localEquipment: { id: string; name: string }[],
   ofdId: string,
+  deletedCableIds: string[],
 ): FiberPathDetail[] {
+  const deletedSet = new Set(deletedCableIds);
+
   // Find cables relevant to this OFD with fiber path assignments
   const fiberCables = localCables.filter(
     (c) =>
@@ -22,15 +25,18 @@ function mergePendingCables(
       (c.sourceEquipmentId === ofdId || c.targetEquipmentId === ofdId)
   );
 
-  if (fiberCables.length === 0) return paths;
+  // 모든 path 에 대해 (1) saved 의 deleted cable 을 sideA/sideB 에서 제거 (2) pending cable 을 overlay
+  if (fiberCables.length === 0 && deletedSet.size === 0) return paths;
 
   const equipMap = new Map(localEquipment.map((e) => [e.id, e.name]));
 
   return paths.map((path) => {
     const newPorts: FiberPortStatus[] = path.ports.map((port) => {
-      let sideA = port.sideA;
-      let sideB = port.sideB;
+      // (1) deleted saved cable 제거 — backend snapshot 의 sideA/sideB 라도 frontend 가 지웠으면 null
+      let sideA = port.sideA && deletedSet.has(port.sideA.cableId) ? null : port.sideA;
+      let sideB = port.sideB && deletedSet.has(port.sideB.cableId) ? null : port.sideB;
 
+      // (2) pending cable overlay
       for (const cable of fiberCables) {
         if (cable.fiberPathId !== path.id || cable.fiberPortNumber !== port.portNumber) continue;
 
@@ -103,17 +109,18 @@ export function usePortStatus(ofdId: string) {
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
   const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
+  const deletedCableIds = useEditorStore((s) => s.deletedCableIds);
 
   const mergedPaths = useMemo(() => {
     if (!paths) return [];
     // Filter out deleted paths
     const activePaths = paths.filter((p) => !deletedFiberPathIds.includes(p.id));
-    // Merge local cables into saved paths
-    const withCables = mergePendingCables(activePaths, localCables, localEquipment, ofdId);
+    // Merge local cables into saved paths (pending overlay + deleted cable 제거)
+    const withCables = mergePendingCables(activePaths, localCables, localEquipment, ofdId, deletedCableIds);
     // Add pending fiber paths
     const pending = pendingToFiberPaths(pendingFiberPaths, ofdId, localEquipment);
     return [...withCables, ...pending];
-  }, [paths, localCables, localEquipment, ofdId, pendingFiberPaths, deletedFiberPathIds]);
+  }, [paths, localCables, localEquipment, ofdId, pendingFiberPaths, deletedFiberPathIds, deletedCableIds]);
 
   return { mergedPaths, isLoading };
 }
