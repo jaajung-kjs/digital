@@ -11,22 +11,25 @@ import { traceCable } from '../../../utils/cableTracer';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { useNetworkTopologyStore } from '../../network/store';
+import { pendingToFiberPathDetail } from '../../fiber/pending';
 import { api } from '../../../utils/api';
 import type { TraceResult, PathSegment } from '../types';
 import type { FiberPathDetail } from '../../fiber/types';
 
-const IDLE_STATE = {
-  active: false,
-  traceResult: null as TraceResult | null,
-  tracingCableId: null as string | null,
-  isLoading: false,
-  error: null as string | null,
-  highlightedNodeIds: new Set<string>(),
-  /** module id 가 부모 랙 id 로 펼쳐진 set — 캔버스는 모듈을 따로 안 그림. */
-  highlightedEquipmentIds: new Set<string>(),
-  highlightedEdgeIds: new Set<string>(),
-  segments: [] as PathSegment[],
-} as const;
+function idleState() {
+  return {
+    active: false,
+    traceResult: null as TraceResult | null,
+    tracingCableId: null as string | null,
+    isLoading: false,
+    error: null as string | null,
+    highlightedNodeIds: new Set<string>(),
+    /** module id 가 부모 랙 id 로 펼쳐진 set — 캔버스는 모듈을 따로 안 그림. */
+    highlightedEquipmentIds: new Set<string>(),
+    highlightedEdgeIds: new Set<string>(),
+    segments: [] as PathSegment[],
+  };
+}
 
 function expandToEquipmentIds(nodeIds: Set<string>): Set<string> {
   const result = new Set(nodeIds);
@@ -61,7 +64,7 @@ interface PathHighlightState {
 }
 
 export const usePathHighlightStore = create<PathHighlightState>((set) => ({
-  ...IDLE_STATE,
+  ...idleState(),
 
   startTrace: async (cableId, _currentRoomId) => {
     const snapshotState = useSnapshotStore.getState();
@@ -76,16 +79,11 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
     try {
       // Snapshot mode — use snapshot fiber paths directly.
       if (snapshotState.active) {
-        const snapshotFiberPaths: FiberPathDetail[] = (snapshotState.fiberPaths ?? []).map((fp: any) => ({
-          id: fp.id,
-          ofdA: { id: fp.ofdAId, name: '?', substationName: '', floorId: null },
-          ofdB: { id: fp.ofdBId, name: '?', substationName: '', floorId: null },
-          portCount: fp.portCount,
-          description: fp.description ?? null,
-          ports: [],
-          createdAt: '',
-          updatedAt: '',
-        } as FiberPathDetail));
+        // snapshot 의 fiberPaths 는 ofdAId/ofdBId/portCount/description 만 — pending 과 같은 shape.
+        const emptyEquipMap = new Map<string, { name: string }>();
+        const snapshotFiberPaths: FiberPathDetail[] = (snapshotState.fiberPaths ?? []).map((fp: any) =>
+          pendingToFiberPathDetail(fp, emptyEquipMap),
+        );
 
         const result = traceCable({
           cableId,
@@ -108,37 +106,22 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         return;
       }
 
-      // Normal mode — fiber paths from network store (cached) or fetch via list endpoint.
-      // 단일 source. cable trace 와 network topology 가 같은 fiberPaths 를 본다.
+      // Normal mode — fiber paths from network store cache or fetch.
+      // network/store 와 단일 source 공유 — 한쪽이 fetch 하면 다른 쪽도 캐시 hit.
       let savedFiberPaths = useNetworkTopologyStore.getState().savedFiberPaths;
       if (!savedFiberPaths) {
         try {
           const { data } = await api.get<{ data: FiberPathDetail[] }>('/fiber-paths');
           savedFiberPaths = data.data;
-          // network store 의 캐시도 채워둠 — 다음 호출 시 fetch 안 함.
-          // (graph 빌드는 모달 진입 시점에 별도 액션이 수행)
           useNetworkTopologyStore.setState({ savedFiberPaths });
         } catch {
           savedFiberPaths = [];
         }
       }
 
-      // Pending fiber paths (unsaved local) merge — usePortStatus 와 동일 패턴.
+      // Pending fiber paths (unsaved local) overlay
       const equipMap = new Map(editorState.localEquipment.map((e) => [e.id, e]));
-      const pendingFps: FiberPathDetail[] = editorState.pendingFiberPaths.map((fp) => {
-        const ofdA = equipMap.get(fp.ofdAId);
-        const ofdB = equipMap.get(fp.ofdBId);
-        return {
-          id: fp.id,
-          ofdA: { id: fp.ofdAId, name: ofdA?.name ?? '?', substationName: '', floorId: null },
-          ofdB: { id: fp.ofdBId, name: ofdB?.name ?? '?', substationName: '', floorId: null },
-          portCount: fp.portCount,
-          description: fp.description ?? null,
-          ports: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        } as FiberPathDetail;
-      });
+      const pendingFps = editorState.pendingFiberPaths.map((fp) => pendingToFiberPathDetail(fp, equipMap));
       const deletedFps = new Set(editorState.deletedFiberPathIds);
       const allFiberPaths = [...savedFiberPaths.filter((fp) => !deletedFps.has(fp.id)), ...pendingFps];
 
@@ -194,5 +177,5 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
     });
   },
 
-  clearHighlight: () => set({ ...IDLE_STATE }),
+  clearHighlight: () => set(idleState()),
 }));

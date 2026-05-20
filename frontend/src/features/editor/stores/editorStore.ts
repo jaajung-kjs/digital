@@ -464,8 +464,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     };
   }),
   deleteCable: (id) => set((state) => {
-    // saved cable 이면 deletedCableIds 에 추적 (overlay 가 즉시 반영).
-    // pending(tempId) cable 은 localCables 에서 빠지면 끝 — set 에 안 들어감.
     const isSaved = !isTempId(id);
     return {
       localCables: state.localCables.filter((c) => c.id !== id),
