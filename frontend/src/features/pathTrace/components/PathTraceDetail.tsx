@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { usePathHighlightStore } from '../stores/pathHighlightStore';
+import { useNetworkTopologyStore } from '../../network/store';
+import { useEditorStore } from '../../editor/stores/editorStore';
 import { CABLE_BADGE_CLASSES } from '../../../types/connection';
 import type { TraceNode, TraceEdge, SegmentNode } from '../types';
 
@@ -134,7 +136,15 @@ export function PathTraceDetail() {
   const traceResult = usePathHighlightStore((s) => s.traceResult);
   const segments = usePathHighlightStore((s) => s.segments);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
-  const openModal = usePathHighlightStore((s) => s.openModal);
+  const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
+  const loadAndOpen = useNetworkTopologyStore((s) => s.loadAndOpen);
+
+  // "상세" 클릭 시 현재 trace cable 의 fiberPathId 를 시드로 네트워크 토폴로지 모달 진입.
+  // FIBER cable 이 아니면 fiberPathId 가 없을 수 있음 — 그 경우 시드 없이 전체 토폴로지.
+  const openTopology = () => {
+    const cable = useEditorStore.getState().localCables.find((c) => c.id === tracingCableId);
+    void loadAndOpen(cable?.fiberPathId ?? null);
+  };
 
   const { nodeMap, edgeMap } = useMemo(() => {
     if (!traceResult) return { nodeMap: new Map<string, TraceNode>(), edgeMap: new Map<string, TraceEdge>() };
@@ -175,8 +185,9 @@ export function PathTraceDetail() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={(e) => { e.stopPropagation(); openModal(); }}
+            onClick={(e) => { e.stopPropagation(); openTopology(); }}
             className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            title="이 장비가 속한 전체 네트워크망 보기"
           >
             상세
           </button>

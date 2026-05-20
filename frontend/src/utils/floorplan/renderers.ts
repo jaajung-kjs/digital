@@ -95,14 +95,6 @@ export function renderEquipmentItem(
     }
     ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.fillText(item.name, item.width / 2, item.height / 2, maxWidth);
-
-    // RACK 이 선택된 상태일 때 작은 힌트 표시 — 더블클릭 진입의 발견성 보강.
-    if (isSelected && item.kind === 'RACK' && maxHeight > fontSize + 14) {
-      ctx.font = '10px sans-serif';
-      ctx.globalAlpha = 0.7;
-      ctx.fillText('더블클릭 → 내부 모듈', item.width / 2, item.height / 2 + fontSize / 2 + 8, maxWidth);
-      ctx.globalAlpha = 1;
-    }
   }
 
   ctx.restore();

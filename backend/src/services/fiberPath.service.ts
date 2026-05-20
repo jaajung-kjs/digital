@@ -53,6 +53,36 @@ function getFloorId(equipment: any): string | null {
   return equipment.floorId ?? equipment.floor?.id ?? null;
 }
 
+// Cable include shape — endpoint 는 equipment 또는 rackModule 중 한 쪽.
+// (cable.service.ts 와 동일한 polymorphic 패턴; fiberPath 화면에서도 모듈 endpoint 를 표시해야
+//  port status build 시 null deref 없이 "OFD 반대편" 을 식별할 수 있다.)
+const fiberPathCablesInclude = {
+  cables: {
+    include: {
+      sourceEquipment: { select: { id: true, name: true } },
+      sourceModule: { select: { id: true, name: true, rackEquipmentId: true } },
+      targetEquipment: { select: { id: true, name: true } },
+      targetModule: { select: { id: true, name: true, rackEquipmentId: true } },
+    },
+  },
+} as const;
+
+// OFD 가 cable 한 쪽 endpoint 일 때 "반대편" 을 {equipmentId, equipmentName} 형태로 반환.
+// 반대편이 RackModule 이면 rack 의 equipmentId 와 module 이름을 사용 (FiberPortStatus shape 유지).
+function resolveOtherEndpoint(
+  cable: any,
+  ofdSide: 'source' | 'target',
+): { equipmentId: string; equipmentName: string } | null {
+  if (ofdSide === 'source') {
+    if (cable.targetEquipment) return { equipmentId: cable.targetEquipment.id, equipmentName: cable.targetEquipment.name };
+    if (cable.targetModule) return { equipmentId: cable.targetModule.rackEquipmentId, equipmentName: cable.targetModule.name };
+    return null;
+  }
+  if (cable.sourceEquipment) return { equipmentId: cable.sourceEquipment.id, equipmentName: cable.sourceEquipment.name };
+  if (cable.sourceModule) return { equipmentId: cable.sourceModule.rackEquipmentId, equipmentName: cable.sourceModule.name };
+  return null;
+}
+
 // ==================== Service ====================
 
 class FiberPathService {
@@ -64,16 +94,27 @@ class FiberPathService {
       include: {
         ofdA: equipmentWithSubstation,
         ofdB: equipmentWithSubstation,
-        cables: {
-          include: {
-            sourceEquipment: { select: { id: true, name: true } },
-            targetEquipment: { select: { id: true, name: true } },
-          },
-        },
+        ...fiberPathCablesInclude,
       },
       orderBy: { createdAt: 'desc' },
     });
 
+    return paths.map((p) => this.mapToDetail(p));
+  }
+
+  /**
+   * 전체 광경로 리스트 — 네트워크 토폴로지 시각화의 single fetch source.
+   * 응답 shape 는 getByOfdId 와 동일 (ports[].sideA/sideB 포함) 이라 frontend 단일 코드 경로.
+   */
+  async getAll(): Promise<FiberPathDetail[]> {
+    const paths = await prisma.fiberPath.findMany({
+      include: {
+        ofdA: equipmentWithSubstation,
+        ofdB: equipmentWithSubstation,
+        ...fiberPathCablesInclude,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
     return paths.map((p) => this.mapToDetail(p));
   }
 
@@ -83,12 +124,7 @@ class FiberPathService {
       include: {
         ofdA: equipmentWithSubstation,
         ofdB: equipmentWithSubstation,
-        cables: {
-          include: {
-            sourceEquipment: { select: { id: true, name: true } },
-            targetEquipment: { select: { id: true, name: true } },
-          },
-        },
+        ...fiberPathCablesInclude,
       },
     });
 
@@ -156,12 +192,7 @@ class FiberPathService {
       include: {
         ofdA: equipmentWithSubstation,
         ofdB: equipmentWithSubstation,
-        cables: {
-          include: {
-            sourceEquipment: { select: { id: true, name: true } },
-            targetEquipment: { select: { id: true, name: true } },
-          },
-        },
+        ...fiberPathCablesInclude,
       },
     });
 
@@ -187,31 +218,25 @@ class FiberPathService {
       for (const cable of cables) {
         if (cable.fiberPortNumber !== portNumber) continue;
 
-        // Determine which OFD this cable connects to, and what the OTHER end is
-        const sourceId = cable.sourceEquipmentId;
-        const targetId = cable.targetEquipmentId;
+        // OFD 는 항상 equipment endpoint (RACK 처럼 module 형태가 아님) → sourceEquipmentId/targetEquipmentId 로 식별.
+        // 반대편 endpoint 는 equipment 또는 rackModule 일 수 있어 resolveOtherEndpoint 가 polymorphic 하게 처리.
+        const attach =
+          cable.sourceEquipmentId === ofdAId ? { fpSide: 'A' as const, ofdSide: 'source' as const } :
+          cable.targetEquipmentId === ofdAId ? { fpSide: 'A' as const, ofdSide: 'target' as const } :
+          cable.sourceEquipmentId === ofdBId ? { fpSide: 'B' as const, ofdSide: 'source' as const } :
+          cable.targetEquipmentId === ofdBId ? { fpSide: 'B' as const, ofdSide: 'target' as const } :
+          null;
+        if (!attach) continue;
 
-        if (sourceId === ofdAId || targetId === ofdAId) {
-          // This cable connects to ofdA — the other end is the connected equipment for sideA
-          const otherEquip =
-            sourceId === ofdAId ? cable.targetEquipment : cable.sourceEquipment;
-          sideA = {
-            cableId: cable.id,
-            equipmentId: otherEquip.id,
-            equipmentName: otherEquip.name,
-          };
-        }
-
-        if (sourceId === ofdBId || targetId === ofdBId) {
-          // This cable connects to ofdB — the other end is the connected equipment for sideB
-          const otherEquip =
-            sourceId === ofdBId ? cable.targetEquipment : cable.sourceEquipment;
-          sideB = {
-            cableId: cable.id,
-            equipmentId: otherEquip.id,
-            equipmentName: otherEquip.name,
-          };
-        }
+        const other = resolveOtherEndpoint(cable, attach.ofdSide);
+        if (!other) continue;
+        const usage = {
+          cableId: cable.id,
+          equipmentId: other.equipmentId,
+          equipmentName: other.equipmentName,
+        };
+        if (attach.fpSide === 'A') sideA = usage;
+        else sideB = usage;
       }
 
       ports.push({ portNumber, sideA, sideB });

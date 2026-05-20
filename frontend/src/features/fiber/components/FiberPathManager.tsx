@@ -5,6 +5,7 @@ import { usePortStatus } from '../hooks/usePortStatus';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { FiberPortGrid } from './FiberPortGrid';
+import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import type { FiberPathDetail } from '../types';
 
 interface OfdEquipment {
@@ -17,11 +18,10 @@ interface FiberPathManagerProps {
   ofdId: string;
   onPortConnect?: (portNumber: number, fiberPathId: string) => void;
   onPortDelete?: (cableId: string) => void;
-  onPortSwitch?: (cableId: string, connectedEquipmentId: string, newFiberPathId: string, newPortNumber: number) => void;
   onNavigateRemote?: (remoteRoomId: string) => void;
 }
 
-export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwitch, onNavigateRemote }: FiberPathManagerProps) {
+export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigateRemote }: FiberPathManagerProps) {
   const { mergedPaths, isLoading } = usePortStatus(ofdId);
   const addPendingFiberPath = useEditorStore((s) => s.addPendingFiberPath);
   const removePendingFiberPath = useEditorStore((s) => s.removePendingFiberPath);
@@ -33,6 +33,21 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
   const [showCreate, setShowCreate] = useState(false);
   const [portCount, setPortCount] = useState<24 | 48>(24);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // 경로 row 가 닫힐 때 그 경로 안의 cable trace 도 함께 종료. 너무 자연스러운 동작이라
+  // 사용자가 명시적으로 "닫기" 를 안 해도 expand 접는 행위가 곧 trace 종료가 되어야 자연스러움.
+  const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
+  const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
+  const togglePath = (path: FiberPathDetail) => {
+    const isCollapsing = expandedPathId === path.id;
+    if (isCollapsing && tracingCableId) {
+      const tracedInPath = path.ports.some(
+        (p) => p.sideA?.cableId === tracingCableId || p.sideB?.cableId === tracingCableId,
+      );
+      if (tracedInPath) clearHighlight();
+    }
+    setExpandedPathId(isCollapsing ? null : path.id);
+  };
 
   // OFD 목록을 변전소 단위로 그룹핑
   const { data: ofdList, isLoading: isLoadingOfd } = useQuery({
@@ -217,7 +232,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
               >
                 <div
                   className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-gray-50"
-                  onClick={() => setExpandedPathId(isExpanded ? null : path.id)}
+                  onClick={() => togglePath(path)}
                 >
                   <div>
                     <span className="text-sm font-medium text-gray-700">
@@ -248,7 +263,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onPortSwi
 
                 {isExpanded && (
                   <div className="border-t border-gray-100 p-3">
-                    <FiberPortGrid fiberPath={path} localOfdId={ofdId} onPortConnect={onPortConnect} onPortDelete={onPortDelete} onPortSwitch={onPortSwitch} onNavigateRemote={onNavigateRemote} />
+                    <FiberPortGrid fiberPath={path} localOfdId={ofdId} onPortConnect={onPortConnect} onPortDelete={onPortDelete} onNavigateRemote={onNavigateRemote} />
                   </div>
                 )}
               </div>

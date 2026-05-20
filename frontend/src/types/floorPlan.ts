@@ -97,6 +97,7 @@ export interface FloorPlanCable {
   description?: string | null;
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
+  fiberPathLabel?: string | null;
 
   // ── P8 deprecation shims — removed in P9 ──
   /** @deprecated P8 — alias for `categoryId`. */

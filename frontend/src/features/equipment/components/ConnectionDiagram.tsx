@@ -179,7 +179,7 @@ export function ConnectionDiagram({
                   </div>
                   {cable.cableType === 'FIBER' && cable.fiberPortNumber != null && (
                     <p className="mt-1 text-[11px] text-gray-400 text-center truncate">
-                      경로
+                      {cable.fiberPathLabel ?? '경로'}
                       {` #${cable.fiberPortNumber}`}
                     </p>
                   )}

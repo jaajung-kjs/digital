@@ -3,6 +3,7 @@ import { useEditorStore } from '../../../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { useOfdFlow, useInteractionStore } from '../../../../editor/stores/interactionStore';
 import { FiberPathManager } from '../../../../fiber/components/FiberPathManager';
+import { PathTraceDetail } from '../../../../pathTrace/components/PathTraceDetail';
 import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
 
 interface PanelProps {
@@ -37,15 +38,18 @@ function OfdPathsView({ equipmentId }: { equipmentId: string }) {
   const cancelOfd = useInteractionStore((s) => s.cancel);
   const selectPort = useInteractionStore((s) => s.ofdSelectPort);
   const deleteCable = useEditorStore((s) => s.deleteCable);
-  const updateCable = useEditorStore((s) => s.updateCable);
   const isFlowActive = ofdPhase === 'selectingPort' && ofdFlowOfdId === equipmentId;
 
   if (snapshotActive) {
     return (
-      <FiberPathManager
-        ofdId={equipmentId}
-        onNavigateRemote={(remoteRoomId) => navigate(`/floors/${remoteRoomId}/plan`)}
-      />
+      <div>
+        <FiberPathManager
+          ofdId={equipmentId}
+          onNavigateRemote={(remoteRoomId) => navigate(`/floors/${remoteRoomId}/plan`)}
+        />
+        {/* 포트 클릭 → trace 활성화 시 경로 상세 + "상세" 버튼이 여기 나타남 */}
+        <PathTraceDetail />
+      </div>
     );
   }
 
@@ -70,17 +74,27 @@ function OfdPathsView({ equipmentId }: { equipmentId: string }) {
         ofdId={equipmentId}
         onPortConnect={(portNumber, fiberPathId) => {
           if (isFlowActive) {
+            // ofdAsTarget — 다른 설비에서 cable drawing 중 OFD 를 도착으로 클릭한 경우.
+            // 기존 흐름 유지 (별도 통합 작업 필요).
             selectPort(fiberPathId, portNumber);
-          } else {
-            const store = useInteractionStore.getState();
-            store.ofdStartFromOfd(equipmentId);
-            store.ofdSelectPort(fiberPathId, portNumber);
+            return;
           }
+          // 빈 OFD 포트 클릭 → 일반 cable drawing 의 source 로 진입.
+          // 캔버스에서 도착 클릭 → CableSpecModal → addCable 일관 흐름.
+          const editor = useEditorStore.getState();
+          const ofd = editor.localEquipment.find((e) => e.id === equipmentId);
+          if (!ofd) return;
+          const center = {
+            x: ofd.positionX + ofd.width / 2,
+            y: ofd.positionY + ofd.height / 2,
+          };
+          editor.setPreselectedCableDisplayGroup('광');
+          useInteractionStore.getState().cableSetSource(equipmentId, center, {
+            fiberPathId,
+            portNumber,
+          });
         }}
         onPortDelete={(cableId) => deleteCable(cableId)}
-        onPortSwitch={(cableId, _eqId, newFiberPathId, newPortNumber) => {
-          updateCable(cableId, { fiberPathId: newFiberPathId, fiberPortNumber: newPortNumber });
-        }}
         onNavigateRemote={(remoteRoomId) => {
           const { hasChanges } = useEditorStore.getState();
           if (hasChanges) {
@@ -89,6 +103,9 @@ function OfdPathsView({ equipmentId }: { equipmentId: string }) {
           navigate(`/floors/${remoteRoomId}/plan`);
         }}
       />
+      {/* 포트 클릭 → trace 활성화 시 경로 상세 + "상세" 버튼이 여기 나타남.
+          "상세" 클릭 = openFullNetwork → ignorePortIsolation 모드로 전체 네트워크망 모달. */}
+      <PathTraceDetail />
     </div>
   );
 }

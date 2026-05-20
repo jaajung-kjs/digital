@@ -55,6 +55,7 @@ function planCablesToLocalCables(cables: FloorPlanCable[]): LocalCable[] {
     color: c.color ?? null,
     fiberPathId: c.fiberPathId ?? null,
     fiberPortNumber: c.fiberPortNumber ?? null,
+    fiberPathLabel: c.fiberPathLabel ?? null,
   }));
 }
 

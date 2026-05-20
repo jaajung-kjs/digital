@@ -18,7 +18,7 @@ import { EditorSidebar } from './EditorSidebar';
 import { CanvasView } from './CanvasView';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
-import { TopologyModal } from '../../pathTrace/components/TopologyModal';
+import { NetworkTopologyModal } from '../../network/NetworkTopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { EquipmentResizeHandlesHost } from './EquipmentResizeHandlesHost';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
@@ -564,7 +564,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 <ToolStatusBar />
               </CanvasView>
 
-              <TopologyModal />
+              <NetworkTopologyModal />
 
               {detailPanelEquipmentId && (
                 <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} floorId={floorId} />

@@ -2,7 +2,7 @@ import prisma from '../config/prisma.js';
 import { Prisma, CableType, EquipmentKind } from '@prisma/client';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
 import { equipmentService } from './equipment.service.js';
-import { assertOfdFiberPath } from './cable.service.js';
+import { assertOfdFiberPath, buildFiberPathLabel } from './cable.service.js';
 import { assertNoSlotCollision, assertSlotValid } from './rackModule.service.js';
 import {
   calculateConstructionReport,
@@ -78,6 +78,7 @@ interface PlanCableDTO {
   description: string | null;
   fiberPathId: string | null;
   fiberPortNumber: number | null;
+  fiberPathLabel: string | null;
   categoryId: string | null;
   categoryCode: string | null;
   categoryName: string | null;
@@ -332,6 +333,15 @@ class FloorService {
         },
         include: {
           category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
+          fiberPath: {
+            select: {
+              id: true,
+              ofdAId: true,
+              ofdBId: true,
+              ofdA: { select: { floor: { select: { substation: { select: { name: true } } } } } },
+              ofdB: { select: { floor: { select: { substation: { select: { name: true } } } } } },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -394,6 +404,7 @@ class FloorService {
         description: c.description,
         fiberPathId: c.fiberPathId,
         fiberPortNumber: c.fiberPortNumber,
+        fiberPathLabel: buildFiberPathLabel(c),
         categoryId: c.categoryId,
         categoryCode: c.category?.code ?? null,
         categoryName: c.category?.name ?? null,

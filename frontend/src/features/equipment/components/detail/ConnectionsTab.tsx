@@ -31,7 +31,6 @@ export function ConnectionsTab({
   const selectPort = useInteractionStore((s) => s.ofdSelectPort);
   const cancelOfd = useInteractionStore((s) => s.cancel);
   const deleteCable = useEditorStore((s) => s.deleteCable);
-  const updateCable = useEditorStore((s) => s.updateCable);
   const navigate = useNavigate();
 
   // Is the OFD flow active and targeting THIS equipment?
@@ -52,13 +51,6 @@ export function ConnectionsTab({
   const handlePortDelete = useCallback((cableId: string) => {
     deleteCable(cableId);
   }, [deleteCable]);
-
-  const handlePortSwitch = useCallback((cableId: string, _connectedEquipmentId: string, newFiberPathId: string, newPortNumber: number) => {
-    updateCable(cableId, {
-      fiberPathId: newFiberPathId,
-      fiberPortNumber: newPortNumber,
-    });
-  }, [updateCable]);
 
   // In snapshot mode, show read-only fiber paths for OFD
   if (snapshotActive && isOfd) {
@@ -144,7 +136,6 @@ export function ConnectionsTab({
           ofdId={equipmentId}
           onPortConnect={handlePortConnect}
           onPortDelete={handlePortDelete}
-          onPortSwitch={handlePortSwitch}
           onNavigateRemote={(remoteRoomId) => {
             const { hasChanges } = useEditorStore.getState();
             if (hasChanges) {
