@@ -1,117 +1,109 @@
 /**
- * Network topology store — 변전소망 그래프 (변전소 = 노드, FiberPath = edge).
+ * Network topology store — 시드 장비(cable)에서 시작한 *cable trace 결과* 를
+ * 그대로 시각화. 별도 graph 빌드 없음 — cableTracer 의 traceResult 가 단일 데이터.
  *
- * cable trace (pathHighlightStore) 와 *완전 분리* — 같은 source 의 fiberPaths 만 공유.
- * "상세" 버튼 진입점이 cable card / OFD 포트 grid 양쪽에서 같은 모달을 연다.
- *
- * Git-like 호환: backend saved + frontend pending/deleted/temp overlay (mergeWithLocal).
+ * 핵심 통찰: 사용자가 원하는 "네트워크 토폴로지" 는 OFD-FP 단위 그래프가 아니라
+ * **그 장비가 물리적으로 도달 가능한 모든 모듈/OFD/cable/FP** 이고, 그게 정확히
+ * cableTracer 의 BFS 결과. ring/대링 인식도 cycleDetection 이 traceResult.rings 에
+ * 채워줌. cable 삭제 등 git-like 변경도 입력 데이터 overlay 로 자연 반영.
  */
 
 import { create } from 'zustand';
 import { api } from '../../utils/api';
 import { useEditorStore } from '../editor/stores/editorStore';
-import { detectRings } from '../../utils/graph/cycleDetection';
+import type { LocalCable } from '../editor/stores/editorStore';
+import { traceCable, type TraceResult } from '../../utils/cableTracer';
 import type { FiberPathDetail } from '../fiber/types';
-import type { TraceNode, TraceEdge, TraceRing } from '../pathTrace/types';
-
-/** 변전소 단위 노드 (React Flow 의 node 컴포넌트가 받는 데이터) */
-export interface NetworkSubstation {
-  /** 변전소 식별자 — substationId 가 없으면 substationName 을 키로 (시드 데이터 호환) */
-  id: string;
-  name: string;
-  /** 이 변전소의 OFD (현재 모델은 변전소당 OFD 1개를 가정) */
-  ofdId: string;
-  ofdName: string;
-  /** OFD 의 port 들에 꽂힌 모듈 요약 — 변전소 박스 안 leaf */
-  modules: { id: string; name: string }[];
-  floorId: string | null;
-}
-
-/** FiberPath edge — 두 변전소 사이 광케이블 */
-export interface NetworkFiberPath {
-  id: string;
-  ofdAId: string;
-  ofdBId: string;
-  substationAName: string;
-  substationBName: string;
-  portCount: number;
-  usedPortCount: number;
-}
-
-export interface NetworkGraph {
-  substations: NetworkSubstation[];
-  fiberPaths: NetworkFiberPath[];
-  /** cycleDetection 결과 — OFD id 기준 (FiberPath edge 의 ofdAId/ofdBId 와 동일 ID space) */
-  rings: TraceRing[];
-}
+import type { FloorPlanEquipment } from '../../types/floorPlan';
+import type { RackModule } from '../../types/rackModule';
 
 interface State {
-  /** Backend saved (raw) — fetch 결과 캐시. cable trace 도 같은 source 사용. */
+  /** Backend cache — startTrace 와 공유. 모달 진입 시점에 채워짐. */
   savedFiberPaths: FiberPathDetail[] | null;
-  /** Merged graph (saved + pending - deleted, cycleDetection 적용) */
-  graph: NetworkGraph | null;
+  savedCables: LocalCable[] | null;
+  /** Cable trace 결과 — 모달의 단일 source. */
+  traceResult: TraceResult | null;
+  /** 시드 cable 의 fiberPathId — 모달이 그 edge/ring 을 강조. */
+  highlightedFiberPathId: string | null;
   isLoading: boolean;
   error: string | null;
   modalOpen: boolean;
-  /** 모달 열 때 강조할 FiberPath (cable card "상세" 진입 시 seed 의 fiberPathId) */
-  highlightedFiberPathId: string | null;
 
-  /** "상세" 버튼 또는 외부 호출. seedFiberPathId 가 있으면 해당 FP+ring 강조. */
-  loadAndOpen: (seedFiberPathId?: string | null) => Promise<void>;
+  /**
+   * "상세" 클릭 등에서 호출. seedCableId 시점에 *모든 floor 의 cable + fp* 를 fetch
+   * (캐시 있으면 skip) → editorStore overlay 적용 → cableTracer 호출 → traceResult set.
+   */
+  loadAndOpen: (seedCableId: string) => Promise<void>;
   close: () => void;
 }
 
-export const useNetworkTopologyStore = create<State>((set) => ({
-  savedFiberPaths: null,
-  graph: null,
-  isLoading: false,
-  error: null,
-  modalOpen: false,
-  highlightedFiberPathId: null,
+// ── Backend CableDetail (`source.nested`) → LocalCable (`flat`) 변환 ─────────
+interface CableDetailDTO {
+  id: string;
+  source: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
+  target: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
+  cableType: string;
+  fiberPathId?: string | null;
+  fiberPortNumber?: number | null;
+  fiberPathDescription?: string | null;
+  categoryId?: string | null;
+  categoryCode?: string | null;
+  categoryName?: string | null;
+  displayColor?: string | null;
+  label?: string | null;
+  pathPoints?: [number, number][] | null;
+  pathLength?: number | null;
+  bufferLength?: number;
+  totalLength?: number | null;
+}
 
-  loadAndOpen: async (seedFiberPathId) => {
-    set({ isLoading: true, error: null, modalOpen: true, highlightedFiberPathId: seedFiberPathId ?? null });
-    try {
-      const { data } = await api.get<{ data: FiberPathDetail[] }>('/fiber-paths');
-      const savedFiberPaths = data.data;
-      const graph = buildGraph(savedFiberPaths);
-      set({ savedFiberPaths, graph, isLoading: false });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '네트워크 토폴로지 로드 실패';
-      set({ isLoading: false, error: message });
-    }
-  },
+function cableDtoToLocal(c: CableDetailDTO): LocalCable {
+  // LocalCable.sourceEquipmentId 자리는 polymorphic fallback (planCablesToLocalCables 와 동일):
+  //   equipment id 우선, 없으면 module id, 없으면 circuit id, 없으면 빈 문자열.
+  // cableTracer 가 이 값을 cableAdjacency 의 key 로 사용 + addNode 가 moduleMap lookup.
+  return {
+    id: c.id,
+    sourceEquipmentId: c.source.equipmentId ?? c.source.moduleId ?? c.source.circuitId ?? '',
+    targetEquipmentId: c.target.equipmentId ?? c.target.moduleId ?? c.target.circuitId ?? '',
+    sourceModuleId: c.source.moduleId ?? null,
+    targetModuleId: c.target.moduleId ?? null,
+    sourceCircuitId: c.source.circuitId ?? null,
+    targetCircuitId: c.target.circuitId ?? null,
+    cableType: c.cableType,
+    categoryId: c.categoryId ?? null,
+    categoryCode: c.categoryCode ?? null,
+    categoryName: c.categoryName ?? null,
+    displayColor: c.displayColor ?? null,
+    label: c.label ?? null,
+    pathPoints: c.pathPoints ?? null,
+    pathLength: c.pathLength ?? null,
+    bufferLength: c.bufferLength,
+    totalLength: c.totalLength ?? null,
+    fiberPathId: c.fiberPathId ?? null,
+    fiberPortNumber: c.fiberPortNumber ?? null,
+    fiberPathLabel: c.fiberPathDescription ?? null,
+  };
+}
 
-  close: () => set({ modalOpen: false, highlightedFiberPathId: null }),
-}));
+// ── Merge backend saved + editorStore overlay (git-like) ───────────────────
+function mergeCables(saved: LocalCable[]): LocalCable[] {
+  const ed = useEditorStore.getState();
+  const deletedSet = new Set(ed.deletedCableIds);
+  // saved 에서 deleted 제외 + editorStore 의 *현재 floor* cable 중 saved 에 없는 것 (= pending tempId) 추가
+  const result = saved.filter((c) => !deletedSet.has(c.id));
+  const savedIds = new Set(result.map((c) => c.id));
+  for (const c of ed.localCables) {
+    if (!savedIds.has(c.id)) result.push(c);
+  }
+  return result;
+}
 
-/**
- * saved fiberPaths + editorStore 의 pending/deleted/temp 를 merge 하고 그래프를 빌드.
- * unsaved local 변경도 즉시 토폴로지에 반영 (git-like).
- */
-function buildGraph(savedFiberPaths: FiberPathDetail[]): NetworkGraph {
+function mergeFiberPaths(saved: FiberPathDetail[]): FiberPathDetail[] {
   const ed = useEditorStore.getState();
   const deletedFps = new Set(ed.deletedFiberPathIds);
-  const deletedCables = new Set(ed.deletedCableIds);
-
-  // 1. FiberPath list (saved - deleted + pending). saved fp.ports 의 sideA/sideB 중
-  //    deleted cable 은 빈 자리로 환원 — 사용자가 frontend 에서 cable 지운 직후 그래프
-  //    leaf 도 즉시 사라져야 git-like UX 일관.
-  const activeSaved = savedFiberPaths.map((fp) => ({
-    ...fp,
-    ports: fp.ports.map((p) => ({
-      portNumber: p.portNumber,
-      sideA: p.sideA && deletedCables.has(p.sideA.cableId) ? null : p.sideA,
-      sideB: p.sideB && deletedCables.has(p.sideB.cableId) ? null : p.sideB,
-    })),
-  })).filter((fp) => !deletedFps.has(fp.id));
-
-  /**
-   * Pending FiberPath 는 ofdA/ofdB 가 *equipment ref* 로만. saved 와 같은 FiberPathDetail
-   * shape 으로 변환 — ports[] 는 미생성 (아직 cable 안 꽂힘) 이라 빈 배열.
-   */
   const equipMap = new Map(ed.localEquipment.map((e) => [e.id, e]));
-  const pendingFps: FiberPathDetail[] = ed.pendingFiberPaths.map((fp) => {
+  const active = saved.filter((fp) => !deletedFps.has(fp.id));
+  const pending: FiberPathDetail[] = ed.pendingFiberPaths.map((fp) => {
     const ofdA = equipMap.get(fp.ofdAId);
     const ofdB = equipMap.get(fp.ofdBId);
     return {
@@ -125,105 +117,80 @@ function buildGraph(savedFiberPaths: FiberPathDetail[]): NetworkGraph {
       updatedAt: new Date().toISOString(),
     } as FiberPathDetail;
   });
-
-  const allFps = [...activeSaved, ...pendingFps];
-
-  // 2. Substation 단위로 그룹핑 (변전소당 OFD 1개 가정. 시드 데이터 호환.)
-  const substationMap = new Map<string, NetworkSubstation>();
-
-  function addOfdAsSubstation(ofd: FiberPathDetail['ofdA']) {
-    const key = ofd.substationName || ofd.id; // substationName 빈 문자열 (temp OFD) 면 id 로
-    if (substationMap.has(key)) return;
-    substationMap.set(key, {
-      id: key,
-      name: ofd.substationName || ofd.name,
-      ofdId: ofd.id,
-      ofdName: ofd.name,
-      modules: [], // 아래에서 채움 (ports[].sideA/B 의 equipmentName 중복 제거)
-      floorId: ofd.floorId,
-    });
-  }
-
-  for (const fp of allFps) {
-    addOfdAsSubstation(fp.ofdA);
-    addOfdAsSubstation(fp.ofdB);
-  }
-
-  // 3. 각 OFD 의 모듈 leaf — fiberPath.ports[].sideX.equipmentName 중복제거
-  //   (saved fiberPaths 에는 ports 가 채워져 있고, pending 은 빈 배열이므로 무시됨)
-  for (const fp of allFps) {
-    for (const port of fp.ports) {
-      const a = fp.ofdA;
-      const b = fp.ofdB;
-      if (port.sideA) {
-        const key = a.substationName || a.id;
-        const sub = substationMap.get(key);
-        if (sub && !sub.modules.find((m) => m.id === port.sideA!.equipmentId)) {
-          sub.modules.push({ id: port.sideA.equipmentId, name: port.sideA.equipmentName });
-        }
-      }
-      if (port.sideB) {
-        const key = b.substationName || b.id;
-        const sub = substationMap.get(key);
-        if (sub && !sub.modules.find((m) => m.id === port.sideB!.equipmentId)) {
-          sub.modules.push({ id: port.sideB.equipmentId, name: port.sideB.equipmentName });
-        }
-      }
-    }
-  }
-
-  const substations = Array.from(substationMap.values());
-
-  // 4. FiberPath edge list (사용 포트 수 계산)
-  const fiberPaths: NetworkFiberPath[] = allFps.map((fp) => {
-    let used = 0;
-    for (const p of fp.ports) if (p.sideA || p.sideB) used++;
-    return {
-      id: fp.id,
-      ofdAId: fp.ofdA.id,
-      ofdBId: fp.ofdB.id,
-      substationAName: fp.ofdA.substationName || fp.ofdA.name,
-      substationBName: fp.ofdB.substationName || fp.ofdB.name,
-      portCount: fp.portCount,
-      usedPortCount: used,
-    };
-  });
-
-  // 5. Ring detection — OFD id space.
-  //    cycleDetection 은 TraceNode/TraceEdge shape 을 요구하므로 변환.
-  const nodeMap = new Map<string, TraceNode>();
-  for (const sub of substations) {
-    nodeMap.set(sub.ofdId, {
-      equipmentId: sub.ofdId,
-      equipmentName: sub.ofdName,
-      substationId: sub.id,
-      substationName: sub.name,
-      floorId: sub.floorId,
-      materialCategoryCode: 'EQP-OFD',
-      isSource: false,
-      isTarget: false,
-    });
-  }
-  const edgeMap = new Map<string, TraceEdge>();
-  const adjacency = new Map<string, Set<string>>();
-  for (const fp of fiberPaths) {
-    const edge: TraceEdge = {
-      id: fp.id,
-      sourceEquipmentId: fp.ofdAId,
-      targetEquipmentId: fp.ofdBId,
-      type: 'fiberPath',
-      cableType: 'FIBER',
-      fiberPathId: fp.id,
-      fiberPathLabel: `${fp.substationAName}-${fp.substationBName}`,
-      portCount: fp.portCount,
-    };
-    edgeMap.set(fp.id, edge);
-    if (!adjacency.has(fp.ofdAId)) adjacency.set(fp.ofdAId, new Set());
-    if (!adjacency.has(fp.ofdBId)) adjacency.set(fp.ofdBId, new Set());
-    adjacency.get(fp.ofdAId)!.add(fp.ofdBId);
-    adjacency.get(fp.ofdBId)!.add(fp.ofdAId);
-  }
-  const rings = detectRings(adjacency, edgeMap, nodeMap);
-
-  return { substations, fiberPaths, rings };
+  return [...active, ...pending];
 }
+
+/**
+ * 모든 OFD/모듈/회로의 union — cableTracer 의 equipment/rackModules 인자.
+ * saved 응답엔 다른 floor 의 equipment/module 이 없으므로 *cable 의 endpoint 메타* 에서
+ * 노드 정보를 ad-hoc 으로 추출하는 게 부족함. cableTracer 의 addNode 가 equipMap/moduleMap
+ * 에서 못 찾으면 minimal node 로 들어가는데, fiber-paths API 의 ofdA/B + ports[].sideX 가
+ * substationName/equipmentName 을 제공 → traverseFiberPaths 에서 fallback 으로 활용됨.
+ *
+ * 단순화를 위해 cableTracer 가 받는 equipment/rackModules 는 *현재 floor 만* 전달.
+ * 다른 변전소 OFD/모듈은 cableTracer 가 minimal node 로 처리 — name 은 fiber-paths 응답 정보로.
+ *
+ * (큰 시스템 확장 시 backend GET /api/equipment, /api/rack-modules 같은 list endpoint 추가 가능.)
+ */
+function gatherEquipmentForTrace(): { equipment: FloorPlanEquipment[]; rackModules: RackModule[] } {
+  const ed = useEditorStore.getState();
+  return {
+    equipment: ed.localEquipment,
+    rackModules: ed.localRackModules,
+  };
+}
+
+export const useNetworkTopologyStore = create<State>((set, get) => ({
+  savedFiberPaths: null,
+  savedCables: null,
+  traceResult: null,
+  highlightedFiberPathId: null,
+  isLoading: false,
+  error: null,
+  modalOpen: false,
+
+  loadAndOpen: async (seedCableId) => {
+    set({ modalOpen: true, isLoading: true, error: null });
+    try {
+      // 1. saved fetch (캐시 활용)
+      let savedFiberPaths = get().savedFiberPaths;
+      let savedCables = get().savedCables;
+      if (!savedFiberPaths || !savedCables) {
+        const [fpRes, cableRes] = await Promise.all([
+          api.get<{ data: FiberPathDetail[] }>('/fiber-paths'),
+          api.get<{ data: CableDetailDTO[] }>('/cables'),
+        ]);
+        savedFiberPaths = fpRes.data.data;
+        savedCables = cableRes.data.data.map(cableDtoToLocal);
+        set({ savedFiberPaths, savedCables });
+      }
+
+      // 2. editorStore overlay (pending/deleted)
+      const mergedCables = mergeCables(savedCables);
+      const mergedFps = mergeFiberPaths(savedFiberPaths);
+
+      // 3. cableTracer 호출 — 모든 cable 위에서 BFS. seedCable 의 ring 자연 인식.
+      const { equipment, rackModules } = gatherEquipmentForTrace();
+      const seedCable = mergedCables.find((c) => c.id === seedCableId);
+      const result = traceCable({
+        cableId: seedCableId,
+        cables: mergedCables,
+        equipment,
+        rackModules,
+        fiberPaths: mergedFps,
+      });
+
+      set({
+        traceResult: result,
+        highlightedFiberPathId: seedCable?.fiberPathId ?? null,
+        isLoading: false,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '네트워크 토폴로지 로드 실패';
+      set({ isLoading: false, error: message });
+    }
+  },
+
+  close: () =>
+    set({ modalOpen: false, traceResult: null, highlightedFiberPathId: null }),
+}));
