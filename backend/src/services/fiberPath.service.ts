@@ -68,18 +68,20 @@ const fiberPathCablesInclude = {
 } as const;
 
 // OFD 가 cable 한 쪽 endpoint 일 때 "반대편" 을 {equipmentId, equipmentName} 형태로 반환.
-// 반대편이 RackModule 이면 rack 의 equipmentId 와 module 이름을 사용 (FiberPortStatus shape 유지).
+// 반대편이 RackModule 이면 module 자체의 id 를 반환 — frontend 의 polymorphic endpoint 모델
+// (LocalCable.sourceEquipmentId 자리에 fallback 으로 moduleId 가 들어감) 과 일치하게 하기 위함.
+// 그래서 BFS 의 노드 id 와 fiberPath sideX.equipmentId 가 같은 ID space.
 function resolveOtherEndpoint(
   cable: any,
   ofdSide: 'source' | 'target',
 ): { equipmentId: string; equipmentName: string } | null {
   if (ofdSide === 'source') {
     if (cable.targetEquipment) return { equipmentId: cable.targetEquipment.id, equipmentName: cable.targetEquipment.name };
-    if (cable.targetModule) return { equipmentId: cable.targetModule.rackEquipmentId, equipmentName: cable.targetModule.name };
+    if (cable.targetModule) return { equipmentId: cable.targetModule.id, equipmentName: cable.targetModule.name };
     return null;
   }
   if (cable.sourceEquipment) return { equipmentId: cable.sourceEquipment.id, equipmentName: cable.sourceEquipment.name };
-  if (cable.sourceModule) return { equipmentId: cable.sourceModule.rackEquipmentId, equipmentName: cable.sourceModule.name };
+  if (cable.sourceModule) return { equipmentId: cable.sourceModule.id, equipmentName: cable.sourceModule.name };
   return null;
 }
 
