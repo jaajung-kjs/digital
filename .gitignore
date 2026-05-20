@@ -58,3 +58,9 @@ prisma/*.db-journal
 downloads/
 downloads.zip
 plan/
+
+# Backend uploads (사용자 업로드 artifact)
+backend/uploads/
+
+# Local deploy package
+dist-deploy/

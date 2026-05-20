@@ -14,8 +14,6 @@ import { useEditorStore } from '../editor/stores/editorStore';
 import type { LocalCable } from '../editor/stores/editorStore';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
 import type { FiberPathDetail } from '../fiber/types';
-import type { FloorPlanEquipment } from '../../types/floorPlan';
-import type { RackModule } from '../../types/rackModule';
 
 interface State {
   /** Backend cache — startTrace 와 공유. 모달 진입 시점에 채워짐. */
@@ -120,26 +118,6 @@ function mergeFiberPaths(saved: FiberPathDetail[]): FiberPathDetail[] {
   return [...active, ...pending];
 }
 
-/**
- * 모든 OFD/모듈/회로의 union — cableTracer 의 equipment/rackModules 인자.
- * saved 응답엔 다른 floor 의 equipment/module 이 없으므로 *cable 의 endpoint 메타* 에서
- * 노드 정보를 ad-hoc 으로 추출하는 게 부족함. cableTracer 의 addNode 가 equipMap/moduleMap
- * 에서 못 찾으면 minimal node 로 들어가는데, fiber-paths API 의 ofdA/B + ports[].sideX 가
- * substationName/equipmentName 을 제공 → traverseFiberPaths 에서 fallback 으로 활용됨.
- *
- * 단순화를 위해 cableTracer 가 받는 equipment/rackModules 는 *현재 floor 만* 전달.
- * 다른 변전소 OFD/모듈은 cableTracer 가 minimal node 로 처리 — name 은 fiber-paths 응답 정보로.
- *
- * (큰 시스템 확장 시 backend GET /api/equipment, /api/rack-modules 같은 list endpoint 추가 가능.)
- */
-function gatherEquipmentForTrace(): { equipment: FloorPlanEquipment[]; rackModules: RackModule[] } {
-  const ed = useEditorStore.getState();
-  return {
-    equipment: ed.localEquipment,
-    rackModules: ed.localRackModules,
-  };
-}
-
 export const useNetworkTopologyStore = create<State>((set, get) => ({
   savedFiberPaths: null,
   savedCables: null,
@@ -170,13 +148,15 @@ export const useNetworkTopologyStore = create<State>((set, get) => ({
       const mergedFps = mergeFiberPaths(savedFiberPaths);
 
       // 3. cableTracer 호출 — 모든 cable 위에서 BFS. seedCable 의 ring 자연 인식.
-      const { equipment, rackModules } = gatherEquipmentForTrace();
+      // 현재 floor 의 equipment/rackModules 만 — 다른 변전소는 cableTracer 가 fiberPaths
+      // 의 ofdA/B + ports[].sideX 정보로 이름/변전소명 채움 (externalInfo lookup).
+      const ed = useEditorStore.getState();
       const seedCable = mergedCables.find((c) => c.id === seedCableId);
       const result = traceCable({
         cableId: seedCableId,
         cables: mergedCables,
-        equipment,
-        rackModules,
+        equipment: ed.localEquipment,
+        rackModules: ed.localRackModules,
         fiberPaths: mergedFps,
       });
 
