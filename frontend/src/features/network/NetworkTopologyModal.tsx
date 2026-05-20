@@ -283,10 +283,10 @@ export function NetworkTopologyModal() {
     return { nodes: nodes as Node[], edges };
   }, [traceResult, highlightedFpId]);
 
-  if (!modalOpen) return null;
-
-  // 통계
+  // 통계 (hooks 는 항상 early return 전에 호출 — Rules of Hooks)
   const ringCounts = useMemoRingStats(traceResult);
+
+  if (!modalOpen) return null;
 
   return (
     <div
