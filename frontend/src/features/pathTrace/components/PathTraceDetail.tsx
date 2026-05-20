@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { usePathHighlightStore } from '../stores/pathHighlightStore';
 import { useNetworkTopologyStore } from '../../network/store';
-import { useEditorStore } from '../../editor/stores/editorStore';
 import { CABLE_BADGE_CLASSES } from '../../../types/connection';
 import type { TraceNode, TraceEdge, SegmentNode } from '../types';
 
@@ -139,11 +138,11 @@ export function PathTraceDetail() {
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const loadAndOpen = useNetworkTopologyStore((s) => s.loadAndOpen);
 
-  // "상세" 클릭 시 현재 trace cable 의 fiberPathId 를 시드로 네트워크 토폴로지 모달 진입.
-  // FIBER cable 이 아니면 fiberPathId 가 없을 수 있음 — 그 경우 시드 없이 전체 토폴로지.
+  // "상세" 클릭 = 현재 trace cable 을 시드로 네트워크 토폴로지 모달 진입.
+  // 모달이 그 cable 부터 BFS → 도달 가능한 모든 망 + ring 인식.
   const openTopology = () => {
-    const cable = useEditorStore.getState().localCables.find((c) => c.id === tracingCableId);
-    void loadAndOpen(cable?.fiberPathId ?? null);
+    if (!tracingCableId) return;
+    void loadAndOpen(tracingCableId);
   };
 
   const { nodeMap, edgeMap } = useMemo(() => {
