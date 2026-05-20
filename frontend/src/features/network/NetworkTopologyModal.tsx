@@ -30,6 +30,24 @@ import '@xyflow/react/dist/style.css';
 import { useNetworkTopologyStore } from './store';
 import type { TraceNode, TraceRing, TraceResult } from '../pathTrace/types';
 
+// ── Topology tier → 색·굵기 (시드 cable/같은 ring/상위 ring/분기점/기본) ────────
+const TIER_COLOR = {
+  seed: '#dc2626',
+  seedRing: '#2563eb',
+  superRing: '#7c3aed',
+  junction: '#f59e0b',
+  default: '#9ca3af',
+} as const;
+type Tier = keyof typeof TIER_COLOR;
+
+const EDGE_STYLE: Record<Tier, { stroke: string; width: number }> = {
+  seed: { stroke: TIER_COLOR.seed, width: 3 },
+  seedRing: { stroke: TIER_COLOR.seedRing, width: 2.5 },
+  superRing: { stroke: TIER_COLOR.superRing, width: 2 },
+  junction: { stroke: TIER_COLOR.junction, width: 1.5 }, // edge 에선 안 쓰임
+  default: { stroke: TIER_COLOR.default, width: 1.5 },
+};
+
 // ── Custom substation node ─────────────────────────────────────────────────
 
 type SubstationNodeData = {
@@ -43,14 +61,9 @@ type SubstationNodeData = {
 
 function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
   const { name, ofdName, modules, isJunction, inSeedRing, inSuperRing } = data;
-  const borderColor = inSeedRing
-    ? '#2563eb'
-    : inSuperRing
-      ? '#7c3aed'
-      : isJunction
-        ? '#f59e0b'
-        : '#9ca3af';
-  const borderWidth = inSeedRing || isJunction ? 2 : 1;
+  const tier: Tier = inSeedRing ? 'seedRing' : inSuperRing ? 'superRing' : isJunction ? 'junction' : 'default';
+  const borderColor = TIER_COLOR[tier];
+  const borderWidth = tier === 'seedRing' || tier === 'junction' ? 2 : 1;
 
   return (
     <div
@@ -264,11 +277,14 @@ export function NetworkTopologyModal() {
       const source = ofdToGroup.get(e.sourceEquipmentId);
       const target = ofdToGroup.get(e.targetEquipmentId);
       if (!source || !target) continue;
-      const isSeed = e.fiberPathId === highlightedFpId;
-      const inSeedRing = seedRingEdges.has(e.id);
-      const inSuperRing = superRingEdges.has(e.id) && !inSeedRing;
-      const stroke = isSeed ? '#dc2626' : inSeedRing ? '#2563eb' : inSuperRing ? '#7c3aed' : '#9ca3af';
-      const strokeWidth = isSeed ? 3 : inSeedRing ? 2.5 : inSuperRing ? 2 : 1.5;
+      const tier: Tier = e.fiberPathId === highlightedFpId
+        ? 'seed'
+        : seedRingEdges.has(e.id)
+          ? 'seedRing'
+          : superRingEdges.has(e.id)
+            ? 'superRing'
+            : 'default';
+      const { stroke, width: strokeWidth } = EDGE_STYLE[tier];
       edges.push({
         id: e.id,
         source,
@@ -283,7 +299,6 @@ export function NetworkTopologyModal() {
     return { nodes: nodes as Node[], edges };
   }, [traceResult, highlightedFpId]);
 
-  // 통계 (hooks 는 항상 early return 전에 호출 — Rules of Hooks)
   const ringCounts = useMemoRingStats(traceResult);
 
   if (!modalOpen) return null;

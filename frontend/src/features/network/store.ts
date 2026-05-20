@@ -13,6 +13,7 @@ import { api } from '../../utils/api';
 import { useEditorStore } from '../editor/stores/editorStore';
 import type { LocalCable } from '../editor/stores/editorStore';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
+import { pendingToFiberPathDetail } from '../fiber/pending';
 import type { FiberPathDetail } from '../fiber/types';
 
 interface State {
@@ -101,20 +102,7 @@ function mergeFiberPaths(saved: FiberPathDetail[]): FiberPathDetail[] {
   const deletedFps = new Set(ed.deletedFiberPathIds);
   const equipMap = new Map(ed.localEquipment.map((e) => [e.id, e]));
   const active = saved.filter((fp) => !deletedFps.has(fp.id));
-  const pending: FiberPathDetail[] = ed.pendingFiberPaths.map((fp) => {
-    const ofdA = equipMap.get(fp.ofdAId);
-    const ofdB = equipMap.get(fp.ofdBId);
-    return {
-      id: fp.id,
-      ofdA: { id: fp.ofdAId, name: ofdA?.name ?? '?', substationName: '', floorId: null },
-      ofdB: { id: fp.ofdBId, name: ofdB?.name ?? '?', substationName: '', floorId: null },
-      portCount: fp.portCount,
-      description: fp.description ?? null,
-      ports: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } as FiberPathDetail;
-  });
+  const pending = ed.pendingFiberPaths.map((fp) => pendingToFiberPathDetail(fp, equipMap));
   return [...active, ...pending];
 }
 

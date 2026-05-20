@@ -28,7 +28,8 @@ import { detectRings } from './graph/cycleDetection';
 
 export type { TraceResult };
 
-// ==================== Helpers ====================
+/** TraceNode.materialCategoryCode 의 OFD 값 — P6 의 EquipmentKind.OFD 와 의미 동일 (legacy 형식). */
+const OFD_CATEGORY_CODE = 'EQP-OFD';
 
 // ==================== Segment Builder ====================
 
@@ -142,12 +143,6 @@ export interface TraceCableInput {
   distributionCircuits?: DistributionCircuit[];
   /** Fiber paths (saved + pending, merged) — OFD↔OFD hop 시 port-isolated 라우팅에 사용 */
   fiberPaths: FiberPathDetail[];
-  /** Floor context for substationId/Name (optional) */
-  roomContext?: {
-    floorId: string;
-    substationId?: string;
-    substationName?: string;
-  };
 }
 
 /**
@@ -159,21 +154,16 @@ export interface TraceCableInput {
  * Runs entirely in-browser on local data.
  */
 export function traceCable(input: TraceCableInput): TraceResult {
-  const { cableId, cables, equipment, rackModules, distributionCircuits, fiberPaths, roomContext } = input;
+  const { cableId, cables, equipment, rackModules, distributionCircuits, fiberPaths } = input;
 
-  // Default substation context — externalInfo 가 없을 때 fallback.
-  const substationName = roomContext?.substationName ?? '';
-  const defaultRoomId = roomContext?.floorId ?? null;
-
-  // Lookups
+  // Lookups (현재 floor 한정)
   const equipMap = new Map(equipment.map((e) => [e.id, e]));
   const moduleMap = new Map((rackModules ?? []).map((m) => [m.id, m]));
   const circuitMap = new Map((distributionCircuits ?? []).map((c) => [c.id, c]));
 
-  // fiberPaths 응답이 *모든 변전소 의 OFD/모듈 이름·변전소명* 정보를 이미 갖고 있다.
-  // (ofdA/B.name + substationName, ports[].sideX.equipmentName)
-  // 현재 floor 의 equipMap/moduleMap 에 없는 noded (다른 변전소) 도 이걸로 이름 채움.
-  // Map: equipmentId → { name, substationName, isOfd }
+  // fiberPaths 응답은 모든 변전소의 OFD/모듈 이름·변전소명 정보를 갖고 있어
+  // cross-floor lookup 용 source of truth. equipMap/moduleMap 에 없는 원격 노드는
+  // 이걸로 채움. (ofdA/B = OFD, ports[].sideX = 그 OFD 에 꽂힌 모듈)
   type ExternalInfo = { name: string; substationName: string; isOfd: boolean };
   const externalInfo = new Map<string, ExternalInfo>();
   for (const fp of fiberPaths) {
@@ -212,21 +202,23 @@ export function traceCable(input: TraceCableInput): TraceResult {
   const edgeMap = new Map<string, TraceEdge>();
   const adjacency = new Map<string, Set<string>>();
 
+  // substationId 자리에 substationName 을 두 번 채움 — 토폴로지의 그룹핑 key 가 substationName
+  // 이고 frontend 에 실제 substationId 가 없는 한 동일 값으로 통일 (NetworkTopologyModal 의
+  // groupBySubstation 이 substationName 기준이라 layout 이 자동 정상).
   const addNode = (equipId: string, isSource: boolean, isTarget: boolean) => {
     if (nodeMap.has(equipId)) return;
-    const ext = externalInfo.get(equipId); // fiberPaths 응답에서 알아낸 정확한 이름/변전소명
-    const subName = ext?.substationName || substationName;
+    const ext = externalInfo.get(equipId);
+    const subName = ext?.substationName ?? '';
 
     const equip = equipMap.get(equipId);
     if (equip) {
-      // 로컬 equipment 정상 분기. roomContext 가 비었어도 ext 가 채움.
       nodeMap.set(equipId, {
         equipmentId: equip.id,
         equipmentName: equip.name,
-        substationId: subName, // substationId 자리에 substationName 사용 — layout 그룹 key
+        substationId: subName,
         substationName: subName,
-        floorId: defaultRoomId,
-        materialCategoryCode: equip.materialCategoryCode ?? (ext?.isOfd ? 'EQP-OFD' : null),
+        floorId: null,
+        materialCategoryCode: equip.materialCategoryCode ?? (ext?.isOfd ? OFD_CATEGORY_CODE : null),
         isSource,
         isTarget,
       });
@@ -234,14 +226,12 @@ export function traceCable(input: TraceCableInput): TraceResult {
     }
     const mod = moduleMap.get(equipId);
     if (mod) {
-      // 모듈 — 부모 랙이 현재 floor 에 있으면 substationName 채움.
-      const parentRack = equipMap.get(mod.rackEquipmentId);
       nodeMap.set(equipId, {
         equipmentId: equipId,
         equipmentName: mod.name,
-        substationId: parentRack ? subName : (ext?.substationName ?? ''),
-        substationName: parentRack ? subName : (ext?.substationName ?? ''),
-        floorId: parentRack ? defaultRoomId : null,
+        substationId: subName,
+        substationName: subName,
+        floorId: null,
         materialCategoryCode: null,
         isSource,
         isTarget,
@@ -256,23 +246,23 @@ export function traceCable(input: TraceCableInput): TraceResult {
         equipmentName: parentDist
           ? `${parentDist.name} · ${circuitLabel(circuit)}`
           : circuitLabel(circuit),
-        substationId: parentDist ? subName : '',
-        substationName: parentDist ? subName : '',
-        floorId: parentDist ? defaultRoomId : null,
+        substationId: subName,
+        substationName: subName,
+        floorId: null,
         materialCategoryCode: null,
         isSource,
         isTarget,
       });
       return;
     }
-    // Equipment 가 로컬에 없음 (다른 변전소 OFD/모듈). fiberPaths 정보로 채움.
+    // Cross-floor lookup via externalInfo. isOfd === false → 모듈, 그 외(true 또는 undefined) → OFD.
     nodeMap.set(equipId, {
       equipmentId: equipId,
       equipmentName: ext?.name ?? equipId,
-      substationId: ext?.substationName ?? '',
-      substationName: ext?.substationName ?? '',
+      substationId: subName,
+      substationName: subName,
       floorId: null,
-      materialCategoryCode: ext?.isOfd === false ? null : 'EQP-OFD',
+      materialCategoryCode: ext?.isOfd === false ? null : OFD_CATEGORY_CODE,
       isSource,
       isTarget,
     });
