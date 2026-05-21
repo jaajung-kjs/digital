@@ -34,17 +34,20 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
   const [portCount, setPortCount] = useState<24 | 48>(24);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 경로 row 가 닫힐 때 그 경로 안의 cable trace 도 함께 종료. 너무 자연스러운 동작이라
-  // 사용자가 명시적으로 "닫기" 를 안 해도 expand 접는 행위가 곧 trace 종료가 되어야 자연스러움.
+  // 경로 row 클릭 = 컨텍스트 변경 (닫기든 다른 path 로 옮기든) — 직전 path 의 trace 가
+  // active 면 종료. expand 가 곧 "이 path 의 cable 들 본다" 이므로 그 컨텍스트가 끝나면
+  // trace 도 끝나야 자연스러움.
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const togglePath = (path: FiberPathDetail) => {
     const isCollapsing = expandedPathId === path.id;
-    if (isCollapsing && tracingCableId) {
-      const tracedInPath = path.ports.some(
+    // 직전 expandedPathId 가 있고 그 path 안의 cable 이 trace 중이면 clear.
+    if (tracingCableId && expandedPathId) {
+      const prevPath = activePaths.find((p) => p.id === expandedPathId);
+      const tracedInPrev = prevPath?.ports.some(
         (p) => p.sideA?.cableId === tracingCableId || p.sideB?.cableId === tracingCableId,
       );
-      if (tracedInPath) clearHighlight();
+      if (tracedInPrev) clearHighlight();
     }
     setExpandedPathId(isCollapsing ? null : path.id);
   };
