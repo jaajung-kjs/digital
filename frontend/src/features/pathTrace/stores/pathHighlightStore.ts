@@ -11,10 +11,34 @@ import { traceCable } from '../../../utils/cableTracer';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { useNetworkTopologyStore } from '../../network/store';
-import { pendingToFiberPathDetail } from '../../fiber/pending';
 import { api } from '../../../utils/api';
+import { composePendingPath } from '../../fiber/pending';
+import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
 import type { TraceResult, PathSegment } from '../types';
 import type { FiberPathDetail } from '../../fiber/types';
+import type { FloorPlanFiberPath } from '../../../types/floorPlan';
+
+/**
+ * Snapshot fiberPaths (FloorPlanFiberPath) 는 backend denorm 으로 name/substationName
+ * 을 들고 있음 — placeholder 없이 그대로 lift.
+ */
+function snapshotFiberPathToDetail(fp: FloorPlanFiberPath): FiberPathDetail {
+  const now = new Date().toISOString();
+  return {
+    id: fp.id,
+    ofdA: { id: fp.ofdAId, name: fp.ofdAName, substationName: fp.ofdASubstationName, floorId: null },
+    ofdB: { id: fp.ofdBId, name: fp.ofdBName, substationName: fp.ofdBSubstationName, floorId: null },
+    portCount: fp.portCount,
+    description: fp.description ?? null,
+    ports: Array.from({ length: fp.portCount }, (_, i) => ({
+      portNumber: i + 1,
+      sideA: null,
+      sideB: null,
+    })),
+    createdAt: now,
+    updatedAt: now,
+  };
+}
 
 function idleState() {
   return {
@@ -79,11 +103,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
     try {
       // Snapshot mode — use snapshot fiber paths directly.
       if (snapshotState.active) {
-        // snapshot 의 fiberPaths 는 ofdAId/ofdBId/portCount/description 만 — pending 과 같은 shape.
-        const emptyEquipMap = new Map<string, { name: string }>();
-        const snapshotFiberPaths: FiberPathDetail[] = (snapshotState.fiberPaths ?? []).map((fp: any) =>
-          pendingToFiberPathDetail(fp, emptyEquipMap),
-        );
+        const snapshotFiberPaths = (snapshotState.fiberPaths ?? []).map(snapshotFiberPathToDetail);
 
         const result = traceCable({
           cableId,
@@ -119,11 +139,14 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         }
       }
 
-      // Pending fiber paths (unsaved local) overlay
-      const equipMap = new Map(editorState.localEquipment.map((e) => [e.id, e]));
-      const pendingFps = editorState.pendingFiberPaths.map((fp) => pendingToFiberPathDetail(fp, equipMap));
+      // Pending fiber paths — canonical 이라 directory 로 합성해서 FiberPathDetail 로.
+      const directory = await ensureOfdDirectory();
+      const pendingFps = editorState.pendingFiberPaths.map((fp) => composePendingPath(fp, directory));
       const deletedFps = new Set(editorState.deletedFiberPathIds);
-      const allFiberPaths = [...savedFiberPaths.filter((fp) => !deletedFps.has(fp.id)), ...pendingFps];
+      const allFiberPaths = [
+        ...savedFiberPaths.filter((fp) => !deletedFps.has(fp.id)),
+        ...pendingFps,
+      ];
 
       const result = traceCable({
         cableId,

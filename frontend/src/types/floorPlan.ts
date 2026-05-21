@@ -114,6 +114,14 @@ export interface FloorPlanFiberPath {
   ofdBId: string;
   portCount: number;
   description?: string | null;
+  /**
+   * Backend denorm — OFD 의 name+substationName. 현재 floor 가 아닌 원격 OFD 정보도
+   * 포함되어 cross-substation 표시를 추가 쿼리 없이 즉시 가능.
+   */
+  ofdAName: string;
+  ofdASubstationName: string;
+  ofdBName: string;
+  ofdBSubstationName: string;
 }
 
 export interface FloorPlanDetail {

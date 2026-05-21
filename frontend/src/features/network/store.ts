@@ -13,8 +13,9 @@ import { api } from '../../utils/api';
 import { useEditorStore } from '../editor/stores/editorStore';
 import type { LocalCable } from '../editor/stores/editorStore';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
-import { pendingToFiberPathDetail } from '../fiber/pending';
 import type { FiberPathDetail } from '../fiber/types';
+import { composePendingPath } from '../fiber/pending';
+import { ensureOfdDirectory } from '../fiber/hooks/useOfdDirectory';
 
 interface State {
   /** Backend cache — startTrace 와 공유. 모달 진입 시점에 채워짐. */
@@ -97,12 +98,14 @@ function mergeCables(saved: LocalCable[]): LocalCable[] {
   return result;
 }
 
-function mergeFiberPaths(saved: FiberPathDetail[]): FiberPathDetail[] {
+function mergeFiberPaths(
+  saved: FiberPathDetail[],
+  directory: Map<string, { id: string; name: string; substationName: string; floorId: string | null }>,
+): FiberPathDetail[] {
   const ed = useEditorStore.getState();
   const deletedFps = new Set(ed.deletedFiberPathIds);
-  const equipMap = new Map(ed.localEquipment.map((e) => [e.id, e]));
   const active = saved.filter((fp) => !deletedFps.has(fp.id));
-  const pending = ed.pendingFiberPaths.map((fp) => pendingToFiberPathDetail(fp, equipMap));
+  const pending = ed.pendingFiberPaths.map((fp) => composePendingPath(fp, directory));
   return [...active, ...pending];
 }
 
@@ -132,8 +135,9 @@ export const useNetworkTopologyStore = create<State>((set, get) => ({
       }
 
       // 2. editorStore overlay (pending/deleted)
+      const directory = await ensureOfdDirectory();
       const mergedCables = mergeCables(savedCables);
-      const mergedFps = mergeFiberPaths(savedFiberPaths);
+      const mergedFps = mergeFiberPaths(savedFiberPaths, directory);
 
       // 3. cableTracer 호출 — 모든 cable 위에서 BFS. seedCable 의 ring 자연 인식.
       // 현재 floor 의 equipment/rackModules 만 — 다른 변전소는 cableTracer 가 fiberPaths

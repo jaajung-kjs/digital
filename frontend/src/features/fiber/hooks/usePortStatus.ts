@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useFiberPaths } from './useFiberPaths';
-import { useEditorStore, type LocalCable, type PendingFiberPath } from '../../editor/stores/editorStore';
+import { useOfdDirectory } from './useOfdDirectory';
+import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
+import { composePendingPath } from '../pending';
 import type { FiberPathDetail, FiberPortStatus } from '../types';
 
 /**
@@ -62,44 +64,6 @@ function mergePendingCables(
 }
 
 /**
- * Convert pending fiber paths into FiberPathDetail-like objects for display.
- */
-function pendingToFiberPaths(
-  pendingPaths: PendingFiberPath[],
-  ofdId: string,
-  localEquipment: { id: string; name: string }[],
-): FiberPathDetail[] {
-  const equipMap = new Map(localEquipment.map((e) => [e.id, e.name]));
-
-  return pendingPaths
-    .filter((fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId)
-    .map((fp) => ({
-      id: fp.id,
-      ofdA: {
-        id: fp.ofdAId,
-        name: equipMap.get(fp.ofdAId) ?? '?',
-        substationName: equipMap.get(fp.ofdAId) ?? '?',
-        floorId: null,
-      },
-      ofdB: {
-        id: fp.ofdBId,
-        name: equipMap.get(fp.ofdBId) ?? '?',
-        substationName: equipMap.get(fp.ofdBId) ?? '?',
-        floorId: null,
-      },
-      portCount: fp.portCount,
-      description: fp.description ?? null,
-      ports: Array.from({ length: fp.portCount }, (_, i) => ({
-        portNumber: i + 1,
-        sideA: null,
-        sideB: null,
-      })),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }));
-}
-
-/**
  * Single source of truth for port status: backend data + local cables + pending fiber paths merged.
  * Used by FiberPathManager and ConnectionDiagram.
  */
@@ -111,16 +75,23 @@ export function usePortStatus(ofdId: string) {
   const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
   const deletedCableIds = useEditorStore((s) => s.deletedCableIds);
 
+  const directory = useOfdDirectory();
   const mergedPaths = useMemo(() => {
     if (!paths) return [];
-    // Filter out deleted paths
-    const activePaths = paths.filter((p) => !deletedFiberPathIds.includes(p.id));
-    // Merge local cables into saved paths (pending overlay + deleted cable 제거)
-    const withCables = mergePendingCables(activePaths, localCables, localEquipment, ofdId, deletedCableIds);
-    // Add pending fiber paths
-    const pending = pendingToFiberPaths(pendingFiberPaths, ofdId, localEquipment);
-    return [...withCables, ...pending];
-  }, [paths, localCables, localEquipment, ofdId, pendingFiberPaths, deletedFiberPathIds, deletedCableIds]);
+    // pending canonical → FiberPathDetail (directory 로 OFD 정보 합성). saved 와
+    // 같은 shape 으로 만들어 cable overlay 가 양쪽 균일 적용.
+    const activeSaved = paths.filter((p) => !deletedFiberPathIds.includes(p.id));
+    const activePending = pendingFiberPaths
+      .filter((fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId)
+      .map((fp) => composePendingPath(fp, directory));
+    return mergePendingCables(
+      [...activeSaved, ...activePending],
+      localCables,
+      localEquipment,
+      ofdId,
+      deletedCableIds,
+    );
+  }, [paths, localCables, localEquipment, ofdId, pendingFiberPaths, deletedFiberPathIds, deletedCableIds, directory]);
 
   return { mergedPaths, isLoading };
 }

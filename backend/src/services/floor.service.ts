@@ -109,6 +109,14 @@ export interface FloorPlanDetail {
     ofdBId: string;
     portCount: number;
     description: string | null;
+    /**
+     * Denorm — OFD 가 어느 변전소인지 frontend 가 추가 쿼리 없이 알도록. 원격 OFD
+     * (다른 floor) 도 substation 정보가 포함되어 있어 pending path 표시도 즉시 가능.
+     */
+    ofdAName: string;
+    ofdASubstationName: string;
+    ofdBName: string;
+    ofdBSubstationName: string;
   }[];
   version: number;
   updatedAt: Date;
@@ -352,12 +360,33 @@ class FloorService {
     ]);
 
     const ofdIds = ofdEquipment.map((e) => e.id);
-    const fiberPaths = ofdIds.length > 0
+    // 양쪽 OFD 의 name + substationName 까지 denorm 해서 보냄 — frontend 가 cross-substation
+    // 표시를 추가 쿼리 없이 즉시 가능. include 패턴은 fiberPath.service.ts 의 동일 join.
+    const rawFiberPaths = ofdIds.length > 0
       ? await prisma.fiberPath.findMany({
           where: { OR: [{ ofdAId: { in: ofdIds } }, { ofdBId: { in: ofdIds } }] },
-          select: { id: true, ofdAId: true, ofdBId: true, portCount: true, description: true },
+          select: {
+            id: true,
+            ofdAId: true,
+            ofdBId: true,
+            portCount: true,
+            description: true,
+            ofdA: { select: { name: true, floor: { select: { substation: { select: { name: true } } } } } },
+            ofdB: { select: { name: true, floor: { select: { substation: { select: { name: true } } } } } },
+          },
         })
       : [];
+    const fiberPaths = rawFiberPaths.map((fp) => ({
+      id: fp.id,
+      ofdAId: fp.ofdAId,
+      ofdBId: fp.ofdBId,
+      portCount: fp.portCount,
+      description: fp.description,
+      ofdAName: fp.ofdA?.name ?? '',
+      ofdASubstationName: fp.ofdA?.floor?.substation?.name ?? '',
+      ofdBName: fp.ofdB?.name ?? '',
+      ofdBSubstationName: fp.ofdB?.floor?.substation?.name ?? '',
+    }));
 
     return {
       id: floor.id,

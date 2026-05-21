@@ -541,7 +541,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         ofdAId: fp.ofdAId,
         ofdBId: fp.ofdBId,
         portCount: fp.portCount,
-        description: fp.description,
+        description: fp.description ?? undefined,
       })) : undefined,
       deletedFiberPathIds: deletedFiberPathIds.length > 0 ? deletedFiberPathIds : undefined,
     };
