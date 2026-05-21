@@ -1,18 +1,11 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../../utils/api';
 import { usePortStatus } from '../hooks/usePortStatus';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { FiberPortGrid } from './FiberPortGrid';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useOfdDirectory } from '../hooks/useOfdDirectory';
 import type { FiberPathDetail } from '../types';
-
-interface OfdEquipment {
-  id: string;
-  name: string;
-  substationName?: string;
-}
 
 interface FiberPathManagerProps {
   ofdId: string;
@@ -26,7 +19,6 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
   const addPendingFiberPath = useEditorStore((s) => s.addPendingFiberPath);
   const removePendingFiberPath = useEditorStore((s) => s.removePendingFiberPath);
   const deleteFiberPath = useEditorStore((s) => s.deleteFiberPath);
-  const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
   const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
 
   const [expandedPathId, setExpandedPathId] = useState<string | null>(null);
@@ -52,36 +44,15 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
     setExpandedPathId(isCollapsing ? null : path.id);
   };
 
-  // OFD 목록을 변전소 단위로 그룹핑
-  const { data: ofdList, isLoading: isLoadingOfd } = useQuery({
-    queryKey: ['equipment', 'ofd-list'],
-    queryFn: async () => {
-      const { data } = await api.get<{ data: OfdEquipment[] }>('/equipment', {
-        params: { kind: 'OFD' },
-      });
-      return data.data;
-    },
-    enabled: showCreate,
-  });
-
-  // Merge unsaved OFD equipment from local store
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const unsavedOfds: OfdEquipment[] = localEquipment
-    .filter((eq) => isTempId(eq.id) && eq.kind === 'OFD')
-    .map((eq) => ({ id: eq.id, name: eq.name }));
-
-  const mergedOfdList = [
-    ...(ofdList ?? []),
-    ...unsavedOfds.filter((u) => !(ofdList ?? []).some((s) => s.id === u.id)),
-  ];
-
-  // 자기 자신만 제외, 변전소명으로 필터
-  const filteredList = mergedOfdList
+  // Picker 용 OFD 목록 — useOfdDirectory 가 saved + 로컬 unsaved 합쳐 줌.
+  const ofdDirectory = useOfdDirectory();
+  const filteredList = [...ofdDirectory.values()]
     .filter((eq) => eq.id !== ofdId)
     .filter((eq) => {
       if (!searchTerm) return true;
-      return (eq.substationName ?? eq.name ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+      return (eq.substationName || eq.name).toLowerCase().includes(searchTerm.toLowerCase());
     });
+  const isLoadingOfd = ofdDirectory.size === 0;
 
   const handleCreate = (targetOfdId: string) => {
     addPendingFiberPath({
@@ -104,11 +75,6 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
       deleteFiberPath(pathId);
     }
   };
-
-  // Build pending paths as FiberPathDetail-like objects for display
-  const pendingPathsForThisOfd = pendingFiberPaths.filter(
-    (fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId
-  );
 
   const getUsageCount = (path: FiberPathDetail): number => {
     return path.ports.filter((p) => p.sideA || p.sideB).length;
@@ -191,34 +157,8 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
         </div>
       )}
 
-      {/* Pending fiber paths */}
-      {pendingPathsForThisOfd.length > 0 && (
-        <div className="space-y-2 mb-2">
-          {pendingPathsForThisOfd.map((fp) => (
-            <div key={fp.id} className="rounded border border-gray-200 bg-white">
-              <div className="flex items-center justify-between px-3 py-2">
-                <div>
-                  <span className="text-sm font-medium text-gray-700">
-                    새 경로
-                  </span>
-                  <span className="ml-2 text-xs text-gray-400">
-                    {fp.portCount}코어
-                  </span>
-                </div>
-                <button
-                  onClick={() => removePendingFiberPath(fp.id)}
-                  className="rounded px-2 py-0.5 text-xs text-red-500 hover:bg-red-50"
-                >
-                  삭제
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Saved path list */}
-      {activePaths.length === 0 && pendingPathsForThisOfd.length === 0 ? (
+      {/* Path list — pending + saved 모두 usePortStatus.mergedPaths 에 포함 */}
+      {activePaths.length === 0 ? (
         <p className="text-sm text-gray-400">등록된 경로가 없습니다.</p>
       ) : (
         <div className="space-y-2">

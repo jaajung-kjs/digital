@@ -55,12 +55,18 @@ export interface LocalCable {
   fiberPathLabel?: string | null;
 }
 
+/**
+ * Pending fiber path — canonical intent (저장될 row 의 shape).
+ * Display 시점에 useOfdDirectory 로 substationName 합성 (composePendingPath).
+ * Cross-substation OFD 정보는 directory 에만 의존 — git-like working copy 가
+ * 자신만의 표현 사본을 들지 않게.
+ */
 export interface PendingFiberPath {
   id: string;
   ofdAId: string;
   ofdBId: string;
   portCount: number;
-  description?: string;
+  description?: string | null;
 }
 
 export interface PendingUpload {

@@ -254,7 +254,19 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         for (const log of draft.pendingLogs) store.addPendingLog(log);
       }
       if (draft.pendingFiberPaths) {
-        for (const fp of draft.pendingFiberPaths) store.addPendingFiberPath(fp);
+        // Drafts 은 canonical shape — legacy nested shape (이전 brief 시기) 도 흡수.
+        for (const fp of draft.pendingFiberPaths) {
+          const ofdAId = fp.ofdAId ?? fp.ofdA?.id;
+          const ofdBId = fp.ofdBId ?? fp.ofdB?.id;
+          if (!ofdAId || !ofdBId) continue;
+          store.addPendingFiberPath({
+            id: fp.id,
+            ofdAId,
+            ofdBId,
+            portCount: fp.portCount,
+            description: fp.description ?? null,
+          });
+        }
       }
       if (draft.deletedFiberPathIds) {
         for (const id of draft.deletedFiberPathIds) store.deleteFiberPath(id);
