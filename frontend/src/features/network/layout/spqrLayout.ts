@@ -229,7 +229,6 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
   // ─── 6. P-block (theta-graph) 배치 ────────────────────────────────────
   function placeP(block: BlockP, anchorOFD: string | null, anchorAngle: number) {
     const [poleA, poleB] = block.poles;
-    const K = block.paths.length;
     // pole 간 거리: 가장 긴 path 길이에 맞춰
     const maxLen = Math.max(...block.paths.map((p) => p.length), 1);
     const D = Math.max((BOX_W + NODE_GAP) * (maxLen + 1), BOX_W + NODE_GAP);
@@ -276,13 +275,20 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
     const px = -uy;
     const py = ux;
 
-    block.paths.forEach((path, k) => {
-      const apexOffset = (k - (K - 1) / 2) * H_STEP;
+    // Arc path (내부 노드 있음) 만 apex 분배 대상. Direct edge (length 0) 는 두 pole 사이
+    // 그냥 직선 — apex offset 무관 (배치할 내부 노드 없음). 따라서 arcs.length(=M) 만으로
+    // 대칭 분배. 이렇게 하면 K = M+D (D = direct count) 의 D 값에 관계없이 *항상 대칭*.
+    //   M=2 → ±0.5·H_STEP  (EC9: B, D 양쪽)
+    //   M=3 → −H_STEP, 0, +H_STEP
+    //   M=4 → ±0.5H_STEP, ±1.5H_STEP  (EC3: 4 path 대칭)
+    const arcs = block.paths.filter((p) => p.length > 0);
+    const M = arcs.length;
+    arcs.forEach((path, m) => {
+      const apexOffset = M > 1 ? (m - (M - 1) / 2) * H_STEP : 0;
       const L = path.length;
-      if (L === 0) return; // 직접 edge — 내부 노드 없음
       for (let i = 0; i < L; i++) {
         const t = (i + 1) / (L + 1);
-        // arc: t=0 에서 0, t=0.5 에서 max, t=1 에서 0. parabola 4t(1-t) * apexOffset
+        // parabolic arc: t=0,1 → offset 0; t=0.5 → offset=apexOffset
         const offset = 4 * apexOffset * t * (1 - t);
         const x = aPos.x + dx * t + px * offset;
         const y = aPos.y + dy * t + py * offset;
@@ -291,6 +297,7 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
         if (gid) nodeRingCenter.set(gid, center);
       }
     });
+    // Direct edge (length 0) 는 React Flow 가 두 pole 사이 자동 직선으로 그림. 위치 계산 불필요.
   }
 
   // ─── 7. R-block (Tutte's barycentric embedding) ────────────────────────
@@ -530,7 +537,8 @@ function extractPaths(
     }
   }
 
-  // 직접 edge u-v 가 있으면 빈 path (length 0) 추가
+  // 직접 edge u-v 가 있으면 빈 path (length 0) 추가. 순서는 임의 — placeP 가
+  // arc path 와 direct edge 를 분리해서 apex 분배하므로 순서 무관.
   if ((adj.get(u) ?? new Set()).has(v)) paths.push([]);
 
   return paths;
