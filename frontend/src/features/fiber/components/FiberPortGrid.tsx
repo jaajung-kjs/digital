@@ -36,6 +36,8 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
   const [selectedPort, setSelectedPort] = useState<number | null>(null);
   const ofdFlow = useOfdFlow();
   const isPortSelecting = ofdFlow?.phase === 'selectingPort';
+  const startTrace = usePathHighlightStore((s) => s.startTrace);
+  const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
 
   const isLocalA = fiberPath.ofdA.id === localOfdId;
   const localSub = isLocalA ? fiberPath.ofdA.substationName : fiberPath.ofdB.substationName;
@@ -48,6 +50,24 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
     isLocalA ? port.sideB : port.sideA;
 
   const selectedPortData = fiberPath.ports.find((p) => p.portNumber === selectedPort);
+
+  // 포트 셀 클릭 = "이 포트의 경로를 보고 싶다" — 셀 클릭 한 번으로 selectedPort 갱신
+  // + trace 시작/종료 동시. 빈 포트는 trace 종료, cable 있는 포트는 그 cable trace 시작.
+  const handleCellClick = (port: FiberPortStatus) => {
+    const isToggleOff = selectedPort === port.portNumber;
+    if (isToggleOff) {
+      setSelectedPort(null);
+      clearHighlight();
+      return;
+    }
+    setSelectedPort(port.portNumber);
+    const localSide = getLocalSide(port);
+    if (localSide?.cableId) {
+      void startTrace(localSide.cableId, '');
+    } else {
+      clearHighlight();
+    }
+  };
 
   return (
     <div>
@@ -73,7 +93,7 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
                   ? 'hover:border-blue-500 hover:bg-blue-100 hover:ring-2 hover:ring-blue-300 hover:shadow-md'
                   : 'hover:opacity-80'
               }`}
-              onClick={() => setSelectedPort(isSelected ? null : port.portNumber)}
+              onClick={() => handleCellClick(port)}
             >
               <div className="font-mono text-xs font-bold text-gray-700">
                 #{port.portNumber}
@@ -106,7 +126,7 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
           onNavigateRemote={remoteRoomId && onNavigateRemote ? () => {
             onNavigateRemote(remoteRoomId);
           } : undefined}
-          onClose={() => setSelectedPort(null)}
+          onClose={() => { setSelectedPort(null); clearHighlight(); }}
         />
       )}
 
@@ -162,22 +182,13 @@ function PortDetail({
   const localCable = useEditorStore((s) =>
     localSide ? s.localCables.find((c) => c.id === localSide.cableId) ?? null : null,
   );
-  const startTrace = usePathHighlightStore((s) => s.startTrace);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const traceActive = usePathHighlightStore((s) => s.active);
+  // trace 는 셀 클릭 (FiberPortGrid.handleCellClick) 에서 단일 진입 — 카드 본체 클릭은
+  // 시각 강조만. isCardSelected 는 *현재 셀 = 현재 trace cable* 인지의 표시용.
   const isCardSelected = traceActive && tracingCableId === localSide?.cableId;
 
-  const handleCardClick = () => {
-    if (!localSide?.cableId) return;
-    if (isCardSelected) {
-      clearHighlight();
-    } else {
-      startTrace(localSide.cableId, '');
-    }
-  };
-
-  // 배지 라벨/색상: cable category > cableType. (FIBER 경로니까 fallback 도 FIBER.)
   const badgeLabel =
     localCable?.categoryName ?? localCable?.categoryCode ?? localCable?.cableType ?? 'FIBER';
   const badgeColor =
@@ -198,14 +209,14 @@ function PortDetail({
         </button>
       </div>
 
-      {/* Cable card — ConnectionDiagram 톤. 본체 클릭 = 자국 cable trace 시작. */}
+      {/* Cable card — ConnectionDiagram 톤. trace 는 셀 클릭에서 이미 시작됐고
+          여기는 그 결과의 시각 카드. */}
       {hasLocal ? (
         <div
-          onClick={handleCardClick}
-          className={`group cursor-pointer rounded border px-3 py-2 transition-colors ${
+          className={`group rounded border px-3 py-2 transition-colors ${
             isCardSelected
               ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300'
-              : 'border-gray-200 bg-white hover:bg-blue-50'
+              : 'border-gray-200 bg-white'
           }`}
         >
           <div className="flex items-center gap-2 text-sm">
