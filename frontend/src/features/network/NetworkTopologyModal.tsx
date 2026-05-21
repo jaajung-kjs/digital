@@ -28,6 +28,8 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { useNetworkTopologyStore } from './store';
+import { computeLayoutBCTree } from './layout/bcTreeLayout';
+import { FloatingEdge } from './edges/FloatingEdge';
 import type { TraceNode, TraceRing, TraceResult } from '../pathTrace/types';
 
 // ── Topology tier → 색·굵기 (시드 cable/같은 ring/상위 ring/분기점/기본) ────────
@@ -70,10 +72,9 @@ function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
       className="rounded-lg bg-white shadow-sm overflow-hidden"
       style={{ border: `${borderWidth}px solid ${borderColor}`, minWidth: 160 }}
     >
-      <Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
-      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+      {/* Floating edge 가 노드 중심 기준 경계점을 계산하므로 핸들 위치 무관 — 단일 (hidden) 핸들 한 쌍만 둠. */}
+      <Handle type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%' }} />
+      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, top: '50%', left: '50%' }} />
 
       <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200">
         <div className="flex items-center justify-between">
@@ -103,6 +104,7 @@ function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
 }
 
 const nodeTypes = { substation: SubstationNode };
+const edgeTypes = { floating: FloatingEdge };
 
 // ── Substation 그룹화 + layout ─────────────────────────────────────────────
 
@@ -129,72 +131,6 @@ function groupBySubstation(nodes: TraceNode[]): SubstationGroup[] {
     }
   }
   return Array.from(groups.values());
-}
-
-const RING_RADIUS = 220;
-const RING_GAP = 480;
-
-/**
- * 변전소 그룹의 좌표 계산.
- *   level-0 ring 마다 원형 배치, junction (이전 ring 에서 배치된 노드) 좌표 재사용.
- */
-function computeLayout(
-  groups: SubstationGroup[],
-  rings: TraceRing[],
-): Map<string, { x: number; y: number }> {
-  const positions = new Map<string, { x: number; y: number }>();
-
-  // OFD id → substation group id 매핑
-  const ofdToGroup = new Map<string, string>();
-  for (const g of groups) if (g.ofdNode) ofdToGroup.set(g.ofdNode.equipmentId, g.id);
-
-  const fundamental = rings.filter((r) => r.level === 0);
-
-  fundamental.forEach((ring, ringIdx) => {
-    const cx = 400 + ringIdx * RING_GAP;
-    const cy = 400;
-    const nodeIds = ring.nodeIds;
-    const N = nodeIds.length;
-    if (N === 0) return;
-
-    // 이미 다른 ring 에서 배치된 노드를 기준 각도로
-    let startAngle = -Math.PI / 2;
-    let startIdx = 0;
-    for (let i = 0; i < N; i++) {
-      const groupId = ofdToGroup.get(nodeIds[i]);
-      if (groupId && positions.has(groupId)) {
-        startIdx = i;
-        const p = positions.get(groupId)!;
-        startAngle = Math.atan2(p.y - cy, p.x - cx);
-        break;
-      }
-    }
-
-    for (let i = 0; i < N; i++) {
-      const idx = (startIdx + i) % N;
-      const groupId = ofdToGroup.get(nodeIds[idx]);
-      if (!groupId) continue;
-      if (positions.has(groupId)) continue;
-      const angle = startAngle + (i * 2 * Math.PI) / N;
-      positions.set(groupId, {
-        x: cx + RING_RADIUS * Math.cos(angle),
-        y: cy + RING_RADIUS * Math.sin(angle),
-      });
-    }
-  });
-
-  // ring 에 속하지 않은 그룹 — 좌측 상단 grid (트레이스의 leaf/단일선)
-  let stragglerIdx = 0;
-  for (const g of groups) {
-    if (!positions.has(g.id)) {
-      positions.set(g.id, {
-        x: -200 + (stragglerIdx % 4) * 180,
-        y: -200 + Math.floor(stragglerIdx / 4) * 100,
-      });
-      stragglerIdx++;
-    }
-  }
-  return positions;
 }
 
 // ── Ring 강조 set 계산 ──────────────────────────────────────────────────────
@@ -240,14 +176,20 @@ export function NetworkTopologyModal() {
     if (!traceResult) return { nodes: [], edges: [] };
 
     const groups = groupBySubstation(traceResult.nodes);
-    const positions = computeLayout(groups, traceResult.rings);
+    const ofdToGroup = new Map<string, string>();
+    for (const g of groups) if (g.ofdNode) ofdToGroup.set(g.ofdNode.equipmentId, g.id);
+
+    // Layout: BC-tree composition. 각 ring 을 정다각형으로, junction 공유는 tangent 로 — closed-form.
+    const positions = computeLayoutBCTree({
+      nodeIds: groups.map((g) => g.id),
+      ofdToGroup,
+      edges: traceResult.edges,
+      rings: traceResult.rings,
+    });
     const { seedRingNodes, seedRingEdges, superRingNodes, superRingEdges } = computeRingHighlights(
       traceResult.rings,
       highlightedFpId,
     );
-
-    const ofdToGroup = new Map<string, string>();
-    for (const g of groups) if (g.ofdNode) ofdToGroup.set(g.ofdNode.equipmentId, g.id);
 
     // 분기점 = OFD 가 2개 이상의 level-0 ring 에 포함
     const ringCount = new Map<string, number>();
@@ -289,6 +231,7 @@ export function NetworkTopologyModal() {
         id: e.id,
         source,
         target,
+        type: 'floating',
         label: e.fiberPathLabel ? e.fiberPathLabel.split('-').slice(0, 2).join('-') : undefined,
         labelStyle: { fontSize: 10, fill: '#6b7280' },
         labelBgStyle: { fill: '#ffffff', fillOpacity: 0.85 },
@@ -346,6 +289,7 @@ export function NetworkTopologyModal() {
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
               fitView
               fitViewOptions={{ padding: 0.15 }}
               proOptions={{ hideAttribution: true }}
