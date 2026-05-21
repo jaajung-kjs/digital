@@ -17,17 +17,7 @@
  */
 
 import type { TraceEdge, TraceRing } from '../../pathTrace/types';
-
-const BOX_W = 200;
-const NODE_GAP = 80;
-const BRIDGE_GAP = 240; // bridge 의 두 endpoint 사이 거리
-const LEAF_GAP = 220; // leaf chain 의 hop 거리
-
-/** Ring 반지름: 인접 노드 사이 chord 길이 = BOX_W + NODE_GAP. */
-function ringRadius(N: number): number {
-  if (N < 3) return BOX_W;
-  return (BOX_W + NODE_GAP) / (2 * Math.sin(Math.PI / N));
-}
+import { BRIDGE_GAP, LEAF_GAP, ringRadius } from './geometry';
 
 export interface BCTreeLayoutInput {
   nodeIds: string[];
@@ -213,8 +203,9 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
       if (!positions.has(nbr)) queue.push({ node: nbr, from: p });
     }
   }
-  while (queue.length > 0) {
-    const item = queue.shift()!;
+  let qhead = 0;
+  while (qhead < queue.length) {
+    const item = queue[qhead++];
     if (positions.has(item.node)) continue;
     const fromPos = positions.get(item.from)!;
     const outDir = outwardDir(item.from);
