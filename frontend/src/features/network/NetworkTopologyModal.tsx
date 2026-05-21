@@ -29,6 +29,7 @@ import '@xyflow/react/dist/style.css';
 
 import { useNetworkTopologyStore } from './store';
 import { computeLayoutBCTree } from './layout/bcTreeLayout';
+import { computeLayoutSPQR } from './layout/spqrLayout';
 import { FloatingEdge } from './edges/FloatingEdge';
 import type { TraceNode, TraceRing, TraceResult } from '../pathTrace/types';
 
@@ -179,13 +180,17 @@ export function NetworkTopologyModal() {
     const ofdToGroup = new Map<string, string>();
     for (const g of groups) if (g.ofdNode) ofdToGroup.set(g.ofdNode.equipmentId, g.id);
 
-    // Layout: BC-tree composition. 각 ring 을 정다각형으로, junction 공유는 tangent 로 — closed-form.
-    const positions = computeLayoutBCTree({
+    // Layout dispatcher:
+    //   level-1 composite ring 존재 (= cycle 들이 edge 공유 = SPQR 케이스) → SPQR layout
+    //   그 외 (BC-tree 친화) → 기존 BC-tree layout (회귀 0 보장)
+    const hasSPQR = traceResult.rings.some((r) => r.level === 1);
+    const layoutInput = {
       nodeIds: groups.map((g) => g.id),
       ofdToGroup,
       edges: traceResult.edges,
       rings: traceResult.rings,
-    });
+    };
+    const positions = hasSPQR ? computeLayoutSPQR(layoutInput) : computeLayoutBCTree(layoutInput);
     const { seedRingNodes, seedRingEdges, superRingNodes, superRingEdges } = computeRingHighlights(
       traceResult.rings,
       highlightedFpId,
