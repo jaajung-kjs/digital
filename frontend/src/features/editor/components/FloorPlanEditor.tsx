@@ -166,12 +166,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     } else if (mode.kind === 'cableDrawing') {
       interaction.cancel();
     }
-
-    if (mode.kind === 'ofdFlow') {
-      const phase = mode.data.phase;
-      if (!detailPanelEquipmentId && phase === 'selectingPort') interaction.cancel();
-      if (tool !== 'select' && phase === 'selectingTarget') interaction.cancel();
-    }
   }, [tool, detailPanelEquipmentId]);
 
   // 우측 detail panel 폭 (EquipmentDetailPanel.tsx 의 w-[360px] 와 동기화).

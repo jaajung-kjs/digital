@@ -102,9 +102,9 @@ export function useEditorKeyboard(
       }
 
       // Enter — trace selected cable
-      if (e.key === 'Enter' && es.selectedCableId && floorId) {
+      if (e.key === 'Enter' && es.selectedCableId) {
         e.preventDefault();
-        usePathHighlightStore.getState().startTrace(es.selectedCableId, floorId);
+        usePathHighlightStore.getState().startTrace(es.selectedCableId);
         return;
       }
 

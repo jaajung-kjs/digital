@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { useEditorStore } from './editorStore';
-import { generateTempId } from '../../../utils/idHelpers';
 
 // ── Cable drawing ────────────────────────────────────────────────────────────
 
@@ -57,33 +55,11 @@ const cableInitial: CableDrawingData = {
   hoveredEquipmentId: null,
 };
 
-// ── OFD flow ─────────────────────────────────────────────────────────────────
-
-export type OfdFlowPhase = 'selectingPort' | 'selectingTarget';
-
-/**
- * - ofdAsSource: OFD 를 먼저 클릭 → 포트 선택 → 캔버스에서 도착 설비 픽업
- * - ofdAsTarget: 비-OFD 출발 선택됨 → OFD 를 도착으로 클릭 → 포트 선택 시 즉시 생성
- */
-export type OfdFlowDirection = 'ofdAsSource' | 'ofdAsTarget';
-
-export interface OfdFlowData {
-  phase: OfdFlowPhase;
-  direction: OfdFlowDirection;
-  ofdId: string;
-  /** ofdAsTarget 일 때만 set */
-  sourceEquipmentId: string | null;
-  fiberPathId: string | null;
-  portNumber: number | null;
-  hoveredEquipmentId: string | null;
-}
-
 // ── Discriminated union ──────────────────────────────────────────────────────
 
 export type InteractionMode =
   | { kind: 'idle' }
-  | { kind: 'cableDrawing'; data: CableDrawingData }
-  | { kind: 'ofdFlow'; data: OfdFlowData };
+  | { kind: 'cableDrawing'; data: CableDrawingData };
 
 // ── Store ────────────────────────────────────────────────────────────────────
 
@@ -106,13 +82,6 @@ interface InteractionActions {
   cableRemoveLastWaypoint: () => void;
   cableSetPreviewPoint: (point: { x: number; y: number } | null) => void;
   cableSetHovered: (id: string | null) => void;
-  /** OFD flow 시작 — OFD 를 출발로 클릭한 경우 */
-  ofdStartFromOfd: (ofdId: string) => void;
-  /** OFD flow 시작 — 비-OFD 출발 선택 + OFD 를 도착으로 클릭한 경우 */
-  ofdStartToOfd: (sourceEquipmentId: string, ofdId: string) => void;
-  ofdSelectPort: (fiberPathId: string, portNumber: number) => void;
-  ofdCompleteConnection: (targetEquipmentId: string) => void;
-  ofdSetHovered: (id: string | null) => void;
 
   /** 어느 mode 든 강제 종료 → idle */
   cancel: () => void;
@@ -122,7 +91,7 @@ interface InteractionStore extends InteractionActions {
   mode: InteractionMode;
 }
 
-export const useInteractionStore = create<InteractionStore>((set, get) => ({
+export const useInteractionStore = create<InteractionStore>((set) => ({
   mode: { kind: 'idle' },
 
   // ── Cable drawing actions ────────────────────────────────────────────────
@@ -269,93 +238,6 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
       };
     }),
 
-  // ── OFD flow actions ─────────────────────────────────────────────────────
-  ofdStartFromOfd: (ofdId) =>
-    set({
-      mode: {
-        kind: 'ofdFlow',
-        data: {
-          phase: 'selectingPort',
-          direction: 'ofdAsSource',
-          ofdId,
-          sourceEquipmentId: null,
-          fiberPathId: null,
-          portNumber: null,
-          hoveredEquipmentId: null,
-        },
-      },
-    }),
-
-  ofdStartToOfd: (sourceEquipmentId, ofdId) =>
-    set({
-      mode: {
-        kind: 'ofdFlow',
-        data: {
-          phase: 'selectingPort',
-          direction: 'ofdAsTarget',
-          ofdId,
-          sourceEquipmentId,
-          fiberPathId: null,
-          portNumber: null,
-          hoveredEquipmentId: null,
-        },
-      },
-    }),
-
-  ofdSelectPort: (fiberPathId, portNumber) => {
-    const state = get();
-    if (state.mode.kind !== 'ofdFlow') return;
-    const { direction, sourceEquipmentId, ofdId } = state.mode.data;
-
-    if (direction === 'ofdAsTarget' && sourceEquipmentId && ofdId) {
-      // OFD 가 도착이면 포트 선택과 동시에 케이블 생성 → 흐름 종료
-      useEditorStore.getState().addCable({
-        id: generateTempId(),
-        sourceEquipmentId,
-        targetEquipmentId: ofdId,
-        cableType: 'FIBER',
-        fiberPathId,
-        fiberPortNumber: portNumber,
-      });
-      set({ mode: { kind: 'idle' } });
-    } else {
-      // OFD 가 출발 → 포트 저장 + 캔버스에서 도착 픽업 대기
-      set({
-        mode: {
-          kind: 'ofdFlow',
-          data: { ...state.mode.data, fiberPathId, portNumber, phase: 'selectingTarget' },
-        },
-      });
-    }
-  },
-
-  ofdCompleteConnection: (targetEquipmentId) => {
-    const state = get();
-    if (state.mode.kind !== 'ofdFlow') return;
-    const { phase, direction, ofdId, fiberPathId, portNumber } = state.mode.data;
-    if (phase !== 'selectingTarget' || direction !== 'ofdAsSource') return;
-    if (!ofdId || !fiberPathId || !portNumber) return;
-
-    useEditorStore.getState().addCable({
-      id: generateTempId(),
-      sourceEquipmentId: ofdId,
-      targetEquipmentId,
-      cableType: 'FIBER',
-      fiberPathId,
-      fiberPortNumber: portNumber,
-    });
-    set({ mode: { kind: 'idle' } });
-  },
-
-  ofdSetHovered: (id) =>
-    set((state) => {
-      if (state.mode.kind !== 'ofdFlow') return state;
-      if (state.mode.data.hoveredEquipmentId === id) return state;
-      return {
-        mode: { kind: 'ofdFlow', data: { ...state.mode.data, hoveredEquipmentId: id } },
-      };
-    }),
-
   cancel: () =>
     set((state) => (state.mode.kind === 'idle' ? state : { mode: { kind: 'idle' } })),
 }));
@@ -370,20 +252,9 @@ export function useCableDrawing(): CableDrawingData | null {
   );
 }
 
-export function useOfdFlow(): OfdFlowData | null {
-  return useInteractionStore(
-    useShallow((s) => (s.mode.kind === 'ofdFlow' ? s.mode.data : null)),
-  );
-}
-
 // ── Imperative getters (event handlers / actions) ────────────────────────────
 
 export function getCableDrawing(): CableDrawingData | null {
   const m = useInteractionStore.getState().mode;
   return m.kind === 'cableDrawing' ? m.data : null;
-}
-
-export function getOfdFlow(): OfdFlowData | null {
-  const m = useInteractionStore.getState().mode;
-  return m.kind === 'ofdFlow' ? m.data : null;
 }

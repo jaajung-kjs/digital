@@ -8,12 +8,10 @@ import { circuitLabel } from '../../../types/distributionCircuit';
 
 
 interface ConnectionDiagramProps {
-  floorId: string;
   equipmentId: string;
 }
 
 export function ConnectionDiagram({
-  floorId,
   equipmentId,
 }: ConnectionDiagramProps) {
   const editorEquipment = useEditorStore((s) => s.localEquipment);
@@ -130,7 +128,7 @@ export function ConnectionDiagram({
               if (isCardSelected) {
                 clearHighlight();
               } else {
-                startTrace(cable.id, floorId);
+                startTrace(cable.id);
               }
             };
 

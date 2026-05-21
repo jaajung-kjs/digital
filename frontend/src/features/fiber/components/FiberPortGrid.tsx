@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { FiberPathDetail, FiberPortStatus, FiberPortUsage } from '../types';
-import { useOfdFlow } from '../../editor/stores/interactionStore';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { CABLE_COLORS } from '../../../types/connection';
@@ -34,8 +33,6 @@ function getSelectedColor(port: FiberPortStatus): string {
 
 export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDelete, onNavigateRemote }: FiberPortGridProps) {
   const [selectedPort, setSelectedPort] = useState<number | null>(null);
-  const ofdFlow = useOfdFlow();
-  const isPortSelecting = ofdFlow?.phase === 'selectingPort';
   const startTrace = usePathHighlightStore((s) => s.startTrace);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
 
@@ -63,7 +60,7 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
     setSelectedPort(port.portNumber);
     const localSide = getLocalSide(port);
     if (localSide?.cableId) {
-      void startTrace(localSide.cableId, '');
+      void startTrace(localSide.cableId);
     } else {
       clearHighlight();
     }
@@ -83,16 +80,10 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
           const isSelected = selectedPort === port.portNumber;
           const color = isSelected ? getSelectedColor(port) : getPortColor(port);
 
-          const isConnectable = isPortSelecting && !localSide;
-
           return (
             <div
               key={port.portNumber}
-              className={`rounded border p-1.5 text-center cursor-pointer transition-all ${color} ${
-                isConnectable
-                  ? 'hover:border-blue-500 hover:bg-blue-100 hover:ring-2 hover:ring-blue-300 hover:shadow-md'
-                  : 'hover:opacity-80'
-              }`}
+              className={`rounded border p-1.5 text-center cursor-pointer transition-all hover:opacity-80 ${color}`}
               onClick={() => handleCellClick(port)}
             >
               <div className="font-mono text-xs font-bold text-gray-700">

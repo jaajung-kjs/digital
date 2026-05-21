@@ -21,7 +21,7 @@ import {
 import { ConnectionLegend } from './ConnectionLegend';
 import { CableWaypointHandles } from './CableWaypointHandles';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
-import { useInteractionStore, useOfdFlow, type OfdFlowPhase } from '../../editor/stores/interactionStore';
+import { useInteractionStore } from '../../editor/stores/interactionStore';
 import { useCableHitTestStore } from '../stores/cableHitTestStore';
 
 interface ConnectionOverlayProps {
@@ -106,11 +106,6 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
   const highlightedNodeIds = usePathHighlightStore((s) => s.highlightedNodeIds);
   const highlightedEdgeIds = usePathHighlightStore((s) => s.highlightedEdgeIds);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
-
-  const ofdFlow = useOfdFlow();
-  const ofdFlowPhase: 'idle' | OfdFlowPhase = ofdFlow?.phase ?? 'idle';
-  const ofdFlowOfdId = ofdFlow?.ofdId ?? null;
-  const ofdFlowHoveredId = ofdFlow?.hoveredEquipmentId ?? null;
 
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
@@ -231,68 +226,23 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
       renderConnections(context, renderableConnections);
     }
 
-    // OFD flow: highlight OFD source
-    if (ofdFlowPhase === 'selectingTarget' && ofdFlowOfdId) {
-      const ofdPos = equipmentPositions.get(ofdFlowOfdId);
-      if (ofdPos) {
-        const scale = zoom / 100;
-        ctx.save();
-        ctx.setTransform(scale, 0, 0, scale, panX, panY);
-        ctx.shadowColor = '#3b82f6';
-        ctx.shadowBlur = 8;
-        ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([6, 3]);
-        ctx.strokeRect(ofdPos.x - 3, ofdPos.y - 3, ofdPos.width + 6, ofdPos.height + 6);
-        ctx.setLineDash([]);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#3b82f6';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('출발', ofdPos.x + ofdPos.width / 2, ofdPos.y - 8);
-        ctx.restore();
-      }
-    }
-
-    // OFD flow: hover highlight on target
-    if (ofdFlowPhase === 'selectingTarget' && ofdFlowHoveredId && ofdFlowHoveredId !== ofdFlowOfdId) {
-      const hoverPos = equipmentPositions.get(ofdFlowHoveredId);
-      if (hoverPos) {
-        const scale = zoom / 100;
-        ctx.save();
-        ctx.setTransform(scale, 0, 0, scale, panX, panY);
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 10;
-        ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([6, 3]);
-        ctx.strokeRect(hoverPos.x - 3, hoverPos.y - 3, hoverPos.width + 6, hoverPos.height + 6);
-        ctx.setLineDash([]);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = '#22c55e';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('도착', hoverPos.x + hoverPos.width / 2, hoverPos.y - 8);
-        ctx.restore();
-      }
-    }
   }, [renderableConnections, zoom, panX, panY, equipmentPositions, canvasRef,
     selectedCableId,
-    highlightActive, highlightedNodeIds, highlightedEdgeIds,
-    ofdFlowPhase, ofdFlowOfdId, ofdFlowHoveredId]);
+    highlightActive, highlightedNodeIds, highlightedEdgeIds]);
 
   // ESC key: cancel creation or clear highlight
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (ofdFlowPhase !== 'idle') useInteractionStore.getState().cancel();
         if (highlightActive) clearHighlight();
         if (selectedCableId) setSelectedCableId(null);
+        // cable drawing 진행 중일 때 ESC = 흐름 취소 (interactionStore.cancel)
+        useInteractionStore.getState().cancel();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [ofdFlowPhase, highlightActive, clearHighlight, selectedCableId, setSelectedCableId]);
+  }, [highlightActive, clearHighlight, selectedCableId, setSelectedCableId]);
 
   // Find selected cable for waypoint handles
   const selectedCable = useMemo(() => {
@@ -342,18 +292,6 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
           panX={panX}
           panY={panY}
         />
-      )}
-
-      {/* Status bar: OFD connection flow */}
-      {ofdFlowPhase === 'selectingTarget' && (
-        <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
-          style={{ zIndex: 15 }}
-        >
-          <span className="text-sm text-blue-600">
-            연결할 설비를 클릭하세요
-          </span>
-        </div>
       )}
 
       <ConnectionLegend />

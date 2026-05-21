@@ -54,7 +54,7 @@ interface PathHighlightState {
   highlightedEdgeIds: Set<string>;
   segments: PathSegment[];
 
-  startTrace: (cableId: string, currentRoomId: string) => void;
+  startTrace: (cableId: string) => void;
   /**
    * 전원 계통 추적 (상위 진입) — 분전반 회로(feeder/branch) 에서 fan-out.
    * 주어진 circuitId 들에 물린 케이블 + 반대편 endpoint 를 1-hop 하이라이트.
@@ -66,7 +66,7 @@ interface PathHighlightState {
 export const usePathHighlightStore = create<PathHighlightState>((set) => ({
   ...idleState(),
 
-  startTrace: async (cableId, _currentRoomId) => {
+  startTrace: async (cableId) => {
     const snapshotState = useSnapshotStore.getState();
     const editorState = useEditorStore.getState();
     const localCables = snapshotState.active ? snapshotState.cables : editorState.localCables;
