@@ -6,12 +6,11 @@ import type {
 } from '../../../types/floorPlan';
 import type { EquipmentKind } from '../../../types/equipmentKind';
 import type { RackPreset } from '../../../types/rackPreset';
-import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
+import type { RackModule } from '../../../types/rackModule';
 import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
-import { generateTempId, isTempId } from '../../../utils/idHelpers';
-import { nextNameFor } from '../utils/slotGeometry';
+import { isTempId } from '../../../utils/idHelpers';
 
 /** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
 export type ConnectionFilterKey = string;
@@ -322,12 +321,6 @@ export interface EditorStoreActions {
   setSelectedRackModuleId: (id: string | null) => void;
   setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
   setIsDraggingRackModule: (v: boolean) => void;
-  addRackModuleInline: (input: {
-    rackEquipmentId: string;
-    category: RackModuleCategory;
-    slotIndex: number;
-    slotSpan: number;
-  }) => void;
 
   // DWG-C: background layer visibility actions.
   setHiddenBgLayers: (next: Set<string>) => void;
@@ -674,38 +667,6 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     ),
   setAddingAtSlot: (s) => set({ addingAtSlot: s }),
   setIsDraggingRackModule: (v) => set({ isDraggingRackModule: v }),
-  addRackModuleInline: ({ rackEquipmentId, category, slotIndex, slotSpan }) => {
-    const tempId = generateTempId();
-    const now = new Date().toISOString();
-    const allModules = get().localRackModules;
-    const rackModules = allModules.filter((m) => m.rackEquipmentId === rackEquipmentId);
-    const autoName = nextNameFor(rackModules, category);
-    const newModule: RackModule = {
-      id: tempId,
-      rackEquipmentId,
-      categoryId: category.id,
-      categoryCode: category.code,
-      categoryName: category.name,
-      categoryDisplayColor: category.displayColor,
-      categoryDefaultSlotSpan: category.defaultSlotSpan,
-      name: autoName,
-      slotIndex,
-      slotSpan,
-      installDate: null,
-      manager: null,
-      description: null,
-      properties: null,
-      sortOrder: slotIndex,
-      createdAt: now,
-      updatedAt: now,
-    };
-    set((state) => ({
-      localRackModules: [...state.localRackModules, newModule],
-      hasChanges: true,
-      addingAtSlot: null,
-    }));
-  },
-
   // DWG-C: replace the entire hidden-layer set in one go (e.g. when bulk
   // showing all). A new Set instance is required for React rerenders.
   setHiddenBgLayers: (next) => set({ hiddenBgLayers: new Set(next) }),

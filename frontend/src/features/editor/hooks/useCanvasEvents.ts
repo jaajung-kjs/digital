@@ -11,7 +11,6 @@ import { useEditorHistory } from './useEditorHistory';
 import {
   useInteractionStore,
   getCableDrawing,
-  getOfdFlow,
 } from '../stores/interactionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
@@ -205,13 +204,6 @@ export function useCanvasEvents(
       return;
     }
 
-    // OFD flow target hover
-    const ofdFlow = getOfdFlow();
-    if (ofdFlow?.phase === 'selectingTarget') {
-      updateHoveredEquipment(ofdFlow.hoveredEquipmentId, interaction.ofdSetHovered);
-      return;
-    }
-
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
 
@@ -369,17 +361,6 @@ export function useCanvasEvents(
     }
 
     // OFD flow target
-    const ofdFlow = getOfdFlow();
-    if (ofdFlow?.phase === 'selectingTarget') {
-      const found = findItemAt(x, y, null, localEquipment);
-      if (found?.type === 'equipment' && found.item.id !== ofdFlow.ofdId) {
-        interaction.ofdCompleteConnection(found.item.id);
-      } else if (!found) {
-        interaction.cancel();
-      }
-      return;
-    }
-
     switch (tool) {
       case 'equipment': {
         // P9: rack preset armed → single click places the rack at the cursor

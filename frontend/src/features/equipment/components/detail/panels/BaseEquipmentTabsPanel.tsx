@@ -40,7 +40,7 @@ function resolveInitialTab(
 
 export function BaseEquipmentTabsPanel({
   equipmentId,
-  floorId,
+  floorId: _floorId,
   fourthTab,
   fifthTab,
   initialTab,
@@ -106,7 +106,7 @@ export function BaseEquipmentTabsPanel({
             {activeTab === 'fourth' && (
               fourthTab
                 ? fourthTab.render()
-                : <ConnectionsTab equipmentId={equipmentId} floorId={floorId} />
+                : <ConnectionsTab equipmentId={equipmentId} />
             )}
             {activeTab === 'fifth' && fifthTab?.render()}
           </>

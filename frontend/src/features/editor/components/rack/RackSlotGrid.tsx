@@ -6,7 +6,8 @@ import { EmptySlot } from './EmptySlot';
 import { ModuleCell } from './ModuleCell';
 import { CategoryComboboxPopover } from './CategoryComboboxPopover';
 import { useRackModuleCategories } from '../../../rack/hooks/useRackModuleCategories';
-import { availableSpanAt } from '../../utils/slotGeometry';
+import { availableSpanAt, nextNameFor } from '../../utils/slotGeometry';
+import { generateTempId } from '../../../../utils/idHelpers';
 
 interface Props {
   rackEquipmentId: string;
@@ -25,7 +26,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const addingAtSlot = useEditorStore((s) => s.addingAtSlot);
   const setAddingAtSlot = useEditorStore((s) => s.setAddingAtSlot);
-  const addRackModuleInline = useEditorStore((s) => s.addRackModuleInline);
+  const addRackModule = useEditorStore((s) => s.addRackModule);
   const { pushHistory } = useEditorHistory();
   const { data: categories } = useRackModuleCategories();
 
@@ -48,12 +49,28 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
     const slotSpan = Math.min(cat.defaultSlotSpan, avail);
     // Snapshot pre-add so Ctrl+Z restores empty slot.
     pushHistory(useEditorStore.getState().localEquipment);
-    addRackModuleInline({
+    const now = new Date().toISOString();
+    const newModule: RackModule = {
+      id: generateTempId(),
       rackEquipmentId,
-      category: cat,
+      categoryId: cat.id,
+      categoryCode: cat.code,
+      categoryName: cat.name,
+      categoryDisplayColor: cat.displayColor,
+      categoryDefaultSlotSpan: cat.defaultSlotSpan,
+      name: nextNameFor(modules, cat),
       slotIndex: addingAtSlot.slotIndex,
       slotSpan,
-    });
+      installDate: null,
+      manager: null,
+      description: null,
+      properties: null,
+      sortOrder: addingAtSlot.slotIndex,
+      createdAt: now,
+      updatedAt: now,
+    };
+    addRackModule(newModule);
+    setAddingAtSlot(null);
   };
 
   // 각 슬롯이 어떤 모듈에 속하는지 (없으면 빈 슬롯).
