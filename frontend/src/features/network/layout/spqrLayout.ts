@@ -26,15 +26,7 @@
  */
 
 import type { TraceEdge, TraceRing } from '../../pathTrace/types';
-
-const BOX_W = 200;
-const NODE_GAP = 80;
-
-/** 정 N-각형 반지름 (인접 노드 chord = BOX_W + NODE_GAP). */
-function ringRadius(N: number): number {
-  if (N < 3) return BOX_W;
-  return (BOX_W + NODE_GAP) / (2 * Math.sin(Math.PI / N));
-}
+import { BOX_W, LEAF_GAP, NODE_GAP, ringRadius } from './geometry';
 
 // ─── Block types ────────────────────────────────────────────────────────
 interface BlockS {
@@ -55,8 +47,8 @@ interface BlockR {
   outerOFDs: string[];
   /** 내부 vertex OFD ids (모든 block 멤버 중 외곽 아닌 것) */
   innerOFDs: string[];
-  /** block 의 모든 edge (OFD pair) */
-  edges: [string, string][];
+  /** block 의 인접도 — Tutte iteration 에서 neighbor 평균 계산용 (rebuild 회피) */
+  adj: Map<string, Set<string>>;
 }
 type Block = BlockS | BlockP | BlockR;
 
@@ -101,12 +93,12 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
   //   cycleDetection 의 fundamental cycle 들은 spanning tree path 를 공유해서 "common vertex"
   //   가 진짜 poles 가 아닌 경우 많음. 따라서 *실제 2-vertex cut* 을 brute force 로 찾는다.
   const edgeMap = new Map(edges.map((e) => [e.id, e] as const));
+  const ringById = new Map(rings.map((r) => [r.id, r] as const));
   for (const cr of compositeRings) {
-    const childRings = rings.filter((r) => cr.childRingIds.includes(r.id));
-    // block 의 OFD 와 edge 모음
+    const childRings = cr.childRingIds.map((id) => ringById.get(id)).filter((r): r is TraceRing => !!r);
+    // block 의 OFD 와 인접도 모음
     const blockOFDs = new Set<string>();
     const blockAdj = new Map<string, Set<string>>();
-    const blockEdges: [string, string][] = [];
     const seenEdge = new Set<string>();
     for (const c of childRings) {
       for (const n of c.nodeIds) blockOFDs.add(n);
@@ -117,7 +109,6 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
         if (!e) continue;
         const a = e.sourceEquipmentId;
         const b = e.targetEquipmentId;
-        blockEdges.push([a, b]);
         if (!blockAdj.has(a)) blockAdj.set(a, new Set());
         if (!blockAdj.has(b)) blockAdj.set(b, new Set());
         blockAdj.get(a)!.add(b);
@@ -127,7 +118,6 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
 
     const cut = findTwoVertexCut(blockOFDs, blockAdj);
     if (cut) {
-      // P-node — paths = poles 제거 후 components 각각 + 직접 edge (있으면 빈 path)
       const paths = extractPaths(blockOFDs, blockAdj, cut);
       blocks.push({ kind: 'P', poles: cut, paths });
     } else {
@@ -137,7 +127,7 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
       const outerOFDs = outer.nodeIds;
       const outerSet = new Set(outerOFDs);
       const innerOFDs = [...blockOFDs].filter((n) => !outerSet.has(n));
-      blocks.push({ kind: 'R', outerOFDs, innerOFDs, edges: blockEdges });
+      blocks.push({ kind: 'R', outerOFDs, innerOFDs, adj: blockAdj });
     }
   }
 
@@ -344,23 +334,12 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
       }
     }
 
-    // 내부 vertex 들의 block 내 이웃
-    const innerNeighbors = new Map<string, string[]>();
-    for (const ofd of block.innerOFDs) {
-      const nbrs: string[] = [];
-      for (const [a, b] of block.edges) {
-        if (a === ofd) nbrs.push(b);
-        else if (b === ofd) nbrs.push(a);
-      }
-      innerNeighbors.set(ofd, nbrs);
-    }
-
     for (let iter = 0; iter < 50; iter++) {
       for (const ofd of block.innerOFDs) {
         const gid = ofdToGroup.get(ofd);
         if (!gid) continue;
-        const nbrs = innerNeighbors.get(ofd) ?? [];
-        if (nbrs.length === 0) continue;
+        const nbrs = block.adj.get(ofd);
+        if (!nbrs || nbrs.size === 0) continue;
         let sumX = 0;
         let sumY = 0;
         let count = 0;
@@ -409,15 +388,15 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
     fpAdjGroup.get(s)!.add(t);
     fpAdjGroup.get(t)!.add(s);
   }
-  const LEAF_GAP = 220;
   const queue: { node: string; from: string }[] = [];
   for (const p of positions.keys()) {
     for (const n of fpAdjGroup.get(p) ?? []) {
       if (!positions.has(n)) queue.push({ node: n, from: p });
     }
   }
-  while (queue.length > 0) {
-    const item = queue.shift()!;
+  let qhead = 0;
+  while (qhead < queue.length) {
+    const item = queue[qhead++];
     if (positions.has(item.node)) continue;
     const fromPos = positions.get(item.from)!;
     const center = nodeRingCenter.get(item.from) ?? { x: 0, y: 0 };
@@ -448,24 +427,27 @@ function findTwoVertexCut(
   adj: Map<string, Set<string>>,
 ): [string, string] | null {
   const nodes = [...block];
+  const targetSize = nodes.length - 2;
+  if (targetSize < 1) return null;
   for (let i = 0; i < nodes.length; i++) {
+    const ri = nodes[i];
     for (let j = i + 1; j < nodes.length; j++) {
-      const removed = new Set([nodes[i], nodes[j]]);
-      const remaining = nodes.filter((n) => !removed.has(n));
-      if (remaining.length === 0) continue;
-      const visited = new Set<string>([remaining[0]]);
-      const queue = [remaining[0]];
-      while (queue.length > 0) {
-        const cur = queue.shift()!;
+      const rj = nodes[j];
+      let start: string | undefined;
+      for (const n of nodes) if (n !== ri && n !== rj) { start = n; break; }
+      if (!start) continue;
+      const visited = new Set<string>([start]);
+      const queue: string[] = [start];
+      let head = 0;
+      while (head < queue.length) {
+        const cur = queue[head++];
         for (const nbr of adj.get(cur) ?? []) {
-          if (removed.has(nbr) || visited.has(nbr) || !block.has(nbr)) continue;
+          if (nbr === ri || nbr === rj || visited.has(nbr) || !block.has(nbr)) continue;
           visited.add(nbr);
           queue.push(nbr);
         }
       }
-      if (visited.size < remaining.length) {
-        return [nodes[i], nodes[j]];
-      }
+      if (visited.size < targetSize) return [ri, rj];
     }
   }
   return null;
@@ -486,46 +468,45 @@ function extractPaths(
 
   for (const n of block) {
     if (seen.has(n)) continue;
-    // BFS to collect component
+    // BFS to collect component + detect u/v connection in single pass
     const comp = new Set<string>([n]);
     seen.add(n);
-    const queue = [n];
-    while (queue.length > 0) {
-      const cur = queue.shift()!;
-      for (const nbr of adj.get(cur) ?? []) {
+    let connectsU = false;
+    let connectsV = false;
+    let startV: string | null = null;
+    const queue: string[] = [n];
+    let qhead = 0;
+    while (qhead < queue.length) {
+      const cur = queue[qhead++];
+      const nbrs = adj.get(cur);
+      if (nbrs) {
+        if (nbrs.has(u)) { connectsU = true; if (!startV) startV = cur; }
+        if (nbrs.has(v)) connectsV = true;
+      }
+      for (const nbr of nbrs ?? []) {
         if (removed.has(nbr) || seen.has(nbr) || !block.has(nbr)) continue;
         comp.add(nbr);
         seen.add(nbr);
         queue.push(nbr);
       }
     }
-    // component 가 u, v 양쪽 모두에 인접한지
-    const connectsU = [...comp].some((n2) => (adj.get(n2) ?? new Set()).has(u));
-    const connectsV = [...comp].some((n2) => (adj.get(n2) ?? new Set()).has(v));
-    if (!connectsU || !connectsV) continue;
-    // u-adjacent 부터 v-adjacent 까지 path 트레이스
-    const startV = [...comp].find((n2) => (adj.get(n2) ?? new Set()).has(u))!;
+    if (!connectsU || !connectsV || !startV) continue;
+    // u-adjacent vertex → v-adjacent vertex path via BFS within component
     const parent = new Map<string, string | null>();
     parent.set(startV, null);
-    const bfs = [startV];
+    const bfs: string[] = [startV];
+    let bhead = 0;
     let endV: string | null = null;
-    while (bfs.length > 0) {
-      const cur = bfs.shift()!;
-      if ((adj.get(cur) ?? new Set()).has(v) && cur !== startV) {
-        endV = cur;
-        break;
-      }
-      if (cur === startV && (adj.get(cur) ?? new Set()).has(v) && comp.size === 1) {
-        endV = cur;
-        break;
-      }
+    while (bhead < bfs.length) {
+      const cur = bfs[bhead++];
+      if (cur !== startV && (adj.get(cur)?.has(v) ?? false)) { endV = cur; break; }
       for (const nbr of adj.get(cur) ?? []) {
         if (!comp.has(nbr) || parent.has(nbr)) continue;
         parent.set(nbr, cur);
         bfs.push(nbr);
       }
     }
-    if (endV === null && (adj.get(startV) ?? new Set()).has(v)) endV = startV;
+    if (endV === null && (adj.get(startV)?.has(v) ?? false)) endV = startV;
     if (endV) {
       const path: string[] = [];
       let c: string | null | undefined = endV;
@@ -558,35 +539,3 @@ function blockMembers(b: Block): Set<string> {
   return s;
 }
 
-// ─── helper: outer face 의 edge set 으로 cyclic 순서 walk (현재 미사용 — R-node 가
-//   largest child ring 의 nodeIds 를 직접 사용함. 향후 복잡한 외곽 face 처리에 보존.) ───
-// @ts-expect-error reserved for future R-node outer-face extraction
-function walkOuterCycle(outerNodes: string[], outerEdgeIds: Set<string>, allEdges: TraceEdge[]): string[] {
-  // outerEdgeIds 만으로 구성된 sub-graph 에서 cyclic walk.
-  const edgeMap = new Map(allEdges.map((e) => [e.id, e]));
-  const nbrs = new Map<string, string[]>();
-  for (const eid of outerEdgeIds) {
-    const e = edgeMap.get(eid);
-    if (!e) continue;
-    const a = e.sourceEquipmentId;
-    const b = e.targetEquipmentId;
-    if (!nbrs.has(a)) nbrs.set(a, []);
-    if (!nbrs.has(b)) nbrs.set(b, []);
-    nbrs.get(a)!.push(b);
-    nbrs.get(b)!.push(a);
-  }
-  // walk: start at outerNodes[0], move to a neighbor, never revisit.
-  if (outerNodes.length === 0) return [];
-  const order: string[] = [outerNodes[0]];
-  const visited = new Set<string>([outerNodes[0]]);
-  let cur = outerNodes[0];
-  while (true) {
-    const ns = nbrs.get(cur) ?? [];
-    const next = ns.find((n) => !visited.has(n));
-    if (!next) break;
-    order.push(next);
-    visited.add(next);
-    cur = next;
-  }
-  return order;
-}

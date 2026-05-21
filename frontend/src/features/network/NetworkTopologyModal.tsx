@@ -1,17 +1,11 @@
 /**
  * Network Topology Modal — cable trace 결과를 React Flow 로 시각화.
  *
- * 입력: useNetworkTopologyStore.traceResult (= cableTracer 결과).
- *   - nodes: 도달한 모든 OFD/모듈
- *   - edges: 모든 cable + fiberPath edge
- *   - rings: cycleDetection 결과 (level-0 소링, level-1 대링/composite)
+ * 입력 = useNetworkTopologyStore.traceResult (cableTracer 결과). 변전소 단위로 노드 그룹화 후,
+ * BC-tree (vertex 공유) 또는 SPQR (edge 공유) layout 으로 좌표 계산. fiberPath edge 만 그림.
  *
- * 시각화:
- *   - 변전소 = React Flow 노드 (그 변전소 안 OFD + 모듈 leaf list 요약)
- *   - FiberPath edge = 변전소 간 (트레이스가 도달한 FP 만 — 시드에서 hop 한 path)
- *   - 시드 cable 의 fiberPathId 강조 (빨강)
- *   - 그 시드가 속한 ring 강조 (파랑)
- *   - 대링 (level-1) 은 별도 색 (보라) — 사용자 "상위 ring" 표시
+ * 시드 cable 의 fiberPathId 강조 (빨강), 시드가 속한 ring (파랑), 그 ring 을 포함하는 composite
+ * ring (보라), 분기점 (호박색 테두리). highlightedFpId 만 바뀌어도 layout 은 재계산 안 함.
  */
 
 import { useMemo } from 'react';
@@ -31,9 +25,8 @@ import { useNetworkTopologyStore } from './store';
 import { computeLayoutBCTree } from './layout/bcTreeLayout';
 import { computeLayoutSPQR } from './layout/spqrLayout';
 import { FloatingEdge } from './edges/FloatingEdge';
-import type { TraceNode, TraceRing, TraceResult } from '../pathTrace/types';
+import type { TraceNode, TraceRing } from '../pathTrace/types';
 
-// ── Topology tier → 색·굵기 (시드 cable/같은 ring/상위 ring/분기점/기본) ────────
 const TIER_COLOR = {
   seed: '#dc2626',
   seedRing: '#2563eb',
@@ -47,24 +40,21 @@ const EDGE_STYLE: Record<Tier, { stroke: string; width: number }> = {
   seed: { stroke: TIER_COLOR.seed, width: 3 },
   seedRing: { stroke: TIER_COLOR.seedRing, width: 2.5 },
   superRing: { stroke: TIER_COLOR.superRing, width: 2 },
-  junction: { stroke: TIER_COLOR.junction, width: 1.5 }, // edge 에선 안 쓰임
+  junction: { stroke: TIER_COLOR.junction, width: 1.5 },
   default: { stroke: TIER_COLOR.default, width: 1.5 },
 };
 
-// ── Custom substation node ─────────────────────────────────────────────────
+type NodeTier = Exclude<Tier, 'seed'>;
 
 type SubstationNodeData = {
   name: string;
   ofdName: string;
   modules: { id: string; name: string }[];
-  isJunction: boolean;
-  inSeedRing: boolean;
-  inSuperRing: boolean;
+  tier: NodeTier;
 };
 
 function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
-  const { name, ofdName, modules, isJunction, inSeedRing, inSuperRing } = data;
-  const tier: Tier = inSeedRing ? 'seedRing' : inSuperRing ? 'superRing' : isJunction ? 'junction' : 'default';
+  const { name, ofdName, modules, tier } = data;
   const borderColor = TIER_COLOR[tier];
   const borderWidth = tier === 'seedRing' || tier === 'junction' ? 2 : 1;
 
@@ -80,7 +70,7 @@ function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
       <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-gray-800 truncate">{name}</span>
-          {isJunction && (
+          {tier === 'junction' && (
             <span className="ml-1 shrink-0 text-[10px] text-amber-600 font-medium">분기점</span>
           )}
         </div>
@@ -107,34 +97,26 @@ function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
 const nodeTypes = { substation: SubstationNode };
 const edgeTypes = { floating: FloatingEdge };
 
-// ── Substation 그룹화 + layout ─────────────────────────────────────────────
-
 interface SubstationGroup {
   id: string;
   name: string;
   ofdNode: TraceNode | null;
-  modules: TraceNode[]; // OFD 가 아닌 노드들 (모듈/회로)
+  modules: TraceNode[];
 }
 
-/** traceResult.nodes 를 substationName 기준으로 그룹화. */
 function groupBySubstation(nodes: TraceNode[]): SubstationGroup[] {
   const groups = new Map<string, SubstationGroup>();
   for (const n of nodes) {
-    const key = n.substationName || n.substationId || n.equipmentId; // fallback
+    const key = n.substationName || n.substationId || n.equipmentId;
     if (!groups.has(key)) {
       groups.set(key, { id: key, name: n.substationName || n.equipmentName, ofdNode: null, modules: [] });
     }
     const g = groups.get(key)!;
-    if (n.materialCategoryCode === 'EQP-OFD') {
-      g.ofdNode = n;
-    } else {
-      g.modules.push(n);
-    }
+    if (n.materialCategoryCode === 'EQP-OFD') g.ofdNode = n;
+    else g.modules.push(n);
   }
   return Array.from(groups.values());
 }
-
-// ── Ring 강조 set 계산 ──────────────────────────────────────────────────────
 
 function computeRingHighlights(
   rings: TraceRing[],
@@ -144,16 +126,12 @@ function computeRingHighlights(
   const seedRingEdges = new Set<string>();
   const superRingNodes = new Set<string>();
   const superRingEdges = new Set<string>();
-
   if (!highlightedFpId) return { seedRingNodes, seedRingEdges, superRingNodes, superRingEdges };
 
-  // 시드 FP 가 속한 level-0 ring
   const seedRing = rings.find((r) => r.level === 0 && r.edgeIds.includes(highlightedFpId));
   if (seedRing) {
     for (const id of seedRing.nodeIds) seedRingNodes.add(id);
     for (const id of seedRing.edgeIds) seedRingEdges.add(id);
-
-    // 그 ring 을 포함하는 composite ring (level-1) 도 찾음 = "상위 ring"
     const superRing = rings.find((r) => r.level === 1 && r.childRingIds.includes(seedRing.id));
     if (superRing) {
       for (const id of superRing.nodeIds) superRingNodes.add(id);
@@ -163,8 +141,6 @@ function computeRingHighlights(
   return { seedRingNodes, seedRingEdges, superRingNodes, superRingEdges };
 }
 
-// ── Main Modal ─────────────────────────────────────────────────────────────
-
 export function NetworkTopologyModal() {
   const modalOpen = useNetworkTopologyStore((s) => s.modalOpen);
   const traceResult = useNetworkTopologyStore((s) => s.traceResult);
@@ -173,51 +149,62 @@ export function NetworkTopologyModal() {
   const error = useNetworkTopologyStore((s) => s.error);
   const close = useNetworkTopologyStore((s) => s.close);
 
-  const { nodes, edges } = useMemo<{ nodes: Node[]; edges: Edge[] }>(() => {
-    if (!traceResult) return { nodes: [], edges: [] };
-
+  // Layout 은 traceResult 만으로 결정 — highlightedFpId 변경 시 재계산 안 함.
+  const layoutData = useMemo(() => {
+    if (!traceResult) return null;
     const groups = groupBySubstation(traceResult.nodes);
     const ofdToGroup = new Map<string, string>();
     for (const g of groups) if (g.ofdNode) ofdToGroup.set(g.ofdNode.equipmentId, g.id);
 
-    // Layout dispatcher:
-    //   level-1 composite ring 존재 (= cycle 들이 edge 공유 = SPQR 케이스) → SPQR layout
-    //   그 외 (BC-tree 친화) → 기존 BC-tree layout (회귀 0 보장)
     const hasSPQR = traceResult.rings.some((r) => r.level === 1);
-    const layoutInput = {
-      nodeIds: groups.map((g) => g.id),
-      ofdToGroup,
-      edges: traceResult.edges,
-      rings: traceResult.rings,
-    };
+    const layoutInput = { nodeIds: groups.map((g) => g.id), ofdToGroup, edges: traceResult.edges, rings: traceResult.rings };
     const positions = hasSPQR ? computeLayoutSPQR(layoutInput) : computeLayoutBCTree(layoutInput);
+
+    // 분기점 = OFD 가 2개 이상의 level-0 ring 에 포함. ring 통계도 동일 loop 에서.
+    const ringCount = new Map<string, number>();
+    let fundamental = 0;
+    let composite = 0;
+    for (const r of traceResult.rings) {
+      if (r.level === 0) {
+        fundamental++;
+        for (const nid of r.nodeIds) ringCount.set(nid, (ringCount.get(nid) ?? 0) + 1);
+      } else {
+        composite++;
+      }
+    }
+    return { groups, ofdToGroup, positions, ringCount, fundamental, composite };
+  }, [traceResult]);
+
+  const { nodes, edges } = useMemo<{ nodes: Node[]; edges: Edge[] }>(() => {
+    if (!traceResult || !layoutData) return { nodes: [], edges: [] };
+    const { groups, ofdToGroup, positions, ringCount } = layoutData;
     const { seedRingNodes, seedRingEdges, superRingNodes, superRingEdges } = computeRingHighlights(
       traceResult.rings,
       highlightedFpId,
     );
 
-    // 분기점 = OFD 가 2개 이상의 level-0 ring 에 포함
-    const ringCount = new Map<string, number>();
-    for (const r of traceResult.rings.filter((r) => r.level === 0)) {
-      for (const nid of r.nodeIds) ringCount.set(nid, (ringCount.get(nid) ?? 0) + 1);
-    }
-    const isJunction = (ofdId: string) => (ringCount.get(ofdId) ?? 0) >= 2;
+    const nodes: Node<SubstationNodeData>[] = groups.map((g) => {
+      const ofdId = g.ofdNode?.equipmentId;
+      let tier: NodeTier = 'default';
+      if (ofdId) {
+        if (seedRingNodes.has(ofdId)) tier = 'seedRing';
+        else if (superRingNodes.has(ofdId)) tier = 'superRing';
+        else if ((ringCount.get(ofdId) ?? 0) >= 2) tier = 'junction';
+      }
+      return {
+        id: g.id,
+        type: 'substation',
+        position: positions.get(g.id) ?? { x: 0, y: 0 },
+        data: {
+          name: g.name,
+          ofdName: g.ofdNode?.equipmentName ?? '',
+          modules: g.modules.map((m) => ({ id: m.equipmentId, name: m.equipmentName })),
+          tier,
+        },
+      };
+    });
 
-    const nodes: Node<SubstationNodeData>[] = groups.map((g) => ({
-      id: g.id,
-      type: 'substation',
-      position: positions.get(g.id) ?? { x: 0, y: 0 },
-      data: {
-        name: g.name,
-        ofdName: g.ofdNode?.equipmentName ?? '',
-        modules: g.modules.map((m) => ({ id: m.equipmentId, name: m.equipmentName })),
-        isJunction: g.ofdNode ? isJunction(g.ofdNode.equipmentId) : false,
-        inSeedRing: g.ofdNode ? seedRingNodes.has(g.ofdNode.equipmentId) : false,
-        inSuperRing: g.ofdNode ? superRingNodes.has(g.ofdNode.equipmentId) && !seedRingNodes.has(g.ofdNode.equipmentId) : false,
-      },
-    }));
-
-    // FiberPath edge 만 (변전소 간). cable edge 는 변전소 안 표현이라 그래프에서 생략.
+    // FiberPath edge 만 그림 — cable edge 는 변전소 안 표현이라 그래프에서 생략.
     const edges: Edge[] = [];
     for (const e of traceResult.edges) {
       if (e.type !== 'fiberPath') continue;
@@ -243,11 +230,8 @@ export function NetworkTopologyModal() {
         style: { stroke, strokeWidth },
       });
     }
-
     return { nodes: nodes as Node[], edges };
-  }, [traceResult, highlightedFpId]);
-
-  const ringCounts = useMemoRingStats(traceResult);
+  }, [traceResult, layoutData, highlightedFpId]);
 
   if (!modalOpen) return null;
 
@@ -262,9 +246,9 @@ export function NetworkTopologyModal() {
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200">
           <div>
             <h3 className="text-sm font-semibold text-gray-800">네트워크 토폴로지</h3>
-            {traceResult && (
+            {traceResult && layoutData && (
               <p className="text-[11px] text-gray-500 mt-0.5">
-                {traceResult.nodes.length}개 노드 · {ringCounts.fundamental}개 링 · 상위링 {ringCounts.composite}개
+                {traceResult.nodes.length}개 노드 · {layoutData.fundamental}개 링 · 상위링 {layoutData.composite}개
               </p>
             )}
           </div>
@@ -325,19 +309,4 @@ export function NetworkTopologyModal() {
       </div>
     </div>
   );
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function useMemoRingStats(traceResult: TraceResult | null): { fundamental: number; composite: number } {
-  return useMemo(() => {
-    if (!traceResult) return { fundamental: 0, composite: 0 };
-    let f = 0;
-    let c = 0;
-    for (const r of traceResult.rings) {
-      if (r.level === 0) f++;
-      else c++;
-    }
-    return { fundamental: f, composite: c };
-  }, [traceResult]);
 }
