@@ -17,7 +17,6 @@ function nudgeEquipment(eq: FloorPlanEquipment, dx: number, dy: number): FloorPl
  */
 export function useEditorKeyboard(
   handleSave: () => void,
-  floorId?: string,
   containerRef?: React.RefObject<HTMLDivElement | null>,
   floorPlan?: FloorPlanDetail,
 ) {
@@ -210,5 +209,5 @@ export function useEditorKeyboard(
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleSave, pushHistory, undo, redo, floorId, containerRef, floorPlan]);
+  }, [handleSave, pushHistory, undo, redo, containerRef, floorPlan]);
 }

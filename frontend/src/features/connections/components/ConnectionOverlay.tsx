@@ -25,7 +25,6 @@ import { useInteractionStore } from '../../editor/stores/interactionStore';
 import { useCableHitTestStore } from '../stores/cableHitTestStore';
 
 interface ConnectionOverlayProps {
-  floorId: string;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
@@ -83,7 +82,7 @@ function mapPlanCablesToRenderable(
   return result;
 }
 
-export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOverlayProps) {
+export function ConnectionOverlay({ canvasRef }: ConnectionOverlayProps) {
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
@@ -233,12 +232,11 @@ export function ConnectionOverlay({ floorId: _roomId, canvasRef }: ConnectionOve
   // ESC key: cancel creation or clear highlight
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (highlightActive) clearHighlight();
-        if (selectedCableId) setSelectedCableId(null);
-        // cable drawing 진행 중일 때 ESC = 흐름 취소 (interactionStore.cancel)
-        useInteractionStore.getState().cancel();
-      }
+      if (e.key !== 'Escape') return;
+      if (highlightActive) clearHighlight();
+      if (selectedCableId) setSelectedCableId(null);
+      const interaction = useInteractionStore.getState();
+      if (interaction.mode.kind !== 'idle') interaction.cancel();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);

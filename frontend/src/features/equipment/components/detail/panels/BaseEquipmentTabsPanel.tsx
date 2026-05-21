@@ -16,7 +16,6 @@ export interface BaseTabSlot {
 
 interface Props {
   equipmentId: string;
-  floorId: string;
   /** 4번째 탭 교체. 기본은 '연결' = ConnectionsTab. */
   fourthTab?: BaseTabSlot;
   /** 5번째 탭 추가. 기본 없음. */
@@ -40,7 +39,6 @@ function resolveInitialTab(
 
 export function BaseEquipmentTabsPanel({
   equipmentId,
-  floorId: _floorId,
   fourthTab,
   fifthTab,
   initialTab,

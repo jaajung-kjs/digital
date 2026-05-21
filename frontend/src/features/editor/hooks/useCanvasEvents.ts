@@ -4,7 +4,7 @@ import { needsEndpointPicker } from '../../../types/equipmentKind';
 import { snapToGrid as snapToGridUtil } from '../../../utils/canvas/canvasTransform';
 import { findItemAt } from '../../../utils/floorplan/hitTestUtils';
 import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils/floorplan/dragSystem';
-import type { Position } from '../../../utils/floorplan/elementSystem';
+import { type Position, getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from './useEditorHistory';
@@ -294,10 +294,7 @@ export function useCanvasEvents(
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment') {
         const eq = found.item as FloorPlanEquipment;
-        const center = {
-          x: eq.positionX + eq.width / 2,
-          y: eq.positionY + eq.height / 2,
-        };
+        const center = getEquipmentCenter(eq);
         // P9: RACK / OFD endpoints require a module / port selection step.
         if (needsEndpointPicker(eq.kind)) {
           interaction.cableSetPendingSource(eq.id, center);
@@ -315,10 +312,7 @@ export function useCanvasEvents(
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment' && found.item.id !== cableDrawing.sourceEquipmentId) {
         const eq = found.item as FloorPlanEquipment;
-        const center = {
-          x: eq.positionX + eq.width / 2,
-          y: eq.positionY + eq.height / 2,
-        };
+        const center = getEquipmentCenter(eq);
         if (needsEndpointPicker(eq.kind)) {
           interaction.cableSetPendingTarget(eq.id, center);
         } else {
@@ -360,7 +354,6 @@ export function useCanvasEvents(
       return;
     }
 
-    // OFD flow target
     switch (tool) {
       case 'equipment': {
         // P9: rack preset armed → single click places the rack at the cursor

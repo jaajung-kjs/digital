@@ -1,5 +1,6 @@
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
+import { getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 
 /**
  * 설비가 움직이거나 크기가 변할 때 그 설비를 source/target 으로 가진 케이블의
@@ -13,10 +14,8 @@ export function syncCableEndpointsTo(movedEquipmentId: string): void {
   const store = useEditorStore.getState();
   const eq = store.localEquipment.find((e) => e.id === movedEquipmentId);
   if (!eq) return;
-  const newCenter: [number, number] = [
-    eq.positionX + eq.width / 2,
-    eq.positionY + eq.height / 2,
-  ];
+  const c = getEquipmentCenter(eq);
+  const newCenter: [number, number] = [c.x, c.y];
   // 모듈 endpoint 케이블도 부모 랙 이동에 따라와야 함 — 모듈은 별도 좌표 없이
   // 부모 랙 중심으로 렌더됨.
   const ownedModuleIds = new Set(

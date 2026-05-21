@@ -1,4 +1,5 @@
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule, type RackModuleCategory } from '../../../types/rackModule';
+import { generateTempId } from '../../../utils/idHelpers';
 
 interface Sized {
   id: string;
@@ -79,4 +80,39 @@ export function nextNameFor(
     if (match) maxN = Math.max(maxN, parseInt(match[1], 10));
   }
   return `${category.name}-${maxN + 1}`;
+}
+
+/**
+ * RackModule factory — 모든 인라인 add 진입점 (RackSlotGrid 의 빈 슬롯 클릭,
+ * PresetActionsBar 의 preset 적용) 이 같은 shape 으로 만든다.
+ */
+export function buildRackModule(args: {
+  rackEquipmentId: string;
+  category: RackModuleCategory;
+  slotIndex: number;
+  slotSpan: number;
+  name: string;
+  sortOrder?: number;
+}): RackModule {
+  const now = new Date().toISOString();
+  const { rackEquipmentId, category, slotIndex, slotSpan, name, sortOrder } = args;
+  return {
+    id: generateTempId(),
+    rackEquipmentId,
+    categoryId: category.id,
+    categoryCode: category.code,
+    categoryName: category.name,
+    categoryDisplayColor: category.displayColor,
+    categoryDefaultSlotSpan: category.defaultSlotSpan,
+    name,
+    slotIndex,
+    slotSpan,
+    installDate: null,
+    manager: null,
+    description: null,
+    properties: null,
+    sortOrder: sortOrder ?? slotIndex,
+    createdAt: now,
+    updatedAt: now,
+  };
 }

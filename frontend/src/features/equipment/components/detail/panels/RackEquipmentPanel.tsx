@@ -6,14 +6,12 @@ import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
 
 interface PanelProps {
   equipmentId: string;
-  floorId: string;
 }
 
-export function RackEquipmentPanel({ equipmentId, floorId }: PanelProps) {
+export function RackEquipmentPanel({ equipmentId }: PanelProps) {
   return (
     <BaseEquipmentTabsPanel
       equipmentId={equipmentId}
-      floorId={floorId}
       defaultTabIndex={4}
       fifthTab={{
         label: '내부 설비',
