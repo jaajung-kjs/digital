@@ -6,8 +6,7 @@ import { EmptySlot } from './EmptySlot';
 import { ModuleCell } from './ModuleCell';
 import { CategoryComboboxPopover } from './CategoryComboboxPopover';
 import { useRackModuleCategories } from '../../../rack/hooks/useRackModuleCategories';
-import { availableSpanAt, nextNameFor } from '../../utils/slotGeometry';
-import { generateTempId } from '../../../../utils/idHelpers';
+import { availableSpanAt, buildRackModule, nextNameFor } from '../../utils/slotGeometry';
 
 interface Props {
   rackEquipmentId: string;
@@ -49,27 +48,13 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
     const slotSpan = Math.min(cat.defaultSlotSpan, avail);
     // Snapshot pre-add so Ctrl+Z restores empty slot.
     pushHistory(useEditorStore.getState().localEquipment);
-    const now = new Date().toISOString();
-    const newModule: RackModule = {
-      id: generateTempId(),
+    addRackModule(buildRackModule({
       rackEquipmentId,
-      categoryId: cat.id,
-      categoryCode: cat.code,
-      categoryName: cat.name,
-      categoryDisplayColor: cat.displayColor,
-      categoryDefaultSlotSpan: cat.defaultSlotSpan,
-      name: nextNameFor(modules, cat),
+      category: cat,
       slotIndex: addingAtSlot.slotIndex,
       slotSpan,
-      installDate: null,
-      manager: null,
-      description: null,
-      properties: null,
-      sortOrder: addingAtSlot.slotIndex,
-      createdAt: now,
-      updatedAt: now,
-    };
-    addRackModule(newModule);
+      name: nextNameFor(modules, cat),
+    }));
     setAddingAtSlot(null);
   };
 

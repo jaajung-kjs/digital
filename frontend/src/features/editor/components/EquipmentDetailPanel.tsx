@@ -19,7 +19,7 @@ interface EquipmentDetailPanelProps extends PanelProps {}
  * no MaterialCategory lookup. RACK keeps the wider 480px layout to fit the
  * U-slot grid; everything else uses the standard 360px panel.
  */
-export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
+export function EquipmentDetailPanel({ equipmentId }: EquipmentDetailPanelProps) {
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
   const focusTick = useEditorStore((s) => s.focusTick);
   const snapshotActive = useSnapshotStore((s) => s.active);
@@ -106,7 +106,6 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
           <PanelComponent
             key={`${equipmentId}-${focusTick}`}
             equipmentId={equipmentId}
-            floorId={floorId}
           />
         )}
       </div>

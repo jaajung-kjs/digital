@@ -33,3 +33,7 @@ export function getEquipmentSize(eq: FloorPlanEquipment): Size {
 export function getEquipmentBoundingBox(eq: FloorPlanEquipment): BoundingBox {
   return { x: eq.positionX, y: eq.positionY, width: eq.width, height: eq.height };
 }
+
+export function getEquipmentCenter(eq: FloorPlanEquipment): Position {
+  return { x: eq.positionX + eq.width / 2, y: eq.positionY + eq.height / 2 };
+}

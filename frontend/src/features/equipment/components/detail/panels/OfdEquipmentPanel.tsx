@@ -8,14 +8,12 @@ import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
 
 interface PanelProps {
   equipmentId: string;
-  floorId: string;
 }
 
-export function OfdEquipmentPanel({ equipmentId, floorId }: PanelProps) {
+export function OfdEquipmentPanel({ equipmentId }: PanelProps) {
   return (
     <BaseEquipmentTabsPanel
       equipmentId={equipmentId}
-      floorId={floorId}
       fourthTab={{
         label: '경로',
         render: () => <OfdPathsView equipmentId={equipmentId} />,

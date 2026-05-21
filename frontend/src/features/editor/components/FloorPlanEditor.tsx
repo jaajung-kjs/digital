@@ -86,7 +86,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     floor, floorPlan, floorLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
   } = useFloorPlanData(floorId, containerRef);
 
-  useEditorKeyboard(handleSave, floorId, containerRef, floorPlan);
+  useEditorKeyboard(handleSave, containerRef, floorPlan);
   const { pushHistory } = useEditorHistory();
 
   const handlePasteEquipment = useCallback(() => {
@@ -153,10 +153,8 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, floorPlan]);
 
-  // ── tool / 컨텍스트 ↔ interaction mode sync ────────────────────────────────
-  // 케이블 도구 선택 시 cableDrawing 모드 진입, 다른 도구 전환 시 종료.
-  // OFD 흐름은 detail panel + 캔버스의 합성이므로 컨텍스트 깨지면 종료.
-  // 단일 union 으로 통합되어 모순 상태 자체가 불가능해 sync effect 도 한 곳에서.
+  // tool ↔ interaction mode sync — 케이블 도구 선택 시 cableDrawing 진입,
+  // 다른 도구로 전환 시 종료.
   useEffect(() => {
     const interaction = useInteractionStore.getState();
     const mode = interaction.mode;
@@ -166,7 +164,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     } else if (mode.kind === 'cableDrawing') {
       interaction.cancel();
     }
-  }, [tool, detailPanelEquipmentId]);
+  }, [tool]);
 
   // 우측 detail panel 폭 (EquipmentDetailPanel.tsx 의 w-[360px] 와 동기화).
   const RIGHT_PANEL_WIDTH = 360;
@@ -552,7 +550,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 onPlacePreset={handlePlacePreset}
                 onImportClick={() => setShowImportModal(true)}
               >
-                <ConnectionOverlay floorId={floorId} canvasRef={canvasRef} />
+                <ConnectionOverlay canvasRef={canvasRef} />
                 <CablePathOverlayWrapper canvasRef={canvasRef} />
                 <EquipmentResizeHandlesHost />
                 <ToolStatusBar />
@@ -561,7 +559,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               <NetworkTopologyModal />
 
               {detailPanelEquipmentId && (
-                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} floorId={floorId} />
+                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} />
               )}
 
 

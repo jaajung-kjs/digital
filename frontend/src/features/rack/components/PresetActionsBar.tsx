@@ -3,9 +3,9 @@ import { useEditorStore } from '../../editor/stores/editorStore';
 import { useRackPresets } from '../hooks/useRackPresets';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
 import { useIsAdmin } from '../../../stores/authStore';
-import { generateTempId } from '../../../utils/idHelpers';
 import type { RackPreset } from '../../../types/rackPreset';
-import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
+import type { RackModuleCategory } from '../../../types/rackModule';
+import { buildRackModule } from '../../editor/utils/slotGeometry';
 import { readSourcePresetId, updateRackSourcePreset } from '../utils/sourcePreset';
 import { SaveRackAsPresetDialog } from './SaveRackAsPresetDialog';
 
@@ -197,7 +197,6 @@ function applyPresetToRack(
   const codeToCategory = new Map<string, RackModuleCategory>(
     categories.map((c) => [c.code, c]),
   );
-  const now = new Date().toISOString();
   preset.modules.forEach((mod, idx) => {
     const cat = codeToCategory.get(mod.categoryCode);
     if (!cat) {
@@ -207,26 +206,14 @@ function applyPresetToRack(
       );
       return;
     }
-    const newModule: RackModule = {
-      id: generateTempId(),
+    store.addRackModule(buildRackModule({
       rackEquipmentId,
-      categoryId: cat.id,
-      categoryCode: cat.code,
-      categoryName: cat.name,
-      categoryDisplayColor: cat.displayColor,
-      categoryDefaultSlotSpan: cat.defaultSlotSpan,
-      name: mod.defaultName ?? cat.name,
+      category: cat,
       slotIndex: mod.slotIndex,
       slotSpan: mod.slotSpan,
-      installDate: null,
-      manager: null,
-      description: null,
-      properties: null,
+      name: mod.defaultName ?? cat.name,
       sortOrder: idx,
-      createdAt: now,
-      updatedAt: now,
-    };
-    store.addRackModule(newModule);
+    }));
   });
 
   store.setHasChanges(true);

@@ -8,7 +8,6 @@ import { HvacPanel } from './HvacPanel';
 
 export interface PanelProps {
   equipmentId: string;
-  floorId: string;
 }
 
 const REGISTRY: Record<DetailPanelKind, ComponentType<PanelProps>> = {
