@@ -219,12 +219,16 @@ export function NetworkTopologyModal() {
             ? 'superRing'
             : 'default';
       const { stroke, width: strokeWidth } = EDGE_STYLE[tier];
+      // Label = `{src 변전소}-{tgt 변전소}#포트번호`. fiberPathLabel 자체가 src-tgt 형식
+      //   이지만 변전소명에 '-' 가 들어 있을 수 있으므로 split 하지 않고 그대로 사용.
+      const portSuffix = e.fiberPortNumber != null ? ` #${e.fiberPortNumber}` : '';
+      const label = e.fiberPathLabel ? `${e.fiberPathLabel}${portSuffix}` : undefined;
       edges.push({
         id: e.id,
         source,
         target,
         type: 'floating',
-        label: e.fiberPathLabel ? e.fiberPathLabel.split('-').slice(0, 2).join('-') : undefined,
+        label,
         labelStyle: { fontSize: 10, fill: '#6b7280' },
         labelBgStyle: { fill: '#ffffff', fillOpacity: 0.85 },
         style: { stroke, strokeWidth },
