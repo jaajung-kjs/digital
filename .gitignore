@@ -54,6 +54,9 @@ prisma/*.db-journal
 # Worktrees
 .worktrees/
 
+# Claude Code agent-local artifacts (screenshots, locks, scratch)
+.claude/
+
 # Local data / source drawings (not for git)
 downloads/
 downloads.zip
