@@ -13,6 +13,7 @@ export interface GraphEdge {
  * start 에서 end 까지 홉 수 최단 경로를 이루는 엣지 id 배열을 반환.
  * 경로가 없으면 null, start === end 면 빈 배열.
  * 같은 길이의 경로가 여럿이면 BFS 가 먼저 도달한 것을 쓴다.
+ * 같은 두 노드를 잇는 평행 엣지가 여럿이면 edges 배열의 앞쪽 엣지를 쓴다.
  */
 export function findShortestPath(
   edges: GraphEdge[],
