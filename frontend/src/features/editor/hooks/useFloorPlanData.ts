@@ -72,7 +72,6 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     setLocalEquipment, setGridSize, setMajorGridSize,
     setHasChanges, setViewportInitialized,
     setViewport, viewportInitialized,
-    initHistory,
     stagedBackgroundDrawing, stagedBackgroundOpacity,
   } = useEditorStore();
   const { fitToContent, loadViewportState, saveViewportState, clearViewportState } = useViewport(floorId);
@@ -248,8 +247,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       useEditorStore.getState().setRestoredFromVersion(null);
 
       // Reset undo/redo history after successful save
-      const { localEquipment: currentEquipment, localCables: currentCables } = useEditorStore.getState();
-      initHistory(currentEquipment, currentCables);
+      useEditorStore.temporal.getState().clear();
     },
     onError: (error: unknown) => {
       const err = error as { response?: { data?: { message?: string } }; message?: string };
@@ -332,9 +330,8 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
 
     useEditorStore.getState().clearPendingData();
     setHasChanges(false);
-    initHistory(floorPlan.equipment, cables);
     setViewportInitialized(false);
-  }, [floorPlan, floorId, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, initHistory, setViewportInitialized]);
+  }, [floorPlan, floorId, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, setViewportInitialized]);
 
   // P9: seed `localRackModules` once the aggregate fetch lands. The hook above
   // re-runs whenever the rack equipment id set changes, so the working copy
@@ -348,6 +345,17 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     if (!aggregateDistCircuits) return;
     useEditorStore.getState().setDistributionCircuits(aggregateDistCircuits);
   }, [aggregateDistCircuits]);
+
+  // undo/redo baseline — 비동기 3쿼리(설비+케이블 / 랙모듈 / 회로)가 모두 store 에
+  // 반영된 뒤 temporal history 를 비운다. 초기 로드 중간 상태가 첫 undo 의 대상이
+  // 되어 랙 모듈이 사라지던 버그를 막는다. 저장 후 refetch 도 같은 effect 가 정리.
+  useEffect(() => {
+    if (!floorPlan) return;
+    const racksReady = rackEquipmentIds.length === 0 || aggregateRackModules !== undefined;
+    const distReady = distEquipmentIds.length === 0 || aggregateDistCircuits !== undefined;
+    if (!racksReady || !distReady) return;
+    useEditorStore.temporal.getState().clear();
+  }, [floorPlan, aggregateRackModules, aggregateDistCircuits, rackEquipmentIds, distEquipmentIds]);
 
   // Viewport initialization. Container layout is async — on first mount the
   // ref is set but clientWidth/Height can still be 0 for a frame. Without a

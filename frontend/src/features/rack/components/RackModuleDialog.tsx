@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
-import { useEditorHistory } from '../../editor/hooks/useEditorHistory';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
 import { toDateInputValue } from '../../../utils/date';
 import type { RackModule } from '../../../types/rackModule';
@@ -27,7 +26,6 @@ export function RackModuleDialog() {
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const { data: categories } = useRackModuleCategories();
-  const { pushHistory } = useEditorHistory();
 
   const mod = useMemo(
     () => (moduleId ? localRackModules.find((m) => m.id === moduleId) ?? null : null),
@@ -72,7 +70,6 @@ export function RackModuleDialog() {
   );
 
   const handleSave = () => {
-    pushHistory(useEditorStore.getState().localEquipment);
     updateRackModule(mod.id, {
       name: draft.name ?? mod.name,
       installDate: draft.installDate ?? null,
@@ -87,7 +84,6 @@ export function RackModuleDialog() {
     if (!confirm(`'${mod.name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) {
       return;
     }
-    pushHistory(useEditorStore.getState().localEquipment);
     // removeRackModule 가 store 차원에서 cascade 처리.
     removeRackModule(mod.id);
     setHasChanges(true);

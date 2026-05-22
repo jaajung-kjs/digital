@@ -1,52 +1,32 @@
 import { useCallback } from 'react';
-import type { FloorPlanEquipment } from '../../../types/floorPlan';
+import { useStore } from 'zustand';
 import { useEditorStore } from '../stores/editorStore';
 
 /**
- * Hook wrapping history actions on the editor store.
- * History captures equipment + cables (no elements — they were removed).
- *
- * Note: `canUndo`/`canRedo` are subscribed via selectors so the hook
- * re-renders when history advances. Other actions are pulled lazily.
+ * Editor undo/redo — zundo temporal 미들웨어 래퍼.
+ * temporal 이 추적 슬라이스를 모든 set 후 자동 snapshot 하므로 수동 history 관리가 없다.
+ * undo/redo 는 비추적 슬라이스인 hasChanges 만 직접 보정한다.
  */
 export function useEditorHistory() {
-  const setLocalEquipment = useEditorStore((s) => s.setLocalEquipment);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
 
-  // Subscribe to indices so consumers re-render on history changes
-  const historyIndex = useEditorStore((s) => s.historyIndex);
-  const historyLength = useEditorStore((s) => s.history.length);
-
-  const pushHistory = useCallback((equipment: FloorPlanEquipment[]) => {
-    const { localCables, pushHistory: push } = useEditorStore.getState();
-    push(equipment, localCables);
-  }, []);
+  // temporal 스토어 구독 — 스택 크기가 바뀌면 버튼 활성 상태가 갱신된다.
+  const canUndo = useStore(useEditorStore.temporal, (s) => s.pastStates.length > 0);
+  const canRedo = useStore(useEditorStore.temporal, (s) => s.futureStates.length > 0);
 
   const undo = useCallback(() => {
-    const prev = useEditorStore.getState().undo();
-    if (prev) {
-      setLocalEquipment(prev.equipment);
-      useEditorStore.getState().setCables(prev.cables);
-      useEditorStore.getState().setRackModules(prev.rackModules);
-      setHasChanges(true);
-    }
-  }, [setLocalEquipment, setHasChanges]);
+    const t = useEditorStore.temporal.getState();
+    if (t.pastStates.length === 0) return;
+    t.undo();
+    setHasChanges(true);
+  }, [setHasChanges]);
 
   const redo = useCallback(() => {
-    const next = useEditorStore.getState().redo();
-    if (next) {
-      setLocalEquipment(next.equipment);
-      useEditorStore.getState().setCables(next.cables);
-      useEditorStore.getState().setRackModules(next.rackModules);
-      setHasChanges(true);
-    }
-  }, [setLocalEquipment, setHasChanges]);
+    const t = useEditorStore.temporal.getState();
+    if (t.futureStates.length === 0) return;
+    t.redo();
+    setHasChanges(true);
+  }, [setHasChanges]);
 
-  return {
-    pushHistory,
-    undo,
-    redo,
-    canUndo: historyIndex > 0,
-    canRedo: historyIndex < historyLength - 1,
-  };
+  return { undo, redo, canUndo, canRedo };
 }

@@ -7,7 +7,6 @@ import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils
 import { type Position, getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
-import { useEditorHistory } from './useEditorHistory';
 import {
   useInteractionStore,
   getCableDrawing,
@@ -32,7 +31,6 @@ export function useCanvasEvents(
   _floorId: string | undefined,
   onPlacePreset?: () => void,
 ) {
-  const { pushHistory } = useEditorHistory();
   const editorStore = useEditorStore;
   // Canvas interaction state has been merged into editorStore (Tier D)
   const canvasStore = useEditorStore;
@@ -249,16 +247,10 @@ export function useCanvasEvents(
   }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore]);
 
   const handleCanvasMouseUp = useCallback(() => {
-    const { dragSession } = canvasStore.getState();
-    if (dragSession?.isActive) {
-      // 케이블 endpoint 는 이미 mouseMove 에서 라이브로 동기화돼 있으므로
-      // 여기선 단순히 history snapshot 만 찍어 undo 지원.
-      pushHistory(editorStore.getState().localEquipment);
-    }
     canvasStore.getState().setDragSession(null);
     canvasStore.getState().setIsPanning(false);
     canvasStore.getState().setPanStart(null);
-  }, [editorStore, canvasStore, pushHistory]);
+  }, [canvasStore]);
 
   useEffect(() => {
     const onWinMove = (e: MouseEvent) => {
@@ -392,7 +384,7 @@ export function useCanvasEvents(
         break;
       }
     }
-  }, [floorPlan, canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, pushHistory, onPlacePreset]);
+  }, [floorPlan, canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, onPlacePreset]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan) return;

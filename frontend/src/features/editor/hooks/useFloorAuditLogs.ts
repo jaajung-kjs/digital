@@ -107,7 +107,6 @@ export function usePreviewSnapshot(floorId: string | undefined) {
  */
 function applyPlanToEditor(plan: FloorPlanDetail) {
   const store = useEditorStore.getState();
-  const { initHistory } = store;
 
   useSnapshotStore.getState().exit();
 
@@ -143,7 +142,7 @@ function applyPlanToEditor(plan: FloorPlanDetail) {
   store.setMajorGridSize(plan.majorGridSize ?? DEFAULT_MAJOR_GRID_SIZE);
 
   store.setHasChanges(true);
-  initHistory(plan.equipment, cables);
+  useEditorStore.temporal.getState().clear();
 }
 
 /**

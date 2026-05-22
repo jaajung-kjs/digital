@@ -20,7 +20,7 @@ export function useEditorKeyboard(
   containerRef?: React.RefObject<HTMLDivElement | null>,
   floorPlan?: FloorPlanDetail,
 ) {
-  const { pushHistory, undo, redo } = useEditorHistory();
+  const { undo, redo } = useEditorHistory();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -90,7 +90,6 @@ export function useEditorKeyboard(
         if (e.key === 'ArrowUp') dy = -step;
         if (e.key === 'ArrowDown') dy = step;
 
-        pushHistory(localEquipment);
         const newEquipment = localEquipment.map((eq) =>
           es.selectedIds.includes(eq.id) ? nudgeEquipment(eq, dx, dy) : eq,
         );
@@ -116,7 +115,6 @@ export function useEditorKeyboard(
       if (isDeleteKey && es.selectedCableId) {
         e.preventDefault();
         if (!window.confirm('선택한 케이블을 삭제하시겠습니까?')) return;
-        pushHistory(localEquipment);
         es.deleteCable(es.selectedCableId);
         es.setSelectedCableId(null);
         es.setHasChanges(true);
@@ -130,7 +128,6 @@ export function useEditorKeyboard(
         const mod = useEditorStore.getState().localRackModules.find((m) => m.id === modId);
         const name = mod?.name ?? '모듈';
         if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
-        pushHistory(localEquipment);
         es.removeRackModule(modId);
         es.setSelectedRackModuleId(null);
         es.setHasChanges(true);
@@ -146,7 +143,6 @@ export function useEditorKeyboard(
           : `${equipmentToDelete.length}개 설비를 삭제하시겠습니까?`;
         if (!window.confirm(`${summary} 연결된 케이블도 함께 삭제됩니다.`)) return;
         for (const eq of equipmentToDelete) es.deleteEquipmentWithCascade(eq.id);
-        pushHistory(useEditorStore.getState().localEquipment);
         es.clearSelection();
         es.setHasChanges(true);
       }
@@ -209,5 +205,5 @@ export function useEditorKeyboard(
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleSave, pushHistory, undo, redo, containerRef, floorPlan]);
+  }, [handleSave, undo, redo, containerRef, floorPlan]);
 }

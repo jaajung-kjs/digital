@@ -91,7 +91,6 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
     origY: number;
     origW: number;
     origH: number;
-    historyPushed: boolean;
   } | null>(null);
 
   const onPointerDown = useCallback(
@@ -106,7 +105,6 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
         origY: equipment.positionY,
         origW: equipment.width,
         origH: equipment.height,
-        historyPushed: false,
       };
       setIsDragging(true);
 
@@ -166,15 +164,6 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
       const onMove = (ev: PointerEvent) => {
         const live = startRef.current;
         if (!live) return;
-        if (!live.historyPushed) {
-          const dx = ev.clientX - live.mouseX;
-          const dy = ev.clientY - live.mouseY;
-          if (Math.abs(dx) >= 2 || Math.abs(dy) >= 2) {
-            const store = useEditorStore.getState();
-            store.pushHistory(store.localEquipment, store.localCables, store.localRackModules);
-            live.historyPushed = true;
-          }
-        }
         apply(ev.clientX, ev.clientY);
       };
 
