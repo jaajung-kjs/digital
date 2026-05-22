@@ -94,16 +94,6 @@ export interface PendingLog {
   status?: string;
 }
 
-// ==================== History ====================
-
-export interface HistoryState {
-  equipment: FloorPlanEquipment[];
-  cables: LocalCable[];
-  rackModules: RackModule[];
-}
-
-const MAX_HISTORY = 50;
-
 // ==================== Store ====================
 
 export interface EditorStoreState {
@@ -228,10 +218,6 @@ export interface EditorStoreState {
   // (which reflects the source DWG's frozen/off state at import time).
   hiddenBgLayers: Set<string>;
 
-  // ==================== History (formerly historyStore) ====================
-
-  history: HistoryState[];
-  historyIndex: number;
 }
 
 export interface EditorStoreActions {
@@ -342,15 +328,6 @@ export interface EditorStoreActions {
   closeAllModals: () => void;
   resetDrawingState: () => void;
 
-  // ==================== History actions ====================
-
-  pushHistory: (equipment: FloorPlanEquipment[], cables?: LocalCable[], rackModules?: RackModule[]) => void;
-  undo: () => HistoryState | null;
-  redo: () => HistoryState | null;
-  canUndo: () => boolean;
-  canRedo: () => boolean;
-  initHistory: (equipment: FloorPlanEquipment[], cables?: LocalCable[]) => void;
-  resetHistory: () => void;
 }
 
 const initialState: EditorStoreState = {
@@ -408,9 +385,6 @@ const initialState: EditorStoreState = {
   isDraggingRackModule: false,
   hiddenBgLayers: new Set<string>(),
 
-  // History
-  history: [],
-  historyIndex: -1,
 };
 
 type FullStore = EditorStoreState & EditorStoreActions;
@@ -450,7 +424,7 @@ function revokeUploadUrls(uploads: PendingUpload[]) {
 
 export const useEditorStore = create<FullStore>()(
   temporal<FullStore, [], [], HistorySlice>(
-    (set, get) => ({
+    (set) => ({
       ...initialState,
 
       setTool: (tool) => set({ tool }),
@@ -741,61 +715,6 @@ export const useEditorStore = create<FullStore>()(
     previewPosition: null,
   }),
 
-  // ==================== History actions ====================
-
-  pushHistory: (equipment, cables, rackModules) => {
-    set((state) => {
-      const newHistory = state.history.slice(0, state.historyIndex + 1);
-      newHistory.push({
-        equipment: [...equipment],
-        cables: cables ? [...cables] : [...state.localCables],
-        rackModules: rackModules ? [...rackModules] : [...state.localRackModules],
-      });
-      if (newHistory.length > MAX_HISTORY) {
-        newHistory.shift();
-      }
-      return {
-        history: newHistory,
-        historyIndex: Math.min(newHistory.length - 1, MAX_HISTORY - 1),
-      };
-    });
-  },
-
-  undo: () => {
-    const state = get();
-    if (state.historyIndex > 0) {
-      const prev = state.history[state.historyIndex - 1];
-      set({ historyIndex: state.historyIndex - 1 });
-      return prev;
-    }
-    return null;
-  },
-
-  redo: () => {
-    const state = get();
-    if (state.historyIndex < state.history.length - 1) {
-      const next = state.history[state.historyIndex + 1];
-      set({ historyIndex: state.historyIndex + 1 });
-      return next;
-    }
-    return null;
-  },
-
-  canUndo: () => get().historyIndex > 0,
-  canRedo: () => get().historyIndex < get().history.length - 1,
-
-  initHistory: (equipment, cables) => {
-    set((state) => ({
-      history: [{
-        equipment: [...equipment],
-        cables: cables ? [...cables] : [],
-        rackModules: [...state.localRackModules],
-      }],
-      historyIndex: 0,
-    }));
-  },
-
-  resetHistory: () => set({ history: [], historyIndex: -1 }),
     }),
     {
       partialize: partializeForHistory,
