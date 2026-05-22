@@ -1,0 +1,200 @@
+import { PrismaClient, EquipmentKind, CableType } from '@prisma/client';
+
+/**
+ * 강원본부 직할 변전소 시드 — `직할_OFD선번장_251218_최종본.xlsx` 기반.
+ *
+ * 13개 국소 + 변전소쌍 단위 광경로(FiberPath). 각 국소는 OFD 선번장 1개를 보유하므로
+ * OFD 1 + RACK 1 + 송변전광단말장치 모듈 1 구조로 모델링하고, 연결된 변전소쌍마다
+ * FiberPath 1개 + 양측 패치 케이블 2개를 둔다 (seed-edge-cases 와 동일 구조 → 토폴로지
+ * 추적 가능).
+ *
+ * seed.ts 에서 호출 — 매 배포(`prisma db seed`)마다 실행. 모든 row 는 결정적 id +
+ * create-only upsert (`update: {}`) 라 재실행해도 중복 생성 없고 운영자 수정분은 보존된다
+ * (다만 운영자가 *삭제*한 row 는 다음 배포가 다시 생성함 — 의도된 동작).
+ *
+ * 경로는 선번장 각 시트의 상대국 블록 기준. 외부 상대국(홍천·청평·간성·가평 등 13개 밖)
+ * 으로의 연결은 이번 범위에서 제외 — 소양강수력은 홍천(외부)에만 연결돼 단독 노드.
+ */
+
+interface GwSub {
+  key: string;
+  name: string;
+}
+
+// 선번장 13개 시트 = 강원본부 직할 13개 국소. 변전소=S/S, 수력발전=H/P, 개폐소=S/Y.
+const SUBSTATIONS: GwSub[] = [
+  { key: 'guchuncheon', name: '(구)춘천S/S' },
+  { key: 'sinchuncheon', name: '(신)춘천S/S' },
+  { key: 'bukchuncheon', name: '북춘천S/S' },
+  { key: 'namchuncheon', name: '남춘천S/S' },
+  { key: 'seohongcheon', name: '서홍천S/S' },
+  { key: 'yeolbyeonghap', name: '열병합S/Y' },
+  { key: 'inje', name: '인제S/S' },
+  { key: 'yanggu', name: '양구S/S' },
+  { key: 'cheorwon', name: '철원S/S' },
+  { key: 'hwacheon', name: '화천S/S' },
+  { key: 'hwacheonhp', name: '화천H/P' },
+  { key: 'chuncheonhp', name: '춘천H/P' },
+  { key: 'soyanghp', name: '소양강H/P' },
+];
+
+// 변전소쌍 광경로 — 선번장 상대국 블록에서 양 끝이 모두 13개 안인 연결.
+const EDGES: [string, string][] = [
+  ['guchuncheon', 'sinchuncheon'],
+  ['guchuncheon', 'bukchuncheon'],
+  ['bukchuncheon', 'chuncheonhp'],
+  ['namchuncheon', 'yeolbyeonghap'],
+  ['seohongcheon', 'yeolbyeonghap'],
+  ['inje', 'yanggu'],
+  ['yanggu', 'hwacheonhp'],
+  ['cheorwon', 'hwacheon'],
+  ['hwacheon', 'hwacheonhp'],
+  ['hwacheonhp', 'chuncheonhp'],
+];
+
+const subId = (key: string) => `gw-sub-${key}`;
+const floorId = (key: string) => `gw-flr-${key}`;
+const ofdId = (key: string) => `gw-ofd-${key}`;
+const rackId = (key: string) => `gw-rack-${key}`;
+const moduleId = (key: string) => `gw-mod-${key}`;
+const fpId = (a: string, b: string) => `gw-fp-${a}-${b}`;
+
+export async function seedGangwonSubstations(prisma: PrismaClient, adminId: string) {
+  console.log('🌱 Seeding 강원본부 직할 변전소...');
+
+  const hq = await prisma.headquarters.findFirst({ where: { name: '강원본부' } });
+  if (!hq) {
+    console.warn('  ⚠️  강원본부 없음 — 강원 직할 시드 skip');
+    return;
+  }
+  const branch = await prisma.branch.findFirst({
+    where: { headquartersId: hq.id, name: '직할' },
+  });
+  if (!branch) {
+    console.warn('  ⚠️  강원본부 직할 지사 없음 — 강원 직할 시드 skip');
+    return;
+  }
+
+  const optTerm = await prisma.rackModuleCategory.findUnique({ where: { code: 'EQP-OPT-TERM' } });
+  const cblOpt = await prisma.cableCategory.findUnique({ where: { code: 'CBL-OPT' } });
+  if (!optTerm || !cblOpt) {
+    console.warn('  ⚠️  EQP-OPT-TERM / CBL-OPT 카테고리 없음 — 강원 직할 시드 skip');
+    return;
+  }
+
+  // ─── 국소별: 변전소 + 통신실 + OFD + RACK + 송변전광단말장치 모듈 ───
+  for (let i = 0; i < SUBSTATIONS.length; i++) {
+    const s = SUBSTATIONS[i];
+
+    await prisma.substation.upsert({
+      where: { id: subId(s.key) },
+      update: {},
+      create: {
+        id: subId(s.key),
+        branchId: branch.id,
+        name: s.name,
+        sortOrder: i,
+        createdById: adminId,
+        updatedById: adminId,
+      },
+    });
+
+    await prisma.floor.upsert({
+      where: { id: floorId(s.key) },
+      update: {},
+      create: {
+        id: floorId(s.key),
+        substationId: subId(s.key),
+        name: '통신실',
+        floorNumber: '1F',
+        sortOrder: 0,
+        createdById: adminId,
+        updatedById: adminId,
+      },
+    });
+
+    await prisma.equipment.upsert({
+      where: { id: ofdId(s.key) },
+      update: {},
+      create: {
+        id: ofdId(s.key),
+        floorId: floorId(s.key),
+        kind: EquipmentKind.OFD,
+        name: 'OFD',
+        positionX: 400,
+        positionY: 300,
+        width2d: 100,
+        height2d: 60,
+        sortOrder: 0,
+      },
+    });
+
+    await prisma.equipment.upsert({
+      where: { id: rackId(s.key) },
+      update: {},
+      create: {
+        id: rackId(s.key),
+        floorId: floorId(s.key),
+        kind: EquipmentKind.RACK,
+        name: '통신랙',
+        positionX: 700,
+        positionY: 300,
+        width2d: 120,
+        height2d: 80,
+        totalU: 12,
+        sortOrder: 1,
+      },
+    });
+
+    await prisma.rackModule.upsert({
+      where: { id: moduleId(s.key) },
+      update: {},
+      create: {
+        id: moduleId(s.key),
+        rackEquipmentId: rackId(s.key),
+        categoryId: optTerm.id,
+        name: '송변전광단말장치',
+        slotIndex: 0,
+        slotSpan: 1,
+        sortOrder: 0,
+      },
+    });
+  }
+
+  // ─── 변전소쌍별: FiberPath + 양측 패치 케이블 ───
+  const nameByKey = new Map(SUBSTATIONS.map((s) => [s.key, s.name]));
+  for (const [a, b] of EDGES) {
+    const id = fpId(a, b);
+    await prisma.fiberPath.upsert({
+      where: { id },
+      update: {},
+      create: {
+        id,
+        ofdAId: ofdId(a),
+        ofdBId: ofdId(b),
+        portCount: 24,
+        description: `${nameByKey.get(a)}-${nameByKey.get(b)} 송변전 광경로`,
+      },
+    });
+
+    for (const side of [a, b]) {
+      await prisma.cable.upsert({
+        where: { id: `gw-cbl-${id}-${side}` },
+        update: {},
+        create: {
+          id: `gw-cbl-${id}-${side}`,
+          sourceModuleId: moduleId(side),
+          targetEquipmentId: ofdId(side),
+          cableType: CableType.FIBER,
+          categoryId: cblOpt.id,
+          fiberPathId: id,
+          fiberPortNumber: 1,
+          label: `송변전광단말장치-OFD (${nameByKey.get(side)})`,
+          bufferLength: 4,
+        },
+      });
+    }
+  }
+
+  console.log(`  ✅ 강원 직할 ${SUBSTATIONS.length}개 변전소 / ${EDGES.length}개 광경로`);
+}
