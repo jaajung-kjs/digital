@@ -9,7 +9,8 @@
  *
  * 테스트 도구 (모달 한정 — 닫으면 초기화): 노드 클릭으로 최단경로(홉 수) 찾기, 엣지 호버 × 로
  * 경로 끊기, '경로 추가' 로 가상 엣지 추가. base 레이아웃은 절대 재계산하지 않고 — 변경은
- * 고정 화면 위 오버레이로만 표시해 before/after 비교가 가능하게 한다.
+ * 고정 화면 위 오버레이로만 표시해 before/after 비교가 가능하게 한다. 경로 표시 중에는 경로
+ * 외 엣지·노드를 흐려(포커스 디밍) 경로가 도드라지게 한다.
  */
 
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
@@ -51,11 +52,15 @@ const EDGE_STYLE: Record<Tier, { stroke: string; width: number }> = {
 };
 
 // 테스트 오버레이 엣지 스타일 — 우선순위 끊김 > 경로 > 추가 (기존 tier 위).
+// path = 도면 경로 trace 와 통일: 실선 + glow(drop-shadow).
 const TEST_EDGE_STYLE = {
   cut: { stroke: '#9ca3af', strokeWidth: 1.5, strokeDasharray: '4 4', opacity: 0.4 },
-  path: { stroke: '#16a34a', strokeWidth: 4 },
+  path: { stroke: '#16a34a', strokeWidth: 5, filter: 'drop-shadow(0 0 4px #16a34a)' },
   added: { stroke: '#0d9488', strokeWidth: 2, strokeDasharray: '6 3' },
 } as const;
+
+// 포커스 디밍 — 경로 표시 중 경로 외 엣지·노드 불투명도.
+const DIM_OPACITY = 0.2;
 
 type NodeTier = Exclude<Tier, 'seed'>;
 type PathRole = 'start' | 'end' | 'anchor';
@@ -220,18 +225,22 @@ export function NetworkTopologyModal() {
     resetTestState();
   }, [traceResult, resetTestState]);
 
-  // 경로 추가 모드 중 ESC → 취소.
+  // ESC — addMode 중이면 addMode 취소, 아니면 경로찾기 선택 해제. (도면 ESC=해제와 통일)
   useEffect(() => {
-    if (!addMode) return;
+    if (!addMode && pathStart == null && pathEnd == null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key !== 'Escape') return;
+      if (addMode) {
         setAddMode(false);
         setAddAnchor(null);
+      } else {
+        setPathStart(null);
+        setPathEnd(null);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [addMode]);
+  }, [addMode, pathStart, pathEnd]);
 
   // Layout 은 traceResult 만으로 결정 — highlightedFpId/테스트 상태 변경 시 재계산 안 함.
   const layoutData = useMemo(() => {
@@ -259,7 +268,7 @@ export function NetworkTopologyModal() {
     return { groups, ofdToGroup, positions, ringCount, fundamental, composite };
   }, [traceResult]);
 
-  // base 그래프 — 노드 + fiberPath 엣지(위상·tier). 테스트 상태와 무관.
+  // base 그래프 — 노드 + fiberPath 엣지(위상·tier). 6가지 테스트 상태와 무관.
   const baseGraph = useMemo<{ nodes: Node<SubstationNodeData>[]; graphEdges: GraphEdgeMeta[] }>(() => {
     if (!traceResult || !layoutData) return { nodes: [], graphEdges: [] };
     const { groups, ofdToGroup, positions, ringCount } = layoutData;
@@ -326,6 +335,26 @@ export function NetworkTopologyModal() {
   }, [routableEdges, pathStart, pathEnd]);
   const foundPathEdgeIds = useMemo(() => new Set(foundPath ?? []), [foundPath]);
 
+  // 경로상 노드 = foundPath 엣지들의 양 끝 합집합 (시작·종료·중간 노드).
+  const pathNodeIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    if (!foundPath) return ids;
+    const endpoints = new Map<string, { source: string; target: string }>();
+    for (const e of baseGraph.graphEdges) endpoints.set(e.id, { source: e.source, target: e.target });
+    for (const e of addedEdges) endpoints.set(e.id, { source: e.source, target: e.target });
+    for (const eid of foundPath) {
+      const e = endpoints.get(eid);
+      if (e) {
+        ids.add(e.source);
+        ids.add(e.target);
+      }
+    }
+    return ids;
+  }, [foundPath, baseGraph, addedEdges]);
+
+  // 경로가 화면에 표시 중인지 — 포커스 디밍 on/off 게이트.
+  const pathActive = foundPathEdgeIds.size > 0;
+
   // ── 엣지 제거 (× 클릭) — 추가 엣지는 완전 삭제, base 엣지는 끊김 토글 ────────
   const handleRemoveEdge = useCallback((edgeId: string) => {
     // 'test-add-' 접두사는 handleNodeClick 의 추가 엣지 ID 생성 규칙과 반드시 일치해야 함.
@@ -355,14 +384,18 @@ export function NetworkTopologyModal() {
         }
         return;
       }
-      if (!pathStart) {
-        setPathStart(nodeId);
-      } else if (!pathEnd) {
-        if (nodeId !== pathStart) setPathEnd(nodeId);
-      } else {
-        setPathStart(nodeId);
-        setPathEnd(null);
+      // 선택된 엣드포인트 재클릭 → 그 엣드포인트만 해제.
+      if (nodeId === pathStart) {
+        setPathStart(null);
+        return;
       }
+      if (nodeId === pathEnd) {
+        setPathEnd(null);
+        return;
+      }
+      // 미선택 노드 → 빈 슬롯 채우기. 둘 다 차 있으면 무동작.
+      if (!pathStart) setPathStart(nodeId);
+      else if (!pathEnd) setPathEnd(nodeId);
     },
     [addMode, addAnchor, pathStart, pathEnd],
   );
@@ -372,46 +405,69 @@ export function NetworkTopologyModal() {
     setAddAnchor(null);
   }, []);
 
-  // ── 렌더용 노드 — pathRole 배지 주입 ──────────────────────────────────────
+  // 빈 캔버스 클릭 → 경로찾기 해제 + addMode 취소 (중립 상태로).
+  const handlePaneClick = useCallback(() => {
+    setPathStart(null);
+    setPathEnd(null);
+    setAddMode(false);
+    setAddAnchor(null);
+  }, []);
+
+  const handleClearStart = useCallback(() => setPathStart(null), []);
+  const handleClearEnd = useCallback(() => setPathEnd(null), []);
+
+  // 노드 id → 표시 이름 — 컨트롤 바 칩 라벨용.
+  const nodeNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const n of baseGraph.nodes) m.set(n.id, n.data.name);
+    return m;
+  }, [baseGraph]);
+
+  // ── 렌더용 노드 — pathRole 배지 주입 + 포커스 디밍 ─────────────────────────
   const rfNodes = useMemo<Node[]>(() => {
     return baseGraph.nodes.map((n) => {
       let pathRole: PathRole | undefined;
       if (n.id === pathStart) pathRole = 'start';
       else if (n.id === pathEnd) pathRole = 'end';
       else if (n.id === addAnchor) pathRole = 'anchor';
-      return (pathRole ? { ...n, data: { ...n.data, pathRole } } : n) as Node;
+      const dim = pathActive && !pathNodeIds.has(n.id);
+      if (!pathRole && !dim) return n as Node;
+      const next: Node = pathRole ? { ...n, data: { ...n.data, pathRole } } : { ...n };
+      if (dim) next.style = { opacity: DIM_OPACITY };
+      return next;
     });
-  }, [baseGraph, pathStart, pathEnd, addAnchor]);
+  }, [baseGraph, pathStart, pathEnd, addAnchor, pathActive, pathNodeIds]);
 
-  // ── 렌더용 엣지 — 끊김 > 경로 > 추가 > 기존 tier ──────────────────────────
+  // ── 렌더용 엣지 — 끊김 > 경로 > 추가 > 기존 tier. 경로 표시 중엔 경로 외 디밍. ──
   const rfEdges = useMemo<Edge[]>(() => {
     const labelStyle = { fontSize: 10, fill: '#6b7280' };
+    const addedLabelStyle = { fontSize: 10, fill: '#0d9488' };
     const labelBgStyle = { fill: '#ffffff', fillOpacity: 0.85 };
     const data = { onRemove: handleRemoveEdge };
     const result: Edge[] = [];
 
     for (const e of baseGraph.graphEdges) {
+      const onPath = foundPathEdgeIds.has(e.id);
+      const dim = pathActive && !onPath;
       let style: Edge['style'];
-      let animated = false;
       if (cutEdgeIds.has(e.id)) {
         style = { ...TEST_EDGE_STYLE.cut };
-      } else if (foundPathEdgeIds.has(e.id)) {
+      } else if (onPath) {
         style = { ...TEST_EDGE_STYLE.path };
-        animated = true;
       } else {
         const s = EDGE_STYLE[e.tier];
         style = { stroke: s.stroke, strokeWidth: s.width };
       }
+      if (dim) style = { ...style, opacity: DIM_OPACITY };
       result.push({
         id: e.id,
         source: e.source,
         target: e.target,
         type: 'floating',
         label: e.label,
-        labelStyle,
+        labelStyle: dim ? { ...labelStyle, opacity: DIM_OPACITY } : labelStyle,
         labelBgStyle,
         style,
-        animated,
         data,
       });
     }
@@ -419,21 +475,23 @@ export function NetworkTopologyModal() {
     // 추가 엣지 — 끊김 대상 아님(× 누르면 완전 삭제). 경로상이면 경로 스타일.
     for (const e of addedEdges) {
       const onPath = foundPathEdgeIds.has(e.id);
+      const dim = pathActive && !onPath;
+      let style: Edge['style'] = onPath ? { ...TEST_EDGE_STYLE.path } : { ...TEST_EDGE_STYLE.added };
+      if (dim) style = { ...style, opacity: DIM_OPACITY };
       result.push({
         id: e.id,
         source: e.source,
         target: e.target,
         type: 'floating',
         label: '추가',
-        labelStyle: { fontSize: 10, fill: '#0d9488' },
+        labelStyle: dim ? { ...addedLabelStyle, opacity: DIM_OPACITY } : addedLabelStyle,
         labelBgStyle,
-        style: onPath ? { ...TEST_EDGE_STYLE.path } : { ...TEST_EDGE_STYLE.added },
-        animated: onPath,
+        style,
         data,
       });
     }
     return result;
-  }, [baseGraph, addedEdges, cutEdgeIds, foundPathEdgeIds, handleRemoveEdge]);
+  }, [baseGraph, addedEdges, cutEdgeIds, foundPathEdgeIds, pathActive, handleRemoveEdge]);
 
   if (!modalOpen) return null;
 
@@ -489,6 +547,7 @@ export function NetworkTopologyModal() {
               nodesConnectable={false}
               elementsSelectable={false}
               onNodeClick={(_, node) => handleNodeClick(node.id)}
+              onPaneClick={handlePaneClick}
             >
               <Background gap={20} size={1} color="#e5e7eb" />
               <Controls showInteractive={false} />
@@ -498,10 +557,14 @@ export function NetworkTopologyModal() {
                 hasStart={pathStart != null}
                 hasEnd={pathEnd != null}
                 pathFound={foundPath != null}
+                startLabel={pathStart ? nodeNameById.get(pathStart) ?? pathStart : null}
+                endLabel={pathEnd ? nodeNameById.get(pathEnd) ?? pathEnd : null}
                 cutCount={cutEdgeIds.size}
                 addCount={addedEdges.length}
                 onToggleAddMode={handleToggleAddMode}
                 onReset={resetTestState}
+                onClearStart={handleClearStart}
+                onClearEnd={handleClearEnd}
               />
             </ReactFlow>
           )}
