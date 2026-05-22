@@ -2,7 +2,9 @@
  * BC-tree composition layout — 그래프 그리기 학계 표준 합성 알고리즘.
  *
  * 각 level-0 ring 을 정다각형으로 그리고, cut vertex 로 공유된 ring 끼리는 그 점에서 **tangent**
- * 로 배치. 비-ring 인접 edge (bridge / leaf chain) 은 ring 의 외측 방향으로 fan-out.
+ * 로 배치. ring 이 아닌 부분(bridge 로 이어진 트리)은 size-aware radial tree 로 배치 —
+ * 자식 서브트리의 leaf 수에 비례해 sector 를 나눠 edge 가 다른 노드를 관통하지 않는다.
+ * 순수 트리(ring 0개)도 같은 함수로 처리 (BC-tree 의 degenerate 케이스).
  *
  * → 모든 ring edge 길이 = 2R sin(π/N) 동일.
  * → 한 점에서 K 개 branch (ring + bridge) 가 만나면 360°/K 등분.
@@ -197,34 +199,6 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
     placeRing(root, null, 0);
   }
 
-  // ─── BFS: 남은 leaf 체인 (이미 일부 leaf 는 placeRing 안에서 placement
-  //     되었지만, 그 leaf 의 *추가* neighbor 는 처리 안 됨) ────────────────
-  const queue: { node: string; from: string }[] = [];
-  for (const p of positions.keys()) {
-    for (const nbr of fpAdj.get(p) ?? []) {
-      if (!positions.has(nbr)) queue.push({ node: nbr, from: p });
-    }
-  }
-  let qhead = 0;
-  while (qhead < queue.length) {
-    const item = queue[qhead++];
-    if (positions.has(item.node)) continue;
-    const fromPos = positions.get(item.from)!;
-    const outDir = outwardDir(item.from);
-    const pos = {
-      x: fromPos.x + LEAF_GAP * Math.cos(outDir),
-      y: fromPos.y + LEAF_GAP * Math.sin(outDir),
-    };
-    positions.set(item.node, pos);
-    nodeRingCenter.set(item.node, {
-      x: fromPos.x - LEAF_GAP * Math.cos(outDir),
-      y: fromPos.y - LEAF_GAP * Math.sin(outDir),
-    });
-    for (const nbr of fpAdj.get(item.node) ?? []) {
-      if (!positions.has(nbr)) queue.push({ node: nbr, from: item.node });
-    }
-  }
-
   // ─── 분리된 ring component (placed 안 된 ring) — 우측으로 offset ────────
   let detachedOffset = 1500;
   for (const ring of fundamental) {
@@ -242,16 +216,102 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
     detachedOffset += 2 * R + 300;
   }
 
-  // ─── 최종 fallback: 모든 미배치 노드 (ring 없는 순수 tree/chain 등) ────
-  //   MIN_NODE_DISTANCE 간격 grid — resolveOverlap scale 안 타도록.
-  let s = 0;
-  for (const id of nodeIds) {
-    if (positions.has(id)) continue;
-    positions.set(id, {
-      x: -1500 + (s % 5) * MIN_NODE_DISTANCE,
-      y: -800 + Math.floor(s / 5) * MIN_NODE_DISTANCE,
-    });
-    s++;
+  // ─── 트리(bridge 블록) 레이아웃 — BC-tree 에서 ring 이 아닌 모든 부분 ─────
+  //   ring 은 위에서 다각형으로 배치됐다. 남은 노드는 전부 bridge 로 이어진
+  //   트리. size-aware radial tree 로 배치한다:
+  //     · 자식 서브트리의 leaf 수에 비례해 각도 sector 분배 → 서브트리 겹침 없음
+  //     · depth 가 1 차이 나는 노드끼리만 edge → edge 가 다른 노드를 관통 불가
+  //   순수 트리(ring 0개)든 ring 에 매달린 트리든 같은 함수로 처리.
+  const treeSet = new Set<string>(nodeIds.filter((id) => !positions.has(id)));
+  if (treeSet.size > 0) {
+    // 서브트리 leaf 수 (parent 방향 제외) — sector 분배 가중치.
+    //   treeSet 은 forest 가 보장됨 (모든 cycle 은 ring 으로 이미 배치).
+    const weightMemo = new Map<string, number>();
+    const leafWeight = (node: string, parent: string | null): number => {
+      const key = `${node}|${parent}`;
+      const cached = weightMemo.get(key);
+      if (cached !== undefined) return cached;
+      const kids = [...(fpAdj.get(node) ?? [])].filter((n) => n !== parent && treeSet.has(n));
+      const w = kids.length === 0 ? 1 : kids.reduce((sum, k) => sum + leafWeight(k, node), 0);
+      weightMemo.set(key, w);
+      return w;
+    };
+
+    // node(배치 완료)의 미배치 트리-이웃을 [wLo, wHi] wedge 에 부채꼴 배치 후 재귀.
+    const growTree = (node: string, parent: string | null, wLo: number, wHi: number): void => {
+      const np = positions.get(node)!;
+      const kids = [...(fpAdj.get(node) ?? [])].filter(
+        (n) => n !== parent && treeSet.has(n) && !positions.has(n),
+      );
+      if (kids.length === 0) return;
+      const weights = kids.map((k) => leafWeight(k, node));
+      const total = weights.reduce((a, b) => a + b, 0);
+      let acc = wLo;
+      kids.forEach((k, i) => {
+        const span = ((wHi - wLo) * weights[i]) / total;
+        const dir = acc + span / 2;
+        positions.set(k, {
+          x: np.x + MIN_NODE_DISTANCE * Math.cos(dir),
+          y: np.y + MIN_NODE_DISTANCE * Math.sin(dir),
+        });
+        growTree(k, node, acc, acc + span);
+        acc += span;
+      });
+    };
+
+    // (a) ring 으로 이미 배치된 노드(anchor)에 매달린 트리 — 바깥 방향 180° wedge.
+    for (const anchor of [...positions.keys()]) {
+      const center = outwardDir(anchor);
+      growTree(anchor, null, center - Math.PI / 2, center + Math.PI / 2);
+    }
+
+    // (b) ring 과 무관한 자유 트리 (순수 트리 케이스) — centroid 를 root 로 360° 배치.
+    let freeX = positions.size > 0 ? detachedOffset : 0;
+    for (const seed of treeSet) {
+      if (positions.has(seed)) continue;
+      // seed 가 속한 컴포넌트 수집 (treeSet 내부).
+      const comp: string[] = [];
+      const seen = new Set<string>([seed]);
+      const stack = [seed];
+      while (stack.length > 0) {
+        const n = stack.pop()!;
+        comp.push(n);
+        for (const m of fpAdj.get(n) ?? []) {
+          if (treeSet.has(m) && !seen.has(m)) {
+            seen.add(m);
+            stack.push(m);
+          }
+        }
+      }
+      // tree centroid — leaf 를 반복 제거해 1~2 노드 남김 (트리 높이 최소화).
+      const deg = new Map<string, number>(
+        comp.map((n) => [n, [...(fpAdj.get(n) ?? [])].filter((x) => treeSet.has(x)).length]),
+      );
+      let remaining = comp.length;
+      let layer = comp.filter((n) => (deg.get(n) ?? 0) <= 1);
+      const peeled = new Set<string>();
+      while (remaining > 2 && layer.length > 0) {
+        const next: string[] = [];
+        for (const lf of layer) {
+          peeled.add(lf);
+          remaining--;
+          for (const nbr of fpAdj.get(lf) ?? []) {
+            if (!treeSet.has(nbr) || peeled.has(nbr)) continue;
+            const d = (deg.get(nbr) ?? 0) - 1;
+            deg.set(nbr, d);
+            if (d === 1) next.push(nbr);
+          }
+        }
+        layer = next;
+      }
+      const root = layer[0] ?? comp[0];
+      positions.set(root, { x: freeX, y: 0 });
+      growTree(root, null, 0, 2 * Math.PI);
+      let maxX = freeX;
+      for (const n of comp) maxX = Math.max(maxX, positions.get(n)?.x ?? freeX);
+      freeX = maxX + 2 * MIN_NODE_DISTANCE;
+    }
   }
+
   return resolveOverlap(positions);
 }
