@@ -218,10 +218,8 @@ export function NetworkTopologyModal() {
             ? 'superRing'
             : 'default';
       const { stroke, width: strokeWidth } = EDGE_STYLE[tier];
-      // Label = `{src 변전소}-{tgt 변전소}#포트번호`. fiberPathLabel 자체가 src-tgt 형식
-      //   이지만 변전소명에 '-' 가 들어 있을 수 있으므로 split 하지 않고 그대로 사용.
-      const portSuffix = e.fiberPortNumber != null ? ` #${e.fiberPortNumber}` : '';
-      const label = e.fiberPathLabel ? `${e.fiberPathLabel}${portSuffix}` : undefined;
+      // Label = 포트번호 (#N) 만 — 변전소명은 양 끝 노드 박스에 이미 표시됨.
+      const label = e.fiberPortNumber != null ? `#${e.fiberPortNumber}` : undefined;
       edges.push({
         id: e.id,
         source,
