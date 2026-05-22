@@ -62,6 +62,9 @@ const TEST_EDGE_STYLE = {
 // 포커스 디밍 — 경로 표시 중 경로 외 엣지·노드 불투명도.
 const DIM_OPACITY = 0.2;
 
+// 추가 테스트 엣지 ID 접두사 — 생성(handleNodeClick)과 식별(handleRemoveEdge)이 공유.
+const TEST_EDGE_ID_PREFIX = 'test-add-';
+
 type NodeTier = Exclude<Tier, 'seed'>;
 type PathRole = 'start' | 'end' | 'anchor';
 
@@ -336,29 +339,27 @@ export function NetworkTopologyModal() {
   const foundPathEdgeIds = useMemo(() => new Set(foundPath ?? []), [foundPath]);
 
   // 경로상 노드 = foundPath 엣지들의 양 끝 합집합 (시작·종료·중간 노드).
+  // foundPath 엣지는 항상 routableEdges 안에 있으므로 거기서 endpoint 를 찾는다.
   const pathNodeIds = useMemo<Set<string>>(() => {
     const ids = new Set<string>();
     if (!foundPath) return ids;
-    const endpoints = new Map<string, { source: string; target: string }>();
-    for (const e of baseGraph.graphEdges) endpoints.set(e.id, { source: e.source, target: e.target });
-    for (const e of addedEdges) endpoints.set(e.id, { source: e.source, target: e.target });
+    const byId = new Map(routableEdges.map((e) => [e.id, e] as const));
     for (const eid of foundPath) {
-      const e = endpoints.get(eid);
+      const e = byId.get(eid);
       if (e) {
         ids.add(e.source);
         ids.add(e.target);
       }
     }
     return ids;
-  }, [foundPath, baseGraph, addedEdges]);
+  }, [foundPath, routableEdges]);
 
   // 경로가 화면에 표시 중인지 — 포커스 디밍 on/off 게이트.
   const pathActive = foundPathEdgeIds.size > 0;
 
   // ── 엣지 제거 (× 클릭) — 추가 엣지는 완전 삭제, base 엣지는 끊김 토글 ────────
   const handleRemoveEdge = useCallback((edgeId: string) => {
-    // 'test-add-' 접두사는 handleNodeClick 의 추가 엣지 ID 생성 규칙과 반드시 일치해야 함.
-    if (edgeId.startsWith('test-add-')) {
+    if (edgeId.startsWith(TEST_EDGE_ID_PREFIX)) {
       setAddedEdges((prev) => prev.filter((e) => e.id !== edgeId));
       return;
     }
@@ -377,7 +378,7 @@ export function NetworkTopologyModal() {
         if (!addAnchor) {
           setAddAnchor(nodeId);
         } else if (nodeId !== addAnchor) {
-          const id = `test-add-${addCounter.current++}`;
+          const id = `${TEST_EDGE_ID_PREFIX}${addCounter.current++}`;
           setAddedEdges((prev) => [...prev, { id, source: addAnchor, target: nodeId }]);
           setAddMode(false);
           setAddAnchor(null);
@@ -444,11 +445,32 @@ export function NetworkTopologyModal() {
     const addedLabelStyle = { fontSize: 10, fill: '#0d9488' };
     const labelBgStyle = { fill: '#ffffff', fillOpacity: 0.85 };
     const data = { onRemove: handleRemoveEdge };
-    const result: Edge[] = [];
 
+    // 선택된 스타일에 디밍을 적용해 React Flow Edge 로 변환 — base/추가 엣지 공통.
+    const toRfEdge = (
+      e: GraphEdge,
+      onPath: boolean,
+      style: Edge['style'],
+      label: string | undefined,
+      baseLabelStyle: { fontSize: number; fill: string },
+    ): Edge => {
+      const dim = pathActive && !onPath;
+      return {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: 'floating',
+        label,
+        labelStyle: dim ? { ...baseLabelStyle, opacity: DIM_OPACITY } : baseLabelStyle,
+        labelBgStyle,
+        style: dim ? { ...style, opacity: DIM_OPACITY } : style,
+        data,
+      };
+    };
+
+    const result: Edge[] = [];
     for (const e of baseGraph.graphEdges) {
       const onPath = foundPathEdgeIds.has(e.id);
-      const dim = pathActive && !onPath;
       let style: Edge['style'];
       if (cutEdgeIds.has(e.id)) {
         style = { ...TEST_EDGE_STYLE.cut };
@@ -458,37 +480,13 @@ export function NetworkTopologyModal() {
         const s = EDGE_STYLE[e.tier];
         style = { stroke: s.stroke, strokeWidth: s.width };
       }
-      if (dim) style = { ...style, opacity: DIM_OPACITY };
-      result.push({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: 'floating',
-        label: e.label,
-        labelStyle: dim ? { ...labelStyle, opacity: DIM_OPACITY } : labelStyle,
-        labelBgStyle,
-        style,
-        data,
-      });
+      result.push(toRfEdge(e, onPath, style, e.label, labelStyle));
     }
-
     // 추가 엣지 — 끊김 대상 아님(× 누르면 완전 삭제). 경로상이면 경로 스타일.
     for (const e of addedEdges) {
       const onPath = foundPathEdgeIds.has(e.id);
-      const dim = pathActive && !onPath;
-      let style: Edge['style'] = onPath ? { ...TEST_EDGE_STYLE.path } : { ...TEST_EDGE_STYLE.added };
-      if (dim) style = { ...style, opacity: DIM_OPACITY };
-      result.push({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        type: 'floating',
-        label: '추가',
-        labelStyle: dim ? { ...addedLabelStyle, opacity: DIM_OPACITY } : addedLabelStyle,
-        labelBgStyle,
-        style,
-        data,
-      });
+      const style = onPath ? { ...TEST_EDGE_STYLE.path } : { ...TEST_EDGE_STYLE.added };
+      result.push(toRfEdge(e, onPath, style, '추가', addedLabelStyle));
     }
     return result;
   }, [baseGraph, addedEdges, cutEdgeIds, foundPathEdgeIds, pathActive, handleRemoveEdge]);
