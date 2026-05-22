@@ -597,12 +597,17 @@ export const useEditorStore = create<FullStore>()(
     selectedCableId: null,
     selectedRackModuleId: null,
   }),
-  resetEditor: () => set((state) => {
-    revokeUploadUrls(state.pendingUploads);
-    // Allocate a fresh hiddenBgLayers Set so a stale reference from
-    // `initialState` isn't shared across editor sessions.
-    return { ...initialState, hiddenBgLayers: new Set<string>() };
-  }),
+  resetEditor: () => {
+    set((state) => {
+      revokeUploadUrls(state.pendingUploads);
+      // Allocate a fresh hiddenBgLayers Set so a stale reference from
+      // `initialState` isn't shared across editor sessions.
+      return { ...initialState, hiddenBgLayers: new Set<string>() };
+    });
+    // undo/redo history 도 함께 초기화 — 안 하면 도면 전환 직후 이전 도면 history 가
+    // 남아 Ctrl+Z 시 이전 데이터가 새 store 로 주입될 수 있다.
+    useEditorStore.temporal.getState().clear();
+  },
 
   // ==================== Canvas interaction actions ====================
 
