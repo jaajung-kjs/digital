@@ -74,7 +74,6 @@ function WaypointHandle({
     mouseX: number;
     mouseY: number;
     originalPoints: [number, number][];
-    historyPushed: boolean;
   } | null>(null);
 
   const handleMouseDown = useCallback(
@@ -88,7 +87,6 @@ function WaypointHandle({
         mouseX: e.clientX,
         mouseY: e.clientY,
         originalPoints: original,
-        historyPushed: false,
       };
       setIsDragging(true);
 
@@ -115,22 +113,6 @@ function WaypointHandle({
       const handleMouseMove = (ev: MouseEvent) => {
         const live = startRef.current;
         if (!live) return;
-        // 첫 의미 있는 움직임이 발생하는 순간 history 한 번 push → undo 가
-        // drag 시작 시점으로 복귀.
-        if (!live.historyPushed) {
-          const dx = ev.clientX - live.mouseX;
-          const dy = ev.clientY - live.mouseY;
-          if (Math.abs(dx) >= 2 || Math.abs(dy) >= 2) {
-            const { localEquipment, localCables, localRackModules } =
-              useEditorStore.getState();
-            useEditorStore.getState().pushHistory(
-              localEquipment,
-              localCables,
-              localRackModules,
-            );
-            live.historyPushed = true;
-          }
-        }
         apply(ev.clientX, ev.clientY);
       };
 

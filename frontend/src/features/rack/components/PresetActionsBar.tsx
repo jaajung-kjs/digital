@@ -182,9 +182,6 @@ function applyPresetToRack(
 ) {
   const store = useEditorStore.getState();
 
-  // Snapshot pre-apply so Ctrl+Z restores prior arrangement.
-  store.pushHistory(store.localEquipment, store.localCables, store.localRackModules);
-
   // 1) drop all existing modules for this rack from the working copy
   const existing = store.localRackModules.filter(
     (m) => m.rackEquipmentId === rackEquipmentId,
