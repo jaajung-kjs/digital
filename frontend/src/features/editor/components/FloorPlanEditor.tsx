@@ -7,6 +7,7 @@ import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
+import { useToastStore } from '../stores/toastStore';
 import { calculateCenterOnBounds, calculateCenterOnEquipment } from '../hooks/useViewport';
 import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -411,6 +412,8 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     cs.resetNewEquipmentSelection();
     setHasChanges(true);
     setTool('select');
+    cs.setSelectedIds([baseEquip.id]);
+    useToastStore.getState().showToast('설비를 배치했습니다');
   };
 
   /**
@@ -500,6 +503,8 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     cs.resetNewEquipmentSelection();
     setHasChanges(true);
     setTool('select');
+    cs.setSelectedIds([rackId]);
+    useToastStore.getState().showToast('랙을 배치했습니다');
   }, [rackModuleCategories, setLocalEquipment, setTool]);
 
 
