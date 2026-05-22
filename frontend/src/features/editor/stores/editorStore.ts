@@ -390,15 +390,16 @@ const initialState: EditorStoreState = {
 type FullStore = EditorStoreState & EditorStoreActions;
 
 /** undo/redo history 에 담을 working-copy 데이터 슬라이스 타입. */
-type HistorySlice = {
-  localEquipment: EditorStoreState['localEquipment'];
-  localCables: EditorStoreState['localCables'];
-  localRackModules: EditorStoreState['localRackModules'];
-  localDistributionCircuits: EditorStoreState['localDistributionCircuits'];
-  deletedCableIds: EditorStoreState['deletedCableIds'];
-  deletedFiberPathIds: EditorStoreState['deletedFiberPathIds'];
-  pendingFiberPaths: EditorStoreState['pendingFiberPaths'];
-};
+type HistorySlice = Pick<
+  EditorStoreState,
+  | 'localEquipment'
+  | 'localCables'
+  | 'localRackModules'
+  | 'localDistributionCircuits'
+  | 'deletedCableIds'
+  | 'deletedFiberPathIds'
+  | 'pendingFiberPaths'
+>;
 
 /**
  * undo/redo history 에 담을 working-copy 데이터 슬라이스.
