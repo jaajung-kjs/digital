@@ -1,14 +1,21 @@
 # 설비 DB (Equipment Database)
 
 > 138개 KEPCO ICT 공사 설계서 Excel 분석 + 업계 표준 규격 교차 검증
-> 분석일: 2026-04-09
+> 분석일: 2026-04-09 / 최종 갱신: 2026-05-22
 >
 > **specTemplate 정의**: [스키마_리팩토링_계획.md](스키마_리팩토링_계획.md) §3-2 참조
 > **아키텍처**: 파라미터 기반 동적 규격 선택 — 종류별 `specTemplate`으로 모델/용량/치수 등 파라미터를 UI에서 선택/입력하면 규격 문자열이 자동 생성됨. 표준이 있는 것(랙U, MCCB AF)은 `select`, 없는 것(UPS kVA, 내진가대 mm)은 `number` 자유입력.
+>
+> **DB 아키텍처 주의**:
+> - 도면에 직접 배치되는 설비 종류(`Equipment.kind`)는 **5종 하드코딩**: `RACK`, `OFD`, `DISTRIBUTION`, `GROUNDING`, `HVAC`
+> - 별도 `Rack` 테이블 없음. 랙은 `Equipment(kind=RACK)`으로 표현.
+> - 랙 안에 들어가는 모듈은 `RackModule` 테이블 (도면 좌표 없음, `slotIndex`/`slotSpan` 기반).
+> - `RackModuleCategory` 시드: **14종** (`seed/rackModuleCategories.ts` 기준 — 하단 § 참조).
+> - 아래 "13종 설비" 분류표는 Excel 분석용 논리적 분류이며, DB의 `EquipmentKind` enum이나 `RackModuleCategory` 코드와 1:1 매핑되지 않음.
 
 ## 요약
 
-- **총 13종 설비** — 모든 ICT 공사 설비 커버
+- **총 13종 설비 (Excel 분석 기준)** — 모든 ICT 공사 설비 커버
 - **총 ~55개 표준 규격** — 설비는 케이블과 달리 모델/용량 기반
 - **분석 대상**: 137개 파일, 1,163건 설비 레코드
 
@@ -305,3 +312,30 @@ PIU (유닛) ── 기존 랙 안에 실장
 | # | 표준 규격 | 사용건수 |
 |---|----------|---------|
 | 1 | **PDAS 본체** | 2 |
+
+---
+
+## 부록 A. RackModuleCategory 시드 목록 (14종)
+
+> **검증 소스**: `backend/prisma/seed/rackModuleCategories.ts`
+> 랙(`Equipment(kind=RACK)`) 안에 배치되는 `RackModule`의 카테고리.
+> 도면 분류(위 1~13종)와 별개로 DB에 독립적으로 존재함.
+
+| sortOrder | code | name | displayColor |
+|-----------|------|------|-------------|
+| 1 | `EQP-PITR-2000` | PITR-2000 | `#a855f7` |
+| 2 | `EQP-OPT-TERM` | 송변전광단말장치 | `#a855f7` |
+| 3 | `EQP-PITR-5000` | PITR-5000 | `#a855f7` |
+| 4 | `EQP-NET-SW` | 네트워크스위치 | `#3b82f6` |
+| 5 | `EQP-SPD` | 서지보호기 | `#eab308` |
+| 6 | `EQP-SCADA` | SCADA | `#ef4444` |
+| 7 | `EQP-RTU` | RTU | `#ef4444` |
+| 8 | `EQP-UTM` | UTM | `#06b6d4` |
+| 9 | `EQP-NAC` | NAC | `#06b6d4` |
+| 10 | `EQP-UPS` | UPS | `#f97316` |
+| 11 | `EQP-CHARGER` | 충전기 | `#f97316` |
+| 12 | `EQP-BATTERY` | 축전지 | `#f97316` |
+| 13 | `EQP-PWR-AC` | 전원(AC) | `#f97316` |
+| 14 | `EQP-PWR-DC` | 전원(DC) | `#f97316` |
+
+> **참고**: `seed/rackModuleCategories.ts` 파일 내 주석 `// 12종`은 실제 배열 항목 수(14개)와 불일치하는 오래된 주석임.

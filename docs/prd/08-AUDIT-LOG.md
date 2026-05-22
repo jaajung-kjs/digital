@@ -1,12 +1,14 @@
 # F08: 이력 관리 - 상세 PRD
 
+> 최종 갱신: 2026-05-22 (현재 코드 기준 재검증)
+
 ## 1. 개요
 
 ### 1.1 기능 ID
 **F08-AUDIT-LOG**
 
 ### 1.2 기능 설명
-시스템 내 모든 변경 사항을 기록하고 조회하는 기능. 설비 교체, 이동, 연결 변경 등의 이력을 추적할 수 있다.
+도면 저장 시마다 변경 내용을 스냅샷으로 기록하고, 과거 도면을 미리보거나 복원하는 기능. 현재 감사 로그는 **도면 전체 저장(bulkUpdatePlan) 단위**로 `Floor` 엔티티에 대해서만 기록된다.
 
 ### 1.3 우선순위
 **P1** (중요)
@@ -43,9 +45,9 @@
 
 | 항목 | 요구사항 |
 |------|----------|
-| 보관 기간 | 영구 보관 (삭제 불가) |
+| 보관 기간 | 관리자(ADMIN)가 개별 이력 삭제 가능 (`DELETE /api/floors/:id/versions/:logId`) |
 | 조회 성능 | < 1초 (최근 1000건) |
-| 데이터 무결성 | 이력 수정/삭제 불가 |
+| 데이터 무결성 | 일반 사용자는 수정/삭제 불가; ADMIN은 삭제 허용 |
 
 ---
 
@@ -57,7 +59,7 @@ CREATE TABLE audit_logs (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- 대상 정보
-    entity_type     VARCHAR(50) NOT NULL,   -- 'equipment', 'rack', 'cable', etc.
+    entity_type     VARCHAR(50) NOT NULL,   -- 현재 사용 값: 'Floor'
     entity_id       UUID NOT NULL,
     entity_name     VARCHAR(200),           -- 스냅샷 (삭제된 경우 대비)
 
@@ -90,231 +92,85 @@ CREATE INDEX idx_audit_entity_type ON audit_logs(entity_type);
 ```
 
 ### 3.2 엔티티 타입
-```sql
--- entity_type 값
-'substation'    -- 변전소
-'floor'         -- 층
-'floor_plan'    -- 평면도
-'rack'          -- 랙
-'equipment'     -- 설비
-'port'          -- 포트
-'cable'         -- 케이블
-'user'          -- 사용자
+현재 코드(`floor.service.ts`)에서 실제 사용 중인 값:
+
 ```
+'Floor'         -- 도면 저장 단위 (Floor = 층 = 도면)
+```
+
+> 현재 감사 로그는 `Floor` 도면 저장 이벤트에만 기록된다. 변전소·설비·케이블·포트·사용자 단위 개별 CRUD는 별도 audit log를 기록하지 않는다.
 
 ### 3.3 액션 타입
-```sql
--- action 값
-'CREATE'        -- 생성
-'UPDATE'        -- 수정
-'DELETE'        -- 삭제
-'MOVE'          -- 이동 (위치 변경)
+도면 저장 이벤트에서 사용되는 값:
 
--- action_detail 예시
-'UPDATE_INFO'       -- 기본 정보 수정
-'UPDATE_POSITION'   -- 위치 변경
-'UPDATE_PORT'       -- 포트 수정
-'ADD_PORT'          -- 포트 추가
-'REMOVE_PORT'       -- 포트 삭제
-'CONNECT'           -- 케이블 연결
-'DISCONNECT'        -- 케이블 해제
-'UPLOAD_IMAGE'      -- 이미지 업로드
-'DELETE_IMAGE'      -- 이미지 삭제
 ```
+action: 'UPDATE'    -- 도면 저장 (항상 UPDATE)
+
+-- action_detail: 저장 시 사용자가 입력하는 변경 메시지 (자유 문자열)
+-- 예: '케이블 추가', '랙 배치 수정', 'v1' 등
+```
+
+`newValues`: 저장 시점의 도면 스냅샷 전체 (equipment + cables + fiberPaths) JSON
+
+`context.constructionReport`: 이전 저장 상태와의 diff — 추가/수정/삭제된 자재 목록 (프론트 DiffView/ReportView에서 표시)
 
 ---
 
 ## 4. API 명세
 
-### 4.1 이력 목록 조회
-```
-GET /api/audit-logs
-Authorization: Bearer {accessToken}
-Role: admin
+> **주의**: 현재 구현된 감사 로그 API는 `/api/floors/:id/versions` 하위에만 존재한다.
+> 별도의 `/api/audit-logs` 엔드포인트는 구현되지 않았다.
 
-Query Parameters:
-- entityType: string (optional)
-- entityId: uuid (optional)
-- action: string (optional)
-- userId: uuid (optional)
-- startDate: date (optional)
-- endDate: date (optional)
-- page: number (default: 1)
-- limit: number (default: 50, max: 100)
+### 4.1 도면 변경 이력 목록 조회
+```
+GET /api/floors/:id/versions
+인증 필요 (authenticate), 역할 제한 없음 (조회는 VIEWER도 가능)
 
 Response (200):
 {
-    "logs": [
+    "data": [
         {
             "id": "uuid",
-            "entityType": "equipment",
+            "entityType": "Floor",
             "entityId": "uuid",
-            "entityName": "서버 #1",
+            "entityName": "B1층 ICT실",
             "action": "UPDATE",
-            "actionDetail": "UPDATE_INFO",
-            "changedFields": ["model", "description"],
-            "oldValues": {
-                "model": "Dell R730",
-                "description": "웹 서버"
-            },
-            "newValues": {
-                "model": "Dell R740",
-                "description": "메인 웹 서버"
-            },
-            "context": {
-                "rackName": "RACK-A01",
-                "floorName": "B1층 ICT실"
-            },
+            "actionDetail": "케이블 추가",
+            "changedFields": ["cables"],
+            "newValues": { /* 해당 시점 도면 스냅샷 */ },
+            "context": { "constructionReport": { ... } },
             "userName": "홍길동",
-            "createdAt": "2024-12-08T10:30:00Z"
-        }
-    ],
-    "pagination": {
-        "page": 1,
-        "limit": 50,
-        "total": 1250,
-        "totalPages": 25
-    }
-}
-```
-
-### 4.2 엔티티별 이력 조회
-```
-GET /api/equipment/:id/audit-logs
-Authorization: Bearer {accessToken}
-Role: admin
-
-Response (200):
-{
-    "entity": {
-        "type": "equipment",
-        "id": "uuid",
-        "name": "서버 #1"
-    },
-    "logs": [
-        {
-            "id": "uuid",
-            "action": "CREATE",
-            "actionDetail": null,
-            "newValues": {...},
-            "userName": "홍길동",
-            "createdAt": "2024-01-15T09:00:00Z"
-        },
-        {
-            "id": "uuid",
-            "action": "UPDATE",
-            "actionDetail": "ADD_PORT",
-            "oldValues": null,
-            "newValues": {
-                "port": {"name": "eth3", "type": "LAN"}
-            },
-            "userName": "김철수",
-            "createdAt": "2024-02-20T14:30:00Z"
-        },
-        {
-            "id": "uuid",
-            "action": "MOVE",
-            "actionDetail": "UPDATE_POSITION",
-            "oldValues": {"startU": 35},
-            "newValues": {"startU": 38},
-            "userName": "홍길동",
-            "createdAt": "2024-06-10T11:00:00Z"
-        }
-    ],
-    "total": 15
-}
-```
-
-### 4.3 이력 상세 조회
-```
-GET /api/audit-logs/:id
-Authorization: Bearer {accessToken}
-Role: admin
-
-Response (200):
-{
-    "id": "uuid",
-    "entityType": "equipment",
-    "entityId": "uuid",
-    "entityName": "서버 #1",
-    "action": "UPDATE",
-    "actionDetail": "UPDATE_INFO",
-    "changedFields": ["model", "description", "serialNumber"],
-    "oldValues": {
-        "model": "Dell R730",
-        "description": "웹 서버",
-        "serialNumber": "OLD123"
-    },
-    "newValues": {
-        "model": "Dell R740",
-        "description": "메인 웹 서버",
-        "serialNumber": "NEW456"
-    },
-    "context": {
-        "rackId": "uuid",
-        "rackName": "RACK-A01",
-        "floorId": "uuid",
-        "floorName": "B1층 ICT실",
-        "substationName": "서울 변전소"
-    },
-    "userId": "uuid",
-    "userName": "홍길동",
-    "ipAddress": "192.168.1.100",
-    "createdAt": "2024-12-08T10:30:00Z",
-    "relatedLogs": [
-        {
-            "id": "uuid",
-            "entityType": "port",
-            "action": "UPDATE",
+            "version": 5,
+            "hasSnapshot": true,
             "createdAt": "2024-12-08T10:30:00Z"
         }
     ]
 }
 ```
 
-### 4.4 이력 통계
+### 4.2 도면 변경 이력 context 수정 (관리자만)
 ```
-GET /api/audit-logs/stats
+PATCH /api/floors/:id/versions/:logId
 Authorization: Bearer {accessToken}
-Role: admin
+Role: ADMIN
 
-Query Parameters:
-- startDate: date
-- endDate: date
+Body: { "context": { "reportOverrides": { ... } } }
+```
 
-Response (200):
-{
-    "period": {
-        "start": "2024-01-01",
-        "end": "2024-12-31"
-    },
-    "summary": {
-        "total": 5420,
-        "byAction": {
-            "CREATE": 1200,
-            "UPDATE": 3500,
-            "DELETE": 220,
-            "MOVE": 500
-        },
-        "byEntityType": {
-            "equipment": 2100,
-            "cable": 1800,
-            "port": 1000,
-            "rack": 300,
-            "floor": 120,
-            "substation": 100
-        },
-        "byUser": [
-            {"userId": "uuid", "userName": "홍길동", "count": 2500},
-            {"userId": "uuid", "userName": "김철수", "count": 1800}
-        ]
-    },
-    "timeline": [
-        {"date": "2024-01", "count": 450},
-        {"date": "2024-02", "count": 380},
-        ...
-    ]
-}
+### 4.3 도면 변경 이력 삭제 (관리자만)
+```
+DELETE /api/floors/:id/versions/:logId
+Authorization: Bearer {accessToken}
+Role: ADMIN
+```
+
+### 4.4 특정 버전 도면 조회 (스냅샷 미리보기/복원)
+```
+GET /api/floors/:id/plan?version={N}
+인증 필요
+
+-- 해당 버전 저장 시점의 FloorPlanDetail을 반환
+-- 프론트 ChangeHistoryPanel에서 "미리보기" 클릭 시 사용
 ```
 
 ---
@@ -424,84 +280,80 @@ Response (200):
 
 ### 6.1 기록 대상 액션
 
-| 엔티티 | CREATE | UPDATE | DELETE | MOVE |
-|--------|--------|--------|--------|------|
-| 변전소 | ✓ | ✓ | ✓ | - |
-| 층 | ✓ | ✓ | ✓ | - |
-| 평면도 | ✓ | ✓ | ✓ | - |
-| 랙 | ✓ | ✓ | ✓ | ✓ |
-| 설비 | ✓ | ✓ | ✓ | ✓ |
-| 포트 | ✓ | ✓ | ✓ | - |
-| 케이블 | ✓ | ✓ | ✓ | - |
-| 사용자 | ✓ | ✓ | ✓ | - |
+현재 감사 로그는 **도면 전체 저장(PUT `/api/floors/:id/plan`)** 시에만 기록된다.
+
+| 엔티티 | 기록 조건 |
+|--------|-----------|
+| Floor (도면) | `bulkUpdatePlan` 호출 시 항상 기록 (action: 'UPDATE') |
+| 변전소 / 지사 / 본부 | 미기록 (개별 CRUD 이력 없음) |
+| 설비 (Equipment) | 미기록 (도면 저장에 포함되어 간접 추적) |
+| 케이블 (Cable) | 미기록 (도면 저장에 포함되어 간접 추적) |
+| 랙 모듈 (RackModule) | 미기록 |
+| 포트 (Port) | 미기록 |
+| 사용자 | 미기록 |
 
 ### 6.2 기록 제외 대상
-- 로그인/로그아웃 (별도 로그인 로그 테이블)
 - 조회 작업
 - 실패한 작업
+- 개별 엔티티 CRUD (설비, 케이블, 포트 등 단독 수정)
 
-### 6.3 변경 필드 기록
+### 6.3 변경 내용 기록 방식
 ```javascript
-// 기록되는 필드 예시
+// 도면 저장 시 기록되는 내용
 {
-    oldValues: {
-        model: "Dell R730",
-        description: "웹 서버"
+    entityType: 'Floor',
+    entityId: floorId,
+    entityName: floor.name,
+    action: 'UPDATE',
+    actionDetail: '사용자 입력 메시지 (e.g. "케이블 추가")',
+    changedFields: [],           // 도면 레벨에서는 미사용
+    newValues: { /* 도면 스냅샷 전체 */ },
+    context: {
+        constructionReport: {
+            diff: [ /* 이전 저장 대비 추가/수정/삭제된 자재 목록 */ ]
+        }
     },
-    newValues: {
-        model: "Dell R740",
-        description: "메인 웹 서버"
-    },
-    changedFields: ["model", "description"]
-}
-
-// 비밀번호 등 민감 정보는 마스킹
-{
-    oldValues: { password: "***" },
-    newValues: { password: "***" },
-    changedFields: ["password"]
+    userId, userName
 }
 ```
+
+`changedFields`는 도면 저장 이력에서는 빈 배열로 기록된다.
+diff 상세는 `context.constructionReport`에서 확인한다.
+
 
 ---
 
 ## 7. 구현 가이드
 
 ### 7.1 이력 기록 트리거
-```javascript
-// 서비스 레이어에서 이력 기록
-async updateEquipment(id, data, userId) {
-    const oldData = await this.findById(id);
-    const updated = await this.repository.update(id, data);
+감사 로그는 `floor.service.ts`의 `bulkUpdatePlan()` 안에서 트랜잭션 내에 기록된다.
+별도 `auditLogService`나 `AuditLog` 전용 서비스 모듈은 존재하지 않는다.
 
-    // 이력 기록
-    await this.auditLogService.log({
-        entityType: 'equipment',
+```typescript
+// floor.service.ts — bulkUpdatePlan 내 (트랜잭션)
+const auditEntry = await tx.auditLog.create({
+    data: {
+        entityType: 'Floor',
         entityId: id,
-        entityName: updated.name,
+        entityName: floor.name,
         action: 'UPDATE',
-        actionDetail: 'UPDATE_INFO',
-        oldValues: oldData,
-        newValues: data,
-        userId
-    });
-
-    return updated;
-}
+        actionDetail,               // 저장 시 전달된 메시지
+        changedFields: [],
+        newValues: snapshot as any, // 도면 전체 스냅샷
+        context: { constructionReport } as any,
+        userId,
+        userName: user?.name ?? null,
+    },
+});
 ```
 
-### 7.2 컨텍스트 자동 수집
-```javascript
-// 컨텍스트 정보 자동 수집
-const context = await this.buildContext(entityType, entityId);
-// {
-//     rackId: "...",
-//     rackName: "RACK-A01",
-//     floorId: "...",
-//     floorName: "B1층 ICT실",
-//     substationName: "서울 변전소"
-// }
-```
+### 7.2 프론트엔드 — 도면 변경 이력 패널
+- `ChangeHistoryPanel` — 이력 목록 + 미리보기/복원 UI
+- `VersionList` — 이력 카드 목록 렌더링
+- `DiffView` — 선택된 이력의 변경 항목 및 constructionReport diff 표시
+- `ReportView` — 선택된 이력의 시공 설계서 표시
+- `useFloorAuditLogs` — `GET /api/floors/:id/versions` 호출
+- `usePreviewSnapshot` / `useLoadSnapshot` — 스냅샷 미리보기/복원
 
 ---
 

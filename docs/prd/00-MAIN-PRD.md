@@ -32,14 +32,17 @@
 
 ### 2.3 계층 구조
 ```
-변전소 (Substation)
-└── 층/ICT실 (Floor)
-    └── 평면도 (Floor Plan)
-        ├── 구조물: 벽, 문, 창문
-        └── 랙 (Rack)
-            └── 설비 (Equipment)
-                └── 포트 (Port)
-                    └── 케이블 연결 (Cable)
+본부 (Headquarters)
+└── 지사/직할 (Branch)
+    └── 변전소 (Substation)
+        └── 층/통신실 (Floor)  ← 층이 곧 도면(캔버스) 단위
+            ├── 도면 객체 (Equipment, 5종):
+            │   RACK / OFD / DISTRIBUTION / GROUNDING / HVAC
+            │   ├── RACK → 랙 모듈 (RackModule)
+            │   ├── DISTRIBUTION → 분전반 회로 (DistributionCircuit)
+            │   └── OFD → 포트 (Port)
+            └── 케이블 연결 (Cable, 다형 endpoint)
+                └── 광경로 (FiberPath, OFD↔OFD 단위)
 ```
 
 ---
@@ -51,7 +54,7 @@
 | ID | 기능명 | 우선순위 | 상세 PRD |
 |----|--------|----------|----------|
 | F01 | 인증 시스템 | P0 | [01-AUTH.md](./01-AUTH.md) |
-| F02 | 변전소/층 관리 | P0 | [02-SUBSTATION.md](./02-SUBSTATION.md) |
+| F02 | 조직/변전소/층 관리 | P0 | [02-SUBSTATION.md](./02-SUBSTATION.md) |
 | F03 | 평면도 에디터 | P0 | [03-FLOOR-PLAN-EDITOR.md](./03-FLOOR-PLAN-EDITOR.md) |
 | F04 | 랙 상세 에디터 | P0 | [04-RACK-EDITOR.md](./04-RACK-EDITOR.md) |
 | F05 | 설비/포트 관리 | P0 | [05-EQUIPMENT-PORT.md](./05-EQUIPMENT-PORT.md) |
@@ -65,22 +68,28 @@
 
 #### 평면도 에디터 (CAD 스타일)
 - 그리드 기반 캔버스
-- 벽/문/창문 드로잉 도구
-- 랙 배치 (2D 사각형)
+- DWG/DXF 도면 배경 임포트 (파싱 후 JSON 저장)
+- 도면 객체 5종 배치: RACK, OFD, DISTRIBUTION, GROUNDING, HVAC
 - 케이블 경로 표시
-- 그리드 스냅, 줌/팬, Undo/Redo
+- 그리드 스냅, 줌/팬, git-like 버전 저장
 
 #### 랙 상세 에디터
-- U슬롯 그리드 (정면도)
-- 설비 드래그&드롭 배치
-- 포트 정의 (AC/DC/LAN/광)
-- 랙 사진 첨부 (정면/후면)
+- 슬롯 기반 모듈 배치 (RackModule, 12종 카테고리)
+- 모듈 단위 케이블 연결
+- 랙 사진 첨부 (정면/후면, EquipmentPhoto)
+
+#### 분전반 관리
+- 분전반(DISTRIBUTION) 회로 단위 관리 (DistributionCircuit)
+- feederName(전원 계통) + branchName(분기) 구조
+
+#### 광경로(OFD) 관리
+- OFD 간 FiberPath (24/48 포트) 정의
+- 케이블에 fiberPathId + fiberPortNumber로 개별 심선 추적
 
 #### 배선 관리
-- 포트 간 케이블 연결
-- 평면도에 케이블 경로 표시
-- 케이블 종류별 필터링
-- 연결 장비 하이라이트
+- 다형 endpoint: Equipment / RackModule / DistributionCircuit
+- 케이블 카테고리 16종, BOM 자재 34종
+- 케이블 종류(AC/DC/LAN/FIBER/GROUND) 필터링
 
 ---
 
@@ -119,12 +128,13 @@
 |------|------|
 | React 18 | UI 프레임워크 |
 | TypeScript | 타입 안정성 |
-| Konva.js | 캔버스 기반 에디터 |
-| React-Konva | React + Konva 통합 |
+| @xyflow/react | 네트워크 토폴로지 뷰 |
 | Zustand | 상태 관리 |
-| React Router | 라우팅 |
+| @tanstack/react-query | 서버 상태 관리 |
+| React Router v6 | 라우팅 |
 | Axios | HTTP 클라이언트 |
 | TailwindCSS | 스타일링 |
+| date-fns | 날짜 처리 |
 
 ### 5.2 Backend
 | 기술 | 용도 |
@@ -132,10 +142,12 @@
 | Node.js 20 | 런타임 |
 | Express | 웹 프레임워크 |
 | TypeScript | 타입 안정성 |
-| Prisma | ORM |
-| JWT | 인증 토큰 |
-| Multer | 파일 업로드 |
+| Prisma 5 | ORM |
+| JWT (jsonwebtoken) | 인증 토큰 |
+| Multer | 파일 업로드 (DWG/DXF, 최대 30MB) |
 | Zod | 입력 검증 |
+| @mlightcad/libredwg-web | DWG 파싱 |
+| bcryptjs | 비밀번호 해시 |
 
 ### 5.3 Database
 | 기술 | 용도 |
@@ -156,41 +168,70 @@
 
 ### 6.1 ERD 개요
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Substation │────<│    Floor    │────<│  FloorPlan  │
-└─────────────┘     └─────────────┘     └─────────────┘
-                                               │
-                    ┌─────────────┐            │
-                    │    Rack     │<───────────┘
-                    └─────────────┘
-                           │
-                    ┌─────────────┐
-                    │  Equipment  │
-                    └─────────────┘
-                           │
-                    ┌─────────────┐
-                    │    Port     │
-                    └─────────────┘
-                           │
-                    ┌─────────────┐
-                    │   Cable     │ (source_port ↔ target_port)
-                    └─────────────┘
+┌─────────────────┐
+│  Headquarters   │  (본부, 15개 시드)
+└────────┬────────┘
+         │
+    ┌────▼────┐
+    │ Branch  │  (지사/직할)
+    └────┬────┘
+         │
+  ┌──────▼──────┐
+  │ Substation  │  (변전소, code 필드 없음)
+  └──────┬──────┘
+         │
+    ┌────▼────┐
+    │  Floor  │  (층 = 도면 캔버스)
+    └────┬────┘
+         │ (floor_id)
+  ┌──────▼──────┐
+  │  Equipment  │  (5종: RACK/OFD/DISTRIBUTION/GROUNDING/HVAC)
+  └──────┬──────┘
+         ├──────────────────────────────────┐
+   ┌─────▼─────┐                    ┌───────▼────────┐
+   │ RackModule│                    │DistributionCircuit│
+   └─────┬─────┘                    └───────┬────────┘
+         │                                  │
+         └──────────┬───────────────────────┘
+                    │ (다형 endpoint: source/target)
+              ┌─────▼─────┐
+              │   Cable   │──── CableCategory
+              └─────┬─────┘
+                    │ (fiber_path_id)
+              ┌─────▼─────┐
+              │ FiberPath │  (OFD A ↔ OFD B)
+              └───────────┘
 
-┌─────────────┐     ┌─────────────┐
-│    User     │     │  AuditLog   │
-└─────────────┘     └─────────────┘
+  Equipment(OFD 전용) ──── Port
+
+  ┌─────────┐   ┌──────────────┐   ┌──────────────────┐
+  │  User   │   │  AuditLog    │   │ RackModuleCategory│
+  └─────────┘   └──────────────┘   └──────────────────┘
+  ┌──────────────────┐  ┌───────────────┐  ┌──────────┐
+  │  EquipmentPhoto  │  │MaintenanceLog │  │BomMaterial│
+  └──────────────────┘  └───────────────┘  └──────────┘
 ```
 
 ### 6.2 주요 테이블
-- **substation**: 변전소 정보
-- **floor**: 층/ICT실 정보
-- **floor_plan**: 평면도 (벽/문/창문 좌표 JSON)
-- **rack**: 랙 (위치, 크기, 사진 경로)
-- **equipment**: 설비 (U 위치, 속성)
-- **port**: 포트 (종류, 라벨)
-- **cable**: 케이블 연결 (경로 좌표 JSON)
-- **user**: 사용자 (인증 정보)
-- **audit_log**: 변경 이력
+- **headquarters**: 본부 (15개 한전 본부 시드)
+- **branches**: 지사/직할 (본부 하위)
+- **substations**: 변전소 (Branch 하위, `code` 필드 없음)
+- **floors**: 층 = 도면 캔버스 (canvasWidth/Height, gridSize, backgroundDrawing JSON 등 도면 속성 포함)
+- **equipment**: 도면 객체 5종 (RACK/OFD/DISTRIBUTION/GROUNDING/HVAC), 2D 좌표 필수
+- **rack_modules**: 랙 모듈 (slotIndex/slotSpan 구조, 12종 카테고리)
+- **distribution_circuits**: 분전반 회로 (feederName + branchName)
+- **ports**: 포트 (OFD 전용, 7종 PortType: AC/DC/LAN/FIBER/CONSOLE/USB/OTHER)
+- **cables**: 케이블 (다형 endpoint: Equipment/RackModule/DistributionCircuit 각 side)
+- **fiber_paths**: 광경로 (OFD A ↔ OFD B, 24/48 포트)
+- **cable_categories**: 케이블 카테고리 (16종 시드)
+- **rack_module_categories**: 랙 모듈 카테고리 (12종 시드)
+- **rack_presets**: 랙 프리셋
+- **bom_materials**: BOM 자재 (34종 시드, parent-child 트리)
+- **equipment_photos**: 설비 사진 (front/rear)
+- **maintenance_logs**: 유지보수 이력
+- **users**: 사용자 (인증 정보, UserRole: ADMIN/VIEWER)
+- **refresh_tokens**: 리프레시 토큰
+- **audit_logs**: 변경 이력
 
 ---
 
@@ -303,3 +344,4 @@
 | 버전 | 일자 | 작성자 | 내용 |
 |------|------|--------|------|
 | 1.0 | 2024-12-08 | - | 초안 작성 |
+| 1.1 | 2026-05-22 | - | 현재 코드 기준 갱신: 계층 구조(본부/지사 추가), 기술 스택(Konva→@xyflow, react-query 추가), 데이터 모델(별도 Rack 테이블→Equipment.kind=RACK, RackModule, DistributionCircuit, FiberPath, 다형 Cable endpoint 반영) |
