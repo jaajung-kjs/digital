@@ -31,6 +31,10 @@ describe('findShortestPath', () => {
     expect(findShortestPath(line, 'A', 'Z')).toBeNull();
   });
 
+  it('엣지가 없으면 null', () => {
+    expect(findShortestPath([], 'A', 'B')).toBeNull();
+  });
+
   it('시작과 종료가 같으면 빈 배열', () => {
     expect(findShortestPath(triangle, 'A', 'A')).toEqual([]);
   });
