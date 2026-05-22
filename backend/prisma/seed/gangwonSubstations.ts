@@ -52,12 +52,23 @@ const EDGES: [string, string][] = [
   ['hwacheonhp', 'chuncheonhp'],
 ];
 
-const subId = (key: string) => `gw-sub-${key}`;
-const floorId = (key: string) => `gw-flr-${key}`;
-const ofdId = (key: string) => `gw-ofd-${key}`;
-const rackId = (key: string) => `gw-rack-${key}`;
-const moduleId = (key: string) => `gw-mod-${key}`;
-const fpId = (a: string, b: string) => `gw-fp-${a}-${b}`;
+// 모든 id 는 결정적 UUID 형식 — floor plan API 가 equipment.id 등을 z.string().uuid()
+// 로 검증하므로 비-UUID 문자열은 저장 시 400. `9a0000TT-0000-4000-b000-IIIIIIIIIIII`
+// (TT=종류, IIII=인덱스, 전부 hex).
+const gwUuid = (type: number, idx: number) =>
+  `9a0000${String(type).padStart(2, '0')}-0000-4000-b000-${String(idx).padStart(12, '0')}`;
+
+const subIndex = new Map(SUBSTATIONS.map((s, i) => [s.key, i + 1]));
+const idxOf = (key: string): number => {
+  const i = subIndex.get(key);
+  if (i === undefined) throw new Error(`알 수 없는 변전소 key: ${key}`);
+  return i;
+};
+const subId = (key: string) => gwUuid(1, idxOf(key));
+const floorId = (key: string) => gwUuid(2, idxOf(key));
+const ofdId = (key: string) => gwUuid(3, idxOf(key));
+const rackId = (key: string) => gwUuid(4, idxOf(key));
+const moduleId = (key: string) => gwUuid(5, idxOf(key));
 
 export async function seedGangwonSubstations(prisma: PrismaClient, adminId: string) {
   console.log('🌱 Seeding 강원본부 직할 변전소...');
@@ -163,8 +174,9 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
 
   // ─── 변전소쌍별: FiberPath + 양측 패치 케이블 ───
   const nameByKey = new Map(SUBSTATIONS.map((s) => [s.key, s.name]));
-  for (const [a, b] of EDGES) {
-    const id = fpId(a, b);
+  for (let e = 0; e < EDGES.length; e++) {
+    const [a, b] = EDGES[e];
+    const id = gwUuid(6, e + 1);
     await prisma.fiberPath.upsert({
       where: { id },
       update: {},
@@ -177,12 +189,13 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
       },
     });
 
-    for (const side of [a, b]) {
+    for (const [side, typeCode] of [[a, 7], [b, 8]] as const) {
+      const cableId = gwUuid(typeCode, e + 1);
       await prisma.cable.upsert({
-        where: { id: `gw-cbl-${id}-${side}` },
+        where: { id: cableId },
         update: {},
         create: {
-          id: `gw-cbl-${id}-${side}`,
+          id: cableId,
           sourceModuleId: moduleId(side),
           targetEquipmentId: ofdId(side),
           cableType: CableType.FIBER,
