@@ -11,6 +11,7 @@ import type { CableCategory } from '../../../../types/cableCategory';
 import { calculatePathLength } from '../../../../utils/cable/pathLength';
 import { generateTempId } from '../../../../utils/idHelpers';
 import { MaterialSelectionModal } from '../MaterialSelectionModal';
+import { useToastStore } from '../../stores/toastStore';
 
 export function CableSpecModalWrapper() {
   return <CableSpecModal />;
@@ -72,8 +73,9 @@ function CableSpecModal() {
     const fiberPathId = data.targetFiberPathId ?? data.sourceFiberPathId ?? null;
     const fiberPortNumber = data.targetPortNumber ?? data.sourcePortNumber ?? null;
 
+    const newCableId = generateTempId();
     addCable({
-      id: generateTempId(),
+      id: newCableId,
       // circuit / module endpoint 면 sourceEquipmentId 자리에 회로/모듈 id 를
       // fallback 으로 채워 두는 게 RACK 패턴 (위치 lookup·tracer 가 이걸 씀).
       sourceEquipmentId:
@@ -100,10 +102,14 @@ function CableSpecModal() {
     });
 
     useInteractionStore.getState().cancel();
+    useEditorStore.getState().setSelectedCableId(newCableId);
+    useEditorStore.getState().setTool('select');
+    useToastStore.getState().showToast('케이블을 연결했습니다');
   };
 
   const handleCancel = () => {
     useInteractionStore.getState().cancel();
+    useEditorStore.getState().setTool('select');
   };
 
   return (
