@@ -18,6 +18,22 @@ import type { CanvasContextMenuState } from '../components/CanvasContextMenu';
 
 type PointerLike = Pick<MouseEvent, 'clientX' | 'clientY' | 'shiftKey'>;
 
+/** 커서 좌표에서 hitThreshold 안의 가장 가까운 케이블 id 를 찾는다. 없으면 null. */
+function findClosestCableId(x: number, y: number, zoom: number): string | null {
+  const { cables } = useCableHitTestStore.getState();
+  const hitThreshold = 8 / (zoom / 100);
+  let closestCableId: string | null = null;
+  let closestDist = Infinity;
+  for (const cable of cables) {
+    const dist = pointToPolylineDistance(x, y, cable.pathPoints);
+    if (dist < hitThreshold && dist < closestDist) {
+      closestDist = dist;
+      closestCableId = cable.id;
+    }
+  }
+  return closestCableId;
+}
+
 /**
  * Mouse/wheel event handlers for the canvas.
  * Tools: select, equipment, cable. (Delete via Delete key on selection.)
@@ -115,18 +131,7 @@ export function useCanvasEvents(
         usePathHighlightStore.getState().clearHighlight();
       } else {
         // Cable hit test
-        const { cables: hitCables } = useCableHitTestStore.getState();
-        const { zoom: currentZoom } = editorStore.getState();
-        const hitThreshold = 8 / (currentZoom / 100);
-        let closestCableId: string | null = null;
-        let closestDist = Infinity;
-        for (const cable of hitCables) {
-          const dist = pointToPolylineDistance(x, y, cable.pathPoints);
-          if (dist < hitThreshold && dist < closestDist) {
-            closestDist = dist;
-            closestCableId = cable.id;
-          }
-        }
+        const closestCableId = findClosestCableId(x, y, editorStore.getState().zoom);
         if (closestCableId) {
           editorStore.getState().setSelectedCableId(closestCableId);
           // 다른 케이블을 새로 선택했으면 직전 경로 추적 하이라이트도 같이 해제.
@@ -465,19 +470,8 @@ export function useCanvasEvents(
       return;
     }
 
-    // 케이블 히트 테스트 (handleCanvasMouseDown 과 동일한 임계값)
-    const { cables: hitCables } = useCableHitTestStore.getState();
-    const { zoom: currentZoom } = editorStore.getState();
-    const hitThreshold = 8 / (currentZoom / 100);
-    let closestCableId: string | null = null;
-    let closestDist = Infinity;
-    for (const cable of hitCables) {
-      const dist = pointToPolylineDistance(x, y, cable.pathPoints);
-      if (dist < hitThreshold && dist < closestDist) {
-        closestDist = dist;
-        closestCableId = cable.id;
-      }
-    }
+    // 케이블 히트 테스트
+    const closestCableId = findClosestCableId(x, y, editorStore.getState().zoom);
     if (closestCableId) {
       onContextMenuRequest?.({
         x: e.clientX,

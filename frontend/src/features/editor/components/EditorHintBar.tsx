@@ -1,7 +1,7 @@
 import type { EditorTool } from '../../../types/floorPlan';
 import type { CableDrawingPhase } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
-import { useCableDrawing } from '../stores/interactionStore';
+import { useInteractionStore } from '../stores/interactionStore';
 
 export interface HintState {
   tool: EditorTool;
@@ -37,14 +37,16 @@ export function getHintMessage(s: HintState): string | null {
 export function EditorHintBar() {
   const tool = useEditorStore((s) => s.tool);
   const isDrawingEquipment = useEditorStore((s) => s.isDrawingEquipment);
-  const newEquipmentPreset = useEditorStore((s) => s.newEquipmentPreset);
-  const cable = useCableDrawing();
+  const hasPreset = useEditorStore((s) => s.newEquipmentPreset != null);
+  const cablePhase = useInteractionStore((s) =>
+    s.mode.kind === 'cableDrawing' ? s.mode.data.phase : null,
+  );
 
   const message = getHintMessage({
     tool,
     isDrawingEquipment,
-    hasPreset: newEquipmentPreset != null,
-    cablePhase: cable?.phase ?? null,
+    hasPreset,
+    cablePhase,
   });
 
   if (!message) return null;
