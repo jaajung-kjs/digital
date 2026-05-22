@@ -32,6 +32,7 @@ import { DraftRecoveryDialog } from './modals/DraftRecoveryDialog';
 import { ToastHost } from './ToastHost';
 import { CableEndpointPickerHost } from './CableEndpointPickerHost';
 import { RackModuleDialog } from '../../rack/components/RackModuleDialog';
+import { EditorHintBar } from './EditorHintBar';
 
 // CM-B: scaleRatio 폐기 — CablePathOverlay 가 더 이상 인자가 필요 없다.
 // (직접 import 해서 쓰지만 명명 일관성을 위해 wrapper 유지)
@@ -39,34 +40,6 @@ function CablePathOverlayWrapper({ canvasRef }: { canvasRef: React.RefObject<HTM
   return <CablePathOverlay canvasRef={canvasRef} />;
 }
 
-function ToolStatusBar() {
-  const tool = useEditorStore(s => s.tool);
-  const isDrawingEquipment = useEditorStore(s => s.isDrawingEquipment);
-
-  const getMessage = (): string | null => {
-    switch (tool) {
-      case 'cable':
-        // Cable status bar is handled by CablePathOverlay to avoid duplication
-        return null;
-      case 'equipment':
-        return isDrawingEquipment ? '끝점을 클릭하여 크기를 결정하세요' : '설비 시작점을 클릭하세요';
-      default:
-        return null;
-    }
-  };
-
-  const message = getMessage();
-  if (!message) return null;
-
-  return (
-    <div
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
-      style={{ zIndex: 15 }}
-    >
-      <span className="text-sm text-blue-600">{message}</span>
-    </div>
-  );
-}
 
 interface FloorPlanEditorProps {
   floorId: string;
@@ -566,7 +539,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 <ConnectionOverlay canvasRef={canvasRef} />
                 <CablePathOverlayWrapper canvasRef={canvasRef} />
                 <EquipmentResizeHandlesHost />
-                <ToolStatusBar />
+                <EditorHintBar />
               </CanvasView>
 
               <NetworkTopologyModal />

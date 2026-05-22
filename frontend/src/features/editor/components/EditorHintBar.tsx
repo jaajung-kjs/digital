@@ -1,5 +1,7 @@
 import type { EditorTool } from '../../../types/floorPlan';
 import type { CableDrawingPhase } from '../stores/interactionStore';
+import { useEditorStore } from '../stores/editorStore';
+import { useCableDrawing } from '../stores/interactionStore';
 
 export interface HintState {
   tool: EditorTool;
@@ -26,4 +28,33 @@ export function getHintMessage(s: HintState): string | null {
     return null;
   }
   return null;
+}
+
+/**
+ * 캔버스 하단 중앙의 통합 도구 안내 바. 설비/케이블 도구의 안내를 단일
+ * 컴포넌트로 통합한다. 표시할 안내가 없으면 아무것도 렌더하지 않는다.
+ */
+export function EditorHintBar() {
+  const tool = useEditorStore((s) => s.tool);
+  const isDrawingEquipment = useEditorStore((s) => s.isDrawingEquipment);
+  const newEquipmentPreset = useEditorStore((s) => s.newEquipmentPreset);
+  const cable = useCableDrawing();
+
+  const message = getHintMessage({
+    tool,
+    isDrawingEquipment,
+    hasPreset: newEquipmentPreset != null,
+    cablePhase: cable?.phase ?? null,
+  });
+
+  if (!message) return null;
+
+  return (
+    <div
+      className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
+      style={{ zIndex: 15 }}
+    >
+      <span className="text-sm text-blue-600">{message}</span>
+    </div>
+  );
 }
