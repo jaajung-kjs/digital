@@ -183,24 +183,10 @@ export function CablePathOverlay({ canvasRef }: CablePathOverlayProps) {
   if (phase !== 'drawingPath' && phase !== 'selectingSource') return null;
 
   return (
-    <>
-      <canvas
-        ref={overlayRef}
-        className="absolute inset-0 pointer-events-none"
-        style={{ zIndex: 11 }}
-      />
-
-      {/* Status bar */}
-      <div
-        className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-gray-200 pointer-events-none select-none"
-        style={{ zIndex: 15 }}
-      >
-        <span className="text-sm text-blue-600">
-          {phase === 'selectingSource'
-            ? '출발 설비를 클릭하세요'
-            : '경유점을 클릭하거나, 도착 설비를 클릭하세요 (Shift: 직선, Backspace: 되돌리기, ESC: 취소)'}
-        </span>
-      </div>
-    </>
+    <canvas
+      ref={overlayRef}
+      className="absolute inset-0 pointer-events-none"
+      style={{ zIndex: 11 }}
+    />
   );
 }
