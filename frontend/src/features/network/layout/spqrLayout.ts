@@ -26,7 +26,7 @@
  */
 
 import type { TraceEdge, TraceRing } from '../../pathTrace/types';
-import { BOX_W, LEAF_GAP, NODE_GAP, ringRadius } from './geometry';
+import { BOX_W, LEAF_GAP, MIN_NODE_DISTANCE, NODE_GAP, resolveOverlap, ringRadius } from './geometry';
 
 // ─── Block types ────────────────────────────────────────────────────────
 interface BlockS {
@@ -409,14 +409,17 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
     }
   }
 
-  // ─── 10. 미배치 노드 fallback ───────────────────────────────────────
+  // ─── 10. 미배치 노드 fallback — MIN_NODE_DISTANCE grid ────────────────
   let s = 0;
   for (const id of nodeIds) {
     if (positions.has(id)) continue;
-    positions.set(id, { x: -1500 + (s % 4) * 220, y: -800 + Math.floor(s / 4) * 160 });
+    positions.set(id, {
+      x: -1500 + (s % 5) * MIN_NODE_DISTANCE,
+      y: -800 + Math.floor(s / 5) * MIN_NODE_DISTANCE,
+    });
     s++;
   }
-  return positions;
+  return resolveOverlap(positions);
 }
 
 // ─── helper: 2-vertex cut 검색 (P-node poles 결정) ─────────────────────

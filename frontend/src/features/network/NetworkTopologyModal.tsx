@@ -66,7 +66,6 @@ function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
       {/* Floating edge 가 노드 중심 기준 경계점을 계산하므로 핸들 위치 무관 — 단일 (hidden) 핸들 한 쌍만 둠. */}
       <Handle type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%' }} />
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, top: '50%', left: '50%' }} />
-
       <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold text-gray-800 truncate">{name}</span>
@@ -285,6 +284,7 @@ export function NetworkTopologyModal() {
               edgeTypes={edgeTypes}
               fitView
               fitViewOptions={{ padding: 0.15 }}
+              minZoom={0.02}
               proOptions={{ hideAttribution: true }}
               nodesDraggable={false}
               nodesConnectable={false}

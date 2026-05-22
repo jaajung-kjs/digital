@@ -17,7 +17,7 @@
  */
 
 import type { TraceEdge, TraceRing } from '../../pathTrace/types';
-import { BRIDGE_GAP, LEAF_GAP, ringRadius } from './geometry';
+import { BRIDGE_GAP, LEAF_GAP, MIN_NODE_DISTANCE, resolveOverlap, ringRadius } from './geometry';
 
 export interface BCTreeLayoutInput {
   nodeIds: string[];
@@ -107,9 +107,9 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
     }
 
     // junction & bridge 재귀.
-    //   K = 1(현재 ring) + outgoing ring 수 + bridge 수.
-    //   각 branch 가 360°/K 간격으로 fan-out.
-    //   각 junction 은 *한 번만* fan-out (첫 도착 ring 이 K 결정 후 분배).
+    //   Ring 은 우선 균등 분배 (2π/ringCount) — edge 삭제로 ring 이 bridge 로 바뀌어도 남은
+    //   ring 들은 넓게 (2 ring → figure-8). Bridge 는 ring 사이 gap 중앙에 끼움.
+    //   각 junction 은 *한 번만* fan-out (첫 도착 ring 이 분배).
     for (let i = 0; i < N; i++) {
       const gid = ofdToGroup.get(ring.nodeIds[i]);
       if (!gid) continue;
@@ -129,26 +129,29 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
         if (nbrRings.some((rid) => placed.has(rid))) continue;
         bridges.push(nbr);
       }
-      const K = 1 + outgoingRings.length + bridges.length;
-      if (K === 1) continue;
+      if (outgoingRings.length === 0 && bridges.length === 0) continue;
       fannedOut.add(gid);
 
       const jp = positions.get(gid)!;
       const dirToCurrentCenter = Math.atan2(cy - jp.y, cx - jp.x); // J → 현재 ring 중심
-      const angleStep = (2 * Math.PI) / K;
-      let k = 1;
+      const ringCount = 1 + outgoingRings.length; // 현재 ring + outgoing rings
+      const ringStep = (2 * Math.PI) / ringCount;
 
-      for (const adjId of outgoingRings) {
+      outgoingRings.forEach((adjId, idx) => {
         const adjRing = ringById.get(adjId);
         if (adjRing) {
-          const outDir = dirToCurrentCenter + k * angleStep;
+          const outDir = dirToCurrentCenter + (idx + 1) * ringStep;
           placeRing(adjRing, gid, outDir + Math.PI);
         }
-        k++;
-      }
+      });
 
-      for (const brNode of bridges) {
-        const outDir = dirToCurrentCenter + k * angleStep;
+      // bridge 방향: ring 1개뿐이면 2π/(1+bridges) 균등; 아니면 ring 사이 gap 중앙.
+      const bridgeStep = ringCount === 1 ? (2 * Math.PI) / (1 + bridges.length) : ringStep;
+      bridges.forEach((brNode, idx) => {
+        const outDir =
+          ringCount === 1
+            ? dirToCurrentCenter + (idx + 1) * bridgeStep
+            : dirToCurrentCenter + ((idx % ringCount) + 0.5) * ringStep;
         const nbrRings = memberRings.get(brNode) ?? [];
         const targetRingId = nbrRings.find((rid) => !placed.has(rid));
         if (targetRingId) {
@@ -167,12 +170,11 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
           });
           // 다음 leaf 가 같은 방향 이어가도록 가상 ring 중심을 leaf 뒤쪽에 둠.
           nodeRingCenter.set(brNode, {
-            x: jp.x + (LEAF_GAP - LEAF_GAP * 2) * Math.cos(outDir), // = jp.x - LEAF_GAP * cos(outDir)
-            y: jp.y + (LEAF_GAP - LEAF_GAP * 2) * Math.sin(outDir),
+            x: jp.x - LEAF_GAP * Math.cos(outDir),
+            y: jp.y - LEAF_GAP * Math.sin(outDir),
           });
         }
-        k++;
-      }
+      });
     }
   }
 
@@ -240,12 +242,16 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
     detachedOffset += 2 * R + 300;
   }
 
-  // ─── 최종 fallback: 모든 미배치 노드 (대부분 빈 케이스) ────────────────
+  // ─── 최종 fallback: 모든 미배치 노드 (ring 없는 순수 tree/chain 등) ────
+  //   MIN_NODE_DISTANCE 간격 grid — resolveOverlap scale 안 타도록.
   let s = 0;
   for (const id of nodeIds) {
     if (positions.has(id)) continue;
-    positions.set(id, { x: -1500 + (s % 4) * 220, y: -800 + Math.floor(s / 4) * 160 });
+    positions.set(id, {
+      x: -1500 + (s % 5) * MIN_NODE_DISTANCE,
+      y: -800 + Math.floor(s / 5) * MIN_NODE_DISTANCE,
+    });
     s++;
   }
-  return positions;
+  return resolveOverlap(positions);
 }
