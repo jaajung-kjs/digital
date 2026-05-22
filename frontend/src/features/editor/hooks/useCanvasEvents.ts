@@ -14,6 +14,7 @@ import {
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
+import type { CanvasContextMenuState } from '../components/CanvasContextMenu';
 
 type PointerLike = Pick<MouseEvent, 'clientX' | 'clientY' | 'shiftKey'>;
 
@@ -30,6 +31,7 @@ export function useCanvasEvents(
   floorPlan: FloorPlanDetail | undefined,
   _floorId: string | undefined,
   onPlacePreset?: () => void,
+  onContextMenuRequest?: (menu: CanvasContextMenuState) => void,
 ) {
   const editorStore = useEditorStore;
   // Canvas interaction state has been merged into editorStore (Tier D)
@@ -444,6 +446,47 @@ export function useCanvasEvents(
     );
   }, [canvasRef, editorStore]);
 
+  const handleCanvasContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!floorPlan || !canvasRef.current) return;
+    if (useSnapshotStore.getState().active) return;
+
+    const { x, y } = getCanvasCoordinates(e);
+    const { localEquipment } = editorStore.getState();
+
+    // 설비 우선 히트 테스트
+    const found = findItemAt(x, y, null, localEquipment);
+    if (found?.type === 'equipment') {
+      onContextMenuRequest?.({
+        x: e.clientX,
+        y: e.clientY,
+        target: { type: 'equipment', id: found.item.id },
+      });
+      return;
+    }
+
+    // 케이블 히트 테스트 (handleCanvasMouseDown 과 동일한 임계값)
+    const { cables: hitCables } = useCableHitTestStore.getState();
+    const { zoom: currentZoom } = editorStore.getState();
+    const hitThreshold = 8 / (currentZoom / 100);
+    let closestCableId: string | null = null;
+    let closestDist = Infinity;
+    for (const cable of hitCables) {
+      const dist = pointToPolylineDistance(x, y, cable.pathPoints);
+      if (dist < hitThreshold && dist < closestDist) {
+        closestDist = dist;
+        closestCableId = cable.id;
+      }
+    }
+    if (closestCableId) {
+      onContextMenuRequest?.({
+        x: e.clientX,
+        y: e.clientY,
+        target: { type: 'cable', id: closestCableId },
+      });
+    }
+  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, onContextMenuRequest]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -457,5 +500,6 @@ export function useCanvasEvents(
     handleCanvasMouseUp,
     handleCanvasClick,
     handleCanvasDoubleClick,
+    handleCanvasContextMenu,
   };
 }

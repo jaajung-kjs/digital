@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import { useCanvas } from '../hooks/useCanvas';
 import { useCanvasEvents } from '../hooks/useCanvasEvents';
 import { useEditorStore } from '../stores/editorStore';
+import { CanvasContextMenu, type CanvasContextMenuState } from './CanvasContextMenu';
 import { EmptyStateGuide } from './EmptyStateGuide';
 import { EditorHelpButton } from './EditorHelpButton';
 
@@ -20,12 +21,15 @@ interface CanvasViewProps {
 
 export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlacePreset, onImportClick, children }: CanvasViewProps) {
   useCanvas(canvasRef, containerRef, floorPlan);
+  const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
+
   const {
     handleCanvasMouseDown,
     handleCanvasMouseMove,
     handleCanvasClick,
     handleCanvasDoubleClick,
-  } = useCanvasEvents(canvasRef, floorPlan, floorId, onPlacePreset);
+    handleCanvasContextMenu,
+  } = useCanvasEvents(canvasRef, floorPlan, floorId, onPlacePreset, setContextMenu);
 
   const tool = useEditorStore((s) => s.tool);
   const zoom = useEditorStore((s) => s.zoom);
@@ -64,6 +68,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
         onDoubleClick={handleCanvasDoubleClick}
         onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleCanvasMouseMove}
+        onContextMenu={handleCanvasContextMenu}
         className={`${
           isPanning ? 'cursor-grabbing' :
           isSpacePressed ? 'cursor-grab' :
@@ -139,6 +144,13 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
       </div>
 
       {children}
+
+      {contextMenu && (
+        <CanvasContextMenu
+          menu={contextMenu}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }
