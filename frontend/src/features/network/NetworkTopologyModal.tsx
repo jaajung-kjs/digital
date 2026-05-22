@@ -6,9 +6,13 @@
  *
  * 시드 cable 의 fiberPathId 강조 (빨강), 시드가 속한 ring (파랑), 그 ring 을 포함하는 composite
  * ring (보라), 분기점 (호박색 테두리). highlightedFpId 만 바뀌어도 layout 은 재계산 안 함.
+ *
+ * 테스트 도구 (모달 한정 — 닫으면 초기화): 노드 클릭으로 최단경로(홉 수) 찾기, 엣지 호버 × 로
+ * 경로 끊기, '경로 추가' 로 가상 엣지 추가. base 레이아웃은 절대 재계산하지 않고 — 변경은
+ * 고정 화면 위 오버레이로만 표시해 before/after 비교가 가능하게 한다.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -25,6 +29,8 @@ import { useNetworkTopologyStore } from './store';
 import { computeLayoutBCTree } from './layout/bcTreeLayout';
 import { computeLayoutSPQR } from './layout/spqrLayout';
 import { FloatingEdge } from './edges/FloatingEdge';
+import { TopologyTestControls } from './TopologyTestControls';
+import { findShortestPath, type GraphEdge } from './pathfinding';
 import type { TraceNode, TraceRing } from '../pathTrace/types';
 
 const TIER_COLOR = {
@@ -44,50 +50,89 @@ const EDGE_STYLE: Record<Tier, { stroke: string; width: number }> = {
   default: { stroke: TIER_COLOR.default, width: 1.5 },
 };
 
+// 테스트 오버레이 엣지 스타일 — 우선순위 끊김 > 경로 > 추가 (기존 tier 위).
+const TEST_EDGE_STYLE = {
+  cut: { stroke: '#9ca3af', strokeWidth: 1.5, strokeDasharray: '4 4', opacity: 0.4 },
+  path: { stroke: '#16a34a', strokeWidth: 4 },
+  added: { stroke: '#0d9488', strokeWidth: 2, strokeDasharray: '6 3' },
+} as const;
+
 type NodeTier = Exclude<Tier, 'seed'>;
+type PathRole = 'start' | 'end' | 'anchor';
+
+const ROLE_BADGE: Record<PathRole, { text: string; color: string }> = {
+  start: { text: '시작', color: '#16a34a' },
+  end: { text: '종료', color: '#dc2626' },
+  anchor: { text: '추가 시작', color: '#0d9488' },
+};
 
 type SubstationNodeData = {
   name: string;
   ofdName: string;
   modules: { id: string; name: string }[];
   tier: NodeTier;
+  pathRole?: PathRole;
 };
 
 function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
-  const { name, ofdName, modules, tier } = data;
+  const { name, ofdName, modules, tier, pathRole } = data;
   const borderColor = TIER_COLOR[tier];
   const borderWidth = tier === 'seedRing' || tier === 'junction' ? 2 : 1;
+  const role = pathRole ? ROLE_BADGE[pathRole] : null;
 
   return (
-    <div
-      className="rounded-lg bg-white shadow-sm overflow-hidden"
-      style={{ border: `${borderWidth}px solid ${borderColor}`, minWidth: 160 }}
-    >
-      {/* Floating edge 가 노드 중심 기준 경계점을 계산하므로 핸들 위치 무관 — 단일 (hidden) 핸들 한 쌍만 둠. */}
-      <Handle type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%' }} />
-      <Handle type="source" position={Position.Bottom} style={{ opacity: 0, top: '50%', left: '50%' }} />
-      <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-gray-800 truncate">{name}</span>
-          {tier === 'junction' && (
-            <span className="ml-1 shrink-0 text-[10px] text-amber-600 font-medium">분기점</span>
-          )}
-        </div>
-      </div>
-      <div className="px-2.5 py-1.5">
-        <div className="text-[11px] text-gray-600 truncate">{ofdName}</div>
-        {modules.length > 0 && (
-          <div className="mt-1 space-y-0.5">
-            {modules.slice(0, 3).map((m) => (
-              <div key={m.id} className="text-[10px] text-gray-500 truncate">
-                · {m.name}
-              </div>
-            ))}
-            {modules.length > 3 && (
-              <div className="text-[10px] text-gray-400">+ {modules.length - 3}개</div>
+    <div className="relative" style={{ minWidth: 160 }}>
+      {role && (
+        <span
+          style={{
+            position: 'absolute',
+            top: -9,
+            right: -6,
+            zIndex: 1,
+            background: role.color,
+            color: '#ffffff',
+            fontSize: 10,
+            fontWeight: 700,
+            padding: '1px 6px',
+            borderRadius: 8,
+          }}
+        >
+          {role.text}
+        </span>
+      )}
+      <div
+        className="rounded-lg bg-white shadow-sm overflow-hidden"
+        style={{
+          border: `${borderWidth}px solid ${borderColor}`,
+          boxShadow: role ? `0 0 0 3px ${role.color}` : undefined,
+        }}
+      >
+        {/* Floating edge 가 노드 중심 기준 경계점을 계산하므로 핸들 위치 무관 — 단일 (hidden) 핸들 한 쌍만 둠. */}
+        <Handle type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%' }} />
+        <Handle type="source" position={Position.Bottom} style={{ opacity: 0, top: '50%', left: '50%' }} />
+        <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-800 truncate">{name}</span>
+            {tier === 'junction' && (
+              <span className="ml-1 shrink-0 text-[10px] text-amber-600 font-medium">분기점</span>
             )}
           </div>
-        )}
+        </div>
+        <div className="px-2.5 py-1.5">
+          <div className="text-[11px] text-gray-600 truncate">{ofdName}</div>
+          {modules.length > 0 && (
+            <div className="mt-1 space-y-0.5">
+              {modules.slice(0, 3).map((m) => (
+                <div key={m.id} className="text-[10px] text-gray-500 truncate">
+                  · {m.name}
+                </div>
+              ))}
+              {modules.length > 3 && (
+                <div className="text-[10px] text-gray-400">+ {modules.length - 3}개</div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -140,6 +185,9 @@ function computeRingHighlights(
   return { seedRingNodes, seedRingEdges, superRingNodes, superRingEdges };
 }
 
+/** base fiberPath edge — 그래프 위상 + tier 스타일 메타. */
+type GraphEdgeMeta = { id: string; source: string; target: string; tier: Tier; label?: string };
+
 export function NetworkTopologyModal() {
   const modalOpen = useNetworkTopologyStore((s) => s.modalOpen);
   const traceResult = useNetworkTopologyStore((s) => s.traceResult);
@@ -148,7 +196,43 @@ export function NetworkTopologyModal() {
   const error = useNetworkTopologyStore((s) => s.error);
   const close = useNetworkTopologyStore((s) => s.close);
 
-  // Layout 은 traceResult 만으로 결정 — highlightedFpId 변경 시 재계산 안 함.
+  // ── 테스트 상태 (모달 한정) ───────────────────────────────────────────────
+  const [cutEdgeIds, setCutEdgeIds] = useState<Set<string>>(new Set<string>());
+  const [addedEdges, setAddedEdges] = useState<GraphEdge[]>([]);
+  const [pathStart, setPathStart] = useState<string | null>(null);
+  const [pathEnd, setPathEnd] = useState<string | null>(null);
+  const [addMode, setAddMode] = useState(false);
+  const [addAnchor, setAddAnchor] = useState<string | null>(null);
+  const addCounter = useRef(0);
+
+  const resetTestState = useCallback(() => {
+    setCutEdgeIds(new Set<string>());
+    setAddedEdges([]);
+    setPathStart(null);
+    setPathEnd(null);
+    setAddMode(false);
+    setAddAnchor(null);
+  }, []);
+
+  // traceResult 가 바뀌면(닫기→null, 재열기→새 객체) 테스트 상태 초기화.
+  useEffect(() => {
+    resetTestState();
+  }, [traceResult, resetTestState]);
+
+  // 경로 추가 모드 중 ESC → 취소.
+  useEffect(() => {
+    if (!addMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setAddMode(false);
+        setAddAnchor(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [addMode]);
+
+  // Layout 은 traceResult 만으로 결정 — highlightedFpId/테스트 상태 변경 시 재계산 안 함.
   const layoutData = useMemo(() => {
     if (!traceResult) return null;
     const groups = groupBySubstation(traceResult.nodes);
@@ -174,8 +258,9 @@ export function NetworkTopologyModal() {
     return { groups, ofdToGroup, positions, ringCount, fundamental, composite };
   }, [traceResult]);
 
-  const { nodes, edges } = useMemo<{ nodes: Node[]; edges: Edge[] }>(() => {
-    if (!traceResult || !layoutData) return { nodes: [], edges: [] };
+  // base 그래프 — 노드 + fiberPath 엣지(위상·tier). 테스트 상태와 무관.
+  const baseGraph = useMemo<{ nodes: Node<SubstationNodeData>[]; graphEdges: GraphEdgeMeta[] }>(() => {
+    if (!traceResult || !layoutData) return { nodes: [], graphEdges: [] };
     const { groups, ofdToGroup, positions, ringCount } = layoutData;
     const { seedRingNodes, seedRingEdges, superRingNodes, superRingEdges } = computeRingHighlights(
       traceResult.rings,
@@ -204,7 +289,7 @@ export function NetworkTopologyModal() {
     });
 
     // FiberPath edge 만 그림 — cable edge 는 변전소 안 표현이라 그래프에서 생략.
-    const edges: Edge[] = [];
+    const graphEdges: GraphEdgeMeta[] = [];
     for (const e of traceResult.edges) {
       if (e.type !== 'fiberPath') continue;
       const source = ofdToGroup.get(e.sourceEquipmentId);
@@ -217,22 +302,136 @@ export function NetworkTopologyModal() {
           : superRingEdges.has(e.id)
             ? 'superRing'
             : 'default';
-      const { stroke, width: strokeWidth } = EDGE_STYLE[tier];
       // Label = 포트번호 (#N) 만 — 변전소명은 양 끝 노드 박스에 이미 표시됨.
       const label = e.fiberPortNumber != null ? `#${e.fiberPortNumber}` : undefined;
-      edges.push({
+      graphEdges.push({ id: e.id, source, target, tier, label });
+    }
+    return { nodes, graphEdges };
+  }, [traceResult, layoutData, highlightedFpId]);
+
+  // 경로찾기 그래프 = (base + 추가) − 끊김.
+  const routableEdges = useMemo<GraphEdge[]>(() => {
+    const all: GraphEdge[] = [
+      ...baseGraph.graphEdges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+      ...addedEdges,
+    ];
+    return all.filter((e) => !cutEdgeIds.has(e.id));
+  }, [baseGraph, addedEdges, cutEdgeIds]);
+
+  // 최단 경로(홉 수) — start/end 둘 다 선택됐을 때만.
+  const foundPath = useMemo<string[] | null>(() => {
+    if (!pathStart || !pathEnd) return null;
+    return findShortestPath(routableEdges, pathStart, pathEnd);
+  }, [routableEdges, pathStart, pathEnd]);
+  const foundPathEdgeIds = useMemo(() => new Set(foundPath ?? []), [foundPath]);
+
+  // ── 엣지 제거 (× 클릭) — 추가 엣지는 완전 삭제, base 엣지는 끊김 토글 ────────
+  const handleRemoveEdge = useCallback((edgeId: string) => {
+    if (edgeId.startsWith('test-add-')) {
+      setAddedEdges((prev) => prev.filter((e) => e.id !== edgeId));
+      return;
+    }
+    setCutEdgeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(edgeId)) next.delete(edgeId);
+      else next.add(edgeId);
+      return next;
+    });
+  }, []);
+
+  // ── 노드 클릭 — addMode 면 경로 추가, 아니면 경로찾기 시작/종료 ──────────────
+  const handleNodeClick = useCallback(
+    (nodeId: string) => {
+      if (addMode) {
+        if (!addAnchor) {
+          setAddAnchor(nodeId);
+        } else if (nodeId !== addAnchor) {
+          const id = `test-add-${addCounter.current++}`;
+          setAddedEdges((prev) => [...prev, { id, source: addAnchor, target: nodeId }]);
+          setAddMode(false);
+          setAddAnchor(null);
+        }
+        return;
+      }
+      if (!pathStart) {
+        setPathStart(nodeId);
+      } else if (!pathEnd) {
+        if (nodeId !== pathStart) setPathEnd(nodeId);
+      } else {
+        setPathStart(nodeId);
+        setPathEnd(null);
+      }
+    },
+    [addMode, addAnchor, pathStart, pathEnd],
+  );
+
+  const handleToggleAddMode = useCallback(() => {
+    setAddMode((prev) => !prev);
+    setAddAnchor(null);
+  }, []);
+
+  // ── 렌더용 노드 — pathRole 배지 주입 ──────────────────────────────────────
+  const rfNodes = useMemo<Node[]>(() => {
+    return baseGraph.nodes.map((n) => {
+      let pathRole: PathRole | undefined;
+      if (n.id === pathStart) pathRole = 'start';
+      else if (n.id === pathEnd) pathRole = 'end';
+      else if (n.id === addAnchor) pathRole = 'anchor';
+      return (pathRole ? { ...n, data: { ...n.data, pathRole } } : n) as Node;
+    });
+  }, [baseGraph, pathStart, pathEnd, addAnchor]);
+
+  // ── 렌더용 엣지 — 끊김 > 경로 > 추가 > 기존 tier ──────────────────────────
+  const rfEdges = useMemo<Edge[]>(() => {
+    const labelStyle = { fontSize: 10, fill: '#6b7280' };
+    const labelBgStyle = { fill: '#ffffff', fillOpacity: 0.85 };
+    const data = { onRemove: handleRemoveEdge };
+    const result: Edge[] = [];
+
+    for (const e of baseGraph.graphEdges) {
+      let style: Edge['style'];
+      let animated = false;
+      if (cutEdgeIds.has(e.id)) {
+        style = { ...TEST_EDGE_STYLE.cut };
+      } else if (foundPathEdgeIds.has(e.id)) {
+        style = { ...TEST_EDGE_STYLE.path };
+        animated = true;
+      } else {
+        const s = EDGE_STYLE[e.tier];
+        style = { stroke: s.stroke, strokeWidth: s.width };
+      }
+      result.push({
         id: e.id,
-        source,
-        target,
+        source: e.source,
+        target: e.target,
         type: 'floating',
-        label,
-        labelStyle: { fontSize: 10, fill: '#6b7280' },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.85 },
-        style: { stroke, strokeWidth },
+        label: e.label,
+        labelStyle,
+        labelBgStyle,
+        style,
+        animated,
+        data,
       });
     }
-    return { nodes: nodes as Node[], edges };
-  }, [traceResult, layoutData, highlightedFpId]);
+
+    // 추가 엣지 — 끊김 대상 아님(× 누르면 완전 삭제). 경로상이면 경로 스타일.
+    for (const e of addedEdges) {
+      const onPath = foundPathEdgeIds.has(e.id);
+      result.push({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: 'floating',
+        label: '추가',
+        labelStyle: { fontSize: 10, fill: '#0d9488' },
+        labelBgStyle,
+        style: onPath ? { ...TEST_EDGE_STYLE.path } : { ...TEST_EDGE_STYLE.added },
+        animated: onPath,
+        data,
+      });
+    }
+    return result;
+  }, [baseGraph, addedEdges, cutEdgeIds, foundPathEdgeIds, handleRemoveEdge]);
 
   if (!modalOpen) return null;
 
@@ -269,15 +468,15 @@ export function NetworkTopologyModal() {
               <span className="text-sm text-red-500">{error}</span>
             </div>
           )}
-          {!isLoading && !error && nodes.length === 0 && (
+          {!isLoading && !error && rfNodes.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
               <span className="text-sm text-gray-400">표시할 네트워크 토폴로지가 없습니다.</span>
             </div>
           )}
-          {!isLoading && !error && nodes.length > 0 && (
+          {!isLoading && !error && rfNodes.length > 0 && (
             <ReactFlow
-              nodes={nodes}
-              edges={edges}
+              nodes={rfNodes}
+              edges={rfEdges}
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
               fitView
@@ -286,10 +485,22 @@ export function NetworkTopologyModal() {
               proOptions={{ hideAttribution: true }}
               nodesDraggable={false}
               nodesConnectable={false}
-              elementsSelectable={true}
+              elementsSelectable={false}
+              onNodeClick={(_, node) => handleNodeClick(node.id)}
             >
               <Background gap={20} size={1} color="#e5e7eb" />
               <Controls showInteractive={false} />
+              <TopologyTestControls
+                addMode={addMode}
+                addAnchor={addAnchor}
+                hasStart={pathStart != null}
+                hasEnd={pathEnd != null}
+                pathFound={foundPath != null}
+                cutCount={cutEdgeIds.size}
+                addCount={addedEdges.length}
+                onToggleAddMode={handleToggleAddMode}
+                onReset={resetTestState}
+              />
             </ReactFlow>
           )}
         </div>
@@ -306,6 +517,15 @@ export function NetworkTopologyModal() {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-3 rounded border-2 border-amber-500 bg-white" /> 분기점
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-4 h-1 bg-green-600" /> 찾은 경로
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-4 border-t-2 border-dashed border-teal-600" /> 추가
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-4 border-t-2 border-dashed border-gray-400" /> 끊김
           </span>
         </div>
       </div>
