@@ -21,7 +21,7 @@ export interface RenderableConnection {
   highlighted?: boolean;
   /** Cable ID for hit-testing */
   id?: string;
-  /** Path waypoints for polyline rendering (replaces bezier when present) */
+  /** Path waypoints for polyline rendering. 없으면 source→target 직선. */
   pathPoints?: [number, number][];
   /** Path length details for hover display */
   pathLength?: number | null;
@@ -90,18 +90,12 @@ function drawConnectionPolyline(
   }
 }
 
-/** Draw a single curved connection line */
-function drawConnectionCurve(
+/** Draw a straight connection line — pathPoints 가 없을 때의 fallback. */
+function drawConnectionLine(
   ctx: CanvasRenderingContext2D,
   conn: RenderableConnection
 ): void {
   const { sourceX, sourceY, targetX, targetY } = conn;
-
-  const offset = Math.min(Math.abs(targetX - sourceX), Math.abs(targetY - sourceY), 80) + 30;
-  const cp1x = sourceX + offset;
-  const cp1y = sourceY;
-  const cp2x = targetX - offset;
-  const cp2y = targetY;
 
   if (conn.highlighted) {
     ctx.save();
@@ -112,7 +106,7 @@ function drawConnectionCurve(
     ctx.globalAlpha = 0.4;
     ctx.beginPath();
     ctx.moveTo(sourceX, sourceY);
-    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, targetX, targetY);
+    ctx.lineTo(targetX, targetY);
     ctx.stroke();
     ctx.restore();
   }
@@ -127,7 +121,7 @@ function drawConnectionCurve(
   }
   ctx.beginPath();
   ctx.moveTo(sourceX, sourceY);
-  ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, targetX, targetY);
+  ctx.lineTo(targetX, targetY);
   ctx.stroke();
   if (isSelected) {
     ctx.shadowColor = 'transparent';
@@ -220,7 +214,7 @@ export function renderConnections(
     if (conn.pathPoints && conn.pathPoints.length >= 2) {
       drawConnectionPolyline(ctx, conn);
     } else {
-      drawConnectionCurve(ctx, conn);
+      drawConnectionLine(ctx, conn);
     }
   }
   for (const conn of connections) {
