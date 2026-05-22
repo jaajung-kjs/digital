@@ -11,6 +11,9 @@ import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
 import { isTempId } from '../../../utils/idHelpers';
+import { temporal } from 'zundo';
+import { shallow } from 'zustand/shallow';
+import { throttle } from '../../../utils/throttle';
 
 /** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
 export type ConnectionFilterKey = string;
@@ -410,16 +413,47 @@ const initialState: EditorStoreState = {
   historyIndex: -1,
 };
 
+type FullStore = EditorStoreState & EditorStoreActions;
+
+/** undo/redo history 에 담을 working-copy 데이터 슬라이스 타입. */
+type HistorySlice = {
+  localEquipment: EditorStoreState['localEquipment'];
+  localCables: EditorStoreState['localCables'];
+  localRackModules: EditorStoreState['localRackModules'];
+  localDistributionCircuits: EditorStoreState['localDistributionCircuits'];
+  deletedCableIds: EditorStoreState['deletedCableIds'];
+  deletedFiberPathIds: EditorStoreState['deletedFiberPathIds'];
+  pendingFiberPaths: EditorStoreState['pendingFiberPaths'];
+};
+
+/**
+ * undo/redo history 에 담을 working-copy 데이터 슬라이스.
+ * UI 상태·DWG 배경·pendingUploads/Logs 는 제외 — 설계 문서 §4 참고.
+ */
+function partializeForHistory(state: FullStore): HistorySlice {
+  return {
+    localEquipment: state.localEquipment,
+    localCables: state.localCables,
+    localRackModules: state.localRackModules,
+    localDistributionCircuits: state.localDistributionCircuits,
+    deletedCableIds: state.deletedCableIds,
+    deletedFiberPathIds: state.deletedFiberPathIds,
+    pendingFiberPaths: state.pendingFiberPaths,
+  };
+}
+
 function revokeUploadUrls(uploads: PendingUpload[]) {
   for (const upload of uploads) {
     URL.revokeObjectURL(upload.objectUrl);
   }
 }
 
-export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set, get) => ({
-  ...initialState,
+export const useEditorStore = create<FullStore>()(
+  temporal<FullStore, [], [], HistorySlice>(
+    (set, get) => ({
+      ...initialState,
 
-  setTool: (tool) => set({ tool }),
+      setTool: (tool) => set({ tool }),
   // ── Selection mutex ────────────────────────────────────────────────────────
   // 설비 / 케이블 / 랙 모듈 셋 중 동시에 하나만 활성화되도록 setter 가 서로의
   // 필드를 같이 비운다. 호출자 코드가 "다른 선택도 비워야 하나?" 를 매번
@@ -762,7 +796,15 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   },
 
   resetHistory: () => set({ history: [], historyIndex: -1 }),
-}));
+    }),
+    {
+      partialize: partializeForHistory,
+      equality: shallow,
+      limit: 50,
+      handleSet: (handleSet) => throttle(handleSet, 700),
+    },
+  ),
+);
 
 // ── Derived selectors ────────────────────────────────────────────────────────
 // "현재 선택된 설비" 는 selectedIds[0] + localEquipment 로 자명하게 도출됨.
