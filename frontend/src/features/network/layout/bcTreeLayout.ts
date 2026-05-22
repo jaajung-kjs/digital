@@ -165,7 +165,7 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
           });
           placeRing(targetRing, brNode, outDir + Math.PI);
         } else {
-          // bridge → leaf. 외측 방향으로 단순 배치, 체인은 다음 단계에서 BFS 로 처리.
+          // bridge → leaf. 외측 방향으로 단순 배치 — 이어지는 체인은 아래 트리 레이아웃이 처리.
           positions.set(brNode, {
             x: jp.x + LEAF_GAP * Math.cos(outDir),
             y: jp.y + LEAF_GAP * Math.sin(outDir),

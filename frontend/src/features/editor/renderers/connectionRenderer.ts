@@ -21,7 +21,7 @@ export interface RenderableConnection {
   highlighted?: boolean;
   /** Cable ID for hit-testing */
   id?: string;
-  /** Path waypoints for polyline rendering. 없으면 source→target 직선. */
+  /** Path waypoints. 없으면 source→target 2점 직선으로 렌더. */
   pathPoints?: [number, number][];
   /** Path length details for hover display */
   pathLength?: number | null;
@@ -32,13 +32,28 @@ export interface RenderableConnection {
   _selected?: boolean;
 }
 
-/** Draw a polyline connection (used when pathPoints are available) */
-function drawConnectionPolyline(
+/** 케이블 렌더 경로 — pathPoints 가 있으면 그대로, 없으면 source→target 2점 직선. */
+function pathOf(conn: RenderableConnection): [number, number][] {
+  return conn.pathPoints && conn.pathPoints.length >= 2
+    ? conn.pathPoints
+    : [
+        [conn.sourceX, conn.sourceY],
+        [conn.targetX, conn.targetY],
+      ];
+}
+
+/** Draw a connection as a polyline through `points` (직선 = 2점 polyline). */
+function drawConnection(
   ctx: CanvasRenderingContext2D,
-  conn: RenderableConnection
+  conn: RenderableConnection,
+  points: [number, number][],
 ): void {
-  const points = conn.pathPoints!;
-  if (points.length < 2) return;
+  const tracePath = () => {
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.stroke();
+  };
 
   if (conn.highlighted) {
     ctx.save();
@@ -47,12 +62,7 @@ function drawConnectionPolyline(
     ctx.strokeStyle = conn.color;
     ctx.lineWidth = 4;
     ctx.globalAlpha = 0.4;
-    ctx.beginPath();
-    ctx.moveTo(points[0][0], points[0][1]);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i][0], points[i][1]);
-    }
-    ctx.stroke();
+    tracePath();
     ctx.restore();
   }
 
@@ -64,18 +74,13 @@ function drawConnectionPolyline(
     ctx.shadowColor = conn.color;
     ctx.shadowBlur = 8;
   }
-  ctx.beginPath();
-  ctx.moveTo(points[0][0], points[0][1]);
-  for (let i = 1; i < points.length; i++) {
-    ctx.lineTo(points[i][0], points[i][1]);
-  }
-  ctx.stroke();
+  tracePath();
   if (isSelected) {
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
   }
 
-  // Endpoint markers
+  // 양 끝 마커 + 중간 waypoint 마커 (2점 직선이면 중간점 없음 → 루프 무동작).
   ctx.fillStyle = conn.color;
   ctx.beginPath();
   ctx.arc(points[0][0], points[0][1], 4, 0, Math.PI * 2);
@@ -83,83 +88,21 @@ function drawConnectionPolyline(
   ctx.beginPath();
   ctx.arc(points[points.length - 1][0], points[points.length - 1][1], 4, 0, Math.PI * 2);
   ctx.fill();
-
-  // Small waypoint markers for intermediate points
   for (let i = 1; i < points.length - 1; i++) {
     ctx.fillRect(points[i][0] - 2, points[i][1] - 2, 4, 4);
   }
 }
 
-/** Draw a straight connection line — pathPoints 가 없을 때의 fallback. */
-function drawConnectionLine(
-  ctx: CanvasRenderingContext2D,
-  conn: RenderableConnection
-): void {
-  const { sourceX, sourceY, targetX, targetY } = conn;
-
-  if (conn.highlighted) {
-    ctx.save();
-    ctx.shadowColor = conn.color;
-    ctx.shadowBlur = 12;
-    ctx.strokeStyle = conn.color;
-    ctx.lineWidth = 4;
-    ctx.globalAlpha = 0.4;
-    ctx.beginPath();
-    ctx.moveTo(sourceX, sourceY);
-    ctx.lineTo(targetX, targetY);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  const isSelected = conn._selected;
-  ctx.strokeStyle = conn.color;
-  ctx.lineWidth = isSelected ? 3.5 : 2;
-  ctx.globalAlpha = 1;
-  if (isSelected) {
-    ctx.shadowColor = conn.color;
-    ctx.shadowBlur = 8;
-  }
-  ctx.beginPath();
-  ctx.moveTo(sourceX, sourceY);
-  ctx.lineTo(targetX, targetY);
-  ctx.stroke();
-  if (isSelected) {
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-  }
-
-  ctx.fillStyle = conn.color;
-  ctx.beginPath();
-  ctx.arc(sourceX, sourceY, 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(targetX, targetY, 4, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-/** Draw cable type label at the midpoint */
+/** Draw cable type label at the path midpoint. */
 function drawConnectionLabel(
   ctx: CanvasRenderingContext2D,
-  conn: RenderableConnection
+  conn: RenderableConnection,
+  points: [number, number][],
 ): void {
-  let midX: number;
-  let midY: number;
-
-  if (conn.pathPoints && conn.pathPoints.length >= 2) {
-    // For polylines, find the midpoint along the path
-    const pts = conn.pathPoints;
-    const midIdx = Math.floor(pts.length / 2);
-    if (pts.length % 2 === 0) {
-      midX = (pts[midIdx - 1][0] + pts[midIdx][0]) / 2;
-      midY = (pts[midIdx - 1][1] + pts[midIdx][1]) / 2;
-    } else {
-      midX = pts[midIdx][0];
-      midY = pts[midIdx][1];
-    }
-  } else {
-    midX = (conn.sourceX + conn.targetX) / 2;
-    midY = (conn.sourceY + conn.targetY) / 2;
-  }
+  const mid = Math.floor(points.length / 2);
+  const even = points.length % 2 === 0;
+  const midX = even ? (points[mid - 1][0] + points[mid][0]) / 2 : points[mid][0];
+  const midY = even ? (points[mid - 1][1] + points[mid][1]) / 2 : points[mid][1];
 
   let text = conn.label || conn.materialCategoryCode || conn.cableType;
   if (conn.totalLength != null) {
@@ -195,7 +138,7 @@ function drawConnectionLabel(
 /** Render all connections overlay on the canvas */
 export function renderConnections(
   context: ConnectionRenderContext,
-  connections: RenderableConnection[]
+  connections: RenderableConnection[],
 ): void {
   const { ctx, zoom, panX, panY, selectedCableId } = context;
   if (connections.length === 0) return;
@@ -210,16 +153,10 @@ export function renderConnections(
     conn._selected = !!selectedCableId && conn.id === selectedCableId;
   }
 
-  for (const conn of connections) {
-    if (conn.pathPoints && conn.pathPoints.length >= 2) {
-      drawConnectionPolyline(ctx, conn);
-    } else {
-      drawConnectionLine(ctx, conn);
-    }
-  }
-  for (const conn of connections) {
-    drawConnectionLabel(ctx, conn);
-  }
+  // 라벨이 모든 연결선 위에 오도록 두 패스로 그린다.
+  const paths = connections.map(pathOf);
+  connections.forEach((conn, i) => drawConnection(ctx, conn, paths[i]));
+  connections.forEach((conn, i) => drawConnectionLabel(ctx, conn, paths[i]));
 
   ctx.restore();
 }

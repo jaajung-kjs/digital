@@ -54,7 +54,8 @@ const EDGES: [string, string][] = [
 
 // 모든 id 는 결정적 UUID 형식 — floor plan API 가 equipment.id 등을 z.string().uuid()
 // 로 검증하므로 비-UUID 문자열은 저장 시 400. `9a0000TT-0000-4000-b000-IIIIIIIIIIII`
-// (TT=종류, IIII=인덱스, 전부 hex).
+// (TT=종류, IIII=인덱스, 전부 hex). TYPE 은 종류별 고정 슬롯 — 충돌 방지.
+const TYPE = { sub: 1, floor: 2, ofd: 3, rack: 4, module: 5, path: 6, cableA: 7, cableB: 8 } as const;
 const gwUuid = (type: number, idx: number) =>
   `9a0000${String(type).padStart(2, '0')}-0000-4000-b000-${String(idx).padStart(12, '0')}`;
 
@@ -64,11 +65,11 @@ const idxOf = (key: string): number => {
   if (i === undefined) throw new Error(`알 수 없는 변전소 key: ${key}`);
   return i;
 };
-const subId = (key: string) => gwUuid(1, idxOf(key));
-const floorId = (key: string) => gwUuid(2, idxOf(key));
-const ofdId = (key: string) => gwUuid(3, idxOf(key));
-const rackId = (key: string) => gwUuid(4, idxOf(key));
-const moduleId = (key: string) => gwUuid(5, idxOf(key));
+const subId = (key: string) => gwUuid(TYPE.sub, idxOf(key));
+const floorId = (key: string) => gwUuid(TYPE.floor, idxOf(key));
+const ofdId = (key: string) => gwUuid(TYPE.ofd, idxOf(key));
+const rackId = (key: string) => gwUuid(TYPE.rack, idxOf(key));
+const moduleId = (key: string) => gwUuid(TYPE.module, idxOf(key));
 
 export async function seedGangwonSubstations(prisma: PrismaClient, adminId: string) {
   console.log('🌱 Seeding 강원본부 직할 변전소...');
@@ -176,7 +177,7 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
   const nameByKey = new Map(SUBSTATIONS.map((s) => [s.key, s.name]));
   for (let e = 0; e < EDGES.length; e++) {
     const [a, b] = EDGES[e];
-    const id = gwUuid(6, e + 1);
+    const id = gwUuid(TYPE.path, e + 1);
     await prisma.fiberPath.upsert({
       where: { id },
       update: {},
@@ -189,8 +190,8 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
       },
     });
 
-    for (const [side, typeCode] of [[a, 7], [b, 8]] as const) {
-      const cableId = gwUuid(typeCode, e + 1);
+    for (const [side, type] of [[a, TYPE.cableA], [b, TYPE.cableB]] as const) {
+      const cableId = gwUuid(type, e + 1);
       await prisma.cable.upsert({
         where: { id: cableId },
         update: {},
