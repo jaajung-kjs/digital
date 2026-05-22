@@ -28,6 +28,7 @@ import { CableSpecModalWrapper } from './modals/CableSpecModal';
 import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
 import { EquipmentPasteModal } from './modals/EquipmentPasteModal';
 import { DraftRecoveryDialog } from './modals/DraftRecoveryDialog';
+import { ToastHost } from './ToastHost';
 import { CableEndpointPickerHost } from './CableEndpointPickerHost';
 import { RackModuleDialog } from '../../rack/components/RackModuleDialog';
 
@@ -632,6 +633,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         <DraftRecoveryDialog onRestore={handleRestoreDraft} onDiscard={handleDiscardDraft} />
       )}
       <EquipmentPasteModal onPaste={handlePasteEquipment} />
+      <ToastHost />
     </div>
   );
 }
