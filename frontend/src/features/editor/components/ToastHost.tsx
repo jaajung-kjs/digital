@@ -12,6 +12,8 @@ export function ToastHost() {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       className="fixed bottom-4 right-4 flex flex-col gap-2"
       style={{ zIndex: 60 }}
     >
@@ -20,6 +22,7 @@ export function ToastHost() {
           key={toast.id}
           type="button"
           onClick={() => dismissToast(toast.id)}
+          aria-label={`닫기: ${toast.message}`}
           className={`text-left px-4 py-2 rounded-lg shadow-md text-sm font-medium text-white ${
             toast.type === 'error'
               ? 'bg-red-600'
