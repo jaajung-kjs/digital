@@ -90,7 +90,7 @@ export function FloatingEdge({ id, source, target, data, style, label, labelStyl
               background: (labelBgStyle as { fill?: string })?.fill ?? '#ffffff',
               padding: '1px 4px',
               borderRadius: 3,
-              pointerEvents: 'all',
+              pointerEvents: onRemove ? 'none' : 'all',
               ...labelStyle,
             }}
             className="nodrag nopan"
