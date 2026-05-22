@@ -11,6 +11,7 @@ import type { FloorDetail } from '../../../types/substation';
 import type { RackModule } from '../../../types/rackModule';
 import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
+import { useToastStore } from '../stores/toastStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
 import { RACK_MODULE_KEYS } from '../../rack/hooks/useRackModules';
@@ -114,6 +115,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       );
     },
     onSuccess: async (response) => {
+      useToastStore.getState().showToast('저장했습니다');
       const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
       // P9: tempId → real id maps for both equipment and rack modules.
       const rackModuleIdMap = response.data?.data?.rackModuleIdMap ?? {};
