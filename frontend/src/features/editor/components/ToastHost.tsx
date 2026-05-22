@@ -1,4 +1,10 @@
-import { useToastStore } from '../stores/toastStore';
+import { useToastStore, type ToastType } from '../stores/toastStore';
+
+const TOAST_BG: Record<ToastType, string> = {
+  success: 'bg-green-600',
+  error: 'bg-red-600',
+  info: 'bg-gray-800',
+};
 
 /**
  * 작업 완료 피드백 토스트. 우하단에 세로 스택으로 쌓이며, toastStore 가
@@ -23,13 +29,7 @@ export function ToastHost() {
           type="button"
           onClick={() => dismissToast(toast.id)}
           aria-label={`닫기: ${toast.message}`}
-          className={`text-left px-4 py-2 rounded-lg shadow-md text-sm font-medium text-white ${
-            toast.type === 'error'
-              ? 'bg-red-600'
-              : toast.type === 'info'
-                ? 'bg-gray-800'
-                : 'bg-green-600'
-          }`}
+          className={`text-left px-4 py-2 rounded-lg shadow-md text-sm font-medium text-white ${TOAST_BG[toast.type]}`}
         >
           {toast.message}
         </button>
