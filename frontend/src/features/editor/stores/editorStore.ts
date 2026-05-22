@@ -24,9 +24,11 @@ export type ConnectionFilterKey = string;
 export interface LocalCable {
   id: string; // real UUID or temp ID
   /**
-   * P9: equipment endpoint id. When the endpoint is a RackModule, this still
-   * carries the parent rack's id so existing position lookups work — the
-   * polymorphic resolution is via the corresponding *moduleId being non-null.
+   * 케이블 한쪽 끝 endpoint id — 이름과 달리 폴리모픽이다. endpoint 가 설비면
+   * 설비 id, RackModule 이면 모듈 id, 분전반 회로면 회로 id 를 그대로 담는다.
+   * 종류는 아래 *ModuleId / *CircuitId 의 non-null 여부로 판별 (둘 다 null = 설비).
+   * 이름·위치 lookup 은 반드시 이 판별자로 분기할 것 — equipMap 만 보면 모듈/회로
+   * endpoint 가 '?' 로 깨진다.
    */
   sourceEquipmentId: string;
   targetEquipmentId: string;

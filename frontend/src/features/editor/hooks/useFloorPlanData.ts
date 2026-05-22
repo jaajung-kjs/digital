@@ -27,10 +27,9 @@ function buildTempIdMap(
 /**
  * Convert FloorPlanCable[] from the plan response into LocalCable[] for the editor store.
  *
- * P8: backend now returns polymorphic source/target (equipmentId | moduleId).
- * `LocalCable.sourceEquipmentId / targetEquipmentId` is still required for the
- * canvas hit testing path — for module-only endpoints we fall back to the rack
- * equipment id ('' if missing) until P9 wires real RackModule positions.
+ * backend 는 폴리모픽 source/target (equipmentId | moduleId | circuitId) 를 준다.
+ * LocalCable 은 그 셋을 *EquipmentId 한 필드로 평탄화해 담는다 (= endpoint id,
+ * 종류는 *ModuleId / *CircuitId 로 판별). 원본 moduleId / circuitId 도 그대로 보존.
  */
 function planCablesToLocalCables(cables: FloorPlanCable[]): LocalCable[] {
   return cables.map((c) => ({
