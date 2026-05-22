@@ -4,6 +4,7 @@ import { useCanvas } from '../hooks/useCanvas';
 import { useCanvasEvents } from '../hooks/useCanvasEvents';
 import { useEditorStore } from '../stores/editorStore';
 import { EmptyStateGuide } from './EmptyStateGuide';
+import { EditorHelpButton } from './EditorHelpButton';
 
 interface CanvasViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -129,6 +130,10 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
               <circle cx="12" cy="12" r="3" />
             </svg>
           </button>
+        </div>
+
+        <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-1">
+          <EditorHelpButton />
         </div>
 
       </div>
