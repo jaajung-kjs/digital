@@ -42,6 +42,7 @@ export function TopologyTestControls(props: TopologyTestControlsProps) {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            aria-pressed={addMode}
             onClick={onToggleAddMode}
             className={`px-2 py-1 rounded border text-[11px] font-medium ${
               addMode
