@@ -22,6 +22,7 @@ export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
   const resetNewEquipmentSelection = useEditorStore(
     (s) => s.resetNewEquipmentSelection,
   );
+  const setTool = useEditorStore((s) => s.setTool);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
     setOpen(false);
     setNewEquipmentName('');
     resetNewEquipmentSelection();
+    setTool('select');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
