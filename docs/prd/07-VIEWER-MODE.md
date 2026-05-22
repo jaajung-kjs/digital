@@ -1,5 +1,7 @@
 # F07: 뷰어 모드 - 상세 PRD
 
+> 최종 갱신: 2026-05-22 (현재 코드 기준 재검증)
+
 ## 1. 개요
 
 ### 1.1 기능 ID
@@ -35,7 +37,7 @@
 #### FR-03: 설비 상세 보기
 | 항목 | 내용 |
 |------|------|
-| 기본 정보 | 이름, 모델, 시리얼 등 |
+| 기본 정보 | 이름, 종류(kind), 담당자, 설치일, 설명 등 |
 | 포트 목록 | 포트 및 연결 상태 |
 | 연결 현황 | 연결된 장비 목록 |
 
@@ -329,15 +331,28 @@ AC 해제 시:
 
 ## 7. 권한 처리
 
-### 7.1 뷰어 권한 (viewer)
-- 모든 읽기 작업 허용
-- 편집 버튼/메뉴 숨김 처리
-- 편집 API 호출 시 403 응답
+### 7.1 역할(Role) 정의
+DB `UserRole` enum 실제 값:
+- `ADMIN` — 관리자
+- `VIEWER` — 뷰어 (기본값)
 
-### 7.2 관리자 권한 (admin)
-- 뷰어 모드 접근 가능
-- "에디터 모드" 전환 버튼 표시
-- 에디터 모드로 전환 가능
+백엔드 미들웨어(`backend/src/middleware/auth.ts`):
+- `authenticate` — JWT 토큰 검증
+- `adminOnly` — `ADMIN` 역할만 허용 (`authorize(UserRole.ADMIN)`)
+- 프론트엔드: `useIsAdmin()` 헬퍼 (`authStore.ts`) — `user?.role === 'ADMIN'`
+
+### 7.2 뷰어 권한 (VIEWER)
+- 모든 읽기(GET) API 접근 허용
+- 도면 편집 도구(저장 버튼, 배치 도구 등) 숨김 처리 — Toolbar에서 `isAdmin` 조건으로 제어
+- 편집 API(PUT/POST/DELETE) 호출 시 `403 Forbidden` 응답
+
+### 7.3 관리자 권한 (ADMIN)
+- 뷰어 기능 전체 포함
+- 편집 도구 및 저장 버튼 표시
+- 변경 이력(ChangeHistoryPanel)에서 "이 상태로 복원" 버튼 표시
+- 이력 삭제(DELETE `/api/floors/:id/versions/:logId`) 허용
+
+> **구현 방식**: 뷰어/에디터는 별도 페이지가 아니라 하나의 `FloorPlanEditor` 컴포넌트에서 `isAdmin` 플래그로 편집 요소를 조건부 렌더링한다. "에디터 모드 전환" 버튼은 존재하지 않는다.
 
 ---
 

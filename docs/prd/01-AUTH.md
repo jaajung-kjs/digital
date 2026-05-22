@@ -55,42 +55,48 @@
 
 | 항목 | 요구사항 |
 |------|----------|
-| 토큰 만료 | 액세스: 1시간, 리프레시: 7일 |
-| 비밀번호 정책 | 최소 8자, 영문+숫자 조합 |
-| 암호화 | bcrypt (salt rounds: 10) |
-| 로그인 시도 제한 | 5회 실패 시 5분 잠금 |
+| 토큰 만료 | 액세스: 1시간(`JWT_ACCESS_EXPIRES_IN`), 리프레시: 7일(`JWT_REFRESH_EXPIRES_IN`) |
+| 비밀번호 정책 | 최소 8자, 영문+숫자 조합 필수 |
+| 암호화 | bcryptjs (salt rounds: 10, `BCRYPT_ROUNDS` 환경변수 오버라이드 가능) |
+| 로그인 시도 제한 | 프로덕션: 5회 실패 시 5분 잠금 / 개발 환경: 잠금 비활성화(`maxAttempts=0`) |
 
 ---
 
 ## 3. 데이터 모델
 
-### 3.1 User 테이블
-```sql
-CREATE TABLE users (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username        VARCHAR(50) UNIQUE NOT NULL,
-    password_hash   VARCHAR(255) NOT NULL,
-    name            VARCHAR(100) NOT NULL,
-    role            VARCHAR(20) NOT NULL DEFAULT 'viewer',
-    is_active       BOOLEAN DEFAULT true,
-    login_attempts  INT DEFAULT 0,
-    locked_until    TIMESTAMP,
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### 3.1 User 테이블 (Prisma model: `User`, DB table: `users`)
+```prisma
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique @db.VarChar(50)
+  passwordHash  String    @map("password_hash") @db.VarChar(255)
+  name          String    @db.VarChar(100)
+  role          UserRole  @default(VIEWER)   // enum: ADMIN | VIEWER
+  isActive      Boolean   @default(true) @map("is_active")
+  loginAttempts Int       @default(0) @map("login_attempts")
+  lockedUntil   DateTime? @map("locked_until")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  ...
+}
 
--- role: 'admin' | 'viewer'
+enum UserRole {
+  ADMIN
+  VIEWER
+}
 ```
+> 역할 enum 값은 대문자: `ADMIN` / `VIEWER` (API 요청/응답에서도 동일하게 사용).
 
-### 3.2 RefreshToken 테이블
-```sql
-CREATE TABLE refresh_tokens (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    token       VARCHAR(500) NOT NULL,
-    expires_at  TIMESTAMP NOT NULL,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### 3.2 RefreshToken 테이블 (Prisma model: `RefreshToken`, DB table: `refresh_tokens`)
+```prisma
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @db.VarChar(500)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(...)
+}
 ```
 
 ---
@@ -115,21 +121,13 @@ Response (200):
         "id": "uuid",
         "username": "string",
         "name": "string",
-        "role": "admin|viewer"
+        "role": "ADMIN|VIEWER"
     }
 }
 
-Error (401):
-{
-    "error": "INVALID_CREDENTIALS",
-    "message": "아이디 또는 비밀번호가 올바르지 않습니다."
-}
-
-Error (423):
-{
-    "error": "ACCOUNT_LOCKED",
-    "message": "계정이 잠겼습니다. 5분 후 다시 시도하세요."
-}
+Error (401): INVALID_CREDENTIALS
+Error (423): ACCOUNT_LOCKED
+Error (403): ACCOUNT_DISABLED
 ```
 
 ### 4.2 토큰 갱신
@@ -157,6 +155,7 @@ Response (200):
     "message": "로그아웃되었습니다."
 }
 ```
+> 로그아웃 시 해당 사용자의 **모든** RefreshToken이 DB에서 삭제된다.
 
 ### 4.4 비밀번호 변경
 ```
@@ -174,88 +173,84 @@ Response (200):
     "message": "비밀번호가 변경되었습니다."
 }
 ```
+> 비밀번호 변경 성공 시 해당 사용자의 **모든** RefreshToken이 무효화된다 (다른 기기 로그아웃).
 
-### 4.5 사용자 목록 (관리자)
+### 4.5 현재 사용자 정보 조회
+```
+GET /api/auth/me
+Authorization: Bearer {accessToken}
+
+Response (200):
+{
+    "user": {
+        "id": "uuid",
+        "username": "string",
+        "name": "string",
+        "role": "ADMIN|VIEWER",
+        "createdAt": "datetime"
+    }
+}
+```
+
+### 4.6 사용자 목록 (관리자)
 ```
 GET /api/users
 Authorization: Bearer {accessToken}
-Role: admin
-
-Response (200):
-{
-    "users": [
-        {
-            "id": "uuid",
-            "username": "string",
-            "name": "string",
-            "role": "admin|viewer",
-            "isActive": true,
-            "createdAt": "datetime"
-        }
-    ]
-}
+Role: ADMIN
 ```
 
-### 4.6 사용자 생성 (관리자)
+### 4.7 사용자 단건 조회 (관리자)
+```
+GET /api/users/:id
+Authorization: Bearer {accessToken}
+Role: ADMIN
+```
+
+### 4.8 사용자 생성 (관리자)
 ```
 POST /api/users
 Authorization: Bearer {accessToken}
-Role: admin
+Role: ADMIN
 
 Request:
 {
-    "username": "string",
-    "password": "string",
+    "username": "string",   // 영문·숫자·밑줄, 3~50자
+    "password": "string",   // 8자 이상, 영문+숫자 조합
     "name": "string",
-    "role": "admin|viewer"
-}
-
-Response (201):
-{
-    "id": "uuid",
-    "username": "string",
-    "name": "string",
-    "role": "admin|viewer"
+    "role": "ADMIN|VIEWER"  // 생략 시 VIEWER
 }
 ```
 
-### 4.7 사용자 수정 (관리자)
+### 4.9 사용자 수정 (관리자)
 ```
 PUT /api/users/:id
 Authorization: Bearer {accessToken}
-Role: admin
+Role: ADMIN
 
 Request:
 {
     "name": "string",
-    "role": "admin|viewer",
-    "isActive": true
-}
-
-Response (200):
-{
-    "id": "uuid",
-    "username": "string",
-    "name": "string",
-    "role": "admin|viewer",
+    "role": "ADMIN|VIEWER",
     "isActive": true
 }
 ```
 
-### 4.8 비밀번호 초기화 (관리자)
+### 4.10 사용자 삭제 (관리자)
+```
+DELETE /api/users/:id
+Authorization: Bearer {accessToken}
+Role: ADMIN
+```
+
+### 4.11 비밀번호 초기화 (관리자)
 ```
 POST /api/users/:id/reset-password
 Authorization: Bearer {accessToken}
-Role: admin
+Role: ADMIN
 
 Request:
 {
     "newPassword": "string"
-}
-
-Response (200):
-{
-    "message": "비밀번호가 초기화되었습니다."
 }
 ```
 
@@ -363,9 +358,12 @@ Response (200):
 
 ### 7.2 토큰 보안
 ```
-- Access Token: Authorization 헤더로 전송
-- Refresh Token: HttpOnly 쿠키 또는 로컬 저장
+- Access Token: Authorization: Bearer {token} 헤더로 전송
+- Refresh Token: localStorage에 저장 (키: 'refreshToken')
+- Access Token: localStorage에 저장 (키: 'accessToken')
 - JWT 서명: HS256 알고리즘
+- 401 응답 시 /api/auth/refresh 로 자동 갱신 (Axios 인터셉터)
+- Refresh 실패 시 토큰 삭제 + /login 리다이렉트
 ```
 
 ### 7.3 로그인 보안
@@ -397,10 +395,12 @@ Response (200):
 ### 9.1 기본 관리자 계정
 ```
 username: admin
-password: admin1234 (초기 비밀번호, 변경 필요)
+password: admin123  (초기 비밀번호, 변경 필요)
 name: 시스템 관리자
-role: admin
+role: ADMIN
 ```
+> 시드 동작: 신규 설치 시 `admin123`으로 생성. 기존 admin 계정이 있으면 `passwordHash`는 변경하지 않고 `loginAttempts`/`lockedUntil`만 초기화한다 (재배포 시 운영 비밀번호 보존).
+> 개발 환경(`NODE_ENV=development`)에서는 추가로 `viewer` 계정(password: `viewer1234`)이 생성된다.
 
 ---
 
@@ -429,5 +429,14 @@ role: admin
 ### TC-05: 사용자 생성 (관리자)
 1. 관리자 로그인
 2. 사용자 관리 메뉴 접근
-3. 새 사용자 정보 입력
+3. 새 사용자 정보 입력 (role: ADMIN 또는 VIEWER)
 4. **Expected**: 사용자 생성 성공
+
+---
+
+## 11. 변경 이력
+
+| 버전 | 일자 | 작성자 | 내용 |
+|------|------|--------|------|
+| 1.0 | 2024-12-08 | - | 초안 작성 |
+| 1.1 | 2026-05-22 | - | 현재 코드 기준 갱신: role enum 대문자(ADMIN/VIEWER) 교정, 초기 비밀번호 admin123 교정, GET /auth/me 엔드포인트 추가, 토큰 저장소 localStorage 명시, 로그아웃/비밀번호변경 시 전체 RefreshToken 삭제 동작 명시, 사용자 단건 조회(GET /users/:id) 추가, bcryptjs 라이브러리 명시 |
