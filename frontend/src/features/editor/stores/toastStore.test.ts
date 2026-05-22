@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useToastStore } from './toastStore';
 
 describe('toastStore', () => {
   beforeEach(() => {
     useToastStore.setState({ toasts: [] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('showToast 는 기본 success 타입으로 토스트를 추가한다', () => {
@@ -33,6 +37,5 @@ describe('toastStore', () => {
     expect(useToastStore.getState().toasts).toHaveLength(1);
     vi.advanceTimersByTime(2600);
     expect(useToastStore.getState().toasts).toHaveLength(0);
-    vi.useRealTimers();
   });
 });
