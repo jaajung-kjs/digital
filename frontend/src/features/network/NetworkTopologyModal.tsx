@@ -206,6 +206,7 @@ export function NetworkTopologyModal() {
   const addCounter = useRef(0);
 
   const resetTestState = useCallback(() => {
+    addCounter.current = 0;
     setCutEdgeIds(new Set<string>());
     setAddedEdges([]);
     setPathStart(null);
@@ -327,6 +328,7 @@ export function NetworkTopologyModal() {
 
   // ── 엣지 제거 (× 클릭) — 추가 엣지는 완전 삭제, base 엣지는 끊김 토글 ────────
   const handleRemoveEdge = useCallback((edgeId: string) => {
+    // 'test-add-' 접두사는 handleNodeClick 의 추가 엣지 ID 생성 규칙과 반드시 일치해야 함.
     if (edgeId.startsWith('test-add-')) {
       setAddedEdges((prev) => prev.filter((e) => e.id !== edgeId));
       return;
