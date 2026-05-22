@@ -4,6 +4,12 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  // zundo·zustand/shallow 는 lazy 로드되는 에디터 라우트에서만 import 되어
+  // Vite 의존성 사전 스캔에 잡히지 않을 수 있다. 명시적으로 include 해 서버
+  // 시작 시 한 번에 사전 번들 → 페이지 진입 시 재최적화(504) 방지.
+  optimizeDeps: {
+    include: ['zundo', 'zustand/shallow'],
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
