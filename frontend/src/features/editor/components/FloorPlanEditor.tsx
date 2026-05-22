@@ -7,7 +7,6 @@ import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
-import { useEditorHistory } from '../hooks/useEditorHistory';
 import { calculateCenterOnBounds, calculateCenterOnEquipment } from '../hooks/useViewport';
 import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -87,7 +86,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   } = useFloorPlanData(floorId, containerRef);
 
   useEditorKeyboard(handleSave, containerRef, floorPlan);
-  const { pushHistory } = useEditorHistory();
 
   const handlePasteEquipment = useCallback(() => {
     const es = useEditorStore.getState();
@@ -104,13 +102,12 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     };
     const newEquipmentList = [...es.localEquipment, newEquipment];
     es.setLocalEquipment(newEquipmentList);
-    pushHistory(newEquipmentList);
     cs.setPasteEquipmentModalOpen(false);
     cs.setPasteEquipmentName('');
     es.setHasChanges(true);
     es.setSelectedIds([newEquipment.id]);
     es.setClipboard({ type: 'equipment', data: newEquipment });
-  }, [pushHistory]);
+  }, []);
 
   const resetEditor = useEditorStore(s => s.resetEditor);
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
@@ -407,7 +404,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
     const newList = [...useEditorStore.getState().localEquipment, baseEquip];
     setLocalEquipment(newList);
-    pushHistory(newList);
 
     cs.setEquipmentModalOpen(false);
     cs.setNewEquipmentName('');
@@ -500,11 +496,10 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       cs.setRackModules(merged);
     }
 
-    pushHistory(newEquipmentList);
     cs.resetNewEquipmentSelection();
     setHasChanges(true);
     setTool('select');
-  }, [pushHistory, rackModuleCategories, setLocalEquipment, setTool]);
+  }, [rackModuleCategories, setLocalEquipment, setTool]);
 
 
   const isPlanNotFound = planError && (planError as { response?: { status: number } }).response?.status === 404;

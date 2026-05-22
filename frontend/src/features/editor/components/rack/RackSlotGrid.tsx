@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
-import { useEditorHistory } from '../../hooks/useEditorHistory';
 import { RACK_SLOT_COUNT, type RackModule } from '../../../../types/rackModule';
 import { EmptySlot } from './EmptySlot';
 import { ModuleCell } from './ModuleCell';
@@ -26,7 +25,6 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
   const addingAtSlot = useEditorStore((s) => s.addingAtSlot);
   const setAddingAtSlot = useEditorStore((s) => s.setAddingAtSlot);
   const addRackModule = useEditorStore((s) => s.addRackModule);
-  const { pushHistory } = useEditorHistory();
   const { data: categories } = useRackModuleCategories();
 
   const anchorRef = useRef<DOMRect | null>(null);
@@ -46,8 +44,6 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
       return;
     }
     const slotSpan = Math.min(cat.defaultSlotSpan, avail);
-    // Snapshot pre-add so Ctrl+Z restores empty slot.
-    pushHistory(useEditorStore.getState().localEquipment);
     addRackModule(buildRackModule({
       rackEquipmentId,
       category: cat,

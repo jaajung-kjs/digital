@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSlotDrag } from '../../hooks/useSlotDrag';
-import { useEditorHistory } from '../../hooks/useEditorHistory';
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule } from '../../../../types/rackModule';
 
 interface Props {
@@ -27,17 +26,13 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   const setSelectedRackModuleId = useEditorStore((s) => s.setSelectedRackModuleId);
   const updateRackModule = useEditorStore((s) => s.updateRackModule);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
-  const { pushHistory } = useEditorHistory();
 
   const onCommit = useCallback((updates: ModuleSlotUpdate[]) => {
-    // Snapshot BEFORE mutation so Ctrl+Z restores the pre-drag state.
-    const { localEquipment } = useEditorStore.getState();
-    pushHistory(localEquipment);
     for (const u of updates) {
       updateRackModule(u.id, { slotIndex: u.slotIndex, slotSpan: u.slotSpan });
     }
     setHasChanges(true);
-  }, [updateRackModule, setHasChanges, pushHistory]);
+  }, [updateRackModule, setHasChanges]);
 
   const onClick = useCallback(() => {
     setSelectedRackModuleId(module.id);
