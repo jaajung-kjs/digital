@@ -433,7 +433,7 @@ export function NetworkTopologyModal() {
       const dim = pathActive && !pathNodeIds.has(n.id);
       if (!pathRole && !dim) return n as Node;
       const next: Node = pathRole ? { ...n, data: { ...n.data, pathRole } } : { ...n };
-      if (dim) next.style = { opacity: DIM_OPACITY };
+      if (dim) next.style = { ...n.style, opacity: DIM_OPACITY };
       return next;
     });
   }, [baseGraph, pathStart, pathEnd, addAnchor, pathActive, pathNodeIds]);
