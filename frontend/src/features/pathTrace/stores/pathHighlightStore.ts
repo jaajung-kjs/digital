@@ -129,6 +129,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
       // Normal mode — React Query 캐시 일원화 (invalidate 가 자동 반영).
       const savedFiberPaths = await queryClient.fetchQuery<FiberPathDetail[]>({
         queryKey: ['fiber-paths'],
+        staleTime: 30_000,
         queryFn: async () =>
           (await api.get<{ data: FiberPathDetail[] }>('/fiber-paths')).data.data,
       });

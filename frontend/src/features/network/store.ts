@@ -97,11 +97,13 @@ export const useNetworkTopologyStore = create<State>((set) => ({
       const [savedFiberPaths, savedCables] = await Promise.all([
         queryClient.fetchQuery<FiberPathDetail[]>({
           queryKey: ['fiber-paths'],
+          staleTime: 30_000,
           queryFn: async () =>
             (await api.get<{ data: FiberPathDetail[] }>('/fiber-paths')).data.data,
         }),
         queryClient.fetchQuery<LocalCable[]>({
           queryKey: ['cables'],
+          staleTime: 30_000,
           queryFn: async () =>
             (await api.get<{ data: CableDetailDTO[] }>('/cables')).data.data.map(cableDtoToLocal),
         }),
