@@ -166,7 +166,8 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       // log context atomically with the save — no extra round-trip needed.
 
       // Drain working copy: tempId 해석 + saved 캐시 optimistic update + overlay clear + invalidate.
-      const ofdDirectory = await ensureOfdDirectory();
+      // OFD directory fetch 가 실패해도 commit 흐름은 진행 — mergeFiberPaths 는 빈 디렉토리도 graceful 하게 처리.
+      const ofdDirectory = await ensureOfdDirectory().catch(() => new Map());
       if (floorId) {
         commitWorkingCopy({ floorId, idMaps, queryClient, ofdDirectory });
       }
