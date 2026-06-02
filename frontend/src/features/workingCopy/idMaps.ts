@@ -25,7 +25,7 @@ export function buildIdMaps(response: ResponseIdMaps): IdMaps {
   };
 }
 
-export const resolveId = (id: string, maps: IdMaps): string =>
+export const resolveEquipmentId = (id: string, maps: IdMaps): string =>
   maps.equipment.get(id) ?? id;
 
 export const resolveModuleId = (id: string, maps: IdMaps): string =>
