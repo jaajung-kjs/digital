@@ -14,16 +14,9 @@ import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useToastStore } from '../stores/toastStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
-import { RACK_MODULE_KEYS } from '../../rack/hooks/useRackModules';
-
-/**
- * Build temp equipment ID → real ID mapping from the backend response.
- */
-function buildTempIdMap(
-  equipmentIdMap: Record<string, string>
-): Map<string, string> {
-  return new Map(Object.entries(equipmentIdMap));
-}
+import { buildIdMaps } from '../../workingCopy/idMaps';
+import { commitWorkingCopy } from '../../workingCopy/commit';
+import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
 
 /**
  * Convert FloorPlanCable[] from the plan response into LocalCable[] for the editor store.
@@ -116,17 +109,10 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     },
     onSuccess: async (response) => {
       useToastStore.getState().showToast('저장했습니다');
-      const equipmentIdMap = response.data?.data?.equipmentIdMap ?? {};
-      // P9: tempId → real id maps for both equipment and rack modules.
-      const rackModuleIdMap = response.data?.data?.rackModuleIdMap ?? {};
-      const distCircuitIdMap = response.data?.data?.distCircuitIdMap ?? {};
+      const idMaps = buildIdMaps(response.data?.data ?? {});
       const { pendingUploads, pendingLogs } = useEditorStore.getState();
-      const tempIdMap = buildTempIdMap(equipmentIdMap);
-      const moduleIdMap = buildTempIdMap(rackModuleIdMap);
-      const circuitIdMap = buildTempIdMap(distCircuitIdMap);
-      const resolveId = (id: string) => tempIdMap.get(id) ?? id;
-      const resolveModuleId = (id: string) => moduleIdMap.get(id) ?? id;
-      const resolveCircuitId = (id: string) => circuitIdMap.get(id) ?? id;
+      // pending uploads/logs 후처리 섹션에서 사용할 로컬 헬퍼 — commit 안에서도 동일 매핑이 적용됨.
+      const resolveEquipmentId = (id: string) => idMaps.equipment.get(id) ?? id;
 
       // Process pending uploads and logs in parallel
       const pendingTasks: Promise<void>[] = [];
@@ -140,7 +126,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
               formData.append('side', upload.side);
               formData.append('takenAt', new Date().toISOString());
               if (upload.description) formData.append('description', upload.description);
-              await api.post(`/equipment/${resolveId(upload.equipmentId)}/photos`, formData, {
+              await api.post(`/equipment/${resolveEquipmentId(upload.equipmentId)}/photos`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
               });
             })
@@ -157,7 +143,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         pendingTasks.push(
           Promise.allSettled(
             pendingLogs.map(async (log) => {
-              await api.post(`/equipment/${resolveId(log.equipmentId)}/maintenance-logs`, {
+              await api.post(`/equipment/${resolveEquipmentId(log.equipmentId)}/maintenance-logs`, {
                 logType: log.logType,
                 title: log.title,
                 logDate: log.logDate || undefined,
@@ -179,66 +165,18 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       // Construction report is computed server-side and stored in the audit
       // log context atomically with the save — no extra round-trip needed.
 
-      // P9: rewrite tempId references in localCables / localRackModules so the
-      // store reflects real ids without an extra round-trip.
-      const {
-        localCables: cablesAfterSave,
-        localRackModules: modulesAfterSave,
-        localDistributionCircuits: circuitsAfterSave,
-      } = useEditorStore.getState();
-      useEditorStore.getState().setCables(cablesAfterSave.map((c) => ({
-        ...c,
-        sourceEquipmentId: resolveId(c.sourceEquipmentId),
-        targetEquipmentId: resolveId(c.targetEquipmentId),
-        sourceModuleId: c.sourceModuleId ? resolveModuleId(c.sourceModuleId) : null,
-        targetModuleId: c.targetModuleId ? resolveModuleId(c.targetModuleId) : null,
-        sourceCircuitId: c.sourceCircuitId ? resolveCircuitId(c.sourceCircuitId) : null,
-        targetCircuitId: c.targetCircuitId ? resolveCircuitId(c.targetCircuitId) : null,
-      })));
-      useEditorStore.getState().setRackModules(modulesAfterSave.map((m) => ({
-        ...m,
-        id: resolveModuleId(m.id),
-        rackEquipmentId: resolveId(m.rackEquipmentId),
-      })));
-      useEditorStore.getState().setDistributionCircuits(circuitsAfterSave.map((c) => ({
-        ...c,
-        id: resolveCircuitId(c.id),
-        distributionEquipmentId: resolveId(c.distributionEquipmentId),
-      })));
-
-      // Optimistically push the staged background into the floorPlan cache
-      // BEFORE clearPendingData wipes the staged values. Without this, the
-      // canvas would briefly fall back to the pre-save floorPlan in the gap
-      // between clearPendingData and the refetch landing.
-      const stagedBgNow = useEditorStore.getState().stagedBackgroundDrawing;
-      const stagedOpacityNow = useEditorStore.getState().stagedBackgroundOpacity;
-      if (stagedBgNow !== undefined || stagedOpacityNow !== undefined) {
-        queryClient.setQueryData<FloorPlanDetail | undefined>(
-          ['floorPlan', floorId],
-          (old) => {
-            if (!old) return old;
-            return {
-              ...old,
-              ...(stagedBgNow !== undefined ? { backgroundDrawing: stagedBgNow } : {}),
-              ...(stagedOpacityNow !== undefined ? { backgroundOpacity: stagedOpacityNow } : {}),
-            };
-          },
-        );
+      // Drain working copy: tempId 해석 + saved 캐시 optimistic update + overlay clear + invalidate.
+      const ofdDirectory = await ensureOfdDirectory();
+      if (floorId) {
+        commitWorkingCopy({ floorId, idMaps, queryClient, ofdDirectory });
       }
-
-      // Clear pending data and invalidate queries
-      useEditorStore.getState().clearPendingData();
 
       // Delete localStorage draft on successful save
       if (floorId) {
         localStorage.removeItem(`draft-plan-${floorId}`);
       }
 
-      queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
-      queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
-      queryClient.invalidateQueries({ queryKey: RACK_MODULE_KEYS.all });
-      // 도면 저장 시 모듈 카운트가 바뀌므로 노드 통계 캐시도 무효화.
-      queryClient.invalidateQueries({ queryKey: ['stats', 'rack-modules'] });
+      // 사진/로그 invalidate 는 commit 외 (큐 패턴) — 별도 유지
       if (pendingUploads.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
       }
