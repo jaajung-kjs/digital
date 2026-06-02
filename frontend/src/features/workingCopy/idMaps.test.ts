@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildIdMaps, resolveId, resolveModuleId, resolveCircuitId } from './idMaps';
+import { buildIdMaps, resolveEquipmentId, resolveModuleId, resolveCircuitId } from './idMaps';
 
 describe('buildIdMaps', () => {
   it('빈 응답 → 빈 Map 3개', () => {
@@ -28,9 +28,9 @@ describe('resolveId 계열', () => {
     distCircuitIdMap: { 'temp-c-1': 'real-c-1' },
   });
 
-  it('resolveId: temp 면 real 반환, 아니면 그대로', () => {
-    expect(resolveId('temp-eq-1', maps)).toBe('real-eq-1');
-    expect(resolveId('real-eq-existing', maps)).toBe('real-eq-existing');
+  it('resolveEquipmentId: temp 면 real 반환, 아니면 그대로', () => {
+    expect(resolveEquipmentId('temp-eq-1', maps)).toBe('real-eq-1');
+    expect(resolveEquipmentId('real-eq-existing', maps)).toBe('real-eq-existing');
   });
 
   it('resolveModuleId 도 동일', () => {
