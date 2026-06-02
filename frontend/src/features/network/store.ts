@@ -10,17 +10,15 @@
 
 import { create } from 'zustand';
 import { api } from '../../utils/api';
+import { queryClient } from '../../lib/queryClient';
 import { useEditorStore } from '../editor/stores/editorStore';
 import type { LocalCable } from '../editor/stores/editorStore';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
 import type { FiberPathDetail } from '../fiber/types';
-import { composePendingPath } from '../fiber/pending';
 import { ensureOfdDirectory } from '../fiber/hooks/useOfdDirectory';
+import { mergeFiberPaths, mergeCables } from '../workingCopy/merge';
 
 interface State {
-  /** Backend cache — startTrace 와 공유. 모달 진입 시점에 채워짐. */
-  savedFiberPaths: FiberPathDetail[] | null;
-  savedCables: LocalCable[] | null;
   /** Cable trace 결과 — 모달의 단일 source. */
   traceResult: TraceResult | null;
   /** 시드 cable 의 fiberPathId — 모달이 그 edge/ring 을 강조. */
@@ -85,33 +83,7 @@ function cableDtoToLocal(c: CableDetailDTO): LocalCable {
   };
 }
 
-// ── Merge backend saved + editorStore overlay (git-like) ───────────────────
-function mergeCables(saved: LocalCable[]): LocalCable[] {
-  const ed = useEditorStore.getState();
-  const deletedSet = new Set(ed.deletedCableIds);
-  // saved 에서 deleted 제외 + editorStore 의 *현재 floor* cable 중 saved 에 없는 것 (= pending tempId) 추가
-  const result = saved.filter((c) => !deletedSet.has(c.id));
-  const savedIds = new Set(result.map((c) => c.id));
-  for (const c of ed.localCables) {
-    if (!savedIds.has(c.id)) result.push(c);
-  }
-  return result;
-}
-
-function mergeFiberPaths(
-  saved: FiberPathDetail[],
-  directory: Map<string, { id: string; name: string; substationName: string; floorId: string | null }>,
-): FiberPathDetail[] {
-  const ed = useEditorStore.getState();
-  const deletedFps = new Set(ed.deletedFiberPathIds);
-  const active = saved.filter((fp) => !deletedFps.has(fp.id));
-  const pending = ed.pendingFiberPaths.map((fp) => composePendingPath(fp, directory));
-  return [...active, ...pending];
-}
-
-export const useNetworkTopologyStore = create<State>((set, get) => ({
-  savedFiberPaths: null,
-  savedCables: null,
+export const useNetworkTopologyStore = create<State>((set) => ({
   traceResult: null,
   highlightedFiberPathId: null,
   isLoading: false,
@@ -121,28 +93,29 @@ export const useNetworkTopologyStore = create<State>((set, get) => ({
   loadAndOpen: async (seedCableId) => {
     set({ modalOpen: true, isLoading: true, error: null });
     try {
-      // 1. saved fetch (캐시 활용)
-      let savedFiberPaths = get().savedFiberPaths;
-      let savedCables = get().savedCables;
-      if (!savedFiberPaths || !savedCables) {
-        const [fpRes, cableRes] = await Promise.all([
-          api.get<{ data: FiberPathDetail[] }>('/fiber-paths'),
-          api.get<{ data: CableDetailDTO[] }>('/cables'),
-        ]);
-        savedFiberPaths = fpRes.data.data;
-        savedCables = cableRes.data.data.map(cableDtoToLocal);
-        set({ savedFiberPaths, savedCables });
-      }
+      // 1. saved fetch — React Query 캐시 일원화 (invalidate 가 자동 반영)
+      const [savedFiberPaths, savedCables] = await Promise.all([
+        queryClient.fetchQuery<FiberPathDetail[]>({
+          queryKey: ['fiber-paths'],
+          queryFn: async () =>
+            (await api.get<{ data: FiberPathDetail[] }>('/fiber-paths')).data.data,
+        }),
+        queryClient.fetchQuery<LocalCable[]>({
+          queryKey: ['cables'],
+          queryFn: async () =>
+            (await api.get<{ data: CableDetailDTO[] }>('/cables')).data.data.map(cableDtoToLocal),
+        }),
+      ]);
 
       // 2. editorStore overlay (pending/deleted)
       const directory = await ensureOfdDirectory();
-      const mergedCables = mergeCables(savedCables);
-      const mergedFps = mergeFiberPaths(savedFiberPaths, directory);
+      const ed = useEditorStore.getState();
+      const mergedCables = mergeCables(savedCables, ed);
+      const mergedFps = mergeFiberPaths(savedFiberPaths, ed, directory);
 
       // 3. cableTracer 호출 — 모든 cable 위에서 BFS. seedCable 의 ring 자연 인식.
       // 현재 floor 의 equipment/rackModules 만 — 다른 변전소는 cableTracer 가 fiberPaths
       // 의 ofdA/B + ports[].sideX 정보로 이름/변전소명 채움 (externalInfo lookup).
-      const ed = useEditorStore.getState();
       const seedCable = mergedCables.find((c) => c.id === seedCableId);
       const result = traceCable({
         cableId: seedCableId,
