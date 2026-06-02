@@ -19,8 +19,6 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
   const addPendingFiberPath = useEditorStore((s) => s.addPendingFiberPath);
   const removePendingFiberPath = useEditorStore((s) => s.removePendingFiberPath);
   const deleteFiberPath = useEditorStore((s) => s.deleteFiberPath);
-  const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
-
   const [expandedPathId, setExpandedPathId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [portCount, setPortCount] = useState<24 | 48>(24);
@@ -84,8 +82,8 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
     return <div className="p-4 text-sm text-gray-500">불러오는 중...</div>;
   }
 
-  // Filter out paths marked for deletion
-  const activePaths = mergedPaths.filter((p) => !deletedFiberPathIds.includes(p.id));
+  // mergedPaths 가 이미 usePortStatus 안에서 deletedFiberPathIds 를 필터링했음 (workingCopy/merge.ts).
+  const activePaths = mergedPaths;
 
   return (
     <div className="p-4 border-b border-gray-200">
