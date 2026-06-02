@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useFiberPaths } from './useFiberPaths';
 import { useOfdDirectory } from './useOfdDirectory';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
-import { composePendingPath } from '../pending';
+import { mergeFiberPaths } from '../../workingCopy/merge';
 import type { FiberPathDetail, FiberPortStatus } from '../types';
 
 /**
@@ -87,14 +87,13 @@ export function usePortStatus(ofdId: string) {
   const directory = useOfdDirectory();
   const mergedPaths = useMemo(() => {
     if (!paths) return [];
-    // pending canonical → FiberPathDetail (directory 로 OFD 정보 합성). saved 와
-    // 같은 shape 으로 만들어 cable overlay 가 양쪽 균일 적용.
-    const activeSaved = paths.filter((p) => !deletedFiberPathIds.includes(p.id));
-    const activePending = pendingFiberPaths
-      .filter((fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId)
-      .map((fp) => composePendingPath(fp, directory));
+    // pendingFiberPaths 는 전체 도면의 것 — 이 OFD 와 관련된 것만 필터.
+    const ofdPendingFiberPaths = pendingFiberPaths.filter(
+      (fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId,
+    );
+    const fiberBase = mergeFiberPaths(paths, { deletedFiberPathIds, pendingFiberPaths: ofdPendingFiberPaths }, directory);
     return mergePendingCables(
-      [...activeSaved, ...activePending],
+      fiberBase,
       localCables,
       localEquipment,
       localRackModules,
