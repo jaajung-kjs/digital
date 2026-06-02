@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { mergeFiberPaths, mergeCables } from './merge';
 import type { FiberPathDetail } from '../fiber/types';
 import type { LocalCable } from '../editor/stores/editorStore';
+import type { OfdDirectoryEntry } from '../fiber/hooks/useOfdDirectory';
 
-const emptyDir = new Map<string, { id: string; name: string; substationName: string; floorId: string | null }>();
+const emptyDir = new Map<string, OfdDirectoryEntry>();
 
 describe('mergeFiberPaths', () => {
   const savedA: FiberPathDetail = { id: 'fp-saved-A' } as FiberPathDetail;
@@ -73,7 +74,7 @@ describe('mergeCables', () => {
     expect(result[1]).toBe(pendingX);
   });
 
-  it('이미 deleted 된 saved 가 localCables 에 있어도 중복 추가하지 않는다', () => {
+  it('deleted 된 saved 가 localCables 에도 있으면 결과에 재포함된다 — upstream 동작 회귀 방지', () => {
     const result = mergeCables(
       [savedA, savedB],
       { deletedCableIds: ['cb-saved-A'], localCables: [savedA, pendingX] },

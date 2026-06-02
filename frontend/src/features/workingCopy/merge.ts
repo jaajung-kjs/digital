@@ -1,6 +1,6 @@
 import type { FiberPathDetail } from '../fiber/types';
-import type { LocalCable } from '../editor/stores/editorStore';
-import type { PendingFiberPath } from '../editor/stores/editorStore';
+import type { LocalCable, PendingFiberPath } from '../editor/stores/editorStore';
+import type { OfdDirectoryEntry } from '../fiber/hooks/useOfdDirectory';
 import { composePendingPath } from '../fiber/pending';
 
 /**
@@ -18,10 +18,7 @@ type CableOverlay = {
   localCables: LocalCable[];
 };
 
-type OfdDirectory = Map<
-  string,
-  { id: string; name: string; substationName: string; floorId: string | null }
->;
+type OfdDirectory = Map<string, OfdDirectoryEntry>;
 
 export function mergeFiberPaths(
   saved: FiberPathDetail[],
