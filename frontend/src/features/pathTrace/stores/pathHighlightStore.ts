@@ -10,10 +10,10 @@ import { create } from 'zustand';
 import { traceCable } from '../../../utils/cableTracer';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
-import { useNetworkTopologyStore } from '../../network/store';
+import { queryClient } from '../../../lib/queryClient';
 import { api } from '../../../utils/api';
-import { composePendingPath } from '../../fiber/pending';
 import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
+import { mergeFiberPaths } from '../../workingCopy/merge';
 import type { TraceResult, PathSegment } from '../types';
 import type { FiberPathDetail } from '../../fiber/types';
 import type { FloorPlanFiberPath } from '../../../types/floorPlan';
@@ -126,27 +126,16 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         return;
       }
 
-      // Normal mode — fiber paths from network store cache or fetch.
-      // network/store 와 단일 source 공유 — 한쪽이 fetch 하면 다른 쪽도 캐시 hit.
-      let savedFiberPaths = useNetworkTopologyStore.getState().savedFiberPaths;
-      if (!savedFiberPaths) {
-        try {
-          const { data } = await api.get<{ data: FiberPathDetail[] }>('/fiber-paths');
-          savedFiberPaths = data.data;
-          useNetworkTopologyStore.setState({ savedFiberPaths });
-        } catch {
-          savedFiberPaths = [];
-        }
-      }
+      // Normal mode — React Query 캐시 일원화 (invalidate 가 자동 반영).
+      const savedFiberPaths = await queryClient.fetchQuery<FiberPathDetail[]>({
+        queryKey: ['fiber-paths'],
+        queryFn: async () =>
+          (await api.get<{ data: FiberPathDetail[] }>('/fiber-paths')).data.data,
+      });
 
-      // Pending fiber paths — canonical 이라 directory 로 합성해서 FiberPathDetail 로.
+      // Pending/deleted overlay — mergeFiberPaths 로 통합.
       const directory = await ensureOfdDirectory();
-      const pendingFps = editorState.pendingFiberPaths.map((fp) => composePendingPath(fp, directory));
-      const deletedFps = new Set(editorState.deletedFiberPathIds);
-      const allFiberPaths = [
-        ...savedFiberPaths.filter((fp) => !deletedFps.has(fp.id)),
-        ...pendingFps,
-      ];
+      const allFiberPaths = mergeFiberPaths(savedFiberPaths, editorState, directory);
 
       const result = traceCable({
         cableId,
