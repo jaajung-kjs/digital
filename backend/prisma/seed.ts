@@ -114,10 +114,14 @@ async function main() {
   //   - BomMaterial         (34종 = 9 parent + 25 leaf)
   //   - RackPreset          (1종)
   await seedCableCategories(prisma);
+  // 전환기(transition): RackModuleCategory 테이블은 아직 존재하고 Task 1 계약
+  // 테스트가 rack_module_categories 행을 읽으므로 dual-seed 로 유지한다.
+  // 동시에 assetTypes 가 동일 code 들을 흡수(placementKind=null)한다.
   await seedRackModuleCategories(prisma);
   await seedBomMaterials(prisma);
-  await seedRackPresets(prisma);
+  // assetTypes 는 rackPresets 보다 먼저 — 프리셋 모듈이 assetType code 를 참조.
   await seedAssetTypes(prisma);
+  await seedRackPresets(prisma);
 
   // 강원본부 직할 13개 변전소 + OFD + 광경로 — 매 배포마다 자동 시드
   await seedGangwonSubstations(prisma, admin.id);
