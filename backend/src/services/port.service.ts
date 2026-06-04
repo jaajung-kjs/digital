@@ -48,7 +48,7 @@ class PortService {
    * 설비의 모든 포트 조회
    */
   async getByEquipmentId(equipmentId: string): Promise<PortDetail[]> {
-    const equipment = await prisma.equipment.findUnique({
+    const equipment = await prisma.asset.findUnique({
       where: { id: equipmentId },
     });
 
@@ -111,12 +111,16 @@ class PortService {
    * 포트 생성
    */
   async create(equipmentId: string, input: CreatePortInput): Promise<PortDetail> {
-    const equipment = await prisma.equipment.findUnique({
+    const equipment = await prisma.asset.findUnique({
       where: { id: equipmentId },
+      include: { assetType: true },
     });
 
     if (!equipment) {
       throw new NotFoundError('설비');
+    }
+    if (equipment.assetType.placementKind !== 'OFD') {
+      throw new ConflictError('포트는 OFD 설비에만 생성할 수 있습니다.');
     }
 
     // 동일 설비 내 포트 이름 중복 확인
@@ -165,12 +169,16 @@ class PortService {
    * 포트 일괄 생성
    */
   async createBulk(equipmentId: string, inputs: CreatePortInput[]): Promise<PortDetail[]> {
-    const equipment = await prisma.equipment.findUnique({
+    const equipment = await prisma.asset.findUnique({
       where: { id: equipmentId },
+      include: { assetType: true },
     });
 
     if (!equipment) {
       throw new NotFoundError('설비');
+    }
+    if (equipment.assetType.placementKind !== 'OFD') {
+      throw new ConflictError('포트는 OFD 설비에만 생성할 수 있습니다.');
     }
 
     // 중복 이름 확인

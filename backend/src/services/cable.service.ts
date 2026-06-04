@@ -1,6 +1,7 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
-import { CableType, EquipmentKind, Prisma } from '@prisma/client';
+import { CableType, Prisma } from '@prisma/client';
+import { placementKindToKind, type PlacementKind } from './assetPlanMapper.js';
 
 /** Build specification string from specTemplate format + specParams */
 function buildCableSpecification(specTemplate: unknown, specParams: unknown): string | null {
@@ -95,22 +96,26 @@ export interface UpdateCableInput {
 // ==================== Helpers ====================
 
 const cableInclude = {
-  sourceEquipment: { select: { id: true, name: true, floorId: true, kind: true } },
+  sourceEquipment: {
+    select: { id: true, name: true, floorId: true, assetType: { select: { placementKind: true } } },
+  },
   sourceModule: {
     select: {
       id: true,
       name: true,
-      rackEquipmentId: true,
-      rack: { select: { id: true, floorId: true } },
+      parentAssetId: true,
+      parent: { select: { id: true, floorId: true } },
     },
   },
-  targetEquipment: { select: { id: true, name: true, floorId: true, kind: true } },
+  targetEquipment: {
+    select: { id: true, name: true, floorId: true, assetType: { select: { placementKind: true } } },
+  },
   targetModule: {
     select: {
       id: true,
       name: true,
-      rackEquipmentId: true,
-      rack: { select: { id: true, floorId: true } },
+      parentAssetId: true,
+      parent: { select: { id: true, floorId: true } },
     },
   },
   fiberPath: {
@@ -139,7 +144,7 @@ async function resolveEndpoint(
   equipmentId: string | null;
   moduleId: string | null;
   floorId: string | null;
-  kind: EquipmentKind | null;
+  kind: PlacementKind | null;
 }> {
   const hasEq = !!ep.equipmentId;
   const hasMod = !!ep.moduleId;
@@ -150,23 +155,24 @@ async function resolveEndpoint(
   }
 
   if (hasEq) {
-    const eq = await prisma.equipment.findUnique({
+    const eq = await prisma.asset.findUnique({
       where: { id: ep.equipmentId! },
-      select: { id: true, kind: true, floorId: true },
+      select: { id: true, floorId: true, assetType: { select: { placementKind: true } } },
     });
     if (!eq) throw new NotFoundError(`${side} 설비`);
-    if (eq.kind === EquipmentKind.RACK) {
+    const kind = placementKindToKind(eq.assetType.placementKind);
+    if (kind === 'RACK') {
       throw new ValidationError(`RACK 설비는 케이블 endpoint 가 될 수 없습니다. 랙 안 모듈에 연결하세요.`);
     }
-    return { equipmentId: eq.id, moduleId: null, floorId: eq.floorId, kind: eq.kind };
+    return { equipmentId: eq.id, moduleId: null, floorId: eq.floorId, kind };
   }
 
-  const mod = await prisma.rackModule.findUnique({
+  const mod = await prisma.asset.findUnique({
     where: { id: ep.moduleId! },
-    select: { id: true, rack: { select: { floorId: true } } },
+    select: { id: true, parent: { select: { floorId: true } } },
   });
   if (!mod) throw new NotFoundError(`${side} 랙 모듈`);
-  return { equipmentId: null, moduleId: mod.id, floorId: mod.rack.floorId, kind: null };
+  return { equipmentId: null, moduleId: mod.id, floorId: mod.parent?.floorId ?? null, kind: null };
 }
 
 /**
@@ -200,12 +206,12 @@ export function buildFiberPathLabel(c: any): string | null {
  * 외부에서 호출하므로 export.
  */
 export function assertOfdFiberPath(
-  sourceKind: EquipmentKind | null,
-  targetKind: EquipmentKind | null,
+  sourceKind: PlacementKind | null,
+  targetKind: PlacementKind | null,
   fiberPathId: string | null | undefined,
   fiberPortNumber: number | null | undefined,
 ): void {
-  const hasOfd = sourceKind === EquipmentKind.OFD || targetKind === EquipmentKind.OFD;
+  const hasOfd = sourceKind === 'OFD' || targetKind === 'OFD';
   if (!hasOfd) return;
   if (!fiberPathId || !fiberPortNumber) {
     throw new ValidationError(
@@ -283,15 +289,21 @@ class CableService {
     ) {
       const [srcKind, tgtKind] = await Promise.all([
         existing.sourceEquipmentId
-          ? prisma.equipment
-              .findUnique({ where: { id: existing.sourceEquipmentId }, select: { kind: true } })
-              .then((e) => e?.kind ?? null)
-          : Promise.resolve<EquipmentKind | null>(null),
+          ? prisma.asset
+              .findUnique({
+                where: { id: existing.sourceEquipmentId },
+                select: { assetType: { select: { placementKind: true } } },
+              })
+              .then((e) => placementKindToKind(e?.assetType.placementKind ?? null))
+          : Promise.resolve<PlacementKind | null>(null),
         existing.targetEquipmentId
-          ? prisma.equipment
-              .findUnique({ where: { id: existing.targetEquipmentId }, select: { kind: true } })
-              .then((e) => e?.kind ?? null)
-          : Promise.resolve<EquipmentKind | null>(null),
+          ? prisma.asset
+              .findUnique({
+                where: { id: existing.targetEquipmentId },
+                select: { assetType: { select: { placementKind: true } } },
+              })
+              .then((e) => placementKindToKind(e?.assetType.placementKind ?? null))
+          : Promise.resolve<PlacementKind | null>(null),
       ]);
       const nextFiberPathId = input.fiberPathId !== undefined ? input.fiberPathId : existing.fiberPathId;
       const nextFiberPortNumber =
@@ -342,8 +354,8 @@ class CableService {
         OR: [
           { sourceEquipment: { floorId } },
           { targetEquipment: { floorId } },
-          { sourceModule: { rack: { floorId } } },
-          { targetModule: { rack: { floorId } } },
+          { sourceModule: { parent: { floorId } } },
+          { targetModule: { parent: { floorId } } },
         ],
       },
       include: cableInclude,
@@ -373,7 +385,7 @@ class CableService {
         equipmentId: null,
         moduleId: module.id,
         name: module.name,
-        floorId: module.rack?.floorId ?? null,
+        floorId: module.parent?.floorId ?? null,
       };
     }
     return { equipmentId: null, moduleId: null, name: '', floorId: null };
