@@ -9,11 +9,11 @@ const router = Router();
 const createAssetSchema = z.object({
   substationId: z.string().uuid(),
   assetTypeId: z.string().uuid(),
-  name: z.string().min(1).max(100),
+  name: z.string().trim().min(1).max(100),
   parentAssetId: z.string().uuid().optional().nullable(),
   roomText: z.string().max(100).optional().nullable(),
   attributes: z.record(z.unknown()).optional().nullable(),
-  installDate: z.string().optional().nullable(),
+  installDate: z.string().date().optional().nullable(),
   manager: z.string().max(100).optional().nullable(),
   description: z.string().optional().nullable(),
   status: z.string().max(20).optional().nullable(),
@@ -21,11 +21,11 @@ const createAssetSchema = z.object({
 
 const updateAssetSchema = z.object({
   assetTypeId: z.string().uuid().optional(),
-  name: z.string().min(1).max(100).optional(),
+  name: z.string().trim().min(1).max(100).optional(),
   parentAssetId: z.string().uuid().optional().nullable(),
   roomText: z.string().max(100).optional().nullable(),
   attributes: z.record(z.unknown()).optional().nullable(),
-  installDate: z.string().optional().nullable(),
+  installDate: z.string().date().optional().nullable(),
   manager: z.string().max(100).optional().nullable(),
   description: z.string().optional().nullable(),
   status: z.string().max(20).optional().nullable(),
