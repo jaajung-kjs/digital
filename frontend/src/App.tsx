@@ -7,6 +7,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { TreePage } from './pages/TreePage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
+import { SubstationAssetGridPage } from './pages/SubstationAssetGridPage';
 import { queryClient } from './lib/queryClient';
 
 function AppContent() {
@@ -32,6 +33,14 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <FloorPlanEditorPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/substations/:substationId/assets"
+        element={
+          <ProtectedRoute>
+            <SubstationAssetGridPage />
           </ProtectedRoute>
         }
       />
