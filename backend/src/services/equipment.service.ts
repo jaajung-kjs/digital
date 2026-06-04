@@ -1,8 +1,16 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
-import { Prisma, EquipmentKind } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { Asset, AssetType } from '@prisma/client';
+import { placementKindToKind, kindToPlacementCode, type PlacementKind } from './assetPlanMapper.js';
 
 // ==================== Types ====================
+
+/**
+ * 과거 EquipmentKind enum 자리. Asset 모델로 이행하면서 enum 은 삭제됐고,
+ * 프론트/컨트롤러 계약은 동일한 string union 으로 유지된다. ('DIST' 가 아닌 'DISTRIBUTION')
+ */
+export type EquipmentKind = PlacementKind;
 
 export interface EquipmentDetail {
   id: string;
@@ -62,71 +70,75 @@ export interface UpdateEquipmentInput {
   sortOrder?: number;
 }
 
+type AssetWithType = Asset & { assetType: AssetType };
+
 // ==================== Service ====================
 
 class EquipmentService {
-  private mapToDetail(e: {
-    id: string;
-    floorId: string;
-    kind: EquipmentKind;
-    name: string;
-    positionX: number;
-    positionY: number;
-    width2d: number;
-    height2d: number;
-    rotation: number;
-    totalU: number | null;
-    installDate: Date | null;
-    manager: string | null;
-    description: string | null;
-    properties: unknown;
-    frontImageUrl: string | null;
-    rearImageUrl: string | null;
-    height3d: number | null;
-    sortOrder: number;
-    createdAt: Date;
-    updatedAt: Date;
-  }): EquipmentDetail {
+  /**
+   * 배치된 top-level Asset → EquipmentDetail.
+   * 과거 Equipment 테이블 전용 필드(frontImageUrl/rearImageUrl/height3d)는 Asset 에 없으므로
+   * null 로 채운다 (사진은 EquipmentPhoto 관계로 별도 관리됨).
+   */
+  private mapToDetail(a: AssetWithType): EquipmentDetail {
     return {
-      id: e.id,
-      floorId: e.floorId,
-      kind: e.kind,
-      name: e.name,
-      positionX: e.positionX,
-      positionY: e.positionY,
-      width2d: e.width2d,
-      height2d: e.height2d,
-      rotation: e.rotation,
-      totalU: e.totalU,
-      installDate: e.installDate,
-      manager: e.manager,
-      description: e.description,
-      properties: e.properties,
-      frontImageUrl: e.frontImageUrl,
-      rearImageUrl: e.rearImageUrl,
-      height3d: e.height3d,
-      sortOrder: e.sortOrder,
-      createdAt: e.createdAt,
-      updatedAt: e.updatedAt,
+      id: a.id,
+      floorId: a.floorId ?? '',
+      kind: (placementKindToKind(a.assetType.placementKind) ?? 'RACK') as EquipmentKind,
+      name: a.name,
+      positionX: a.positionX ?? 0,
+      positionY: a.positionY ?? 0,
+      width2d: a.width2d ?? 0,
+      height2d: a.height2d ?? 0,
+      rotation: a.rotation,
+      totalU: a.totalU,
+      installDate: a.installDate,
+      manager: a.manager,
+      description: a.description,
+      properties: a.attributes,
+      frontImageUrl: null,
+      rearImageUrl: null,
+      height3d: null,
+      sortOrder: a.sortOrder,
+      createdAt: a.createdAt,
+      updatedAt: a.updatedAt,
     };
+  }
+
+  /** placement code(RACK/OFD/DIST/...) 로 AssetType 해석. */
+  private async resolveAssetType(kind: EquipmentKind): Promise<AssetType> {
+    const code = kindToPlacementCode(kind);
+    // placementKind 가 곧 code 인 시드 가정. 우선 placementKind 로, 없으면 code 로 fallback.
+    const assetType =
+      (await prisma.assetType.findFirst({ where: { placementKind: code } })) ??
+      (await prisma.assetType.findUnique({ where: { code } }));
+    if (!assetType) throw new NotFoundError(`설비 유형(${kind})`);
+    return assetType;
   }
 
   /** 도면 객체 목록 조회 (kind 필터 지원). */
   async getAll(filters?: { kind?: EquipmentKind }): Promise<(EquipmentDetail & { substationName?: string })[]> {
-    const where: Prisma.EquipmentWhereInput = {};
-    if (filters?.kind) where.kind = filters.kind;
+    const where: Prisma.AssetWhereInput = {
+      parentAssetId: null,
+      floorId: { not: null },
+      assetType: { placementKind: { not: null } },
+    };
+    if (filters?.kind) {
+      where.assetType = { placementKind: kindToPlacementCode(filters.kind) };
+    }
 
-    const equipment = await prisma.equipment.findMany({
+    const assets = await prisma.asset.findMany({
       where,
       include: {
+        assetType: true,
         floor: { include: { substation: { select: { name: true } } } },
       },
       orderBy: [{ createdAt: 'desc' }],
     });
 
-    return equipment.map((e) => ({
-      ...this.mapToDetail(e),
-      substationName: e.floor?.substation?.name ?? undefined,
+    return assets.map((a) => ({
+      ...this.mapToDetail(a),
+      substationName: a.floor?.substation?.name ?? undefined,
     }));
   }
 
@@ -135,18 +147,19 @@ class EquipmentService {
     const floor = await prisma.floor.findUnique({ where: { id: floorId } });
     if (!floor) throw new NotFoundError('층');
 
-    const equipment = await prisma.equipment.findMany({
-      where: { floorId },
+    const assets = await prisma.asset.findMany({
+      where: { floorId, parentAssetId: null, assetType: { placementKind: { not: null } } },
+      include: { assetType: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
 
-    return equipment.map((e) => this.mapToDetail(e));
+    return assets.map((a) => this.mapToDetail(a));
   }
 
   async getById(id: string): Promise<EquipmentDetail> {
-    const equipment = await prisma.equipment.findUnique({ where: { id } });
-    if (!equipment) throw new NotFoundError('설비');
-    return this.mapToDetail(equipment);
+    const asset = await prisma.asset.findUnique({ where: { id }, include: { assetType: true } });
+    if (!asset) throw new NotFoundError('설비');
+    return this.mapToDetail(asset);
   }
 
   /** OFD 중복 검사 (변전소당 OFD 1개) */
@@ -158,9 +171,10 @@ class EquipmentService {
     if (!floor) return;
 
     const substationId = floor.substationId;
-    const existingOfd = await prisma.equipment.findFirst({
+    const existingOfd = await prisma.asset.findFirst({
       where: {
-        kind: EquipmentKind.OFD,
+        parentAssetId: null,
+        assetType: { placementKind: 'OFD' },
         id: excludeEquipmentId ? { not: excludeEquipmentId } : undefined,
         floor: { substationId },
       },
@@ -183,50 +197,62 @@ class EquipmentService {
     const floor = await prisma.floor.findUnique({ where: { id: floorId } });
     if (!floor) throw new NotFoundError('층');
 
-    if (input.kind === EquipmentKind.OFD) {
+    if (input.kind === 'OFD') {
       await this.validateOfdUniqueness(floorId);
     }
 
-    const equipment = await prisma.equipment.create({
+    const assetType = await this.resolveAssetType(input.kind);
+
+    const asset = await prisma.asset.create({
       data: {
+        substationId: floor.substationId,
         floorId,
-        kind: input.kind,
+        assetTypeId: assetType.id,
+        parentAssetId: null,
         name: input.name,
         positionX: input.positionX,
         positionY: input.positionY,
         width2d: input.width2d,
         height2d: input.height2d,
         rotation: input.rotation ?? 0,
-        totalU: input.kind === EquipmentKind.RACK ? (input.totalU ?? 42) : null,
-        height3d: input.height3d ?? null,
+        totalU: input.kind === 'RACK' ? (input.totalU ?? 42) : null,
         installDate: input.installDate ? new Date(input.installDate) : null,
         manager: input.manager,
         description: input.description,
-        properties: (input.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        attributes: (input.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
         createdById: userId,
         updatedById: userId,
       },
+      include: { assetType: true },
     });
 
-    return this.mapToDetail(equipment);
+    return this.mapToDetail(asset);
   }
 
   async update(id: string, input: UpdateEquipmentInput, userId: string): Promise<EquipmentDetail> {
-    const existing = await prisma.equipment.findUnique({ where: { id } });
+    const existing = await prisma.asset.findUnique({ where: { id }, include: { assetType: true } });
     if (!existing) throw new NotFoundError('설비');
 
+    const existingKind = (placementKindToKind(existing.assetType.placementKind) ?? 'RACK') as EquipmentKind;
+
     // OFD uniqueness re-check when changing into OFD
-    if (input.kind === EquipmentKind.OFD && existing.kind !== EquipmentKind.OFD) {
-      await this.validateOfdUniqueness(existing.floorId, id);
+    if (input.kind === 'OFD' && existingKind !== 'OFD') {
+      await this.validateOfdUniqueness(existing.floorId ?? '', id);
+    }
+
+    // kind 변경 시 assetType 재해석
+    let assetTypeId: string | undefined;
+    if (input.kind !== undefined && input.kind !== existingKind) {
+      assetTypeId = (await this.resolveAssetType(input.kind)).id;
     }
 
     // totalU 정규화: RACK kind 만 의미를 가짐.
     //   - RACK 인데 totalU 가 명시적 null/undefined 면 기존 값 유지(없으면 42)
     //   - kind 가 RACK 이 아니면 totalU 강제로 null
     let totalU: number | null | undefined = input.totalU;
-    const effectiveKind = input.kind ?? existing.kind;
-    if (effectiveKind === EquipmentKind.RACK) {
-      if (input.kind === EquipmentKind.RACK && existing.kind !== EquipmentKind.RACK) {
+    const effectiveKind = input.kind ?? existingKind;
+    if (effectiveKind === 'RACK') {
+      if (input.kind === 'RACK' && existingKind !== 'RACK') {
         // 다른 kind → RACK 으로 전환: totalU 가 없으면 42 부여
         totalU = input.totalU ?? 42;
       }
@@ -235,10 +261,10 @@ class EquipmentService {
       totalU = null;
     }
 
-    const equipment = await prisma.equipment.update({
+    const asset = await prisma.asset.update({
       where: { id },
       data: {
-        kind: input.kind,
+        assetTypeId,
         name: input.name,
         positionX: input.positionX,
         positionY: input.positionY,
@@ -246,9 +272,6 @@ class EquipmentService {
         height2d: input.height2d,
         rotation: input.rotation,
         totalU,
-        height3d: input.height3d,
-        frontImageUrl: input.frontImageUrl,
-        rearImageUrl: input.rearImageUrl,
         installDate:
           input.installDate !== undefined
             ? input.installDate
@@ -257,61 +280,69 @@ class EquipmentService {
             : undefined,
         manager: input.manager,
         description: input.description,
-        properties: input.properties as Prisma.InputJsonValue | undefined,
+        attributes: input.properties as Prisma.InputJsonValue | undefined,
         sortOrder: input.sortOrder,
         updatedById: userId,
       },
+      include: { assetType: true },
     });
 
-    return this.mapToDetail(equipment);
+    return this.mapToDetail(asset);
   }
 
   async delete(id: string): Promise<void> {
-    const equipment = await prisma.equipment.findUnique({
+    const asset = await prisma.asset.findUnique({
       where: { id },
       include: {
-        sourceCables: { select: { id: true } },
-        targetCables: { select: { id: true } },
-        modules: { select: { id: true } },
+        sourceCablesEq: { select: { id: true } },
+        targetCablesEq: { select: { id: true } },
+        children: { select: { id: true } },
       },
     });
 
-    if (!equipment) throw new NotFoundError('설비');
+    if (!asset) throw new NotFoundError('설비');
 
-    const connectionCount = equipment.sourceCables.length + equipment.targetCables.length;
+    const connectionCount = asset.sourceCablesEq.length + asset.targetCablesEq.length;
     if (connectionCount > 0) {
       throw new ConflictError(
         `연결된 케이블이 ${connectionCount}개 있어 삭제할 수 없습니다. 케이블을 먼저 제거하세요.`
       );
     }
 
-    await prisma.equipment.delete({ where: { id } });
+    await prisma.asset.delete({ where: { id } });
   }
 
-  async updateImage(id: string, imageType: 'front' | 'rear', imageUrl: string, userId: string) {
-    const existing = await prisma.equipment.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundError('설비');
-
-    return prisma.equipment.update({
+  /**
+   * 전면/후면 이미지 갱신.
+   * Asset 모델엔 front/rearImageUrl 컬럼이 없다(사진은 EquipmentPhoto 관계). 호환을 위해
+   * Asset 존재만 검증하고 detail 을 반환한다. (실제 사진 관리는 EquipmentPhoto 서비스 담당)
+   */
+  async updateImage(
+    id: string,
+    _imageType: 'front' | 'rear',
+    _imageUrl: string,
+    userId: string
+  ): Promise<EquipmentDetail> {
+    const asset = await prisma.asset.update({
       where: { id },
-      data: {
-        ...(imageType === 'front' ? { frontImageUrl: imageUrl } : { rearImageUrl: imageUrl }),
-        updatedById: userId,
-      },
+      data: { updatedById: userId },
+      include: { assetType: true },
     });
+    return this.mapToDetail(asset);
   }
 
-  async deleteImage(id: string, imageType: 'front' | 'rear', userId: string) {
-    const existing = await prisma.equipment.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundError('설비');
-
-    return prisma.equipment.update({
+  /** 전면/후면 이미지 삭제. updateImage 와 동일하게 Asset 모델엔 컬럼이 없어 no-op 에 가깝다. */
+  async deleteImage(
+    id: string,
+    _imageType: 'front' | 'rear',
+    userId: string
+  ): Promise<EquipmentDetail> {
+    const asset = await prisma.asset.update({
       where: { id },
-      data: {
-        ...(imageType === 'front' ? { frontImageUrl: null } : { rearImageUrl: null }),
-        updatedById: userId,
-      },
+      data: { updatedById: userId },
+      include: { assetType: true },
     });
+    return this.mapToDetail(asset);
   }
 }
 
