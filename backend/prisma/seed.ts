@@ -1,7 +1,6 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedCableCategories } from './seed/cableCategories.js';
-import { seedRackModuleCategories } from './seed/rackModuleCategories.js';
 import { seedBomMaterials } from './seed/bomMaterials.js';
 import { seedRackPresets } from './seed/rackPresets.js';
 import { seedGangwonSubstations } from './seed/gangwonSubstations.js';
@@ -108,16 +107,11 @@ async function main() {
     console.log(`✅ ${hqData.name}: ${hqData.branches.length}개 지사`);
   }
 
-  // 신규 분리된 4개 도메인 시드 (P6)
+  // 신규 분리된 도메인 시드 (P6)
   //   - CableCategory       (16종)
-  //   - RackModuleCategory  (12종)
   //   - BomMaterial         (34종 = 9 parent + 25 leaf)
   //   - RackPreset          (1종)
   await seedCableCategories(prisma);
-  // 전환기(transition): RackModuleCategory 테이블은 아직 존재하고 Task 1 계약
-  // 테스트가 rack_module_categories 행을 읽으므로 dual-seed 로 유지한다.
-  // 동시에 assetTypes 가 동일 code 들을 흡수(placementKind=null)한다.
-  await seedRackModuleCategories(prisma);
   await seedBomMaterials(prisma);
   // assetTypes 는 rackPresets 보다 먼저 — 프리셋 모듈이 assetType code 를 참조.
   await seedAssetTypes(prisma);

@@ -27,8 +27,6 @@ model User {
   updatedSubstations     Substation[]     @relation("SubstationUpdatedBy")
   createdFloors          Floor[]          @relation("FloorCreatedBy")
   updatedFloors          Floor[]          @relation("FloorUpdatedBy")
-  createdEquipment       Equipment[]      @relation("EquipmentCreatedBy")
-  updatedEquipment       Equipment[]      @relation("EquipmentUpdatedBy")
   createdCables          Cable[]          @relation("CableCreatedBy")
   updatedCables          Cable[]          @relation("CableUpdatedBy")
   createdHeadquarters    Headquarters[]   @relation("HeadquartersCreatedBy")
@@ -39,8 +37,6 @@ model User {
   updatedMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogUpdatedBy")
   createdFiberPaths      FiberPath[]      @relation("FiberPathCreator")
   updatedFiberPaths      FiberPath[]      @relation("FiberPathUpdater")
-  createdRackModules     RackModule[]     @relation("RackModuleCreatedBy")
-  updatedRackModules     RackModule[]     @relation("RackModuleUpdatedBy")
   createdRackPresets     RackPreset[]     @relation("RackPresetCreatedBy")
   updatedRackPresets     RackPreset[]     @relation("RackPresetUpdatedBy")
   createdDistCircuits    DistributionCircuit[] @relation("DistributionCircuitCreatedBy")
@@ -164,104 +160,10 @@ model Floor {
   substation Substation  @relation(fields: [substationId], references: [id], onDelete: Cascade)
   createdBy  User?       @relation("FloorCreatedBy", fields: [createdById], references: [id])
   updatedBy  User?       @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
-  equipment  Equipment[]
   assets     Asset[]
 
   @@unique([substationId, name])
   @@map("floors")
-}
-
-// ==================== 도면 객체 (5종 hardcoded) ====================
-// Equipment 는 도면 위에 직접 배치되는 5가지 객체만:
-//   RACK / OFD / DISTRIBUTION / GROUNDING / HVAC
-// 랙 안 모듈은 RackModule 별도 테이블 (도면 좌표 없음)
-
-enum EquipmentKind {
-  RACK
-  OFD
-  DISTRIBUTION
-  GROUNDING
-  HVAC
-}
-
-model Equipment {
-  id           String        @id @default(uuid())
-  floorId      String        @map("floor_id")
-  kind         EquipmentKind
-  name         String        @db.VarChar(100)
-  // 도면 좌표 (NOT NULL — 도면 객체는 항상 위치를 가짐)
-  positionX    Float         @map("position_x_2d")
-  positionY    Float         @map("position_y_2d")
-  width2d      Float         @map("width_2d")
-  height2d     Float         @map("height_2d")
-  rotation     Int           @default(0)
-  // RACK 전용
-  totalU       Int?          @map("total_u")
-  // 메타
-  installDate  DateTime?     @map("install_date") @db.Date
-  manager      String?       @db.VarChar(100)
-  description  String?       @db.Text
-  // kind 별 도메인 데이터 (OFD/DIST/GROUND/HVAC). RACK 은 거의 비어 있음.
-  properties   Json?
-
-  // 사진
-  frontImageUrl String? @map("front_image_url") @db.VarChar(500)
-  rearImageUrl  String? @map("rear_image_url") @db.VarChar(500)
-  // 3D 속성
-  height3d      Float?  @map("height_3d")
-  // 메타
-  sortOrder     Int      @default(0) @map("sort_order")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  createdById   String?  @map("created_by")
-  updatedById   String?  @map("updated_by")
-
-  floor           Floor            @relation(fields: [floorId], references: [id], onDelete: Cascade)
-  createdBy       User?            @relation("EquipmentCreatedBy", fields: [createdById], references: [id])
-  updatedBy       User?            @relation("EquipmentUpdatedBy", fields: [updatedById], references: [id])
-  modules         RackModule[]                                       // RACK kind 만 의미 있음
-  circuits        DistributionCircuit[]                               // DISTRIBUTION kind 만 의미 있음
-  ports           Port[]                                              // OFD 전용
-  photos          EquipmentPhoto[]
-  maintenanceLogs MaintenanceLog[]
-  sourceCables    Cable[]          @relation("CableSourceEquipment")
-  targetCables    Cable[]          @relation("CableTargetEquipment")
-  fiberPathsAsA   FiberPath[]      @relation("FiberPathOfdA")
-  fiberPathsAsB   FiberPath[]      @relation("FiberPathOfdB")
-
-  @@map("equipment")
-}
-
-// ==================== 랙 모듈 (도면 좌표 없음) ====================
-// 부모 RACK Equipment 안에 들어가는 모듈. 12개 카테고리 중 하나에 속함.
-
-model RackModule {
-  id              String    @id @default(uuid())
-  rackEquipmentId String    @map("rack_equipment_id")
-  categoryId      String    @map("category_id")
-  name            String    @db.VarChar(100)
-  slotIndex       Int       @map("slot_index")   // 0..11
-  slotSpan        Int       @map("slot_span")    // 1..12, slotIndex + slotSpan ≤ 12
-  // 메타
-  installDate     DateTime? @map("install_date") @db.Date
-  manager         String?   @db.VarChar(100)
-  description     String?   @db.Text
-  properties      Json?
-  sortOrder       Int       @default(0) @map("sort_order")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  createdById     String?   @map("created_by")
-  updatedById     String?   @map("updated_by")
-
-  rack         Equipment          @relation(fields: [rackEquipmentId], references: [id], onDelete: Cascade)
-  category     RackModuleCategory @relation(fields: [categoryId], references: [id])
-  sourceCables Cable[]            @relation("CableSourceModule")
-  targetCables Cable[]            @relation("CableTargetModule")
-  createdBy    User?              @relation("RackModuleCreatedBy", fields: [createdById], references: [id])
-  updatedBy    User?              @relation("RackModuleUpdatedBy", fields: [updatedById], references: [id])
-
-  @@index([rackEquipmentId, slotIndex])
-  @@map("rack_modules")
 }
 
 // ==================== 분전반 회로 (도면 좌표 없음) ====================
@@ -280,7 +182,7 @@ model DistributionCircuit {
   createdById             String?  @map("created_by")
   updatedById             String?  @map("updated_by")
 
-  distribution Equipment @relation(fields: [distributionEquipmentId], references: [id], onDelete: Cascade)
+  distribution Asset     @relation("DistributionCircuitAsset", fields: [distributionEquipmentId], references: [id], onDelete: Cascade)
   sourceCables Cable[]   @relation("CableSourceCircuit")
   targetCables Cable[]   @relation("CableTargetCircuit")
   createdBy    User?     @relation("DistributionCircuitCreatedBy", fields: [createdById], references: [id])
@@ -288,23 +190,6 @@ model DistributionCircuit {
 
   @@index([distributionEquipmentId])
   @@map("distribution_circuits")
-}
-
-model RackModuleCategory {
-  id           String   @id @default(uuid())
-  code         String   @unique @db.VarChar(30) // 'EQP-PITR-5000' 등
-  name         String   @db.VarChar(100)
-  description  String?  @db.Text
-  displayColor String?  @map("display_color") @db.VarChar(7)
-  defaultSlotSpan Int   @default(1) @map("default_slot_span")
-  sortOrder    Int      @default(0) @map("sort_order")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  modules RackModule[]
-
-  @@map("rack_module_categories")
 }
 
 // ==================== 랙 프리셋 (사용자 CRUD) ====================
@@ -395,7 +280,7 @@ model Port {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment Asset     @relation("PortAsset", fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@unique([equipmentId, name])
   @@map("ports")
@@ -448,11 +333,11 @@ model Cable {
   createdById String?  @map("created_by")
   updatedById String?  @map("updated_by")
 
-  sourceEquipment Equipment?     @relation("CableSourceEquipment", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
-  sourceModule    RackModule?    @relation("CableSourceModule", fields: [sourceModuleId], references: [id], onDelete: Cascade)
+  sourceEquipment Asset?         @relation("CableSourceEquipment", fields: [sourceEquipmentId], references: [id], onDelete: Cascade)
+  sourceModule    Asset?         @relation("CableSourceModule", fields: [sourceModuleId], references: [id], onDelete: Cascade)
   sourceCircuit   DistributionCircuit? @relation("CableSourceCircuit", fields: [sourceCircuitId], references: [id], onDelete: Cascade)
-  targetEquipment Equipment?     @relation("CableTargetEquipment", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
-  targetModule    RackModule?    @relation("CableTargetModule", fields: [targetModuleId], references: [id], onDelete: Cascade)
+  targetEquipment Asset?         @relation("CableTargetEquipment", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
+  targetModule    Asset?         @relation("CableTargetModule", fields: [targetModuleId], references: [id], onDelete: Cascade)
   targetCircuit   DistributionCircuit? @relation("CableTargetCircuit", fields: [targetCircuitId], references: [id], onDelete: Cascade)
   fiberPath       FiberPath?     @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
   category        CableCategory? @relation(fields: [categoryId], references: [id])
@@ -483,8 +368,8 @@ model FiberPath {
   createdById String?  @map("created_by_id")
   updatedById String?  @map("updated_by_id")
 
-  ofdA      Equipment @relation("FiberPathOfdA", fields: [ofdAId], references: [id], onDelete: Cascade)
-  ofdB      Equipment @relation("FiberPathOfdB", fields: [ofdBId], references: [id], onDelete: Cascade)
+  ofdA      Asset     @relation("FiberPathOfdA", fields: [ofdAId], references: [id], onDelete: Cascade)
+  ofdB      Asset     @relation("FiberPathOfdB", fields: [ofdBId], references: [id], onDelete: Cascade)
   cables    Cable[]   @relation("CableFiberPath")
   createdBy User?     @relation("FiberPathCreator", fields: [createdById], references: [id])
   updatedBy User?     @relation("FiberPathUpdater", fields: [updatedById], references: [id])
@@ -504,7 +389,7 @@ model EquipmentPhoto {
   takenAt     DateTime? @map("taken_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment Asset     @relation("EquipmentPhotoAsset", fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@map("equipment_photos")
 }
@@ -526,7 +411,7 @@ model MaintenanceLog {
   createdById String?   @map("created_by")
   updatedById String?   @map("updated_by")
 
-  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment Asset     @relation("MaintenanceLogAsset", fields: [equipmentId], references: [id], onDelete: Cascade)
   createdBy User?     @relation("MaintenanceLogCreatedBy", fields: [createdById], references: [id])
   updatedBy User?     @relation("MaintenanceLogUpdatedBy", fields: [updatedById], references: [id])
 
@@ -622,6 +507,17 @@ model Asset {
   floor      Floor?     @relation(fields: [floorId], references: [id], onDelete: SetNull)
   createdBy  User?      @relation("AssetCreatedBy", fields: [createdById], references: [id])
   updatedBy  User?      @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
+
+  sourceCablesEq  Cable[]               @relation("CableSourceEquipment")
+  targetCablesEq  Cable[]               @relation("CableTargetEquipment")
+  sourceCablesMod Cable[]               @relation("CableSourceModule")
+  targetCablesMod Cable[]               @relation("CableTargetModule")
+  circuits        DistributionCircuit[] @relation("DistributionCircuitAsset")
+  ports           Port[]                @relation("PortAsset")
+  fiberPathsAsA   FiberPath[]           @relation("FiberPathOfdA")
+  fiberPathsAsB   FiberPath[]           @relation("FiberPathOfdB")
+  maintenanceLogs MaintenanceLog[]      @relation("MaintenanceLogAsset")
+  photos          EquipmentPhoto[]      @relation("EquipmentPhotoAsset")
 
   @@index([substationId])
   @@index([assetTypeId])
