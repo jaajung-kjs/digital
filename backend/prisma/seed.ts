@@ -5,6 +5,7 @@ import { seedRackModuleCategories } from './seed/rackModuleCategories.js';
 import { seedBomMaterials } from './seed/bomMaterials.js';
 import { seedRackPresets } from './seed/rackPresets.js';
 import { seedGangwonSubstations } from './seed/gangwonSubstations.js';
+import { seedAssetTypes } from './seeds/assetTypes.js';
 
 const prisma = new PrismaClient();
 
@@ -116,6 +117,7 @@ async function main() {
   await seedRackModuleCategories(prisma);
   await seedBomMaterials(prisma);
   await seedRackPresets(prisma);
+  await seedAssetTypes(prisma);
 
   // 강원본부 직할 13개 변전소 + OFD + 광경로 — 매 배포마다 자동 시드
   await seedGangwonSubstations(prisma, admin.id);
