@@ -30,8 +30,6 @@ import { statsRouter } from './routes/stats.routes.js';
 import { distributionCircuitsRouter } from './routes/distributionCircuits.routes.js';
 import { assetTypesRouter } from './routes/assetTypes.routes.js';
 import { assetsRouter } from './routes/assets.routes.js';
-import { assetController } from './controllers/asset.controller.js';
-import { authenticate } from './middleware/auth.js';
 
 const app = express();
 
@@ -104,7 +102,6 @@ app.use('/api/stats', statsRouter);
 app.use('/api/distribution-circuits', distributionCircuitsRouter);
 app.use('/api/asset-types', assetTypesRouter);
 app.use('/api/assets', assetsRouter);
-app.get('/api/substations/:substationId/assets', authenticate, assetController.listBySubstation);
 
 // 404 handler
 app.use((_req, res) => {

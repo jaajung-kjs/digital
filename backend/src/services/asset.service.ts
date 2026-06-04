@@ -138,7 +138,7 @@ class AssetService {
       data: {
         substationId: src.substationId,
         assetTypeId: src.assetTypeId,
-        name: `${src.name} (복제)`,
+        name: `${src.name.replace(/ \(복제\)$/, '')} (복제)`,
         parentAssetId: src.parentAssetId,
         roomText: src.roomText,
         attributes: (src.attributes ?? undefined) as Prisma.InputJsonValue | undefined,

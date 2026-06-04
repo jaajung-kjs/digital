@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/errors.js';
 import { config } from '../config/index.js';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
 
 export function errorHandler(
   err: Error,
@@ -50,6 +51,17 @@ export function errorHandler(
     }
     res.status(err.statusCode).json(response);
     return;
+  }
+
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2003') {
+      res.status(422).json({ error: 'FOREIGN_KEY_VIOLATION', message: '참조된 리소스가 존재하지 않습니다.' });
+      return;
+    }
+    if (err.code === 'P2025') {
+      res.status(404).json({ error: 'NOT_FOUND', message: '대상 리소스를 찾을 수 없습니다.' });
+      return;
+    }
   }
 
   // Log unexpected errors

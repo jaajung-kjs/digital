@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { substationController } from '../controllers/substation.controller.js';
 import { floorController } from '../controllers/floor.controller.js';
+import { assetController } from '../controllers/asset.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -63,6 +64,8 @@ router.delete('/:id', authenticate, adminOnly, substationController.delete);
 
 // 층 목록 조회 (인증 불필요 - PRD: 조회: 전체)
 router.get('/:substationId/floors', floorController.getList);
+
+router.get('/:substationId/assets', authenticate, assetController.listBySubstation);
 
 // 층 생성 (관리자만)
 router.post(
