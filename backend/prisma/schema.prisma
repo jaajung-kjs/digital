@@ -572,6 +572,8 @@ model AssetType {
   name             String   @db.VarChar(100)
   group            String?  @map("group_name") @db.VarChar(20)
   isContainer      Boolean  @default(false) @map("is_container")
+  placementKind    String?  @map("placement_kind") @db.VarChar(20)   // 'RACK'|'OFD'|'DIST'|'GROUNDING'|'HVAC'|null(모듈/장치)
+  defaultSlotSpan  Int      @default(1) @map("default_slot_span")
   fieldTemplate    Json?    @map("field_template")
   requiredToCreate Json?    @map("required_to_create")
   iconName         String?  @map("icon_name") @db.VarChar(30)
