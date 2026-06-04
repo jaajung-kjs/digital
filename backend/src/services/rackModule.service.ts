@@ -1,6 +1,7 @@
 import prisma from '../config/prisma.js';
-import { Prisma, EquipmentKind } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../utils/errors.js';
+import { assetToRackModule } from './assetPlanMapper.js';
 
 // ==================== Types ====================
 
@@ -58,17 +59,7 @@ export const RACK_SLOT_COUNT = 12 as const;
 
 // ==================== Helpers ====================
 
-const moduleInclude = {
-  category: {
-    select: {
-      id: true,
-      code: true,
-      name: true,
-      displayColor: true,
-      defaultSlotSpan: true,
-    },
-  },
-} as const;
+const moduleInclude = { assetType: true } as const;
 
 interface ExistingSlot {
   id: string;
@@ -103,6 +94,19 @@ export function assertNoSlotCollision(
   }
 }
 
+/** 슬롯 collision 검사용 sibling 모듈 조회 (slotIndex/slotSpan 만) */
+async function loadSiblingSlots(rackEquipmentId: string): Promise<ExistingSlot[]> {
+  const siblings = await prisma.asset.findMany({
+    where: { parentAssetId: rackEquipmentId },
+    select: { id: true, slotIndex: true, slotSpan: true },
+  });
+  return siblings.map((s) => ({
+    id: s.id,
+    slotIndex: s.slotIndex ?? 0,
+    slotSpan: s.slotSpan ?? 1,
+  }));
+}
+
 async function generateModuleName(
   rackEquipmentId: string,
   categoryId: string,
@@ -110,8 +114,8 @@ async function generateModuleName(
 ): Promise<string> {
   const escaped = categoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`^${escaped}-(\\d+)$`);
-  const existing = await prisma.rackModule.findMany({
-    where: { rackEquipmentId, categoryId },
+  const existing = await prisma.asset.findMany({
+    where: { parentAssetId: rackEquipmentId, assetTypeId: categoryId },
     select: { name: true },
   });
   let maxN = 0;
@@ -124,43 +128,27 @@ async function generateModuleName(
 
 // ==================== Mapping ====================
 
-function mapDetail(row: Prisma.RackModuleGetPayload<{ include: typeof moduleInclude }>): RackModuleDetail {
-  return {
-    id: row.id,
-    rackEquipmentId: row.rackEquipmentId,
-    categoryId: row.categoryId,
-    categoryCode: row.category?.code ?? null,
-    categoryName: row.category?.name ?? null,
-    categoryDisplayColor: row.category?.displayColor ?? null,
-    categoryDefaultSlotSpan: row.category?.defaultSlotSpan ?? 1,
-    name: row.name,
-    slotIndex: row.slotIndex,
-    slotSpan: row.slotSpan,
-    installDate: row.installDate,
-    manager: row.manager,
-    description: row.description,
-    properties: row.properties,
-    sortOrder: row.sortOrder,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
+function mapDetail(
+  row: Prisma.AssetGetPayload<{ include: typeof moduleInclude }>,
+): RackModuleDetail {
+  return assetToRackModule(row);
 }
 
 // ==================== Service ====================
 
 async function getByRackId(rackId: string): Promise<RackModuleDetail[]> {
-  const rack = await prisma.equipment.findUnique({
+  const rack = await prisma.asset.findUnique({
     where: { id: rackId },
-    select: { id: true, kind: true },
+    include: { assetType: true },
   });
   if (!rack) throw new NotFoundError('랙 설비');
-  if (rack.kind !== EquipmentKind.RACK) {
+  if (rack.assetType.placementKind !== 'RACK') {
     throw new ValidationError(
-      `해당 설비는 RACK 이 아닙니다 (kind=${rack.kind}). 랙 모듈은 RACK 설비에만 속합니다.`,
+      `해당 설비는 RACK 이 아닙니다 (placementKind=${rack.assetType.placementKind}). 랙 모듈은 RACK 설비에만 속합니다.`,
     );
   }
-  const modules = await prisma.rackModule.findMany({
-    where: { rackEquipmentId: rackId },
+  const modules = await prisma.asset.findMany({
+    where: { parentAssetId: rackId },
     include: moduleInclude,
     orderBy: [{ slotIndex: 'asc' }, { createdAt: 'asc' }],
   });
@@ -168,7 +156,7 @@ async function getByRackId(rackId: string): Promise<RackModuleDetail[]> {
 }
 
 async function getById(id: string): Promise<RackModuleDetail> {
-  const module = await prisma.rackModule.findUnique({
+  const module = await prisma.asset.findUnique({
     where: { id },
     include: moduleInclude,
   });
@@ -179,15 +167,15 @@ async function getById(id: string): Promise<RackModuleDetail> {
 async function create(input: CreateRackModuleInput, userId: string | null): Promise<RackModuleDetail> {
   assertSlotValid(input.slotIndex, input.slotSpan);
 
-  const rack = await prisma.equipment.findUnique({
+  const rack = await prisma.asset.findUnique({
     where: { id: input.rackEquipmentId },
-    select: { id: true, kind: true },
+    include: { assetType: true },
   });
-  if (!rack || rack.kind !== EquipmentKind.RACK) {
+  if (!rack || rack.assetType.placementKind !== 'RACK') {
     throw new NotFoundError('랙 설비를 찾을 수 없습니다.');
   }
 
-  const category = await prisma.rackModuleCategory.findUnique({
+  const category = await prisma.assetType.findUnique({
     where: { id: input.categoryId },
     select: { id: true, name: true, isActive: true },
   });
@@ -195,10 +183,7 @@ async function create(input: CreateRackModuleInput, userId: string | null): Prom
     throw new NotFoundError('카테고리를 찾을 수 없거나 비활성 상태입니다.');
   }
 
-  const siblings = await prisma.rackModule.findMany({
-    where: { rackEquipmentId: input.rackEquipmentId },
-    select: { id: true, slotIndex: true, slotSpan: true },
-  });
+  const siblings = await loadSiblingSlots(input.rackEquipmentId);
   assertNoSlotCollision(input.slotIndex, input.slotSpan, siblings);
 
   const name = (input.name?.trim()) || await generateModuleName(
@@ -207,17 +192,18 @@ async function create(input: CreateRackModuleInput, userId: string | null): Prom
     category.name,
   );
 
-  const row = await prisma.rackModule.create({
+  const row = await prisma.asset.create({
     data: {
-      rackEquipmentId: input.rackEquipmentId,
-      categoryId: input.categoryId,
+      substationId: rack.substationId,
+      parentAssetId: input.rackEquipmentId,
+      assetTypeId: input.categoryId,
       name,
       slotIndex: input.slotIndex,
       slotSpan: input.slotSpan,
       installDate: input.installDate ? new Date(input.installDate) : null,
       manager: input.manager ?? null,
       description: input.description ?? null,
-      properties: input.properties as Prisma.InputJsonValue | undefined,
+      attributes: input.properties as Prisma.InputJsonValue | undefined,
       sortOrder: input.sortOrder ?? input.slotIndex,
       createdById: userId,
       updatedById: userId,
@@ -232,21 +218,20 @@ async function update(
   input: UpdateRackModuleInput,
   userId: string | null,
 ): Promise<RackModuleDetail> {
-  const existing = await prisma.rackModule.findUnique({ where: { id } });
+  const existing = await prisma.asset.findUnique({ where: { id } });
   if (!existing) throw new NotFoundError('모듈을 찾을 수 없습니다.');
 
-  const newIndex = input.slotIndex ?? existing.slotIndex;
-  const newSpan = input.slotSpan ?? existing.slotSpan;
+  const newIndex = input.slotIndex ?? existing.slotIndex ?? 0;
+  const newSpan = input.slotSpan ?? existing.slotSpan ?? 1;
   if (input.slotIndex !== undefined || input.slotSpan !== undefined) {
     assertSlotValid(newIndex, newSpan);
-    const siblings = await prisma.rackModule.findMany({
-      where: { rackEquipmentId: existing.rackEquipmentId },
-      select: { id: true, slotIndex: true, slotSpan: true },
-    });
-    assertNoSlotCollision(newIndex, newSpan, siblings, [id]);
+    if (existing.parentAssetId) {
+      const siblings = await loadSiblingSlots(existing.parentAssetId);
+      assertNoSlotCollision(newIndex, newSpan, siblings, [id]);
+    }
   }
 
-  const row = await prisma.rackModule.update({
+  const row = await prisma.asset.update({
     where: { id },
     data: {
       ...(input.name !== undefined ? { name: input.name } : {}),
@@ -260,7 +245,7 @@ async function update(
             : null,
       manager: input.manager === undefined ? undefined : input.manager,
       description: input.description === undefined ? undefined : input.description,
-      properties: input.properties as Prisma.InputJsonValue | undefined,
+      attributes: input.properties as Prisma.InputJsonValue | undefined,
       sortOrder: input.sortOrder,
       updatedById: userId,
     },
@@ -280,15 +265,15 @@ async function batchUpdate(
   if (uniqueIds.size !== ids.length) {
     throw new ValidationError('batch update 항목에 중복된 모듈 ID가 있습니다.');
   }
-  const existing = await prisma.rackModule.findMany({
+  const existing = await prisma.asset.findMany({
     where: { id: { in: ids } },
-    select: { id: true, rackEquipmentId: true },
+    select: { id: true, parentAssetId: true },
   });
   if (existing.length !== items.length) {
     throw new NotFoundError('일부 모듈을 찾을 수 없습니다.');
   }
-  const rackId = existing[0].rackEquipmentId;
-  if (!existing.every((m) => m.rackEquipmentId === rackId)) {
+  const rackId = existing[0].parentAssetId;
+  if (!rackId || !existing.every((m) => m.parentAssetId === rackId)) {
     throw new ValidationError('batch update는 같은 랙 내 모듈만 허용됩니다.');
   }
 
@@ -296,10 +281,7 @@ async function batchUpdate(
   for (const it of items) assertSlotValid(it.slotIndex, it.slotSpan);
 
   // 적용 후 가상 상태로 교집합 검사
-  const siblings = await prisma.rackModule.findMany({
-    where: { rackEquipmentId: rackId },
-    select: { id: true, slotIndex: true, slotSpan: true },
-  });
+  const siblings = await loadSiblingSlots(rackId);
   const itemMap = new Map(items.map((i) => [i.id, i]));
   const projected = siblings.map((s) => itemMap.get(s.id) ?? s);
   for (const it of items) {
@@ -310,7 +292,7 @@ async function batchUpdate(
   // 트랜잭션으로 일괄 적용
   const updated = await prisma.$transaction(
     items.map((it) =>
-      prisma.rackModule.update({
+      prisma.asset.update({
         where: { id: it.id },
         data: {
           slotIndex: it.slotIndex,
@@ -325,23 +307,23 @@ async function batchUpdate(
 }
 
 async function remove(id: string): Promise<void> {
-  const existing = await prisma.rackModule.findUnique({
+  const existing = await prisma.asset.findUnique({
     where: { id },
     include: {
-      sourceCables: { select: { id: true } },
-      targetCables: { select: { id: true } },
+      sourceCablesMod: { select: { id: true } },
+      targetCablesMod: { select: { id: true } },
     },
   });
   if (!existing) throw new NotFoundError('랙 모듈');
 
-  const connectionCount = existing.sourceCables.length + existing.targetCables.length;
+  const connectionCount = existing.sourceCablesMod.length + existing.targetCablesMod.length;
   if (connectionCount > 0) {
     throw new ConflictError(
       `연결된 케이블이 ${connectionCount}개 있어 삭제할 수 없습니다. 케이블을 먼저 제거하세요.`,
     );
   }
 
-  await prisma.rackModule.delete({ where: { id } });
+  await prisma.asset.delete({ where: { id } });
 }
 
 export const rackModuleService = {
