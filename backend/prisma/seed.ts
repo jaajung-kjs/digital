@@ -5,7 +5,7 @@ import { seedRackModuleCategories } from './seed/rackModuleCategories.js';
 import { seedBomMaterials } from './seed/bomMaterials.js';
 import { seedRackPresets } from './seed/rackPresets.js';
 import { seedGangwonSubstations } from './seed/gangwonSubstations.js';
-import { seedAssetTypes } from './seeds/assetTypes.js';
+import { seedAssetTypes } from './seed/assetTypes.js';
 
 const prisma = new PrismaClient();
 
