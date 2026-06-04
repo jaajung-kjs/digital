@@ -718,6 +718,15 @@ export function TreeVisualization() {
                     클릭하여 도면 열기
                   </span>
                 )}
+                {child.type === 'substation' && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/substations/${child.id}/assets`); }}
+                    className="mt-2 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    title="이 변전소의 자산을 표로 보기"
+                  >
+                    현황 표
+                  </button>
+                )}
                 </div>
                 {/* 드롭 인디케이터 (마지막 아이템 오른쪽) */}
                 {dropIndex === idx + 1 && idx === displayChildren.length - 1 && dragId && dragId !== child.id && (
