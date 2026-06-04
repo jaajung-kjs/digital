@@ -45,6 +45,8 @@ model User {
   updatedRackPresets     RackPreset[]     @relation("RackPresetUpdatedBy")
   createdDistCircuits    DistributionCircuit[] @relation("DistributionCircuitCreatedBy")
   updatedDistCircuits    DistributionCircuit[] @relation("DistributionCircuitUpdatedBy")
+  assetsCreated          Asset[]          @relation("AssetCreatedBy")
+  assetsUpdated          Asset[]          @relation("AssetUpdatedBy")
 
   @@map("users")
 }
@@ -124,6 +126,7 @@ model Substation {
   createdBy User?   @relation("SubstationCreatedBy", fields: [createdById], references: [id])
   updatedBy User?   @relation("SubstationUpdatedBy", fields: [updatedById], references: [id])
   floors    Floor[]
+  assets    Asset[]
 
   @@map("substations")
 }
@@ -162,6 +165,7 @@ model Floor {
   createdBy  User?       @relation("FloorCreatedBy", fields: [createdById], references: [id])
   updatedBy  User?       @relation("FloorUpdatedBy", fields: [updatedById], references: [id])
   equipment  Equipment[]
+  assets     Asset[]
 
   @@unique([substationId, name])
   @@map("floors")
@@ -555,4 +559,68 @@ model AuditLog {
   @@index([userId])
   @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
+}
+
+// ==================== 자산 레지스터 (1단계, 가산) ====================
+// Asset = 대장 레코드(SSOT). 도면 배치/랙 실장/속성은 전부 선택 필드.
+// 생성 필수: substationId + assetTypeId + name.
+
+model AssetType {
+  id               String   @id @default(uuid())
+  code             String   @unique @db.VarChar(30)
+  name             String   @db.VarChar(100)
+  group            String?  @db.VarChar(20)
+  isContainer      Boolean  @default(false) @map("is_container")
+  fieldTemplate    Json?    @map("field_template")
+  requiredToCreate Json?    @map("required_to_create")
+  iconName         String?  @map("icon_name") @db.VarChar(30)
+  displayColor     String?  @map("display_color") @db.VarChar(7)
+  sortOrder        Int      @default(0) @map("sort_order")
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  assets Asset[]
+
+  @@map("asset_types")
+}
+
+model Asset {
+  id            String    @id @default(uuid())
+  substationId  String    @map("substation_id")
+  assetTypeId   String    @map("asset_type_id")
+  name          String    @db.VarChar(100)
+  parentAssetId String?   @map("parent_asset_id")
+  roomText      String?   @map("room_text") @db.VarChar(100)
+  floorId       String?   @map("floor_id")
+  positionX     Float?    @map("position_x")
+  positionY     Float?    @map("position_y")
+  width2d       Float?    @map("width_2d")
+  height2d      Float?    @map("height_2d")
+  rotation      Int       @default(0)
+  slotIndex     Int?      @map("slot_index")
+  slotSpan      Int?      @map("slot_span")
+  totalU        Int?      @map("total_u")
+  attributes    Json?
+  installDate   DateTime? @map("install_date") @db.Date
+  manager       String?   @db.VarChar(100)
+  description   String?   @db.Text
+  status        String?   @db.VarChar(20)
+  sortOrder     Int       @default(0) @map("sort_order")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  createdById   String?   @map("created_by")
+  updatedById   String?   @map("updated_by")
+
+  substation Substation @relation(fields: [substationId], references: [id], onDelete: Cascade)
+  assetType  AssetType  @relation(fields: [assetTypeId], references: [id])
+  parent     Asset?     @relation("AssetTree", fields: [parentAssetId], references: [id], onDelete: SetNull)
+  children   Asset[]    @relation("AssetTree")
+  floor      Floor?     @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  createdBy  User?      @relation("AssetCreatedBy", fields: [createdById], references: [id])
+  updatedBy  User?      @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([substationId])
+  @@index([parentAssetId])
+  @@map("assets")
 }
