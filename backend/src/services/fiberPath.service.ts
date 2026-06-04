@@ -1,6 +1,5 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
-import { EquipmentKind } from '@prisma/client';
 
 // ==================== Types ====================
 
@@ -34,7 +33,6 @@ const equipmentWithSubstation = {
   select: {
     id: true,
     name: true,
-    kind: true,
     floorId: true,
     floor: {
       select: {
@@ -60,9 +58,9 @@ const fiberPathCablesInclude = {
   cables: {
     include: {
       sourceEquipment: { select: { id: true, name: true } },
-      sourceModule: { select: { id: true, name: true, rackEquipmentId: true } },
+      sourceModule: { select: { id: true, name: true, parentAssetId: true } },
       targetEquipment: { select: { id: true, name: true } },
-      targetModule: { select: { id: true, name: true, rackEquipmentId: true } },
+      targetModule: { select: { id: true, name: true, parentAssetId: true } },
     },
   },
 } as const;
@@ -145,25 +143,25 @@ class FiberPathService {
       throw new ValidationError('OFD A와 OFD B는 서로 달라야 합니다.');
     }
 
-    // Validate both equipment exist and are OFD (Equipment.kind === 'OFD')
+    // Validate both assets exist and are OFD (AssetType.placementKind === 'OFD')
     const [ofdA, ofdB] = await Promise.all([
-      prisma.equipment.findUnique({
+      prisma.asset.findUnique({
         where: { id: input.ofdAId },
-        select: { id: true, kind: true },
+        select: { id: true, assetType: { select: { placementKind: true } } },
       }),
-      prisma.equipment.findUnique({
+      prisma.asset.findUnique({
         where: { id: input.ofdBId },
-        select: { id: true, kind: true },
+        select: { id: true, assetType: { select: { placementKind: true } } },
       }),
     ]);
 
     if (!ofdA) throw new NotFoundError('OFD A 설비');
     if (!ofdB) throw new NotFoundError('OFD B 설비');
 
-    if (ofdA.kind !== EquipmentKind.OFD) {
+    if (ofdA.assetType.placementKind !== 'OFD') {
       throw new ValidationError('OFD A 설비의 종류가 OFD가 아닙니다.');
     }
-    if (ofdB.kind !== EquipmentKind.OFD) {
+    if (ofdB.assetType.placementKind !== 'OFD') {
       throw new ValidationError('OFD B 설비의 종류가 OFD가 아닙니다.');
     }
 
