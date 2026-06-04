@@ -1,9 +1,15 @@
 import prisma from '../config/prisma.js';
-import { Prisma, CableType, EquipmentKind } from '@prisma/client';
+import { Prisma, CableType } from '@prisma/client';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
 import { equipmentService } from './equipment.service.js';
 import { assertOfdFiberPath, buildFiberPathLabel } from './cable.service.js';
 import { assertNoSlotCollision, assertSlotValid } from './rackModule.service.js';
+import {
+  assetToPlanEquipment,
+  kindToPlacementCode,
+  placementKindToKind,
+  type PlacementKind,
+} from './assetPlanMapper.js';
 import {
   calculateConstructionReport,
   type PlanSnapshot,
@@ -48,7 +54,7 @@ export interface FloorDetailBasic {
 
 interface PlanEquipmentDTO {
   id: string;
-  kind: EquipmentKind;
+  kind: PlacementKind | null;
   name: string;
   positionX: number;
   positionY: number;
@@ -139,7 +145,7 @@ export interface UpdateFloorInput {
 interface PlanEquipmentInput {
   id?: string | null;
   tempId?: string;
-  kind: EquipmentKind;
+  kind: PlacementKind;
   name: string;
   positionX: number;
   positionY: number;
@@ -323,9 +329,10 @@ class FloorService {
     const floor = await prisma.floor.findUnique({ where: { id } });
     if (!floor) throw new NotFoundError('층');
 
-    const [equipment, cables, ofdEquipment] = await Promise.all([
-      prisma.equipment.findMany({
-        where: { floorId: id },
+    const [equipmentAssets, cables, ofdEquipment] = await Promise.all([
+      prisma.asset.findMany({
+        where: { floorId: id, parentAssetId: null },
+        include: { assetType: true },
         orderBy: { sortOrder: 'asc' },
       }),
       prisma.cable.findMany({
@@ -333,8 +340,8 @@ class FloorService {
           OR: [
             { sourceEquipment: { floorId: id } },
             { targetEquipment: { floorId: id } },
-            { sourceModule: { rack: { floorId: id } } },
-            { targetModule: { rack: { floorId: id } } },
+            { sourceModule: { parent: { floorId: id } } },
+            { targetModule: { parent: { floorId: id } } },
             { sourceCircuit: { distribution: { floorId: id } } },
             { targetCircuit: { distribution: { floorId: id } } },
           ],
@@ -353,8 +360,8 @@ class FloorService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.equipment.findMany({
-        where: { floorId: id, kind: EquipmentKind.OFD },
+      prisma.asset.findMany({
+        where: { floorId: id, parentAssetId: null, assetType: { placementKind: 'OFD' } },
         select: { id: true },
       }),
     ]);
@@ -399,24 +406,7 @@ class FloorService {
       scaleRatio: floor.scaleRatio ?? null,
       backgroundDrawing: floor.backgroundDrawing,
       backgroundOpacity: floor.backgroundOpacity,
-      equipment: equipment.map((e) => ({
-        id: e.id,
-        kind: e.kind,
-        name: e.name,
-        positionX: e.positionX,
-        positionY: e.positionY,
-        width: e.width2d,
-        height: e.height2d,
-        rotation: e.rotation,
-        totalU: e.totalU,
-        description: e.description,
-        manager: e.manager,
-        installDate: e.installDate?.toISOString().slice(0, 10) ?? null,
-        height3d: e.height3d,
-        frontImageUrl: e.frontImageUrl,
-        rearImageUrl: e.rearImageUrl,
-        properties: e.properties,
-      })),
+      equipment: equipmentAssets.map((a) => assetToPlanEquipment(a)),
       cables: cables.map((c) => ({
         id: c.id,
         sourceEquipmentId: c.sourceEquipmentId,
@@ -531,16 +521,36 @@ class FloorService {
     let finalConstructionReport: ReturnType<typeof calculateConstructionReport> | null = null;
 
     await prisma.$transaction(async (tx) => {
+      // Floor 의 substation — 새 Asset 생성 시 필수.
+      const floorRow = await tx.floor.findUniqueOrThrow({
+        where: { id },
+        select: { substationId: true },
+      });
+      const floorSubstationId = floorRow.substationId;
+      if (!floorSubstationId) {
+        throw new ValidationError('층에 변전소가 지정되어 있지 않습니다.');
+      }
+
+      // placementKind code → AssetType.id 캐시 resolver.
+      const typeCache = new Map<string, string>();
+      const resolveAssetTypeIdByPlacement = async (kind: string): Promise<string> => {
+        const code = kindToPlacementCode(kind as PlacementKind);
+        if (typeCache.has(code)) return typeCache.get(code)!;
+        const t = await tx.assetType.findUniqueOrThrow({ where: { code }, select: { id: true } });
+        typeCache.set(code, t.id);
+        return t.id;
+      };
+
       // ── Step 0: load current state ──
       const [dbEquipment, dbCables, dbRackModules, dbDistCircuits] = await Promise.all([
-        tx.equipment.findMany({ where: { floorId: id } }),
+        tx.asset.findMany({ where: { floorId: id, parentAssetId: null }, include: { assetType: true } }),
         tx.cable.findMany({
           where: {
             OR: [
               { sourceEquipment: { floorId: id } },
               { targetEquipment: { floorId: id } },
-              { sourceModule: { rack: { floorId: id } } },
-              { targetModule: { rack: { floorId: id } } },
+              { sourceModule: { parent: { floorId: id } } },
+              { targetModule: { parent: { floorId: id } } },
               { sourceCircuit: { distribution: { floorId: id } } },
               { targetCircuit: { distribution: { floorId: id } } },
             ],
@@ -549,8 +559,9 @@ class FloorService {
             category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
           },
         }),
-        tx.rackModule.findMany({
-          where: { rack: { floorId: id } },
+        tx.asset.findMany({
+          where: { parent: { floorId: id } },
+          include: { assetType: true },
         }),
         tx.distributionCircuit.findMany({
           where: { distribution: { floorId: id } },
@@ -624,7 +635,7 @@ class FloorService {
           eq.width !== cur.width2d ||
           eq.height !== cur.height2d ||
           (eq.rotation ?? 0) !== cur.rotation ||
-          eq.kind !== cur.kind
+          eq.kind !== placementKindToKind(cur.assetType.placementKind)
         ) {
           hasStructuralChange = true;
           break;
@@ -655,15 +666,15 @@ class FloorService {
         await tx.cable.deleteMany({ where: { id: { in: deleteCableIds } } });
       }
       if (deleteEquipmentIds.length > 0) {
-        await tx.equipment.deleteMany({
-          where: { id: { in: deleteEquipmentIds }, floorId: id },
+        await tx.asset.deleteMany({
+          where: { id: { in: deleteEquipmentIds }, floorId: id, parentAssetId: null },
         });
       }
 
       // OFD uniqueness check on new OFDs
       if (input.equipment) {
         const newOfds = input.equipment.filter(
-          (e) => e.kind === EquipmentKind.OFD && !isRealId(e.id),
+          (e) => e.kind === 'OFD' && !isRealId(e.id),
         );
         if (newOfds.length > 0) {
           await equipmentService.validateOfdUniqueness(id);
@@ -672,42 +683,41 @@ class FloorService {
 
       for (const equip of input.equipment ?? []) {
         if (isRealId(equip.id) && dbEquipmentIds.has(equip.id!)) {
-          await tx.equipment.update({
+          await tx.asset.update({
             where: { id: equip.id! },
             data: {
-              kind: equip.kind,
+              assetTypeId: await resolveAssetTypeIdByPlacement(equip.kind),
               name: equip.name,
               positionX: equip.positionX,
               positionY: equip.positionY,
               width2d: equip.width,
               height2d: equip.height,
               rotation: equip.rotation ?? 0,
-              totalU: equip.kind === EquipmentKind.RACK ? equip.totalU ?? 42 : null,
+              totalU: equip.kind === 'RACK' ? equip.totalU ?? 42 : null,
               description: equip.description,
               manager: equip.manager,
               installDate: equip.installDate ? new Date(equip.installDate) : null,
-              height3d: equip.height3d,
-              properties: equip.properties as Prisma.InputJsonValue | undefined,
+              attributes: equip.properties as Prisma.InputJsonValue | undefined,
               updatedById: userId,
             },
           });
         } else {
-          const created = await tx.equipment.create({
+          const created = await tx.asset.create({
             data: {
-              floorId: id,
-              kind: equip.kind,
+              substationId: floorSubstationId,
+              assetTypeId: await resolveAssetTypeIdByPlacement(equip.kind),
               name: equip.name,
+              floorId: id,
               positionX: equip.positionX,
               positionY: equip.positionY,
               width2d: equip.width,
               height2d: equip.height,
               rotation: equip.rotation ?? 0,
-              totalU: equip.kind === EquipmentKind.RACK ? equip.totalU ?? 42 : null,
+              totalU: equip.kind === 'RACK' ? equip.totalU ?? 42 : null,
               description: equip.description,
               manager: equip.manager,
               installDate: equip.installDate ? new Date(equip.installDate) : null,
-              height3d: equip.height3d,
-              properties: equip.properties as Prisma.InputJsonValue | undefined,
+              attributes: equip.properties as Prisma.InputJsonValue | undefined,
               createdById: userId,
               updatedById: userId,
             },
@@ -722,7 +732,7 @@ class FloorService {
       // 슬롯 충돌 검사는 in-memory + DB 잔존 모듈 모두 고려.
       if (rackModulesReceived) {
         if (deleteRackModuleIds.length > 0) {
-          await tx.rackModule.deleteMany({ where: { id: { in: deleteRackModuleIds } } });
+          await tx.asset.deleteMany({ where: { id: { in: deleteRackModuleIds } } });
         }
 
         // 처리 후 각 랙별 잔존 슬롯 추적 (충돌 검사용).
@@ -730,34 +740,35 @@ class FloorService {
         const liveByRack = new Map<string, { id: string; slotIndex: number; slotSpan: number }[]>();
         for (const m of dbRackModules) {
           if (deleteRackModuleIds.includes(m.id)) continue;
-          if (!liveByRack.has(m.rackEquipmentId)) liveByRack.set(m.rackEquipmentId, []);
-          liveByRack.get(m.rackEquipmentId)!.push({
+          const parentId = m.parentAssetId!;
+          if (!liveByRack.has(parentId)) liveByRack.set(parentId, []);
+          liveByRack.get(parentId)!.push({
             id: m.id,
-            slotIndex: m.slotIndex,
-            slotSpan: m.slotSpan,
+            slotIndex: m.slotIndex ?? 0,
+            slotSpan: m.slotSpan ?? 1,
           });
         }
 
         for (const mod of input.rackModules!) {
           // 부모 랙 해석 (tempId 가능)
           const resolvedRackId = equipmentIdMap[mod.rackEquipmentId] ?? mod.rackEquipmentId;
-          const rack = await tx.equipment.findUnique({
+          const rack = await tx.asset.findUnique({
             where: { id: resolvedRackId },
-            select: { id: true, kind: true },
+            include: { assetType: true },
           });
           if (!rack) {
             throw new ValidationError(
               `랙 모듈의 부모 설비를 찾을 수 없습니다 (rackEquipmentId=${mod.rackEquipmentId}).`,
             );
           }
-          if (rack.kind !== EquipmentKind.RACK) {
+          if (rack.assetType.placementKind !== 'RACK') {
             throw new ValidationError(
-              `랙 모듈의 부모가 RACK 이 아닙니다 (kind=${rack.kind}).`,
+              `랙 모듈의 부모가 RACK 이 아닙니다 (placementKind=${rack.assetType.placementKind}).`,
             );
           }
 
-          // 카테고리 확인 — categoryId 는 real (시드된 RackModuleCategory.id) 만 가능.
-          const category = await tx.rackModuleCategory.findUnique({
+          // 카테고리 확인 — categoryId 는 시드된 AssetType.id (모듈 타입) 만 가능.
+          const category = await tx.assetType.findUnique({
             where: { id: mod.categoryId },
             select: { id: true },
           });
@@ -779,11 +790,11 @@ class FloorService {
           );
 
           if (isUpdate) {
-            const updated = await tx.rackModule.update({
+            const updated = await tx.asset.update({
               where: { id: mod.id! },
               data: {
-                rackEquipmentId: rack.id,
-                categoryId: category.id,
+                parentAssetId: rack.id,
+                assetTypeId: category.id,
                 name: mod.name,
                 slotIndex: mod.slotIndex,
                 slotSpan: mod.slotSpan,
@@ -795,7 +806,7 @@ class FloorService {
                       : undefined,
                 manager: mod.manager,
                 description: mod.description,
-                properties: mod.properties as Prisma.InputJsonValue | undefined,
+                attributes: mod.properties as Prisma.InputJsonValue | undefined,
                 sortOrder: mod.sortOrder,
                 updatedById: userId,
               },
@@ -803,24 +814,26 @@ class FloorService {
             // 슬롯 추적 업데이트
             const arr = liveByRack.get(rack.id) ?? [];
             const idx = arr.findIndex((s) => s.id === updated.id);
+            const slot = { id: updated.id, slotIndex: updated.slotIndex ?? 0, slotSpan: updated.slotSpan ?? 1 };
             if (idx >= 0) {
-              arr[idx] = { id: updated.id, slotIndex: updated.slotIndex, slotSpan: updated.slotSpan };
+              arr[idx] = slot;
             } else {
-              arr.push({ id: updated.id, slotIndex: updated.slotIndex, slotSpan: updated.slotSpan });
+              arr.push(slot);
             }
             liveByRack.set(rack.id, arr);
           } else {
-            const created = await tx.rackModule.create({
+            const created = await tx.asset.create({
               data: {
-                rackEquipmentId: rack.id,
-                categoryId: category.id,
+                substationId: floorSubstationId,
+                assetTypeId: category.id,
                 name: mod.name,
+                parentAssetId: rack.id,
                 slotIndex: mod.slotIndex,
                 slotSpan: mod.slotSpan,
                 installDate: mod.installDate ? new Date(mod.installDate) : null,
                 manager: mod.manager ?? null,
                 description: mod.description ?? null,
-                properties: (mod.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+                attributes: (mod.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
                 sortOrder: mod.sortOrder ?? 0,
                 createdById: userId,
                 updatedById: userId,
@@ -829,7 +842,7 @@ class FloorService {
             if (mod.tempId) rackModuleIdMap[mod.tempId] = created.id;
             if (mod.id && mod.id !== created.id) rackModuleIdMap[mod.id] = created.id;
             const arr = liveByRack.get(rack.id) ?? [];
-            arr.push({ id: created.id, slotIndex: created.slotIndex, slotSpan: created.slotSpan });
+            arr.push({ id: created.id, slotIndex: created.slotIndex ?? 0, slotSpan: created.slotSpan ?? 1 });
             liveByRack.set(rack.id, arr);
           }
         }
@@ -847,18 +860,18 @@ class FloorService {
         for (const c of input.distributionCircuits!) {
           const resolvedDistId =
             equipmentIdMap[c.distributionEquipmentId] ?? c.distributionEquipmentId;
-          const dist = await tx.equipment.findUnique({
+          const dist = await tx.asset.findUnique({
             where: { id: resolvedDistId },
-            select: { id: true, kind: true },
+            include: { assetType: true },
           });
           if (!dist) {
             throw new ValidationError(
               `분전반 회로의 부모 설비를 찾을 수 없습니다 (distributionEquipmentId=${c.distributionEquipmentId}).`,
             );
           }
-          if (dist.kind !== EquipmentKind.DISTRIBUTION) {
+          if (dist.assetType.placementKind !== 'DIST') {
             throw new ValidationError(
-              `분전반 회로의 부모가 DISTRIBUTION 이 아닙니다 (kind=${dist.kind}).`,
+              `분전반 회로의 부모가 DISTRIBUTION 이 아닙니다 (placementKind=${dist.assetType.placementKind}).`,
             );
           }
 
@@ -934,16 +947,17 @@ class FloorService {
 
       // Cables
       // 한 번 조회한 endpoint kind 캐시 (같은 트랜잭션에서 반복 조회 방지)
-      const equipmentKindCache = new Map<string, EquipmentKind>();
-      const getEquipmentKind = async (eqId: string): Promise<EquipmentKind | null> => {
+      const equipmentKindCache = new Map<string, PlacementKind | null>();
+      const getEquipmentKind = async (eqId: string): Promise<PlacementKind | null> => {
         if (equipmentKindCache.has(eqId)) return equipmentKindCache.get(eqId)!;
-        const e = await tx.equipment.findUnique({
+        const e = await tx.asset.findUnique({
           where: { id: eqId },
-          select: { kind: true },
+          include: { assetType: true },
         });
         if (!e) return null;
-        equipmentKindCache.set(eqId, e.kind);
-        return e.kind;
+        const kind = placementKindToKind(e.assetType.placementKind);
+        equipmentKindCache.set(eqId, kind);
+        return kind;
       };
 
       for (const cable of input.cables ?? []) {
@@ -1106,16 +1120,19 @@ class FloorService {
       if (hasStructuralChange) {
         const snapshot = await captureFloorSnapshot(tx, id, updated, newVersion);
         const beforePlan: PlanSnapshot = {
-          equipment: dbEquipment.map((e) => ({
-            id: e.id,
-            name: e.name,
-            materialCategoryCode: kindToLegacyCode(e.kind),
-            materialCategoryName: e.kind,
-            specification: null,
-            specParams: null,
-            positionX: e.positionX,
-            positionY: e.positionY,
-          })),
+          equipment: dbEquipment.map((e) => {
+            const kind = placementKindToKind(e.assetType.placementKind);
+            return {
+              id: e.id,
+              name: e.name,
+              materialCategoryCode: kindToLegacyCode(kind),
+              materialCategoryName: kind,
+              specification: null,
+              specParams: null,
+              positionX: e.positionX ?? 0,
+              positionY: e.positionY ?? 0,
+            };
+          }),
           cables: dbCables.map((c) => ({
             id: c.id,
             cableType: c.cableType,
@@ -1290,7 +1307,7 @@ class FloorService {
  * RACK 은 모듈에, DISTRIBUTION 은 회로에 연결해야 하므로 설비 직결 거부.
  */
 function assertDirectEndpointKind(
-  kind: EquipmentKind | null,
+  kind: PlacementKind | null,
   eqId: string,
   side: 'source' | 'target',
 ): void {
@@ -1298,16 +1315,16 @@ function assertDirectEndpointKind(
   if (kind === null) {
     throw new ValidationError(`${label} 설비를 찾을 수 없습니다 (id=${eqId}).`);
   }
-  if (kind === EquipmentKind.RACK) {
+  if (kind === 'RACK') {
     throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
   }
-  if (kind === EquipmentKind.DISTRIBUTION) {
+  if (kind === 'DISTRIBUTION') {
     throw new ValidationError('분전반은 케이블 endpoint 가 될 수 없습니다 — 회로에 연결하세요.');
   }
 }
 
 /**
- * Map EquipmentKind back to legacy MaterialCategory.code so the existing
+ * Map placement kind back to legacy MaterialCategory.code so the existing
  * constructionTemplates BOM/labor lookups keep matching for now.
  *   RACK → 'EQP-RACK', OFD → 'EQP-OFD', DISTRIBUTION → 'EQP-DIST',
  *   GROUNDING → 'EQP-GROUND', HVAC → 'EQP-COOL'.
@@ -1316,13 +1333,13 @@ function assertDirectEndpointKind(
  * categories were dropped along with MaterialCategory. P7+ will expose
  * RackModule kind so the report can hook into them.
  */
-function kindToLegacyCode(kind: EquipmentKind | null | undefined): string | null {
+function kindToLegacyCode(kind: PlacementKind | null | undefined): string | null {
   switch (kind) {
-    case EquipmentKind.RACK: return 'EQP-RACK';
-    case EquipmentKind.OFD: return 'EQP-OFD';
-    case EquipmentKind.DISTRIBUTION: return 'EQP-DIST';
-    case EquipmentKind.GROUNDING: return 'EQP-GROUND';
-    case EquipmentKind.HVAC: return 'EQP-COOL';
+    case 'RACK': return 'EQP-RACK';
+    case 'OFD': return 'EQP-OFD';
+    case 'DISTRIBUTION': return 'EQP-DIST';
+    case 'GROUNDING': return 'EQP-GROUND';
+    case 'HVAC': return 'EQP-COOL';
     default: return null;
   }
 }
@@ -1334,9 +1351,10 @@ async function captureFloorSnapshot(
   version: number,
 ) {
   const [equipment, cables] = await Promise.all([
-    tx.equipment.findMany({
-      where: { floorId },
+    tx.asset.findMany({
+      where: { floorId, parentAssetId: null },
       include: {
+        assetType: true,
         photos: {
           select: { id: true, side: true, imageUrl: true, description: true, takenAt: true },
           orderBy: { createdAt: 'desc' },
@@ -1349,8 +1367,8 @@ async function captureFloorSnapshot(
         OR: [
           { sourceEquipment: { floorId } },
           { targetEquipment: { floorId } },
-          { sourceModule: { rack: { floorId } } },
-          { targetModule: { rack: { floorId } } },
+          { sourceModule: { parent: { floorId } } },
+          { targetModule: { parent: { floorId } } },
           { sourceCircuit: { distribution: { floorId } } },
           { targetCircuit: { distribution: { floorId } } },
         ],
@@ -1361,7 +1379,7 @@ async function captureFloorSnapshot(
     }),
   ]);
 
-  const ofdIds = equipment.filter((e) => e.kind === EquipmentKind.OFD).map((e) => e.id);
+  const ofdIds = equipment.filter((e) => e.assetType.placementKind === 'OFD').map((e) => e.id);
   const fiberPaths = ofdIds.length > 0
     ? await tx.fiberPath.findMany({
         where: { OR: [{ ofdAId: { in: ofdIds } }, { ofdBId: { in: ofdIds } }] },
@@ -1379,22 +1397,7 @@ async function captureFloorSnapshot(
       majorGridSize: updated.majorGridSize,
       backgroundColor: updated.backgroundColor,
       equipment: equipment.map((e) => ({
-        id: e.id,
-        kind: e.kind,
-        name: e.name,
-        positionX: e.positionX,
-        positionY: e.positionY,
-        width: e.width2d,
-        height: e.height2d,
-        rotation: e.rotation,
-        totalU: e.totalU,
-        description: e.description,
-        manager: e.manager,
-        installDate: e.installDate?.toISOString().slice(0, 10) ?? null,
-        height3d: e.height3d,
-        frontImageUrl: e.frontImageUrl,
-        rearImageUrl: e.rearImageUrl,
-        properties: e.properties,
+        ...assetToPlanEquipment(e),
         photos: e.photos.map((p) => ({
           id: p.id,
           side: p.side,
