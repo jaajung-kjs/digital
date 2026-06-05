@@ -6,6 +6,10 @@ export const assetApi = {
     const { data } = await api.get<{ data: AssetType[] }>('/asset-types');
     return data.data;
   },
+  getById: async (id: string): Promise<Asset> => {
+    const { data } = await api.get<{ data: Asset }>(`/assets/${id}`);
+    return data.data;
+  },
   listBySubstation: async (substationId: string): Promise<Asset[]> => {
     const { data } = await api.get<{ data: Asset[] }>(`/substations/${substationId}/assets`);
     return data.data;
