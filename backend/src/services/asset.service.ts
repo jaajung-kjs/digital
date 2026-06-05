@@ -154,6 +154,8 @@ class AssetService {
         roomText: src.roomText,
         attributes: (src.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
         installDate: src.installDate,
+        warrantyUntil: src.warrantyUntil,
+        replaceDue: src.replaceDue,
         manager: src.manager,
         description: src.description,
         status: src.status,

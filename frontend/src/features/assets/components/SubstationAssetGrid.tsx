@@ -130,6 +130,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
       </div>
       {selectedAsset && (
         <AssetDetailPanel
+          key={selectedAsset.id}
           asset={selectedAsset}
           onClose={() => setSelectedId(null)}
           onPatch={(id, patch) => updateAsset.mutate({ id, ...patch })}

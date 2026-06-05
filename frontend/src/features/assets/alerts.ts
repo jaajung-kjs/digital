@@ -12,6 +12,7 @@ const WARRANTY_MONTHS_AHEAD = 6;
 export function assetAlert(asset: Asset, today: Date): AssetAlert | null {
   if (asset.warrantyUntil) {
     const w = new Date(asset.warrantyUntil);
+    if (w < today) return { kind: 'warranty', label: '하자보수 만료', date: asset.warrantyUntil };
     const threshold = new Date(today);
     threshold.setMonth(threshold.getMonth() + WARRANTY_MONTHS_AHEAD);
     if (w <= threshold) return { kind: 'warranty', label: '하자보수 임박', date: asset.warrantyUntil };
