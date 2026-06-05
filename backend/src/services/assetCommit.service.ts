@@ -15,10 +15,22 @@ const dateOrNull = (v: unknown) => (v ? new Date(v as string) : null);
 
 class AssetCommitService {
   async commit(substationId: string, input: AssetCommitInput, userId: string) {
-    return prisma.$transaction(async (tx) => {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        return this.run(tx, substationId, input, userId);
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034') {
+        throw new VersionConflictError([{ collection: 'assets', id: '', name: '동시 변경 충돌' }]);
+      }
+      throw e;
+    }
+  }
+
+  private async run(tx: Prisma.TransactionClient, substationId: string, input: AssetCommitInput, userId: string) {
       const ids = [...input.updates.map((u) => u.id), ...input.deletes.map((d) => d.id)];
       const rows = ids.length
-        ? await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
+        ? await tx.asset.findMany({ where: { id: { in: ids }, substationId }, select: { id: true, updatedAt: true, name: true } })
         : [];
       const current = new Map(rows.map((r) => [r.id, r.updatedAt]));
       const nameById = new Map(rows.map((r) => [r.id, r.name]));
@@ -60,14 +72,13 @@ class AssetCommitService {
         });
       }
       if (input.deletes.length) {
-        await tx.asset.deleteMany({ where: { id: { in: input.deletes.map((d) => d.id) } } });
+        await tx.asset.deleteMany({ where: { id: { in: input.deletes.map((d) => d.id) }, substationId } });
       }
       const touched = [...input.updates.map((u) => u.id), ...Object.values(idMap)];
       const updated = touched.length
         ? await tx.asset.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } })
         : [];
       return { idMap, updated: updated.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() })) };
-    });
   }
 }
 export const assetCommitService = new AssetCommitService();

@@ -50,6 +50,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [alertOnly, setAlertOnly] = useState(false);
   const [conflicts, setConflicts] = useState<{ id: string; name?: string }[] | null>(null);
+  const [committing, setCommitting] = useState(false);
 
   const today = useMemo(() => new Date(), []);
 
@@ -118,8 +119,14 @@ export function SubstationAssetGrid({ substationId }: Props) {
   };
 
   const handleCommit = async () => {
-    const r = await commitRegister(substationId, queryClient);
-    if (!r.ok) setConflicts(r.conflicts ?? []);
+    if (committing) return;
+    setCommitting(true);
+    try {
+      const r = await commitRegister(substationId, queryClient);
+      if (!r.ok) setConflicts(r.conflicts ?? []);
+    } finally {
+      setCommitting(false);
+    }
   };
 
   const selectedAsset = effective.find((a) => a.id === selectedId);
@@ -147,7 +154,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
         {dirty > 0 && (
           <div className="flex items-center gap-2 text-sm">
             <span className="text-amber-700">미커밋 {dirty}건</span>
-            <button onClick={handleCommit} className="px-2 py-1 rounded bg-blue-600 text-white">커밋</button>
+            <button onClick={handleCommit} disabled={committing} className="px-2 py-1 rounded bg-blue-600 text-white disabled:bg-gray-300">커밋</button>
             <button onClick={() => useRegisterStore.getState().revert()} className="px-2 py-1 rounded bg-gray-100">되돌리기</button>
           </div>
         )}
@@ -199,7 +206,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
                 onSelect={() => setSelectedId(a.id)}
                 onCommit={(id, patch) => useRegisterStore.getState().stageUpdate(id, patch)}
                 onDuplicate={(id) => handleDuplicate(id)}
-                onDelete={(id) => { if (confirm('이 자산을 삭제할까요?')) useRegisterStore.getState().stageDelete(id, id.startsWith('temp-')); }}
+                onDelete={(id) => { if (confirm('이 자산을 삭제할까요?')) useRegisterStore.getState().stageDelete(id, ASSET_DESCRIPTOR.isTemp(id)); }}
               />
             ))}
           </tbody>
@@ -220,7 +227,9 @@ export function SubstationAssetGrid({ substationId }: Props) {
           onClose={() => setConflicts(null)}
           onReloadLatest={async () => {
             await queryClient.invalidateQueries({ queryKey: ['assets', substationId] });
-            setConflicts(null);  // overlay 보존 — 사용자가 재검토 후 재커밋
+            const fresh = queryClient.getQueryData<Asset[]>(['assets', substationId]) ?? [];
+            useRegisterStore.getState().refreshBaseVersions(fresh);
+            setConflicts(null);  // overlay 보존 — baseVersion 만 최신화하여 재커밋 가능
           }}
         />
       )}

@@ -22,14 +22,17 @@ export async function commitRegister(
   }));
   try {
     const { idMap } = await assetApi.commit(substationId, { creates, updates: delta.updates, deletes: delta.deletes });
-    for (const p of st.photoQueue) {
+    for (const p of [...st.photoQueue]) {
       const assetId = idMap[p.assetId] ?? p.assetId;
       const form = new FormData(); form.append('file', p.file); form.append('side', p.side);
       await api.post(`/equipment/${assetId}/photos`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      URL.revokeObjectURL(p.objectUrl);
+      useRegisterStore.getState().dequeuePhoto(p.tempPhotoId);
     }
-    for (const l of st.logQueue) {
+    for (const l of [...st.logQueue]) {
       const assetId = idMap[l.assetId] ?? l.assetId;
       await api.post(`/equipment/${assetId}/maintenance-logs`, { logType: l.logType, title: l.title });
+      useRegisterStore.getState().dequeueLog(l.tempLogId);
     }
     useRegisterStore.getState().clear();
     await queryClient.invalidateQueries({ queryKey: ASSET_KEY(substationId) });

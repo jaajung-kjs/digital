@@ -45,4 +45,14 @@ describe('Asset 배치 커밋 + OCC', () => {
     expect(res.body.error).toBe('CONFLICT');
     expect(res.body.details[0].id).toBe(a.id);
   });
+
+  it('다른 변전소 자산 id 는 거부(409)', async () => {
+    const sub2 = await prisma.substation.create({ data: { name: '__wc_sub2__', branchId: brId } });
+    const other = await prisma.asset.create({ data: { substationId: sub2.id, assetTypeId: typeId, name: 'OTHER' } });
+    const res = await request(app).post(`/api/substations/${subId}/assets/commit`).set('Authorization', `Bearer ${token}`)
+      .send({ updates: [{ id: other.id, baseVersion: other.updatedAt.toISOString(), patch: { name: 'hack' } }] }).expect(409);
+    expect(res.body.error).toBe('CONFLICT');
+    await prisma.asset.delete({ where: { id: other.id } }).catch(() => {});
+    await prisma.substation.delete({ where: { id: sub2.id } }).catch(() => {});
+  });
 });
