@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Asset } from '../../../types/asset';
 import type { CollectionDescriptor } from '../../workingCopy/descriptor';
@@ -51,6 +52,17 @@ export function SubstationAssetGrid({ substationId }: Props) {
   const [alertOnly, setAlertOnly] = useState(false);
   const [conflicts, setConflicts] = useState<{ id: string; name?: string }[] | null>(null);
   const [committing, setCommitting] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  // 마운트 시 ?assetId= 딥링크 소비 — 해당 자산 자동 선택 후 파라미터 제거.
+  useEffect(() => {
+    const assetId = searchParams.get('assetId');
+    if (assetId) {
+      setSelectedId(assetId);
+      setSearchParams((p) => { p.delete('assetId'); return p; }, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const today = useMemo(() => new Date(), []);
 
