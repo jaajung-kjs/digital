@@ -1,9 +1,13 @@
 import { useMemo } from 'react';
-import type { Asset, AssetFieldDef, UpdateAssetInput } from '../../../types/asset';
+import { useNavigate } from 'react-router-dom';
+import type { Asset, UpdateAssetInput } from '../../../types/asset';
 import { assetAlert } from '../alerts';
 import { toDateInputValue } from '../../../utils/date';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { AssetMaintenanceSection } from './AssetMaintenanceSection';
+import { AssetAttributesView } from './AssetAttributesView';
+import { AssetLifecycleView } from './AssetLifecycleView';
+import { floorPlanUrl } from '../navUrls';
 
 interface Props {
   asset: Asset;
@@ -22,10 +26,9 @@ function Field({ label, value, onCommit, type = 'text' }: { label: string; value
 }
 
 export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
-  const fields: AssetFieldDef[] = asset.assetType.fieldTemplate ?? [];
+  const navigate = useNavigate();
   const today = useMemo(() => new Date(), []);
   const alert = assetAlert(asset, today);
-  const attrPatch = (key: string, v: string) => onPatch(asset.id, { attributes: { ...(asset.attributes ?? {}), [key]: v } });
 
   return (
     <aside className="w-96 shrink-0 border-l border-gray-200 bg-white h-full overflow-y-auto">
@@ -36,7 +39,16 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
           <span className="text-xs text-gray-400 shrink-0">{asset.assetType.name}</span>
           {alert && <span className="text-xs px-1.5 rounded bg-amber-100 text-amber-700 shrink-0" title={`${alert.label} (${alert.date})`}>⚠ {alert.label}</span>}
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-sm shrink-0">✕</button>
+        <div className="flex items-center gap-2 shrink-0">
+          {asset.floorId ? (
+            <button onClick={() => navigate(floorPlanUrl(asset.floorId!, asset.id))}
+              className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200">도면에서 보기</button>
+          ) : (
+            <button disabled title="도면에 배치되지 않음"
+              className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-300 cursor-not-allowed">도면에서 보기</button>
+          )}
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-sm">✕</button>
+        </div>
       </header>
 
       <section className="px-4 py-3">
@@ -48,32 +60,26 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
 
       <section className="px-4 py-3 border-t border-gray-100">
         <h3 className="text-sm font-semibold text-gray-700 mb-1">속성</h3>
-        {fields.length === 0 ? <p className="text-xs text-gray-400">이 종류엔 속성 없음</p> :
-          fields.map((f) =>
-            f.type === 'select' && f.options ? (
-              <label key={f.key} className="flex items-center gap-2 text-sm py-0.5">
-                <span className="w-24 shrink-0 text-gray-500 text-xs">{f.label}</span>
-                <select
-                  value={asset.attributes?.[f.key] != null ? String(asset.attributes[f.key]) : ''}
-                  onChange={(e) => attrPatch(f.key, e.target.value)}
-                  className="flex-1 px-1 py-0.5 border border-gray-200 rounded text-sm">
-                  <option value=""></option>
-                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </label>
-            ) : (
-              <Field key={f.key} label={f.label}
-                type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'month' ? 'month' : 'text'}
-                value={asset.attributes?.[f.key] != null ? String(asset.attributes[f.key]) : ''}
-                onCommit={(v) => attrPatch(f.key, v)} />
-            ),
-          )}
+        {(asset.assetType.fieldTemplate ?? []).length === 0 ? (
+          <p className="text-xs text-gray-400">이 종류엔 속성 없음</p>
+        ) : (
+          <AssetAttributesView
+            fields={asset.assetType.fieldTemplate ?? []}
+            attributes={asset.attributes}
+            readOnly={false}
+            onChange={(key, v) => onPatch(asset.id, { attributes: { ...(asset.attributes ?? {}), [key]: v } })}
+          />
+        )}
       </section>
 
       <section className="px-4 py-3 border-t border-gray-100">
         <h3 className="text-sm font-semibold text-gray-700 mb-1">생애주기</h3>
-        <Field label="교체예정" type="date" value={toDateInputValue(asset.replaceDue)} onCommit={(v) => onPatch(asset.id, { replaceDue: v || null })} />
-        <Field label="하자보수기한" type="date" value={toDateInputValue(asset.warrantyUntil)} onCommit={(v) => onPatch(asset.id, { warrantyUntil: v || null })} />
+        <AssetLifecycleView
+          asset={asset}
+          today={today}
+          readOnly={false}
+          onChange={(patch) => onPatch(asset.id, patch)}
+        />
       </section>
 
       <AssetPhotoSection assetId={asset.id} />
