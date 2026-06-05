@@ -30,5 +30,5 @@ export function downloadCsv(filename: string, csv: string): void {
   const a = document.createElement('a');
   a.href = url; a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

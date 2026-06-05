@@ -25,4 +25,10 @@ describe('assetAlert', () => {
     const a = { ...base, replaceDue: '2027-01-01' } as Asset;
     expect(assetAlert(a, today)).toBeNull();
   });
+  it('하자보수기한이 과거면 warranty 만료', () => {
+    const a = { ...base, warrantyUntil: '2020-01-01' } as Asset;
+    const r = assetAlert(a, today);
+    expect(r?.kind).toBe('warranty');
+    expect(r?.label).toBe('하자보수 만료');
+  });
 });

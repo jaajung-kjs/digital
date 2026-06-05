@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import type { Asset, AssetFieldDef, UpdateAssetInput } from '../../../types/asset';
 import { assetAlert } from '../alerts';
+import { toDateInputValue } from '../../../utils/date';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { AssetMaintenanceSection } from './AssetMaintenanceSection';
 
@@ -21,7 +23,8 @@ function Field({ label, value, onCommit, type = 'text' }: { label: string; value
 
 export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
   const fields: AssetFieldDef[] = asset.assetType.fieldTemplate ?? [];
-  const alert = assetAlert(asset, new Date());
+  const today = useMemo(() => new Date(), []);
+  const alert = assetAlert(asset, today);
   const attrPatch = (key: string, v: string) => onPatch(asset.id, { attributes: { ...(asset.attributes ?? {}), [key]: v } });
 
   return (
@@ -38,7 +41,7 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
 
       <section className="px-4 py-3">
         <Field label="이름" value={asset.name} onCommit={(v) => v.trim() && onPatch(asset.id, { name: v.trim() })} />
-        <Field label="설치일" type="date" value={asset.installDate ?? ''} onCommit={(v) => onPatch(asset.id, { installDate: v || null })} />
+        <Field label="설치일" type="date" value={toDateInputValue(asset.installDate)} onCommit={(v) => onPatch(asset.id, { installDate: v || null })} />
         <Field label="담당자" value={asset.manager ?? ''} onCommit={(v) => onPatch(asset.id, { manager: v || null })} />
         <Field label="상태" value={asset.status ?? ''} onCommit={(v) => onPatch(asset.id, { status: v || null })} />
       </section>
@@ -46,17 +49,31 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
       <section className="px-4 py-3 border-t border-gray-100">
         <h3 className="text-sm font-semibold text-gray-700 mb-1">속성</h3>
         {fields.length === 0 ? <p className="text-xs text-gray-400">이 종류엔 속성 없음</p> :
-          fields.map((f) => (
-            <Field key={f.key} label={f.label} type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
-              value={asset.attributes?.[f.key] != null ? String(asset.attributes[f.key]) : ''}
-              onCommit={(v) => attrPatch(f.key, v)} />
-          ))}
+          fields.map((f) =>
+            f.type === 'select' && f.options ? (
+              <label key={f.key} className="flex items-center gap-2 text-sm py-0.5">
+                <span className="w-24 shrink-0 text-gray-500 text-xs">{f.label}</span>
+                <select
+                  value={asset.attributes?.[f.key] != null ? String(asset.attributes[f.key]) : ''}
+                  onChange={(e) => attrPatch(f.key, e.target.value)}
+                  className="flex-1 px-1 py-0.5 border border-gray-200 rounded text-sm">
+                  <option value=""></option>
+                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </label>
+            ) : (
+              <Field key={f.key} label={f.label}
+                type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : f.type === 'month' ? 'month' : 'text'}
+                value={asset.attributes?.[f.key] != null ? String(asset.attributes[f.key]) : ''}
+                onCommit={(v) => attrPatch(f.key, v)} />
+            ),
+          )}
       </section>
 
       <section className="px-4 py-3 border-t border-gray-100">
         <h3 className="text-sm font-semibold text-gray-700 mb-1">생애주기</h3>
-        <Field label="교체예정" type="date" value={asset.replaceDue ?? ''} onCommit={(v) => onPatch(asset.id, { replaceDue: v || null })} />
-        <Field label="하자보수기한" type="date" value={asset.warrantyUntil ?? ''} onCommit={(v) => onPatch(asset.id, { warrantyUntil: v || null })} />
+        <Field label="교체예정" type="date" value={toDateInputValue(asset.replaceDue)} onCommit={(v) => onPatch(asset.id, { replaceDue: v || null })} />
+        <Field label="하자보수기한" type="date" value={toDateInputValue(asset.warrantyUntil)} onCommit={(v) => onPatch(asset.id, { warrantyUntil: v || null })} />
       </section>
 
       <AssetPhotoSection assetId={asset.id} />
