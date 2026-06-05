@@ -20,7 +20,7 @@ describe('AssetService', () => {
     vi.mocked(prisma.asset.create).mockResolvedValue({
       id: 'a1', substationId: 's1', assetTypeId: 't1', name: 'PITR-1',
       parentAssetId: null, roomText: null, attributes: null, installDate: null,
-      manager: null, description: null, status: null, sortOrder: 0,
+      manager: null, description: null, status: null, sortOrder: 0, updatedAt: new Date(),
       assetType: typeRel,
     } as any);
     const out = await assetService.create(
@@ -37,7 +37,7 @@ describe('AssetService', () => {
     vi.mocked(prisma.asset.findMany).mockResolvedValue([
       { id: 'a1', substationId: 's1', assetTypeId: 't1', name: 'PITR-1',
         parentAssetId: null, roomText: null, attributes: null, installDate: null,
-        manager: null, description: null, status: null, sortOrder: 0, assetType: typeRel },
+        manager: null, description: null, status: null, sortOrder: 0, updatedAt: new Date(), assetType: typeRel },
     ] as any);
     const out = await assetService.listBySubstation('s1');
     expect(out).toHaveLength(1);
@@ -56,7 +56,7 @@ describe('AssetService', () => {
     vi.mocked(prisma.asset.update).mockResolvedValue({
       id: 'a1', substationId: 's1', assetTypeId: 't1', name: 'X',
       parentAssetId: null, roomText: null, attributes: null, installDate: null,
-      manager: null, description: null, status: null, sortOrder: 0,
+      manager: null, description: null, status: null, sortOrder: 0, updatedAt: new Date(),
       warrantyUntil: new Date('2026-12-31'), replaceDue: new Date('2027-06-30'),
       assetType: { id: 't1', code: 'RTU', name: 'RTU', group: '통신', displayColor: '#000', fieldTemplate: [] },
     } as any);
@@ -75,7 +75,7 @@ describe('AssetService', () => {
     vi.mocked(prisma.asset.create).mockResolvedValue({
       id: 'a2', substationId: 's1', assetTypeId: 't1', name: 'PITR-1 (복제)',
       parentAssetId: null, roomText: 'ICT실', attributes: { model: 'X' },
-      installDate: null, manager: null, description: null, status: null, sortOrder: 0, assetType: typeRel,
+      installDate: null, manager: null, description: null, status: null, sortOrder: 0, updatedAt: new Date(), assetType: typeRel,
     } as any);
     const out = await assetService.duplicate('a1', 'u1');
     expect(out.name).toBe('PITR-1 (복제)');

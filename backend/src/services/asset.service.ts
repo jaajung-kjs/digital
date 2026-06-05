@@ -47,6 +47,7 @@ export interface AssetDetail {
   description: string | null;
   status: string | null;
   sortOrder: number;
+  updatedAt: string;
 }
 
 const assetInclude = {
@@ -71,6 +72,7 @@ class AssetService {
       installDate: a.installDate, warrantyUntil: a.warrantyUntil, replaceDue: a.replaceDue,
       manager: a.manager, description: a.description,
       status: a.status, sortOrder: a.sortOrder,
+      updatedAt: a.updatedAt.toISOString(),
     };
   }
 
