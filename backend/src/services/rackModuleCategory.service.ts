@@ -56,7 +56,7 @@ class RackModuleCategoryService {
 
   async getById(id: string): Promise<RackModuleCategoryDetail> {
     const type = await prisma.assetType.findUnique({ where: { id } });
-    if (!type || type.placementKind !== null) throw new NotFoundError('랙 모듈 카테고리');
+    if (!type || type.placementKind !== null || !type.isActive) throw new NotFoundError('랙 모듈 카테고리');
     return this.mapToDetail(type);
   }
 }
