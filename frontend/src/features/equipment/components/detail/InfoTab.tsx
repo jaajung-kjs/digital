@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useEditorStore } from '../../../editor/stores/editorStore';
 import { EQUIPMENT_KIND_INFO } from '../../../../types/equipmentKind';
 import { toDateInputValue } from '../../../../utils/date';
+import { useAsset } from '../../../assets/hooks/useAsset';
+import { AssetAttributesView } from '../../../assets/components/AssetAttributesView';
+import { AssetLifecycleView } from '../../../assets/components/AssetLifecycleView';
+import { registerUrl } from '../../../assets/navUrls';
 import type { EquipmentDetail } from './types';
 
 /* ================================================================
@@ -15,6 +20,10 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
   const localEquipment = useEditorStore((s) => s.localEquipment);
   const localEq = localEquipment.find((e) => e.id === equipment.id);
   const kindLabel = localEq ? EQUIPMENT_KIND_INFO[localEq.kind]?.label ?? localEq.kind : '-';
+
+  const { data: asset } = useAsset(equipment.id);
+  const today = useMemo(() => new Date(), []);
+  const navigate = useNavigate();
 
   if (isEditing && !readOnly) {
     return <EditForm equipment={equipment} onClose={() => setIsEditing(false)} />;
@@ -61,6 +70,18 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
           </div>
         ))}
       </div>
+      {asset && (
+        <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+          <AssetAttributesView fields={asset.assetType.fieldTemplate ?? []} attributes={asset.attributes} readOnly />
+          <AssetLifecycleView asset={asset} today={today} readOnly />
+          <button
+            onClick={() => navigate(registerUrl(asset.substationId, asset.id))}
+            className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
+          >
+            대장에서 편집
+          </button>
+        </div>
+      )}
     </div>
   );
 }
