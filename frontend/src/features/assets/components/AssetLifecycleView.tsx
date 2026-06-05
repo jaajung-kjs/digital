@@ -5,17 +5,18 @@ interface Props {
   asset: { warrantyUntil: string | null; replaceDue: string | null };
   today: Date;
   readOnly: boolean;
+  showAlert?: boolean;
   onChange?: (patch: { warrantyUntil?: string | null; replaceDue?: string | null }) => void;
 }
 
-export function AssetLifecycleView({ asset, today, readOnly, onChange }: Props) {
+export function AssetLifecycleView({ asset, today, readOnly, showAlert = true, onChange }: Props) {
   const alert = assetAlert(
     { warrantyUntil: asset.warrantyUntil, replaceDue: asset.replaceDue } as Parameters<typeof assetAlert>[0],
     today,
   );
   return (
     <div className="space-y-0.5">
-      {alert && <div className="text-xs text-amber-700">⚠ {alert.label}</div>}
+      {showAlert && alert && <div className="text-xs text-amber-700">⚠ {alert.label}</div>}
       <Row label="교체예정" value={asset.replaceDue} readOnly={readOnly} onChange={(v) => onChange?.({ replaceDue: v })} />
       <Row label="하자보수기한" value={asset.warrantyUntil} readOnly={readOnly} onChange={(v) => onChange?.({ warrantyUntil: v })} />
     </div>

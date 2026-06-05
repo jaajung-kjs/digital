@@ -1,4 +1,6 @@
-export interface FieldDef { key: string; label: string; type: string; options?: string[] }
+import type { AssetFieldDef } from '../../../types/asset';
+
+export type FieldDef = Pick<AssetFieldDef, 'key' | 'label' | 'type' | 'options'>;
 
 interface Props {
   fields: FieldDef[];

@@ -78,6 +78,7 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
           asset={asset}
           today={today}
           readOnly={false}
+          showAlert={false}
           onChange={(patch) => onPatch(asset.id, patch)}
         />
       </section>

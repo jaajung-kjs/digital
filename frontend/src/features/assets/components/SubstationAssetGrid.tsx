@@ -54,15 +54,15 @@ export function SubstationAssetGrid({ substationId }: Props) {
   const [committing, setCommitting] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  // 마운트 시 ?assetId= 딥링크 소비 — 해당 자산 자동 선택 후 파라미터 제거.
+  // ?assetId= 딥링크 소비 — 자산 로드 후 자동 선택, 파라미터 제거.
   useEffect(() => {
     const assetId = searchParams.get('assetId');
-    if (assetId) {
-      setSelectedId(assetId);
-      setSearchParams((p) => { p.delete('assetId'); return p; }, { replace: true });
-    }
+    if (!assetId) return;
+    if (!effective.find((a) => a.id === assetId)) return;  // 아직 로드 안 됨 → 다음 렌더에 재시도
+    setSelectedId(assetId);
+    setSearchParams((p) => { p.delete('assetId'); return p; }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [effective, searchParams]);
 
   const today = useMemo(() => new Date(), []);
 
