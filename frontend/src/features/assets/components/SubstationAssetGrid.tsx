@@ -11,6 +11,7 @@ import { generateTempId } from '../../../utils/idHelpers';
 import { buildColumns } from '../columns';
 import { AssetGridRow } from './AssetGridRow';
 import { AssetDetailPanel } from './AssetDetailPanel';
+import { ConflictDialog } from '../../workingCopy/ConflictDialog';
 import { assetAlert } from '../alerts';
 import { buildCsv, downloadCsv } from '../exportCsv';
 
@@ -48,6 +49,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
   const [newName, setNewName] = useState<string>('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [alertOnly, setAlertOnly] = useState(false);
+  const [conflicts, setConflicts] = useState<{ id: string; name?: string }[] | null>(null);
 
   const today = useMemo(() => new Date(), []);
 
@@ -117,10 +119,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
 
   const handleCommit = async () => {
     const r = await commitRegister(substationId, queryClient);
-    if (!r.ok) {
-      // T9 에서 충돌모달로 교체 — 지금은 alert 플레이스홀더
-      alert('충돌: 다른 사용자가 먼저 변경했습니다. 최신을 불러오세요.');
-    }
+    if (!r.ok) setConflicts(r.conflicts ?? []);
   };
 
   const selectedAsset = effective.find((a) => a.id === selectedId);
@@ -213,6 +212,16 @@ export function SubstationAssetGrid({ substationId }: Props) {
           asset={selectedAsset}
           onClose={() => setSelectedId(null)}
           onPatch={(id, patch) => useRegisterStore.getState().stageUpdate(id, patch)}
+        />
+      )}
+      {conflicts && (
+        <ConflictDialog
+          conflicts={conflicts}
+          onClose={() => setConflicts(null)}
+          onReloadLatest={async () => {
+            await queryClient.invalidateQueries({ queryKey: ['assets', substationId] });
+            setConflicts(null);  // overlay 보존 — 사용자가 재검토 후 재커밋
+          }}
         />
       )}
     </div>
