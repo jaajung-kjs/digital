@@ -1,4 +1,4 @@
-import { PrismaClient, EquipmentKind, CableType } from '@prisma/client';
+import { PrismaClient, CableType } from '@prisma/client';
 
 /**
  * 강원본부 직할 변전소 시드 — `직할_OFD선번장_251218_최종본.xlsx` 기반.
@@ -87,10 +87,14 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
     return;
   }
 
-  const optTerm = await prisma.rackModuleCategory.findUnique({ where: { code: 'EQP-OPT-TERM' } });
+  // Asset 마이그레이션: 구 Equipment/RackModule → Asset, 구 RackModuleCategory → AssetType.
+  // 배치 종류(OFD/RACK)와 모듈 타입(EQP-OPT-TERM)을 asset_types 에서 code 로 해석한다.
+  const ofdType = await prisma.assetType.findUnique({ where: { code: 'OFD' } });
+  const rackType = await prisma.assetType.findUnique({ where: { code: 'RACK' } });
+  const optTerm = await prisma.assetType.findUnique({ where: { code: 'EQP-OPT-TERM' } });
   const cblOpt = await prisma.cableCategory.findUnique({ where: { code: 'CBL-OPT' } });
-  if (!optTerm || !cblOpt) {
-    console.warn('  ⚠️  EQP-OPT-TERM / CBL-OPT 카테고리 없음 — 강원 직할 시드 skip');
+  if (!ofdType || !rackType || !optTerm || !cblOpt) {
+    console.warn('  ⚠️  OFD/RACK/EQP-OPT-TERM AssetType 또는 CBL-OPT 카테고리 없음 — 강원 직할 시드 skip');
     return;
   }
 
@@ -125,13 +129,15 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
       },
     });
 
-    await prisma.equipment.upsert({
+    await prisma.asset.upsert({
       where: { id: ofdId(s.key) },
       update: {},
       create: {
         id: ofdId(s.key),
+        substationId: subId(s.key),
+        assetTypeId: ofdType.id,
+        parentAssetId: null,
         floorId: floorId(s.key),
-        kind: EquipmentKind.OFD,
         name: 'OFD',
         positionX: 400,
         positionY: 300,
@@ -141,13 +147,15 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
       },
     });
 
-    await prisma.equipment.upsert({
+    await prisma.asset.upsert({
       where: { id: rackId(s.key) },
       update: {},
       create: {
         id: rackId(s.key),
+        substationId: subId(s.key),
+        assetTypeId: rackType.id,
+        parentAssetId: null,
         floorId: floorId(s.key),
-        kind: EquipmentKind.RACK,
         name: '통신랙',
         positionX: 700,
         positionY: 300,
@@ -158,13 +166,14 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
       },
     });
 
-    await prisma.rackModule.upsert({
+    await prisma.asset.upsert({
       where: { id: moduleId(s.key) },
       update: {},
       create: {
         id: moduleId(s.key),
-        rackEquipmentId: rackId(s.key),
-        categoryId: optTerm.id,
+        substationId: subId(s.key),
+        assetTypeId: optTerm.id,
+        parentAssetId: rackId(s.key),
         name: '송변전광단말장치',
         slotIndex: 0,
         slotSpan: 1,
