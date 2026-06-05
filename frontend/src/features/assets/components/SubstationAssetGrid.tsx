@@ -1,23 +1,47 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { Asset } from '../../../types/asset';
+import type { CollectionDescriptor } from '../../workingCopy/descriptor';
 import { useAssetTypes } from '../hooks/useAssetTypes';
-import {
-  useSubstationAssets, useCreateAsset, useUpdateAsset, useDeleteAsset, useDuplicateAsset,
-} from '../hooks/useSubstationAssets';
+import { useSubstationAssets } from '../hooks/useSubstationAssets';
+import { useRegisterStore } from '../registerStore';
+import { mergeEffective } from '../../workingCopy/effective';
+import { commitRegister } from '../commit';
+import { generateTempId } from '../../../utils/idHelpers';
 import { buildColumns } from '../columns';
 import { AssetGridRow } from './AssetGridRow';
 import { AssetDetailPanel } from './AssetDetailPanel';
 import { assetAlert } from '../alerts';
 import { buildCsv, downloadCsv } from '../exportCsv';
 
+const ASSET_DESCRIPTOR: CollectionDescriptor<Asset, Partial<Asset>> = {
+  name: 'assets',
+  idOf: (a: Asset) => a.id,
+  versionOf: (a: Asset) => a.updatedAt ?? null,
+  isTemp: (id: string) => id.startsWith('temp-'),
+};
+
 interface Props { substationId: string }
 
 export function SubstationAssetGrid({ substationId }: Props) {
   const { data: types = [] } = useAssetTypes();
   const { data: assets = [], isLoading } = useSubstationAssets(substationId);
-  const createAsset = useCreateAsset(substationId);
-  const updateAsset = useUpdateAsset(substationId);
-  const deleteAsset = useDeleteAsset(substationId);
-  const duplicateAsset = useDuplicateAsset(substationId);
+  const queryClient = useQueryClient();
+
+  const overlay = useRegisterStore((s) => s.overlay);
+  const dirty = useRegisterStore((s) => s.dirtyCount());
+
+  // saved 가 바뀌면 working copy 를 다시 로드 — 단, 스테이징된 편집이 없을 때만(클로버 방지).
+  useEffect(() => {
+    if (useRegisterStore.getState().dirtyCount() === 0) {
+      useRegisterStore.getState().load(substationId, assets);
+    }
+  }, [substationId, assets]);
+
+  const effective = useMemo(
+    () => mergeEffective(assets, overlay, ASSET_DESCRIPTOR),
+    [assets, overlay],
+  );
 
   const [filterTypeId, setFilterTypeId] = useState<string>('');
   const [newTypeId, setNewTypeId] = useState<string>('');
@@ -28,8 +52,8 @@ export function SubstationAssetGrid({ substationId }: Props) {
   const today = useMemo(() => new Date(), []);
 
   const visible = useMemo(
-    () => (filterTypeId ? assets.filter((a) => a.assetTypeId === filterTypeId) : assets),
-    [assets, filterTypeId],
+    () => (filterTypeId ? effective.filter((a) => a.assetTypeId === filterTypeId) : effective),
+    [effective, filterTypeId],
   );
 
   const shown = useMemo(
@@ -45,13 +69,61 @@ export function SubstationAssetGrid({ substationId }: Props) {
 
   const handleAdd = () => {
     if (!newTypeId || !newName.trim()) return;
-    createAsset.mutate(
-      { substationId, assetTypeId: newTypeId, name: newName.trim() },
-      { onSuccess: () => setNewName('') },
-    );
+    const type = types.find((t) => t.id === newTypeId);
+    if (!type) return;
+    const newId = generateTempId();
+    const newAsset: Asset = {
+      id: newId,
+      substationId,
+      assetTypeId: newTypeId,
+      assetType: {
+        id: type.id,
+        code: type.code,
+        name: type.name,
+        group: type.group,
+        displayColor: type.displayColor,
+        fieldTemplate: type.fieldTemplate,
+      },
+      name: newName.trim(),
+      parentAssetId: null,
+      roomText: null,
+      attributes: {},
+      installDate: null,
+      warrantyUntil: null,
+      replaceDue: null,
+      manager: null,
+      description: null,
+      status: null,
+      sortOrder: 0,
+      updatedAt: '',
+    };
+    useRegisterStore.getState().stageCreate(newId, newAsset);
+    setNewName('');
   };
 
-  const selectedAsset = shown.find((a) => a.id === selectedId) ?? assets.find((a) => a.id === selectedId);
+  const handleDuplicate = (id: string) => {
+    const src = effective.find((a) => a.id === id);
+    if (!src) return;
+    const newId = generateTempId();
+    const dup: Asset = {
+      ...src,
+      id: newId,
+      name: `${src.name} (복제)`,
+      updatedAt: '',
+      sortOrder: 0,
+    };
+    useRegisterStore.getState().stageCreate(newId, dup);
+  };
+
+  const handleCommit = async () => {
+    const r = await commitRegister(substationId, queryClient);
+    if (!r.ok) {
+      // T9 에서 충돌모달로 교체 — 지금은 alert 플레이스홀더
+      alert('충돌: 다른 사용자가 먼저 변경했습니다. 최신을 불러오세요.');
+    }
+  };
+
+  const selectedAsset = effective.find((a) => a.id === selectedId);
 
   return (
     <div className="flex h-full">
@@ -73,6 +145,13 @@ export function SubstationAssetGrid({ substationId }: Props) {
           onClick={() => downloadCsv(`장비대장_${new Date().toISOString().slice(0, 10)}.csv`, buildCsv(shown, columns))}
           className="text-sm px-2 py-1 rounded bg-gray-100 text-gray-700"
         >내보내기</button>
+        {dirty > 0 && (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-amber-700">미커밋 {dirty}건</span>
+            <button onClick={handleCommit} className="px-2 py-1 rounded bg-blue-600 text-white">커밋</button>
+            <button onClick={() => useRegisterStore.getState().revert()} className="px-2 py-1 rounded bg-gray-100">되돌리기</button>
+          </div>
+        )}
         <div className="flex-1" />
         <select
           className="text-sm border border-gray-200 rounded px-2 py-1"
@@ -91,7 +170,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
         />
         <button
           onClick={handleAdd}
-          disabled={!newTypeId || !newName.trim() || createAsset.isPending}
+          disabled={!newTypeId || !newName.trim()}
           className="text-sm px-3 py-1 rounded bg-blue-600 text-white disabled:bg-gray-300"
         >+ 추가</button>
       </div>
@@ -119,9 +198,9 @@ export function SubstationAssetGrid({ substationId }: Props) {
                 columns={columns}
                 alert={assetAlert(a, today)}
                 onSelect={() => setSelectedId(a.id)}
-                onCommit={(id, patch) => updateAsset.mutate({ id, ...patch })}
-                onDuplicate={(id) => duplicateAsset.mutate(id)}
-                onDelete={(id) => { if (confirm('이 자산을 삭제할까요?')) deleteAsset.mutate(id); }}
+                onCommit={(id, patch) => useRegisterStore.getState().stageUpdate(id, patch)}
+                onDuplicate={(id) => handleDuplicate(id)}
+                onDelete={(id) => { if (confirm('이 자산을 삭제할까요?')) useRegisterStore.getState().stageDelete(id, id.startsWith('temp-')); }}
               />
             ))}
           </tbody>
@@ -133,7 +212,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
           key={selectedAsset.id}
           asset={selectedAsset}
           onClose={() => setSelectedId(null)}
-          onPatch={(id, patch) => updateAsset.mutate({ id, ...patch })}
+          onPatch={(id, patch) => useRegisterStore.getState().stageUpdate(id, patch)}
         />
       )}
     </div>
