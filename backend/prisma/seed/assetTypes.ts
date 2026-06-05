@@ -27,9 +27,17 @@ const ASSET_LIFECYCLE: FieldDef[] = [
   { key: 'vendor', label: '제작사', type: 'text' },
   { key: 'mfgYm', label: '제작년월', type: 'month' },
   { key: 'serialNo', label: 'S/N', type: 'text' },
-  { key: 'installYm', label: '설치년월', type: 'month' },
-  { key: 'replacePlan', label: '교체예정', type: 'text' },
-  { key: 'warrantyUntil', label: '하자보수기한', type: 'date' },
+];
+
+const OPT_FIELDS: FieldDef[] = [
+  { key: 'remote', label: '대국', type: 'text' },
+  { key: 'topology', label: '구성형태', type: 'select', options: ['링', 'P-TO-P'] },
+  { key: 'ringName', label: '링 명칭', type: 'text' },
+  { key: 'spec', label: '규격', type: 'text' },
+  { key: 'introYear', label: '도입년도', type: 'number' },
+  { key: 'ipMain', label: 'IP(주)', type: 'text' },
+  { key: 'ipExt', label: 'IP(확장)', type: 'text' },
+  ...ASSET_LIFECYCLE,
 ];
 
 export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
@@ -51,28 +59,48 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
       { key: 'tlName', label: 'T/L명', type: 'text' },
       { key: 'tlVoltage', label: 'T/L전압', type: 'text' },
       { key: 'typeCode', label: 'TYPE', type: 'text' },
+      { key: 'ipCot', label: 'IP(COT)', type: 'text' },
+      { key: 'ipRt', label: 'IP(RT)', type: 'text' },
+      { key: 'routePrimary', label: '회선경로(주)', type: 'text' },
+      { key: 'routeBackup', label: '회선경로(예)', type: 'text' },
       ...ASSET_LIFECYCLE,
     ] },
   { code: 'RTU', name: 'SCADA RTU', group: '통신', isContainer: false, displayColor: '#8b5cf6', sortOrder: 50,
     fieldTemplate: [
       { key: 'hostOffice', label: '급전(분)소', type: 'text' },
       { key: 'voltage', label: '전압', type: 'text' },
+      { key: 'substationType', label: '변전소형태', type: 'text' },
+      { key: 'operation', label: '운영', type: 'select', options: ['유인', '무인'] },
       { key: 'kind', label: '종류', type: 'text' },
+      { key: 'category', label: '구분', type: 'text' },
+      { key: 'timeSync', label: '시각동기장치', type: 'text' },
+      { key: 'protocol', label: '프로토콜', type: 'text' },
+      { key: 'hostCircuits', label: '상위Host회선수', type: 'number' },
+      { key: 'scadaLink', label: 'SCADA연계', type: 'text' },
+      { key: 'ipAddr', label: 'IP', type: 'text' },
       ...ASSET_LIFECYCLE,
     ] },
   { code: 'OPT-XPONDER', name: '광전송장치', group: '통신', isContainer: false, displayColor: '#06b6d4', sortOrder: 60,
+    fieldTemplate: OPT_FIELDS },
+  { code: 'CHARGER', name: '충전기', group: '전원', isContainer: false, displayColor: '#ef4444', sortOrder: 70,
     fieldTemplate: [
-      { key: 'remote', label: '대국', type: 'text' },
-      { key: 'topology', label: '구성형태', type: 'select', options: ['링', 'P-TO-P'] },
-      { key: 'ringName', label: '링 명칭', type: 'text' },
+      { key: 'spec', label: '규격', type: 'text' },
+      { key: 'formType', label: '형식', type: 'text' },
+      { key: 'control', label: '제어', type: 'text' },
+      { key: 'inputV', label: '입력', type: 'text' },
+      { key: 'outputV', label: '출력V', type: 'text' },
       ...ASSET_LIFECYCLE,
     ] },
-  { code: 'CHARGER', name: '충전기', group: '전원', isContainer: false, displayColor: '#ef4444', sortOrder: 70,
-    fieldTemplate: ASSET_LIFECYCLE },
   { code: 'UPS', name: 'UPS', group: '전원', isContainer: false, displayColor: '#f97316', sortOrder: 80,
-    fieldTemplate: ASSET_LIFECYCLE },
+    fieldTemplate: [{ key: 'spec', label: '규격', type: 'text' }, ...ASSET_LIFECYCLE] },
   { code: 'BATTERY', name: '축전지', group: '전원', isContainer: false, displayColor: '#eab308', sortOrder: 90,
-    fieldTemplate: ASSET_LIFECYCLE },
+    fieldTemplate: [{ key: 'spec', label: '규격', type: 'text' }, ...ASSET_LIFECYCLE] },
+
+  // ── 광전송 하위종류 ──
+  { code: 'OPT-COT', name: '통합단말', group: '통신', isContainer: false, displayColor: '#06b6d4', sortOrder: 61, fieldTemplate: OPT_FIELDS },
+  { code: 'OPT-SMALL', name: '소형광', group: '통신', isContainer: false, displayColor: '#22d3ee', sortOrder: 62, fieldTemplate: OPT_FIELDS },
+  { code: 'OPT-TRANS', name: '송변전광', group: '통신', isContainer: false, displayColor: '#0891b2', sortOrder: 63, fieldTemplate: OPT_FIELDS },
+  { code: 'PCM', name: 'PCM', group: '통신', isContainer: false, displayColor: '#67e8f9', sortOrder: 64, fieldTemplate: OPT_FIELDS },
 
   // ── 흡수된 랙 모듈 카테고리 (구 RackModuleCategory) — placementKind=null(모듈) ──
   // 랙 프리셋(rackPresets.ts)이 이 code 로 모듈을 참조한다. 기존 카테고리는
