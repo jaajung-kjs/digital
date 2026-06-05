@@ -45,6 +45,7 @@ export interface Asset {
   description: string | null;
   status: string | null;
   sortOrder: number;
+  updatedAt: string;
 }
 
 export interface CreateAssetInput {

@@ -25,4 +25,8 @@ export const assetApi = {
     const { data } = await api.post<{ data: Asset }>(`/assets/${id}/duplicate`, {});
     return data.data;
   },
+  commit: async (substationId: string, body: unknown): Promise<{ idMap: Record<string, string>; updated: { id: string; updatedAt: string }[] }> => {
+    const { data } = await api.post<{ data: { idMap: Record<string, string>; updated: { id: string; updatedAt: string }[] } }>(`/substations/${substationId}/assets/commit`, body);
+    return data.data;
+  },
 };
