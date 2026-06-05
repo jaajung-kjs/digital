@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
@@ -33,6 +34,7 @@ import { ToastHost } from './ToastHost';
 import { CableEndpointPickerHost } from './CableEndpointPickerHost';
 import { RackModuleDialog } from '../../rack/components/RackModuleDialog';
 import { EditorHintBar } from './EditorHintBar';
+import { ConflictDialog } from '../../workingCopy/ConflictDialog';
 
 // CM-B: scaleRatio 폐기 — CablePathOverlay 가 더 이상 인자가 필요 없다.
 // (직접 import 해서 쓰지만 명명 일관성을 위해 wrapper 유지)
@@ -48,6 +50,7 @@ interface FloorPlanEditorProps {
 export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
   const isAdmin = useIsAdmin();
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -89,6 +92,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const snapshotActive = useSnapshotStore(s => s.active);
   const snapshotLabel = useSnapshotStore(s => s.label);
   const restoredFromVersion = useEditorStore(s => s.restoredFromVersion);
+  const floorConflict = useEditorStore(s => s.floorConflict);
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
   const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
@@ -611,6 +615,17 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         <DraftRecoveryDialog onRestore={handleRestoreDraft} onDiscard={handleDiscardDraft} />
       )}
       <EquipmentPasteModal onPaste={handlePasteEquipment} />
+      {floorConflict && (
+        <ConflictDialog
+          conflicts={floorConflict}
+          message="다른 사용자가 이 도면을 먼저 변경했습니다. 최신을 불러오면 저장하지 않은 현재 편집을 잃습니다."
+          onClose={() => useEditorStore.getState().setFloorConflict(null)}
+          onReloadLatest={async () => {
+            await queryClient.invalidateQueries({ queryKey: ['floorPlan', floorId] });
+            useEditorStore.getState().setFloorConflict(null);
+          }}
+        />
+      )}
       <ToastHost />
     </div>
   );

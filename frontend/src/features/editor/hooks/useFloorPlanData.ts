@@ -167,7 +167,12 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
 
       // Drain working copy: tempId 해석 + saved 캐시 optimistic update + overlay clear + invalidate.
       // OFD directory fetch 가 실패해도 commit 흐름은 진행 — mergeFiberPaths 는 빈 디렉토리도 graceful 하게 처리.
-      const ofdDirectory = await ensureOfdDirectory().catch(() => new Map());
+      // 단, 빈 디렉토리는 pending fiber path 의 OFD 이름/변전소명을 '?'/'' 로 표시하므로
+      // 실패는 항상 로깅해 무성공 placeholder 표시를 디버깅 가능하게 한다 (pendingUploads/Logs 와 동일 패턴).
+      const ofdDirectory = await ensureOfdDirectory().catch((err) => {
+        console.warn('[Save] OFD directory fetch failed — pending fiber paths will render with placeholders:', err);
+        return new Map();
+      });
       if (floorId) {
         commitWorkingCopy({ floorId, idMaps, queryClient, ofdDirectory });
       }
@@ -191,6 +196,11 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       useEditorStore.temporal.getState().clear();
     },
     onError: (error: unknown) => {
+      const resp = (error as { response?: { status?: number; data?: { details?: { id: string; name?: string }[] } } }).response;
+      if (resp?.status === 409) {
+        useEditorStore.getState().setFloorConflict(resp.data?.details ?? [{ id: floorId ?? '', name: '도면' }]);
+        return;
+      }
       const err = error as { response?: { data?: { message?: string } }; message?: string };
       const message = err?.response?.data?.message || err?.message || '저장에 실패했습니다.';
       setSaveError(message);
@@ -259,6 +269,9 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     const cables = planCablesToLocalCables(floorPlan.cables ?? []);
 
     setLocalEquipment(floorPlan.equipment);
+    useEditorStore.getState().setBaseFloorVersion(
+      typeof floorPlan.updatedAt === 'string' ? floorPlan.updatedAt : new Date(floorPlan.updatedAt).toISOString(),
+    );
     useEditorStore.getState().setCables(cables);
     setGridSize(floorPlan.gridSize);
     setMajorGridSize(floorPlan.majorGridSize ?? 60);
@@ -492,6 +505,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         description: fp.description ?? undefined,
       })) : undefined,
       deletedFiberPathIds: deletedFiberPathIds.length > 0 ? deletedFiberPathIds : undefined,
+      baseFloorVersion: useEditorStore.getState().baseFloorVersion ?? undefined,
     };
 
     saveMutation.mutate(updateData);

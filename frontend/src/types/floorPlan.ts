@@ -309,6 +309,7 @@ export interface UpdateFloorPlanRequest {
     description?: string;
   }[];
   deletedFiberPathIds?: string[];
+  baseFloorVersion?: string;
 }
 
 export interface BulkUpdatePlanResponse {

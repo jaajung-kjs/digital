@@ -156,6 +156,11 @@ export interface EditorStoreState {
   /** Set after restoring from a past version — cleared on save */
   restoredFromVersion: string | null;
 
+  /** OCC: Floor.updatedAt ISO 캡처값 — 저장 시 baseFloorVersion 으로 동봉. */
+  baseFloorVersion: string | null;
+  /** OCC: 409 충돌 시 backend 가 준 변경 collection 목록 (모달 표시). */
+  floorConflict: { id: string; name?: string }[] | null;
+
   // ==================== Canvas interaction (formerly canvasStore) ====================
 
   // Equipment drawing state (drag-to-draw)
@@ -271,6 +276,8 @@ export interface EditorStoreActions {
   bumpFocusTick: () => void;
   setSelectedCableId: (id: string | null) => void;
   setRestoredFromVersion: (v: string | null) => void;
+  setBaseFloorVersion: (v: string | null) => void;
+  setFloorConflict: (c: { id: string; name?: string }[] | null) => void;
   clearSelection: () => void;
   resetEditor: () => void;
 
@@ -359,6 +366,8 @@ const initialState: EditorStoreState = {
   focusTick: 0,
   selectedCableId: null,
   restoredFromVersion: null,
+  baseFloorVersion: null,
+  floorConflict: null,
 
   // Canvas interaction
   isDrawingEquipment: false,
@@ -593,6 +602,8 @@ export const useEditorStore = create<FullStore>()(
         : { selectedCableId: null },
     ),
   setRestoredFromVersion: (restoredFromVersion) => set({ restoredFromVersion }),
+  setBaseFloorVersion: (v) => set({ baseFloorVersion: v }),
+  setFloorConflict: (c) => set({ floorConflict: c }),
   clearSelection: () => set({
     selectedIds: [],
     selectedCableId: null,
