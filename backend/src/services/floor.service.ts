@@ -1,6 +1,7 @@
 import prisma from '../config/prisma.js';
 import { Prisma, CableType } from '@prisma/client';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
+import { VersionConflictError } from './concurrency.js';
 import { equipmentService } from './equipment.service.js';
 import { assertOfdFiberPath, buildFiberPathLabel } from './cable.service.js';
 import { assertNoSlotCollision, assertSlotValid } from './rackModule.service.js';
@@ -244,6 +245,8 @@ export interface UpdatePlanInput {
     description?: string | null;
   }[];
   deletedFiberPathIds?: string[];
+  /** 로드 시점의 Floor.updatedAt(ISO). OCC 토큰. 동봉 시 stale 면 409. */
+  baseFloorVersion?: string;
 }
 
 // ==================== Shared ====================
@@ -520,12 +523,17 @@ class FloorService {
     let auditLogId: string | null = null;
     let finalConstructionReport: ReturnType<typeof calculateConstructionReport> | null = null;
 
-    await prisma.$transaction(async (tx) => {
+    const runTx = () => prisma.$transaction(async (tx) => {
       // Floor 의 substation — 새 Asset 생성 시 필수.
+      // updatedAt/name 은 OCC(baseFloorVersion) 검사용.
       const floorRow = await tx.floor.findUniqueOrThrow({
         where: { id },
-        select: { substationId: true },
+        select: { substationId: true, updatedAt: true, name: true },
       });
+      // ── OCC: 로드 시점 버전과 현재 버전이 다르면 409 ──
+      if (input.baseFloorVersion && floorRow.updatedAt.toISOString() !== input.baseFloorVersion) {
+        throw new VersionConflictError([{ collection: 'floor', id, name: floorRow.name }]);
+      }
       const floorSubstationId = floorRow.substationId;
       if (!floorSubstationId) {
         throw new ValidationError('층에 변전소가 지정되어 있지 않습니다.');
@@ -1203,7 +1211,17 @@ class FloorService {
       }
 
       finalFiberPathIdMap = fiberPathIdMap;
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+
+    try {
+      await runTx();
+    } catch (e) {
+      // REPEATABLE READ 직렬화 실패(P2034) → 동시 저장 충돌로 간주, 깔끔한 409.
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034') {
+        throw new VersionConflictError([{ collection: 'floor', id, name: '도면' }]);
+      }
+      throw e;
+    }
 
     return {
       id,
