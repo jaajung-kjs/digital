@@ -39,6 +39,8 @@ export interface Asset {
   roomText: string | null;
   attributes: Record<string, unknown> | null;
   installDate: string | null;
+  warrantyUntil: string | null;
+  replaceDue: string | null;
   manager: string | null;
   description: string | null;
   status: string | null;
@@ -58,4 +60,9 @@ export interface UpdateAssetInput {
   name?: string;
   roomText?: string | null;
   attributes?: Record<string, unknown> | null;
+  installDate?: string | null;
+  manager?: string | null;
+  status?: string | null;
+  warrantyUntil?: string | null;
+  replaceDue?: string | null;
 }

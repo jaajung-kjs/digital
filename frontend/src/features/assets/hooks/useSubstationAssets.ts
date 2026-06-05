@@ -42,6 +42,11 @@ export function useUpdateAsset(substationId: string) {
                 name: payload.name ?? a.name,
                 attributes: payload.attributes !== undefined ? payload.attributes : a.attributes,
                 roomText: payload.roomText !== undefined ? payload.roomText : a.roomText,
+                installDate: payload.installDate !== undefined ? payload.installDate : a.installDate,
+                manager: payload.manager !== undefined ? payload.manager : a.manager,
+                status: payload.status !== undefined ? payload.status : a.status,
+                warrantyUntil: payload.warrantyUntil !== undefined ? payload.warrantyUntil : a.warrantyUntil,
+                replaceDue: payload.replaceDue !== undefined ? payload.replaceDue : a.replaceDue,
               }
             : a,
         ));
