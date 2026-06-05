@@ -63,7 +63,7 @@ export interface UpdateRackPresetInput {
  * - slotIndex >= 0, slotSpan >= 1
  * - slotIndex + slotSpan - 1 < RACK_SLOT_COUNT (0-based slots; fixed 12-slot grid)
  * - no slot collisions among modules
- * - every categoryCode resolves to an existing RackModuleCategory
+ * - every categoryCode resolves to an existing AssetType (모듈 타입 카탈로그)
  *
  * NOTE: totalU is accepted for API signature stability but is NOT used for
  * bounds validation — the display grid is always RACK_SLOT_COUNT (12) slots.
@@ -110,9 +110,9 @@ async function validatePresetModules(
     }
   }
 
-  // 카테고리 존재 확인
+  // 카테고리(=AssetType) 존재 확인. categoryCode 는 AssetType.code 와 동일(시드에서 동일 EQP-* 코드 사용).
   const codes = Array.from(new Set(normalized.map((m) => m.categoryCode)));
-  const existing = await prisma.rackModuleCategory.findMany({
+  const existing = await prisma.assetType.findMany({
     where: { code: { in: codes } },
     select: { code: true },
   });
@@ -120,7 +120,7 @@ async function validatePresetModules(
   for (const code of codes) {
     if (!existingCodes.has(code)) {
       throw new ValidationError(
-        `프리셋 모듈 categoryCode "${code}" 가 RackModuleCategory 에 존재하지 않습니다.`,
+        `프리셋 모듈 categoryCode "${code}" 가 AssetType 에 존재하지 않습니다.`,
       );
     }
   }

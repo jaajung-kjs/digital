@@ -48,7 +48,7 @@ const LOG_INCLUDE = {
 
 class MaintenanceLogService {
   async getByEquipmentId(equipmentId: string): Promise<MaintenanceLogDetail[]> {
-    const equipment = await prisma.equipment.findUnique({
+    const equipment = await prisma.asset.findUnique({
       where: { id: equipmentId },
     });
 
@@ -70,7 +70,7 @@ class MaintenanceLogService {
     input: CreateMaintenanceLogInput,
     userId: string
   ): Promise<MaintenanceLogDetail> {
-    const equipment = await prisma.equipment.findUnique({
+    const equipment = await prisma.asset.findUnique({
       where: { id: equipmentId },
     });
 

@@ -27,7 +27,7 @@ class EquipmentPhotoService {
    * 설비 사진 목록 조회
    */
   async getByEquipmentId(equipmentId: string): Promise<EquipmentPhotoDetail[]> {
-    const equipment = await prisma.equipment.findUnique({
+    const equipment = await prisma.asset.findUnique({
       where: { id: equipmentId },
     });
 
@@ -58,7 +58,7 @@ class EquipmentPhotoService {
     equipmentId: string,
     input: CreateEquipmentPhotoInput
   ): Promise<EquipmentPhotoDetail> {
-    const equipment = await prisma.equipment.findUnique({
+    const equipment = await prisma.asset.findUnique({
       where: { id: equipmentId },
     });
 
