@@ -9,9 +9,11 @@ interface Props {
   onCommit: (id: string, patch: { name?: string; attributes?: Record<string, unknown> }) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
+  alert?: { label: string } | null;
+  onSelect?: () => void;
 }
 
-export function AssetGridRow({ asset, columns, onCommit, onDuplicate, onDelete }: Props) {
+export function AssetGridRow({ asset, columns, onCommit, onDuplicate, onDelete, alert, onSelect }: Props) {
   const [draft, setDraft] = useState<Record<string, string>>({});
 
   const cellValue = (col: GridColumn): string => {
@@ -34,12 +36,13 @@ export function AssetGridRow({ asset, columns, onCommit, onDuplicate, onDelete }
 
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50">
-      <td className="px-2 py-1 text-xs text-gray-500 whitespace-nowrap">
+      <td onClick={onSelect} className="px-2 py-1 text-xs text-gray-500 whitespace-nowrap cursor-pointer">
         <span
           className="inline-block w-2 h-2 rounded-full mr-1 align-middle"
           style={{ backgroundColor: asset.assetType.displayColor ?? '#94a3b8' }}
         />
         {asset.assetType.name}
+        {alert && <span title={alert.label} className="ml-1 text-amber-600">⚠</span>}
       </td>
       {columns.map((col) => (
         <td key={col.key} className="px-1 py-0.5">
