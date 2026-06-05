@@ -36,6 +36,7 @@ export interface Asset {
   };
   name: string;
   parentAssetId: string | null;
+  floorId: string | null;
   roomText: string | null;
   attributes: Record<string, unknown> | null;
   installDate: string | null;

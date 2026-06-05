@@ -89,6 +89,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
       },
       name: newName.trim(),
       parentAssetId: null,
+      floorId: null,
       roomText: null,
       attributes: {},
       installDate: null,

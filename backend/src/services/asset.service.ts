@@ -38,6 +38,7 @@ export interface AssetDetail {
   assetType: { id: string; code: string; name: string; group: string | null; displayColor: string | null; fieldTemplate: unknown | null };
   name: string;
   parentAssetId: string | null;
+  floorId: string | null;
   roomText: string | null;
   attributes: Record<string, unknown> | null;
   installDate: Date | null;
@@ -67,7 +68,7 @@ class AssetService {
         group: a.assetType.group, displayColor: a.assetType.displayColor,
         fieldTemplate: a.assetType.fieldTemplate ?? null,
       },
-      name: a.name, parentAssetId: a.parentAssetId, roomText: a.roomText,
+      name: a.name, parentAssetId: a.parentAssetId, floorId: a.floorId ?? null, roomText: a.roomText,
       attributes: (a.attributes as Record<string, unknown> | null) ?? null,
       installDate: a.installDate, warrantyUntil: a.warrantyUntil, replaceDue: a.replaceDue,
       manager: a.manager, description: a.description,
