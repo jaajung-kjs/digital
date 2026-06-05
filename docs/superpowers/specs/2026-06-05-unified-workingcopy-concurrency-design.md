@@ -75,9 +75,11 @@ staged: {
   updates: Map<assetId, Partial<AssetPatch>>,   // 누적 필드 패치
   deletes: Set<assetId>,
 }
+pendingUploads: PendingUpload[]                 // 사진(바이너리) 큐 — 에디터 패턴 재사용
+pendingLogs: PendingLog[]                       // 유지보수 이력 큐
 baseVersions: Map<assetId, updatedAt>           // 로드 시 스냅샷
 ```
-- 그리드/상세 패널 편집 → `staged` 갱신(서버 호출 없음). 사진·점검은 예외(아래 5.4).
+- 그리드/상세 패널 편집 → `staged`/`pendingUploads`/`pendingLogs` 갱신(서버 호출 없음). 사진·유지보수도 스테이징(§5.4).
 - **effective 상태** = merge(saved[React Query `['substation-assets', subId]`], staged). 그리드·패널은 effective 를 렌더.
 - "미커밋" 표시: staged 비어있지 않으면 상단에 "N건 미커밋 · [커밋] [되돌리기]".
 
@@ -92,11 +94,14 @@ baseVersions: Map<assetId, updatedAt>           // 로드 시 스냅샷
 - 어드민 권한.
 
 ### 5.3 커밋 후처리
-- 성공: idMap 으로 tempId 해석 → `setQueryData(['substation-assets'], merged)` 로 effective 미리 박기 → staged 비우기 → invalidate → baseVersions 갱신.
-- 409: 충돌 UX(§7) 발동. staged 보존.
+- 성공: idMap 으로 tempId 해석 → `pendingUploads`/`pendingLogs` 를 idMap 으로 resolve 해 후속 업로드(에디터 `processPendingUploadsAndLogs` 패턴) → `setQueryData(['substation-assets'], merged)` 로 effective 미리 박기 → staged·큐 비우기 → invalidate → baseVersions 갱신.
+- 409: 충돌 UX(§7) 발동. staged·큐 보존.
 
-### 5.4 사진·유지보수는 스테이징에서 제외(즉시 유지)
-사진 업로드(바이너리)·유지보수 이력은 git-like staging 에 넣지 않고 **즉시 저장 유지**(현행). 이유: 바이너리·append-only 기록이라 충돌·롤백 의미가 약하고, 도면 워킹카피도 사진을 `pendingUploads` 큐로 별도 처리. 패널에서 이 두 섹션만 즉시, 나머지(이름·속성·생애주기·설치/담당/상태)는 staged.
+### 5.4 사진·유지보수도 스테이징 (에디터 패턴 재사용)
+사진·유지보수도 워킹카피에 스테이징한다 — 에디터의 기존 git-like 모델 그대로:
+- **사진**: `pendingUploads` 큐(바이너리를 로컬 보유, objectURL 미리보기, [커밋] 시 multipart 업로드).
+- **유지보수**: `pendingLogs` 큐(데이터, [커밋] 시 생성).
+둘 다 append(create)라 충돌검사 대상은 아니지만, **커밋에 포함**돼 "미커밋 N건"이 *내 모든 변경*을 뜻하고 [커밋]이 원자적이 된다. 신규 자산(tempId)에 붙인 사진·이력은 §5.3 의 idMap 으로 realId 해석 후 업로드. → 레지스터·에디터가 **완전히 같은 모델**(즉시 섹션 없음).
 
 ---
 
@@ -146,7 +151,7 @@ baseVersions: Map<assetId, updatedAt>           // 로드 시 스냅샷
 2. 두 사용자가 같은 자산을 동시에 편집·커밋하면 **나중 커밋이 409로 거부**되고 충돌 항목이 표시된다(덮어쓰기 없음).
 3. "최신 불러오기" 후 재검토·재커밋이 가능하다.
 4. 에디터 plan 커밋도 층이 그새 바뀌었으면 409로 막힌다.
-5. 사진·유지보수는 즉시 저장 유지(스테이징 제외).
+5. 사진·유지보수도 워킹카피에 스테이징되어 [커밋] 시 함께 반영된다(에디터 pendingUploads/pendingLogs 패턴). 패널에 "즉시 저장" 섹션은 없다.
 6. 충돌 0건일 때 커밋은 기존처럼 원활히 반영된다. 2a·V1 테스트 회귀 없음.
 
 ---
