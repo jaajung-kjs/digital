@@ -51,6 +51,21 @@ describe('AssetService', () => {
     await expect(assetService.update('nope', { name: 'X' }, 'u1')).rejects.toThrow('찾을 수 없습니다');
   });
 
+  it('update 는 warrantyUntil/replaceDue 를 Date 로 저장한다', async () => {
+    vi.mocked(prisma.asset.findUnique).mockResolvedValue({ id: 'a1' } as any);
+    vi.mocked(prisma.asset.update).mockResolvedValue({
+      id: 'a1', substationId: 's1', assetTypeId: 't1', name: 'X',
+      parentAssetId: null, roomText: null, attributes: null, installDate: null,
+      manager: null, description: null, status: null, sortOrder: 0,
+      warrantyUntil: new Date('2026-12-31'), replaceDue: new Date('2027-06-30'),
+      assetType: { id: 't1', code: 'RTU', name: 'RTU', group: '통신', displayColor: '#000', fieldTemplate: [] },
+    } as any);
+    await assetService.update('a1', { warrantyUntil: '2026-12-31', replaceDue: '2027-06-30' }, 'u1');
+    const arg = vi.mocked(prisma.asset.update).mock.calls[0][0] as any;
+    expect(arg.data.warrantyUntil).toBeInstanceOf(Date);
+    expect(arg.data.replaceDue).toBeInstanceOf(Date);
+  });
+
   it('duplicate 는 원본 필드를 복사하고 이름에 (복제)를 붙인다', async () => {
     vi.mocked(prisma.asset.findUnique).mockResolvedValue({
       id: 'a1', substationId: 's1', assetTypeId: 't1', name: 'PITR-1',

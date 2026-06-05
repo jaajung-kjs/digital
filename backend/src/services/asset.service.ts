@@ -10,6 +10,8 @@ export interface CreateAssetInput {
   roomText?: string | null;
   attributes?: Record<string, unknown> | null;
   installDate?: string | null;
+  warrantyUntil?: string | null;
+  replaceDue?: string | null;
   manager?: string | null;
   description?: string | null;
   status?: string | null;
@@ -22,6 +24,8 @@ export interface UpdateAssetInput {
   roomText?: string | null;
   attributes?: Record<string, unknown> | null;
   installDate?: string | null;
+  warrantyUntil?: string | null;
+  replaceDue?: string | null;
   manager?: string | null;
   description?: string | null;
   status?: string | null;
@@ -37,6 +41,8 @@ export interface AssetDetail {
   roomText: string | null;
   attributes: Record<string, unknown> | null;
   installDate: Date | null;
+  warrantyUntil: Date | null;
+  replaceDue: Date | null;
   manager: string | null;
   description: string | null;
   status: string | null;
@@ -62,7 +68,8 @@ class AssetService {
       },
       name: a.name, parentAssetId: a.parentAssetId, roomText: a.roomText,
       attributes: (a.attributes as Record<string, unknown> | null) ?? null,
-      installDate: a.installDate, manager: a.manager, description: a.description,
+      installDate: a.installDate, warrantyUntil: a.warrantyUntil, replaceDue: a.replaceDue,
+      manager: a.manager, description: a.description,
       status: a.status, sortOrder: a.sortOrder,
     };
   }
@@ -92,6 +99,8 @@ class AssetService {
         roomText: input.roomText ?? null,
         attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
         installDate: input.installDate ? new Date(input.installDate) : null,
+        warrantyUntil: input.warrantyUntil ? new Date(input.warrantyUntil) : null,
+        replaceDue: input.replaceDue ? new Date(input.replaceDue) : null,
         manager: input.manager ?? null,
         description: input.description ?? null,
         status: input.status ?? null,
@@ -115,6 +124,8 @@ class AssetService {
         roomText: input.roomText,
         attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
         installDate: input.installDate === undefined ? undefined : input.installDate ? new Date(input.installDate) : null,
+        warrantyUntil: input.warrantyUntil === undefined ? undefined : input.warrantyUntil ? new Date(input.warrantyUntil) : null,
+        replaceDue: input.replaceDue === undefined ? undefined : input.replaceDue ? new Date(input.replaceDue) : null,
         manager: input.manager,
         description: input.description,
         status: input.status,
