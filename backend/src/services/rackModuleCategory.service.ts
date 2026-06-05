@@ -19,11 +19,12 @@ export interface RackModuleCategoryDetail {
 // ==================== Service ====================
 
 class RackModuleCategoryService {
-  private mapToDetail(c: {
+  // 모듈/장치 타입(= 배치 종류가 없는 AssetType)을 기존 RackModuleCategory DTO 형태로 매핑.
+  // AssetType 에는 description 컬럼이 없어 null 로 채운다.
+  private mapToDetail(t: {
     id: string;
     code: string;
     name: string;
-    description: string | null;
     displayColor: string | null;
     defaultSlotSpan: number;
     sortOrder: number;
@@ -32,30 +33,31 @@ class RackModuleCategoryService {
     updatedAt: Date;
   }): RackModuleCategoryDetail {
     return {
-      id: c.id,
-      code: c.code,
-      name: c.name,
-      description: c.description,
-      displayColor: c.displayColor,
-      defaultSlotSpan: c.defaultSlotSpan,
-      sortOrder: c.sortOrder,
-      isActive: c.isActive,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
+      id: t.id,
+      code: t.code,
+      name: t.name,
+      description: null,
+      displayColor: t.displayColor,
+      defaultSlotSpan: t.defaultSlotSpan,
+      sortOrder: t.sortOrder,
+      isActive: t.isActive,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
     };
   }
 
   async getAll(): Promise<RackModuleCategoryDetail[]> {
-    const categories = await prisma.rackModuleCategory.findMany({
+    const types = await prisma.assetType.findMany({
+      where: { isActive: true, placementKind: null },
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
     });
-    return categories.map((c) => this.mapToDetail(c));
+    return types.map((t) => this.mapToDetail(t));
   }
 
   async getById(id: string): Promise<RackModuleCategoryDetail> {
-    const category = await prisma.rackModuleCategory.findUnique({ where: { id } });
-    if (!category) throw new NotFoundError('랙 모듈 카테고리');
-    return this.mapToDetail(category);
+    const type = await prisma.assetType.findUnique({ where: { id } });
+    if (!type || type.placementKind !== null) throw new NotFoundError('랙 모듈 카테고리');
+    return this.mapToDetail(type);
   }
 }
 

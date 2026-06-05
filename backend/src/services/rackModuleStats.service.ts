@@ -1,5 +1,4 @@
 import prisma from '../config/prisma.js';
-import { EquipmentKind } from '@prisma/client';
 import { NotFoundError } from '../utils/errors.js';
 
 export type NodeType = 'headquarters' | 'branch' | 'substation';
@@ -49,18 +48,19 @@ class RackModuleStatsService {
       return { self: { total: 0, byCategory: [] }, children: await this.childTotalsZero(nodeType, nodeId) };
     }
 
-    // 2) 그 floor 들의 RACK equipment 산하 모듈을 categoryId 별로 groupBy.
-    const rows = await prisma.rackModule.groupBy({
-      by: ['categoryId'],
+    // 2) 그 floor 들의 RACK 자산 산하 모듈(자식 Asset)을 assetTypeId 별로 groupBy.
+    const rows = await prisma.asset.groupBy({
+      by: ['assetTypeId'],
       where: {
-        rack: { kind: EquipmentKind.RACK, floorId: { in: floorIds } },
+        parentAssetId: { not: null },
+        parent: { assetType: { placementKind: 'RACK' }, floorId: { in: floorIds } },
       },
       _count: { _all: true },
     });
 
-    // 3) category 메타 조회 (한 번에).
-    const categoryIds = rows.map((r) => r.categoryId);
-    const categories = await prisma.rackModuleCategory.findMany({
+    // 3) category(=AssetType) 메타 조회 (한 번에).
+    const categoryIds = rows.map((r) => r.assetTypeId);
+    const categories = await prisma.assetType.findMany({
       where: { id: { in: categoryIds } },
       select: { id: true, code: true, name: true, displayColor: true, sortOrder: true },
     });
@@ -68,9 +68,9 @@ class RackModuleStatsService {
 
     const byCategory: CategoryCount[] = rows
       .map((r) => {
-        const cat = categoryById.get(r.categoryId);
+        const cat = categoryById.get(r.assetTypeId);
         return {
-          categoryId: r.categoryId,
+          categoryId: r.assetTypeId,
           code: cat?.code ?? '',
           name: cat?.name ?? '(unknown)',
           displayColor: cat?.displayColor ?? null,
@@ -142,8 +142,11 @@ class RackModuleStatsService {
   private async countUnder(nodeType: NodeType, nodeId: string): Promise<number> {
     const floorIds = await this.collectFloorIds(nodeType, nodeId);
     if (floorIds.length === 0) return 0;
-    return prisma.rackModule.count({
-      where: { rack: { kind: EquipmentKind.RACK, floorId: { in: floorIds } } },
+    return prisma.asset.count({
+      where: {
+        parentAssetId: { not: null },
+        parent: { assetType: { placementKind: 'RACK' }, floorId: { in: floorIds } },
+      },
     });
   }
 
@@ -160,10 +163,14 @@ class RackModuleStatsService {
       });
       const items = await Promise.all(
         branches.map(async (b) => {
-          const count = await prisma.rackModule.count({
+          const count = await prisma.asset.count({
             where: {
-              categoryId,
-              rack: { kind: EquipmentKind.RACK, floor: { substation: { branchId: b.id } } },
+              assetTypeId: categoryId,
+              parentAssetId: { not: null },
+              parent: {
+                assetType: { placementKind: 'RACK' },
+                floor: { substation: { branchId: b.id } },
+              },
             },
           });
           return { id: b.id, name: b.name, count };
@@ -182,10 +189,14 @@ class RackModuleStatsService {
       });
       const items = await Promise.all(
         substations.map(async (s) => {
-          const count = await prisma.rackModule.count({
+          const count = await prisma.asset.count({
             where: {
-              categoryId,
-              rack: { kind: EquipmentKind.RACK, floor: { substationId: s.id } },
+              assetTypeId: categoryId,
+              parentAssetId: { not: null },
+              parent: {
+                assetType: { placementKind: 'RACK' },
+                floor: { substationId: s.id },
+              },
             },
           });
           return { id: s.id, name: s.name, count };
@@ -198,18 +209,26 @@ class RackModuleStatsService {
     }
 
     // substation → rack
-    const racks = await prisma.equipment.findMany({
-      where: { floor: { substationId: nodeId }, kind: EquipmentKind.RACK },
+    const racks = await prisma.asset.findMany({
+      where: {
+        floor: { substationId: nodeId },
+        assetType: { placementKind: 'RACK' },
+      },
       select: {
         id: true,
         name: true,
         floorId: true,
-        _count: { select: { modules: { where: { categoryId } } } },
+        _count: { select: { children: { where: { assetTypeId: categoryId } } } },
       },
     });
     const items: DistributionItem[] = racks
-      .filter((r) => r._count.modules > 0)
-      .map((r) => ({ id: r.id, name: r.name, count: r._count.modules, floorId: r.floorId }))
+      .filter((r) => r._count.children > 0)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        count: r._count.children,
+        floorId: r.floorId ?? undefined,
+      }))
       .sort((a, b) => b.count - a.count);
     return { scope: 'rack', items };
   }
