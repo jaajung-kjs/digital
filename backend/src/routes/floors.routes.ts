@@ -150,6 +150,7 @@ const bulkUpdatePlanSchema = z.object({
   cables: z.array(cableSchema).optional(),
   fiberPaths: z.array(fiberPathSchema).optional(),
   deletedFiberPathIds: z.array(z.string().uuid()).optional(),
+  baseFloorVersion: z.string().optional(),   // 로드 시점의 Floor.updatedAt(ISO). OCC 토큰
 });
 
 const patchVersionContextSchema = z.object({
