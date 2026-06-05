@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { equipmentService } from '../services/equipment.service.js';
-import type { EquipmentKind } from '@prisma/client';
+import type { EquipmentKind } from '../services/equipment.service.js';
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
