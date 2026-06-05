@@ -502,7 +502,7 @@ model Asset {
 
   substation Substation @relation(fields: [substationId], references: [id], onDelete: Cascade)
   assetType  AssetType  @relation(fields: [assetTypeId], references: [id])
-  parent     Asset?     @relation("AssetTree", fields: [parentAssetId], references: [id], onDelete: SetNull)
+  parent     Asset?     @relation("AssetTree", fields: [parentAssetId], references: [id], onDelete: Cascade)
   children   Asset[]    @relation("AssetTree")
   floor      Floor?     @relation(fields: [floorId], references: [id], onDelete: SetNull)
   createdBy  User?      @relation("AssetCreatedBy", fields: [createdById], references: [id])

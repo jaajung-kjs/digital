@@ -770,11 +770,11 @@ class FloorService {
           // 카테고리 확인 — categoryId 는 시드된 AssetType.id (모듈 타입) 만 가능.
           const category = await tx.assetType.findUnique({
             where: { id: mod.categoryId },
-            select: { id: true },
+            select: { id: true, placementKind: true },
           });
-          if (!category) {
+          if (!category || category.placementKind !== null) {
             throw new ValidationError(
-              `랙 모듈 카테고리를 찾을 수 없습니다 (categoryId=${mod.categoryId}).`,
+              `유효한 모듈 카테고리가 아닙니다 (categoryId=${mod.categoryId}, placementKind 이 있는 배치형 종류는 모듈로 쓸 수 없습니다).`,
             );
           }
 
@@ -954,7 +954,7 @@ class FloorService {
           where: { id: eqId },
           include: { assetType: true },
         });
-        if (!e) return null;
+        if (!e) { equipmentKindCache.set(eqId, null); return null; }
         const kind = placementKindToKind(e.assetType.placementKind);
         equipmentKindCache.set(eqId, kind);
         return kind;

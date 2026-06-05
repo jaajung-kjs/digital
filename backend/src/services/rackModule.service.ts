@@ -177,10 +177,10 @@ async function create(input: CreateRackModuleInput, userId: string | null): Prom
 
   const category = await prisma.assetType.findUnique({
     where: { id: input.categoryId },
-    select: { id: true, name: true, isActive: true },
+    select: { id: true, name: true, isActive: true, placementKind: true },
   });
-  if (!category || !category.isActive) {
-    throw new NotFoundError('카테고리를 찾을 수 없거나 비활성 상태입니다.');
+  if (!category || !category.isActive || category.placementKind !== null) {
+    throw new ValidationError('유효한 모듈 카테고리가 아닙니다 (placementKind 이 있는 배치형 종류는 모듈로 쓸 수 없습니다).');
   }
 
   const siblings = await loadSiblingSlots(input.rackEquipmentId);
