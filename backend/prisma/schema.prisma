@@ -491,6 +491,8 @@ model Asset {
   totalU        Int?      @map("total_u")
   attributes    Json?
   installDate   DateTime? @map("install_date") @db.Date
+  warrantyUntil DateTime? @map("warranty_until") @db.Date
+  replaceDue    DateTime? @map("replace_due")    @db.Date
   manager       String?   @db.VarChar(100)
   description   String?   @db.Text
   status        String?   @db.VarChar(20)
@@ -522,5 +524,7 @@ model Asset {
   @@index([substationId])
   @@index([assetTypeId])
   @@index([parentAssetId])
+  @@index([warrantyUntil])
+  @@index([replaceDue])
   @@map("assets")
 }
