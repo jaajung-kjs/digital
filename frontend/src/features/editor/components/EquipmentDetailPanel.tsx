@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
+import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
 import {
   resolveDetailPanel,
@@ -12,24 +13,28 @@ import {
   type DetailPanelKind,
 } from '../../../types/equipmentKind';
 
-interface EquipmentDetailPanelProps extends PanelProps {}
+interface EquipmentDetailPanelProps extends PanelProps {
+  /** SSOT-2d Task 3 — effective 설비 조회용 (header 의 kind/name lookup). */
+  floorId: string;
+}
 
 /**
  * P9: detail panel routing now derives from `Equipment.kind` directly —
  * no MaterialCategory lookup. RACK keeps the wider 480px layout to fit the
  * U-slot grid; everything else uses the standard 360px panel.
  */
-export function EquipmentDetailPanel({ equipmentId }: EquipmentDetailPanelProps) {
+export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
   const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
   const focusTick = useEditorStore((s) => s.focusTick);
   const snapshotActive = useSnapshotStore((s) => s.active);
   const isTemp = isTempId(equipmentId);
   const { equipment, isLoading } = useMergedEquipmentDetail(equipmentId);
 
-  // Determine local equipment record (also used by header)
+  // Determine equipment record (also used by header).
+  // SSOT-2d Task 3 — 비스냅샷 경로는 통합 스토어 effective 에서 읽는다.
   const snapshotEquipment = useSnapshotStore((s) => s.equipment);
-  const editorEquipment = useEditorStore((s) => s.localEquipment);
-  const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
+  const effectiveEquipment = useEffectiveEquipment(floorId);
+  const localEquipment = snapshotActive ? snapshotEquipment : effectiveEquipment;
   const localEq = localEquipment.find((e) => e.id === equipmentId);
 
   const detailKind = useMemo<DetailPanelKind | null>(() => {

@@ -3,6 +3,14 @@ import type { RoomConnection } from '../../../types/connection';
 import type { FloorPlanCable } from '../../../types/floorPlan';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
+import {
+  useEffectiveAssets,
+  useEffectiveEquipment,
+  useEffectiveFloorCables,
+  useEffectiveDistCircuits,
+} from '../../workingCopy/hooks';
+import { assetToRackModule } from '../../workingCopy/assetToRackModule';
+import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import { CABLE_COLORS } from '../../../types/connection';
 
 /** Check if a cable matches the current filter set (DB category codes) */
@@ -26,6 +34,7 @@ import { useCableHitTestStore } from '../stores/cableHitTestStore';
 
 interface ConnectionOverlayProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  floorId: string;
 }
 
 function mapCablesToRenderable(
@@ -82,11 +91,12 @@ function mapPlanCablesToRenderable(
   return result;
 }
 
-export function ConnectionOverlay({ canvasRef }: ConnectionOverlayProps) {
+export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps) {
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
-  const editorEquipment = useEditorStore((s) => s.localEquipment);
+  // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로.
+  const editorEquipment = useEffectiveEquipment(floorId);
   const connectionFilters = useEditorStore((s) => s.connectionFilters);
   const selectedCableId = useEditorStore((s) => s.selectedCableId);
   const setSelectedCableId = useEditorStore((s) => s.setSelectedCableId);
@@ -97,9 +107,19 @@ export function ConnectionOverlay({ canvasRef }: ConnectionOverlayProps) {
 
   const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
 
-  const editorCables = useEditorStore((s) => s.localCables);
-  const editorRackModules = useEditorStore((s) => s.localRackModules);
-  const editorDistCircuits = useEditorStore((s) => s.localDistributionCircuits);
+  // effective 케이블은 이 층에 닿는 것만(useEffectiveFloorCables). 좌표 fallback 용
+  // 랙모듈/회로는 substation 전역 effective 에서 — 모듈은 랙 자식 Asset 을 RackModule
+  // shape 으로 매핑, 회로는 그대로(WorkingCopyRow→DistributionCircuit cast).
+  const editorCables = useEffectiveFloorCables(floorId) as unknown as LocalCable[];
+  const effectiveAssets = useEffectiveAssets();
+  const editorRackModules = useMemo(
+    () =>
+      effectiveAssets
+        .filter((a) => a.parentAssetId && a.slotIndex != null)
+        .map(assetToRackModule),
+    [effectiveAssets],
+  );
+  const editorDistCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
 
   const highlightActive = usePathHighlightStore((s) => s.active);
   const highlightedNodeIds = usePathHighlightStore((s) => s.highlightedNodeIds);

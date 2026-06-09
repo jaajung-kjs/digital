@@ -1,8 +1,10 @@
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
+import { useEffectiveEquipment, useEffectiveFloorCables } from '../../workingCopy/hooks';
 
 interface EmptyStateGuideProps {
   floorPlan: FloorPlanDetail | undefined;
+  floorId: string | undefined;
   onImportClick?: () => void;
 }
 
@@ -13,9 +15,10 @@ interface EmptyStateGuideProps {
  * Step 1 has a direct [DWG 임포트] button so the user does not have to
  * dig through the settings panel for the first import.
  */
-export function EmptyStateGuide({ floorPlan, onImportClick }: EmptyStateGuideProps) {
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localCables = useEditorStore((s) => s.localCables);
+export function EmptyStateGuide({ floorPlan, floorId, onImportClick }: EmptyStateGuideProps) {
+  // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로(empty 체크용).
+  const localEquipment = useEffectiveEquipment(floorId ?? '');
+  const localCables = useEffectiveFloorCables(floorId ?? '');
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
 
   if (!floorPlan) return null;

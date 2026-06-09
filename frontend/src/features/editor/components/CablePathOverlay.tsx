@@ -1,15 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { useCableDrawing } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
+import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
 
 export { calculatePathLength };
 
 interface CablePathOverlayProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  floorId: string;
 }
 
-export function CablePathOverlay({ canvasRef }: CablePathOverlayProps) {
+export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) {
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
   const cable = useCableDrawing();
@@ -23,7 +25,8 @@ export function CablePathOverlay({ canvasRef }: CablePathOverlayProps) {
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
-  const localEquipment = useEditorStore((s) => s.localEquipment);
+  // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로.
+  const localEquipment = useEffectiveEquipment(floorId);
 
   useEffect(() => {
     if (phase !== 'drawingPath' && phase !== 'selectingSource') return;

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useEditorStore } from '../stores/editorStore';
+import { useEffectiveAssets, useEffectiveRackModulesMapped } from '../../workingCopy/hooks';
 import { RackSlotGrid } from './rack/RackSlotGrid';
 
 interface Props {
@@ -12,19 +12,18 @@ interface Props {
  * 편집은 중앙 모달(RackModuleDialog, 모듈 클릭).
  */
 export function RackView({ equipmentId }: Props) {
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localRackModules = useEditorStore((s) => s.localRackModules);
+  // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로. 랙 존재 확인은 substation 전역
+  // effective assets 에서(floorId 불필요), 모듈은 effectiveRackModulesMapped 로.
+  const effectiveAssets = useEffectiveAssets();
+  const rackModules = useEffectiveRackModulesMapped(equipmentId);
 
   const rack = useMemo(
-    () => localEquipment.find((e) => e.id === equipmentId),
-    [localEquipment, equipmentId],
+    () => effectiveAssets.find((e) => e.id === equipmentId),
+    [effectiveAssets, equipmentId],
   );
   const modules = useMemo(
-    () =>
-      localRackModules
-        .filter((m) => m.rackEquipmentId === equipmentId)
-        .sort((a, b) => a.slotIndex - b.slotIndex),
-    [localRackModules, equipmentId],
+    () => [...rackModules].sort((a, b) => a.slotIndex - b.slotIndex),
+    [rackModules],
   );
 
   if (!rack) {

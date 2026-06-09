@@ -9,6 +9,8 @@ import {
 import { mergeEffective } from './effective';
 import { overlayDirtyCount } from './overlay';
 import { assetToEquipment } from './assetToEquipment';
+import { assetToRackModule } from './assetToRackModule';
+import type { RackModule } from '../../types/rackModule';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2c Task 1 — React 바인딩 훅.
@@ -76,6 +78,22 @@ export function useEffectiveRackModules(rackId: string) {
   return useMemo(() => {
     const eff = mergeEffective(saved, overlay, assetDescriptor);
     return eff.filter((a) => a.parentAssetId === rackId && a.slotIndex != null);
+  }, [saved, overlay, rackId]);
+}
+
+/**
+ * 한 랙(rackId)의 effective 랙모듈을 에디터/피커용 RackModule shape 으로 변환해 반환한다.
+ * useEffectiveRackModules 는 raw Asset[] 을 주지만, RackView/RackModulePicker 는
+ * 카테고리 표시 필드가 채워진 RackModule 을 기대하므로 assetToRackModule 로 매핑한다.
+ */
+export function useEffectiveRackModulesMapped(rackId: string): RackModule[] {
+  const saved = useSubstationWorkingCopy((s) => s.saved.assets);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.assets);
+  return useMemo(() => {
+    const eff = mergeEffective(saved, overlay, assetDescriptor);
+    return eff
+      .filter((a) => a.parentAssetId === rackId && a.slotIndex != null)
+      .map(assetToRackModule);
   }, [saved, overlay, rackId]);
 }
 

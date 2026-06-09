@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useEditorStore } from '../stores/editorStore';
+import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { useCableDrawing, useInteractionStore } from '../stores/interactionStore';
 import { RackModulePicker } from '../../connections/components/RackModulePicker';
 import { OfdPortPicker } from '../../connections/components/OfdPortPicker';
@@ -16,7 +16,12 @@ import { CircuitPicker } from '../../connections/components/CircuitPicker';
  * On select / cancel, the store transitions to drawingPath / selectingSpec
  * (or back to selectingSource for a cancel).
  */
-export function CableEndpointPickerHost() {
+interface CableEndpointPickerHostProps {
+  /** SSOT-2d Task 3 — effective 설비(activeEquipment) 조회용. */
+  floorId: string;
+}
+
+export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProps) {
   const cable = useCableDrawing();
   const phase = cable?.phase ?? 'idle';
   const sourceEquipmentId = cable?.sourceEquipmentId ?? null;
@@ -24,7 +29,8 @@ export function CableEndpointPickerHost() {
   const targetEquipmentId = cable?.targetEquipmentId ?? null;
   const targetPosition = cable?.targetPosition ?? null;
 
-  const localEquipment = useEditorStore((s) => s.localEquipment);
+  // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로.
+  const localEquipment = useEffectiveEquipment(floorId);
 
   const activeEquipmentId =
     phase === 'pickingSourceModule'
