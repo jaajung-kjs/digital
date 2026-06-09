@@ -109,7 +109,7 @@ export function usePreviewSnapshot(floorId: string | undefined) {
 /**
  * 버전 복원 스냅샷(FloorPlanDetail)을 통합 스토어 stage 로 적용한다(2d-3a T4).
  *
- * 이전: editorStore.setLocalEquipment / setCables 로 로컬 상태를 통째로 교체.
+ * 이전: editorStore 로컬 설비/케이블 상태를 통째로 교체했다.
  * 이관 후: 스냅샷의 equipment/cables 를 Asset[]/Cable[] 로 매핑한 뒤
  * `stageReplaceFloorFromSnapshot(floorId, ...)` 으로 현 floor 의 effective 와 diff 하여
  * create/update/delete 를 단일 undo 스텝으로 stage 한다. 사용자가 커밋 바에서 확정.

@@ -260,7 +260,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
           const ofdAId = fp.ofdAId ?? fp.ofdA?.id;
           const ofdBId = fp.ofdBId ?? fp.ofdB?.id;
           if (!ofdAId || !ofdBId) continue;
-          store.addPendingFiberPath({
+          wc.stageFiberPathCreate({
             id: fp.id,
             ofdAId,
             ofdBId,
@@ -270,7 +270,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         }
       }
       if (draft.deletedFiberPathIds) {
-        for (const id of draft.deletedFiberPathIds) store.deleteFiberPath(id);
+        for (const id of draft.deletedFiberPathIds) wc.stageFiberPathDelete(id);
       }
       // Restore staged background (3-state). undefined branch is implicit
       // — we just don't call any stage action.

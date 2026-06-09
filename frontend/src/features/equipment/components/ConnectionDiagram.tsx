@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { CABLE_COLORS } from '../../../types/connection';
-import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
+import { type LocalCable } from '../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
@@ -41,7 +42,7 @@ export function ConnectionDiagram({
   );
   const editorCables = useEffectiveCables() as unknown as LocalCable[];
   const editorDistCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
-  const deleteCable = useEditorStore((s) => s.deleteCable);
+  const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
   // Snapshot overlay: when active, show snapshot data instead of editor data
   const snapshotActive = useSnapshotStore((s) => s.active);
@@ -177,7 +178,7 @@ export function ConnectionDiagram({
             const handleDelete = (e: React.MouseEvent) => {
               e.stopPropagation();
               if (!confirm(`${remoteName} 연결을 삭제하시겠습니까?`)) return;
-              deleteCable(cable.id);
+              stageCableDelete(cable.id);
               clearHighlight();
             };
 

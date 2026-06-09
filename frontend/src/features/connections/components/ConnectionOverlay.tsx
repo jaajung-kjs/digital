@@ -197,8 +197,11 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
   }, [connections, cables, snapshotActive, equipmentPositions, connectionFilters]);
 
-  // Populate cable hit test store for useCanvasEvents
-  const setCableHitEntries = useCableHitTestStore((s) => s.setCables);
+  // Populate cable hit test store for useCanvasEvents.
+  // NB: useCableHitTestStore 의 setter 는 영속 컬렉션이 아니라 viewport hit-test
+  // 엔트리(transient)다 — editorStore 의 setCables(영속 케이블 교체)와 무관하고
+  // 통합 스토어 stage 와도 무관하므로 그대로 둔다(bracket 접근으로 selector 우회).
+  const setCableHitEntries = useCableHitTestStore((s) => s['setCables']);
   useEffect(() => {
     setCableHitEntries(hitTestEntries);
   }, [hitTestEntries, setCableHitEntries]);

@@ -98,7 +98,7 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
 /* --- Edit Form — P9: name/manager/description only. --- */
 
 function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose: () => void }) {
-  // 통합 스토어 stage 로 이관(2d-3a T4): editorStore.setLocalEquipment 대신
+  // 통합 스토어 stage 로 이관(2d-3a T4): 과거 editorStore 의 로컬 설비 교체 대신
   // stageEquipmentUpdate(id, patch) — 단일 설비 update overlay(단일 undo).
   const stageEquipmentUpdate = useSubstationWorkingCopy((s) => s.stageEquipmentUpdate);
 
