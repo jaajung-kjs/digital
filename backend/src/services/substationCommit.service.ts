@@ -1,7 +1,6 @@
 import { Prisma, CableType } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { collectConflicts, VersionConflictError, type ConflictItem } from './concurrency.js';
-import { ValidationError } from '../utils/errors.js';
 import type { SubstationCommitInput } from '../schemas/substationCommit.schema.js';
 import {
   assertCableEndpointsValid,
@@ -9,6 +8,7 @@ import {
   assertDistParentValid,
   assertSlotValid,
   assertNoSlotCollision,
+  assertOfdUnique,
 } from './planApply.js';
 
 /**
@@ -113,8 +113,22 @@ async function run(
   // cables
   if (input.cables) {
     const ids = [...input.cables.updates.map((u) => u.id), ...input.cables.deletes.map((d) => d.id)];
+    // C1: cable 은 substationId 컬럼이 없어 endpoint asset/회로의 substationId 로 스코핑.
     const rows = ids.length
-      ? await tx.cable.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } })
+      ? await tx.cable.findMany({
+          where: {
+            id: { in: ids },
+            OR: [
+              { sourceEquipment: { substationId } },
+              { targetEquipment: { substationId } },
+              { sourceModule: { substationId } },
+              { targetModule: { substationId } },
+              { sourceCircuit: { distribution: { substationId } } },
+              { targetCircuit: { distribution: { substationId } } },
+            ],
+          },
+          select: { id: true, updatedAt: true },
+        })
       : [];
     const { current } = await loadOcc(rows);
     conflicts.push(
@@ -126,7 +140,7 @@ async function run(
   if (input.rackModules) {
     const ids = [...input.rackModules.updates.map((u) => u.id), ...input.rackModules.deletes.map((d) => d.id)];
     const rows = ids.length
-      ? await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
+      ? await tx.asset.findMany({ where: { id: { in: ids }, substationId }, select: { id: true, updatedAt: true, name: true } })
       : [];
     const { current, nameById } = await loadOcc(rows);
     conflicts.push(
@@ -137,8 +151,12 @@ async function run(
   // distributionCircuits
   if (input.distributionCircuits) {
     const ids = [...input.distributionCircuits.updates.map((u) => u.id), ...input.distributionCircuits.deletes.map((d) => d.id)];
+    // C1: 부모 분전반 asset 의 substationId 로 스코핑.
     const rows = ids.length
-      ? await tx.distributionCircuit.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } })
+      ? await tx.distributionCircuit.findMany({
+          where: { id: { in: ids }, distribution: { substationId } },
+          select: { id: true, updatedAt: true },
+        })
       : [];
     const { current } = await loadOcc(rows);
     conflicts.push(
@@ -149,8 +167,12 @@ async function run(
   // fiberPaths
   if (input.fiberPaths) {
     const ids = [...input.fiberPaths.updates.map((u) => u.id), ...input.fiberPaths.deletes.map((d) => d.id)];
+    // C1: OFD endpoint asset 의 substationId 로 스코핑 (양 끝 중 하나라도 이 변전소).
     const rows = ids.length
-      ? await tx.fiberPath.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } })
+      ? await tx.fiberPath.findMany({
+          where: { id: { in: ids }, OR: [{ ofdA: { substationId } }, { ofdB: { substationId } }] },
+          select: { id: true, updatedAt: true },
+        })
       : [];
     const { current } = await loadOcc(rows);
     conflicts.push(
@@ -161,8 +183,9 @@ async function run(
   // floor
   let floorRow: { id: string; updatedAt: Date; name: string } | null = null;
   if (input.floor) {
-    floorRow = await tx.floor.findUnique({
-      where: { id: input.floor.id },
+    // C2: floor 가 이 변전소 소유인지 검증 (다른 변전소 floor 변조 차단).
+    floorRow = await tx.floor.findFirst({
+      where: { id: input.floor.id, substationId },
       select: { id: true, updatedAt: true, name: true },
     });
     if (!floorRow) {
@@ -178,7 +201,7 @@ async function run(
   if (input.assets) {
     const a = input.assets;
 
-    // OFD uniqueness — 새 OFD 가 생기면 검증.
+    // W2: OFD uniqueness — planApply.assertOfdUnique 재사용 (409 ConflictError 일관).
     if (a.creates.length) {
       const typeIds = [...new Set(a.creates.map((c) => c.assetTypeId))];
       const ofdTypeIds = new Set(
@@ -186,15 +209,7 @@ async function run(
           .map((t) => t.id),
       );
       const hasNewOfd = a.creates.some((c) => ofdTypeIds.has(c.assetTypeId));
-      if (hasNewOfd) {
-        const existingOfd = await tx.asset.findFirst({
-          where: { parentAssetId: null, assetType: { placementKind: 'OFD' }, floor: { substationId } },
-          select: { id: true, name: true },
-        });
-        if (existingOfd) {
-          throw new ValidationError(`변전소에 이미 OFD가 존재합니다. (${existingOfd.name})`);
-        }
-      }
+      await assertOfdUnique(tx, substationId, hasNewOfd);
     }
 
     for (const c of a.creates) {
@@ -228,8 +243,9 @@ async function run(
 
     for (const u of a.updates) {
       const p = u.patch;
+      // C1: 변전소 스코핑 — 다른 변전소 asset 이면 매치 실패 → P2025 (롤백).
       await tx.asset.update({
-        where: { id: u.id },
+        where: { id: u.id, substationId },
         data: {
           assetTypeId: p.assetTypeId as string | undefined,
           name: p.name as string | undefined,
@@ -273,7 +289,8 @@ async function run(
     const m = input.rackModules;
 
     if (m.deletes.length) {
-      await tx.asset.deleteMany({ where: { id: { in: m.deletes.map((d) => d.id) } } });
+      // C1: 랙 모듈도 Asset 행이므로 substationId 로 스코핑.
+      await tx.asset.deleteMany({ where: { id: { in: m.deletes.map((d) => d.id) }, substationId } });
     }
 
     // 슬롯 충돌 검사용 live 슬롯 추적 (랙별). 초기: 관련 랙의 DB 잔존 모듈.
@@ -325,15 +342,26 @@ async function run(
       if (rackId && p.categoryId) {
         await assertRackParentValid(tx, rackId, p.categoryId as string);
       }
-      if (p.slotIndex !== undefined && p.slotSpan !== undefined) {
-        assertSlotValid(p.slotIndex as number, p.slotSpan as number);
-        if (rackId) {
-          const arr = await ensureLive(rackId);
-          assertNoSlotCollision(p.slotIndex as number, p.slotSpan as number, arr, [u.id]);
+      // W1: 부분 패치(slotIndex 또는 slotSpan 또는 부모만)도 검증되도록 현재 행에
+      //     패치를 병합한 값으로 슬롯 유효성·충돌을 검사.
+      const touchesSlot =
+        p.slotIndex !== undefined || p.slotSpan !== undefined || p.rackEquipmentId !== undefined;
+      if (touchesSlot) {
+        const cur = await tx.asset.findUnique({
+          where: { id: u.id },
+          select: { parentAssetId: true, slotIndex: true, slotSpan: true },
+        });
+        const mergedRackId = rackId ?? cur?.parentAssetId ?? null;
+        const mergedSlotIndex = (p.slotIndex as number | undefined) ?? cur?.slotIndex ?? 0;
+        const mergedSlotSpan = (p.slotSpan as number | undefined) ?? cur?.slotSpan ?? 1;
+        assertSlotValid(mergedSlotIndex, mergedSlotSpan);
+        if (mergedRackId) {
+          const arr = await ensureLive(mergedRackId);
+          assertNoSlotCollision(mergedSlotIndex, mergedSlotSpan, arr, [u.id]);
         }
       }
       await tx.asset.update({
-        where: { id: u.id },
+        where: { id: u.id, substationId },
         data: {
           parentAssetId: rackId,
           assetTypeId: p.categoryId as string | undefined,
@@ -362,7 +390,10 @@ async function run(
     const dc = input.distributionCircuits;
 
     if (dc.deletes.length) {
-      await tx.distributionCircuit.deleteMany({ where: { id: { in: dc.deletes.map((d) => d.id) } } });
+      // C1: 부모 분전반 asset 의 substationId 로 스코핑.
+      await tx.distributionCircuit.deleteMany({
+        where: { id: { in: dc.deletes.map((d) => d.id) }, distribution: { substationId } },
+      });
     }
 
     for (const c of dc.creates) {
@@ -411,7 +442,13 @@ async function run(
     const fp = input.fiberPaths;
 
     if (fp.deletes.length) {
-      await tx.fiberPath.deleteMany({ where: { id: { in: fp.deletes.map((d) => d.id) } } });
+      // C1: OFD endpoint asset 의 substationId 로 스코핑.
+      await tx.fiberPath.deleteMany({
+        where: {
+          id: { in: fp.deletes.map((d) => d.id) },
+          OR: [{ ofdA: { substationId } }, { ofdB: { substationId } }],
+        },
+      });
     }
 
     for (const c of fp.creates) {
@@ -461,7 +498,20 @@ async function run(
     const cab = input.cables;
 
     if (cab.deletes.length) {
-      await tx.cable.deleteMany({ where: { id: { in: cab.deletes.map((d) => d.id) } } });
+      // C1: endpoint asset/회로의 substationId 로 스코핑.
+      await tx.cable.deleteMany({
+        where: {
+          id: { in: cab.deletes.map((d) => d.id) },
+          OR: [
+            { sourceEquipment: { substationId } },
+            { targetEquipment: { substationId } },
+            { sourceModule: { substationId } },
+            { targetModule: { substationId } },
+            { sourceCircuit: { distribution: { substationId } } },
+            { targetCircuit: { distribution: { substationId } } },
+          ],
+        },
+      });
     }
 
     for (const c of cab.creates) {

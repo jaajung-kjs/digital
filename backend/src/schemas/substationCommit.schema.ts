@@ -69,7 +69,7 @@ const cableCreate = z.object({
   tempId: z.string(),
   source: cableEndpoint,
   target: cableEndpoint,
-  cableType: z.string(),
+  cableType: z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']),
   label: z.string().nullable().optional(),
   length: z.number().nullable().optional(),
   color: z.string().nullable().optional(),
