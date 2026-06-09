@@ -82,7 +82,16 @@ function AssetRow({
   );
 }
 
-export function NodeStatusView({ nodeType, nodeId }: { nodeType: NodeKind; nodeId: string }) {
+export function NodeStatusView({
+  nodeType,
+  nodeId,
+  onRowClick,
+}: {
+  nodeType: NodeKind;
+  nodeId: string;
+  /** 행 클릭 동작 재정의(예: 홈에서 변전소 워크스페이스로 드릴). 없으면 공유 선택을 설정. */
+  onRowClick?: (item: AssetListItem) => void;
+}) {
   const { data: items = [] } = useNodeAssets(nodeType, nodeId);
   const { data: stats } = useNodeStats(nodeType, nodeId);
   const today = useMemo(() => new Date(), []);
@@ -129,7 +138,7 @@ export function NodeStatusView({ nodeType, nodeId }: { nodeType: NodeKind; nodeI
       key={item.id}
       item={item}
       today={today}
-      onSelect={() => sel?.setSelectedAssetId(item.id)}
+      onSelect={() => (onRowClick ? onRowClick(item) : sel?.setSelectedAssetId(item.id))}
       onGotoFloor={item.floorId ? () => gotoFloor(item) : undefined}
     />
   );
