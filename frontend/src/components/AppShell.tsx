@@ -28,7 +28,7 @@ export function AppShell() {
       <header className="shrink-0 h-12 flex items-center gap-3 px-3 border-b border-gray-200 bg-white">
         <button
           onClick={toggle}
-          aria-label="트리 접기"
+          aria-label={collapsed ? '트리 펼치기' : '트리 접기'}
           className="text-gray-500 hover:text-gray-800 px-1 text-lg"
         >
           ☰
@@ -56,9 +56,11 @@ export function AppShell() {
       </header>
       <div className="flex-1 min-h-0 flex">
         <nav
-          className={`${collapsed ? 'w-0' : 'w-72'} shrink-0 border-r border-gray-200 overflow-auto transition-[width] duration-150`}
+          className={`${collapsed ? 'w-0' : 'w-72'} shrink-0 border-r border-gray-200 overflow-hidden transition-[width] duration-150`}
         >
-          {!collapsed && <TreePanel />}
+          <div className="w-72">
+            <TreePanel />
+          </div>
         </nav>
         <main className="flex-1 min-h-0 relative">
           <Outlet />
