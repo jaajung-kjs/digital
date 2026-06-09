@@ -170,24 +170,39 @@ const conns = [
   { id: 'c1', source: { equipmentId: 'A', moduleId: null, name: '장비A' },
     target: { equipmentId: 'B', moduleId: null, name: '장비B' }, cableType: 'LAN', label: 'L1', length: null },
 ] as any;
+const noop = { onDelete: vi.fn(), onUpdate: vi.fn(), onSelectAsset: vi.fn() };
 
 describe('AssetConnectionsSection', () => {
   it('상대(target) 이름·유형 표시 — 이 자산이 source(A)', () => {
-    render(<AssetConnectionsSection assetId="A" connections={conns} onDelete={vi.fn()} onSelectAsset={vi.fn()} />);
+    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} />);
     expect(screen.getByText(/장비B/)).toBeInTheDocument();
-    expect(screen.getByText(/LAN/)).toBeInTheDocument();
+    expect((screen.getByLabelText('유형') as HTMLSelectElement).value).toBe('LAN');
   });
   it('상대 이름 클릭 → onSelectAsset(상대 id)', () => {
     const onSelectAsset = vi.fn();
-    render(<AssetConnectionsSection assetId="A" connections={conns} onDelete={vi.fn()} onSelectAsset={onSelectAsset} />);
+    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} onSelectAsset={onSelectAsset} />);
     fireEvent.click(screen.getByText(/장비B/));
     expect(onSelectAsset).toHaveBeenCalledWith('B');
   });
   it('삭제 → onDelete(cableId)', () => {
     const onDelete = vi.fn();
-    render(<AssetConnectionsSection assetId="A" connections={conns} onDelete={onDelete} onSelectAsset={vi.fn()} />);
+    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} onDelete={onDelete} />);
     fireEvent.click(screen.getByLabelText('연결 삭제'));
     expect(onDelete).toHaveBeenCalledWith('c1');
+  });
+  it('유형 변경 → onUpdate(cableType)', () => {
+    const onUpdate = vi.fn();
+    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} onUpdate={onUpdate} />);
+    fireEvent.change(screen.getByLabelText('유형'), { target: { value: 'DC' } });
+    expect(onUpdate).toHaveBeenCalledWith('c1', { cableType: 'DC' });
+  });
+  it('라벨 변경(blur) → onUpdate(label)', () => {
+    const onUpdate = vi.fn();
+    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} onUpdate={onUpdate} />);
+    const input = screen.getByLabelText('라벨') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'L2' } });
+    fireEvent.blur(input);
+    expect(onUpdate).toHaveBeenCalledWith('c1', { label: 'L2' });
   });
 });
 ```
@@ -204,12 +219,14 @@ interface Props {
   assetId: string;
   connections: Conn[];
   onDelete: (cableId: string) => void;
+  onUpdate: (cableId: string, patch: { label?: string | null; cableType?: string }) => void;
   onSelectAsset: (assetId: string) => void;
 }
 
 const epId = (e: Endpoint) => e.equipmentId ?? e.moduleId;
+const TYPES = ['AC', 'DC', 'LAN', 'FIBER', 'GROUND'];
 
-export function AssetConnectionsSection({ assetId, connections, onDelete, onSelectAsset }: Props) {
+export function AssetConnectionsSection({ assetId, connections, onDelete, onUpdate, onSelectAsset }: Props) {
   if (!connections.length) return <p className="text-xs text-gray-400">연결 없음</p>;
   return (
     <div className="space-y-0.5">
@@ -224,8 +241,13 @@ export function AssetConnectionsSection({ assetId, connections, onDelete, onSele
               onClick={() => otherId && onSelectAsset(otherId)}>
               {other.name}
             </button>
-            <span className="text-xs text-gray-500 shrink-0">{c.cableType}</span>
-            {c.label && <span className="text-xs text-gray-400 shrink-0">{c.label}</span>}
+            <select aria-label="유형" value={c.cableType} onChange={(e) => onUpdate(c.id, { cableType: e.target.value })}
+              className="text-xs border border-gray-200 rounded px-1 py-0.5 shrink-0">
+              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+            <input aria-label="라벨" defaultValue={c.label ?? ''}
+              onBlur={(e) => { const v = e.target.value || null; if (v !== c.label) onUpdate(c.id, { label: v }); }}
+              className="w-16 text-xs border border-gray-200 rounded px-1 py-0.5 shrink-0" placeholder="라벨" />
             <button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-gray-300 hover:text-red-500 shrink-0">✕</button>
           </div>
         );
@@ -234,14 +256,14 @@ export function AssetConnectionsSection({ assetId, connections, onDelete, onSele
   );
 }
 ```
-(메타편집(라벨/유형 인라인)은 최소 버전에선 생략 가능 — 삭제 + 상대선택이 핵심. 필요 시 인라인 input 추가는 후속.)
+> 라벨 input 은 `defaultValue`(uncontrolled) — 부모(AssetDetailPanel)가 `key={asset.id}` 로 remount 하므로 자산 전환 시 리셋됨(기존 패턴). connections 데이터 변경 시 정렬 안정성을 위해 row `key={c.id}`.
 
 - [ ] **Step 4: AssetDetailPanel 에 섹션 추가**
 
 In `AssetDetailPanel.tsx`: import `useAssetConnections`, `useCableMutations`, `AssetConnectionsSection`, `useSelection`(from workspace SelectionContext). Add a "연결" section (below 생애주기/속성, above/below 사진):
 ```tsx
 const { data: connections = [] } = useAssetConnections(asset.id);
-const { deleteCable } = useCableMutations();
+const { deleteCable, updateCable } = useCableMutations();
 const sel = useSelection();
 // ...in JSX, a labeled section:
 <section>
@@ -250,6 +272,7 @@ const sel = useSelection();
     assetId={asset.id}
     connections={connections}
     onDelete={(id) => deleteCable.mutate(id)}
+    onUpdate={(id, patch) => updateCable.mutate({ id, patch })}
     onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
   />
 </section>
@@ -262,7 +285,7 @@ const sel = useSelection();
 ```bash
 cd /Users/jsk/1210/digital
 git add frontend/src/features/connections/components/AssetConnectionsSection.tsx frontend/src/features/connections/components/AssetConnectionsSection.test.tsx frontend/src/features/assets/components/AssetDetailPanel.tsx
-git commit -m "feat(connections): 상세 패널 연결 섹션(상대·유형·삭제·공유선택)"
+git commit -m "feat(connections): 상세 패널 연결 섹션(상대·유형·라벨 수정·삭제·공유선택)"
 ```
 
 ---
@@ -284,16 +307,24 @@ const conns = [
   { id: 'c2', source: { equipmentId: 'C', moduleId: null, name: '장비C' }, target: { equipmentId: 'D', moduleId: null, name: '장비D' }, cableType: 'DC', label: null, length: null },
 ] as any;
 
+const noop = { onDelete: vi.fn(), onUpdate: vi.fn(), onSelectAsset: vi.fn() };
+
 describe('SubstationConnectionsTable', () => {
   it('전체 연결 렌더', () => {
-    render(<SubstationConnectionsTable connections={conns} typeFilter="" onDelete={vi.fn()} onSelectAsset={vi.fn()} />);
+    render(<SubstationConnectionsTable connections={conns} typeFilter="" {...noop} />);
     expect(screen.getByText('장비A')).toBeInTheDocument();
     expect(screen.getByText('장비D')).toBeInTheDocument();
   });
   it('유형 필터 적용', () => {
-    render(<SubstationConnectionsTable connections={conns} typeFilter="LAN" onDelete={vi.fn()} onSelectAsset={vi.fn()} />);
+    render(<SubstationConnectionsTable connections={conns} typeFilter="LAN" {...noop} />);
     expect(screen.getByText('장비A')).toBeInTheDocument();
     expect(screen.queryByText('장비C')).not.toBeInTheDocument();
+  });
+  it('유형 변경 → onUpdate', () => {
+    const onUpdate = vi.fn();
+    render(<SubstationConnectionsTable connections={[conns[0]]} typeFilter="" {...noop} onUpdate={onUpdate} />);
+    fireEvent.change(screen.getByLabelText('유형'), { target: { value: 'DC' } });
+    expect(onUpdate).toHaveBeenCalledWith('c1', { cableType: 'DC' });
   });
 });
 ```
@@ -313,8 +344,13 @@ interface Endpoint { equipmentId: string | null; moduleId: string | null; name: 
 interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; length: number | null }
 const epId = (e: Endpoint) => e.equipmentId ?? e.moduleId;
 
-export function SubstationConnectionsTable({ connections, typeFilter, onDelete, onSelectAsset }: {
-  connections: Conn[]; typeFilter: string; onDelete: (id: string) => void; onSelectAsset: (id: string) => void;
+const EDIT_TYPES = ['AC', 'DC', 'LAN', 'FIBER', 'GROUND'];
+
+export function SubstationConnectionsTable({ connections, typeFilter, onDelete, onUpdate, onSelectAsset }: {
+  connections: Conn[]; typeFilter: string;
+  onDelete: (id: string) => void;
+  onUpdate: (id: string, patch: { label?: string | null; cableType?: string }) => void;
+  onSelectAsset: (id: string) => void;
 }) {
   const rows = typeFilter ? connections.filter((c) => c.cableType === typeFilter) : connections;
   if (!rows.length) return <p className="p-4 text-sm text-gray-400">연결 없음</p>;
@@ -328,8 +364,17 @@ export function SubstationConnectionsTable({ connections, typeFilter, onDelete, 
           <tr key={c.id} className="border-b hover:bg-gray-50">
             <td className="p-2"><button className="text-blue-700 hover:underline" onClick={() => epId(c.source) && onSelectAsset(epId(c.source)!)}>{c.source.name}</button></td>
             <td className="p-2"><button className="text-blue-700 hover:underline" onClick={() => epId(c.target) && onSelectAsset(epId(c.target)!)}>{c.target.name}</button></td>
-            <td className="p-2 text-gray-600">{c.cableType}</td>
-            <td className="p-2 text-gray-500">{c.label ?? '-'}</td>
+            <td className="p-2">
+              <select aria-label="유형" value={c.cableType} onChange={(e) => onUpdate(c.id, { cableType: e.target.value })}
+                className="text-xs border border-gray-200 rounded px-1 py-0.5">
+                {EDIT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </td>
+            <td className="p-2">
+              <input aria-label="라벨" defaultValue={c.label ?? ''} key={c.id + (c.label ?? '')}
+                onBlur={(e) => { const v = e.target.value || null; if (v !== c.label) onUpdate(c.id, { label: v }); }}
+                className="w-20 text-xs border border-gray-200 rounded px-1 py-0.5" placeholder="-" />
+            </td>
             <td className="p-2 text-gray-500">{c.length ?? '-'}</td>
             <td className="p-2"><button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-gray-300 hover:text-red-500">✕</button></td>
           </tr>
@@ -343,7 +388,7 @@ const TYPES = ['', 'AC', 'DC', 'LAN', 'FIBER', 'GROUND'];
 
 export function SubstationConnectionsView({ substationId }: { substationId: string }) {
   const { data: connections = [] } = useSubstationConnections(substationId);
-  const { deleteCable } = useCableMutations();
+  const { deleteCable, updateCable } = useCableMutations();
   const sel = useSelection();
   const [typeFilter, setTypeFilter] = useState('');
   return (
@@ -358,6 +403,7 @@ export function SubstationConnectionsView({ substationId }: { substationId: stri
       <SubstationConnectionsTable
         connections={connections} typeFilter={typeFilter}
         onDelete={(id) => deleteCable.mutate(id)}
+        onUpdate={(id, patch) => updateCable.mutate({ id, patch })}
         onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
       />
     </div>
@@ -371,7 +417,7 @@ export function SubstationConnectionsView({ substationId }: { substationId: stri
 ```bash
 cd /Users/jsk/1210/digital
 git add frontend/src/features/connections/components/SubstationConnectionsView.tsx frontend/src/features/connections/components/SubstationConnectionsView.test.tsx
-git commit -m "feat(connections): 변전소 연결 뷰(표·유형필터·삭제·공유선택)"
+git commit -m "feat(connections): 변전소 연결 뷰(표·필터·메타수정·삭제·공유선택)"
 ```
 
 ---
@@ -406,8 +452,8 @@ git commit -m "feat(workspace): '연결' 뷰를 뷰 레지스트리에 추가(�
 - [ ] 수동(dev): ① 현황에서 연결된 장비 선택 → 상세 패널 "연결"에 상대·유형 표시. ② 삭제 즉시 반영. ③ 워크스페이스 "연결" 뷰 → 전체 케이블 표·유형 필터. ④ 연결 상대 클릭 → 공유 선택(배치도 전환 시 그 장비). ⑤ 캔버스 케이블 편집 회귀 없음.
 
 ## 완료 기준 (spec §6)
-- [ ] 현황 상세 패널 연결 섹션(상대·유형·삭제·공유선택)
-- [ ] 변전소 "연결" 뷰(표·필터·삭제)
+- [ ] 현황 상세 패널 연결 섹션(상대·유형·라벨 수정·삭제·공유선택)
+- [ ] 변전소 "연결" 뷰(표·필터·메타수정·삭제)
 - [ ] 백엔드 조회 2개 + /cables 편집 재사용, 캔버스 회귀 없음
 
 ## 이후
