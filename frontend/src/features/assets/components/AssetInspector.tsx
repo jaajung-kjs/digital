@@ -7,6 +7,7 @@ import { AssetLifecycleView } from './AssetLifecycleView';
 import { useAssetConnections } from '../../connections/hooks/useAssetConnections';
 import { useCableMutations } from '../../connections/hooks/useCableMutations';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
+import { CollapsibleSection } from '../../../components/CollapsibleSection';
 
 interface Props {
   asset: Asset;
@@ -91,19 +92,23 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, onGotoRegi
         />
       </section>
 
-      <section className="px-4 py-3 border-t border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-700 mb-1">연결</h3>
-        <AssetConnectionsSection
-          assetId={asset.id}
-          connections={connections}
-          onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) deleteCable.mutate(id); }}
-          onUpdate={(id, p) => updateCable.mutate({ id, patch: p })}
-          onSelectAsset={onSelectAsset}
-        />
-      </section>
-
-      <AssetPhotoSection assetId={asset.id} />
-      <AssetMaintenanceSection assetId={asset.id} />
+      <div className="px-4">
+        <CollapsibleSection title="사진">
+          <AssetPhotoSection assetId={asset.id} />
+        </CollapsibleSection>
+        <CollapsibleSection title="유지보수">
+          <AssetMaintenanceSection assetId={asset.id} />
+        </CollapsibleSection>
+        <CollapsibleSection title="연결" badge={connections.length || undefined}>
+          <AssetConnectionsSection
+            assetId={asset.id}
+            connections={connections}
+            onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) deleteCable.mutate(id); }}
+            onUpdate={(id, p) => updateCable.mutate({ id, patch: p })}
+            onSelectAsset={onSelectAsset}
+          />
+        </CollapsibleSection>
+      </div>
     </>
   );
 }
