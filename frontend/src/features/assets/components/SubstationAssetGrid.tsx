@@ -15,6 +15,7 @@ import { AssetDetailPanel } from './AssetDetailPanel';
 import { ConflictDialog } from '../../workingCopy/ConflictDialog';
 import { assetAlert } from '../alerts';
 import { buildCsv, downloadCsv } from '../exportCsv';
+import { useSelection } from '../../workspace/SelectionContext';
 
 const ASSET_DESCRIPTOR: CollectionDescriptor<Asset, Partial<Asset>> = {
   name: 'assets',
@@ -52,7 +53,10 @@ export function SubstationAssetGrid({ substationId }: Props) {
   const [filterTypeId, setFilterTypeId] = useState<string>('');
   const [newTypeId, setNewTypeId] = useState<string>('');
   const [newName, setNewName] = useState<string>('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const sel = useSelection();
+  const [localSelected, setLocalSelected] = useState<string | null>(null);
+  const selectedId = sel ? sel.selectedAssetId : localSelected;
+  const setSelectedId = sel ? sel.setSelectedAssetId : setLocalSelected;
   const [alertOnly, setAlertOnly] = useState(false);
   const [conflicts, setConflicts] = useState<{ id: string; name?: string }[] | null>(null);
   const [committing, setCommitting] = useState(false);
