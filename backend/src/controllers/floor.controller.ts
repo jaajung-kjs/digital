@@ -142,4 +142,51 @@ export const floorController = {
       next(error);
     }
   },
+
+  /**
+   * POST /api/floors/:id/work-orders
+   * 커밋된 설계서를 작업지시서로 아카이브 (관리자만).
+   */
+  async createWorkOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { report, overrides, summary } = req.body;
+      const result = await floorService.createWorkOrder(
+        id,
+        { report, overrides, summary },
+        { userId: req.user?.userId, userName: req.user?.username },
+      );
+      res.status(201).json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /api/floors/:id/work-orders
+   * 작업지시서 이력 목록.
+   */
+  async getWorkOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const list = await floorService.getWorkOrders(id);
+      res.json({ data: list });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /api/floors/:id/work-orders/:workOrderId
+   * 작업지시서 상세 (아카이브된 설계서 전체).
+   */
+  async getWorkOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id, workOrderId } = req.params;
+      const result = await floorService.getWorkOrder(id, workOrderId);
+      res.json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

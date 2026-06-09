@@ -14,6 +14,7 @@ interface ToolbarProps {
   floorPlan: FloorPlanDetail | undefined;
   isAdmin: boolean;
   onToggleHistory?: () => void;
+  onToggleWorkOrders?: () => void;
   onToggleReport?: () => void;
   onToggleSettings?: () => void;
   onToggleLayers?: () => void;
@@ -21,7 +22,7 @@ interface ToolbarProps {
   onImportClick?: () => void;
 }
 
-export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleReport, onToggleSettings, onToggleLayers, onImportClick }: ToolbarProps) {
+export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleWorkOrders, onToggleReport, onToggleSettings, onToggleLayers, onImportClick }: ToolbarProps) {
   const showLengths = useEditorStore((s) => s.showLengths);
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
@@ -190,6 +191,16 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleRe
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
+            </button>
+          )}
+
+          {onToggleWorkOrders && (
+            <button onClick={onToggleWorkOrders} className="p-2 hover:bg-gray-100 rounded-lg flex items-center gap-1 text-xs text-gray-600" title="작업지시서 이력">
+              {/* Archive / document-stack icon */}
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8M10 12h4" />
+              </svg>
+              <span>이력</span>
             </button>
           )}
         </div>

@@ -446,6 +446,94 @@ class FloorService {
     if (!log) throw new NotFoundError('변경 이력');
     await prisma.auditLog.delete({ where: { id: logId } });
   }
+
+  // ==================== Work Orders (작업지시서 아카이브) ====================
+  // #3 Task 3 — 커밋 시 활성 층 설계서를 작업지시서로 아카이브한다.
+  // AuditLog 재사용: entityType='Floor', action='WORK_ORDER',
+  // context = { constructionReport, reportOverrides?, summary? }. 버전 스냅샷
+  // (actionDetail='v{n}', newValues) 과 같은 테이블이지만 action 으로 구분된다.
+
+  /** 커밋 후 계산된 설계서를 작업지시서 AuditLog 행으로 아카이브한다. */
+  async createWorkOrder(
+    floorId: string,
+    input: {
+      report: Record<string, unknown>;
+      overrides?: Record<string, unknown>;
+      summary?: Record<string, unknown>;
+    },
+    user?: { userId?: string; userName?: string },
+  ) {
+    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
+    if (!floor) throw new NotFoundError('층');
+
+    const context: Record<string, unknown> = {
+      constructionReport: input.report,
+    };
+    if (input.overrides) context.reportOverrides = input.overrides;
+    if (input.summary) context.summary = input.summary;
+
+    const created = await prisma.auditLog.create({
+      data: {
+        entityType: 'Floor',
+        entityId: floorId,
+        entityName: floor.name,
+        action: 'WORK_ORDER',
+        context: context as Prisma.InputJsonValue,
+        userId: user?.userId ?? null,
+        userName: user?.userName ?? null,
+      },
+      select: { id: true, createdAt: true, userName: true, context: true },
+    });
+
+    return {
+      id: created.id,
+      createdAt: created.createdAt,
+      userName: created.userName,
+      summary: (created.context as Record<string, unknown>)?.summary ?? null,
+    };
+  }
+
+  /** 작업지시서 목록 — 메타데이터만(설계서 본문은 상세 조회로). */
+  async getWorkOrders(floorId: string) {
+    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
+    if (!floor) throw new NotFoundError('층');
+
+    const logs = await prisma.auditLog.findMany({
+      where: { entityType: 'Floor', entityId: floorId, action: 'WORK_ORDER' },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true, userName: true, context: true },
+    });
+
+    return logs.map((l) => ({
+      id: l.id,
+      createdAt: l.createdAt,
+      userName: l.userName,
+      summary: (l.context as Record<string, unknown>)?.summary ?? null,
+    }));
+  }
+
+  /** 작업지시서 상세 — 아카이브된 설계서(ConstructionReport) 전체. */
+  async getWorkOrder(floorId: string, workOrderId: string) {
+    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
+    if (!floor) throw new NotFoundError('층');
+
+    const log = await prisma.auditLog.findFirst({
+      where: { id: workOrderId, entityType: 'Floor', entityId: floorId, action: 'WORK_ORDER' },
+      select: { id: true, createdAt: true, userName: true, context: true },
+    });
+    if (!log) throw new NotFoundError('작업지시서');
+
+    const ctx = (log.context as Record<string, unknown>) ?? {};
+    return {
+      id: log.id,
+      createdAt: log.createdAt,
+      userName: log.userName,
+      context: ctx,
+      constructionReport: ctx.constructionReport ?? null,
+      reportOverrides: ctx.reportOverrides ?? null,
+      summary: ctx.summary ?? null,
+    };
+  }
 }
 
 export const floorService = new FloorService();
