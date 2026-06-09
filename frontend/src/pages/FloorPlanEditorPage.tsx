@@ -14,14 +14,14 @@ export function FloorPlanEditorPage() {
 
   if (!floorId) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center h-full">
         <p className="text-gray-500">Floor ID가 필요합니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="h-screen">
+    <div className="h-full">
       <FloorPlanEditor floorId={floorId} />
     </div>
   );
