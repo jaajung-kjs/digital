@@ -25,10 +25,10 @@ describe('AssetInspector', () => {
     fireEvent.blur(input);
     expect(onPatch).toHaveBeenCalledWith('a1', { attributes: { model: 'Y' } });
   });
-  it('view 모드: "대장에서 편집" → onGotoRegister', () => {
+  it('view 모드: "수정" → onGotoRegister', () => {
     const onGotoRegister = vi.fn();
     wrap(<AssetInspector asset={asset} mode="view" onSelectAsset={vi.fn()} onGotoRegister={onGotoRegister} today={today} />);
-    fireEvent.click(screen.getByText('대장에서 편집'));
+    fireEvent.click(screen.getByText('수정'));
     expect(onGotoRegister).toHaveBeenCalledWith('a1');
   });
 });

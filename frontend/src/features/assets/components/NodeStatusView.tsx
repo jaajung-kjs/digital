@@ -24,10 +24,7 @@ function AssetRow({
   onSelect: () => void;
   onGotoFloor?: () => void;
 }) {
-  const alert = assetAlert(
-    { warrantyUntil: item.warrantyUntil, replaceDue: item.replaceDue } as Parameters<typeof assetAlert>[0],
-    today,
-  );
+  const alert = assetAlert({ installDate: item.installDate }, today);
   const insp = inspectionState(item.lastMaintenanceDate, today);
   const inspClass =
     insp.level === 'none' ? 'text-gray-400' : insp.level === 'overdue' ? 'text-orange-600 font-medium' : '';
@@ -46,11 +43,7 @@ function AssetRow({
         <span className="inline-flex items-center gap-1.5">
           {item.name}
           {alert && (
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded ${
-                alert.kind === 'warranty' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-              }`}
-            >
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">
               {alert.label}
             </span>
           )}

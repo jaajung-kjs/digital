@@ -27,7 +27,7 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
           <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: asset.assetType.displayColor ?? '#94a3b8' }} />
           <span className="text-sm font-semibold truncate">{asset.name}</span>
           <span className="text-xs text-gray-400 shrink-0">{asset.assetType.name}</span>
-          {alert && <span className="text-xs px-1.5 rounded bg-amber-100 text-amber-700 shrink-0" title={`${alert.label} (${alert.date})`}>⚠ {alert.label}</span>}
+          {alert && <span className="text-xs px-1.5 rounded bg-amber-100 text-amber-700 shrink-0" title={alert.label}>⚠ {alert.label}</span>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {asset.floorId ? (

@@ -1,25 +1,26 @@
-import type { Asset } from '../../types/asset';
+/**
+ * 설치 후 경과 연수가 임계치를 넘으면 교체 검토 경고.
+ * 변전소 설비의 통상적 교체 주기(약 20년)를 기준으로 한다. 필요 시 조정.
+ */
+export const INSTALL_AGE_ALERT_YEARS = 20;
 
 export interface AssetAlert {
-  kind: 'warranty' | 'replace';
+  kind: 'replace';
   label: string;
-  date: string;
+  /** 설치 후 경과 연수(floor). */
+  years: number;
 }
 
-const WARRANTY_MONTHS_AHEAD = 6;
-
-/** 하자보수기한 임박(N개월 이내) 또는 교체예정 도래/경과 시 경고. 둘 다면 warranty 우선. */
-export function assetAlert(asset: Asset, today: Date): AssetAlert | null {
-  if (asset.warrantyUntil) {
-    const w = new Date(asset.warrantyUntil);
-    if (w < today) return { kind: 'warranty', label: '하자보수 만료', date: asset.warrantyUntil };
-    const threshold = new Date(today);
-    threshold.setMonth(threshold.getMonth() + WARRANTY_MONTHS_AHEAD);
-    if (w <= threshold) return { kind: 'warranty', label: '하자보수 임박', date: asset.warrantyUntil };
-  }
-  if (asset.replaceDue) {
-    const r = new Date(asset.replaceDue);
-    if (r <= today) return { kind: 'replace', label: '교체 도래', date: asset.replaceDue };
+/** installDate 가 INSTALL_AGE_ALERT_YEARS 년 이상 경과하면 경고. */
+export function assetAlert(asset: { installDate: string | null }, today: Date): AssetAlert | null {
+  if (!asset.installDate) return null;
+  const installed = new Date(asset.installDate);
+  if (Number.isNaN(installed.getTime())) return null;
+  const years = Math.floor(
+    (today.getTime() - installed.getTime()) / (365.25 * 24 * 60 * 60 * 1000),
+  );
+  if (years >= INSTALL_AGE_ALERT_YEARS) {
+    return { kind: 'replace', label: `설치 ${years}년 경과`, years };
   }
   return null;
 }
