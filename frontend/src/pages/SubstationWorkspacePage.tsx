@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FloorPlanEditor } from '../features/editor/components/FloorPlanEditor';
 import { SubstationAssetGrid } from '../features/assets/components/SubstationAssetGrid';
+import { SubstationConnectionsView } from '../features/connections/components/SubstationConnectionsView';
 import { WorkspaceNavContext, type WorkspaceNav } from '../features/workspace/WorkspaceNavContext';
 import { SelectionContext } from '../features/workspace/SelectionContext';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
@@ -10,6 +11,7 @@ import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
 const VIEWS = [
   { key: 'register', label: '표' },
   { key: 'plan', label: '배치도' },
+  { key: 'connections', label: '연결' },
 ] as const;
 type ViewKey = (typeof VIEWS)[number]['key'];
 
@@ -20,7 +22,7 @@ export function SubstationWorkspacePage() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
   const rawView = searchParams.get('view') ?? (searchParams.get('tab') === 'plan' ? 'plan' : null);
-  const view: ViewKey = rawView === 'plan' ? 'plan' : 'register';
+  const view: ViewKey = rawView === 'plan' ? 'plan' : rawView === 'connections' ? 'connections' : 'register';
   const floorParam = searchParams.get('floor');
   const selectedFloorId = floorParam ?? floors[0]?.id ?? null;
 
@@ -79,6 +81,8 @@ export function SubstationWorkspacePage() {
               ) : (
                 <div className="p-6 text-sm text-gray-500">등록된 층이 없습니다.</div>
               )
+            ) : view === 'connections' ? (
+              <SubstationConnectionsView substationId={substationId} />
             ) : (
               <SubstationAssetGrid substationId={substationId} />
             )}
