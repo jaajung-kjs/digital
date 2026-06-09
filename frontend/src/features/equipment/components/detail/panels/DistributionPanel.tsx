@@ -7,7 +7,7 @@ import {
   groupCircuitsByFeeder,
   type DistributionCircuit,
 } from '../../../../../types/distributionCircuit';
-import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
+import { EditorInspectorPanel } from './EditorInspectorPanel';
 
 interface PanelProps {
   equipmentId: string;
@@ -15,13 +15,10 @@ interface PanelProps {
 
 export function DistributionPanel({ equipmentId }: PanelProps) {
   return (
-    <BaseEquipmentTabsPanel
+    <EditorInspectorPanel
       equipmentId={equipmentId}
-      defaultTabIndex={4}
-      fifthTab={{
-        label: '회로',
-        render: () => <DistributionCircuits equipmentId={equipmentId} />,
-      }}
+      spatialLabel="회로"
+      spatial={<DistributionCircuits equipmentId={equipmentId} />}
     />
   );
 }
@@ -42,7 +39,7 @@ function nextBranchName(branches: DistributionCircuit[]): string {
  * 의 EmptySlot/ModuleCell 클릭 인터랙션 톤을 차용 — 칸 클릭=계통 추적,
  * +칸 클릭=분기 즉시 추가.
  */
-function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
+export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const snapshotActive = useSnapshotStore((s) => s.active);
   const allCircuits = useEditorStore((s) => s.localDistributionCircuits);
   const localCables = useEditorStore((s) => s.localCables);

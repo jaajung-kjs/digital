@@ -1,9 +1,9 @@
-import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
+import { EditorInspectorPanel } from './EditorInspectorPanel';
 
 interface PanelProps {
   equipmentId: string;
 }
 
 export function HvacPanel({ equipmentId }: PanelProps) {
-  return <BaseEquipmentTabsPanel equipmentId={equipmentId} />;
+  return <EditorInspectorPanel equipmentId={equipmentId} />;
 }

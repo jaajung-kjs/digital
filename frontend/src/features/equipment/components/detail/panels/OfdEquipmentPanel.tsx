@@ -4,7 +4,7 @@ import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { FiberPathManager } from '../../../../fiber/components/FiberPathManager';
 import { PathTraceDetail } from '../../../../pathTrace/components/PathTraceDetail';
 import { startOfdCableDrawing } from '../../../../fiber/startOfdCableDrawing';
-import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
+import { EditorInspectorPanel } from './EditorInspectorPanel';
 
 interface PanelProps {
   equipmentId: string;
@@ -12,17 +12,16 @@ interface PanelProps {
 
 export function OfdEquipmentPanel({ equipmentId }: PanelProps) {
   return (
-    <BaseEquipmentTabsPanel
+    <EditorInspectorPanel
       equipmentId={equipmentId}
-      fourthTab={{
-        label: '경로',
-        render: () => <OfdPathsView equipmentId={equipmentId} />,
-      }}
+      spatialLabel="경로"
+      snapshotSlot="fourth"
+      spatial={<OfdPathsView equipmentId={equipmentId} />}
     />
   );
 }
 
-function OfdPathsView({ equipmentId }: { equipmentId: string }) {
+export function OfdPathsView({ equipmentId }: { equipmentId: string }) {
   const navigate = useNavigate();
   const snapshotActive = useSnapshotStore((s) => s.active);
   const deleteCable = useEditorStore((s) => s.deleteCable);
