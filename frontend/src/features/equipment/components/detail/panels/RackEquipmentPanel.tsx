@@ -2,7 +2,7 @@ import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { RackView } from '../../../../editor/components/RackView';
 import { SnapshotRackView } from '../SnapshotRackView';
 import { PresetActionsBar } from '../../../../rack/components/PresetActionsBar';
-import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
+import { EditorInspectorPanel } from './EditorInspectorPanel';
 
 interface PanelProps {
   equipmentId: string;
@@ -10,18 +10,15 @@ interface PanelProps {
 
 export function RackEquipmentPanel({ equipmentId }: PanelProps) {
   return (
-    <BaseEquipmentTabsPanel
+    <EditorInspectorPanel
       equipmentId={equipmentId}
-      defaultTabIndex={4}
-      fifthTab={{
-        label: '내부 설비',
-        render: () => <RackInternal equipmentId={equipmentId} />,
-      }}
+      spatialLabel="내부 설비"
+      spatial={<RackInternal equipmentId={equipmentId} />}
     />
   );
 }
 
-function RackInternal({ equipmentId }: { equipmentId: string }) {
+export function RackInternal({ equipmentId }: { equipmentId: string }) {
   const snapshotActive = useSnapshotStore((s) => s.active);
   if (snapshotActive) return <SnapshotRackView equipmentId={equipmentId} />;
   return (
