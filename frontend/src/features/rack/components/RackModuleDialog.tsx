@@ -1,8 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks';
+import { assetToRackModule } from '../../workingCopy/assetToRackModule';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
 import { toDateInputValue } from '../../../utils/date';
 import type { RackModule } from '../../../types/rackModule';
+
+/** effective 케이블의 읽기 전용 shape — 통합 스토어 케이블 endpoint 모양. */
+interface CableEndpoint {
+  equipmentId: string | null;
+  moduleId: string | null;
+  name: string;
+}
+interface EffectiveCable {
+  id: string;
+  source?: CableEndpoint;
+  target?: CableEndpoint;
+  cableType?: string;
+  categoryName?: string | null;
+}
 
 /**
  * P9: centered modal for viewing / editing a single RackModule.
@@ -19,18 +36,18 @@ export function RackModuleDialog() {
   const setSelectedRackModuleId = useEditorStore(
     (s) => s.setSelectedRackModuleId,
   );
-  const localRackModules = useEditorStore((s) => s.localRackModules);
-  const updateRackModule = useEditorStore((s) => s.updateRackModule);
-  const removeRackModule = useEditorStore((s) => s.removeRackModule);
-  const localCables = useEditorStore((s) => s.localCables);
-  const localEquipment = useEditorStore((s) => s.localEquipment);
+  // SSOT-2d3a Task 2 — 읽기/쓰기를 통합 스토어로. 모듈은 effective assets 에서
+  // RackModule shape 으로 매핑, 케이블/설비도 effective 에서 조회.
+  const effectiveAssets = useEffectiveAssets();
+  const effectiveCables = useEffectiveCables();
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const { data: categories } = useRackModuleCategories();
 
-  const mod = useMemo(
-    () => (moduleId ? localRackModules.find((m) => m.id === moduleId) ?? null : null),
-    [moduleId, localRackModules],
-  );
+  const mod = useMemo(() => {
+    if (!moduleId) return null;
+    const asset = effectiveAssets.find((a) => a.id === moduleId);
+    return asset ? assetToRackModule(asset) : null;
+  }, [moduleId, effectiveAssets]);
 
   // Local form state, synced when a different module is selected.
   const [draft, setDraft] = useState<Partial<RackModule>>({});
@@ -64,13 +81,14 @@ export function RackModuleDialog() {
   const category = categories?.find((c) => c.id === mod.categoryId);
   const swatch = mod.categoryDisplayColor ?? category?.displayColor ?? '#6b7280';
 
-  // Cables that reference this module.
-  const connectedCables = localCables.filter(
-    (c) => c.sourceModuleId === mod.id || c.targetModuleId === mod.id,
+  // Cables that reference this module — effective 케이블의 source/target 엔드포인트
+  // ({equipmentId, moduleId, name}) 모양으로 조회한다.
+  const connectedCables = (effectiveCables as unknown as EffectiveCable[]).filter(
+    (c) => c.source?.moduleId === mod.id || c.target?.moduleId === mod.id,
   );
 
   const handleSave = () => {
-    updateRackModule(mod.id, {
+    useSubstationWorkingCopy.getState().stageRackModuleUpdate(mod.id, {
       name: draft.name ?? mod.name,
       installDate: draft.installDate ?? null,
       manager: draft.manager ?? null,
@@ -84,8 +102,8 @@ export function RackModuleDialog() {
     if (!confirm(`'${mod.name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) {
       return;
     }
-    // removeRackModule 가 store 차원에서 cascade 처리.
-    removeRackModule(mod.id);
+    // stageEquipmentDeleteCascade 가 모듈 asset + 닿는 케이블을 함께 스테이징 삭제.
+    useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(mod.id);
     setHasChanges(true);
     setSelectedRackModuleId(null);
   };
@@ -195,9 +213,8 @@ export function RackModuleDialog() {
             ) : (
               <ul className="space-y-1">
                 {connectedCables.map((c) => {
-                  const isSource = c.sourceModuleId === mod.id;
-                  const otherEqId = isSource ? c.targetEquipmentId : c.sourceEquipmentId;
-                  const otherEq = localEquipment.find((eq) => eq.id === otherEqId);
+                  const isSource = c.source?.moduleId === mod.id;
+                  const other = isSource ? c.target : c.source;
                   return (
                     <li
                       key={c.id}
@@ -206,7 +223,7 @@ export function RackModuleDialog() {
                       <span className="text-gray-400">
                         {isSource ? '→' : '←'}
                       </span>
-                      <span className="flex-1 truncate">{otherEq?.name ?? '?'}</span>
+                      <span className="flex-1 truncate">{other?.name ?? '?'}</span>
                       <span className="text-[10px] text-gray-400">
                         {c.categoryName ?? c.cableType}
                       </span>
