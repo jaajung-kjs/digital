@@ -44,9 +44,10 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const snapshotActive = useSnapshotStore((s) => s.active);
   // SSOT-2d Task 4 — 회로/케이블 읽기는 통합 스토어 effective, 쓰기는 stage 액션.
   const allCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
+  // effective 케이블은 nested 끝점 — 회로 id 는 source/target.circuitId 에 있다(flat 아님).
   const localCables = useEffectiveCables() as unknown as {
-    sourceCircuitId?: string | null;
-    targetCircuitId?: string | null;
+    source?: { circuitId?: string | null };
+    target?: { circuitId?: string | null };
   }[];
   const addCircuit = useSubstationWorkingCopy((s) => s.stageDistCircuitCreate);
   const removeCircuit = useSubstationWorkingCopy((s) => s.stageDistCircuitDelete);
@@ -61,8 +62,8 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const connectedCircuitIds = useMemo(() => {
     const s = new Set<string>();
     for (const c of localCables) {
-      if (c.sourceCircuitId) s.add(c.sourceCircuitId);
-      if (c.targetCircuitId) s.add(c.targetCircuitId);
+      if (c.source?.circuitId) s.add(c.source.circuitId);
+      if (c.target?.circuitId) s.add(c.target.circuitId);
     }
     return s;
   }, [localCables]);
