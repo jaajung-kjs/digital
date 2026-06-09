@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useAuthStore } from './stores/authStore';
-import { Layout } from './components/Layout';
+import { AppShell } from './components/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { TreePage } from './pages/TreePage';
@@ -28,40 +28,24 @@ function AppContent() {
         }
       />
 
-      {/* Protected Routes - Full screen pages (no Layout) */}
-      <Route
-        path="/floors/:floorId/plan"
-        element={
-          <ProtectedRoute>
-            <FloorPlanEditorPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/substations/:substationId/assets"
-        element={
-          <ProtectedRoute>
-            <SubstationAssetGridPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/substations/:substationId/workspace"
-        element={
-          <ProtectedRoute>
-            <SubstationWorkspacePage />
-          </ProtectedRoute>
-        }
-      />
-      {/* Protected Routes - With Layout */}
+      {/* Protected Routes - nested under AppShell */}
       <Route
         element={
           <ProtectedRoute>
-            <Layout />
+            <AppShell />
           </ProtectedRoute>
         }
       >
-        <Route index element={<TreePage />} />
+        <Route path="/" element={<TreePage />} />
+        <Route
+          path="/substations/:substationId/workspace"
+          element={<SubstationWorkspacePage />}
+        />
+        <Route path="/floors/:floorId/plan" element={<FloorPlanEditorPage />} />
+        <Route
+          path="/substations/:substationId/assets"
+          element={<SubstationAssetGridPage />}
+        />
       </Route>
 
       {/* Catch all */}
