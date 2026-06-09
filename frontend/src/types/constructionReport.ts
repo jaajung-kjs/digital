@@ -51,6 +51,12 @@ export interface ConstructionReport {
 export interface EquipmentSnapshotItem {
   id: string;
   name: string;
+  /**
+   * 백엔드가 자재코드(시공 템플릿 키)를 해소하는 정본 키.
+   * staged-create 설비는 assetType 이 placeholder({ placementKind })라 code 가 없으므로
+   * assetTypeId 로 AssetType.code 를 조회해 해소한다. materialCategoryCode/Name 은 표시용.
+   */
+  assetTypeId?: string | null;
   materialCategoryCode?: string | null;
   materialCategoryName?: string | null;
   specification?: string | null;
