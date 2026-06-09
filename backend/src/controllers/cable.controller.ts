@@ -91,4 +91,28 @@ export const cableController = {
       next(error);
     }
   },
+
+  /**
+   * GET /api/substations/:substationId/connections
+   * 변전소에 연결된 모든 케이블 조회
+   */
+  async getBySubstation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      res.json({ data: await cableService.getBySubstationId(req.params.substationId) });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /api/assets/:assetId/connections
+   * 자산에 연결된 모든 케이블 조회
+   */
+  async getByAsset(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      res.json({ data: await cableService.getByAssetId(req.params.assetId) });
+    } catch (error) {
+      next(error);
+    }
+  },
 };
