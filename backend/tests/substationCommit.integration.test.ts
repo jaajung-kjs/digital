@@ -22,6 +22,8 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
   let token: string;
   let userId: string;
   let hqId: string, brId: string, subId: string, floorId: string, typeId: string, placementTypeId: string;
+  // 두 번째 변전소 (크로스 변전소 스코핑 검증용)
+  let sub2Id: string, floor2Id: string, asset2Id: string;
   const createdAssets: string[] = [];
 
   beforeAll(async () => {
@@ -56,6 +58,13 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     typeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: null, isActive: true } })).id;
     // 케이블 endpoint 가 될 수 있는 배치형(RACK/DIST/OFD 제외) — GROUNDING.
     placementTypeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: 'GROUNDING', isActive: true } })).id;
+
+    // 두 번째 변전소 + 자체 floor/asset — 크로스 변전소 mutation 차단 검증용.
+    const sub2 = await prisma.substation.create({ data: { name: '__sc_sub2__', branchId: br.id } }); sub2Id = sub2.id;
+    const floor2 = await prisma.floor.create({ data: { substationId: sub2Id, name: '__sc_floor2__', createdById: userId, updatedById: userId } });
+    floor2Id = floor2.id;
+    const a2 = await prisma.asset.create({ data: { substationId: sub2Id, assetTypeId: typeId, name: 'SUB2_ASSET', floorId: floor2Id, positionX: 5 } });
+    asset2Id = a2.id;
   });
 
   afterAll(async () => {
@@ -63,9 +72,11 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
       { sourceEquipment: { substationId: subId } },
       { targetEquipment: { substationId: subId } },
     ] } }).catch(() => {});
-    await prisma.asset.deleteMany({ where: { substationId: subId } }).catch(() => {});
+    await prisma.asset.deleteMany({ where: { substationId: { in: [subId, sub2Id] } } }).catch(() => {});
     await prisma.floor.delete({ where: { id: floorId } }).catch(() => {});
+    await prisma.floor.delete({ where: { id: floor2Id } }).catch(() => {});
     await prisma.substation.delete({ where: { id: subId } }).catch(() => {});
+    await prisma.substation.delete({ where: { id: sub2Id } }).catch(() => {});
     await prisma.branch.delete({ where: { id: brId } }).catch(() => {});
     await prisma.headquarters.delete({ where: { id: hqId } }).catch(() => {});
     await prisma.$disconnect();
@@ -190,6 +201,63 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     // gridSize 가 99 로 안 바뀌었어야
     const f2 = await prisma.floor.findUniqueOrThrow({ where: { id: floorId } });
     expect(f2.gridSize).toBe(50);
+  });
+
+  it('M4a) 크로스 변전소 asset update → 409, sub2 asset 미변경', async () => {
+    const a2before = await prisma.asset.findUniqueOrThrow({ where: { id: asset2Id } });
+    const input = substationCommitSchema.parse({
+      assets: { updates: [{ id: asset2Id, baseVersion: a2before.updatedAt.toISOString(), patch: { positionX: 777 } }] },
+    });
+    let err: VersionConflictError | null = null;
+    try {
+      await commitSubstation(subId, input, userId);
+    } catch (e) {
+      err = e as VersionConflictError;
+    }
+    expect(err).toBeInstanceOf(VersionConflictError);
+    expect(err!.conflicts.some((c) => c.collection === 'assets' && c.id === asset2Id)).toBe(true);
+
+    // sub2 asset 은 그대로
+    const a2after = await prisma.asset.findUniqueOrThrow({ where: { id: asset2Id } });
+    expect(a2after.positionX).toBe(a2before.positionX);
+    expect(a2after.updatedAt.toISOString()).toBe(a2before.updatedAt.toISOString());
+  });
+
+  it('M4b) 크로스 변전소 asset delete → 409, sub2 asset 존속', async () => {
+    const a2before = await prisma.asset.findUniqueOrThrow({ where: { id: asset2Id } });
+    const input = substationCommitSchema.parse({
+      assets: { deletes: [{ id: asset2Id, baseVersion: a2before.updatedAt.toISOString() }] },
+    });
+    let err: VersionConflictError | null = null;
+    try {
+      await commitSubstation(subId, input, userId);
+    } catch (e) {
+      err = e as VersionConflictError;
+    }
+    expect(err).toBeInstanceOf(VersionConflictError);
+    expect(err!.conflicts.some((c) => c.collection === 'assets' && c.id === asset2Id)).toBe(true);
+
+    // sub2 asset 은 여전히 존재
+    expect(await prisma.asset.findUnique({ where: { id: asset2Id } })).not.toBeNull();
+  });
+
+  it('M4c) 크로스 변전소 floor → 409, sub2 floor 미변경', async () => {
+    const f2before = await prisma.floor.findUniqueOrThrow({ where: { id: floor2Id } });
+    const input = substationCommitSchema.parse({
+      floor: { id: floor2Id, baseVersion: f2before.updatedAt.toISOString(), settings: { gridSize: 123 } },
+    });
+    let err: VersionConflictError | null = null;
+    try {
+      await commitSubstation(subId, input, userId);
+    } catch (e) {
+      err = e as VersionConflictError;
+    }
+    expect(err).toBeInstanceOf(VersionConflictError);
+    expect(err!.conflicts.some((c) => c.collection === 'floor' && c.id === floor2Id)).toBe(true);
+
+    // sub2 floor 미변경
+    const f2after = await prisma.floor.findUniqueOrThrow({ where: { id: floor2Id } });
+    expect(f2after.gridSize).toBe(f2before.gridSize);
   });
 
   it('6) 인증 없음 → 401, malformed body → 400', async () => {
