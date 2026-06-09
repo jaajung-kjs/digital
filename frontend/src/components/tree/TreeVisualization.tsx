@@ -720,7 +720,7 @@ export function TreeVisualization() {
                 )}
                 {child.type === 'substation' && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/substations/${child.id}/assets`); }}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/substations/${child.id}/workspace?view=register`); }}
                     className="mt-2 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
                     title="이 변전소의 자산을 표로 보기"
                   >
