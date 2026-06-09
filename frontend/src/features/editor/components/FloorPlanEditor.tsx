@@ -7,6 +7,8 @@ import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore } from '../stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useToastStore } from '../stores/toastStore';
 import { calculateCenterOnBounds, calculateCenterOnEquipment } from '../hooks/useViewport';
@@ -64,6 +66,9 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
   useEditorKeyboard(handleSave, containerRef, floorPlan);
 
+  // SSOT-2d Task 4 — 새로 배치한 설비를 통합 stage 로 올릴 때 assetTypeId 해소.
+  const kindToAssetTypeId = useKindToAssetTypeId();
+
   const handlePasteEquipment = useCallback(() => {
     const es = useEditorStore.getState();
     const cs = es;
@@ -77,14 +82,20 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       positionX: original.positionX + 20,
       positionY: original.positionY + 20,
     };
-    const newEquipmentList = [...es.localEquipment, newEquipment];
-    es.setLocalEquipment(newEquipmentList);
+    const assetTypeId = kindToAssetTypeId(newEquipment.kind);
+    if (!assetTypeId) {
+      // 종류 목록 로딩 중 등 — assetTypeId 미해소면 stage 하지 않는다(데이터 무결성).
+      // eslint-disable-next-line no-console
+      console.warn(`[paste] assetTypeId 미해소 (kind=${newEquipment.kind}) — 배치 보류`);
+      return;
+    }
+    useSubstationWorkingCopy.getState().stageEquipmentCreate({ ...newEquipment, floorId }, assetTypeId);
     cs.setPasteEquipmentModalOpen(false);
     cs.setPasteEquipmentName('');
     es.setHasChanges(true);
     es.setSelectedIds([newEquipment.id]);
     es.setClipboard({ type: 'equipment', data: newEquipment });
-  }, []);
+  }, [floorId, kindToAssetTypeId]);
 
   const resetEditor = useEditorStore(s => s.resetEditor);
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
@@ -93,7 +104,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const restoredFromVersion = useEditorStore(s => s.restoredFromVersion);
   const floorConflict = useEditorStore(s => s.floorConflict);
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
-  const setLocalEquipment = useEditorStore(s => s.setLocalEquipment);
   const setTool = useEditorStore(s => s.setTool);
   const tool = useEditorStore(s => s.tool);
   const { data: rackModuleCategories } = useRackModuleCategories();
@@ -115,7 +125,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     if (handledQueryRef.current) return;
     const targetId = searchParams.get('equipmentId');
     if (!targetId) return;
-    const eq = useEditorStore.getState().localEquipment.find((e) => e.id === targetId);
+    const eq = useSubstationWorkingCopy.getState().effectiveEquipment(floorId).find((e) => e.id === targetId);
     if (!eq) return; // 도면 데이터 아직 로드 전 — 다음 render 에 재시도.
     handledQueryRef.current = true;
     const es = useEditorStore.getState();
@@ -148,9 +158,10 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const focusTick = useEditorStore((s) => s.focusTick);
   useEffect(() => {
     if (!detailPanelEquipmentId) return;
-    const eq = useEditorStore
+    const eq = useSubstationWorkingCopy
       .getState()
-      .localEquipment.find((e) => e.id === detailPanelEquipmentId);
+      .effectiveEquipment(floorId)
+      .find((e) => e.id === detailPanelEquipmentId);
     if (!eq || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
@@ -220,9 +231,26 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     try {
       const draft = JSON.parse(raw);
       const store = useEditorStore.getState();
-      if (draft.localEquipment) store.setLocalEquipment(draft.localEquipment);
-      if (draft.localCables) store.setCables(draft.localCables);
-      if (draft.localRackModules) store.setRackModules(draft.localRackModules);
+      // SSOT-2d Task 4 — 드래프트 복구도 통합 stage 액션으로.
+      // 복구되는 설비/케이블/모듈은 임시(temp) id 를 가진 staged create 로 올린다.
+      const wc = useSubstationWorkingCopy.getState();
+      if (Array.isArray(draft.localEquipment)) {
+        for (const eq of draft.localEquipment as FloorPlanEquipment[]) {
+          const assetTypeId = kindToAssetTypeId(eq.kind);
+          if (!assetTypeId) {
+            // eslint-disable-next-line no-console
+            console.warn(`[draft] assetTypeId 미해소 (kind=${eq.kind}) — 설비 복구 건너뜀`);
+            continue;
+          }
+          wc.stageEquipmentCreate({ ...eq, floorId }, assetTypeId);
+        }
+      }
+      if (Array.isArray(draft.localCables)) {
+        for (const c of draft.localCables) wc.stageCableCreate(c);
+      }
+      if (Array.isArray(draft.localRackModules)) {
+        for (const m of draft.localRackModules) wc.stageRackModuleCreate(m);
+      }
       if (draft.pendingLogs) {
         for (const log of draft.pendingLogs) store.addPendingLog(log);
       }
@@ -262,7 +290,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       store.setHasChanges(true);
     } catch { /* ignore */ }
     setShowDraftDialog(false);
-  }, [floorId]);
+  }, [floorId, kindToAssetTypeId]);
 
   const handleDiscardDraft = useCallback(() => {
     localStorage.removeItem(`draft-plan-${floorId}`);
@@ -378,8 +406,14 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       totalU: kind === 'RACK' ? 42 : null,
     };
 
-    const newList = [...useEditorStore.getState().localEquipment, baseEquip];
-    setLocalEquipment(newList);
+    const assetTypeId = kindToAssetTypeId(kind);
+    if (!assetTypeId) {
+      // eslint-disable-next-line no-console
+      console.warn(`[add-equipment] assetTypeId 미해소 (kind=${kind}) — 배치 보류`);
+      useToastStore.getState().showToast('설비 종류를 확인할 수 없어 배치하지 못했습니다');
+      return;
+    }
+    useSubstationWorkingCopy.getState().stageEquipmentCreate({ ...baseEquip, floorId }, assetTypeId);
 
     cs.setEquipmentModalOpen(false);
     cs.setNewEquipmentName('');
@@ -404,7 +438,9 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     const rackId = generateTempId();
     const baseName = preset.name;
     // Pick a non-conflicting name — append -2/-3/... if there's already a rack with the same name.
-    const existingNames = new Set(cs.localEquipment.map((eq) => eq.name));
+    const existingNames = new Set(
+      useSubstationWorkingCopy.getState().effectiveEquipment(floorId).map((eq) => eq.name),
+    );
     let resolvedName = baseName;
     let suffix = 2;
     while (existingNames.has(resolvedName)) {
@@ -430,8 +466,15 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       properties: { sourcePresetId: preset.id },
     };
 
-    const newEquipmentList = [...cs.localEquipment, rackEquip];
-    setLocalEquipment(newEquipmentList);
+    const rackAssetTypeId = kindToAssetTypeId('RACK');
+    if (!rackAssetTypeId) {
+      // eslint-disable-next-line no-console
+      console.warn('[place-preset] RACK assetTypeId 미해소 — 배치 보류');
+      useToastStore.getState().showToast('랙 종류를 확인할 수 없어 배치하지 못했습니다');
+      return;
+    }
+    const wc = useSubstationWorkingCopy.getState();
+    wc.stageEquipmentCreate({ ...rackEquip, floorId }, rackAssetTypeId);
 
     // Resolve module categories by code; skip silently if a preset references
     // an unknown code (data drift). Emit one console warning per occurrence.
@@ -469,17 +512,14 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       });
     });
 
-    if (newModules.length > 0) {
-      const merged = [...cs.localRackModules, ...newModules];
-      cs.setRackModules(merged);
-    }
+    for (const m of newModules) wc.stageRackModuleCreate(m);
 
     cs.resetNewEquipmentSelection();
     setHasChanges(true);
     setTool('select');
     cs.setSelectedIds([rackId]);
     useToastStore.getState().showToast('랙을 배치했습니다');
-  }, [rackModuleCategories, setLocalEquipment, setTool]);
+  }, [rackModuleCategories, floorId, kindToAssetTypeId, setTool]);
 
 
   const isPlanNotFound = planError && (planError as { response?: { status: number } }).response?.status === 404;

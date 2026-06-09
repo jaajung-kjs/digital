@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useEditorStore } from '../../../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
+import { useEffectiveDistCircuits, useEffectiveCables } from '../../../../workingCopy/hooks';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../../../pathTrace/stores/pathHighlightStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
@@ -41,10 +42,14 @@ function nextBranchName(branches: DistributionCircuit[]): string {
  */
 export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const snapshotActive = useSnapshotStore((s) => s.active);
-  const allCircuits = useEditorStore((s) => s.localDistributionCircuits);
-  const localCables = useEditorStore((s) => s.localCables);
-  const addCircuit = useEditorStore((s) => s.addDistributionCircuit);
-  const removeCircuit = useEditorStore((s) => s.removeDistributionCircuit);
+  // SSOT-2d Task 4 — 회로/케이블 읽기는 통합 스토어 effective, 쓰기는 stage 액션.
+  const allCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
+  const localCables = useEffectiveCables() as unknown as {
+    sourceCircuitId?: string | null;
+    targetCircuitId?: string | null;
+  }[];
+  const addCircuit = useSubstationWorkingCopy((s) => s.stageDistCircuitCreate);
+  const removeCircuit = useSubstationWorkingCopy((s) => s.stageDistCircuitDelete);
   const startCircuitTrace = usePathHighlightStore((s) => s.startCircuitTrace);
 
   const byFeeder = useMemo(

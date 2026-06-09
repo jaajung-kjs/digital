@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
 
 interface EquipmentResizeHandlesProps {
@@ -146,19 +147,19 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
           newH = Math.max(MIN_DIM_CM, bottomSnapped - live.origY);
         }
 
-        const store = useEditorStore.getState();
-        const next = store.localEquipment.map((eq) =>
-          eq.id === equipment.id
-            ? { ...eq, positionX: newX, positionY: newY, width: newW, height: newH }
-            : eq,
-        );
-        store.setLocalEquipment(next);
+        // SSOT-2d Task 4 — 리사이즈 적용을 통합 스토어 stage 액션으로.
+        useSubstationWorkingCopy.getState().stageEquipmentUpdate(equipment.id, {
+          positionX: newX,
+          positionY: newY,
+          width: newW,
+          height: newH,
+        });
 
         // 케이블 endpoint 라이브 동기화 — 설비가 작아져도 중심이 바뀌면
         // 연결된 케이블의 양 끝점이 새 중심으로 따라온다.
         syncCableEndpointsTo(equipment.id);
 
-        store.setHasChanges(true);
+        useEditorStore.getState().setHasChanges(true);
       };
 
       const onMove = (ev: PointerEvent) => {

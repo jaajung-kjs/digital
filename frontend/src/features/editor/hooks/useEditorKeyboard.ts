@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { FloorPlanDetail, FloorPlanEquipment } from '../../../types/floorPlan';
 import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -73,7 +74,10 @@ export function useEditorKeyboard(
       if (key === 'g') es.setShowGrid(!es.showGrid);
       if (key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
 
-      const { localEquipment } = es;
+      // SSOT-2d Task 4 — 설비 읽기는 통합 스토어 effective 에서(쓰기도 stage 액션).
+      const localEquipment = floorPlan
+        ? useSubstationWorkingCopy.getState().effectiveEquipment(floorPlan.id)
+        : [];
       const selectedEquipment = getSelectedEquipment();
 
       // Arrow nudge for equipment
@@ -90,10 +94,15 @@ export function useEditorKeyboard(
         if (e.key === 'ArrowUp') dy = -step;
         if (e.key === 'ArrowDown') dy = step;
 
-        const newEquipment = localEquipment.map((eq) =>
-          es.selectedIds.includes(eq.id) ? nudgeEquipment(eq, dx, dy) : eq,
-        );
-        es.setLocalEquipment(newEquipment);
+        const wc = useSubstationWorkingCopy.getState();
+        for (const eq of localEquipment) {
+          if (!es.selectedIds.includes(eq.id)) continue;
+          const moved = nudgeEquipment(eq, dx, dy);
+          wc.stageEquipmentUpdate(moved.id, {
+            positionX: moved.positionX,
+            positionY: moved.positionY,
+          });
+        }
         // selectedEquipment 가 selector 로 도출되므로 별도 동기화 불필요.
         es.setHasChanges(true);
         return;
@@ -115,7 +124,7 @@ export function useEditorKeyboard(
       if (isDeleteKey && es.selectedCableId) {
         e.preventDefault();
         if (!window.confirm('선택한 케이블을 삭제하시겠습니까?')) return;
-        es.deleteCable(es.selectedCableId);
+        useSubstationWorkingCopy.getState().stageCableDelete(es.selectedCableId);
         es.setSelectedCableId(null);
         es.setHasChanges(true);
         return;
@@ -128,7 +137,7 @@ export function useEditorKeyboard(
         const mod = useEditorStore.getState().localRackModules.find((m) => m.id === modId);
         const name = mod?.name ?? '모듈';
         if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
-        es.removeRackModule(modId);
+        useSubstationWorkingCopy.getState().stageRackModuleDelete(modId);
         es.setSelectedRackModuleId(null);
         es.setHasChanges(true);
         return;
@@ -142,7 +151,8 @@ export function useEditorKeyboard(
           ? `'${equipmentToDelete[0].name}' 설비를 삭제하시겠습니까?`
           : `${equipmentToDelete.length}개 설비를 삭제하시겠습니까?`;
         if (!window.confirm(`${summary} 연결된 케이블도 함께 삭제됩니다.`)) return;
-        for (const eq of equipmentToDelete) es.deleteEquipmentWithCascade(eq.id);
+        const wc = useSubstationWorkingCopy.getState();
+        for (const eq of equipmentToDelete) wc.stageEquipmentDeleteCascade(eq.id);
         es.clearSelection();
         es.setHasChanges(true);
       }
