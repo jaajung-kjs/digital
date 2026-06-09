@@ -254,11 +254,17 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       if (savedViewport && savedViewport.zoom > 0) {
         setViewport(savedViewport.zoom, savedViewport.panX ?? 0, savedViewport.panY ?? 0);
       } else {
+        // bounds 는 통합 working copy 의 EFFECTIVE 설비(미저장 staged 배치 포함)로
+        // 잡아, 방금 배치하고 아직 저장하지 않은 설비도 화면에 들어오게 한다.
+        // 단, fit 이 로드 직후(working copy 로드 전)에 1회 도는 경우 effective 가
+        // 비어 있을 수 있으므로, 그때는 GET /plan 응답의 saved equipment 로 폴백한다.
+        const effectiveEquipment = floorId
+          ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
+          : [];
+        const fitEquipment =
+          effectiveEquipment.length > 0 ? effectiveEquipment : floorPlan.equipment;
         fitToContent(
-          // SSOT-2d-3b: editorStore.localEquipment 제거 후, 뷰포트 fit 의
-          // bounds 는 GET /plan 응답의 saved equipment 로 잡는다. effective
-          // (overlay 포함) 기반 fit 재배선은 Task 3 범위.
-          floorPlan.equipment,
+          fitEquipment,
           effectiveBg,
           { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight },
           container.clientWidth,
