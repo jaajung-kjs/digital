@@ -6,6 +6,9 @@ import { commitSubstation, type FloorCommitSection } from './substationCommit';
 import { useSubstationWorkingCopy } from './substationStore';
 import { useEditorStore } from '../editor/stores/editorStore';
 import type { PendingUpload, PendingLog } from '../editor/stores/editorStore';
+import { overlayToChanges } from '../report/overlayToChanges';
+import { WORK_ORDER_KEYS } from '../report/useWorkOrders';
+import type { ReportPreviewChanges, ConstructionReport } from '../../types/constructionReport';
 
 // ──────────────────────────────────────────────────────────────────────────
 // USP Task 1 — 단일 커밋 훅.
@@ -123,6 +126,48 @@ function invalidateMediaQueries(
   if (hadLogs) queryClient.invalidateQueries({ queryKey: ['maintenance-logs'] });
 }
 
+/** changes 에 실제 변경분이 있는지(설비/케이블 어느 한쪽이라도). */
+function hasFloorChanges(changes: ReportPreviewChanges): boolean {
+  return (
+    changes.before.equipment.length > 0 ||
+    changes.after.equipment.length > 0 ||
+    changes.before.cables.length > 0 ||
+    changes.after.cables.length > 0
+  );
+}
+
+/**
+ * #3 Task 3 — 커밋된 활성 층 설계서를 작업지시서로 아카이브한다.
+ *
+ * 시퀀싱이 핵심: 커밋 후 store.load 가 오버레이를 비우므로, changes 는 반드시
+ * PRE-commit 스냅샷(snapshot 인자)으로 계산해야 한다. 호출부가 커밋 직전에
+ * overlayToChanges 로 changes 를 만들어 넘기고, 여기서 커밋 성공 후에
+ * report-preview(dry-run)로 설계서를 받아 POST /floors/:id/work-orders 로 저장한다.
+ * 변경 없으면 skip. 아카이브 실패는 커밋 성공을 막지 않는다(warn 만).
+ */
+async function archiveWorkOrder(
+  substationId: string,
+  floorId: string,
+  changes: ReportPreviewChanges,
+  queryClient: QueryClient,
+): Promise<void> {
+  try {
+    const { data: previewData } = await api.post(`/substations/${substationId}/report-preview`, {
+      floorId,
+      changes,
+    });
+    const report = previewData.data as ConstructionReport;
+    const itemCount = report.diff?.length ?? 0;
+    await api.post(`/floors/${floorId}/work-orders`, {
+      report,
+      summary: { itemCount },
+    });
+    queryClient.invalidateQueries({ queryKey: WORK_ORDER_KEYS.list(floorId) });
+  } catch (e) {
+    console.warn('[Save] 작업지시서 아카이브 실패(커밋은 성공):', e);
+  }
+}
+
 /** axios 409 에러 여부. */
 function is409(e: unknown): boolean {
   return (e as { response?: { status?: number } })?.response?.status === 409;
@@ -150,12 +195,28 @@ export function useCommitWorkingCopy() {
     const hadUploads = ed.pendingUploads.length > 0;
     const hadLogs = ed.pendingLogs.length > 0;
 
+    // #3 Task 3 — 작업지시서 아카이브용 PRE-commit 스냅샷.
+    // 커밋 후 store.load 가 오버레이를 비우므로, 활성 층 changes 는 반드시 지금
+    // (커밋 전) saved+overlay 로 계산해 둔다. 실제 아카이브는 커밋 성공 후 수행.
+    const activeFloorId = ed.activeFloorId;
+    const preCommitChanges: ReportPreviewChanges | null = activeFloorId
+      ? overlayToChanges(
+          { assets: wc.saved.assets, cables: wc.saved.cables },
+          { assets: wc.overlays.assets, cables: wc.overlays.cables },
+          activeFloorId,
+        )
+      : null;
+
     try {
       const result = await commitSubstation(substationId, wc.overlays, wc.saved.assets, queryClient, floor);
       await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, result.idMaps?.assets);
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
       invalidateMediaQueries(queryClient, hadUploads, hadLogs);
+      // 활성 층에 변경이 있었으면 설계서를 작업지시서로 아카이브(실패해도 커밋은 성공).
+      if (activeFloorId && preCommitChanges && hasFloorChanges(preCommitChanges)) {
+        await archiveWorkOrder(substationId, activeFloorId, preCommitChanges, queryClient);
+      }
       return { ok: true };
     } catch (e) {
       if (is409(e)) return { ok: false, conflicts: extractConflicts(e) };

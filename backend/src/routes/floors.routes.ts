@@ -7,6 +7,7 @@ import { cableController } from '../controllers/cable.controller.js';
 import { dwgImportController } from '../controllers/dwgImport.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { createWorkOrderSchema } from '../schemas/workOrder.schema.js';
 
 // DWG/DXF 업로드 (메모리 — 파일은 파싱 후 즉시 폐기)
 const dwgUpload = multer({
@@ -100,6 +101,23 @@ router.patch(
 
 // 도면 변경 이력 삭제 (관리자만)
 router.delete('/:id/versions/:logId', authenticate, adminOnly, floorController.deleteAuditLog);
+
+// ==================== Work Orders (작업지시서 아카이브) ====================
+
+// 작업지시서 아카이브 — 커밋 성공 후 프론트가 계산한 설계서를 저장 (관리자만)
+router.post(
+  '/:id/work-orders',
+  authenticate,
+  adminOnly,
+  validate(createWorkOrderSchema),
+  floorController.createWorkOrder
+);
+
+// 작업지시서 이력 목록 (인증 불필요 — 조회)
+router.get('/:id/work-orders', floorController.getWorkOrders);
+
+// 작업지시서 상세 (인증 불필요 — 조회)
+router.get('/:id/work-orders/:workOrderId', floorController.getWorkOrder);
 
 // ==================== DWG Background Drawing ====================
 
