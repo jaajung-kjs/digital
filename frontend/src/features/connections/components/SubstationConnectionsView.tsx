@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useSubstationConnections } from '../hooks/useSubstationConnections';
 import { useCableMutations } from '../hooks/useCableMutations';
 import { useSelection } from '../../workspace/SelectionContext';
+import { CABLE_TYPES } from '../constants';
 
 interface Endpoint { equipmentId: string | null; moduleId: string | null; name: string }
 interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; length: number | null }
 const epId = (e: Endpoint) => e.equipmentId ?? e.moduleId;
-const EDIT_TYPES = ['AC', 'DC', 'LAN', 'FIBER', 'GROUND'];
 
 export function SubstationConnectionsTable({ connections, typeFilter, onDelete, onUpdate, onSelectAsset }: {
   connections: Conn[]; typeFilter: string;
@@ -29,7 +29,7 @@ export function SubstationConnectionsTable({ connections, typeFilter, onDelete, 
             <td className="p-2">
               <select aria-label="유형" value={c.cableType} onChange={(e) => onUpdate(c.id, { cableType: e.target.value })}
                 className="text-xs border border-gray-200 rounded px-1 py-0.5">
-                {EDIT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {CABLE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </td>
             <td className="p-2">
@@ -46,7 +46,7 @@ export function SubstationConnectionsTable({ connections, typeFilter, onDelete, 
   );
 }
 
-const TYPES = ['', 'AC', 'DC', 'LAN', 'FIBER', 'GROUND'];
+const TYPES = ['', ...CABLE_TYPES];
 
 export function SubstationConnectionsView({ substationId }: { substationId: string }) {
   const { data: connections = [] } = useSubstationConnections(substationId);
@@ -64,7 +64,7 @@ export function SubstationConnectionsView({ substationId }: { substationId: stri
       </div>
       <SubstationConnectionsTable
         connections={connections} typeFilter={typeFilter}
-        onDelete={(id) => deleteCable.mutate(id)}
+        onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) deleteCable.mutate(id); }}
         onUpdate={(id, patch) => updateCable.mutate({ id, patch })}
         onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
       />

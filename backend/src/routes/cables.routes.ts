@@ -55,8 +55,8 @@ const updateCableSchema = z.object({
 
 // ==================== Cable Routes ====================
 
-router.get('/', cableController.getAll);
-router.get('/:id', cableController.getById);
+router.get('/', authenticate, cableController.getAll);
+router.get('/:id', authenticate, cableController.getById);
 router.post('/', authenticate, adminOnly, validate(createCableSchema), cableController.create);
 router.put('/:id', authenticate, adminOnly, validate(updateCableSchema), cableController.update);
 router.delete('/:id', authenticate, adminOnly, cableController.delete);

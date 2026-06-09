@@ -97,7 +97,7 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
         <AssetConnectionsSection
           assetId={asset.id}
           connections={connections}
-          onDelete={(id) => deleteCable.mutate(id)}
+          onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) deleteCable.mutate(id); }}
           onUpdate={(id, patch) => updateCable.mutate({ id, patch })}
           onSelectAsset={(id) => connSel?.setSelectedAssetId(id)}
         />
