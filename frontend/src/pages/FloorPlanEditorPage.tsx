@@ -20,5 +20,9 @@ export function FloorPlanEditorPage() {
     );
   }
 
-  return <FloorPlanEditor floorId={floorId} />;
+  return (
+    <div className="h-screen">
+      <FloorPlanEditor floorId={floorId} />
+    </div>
+  );
 }

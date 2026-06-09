@@ -497,7 +497,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   }
 
   return (
-    <div className="h-screen w-full flex flex-col bg-gray-100 overflow-hidden">
+    <div className="h-full w-full flex flex-col bg-gray-100 overflow-hidden">
       {saveError && (
         <div className="bg-red-600 text-white px-4 py-2 text-sm font-medium flex items-center justify-between">
           <span>저장 실패: {saveError}</span>
