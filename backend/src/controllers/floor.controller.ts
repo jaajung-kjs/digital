@@ -89,21 +89,6 @@ export const floorController = {
   },
 
   /**
-   * PUT /api/floors/:id/plan
-   * 도면 전체 저장 (Git-like reconciliation)
-   */
-  async bulkUpdatePlan(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const userId = req.user!.userId;
-      const result = await floorService.bulkUpdatePlan(id, req.body, userId);
-      res.json({ data: result });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
    * GET /api/floors/:id/versions
    * 도면 변경 이력
    */
