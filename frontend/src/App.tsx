@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { TreePage } from './pages/TreePage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
 import { SubstationAssetGridPage } from './pages/SubstationAssetGridPage';
+import { SubstationWorkspacePage } from './pages/SubstationWorkspacePage';
 import { queryClient } from './lib/queryClient';
 
 function AppContent() {
@@ -41,6 +42,14 @@ function AppContent() {
         element={
           <ProtectedRoute>
             <SubstationAssetGridPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/substations/:substationId/workspace"
+        element={
+          <ProtectedRoute>
+            <SubstationWorkspacePage />
           </ProtectedRoute>
         }
       />
