@@ -387,6 +387,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         onToggleHistory={() => setShowHistory(p => !p)}
         onToggleSettings={() => setShowSettings(p => !p)}
         onToggleLayers={() => setShowLayers(p => !p)}
+        onImportClick={() => setShowImportModal(true)}
       />
 
       {!snapshotActive && <EditorInsertBar />}
