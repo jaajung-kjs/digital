@@ -25,7 +25,6 @@ import { CablePathOverlay } from './CablePathOverlay';
 import { NetworkTopologyModal } from '../../network/NetworkTopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { EquipmentResizeHandlesHost } from './EquipmentResizeHandlesHost';
-import { ChangeHistoryPanel } from './ChangeHistoryPanel';
 import { ReportPanel } from '../../report/ReportPanel';
 import { WorkOrderHistoryPanel } from '../../report/WorkOrderHistoryPanel';
 import { FloorSettingsPanel } from './FloorSettingsPanel';
@@ -55,7 +54,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const isAdmin = useIsAdmin();
-  const [showHistory, setShowHistory] = useState(false);
   const [showWorkOrders, setShowWorkOrders] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -388,7 +386,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         floor={floor}
         floorPlan={floorPlan}
         isAdmin={isAdmin}
-        onToggleHistory={() => setShowHistory(p => !p)}
         onToggleWorkOrders={() => setShowWorkOrders(p => !p)}
         onToggleReport={() => setShowReport(p => !p)}
         onToggleSettings={() => setShowSettings(p => !p)}
@@ -433,10 +430,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               )}
 
 
-              {showHistory && (
-                <ChangeHistoryPanel floorId={floorId} onClose={() => setShowHistory(false)} />
-              )}
-
               {showWorkOrders && (
                 <WorkOrderHistoryPanel floorId={floorId} onClose={() => setShowWorkOrders(false)} />
               )}
@@ -462,7 +455,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               )}
 
               {/* Preview mode banner (top of canvas area) */}
-              {snapshotActive && !showHistory && (
+              {snapshotActive && (
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-amber-50 border border-amber-300 rounded-lg shadow-sm">
                   <span className="text-xs font-medium text-amber-800">과거 도면 보기 — {snapshotLabel}</span>
                 </div>
