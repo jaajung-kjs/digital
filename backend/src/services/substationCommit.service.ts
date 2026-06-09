@@ -1,0 +1,584 @@
+import { Prisma, CableType } from '@prisma/client';
+import prisma from '../config/prisma.js';
+import { collectConflicts, VersionConflictError, type ConflictItem } from './concurrency.js';
+import { ValidationError } from '../utils/errors.js';
+import type { SubstationCommitInput } from '../schemas/substationCommit.schema.js';
+import {
+  assertCableEndpointsValid,
+  assertRackParentValid,
+  assertDistParentValid,
+  assertSlotValid,
+  assertNoSlotCollision,
+} from './planApply.js';
+
+/**
+ * 통합 변전소 커밋 (SSOT-2a).
+ *
+ * assets(+placement) / cables / rackModules / distributionCircuits / fiberPaths
+ * + 선택적 floor 를 하나의 delta 페이로드로 받아 단일 트랜잭션에 커밋한다.
+ *
+ *  - per-entity OCC: 각 컬렉션의 update/delete 대상 baseVersion 을 현재
+ *    updatedAt.toISOString() 와 비교(assetCommit 동일 규약). 하나라도 stale 면
+ *    전체 409 (롤백).
+ *  - tempId 교차 해소: assets 의 create tempId → real id 를 먼저 만들고,
+ *    cables/rackModules/distCircuits/fiberPaths 의 참조에서 치환.
+ *  - 검증은 bulkUpdatePlan 과 동일한 planApply 공유 헬퍼 사용.
+ *
+ * NOTE: rackModules / distributionCircuits 는 Asset(자식) / DistributionCircuit
+ *       테이블에 저장된다 (별도 RackModule 모델 없음).
+ */
+
+type Tx = Prisma.TransactionClient;
+
+const dateOrNull = (v: unknown) => (v ? new Date(v as string) : null);
+/** undefined → undefined(미변경), 그 외 → Date|null. patch 의 날짜 필드용. */
+const patchDate = (v: unknown) => (v === undefined ? undefined : v ? new Date(v as string) : null);
+const toInt = (v: unknown) => (v == null ? undefined : Math.trunc(Number(v)));
+
+export interface CommitResult {
+  idMaps: {
+    assets: Record<string, string>;
+    cables: Record<string, string>;
+    rackModules: Record<string, string>;
+    distributionCircuits: Record<string, string>;
+    fiberPaths: Record<string, string>;
+  };
+  updated: {
+    assets: { id: string; updatedAt: string }[];
+    cables: { id: string; updatedAt: string }[];
+    rackModules: { id: string; updatedAt: string }[];
+    distributionCircuits: { id: string; updatedAt: string }[];
+    fiberPaths: { id: string; updatedAt: string }[];
+    floor?: { id: string; updatedAt: string };
+  };
+}
+
+/** 컬렉션의 update/delete 대상 id 들을 모아 현재 updatedAt 맵 + 이름 맵을 만든다. */
+async function loadOcc(
+  rows: { id: string; updatedAt: Date; name?: string | null }[],
+): Promise<{ current: Map<string, Date>; nameById: Map<string, string | null> }> {
+  return {
+    current: new Map(rows.map((r) => [r.id, r.updatedAt])),
+    nameById: new Map(rows.map((r) => [r.id, r.name ?? null])),
+  };
+}
+
+export async function commitSubstation(
+  substationId: string,
+  input: SubstationCommitInput,
+  userId: string,
+): Promise<CommitResult> {
+  try {
+    return await prisma.$transaction(
+      (tx) => run(tx, substationId, input, userId),
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  } catch (e) {
+    // REPEATABLE READ 직렬화 실패(P2034) → 동시 변경 충돌 409.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034') {
+      throw new VersionConflictError([{ collection: 'commit', id: '', name: '동시 변경 충돌' }]);
+    }
+    throw e;
+  }
+}
+
+async function run(
+  tx: Tx,
+  substationId: string,
+  input: SubstationCommitInput,
+  userId: string,
+): Promise<CommitResult> {
+  const idMaps: CommitResult['idMaps'] = {
+    assets: {}, cables: {}, rackModules: {}, distributionCircuits: {}, fiberPaths: {},
+  };
+  const updated: CommitResult['updated'] = {
+    assets: [], cables: [], rackModules: [], distributionCircuits: [], fiberPaths: [],
+  };
+
+  // ── 1) per-entity OCC across all present collections ──
+  const conflicts: ConflictItem[] = [];
+
+  // assets
+  if (input.assets) {
+    const ids = [...input.assets.updates.map((u) => u.id), ...input.assets.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.asset.findMany({ where: { id: { in: ids }, substationId }, select: { id: true, updatedAt: true, name: true } })
+      : [];
+    const { current, nameById } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('assets', current, input.assets.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion, name: nameById.get(u.id) ?? undefined }))),
+      ...collectConflicts('assets', current, input.assets.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion, name: nameById.get(d.id) ?? undefined }))),
+    );
+  }
+  // cables
+  if (input.cables) {
+    const ids = [...input.cables.updates.map((u) => u.id), ...input.cables.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.cable.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } })
+      : [];
+    const { current } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('cables', current, input.cables.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
+      ...collectConflicts('cables', current, input.cables.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
+    );
+  }
+  // rackModules (stored as Asset rows)
+  if (input.rackModules) {
+    const ids = [...input.rackModules.updates.map((u) => u.id), ...input.rackModules.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
+      : [];
+    const { current, nameById } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('rackModules', current, input.rackModules.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion, name: nameById.get(u.id) ?? undefined }))),
+      ...collectConflicts('rackModules', current, input.rackModules.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion, name: nameById.get(d.id) ?? undefined }))),
+    );
+  }
+  // distributionCircuits
+  if (input.distributionCircuits) {
+    const ids = [...input.distributionCircuits.updates.map((u) => u.id), ...input.distributionCircuits.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.distributionCircuit.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } })
+      : [];
+    const { current } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('distributionCircuits', current, input.distributionCircuits.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
+      ...collectConflicts('distributionCircuits', current, input.distributionCircuits.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
+    );
+  }
+  // fiberPaths
+  if (input.fiberPaths) {
+    const ids = [...input.fiberPaths.updates.map((u) => u.id), ...input.fiberPaths.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.fiberPath.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } })
+      : [];
+    const { current } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('fiberPaths', current, input.fiberPaths.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
+      ...collectConflicts('fiberPaths', current, input.fiberPaths.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
+    );
+  }
+  // floor
+  let floorRow: { id: string; updatedAt: Date; name: string } | null = null;
+  if (input.floor) {
+    floorRow = await tx.floor.findUnique({
+      where: { id: input.floor.id },
+      select: { id: true, updatedAt: true, name: true },
+    });
+    if (!floorRow) {
+      conflicts.push({ collection: 'floor', id: input.floor.id });
+    } else if (input.floor.baseVersion != null && floorRow.updatedAt.toISOString() !== input.floor.baseVersion) {
+      conflicts.push({ collection: 'floor', id: floorRow.id, name: floorRow.name });
+    }
+  }
+
+  if (conflicts.length) throw new VersionConflictError(conflicts);
+
+  // ── 2) assets first (so tempIds resolve for refs) ──
+  if (input.assets) {
+    const a = input.assets;
+
+    // OFD uniqueness — 새 OFD 가 생기면 검증.
+    if (a.creates.length) {
+      const typeIds = [...new Set(a.creates.map((c) => c.assetTypeId))];
+      const ofdTypeIds = new Set(
+        (await tx.assetType.findMany({ where: { id: { in: typeIds }, placementKind: 'OFD' }, select: { id: true } }))
+          .map((t) => t.id),
+      );
+      const hasNewOfd = a.creates.some((c) => ofdTypeIds.has(c.assetTypeId));
+      if (hasNewOfd) {
+        const existingOfd = await tx.asset.findFirst({
+          where: { parentAssetId: null, assetType: { placementKind: 'OFD' }, floor: { substationId } },
+          select: { id: true, name: true },
+        });
+        if (existingOfd) {
+          throw new ValidationError(`변전소에 이미 OFD가 존재합니다. (${existingOfd.name})`);
+        }
+      }
+    }
+
+    for (const c of a.creates) {
+      const created = await tx.asset.create({
+        data: {
+          substationId,
+          assetTypeId: c.assetTypeId,
+          name: c.name,
+          parentAssetId: c.parentAssetId ?? null,
+          roomText: c.roomText ?? null,
+          attributes: (c.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+          installDate: dateOrNull(c.installDate),
+          manager: c.manager ?? null,
+          status: c.status ?? null,
+          warrantyUntil: dateOrNull(c.warrantyUntil),
+          replaceDue: dateOrNull(c.replaceDue),
+          // placement
+          floorId: c.floorId ?? null,
+          positionX: c.positionX ?? null,
+          positionY: c.positionY ?? null,
+          width2d: c.width2d ?? null,
+          height2d: c.height2d ?? null,
+          rotation: toInt(c.rotation) ?? 0,
+          totalU: c.totalU ?? null,
+          createdById: userId,
+          updatedById: userId,
+        },
+      });
+      idMaps.assets[c.tempId] = created.id;
+    }
+
+    for (const u of a.updates) {
+      const p = u.patch;
+      await tx.asset.update({
+        where: { id: u.id },
+        data: {
+          assetTypeId: p.assetTypeId as string | undefined,
+          name: p.name as string | undefined,
+          parentAssetId: p.parentAssetId as string | null | undefined,
+          roomText: p.roomText as string | null | undefined,
+          attributes: (p.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+          installDate: patchDate(p.installDate),
+          manager: p.manager as string | null | undefined,
+          status: p.status as string | null | undefined,
+          warrantyUntil: patchDate(p.warrantyUntil),
+          replaceDue: patchDate(p.replaceDue),
+          // placement
+          floorId: p.floorId as string | null | undefined,
+          positionX: p.positionX as number | null | undefined,
+          positionY: p.positionY as number | null | undefined,
+          width2d: p.width2d as number | null | undefined,
+          height2d: p.height2d as number | null | undefined,
+          rotation: p.rotation === undefined ? undefined : toInt(p.rotation),
+          totalU: p.totalU as number | null | undefined,
+          updatedById: userId,
+        },
+      });
+    }
+
+    if (a.deletes.length) {
+      await tx.asset.deleteMany({ where: { id: { in: a.deletes.map((d) => d.id) }, substationId } });
+    }
+
+    const touched = [...a.updates.map((u) => u.id), ...Object.values(idMaps.assets)];
+    if (touched.length) {
+      const rows = await tx.asset.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
+      updated.assets = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
+    }
+  }
+
+  const resolveAsset = (id: string | null | undefined): string | null =>
+    id ? idMaps.assets[id] ?? id : null;
+
+  // ── 3) rackModules (Asset children) ──
+  if (input.rackModules) {
+    const m = input.rackModules;
+
+    if (m.deletes.length) {
+      await tx.asset.deleteMany({ where: { id: { in: m.deletes.map((d) => d.id) } } });
+    }
+
+    // 슬롯 충돌 검사용 live 슬롯 추적 (랙별). 초기: 관련 랙의 DB 잔존 모듈.
+    const liveByRack = new Map<string, { id: string; slotIndex: number; slotSpan: number }[]>();
+    const ensureLive = async (rackId: string) => {
+      if (liveByRack.has(rackId)) return liveByRack.get(rackId)!;
+      const sibs = await tx.asset.findMany({
+        where: { parentAssetId: rackId },
+        select: { id: true, slotIndex: true, slotSpan: true },
+      });
+      const deletedIds = new Set(m.deletes.map((d) => d.id));
+      const arr = sibs
+        .filter((s) => !deletedIds.has(s.id))
+        .map((s) => ({ id: s.id, slotIndex: s.slotIndex ?? 0, slotSpan: s.slotSpan ?? 1 }));
+      liveByRack.set(rackId, arr);
+      return arr;
+    };
+
+    for (const c of m.creates) {
+      const rackId = resolveAsset(c.rackEquipmentId)!;
+      await assertRackParentValid(tx, rackId, c.categoryId);
+      assertSlotValid(c.slotIndex, c.slotSpan);
+      const arr = await ensureLive(rackId);
+      assertNoSlotCollision(c.slotIndex, c.slotSpan, arr);
+      const created = await tx.asset.create({
+        data: {
+          substationId,
+          assetTypeId: c.categoryId,
+          name: c.name,
+          parentAssetId: rackId,
+          slotIndex: c.slotIndex,
+          slotSpan: c.slotSpan,
+          installDate: dateOrNull(c.installDate),
+          manager: c.manager ?? null,
+          description: c.description ?? null,
+          attributes: (c.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          sortOrder: c.sortOrder ?? 0,
+          createdById: userId,
+          updatedById: userId,
+        },
+      });
+      idMaps.rackModules[c.tempId] = created.id;
+      arr.push({ id: created.id, slotIndex: c.slotIndex, slotSpan: c.slotSpan });
+    }
+
+    for (const u of m.updates) {
+      const p = u.patch;
+      const rackId = p.rackEquipmentId ? resolveAsset(p.rackEquipmentId as string) : undefined;
+      if (rackId && p.categoryId) {
+        await assertRackParentValid(tx, rackId, p.categoryId as string);
+      }
+      if (p.slotIndex !== undefined && p.slotSpan !== undefined) {
+        assertSlotValid(p.slotIndex as number, p.slotSpan as number);
+        if (rackId) {
+          const arr = await ensureLive(rackId);
+          assertNoSlotCollision(p.slotIndex as number, p.slotSpan as number, arr, [u.id]);
+        }
+      }
+      await tx.asset.update({
+        where: { id: u.id },
+        data: {
+          parentAssetId: rackId,
+          assetTypeId: p.categoryId as string | undefined,
+          name: p.name as string | undefined,
+          slotIndex: p.slotIndex as number | undefined,
+          slotSpan: p.slotSpan as number | undefined,
+          installDate: patchDate(p.installDate),
+          manager: p.manager as string | null | undefined,
+          description: p.description as string | null | undefined,
+          attributes: (p.properties ?? undefined) as Prisma.InputJsonValue | undefined,
+          sortOrder: p.sortOrder as number | undefined,
+          updatedById: userId,
+        },
+      });
+    }
+
+    const touched = [...m.updates.map((u) => u.id), ...Object.values(idMaps.rackModules)];
+    if (touched.length) {
+      const rows = await tx.asset.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
+      updated.rackModules = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
+    }
+  }
+
+  // ── 4) distributionCircuits ──
+  if (input.distributionCircuits) {
+    const dc = input.distributionCircuits;
+
+    if (dc.deletes.length) {
+      await tx.distributionCircuit.deleteMany({ where: { id: { in: dc.deletes.map((d) => d.id) } } });
+    }
+
+    for (const c of dc.creates) {
+      const distId = resolveAsset(c.distributionEquipmentId)!;
+      await assertDistParentValid(tx, distId);
+      const created = await tx.distributionCircuit.create({
+        data: {
+          distributionEquipmentId: distId,
+          feederName: c.feederName,
+          branchName: c.branchName,
+          description: c.description ?? null,
+          sortOrder: c.sortOrder ?? 0,
+          createdById: userId,
+          updatedById: userId,
+        },
+      });
+      idMaps.distributionCircuits[c.tempId] = created.id;
+    }
+
+    for (const u of dc.updates) {
+      const p = u.patch;
+      const distId = p.distributionEquipmentId ? resolveAsset(p.distributionEquipmentId as string) ?? undefined : undefined;
+      if (distId) await assertDistParentValid(tx, distId);
+      await tx.distributionCircuit.update({
+        where: { id: u.id },
+        data: {
+          distributionEquipmentId: distId,
+          feederName: p.feederName as string | undefined,
+          branchName: p.branchName as string | undefined,
+          description: p.description as string | null | undefined,
+          sortOrder: p.sortOrder as number | undefined,
+          updatedById: userId,
+        },
+      });
+    }
+
+    const touched = [...dc.updates.map((u) => u.id), ...Object.values(idMaps.distributionCircuits)];
+    if (touched.length) {
+      const rows = await tx.distributionCircuit.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
+      updated.distributionCircuits = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
+    }
+  }
+
+  // ── 5) fiberPaths ──
+  if (input.fiberPaths) {
+    const fp = input.fiberPaths;
+
+    if (fp.deletes.length) {
+      await tx.fiberPath.deleteMany({ where: { id: { in: fp.deletes.map((d) => d.id) } } });
+    }
+
+    for (const c of fp.creates) {
+      const created = await tx.fiberPath.create({
+        data: {
+          ofdAId: resolveAsset(c.ofdAId)!,
+          ofdBId: resolveAsset(c.ofdBId)!,
+          portCount: c.portCount,
+          description: c.description ?? null,
+          createdById: userId,
+          updatedById: userId,
+        },
+      });
+      idMaps.fiberPaths[c.tempId] = created.id;
+    }
+
+    for (const u of fp.updates) {
+      const p = u.patch;
+      await tx.fiberPath.update({
+        where: { id: u.id },
+        data: {
+          ofdAId: p.ofdAId ? resolveAsset(p.ofdAId as string)! : undefined,
+          ofdBId: p.ofdBId ? resolveAsset(p.ofdBId as string)! : undefined,
+          portCount: p.portCount as number | undefined,
+          description: p.description as string | null | undefined,
+          updatedById: userId,
+        },
+      });
+    }
+
+    const touched = [...fp.updates.map((u) => u.id), ...Object.values(idMaps.fiberPaths)];
+    if (touched.length) {
+      const rows = await tx.fiberPath.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
+      updated.fiberPaths = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
+    }
+  }
+
+  const resolveModule = (id: string | null | undefined): string | null =>
+    id ? idMaps.rackModules[id] ?? id : null;
+  const resolveCircuit = (id: string | null | undefined): string | null =>
+    id ? idMaps.distributionCircuits[id] ?? id : null;
+  const resolveFiber = (id: string | null | undefined): string | null =>
+    id ? idMaps.fiberPaths[id] ?? id : null;
+
+  // ── 6) cables (refs resolved + validated) ──
+  if (input.cables) {
+    const cab = input.cables;
+
+    if (cab.deletes.length) {
+      await tx.cable.deleteMany({ where: { id: { in: cab.deletes.map((d) => d.id) } } });
+    }
+
+    for (const c of cab.creates) {
+      const ep = {
+        srcEqId: resolveAsset(c.source.equipmentId),
+        srcModId: resolveModule(c.source.moduleId),
+        srcCircuitId: resolveCircuit(c.source.circuitId),
+        tgtEqId: resolveAsset(c.target.equipmentId),
+        tgtModId: resolveModule(c.target.moduleId),
+        tgtCircuitId: resolveCircuit(c.target.circuitId),
+        fiberPathId: resolveFiber(c.fiberPathId),
+        fiberPortNumber: c.fiberPortNumber ?? undefined,
+      };
+      await assertCableEndpointsValid(tx, [ep]);
+      const created = await tx.cable.create({
+        data: {
+          sourceEquipmentId: ep.srcEqId,
+          sourceModuleId: ep.srcModId,
+          sourceCircuitId: ep.srcCircuitId,
+          targetEquipmentId: ep.tgtEqId,
+          targetModuleId: ep.tgtModId,
+          targetCircuitId: ep.tgtCircuitId,
+          cableType: c.cableType as CableType,
+          label: c.label ?? null,
+          length: c.length ?? null,
+          color: c.color ?? null,
+          description: c.description ?? null,
+          fiberPathId: ep.fiberPathId,
+          fiberPortNumber: c.fiberPortNumber ?? null,
+          categoryId: c.categoryId ?? null,
+          specParams: c.specParams as Prisma.InputJsonValue | undefined,
+          pathPoints: c.pathPoints as Prisma.InputJsonValue | undefined,
+          pathLength: c.pathLength ?? null,
+          bufferLength: c.bufferLength ?? 4,
+          totalLength: c.totalLength ?? null,
+          createdById: userId,
+          updatedById: userId,
+        },
+      });
+      idMaps.cables[c.tempId] = created.id;
+    }
+
+    for (const u of cab.updates) {
+      const p = u.patch;
+      const existing = await tx.cable.findUniqueOrThrow({
+        where: { id: u.id },
+        select: {
+          sourceEquipmentId: true, sourceModuleId: true, sourceCircuitId: true,
+          targetEquipmentId: true, targetModuleId: true, targetCircuitId: true,
+          fiberPathId: true, fiberPortNumber: true,
+        },
+      });
+      const ep = {
+        srcEqId: p.source?.equipmentId !== undefined ? resolveAsset(p.source.equipmentId) : existing.sourceEquipmentId,
+        srcModId: p.source?.moduleId !== undefined ? resolveModule(p.source.moduleId) : existing.sourceModuleId,
+        srcCircuitId: p.source?.circuitId !== undefined ? resolveCircuit(p.source.circuitId) : existing.sourceCircuitId,
+        tgtEqId: p.target?.equipmentId !== undefined ? resolveAsset(p.target.equipmentId) : existing.targetEquipmentId,
+        tgtModId: p.target?.moduleId !== undefined ? resolveModule(p.target.moduleId) : existing.targetModuleId,
+        tgtCircuitId: p.target?.circuitId !== undefined ? resolveCircuit(p.target.circuitId) : existing.targetCircuitId,
+        fiberPathId: p.fiberPathId !== undefined ? resolveFiber(p.fiberPathId) : existing.fiberPathId,
+        fiberPortNumber: p.fiberPortNumber !== undefined ? (p.fiberPortNumber as number | null) : existing.fiberPortNumber,
+      };
+      await assertCableEndpointsValid(tx, [ep]);
+      await tx.cable.update({
+        where: { id: u.id },
+        data: {
+          sourceEquipmentId: ep.srcEqId,
+          sourceModuleId: ep.srcModId,
+          sourceCircuitId: ep.srcCircuitId,
+          targetEquipmentId: ep.tgtEqId,
+          targetModuleId: ep.tgtModId,
+          targetCircuitId: ep.tgtCircuitId,
+          cableType: p.cableType as CableType | undefined,
+          label: p.label as string | null | undefined,
+          length: p.length as number | null | undefined,
+          color: p.color as string | null | undefined,
+          description: p.description as string | null | undefined,
+          fiberPathId: ep.fiberPathId,
+          fiberPortNumber: ep.fiberPortNumber,
+          categoryId: p.categoryId as string | null | undefined,
+          specParams: p.specParams as Prisma.InputJsonValue | undefined,
+          pathPoints: p.pathPoints as Prisma.InputJsonValue | undefined,
+          pathLength: p.pathLength as number | null | undefined,
+          bufferLength: p.bufferLength as number | undefined,
+          totalLength: p.totalLength as number | null | undefined,
+          updatedById: userId,
+        },
+      });
+    }
+
+    const touched = [...cab.updates.map((u) => u.id), ...Object.values(idMaps.cables)];
+    if (touched.length) {
+      const rows = await tx.cable.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
+      updated.cables = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
+    }
+  }
+
+  // ── 7) floor (settings → columns) ──
+  if (input.floor && floorRow) {
+    const s = input.floor.settings;
+    const f = await tx.floor.update({
+      where: { id: input.floor.id },
+      data: {
+        ...(s?.canvasWidth !== undefined ? { canvasWidth: s.canvasWidth } : {}),
+        ...(s?.canvasHeight !== undefined ? { canvasHeight: s.canvasHeight } : {}),
+        ...(s?.gridSize !== undefined ? { gridSize: s.gridSize } : {}),
+        ...(s?.majorGridSize !== undefined ? { majorGridSize: s.majorGridSize } : {}),
+        ...(s?.backgroundOpacity !== undefined ? { backgroundOpacity: s.backgroundOpacity } : {}),
+        ...(s?.backgroundDrawing !== undefined
+          ? { backgroundDrawing: s.backgroundDrawing === null ? Prisma.JsonNull : (s.backgroundDrawing as Prisma.InputJsonValue) }
+          : {}),
+        updatedById: userId,
+      },
+      select: { id: true, updatedAt: true },
+    });
+    updated.floor = { id: f.id, updatedAt: f.updatedAt.toISOString() };
+  }
+
+  return { idMaps, updated };
+}
