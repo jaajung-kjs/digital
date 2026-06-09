@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { usePortStatus } from '../hooks/usePortStatus';
-import { useEditorStore } from '../../editor/stores/editorStore';
-import { generateTempId, isTempId } from '../../../utils/idHelpers';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { generateTempId } from '../../../utils/idHelpers';
 import { FiberPortGrid } from './FiberPortGrid';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
-import { useOfdDirectory } from '../hooks/useOfdDirectory';
+import { useOfdDirectoryWithStatus } from '../hooks/useOfdDirectory';
 import type { FiberPathDetail } from '../types';
 
 interface FiberPathManagerProps {
@@ -16,9 +16,8 @@ interface FiberPathManagerProps {
 
 export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigateRemote }: FiberPathManagerProps) {
   const { mergedPaths, isLoading } = usePortStatus(ofdId);
-  const addPendingFiberPath = useEditorStore((s) => s.addPendingFiberPath);
-  const removePendingFiberPath = useEditorStore((s) => s.removePendingFiberPath);
-  const deleteFiberPath = useEditorStore((s) => s.deleteFiberPath);
+  const stageFiberPathCreate = useSubstationWorkingCopy((s) => s.stageFiberPathCreate);
+  const stageFiberPathDelete = useSubstationWorkingCopy((s) => s.stageFiberPathDelete);
   const [expandedPathId, setExpandedPathId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [portCount, setPortCount] = useState<24 | 48>(24);
@@ -43,17 +42,18 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
   };
 
   // Picker 용 OFD 목록 — useOfdDirectory 가 saved + 로컬 unsaved 합쳐 줌.
-  const ofdDirectory = useOfdDirectory();
+  // isLoading 은 React Query 가 직접 알려줘야 정확 — size===0 만 보면 "OFD 가
+  // 0 개인 신규 배포" 가 영구 로딩 상태로 잘못 표시됨.
+  const { directory: ofdDirectory, isLoading: isLoadingOfd } = useOfdDirectoryWithStatus();
   const filteredList = [...ofdDirectory.values()]
     .filter((eq) => eq.id !== ofdId)
     .filter((eq) => {
       if (!searchTerm) return true;
       return (eq.substationName || eq.name).toLowerCase().includes(searchTerm.toLowerCase());
     });
-  const isLoadingOfd = ofdDirectory.size === 0;
 
   const handleCreate = (targetOfdId: string) => {
-    addPendingFiberPath({
+    stageFiberPathCreate({
       id: generateTempId(),
       ofdAId: ofdId,
       ofdBId: targetOfdId,
@@ -65,13 +65,9 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
 
   const handleDelete = async (pathId: string) => {
     if (!confirm('이 경로를 삭제하시겠습니까?')) return;
-    if (isTempId(pathId)) {
-      // Pending path: just remove from store
-      removePendingFiberPath(pathId);
-    } else {
-      // Saved path: mark for deletion on save
-      deleteFiberPath(pathId);
-    }
+    // 통합 스토어 stage: temp 는 staged-create 제거, saved 는 삭제 마킹 —
+    // stageFiberPathDelete 내부에서 isTempId 로 분기 처리.
+    stageFiberPathDelete(pathId);
   };
 
   const getUsageCount = (path: FiberPathDetail): number => {
