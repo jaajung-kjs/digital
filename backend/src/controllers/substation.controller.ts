@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { substationService } from '../services/substation.service.js';
 import { commitSubstation } from '../services/substationCommit.service.js';
+import { getWorkingCopy } from '../services/substationWorkingCopy.service.js';
 import type { SubstationCommitInput } from '../schemas/substationCommit.schema.js';
 
 export const substationController = {
@@ -101,6 +102,20 @@ export const substationController = {
       );
 
       res.json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * GET /api/substations/:substationId/workingcopy
+   * 통합 working-copy 벌크 로드 (SSOT-2b) — assets(배치 포함)/cables/
+   * distributionCircuits/fiberPaths 전 컬렉션을 단일 응답으로 반환.
+   */
+  async getWorkingCopy(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await getWorkingCopy(req.params.substationId);
+      res.json({ data });
     } catch (error) {
       next(error);
     }

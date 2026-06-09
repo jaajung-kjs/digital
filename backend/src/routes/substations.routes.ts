@@ -70,6 +70,13 @@ router.post(
   substationController.commit
 );
 
+// 통합 working-copy 벌크 로드 (SSOT-2b, 인증 필요)
+router.get(
+  '/:substationId/workingcopy',
+  authenticate,
+  substationController.getWorkingCopy
+);
+
 // ==================== Floor Routes (nested under substations) ====================
 
 // 층 목록 조회 (인증 불필요 - PRD: 조회: 전체)
