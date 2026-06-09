@@ -64,7 +64,13 @@ export function TreePanel() {
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
       if (node.type === 'floor') {
-        navigate(`/floors/${node.id}/plan`);
+        // floor 노드의 parentId 는 항상 소속 substation id (fetchChildNodes 참고).
+        // substationId 가 있으면 워크스페이스로 일원화, 없으면 기존 /floors/:id/plan 유지.
+        if (node.parentId) {
+          navigate(`/substations/${node.parentId}/workspace?view=plan&floor=${node.id}`);
+        } else {
+          navigate(`/floors/${node.id}/plan`);
+        }
       } else if (node.type === 'substation') {
         navigate(`/substations/${node.id}/workspace`);
       }
