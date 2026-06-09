@@ -82,7 +82,7 @@ export function SubstationWorkspacePage() {
               </select>
             )}
           </div>
-          {(view === 'status' || view === 'connections') && (
+          {(view === 'status' || view === 'connections' || view === 'plan') && (
             <WorkingCopyCommitBar substationId={substationId} />
           )}
           <div className="flex-1 min-h-0 relative">
