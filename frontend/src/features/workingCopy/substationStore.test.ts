@@ -104,4 +104,27 @@ describe('substationWorkingCopy', () => {
     useSubstationWorkingCopy.getState().stageRackModuleDelete('m1');
     expect(useSubstationWorkingCopy.getState().effectiveRackModules('r1').map(a=>a.id)).toEqual([]);
   });
+
+  // ── SSOT-2d-3a T1: 버전 복원 diff 스테이징(단일 undo) ──
+  it('stageReplaceFloorFromSnapshot → diff stage, 단일 undo', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    // snapshot: r1 modified(name X), a3 new, ofd o1 / mod m1 absent; cables empty
+    const minimalAsset = { substationId:'s1', assetTypeId:'tRACK', assetType:{ id:'tRACK', code:'RACK', name:'랙', group:null, displayColor:null, fieldTemplate:null, placementKind:'RACK' }, name:'a3', parentAssetId:null, floorId:'f1', roomText:null, attributes:null, installDate:null, warrantyUntil:null, replaceDue:null, manager:null, description:null, status:null, sortOrder:0, updatedAt:'2026-01-01T00:00:00.000Z' };
+    useSubstationWorkingCopy.getState().stageReplaceFloorFromSnapshot('f1', {
+      assets: [{ ...(rack as any), name:'X' }, { id:'a3', ...minimalAsset } as any],
+      cables: [],
+    });
+    const eff = useSubstationWorkingCopy.getState();
+    const ids = eff.effectiveAssets().map(a=>a.id);
+    expect(eff.effectiveAssets().find(a=>a.id==='r1')!.name).toBe('X'); // updated
+    expect(ids).toContain('a3');     // created
+    expect(ids).not.toContain('o1'); // deleted (absent from snapshot)
+    expect(ids).not.toContain('m1'); // rack-module child on floor, absent → deleted
+    expect(eff.effectiveCables().some(c=>c.id==='c1')).toBe(false); // cable deleted (snapshot cables empty)
+    useSubstationWorkingCopy.temporal.getState().undo(); // single step restores all
+    const ids2 = useSubstationWorkingCopy.getState().effectiveAssets().map(a=>a.id);
+    expect(ids2).toContain('o1');
+    expect(ids2).toContain('m1');
+    expect(useSubstationWorkingCopy.getState().effectiveCables().some(c=>c.id==='c1')).toBe(true); // c1 back
+  });
 });

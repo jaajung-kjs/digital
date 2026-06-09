@@ -147,6 +147,18 @@ export interface SubstationWorkingCopyState {
   /** 케이블 다건 업데이트를 단일 set 으로 stage(단일 undo). */
   stageCableUpdates: (updates: Record<string, Partial<Cable>>) => void;
 
+  /**
+   * 버전 복원: 한 층의 현재 effective(assets/cables)를 snapshot 과 diff 하여
+   * create/update/delete 를 단일 set 으로 stage 한다(단일 undo 스텝).
+   * - snapshot 에 없는 현 floor asset/cable → delete
+   * - snapshot 에만 있는 → create, 양쪽에 있는 → update(snapshot 필드로 교체)
+   * 입력은 Asset[]/Cable[] 형태(audit-log snapshot 의 FloorPlanEquipment/cable shape 매핑은 호출측의 몫 — Task 4).
+   */
+  stageReplaceFloorFromSnapshot: (
+    floorId: string,
+    snapshot: { assets: Asset[]; cables: Cable[] },
+  ) => void;
+
   // ── 랙모듈(=RACK 자식 Asset) stage 액션 — assets overlay 에 위임. ──
   /** 랙모듈 신규 stage. floorId 는 부모 랙 Asset 에서 상속(없으면 null). */
   stageRackModuleCreate: (m: RackModule) => void;
@@ -302,6 +314,47 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           let cables = s.overlays.cables;
           for (const [id, patch] of Object.entries(updates)) cables = stageUpdate(cables, id, patch);
           return { overlays: { ...s.overlays, cables } };
+        }),
+
+      stageReplaceFloorFromSnapshot: (floorId, snapshot) =>
+        set((s) => {
+          // 현 floor 의 effective assets — top/모듈 모두 floorId 로 식별(랙모듈도 floorId 상속).
+          const effA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor).filter(
+            (a) => a.floorId === floorId,
+          );
+          const floorAssetIds = new Set(effA.map((a) => a.id));
+          // floor cables = source/target 의 {equipmentId, moduleId} 중 하나라도 이 층 asset 인 케이블
+          // (useEffectiveFloorCables 의 floor-cable predicate 재사용).
+          const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor).filter((c) => {
+            const ep = (e: unknown) => {
+              const o = e as { equipmentId?: string | null; moduleId?: string | null } | undefined;
+              return [o?.equipmentId, o?.moduleId];
+            };
+            return [...ep((c as { source?: unknown }).source), ...ep((c as { target?: unknown }).target)].some(
+              (x) => x != null && floorAssetIds.has(x),
+            );
+          });
+
+          let assets = s.overlays.assets;
+          let cables = s.overlays.cables;
+
+          const snapAIds = new Set(snapshot.assets.map((a) => a.id));
+          const curA = new Map(effA.map((a) => [a.id, a]));
+          for (const a of effA) if (!snapAIds.has(a.id)) assets = stageDelete(assets, a.id, isTempId(a.id));
+          for (const a of snapshot.assets) {
+            if (!curA.has(a.id)) assets = stageCreate(assets, a.id, a);
+            else assets = stageUpdate(assets, a.id, a as Partial<Asset>); // snapshot 필드로 교체
+          }
+
+          const snapCIds = new Set(snapshot.cables.map((c) => c.id));
+          const curC = new Map(effC.map((c) => [c.id, c]));
+          for (const c of effC) if (!snapCIds.has(c.id)) cables = stageDelete(cables, c.id, isTempId(c.id));
+          for (const c of snapshot.cables) {
+            if (!curC.has(c.id)) cables = stageCreate(cables, c.id, c);
+            else cables = stageUpdate(cables, c.id, c as Partial<Cable>);
+          }
+
+          return { overlays: { ...s.overlays, assets, cables } };
         }),
 
       // ── 랙모듈 stage 액션 (assets overlay 위임) ──
