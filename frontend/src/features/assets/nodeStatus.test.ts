@@ -6,6 +6,14 @@ describe('installLocation', () => {
   it('floorName 우선', () => expect(installLocation({ ...base, floorName: '통신실' })).toBe('춘천S/S 통신실'));
   it('floor 없으면 roomText', () => expect(installLocation({ ...base, roomText: '배전실' })).toBe('춘천S/S 배전실'));
   it('둘 다 없으면 변전소명', () => expect(installLocation(base)).toBe('춘천S/S'));
+  it('랙 모듈 → 변전소 + 부모 층 + 랙명', () =>
+    expect(
+      installLocation({ ...base, parentAssetId: 'rack1', parentName: 'R01', parentFloorName: '2층' }),
+    ).toBe('춘천S/S 2층 R01'));
+  it('랙 모듈, 부모 층 없으면 자체 floorName 폴백', () =>
+    expect(
+      installLocation({ ...base, floorName: '통신실', parentAssetId: 'rack1', parentName: 'R01', parentFloorName: null }),
+    ).toBe('춘천S/S 통신실 R01'));
 });
 describe('inspectionState', () => {
   const today = new Date('2026-06-06T00:00:00Z');

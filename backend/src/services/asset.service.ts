@@ -71,6 +71,9 @@ export interface AssetListItem {
   floorId: string | null;
   floorName: string | null;
   roomText: string | null;
+  parentAssetId: string | null;
+  parentName: string | null;
+  parentFloorName: string | null;
   installDate: Date | null;
   manager: string | null;
   status: string | null;
@@ -140,7 +143,12 @@ class AssetService {
       },
       orderBy: [{ substationId: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
-    return rows.map((r) => ({
+    // 랙 모듈은 자체 floor 가 없으므로 부모 랙의 name·floor 를 보여준다.
+    // 부모 랙은 같은 변전소 범위라 이미 rows 에 포함 → id 로 조회(추가 쿼리 없음).
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    return rows.map((r) => {
+      const parent = r.parentAssetId ? byId.get(r.parentAssetId) ?? null : null;
+      return {
       id: r.id,
       name: r.name,
       assetTypeName: r.assetType.name,
@@ -150,13 +158,17 @@ class AssetService {
       floorId: r.floorId ?? null,
       floorName: r.floor?.name ?? null,
       roomText: r.roomText ?? null,
+      parentAssetId: r.parentAssetId ?? null,
+      parentName: parent?.name ?? null,
+      parentFloorName: parent?.floor?.name ?? null,
       installDate: r.installDate,
       manager: r.manager,
       status: r.status,
       warrantyUntil: r.warrantyUntil,
       replaceDue: r.replaceDue,
       lastMaintenanceDate: r.maintenanceLogs[0]?.logDate ?? null,
-    }));
+      };
+    });
   }
 
   async getById(id: string): Promise<AssetDetail> {
