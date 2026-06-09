@@ -61,10 +61,11 @@ router.put(
 // 변전소 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, substationController.delete);
 
-// 통합 변전소 커밋 (SSOT-2a, 인증 필요)
+// 통합 변전소 커밋 (SSOT-2a, 관리자만 — 기존 assets/commit·plan 과 동일)
 router.post(
   '/:substationId/commit',
   authenticate,
+  adminOnly,
   validate(substationCommitSchema),
   substationController.commit
 );
