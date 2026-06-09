@@ -3,7 +3,13 @@ import { renderHook, act } from '@testing-library/react';
 vi.mock('../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
-import { useEffectiveCables, useWorkingCopyDirty, useEffectiveEquipment, useEffectiveRackModules, useEffectiveFloorCables } from './hooks';
+import { useEffectiveCables, useWorkingCopyDirty, useEffectiveEquipment, useEffectiveRackModules, useEffectiveFloorCables, useUnifiedDirty } from './hooks';
+import { useEditorStore } from '../editor/stores/editorStore';
+
+// jsdom 에 없는 URL.revokeObjectURL 스텁(clearPendingData/resetEditor 가 호출).
+if (typeof URL.revokeObjectURL !== 'function') {
+  (URL as unknown as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => {};
+}
 
 const cable = { id: 'c1', cableType: 'LAN', updatedAt: '2026-01-01T00:00:00.000Z' };
 const TS = '2026-01-01T00:00:00.000Z';
@@ -48,6 +54,53 @@ describe('workingCopy hooks', () => {
     });
     rerender();
     expect(result.current).toBe(1);
+  });
+
+  it('useUnifiedDirty sums overlay dirty + pendingUploads + pendingLogs + floor settings', async () => {
+    await act(async () => {
+      await useSubstationWorkingCopy.getState().load('s1');
+    });
+    useEditorStore.getState().resetEditor();
+    const { result, rerender } = renderHook(() => useUnifiedDirty());
+    expect(result.current).toBe(0);
+
+    // 1 staged overlay change
+    act(() => {
+      useSubstationWorkingCopy.getState().stageCableUpdate('c1', { label: 'Z' });
+    });
+    rerender();
+    expect(result.current).toBe(1);
+
+    // + 2 pending uploads
+    act(() => {
+      useEditorStore.getState().addPendingUpload({
+        id: 'u1', equipmentId: 'e1', side: 'front', file: new File([''], 'a.jpg'), description: '', objectUrl: 'blob:a',
+      });
+      useEditorStore.getState().addPendingUpload({
+        id: 'u2', equipmentId: 'e1', side: 'rear', file: new File([''], 'b.jpg'), description: '', objectUrl: 'blob:b',
+      });
+    });
+    rerender();
+    expect(result.current).toBe(3);
+
+    // + 1 pending log
+    act(() => {
+      useEditorStore.getState().addPendingLog({ id: 'l1', equipmentId: 'e1', logType: 'CHECK', title: 't' });
+    });
+    rerender();
+    expect(result.current).toBe(4);
+
+    // + floor settings (staged background opacity) counts as exactly 1
+    act(() => {
+      useEditorStore.getState().stageBackgroundOpacity(0.5);
+    });
+    rerender();
+    expect(result.current).toBe(5);
+
+    // cleanup so editorStore state doesn't bleed into other tests
+    act(() => {
+      useEditorStore.getState().resetEditor();
+    });
   });
 
   it('useEffectiveEquipment(f1) → f1 placement-level only, as FloorPlanEquipment', async () => {

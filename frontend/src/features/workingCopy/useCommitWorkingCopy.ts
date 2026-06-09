@@ -1,0 +1,165 @@
+import { useCallback } from 'react';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { api } from '../../utils/api';
+import { buildIdMaps } from './idMaps';
+import { commitSubstation, type FloorCommitSection } from './substationCommit';
+import { useSubstationWorkingCopy } from './substationStore';
+import { useEditorStore } from '../editor/stores/editorStore';
+import type { PendingUpload, PendingLog } from '../editor/stores/editorStore';
+
+// ──────────────────────────────────────────────────────────────────────────
+// USP Task 1 — 단일 커밋 훅.
+//
+// 에디터의 handleSave + saveMutation(mutationFn/onSuccess)이 수행하던 저장
+// 흐름을 self-contained 한 commit() 으로 추출한다. 호출부는 더 이상 floorId/
+// floorPlan/substationId 를 넘길 필요 없이, substationId 는 통합 working copy
+// store 에서, floor 섹션은 editorStore 에서 직접 읽는다.
+//
+// 흐름: commitSubstation → 사진/로그 flush(tempId→realId) → store.load(재조정)
+//       → editorStore.clearPendingData → 사진/로그 query invalidate.
+// 409 는 throw 하지 않고 { ok:false, conflicts } 로 표면화한다(다른 에러는 throw).
+//
+// 주의: localStorage draft 제거는 여기서 하지 않는다(Task 3 에서 draft 자체 제거).
+// 헬퍼(buildFloorSection/flushPendingMedia/invalidateMediaQueries/is409/
+// extractConflicts)는 useFloorPlanData 의 로직을 그대로 복제(duplicate)한 것이다.
+// Task 2 가 handleSave 를 제거할 때 useFloorPlanData 쪽 원본도 함께 사라진다.
+// ──────────────────────────────────────────────────────────────────────────
+
+/** 충돌 1건 — WorkingCopyCommitBar/ConflictDialog 가 쓰는 shape 과 동일. */
+export type Conflict = { id: string; name?: string };
+
+/**
+ * editorStore 의 floor-level 캔버스 설정(grid/배경)을 commit 의 `floor` 섹션으로
+ * 빌드한다. canvasWidth/canvasHeight 는 에디터에서 변경 불가(읽기 전용)이고
+ * editorStore 에 보관되지 않으므로 settings 에서 생략한다(undefined=변경없음).
+ * backgroundDrawing/Opacity 는 3-state: 사용자가 스테이징했을 때만 동봉한다.
+ */
+function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): FloorCommitSection | undefined {
+  // floor section 은 floorId + baseVersion 둘 다 필요하다(로드된 단일 floor plan).
+  // 에디터가 /floors/:id/plan 을 로드하면 activeFloorId + baseFloorVersion 을 함께
+  // 세팅하므로, 둘 중 하나라도 없으면 floor 섹션 없이 커밋한다(워크스페이스 단독 등).
+  const floorId = ed.activeFloorId;
+  if (!floorId || ed.baseFloorVersion == null) return undefined;
+  return {
+    id: floorId,
+    baseVersion: ed.baseFloorVersion ?? null,
+    settings: {
+      gridSize: ed.gridSize,
+      majorGridSize: ed.majorGridSize,
+      ...(ed.stagedBackgroundDrawing !== undefined ? { backgroundDrawing: ed.stagedBackgroundDrawing } : {}),
+      ...(ed.stagedBackgroundOpacity !== undefined ? { backgroundOpacity: ed.stagedBackgroundOpacity } : {}),
+    },
+  };
+}
+
+/**
+ * 커밋 성공 후 pending 사진/로그를 tempId→realId 해석해 flush 한다.
+ * 사진: POST /equipment/:realId/photos (multipart), 로그: POST .../maintenance-logs.
+ * 둘 다 allSettled — 일부 실패해도 나머지는 진행하고 실패만 경고한다.
+ */
+async function flushPendingMedia(
+  pendingUploads: PendingUpload[],
+  pendingLogs: PendingLog[],
+  idMapsAssets: Record<string, string> | undefined,
+): Promise<void> {
+  const idMaps = buildIdMaps({ equipmentIdMap: idMapsAssets });
+  const resolveEquipmentId = (id: string) => idMaps.equipment.get(id) ?? id;
+
+  const pendingTasks: Promise<void>[] = [];
+
+  if (pendingUploads.length > 0) {
+    pendingTasks.push(
+      Promise.allSettled(
+        pendingUploads.map(async (upload) => {
+          const formData = new FormData();
+          formData.append('file', upload.file);
+          formData.append('side', upload.side);
+          formData.append('takenAt', new Date().toISOString());
+          if (upload.description) formData.append('description', upload.description);
+          await api.post(`/equipment/${resolveEquipmentId(upload.equipmentId)}/photos`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+        }),
+      ).then((results) => {
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) {
+          console.warn(`[Save] ${failures.length} photo upload(s) failed:`, failures);
+        }
+      }),
+    );
+  }
+
+  if (pendingLogs.length > 0) {
+    pendingTasks.push(
+      Promise.allSettled(
+        pendingLogs.map(async (log) => {
+          await api.post(`/equipment/${resolveEquipmentId(log.equipmentId)}/maintenance-logs`, {
+            logType: log.logType,
+            title: log.title,
+            logDate: log.logDate || undefined,
+            severity: log.severity || undefined,
+            description: log.description || undefined,
+          });
+        }),
+      ).then((results) => {
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) {
+          console.warn(`[Save] ${failures.length} log creation(s) failed:`, failures);
+        }
+      }),
+    );
+  }
+
+  await Promise.all(pendingTasks);
+}
+
+/** 사진/로그는 commit 무효화 세트 밖(큐 패턴) — 별도로 invalidate. */
+function invalidateMediaQueries(
+  queryClient: QueryClient,
+  hadUploads: boolean,
+  hadLogs: boolean,
+): void {
+  if (hadUploads) queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
+  if (hadLogs) queryClient.invalidateQueries({ queryKey: ['maintenance-logs'] });
+}
+
+/** axios 409 에러 여부. */
+function is409(e: unknown): boolean {
+  return (e as { response?: { status?: number } })?.response?.status === 409;
+}
+
+/** axios 409 에러에서 충돌 목록(details)을 추출. */
+function extractConflicts(e: unknown): Conflict[] {
+  const resp = (e as { response?: { data?: { details?: Conflict[] } } }).response;
+  return resp?.data?.details ?? [];
+}
+
+/**
+ * 단일 커밋 훅 — 에디터/워크스페이스 모두 같은 저장 경로를 쓰게 한다.
+ * 반환된 commit() 은 substationId/floor 를 store 에서 직접 읽어 self-contained.
+ */
+export function useCommitWorkingCopy() {
+  const queryClient = useQueryClient();
+  return useCallback(async (): Promise<{ ok: true } | { ok: false; conflicts: Conflict[] }> => {
+    const wc = useSubstationWorkingCopy.getState();
+    const substationId = wc.substationId;
+    if (!substationId) return { ok: true };
+
+    const ed = useEditorStore.getState();
+    const floor = buildFloorSection(ed);
+    const hadUploads = ed.pendingUploads.length > 0;
+    const hadLogs = ed.pendingLogs.length > 0;
+
+    try {
+      const result = await commitSubstation(substationId, wc.overlays, wc.saved.assets, queryClient, floor);
+      await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, result.idMaps?.assets);
+      await useSubstationWorkingCopy.getState().load(substationId);
+      useEditorStore.getState().clearPendingData();
+      invalidateMediaQueries(queryClient, hadUploads, hadLogs);
+      return { ok: true };
+    } catch (e) {
+      if (is409(e)) return { ok: false, conflicts: extractConflicts(e) };
+      throw e;
+    }
+  }, [queryClient]);
+}

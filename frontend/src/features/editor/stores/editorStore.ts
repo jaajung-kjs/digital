@@ -144,6 +144,8 @@ export interface EditorStoreState {
 
   /** OCC: Floor.updatedAt ISO 캡처값 — 저장 시 baseFloorVersion 으로 동봉. */
   baseFloorVersion: string | null;
+  /** 현재 로드된 floor 의 id — commit 의 floor 섹션 id 로 동봉(self-contained 커밋용). */
+  activeFloorId: string | null;
   /** OCC: 409 충돌 시 backend 가 준 변경 collection 목록 (모달 표시). */
   floorConflict: { id: string; name?: string }[] | null;
 
@@ -241,6 +243,7 @@ export interface EditorStoreActions {
   setSelectedCableId: (id: string | null) => void;
   setRestoredFromVersion: (v: string | null) => void;
   setBaseFloorVersion: (v: string | null) => void;
+  setActiveFloorId: (v: string | null) => void;
   setFloorConflict: (c: { id: string; name?: string }[] | null) => void;
   clearSelection: () => void;
   resetEditor: () => void;
@@ -314,6 +317,7 @@ const initialState: EditorStoreState = {
   selectedCableId: null,
   restoredFromVersion: null,
   baseFloorVersion: null,
+  activeFloorId: null,
   floorConflict: null,
 
   // Canvas interaction
@@ -443,6 +447,7 @@ export const useEditorStore = create<FullStore>()((set) => ({
     ),
   setRestoredFromVersion: (restoredFromVersion) => set({ restoredFromVersion }),
   setBaseFloorVersion: (v) => set({ baseFloorVersion: v }),
+  setActiveFloorId: (v) => set({ activeFloorId: v }),
   setFloorConflict: (c) => set({ floorConflict: c }),
   clearSelection: () => set({
     selectedIds: [],
@@ -531,6 +536,18 @@ export const useEditorStore = create<FullStore>()((set) => ({
 }));
 
 // ── Derived selectors ────────────────────────────────────────────────────────
+
+/**
+ * USP Task 1 — floor-level 캔버스 설정의 staged dirty 여부.
+ *
+ * 현재 hasChanges 를 floor 설정 변경으로 뒤집는 액션은 stageBackgroundDrawing /
+ * stageBackgroundClear / stageBackgroundOpacity 뿐이다(둘 다 staged* 필드를
+ * undefined 가 아닌 값으로 만든다). setGridSize/setMajorGridSize 는 hasChanges 를
+ * 건드리지 않으므로 여기서도 grid 는 dirty 신호에 포함하지 않는다(현 동작 그대로).
+ */
+export const selectFloorSettingsDirty = (s: EditorStoreState): boolean =>
+  s.stagedBackgroundDrawing !== undefined || s.stagedBackgroundOpacity !== undefined;
+
 // "현재 선택된 설비" 는 selectedIds[0] (editorStore transient) + 통합 스토어의
 // effective(saved+overlay) asset 으로 도출한다. SSOT-2d 이후 설비 데이터의 단일
 // 진실은 substation working-copy 이므로, 선택 id 만 editorStore 에서 읽고 실제

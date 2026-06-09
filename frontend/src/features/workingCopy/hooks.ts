@@ -11,6 +11,7 @@ import { overlayDirtyCount } from './overlay';
 import { assetToEquipment } from './assetToEquipment';
 import { assetToRackModule } from './assetToRackModule';
 import type { RackModule } from '../../types/rackModule';
+import { useEditorStore, selectFloorSettingsDirty } from '../editor/stores/editorStore';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2c Task 1 — React 바인딩 훅.
@@ -140,6 +141,21 @@ export function useWorkingCopyDirty() {
       overlayDirtyCount(fiberPaths),
     [assets, cables, distributionCircuits, fiberPaths],
   );
+}
+
+/**
+ * USP Task 1 — 단일 dirty 신호.
+ *
+ * 통합 working-copy overlay(assets/cables/dist/fiber)의 staged 변경 합계에
+ * 에디터가 아직 별도 큐로 보유한 pendingUploads/pendingLogs 와 floor-level
+ * 설정(배경) staged 여부를 더한다. 0 이면 저장할 게 없다 → 저장 바 숨김.
+ */
+export function useUnifiedDirty(): number {
+  const wc = useWorkingCopyDirty();
+  const uploads = useEditorStore((s) => s.pendingUploads.length);
+  const logs = useEditorStore((s) => s.pendingLogs.length);
+  const floorDirty = useEditorStore(selectFloorSettingsDirty);
+  return wc + uploads + logs + (floorDirty ? 1 : 0);
 }
 
 /** 주어진 substationId 의 working copy 가 현재 로드돼 있는지. */
