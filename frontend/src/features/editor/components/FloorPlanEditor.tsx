@@ -15,7 +15,7 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { useInteractionStore } from '../stores/interactionStore';
 import { generateTempId } from '../../../utils/idHelpers';
 import { Toolbar } from './Toolbar';
-import { EditorSidebar } from './EditorSidebar';
+import { EditorInsertBar } from './EditorInsertBar';
 import { CanvasView } from './CanvasView';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
@@ -515,6 +515,8 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         onToggleLayers={() => setShowLayers(p => !p)}
       />
 
+      {!snapshotActive && <EditorInsertBar />}
+
       <div className="flex-1 flex overflow-hidden min-h-0">
         {isPlanNotFound ? (
           <div className="flex-1 flex items-center justify-center">
@@ -528,7 +530,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
           </div>
         ) : (
           <>
-            {!snapshotActive && <EditorSidebar />}
             <div className="flex-1 flex flex-col min-w-0 relative">
               <CanvasView
                 canvasRef={canvasRef}
