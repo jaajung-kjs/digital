@@ -65,6 +65,8 @@ export function TreePanel() {
     (node: TreeNodeData) => {
       if (node.type === 'floor') {
         navigate(`/floors/${node.id}/plan`);
+      } else if (node.type === 'substation') {
+        navigate(`/substations/${node.id}/workspace`);
       }
     },
     [navigate],
