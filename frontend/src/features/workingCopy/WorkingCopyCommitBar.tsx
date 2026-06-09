@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSubstationWorkingCopy } from './substationStore';
 import { useUnifiedDirty } from './hooks';
 import { useCommitWorkingCopy, type Conflict } from './useCommitWorkingCopy';
@@ -19,6 +20,7 @@ import { ConflictDialog } from './ConflictDialog';
 export function WorkingCopyCommitBar({ substationId }: { substationId: string }) {
   const dirty = useUnifiedDirty();
   const commit = useCommitWorkingCopy();
+  const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
 
@@ -56,6 +58,12 @@ export function WorkingCopyCommitBar({ substationId }: { substationId: string })
           onReloadLatest={async () => {
             // 최신 saved/baseVersions 만 재조정하고 staged 편집은 보존 → 재커밋 가능.
             await useSubstationWorkingCopy.getState().refreshBaseVersions(substationId);
+            // 엔티티 baseVersions 만으론 floor 섹션 409 가 풀리지 않는다 — 활성 층의
+            // floorPlan 쿼리도 무효화해 baseFloorVersion 을 fresh updatedAt 으로 재동기화.
+            const activeFloorId = useEditorStore.getState().activeFloorId;
+            if (activeFloorId != null) {
+              await queryClient.invalidateQueries({ queryKey: ['floorPlan', activeFloorId] });
+            }
             setConflicts(null);
           }}
         />

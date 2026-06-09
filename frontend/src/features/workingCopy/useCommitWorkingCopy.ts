@@ -212,6 +212,12 @@ export function useCommitWorkingCopy() {
       await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, result.idMaps?.assets);
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
+      // 2회차 저장 409 방지 — 커밋이 floor.updatedAt 을 bump 하므로, 활성 층의 floorPlan
+      // 쿼리를 무효화해 useFloorPlanData 의 effect 가 fresh updatedAt 으로 baseFloorVersion 을
+      // 재동기화하게 한다(엔티티 baseVersions 는 위 load 가 이미 갱신). 활성 층이 있을 때만.
+      if (activeFloorId != null) {
+        await queryClient.invalidateQueries({ queryKey: ['floorPlan', activeFloorId] });
+      }
       invalidateMediaQueries(queryClient, hadUploads, hadLogs);
       // 활성 층에 변경이 있었으면 설계서를 작업지시서로 아카이브(실패해도 커밋은 성공).
       if (activeFloorId && preCommitChanges && hasFloorChanges(preCommitChanges)) {
