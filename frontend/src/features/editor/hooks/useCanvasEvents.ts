@@ -60,6 +60,12 @@ export function useCanvasEvents(
   // Canvas interaction state has been merged into editorStore (Tier D)
   const canvasStore = useEditorStore;
   const lastHoverPos = useRef<{ x: number; y: number } | null>(null);
+  // UX#1 — 드래그 한 번 = undo 한 스텝. 드래그는 mousemove 마다 stageEquipmentUpdate
+  // 를 호출해 zundo temporal 에 프레임 수만큼 history 가 쌓인다(undo 가 1px 씩만
+  // 되돌아가 "동작 안 함"처럼 보임). 첫 프레임만 기록(=드래그 직전 overlay 가
+  // pastState 로 캡처)하고 나머지 프레임은 temporal.pause() 로 묶은 뒤,
+  // mouseup 에서 resume() 한다 → 드래그 전체가 단일 undo 스텝.
+  const dragRecordedRef = useRef(false);
 
   const getCanvasCoordinates = useCallback((e: PointerLike) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
@@ -256,10 +262,16 @@ export function useCanvasEvents(
     const result = applyDrag(null, eqs, dragSession, snapped, snapFn);
     const moved = result.equipment.find((e) => e.id === dragSession.target.id);
     if (moved) {
+      // 첫 프레임만 temporal 에 기록(드래그 직전 overlay 가 단일 pastState 로 캡처),
+      // 이후 프레임은 pause 해 history 폭주를 막는다(mouseup 에서 resume).
       useSubstationWorkingCopy.getState().stageEquipmentUpdate(moved.id, {
         positionX: moved.positionX,
         positionY: moved.positionY,
       });
+      if (!dragRecordedRef.current) {
+        dragRecordedRef.current = true;
+        useSubstationWorkingCopy.temporal.getState().pause();
+      }
     }
     // 라이브 케이블 프리뷰 — 설비가 움직이는 동안 연결된 케이블의 양 끝점도
     // 함께 따라오게 즉시 갱신 (예전엔 mouseUp 시점에만 반영돼 드래그 중엔
@@ -270,6 +282,11 @@ export function useCanvasEvents(
   }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, effectiveEquipment]);
 
   const handleCanvasMouseUp = useCallback(() => {
+    // 드래그 종료 — 묶었던 history 기록을 재개한다(다음 편집부터 정상 기록).
+    if (dragRecordedRef.current) {
+      dragRecordedRef.current = false;
+      useSubstationWorkingCopy.temporal.getState().resume();
+    }
     canvasStore.getState().setDragSession(null);
     canvasStore.getState().setIsPanning(false);
     canvasStore.getState().setPanStart(null);
