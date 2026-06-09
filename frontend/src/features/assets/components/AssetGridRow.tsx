@@ -37,12 +37,14 @@ export function AssetGridRow({ asset, columns, onCommit, onDuplicate, onDelete, 
   return (
     <tr className="border-b border-gray-100 hover:bg-gray-50">
       <td onClick={onSelect} className="px-2 py-1 text-xs text-gray-500 whitespace-nowrap cursor-pointer">
-        <span
-          className="inline-block w-2 h-2 rounded-full mr-1 align-middle"
-          style={{ backgroundColor: asset.assetType.displayColor ?? '#94a3b8' }}
-        />
+        {/* ISA-101: 종류 점은 무채색(설비=중립). 색은 상태 배지에만 사용. */}
+        <span className="inline-block w-2 h-2 rounded-full mr-1 align-middle bg-eq-3" />
         {asset.assetType.name}
-        {alert && <span title={alert.label} className="ml-1 text-amber-600">⚠</span>}
+        {alert && (
+          <span className="ml-1 inline-flex items-center rounded-full bg-warning-bg text-warning px-1.5 py-0.5 text-[10px] font-medium align-middle">
+            {alert.label}
+          </span>
+        )}
       </td>
       {columns.map((col) => (
         <td key={col.key} className="px-1 py-0.5">
