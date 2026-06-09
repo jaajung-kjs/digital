@@ -40,6 +40,7 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
   let token: string;
   let userId: string;
   let hqId: string, brId: string, subId: string, floorId: string;
+  let rackAssetTypeId: string;
 
   beforeAll(async () => {
     app = express();
@@ -57,6 +58,9 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
     const sub = await prisma.substation.create({ data: { name: '__rp_sub__', branchId: br.id } }); subId = sub.id;
     const floor = await prisma.floor.create({ data: { substationId: subId, name: '__rp_floor__', createdById: userId, updatedById: userId } });
     floorId = floor.id;
+
+    // 시드된 RACK AssetType id (staged-create 설비의 assetTypeId 해소 검증용).
+    rackAssetTypeId = (await prisma.assetType.findFirstOrThrow({ where: { code: 'RACK' } })).id;
   });
 
   afterAll(async () => {
@@ -124,6 +128,39 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
     // 노무: EQP-RACK install 2.0h + CBL-UTP 0.02 * 10 = 0.2h → 총 2.2h
     expect(report.totalLaborHours).toBeCloseTo(2.2, 5);
     expect(report.labor.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('staged-create 설비(자재코드 null + assetTypeId) → assetTypeId 로 EQP-RACK 해소 → BOM/노무 산출', async () => {
+    // staged-create 설비는 assetType 이 placeholder 라 materialCategoryCode 가 null 이지만
+    // assetTypeId(시드된 RACK)는 있다. 백엔드가 assetTypeId → AssetType.code('RACK') →
+    // 'EQP-RACK' 로 해소해 BOM/노무가 나와야 한다(이 픽스의 핵심 회귀 가드).
+    const stagedChanges = {
+      before: { equipment: [], cables: [] },
+      after: {
+        equipment: [
+          { id: 'eq-staged', name: '신규 랙(staged)', materialCategoryCode: null, assetTypeId: rackAssetTypeId },
+        ],
+        cables: [],
+      },
+    };
+
+    const res = await request(app)
+      .post(`/api/substations/${subId}/report-preview`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ floorId, changes: stagedChanges })
+      .expect(200);
+
+    const report = res.body.data;
+    const eqDiff = report.diff.find((d: any) => d.type === 'equipment');
+    expect(eqDiff.action).toBe('install');
+    expect(eqDiff.materialCategoryCode).toBe('EQP-RACK');
+
+    const rackBom = report.bom.find((b: any) => b.materialCategoryCode === 'EQP-RACK');
+    expect(rackBom).toBeDefined();
+    expect(rackBom.quantity).toBe(1);
+    // null-code 였어도 노무가 산출됨(EQP-RACK install).
+    expect(report.totalLaborHours).toBeGreaterThan(0);
+    expect(report.labor.length).toBeGreaterThanOrEqual(1);
   });
 
   it('dry-run — 호출 전후 이 변전소 asset/cable row count 동일(DB 미변경)', async () => {

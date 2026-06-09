@@ -45,12 +45,19 @@ function endpointIds(e: unknown): (string | null | undefined)[] {
   return [o?.equipmentId, o?.moduleId];
 }
 
-/** Asset → 설계서 equipment 스냅샷 항목. 자재코드 ← assetType.code. */
+/**
+ * Asset → 설계서 equipment 스냅샷 항목.
+ *
+ * 자재코드 정본은 백엔드가 `assetTypeId` → AssetType.code 로 해소한다. staged-create
+ * 설비는 assetType 이 placeholder({ placementKind })라 `assetType.code` 가 없으므로,
+ * assetTypeId 를 함께 보내야 BOM/노무가 산출된다. code/name 은 표시용으로 같이 보낸다.
+ */
 function assetToSnapshot(a: Asset): EquipmentSnapshotItem {
   const attrs = a.attributes ?? null;
   return {
     id: a.id,
     name: a.name,
+    assetTypeId: a.assetTypeId ?? null,
     materialCategoryCode: a.assetType?.code ?? null,
     materialCategoryName: a.assetType?.name ?? null,
     specParams: attrs,

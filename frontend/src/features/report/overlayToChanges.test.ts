@@ -51,6 +51,24 @@ describe('overlayToChanges', () => {
     expect(after.equipment.map((e) => e.id)).toContain('temp-1');
     const item = after.equipment.find((e) => e.id === 'temp-1');
     expect(item?.materialCategoryCode).toBe('RACK');
+    // 백엔드가 자재코드를 해소하는 정본 키 — 반드시 함께 전달돼야 함.
+    expect(item?.assetTypeId).toBe('at-1');
+  });
+
+  it('staged-create(placeholder assetType, code 없음)도 assetTypeId 를 전달한다', () => {
+    const saved = { assets: [] as Asset[], cables: [] as WorkingCopyRow[] };
+    const overlays = emptyOverlays();
+    // staged-create: assetType 은 placeholder({ placementKind }), code 없음.
+    const staged = asset('temp-2', {
+      assetTypeId: 'at-rack',
+      assetType: { placementKind: 'RACK' } as Asset['assetType'],
+    });
+    overlays.assets = stageCreate(overlays.assets, staged.id, staged);
+
+    const { after } = overlayToChanges(saved, overlays, FLOOR);
+    const item = after.equipment.find((e) => e.id === 'temp-2');
+    expect(item?.assetTypeId).toBe('at-rack');
+    expect(item?.materialCategoryCode).toBeNull();
   });
 
   it('deleted equipment → before only, not after', () => {

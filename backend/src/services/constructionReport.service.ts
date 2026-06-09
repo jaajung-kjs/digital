@@ -25,6 +25,7 @@ export interface PlanSnapshot {
   equipment: {
     id: string;
     name: string;
+    assetTypeId?: string | null;
     materialCategoryCode?: string | null;
     materialCategoryName?: string | null;
     specification?: string | null;
@@ -485,22 +486,38 @@ export async function reportPreview(
     throw new NotFoundError('해당 변전소의 층');
   }
 
-  // 설비 자재코드를 시공 템플릿 키로 해소(RACK→EQP-RACK 등). 프론트는 assetType.code
-  // 를 접두사 없이 보내므로 여기서 정규화해야 엔진 정확 매치가 설비 BOM/노무를 산출한다.
-  // 케이블 코드(CBL-*)는 이미 템플릿 키라 손대지 않는다.
-  const before = normalizeEquipmentCodes(changes.before);
-  const after = normalizeEquipmentCodes(changes.after);
+  // 설비 자재코드를 시공 템플릿 키로 해소한다. 정본은 assetTypeId → AssetType.code:
+  //   - staged-create 설비는 assetType 이 placeholder 라 code 가 없고 assetTypeId 만 있다.
+  //   - saved 설비도 assetTypeId 를 갖는다.
+  // 해소된 code 를 resolveEquipmentConstructionCode 로 템플릿 키(RACK→EQP-RACK 등)에 맞춘다.
+  // 케이블 코드(CBL-*)는 이미 템플릿 키라 손대지 않는다. (읽기 전용 findMany 1회 추가.)
+  const assetTypeRows = await prisma.assetType.findMany({ select: { id: true, code: true, name: true } });
+  const assetTypeMap = new Map(assetTypeRows.map((t) => [t.id, t]));
+
+  const before = normalizeEquipmentCodes(changes.before, assetTypeMap);
+  const after = normalizeEquipmentCodes(changes.after, assetTypeMap);
 
   return calculateConstructionReport(before, after, overrides);
 }
 
-/** 스냅샷의 설비 자재코드를 시공 템플릿 키로 해소한 새 스냅샷을 반환(케이블은 그대로). */
-function normalizeEquipmentCodes(snapshot: PlanSnapshot): PlanSnapshot {
+/**
+ * 스냅샷 설비의 자재코드를 시공 템플릿 키로 해소한 새 스냅샷을 반환(케이블은 그대로).
+ * assetTypeId → AssetType.code 를 우선하고(staged-create 대응), 없으면 보낸 code 로 폴백한 뒤
+ * resolveEquipmentConstructionCode 로 템플릿 키에 맞춘다. 표시명도 AssetType.name 으로 보정.
+ */
+function normalizeEquipmentCodes(
+  snapshot: PlanSnapshot,
+  assetTypeMap: Map<string, { id: string; code: string; name: string }>,
+): PlanSnapshot {
   return {
     ...snapshot,
-    equipment: snapshot.equipment.map((eq) => ({
-      ...eq,
-      materialCategoryCode: resolveEquipmentConstructionCode(eq.materialCategoryCode),
-    })),
+    equipment: snapshot.equipment.map((eq) => {
+      const at = eq.assetTypeId ? assetTypeMap.get(eq.assetTypeId) : undefined;
+      return {
+        ...eq,
+        materialCategoryCode: resolveEquipmentConstructionCode(at?.code ?? eq.materialCategoryCode),
+        materialCategoryName: at?.name ?? eq.materialCategoryName,
+      };
+    }),
   };
 }

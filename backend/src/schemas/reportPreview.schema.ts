@@ -17,6 +17,9 @@ import { z } from 'zod';
 const equipmentSnapshotItem = z.object({
   id: z.string(),
   name: z.string(),
+  // 자재코드 해소의 정본 — 백엔드가 assetTypeId → AssetType.code 로 해소한다.
+  // staged-create 설비는 code 가 없고 assetTypeId 만 있으므로 필수 통로.
+  assetTypeId: z.string().nullable().optional(),
   materialCategoryCode: z.string().nullable().optional(),
   materialCategoryName: z.string().nullable().optional(),
   specification: z.string().nullable().optional(),
