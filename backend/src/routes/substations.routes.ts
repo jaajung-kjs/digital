@@ -5,6 +5,7 @@ import { floorController } from '../controllers/floor.controller.js';
 import { assetController } from '../controllers/asset.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
+import { substationCommitSchema } from '../schemas/substationCommit.schema.js';
 
 const router = Router();
 
@@ -59,6 +60,14 @@ router.put(
 
 // 변전소 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, substationController.delete);
+
+// 통합 변전소 커밋 (SSOT-2a, 인증 필요)
+router.post(
+  '/:substationId/commit',
+  authenticate,
+  validate(substationCommitSchema),
+  substationController.commit
+);
 
 // ==================== Floor Routes (nested under substations) ====================
 
