@@ -4,41 +4,28 @@ import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
-import { useWorkingCopyDirty } from '../../workingCopy/hooks';
 
+// USP Task 2 — 툴바 "저장" 버튼 제거. 저장 UI 는 WorkingCopyCommitBar 단일창구로
+// 통합됐다(Ctrl+S 도 그 커밋 경로). 따라서 handleSave/isSaving + changeCount 계산이
+// 더 이상 필요 없다.
 interface ToolbarProps {
   floor: FloorDetail | undefined;
   floorPlan: FloorPlanDetail | undefined;
   isAdmin: boolean;
-  handleSave: () => void;
-  isSaving: boolean;
   onToggleHistory?: () => void;
   onToggleSettings?: () => void;
   onToggleLayers?: () => void;
 }
 
-export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onToggleHistory, onToggleSettings, onToggleLayers }: ToolbarProps) {
-  const hasChanges = useEditorStore((s) => s.hasChanges);
+export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleSettings, onToggleLayers }: ToolbarProps) {
   const showLengths = useEditorStore((s) => s.showLengths);
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
-  const pendingUploads = useEditorStore((s) => s.pendingUploads);
-  const pendingLogs = useEditorStore((s) => s.pendingLogs);
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
   const snapshotActive = useSnapshotStore((s) => s.active);
   // Effective background — staged value (if user is editing) ?? server.
   const effectiveBackgroundDrawing =
     stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
   const { undo, redo, canUndo, canRedo } = useEditorHistory();
-
-  // SSOT-2d3a Task 5 — 변경 건수는 통합 스토어 overlay dirty 합계(assets/cables/
-  // distCircuits/fiberPaths) + editorStore 에만 남은 pending side-data(업로드/로그).
-  // 파이버패스는 통합 스토어 fiberPaths overlay 로 이관됐으므로 useWorkingCopyDirty 가
-  // 이미 포함한다 — 여기서 따로 더하지 않는다.
-  const workingCopyDirty = useWorkingCopyDirty();
-  const changeCount =
-    workingCopyDirty +
-    pendingUploads.length +
-    pendingLogs.length;
 
   return (
     <div className="shrink-0 bg-white border-b px-4 py-2 flex items-center justify-between gap-4">
@@ -122,22 +109,6 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-            </button>
-          )}
-
-          {isAdmin && !snapshotActive && (
-            <button
-              onClick={handleSave}
-              disabled={!hasChanges || isSaving}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                hasChanges ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isSaving
-                ? '저장 중...'
-                : hasChanges && changeCount > 0
-                  ? `저장 (${changeCount}건 변경)`
-                  : '저장'}
             </button>
           )}
         </div>

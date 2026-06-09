@@ -61,10 +61,10 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const draftCheckedRef = useRef(false);
 
   const {
-    floor, floorPlan, floorLoading, planLoading, planError, saveError, clearSaveError, saveMutation, handleSave,
+    floor, floorPlan, floorLoading, planLoading, planError,
   } = useFloorPlanData(floorId, containerRef);
 
-  useEditorKeyboard(handleSave, containerRef, floorPlan);
+  useEditorKeyboard(containerRef, floorPlan);
 
   // SSOT-2d Task 4 — 새로 배치한 설비를 통합 stage 로 올릴 때 assetTypeId 해소.
   const kindToAssetTypeId = useKindToAssetTypeId();
@@ -536,20 +536,10 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
   return (
     <div className="h-full w-full flex flex-col bg-gray-100 overflow-hidden">
-      {saveError && (
-        <div className="bg-red-600 text-white px-4 py-2 text-sm font-medium flex items-center justify-between">
-          <span>저장 실패: {saveError}</span>
-          <button onClick={clearSaveError} className="ml-4 text-white/80 hover:text-white text-xs">
-            닫기
-          </button>
-        </div>
-      )}
       <Toolbar
         floor={floor}
         floorPlan={floorPlan}
         isAdmin={isAdmin}
-        handleSave={handleSave}
-        isSaving={saveMutation.isPending}
         onToggleHistory={() => setShowHistory(p => !p)}
         onToggleSettings={() => setShowSettings(p => !p)}
         onToggleLayers={() => setShowLayers(p => !p)}

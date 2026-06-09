@@ -7,6 +7,7 @@ import { useInteractionStore, getCableDrawing } from '../stores/interactionStore
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useEditorHistory } from './useEditorHistory';
 import { calculateFitToContent } from './useViewport';
+import { useCommitWorkingCopy } from '../../workingCopy/useCommitWorkingCopy';
 
 function nudgeEquipment(eq: FloorPlanEquipment, dx: number, dy: number): FloorPlanEquipment {
   return { ...eq, positionX: eq.positionX + dx, positionY: eq.positionY + dy };
@@ -17,11 +18,12 @@ function nudgeEquipment(eq: FloorPlanEquipment, dx: number, dy: number): FloorPl
  * Tools: select(V), equipment(K), cable(C), delete via Delete key.
  */
 export function useEditorKeyboard(
-  handleSave: () => void,
   containerRef?: React.RefObject<HTMLDivElement | null>,
   floorPlan?: FloorPlanDetail,
 ) {
   const { undo, redo } = useEditorHistory();
+  // USP Task 2 — Ctrl+S 는 단일 커밋 경로(WorkingCopyCommitBar 와 동일)로 통합.
+  const commit = useCommitWorkingCopy();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -157,10 +159,10 @@ export function useEditorKeyboard(
         es.setHasChanges(true);
       }
 
-      // Ctrl+S save
+      // Ctrl+S save — 단일 커밋(409 충돌은 저장 바에서 다루므로 여기선 무시).
       if (e.ctrlKey && key === 's') {
         e.preventDefault();
-        handleSave();
+        void commit();
       }
 
       // Ctrl+Z undo / Ctrl+Y or Ctrl+Shift+Z redo
@@ -215,5 +217,5 @@ export function useEditorKeyboard(
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [handleSave, undo, redo, containerRef, floorPlan]);
+  }, [commit, undo, redo, containerRef, floorPlan]);
 }
