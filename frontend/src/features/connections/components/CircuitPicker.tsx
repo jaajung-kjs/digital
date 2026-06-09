@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
-import { useEditorStore } from '../../editor/stores/editorStore';
+import { useEffectiveDistCircuits } from '../../workingCopy/hooks';
+import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import { groupCircuitsByFeeder } from '../../../types/distributionCircuit';
 
 interface CircuitPickerProps {
@@ -21,11 +22,13 @@ export function CircuitPicker({
   onSelect,
   onCancel,
 }: CircuitPickerProps) {
-  const localCircuits = useEditorStore((s) => s.localDistributionCircuits);
+  // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로. effective 는 substation 전역
+  // DistributionCircuit 이며 groupCircuitsByFeeder 가 distributionEquipmentId 로 필터한다.
+  const effectiveCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
 
   const byFeeder = useMemo(
-    () => groupCircuitsByFeeder(localCircuits, distributionEquipmentId),
-    [localCircuits, distributionEquipmentId],
+    () => groupCircuitsByFeeder(effectiveCircuits, distributionEquipmentId),
+    [effectiveCircuits, distributionEquipmentId],
   );
 
   useEffect(() => {

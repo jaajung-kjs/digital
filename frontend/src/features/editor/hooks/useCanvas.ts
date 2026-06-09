@@ -12,6 +12,7 @@ import { renderBackgroundDrawing } from '../renderers/backgroundLayerRenderer';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 
 /**
  * Hook managing canvas ref, resize, and render loop.
@@ -20,7 +21,8 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 export function useCanvas(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   containerRef: React.RefObject<HTMLDivElement | null>,
-  floorPlan: FloorPlanDetail | undefined
+  floorPlan: FloorPlanDetail | undefined,
+  floorId: string | undefined,
 ) {
   const renderRequestRef = useRef<number | null>(null);
 
@@ -34,7 +36,13 @@ export function useCanvas(
 
     const { zoom, panX, panY, showGrid, selectedIds, showLengths, tool } = editorState;
 
-    const localEquipment = snapshot.active ? snapshot.equipment : editorState.localEquipment;
+    // SSOT-2d Task 3 — 비스냅샷 설비는 통합 스토어 effective 에서 읽는다(렌더 hot path,
+    // getState 로 동기 조회). floorId 없으면 빈 배열.
+    const localEquipment = snapshot.active
+      ? snapshot.equipment
+      : floorId
+        ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
+        : [];
     const majorGridSize = snapshot.active ? snapshot.majorGridSize : editorState.majorGridSize;
 
     const {
@@ -142,7 +150,7 @@ export function useCanvas(
     }
 
     ctx.restore();
-  }, [canvasRef, floorPlan]);
+  }, [canvasRef, floorPlan, floorId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -171,11 +179,14 @@ export function useCanvas(
     const unsubEditor = useEditorStore.subscribe(scheduleRender);
     const unsubSnapshot = useSnapshotStore.subscribe(scheduleRender);
     const unsubPathHighlight = usePathHighlightStore.subscribe(scheduleRender);
+    // SSOT-2d Task 3 — 설비가 통합 스토어로 이동했으므로 그 변경에도 재렌더.
+    const unsubWorkingCopy = useSubstationWorkingCopy.subscribe(scheduleRender);
 
     return () => {
       unsubEditor();
       unsubSnapshot();
       unsubPathHighlight();
+      unsubWorkingCopy();
       if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);
     };
   }, [renderCanvas]);

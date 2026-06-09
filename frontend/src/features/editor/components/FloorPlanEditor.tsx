@@ -36,10 +36,9 @@ import { RackModuleDialog } from '../../rack/components/RackModuleDialog';
 import { EditorHintBar } from './EditorHintBar';
 import { ConflictDialog } from '../../workingCopy/ConflictDialog';
 
-// CM-B: scaleRatio 폐기 — CablePathOverlay 가 더 이상 인자가 필요 없다.
-// (직접 import 해서 쓰지만 명명 일관성을 위해 wrapper 유지)
-function CablePathOverlayWrapper({ canvasRef }: { canvasRef: React.RefObject<HTMLCanvasElement | null> }) {
-  return <CablePathOverlay canvasRef={canvasRef} />;
+// CM-B: scaleRatio 폐기. SSOT-2d Task 3: effective 설비 조회용 floorId 만 전달.
+function CablePathOverlayWrapper({ canvasRef, floorId }: { canvasRef: React.RefObject<HTMLCanvasElement | null>; floorId: string }) {
+  return <CablePathOverlay canvasRef={canvasRef} floorId={floorId} />;
 }
 
 
@@ -539,8 +538,8 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 onPlacePreset={handlePlacePreset}
                 onImportClick={() => setShowImportModal(true)}
               >
-                <ConnectionOverlay canvasRef={canvasRef} />
-                <CablePathOverlayWrapper canvasRef={canvasRef} />
+                <ConnectionOverlay canvasRef={canvasRef} floorId={floorId} />
+                <CablePathOverlayWrapper canvasRef={canvasRef} floorId={floorId} />
                 <EquipmentResizeHandlesHost />
                 <EditorHintBar />
               </CanvasView>
@@ -548,7 +547,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               <NetworkTopologyModal />
 
               {detailPanelEquipmentId && (
-                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} />
+                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} floorId={floorId} />
               )}
 
 
@@ -600,7 +599,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       </div>
 
       <EquipmentMaterialModal onAdd={handleAddEquipment} />
-      <CableEndpointPickerHost />
+      <CableEndpointPickerHost floorId={floorId} />
       <RackModuleDialog />
       <CableSpecModalWrapper />
       {showImportModal && floorId && (

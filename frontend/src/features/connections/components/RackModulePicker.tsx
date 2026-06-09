@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { RACK_SLOT_COUNT } from '../../../types/rackModule';
-import { useEditorStore } from '../../editor/stores/editorStore';
+import { useEffectiveRackModulesMapped } from '../../workingCopy/hooks';
 
 interface RackModulePickerProps {
   rackEquipmentId: string;
@@ -28,14 +28,13 @@ export function RackModulePicker({
   onSelect,
   onCancel,
 }: RackModulePickerProps) {
-  const localRackModules = useEditorStore((s) => s.localRackModules);
+  // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로. effectiveRackModulesMapped 는
+  // 이미 해당 랙(rackEquipmentId)의 모듈만 RackModule shape 으로 반환한다.
+  const rackModules = useEffectiveRackModulesMapped(rackEquipmentId);
 
   const modules = useMemo(
-    () =>
-      localRackModules
-        .filter((m) => m.rackEquipmentId === rackEquipmentId)
-        .sort((a, b) => a.slotIndex - b.slotIndex),
-    [localRackModules, rackEquipmentId],
+    () => [...rackModules].sort((a, b) => a.slotIndex - b.slotIndex),
+    [rackModules],
   );
 
   /**

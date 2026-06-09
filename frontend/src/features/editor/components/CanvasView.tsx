@@ -20,7 +20,7 @@ interface CanvasViewProps {
 }
 
 export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlacePreset, onImportClick, children }: CanvasViewProps) {
-  useCanvas(canvasRef, containerRef, floorPlan);
+  useCanvas(canvasRef, containerRef, floorPlan, floorId);
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
 
   const {
@@ -77,7 +77,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
         }`}
       />
 
-      <EmptyStateGuide floorPlan={floorPlan} onImportClick={onImportClick} />
+      <EmptyStateGuide floorPlan={floorPlan} floorId={floorId} onImportClick={onImportClick} />
 
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-1 gap-0.5">

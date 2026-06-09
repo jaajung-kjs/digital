@@ -7,6 +7,7 @@ import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils
 import { type Position, getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import {
   useInteractionStore,
   getCableDrawing,
@@ -45,11 +46,17 @@ function findClosestCableId(x: number, y: number, zoom: number): string | null {
 export function useCanvasEvents(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
   floorPlan: FloorPlanDetail | undefined,
-  _floorId: string | undefined,
+  floorId: string | undefined,
   onPlacePreset?: () => void,
   onContextMenuRequest?: (menu: CanvasContextMenuState) => void,
 ) {
   const editorStore = useEditorStore;
+  // SSOT-2d Task 3 — 히트테스트/조회 읽기는 통합 스토어 effective 에서.
+  // (드래그 적용 등 쓰기 경로는 Task 4 까지 editorStore 유지.)
+  const effectiveEquipment = useCallback(
+    () => (floorId ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId) : []),
+    [floorId],
+  );
   // Canvas interaction state has been merged into editorStore (Tier D)
   const canvasStore = useEditorStore;
   const lastHoverPos = useRef<{ x: number; y: number } | null>(null);
@@ -85,7 +92,8 @@ export function useCanvasEvents(
     const screenY = e.clientY - rect.top;
     const { x, y } = getCanvasCoordinates(e);
     const { isSpacePressed } = canvasStore.getState();
-    const { tool, localEquipment } = editorStore.getState();
+    const { tool } = editorStore.getState();
+    const localEquipment = effectiveEquipment();
 
     if (e.button === 1 || isSpacePressed) {
       e.preventDefault();
@@ -144,7 +152,7 @@ export function useCanvasEvents(
         }
       }
     }
-  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, canvasStore]);
+  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, canvasStore, effectiveEquipment]);
 
   const handleCanvasMouseMove = useCallback((e: PointerLike) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -176,7 +184,7 @@ export function useCanvasEvents(
       const last = lastHoverPos.current;
       if (last && Math.abs(worldX - last.x) < 2 && Math.abs(worldY - last.y) < 2) return;
       lastHoverPos.current = { x: worldX, y: worldY };
-      const { localEquipment } = editorStore.getState();
+      const localEquipment = effectiveEquipment();
       const found = findItemAt(worldX, worldY, null, localEquipment);
       const newHovered = found?.type === 'equipment' ? found.item.id : null;
       if (newHovered !== currentHovered) setHovered(newHovered);
@@ -233,7 +241,7 @@ export function useCanvasEvents(
     }
 
     if (tool === 'select' && !dragSession && canvasRef.current) {
-      const { localEquipment: eqs } = editorStore.getState();
+      const eqs = effectiveEquipment();
       const found = findItemAt(worldX, worldY, null, eqs);
       canvasRef.current.style.cursor = found ? 'pointer' : 'default';
     }
@@ -251,7 +259,7 @@ export function useCanvasEvents(
     if (dragSession.target.type === 'equipment') {
       syncCableEndpointsTo(dragSession.target.id);
     }
-  }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore]);
+  }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, effectiveEquipment]);
 
   const handleCanvasMouseUp = useCallback(() => {
     canvasStore.getState().setDragSession(null);
@@ -283,7 +291,8 @@ export function useCanvasEvents(
 
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
-    const { tool, localEquipment } = editorStore.getState();
+    const { tool } = editorStore.getState();
+    const localEquipment = effectiveEquipment();
     const cs = canvasStore.getState();
 
     // Cable drawing
@@ -391,7 +400,7 @@ export function useCanvasEvents(
         break;
       }
     }
-  }, [floorPlan, canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, onPlacePreset]);
+  }, [floorPlan, canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, onPlacePreset, effectiveEquipment]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan) return;
@@ -404,7 +413,7 @@ export function useCanvasEvents(
     const y = (e.clientY - rect.top - panY) / (zoom / 100);
 
     const snapState = useSnapshotStore.getState();
-    const equipment = snapState.active ? snapState.equipment : editorStore.getState().localEquipment;
+    const equipment = snapState.active ? snapState.equipment : effectiveEquipment();
 
     for (const eq of [...equipment].reverse()) {
       if (
@@ -423,7 +432,7 @@ export function useCanvasEvents(
         return;
       }
     }
-  }, [floorPlan, canvasRef, editorStore]);
+  }, [floorPlan, canvasRef, editorStore, effectiveEquipment]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
@@ -457,7 +466,7 @@ export function useCanvasEvents(
     if (useSnapshotStore.getState().active) return;
 
     const { x, y } = getCanvasCoordinates(e);
-    const { localEquipment } = editorStore.getState();
+    const localEquipment = effectiveEquipment();
 
     // 설비 우선 히트 테스트
     const found = findItemAt(x, y, null, localEquipment);
@@ -479,7 +488,7 @@ export function useCanvasEvents(
         target: { type: 'cable', id: closestCableId },
       });
     }
-  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, onContextMenuRequest]);
+  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, onContextMenuRequest, effectiveEquipment]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

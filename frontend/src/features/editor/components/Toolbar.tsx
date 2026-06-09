@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
+import { useWorkingCopyDirty } from '../../workingCopy/hooks';
 
 interface ToolbarProps {
   floor: FloorDetail | undefined;
@@ -21,8 +21,6 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
   const hasChanges = useEditorStore((s) => s.hasChanges);
   const showLengths = useEditorStore((s) => s.showLengths);
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localCables = useEditorStore((s) => s.localCables);
   const pendingUploads = useEditorStore((s) => s.pendingUploads);
   const pendingLogs = useEditorStore((s) => s.pendingLogs);
   const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
@@ -34,82 +32,16 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
     stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
   const { undo, redo, canUndo, canRedo } = useEditorHistory();
 
-  // Compute change count by diffing local state vs server-cached floorPlan.
-  // Counts: equipment add/remove, equipment moved/material-changed,
-  //         cable add/remove, cable rerouted, plus all pending side-data.
-  const changeCount = useMemo(() => {
-    if (!floorPlan) return 0;
-    const serverEq = floorPlan.equipment;
-    const serverCb = floorPlan.cables;
-
-    const serverEqMap = new Map(serverEq.map((e) => [e.id, e]));
-    const localEqIds = new Set(localEquipment.map((e) => e.id));
-
-    let eqChanged = 0;
-    for (const eq of localEquipment) {
-      const orig = serverEqMap.get(eq.id);
-      if (!orig) {
-        eqChanged++; // added
-        continue;
-      }
-      if (
-        orig.positionX !== eq.positionX ||
-        orig.positionY !== eq.positionY ||
-        orig.width !== eq.width ||
-        orig.height !== eq.height ||
-        orig.rotation !== eq.rotation ||
-        orig.kind !== eq.kind ||
-        orig.name !== eq.name
-      ) {
-        eqChanged++;
-      }
-    }
-    for (const eq of serverEq) {
-      if (!localEqIds.has(eq.id)) eqChanged++; // removed
-    }
-
-    const serverCbMap = new Map(serverCb.map((c) => [c.id, c]));
-    const localCbIds = new Set(localCables.map((c) => c.id));
-
-    let cbChanged = 0;
-    for (const cb of localCables) {
-      const orig = serverCbMap.get(cb.id);
-      if (!orig) {
-        cbChanged++;
-        continue;
-      }
-      // cheap diff: path or material change
-      const aPath = JSON.stringify(cb.pathPoints ?? null);
-      const bPath = JSON.stringify(orig.pathPoints ?? null);
-      if (
-        aPath !== bPath ||
-        cb.categoryId !== orig.categoryId ||
-        cb.label !== orig.label
-      ) {
-        cbChanged++;
-      }
-    }
-    for (const cb of serverCb) {
-      if (!localCbIds.has(cb.id)) cbChanged++;
-    }
-
-    return (
-      eqChanged +
-      cbChanged +
-      pendingUploads.length +
-      pendingLogs.length +
-      pendingFiberPaths.length +
-      deletedFiberPathIds.length
-    );
-  }, [
-    floorPlan,
-    localEquipment,
-    localCables,
-    pendingUploads,
-    pendingLogs,
-    pendingFiberPaths,
-    deletedFiberPathIds,
-  ]);
+  // SSOT-2d Task 3 — 변경 건수는 통합 스토어 overlay dirty 합계로 직접 읽는다
+  // (assets/cables/distCircuits/fiberPaths). 아직 editorStore 에만 있는 pending
+  // side-data(업로드/로그/파이버패스/삭제)는 Task 4 이관 전까지 그대로 더한다.
+  const workingCopyDirty = useWorkingCopyDirty();
+  const changeCount =
+    workingCopyDirty +
+    pendingUploads.length +
+    pendingLogs.length +
+    pendingFiberPaths.length +
+    deletedFiberPathIds.length;
 
   return (
     <div className="shrink-0 bg-white border-b px-4 py-2 flex items-center justify-between gap-4">
