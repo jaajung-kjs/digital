@@ -17,6 +17,7 @@ import {
 import { mergeEffective } from './effective';
 import type { CollectionDescriptor } from './descriptor';
 import { assetToEquipment } from './assetToEquipment';
+import { equipmentToAssetCreate, equipmentToAssetPatch } from './equipmentToAsset';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2b Task 3 — substation-scoped Unit-of-Work.
@@ -130,6 +131,20 @@ export interface SubstationWorkingCopyState {
   stageFiberPathUpdate: (id: string, patch: Partial<FiberPath>) => void;
   stageFiberPathDelete: (id: string) => void;
 
+  // ── editor-facing mutation actions (2d-1 T3) ──
+  // 캔버스 편집 결과(FloorPlanEquipment)를 받아 Asset overlay 로 stage 한다.
+  // 복합/배치 액션은 단일 set → zundo 1 entry(undo 1스텝).
+  /**
+   * 설비 신규 stage. assetTypeId 는 kind→assetType 해석(2d-2)에서 주입.
+   * floorId 는 FloorPlanEquipment 본체에 없으므로(에디터가 보유) eq 에 얹어 전달한다.
+   */
+  stageEquipmentCreate: (eq: FloorPlanEquipment & { floorId?: string | null }, assetTypeId: string) => void;
+  stageEquipmentUpdate: (id: string, eqPatch: Partial<FloorPlanEquipment>) => void;
+  /** 설비 삭제 + 랙모듈 자식 + 해당 설비/모듈에 닿는 케이블까지 캐스케이드(단일 set). */
+  stageEquipmentDeleteCascade: (id: string) => void;
+  /** 케이블 다건 업데이트를 단일 set 으로 stage(단일 undo). */
+  stageCableUpdates: (updates: Record<string, Partial<Cable>>) => void;
+
   // ── effective selectors (getState() 로 호출 가능한 plain method) ──
   effectiveAssets: () => Asset[];
   effectiveTopAssets: () => Asset[];
@@ -230,6 +245,53 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageUpdate(s.overlays.fiberPaths, id, patch) } })),
       stageFiberPathDelete: (id) =>
         set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageDelete(s.overlays.fiberPaths, id, isTempId(id)) } })),
+
+      // ── editor-facing mutation actions (2d-1 T3) ──
+      stageEquipmentCreate: (eq, assetTypeId) =>
+        set((s) => {
+          const asset = equipmentToAssetCreate(eq, {
+            substationId: s.substationId!,
+            floorId: eq.floorId ?? null,
+            assetTypeId,
+            tempId: eq.id,
+          });
+          return { overlays: { ...s.overlays, assets: stageCreate(s.overlays.assets, asset.id, asset) } };
+        }),
+
+      stageEquipmentUpdate: (id, eqPatch) =>
+        set((s) => ({
+          overlays: { ...s.overlays, assets: stageUpdate(s.overlays.assets, id, equipmentToAssetPatch(eqPatch)) },
+        })),
+
+      stageEquipmentDeleteCascade: (id) =>
+        set((s) => {
+          const effA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor);
+          const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor);
+          // 랙모듈 자식(parentAssetId === id) 까지 캐스케이드 대상.
+          const childIds = effA.filter((a) => a.parentAssetId === id).map((a) => a.id);
+          const targets = new Set<string>([id, ...childIds]);
+          let assets = s.overlays.assets;
+          for (const tid of [id, ...childIds]) assets = stageDelete(assets, tid, isTempId(tid));
+          // 대상 설비/모듈에 한쪽이라도 닿는 케이블도 함께 삭제.
+          let cables = s.overlays.cables;
+          for (const c of effC) {
+            const eps = [
+              (c.source as { equipmentId?: string | null; moduleId?: string | null } | undefined)?.equipmentId,
+              (c.source as { equipmentId?: string | null; moduleId?: string | null } | undefined)?.moduleId,
+              (c.target as { equipmentId?: string | null; moduleId?: string | null } | undefined)?.equipmentId,
+              (c.target as { equipmentId?: string | null; moduleId?: string | null } | undefined)?.moduleId,
+            ];
+            if (eps.some((x) => x && targets.has(x))) cables = stageDelete(cables, c.id, isTempId(c.id));
+          }
+          return { overlays: { ...s.overlays, assets, cables } };
+        }),
+
+      stageCableUpdates: (updates) =>
+        set((s) => {
+          let cables = s.overlays.cables;
+          for (const [id, patch] of Object.entries(updates)) cables = stageUpdate(cables, id, patch);
+          return { overlays: { ...s.overlays, cables } };
+        }),
 
       effectiveAssets: () => {
         const s = get();

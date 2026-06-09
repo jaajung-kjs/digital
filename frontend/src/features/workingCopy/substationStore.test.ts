@@ -6,7 +6,7 @@ import { useSubstationWorkingCopy } from './substationStore';
 const rack = { id:'r1', name:'랙', substationId:'s1', floorId:'f1', assetType:{ placementKind:'RACK' }, positionX:10, positionY:20, width2d:100, height2d:200, totalU:42, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
 const mod = { id:'m1', name:'모듈', substationId:'s1', floorId:'f1', assetType:{ placementKind:null }, parentAssetId:'r1', slotIndex:3, slotSpan:1, updatedAt:'2026-01-01T00:00:00.000Z' };
 const ofd = { id:'o1', name:'OFD', substationId:'s1', floorId:'f1', assetType:{ placementKind:'OFD' }, positionX:5, positionY:5, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
-const cable = { id:'c1', source:{}, target:{}, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
+const cable = { id:'c1', source:{ equipmentId:'r1', moduleId:null }, target:{ equipmentId:'o1', moduleId:null }, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
 
 beforeEach(() => { (api.get as any).mockResolvedValue({ data: { data: { assets:[rack,mod,ofd], cables:[cable], distributionCircuits:[], fiberPaths:[] } } }); });
 
@@ -48,5 +48,35 @@ describe('substationWorkingCopy', () => {
     expect(useSubstationWorkingCopy.getState().dirtyCount()).toBe(1);
     useSubstationWorkingCopy.temporal.getState().undo();
     expect(useSubstationWorkingCopy.getState().dirtyCount()).toBe(0);
+  });
+
+  // ── 2d-1 T3: 에디터 대면 mutation 액션 ──
+  it('stageEquipmentCreate → effective 신규 설비', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    const eq = { id:'tmpX', kind:'OFD', name:'새OFD', positionX:1, positionY:2, width:10, height:10, floorId:'f1' } as any;
+    useSubstationWorkingCopy.getState().stageEquipmentCreate(eq, 'tOFD');
+    expect(useSubstationWorkingCopy.getState().effectiveAssets().some(a => a.id==='tmpX')).toBe(true);
+  });
+  it('stageEquipmentUpdate → 위치 반영', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    useSubstationWorkingCopy.getState().stageEquipmentUpdate('o1', { positionX: 99 });
+    expect(useSubstationWorkingCopy.getState().effectiveAssets().find(a=>a.id==='o1')!.positionX).toBe(99);
+  });
+  it('stageEquipmentDeleteCascade → 설비+랙모듈자식+케이블 delete, undo 1스텝', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade('r1');
+    const ids = useSubstationWorkingCopy.getState().effectiveAssets().map(a=>a.id);
+    expect(ids).not.toContain('r1');
+    expect(ids).not.toContain('m1');  // rack-module child cascaded
+    expect(useSubstationWorkingCopy.getState().effectiveCables().some(c=>c.id==='c1')).toBe(false); // cable to r1 cascaded
+    useSubstationWorkingCopy.temporal.getState().undo();  // single undo restores all
+    const ids2 = useSubstationWorkingCopy.getState().effectiveAssets().map(a=>a.id);
+    expect(ids2).toContain('r1'); expect(ids2).toContain('m1');
+    expect(useSubstationWorkingCopy.getState().effectiveCables().some(c=>c.id==='c1')).toBe(true);
+  });
+  it('stageCableUpdates 다건 한 번에', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    useSubstationWorkingCopy.getState().stageCableUpdates({ c1: { label: 'L' } });
+    expect(useSubstationWorkingCopy.getState().effectiveCables().find(c=>c.id==='c1')!.label).toBe('L');
   });
 });
