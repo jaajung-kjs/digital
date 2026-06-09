@@ -36,6 +36,7 @@ export async function commitRegister(
     }
     useRegisterStore.getState().clear();
     await queryClient.invalidateQueries({ queryKey: ASSET_KEY(substationId) });
+    await queryClient.invalidateQueries({ queryKey: ['nodeAssets'] });
     const fresh = queryClient.getQueryData<Asset[]>(ASSET_KEY(substationId)) ?? [];
     useRegisterStore.getState().load(substationId, fresh);
     return { ok: true };

@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNodeAssets, type NodeKind } from '../../../hooks/useNodeAssets';
-import { useNodeStats } from '../../../hooks/useNodeStats';
 import { useSelection } from '../../workspace/SelectionContext';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { installLocation, inspectionState, type AssetListItem } from '../nodeStatus';
@@ -93,7 +92,6 @@ export function NodeStatusView({
   onRowClick?: (item: AssetListItem) => void;
 }) {
   const { data: items = [] } = useNodeAssets(nodeType, nodeId);
-  const { data: stats } = useNodeStats(nodeType, nodeId);
   const today = useMemo(() => new Date(), []);
   const sel = useSelection();
   const ws = useWorkspaceNav();
@@ -121,11 +119,12 @@ export function NodeStatusView({
     });
   }, [items, search, typeFilter, substationFilter, statusFilter]);
 
-  const summaryItems = (stats?.self.byCategory ?? []).map((c) => ({
-    key: c.categoryId,
-    label: c.name,
-    count: c.count,
-  }));
+  const total = items.length;
+  const summaryItems = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const i of items) map.set(i.assetTypeName, (map.get(i.assetTypeName) ?? 0) + 1);
+    return Array.from(map.entries()).map(([label, count]) => ({ key: label, label, count }));
+  }, [items]);
 
   const gotoFloor = (item: AssetListItem) => {
     if (!item.floorId) return;
@@ -157,7 +156,7 @@ export function NodeStatusView({
 
   return (
     <div className="h-full flex flex-col">
-      <StatusSummary total={stats?.self.total ?? 0} items={summaryItems} />
+      <StatusSummary total={total} items={summaryItems} />
 
       <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2 border-b border-gray-200 bg-white">
         <input
@@ -207,8 +206,10 @@ export function NodeStatusView({
       </div>
 
       <div className="flex-1 overflow-auto">
-        {items.length === 0 ? (
-          <p className="text-sm text-gray-400 px-4 py-3">자산이 없습니다.</p>
+        {filtered.length === 0 ? (
+          <p className="text-sm text-gray-400 px-4 py-3">
+            {items.length === 0 ? '자산이 없습니다.' : '검색 결과가 없습니다.'}
+          </p>
         ) : (
           <table className="w-full border-collapse">
             <thead>
