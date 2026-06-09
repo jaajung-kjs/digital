@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FiberPathDetail, FiberPortStatus, FiberPortUsage } from '../types';
-import { useEditorStore } from '../../editor/stores/editorStore';
+import type { LocalCable } from '../../editor/stores/editorStore';
+import { useEffectiveCables } from '../../workingCopy/hooks';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { CABLE_COLORS } from '../../../types/connection';
 
@@ -170,9 +171,11 @@ function PortDetail({
   const isEmpty = !hasLocal && !hasRemote;
 
   // 자국 cable 의 카테고리/색상 lookup — ConnectionDiagram cable card 와 같은 톤의 배지 표시
-  const localCable = useEditorStore((s) =>
-    localSide ? s.localCables.find((c) => c.id === localSide.cableId) ?? null : null,
-  );
+  const effectiveCables = useEffectiveCables();
+  const localCable = localSide
+    ? ((effectiveCables.find((c) => (c as { id: string }).id === localSide.cableId) ??
+        null) as unknown as LocalCable | null)
+    : null;
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const traceActive = usePathHighlightStore((s) => s.active);

@@ -2,8 +2,10 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { queryClient } from '../../../lib/queryClient';
-import { useEditorStore } from '../../editor/stores/editorStore';
 import { isTempId } from '../../../utils/idHelpers';
+import { useEffectiveAssets } from '../../workingCopy/hooks';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 
 /**
  * 글로벌 OFD directory — pending FiberPath display 와 picker 가 공유하는 단일 source.
@@ -58,18 +60,35 @@ function mergeLocalUnsaved(
 /**
  * Hook 형태 — React 컴포넌트에서 사용.
  * 반환은 lookup 용 Map. unsaved local OFD 도 포함.
+ *
+ * isLoading 은 picker UX 가 "fetch 중" 과 "fetch 끝났는데 0 개" 를 구분하려고
+ * 필요. size===0 만으로 판단하면 OFD 가 한 개도 없는 신규 배포에서 로딩 상태가
+ * 영구 표시됨.
  */
 export function useOfdDirectory(): Map<string, OfdDirectoryEntry> {
-  const { data } = useQuery({
+  return useOfdDirectoryWithStatus().directory;
+}
+
+export function useOfdDirectoryWithStatus(): {
+  directory: Map<string, OfdDirectoryEntry>;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: fetchOfdList,
     staleTime: 5 * 60 * 1000,
   });
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  return useMemo(() => {
+  // SSOT-2d3a Task 5 — effective assets → equipment 로 매핑해 OFD 만 합친다.
+  const effectiveAssets = useEffectiveAssets();
+  const localEquipment = useMemo(
+    () => effectiveAssets.map(assetToEquipment),
+    [effectiveAssets],
+  );
+  const directory = useMemo(() => {
     const list = mergeLocalUnsaved(data ?? [], localEquipment);
     return new Map(list.map((e) => [e.id, e]));
   }, [data, localEquipment]);
+  return { directory, isLoading };
 }
 
 /**
@@ -79,7 +98,7 @@ export function useOfdDirectory(): Map<string, OfdDirectoryEntry> {
  */
 export function getOfdDirectory(): Map<string, OfdDirectoryEntry> {
   const saved = queryClient.getQueryData<Awaited<ReturnType<typeof fetchOfdList>>>(QUERY_KEY) ?? [];
-  const localEquipment = useEditorStore.getState().localEquipment;
+  const localEquipment = useSubstationWorkingCopy.getState().effectiveAssets().map(assetToEquipment);
   const list = mergeLocalUnsaved(saved, localEquipment);
   return new Map(list.map((e) => [e.id, e]));
 }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useEditorStore } from '../../editor/stores/editorStore';
+import { useEffectiveAssets, useEffectiveRackModulesMapped } from '../../workingCopy/hooks';
+import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { useCreateRackPreset, useUpdateRackPreset } from '../hooks/useRackPresets';
 import type {
   CreateRackPresetInput,
@@ -35,8 +36,9 @@ export function SaveRackAsPresetDialog({
   onClose,
   onSaved,
 }: SaveRackAsPresetDialogProps) {
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localRackModules = useEditorStore((s) => s.localRackModules);
+  // SSOT-2d3a Task 5 — 랙/모듈을 통합 스토어 effective 에서 읽는다.
+  const effectiveAssets = useEffectiveAssets();
+  const rackModules = useEffectiveRackModulesMapped(rackEquipmentId);
   const createPreset = useCreateRackPreset();
   const updatePreset = useUpdateRackPreset();
 
@@ -46,16 +48,16 @@ export function SaveRackAsPresetDialog({
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
 
   const rack = useMemo(
-    () => localEquipment.find((e) => e.id === rackEquipmentId),
-    [localEquipment, rackEquipmentId],
+    () =>
+      effectiveAssets
+        .filter((a) => a.id === rackEquipmentId)
+        .map(assetToEquipment)[0],
+    [effectiveAssets, rackEquipmentId],
   );
 
   const modules = useMemo(
-    () =>
-      localRackModules
-        .filter((m) => m.rackEquipmentId === rackEquipmentId)
-        .sort((a, b) => a.slotIndex - b.slotIndex),
-    [localRackModules, rackEquipmentId],
+    () => [...rackModules].sort((a, b) => a.slotIndex - b.slotIndex),
+    [rackModules],
   );
 
   const orphanModules = useMemo(
