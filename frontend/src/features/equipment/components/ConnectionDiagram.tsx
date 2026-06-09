@@ -4,7 +4,18 @@ import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
-import { circuitLabel } from '../../../types/distributionCircuit';
+import { circuitLabel, type DistributionCircuit } from '../../../types/distributionCircuit';
+import { useOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
+import { composeFiberPaths } from '../../workingCopy/merge';
+import { buildCableFiberPathLabel } from '../../fiber/label';
+import {
+  useEffectiveAssets,
+  useEffectiveCables,
+  useEffectiveDistCircuits,
+  useEffectiveFiberPaths,
+} from '../../workingCopy/hooks';
+import { assetToEquipment } from '../../workingCopy/assetToEquipment';
+import { assetToRackModule } from '../../workingCopy/assetToRackModule';
 
 
 interface ConnectionDiagramProps {
@@ -14,10 +25,22 @@ interface ConnectionDiagramProps {
 export function ConnectionDiagram({
   equipmentId,
 }: ConnectionDiagramProps) {
-  const editorEquipment = useEditorStore((s) => s.localEquipment);
-  const editorCables = useEditorStore((s) => s.localCables);
-  const editorRackModules = useEditorStore((s) => s.localRackModules);
-  const editorDistCircuits = useEditorStore((s) => s.localDistributionCircuits);
+  // SSOT-2d3a Task 5 — editorStore 영속 컬렉션 대신 통합 스토어 effective 를 읽는다.
+  // 설비/랙모듈은 effective assets 에서 매핑, 케이블/회로/파이버패스는 effective 훅.
+  const effectiveAssets = useEffectiveAssets();
+  const editorEquipment = useMemo(
+    () => effectiveAssets.map(assetToEquipment),
+    [effectiveAssets],
+  );
+  const editorRackModules = useMemo(
+    () =>
+      effectiveAssets
+        .filter((a) => a.parentAssetId && a.slotIndex != null)
+        .map(assetToRackModule),
+    [effectiveAssets],
+  );
+  const editorCables = useEffectiveCables() as unknown as LocalCable[];
+  const editorDistCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
   const deleteCable = useEditorStore((s) => s.deleteCable);
 
   // Snapshot overlay: when active, show snapshot data instead of editor data
@@ -67,6 +90,25 @@ export function ConnectionDiagram({
       (!!circuitId && childCircuitIds.has(circuitId)),
     [equipmentId, childModuleIds, childCircuitIds],
   );
+
+  // git-like: 케이블의 fiberPathLabel 을 read-time 에 합성하기 위한 path 맵.
+  // 통합 스토어 effective fiber paths(saved+staged, deletes 반영) 를 directory 로 합성 —
+  // 저장 전에도 commit 후와 동일 라벨.
+  const effectiveFiberPaths = useEffectiveFiberPaths();
+  const ofdDirectory = useOfdDirectory();
+  const fiberPathById = useMemo(() => {
+    const composed = composeFiberPaths(
+      effectiveFiberPaths as unknown as Array<{
+        id: string;
+        ofdAId: string;
+        ofdBId: string;
+        portCount: number;
+        description?: string | null;
+      }>,
+      ofdDirectory,
+    );
+    return new Map(composed.map((p) => [p.id, p]));
+  }, [effectiveFiberPaths, ofdDirectory]);
 
   const relevantCables = useMemo(() => {
     return localCables.filter(
@@ -177,7 +219,7 @@ export function ConnectionDiagram({
                   </div>
                   {cable.cableType === 'FIBER' && cable.fiberPortNumber != null && (
                     <p className="mt-1 text-[11px] text-gray-400 text-center truncate">
-                      {cable.fiberPathLabel ?? '경로'}
+                      {cable.fiberPathLabel ?? buildCableFiberPathLabel(cable, fiberPathById) ?? '경로'}
                       {` #${cable.fiberPortNumber}`}
                     </p>
                   )}

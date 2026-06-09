@@ -23,8 +23,6 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
   const pendingUploads = useEditorStore((s) => s.pendingUploads);
   const pendingLogs = useEditorStore((s) => s.pendingLogs);
-  const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
-  const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
   const snapshotActive = useSnapshotStore((s) => s.active);
   // Effective background — staged value (if user is editing) ?? server.
@@ -32,16 +30,15 @@ export function Toolbar({ floor, floorPlan, isAdmin, handleSave, isSaving, onTog
     stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
   const { undo, redo, canUndo, canRedo } = useEditorHistory();
 
-  // SSOT-2d Task 3 — 변경 건수는 통합 스토어 overlay dirty 합계로 직접 읽는다
-  // (assets/cables/distCircuits/fiberPaths). 아직 editorStore 에만 있는 pending
-  // side-data(업로드/로그/파이버패스/삭제)는 Task 4 이관 전까지 그대로 더한다.
+  // SSOT-2d3a Task 5 — 변경 건수는 통합 스토어 overlay dirty 합계(assets/cables/
+  // distCircuits/fiberPaths) + editorStore 에만 남은 pending side-data(업로드/로그).
+  // 파이버패스는 통합 스토어 fiberPaths overlay 로 이관됐으므로 useWorkingCopyDirty 가
+  // 이미 포함한다 — 여기서 따로 더하지 않는다.
   const workingCopyDirty = useWorkingCopyDirty();
   const changeCount =
     workingCopyDirty +
     pendingUploads.length +
-    pendingLogs.length +
-    pendingFiberPaths.length +
-    deletedFiberPathIds.length;
+    pendingLogs.length;
 
   return (
     <div className="shrink-0 bg-white border-b px-4 py-2 flex items-center justify-between gap-4">

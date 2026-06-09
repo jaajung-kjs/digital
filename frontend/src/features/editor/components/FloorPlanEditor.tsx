@@ -6,7 +6,7 @@ import type { FloorPlanEquipment } from '../../../types/floorPlan';
 import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
-import { useEditorStore } from '../stores/editorStore';
+import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
 import { useSnapshotStore } from '../stores/snapshotStore';
@@ -178,7 +178,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const highlightedEdgeIds = usePathHighlightStore((s) => s.highlightedEdgeIds);
   useEffect(() => {
     if (!pathHighlightActive || highlightedEdgeIds.size === 0) return;
-    const cables = useEditorStore.getState().localCables;
+    const cables = useSubstationWorkingCopy.getState().effectiveCables() as unknown as LocalCable[];
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const cable of cables) {
       if (!highlightedEdgeIds.has(cable.id)) continue;

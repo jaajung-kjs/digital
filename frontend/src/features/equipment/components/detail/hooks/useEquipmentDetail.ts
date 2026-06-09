@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../../../utils/api';
 import { isTempId } from '../../../../../utils/idHelpers';
-import { useEditorStore } from '../../../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
+import { useEffectiveAssets } from '../../../../workingCopy/hooks';
+import { assetToEquipment } from '../../../../workingCopy/assetToEquipment';
 import type { EquipmentDetail } from '../types';
 
 function useEquipmentDetail(equipmentId: string) {
@@ -26,7 +28,12 @@ export function useMergedEquipmentDetail(equipmentId: string): {
   const snapshotEquipment = useSnapshotStore((s) => s.equipment);
   const isTemp = isTempId(equipmentId);
   const { data: backendData, isLoading, error } = useEquipmentDetail(equipmentId);
-  const localEquipment = useEditorStore((s) => s.localEquipment);
+  // SSOT-2d3a Task 5 — 통합 스토어 effective assets 에서 해당 설비를 찾아 매핑한다.
+  const effectiveAssets = useEffectiveAssets();
+  const localEquipment = useMemo(
+    () => effectiveAssets.map(assetToEquipment),
+    [effectiveAssets],
+  );
 
   if (snapshotActive) {
     const snapEq = snapshotEquipment.find((e) => e.id === equipmentId);
