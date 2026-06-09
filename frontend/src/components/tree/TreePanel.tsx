@@ -9,7 +9,7 @@ export function TreePanel() {
   const navigate = useNavigate();
   const {
     roots, setRoots, selectedNodeId, selectNode,
-    toggleNode, expandNode, setChildren, setViewingNodeId,
+    toggleNode, setChildren, setViewingNodeId,
     reorderChildren, findNode,
   } = useOrganizationStore();
 
@@ -62,28 +62,22 @@ export function TreePanel() {
       }
 
       if (node.type === 'substation') {
-        // 주 네비게이터: 단일클릭으로 워크스페이스 이동 + 층이 보이도록 펼치기(접지 않음).
-        if (!node.childrenLoaded) {
-          await loadChildren(node);
-        } else if (!node.expanded) {
-          expandNode(node.id);
-        }
+        // 주 네비게이터: 단일클릭으로 워크스페이스 이동 + 층 펼치기.
+        // loadChildren 은 미로드면 fetch+펼침, 로드되어 있으면 토글 → 다시 클릭하면 접힘.
+        // (라우트 동기화의 expandAncestors 는 조상만 펼치므로 자기 접힘은 유지됨.)
+        await loadChildren(node);
         setViewingNodeId(node.id);
         navigate(`/substations/${node.id}/workspace`);
         return;
       }
 
-      // headquarters / branch: 워크스페이스 없음 — 선택 + 펼치기 + viewingNode 유지하고
-      // 홈(/)으로 이동해 해당 노드의 현황(NodeStatusView)이 렌더되도록 한다.
-      if (!node.childrenLoaded) {
-        await loadChildren(node);
-      } else {
-        expandNode(node.id);
-      }
+      // headquarters / branch: 워크스페이스 없음 — 선택 + 토글(다시 클릭하면 접힘) +
+      // viewingNode 유지하고 홈(/)으로 이동해 해당 노드의 현황(NodeStatusView)이 렌더되도록 한다.
+      await loadChildren(node);
       setViewingNodeId(node.id);
       navigate('/');
     },
-    [selectNode, setViewingNodeId, loadChildren, expandNode, navigate],
+    [selectNode, setViewingNodeId, loadChildren, navigate],
   );
 
   const handleDoubleClick = useCallback(
