@@ -69,6 +69,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
     if (!effective.find((a) => a.id === assetId)) return;  // 아직 로드 안 됨 → 다음 렌더에 재시도
     setSelectedId(assetId);
     setSearchParams((p) => { p.delete('assetId'); return p; }, { replace: true });
+    // deps: effective(자산 로드 대기)+searchParams 만. set* 는 안정 식별자라 의도적 생략.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effective, searchParams]);
 
