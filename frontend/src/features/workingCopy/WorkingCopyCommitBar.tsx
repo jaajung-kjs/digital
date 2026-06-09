@@ -64,8 +64,8 @@ export function WorkingCopyCommitBar({ substationId }: { substationId: string })
           conflicts={conflicts}
           onClose={() => setConflicts(null)}
           onReloadLatest={async () => {
-            // 최신 saved 를 다시 로드(overlay 도 함께 리셋됨 — 통합 store load 규약).
-            await useSubstationWorkingCopy.getState().load(substationId);
+            // 최신 saved/baseVersions 만 재조정하고 staged 편집은 보존 → 재커밋 가능.
+            await useSubstationWorkingCopy.getState().refreshBaseVersions(substationId);
             setConflicts(null);
           }}
         />

@@ -74,8 +74,9 @@ export function useWorkingCopyLoaded(substationId: string | null) {
 
 /** substationId 변경 시 working copy 를 로드(부수효과 전용 — 반환값 없음). */
 export function useWorkingCopyLoader(substationId: string | null) {
+  const loaded = useWorkingCopyLoaded(substationId);
   const load = useSubstationWorkingCopy((s) => s.load);
   useEffect(() => {
-    if (substationId) void load(substationId);
-  }, [substationId, load]);
+    if (substationId && !loaded) void load(substationId);
+  }, [substationId, loaded, load]);
 }

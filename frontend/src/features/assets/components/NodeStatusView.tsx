@@ -94,7 +94,9 @@ export function NodeStatusView({
   /** 행 클릭 동작 재정의(예: 홈에서 변전소 워크스페이스로 드릴). 없으면 공유 선택을 설정. */
   onRowClick?: (item: AssetListItem) => void;
 }) {
-  const { data: fetchedItems = [] } = useNodeAssets(nodeType, nodeId);
+  // rows 가 주입되면(현황 — 통합 store 머지) useNodeAssets 구독은 불필요 → 비활성화.
+  const skip = rows !== undefined;
+  const { data: fetchedItems = [] } = useNodeAssets(skip ? null : nodeType, skip ? null : nodeId);
   // rows 가 주어지면 그것을 데이터 소스로(필터/그룹/요약 모두 items 기준).
   const items = rows ?? fetchedItems;
   const today = useMemo(() => new Date(), []);
