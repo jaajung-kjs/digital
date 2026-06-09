@@ -158,6 +158,30 @@ export function useUnifiedDirty(): number {
   return wc + uploads + logs + (floorDirty ? 1 : 0);
 }
 
+/**
+ * USP Task 3 — useUnifiedDirty 의 non-hook 판본.
+ *
+ * 이탈 가드(beforeunload)나 네비게이션 confirm 처럼 React 렌더 밖(이벤트 핸들러)에서
+ * 같은 단일 dirty 신호를 즉시 읽어야 할 때 사용한다. getState() 로 통합 working copy
+ * overlay 와 editorStore 의 pending 큐 / floor 설정 staged 여부를 합산한다. 0 이면
+ * 저장할 게 없다(드래프트/hasChanges 폐지 후의 단일 진실).
+ */
+export function getUnifiedDirtyCount(): number {
+  const wc = useSubstationWorkingCopy.getState();
+  const overlay =
+    overlayDirtyCount(wc.overlays.assets) +
+    overlayDirtyCount(wc.overlays.cables) +
+    overlayDirtyCount(wc.overlays.distributionCircuits) +
+    overlayDirtyCount(wc.overlays.fiberPaths);
+  const es = useEditorStore.getState();
+  return (
+    overlay +
+    es.pendingUploads.length +
+    es.pendingLogs.length +
+    (selectFloorSettingsDirty(es) ? 1 : 0)
+  );
+}
+
 /** 주어진 substationId 의 working copy 가 현재 로드돼 있는지. */
 export function useWorkingCopyLoaded(substationId: string | null) {
   return useSubstationWorkingCopy((s) => s.substationId === substationId);

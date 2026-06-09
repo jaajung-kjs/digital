@@ -25,15 +25,13 @@ function indicatorGridArea(slotIndex: number, slotSpan: number): { start: number
 
 export function ModuleCell({ module, siblings, gridRef }: Props) {
   const setSelectedRackModuleId = useEditorStore((s) => s.setSelectedRackModuleId);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const stageRackModuleUpdate = useSubstationWorkingCopy((s) => s.stageRackModuleUpdate);
 
   const onCommit = useCallback((updates: ModuleSlotUpdate[]) => {
     for (const u of updates) {
       stageRackModuleUpdate(u.id, { slotIndex: u.slotIndex, slotSpan: u.slotSpan });
     }
-    setHasChanges(true);
-  }, [stageRackModuleUpdate, setHasChanges]);
+  }, [stageRackModuleUpdate]);
 
   const onClick = useCallback(() => {
     setSelectedRackModuleId(module.id);

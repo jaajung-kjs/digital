@@ -106,7 +106,6 @@ export function useEditorKeyboard(
           });
         }
         // selectedEquipment 가 selector 로 도출되므로 별도 동기화 불필요.
-        es.setHasChanges(true);
         return;
       }
 
@@ -128,7 +127,6 @@ export function useEditorKeyboard(
         if (!window.confirm('선택한 케이블을 삭제하시겠습니까?')) return;
         useSubstationWorkingCopy.getState().stageCableDelete(es.selectedCableId);
         es.setSelectedCableId(null);
-        es.setHasChanges(true);
         return;
       }
 
@@ -141,7 +139,6 @@ export function useEditorKeyboard(
         if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
         useSubstationWorkingCopy.getState().stageRackModuleDelete(modId);
         es.setSelectedRackModuleId(null);
-        es.setHasChanges(true);
         return;
       }
 
@@ -156,7 +153,6 @@ export function useEditorKeyboard(
         const wc = useSubstationWorkingCopy.getState();
         for (const eq of equipmentToDelete) wc.stageEquipmentDeleteCascade(eq.id);
         es.clearSelection();
-        es.setHasChanges(true);
       }
 
       // Ctrl+S save — 단일 커밋(409 충돌은 저장 바에서 다루므로 여기선 무시).

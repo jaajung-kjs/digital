@@ -27,7 +27,6 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose, onImportClick 
   const majorGridSize = useEditorStore((s) => s.majorGridSize);
   const setGridSize = useEditorStore((s) => s.setGridSize);
   const setMajorGridSize = useEditorStore((s) => s.setMajorGridSize);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
   const stagedBackgroundOpacity = useEditorStore((s) => s.stagedBackgroundOpacity);
   const stageBackgroundOpacity = useEditorStore((s) => s.stageBackgroundOpacity);
@@ -70,7 +69,6 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose, onImportClick 
     const v = parseFloat(minorInput);
     if (!isNaN(v) && v > 0 && v !== gridSize) {
       setGridSize(v);
-      setHasChanges(true);
     }
   };
 
@@ -78,7 +76,6 @@ export function FloorSettingsPanel({ floorId, floorPlan, onClose, onImportClick 
     const v = parseFloat(majorInput);
     if (!isNaN(v) && v > 0 && v !== majorGridSize) {
       setMajorGridSize(v);
-      setHasChanges(true);
     }
   };
 

@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useEditorStore } from '../../editor/stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets, useEffectiveRackModulesMapped } from '../../workingCopy/hooks';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
@@ -216,8 +215,6 @@ function applyPresetToRack(
       sortOrder: idx,
     }));
   });
-
-  useEditorStore.getState().setHasChanges(true);
 }
 
 // ============================================================
