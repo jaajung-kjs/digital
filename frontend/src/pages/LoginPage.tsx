@@ -1,7 +1,9 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Boxes, AlertCircle } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { getErrorMessage } from '../utils/api';
+import { Button, Input } from '../components/ui';
 
 export function LoginPage() {
   const [username, setUsername] = useState('');
@@ -31,41 +33,68 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="max-w-md w-full">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">
-              ICT 디지털 트윈 시스템
-            </h1>
-            <p className="text-gray-600 mt-2">계정에 로그인하세요</p>
+    <div className="min-h-screen flex">
+      {/* LEFT — brand panel */}
+      <div className="hidden md:flex md:w-[45%] flex-col justify-between p-12 bg-gradient-to-br from-[#1c1917] to-[#292524] text-white">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded border border-white/20">
+            <Boxes className="h-6 w-6 text-primary" />
+          </div>
+          <span className="text-lg font-semibold tracking-tight">ICT 디지털 트윈</span>
+        </div>
+
+        <div className="space-y-4">
+          <h1 className="text-3xl font-bold leading-snug">
+            변전소 설비 현황관리 시스템
+          </h1>
+          <p className="text-base text-white/60">
+            현황 · 평면도 · 계통도 통합 관리
+          </p>
+        </div>
+
+        <p className="text-sm text-white/40">강원본부 · v2.0</p>
+      </div>
+
+      {/* RIGHT — form panel */}
+      <div className="flex flex-1 items-center justify-center bg-surface px-6 py-12">
+        <div className="w-full max-w-sm">
+          {/* Mobile brand mark */}
+          <div className="mb-8 flex items-center gap-3 md:hidden">
+            <div className="flex h-9 w-9 items-center justify-center rounded border border-line">
+              <Boxes className="h-5 w-5 text-primary" />
+            </div>
+            <span className="text-base font-semibold text-content">ICT 디지털 트윈</span>
           </div>
 
-          {/* Error Message */}
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-content">로그인</h2>
+            <p className="mt-2 text-sm text-content-muted">
+              계정 정보를 입력해 시스템에 접속하세요.
+            </p>
+          </div>
+
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="mb-6 flex items-start gap-2 rounded bg-danger-bg p-3 text-sm text-danger">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label
                 htmlFor="username"
-                className="block text-sm font-medium text-gray-700"
+                className="mb-1.5 block text-sm font-medium text-content"
               >
                 아이디
               </label>
-              <input
+              <Input
                 id="username"
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 autoComplete="username"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="아이디를 입력하세요"
               />
             </div>
@@ -73,36 +102,35 @@ export function LoginPage() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
+                className="mb-1.5 block text-sm font-medium text-content"
               >
                 비밀번호
               </label>
-              <input
+              <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="비밀번호를 입력하세요"
               />
             </div>
 
-            <button
+            <Button
               type="submit"
+              variant="primary"
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full justify-center py-2.5"
             >
-              {isLoading ? '로그인 중...' : '로그인'}
-            </button>
+              {isLoading ? '접속 중...' : '접속'}
+            </Button>
           </form>
-        </div>
 
-        {/* Footer */}
-        <p className="text-center text-gray-500 text-sm mt-4">
-          © 2026 ICT 디지털 트윈 시스템
-        </p>
+          <p className="mt-8 text-center text-xs text-content-faint">
+            © 2026 ICT 디지털 트윈 시스템
+          </p>
+        </div>
       </div>
     </div>
   );
