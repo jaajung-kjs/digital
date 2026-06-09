@@ -24,7 +24,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
   const isEmpty = shown.length === 0 && queued.length === 0;
 
   return (
-    <section className="px-4 py-3 border-t border-gray-100">
+    <section>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-gray-700">사진</h3>
         <div className="flex gap-1">
