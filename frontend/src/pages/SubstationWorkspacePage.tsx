@@ -7,6 +7,8 @@ import { WorkspaceNavContext, type WorkspaceNav } from '../features/workspace/Wo
 import { SelectionContext } from '../features/workspace/SelectionContext';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
+import { useWorkingCopyLoader } from '../features/workingCopy/hooks';
+import { WorkingCopyCommitBar } from '../features/workingCopy/WorkingCopyCommitBar';
 
 const VIEWS = [
   { key: 'status', label: '현황' },
@@ -48,6 +50,9 @@ export function SubstationWorkspacePage() {
 
   useEditorSelectionBridge(selectedAssetId, setSelectedAssetId, view === 'plan');
 
+  // 이 변전소의 통합 working copy 를 store 에 로드(idempotent; substationId 변경 시 재로드).
+  useWorkingCopyLoader(substationId ?? null);
+
   if (!substationId) return null;
 
   const switchView = (key: ViewKey) =>
@@ -77,6 +82,9 @@ export function SubstationWorkspacePage() {
               </select>
             )}
           </div>
+          {(view === 'status' || view === 'connections') && (
+            <WorkingCopyCommitBar substationId={substationId} />
+          )}
           <div className="flex-1 min-h-0 relative">
             {view === 'plan' ? (
               selectedFloorId ? (
