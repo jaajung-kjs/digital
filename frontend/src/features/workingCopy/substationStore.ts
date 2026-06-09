@@ -138,7 +138,7 @@ export interface SubstationWorkingCopyState {
    * 설비 신규 stage. assetTypeId 는 kind→assetType 해석(2d-2)에서 주입.
    * floorId 는 FloorPlanEquipment 본체에 없으므로(에디터가 보유) eq 에 얹어 전달한다.
    */
-  stageEquipmentCreate: (eq: FloorPlanEquipment & { floorId?: string | null }, assetTypeId: string) => void;
+  stageEquipmentCreate: (eq: FloorPlanEquipment & { floorId: string }, assetTypeId: string) => void;
   stageEquipmentUpdate: (id: string, eqPatch: Partial<FloorPlanEquipment>) => void;
   /** 설비 삭제 + 랙모듈 자식 + 해당 설비/모듈에 닿는 케이블까지 캐스케이드(단일 set). */
   stageEquipmentDeleteCascade: (id: string) => void;
@@ -249,9 +249,10 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       // ── editor-facing mutation actions (2d-1 T3) ──
       stageEquipmentCreate: (eq, assetTypeId) =>
         set((s) => {
+          if (!s.substationId) return s; // 미로드 — 무시(null substationId asset 방지)
           const asset = equipmentToAssetCreate(eq, {
-            substationId: s.substationId!,
-            floorId: eq.floorId ?? null,
+            substationId: s.substationId,
+            floorId: eq.floorId,
             assetTypeId,
             tempId: eq.id,
           });
@@ -267,8 +268,10 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set((s) => {
           const effA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor);
           const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor);
-          // 랙모듈 자식(parentAssetId === id) 까지 캐스케이드 대상.
-          const childIds = effA.filter((a) => a.parentAssetId === id).map((a) => a.id);
+          // 랙모듈 자식(isRackModuleChild: parentAssetId === id && slotIndex != null) 까지 캐스케이드 대상.
+          const childIds = effA
+            .filter((a) => a.parentAssetId === id && isRackModuleChild(a))
+            .map((a) => a.id);
           const targets = new Set<string>([id, ...childIds]);
           let assets = s.overlays.assets;
           for (const tid of [id, ...childIds]) assets = stageDelete(assets, tid, isTempId(tid));
