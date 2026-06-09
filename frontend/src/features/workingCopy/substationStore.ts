@@ -164,6 +164,8 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           fiberPaths: data.data.fiberPaths ?? [],
         };
         set({ substationId, saved, overlays: freshOverlays(saved) });
+        // 다른 변전소 로드 시 이전 overlay 가 undo 로 복원되지 않도록 history 클리어.
+        useSubstationWorkingCopy.temporal.getState().clear();
       },
 
       revert: () => set((s) => ({ overlays: freshOverlays(s.saved) })),

@@ -15,6 +15,10 @@ export function mergeEffective<T, P>(
     const patch = overlay.updates[id];
     result.push(patch ? ({ ...s, ...patch } as T) : s);
   }
-  for (const id of Object.keys(overlay.creates)) result.push(overlay.creates[id]);
+  for (const id of Object.keys(overlay.creates)) {
+    const item = overlay.creates[id];
+    const patch = overlay.updates[id];
+    result.push(patch ? ({ ...item, ...patch } as T) : item);
+  }
   return result;
 }

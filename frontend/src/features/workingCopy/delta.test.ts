@@ -20,4 +20,11 @@ describe('buildDelta', () => {
     let o = stageUpdate(emptyOverlay<Row>(), 'z', { name: 'Z' });
     expect(buildDelta(o).updates[0].baseVersion).toBeNull();
   });
+  it('create+update 같은 tempId(place 후 drag): create 1개에 패치 반영, updates 비어있음', () => {
+    let o = stageCreate(emptyOverlay<Row>(), 't1', { id: 't1', name: 'orig' });
+    o = stageUpdate(o, 't1', { name: 'X' });
+    const delta = buildDelta(o);
+    expect(delta.creates).toEqual([{ id: 't1', name: 'X' }]);
+    expect(delta.updates).toEqual([]);
+  });
 });
