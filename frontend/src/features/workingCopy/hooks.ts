@@ -66,6 +66,43 @@ export function useEffectiveEquipment(floorId: string) {
   }, [saved, overlay, floorId]);
 }
 
+/**
+ * 한 랙(rackId)의 effective 랙모듈 자식만 반환한다.
+ * 필터: parentAssetId === rackId AND slotIndex != null(랙 슬롯에 꽂힌 자식).
+ */
+export function useEffectiveRackModules(rackId: string) {
+  const saved = useSubstationWorkingCopy((s) => s.saved.assets);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.assets);
+  return useMemo(() => {
+    const eff = mergeEffective(saved, overlay, assetDescriptor);
+    return eff.filter((a) => a.parentAssetId === rackId && a.slotIndex != null);
+  }, [saved, overlay, rackId]);
+}
+
+/**
+ * 한 층(floorId)에 닿는 effective 케이블만 반환한다.
+ * effective assets 중 해당 층(top-level 또는 부모 랙이 그 층)에 있는 id 집합을 만들고,
+ * source/target 의 {equipmentId, moduleId} 중 하나라도 그 집합에 속하는 케이블만 남긴다.
+ */
+export function useEffectiveFloorCables(floorId: string) {
+  const savedAssets = useSubstationWorkingCopy((s) => s.saved.assets);
+  const overlayAssets = useSubstationWorkingCopy((s) => s.overlays.assets);
+  const savedCables = useSubstationWorkingCopy((s) => s.saved.cables);
+  const overlayCables = useSubstationWorkingCopy((s) => s.overlays.cables);
+  return useMemo(() => {
+    const effAssets = mergeEffective(savedAssets, overlayAssets, assetDescriptor);
+    const onFloor = new Set(effAssets.filter((a) => a.floorId === floorId).map((a) => a.id));
+    const effCables = mergeEffective(savedCables, overlayCables, cableDescriptor);
+    return effCables.filter((c) => {
+      const ep = (e: unknown) => {
+        const o = e as { equipmentId?: string | null; moduleId?: string | null } | undefined;
+        return [o?.equipmentId, o?.moduleId];
+      };
+      return [...ep((c as any).source), ...ep((c as any).target)].some((x) => x != null && onFloor.has(x));
+    });
+  }, [savedAssets, overlayAssets, savedCables, overlayCables, floorId]);
+}
+
 /** assets overlay 슬라이스 직접 구독(staged 변경 여부 등 overlay 자체가 필요할 때). */
 export function useEffectiveAssetsOverlay() {
   return useSubstationWorkingCopy((s) => s.overlays.assets);
