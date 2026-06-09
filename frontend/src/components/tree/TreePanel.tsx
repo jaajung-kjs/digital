@@ -49,16 +49,39 @@ export function TreePanel() {
   const handleClick = useCallback(
     async (node: TreeNodeData) => {
       selectNode(node.id, node.type);
-      if (node.type !== 'floor') {
+
+      if (node.type === 'floor') {
+        // floor 노드의 parentId 는 항상 소속 substation id (fetchChildNodes 참고).
+        // substationId 가 있으면 워크스페이스로 일원화, 없으면 기존 /floors/:id/plan 유지.
+        if (node.parentId) {
+          navigate(`/substations/${node.parentId}/workspace?view=plan&floor=${node.id}`);
+        } else {
+          navigate(`/floors/${node.id}/plan`);
+        }
+        return;
+      }
+
+      if (node.type === 'substation') {
+        // 주 네비게이터: 단일클릭으로 워크스페이스 이동 + 층이 보이도록 펼치기(접지 않음).
         if (!node.childrenLoaded) {
           await loadChildren(node);
-        } else {
+        } else if (!node.expanded) {
           expandNode(node.id);
         }
         setViewingNodeId(node.id);
+        navigate(`/substations/${node.id}/workspace`);
+        return;
       }
+
+      // headquarters / branch: 워크스페이스 없음 — 기존 동작(선택 + 펼치기/접기 + viewingNode) 유지.
+      if (!node.childrenLoaded) {
+        await loadChildren(node);
+      } else {
+        expandNode(node.id);
+      }
+      setViewingNodeId(node.id);
     },
-    [selectNode, setViewingNodeId, loadChildren, expandNode],
+    [selectNode, setViewingNodeId, loadChildren, expandNode, navigate],
   );
 
   const handleDoubleClick = useCallback(
