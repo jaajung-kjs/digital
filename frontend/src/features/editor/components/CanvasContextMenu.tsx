@@ -1,4 +1,5 @@
 import { useEditorStore } from '../stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 
 export interface CanvasContextMenuState {
@@ -45,7 +46,7 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     onClose();
     if (!eq) return;
     if (!window.confirm(`'${eq.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
-    es.deleteEquipmentWithCascade(target.id);
+    useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(target.id);
     es.clearSelection();
     es.setHasChanges(true);
   };
@@ -59,7 +60,7 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     const es = useEditorStore.getState();
     onClose();
     if (!window.confirm('선택한 케이블을 삭제하시겠습니까?')) return;
-    es.deleteCable(target.id);
+    useSubstationWorkingCopy.getState().stageCableDelete(target.id);
     es.setSelectedCableId(null);
     es.setHasChanges(true);
   };

@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import {
   useCableDrawing,
   useInteractionStore,
@@ -27,7 +28,6 @@ export function CableSpecModalWrapper() {
 function CableSpecModal() {
   const cable = useCableDrawing();
   const phase = cable?.phase ?? 'idle';
-  const addCable = useEditorStore((s) => s.addCable);
   const preselectedGroup = useEditorStore(
     (s) => s.preselectedCableDisplayGroup,
   );
@@ -74,7 +74,8 @@ function CableSpecModal() {
     const fiberPortNumber = data.targetPortNumber ?? data.sourcePortNumber ?? null;
 
     const newCableId = generateTempId();
-    addCable({
+    // SSOT-2d Task 4 — 케이블 생성을 통합 스토어 stage 액션으로.
+    useSubstationWorkingCopy.getState().stageCableCreate({
       id: newCableId,
       // circuit / module endpoint 면 sourceEquipmentId 자리에 회로/모듈 id 를
       // fallback 으로 채워 두는 게 RACK 패턴 (위치 lookup·tracer 가 이걸 씀).

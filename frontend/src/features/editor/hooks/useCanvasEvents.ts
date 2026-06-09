@@ -249,9 +249,18 @@ export function useCanvasEvents(
     if (!dragSession || !dragSession.isActive) return;
 
     const snapFn = (pos: Position) => snapToGrid(pos.x, pos.y);
-    const { localEquipment } = editorStore.getState();
-    const result = applyDrag(null, localEquipment, dragSession, snapped, snapFn);
-    editorStore.getState().setLocalEquipment(result.equipment);
+    // SSOT-2d Task 4 — 드래그 적용을 통합 스토어 stage 액션으로.
+    // applyDrag 은 session.target.id 한 설비만 새 좌표로 옮기므로 그 설비의
+    // 새 positionX/Y 만 추출해 stageEquipmentUpdate 로 올린다(좌표만).
+    const eqs = effectiveEquipment();
+    const result = applyDrag(null, eqs, dragSession, snapped, snapFn);
+    const moved = result.equipment.find((e) => e.id === dragSession.target.id);
+    if (moved) {
+      useSubstationWorkingCopy.getState().stageEquipmentUpdate(moved.id, {
+        positionX: moved.positionX,
+        positionY: moved.positionY,
+      });
+    }
     editorStore.getState().setHasChanges(true);
     // 라이브 케이블 프리뷰 — 설비가 움직이는 동안 연결된 케이블의 양 끝점도
     // 함께 따라오게 즉시 갱신 (예전엔 mouseUp 시점에만 반영돼 드래그 중엔

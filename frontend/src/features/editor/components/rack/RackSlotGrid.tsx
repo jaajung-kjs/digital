@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import { RACK_SLOT_COUNT, type RackModule } from '../../../../types/rackModule';
 import { EmptySlot } from './EmptySlot';
 import { ModuleCell } from './ModuleCell';
@@ -24,7 +25,6 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const addingAtSlot = useEditorStore((s) => s.addingAtSlot);
   const setAddingAtSlot = useEditorStore((s) => s.setAddingAtSlot);
-  const addRackModule = useEditorStore((s) => s.addRackModule);
   const { data: categories } = useRackModuleCategories();
 
   const anchorRef = useRef<DOMRect | null>(null);
@@ -44,7 +44,8 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
       return;
     }
     const slotSpan = Math.min(cat.defaultSlotSpan, avail);
-    addRackModule(buildRackModule({
+    // SSOT-2d Task 4 — 랙모듈 생성을 통합 스토어 stage 액션으로.
+    useSubstationWorkingCopy.getState().stageRackModuleCreate(buildRackModule({
       rackEquipmentId,
       category: cat,
       slotIndex: addingAtSlot.slotIndex,
