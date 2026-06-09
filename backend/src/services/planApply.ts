@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { ValidationError, ConflictError } from '../utils/errors.js';
+import { ValidationError } from '../utils/errors.js';
 import { placementKindToKind, type PlacementKind } from './assetPlanMapper.js';
 import { assertSlotValid, assertNoSlotCollision } from './rackModule.service.js';
 import { assertOfdFiberPath } from './cable.service.js';
@@ -92,39 +92,6 @@ export async function assertCableEndpointsValid(
     if (c.tgtEqId) assertDirectEndpointKind(tgtKind, c.tgtEqId, 'target');
 
     assertOfdFiberPath(srcKind, tgtKind, c.fiberPathId, c.fiberPortNumber);
-  }
-}
-
-/**
- * 변전소당 OFD 1개 — 새 OFD 가 추가될 때 기존 OFD 가 있으면 거부.
- * (equipmentService.validateOfdUniqueness 의 substation 단위 검사와 동일.)
- *
- * @param substationId  검사 대상 변전소
- * @param hasNewOfd     이번 커밋에서 새 OFD 를 만드는지 여부
- * @param existingOfdIds 같은 커밋에서 update/유지되는 OFD id (자기 자신 제외용)
- */
-export async function assertOfdUnique(
-  tx: Tx,
-  substationId: string,
-  hasNewOfd: boolean,
-): Promise<void> {
-  if (!hasNewOfd) return;
-  const sub = await tx.substation.findUnique({
-    where: { id: substationId },
-    select: { name: true },
-  });
-  const existingOfd = await tx.asset.findFirst({
-    where: {
-      parentAssetId: null,
-      assetType: { placementKind: 'OFD' },
-      floor: { substationId },
-    },
-    select: { id: true, name: true },
-  });
-  if (existingOfd) {
-    throw new ConflictError(
-      `${sub?.name ?? ''} 변전소에 이미 OFD가 존재합니다. (${existingOfd.name})`,
-    );
   }
 }
 
