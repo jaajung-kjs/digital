@@ -3,8 +3,13 @@ import { Prisma, CableType } from '@prisma/client';
 import { NotFoundError, ConflictError, ValidationError } from '../utils/errors.js';
 import { VersionConflictError } from './concurrency.js';
 import { equipmentService } from './equipment.service.js';
-import { assertOfdFiberPath, buildFiberPathLabel } from './cable.service.js';
+import { buildFiberPathLabel } from './cable.service.js';
 import { assertNoSlotCollision, assertSlotValid } from './rackModule.service.js';
+import {
+  assertCableEndpointsValid,
+  assertRackParentValid,
+  assertDistParentValid,
+} from './planApply.js';
 import {
   assetToPlanEquipment,
   kindToPlacementCode,
@@ -758,33 +763,11 @@ class FloorService {
         }
 
         for (const mod of input.rackModules!) {
-          // 부모 랙 해석 (tempId 가능)
+          // 부모 랙 해석 (tempId 가능) + 부모/카테고리 검증 — 공유 검증.
           const resolvedRackId = equipmentIdMap[mod.rackEquipmentId] ?? mod.rackEquipmentId;
-          const rack = await tx.asset.findUnique({
-            where: { id: resolvedRackId },
-            include: { assetType: true },
-          });
-          if (!rack) {
-            throw new ValidationError(
-              `랙 모듈의 부모 설비를 찾을 수 없습니다 (rackEquipmentId=${mod.rackEquipmentId}).`,
-            );
-          }
-          if (rack.assetType.placementKind !== 'RACK') {
-            throw new ValidationError(
-              `랙 모듈의 부모가 RACK 이 아닙니다 (placementKind=${rack.assetType.placementKind}).`,
-            );
-          }
-
-          // 카테고리 확인 — categoryId 는 시드된 AssetType.id (모듈 타입) 만 가능.
-          const category = await tx.assetType.findUnique({
-            where: { id: mod.categoryId },
-            select: { id: true, placementKind: true },
-          });
-          if (!category || category.placementKind !== null) {
-            throw new ValidationError(
-              `유효한 모듈 카테고리가 아닙니다 (categoryId=${mod.categoryId}, placementKind 이 있는 배치형 종류는 모듈로 쓸 수 없습니다).`,
-            );
-          }
+          await assertRackParentValid(tx, resolvedRackId, mod.categoryId);
+          const rack = { id: resolvedRackId };
+          const category = { id: mod.categoryId };
 
           // 슬롯 충돌 검사 — update 의 경우 자기 자신은 제외.
           const liveSlots = liveByRack.get(rack.id) ?? [];
@@ -868,20 +851,8 @@ class FloorService {
         for (const c of input.distributionCircuits!) {
           const resolvedDistId =
             equipmentIdMap[c.distributionEquipmentId] ?? c.distributionEquipmentId;
-          const dist = await tx.asset.findUnique({
-            where: { id: resolvedDistId },
-            include: { assetType: true },
-          });
-          if (!dist) {
-            throw new ValidationError(
-              `분전반 회로의 부모 설비를 찾을 수 없습니다 (distributionEquipmentId=${c.distributionEquipmentId}).`,
-            );
-          }
-          if (dist.assetType.placementKind !== 'DIST') {
-            throw new ValidationError(
-              `분전반 회로의 부모가 DISTRIBUTION 이 아닙니다 (placementKind=${dist.assetType.placementKind}).`,
-            );
-          }
+          await assertDistParentValid(tx, resolvedDistId);
+          const dist = { id: resolvedDistId };
 
           const isUpdate = isRealId(c.id) && dbDistCircuitIds.has(c.id!);
           if (isUpdate) {
@@ -954,20 +925,6 @@ class FloorService {
       }
 
       // Cables
-      // 한 번 조회한 endpoint kind 캐시 (같은 트랜잭션에서 반복 조회 방지)
-      const equipmentKindCache = new Map<string, PlacementKind | null>();
-      const getEquipmentKind = async (eqId: string): Promise<PlacementKind | null> => {
-        if (equipmentKindCache.has(eqId)) return equipmentKindCache.get(eqId)!;
-        const e = await tx.asset.findUnique({
-          where: { id: eqId },
-          include: { assetType: true },
-        });
-        if (!e) { equipmentKindCache.set(eqId, null); return null; }
-        const kind = placementKindToKind(e.assetType.placementKind);
-        equipmentKindCache.set(eqId, kind);
-        return kind;
-      };
-
       for (const cable of input.cables ?? []) {
         const srcEqId = cable.source.equipmentId
           ? equipmentIdMap[cable.source.equipmentId] ?? cable.source.equipmentId
@@ -991,24 +948,13 @@ class FloorService {
           ? fiberPathIdMap[cable.fiberPathId] ?? cable.fiberPathId
           : null;
 
-        // 각 endpoint 는 equipment | module | circuit 중 정확히 하나.
-        const srcCount = [srcEqId, srcModId, srcCircuitId].filter(Boolean).length;
-        const tgtCount = [tgtEqId, tgtModId, tgtCircuitId].filter(Boolean).length;
-        if (srcCount !== 1) {
-          throw new ValidationError('source endpoint 는 equipmentId / moduleId / circuitId 중 정확히 하나여야 합니다.');
-        }
-        if (tgtCount !== 1) {
-          throw new ValidationError('target endpoint 는 equipmentId / moduleId / circuitId 중 정확히 하나여야 합니다.');
-        }
-
-        // RACK→모듈, DISTRIBUTION→회로 에만 연결 가능 (직결 금지).
-        const srcKind = srcEqId ? await getEquipmentKind(srcEqId) : null;
-        const tgtKind = tgtEqId ? await getEquipmentKind(tgtEqId) : null;
-        if (srcEqId) assertDirectEndpointKind(srcKind, srcEqId, 'source');
-        if (tgtEqId) assertDirectEndpointKind(tgtKind, tgtEqId, 'target');
-
-        // OFD endpoint 면 fiberPathId + fiberPortNumber 필수
-        assertOfdFiberPath(srcKind, tgtKind, resolvedFiberPathId, cable.fiberPortNumber);
+        // endpoint 유효성(정확히 하나 / 직결 금지 / OFD fiberPath 필수) — 공유 검증.
+        await assertCableEndpointsValid(tx, [{
+          srcEqId, srcModId, srcCircuitId,
+          tgtEqId, tgtModId, tgtCircuitId,
+          fiberPathId: resolvedFiberPathId,
+          fiberPortNumber: cable.fiberPortNumber,
+        }]);
 
         if (isRealId(cable.id) && dbCableIds.has(cable.id!)) {
           await tx.cable.update({
@@ -1317,27 +1263,6 @@ class FloorService {
     const log = await prisma.auditLog.findUnique({ where: { id: logId } });
     if (!log) throw new NotFoundError('변경 이력');
     await prisma.auditLog.delete({ where: { id: logId } });
-  }
-}
-
-/**
- * 케이블 직결 endpoint 의 kind 검증 — source/target 양쪽 동일 규칙.
- * RACK 은 모듈에, DISTRIBUTION 은 회로에 연결해야 하므로 설비 직결 거부.
- */
-function assertDirectEndpointKind(
-  kind: PlacementKind | null,
-  eqId: string,
-  side: 'source' | 'target',
-): void {
-  const label = side === 'source' ? 'source' : 'target';
-  if (kind === null) {
-    throw new ValidationError(`${label} 설비를 찾을 수 없습니다 (id=${eqId}).`);
-  }
-  if (kind === 'RACK') {
-    throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
-  }
-  if (kind === 'DISTRIBUTION') {
-    throw new ValidationError('분전반은 케이블 endpoint 가 될 수 없습니다 — 회로에 연결하세요.');
   }
 }
 
