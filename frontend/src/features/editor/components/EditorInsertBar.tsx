@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditorStore } from '../stores/editorStore';
 import { useDeleteRackPreset, useRackPresets } from '../../rack/hooks/useRackPresets';
 import { EditRackPresetDialog } from '../../rack/components/EditRackPresetDialog';
@@ -61,7 +62,20 @@ export function EditorInsertBar() {
   const deletePreset = useDeleteRackPreset();
 
   const [presetMenuOpen, setPresetMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ left: number; top: number } | null>(null);
+  const presetBtnRef = useRef<HTMLButtonElement>(null);
   const [editTarget, setEditTarget] = useState<RackPreset | null>(null);
+
+  // 도구바 루트의 overflow-x-auto 가 드롭다운을 클립하므로, 메뉴는 portal+fixed 로 띄운다.
+  const togglePresetMenu = () => {
+    if (presetMenuOpen) {
+      setPresetMenuOpen(false);
+      return;
+    }
+    const r = presetBtnRef.current?.getBoundingClientRect();
+    if (r) setMenuPos({ left: r.left, top: r.bottom + 4 });
+    setPresetMenuOpen(true);
+  };
 
   // ───── Click handlers (verbatim from EditorSidebar) ─────
   const handleSelect = () => {
@@ -157,22 +171,24 @@ export function EditorInsertBar() {
 
       <Separator />
 
-      {/* ───── 랙 프리셋 (dropdown — click to arm) ───── */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setPresetMenuOpen((v) => !v)}
-          className={`px-2 py-1 text-xs rounded font-medium transition-colors whitespace-nowrap flex items-center gap-1 ${
-            activePreset
-              ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
-              : 'hover:bg-gray-200 text-gray-700'
-          }`}
-        >
-          {activePreset ? `랙 프리셋: ${activePreset.name}` : '랙 프리셋'}
-          <span aria-hidden className="text-[10px]">▾</span>
-        </button>
+      {/* ───── 랙 프리셋 (dropdown — portal+fixed 로 overflow 클립 회피) ───── */}
+      <button
+        ref={presetBtnRef}
+        type="button"
+        onClick={togglePresetMenu}
+        className={`px-2 py-1 text-xs rounded font-medium transition-colors whitespace-nowrap flex items-center gap-1 shrink-0 ${
+          activePreset
+            ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
+            : 'hover:bg-gray-200 text-gray-700'
+        }`}
+      >
+        {activePreset ? `랙 프리셋: ${activePreset.name}` : '랙 프리셋'}
+        <span aria-hidden className="text-[10px]">▾</span>
+      </button>
 
-        {presetMenuOpen && (
+      {presetMenuOpen &&
+        menuPos &&
+        createPortal(
           <>
             <div
               className="fixed inset-0 z-40"
@@ -182,9 +198,14 @@ export function EditorInsertBar() {
                 setPresetMenuOpen(false);
               }}
             />
-            <div className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[200px] max-h-72 overflow-y-auto">
+            <div
+              className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[200px] max-h-72 overflow-y-auto"
+              style={{ left: menuPos.left, top: menuPos.top }}
+            >
               {activePresets.length === 0 ? (
-                <div className="px-3 py-1.5 text-xs text-gray-300">(없음)</div>
+                <div className="px-3 py-1.5 text-xs text-gray-400">
+                  프리셋 없음
+                </div>
               ) : (
                 activePresets.map((preset) => {
                   const active =
@@ -246,9 +267,9 @@ export function EditorInsertBar() {
                 })
               )}
             </div>
-          </>
+          </>,
+          document.body,
         )}
-      </div>
 
       <Separator />
 
