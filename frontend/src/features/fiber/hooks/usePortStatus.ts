@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useOfdDirectory } from './useOfdDirectory';
+import { useFiberPaths } from './useFiberPaths';
 import {
   useEffectiveFiberPaths,
   useEffectiveCables,
@@ -26,61 +27,66 @@ export interface EffectiveCable {
   target?: EffectiveCableEndpoint | null;
 }
 
+const touches = (ep: EffectiveCableEndpoint | null | undefined, id: string): boolean =>
+  !!ep && (ep.equipmentId === id || ep.moduleId === id);
+const otherIdOf = (ep: EffectiveCableEndpoint | null | undefined): string =>
+  ep?.moduleId ?? ep?.equipmentId ?? '';
+
 /**
- * Merge effective cables into the fiber path port statuses
- * so the UI reflects unsaved changes immediately.
+ * 이 변전소의 staged 케이블을 fiber path 의 **로컬 side** 에만 overlay 한다.
  *
- * 통합 스토어로 이관(2d-3a T4): saved + staged 케이블 모두 effective cables 단일
- * 소스에서 온다. 따라서 별도의 "saved deleted" 필터가 필요 없다 — 삭제된 케이블은
- * effective 에서 이미 빠져 있으므로 단순히 effective 케이블만 overlay 하면 된다.
+ * 배경(2026-06-10 재수정): 통합 working copy 는 변전소-범위(substation-scoped)다 —
+ * effective cables 에는 *이 변전소* 케이블만 있다. fiber path 의 상대 대국(remote OFD)
+ * tail 케이블은 보통 다른 변전소에 있어 effective 에서 절대 보이지 않는다. 따라서
+ * remote side 를 effective 케이블로 채우려 하면 항상 "상대 대국 미연결" 이 된다.
  *
- * 양쪽 채움(2026-06-10 fix): 이전엔 현재 보고 있는 OFD(ofdId)에 닿는 케이블에서만
- * **로컬 side** 를 채워 → 상대 대국(remote side)이 항상 미연결로 표시됐다. 백엔드
- * `buildPortStatuses` 처럼 각 path 의 ofdA/ofdB 양쪽 케이블에서 sideA/sideB 를 모두
- * 채운다. 이렇게 해야 topology tracer 도 OFD↔OFD 를 양쪽 포트로 연결할 수 있다.
+ * 해결: remote side(cross-substation)는 backend `useFiberPaths(ofdId)` 가 이미 올바로
+ * 계산해 준 값을 그대로 둔다. 로컬 side(보고 있는 OFD = ofdId 에 닿는 쪽)만 이 변전소
+ * staged 케이블로 다시 계산(override)해 방금 그린/지운 케이블이 즉시 미리보기되게 한다.
+ *
+ * 로컬 side 매핑(backend buildPortStatuses 규약과 동일): path.ofdA.id === ofdId 이면
+ * 로컬 = sideA, 아니면 로컬 = sideB. effective 는 삭제된 케이블을 이미 제외하므로
+ * 로컬 side 를 effective 로 *덮어쓰면* staged 추가/삭제가 모두 반영된다.
  */
-export function overlayEffectiveCables(
+export function overlayLocalStagedCables(
   paths: FiberPathDetail[],
   effectiveCables: EffectiveCable[],
   resolveName: (id: string) => string,
+  ofdId: string,
 ): FiberPathDetail[] {
   const fiberCables = effectiveCables.filter(
     (c) => c.cableType === 'FIBER' && c.fiberPathId && c.fiberPortNumber != null,
   );
 
-  if (fiberCables.length === 0) return paths;
-
-  // endpoint 가 모듈이면 moduleId, 아니면 equipmentId 로 식별(폴리모픽).
-  const touches = (ep: EffectiveCableEndpoint | null | undefined, id: string): boolean =>
-    !!ep && (ep.equipmentId === id || ep.moduleId === id);
-  const otherIdOf = (ep: EffectiveCableEndpoint | null | undefined): string =>
-    ep?.moduleId ?? ep?.equipmentId ?? '';
   const usageFor = (cable: EffectiveCable, otherEnd: EffectiveCableEndpoint | null | undefined): FiberPortUsage => {
     const id = otherIdOf(otherEnd);
     return { cableId: cable.id, equipmentId: id, equipmentName: resolveName(id) };
   };
 
   return paths.map((path) => {
-    const newPorts: FiberPortStatus[] = path.ports.map((port) => {
-      let sideA = port.sideA;
-      let sideB = port.sideB;
+    // 로컬 = 보고 있는 OFD(ofdId)에 닿는 side. backend 규약과 동일하게 ofdA→sideA.
+    const localIsA = path.ofdA.id === ofdId;
+    const localOfdId = localIsA ? path.ofdA.id : path.ofdB.id;
 
+    const newPorts: FiberPortStatus[] = path.ports.map((port) => {
+      // 로컬 side 는 effective 케이블로 다시 계산 — staged 추가는 채워지고, staged
+      // 삭제는 (effective 에 없으므로) null 로 비워진다. remote side(backend)는 그대로.
+      let localUsage: FiberPortUsage | null = null;
       for (const cable of fiberCables) {
         if (cable.fiberPathId !== path.id || cable.fiberPortNumber !== port.portNumber) continue;
-
-        // side A: ofdA 에 닿는 케이블 → remote = ofdA 에 닿지 않은 반대쪽 끝.
-        if (sideA == null) {
-          if (touches(cable.source, path.ofdA.id)) sideA = usageFor(cable, cable.target);
-          else if (touches(cable.target, path.ofdA.id)) sideA = usageFor(cable, cable.source);
+        if (touches(cable.source, localOfdId)) {
+          localUsage = usageFor(cable, cable.target);
+          break;
         }
-        // side B: ofdB 에 닿는 케이블 → remote = ofdB 에 닿지 않은 반대쪽 끝.
-        if (sideB == null) {
-          if (touches(cable.source, path.ofdB.id)) sideB = usageFor(cable, cable.target);
-          else if (touches(cable.target, path.ofdB.id)) sideB = usageFor(cable, cable.source);
+        if (touches(cable.target, localOfdId)) {
+          localUsage = usageFor(cable, cable.source);
+          break;
         }
       }
 
-      return { ...port, sideA, sideB };
+      return localIsA
+        ? { ...port, sideA: localUsage }
+        : { ...port, sideB: localUsage };
     });
 
     return { ...path, ports: newPorts };
@@ -88,43 +94,59 @@ export function overlayEffectiveCables(
 }
 
 /**
- * Single source of truth for port status: effective fiber paths (통합 스토어) +
- * effective cables 를 합성/overlay 하여 만든다. FiberPathManager 와 ConnectionDiagram 사용.
+ * Single source of truth for port status — **하이브리드**.
  *
- * 이전: useFiberPaths(per-OFD denorm) + editorStore.pending/deleted overlay.
- * 이관 후: saved+staged 가 모두 통합 스토어 effective 에 있으므로 그것만 소스로 쓴다.
+ * base: backend `useFiberPaths(ofdId)` 가 fiber path 의 `cables` 관계로 양쪽 side
+ * (cross-substation)를 올바로 계산해 준다 → remote side 의 단일 진실.
+ * overlay: 이 변전소의 staged fiber path 추가/삭제 + staged 케이블을 로컬 side 에만
+ * 덮어 즉시 미리보기.
+ *
+ * - staged 삭제된 path: backend 에는 있지만 effective 에는 없음 → 제거.
+ * - staged 신규 path: effective 에는 있지만 backend 에는 없음 → empty-port 합성 후 추가
+ *   (로컬 side 는 effective 케이블로 채워지고, remote side 는 저장 전까지 빈 채 — 허용).
+ * - staged 케이블 추가/삭제: 로컬 side 를 effective 로 override.
  */
 export function usePortStatus(ofdId: string) {
+  const backendQuery = useFiberPaths(ofdId);
   const effectiveFiberPaths = useEffectiveFiberPaths();
   const effectiveCables = useEffectiveCables();
   const effectiveAssets = useEffectiveAssets();
   const directory = useOfdDirectory();
 
+  const backendPaths = backendQuery.data;
+
   const mergedPaths = useMemo(() => {
-    // 이 OFD 와 관련된 effective fiber path 만.
-    const ofdPaths = (effectiveFiberPaths as unknown as Array<{
+    const backend = backendPaths ?? [];
+
+    // 이 OFD 와 관련된 effective fiber path(staged+saved flat row).
+    const ofdEffPaths = (effectiveFiberPaths as unknown as Array<{
       id: string; ofdAId: string; ofdBId: string; portCount: number; description?: string | null;
     }>).filter((fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId);
+    const effIds = new Set(ofdEffPaths.map((fp) => fp.id));
 
-    const composed = composeFiberPaths(ofdPaths, directory);
+    // 1. backend base 에서 staged-삭제된 path 제거(effective 에 없으면 삭제됨).
+    let paths: FiberPathDetail[] = backend.filter((p) => effIds.has(p.id));
 
-    // 케이블 endpoint 이름 lookup — effective assets (top + 랙모듈 자식) 전체.
-    // 상대 대국이 타 변전소 OFD 라 effective assets 에 없을 수 있으므로 OFD
-    // directory 를 fallback 으로 사용(전역 OFD 목록 → 타 변전소 이름까지 해소).
-    const assetNameById = new Map(
-      (effectiveAssets as Asset[]).map((a) => [a.id, a.name]),
+    // 2. staged-신규 path(effective 엔 있고 backend 엔 없음) 합성해서 추가.
+    const backendIds = new Set(backend.map((p) => p.id));
+    const stagedNew = composeFiberPaths(
+      ofdEffPaths.filter((fp) => !backendIds.has(fp.id)),
+      directory,
     );
+    paths = [...paths, ...stagedNew];
+
+    // 3. 로컬 side 만 이 변전소 staged 케이블로 overlay(remote side 는 backend 유지).
+    const assetNameById = new Map((effectiveAssets as Asset[]).map((a) => [a.id, a.name]));
     const resolveName = (id: string): string =>
       assetNameById.get(id) ?? directory.get(id)?.name ?? '?';
 
-    return overlayEffectiveCables(
-      composed,
+    return overlayLocalStagedCables(
+      paths,
       effectiveCables as unknown as EffectiveCable[],
       resolveName,
+      ofdId,
     );
-  }, [effectiveFiberPaths, effectiveCables, effectiveAssets, ofdId, directory]);
+  }, [backendPaths, effectiveFiberPaths, effectiveCables, effectiveAssets, ofdId, directory]);
 
-  // 통합 스토어는 항상 로드돼 있고(에디터 진입 시 load), per-OFD fetch 가 없으므로
-  // 별도 로딩 상태가 없다. 호출측 호환을 위해 isLoading: false 고정.
-  return { mergedPaths, isLoading: false };
+  return { mergedPaths, isLoading: backendQuery.isLoading };
 }
