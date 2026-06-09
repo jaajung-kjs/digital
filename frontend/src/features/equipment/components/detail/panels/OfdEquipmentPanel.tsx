@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useEditorStore } from '../../../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { FiberPathManager } from '../../../../fiber/components/FiberPathManager';
 import { PathTraceDetail } from '../../../../pathTrace/components/PathTraceDetail';
@@ -24,7 +25,7 @@ export function OfdEquipmentPanel({ equipmentId }: PanelProps) {
 export function OfdPathsView({ equipmentId }: { equipmentId: string }) {
   const navigate = useNavigate();
   const snapshotActive = useSnapshotStore((s) => s.active);
-  const deleteCable = useEditorStore((s) => s.deleteCable);
+  const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
   const handleNavigateRemote = (remoteRoomId: string) => {
     const { hasChanges } = useEditorStore.getState();
@@ -48,7 +49,7 @@ export function OfdPathsView({ equipmentId }: { equipmentId: string }) {
       <FiberPathManager
         ofdId={equipmentId}
         onPortConnect={(portNumber, fiberPathId) => startOfdCableDrawing(equipmentId, fiberPathId, portNumber)}
-        onPortDelete={(cableId) => deleteCable(cableId)}
+        onPortDelete={(cableId) => stageCableDelete(cableId)}
         onNavigateRemote={handleNavigateRemote}
       />
       <PathTraceDetail />

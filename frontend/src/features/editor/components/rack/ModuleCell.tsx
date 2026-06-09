@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import { useSlotDrag } from '../../hooks/useSlotDrag';
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule } from '../../../../types/rackModule';
 
@@ -24,15 +25,15 @@ function indicatorGridArea(slotIndex: number, slotSpan: number): { start: number
 
 export function ModuleCell({ module, siblings, gridRef }: Props) {
   const setSelectedRackModuleId = useEditorStore((s) => s.setSelectedRackModuleId);
-  const updateRackModule = useEditorStore((s) => s.updateRackModule);
   const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  const stageRackModuleUpdate = useSubstationWorkingCopy((s) => s.stageRackModuleUpdate);
 
   const onCommit = useCallback((updates: ModuleSlotUpdate[]) => {
     for (const u of updates) {
-      updateRackModule(u.id, { slotIndex: u.slotIndex, slotSpan: u.slotSpan });
+      stageRackModuleUpdate(u.id, { slotIndex: u.slotIndex, slotSpan: u.slotSpan });
     }
     setHasChanges(true);
-  }, [updateRackModule, setHasChanges]);
+  }, [stageRackModuleUpdate, setHasChanges]);
 
   const onClick = useCallback(() => {
     setSelectedRackModuleId(module.id);
