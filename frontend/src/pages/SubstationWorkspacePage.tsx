@@ -1,18 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { FloorPlanEditor } from '../features/editor/components/FloorPlanEditor';
-import { SubstationAssetGrid } from '../features/assets/components/SubstationAssetGrid';
+import { SubstationStatusView } from '../features/assets/components/SubstationStatusView';
 import { SubstationConnectionsView } from '../features/connections/components/SubstationConnectionsView';
 import { WorkspaceNavContext, type WorkspaceNav } from '../features/workspace/WorkspaceNavContext';
 import { SelectionContext } from '../features/workspace/SelectionContext';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
-import { OverviewView } from '../components/OverviewView';
 
 const VIEWS = [
-  { key: 'overview', label: '개요' },
-  { key: 'register', label: '표' },
-  { key: 'plan', label: '배치도' },
+  { key: 'status', label: '현황' },
+  { key: 'plan', label: '평면도' },
   { key: 'connections', label: '연결' },
 ] as const;
 type ViewKey = (typeof VIEWS)[number]['key'];
@@ -27,8 +25,7 @@ export function SubstationWorkspacePage() {
   const view: ViewKey =
     rawView === 'plan' ? 'plan'
     : rawView === 'connections' ? 'connections'
-    : rawView === 'register' ? 'register'
-    : 'overview';
+    : 'status';
   const floorParam = searchParams.get('floor');
   const selectedFloorId = floorParam ?? floors[0]?.id ?? null;
 
@@ -42,7 +39,7 @@ export function SubstationWorkspacePage() {
       }),
     gotoRegister: (assetId) =>
       setSearchParams((p) => {
-        p.set('view', 'register'); p.delete('tab');
+        p.set('view', 'status'); p.delete('tab');
         if (assetId) p.set('assetId', assetId); else p.delete('assetId');
         p.delete('equipmentId');
         return p;
@@ -81,9 +78,7 @@ export function SubstationWorkspacePage() {
             )}
           </div>
           <div className="flex-1 min-h-0 relative">
-            {view === 'overview' ? (
-              <OverviewView nodeType="substation" nodeId={substationId} />
-            ) : view === 'plan' ? (
+            {view === 'plan' ? (
               selectedFloorId ? (
                 <FloorPlanEditor key={selectedFloorId} floorId={selectedFloorId} />
               ) : (
@@ -92,7 +87,7 @@ export function SubstationWorkspacePage() {
             ) : view === 'connections' ? (
               <SubstationConnectionsView substationId={substationId} />
             ) : (
-              <SubstationAssetGrid substationId={substationId} />
+              <SubstationStatusView substationId={substationId} />
             )}
           </div>
         </div>
