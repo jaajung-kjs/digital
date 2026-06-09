@@ -18,6 +18,8 @@ import { mergeEffective } from './effective';
 import type { CollectionDescriptor } from './descriptor';
 import { assetToEquipment } from './assetToEquipment';
 import { equipmentToAssetCreate, equipmentToAssetPatch } from './equipmentToAsset';
+import { rackModuleToAssetCreate, rackModuleToAssetPatch } from './rackModuleToAsset';
+import type { RackModule } from '../../types/rackModule';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2b Task 3 — substation-scoped Unit-of-Work.
@@ -144,6 +146,12 @@ export interface SubstationWorkingCopyState {
   stageEquipmentDeleteCascade: (id: string) => void;
   /** 케이블 다건 업데이트를 단일 set 으로 stage(단일 undo). */
   stageCableUpdates: (updates: Record<string, Partial<Cable>>) => void;
+
+  // ── 랙모듈(=RACK 자식 Asset) stage 액션 — assets overlay 에 위임. ──
+  /** 랙모듈 신규 stage. floorId 는 부모 랙 Asset 에서 상속(없으면 null). */
+  stageRackModuleCreate: (m: RackModule) => void;
+  stageRackModuleUpdate: (id: string, patch: Partial<RackModule>) => void;
+  stageRackModuleDelete: (id: string) => void;
 
   // ── effective selectors (getState() 로 호출 가능한 plain method) ──
   effectiveAssets: () => Asset[];
@@ -295,6 +303,29 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           for (const [id, patch] of Object.entries(updates)) cables = stageUpdate(cables, id, patch);
           return { overlays: { ...s.overlays, cables } };
         }),
+
+      // ── 랙모듈 stage 액션 (assets overlay 위임) ──
+      stageRackModuleCreate: (m) =>
+        set((s) => {
+          if (!s.substationId) return s; // 미로드 — 무시(null substationId asset 방지)
+          // floorId 는 부모 랙 Asset 의 floorId 를 상속(effective 에서 조회, 없으면 null).
+          const parent = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor)
+            .find((a) => a.id === m.rackEquipmentId);
+          const asset = rackModuleToAssetCreate(m, {
+            substationId: s.substationId,
+            floorId: parent?.floorId ?? null,
+            tempId: m.id,
+          });
+          return { overlays: { ...s.overlays, assets: stageCreate(s.overlays.assets, asset.id, asset) } };
+        }),
+
+      stageRackModuleUpdate: (id, patch) =>
+        set((s) => ({
+          overlays: { ...s.overlays, assets: stageUpdate(s.overlays.assets, id, rackModuleToAssetPatch(patch)) },
+        })),
+
+      stageRackModuleDelete: (id) =>
+        set((s) => ({ overlays: { ...s.overlays, assets: stageDelete(s.overlays.assets, id, isTempId(id)) } })),
 
       effectiveAssets: () => {
         const s = get();

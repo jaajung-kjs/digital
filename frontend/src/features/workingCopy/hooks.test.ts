@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 vi.mock('../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
-import { useEffectiveCables, useWorkingCopyDirty, useEffectiveEquipment } from './hooks';
+import { useEffectiveCables, useWorkingCopyDirty, useEffectiveEquipment, useEffectiveRackModules, useEffectiveFloorCables } from './hooks';
 
 const cable = { id: 'c1', cableType: 'LAN', updatedAt: '2026-01-01T00:00:00.000Z' };
 const TS = '2026-01-01T00:00:00.000Z';
@@ -60,5 +60,31 @@ describe('workingCopy hooks', () => {
     const ref1 = result.current;
     rerender();
     expect(result.current).toBe(ref1); // stable ref when nothing changed
+  });
+
+  it('useEffectiveRackModules(r1) → only r1 slot children', async () => {
+    await act(async () => {
+      await useSubstationWorkingCopy.getState().load('s1');
+    });
+    const { result } = renderHook(() => useEffectiveRackModules('r1'));
+    // m1 (parent r1, slotIndex 3) included; o1/r1/x1 (no slotIndex or other parent) excluded.
+    expect(result.current.map((a: any) => a.id)).toEqual(['m1']);
+  });
+
+  it('useEffectiveFloorCables(f1) → only cables touching f1 assets', async () => {
+    // f1: r1, o1, m1 ; f2: x1
+    const cables = [
+      { id: 'c-f1', source: { equipmentId: 'r1', moduleId: null }, target: { equipmentId: 'o1', moduleId: null }, updatedAt: TS }, // both on f1
+      { id: 'c-f2', source: { equipmentId: 'x1', moduleId: null }, target: { equipmentId: null, moduleId: null }, updatedAt: TS }, // x1 on f2
+      { id: 'c-mod', source: { equipmentId: null, moduleId: 'm1' }, target: { equipmentId: null, moduleId: null }, updatedAt: TS }, // m1 on f1
+    ];
+    (api.get as any).mockResolvedValue({
+      data: { data: { assets, cables, distributionCircuits: [], fiberPaths: [] } },
+    });
+    await act(async () => {
+      await useSubstationWorkingCopy.getState().load('s1');
+    });
+    const { result } = renderHook(() => useEffectiveFloorCables('f1'));
+    expect(result.current.map((c: any) => c.id).sort()).toEqual(['c-f1', 'c-mod']); // c-f2 excluded (only touches f2)
   });
 });

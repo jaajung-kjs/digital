@@ -79,4 +79,29 @@ describe('substationWorkingCopy', () => {
     useSubstationWorkingCopy.getState().stageCableUpdates({ c1: { label: 'L' } });
     expect(useSubstationWorkingCopy.getState().effectiveCables().find(c=>c.id==='c1')!.label).toBe('L');
   });
+
+  // ── 2d-2 T1: 랙모듈(=RACK 자식 Asset) stage 액션 ──
+  it('stageRackModuleCreate → effectiveAssets/effectiveRackModules 에 자식 추가(부모 floor 상속)', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    const m = { id:'tm1', rackEquipmentId:'r1', categoryId:'cat1', name:'새모듈', slotIndex:7, slotSpan:1, properties:{x:1} } as any;
+    useSubstationWorkingCopy.getState().stageRackModuleCreate(m);
+    const s = useSubstationWorkingCopy.getState();
+    const created = s.effectiveAssets().find(a=>a.id==='tm1')!;
+    expect(created).toBeTruthy();
+    expect(created.parentAssetId).toBe('r1');
+    expect(created.floorId).toBe('f1');  // 부모 랙 r1 의 floor 상속
+    expect(s.effectiveRackModules('r1').map(a=>a.id).sort()).toEqual(['m1','tm1']);
+  });
+  it('stageRackModuleUpdate → slotIndex 이동 반영', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    const m = { id:'tm1', rackEquipmentId:'r1', categoryId:'cat1', name:'새모듈', slotIndex:7, slotSpan:1 } as any;
+    useSubstationWorkingCopy.getState().stageRackModuleCreate(m);
+    useSubstationWorkingCopy.getState().stageRackModuleUpdate('tm1', { slotIndex:5 });
+    expect(useSubstationWorkingCopy.getState().effectiveAssets().find(a=>a.id==='tm1')!.slotIndex).toBe(5);
+  });
+  it('stageRackModuleDelete → effective 에서 제거', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    useSubstationWorkingCopy.getState().stageRackModuleDelete('m1');
+    expect(useSubstationWorkingCopy.getState().effectiveRackModules('r1').map(a=>a.id)).toEqual([]);
+  });
 });
