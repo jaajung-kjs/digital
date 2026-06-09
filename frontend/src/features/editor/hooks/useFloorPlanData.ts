@@ -3,17 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type {
   FloorPlanDetail,
-  UpdateFloorPlanRequest,
-  BulkUpdatePlanResponse,
 } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useToastStore } from '../stores/toastStore';
 import { useViewport } from './useViewport';
-import { isTempId } from '../../../utils/idHelpers';
 import { buildIdMaps } from '../../workingCopy/idMaps';
-import { commitWorkingCopy } from '../../workingCopy/commit';
-import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
+import { commitSubstation, type FloorCommitSection, type SubstationCommitResult } from '../../workingCopy/substationCommit';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useWorkingCopyLoader } from '../../workingCopy/hooks';
 
 // SSOT-2d Task 2 — planCablesToLocalCables 제거. 케이블은 더 이상 plan 응답에서
@@ -71,19 +68,25 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   });
 
   // === THE SINGLE SAVE MUTATION ===
-  const saveMutation = useMutation({
-    mutationFn: (data: UpdateFloorPlanRequest) => {
-      isSavingRef.current = true;
-      return api.put<{ data: BulkUpdatePlanResponse }>(
-        `/floors/${floorId}/plan`,
-        data
-      );
+  //
+  // SSOT-2d Task 5 — 저장이 더 이상 `PUT /floors/:id/plan`(bulkUpdatePlan)이 아니라
+  // 통합 working copy 를 `POST /substations/:id/commit` 으로 커밋한다.
+  // 캔버스 설정(canvasWidth/gridSize/배경 등 — 여전히 editorStore 소유)은 commit 의
+  // `floor` 섹션으로 동봉돼 단일 트랜잭션에서 floor 컬럼까지 OCC 갱신된다.
+  //
+  // 사진/유지보수 로그는 2c 에서 즉시 반영으로 이관됐지만, 에디터가 여전히
+  // pendingUploads/pendingLogs 큐를 보유하면(설비 신규 생성 시 tempId 의존) 커밋
+  // 성공 후 assets idMap 으로 tempId→realId 해석해 flush 한다.
+  const saveMutation = useMutation<SubstationCommitResult, unknown, { substationId: string; floor: FloorCommitSection }>({
+    mutationFn: ({ substationId, floor }) => {
+      const s = useSubstationWorkingCopy.getState();
+      return commitSubstation(substationId, s.overlays, s.saved.assets, queryClient, floor);
     },
-    onSuccess: async (response) => {
+    onSuccess: async (result, { substationId }) => {
       useToastStore.getState().showToast('저장했습니다');
-      const idMaps = buildIdMaps(response.data?.data ?? {});
+      // 통합 커밋 응답의 idMaps.assets(설비=top-level asset)로 tempId→realId 해석.
+      const idMaps = buildIdMaps({ equipmentIdMap: result.idMaps?.assets });
       const { pendingUploads, pendingLogs } = useEditorStore.getState();
-      // pending uploads/logs 후처리 섹션에서 사용할 로컬 헬퍼 — commit 안에서도 동일 매핑이 적용됨.
       const resolveEquipmentId = (id: string) => idMaps.equipment.get(id) ?? id;
 
       // Process pending uploads and logs in parallel
@@ -134,20 +137,13 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
 
       await Promise.all(pendingTasks);
 
-      // Construction report is computed server-side and stored in the audit
-      // log context atomically with the save — no extra round-trip needed.
+      // 재조정: 통합 store 를 새 saved 로 재로드(overlay/history 클리어 포함) →
+      // tempId 가 realId 로 정착하고 dirty=0 으로 떨어진다. 이어 floorPlan 도 refetch.
+      isSavingRef.current = true;
+      await useSubstationWorkingCopy.getState().load(substationId);
 
-      // Drain working copy: tempId 해석 + saved 캐시 optimistic update + overlay clear + invalidate.
-      // OFD directory fetch 가 실패해도 commit 흐름은 진행 — mergeFiberPaths 는 빈 디렉토리도 graceful 하게 처리.
-      // 단, 빈 디렉토리는 pending fiber path 의 OFD 이름/변전소명을 '?'/'' 로 표시하므로
-      // 실패는 항상 로깅해 무성공 placeholder 표시를 디버깅 가능하게 한다 (pendingUploads/Logs 와 동일 패턴).
-      const ofdDirectory = await ensureOfdDirectory().catch((err) => {
-        console.warn('[Save] OFD directory fetch failed — pending fiber paths will render with placeholders:', err);
-        return new Map();
-      });
-      if (floorId) {
-        commitWorkingCopy({ floorId, idMaps, queryClient, ofdDirectory });
-      }
+      // editorStore 의 pending 큐/스테이징 정리.
+      useEditorStore.getState().clearPendingData();
 
       // Delete localStorage draft on successful save
       if (floorId) {
@@ -164,7 +160,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       setHasChanges(false);
       useEditorStore.getState().setRestoredFromVersion(null);
 
-      // Reset undo/redo history after successful save
+      // Reset undo/redo history after successful save (통합 store + 에디터 store 둘 다).
       useEditorStore.temporal.getState().clear();
     },
     onError: (error: unknown) => {
@@ -299,125 +295,32 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   }, [saveViewportState, zoom, panX, panY]);
 
   const handleSave = () => {
-    if (!floorPlan) return;
-    const {
-      localCables,
-      pendingFiberPaths,
-      deletedFiberPathIds,
-      localRackModules,
-      localDistributionCircuits,
-    } = useEditorStore.getState();
+    if (!floorPlan || !floorId) return;
+    // 설비/케이블/랙모듈/회로/광경로는 통합 working copy 의 overlay 가 보유한다(2d-1~4).
+    // 저장은 그 overlay 를 통째로 commitSubstation 으로 커밋하고, 에디터가 여전히
+    // 소유한 floor-level 캔버스 설정만 `floor` 섹션으로 동봉한다.
+    const substationId = floor?.substationId;
+    if (!substationId) return;
 
-    // P9: full payload — equipment.kind drives placement type, rackModules carry
-    // 랙 슬롯 정보, cables source/target are polymorphic. tempIds resolve via
-    // equipmentIdMap / rackModuleIdMap in the response.
-    // CM-B: scaleRatio 송신 폐기 — 캔버스 1 unit = 1 cm 통일.
-    const equipIds = new Set(localEquipment.map((eq) => eq.id));
-    const moduleIds = new Set(localRackModules.map((m) => m.id));
-    const circuitIds = new Set(localDistributionCircuits.map((c) => c.id));
+    // baseVersion = 에디터가 로드한 floorPlan.updatedAt(ISO) — floor OCC 기준.
+    const baseVersion = useEditorStore.getState().baseFloorVersion;
 
-    const updateData: UpdateFloorPlanRequest = {
-      canvasWidth: floorPlan.canvasWidth,
-      canvasHeight: floorPlan.canvasHeight,
-      gridSize,
-      majorGridSize,
-      // Include staged background only when user changed it. The 3-state
-      // (undefined / null / object) round-trips through JSON cleanly because
-      // we omit the key entirely when undefined.
-      ...(stagedBackgroundDrawing !== undefined ? { backgroundDrawing: stagedBackgroundDrawing } : {}),
-      ...(stagedBackgroundOpacity !== undefined ? { backgroundOpacity: stagedBackgroundOpacity } : {}),
-      equipment: localEquipment.map(eq => ({
-        id: isTempId(eq.id) ? null : eq.id,
-        tempId: isTempId(eq.id) ? eq.id : undefined,
-        kind: eq.kind,
-        name: eq.name,
-        positionX: eq.positionX,
-        positionY: eq.positionY,
-        width: eq.width,
-        height: eq.height,
-        rotation: eq.rotation,
-        totalU: eq.totalU ?? null,
-        description: eq.description ?? null,
-        manager: eq.manager ?? null,
-        installDate: eq.installDate ?? null,
-        height3d: eq.height3d ?? null,
-        properties: eq.properties ?? null,
-      })),
-      rackModules: localRackModules.map((m) => ({
-        id: isTempId(m.id) ? null : m.id,
-        tempId: isTempId(m.id) ? m.id : undefined,
-        rackEquipmentId: m.rackEquipmentId,
-        categoryId: m.categoryId,
-        name: m.name,
-        slotIndex: m.slotIndex,
-        slotSpan: m.slotSpan,
-        installDate: m.installDate,
-        manager: m.manager,
-        description: m.description,
-        properties: m.properties as Record<string, unknown> | null,
-        sortOrder: m.sortOrder,
-      })),
-      distributionCircuits: localDistributionCircuits.map((c) => ({
-        id: isTempId(c.id) ? null : c.id,
-        tempId: isTempId(c.id) ? c.id : undefined,
-        distributionEquipmentId: c.distributionEquipmentId,
-        feederName: c.feederName,
-        branchName: c.branchName,
-        description: c.description,
-        sortOrder: c.sortOrder,
-      })),
-      cables: localCables
-        // Drop dangling references — endpoint 는 현재 equipment / module / circuit
-        // 중 하나로 resolve 돼야 한다.
-        .filter((c) => {
-          const sourceOk = c.sourceCircuitId
-            ? circuitIds.has(c.sourceCircuitId)
-            : c.sourceModuleId
-              ? moduleIds.has(c.sourceModuleId)
-              : equipIds.has(c.sourceEquipmentId);
-          const targetOk = c.targetCircuitId
-            ? circuitIds.has(c.targetCircuitId)
-            : c.targetModuleId
-              ? moduleIds.has(c.targetModuleId)
-              : equipIds.has(c.targetEquipmentId);
-          return sourceOk && targetOk;
-        })
-        .map((c) => ({
-          id: isTempId(c.id) ? null : c.id,
-          source: c.sourceCircuitId
-            ? { equipmentId: null, moduleId: null, circuitId: c.sourceCircuitId }
-            : c.sourceModuleId
-              ? { equipmentId: null, moduleId: c.sourceModuleId, circuitId: null }
-              : { equipmentId: c.sourceEquipmentId, moduleId: null, circuitId: null },
-          target: c.targetCircuitId
-            ? { equipmentId: null, moduleId: null, circuitId: c.targetCircuitId }
-            : c.targetModuleId
-              ? { equipmentId: null, moduleId: c.targetModuleId, circuitId: null }
-              : { equipmentId: c.targetEquipmentId, moduleId: null, circuitId: null },
-          cableType: c.cableType,
-          categoryId: c.categoryId ?? null,
-          specParams: c.specParams,
-          pathPoints: c.pathPoints,
-          pathLength: c.pathLength,
-          bufferLength: c.bufferLength,
-          totalLength: c.totalLength,
-          label: c.label,
-          color: c.color,
-          fiberPathId: c.fiberPathId,
-          fiberPortNumber: c.fiberPortNumber,
-        })),
-      fiberPaths: pendingFiberPaths.length > 0 ? pendingFiberPaths.map((fp) => ({
-        id: fp.id,
-        ofdAId: fp.ofdAId,
-        ofdBId: fp.ofdBId,
-        portCount: fp.portCount,
-        description: fp.description ?? undefined,
-      })) : undefined,
-      deletedFiberPathIds: deletedFiberPathIds.length > 0 ? deletedFiberPathIds : undefined,
-      baseFloorVersion: useEditorStore.getState().baseFloorVersion ?? undefined,
+    // settings 3-state: backgroundDrawing/Opacity 는 사용자가 변경했을 때만 동봉
+    // (undefined 키 생략 → 백엔드는 변경 없음으로 처리).
+    const floorSection: FloorCommitSection = {
+      id: floorId,
+      baseVersion: baseVersion ?? null,
+      settings: {
+        canvasWidth: floorPlan.canvasWidth,
+        canvasHeight: floorPlan.canvasHeight,
+        gridSize,
+        majorGridSize,
+        ...(stagedBackgroundDrawing !== undefined ? { backgroundDrawing: stagedBackgroundDrawing } : {}),
+        ...(stagedBackgroundOpacity !== undefined ? { backgroundOpacity: stagedBackgroundOpacity } : {}),
+      },
     };
 
-    saveMutation.mutate(updateData);
+    saveMutation.mutate({ substationId, floor: floorSection });
   };
 
   const clearSaveError = useCallback(() => setSaveError(null), []);

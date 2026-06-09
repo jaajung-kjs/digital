@@ -35,12 +35,32 @@ interface Collection {
   deletes: { id: string; baseVersion: string | null }[];
 }
 
+/**
+ * 에디터가 보유한 floor-level 캔버스 설정. 2a 백엔드 commit 의 `floor` 섹션으로
+ * 동봉돼 단일 트랜잭션에서 floor 컬럼까지 OCC 갱신한다.
+ * baseVersion = 에디터가 로드한 floorPlan.updatedAt(ISO).
+ * settings.backgroundDrawing 은 3-state(undefined=변경없음 / null=제거 / object=교체).
+ */
+export interface FloorCommitSection {
+  id: string;
+  baseVersion: string | null;
+  settings?: {
+    canvasWidth?: number;
+    canvasHeight?: number;
+    gridSize?: number;
+    majorGridSize?: number;
+    backgroundOpacity?: number;
+    backgroundDrawing?: unknown;
+  };
+}
+
 export interface SubstationCommitPayload {
   assets?: Collection;
   cables?: Collection;
   rackModules?: Collection;
   distributionCircuits?: Collection;
   fiberPaths?: Collection;
+  floor?: FloorCommitSection;
 }
 
 /** 커밋 응답 — 2a 가 돌려주는 idMap/updated. */
@@ -131,6 +151,7 @@ function toRackModulePatch(patch: Partial<Asset>): Record<string, unknown> {
 export function buildSubstationCommitPayload(
   overlays: Overlays,
   savedAssets: Asset[],
+  floor?: FloorCommitSection,
 ): SubstationCommitPayload {
   // assets 분리 ─────────────────────────────────────────────
   const savedById = new Map<string, AssetLike>();
@@ -174,6 +195,7 @@ export function buildSubstationCommitPayload(
     cables: omitIfEmpty(cables),
     distributionCircuits: omitIfEmpty(distributionCircuits),
     fiberPaths: omitIfEmpty(fiberPaths),
+    ...(floor ? { floor } : {}),
   };
 }
 
@@ -187,8 +209,9 @@ export async function commitSubstation(
   overlays: Overlays,
   savedAssets: Asset[],
   queryClient: QueryClient,
+  floor?: FloorCommitSection,
 ): Promise<SubstationCommitResult> {
-  const payload = buildSubstationCommitPayload(overlays, savedAssets);
+  const payload = buildSubstationCommitPayload(overlays, savedAssets, floor);
   const { data } = await api.post(`/substations/${substationId}/commit`, payload);
 
   // 통합 커밋은 asset/cable/fiber/rack/dist 를 모두 건드린다 → commit.ts 의 무효화 세트를 그대로 미러.
@@ -196,6 +219,7 @@ export async function commitSubstation(
   queryClient.invalidateQueries({ queryKey: ['assets', substationId] });
   queryClient.invalidateQueries({ queryKey: ['substation-connections', substationId] });
   queryClient.invalidateQueries({ queryKey: ['floorPlan'] });
+  queryClient.invalidateQueries({ queryKey: ['floor'] });
   queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
   queryClient.invalidateQueries({ queryKey: ['cables'] });
   queryClient.invalidateQueries({ queryKey: ['ofd-directory'] });
