@@ -1,15 +1,20 @@
+import { useMemo } from 'react';
 import { TreeVisualization } from '../components/tree/TreeVisualization';
-import { StatsSidePanel } from '../components/tree/StatsSidePanel';
+import { OverviewView } from '../components/OverviewView';
+import { useOrganizationStore } from '../stores/organizationStore';
 
 export function TreePage() {
+  const { viewingNodeId, findNode } = useOrganizationStore();
+  const viewingNode = useMemo(() => (viewingNodeId ? findNode(viewingNodeId) : null), [viewingNodeId, findNode]);
   return (
-    <div className="flex h-full overflow-hidden">
-      <main className="flex-1 overflow-auto bg-gray-50">
-        <TreeVisualization />
-      </main>
-      <aside className="w-72 border-l bg-white flex-shrink-0">
-        <StatsSidePanel />
-      </aside>
+    <div className="h-full overflow-auto bg-gray-50">
+      <TreeVisualization />
+      {viewingNode && viewingNode.type !== 'floor' && (
+        <OverviewView
+          nodeType={viewingNode.type as 'headquarters' | 'branch' | 'substation'}
+          nodeId={viewingNode.id}
+        />
+      )}
     </div>
   );
 }
