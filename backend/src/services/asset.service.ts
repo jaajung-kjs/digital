@@ -59,6 +59,40 @@ const assetInclude = {
 
 type AssetRow = Prisma.AssetGetPayload<{ include: typeof assetInclude }>;
 
+export type NodeType = 'headquarters' | 'branch' | 'substation';
+
+export interface AssetListItem {
+  id: string;
+  name: string;
+  assetTypeName: string;
+  assetTypeColor: string | null;
+  substationId: string;
+  substationName: string;
+  floorId: string | null;
+  floorName: string | null;
+  roomText: string | null;
+  installDate: Date | null;
+  manager: string | null;
+  status: string | null;
+  warrantyUntil: Date | null;
+  replaceDue: Date | null;
+  lastMaintenanceDate: Date | null;
+}
+
+/** 본부/지사/변전소 노드 아래의 모든 변전소 id 를 모은다 (rackModuleStats 의 계층 패턴과 동일). */
+async function collectSubstationIds(nodeType: NodeType, nodeId: string): Promise<string[]> {
+  if (nodeType === 'substation') return [nodeId];
+  if (nodeType === 'branch') {
+    const subs = await prisma.substation.findMany({ where: { branchId: nodeId }, select: { id: true } });
+    return subs.map((s) => s.id);
+  }
+  const subs = await prisma.substation.findMany({
+    where: { branch: { headquartersId: nodeId } },
+    select: { id: true },
+  });
+  return subs.map((s) => s.id);
+}
+
 class AssetService {
   private mapToDetail(a: AssetRow): AssetDetail {
     return {
@@ -84,6 +118,45 @@ class AssetService {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
     return rows.map((r) => this.mapToDetail(r));
+  }
+
+  /** 노드(본부/지사/변전소) 범위의 자산 리스트 — 설치장소·담당자·마지막 점검일 포함. */
+  async listByNode(nodeType: NodeType, nodeId: string): Promise<AssetListItem[]> {
+    const substationIds = await collectSubstationIds(nodeType, nodeId);
+    if (substationIds.length === 0) return [];
+    const rows = await prisma.asset.findMany({
+      where: { substationId: { in: substationIds } },
+      include: {
+        assetType: { select: { name: true, displayColor: true } },
+        substation: { select: { name: true } },
+        floor: { select: { name: true } },
+        // logType 은 String('MAINTENANCE'|'FAILURE'|'REPAIR'); 마지막 정기점검일을 위해 MAINTENANCE 만.
+        maintenanceLogs: {
+          where: { logType: 'MAINTENANCE' },
+          orderBy: { logDate: 'desc' },
+          take: 1,
+          select: { logDate: true },
+        },
+      },
+      orderBy: [{ substationId: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      assetTypeName: r.assetType.name,
+      assetTypeColor: r.assetType.displayColor ?? null,
+      substationId: r.substationId,
+      substationName: r.substation.name,
+      floorId: r.floorId ?? null,
+      floorName: r.floor?.name ?? null,
+      roomText: r.roomText ?? null,
+      installDate: r.installDate,
+      manager: r.manager,
+      status: r.status,
+      warrantyUntil: r.warrantyUntil,
+      replaceDue: r.replaceDue,
+      lastMaintenanceDate: r.maintenanceLogs[0]?.logDate ?? null,
+    }));
   }
 
   async getById(id: string): Promise<AssetDetail> {

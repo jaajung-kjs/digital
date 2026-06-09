@@ -31,6 +31,7 @@ import { distributionCircuitsRouter } from './routes/distributionCircuits.routes
 import { assetTypesRouter } from './routes/assetTypes.routes.js';
 import { assetsRouter } from './routes/assets.routes.js';
 import { assetCommitRouter } from './routes/assetCommit.routes.js';
+import { nodesRouter } from './routes/nodes.routes.js';
 
 const app = express();
 
@@ -104,6 +105,7 @@ app.use('/api/distribution-circuits', distributionCircuitsRouter);
 app.use('/api/asset-types', assetTypesRouter);
 app.use('/api/assets', assetsRouter);
 app.use('/api/substations', assetCommitRouter);
+app.use('/api/nodes', nodesRouter);
 
 // 404 handler
 app.use((_req, res) => {
