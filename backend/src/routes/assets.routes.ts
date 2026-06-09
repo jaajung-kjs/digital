@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { assetController } from '../controllers/asset.controller.js';
+import { cableController } from '../controllers/cable.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -36,6 +37,8 @@ const updateAssetSchema = z.object({
 });
 
 router.post('/', authenticate, adminOnly, validate(createAssetSchema), assetController.create);
+// 자산 연결 조회 (Phase-B) — `/:id` 보다 먼저 등록해 더 구체적인 경로가 매칭되게 한다.
+router.get('/:assetId/connections', authenticate, cableController.getByAsset);
 router.get('/:id', authenticate, assetController.getById);
 router.put('/:id', authenticate, adminOnly, validate(updateAssetSchema), assetController.update);
 router.delete('/:id', authenticate, adminOnly, assetController.delete);

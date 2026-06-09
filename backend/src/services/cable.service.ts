@@ -365,6 +365,75 @@ class CableService {
     return cables.map((c) => this.mapToDetail(c));
   }
 
+  /**
+   * 변전소(Substation) 에 연결된 모든 케이블 조회.
+   * 변전소 소속 Asset(설비/모듈) 또는 그 설비의 DistributionCircuit 이
+   * source/target endpoint 인 케이블.
+   */
+  async getBySubstationId(substationId: string): Promise<CableDetail[]> {
+    const ids = (
+      await prisma.asset.findMany({ where: { substationId }, select: { id: true } })
+    ).map((a) => a.id);
+    const circuitIds = (
+      await prisma.distributionCircuit.findMany({
+        where: { distributionEquipmentId: { in: ids } },
+        select: { id: true },
+      })
+    ).map((c) => c.id);
+
+    const cables = await prisma.cable.findMany({
+      where: {
+        OR: [
+          { sourceEquipmentId: { in: ids } },
+          { targetEquipmentId: { in: ids } },
+          { sourceModuleId: { in: ids } },
+          { targetModuleId: { in: ids } },
+          { sourceCircuitId: { in: circuitIds } },
+          { targetCircuitId: { in: circuitIds } },
+        ],
+      },
+      include: cableInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return cables.map((c) => this.mapToDetail(c));
+  }
+
+  /**
+   * 특정 자산(Asset) 에 연결된 모든 케이블 조회.
+   * 자산 자체, 그 자산의 자식 모듈, 또는 자산의 DistributionCircuit 이
+   * source/target endpoint 인 케이블.
+   */
+  async getByAssetId(assetId: string): Promise<CableDetail[]> {
+    const moduleIds = (
+      await prisma.asset.findMany({ where: { parentAssetId: assetId }, select: { id: true } })
+    ).map((m) => m.id);
+    const endpointIds = [assetId, ...moduleIds];
+    const circuitIds = (
+      await prisma.distributionCircuit.findMany({
+        where: { distributionEquipmentId: assetId },
+        select: { id: true },
+      })
+    ).map((c) => c.id);
+
+    const cables = await prisma.cable.findMany({
+      where: {
+        OR: [
+          { sourceEquipmentId: { in: endpointIds } },
+          { targetEquipmentId: { in: endpointIds } },
+          { sourceModuleId: { in: endpointIds } },
+          { targetModuleId: { in: endpointIds } },
+          { sourceCircuitId: { in: circuitIds } },
+          { targetCircuitId: { in: circuitIds } },
+        ],
+      },
+      include: cableInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return cables.map((c) => this.mapToDetail(c));
+  }
+
   // 내부 — endpoint 모양을 정규화
   private endpointFromIncluded(
     side: 'source' | 'target',

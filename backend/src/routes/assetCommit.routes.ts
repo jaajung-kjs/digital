@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { assetCommitController } from '../controllers/assetCommit.controller.js';
+import { cableController } from '../controllers/cable.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -22,5 +23,8 @@ const commitSchema = z.object({
 });
 
 router.post('/:substationId/assets/commit', authenticate, adminOnly, validate(commitSchema), assetCommitController.commit);
+
+// 변전소 연결 조회 (Phase-B)
+router.get('/:substationId/connections', authenticate, cableController.getBySubstation);
 
 export { router as assetCommitRouter };
