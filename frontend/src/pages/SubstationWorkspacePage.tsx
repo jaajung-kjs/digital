@@ -91,13 +91,17 @@ export function SubstationWorkspacePage() {
               언마운트→resetEditor→재마운트 경로를 타면 뷰포트가 0,0 으로
               리셋되므로(useFloorPlanData 의 init/save effect 가 unmount 순서에
               취약), 마운트를 유지해 editorStore 의 zoom/pan 상태를 그대로
-              보존한다. 숨김 동안 컨테이너는 0 크기가 되고, 다시 표시되면
-              useCanvas 의 ResizeObserver 가 복원된 크기로 재렌더한다(같은
-              뷰포트 → 0,0 으로 안 떨어짐). key={selectedFloorId} 는 그대로 둬
-              "층 변경" 시에만 새 에디터로 리마운트되게 한다.
+              보존한다.
+              숨길 때 display:none(0 크기)을 쓰면 다시 표시될 때 캔버스가
+              리사이즈→재렌더되는데, 케이블 오버레이가 메인 캔버스보다 한
+              프레임 늦게 다시 그려져 "케이블이 한박자 늦게" 보인다. 그래서
+              visibility 만 끄고(invisible) absolute 크기는 유지한다 — 컨테이너
+              크기가 안 바뀌어 ResizeObserver 가 안 돌고, 캔버스 버퍼가 유지돼
+              탭 복귀 시 설비·케이블이 즉시 보인다(리사이즈 지연 없음).
+              key={selectedFloorId} 는 그대로 둬 "층 변경" 시에만 리마운트.
             */}
             {selectedFloorId ? (
-              <div className={view === 'plan' ? 'absolute inset-0' : 'hidden'}>
+              <div className={view === 'plan' ? 'absolute inset-0' : 'absolute inset-0 invisible pointer-events-none'}>
                 <FloorPlanEditor key={selectedFloorId} floorId={selectedFloorId} />
               </div>
             ) : view === 'plan' ? (
