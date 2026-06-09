@@ -35,7 +35,7 @@ interface State {
 }
 
 // ── Backend CableDetail (`source.nested`) → LocalCable (`flat`) 변환 ─────────
-interface CableDetailDTO {
+export interface CableDetailDTO {
   id: string;
   source: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
   target: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
@@ -54,7 +54,8 @@ interface CableDetailDTO {
   totalLength?: number | null;
 }
 
-function cableDtoToLocal(c: CableDetailDTO): LocalCable {
+/** effective Cable row → cableTracer 가 먹는 LocalCable. network/pathHighlight 공용. */
+export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
   // LocalCable.sourceEquipmentId 자리는 polymorphic fallback (planCablesToLocalCables 와 동일):
   //   equipment id 우선, 없으면 module id, 없으면 circuit id, 없으면 빈 문자열.
   // cableTracer 가 이 값을 cableAdjacency 의 key 로 사용 + addNode 가 moduleMap lookup.

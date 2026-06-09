@@ -8,15 +8,19 @@
 
 import { create } from 'zustand';
 import { traceCable } from '../../../utils/cableTracer';
-import { useEditorStore } from '../../editor/stores/editorStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
-import { queryClient } from '../../../lib/queryClient';
-import { api } from '../../../utils/api';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { assetToEquipment } from '../../workingCopy/assetToEquipment';
+import { assetToRackModule } from '../../workingCopy/assetToRackModule';
+import { cableDtoToLocal, type CableDetailDTO } from '../../network/store';
 import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
-import { mergeFiberPaths } from '../../workingCopy/merge';
+import { composeFiberPaths } from '../../workingCopy/merge';
 import type { TraceResult, PathSegment } from '../types';
+import type { LocalCable } from '../../editor/stores/editorStore';
+import type { RackModule } from '../../../types/rackModule';
+import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import type { FiberPathDetail } from '../../fiber/types';
-import type { FloorPlanFiberPath } from '../../../types/floorPlan';
+import type { FloorPlanEquipment, FloorPlanFiberPath } from '../../../types/floorPlan';
 
 /**
  * Snapshot fiberPaths (FloorPlanFiberPath) 는 backend denorm 으로 name/substationName
@@ -55,13 +59,16 @@ function idleState() {
   };
 }
 
-function expandToEquipmentIds(nodeIds: Set<string>): Set<string> {
+function expandToEquipmentIds(
+  nodeIds: Set<string>,
+  rackModules: RackModule[],
+  distCircuits: DistributionCircuit[],
+): Set<string> {
   const result = new Set(nodeIds);
-  const state = useEditorStore.getState();
-  for (const mod of state.localRackModules) {
+  for (const mod of rackModules) {
     if (nodeIds.has(mod.id)) result.add(mod.rackEquipmentId);
   }
-  for (const c of state.localDistributionCircuits) {
+  for (const c of distCircuits) {
     if (nodeIds.has(c.id)) result.add(c.distributionEquipmentId);
   }
   return result;
@@ -92,25 +99,19 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
 
   startTrace: async (cableId) => {
     const snapshotState = useSnapshotStore.getState();
-    const editorState = useEditorStore.getState();
-    const localCables = snapshotState.active ? snapshotState.cables : editorState.localCables;
-    const localEquipment = snapshotState.active ? snapshotState.equipment : editorState.localEquipment;
-    const localRackModules = snapshotState.active ? [] : editorState.localRackModules;
-    const localDistCircuits = snapshotState.active ? [] : editorState.localDistributionCircuits;
-
     set({ tracingCableId: cableId, error: null });
 
     try {
-      // Snapshot mode — use snapshot fiber paths directly.
+      // Snapshot mode — use the frozen snapshot collections directly.
       if (snapshotState.active) {
         const snapshotFiberPaths = (snapshotState.fiberPaths ?? []).map(snapshotFiberPathToDetail);
 
         const result = traceCable({
           cableId,
-          cables: localCables,
-          equipment: localEquipment,
-          rackModules: localRackModules,
-          distributionCircuits: localDistCircuits,
+          cables: snapshotState.cables,
+          equipment: snapshotState.equipment,
+          rackModules: [],
+          distributionCircuits: [],
           fiberPaths: snapshotFiberPaths,
         });
 
@@ -119,24 +120,34 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
           active: true,
           traceResult: result,
           highlightedNodeIds: ids,
-          highlightedEquipmentIds: expandToEquipmentIds(ids),
+          highlightedEquipmentIds: expandToEquipmentIds(ids, [], []),
           highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
           segments: result.segments,
         });
         return;
       }
 
-      // Normal mode — React Query 캐시 일원화 (invalidate 가 자동 반영).
-      const savedFiberPaths = await queryClient.fetchQuery<FiberPathDetail[]>({
-        queryKey: ['fiber-paths'],
-        staleTime: 30_000,
-        queryFn: async () =>
-          (await api.get<{ data: FiberPathDetail[] }>('/fiber-paths')).data.data,
-      });
-
-      // Pending/deleted overlay — mergeFiberPaths 로 통합.
+      // Normal mode — SSOT-2d-3b: editorStore 영속 컬렉션 제거. cable/equipment/
+      // rackModule/fiberPath 는 변전소 단위 통합 working copy 의 effective(saved+staged)
+      // 에서 가져온다(network/store.loadAndOpen 과 동일 패턴). fiber path 표시명은
+      // OFD directory 로 합성.
       const directory = await ensureOfdDirectory();
-      const allFiberPaths = mergeFiberPaths(savedFiberPaths, editorState, directory);
+      const wc = useSubstationWorkingCopy.getState();
+      const localCables: LocalCable[] = wc
+        .effectiveCables()
+        .map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
+      const effAssets = wc.effectiveAssets();
+      const localEquipment: FloorPlanEquipment[] = effAssets
+        .filter((a) => !(a.parentAssetId && a.slotIndex != null))
+        .map(assetToEquipment);
+      const localRackModules: RackModule[] = effAssets
+        .filter((a) => a.parentAssetId && a.slotIndex != null)
+        .map(assetToRackModule);
+      const localDistCircuits = wc.effectiveDistCircuits() as unknown as DistributionCircuit[];
+      const allFiberPaths = composeFiberPaths(
+        wc.effectiveFiberPaths() as unknown as Array<{ id: string; ofdAId: string; ofdBId: string; portCount: number; description?: string | null }>,
+        directory,
+      );
 
       const result = traceCable({
         cableId,
@@ -153,7 +164,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         traceResult: result,
         isLoading: false,
         highlightedNodeIds: ids,
-        highlightedEquipmentIds: expandToEquipmentIds(ids),
+        highlightedEquipmentIds: expandToEquipmentIds(ids, localRackModules, localDistCircuits),
         highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
         segments: result.segments,
       });
@@ -165,11 +176,21 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
 
   startCircuitTrace: (circuitIds) => {
     if (circuitIds.length === 0) return;
-    const editorState = useEditorStore.getState();
+    // SSOT-2d-3b: effective(saved+staged) cable/rackModule/dist 를 통합 working copy 에서.
+    const wc = useSubstationWorkingCopy.getState();
+    const cables: LocalCable[] = wc
+      .effectiveCables()
+      .map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
+    const effAssets = wc.effectiveAssets();
+    const rackModules: RackModule[] = effAssets
+      .filter((a) => a.parentAssetId && a.slotIndex != null)
+      .map(assetToRackModule);
+    const distCircuits = wc.effectiveDistCircuits() as unknown as DistributionCircuit[];
+
     const circuitSet = new Set(circuitIds);
     const nodeIds = new Set<string>(circuitIds);
     const edgeIds = new Set<string>();
-    for (const cable of editorState.localCables) {
+    for (const cable of cables) {
       const srcHit = !!cable.sourceCircuitId && circuitSet.has(cable.sourceCircuitId);
       const tgtHit = !!cable.targetCircuitId && circuitSet.has(cable.targetCircuitId);
       if (!srcHit && !tgtHit) continue;
@@ -184,7 +205,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
       isLoading: false,
       error: null,
       highlightedNodeIds: nodeIds,
-      highlightedEquipmentIds: expandToEquipmentIds(nodeIds),
+      highlightedEquipmentIds: expandToEquipmentIds(nodeIds, rackModules, distCircuits),
       highlightedEdgeIds: edgeIds,
       segments: [],
     });

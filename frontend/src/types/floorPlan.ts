@@ -12,7 +12,6 @@
 
 import type { EquipmentKind } from './equipmentKind';
 import type { RackModule } from './rackModule';
-import type { UpdateFloorPlanDistributionCircuitInput } from './distributionCircuit';
 
 // 평면도 장비.
 //
@@ -285,44 +284,6 @@ export interface UpdateFloorPlanCableInput {
   bufferLength?: number | null;
   totalLength?: number | null;
   description?: string | null;
-}
-
-export interface UpdateFloorPlanRequest {
-  canvasWidth?: number;
-  canvasHeight?: number;
-  gridSize?: number;
-  majorGridSize?: number;
-  backgroundColor?: string;
-  // CM-B: scaleRatio 폐기 — 더 이상 클라이언트가 보내지 않는다.
-  backgroundOpacity?: number;
-  // 3-state: undefined = unchanged, null = clear, object = replace.
-  backgroundDrawing?: BackgroundDrawing | null;
-  equipment?: UpdateFloorPlanEquipmentInput[];
-  rackModules?: UpdateFloorPlanRackModuleInput[];
-  distributionCircuits?: UpdateFloorPlanDistributionCircuitInput[];
-  cables?: UpdateFloorPlanCableInput[];
-  fiberPaths?: {
-    id: string;
-    ofdAId: string;
-    ofdBId: string;
-    portCount: number;
-    description?: string;
-  }[];
-  deletedFiberPathIds?: string[];
-  baseFloorVersion?: string;
-}
-
-export interface BulkUpdatePlanResponse {
-  id: string;
-  version: number;
-  message: string;
-  equipmentIdMap: Record<string, string>;
-  rackModuleIdMap: Record<string, string>;
-  distCircuitIdMap: Record<string, string>;
-  fiberPathIdMap: Record<string, string>;
-  auditLogId: string | null;
-  // constructionReport: opaque on the client — we only store/display it.
-  constructionReport: unknown | null;
 }
 
 // 평면도 위 장비 아이템 (테이블/요약 표시용)
