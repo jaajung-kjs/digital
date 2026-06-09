@@ -21,6 +21,8 @@ vi.mock('./substationStore', () => ({
 }));
 
 // editor store — 활성 층 + baseFloorVersion 보유.
+// setBaseFloorVersion 은 모든 getState() 호출이 같은 spy 를 보도록 모듈 스코프에 둔다.
+const setBaseFloorVersionSpy = vi.fn();
 vi.mock('../editor/stores/editorStore', () => ({
   useEditorStore: {
     getState: () => ({
@@ -33,6 +35,7 @@ vi.mock('../editor/stores/editorStore', () => ({
       pendingUploads: [],
       pendingLogs: [],
       clearPendingData: vi.fn(),
+      setBaseFloorVersion: setBaseFloorVersionSpy,
     }),
   },
 }));
@@ -58,9 +61,37 @@ describe('useCommitWorkingCopy', () => {
   beforeEach(() => {
     // vitest config 의 mockReset:true 가 매 테스트 구현을 비우므로 여기서 재설정.
     vi.mocked(commitSubstation).mockResolvedValue({ idMaps: { assets: {} } } as never);
+    setBaseFloorVersionSpy.mockClear();
   });
 
-  it('커밋 성공 시 활성 층의 floorPlan 쿼리를 무효화한다(2회차 409 방지)', async () => {
+  it('커밋 응답의 새 floor.updatedAt 으로 baseFloorVersion 을 동기적으로 갱신한다(2회차 409 견고화)', async () => {
+    // 응답이 새 floor 버전을 실어 주는 정상 경로.
+    vi.mocked(commitSubstation).mockResolvedValue({
+      idMaps: { assets: {} },
+      updated: { floor: { id: 'floor1', updatedAt: 'v2' } },
+    } as never);
+
+    const qc = new QueryClient();
+    const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
+    const res = await result.current();
+
+    expect(res).toEqual({ ok: true });
+    expect(setBaseFloorVersionSpy).toHaveBeenCalledWith('v2');
+  });
+
+  it('응답에 updated.floor 가 없으면 baseFloorVersion 을 건드리지 않는다', async () => {
+    // floor 섹션이 커밋되지 않은 경우(updated.floor 부재) — 직접-set 을 하지 않는다.
+    vi.mocked(commitSubstation).mockResolvedValue({ idMaps: { assets: {} } } as never);
+
+    const qc = new QueryClient();
+    const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
+    const res = await result.current();
+
+    expect(res).toEqual({ ok: true });
+    expect(setBaseFloorVersionSpy).not.toHaveBeenCalled();
+  });
+
+  it('커밋 성공 시 활성 층의 floorPlan 쿼리를 무효화한다(무해한 fallback)', async () => {
     const qc = new QueryClient();
     const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
 

@@ -63,10 +63,15 @@ export interface SubstationCommitPayload {
   floor?: FloorCommitSection;
 }
 
-/** 커밋 응답 — 2a 가 돌려주는 idMap/updated. */
+/**
+ * 커밋 응답 — 2a 가 돌려주는 idMap/updated.
+ * updated.floor 는 floor 섹션이 커밋됐을 때만 채워지며(새 floor.updatedAt),
+ * 호출부가 이 값으로 editorStore.baseFloorVersion 을 동기적으로 갱신해
+ * 2회차 저장 409(stale baseFloorVersion)를 차단한다.
+ */
 export interface SubstationCommitResult {
   idMaps?: Record<string, Record<string, string>>;
-  updated?: unknown;
+  updated?: { floor?: { id: string; updatedAt: string } } & Record<string, unknown>;
   [key: string]: unknown;
 }
 
