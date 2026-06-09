@@ -56,10 +56,11 @@ function makeDescriptor<T extends { id: string; updatedAt?: string | null }>(
   };
 }
 
-const assetDescriptor = makeDescriptor<Asset>('assets');
-const cableDescriptor = makeDescriptor<Cable>('cables');
-const distCircuitDescriptor = makeDescriptor<DistributionCircuit>('distributionCircuits');
-const fiberPathDescriptor = makeDescriptor<FiberPath>('fiberPaths');
+// 효과(effective) 병합용 descriptor — 2c React 바인딩 훅(hooks.ts)이 재사용한다.
+export const assetDescriptor = makeDescriptor<Asset>('assets');
+export const cableDescriptor = makeDescriptor<Cable>('cables');
+export const distCircuitDescriptor = makeDescriptor<DistributionCircuit>('distributionCircuits');
+export const fiberPathDescriptor = makeDescriptor<FiberPath>('fiberPaths');
 
 interface SavedCollections {
   assets: Asset[];
