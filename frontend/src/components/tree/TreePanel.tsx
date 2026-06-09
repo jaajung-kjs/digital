@@ -73,13 +73,15 @@ export function TreePanel() {
         return;
       }
 
-      // headquarters / branch: 워크스페이스 없음 — 기존 동작(선택 + 펼치기/접기 + viewingNode) 유지.
+      // headquarters / branch: 워크스페이스 없음 — 선택 + 펼치기 + viewingNode 유지하고
+      // 홈(/)으로 이동해 해당 노드의 현황(NodeStatusView)이 렌더되도록 한다.
       if (!node.childrenLoaded) {
         await loadChildren(node);
       } else {
         expandNode(node.id);
       }
       setViewingNodeId(node.id);
+      navigate('/');
     },
     [selectNode, setViewingNodeId, loadChildren, expandNode, navigate],
   );
