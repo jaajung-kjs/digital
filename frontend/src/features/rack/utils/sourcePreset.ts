@@ -1,5 +1,5 @@
 import type { FloorPlanEquipment } from '../../../types/floorPlan';
-import { useEditorStore } from '../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 
 /**
  * RACK equipment 의 source preset 추적.
@@ -35,13 +35,15 @@ function withSourcePresetId(eq: FloorPlanEquipment, presetId: string | null): Fl
 
 /**
  * 랙의 source preset id 를 갱신 (저장/불러오기/사이드바 배치 시 호출).
- * 변경된 localEquipment 를 store 에 commit + hasChanges 표시.
+ * SSOT-2d3a Task 2 — 통합 스토어 effective 에서 현재 랙을 찾아 properties 를 머지한 뒤
+ * stageEquipmentUpdate 로 스테이징한다(properties ↔ attributes 라운드트립).
  */
 export function updateRackSourcePreset(rackEquipmentId: string, presetId: string | null): void {
-  const store = useEditorStore.getState();
-  const next = store.localEquipment.map((eq) =>
-    eq.id === rackEquipmentId ? withSourcePresetId(eq, presetId) : eq,
-  );
-  store.setLocalEquipment(next);
-  store.setHasChanges(true);
+  const store = useSubstationWorkingCopy.getState();
+  const rackAsset = store.effectiveAssets().find((a) => a.id === rackEquipmentId);
+  if (!rackAsset) return;
+  // attributes(=properties) 를 FloorPlanEquipment 모양으로 보고 머지.
+  const eqLike = { properties: rackAsset.attributes ?? null } as FloorPlanEquipment;
+  const next = withSourcePresetId(eqLike, presetId);
+  store.stageEquipmentUpdate(rackEquipmentId, { properties: next.properties });
 }

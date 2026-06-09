@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useEffectiveAssets, useEffectiveRackModulesMapped } from '../../workingCopy/hooks';
+import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { useRackPresets } from '../hooks/useRackPresets';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
 import { useIsAdmin } from '../../../stores/authStore';
@@ -37,23 +40,22 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const { data: presets } = useRackPresets();
   const { data: categories } = useRackModuleCategories();
   const isAdmin = useIsAdmin();
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localRackModules = useEditorStore((s) => s.localRackModules);
+  // SSOT-2d3a Task 2 — 읽기를 통합 스토어 effective 로. 랙은 effective assets 에서
+  // FloorPlanEquipment 로 매핑, 모듈 수는 effective 랙모듈에서.
+  const effectiveAssets = useEffectiveAssets();
+  const rackModules = useEffectiveRackModulesMapped(rackEquipmentId);
 
   const activePresets = useMemo(
     () => (presets ?? []).filter((p) => p.isActive),
     [presets],
   );
 
-  const rackEquipment = useMemo(
-    () => localEquipment.find((e) => e.id === rackEquipmentId),
-    [localEquipment, rackEquipmentId],
-  );
+  const rackEquipment = useMemo(() => {
+    const asset = effectiveAssets.find((a) => a.id === rackEquipmentId);
+    return asset ? assetToEquipment(asset) : undefined;
+  }, [effectiveAssets, rackEquipmentId]);
 
-  const existingModuleCount = useMemo(
-    () => localRackModules.filter((m) => m.rackEquipmentId === rackEquipmentId).length,
-    [localRackModules, rackEquipmentId],
-  );
+  const existingModuleCount = rackModules.length;
 
   // 랙 진입 시점의 source preset 을 그대로 드롭다운 초기값으로 잡는다.
   // RackEquipmentPanel 의 key={equipmentId} 가 매 랙마다 이 컴포넌트를 remount
@@ -180,17 +182,19 @@ function applyPresetToRack(
   preset: RackPreset,
   categories: RackModuleCategory[],
 ) {
-  const store = useEditorStore.getState();
+  const wc = useSubstationWorkingCopy.getState();
 
-  // 1) drop all existing modules for this rack from the working copy
-  const existing = store.localRackModules.filter(
-    (m) => m.rackEquipmentId === rackEquipmentId,
-  );
+  // 1) drop all existing modules for this rack from the working copy.
+  //    stageEquipmentDeleteCascade 로 모듈 asset + 닿는 케이블을 함께 스테이징 삭제
+  //    (기존 removeRackModule 의 케이블 cascade 와 동일).
+  const existing = wc
+    .effectiveRackModules(rackEquipmentId);
   for (const m of existing) {
-    store.removeRackModule(m.id);
+    wc.stageEquipmentDeleteCascade(m.id);
   }
 
-  // 2) expand preset.modules into RackModule rows
+  // 2) expand preset.modules into RackModule rows.
+  //    각 모듈은 이 랙(rackEquipmentId)을 rackEquipmentId 로 참조한다.
   const codeToCategory = new Map<string, RackModuleCategory>(
     categories.map((c) => [c.code, c]),
   );
@@ -203,7 +207,7 @@ function applyPresetToRack(
       );
       return;
     }
-    store.addRackModule(buildRackModule({
+    wc.stageRackModuleCreate(buildRackModule({
       rackEquipmentId,
       category: cat,
       slotIndex: mod.slotIndex,
@@ -213,7 +217,7 @@ function applyPresetToRack(
     }));
   });
 
-  store.setHasChanges(true);
+  useEditorStore.getState().setHasChanges(true);
 }
 
 // ============================================================
