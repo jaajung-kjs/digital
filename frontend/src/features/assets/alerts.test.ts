@@ -1,34 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { assetAlert } from './alerts';
-import type { Asset } from '../../types/asset';
+import { assetAlert, INSTALL_AGE_ALERT_YEARS } from './alerts';
 
-const base = { warrantyUntil: null, replaceDue: null } as unknown as Asset;
 const today = new Date('2026-06-05');
 
-describe('assetAlert', () => {
-  it('둘 다 없으면 null', () => {
-    expect(assetAlert(base, today)).toBeNull();
+describe('assetAlert (설치 후 경과)', () => {
+  it('installDate 없으면 null', () => {
+    expect(assetAlert({ installDate: null }, today)).toBeNull();
   });
-  it('하자보수기한이 6개월 이내면 warranty 경고', () => {
-    const a = { ...base, warrantyUntil: '2026-09-01' } as Asset;
-    expect(assetAlert(a, today)?.kind).toBe('warranty');
+  it(`설치 ${INSTALL_AGE_ALERT_YEARS}년 미만이면 null`, () => {
+    expect(assetAlert({ installDate: '2020-06-05' }, today)).toBeNull();
   });
-  it('하자보수기한이 6개월보다 멀면 null', () => {
-    const a = { ...base, warrantyUntil: '2027-06-01' } as Asset;
-    expect(assetAlert(a, today)).toBeNull();
+  it(`설치 ${INSTALL_AGE_ALERT_YEARS}년 이상이면 replace 경고 + 경과 연수`, () => {
+    const r = assetAlert({ installDate: '2000-06-05' }, today);
+    expect(r?.kind).toBe('replace');
+    expect(r?.years).toBe(25);
+    expect(r?.label).toBe('설치 25년 경과');
   });
-  it('교체예정이 오늘 이전/당일이면 replace 경고', () => {
-    const a = { ...base, replaceDue: '2026-06-05' } as Asset;
-    expect(assetAlert(a, today)?.kind).toBe('replace');
-  });
-  it('교체예정이 미래면 null', () => {
-    const a = { ...base, replaceDue: '2027-01-01' } as Asset;
-    expect(assetAlert(a, today)).toBeNull();
-  });
-  it('하자보수기한이 과거면 warranty 만료', () => {
-    const a = { ...base, warrantyUntil: '2020-01-01' } as Asset;
-    const r = assetAlert(a, today);
-    expect(r?.kind).toBe('warranty');
-    expect(r?.label).toBe('하자보수 만료');
+  it('경계: 정확히 임계 연수면 경고', () => {
+    const installed = new Date(today);
+    installed.setFullYear(installed.getFullYear() - INSTALL_AGE_ALERT_YEARS);
+    const r = assetAlert({ installDate: installed.toISOString().slice(0, 10) }, today);
+    expect(r?.kind).toBe('replace');
+    expect(r?.years).toBe(INSTALL_AGE_ALERT_YEARS);
   });
 });

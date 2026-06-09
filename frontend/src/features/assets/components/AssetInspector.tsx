@@ -3,7 +3,6 @@ import { toDateInputValue } from '../../../utils/date';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { AssetMaintenanceSection } from './AssetMaintenanceSection';
 import { AssetAttributesView } from './AssetAttributesView';
-import { AssetLifecycleView } from './AssetLifecycleView';
 import { useAssetConnections } from '../../connections/hooks/useAssetConnections';
 import { useCableMutations } from '../../connections/hooks/useCableMutations';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
@@ -15,7 +14,8 @@ interface Props {
   onPatch?: (id: string, patch: Partial<UpdateAssetInput>) => void;
   onSelectAsset: (id: string) => void;
   onGotoRegister?: (id: string) => void;
-  today: Date;
+  /** @deprecated 생애주기 표시 제거로 미사용. 호출부 호환을 위해 유지. */
+  today?: Date;
 }
 
 function Field({ label, value, onCommit, type = 'text' }: { label: string; value: string; onCommit: (v: string) => void; type?: string }) {
@@ -37,7 +37,7 @@ function ReadField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AssetInspector({ asset, mode, onPatch, onSelectAsset, onGotoRegister, today }: Props) {
+export function AssetInspector({ asset, mode, onPatch, onSelectAsset, onGotoRegister }: Props) {
   const ro = mode === 'view';
   const patch = (p: Partial<UpdateAssetInput>) => onPatch?.(asset.id, p);
   const { data: connections = [] } = useAssetConnections(asset.id);
@@ -48,7 +48,7 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, onGotoRegi
       <section className="px-4 py-3">
         {ro && onGotoRegister && (
           <button onClick={() => onGotoRegister(asset.id)}
-            className="mb-2 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700">대장에서 편집</button>
+            className="mb-2 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700">수정</button>
         )}
         {ro ? (
           <>
@@ -79,17 +79,6 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, onGotoRegi
             onChange={(key, v) => patch({ attributes: { ...(asset.attributes ?? {}), [key]: v } })}
           />
         )}
-      </section>
-
-      <section className="px-4 py-3 border-t border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-700 mb-1">생애주기</h3>
-        <AssetLifecycleView
-          asset={asset}
-          today={today}
-          readOnly={ro}
-          showAlert={false}
-          onChange={(p) => patch(p)}
-        />
       </section>
 
       <div className="px-4">
