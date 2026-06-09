@@ -123,10 +123,8 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     es.setSelectedIds([targetId]);
     es.setDetailPanelEquipmentId(targetId);
     es.bumpFocusTick();
-    // URL 정리.
-    const next = new URLSearchParams(searchParams);
-    next.delete('equipmentId');
-    setSearchParams(next, { replace: true });
+    // URL 정리 — 함수형 업데이터로 최신 params 에서 equipmentId 만 제거 (tab/floor 보존).
+    setSearchParams((p) => { p.delete('equipmentId'); return p; }, { replace: true });
   }, [searchParams, setSearchParams, floorPlan]);
 
   // tool ↔ interaction mode sync — 케이블 도구 선택 시 cableDrawing 진입,
@@ -490,7 +488,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
   if (isLoading && !isPlanNotFound) {
     return (
-      <div className="flex justify-center items-center h-screen">
+      <div className="flex justify-center items-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
