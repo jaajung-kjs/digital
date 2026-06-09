@@ -11,6 +11,7 @@ export interface AssetTypeDetail {
   requiredToCreate: unknown | null;
   iconName: string | null;
   displayColor: string | null;
+  placementKind: string | null;
   sortOrder: number;
   isActive: boolean;
 }
@@ -19,13 +20,15 @@ class AssetTypeService {
   private mapToDetail(t: {
     id: string; code: string; name: string; group: string | null;
     isContainer: boolean; fieldTemplate: unknown; requiredToCreate: unknown;
-    iconName: string | null; displayColor: string | null; sortOrder: number; isActive: boolean;
+    iconName: string | null; displayColor: string | null; placementKind: string | null;
+    sortOrder: number; isActive: boolean;
   }): AssetTypeDetail {
     return {
       id: t.id, code: t.code, name: t.name, group: t.group,
       isContainer: t.isContainer, fieldTemplate: t.fieldTemplate ?? null,
       requiredToCreate: t.requiredToCreate ?? null, iconName: t.iconName,
-      displayColor: t.displayColor, sortOrder: t.sortOrder, isActive: t.isActive,
+      displayColor: t.displayColor, placementKind: t.placementKind ?? null,
+      sortOrder: t.sortOrder, isActive: t.isActive,
     };
   }
 
