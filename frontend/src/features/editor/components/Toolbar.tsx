@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
@@ -15,17 +16,39 @@ interface ToolbarProps {
   onToggleHistory?: () => void;
   onToggleSettings?: () => void;
   onToggleLayers?: () => void;
+  /** DWG/DXF 배경 도면 가져오기 모달 열기 (부모가 DwgImportModal 렌더). */
+  onImportClick?: () => void;
 }
 
-export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleSettings, onToggleLayers }: ToolbarProps) {
+export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleSettings, onToggleLayers, onImportClick }: ToolbarProps) {
   const showLengths = useEditorStore((s) => s.showLengths);
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
+  const stagedBackgroundOpacity = useEditorStore((s) => s.stagedBackgroundOpacity);
+  const stageBackgroundOpacity = useEditorStore((s) => s.stageBackgroundOpacity);
   const snapshotActive = useSnapshotStore((s) => s.active);
   // Effective background — staged value (if user is editing) ?? server.
   const effectiveBackgroundDrawing =
     stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
+  const hasBackground = !!effectiveBackgroundDrawing;
+  // Effective opacity — mirrors FloorSettingsPanel binding (staged ?? server ?? 0.3).
+  const opacity = stagedBackgroundOpacity ?? floorPlan?.backgroundOpacity ?? 0.3;
+
   const { undo, redo, canUndo, canRedo } = useEditorHistory();
+
+  // Compact opacity popover (closes on outside click).
+  const [opacityOpen, setOpacityOpen] = useState(false);
+  const opacityRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!opacityOpen) return;
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (opacityRef.current && !opacityRef.current.contains(e.target as Node)) {
+        setOpacityOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [opacityOpen]);
 
   return (
     <div className="shrink-0 bg-white border-b px-4 py-2 flex items-center justify-between gap-4">
@@ -83,6 +106,53 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleSe
           </button>
 
           <div className="border-l h-6 mx-2" />
+
+          {onImportClick && !snapshotActive && (
+            <button
+              onClick={onImportClick}
+              className="p-2 hover:bg-gray-100 rounded-lg flex items-center gap-1 text-xs text-gray-600"
+              title="배경 도면 불러오기 (DWG/DXF)"
+            >
+              {/* Document / upload icon */}
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <span>도면 불러오기</span>
+            </button>
+          )}
+
+          {hasBackground && (
+            <div className="relative" ref={opacityRef}>
+              <button
+                onClick={() => setOpacityOpen((p) => !p)}
+                className={`p-2 rounded-lg flex items-center gap-1 text-xs ${
+                  opacityOpen ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-600'
+                }`}
+                title="배경 투명도"
+              >
+                {/* Opacity / contrast icon */}
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <circle cx="12" cy="12" r="9" strokeWidth={2} />
+                  <path strokeWidth={2} d="M12 3a9 9 0 000 18z" fill="currentColor" stroke="none" />
+                </svg>
+                <span>{Math.round(opacity * 100)}%</span>
+              </button>
+              {opacityOpen && (
+                <div className="absolute right-0 top-full mt-1 z-40 bg-white rounded-lg shadow-lg border border-gray-200 p-3 w-56">
+                  <label className="block text-xs text-gray-600 mb-2">배경 투명도 ({Math.round(opacity * 100)}%)</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={opacity}
+                    onChange={(e) => stageBackgroundOpacity(parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {onToggleLayers && effectiveBackgroundDrawing && (
             <button onClick={onToggleLayers} className="p-2 hover:bg-gray-100 rounded-lg text-gray-600" title="배경 레이어">
