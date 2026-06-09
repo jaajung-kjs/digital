@@ -86,17 +86,28 @@ export function SubstationWorkspacePage() {
             <WorkingCopyCommitBar substationId={substationId} />
           )}
           <div className="flex-1 min-h-0 relative">
-            {view === 'plan' ? (
-              selectedFloorId ? (
+            {/*
+              평면도 에디터는 탭 전환 시 언마운트하지 않고 CSS 로만 숨긴다.
+              언마운트→resetEditor→재마운트 경로를 타면 뷰포트가 0,0 으로
+              리셋되므로(useFloorPlanData 의 init/save effect 가 unmount 순서에
+              취약), 마운트를 유지해 editorStore 의 zoom/pan 상태를 그대로
+              보존한다. 숨김 동안 컨테이너는 0 크기가 되고, 다시 표시되면
+              useCanvas 의 ResizeObserver 가 복원된 크기로 재렌더한다(같은
+              뷰포트 → 0,0 으로 안 떨어짐). key={selectedFloorId} 는 그대로 둬
+              "층 변경" 시에만 새 에디터로 리마운트되게 한다.
+            */}
+            {selectedFloorId ? (
+              <div className={view === 'plan' ? 'absolute inset-0' : 'hidden'}>
                 <FloorPlanEditor key={selectedFloorId} floorId={selectedFloorId} />
-              ) : (
-                <div className="p-6 text-sm text-gray-500">등록된 층이 없습니다.</div>
-              )
-            ) : view === 'connections' ? (
+              </div>
+            ) : view === 'plan' ? (
+              <div className="p-6 text-sm text-gray-500">등록된 층이 없습니다.</div>
+            ) : null}
+            {view === 'connections' ? (
               <SubstationConnectionsView substationId={substationId} />
-            ) : (
+            ) : view === 'status' ? (
               <SubstationStatusView substationId={substationId} />
-            )}
+            ) : null}
           </div>
         </div>
       </SelectionContext.Provider>
