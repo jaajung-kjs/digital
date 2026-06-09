@@ -159,32 +159,6 @@ class EquipmentService {
     return this.mapToDetail(asset);
   }
 
-  /** OFD 중복 검사 (변전소당 OFD 1개) */
-  async validateOfdUniqueness(floorId: string, excludeEquipmentId?: string): Promise<void> {
-    const floor = await prisma.floor.findUnique({
-      where: { id: floorId },
-      include: { substation: { select: { name: true } } },
-    });
-    if (!floor) return;
-
-    const substationId = floor.substationId;
-    const existingOfd = await prisma.asset.findFirst({
-      where: {
-        parentAssetId: null,
-        assetType: { placementKind: 'OFD' },
-        id: excludeEquipmentId ? { not: excludeEquipmentId } : undefined,
-        floor: { substationId },
-      },
-      select: { id: true, name: true },
-    });
-
-    if (existingOfd) {
-      throw new ConflictError(
-        `${floor.substation?.name ?? ''} 변전소에 이미 OFD가 존재합니다. (${existingOfd.name})`
-      );
-    }
-  }
-
   /** 도면(Floor)에 직접 배치하는 설비 생성 */
   async createOnFloorPlan(
     floorId: string,
@@ -194,9 +168,7 @@ class EquipmentService {
     const floor = await prisma.floor.findUnique({ where: { id: floorId } });
     if (!floor) throw new NotFoundError('층');
 
-    if (input.kind === 'OFD') {
-      await this.validateOfdUniqueness(floorId);
-    }
+    // NOTE: 변전소당 OFD 1개 제약 제거 — 변전소는 여러 광단국(OFD)을 가질 수 있다.
 
     const assetType = await this.resolveAssetType(input.kind);
 
@@ -232,10 +204,7 @@ class EquipmentService {
 
     const existingKind = (placementKindToKind(existing.assetType.placementKind) ?? 'RACK') as EquipmentKind;
 
-    // OFD uniqueness re-check when changing into OFD
-    if (input.kind === 'OFD' && existingKind !== 'OFD') {
-      await this.validateOfdUniqueness(existing.floorId ?? '', id);
-    }
+    // NOTE: 변전소당 OFD 1개 제약 제거 — OFD 로 전환 시 중복 검사 없음.
 
     // kind 변경 시 assetType 재해석
     let assetTypeId: string | undefined;

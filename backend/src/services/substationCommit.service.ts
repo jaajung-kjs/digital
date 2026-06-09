@@ -8,7 +8,6 @@ import {
   assertDistParentValid,
   assertSlotValid,
   assertNoSlotCollision,
-  assertOfdUnique,
 } from './planApply.js';
 
 /**
@@ -201,16 +200,7 @@ async function run(
   if (input.assets) {
     const a = input.assets;
 
-    // W2: OFD uniqueness — planApply.assertOfdUnique 재사용 (409 ConflictError 일관).
-    if (a.creates.length) {
-      const typeIds = [...new Set(a.creates.map((c) => c.assetTypeId))];
-      const ofdTypeIds = new Set(
-        (await tx.assetType.findMany({ where: { id: { in: typeIds }, placementKind: 'OFD' }, select: { id: true } }))
-          .map((t) => t.id),
-      );
-      const hasNewOfd = a.creates.some((c) => ofdTypeIds.has(c.assetTypeId));
-      await assertOfdUnique(tx, substationId, hasNewOfd);
-    }
+    // NOTE: 변전소당 OFD 1개 제약은 제거됨 — 변전소는 여러 광단국(OFD)을 가질 수 있다.
 
     for (const c of a.creates) {
       const created = await tx.asset.create({
