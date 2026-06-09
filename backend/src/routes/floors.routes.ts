@@ -33,126 +33,6 @@ const updateFloorSchema = z.object({
 
 const equipmentKindEnum = z.enum(['RACK', 'OFD', 'DISTRIBUTION', 'GROUNDING', 'HVAC']);
 
-const equipmentSchema = z.object({
-  id: z.string().uuid().optional().nullable(),
-  tempId: z.string().optional(),
-  kind: equipmentKindEnum,
-  name: z.string().min(1).max(100),
-  positionX: z.number(),
-  positionY: z.number(),
-  width: z.number().min(0),
-  height: z.number().min(0),
-  rotation: z.number().optional(),
-  totalU: z.number().int().min(1).optional().nullable(),
-  description: z.string().optional().nullable(),
-  manager: z.string().optional().nullable(),
-  installDate: z.string().optional().nullable(),
-  height3d: z.number().optional().nullable(),
-  properties: z.unknown().optional(),
-});
-
-// Endpoint id는 real uuid 또는 'temp-{uuid}' 둘 다 허용 — bulkUpdatePlan 트랜잭션이
-// equipmentIdMap / rackModuleIdMap 으로 tempId를 resolve.
-const endpointSchema = z.object({
-  equipmentId: z.string().optional().nullable(),
-  moduleId: z.string().optional().nullable(),
-  circuitId: z.string().optional().nullable(),
-});
-
-const cableSchema = z.object({
-  id: z.string().nullish(),
-  source: endpointSchema,
-  target: endpointSchema,
-  cableType: z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']),
-  label: z.string().nullish(),
-  length: z.number().nullish(),
-  color: z.string().nullish(),
-  description: z.string().nullish(),
-  // fiberPathId 도 tempId 가능 (새 광경로) — fiberPathIdMap 으로 resolve.
-  fiberPathId: z.string().nullish(),
-  fiberPortNumber: z.number().int().min(1).max(48).nullish(),
-  categoryId: z.string().uuid().nullish(),
-  specParams: z.any().nullish(),
-  pathPoints: z.array(z.array(z.number()).length(2)).nullish(),
-  pathLength: z.number().nullish(),
-  bufferLength: z.number().nullish(),
-  totalLength: z.number().nullish(),
-});
-
-const fiberPathSchema = z.object({
-  id: z.string().optional(),
-  ofdAId: z.string(),
-  ofdBId: z.string(),
-  portCount: z.number().int().refine(v => v === 24 || v === 48, { message: 'portCount must be 24 or 48' }),
-  description: z.string().optional().nullable(),
-});
-
-const rackModuleSchema = z.object({
-  id: z.string().optional().nullable(),
-  tempId: z.string().optional(),
-  rackEquipmentId: z.string(),
-  categoryId: z.string().uuid(),
-  name: z.string().min(1).max(100),
-  slotIndex: z.number().int().min(0),
-  slotSpan: z.number().int().min(1),
-  installDate: z.string().optional().nullable(),
-  manager: z.string().max(100).optional().nullable(),
-  description: z.string().optional().nullable(),
-  properties: z.unknown().optional(),
-  sortOrder: z.number().int().optional(),
-});
-
-const distributionCircuitSchema = z.object({
-  id: z.string().optional().nullable(),
-  tempId: z.string().optional(),
-  distributionEquipmentId: z.string(),
-  feederName: z.string().min(1).max(100),
-  branchName: z.string().min(1).max(100),
-  description: z.string().optional().nullable(),
-  sortOrder: z.number().int().optional(),
-});
-
-// Parsed DWG/DXF output. We re-validate the minimum shape the service depends
-// on (`bounds` for canvas auto-expansion, `source` for identity) and
-// passthrough the rest — the JSON is produced by our own /background/import
-// parser and consumed verbatim by the renderer.
-const backgroundDrawingSchema = z.object({
-  source: z.object({
-    fileName: z.string(),
-    importedAt: z.string(),
-    fileType: z.enum(['DWG', 'DXF']),
-  }),
-  bounds: z.object({
-    minX: z.number(),
-    minY: z.number(),
-    maxX: z.number(),
-    maxY: z.number(),
-  }),
-  layers: z.array(z.unknown()),
-  paths: z.array(z.unknown()),
-  texts: z.array(z.unknown()),
-  filled: z.array(z.unknown()),
-}).passthrough();
-
-const bulkUpdatePlanSchema = z.object({
-  canvasWidth: z.number().int().min(100).max(10000).optional(),
-  canvasHeight: z.number().int().min(100).max(10000).optional(),
-  gridSize: z.number().int().min(5).max(100).optional(),
-  majorGridSize: z.number().int().min(10).max(200).optional(),
-  backgroundColor: z.string().max(20).optional(),
-  scaleRatio: z.number().positive().nullish(),
-  backgroundOpacity: z.number().min(0).max(1).optional(),
-  // 3-state semantics — absent: unchanged, null: clear, object: replace.
-  backgroundDrawing: z.union([z.null(), backgroundDrawingSchema]).optional(),
-  equipment: z.array(equipmentSchema).optional(),
-  rackModules: z.array(rackModuleSchema).optional(),
-  distributionCircuits: z.array(distributionCircuitSchema).optional(),
-  cables: z.array(cableSchema).optional(),
-  fiberPaths: z.array(fiberPathSchema).optional(),
-  deletedFiberPathIds: z.array(z.string().uuid()).optional(),
-  baseFloorVersion: z.string().optional(),   // 로드 시점의 Floor.updatedAt(ISO). OCC 토큰
-});
-
 const patchVersionContextSchema = z.object({
   context: z.record(z.unknown()),
 });
@@ -183,9 +63,6 @@ router.get('/:id/plan', floorController.getPlan);
 
 // 층 메타데이터 수정 (관리자만)
 router.put('/:id', authenticate, adminOnly, validate(updateFloorSchema), floorController.update);
-
-// 층 도면 저장 (관리자만)
-router.put('/:id/plan', authenticate, adminOnly, validate(bulkUpdatePlanSchema), floorController.bulkUpdatePlan);
 
 // 층 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, floorController.delete);
@@ -227,8 +104,8 @@ router.delete('/:id/versions/:logId', authenticate, adminOnly, floorController.d
 // ==================== DWG Background Drawing ====================
 
 // 도면(DWG/DXF) 파싱 — 항상 parse-only. 실제 적용은 staged 상태로 프론트에
-// 보관됐다가 PUT /:id/plan 의 backgroundDrawing 필드로 커밋된다.
-// (clear/opacity 도 동일하게 PUT /:id/plan 으로 처리되므로 별도 라우트 없음.)
+// 보관됐다가 substation commit 의 backgroundDrawing 필드로 커밋된다.
+// (clear/opacity 도 동일하게 substation commit 으로 처리되므로 별도 라우트 없음.)
 router.post(
   '/:id/background/import',
   authenticate,

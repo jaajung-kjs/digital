@@ -7,9 +7,9 @@ import { assertOfdFiberPath } from './cable.service.js';
 /**
  * 도면/통합 커밋의 공유 검증 predicate 모음.
  *
- * `bulkUpdatePlan`(floor.service) 과 `commitSubstation`(substationCommit.service)
- * 이 동일한 규칙으로 검증하도록, 두 곳에서 인라인이던 검증을 tx-taking 순수
- * 헬퍼로 추출한다. 모든 함수는 트랜잭션 클라이언트를 받아 실패 시 throw(롤백).
+ * `commitSubstation`(substationCommit.service) 이 일관된 규칙으로 검증하도록,
+ * 인라인이던 검증을 tx-taking 순수 헬퍼로 추출한다. (구 bulkUpdatePlan 과
+ * 공유하던 코드.) 모든 함수는 트랜잭션 클라이언트를 받아 실패 시 throw(롤백).
  *
  * 주의: id 해소(tempId→real id)는 호출부가 끝낸 뒤 real id 만 넘겨야 한다.
  */
