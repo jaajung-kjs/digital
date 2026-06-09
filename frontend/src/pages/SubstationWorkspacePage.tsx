@@ -62,13 +62,17 @@ export function SubstationWorkspacePage() {
     <WorkspaceNavContext.Provider value={nav}>
       <SelectionContext.Provider value={{ selectedAssetId, setSelectedAssetId }}>
         <div className="h-full flex flex-col">
-          <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-gray-200 bg-white">
+          <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-line bg-surface">
             <div className="flex gap-1">
               {VIEWS.map((v) => (
                 <button
                   key={v.key}
                   onClick={() => (v.key === 'plan' && selectedFloorId ? nav.gotoFloor(selectedFloorId) : switchView(v.key))}
-                  className={`text-sm px-3 py-1 rounded ${view === v.key ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
+                  className={`text-sm px-3 py-1.5 rounded font-medium transition-colors ${
+                    view === v.key
+                      ? 'bg-primary text-white'
+                      : 'text-content-muted hover:bg-surface-2'
+                  }`}>
                   {v.label}
                 </button>
               ))}
@@ -77,7 +81,7 @@ export function SubstationWorkspacePage() {
               <select
                 value={selectedFloorId ?? ''}
                 onChange={(e) => nav.gotoFloor(e.target.value)}
-                className="text-sm px-2 py-1 border border-gray-200 rounded">
+                className="text-sm px-2 py-1.5 border border-line rounded bg-surface text-content">
                 {floors.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
               </select>
             )}
@@ -105,7 +109,7 @@ export function SubstationWorkspacePage() {
                 <FloorPlanEditor key={selectedFloorId} floorId={selectedFloorId} />
               </div>
             ) : view === 'plan' ? (
-              <div className="p-6 text-sm text-gray-500">등록된 층이 없습니다.</div>
+              <div className="p-6 text-sm text-content-muted">등록된 층이 없습니다.</div>
             ) : null}
             {view === 'connections' ? (
               <SubstationConnectionsView substationId={substationId} />

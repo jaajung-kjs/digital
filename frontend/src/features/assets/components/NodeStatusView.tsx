@@ -1,16 +1,26 @@
 import { Fragment, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Map as MapIcon } from 'lucide-react';
 import { useNodeAssets, type NodeKind } from '../../../hooks/useNodeAssets';
 import { useSelection } from '../../workspace/SelectionContext';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { installLocation, inspectionState, type AssetListItem } from '../nodeStatus';
 import { assetAlert } from '../alerts';
 import { StatusSummary } from './SubstationStatusView';
+import { Badge, IconButton, type BadgeStatus } from '../../../components/ui';
 
 const COLUMNS = ['종류', '이름', '설치장소', '설치일', '담당자', '마지막 점검일', '상태'] as const;
 
 function uniq(values: (string | null | undefined)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v))).sort();
+}
+
+/** 자유 텍스트 상태값 → Badge 상태(정상=success, 점검요/임박=warning, 이상/교체=danger, 기타=neutral). */
+function statusBadge(status: string): BadgeStatus {
+  if (/정상|양호|운영/.test(status)) return 'success';
+  if (/이상|고장|교체|불량/.test(status)) return 'danger';
+  if (/점검|임박|주의|예정/.test(status)) return 'warning';
+  return 'neutral';
 }
 
 function AssetRow({
@@ -27,45 +37,48 @@ function AssetRow({
   const alert = assetAlert({ installDate: item.installDate }, today);
   const insp = inspectionState(item.lastMaintenanceDate, today);
   const inspClass =
-    insp.level === 'none' ? 'text-gray-400' : insp.level === 'overdue' ? 'text-warning font-medium' : '';
+    insp.level === 'none' ? 'text-content-faint' : insp.level === 'overdue' ? 'text-warning font-medium' : 'text-content';
   return (
-    <tr onClick={onSelect} className="cursor-pointer hover:bg-blue-50 border-b border-gray-100">
-      <td className="px-2 py-1 text-sm">
+    <tr onClick={onSelect} className="cursor-pointer hover:bg-surface-2 border-b border-line">
+      <td className="px-2 py-2 text-sm text-content">
         <span className="inline-flex items-center gap-1.5">
           {/* ISA-101: 종류 점은 무채색(설비=중립). 색은 상태에만. */}
-          <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0 bg-eq-3" />
+          <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0 bg-eq-3" />
           {item.assetTypeName}
         </span>
       </td>
-      <td className="px-2 py-1 text-sm">
+      <td className="px-2 py-2 text-sm">
         <span className="inline-flex items-center gap-1.5">
-          {item.name}
-          {alert && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-danger-bg text-danger font-medium">
-              {alert.label}
-            </span>
-          )}
+          <span className="font-medium text-content">{item.name}</span>
+          {alert && <Badge status="danger">{alert.label}</Badge>}
         </span>
       </td>
-      <td className="px-2 py-1 text-sm text-gray-600">{installLocation(item)}</td>
-      <td className="px-2 py-1 text-sm text-gray-600">
+      <td className="px-2 py-2 text-sm text-content-muted">{installLocation(item)}</td>
+      <td className="px-2 py-2 text-sm text-content-muted">
         {item.installDate ? new Date(item.installDate).toLocaleDateString('ko-KR') : '—'}
       </td>
-      <td className="px-2 py-1 text-sm text-gray-600">{item.manager ?? '—'}</td>
-      <td className={`px-2 py-1 text-sm ${inspClass}`}>{insp.label}</td>
-      <td className="px-2 py-1 text-sm text-gray-600">{item.status ?? '—'}</td>
-      <td className="px-2 py-1 text-right">
+      <td className="px-2 py-2 text-sm text-content-muted">{item.manager ?? '—'}</td>
+      <td className={`px-2 py-2 text-sm ${inspClass}`}>{insp.label}</td>
+      <td className="px-2 py-2 text-sm">
+        {item.status ? (
+          <Badge status={statusBadge(item.status)}>{item.status}</Badge>
+        ) : (
+          <span className="text-content-muted">—</span>
+        )}
+      </td>
+      <td className="px-2 py-2 text-right">
         {item.floorId && (
-          <button
+          <IconButton
+            aria-label="도면에서 보기"
             title="도면에서 보기"
+            className="p-1.5 text-content-faint hover:text-primary"
             onClick={(e) => {
               e.stopPropagation();
               onGotoFloor?.();
             }}
-            className="text-xs px-1.5 py-0.5 rounded border border-gray-200 text-gray-500 hover:bg-gray-100"
           >
-            도면
-          </button>
+            <MapIcon size={15} />
+          </IconButton>
         )}
       </td>
     </tr>
@@ -156,15 +169,15 @@ export function NodeStatusView({
     <div className="h-full flex flex-col">
       <StatusSummary total={total} items={summaryItems} />
 
-      <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2 border-b border-gray-200 bg-white">
+      <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2 border-b border-line bg-surface">
         <input
-          className="text-sm border border-gray-200 rounded px-2 py-1"
+          className="text-sm border border-line rounded px-2 py-1 bg-surface text-content"
           placeholder="이름 검색"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select
-          className="text-sm border border-gray-200 rounded px-2 py-1"
+          className="text-sm border border-line rounded px-2 py-1 bg-surface text-content"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
         >
@@ -177,7 +190,7 @@ export function NodeStatusView({
         </select>
         {!isSubstation && (
           <select
-            className="text-sm border border-gray-200 rounded px-2 py-1"
+            className="text-sm border border-line rounded px-2 py-1 bg-surface text-content"
             value={substationFilter}
             onChange={(e) => setSubstationFilter(e.target.value)}
           >
@@ -190,7 +203,7 @@ export function NodeStatusView({
           </select>
         )}
         <select
-          className="text-sm border border-gray-200 rounded px-2 py-1"
+          className="text-sm border border-line rounded px-2 py-1 bg-surface text-content"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
@@ -205,19 +218,19 @@ export function NodeStatusView({
 
       <div className="flex-1 overflow-auto">
         {filtered.length === 0 ? (
-          <p className="text-sm text-gray-400 px-4 py-3">
+          <p className="text-sm text-content-faint px-4 py-3">
             {items.length === 0 ? '자산이 없습니다.' : '검색 결과가 없습니다.'}
           </p>
         ) : (
           <table className="w-full border-collapse">
             <thead>
-              <tr className="border-b-2 border-gray-200 text-left bg-white sticky top-0">
+              <tr className="text-left bg-surface-2 border-b border-line sticky top-0">
                 {COLUMNS.map((c) => (
-                  <th key={c} className="px-2 py-1 text-xs font-semibold text-gray-500">
+                  <th key={c} className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-content-muted">
                     {c}
                   </th>
                 ))}
-                <th className="px-2 py-1" />
+                <th className="px-2 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -226,7 +239,7 @@ export function NodeStatusView({
                 : grouped!.map(([substationName, rows]) => (
                     <Fragment key={`g-${substationName}`}>
                       <tr>
-                        <td colSpan={8} className="bg-gray-50 font-semibold px-3 py-1 text-xs">
+                        <td colSpan={8} className="bg-surface-2 font-medium text-content-muted px-3 py-1.5 text-xs">
                           {substationName} ({rows.length})
                         </td>
                       </tr>

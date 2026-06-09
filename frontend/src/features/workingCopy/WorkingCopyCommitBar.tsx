@@ -5,6 +5,7 @@ import { useUnifiedDirty } from './hooks';
 import { useCommitWorkingCopy, type Conflict } from './useCommitWorkingCopy';
 import { useEditorStore } from '../editor/stores/editorStore';
 import { ConflictDialog } from './ConflictDialog';
+import { Button } from '../../components/ui';
 
 // ──────────────────────────────────────────────────────────────────────────
 // USP Task 2 — 워크스페이스/에디터 단일 저장 바.
@@ -47,10 +48,10 @@ export function WorkingCopyCommitBar({ substationId }: { substationId: string })
   };
 
   return (
-    <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-amber-50 text-sm">
-      <span className="text-amber-700">저장 {dirty}건</span>
-      <button onClick={onCommit} disabled={busy} className="px-2 py-1 rounded bg-blue-600 text-white disabled:bg-gray-300">저장</button>
-      <button onClick={onRevert} disabled={busy} className="px-2 py-1 rounded bg-gray-100 disabled:opacity-50">되돌리기</button>
+    <div className="shrink-0 flex items-center gap-2 px-4 py-2 border-b border-line bg-warning-bg text-sm">
+      <span className="text-warning font-medium">저장 {dirty}건</span>
+      <Button size="sm" onClick={onCommit} disabled={busy}>저장</Button>
+      <Button size="sm" variant="secondary" onClick={onRevert} disabled={busy}>되돌리기</Button>
       {conflicts && (
         <ConflictDialog
           conflicts={conflicts}

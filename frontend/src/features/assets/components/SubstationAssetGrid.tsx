@@ -210,12 +210,12 @@ export function SubstationAssetGrid({ substationId }: Props) {
       ) : (
         <table className="w-full border-collapse">
           <thead>
-            <tr className="border-b-2 border-gray-200 text-left">
-              <th className="px-2 py-1 text-xs font-semibold text-gray-500">종류</th>
+            <tr className="border-b border-line text-left bg-surface-2">
+              <th className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-content-muted">종류</th>
               {columns.map((c) => (
-                <th key={c.key} className="px-2 py-1 text-xs font-semibold text-gray-500">{c.label}</th>
+                <th key={c.key} className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-content-muted">{c.label}</th>
               ))}
-              <th className="px-2 py-1" />
+              <th className="px-2 py-2" />
             </tr>
           </thead>
           <tbody>
