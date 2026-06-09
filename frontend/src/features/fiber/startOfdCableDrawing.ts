@@ -6,11 +6,14 @@
 
 import { useEditorStore } from '../editor/stores/editorStore';
 import { useInteractionStore } from '../editor/stores/interactionStore';
+import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
+import { assetToEquipment } from '../workingCopy/assetToEquipment';
 import { getEquipmentCenter } from '../../utils/floorplan/elementSystem';
 
 export function startOfdCableDrawing(ofdEquipmentId: string, fiberPathId: string, portNumber: number): void {
   const editor = useEditorStore.getState();
-  const ofd = editor.localEquipment.find((e) => e.id === ofdEquipmentId);
+  const asset = useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === ofdEquipmentId);
+  const ofd = asset ? assetToEquipment(asset) : undefined;
   if (!ofd) return;
   editor.setPreselectedCableDisplayGroup('광');
   useInteractionStore.getState().cableSetSource(ofdEquipmentId, getEquipmentCenter(ofd), {

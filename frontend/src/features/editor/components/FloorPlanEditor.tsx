@@ -315,13 +315,14 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       const state = useEditorStore.getState();
       if (!state.hasChanges) return;
       const draftKey = `draft-plan-${floorId}`;
+      // SSOT-2d-3b Task 2 — editorStore 의 영속 컬렉션(localEquipment/localCables/
+      // localRackModules/pendingFiberPaths/deletedFiberPathIds)이 제거됐다. 이 데이터는
+      // 변전소 단위 통합 working copy 로 이관됐으므로 editorStore 드래프트는 더 이상
+      // 백업하지 않는다(통합 overlay 기반 드래프트 재배선은 Task 4). 여기서는
+      // editorStore 가 여전히 소유하는 transient 큐(pendingLogs)와 staged 배경/메타만
+      // 백업한다. (복구 측 draft.localEquipment 등 분기는 옛 드래프트 호환용으로 유지.)
       const draft = {
-        localEquipment: state.localEquipment,
-        localCables: state.localCables,
-        localRackModules: state.localRackModules,
         pendingLogs: state.pendingLogs,
-        pendingFiberPaths: state.pendingFiberPaths,
-        deletedFiberPathIds: state.deletedFiberPathIds,
         stagedBackgroundDrawing: state.stagedBackgroundDrawing,
         stagedBackgroundOpacity: state.stagedBackgroundOpacity,
         metadata: {

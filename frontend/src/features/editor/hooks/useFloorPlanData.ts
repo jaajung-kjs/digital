@@ -25,7 +25,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   const isSavingRef = useRef(false);
   const queryClient = useQueryClient();
   const {
-    localEquipment, zoom, panX, panY,
+    zoom, panX, panY,
     gridSize, majorGridSize,
     setGridSize, setMajorGridSize,
     setHasChanges, setViewportInitialized,
@@ -159,9 +159,6 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       }
       setHasChanges(false);
       useEditorStore.getState().setRestoredFromVersion(null);
-
-      // Reset undo/redo history after successful save (통합 store + 에디터 store 둘 다).
-      useEditorStore.temporal.getState().clear();
     },
     onError: (error: unknown) => {
       const resp = (error as { response?: { status?: number; data?: { details?: { id: string; name?: string }[] } } }).response;
@@ -208,13 +205,10 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
 
   // SSOT-2d Task 2 — 설비+케이블 / 랙모듈 / 회로의 editorStore 시딩 제거.
   // 이 데이터는 통합 working copy 가 effective 훅으로 제공한다(Task 3).
-  // 따라서 P9 의 aggregate rack-module / dist-circuit fetch 와 그 시딩 effect,
-  // 그리고 그 3쿼리에 의존하던 temporal-baseline reset 도 함께 제거됐다.
-  // undo/redo baseline 정리는 Task 4(쓰기/undo 이관)에서 통합 스토어 기준으로 재설계.
-  useEffect(() => {
-    if (!floorPlan) return;
-    useEditorStore.temporal.getState().clear();
-  }, [floorPlan]);
+  // 따라서 P9 의 aggregate rack-module / dist-circuit fetch 와 그 시딩 effect 도
+  // 함께 제거됐다. editorStore 의 영속·zundo history 도 제거됐으므로(2d-3b Task 2)
+  // 여기서의 temporal-baseline reset 도 더 이상 필요 없다 — undo 는 통합 스토어가
+  // 단독으로 관리한다.
 
   // Viewport initialization. Container layout is async — on first mount the
   // ref is set but clientWidth/Height can still be 0 for a frame. Without a
@@ -224,7 +218,6 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   // measurable, then fit/restore.
   useEffect(() => {
     if (!floorPlan || !containerRef.current || viewportInitialized) return;
-    if (floorPlan.equipment.length > 0 && localEquipment.length === 0) return;
 
     let cancelled = false;
     const tryInit = () => {
@@ -262,7 +255,10 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
         setViewport(savedViewport.zoom, savedViewport.panX ?? 0, savedViewport.panY ?? 0);
       } else {
         fitToContent(
-          localEquipment,
+          // SSOT-2d-3b: editorStore.localEquipment 제거 후, 뷰포트 fit 의
+          // bounds 는 GET /plan 응답의 saved equipment 로 잡는다. effective
+          // (overlay 포함) 기반 fit 재배선은 Task 3 범위.
+          floorPlan.equipment,
           effectiveBg,
           { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight },
           container.clientWidth,
@@ -274,7 +270,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     };
     tryInit();
     return () => { cancelled = true; };
-  }, [floorPlan, localEquipment, viewportInitialized, containerRef, fitToContent, loadViewportState, clearViewportState, setViewport, setViewportInitialized, stagedBackgroundDrawing]);
+  }, [floorPlan, viewportInitialized, containerRef, fitToContent, loadViewportState, clearViewportState, setViewport, setViewportInitialized, stagedBackgroundDrawing]);
 
   // Save viewport on unmount + beforeunload. Skip the save when the viewport
   // never finished initializing — otherwise we'd persist the store's default

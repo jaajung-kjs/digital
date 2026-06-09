@@ -6,14 +6,8 @@ import type {
 } from '../../../types/floorPlan';
 import type { EquipmentKind } from '../../../types/equipmentKind';
 import type { RackPreset } from '../../../types/rackPreset';
-import type { RackModule } from '../../../types/rackModule';
-import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
-import { isTempId } from '../../../utils/idHelpers';
-import { temporal } from 'zundo';
-import { shallow } from 'zustand/shallow';
-import { throttle } from '../../../utils/throttle';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
@@ -113,21 +107,10 @@ export interface EditorStoreState {
   majorGridSize: number;
   showGrid: boolean;
 
-  localEquipment: FloorPlanEquipment[];
-  localCables: LocalCable[];
   hasChanges: boolean;
 
   pendingUploads: PendingUpload[];
   pendingLogs: PendingLog[];
-  pendingFiberPaths: PendingFiberPath[];
-  deletedFiberPathIds: string[];
-  /**
-   * saved cable 삭제 추적 — frontend overlay (usePortStatus, network/store) 가
-   * port grid / 토폴로지에서 즉시 제거할 수 있게 set. save 시 backend 가
-   * receivedCableIds 차집합으로 DELETE 처리하므로 별도 endpoint 불요.
-   * pending(tempId) cable 삭제는 localCables 에서 빠지는 것으로 충분 — 이 set 에 안 들어감.
-   */
-  deletedCableIds: string[];
 
   // Staged background drawing & opacity. Like the rest of the editor, DWG
   // changes (import / clear / opacity) are git-like — they live here until
@@ -201,14 +184,6 @@ export interface EditorStoreState {
   // CableSpecModal then filters categories by that group.
   preselectedCableDisplayGroup: CableDisplayGroup | null;
 
-  // P9: rack module working copy. Mirrors UpdateFloorPlanRackModuleInput;
-  // tempIds resolved server-side via rackModuleIdMap.
-  localRackModules: RackModule[];
-
-  // 분전반 회로 working copy. RackModule 과 동일 — bulk plan save 로 동기화,
-  // tempId 는 서버에서 distCircuitIdMap 으로 해석.
-  localDistributionCircuits: DistributionCircuit[];
-
   // P9: rack module dialog selection (RackEquipmentPanel slot click).
   selectedRackModuleId: string | null;
 
@@ -238,15 +213,7 @@ export interface EditorStoreActions {
   setGridSize: (size: number) => void;
   setMajorGridSize: (size: number) => void;
   setShowGrid: (show: boolean) => void;
-  setLocalEquipment: (equipment: FloorPlanEquipment[] | ((prev: FloorPlanEquipment[]) => FloorPlanEquipment[])) => void;
   setHasChanges: (has: boolean) => void;
-
-  addCable: (cable: LocalCable) => void;
-  updateCable: (id: string, updates: Partial<LocalCable>) => void;
-  /** Batch cable patch — single set + single map pass. */
-  updateCables: (updates: Map<string, Partial<LocalCable>>) => void;
-  deleteCable: (id: string) => void;
-  setCables: (cables: LocalCable[]) => void;
 
   addPendingUpload: (upload: PendingUpload) => void;
   removePendingUpload: (id: string) => void;
@@ -254,10 +221,6 @@ export interface EditorStoreActions {
   updatePendingLog: (id: string, updates: Partial<PendingLog>) => void;
   removePendingLog: (id: string) => void;
   clearPendingData: () => void;
-
-  addPendingFiberPath: (fp: PendingFiberPath) => void;
-  removePendingFiberPath: (id: string) => void;
-  deleteFiberPath: (id: string) => void;
 
   /** Stage a freshly-parsed DWG. Caller is responsible for fitting viewport. */
   stageBackgroundDrawing: (drawing: BackgroundDrawing) => void;
@@ -267,8 +230,6 @@ export interface EditorStoreActions {
   stageBackgroundOpacity: (value: number) => void;
   /** Reset both staged background fields to undefined (server's value wins). */
   resetStagedBackground: () => void;
-
-  deleteEquipmentWithCascade: (equipmentId: string) => void;
 
   setConnectionFilters: (filters: ConnectionFilterKey[] | null) => void;
   setShowLengths: (show: boolean) => void;
@@ -313,18 +274,6 @@ export interface EditorStoreActions {
   // P9: cable group preselection.
   setPreselectedCableDisplayGroup: (group: CableDisplayGroup | null) => void;
 
-  // P9: rack modules.
-  setRackModules: (modules: RackModule[]) => void;
-  addRackModule: (m: RackModule) => void;
-  updateRackModule: (id: string, partial: Partial<RackModule>) => void;
-  removeRackModule: (id: string) => void;
-
-  // 분전반 회로.
-  setDistributionCircuits: (circuits: DistributionCircuit[]) => void;
-  addDistributionCircuit: (c: DistributionCircuit) => void;
-  updateDistributionCircuit: (id: string, partial: Partial<DistributionCircuit>) => void;
-  removeDistributionCircuit: (id: string) => void;
-
   setSelectedRackModuleId: (id: string | null) => void;
   setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
   setIsDraggingRackModule: (v: boolean) => void;
@@ -350,14 +299,9 @@ const initialState: EditorStoreState = {
   gridSize: 10,
   majorGridSize: 60,
   showGrid: true,
-  localEquipment: [],
-  localCables: [],
   hasChanges: false,
   pendingUploads: [],
   pendingLogs: [],
-  pendingFiberPaths: [],
-  deletedFiberPathIds: [],
-  deletedCableIds: [],
   stagedBackgroundDrawing: undefined,
   stagedBackgroundOpacity: undefined,
   connectionFilters: null,
@@ -390,8 +334,6 @@ const initialState: EditorStoreState = {
   newEquipmentKind: null,
   newEquipmentPreset: null,
   preselectedCableDisplayGroup: null,
-  localRackModules: [],
-  localDistributionCircuits: [],
   selectedRackModuleId: null,
   addingAtSlot: null,
   isDraggingRackModule: false,
@@ -401,46 +343,16 @@ const initialState: EditorStoreState = {
 
 type FullStore = EditorStoreState & EditorStoreActions;
 
-/** undo/redo history 에 담을 working-copy 데이터 슬라이스 타입. */
-type HistorySlice = Pick<
-  EditorStoreState,
-  | 'localEquipment'
-  | 'localCables'
-  | 'localRackModules'
-  | 'localDistributionCircuits'
-  | 'deletedCableIds'
-  | 'deletedFiberPathIds'
-  | 'pendingFiberPaths'
->;
-
-/**
- * undo/redo history 에 담을 working-copy 데이터 슬라이스.
- * UI 상태·DWG 배경·pendingUploads/Logs 는 제외 — 설계 문서 §4 참고.
- */
-function partializeForHistory(state: FullStore): HistorySlice {
-  return {
-    localEquipment: state.localEquipment,
-    localCables: state.localCables,
-    localRackModules: state.localRackModules,
-    localDistributionCircuits: state.localDistributionCircuits,
-    deletedCableIds: state.deletedCableIds,
-    deletedFiberPathIds: state.deletedFiberPathIds,
-    pendingFiberPaths: state.pendingFiberPaths,
-  };
-}
-
 function revokeUploadUrls(uploads: PendingUpload[]) {
   for (const upload of uploads) {
     URL.revokeObjectURL(upload.objectUrl);
   }
 }
 
-export const useEditorStore = create<FullStore>()(
-  temporal<FullStore, [], [], HistorySlice>(
-    (set) => ({
-      ...initialState,
+export const useEditorStore = create<FullStore>()((set) => ({
+  ...initialState,
 
-      setTool: (tool) => set({ tool }),
+  setTool: (tool) => set({ tool }),
   // ── Selection mutex ────────────────────────────────────────────────────────
   // 설비 / 케이블 / 랙 모듈 셋 중 동시에 하나만 활성화되도록 setter 가 서로의
   // 필드를 같이 비운다. 호출자 코드가 "다른 선택도 비워야 하나?" 를 매번
@@ -459,43 +371,7 @@ export const useEditorStore = create<FullStore>()(
   setGridSize: (gridSize) => set({ gridSize }),
   setMajorGridSize: (majorGridSize) => set({ majorGridSize }),
   setShowGrid: (showGrid) => set({ showGrid }),
-  setLocalEquipment: (equipment) => set((state) => ({
-    localEquipment: typeof equipment === 'function' ? equipment(state.localEquipment) : equipment,
-  })),
   setHasChanges: (hasChanges) => set({ hasChanges }),
-
-  addCable: (cable) => set((state) => ({
-    localCables: [...state.localCables, cable],
-    hasChanges: true,
-  })),
-  updateCable: (id, updates) => set((state) => ({
-    localCables: state.localCables.map((c) => c.id === id ? { ...c, ...updates } : c),
-    hasChanges: true,
-  })),
-  // 설비 드래그/리사이즈마다 syncCableEndpointsTo 가 영향받는 케이블 N개에
-  // 동시에 patch 를 적용하는데, updateCable 을 N번 부르면 N번의 set + N번의
-  // localCables.map 이 발생. 한 번의 set + 한 번의 map 으로 끝낸다.
-  updateCables: (updates) => set((state) => {
-    if (updates.size === 0) return state;
-    return {
-      localCables: state.localCables.map((c) => {
-        const patch = updates.get(c.id);
-        return patch ? { ...c, ...patch } : c;
-      }),
-      hasChanges: true,
-    };
-  }),
-  deleteCable: (id) => set((state) => {
-    const isSaved = !isTempId(id);
-    return {
-      localCables: state.localCables.filter((c) => c.id !== id),
-      deletedCableIds: isSaved && !state.deletedCableIds.includes(id)
-        ? [...state.deletedCableIds, id]
-        : state.deletedCableIds,
-      hasChanges: true,
-    };
-  }),
-  setCables: (cables) => set({ localCables: cables }),
 
   addPendingUpload: (upload) => set((state) => ({
     pendingUploads: [...state.pendingUploads, upload],
@@ -521,26 +397,10 @@ export const useEditorStore = create<FullStore>()(
     return {
       pendingUploads: [],
       pendingLogs: [],
-      pendingFiberPaths: [],
-      deletedFiberPathIds: [],
-      deletedCableIds: [],
       stagedBackgroundDrawing: undefined,
       stagedBackgroundOpacity: undefined,
     };
   }),
-
-  addPendingFiberPath: (fp) => set((state) => ({
-    pendingFiberPaths: [...state.pendingFiberPaths, fp],
-    hasChanges: true,
-  })),
-  removePendingFiberPath: (id) => set((state) => ({
-    pendingFiberPaths: state.pendingFiberPaths.filter((fp) => fp.id !== id),
-    hasChanges: true,
-  })),
-  deleteFiberPath: (id) => set((state) => ({
-    deletedFiberPathIds: [...state.deletedFiberPathIds, id],
-    hasChanges: true,
-  })),
 
   // Staging a drawing or a clear changes the canvas geometry — flip
   // viewportInitialized off so the viewport-init effect re-runs and
@@ -554,29 +414,6 @@ export const useEditorStore = create<FullStore>()(
     set({ stagedBackgroundOpacity: Math.max(0, Math.min(1, value)), hasChanges: true }),
   resetStagedBackground: () =>
     set({ stagedBackgroundDrawing: undefined, stagedBackgroundOpacity: undefined }),
-
-  deleteEquipmentWithCascade: (equipmentId) => set((state) => {
-    // P9: also drop rack modules belonging to this rack and any cable
-    // referencing those modules. Modules' tempIds may be present on cables.
-    const moduleIdsBelongingToThisRack = new Set(
-      state.localRackModules
-        .filter((m) => m.rackEquipmentId === equipmentId)
-        .map((m) => m.id),
-    );
-    return {
-      localEquipment: state.localEquipment.filter((eq) => eq.id !== equipmentId),
-      localCables: state.localCables.filter((c) => {
-        if (c.sourceEquipmentId === equipmentId || c.targetEquipmentId === equipmentId) return false;
-        if (c.sourceModuleId && moduleIdsBelongingToThisRack.has(c.sourceModuleId)) return false;
-        if (c.targetModuleId && moduleIdsBelongingToThisRack.has(c.targetModuleId)) return false;
-        return true;
-      }),
-      localRackModules: state.localRackModules.filter((m) => m.rackEquipmentId !== equipmentId),
-      pendingUploads: state.pendingUploads.filter((u) => u.equipmentId !== equipmentId),
-      pendingLogs: state.pendingLogs.filter((l) => l.equipmentId !== equipmentId),
-      hasChanges: true,
-    };
-  }),
 
   setConnectionFilters: (connectionFilters) => set({ connectionFilters }),
   setShowLengths: (showLengths) => set({ showLengths }),
@@ -612,17 +449,13 @@ export const useEditorStore = create<FullStore>()(
     selectedCableId: null,
     selectedRackModuleId: null,
   }),
-  resetEditor: () => {
+  resetEditor: () =>
     set((state) => {
       revokeUploadUrls(state.pendingUploads);
       // Allocate a fresh hiddenBgLayers Set so a stale reference from
       // `initialState` isn't shared across editor sessions.
       return { ...initialState, hiddenBgLayers: new Set<string>() };
-    });
-    // undo/redo history 도 함께 초기화 — 안 하면 도면 전환 직후 이전 도면 history 가
-    // 남아 Ctrl+Z 시 이전 데이터가 새 store 로 주입될 수 있다.
-    useEditorStore.temporal.getState().clear();
-  },
+    }),
 
   // ==================== Canvas interaction actions ====================
 
@@ -650,46 +483,6 @@ export const useEditorStore = create<FullStore>()(
 
   setPreselectedCableDisplayGroup: (preselectedCableDisplayGroup) =>
     set({ preselectedCableDisplayGroup }),
-
-  setRackModules: (modules) => set({ localRackModules: modules }),
-  addRackModule: (m) =>
-    set((state) => ({ localRackModules: [...state.localRackModules, m], hasChanges: true })),
-  updateRackModule: (id, partial) =>
-    set((state) => ({
-      localRackModules: state.localRackModules.map((m) =>
-        m.id === id ? { ...m, ...partial } : m,
-      ),
-      hasChanges: true,
-    })),
-  removeRackModule: (id) =>
-    // 모듈 삭제 시 연결 케이블도 동시에 제거. 키보드(Delete) 와 다이얼로그
-    // 양쪽 호출자가 같은 동작을 보장하도록 store 차원에서 cascade.
-    set((state) => ({
-      localRackModules: state.localRackModules.filter((m) => m.id !== id),
-      localCables: state.localCables.filter(
-        (c) => c.sourceModuleId !== id && c.targetModuleId !== id,
-      ),
-      hasChanges: true,
-    })),
-
-  setDistributionCircuits: (circuits) => set({ localDistributionCircuits: circuits }),
-  addDistributionCircuit: (c) =>
-    set((state) => ({
-      localDistributionCircuits: [...state.localDistributionCircuits, c],
-      hasChanges: true,
-    })),
-  updateDistributionCircuit: (id, partial) =>
-    set((state) => ({
-      localDistributionCircuits: state.localDistributionCircuits.map((c) =>
-        c.id === id ? { ...c, ...partial } : c,
-      ),
-      hasChanges: true,
-    })),
-  removeDistributionCircuit: (id) =>
-    set((state) => ({
-      localDistributionCircuits: state.localDistributionCircuits.filter((c) => c.id !== id),
-      hasChanges: true,
-    })),
 
   setSelectedRackModuleId: (selectedRackModuleId) =>
     set(
@@ -735,15 +528,7 @@ export const useEditorStore = create<FullStore>()(
     previewPosition: null,
   }),
 
-    }),
-    {
-      partialize: partializeForHistory,
-      equality: shallow,
-      limit: 50,
-      handleSet: (handleSet) => throttle(handleSet, 700),
-    },
-  ),
-);
+}));
 
 // ── Derived selectors ────────────────────────────────────────────────────────
 // "현재 선택된 설비" 는 selectedIds[0] (editorStore transient) + 통합 스토어의

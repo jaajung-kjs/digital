@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 
 /**
  * 공유 선택 ↔ 에디터(전역 store) 양방향 동기화. 에디터는 무수정.
@@ -35,7 +36,10 @@ export function useEditorSelectionBridge(
     if (!active || !selectedAssetId) return;
     const ed = useEditorStore.getState();
     if (ed.detailPanelEquipmentId === selectedAssetId) return; // 루프 가드
-    if (ed.localEquipment.find((e) => e.id === selectedAssetId)) {
+    // SSOT-2d-3b: editorStore.localEquipment 제거 — 현재 층 설비 존재 판정은
+    // 통합 working copy 의 effective asset 에서 한다.
+    const present = useSubstationWorkingCopy.getState().effectiveAssets().some((a) => a.id === selectedAssetId);
+    if (present) {
       ed.setSelectedIds([selectedAssetId]);
       ed.setDetailPanelEquipmentId(selectedAssetId);
       ed.bumpFocusTick();
