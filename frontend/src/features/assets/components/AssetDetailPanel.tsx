@@ -8,6 +8,7 @@ import { AssetMaintenanceSection } from './AssetMaintenanceSection';
 import { AssetAttributesView } from './AssetAttributesView';
 import { AssetLifecycleView } from './AssetLifecycleView';
 import { floorPlanUrl } from '../navUrls';
+import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 
 interface Props {
   asset: Asset;
@@ -27,6 +28,7 @@ function Field({ label, value, onCommit, type = 'text' }: { label: string; value
 
 export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
   const navigate = useNavigate();
+  const ws = useWorkspaceNav();
   const today = useMemo(() => new Date(), []);
   const alert = assetAlert(asset, today);
 
@@ -41,7 +43,7 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {asset.floorId ? (
-            <button onClick={() => navigate(floorPlanUrl(asset.floorId!, asset.id))}
+            <button onClick={() => asset.floorId && (ws ? ws.gotoFloor(asset.floorId, asset.id) : navigate(floorPlanUrl(asset.floorId, asset.id)))}
               className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200">도면에서 보기</button>
           ) : (
             <button disabled title="도면에 배치되지 않음"
