@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { CABLE_COLORS } from '../../../types/connection';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
 
@@ -104,7 +105,7 @@ function WaypointHandle({
           (p, i) => (i === pointIndex ? ([newX, newY] as [number, number]) : ([...p] as [number, number])),
         );
         const lengths = calculatePathLength(next);
-        useEditorStore.getState().updateCable(cable.id, {
+        useSubstationWorkingCopy.getState().stageCableUpdate(cable.id, {
           pathPoints: next,
           ...lengths,
         });
