@@ -118,6 +118,12 @@ const cableInclude = {
       parent: { select: { id: true, floorId: true } },
     },
   },
+  sourceCircuit: {
+    select: { id: true, feederName: true, branchName: true, distributionEquipmentId: true },
+  },
+  targetCircuit: {
+    select: { id: true, feederName: true, branchName: true, distributionEquipmentId: true },
+  },
   fiberPath: {
     select: {
       id: true,
@@ -455,6 +461,15 @@ class CableService {
         moduleId: module.id,
         name: module.name,
         floorId: module.parent?.floorId ?? null,
+      };
+    }
+    const circuit = side === 'source' ? c.sourceCircuit : c.targetCircuit;
+    if (circuit) {
+      return {
+        equipmentId: circuit.distributionEquipmentId,
+        moduleId: null,
+        name: `${circuit.feederName} / ${circuit.branchName}`,
+        floorId: null,
       };
     }
     return { equipmentId: null, moduleId: null, name: '', floorId: null };

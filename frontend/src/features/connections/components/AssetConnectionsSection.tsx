@@ -1,3 +1,5 @@
+import { CABLE_TYPES } from '../constants';
+
 interface Endpoint { equipmentId: string | null; moduleId: string | null; name: string }
 interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; length: number | null }
 interface Props {
@@ -9,7 +11,6 @@ interface Props {
 }
 
 const epId = (e: Endpoint) => e.equipmentId ?? e.moduleId;
-const TYPES = ['AC', 'DC', 'LAN', 'FIBER', 'GROUND'];
 
 export function AssetConnectionsSection({ assetId, connections, onDelete, onUpdate, onSelectAsset }: Props) {
   if (!connections.length) return <p className="text-xs text-gray-400">연결 없음</p>;
@@ -25,9 +26,9 @@ export function AssetConnectionsSection({ assetId, connections, onDelete, onUpda
               onClick={() => otherId && onSelectAsset(otherId)}>{other.name}</button>
             <select aria-label="유형" value={c.cableType} onChange={(e) => onUpdate(c.id, { cableType: e.target.value })}
               className="text-xs border border-gray-200 rounded px-1 py-0.5 shrink-0">
-              {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              {CABLE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <input aria-label="라벨" defaultValue={c.label ?? ''}
+            <input key={c.id + (c.label ?? '')} aria-label="라벨" defaultValue={c.label ?? ''}
               onBlur={(e) => { const v = e.target.value || null; if (v !== c.label) onUpdate(c.id, { label: v }); }}
               className="w-16 text-xs border border-gray-200 rounded px-1 py-0.5 shrink-0" placeholder="라벨" />
             <button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-gray-300 hover:text-red-500 shrink-0">✕</button>
