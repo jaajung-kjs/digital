@@ -10,6 +10,7 @@ import {
   useEffectiveDistCircuits,
 } from '../../workingCopy/hooks';
 import { assetToRackModule } from '../../workingCopy/assetToRackModule';
+import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import { CABLE_COLORS } from '../../../types/connection';
 
@@ -110,7 +111,10 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   // effective 케이블은 이 층에 닿는 것만(useEffectiveFloorCables). 좌표 fallback 용
   // 랙모듈/회로는 substation 전역 effective 에서 — 모듈은 랙 자식 Asset 을 RackModule
   // shape 으로 매핑, 회로는 그대로(WorkingCopyRow→DistributionCircuit cast).
-  const editorCables = useEffectiveFloorCables(floorId) as unknown as LocalCable[];
+  // effective 케이블은 nested source/target — flat LocalCable 로 매핑해야 끝점 lookup 성공.
+  const editorCables = useEffectiveFloorCables(floorId).map((c) =>
+    cableDtoToLocal(c as unknown as CableDetailDTO),
+  );
   const effectiveAssets = useEffectiveAssets();
   const editorRackModules = useMemo(
     () =>
