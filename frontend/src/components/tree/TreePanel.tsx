@@ -1,9 +1,18 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Building2, MapPin, Zap, Layers, ChevronRight } from 'lucide-react';
 import { organizationApi, fetchChildNodes } from '../../services/organizationApi';
 import { useOrganizationStore } from '../../stores/organizationStore';
-import type { TreeNodeData } from '../../types/organization';
-import { NODE_ICONS } from '../../types/organization';
+import type { TreeNodeData, NodeType } from '../../types/organization';
+
+// 계층 레벨별 lucide 아이콘 (node.type 기준): 본부=Building2, 사업소=MapPin,
+// 변전소=Zap, 층=Layers
+const NODE_LUCIDE_ICON: Record<NodeType, typeof Building2> = {
+  headquarters: Building2,
+  branch: MapPin,
+  substation: Zap,
+  floor: Layers,
+};
 
 export function TreePanel() {
   const navigate = useNavigate();
@@ -176,8 +185,8 @@ export function TreePanel() {
           onDragOver={(e) => handleTreeDragOver(e, node)}
           onDrop={handleTreeDrop}
           onDragEnd={() => { setDragId(null); setDropTarget(null); }}
-          className={`flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-gray-100 rounded-md text-sm transition-colors ${
-            isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+          className={`flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-surface-2 rounded-md text-sm transition-colors ${
+            isSelected ? 'bg-line text-primary font-medium' : 'text-content-muted'
           } ${isDragging ? 'opacity-40' : ''}`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={() => handleClick(node)}
@@ -189,14 +198,21 @@ export function TreePanel() {
                 e.stopPropagation();
                 loadChildren(node);
               }}
-              className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 flex-shrink-0"
+              aria-label={node.expanded ? '\uc811\uae30' : '\ud3bc\uce58\uae30'}
+              className="w-4 h-4 flex items-center justify-center text-content-faint hover:text-content-muted flex-shrink-0"
             >
-              {node.expanded ? '\u2212' : '+'}
+              <ChevronRight
+                size={14}
+                className={`transition-transform ${node.expanded ? 'rotate-90' : ''}`}
+              />
             </button>
           ) : (
             <span className="w-4 flex-shrink-0" />
           )}
-          <span className="flex-shrink-0 text-xs">{NODE_ICONS[node.type]}</span>
+          {(() => {
+            const Icon = NODE_LUCIDE_ICON[node.type];
+            return <Icon size={16} className="flex-shrink-0 text-content-muted" />;
+          })()}
           <span className="truncate">{node.name}</span>
         </div>
         {isDropAfter && <div className="h-0.5 bg-blue-500 rounded-full mx-2" style={{ marginLeft: `${level * 16 + 8}px` }} />}
@@ -207,11 +223,11 @@ export function TreePanel() {
 
   return (
     <div className="py-2">
-      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+      <div className="px-3 py-2 text-xs font-semibold text-content-muted uppercase tracking-wider">
         조직 트리
       </div>
       {roots.length === 0 ? (
-        <div className="px-4 py-8 text-center text-sm text-gray-400">로딩 중...</div>
+        <div className="px-4 py-8 text-center text-sm text-content-faint">로딩 중...</div>
       ) : (
         roots.map((root) => renderNode(root, 0))
       )}
