@@ -24,10 +24,11 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
     <aside className="w-96 shrink-0 border-l border-gray-200 bg-white h-full overflow-y-auto">
       <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 sticky top-0 bg-white">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: asset.assetType.displayColor ?? '#94a3b8' }} />
+          {/* ISA-101: 종류 점은 무채색. 색은 상태 배지에만. */}
+          <span className="inline-block w-2 h-2 rounded-full shrink-0 bg-eq-3" />
           <span className="text-sm font-semibold truncate">{asset.name}</span>
           <span className="text-xs text-gray-400 shrink-0">{asset.assetType.name}</span>
-          {alert && <span className="text-xs px-1.5 rounded bg-amber-100 text-amber-700 shrink-0" title={alert.label}>⚠ {alert.label}</span>}
+          {alert && <span className="text-xs px-1.5 py-0.5 rounded-full bg-warning-bg text-warning font-medium shrink-0" title={alert.label}>{alert.label}</span>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {asset.floorId ? (

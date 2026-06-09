@@ -45,7 +45,9 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
     onCommit,
   });
 
-  const color = module.categoryDisplayColor ?? '#6b7280';
+  // ISA-101: 랙 모듈은 무채색(eq-3). 종류는 라벨/아이콘으로 구분, 색은 상태 전용.
+  // categoryDisplayColor(기존 DB 의 보라/네온 포함)를 신뢰하지 않는다.
+  const color = '#a8a29e'; // --eq-3
   const dragging = dragState != null;
   const rejected = dragState?.plan.rejected === true;
 
@@ -68,7 +70,7 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
           backgroundColor: color,
           opacity: dragging ? 0.35 : 1,
         }}
-        className="relative flex items-center px-2 text-white text-xs font-medium rounded select-none cursor-grab hover:brightness-110 transition-opacity overflow-hidden min-h-0"
+        className="relative flex items-center px-2 text-stone-900 text-xs font-medium rounded select-none cursor-grab hover:brightness-105 transition-opacity overflow-hidden min-h-0"
         aria-label={`${module.name}, 슬롯 ${module.slotIndex + 1}-${module.slotIndex + module.slotSpan} (${module.slotSpan}슬롯) — 클릭하여 편집`}
         title="클릭=편집, 드래그=이동, 하단 핸들=리사이즈"
       >

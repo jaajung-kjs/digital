@@ -205,7 +205,7 @@ const cableCategories: CableCategorySeed[] = [
   {
     code: 'CBL-CVV',
     name: '제어케이블 CVV-S',
-    displayColor: '#a855f7',
+    displayColor: '#64748b',
     iconName: 'cable-control',
     unit: 'm',
     sortOrder: 11,
@@ -222,7 +222,7 @@ const cableCategories: CableCategorySeed[] = [
   {
     code: 'CBL-CPEV',
     name: '통신케이블 CPEV-S',
-    displayColor: '#a855f7',
+    displayColor: '#64748b',
     iconName: 'cable-comm',
     unit: 'm',
     sortOrder: 12,
@@ -239,7 +239,7 @@ const cableCategories: CableCategorySeed[] = [
   {
     code: 'CBL-PCM',
     name: 'PCM케이블',
-    displayColor: '#a855f7',
+    displayColor: '#64748b',
     iconName: 'cable-pcm',
     unit: 'm',
     sortOrder: 13,
@@ -271,7 +271,7 @@ const cableCategories: CableCategorySeed[] = [
   {
     code: 'CBL-CHAMP',
     name: '챔프케이블',
-    displayColor: '#a855f7',
+    displayColor: '#64748b',
     iconName: 'cable-champ',
     unit: 'm',
     sortOrder: 15,

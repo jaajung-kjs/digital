@@ -27,15 +27,13 @@ function AssetRow({
   const alert = assetAlert({ installDate: item.installDate }, today);
   const insp = inspectionState(item.lastMaintenanceDate, today);
   const inspClass =
-    insp.level === 'none' ? 'text-gray-400' : insp.level === 'overdue' ? 'text-orange-600 font-medium' : '';
+    insp.level === 'none' ? 'text-gray-400' : insp.level === 'overdue' ? 'text-warning font-medium' : '';
   return (
     <tr onClick={onSelect} className="cursor-pointer hover:bg-blue-50 border-b border-gray-100">
       <td className="px-2 py-1 text-sm">
         <span className="inline-flex items-center gap-1.5">
-          <span
-            className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-            style={{ backgroundColor: item.assetTypeColor ?? '#9ca3af' }}
-          />
+          {/* ISA-101: 종류 점은 무채색(설비=중립). 색은 상태에만. */}
+          <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0 bg-eq-3" />
           {item.assetTypeName}
         </span>
       </td>
@@ -43,7 +41,7 @@ function AssetRow({
         <span className="inline-flex items-center gap-1.5">
           {item.name}
           {alert && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-danger-bg text-danger font-medium">
               {alert.label}
             </span>
           )}

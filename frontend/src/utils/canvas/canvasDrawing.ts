@@ -32,9 +32,12 @@ export const ELEMENT_COLORS = {
     fill: '#e0f2fe',      // sky-100
     stroke: '#0284c7',    // sky-600
   },
+  // ISA-101: 설비는 무채색(NEUTRAL). 색은 상태에만 사용한다.
+  // displayColor(설비 종류색)를 fill 로 쓰지 않고 eq-* 무채색 토큰으로 렌더 →
+  // 기존 DB(보라/네온 displayColor)도 무채색으로 보인다.
   rack: {
-    fill: '#f3f4f6',      // gray-100
-    stroke: '#374151',    // gray-700
-    text: '#111827',      // gray-900
+    fill: '#e7e5e4',      // stone-200 (eq 계열 밝은 무채색)
+    stroke: '#78716c',    // --eq-2
+    text: '#44403c',      // --eq-1
   },
 } as const;
