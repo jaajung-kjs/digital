@@ -23,11 +23,15 @@ const ASSET_DESCRIPTOR: CollectionDescriptor<Asset, Partial<Asset>> = {
   isTemp: (id: string) => id.startsWith('temp-'),
 };
 
+// 로딩 중(data===undefined) 매 렌더 새 [] 가 생기면 load 이펙트가 무한 재실행 → 안정 참조 사용.
+const EMPTY_ASSETS: Asset[] = [];
+
 interface Props { substationId: string }
 
 export function SubstationAssetGrid({ substationId }: Props) {
   const { data: types = [] } = useAssetTypes();
-  const { data: assets = [], isLoading } = useSubstationAssets(substationId);
+  const { data, isLoading } = useSubstationAssets(substationId);
+  const assets = data ?? EMPTY_ASSETS;
   const queryClient = useQueryClient();
 
   const overlay = useRegisterStore((s) => s.overlay);
