@@ -22,7 +22,7 @@ export function RackInternal({ equipmentId }: { equipmentId: string }) {
   const snapshotActive = useSnapshotStore((s) => s.active);
   if (snapshotActive) return <SnapshotRackView equipmentId={equipmentId} />;
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col" style={{ height: 480 }}>
       <PresetActionsBar rackEquipmentId={equipmentId} />
       <div className="flex-1 min-h-0">
         <RackView equipmentId={equipmentId} />

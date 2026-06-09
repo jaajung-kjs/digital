@@ -108,8 +108,8 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto p-3">
+    <div className="flex flex-col max-h-[480px]">
+      <div className="overflow-y-auto p-3">
         {byFeeder.size === 0 && (
           <p className="text-xs text-gray-400 mb-3">
             전원 계통을 추가해 분전반 회로를 구성하세요.
