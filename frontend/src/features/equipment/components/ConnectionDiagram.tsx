@@ -8,6 +8,7 @@ import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
 import { circuitLabel, type DistributionCircuit } from '../../../types/distributionCircuit';
 import { useOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
 import { composeFiberPaths } from '../../workingCopy/merge';
+import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { buildCableFiberPathLabel } from '../../fiber/label';
 import {
   useEffectiveAssets,
@@ -40,7 +41,10 @@ export function ConnectionDiagram({
         .map(assetToRackModule),
     [effectiveAssets],
   );
-  const editorCables = useEffectiveCables() as unknown as LocalCable[];
+  // effective 케이블은 nested source/target — flat LocalCable 로 매핑(끝점 lookup).
+  const editorCables = useEffectiveCables().map((c) =>
+    cableDtoToLocal(c as unknown as CableDetailDTO),
+  );
   const editorDistCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
   const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 

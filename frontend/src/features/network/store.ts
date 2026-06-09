@@ -9,13 +9,15 @@
  */
 
 import { create } from 'zustand';
-import type { LocalCable } from '../editor/stores/editorStore';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
 import { ensureOfdDirectory } from '../fiber/hooks/useOfdDirectory';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { composeFiberPaths } from '../workingCopy/merge';
 import { assetToEquipment } from '../workingCopy/assetToEquipment';
 import { assetToRackModule } from '../workingCopy/assetToRackModule';
+import { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLocal';
+// 공용 매퍼 — pathHighlightStore 등 기존 import 경로 호환을 위해 re-export.
+export { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLocal';
 
 interface State {
   /** Cable trace 결과 — 모달의 단일 source. */
@@ -32,55 +34,6 @@ interface State {
    */
   loadAndOpen: (seedCableId: string) => Promise<void>;
   close: () => void;
-}
-
-// ── Backend CableDetail (`source.nested`) → LocalCable (`flat`) 변환 ─────────
-export interface CableDetailDTO {
-  id: string;
-  source: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
-  target: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
-  cableType: string;
-  fiberPathId?: string | null;
-  fiberPortNumber?: number | null;
-  fiberPathDescription?: string | null;
-  categoryId?: string | null;
-  categoryCode?: string | null;
-  categoryName?: string | null;
-  displayColor?: string | null;
-  label?: string | null;
-  pathPoints?: [number, number][] | null;
-  pathLength?: number | null;
-  bufferLength?: number;
-  totalLength?: number | null;
-}
-
-/** effective Cable row → cableTracer 가 먹는 LocalCable. network/pathHighlight 공용. */
-export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
-  // LocalCable.sourceEquipmentId 자리는 polymorphic fallback (planCablesToLocalCables 와 동일):
-  //   equipment id 우선, 없으면 module id, 없으면 circuit id, 없으면 빈 문자열.
-  // cableTracer 가 이 값을 cableAdjacency 의 key 로 사용 + addNode 가 moduleMap lookup.
-  return {
-    id: c.id,
-    sourceEquipmentId: c.source.equipmentId ?? c.source.moduleId ?? c.source.circuitId ?? '',
-    targetEquipmentId: c.target.equipmentId ?? c.target.moduleId ?? c.target.circuitId ?? '',
-    sourceModuleId: c.source.moduleId ?? null,
-    targetModuleId: c.target.moduleId ?? null,
-    sourceCircuitId: c.source.circuitId ?? null,
-    targetCircuitId: c.target.circuitId ?? null,
-    cableType: c.cableType,
-    categoryId: c.categoryId ?? null,
-    categoryCode: c.categoryCode ?? null,
-    categoryName: c.categoryName ?? null,
-    displayColor: c.displayColor ?? null,
-    label: c.label ?? null,
-    pathPoints: c.pathPoints ?? null,
-    pathLength: c.pathLength ?? null,
-    bufferLength: c.bufferLength,
-    totalLength: c.totalLength ?? null,
-    fiberPathId: c.fiberPathId ?? null,
-    fiberPortNumber: c.fiberPortNumber ?? null,
-    fiberPathLabel: c.fiberPathDescription ?? null,
-  };
 }
 
 export const useNetworkTopologyStore = create<State>((set) => ({

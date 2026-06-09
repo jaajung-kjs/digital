@@ -1,6 +1,7 @@
 import { type LocalCable } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
+import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
 import { getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 
@@ -33,7 +34,7 @@ export function syncCableEndpointsTo(movedEquipmentId: string): void {
   );
   const patches: Record<string, Partial<LocalCable>> = {};
   for (const raw of wc.effectiveCables()) {
-    const cable = raw as unknown as LocalCable;
+    const cable = cableDtoToLocal(raw as unknown as CableDetailDTO);
     if (!cable.pathPoints || cable.pathPoints.length < 2) continue;
     const isSource =
       cable.sourceEquipmentId === movedEquipmentId ||
