@@ -14,6 +14,9 @@ import { isTempId } from '../../../utils/idHelpers';
 import { temporal } from 'zundo';
 import { shallow } from 'zustand/shallow';
 import { throttle } from '../../../utils/throttle';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useEffectiveAssets } from '../../workingCopy/hooks';
+import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 
 /** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
 export type ConnectionFilterKey = string;
@@ -743,22 +746,23 @@ export const useEditorStore = create<FullStore>()(
 );
 
 // ── Derived selectors ────────────────────────────────────────────────────────
-// "현재 선택된 설비" 는 selectedIds[0] + localEquipment 로 자명하게 도출됨.
-// 별도 selectedEquipment 필드를 두지 않고 셀렉터로 매번 계산해 stale 동기화
-// 부담을 없앤다. localEquipment 를 불변 업데이트하는 한, 해당 설비가 바뀌지
-// 않은 프레임에서는 같은 참조가 반환되어 hook 결과도 안정적.
+// "현재 선택된 설비" 는 selectedIds[0] (editorStore transient) + 통합 스토어의
+// effective(saved+overlay) asset 으로 도출한다. SSOT-2d 이후 설비 데이터의 단일
+// 진실은 substation working-copy 이므로, 선택 id 만 editorStore 에서 읽고 실제
+// 설비는 effective asset → assetToEquipment 로 매핑한다 (editorStore.localEquipment
+// 는 비어 있으므로 더 이상 읽지 않는다).
 export function useSelectedEquipment(): FloorPlanEquipment | null {
-  return useEditorStore((s) => {
-    const id = s.selectedIds[0];
-    if (!id) return null;
-    return s.localEquipment.find((e) => e.id === id) ?? null;
-  });
+  const id = useEditorStore((s) => s.selectedIds[0]);
+  const assets = useEffectiveAssets();
+  if (!id) return null;
+  const a = assets.find((x) => x.id === id);
+  return a ? assetToEquipment(a) : null;
 }
 
 /** Non-hook context (event handler / store action) 에서 같은 의미 도출. */
 export function getSelectedEquipment(): FloorPlanEquipment | null {
-  const s = useEditorStore.getState();
-  const id = s.selectedIds[0];
-  if (!id) return null;
-  return s.localEquipment.find((e) => e.id === id) ?? null;
+  const selId = useEditorStore.getState().selectedIds[0];
+  if (!selId) return null;
+  const a = useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === selId);
+  return a ? assetToEquipment(a) : null;
 }
