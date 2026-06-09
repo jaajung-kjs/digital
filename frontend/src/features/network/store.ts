@@ -9,14 +9,13 @@
  */
 
 import { create } from 'zustand';
-import { api } from '../../utils/api';
-import { queryClient } from '../../lib/queryClient';
-import { useEditorStore } from '../editor/stores/editorStore';
 import type { LocalCable } from '../editor/stores/editorStore';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
-import type { FiberPathDetail } from '../fiber/types';
 import { ensureOfdDirectory } from '../fiber/hooks/useOfdDirectory';
-import { mergeFiberPaths, mergeCables } from '../workingCopy/merge';
+import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
+import { composeFiberPaths } from '../workingCopy/merge';
+import { assetToEquipment } from '../workingCopy/assetToEquipment';
+import { assetToRackModule } from '../workingCopy/assetToRackModule';
 
 interface State {
   /** Cable trace 결과 — 모달의 단일 source. */
@@ -93,43 +92,52 @@ export const useNetworkTopologyStore = create<State>((set) => ({
   loadAndOpen: async (seedCableId) => {
     set({ modalOpen: true, isLoading: true, error: null });
     try {
-      // 1. saved fetch — React Query 캐시 일원화 (invalidate 가 자동 반영)
-      const [savedFiberPaths, savedCables] = await Promise.all([
-        queryClient.fetchQuery<FiberPathDetail[]>({
-          queryKey: ['fiber-paths'],
-          staleTime: 30_000,
-          queryFn: async () =>
-            (await api.get<{ data: FiberPathDetail[] }>('/fiber-paths')).data.data,
-        }),
-        queryClient.fetchQuery<LocalCable[]>({
-          queryKey: ['cables'],
-          staleTime: 30_000,
-          queryFn: async () =>
-            (await api.get<{ data: CableDetailDTO[] }>('/cables')).data.data.map(cableDtoToLocal),
-        }),
-      ]);
-
-      // 2. editorStore overlay (pending/deleted)
+      // OFD directory 만 fetch — cable/fiber/equipment 는 통합 working-copy 스토어의
+      // effective(saved+staged) 에서 온다. directory 는 pending/cross-substation OFD
+      // 표시명 합성에 필요(2d-3a T4: editorStore overlay 제거).
       const directory = await ensureOfdDirectory();
-      const ed = useEditorStore.getState();
-      const mergedCables = mergeCables(savedCables, ed);
-      const mergedFps = mergeFiberPaths(savedFiberPaths, ed, directory);
 
-      // 3. cableTracer 호출 — 모든 cable 위에서 BFS. seedCable 의 ring 자연 인식.
-      // 현재 floor 의 equipment/rackModules 만 — 다른 변전소는 cableTracer 가 fiberPaths
-      // 의 ofdA/B + ports[].sideX 정보로 이름/변전소명 채움 (externalInfo lookup).
+      // 통합 스토어 effective 를 build-time 에 getState 로 읽는다 — loadAndOpen 은 모달을
+      // 열 때마다 호출되는 on-demand 액션이므로 구독 불필요(매 open 마다 최신값으로 재계산).
+      const wc = useSubstationWorkingCopy.getState();
+      const mergedCables = wc.effectiveCables().map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
+      // 통합 스토어 effective fiber paths 는 flat DB row — directory 로 표시용 합성.
+      const mergedFps = composeFiberPaths(
+        wc.effectiveFiberPaths() as unknown as Array<{ id: string; ofdAId: string; ofdBId: string; portCount: number; description?: string | null }>,
+        directory,
+      );
+      // 설비/랙모듈 이름 lookup — effective assets 전체(top + 랙모듈 자식).
+      const effAssets = wc.effectiveAssets();
+      const equipment = effAssets
+        .filter((a) => !(a.parentAssetId && a.slotIndex != null))
+        .map(assetToEquipment);
+      const rackModules = effAssets
+        .filter((a) => a.parentAssetId && a.slotIndex != null)
+        .map(assetToRackModule);
+
+      // cableTracer 호출 — 모든 cable 위에서 BFS. seedCable 의 ring 자연 인식.
+      // 다른 변전소는 cableTracer 가 fiberPaths 의 ofdA/B + ports[].sideX 정보로 이름 채움.
       const seedCable = mergedCables.find((c) => c.id === seedCableId);
+      if (!seedCable) {
+        // 시드가 working copy 에서 soft-delete 됐거나 더 이상 존재하지 않음 — 빈
+        // 토폴로지를 무성공으로 표시하기보다 명시적 에러로 surface.
+        set({
+          isLoading: false,
+          error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.',
+        });
+        return;
+      }
       const result = traceCable({
         cableId: seedCableId,
         cables: mergedCables,
-        equipment: ed.localEquipment,
-        rackModules: ed.localRackModules,
+        equipment,
+        rackModules,
         fiberPaths: mergedFps,
       });
 
       set({
         traceResult: result,
-        highlightedFiberPathId: seedCable?.fiberPathId ?? null,
+        highlightedFiberPathId: seedCable.fiberPathId ?? null,
         isLoading: false,
       });
     } catch (err) {

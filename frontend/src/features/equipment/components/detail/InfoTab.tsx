@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useEditorStore } from '../../../editor/stores/editorStore';
 import { EQUIPMENT_KIND_INFO } from '../../../../types/equipmentKind';
 import { toDateInputValue } from '../../../../utils/date';
 import { useAsset } from '../../../assets/hooks/useAsset';
@@ -8,6 +7,9 @@ import { AssetAttributesView } from '../../../assets/components/AssetAttributesV
 import { AssetLifecycleView } from '../../../assets/components/AssetLifecycleView';
 import { registerUrl } from '../../../assets/navUrls';
 import { useWorkspaceNav } from '../../../workspace/WorkspaceNavContext';
+import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
+import { useEffectiveAssets } from '../../../workingCopy/hooks';
+import { assetToEquipment } from '../../../workingCopy/assetToEquipment';
 import type { EquipmentDetail } from './types';
 
 /* ================================================================
@@ -17,10 +19,15 @@ import type { EquipmentDetail } from './types';
 export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; readOnly?: boolean }) {
   const [isEditing, setIsEditing] = useState(false);
 
-  // Lookup the local store's row to get `kind` (EquipmentDetail doesn't carry it).
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localEq = localEquipment.find((e) => e.id === equipment.id);
-  const kindLabel = localEq ? EQUIPMENT_KIND_INFO[localEq.kind]?.label ?? localEq.kind : '-';
+  // 통합 스토어 effective assets 에서 `kind` 를 조회(EquipmentDetail 은 kind 를 안 들고 옴).
+  // assetType.placementKind → EquipmentKind 정규화는 assetToEquipment 가 처리.
+  const effectiveAssets = useEffectiveAssets();
+  const kindLabel = useMemo(() => {
+    const a = effectiveAssets.find((x) => x.id === equipment.id);
+    if (!a) return '-';
+    const kind = assetToEquipment(a).kind;
+    return EQUIPMENT_KIND_INFO[kind]?.label ?? kind;
+  }, [effectiveAssets, equipment.id]);
 
   const { data: asset } = useAsset(equipment.id);
   const today = useMemo(() => new Date(), []);
@@ -91,9 +98,9 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
 /* --- Edit Form — P9: name/manager/description only. --- */
 
 function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose: () => void }) {
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const setLocalEquipment = useEditorStore((s) => s.setLocalEquipment);
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
+  // 통합 스토어 stage 로 이관(2d-3a T4): editorStore.setLocalEquipment 대신
+  // stageEquipmentUpdate(id, patch) — 단일 설비 update overlay(단일 undo).
+  const stageEquipmentUpdate = useSubstationWorkingCopy((s) => s.stageEquipmentUpdate);
 
   const [editName, setEditName] = useState(equipment.name);
   const [editManager, setEditManager] = useState(equipment.manager ?? '');
@@ -101,19 +108,12 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
   const [editDescription, setEditDescription] = useState(equipment.description ?? '');
 
   const handleApply = () => {
-    const updated = localEquipment.map((eq) =>
-      eq.id === equipment.id
-        ? {
-            ...eq,
-            name: editName,
-            manager: editManager || null,
-            installDate: editInstallDate || null,
-            description: editDescription || null,
-          }
-        : eq,
-    );
-    setLocalEquipment(updated);
-    setHasChanges(true);
+    stageEquipmentUpdate(equipment.id, {
+      name: editName,
+      manager: editManager || null,
+      installDate: editInstallDate || null,
+      description: editDescription || null,
+    });
     onClose();
   };
 

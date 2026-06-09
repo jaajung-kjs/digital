@@ -1,59 +1,70 @@
 import { useMemo } from 'react';
-import { useFiberPaths } from './useFiberPaths';
 import { useOfdDirectory } from './useOfdDirectory';
-import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
-import { mergeFiberPaths } from '../../workingCopy/merge';
+import {
+  useEffectiveFiberPaths,
+  useEffectiveCables,
+  useEffectiveAssets,
+} from '../../workingCopy/hooks';
+import { composeFiberPaths } from '../../workingCopy/merge';
+import type { Asset } from '../../../types/asset';
 import type { FiberPathDetail, FiberPortStatus } from '../types';
 
 /**
- * Merge localCables into the fiber path port statuses
- * so the UI reflects unsaved changes immediately.
+ * 통합 스토어 effective cable 한쪽 끝의 폴리모픽 endpoint(equipmentId | moduleId).
+ * cable.service DTO(connections 뷰와 동일)는 source/target 를 nested 객체로 준다.
  */
-function mergePendingCables(
-  paths: FiberPathDetail[],
-  localCables: LocalCable[],
-  localEquipment: { id: string; name: string }[],
-  localRackModules: { id: string; name: string }[],
-  ofdId: string,
-  deletedCableIds: string[],
-): FiberPathDetail[] {
-  const deletedSet = new Set(deletedCableIds);
+interface EffectiveCableEndpoint {
+  equipmentId?: string | null;
+  moduleId?: string | null;
+}
+interface EffectiveCable {
+  id: string;
+  cableType?: string | null;
+  fiberPathId?: string | null;
+  fiberPortNumber?: number | null;
+  source?: EffectiveCableEndpoint | null;
+  target?: EffectiveCableEndpoint | null;
+}
 
-  // Find cables relevant to this OFD with fiber path assignments
-  const fiberCables = localCables.filter(
+/**
+ * Merge effective cables into the fiber path port statuses
+ * so the UI reflects unsaved changes immediately.
+ *
+ * 통합 스토어로 이관(2d-3a T4): saved + staged 케이블 모두 effective cables 단일
+ * 소스에서 온다. 따라서 별도의 "saved deleted" 필터가 필요 없다 — 삭제된 케이블은
+ * effective 에서 이미 빠져 있으므로 단순히 effective 케이블만 overlay 하면 된다.
+ */
+function overlayEffectiveCables(
+  paths: FiberPathDetail[],
+  effectiveCables: EffectiveCable[],
+  assetNameById: Map<string, string>,
+  ofdId: string,
+): FiberPathDetail[] {
+  // Find fiber cables relevant to this OFD with fiber path assignments
+  const fiberCables = effectiveCables.filter(
     (c) =>
       c.cableType === 'FIBER' &&
       c.fiberPathId &&
       c.fiberPortNumber != null &&
-      (c.sourceEquipmentId === ofdId || c.targetEquipmentId === ofdId)
+      (c.source?.equipmentId === ofdId || c.target?.equipmentId === ofdId),
   );
 
-  // 모든 path 에 대해 (1) saved 의 deleted cable 을 sideA/sideB 에서 제거 (2) pending cable 을 overlay
-  if (fiberCables.length === 0 && deletedSet.size === 0) return paths;
-
-  // 케이블 endpoint 는 폴리모픽 (설비 | 모듈 | 회로) — 각각 다른 맵에서 이름 resolve.
-  const equipMap = new Map(localEquipment.map((e) => [e.id, e.name]));
-  const moduleMap = new Map(localRackModules.map((m) => [m.id, m.name]));
+  if (fiberCables.length === 0) return paths;
 
   return paths.map((path) => {
     const newPorts: FiberPortStatus[] = path.ports.map((port) => {
-      // (1) deleted saved cable 제거 — backend snapshot 의 sideA/sideB 라도 frontend 가 지웠으면 null
-      let sideA = port.sideA && deletedSet.has(port.sideA.cableId) ? null : port.sideA;
-      let sideB = port.sideB && deletedSet.has(port.sideB.cableId) ? null : port.sideB;
+      let sideA = port.sideA;
+      let sideB = port.sideB;
 
-      // (2) pending cable overlay
       for (const cable of fiberCables) {
         if (cable.fiberPathId !== path.id || cable.fiberPortNumber !== port.portNumber) continue;
 
         const isLocalA = path.ofdA.id === ofdId;
-        const isConnectingToOfdAsSource = cable.sourceEquipmentId === ofdId;
-        // 반대쪽 끝 — LocalCable 폴리모픽 규약: *ModuleId 가 non-null 이면 모듈 endpoint,
-        // 아니면 설비 endpoint. (OFD 패치 케이블의 반대쪽은 송변전광단말장치 모듈.)
-        const otherModuleId = isConnectingToOfdAsSource ? cable.targetModuleId : cable.sourceModuleId;
-        const otherEquipId = isConnectingToOfdAsSource ? cable.targetEquipmentId : cable.sourceEquipmentId;
-        const otherId = otherModuleId ?? otherEquipId;
-        const otherName =
-          (otherModuleId ? moduleMap.get(otherModuleId) : equipMap.get(otherEquipId)) ?? '?';
+        const isConnectingToOfdAsSource = cable.source?.equipmentId === ofdId;
+        // 반대쪽 끝 — endpoint 가 모듈이면 moduleId, 아니면 equipmentId.
+        const otherEnd = isConnectingToOfdAsSource ? cable.target : cable.source;
+        const otherId = otherEnd?.moduleId ?? otherEnd?.equipmentId ?? '';
+        const otherName = assetNameById.get(otherId) ?? '?';
 
         const usage = { cableId: cable.id, equipmentId: otherId, equipmentName: otherName };
 
@@ -72,35 +83,40 @@ function mergePendingCables(
 }
 
 /**
- * Single source of truth for port status: backend data + local cables + pending fiber paths merged.
- * Used by FiberPathManager and ConnectionDiagram.
+ * Single source of truth for port status: effective fiber paths (통합 스토어) +
+ * effective cables 를 합성/overlay 하여 만든다. FiberPathManager 와 ConnectionDiagram 사용.
+ *
+ * 이전: useFiberPaths(per-OFD denorm) + editorStore.pending/deleted overlay.
+ * 이관 후: saved+staged 가 모두 통합 스토어 effective 에 있으므로 그것만 소스로 쓴다.
  */
 export function usePortStatus(ofdId: string) {
-  const { data: paths, isLoading } = useFiberPaths(ofdId);
-  const localCables = useEditorStore((s) => s.localCables);
-  const localEquipment = useEditorStore((s) => s.localEquipment);
-  const localRackModules = useEditorStore((s) => s.localRackModules);
-  const pendingFiberPaths = useEditorStore((s) => s.pendingFiberPaths);
-  const deletedFiberPathIds = useEditorStore((s) => s.deletedFiberPathIds);
-  const deletedCableIds = useEditorStore((s) => s.deletedCableIds);
-
+  const effectiveFiberPaths = useEffectiveFiberPaths();
+  const effectiveCables = useEffectiveCables();
+  const effectiveAssets = useEffectiveAssets();
   const directory = useOfdDirectory();
-  const mergedPaths = useMemo(() => {
-    if (!paths) return [];
-    // pendingFiberPaths 는 전체 도면의 것 — 이 OFD 와 관련된 것만 필터.
-    const ofdPendingFiberPaths = pendingFiberPaths.filter(
-      (fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId,
-    );
-    const fiberBase = mergeFiberPaths(paths, { deletedFiberPathIds, pendingFiberPaths: ofdPendingFiberPaths }, directory);
-    return mergePendingCables(
-      fiberBase,
-      localCables,
-      localEquipment,
-      localRackModules,
-      ofdId,
-      deletedCableIds,
-    );
-  }, [paths, localCables, localEquipment, localRackModules, ofdId, pendingFiberPaths, deletedFiberPathIds, deletedCableIds, directory]);
 
-  return { mergedPaths, isLoading };
+  const mergedPaths = useMemo(() => {
+    // 이 OFD 와 관련된 effective fiber path 만.
+    const ofdPaths = (effectiveFiberPaths as unknown as Array<{
+      id: string; ofdAId: string; ofdBId: string; portCount: number; description?: string | null;
+    }>).filter((fp) => fp.ofdAId === ofdId || fp.ofdBId === ofdId);
+
+    const composed = composeFiberPaths(ofdPaths, directory);
+
+    // 케이블 endpoint 이름 lookup — effective assets (top + 랙모듈 자식) 전체.
+    const assetNameById = new Map(
+      (effectiveAssets as Asset[]).map((a) => [a.id, a.name]),
+    );
+
+    return overlayEffectiveCables(
+      composed,
+      effectiveCables as unknown as EffectiveCable[],
+      assetNameById,
+      ofdId,
+    );
+  }, [effectiveFiberPaths, effectiveCables, effectiveAssets, ofdId, directory]);
+
+  // 통합 스토어는 항상 로드돼 있고(에디터 진입 시 load), per-OFD fetch 가 없으므로
+  // 별도 로딩 상태가 없다. 호출측 호환을 위해 isLoading: false 고정.
+  return { mergedPaths, isLoading: false };
 }
