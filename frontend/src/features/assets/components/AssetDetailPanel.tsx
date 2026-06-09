@@ -9,6 +9,10 @@ import { AssetAttributesView } from './AssetAttributesView';
 import { AssetLifecycleView } from './AssetLifecycleView';
 import { floorPlanUrl } from '../navUrls';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
+import { useAssetConnections } from '../../connections/hooks/useAssetConnections';
+import { useCableMutations } from '../../connections/hooks/useCableMutations';
+import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
+import { useSelection } from '../../workspace/SelectionContext';
 
 interface Props {
   asset: Asset;
@@ -31,6 +35,9 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
   const ws = useWorkspaceNav();
   const today = useMemo(() => new Date(), []);
   const alert = assetAlert(asset, today);
+  const { data: connections = [] } = useAssetConnections(asset.id);
+  const { deleteCable, updateCable } = useCableMutations();
+  const connSel = useSelection();
 
   return (
     <aside className="w-96 shrink-0 border-l border-gray-200 bg-white h-full overflow-y-auto">
@@ -82,6 +89,17 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
           readOnly={false}
           showAlert={false}
           onChange={(patch) => onPatch(asset.id, patch)}
+        />
+      </section>
+
+      <section className="px-4 py-3 border-t border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-700 mb-1">연결</h3>
+        <AssetConnectionsSection
+          assetId={asset.id}
+          connections={connections}
+          onDelete={(id) => deleteCable.mutate(id)}
+          onUpdate={(id, patch) => updateCable.mutate({ id, patch })}
+          onSelectAsset={(id) => connSel?.setSelectedAssetId(id)}
         />
       </section>
 
