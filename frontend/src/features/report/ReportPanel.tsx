@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
+import { IconButton } from '../../components/ui';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { useEditorStore } from '../editor/stores/editorStore';
 import { overlayToChanges } from './overlayToChanges';
@@ -78,24 +80,24 @@ export function ReportPanel({ floorId, onClose }: ReportPanelProps) {
 
   return (
     <div
-      className="absolute right-0 top-0 bottom-0 w-[380px] bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col animate-slide-in-left"
+      className="absolute right-0 top-0 bottom-0 w-[380px] bg-surface border-l border-line shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col animate-slide-in-left"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
-        <h3 className="text-sm font-bold text-gray-900">설계서 (미리보기)</h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600" title="닫기">
-          &times;
-        </button>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-surface-2 shrink-0">
+        <h3 className="text-sm font-bold text-content">설계서 (미리보기)</h3>
+        <IconButton aria-label="닫기" title="닫기" onClick={onClose}>
+          <X size={16} />
+        </IconButton>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
         {!hasChanges ? (
-          <div className="p-4 text-center text-sm text-gray-400 py-12">변경 없음</div>
+          <div className="p-4 text-center text-sm text-content-faint py-12">변경 없음</div>
         ) : preview.isPending && !report ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
           </div>
         ) : preview.isError ? (
-          <div className="p-4 text-center text-sm text-red-400 py-12">
+          <div className="p-4 text-center text-sm text-danger py-12">
             설계서를 계산하지 못했습니다.
           </div>
         ) : (

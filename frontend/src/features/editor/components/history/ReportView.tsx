@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Button, Input } from '../../../../components/ui';
 import {
   exportReportToCSV,
   actionBadgeColor,
@@ -162,7 +163,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
 
   if (!baseReport) {
     return (
-      <div className="p-4 text-center text-sm text-gray-400 py-12">
+      <div className="p-4 text-center text-sm text-content-faint py-12">
         이 버전의 설계서가 없습니다.
       </div>
     );
@@ -170,7 +171,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
 
   if (!report || report.diff.length === 0) {
     return (
-      <div className="p-4 text-center text-sm text-gray-400 py-12">
+      <div className="p-4 text-center text-sm text-content-faint py-12">
         변경 내역이 없습니다.
       </div>
     );
@@ -181,10 +182,10 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
       {/* BOM Section */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-bold text-gray-900">자재 수량</h4>
+          <h4 className="text-xs font-bold text-content">자재 수량</h4>
           <button
             onClick={() => setEditMode(!editMode)}
-            className="text-xs text-blue-600 hover:text-blue-800"
+            className="text-xs text-primary hover:underline"
           >
             {editMode ? '완료' : '편집'}
           </button>
@@ -192,7 +193,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
         {report.bom.filter((b) => !b.isAccessory).length > 0 ? (
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-500 border-b">
+              <tr className="text-content-muted border-b border-line">
                 <th className="text-left py-1 font-medium">분류</th>
                 <th className="text-left py-1 font-medium">규격</th>
                 <th className="text-left py-1 font-medium w-12">구분</th>
@@ -203,15 +204,15 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
             </thead>
             <tbody>
               {report.bom.filter((b) => !b.isAccessory).map((b) => (
-                <tr key={b.materialCategoryCode + (b.action ?? '') + b.name} className="border-b border-gray-50">
-                  <td className="py-1 text-gray-700">{b.name}</td>
-                  <td className="py-1 text-gray-500">{b.specification || '-'}</td>
+                <tr key={b.materialCategoryCode + (b.action ?? '') + b.name} className="border-b border-line/50">
+                  <td className="py-1 text-content">{b.name}</td>
+                  <td className="py-1 text-content-muted">{b.specification || '-'}</td>
                   <td className="py-1"><span className={`px-1 py-0.5 rounded text-[10px] ${b.action ? actionBadgeColor(b.action) : ''}`}>{b.action ? actionLabel(b.action) : ''}</span></td>
                   <td className="py-1 text-right">
                     {editMode ? (
-                      <input
+                      <Input
                         type="number"
-                        className="w-14 text-right border rounded px-1 py-0.5"
+                        className="w-14 text-right px-1 py-0.5"
                         value={bomEdits[b.materialCategoryCode] ?? b.quantity}
                         min={0}
                         step={0.01}
@@ -223,12 +224,12 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
                       b.quantity
                     )}
                   </td>
-                  <td className="py-1 text-gray-400">{b.unit}</td>
+                  <td className="py-1 text-content-faint">{b.unit}</td>
                   {editMode && (
                     <td className="py-1 text-center">
                       <button
                         onClick={() => handleRemoveItem(b.materialCategoryCode)}
-                        className="text-red-400 hover:text-red-600 text-xs"
+                        className="text-danger hover:opacity-70 text-xs"
                         title="삭제"
                       >&times;</button>
                     </td>
@@ -238,17 +239,17 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
             </tbody>
           </table>
         ) : (
-          <p className="text-xs text-gray-400">자재 변경 없음</p>
+          <p className="text-xs text-content-faint">자재 변경 없음</p>
         )}
       </section>
 
       {/* Accessories Section */}
       {report.bom.filter((b) => b.isAccessory).length > 0 && (
         <section>
-          <h4 className="text-xs font-bold text-gray-900 mb-2">부속자재 (자동)</h4>
+          <h4 className="text-xs font-bold text-content mb-2">부속자재 (자동)</h4>
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-500 border-b">
+              <tr className="text-content-muted border-b border-line">
                 <th className="text-left py-1 font-medium">분류</th>
                 <th className="text-right py-1 font-medium w-16">수량</th>
                 <th className="text-left py-1 font-medium w-10">단위</th>
@@ -256,13 +257,13 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
             </thead>
             <tbody>
               {report.bom.filter((b) => b.isAccessory).map((b) => (
-                <tr key={b.materialCategoryCode} className="border-b border-gray-50">
-                  <td className="py-1 text-gray-700">{b.name}</td>
+                <tr key={b.materialCategoryCode} className="border-b border-line/50">
+                  <td className="py-1 text-content">{b.name}</td>
                   <td className="py-1 text-right">
                     {editMode ? (
-                      <input
+                      <Input
                         type="number"
-                        className="w-14 text-right border rounded px-1 py-0.5"
+                        className="w-14 text-right px-1 py-0.5"
                         value={bomEdits[b.materialCategoryCode] ?? b.quantity}
                         min={0}
                         step={0.01}
@@ -274,7 +275,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
                       b.quantity
                     )}
                   </td>
-                  <td className="py-1 text-gray-400">{b.unit}</td>
+                  <td className="py-1 text-content-faint">{b.unit}</td>
                 </tr>
               ))}
             </tbody>
@@ -285,10 +286,10 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
       {/* Labor Section */}
       {report.labor.length > 0 && (
         <section>
-          <h4 className="text-xs font-bold text-gray-900 mb-2">노무량</h4>
+          <h4 className="text-xs font-bold text-content mb-2">노무량</h4>
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-500 border-b">
+              <tr className="text-content-muted border-b border-line">
                 <th className="text-left py-1 font-medium">공종</th>
                 <th className="text-left py-1 font-medium w-16">직종</th>
                 <th className="text-right py-1 font-medium w-14">공수(인)</th>
@@ -296,14 +297,14 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
             </thead>
             <tbody>
               {report.labor.map((l) => (
-                <tr key={l.workName} className="border-b border-gray-50">
-                  <td className="py-1 text-gray-700">{l.workName}</td>
-                  <td className="py-1 text-gray-500">{l.laborType}</td>
+                <tr key={l.workName} className="border-b border-line/50">
+                  <td className="py-1 text-content">{l.workName}</td>
+                  <td className="py-1 text-content-muted">{l.laborType}</td>
                   <td className="py-1 text-right">
                     {editMode ? (
-                      <input
+                      <Input
                         type="number"
-                        className="w-12 text-right border rounded px-1 py-0.5"
+                        className="w-12 text-right px-1 py-0.5"
                         value={laborEdits[l.workName] ?? l.hours}
                         min={0}
                         step={0.01}
@@ -324,7 +325,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
 
       {/* Surcharges */}
       <section>
-        <h4 className="text-xs font-bold text-gray-900 mb-2">할증</h4>
+        <h4 className="text-xs font-bold text-content mb-2">할증</h4>
         <div className="space-y-1">
           {SURCHARGE_RULES.map((rule) => (
             <label key={rule.code} className="flex items-center gap-2 text-xs cursor-pointer">
@@ -339,10 +340,10 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
                       : prev.filter((c) => c !== rule.code),
                   );
                 }}
-                className="rounded border-gray-300 disabled:opacity-50"
+                className="rounded border-line disabled:opacity-50"
               />
-              <span className={editMode ? 'text-gray-700' : 'text-gray-400'}>{rule.name}</span>
-              <span className="text-gray-400">x{rule.multiplier}</span>
+              <span className={editMode ? 'text-content' : 'text-content-faint'}>{rule.name}</span>
+              <span className="text-content-faint">x{rule.multiplier}</span>
             </label>
           ))}
         </div>
@@ -352,50 +353,50 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
       {editMode && (
         <section>
           {showAddForm ? (
-            <div className="space-y-2 p-2 bg-gray-50 rounded border border-gray-200">
-              <input
+            <div className="space-y-2 p-2 bg-surface-2 rounded border border-line">
+              <Input
                 type="text"
                 placeholder="항목명"
                 value={newItem.description}
                 onChange={(e) => setNewItem((p) => ({ ...p, description: e.target.value }))}
-                className="w-full text-xs border rounded px-2 py-1"
+                className="text-xs px-2 py-1"
               />
               <div className="flex gap-2">
-                <input
+                <Input
                   type="number"
                   placeholder="수량"
                   value={newItem.quantity}
                   min={0}
                   step={0.01}
                   onChange={(e) => setNewItem((p) => ({ ...p, quantity: parseFloat(e.target.value) || 0 }))}
-                  className="w-16 text-xs border rounded px-2 py-1"
+                  className="w-16 text-xs px-2 py-1"
                 />
-                <input
+                <Input
                   type="text"
                   placeholder="단위"
                   value={newItem.unit}
                   onChange={(e) => setNewItem((p) => ({ ...p, unit: e.target.value }))}
-                  className="w-12 text-xs border rounded px-2 py-1"
+                  className="w-12 text-xs px-2 py-1"
                 />
-                <input
+                <Input
                   type="number"
                   placeholder="공수"
                   value={newItem.laborHours}
                   min={0}
                   step={0.01}
                   onChange={(e) => setNewItem((p) => ({ ...p, laborHours: parseFloat(e.target.value) || 0 }))}
-                  className="w-16 text-xs border rounded px-2 py-1"
+                  className="w-16 text-xs px-2 py-1"
                 />
               </div>
               <div className="flex gap-1">
-                <button onClick={handleAddItem} className="flex-1 px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700">추가</button>
-                <button onClick={() => setShowAddForm(false)} className="flex-1 px-2 py-1 text-xs bg-white text-gray-600 border rounded hover:bg-gray-50">취소</button>
+                <Button size="sm" className="flex-1 justify-center" onClick={handleAddItem}>추가</Button>
+                <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => setShowAddForm(false)}>취소</Button>
               </div>
             </div>
           ) : (
             <button
               onClick={() => setShowAddForm(true)}
-              className="w-full px-2 py-1.5 text-xs text-blue-600 border border-dashed border-blue-300 rounded hover:bg-blue-50"
+              className="w-full px-2 py-1.5 text-xs text-primary border border-dashed border-primary/40 rounded hover:bg-info-bg"
             >
               + 항목 추가
             </button>
@@ -404,8 +405,8 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
       )}
 
       {/* Total */}
-      <section className="border-t pt-2">
-        <div className="flex justify-between text-sm font-bold">
+      <section className="border-t border-line pt-2">
+        <div className="flex justify-between text-sm font-bold text-content">
           <span>총 노무</span>
           <span>{report.totalLaborHours} 인</span>
         </div>
@@ -413,19 +414,12 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
 
       {/* Actions */}
       <div className="flex gap-2">
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className="flex-1 px-3 py-1.5 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
+        <Button size="sm" className="flex-1 justify-center" onClick={handleSave} disabled={isSaving}>
           {isSaving ? '저장 중...' : '저장'}
-        </button>
-        <button
-          onClick={() => exportReportToCSV(report)}
-          className="flex-1 px-3 py-1.5 text-xs font-medium bg-white text-gray-700 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-        >
+        </Button>
+        <Button variant="secondary" size="sm" className="flex-1 justify-center" onClick={() => exportReportToCSV(report)}>
           CSV 다운로드
-        </button>
+        </Button>
       </div>
     </div>
   );
