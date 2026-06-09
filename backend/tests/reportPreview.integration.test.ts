@@ -5,6 +5,26 @@ import { authRouter } from '../src/routes/auth.routes.js';
 import { substationsRouter } from '../src/routes/substations.routes.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 import prisma from '../src/config/prisma.js';
+import { resolveEquipmentConstructionCode } from '../src/config/constructionTemplates.js';
+
+/** 설비 자재코드 → 시공 템플릿 키 해소(순수 함수, DB 불필요). */
+describe('resolveEquipmentConstructionCode (템플릿 키 해소)', () => {
+  it('접두사 없는 타입코드 → EQP- 접두사 템플릿 키', () => {
+    expect(resolveEquipmentConstructionCode('RACK')).toBe('EQP-RACK');
+    expect(resolveEquipmentConstructionCode('OFD')).toBe('EQP-OFD');
+    expect(resolveEquipmentConstructionCode('RTU')).toBe('EQP-RTU');
+  });
+  it('이미 템플릿 키면 그대로', () => {
+    expect(resolveEquipmentConstructionCode('EQP-RTU')).toBe('EQP-RTU');
+  });
+  it('매핑 없는 타입은 그대로(diff-only 유지) — EQP-DIST 템플릿 없음', () => {
+    expect(resolveEquipmentConstructionCode('DIST')).toBe('DIST');
+  });
+  it('null/undefined → null', () => {
+    expect(resolveEquipmentConstructionCode(null)).toBeNull();
+    expect(resolveEquipmentConstructionCode(undefined)).toBeNull();
+  });
+});
 
 /**
  * #3 Task 1 — POST /api/substations/:id/report-preview 오버레이 dry-run 설계서.
@@ -47,13 +67,17 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
     await prisma.$disconnect();
   });
 
-  /** 설비 신규 1(EQP-RACK) + 케이블 신규(CBL-UTP, 길이 L) — before 비어 있음. */
+  /**
+   * 설비 신규 1 + 케이블 신규(CBL-UTP, 길이 L) — before 비어 있음.
+   * 설비 자재코드는 프론트가 보내는 **접두사 없는** assetType.code('RACK')로 둔다.
+   * 백엔드가 'RACK' → 'EQP-RACK' 로 해소해 BOM/노무가 산출되어야 한다(회귀 가드).
+   */
   const L = 10;
   const changes = {
     before: { equipment: [], cables: [] },
     after: {
       equipment: [
-        { id: 'eq1', name: '신규 랙', materialCategoryCode: 'EQP-RACK' },
+        { id: 'eq1', name: '신규 랙', materialCategoryCode: 'RACK' },
       ],
       cables: [
         {
@@ -82,6 +106,7 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
     const eqDiff = report.diff.find((d: any) => d.type === 'equipment');
     const cbDiff = report.diff.find((d: any) => d.type === 'cable');
     expect(eqDiff.action).toBe('install');
+    // 'RACK' 입력이 시공 템플릿 키 'EQP-RACK' 로 해소됨.
     expect(eqDiff.materialCategoryCode).toBe('EQP-RACK');
     expect(cbDiff.action).toBe('install');
     expect(cbDiff.materialCategoryCode).toBe('CBL-UTP');

@@ -8,7 +8,12 @@
  * without updating frontend/src/types/constructionReport.ts at the same time.
  */
 
-import { CONSTRUCTION_TEMPLATES, SURCHARGE_RULES, type AccessoryRule } from '../config/constructionTemplates.js';
+import {
+  CONSTRUCTION_TEMPLATES,
+  SURCHARGE_RULES,
+  resolveEquipmentConstructionCode,
+  type AccessoryRule,
+} from '../config/constructionTemplates.js';
 import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
 
@@ -480,5 +485,22 @@ export async function reportPreview(
     throw new NotFoundError('해당 변전소의 층');
   }
 
-  return calculateConstructionReport(changes.before, changes.after, overrides);
+  // 설비 자재코드를 시공 템플릿 키로 해소(RACK→EQP-RACK 등). 프론트는 assetType.code
+  // 를 접두사 없이 보내므로 여기서 정규화해야 엔진 정확 매치가 설비 BOM/노무를 산출한다.
+  // 케이블 코드(CBL-*)는 이미 템플릿 키라 손대지 않는다.
+  const before = normalizeEquipmentCodes(changes.before);
+  const after = normalizeEquipmentCodes(changes.after);
+
+  return calculateConstructionReport(before, after, overrides);
+}
+
+/** 스냅샷의 설비 자재코드를 시공 템플릿 키로 해소한 새 스냅샷을 반환(케이블은 그대로). */
+function normalizeEquipmentCodes(snapshot: PlanSnapshot): PlanSnapshot {
+  return {
+    ...snapshot,
+    equipment: snapshot.equipment.map((eq) => ({
+      ...eq,
+      materialCategoryCode: resolveEquipmentConstructionCode(eq.materialCategoryCode),
+    })),
+  };
 }

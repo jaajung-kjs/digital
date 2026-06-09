@@ -234,6 +234,28 @@ export const CONSTRUCTION_TEMPLATES: Record<string, ConstructionTemplate> = {
   ...CABLE_TEMPLATES,
 };
 
+/**
+ * 설비 자재코드를 시공 템플릿 키로 해소한다.
+ *
+ * 프론트(overlayToChanges)는 설비 자재코드로 `assetType.code` 를 보내는데,
+ * 이는 종종 접두사가 없다(예: 'RACK', 'OFD', 'RTU'). 템플릿 키는 'EQP-' 접두사
+ * (예: 'EQP-RACK'). 따라서 엔진의 정확 매치가 빗나가 BOM/노무가 비어 버린다.
+ *
+ * 맹목적 접두사 부착이 아니라 **템플릿 존재 검사**로 결정한다:
+ *   1) code 가 이미 템플릿 키 → 그대로 (예: 'EQP-RTU')
+ *   2) 'EQP-'+code 가 템플릿 키 → 'EQP-'+code (예: 'RACK' → 'EQP-RACK')
+ *   3) 둘 다 아니면 → 그대로(해소 불가; 매핑 없는 타입은 diff-only 유지, 예: 'DIST')
+ */
+export function resolveEquipmentConstructionCode(
+  code: string | null | undefined,
+): string | null {
+  if (!code) return null;
+  if (code in CONSTRUCTION_TEMPLATES) return code;
+  const prefixed = `EQP-${code}`;
+  if (prefixed in CONSTRUCTION_TEMPLATES) return prefixed;
+  return code;
+}
+
 // ============================================================
 // Surcharge rules
 // ============================================================
