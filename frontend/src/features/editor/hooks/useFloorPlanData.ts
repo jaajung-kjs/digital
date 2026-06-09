@@ -3,54 +3,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type {
   FloorPlanDetail,
-  FloorPlanCable,
   UpdateFloorPlanRequest,
   BulkUpdatePlanResponse,
 } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
-import type { RackModule } from '../../../types/rackModule';
-import type { DistributionCircuit } from '../../../types/distributionCircuit';
-import { useEditorStore, type LocalCable } from '../stores/editorStore';
+import { useEditorStore } from '../stores/editorStore';
 import { useToastStore } from '../stores/toastStore';
 import { useViewport } from './useViewport';
 import { isTempId } from '../../../utils/idHelpers';
 import { buildIdMaps } from '../../workingCopy/idMaps';
 import { commitWorkingCopy } from '../../workingCopy/commit';
 import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
+import { useWorkingCopyLoader } from '../../workingCopy/hooks';
 
-/**
- * Convert FloorPlanCable[] from the plan response into LocalCable[] for the editor store.
- *
- * backend 는 폴리모픽 source/target (equipmentId | moduleId | circuitId) 를 준다.
- * LocalCable 은 그 셋을 *EquipmentId 한 필드로 평탄화해 담는다 (= endpoint id,
- * 종류는 *ModuleId / *CircuitId 로 판별). 원본 moduleId / circuitId 도 그대로 보존.
- */
-function planCablesToLocalCables(cables: FloorPlanCable[]): LocalCable[] {
-  return cables.map((c) => ({
-    id: c.id,
-    sourceEquipmentId: c.sourceEquipmentId ?? c.sourceModuleId ?? c.sourceCircuitId ?? '',
-    targetEquipmentId: c.targetEquipmentId ?? c.targetModuleId ?? c.targetCircuitId ?? '',
-    sourceModuleId: c.sourceModuleId ?? null,
-    targetModuleId: c.targetModuleId ?? null,
-    sourceCircuitId: c.sourceCircuitId ?? null,
-    targetCircuitId: c.targetCircuitId ?? null,
-    cableType: c.cableType,
-    categoryId: c.categoryId ?? null,
-    categoryCode: c.categoryCode ?? null,
-    categoryName: c.categoryName ?? null,
-    displayColor: c.displayColor ?? null,
-    specParams: c.specParams ?? null,
-    specification: c.specification ?? null,
-    pathPoints: c.pathPoints ?? null,
-    pathLength: c.pathLength ?? null,
-    totalLength: c.totalLength ?? null,
-    label: c.label ?? null,
-    color: c.color ?? null,
-    fiberPathId: c.fiberPathId ?? null,
-    fiberPortNumber: c.fiberPortNumber ?? null,
-    fiberPathLabel: c.fiberPathLabel ?? null,
-  }));
-}
+// SSOT-2d Task 2 — planCablesToLocalCables 제거. 케이블은 더 이상 plan 응답에서
+// editorStore 로 평탄화하지 않는다 (통합 working copy 가 effective 케이블 제공, Task 3).
 
 /**
  * Hook for loading/saving floor plan data.
@@ -63,7 +30,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   const {
     localEquipment, zoom, panX, panY,
     gridSize, majorGridSize,
-    setLocalEquipment, setGridSize, setMajorGridSize,
+    setGridSize, setMajorGridSize,
     setHasChanges, setViewportInitialized,
     setViewport, viewportInitialized,
     stagedBackgroundDrawing, stagedBackgroundOpacity,
@@ -87,6 +54,11 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     },
     enabled: !!floorId,
   });
+
+  // SSOT-2d Task 2 — 층의 변전소 단위 통합 working copy 로드. 변전소 워크스페이스에선
+  // 이미 로드돼 있어(idempotent guard) no-op, 단독 `/floors/:id/plan` 경로에선 여기서
+  // 트리거된다. 이후 effective 훅(Task 3)이 이 스토어를 읽는다.
+  useWorkingCopyLoader(floor?.substationId ?? null);
 
   const { data: floorPlan, isLoading: planLoading, error: planError } = useQuery({
     queryKey: ['floorPlan', floorId],
@@ -208,71 +180,22 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     },
   });
 
-  // P9: aggregate rack modules across all rack equipment on the floor.
-  const rackEquipmentIds = (floorPlan?.equipment ?? [])
-    .filter((eq) => eq.kind === 'RACK')
-    .map((eq) => eq.id)
-    .sort()
-    .join('|');
+  // SSOT-2d Task 2 — P9 의 aggregate rack-module / dist-circuit fetch 제거.
+  // 랙모듈/회로는 변전소 단위 통합 working copy 가 effective 훅으로 제공한다(Task 3).
 
-  // DISTRIBUTION 설비 id 들을 join-key 로 묶어 회로 목록을 aggregate fetch.
-  const distEquipmentIds = (floorPlan?.equipment ?? [])
-    .filter((eq) => eq.kind === 'DISTRIBUTION')
-    .map((eq) => eq.id)
-    .sort()
-    .join('|');
-
-  const { data: aggregateRackModules } = useQuery({
-    queryKey: ['floorPlan-rack-modules', floorId, rackEquipmentIds],
-    queryFn: async () => {
-      const ids = rackEquipmentIds.split('|').filter(Boolean);
-      if (ids.length === 0) return [] as RackModule[];
-      const results = await Promise.all(
-        ids.map((id) =>
-          api
-            .get<{ data: RackModule[] }>('/rack-modules', { params: { rackId: id } })
-            .then((r) => r.data.data)
-            .catch(() => [] as RackModule[]),
-        ),
-      );
-      return results.flat();
-    },
-    enabled: !!floorPlan && rackEquipmentIds.length > 0,
-    staleTime: 1000 * 30,
-  });
-
-  const { data: aggregateDistCircuits } = useQuery({
-    queryKey: ['floorPlan-dist-circuits', floorId, distEquipmentIds],
-    queryFn: async () => {
-      const ids = distEquipmentIds.split('|').filter(Boolean);
-      if (ids.length === 0) return [] as DistributionCircuit[];
-      const results = await Promise.all(
-        ids.map((id) =>
-          api
-            .get<{ data: DistributionCircuit[] }>('/distribution-circuits', {
-              params: { distributionId: id },
-            })
-            .then((r) => r.data.data)
-            .catch(() => [] as DistributionCircuit[]),
-        ),
-      );
-      return results.flat();
-    },
-    enabled: !!floorPlan && distEquipmentIds.length > 0,
-    staleTime: 1000 * 30,
-  });
-
-  // Load floor plan data into store (from server)
+  // Load floor-level canvas settings into editorStore (from `/floors/:id/plan`).
+  //
+  // SSOT-2d Task 2 — 설비/케이블/랙모듈/회로는 더 이상 editorStore 에 채우지 않는다.
+  // 이 데이터는 변전소 단위 통합 working copy(useWorkingCopyLoader 로 로드)가
+  // effective 훅을 통해 제공한다(Task 3 에서 소비처 배선). 여기서는 floor-level
+  // 캔버스 설정(gridSize/majorGridSize/배경 등 — 통합 스토어에 없는 값)만 채운다.
+  // baseFloorVersion 은 Task 5(save/OCC 이관)까지 유지.
   useEffect(() => {
     if (!floorPlan) return;
 
-    const cables = planCablesToLocalCables(floorPlan.cables ?? []);
-
-    setLocalEquipment(floorPlan.equipment);
     useEditorStore.getState().setBaseFloorVersion(
       typeof floorPlan.updatedAt === 'string' ? floorPlan.updatedAt : new Date(floorPlan.updatedAt).toISOString(),
     );
-    useEditorStore.getState().setCables(cables);
     setGridSize(floorPlan.gridSize);
     setMajorGridSize(floorPlan.majorGridSize ?? 60);
     // CM-B: scaleRatio 더 이상 동기화하지 않음 — 캔버스 1 unit = 1 cm 통일.
@@ -285,31 +208,17 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     useEditorStore.getState().clearPendingData();
     setHasChanges(false);
     setViewportInitialized(false);
-  }, [floorPlan, floorId, setLocalEquipment, setGridSize, setMajorGridSize, setHasChanges, setViewportInitialized]);
+  }, [floorPlan, floorId, setGridSize, setMajorGridSize, setHasChanges, setViewportInitialized]);
 
-  // P9: seed `localRackModules` once the aggregate fetch lands. The hook above
-  // re-runs whenever the rack equipment id set changes, so the working copy
-  // stays in sync with the server snapshot until the user edits modules.
-  useEffect(() => {
-    if (!aggregateRackModules) return;
-    useEditorStore.getState().setRackModules(aggregateRackModules);
-  }, [aggregateRackModules]);
-
-  useEffect(() => {
-    if (!aggregateDistCircuits) return;
-    useEditorStore.getState().setDistributionCircuits(aggregateDistCircuits);
-  }, [aggregateDistCircuits]);
-
-  // undo/redo baseline — 비동기 3쿼리(설비+케이블 / 랙모듈 / 회로)가 모두 store 에
-  // 반영된 뒤 temporal history 를 비운다. 초기 로드 중간 상태가 첫 undo 의 대상이
-  // 되어 랙 모듈이 사라지던 버그를 막는다. 저장 후 refetch 도 같은 effect 가 정리.
+  // SSOT-2d Task 2 — 설비+케이블 / 랙모듈 / 회로의 editorStore 시딩 제거.
+  // 이 데이터는 통합 working copy 가 effective 훅으로 제공한다(Task 3).
+  // 따라서 P9 의 aggregate rack-module / dist-circuit fetch 와 그 시딩 effect,
+  // 그리고 그 3쿼리에 의존하던 temporal-baseline reset 도 함께 제거됐다.
+  // undo/redo baseline 정리는 Task 4(쓰기/undo 이관)에서 통합 스토어 기준으로 재설계.
   useEffect(() => {
     if (!floorPlan) return;
-    const racksReady = rackEquipmentIds.length === 0 || aggregateRackModules !== undefined;
-    const distReady = distEquipmentIds.length === 0 || aggregateDistCircuits !== undefined;
-    if (!racksReady || !distReady) return;
     useEditorStore.temporal.getState().clear();
-  }, [floorPlan, aggregateRackModules, aggregateDistCircuits, rackEquipmentIds, distEquipmentIds]);
+  }, [floorPlan]);
 
   // Viewport initialization. Container layout is async — on first mount the
   // ref is set but clientWidth/Height can still be 0 for a frame. Without a
