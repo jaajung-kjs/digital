@@ -98,6 +98,8 @@ export function SubstationStatusView({ substationId }: { substationId: string })
           </div>
         )}
         <div className="flex-1 min-h-0">
+          {/* 리스트는 useNodeAssets(커밋본) 기준 — 인스펙터 편집은 registerStore 오버레이에 스테이지되고
+              커밋 시 nodeAssets 무효화로 리스트에 반영된다(읽기-커밋 설계). */}
           <NodeStatusView nodeType="substation" nodeId={substationId} />
         </div>
       </div>

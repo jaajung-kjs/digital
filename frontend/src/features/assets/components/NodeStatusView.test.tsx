@@ -9,8 +9,6 @@ vi.mock('../../../hooks/useNodeAssets', () => ({
     { id: 'a2', name: 'OFD-7', assetTypeName: 'OFD', assetTypeColor: '#222', substationId: 's1', substationName: '춘천S/S', floorId: null, floorName: null, roomText: '배전실', installDate: null, manager: null, status: null, warrantyUntil: null, replaceDue: null, lastMaintenanceDate: '2026-05-01' },
   ] }),
 }));
-vi.mock('../../../hooks/useNodeStats', () => ({ useNodeStats: () => ({ data: { self: { total: 2, byCategory: [] } } }) }));
-
 import { NodeStatusView } from './NodeStatusView';
 
 function renderView(onSelect: (id: string | null) => void) {
