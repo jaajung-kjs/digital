@@ -10,14 +10,44 @@
 
 import { create } from 'zustand';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
-import { ensureOfdDirectory } from '../fiber/hooks/useOfdDirectory';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
-import { composeFiberPaths } from '../workingCopy/merge';
 import { assetToEquipment } from '../workingCopy/assetToEquipment';
 import { assetToRackModule } from '../workingCopy/assetToRackModule';
 import { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLocal';
+import { fetchAllFiberPathsCached } from '../fiber/hooks/useFiberPaths';
+import { queryClient } from '../../lib/queryClient';
+import { api } from '../../utils/api';
+import type { LocalCable } from '../editor/stores/editorStore';
 // 공용 매퍼 — pathHighlightStore 등 기존 import 경로 호환을 위해 re-export.
 export { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLocal';
+
+/**
+ * 글로벌(전 변전소) cable 위에 *이 변전소* 의 staged 변경을 오버레이.
+ *
+ * - `deletes` 에 있는 id 는 제거.
+ * - 나머지 글로벌 cable 중 이 변전소 id 는 effective(saved+staged) 버전으로 교체.
+ * - 글로벌에 없는 staged-create(임시 id) 는 새로 추가.
+ *
+ * 결과: 다른 변전소 cable 은 글로벌 원본 그대로(cross-substation hop 가능),
+ * 이 변전소 cable 은 방금 그린 staged 변경이 반영된 버전.
+ */
+export function overlayStagedOntoGlobal(
+  globalCables: LocalCable[],
+  stagedCables: LocalCable[],
+  deletes: string[],
+): LocalCable[] {
+  const stagedById = new Map(stagedCables.map((c) => [c.id, c]));
+  const deleted = new Set(deletes);
+  const merged = globalCables
+    .filter((c) => !deleted.has(c.id))
+    .map((c) => stagedById.get(c.id) ?? c);
+  // 글로벌에 없던 staged-create (임시 id) 추가.
+  const seen = new Set(merged.map((c) => c.id));
+  for (const c of stagedCables) {
+    if (!seen.has(c.id) && !deleted.has(c.id)) merged.push(c);
+  }
+  return merged;
+}
 
 interface State {
   /** Cable trace 결과 — 모달의 단일 source. */
@@ -46,21 +76,37 @@ export const useNetworkTopologyStore = create<State>((set) => ({
   loadAndOpen: async (seedCableId) => {
     set({ modalOpen: true, isLoading: true, error: null });
     try {
-      // OFD directory 만 fetch — cable/fiber/equipment 는 통합 working-copy 스토어의
-      // effective(saved+staged) 에서 온다. directory 는 pending/cross-substation OFD
-      // 표시명 합성에 필요(2d-3a T4: editorStore overlay 제거).
-      const directory = await ensureOfdDirectory();
+      // 1. GLOBAL(전 변전소) backend 데이터.
+      //    - fiber paths: GET /fiber-paths — 양쪽 포트(ports[].sideX) + ofdA/B 가
+      //      cross-substation 으로 채워진 FiberPathDetail[]. 이게 있어야 tracer 가
+      //      OFD↔OFD 를 다른 변전소까지 hop. composeFiberPaths(effective) 는 이 변전소
+      //      한정 + 빈 포트라 cross-substation 토폴로지가 끊긴다.
+      //    - cables: GET /cables — 전 변전소 cable(nested CableDetail). 원격 OFD 의
+      //      cable 도 포함되어야 tracer 가 그쪽으로 traverse 가능.
+      const globalFiberPaths = await fetchAllFiberPathsCached(queryClient);
+      const globalCables = (
+        await queryClient.fetchQuery({
+          queryKey: ['cables'],
+          staleTime: 30_000,
+          queryFn: async () =>
+            (await api.get<{ data: CableDetailDTO[] }>('/cables')).data.data,
+        })
+      ).map(cableDtoToLocal);
 
-      // 통합 스토어 effective 를 build-time 에 getState 로 읽는다 — loadAndOpen 은 모달을
-      // 열 때마다 호출되는 on-demand 액션이므로 구독 불필요(매 open 마다 최신값으로 재계산).
+      // 2. 이 변전소의 staged cable 변경을 글로벌 위에 오버레이 — 방금 그린 로컬 cable 도
+      //    토폴로지에 보이게. effectiveCables() = 이 변전소의 saved+staged.
       const wc = useSubstationWorkingCopy.getState();
-      const mergedCables = wc.effectiveCables().map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
-      // 통합 스토어 effective fiber paths 는 flat DB row — directory 로 표시용 합성.
-      const mergedFps = composeFiberPaths(
-        wc.effectiveFiberPaths() as unknown as Array<{ id: string; ofdAId: string; ofdBId: string; portCount: number; description?: string | null }>,
-        directory,
+      const stagedCables = wc
+        .effectiveCables()
+        .map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
+      const mergedCables = overlayStagedOntoGlobal(
+        globalCables,
+        stagedCables,
+        wc.overlays.cables.deletes,
       );
-      // 설비/랙모듈 이름 lookup — effective assets 전체(top + 랙모듈 자식).
+
+      // 3. 설비/랙모듈 이름 lookup — 이 변전소 effective assets(로컬 이름). 원격 OFD/모듈
+      //    이름은 globalFiberPaths 의 ofdA/B + ports[].sideX + directory 로 tracer 가 채움.
       const effAssets = wc.effectiveAssets();
       const equipment = effAssets
         .filter((a) => !(a.parentAssetId && a.slotIndex != null))
@@ -86,7 +132,7 @@ export const useNetworkTopologyStore = create<State>((set) => ({
         cables: mergedCables,
         equipment,
         rackModules,
-        fiberPaths: mergedFps,
+        fiberPaths: globalFiberPaths,
       });
 
       set({
