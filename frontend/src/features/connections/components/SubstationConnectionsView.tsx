@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useSubstationConnections } from '../hooks/useSubstationConnections';
-import { useCableMutations } from '../hooks/useCableMutations';
+import { useEffectiveCables } from '../../workingCopy/hooks';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelection } from '../../workspace/SelectionContext';
 import { CABLE_TYPES } from '../constants';
 
@@ -48,9 +48,10 @@ export function SubstationConnectionsTable({ connections, typeFilter, onDelete, 
 
 const TYPES = ['', ...CABLE_TYPES];
 
-export function SubstationConnectionsView({ substationId }: { substationId: string }) {
-  const { data: connections = [] } = useSubstationConnections(substationId);
-  const { deleteCable, updateCable } = useCableMutations();
+export function SubstationConnectionsView(_: { substationId: string }) {
+  // 통합 스토어의 effective 케이블을 읽는다(saved + 스테이징 오버레이). 스토어는
+  // 워크스페이스 레벨(T2 useWorkingCopyLoader)에서 로드돼 있으므로 여기선 읽기만 한다.
+  const connections = useEffectiveCables() as unknown as Conn[];
   const sel = useSelection();
   const [typeFilter, setTypeFilter] = useState('');
   return (
@@ -64,8 +65,8 @@ export function SubstationConnectionsView({ substationId }: { substationId: stri
       </div>
       <SubstationConnectionsTable
         connections={connections} typeFilter={typeFilter}
-        onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) deleteCable.mutate(id); }}
-        onUpdate={(id, patch) => updateCable.mutate({ id, patch })}
+        onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) useSubstationWorkingCopy.getState().stageCableDelete(id); }}
+        onUpdate={(id, patch) => useSubstationWorkingCopy.getState().stageCableUpdate(id, patch)}
         onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
       />
     </div>
