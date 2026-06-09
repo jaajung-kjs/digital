@@ -63,7 +63,7 @@ interface CategoryListProps {
   level: number;
 }
 
-function CategoryList({ nodeType, nodeId, level }: CategoryListProps) {
+export function CategoryList({ nodeType, nodeId, level }: CategoryListProps) {
   const { data: nodeStats, isLoading } = useNodeStats(nodeType, nodeId);
   if (isLoading && !nodeStats) {
     return <StatsTreeRow level={level} label="로딩 중..." muted />;
@@ -220,7 +220,7 @@ interface StatsTreeRowProps {
 }
 
 /** TreePanel.renderNode 와 동일 시각 패턴 — 들여쓰기 + +/− + hover bg. */
-function StatsTreeRow({
+export function StatsTreeRow({
   level,
   label,
   icon,
