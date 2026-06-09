@@ -3,10 +3,12 @@ import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { TreePanel } from './tree/TreePanel';
 import { Breadcrumb } from './Breadcrumb';
+import { useTreeRouteSync } from '../hooks/useTreeRouteSync';
 
 const COLLAPSE_KEY = 'appshell-nav-collapsed';
 
 export function AppShell() {
+  useTreeRouteSync(); // route → tree highlight/reveal sync (no UI)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === '1');
   const toggle = () =>
     setCollapsed((c) => {
@@ -58,7 +60,7 @@ export function AppShell() {
         <nav
           className={`${collapsed ? 'w-0' : 'w-72'} shrink-0 border-r border-gray-200 overflow-hidden transition-[width] duration-150`}
         >
-          <div className="w-72">
+          <div className="w-72 h-full overflow-y-auto">
             <TreePanel />
           </div>
         </nav>
