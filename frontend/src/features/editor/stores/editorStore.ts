@@ -107,8 +107,6 @@ export interface EditorStoreState {
   majorGridSize: number;
   showGrid: boolean;
 
-  hasChanges: boolean;
-
   pendingUploads: PendingUpload[];
   pendingLogs: PendingLog[];
 
@@ -215,7 +213,6 @@ export interface EditorStoreActions {
   setGridSize: (size: number) => void;
   setMajorGridSize: (size: number) => void;
   setShowGrid: (show: boolean) => void;
-  setHasChanges: (has: boolean) => void;
 
   addPendingUpload: (upload: PendingUpload) => void;
   removePendingUpload: (id: string) => void;
@@ -302,7 +299,6 @@ const initialState: EditorStoreState = {
   gridSize: 10,
   majorGridSize: 60,
   showGrid: true,
-  hasChanges: false,
   pendingUploads: [],
   pendingLogs: [],
   stagedBackgroundDrawing: undefined,
@@ -375,11 +371,9 @@ export const useEditorStore = create<FullStore>()((set) => ({
   setGridSize: (gridSize) => set({ gridSize }),
   setMajorGridSize: (majorGridSize) => set({ majorGridSize }),
   setShowGrid: (showGrid) => set({ showGrid }),
-  setHasChanges: (hasChanges) => set({ hasChanges }),
 
   addPendingUpload: (upload) => set((state) => ({
     pendingUploads: [...state.pendingUploads, upload],
-    hasChanges: true,
   })),
   removePendingUpload: (id) => set((state) => {
     const upload = state.pendingUploads.find((u) => u.id === id);
@@ -388,7 +382,6 @@ export const useEditorStore = create<FullStore>()((set) => ({
   }),
   addPendingLog: (log) => set((state) => ({
     pendingLogs: [...state.pendingLogs, log],
-    hasChanges: true,
   })),
   updatePendingLog: (id, updates) => set((state) => ({
     pendingLogs: state.pendingLogs.map((l) => l.id === id ? { ...l, ...updates } : l),
@@ -411,11 +404,11 @@ export const useEditorStore = create<FullStore>()((set) => ({
   // fits to the new content (option C: auto-fit on stage). Opacity
   // doesn't change geometry so no re-fit needed.
   stageBackgroundDrawing: (drawing) =>
-    set({ stagedBackgroundDrawing: drawing, hasChanges: true, viewportInitialized: false }),
+    set({ stagedBackgroundDrawing: drawing, viewportInitialized: false }),
   stageBackgroundClear: () =>
-    set({ stagedBackgroundDrawing: null, hasChanges: true, viewportInitialized: false }),
+    set({ stagedBackgroundDrawing: null, viewportInitialized: false }),
   stageBackgroundOpacity: (value) =>
-    set({ stagedBackgroundOpacity: Math.max(0, Math.min(1, value)), hasChanges: true }),
+    set({ stagedBackgroundOpacity: Math.max(0, Math.min(1, value)) }),
   resetStagedBackground: () =>
     set({ stagedBackgroundDrawing: undefined, stagedBackgroundOpacity: undefined }),
 
@@ -540,9 +533,9 @@ export const useEditorStore = create<FullStore>()((set) => ({
 /**
  * USP Task 1 — floor-level 캔버스 설정의 staged dirty 여부.
  *
- * 현재 hasChanges 를 floor 설정 변경으로 뒤집는 액션은 stageBackgroundDrawing /
+ * floor 설정을 dirty 로 만드는 액션은 stageBackgroundDrawing /
  * stageBackgroundClear / stageBackgroundOpacity 뿐이다(둘 다 staged* 필드를
- * undefined 가 아닌 값으로 만든다). setGridSize/setMajorGridSize 는 hasChanges 를
+ * undefined 가 아닌 값으로 만든다). setGridSize/setMajorGridSize 는 staged* 를
  * 건드리지 않으므로 여기서도 grid 는 dirty 신호에 포함하지 않는다(현 동작 그대로).
  */
 export const selectFloorSettingsDirty = (s: EditorStoreState): boolean =>

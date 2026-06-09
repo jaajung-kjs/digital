@@ -158,8 +158,6 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
         // 케이블 endpoint 라이브 동기화 — 설비가 작아져도 중심이 바뀌면
         // 연결된 케이블의 양 끝점이 새 중심으로 따라온다.
         syncCableEndpointsTo(equipment.id);
-
-        useEditorStore.getState().setHasChanges(true);
       };
 
       const onMove = (ev: PointerEvent) => {

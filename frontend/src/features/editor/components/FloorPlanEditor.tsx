@@ -8,6 +8,7 @@ import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { getUnifiedDirtyCount } from '../../workingCopy/hooks';
 import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useToastStore } from '../stores/toastStore';
@@ -31,7 +32,6 @@ import { BackgroundLayersPanel } from './BackgroundLayersPanel';
 import { CableSpecModalWrapper } from './modals/CableSpecModal';
 import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
 import { EquipmentPasteModal } from './modals/EquipmentPasteModal';
-import { DraftRecoveryDialog } from './modals/DraftRecoveryDialog';
 import { ToastHost } from './ToastHost';
 import { CableEndpointPickerHost } from './CableEndpointPickerHost';
 import { RackModuleDialog } from '../../rack/components/RackModuleDialog';
@@ -57,8 +57,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showDraftDialog, setShowDraftDialog] = useState(false);
-  const draftCheckedRef = useRef(false);
 
   const {
     floor, floorPlan, floorLoading, planLoading, planError,
@@ -92,7 +90,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     useSubstationWorkingCopy.getState().stageEquipmentCreate({ ...newEquipment, floorId }, assetTypeId);
     cs.setPasteEquipmentModalOpen(false);
     cs.setPasteEquipmentName('');
-    es.setHasChanges(true);
     es.setSelectedIds([newEquipment.id]);
     es.setClipboard({ type: 'equipment', data: newEquipment });
   }, [floorId, kindToAssetTypeId]);
@@ -206,160 +203,10 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
   }, [pathHighlightActive, tracingCableId, highlightedEdgeIds]);
 
-  // Check for localStorage draft on initial load
-  useEffect(() => {
-    if (draftCheckedRef.current || !floorPlan) return;
-    draftCheckedRef.current = true;
-    const draftKey = `draft-plan-${floorId}`;
-    const raw = localStorage.getItem(draftKey);
-    if (raw) {
-      try {
-        const draft = JSON.parse(raw);
-        if (draft && draft.savedAt) {
-          setShowDraftDialog(true);
-        }
-      } catch {
-        localStorage.removeItem(draftKey);
-      }
-    }
-  }, [floorId, floorPlan]);
-
-  const handleRestoreDraft = useCallback(() => {
-    const draftKey = `draft-plan-${floorId}`;
-    const raw = localStorage.getItem(draftKey);
-    if (!raw) { setShowDraftDialog(false); return; }
-    try {
-      const draft = JSON.parse(raw);
-      const store = useEditorStore.getState();
-      // SSOT-2d Task 4 — 드래프트 복구도 통합 stage 액션으로.
-      // 복구되는 설비/케이블/모듈은 임시(temp) id 를 가진 staged create 로 올린다.
-      const wc = useSubstationWorkingCopy.getState();
-      if (Array.isArray(draft.localEquipment)) {
-        for (const eq of draft.localEquipment as FloorPlanEquipment[]) {
-          const assetTypeId = kindToAssetTypeId(eq.kind);
-          if (!assetTypeId) {
-            // eslint-disable-next-line no-console
-            console.warn(`[draft] assetTypeId 미해소 (kind=${eq.kind}) — 설비 복구 건너뜀`);
-            continue;
-          }
-          wc.stageEquipmentCreate({ ...eq, floorId }, assetTypeId);
-        }
-      }
-      if (Array.isArray(draft.localCables)) {
-        for (const c of draft.localCables) wc.stageCableCreate(c);
-      }
-      if (Array.isArray(draft.localRackModules)) {
-        for (const m of draft.localRackModules) wc.stageRackModuleCreate(m);
-      }
-      if (draft.pendingLogs) {
-        for (const log of draft.pendingLogs) store.addPendingLog(log);
-      }
-      if (draft.pendingFiberPaths) {
-        // Drafts 은 canonical shape — legacy nested shape (이전 brief 시기) 도 흡수.
-        for (const fp of draft.pendingFiberPaths) {
-          const ofdAId = fp.ofdAId ?? fp.ofdA?.id;
-          const ofdBId = fp.ofdBId ?? fp.ofdB?.id;
-          if (!ofdAId || !ofdBId) continue;
-          wc.stageFiberPathCreate({
-            id: fp.id,
-            ofdAId,
-            ofdBId,
-            portCount: fp.portCount,
-            description: fp.description ?? null,
-          });
-        }
-      }
-      if (draft.deletedFiberPathIds) {
-        for (const id of draft.deletedFiberPathIds) wc.stageFiberPathDelete(id);
-      }
-      // Restore staged background (3-state). undefined branch is implicit
-      // — we just don't call any stage action.
-      if (draft.stagedBackgroundDrawing === null) {
-        store.stageBackgroundClear();
-      } else if (draft.stagedBackgroundDrawing) {
-        store.stageBackgroundDrawing(draft.stagedBackgroundDrawing);
-      }
-      if (typeof draft.stagedBackgroundOpacity === 'number') {
-        store.stageBackgroundOpacity(draft.stagedBackgroundOpacity);
-      }
-      if (draft.metadata) {
-        if (draft.metadata.gridSize) store.setGridSize(draft.metadata.gridSize);
-        if (draft.metadata.majorGridSize) store.setMajorGridSize(draft.metadata.majorGridSize);
-        // CM-B: scaleRatio 폐기 — draft.metadata.scaleRatio 가 있어도 무시.
-      }
-      store.setHasChanges(true);
-    } catch { /* ignore */ }
-    setShowDraftDialog(false);
-  }, [floorId, kindToAssetTypeId]);
-
-  const handleDiscardDraft = useCallback(() => {
-    localStorage.removeItem(`draft-plan-${floorId}`);
-    // Reset local state to server data
-    useEditorStore.getState().clearPendingData();
-    useEditorStore.getState().setHasChanges(false);
-    // Option C: discarding a draft also clears the persisted viewport so the
-    // canvas re-fits to the (possibly different) server-side drawing on the
-    // next viewport-init pass. Without this, users land at a zoom/pan that
-    // was fitted to the now-discarded staged DWG.
-    const viewportKey = `floorplan-viewport-${floorId}-v2`;
-    localStorage.removeItem(viewportKey);
-    setShowDraftDialog(false);
-  }, [floorId]);
-
-  // Debounced auto-backup to localStorage. Includes staged DWG so a
-  // refresh after upload survives. localStorage cap is ~5MB/origin —
-  // large DWGs may blow the quota; we fall back to saving everything
-  // *except* the DWG so equipment/cables/etc. still recover cleanly.
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const state = useEditorStore.getState();
-      if (!state.hasChanges) return;
-      const draftKey = `draft-plan-${floorId}`;
-      // SSOT-2d-3b Task 2 — editorStore 의 영속 컬렉션(localEquipment/localCables/
-      // localRackModules/pendingFiberPaths/deletedFiberPathIds)이 제거됐다. 이 데이터는
-      // 변전소 단위 통합 working copy 로 이관됐으므로 editorStore 드래프트는 더 이상
-      // 백업하지 않는다(통합 overlay 기반 드래프트 재배선은 Task 4). 여기서는
-      // editorStore 가 여전히 소유하는 transient 큐(pendingLogs)와 staged 배경/메타만
-      // 백업한다. (복구 측 draft.localEquipment 등 분기는 옛 드래프트 호환용으로 유지.)
-      const draft = {
-        pendingLogs: state.pendingLogs,
-        stagedBackgroundDrawing: state.stagedBackgroundDrawing,
-        stagedBackgroundOpacity: state.stagedBackgroundOpacity,
-        metadata: {
-          gridSize: state.gridSize,
-          majorGridSize: state.majorGridSize,
-        },
-        savedAt: Date.now(),
-      };
-      try {
-        localStorage.setItem(draftKey, JSON.stringify(draft));
-      } catch (err) {
-        if (
-          err instanceof DOMException &&
-          err.name === 'QuotaExceededError' &&
-          draft.stagedBackgroundDrawing
-        ) {
-          // Drop the heavy field, retry. If the slim version also fails,
-          // we just give up this tick — next tick will retry.
-          const slim = { ...draft, stagedBackgroundDrawing: undefined };
-          try {
-            localStorage.setItem(draftKey, JSON.stringify(slim));
-            // eslint-disable-next-line no-console
-            console.warn(
-              '[draft] localStorage quota exceeded — DWG dropped from draft. ' +
-                'On refresh, equipment/cables will recover but the DWG will need to be re-imported.',
-            );
-          } catch { /* both attempts failed */ }
-        }
-      }
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [floorId]);
-
-  // Navigation guard: warn on unsaved changes
+  // Navigation guard: warn on unsaved changes (통합 dirty 신호 기준).
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (useEditorStore.getState().hasChanges) {
+      if (getUnifiedDirtyCount() > 0) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -368,7 +215,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
-  const setHasChanges = useEditorStore(s => s.setHasChanges);
   const stagedBackgroundDrawing = useEditorStore(s => s.stagedBackgroundDrawing);
   // Effective drawing — staged value (if user staged one this session)
   // ?? server. Used by the layers panel so a freshly-imported but
@@ -419,7 +265,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     cs.setEquipmentModalOpen(false);
     cs.setNewEquipmentName('');
     cs.resetNewEquipmentSelection();
-    setHasChanges(true);
     setTool('select');
     cs.setSelectedIds([baseEquip.id]);
     useToastStore.getState().showToast('설비를 배치했습니다');
@@ -516,7 +361,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     for (const m of newModules) wc.stageRackModuleCreate(m);
 
     cs.resetNewEquipmentSelection();
-    setHasChanges(true);
     setTool('select');
     cs.setSelectedIds([rackId]);
     useToastStore.getState().showToast('랙을 배치했습니다');
@@ -639,9 +483,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
           onClose={() => setShowImportModal(false)}
           onImported={() => { /* invalidation handled inside modal */ }}
         />
-      )}
-      {showDraftDialog && (
-        <DraftRecoveryDialog onRestore={handleRestoreDraft} onDiscard={handleDiscardDraft} />
       )}
       <EquipmentPasteModal onPaste={handlePasteEquipment} />
       {floorConflict && (

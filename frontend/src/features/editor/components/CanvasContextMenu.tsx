@@ -51,7 +51,6 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     if (!window.confirm(`'${eq.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
     useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(target.id);
     es.clearSelection();
-    es.setHasChanges(true);
   };
 
   const handleTraceCable = () => {
@@ -65,7 +64,6 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     if (!window.confirm('선택한 케이블을 삭제하시겠습니까?')) return;
     useSubstationWorkingCopy.getState().stageCableDelete(target.id);
     es.setSelectedCableId(null);
-    es.setHasChanges(true);
   };
 
   const items: { label: string; onClick: () => void; danger?: boolean }[] =

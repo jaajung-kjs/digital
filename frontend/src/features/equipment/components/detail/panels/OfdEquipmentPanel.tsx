@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useEditorStore } from '../../../../editor/stores/editorStore';
+import { getUnifiedDirtyCount } from '../../../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { FiberPathManager } from '../../../../fiber/components/FiberPathManager';
@@ -28,8 +28,7 @@ export function OfdPathsView({ equipmentId }: { equipmentId: string }) {
   const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
   const handleNavigateRemote = (remoteRoomId: string) => {
-    const { hasChanges } = useEditorStore.getState();
-    if (hasChanges) {
+    if (getUnifiedDirtyCount() > 0) {
       if (!confirm('저장하지 않은 변경사항이 있습니다. 대국 도면으로 이동하시겠습니까?')) return;
     }
     navigate(`/floors/${remoteRoomId}/plan`);

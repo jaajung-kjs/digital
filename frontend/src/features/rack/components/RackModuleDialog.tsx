@@ -40,7 +40,6 @@ export function RackModuleDialog() {
   // RackModule shape 으로 매핑, 케이블/설비도 effective 에서 조회.
   const effectiveAssets = useEffectiveAssets();
   const effectiveCables = useEffectiveCables();
-  const setHasChanges = useEditorStore((s) => s.setHasChanges);
   const { data: categories } = useRackModuleCategories();
 
   const mod = useMemo(() => {
@@ -94,7 +93,6 @@ export function RackModuleDialog() {
       manager: draft.manager ?? null,
       description: draft.description ?? null,
     });
-    setHasChanges(true);
     setSelectedRackModuleId(null);
   };
 
@@ -104,7 +102,6 @@ export function RackModuleDialog() {
     }
     // stageEquipmentDeleteCascade 가 모듈 asset + 닿는 케이블을 함께 스테이징 삭제.
     useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(mod.id);
-    setHasChanges(true);
     setSelectedRackModuleId(null);
   };
 

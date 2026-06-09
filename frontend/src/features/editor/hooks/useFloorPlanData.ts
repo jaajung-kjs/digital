@@ -24,7 +24,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   const {
     zoom, panX, panY,
     setGridSize, setMajorGridSize,
-    setHasChanges, setViewportInitialized,
+    setViewportInitialized,
     setViewport, viewportInitialized,
     stagedBackgroundDrawing,
   } = useEditorStore();
@@ -90,9 +90,8 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     // CM-B: scaleRatio 더 이상 동기화하지 않음 — 캔버스 1 unit = 1 cm 통일.
 
     useEditorStore.getState().clearPendingData();
-    setHasChanges(false);
     setViewportInitialized(false);
-  }, [floorPlan, floorId, setGridSize, setMajorGridSize, setHasChanges, setViewportInitialized]);
+  }, [floorPlan, floorId, setGridSize, setMajorGridSize, setViewportInitialized]);
 
   // SSOT-2d Task 2 — 설비+케이블 / 랙모듈 / 회로의 editorStore 시딩 제거.
   // 이 데이터는 통합 working copy 가 effective 훅으로 제공한다(Task 3).

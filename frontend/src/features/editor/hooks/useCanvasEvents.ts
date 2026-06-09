@@ -261,7 +261,6 @@ export function useCanvasEvents(
         positionY: moved.positionY,
       });
     }
-    editorStore.getState().setHasChanges(true);
     // 라이브 케이블 프리뷰 — 설비가 움직이는 동안 연결된 케이블의 양 끝점도
     // 함께 따라오게 즉시 갱신 (예전엔 mouseUp 시점에만 반영돼 드래그 중엔
     // 케이블이 고정으로 남아 어색했음).
@@ -283,7 +282,13 @@ export function useCanvasEvents(
       if (!dragSession && !isPanning) return;
       handleCanvasMouseMove(e);
     };
-    const onWinUp = () => handleCanvasMouseUp();
+    // dragSession/isPanning 이 active 일 때만 정리 — 그 외 window blur/mouseup 은
+    // 매번 set(null) 을 발생시켜 store subscriber 가 헛 렌더링.
+    const onWinUp = () => {
+      const { dragSession, isPanning } = canvasStore.getState();
+      if (!dragSession && !isPanning) return;
+      handleCanvasMouseUp();
+    };
     window.addEventListener('mousemove', onWinMove);
     window.addEventListener('mouseup', onWinUp);
     window.addEventListener('blur', onWinUp);
