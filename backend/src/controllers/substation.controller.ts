@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { substationService } from '../services/substation.service.js';
+import { commitSubstation } from '../services/substationCommit.service.js';
+import type { SubstationCommitInput } from '../schemas/substationCommit.schema.js';
 
 export const substationController = {
   /**
@@ -78,6 +80,27 @@ export const substationController = {
       await substationService.delete(id);
 
       res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * POST /api/substations/:substationId/commit
+   * 통합 변전소 커밋 (SSOT-2a) — assets/cables/rackModules/distributionCircuits/
+   * fiberPaths + 선택적 floor 를 단일 트랜잭션에 커밋. 입력은 validate 미들웨어에서
+   * substationCommitSchema 로 검증됨. VersionConflictError → errorHandler → 409.
+   */
+  async commit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const result = await commitSubstation(
+        req.params.substationId,
+        req.body as SubstationCommitInput,
+        userId
+      );
+
+      res.json({ data: result });
     } catch (error) {
       next(error);
     }
