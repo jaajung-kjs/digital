@@ -112,6 +112,8 @@ export interface SubstationWorkingCopyState {
 
   // ── lifecycle ──
   load: (substationId: string) => Promise<void>;
+  /** 409 후 재로드: saved/baseVersions 만 최신화하고 staged overlay 는 보존. */
+  refreshBaseVersions: (substationId: string) => Promise<void>;
   revert: () => void;
 
   // ── stage actions ──
@@ -144,6 +146,11 @@ export interface SubstationWorkingCopyState {
 /** undo/redo history 에 담는 슬라이스 — overlays 만(saved/substationId 제외). */
 type HistorySlice = Pick<SubstationWorkingCopyState, 'overlays'>;
 
+// 빠른 변전소 전환(S1→S2) 시 늦게 도착한 S1 응답이 S2 데이터를 덮어쓰지
+// 않도록 하는 monotonic 가드. load 마다 ++loadSeq 후, 응답 처리 직전에
+// 자신의 seq 가 최신인지 확인한다(아니면 폐기).
+let loadSeq = 0;
+
 /** 어떤 asset 이 랙 모듈 자식인지: parentAssetId 가 있고 slotIndex 가 null 이 아님. */
 function isRackModuleChild(a: Asset): boolean {
   return a.parentAssetId != null && a.slotIndex != null;
@@ -157,7 +164,9 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       overlays: freshOverlays(emptySaved()),
 
       load: async (substationId) => {
+        const seq = ++loadSeq;
         const { data } = await api.get(`/substations/${substationId}/workingcopy`);
+        if (seq !== loadSeq) return; // 더 최신 load 가 시작됨 → 폐기
         const saved: SavedCollections = {
           assets: data.data.assets ?? [],
           cables: data.data.cables ?? [],
@@ -167,6 +176,29 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set({ substationId, saved, overlays: freshOverlays(saved) });
         // 다른 변전소 로드 시 이전 overlay 가 undo 로 복원되지 않도록 history 클리어.
         useSubstationWorkingCopy.temporal.getState().clear();
+      },
+
+      refreshBaseVersions: async (substationId) => {
+        const seq = ++loadSeq;
+        const { data } = await api.get(`/substations/${substationId}/workingcopy`);
+        if (seq !== loadSeq) return; // 더 최신 load/refresh 가 시작됨 → 폐기
+        const newSaved: SavedCollections = {
+          assets: data.data.assets ?? [],
+          cables: data.data.cables ?? [],
+          distributionCircuits: data.data.distributionCircuits ?? [],
+          fiberPaths: data.data.fiberPaths ?? [],
+        };
+        // staged overlay(creates/updates/deletes)는 보존하고 baseVersions 만 최신 saved 기준으로 재스냅샷.
+        set((s) => ({
+          substationId,
+          saved: newSaved,
+          overlays: {
+            assets: { ...s.overlays.assets, baseVersions: snapshotBaseVersions(newSaved.assets, assetDescriptor.idOf, assetDescriptor.versionOf!) },
+            cables: { ...s.overlays.cables, baseVersions: snapshotBaseVersions(newSaved.cables, cableDescriptor.idOf, cableDescriptor.versionOf!) },
+            distributionCircuits: { ...s.overlays.distributionCircuits, baseVersions: snapshotBaseVersions(newSaved.distributionCircuits, distCircuitDescriptor.idOf, distCircuitDescriptor.versionOf!) },
+            fiberPaths: { ...s.overlays.fiberPaths, baseVersions: snapshotBaseVersions(newSaved.fiberPaths, fiberPathDescriptor.idOf, fiberPathDescriptor.versionOf!) },
+          },
+        }));
       },
 
       revert: () => set((s) => ({ overlays: freshOverlays(s.saved) })),

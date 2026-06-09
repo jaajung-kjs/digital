@@ -1,22 +1,22 @@
 import { useState } from 'react';
-import { useAssetMaintenanceLogs } from '../hooks/useAssetMaintenanceLogs';
-import { useRegisterStore } from '../registerStore';
-import { generateTempId } from '../../../utils/idHelpers';
+import { useAssetMaintenanceLogs, useCreateAssetMaintenanceLog } from '../hooks/useAssetMaintenanceLogs';
 
 export function AssetMaintenanceSection({ assetId }: { assetId: string }) {
   const { data: logs = [] } = useAssetMaintenanceLogs(assetId);
-  const logQueue = useRegisterStore((s) => s.logQueue);
-  const queued = logQueue.filter((l) => l.assetId === assetId);
+  const create = useCreateAssetMaintenanceLog(assetId);
   const [title, setTitle] = useState('');
   const [logType, setLogType] = useState('MAINTENANCE');
 
+  // 점검 이력은 즉시 생성(working-copy staged 가 아님 — 컨텍스트 무관, assetId 만 필요).
   const add = () => {
-    if (!title.trim()) return;
-    useRegisterStore.getState().enqueueLog({ tempLogId: generateTempId(), assetId, logType, title: title.trim() });
-    setTitle('');
+    if (!title.trim() || create.isPending) return;
+    create.mutate(
+      { logType, title: title.trim() },
+      { onSuccess: () => setTitle('') },
+    );
   };
 
-  const isEmpty = logs.length === 0 && queued.length === 0;
+  const isEmpty = logs.length === 0;
 
   return (
     <section>
@@ -30,7 +30,7 @@ export function AssetMaintenanceSection({ assetId }: { assetId: string }) {
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="내용"
           onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
           className="flex-1 text-xs border border-gray-200 rounded px-2 py-1" />
-        <button onClick={add} disabled={!title.trim()}
+        <button onClick={add} disabled={!title.trim() || create.isPending}
           className="text-xs px-2 py-1 rounded bg-blue-600 text-white disabled:bg-gray-300">추가</button>
       </div>
       {isEmpty ? (
@@ -41,12 +41,6 @@ export function AssetMaintenanceSection({ assetId }: { assetId: string }) {
             <li key={l.id} className="text-xs text-gray-600 flex justify-between">
               <span>[{l.logType}] {l.title}</span>
               <span className="text-gray-400">{l.logDate ? new Date(l.logDate).toLocaleDateString('ko-KR') : ''}</span>
-            </li>
-          ))}
-          {queued.map((l) => (
-            <li key={l.tempLogId} className="text-xs text-gray-600 flex justify-between">
-              <span>[{l.logType}] {l.title}</span>
-              <span className="text-[10px] bg-amber-500 text-white rounded px-1">미커밋</span>
             </li>
           ))}
         </ul>
