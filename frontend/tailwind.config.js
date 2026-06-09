@@ -15,7 +15,42 @@ export default {
       animation: {
         'slide-in-left': 'slide-in-left 0.25s ease-out',
       },
+      borderRadius: {
+        DEFAULT: 'var(--radius)',
+      },
       colors: {
+        // 디자인 토큰 (시맨틱)
+        surface: 'var(--surface)',
+        'surface-2': 'var(--surface-2)',
+        bg: 'var(--bg)',
+        sidebar: 'var(--sidebar)',
+        line: {
+          DEFAULT: 'var(--border)',
+          strong: 'var(--border-2)',
+        },
+        content: {
+          DEFAULT: 'var(--text)',
+          muted: 'var(--text-2)',
+          faint: 'var(--text-muted)',
+        },
+        primary: {
+          DEFAULT: 'var(--primary)',
+          hover: 'var(--primary-hover)',
+        },
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
+        info: 'var(--info)',
+        'success-bg': 'var(--success-bg)',
+        'warning-bg': 'var(--warning-bg)',
+        'danger-bg': 'var(--danger-bg)',
+        'info-bg': 'var(--info-bg)',
+        eq: {
+          1: 'var(--eq-1)',
+          2: 'var(--eq-2)',
+          3: 'var(--eq-3)',
+          4: 'var(--eq-4)',
+        },
         // 케이블 색상
         cable: {
           ac: '#FF0000',
