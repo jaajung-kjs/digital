@@ -189,6 +189,9 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     useEditorStore.getState().setBaseFloorVersion(
       typeof floorPlan.updatedAt === 'string' ? floorPlan.updatedAt : new Date(floorPlan.updatedAt).toISOString(),
     );
+    // USP Task 1 — self-contained 커밋(useCommitWorkingCopy)이 floor 섹션 id 로 쓸
+    // 현재 floorId 를 store 에 동기화한다(baseFloorVersion 과 한 쌍).
+    if (floorId) useEditorStore.getState().setActiveFloorId(floorId);
     setGridSize(floorPlan.gridSize);
     setMajorGridSize(floorPlan.majorGridSize ?? 60);
     // CM-B: scaleRatio 더 이상 동기화하지 않음 — 캔버스 1 unit = 1 cm 통일.
