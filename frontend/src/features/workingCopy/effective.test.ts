@@ -27,4 +27,11 @@ describe('mergeEffective', () => {
     expect(out).toHaveLength(3);
     expect(out[2].id).toBe('temp-x');
   });
+  it('create+update 같은 tempId 면 패치 적용된 create 가 보인다', () => {
+    let o = stageCreate(emptyOverlay<Row>(), 'temp-x', { id: 'temp-x', name: 'orig', v: '' });
+    o = stageUpdate(o, 'temp-x', { name: 'X' });
+    const out = mergeEffective(saved, o, d);
+    expect(out).toHaveLength(3);
+    expect(out[2]).toMatchObject({ id: 'temp-x', name: 'X' });
+  });
 });

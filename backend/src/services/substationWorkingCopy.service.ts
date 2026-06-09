@@ -16,7 +16,7 @@ export async function getWorkingCopy(substationId: string) {
   const [assets, cables, distributionCircuits, fiberPaths] = await Promise.all([
     prisma.asset.findMany({
       where: { substationId },
-      include: { assetType: { select: { name: true, displayColor: true, placementKind: true } } },
+      include: { assetType: { select: { id: true, code: true, name: true, group: true, displayColor: true, fieldTemplate: true, placementKind: true } } },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     cableService.getBySubstationId(substationId),

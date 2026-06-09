@@ -3,6 +3,7 @@ import { api } from '../../utils/api';
 import type { Asset } from '../../types/asset';
 import { buildDelta } from './delta';
 import type { Overlay } from './overlay';
+import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2b Task 4 — commit 빌더.
@@ -59,6 +60,11 @@ interface AssetLike {
 /** Task 3 규칙: parentAssetId 가 있고 slotIndex 가 null 이 아니면 랙 모듈 자식. */
 function isRackModule(a: AssetLike | undefined): boolean {
   return !!a && a.parentAssetId != null && a.slotIndex != null;
+}
+
+/** creates/updates/deletes 가 모두 비면 undefined — 2a 백엔드가 해당 컬렉션 OCC findMany 를 건너뛴다. */
+function omitIfEmpty(c: Collection): Collection | undefined {
+  return c.creates.length || c.updates.length || c.deletes.length ? c : undefined;
 }
 
 /** Asset create → rackModules.create (필드명 매핑). */
@@ -163,11 +169,11 @@ export function buildSubstationCommitPayload(
   const fiberPaths = buildDelta(overlays.fiberPaths) as Collection;
 
   return {
-    assets: assetsCol,
-    rackModules: rackCol,
-    cables,
-    distributionCircuits,
-    fiberPaths,
+    assets: omitIfEmpty(assetsCol),
+    rackModules: omitIfEmpty(rackCol),
+    cables: omitIfEmpty(cables),
+    distributionCircuits: omitIfEmpty(distributionCircuits),
+    fiberPaths: omitIfEmpty(fiberPaths),
   };
 }
 
@@ -185,10 +191,16 @@ export async function commitSubstation(
   const payload = buildSubstationCommitPayload(overlays, savedAssets);
   const { data } = await api.post(`/substations/${substationId}/commit`, payload);
 
+  // 통합 커밋은 asset/cable/fiber/rack/dist 를 모두 건드린다 → commit.ts 의 무효화 세트를 그대로 미러.
   queryClient.invalidateQueries({ queryKey: ['nodeAssets'] });
   queryClient.invalidateQueries({ queryKey: ['assets', substationId] });
   queryClient.invalidateQueries({ queryKey: ['substation-connections', substationId] });
   queryClient.invalidateQueries({ queryKey: ['floorPlan'] });
+  queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
+  queryClient.invalidateQueries({ queryKey: ['cables'] });
+  queryClient.invalidateQueries({ queryKey: ['ofd-directory'] });
+  queryClient.invalidateQueries({ queryKey: RACK_MODULE_KEYS.all });
+  queryClient.invalidateQueries({ queryKey: ['stats', 'rack-modules'] });
 
   return data.data as SubstationCommitResult;
 }
