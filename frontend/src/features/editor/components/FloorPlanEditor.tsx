@@ -26,6 +26,7 @@ import { NetworkTopologyModal } from '../../network/NetworkTopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { EquipmentResizeHandlesHost } from './EquipmentResizeHandlesHost';
 import { ChangeHistoryPanel } from './ChangeHistoryPanel';
+import { ReportPanel } from '../../report/ReportPanel';
 import { FloorSettingsPanel } from './FloorSettingsPanel';
 import { DwgImportModal } from './DwgImportModal';
 import { BackgroundLayersPanel } from './BackgroundLayersPanel';
@@ -54,6 +55,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const queryClient = useQueryClient();
   const isAdmin = useIsAdmin();
   const [showHistory, setShowHistory] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -385,6 +387,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         floorPlan={floorPlan}
         isAdmin={isAdmin}
         onToggleHistory={() => setShowHistory(p => !p)}
+        onToggleReport={() => setShowReport(p => !p)}
         onToggleSettings={() => setShowSettings(p => !p)}
         onToggleLayers={() => setShowLayers(p => !p)}
         onImportClick={() => setShowImportModal(true)}
@@ -429,6 +432,10 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
               {showHistory && (
                 <ChangeHistoryPanel floorId={floorId} onClose={() => setShowHistory(false)} />
+              )}
+
+              {showReport && !snapshotActive && (
+                <ReportPanel floorId={floorId} onClose={() => setShowReport(false)} />
               )}
 
               {showSettings && !snapshotActive && (

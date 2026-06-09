@@ -14,13 +14,14 @@ interface ToolbarProps {
   floorPlan: FloorPlanDetail | undefined;
   isAdmin: boolean;
   onToggleHistory?: () => void;
+  onToggleReport?: () => void;
   onToggleSettings?: () => void;
   onToggleLayers?: () => void;
   /** DWG/DXF 배경 도면 가져오기 모달 열기 (부모가 DwgImportModal 렌더). */
   onImportClick?: () => void;
 }
 
-export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleSettings, onToggleLayers, onImportClick }: ToolbarProps) {
+export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleReport, onToggleSettings, onToggleLayers, onImportClick }: ToolbarProps) {
   const showLengths = useEditorStore((s) => s.showLengths);
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
@@ -171,6 +172,16 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleHistory, onToggleSe
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
+            </button>
+          )}
+
+          {onToggleReport && (
+            <button onClick={onToggleReport} className="p-2 hover:bg-gray-100 rounded-lg flex items-center gap-1 text-xs text-gray-600" title="설계서 미리보기">
+              {/* Document / clipboard icon */}
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <span>설계서</span>
             </button>
           )}
 

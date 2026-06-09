@@ -1,0 +1,151 @@
+import type { Asset } from '../../types/asset';
+import type {
+  PlanSnapshot,
+  ReportPreviewChanges,
+  EquipmentSnapshotItem,
+  CableSnapshotItem,
+} from '../../types/constructionReport';
+import { mergeEffective } from '../workingCopy/effective';
+import {
+  assetDescriptor,
+  cableDescriptor,
+  type WorkingCopyRow,
+} from '../workingCopy/substationStore';
+import type { Overlay } from '../workingCopy/overlay';
+import { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLocal';
+
+// ──────────────────────────────────────────────────────────────────────────
+// #3 Task 2 — 활성 층 오버레이 → report-preview 의 before/after 스냅샷 쌍.
+//
+// 엔진은 before↔after 를 id 로 diff 한다(생성=after only / 삭제=before only /
+// 수정=양쪽). 따라서 활성 층 범위에서 saved(=before)·effective(=after) 를 각각
+// PlanSnapshot 으로 만든 뒤, 동일한(byte-identical) 항목은 양쪽에서 제거해
+// 변경분만 남긴 작은 payload 를 만든다.
+//
+// floor-scope:
+//   - assets: floorId === activeFloorId (랙모듈 자식 포함 — 모듈도 floorId 상속).
+//   - cables: source/target 의 {equipmentId, moduleId} 중 하나라도 그 층 asset id
+//     (useEffectiveFloorCables 의 floor-cable predicate 재사용).
+// ──────────────────────────────────────────────────────────────────────────
+
+type Cable = WorkingCopyRow;
+
+interface SavedCollections {
+  assets: Asset[];
+  cables: Cable[];
+}
+interface Overlays {
+  assets: Overlay<Asset, Partial<Asset>>;
+  cables: Overlay<Cable, Partial<Cable>>;
+}
+
+/** 케이블 endpoint {equipmentId, moduleId} 추출 (floor-cable predicate). */
+function endpointIds(e: unknown): (string | null | undefined)[] {
+  const o = e as { equipmentId?: string | null; moduleId?: string | null } | undefined;
+  return [o?.equipmentId, o?.moduleId];
+}
+
+/** Asset → 설계서 equipment 스냅샷 항목. 자재코드 ← assetType.code. */
+function assetToSnapshot(a: Asset): EquipmentSnapshotItem {
+  const attrs = a.attributes ?? null;
+  return {
+    id: a.id,
+    name: a.name,
+    materialCategoryCode: a.assetType?.code ?? null,
+    materialCategoryName: a.assetType?.name ?? null,
+    specParams: attrs,
+    positionX: a.positionX ?? 0,
+    positionY: a.positionY ?? 0,
+  };
+}
+
+/** effective Cable row(DTO) → 설계서 cable 스냅샷 항목. 자재코드 ← categoryCode. */
+function cableToSnapshot(c: Cable): CableSnapshotItem {
+  const local = cableDtoToLocal(c as unknown as CableDetailDTO);
+  return {
+    id: local.id,
+    cableType: local.cableType,
+    materialCategoryCode: local.categoryCode ?? null,
+    materialCategoryName: local.categoryName ?? null,
+    specification: local.specification ?? null,
+    totalLength: local.totalLength ?? null,
+    sourceEquipmentId: local.sourceEquipmentId,
+    targetEquipmentId: local.targetEquipmentId,
+    label: local.label ?? null,
+  };
+}
+
+function buildSnapshot(assets: Asset[], cables: Cable[]): PlanSnapshot {
+  return {
+    equipment: assets.map(assetToSnapshot),
+    cables: cables.map(cableToSnapshot),
+  };
+}
+
+/**
+ * 변경분만 남기기: id 별로 before/after 를 비교해 동등하면 양쪽에서 제거.
+ * (created → after only, deleted → before only, updated → 양쪽 유지.)
+ */
+function pruneUnchanged<T extends { id: string }>(
+  before: T[],
+  after: T[],
+): { before: T[]; after: T[] } {
+  const beforeMap = new Map(before.map((x) => [x.id, x]));
+  const afterMap = new Map(after.map((x) => [x.id, x]));
+  const keepBefore: T[] = [];
+  const keepAfter: T[] = [];
+  for (const b of before) {
+    const a = afterMap.get(b.id);
+    if (a && JSON.stringify(a) === JSON.stringify(b)) continue; // unchanged — 상쇄
+    keepBefore.push(b);
+  }
+  for (const a of after) {
+    const b = beforeMap.get(a.id);
+    if (b && JSON.stringify(a) === JSON.stringify(b)) continue;
+    keepAfter.push(a);
+  }
+  return { before: keepBefore, after: keepAfter };
+}
+
+/**
+ * 활성 층 staged 변경을 report-preview 입력(before/after 스냅샷 쌍)으로 변환.
+ *
+ * before = 저장된(saved) 활성 층 설비/케이블, after = effective(saved+overlay)
+ * 활성 층 설비/케이블. 변경 없는(동등한) 항목은 양쪽에서 제거해 변경분만 남긴다.
+ */
+export function overlayToChanges(
+  saved: SavedCollections,
+  overlays: Overlays,
+  activeFloorId: string,
+): ReportPreviewChanges {
+  // ── before: saved 활성 층 ──
+  const savedFloorAssets = saved.assets.filter((a) => a.floorId === activeFloorId);
+  const savedFloorAssetIds = new Set(savedFloorAssets.map((a) => a.id));
+  const savedFloorCables = saved.cables.filter((c) =>
+    [...endpointIds((c as { source?: unknown }).source), ...endpointIds((c as { target?: unknown }).target)].some(
+      (x) => x != null && savedFloorAssetIds.has(x),
+    ),
+  );
+
+  // ── after: effective(saved+overlay) 활성 층 ──
+  const effAssets = mergeEffective(saved.assets, overlays.assets, assetDescriptor).filter(
+    (a) => a.floorId === activeFloorId,
+  );
+  const effAssetIds = new Set(effAssets.map((a) => a.id));
+  const effCables = mergeEffective(saved.cables, overlays.cables, cableDescriptor).filter((c) =>
+    [...endpointIds((c as { source?: unknown }).source), ...endpointIds((c as { target?: unknown }).target)].some(
+      (x) => x != null && effAssetIds.has(x),
+    ),
+  );
+
+  const before = buildSnapshot(savedFloorAssets, savedFloorCables);
+  const after = buildSnapshot(effAssets, effCables);
+
+  const eq = pruneUnchanged(before.equipment, after.equipment);
+  const cb = pruneUnchanged(before.cables, after.cables);
+
+  return {
+    before: { equipment: eq.before, cables: cb.before },
+    after: { equipment: eq.after, cables: cb.after },
+  };
+}
