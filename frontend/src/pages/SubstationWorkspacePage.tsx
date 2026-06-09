@@ -7,8 +7,10 @@ import { WorkspaceNavContext, type WorkspaceNav } from '../features/workspace/Wo
 import { SelectionContext } from '../features/workspace/SelectionContext';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
+import { OverviewView } from '../components/OverviewView';
 
 const VIEWS = [
+  { key: 'overview', label: '개요' },
   { key: 'register', label: '표' },
   { key: 'plan', label: '배치도' },
   { key: 'connections', label: '연결' },
@@ -22,7 +24,11 @@ export function SubstationWorkspacePage() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
   const rawView = searchParams.get('view') ?? (searchParams.get('tab') === 'plan' ? 'plan' : null);
-  const view: ViewKey = rawView === 'plan' ? 'plan' : rawView === 'connections' ? 'connections' : 'register';
+  const view: ViewKey =
+    rawView === 'plan' ? 'plan'
+    : rawView === 'connections' ? 'connections'
+    : rawView === 'register' ? 'register'
+    : 'overview';
   const floorParam = searchParams.get('floor');
   const selectedFloorId = floorParam ?? floors[0]?.id ?? null;
 
@@ -75,7 +81,9 @@ export function SubstationWorkspacePage() {
             )}
           </div>
           <div className="flex-1 min-h-0 relative">
-            {view === 'plan' ? (
+            {view === 'overview' ? (
+              <OverviewView nodeType="substation" nodeId={substationId} />
+            ) : view === 'plan' ? (
               selectedFloorId ? (
                 <FloorPlanEditor key={selectedFloorId} floorId={selectedFloorId} />
               ) : (
