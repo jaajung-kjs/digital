@@ -19,7 +19,7 @@ export function AssetMaintenanceSection({ assetId }: { assetId: string }) {
   const isEmpty = logs.length === 0 && queued.length === 0;
 
   return (
-    <section className="px-4 py-3 border-t border-gray-100">
+    <section>
       <h3 className="text-sm font-semibold text-gray-700 mb-2">유지보수 이력</h3>
       <div className="flex gap-1 mb-2">
         <select value={logType} onChange={(e) => setLogType(e.target.value)} className="text-xs border border-gray-200 rounded px-1">

@@ -15,7 +15,7 @@ export function StatusSummary({ total, items }: { total: number; items: { key: s
 export function SubstationStatusView({ substationId }: { substationId: string }) {
   const { data: stats } = useNodeStats('substation', substationId);
   const items = (stats?.self.byCategory ?? []).map((c) => ({
-    key: c.categoryId ?? c.name,
+    key: c.categoryId,
     label: c.name,
     count: c.count,
   }));
