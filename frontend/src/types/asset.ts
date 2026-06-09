@@ -18,6 +18,7 @@ export interface AssetType {
   requiredToCreate: string[] | null;
   iconName: string | null;
   displayColor: string | null;
+  placementKind: string | null;
   sortOrder: number;
   isActive: boolean;
 }
