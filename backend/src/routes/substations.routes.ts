@@ -6,6 +6,7 @@ import { assetController } from '../controllers/asset.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { substationCommitSchema } from '../schemas/substationCommit.schema.js';
+import { reportPreviewSchema } from '../schemas/reportPreview.schema.js';
 
 const router = Router();
 
@@ -75,6 +76,14 @@ router.get(
   '/:substationId/workingcopy',
   authenticate,
   substationController.getWorkingCopy
+);
+
+// 오버레이 기반 설계서 dry-run 프리뷰 (#3 Task 1, 인증 필요 — 읽기/계산)
+router.post(
+  '/:id/report-preview',
+  authenticate,
+  validate(reportPreviewSchema),
+  substationController.reportPreview
 );
 
 // ==================== Floor Routes (nested under substations) ====================

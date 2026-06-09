@@ -9,6 +9,8 @@
  */
 
 import { CONSTRUCTION_TEMPLATES, SURCHARGE_RULES, type AccessoryRule } from '../config/constructionTemplates.js';
+import prisma from '../config/prisma.js';
+import { NotFoundError } from '../utils/errors.js';
 
 // ============================================================
 // Types (mirror frontend/src/types/constructionReport.ts)
@@ -442,4 +444,41 @@ export function calculateConstructionReport(
   const totalLaborHours = labor.reduce((sum, l) => sum + l.hours, 0);
 
   return { diff, bom, labor, totalLaborHours: Math.round(totalLaborHours * 100) / 100 };
+}
+
+// ============================================================
+// Overlay preview (dry-run) — #3 Task 1
+// ============================================================
+
+export interface ReportPreviewChanges {
+  before: PlanSnapshot;
+  after: PlanSnapshot;
+}
+
+/**
+ * 활성 층 staged 변경(오버레이)으로 설계서를 dry-run 산출한다.
+ *
+ * `changes` 는 엔진이 그대로 먹는 before/after PlanSnapshot 쌍(활성 층에
+ * 영향받는 설비·케이블만). reportPreview 는 floor 가 해당 substation 소유인지만
+ * 확인(읽기)하고 `calculateConstructionReport` 를 호출한다. **DB 저장 없음.**
+ *
+ * before/after 항목은 프론트가 saved+overlay 로 이미 자재코드·길이 등 해석된
+ * 필드를 채워 보낸다(엔진 diff 는 항목 단위로 계산하므로 백엔드 재해석 불필요).
+ */
+export async function reportPreview(
+  substationId: string,
+  floorId: string,
+  changes: ReportPreviewChanges,
+  overrides?: ReportOverrides,
+): Promise<ConstructionReport> {
+  // floor 소유권 검증 — 다른 변전소 floor 로 산출 요청 차단(읽기 전용).
+  const floor = await prisma.floor.findFirst({
+    where: { id: floorId, substationId },
+    select: { id: true },
+  });
+  if (!floor) {
+    throw new NotFoundError('해당 변전소의 층');
+  }
+
+  return calculateConstructionReport(changes.before, changes.after, overrides);
 }
