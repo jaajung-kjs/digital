@@ -19,12 +19,14 @@ export function SubstationWorkspacePage() {
       setSearchParams((p) => {
         p.set('tab', 'plan'); p.set('floor', floorId);
         if (assetId) p.set('equipmentId', assetId); else p.delete('equipmentId');
+        p.delete('assetId');
         return p;
       }),
     gotoRegister: (assetId) =>
       setSearchParams((p) => {
         p.set('tab', 'register');
         if (assetId) p.set('assetId', assetId); else p.delete('assetId');
+        p.delete('equipmentId');
         return p;
       }),
   }), [setSearchParams]);
