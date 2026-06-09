@@ -8,7 +8,7 @@ import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
 import { useViewport } from './useViewport';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useWorkingCopyLoader } from '../../workingCopy/hooks';
+import { useWorkingCopyLoader, useWorkingCopyLoaded } from '../../workingCopy/hooks';
 
 // SSOT-2d Task 2 — planCablesToLocalCables 제거. 케이블은 더 이상 plan 응답에서
 // editorStore 로 평탄화하지 않는다 (통합 working copy 가 effective 케이블 제공, Task 3).
@@ -52,6 +52,11 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   // 이미 로드돼 있어(idempotent guard) no-op, 단독 `/floors/:id/plan` 경로에선 여기서
   // 트리거된다. 이후 effective 훅(Task 3)이 이 스토어를 읽는다.
   useWorkingCopyLoader(floor?.substationId ?? null);
+
+  // 초기 fit 게이트: 통합 working copy 가 이 변전소에 대해 로드 완료됐는지. 로드 전엔
+  // effectiveEquipment(floorId) 가 빈 배열이라 fit 이 0,0 으로 떨어진다 → 로드될
+  // 때까지 viewportInitialized 를 세우지 않고 effect 를 다시 돌려 실제 설비에 맞춘다.
+  const wcLoaded = useWorkingCopyLoaded(floor?.substationId ?? null);
 
   const { data: floorPlan, isLoading: planLoading, error: planError } = useQuery({
     queryKey: ['floorPlan', floorId],
@@ -108,6 +113,10 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   // measurable, then fit/restore.
   useEffect(() => {
     if (!floorPlan || !containerRef.current || viewportInitialized) return;
+    // 통합 working copy 가 로드되기 전엔 effective 설비가 비어 fit 이 0,0 으로
+    // 떨어진다. 로드 완료(wcLoaded)까지 init 을 미루고, wcLoaded 가 true 로 바뀌면
+    // 이 effect 가 다시 돌아 실제 설비 bounds 에 맞춰 fit 한다.
+    if (!wcLoaded) return;
 
     let cancelled = false;
     const tryInit = () => {
@@ -166,7 +175,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     };
     tryInit();
     return () => { cancelled = true; };
-  }, [floorPlan, viewportInitialized, containerRef, fitToContent, loadViewportState, clearViewportState, setViewport, setViewportInitialized, stagedBackgroundDrawing]);
+  }, [floorPlan, viewportInitialized, wcLoaded, containerRef, fitToContent, loadViewportState, clearViewportState, setViewport, setViewportInitialized, stagedBackgroundDrawing]);
 
   // Save viewport on unmount + beforeunload. Skip the save when the viewport
   // never finished initializing — otherwise we'd persist the store's default
