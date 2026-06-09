@@ -2,7 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { substationService } from '../services/substation.service.js';
 import { commitSubstation } from '../services/substationCommit.service.js';
 import { getWorkingCopy } from '../services/substationWorkingCopy.service.js';
+import { reportPreview } from '../services/constructionReport.service.js';
 import type { SubstationCommitInput } from '../schemas/substationCommit.schema.js';
+import type { ReportPreviewInput } from '../schemas/reportPreview.schema.js';
 
 export const substationController = {
   /**
@@ -116,6 +118,22 @@ export const substationController = {
     try {
       const data = await getWorkingCopy(req.params.substationId);
       res.json({ data });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
+   * POST /api/substations/:id/report-preview
+   * 오버레이(활성 층 staged 변경) → 설계서 dry-run 산출 (#3 Task 1).
+   * authenticate 만(읽기/계산 — adminOnly 아님). 입력은 reportPreviewSchema 검증.
+   * floor 가 해당 변전소 소유인지 확인 후 calculateConstructionReport 호출, DB 미저장.
+   */
+  async reportPreview(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { floorId, changes, overrides } = req.body as ReportPreviewInput;
+      const report = await reportPreview(req.params.id, floorId, changes, overrides);
+      res.json({ data: report });
     } catch (error) {
       next(error);
     }
