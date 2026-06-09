@@ -470,7 +470,9 @@ export function TreeVisualization() {
 
     // Floor가 도면 단위 — 클릭하면 에디터로 진입
     if (node.type === 'floor') {
-      navigate(`/floors/${node.id}/plan`);
+      navigate(node.parentId
+        ? `/substations/${node.parentId}/workspace?view=plan&floor=${node.id}`
+        : `/floors/${node.id}/plan`);
       return;
     }
 

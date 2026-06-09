@@ -25,7 +25,7 @@ export function useEditorSelectionBridge(
       const id = s.detailPanelEquipmentId;
       if (id === prevEditorId.current) return;
       prevEditorId.current = id;
-      if (id && id !== selRef.current) setSelectedAssetId(id);
+      if (id !== selRef.current) setSelectedAssetId(id ?? null);
     });
     return unsub;
   }, [active, setSelectedAssetId]);
