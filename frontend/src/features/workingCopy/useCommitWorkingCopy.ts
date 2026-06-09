@@ -212,11 +212,19 @@ export function useCommitWorkingCopy() {
       await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, result.idMaps?.assets);
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
-      // 2회차 저장 409 방지 — 커밋이 floor.updatedAt 을 bump 하므로, 활성 층의 floorPlan
-      // 쿼리를 무효화해 useFloorPlanData 의 effect 가 fresh updatedAt 으로 baseFloorVersion 을
-      // 재동기화하게 한다(엔티티 baseVersions 는 위 load 가 이미 갱신). 활성 층이 있을 때만.
+      // 2회차 저장 409 방지(견고화) — floor 섹션을 커밋하면 백엔드가 floor.updatedAt 을
+      // bump 하지만 in-memory baseFloorVersion 은 stale 인 채라 다음 커밋의 floor OCC 가
+      // 409 난다. 커밋 응답이 새 floor.updatedAt 을 직접 실어 주므로, 그 값으로
+      // baseFloorVersion 을 *동기적*으로 갱신한다(쿼리 무효화 effect 재실행에 의존하던
+      // 종전 방식의 race 제거 — 이것이 진짜 수정). floor 섹션이 커밋된 경우에만 채워진다.
+      if (result.updated?.floor?.updatedAt != null) {
+        useEditorStore.getState().setBaseFloorVersion(result.updated.floor.updatedAt);
+      }
+      // 무해한 fallback — floorPlan 캐시도 fresh 로 맞춰 다른 구독자(설정 패널 등)를
+      // 갱신한다. baseFloorVersion 의 권위는 위 직접-set 이며, 이 무효화는 더 이상
+      // 409 방지의 주체가 아니다(await 불필요 — 캐시 갱신은 백그라운드로 충분).
       if (activeFloorId != null) {
-        await queryClient.invalidateQueries({ queryKey: ['floorPlan', activeFloorId] });
+        queryClient.invalidateQueries({ queryKey: ['floorPlan', activeFloorId] });
       }
       invalidateMediaQueries(queryClient, hadUploads, hadLogs);
       // 활성 층에 변경이 있었으면 설계서를 작업지시서로 아카이브(실패해도 커밋은 성공).
