@@ -1,24 +1,20 @@
 import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
-import { useEffectiveDistCircuits, useEffectiveCables } from '../../../../workingCopy/hooks';
+import { useEffectiveAssets, useEffectiveCables } from '../../../../workingCopy/hooks';
+import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../../../pathTrace/stores/pathHighlightStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
 import {
-  groupCircuitsByFeeder,
-  type DistributionCircuit,
-} from '../../../../../types/distributionCircuit';
-
-/** branchName 에서 L 숫자 추출 — 다음 분기 번호는 max+1 (삭제분 재사용 안 함). */
-function nextBranchName(branches: DistributionCircuit[]): string {
-  let max = 0;
-  for (const b of branches) {
-    const m = /^L(\d+)$/.exec(b.branchName);
-    if (m) max = Math.max(max, Number(m[1]));
-  }
-  return `L${max + 1}`;
-}
+  feederGroupsOfPanel,
+  nextBranchName,
+  buildSubtreeAsset,
+  FEEDER_CODE,
+  BRANCH_CODE,
+  type FeederGroup,
+} from '../../../../assets/distributionSubtree';
+import type { Asset } from '../../../../../types/asset';
 
 /**
  * 분전반 회로 GUI — 실제 배전반 차단기 뱅크 메타포.
@@ -28,28 +24,43 @@ function nextBranchName(branches: DistributionCircuit[]): string {
  */
 export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const snapshotActive = useSnapshotStore((s) => s.active);
-  // SSOT-2d Task 4 — 회로/케이블 읽기는 통합 스토어 effective, 쓰기는 stage 액션.
-  const allCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
-  // effective 케이블은 nested 끝점 — 회로 id 는 source/target.circuitId 에 있다(flat 아님).
+  // 단계3b — 회로는 FEEDER/BRANCH Asset 계층. 읽기는 통합 스토어 effective assets,
+  // 쓰기는 stageAsset CRUD. 케이블의 회로 endpoint 는 BRANCH asset id (source/target.assetId).
+  const effectiveAssets = useEffectiveAssets();
   const localCables = useEffectiveCables() as unknown as {
-    source?: { circuitId?: string | null };
-    target?: { circuitId?: string | null };
+    sourceAssetId?: string | null;
+    targetAssetId?: string | null;
   }[];
-  const addCircuit = useSubstationWorkingCopy((s) => s.stageDistCircuitCreate);
-  const removeCircuit = useSubstationWorkingCopy((s) => s.stageDistCircuitDelete);
+  const { data: assetTypes = [] } = useAssetTypes();
+  const stageAssetCreate = useSubstationWorkingCopy((s) => s.stageAssetCreate);
+  const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
   const startCircuitTrace = usePathHighlightStore((s) => s.startCircuitTrace);
 
-  const byFeeder = useMemo(
-    () => groupCircuitsByFeeder(allCircuits, equipmentId),
-    [allCircuits, equipmentId],
+  const panel = useMemo(
+    () => effectiveAssets.find((a) => a.id === equipmentId) ?? null,
+    [effectiveAssets, equipmentId],
+  );
+  const feederType = useMemo(
+    () => assetTypes.find((t) => t.code === FEEDER_CODE) ?? null,
+    [assetTypes],
+  );
+  const branchType = useMemo(
+    () => assetTypes.find((t) => t.code === BRANCH_CODE) ?? null,
+    [assetTypes],
   );
 
-  // 회로별 연결 여부 — 칸 색을 결정 (연결됨=파랑, 빈=회색 점선).
-  const connectedCircuitIds = useMemo(() => {
+  const feederGroups = useMemo(
+    () => feederGroupsOfPanel(effectiveAssets, equipmentId),
+    [effectiveAssets, equipmentId],
+  );
+
+  // 분기별 연결 여부 — 칸 색을 결정 (연결됨=파랑, 빈=회색 점선).
+  // 케이블 endpoint 가 BRANCH asset id 이므로 source/target.assetId 로 판정.
+  const connectedBranchIds = useMemo(() => {
     const s = new Set<string>();
     for (const c of localCables) {
-      if (c.source?.circuitId) s.add(c.source.circuitId);
-      if (c.target?.circuitId) s.add(c.target.circuitId);
+      if (c.sourceAssetId) s.add(c.sourceAssetId);
+      if (c.targetAssetId) s.add(c.targetAssetId);
     }
     return s;
   }, [localCables]);
@@ -57,38 +68,53 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const [addingFeeder, setAddingFeeder] = useState(false);
   const [newFeeder, setNewFeeder] = useState('');
 
+  const handleAddBranch = (feeder: Asset, branches: Asset[]) => {
+    if (!panel || !branchType) return;
+    stageAssetCreate(
+      buildSubtreeAsset({
+        id: generateTempId(),
+        substationId: panel.substationId,
+        type: branchType,
+        name: nextBranchName(branches),
+        parentAssetId: feeder.id,
+        sortOrder: branches.length,
+      }),
+    );
+  };
+
   const handleAddFeeder = () => {
     const name = newFeeder.trim();
-    if (!name) return;
-    const existing = byFeeder.get(name);
+    if (!name || !panel || !feederType || !branchType) return;
+    const existing = feederGroups.find((g) => g.feeder.name === name);
     if (existing) {
-      // 같은 이름이면 새 계통이 아니라 기존 계통에 분기 하나 더 (feeder 는
-      // 그룹 라벨이므로 동명 = 같은 계통).
-      handleAddBranch(name, existing);
+      // 같은 이름이면 새 계통이 아니라 기존 계통에 분기 하나 더.
+      handleAddBranch(existing.feeder, existing.branches);
     } else {
-      // 새 계통 — 빈 계통은 표현 못 하므로 L1 분기를 함께 생성.
-      addCircuit({
-        id: generateTempId(),
-        distributionEquipmentId: equipmentId,
-        feederName: name,
-        branchName: 'L1',
-        description: null,
-        sortOrder: 0,
-      });
+      // 새 계통 — FEEDER asset + 함께 L1 BRANCH asset.
+      const feederId = generateTempId();
+      stageAssetCreate(
+        buildSubtreeAsset({
+          id: feederId,
+          substationId: panel.substationId,
+          type: feederType,
+          name,
+          parentAssetId: equipmentId,
+          sortOrder: feederGroups.length,
+        }),
+      );
+      stageAssetCreate(
+        buildSubtreeAsset({
+          id: generateTempId(),
+          substationId: panel.substationId,
+          type: branchType,
+          name: 'L1',
+          parentAssetId: feederId,
+          sortOrder: 0,
+        }),
+      );
     }
     setNewFeeder('');
     setAddingFeeder(false);
-  };
-
-  const handleAddBranch = (feederName: string, branches: DistributionCircuit[]) => {
-    addCircuit({
-      id: generateTempId(),
-      distributionEquipmentId: equipmentId,
-      feederName,
-      branchName: nextBranchName(branches),
-      description: null,
-      sortOrder: branches.length,
-    });
   };
 
   if (snapshotActive) {
@@ -102,7 +128,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   return (
     <div className="flex flex-col max-h-[480px]">
       <div className="overflow-y-auto p-3">
-        {byFeeder.size === 0 && (
+        {feederGroups.length === 0 && (
           <p className="text-xs text-content-faint mb-3">
             전원 계통을 추가해 분전반 회로를 구성하세요.
           </p>
@@ -110,9 +136,9 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
         {/* 3열 고정 — 실제 배전반 뱅크처럼. 넘치면 다음 행으로 wrap (가로
             스크롤 없음). */}
         <div className="grid grid-cols-3 gap-2 items-start">
-            {[...byFeeder.entries()].map(([feederName, branches]) => (
+            {feederGroups.map(({ feeder, branches }: FeederGroup) => (
               <div
-                key={feederName}
+                key={feeder.id}
                 className="rounded-md border border-line bg-surface overflow-hidden"
               >
                 {/* feeder 헤더 — 메인 차단기 라벨. 추적 / 삭제 */}
@@ -124,16 +150,17 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                     title="이 계통 전체 연결 추적"
                   >
                     <span className="block text-sm font-semibold text-content-muted truncate">
-                      {feederName}
+                      {feeder.name}
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       if (
-                        confirm(`'${feederName}' 계통과 그 분기 ${branches.length}개를 삭제할까요?`)
+                        confirm(`'${feeder.name}' 계통과 그 분기 ${branches.length}개를 삭제할까요?`)
                       ) {
-                        branches.forEach((b) => removeCircuit(b.id));
+                        // FEEDER asset 삭제 — 하위 BRANCH 는 subtree cascade.
+                        stageAssetDelete(feeder.id);
                       }
                     }}
                     className="absolute top-1 right-1 w-5 h-5 rounded-full bg-surface border border-line text-danger leading-none opacity-0 group-hover/feeder:opacity-100 hover:bg-danger-bg transition-opacity flex items-center justify-center"
@@ -147,7 +174,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                 {/* 분기 차단기 칸 세로 스택 */}
                 <div className="p-1.5 flex flex-col gap-1">
                   {branches.map((c) => {
-                    const connected = connectedCircuitIds.has(c.id);
+                    const connected = connectedBranchIds.has(c.id);
                     return (
                       <div key={c.id} className="relative group/branch">
                         <button
@@ -160,11 +187,11 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                           }`}
                           title={connected ? '연결됨 — 클릭해 계통 추적' : '미연결 분기'}
                         >
-                          {c.branchName}
+                          {c.name}
                         </button>
                         <button
                           type="button"
-                          onClick={() => { if (confirm(`'${c.branchName}' 분기를 삭제할까요?`)) removeCircuit(c.id); }}
+                          onClick={() => { if (confirm(`'${c.name}' 분기를 삭제할까요?`)) stageAssetDelete(c.id); }}
                           className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-surface border border-line text-danger leading-none opacity-0 group-hover/branch:opacity-100 hover:bg-danger-bg transition-opacity flex items-center justify-center"
                           title="분기 삭제"
                           aria-label="분기 삭제"
@@ -178,7 +205,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                   {/* + 분기 — RackView EmptySlot 톤 */}
                   <button
                     type="button"
-                    onClick={() => handleAddBranch(feederName, branches)}
+                    onClick={() => handleAddBranch(feeder, branches)}
                     className="w-full px-2 py-2 rounded text-xs text-content-faint border border-dashed border-line hover:border-primary hover:text-primary hover:bg-info-bg transition-colors"
                   >
                     ＋ 분기

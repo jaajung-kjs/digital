@@ -5,15 +5,14 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
-import { circuitLabel, type DistributionCircuit } from '../../../types/distributionCircuit';
 import { useOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
+import { branchAssetIdsOfPanel, feederGroupsOfPanel } from '../../assets/distributionSubtree';
 import { composeFiberPaths } from '../../workingCopy/merge';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { buildCableFiberPathLabel } from '../../fiber/label';
 import {
   useEffectiveAssets,
   useEffectiveCables,
-  useEffectiveDistCircuits,
   useEffectiveFiberPaths,
 } from '../../workingCopy/hooks';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
@@ -45,7 +44,6 @@ export function ConnectionDiagram({
   const editorCables = useEffectiveCables().map((c) =>
     cableDtoToLocal(c as unknown as CableDetailDTO),
   );
-  const editorDistCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
   const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
   // Snapshot overlay: when active, show snapshot data instead of editor data
@@ -74,26 +72,33 @@ export function ConnectionDiagram({
       ),
     [editorRackModules, equipmentId],
   );
-  const childCircuitIds = useMemo(
-    () =>
-      new Set(
-        editorDistCircuits
-          .filter((c) => c.distributionEquipmentId === equipmentId)
-          .map((c) => c.id),
-      ),
-    [editorDistCircuits, equipmentId],
+  // 단계3b — 회로는 BRANCH asset. 이 분전반 하위 분기 asset id 집합 + branch id→라벨.
+  const childBranchIds = useMemo(
+    () => branchAssetIdsOfPanel(effectiveAssets, equipmentId),
+    [effectiveAssets, equipmentId],
   );
+  // 케이블 endpoint = branch asset id → "피더명/분기명" 라벨. substation 전역 분전반에서.
+  const branchLabelById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const panel of effectiveAssets) {
+      if (panel.assetType?.placementKind !== 'DIST') continue;
+      for (const { feeder, branches } of feederGroupsOfPanel(effectiveAssets, panel.id)) {
+        for (const branch of branches) m.set(branch.id, `${feeder.name}/${branch.name}`);
+      }
+    }
+    return m;
+  }, [effectiveAssets]);
 
+  // endpoint = 단일 asset id (flat sourceEquipmentId 자리). 모듈/분기 자식이면 이 설비의 연결.
   const isSelfSide = useCallback(
     (
-      eqId: string | null | undefined,
+      assetId: string | null | undefined,
       modId: string | null | undefined,
-      circuitId: string | null | undefined,
     ) =>
-      eqId === equipmentId ||
+      assetId === equipmentId ||
       (!!modId && childModuleIds.has(modId)) ||
-      (!!circuitId && childCircuitIds.has(circuitId)),
-    [equipmentId, childModuleIds, childCircuitIds],
+      (!!assetId && childBranchIds.has(assetId)),
+    [equipmentId, childModuleIds, childBranchIds],
   );
 
   // git-like: 케이블의 fiberPathLabel 을 read-time 에 합성하기 위한 path 맵.
@@ -118,8 +123,8 @@ export function ConnectionDiagram({
   const relevantCables = useMemo(() => {
     return localCables.filter(
       (cable) =>
-        isSelfSide(cable.sourceEquipmentId, cable.sourceModuleId, cable.sourceCircuitId) ||
-        isSelfSide(cable.targetEquipmentId, cable.targetModuleId, cable.targetCircuitId),
+        isSelfSide(cable.sourceEquipmentId, cable.sourceModuleId) ||
+        isSelfSide(cable.targetEquipmentId, cable.targetModuleId),
     );
   }, [localCables, isSelfSide]);
 
@@ -136,38 +141,30 @@ export function ConnectionDiagram({
             const sourceIsSelf = isSelfSide(
               cable.sourceEquipmentId,
               cable.sourceModuleId,
-              cable.sourceCircuitId,
             );
+            // endpoint 의 flat id(sourceEquipmentId 자리)는 단일 asset id —
+            //   분기면 branch asset id, 그 외엔 모듈/설비 id.
+            const selfAssetId = sourceIsSelf ? cable.sourceEquipmentId : cable.targetEquipmentId;
             const selfModuleId = sourceIsSelf ? cable.sourceModuleId : cable.targetModuleId;
-            const selfCircuitId = sourceIsSelf ? cable.sourceCircuitId : cable.targetCircuitId;
-            const remoteEqId = sourceIsSelf ? cable.targetEquipmentId : cable.sourceEquipmentId;
+            const remoteAssetId = sourceIsSelf ? cable.targetEquipmentId : cable.sourceEquipmentId;
             const remoteModuleId = sourceIsSelf ? cable.targetModuleId : cable.sourceModuleId;
-            const remoteCircuitId = sourceIsSelf ? cable.targetCircuitId : cable.sourceCircuitId;
 
             const selfModule = selfModuleId
               ? editorRackModules.find((m) => m.id === selfModuleId)
               : null;
-            const selfCircuit = selfCircuitId
-              ? editorDistCircuits.find((c) => c.id === selfCircuitId)
-              : null;
             const localEqName =
               selfModule?.name ??
-              (selfCircuit ? circuitLabel(selfCircuit) : null) ??
+              (selfAssetId ? branchLabelById.get(selfAssetId) : null) ??
               localEquipment.find((e) => e.id === equipmentId)?.name ??
               '';
 
             const remoteModule = remoteModuleId
               ? editorRackModules.find((m) => m.id === remoteModuleId)
               : null;
-            const remoteCircuit = remoteCircuitId
-              ? editorDistCircuits.find((c) => c.id === remoteCircuitId)
-              : null;
             const remoteName =
               remoteModule?.name ??
-              (remoteCircuit
-                ? circuitLabel(remoteCircuit)
-                : null) ??
-              (remoteEqId ? localEquipment.find((e) => e.id === remoteEqId)?.name ?? '' : '');
+              (remoteAssetId ? branchLabelById.get(remoteAssetId) : null) ??
+              (remoteAssetId ? localEquipment.find((e) => e.id === remoteAssetId)?.name ?? '' : '');
             const isTracing = tracingCableId === cable.id && isTraceLoading;
             const isCardSelected = traceActive && tracingCableId === cable.id;
 
