@@ -10,11 +10,15 @@ import { AssetInspector } from './AssetInspector';
 
 interface Props {
   asset: Asset;
+  /** 'edit'(변전소 — 스테이징 편집) | 'view'(본부·사업소 — 읽기전용). 기본 'edit'. */
+  mode?: 'edit' | 'view';
   onClose: () => void;
-  onPatch: (id: string, patch: Partial<UpdateAssetInput>) => void;
+  onPatch?: (id: string, patch: Partial<UpdateAssetInput>) => void;
+  /** 읽기전용 모드에서 "수정" — 대장(변전소 현황)으로 이동. */
+  onGotoRegister?: (id: string) => void;
 }
 
-export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
+export function AssetDetailPanel({ asset, mode = 'edit', onClose, onPatch, onGotoRegister }: Props) {
   const navigate = useNavigate();
   const ws = useWorkspaceNav();
   const today = useMemo(() => new Date(), []);
@@ -45,9 +49,10 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
 
       <AssetInspector
         asset={asset}
-        mode="edit"
+        mode={mode}
         onPatch={onPatch}
         onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
+        onGotoRegister={onGotoRegister}
         today={today}
       />
     </aside>

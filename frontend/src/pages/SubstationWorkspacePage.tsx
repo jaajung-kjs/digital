@@ -112,14 +112,12 @@ export function SubstationWorkspacePage() {
               <div className="p-6 text-sm text-content-muted">등록된 층이 없습니다.</div>
             ) : null}
             {view === 'connections' || view === 'status' ? (
-              <div className="absolute inset-0 p-3">
-                <div className="h-full bg-surface rounded-lg border border-line shadow-sm overflow-hidden">
-                  {view === 'connections' ? (
-                    <SubstationConnectionsView substationId={substationId} />
-                  ) : (
-                    <SubstationStatusView substationId={substationId} />
-                  )}
-                </div>
+              <div className="absolute inset-0 bg-surface overflow-hidden">
+                {view === 'connections' ? (
+                  <SubstationConnectionsView substationId={substationId} />
+                ) : (
+                  <SubstationStatusView substationId={substationId} />
+                )}
               </div>
             ) : null}
           </div>

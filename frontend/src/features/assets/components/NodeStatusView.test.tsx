@@ -9,12 +9,14 @@ vi.mock('../../../hooks/useNodeAssets', () => ({
     { id: 'a2', name: 'OFD-7', assetTypeName: 'OFD', assetTypeColor: '#222', substationId: 's1', substationName: '춘천S/S', floorId: null, floorName: null, roomText: '배전실', installDate: null, manager: null, status: null, warrantyUntil: null, replaceDue: null, lastMaintenanceDate: '2026-05-01' },
   ] }),
 }));
+// 본부·사업소 인스펙터는 useAsset 으로 페치 — 테스트에선 미해결(로딩) 상태로 둔다.
+vi.mock('../hooks/useAsset', () => ({ useAsset: () => ({ data: undefined }) }));
 import { NodeStatusView } from './NodeStatusView';
 
-function renderView(onSelect: (id: string | null) => void) {
+function renderView(onSelect: (id: string | null) => void, selectedAssetId: string | null = null) {
   return render(
     <MemoryRouter>
-      <SelectionContext.Provider value={{ selectedAssetId: null, setSelectedAssetId: onSelect }}>
+      <SelectionContext.Provider value={{ selectedAssetId, setSelectedAssetId: onSelect }}>
         <NodeStatusView nodeType="substation" nodeId="s1" />
       </SelectionContext.Provider>
     </MemoryRouter>,
@@ -43,5 +45,24 @@ describe('NodeStatusView', () => {
     // 4. click row → onSelect('a1')
     fireEvent.click(screen.getByText('랙01'));
     expect(onSelect).toHaveBeenCalledWith('a1');
+  });
+
+  it('요약 칩 클릭 → 종류 필터(전체 클릭 시 해제)', () => {
+    const onSelect = vi.fn();
+    renderView(onSelect);
+
+    // 두 자산 모두 보임
+    expect(screen.getByText('랙01')).toBeInTheDocument();
+    expect(screen.getByText('OFD-7')).toBeInTheDocument();
+
+    // 'OFD' 칩 클릭 → OFD 만 남음
+    fireEvent.click(screen.getByText(/^OFD 1$/));
+    expect(screen.queryByText('랙01')).not.toBeInTheDocument();
+    expect(screen.getByText('OFD-7')).toBeInTheDocument();
+
+    // '전체' 클릭 → 필터 해제
+    fireEvent.click(screen.getByText(/전체 2/));
+    expect(screen.getByText('랙01')).toBeInTheDocument();
+    expect(screen.getByText('OFD-7')).toBeInTheDocument();
   });
 });
