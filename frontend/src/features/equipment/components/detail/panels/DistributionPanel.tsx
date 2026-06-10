@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useEffectiveDistCircuits, useEffectiveCables } from '../../../../workingCopy/hooks';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
@@ -150,10 +151,11 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                         branches.forEach((b) => removeCircuit(b.id));
                       }
                     }}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white border border-gray-300 text-xs text-red-500 leading-none opacity-0 group-hover/feeder:opacity-100 hover:bg-red-50 transition-opacity flex items-center justify-center"
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white border border-gray-300 text-red-500 leading-none opacity-0 group-hover/feeder:opacity-100 hover:bg-red-50 transition-opacity flex items-center justify-center"
                     title="계통 삭제"
+                    aria-label="계통 삭제"
                   >
-                    ×
+                    <X size={12} />
                   </button>
                 </div>
 
@@ -178,10 +180,11 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                         <button
                           type="button"
                           onClick={() => { if (confirm(`'${c.branchName}' 분기를 삭제할까요?`)) removeCircuit(c.id); }}
-                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-[10px] text-red-500 leading-none opacity-0 group-hover/branch:opacity-100 hover:bg-red-50 transition-opacity"
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-red-500 leading-none opacity-0 group-hover/branch:opacity-100 hover:bg-red-50 transition-opacity flex items-center justify-center"
                           title="분기 삭제"
+                          aria-label="분기 삭제"
                         >
-                          ×
+                          <X size={10} />
                         </button>
                       </div>
                     );

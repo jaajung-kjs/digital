@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { generateTempId } from '../../../utils/idHelpers';
 import { useEditorStore } from '../../editor/stores/editorStore';
 // 현황(대장) 점검 이력도 에디터 LogsTab 과 동일한 보류 큐로 스테이징 → 단일 저장 시 flushPendingMedia 가 생성.
@@ -61,7 +62,7 @@ export function AssetMaintenanceSection({ assetId }: { assetId: string }) {
                 )}
               </span>
               {l.isPending ? (
-                <button onClick={() => removePendingLog(l.id)} className="text-gray-400 hover:text-red-500">✕</button>
+                <button aria-label="삭제" onClick={() => removePendingLog(l.id)} className="text-content-muted hover:text-danger"><X size={14} /></button>
               ) : (
                 <span className="text-gray-400">{l.logDate ? new Date(l.logDate).toLocaleDateString('ko-KR') : ''}</span>
               )}

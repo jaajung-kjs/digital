@@ -3,7 +3,7 @@ import type { FiberPathDetail, FiberPortStatus, FiberPortUsage } from '../types'
 import type { LocalCable } from '../../editor/stores/editorStore';
 import { useEffectiveCables } from '../../workingCopy/hooks';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
-import { CABLE_COLORS } from '../../../types/connection';
+import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 
 interface FiberPortGridProps {
   fiberPath: FiberPathDetail;
@@ -186,7 +186,7 @@ function PortDetail({
   const badgeLabel =
     localCable?.categoryName ?? localCable?.categoryCode ?? localCable?.cableType ?? 'FIBER';
   const badgeColor =
-    localCable?.displayColor || (localCable ? CABLE_COLORS[localCable.cableType] : null) || '#22c55e';
+    normalizeCableColor(localCable?.displayColor) || (localCable ? CABLE_COLORS[localCable.cableType] : null) || '#22c55e';
 
   return (
     <div className="mt-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">

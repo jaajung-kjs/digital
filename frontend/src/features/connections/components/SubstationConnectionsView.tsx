@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useEffectiveCables } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelection } from '../../workspace/SelectionContext';
+import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
 
 interface Endpoint { equipmentId: string | null; moduleId: string | null; name: string }
@@ -38,7 +39,7 @@ export function SubstationConnectionsTable({ connections, typeFilter, onDelete, 
                 className="w-20 text-xs border border-gray-200 rounded px-1 py-0.5" placeholder="-" />
             </td>
             <td className="p-2 text-gray-500">{c.length ?? '-'}</td>
-            <td className="p-2"><button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-gray-300 hover:text-red-500">✕</button></td>
+            <td className="p-2"><button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-content-faint hover:text-danger"><X size={14} /></button></td>
           </tr>
         ))}
       </tbody>

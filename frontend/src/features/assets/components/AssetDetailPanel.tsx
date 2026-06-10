@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Asset, UpdateAssetInput } from '../../../types/asset';
 import { assetAlert } from '../alerts';
@@ -38,7 +39,7 @@ export function AssetDetailPanel({ asset, onClose, onPatch }: Props) {
             <button disabled title="도면에 배치되지 않음"
               className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-300 cursor-not-allowed">도면에서 보기</button>
           )}
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-sm">✕</button>
+          <button aria-label="닫기" onClick={onClose} className="text-content-muted hover:text-content"><X size={16} /></button>
         </div>
       </header>
 
