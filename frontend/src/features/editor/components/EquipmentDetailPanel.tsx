@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
@@ -89,9 +90,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
           className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors shrink-0"
           title="닫기"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X size={16} />
         </button>
       </div>
 

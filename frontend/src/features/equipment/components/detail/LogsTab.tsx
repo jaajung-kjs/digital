@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { generateTempId, isTempId } from '../../../../utils/idHelpers';
 import { useEditorStore } from '../../../editor/stores/editorStore';
 import { useMaintenanceLogs } from '../../hooks/useMaintenanceLogs';
@@ -205,18 +206,14 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
                         className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
                         title="수정"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
+                        <Pencil size={14} />
                       </button>
                     <button
                       onClick={() => handleDeleteLog(log.id)}
                       className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
                       title="삭제"
                     >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 )}

@@ -12,7 +12,7 @@ import {
 import { assetToRackModule } from '../../workingCopy/assetToRackModule';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import type { DistributionCircuit } from '../../../types/distributionCircuit';
-import { CABLE_COLORS } from '../../../types/connection';
+import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 
 /** Check if a cable matches the current filter set (DB category codes) */
 function cableMatchesFilter(
@@ -55,7 +55,7 @@ function mapCablesToRenderable(
       targetY: targetPos.y + targetPos.height / 2,
       cableType: cable.cableType,
       label: cable.label || cable.categoryName || cable.categoryCode || undefined,
-      color: cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
+      color: normalizeCableColor(cable.color || cable.displayColor) || CABLE_COLORS[cable.cableType] || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength ?? undefined,
       totalLength: cable.totalLength ?? undefined,
@@ -82,7 +82,7 @@ function mapPlanCablesToRenderable(
       targetY: targetPos.y + targetPos.height / 2,
       cableType: cable.cableType,
       label: cable.label || cable.categoryName || cable.categoryCode || undefined,
-      color: cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
+      color: normalizeCableColor(cable.color || cable.displayColor) || CABLE_COLORS[cable.cableType] || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength,
       totalLength: cable.totalLength,

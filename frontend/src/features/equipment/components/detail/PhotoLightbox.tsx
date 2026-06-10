@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { ZoomIn, ZoomOut, Trash2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { LightboxPhoto } from './types';
 
@@ -79,14 +80,10 @@ export function PhotoLightbox({
         <span className="text-sm">{index + 1} / {photos.length}</span>
         <div className="flex items-center gap-2">
           <button onClick={() => setScale((s) => Math.min(s + 0.5, 5))} className="p-1.5 hover:bg-white/20 rounded" title="확대">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-            </svg>
+            <ZoomIn size={20} />
           </button>
           <button onClick={() => setScale((s) => Math.max(s - 0.5, 0.5))} className="p-1.5 hover:bg-white/20 rounded" title="축소">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-            </svg>
+            <ZoomOut size={20} />
           </button>
           {scale !== 1 && (
             <button onClick={resetView} className="px-2 py-1 text-xs hover:bg-white/20 rounded">
@@ -95,15 +92,11 @@ export function PhotoLightbox({
           )}
           {photo.id && photo.id.startsWith('pending-') && onDelete && (
             <button onClick={handleDelete} className="p-1.5 hover:bg-red-500/50 rounded" title="사진 삭제">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <Trash2 size={20} />
             </button>
           )}
           <button onClick={onClose} className="p-1.5 hover:bg-white/20 rounded" title="닫기">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X size={20} />
           </button>
         </div>
       </div>
@@ -114,9 +107,7 @@ export function PhotoLightbox({
             onClick={() => goTo(index - 1)}
             className="absolute left-3 z-10 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft size={24} />
           </button>
         )}
         {hasNext && (
@@ -124,9 +115,7 @@ export function PhotoLightbox({
             onClick={() => goTo(index + 1)}
             className="absolute right-3 z-10 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
+            <ChevronRight size={24} />
           </button>
         )}
         <img

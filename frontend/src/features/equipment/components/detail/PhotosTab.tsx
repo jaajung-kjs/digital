@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
+import { X, ImageIcon, Trash2 } from 'lucide-react';
 import { compressImage } from '../../../../utils/imageCompression';
 import { generateTempId } from '../../../../utils/idHelpers';
 import { useEditorStore } from '../../../editor/stores/editorStore';
@@ -89,9 +90,7 @@ export function SnapshotPhotosTab({ equipmentId }: { equipmentId: string }) {
             onClick={() => setLightboxIndex(null)}
             className="absolute right-6 top-6 rounded-full bg-white/20 p-2 text-white hover:bg-white/40"
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X size={24} />
           </button>
         </div>,
         document.body
@@ -233,9 +232,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
               className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-white transition-colors shadow-sm"
               title={currentImageUrl ? '사진 변경' : '사진 업로드'}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
+              <ImageIcon size={16} />
             </button>
             {currentImageUrl && (
               <button
@@ -243,9 +240,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
                 className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-red-400 transition-colors shadow-sm"
                 title="사진 삭제"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
+                <Trash2 size={16} />
               </button>
             )}
           </div>
@@ -277,9 +272,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
           />
         ) : readOnly ? (
           <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
-            <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+            <ImageIcon size={48} strokeWidth={1} className="mb-2" />
             <span className="text-sm">{photoSide === 'front' ? '전면' : '후면'} 사진 없음</span>
           </div>
         ) : (
@@ -287,9 +280,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
             onClick={handleUploadClick}
             className="w-full h-full flex flex-col items-center justify-center text-gray-500 hover:text-blue-400 transition-colors"
           >
-            <svg className="w-12 h-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+            <ImageIcon size={48} strokeWidth={1} className="mb-2" />
             <span className="text-sm">{photoSide === 'front' ? '전면' : '후면'} 사진 추가</span>
           </button>
         )}

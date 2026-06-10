@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { CABLE_COLORS } from '../../../types/connection';
+import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 import { type LocalCable } from '../../editor/stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
@@ -207,7 +207,7 @@ export function ConnectionDiagram({
                       <span
                         className="rounded px-1.5 py-0.5 text-xs font-medium"
                         style={{
-                          backgroundColor: cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280',
+                          backgroundColor: normalizeCableColor(cable.displayColor) || CABLE_COLORS[cable.cableType] || '#6b7280',
                           color: '#ffffff',
                         }}
                       >

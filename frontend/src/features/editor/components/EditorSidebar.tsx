@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronRight, MousePointer2 } from 'lucide-react';
 import { useEditorStore } from '../stores/editorStore';
 import { useDeleteRackPreset, useRackPresets } from '../../rack/hooks/useRackPresets';
 import { EditRackPresetDialog } from '../../rack/components/EditRackPresetDialog';
@@ -341,19 +342,10 @@ function CollapsibleSection({
         className="w-full px-4 py-1.5 flex items-center justify-between text-sm font-semibold text-gray-800 hover:bg-gray-50"
       >
         <span>{title}</span>
-        <svg
-          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
+        <ChevronRight
+          size={14}
+          className={`text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`}
+        />
       </button>
       {open && <div className="mt-1">{children}</div>}
     </div>
@@ -430,14 +422,5 @@ function EmptyHint() {
 
 // ───── Icons ─────
 function SelectIcon() {
-  return (
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"
-      />
-    </svg>
-  );
+  return <MousePointer2 size={16} />;
 }

@@ -1,4 +1,5 @@
 import { useRef, useState, useMemo } from 'react';
+import { X } from 'lucide-react';
 import { compressImage } from '../../../utils/imageCompression';
 import { generateTempId } from '../../../utils/idHelpers';
 import { useEditorStore } from '../../editor/stores/editorStore';
@@ -80,8 +81,8 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
               {item.isPending && (
                 <span className="absolute bottom-0.5 left-0.5 text-[10px] bg-amber-500 text-white rounded px-1">저장 대기</span>
               )}
-              <button onClick={() => onDelete(item)}
-                className="absolute top-0.5 right-0.5 text-xs bg-white/80 rounded px-1 opacity-0 group-hover:opacity-100">✕</button>
+              <button aria-label="사진 삭제" onClick={() => onDelete(item)}
+                className="absolute top-0.5 right-0.5 bg-white/80 rounded p-0.5 opacity-0 group-hover:opacity-100"><X size={12} /></button>
             </div>
           ))}
         </div>

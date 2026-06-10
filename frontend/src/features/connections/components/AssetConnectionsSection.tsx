@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
 
 interface Endpoint { equipmentId: string | null; moduleId: string | null; name: string }
@@ -31,7 +32,7 @@ export function AssetConnectionsSection({ assetId, connections, onDelete, onUpda
             <input key={c.id + (c.label ?? '')} aria-label="라벨" defaultValue={c.label ?? ''}
               onBlur={(e) => { const v = e.target.value || null; if (v !== c.label) onUpdate(c.id, { label: v }); }}
               className="w-16 text-xs border border-gray-200 rounded px-1 py-0.5 shrink-0" placeholder="라벨" />
-            <button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-gray-300 hover:text-red-500 shrink-0">✕</button>
+            <button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-content-faint hover:text-danger shrink-0"><X size={14} /></button>
           </div>
         );
       })}

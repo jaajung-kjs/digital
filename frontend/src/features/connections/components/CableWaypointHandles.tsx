@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { CABLE_COLORS } from '../../../types/connection';
+import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
 
 interface CableWaypointHandlesProps {
@@ -25,7 +25,7 @@ export function CableWaypointHandles({ cable, zoom, panX, panY }: CableWaypointH
   if (!points || points.length < 2) return null;
 
   const scale = zoom / 100;
-  const color = cable.color || cable.displayColor || CABLE_COLORS[cable.cableType] || '#6b7280';
+  const color = normalizeCableColor(cable.color || cable.displayColor) || CABLE_COLORS[cable.cableType] || '#6b7280';
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 12 }}>
