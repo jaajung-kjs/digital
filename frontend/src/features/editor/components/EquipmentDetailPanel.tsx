@@ -5,7 +5,6 @@ import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
-import { spatialNeedsWidePanel } from '../../equipment/components/detail/panels/resolveSpatialSection';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
 import {
   EQUIPMENT_KIND_INFO,
@@ -55,12 +54,9 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setDetailPanelEquipmentId]);
 
-  // RACK 은 U-슬롯 그리드 때문에 더 넓은 패널(480), 그 외는 표준 360.
-  const wide = spatialNeedsWidePanel(detailKind);
-
   return (
     <div
-      className={`absolute right-0 top-0 bottom-0 ${wide ? 'w-[480px]' : 'w-[360px]'} bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col`}
+      className="absolute right-0 top-0 bottom-0 w-96 bg-surface border-l border-line shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col"
       style={{ animation: 'slideInRight 0.25s ease-out' }}
     >
       <style>{`

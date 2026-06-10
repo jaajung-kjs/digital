@@ -8,7 +8,6 @@ import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
 import { normalizeKindForAsset } from '../../workingCopy/assetToEquipment';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
-import { spatialNeedsWidePanel } from '../../equipment/components/detail/panels/resolveSpatialSection';
 
 interface Props {
   asset: Asset;
@@ -32,20 +31,21 @@ export function AssetDetailPanel({ asset, mode = 'edit', onClose, onPatch }: Pro
   const today = useMemo(() => new Date(), []);
   const alert = assetAlert(asset, today);
 
-  // 종류 → 상세 패널 종류(공간 섹션 해석용).
-  const detailKind = useMemo<DetailPanelKind>(() => {
-    const kind = normalizeKindForAsset(asset.assetType?.placementKind);
-    return EQUIPMENT_KIND_INFO[kind].detailPanelKind;
-  }, [asset.assetType?.placementKind]);
-
-  // RACK 은 U-슬롯 그리드 때문에 더 넓은 패널(480), 그 외는 표준 384(w-96).
-  const wide = spatialNeedsWidePanel(detailKind);
+  // 종류 → 상세 패널 종류(공간 섹션 해석용). null 이면 공간 섹션 없음.
+  // 랙 내부 모듈(parentAssetId 있음)·미배치/미상 placementKind 자산은 공간 섹션이 없다.
+  // (normalizeKindForAsset 의 unknown→RACK 기본값 때문에 모듈에 '내부설비'가 붙던 버그 방지.)
+  const detailKind = useMemo<DetailPanelKind | null>(() => {
+    if (asset.parentAssetId != null) return null;
+    const pk = asset.assetType?.placementKind;
+    if (!pk) return null;
+    return EQUIPMENT_KIND_INFO[normalizeKindForAsset(pk)].detailPanelKind;
+  }, [asset.parentAssetId, asset.assetType?.placementKind]);
 
   return (
     <aside
-      className={`${wide ? 'w-[480px]' : 'w-96'} shrink-0 border-l border-gray-200 bg-white h-full overflow-y-auto flex flex-col`}
+      className="w-96 shrink-0 border-l border-line bg-surface h-full overflow-y-auto flex flex-col"
     >
-      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 sticky top-0 bg-white z-10 shrink-0">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-line sticky top-0 bg-surface z-10 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           {/* ISA-101: 종류 점은 무채색. 색은 상태 배지에만. */}
           <span className="inline-block w-2 h-2 rounded-full shrink-0 bg-eq-3" />
