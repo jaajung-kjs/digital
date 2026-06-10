@@ -29,6 +29,10 @@ export interface CableDetail {
   id: string;
   source: CableEndpointRef;
   target: CableEndpointRef;
+  // 단계2(통합 노드): endpoint 의 단일 Asset id. nested source/target 와 병행 노출.
+  // 회로 endpoint 면 null(구 경로). 현 프론트는 source/target 만 읽으므로 영향 없음.
+  sourceAssetId: string | null;
+  targetAssetId: string | null;
   cableType: CableType;
   label: string | null;
   length: number | null;
@@ -480,6 +484,8 @@ class CableService {
       id: c.id,
       source: this.endpointFromIncluded('source', c),
       target: this.endpointFromIncluded('target', c),
+      sourceAssetId: c.sourceAssetId ?? null,
+      targetAssetId: c.targetAssetId ?? null,
       cableType: c.cableType,
       label: c.label,
       length: c.length,
