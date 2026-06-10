@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Map as MapIcon } from 'lucide-react';
 import { useNodeAssets, type NodeKind } from '../../../hooks/useNodeAssets';
 import { useSelection } from '../../workspace/SelectionContext';
-import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { installLocation, inspectionState, type AssetListItem } from '../nodeStatus';
 import { assetAlert } from '../alerts';
 import { useAsset } from '../hooks/useAsset';
@@ -11,7 +8,7 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets, useEffectiveAssetsOverlay, useUnifiedDirty } from '../../workingCopy/hooks';
 import { StatusSummary } from './StatusSummary';
 import { AssetDetailPanel } from './AssetDetailPanel';
-import { Badge, IconButton, type BadgeStatus } from '../../../components/ui';
+import { Badge, type BadgeStatus } from '../../../components/ui';
 import type { Asset, UpdateAssetInput } from '../../../types/asset';
 
 const COLUMNS = ['종류', '이름', '설치장소', '설치일', '담당자', '마지막 점검일', '상태'] as const;
@@ -43,13 +40,11 @@ function AssetRow({
   today,
   selected,
   onSelect,
-  onGotoFloor,
 }: {
   item: AssetListItem;
   today: Date;
   selected?: boolean;
   onSelect: () => void;
-  onGotoFloor?: () => void;
 }) {
   const alert = assetAlert({ installDate: item.installDate }, today);
   const insp = inspectionState(item.lastMaintenanceDate, today);
@@ -75,26 +70,11 @@ function AssetRow({
       </td>
       <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">{item.manager ?? '—'}</td>
       <td className={`px-2 text-sm align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
-      <td className="px-2 text-sm align-middle whitespace-nowrap">
+      <td className="px-2 pr-4 text-sm align-middle whitespace-nowrap">
         {item.status ? (
           <Badge status={statusBadge(item.status)}>{item.status}</Badge>
         ) : (
           <span className="text-content-muted">—</span>
-        )}
-      </td>
-      <td className="pl-2 pr-4 text-right align-middle">
-        {item.floorId && (
-          <IconButton
-            aria-label="도면에서 보기"
-            title="도면에서 보기"
-            className="p-1.5 text-content-faint hover:text-primary"
-            onClick={(e) => {
-              e.stopPropagation();
-              onGotoFloor?.();
-            }}
-          >
-            <MapIcon size={15} />
-          </IconButton>
         )}
       </td>
     </tr>
@@ -214,8 +194,6 @@ export function NodeStatusView({
   // rows 가 주어지면 그것을 데이터 소스로(필터/요약 모두 items 기준).
   const items = rows ?? fetchedMerged;
   const today = useMemo(() => new Date(), []);
-  const ws = useWorkspaceNav();
-  const navigate = useNavigate();
 
   // 선택: 공유 SelectionContext 가 있으면(변전소 워크스페이스 — 에디터 선택 브리지) 그것을,
   // 없으면(본부·사업소 — provider 없음) 로컬 state 를 사용한다.
@@ -273,12 +251,6 @@ export function NodeStatusView({
     return Array.from(map.entries()).map(([label, count]) => ({ key: label, label, count }));
   }, [items]);
 
-  const gotoFloor = (item: AssetListItem) => {
-    if (!item.floorId) return;
-    if (ws) ws.gotoFloor(item.floorId, item.id);
-    else navigate(`/substations/${item.substationId}/workspace?view=plan&floor=${item.floorId}&equipmentId=${item.id}`);
-  };
-
   const renderRow = (item: AssetListItem) => (
     <AssetRow
       key={item.id}
@@ -286,7 +258,6 @@ export function NodeStatusView({
       today={today}
       selected={selectedId === item.id}
       onSelect={() => setSelectedId(item.id)}
-      onGotoFloor={item.floorId ? () => gotoFloor(item) : undefined}
     />
   );
 
@@ -335,11 +306,10 @@ export function NodeStatusView({
               <thead>
                 <tr className="text-left bg-surface-2 border-b border-line sticky top-0">
                   {COLUMNS.map((c, i) => (
-                    <th key={c} className={`${i === 0 ? 'pl-4 pr-2' : 'px-2'} py-2 text-xs font-medium uppercase tracking-wide text-content-muted`}>
+                    <th key={c} className={`${i === 0 ? 'pl-4 pr-2' : i === COLUMNS.length - 1 ? 'px-2 pr-4' : 'px-2'} py-2 text-xs font-medium uppercase tracking-wide text-content-muted`}>
                       {c}
                     </th>
                   ))}
-                  <th className="pl-2 pr-4 py-2" />
                 </tr>
               </thead>
               <tbody>{filtered.map(renderRow)}</tbody>
