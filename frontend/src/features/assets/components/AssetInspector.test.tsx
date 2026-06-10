@@ -25,10 +25,9 @@ describe('AssetInspector', () => {
     fireEvent.blur(input);
     expect(onPatch).toHaveBeenCalledWith('a1', { attributes: { model: 'Y' } });
   });
-  it('view 모드: "수정" → onGotoRegister', () => {
-    const onGotoRegister = vi.fn();
-    wrap(<AssetInspector asset={asset} mode="view" onSelectAsset={vi.fn()} onGotoRegister={onGotoRegister} today={today} />);
-    fireEvent.click(screen.getByText('수정'));
-    expect(onGotoRegister).toHaveBeenCalledWith('a1');
+  it('view 모드: 읽기전용 — 편집 인풋/수정 버튼 없음', () => {
+    wrap(<AssetInspector asset={asset} mode="view" onSelectAsset={vi.fn()} today={today} />);
+    expect(screen.queryByText('수정')).toBeNull();
+    expect(screen.queryByLabelText('모델')).toBeNull();
   });
 });

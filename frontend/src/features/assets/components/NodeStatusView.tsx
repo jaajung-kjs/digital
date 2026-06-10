@@ -7,6 +7,7 @@ import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { installLocation, inspectionState, type AssetListItem } from '../nodeStatus';
 import { assetAlert } from '../alerts';
 import { useAsset } from '../hooks/useAsset';
+import { useUpdateAsset } from '../hooks/useUpdateAsset';
 import { StatusSummary } from './StatusSummary';
 import { AssetDetailPanel } from './AssetDetailPanel';
 import { Badge, IconButton, type BadgeStatus } from '../../../components/ui';
@@ -96,19 +97,13 @@ function AssetRow({
 }
 
 /**
- * 선택된 자산의 read-only 인스펙터(본부·사업소 — 편집은 변전소 워크스페이스에서).
- * 자산 상세를 useAsset 으로 직접 페치한다(목록 행에는 인스펙터에 필요한 풀 Asset 이 없음).
+ * 선택된 자산의 인스펙터(본부·사업소 — 워킹카피가 없는 곳).
+ * 자산 상세를 useAsset 으로 직접 페치하고(목록 행에는 풀 Asset 이 없음),
+ * 편집은 강제 이동 없이 useUpdateAsset 로 직접 저장(PUT /assets/:id)한다.
  */
-function ReadOnlyDetailPanel({
-  assetId,
-  onClose,
-  onGotoRegister,
-}: {
-  assetId: string;
-  onClose: () => void;
-  onGotoRegister: (id: string) => void;
-}) {
+function DirectEditDetailPanel({ assetId, onClose }: { assetId: string; onClose: () => void }) {
   const { data: asset } = useAsset(assetId);
+  const updateAsset = useUpdateAsset();
   if (!asset) {
     return (
       <aside className="w-96 shrink-0 border-l border-line bg-surface h-full overflow-y-auto p-4 text-sm text-content-muted">
@@ -120,9 +115,9 @@ function ReadOnlyDetailPanel({
     <AssetDetailPanel
       key={asset.id}
       asset={asset}
-      mode="view"
+      mode="edit"
       onClose={onClose}
-      onGotoRegister={onGotoRegister}
+      onPatch={(id, patch) => updateAsset.mutate({ id, patch })}
     />
   );
 }
@@ -269,15 +264,7 @@ export function NodeStatusView({
             />
           )
         ) : (
-          <ReadOnlyDetailPanel
-            assetId={selectedId}
-            onClose={() => setSelectedId(null)}
-            onGotoRegister={(id) =>
-              navigate(`/substations/${
-                items.find((i) => i.id === id)?.substationId ?? nodeId
-              }/workspace?view=status&assetId=${id}`)
-            }
-          />
+          <DirectEditDetailPanel assetId={selectedId} onClose={() => setSelectedId(null)} />
         ))}
     </div>
   );

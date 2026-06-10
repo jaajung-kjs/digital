@@ -13,7 +13,6 @@ interface Props {
   mode: 'edit' | 'view';
   onPatch?: (id: string, patch: Partial<UpdateAssetInput>) => void;
   onSelectAsset: (id: string) => void;
-  onGotoRegister?: (id: string) => void;
   /** @deprecated 생애주기 표시 제거로 미사용. 호출부 호환을 위해 유지. */
   today?: Date;
 }
@@ -37,7 +36,7 @@ function ReadField({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function AssetInspector({ asset, mode, onPatch, onSelectAsset, onGotoRegister }: Props) {
+export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
   const ro = mode === 'view';
   const patch = (p: Partial<UpdateAssetInput>) => onPatch?.(asset.id, p);
   const { data: connections = [] } = useAssetConnections(asset.id);
@@ -46,10 +45,6 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, onGotoRegi
   return (
     <>
       <section className="px-4 py-3">
-        {ro && onGotoRegister && (
-          <button onClick={() => onGotoRegister(asset.id)}
-            className="mb-2 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700">수정</button>
-        )}
         {ro ? (
           <>
             <ReadField label="이름" value={asset.name} />
