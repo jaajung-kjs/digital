@@ -9,6 +9,7 @@ import { SelectionContext } from '../features/workspace/SelectionContext';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
 import { useWorkingCopyLoader, useEffectiveAssets } from '../features/workingCopy/hooks';
+import { floorAnchor, assetsByIdMap } from '../features/workingCopy/floorAnchor';
 import { useSubstationWorkingCopy } from '../features/workingCopy/substationStore';
 import { WorkingCopyCommitBar } from '../features/workingCopy/WorkingCopyCommitBar';
 import { useOrganizationStore } from '../stores/organizationStore';
@@ -69,16 +70,20 @@ export function WorkspacePage() {
   const { data: floors = [] } = useSubstationFloors(isSubstationNode ? activeNode?.id : undefined);
   const floorParam = searchParams.get('floor');
 
-  // 선택 자산의 (substationId, floorId) — 본부·사업소 평면도/연결 컨텍스트.
-  const selectedAsset = selectedAssetId ? effective.find((a) => a.id === selectedAssetId) : undefined;
+  // 선택 자산의 floor 표현(anchor) — 미배치 자산(랙 모듈·회로·포트)은 부모 설비로 해소.
+  // 예: 모듈을 선택하고 평면도로 가면 그 모듈의 랙(=anchor)의 floor/substation 을 연다.
+  // 단일 floorAnchor 로 해소(깊이 무관) — 도면 위치 해소의 단일 정답.
+  const assetsById = useMemo(() => assetsByIdMap(effective), [effective]);
+  const selectedAsset = selectedAssetId ? assetsById.get(selectedAssetId) : undefined;
+  const selectedAnchor = selectedAssetId ? floorAnchor(selectedAssetId, assetsById) : null;
 
-  // 평면도/연결이 가리키는 컨텍스트 변전소·층.
+  // 평면도/연결이 가리키는 컨텍스트 변전소·층 — anchor 기준(미배치 자산도 커버).
   const contextSubstationId = isSubstationNode
     ? (activeNode?.id ?? null)
-    : (selectedAsset?.substationId ?? null);
+    : (selectedAnchor?.substationId ?? selectedAsset?.substationId ?? null);
   const planFloorId = isSubstationNode
-    ? (floorParam ?? floors[0]?.id ?? null)
-    : (selectedAsset?.floorId ?? null);
+    ? (floorParam ?? selectedAnchor?.floorId ?? floors[0]?.id ?? null)
+    : (selectedAnchor?.floorId ?? null);
 
   const nav: WorkspaceNav = useMemo(() => ({
     gotoFloor: (floorId, assetId) => {
