@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { Asset, UpdateAssetInput } from '../../../types/asset';
+import type { Asset } from '../../../types/asset';
 import { assetAlert } from '../alerts';
 import { floorPlanUrl } from '../navUrls';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
@@ -13,7 +13,7 @@ interface Props {
   /** 'edit'(변전소 — 스테이징 편집) | 'view'(본부·사업소 — 읽기전용). 기본 'edit'. */
   mode?: 'edit' | 'view';
   onClose: () => void;
-  onPatch?: (id: string, patch: Partial<UpdateAssetInput>) => void;
+  onPatch?: (id: string, patch: Partial<Asset>) => void;
 }
 
 export function AssetDetailPanel({ asset, mode = 'edit', onClose, onPatch }: Props) {

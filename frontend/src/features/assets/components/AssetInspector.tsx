@@ -1,17 +1,27 @@
-import type { Asset, UpdateAssetInput } from '../../../types/asset';
+import type { Asset } from '../../../types/asset';
 import { toDateInputValue } from '../../../utils/date';
 import { AssetPhotoSection } from './AssetPhotoSection';
-import { AssetMaintenanceSection } from './AssetMaintenanceSection';
+import { LogsTab } from '../../equipment/components/detail/LogsTab';
 import { AssetAttributesView } from './AssetAttributesView';
 import { useAssetConnections } from '../../connections/hooks/useAssetConnections';
 import { useCableMutations } from '../../connections/hooks/useCableMutations';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
 import { CollapsibleSection } from '../../../components/CollapsibleSection';
 
+/**
+ * 단일 상세 인스펙터(SSOT) — 평면도(에디터)·현황·대장 그리드 모든 진입점에서
+ * 같은 필드·같은 편집·같은 staging(상위가 넘기는 onPatch=stageAssetUpdate)으로 동작.
+ *
+ * onPatch 는 Asset 부분 패치를 받는다(UpdateAssetInput 의 상위집합) — 설명/크기 같은
+ * 설비(equipment)-레벨 필드도 Asset 에 직접 존재하므로 별도 overlay 없이 동일 경로로 stage.
+ *   - 설명(description): 모든 컨텍스트에서 편집 가능.
+ *   - 크기(width2d/height2d): 평면도에 배치된 자산(=에디터 컨텍스트)에서만 노출/편집.
+ *     비배치(현황·대장 리스트)에서는 width2d/height2d 가 없으므로 자동으로 숨겨진다.
+ */
 interface Props {
   asset: Asset;
   mode: 'edit' | 'view';
-  onPatch?: (id: string, patch: Partial<UpdateAssetInput>) => void;
+  onPatch?: (id: string, patch: Partial<Asset>) => void;
   onSelectAsset: (id: string) => void;
   /** @deprecated 생애주기 표시 제거로 미사용. 호출부 호환을 위해 유지. */
   today?: Date;
@@ -36,11 +46,30 @@ function ReadField({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** 설명 — 여러 줄. 평면도/현황/대장 동일하게 노출(읽기/편집). */
+function DescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  return (
+    <label className="flex items-start gap-2 text-sm py-0.5">
+      <span className="w-24 shrink-0 text-gray-500 text-xs pt-1">설명</span>
+      <textarea defaultValue={value} rows={2} onBlur={(e) => { if (e.target.value !== value) onCommit(e.target.value); }}
+        className="flex-1 px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded text-sm resize-none" />
+    </label>
+  );
+}
+
 export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
   const ro = mode === 'view';
-  const patch = (p: Partial<UpdateAssetInput>) => onPatch?.(asset.id, p);
+  const patch = (p: Partial<Asset>) => onPatch?.(asset.id, p);
   const { data: connections = [] } = useAssetConnections(asset.id);
   const { deleteCable, updateCable } = useCableMutations();
+
+  // 종류 — 읽기전용. assetType.name(대장 레코드) 우선, 없으면 placementKind.
+  const kindLabel = asset.assetType?.name ?? asset.assetType?.placementKind ?? '';
+  // 크기 — 평면도에 배치된 자산에만 존재(현황·대장 리스트에는 없음).
+  const isPlaced = asset.width2d != null || asset.height2d != null;
+  const sizeValue = isPlaced
+    ? `${asset.width2d != null ? Math.round(asset.width2d) : '-'} x ${asset.height2d != null ? Math.round(asset.height2d) : '-'}`
+    : '';
 
   return (
     <>
@@ -48,16 +77,25 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
         {ro ? (
           <>
             <ReadField label="이름" value={asset.name} />
-            <ReadField label="설치일" value={toDateInputValue(asset.installDate)} />
+            <ReadField label="종류" value={kindLabel} />
             <ReadField label="담당자" value={asset.manager ?? ''} />
+            <ReadField label="설치일" value={toDateInputValue(asset.installDate)} />
             <ReadField label="상태" value={asset.status ?? ''} />
+            {isPlaced && <ReadField label="크기 (px)" value={sizeValue} />}
+            <ReadField label="설명" value={asset.description ?? ''} />
           </>
         ) : (
           <>
             <Field label="이름" value={asset.name} onCommit={(v) => v.trim() && patch({ name: v.trim() })} />
-            <Field label="설치일" type="date" value={toDateInputValue(asset.installDate)} onCommit={(v) => patch({ installDate: v || null })} />
+            {/* 종류는 항상 읽기전용 — 변경은 대장 종류 변경(별도 흐름)에서만. */}
+            <ReadField label="종류" value={kindLabel} />
             <Field label="담당자" value={asset.manager ?? ''} onCommit={(v) => patch({ manager: v || null })} />
+            <Field label="설치일" type="date" value={toDateInputValue(asset.installDate)} onCommit={(v) => patch({ installDate: v || null })} />
             <Field label="상태" value={asset.status ?? ''} onCommit={(v) => patch({ status: v || null })} />
+            {isPlaced && (
+              <ReadField label="크기 (px)" value={sizeValue} />
+            )}
+            <DescField value={asset.description ?? ''} onCommit={(v) => patch({ description: v || null })} />
           </>
         )}
       </section>
@@ -81,7 +119,8 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
           <AssetPhotoSection assetId={asset.id} />
         </CollapsibleSection>
         <CollapsibleSection title="유지보수">
-          <AssetMaintenanceSection assetId={asset.id} />
+          {/* 단일 유지보수 UX(LogsTab) — 종류/날짜/심각도/설명 + 편집. 보류 큐 공유. */}
+          <LogsTab equipmentId={asset.id} readOnly={ro} />
         </CollapsibleSection>
         <CollapsibleSection title="연결" badge={connections.length || undefined}>
           <AssetConnectionsSection
