@@ -25,15 +25,15 @@ import type { RackModule } from '../../types/rackModule';
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2b Task 3 — substation-scoped Unit-of-Work.
 //
-// 한 변전소의 working copy 전체(assets / cables / distributionCircuits /
-// fiberPaths)를 단일 store 에 담는다. 각 컬렉션은 Lv1 엔진(overlay/effective/
+// 한 변전소의 working copy 전체(assets / cables / fiberPaths)를 단일 store 에
+// 담는다(단계3b 에서 분전 회로는 FEEDER/BRANCH asset 으로 흡수). 각 컬렉션은 Lv1 엔진(overlay/effective/
 // descriptor)을 그대로 재사용하고, undo/redo 는 zundo `temporal` 로 overlays
 // 슬라이스만 history 에 담아 제공한다. 효과(effective) 셀렉터는 getState()로
 // 호출 가능한 plain method 로 둔다 — React 메모이즈 hook 은 2c/2d 의 몫.
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
- * cables / distributionCircuits / fiberPaths row 의 최소 계약.
+ * cables / fiberPaths row 의 최소 계약.
  * 배치 Asset 외 컬렉션은 store 내부에서 id/updatedAt 만 알면 충분하다
  * (엔진이 idOf/versionOf 만 요구). 구체 타입은 commit 빌더(2b-T4)의 몫.
  */
@@ -44,7 +44,6 @@ export interface WorkingCopyRow {
 }
 
 type Cable = WorkingCopyRow;
-type DistributionCircuit = WorkingCopyRow;
 type FiberPath = WorkingCopyRow;
 
 /** 컬렉션 공통 descriptor 빌더 — id/updatedAt 키 규약은 전 컬렉션 동일. */
@@ -63,27 +62,23 @@ function makeDescriptor<T extends { id: string; updatedAt?: string | null }>(
 // 효과(effective) 병합용 descriptor — 2c React 바인딩 훅(hooks.ts)이 재사용한다.
 export const assetDescriptor = makeDescriptor<Asset>('assets');
 export const cableDescriptor = makeDescriptor<Cable>('cables');
-export const distCircuitDescriptor = makeDescriptor<DistributionCircuit>('distributionCircuits');
 export const fiberPathDescriptor = makeDescriptor<FiberPath>('fiberPaths');
 
 interface SavedCollections {
   assets: Asset[];
   cables: Cable[];
-  distributionCircuits: DistributionCircuit[];
   fiberPaths: FiberPath[];
 }
 
 interface Overlays {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Cable, Partial<Cable>>;
-  distributionCircuits: Overlay<DistributionCircuit, Partial<DistributionCircuit>>;
   fiberPaths: Overlay<FiberPath, Partial<FiberPath>>;
 }
 
 const emptySaved = (): SavedCollections => ({
   assets: [],
   cables: [],
-  distributionCircuits: [],
   fiberPaths: [],
 });
 
@@ -97,10 +92,6 @@ function freshOverlays(saved: SavedCollections): Overlays {
     cables: {
       ...emptyOverlay<Cable, Partial<Cable>>(),
       baseVersions: snapshotBaseVersions(saved.cables, cableDescriptor.idOf, cableDescriptor.versionOf!),
-    },
-    distributionCircuits: {
-      ...emptyOverlay<DistributionCircuit, Partial<DistributionCircuit>>(),
-      baseVersions: snapshotBaseVersions(saved.distributionCircuits, distCircuitDescriptor.idOf, distCircuitDescriptor.versionOf!),
     },
     fiberPaths: {
       ...emptyOverlay<FiberPath, Partial<FiberPath>>(),
@@ -127,9 +118,6 @@ export interface SubstationWorkingCopyState {
   stageCableCreate: (item: Cable) => void;
   stageCableUpdate: (id: string, patch: Partial<Cable>) => void;
   stageCableDelete: (id: string) => void;
-  stageDistCircuitCreate: (item: DistributionCircuit) => void;
-  stageDistCircuitUpdate: (id: string, patch: Partial<DistributionCircuit>) => void;
-  stageDistCircuitDelete: (id: string) => void;
   stageFiberPathCreate: (item: FiberPath) => void;
   stageFiberPathUpdate: (id: string, patch: Partial<FiberPath>) => void;
   stageFiberPathDelete: (id: string) => void;
@@ -173,7 +161,6 @@ export interface SubstationWorkingCopyState {
   effectiveEquipment: (floorId: string) => FloorPlanEquipment[];
   effectiveRackModules: (rackId: string) => Asset[];
   effectiveCables: () => Cable[];
-  effectiveDistCircuits: () => DistributionCircuit[];
   effectiveFiberPaths: () => FiberPath[];
 
   dirtyCount: () => number;
@@ -206,7 +193,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         const saved: SavedCollections = {
           assets: data.data.assets ?? [],
           cables: data.data.cables ?? [],
-          distributionCircuits: data.data.distributionCircuits ?? [],
           fiberPaths: data.data.fiberPaths ?? [],
         };
         set({ substationId, saved, overlays: freshOverlays(saved) });
@@ -221,7 +207,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         const newSaved: SavedCollections = {
           assets: data.data.assets ?? [],
           cables: data.data.cables ?? [],
-          distributionCircuits: data.data.distributionCircuits ?? [],
           fiberPaths: data.data.fiberPaths ?? [],
         };
         // staged overlay(creates/updates/deletes)는 보존하고 baseVersions 만 최신 saved 기준으로 재스냅샷.
@@ -231,7 +216,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           overlays: {
             assets: { ...s.overlays.assets, baseVersions: snapshotBaseVersions(newSaved.assets, assetDescriptor.idOf, assetDescriptor.versionOf!) },
             cables: { ...s.overlays.cables, baseVersions: snapshotBaseVersions(newSaved.cables, cableDescriptor.idOf, cableDescriptor.versionOf!) },
-            distributionCircuits: { ...s.overlays.distributionCircuits, baseVersions: snapshotBaseVersions(newSaved.distributionCircuits, distCircuitDescriptor.idOf, distCircuitDescriptor.versionOf!) },
             fiberPaths: { ...s.overlays.fiberPaths, baseVersions: snapshotBaseVersions(newSaved.fiberPaths, fiberPathDescriptor.idOf, fiberPathDescriptor.versionOf!) },
           },
         }));
@@ -252,13 +236,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set((s) => ({ overlays: { ...s.overlays, cables: stageUpdate(s.overlays.cables, id, patch) } })),
       stageCableDelete: (id) =>
         set((s) => ({ overlays: { ...s.overlays, cables: stageDelete(s.overlays.cables, id, isTempId(id)) } })),
-
-      stageDistCircuitCreate: (item) =>
-        set((s) => ({ overlays: { ...s.overlays, distributionCircuits: stageCreate(s.overlays.distributionCircuits, item.id, item) } })),
-      stageDistCircuitUpdate: (id, patch) =>
-        set((s) => ({ overlays: { ...s.overlays, distributionCircuits: stageUpdate(s.overlays.distributionCircuits, id, patch) } })),
-      stageDistCircuitDelete: (id) =>
-        set((s) => ({ overlays: { ...s.overlays, distributionCircuits: stageDelete(s.overlays.distributionCircuits, id, isTempId(id)) } })),
 
       stageFiberPathCreate: (item) =>
         set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageCreate(s.overlays.fiberPaths, item.id, item) } })),
@@ -390,10 +367,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         const s = get();
         return mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor);
       },
-      effectiveDistCircuits: () => {
-        const s = get();
-        return mergeEffective(s.saved.distributionCircuits, s.overlays.distributionCircuits, distCircuitDescriptor);
-      },
       effectiveFiberPaths: () => {
         const s = get();
         return mergeEffective(s.saved.fiberPaths, s.overlays.fiberPaths, fiberPathDescriptor);
@@ -404,7 +377,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         return (
           overlayDirtyCount(o.assets) +
           overlayDirtyCount(o.cables) +
-          overlayDirtyCount(o.distributionCircuits) +
           overlayDirtyCount(o.fiberPaths)
         );
       },

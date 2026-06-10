@@ -13,7 +13,7 @@ const ofd = {
 
 beforeEach(() => {
   (api.get as any).mockResolvedValue({
-    data: { data: { assets: [ofd], cables: [], distributionCircuits: [], fiberPaths: [] } },
+    data: { data: { assets: [ofd], cables: [], fiberPaths: [] } },
   });
 });
 

@@ -3,7 +3,6 @@ import {
   useSubstationWorkingCopy,
   assetDescriptor,
   cableDescriptor,
-  distCircuitDescriptor,
   fiberPathDescriptor,
 } from './substationStore';
 import { mergeEffective } from './effective';
@@ -37,12 +36,6 @@ export function useEffectiveCables() {
   const saved = useSubstationWorkingCopy((s) => s.saved.cables);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.cables);
   return useMemo(() => mergeEffective(saved, overlay, cableDescriptor), [saved, overlay]);
-}
-
-export function useEffectiveDistCircuits() {
-  const saved = useSubstationWorkingCopy((s) => s.saved.distributionCircuits);
-  const overlay = useSubstationWorkingCopy((s) => s.overlays.distributionCircuits);
-  return useMemo(() => mergeEffective(saved, overlay, distCircuitDescriptor), [saved, overlay]);
 }
 
 export function useEffectiveFiberPaths() {
@@ -130,15 +123,13 @@ export function useEffectiveAssetsOverlay() {
 export function useWorkingCopyDirty() {
   const assets = useSubstationWorkingCopy((s) => s.overlays.assets);
   const cables = useSubstationWorkingCopy((s) => s.overlays.cables);
-  const distributionCircuits = useSubstationWorkingCopy((s) => s.overlays.distributionCircuits);
   const fiberPaths = useSubstationWorkingCopy((s) => s.overlays.fiberPaths);
   return useMemo(
     () =>
       overlayDirtyCount(assets) +
       overlayDirtyCount(cables) +
-      overlayDirtyCount(distributionCircuits) +
       overlayDirtyCount(fiberPaths),
-    [assets, cables, distributionCircuits, fiberPaths],
+    [assets, cables, fiberPaths],
   );
 }
 
@@ -170,7 +161,6 @@ export function getUnifiedDirtyCount(): number {
   const overlay =
     overlayDirtyCount(wc.overlays.assets) +
     overlayDirtyCount(wc.overlays.cables) +
-    overlayDirtyCount(wc.overlays.distributionCircuits) +
     overlayDirtyCount(wc.overlays.fiberPaths);
   const es = useEditorStore.getState();
   return (

@@ -13,12 +13,13 @@ import { type LocalCable } from '../editor/stores/editorStore';
 export interface CableDetailDTO {
   id: string;
   /**
-   * 단계3a — endpoint 는 단일 Asset(설비/랙모듈/분전 분기). 백엔드가 정밀 endpoint
-   * asset id 를 직접 내려준다. READ 의 source of truth. legacy nested source/target 은
-   * 아직 병행 반환되지만 더 이상 신뢰하지 않는다(assetId 없는 옛 row 안전 fallback 만).
+   * 단계4a — endpoint 는 단일 Asset(설비/랙모듈/분전 분기). 백엔드가 정밀 endpoint
+   * asset id 를 직접 내려준다. 정밀 endpoint id 의 유일한 source of truth(레거시 nested
+   * 폴백 제거됨). nested source/target 은 모듈 기반 ConnectionDiagram 렌더 + 쓰기 경로용
+   * 보조 필드로만 남는다(Stage 4b 에서 정리).
    */
-  sourceAssetId?: string | null;
-  targetAssetId?: string | null;
+  sourceAssetId: string;
+  targetAssetId: string;
   source: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
   target: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
   cableType: string;
@@ -38,11 +39,11 @@ export interface CableDetailDTO {
 
 /** effective Cable row → 렌더러/트레이서가 먹는 LocalCable. */
 export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
-  // 단계3a — endpoint = 단일 assetId. flat precise id 자리(sourceEquipmentId)는 이제
-  //   assetId 우선, 없을 때만 legacy nested(equipment→module→circuit) 로 폴백(옛 row 안전).
-  //   렌더(ConnectionOverlay)·트레이서(cableTracer)는 이 flat id 를 floorAnchor 로 해소한다.
-  const sourceId = c.sourceAssetId ?? c.source.equipmentId ?? c.source.moduleId ?? c.source.circuitId ?? '';
-  const targetId = c.targetAssetId ?? c.target.equipmentId ?? c.target.moduleId ?? c.target.circuitId ?? '';
+  // 단계4a — endpoint = 단일 assetId. flat precise id 자리(sourceEquipmentId)는 assetId
+  //   그대로(레거시 nested 폴백 제거). 렌더(ConnectionOverlay)·트레이서(cableTracer)는
+  //   이 flat id 를 floorAnchor 로 해소한다.
+  const sourceId = c.sourceAssetId;
+  const targetId = c.targetAssetId;
   return {
     id: c.id,
     sourceEquipmentId: sourceId,

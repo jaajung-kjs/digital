@@ -1,11 +1,10 @@
 import type { LocalCable } from '../editor/stores/editorStore';
 import type { RackModule } from '../../types/rackModule';
-import type { DistributionCircuit } from '../../types/distributionCircuit';
 import { resolveEquipmentId, resolveModuleId, resolveCircuitId, type IdMaps } from './idMaps';
 
 /**
  * Entity 별 tempId → realId 해석 함수. `useFloorPlanData.onSuccess` 의 inline
- * setCables/setRackModules/setDistributionCircuits 람다를 추출.
+ * setCables/setRackModules 람다를 추출.
  */
 
 export function resolveCableIds(c: LocalCable, maps: IdMaps): LocalCable {
@@ -25,13 +24,5 @@ export function resolveRackModuleIds(m: RackModule, maps: IdMaps): RackModule {
     ...m,
     id: resolveModuleId(m.id, maps),
     rackEquipmentId: resolveEquipmentId(m.rackEquipmentId, maps),
-  };
-}
-
-export function resolveCircuitIds(c: DistributionCircuit, maps: IdMaps): DistributionCircuit {
-  return {
-    ...c,
-    id: resolveCircuitId(c.id, maps),
-    distributionEquipmentId: resolveEquipmentId(c.distributionEquipmentId, maps),
   };
 }

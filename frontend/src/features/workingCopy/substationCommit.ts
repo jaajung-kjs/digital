@@ -8,8 +8,8 @@ import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2b Task 4 — commit 빌더.
 //
-// 통합 store(Task 3)의 overlay 4종(assets / cables / distributionCircuits /
-// fiberPaths)을 2a `POST /substations/:id/commit` 페이로드로 변환한다.
+// 통합 store(Task 3)의 overlay 3종(assets / cables / fiberPaths)을 2a
+// `POST /substations/:id/commit` 페이로드로 변환한다(분전 회로는 단계3b 에서 asset 흡수).
 //
 // 핵심은 단일 `assets` overlay 를 페이로드의 두 컬렉션으로 *분리*하는 것:
 //   - placement-level Asset(OFD/RACK/DIST/GROUNDING/HVAC) → payload.assets
@@ -25,7 +25,6 @@ import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 type Overlays = {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Record<string, unknown>, Partial<Record<string, unknown>>>;
-  distributionCircuits: Overlay<Record<string, unknown>, Partial<Record<string, unknown>>>;
   fiberPaths: Overlay<Record<string, unknown>, Partial<Record<string, unknown>>>;
 };
 
@@ -58,7 +57,6 @@ export interface SubstationCommitPayload {
   assets?: Collection;
   cables?: Collection;
   rackModules?: Collection;
-  distributionCircuits?: Collection;
   fiberPaths?: Collection;
   floor?: FloorCommitSection;
 }
@@ -175,7 +173,7 @@ function toRackModulePatch(patch: Partial<Asset>): Record<string, unknown> {
 /**
  * overlay 세트를 2a 커밋 페이로드로 변환한다.
  *
- * @param overlays  store 의 overlays(assets/cables/distributionCircuits/fiberPaths)
+ * @param overlays  store 의 overlays(assets/cables/fiberPaths)
  * @param savedAssets  서버에서 로드한 saved asset 목록 — update/delete 분류용 lookup.
  */
 export function buildSubstationCommitPayload(
@@ -222,14 +220,12 @@ export function buildSubstationCommitPayload(
     updates: cd.updates as Collection['updates'],
     deletes: cd.deletes,
   };
-  const distributionCircuits = buildDelta(overlays.distributionCircuits) as Collection;
   const fiberPaths = buildDelta(overlays.fiberPaths) as Collection;
 
   return {
     assets: omitIfEmpty(assetsCol),
     rackModules: omitIfEmpty(rackCol),
     cables: omitIfEmpty(cables),
-    distributionCircuits: omitIfEmpty(distributionCircuits),
     fiberPaths: omitIfEmpty(fiberPaths),
     ...(floor ? { floor } : {}),
   };

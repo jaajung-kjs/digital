@@ -7,9 +7,9 @@ import { cableOnFloor, assetsByIdMap } from './floorAnchor';
 const rack = { id:'r1', name:'랙', substationId:'s1', floorId:'f1', assetType:{ placementKind:'RACK' }, positionX:10, positionY:20, width2d:100, height2d:200, totalU:42, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
 const mod = { id:'m1', name:'모듈', substationId:'s1', floorId:'f1', assetType:{ placementKind:null }, parentAssetId:'r1', slotIndex:3, slotSpan:1, updatedAt:'2026-01-01T00:00:00.000Z' };
 const ofd = { id:'o1', name:'OFD', substationId:'s1', floorId:'f1', assetType:{ placementKind:'OFD' }, positionX:5, positionY:5, width2d:40, height2d:60, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
-const cable = { id:'c1', source:{ equipmentId:'r1', moduleId:null }, target:{ equipmentId:'o1', moduleId:null }, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
+const cable = { id:'c1', sourceAssetId:'r1', targetAssetId:'o1', source:{ equipmentId:'r1', moduleId:null }, target:{ equipmentId:'o1', moduleId:null }, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
 
-beforeEach(() => { (api.get as any).mockResolvedValue({ data: { data: { assets:[rack,mod,ofd], cables:[cable], distributionCircuits:[], fiberPaths:[] } } }); });
+beforeEach(() => { (api.get as any).mockResolvedValue({ data: { data: { assets:[rack,mod,ofd], cables:[cable], fiberPaths:[] } } }); });
 
 describe('substationWorkingCopy', () => {
   it('load → effective = saved, dirty 0', async () => {

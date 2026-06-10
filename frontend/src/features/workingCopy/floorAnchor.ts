@@ -108,42 +108,24 @@ export function floorTargetFor(
   };
 }
 
-/** 케이블 endpoint — 정밀 id 하나(설비/모듈/회로 중 하나). */
-export interface CableEndpoint {
-  equipmentId?: string | null;
-  moduleId?: string | null;
-  circuitId?: string | null;
-}
-
 /**
- * 단계3a — 케이블이 이 floor 에 닿는가(멤버십)의 단일 판정.
+ * 단계4a — 케이블이 이 floor 에 닿는가(멤버십)의 단일 판정.
  *
- * endpoint 는 이제 단일 assetId(sourceAssetId/targetAssetId). 각 endpoint 를 floorAnchor
+ * endpoint 는 단일 assetId(sourceAssetId/targetAssetId). 각 endpoint 를 floorAnchor
  * 로 placed ancestor(설비/랙/분전반)까지 해소해 그 anchor 의 floorId 가 floorId 와 같으면
  * 이 층 케이블이다. 분기(branch) endpoint 는 branch→feeder→panel 으로 자연히 해소된다.
- *
- * assetId 가 없는 옛 row 는 legacy nested 의 정밀 id(equipment→module→circuit)로 폴백한다.
- * 3필드 파생/회로→분전반(distributionEquipmentId) 특수처리 없이 단일 id + floorAnchor 만.
+ * (레거시 nested 폴백 제거 — assetId-only.)
  */
 export function cableOnFloor(
   cable: {
     sourceAssetId?: string | null;
     targetAssetId?: string | null;
-    source?: CableEndpoint | null;
-    target?: CableEndpoint | null;
   },
   floorId: string,
   assetsById: Map<string, Asset>,
 ): boolean {
-  const preciseId = (
-    assetId: string | null | undefined,
-    ep: CableEndpoint | null | undefined,
-  ): string | null | undefined =>
-    assetId ?? ep?.equipmentId ?? ep?.moduleId ?? ep?.circuitId;
-  const sourceId = preciseId(cable.sourceAssetId, cable.source);
-  const targetId = preciseId(cable.targetAssetId, cable.target);
   return (
-    floorAnchor(sourceId, assetsById)?.floorId === floorId ||
-    floorAnchor(targetId, assetsById)?.floorId === floorId
+    floorAnchor(cable.sourceAssetId, assetsById)?.floorId === floorId ||
+    floorAnchor(cable.targetAssetId, assetsById)?.floorId === floorId
   );
 }

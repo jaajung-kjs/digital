@@ -33,7 +33,7 @@ describe('buildSubstationCommitPayload', () => {
     } as any);
 
     const overlays = {
-      assets, cables: ov() as any, distributionCircuits: ov() as any, fiberPaths: ov() as any,
+      assets, cables: ov() as any, fiberPaths: ov() as any,
     };
     const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any);
 
@@ -67,7 +67,7 @@ describe('buildSubstationCommitPayload', () => {
     assets = stageDelete(assets, 'a2');
 
     const overlays = {
-      assets, cables: ov() as any, distributionCircuits: ov() as any, fiberPaths: ov() as any,
+      assets, cables: ov() as any, fiberPaths: ov() as any,
     };
     const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any);
 

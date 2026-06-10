@@ -29,7 +29,7 @@ const assets = [
 ];
 beforeEach(() => {
   (api.get as any).mockResolvedValue({
-    data: { data: { assets, cables: [cable], distributionCircuits: [], fiberPaths: [] } },
+    data: { data: { assets, cables: [cable], fiberPaths: [] } },
   });
 });
 
@@ -128,26 +128,26 @@ describe('workingCopy hooks', () => {
     expect(result.current.map((a: any) => a.id)).toEqual(['m1']);
   });
 
-  it('useEffectiveFloorCables(f1) → cableOnFloor(단일 assetId + floorAnchor)', async () => {
+  it('useEffectiveFloorCables(f1) → cableOnFloor(단일 assetId + floorAnchor, 레거시 폴백 제거)', async () => {
     // f1: r1(self), o1(self), m1(→r1), panel1(self), branch1(→feeder1→panel1) ; f2: x1
     const cables = [
-      // 단계3a — endpoint = 단일 assetId. assetId 가 floorAnchor 로 f1 에 해소되면 멤버.
+      // 단계4a — endpoint = 단일 assetId. assetId 가 floorAnchor 로 f1 에 해소되면 멤버.
       { id: 'c-asset', sourceAssetId: 'r1', targetAssetId: 'o1', source: {}, target: {}, updatedAt: TS }, // both f1
       { id: 'c-mod', sourceAssetId: 'm1', targetAssetId: 'o1', source: {}, target: {}, updatedAt: TS }, // m1→r1 (f1)
       // 시드 분기 케이블: target = branch asset → floorAnchor → feeder1 → panel1(f1) ⇒ 포함.
       { id: 'c-branch', sourceAssetId: 'r1', targetAssetId: 'branch1', source: {}, target: {}, updatedAt: TS },
       { id: 'c-f2', sourceAssetId: 'x1', targetAssetId: null, source: {}, target: {}, updatedAt: TS }, // x1 on f2 only
-      // legacy fallback(옛 row, assetId 없음): nested 정밀 id 로 폴백.
-      { id: 'c-legacy', source: { equipmentId: 'r1', moduleId: null }, target: { equipmentId: null, moduleId: null }, updatedAt: TS },
+      // assetId 없는 옛 row 는 이제 비멤버(레거시 nested 폴백 제거됨).
+      { id: 'c-legacy', sourceAssetId: null, targetAssetId: null, source: { equipmentId: 'r1', moduleId: null }, target: { equipmentId: null, moduleId: null }, updatedAt: TS },
     ];
     (api.get as any).mockResolvedValue({
-      data: { data: { assets, cables, distributionCircuits: [], fiberPaths: [] } },
+      data: { data: { assets, cables, fiberPaths: [] } },
     });
     await act(async () => {
       await useSubstationWorkingCopy.getState().load('s1');
     });
     const { result } = renderHook(() => useEffectiveFloorCables('f1'));
-    expect(result.current.map((c: any) => c.id).sort()).toEqual(['c-asset', 'c-branch', 'c-legacy', 'c-mod']);
-    // c-f2 excluded (x1 only on f2)
+    expect(result.current.map((c: any) => c.id).sort()).toEqual(['c-asset', 'c-branch', 'c-mod']);
+    // c-f2 excluded (x1 only on f2); c-legacy excluded (no assetId)
   });
 });
