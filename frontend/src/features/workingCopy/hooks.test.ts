@@ -14,14 +14,18 @@ if (typeof URL.revokeObjectURL !== 'function') {
 const cable = { id: 'c1', cableType: 'LAN', updatedAt: '2026-01-01T00:00:00.000Z' };
 const TS = '2026-01-01T00:00:00.000Z';
 const assets = [
-  // f1 placement-level rack
-  { id: 'r1', name: 'r1', floorId: 'f1', assetType: { placementKind: 'RACK' }, positionX: 10, positionY: 20, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  // f1 placement-level rack (floorAnchor self)
+  { id: 'r1', name: 'r1', floorId: 'f1', assetType: { placementKind: 'RACK' }, positionX: 10, positionY: 20, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
   // f1 placement-level ofd
-  { id: 'o1', name: 'o1', floorId: 'f1', assetType: { placementKind: 'OFD' }, positionX: 30, positionY: 40, parentAssetId: null, slotIndex: null, updatedAt: TS },
-  // f1 rack-module child (excluded)
+  { id: 'o1', name: 'o1', floorId: 'f1', assetType: { placementKind: 'OFD' }, positionX: 30, positionY: 40, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  // f1 rack-module child (no coords → floorAnchor walks to r1)
   { id: 'm1', name: 'm1', floorId: 'f1', parentAssetId: 'r1', slotIndex: 3, updatedAt: TS },
-  // other floor (excluded)
-  { id: 'x1', name: 'x1', floorId: 'f2', assetType: { placementKind: 'OFD' }, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  // other floor placement-level ofd (excluded)
+  { id: 'x1', name: 'x1', floorId: 'f2', assetType: { placementKind: 'OFD' }, positionX: 5, positionY: 5, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  // f1 분전반(panel, placed) → feeder(asset) → branch(asset) — 단계3a 통합 노드.
+  { id: 'panel1', name: 'panel1', floorId: 'f1', assetType: { placementKind: 'DIST' }, positionX: 70, positionY: 80, width2d: 30, height2d: 30, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  { id: 'feeder1', name: 'feeder1', parentAssetId: 'panel1', updatedAt: TS },
+  { id: 'branch1', name: 'branch1', parentAssetId: 'feeder1', updatedAt: TS },
 ];
 beforeEach(() => {
   (api.get as any).mockResolvedValue({
@@ -108,7 +112,7 @@ describe('workingCopy hooks', () => {
       await useSubstationWorkingCopy.getState().load('s1');
     });
     const { result, rerender } = renderHook(() => useEffectiveEquipment('f1'));
-    expect(result.current.map((e: any) => e.id).sort()).toEqual(['o1', 'r1']); // m1 (rack module) + x1 (other floor) excluded
+    expect(result.current.map((e: any) => e.id).sort()).toEqual(['o1', 'panel1', 'r1']); // m1 (rack module) + x1 (other floor) excluded; panel1 placed DIST
     expect(result.current.find((e: any) => e.id === 'r1')!.kind).toBe('RACK');
     const ref1 = result.current;
     rerender();
@@ -124,12 +128,17 @@ describe('workingCopy hooks', () => {
     expect(result.current.map((a: any) => a.id)).toEqual(['m1']);
   });
 
-  it('useEffectiveFloorCables(f1) → only cables touching f1 assets', async () => {
-    // f1: r1, o1, m1 ; f2: x1
+  it('useEffectiveFloorCables(f1) → cableOnFloor(단일 assetId + floorAnchor)', async () => {
+    // f1: r1(self), o1(self), m1(→r1), panel1(self), branch1(→feeder1→panel1) ; f2: x1
     const cables = [
-      { id: 'c-f1', source: { equipmentId: 'r1', moduleId: null }, target: { equipmentId: 'o1', moduleId: null }, updatedAt: TS }, // both on f1
-      { id: 'c-f2', source: { equipmentId: 'x1', moduleId: null }, target: { equipmentId: null, moduleId: null }, updatedAt: TS }, // x1 on f2
-      { id: 'c-mod', source: { equipmentId: null, moduleId: 'm1' }, target: { equipmentId: null, moduleId: null }, updatedAt: TS }, // m1 on f1
+      // 단계3a — endpoint = 단일 assetId. assetId 가 floorAnchor 로 f1 에 해소되면 멤버.
+      { id: 'c-asset', sourceAssetId: 'r1', targetAssetId: 'o1', source: {}, target: {}, updatedAt: TS }, // both f1
+      { id: 'c-mod', sourceAssetId: 'm1', targetAssetId: 'o1', source: {}, target: {}, updatedAt: TS }, // m1→r1 (f1)
+      // 시드 분기 케이블: target = branch asset → floorAnchor → feeder1 → panel1(f1) ⇒ 포함.
+      { id: 'c-branch', sourceAssetId: 'r1', targetAssetId: 'branch1', source: {}, target: {}, updatedAt: TS },
+      { id: 'c-f2', sourceAssetId: 'x1', targetAssetId: null, source: {}, target: {}, updatedAt: TS }, // x1 on f2 only
+      // legacy fallback(옛 row, assetId 없음): nested 정밀 id 로 폴백.
+      { id: 'c-legacy', source: { equipmentId: 'r1', moduleId: null }, target: { equipmentId: null, moduleId: null }, updatedAt: TS },
     ];
     (api.get as any).mockResolvedValue({
       data: { data: { assets, cables, distributionCircuits: [], fiberPaths: [] } },
@@ -138,6 +147,7 @@ describe('workingCopy hooks', () => {
       await useSubstationWorkingCopy.getState().load('s1');
     });
     const { result } = renderHook(() => useEffectiveFloorCables('f1'));
-    expect(result.current.map((c: any) => c.id).sort()).toEqual(['c-f1', 'c-mod']); // c-f2 excluded (only touches f2)
+    expect(result.current.map((c: any) => c.id).sort()).toEqual(['c-asset', 'c-branch', 'c-legacy', 'c-mod']);
+    // c-f2 excluded (x1 only on f2)
   });
 });

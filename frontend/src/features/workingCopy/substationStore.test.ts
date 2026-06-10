@@ -2,10 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
+import { cableOnFloor, assetsByIdMap } from './floorAnchor';
 
 const rack = { id:'r1', name:'랙', substationId:'s1', floorId:'f1', assetType:{ placementKind:'RACK' }, positionX:10, positionY:20, width2d:100, height2d:200, totalU:42, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
 const mod = { id:'m1', name:'모듈', substationId:'s1', floorId:'f1', assetType:{ placementKind:null }, parentAssetId:'r1', slotIndex:3, slotSpan:1, updatedAt:'2026-01-01T00:00:00.000Z' };
-const ofd = { id:'o1', name:'OFD', substationId:'s1', floorId:'f1', assetType:{ placementKind:'OFD' }, positionX:5, positionY:5, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
+const ofd = { id:'o1', name:'OFD', substationId:'s1', floorId:'f1', assetType:{ placementKind:'OFD' }, positionX:5, positionY:5, width2d:40, height2d:60, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
 const cable = { id:'c1', source:{ equipmentId:'r1', moduleId:null }, target:{ equipmentId:'o1', moduleId:null }, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
 
 beforeEach(() => { (api.get as any).mockResolvedValue({ data: { data: { assets:[rack,mod,ofd], cables:[cable], distributionCircuits:[], fiberPaths:[] } } }); });
@@ -79,12 +80,14 @@ describe('substationWorkingCopy', () => {
     useSubstationWorkingCopy.getState().stageCableUpdates({ c1: { label: 'L' } });
     expect(useSubstationWorkingCopy.getState().effectiveCables().find(c=>c.id==='c1')!.label).toBe('L');
   });
-  it('stageCableCreate(nested-only, 모듈 endpoint) → 층 케이블 필터에 포함(렌더됨)', async () => {
+  it('stageCableCreate(단일 assetId, 모듈 endpoint) → cableOnFloor 로 포함(렌더됨)', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
-    // CableSpecModal 이 stage 하는 정규 nested-only shape — 모듈(m1) endpoint.
+    // 단계3a — CableSpecModal 이 stage 하는 shape: 모듈(m1) endpoint = sourceAssetId.
     useSubstationWorkingCopy.getState().stageCableCreate({
       id: 'tmpC',
-      source: { equipmentId: 'r1', moduleId: 'm1', circuitId: null },
+      sourceAssetId: 'm1',
+      targetAssetId: 'o1',
+      source: { equipmentId: null, moduleId: 'm1', circuitId: null },
       target: { equipmentId: 'o1', moduleId: null, circuitId: null },
       cableType: 'LAN',
       pathPoints: [[10, 20], [5, 5]],
@@ -92,14 +95,11 @@ describe('substationWorkingCopy', () => {
     const eff = useSubstationWorkingCopy.getState().effectiveCables();
     const created = eff.find((c) => c.id === 'tmpC') as any;
     expect(created).toBeTruthy();
-    // useEffectiveFloorCables 의 floor-cable predicate: source/target 의
-    // {equipmentId, moduleId} 중 하나가 이 층(f1) asset 이면 포함 → 렌더.
-    const onFloor = new Set(['r1', 'm1', 'o1']); // 모두 f1
-    const ep = (e: any) => [e?.equipmentId, e?.moduleId];
-    const reaches = [...ep(created.source), ...ep(created.target)].some(
-      (x) => x != null && onFloor.has(x),
+    // 단일 assetId(m1)→floorAnchor→r1(f1) 로 해소 ⇒ 이 층 멤버.
+    const assetsById = assetsByIdMap(
+      useSubstationWorkingCopy.getState().effectiveAssets() as any,
     );
-    expect(reaches).toBe(true);
+    expect(cableOnFloor(created, 'f1', assetsById)).toBe(true);
   });
 
   // ── 2d-2 T1: 랙모듈(=RACK 자식 Asset) stage 액션 ──

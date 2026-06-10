@@ -19,6 +19,7 @@ import type { CollectionDescriptor } from './descriptor';
 import { assetToEquipment } from './assetToEquipment';
 import { equipmentToAssetCreate, equipmentToAssetPatch } from './equipmentToAsset';
 import { rackModuleToAssetCreate, rackModuleToAssetPatch } from './rackModuleToAsset';
+import { assetsByIdMap, cableOnFloor } from './floorAnchor';
 import type { RackModule } from '../../types/rackModule';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -318,29 +319,18 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
 
       stageReplaceFloorFromSnapshot: (floorId, snapshot) =>
         set((s) => {
+          // 전 effective assets — floorAnchor 가 parent 체인을 거슬러 올라가려면 이 floor
+          // 자산만이 아니라 부모(랙/분전반/피더)까지 다 보여야 한다.
+          const allEffA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor);
           // 현 floor 의 effective assets — top/모듈 모두 floorId 로 식별(랙모듈도 floorId 상속).
-          const effA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor).filter(
-            (a) => a.floorId === floorId,
+          const effA = allEffA.filter((a) => a.floorId === floorId);
+          // 단계3a — floor cables = 단일 endpoint assetId 를 floorAnchor 로 해소해 이 층에
+          // 닿는 케이블. branch endpoint 는 branch→feeder→panel 으로 해소되어 회로
+          // 특수처리(distributionEquipmentId 증강) 불필요. useEffectiveFloorCables 와 동일.
+          const assetsById = assetsByIdMap(allEffA);
+          const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor).filter((c) =>
+            cableOnFloor(c as unknown as Parameters<typeof cableOnFloor>[0], floorId, assetsById),
           );
-          const floorAssetIds = new Set(effA.map((a) => a.id));
-          // 회로는 asset 이 아니지만 부모 분전반이 이 floor 면 그 회로 endpoint 도 이 floor 멤버.
-          const effCircuits = mergeEffective(
-            s.saved.distributionCircuits, s.overlays.distributionCircuits, distCircuitDescriptor,
-          );
-          for (const c of effCircuits) {
-            if (floorAssetIds.has((c as Record<string, unknown>).distributionEquipmentId as string)) floorAssetIds.add(c.id);
-          }
-          // floor cables = source/target endpoint 정밀 id 중 하나라도 이 층 asset/회로 인 케이블.
-          // (모듈은 floorId 상속 → floorAssetIds 에 포함. useEffectiveFloorCables 와 동일.)
-          const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor).filter((c) => {
-            const ep = (e: unknown) => {
-              const o = e as { equipmentId?: string | null; moduleId?: string | null; circuitId?: string | null } | undefined;
-              return [o?.equipmentId, o?.moduleId, o?.circuitId];
-            };
-            return [...ep((c as { source?: unknown }).source), ...ep((c as { target?: unknown }).target)].some(
-              (x) => x != null && floorAssetIds.has(x),
-            );
-          });
 
           let assets = s.overlays.assets;
           let cables = s.overlays.cables;

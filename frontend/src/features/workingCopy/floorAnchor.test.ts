@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isFloorPlaced, floorAnchor, anchorPosition, assetsByIdMap, floorTargetFor } from './floorAnchor';
+import { isFloorPlaced, floorAnchor, anchorPosition, assetsByIdMap, floorTargetFor, cableOnFloor } from './floorAnchor';
 import type { Asset } from '../../types/asset';
 
 function asset(p: Partial<Asset> & { id: string }): Asset {
@@ -114,5 +114,31 @@ describe('floorTargetFor (단일 choke-point: 선택→도면 rect)', () => {
   it('깊은 중첩(포트→모듈→랙)도 랙 rect 로 해소', () => {
     const port = asset({ id: 'port', parentAssetId: 'mod' });
     expect(floorTargetFor('port', [...list, port])).toEqual({ x: 100, y: 200, width: 40, height: 60 });
+  });
+});
+
+describe('cableOnFloor (단계3a: 단일 endpoint assetId + floorAnchor 멤버십)', () => {
+  // 분전반(panel, placed) → feeder → branch — 통합 노드 모델. branch endpoint 는
+  // branch→feeder→panel 으로 해소된다.
+  const panel = asset({ id: 'panel', floorId: 'f1', positionX: 1, positionY: 1, width2d: 10, height2d: 10 });
+  const feeder = asset({ id: 'feeder', parentAssetId: 'panel' });
+  const branch = asset({ id: 'branch', parentAssetId: 'feeder' });
+  const cmap = assetsByIdMap([rack, module, dist, circuit, panel, feeder, branch]);
+
+  it('eq/mod endpoint(assetId) — 자신/랙으로 해소되어 f1 멤버', () => {
+    expect(cableOnFloor({ sourceAssetId: 'rack', targetAssetId: 'mod' }, 'f1', cmap)).toBe(true);
+  });
+  it('시드 분기 케이블 — targetAssetId=branch → feeder → panel(f1) 멤버', () => {
+    expect(cableOnFloor({ sourceAssetId: 'rack', targetAssetId: 'branch' }, 'f1', cmap)).toBe(true);
+  });
+  it('다른 층은 제외 — 어느 endpoint 도 f2 에 닿지 않음', () => {
+    expect(cableOnFloor({ sourceAssetId: 'rack', targetAssetId: 'branch' }, 'f2', cmap)).toBe(false);
+  });
+  it('legacy fallback — assetId 없으면 nested 정밀 id 로 폴백', () => {
+    expect(cableOnFloor({ source: { moduleId: 'mod' }, target: {} }, 'f1', cmap)).toBe(true);
+    expect(cableOnFloor({ source: { circuitId: 'circ' }, target: {} }, 'f1', cmap)).toBe(true); // circ→dist(f1)
+  });
+  it('orphan/unknown endpoint → 미해소 → 비멤버', () => {
+    expect(cableOnFloor({ sourceAssetId: 'nope', targetAssetId: 'orphan' }, 'f1', cmap)).toBe(false);
   });
 });

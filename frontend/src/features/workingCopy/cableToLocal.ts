@@ -12,6 +12,13 @@ import { type LocalCable } from '../editor/stores/editorStore';
  */
 export interface CableDetailDTO {
   id: string;
+  /**
+   * 단계3a — endpoint 는 단일 Asset(설비/랙모듈/분전 분기). 백엔드가 정밀 endpoint
+   * asset id 를 직접 내려준다. READ 의 source of truth. legacy nested source/target 은
+   * 아직 병행 반환되지만 더 이상 신뢰하지 않는다(assetId 없는 옛 row 안전 fallback 만).
+   */
+  sourceAssetId?: string | null;
+  targetAssetId?: string | null;
   source: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
   target: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
   cableType: string;
@@ -31,12 +38,15 @@ export interface CableDetailDTO {
 
 /** effective Cable row → 렌더러/트레이서가 먹는 LocalCable. */
 export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
-  // sourceEquipmentId 자리는 polymorphic fallback (planCablesToLocalCables 와 동일):
-  //   equipment id 우선, 없으면 module id, 없으면 circuit id, 없으면 빈 문자열.
+  // 단계3a — endpoint = 단일 assetId. flat precise id 자리(sourceEquipmentId)는 이제
+  //   assetId 우선, 없을 때만 legacy nested(equipment→module→circuit) 로 폴백(옛 row 안전).
+  //   렌더(ConnectionOverlay)·트레이서(cableTracer)는 이 flat id 를 floorAnchor 로 해소한다.
+  const sourceId = c.sourceAssetId ?? c.source.equipmentId ?? c.source.moduleId ?? c.source.circuitId ?? '';
+  const targetId = c.targetAssetId ?? c.target.equipmentId ?? c.target.moduleId ?? c.target.circuitId ?? '';
   return {
     id: c.id,
-    sourceEquipmentId: c.source.equipmentId ?? c.source.moduleId ?? c.source.circuitId ?? '',
-    targetEquipmentId: c.target.equipmentId ?? c.target.moduleId ?? c.target.circuitId ?? '',
+    sourceEquipmentId: sourceId,
+    targetEquipmentId: targetId,
     sourceModuleId: c.source.moduleId ?? null,
     targetModuleId: c.target.moduleId ?? null,
     sourceCircuitId: c.source.circuitId ?? null,

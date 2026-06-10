@@ -7,12 +7,9 @@ import {
   useEffectiveAssets,
   useEffectiveEquipment,
   useEffectiveFloorCables,
-  useEffectiveDistCircuits,
 } from '../../workingCopy/hooks';
-import { assetToRackModule } from '../../workingCopy/assetToRackModule';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { floorAnchor, assetsByIdMap } from '../../workingCopy/floorAnchor';
-import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 
 /** Check if a cable matches the current filter set (DB category codes) */
@@ -109,22 +106,13 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
 
   const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
 
-  // effective 케이블은 이 층에 닿는 것만(useEffectiveFloorCables). 좌표 fallback 용
-  // 랙모듈/회로는 substation 전역 effective 에서 — 모듈은 랙 자식 Asset 을 RackModule
-  // shape 으로 매핑, 회로는 그대로(WorkingCopyRow→DistributionCircuit cast).
-  // effective 케이블은 nested source/target — flat LocalCable 로 매핑해야 끝점 lookup 성공.
+  // effective 케이블은 이 층에 닿는 것만(useEffectiveFloorCables). cableDtoToLocal 이
+  // 단일 endpoint assetId 를 flat LocalCable(sourceEquipmentId 자리)로 매핑한다 —
+  // 끝점 위치는 floorAnchor 가 그 assetId 를 placed ancestor 로 해소한다(아래 position map).
   const editorCables = useEffectiveFloorCables(floorId).map((c) =>
     cableDtoToLocal(c as unknown as CableDetailDTO),
   );
   const effectiveAssets = useEffectiveAssets();
-  const editorRackModules = useMemo(
-    () =>
-      effectiveAssets
-        .filter((a) => a.parentAssetId && a.slotIndex != null)
-        .map(assetToRackModule),
-    [effectiveAssets],
-  );
-  const editorDistCircuits = useEffectiveDistCircuits() as unknown as DistributionCircuit[];
 
   const highlightActive = usePathHighlightStore((s) => s.active);
   const highlightedNodeIds = usePathHighlightStore((s) => s.highlightedNodeIds);
@@ -137,10 +125,11 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const connections = snapshotActive ? snapshotCables : null;
   const cables = snapshotActive ? null : editorCables;
 
-  // 끝점 위치 = floor anchor(렌더 대표) — 도면은 직접 배치된 Asset 만 그리고,
-  // 모듈/회로처럼 좌표 없는 내부 endpoint 는 placed ancestor(floorAnchor) 좌표로
-  // 시각화한다. cable 의 polymorphic endpoint id(설비/모듈/회로)를 anchor 의 사각형으로
-  // 해소: 직접 배치 id 는 자기 좌표, 그 외는 부모 체인을 거슬러 placed ancestor 좌표.
+  // 단계3a — 끝점 위치 = floor anchor(렌더 대표). endpoint 는 이제 단일 assetId
+  // (sourceEquipmentId/targetEquipmentId 자리에 assetId 가 들어온다 — cableDtoToLocal).
+  // 각 케이블 endpoint asset id 를 floorAnchor 로 placed ancestor(설비/랙/분전반)까지
+  // 해소해 그 사각형을 endpoint id(key) 로 매핑한다. branch endpoint 는
+  // branch→feeder→panel 으로 해소 — 회로 특수처리(distributionEquipmentId) 불필요.
   const equipmentPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; width: number; height: number }>();
     for (const eq of localEquipment) {
@@ -148,21 +137,22 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
     }
     if (!snapshotActive) {
       const assetsById = assetsByIdMap(effectiveAssets);
-      // endpoint id(key) → placed ancestor(floorAnchor) 사각형. anchorId 는 anchor 를
-      // 거슬러 올라갈 시작점: 모듈은 자기 자신(asset → 랙), 회로는 asset 이 아니므로
-      // 부모 분전반(distributionEquipmentId)에서 시작.
-      const setAnchor = (key: string, anchorId: string | null | undefined) => {
-        if (map.has(key)) return;
-        const a = floorAnchor(anchorId, assetsById);
+      // endpoint id(key) → placed ancestor(floorAnchor) 사각형. 직접 배치 id 는 자기 좌표
+      // (이미 localEquipment 로 들어와 있음), 그 외(모듈/분기 등)는 부모 체인을 거슬러 해소.
+      const setAnchor = (key: string) => {
+        if (!key || map.has(key)) return;
+        const a = floorAnchor(key, assetsById);
         if (a?.positionX != null && a.positionY != null) {
           map.set(key, { x: a.positionX, y: a.positionY, width: a.width2d ?? 0, height: a.height2d ?? 0 });
         }
       };
-      for (const m of editorRackModules) setAnchor(m.id, m.id);
-      for (const c of editorDistCircuits) setAnchor(c.id, c.distributionEquipmentId);
+      for (const c of editorCables) {
+        setAnchor(c.sourceEquipmentId);
+        setAnchor(c.targetEquipmentId);
+      }
     }
     return map;
-  }, [localEquipment, editorRackModules, editorDistCircuits, effectiveAssets, snapshotActive]);
+  }, [localEquipment, editorCables, effectiveAssets, snapshotActive]);
 
   const renderableConnections = useMemo(() => {
     const all = snapshotActive
