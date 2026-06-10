@@ -15,6 +15,7 @@ import {
   type Overlay,
 } from './overlay';
 import { mergeEffective } from './effective';
+import { assetsByIdMap, cableOnFloor, type CableEndpoint } from './floorAnchor';
 import type { CollectionDescriptor } from './descriptor';
 import { assetToEquipment } from './assetToEquipment';
 import { equipmentToAssetCreate, equipmentToAssetPatch } from './equipmentToAsset';
@@ -319,21 +320,20 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       stageReplaceFloorFromSnapshot: (floorId, snapshot) =>
         set((s) => {
           // 현 floor 의 effective assets — top/모듈 모두 floorId 로 식별(랙모듈도 floorId 상속).
-          const effA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor).filter(
-            (a) => a.floorId === floorId,
+          const allA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor);
+          const effA = allA.filter((a) => a.floorId === floorId);
+          // floor cables = 각 endpoint(정밀 id)를 floorAnchor 로 해소(모듈→랙·회로→분전반)해
+          // 그 anchor 가 이 floor 인 케이블. useEffectiveFloorCables 와 동일한 단일 predicate.
+          const assetsById = assetsByIdMap(allA);
+          const effCircuits = mergeEffective(
+            s.saved.distributionCircuits, s.overlays.distributionCircuits, distCircuitDescriptor,
           );
-          const floorAssetIds = new Set(effA.map((a) => a.id));
-          // floor cables = source/target 의 {equipmentId, moduleId} 중 하나라도 이 층 asset 인 케이블
-          // (useEffectiveFloorCables 의 floor-cable predicate 재사용).
-          const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor).filter((c) => {
-            const ep = (e: unknown) => {
-              const o = e as { equipmentId?: string | null; moduleId?: string | null } | undefined;
-              return [o?.equipmentId, o?.moduleId];
-            };
-            return [...ep((c as { source?: unknown }).source), ...ep((c as { target?: unknown }).target)].some(
-              (x) => x != null && floorAssetIds.has(x),
-            );
-          });
+          const circuitToEq = new Map(
+            effCircuits.map((c) => [c.id, (c as Record<string, unknown>).distributionEquipmentId as string]),
+          );
+          const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor).filter((c) =>
+            cableOnFloor(c as { source?: CableEndpoint | null; target?: CableEndpoint | null }, floorId, assetsById, circuitToEq),
+          );
 
           let assets = s.overlays.assets;
           let cables = s.overlays.cables;
