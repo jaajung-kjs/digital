@@ -184,8 +184,8 @@ export function NodeStatusView({
 
   const gotoFloor = (item: AssetListItem) => {
     if (!item.floorId) return;
-    if (ws) ws.gotoFloor(item.floorId);
-    else navigate(`/substations/${item.substationId}/workspace?view=plan&floor=${item.floorId}`);
+    if (ws) ws.gotoFloor(item.floorId, item.id);
+    else navigate(`/substations/${item.substationId}/workspace?view=plan&floor=${item.floorId}&equipmentId=${item.id}`);
   };
 
   const renderRow = (item: AssetListItem) => (

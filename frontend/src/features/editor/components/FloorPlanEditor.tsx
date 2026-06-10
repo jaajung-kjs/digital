@@ -119,14 +119,13 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   // 후 해당 설비의 detail panel + viewport focus 를 자동 트리거. 한 번 처리하면
   // URL query 를 비워서 새로고침/뒤로가기 후 재실행 방지.
   const [searchParams, setSearchParams] = useSearchParams();
-  const handledQueryRef = useRef(false);
   useEffect(() => {
-    if (handledQueryRef.current) return;
     const targetId = searchParams.get('equipmentId');
     if (!targetId) return;
     const eq = useSubstationWorkingCopy.getState().effectiveEquipment(floorId).find((e) => e.id === targetId);
     if (!eq) return; // 도면 데이터 아직 로드 전 — 다음 render 에 재시도.
-    handledQueryRef.current = true;
+    // URL 을 처리 후 비우므로(아래) 매 equipmentId 진입마다 1회 실행된다.
+    // 영구 ref 가드를 두지 않아 "도면에서 보기" 반복 시에도 매번 재포커스된다.
     const es = useEditorStore.getState();
     es.setSelectedIds([targetId]);
     es.setDetailPanelEquipmentId(targetId);
