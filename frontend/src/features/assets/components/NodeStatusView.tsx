@@ -40,7 +40,7 @@ function AssetRow({
     insp.level === 'none' ? 'text-content-faint' : insp.level === 'overdue' ? 'text-warning font-medium' : 'text-content';
   return (
     <tr onClick={onSelect} className="cursor-pointer hover:bg-surface-2 border-b border-line">
-      <td className="px-2 py-2 text-sm text-content">
+      <td className="pl-4 pr-2 py-2 text-sm text-content">
         <span className="inline-flex items-center gap-1.5">
           {/* ISA-101: 종류 점은 무채색(설비=중립). 색은 상태에만. */}
           <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0 bg-eq-3" />
@@ -66,7 +66,7 @@ function AssetRow({
           <span className="text-content-muted">—</span>
         )}
       </td>
-      <td className="px-2 py-2 text-right">
+      <td className="pl-2 pr-4 py-2 text-right">
         {item.floorId && (
           <IconButton
             aria-label="도면에서 보기"
@@ -225,12 +225,12 @@ export function NodeStatusView({
           <table className="w-full border-collapse">
             <thead>
               <tr className="text-left bg-surface-2 border-b border-line sticky top-0">
-                {COLUMNS.map((c) => (
-                  <th key={c} className="px-2 py-2 text-xs font-medium uppercase tracking-wide text-content-muted">
+                {COLUMNS.map((c, i) => (
+                  <th key={c} className={`${i === 0 ? 'pl-4 pr-2' : 'px-2'} py-2 text-xs font-medium uppercase tracking-wide text-content-muted`}>
                     {c}
                   </th>
                 ))}
-                <th className="px-2 py-2" />
+                <th className="pl-2 pr-4 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -239,7 +239,7 @@ export function NodeStatusView({
                 : grouped!.map(([substationName, rows]) => (
                     <Fragment key={`g-${substationName}`}>
                       <tr>
-                        <td colSpan={8} className="bg-surface-2 font-medium text-content-muted px-3 py-1.5 text-xs">
+                        <td colSpan={8} className="bg-surface-2 font-medium text-content-muted pl-4 pr-3 py-1.5 text-xs">
                           {substationName} ({rows.length})
                         </td>
                       </tr>
