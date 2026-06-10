@@ -13,7 +13,7 @@ vi.mock('./substationStore', () => ({
   useSubstationWorkingCopy: {
     getState: () => ({
       substationId: 'sub1',
-      overlays: { assets: {}, cables: {}, distributionCircuits: {}, fiberPaths: {} },
+      overlays: { assets: {}, cables: {}, fiberPaths: {} },
       saved: { assets: [], cables: [] },
       load: vi.fn(async () => {}),
     }),

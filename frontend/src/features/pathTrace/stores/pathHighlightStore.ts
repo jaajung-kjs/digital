@@ -20,7 +20,6 @@ import type { TraceResult, PathSegment } from '../types';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { RackModule } from '../../../types/rackModule';
 import type { Asset } from '../../../types/asset';
-import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import type { FiberPathDetail } from '../../fiber/types';
 import type { FloorPlanEquipment, FloorPlanFiberPath } from '../../../types/floorPlan';
 
@@ -113,7 +112,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
           cables: snapshotState.cables,
           equipment: snapshotState.equipment,
           rackModules: [],
-          distributionCircuits: [],
+          assets: [],
           fiberPaths: snapshotFiberPaths,
         });
 
@@ -145,7 +144,6 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
       const localRackModules: RackModule[] = effAssets
         .filter((a) => a.parentAssetId && a.slotIndex != null)
         .map(assetToRackModule);
-      const localDistCircuits = wc.effectiveDistCircuits() as unknown as DistributionCircuit[];
       const allFiberPaths = composeFiberPaths(
         wc.effectiveFiberPaths() as unknown as Array<{ id: string; ofdAId: string; ofdBId: string; portCount: number; description?: string | null }>,
         directory,
@@ -156,7 +154,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         cables: localCables,
         equipment: localEquipment,
         rackModules: localRackModules,
-        distributionCircuits: localDistCircuits,
+        assets: effAssets,
         fiberPaths: allFiberPaths,
       });
 

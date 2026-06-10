@@ -15,7 +15,7 @@
 import type { LocalCable } from '../features/editor/stores/editorStore';
 import type { FloorPlanEquipment } from '../types/floorPlan';
 import type { RackModule } from '../types/rackModule';
-import { type DistributionCircuit, circuitLabel } from '../types/distributionCircuit';
+import type { Asset } from '../types/asset';
 import type { FiberPathDetail } from '../features/fiber/types';
 import type {
   TraceResult,
@@ -30,6 +30,27 @@ export type { TraceResult };
 
 /** TraceNode.materialCategoryCode 의 OFD 값 — P6 의 EquipmentKind.OFD 와 의미 동일 (legacy 형식). */
 const OFD_CATEGORY_CODE = 'EQP-OFD';
+
+/**
+ * 단계4a — 분전 분기(BRANCH) asset id 의 표시 라벨을 parent 체인으로 해소한다.
+ * 컨테인먼트는 branch → feeder → panel. 라벨은 "panel · feeder/branch" 로,
+ * panel 을 못 찾으면 "feeder/branch", feeder 도 못 찾으면 branch 이름만.
+ *
+ * 이 asset 이 분전 분기 계층이 아니면(=parent 가 도면 배치 설비이거나 없음) null 을
+ * 돌려 호출측이 일반(설비/모듈/external) 라벨 경로로 빠지게 한다. 판정은 "parent 도
+ * 좌표 없는 내부 asset 인가" — branch(parent=feeder, 그 parent=panel)만 두 단계
+ * 부모가 모두 assetMap 안에 있고 panel 이 도면 배치(floorId)인 형태로 성립한다.
+ */
+function branchAssetLabel(assetId: string, assetMap: Map<string, Asset>): string | null {
+  const branch = assetMap.get(assetId);
+  if (!branch || branch.parentAssetId == null) return null;
+  const feeder = assetMap.get(branch.parentAssetId);
+  // feeder 는 panel 안의 내부 asset(부모가 또 있음). 부모가 없으면 분기 계층 아님.
+  if (!feeder || feeder.parentAssetId == null) return null;
+  const panel = assetMap.get(feeder.parentAssetId);
+  const stem = `${feeder.name}/${branch.name}`;
+  return panel ? `${panel.name} · ${stem}` : stem;
+}
 
 // ==================== Segment Builder ====================
 
@@ -139,8 +160,11 @@ export interface TraceCableInput {
   equipment: FloorPlanEquipment[];
   /** Rack modules (local state) — endpoint id 가 모듈 id 일 때 이름 lookup 용 */
   rackModules?: RackModule[];
-  /** 분전반 회로 (local state) — endpoint id 가 회로 id 일 때 이름 lookup 용 */
-  distributionCircuits?: DistributionCircuit[];
+  /**
+   * Effective assets (local state) — endpoint id 가 분전 분기(BRANCH) asset 일 때
+   * 라벨을 "분전반 · feeder/branch" 로 해소하기 위한 parent 체인 lookup 용.
+   */
+  assets?: Asset[];
   /** Fiber paths (saved + pending, merged) — OFD↔OFD hop 시 port-isolated 라우팅에 사용 */
   fiberPaths: FiberPathDetail[];
 }
@@ -154,12 +178,14 @@ export interface TraceCableInput {
  * Runs entirely in-browser on local data.
  */
 export function traceCable(input: TraceCableInput): TraceResult {
-  const { cableId, cables, equipment, rackModules, distributionCircuits, fiberPaths } = input;
+  const { cableId, cables, equipment, rackModules, assets, fiberPaths } = input;
 
   // Lookups (현재 floor 한정)
   const equipMap = new Map(equipment.map((e) => [e.id, e]));
   const moduleMap = new Map((rackModules ?? []).map((m) => [m.id, m]));
-  const circuitMap = new Map((distributionCircuits ?? []).map((c) => [c.id, c]));
+  // 단계4a — 분전 분기는 BRANCH asset. endpoint id 가 BRANCH asset 이면 parent 체인
+  //   (branch→feeder→panel) 을 걸어 "분전반 · feeder/branch" 라벨을 만든다.
+  const assetMap = new Map((assets ?? []).map((a) => [a.id, a]));
 
   // fiberPaths 응답은 모든 변전소의 OFD/모듈 이름·변전소명 정보를 갖고 있어
   // cross-floor lookup 용 source of truth. equipMap/moduleMap 에 없는 원격 노드는
@@ -238,14 +264,11 @@ export function traceCable(input: TraceCableInput): TraceResult {
       });
       return;
     }
-    const circuit = circuitMap.get(equipId);
-    if (circuit) {
-      const parentDist = equipMap.get(circuit.distributionEquipmentId);
+    const branchLabel = branchAssetLabel(equipId, assetMap);
+    if (branchLabel) {
       nodeMap.set(equipId, {
         equipmentId: equipId,
-        equipmentName: parentDist
-          ? `${parentDist.name} · ${circuitLabel(circuit)}`
-          : circuitLabel(circuit),
+        equipmentName: branchLabel,
         substationId: subName,
         substationName: subName,
         floorId: null,

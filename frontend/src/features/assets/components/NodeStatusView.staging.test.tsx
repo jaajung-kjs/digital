@@ -67,7 +67,7 @@ beforeEach(() => {
   act(() => useSubstationWorkingCopy.getState().revert());
   useSubstationWorkingCopy.setState({ substationId: null });
   (api.get as any).mockResolvedValue({
-    data: { data: { assets: [wcAsset], cables: [], distributionCircuits: [], fiberPaths: [] } },
+    data: { data: { assets: [wcAsset], cables: [], fiberPaths: [] } },
   });
 });
 

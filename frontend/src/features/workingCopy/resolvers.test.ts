@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { buildIdMaps } from './idMaps';
-import { resolveCableIds, resolveRackModuleIds, resolveCircuitIds } from './resolvers';
+import { resolveCableIds, resolveRackModuleIds } from './resolvers';
 import type { LocalCable } from '../editor/stores/editorStore';
 import type { RackModule } from '../../types/rackModule';
-import type { DistributionCircuit } from '../../types/distributionCircuit';
 
 const maps = buildIdMaps({
   equipmentIdMap: { 'temp-eq-A': 'real-eq-A' },
@@ -55,17 +54,5 @@ describe('resolveRackModuleIds', () => {
     const r = resolveRackModuleIds(m, maps);
     expect(r.id).toBe('real-mod-A');
     expect(r.rackEquipmentId).toBe('real-eq-A');
-  });
-});
-
-describe('resolveCircuitIds', () => {
-  it('id 와 distributionEquipmentId 모두 해석', () => {
-    const c = {
-      id: 'temp-c-A',
-      distributionEquipmentId: 'temp-eq-A',
-    } as DistributionCircuit;
-    const r = resolveCircuitIds(c, maps);
-    expect(r.id).toBe('real-c-A');
-    expect(r.distributionEquipmentId).toBe('real-eq-A');
   });
 });
