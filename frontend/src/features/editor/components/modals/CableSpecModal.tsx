@@ -84,9 +84,17 @@ function CableSpecModal() {
         : modId
           ? { equipmentId: null, moduleId: modId, circuitId: null }
           : { equipmentId: eqId ?? null, moduleId: null, circuitId: null };
+    // 단계3a — endpoint 단일 assetId 동기화. 설비/모듈 endpoint 는 정밀 asset id
+    //   (moduleId ?? equipmentId) 를 assetId 로 stage 한다 → READ 가 floorAnchor 로 해소.
+    //   회로 endpoint 는 picker 가 아직 옛 circuitId 를 주므로(분기 asset 전환은 3b)
+    //   assetId 는 null 로 두고 기존 nested 만 유지(회로 DRAWING 깨지 않음).
+    const oneAssetId = (eqId?: string | null, modId?: string | null, circId?: string | null) =>
+      circId ? null : (modId ?? eqId ?? null);
     // SSOT-2d Task 4 — 케이블 생성을 통합 스토어 stage 액션으로.
     useSubstationWorkingCopy.getState().stageCableCreate({
       id: newCableId,
+      sourceAssetId: oneAssetId(data.sourceEquipmentId, data.sourceModuleId, data.sourceCircuitId),
+      targetAssetId: oneAssetId(data.targetEquipmentId, data.targetModuleId, data.targetCircuitId),
       source: oneEndpoint(data.sourceEquipmentId, data.sourceModuleId, data.sourceCircuitId),
       target: oneEndpoint(data.targetEquipmentId, data.targetModuleId, data.targetCircuitId),
       cableType,
