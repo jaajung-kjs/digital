@@ -7,6 +7,7 @@ import {
   fiberPathDescriptor,
 } from './substationStore';
 import { mergeEffective } from './effective';
+import { assetsByIdMap, cableOnFloor, type CableEndpoint } from './floorAnchor';
 import { overlayDirtyCount } from './overlay';
 import { assetToEquipment } from './assetToEquipment';
 import { assetToRackModule } from './assetToRackModule';
@@ -108,18 +109,21 @@ export function useEffectiveFloorCables(floorId: string) {
   const overlayAssets = useSubstationWorkingCopy((s) => s.overlays.assets);
   const savedCables = useSubstationWorkingCopy((s) => s.saved.cables);
   const overlayCables = useSubstationWorkingCopy((s) => s.overlays.cables);
+  const savedCircuits = useSubstationWorkingCopy((s) => s.saved.distributionCircuits);
+  const overlayCircuits = useSubstationWorkingCopy((s) => s.overlays.distributionCircuits);
   return useMemo(() => {
     const effAssets = mergeEffective(savedAssets, overlayAssets, assetDescriptor);
-    const onFloor = new Set(effAssets.filter((a) => a.floorId === floorId).map((a) => a.id));
+    const assetsById = assetsByIdMap(effAssets);
+    const effCircuits = mergeEffective(savedCircuits, overlayCircuits, distCircuitDescriptor);
+    const circuitToEq = new Map(
+      effCircuits.map((c) => [c.id, (c as Record<string, unknown>).distributionEquipmentId as string]),
+    );
     const effCables = mergeEffective(savedCables, overlayCables, cableDescriptor);
-    return effCables.filter((c) => {
-      const ep = (e: unknown) => {
-        const o = e as { equipmentId?: string | null; moduleId?: string | null } | undefined;
-        return [o?.equipmentId, o?.moduleId];
-      };
-      return [...ep((c as any).source), ...ep((c as any).target)].some((x) => x != null && onFloor.has(x));
-    });
-  }, [savedAssets, overlayAssets, savedCables, overlayCables, floorId]);
+    // 멤버십 = 각 endpoint(정밀 id)를 floorAnchor 로 해소(모듈→랙·회로→분전반)해 이 floor 인가.
+    return effCables.filter((c) =>
+      cableOnFloor(c as { source?: CableEndpoint | null; target?: CableEndpoint | null }, floorId, assetsById, circuitToEq),
+    );
+  }, [savedAssets, overlayAssets, savedCables, overlayCables, savedCircuits, overlayCircuits, floorId]);
 }
 
 /** assets overlay 슬라이스 직접 구독(staged 변경 여부 등 overlay 자체가 필요할 때). */

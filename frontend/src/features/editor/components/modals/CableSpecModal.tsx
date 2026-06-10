@@ -74,23 +74,21 @@ function CableSpecModal() {
     const fiberPortNumber = data.targetPortNumber ?? data.sourcePortNumber ?? null;
 
     const newCableId = generateTempId();
+    // endpoint 는 "정밀 자산 하나"만 — 백엔드 assertCableEndpointsValid 가
+    // equipmentId/moduleId/circuitId 중 정확히 하나를 요구한다. 회로>모듈>설비 우선
+    // (모듈/회로면 그 id 만, 부모 설비 id 는 넣지 않는다). 도면 위치는 floorAnchor 가
+    // 이 정밀 id 를 부모(랙/분전반)로 해소해 시각화한다 — 데이터엔 진짜 endpoint 만.
+    const oneEndpoint = (eqId?: string | null, modId?: string | null, circId?: string | null) =>
+      circId
+        ? { equipmentId: null, moduleId: null, circuitId: circId }
+        : modId
+          ? { equipmentId: null, moduleId: modId, circuitId: null }
+          : { equipmentId: eqId ?? null, moduleId: null, circuitId: null };
     // SSOT-2d Task 4 — 케이블 생성을 통합 스토어 stage 액션으로.
     useSubstationWorkingCopy.getState().stageCableCreate({
       id: newCableId,
-      // 정규 shape — nested source/target 만. 스토어 effective(층 필터·삭제 캐스케이드)와
-      // 커밋 페이로드(백엔드 cableEndpoint)가 이 nested 형태를 요구한다. 렌더/트레이서가
-      // 먹는 flat 뷰는 cableDtoToLocal 이 nested 에서 파생(+anchor 로 위치 해소)하므로
-      // 여기서 flat sourceEquipmentId/... 를 denormalize 하지 않는다(변조 제거).
-      source: {
-        equipmentId: data.sourceEquipmentId ?? null,
-        moduleId: data.sourceModuleId ?? null,
-        circuitId: data.sourceCircuitId ?? null,
-      },
-      target: {
-        equipmentId: data.targetEquipmentId ?? null,
-        moduleId: data.targetModuleId ?? null,
-        circuitId: data.targetCircuitId ?? null,
-      },
+      source: oneEndpoint(data.sourceEquipmentId, data.sourceModuleId, data.sourceCircuitId),
+      target: oneEndpoint(data.targetEquipmentId, data.targetModuleId, data.targetCircuitId),
       cableType,
       categoryId: selectedCat.id,
       categoryCode: selectedCat.code,
