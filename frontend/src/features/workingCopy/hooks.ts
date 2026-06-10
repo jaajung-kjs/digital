@@ -7,7 +7,7 @@ import {
   fiberPathDescriptor,
 } from './substationStore';
 import { mergeEffective } from './effective';
-import { assetsByIdMap, cableOnFloor, type CableEndpoint } from './floorAnchor';
+import { type CableEndpoint } from './floorAnchor';
 import { overlayDirtyCount } from './overlay';
 import { assetToEquipment } from './assetToEquipment';
 import { assetToRackModule } from './assetToRackModule';
@@ -109,21 +109,22 @@ export function useEffectiveFloorCables(floorId: string) {
   const overlayAssets = useSubstationWorkingCopy((s) => s.overlays.assets);
   const savedCables = useSubstationWorkingCopy((s) => s.saved.cables);
   const overlayCables = useSubstationWorkingCopy((s) => s.overlays.cables);
-  const savedCircuits = useSubstationWorkingCopy((s) => s.saved.distributionCircuits);
-  const overlayCircuits = useSubstationWorkingCopy((s) => s.overlays.distributionCircuits);
   return useMemo(() => {
     const effAssets = mergeEffective(savedAssets, overlayAssets, assetDescriptor);
-    const assetsById = assetsByIdMap(effAssets);
-    const effCircuits = mergeEffective(savedCircuits, overlayCircuits, distCircuitDescriptor);
-    const circuitToEq = new Map(
-      effCircuits.map((c) => [c.id, (c as Record<string, unknown>).distributionEquipmentId as string]),
-    );
+    // 멤버십: 랙 모듈도 floorId 를 상속하므로(=effAssets 에 floorId 로 들어있음) endpoint
+    // 정밀 id 가 이 floor 자산이면 그만 — 위치 해소(floorAnchor)는 멤버십엔 불필요.
+    const onFloor = new Set(effAssets.filter((a) => a.floorId === floorId).map((a) => a.id));
     const effCables = mergeEffective(savedCables, overlayCables, cableDescriptor);
-    // 멤버십 = 각 endpoint(정밀 id)를 floorAnchor 로 해소(모듈→랙·회로→분전반)해 이 floor 인가.
-    return effCables.filter((c) =>
-      cableOnFloor(c as { source?: CableEndpoint | null; target?: CableEndpoint | null }, floorId, assetsById, circuitToEq),
-    );
-  }, [savedAssets, overlayAssets, savedCables, overlayCables, savedCircuits, overlayCircuits, floorId]);
+    return effCables.filter((c) => {
+      const ep = (e: unknown) => {
+        const o = e as CableEndpoint | undefined;
+        return [o?.equipmentId, o?.moduleId, o?.circuitId];
+      };
+      return [...ep((c as { source?: unknown }).source), ...ep((c as { target?: unknown }).target)].some(
+        (x) => x != null && onFloor.has(x),
+      );
+    });
+  }, [savedAssets, overlayAssets, savedCables, overlayCables, floorId]);
 }
 
 /** assets overlay 슬라이스 직접 구독(staged 변경 여부 등 overlay 자체가 필요할 때). */

@@ -114,35 +114,3 @@ export interface CableEndpoint {
   moduleId?: string | null;
   circuitId?: string | null;
 }
-
-/**
- * 케이블 endpoint(정밀 id 하나)를 placed anchor Asset 으로 해소.
- * - 설비/모듈 → asset 계층에서 floorAnchor(모듈→랙 등).
- * - 회로 → 회로는 asset 이 아니므로 circuitToEquipmentId 로 분전반 설비를 거쳐 anchor.
- * 즉 "endpoint 좌표 없으면 부모로" 의 단일 해소 — 이 함수 하나만 통과한다.
- */
-export function endpointAnchor(
-  ep: CableEndpoint | null | undefined,
-  assetsById: Map<string, Asset>,
-  circuitToEquipmentId?: Map<string, string>,
-): Asset | null {
-  if (!ep) return null;
-  if (ep.circuitId) {
-    const eqId = circuitToEquipmentId?.get(ep.circuitId);
-    return eqId ? floorAnchor(eqId, assetsById) : null;
-  }
-  return floorAnchor(ep.moduleId ?? ep.equipmentId, assetsById);
-}
-
-/** 케이블이 floorId 에 속하는가 — 한 endpoint 라도 그 anchor 가 이 floor 면 true. */
-export function cableOnFloor(
-  cable: { source?: CableEndpoint | null; target?: CableEndpoint | null },
-  floorId: string,
-  assetsById: Map<string, Asset>,
-  circuitToEquipmentId?: Map<string, string>,
-): boolean {
-  const s = endpointAnchor(cable.source, assetsById, circuitToEquipmentId);
-  if (s?.floorId === floorId) return true;
-  const t = endpointAnchor(cable.target, assetsById, circuitToEquipmentId);
-  return t?.floorId === floorId;
-}
