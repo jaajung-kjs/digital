@@ -74,22 +74,24 @@ function CableSpecModal() {
     const fiberPortNumber = data.targetPortNumber ?? data.sourcePortNumber ?? null;
 
     const newCableId = generateTempId();
-    // endpoint 는 "정밀 자산 하나"만 — 백엔드 assertCableEndpointsValid 가
-    // equipmentId/moduleId/circuitId 중 정확히 하나를 요구한다. 회로>모듈>설비 우선
-    // (모듈/회로면 그 id 만, 부모 설비 id 는 넣지 않는다). 도면 위치는 floorAnchor 가
-    // 이 정밀 id 를 부모(랙/분전반)로 해소해 시각화한다 — 데이터엔 진짜 endpoint 만.
+    // 단계3b — 회로 endpoint 는 더 이상 distribution_circuits 행이 아니라 BRANCH
+    //   asset 이다. picker(CircuitPicker)가 BRANCH asset id 를 circuitId 자리에 실어
+    //   보내므로(interaction store), 이는 진짜 asset id 다 → 모듈/설비 endpoint 와
+    //   동일하게 단일 sourceAssetId/targetAssetId 로 stage 한다.
+    //
+    // nested source/target 는 단계4 에서 제거 예정인 레거시 표현. 회로(분기)는
+    //   이제 자산이라 더 이상 circuitId 행이 없으므로 nested circuitId 는 null 로 두고,
+    //   설비/모듈만 기존 nested 형태를 유지한다(저장 경로는 단일 assetId 가 권위).
     const oneEndpoint = (eqId?: string | null, modId?: string | null, circId?: string | null) =>
       circId
-        ? { equipmentId: null, moduleId: null, circuitId: circId }
+        ? { equipmentId: null, moduleId: null, circuitId: null }
         : modId
           ? { equipmentId: null, moduleId: modId, circuitId: null }
           : { equipmentId: eqId ?? null, moduleId: null, circuitId: null };
-    // 단계3a — endpoint 단일 assetId 동기화. 설비/모듈 endpoint 는 정밀 asset id
-    //   (moduleId ?? equipmentId) 를 assetId 로 stage 한다 → READ 가 floorAnchor 로 해소.
-    //   회로 endpoint 는 picker 가 아직 옛 circuitId 를 주므로(분기 asset 전환은 3b)
-    //   assetId 는 null 로 두고 기존 nested 만 유지(회로 DRAWING 깨지 않음).
+    // endpoint 단일 assetId — 정밀 asset id (branch ?? module ?? equipment).
+    //   READ 는 floorAnchor 가 branch→feeder→분전반 / module→랙 으로 해소해 시각화.
     const oneAssetId = (eqId?: string | null, modId?: string | null, circId?: string | null) =>
-      circId ? null : (modId ?? eqId ?? null);
+      circId ?? modId ?? eqId ?? null;
     // SSOT-2d Task 4 — 케이블 생성을 통합 스토어 stage 액션으로.
     useSubstationWorkingCopy.getState().stageCableCreate({
       id: newCableId,

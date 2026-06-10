@@ -12,12 +12,14 @@ import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { assetToRackModule } from '../../workingCopy/assetToRackModule';
+import { assetsByIdMap, floorAnchor } from '../../workingCopy/floorAnchor';
 import { cableDtoToLocal, type CableDetailDTO } from '../../network/store';
 import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
 import { composeFiberPaths } from '../../workingCopy/merge';
 import type { TraceResult, PathSegment } from '../types';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { RackModule } from '../../../types/rackModule';
+import type { Asset } from '../../../types/asset';
 import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import type { FiberPathDetail } from '../../fiber/types';
 import type { FloorPlanEquipment, FloorPlanFiberPath } from '../../../types/floorPlan';
@@ -59,17 +61,17 @@ function idleState() {
   };
 }
 
-function expandToEquipmentIds(
-  nodeIds: Set<string>,
-  rackModules: RackModule[],
-  distCircuits: DistributionCircuit[],
-): Set<string> {
+/**
+ * 하이라이트할 노드 id(설비/모듈/분기 asset 혼재)를 캔버스가 실제로 그리는
+ * 배치(placement) 설비 id 로 펼친다. 모듈/분기 같은 내부 노드는 floorAnchor 가
+ * 가장 가까운 배치 조상(랙/분전반)으로 해소한다(branch→feeder→분전반 walk 포함).
+ */
+function expandToEquipmentIds(nodeIds: Set<string>, effectiveAssets: Asset[]): Set<string> {
   const result = new Set(nodeIds);
-  for (const mod of rackModules) {
-    if (nodeIds.has(mod.id)) result.add(mod.rackEquipmentId);
-  }
-  for (const c of distCircuits) {
-    if (nodeIds.has(c.id)) result.add(c.distributionEquipmentId);
+  const byId = assetsByIdMap(effectiveAssets);
+  for (const id of nodeIds) {
+    const anchor = floorAnchor(id, byId);
+    if (anchor) result.add(anchor.id);
   }
   return result;
 }
@@ -120,7 +122,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
           active: true,
           traceResult: result,
           highlightedNodeIds: ids,
-          highlightedEquipmentIds: expandToEquipmentIds(ids, [], []),
+          highlightedEquipmentIds: expandToEquipmentIds(ids, []),
           highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
           segments: result.segments,
         });
@@ -164,7 +166,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         traceResult: result,
         isLoading: false,
         highlightedNodeIds: ids,
-        highlightedEquipmentIds: expandToEquipmentIds(ids, localRackModules, localDistCircuits),
+        highlightedEquipmentIds: expandToEquipmentIds(ids, effAssets),
         highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
         segments: result.segments,
       });
@@ -174,25 +176,22 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
     }
   },
 
-  startCircuitTrace: (circuitIds) => {
-    if (circuitIds.length === 0) return;
-    // SSOT-2d-3b: effective(saved+staged) cable/rackModule/dist 를 통합 working copy 에서.
+  startCircuitTrace: (branchAssetIds) => {
+    if (branchAssetIds.length === 0) return;
+    // 단계3b: 회로는 BRANCH asset. 인자는 분기 asset id 들. 케이블 endpoint 가
+    //   단일 asset id(flat sourceEquipmentId 자리)이므로 그 id 가 분기 집합에 들면 hit.
     const wc = useSubstationWorkingCopy.getState();
     const cables: LocalCable[] = wc
       .effectiveCables()
       .map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
     const effAssets = wc.effectiveAssets();
-    const rackModules: RackModule[] = effAssets
-      .filter((a) => a.parentAssetId && a.slotIndex != null)
-      .map(assetToRackModule);
-    const distCircuits = wc.effectiveDistCircuits() as unknown as DistributionCircuit[];
 
-    const circuitSet = new Set(circuitIds);
-    const nodeIds = new Set<string>(circuitIds);
+    const branchSet = new Set(branchAssetIds);
+    const nodeIds = new Set<string>(branchAssetIds);
     const edgeIds = new Set<string>();
     for (const cable of cables) {
-      const srcHit = !!cable.sourceCircuitId && circuitSet.has(cable.sourceCircuitId);
-      const tgtHit = !!cable.targetCircuitId && circuitSet.has(cable.targetCircuitId);
+      const srcHit = !!cable.sourceEquipmentId && branchSet.has(cable.sourceEquipmentId);
+      const tgtHit = !!cable.targetEquipmentId && branchSet.has(cable.targetEquipmentId);
       if (!srcHit && !tgtHit) continue;
       edgeIds.add(cable.id);
       nodeIds.add(cable.sourceEquipmentId);
@@ -205,7 +204,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
       isLoading: false,
       error: null,
       highlightedNodeIds: nodeIds,
-      highlightedEquipmentIds: expandToEquipmentIds(nodeIds, rackModules, distCircuits),
+      highlightedEquipmentIds: expandToEquipmentIds(nodeIds, effAssets),
       highlightedEdgeIds: edgeIds,
       segments: [],
     });
