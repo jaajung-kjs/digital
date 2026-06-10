@@ -178,7 +178,7 @@ export function TreePanel() {
 
     return (
       <div key={node.id}>
-        {isDropBefore && <div className="h-0.5 bg-blue-500 rounded-full mx-2" style={{ marginLeft: `${level * 16 + 8}px` }} />}
+        {isDropBefore && <div className="h-0.5 bg-primary rounded-full mx-2" style={{ marginLeft: `${level * 16 + 8}px` }} />}
         <div
           draggable
           onDragStart={(e) => handleTreeDragStart(e, node)}
@@ -215,7 +215,7 @@ export function TreePanel() {
           })()}
           <span className="truncate">{node.name}</span>
         </div>
-        {isDropAfter && <div className="h-0.5 bg-blue-500 rounded-full mx-2" style={{ marginLeft: `${level * 16 + 8}px` }} />}
+        {isDropAfter && <div className="h-0.5 bg-primary rounded-full mx-2" style={{ marginLeft: `${level * 16 + 8}px` }} />}
         {node.expanded && node.children.map((child) => renderNode(child, level + 1))}
       </div>
     );

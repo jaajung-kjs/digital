@@ -57,11 +57,11 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-bold text-gray-800">설비 정보</span>
+        <span className="text-sm font-bold text-content">설비 정보</span>
         {!readOnly && (
           <button
             onClick={() => setIsEditing(true)}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="flex items-center gap-1 text-sm text-primary hover:text-primary font-medium"
           >
             <Pencil size={14} />
             수정
@@ -71,17 +71,17 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
       <div className="space-y-3">
         {fields.map((f) => (
           <div key={f.label}>
-            <span className="block text-xs text-gray-400 mb-0.5">{f.label}</span>
-            <span className="text-sm text-gray-900">{f.value}</span>
+            <span className="block text-xs text-content-faint mb-0.5">{f.label}</span>
+            <span className="text-sm text-content">{f.value}</span>
           </div>
         ))}
       </div>
       {asset && (
-        <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+        <div className="mt-3 pt-3 border-t border-line space-y-2">
           <AssetAttributesView fields={asset.assetType.fieldTemplate ?? []} attributes={asset.attributes} readOnly />
           <button
             onClick={() => (ws ? ws.gotoRegister(asset.id) : navigate(registerUrl(asset.substationId, asset.id)))}
-            className="text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
+            className="text-xs px-2 py-1 rounded bg-info-bg text-primary hover:bg-info-bg"
           >
             수정
           </button>
@@ -116,39 +116,39 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
   return (
     <div className="p-4 space-y-3">
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">이름 *</label>
+        <label className="block text-xs font-medium text-content-muted mb-1">이름 *</label>
         <input
           type="text"
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400"
+          className="w-full text-sm border border-line rounded px-2.5 py-2 focus:outline-none focus:border-primary"
         />
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">담당자</label>
+        <label className="block text-xs font-medium text-content-muted mb-1">담당자</label>
         <input
           type="text"
           value={editManager}
           onChange={(e) => setEditManager(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400"
+          className="w-full text-sm border border-line rounded px-2.5 py-2 focus:outline-none focus:border-primary"
           placeholder="선택 사항"
         />
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">설치일</label>
+        <label className="block text-xs font-medium text-content-muted mb-1">설치일</label>
         <input
           type="date"
           value={editInstallDate}
           onChange={(e) => setEditInstallDate(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400"
+          className="w-full text-sm border border-line rounded px-2.5 py-2 focus:outline-none focus:border-primary"
         />
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">설명</label>
+        <label className="block text-xs font-medium text-content-muted mb-1">설명</label>
         <textarea
           value={editDescription}
           onChange={(e) => setEditDescription(e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 focus:outline-none focus:border-blue-400 resize-none"
+          className="w-full text-sm border border-line rounded px-2.5 py-2 focus:outline-none focus:border-primary resize-none"
           rows={3}
           placeholder="선택 사항"
         />
@@ -157,13 +157,13 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
         <button
           onClick={handleApply}
           disabled={!editName.trim()}
-          className="flex-1 text-sm px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          className="flex-1 text-sm px-3 py-2 bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50"
         >
           적용
         </button>
         <button
           onClick={onClose}
-          className="flex-1 text-sm px-3 py-2 border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+          className="flex-1 text-sm px-3 py-2 border border-line text-content-muted rounded hover:bg-surface-2"
         >
           취소
         </button>

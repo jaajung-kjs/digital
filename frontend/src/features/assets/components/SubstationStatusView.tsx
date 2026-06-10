@@ -9,10 +9,10 @@ import { AssetDetailPanel } from './AssetDetailPanel';
 
 export function StatusSummary({ total, items }: { total: number; items: { key: string; label: string; count: number }[] }) {
   return (
-    <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2 border-b border-gray-200 bg-white">
-      <span className="text-xs px-2 py-1 rounded bg-gray-100 font-medium">전체 {total}</span>
+    <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2 border-b border-line bg-surface">
+      <span className="text-xs px-2 py-1 rounded bg-surface-2 font-medium">전체 {total}</span>
       {items.map((c) => (
-        <span key={c.key} className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">{c.label} {c.count}</span>
+        <span key={c.key} className="text-xs px-2 py-1 rounded bg-surface-2 text-content-muted">{c.label} {c.count}</span>
       ))}
     </div>
   );

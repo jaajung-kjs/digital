@@ -33,8 +33,8 @@ export function SnapshotPhotosTab({ equipmentId }: { equipmentId: string }) {
             onClick={() => setPhotoSide(side)}
             className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
               photoSide === side
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-primary text-white'
+                : 'bg-surface-2 text-content-muted hover:bg-surface-2'
             }`}
           >
             {side === 'front' ? '전면' : '후면'}
@@ -44,7 +44,7 @@ export function SnapshotPhotosTab({ equipmentId }: { equipmentId: string }) {
 
       {/* Main photo */}
       {latestPhoto ? (
-        <div className="mb-4 overflow-hidden rounded-lg border border-gray-200">
+        <div className="mb-4 overflow-hidden rounded-lg border border-line">
           <img
             src={latestPhoto.imageUrl}
             alt={`${photoSide === 'front' ? '전면' : '후면'} 사진`}
@@ -54,7 +54,7 @@ export function SnapshotPhotosTab({ equipmentId }: { equipmentId: string }) {
           />
         </div>
       ) : (
-        <div className="mb-4 flex h-40 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-sm text-gray-400">
+        <div className="mb-4 flex h-40 items-center justify-center rounded-lg border-2 border-dashed border-line text-sm text-content-faint">
           {photoSide === 'front' ? '전면' : '후면'} 사진 없음
         </div>
       )}
@@ -65,7 +65,7 @@ export function SnapshotPhotosTab({ equipmentId }: { equipmentId: string }) {
           {allPhotos.map((photo, idx) => (
             <div
               key={photo.id}
-              className="cursor-pointer overflow-hidden rounded border border-gray-200 hover:border-blue-400"
+              className="cursor-pointer overflow-hidden rounded border border-line hover:border-primary"
               onClick={() => setLightboxIndex(idx)}
             >
               <img src={photo.imageUrl} alt="" className="h-16 w-full object-cover" />
@@ -88,7 +88,7 @@ export function SnapshotPhotosTab({ equipmentId }: { equipmentId: string }) {
           />
           <button
             onClick={() => setLightboxIndex(null)}
-            className="absolute right-6 top-6 rounded-full bg-white/20 p-2 text-white hover:bg-white/40"
+            className="absolute right-6 top-6 rounded-full bg-surface/20 p-2 text-white hover:bg-surface/40"
           >
             <X size={24} />
           </button>
@@ -210,7 +210,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
           <button
             onClick={() => setPhotoSide('front')}
             className={`px-3 py-1 text-xs font-medium transition-colors ${
-              photoSide === 'front' ? 'bg-blue-600 text-white' : 'bg-black/50 text-white/80 hover:bg-black/70'
+              photoSide === 'front' ? 'bg-primary text-white' : 'bg-black/50 text-white/80 hover:bg-black/70'
             }`}
           >
             전면
@@ -218,7 +218,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
           <button
             onClick={() => setPhotoSide('rear')}
             className={`px-3 py-1 text-xs font-medium transition-colors ${
-              photoSide === 'rear' ? 'bg-blue-600 text-white' : 'bg-black/50 text-white/80 hover:bg-black/70'
+              photoSide === 'rear' ? 'bg-primary text-white' : 'bg-black/50 text-white/80 hover:bg-black/70'
             }`}
           >
             후면
@@ -237,7 +237,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
             {currentImageUrl && (
               <button
                 onClick={handleDeleteCurrent}
-                className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-red-400 transition-colors shadow-sm"
+                className="p-1.5 bg-black/50 rounded-md text-white/80 hover:bg-black/70 hover:text-danger transition-colors shadow-sm"
                 title="사진 삭제"
               >
                 <Trash2 size={16} />
@@ -271,14 +271,14 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
             onClick={() => setLightboxIndex(0)}
           />
         ) : readOnly ? (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
+          <div className="w-full h-full flex flex-col items-center justify-center text-content-muted">
             <ImageIcon size={48} strokeWidth={1} className="mb-2" />
             <span className="text-sm">{photoSide === 'front' ? '전면' : '후면'} 사진 없음</span>
           </div>
         ) : (
           <button
             onClick={handleUploadClick}
-            className="w-full h-full flex flex-col items-center justify-center text-gray-500 hover:text-blue-400 transition-colors"
+            className="w-full h-full flex flex-col items-center justify-center text-content-muted hover:text-primary transition-colors"
           >
             <ImageIcon size={48} strokeWidth={1} className="mb-2" />
             <span className="text-sm">{photoSide === 'front' ? '전면' : '후면'} 사진 추가</span>

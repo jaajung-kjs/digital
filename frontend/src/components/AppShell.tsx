@@ -29,7 +29,7 @@ export function AppShell() {
 
   return (
     <div className="h-screen flex flex-col">
-      <header className="shrink-0 h-12 flex items-center gap-3 px-3 border-b border-line bg-surface">
+      <header className="shrink-0 h-12 flex items-center gap-3 px-3 border-b border-line bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
         <IconButton
           onClick={toggle}
           aria-label={collapsed ? '트리 펼치기' : '트리 접기'}

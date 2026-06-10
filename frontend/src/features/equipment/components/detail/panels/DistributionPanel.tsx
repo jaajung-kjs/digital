@@ -108,7 +108,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
 
   if (snapshotActive) {
     return (
-      <div className="p-4 text-sm text-gray-400">
+      <div className="p-4 text-sm text-content-faint">
         과거 도면 보기 중에는 회로를 편집할 수 없습니다.
       </div>
     );
@@ -118,7 +118,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
     <div className="flex flex-col max-h-[480px]">
       <div className="overflow-y-auto p-3">
         {byFeeder.size === 0 && (
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-content-faint mb-3">
             전원 계통을 추가해 분전반 회로를 구성하세요.
           </p>
         )}
@@ -128,17 +128,17 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
             {[...byFeeder.entries()].map(([feederName, branches]) => (
               <div
                 key={feederName}
-                className="rounded-md border border-gray-300 bg-white overflow-hidden"
+                className="rounded-md border border-line bg-surface overflow-hidden"
               >
                 {/* feeder 헤더 — 메인 차단기 라벨. 추적 / 삭제 */}
-                <div className="relative bg-gray-100 border-b border-gray-300 group/feeder">
+                <div className="relative bg-surface-2 border-b border-line group/feeder">
                   <button
                     type="button"
                     onClick={() => startCircuitTrace(branches.map((b) => b.id))}
-                    className="w-full px-2 py-2.5 pr-7 text-left hover:bg-blue-100 transition-colors"
+                    className="w-full px-2 py-2.5 pr-7 text-left hover:bg-info-bg transition-colors"
                     title="이 계통 전체 연결 추적"
                   >
-                    <span className="block text-sm font-semibold text-gray-700 truncate">
+                    <span className="block text-sm font-semibold text-content-muted truncate">
                       {feederName}
                     </span>
                   </button>
@@ -151,7 +151,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                         branches.forEach((b) => removeCircuit(b.id));
                       }
                     }}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-white border border-gray-300 text-red-500 leading-none opacity-0 group-hover/feeder:opacity-100 hover:bg-red-50 transition-opacity flex items-center justify-center"
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-surface border border-line text-danger leading-none opacity-0 group-hover/feeder:opacity-100 hover:bg-danger-bg transition-opacity flex items-center justify-center"
                     title="계통 삭제"
                     aria-label="계통 삭제"
                   >
@@ -170,8 +170,8 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                           onClick={() => startCircuitTrace([c.id])}
                           className={`w-full px-2 py-2 rounded text-xs font-medium text-center transition-colors ${
                             connected
-                              ? 'bg-blue-50 border border-blue-300 text-blue-700 hover:bg-blue-100'
-                              : 'bg-gray-50 border border-dashed border-gray-300 text-gray-400 hover:bg-gray-100'
+                              ? 'bg-info-bg border border-primary text-primary hover:bg-info-bg'
+                              : 'bg-surface-2 border border-dashed border-line text-content-faint hover:bg-surface-2'
                           }`}
                           title={connected ? '연결됨 — 클릭해 계통 추적' : '미연결 분기'}
                         >
@@ -180,7 +180,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                         <button
                           type="button"
                           onClick={() => { if (confirm(`'${c.branchName}' 분기를 삭제할까요?`)) removeCircuit(c.id); }}
-                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white border border-gray-300 text-red-500 leading-none opacity-0 group-hover/branch:opacity-100 hover:bg-red-50 transition-opacity flex items-center justify-center"
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-surface border border-line text-danger leading-none opacity-0 group-hover/branch:opacity-100 hover:bg-danger-bg transition-opacity flex items-center justify-center"
                           title="분기 삭제"
                           aria-label="분기 삭제"
                         >
@@ -194,7 +194,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                   <button
                     type="button"
                     onClick={() => handleAddBranch(feederName, branches)}
-                    className="w-full px-2 py-2 rounded text-xs text-gray-400 border border-dashed border-gray-300 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                    className="w-full px-2 py-2 rounded text-xs text-content-faint border border-dashed border-line hover:border-primary hover:text-primary hover:bg-info-bg transition-colors"
                   >
                     ＋ 분기
                   </button>
@@ -205,7 +205,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
             {/* + 전원 계통 — 클릭 시에만 inline 입력 노출 (상시 input 제거) */}
             <div>
               {addingFeeder ? (
-                <div className="rounded-md border border-blue-300 bg-white p-2 flex flex-col gap-1.5">
+                <div className="rounded-md border border-primary bg-surface p-2 flex flex-col gap-1.5">
                   <input
                     type="text"
                     autoFocus
@@ -219,14 +219,14 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                       }
                     }}
                     placeholder="예: DC 48V Main"
-                    className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                    className="w-full text-xs border border-line rounded px-2 py-1.5 focus:outline-none focus:border-primary"
                   />
                   <div className="flex gap-1">
                     <button
                       type="button"
                       onClick={handleAddFeeder}
                       disabled={!newFeeder.trim()}
-                      className="flex-1 text-xs py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                      className="flex-1 text-xs py-1 bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50"
                     >
                       추가
                     </button>
@@ -236,7 +236,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                         setAddingFeeder(false);
                         setNewFeeder('');
                       }}
-                      className="px-2 text-xs py-1 text-gray-500 hover:bg-gray-100 rounded"
+                      className="px-2 text-xs py-1 text-content-muted hover:bg-surface-2 rounded"
                     >
                       취소
                     </button>
@@ -246,7 +246,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                 <button
                   type="button"
                   onClick={() => setAddingFeeder(true)}
-                  className="w-full h-16 rounded-md border border-dashed border-gray-300 text-xs text-gray-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                  className="w-full h-16 rounded-md border border-dashed border-line text-xs text-content-faint hover:border-primary hover:text-primary hover:bg-info-bg transition-colors"
                 >
                   ＋ 전원 계통
                 </button>

@@ -15,16 +15,18 @@ export function TreePage() {
           navigate(`/substations/${item.substationId}/workspace?view=status&assetId=${item.id}`)
       : undefined;
   return (
-    <div className="h-full overflow-hidden bg-gray-50">
-      {viewingNode && viewingNode.type !== 'floor' ? (
-        <NodeStatusView
-          nodeType={viewingNode.type as 'headquarters' | 'branch' | 'substation'}
-          nodeId={viewingNode.id}
-          onRowClick={drill}
-        />
-      ) : (
-        <div className="p-8 text-sm text-gray-500">좌측 트리에서 본부·사업소·변전소를 선택하세요.</div>
-      )}
+    <div className="h-full bg-bg p-3">
+      <div className="h-full bg-surface rounded-lg border border-line shadow-sm overflow-hidden">
+        {viewingNode && viewingNode.type !== 'floor' ? (
+          <NodeStatusView
+            nodeType={viewingNode.type as 'headquarters' | 'branch' | 'substation'}
+            nodeId={viewingNode.id}
+            onRowClick={drill}
+          />
+        ) : (
+          <div className="p-8 text-sm text-content-muted">좌측 트리에서 본부·사업소·변전소를 선택하세요.</div>
+        )}
+      </div>
     </div>
   );
 }

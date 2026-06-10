@@ -114,7 +114,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
   if (!isTemp && isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
       </div>
     );
   }
@@ -125,7 +125,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
         <div className="px-4 pt-3">
           <button
             onClick={() => { if (showForm) resetForm(); else setShowForm(true); }}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            className="text-sm text-primary hover:text-primary font-medium"
           >
             {showForm ? '취소' : '+ 새 이력 추가'}
           </button>
@@ -133,12 +133,12 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
       )}
 
       {showForm && !readOnly && (
-        <div className="mx-4 mt-2 p-3 rounded-lg border border-blue-200 bg-blue-50 space-y-2.5">
+        <div className="mx-4 mt-2 p-3 rounded-lg border border-primary bg-info-bg space-y-2.5">
           <div className="flex gap-2">
             <select
               value={formData.logType}
               onChange={(e) => setFormData((p) => ({ ...p, logType: e.target.value }))}
-              className="flex-1 text-sm border border-gray-300 rounded px-2.5 py-2"
+              className="flex-1 text-sm border border-line rounded px-2.5 py-2"
             >
               {Object.entries(LOG_TYPE_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
@@ -147,7 +147,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
             <select
               value={formData.severity}
               onChange={(e) => setFormData((p) => ({ ...p, severity: e.target.value }))}
-              className="flex-1 text-sm border border-gray-300 rounded px-2.5 py-2"
+              className="flex-1 text-sm border border-line rounded px-2.5 py-2"
             >
               {Object.entries(SEVERITY_COLORS).map(([key]) => (
                 <option key={key} value={key}>{SEVERITY_LABELS[key] ?? key}</option>
@@ -158,24 +158,24 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
             type="text" placeholder="제목"
             value={formData.title}
             onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
-            className="w-full text-sm border border-gray-300 rounded px-2.5 py-2"
+            className="w-full text-sm border border-line rounded px-2.5 py-2"
           />
           <input
             type="date"
             value={formData.logDate}
             onChange={(e) => setFormData((p) => ({ ...p, logDate: e.target.value }))}
-            className="w-full text-sm border border-gray-300 rounded px-2.5 py-2"
+            className="w-full text-sm border border-line rounded px-2.5 py-2"
           />
           <textarea
             placeholder="설명 (선택)"
             value={formData.description}
             onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-            className="w-full text-sm border border-gray-300 rounded px-2.5 py-2 resize-none" rows={2}
+            className="w-full text-sm border border-line rounded px-2.5 py-2 resize-none" rows={2}
           />
           <button
             onClick={handleSubmit}
             disabled={!formData.title.trim()}
-            className="w-full text-sm px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+            className="w-full text-sm px-3 py-2 bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50"
           >
             {editingLogId ? '수정 적용' : '적용'}
           </button>
@@ -184,17 +184,17 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
 
       <div className="p-4 space-y-3">
         {allLogs.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">이력이 없습니다.</p>
+          <p className="text-sm text-content-faint text-center py-4">이력이 없습니다.</p>
         ) : (
           allLogs.map((log) => (
-            <div key={log.id} className="p-3 rounded-lg border border-gray-100 bg-gray-50">
+            <div key={log.id} className="p-3 rounded-lg border border-line bg-surface-2">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-1.5">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${LOG_TYPE_COLORS[log.logType] ?? 'bg-gray-200 text-gray-700'}`}>
+                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${LOG_TYPE_COLORS[log.logType] ?? 'bg-line text-content-muted'}`}>
                     {LOG_TYPE_LABELS[log.logType] ?? log.logType}
                   </span>
                   {log.severity && (
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${SEVERITY_COLORS[log.severity] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${SEVERITY_COLORS[log.severity] ?? 'bg-surface-2 text-content-muted'}`}>
                       {SEVERITY_LABELS[log.severity] ?? log.severity}
                     </span>
                   )}
@@ -203,14 +203,14 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
                   <div className="flex items-center gap-0.5">
                       <button
                         onClick={() => handleEditLog(log)}
-                        className="p-0.5 text-gray-400 hover:text-blue-500 transition-colors"
+                        className="p-0.5 text-content-faint hover:text-primary transition-colors"
                         title="수정"
                       >
                         <Pencil size={14} />
                       </button>
                     <button
                       onClick={() => handleDeleteLog(log.id)}
-                      className="p-0.5 text-gray-400 hover:text-red-500 transition-colors"
+                      className="p-0.5 text-content-faint hover:text-danger transition-colors"
                       title="삭제"
                     >
                       <Trash2 size={14} />
@@ -218,16 +218,16 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
                   </div>
                 )}
               </div>
-              <p className="text-sm font-medium text-gray-900">{log.title}</p>
-              {log.description && <p className="text-sm text-gray-500 mt-1">{log.description}</p>}
+              <p className="text-sm font-medium text-content">{log.title}</p>
+              {log.description && <p className="text-sm text-content-muted mt-1">{log.description}</p>}
               <div className="flex items-center justify-between mt-1.5">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-content-faint">
                   {log.logDate
                     ? new Date(log.logDate).toLocaleDateString('ko-KR')
                     : new Date(log.createdAt).toLocaleDateString('ko-KR')}
                 </p>
                 {log.createdByName && (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-content-faint">
                     작성: {log.createdByName}
                   </p>
                 )}
