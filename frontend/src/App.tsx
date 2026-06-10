@@ -5,10 +5,9 @@ import { useAuthStore } from './stores/authStore';
 import { AppShell } from './components/AppShell';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
-import { TreePage } from './pages/TreePage';
+import { WorkspacePage } from './pages/WorkspacePage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
 import { SubstationAssetGridPage } from './pages/SubstationAssetGridPage';
-import { SubstationWorkspacePage } from './pages/SubstationWorkspacePage';
 import { queryClient } from './lib/queryClient';
 
 function AppContent() {
@@ -36,10 +35,10 @@ function AppContent() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<TreePage />} />
+        <Route path="/" element={<WorkspacePage />} />
         <Route
           path="/substations/:substationId/workspace"
-          element={<SubstationWorkspacePage />}
+          element={<WorkspacePage />}
         />
         <Route path="/floors/:floorId/plan" element={<FloorPlanEditorPage />} />
         <Route
