@@ -3,8 +3,9 @@ import { z } from 'zod';
 /**
  * 통합 변전소 커밋 입력 스키마 (SSOT-2a).
  *
- * 도면 위 5종 배치형 Asset(설비) + 케이블 + 랙 모듈 + 분전반 회로 + 광경로를
+ * 도면 위 5종 배치형 Asset(설비) + 케이블 + 랙 모듈 + 광경로를
  * 하나의 delta(creates/updates/deletes) 페이로드로 묶어 단일 트랜잭션 커밋.
+ * (분전 회로 feeder/branch 는 Asset 이므로 assets 컬렉션으로 들어온다.)
  *
  * - 각 *Create 는 `tempId` 를 가진다. 커밋 시 real id 로 치환되어 idMap 으로 반환.
  * - 다른 엔티티 참조(equipmentId, rackEquipmentId, distributionEquipmentId,
@@ -59,21 +60,14 @@ const assetCreate = z.object({
 const assetPatch = assetCreate.omit({ tempId: true }).partial();
 
 // ==================== Cable ====================
-// floor.service.ts PlanCableInput 형태 그대로. endpoint 는 nested source/target.
-const cableEndpoint = z.object({
-  equipmentId: z.string().nullable().optional(),
-  moduleId: z.string().nullable().optional(),
-  circuitId: z.string().nullable().optional(),
-});
+// 단계4b(통합 노드 collapse): endpoint = 단일 Asset 노드(설비 / 랙 모듈 / 분전 분기).
+// nested source/target(equipmentId/moduleId/circuitId) + distribution-circuit 커밋
+// 경로는 제거됐다 — endpoint 는 sourceAssetId/targetAssetId 하나뿐. create 는 필수,
+// patch 는 partial. tempId 는 같은 페이로드의 asset/cable create 를 가리킬 수 있다.
 const cableCreate = z.object({
   tempId: z.string(),
-  source: cableEndpoint,
-  target: cableEndpoint,
-  // 단계2(통합 노드) forward-compat: endpoint 를 단일 Asset 노드로 직접 지정.
-  // 제공 시 canonical 로 사용 — *_asset_id 컬럼을 세우고 asset kind 로 legacy
-  // (equipment/module) 컬럼을 파생한다. nested source/target 도 계속 수용(현 프론트).
-  sourceAssetId: z.string().nullable().optional(),
-  targetAssetId: z.string().nullable().optional(),
+  sourceAssetId: z.string(),
+  targetAssetId: z.string(),
   cableType: z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']),
   label: z.string().nullable().optional(),
   length: z.number().nullable().optional(),
@@ -107,18 +101,6 @@ const rackModuleCreate = z.object({
 });
 const rackModulePatch = rackModuleCreate.omit({ tempId: true }).partial();
 
-// ==================== DistributionCircuit ====================
-// floor.service.ts PlanDistributionCircuitInput 형태 그대로.
-const distCircuitCreate = z.object({
-  tempId: z.string(),
-  distributionEquipmentId: z.string(),
-  feederName: z.string(),
-  branchName: z.string(),
-  description: z.string().nullable().optional(),
-  sortOrder: z.number().optional(),
-});
-const distCircuitPatch = distCircuitCreate.omit({ tempId: true }).partial();
-
 // ==================== FiberPath ====================
 // floor.service.ts UpdatePlanInput.fiberPaths 형태 그대로.
 const fiberPathCreate = z.object({
@@ -135,7 +117,8 @@ export const substationCommitSchema = z.object({
   assets: collection(assetCreate, assetPatch).optional(),
   cables: collection(cableCreate, cablePatch).optional(),
   rackModules: collection(rackModuleCreate, rackModulePatch).optional(),
-  distributionCircuits: collection(distCircuitCreate, distCircuitPatch).optional(),
+  // 분전 회로(feeder/branch)는 통합 노드 모델에서 Asset(자식) 이므로 assets 컬렉션으로
+  // 커밋된다 — 별도 distributionCircuits 컬렉션 없음(단계3b/4b).
   fiberPaths: collection(fiberPathCreate, fiberPathPatch).optional(),
   floor: z
     .object({

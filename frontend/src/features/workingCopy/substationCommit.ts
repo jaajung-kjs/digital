@@ -93,16 +93,15 @@ function omitIfEmpty(c: Collection): Collection | undefined {
 /**
  * Cable create(store row) → cables.create payload.
  *
- * 백엔드 cableCreate 스키마는 `tempId` + nested `source`/`target` 를 요구한다.
- * store row 는 id(=tempId) 와 nested source/target 만 들고 있다(flat denormalize 제거됨).
- * 여기서 id→tempId 로 옮기고 canonical 필드만 통과시킨다. totalLength → length(설치 길이)
- * 매핑은 백엔드가 length/totalLength 를 모두 읽으므로 그대로 둘 다 보낸다.
+ * 단계4b — 백엔드 cableCreate 스키마는 `tempId` + 단일 `sourceAssetId`/`targetAssetId`
+ * 만 요구한다(nested source/target 제거). store row 는 id(=tempId) 와 단일 assetId 를
+ * 들고 있다. 여기서 id→tempId 로 옮기고 canonical 필드만 통과시킨다.
  */
 function toCableCreate(c: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {
     tempId: c.id,
-    source: c.source ?? { equipmentId: null, moduleId: null, circuitId: null },
-    target: c.target ?? { equipmentId: null, moduleId: null, circuitId: null },
+    sourceAssetId: c.sourceAssetId,
+    targetAssetId: c.targetAssetId,
     cableType: c.cableType,
   };
   const passthrough = [

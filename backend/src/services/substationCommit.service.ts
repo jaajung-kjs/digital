@@ -5,7 +5,6 @@ import type { SubstationCommitInput } from '../schemas/substationCommit.schema.j
 import {
   assertCableEndpointsValid,
   assertRackParentValid,
-  assertDistParentValid,
   assertSlotValid,
   assertNoSlotCollision,
 } from './planApply.js';
@@ -13,43 +12,22 @@ import {
 /**
  * 통합 변전소 커밋 (SSOT-2a).
  *
- * assets(+placement) / cables / rackModules / distributionCircuits / fiberPaths
+ * assets(+placement) / cables / rackModules / fiberPaths
  * + 선택적 floor 를 하나의 delta 페이로드로 받아 단일 트랜잭션에 커밋한다.
  *
  *  - per-entity OCC: 각 컬렉션의 update/delete 대상 baseVersion 을 현재
  *    updatedAt.toISOString() 와 비교(assetCommit 동일 규약). 하나라도 stale 면
  *    전체 409 (롤백).
  *  - tempId 교차 해소: assets 의 create tempId → real id 를 먼저 만들고,
- *    cables/rackModules/distCircuits/fiberPaths 의 참조에서 치환.
+ *    cables/rackModules/fiberPaths 의 참조에서 치환.
  *  - 검증은 bulkUpdatePlan 과 동일한 planApply 공유 헬퍼 사용.
  *
- * NOTE: rackModules / distributionCircuits 는 Asset(자식) / DistributionCircuit
- *       테이블에 저장된다 (별도 RackModule 모델 없음).
+ * NOTE: rackModules 와 분전 회로(feeder/branch)는 모두 Asset(자식) 행으로 저장된다
+ *       (별도 RackModule/DistributionCircuit 커밋 경로 없음 — 단계3b/4b).
+ *       케이블 endpoint 는 단일 Asset 노드 — source_asset_id/target_asset_id 만 쓴다.
  */
 
 type Tx = Prisma.TransactionClient;
-
-/**
- * 단계2(통합 노드): 단일 Asset endpoint(assetId)를 legacy endpoint 컬럼으로 파생.
- * - 랙 모듈(parentAssetId 있음) → moduleId
- * - 그 외(설비) → equipmentId
- * 회로(branch) asset 은 dev 에 0개 — 여기 도달 시 equipmentId 로 둔다(legacy null 아님).
- * assetId 가 null/undefined 면 모두 null.
- */
-async function deriveLegacyEndpoint(
-  tx: Tx,
-  assetId: string | null | undefined,
-): Promise<{ equipmentId: string | null; moduleId: string | null }> {
-  if (!assetId) return { equipmentId: null, moduleId: null };
-  const a = await tx.asset.findUnique({
-    where: { id: assetId },
-    select: { id: true, parentAssetId: true },
-  });
-  if (!a) return { equipmentId: null, moduleId: null };
-  return a.parentAssetId
-    ? { equipmentId: null, moduleId: a.id }
-    : { equipmentId: a.id, moduleId: null };
-}
 
 const dateOrNull = (v: unknown) => (v ? new Date(v as string) : null);
 /** undefined → undefined(미변경), 그 외 → Date|null. patch 의 날짜 필드용. */
@@ -61,14 +39,12 @@ export interface CommitResult {
     assets: Record<string, string>;
     cables: Record<string, string>;
     rackModules: Record<string, string>;
-    distributionCircuits: Record<string, string>;
     fiberPaths: Record<string, string>;
   };
   updated: {
     assets: { id: string; updatedAt: string }[];
     cables: { id: string; updatedAt: string }[];
     rackModules: { id: string; updatedAt: string }[];
-    distributionCircuits: { id: string; updatedAt: string }[];
     fiberPaths: { id: string; updatedAt: string }[];
     floor?: { id: string; updatedAt: string };
   };
@@ -110,10 +86,10 @@ async function run(
   userId: string,
 ): Promise<CommitResult> {
   const idMaps: CommitResult['idMaps'] = {
-    assets: {}, cables: {}, rackModules: {}, distributionCircuits: {}, fiberPaths: {},
+    assets: {}, cables: {}, rackModules: {}, fiberPaths: {},
   };
   const updated: CommitResult['updated'] = {
-    assets: [], cables: [], rackModules: [], distributionCircuits: [], fiberPaths: [],
+    assets: [], cables: [], rackModules: [], fiberPaths: [],
   };
 
   // ── 1) per-entity OCC across all present collections ──
@@ -139,13 +115,10 @@ async function run(
       ? await tx.cable.findMany({
           where: {
             id: { in: ids },
+            // endpoint asset(설비/모듈/분기)의 substationId 로 스코핑.
             OR: [
-              { sourceEquipment: { substationId } },
-              { targetEquipment: { substationId } },
-              { sourceModule: { substationId } },
-              { targetModule: { substationId } },
-              { sourceCircuit: { distribution: { substationId } } },
-              { targetCircuit: { distribution: { substationId } } },
+              { sourceAsset: { substationId } },
+              { targetAsset: { substationId } },
             ],
           },
           select: { id: true, updatedAt: true },
@@ -167,22 +140,6 @@ async function run(
     conflicts.push(
       ...collectConflicts('rackModules', current, input.rackModules.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion, name: nameById.get(u.id) ?? undefined }))),
       ...collectConflicts('rackModules', current, input.rackModules.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion, name: nameById.get(d.id) ?? undefined }))),
-    );
-  }
-  // distributionCircuits
-  if (input.distributionCircuits) {
-    const ids = [...input.distributionCircuits.updates.map((u) => u.id), ...input.distributionCircuits.deletes.map((d) => d.id)];
-    // C1: 부모 분전반 asset 의 substationId 로 스코핑.
-    const rows = ids.length
-      ? await tx.distributionCircuit.findMany({
-          where: { id: { in: ids }, distribution: { substationId } },
-          select: { id: true, updatedAt: true },
-        })
-      : [];
-    const { current } = await loadOcc(rows);
-    conflicts.push(
-      ...collectConflicts('distributionCircuits', current, input.distributionCircuits.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
-      ...collectConflicts('distributionCircuits', current, input.distributionCircuits.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
     );
   }
   // fiberPaths
@@ -397,59 +354,7 @@ async function run(
     }
   }
 
-  // ── 4) distributionCircuits ──
-  if (input.distributionCircuits) {
-    const dc = input.distributionCircuits;
-
-    if (dc.deletes.length) {
-      // C1: 부모 분전반 asset 의 substationId 로 스코핑.
-      await tx.distributionCircuit.deleteMany({
-        where: { id: { in: dc.deletes.map((d) => d.id) }, distribution: { substationId } },
-      });
-    }
-
-    for (const c of dc.creates) {
-      const distId = resolveAsset(c.distributionEquipmentId)!;
-      await assertDistParentValid(tx, distId);
-      const created = await tx.distributionCircuit.create({
-        data: {
-          distributionEquipmentId: distId,
-          feederName: c.feederName,
-          branchName: c.branchName,
-          description: c.description ?? null,
-          sortOrder: c.sortOrder ?? 0,
-          createdById: userId,
-          updatedById: userId,
-        },
-      });
-      idMaps.distributionCircuits[c.tempId] = created.id;
-    }
-
-    for (const u of dc.updates) {
-      const p = u.patch;
-      const distId = p.distributionEquipmentId ? resolveAsset(p.distributionEquipmentId as string) ?? undefined : undefined;
-      if (distId) await assertDistParentValid(tx, distId);
-      await tx.distributionCircuit.update({
-        where: { id: u.id },
-        data: {
-          distributionEquipmentId: distId,
-          feederName: p.feederName as string | undefined,
-          branchName: p.branchName as string | undefined,
-          description: p.description as string | null | undefined,
-          sortOrder: p.sortOrder as number | undefined,
-          updatedById: userId,
-        },
-      });
-    }
-
-    const touched = [...dc.updates.map((u) => u.id), ...Object.values(idMaps.distributionCircuits)];
-    if (touched.length) {
-      const rows = await tx.distributionCircuit.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
-      updated.distributionCircuits = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
-    }
-  }
-
-  // ── 5) fiberPaths ──
+  // ── 4) fiberPaths ──
   if (input.fiberPaths) {
     const fp = input.fiberPaths;
 
@@ -498,68 +403,39 @@ async function run(
     }
   }
 
-  const resolveModule = (id: string | null | undefined): string | null =>
-    id ? idMaps.rackModules[id] ?? id : null;
-  const resolveCircuit = (id: string | null | undefined): string | null =>
-    id ? idMaps.distributionCircuits[id] ?? id : null;
   const resolveFiber = (id: string | null | undefined): string | null =>
     id ? idMaps.fiberPaths[id] ?? id : null;
 
-  // ── 6) cables (refs resolved + validated) ──
+  // 단계4b: 케이블 endpoint 노드 해소 — tempId(같은 페이로드의 asset create)면 real id 로,
+  // 아니면 그대로. asset / cable idMap 양쪽을 본다(케이블이 다른 케이블을 참조하진 않지만
+  // resolveNode 는 단일 노드 해소 choke-point 로 둔다).
+  const resolveNode = (id: string | null | undefined): string | null =>
+    id ? idMaps.assets[id] ?? idMaps.cables[id] ?? id : null;
+
+  // ── 5) cables (single assetId endpoint, resolved + validated) ──
   if (input.cables) {
     const cab = input.cables;
 
     if (cab.deletes.length) {
-      // C1: endpoint asset/회로의 substationId 로 스코핑.
+      // C1: endpoint asset 의 substationId 로 스코핑.
       await tx.cable.deleteMany({
         where: {
           id: { in: cab.deletes.map((d) => d.id) },
-          OR: [
-            { sourceEquipment: { substationId } },
-            { targetEquipment: { substationId } },
-            { sourceModule: { substationId } },
-            { targetModule: { substationId } },
-            { sourceCircuit: { distribution: { substationId } } },
-            { targetCircuit: { distribution: { substationId } } },
-          ],
+          OR: [{ sourceAsset: { substationId } }, { targetAsset: { substationId } }],
         },
       });
     }
 
     for (const c of cab.creates) {
-      // 단계2: 단일 assetId 가 제공되면 canonical 로 보고 legacy endpoint 를 파생.
-      // (랙 모듈 → moduleId, 그 외 → equipmentId) — nested source/target 보다 우선.
-      const srcAssetId = c.source.equipmentId == null && c.source.moduleId == null && c.source.circuitId == null
-        ? resolveAsset(c.sourceAssetId)
-        : null;
-      const tgtAssetId = c.target.equipmentId == null && c.target.moduleId == null && c.target.circuitId == null
-        ? resolveAsset(c.targetAssetId)
-        : null;
-      const srcFromAsset = srcAssetId ? await deriveLegacyEndpoint(tx, srcAssetId) : null;
-      const tgtFromAsset = tgtAssetId ? await deriveLegacyEndpoint(tx, tgtAssetId) : null;
-
-      const ep = {
-        srcEqId: srcFromAsset ? srcFromAsset.equipmentId : resolveAsset(c.source.equipmentId),
-        srcModId: srcFromAsset ? srcFromAsset.moduleId : resolveModule(c.source.moduleId),
-        srcCircuitId: srcFromAsset ? null : resolveCircuit(c.source.circuitId),
-        tgtEqId: tgtFromAsset ? tgtFromAsset.equipmentId : resolveAsset(c.target.equipmentId),
-        tgtModId: tgtFromAsset ? tgtFromAsset.moduleId : resolveModule(c.target.moduleId),
-        tgtCircuitId: tgtFromAsset ? null : resolveCircuit(c.target.circuitId),
-        fiberPathId: resolveFiber(c.fiberPathId),
-        fiberPortNumber: c.fiberPortNumber ?? undefined,
-      };
-      await assertCableEndpointsValid(tx, [ep]);
-      // *_asset_id: 해소된 legacy endpoint(설비/모듈)에서 파생. 회로 endpoint 는 null(구 경로).
-      const sourceAssetId = ep.srcEqId ?? ep.srcModId ?? null;
-      const targetAssetId = ep.tgtEqId ?? ep.tgtModId ?? null;
+      const sourceAssetId = resolveNode(c.sourceAssetId)!;
+      const targetAssetId = resolveNode(c.targetAssetId)!;
+      const fiberPathId = resolveFiber(c.fiberPathId);
+      await assertCableEndpointsValid(tx, [
+        { sourceAssetId, targetAssetId, fiberPathId, fiberPortNumber: c.fiberPortNumber ?? undefined },
+      ]);
       const created = await tx.cable.create({
         data: {
-          sourceEquipmentId: ep.srcEqId,
-          sourceModuleId: ep.srcModId,
-          sourceCircuitId: ep.srcCircuitId,
-          targetEquipmentId: ep.tgtEqId,
-          targetModuleId: ep.tgtModId,
-          targetCircuitId: ep.tgtCircuitId,
+          // endpoint 는 단일 Asset 노드만 쓴다 — legacy *_equipment/module/circuit_id 는 null.
           sourceAssetId,
           targetAssetId,
           cableType: c.cableType as CableType,
@@ -567,7 +443,7 @@ async function run(
           length: c.length ?? null,
           color: c.color ?? null,
           description: c.description ?? null,
-          fiberPathId: ep.fiberPathId,
+          fiberPathId,
           fiberPortNumber: c.fiberPortNumber ?? null,
           categoryId: c.categoryId ?? null,
           specParams: c.specParams as Prisma.InputJsonValue | undefined,
@@ -586,49 +462,21 @@ async function run(
       const p = u.patch;
       const existing = await tx.cable.findUniqueOrThrow({
         where: { id: u.id },
-        select: {
-          sourceEquipmentId: true, sourceModuleId: true, sourceCircuitId: true,
-          targetEquipmentId: true, targetModuleId: true, targetCircuitId: true,
-          fiberPathId: true, fiberPortNumber: true,
-        },
+        select: { sourceAssetId: true, targetAssetId: true, fiberPathId: true, fiberPortNumber: true },
       });
-      // 단계2: patch 에 단일 assetId 가 있으면 canonical 로 보고 legacy endpoint 파생.
-      const srcFromAsset = p.sourceAssetId !== undefined
-        ? await deriveLegacyEndpoint(tx, resolveAsset(p.sourceAssetId))
-        : null;
-      const tgtFromAsset = p.targetAssetId !== undefined
-        ? await deriveLegacyEndpoint(tx, resolveAsset(p.targetAssetId))
-        : null;
-
-      const ep = {
-        srcEqId: srcFromAsset ? srcFromAsset.equipmentId
-          : p.source?.equipmentId !== undefined ? resolveAsset(p.source.equipmentId) : existing.sourceEquipmentId,
-        srcModId: srcFromAsset ? srcFromAsset.moduleId
-          : p.source?.moduleId !== undefined ? resolveModule(p.source.moduleId) : existing.sourceModuleId,
-        srcCircuitId: srcFromAsset ? null
-          : p.source?.circuitId !== undefined ? resolveCircuit(p.source.circuitId) : existing.sourceCircuitId,
-        tgtEqId: tgtFromAsset ? tgtFromAsset.equipmentId
-          : p.target?.equipmentId !== undefined ? resolveAsset(p.target.equipmentId) : existing.targetEquipmentId,
-        tgtModId: tgtFromAsset ? tgtFromAsset.moduleId
-          : p.target?.moduleId !== undefined ? resolveModule(p.target.moduleId) : existing.targetModuleId,
-        tgtCircuitId: tgtFromAsset ? null
-          : p.target?.circuitId !== undefined ? resolveCircuit(p.target.circuitId) : existing.targetCircuitId,
-        fiberPathId: p.fiberPathId !== undefined ? resolveFiber(p.fiberPathId) : existing.fiberPathId,
-        fiberPortNumber: p.fiberPortNumber !== undefined ? (p.fiberPortNumber as number | null) : existing.fiberPortNumber,
-      };
-      await assertCableEndpointsValid(tx, [ep]);
-      // *_asset_id 를 해소된 endpoint 에 맞춰 항상 동기화(회로 endpoint 는 null).
-      const sourceAssetId = ep.srcEqId ?? ep.srcModId ?? null;
-      const targetAssetId = ep.tgtEqId ?? ep.tgtModId ?? null;
+      const sourceAssetId =
+        p.sourceAssetId !== undefined ? resolveNode(p.sourceAssetId) : existing.sourceAssetId;
+      const targetAssetId =
+        p.targetAssetId !== undefined ? resolveNode(p.targetAssetId) : existing.targetAssetId;
+      const fiberPathId = p.fiberPathId !== undefined ? resolveFiber(p.fiberPathId) : existing.fiberPathId;
+      const fiberPortNumber =
+        p.fiberPortNumber !== undefined ? (p.fiberPortNumber as number | null) : existing.fiberPortNumber;
+      await assertCableEndpointsValid(tx, [
+        { sourceAssetId, targetAssetId, fiberPathId, fiberPortNumber },
+      ]);
       await tx.cable.update({
         where: { id: u.id },
         data: {
-          sourceEquipmentId: ep.srcEqId,
-          sourceModuleId: ep.srcModId,
-          sourceCircuitId: ep.srcCircuitId,
-          targetEquipmentId: ep.tgtEqId,
-          targetModuleId: ep.tgtModId,
-          targetCircuitId: ep.tgtCircuitId,
           sourceAssetId,
           targetAssetId,
           cableType: p.cableType as CableType | undefined,
@@ -636,8 +484,8 @@ async function run(
           length: p.length as number | null | undefined,
           color: p.color as string | null | undefined,
           description: p.description as string | null | undefined,
-          fiberPathId: ep.fiberPathId,
-          fiberPortNumber: ep.fiberPortNumber,
+          fiberPathId,
+          fiberPortNumber,
           categoryId: p.categoryId as string | null | undefined,
           specParams: p.specParams as Prisma.InputJsonValue | undefined,
           pathPoints: p.pathPoints as Prisma.InputJsonValue | undefined,
@@ -656,7 +504,7 @@ async function run(
     }
   }
 
-  // ── 7) floor (settings → columns) ──
+  // ── 6) floor (settings → columns) ──
   if (input.floor && floorRow) {
     const s = input.floor.settings;
     const f = await tx.floor.update({

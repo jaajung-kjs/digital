@@ -69,8 +69,8 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
 
   afterAll(async () => {
     await prisma.cable.deleteMany({ where: { OR: [
-      { sourceEquipment: { substationId: subId } },
-      { targetEquipment: { substationId: subId } },
+      { sourceAsset: { substationId: subId } },
+      { targetAsset: { substationId: subId } },
     ] } }).catch(() => {});
     await prisma.asset.deleteMany({ where: { substationId: { in: [subId, sub2Id] } } }).catch(() => {});
     await prisma.floor.delete({ where: { id: floorId } }).catch(() => {});
@@ -82,10 +82,11 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     await prisma.$disconnect();
   });
 
-  it('1) assets+cables 통합 create — tempId 교차해소 + placement 영속', async () => {
+  it('1) assets+cables 통합 create — tempId 교차해소(단일 assetId) + placement 영속', async () => {
     const input = substationCommitSchema.parse({
       assets: { creates: [{ tempId: 'a1', assetTypeId: placementTypeId, name: '랙1', floorId, positionX: 10, positionY: 20, width2d: 100, height2d: 200 }] },
-      cables: { creates: [{ tempId: 'c1', source: { equipmentId: 'a1' }, target: { equipmentId: 'a1' }, cableType: 'LAN' }] },
+      // 단계4b — endpoint 는 단일 sourceAssetId/targetAssetId(tempId 교차해소). nested 없음.
+      cables: { creates: [{ tempId: 'c1', sourceAssetId: 'a1', targetAssetId: 'a1', cableType: 'LAN' }] },
     });
     const res = await commitSubstation(subId, input, userId);
 
@@ -103,14 +104,14 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     expect(asset.floorId).toBe(floorId);
 
     const cable = await prisma.cable.findUniqueOrThrow({ where: { id: cId } });
-    expect(cable.sourceEquipmentId).toBe(aId);
-    expect(cable.targetEquipmentId).toBe(aId);
-    // 단계2: *_asset_id 가 해소된 equipment id 로 병행 유지되는지.
+    // 단계4b — source_asset_id/target_asset_id 만 기록(legacy equipment 컬럼은 null).
     expect(cable.sourceAssetId).toBe(aId);
     expect(cable.targetAssetId).toBe(aId);
+    expect(cable.sourceEquipmentId).toBeNull();
+    expect(cable.targetEquipmentId).toBeNull();
   });
 
-  it('1b) cable create — 단일 sourceAssetId/targetAssetId 수용 (forward-compat)', async () => {
+  it('1b) cable create — 단일 sourceAssetId/targetAssetId 만으로 source_asset_id 기록', async () => {
     const setup = substationCommitSchema.parse({
       assets: {
         creates: [
@@ -118,8 +119,7 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
           { tempId: 'b2', assetTypeId: placementTypeId, name: '노드B', floorId, positionX: 5, positionY: 5, width2d: 10, height2d: 10 },
         ],
       },
-      // nested source/target 는 비우고 단일 assetId(tempId) 만 지정.
-      cables: { creates: [{ tempId: 'cAsset', source: {}, target: {}, sourceAssetId: 'b1', targetAssetId: 'b2', cableType: 'LAN' }] },
+      cables: { creates: [{ tempId: 'cAsset', sourceAssetId: 'b1', targetAssetId: 'b2', cableType: 'LAN' }] },
     });
     const res = await commitSubstation(subId, setup, userId);
     const b1 = res.idMaps.assets['b1'];
@@ -128,11 +128,11 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     const cId = res.idMaps.cables['cAsset'];
 
     const cable = await prisma.cable.findUniqueOrThrow({ where: { id: cId } });
-    // 단일 assetId(설비) → legacy equipment 컬럼 파생 + *_asset_id 세팅.
-    expect(cable.sourceEquipmentId).toBe(b1);
-    expect(cable.targetEquipmentId).toBe(b2);
+    // 단일 assetId → *_asset_id 만 세팅, legacy 컬럼은 null.
     expect(cable.sourceAssetId).toBe(b1);
     expect(cable.targetAssetId).toBe(b2);
+    expect(cable.sourceEquipmentId).toBeNull();
+    expect(cable.targetEquipmentId).toBeNull();
   });
 
   it('2) asset update — 올바른 baseVersion → 적용 + updatedAt 변경', async () => {
@@ -175,7 +175,8 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
 
   it('4) atomicity — valid asset create + WRONG cable delete baseVersion → 409 + asset 미영속', async () => {
     const cable = await prisma.cable.create({
-      data: { sourceEquipmentId: createdAssets[0], targetEquipmentId: createdAssets[0], cableType: 'LAN' },
+      // 단계4b — endpoint 스코핑은 source_asset_id 로. (OCC delete 가 sourceAsset.substationId 로 찾음)
+      data: { sourceAssetId: createdAssets[0], targetAssetId: createdAssets[0], cableType: 'LAN' },
     });
     const wrong = new Date(cable.updatedAt.getTime() - 60000).toISOString();
 
@@ -201,6 +202,35 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     // 케이블도 여전히 존재
     expect(await prisma.cable.findUnique({ where: { id: cable.id } })).not.toBeNull();
     await prisma.cable.delete({ where: { id: cable.id } }).catch(() => {});
+  });
+
+  it('4b) endpoint asset delete → source_asset_id ON DELETE CASCADE 로 케이블도 제거', async () => {
+    // endpoint asset + 그 asset 을 source 로 하는 케이블을 단일 assetId 로 커밋.
+    const setup = substationCommitSchema.parse({
+      assets: {
+        creates: [
+          { tempId: 'cas', assetTypeId: placementTypeId, name: 'CASCADE-EP', floorId, positionX: 1, positionY: 1, width2d: 4, height2d: 4 },
+          { tempId: 'cas2', assetTypeId: placementTypeId, name: 'CASCADE-EP2', floorId, positionX: 9, positionY: 9, width2d: 4, height2d: 4 },
+        ],
+      },
+      cables: { creates: [{ tempId: 'cc', sourceAssetId: 'cas', targetAssetId: 'cas2', cableType: 'LAN' }] },
+    });
+    const res = await commitSubstation(subId, setup, userId);
+    const epId = res.idMaps.assets['cas'];
+    const ep2Id = res.idMaps.assets['cas2'];
+    const cId = res.idMaps.cables['cc'];
+    createdAssets.push(epId, ep2Id);
+
+    // endpoint asset(cas) 삭제 → 케이블 cascade.
+    const ep = await prisma.asset.findUniqueOrThrow({ where: { id: epId } });
+    const del = substationCommitSchema.parse({
+      assets: { deletes: [{ id: epId, baseVersion: ep.updatedAt.toISOString() }] },
+    });
+    await commitSubstation(subId, del, userId);
+
+    expect(await prisma.asset.findUnique({ where: { id: epId } })).toBeNull();
+    // source_asset_id FK 의 onDelete: Cascade 로 케이블이 함께 삭제됐는지.
+    expect(await prisma.cable.findUnique({ where: { id: cId } })).toBeNull();
   });
 
   it('5) floor — 올바른 baseVersion → settings 적용, WRONG → 409', async () => {

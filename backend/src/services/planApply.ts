@@ -17,81 +17,79 @@ import { assertOfdFiberPath } from './cable.service.js';
 type Tx = Prisma.TransactionClient;
 
 /**
- * 케이블 직결 endpoint 의 kind 검증 — source/target 양쪽 동일 규칙.
- * RACK 은 모듈에, DISTRIBUTION 은 회로에 연결해야 하므로 설비 직결 거부.
- * (구 floor.service.ts assertDirectEndpointKind 와 동일 동작.)
+ * Asset 존재 + placementKind 를 한 번에 조회 (단계4b 케이블 endpoint 검증용).
+ * found=false 면 endpoint asset 이 없는 것. found=true 면 kind 는 null(내부 노드:
+ * 모듈/피더/분기) 이거나 배치 종류(OFD/RACK/DIST/…).
  */
-export function assertDirectEndpointKind(
-  kind: PlacementKind | null,
-  eqId: string,
-  side: 'source' | 'target',
-): void {
-  const label = side === 'source' ? 'source' : 'target';
-  if (kind === null) {
-    throw new ValidationError(`${label} 설비를 찾을 수 없습니다 (id=${eqId}).`);
-  }
-  if (kind === 'RACK') {
-    throw new ValidationError('RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.');
-  }
-  if (kind === 'DISTRIBUTION') {
-    throw new ValidationError('분전반은 케이블 endpoint 가 될 수 없습니다 — 회로에 연결하세요.');
-  }
-}
-
-/** Asset id → placementKind 변환 kind 를 트랜잭션 내 캐시로 조회. */
-export function makeEquipmentKindResolver(tx: Tx) {
-  const cache = new Map<string, PlacementKind | null>();
-  return async (eqId: string): Promise<PlacementKind | null> => {
-    if (cache.has(eqId)) return cache.get(eqId)!;
-    const e = await tx.asset.findUnique({
-      where: { id: eqId },
-      include: { assetType: true },
-    });
-    const kind = e ? placementKindToKind(e.assetType.placementKind) : null;
-    cache.set(eqId, kind);
-    return kind;
+export function makeEndpointKindResolver(tx: Tx) {
+  const cache = new Map<string, { found: boolean; kind: PlacementKind | null }>();
+  return async (assetId: string): Promise<{ found: boolean; kind: PlacementKind | null }> => {
+    if (cache.has(assetId)) return cache.get(assetId)!;
+    const e = await tx.asset.findUnique({ where: { id: assetId }, include: { assetType: true } });
+    const res = e
+      ? { found: true, kind: placementKindToKind(e.assetType.placementKind) }
+      : { found: false, kind: null };
+    cache.set(assetId, res);
+    return res;
   };
 }
 
-/** 케이블 한 건의 (해소 완료된) endpoint 들을 검증한다. */
+/** 케이블 한 건의 (해소 완료된) 단일 assetId endpoint. */
 export interface ResolvedCableEndpoints {
-  srcEqId: string | null;
-  srcModId: string | null;
-  srcCircuitId: string | null;
-  tgtEqId: string | null;
-  tgtModId: string | null;
-  tgtCircuitId: string | null;
+  sourceAssetId: string | null;
+  targetAssetId: string | null;
   fiberPathId: string | null;
   fiberPortNumber: number | null | undefined;
 }
 
 /**
- * 케이블 endpoint 유효성 검사 (real id 로 해소된 뒤 호출).
- *  - 각 side 는 equipment | module | circuit 중 정확히 하나
- *  - RACK/DISTRIBUTION 설비 직결 금지 + 존재 확인
- *  - OFD endpoint 면 fiberPathId + fiberPortNumber 필수
+ * 케이블 endpoint 유효성 검사 (단계4b — 단일 Asset 노드, real id 로 해소된 뒤 호출).
+ *  - source/target 각각 존재하는 asset 을 참조해야 한다.
+ *  - 직접 배치 컨테이너(RACK/DISTRIBUTION) 자체는 endpoint 가 될 수 없다
+ *    (랙 안 모듈 / 분전 분기에 연결). 모듈·분기·일반 설비는 OK.
+ *  - OFD endpoint 면 fiberPathId + fiberPortNumber 필수.
  */
 export async function assertCableEndpointsValid(
   tx: Tx,
   cables: ResolvedCableEndpoints[],
 ): Promise<void> {
-  const resolveKind = makeEquipmentKindResolver(tx);
+  const resolve = makeEndpointKindResolver(tx);
   for (const c of cables) {
-    const srcCount = [c.srcEqId, c.srcModId, c.srcCircuitId].filter(Boolean).length;
-    const tgtCount = [c.tgtEqId, c.tgtModId, c.tgtCircuitId].filter(Boolean).length;
-    if (srcCount !== 1) {
-      throw new ValidationError('source endpoint 는 equipmentId / moduleId / circuitId 중 정확히 하나여야 합니다.');
+    if (!c.sourceAssetId) {
+      throw new ValidationError('source endpoint(assetId)가 필요합니다.');
     }
-    if (tgtCount !== 1) {
-      throw new ValidationError('target endpoint 는 equipmentId / moduleId / circuitId 중 정확히 하나여야 합니다.');
+    if (!c.targetAssetId) {
+      throw new ValidationError('target endpoint(assetId)가 필요합니다.');
     }
 
-    const srcKind = c.srcEqId ? await resolveKind(c.srcEqId) : null;
-    const tgtKind = c.tgtEqId ? await resolveKind(c.tgtEqId) : null;
-    if (c.srcEqId) assertDirectEndpointKind(srcKind, c.srcEqId, 'source');
-    if (c.tgtEqId) assertDirectEndpointKind(tgtKind, c.tgtEqId, 'target');
+    const src = await resolve(c.sourceAssetId);
+    const tgt = await resolve(c.targetAssetId);
+    if (!src.found) {
+      throw new ValidationError(`source endpoint asset 을 찾을 수 없습니다 (id=${c.sourceAssetId}).`);
+    }
+    if (!tgt.found) {
+      throw new ValidationError(`target endpoint asset 을 찾을 수 없습니다 (id=${c.targetAssetId}).`);
+    }
+    // 직접 배치 컨테이너(RACK/DISTRIBUTION) 자체는 endpoint 금지 — 모듈/분기에 연결.
+    // 내부 노드(kind=null: 모듈/피더/분기) 및 일반 설비는 통과.
+    assertContainerNotEndpoint(src.kind, 'source');
+    assertContainerNotEndpoint(tgt.kind, 'target');
 
-    assertOfdFiberPath(srcKind, tgtKind, c.fiberPathId, c.fiberPortNumber);
+    assertOfdFiberPath(src.kind, tgt.kind, c.fiberPathId, c.fiberPortNumber);
+  }
+}
+
+/** RACK/DISTRIBUTION 컨테이너는 케이블 endpoint 가 될 수 없다(모듈/분기에 연결). */
+function assertContainerNotEndpoint(kind: PlacementKind | null, side: 'source' | 'target'): void {
+  if (kind === 'RACK') {
+    throw new ValidationError(
+      `${side}: RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.`,
+    );
+  }
+  if (kind === 'DISTRIBUTION') {
+    throw new ValidationError(
+      `${side}: 분전반은 케이블 endpoint 가 될 수 없습니다 — 회로(분기)에 연결하세요.`,
+    );
   }
 }
 

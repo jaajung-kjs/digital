@@ -10,18 +10,10 @@ const router = Router();
 
 const cableTypeEnum = z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']);
 
-// 다형 endpoint: equipmentId XOR moduleId
-const endpointSchema = z.object({
-  equipmentId: z.string().uuid().optional().nullable(),
-  moduleId: z.string().uuid().optional().nullable(),
-}).refine(
-  (v) => (!!v.equipmentId) !== (!!v.moduleId),
-  '엔드포인트는 equipmentId 또는 moduleId 중 정확히 한 쪽만 지정해야 합니다.',
-);
-
+// 단계4b — endpoint = 단일 Asset 노드(설비/랙 모듈/분전 분기).
 const createCableSchema = z.object({
-  source: endpointSchema,
-  target: endpointSchema,
+  sourceAssetId: z.string().uuid(),
+  targetAssetId: z.string().uuid(),
   cableType: cableTypeEnum,
   categoryId: z.string().uuid().optional().nullable(),
   specParams: z.unknown().optional(),

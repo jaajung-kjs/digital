@@ -89,14 +89,12 @@ export function ConnectionDiagram({
     return m;
   }, [effectiveAssets]);
 
-  // endpoint = 단일 asset id (flat sourceEquipmentId 자리). 모듈/분기 자식이면 이 설비의 연결.
+  // endpoint = 단일 asset id (flat sourceEquipmentId 자리). 그 자체이거나 자식 모듈/분기면
+  //   이 설비의 연결. 단계4b — nested moduleId 제거, endpoint assetId 하나로만 판정.
   const isSelfSide = useCallback(
-    (
-      assetId: string | null | undefined,
-      modId: string | null | undefined,
-    ) =>
+    (assetId: string | null | undefined) =>
       assetId === equipmentId ||
-      (!!modId && childModuleIds.has(modId)) ||
+      (!!assetId && childModuleIds.has(assetId)) ||
       (!!assetId && childBranchIds.has(assetId)),
     [equipmentId, childModuleIds, childBranchIds],
   );
@@ -123,10 +121,22 @@ export function ConnectionDiagram({
   const relevantCables = useMemo(() => {
     return localCables.filter(
       (cable) =>
-        isSelfSide(cable.sourceEquipmentId, cable.sourceModuleId) ||
-        isSelfSide(cable.targetEquipmentId, cable.targetModuleId),
+        isSelfSide(cable.sourceEquipmentId) || isSelfSide(cable.targetEquipmentId),
     );
   }, [localCables, isSelfSide]);
+
+  // endpoint asset id → 표시명. 모듈(rackModule)/분기(branch)/설비 순으로 해소.
+  const nameOfEndpoint = useCallback(
+    (assetId: string | null | undefined): string => {
+      if (!assetId) return '';
+      const mod = editorRackModules.find((m) => m.id === assetId);
+      if (mod) return mod.name;
+      const branchLabel = branchLabelById.get(assetId);
+      if (branchLabel) return branchLabel;
+      return localEquipment.find((e) => e.id === assetId)?.name ?? '';
+    },
+    [editorRackModules, branchLabelById, localEquipment],
+  );
 
   return (
     <div>
@@ -138,33 +148,18 @@ export function ConnectionDiagram({
         ) : (
         <div className="space-y-2">
           {relevantCables.map((cable: LocalCable) => {
-            const sourceIsSelf = isSelfSide(
-              cable.sourceEquipmentId,
-              cable.sourceModuleId,
-            );
+            const sourceIsSelf = isSelfSide(cable.sourceEquipmentId);
             // endpoint 의 flat id(sourceEquipmentId 자리)는 단일 asset id —
-            //   분기면 branch asset id, 그 외엔 모듈/설비 id.
+            //   분기면 branch asset id, 모듈이면 모듈 id, 그 외엔 설비 id.
             const selfAssetId = sourceIsSelf ? cable.sourceEquipmentId : cable.targetEquipmentId;
-            const selfModuleId = sourceIsSelf ? cable.sourceModuleId : cable.targetModuleId;
             const remoteAssetId = sourceIsSelf ? cable.targetEquipmentId : cable.sourceEquipmentId;
-            const remoteModuleId = sourceIsSelf ? cable.targetModuleId : cable.sourceModuleId;
 
-            const selfModule = selfModuleId
-              ? editorRackModules.find((m) => m.id === selfModuleId)
-              : null;
+            // self 가 이 설비 본체면 설비명, 자식 모듈/분기면 그 노드명.
             const localEqName =
-              selfModule?.name ??
-              (selfAssetId ? branchLabelById.get(selfAssetId) : null) ??
-              localEquipment.find((e) => e.id === equipmentId)?.name ??
+              nameOfEndpoint(selfAssetId) ||
+              localEquipment.find((e) => e.id === equipmentId)?.name ||
               '';
-
-            const remoteModule = remoteModuleId
-              ? editorRackModules.find((m) => m.id === remoteModuleId)
-              : null;
-            const remoteName =
-              remoteModule?.name ??
-              (remoteAssetId ? branchLabelById.get(remoteAssetId) : null) ??
-              (remoteAssetId ? localEquipment.find((e) => e.id === remoteAssetId)?.name ?? '' : '');
+            const remoteName = nameOfEndpoint(remoteAssetId);
             const isTracing = tracingCableId === cable.id && isTraceLoading;
             const isCardSelected = traceActive && tracingCableId === cable.id;
 

@@ -41,11 +41,12 @@ describe('CableSpecModal — 분기 케이블 endpoint = 분기 asset id', () =>
 
     expect(stageCableCreate).toHaveBeenCalledTimes(1);
     const arg = stageCableCreate.mock.calls[0][0];
-    // 분기 endpoint 는 단일 targetAssetId = branch asset id (null 아님).
+    // 단계4b — endpoint 는 단일 assetId 만. 분기 endpoint = branch asset id.
     expect(arg.targetAssetId).toBe(BRANCH_ID);
     // source(설비)는 그대로 설비 id.
     expect(arg.sourceAssetId).toBe('rack-1');
-    // legacy nested circuitId 는 더 이상 사용 안 함 — null.
-    expect(arg.target.circuitId).toBeNull();
+    // nested source/target 는 staged shape 에서 제거됐다.
+    expect(arg.source).toBeUndefined();
+    expect(arg.target).toBeUndefined();
   });
 });

@@ -19,9 +19,10 @@ function buildCableSpecification(specTemplate: unknown, specParams: unknown): st
 // ==================== Types ====================
 
 export interface CableEndpointRef {
-  equipmentId: string | null;
-  moduleId: string | null;
+  // 단계4b — endpoint 는 단일 Asset 노드. assetId 가 곧 정밀 endpoint id(설비/모듈/분기).
+  assetId: string | null;
   name: string;
+  kind: PlacementKind | null;
   floorId: string | null;
 }
 
@@ -29,8 +30,7 @@ export interface CableDetail {
   id: string;
   source: CableEndpointRef;
   target: CableEndpointRef;
-  // 단계2(통합 노드): endpoint 의 단일 Asset id. nested source/target 와 병행 노출.
-  // 회로 endpoint 면 null(구 경로). 현 프론트는 source/target 만 읽으므로 영향 없음.
+  // endpoint 의 단일 Asset id (source/target.assetId 와 동일 값, 평탄 노출).
   sourceAssetId: string | null;
   targetAssetId: string | null;
   cableType: CableType;
@@ -55,17 +55,10 @@ export interface CableDetail {
   updatedAt: Date;
 }
 
-/**
- * 케이블 endpoint 입력. equipmentId XOR moduleId — 한 쪽만 채워야 한다.
- */
-export interface CableEndpointInput {
-  equipmentId?: string | null;
-  moduleId?: string | null;
-}
-
 export interface CreateCableInput {
-  source: CableEndpointInput;
-  target: CableEndpointInput;
+  // 단계4b — endpoint 는 단일 Asset 노드(설비/랙 모듈/분전 분기).
+  sourceAssetId: string;
+  targetAssetId: string;
   cableType: CableType;
   categoryId?: string | null;
   specParams?: unknown;
@@ -100,33 +93,26 @@ export interface UpdateCableInput {
 // ==================== Helpers ====================
 
 const cableInclude = {
-  sourceEquipment: {
-    select: { id: true, name: true, floorId: true, assetType: { select: { placementKind: true } } },
-  },
-  sourceModule: {
+  // 단계4b — endpoint = 단일 Asset 노드. source/target asset 만 조인한다.
+  // floorId(직접 배치면 자신) + parent.floorId(모듈은 랙) + grandparent.floorId
+  // (분기는 feeder→분전반) 까지 끌어와 endpoint 의 anchor floor 를 derive.
+  sourceAsset: {
     select: {
       id: true,
       name: true,
-      parentAssetId: true,
-      parent: { select: { id: true, floorId: true } },
+      floorId: true,
+      assetType: { select: { placementKind: true } },
+      parent: { select: { floorId: true, parent: { select: { floorId: true } } } },
     },
   },
-  targetEquipment: {
-    select: { id: true, name: true, floorId: true, assetType: { select: { placementKind: true } } },
-  },
-  targetModule: {
+  targetAsset: {
     select: {
       id: true,
       name: true,
-      parentAssetId: true,
-      parent: { select: { id: true, floorId: true } },
+      floorId: true,
+      assetType: { select: { placementKind: true } },
+      parent: { select: { floorId: true, parent: { select: { floorId: true } } } },
     },
-  },
-  sourceCircuit: {
-    select: { id: true, feederName: true, branchName: true, distributionEquipmentId: true },
-  },
-  targetCircuit: {
-    select: { id: true, feederName: true, branchName: true, distributionEquipmentId: true },
   },
   fiberPath: {
     select: {
@@ -141,48 +127,33 @@ const cableInclude = {
 } as const;
 
 /**
- * Resolve an endpoint payload into validated FK fields.
- * Throws if neither/both are populated, if the equipment is RACK kind, or if
- * the referenced row doesn't exist.
- *
- * Returns kind for upstream OFD-fiberPath validation.
+ * Resolve a single-asset endpoint into validated FK + kind.
+ * Throws if the asset doesn't exist or is a RACK/DISTRIBUTION container
+ * (connect to the inner module / branch instead).
  */
 async function resolveEndpoint(
   side: 'source' | 'target',
-  ep: CableEndpointInput,
-): Promise<{
-  equipmentId: string | null;
-  moduleId: string | null;
-  floorId: string | null;
-  kind: PlacementKind | null;
-}> {
-  const hasEq = !!ep.equipmentId;
-  const hasMod = !!ep.moduleId;
-  if (hasEq === hasMod) {
-    throw new ValidationError(
-      `${side} endpoint 는 equipmentId 또는 moduleId 중 정확히 한 쪽만 지정해야 합니다.`,
-    );
-  }
-
-  if (hasEq) {
-    const eq = await prisma.asset.findUnique({
-      where: { id: ep.equipmentId! },
-      select: { id: true, floorId: true, assetType: { select: { placementKind: true } } },
-    });
-    if (!eq) throw new NotFoundError(`${side} 설비`);
-    const kind = placementKindToKind(eq.assetType.placementKind);
-    if (kind === 'RACK') {
-      throw new ValidationError(`RACK 설비는 케이블 endpoint 가 될 수 없습니다. 랙 안 모듈에 연결하세요.`);
-    }
-    return { equipmentId: eq.id, moduleId: null, floorId: eq.floorId, kind };
-  }
-
-  const mod = await prisma.asset.findUnique({
-    where: { id: ep.moduleId! },
-    select: { id: true, parent: { select: { floorId: true } } },
+  assetId: string,
+): Promise<{ assetId: string; floorId: string | null; kind: PlacementKind | null }> {
+  const a = await prisma.asset.findUnique({
+    where: { id: assetId },
+    select: {
+      id: true,
+      floorId: true,
+      assetType: { select: { placementKind: true } },
+      parent: { select: { floorId: true, parent: { select: { floorId: true } } } },
+    },
   });
-  if (!mod) throw new NotFoundError(`${side} 랙 모듈`);
-  return { equipmentId: null, moduleId: mod.id, floorId: mod.parent?.floorId ?? null, kind: null };
+  if (!a) throw new NotFoundError(`${side} endpoint asset`);
+  const kind = placementKindToKind(a.assetType.placementKind);
+  if (kind === 'RACK') {
+    throw new ValidationError(`${side}: RACK 설비는 케이블 endpoint 가 될 수 없습니다. 랙 안 모듈에 연결하세요.`);
+  }
+  if (kind === 'DISTRIBUTION') {
+    throw new ValidationError(`${side}: 분전반은 케이블 endpoint 가 될 수 없습니다. 회로(분기)에 연결하세요.`);
+  }
+  const floorId = a.floorId ?? a.parent?.floorId ?? a.parent?.parent?.floorId ?? null;
+  return { assetId: a.id, floorId, kind };
 }
 
 /**
@@ -198,10 +169,10 @@ export function buildFiberPathLabel(c: any): string | null {
   const nameB = fp.ofdB?.floor?.substation?.name;
   if (!nameA || !nameB) return null;
 
-  // 케이블의 한 쪽이 OFD Equipment 면 그쪽이 local
-  const cableOfdId = c.sourceEquipmentId === fp.ofdAId || c.targetEquipmentId === fp.ofdAId
+  // 케이블의 한 쪽 endpoint asset 이 OFD 면 그쪽이 local
+  const cableOfdId = c.sourceAssetId === fp.ofdAId || c.targetAssetId === fp.ofdAId
     ? fp.ofdAId
-    : c.sourceEquipmentId === fp.ofdBId || c.targetEquipmentId === fp.ofdBId
+    : c.sourceAssetId === fp.ofdBId || c.targetAssetId === fp.ofdBId
       ? fp.ofdBId
       : null;
   if (!cableOfdId) return `${nameA}-${nameB}`;
@@ -248,13 +219,10 @@ class CableService {
   }
 
   async create(input: CreateCableInput, userId: string): Promise<CableDetail> {
-    const source = await resolveEndpoint('source', input.source);
-    const target = await resolveEndpoint('target', input.target);
+    const source = await resolveEndpoint('source', input.sourceAssetId);
+    const target = await resolveEndpoint('target', input.targetAssetId);
 
-    const sameEndpoint =
-      (source.equipmentId && source.equipmentId === target.equipmentId) ||
-      (source.moduleId && source.moduleId === target.moduleId);
-    if (sameEndpoint) {
+    if (source.assetId === target.assetId) {
       throw new ValidationError('소스와 타겟 endpoint 는 서로 달라야 합니다.');
     }
 
@@ -262,10 +230,8 @@ class CableService {
 
     const cable = await prisma.cable.create({
       data: {
-        sourceEquipmentId: source.equipmentId,
-        sourceModuleId: source.moduleId,
-        targetEquipmentId: target.equipmentId,
-        targetModuleId: target.moduleId,
+        sourceAssetId: source.assetId,
+        targetAssetId: target.assetId,
         cableType: input.cableType,
         categoryId: input.categoryId ?? null,
         specParams: input.specParams as Prisma.InputJsonValue | undefined,
@@ -298,18 +264,18 @@ class CableService {
       input.fiberPortNumber !== undefined
     ) {
       const [srcKind, tgtKind] = await Promise.all([
-        existing.sourceEquipmentId
+        existing.sourceAssetId
           ? prisma.asset
               .findUnique({
-                where: { id: existing.sourceEquipmentId },
+                where: { id: existing.sourceAssetId },
                 select: { assetType: { select: { placementKind: true } } },
               })
               .then((e) => placementKindToKind(e?.assetType.placementKind ?? null))
           : Promise.resolve<PlacementKind | null>(null),
-        existing.targetEquipmentId
+        existing.targetAssetId
           ? prisma.asset
               .findUnique({
-                where: { id: existing.targetEquipmentId },
+                where: { id: existing.targetAssetId },
                 select: { assetType: { select: { placementKind: true } } },
               })
               .then((e) => placementKindToKind(e?.assetType.placementKind ?? null))
@@ -353,7 +319,7 @@ class CableService {
 
   /**
    * 도면(Floor) 에 연결된 모든 케이블 조회.
-   * Equipment endpoint 의 floorId 또는 RackModule.rack.floorId 가 매칭되는 케이블.
+   * endpoint asset 의 anchor floor(자신 / 부모 랙 / 분기→피더→분전반)가 매칭되는 케이블.
    */
   async getByFloorId(floorId: string): Promise<CableDetail[]> {
     const floor = await prisma.floor.findUnique({ where: { id: floorId } });
@@ -362,10 +328,12 @@ class CableService {
     const cables = await prisma.cable.findMany({
       where: {
         OR: [
-          { sourceEquipment: { floorId } },
-          { targetEquipment: { floorId } },
-          { sourceModule: { parent: { floorId } } },
-          { targetModule: { parent: { floorId } } },
+          { sourceAsset: { floorId } },
+          { targetAsset: { floorId } },
+          { sourceAsset: { parent: { floorId } } },
+          { targetAsset: { parent: { floorId } } },
+          { sourceAsset: { parent: { parent: { floorId } } } },
+          { targetAsset: { parent: { parent: { floorId } } } },
         ],
       },
       include: cableInclude,
@@ -377,29 +345,14 @@ class CableService {
 
   /**
    * 변전소(Substation) 에 연결된 모든 케이블 조회.
-   * 변전소 소속 Asset(설비/모듈) 또는 그 설비의 DistributionCircuit 이
-   * source/target endpoint 인 케이블.
+   * endpoint asset(설비/모듈/분기 — 모두 substationId 보유)이 이 변전소 소속인 케이블.
    */
   async getBySubstationId(substationId: string): Promise<CableDetail[]> {
-    const ids = (
-      await prisma.asset.findMany({ where: { substationId }, select: { id: true } })
-    ).map((a) => a.id);
-    const circuitIds = (
-      await prisma.distributionCircuit.findMany({
-        where: { distributionEquipmentId: { in: ids } },
-        select: { id: true },
-      })
-    ).map((c) => c.id);
-
     const cables = await prisma.cable.findMany({
       where: {
         OR: [
-          { sourceEquipmentId: { in: ids } },
-          { targetEquipmentId: { in: ids } },
-          { sourceModuleId: { in: ids } },
-          { targetModuleId: { in: ids } },
-          { sourceCircuitId: { in: circuitIds } },
-          { targetCircuitId: { in: circuitIds } },
+          { sourceAsset: { substationId } },
+          { targetAsset: { substationId } },
         ],
       },
       include: cableInclude,
@@ -411,30 +364,18 @@ class CableService {
 
   /**
    * 특정 자산(Asset) 에 연결된 모든 케이블 조회.
-   * 자산 자체, 그 자산의 자식 모듈, 또는 자산의 DistributionCircuit 이
-   * source/target endpoint 인 케이블.
+   * 자산 자체, 또는 그 자산의 자식(모듈/피더) 및 손자(분기) endpoint 케이블.
    */
   async getByAssetId(assetId: string): Promise<CableDetail[]> {
-    const moduleIds = (
-      await prisma.asset.findMany({ where: { parentAssetId: assetId }, select: { id: true } })
-    ).map((m) => m.id);
-    const endpointIds = [assetId, ...moduleIds];
-    const circuitIds = (
-      await prisma.distributionCircuit.findMany({
-        where: { distributionEquipmentId: assetId },
-        select: { id: true },
-      })
-    ).map((c) => c.id);
-
     const cables = await prisma.cable.findMany({
       where: {
         OR: [
-          { sourceEquipmentId: { in: endpointIds } },
-          { targetEquipmentId: { in: endpointIds } },
-          { sourceModuleId: { in: endpointIds } },
-          { targetModuleId: { in: endpointIds } },
-          { sourceCircuitId: { in: circuitIds } },
-          { targetCircuitId: { in: circuitIds } },
+          { sourceAssetId: assetId },
+          { targetAssetId: assetId },
+          { sourceAsset: { parentAssetId: assetId } },
+          { targetAsset: { parentAssetId: assetId } },
+          { sourceAsset: { parent: { parentAssetId: assetId } } },
+          { targetAsset: { parent: { parentAssetId: assetId } } },
         ],
       },
       include: cableInclude,
@@ -444,39 +385,21 @@ class CableService {
     return cables.map((c) => this.mapToDetail(c));
   }
 
-  // 내부 — endpoint 모양을 정규화
+  // 내부 — endpoint asset → endpoint ref. assetId/name/kind/floorId(anchor) 노출.
   private endpointFromIncluded(
     side: 'source' | 'target',
     c: any,
   ): CableEndpointRef {
-    const equipment = side === 'source' ? c.sourceEquipment : c.targetEquipment;
-    const module = side === 'source' ? c.sourceModule : c.targetModule;
-    if (equipment) {
-      return {
-        equipmentId: equipment.id,
-        moduleId: null,
-        name: equipment.name,
-        floorId: equipment.floorId ?? null,
-      };
-    }
-    if (module) {
-      return {
-        equipmentId: null,
-        moduleId: module.id,
-        name: module.name,
-        floorId: module.parent?.floorId ?? null,
-      };
-    }
-    const circuit = side === 'source' ? c.sourceCircuit : c.targetCircuit;
-    if (circuit) {
-      return {
-        equipmentId: circuit.distributionEquipmentId,
-        moduleId: null,
-        name: `${circuit.feederName} / ${circuit.branchName}`,
-        floorId: null,
-      };
-    }
-    return { equipmentId: null, moduleId: null, name: '', floorId: null };
+    const asset = side === 'source' ? c.sourceAsset : c.targetAsset;
+    if (!asset) return { assetId: null, name: '', kind: null, floorId: null };
+    const floorId =
+      asset.floorId ?? asset.parent?.floorId ?? asset.parent?.parent?.floorId ?? null;
+    return {
+      assetId: asset.id,
+      name: asset.name,
+      kind: placementKindToKind(asset.assetType?.placementKind ?? null),
+      floorId,
+    };
   }
 
   private mapToDetail(c: any): CableDetail {

@@ -74,21 +74,9 @@ function CableSpecModal() {
     const fiberPortNumber = data.targetPortNumber ?? data.sourcePortNumber ?? null;
 
     const newCableId = generateTempId();
-    // 단계3b — 회로 endpoint 는 더 이상 distribution_circuits 행이 아니라 BRANCH
-    //   asset 이다. picker(CircuitPicker)가 BRANCH asset id 를 circuitId 자리에 실어
-    //   보내므로(interaction store), 이는 진짜 asset id 다 → 모듈/설비 endpoint 와
-    //   동일하게 단일 sourceAssetId/targetAssetId 로 stage 한다.
-    //
-    // nested source/target 는 단계4 에서 제거 예정인 레거시 표현. 회로(분기)는
-    //   이제 자산이라 더 이상 circuitId 행이 없으므로 nested circuitId 는 null 로 두고,
-    //   설비/모듈만 기존 nested 형태를 유지한다(저장 경로는 단일 assetId 가 권위).
-    const oneEndpoint = (eqId?: string | null, modId?: string | null, circId?: string | null) =>
-      circId
-        ? { equipmentId: null, moduleId: null, circuitId: null }
-        : modId
-          ? { equipmentId: null, moduleId: modId, circuitId: null }
-          : { equipmentId: eqId ?? null, moduleId: null, circuitId: null };
-    // endpoint 단일 assetId — 정밀 asset id (branch ?? module ?? equipment).
+    // 단계4b — endpoint 는 단일 assetId. 회로 endpoint 는 BRANCH asset 이고 picker
+    //   (CircuitPicker)가 BRANCH asset id 를 circuitId 채널로 실어 보내므로 진짜 asset id
+    //   다 → 모듈/설비와 동일하게 정밀 asset id(branch ?? module ?? equipment) 하나로 stage.
     //   READ 는 floorAnchor 가 branch→feeder→분전반 / module→랙 으로 해소해 시각화.
     const oneAssetId = (eqId?: string | null, modId?: string | null, circId?: string | null) =>
       circId ?? modId ?? eqId ?? null;
@@ -97,8 +85,6 @@ function CableSpecModal() {
       id: newCableId,
       sourceAssetId: oneAssetId(data.sourceEquipmentId, data.sourceModuleId, data.sourceCircuitId),
       targetAssetId: oneAssetId(data.targetEquipmentId, data.targetModuleId, data.targetCircuitId),
-      source: oneEndpoint(data.sourceEquipmentId, data.sourceModuleId, data.sourceCircuitId),
-      target: oneEndpoint(data.targetEquipmentId, data.targetModuleId, data.targetCircuitId),
       cableType,
       categoryId: selectedCat.id,
       categoryCode: selectedCat.code,

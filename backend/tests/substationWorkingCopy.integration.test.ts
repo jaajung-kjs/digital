@@ -46,16 +46,17 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
     assetId = asset.id;
 
     // 같은 변전소 asset 양끝 케이블 — 변전소 스코프 확인용.
+    // 단계4b — endpoint = 단일 source_asset_id/target_asset_id.
     const cable = await prisma.cable.create({
-      data: { sourceEquipmentId: assetId, targetEquipmentId: assetId, cableType: 'LAN' },
+      data: { sourceAssetId: assetId, targetAssetId: assetId, cableType: 'LAN' },
     });
     cableId = cable.id;
   });
 
   afterAll(async () => {
     await prisma.cable.deleteMany({ where: { OR: [
-      { sourceEquipment: { substationId: subId } },
-      { targetEquipment: { substationId: subId } },
+      { sourceAsset: { substationId: subId } },
+      { targetAsset: { substationId: subId } },
     ] } }).catch(() => {});
     await prisma.asset.deleteMany({ where: { substationId: subId } }).catch(() => {});
     await prisma.floor.delete({ where: { id: floorId } }).catch(() => {});
