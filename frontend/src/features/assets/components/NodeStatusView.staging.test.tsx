@@ -21,6 +21,12 @@ vi.mock('../../connections/hooks/useCableMutations', () => ({
 }));
 // 인스펙터 폴백(로딩 중) 페치는 사용 안 함 — effective 에서 해석.
 vi.mock('../hooks/useAsset', () => ({ useAsset: () => ({ data: undefined }) }));
+// 상세 본문의 종류별 공간 섹션(랙뷰/OFD 경로 등)은 자체 네트워크/스토어 의존이 무거움 —
+// 이 staging 테스트는 인스펙터 편집 경로만 검증하므로 공간 섹션은 무력화한다.
+vi.mock('../../equipment/components/detail/panels/resolveSpatialSection', () => ({
+  resolveSpatialSection: () => null,
+  spatialNeedsWidePanel: () => false,
+}));
 
 // jsdom 스텁(clearPendingData 등에서 호출될 수 있음).
 if (typeof URL.revokeObjectURL !== 'function') {

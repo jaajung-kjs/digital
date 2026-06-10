@@ -9,21 +9,6 @@ import {
   groupCircuitsByFeeder,
   type DistributionCircuit,
 } from '../../../../../types/distributionCircuit';
-import { EditorInspectorPanel } from './EditorInspectorPanel';
-
-interface PanelProps {
-  equipmentId: string;
-}
-
-export function DistributionPanel({ equipmentId }: PanelProps) {
-  return (
-    <EditorInspectorPanel
-      equipmentId={equipmentId}
-      spatialLabel="회로"
-      spatial={<DistributionCircuits equipmentId={equipmentId} />}
-    />
-  );
-}
 
 /** branchName 에서 L 숫자 추출 — 다음 분기 번호는 max+1 (삭제분 재사용 안 함). */
 function nextBranchName(branches: DistributionCircuit[]): string {
