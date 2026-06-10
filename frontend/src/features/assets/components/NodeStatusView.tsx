@@ -44,7 +44,7 @@ function AssetRow({
     <tr
       onClick={onSelect}
       className={`cursor-pointer border-b border-line transition-colors ${
-        selected ? 'bg-info-bg' : 'hover:bg-surface-2'
+        selected ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2'
       }`}
     >
       <td className="pl-4 pr-2 py-2 text-sm text-content">
