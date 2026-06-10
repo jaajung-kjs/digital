@@ -58,37 +58,31 @@ function AssetRow({
   return (
     <tr
       onClick={onSelect}
-      className={`cursor-pointer border-b border-line transition-colors ${
+      className={`h-12 cursor-pointer border-b border-line transition-colors ${
         selected ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2'
       }`}
     >
-      <td className="pl-4 pr-2 py-2 text-sm text-content">
-        <span className="inline-flex items-center gap-1.5">
-          {/* ISA-101: 종류 점은 무채색(설비=중립). 색은 상태에만. */}
-          <span className="inline-block w-2.5 h-2.5 rounded-sm shrink-0 bg-eq-3" />
-          {item.assetTypeName}
-        </span>
-      </td>
-      <td className="px-2 py-2 text-sm">
+      <td className="pl-4 pr-2 text-sm text-content align-middle whitespace-nowrap">{item.assetTypeName}</td>
+      <td className="px-2 text-sm align-middle whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5">
           <span className="font-medium text-content">{item.name}</span>
           {alert && <Badge status="danger">{alert.label}</Badge>}
         </span>
       </td>
-      <td className="px-2 py-2 text-sm text-content-muted">{installLocation(item)}</td>
-      <td className="px-2 py-2 text-sm text-content-muted">
+      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap max-w-[14rem] truncate" title={installLocation(item)}>{installLocation(item)}</td>
+      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">
         {item.installDate ? new Date(item.installDate).toLocaleDateString('ko-KR') : '—'}
       </td>
-      <td className="px-2 py-2 text-sm text-content-muted">{item.manager ?? '—'}</td>
-      <td className={`px-2 py-2 text-sm ${inspClass}`}>{insp.label}</td>
-      <td className="px-2 py-2 text-sm">
+      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">{item.manager ?? '—'}</td>
+      <td className={`px-2 text-sm align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
+      <td className="px-2 text-sm align-middle whitespace-nowrap">
         {item.status ? (
           <Badge status={statusBadge(item.status)}>{item.status}</Badge>
         ) : (
           <span className="text-content-muted">—</span>
         )}
       </td>
-      <td className="pl-2 pr-4 py-2 text-right">
+      <td className="pl-2 pr-4 text-right align-middle">
         {item.floorId && (
           <IconButton
             aria-label="도면에서 보기"
