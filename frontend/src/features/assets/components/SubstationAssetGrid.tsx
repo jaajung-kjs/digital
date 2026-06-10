@@ -1,54 +1,37 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import type { Asset } from '../../../types/asset';
-import type { CollectionDescriptor } from '../../workingCopy/descriptor';
 import { useAssetTypes } from '../hooks/useAssetTypes';
-import { useSubstationAssets } from '../hooks/useSubstationAssets';
-import { useRegisterStore } from '../registerStore';
-import { mergeEffective } from '../../workingCopy/effective';
-import { commitRegister } from '../commit';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useEffectiveAssets, useWorkingCopyLoader } from '../../workingCopy/hooks';
 import { generateTempId } from '../../../utils/idHelpers';
 import { buildColumns } from '../columns';
 import { AssetGridRow } from './AssetGridRow';
 import { AssetDetailPanel } from './AssetDetailPanel';
-import { ConflictDialog } from '../../workingCopy/ConflictDialog';
 import { assetAlert } from '../alerts';
 import { buildCsv, downloadCsv } from '../exportCsv';
 import { useSelection } from '../../workspace/SelectionContext';
 
-const ASSET_DESCRIPTOR: CollectionDescriptor<Asset, Partial<Asset>> = {
-  name: 'assets',
-  idOf: (a: Asset) => a.id,
-  versionOf: (a: Asset) => a.updatedAt ?? null,
-  isTemp: (id: string) => id.startsWith('temp-'),
-};
-
-// 로딩 중(data===undefined) 매 렌더 새 [] 가 생기면 load 이펙트가 무한 재실행 → 안정 참조 사용.
-const EMPTY_ASSETS: Asset[] = [];
-
 interface Props { substationId: string }
+
+// ──────────────────────────────────────────────────────────────────────────
+// SSOT — 대장 그리드도 통합 working copy(useSubstationWorkingCopy)로 staging.
+//
+// 과거 registerStore(별도 overlay)를 제거하고 현황/에디터와 동일한 단일 overlay 를
+// 사용한다. 읽기=useEffectiveAssets(saved+overlay 머지), 쓰기=stageAsset*. 로드는
+// useWorkingCopyLoader(온디맨드), 커밋은 페이지의 WorkingCopyCommitBar 가 담당한다.
+// ──────────────────────────────────────────────────────────────────────────
 
 export function SubstationAssetGrid({ substationId }: Props) {
   const { data: types = [] } = useAssetTypes();
-  const { data, isLoading } = useSubstationAssets(substationId);
-  const assets = data ?? EMPTY_ASSETS;
-  const queryClient = useQueryClient();
 
-  const overlay = useRegisterStore((s) => s.overlay);
-  const dirty = useRegisterStore((s) => s.dirtyCount());
-
-  // saved 가 바뀌면 working copy 를 다시 로드 — 단, 스테이징된 편집이 없을 때만(클로버 방지).
-  useEffect(() => {
-    if (useRegisterStore.getState().dirtyCount() === 0) {
-      useRegisterStore.getState().load(substationId, assets);
-    }
-  }, [substationId, assets]);
-
-  const effective = useMemo(
-    () => mergeEffective(assets, overlay, ASSET_DESCRIPTOR),
-    [assets, overlay],
-  );
+  // 통합 working copy 온디맨드 로드 + effective 읽기.
+  useWorkingCopyLoader(substationId);
+  const effective = useEffectiveAssets();
+  const stageAssetCreate = useSubstationWorkingCopy((s) => s.stageAssetCreate);
+  const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
+  const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
+  const loaded = useSubstationWorkingCopy((s) => s.substationId === substationId);
 
   const [filterTypeId, setFilterTypeId] = useState<string>('');
   const [newTypeId, setNewTypeId] = useState<string>('');
@@ -58,8 +41,6 @@ export function SubstationAssetGrid({ substationId }: Props) {
   const selectedId = sel ? sel.selectedAssetId : localSelected;
   const setSelectedId = sel ? sel.setSelectedAssetId : setLocalSelected;
   const [alertOnly, setAlertOnly] = useState(false);
-  const [conflicts, setConflicts] = useState<{ id: string; name?: string }[] | null>(null);
-  const [committing, setCommitting] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
   // ?assetId= 딥링크 소비 — 자산 로드 후 자동 선택, 파라미터 제거.
@@ -107,6 +88,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
         group: type.group,
         displayColor: type.displayColor,
         fieldTemplate: type.fieldTemplate,
+        placementKind: type.placementKind,
       },
       name: newName.trim(),
       parentAssetId: null,
@@ -122,7 +104,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
       sortOrder: 0,
       updatedAt: '',
     };
-    useRegisterStore.getState().stageCreate(newId, newAsset);
+    stageAssetCreate(newAsset);
     setNewName('');
   };
 
@@ -137,18 +119,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
       updatedAt: '',
       sortOrder: 0,
     };
-    useRegisterStore.getState().stageCreate(newId, dup);
-  };
-
-  const handleCommit = async () => {
-    if (committing) return;
-    setCommitting(true);
-    try {
-      const r = await commitRegister(substationId, queryClient);
-      if (!r.ok) setConflicts(r.conflicts ?? []);
-    } finally {
-      setCommitting(false);
-    }
+    stageAssetCreate(dup);
   };
 
   const selectedAsset = effective.find((a) => a.id === selectedId);
@@ -173,13 +144,6 @@ export function SubstationAssetGrid({ substationId }: Props) {
           onClick={() => downloadCsv(`장비대장_${new Date().toISOString().slice(0, 10)}.csv`, buildCsv(shown, columns))}
           className="text-sm px-2 py-1 rounded bg-gray-100 text-gray-700"
         >내보내기</button>
-        {dirty > 0 && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-amber-700">미커밋 {dirty}건</span>
-            <button onClick={handleCommit} disabled={committing} className="px-2 py-1 rounded bg-blue-600 text-white disabled:bg-gray-300">커밋</button>
-            <button onClick={() => useRegisterStore.getState().revert()} className="px-2 py-1 rounded bg-gray-100">되돌리기</button>
-          </div>
-        )}
         <div className="flex-1" />
         <select
           className="text-sm border border-gray-200 rounded px-2 py-1"
@@ -203,7 +167,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
         >+ 추가</button>
       </div>
 
-      {isLoading ? (
+      {!loaded ? (
         <p className="text-sm text-gray-400">불러오는 중…</p>
       ) : shown.length === 0 ? (
         <p className="text-sm text-gray-400">아직 등록된 자산이 없습니다. 위에서 종류를 고르고 이름을 입력해 추가하세요.</p>
@@ -226,9 +190,9 @@ export function SubstationAssetGrid({ substationId }: Props) {
                 columns={columns}
                 alert={assetAlert(a, today)}
                 onSelect={() => setSelectedId(a.id)}
-                onCommit={(id, patch) => useRegisterStore.getState().stageUpdate(id, patch)}
+                onCommit={(id, patch) => stageAssetUpdate(id, patch)}
                 onDuplicate={(id) => handleDuplicate(id)}
-                onDelete={(id) => { if (confirm('이 자산을 삭제할까요?')) useRegisterStore.getState().stageDelete(id, ASSET_DESCRIPTOR.isTemp(id)); }}
+                onDelete={(id) => { if (confirm('이 자산을 삭제할까요?')) stageAssetDelete(id); }}
               />
             ))}
           </tbody>
@@ -240,19 +204,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
           key={selectedAsset.id}
           asset={selectedAsset}
           onClose={() => setSelectedId(null)}
-          onPatch={(id, patch) => useRegisterStore.getState().stageUpdate(id, patch)}
-        />
-      )}
-      {conflicts && (
-        <ConflictDialog
-          conflicts={conflicts}
-          onClose={() => setConflicts(null)}
-          onReloadLatest={async () => {
-            await queryClient.invalidateQueries({ queryKey: ['assets', substationId] });
-            const fresh = queryClient.getQueryData<Asset[]>(['assets', substationId]) ?? [];
-            useRegisterStore.getState().refreshBaseVersions(fresh);
-            setConflicts(null);  // overlay 보존 — baseVersion 만 최신화하여 재커밋 가능
-          }}
+          onPatch={(id, patch) => stageAssetUpdate(id, patch)}
         />
       )}
     </div>

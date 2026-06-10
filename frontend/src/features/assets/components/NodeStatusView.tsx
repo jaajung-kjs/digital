@@ -9,7 +9,7 @@ import { useEffectiveAssets, useEffectiveAssetsOverlay, useUnifiedDirty } from '
 import { StatusSummary } from './StatusSummary';
 import { AssetDetailPanel } from './AssetDetailPanel';
 import { Badge, type BadgeStatus } from '../../../components/ui';
-import type { Asset, UpdateAssetInput } from '../../../types/asset';
+import type { Asset } from '../../../types/asset';
 
 const COLUMNS = ['종류', '이름', '설치장소', '설치일', '담당자', '마지막 점검일', '상태'] as const;
 
@@ -142,7 +142,7 @@ function StagedEditDetailPanel({
       onClose={onClose}
       onPatch={
         asset
-          ? (id, patch) => useSubstationWorkingCopy.getState().stageAssetUpdate(id, patch as Partial<Asset>)
+          ? (id, patch) => useSubstationWorkingCopy.getState().stageAssetUpdate(id, patch)
           : undefined
       }
     />
@@ -163,7 +163,7 @@ export function NodeStatusView({
   /** 선택 자산의 풀 Asset 을 해석(변전소: effective 에서 lookup). 없으면 useAsset 페치(읽기전용). */
   resolveAsset?: (id: string) => Asset | undefined;
   /** 편집 스테이지(변전소 — 통합 store). 있으면 인스펙터는 편집 모드. */
-  onPatch?: (id: string, patch: Partial<UpdateAssetInput>) => void;
+  onPatch?: (id: string, patch: Partial<Asset>) => void;
 }) {
   // rows 가 주입되면(현황 — 통합 store 머지) useNodeAssets 구독은 불필요 → 비활성화.
   const skip = rows !== undefined;
