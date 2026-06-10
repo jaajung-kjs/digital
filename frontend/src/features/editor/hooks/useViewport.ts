@@ -116,28 +116,6 @@ export function calculateCenterOnBounds(
   };
 }
 
-export function calculateCenterOnEquipment(
-  eq: FloorPlanEquipment,
-  canvasWidth: number,
-  canvasHeight: number,
-  rightPanelWidth: number,
-  paddingCm = 320,
-): { zoom: number; panX: number; panY: number } {
-  return calculateCenterOnBounds(
-    {
-      minX: eq.positionX,
-      minY: eq.positionY,
-      maxX: eq.positionX + eq.width,
-      maxY: eq.positionY + eq.height,
-    },
-    canvasWidth,
-    canvasHeight,
-    rightPanelWidth,
-    paddingCm,
-    80,
-  );
-}
-
 /**
  * Viewport state persistence + fit-to-content. Saved cache is
  * versioned (`-v2`) so CM-B unit changes invalidate any old px-based

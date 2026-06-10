@@ -13,6 +13,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { floorTargetFor } from '../../workingCopy/floorAnchor';
 
 /**
  * Hook managing canvas ref, resize, and render loop.
@@ -111,16 +112,27 @@ export function useCanvas(
 
     // Detail panel 진입 설비를 케이블 path highlight 와 동일한 푸른 글로우로 강조.
     // (ConnectionOverlay 의 highlighted-equipment 와 같은 스타일: shadowBlur + 2px stroke)
+    //
+    // 단일 choke-point: floorTargetFor 로 선택 asset → 도면 anchor rect 해소.
+    // 미배치 모듈/회로/포트는 부모 설비(랙/OFD/분전반) rect 로 하이라이트된다.
+    // 스냅샷 보기 중에는 통합 effective 가 비어 self-find 로 폴백한다.
     const detailPanelEqId = editorState.detailPanelEquipmentId;
     if (detailPanelEqId) {
-      const eq = floorEquipment.find((e) => e.id === detailPanelEqId);
-      if (eq) {
+      const target = snapshot.active
+        ? (() => {
+            const eq = floorEquipment.find((e) => e.id === detailPanelEqId);
+            return eq
+              ? { x: eq.positionX, y: eq.positionY, width: eq.width, height: eq.height }
+              : null;
+          })()
+        : floorTargetFor(detailPanelEqId, useSubstationWorkingCopy.getState().effectiveAssets());
+      if (target) {
         ctx.save();
         ctx.shadowColor = '#3b82f6';
         ctx.shadowBlur = 10;
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 2;
-        ctx.strokeRect(eq.positionX - 2, eq.positionY - 2, eq.width + 4, eq.height + 4);
+        ctx.strokeRect(target.x - 2, target.y - 2, target.width + 4, target.height + 4);
         ctx.restore();
       }
     }
