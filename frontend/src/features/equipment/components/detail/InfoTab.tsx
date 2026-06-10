@@ -1,15 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Pencil } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { EQUIPMENT_KIND_INFO } from '../../../../types/equipmentKind';
 import { toDateInputValue } from '../../../../utils/date';
 import { useAsset } from '../../../assets/hooks/useAsset';
 import { AssetAttributesView } from '../../../assets/components/AssetAttributesView';
-import { registerUrl } from '../../../assets/navUrls';
-import { useWorkspaceNav } from '../../../workspace/WorkspaceNavContext';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../../workingCopy/hooks';
 import { assetToEquipment } from '../../../workingCopy/assetToEquipment';
+import type { Asset } from '../../../../types/asset';
 import type { EquipmentDetail } from './types';
 
 /* ================================================================
@@ -30,11 +28,9 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
   }, [effectiveAssets, equipment.id]);
 
   const { data: asset } = useAsset(equipment.id);
-  const navigate = useNavigate();
-  const ws = useWorkspaceNav();
 
   if (isEditing && !readOnly) {
-    return <EditForm equipment={equipment} onClose={() => setIsEditing(false)} />;
+    return <EditForm equipment={equipment} asset={asset} onClose={() => setIsEditing(false)} />;
   }
 
   const widthCm = equipment.width2d != null ? Math.round(equipment.width2d) : '-';
@@ -76,15 +72,9 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
           </div>
         ))}
       </div>
-      {asset && (
+      {asset && (asset.assetType.fieldTemplate ?? []).length > 0 && (
         <div className="mt-3 pt-3 border-t border-line space-y-2">
           <AssetAttributesView fields={asset.assetType.fieldTemplate ?? []} attributes={asset.attributes} readOnly />
-          <button
-            onClick={() => (ws ? ws.gotoRegister(asset.id) : navigate(registerUrl(asset.substationId, asset.id)))}
-            className="text-xs px-2 py-1 rounded bg-info-bg text-primary hover:bg-info-bg"
-          >
-            수정
-          </button>
         </div>
       )}
     </div>
@@ -93,15 +83,29 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
 
 /* --- Edit Form — P9: name/manager/description only. --- */
 
-function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose: () => void }) {
+function EditForm({
+  equipment,
+  asset,
+  onClose,
+}: {
+  equipment: EquipmentDetail;
+  asset?: Asset;
+  onClose: () => void;
+}) {
   // 통합 스토어 stage 로 이관(2d-3a T4): 과거 editorStore 의 로컬 설비 교체 대신
   // stageEquipmentUpdate(id, patch) — 단일 설비 update overlay(단일 undo).
   const stageEquipmentUpdate = useSubstationWorkingCopy((s) => s.stageEquipmentUpdate);
+  // 커스텀 속성은 attributes 로 직접 스테이징(equipmentToAssetPatch 우회 — properties 변환 불필요).
+  const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
 
   const [editName, setEditName] = useState(equipment.name);
   const [editManager, setEditManager] = useState(equipment.manager ?? '');
   const [editInstallDate, setEditInstallDate] = useState(toDateInputValue(equipment.installDate));
   const [editDescription, setEditDescription] = useState(equipment.description ?? '');
+
+  // 커스텀 속성(대장 fieldTemplate). asset 이 로드된 경우에만 인라인 편집.
+  const fields = asset?.assetType.fieldTemplate ?? [];
+  const [attrs, setAttrs] = useState<Record<string, unknown>>({ ...(asset?.attributes ?? {}) });
 
   const handleApply = () => {
     stageEquipmentUpdate(equipment.id, {
@@ -110,6 +114,9 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
       installDate: editInstallDate || null,
       description: editDescription || null,
     });
+    if (asset && fields.length > 0) {
+      stageAssetUpdate(equipment.id, { attributes: attrs });
+    }
     onClose();
   };
 
@@ -153,6 +160,17 @@ function EditForm({ equipment, onClose }: { equipment: EquipmentDetail; onClose:
           placeholder="선택 사항"
         />
       </div>
+      {fields.length > 0 && (
+        <div className="pt-1 border-t border-line">
+          <span className="block text-xs font-medium text-content-muted mb-1">속성</span>
+          <AssetAttributesView
+            fields={fields}
+            attributes={attrs}
+            readOnly={false}
+            onChange={(key, v) => setAttrs((prev) => ({ ...prev, [key]: v }))}
+          />
+        </div>
+      )}
       <div className="flex gap-2 pt-1">
         <button
           onClick={handleApply}

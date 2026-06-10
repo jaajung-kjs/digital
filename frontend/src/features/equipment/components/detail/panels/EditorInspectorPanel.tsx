@@ -1,11 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { isTempId } from '../../../../../utils/idHelpers';
 import { useAsset } from '../../../../assets/hooks/useAsset';
 import { useSelection } from '../../../../workspace/SelectionContext';
-import { useWorkspaceNav } from '../../../../workspace/WorkspaceNavContext';
-import { registerUrl } from '../../../../assets/navUrls';
+import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { AssetInspector } from '../../../../assets/components/AssetInspector';
 import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
 
@@ -79,8 +77,7 @@ function LiveInspectorPanel({
 }) {
   const { data: asset, isLoading } = useAsset(equipmentId);
   const sel = useSelection();
-  const ws = useWorkspaceNav();
-  const navigate = useNavigate();
+  const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
   const today = useMemo(() => new Date(), []);
 
   return (
@@ -88,11 +85,9 @@ function LiveInspectorPanel({
       {asset ? (
         <AssetInspector
           asset={asset}
-          mode="view"
+          mode="edit"
+          onPatch={(id, patch) => stageAssetUpdate(id, patch)}
           onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
-          onGotoRegister={(id) =>
-            ws ? ws.gotoRegister(id) : navigate(registerUrl(asset.substationId, id))
-          }
           today={today}
         />
       ) : isTemp ? (
