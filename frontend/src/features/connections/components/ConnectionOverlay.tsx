@@ -11,6 +11,7 @@ import {
 } from '../../workingCopy/hooks';
 import { assetToRackModule } from '../../workingCopy/assetToRackModule';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
+import { floorAnchor, assetsByIdMap } from '../../workingCopy/floorAnchor';
 import type { DistributionCircuit } from '../../../types/distributionCircuit';
 import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 
@@ -136,40 +137,36 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const connections = snapshotActive ? snapshotCables : null;
   const cables = snapshotActive ? null : editorCables;
 
-  // 모듈 endpoint cable 의 좌표는 부모 랙 좌표로 fallback (도면에서는 모듈을 별도로
-  // 그리지 않음). cable 의 source/targetEquipmentId 자리에 모듈 id 가 들어와도 lookup
-  // 성공하도록 module id → 부모 rack 좌표 매핑을 같은 맵에 둔다.
+  // 끝점 위치 = floor anchor(렌더 대표) — 도면은 직접 배치된 Asset 만 그리고,
+  // 모듈/회로처럼 좌표 없는 내부 endpoint 는 placed ancestor(floorAnchor) 좌표로
+  // 시각화한다. cable 의 polymorphic endpoint id(설비/모듈/회로)를 anchor 의 사각형으로
+  // 해소: 직접 배치 id 는 자기 좌표, 그 외는 부모 체인을 거슬러 placed ancestor 좌표.
   const equipmentPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; width: number; height: number }>();
     for (const eq of localEquipment) {
       map.set(eq.id, { x: eq.positionX, y: eq.positionY, width: eq.width, height: eq.height });
     }
     if (!snapshotActive) {
-      const eqById = new Map(localEquipment.map((eq) => [eq.id, eq]));
-      for (const m of editorRackModules) {
-        const parent = eqById.get(m.rackEquipmentId);
-        if (!parent) continue;
-        map.set(m.id, {
-          x: parent.positionX,
-          y: parent.positionY,
-          width: parent.width,
-          height: parent.height,
-        });
-      }
-      // 분전반 회로 id → 부모 분전반 좌표 (모듈과 동일 fallback).
-      for (const c of editorDistCircuits) {
-        const parent = eqById.get(c.distributionEquipmentId);
-        if (!parent) continue;
-        map.set(c.id, {
-          x: parent.positionX,
-          y: parent.positionY,
-          width: parent.width,
-          height: parent.height,
+      const assetsById = assetsByIdMap(effectiveAssets);
+      // 모듈/회로 endpoint id → placed ancestor 사각형. anchor 가 곧 부모 랙/분전반.
+      const innerIds = [
+        ...editorRackModules.map((m) => m.id),
+        ...editorDistCircuits.map((c) => c.id),
+      ];
+      for (const id of innerIds) {
+        if (map.has(id)) continue;
+        const anchor = floorAnchor(id, assetsById);
+        if (!anchor || anchor.positionX == null || anchor.positionY == null) continue;
+        map.set(id, {
+          x: anchor.positionX,
+          y: anchor.positionY,
+          width: anchor.width2d ?? 0,
+          height: anchor.height2d ?? 0,
         });
       }
     }
     return map;
-  }, [localEquipment, editorRackModules, editorDistCircuits, snapshotActive]);
+  }, [localEquipment, editorRackModules, editorDistCircuits, effectiveAssets, snapshotActive]);
 
   const renderableConnections = useMemo(() => {
     const all = snapshotActive

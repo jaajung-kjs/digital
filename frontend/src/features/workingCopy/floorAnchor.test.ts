@@ -1,0 +1,89 @@
+import { describe, it, expect } from 'vitest';
+import { isFloorPlaced, floorAnchor, anchorPosition, assetsByIdMap } from './floorAnchor';
+import type { Asset } from '../../types/asset';
+
+function asset(p: Partial<Asset> & { id: string }): Asset {
+  return {
+    id: p.id,
+    substationId: 's1',
+    assetTypeId: 'at1',
+    assetType: { id: 'at1', code: 'X', name: 'X', group: null, displayColor: null, fieldTemplate: null },
+    name: p.id,
+    parentAssetId: p.parentAssetId ?? null,
+    floorId: p.floorId ?? null,
+    roomText: null,
+    attributes: null,
+    installDate: null,
+    warrantyUntil: null,
+    replaceDue: null,
+    manager: null,
+    description: null,
+    status: null,
+    sortOrder: 0,
+    updatedAt: '',
+    positionX: p.positionX ?? null,
+    positionY: p.positionY ?? null,
+    width2d: p.width2d ?? null,
+    height2d: p.height2d ?? null,
+    slotIndex: p.slotIndex ?? null,
+    slotSpan: p.slotSpan ?? null,
+  } as Asset;
+}
+
+// rack(placed) → module(child, no coords); dist(placed) → circuit(child); orphan; cycle.
+const rack = asset({ id: 'rack', floorId: 'f1', positionX: 100, positionY: 200, width2d: 40, height2d: 60 });
+const module = asset({ id: 'mod', parentAssetId: 'rack', slotIndex: 2 });
+const dist = asset({ id: 'dist', floorId: 'f1', positionX: 10, positionY: 20, width2d: 30, height2d: 30 });
+const circuit = asset({ id: 'circ', parentAssetId: 'dist' });
+const orphan = asset({ id: 'orphan', parentAssetId: null });
+// cycle: a → b → a (neither placed)
+const cycA = asset({ id: 'cycA', parentAssetId: 'cycB' });
+const cycB = asset({ id: 'cycB', parentAssetId: 'cycA' });
+
+const map = assetsByIdMap([rack, module, dist, circuit, orphan, cycA, cycB]);
+
+describe('isFloorPlaced', () => {
+  it('placed = floorId + coords + size', () => {
+    expect(isFloorPlaced(rack)).toBe(true);
+    expect(isFloorPlaced(module)).toBe(false); // no coords
+    expect(isFloorPlaced(null)).toBe(false);
+    expect(isFloorPlaced(asset({ id: 'noSize', floorId: 'f1', positionX: 1, positionY: 1 }))).toBe(false);
+  });
+});
+
+describe('floorAnchor', () => {
+  it('placed self → self', () => {
+    expect(floorAnchor('rack', map)?.id).toBe('rack');
+  });
+  it('module → parent rack', () => {
+    expect(floorAnchor('mod', map)?.id).toBe('rack');
+  });
+  it('circuit → parent dist', () => {
+    expect(floorAnchor('circ', map)?.id).toBe('dist');
+  });
+  it('orphan (no placed ancestor) → null', () => {
+    expect(floorAnchor('orphan', map)).toBeNull();
+  });
+  it('cycle guard → null (no infinite loop)', () => {
+    expect(floorAnchor('cycA', map)).toBeNull();
+  });
+  it('unknown id → null', () => {
+    expect(floorAnchor('nope', map)).toBeNull();
+    expect(floorAnchor(null, map)).toBeNull();
+  });
+});
+
+describe('anchorPosition', () => {
+  it('center of placed anchor', () => {
+    expect(anchorPosition('rack', map)).toEqual({ x: 120, y: 230 });
+  });
+  it('module resolves to rack center', () => {
+    expect(anchorPosition('mod', map)).toEqual({ x: 120, y: 230 });
+  });
+  it('circuit resolves to dist center', () => {
+    expect(anchorPosition('circ', map)).toEqual({ x: 25, y: 35 });
+  });
+  it('orphan → null', () => {
+    expect(anchorPosition('orphan', map)).toBeNull();
+  });
+});
