@@ -26,11 +26,13 @@ function statusBadge(status: string): BadgeStatus {
 function AssetRow({
   item,
   today,
+  selected,
   onSelect,
   onGotoFloor,
 }: {
   item: AssetListItem;
   today: Date;
+  selected?: boolean;
   onSelect: () => void;
   onGotoFloor?: () => void;
 }) {
@@ -39,7 +41,12 @@ function AssetRow({
   const inspClass =
     insp.level === 'none' ? 'text-content-faint' : insp.level === 'overdue' ? 'text-warning font-medium' : 'text-content';
   return (
-    <tr onClick={onSelect} className="cursor-pointer hover:bg-surface-2 border-b border-line">
+    <tr
+      onClick={onSelect}
+      className={`cursor-pointer border-b border-line transition-colors ${
+        selected ? 'bg-info-bg' : 'hover:bg-surface-2'
+      }`}
+    >
       <td className="pl-4 pr-2 py-2 text-sm text-content">
         <span className="inline-flex items-center gap-1.5">
           {/* ISA-101: 종류 점은 무채색(설비=중립). 색은 상태에만. */}
@@ -148,6 +155,7 @@ export function NodeStatusView({
       key={item.id}
       item={item}
       today={today}
+      selected={!onRowClick && sel?.selectedAssetId === item.id}
       onSelect={() => (onRowClick ? onRowClick(item) : sel?.setSelectedAssetId(item.id))}
       onGotoFloor={item.floorId ? () => gotoFloor(item) : undefined}
     />
