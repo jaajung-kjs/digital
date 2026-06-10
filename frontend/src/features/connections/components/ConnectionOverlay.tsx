@@ -148,22 +148,18 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
     }
     if (!snapshotActive) {
       const assetsById = assetsByIdMap(effectiveAssets);
-      // 모듈/회로 endpoint id → placed ancestor 사각형. anchor 가 곧 부모 랙/분전반.
-      const innerIds = [
-        ...editorRackModules.map((m) => m.id),
-        ...editorDistCircuits.map((c) => c.id),
-      ];
-      for (const id of innerIds) {
-        if (map.has(id)) continue;
-        const anchor = floorAnchor(id, assetsById);
-        if (!anchor || anchor.positionX == null || anchor.positionY == null) continue;
-        map.set(id, {
-          x: anchor.positionX,
-          y: anchor.positionY,
-          width: anchor.width2d ?? 0,
-          height: anchor.height2d ?? 0,
-        });
-      }
+      // endpoint id(key) → placed ancestor(floorAnchor) 사각형. anchorId 는 anchor 를
+      // 거슬러 올라갈 시작점: 모듈은 자기 자신(asset → 랙), 회로는 asset 이 아니므로
+      // 부모 분전반(distributionEquipmentId)에서 시작.
+      const setAnchor = (key: string, anchorId: string | null | undefined) => {
+        if (map.has(key)) return;
+        const a = floorAnchor(anchorId, assetsById);
+        if (a?.positionX != null && a.positionY != null) {
+          map.set(key, { x: a.positionX, y: a.positionY, width: a.width2d ?? 0, height: a.height2d ?? 0 });
+        }
+      };
+      for (const m of editorRackModules) setAnchor(m.id, m.id);
+      for (const c of editorDistCircuits) setAnchor(c.id, c.distributionEquipmentId);
     }
     return map;
   }, [localEquipment, editorRackModules, editorDistCircuits, effectiveAssets, snapshotActive]);
