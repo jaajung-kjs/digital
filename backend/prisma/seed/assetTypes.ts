@@ -43,10 +43,10 @@ const OPT_FIELDS: FieldDef[] = [
 export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
   { code: 'RACK', name: '랙', group: '구조', isContainer: true, displayColor: '#44403c', sortOrder: 10,
     placementKind: 'RACK',
-    fieldTemplate: [{ key: 'totalU', label: 'U수', type: 'number', unit: 'U' }] },
+    fieldTemplate: [] },
   { code: 'OFD', name: 'OFD(광분배함)', group: '통신', isContainer: true, displayColor: '#78716c', sortOrder: 20,
     placementKind: 'OFD',
-    fieldTemplate: [{ key: 'portCount', label: '포트수', type: 'number' }] },
+    fieldTemplate: [] },
   { code: 'DIST', name: '분전반', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 30,
     placementKind: 'DIST',
     fieldTemplate: [] },
