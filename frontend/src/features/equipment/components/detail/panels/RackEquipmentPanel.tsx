@@ -2,22 +2,12 @@ import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { RackView } from '../../../../editor/components/RackView';
 import { SnapshotRackView } from '../SnapshotRackView';
 import { PresetActionsBar } from '../../../../rack/components/PresetActionsBar';
-import { EditorInspectorPanel } from './EditorInspectorPanel';
 
-interface PanelProps {
-  equipmentId: string;
-}
-
-export function RackEquipmentPanel({ equipmentId }: PanelProps) {
-  return (
-    <EditorInspectorPanel
-      equipmentId={equipmentId}
-      spatialLabel="내부 설비"
-      spatial={<RackInternal equipmentId={equipmentId} />}
-    />
-  );
-}
-
+/**
+ * 랙 내부(공간) 섹션 — 프리셋 액션바 + U-슬롯 그리드. AssetDetailBody 가 종류별
+ * 공간 섹션으로 렌더(평면도·현황·대장 공통). 모두 working-copy 기반이라 캔버스 밖에서도 동작.
+ * 스냅샷(과거 도면)일 때는 SnapshotRackView 로 읽기전용 폴백.
+ */
 export function RackInternal({ equipmentId }: { equipmentId: string }) {
   const snapshotActive = useSnapshotStore((s) => s.active);
   if (snapshotActive) return <SnapshotRackView equipmentId={equipmentId} />;

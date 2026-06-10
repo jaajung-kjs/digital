@@ -8,7 +8,7 @@ import { EQUIPMENT_KINDS } from '../../types/equipmentKind';
  * DB 는 분전반을 'DIST' 약어로 저장하지만 프론트 계약 kind 는 'DISTRIBUTION'.
  * (백엔드 assetPlanMapper.ts 의 PLACEMENT_TO_KIND 와 동일 규칙.)
  */
-function normalizeKind(placementKind: string | null | undefined): EquipmentKind {
+export function normalizeKindForAsset(placementKind: string | null | undefined): EquipmentKind {
   if (placementKind === 'DIST') return 'DISTRIBUTION';
   if (placementKind && (EQUIPMENT_KINDS as string[]).includes(placementKind)) {
     return placementKind as EquipmentKind;
@@ -26,7 +26,7 @@ function normalizeKind(placementKind: string | null | undefined): EquipmentKind 
 export function assetToEquipment(a: Asset): FloorPlanEquipment {
   return {
     id: a.id,
-    kind: normalizeKind(a.assetType?.placementKind),
+    kind: normalizeKindForAsset(a.assetType?.placementKind),
     name: a.name,
     positionX: a.positionX ?? 0,
     positionY: a.positionY ?? 0,

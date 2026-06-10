@@ -4,17 +4,16 @@ import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
-import {
-  resolveDetailPanel,
-  type PanelProps,
-} from '../../equipment/components/detail/panels/registry';
+import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
+import { spatialNeedsWidePanel } from '../../equipment/components/detail/panels/resolveSpatialSection';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
 import {
   EQUIPMENT_KIND_INFO,
   type DetailPanelKind,
 } from '../../../types/equipmentKind';
 
-interface EquipmentDetailPanelProps extends PanelProps {
+interface EquipmentDetailPanelProps {
+  equipmentId: string;
   /** SSOT-2d Task 3 — effective 설비 조회용 (header 의 kind/name lookup). */
   floorId: string;
 }
@@ -43,11 +42,6 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     return EQUIPMENT_KIND_INFO[localEq.kind]?.detailPanelKind ?? null;
   }, [localEq]);
 
-  const PanelComponent = useMemo(
-    () => (detailKind ? resolveDetailPanel(detailKind) : null),
-    [detailKind],
-  );
-
   // I35: ESC to close panel (when no modal/lightbox is open)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -61,9 +55,12 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setDetailPanelEquipmentId]);
 
+  // RACK 은 U-슬롯 그리드 때문에 더 넓은 패널(480), 그 외는 표준 360.
+  const wide = spatialNeedsWidePanel(detailKind);
+
   return (
     <div
-      className="absolute right-0 top-0 bottom-0 w-[360px] bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col"
+      className={`absolute right-0 top-0 bottom-0 ${wide ? 'w-[480px]' : 'w-[360px]'} bg-white border-l border-gray-200 shadow-[-4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col`}
       style={{ animation: 'slideInRight 0.25s ease-out' }}
     >
       <style>{`
@@ -106,12 +103,11 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
           재더블클릭할 때 패널 서브트리 전체를 remount. 탭/편집 폼/라이트박스 같은
           내부 useState 들이 직전 설비의 잔여 상태를 끌고 오지 않게 한다. */}
       <div className="flex-1 min-h-0 flex flex-col">
-        {PanelComponent && (
-          <PanelComponent
-            key={`${equipmentId}-${focusTick}`}
-            equipmentId={equipmentId}
-          />
-        )}
+        <AssetDetailBody
+          key={`${equipmentId}-${focusTick}`}
+          equipmentId={equipmentId}
+          kind={detailKind}
+        />
       </div>
     </div>
   );
