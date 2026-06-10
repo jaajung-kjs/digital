@@ -105,6 +105,34 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     const cable = await prisma.cable.findUniqueOrThrow({ where: { id: cId } });
     expect(cable.sourceEquipmentId).toBe(aId);
     expect(cable.targetEquipmentId).toBe(aId);
+    // 단계2: *_asset_id 가 해소된 equipment id 로 병행 유지되는지.
+    expect(cable.sourceAssetId).toBe(aId);
+    expect(cable.targetAssetId).toBe(aId);
+  });
+
+  it('1b) cable create — 단일 sourceAssetId/targetAssetId 수용 (forward-compat)', async () => {
+    const setup = substationCommitSchema.parse({
+      assets: {
+        creates: [
+          { tempId: 'b1', assetTypeId: placementTypeId, name: '노드A', floorId, positionX: 0, positionY: 0, width2d: 10, height2d: 10 },
+          { tempId: 'b2', assetTypeId: placementTypeId, name: '노드B', floorId, positionX: 5, positionY: 5, width2d: 10, height2d: 10 },
+        ],
+      },
+      // nested source/target 는 비우고 단일 assetId(tempId) 만 지정.
+      cables: { creates: [{ tempId: 'cAsset', source: {}, target: {}, sourceAssetId: 'b1', targetAssetId: 'b2', cableType: 'LAN' }] },
+    });
+    const res = await commitSubstation(subId, setup, userId);
+    const b1 = res.idMaps.assets['b1'];
+    const b2 = res.idMaps.assets['b2'];
+    createdAssets.push(b1, b2);
+    const cId = res.idMaps.cables['cAsset'];
+
+    const cable = await prisma.cable.findUniqueOrThrow({ where: { id: cId } });
+    // 단일 assetId(설비) → legacy equipment 컬럼 파생 + *_asset_id 세팅.
+    expect(cable.sourceEquipmentId).toBe(b1);
+    expect(cable.targetEquipmentId).toBe(b2);
+    expect(cable.sourceAssetId).toBe(b1);
+    expect(cable.targetAssetId).toBe(b2);
   });
 
   it('2) asset update — 올바른 baseVersion → 적용 + updatedAt 변경', async () => {

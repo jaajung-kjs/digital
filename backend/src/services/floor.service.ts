@@ -68,6 +68,9 @@ interface PlanCableDTO {
   sourceModuleId: string | null;
   targetEquipmentId: string | null;
   targetModuleId: string | null;
+  // 단계2(통합 노드): endpoint 의 단일 Asset id. legacy nested id 와 병행.
+  sourceAssetId: string | null;
+  targetAssetId: string | null;
   cableType: string;
   label: string | null;
   length: number | null;
@@ -291,6 +294,8 @@ class FloorService {
         targetEquipmentId: c.targetEquipmentId,
         targetModuleId: c.targetModuleId,
         targetCircuitId: c.targetCircuitId,
+        sourceAssetId: c.sourceAssetId,
+        targetAssetId: c.targetAssetId,
         cableType: c.cableType,
         label: c.label,
         length: c.length,

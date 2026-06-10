@@ -69,6 +69,11 @@ const cableCreate = z.object({
   tempId: z.string(),
   source: cableEndpoint,
   target: cableEndpoint,
+  // 단계2(통합 노드) forward-compat: endpoint 를 단일 Asset 노드로 직접 지정.
+  // 제공 시 canonical 로 사용 — *_asset_id 컬럼을 세우고 asset kind 로 legacy
+  // (equipment/module) 컬럼을 파생한다. nested source/target 도 계속 수용(현 프론트).
+  sourceAssetId: z.string().nullable().optional(),
+  targetAssetId: z.string().nullable().optional(),
   cableType: z.enum(['AC', 'DC', 'LAN', 'FIBER', 'GROUND']),
   label: z.string().nullable().optional(),
   length: z.number().nullable().optional(),
