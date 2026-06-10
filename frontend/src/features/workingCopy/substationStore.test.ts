@@ -79,6 +79,28 @@ describe('substationWorkingCopy', () => {
     useSubstationWorkingCopy.getState().stageCableUpdates({ c1: { label: 'L' } });
     expect(useSubstationWorkingCopy.getState().effectiveCables().find(c=>c.id==='c1')!.label).toBe('L');
   });
+  it('stageCableCreate(nested-only, 모듈 endpoint) → 층 케이블 필터에 포함(렌더됨)', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    // CableSpecModal 이 stage 하는 정규 nested-only shape — 모듈(m1) endpoint.
+    useSubstationWorkingCopy.getState().stageCableCreate({
+      id: 'tmpC',
+      source: { equipmentId: 'r1', moduleId: 'm1', circuitId: null },
+      target: { equipmentId: 'o1', moduleId: null, circuitId: null },
+      cableType: 'LAN',
+      pathPoints: [[10, 20], [5, 5]],
+    } as any);
+    const eff = useSubstationWorkingCopy.getState().effectiveCables();
+    const created = eff.find((c) => c.id === 'tmpC') as any;
+    expect(created).toBeTruthy();
+    // useEffectiveFloorCables 의 floor-cable predicate: source/target 의
+    // {equipmentId, moduleId} 중 하나가 이 층(f1) asset 이면 포함 → 렌더.
+    const onFloor = new Set(['r1', 'm1', 'o1']); // 모두 f1
+    const ep = (e: any) => [e?.equipmentId, e?.moduleId];
+    const reaches = [...ep(created.source), ...ep(created.target)].some(
+      (x) => x != null && onFloor.has(x),
+    );
+    expect(reaches).toBe(true);
+  });
 
   // ── 2d-2 T1: 랙모듈(=RACK 자식 Asset) stage 액션 ──
   it('stageRackModuleCreate → effectiveAssets/effectiveRackModules 에 자식 추가(부모 floor 상속)', async () => {

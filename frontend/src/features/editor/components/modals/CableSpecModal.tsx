@@ -77,16 +77,20 @@ function CableSpecModal() {
     // SSOT-2d Task 4 — 케이블 생성을 통합 스토어 stage 액션으로.
     useSubstationWorkingCopy.getState().stageCableCreate({
       id: newCableId,
-      // circuit / module endpoint 면 sourceEquipmentId 자리에 회로/모듈 id 를
-      // fallback 으로 채워 두는 게 RACK 패턴 (위치 lookup·tracer 가 이걸 씀).
-      sourceEquipmentId:
-        data.sourceCircuitId ?? data.sourceModuleId ?? data.sourceEquipmentId ?? '',
-      targetEquipmentId:
-        data.targetCircuitId ?? data.targetModuleId ?? data.targetEquipmentId ?? '',
-      sourceModuleId: data.sourceModuleId ?? null,
-      targetModuleId: data.targetModuleId ?? null,
-      sourceCircuitId: data.sourceCircuitId ?? null,
-      targetCircuitId: data.targetCircuitId ?? null,
+      // 정규 shape — nested source/target 만. 스토어 effective(층 필터·삭제 캐스케이드)와
+      // 커밋 페이로드(백엔드 cableEndpoint)가 이 nested 형태를 요구한다. 렌더/트레이서가
+      // 먹는 flat 뷰는 cableDtoToLocal 이 nested 에서 파생(+anchor 로 위치 해소)하므로
+      // 여기서 flat sourceEquipmentId/... 를 denormalize 하지 않는다(변조 제거).
+      source: {
+        equipmentId: data.sourceEquipmentId ?? null,
+        moduleId: data.sourceModuleId ?? null,
+        circuitId: data.sourceCircuitId ?? null,
+      },
+      target: {
+        equipmentId: data.targetEquipmentId ?? null,
+        moduleId: data.targetModuleId ?? null,
+        circuitId: data.targetCircuitId ?? null,
+      },
       cableType,
       categoryId: selectedCat.id,
       categoryCode: selectedCat.code,

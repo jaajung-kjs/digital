@@ -88,4 +88,44 @@ describe('buildSubstationCommitPayload', () => {
     expect(payload.rackModules!.deletes.map((d: any) => d.id)).toContain('m2');
     expect(payload.assets!.deletes.map((d: any) => d.id)).toContain('a2');
   });
+
+  it('cable create → tempId + nested source/target, NO flat keys', () => {
+    // CableSpecModal 이 stage 하는 정규 shape: id + nested source/target (flat 없음).
+    const cables = stageCreate(emptyOverlay<any, any>(), 'tmpC', {
+      id: 'tmpC',
+      source: { equipmentId: 'a1', moduleId: null, circuitId: null },
+      target: { equipmentId: null, moduleId: 'm1', circuitId: null },
+      cableType: 'LAN',
+      categoryId: 'catX',
+      pathPoints: [[0, 0], [10, 10]],
+      pathLength: 14,
+      bufferLength: 4,
+      totalLength: 18,
+    } as any);
+
+    const overlays = {
+      assets: ov() as any, cables: cables as any,
+      distributionCircuits: ov() as any, fiberPaths: ov() as any,
+    };
+    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any);
+
+    const c = payload.cables!.creates.find((x: any) => x.tempId === 'tmpC') as any;
+    expect(c).toBeTruthy();
+    // id → tempId (백엔드 cableCreate 요구)
+    expect(c.tempId).toBe('tmpC');
+    expect(c.id).toBeUndefined();
+    // nested source/target 보존
+    expect(c.source).toEqual({ equipmentId: 'a1', moduleId: null, circuitId: null });
+    expect(c.target).toEqual({ equipmentId: null, moduleId: 'm1', circuitId: null });
+    // flat denormalized keys 가 페이로드에 없어야 함
+    expect(c.sourceEquipmentId).toBeUndefined();
+    expect(c.targetEquipmentId).toBeUndefined();
+    expect(c.sourceModuleId).toBeUndefined();
+    expect(c.targetModuleId).toBeUndefined();
+    // canonical passthrough
+    expect(c.cableType).toBe('LAN');
+    expect(c.categoryId).toBe('catX');
+    expect(c.pathPoints).toEqual([[0, 0], [10, 10]]);
+    expect(c.totalLength).toBe(18);
+  });
 });

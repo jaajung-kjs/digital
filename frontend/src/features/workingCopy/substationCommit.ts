@@ -92,6 +92,31 @@ function omitIfEmpty(c: Collection): Collection | undefined {
   return c.creates.length || c.updates.length || c.deletes.length ? c : undefined;
 }
 
+/**
+ * Cable create(store row) → cables.create payload.
+ *
+ * 백엔드 cableCreate 스키마는 `tempId` + nested `source`/`target` 를 요구한다.
+ * store row 는 id(=tempId) 와 nested source/target 만 들고 있다(flat denormalize 제거됨).
+ * 여기서 id→tempId 로 옮기고 canonical 필드만 통과시킨다. totalLength → length(설치 길이)
+ * 매핑은 백엔드가 length/totalLength 를 모두 읽으므로 그대로 둘 다 보낸다.
+ */
+function toCableCreate(c: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    tempId: c.id,
+    source: c.source ?? { equipmentId: null, moduleId: null, circuitId: null },
+    target: c.target ?? { equipmentId: null, moduleId: null, circuitId: null },
+    cableType: c.cableType,
+  };
+  const passthrough = [
+    'label', 'length', 'color', 'description', 'fiberPathId', 'fiberPortNumber',
+    'categoryId', 'specParams', 'pathPoints', 'pathLength', 'bufferLength', 'totalLength',
+  ];
+  for (const k of passthrough) {
+    if (c[k] !== undefined) out[k] = c[k];
+  }
+  return out;
+}
+
 /** Asset create → rackModules.create (필드명 매핑). */
 function toRackModuleCreate(a: Asset & { id: string }): Record<string, unknown> {
   const out: Record<string, unknown> = {
@@ -189,8 +214,14 @@ export function buildSubstationCommitPayload(
     else assetsCol.deletes.push(d);
   }
 
-  // 그 외 컬렉션 — create 필드명이 store 엔티티와 동일하므로 직접 매핑.
-  const cables = buildDelta(overlays.cables) as Collection;
+  // cables — create 는 id→tempId + nested source/target 로 매핑(toCableCreate).
+  // update/delete 는 {id, baseVersion, patch} 그대로(패치는 nested-agnostic).
+  const cd = buildDelta(overlays.cables);
+  const cables: Collection = {
+    creates: cd.creates.map((c) => toCableCreate(c as Record<string, unknown>)),
+    updates: cd.updates as Collection['updates'],
+    deletes: cd.deletes,
+  };
   const distributionCircuits = buildDelta(overlays.distributionCircuits) as Collection;
   const fiberPaths = buildDelta(overlays.fiberPaths) as Collection;
 
