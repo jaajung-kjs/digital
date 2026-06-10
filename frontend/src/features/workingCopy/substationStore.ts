@@ -323,7 +323,14 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             (a) => a.floorId === floorId,
           );
           const floorAssetIds = new Set(effA.map((a) => a.id));
-          // floor cables = source/target endpoint 정밀 id 중 하나라도 이 층 asset 인 케이블.
+          // 회로는 asset 이 아니지만 부모 분전반이 이 floor 면 그 회로 endpoint 도 이 floor 멤버.
+          const effCircuits = mergeEffective(
+            s.saved.distributionCircuits, s.overlays.distributionCircuits, distCircuitDescriptor,
+          );
+          for (const c of effCircuits) {
+            if (floorAssetIds.has((c as Record<string, unknown>).distributionEquipmentId as string)) floorAssetIds.add(c.id);
+          }
+          // floor cables = source/target endpoint 정밀 id 중 하나라도 이 층 asset/회로 인 케이블.
           // (모듈은 floorId 상속 → floorAssetIds 에 포함. useEffectiveFloorCables 와 동일.)
           const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor).filter((c) => {
             const ep = (e: unknown) => {
