@@ -310,6 +310,9 @@ model Cable {
   targetEquipmentId String? @map("target_equipment_id")
   targetModuleId    String? @map("target_module_id")
   targetCircuitId   String? @map("target_circuit_id")
+  // 통합 노드 모델(단계1) — endpoint = 단일 Asset 노드. 구 다형 컬럼과 병행하다 단계4에서 드롭.
+  sourceAssetId     String? @map("source_asset_id")
+  targetAssetId     String? @map("target_asset_id")
 
   cableType  CableType @map("cable_type")
   categoryId String?   @map("category_id") // CableCategory FK
@@ -339,6 +342,8 @@ model Cable {
   targetEquipment Asset?         @relation("CableTargetEquipment", fields: [targetEquipmentId], references: [id], onDelete: Cascade)
   targetModule    Asset?         @relation("CableTargetModule", fields: [targetModuleId], references: [id], onDelete: Cascade)
   targetCircuit   DistributionCircuit? @relation("CableTargetCircuit", fields: [targetCircuitId], references: [id], onDelete: Cascade)
+  sourceAsset     Asset?         @relation("CableSourceAsset", fields: [sourceAssetId], references: [id], onDelete: Cascade)
+  targetAsset     Asset?         @relation("CableTargetAsset", fields: [targetAssetId], references: [id], onDelete: Cascade)
   fiberPath       FiberPath?     @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
   category        CableCategory? @relation(fields: [categoryId], references: [id])
   createdBy       User?          @relation("CableCreatedBy", fields: [createdById], references: [id])
@@ -514,6 +519,8 @@ model Asset {
   targetCablesEq  Cable[]               @relation("CableTargetEquipment")
   sourceCablesMod Cable[]               @relation("CableSourceModule")
   targetCablesMod Cable[]               @relation("CableTargetModule")
+  sourceCablesAsset Cable[]             @relation("CableSourceAsset")
+  targetCablesAsset Cable[]             @relation("CableTargetAsset")
   circuits        DistributionCircuit[] @relation("DistributionCircuitAsset")
   ports           Port[]                @relation("PortAsset")
   fiberPathsAsA   FiberPath[]           @relation("FiberPathOfdA")

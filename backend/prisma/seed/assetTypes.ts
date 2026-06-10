@@ -50,6 +50,11 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
   { code: 'DIST', name: '분전반', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 30,
     placementKind: 'DIST',
     fieldTemplate: [] },
+  // 통합 노드 모델 — 분전반 내부 회로를 노드 계층으로(분전반→FEEDER→BRANCH). 미배치 내부 노드(placementKind 없음).
+  { code: 'FEEDER', name: '피더', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 33,
+    fieldTemplate: [] },
+  { code: 'BRANCH', name: '분기', group: '전원', isContainer: false, displayColor: '#a8a29e', sortOrder: 34,
+    fieldTemplate: [] },
   { code: 'GROUNDING', name: '접지함체', group: '구조', isContainer: false, displayColor: '#44403c', sortOrder: 31,
     placementKind: 'GROUNDING', fieldTemplate: [] },
   { code: 'HVAC', name: '공조설비', group: '공조', isContainer: false, displayColor: '#a8a29e', sortOrder: 32,
