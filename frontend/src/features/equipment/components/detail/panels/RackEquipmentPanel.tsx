@@ -14,7 +14,7 @@ export function RackInternal({ equipmentId }: { equipmentId: string }) {
   return (
     <div className="flex flex-col" style={{ height: 480 }}>
       <PresetActionsBar rackEquipmentId={equipmentId} />
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto">
         <RackView equipmentId={equipmentId} />
       </div>
     </div>
