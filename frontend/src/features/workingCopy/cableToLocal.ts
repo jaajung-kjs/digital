@@ -13,15 +13,15 @@ import { type LocalCable } from '../editor/stores/editorStore';
 export interface CableDetailDTO {
   id: string;
   /**
-   * 단계4a — endpoint 는 단일 Asset(설비/랙모듈/분전 분기). 백엔드가 정밀 endpoint
-   * asset id 를 직접 내려준다. 정밀 endpoint id 의 유일한 source of truth(레거시 nested
-   * 폴백 제거됨). nested source/target 은 모듈 기반 ConnectionDiagram 렌더 + 쓰기 경로용
-   * 보조 필드로만 남는다(Stage 4b 에서 정리).
+   * 단계4b — endpoint 는 단일 Asset(설비/랙모듈/분전 분기). 백엔드가 정밀 endpoint
+   * asset id 를 직접 내려준다. 정밀 endpoint id 의 유일한 source of truth.
+   * source/target 은 그 endpoint asset 의 표시 정보(이름/kind/anchor floor) — 더 이상
+   * equipmentId/moduleId/circuitId nested id 를 들지 않는다.
    */
   sourceAssetId: string;
   targetAssetId: string;
-  source: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
-  target: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null; name?: string; floorId?: string | null };
+  source: { assetId: string | null; name?: string; kind?: string | null; floorId?: string | null };
+  target: { assetId: string | null; name?: string; kind?: string | null; floorId?: string | null };
   cableType: string;
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
@@ -39,19 +39,19 @@ export interface CableDetailDTO {
 
 /** effective Cable row → 렌더러/트레이서가 먹는 LocalCable. */
 export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
-  // 단계4a — endpoint = 단일 assetId. flat precise id 자리(sourceEquipmentId)는 assetId
-  //   그대로(레거시 nested 폴백 제거). 렌더(ConnectionOverlay)·트레이서(cableTracer)는
-  //   이 flat id 를 floorAnchor 로 해소한다.
+  // 단계4b — endpoint = 단일 assetId. flat precise id 자리(sourceEquipmentId)는 assetId
+  //   그대로. 렌더(ConnectionOverlay)·트레이서(cableTracer)·ConnectionDiagram 은 이 flat
+  //   id 를 floorAnchor / effective assets 로 해소한다(nested module/circuit id 제거).
   const sourceId = c.sourceAssetId;
   const targetId = c.targetAssetId;
   return {
     id: c.id,
     sourceEquipmentId: sourceId,
     targetEquipmentId: targetId,
-    sourceModuleId: c.source.moduleId ?? null,
-    targetModuleId: c.target.moduleId ?? null,
-    sourceCircuitId: c.source.circuitId ?? null,
-    targetCircuitId: c.target.circuitId ?? null,
+    sourceModuleId: null,
+    targetModuleId: null,
+    sourceCircuitId: null,
+    targetCircuitId: null,
     cableType: c.cableType,
     categoryId: c.categoryId ?? null,
     categoryCode: c.categoryCode ?? null,

@@ -64,11 +64,7 @@ interface PlanEquipmentDTO {
 
 interface PlanCableDTO {
   id: string;
-  sourceEquipmentId: string | null;
-  sourceModuleId: string | null;
-  targetEquipmentId: string | null;
-  targetModuleId: string | null;
-  // 단계2(통합 노드): endpoint 의 단일 Asset id. legacy nested id 와 병행.
+  // 단계4b(통합 노드): endpoint = 단일 Asset id.
   sourceAssetId: string | null;
   targetAssetId: string | null;
   cableType: string;
@@ -215,14 +211,15 @@ class FloorService {
         orderBy: { sortOrder: 'asc' },
       }),
       prisma.cable.findMany({
+        // 단계4b — endpoint asset 의 anchor floor(자신/부모 랙/분기→피더→분전반)로 스코핑.
         where: {
           OR: [
-            { sourceEquipment: { floorId: id } },
-            { targetEquipment: { floorId: id } },
-            { sourceModule: { parent: { floorId: id } } },
-            { targetModule: { parent: { floorId: id } } },
-            { sourceCircuit: { distribution: { floorId: id } } },
-            { targetCircuit: { distribution: { floorId: id } } },
+            { sourceAsset: { floorId: id } },
+            { targetAsset: { floorId: id } },
+            { sourceAsset: { parent: { floorId: id } } },
+            { targetAsset: { parent: { floorId: id } } },
+            { sourceAsset: { parent: { parent: { floorId: id } } } },
+            { targetAsset: { parent: { parent: { floorId: id } } } },
           ],
         },
         include: {
@@ -288,12 +285,6 @@ class FloorService {
       equipment: equipmentAssets.map((a) => assetToPlanEquipment(a)),
       cables: cables.map((c) => ({
         id: c.id,
-        sourceEquipmentId: c.sourceEquipmentId,
-        sourceModuleId: c.sourceModuleId,
-        sourceCircuitId: c.sourceCircuitId,
-        targetEquipmentId: c.targetEquipmentId,
-        targetModuleId: c.targetModuleId,
-        targetCircuitId: c.targetCircuitId,
         sourceAssetId: c.sourceAssetId,
         targetAssetId: c.targetAssetId,
         cableType: c.cableType,

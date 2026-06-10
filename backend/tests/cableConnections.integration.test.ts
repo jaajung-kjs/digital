@@ -35,11 +35,12 @@ describe('연결 조회 — 변전소/자산', () => {
     a1Id = a1.id; a2Id = a2.id;
 
     const cable = await prisma.cable.create({
-      data: { sourceEquipmentId: a1.id, targetEquipmentId: a2.id, cableType: 'LAN' },
+      // 단계4b — endpoint = 단일 source_asset_id/target_asset_id.
+      data: { sourceAssetId: a1.id, targetAssetId: a2.id, cableType: 'LAN' },
     });
     cableId = cable.id;
 
-    // 모듈 endpoint: rack 자산 + 자식 모듈 자산
+    // 모듈 endpoint: rack 자산 + 자식 모듈 자산 (endpoint = 모듈 asset id)
     const rack = await prisma.asset.create({ data: { substationId: subId, assetTypeId: typeId, name: 'CONN-RACK' } });
     rackId = rack.id;
     const module = await prisma.asset.create({
@@ -47,27 +48,27 @@ describe('연결 조회 — 변전소/자산', () => {
     });
     moduleId = module.id;
     const moduleCable = await prisma.cable.create({
-      data: { sourceModuleId: module.id, targetEquipmentId: a2.id, cableType: 'LAN' },
+      data: { sourceAssetId: module.id, targetAssetId: a2.id, cableType: 'LAN' },
     });
     moduleCableId = moduleCable.id;
 
-    // 회로 endpoint: DISTRIBUTION 자산 + DistributionCircuit
+    // 분기 endpoint: 분전반 자산 → 분기(BRANCH) asset (endpoint = 분기 asset id).
+    // 단계4b — 회로는 distribution_circuits 행이 아니라 Asset 계층. branch asset 을 직접 endpoint 로.
     const dist = await prisma.asset.create({ data: { substationId: subId, assetTypeId: typeId, name: 'CONN-DIST' } });
     distId = dist.id;
-    const circuit = await prisma.distributionCircuit.create({
-      data: { distributionEquipmentId: dist.id, feederName: 'AC Main', branchName: 'Branch-1' },
+    const branch = await prisma.asset.create({
+      data: { substationId: subId, assetTypeId: typeId, name: 'L1', parentAssetId: dist.id },
     });
-    circuitId = circuit.id;
+    circuitId = branch.id;
     const circuitCable = await prisma.cable.create({
-      data: { sourceCircuitId: circuit.id, targetEquipmentId: a1.id, cableType: 'DC' },
+      data: { sourceAssetId: branch.id, targetAssetId: a1.id, cableType: 'DC' },
     });
     circuitCableId = circuitCable.id;
   });
 
   afterAll(async () => {
     await prisma.cable.deleteMany({ where: { id: { in: [cableId, moduleCableId, circuitCableId] } } }).catch(() => {});
-    await prisma.distributionCircuit.delete({ where: { id: circuitId } }).catch(() => {});
-    await prisma.asset.deleteMany({ where: { id: { in: [a1Id, a2Id, moduleId, rackId, distId] } } });
+    await prisma.asset.deleteMany({ where: { id: { in: [a1Id, a2Id, moduleId, rackId, distId, circuitId] } } });
     await prisma.substation.delete({ where: { id: subId } }).catch(() => {});
     await prisma.branch.delete({ where: { id: brId } }).catch(() => {});
     await prisma.headquarters.delete({ where: { id: hqId } }).catch(() => {});
@@ -115,18 +116,20 @@ describe('연결 조회 — 변전소/자산', () => {
       .expect(200);
     const mc = modRes.body.data.find((x: any) => x.id === moduleCableId);
     expect(mc).toBeTruthy();
-    expect([mc.source.moduleId, mc.target.moduleId]).toContain(moduleId);
+    // 단계4b — endpoint = 단일 assetId. 모듈 endpoint 면 source/target.assetId 가 모듈 id.
+    expect([mc.source.assetId, mc.target.assetId]).toContain(moduleId);
   });
 
-  it('회로 endpoint — 변전소 연결 조회 + 이름 resolve (C1)', async () => {
+  it('분기 endpoint — 변전소 연결 조회 + 이름 resolve (C1)', async () => {
     const res = await request(app)
       .get(`/api/substations/${subId}/connections`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     const cc = res.body.data.find((x: any) => x.id === circuitCableId);
     expect(cc).toBeTruthy();
-    const circuitEndpoint = cc.source.equipmentId === distId ? cc.source : cc.target;
-    expect(circuitEndpoint.name).toBeTruthy();
-    expect(circuitEndpoint.name).not.toBe('');
+    // 분기 endpoint 의 assetId = branch asset id, name = branch asset 이름(L1).
+    const branchEndpoint = cc.source.assetId === circuitId ? cc.source : cc.target;
+    expect(branchEndpoint.assetId).toBe(circuitId);
+    expect(branchEndpoint.name).toBe('L1');
   });
 });

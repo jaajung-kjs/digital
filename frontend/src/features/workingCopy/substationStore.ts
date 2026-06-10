@@ -273,16 +273,32 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           const targets = new Set<string>([id, ...childIds]);
           let assets = s.overlays.assets;
           for (const tid of [id, ...childIds]) assets = stageDelete(assets, tid, isTempId(tid));
-          // 대상 설비/모듈에 한쪽이라도 닿는 케이블도 함께 삭제.
+
+          // 단계4b — endpoint 는 단일 assetId. 케이블 endpoint asset(또는 그 containment
+          //   조상: 모듈→랙, 분기→피더→분전반)이 삭제 대상이면 케이블도 함께 삭제한다.
+          //   DB 도 source_asset_id ON DELETE CASCADE 로 동일하게 정리되지만, 워킹카피
+          //   에서 미리 staged delete 로 반영해 UI 가 즉시 일관되게 한다.
+          const assetsById = assetsByIdMap(effA);
+          const endpointHitsTarget = (assetId: string | null | undefined): boolean => {
+            let cur = assetId ? assetsById.get(assetId) : undefined;
+            // 미머지 endpoint(예: saved 에만 있는 id) 라도 자기 자신 직접 일치는 잡는다.
+            if (assetId && targets.has(assetId)) return true;
+            let hops = 0;
+            while (cur && hops < 8) {
+              if (targets.has(cur.id)) return true;
+              if (cur.parentAssetId == null) return false;
+              cur = assetsById.get(cur.parentAssetId);
+              hops++;
+            }
+            return false;
+          };
           let cables = s.overlays.cables;
           for (const c of effC) {
-            const eps = [
-              (c.source as { equipmentId?: string | null; moduleId?: string | null } | undefined)?.equipmentId,
-              (c.source as { equipmentId?: string | null; moduleId?: string | null } | undefined)?.moduleId,
-              (c.target as { equipmentId?: string | null; moduleId?: string | null } | undefined)?.equipmentId,
-              (c.target as { equipmentId?: string | null; moduleId?: string | null } | undefined)?.moduleId,
-            ];
-            if (eps.some((x) => x && targets.has(x))) cables = stageDelete(cables, c.id, isTempId(c.id));
+            const srcId = (c as { sourceAssetId?: string | null }).sourceAssetId;
+            const tgtId = (c as { targetAssetId?: string | null }).targetAssetId;
+            if (endpointHitsTarget(srcId) || endpointHitsTarget(tgtId)) {
+              cables = stageDelete(cables, c.id, isTempId(c.id));
+            }
           }
           return { overlays: { ...s.overlays, assets, cables } };
         }),

@@ -89,12 +89,12 @@ describe('buildSubstationCommitPayload', () => {
     expect(payload.assets!.deletes.map((d: any) => d.id)).toContain('a2');
   });
 
-  it('cable create → tempId + nested source/target, NO flat keys', () => {
-    // CableSpecModal 이 stage 하는 정규 shape: id + nested source/target (flat 없음).
+  it('cable create → tempId + 단일 sourceAssetId/targetAssetId, nested/flat 없음', () => {
+    // 단계4b — CableSpecModal 이 stage 하는 정규 shape: id + 단일 assetId(nested 제거).
     const cables = stageCreate(emptyOverlay<any, any>(), 'tmpC', {
       id: 'tmpC',
-      source: { equipmentId: 'a1', moduleId: null, circuitId: null },
-      target: { equipmentId: null, moduleId: 'm1', circuitId: null },
+      sourceAssetId: 'a1',
+      targetAssetId: 'm1',
       cableType: 'LAN',
       categoryId: 'catX',
       pathPoints: [[0, 0], [10, 10]],
@@ -114,10 +114,12 @@ describe('buildSubstationCommitPayload', () => {
     // id → tempId (백엔드 cableCreate 요구)
     expect(c.tempId).toBe('tmpC');
     expect(c.id).toBeUndefined();
-    // nested source/target 보존
-    expect(c.source).toEqual({ equipmentId: 'a1', moduleId: null, circuitId: null });
-    expect(c.target).toEqual({ equipmentId: null, moduleId: 'm1', circuitId: null });
-    // flat denormalized keys 가 페이로드에 없어야 함
+    // 단계4b — endpoint 는 단일 assetId 만. nested source/target 제거.
+    expect(c.sourceAssetId).toBe('a1');
+    expect(c.targetAssetId).toBe('m1');
+    expect(c.source).toBeUndefined();
+    expect(c.target).toBeUndefined();
+    // flat denormalized keys 도 페이로드에 없어야 함
     expect(c.sourceEquipmentId).toBeUndefined();
     expect(c.targetEquipmentId).toBeUndefined();
     expect(c.sourceModuleId).toBeUndefined();
