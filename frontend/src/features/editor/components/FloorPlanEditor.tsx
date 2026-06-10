@@ -12,7 +12,8 @@ import { getUnifiedDirtyCount } from '../../workingCopy/hooks';
 import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useToastStore } from '../stores/toastStore';
-import { calculateCenterOnBounds, calculateCenterOnEquipment } from '../hooks/useViewport';
+import { calculateCenterOnBounds } from '../hooks/useViewport';
+import { floorTargetFor } from '../../workingCopy/floorAnchor';
 import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useInteractionStore } from '../stores/interactionStore';
@@ -121,8 +122,10 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   useEffect(() => {
     const targetId = searchParams.get('equipmentId');
     if (!targetId) return;
-    const eq = useSubstationWorkingCopy.getState().effectiveEquipment(floorId).find((e) => e.id === targetId);
-    if (!eq) return; // 도면 데이터 아직 로드 전 — 다음 render 에 재시도.
+    // 단일 choke-point 로 "도면에 보이는가" 판정 — 미배치 모듈/회로/포트도 부모
+    // 설비 anchor 로 해소되면 통과. anchor 없으면(데이터 미로드/orphan) 다음 render 재시도.
+    const target = floorTargetFor(targetId, useSubstationWorkingCopy.getState().effectiveAssets());
+    if (!target) return;
     // URL 을 처리 후 비우므로(아래) 매 equipmentId 진입마다 1회 실행된다.
     // 영구 ref 가드를 두지 않아 "도면에서 보기" 반복 시에도 매번 재포커스된다.
     const es = useEditorStore.getState();
@@ -155,14 +158,26 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const focusTick = useEditorStore((s) => s.focusTick);
   useEffect(() => {
     if (!detailPanelEquipmentId) return;
-    const eq = useSubstationWorkingCopy
-      .getState()
-      .effectiveEquipment(floorId)
-      .find((e) => e.id === detailPanelEquipmentId);
-    if (!eq || !containerRef.current) return;
+    // 단일 choke-point: 선택 asset → 도면 anchor rect. 미배치 모듈/회로/포트는
+    // floorTargetFor 가 부모 설비(랙/OFD/분전반) rect 로 해소하므로 그 설비에 포커스.
+    const target = floorTargetFor(
+      detailPanelEquipmentId,
+      useSubstationWorkingCopy.getState().effectiveAssets(),
+    );
+    if (!target || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return;
-    const fit = calculateCenterOnEquipment(eq, rect.width, rect.height, RIGHT_PANEL_WIDTH);
+    const fit = calculateCenterOnBounds(
+      {
+        minX: target.x,
+        minY: target.y,
+        maxX: target.x + target.width,
+        maxY: target.y + target.height,
+      },
+      rect.width,
+      rect.height,
+      RIGHT_PANEL_WIDTH,
+    );
     useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
   }, [detailPanelEquipmentId, focusTick]);
 

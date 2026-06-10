@@ -71,3 +71,39 @@ export function anchorPosition(
   const y = (anchor.positionY as number) + (anchor.height2d as number) / 2;
   return { x, y };
 }
+
+/** 도면 좌표계 사각형 — anchor 의 좌상단 + 크기. */
+export interface FloorRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * "이 asset 이 도면 어디에 보이는가" 의 단일 choke-point.
+ *
+ * assetId(또는 현재 선택) 를 floor anchor(직접 배치된 가장 가까운 조상)로 해소해
+ * 그 anchor 의 도면 사각형(좌상단 x/y + width/height)을 반환한다. 하이라이트·뷰포트
+ * 포커스 등 "선택 → 도면 위치" 가 필요한 모든 경로는 이 함수 하나만 통과한다.
+ *
+ * - 자신이 placed → 자신의 rect.
+ * - 미배치 모듈/회로/포트 → 부모 설비(랙/OFD/분전반)의 rect (임의 깊이).
+ * - placed ancestor 없음(orphan)/cycle/unknown → null.
+ *
+ * effectiveAssets 리스트를 받아 effective(saved+overlay) 위에서 동작한다.
+ */
+export function floorTargetFor(
+  assetId: string | null | undefined,
+  effectiveAssets: Asset[],
+): FloorRect | null {
+  const anchor = floorAnchor(assetId, assetsByIdMap(effectiveAssets));
+  if (!anchor) return null;
+  // isFloorPlaced 가 true 면 좌표/크기 모두 non-null 보장.
+  return {
+    x: anchor.positionX as number,
+    y: anchor.positionY as number,
+    width: anchor.width2d as number,
+    height: anchor.height2d as number,
+  };
+}

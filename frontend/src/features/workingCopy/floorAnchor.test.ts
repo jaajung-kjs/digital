@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isFloorPlaced, floorAnchor, anchorPosition, assetsByIdMap } from './floorAnchor';
+import { isFloorPlaced, floorAnchor, anchorPosition, assetsByIdMap, floorTargetFor } from './floorAnchor';
 import type { Asset } from '../../types/asset';
 
 function asset(p: Partial<Asset> & { id: string }): Asset {
@@ -85,5 +85,34 @@ describe('anchorPosition', () => {
   });
   it('orphan → null', () => {
     expect(anchorPosition('orphan', map)).toBeNull();
+  });
+});
+
+describe('floorTargetFor (단일 choke-point: 선택→도면 rect)', () => {
+  const list = [rack, module, dist, circuit, orphan, cycA, cycB];
+
+  it('placed self → 자신의 rect', () => {
+    expect(floorTargetFor('rack', list)).toEqual({ x: 100, y: 200, width: 40, height: 60 });
+  });
+  it('module → 부모 랙 rect (포커스/하이라이트가 랙에 걸림)', () => {
+    expect(floorTargetFor('mod', list)).toEqual({ x: 100, y: 200, width: 40, height: 60 });
+  });
+  it('circuit → 부모 분전반 rect', () => {
+    expect(floorTargetFor('circ', list)).toEqual({ x: 10, y: 20, width: 30, height: 30 });
+  });
+  it('orphan(미배치 조상) → null', () => {
+    expect(floorTargetFor('orphan', list)).toBeNull();
+  });
+  it('cycle → null', () => {
+    expect(floorTargetFor('cycA', list)).toBeNull();
+  });
+  it('unknown / null id → null', () => {
+    expect(floorTargetFor('nope', list)).toBeNull();
+    expect(floorTargetFor(null, list)).toBeNull();
+  });
+
+  it('깊은 중첩(포트→모듈→랙)도 랙 rect 로 해소', () => {
+    const port = asset({ id: 'port', parentAssetId: 'mod' });
+    expect(floorTargetFor('port', [...list, port])).toEqual({ x: 100, y: 200, width: 40, height: 60 });
   });
 });
