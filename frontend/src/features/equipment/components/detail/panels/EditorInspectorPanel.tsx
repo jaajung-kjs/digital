@@ -96,21 +96,21 @@ function LiveInspectorPanel({
           today={today}
         />
       ) : isTemp ? (
-        <p className="px-4 py-3 text-xs text-gray-400">
+        <p className="px-4 py-3 text-xs text-content-faint">
           아직 저장되지 않은 설비입니다. 도면을 저장하면 대장 정보가 표시됩니다.
         </p>
       ) : isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
         </div>
       ) : (
-        <p className="px-4 py-3 text-xs text-gray-400">대장 정보를 불러올 수 없습니다.</p>
+        <p className="px-4 py-3 text-xs text-content-faint">대장 정보를 불러올 수 없습니다.</p>
       )}
 
       {spatial && (
-        <section className="px-4 py-3 border-t border-gray-100">
+        <section className="px-4 py-3 border-t border-line">
           {spatialLabel && (
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">{spatialLabel}</h3>
+            <h3 className="text-sm font-semibold text-content-muted mb-2">{spatialLabel}</h3>
           )}
           {spatial}
         </section>

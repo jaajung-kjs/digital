@@ -80,42 +80,42 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
       <EmptyStateGuide floorPlan={floorPlan} floorId={floorId} onImportClick={onImportClick} />
 
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
-        <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-1 gap-0.5">
-          <button onClick={() => zoomToCenter(Math.max(10, zoom - 10))} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="축소">
+        <div className="bg-white/95 backdrop-blur shadow-sm border border-line rounded-lg flex items-center h-8 px-1 gap-0.5">
+          <button onClick={() => zoomToCenter(Math.max(10, zoom - 10))} className="w-6 h-6 flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-2 rounded transition-colors" title="축소">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 12H4" /></svg>
           </button>
           <div
-            className="w-14 h-6 flex items-center justify-center text-xs font-mono text-gray-700 cursor-pointer hover:bg-gray-100 rounded"
+            className="w-14 h-6 flex items-center justify-center text-xs font-mono text-content-muted cursor-pointer hover:bg-surface-2 rounded"
             onClick={() => zoomToCenter(100)}
             title="100%로 리셋"
           >
             {zoom}%
           </div>
-          <button onClick={() => zoomToCenter(Math.min(1000, zoom + 10))} className="w-6 h-6 flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors" title="확대">
+          <button onClick={() => zoomToCenter(Math.min(1000, zoom + 10))} className="w-6 h-6 flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-2 rounded transition-colors" title="확대">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M12 4v16m8-8H4" /></svg>
           </button>
-          <div className="w-px h-4 bg-gray-300 mx-0.5" />
+          <div className="w-px h-4 bg-line-strong mx-0.5" />
           <select
             value=""
             onChange={(e) => { if (e.target.value) zoomToCenter(parseInt(e.target.value)); }}
-            className="w-6 h-6 bg-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded cursor-pointer appearance-none text-center text-xs"
+            className="w-6 h-6 bg-transparent text-content-muted hover:text-content hover:bg-surface-2 rounded cursor-pointer appearance-none text-center text-xs"
             title="줌 프리셋"
           >
-            <option value="" className="bg-white">&#9662;</option>
-            <option value="10" className="bg-white">10%</option>
-            <option value="25" className="bg-white">25%</option>
-            <option value="50" className="bg-white">50%</option>
-            <option value="100" className="bg-white">100%</option>
-            <option value="200" className="bg-white">200%</option>
-            <option value="400" className="bg-white">400%</option>
+            <option value="" className="bg-surface">&#9662;</option>
+            <option value="10" className="bg-surface">10%</option>
+            <option value="25" className="bg-surface">25%</option>
+            <option value="50" className="bg-surface">50%</option>
+            <option value="100" className="bg-surface">100%</option>
+            <option value="200" className="bg-surface">200%</option>
+            <option value="400" className="bg-surface">400%</option>
           </select>
         </div>
 
-        <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-0.5">
+        <div className="bg-white/95 backdrop-blur shadow-sm border border-line rounded-lg flex items-center h-8 px-0.5">
           <button
             onClick={() => setShowGrid(!showGrid)}
             className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
-              showGrid ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+              showGrid ? 'text-primary bg-info-bg' : 'text-content-faint hover:text-content-muted hover:bg-surface-2'
             }`}
             title={`그리드 ${showGrid ? 'ON' : 'OFF'} (G)`}
           >
@@ -126,7 +126,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
           <button
             onClick={() => setGridSnap(!gridSnap)}
             className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
-              gridSnap ? 'text-amber-600 bg-amber-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+              gridSnap ? 'text-warning bg-warning-bg' : 'text-content-faint hover:text-content-muted hover:bg-surface-2'
             }`}
             title={`스냅 ${gridSnap ? 'ON' : 'OFF'} (S)`}
           >
@@ -137,7 +137,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
           </button>
         </div>
 
-        <div className="bg-white/95 backdrop-blur shadow-sm border border-gray-200 rounded-lg flex items-center h-8 px-1">
+        <div className="bg-white/95 backdrop-blur shadow-sm border border-line rounded-lg flex items-center h-8 px-1">
           <EditorHelpButton />
         </div>
 

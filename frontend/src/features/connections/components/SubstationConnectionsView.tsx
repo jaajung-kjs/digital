@@ -16,29 +16,29 @@ export function SubstationConnectionsTable({ connections, typeFilter, onDelete, 
   onSelectAsset: (id: string) => void;
 }) {
   const rows = typeFilter ? connections.filter((c) => c.cableType === typeFilter) : connections;
-  if (!rows.length) return <p className="p-4 text-sm text-gray-400">연결 없음</p>;
+  if (!rows.length) return <p className="p-4 text-sm text-content-faint">연결 없음</p>;
   return (
     <table className="w-full text-sm">
-      <thead><tr className="text-left text-xs text-gray-500 border-b">
+      <thead><tr className="text-left text-xs text-content-muted border-b border-line">
         <th className="p-2">출발</th><th className="p-2">도착</th><th className="p-2">유형</th><th className="p-2">라벨</th><th className="p-2">길이</th><th></th>
       </tr></thead>
       <tbody>
         {rows.map((c) => (
-          <tr key={c.id} className="border-b hover:bg-gray-50">
-            <td className="p-2"><button className="text-blue-700 hover:underline" onClick={() => epId(c.source) && onSelectAsset(epId(c.source)!)}>{c.source.name}</button></td>
-            <td className="p-2"><button className="text-blue-700 hover:underline" onClick={() => epId(c.target) && onSelectAsset(epId(c.target)!)}>{c.target.name}</button></td>
+          <tr key={c.id} className="border-b border-line hover:bg-surface-2">
+            <td className="p-2"><button className="text-primary hover:underline" onClick={() => epId(c.source) && onSelectAsset(epId(c.source)!)}>{c.source.name}</button></td>
+            <td className="p-2"><button className="text-primary hover:underline" onClick={() => epId(c.target) && onSelectAsset(epId(c.target)!)}>{c.target.name}</button></td>
             <td className="p-2">
               <select aria-label="유형" value={c.cableType} onChange={(e) => onUpdate(c.id, { cableType: e.target.value })}
-                className="text-xs border border-gray-200 rounded px-1 py-0.5">
+                className="text-xs border border-line rounded px-1 py-0.5">
                 {CABLE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </td>
             <td className="p-2">
               <input aria-label="라벨" defaultValue={c.label ?? ''} key={c.id + (c.label ?? '')}
                 onBlur={(e) => { const v = e.target.value || null; if (v !== c.label) onUpdate(c.id, { label: v }); }}
-                className="w-20 text-xs border border-gray-200 rounded px-1 py-0.5" placeholder="-" />
+                className="w-20 text-xs border border-line rounded px-1 py-0.5" placeholder="-" />
             </td>
-            <td className="p-2 text-gray-500">{c.length ?? '-'}</td>
+            <td className="p-2 text-content-muted">{c.length ?? '-'}</td>
             <td className="p-2"><button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-content-faint hover:text-danger"><X size={14} /></button></td>
           </tr>
         ))}
@@ -57,12 +57,12 @@ export function SubstationConnectionsView(_: { substationId: string }) {
   const [typeFilter, setTypeFilter] = useState('');
   return (
     <div className="h-full overflow-auto">
-      <div className="p-2 border-b flex gap-2 items-center">
-        <span className="text-xs text-gray-500">유형</span>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="text-sm border rounded px-1 py-0.5">
+      <div className="p-2 border-b border-line flex gap-2 items-center">
+        <span className="text-xs text-content-muted">유형</span>
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="text-sm border border-line rounded px-1 py-0.5">
           {TYPES.map((t) => <option key={t} value={t}>{t || '전체'}</option>)}
         </select>
-        <span className="text-xs text-gray-400">{connections.length}건</span>
+        <span className="text-xs text-content-faint">{connections.length}건</span>
       </div>
       <SubstationConnectionsTable
         connections={connections} typeFilter={typeFilter}

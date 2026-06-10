@@ -127,7 +127,7 @@ function CableSpecModal() {
     >
       <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
         {visibleCategories.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">
+          <p className="text-sm text-content-faint text-center py-6">
             사용 가능한 카테고리가 없습니다.
           </p>
         ) : (
@@ -141,8 +141,8 @@ function CableSpecModal() {
                 onClick={() => setSelectedCategoryId(cat.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border transition-colors ${
                   active
-                    ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-200'
-                    : 'border-gray-200 hover:bg-gray-50'
+                    ? 'border-primary bg-info-bg ring-1 ring-primary/30'
+                    : 'border-line hover:bg-surface-2'
                 }`}
               >
                 <span
@@ -150,11 +150,11 @@ function CableSpecModal() {
                   className="w-3 h-3 rounded-sm flex-shrink-0 ring-1 ring-black/5"
                   style={{ backgroundColor: swatch }}
                 />
-                <span className="text-sm text-gray-800 text-left flex-1 truncate">
+                <span className="text-sm text-content text-left flex-1 truncate">
                   {cat.name}
                 </span>
                 {cat.displayGroup && (
-                  <span className="text-[11px] text-gray-400">
+                  <span className="text-[11px] text-content-faint">
                     {cat.displayGroup}
                   </span>
                 )}

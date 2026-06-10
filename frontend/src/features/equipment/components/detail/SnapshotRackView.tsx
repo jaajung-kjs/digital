@@ -17,7 +17,7 @@ export function SnapshotRackView({ equipmentId }: { equipmentId: string }) {
 
   if (internalEquipment.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+      <div className="flex items-center justify-center py-12 text-sm text-content-faint">
         내부 설비 없음
       </div>
     );
@@ -29,11 +29,11 @@ export function SnapshotRackView({ equipmentId }: { equipmentId: string }) {
         <div
           key={eq.id}
           onClick={() => setDetailPanelEquipmentId(eq.id)}
-          className="border border-gray-200 rounded px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors"
+          className="border border-line rounded px-3 py-2 hover:bg-info-bg cursor-pointer transition-colors"
         >
-          <p className="text-sm font-medium text-gray-700 truncate">{eq.name}</p>
+          <p className="text-sm font-medium text-content-muted truncate">{eq.name}</p>
           {eq.materialCategoryCode && (
-            <p className="text-xs text-gray-400">{eq.materialCategoryCode}</p>
+            <p className="text-xs text-content-faint">{eq.materialCategoryCode}</p>
           )}
         </div>
       ))}
