@@ -7,6 +7,7 @@ import { useAssetConnections } from '../../connections/hooks/useAssetConnections
 import { useCableMutations } from '../../connections/hooks/useCableMutations';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
 import { CollapsibleSection } from '../../../components/CollapsibleSection';
+import { useEffectiveAssets } from '../../workingCopy/hooks';
 
 /**
  * 단일 상세 인스펙터(SSOT) — 평면도(에디터)·현황·대장 그리드 모든 진입점에서
@@ -63,6 +64,17 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
   const { data: connections = [] } = useAssetConnections(asset.id);
   const { deleteCable, updateCable } = useCableMutations();
 
+  // 랙 모듈(parentAssetId 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출하고
+  // 상위 랙으로 돌아가는 breadcrumb 를 보여준다. (구 RackModuleDialog 의 RO 정보 대체.)
+  const isModule = asset.parentAssetId != null;
+  const effectiveAssets = useEffectiveAssets();
+  const parentRack = isModule
+    ? effectiveAssets.find((a) => a.id === asset.parentAssetId) ?? null
+    : null;
+  const slotIndex = asset.slotIndex ?? 0;
+  const slotSpan = asset.slotSpan ?? 1;
+  const categoryLabel = asset.assetType?.name ?? '';
+
   // 종류 — 읽기전용. assetType.name(대장 레코드) 우선, 없으면 placementKind.
   const kindLabel = asset.assetType?.name ?? asset.assetType?.placementKind ?? '';
   // 크기 — 평면도에 배치된 자산에만 존재(현황·대장 리스트에는 없음).
@@ -73,11 +85,33 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
 
   return (
     <>
+      {/* 랙으로 — 모듈에서 상위 랙 패널로 복귀. onSelectAsset 이 에디터/현황/대장 모두에서
+          공유 선택을 통해 상위 랙 상세 패널을 연다. */}
+      {isModule && parentRack && (
+        <div className="px-4 pt-2">
+          <button
+            type="button"
+            onClick={() => onSelectAsset(parentRack.id)}
+            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+          >
+            ← {parentRack.name}
+          </button>
+        </div>
+      )}
+
       <section className="px-4 py-3">
         {ro ? (
           <>
             <ReadField label="이름" value={asset.name} />
-            <ReadField label="종류" value={kindLabel} />
+            {/* 모듈은 종류 대신 카테고리/슬롯 위치(RO)를 보여준다. */}
+            {isModule ? (
+              <>
+                <ReadField label="카테고리" value={categoryLabel} />
+                <ReadField label="슬롯 위치" value={`슬롯 ${slotIndex + 1}–${slotIndex + slotSpan} (${slotSpan}슬롯)`} />
+              </>
+            ) : (
+              <ReadField label="종류" value={kindLabel} />
+            )}
             <ReadField label="담당자" value={asset.manager ?? ''} />
             <ReadField label="설치일" value={toDateInputValue(asset.installDate)} />
             <ReadField label="상태" value={asset.status ?? ''} />
@@ -87,8 +121,16 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
         ) : (
           <>
             <Field label="이름" value={asset.name} onCommit={(v) => v.trim() && patch({ name: v.trim() })} />
-            {/* 종류는 항상 읽기전용 — 변경은 대장 종류 변경(별도 흐름)에서만. */}
-            <ReadField label="종류" value={kindLabel} />
+            {/* 종류는 항상 읽기전용 — 변경은 대장 종류 변경(별도 흐름)에서만.
+                모듈은 종류 대신 카테고리/슬롯 위치(RO). */}
+            {isModule ? (
+              <>
+                <ReadField label="카테고리" value={categoryLabel} />
+                <ReadField label="슬롯 위치" value={`슬롯 ${slotIndex + 1}–${slotIndex + slotSpan} (${slotSpan}슬롯)`} />
+              </>
+            ) : (
+              <ReadField label="종류" value={kindLabel} />
+            )}
             <Field label="담당자" value={asset.manager ?? ''} onCommit={(v) => patch({ manager: v || null })} />
             <Field label="설치일" type="date" value={toDateInputValue(asset.installDate)} onCommit={(v) => patch({ installDate: v || null })} />
             <Field label="상태" value={asset.status ?? ''} onCommit={(v) => patch({ status: v || null })} />

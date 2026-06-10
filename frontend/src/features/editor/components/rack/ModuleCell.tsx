@@ -24,7 +24,9 @@ function indicatorGridArea(slotIndex: number, slotSpan: number): { start: number
 }
 
 export function ModuleCell({ module, siblings, gridRef }: Props) {
-  const setSelectedRackModuleId = useEditorStore((s) => s.setSelectedRackModuleId);
+  // 모듈 클릭 → 다른 모든 자산과 동일한 통합 상세 패널을 연다.
+  // (하드코딩 중앙 모달 RackModuleDialog 제거 — 모듈도 Asset 이므로 AssetDetailBody 가 처리.)
+  const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
   const stageRackModuleUpdate = useSubstationWorkingCopy((s) => s.stageRackModuleUpdate);
 
   const onCommit = useCallback((updates: ModuleSlotUpdate[]) => {
@@ -34,8 +36,8 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   }, [stageRackModuleUpdate]);
 
   const onClick = useCallback(() => {
-    setSelectedRackModuleId(module.id);
-  }, [setSelectedRackModuleId, module.id]);
+    setDetailPanelEquipmentId(module.id);
+  }, [setDetailPanelEquipmentId, module.id]);
 
   const { handlePointerDown, dragState } = useSlotDrag({
     module,

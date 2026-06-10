@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { useEditorStore } from '../stores/editorStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
-import { useEffectiveEquipment } from '../../workingCopy/hooks';
+import { useEffectiveAssets, useEffectiveEquipment } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
@@ -36,10 +36,23 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
   const localEquipment = snapshotActive ? snapshotEquipment : effectiveEquipment;
   const localEq = localEquipment.find((e) => e.id === equipmentId);
 
+  // 랙 모듈은 평면도에 배치되지 않아 effectiveEquipment(floor) 에 없다.
+  // 그 경우 전역 effective assets 에서 모듈 Asset(parentAssetId 있음)을 찾아
+  // 같은 통합 본문(AssetDetailBody)에 주입한다. 모듈은 leaf 라 공간 섹션 없음(kind=null).
+  const effectiveAssets = useEffectiveAssets();
+  const moduleAsset = useMemo(
+    () =>
+      !localEq && !snapshotActive
+        ? (effectiveAssets.find((a) => a.id === equipmentId && a.parentAssetId != null) ?? null)
+        : null,
+    [localEq, snapshotActive, effectiveAssets, equipmentId],
+  );
+
   const detailKind = useMemo<DetailPanelKind | null>(() => {
+    if (moduleAsset) return null; // 모듈은 내부설비/경로 같은 공간 섹션이 없음
     if (!localEq) return null;
     return EQUIPMENT_KIND_INFO[localEq.kind]?.detailPanelKind ?? null;
-  }, [localEq]);
+  }, [moduleAsset, localEq]);
 
   // I35: ESC to close panel (when no modal/lightbox is open)
   useEffect(() => {
@@ -70,13 +83,21 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <h3 className="text-sm font-bold text-gray-900 truncate">
-            {!isTemp && isLoading ? '로딩 중...' : equipment?.name ?? '설비 상세'}
+            {moduleAsset
+              ? moduleAsset.name
+              : !isTemp && isLoading
+                ? '로딩 중...'
+                : equipment?.name ?? '설비 상세'}
           </h3>
-          {localEq && (
+          {moduleAsset ? (
+            <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
+              {moduleAsset.assetType?.name ?? '모듈'}
+            </span>
+          ) : localEq ? (
             <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
               {EQUIPMENT_KIND_INFO[localEq.kind]?.label ?? localEq.kind}
             </span>
-          )}
+          ) : null}
         </div>
         <button
           onClick={() => setDetailPanelEquipmentId(null)}
@@ -103,6 +124,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
           key={`${equipmentId}-${focusTick}`}
           equipmentId={equipmentId}
           kind={detailKind}
+          asset={moduleAsset}
         />
       </div>
     </div>
