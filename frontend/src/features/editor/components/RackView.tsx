@@ -9,7 +9,7 @@ interface Props {
 /**
  * P11: 12-슬롯 고정 그리드 RackView.
  * 추가는 인라인 콤보박스(EmptySlot 클릭 → CategoryComboboxPopover),
- * 편집은 중앙 모달(RackModuleDialog, 모듈 클릭).
+ * 편집/상세는 통합 상세 패널(모듈 클릭 → setDetailPanelEquipmentId → AssetDetailBody).
  */
 export function RackView({ equipmentId }: Props) {
   // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로. 랙 존재 확인은 substation 전역
