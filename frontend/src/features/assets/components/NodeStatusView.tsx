@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Map as MapIcon } from 'lucide-react';
 import { useNodeAssets, type NodeKind } from '../../../hooks/useNodeAssets';
@@ -7,7 +7,8 @@ import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { installLocation, inspectionState, type AssetListItem } from '../nodeStatus';
 import { assetAlert } from '../alerts';
 import { useAsset } from '../hooks/useAsset';
-import { useUpdateAsset } from '../hooks/useUpdateAsset';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useEffectiveAssets, useEffectiveAssetsOverlay, useUnifiedDirty } from '../../workingCopy/hooks';
 import { StatusSummary } from './StatusSummary';
 import { AssetDetailPanel } from './AssetDetailPanel';
 import { Badge, IconButton, type BadgeStatus } from '../../../components/ui';
@@ -17,6 +18,16 @@ const COLUMNS = ['종류', '이름', '설치장소', '설치일', '담당자', '
 
 function uniq(values: (string | null | undefined)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v))).sort();
+}
+
+/** asset overlay update patch 의 공유 필드만 골라 AssetListItem 키로 매핑(있는 키만). */
+function assetPatchToListItem(patch: Partial<Asset>): Partial<AssetListItem> {
+  const out: Partial<AssetListItem> = {};
+  if ('name' in patch) out.name = patch.name as string;
+  if ('manager' in patch) out.manager = patch.manager ?? null;
+  if ('installDate' in patch) out.installDate = patch.installDate ?? null;
+  if ('status' in patch) out.status = patch.status ?? null;
+  return out;
 }
 
 /** 자유 텍스트 상태값 → Badge 상태(정상=success, 점검요/임박=warning, 이상/교체=danger, 기타=neutral). */
@@ -97,14 +108,52 @@ function AssetRow({
 }
 
 /**
- * 선택된 자산의 인스펙터(본부·사업소 — 워킹카피가 없는 곳).
- * 자산 상세를 useAsset 으로 직접 페치하고(목록 행에는 풀 Asset 이 없음),
- * 편집은 강제 이동 없이 useUpdateAsset 로 직접 저장(PUT /assets/:id)한다.
+ * 선택된 자산의 인스펙터(본부·사업소 — 워킹카피가 SSOT).
+ *
+ * SSOT 불변식: 모든 편집은 자산이 속한 변전소 working copy 에 stage 돼야 한다(직접 PUT 제거).
+ * - 대상 변전소(targetSubstationId)의 working copy 가 로드돼 있으면: 인스펙터는 편집 모드,
+ *   자산은 effective(스테이징 반영)에서 해석 → stage 한 편집이 인스펙터·리스트에 즉시 반영.
+ * - 가드: 다른 변전소가 로드돼 있고 미저장(dirty>0)이면 절대 전환하지 않고 읽기전용 + 안내.
+ * - 로드 직후(effective 비어있음) 동안만 useAsset 페치로 읽기전용 표시(스테이지 불가).
  */
-function DirectEditDetailPanel({ assetId, onClose }: { assetId: string; onClose: () => void }) {
-  const { data: asset } = useAsset(assetId);
-  const updateAsset = useUpdateAsset();
-  if (!asset) {
+function StagedEditDetailPanel({
+  assetId,
+  targetSubstationId,
+  loadedSubstationId,
+  blockedByDirtyName,
+  onClose,
+}: {
+  assetId: string;
+  targetSubstationId: string;
+  /** 현재 로드된 변전소(=working copy store 의 substationId). */
+  loadedSubstationId: string | null;
+  /** 가드 발동 시(다른 변전소가 미저장) — 그 변전소 이름(없으면 null). 가드 아니면 undefined. */
+  blockedByDirtyName: string | null | undefined;
+  onClose: () => void;
+}) {
+  const effective = useEffectiveAssets();
+  const { data: fetched } = useAsset(assetId);
+
+  // 가드: 다른 변전소가 미저장 상태 → 읽기전용 + 안내. 편집(stage) 차단.
+  if (blockedByDirtyName !== undefined) {
+    const name = blockedByDirtyName ?? '다른 변전소';
+    return (
+      <aside className="w-96 shrink-0 border-l border-line bg-surface h-full overflow-y-auto">
+        <div className="px-4 py-3 border-b border-line bg-warning-bg text-sm text-warning">
+          다른 변전소({name})에 미저장 변경이 있습니다. 먼저 저장하거나 되돌린 뒤 편집하세요.
+        </div>
+        {fetched && (
+          <AssetDetailPanel key={fetched.id} asset={fetched} mode="view" onClose={onClose} />
+        )}
+      </aside>
+    );
+  }
+
+  // 대상 변전소가 아직 로드 안 됨(로딩 중) → useAsset 페치로 읽기전용 표시(스테이지 불가).
+  const loaded = loadedSubstationId === targetSubstationId;
+  const asset = loaded ? effective.find((a) => a.id === assetId) : undefined;
+  const display = asset ?? fetched;
+  if (!display) {
     return (
       <aside className="w-96 shrink-0 border-l border-line bg-surface h-full overflow-y-auto p-4 text-sm text-content-muted">
         불러오는 중…
@@ -113,11 +162,15 @@ function DirectEditDetailPanel({ assetId, onClose }: { assetId: string; onClose:
   }
   return (
     <AssetDetailPanel
-      key={asset.id}
-      asset={asset}
-      mode="edit"
+      key={display.id}
+      asset={display}
+      mode={asset ? 'edit' : 'view'}
       onClose={onClose}
-      onPatch={(id, patch) => updateAsset.mutate({ id, patch })}
+      onPatch={
+        asset
+          ? (id, patch) => useSubstationWorkingCopy.getState().stageAssetUpdate(id, patch as Partial<Asset>)
+          : undefined
+      }
     />
   );
 }
@@ -141,8 +194,31 @@ export function NodeStatusView({
   // rows 가 주입되면(현황 — 통합 store 머지) useNodeAssets 구독은 불필요 → 비활성화.
   const skip = rows !== undefined;
   const { data: fetchedItems = [] } = useNodeAssets(skip ? null : nodeType, skip ? null : nodeId);
+
+  // 본부·사업소 경로: resolveAsset/onPatch 가 주입되지 않은 곳(변전소 현황은 SubstationStatusView 가 주입).
+  // 이 경로는 더 이상 직접 저장하지 않고, 자산이 속한 변전소 working copy 에 온디맨드 로드 후 stage 한다.
+  const isHqPath = resolveAsset === undefined && onPatch === undefined;
+  const loadedSubstationId = useSubstationWorkingCopy((s) => s.substationId);
+  const dirty = useUnifiedDirty();
+  const overlay = useEffectiveAssetsOverlay();
+  const effectiveAssetsRef = useEffectiveAssets();
+
+  // 라이브 머지(본부·사업소): 로드된 변전소에 속한 행만 effective(스테이징 반영)로 덮어쓴다.
+  // 다른 변전소 행은 백엔드 페치 그대로 — 변전소 현황(useSubstationStatusRows)과 동일한 동작.
+  const fetchedMerged = useMemo(() => {
+    if (!isHqPath || !loadedSubstationId) return fetchedItems;
+    const deleted = new Set(overlay.deletes);
+    return fetchedItems
+      .filter((r) => !(r.substationId === loadedSubstationId && deleted.has(r.id)))
+      .map((r) => {
+        if (r.substationId !== loadedSubstationId) return r;
+        const p = overlay.updates[r.id];
+        return p ? { ...r, ...assetPatchToListItem(p) } : r;
+      });
+  }, [isHqPath, loadedSubstationId, fetchedItems, overlay]);
+
   // rows 가 주어지면 그것을 데이터 소스로(필터/요약 모두 items 기준).
-  const items = rows ?? fetchedItems;
+  const items = rows ?? fetchedMerged;
   const today = useMemo(() => new Date(), []);
   const ws = useWorkspaceNav();
   const navigate = useNavigate();
@@ -153,6 +229,32 @@ export function NodeStatusView({
   const [localSelected, setLocalSelected] = useState<string | null>(null);
   const selectedId = sel ? sel.selectedAssetId : localSelected;
   const setSelectedId = sel ? sel.setSelectedAssetId : setLocalSelected;
+
+  // 선택된 자산이 속한 변전소(본부·사업소 경로) — 행 데이터(AssetListItem)에서 해석.
+  const selectedItem = selectedId ? items.find((i) => i.id === selectedId) : undefined;
+  const targetSubstationId = isHqPath ? selectedItem?.substationId : undefined;
+
+  // 가드 조건: 다른 변전소가 로드돼 있고 미저장(dirty>0)이면 전환 금지.
+  const blocked =
+    !!targetSubstationId &&
+    !!loadedSubstationId &&
+    loadedSubstationId !== targetSubstationId &&
+    dirty > 0;
+  // 가드 시 안내에 쓸, 현재 로드된(미저장) 변전소 이름 — 페치 행에서 해석(없으면 null).
+  const dirtySubstationName = useMemo(
+    () => (blocked ? fetchedItems.find((i) => i.substationId === loadedSubstationId)?.substationName ?? null : null),
+    [blocked, fetchedItems, loadedSubstationId],
+  );
+
+  // 온디맨드 로드: 대상 변전소가 아직 로드 안 됐고 가드에 걸리지 않으면 load.
+  // load 는 idempotent(loadSeq 가드) + substationId 가 바뀔 때만 진입 → 루프 없음.
+  const load = useSubstationWorkingCopy((s) => s.load);
+  useEffect(() => {
+    if (isHqPath && targetSubstationId && !blocked && loadedSubstationId !== targetSubstationId) {
+      void load(targetSubstationId);
+    }
+  }, [isHqPath, targetSubstationId, blocked, loadedSubstationId, load]);
+  void effectiveAssetsRef; // 구독 유지(effective 갱신 시 리스트/인스펙터 재렌더).
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -264,7 +366,15 @@ export function NodeStatusView({
             />
           )
         ) : (
-          <DirectEditDetailPanel assetId={selectedId} onClose={() => setSelectedId(null)} />
+          targetSubstationId && (
+            <StagedEditDetailPanel
+              assetId={selectedId}
+              targetSubstationId={targetSubstationId}
+              loadedSubstationId={loadedSubstationId}
+              blockedByDirtyName={blocked ? dirtySubstationName : undefined}
+              onClose={() => setSelectedId(null)}
+            />
+          )
         ))}
     </div>
   );
