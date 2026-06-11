@@ -17,6 +17,47 @@
 
 ---
 
+## 1.5 북극성 — 목표 아키텍처 (처음부터 설계한다면 / 최적)
+
+> 모든 리팩토링은 이 구조로 **수렴**한다. 핵심 원리:
+> **"엔티티 종류는 코드가 아니라 데이터다. 워킹카피는 종류를 몰라야 한다."**
+> 엔티티/뷰 추가가 **데이터·쿼리로 끝나는**(stage 함수·레지스트리·dirty/revert/commit 수정 0) 보일러플레이트 0 구조.
+
+**1) SSOT = 타입드 레코드 단일 스토어** — 엔티티별 분리맵 없이 `id → record` 하나. 종류는 데이터.
+```
+record = { id, type: 'asset'|'cable'|'inspection'|…, …fields }
+WorkingCopy = { base: Map<id,record>(HEAD),  working: Map<id,record>(편집) }
+```
+
+**2) git-like = 전부 제네릭(엔티티 무관)**
+```
+읽기  query(r => r.type==='asset' && r.floorId===f)   // 종류는 그냥 필터
+쓰기  put(record) · patch(id, fields) · remove(id)     // working 을 직접 변경
+dirty  = diff(base, working) ≠ ∅
+commit = diff(base, working) 전송;  base ← working
+revert = working ← clone(base)
+```
+→ **새 엔티티 = 새 `type` 레코드 put.** 워킹카피 코어는 한 줄도 안 바뀐다.
+
+**3) 도면·현황·연결·계통도 = 같은 스토어의 순수 투영(projection)**
+```
+도면=query(asset & hasPosition) 공간렌더 · 현황=query(asset) 표 · 연결=query(cable) 그래프 · 계통도=레이아웃
+```
+→ `FloorPlanEquipment` 같은 **별도 모양 0**(캔버스가 asset 레코드 직접 투영). **뷰 추가 = 쿼리 하나.**
+
+**4) 종류별 지식 = 영속화 경계(백엔드)에만** — 커밋 diff 를 `type` 으로 디스패치. 프론트는 100% 제네릭.
+
+**베스트프랙티스 근거**: local-first 동기화(Linear Sync·Replicache·Figma·ElectricSQL), 정규화+불변 diff(Redux Toolkit + Immer + reselect), CRDT(Automerge·Yjs), 단일모델·다중뷰=view-as-projection(Esri Utility Network·DCIM).
+
+**현재와의 거리**: `overlay.ts`·`descriptor`·`mergeEffective` 는 이미 제네릭이라 **가깝다.** 벗어난 지점 3개 → 수렴 방향:
+| 벗어난 지점 | 수렴 |
+|---|---|
+| ① 엔티티별 분리맵 + 이름 함수(stageAssetUpdate…) | 단일 typed-record 스토어 + generic put/patch/remove/query |
+| ② 캔버스 이중 모양(FloorPlanEquipment↔Asset) | 뷰=투영(캔버스가 asset 직접 렌더) |
+| ③ 종류별 커밋 빌더 | 백엔드 type 디스패치 |
+
+---
+
 ## 2. 핵심 모델 — git 유추
 
 | git | 이 시스템 | 코드 |
@@ -172,15 +213,15 @@ ASCII (터미널용):
 
 각 단계: front/back `tsc` 0 + `vitest` + **실측**(staged→effective 반영 / commit→DB / revert→폐기) + 회귀 테스트 + 단계 커밋.
 
-- **P1 — C2/C1 위반 제거(활성 버그)** *(저위험·우선)*
-  - 케이블 연결 탭: `useEffectiveCables`+effective assets 로 연결 목록 구성(읽기), 편집/삭제는 `stageCableUpdate/Delete`(쓰기). 즉시 `useCableMutations` 제거.
-  - 죽은 즉시-CRUD 훅 제거(useCreateFiberPath/useDeleteFiberPath, useAssetPhotos, useAssetMaintenanceLogs).
-- **P2 — 필드SSOT 단일화(드리프트 제거)** *(저위험)*: 중복 로직(isRackModule·statusIsOn·assetPatchToListItem·computeLastMaintenanceDate) 단일 모듈화 + 중복 CableDetailDTO 정리.
-- **P3 — 스토어 하나 (핵심 단순화)** *(중위험·고효용)*: editorStore 의 도메인 큐(pendingUploads/Logs/Inspections + deletes)를 `substationStore` 오버레이 컬렉션으로 이전. 사진 삭제 staging 도 여기로(활성 버그 #5 동반 해결). flush/dirty/revert 가 substationStore 한 곳에서 읽게. editorStore = UI 전용. **백엔드 무변경.** → "어느 스토어?"가 사라짐.
-- **P4 — 모델 이중성 붕괴(캔버스→Asset)** *(고위험·마지막)*: FloorPlanEquipment 필드명→Asset 정렬 → 변환기 항등화 → 삭제 → 타입 제거. 별도 세부 plan.
-- **P5 — 위생**: deprecated 잔재(`today` prop 등), 스냅샷 path 중복 컴포넌트 검토.
+**A(점진 수렴)** — 매 단계 동작 보장하며 §1.5 북극성으로 이동. 각 단계 독립 커밋·검증.
 
-순서 근거: P1(활성버그)·P2(드리프트)는 저위험 즉효 → 먼저. P3(스토어 하나)는 가장 큰 직관성 향상이고 백엔드 무변경·중위험 → 그 다음. P4(캔버스)는 회귀 위험 최대 → 마지막. 사진 삭제 활성버그는 P3 에서 스토어 이전과 함께 해결(중복작업 회피).
+- **P1 ✅** C2/C1 위반 제거: 케이블 연결탭 effective+stage, 죽은 즉시-CRUD 훅 제거. (`8093c79`)
+- **P2 ✅** 드리프트 제거: 중복 로직(assetPatchToListItem·statusIsOn·isRackModuleAsset) 단일화. (`91dba3b`)
+- **P3 — 워킹카피 코어 제네릭화 (북극성 ①)** *(중위험)*: 엔티티별 이름 함수(stageAssetUpdate…)를 **제네릭 코어**(`put/patch/remove/query` over typed-record store) 위로. 기존 컬렉션을 한 번에 한 종류씩 그 위로 이주(이름 함수는 제네릭 위임 래퍼 → 호출부 무변경, 동작 보장). media(photo/log/inspection)는 **제네릭으로** 흡수(editorStore=UI전용, 사진삭제 활성버그 동반 해결). 각 종류의 영속화는 descriptor 의 `flush`/`commit` 로 등록 — **새 엔티티 = 데이터 등록, 함수 0.**
+- **P4 — 뷰=투영 (북극성 ②)** *(고위험·세부 plan 별도)*: 캔버스가 asset 레코드를 직접 투영하도록 → `FloorPlanEquipment` 변환기 4개 + 타입 제거.
+- **P5 — 백엔드 type 디스패치 커밋 (북극성 ③, 선택)** + 위생(deprecated 잔재, 스냅샷 중복 컴포넌트).
+
+순서 근거: 저위험·활성버그 먼저(P1·P2 완료). P3 는 코어 제네릭화로 북극성 ①에 도달하며 보일러플레이트를 구조적으로 없앤다(이름 함수는 위임 래퍼로 동작 보장). P4·P5 는 회귀 위험이 커 세부 plan 후.
 
 ---
 
