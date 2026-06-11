@@ -10,8 +10,8 @@ import { CircuitPicker } from '../../connections/components/CircuitPicker';
  * the cable drawing store's phase. Sits at the editor root so it can render
  * above the canvas regardless of which equipment was clicked.
  *
- * Source phase: pickingSourceModule  → picker over `sourceEquipmentId`.
- * Target phase: pickingTargetModule  → picker over `targetEquipmentId`.
+ * Source phase: pickingSourceModule  → picker over `sourceContainerAssetId`.
+ * Target phase: pickingTargetModule  → picker over `targetContainerAssetId`.
  *
  * On select / cancel, the store transitions to drawingPath / selectingSpec
  * (or back to selectingSource for a cancel).
@@ -24,9 +24,9 @@ interface CableEndpointPickerHostProps {
 export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProps) {
   const cable = useCableDrawing();
   const phase = cable?.phase ?? 'idle';
-  const sourceEquipmentId = cable?.sourceEquipmentId ?? null;
+  const sourceContainerAssetId = cable?.sourceContainerAssetId ?? null;
   const sourcePosition = cable?.sourcePosition ?? null;
-  const targetEquipmentId = cable?.targetEquipmentId ?? null;
+  const targetContainerAssetId = cable?.targetContainerAssetId ?? null;
   const targetPosition = cable?.targetPosition ?? null;
 
   // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로.
@@ -34,9 +34,9 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
 
   const activeEquipmentId =
     phase === 'pickingSourceModule'
-      ? sourceEquipmentId
+      ? sourceContainerAssetId
       : phase === 'pickingTargetModule'
-        ? targetEquipmentId
+        ? targetContainerAssetId
         : null;
 
   const activeEquipment = useMemo(
@@ -68,11 +68,11 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
         onSelect={(moduleId) => {
           if (isSource) {
             useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
-              moduleId,
+              innerAssetId: moduleId,
             });
           } else {
             useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
-              moduleId,
+              innerAssetId: moduleId,
             });
           }
         }}
@@ -89,11 +89,11 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
         onSelect={(circuitId) => {
           if (isSource) {
             useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
-              circuitId,
+              innerAssetId: circuitId,
             });
           } else {
             useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
-              circuitId,
+              innerAssetId: circuitId,
             });
           }
         }}
