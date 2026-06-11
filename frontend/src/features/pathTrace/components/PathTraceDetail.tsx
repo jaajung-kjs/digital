@@ -50,7 +50,7 @@ function buildDisplayItems(
   const fiberEdgesByEquip = new Map<string, TraceEdge[]>();
   for (const edge of allEdges) {
     if (edge.type !== 'fiberPath') continue;
-    for (const eqId of [edge.sourceEquipmentId, edge.targetEquipmentId]) {
+    for (const eqId of [edge.sourceAssetId, edge.targetAssetId]) {
       if (!fiberEdgesByEquip.has(eqId)) fiberEdgesByEquip.set(eqId, []);
       fiberEdgesByEquip.get(eqId)!.push(edge);
     }
@@ -86,16 +86,16 @@ function buildDisplayItems(
         const closingEdge = fiberEdges.find((e) => {
           if (e.id === incomingEdgeId) return false;
           const otherOfdId =
-            e.sourceEquipmentId === thisOfdId ? e.targetEquipmentId : e.sourceEquipmentId;
+            e.sourceAssetId === thisOfdId ? e.targetAssetId : e.sourceAssetId;
           return visitedIds.has(otherOfdId);
         });
 
         if (closingEdge) {
           const from = step.node.substationName;
           const otherOfdId =
-            closingEdge.sourceEquipmentId === thisOfdId
-              ? closingEdge.targetEquipmentId
-              : closingEdge.sourceEquipmentId;
+            closingEdge.sourceAssetId === thisOfdId
+              ? closingEdge.targetAssetId
+              : closingEdge.sourceAssetId;
           const otherNode = nodeMap.get(otherOfdId);
           const to = otherNode?.substationName ?? '';
           const port = closingEdge.fiberPortNumber != null ? ` #${closingEdge.fiberPortNumber}` : '';

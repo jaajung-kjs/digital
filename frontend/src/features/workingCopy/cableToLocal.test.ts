@@ -3,7 +3,7 @@ import { cableDtoToLocal, type CableDetailDTO } from './cableToLocal';
 
 /**
  * 단계4b — endpoint 는 단일 assetId. cableDtoToLocal 은 flat precise id 자리
- * (sourceEquipmentId/targetEquipmentId)에 sourceAssetId/targetAssetId 를 그대로
+ * (sourceAssetId/targetAssetId)에 sourceAssetId/targetAssetId 를 그대로
  * 싣고, nested module/circuit id 는 더 이상 채우지 않는다(전부 null).
  */
 describe('cableDtoToLocal — 단일 assetId 매핑', () => {
@@ -18,8 +18,8 @@ describe('cableDtoToLocal — 단일 assetId 매핑', () => {
 
   it('flat precise id = assetId, module/circuit id 는 null', () => {
     const local = cableDtoToLocal(base);
-    expect(local.sourceEquipmentId).toBe('branch-B1');
-    expect(local.targetEquipmentId).toBe('rack-mod-M1');
+    expect(local.sourceAssetId).toBe('branch-B1');
+    expect(local.targetAssetId).toBe('rack-mod-M1');
     expect(local.sourceModuleId).toBeNull();
     expect(local.targetModuleId).toBeNull();
     expect(local.sourceCircuitId).toBeNull();

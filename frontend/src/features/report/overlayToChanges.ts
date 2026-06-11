@@ -71,8 +71,8 @@ function cableToSnapshot(c: Cable): CableSnapshotItem {
     materialCategoryName: local.categoryName ?? null,
     specification: local.specification ?? null,
     totalLength: local.totalLength ?? null,
-    sourceEquipmentId: local.sourceEquipmentId,
-    targetEquipmentId: local.targetEquipmentId,
+    sourceAssetId: local.sourceAssetId,
+    targetAssetId: local.targetAssetId,
     label: local.label ?? null,
   };
 }

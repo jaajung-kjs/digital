@@ -46,8 +46,8 @@ export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
   const targetId = c.targetAssetId;
   return {
     id: c.id,
-    sourceEquipmentId: sourceId,
-    targetEquipmentId: targetId,
+    sourceAssetId: sourceId,
+    targetAssetId: targetId,
     sourceModuleId: null,
     targetModuleId: null,
     sourceCircuitId: null,

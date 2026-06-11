@@ -305,8 +305,8 @@ export function NetworkTopologyModal() {
     const graphEdges: GraphEdgeMeta[] = [];
     for (const e of traceResult.edges) {
       if (e.type !== 'fiberPath') continue;
-      const source = ofdToGroup.get(e.sourceEquipmentId);
-      const target = ofdToGroup.get(e.targetEquipmentId);
+      const source = ofdToGroup.get(e.sourceAssetId);
+      const target = ofdToGroup.get(e.targetAssetId);
       if (!source || !target) continue;
       const tier: Tier = e.fiberPathId === highlightedFpId
         ? 'seed'

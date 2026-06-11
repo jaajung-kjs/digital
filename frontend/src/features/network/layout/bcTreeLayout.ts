@@ -51,8 +51,8 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
   const fpAdj = new Map<string, Set<string>>();
   for (const e of edges) {
     if (e.type !== 'fiberPath') continue;
-    const src = ofdToGroup.get(e.sourceEquipmentId);
-    const tgt = ofdToGroup.get(e.targetEquipmentId);
+    const src = ofdToGroup.get(e.sourceAssetId);
+    const tgt = ofdToGroup.get(e.targetAssetId);
     if (!src || !tgt || src === tgt) continue;
     if (!fpAdj.has(src)) fpAdj.set(src, new Set());
     if (!fpAdj.has(tgt)) fpAdj.set(tgt, new Set());

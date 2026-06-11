@@ -72,8 +72,8 @@ export interface CableSnapshotItem {
   materialCategoryName?: string | null;
   specification?: string | null;
   totalLength?: number | null;
-  sourceEquipmentId: string;
-  targetEquipmentId: string;
+  sourceAssetId: string;
+  targetAssetId: string;
   label?: string | null;
 }
 

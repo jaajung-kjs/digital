@@ -65,8 +65,8 @@ export interface EquipmentInfo {
  */
 export interface RoomConnection {
   id: string;
-  sourceEquipmentId: string;
-  targetEquipmentId: string;
+  sourceAssetId: string;
+  targetAssetId: string;
   cableType: CableType;
   label?: string;
   length?: number;

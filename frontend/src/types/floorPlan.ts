@@ -71,8 +71,8 @@ export interface FloorPlanEquipment {
 // `materialCategory*` aliases 는 P9 에서 제거.
 export interface FloorPlanCable {
   id: string;
-  sourceEquipmentId: string;
-  targetEquipmentId: string;
+  sourceAssetId: string;
+  targetAssetId: string;
   /** P8 신규: rack module endpoint id. Equipment 쪽은 비어있을 수 있다. */
   sourceModuleId?: string | null;
   targetModuleId?: string | null;

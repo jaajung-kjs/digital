@@ -68,11 +68,11 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
   const ofdAdj = new Map<string, Set<string>>();
   for (const e of edges) {
     if (e.type !== 'fiberPath') continue;
-    if (e.sourceEquipmentId === e.targetEquipmentId) continue;
-    if (!ofdAdj.has(e.sourceEquipmentId)) ofdAdj.set(e.sourceEquipmentId, new Set());
-    if (!ofdAdj.has(e.targetEquipmentId)) ofdAdj.set(e.targetEquipmentId, new Set());
-    ofdAdj.get(e.sourceEquipmentId)!.add(e.targetEquipmentId);
-    ofdAdj.get(e.targetEquipmentId)!.add(e.sourceEquipmentId);
+    if (e.sourceAssetId === e.targetAssetId) continue;
+    if (!ofdAdj.has(e.sourceAssetId)) ofdAdj.set(e.sourceAssetId, new Set());
+    if (!ofdAdj.has(e.targetAssetId)) ofdAdj.set(e.targetAssetId, new Set());
+    ofdAdj.get(e.sourceAssetId)!.add(e.targetAssetId);
+    ofdAdj.get(e.targetAssetId)!.add(e.sourceAssetId);
   }
 
   // ─── 2. Block 구성 ─────────────────────────────────────────────────
@@ -107,8 +107,8 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
         seenEdge.add(eid);
         const e = edgeMap.get(eid);
         if (!e) continue;
-        const a = e.sourceEquipmentId;
-        const b = e.targetEquipmentId;
+        const a = e.sourceAssetId;
+        const b = e.targetAssetId;
         if (!blockAdj.has(a)) blockAdj.set(a, new Set());
         if (!blockAdj.has(b)) blockAdj.set(b, new Set());
         blockAdj.get(a)!.add(b);
@@ -380,8 +380,8 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
   const fpAdjGroup = new Map<string, Set<string>>();
   for (const e of edges) {
     if (e.type !== 'fiberPath') continue;
-    const s = ofdToGroup.get(e.sourceEquipmentId);
-    const t = ofdToGroup.get(e.targetEquipmentId);
+    const s = ofdToGroup.get(e.sourceAssetId);
+    const t = ofdToGroup.get(e.targetAssetId);
     if (!s || !t || s === t) continue;
     if (!fpAdjGroup.has(s)) fpAdjGroup.set(s, new Set());
     if (!fpAdjGroup.has(t)) fpAdjGroup.set(t, new Set());

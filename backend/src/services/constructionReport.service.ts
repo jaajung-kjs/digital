@@ -40,8 +40,8 @@ export interface PlanSnapshot {
     materialCategoryName?: string | null;
     specification?: string | null;
     totalLength?: number | null;
-    sourceEquipmentId: string;
-    targetEquipmentId: string;
+    sourceAssetId: string;
+    targetAssetId: string;
     label?: string | null;
   }[];
 }
@@ -240,8 +240,8 @@ function computeCableDiff(
       afterCable.cableType !== beforeCable.cableType ||
       afterCable.materialCategoryCode !== beforeCable.materialCategoryCode ||
       afterCable.totalLength !== beforeCable.totalLength ||
-      afterCable.sourceEquipmentId !== beforeCable.sourceEquipmentId ||
-      afterCable.targetEquipmentId !== beforeCable.targetEquipmentId;
+      afterCable.sourceAssetId !== beforeCable.sourceAssetId ||
+      afterCable.targetAssetId !== beforeCable.targetAssetId;
 
     if (changed) {
       const { displayName, specification } = resolveDisplayName(afterCable.materialCategoryCode, null, afterCable.label || afterCable.cableType, afterCable.materialCategoryName, afterCable.specification);

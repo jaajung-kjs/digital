@@ -42,8 +42,8 @@ function mapCablesToRenderable(
 ): RenderableConnection[] {
   const result: RenderableConnection[] = [];
   for (const cable of cables) {
-    const sourcePos = equipmentPositions.get(cable.sourceEquipmentId);
-    const targetPos = equipmentPositions.get(cable.targetEquipmentId);
+    const sourcePos = equipmentPositions.get(cable.sourceAssetId);
+    const targetPos = equipmentPositions.get(cable.targetAssetId);
     if (!sourcePos || !targetPos) continue;
     result.push({
       id: cable.id,
@@ -69,8 +69,8 @@ function mapPlanCablesToRenderable(
 ): RenderableConnection[] {
   const result: RenderableConnection[] = [];
   for (const cable of cables) {
-    const sourcePos = equipmentPositions.get(cable.sourceEquipmentId);
-    const targetPos = equipmentPositions.get(cable.targetEquipmentId);
+    const sourcePos = equipmentPositions.get(cable.sourceAssetId);
+    const targetPos = equipmentPositions.get(cable.targetAssetId);
     if (!sourcePos || !targetPos) continue;
     result.push({
       id: cable.id,
@@ -107,7 +107,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
 
   // effective 케이블은 이 층에 닿는 것만(useEffectiveFloorCables). cableDtoToLocal 이
-  // 단일 endpoint assetId 를 flat LocalCable(sourceEquipmentId 자리)로 매핑한다 —
+  // 단일 endpoint assetId 를 flat LocalCable(sourceAssetId 자리)로 매핑한다 —
   // 끝점 위치는 floorAnchor 가 그 assetId 를 placed ancestor 로 해소한다(아래 position map).
   const editorCables = useEffectiveFloorCables(floorId).map((c) =>
     cableDtoToLocal(c as unknown as CableDetailDTO),
@@ -126,7 +126,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const cables = snapshotActive ? null : editorCables;
 
   // 단계3a — 끝점 위치 = floor anchor(렌더 대표). endpoint 는 이제 단일 assetId
-  // (sourceEquipmentId/targetEquipmentId 자리에 assetId 가 들어온다 — cableDtoToLocal).
+  // (sourceAssetId/targetAssetId 자리에 assetId 가 들어온다 — cableDtoToLocal).
   // 각 케이블 endpoint asset id 를 floorAnchor 로 placed ancestor(설비/랙/분전반)까지
   // 해소해 그 사각형을 endpoint id(key) 로 매핑한다. branch endpoint 는
   // branch→feeder→panel 으로 해소 — 회로 특수처리(distributionEquipmentId) 불필요.
@@ -147,8 +147,8 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
         }
       };
       for (const c of editorCables) {
-        setAnchor(c.sourceEquipmentId);
-        setAnchor(c.targetEquipmentId);
+        setAnchor(c.sourceAssetId);
+        setAnchor(c.targetAssetId);
       }
     }
     return map;
@@ -258,8 +258,8 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
     // Build a RoomConnection-compatible shape for CableWaypointHandles
     const toWaypointCable = (c: FloorPlanCable | LocalCable): RoomConnection => ({
       id: c.id,
-      sourceEquipmentId: c.sourceEquipmentId,
-      targetEquipmentId: c.targetEquipmentId,
+      sourceAssetId: c.sourceAssetId,
+      targetAssetId: c.targetAssetId,
       cableType: c.cableType,
       pathPoints: c.pathPoints ?? undefined,
       pathLength: c.pathLength ?? undefined,
@@ -267,8 +267,8 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       color: c.color ?? undefined,
       label: c.label ?? undefined,
       materialCategoryCode: c.categoryCode ?? undefined,
-      sourceEquipment: { id: c.sourceEquipmentId, name: '', parentEquipmentId: null, floorId: null },
-      targetEquipment: { id: c.targetEquipmentId, name: '', parentEquipmentId: null, floorId: null },
+      sourceEquipment: { id: c.sourceAssetId, name: '', parentEquipmentId: null, floorId: null },
+      targetEquipment: { id: c.targetAssetId, name: '', parentEquipmentId: null, floorId: null },
     } as RoomConnection);
 
     if (snapshotActive && connections) {
