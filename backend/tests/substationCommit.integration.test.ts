@@ -104,11 +104,9 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     expect(asset.floorId).toBe(floorId);
 
     const cable = await prisma.cable.findUniqueOrThrow({ where: { id: cId } });
-    // 단계4b — source_asset_id/target_asset_id 만 기록(legacy equipment 컬럼은 null).
+    // 단계4c — endpoint = 단일 source_asset_id/target_asset_id(레거시 컬럼은 드롭됨).
     expect(cable.sourceAssetId).toBe(aId);
     expect(cable.targetAssetId).toBe(aId);
-    expect(cable.sourceEquipmentId).toBeNull();
-    expect(cable.targetEquipmentId).toBeNull();
   });
 
   it('1b) cable create — 단일 sourceAssetId/targetAssetId 만으로 source_asset_id 기록', async () => {
@@ -128,11 +126,9 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     const cId = res.idMaps.cables['cAsset'];
 
     const cable = await prisma.cable.findUniqueOrThrow({ where: { id: cId } });
-    // 단일 assetId → *_asset_id 만 세팅, legacy 컬럼은 null.
+    // 단일 assetId → source_asset_id/target_asset_id 만(레거시 컬럼은 4c 에서 드롭).
     expect(cable.sourceAssetId).toBe(b1);
     expect(cable.targetAssetId).toBe(b2);
-    expect(cable.sourceEquipmentId).toBeNull();
-    expect(cable.targetEquipmentId).toBeNull();
   });
 
   it('2) asset update — 올바른 baseVersion → 적용 + updatedAt 변경', async () => {
