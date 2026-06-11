@@ -43,9 +43,6 @@ vi.mock('../../../../assets/hooks/useAssetTypes', () => ({
     { id: 'bt', code: 'BRANCH', name: '분기', group: null, displayColor: null, fieldTemplate: null, placementKind: null },
   ] }),
 }));
-vi.mock('../../../../editor/stores/snapshotStore', () => ({
-  useSnapshotStore: (sel: (s: unknown) => unknown) => sel({ active: false }),
-}));
 vi.mock('../../../../pathTrace/stores/pathHighlightStore', () => ({
   usePathHighlightStore: (sel: (s: unknown) => unknown) => sel({ startCircuitTrace }),
 }));

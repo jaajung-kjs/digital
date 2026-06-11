@@ -36,9 +36,6 @@ const CABLE_GROUP_COLORS: Record<CableDisplayGroup, string> = {
  * position-independent: click-to-arm → canvas handles placement).
  *
  *  [선택] | 설비: [랙][OFD][분전반][접지함체][공조설비] | 랙 프리셋 ▾ | 케이블: [전원][접지][네트워크][광][제어]
- *
- * Gated by FloorPlanEditor with the same `!snapshotActive` condition the
- * sidebar used, so it's hidden in snapshot/read-only mode.
  */
 export function EditorInsertBar() {
   const tool = useEditorStore((s) => s.tool);

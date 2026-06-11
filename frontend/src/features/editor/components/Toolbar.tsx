@@ -3,7 +3,6 @@ import { ChevronLeft, Undo2, Redo2, ImagePlus, Layers, FileText, History } from 
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
 import { useEditorStore } from '../stores/editorStore';
-import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEditorHistory } from '../hooks/useEditorHistory';
 import { IconButton } from '../../../components/ui';
 
@@ -25,7 +24,6 @@ interface ToolbarProps {
 
 export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggleReport, onToggleLayers, activeRightPanel, onImportClick }: ToolbarProps) {
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
-  const snapshotActive = useSnapshotStore((s) => s.active);
   // Effective background — staged value (if user is editing) ?? server.
   const effectiveBackgroundDrawing =
     stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
@@ -45,7 +43,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggl
 
       {floorPlan && (
         <div className="flex items-center gap-1 flex-shrink-0">
-          {isAdmin && !snapshotActive && (
+          {isAdmin && (
             <>
               <IconButton aria-label="실행 취소 (Ctrl+Z)" title="실행 취소 (Ctrl+Z)" onClick={undo} disabled={!canUndo}>
                 <Undo2 size={18} />
@@ -57,7 +55,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggl
             </>
           )}
 
-          {onImportClick && !snapshotActive && (
+          {onImportClick && (
             <IconButton
               aria-label="배경 도면 불러오기 (DWG/DXF)"
               title="배경 도면 불러오기 (DWG/DXF)"

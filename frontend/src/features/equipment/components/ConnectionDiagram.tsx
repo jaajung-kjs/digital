@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 import { type LocalCable } from '../../editor/stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
 import { useOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
@@ -28,25 +27,18 @@ export function ConnectionDiagram({
   // 설비/랙모듈은 effective assets 에서 매핑, 케이블/회로/파이버패스는 effective 훅.
   const effectiveAssets = useEffectiveAssets();
   // 설비 이름 lookup 은 effective assets(Asset) 를 직접 쓴다(.id/.name 만 읽음).
-  const editorEquipment = effectiveAssets;
+  const localEquipment = effectiveAssets;
   const editorRackModules = useMemo(
     () =>
       effectiveAssets.filter((a) => a.parentAssetId && a.slotIndex != null),
     [effectiveAssets],
   );
   // effective 케이블은 nested source/target — flat LocalCable 로 매핑(끝점 lookup).
-  const editorCables = useEffectiveCables().map((c) =>
+  const localCables: LocalCable[] = useEffectiveCables().map((c) =>
     cableDtoToLocal(c as unknown as CableDetailDTO),
   );
   const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
-  // Snapshot overlay: when active, show snapshot data instead of editor data
-  const snapshotActive = useSnapshotStore((s) => s.active);
-  const snapshotCables = useSnapshotStore((s) => s.cables);
-  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
-
-  const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
-  const localCables = snapshotActive ? (snapshotCables as unknown as LocalCable[]) : editorCables;
   const startTrace = usePathHighlightStore((s) => s.startTrace);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
@@ -215,7 +207,7 @@ export function ConnectionDiagram({
                     </p>
                   )}
                 </div>
-                {isCardSelected && !snapshotActive && (
+                {isCardSelected && (
                   <div className="flex justify-end pr-1">
                     <button
                       onClick={handleDelete}

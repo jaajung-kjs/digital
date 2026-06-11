@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../../../utils/api';
 import { isTempId } from '../../../../../utils/idHelpers';
-import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { useEffectiveAssets } from '../../../../workingCopy/hooks';
 import { isFloorPlaced } from '../../../../workingCopy/floorAnchor';
 import type { EquipmentDetail } from '../types';
@@ -24,8 +23,6 @@ export function useMergedEquipmentDetail(equipmentId: string): {
   isLoading: boolean;
   error: unknown;
 } {
-  const snapshotActive = useSnapshotStore((s) => s.active);
-  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
   const isTemp = isTempId(equipmentId);
   // SSOT-2d3a Task 5 — 통합 스토어 effective assets 에서 해당 설비를 찾아 매핑한다.
   const effectiveAssets = useEffectiveAssets();
@@ -35,23 +32,6 @@ export function useMergedEquipmentDetail(equipmentId: string): {
   const selfAsset = effectiveAssets.find((a) => a.id === equipmentId);
   const fetchEnabled = !selfAsset || isFloorPlaced(selfAsset);
   const { data: backendData, isLoading, error } = useEquipmentDetail(equipmentId, fetchEnabled);
-
-  if (snapshotActive) {
-    const snapEq = snapshotEquipment.find((e) => e.id === equipmentId);
-    if (!snapEq) return { equipment: null, isLoading: false, error: null };
-    const equipment: EquipmentDetail = {
-      id: snapEq.id,
-      name: snapEq.name,
-      manager: snapEq.manager ?? null,
-      description: snapEq.description ?? null,
-      installDate: null,
-      width2d: snapEq.width,
-      height2d: snapEq.height,
-      frontImageUrl: null,
-      rearImageUrl: null,
-    };
-    return { equipment, isLoading: false, error: null };
-  }
 
   const localEq = effectiveAssets.find((a) => a.id === equipmentId);
   if (!localEq) {

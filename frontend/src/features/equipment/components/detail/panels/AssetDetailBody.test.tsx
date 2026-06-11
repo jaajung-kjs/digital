@@ -16,9 +16,6 @@ const asset = {
   description: '메모', warrantyUntil: null, replaceDue: null, floorId: 'f1', updatedAt: '',
 } as never;
 
-vi.mock('../../../../editor/stores/snapshotStore', () => ({
-  useSnapshotStore: (sel: (s: unknown) => unknown) => sel({ active: false }),
-}));
 vi.mock('../../../../assets/hooks/useAsset', () => ({ useAsset: () => ({ data: undefined, isLoading: false }) }));
 vi.mock('../../../../workspace/SelectionContext', () => ({ useSelection: () => ({ setSelectedAssetId: vi.fn() }) }));
 vi.mock('../../../../workingCopy/substationStore', async (importOriginal) => ({

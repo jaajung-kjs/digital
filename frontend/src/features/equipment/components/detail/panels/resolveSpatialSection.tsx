@@ -5,13 +5,10 @@ import { OfdPathsView } from './OfdEquipmentPanel';
 import { DistributionCircuits } from './DistributionPanel';
 
 export interface SpatialSection {
-  /** 섹션 헤더 / 스냅샷 탭 라벨. */
+  /** 섹션 헤더 라벨. */
   label: string;
-  /** 비스냅샷 인스펙터 아래에 붙는 종류별 공간 GUI. */
+  /** 인스펙터 아래에 붙는 종류별 공간 GUI. */
   node: ReactNode;
-  /** 스냅샷 폴백 시 공간 섹션을 4번째('연결' 대체) 탭에 넣을지 5번째에 추가할지.
-   *  OFD 는 fourth(경로), RACK/DIST 는 fifth — 기존 동작 보존. */
-  snapshotSlot: 'fourth' | 'fifth';
 }
 
 /**
@@ -30,19 +27,16 @@ export function resolveSpatialSection(
       return {
         label: '내부 설비',
         node: <RackInternal equipmentId={equipmentId} />,
-        snapshotSlot: 'fifth',
       };
     case 'ofd':
       return {
         label: '경로',
         node: <OfdPathsView equipmentId={equipmentId} />,
-        snapshotSlot: 'fourth',
       };
     case 'distribution':
       return {
         label: '회로',
         node: <DistributionCircuits equipmentId={equipmentId} />,
-        snapshotSlot: 'fifth',
       };
     case 'grounding':
     case 'hvac':

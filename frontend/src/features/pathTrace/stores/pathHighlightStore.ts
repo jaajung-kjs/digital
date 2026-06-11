@@ -8,7 +8,6 @@
 
 import { create } from 'zustand';
 import { traceCable } from '../../../utils/cableTracer';
-import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { assetsByIdMap, floorAnchor } from '../../workingCopy/floorAnchor';
 import { cableDtoToLocal, type CableDetailDTO } from '../../network/store';
@@ -17,30 +16,6 @@ import { composeFiberPaths } from '../../workingCopy/merge';
 import type { TraceResult, PathSegment } from '../types';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { Asset } from '../../../types/asset';
-import type { FiberPathDetail } from '../../fiber/types';
-import type { FloorPlanFiberPath } from '../../../types/floorPlan';
-
-/**
- * Snapshot fiberPaths (FloorPlanFiberPath) 는 backend denorm 으로 name/substationName
- * 을 들고 있음 — placeholder 없이 그대로 lift.
- */
-function snapshotFiberPathToDetail(fp: FloorPlanFiberPath): FiberPathDetail {
-  const now = new Date().toISOString();
-  return {
-    id: fp.id,
-    ofdA: { id: fp.ofdAId, name: fp.ofdAName, substationName: fp.ofdASubstationName, floorId: null },
-    ofdB: { id: fp.ofdBId, name: fp.ofdBName, substationName: fp.ofdBSubstationName, floorId: null },
-    portCount: fp.portCount,
-    description: fp.description ?? null,
-    ports: Array.from({ length: fp.portCount }, (_, i) => ({
-      portNumber: i + 1,
-      sideA: null,
-      sideB: null,
-    })),
-    createdAt: now,
-    updatedAt: now,
-  };
-}
 
 function idleState() {
   return {
@@ -96,37 +71,10 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
   ...idleState(),
 
   startTrace: async (cableId) => {
-    const snapshotState = useSnapshotStore.getState();
     set({ tracingCableId: cableId, error: null });
 
     try {
-      // Snapshot mode — use the frozen snapshot collections directly.
-      if (snapshotState.active) {
-        const snapshotFiberPaths = (snapshotState.fiberPaths ?? []).map(snapshotFiberPathToDetail);
-
-        const result = traceCable({
-          cableId,
-          cables: snapshotState.cables,
-          // snapshot overlay 는 dead path(snapshot.active 항상 false) — 타입만 맞춘다.
-          equipment: snapshotState.equipment as unknown as Asset[],
-          rackModules: [],
-          assets: [],
-          fiberPaths: snapshotFiberPaths,
-        });
-
-        const ids = new Set(result.nodes.map((n) => n.nodeId));
-        set({
-          active: true,
-          traceResult: result,
-          highlightedNodeIds: ids,
-          highlightedPlacedIds: expandToPlacedIds(ids, []),
-          highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
-          segments: result.segments,
-        });
-        return;
-      }
-
-      // Normal mode — SSOT-2d-3b: editorStore 영속 컬렉션 제거. cable/equipment/
+      // SSOT-2d-3b: editorStore 영속 컬렉션 제거. cable/equipment/
       // rackModule/fiberPath 는 변전소 단위 통합 working copy 의 effective(saved+staged)
       // 에서 가져온다(network/store.loadAndOpen 과 동일 패턴). fiber path 표시명은
       // OFD directory 로 합성.

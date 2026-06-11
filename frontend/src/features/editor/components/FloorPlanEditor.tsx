@@ -10,7 +10,6 @@ import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useSubstationWorkingCopy, type PlacementDraw, type RackModuleDraw } from '../../workingCopy/substationStore';
 import { getUnifiedDirtyCount } from '../../workingCopy/hooks';
 import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
-import { useSnapshotStore } from '../stores/snapshotStore';
 import { useToastStore } from '../stores/toastStore';
 import { calculateCenterOnBounds } from '../hooks/useViewport';
 import { floorTargetFor } from '../../workingCopy/floorAnchor';
@@ -96,19 +95,16 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const closeRightPanel = useEditorStore(s => s.closeRightPanel);
   // 캔버스 focus useEffect / URL deep-link 가 쓰는 "현재 상세 설비 id" alias.
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
-  const snapshotActive = useSnapshotStore(s => s.active);
-  const snapshotLabel = useSnapshotStore(s => s.label);
   const restoredFromVersion = useEditorStore(s => s.restoredFromVersion);
   const floorConflict = useEditorStore(s => s.floorConflict);
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
   const setTool = useEditorStore(s => s.setTool);
   const tool = useEditorStore(s => s.tool);
   const { data: rackModuleCategories } = useRackModuleCategories();
-  // Reset editor store and snapshot on unmount
+  // Reset editor store on unmount
   useEffect(() => {
     return () => {
       resetEditor();
-      useSnapshotStore.getState().exit();
     };
   }, [resetEditor]);
 
@@ -393,7 +389,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         onImportClick={() => setShowImportModal(true)}
       />
 
-      {!snapshotActive && <EditorInsertBar />}
+      <EditorInsertBar />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
         {isPlanNotFound ? (
@@ -436,7 +432,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 <WorkOrderHistoryPanel floorId={floorId} onClose={() => closeRightPanel()} />
               )}
 
-              {rightPanel === 'report' && !snapshotActive && (
+              {rightPanel === 'report' && (
                 <ReportPanel floorId={floorId} onClose={() => closeRightPanel()} />
               )}
 
@@ -444,20 +440,13 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                 <BackgroundLayersPanel
                   bg={effectiveBackgroundDrawing}
                   floorPlan={floorPlan}
-                  canEdit={!snapshotActive}
+                  canEdit={true}
                   onClose={() => closeRightPanel()}
                 />
               )}
 
-              {/* Preview mode banner (top of canvas area) */}
-              {snapshotActive && (
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-warning-bg border border-warning rounded-lg shadow-sm">
-                  <span className="text-xs font-medium text-warning">과거 도면 보기 — {snapshotLabel}</span>
-                </div>
-              )}
-
               {/* Restore banner — shown after restoring from a past version until save */}
-              {restoredFromVersion && !snapshotActive && (
+              {restoredFromVersion && (
                 <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-info-bg border border-info rounded-lg shadow-sm">
                   <span className="text-xs font-medium text-primary">
                     {restoredFromVersion} 버전에서 복원됨 — 저장하지 않으면 반영되지 않습니다
@@ -475,9 +464,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               {/* 하단 상태바 — 그리드·스냅·줄자·투명도·줌 단일 홈 (Excel/PPT식).
                   캔버스 컬럼 맨 아래(전체 폭). 우측 패널은 absolute 오버레이라
                   이 바는 캔버스 영역 폭을 그대로 차지한다. */}
-              {!snapshotActive && (
-                <EditorStatusBar floorPlan={floorPlan} containerRef={containerRef} />
-              )}
+              <EditorStatusBar floorPlan={floorPlan} containerRef={containerRef} />
             </div>
           </>
         )}

@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { getUnifiedDirtyCount } from '../../../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
-import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { FiberPathManager } from '../../../../fiber/components/FiberPathManager';
 import { PathTraceDetail } from '../../../../pathTrace/components/PathTraceDetail';
 import { startOfdCableDrawing } from '../../../../fiber/startOfdCableDrawing';
@@ -12,7 +11,6 @@ import { startOfdCableDrawing } from '../../../../fiber/startOfdCableDrawing';
  */
 export function OfdPathsView({ equipmentId }: { equipmentId: string }) {
   const navigate = useNavigate();
-  const snapshotActive = useSnapshotStore((s) => s.active);
   const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
   const handleNavigateRemote = (remoteRoomId: string) => {
@@ -21,15 +19,6 @@ export function OfdPathsView({ equipmentId }: { equipmentId: string }) {
     }
     navigate(`/floors/${remoteRoomId}/plan`);
   };
-
-  if (snapshotActive) {
-    return (
-      <div>
-        <FiberPathManager ofdId={equipmentId} onNavigateRemote={handleNavigateRemote} />
-        <PathTraceDetail />
-      </div>
-    );
-  }
 
   return (
     <div>

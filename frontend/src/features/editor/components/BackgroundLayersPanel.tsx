@@ -18,7 +18,7 @@ interface Props {
   onClose?: () => void;
   /** 도면 크기 readout 및 파일명 표시용. */
   floorPlan?: FloorPlanDetail;
-  /** 배경 도면 제거 가능 여부 (snapshot 보기 중엔 false). */
+  /** 배경 도면 제거 가능 여부. */
   canEdit?: boolean;
 }
 

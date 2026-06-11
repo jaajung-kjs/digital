@@ -3,7 +3,6 @@ import { X } from 'lucide-react';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useEffectiveAssets, useEffectiveCables } from '../../../../workingCopy/hooks';
 import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
-import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { usePathHighlightStore } from '../../../../pathTrace/stores/pathHighlightStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
 import {
@@ -23,7 +22,6 @@ import type { Asset } from '../../../../../types/asset';
  * +칸 클릭=분기 즉시 추가.
  */
 export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
-  const snapshotActive = useSnapshotStore((s) => s.active);
   // 단계3b — 회로는 FEEDER/BRANCH Asset 계층. 읽기는 통합 스토어 effective assets,
   // 쓰기는 stageAsset CRUD. 케이블의 회로 endpoint 는 BRANCH asset id (source/target.assetId).
   const effectiveAssets = useEffectiveAssets();
@@ -116,14 +114,6 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
     setNewFeeder('');
     setAddingFeeder(false);
   };
-
-  if (snapshotActive) {
-    return (
-      <div className="p-4 text-sm text-content-faint">
-        과거 도면 보기 중에는 회로를 편집할 수 없습니다.
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col max-h-[480px]">

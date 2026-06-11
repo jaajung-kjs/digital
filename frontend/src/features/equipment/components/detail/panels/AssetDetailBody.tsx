@@ -1,13 +1,11 @@
 import { useMemo, type ReactNode } from 'react';
 import type { Asset } from '../../../../../types/asset';
 import type { DetailPanelKind } from '../../../../../types/equipmentKind';
-import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { useAsset } from '../../../../assets/hooks/useAsset';
 import { useSelection } from '../../../../workspace/SelectionContext';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../../../workingCopy/hooks';
 import { AssetInspector } from '../../../../assets/components/AssetInspector';
-import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
 import { resolveSpatialSection } from './resolveSpatialSection';
 
 interface Props {
@@ -29,31 +27,14 @@ interface Props {
  *   (랙 내부 모듈 GUI / OFD 경로 / 분전반 회로). 종류는 kind 로 받아 resolveSpatialSection
  *   으로 공간 섹션을 해석한다. grounding/hvac 은 공간 섹션이 없어 인스펙터만 나온다.
  *
- * - 비스냅샷·실 id: AssetInspector + 공간 섹션.
- * - 스냅샷: 과거 도면 — 현재 대장 레코드 개념이 없어 BaseEquipmentTabsPanel 폴백(기존 동작).
+ * - 실 id: AssetInspector + 공간 섹션.
  * - temp(미저장 신규): asset 없음 → 안내 + (있으면)공간 섹션.
  */
 export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, asset: injected }: Props) {
-  const snapshotActive = useSnapshotStore((s) => s.active);
-
   const spatial = useMemo(
     () => (kind ? resolveSpatialSection(kind, equipmentId) : null),
     [kind, equipmentId],
   );
-
-  // 스냅샷: 기존 탭 패널로 폴백 (과거 도면엔 현재 대장 레코드 개념이 없음).
-  if (snapshotActive) {
-    if (!spatial) {
-      return <BaseEquipmentTabsPanel equipmentId={equipmentId} />;
-    }
-    const slot = { label: spatial.label, render: () => spatial.node };
-    if (spatial.snapshotSlot === 'fourth') {
-      return <BaseEquipmentTabsPanel equipmentId={equipmentId} fourthTab={slot} />;
-    }
-    return (
-      <BaseEquipmentTabsPanel equipmentId={equipmentId} defaultTabIndex={4} fifthTab={slot} />
-    );
-  }
 
   return (
     <LiveBody

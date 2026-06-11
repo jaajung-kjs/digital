@@ -10,7 +10,6 @@ import {
 import { renderGrid } from '../renderers/gridRenderer';
 import { renderBackgroundDrawing } from '../renderers/backgroundLayerRenderer';
 import { useEditorStore } from '../stores/editorStore';
-import { useSnapshotStore } from '../stores/snapshotStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { floorTargetFor } from '../../workingCopy/floorAnchor';
@@ -178,14 +177,12 @@ export function useCanvas(
       renderRequestRef.current = requestAnimationFrame(renderCanvas);
     };
     const unsubEditor = useEditorStore.subscribe(scheduleRender);
-    const unsubSnapshot = useSnapshotStore.subscribe(scheduleRender);
     const unsubPathHighlight = usePathHighlightStore.subscribe(scheduleRender);
     // SSOT-2d Task 3 — 설비가 통합 스토어로 이동했으므로 그 변경에도 재렌더.
     const unsubWorkingCopy = useSubstationWorkingCopy.subscribe(scheduleRender);
 
     return () => {
       unsubEditor();
-      unsubSnapshot();
       unsubPathHighlight();
       unsubWorkingCopy();
       if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);
