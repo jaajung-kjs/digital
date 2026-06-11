@@ -89,7 +89,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   };
 
   return (
-    <div className="px-3 py-2 border-b bg-surface-2 flex items-center gap-2">
+    <div className="px-3 py-2 border-b border-line bg-surface flex items-center gap-2">
       {/* 프리셋 선택 */}
       <select
         value={selectedPreset?.id ?? ''}

@@ -29,10 +29,17 @@ interface Props {
 }
 
 function Field({ label, value, onCommit, type = 'text' }: { label: string; value: string; onCommit: (v: string) => void; type?: string }) {
+  const commit = (v: string) => { if (v !== value) onCommit(v); };
   return (
     <label className="flex items-center gap-2 text-sm py-0.5">
       <span className="w-24 shrink-0 text-content-muted text-xs">{label}</span>
-      <input type={type} defaultValue={value} onBlur={(e) => { if (e.target.value !== value) onCommit(e.target.value); }}
+      <input
+        type={type}
+        defaultValue={value}
+        onBlur={(e) => commit(e.target.value)}
+        // Enter 즉시 반영(blur→commit). 날짜는 선택만 해도 즉시 반영(onChange).
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        onChange={type === 'date' ? (e) => commit(e.target.value) : undefined}
         className="flex-1 px-1 py-0.5 border border-transparent hover:border-line focus:border-primary rounded text-sm" />
     </label>
   );

@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+import { Trash2 } from 'lucide-react';
 import { SidePanel } from './SidePanel';
 import { useEditorStore } from '../stores/editorStore';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEffectiveAssets, useEffectiveEquipment } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
@@ -60,22 +62,34 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       ? '로딩 중...'
       : equipment?.name ?? '설비 상세';
 
-  const kindBadge = moduleAsset ? (
-    <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-surface text-content-faint">
-      {moduleAsset.assetType?.name ?? '모듈'}
-    </span>
-  ) : localEq ? (
-    <span className="shrink-0 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-surface text-content-faint">
-      {EQUIPMENT_KIND_INFO[localEq.kind]?.label ?? localEq.kind}
-    </span>
-  ) : null;
+  // 삭제(#1) — 설비는 cascade(자식·연결 케이블), 모듈은 단일. 확인 후 stage + 패널 닫기.
+  const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
+  const stageEquipmentDeleteCascade = useSubstationWorkingCopy((s) => s.stageEquipmentDeleteCascade);
+  const handleDelete = () => {
+    const what = moduleAsset ? '이 모듈' : '이 설비';
+    if (!confirm(`'${title}' — ${what}을(를) 삭제할까요? (저장 전까지 되돌릴 수 있습니다.)`)) return;
+    if (moduleAsset) stageAssetDelete(equipmentId);
+    else stageEquipmentDeleteCascade(equipmentId);
+    closeRightPanel();
+  };
+  const headerExtra = snapshotActive ? null : (
+    <button
+      type="button"
+      onClick={handleDelete}
+      title="삭제"
+      aria-label="삭제"
+      className="p-1 rounded text-content-faint hover:text-danger hover:bg-danger-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+    >
+      <Trash2 size={15} />
+    </button>
+  );
 
   return (
     <SidePanel
       side="right"
       width={384}
       title={title}
-      headerExtra={kindBadge}
+      headerExtra={headerExtra}
       onClose={() => closeRightPanel()}
     >
       {/* Snapshot read-only banner */}
