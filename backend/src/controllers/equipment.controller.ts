@@ -62,21 +62,6 @@ export const equipmentController = {
   },
 
   /**
-   * POST /api/floors/:id/equipment
-   * 도면에 설비 직접 배치
-   */
-  async createOnFloorPlan(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const userId = req.user!.userId;
-      const equipment = await equipmentService.createOnFloorPlan(id, req.body, userId);
-      res.status(201).json({ data: equipment });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
    * GET /api/equipment/:id
    * 설비 상세 조회
    */
@@ -85,35 +70,6 @@ export const equipmentController = {
       const { id } = req.params;
       const equipment = await equipmentService.getById(id);
       res.json({ data: equipment });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * PUT /api/equipment/:id
-   * 설비 수정
-   */
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      const userId = req.user!.userId;
-      const equipment = await equipmentService.update(id, req.body, userId);
-      res.json({ data: equipment });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  /**
-   * DELETE /api/equipment/:id
-   * 설비 삭제
-   */
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { id } = req.params;
-      await equipmentService.delete(id);
-      res.json({ message: '설비가 삭제되었습니다.' });
     } catch (error) {
       next(error);
     }

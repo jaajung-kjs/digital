@@ -79,25 +79,3 @@ export interface Asset {
    */
   [key: string]: unknown;
 }
-
-export interface CreateAssetInput {
-  substationId: string;
-  assetTypeId: string;
-  name: string;
-  roomText?: string | null;
-  sourcePresetId?: string | null;
-}
-
-export interface UpdateAssetInput {
-  assetTypeId?: string;
-  name?: string;
-  roomText?: string | null;
-  sourcePresetId?: string | null;
-  installDate?: string | null;
-  manager?: string | null;
-  status?: string | null;
-  warrantyUntil?: string | null;
-  replaceDue?: string | null;
-  /** 새 스칼라 컬럼을 타입 편집 없이 허용 (P5b). 위 명시 필드는 그대로 타입 안전. */
-  [key: string]: unknown;
-}

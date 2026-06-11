@@ -38,6 +38,12 @@ describe('Asset API 통합 테스트', () => {
     substationId = sub.id;
     const pitr = await prisma.assetType.findUniqueOrThrow({ where: { code: 'PITR' } });
     pitrTypeId = pitr.id;
+
+    // 자산 쓰기는 unified commit 으로만 가능 — read 테스트용 fixture 는 prisma 로 직접 시드한다.
+    const asset = await prisma.asset.create({
+      data: { substationId, assetTypeId: pitrTypeId, name: 'PITR-통합-1' },
+    });
+    createdAssetIds.push(asset.id);
   });
 
   afterAll(async () => {
@@ -57,42 +63,11 @@ describe('Asset API 통합 테스트', () => {
     await request(app).get('/api/asset-types').expect(401);
   });
 
-  it('POST /api/assets 는 substation+type+name 만으로 생성', async () => {
-    const res = await request(app)
-      .post('/api/assets')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ substationId, assetTypeId: pitrTypeId, name: 'PITR-통합-1' })
-      .expect(201);
-    expect(res.body.data.name).toBe('PITR-통합-1');
-    expect(res.body.data.assetType.code).toBe('PITR');
-    createdAssetIds.push(res.body.data.id);
-  });
-
-  it('POST /api/assets 는 name 누락 시 400', async () => {
-    await request(app)
-      .post('/api/assets')
-      .set('Authorization', `Bearer ${adminToken}`)
-      .send({ substationId, assetTypeId: pitrTypeId })
-      .expect(400);
-  });
-
-  it('GET /api/substations/:id/assets 는 생성한 자산을 목록에 포함', async () => {
+  it('GET /api/substations/:id/assets 는 시드된 자산을 목록에 포함', async () => {
     const res = await request(app)
       .get(`/api/substations/${substationId}/assets`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
     expect(res.body.data.some((a: any) => a.name === 'PITR-통합-1')).toBe(true);
-  });
-
-  it('POST /api/assets/:id/duplicate 는 (복제) 이름으로 복사', async () => {
-    const base = await request(app)
-      .post('/api/assets').set('Authorization', `Bearer ${adminToken}`)
-      .send({ substationId, assetTypeId: pitrTypeId, name: 'PITR-원본' }).expect(201);
-    createdAssetIds.push(base.body.data.id);
-    const dup = await request(app)
-      .post(`/api/assets/${base.body.data.id}/duplicate`)
-      .set('Authorization', `Bearer ${adminToken}`).expect(201);
-    expect(dup.body.data.name).toBe('PITR-원본 (복제)');
-    createdAssetIds.push(dup.body.data.id);
   });
 });

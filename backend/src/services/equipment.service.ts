@@ -1,9 +1,9 @@
 import prisma from '../config/prisma.js';
-import { NotFoundError, ConflictError } from '../utils/errors.js';
+import { NotFoundError } from '../utils/errors.js';
 import { Prisma } from '@prisma/client';
 import type { Asset, AssetType } from '@prisma/client';
 import { placementKindToKind, kindToPlacementCode, type PlacementKind } from './assetPlanMapper.js';
-import { extractSourcePresetId, sourcePresetToProperties } from './sourcePreset.js';
+import { sourcePresetToProperties } from './sourcePreset.js';
 
 // ==================== Types ====================
 
@@ -34,41 +34,6 @@ export interface EquipmentDetail {
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface CreateFloorPlanEquipmentInput {
-  kind: EquipmentKind;
-  name: string;
-  positionX: number;
-  positionY: number;
-  width2d: number;
-  height2d: number;
-  rotation?: number;
-  totalU?: number | null;
-  height3d?: number | null;
-  installDate?: string;
-  manager?: string;
-  description?: string;
-  properties?: unknown;
-}
-
-export interface UpdateEquipmentInput {
-  kind?: EquipmentKind;
-  name?: string;
-  positionX?: number;
-  positionY?: number;
-  width2d?: number;
-  height2d?: number;
-  rotation?: number;
-  totalU?: number | null;
-  height3d?: number | null;
-  frontImageUrl?: string | null;
-  rearImageUrl?: string | null;
-  installDate?: string | null;
-  manager?: string | null;
-  description?: string | null;
-  properties?: unknown;
-  sortOrder?: number;
 }
 
 type AssetWithType = Asset & { assetType: AssetType };
@@ -106,12 +71,6 @@ class EquipmentService {
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
     };
-  }
-
-  /** placement code(RACK/OFD/DIST/...) 로 AssetType 해석. */
-  private async resolveAssetType(kind: EquipmentKind): Promise<AssetType> {
-    const code = kindToPlacementCode(kind);
-    return await prisma.assetType.findUniqueOrThrow({ where: { code } });
   }
 
   /** 도면 객체 목록 조회 (kind 필터 지원). */
@@ -158,125 +117,6 @@ class EquipmentService {
     const asset = await prisma.asset.findFirst({ where: { id, parentAssetId: null }, include: { assetType: true } });
     if (!asset) throw new NotFoundError('설비');
     return this.mapToDetail(asset);
-  }
-
-  /** 도면(Floor)에 직접 배치하는 설비 생성 */
-  async createOnFloorPlan(
-    floorId: string,
-    input: CreateFloorPlanEquipmentInput,
-    userId: string
-  ): Promise<EquipmentDetail> {
-    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
-    if (!floor) throw new NotFoundError('층');
-
-    // NOTE: 변전소당 OFD 1개 제약 제거 — 변전소는 여러 광단국(OFD)을 가질 수 있다.
-
-    const assetType = await this.resolveAssetType(input.kind);
-
-    const asset = await prisma.asset.create({
-      data: {
-        substationId: floor.substationId,
-        floorId,
-        assetTypeId: assetType.id,
-        parentAssetId: null,
-        name: input.name,
-        positionX: input.positionX,
-        positionY: input.positionY,
-        width2d: input.width2d,
-        height2d: input.height2d,
-        rotation: input.rotation ?? 0,
-        totalU: input.kind === 'RACK' ? (input.totalU ?? 42) : null,
-        installDate: input.installDate ? new Date(input.installDate) : null,
-        manager: input.manager,
-        description: input.description,
-        sourcePresetId: extractSourcePresetId(input.properties),
-        createdById: userId,
-        updatedById: userId,
-      },
-      include: { assetType: true },
-    });
-
-    return this.mapToDetail(asset);
-  }
-
-  async update(id: string, input: UpdateEquipmentInput, userId: string): Promise<EquipmentDetail> {
-    const existing = await prisma.asset.findFirst({ where: { id, parentAssetId: null }, include: { assetType: true } });
-    if (!existing) throw new NotFoundError('설비');
-
-    const existingKind = (placementKindToKind(existing.assetType.placementKind) ?? 'RACK') as EquipmentKind;
-
-    // NOTE: 변전소당 OFD 1개 제약 제거 — OFD 로 전환 시 중복 검사 없음.
-
-    // kind 변경 시 assetType 재해석
-    let assetTypeId: string | undefined;
-    if (input.kind !== undefined && input.kind !== existingKind) {
-      assetTypeId = (await this.resolveAssetType(input.kind)).id;
-    }
-
-    // totalU 정규화: RACK kind 만 의미를 가짐.
-    //   - RACK 인데 totalU 가 명시적 null/undefined 면 기존 값 유지(없으면 42)
-    //   - kind 가 RACK 이 아니면 totalU 강제로 null
-    let totalU: number | null | undefined = input.totalU;
-    const effectiveKind = input.kind ?? existingKind;
-    if (effectiveKind === 'RACK') {
-      if (input.kind === 'RACK' && existingKind !== 'RACK') {
-        // 다른 kind → RACK 으로 전환: totalU 가 없으면 42 부여
-        totalU = input.totalU ?? 42;
-      }
-    } else if (input.kind !== undefined) {
-      // 명시적으로 RACK 이 아닌 kind 로 변경 → totalU null 강제
-      totalU = null;
-    }
-
-    const asset = await prisma.asset.update({
-      where: { id },
-      data: {
-        assetTypeId,
-        name: input.name,
-        positionX: input.positionX,
-        positionY: input.positionY,
-        width2d: input.width2d,
-        height2d: input.height2d,
-        rotation: input.rotation,
-        totalU,
-        installDate:
-          input.installDate !== undefined
-            ? input.installDate
-              ? new Date(input.installDate)
-              : null
-            : undefined,
-        manager: input.manager,
-        description: input.description,
-        sourcePresetId: input.properties !== undefined ? extractSourcePresetId(input.properties) : undefined,
-        sortOrder: input.sortOrder,
-        updatedById: userId,
-      },
-      include: { assetType: true },
-    });
-
-    return this.mapToDetail(asset);
-  }
-
-  async delete(id: string): Promise<void> {
-    const asset = await prisma.asset.findFirst({
-      where: { id, parentAssetId: null },
-      include: {
-        sourceCablesAsset: { select: { id: true } },
-        targetCablesAsset: { select: { id: true } },
-        children: { select: { id: true } },
-      },
-    });
-
-    if (!asset) throw new NotFoundError('설비');
-
-    const connectionCount = asset.sourceCablesAsset.length + asset.targetCablesAsset.length;
-    if (connectionCount > 0) {
-      throw new ConflictError(
-        `연결된 케이블이 ${connectionCount}개 있어 삭제할 수 없습니다. 케이블을 먼저 제거하세요.`
-      );
-    }
-
-    await prisma.asset.delete({ where: { id } });
   }
 
   /**

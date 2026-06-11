@@ -32,26 +32,8 @@ const updateFloorSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-const equipmentKindEnum = z.enum(['RACK', 'OFD', 'DISTRIBUTION', 'GROUNDING', 'HVAC']);
-
 const patchVersionContextSchema = z.object({
   context: z.record(z.unknown()),
-});
-
-const createFloorPlanEquipmentSchema = z.object({
-  kind: equipmentKindEnum,
-  name: z.string().min(1, '이름은 필수입니다.').max(100),
-  positionX: z.number(),
-  positionY: z.number(),
-  width2d: z.number().positive(),
-  height2d: z.number().positive(),
-  rotation: z.number().int().optional(),
-  totalU: z.number().int().min(1).optional().nullable(),
-  height3d: z.number().positive().optional().nullable(),
-  installDate: z.string().optional(),
-  manager: z.string().max(100).optional(),
-  description: z.string().optional(),
-  properties: z.unknown().optional(),
 });
 
 // ==================== Floor Routes ====================
@@ -72,15 +54,6 @@ router.delete('/:id', authenticate, adminOnly, floorController.delete);
 
 // 층에 배치된 설비 조회 (인증 불필요)
 router.get('/:id/equipment', equipmentController.getByFloorId);
-
-// 층에 설비 직접 배치 (관리자만)
-router.post(
-  '/:id/equipment',
-  authenticate,
-  adminOnly,
-  validate(createFloorPlanEquipmentSchema),
-  equipmentController.createOnFloorPlan
-);
 
 // 층의 케이블 연결 조회 (인증 불필요)
 router.get('/:id/connections', cableController.getByFloorId);
