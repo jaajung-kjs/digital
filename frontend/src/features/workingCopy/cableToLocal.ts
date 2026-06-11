@@ -4,9 +4,9 @@ import { type LocalCable } from '../editor/stores/editorStore';
  * 통합 워킹카피의 effective Cable row(backend CableDetail — nested source/target)를
  * 도면/다이어그램 렌더러가 먹는 flat LocalCable 로 변환.
  *
- * effective 케이블은 `{ source: { equipmentId, moduleId, circuitId }, target: {...} }`
+ * DTO 케이블은 `{ source: { assetId }, target: { assetId }, sourceAssetId, targetAssetId }`
  * 형태이고, 캔버스 렌더러(ConnectionOverlay/ConnectionDiagram)·드래그 동기화(cableSync)·
- * cableTracer 는 flat `sourceEquipmentId`/`sourceModuleId`/… 을 읽는다. 이 매퍼 없이
+ * cableTracer 는 flat `sourceAssetId`/`targetAssetId` 를 읽는다. 이 매퍼 없이
  * `as LocalCable` 로만 캐스팅하면 flat 필드가 전부 undefined 가 되어 케이블이
  * 도면에 안 보인다(끝점 lookup 실패).
  */
@@ -39,9 +39,9 @@ export interface CableDetailDTO {
 
 /** effective Cable row → 렌더러/트레이서가 먹는 LocalCable. */
 export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
-  // 단계4b — endpoint = 단일 assetId. flat precise id 자리(sourceEquipmentId)는 assetId
-  //   그대로. 렌더(ConnectionOverlay)·트레이서(cableTracer)·ConnectionDiagram 은 이 flat
-  //   id 를 floorAnchor / effective assets 로 해소한다(nested module/circuit id 제거).
+  // endpoint = 단일 assetId. flat 자리(sourceAssetId/targetAssetId)에 그대로 옮기고,
+  //   렌더(ConnectionOverlay)·트레이서(cableTracer)·ConnectionDiagram 은 이 flat id 를
+  //   floorAnchor / effective assets 로 해소한다.
   const sourceId = c.sourceAssetId;
   const targetId = c.targetAssetId;
   return {
