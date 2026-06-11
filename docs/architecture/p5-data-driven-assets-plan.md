@@ -44,3 +44,27 @@ ASSET_RECORD_TYPES = [
 ## 트레이드오프
 - passthrough = 실제 컬럼만 통과(스키마 검증) → 안전. 타입 컬럼 유지(EAV 회피).
 - 제네릭 UI 2모드가 현재+대부분 미래 커버. 별난 UI만 새 모드(드묾).
+
+---
+
+## 검사 — 자산DB 중심 미전환 부분 감사 (2026-06-12, 자율 실행)
+
+병렬 감사(백엔드/프론트) 결과. **현재 자산-중심도: 프론트 ~85% / 백엔드 ~60%.**
+
+### ✅ 완료(안전·검증됨)
+- **P5a** 스냅샷 오버레이 dead code 제거(마지막 평행모델 SnapshotEquipment 소멸).
+- **P5b** 스칼라 필드 단일소스(`ASSET_SCALAR_FIELDS`) + `Asset` index signature → 컬럼 추가가 로드/staging/커밋 자동 통과(3곳→1곳).
+- **죽은 마이그레이션 잔여 제거**: `useSubstationConnections`+중복 `CableDetailDTO`(프론트), 제거된 모델 테스트 5개(백엔드) → 백엔드 테스트 5 failed→68 all pass.
+
+### ⚠ 남은 미전환 (브라우저 검증/DB 마이그레이션 필요 — 블라인드 위험으로 보류)
+**백엔드 (HIGH):** 통합커밋(`/substations/:id/assets/commit`)을 우회하는 **레거시 write 경로**가 잔존 — `POST/PUT/DELETE /assets`, `PUT/DELETE /equipment/:id`, `POST /floors/:id/equipment`, `/rack-modules` CRUD. *프론트가 실제 호출하는지 확인 후 제거 또는 commit 흡수 필요.* OCC/감사 우회 위험.
+**백엔드 (MEDIUM):** `Port`/`EquipmentPhoto`/`MaintenanceLog`의 `equipmentId` 컬럼 = 실제 assetId → `assetId`로 rename(DB 마이그레이션). `/equipment/:id/*` 라우트 → `/assets/:id/*`.
+**프론트 (HIGH):** 상세패널이 워킹카피에 이미 있는데 **재-fetch** — `useAsset`(`/assets/:id`)·`useMergedEquipmentDetail`+`EquipmentDetail`(`/equipment/:id`). effective Asset만으로 충분(이미지URL만 별도). → `EquipmentDetail` 평행shape 제거 후보.
+**프론트 (MEDIUM):** `AssetInspector`·CSV export의 **하드코딩 필드 리스트**(P5b-render) → 필드 스키마+제네릭 렌더러. *UX 민감(사용자가 매우 신경쓴 패널) → 브라우저 검증 필수.*
+**프론트 (MEDIUM):** media row `LogRow/PhotoRow.equipmentId` = assetId → rename(클라리티, 코스메틱).
+
+### ⏭ 다음(브라우저 켜고)
+1. 레거시 write 경로 프론트 호출 확인 → dead면 제거 / live면 commit 흡수.
+2. 상세패널 재-fetch 제거(effective Asset 직접) + `EquipmentDetail` 폐기.
+3. P5b-render(상세패널 데이터-드리븐) + P5c(레코드 UI 제네릭) — UX 검증하며.
+4. equipmentId→assetId rename(DB 마이그레이션 동반).
