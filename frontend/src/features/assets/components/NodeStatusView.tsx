@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useNodeAssets, type NodeKind } from '../../../hooks/useNodeAssets';
 import { useSelection } from '../../workspace/SelectionContext';
 import { installLocation, inspectionState, type AssetListItem } from '../nodeStatus';
@@ -11,7 +12,44 @@ import { AssetDetailPanel } from './AssetDetailPanel';
 import { Badge } from '../../../components/ui';
 import type { Asset } from '../../../types/asset';
 
-const COLUMNS = ['종류', '이름', '설치장소', '설치일', '담당자', '마지막 점검일', '상태'] as const;
+type SortType = 'text' | 'date' | 'status';
+
+interface ColumnDef {
+  label: string;
+  type: SortType;
+  /** 정렬 비교 키 추출(text=문자열|null, date=ISO 문자열|null, status=ON/OFF). */
+  accessor: (i: AssetListItem) => string | null;
+}
+
+const COLUMN_DEFS: ColumnDef[] = [
+  { label: '종류', type: 'text', accessor: (i) => i.assetTypeName },
+  { label: '이름', type: 'text', accessor: (i) => i.name },
+  { label: '설치장소', type: 'text', accessor: (i) => installLocation(i) },
+  { label: '설치일', type: 'date', accessor: (i) => i.installDate },
+  { label: '담당자', type: 'text', accessor: (i) => i.manager },
+  { label: '마지막 점검일', type: 'date', accessor: (i) => i.lastMaintenanceDate },
+  { label: '상태', type: 'status', accessor: (i) => (statusIsOn(i.status) ? 'ON' : 'OFF') },
+];
+
+const COLUMNS = COLUMN_DEFS.map((c) => c.label);
+
+type SortState = { col: string; dir: 'asc' | 'desc' } | null;
+
+/** 한 컬럼의 두 행을 정렬 타입별로 비교(asc 기준). null 은 항상 뒤로. */
+function compareBy(def: ColumnDef, a: AssetListItem, b: AssetListItem): number {
+  const av = def.accessor(a);
+  const bv = def.accessor(b);
+  // null/빈값은 항상 뒤로(정렬 방향과 무관).
+  const aEmpty = av == null || av === '';
+  const bEmpty = bv == null || bv === '';
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  if (def.type === 'text') return (av as string).localeCompare(bv as string, 'ko');
+  if (def.type === 'date') return new Date(av as string).getTime() - new Date(bv as string).getTime();
+  // status: ON 먼저(ON<OFF). 문자열 비교로 'ON' < 'OFF'.
+  return (av as string).localeCompare(bv as string);
+}
 
 function uniq(values: (string | null | undefined)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v))).sort();
@@ -225,17 +263,42 @@ export function NodeStatusView({
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  // 3-state 정렬: 1클릭 asc → 2클릭 desc → 3클릭 취소(null=원본 순서). 한 번에 한 컬럼만.
+  const [sort, setSort] = useState<SortState>(null);
+  const cycleSort = (label: string) =>
+    setSort((cur) => {
+      if (!cur || cur.col !== label) return { col: label, dir: 'asc' };
+      if (cur.dir === 'asc') return { col: label, dir: 'desc' };
+      return null; // desc → 취소
+    });
+
+  // items(오버레이 머지 후)에서 정렬 사본을 파생. sort 가 null 이면 원본 순서 그대로.
+  const sortedItems = useMemo(() => {
+    if (!sort) return items;
+    const def = COLUMN_DEFS.find((c) => c.label === sort.col);
+    if (!def) return items;
+    const factor = sort.dir === 'asc' ? 1 : -1;
+    // 안정 정렬: 같은 값은 원본 인덱스 유지.
+    return items
+      .map((item, idx) => ({ item, idx }))
+      .sort((a, b) => {
+        const c = compareBy(def, a.item, b.item);
+        return c !== 0 ? c * factor : a.idx - b.idx;
+      })
+      .map((w) => w.item);
+  }, [items, sort]);
+
   const statuses = useMemo(() => uniq(items.map((i) => i.status)), [items]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return items.filter((i) => {
+    return sortedItems.filter((i) => {
       if (q && !i.name.toLowerCase().includes(q)) return false;
       if (typeFilter && i.assetTypeName !== typeFilter) return false;
       if (statusFilter && i.status !== statusFilter) return false;
       return true;
     });
-  }, [items, search, typeFilter, statusFilter]);
+  }, [sortedItems, search, typeFilter, statusFilter]);
 
   const total = items.length;
   const summaryItems = useMemo(() => {
@@ -298,11 +361,28 @@ export function NodeStatusView({
             <table className="w-full border-collapse">
               <thead>
                 <tr className="text-left bg-surface-2 border-b border-line sticky top-0">
-                  {COLUMNS.map((c, i) => (
-                    <th key={c} className={`${i === 0 ? 'pl-4 pr-2' : i === COLUMNS.length - 1 ? 'px-2 pr-4' : 'px-2'} py-2 text-xs font-medium uppercase tracking-wide text-content-muted`}>
-                      {c}
-                    </th>
-                  ))}
+                  {COLUMNS.map((c, i) => {
+                    const active = sort?.col === c;
+                    return (
+                      <th key={c} className={`${i === 0 ? 'pl-4 pr-2' : i === COLUMNS.length - 1 ? 'px-2 pr-4' : 'px-2'} py-2 text-xs font-medium uppercase tracking-wide text-content-muted`}>
+                        <button
+                          type="button"
+                          onClick={() => cycleSort(c)}
+                          aria-label={`${c} 정렬`}
+                          className="group inline-flex items-center gap-1 cursor-pointer select-none uppercase tracking-wide hover:text-content"
+                        >
+                          {c}
+                          {active && sort?.dir === 'asc' ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-content" />
+                          ) : active && sort?.dir === 'desc' ? (
+                            <ChevronDown className="w-3.5 h-3.5 text-content" />
+                          ) : (
+                            <ChevronsUpDown className="w-3.5 h-3.5 text-content-faint opacity-0 group-hover:opacity-100 transition-opacity" />
+                          )}
+                        </button>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>{filtered.map(renderRow)}</tbody>

@@ -47,6 +47,33 @@ describe('NodeStatusView', () => {
     expect(onSelect).toHaveBeenCalledWith('a1');
   });
 
+  it('컬럼 헤더 클릭 → 3-state 정렬(오름차순→내림차순→취소) + 컬럼 전환', () => {
+    const onSelect = vi.fn();
+    renderView(onSelect);
+
+    const names = () => screen.getAllByRole('row').slice(1).map((r) => r.querySelector('td:nth-child(2)')?.textContent?.trim());
+    // 원본(머지) 순서. 정렬 전 기준.
+    const original = names();
+
+    // '이름' 헤더 1클릭 → 오름차순(localeCompare ko): OFD-7 < 랙01.
+    fireEvent.click(screen.getByRole('button', { name: '이름 정렬' }));
+    const asc = names();
+    expect(asc).toEqual([...asc].sort((a, b) => (a ?? '').localeCompare(b ?? '', 'ko')));
+
+    // 2클릭 → 내림차순(asc 의 역순).
+    fireEvent.click(screen.getByRole('button', { name: '이름 정렬' }));
+    expect(names()).toEqual([...asc].reverse());
+
+    // 3클릭 → 취소(원본 순서 복원).
+    fireEvent.click(screen.getByRole('button', { name: '이름 정렬' }));
+    expect(names()).toEqual(original);
+
+    // 다른 컬럼('마지막 점검일') 클릭 → 그 컬럼 오름차순으로 전환.
+    // a1 점검일 null(뒤로), a2='2026-05-01' → OFD-7 먼저, 랙01(null) 뒤.
+    fireEvent.click(screen.getByRole('button', { name: '마지막 점검일 정렬' }));
+    expect(names()).toEqual(['OFD-7', '랙01']);
+  });
+
   it('요약 칩 클릭 → 종류 필터(전체 클릭 시 해제)', () => {
     const onSelect = vi.fn();
     renderView(onSelect);
