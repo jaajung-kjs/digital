@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import type {
   BackgroundDrawing,
   EditorTool,
-  FloorPlanEquipment,
 } from '../../../types/floorPlan';
 import type { EquipmentKind } from '../../../types/equipmentKind';
 import type { Asset } from '../../../types/asset';
@@ -112,7 +111,7 @@ export interface EditorStoreState {
   viewportInitialized: boolean;
   mouseWorldPosition: { x: number; y: number };
 
-  clipboard: { type: 'equipment'; data: FloorPlanEquipment } | null;
+  clipboard: { type: 'equipment'; data: Asset } | null;
 
   /**
    * 우측 패널 단일 enum — 우측에는 동시에 최대 하나만 뜬다(상호배타).

@@ -149,11 +149,11 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
         }
 
         // SSOT-2d Task 4 — 리사이즈 적용을 통합 스토어 stage 액션으로.
-        useSubstationWorkingCopy.getState().stageEquipmentUpdate(equipment.id, {
+        useSubstationWorkingCopy.getState().stageAssetUpdate(equipment.id, {
           positionX: newX,
           positionY: newY,
-          width: newW,
-          height: newH,
+          width2d: newW,
+          height2d: newH,
         });
 
         // 케이블 endpoint 라이브 동기화 — 설비가 작아져도 중심이 바뀌면

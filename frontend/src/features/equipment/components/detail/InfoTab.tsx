@@ -81,8 +81,8 @@ function EditForm({
   onClose: () => void;
 }) {
   // 통합 스토어 stage 로 이관(2d-3a T4): 과거 editorStore 의 로컬 설비 교체 대신
-  // stageEquipmentUpdate(id, patch) — 단일 설비 update overlay(단일 undo).
-  const stageEquipmentUpdate = useSubstationWorkingCopy((s) => s.stageEquipmentUpdate);
+  // stageAssetUpdate(id, patch) — 단일 설비 update overlay(단일 undo).
+  const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
 
   const [editName, setEditName] = useState(equipment.name);
   const [editManager, setEditManager] = useState(equipment.manager ?? '');
@@ -90,7 +90,7 @@ function EditForm({
   const [editDescription, setEditDescription] = useState(equipment.description ?? '');
 
   const handleApply = () => {
-    stageEquipmentUpdate(equipment.id, {
+    stageAssetUpdate(equipment.id, {
       name: editName,
       manager: editManager || null,
       installDate: editInstallDate || null,

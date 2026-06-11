@@ -59,9 +59,9 @@ describe('substationWorkingCopy', () => {
     useSubstationWorkingCopy.getState().stageEquipmentCreate(eq, 'tOFD');
     expect(useSubstationWorkingCopy.getState().effectiveAssets().some(a => a.id==='tmpX')).toBe(true);
   });
-  it('stageEquipmentUpdate → 위치 반영', async () => {
+  it('stageAssetUpdate → 위치 반영', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
-    useSubstationWorkingCopy.getState().stageEquipmentUpdate('o1', { positionX: 99 });
+    useSubstationWorkingCopy.getState().stageAssetUpdate('o1', { positionX: 99 });
     expect(useSubstationWorkingCopy.getState().effectiveAssets().find(a=>a.id==='o1')!.positionX).toBe(99);
   });
   it('stageEquipmentDeleteCascade → 설비+랙모듈자식+케이블 delete, undo 1스텝', async () => {

@@ -4,10 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 // #7: 커스텀 속성(attributes) UI 제거 — InfoTab 은 name/manager/installDate/description 만 편집.
-const stageEquipmentUpdate = vi.fn();
+const stageAssetUpdate = vi.fn();
 vi.mock('../../../workingCopy/substationStore', () => ({
   useSubstationWorkingCopy: (sel: (s: unknown) => unknown) =>
-    sel({ stageEquipmentUpdate }),
+    sel({ stageAssetUpdate }),
 }));
 vi.mock('../../../workingCopy/hooks', () => ({ useEffectiveAssets: () => [] }));
 
@@ -20,9 +20,9 @@ const wrap = (ui: ReactNode) => {
 };
 
 describe('InfoTab — 기본 정보 편집(속성 UI 없음)', () => {
-  beforeEach(() => { stageEquipmentUpdate.mockClear(); });
+  beforeEach(() => { stageAssetUpdate.mockClear(); });
 
-  it('수정 → 적용: stageEquipmentUpdate 로 name/manager/description 스테이징, 속성 입력 없음', () => {
+  it('수정 → 적용: stageAssetUpdate 로 name/manager/description 스테이징, 속성 입력 없음', () => {
     wrap(<InfoTab equipment={equipment} />);
     fireEvent.click(screen.getByText('수정'));
 
@@ -31,6 +31,6 @@ describe('InfoTab — 기본 정보 편집(속성 UI 없음)', () => {
     expect(screen.queryByText('속성')).toBeNull();
 
     fireEvent.click(screen.getByText('적용'));
-    expect(stageEquipmentUpdate).toHaveBeenCalledWith('e1', expect.objectContaining({ name: '랙01' }));
+    expect(stageAssetUpdate).toHaveBeenCalledWith('e1', expect.objectContaining({ name: '랙01' }));
   });
 });

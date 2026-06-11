@@ -37,7 +37,7 @@ function withSourcePresetId(eq: FloorPlanEquipment, presetId: string | null): Fl
 /**
  * 랙의 source preset id 를 갱신 (저장/불러오기/사이드바 배치 시 호출).
  * SSOT-2d3a Task 2 — 통합 스토어 effective 에서 현재 랙을 찾아 properties 를 머지한 뒤
- * stageEquipmentUpdate 로 스테이징한다(properties ↔ attributes 라운드트립).
+ * stageAssetUpdate 로 sourcePresetId 컬럼을 직접 스테이징한다.
  */
 export function updateRackSourcePreset(rackEquipmentId: string, presetId: string | null): void {
   const store = useSubstationWorkingCopy.getState();
@@ -48,5 +48,7 @@ export function updateRackSourcePreset(rackEquipmentId: string, presetId: string
     properties: rackAsset.sourcePresetId ? { sourcePresetId: rackAsset.sourcePresetId } : null,
   } as FloorPlanEquipment;
   const next = withSourcePresetId(eqLike, presetId);
-  store.stageEquipmentUpdate(rackEquipmentId, { properties: next.properties });
+  store.stageAssetUpdate(rackEquipmentId, {
+    sourcePresetId: (next.properties as { sourcePresetId?: string } | null)?.sourcePresetId ?? null,
+  });
 }

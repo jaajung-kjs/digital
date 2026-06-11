@@ -1,6 +1,5 @@
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 
 export interface CanvasContextMenuState {
@@ -33,9 +32,8 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   const handleDuplicate = () => {
     const es = useEditorStore.getState();
     const asset = useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === target.id);
-    const eq = asset ? assetToEquipment(asset) : undefined;
-    if (eq) {
-      es.setClipboard({ type: 'equipment', data: { ...eq } });
+    if (asset) {
+      es.setClipboard({ type: 'equipment', data: asset });
       es.setPasteEquipmentName('');
       es.setPasteEquipmentModalOpen(true);
     }

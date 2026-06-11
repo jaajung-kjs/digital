@@ -2,12 +2,12 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsAdmin } from '../../../stores/authStore';
-import type { FloorPlanEquipment } from '../../../types/floorPlan';
+import type { Asset } from '../../../types/asset';
 import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
-import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useSubstationWorkingCopy, type PlacementDraw } from '../../workingCopy/substationStore';
 import { getUnifiedDirtyCount } from '../../workingCopy/hooks';
 import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
 import { useSnapshotStore } from '../stores/snapshotStore';
@@ -70,27 +70,24 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     const cs = es;
     if (!es.clipboard || es.clipboard.type !== 'equipment') return;
 
-    const original = es.clipboard.data as FloorPlanEquipment;
-    const newEquipment: FloorPlanEquipment = {
+    // 클립보드는 이제 Asset — 복제는 stageAssetCreate 로 그대로 stage(assetTypeId 재해소 불필요).
+    const original = es.clipboard.data;
+    const newId = generateTempId();
+    const copy: Asset = {
       ...original,
-      id: generateTempId(),
+      id: newId,
       name: cs.pasteEquipmentName,
-      positionX: original.positionX + 20,
-      positionY: original.positionY + 20,
+      positionX: (original.positionX ?? 0) + 20,
+      positionY: (original.positionY ?? 0) + 20,
+      floorId,
+      updatedAt: '',
     };
-    const assetTypeId = kindToAssetTypeId(newEquipment.kind);
-    if (!assetTypeId) {
-      // 종류 목록 로딩 중 등 — assetTypeId 미해소면 stage 하지 않는다(데이터 무결성).
-      // eslint-disable-next-line no-console
-      console.warn(`[paste] assetTypeId 미해소 (kind=${newEquipment.kind}) — 배치 보류`);
-      return;
-    }
-    useSubstationWorkingCopy.getState().stageEquipmentCreate({ ...newEquipment, floorId }, assetTypeId);
+    useSubstationWorkingCopy.getState().stageAssetCreate(copy);
     cs.setPasteEquipmentModalOpen(false);
     cs.setPasteEquipmentName('');
-    es.setSelectedIds([newEquipment.id]);
-    es.setClipboard({ type: 'equipment', data: newEquipment });
-  }, [floorId, kindToAssetTypeId]);
+    es.setSelectedIds([newId]);
+    es.setClipboard({ type: 'equipment', data: copy });
+  }, [floorId]);
 
   const resetEditor = useEditorStore(s => s.resetEditor);
   const rightPanel = useEditorStore(s => s.rightPanel);
@@ -252,18 +249,16 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     // rack on the canvas; the rack-preset path doesn't go through this modal.
     const kind = cs.newEquipmentKind ?? 'OFD';
 
-    const baseEquip: FloorPlanEquipment = {
+    const baseEquip: PlacementDraw = {
       id: generateTempId(),
       kind,
       name: cs.newEquipmentName,
+      floorId,
       positionX: cs.newEquipmentPosition.x,
       positionY: cs.newEquipmentPosition.y,
       width: drawnWidth,
       height: drawnHeight,
       rotation: 0,
-      frontImageUrl: null,
-      rearImageUrl: null,
-      description: null,
       properties: null,
       // Plain rack via the "랙" kind leaf → empty 42U; preset path doesn't go through this modal.
       totalU: kind === 'RACK' ? 42 : null,
@@ -276,7 +271,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       useToastStore.getState().showToast('설비 종류를 확인할 수 없어 배치하지 못했습니다');
       return;
     }
-    useSubstationWorkingCopy.getState().stageEquipmentCreate({ ...baseEquip, floorId }, assetTypeId);
+    useSubstationWorkingCopy.getState().stageEquipmentCreate(baseEquip, assetTypeId);
 
     cs.setEquipmentModalOpen(false);
     cs.setNewEquipmentName('');
@@ -309,20 +304,17 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       resolvedName = `${baseName}-${suffix++}`;
     }
 
-    const rackEquip: FloorPlanEquipment = {
+    const rackEquip: PlacementDraw = {
       id: rackId,
       kind: 'RACK',
       name: resolvedName,
+      floorId,
       positionX: cs.newEquipmentPosition.x,
       positionY: cs.newEquipmentPosition.y,
       width: preset.canvasWidth,
       height: preset.canvasHeight,
       rotation: 0,
       totalU: preset.totalU,
-      description: null,
-      manager: null,
-      frontImageUrl: null,
-      rearImageUrl: null,
       // 사이드바에서 프리셋으로 배치하면 그 프리셋을 source 로 기록 →
       // 나중에 detail panel 열었을 때 드롭다운에 자동으로 그 프리셋이 선택됨.
       properties: { sourcePresetId: preset.id },
@@ -336,7 +328,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       return;
     }
     const wc = useSubstationWorkingCopy.getState();
-    wc.stageEquipmentCreate({ ...rackEquip, floorId }, rackAssetTypeId);
+    wc.stageEquipmentCreate(rackEquip, rackAssetTypeId);
 
     // Resolve module categories by code; skip silently if a preset references
     // an unknown code (data drift). Emit one console warning per occurrence.

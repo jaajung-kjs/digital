@@ -250,7 +250,7 @@ export function useCanvasEvents(
     if (moved) {
       // 첫 프레임만 temporal 에 기록(드래그 직전 overlay 가 단일 pastState 로 캡처),
       // 이후 프레임은 pause 해 history 폭주를 막는다(mouseup 에서 resume).
-      useSubstationWorkingCopy.getState().stageEquipmentUpdate(moved.id, {
+      useSubstationWorkingCopy.getState().stageAssetUpdate(moved.id, {
         positionX: moved.positionX ?? 0,
         positionY: moved.positionY ?? 0,
       });

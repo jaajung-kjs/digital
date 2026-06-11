@@ -31,7 +31,7 @@ describe('useEditorHistory', () => {
 
     // stage a change → hook must observe canUndo===true (proves useStore(temporal) subscription works)
     act(() => {
-      useSubstationWorkingCopy.getState().stageEquipmentUpdate('o1', { positionX: 99 });
+      useSubstationWorkingCopy.getState().stageAssetUpdate('o1', { positionX: 99 });
     });
     expect(result.current.canUndo).toBe(true);
     expect(useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === 'o1')!.positionX).toBe(99);

@@ -3,7 +3,6 @@ import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { Asset } from '../../../types/asset';
 import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useEditorHistory } from './useEditorHistory';
@@ -99,7 +98,7 @@ export function useEditorKeyboard(
         for (const eq of localEquipment) {
           if (!es.selectedIds.includes(eq.id)) continue;
           const moved = nudgeEquipment(eq, dx, dy);
-          wc.stageEquipmentUpdate(moved.id, {
+          wc.stageAssetUpdate(moved.id, {
             positionX: moved.positionX ?? 0,
             positionY: moved.positionY ?? 0,
           });
@@ -197,11 +196,10 @@ export function useEditorKeyboard(
         return;
       }
 
-      // Ctrl+C copy equipment — 클립보드는 붙여넣기(생성) 쓰기 경로용 FloorPlanEquipment
-      // 모양을 유지한다. 선택은 Asset 이므로 경계에서 한 번 투영.
+      // Ctrl+C copy equipment — 클립보드는 선택된 Asset 을 그대로 담는다(붙여넣기에서 복제).
       if (e.ctrlKey && key === 'c' && selectedEquipment) {
         e.preventDefault();
-        es.setClipboard({ type: 'equipment', data: assetToEquipment(selectedEquipment) });
+        es.setClipboard({ type: 'equipment', data: selectedEquipment });
       }
 
       // Ctrl+V paste equipment (opens name modal)

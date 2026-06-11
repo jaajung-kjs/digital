@@ -4,7 +4,7 @@ import { shallow } from 'zustand/shallow';
 import { api } from '../../utils/api';
 import { isTempId } from '../../utils/idHelpers';
 import type { Asset } from '../../types/asset';
-import type { FloorPlanEquipment } from '../../types/floorPlan';
+import type { EquipmentKind } from '../../types/equipmentKind';
 import {
   emptyOverlay,
   stageCreate,
@@ -16,7 +16,6 @@ import {
 } from './overlay';
 import { mergeEffective } from './effective';
 import type { CollectionDescriptor } from './descriptor';
-import { equipmentToAssetCreate, equipmentToAssetPatch } from './equipmentToAsset';
 import { rackModuleToAssetCreate, rackModuleToAssetPatch } from './rackModuleToAsset';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
 import { isRackModuleAsset as isRackModuleChild } from './assetClassify';
@@ -41,6 +40,24 @@ export interface WorkingCopyRow {
   id: string;
   updatedAt?: string | null;
   [key: string]: unknown;
+}
+
+/**
+ * 캔버스 배치(draw) 입력 — 신규 설비 stage 의 최소 계약.
+ * FloorPlanEquipment 뷰모델에 의존하지 않고 stage 에 필요한 필드만 받는다.
+ */
+export interface PlacementDraw {
+  id: string;
+  kind: EquipmentKind;
+  name: string;
+  floorId: string | null;
+  positionX: number;
+  positionY: number;
+  width: number;
+  height: number;
+  rotation?: number;
+  totalU?: number | null;
+  properties?: Record<string, unknown> | null;
 }
 
 type Cable = WorkingCopyRow;
@@ -210,14 +227,13 @@ export interface SubstationWorkingCopyState {
   remove: (coll: CollectionKey, id: string) => void;
 
   // ── editor-facing mutation actions (2d-1 T3) ──
-  // 캔버스 편집 결과(FloorPlanEquipment)를 받아 Asset overlay 로 stage 한다.
+  // 캔버스 배치(draw) 입력을 받아 Asset overlay 로 stage 한다.
   // 복합/배치 액션은 단일 set → zundo 1 entry(undo 1스텝).
   /**
    * 설비 신규 stage. assetTypeId 는 kind→assetType 해석(2d-2)에서 주입.
-   * floorId 는 FloorPlanEquipment 본체에 없으므로(에디터가 보유) eq 에 얹어 전달한다.
+   * floorId 는 PlacementDraw 본체에 담아 전달한다(에디터가 보유).
    */
-  stageEquipmentCreate: (eq: FloorPlanEquipment & { floorId: string }, assetTypeId: string) => void;
-  stageEquipmentUpdate: (id: string, eqPatch: Partial<FloorPlanEquipment>) => void;
+  stageEquipmentCreate: (eq: PlacementDraw, assetTypeId: string) => void;
   /** 설비 삭제 + 랙모듈 자식 + 해당 설비/모듈에 닿는 케이블까지 캐스케이드(단일 set). */
   stageEquipmentDeleteCascade: (id: string) => void;
   /** 케이블 다건 업데이트를 단일 set 으로 stage(단일 undo). */
@@ -342,19 +358,38 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       stageEquipmentCreate: (eq, assetTypeId) =>
         set((s) => {
           if (!s.substationId) return s; // 미로드 — 무시(null substationId asset 방지)
-          const asset = equipmentToAssetCreate(eq, {
+          // 캔버스 draw 입력 → staged Asset(과거 equipmentToAssetCreate 를 인라인).
+          // staged create — 실제 assetType 은 서버 커밋 후에야 알 수 있어 placementKind 만 채운다.
+          const asset: Asset = {
+            id: eq.id,
             substationId: s.substationId,
-            floorId: eq.floorId,
             assetTypeId,
-            tempId: eq.id,
-          });
+            assetType: { placementKind: eq.kind } as Asset['assetType'],
+            name: eq.name,
+            parentAssetId: null,
+            floorId: eq.floorId,
+            roomText: null,
+            positionX: eq.positionX,
+            positionY: eq.positionY,
+            width2d: eq.width,
+            height2d: eq.height,
+            rotation: eq.rotation ?? 0,
+            totalU: eq.totalU ?? null,
+            slotIndex: null,
+            slotSpan: null,
+            description: null,
+            manager: null,
+            installDate: null,
+            status: null,
+            warrantyUntil: null,
+            replaceDue: null,
+            // 랙 프리셋 추적: FE 캐리어 properties.sourcePresetId → Asset 전용 컬럼(#7).
+            sourcePresetId: (eq.properties as { sourcePresetId?: string } | null | undefined)?.sourcePresetId ?? null,
+            sortOrder: 0,
+            updatedAt: '',
+          };
           return { overlays: { ...s.overlays, assets: stageCreate(s.overlays.assets, asset.id, asset) } };
         }),
-
-      stageEquipmentUpdate: (id, eqPatch) =>
-        set((s) => ({
-          overlays: { ...s.overlays, assets: stageUpdate(s.overlays.assets, id, equipmentToAssetPatch(eqPatch)) },
-        })),
 
       stageEquipmentDeleteCascade: (id) =>
         set((s) => {

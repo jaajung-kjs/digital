@@ -26,7 +26,7 @@ describe('drag → single undo step', () => {
     const t = useSubstationWorkingCopy.temporal.getState();
     let recorded = false;
     for (const x of frames) {
-      wc.stageEquipmentUpdate('o1', { positionX: x });
+      wc.stageAssetUpdate('o1', { positionX: x });
       if (!recorded) {
         recorded = true;
         useSubstationWorkingCopy.temporal.getState().pause();
