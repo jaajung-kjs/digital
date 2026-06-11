@@ -17,7 +17,7 @@ interface CanvasContextMenuProps {
 
 /**
  * 캔버스 우클릭 컨텍스트 메뉴. 설비/케이블 대상에 따라 항목이 달라진다.
- * 마크업/오버레이 패턴은 EditorSidebar 의 프리셋 컨텍스트 메뉴를 따른다.
+ * 마크업/오버레이 패턴은 EditorInsertBar 의 프리셋 컨텍스트 메뉴를 따른다.
  */
 export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   const { x, y, target } = menu;

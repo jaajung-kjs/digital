@@ -20,7 +20,7 @@ const CABLE_DISPLAY_GROUPS: CableDisplayGroup[] = [
   '제어',
 ];
 
-// Group representative colors — match ConnectionLegend GROUP_COLORS / EditorSidebar.
+// Group representative colors — match ConnectionLegend GROUP_COLORS / EditorInsertBar.
 const CABLE_GROUP_COLORS: Record<CableDisplayGroup, string> = {
   '전원': '#ef4444',
   '접지': '#eab308',
@@ -30,9 +30,9 @@ const CABLE_GROUP_COLORS: Record<CableDisplayGroup, string> = {
 };
 
 /**
- * Horizontal "insert" toolbar — the left EditorSidebar relaid out horizontally.
+ * Horizontal "insert" toolbar — the left EditorInsertBar relaid out horizontally.
  * Renders the same four parts left-to-right and reuses the exact store
- * actions/handlers/hooks from EditorSidebar (placement interactions are
+ * actions/handlers/hooks from EditorInsertBar (placement interactions are
  * position-independent: click-to-arm → canvas handles placement).
  *
  *  [선택] | 설비: [랙][OFD][분전반][접지함체][공조설비] | 랙 프리셋 ▾ | 케이블: [전원][접지][네트워크][광][제어]
@@ -77,7 +77,7 @@ export function EditorInsertBar() {
     setPresetMenuOpen(true);
   };
 
-  // ───── Click handlers (verbatim from EditorSidebar) ─────
+  // ───── Click handlers (verbatim from EditorInsertBar) ─────
   const handleSelect = () => {
     setTool('select');
     resetNewEquipmentSelection();

@@ -12,7 +12,7 @@ export const RACK_PRESET_KEYS = {
 };
 
 /**
- * List rack presets. Used by EditorSidebar (P9) and PresetActionsBar (P10).
+ * List rack presets. Used by EditorInsertBar (P9) and PresetActionsBar (P10).
  *
  * Backend route: GET /api/rack-presets.
  */
