@@ -27,13 +27,8 @@ function assetPatchToListItem(patch: Partial<Asset>): Partial<AssetListItem> {
   return out;
 }
 
-/** 자유 텍스트 상태값 → Badge 상태(정상=success, 점검요/임박=warning, 이상/교체=danger, 기타=neutral). */
-function statusBadge(status: string): BadgeStatus {
-  if (/정상|양호|운영/.test(status)) return 'success';
-  if (/이상|고장|교체|불량/.test(status)) return 'danger';
-  if (/점검|임박|주의|예정/.test(status)) return 'warning';
-  return 'neutral';
-}
+// 자산 상태 = ON/OFF 이진(기본 ON, 'OFF' 일 때만 OFF). 색은 ON=success/OFF=neutral.
+const statusIsOn = (status: string | null | undefined) => status !== 'OFF';
 
 function AssetRow({
   item,
@@ -71,11 +66,9 @@ function AssetRow({
       <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">{item.manager ?? '—'}</td>
       <td className={`px-2 text-sm align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
       <td className="px-2 pr-4 text-sm align-middle whitespace-nowrap">
-        {item.status ? (
-          <Badge status={statusBadge(item.status)}>{item.status}</Badge>
-        ) : (
-          <span className="text-content-muted">—</span>
-        )}
+        <Badge status={statusIsOn(item.status) ? 'success' : 'neutral'}>
+          {statusIsOn(item.status) ? 'ON' : 'OFF'}
+        </Badge>
       </td>
     </tr>
   );

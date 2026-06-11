@@ -65,6 +65,34 @@ function DescField({ value, onCommit }: { value: string; onCommit: (v: string) =
   );
 }
 
+/** 자산 상태 — ON/OFF 이진(기본 ON, status==='OFF' 일 때만 OFF). 색은 상태 전용(ISA-101). */
+const statusOn = (status: string | null | undefined) => status !== 'OFF';
+function StatusPill({ on }: { on: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${on ? 'bg-success-bg text-success' : 'bg-surface-2 text-content-muted'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-success' : 'bg-content-faint'}`} />
+      {on ? 'ON' : 'OFF'}
+    </span>
+  );
+}
+function StatusField({ value, onCommit, readOnly }: { value: string | null; onCommit?: (v: string) => void; readOnly?: boolean }) {
+  const on = statusOn(value);
+  return (
+    <div className="flex items-center gap-2 text-sm py-0.5">
+      <span className="w-24 shrink-0 text-content-muted text-xs">상태</span>
+      {readOnly ? (
+        <StatusPill on={on} />
+      ) : (
+        <button type="button" role="switch" aria-checked={on} onClick={() => onCommit?.(on ? 'OFF' : 'ON')}
+          title="클릭하여 ON/OFF 전환"
+          className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 transition-transform active:scale-95">
+          <StatusPill on={on} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
   const ro = mode === 'view';
   const patch = (p: Partial<Asset>) => onPatch?.(asset.id, p);
@@ -121,7 +149,7 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
             )}
             <ReadField label="담당자" value={asset.manager ?? ''} />
             <ReadField label="설치일" value={toDateInputValue(asset.installDate)} />
-            <ReadField label="상태" value={asset.status ?? ''} />
+            <StatusField value={asset.status} readOnly />
             {isPlaced && <ReadField label="크기 (px)" value={sizeValue} />}
             <ReadField label="설명" value={asset.description ?? ''} />
           </>
@@ -140,7 +168,7 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
             )}
             <Field label="담당자" value={asset.manager ?? ''} onCommit={(v) => patch({ manager: v || null })} />
             <Field label="설치일" type="date" value={toDateInputValue(asset.installDate)} onCommit={(v) => patch({ installDate: v || null })} />
-            <Field label="상태" value={asset.status ?? ''} onCommit={(v) => patch({ status: v || null })} />
+            <StatusField value={asset.status} onCommit={(v) => patch({ status: v })} />
             {isPlaced && (
               <ReadField label="크기 (px)" value={sizeValue} />
             )}
