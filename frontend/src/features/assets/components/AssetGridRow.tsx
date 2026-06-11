@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { Copy, Trash2 } from 'lucide-react';
 import type { Asset } from '../../../types/asset';
 import type { GridColumn } from '../columns';
-import { attrValue } from '../columns';
 import { Badge, IconButton } from '../../../components/ui';
 
 interface Props {
   asset: Asset;
   columns: GridColumn[];
-  onCommit: (id: string, patch: { name?: string; attributes?: Record<string, unknown> }) => void;
+  onCommit: (id: string, patch: { name?: string }) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
   alert?: { label: string } | null;
@@ -20,19 +19,13 @@ export function AssetGridRow({ asset, columns, onCommit, onDuplicate, onDelete, 
 
   const cellValue = (col: GridColumn): string => {
     if (col.key in draft) return draft[col.key];
-    if (col.kind === 'name') return asset.name;
-    return attrValue(asset.attributes, col.key);
+    return asset.name;
   };
 
   const commitCell = (col: GridColumn) => {
     if (!(col.key in draft)) return;
     const value = draft[col.key];
-    if (col.kind === 'name') {
-      if (value.trim() && value !== asset.name) onCommit(asset.id, { name: value.trim() });
-    } else {
-      const nextAttrs = { ...(asset.attributes ?? {}), [col.key]: value };
-      onCommit(asset.id, { attributes: nextAttrs });
-    }
+    if (value.trim() && value !== asset.name) onCommit(asset.id, { name: value.trim() });
     setDraft((d) => { const n = { ...d }; delete n[col.key]; return n; });
   };
 

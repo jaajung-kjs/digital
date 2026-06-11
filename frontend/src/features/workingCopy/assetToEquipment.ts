@@ -40,6 +40,8 @@ export function assetToEquipment(a: Asset): FloorPlanEquipment {
     height3d: null,
     frontImageUrl: null,
     rearImageUrl: null,
-    properties: a.attributes ?? undefined,
+    // 랙 프리셋 추적: Asset 전용 컬럼 sourcePresetId → FE 캐리어 properties 로 재구성(#7).
+    // sourcePreset.ts(readSourcePresetId) 가 eq.properties.sourcePresetId 를 읽으므로 호환 유지.
+    properties: a.sourcePresetId ? { sourcePresetId: a.sourcePresetId } : undefined,
   };
 }

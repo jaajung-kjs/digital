@@ -59,7 +59,7 @@ describe('buildSubstationCommitPayload', () => {
     // baseVersions needed for OCC token on update/delete
     assets.baseVersions = { m1: 'v-m1', a1: 'v-a1', m2: 'v-m2', a2: 'v-a2' };
     // update saved rack-module m1 → rackModules.updates with mapped patch keys
-    assets = stageUpdate(assets, 'm1', { name: '모듈수정', attributes: { x: 1 }, slotSpan: 2 } as any);
+    assets = stageUpdate(assets, 'm1', { name: '모듈수정', sourcePresetId: 'p1', slotSpan: 2 } as any);
     // update saved placement-level a1 → assets.updates verbatim
     assets = stageUpdate(assets, 'a1', { positionX: 99 } as any);
     // delete saved rack-module m2 + saved placement a2
@@ -76,7 +76,7 @@ describe('buildSubstationCommitPayload', () => {
     expect(rmUpd).toBeTruthy();
     expect(rmUpd!.baseVersion).toBe('v-m1');
     expect((rmUpd!.patch as any).name).toBe('모듈수정');
-    expect((rmUpd!.patch as any).properties).toEqual({ x: 1 }); // attributes → properties
+    expect((rmUpd!.patch as any).properties).toEqual({ sourcePresetId: 'p1' }); // sourcePresetId → properties.sourcePresetId
     expect((rmUpd!.patch as any).slotSpan).toBe(2);
 
     // a1 update → assets verbatim

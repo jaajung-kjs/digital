@@ -8,7 +8,8 @@ import type { RackModule } from '../../types/rackModule';
  * (parentAssetId + slotIndex + slotSpan). 2b 의 commit 빌더가 parentAssetId+slotIndex
  * 로 assets → assets/rackModules 를 다시 분리한다. 따라서 여기서는 RackModule 을
  * 랙 자식 Asset 으로 정방향 매핑한다.
- *   rackEquipmentId → parentAssetId, categoryId → assetTypeId, properties → attributes.
+ *   rackEquipmentId → parentAssetId, categoryId → assetTypeId,
+ *   properties.sourcePresetId → sourcePresetId(#7).
  * 배치 좌표(positionX/Y/width2d/height2d)와 totalU 는 랙모듈에 없어 null.
  */
 export function rackModuleToAssetCreate(
@@ -39,7 +40,7 @@ export function rackModuleToAssetCreate(
     status: null,
     warrantyUntil: null,
     replaceDue: null,
-    attributes: (m.properties ?? null) as Asset['attributes'],
+    sourcePresetId: (m.properties as { sourcePresetId?: string } | null | undefined)?.sourcePresetId ?? null,
     sortOrder: m.sortOrder ?? 0,
     updatedAt: '',
   };
@@ -55,6 +56,8 @@ export function rackModuleToAssetPatch(patch: Partial<RackModule>): Partial<Asse
   if ('installDate' in patch) p.installDate = patch.installDate ?? null;
   if ('manager' in patch) p.manager = patch.manager ?? null;
   if ('description' in patch) p.description = patch.description ?? null;
-  if ('properties' in patch) p.attributes = (patch.properties ?? null) as Asset['attributes'];
+  if ('properties' in patch) {
+    p.sourcePresetId = (patch.properties as { sourcePresetId?: string } | null | undefined)?.sourcePresetId ?? null;
+  }
   return p;
 }

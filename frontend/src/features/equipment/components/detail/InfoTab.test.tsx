@@ -3,21 +3,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
-// 커스텀 속성 인라인 편집 → stageAssetUpdate({ attributes }) (강제 이동 없음).
+// #7: 커스텀 속성(attributes) UI 제거 — InfoTab 은 name/manager/installDate/description 만 편집.
 const stageEquipmentUpdate = vi.fn();
-const stageAssetUpdate = vi.fn();
 vi.mock('../../../workingCopy/substationStore', () => ({
   useSubstationWorkingCopy: (sel: (s: unknown) => unknown) =>
-    sel({ stageEquipmentUpdate, stageAssetUpdate }),
+    sel({ stageEquipmentUpdate }),
 }));
 vi.mock('../../../workingCopy/hooks', () => ({ useEffectiveAssets: () => [] }));
-
-const asset = {
-  id: 'e1', substationId: 's1', assetTypeId: 't1',
-  assetType: { id: 't1', code: 'RACK', name: '랙', group: null, displayColor: null, fieldTemplate: [{ key: 'model', label: '모델', type: 'text' }] },
-  name: '랙01', attributes: { model: 'X' }, installDate: null, manager: null, status: null,
-};
-vi.mock('../../../assets/hooks/useAsset', () => ({ useAsset: () => ({ data: asset }) }));
 
 import { InfoTab } from './InfoTab';
 
@@ -27,19 +19,18 @@ const wrap = (ui: ReactNode) => {
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
 };
 
-describe('InfoTab — 커스텀 속성 인라인 편집', () => {
-  beforeEach(() => { stageEquipmentUpdate.mockClear(); stageAssetUpdate.mockClear(); });
+describe('InfoTab — 기본 정보 편집(속성 UI 없음)', () => {
+  beforeEach(() => { stageEquipmentUpdate.mockClear(); });
 
-  it('수정 → 속성 변경 → 적용: stageAssetUpdate 로 attributes 스테이징', () => {
+  it('수정 → 적용: stageEquipmentUpdate 로 name/manager/description 스테이징, 속성 입력 없음', () => {
     wrap(<InfoTab equipment={equipment} />);
     fireEvent.click(screen.getByText('수정'));
 
-    const input = screen.getByLabelText('모델') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Y' } });
-    fireEvent.blur(input);
-    fireEvent.click(screen.getByText('적용'));
+    // 속성(모델 등) 인라인 입력은 더 이상 렌더되지 않는다.
+    expect(screen.queryByLabelText('모델')).toBeNull();
+    expect(screen.queryByText('속성')).toBeNull();
 
+    fireEvent.click(screen.getByText('적용'));
     expect(stageEquipmentUpdate).toHaveBeenCalledWith('e1', expect.objectContaining({ name: '랙01' }));
-    expect(stageAssetUpdate).toHaveBeenCalledWith('e1', { attributes: { model: 'Y' } });
   });
 });

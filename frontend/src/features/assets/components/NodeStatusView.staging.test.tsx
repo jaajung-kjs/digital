@@ -72,20 +72,21 @@ beforeEach(() => {
 });
 
 describe('NodeStatusView — 본부·사업소 편집은 staging 경유(SSOT)', () => {
-  it('자산 선택 → 변전소 WC 온디맨드 로드 → 속성 변경이 stageAssetUpdate 로 stage(직접저장 없음)', async () => {
+  it('자산 선택 → 변전소 WC 온디맨드 로드 → 설명 변경이 stageAssetUpdate 로 stage(직접저장 없음)', async () => {
     const stageSpy = vi.spyOn(useSubstationWorkingCopy.getState(), 'stageAssetUpdate');
     wrap(<NodeStatusView nodeType="branch" nodeId="b1" />);
 
     // 행 클릭(s1 자산) → WC 로드 트리거.
     fireEvent.click(screen.getByText('랙01'));
 
-    // 로드 완료 → 인스펙터 편집 모드(모델 인풋 등장).
-    const input = await screen.findByLabelText('모델') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Y' } });
-    fireEvent.blur(input);
+    // 로드 완료 → 인스펙터 편집 모드. #7 속성 입력 제거 후 설명 textarea 가 항상 존재하는 편집 필드.
+    await screen.findByText('설명');
+    const desc = document.querySelector('textarea') as HTMLTextAreaElement;
+    fireEvent.change(desc, { target: { value: '수정메모' } });
+    fireEvent.blur(desc);
 
     await waitFor(() =>
-      expect(stageSpy).toHaveBeenCalledWith('a1', { attributes: { model: 'Y' } }),
+      expect(stageSpy).toHaveBeenCalledWith('a1', { description: '수정메모' }),
     );
     // 직접 저장 경로는 절대 호출되지 않는다.
     expect(updateMock).not.toHaveBeenCalled();

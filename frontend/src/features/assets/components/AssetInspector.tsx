@@ -2,7 +2,6 @@ import type { Asset } from '../../../types/asset';
 import { toDateInputValue } from '../../../utils/date';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
-import { AssetAttributesView } from './AssetAttributesView';
 import { useAssetConnections } from '../../connections/hooks/useAssetConnections';
 import { useCableMutations } from '../../connections/hooks/useCableMutations';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
@@ -174,20 +173,6 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
             )}
             <DescField value={asset.description ?? ''} onCommit={(v) => patch({ description: v || null })} />
           </>
-        )}
-      </section>
-
-      <section className="px-4 py-3 border-t border-line">
-        <h3 className="text-sm font-semibold text-content mb-1">속성</h3>
-        {(asset.assetType?.fieldTemplate ?? []).length === 0 ? (
-          <p className="text-xs text-content-faint">이 종류엔 속성 없음</p>
-        ) : (
-          <AssetAttributesView
-            fields={asset.assetType?.fieldTemplate ?? []}
-            attributes={asset.attributes}
-            readOnly={ro}
-            onChange={(key, v) => patch({ attributes: { ...(asset.attributes ?? {}), [key]: v } })}
-          />
         )}
       </section>
 

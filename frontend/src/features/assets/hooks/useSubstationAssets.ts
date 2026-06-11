@@ -40,7 +40,7 @@ export function useUpdateAsset(substationId: string) {
             ? {
                 ...a,
                 name: payload.name ?? a.name,
-                attributes: payload.attributes !== undefined ? payload.attributes : a.attributes,
+                sourcePresetId: payload.sourcePresetId !== undefined ? payload.sourcePresetId : a.sourcePresetId,
                 roomText: payload.roomText !== undefined ? payload.roomText : a.roomText,
                 installDate: payload.installDate !== undefined ? payload.installDate : a.installDate,
                 manager: payload.manager !== undefined ? payload.manager : a.manager,

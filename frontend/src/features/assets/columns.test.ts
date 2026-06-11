@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildColumns, attrValue } from './columns';
+import { buildColumns } from './columns';
 import type { AssetType } from '../../types/asset';
 
 const pitr: AssetType = {
@@ -8,32 +8,19 @@ const pitr: AssetType = {
     { key: 'tlName', label: 'T/L명', type: 'text' },
     { key: 'model', label: '모델명', type: 'text' },
   ],
-  requiredToCreate: ['name'], iconName: null, displayColor: '#000', sortOrder: 40, isActive: true,
+  requiredToCreate: ['name'], iconName: null, displayColor: '#000', placementKind: null, sortOrder: 40, isActive: true,
 };
 
 describe('buildColumns', () => {
-  it('항상 이름 컬럼을 먼저 둔다', () => {
+  // #7: Asset.attributes 제거 — fieldTemplate 기반 속성 컬럼은 더 이상 만들지 않는다.
+  it('이름 컬럼만 둔다(속성 컬럼 없음)', () => {
     const cols = buildColumns([pitr]);
-    expect(cols[0]).toEqual({ key: 'name', label: '이름', kind: 'name' });
+    expect(cols).toEqual([{ key: 'name', label: '이름', kind: 'name' }]);
   });
 
-  it('표시된 종류들의 fieldTemplate 필드를 중복 없이 컬럼으로 만든다', () => {
-    const cols = buildColumns([pitr]);
-    const keys = cols.map((c) => c.key);
-    expect(keys).toContain('tlName');
-    expect(keys).toContain('model');
-  });
-
-  it('여러 종류의 같은 key 는 한 번만 나온다', () => {
+  it('종류가 여러 개여도 이름 컬럼만', () => {
     const rtu: AssetType = { ...pitr, id: 't2', code: 'RTU',
       fieldTemplate: [{ key: 'model', label: '모델명', type: 'text' }] };
-    const cols = buildColumns([pitr, rtu]);
-    expect(cols.filter((c) => c.key === 'model')).toHaveLength(1);
-  });
-
-  it('attrValue 는 attributes 에서 값을 읽고 없으면 빈 문자열', () => {
-    expect(attrValue({ model: 'CT-1000' }, 'model')).toBe('CT-1000');
-    expect(attrValue({ model: 'CT-1000' }, 'vendor')).toBe('');
-    expect(attrValue(null, 'model')).toBe('');
+    expect(buildColumns([pitr, rtu])).toEqual([{ key: 'name', label: '이름', kind: 'name' }]);
   });
 });

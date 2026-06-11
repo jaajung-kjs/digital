@@ -3,25 +3,14 @@ import type { AssetType } from '../../types/asset';
 export interface GridColumn {
   key: string;
   label: string;
-  kind: 'name' | 'attr';
+  kind: 'name';
 }
 
-/** 표시할 종류들의 fieldTemplate 을 합쳐 그리드 컬럼을 만든다. 이름 컬럼이 항상 맨 앞. */
-export function buildColumns(types: AssetType[]): GridColumn[] {
-  const cols: GridColumn[] = [{ key: 'name', label: '이름', kind: 'name' }];
-  const seen = new Set<string>();
-  for (const t of types) {
-    for (const f of t.fieldTemplate ?? []) {
-      if (seen.has(f.key)) continue;
-      seen.add(f.key);
-      cols.push({ key: f.key, label: f.label, kind: 'attr' });
-    }
-  }
-  return cols;
-}
-
-/** attributes 에서 key 의 표시 문자열을 읽는다. */
-export function attrValue(attributes: Record<string, unknown> | null, key: string): string {
-  const v = attributes?.[key];
-  return v === null || v === undefined ? '' : String(v);
+/**
+ * 대장 그리드 컬럼. #7 에서 Asset.attributes 제거 — 더 이상 fieldTemplate 기반 속성
+ * 컬럼을 만들지 않는다. 이름 컬럼만 남고 종류/메타는 그리드가 직접 그린다.
+ * (types 인자는 호출부 호환을 위해 유지하나 더 이상 컬럼 생성에 쓰지 않는다.)
+ */
+export function buildColumns(_types: AssetType[]): GridColumn[] {
+  return [{ key: 'name', label: '이름', kind: 'name' }];
 }

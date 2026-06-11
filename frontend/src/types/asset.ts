@@ -46,7 +46,11 @@ export interface Asset {
   parentAssetId: string | null;
   floorId: string | null;
   roomText: string | null;
-  attributes: Record<string, unknown> | null;
+  /**
+   * 이 자산(랙)이 어떤 프리셋에서 생성됐는지 추적하는 전용 컬럼.
+   * 구 `attributes.sourcePresetId` 를 대체(#7). 랙 외에는 null.
+   */
+  sourcePresetId: string | null;
   installDate: string | null;
   warrantyUntil: string | null;
   replaceDue: string | null;
@@ -75,14 +79,14 @@ export interface CreateAssetInput {
   assetTypeId: string;
   name: string;
   roomText?: string | null;
-  attributes?: Record<string, unknown> | null;
+  sourcePresetId?: string | null;
 }
 
 export interface UpdateAssetInput {
   assetTypeId?: string;
   name?: string;
   roomText?: string | null;
-  attributes?: Record<string, unknown> | null;
+  sourcePresetId?: string | null;
   installDate?: string | null;
   manager?: string | null;
   status?: string | null;

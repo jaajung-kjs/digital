@@ -4,9 +4,10 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 /**
  * RACK equipment 의 source preset 추적.
  *
- * 데이터 위치: Equipment.properties JSON (스키마 주석에 "RACK kind 는
- * properties 거의 비어있음" 으로 우리 metadata 전용 자리로 사용). 백엔드
- * 컬럼 추가 없이 round-trip 보존.
+ * 데이터 위치: Asset 전용 컬럼 `sourcePresetId`(#7). FE 캐리어는 여전히
+ * Equipment.properties.sourcePresetId 이며(assetToEquipment 가 컬럼→properties 로
+ * 재구성, equipmentToAsset 가 properties→컬럼 으로 역매핑) 이 유틸은 그 캐리어를
+ * 읽고/쓴다 — round-trip 은 백엔드 source_preset_id 컬럼으로 영속.
  */
 
 interface RackProperties {
@@ -42,8 +43,10 @@ export function updateRackSourcePreset(rackEquipmentId: string, presetId: string
   const store = useSubstationWorkingCopy.getState();
   const rackAsset = store.effectiveAssets().find((a) => a.id === rackEquipmentId);
   if (!rackAsset) return;
-  // attributes(=properties) 를 FloorPlanEquipment 모양으로 보고 머지.
-  const eqLike = { properties: rackAsset.attributes ?? null } as FloorPlanEquipment;
+  // 전용 컬럼 sourcePresetId 를 FloorPlanEquipment.properties 모양으로 보고 머지.
+  const eqLike = {
+    properties: rackAsset.sourcePresetId ? { sourcePresetId: rackAsset.sourcePresetId } : null,
+  } as FloorPlanEquipment;
   const next = withSourcePresetId(eqLike, presetId);
   store.stageEquipmentUpdate(rackEquipmentId, { properties: next.properties });
 }

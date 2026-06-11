@@ -18,13 +18,14 @@ const wrap = (ui: ReactNode) => {
 };
 
 describe('AssetInspector — 단일 인스펙터(SSOT)', () => {
-  it('핵심 필드를 모두 렌더: 종류(읽기전용)/상태/설명/속성/사진/유지보수/연결', () => {
+  it('핵심 필드를 모두 렌더: 종류(읽기전용)/설명/사진/유지보수/연결 — 속성 UI 없음(#7)', () => {
     wrap(<AssetInspector asset={asset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
     // 종류 — 읽기전용 라벨 + 값
     expect(screen.getByText('종류')).toBeTruthy();
     expect(screen.getAllByText('랙').length).toBeGreaterThan(0);
-    // 상태/설명/속성(커스텀) 편집 인풋
-    expect(screen.getByLabelText('모델')).toBeTruthy();
+    // #7: 커스텀 속성(모델 등) 입력/속성 섹션은 더 이상 렌더되지 않는다.
+    expect(screen.queryByLabelText('모델')).toBeNull();
+    expect(screen.queryByText('속성')).toBeNull();
     // 접이식 섹션 — 사진/유지보수/연결
     expect(screen.getByText('사진')).toBeTruthy();
     expect(screen.getByText('유지보수')).toBeTruthy();
@@ -38,15 +39,6 @@ describe('AssetInspector — 단일 인스펙터(SSOT)', () => {
     fireEvent.change(desc, { target: { value: '수정된 메모' } });
     fireEvent.blur(desc);
     expect(onPatch).toHaveBeenCalledWith('a1', { description: '수정된 메모' });
-  });
-
-  it('edit 모드: 속성 변경 → onPatch({ attributes })', () => {
-    const onPatch = vi.fn();
-    wrap(<AssetInspector asset={asset} mode="edit" onPatch={onPatch} onSelectAsset={vi.fn()} today={today} />);
-    const input = screen.getByLabelText('모델') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'Y' } });
-    fireEvent.blur(input);
-    expect(onPatch).toHaveBeenCalledWith('a1', { attributes: { model: 'Y' } });
   });
 
   it('view 모드: 읽기전용 — 편집 인풋 없음, 값은 표시', () => {

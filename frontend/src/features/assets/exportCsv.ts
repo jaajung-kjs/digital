@@ -1,13 +1,11 @@
 import type { Asset } from '../../types/asset';
 import type { GridColumn } from './columns';
-import { attrValue } from './columns';
 
 function esc(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-const cell = (a: Asset, col: GridColumn): string =>
-  col.kind === 'name' ? a.name : attrValue(a.attributes, col.key);
+const cell = (a: Asset, _col: GridColumn): string => a.name;
 
 /** 현재 표(컬럼) + 생애주기/메타를 CSV 문자열로. */
 export function buildCsv(assets: Asset[], columns: GridColumn[]): string {

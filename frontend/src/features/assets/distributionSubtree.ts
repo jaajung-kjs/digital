@@ -98,7 +98,7 @@ export function buildSubtreeAsset(params: {
     parentAssetId,
     floorId: null,
     roomText: null,
-    attributes: {},
+    sourcePresetId: null,
     installDate: null,
     warrantyUntil: null,
     replaceDue: null,

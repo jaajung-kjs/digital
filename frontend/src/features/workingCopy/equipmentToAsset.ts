@@ -5,8 +5,8 @@ import type { FloorPlanEquipment } from '../../types/floorPlan';
  * 캔버스 편집 결과(FloorPlanEquipment) → 통합 스토어용 Asset.
  *
  * assetToEquipment (2b, FORWARD) 의 정확한 역(REVERSE) 매핑이다.
- *   width2d ↔ width, height2d ↔ height, attributes ↔ properties, positionX/Y 동일,
- *   rotation/totalU/description/manager/installDate 동일.
+ *   width2d ↔ width, height2d ↔ height, sourcePresetId ↔ properties.sourcePresetId(#7),
+ *   positionX/Y 동일, rotation/totalU/description/manager/installDate 동일.
  * placementKind 는 FORWARD 에서 EquipmentKind 로 정규화되므로(예: DIST→DISTRIBUTION)
  * 역매핑에서는 복원하지 않는다 — staged Asset 의 assetType 은 클라이언트가 알 수 없다.
  *
@@ -42,7 +42,8 @@ export function equipmentToAssetCreate(
     status: null,
     warrantyUntil: null,
     replaceDue: null,
-    attributes: (eq.properties ?? null) as Asset['attributes'],
+    // 랙 프리셋 추적: FE 캐리어 properties.sourcePresetId → Asset 전용 컬럼(#7).
+    sourcePresetId: (eq.properties as { sourcePresetId?: string } | null | undefined)?.sourcePresetId ?? null,
     sortOrder: 0,
     updatedAt: '',
   };
@@ -60,6 +61,8 @@ export function equipmentToAssetPatch(patch: Partial<FloorPlanEquipment>): Parti
   if ('description' in patch) p.description = patch.description ?? null;
   if ('manager' in patch) p.manager = patch.manager ?? null;
   if ('installDate' in patch) p.installDate = patch.installDate ?? null;
-  if ('properties' in patch) p.attributes = (patch.properties ?? null) as Asset['attributes'];
+  if ('properties' in patch) {
+    p.sourcePresetId = (patch.properties as { sourcePresetId?: string } | null | undefined)?.sourcePresetId ?? null;
+  }
   return p;
 }

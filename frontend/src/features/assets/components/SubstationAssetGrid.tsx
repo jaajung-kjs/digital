@@ -94,7 +94,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
       parentAssetId: null,
       floorId: null,
       roomText: null,
-      attributes: {},
+      sourcePresetId: null,
       installDate: null,
       warrantyUntil: null,
       replaceDue: null,

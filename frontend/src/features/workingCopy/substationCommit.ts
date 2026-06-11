@@ -15,7 +15,7 @@ import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 //   - placement-level Asset(OFD/RACK/DIST/GROUNDING/HVAC) → payload.assets
 //   - 랙 자식(모듈)                                        → payload.rackModules
 //     (필드명 매핑: parentAssetId→rackEquipmentId, assetTypeId→categoryId,
-//      attributes→properties)
+//      sourcePresetId→properties.sourcePresetId)
 //
 // 분류 규칙(Task 3 와 동일): asset 이 `parentAssetId != null && slotIndex != null`
 // 이면 랙 모듈. CREATE 는 create item 자신의 필드로, UPDATE/DELETE 는 patch 에
@@ -127,7 +127,8 @@ function toRackModuleCreate(a: Asset & { id: string }): Record<string, unknown> 
   if (a.installDate != null) out.installDate = a.installDate;
   if (a.manager != null) out.manager = a.manager;
   if (a.description != null) out.description = a.description;
-  if (a.attributes != null) out.properties = a.attributes;
+  // 프리셋 추적: 전용 컬럼 sourcePresetId → 백엔드 모듈 properties.sourcePresetId(#7).
+  if (a.sourcePresetId != null) out.properties = { sourcePresetId: a.sourcePresetId };
   if (a.sortOrder != null) out.sortOrder = a.sortOrder;
   return out;
 }
@@ -140,7 +141,7 @@ function toAssetCreate(a: Asset & { id: string }): Record<string, unknown> {
     name: a.name,
   };
   const passthrough: (keyof Asset)[] = [
-    'parentAssetId', 'roomText', 'attributes', 'installDate', 'manager', 'status',
+    'parentAssetId', 'roomText', 'sourcePresetId', 'installDate', 'manager', 'status',
     'warrantyUntil', 'replaceDue',
     'floorId', 'positionX', 'positionY', 'width2d', 'height2d', 'rotation', 'totalU',
   ];
@@ -154,7 +155,8 @@ function toAssetCreate(a: Asset & { id: string }): Record<string, unknown> {
 
 /**
  * Asset patch → rackModules.patch — 존재하는 키만 매핑(renamed keys 포함).
- * parentAssetId→rackEquipmentId, assetTypeId→categoryId, attributes→properties.
+ * parentAssetId→rackEquipmentId, assetTypeId→categoryId,
+ * sourcePresetId→properties.sourcePresetId(#7).
  * 나머지(name/slotIndex/slotSpan/installDate/manager/description/sortOrder)는 동명.
  */
 function toRackModulePatch(patch: Partial<Asset>): Record<string, unknown> {
@@ -162,7 +164,9 @@ function toRackModulePatch(patch: Partial<Asset>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if ('parentAssetId' in p) out.rackEquipmentId = p.parentAssetId;
   if ('assetTypeId' in p) out.categoryId = p.assetTypeId;
-  if ('attributes' in p) out.properties = p.attributes;
+  if ('sourcePresetId' in p) {
+    out.properties = p.sourcePresetId ? { sourcePresetId: p.sourcePresetId } : null;
+  }
   for (const k of ['name', 'slotIndex', 'slotSpan', 'installDate', 'manager', 'description', 'sortOrder'] as const) {
     if (k in p) out[k] = p[k];
   }

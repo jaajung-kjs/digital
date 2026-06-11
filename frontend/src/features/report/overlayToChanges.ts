@@ -48,14 +48,14 @@ interface Overlays {
  * assetTypeId 를 함께 보내야 BOM/노무가 산출된다. code/name 은 표시용으로 같이 보낸다.
  */
 function assetToSnapshot(a: Asset): EquipmentSnapshotItem {
-  const attrs = a.attributes ?? null;
   return {
     id: a.id,
     name: a.name,
     assetTypeId: a.assetTypeId ?? null,
     materialCategoryCode: a.assetType?.code ?? null,
     materialCategoryName: a.assetType?.name ?? null,
-    specParams: attrs,
+    // #7: Asset.attributes 제거 — 설비 specParams 는 더 이상 자산 속성에서 오지 않는다.
+    specParams: null,
     positionX: a.positionX ?? 0,
     positionY: a.positionY ?? 0,
   };

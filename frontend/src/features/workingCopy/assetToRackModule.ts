@@ -25,7 +25,8 @@ export function assetToRackModule(a: Asset): RackModule {
     installDate: a.installDate ?? null,
     manager: a.manager ?? null,
     description: a.description ?? null,
-    properties: a.attributes ?? null,
+    // 프리셋 추적: 전용 컬럼 sourcePresetId → FE 캐리어 properties 로 재구성(#7).
+    properties: a.sourcePresetId ? { sourcePresetId: a.sourcePresetId } : null,
     sortOrder: a.sortOrder ?? 0,
     createdAt: '',
     updatedAt: a.updatedAt ?? '',
