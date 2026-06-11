@@ -3,8 +3,10 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
 import { buildIdMaps } from './idMaps';
 import { commitSubstation, type FloorCommitSection } from './substationCommit';
-import { useSubstationWorkingCopy, inspectionDescriptor, logDescriptor, photoDescriptor, revokeStagedPhotoUrls, type InspectionRow, type LogRow, type PhotoRow } from './substationStore';
+import { useSubstationWorkingCopy, inspectionDescriptor, logDescriptor, photoDescriptor, revokeStagedPhotoUrls } from './substationStore';
 import { mergeEffective } from './effective';
+import type { Overlay } from './overlay';
+import type { CollectionDescriptor } from './descriptor';
 import { useEditorStore } from '../editor/stores/editorStore';
 import { overlayToChanges } from '../report/overlayToChanges';
 import { WORK_ORDER_KEYS } from '../report/useWorkOrders';
@@ -55,135 +57,105 @@ function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): Floo
   };
 }
 
+// ── media flush 레지스트리 ──────────────────────────────────────────────────
+// 사진/로그/점검의 *영속화 지식*(엔드포인트·payload·무효화 쿼리)을 한 곳에 모은다.
+// 새 media 컬렉션 추가 = store COLLECTIONS 등록 + 여기 엔트리 1개(create/del/invalidate).
+// flush·무효화는 이 배열을 순회하므로 별도 if 블록·hadX 플래그가 필요 없다(북극성 ①).
+type MediaRecord = {
+  id: string;
+  equipmentId?: string; assetId?: string;
+  side?: string; file?: File; description?: string | null;
+  logType?: string; title?: string; logDate?: string | null; severity?: string | null;
+  inspectionDate?: string; inspector?: string; content?: string | null;
+};
+interface MediaFlusher {
+  key: 'photos' | 'logs' | 'inspections';
+  descriptor: CollectionDescriptor<MediaRecord>;
+  label: string;
+  create: (r: MediaRecord, resolveEquipmentId: (id: string) => string) => Promise<unknown>;
+  del: (id: string) => Promise<unknown>;
+  invalidate: unknown[][];
+}
+
+const MEDIA_FLUSHERS: MediaFlusher[] = [
+  {
+    key: 'photos', descriptor: photoDescriptor as unknown as CollectionDescriptor<MediaRecord>, label: 'photo',
+    create: (p, resolve) => {
+      if (!p.file) return Promise.resolve();
+      const fd = new FormData();
+      fd.append('file', p.file);
+      fd.append('side', p.side!);
+      fd.append('takenAt', new Date().toISOString());
+      if (p.description) fd.append('description', p.description);
+      return api.post(`/equipment/${resolve(p.equipmentId!)}/photos`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
+    del: (id) => api.delete(`/equipment-photos/${id}`),
+    invalidate: [['equipment-photos']],
+  },
+  {
+    key: 'logs', descriptor: logDescriptor as unknown as CollectionDescriptor<MediaRecord>, label: 'log',
+    create: (l, resolve) => api.post(`/equipment/${resolve(l.equipmentId!)}/maintenance-logs`, {
+      logType: l.logType, title: l.title, logDate: l.logDate || undefined,
+      severity: l.severity || undefined, description: l.description || undefined,
+    }),
+    del: (id) => api.delete(`/maintenance-logs/${id}`),
+    invalidate: [['maintenance-logs']],
+  },
+  {
+    key: 'inspections', descriptor: inspectionDescriptor as unknown as CollectionDescriptor<MediaRecord>, label: 'inspection',
+    create: (i, resolve) => api.post(`/assets/${resolve(i.assetId!)}/inspections`, {
+      inspectionDate: i.inspectionDate, inspector: i.inspector, content: i.content ?? null,
+    }),
+    del: (id) => api.delete(`/inspection-logs/${id}`),
+    // 점검 반영 → 현황 '마지막 점검일' 갱신(nodeAssets 도 무효화).
+    invalidate: [['inspection-logs'], ['nodeAssets']],
+  },
+];
+
 /**
- * 커밋 성공 후 pending 사진/로그를 tempId→realId 해석해 flush 한다.
- * 사진: POST /equipment/:realId/photos (multipart), 로그: POST .../maintenance-logs.
- * 둘 다 allSettled — 일부 실패해도 나머지는 진행하고 실패만 경고한다.
+ * 커밋 성공 후 staged media 를 레지스트리 순회로 flush(tempId→realId 해석). 각 컬렉션:
+ * effective creates → create(), overlay.deletes → del(). allSettled(실패만 경고).
+ * 변경이 있었던 컬렉션 키 집합을 반환(커밋 후 쿼리 무효화용).
  */
 async function flushPendingMedia(
-  photoCreates: PhotoRow[],
-  photoDeletes: string[],
-  logCreates: LogRow[],
-  inspectionCreates: InspectionRow[],
-  pendingLogDeletes: string[],
-  pendingInspectionDeletes: string[],
+  overlays: Record<string, Overlay<MediaRecord, Partial<MediaRecord>>>,
   idMapsAssets: Record<string, string> | undefined,
-): Promise<void> {
+): Promise<Set<MediaFlusher['key']>> {
   const idMaps = buildIdMaps({ equipmentIdMap: idMapsAssets });
   const resolveEquipmentId = (id: string) => idMaps.equipment.get(id) ?? id;
 
-  const pendingTasks: Promise<void>[] = [];
+  const tasks: Promise<void>[] = [];
+  const changed = new Set<MediaFlusher['key']>();
 
-  if (photoCreates.length > 0) {
-    pendingTasks.push(
-      Promise.allSettled(
-        photoCreates.map(async (upload) => {
-          if (!upload.file) return;
-          const formData = new FormData();
-          formData.append('file', upload.file);
-          formData.append('side', upload.side);
-          formData.append('takenAt', new Date().toISOString());
-          if (upload.description) formData.append('description', upload.description);
-          await api.post(`/equipment/${resolveEquipmentId(upload.equipmentId)}/photos`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
-        }),
-      ).then((results) => {
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0) {
-          console.warn(`[Save] ${failures.length} photo upload(s) failed:`, failures);
-        }
-      }),
-    );
+  for (const f of MEDIA_FLUSHERS) {
+    const overlay = overlays[f.key];
+    const creates = mergeEffective([], overlay, f.descriptor);
+    const deletes = overlay.deletes;
+    if (creates.length === 0 && deletes.length === 0) continue;
+    changed.add(f.key);
+    if (creates.length > 0) {
+      tasks.push(Promise.allSettled(creates.map((r) => f.create(r, resolveEquipmentId))).then((rs) => {
+        const fails = rs.filter((r) => r.status === 'rejected');
+        if (fails.length > 0) console.warn(`[Save] ${fails.length} ${f.label} creation(s) failed:`, fails);
+      }));
+    }
+    if (deletes.length > 0) {
+      tasks.push(Promise.allSettled(deletes.map((id) => f.del(id))).then((rs) => {
+        const fails = rs.filter((r) => r.status === 'rejected');
+        if (fails.length > 0) console.warn(`[Save] ${fails.length} ${f.label} deletion(s) failed:`, fails);
+      }));
+    }
   }
 
-  if (photoDeletes.length > 0) {
-    pendingTasks.push(
-      Promise.allSettled(
-        photoDeletes.map((id) => api.delete(`/equipment-photos/${id}`)),
-      ).then((results) => {
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0) {
-          console.warn(`[Save] ${failures.length} photo deletion(s) failed:`, failures);
-        }
-      }),
-    );
-  }
-
-  if (logCreates.length > 0) {
-    pendingTasks.push(
-      Promise.allSettled(
-        logCreates.map(async (log) => {
-          await api.post(`/equipment/${resolveEquipmentId(log.equipmentId)}/maintenance-logs`, {
-            logType: log.logType,
-            title: log.title,
-            logDate: log.logDate || undefined,
-            severity: log.severity || undefined,
-            description: log.description || undefined,
-          });
-        }),
-      ).then((results) => {
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0) {
-          console.warn(`[Save] ${failures.length} log creation(s) failed:`, failures);
-        }
-      }),
-    );
-  }
-
-  if (inspectionCreates.length > 0) {
-    pendingTasks.push(
-      Promise.allSettled(
-        inspectionCreates.map(async (insp) => {
-          await api.post(`/assets/${resolveEquipmentId(insp.assetId)}/inspections`, {
-            inspectionDate: insp.inspectionDate,
-            inspector: insp.inspector,
-            content: insp.content ?? null,
-          });
-        }),
-      ).then((results) => {
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0) {
-          console.warn(`[Save] ${failures.length} inspection creation(s) failed:`, failures);
-        }
-      }),
-    );
-  }
-
-  // 저장된 이력의 삭제 스테이징 — 실 id 라 매핑 불필요, 바로 DELETE.
-  if (pendingLogDeletes.length > 0) {
-    pendingTasks.push(
-      Promise.allSettled(pendingLogDeletes.map((id) => api.delete(`/maintenance-logs/${id}`))).then((results) => {
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0) console.warn(`[Save] ${failures.length} log deletion(s) failed:`, failures);
-      }),
-    );
-  }
-  if (pendingInspectionDeletes.length > 0) {
-    pendingTasks.push(
-      Promise.allSettled(pendingInspectionDeletes.map((id) => api.delete(`/inspection-logs/${id}`))).then((results) => {
-        const failures = results.filter((r) => r.status === 'rejected');
-        if (failures.length > 0) console.warn(`[Save] ${failures.length} inspection deletion(s) failed:`, failures);
-      }),
-    );
-  }
-
-  await Promise.all(pendingTasks);
+  await Promise.all(tasks);
+  return changed;
 }
 
-/** 사진/로그/점검은 commit 무효화 세트 밖(큐 패턴) — 별도로 invalidate. */
-function invalidateMediaQueries(
-  queryClient: QueryClient,
-  hadUploads: boolean,
-  hadLogs: boolean,
-  hadInspections: boolean,
-): void {
-  if (hadUploads) queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
-  if (hadLogs) queryClient.invalidateQueries({ queryKey: ['maintenance-logs'] });
-  if (hadInspections) {
-    queryClient.invalidateQueries({ queryKey: ['inspection-logs'] });
-    // 점검 반영 → 현황 '마지막 점검일' 갱신.
-    queryClient.invalidateQueries({ queryKey: ['nodeAssets'] });
+/** 변경된 media 컬렉션들의 무효화 쿼리를 레지스트리에서 실행. */
+function invalidateMediaQueries(queryClient: QueryClient, changed: Set<MediaFlusher['key']>): void {
+  for (const f of MEDIA_FLUSHERS) {
+    if (!changed.has(f.key)) continue;
+    for (const queryKey of f.invalidate) queryClient.invalidateQueries({ queryKey });
   }
 }
 
@@ -253,16 +225,6 @@ export function useCommitWorkingCopy() {
 
     const ed = useEditorStore.getState();
     const floor = buildFloorSection(ed);
-    // 사진/고장이력/점검은 워킹카피(substationStore) 오버레이에서 flush — effective creates(staged) + deletes.
-    const photoCreates = mergeEffective([], wc.overlays.photos, photoDescriptor);
-    const photoDeletes = wc.overlays.photos.deletes;
-    const hadUploads = photoCreates.length > 0 || photoDeletes.length > 0;
-    const logCreates = mergeEffective([], wc.overlays.logs, logDescriptor);
-    const logDeletes = wc.overlays.logs.deletes;
-    const hadLogs = logCreates.length > 0 || logDeletes.length > 0;
-    const inspectionCreates = mergeEffective([], wc.overlays.inspections, inspectionDescriptor);
-    const inspectionDeletes = wc.overlays.inspections.deletes;
-    const hadInspections = inspectionCreates.length > 0 || inspectionDeletes.length > 0;
 
     // #3 Task 3 — 작업지시서 아카이브용 PRE-commit 스냅샷.
     // 커밋 후 store.load 가 오버레이를 비우므로, 활성 층 changes 는 반드시 지금
@@ -278,7 +240,10 @@ export function useCommitWorkingCopy() {
 
     try {
       const result = await commitSubstation(substationId, wc.overlays, wc.saved.assets, queryClient, floor);
-      await flushPendingMedia(photoCreates, photoDeletes, logCreates, inspectionCreates, logDeletes, inspectionDeletes, result.idMaps?.assets);
+      const changedMedia = await flushPendingMedia(
+        wc.overlays as unknown as Record<string, Overlay<MediaRecord, Partial<MediaRecord>>>,
+        result.idMaps?.assets,
+      );
       revokeStagedPhotoUrls(wc.overlays); // 업로드 완료 → 미리보기 blob 해제
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
@@ -296,7 +261,7 @@ export function useCommitWorkingCopy() {
       if (activeFloorId != null) {
         queryClient.invalidateQueries({ queryKey: ['floorPlan', activeFloorId] });
       }
-      invalidateMediaQueries(queryClient, hadUploads, hadLogs, hadInspections);
+      invalidateMediaQueries(queryClient, changedMedia);
       // 활성 층에 변경이 있었으면 설계서를 작업지시서로 아카이브(실패해도 커밋은 성공).
       if (activeFloorId && preCommitChanges && hasFloorChanges(preCommitChanges)) {
         await archiveWorkOrder(substationId, activeFloorId, preCommitChanges, queryClient);

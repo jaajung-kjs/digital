@@ -146,14 +146,21 @@ interface Overlays {
   photos: Overlay<PhotoRow, Partial<PhotoRow>>;
 }
 
-const emptySaved = (): SavedCollections => ({
-  assets: [],
-  cables: [],
-  fiberPaths: [],
-  inspections: [],
-  logs: [],
-  photos: [],
-});
+// 구조형(structured) 컬렉션 = saved 가 변전소 워킹카피 endpoint 에서 일괄 로드됨(OCC 대상).
+// 그 외(media: inspections/logs/photos) = saved 는 항상 [](실 saved 는 자산별 RQ). 이 분류가
+// load 의 유일한 종류-지식이고, 새 컬렉션은 여기 추가 여부만 정하면 load/emptySaved/refresh 자동.
+const STRUCTURED_KEYS = new Set<CollectionKey>(['assets', 'cables', 'fiberPaths']);
+
+/** 워킹카피 응답(raw)에서 saved 컬렉션을 레지스트리 순회로 구성 — structured 는 raw[key], media 는 []. */
+function buildSaved(raw: Record<string, unknown>): SavedCollections {
+  const out: Record<string, unknown> = {};
+  for (const key of COLLECTION_KEYS) {
+    out[key] = STRUCTURED_KEYS.has(key) ? ((raw[key] as unknown[]) ?? []) : [];
+  }
+  return out as unknown as SavedCollections;
+}
+
+const emptySaved = (): SavedCollections => buildSaved({});
 
 /** staged 사진의 blob objectUrl 을 해제 — 커밋 성공/되돌리기 시 호출(메모리 누수 방지). */
 export function revokeStagedPhotoUrls(overlays: Overlays): void {
@@ -267,14 +274,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         const seq = ++loadSeq;
         const { data } = await api.get(`/substations/${substationId}/workingcopy`);
         if (seq !== loadSeq) return; // 더 최신 load 가 시작됨 → 폐기
-        const saved: SavedCollections = {
-          assets: data.data.assets ?? [],
-          cables: data.data.cables ?? [],
-          fiberPaths: data.data.fiberPaths ?? [],
-          inspections: [],
-          logs: [],
-          photos: [],
-        };
+        const saved = buildSaved(data.data);
         set({ substationId, saved, overlays: freshOverlays(saved) });
         // 다른 변전소 로드 시 이전 overlay 가 undo 로 복원되지 않도록 history 클리어.
         useSubstationWorkingCopy.temporal.getState().clear();
@@ -284,27 +284,19 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         const seq = ++loadSeq;
         const { data } = await api.get(`/substations/${substationId}/workingcopy`);
         if (seq !== loadSeq) return; // 더 최신 load/refresh 가 시작됨 → 폐기
-        const newSaved: SavedCollections = {
-          assets: data.data.assets ?? [],
-          cables: data.data.cables ?? [],
-          fiberPaths: data.data.fiberPaths ?? [],
-          inspections: [],
-          logs: [],
-          photos: [],
-        };
-        // staged overlay(creates/updates/deletes)는 보존하고 baseVersions 만 최신 saved 기준으로 재스냅샷.
-        set((s) => ({
-          substationId,
-          saved: newSaved,
-          overlays: {
-            assets: { ...s.overlays.assets, baseVersions: snapshotBaseVersions(newSaved.assets, assetDescriptor.idOf, assetDescriptor.versionOf!) },
-            cables: { ...s.overlays.cables, baseVersions: snapshotBaseVersions(newSaved.cables, cableDescriptor.idOf, cableDescriptor.versionOf!) },
-            fiberPaths: { ...s.overlays.fiberPaths, baseVersions: snapshotBaseVersions(newSaved.fiberPaths, fiberPathDescriptor.idOf, fiberPathDescriptor.versionOf!) },
-            inspections: s.overlays.inspections, // saved 가 [] 이라 baseVersions 재스냅샷 불필요 — staged 보존만.
-            logs: s.overlays.logs,
-            photos: s.overlays.photos,
-          },
-        }));
+        const newSaved = buildSaved(data.data);
+        // staged overlay(creates/updates/deletes)는 보존하고 baseVersions 만 최신 saved 기준으로 재스냅샷
+        // (media 는 newSaved=[] → baseVersions 빈 채 staged 보존). 레지스트리 순회로 종류-무관.
+        set((s) => {
+          const prev = s.overlays as unknown as Record<CollectionKey, Overlay<{ id: string; updatedAt?: string | null }, unknown>>;
+          const next: Record<string, unknown> = {};
+          for (const key of COLLECTION_KEYS) {
+            const desc = COLLECTIONS[key] as unknown as AnyDescriptor;
+            const rows = (newSaved as unknown as Record<CollectionKey, { id: string; updatedAt?: string | null }[]>)[key];
+            next[key] = { ...prev[key], baseVersions: snapshotBaseVersions(rows, desc.idOf, desc.versionOf!) };
+          }
+          return { substationId, saved: newSaved, overlays: next as unknown as Overlays };
+        });
       },
 
       revert: () => set((s) => ({ overlays: freshOverlays(s.saved) })),
