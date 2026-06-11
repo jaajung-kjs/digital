@@ -3,7 +3,8 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
 import { buildIdMaps } from './idMaps';
 import { commitSubstation, type FloorCommitSection } from './substationCommit';
-import { useSubstationWorkingCopy, inspectionDescriptor, logDescriptor, photoDescriptor, revokeStagedPhotoUrls } from './substationStore';
+import { useSubstationWorkingCopy, recordDescriptorOf, revokeStagedPhotoUrls } from './substationStore';
+import { ASSET_RECORD_TYPES, createRecord, type RecordTypeKey } from './recordTypes';
 import { mergeEffective } from './effective';
 import type { Overlay } from './overlay';
 import type { CollectionDescriptor } from './descriptor';
@@ -57,9 +58,10 @@ function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): Floo
   };
 }
 
-// ── media flush 레지스트리 ──────────────────────────────────────────────────
-// 사진/로그/점검의 *영속화 지식*(엔드포인트·payload·무효화 쿼리)을 한 곳에 모은다.
-// 새 media 컬렉션 추가 = store COLLECTIONS 등록 + 여기 엔트리 1개(create/del/invalidate).
+// ── media flush 레지스트리 (P5c — ASSET_RECORD_TYPES 파생) ────────────────────
+// 사진/로그/점검의 *영속화 지식*(엔드포인트·payload·무효화 쿼리)은 recordTypes.ts 의
+// ASSET_RECORD_TYPES 가 단일 출처다. 여기서는 그 레지스트리를 *순회*해 flusher 배열을
+// 만든다 — 새 media 레코드 타입 추가 = 레지스트리 엔트리 1개 → flush/무효화 자동 참여.
 // flush·무효화는 이 배열을 순회하므로 별도 if 블록·hadX 플래그가 필요 없다(북극성 ①).
 type MediaRecord = {
   id: string;
@@ -69,7 +71,7 @@ type MediaRecord = {
   inspectionDate?: string; inspector?: string; content?: string | null;
 };
 interface MediaFlusher {
-  key: 'photos' | 'logs' | 'inspections';
+  key: RecordTypeKey;
   descriptor: CollectionDescriptor<MediaRecord>;
   label: string;
   create: (r: MediaRecord, resolveEquipmentId: (id: string) => string) => Promise<unknown>;
@@ -77,40 +79,17 @@ interface MediaFlusher {
   invalidate: unknown[][];
 }
 
-const MEDIA_FLUSHERS: MediaFlusher[] = [
-  {
-    key: 'photos', descriptor: photoDescriptor as unknown as CollectionDescriptor<MediaRecord>, label: 'photo',
-    create: (p, resolve) => {
-      if (!p.file) return Promise.resolve();
-      const fd = new FormData();
-      fd.append('file', p.file);
-      fd.append('side', p.side!);
-      fd.append('takenAt', new Date().toISOString());
-      if (p.description) fd.append('description', p.description);
-      return api.post(`/equipment/${resolve(p.equipmentId!)}/photos`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-    },
-    del: (id) => api.delete(`/equipment-photos/${id}`),
-    invalidate: [['equipment-photos']],
-  },
-  {
-    key: 'logs', descriptor: logDescriptor as unknown as CollectionDescriptor<MediaRecord>, label: 'log',
-    create: (l, resolve) => api.post(`/equipment/${resolve(l.equipmentId!)}/maintenance-logs`, {
-      logType: l.logType, title: l.title, logDate: l.logDate || undefined,
-      severity: l.severity || undefined, description: l.description || undefined,
-    }),
-    del: (id) => api.delete(`/maintenance-logs/${id}`),
-    invalidate: [['maintenance-logs']],
-  },
-  {
-    key: 'inspections', descriptor: inspectionDescriptor as unknown as CollectionDescriptor<MediaRecord>, label: 'inspection',
-    create: (i, resolve) => api.post(`/assets/${resolve(i.assetId!)}/inspections`, {
-      inspectionDate: i.inspectionDate, inspector: i.inspector, content: i.content ?? null,
-    }),
-    del: (id) => api.delete(`/inspection-logs/${id}`),
-    // 점검 반영 → 현황 '마지막 점검일' 갱신(nodeAssets 도 무효화).
-    invalidate: [['inspection-logs'], ['nodeAssets']],
-  },
-];
+// 레지스트리에서 flusher 를 파생. parentKey(assetId/equipmentId)로 부모 realId 를 해소하고,
+// create 는 createRecord(media=multipart / 그 외=JSON)로, del/invalidate 는 레지스트리 엔드포인트로.
+const MEDIA_FLUSHERS: MediaFlusher[] = ASSET_RECORD_TYPES.map((def) => ({
+  key: def.key,
+  descriptor: recordDescriptorOf(def.key) as unknown as CollectionDescriptor<MediaRecord>,
+  label: def.label,
+  create: (r: MediaRecord, resolve: (id: string) => string) =>
+    createRecord(def, r, resolve((r[def.parentKey] as string)!)),
+  del: (id: string) => api.delete(def.deleteUrl(id)),
+  invalidate: def.invalidate,
+}));
 
 /**
  * 커밋 성공 후 staged media 를 레지스트리 순회로 flush(tempId→realId 해석). 각 컬렉션:

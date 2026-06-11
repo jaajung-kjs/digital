@@ -7,7 +7,12 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectivePhotos } from '../../workingCopy/hooks';
 // 사진은 워킹카피(substationStore photos 컬렉션)로 스테이징 → 단일 저장 시 flushPendingMedia 가 업로드.
 // 저장된 사진은 query key(['equipment-photos', id])로 commit 무효화 자동 갱신. 삭제도 stage(C2).
+// P5c: 사진 갤러리 UI 는 두 현행 표현(현황 세로 스택 / 에디터 풀높이 뷰어)이 너무 달라
+// 통합하지 않고 유지하되, 데이터-레이어(컬렉션 키/엔드포인트/무효화)는 레지스트리(PHOTO_DEF)에서 읽는다.
 import { useEquipmentPhotos } from '../../equipment/hooks/useEquipmentPhotos';
+import { RECORD_TYPE_BY_KEY } from '../../workingCopy/recordTypes';
+
+const PHOTO_DEF = RECORD_TYPE_BY_KEY.photos;
 
 type Shown = { id: string; url: string; isPending: boolean; date: string | null };
 
@@ -49,12 +54,12 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
     if (!file) return;
     const compressed = await compressImage(file);
     const objectUrl = URL.createObjectURL(compressed);
-    put('photos', { id: generateTempId(), equipmentId: assetId, side, file: compressed, description: '', objectUrl });
+    put(PHOTO_DEF.key, { id: generateTempId(), equipmentId: assetId, side, file: compressed, description: '', objectUrl });
   };
 
   const onDelete = (item: { id: string; isPending: boolean; url: string }) => {
-    if (item.isPending) { if (item.url) URL.revokeObjectURL(item.url); remove('photos', item.id); return; }
-    if (window.confirm('사진을 삭제할까요?')) remove('photos', item.id); // C2: 즉시삭제 X, stage(저장 시 DELETE)
+    if (item.isPending) { if (item.url) URL.revokeObjectURL(item.url); remove(PHOTO_DEF.key, item.id); return; }
+    if (window.confirm('사진을 삭제할까요?')) remove(PHOTO_DEF.key, item.id); // C2: 즉시삭제 X, stage(저장 시 DELETE)
   };
 
   return (

@@ -16,6 +16,7 @@ import {
 } from './overlay';
 import { mergeEffective } from './effective';
 import type { CollectionDescriptor } from './descriptor';
+import { ASSET_RECORD_TYPES, type RecordTypeKey } from './recordTypes';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
 import { isRackModuleAsset as isRackModuleChild } from './assetClassify';
 
@@ -115,7 +116,6 @@ export interface InspectionRow {
   content?: string | null;
   updatedAt?: string | null;
 }
-export const inspectionDescriptor = makeDescriptor<InspectionRow>('inspections');
 
 /** 고장이력(maintenance log) staged 레코드. inspections 와 동일 — saved 는 [](RQ), overlay 만 staging. */
 export interface LogRow {
@@ -128,7 +128,6 @@ export interface LogRow {
   severity?: string | null;
   updatedAt?: string | null;
 }
-export const logDescriptor = makeDescriptor<LogRow>('logs');
 
 /** 사진 staged 레코드. create 는 압축 File + 미리보기 blob(objectUrl)을 들고 있다(커밋 시 multipart POST). */
 export interface PhotoRow {
@@ -140,19 +139,35 @@ export interface PhotoRow {
   objectUrl?: string;
   updatedAt?: string | null;
 }
-export const photoDescriptor = makeDescriptor<PhotoRow>('photos');
+
+type RecordRow = { id: string; updatedAt?: string | null; [k: string]: unknown };
+
+// 미디어(자산 하위레코드) descriptor 는 레지스트리(ASSET_RECORD_TYPES)에서 파생한다 —
+// inspections/logs/photos 의 종류-지식(키/엔드포인트/무효화)은 recordTypes.ts 가 단일 출처.
+// 새 레코드 타입 추가 = 레지스트리 엔트리 1개 → 여기 COLLECTIONS/Overlays 에 자동 참여.
+const recordDescriptors = Object.fromEntries(
+  ASSET_RECORD_TYPES.map((d) => [d.key, makeDescriptor<RecordRow>(d.key)]),
+) as Record<RecordTypeKey, CollectionDescriptor<RecordRow, Partial<RecordRow>>>;
 
 const COLLECTIONS = {
   assets: assetDescriptor,
   cables: cableDescriptor,
   fiberPaths: fiberPathDescriptor,
-  inspections: inspectionDescriptor,
-  logs: logDescriptor,
-  photos: photoDescriptor,
+  ...recordDescriptors,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
 export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
 type AnyDescriptor = CollectionDescriptor<{ id: string; updatedAt?: string | null }>;
+
+// 레지스트리-파생 미디어 descriptor 의 back-compat 별칭(커밋 flush/effective 훅이 import).
+export const inspectionDescriptor = recordDescriptors.inspections as unknown as CollectionDescriptor<InspectionRow, Partial<InspectionRow>>;
+export const logDescriptor = recordDescriptors.logs as unknown as CollectionDescriptor<LogRow, Partial<LogRow>>;
+export const photoDescriptor = recordDescriptors.photos as unknown as CollectionDescriptor<PhotoRow, Partial<PhotoRow>>;
+
+/** 레지스트리-파생 미디어 descriptor 조회(hooks.useEffectiveRecords 가 컬렉션 무관하게 사용). */
+export function recordDescriptorOf(key: RecordTypeKey): CollectionDescriptor<RecordRow, Partial<RecordRow>> {
+  return recordDescriptors[key];
+}
 
 /** 전 컬렉션 staged 변경 합계 — dirty 의 단일 소스(레지스트리 순회). store/hook/non-hook 모두 이걸 쓴다. */
 export function sumOverlaysDirty(overlays: Overlays): number {
@@ -181,7 +196,9 @@ interface Overlays {
 // 구조형(structured) 컬렉션 = saved 가 변전소 워킹카피 endpoint 에서 일괄 로드됨(OCC 대상).
 // 그 외(media: inspections/logs/photos) = saved 는 항상 [](실 saved 는 자산별 RQ). 이 분류가
 // load 의 유일한 종류-지식이고, 새 컬렉션은 여기 추가 여부만 정하면 load/emptySaved/refresh 자동.
-const STRUCTURED_KEYS = new Set<CollectionKey>(['assets', 'cables', 'fiberPaths']);
+// media 키 = 레지스트리(ASSET_RECORD_TYPES)의 키. structured = 그 외 전부(워킹카피 endpoint 로드).
+const MEDIA_KEYS = new Set<CollectionKey>(ASSET_RECORD_TYPES.map((d) => d.key as CollectionKey));
+const STRUCTURED_KEYS = new Set<CollectionKey>(COLLECTION_KEYS.filter((k) => !MEDIA_KEYS.has(k)));
 
 /** 워킹카피 응답(raw)에서 saved 컬렉션을 레지스트리 순회로 구성 — structured 는 raw[key], media 는 []. */
 function buildSaved(raw: Record<string, unknown>): SavedCollections {

@@ -5,6 +5,9 @@ import { generateTempId } from '../../../../utils/idHelpers';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import { useEffectivePhotos } from '../../../workingCopy/hooks';
 import { useEquipmentPhotos } from '../../hooks/useEquipmentPhotos';
+// P5c: 사진 데이터-레이어(컬렉션 키/엔드포인트/무효화)는 레지스트리(PHOTO_DEF)에서 읽는다.
+// 갤러리 UI 자체는 현황 패널(AssetPhotoSection)과 표현이 너무 달라 통합하지 않고 유지.
+import { RECORD_TYPE_BY_KEY } from '../../../workingCopy/recordTypes';
 import { PhotoLightbox } from './PhotoLightbox';
 import { UploadDialog } from './UploadDialog';
 import type { EquipmentDetail, LightboxPhoto } from './types';
@@ -65,7 +68,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
     if (!pendingFile) return;
     const compressed = await compressImage(pendingFile);
     const objectUrl = URL.createObjectURL(compressed);
-    put('photos', {
+    put(RECORD_TYPE_BY_KEY.photos.key, {
       id: generateTempId(),
       equipmentId: equipment.id,
       side: photoSide,
@@ -81,7 +84,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
       const uploadId = photoId.replace('pending-', '');
       const staged = stagedPhotos.find((u) => u.id === uploadId);
       if (staged?.objectUrl) URL.revokeObjectURL(staged.objectUrl);
-      remove('photos', uploadId);
+      remove(RECORD_TYPE_BY_KEY.photos.key, uploadId);
     }
     // 저장된(커밋된) 사진 삭제는 현황 패널(AssetPhotoSection)에서 stage 로 지원. 에디터 탭은 보류 사진만 제거.
   };

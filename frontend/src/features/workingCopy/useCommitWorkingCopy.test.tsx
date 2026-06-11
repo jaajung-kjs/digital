@@ -23,18 +23,11 @@ vi.mock('./substationStore', () => ({
       load: vi.fn(async () => {}),
     }),
   },
-  inspectionDescriptor: {
-    name: 'inspections', idOf: (x: { id: string }) => x.id, versionOf: () => null,
+  // P5c — MEDIA_FLUSHERS 가 레지스트리 순회로 recordDescriptorOf(key) 를 호출한다.
+  recordDescriptorOf: (name: string) => ({
+    name, idOf: (x: { id: string }) => x.id, versionOf: () => null,
     isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
-  },
-  logDescriptor: {
-    name: 'logs', idOf: (x: { id: string }) => x.id, versionOf: () => null,
-    isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
-  },
-  photoDescriptor: {
-    name: 'photos', idOf: (x: { id: string }) => x.id, versionOf: () => null,
-    isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
-  },
+  }),
   revokeStagedPhotoUrls: () => {},
 }));
 

@@ -4,14 +4,14 @@ import {
   assetDescriptor,
   cableDescriptor,
   fiberPathDescriptor,
-  inspectionDescriptor,
-  logDescriptor,
-  photoDescriptor,
+  recordDescriptorOf,
   sumOverlaysDirty,
+  type CollectionKey,
   type InspectionRow,
   type LogRow,
   type PhotoRow,
 } from './substationStore';
+import type { RecordTypeKey } from './recordTypes';
 import { mergeEffective } from './effective';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
 import type { Asset } from '../../types/asset';
@@ -48,25 +48,36 @@ export function useEffectiveFiberPaths() {
   return useMemo(() => mergeEffective(saved, overlay, fiberPathDescriptor), [saved, overlay]);
 }
 
-/** staged 점검(저장 대기 create + pending update). saved 는 []이므로 결과 = staged creates. */
+/**
+ * 자산 하위레코드(inspections/logs/photos)의 staged effective(저장 대기 create + pending update).
+ * saved 는 []이므로 결과 = staged creates. 레지스트리-파생 descriptor 로 컬렉션 무관 단일 구현 —
+ * 종전의 useEffectiveInspections/Logs/Photos 는 이걸 감싸는 thin wrapper(back-compat).
+ */
+export function useEffectiveRecords<T = Record<string, unknown> & { id: string }>(
+  key: RecordTypeKey,
+): T[] {
+  const saved = useSubstationWorkingCopy((s) => s.saved[key as CollectionKey]);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays[key as CollectionKey]);
+  const descriptor = recordDescriptorOf(key);
+  return useMemo(
+    () => mergeEffective(saved as never[], overlay as never, descriptor as never) as T[],
+    [saved, overlay, descriptor],
+  );
+}
+
+/** staged 점검 — useEffectiveRecords('inspections') 의 thin wrapper. */
 export function useEffectiveInspections(): InspectionRow[] {
-  const saved = useSubstationWorkingCopy((s) => s.saved.inspections);
-  const overlay = useSubstationWorkingCopy((s) => s.overlays.inspections);
-  return useMemo(() => mergeEffective(saved, overlay, inspectionDescriptor), [saved, overlay]);
+  return useEffectiveRecords<InspectionRow>('inspections');
 }
 
-/** staged 고장이력(저장 대기 create + pending update). saved 는 []이므로 결과 = staged creates. */
+/** staged 고장이력 — useEffectiveRecords('logs') 의 thin wrapper. */
 export function useEffectiveLogs(): LogRow[] {
-  const saved = useSubstationWorkingCopy((s) => s.saved.logs);
-  const overlay = useSubstationWorkingCopy((s) => s.overlays.logs);
-  return useMemo(() => mergeEffective(saved, overlay, logDescriptor), [saved, overlay]);
+  return useEffectiveRecords<LogRow>('logs');
 }
 
-/** staged 사진(저장 대기 업로드). saved 는 []이므로 결과 = staged creates. */
+/** staged 사진 — useEffectiveRecords('photos') 의 thin wrapper. */
 export function useEffectivePhotos(): PhotoRow[] {
-  const saved = useSubstationWorkingCopy((s) => s.saved.photos);
-  const overlay = useSubstationWorkingCopy((s) => s.overlays.photos);
-  return useMemo(() => mergeEffective(saved, overlay, photoDescriptor), [saved, overlay]);
+  return useEffectiveRecords<PhotoRow>('photos');
 }
 
 /**
