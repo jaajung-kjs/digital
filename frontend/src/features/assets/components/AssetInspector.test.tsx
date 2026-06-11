@@ -18,7 +18,7 @@ const wrap = (ui: ReactNode) => {
 };
 
 describe('AssetInspector — 단일 인스펙터(SSOT)', () => {
-  it('핵심 필드를 모두 렌더: 종류(읽기전용)/설명/사진/유지보수/연결 — 속성 UI 없음(#7)', () => {
+  it('핵심 필드를 모두 렌더: 종류(읽기전용)/설명/점검/고장이력/사진/연결 — 속성 UI 없음(#7)', () => {
     wrap(<AssetInspector asset={asset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
     // 종류 — 읽기전용 라벨 + 값
     expect(screen.getByText('종류')).toBeTruthy();
@@ -26,9 +26,11 @@ describe('AssetInspector — 단일 인스펙터(SSOT)', () => {
     // #7: 커스텀 속성(모델 등) 입력/속성 섹션은 더 이상 렌더되지 않는다.
     expect(screen.queryByLabelText('모델')).toBeNull();
     expect(screen.queryByText('속성')).toBeNull();
-    // 접이식 섹션 — 사진/유지보수/연결
+    // 접이식 보조 섹션 — 점검/고장이력/사진/연결 (#5·#6)
+    expect(screen.getByText('점검')).toBeTruthy();
+    expect(screen.getByText('고장이력')).toBeTruthy();
+    expect(screen.queryByText('유지보수')).toBeNull();
     expect(screen.getByText('사진')).toBeTruthy();
-    expect(screen.getByText('유지보수')).toBeTruthy();
     expect(screen.getByText('연결')).toBeTruthy();
   });
 

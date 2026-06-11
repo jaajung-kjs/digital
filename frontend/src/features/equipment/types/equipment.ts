@@ -25,11 +25,21 @@ export interface MaintenanceFormData {
   status?: string;
 }
 
+// 표시용 라벨 — 레거시 MAINTENANCE(점검) 행도 목록에서 올바르게 표시하기 위해 유지.
 export const LOG_TYPE_LABELS: Record<string, string> = {
   MAINTENANCE: '점검',
   FAILURE: '고장',
   REPAIR: '수리',
 };
+
+/**
+ * 고장이력 드롭다운에 노출하는 유형 — 점검(MAINTENANCE)은 제외(점검은 별도 점검 섹션).
+ * 기본값은 FAILURE.
+ */
+export const FAILURE_LOG_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'FAILURE', label: '고장' },
+  { value: 'REPAIR', label: '수리' },
+];
 
 export const LOG_TYPE_COLORS: Record<string, string> = {
   MAINTENANCE: 'bg-info-bg text-primary',

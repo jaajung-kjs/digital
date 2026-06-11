@@ -54,7 +54,7 @@ export function BaseEquipmentTabsPanel({
   const tabs: { key: BaseTabKey; label: string }[] = [
     { key: 'photos', label: '사진' },
     { key: 'info', label: '정보' },
-    { key: 'logs', label: '점검/고장' },
+    { key: 'logs', label: '고장이력' },
     { key: 'fourth', label: fourthTab?.label ?? '연결' },
     ...(fifthTab ? [{ key: 'fifth' as const, label: fifthTab.label }] : []),
   ];
@@ -95,7 +95,7 @@ export function BaseEquipmentTabsPanel({
             {activeTab === 'logs' && (
               snapshotActive ? (
                 <div className="flex items-center justify-center py-12 text-sm text-content-faint">
-                  이 버전의 점검/고장 이력은 포함되어 있지 않습니다
+                  이 버전의 고장 이력은 포함되어 있지 않습니다
                 </div>
               ) : (
                 <LogsTab equipmentId={equipmentId} readOnly={false} />

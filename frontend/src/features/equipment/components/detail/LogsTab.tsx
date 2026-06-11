@@ -8,10 +8,22 @@ import {
   LOG_TYPE_COLORS,
   SEVERITY_COLORS,
   SEVERITY_LABELS,
+  FAILURE_LOG_TYPE_OPTIONS,
 } from '../../types/equipment';
+import {
+  SectionHeader,
+  SectionAction,
+  SectionEmpty,
+  SectionItem,
+  SectionForm,
+  PrimaryButton,
+  IconAction,
+  fieldClass,
+} from '../../../assets/components/detail/SectionShell';
 
 /* ================================================================
-   Logs Tab - with edit, author display, category colors
+   고장이력(failure/repair) — 점검(MAINTENANCE)은 제외, 기본 FAILURE.
+   점검은 별도 점검 섹션에서 기록. 공유 셸(SectionShell)로 톤 통일.
    ================================================================ */
 
 export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: boolean }) {
@@ -25,7 +37,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
   const [showForm, setShowForm] = useState(false);
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    logType: 'MAINTENANCE',
+    logType: 'FAILURE',
     title: '',
     logDate: new Date().toISOString().slice(0, 10),
     severity: 'LOW',
@@ -60,7 +72,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
   }, [backendLogs, pendingLogs, equipmentId]);
 
   const resetForm = () => {
-    setFormData({ logType: 'MAINTENANCE', title: '', logDate: new Date().toISOString().slice(0, 10), severity: 'LOW', description: '' });
+    setFormData({ logType: 'FAILURE', title: '', logDate: new Date().toISOString().slice(0, 10), severity: 'LOW', description: '' });
     setEditingLogId(null);
     setShowForm(false);
   };
@@ -113,7 +125,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
 
   if (!isTemp && isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className="flex items-center justify-center py-6">
         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
       </div>
     );
@@ -121,33 +133,38 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
 
   return (
     <div>
-      {!readOnly && (
-        <div className="px-4 pt-3">
-          <button
-            onClick={() => { if (showForm) resetForm(); else setShowForm(true); }}
-            className="text-sm text-primary hover:text-primary font-medium"
-          >
-            {showForm ? '취소' : '+ 새 이력 추가'}
-          </button>
-        </div>
-      )}
+      <SectionHeader
+        action={
+          !readOnly ? (
+            <SectionAction
+              onClick={() => { if (showForm) resetForm(); else setShowForm(true); }}
+              tone={showForm ? 'muted' : 'primary'}
+            >
+              {showForm ? '취소' : '+ 이력 추가'}
+            </SectionAction>
+          ) : undefined
+        }
+      />
 
       {showForm && !readOnly && (
-        <div className="mx-4 mt-2 p-3 rounded-lg border border-primary bg-info-bg space-y-2.5">
+        <SectionForm>
           <div className="flex gap-2">
+            {/* 점검(MAINTENANCE) 제외 — 고장/수리만. */}
             <select
+              aria-label="유형"
               value={formData.logType}
               onChange={(e) => setFormData((p) => ({ ...p, logType: e.target.value }))}
-              className="flex-1 text-sm border border-line rounded px-2.5 py-2"
+              className={fieldClass}
             >
-              {Object.entries(LOG_TYPE_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
+              {FAILURE_LOG_TYPE_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
               ))}
             </select>
             <select
+              aria-label="심각도"
               value={formData.severity}
               onChange={(e) => setFormData((p) => ({ ...p, severity: e.target.value }))}
-              className="flex-1 text-sm border border-line rounded px-2.5 py-2"
+              className={fieldClass}
             >
               {Object.entries(SEVERITY_COLORS).map(([key]) => (
                 <option key={key} value={key}>{SEVERITY_LABELS[key] ?? key}</option>
@@ -155,39 +172,35 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
             </select>
           </div>
           <input
-            type="text" placeholder="제목"
+            type="text" placeholder="제목" aria-label="제목"
             value={formData.title}
             onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
-            className="w-full text-sm border border-line rounded px-2.5 py-2"
+            className={fieldClass}
           />
           <input
-            type="date"
+            type="date" aria-label="발생일"
             value={formData.logDate}
             onChange={(e) => setFormData((p) => ({ ...p, logDate: e.target.value }))}
-            className="w-full text-sm border border-line rounded px-2.5 py-2"
+            className={fieldClass}
           />
           <textarea
-            placeholder="설명 (선택)"
+            placeholder="설명 (선택)" aria-label="설명"
             value={formData.description}
             onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-            className="w-full text-sm border border-line rounded px-2.5 py-2 resize-none" rows={2}
+            className={`${fieldClass} resize-none`} rows={2}
           />
-          <button
-            onClick={handleSubmit}
-            disabled={!formData.title.trim()}
-            className="w-full text-sm px-3 py-2 bg-primary text-white rounded hover:bg-primary-hover disabled:opacity-50"
-          >
-            {editingLogId ? '수정 적용' : '적용'}
-          </button>
-        </div>
+          <PrimaryButton onClick={handleSubmit} disabled={!formData.title.trim()}>
+            {editingLogId ? '수정 적용' : '등록'}
+          </PrimaryButton>
+        </SectionForm>
       )}
 
-      <div className="p-4 space-y-3">
-        {allLogs.length === 0 ? (
-          <p className="text-sm text-content-faint text-center py-4">이력이 없습니다.</p>
-        ) : (
-          allLogs.map((log) => (
-            <div key={log.id} className="p-3 rounded-lg border border-line bg-surface-2">
+      {allLogs.length === 0 ? (
+        <SectionEmpty>고장 이력이 없습니다.</SectionEmpty>
+      ) : (
+        <div className="space-y-2">
+          {allLogs.map((log) => (
+            <SectionItem key={log.id}>
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-1.5">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${LOG_TYPE_COLORS[log.logType] ?? 'bg-line text-content-muted'}`}>
@@ -201,20 +214,12 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
                 </div>
                 {!readOnly && pendingLogs.some((l) => l.id === log.id) && (
                   <div className="flex items-center gap-0.5">
-                      <button
-                        onClick={() => handleEditLog(log)}
-                        className="p-0.5 text-content-faint hover:text-primary transition-colors"
-                        title="수정"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    <button
-                      onClick={() => handleDeleteLog(log.id)}
-                      className="p-0.5 text-content-faint hover:text-danger transition-colors"
-                      title="삭제"
-                    >
+                    <IconAction onClick={() => handleEditLog(log)} title="수정">
+                      <Pencil size={14} />
+                    </IconAction>
+                    <IconAction onClick={() => handleDeleteLog(log.id)} title="삭제" danger>
                       <Trash2 size={14} />
-                    </button>
+                    </IconAction>
                   </div>
                 )}
               </div>
@@ -232,10 +237,10 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
                   </p>
                 )}
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            </SectionItem>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

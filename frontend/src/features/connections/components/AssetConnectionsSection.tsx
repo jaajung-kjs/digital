@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
+import { SectionEmpty } from '../../assets/components/detail/SectionShell';
 
 interface Endpoint { assetId: string | null; name: string }
 interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; length: number | null }
@@ -14,7 +15,7 @@ interface Props {
 const epId = (e: Endpoint) => e.assetId;
 
 export function AssetConnectionsSection({ assetId, connections, onDelete, onUpdate, onSelectAsset }: Props) {
-  if (!connections.length) return <p className="text-xs text-content-faint">연결 없음</p>;
+  if (!connections.length) return <SectionEmpty>연결 없음</SectionEmpty>;
   return (
     <div className="space-y-0.5">
       {connections.map((c) => {

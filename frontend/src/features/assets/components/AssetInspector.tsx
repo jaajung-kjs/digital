@@ -1,6 +1,7 @@
 import type { Asset } from '../../../types/asset';
 import { toDateInputValue } from '../../../utils/date';
 import { AssetPhotoSection } from './AssetPhotoSection';
+import { InspectionSection } from './detail/InspectionSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
 import { useAssetConnections } from '../../connections/hooks/useAssetConnections';
 import { useCableMutations } from '../../connections/hooks/useCableMutations';
@@ -176,13 +177,18 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
         )}
       </section>
 
+      {/* 보조 섹션 — 점검/고장이력/사진/연결. 모두 접이식(CollapsibleSection) +
+          공유 셸(SectionShell)로 헤더·여백·버튼·빈 상태 톤 통일. */}
       <div className="px-4">
+        <CollapsibleSection title="점검" defaultOpen>
+          <InspectionSection assetId={asset.id} />
+        </CollapsibleSection>
+        <CollapsibleSection title="고장이력">
+          {/* 고장/수리 이력(점검은 위 점검 섹션). 종류/날짜/심각도/설명 + 편집. 보류 큐 공유. */}
+          <LogsTab equipmentId={asset.id} readOnly={ro} />
+        </CollapsibleSection>
         <CollapsibleSection title="사진">
           <AssetPhotoSection assetId={asset.id} />
-        </CollapsibleSection>
-        <CollapsibleSection title="유지보수">
-          {/* 단일 유지보수 UX(LogsTab) — 종류/날짜/심각도/설명 + 편집. 보류 큐 공유. */}
-          <LogsTab equipmentId={asset.id} readOnly={ro} />
         </CollapsibleSection>
         <CollapsibleSection title="연결" badge={connections.length || undefined}>
           <AssetConnectionsSection

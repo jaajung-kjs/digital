@@ -13,11 +13,10 @@ interface MaintenanceFormProps {
   onCancel: () => void;
 }
 
+// 점검(MAINTENANCE)은 별도 점검 섹션으로 분리 → 고장이력은 고장/수리만.
 const LOG_TYPES = [
-  { value: 'MAINTENANCE', label: '점검' },
   { value: 'FAILURE', label: '고장' },
   { value: 'REPAIR', label: '수리' },
-  { value: 'INSPECTION', label: '검사' },
 ];
 
 const SEVERITIES = [
@@ -45,7 +44,7 @@ export function MaintenanceForm({
   const isEdit = !!log;
 
   const [formData, setFormData] = useState<MaintenanceFormData>({
-    logType: 'MAINTENANCE',
+    logType: 'FAILURE',
     title: '',
     description: '',
     severity: 'MEDIUM',

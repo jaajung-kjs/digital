@@ -6,6 +6,7 @@ import { useEditorStore } from '../../editor/stores/editorStore';
 // 현황(대장) 사진도 에디터 PhotosTab 과 동일한 보류 큐로 스테이징 → 단일 저장 시 flushPendingMedia 가 업로드.
 // 저장된 사진은 editor 와 동일한 query key(['equipment-photos', id])를 써서 commit 무효화로 자동 갱신.
 import { useEquipmentPhotos, useDeletePhoto } from '../../equipment/hooks/useEquipmentPhotos';
+import { SectionHeader, SectionEmpty } from './detail/SectionShell';
 
 export function AssetPhotoSection({ assetId }: { assetId: string }) {
   const [side, setSide] = useState<'front' | 'rear'>('front');
@@ -57,24 +58,38 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
 
   return (
     <section>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-content">사진</h3>
-        <div className="flex gap-1">
-          {(['front', 'rear'] as const).map((s) => (
-            <button key={s} onClick={() => setSide(s)}
-              className={`text-xs px-2 py-0.5 rounded ${side === s ? 'bg-primary text-white' : 'bg-surface-2 text-content-muted'}`}>
-              {s === 'front' ? '전면' : '후면'}
+      {/* 전면/후면 토글 + 업로드 — 보조 섹션 공유 헤더 톤(SectionShell)으로 통일. */}
+      <SectionHeader
+        action={
+          <>
+            {(['front', 'rear'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSide(s)}
+                className={`text-xs font-medium rounded px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+                  side === s ? 'bg-primary text-white' : 'text-content-muted hover:bg-surface-2'
+                }`}
+              >
+                {s === 'front' ? '전면' : '후면'}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="text-xs font-medium rounded px-2 py-1 text-primary hover:bg-info-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              + 업로드
             </button>
-          ))}
-          <button onClick={() => fileRef.current?.click()}
-            className="text-xs px-2 py-0.5 rounded bg-success text-white">+ 업로드</button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
-        </div>
-      </div>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+          </>
+        }
+      />
       {isEmpty ? (
-        <p className="text-xs text-content-faint">{side === 'front' ? '전면' : '후면'} 사진 없음</p>
+        <SectionEmpty>{side === 'front' ? '전면' : '후면'} 사진 없음</SectionEmpty>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        // 미디어(이미지)는 다크 배경 유지(media surface), 주변 chrome 만 토큰화.
+        <div className="grid grid-cols-3 gap-2 rounded-lg bg-gray-900 p-2">
           {shown.map((item) => (
             <div key={item.id} className="relative group">
               <img src={item.url} alt="" className="w-full h-20 object-cover rounded border border-line" />
@@ -82,7 +97,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
                 <span className="absolute bottom-0.5 left-0.5 text-[10px] bg-warning text-white rounded px-1">저장 대기</span>
               )}
               <button aria-label="사진 삭제" onClick={() => onDelete(item)}
-                className="absolute top-0.5 right-0.5 bg-surface/80 rounded p-0.5 opacity-0 group-hover:opacity-100"><X size={12} /></button>
+                className="absolute top-0.5 right-0.5 bg-surface/80 rounded p-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"><X size={12} /></button>
             </div>
           ))}
         </div>
