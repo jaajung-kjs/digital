@@ -25,14 +25,15 @@ describe('노드범위 자산 리스트 GET /api/nodes/:id/assets', () => {
       data: { substationId: subId, assetTypeId: typeId, name: 'NA-1', installDate: new Date('2024-01-15'), manager: '홍길동' },
     });
     assetId = a.id;
-    await prisma.maintenanceLog.create({
-      data: { equipmentId: a.id, logType: 'MAINTENANCE', title: '정기점검', logDate: new Date('2025-03-01') },
+    // lastMaintenanceDate 는 이제 InspectionLog(점검) 의 가장 최근 inspectionDate 에서 파생.
+    await prisma.inspectionLog.create({
+      data: { assetId: a.id, inspectionDate: new Date('2025-03-01'), inspector: '홍길동', content: '정기점검' },
     });
     const a2 = await prisma.asset.create({ data: { substationId: sub2Id, assetTypeId: typeId, name: 'NA-2' } });
     asset2Id = a2.id;
   });
   afterAll(async () => {
-    await prisma.maintenanceLog.deleteMany({ where: { equipmentId: { in: [assetId, asset2Id] } } });
+    await prisma.inspectionLog.deleteMany({ where: { assetId: { in: [assetId, asset2Id] } } });
     await prisma.asset.deleteMany({ where: { id: { in: [assetId, asset2Id] } } });
     await prisma.substation.deleteMany({ where: { id: { in: [subId, sub2Id] } } }).catch(() => {});
     await prisma.branch.delete({ where: { id: brId } }).catch(() => {});

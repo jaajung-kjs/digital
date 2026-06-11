@@ -4,7 +4,7 @@ import { collectConflicts, VersionConflictError } from './concurrency.js';
 
 export interface AssetCommitInput {
   creates: { tempId: string; assetTypeId: string; name: string; parentAssetId?: string | null;
-    roomText?: string | null; attributes?: Record<string, unknown> | null;
+    roomText?: string | null; sourcePresetId?: string | null;
     installDate?: string | null; manager?: string | null; status?: string | null;
     warrantyUntil?: string | null; replaceDue?: string | null }[];
   updates: { id: string; baseVersion: string | null; patch: Record<string, unknown> }[];
@@ -46,7 +46,7 @@ class AssetCommitService {
           data: {
             substationId, assetTypeId: c.assetTypeId, name: c.name,
             parentAssetId: c.parentAssetId ?? null, roomText: c.roomText ?? null,
-            attributes: (c.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+            sourcePresetId: c.sourcePresetId ?? null,
             installDate: dateOrNull(c.installDate), manager: c.manager ?? null, status: c.status ?? null,
             warrantyUntil: dateOrNull(c.warrantyUntil), replaceDue: dateOrNull(c.replaceDue),
             createdById: userId, updatedById: userId,
@@ -61,7 +61,7 @@ class AssetCommitService {
           data: {
             name: p.name as string | undefined,
             roomText: p.roomText as string | null | undefined,
-            attributes: (p.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+            sourcePresetId: p.sourcePresetId as string | null | undefined,
             installDate: p.installDate === undefined ? undefined : dateOrNull(p.installDate),
             manager: p.manager as string | null | undefined,
             status: p.status as string | null | undefined,

@@ -11,7 +11,7 @@ const commitSchema = z.object({
   creates: z.array(z.object({
     tempId: z.string(), assetTypeId: z.string().uuid(), name: z.string().min(1).max(100),
     parentAssetId: z.string().uuid().optional().nullable(), roomText: z.string().max(100).optional().nullable(),
-    attributes: z.record(z.unknown()).optional().nullable(),
+    sourcePresetId: z.string().optional().nullable(),
     installDate: z.string().date().optional().nullable(), manager: z.string().max(100).optional().nullable(),
     status: z.string().max(20).optional().nullable(),
     warrantyUntil: z.string().date().optional().nullable(), replaceDue: z.string().date().optional().nullable(),

@@ -2,6 +2,7 @@ import prisma from '../config/prisma.js';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../utils/errors.js';
 import { assetToRackModule } from './assetPlanMapper.js';
+import { extractSourcePresetId } from './sourcePreset.js';
 
 // ==================== Types ====================
 
@@ -203,7 +204,7 @@ async function create(input: CreateRackModuleInput, userId: string | null): Prom
       installDate: input.installDate ? new Date(input.installDate) : null,
       manager: input.manager ?? null,
       description: input.description ?? null,
-      attributes: input.properties as Prisma.InputJsonValue | undefined,
+      sourcePresetId: extractSourcePresetId(input.properties),
       sortOrder: input.sortOrder ?? input.slotIndex,
       createdById: userId,
       updatedById: userId,
@@ -245,7 +246,7 @@ async function update(
             : null,
       manager: input.manager === undefined ? undefined : input.manager,
       description: input.description === undefined ? undefined : input.description,
-      attributes: input.properties as Prisma.InputJsonValue | undefined,
+      sourcePresetId: input.properties !== undefined ? extractSourcePresetId(input.properties) : undefined,
       sortOrder: input.sortOrder,
       updatedById: userId,
     },

@@ -8,7 +8,7 @@ export interface CreateAssetInput {
   name: string;
   parentAssetId?: string | null;
   roomText?: string | null;
-  attributes?: Record<string, unknown> | null;
+  sourcePresetId?: string | null;
   installDate?: string | null;
   warrantyUntil?: string | null;
   replaceDue?: string | null;
@@ -22,7 +22,7 @@ export interface UpdateAssetInput {
   name?: string;
   parentAssetId?: string | null;
   roomText?: string | null;
-  attributes?: Record<string, unknown> | null;
+  sourcePresetId?: string | null;
   installDate?: string | null;
   warrantyUntil?: string | null;
   replaceDue?: string | null;
@@ -40,7 +40,7 @@ export interface AssetDetail {
   parentAssetId: string | null;
   floorId: string | null;
   roomText: string | null;
-  attributes: Record<string, unknown> | null;
+  sourcePresetId: string | null;
   installDate: Date | null;
   warrantyUntil: Date | null;
   replaceDue: Date | null;
@@ -106,7 +106,7 @@ class AssetService {
         fieldTemplate: a.assetType.fieldTemplate ?? null,
       },
       name: a.name, parentAssetId: a.parentAssetId, floorId: a.floorId ?? null, roomText: a.roomText,
-      attributes: (a.attributes as Record<string, unknown> | null) ?? null,
+      sourcePresetId: a.sourcePresetId ?? null,
       installDate: a.installDate, warrantyUntil: a.warrantyUntil, replaceDue: a.replaceDue,
       manager: a.manager, description: a.description,
       status: a.status, sortOrder: a.sortOrder,
@@ -133,12 +133,11 @@ class AssetService {
         assetType: { select: { name: true, displayColor: true } },
         substation: { select: { name: true } },
         floor: { select: { name: true } },
-        // logType 은 String('MAINTENANCE'|'FAILURE'|'REPAIR'); 마지막 정기점검일을 위해 MAINTENANCE 만.
-        maintenanceLogs: {
-          where: { logType: 'MAINTENANCE' },
-          orderBy: { logDate: 'desc' },
+        // 마지막 점검일 = 가장 최근 InspectionLog.inspectionDate (점검 전용 테이블).
+        inspectionLogs: {
+          orderBy: { inspectionDate: 'desc' },
           take: 1,
-          select: { logDate: true },
+          select: { inspectionDate: true },
         },
       },
       orderBy: [{ substationId: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -166,7 +165,7 @@ class AssetService {
       status: r.status,
       warrantyUntil: r.warrantyUntil,
       replaceDue: r.replaceDue,
-      lastMaintenanceDate: r.maintenanceLogs[0]?.logDate ?? null,
+      lastMaintenanceDate: r.inspectionLogs[0]?.inspectionDate ?? null,
       };
     });
   }
@@ -185,7 +184,7 @@ class AssetService {
         name: input.name,
         parentAssetId: input.parentAssetId ?? null,
         roomText: input.roomText ?? null,
-        attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+        sourcePresetId: input.sourcePresetId ?? null,
         installDate: input.installDate ? new Date(input.installDate) : null,
         warrantyUntil: input.warrantyUntil ? new Date(input.warrantyUntil) : null,
         replaceDue: input.replaceDue ? new Date(input.replaceDue) : null,
@@ -210,7 +209,7 @@ class AssetService {
         name: input.name,
         parentAssetId: input.parentAssetId,
         roomText: input.roomText,
-        attributes: (input.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+        sourcePresetId: input.sourcePresetId,
         installDate: input.installDate === undefined ? undefined : input.installDate ? new Date(input.installDate) : null,
         warrantyUntil: input.warrantyUntil === undefined ? undefined : input.warrantyUntil ? new Date(input.warrantyUntil) : null,
         replaceDue: input.replaceDue === undefined ? undefined : input.replaceDue ? new Date(input.replaceDue) : null,
@@ -240,7 +239,7 @@ class AssetService {
         name: `${src.name.replace(/ \(복제\)$/, '')} (복제)`,
         parentAssetId: src.parentAssetId,
         roomText: src.roomText,
-        attributes: (src.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+        sourcePresetId: src.sourcePresetId,
         installDate: src.installDate,
         warrantyUntil: src.warrantyUntil,
         replaceDue: src.replaceDue,

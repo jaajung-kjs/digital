@@ -1,4 +1,5 @@
 import type { Asset, AssetType } from '@prisma/client';
+import { sourcePresetToProperties } from './sourcePreset.js';
 
 export type PlacementKind = 'RACK' | 'OFD' | 'DISTRIBUTION' | 'GROUNDING' | 'HVAC';
 
@@ -37,7 +38,7 @@ export function assetToPlanEquipment(a: AssetWithType) {
     height3d: null as number | null,
     frontImageUrl: null as string | null,
     rearImageUrl: null as string | null,
-    properties: a.attributes,
+    properties: sourcePresetToProperties(a.sourcePresetId),
   };
 }
 
@@ -57,7 +58,7 @@ export function assetToRackModule(a: AssetWithType) {
     installDate: a.installDate,
     manager: a.manager,
     description: a.description,
-    properties: a.attributes,
+    properties: sourcePresetToProperties(a.sourcePresetId),
     sortOrder: a.sortOrder,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,

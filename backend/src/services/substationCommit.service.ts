@@ -8,6 +8,17 @@ import {
   assertSlotValid,
   assertNoSlotCollision,
 } from './planApply.js';
+import { extractSourcePresetId } from './sourcePreset.js';
+
+/**
+ * 프론트는 설비/모듈의 source preset 을 여전히 `properties: { sourcePresetId }`(또는
+ * 자산은 attributes) JSON 모양으로 보낸다. attributes 컬럼은 드롭됐으므로 경계에서
+ * sourcePresetId(컬럼) 로 추출한다. 직접 API 가 sourcePresetId 문자열을 보내면 그대로 사용.
+ */
+function resolveSourcePresetId(json: unknown, direct?: unknown): string | null {
+  if (typeof direct === 'string') return direct || null;
+  return extractSourcePresetId(json);
+}
 
 /**
  * 통합 변전소 커밋 (SSOT-2a).
@@ -189,7 +200,7 @@ async function run(
           name: c.name,
           parentAssetId: c.parentAssetId ?? null,
           roomText: c.roomText ?? null,
-          attributes: (c.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+          sourcePresetId: resolveSourcePresetId(c.attributes, c.sourcePresetId),
           installDate: dateOrNull(c.installDate),
           manager: c.manager ?? null,
           status: c.status ?? null,
@@ -220,7 +231,12 @@ async function run(
           name: p.name as string | undefined,
           parentAssetId: p.parentAssetId as string | null | undefined,
           roomText: p.roomText as string | null | undefined,
-          attributes: (p.attributes ?? undefined) as Prisma.InputJsonValue | undefined,
+          sourcePresetId:
+            p.sourcePresetId !== undefined
+              ? (p.sourcePresetId as string | null)
+              : p.attributes !== undefined
+                ? extractSourcePresetId(p.attributes)
+                : undefined,
           installDate: patchDate(p.installDate),
           manager: p.manager as string | null | undefined,
           status: p.status as string | null | undefined,
@@ -295,7 +311,7 @@ async function run(
           installDate: dateOrNull(c.installDate),
           manager: c.manager ?? null,
           description: c.description ?? null,
-          attributes: (c.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+          sourcePresetId: extractSourcePresetId(c.properties),
           sortOrder: c.sortOrder ?? 0,
           createdById: userId,
           updatedById: userId,
@@ -340,7 +356,7 @@ async function run(
           installDate: patchDate(p.installDate),
           manager: p.manager as string | null | undefined,
           description: p.description as string | null | undefined,
-          attributes: (p.properties ?? undefined) as Prisma.InputJsonValue | undefined,
+          sourcePresetId: p.properties !== undefined ? extractSourcePresetId(p.properties) : undefined,
           sortOrder: p.sortOrder as number | undefined,
           updatedById: userId,
         },

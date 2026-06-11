@@ -3,6 +3,7 @@ import { NotFoundError, ConflictError } from '../utils/errors.js';
 import { Prisma } from '@prisma/client';
 import type { Asset, AssetType } from '@prisma/client';
 import { placementKindToKind, kindToPlacementCode, type PlacementKind } from './assetPlanMapper.js';
+import { extractSourcePresetId, sourcePresetToProperties } from './sourcePreset.js';
 
 // ==================== Types ====================
 
@@ -97,7 +98,7 @@ class EquipmentService {
       installDate: a.installDate,
       manager: a.manager,
       description: a.description,
-      properties: a.attributes,
+      properties: sourcePresetToProperties(a.sourcePresetId),
       frontImageUrl: null,
       rearImageUrl: null,
       height3d: null,
@@ -188,7 +189,7 @@ class EquipmentService {
         installDate: input.installDate ? new Date(input.installDate) : null,
         manager: input.manager,
         description: input.description,
-        attributes: (input.properties ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        sourcePresetId: extractSourcePresetId(input.properties),
         createdById: userId,
         updatedById: userId,
       },
@@ -246,7 +247,7 @@ class EquipmentService {
             : undefined,
         manager: input.manager,
         description: input.description,
-        attributes: input.properties as Prisma.InputJsonValue | undefined,
+        sourcePresetId: input.properties !== undefined ? extractSourcePresetId(input.properties) : undefined,
         sortOrder: input.sortOrder,
         updatedById: userId,
       },

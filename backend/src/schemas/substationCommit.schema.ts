@@ -42,6 +42,9 @@ const assetCreate = z.object({
   name: z.string(),
   parentAssetId: z.string().nullable().optional(),
   roomText: z.string().nullable().optional(),
+  // sourcePresetId 전용 컬럼(상세패널 오버홀 S3). attributes 는 프론트(S4 이전)가
+  // properties↔attributes 라운드트립으로 보내는 free-form JSON 호환 — sourcePresetId 만 추출.
+  sourcePresetId: z.string().nullable().optional(),
   attributes: z.unknown().optional(),
   installDate: z.string().nullable().optional(),
   manager: z.string().nullable().optional(),

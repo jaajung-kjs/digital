@@ -35,6 +35,8 @@ model User {
   updatedBranches        Branch[]         @relation("BranchUpdatedBy")
   createdMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogCreatedBy")
   updatedMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogUpdatedBy")
+  createdInspectionLogs  InspectionLog[]  @relation("InspectionLogCreatedBy")
+  updatedInspectionLogs  InspectionLog[]  @relation("InspectionLogUpdatedBy")
   createdFiberPaths      FiberPath[]      @relation("FiberPathCreator")
   updatedFiberPaths      FiberPath[]      @relation("FiberPathUpdater")
   createdRackPresets     RackPreset[]     @relation("RackPresetCreatedBy")
@@ -360,10 +362,13 @@ model EquipmentPhoto {
 
 // ==================== 유지보수 이력 ====================
 
+// 고장이력 전용(상세패널 오버홀 S3 이후). 점검(정기)은 InspectionLog 로 분리됐고,
+// lastMaintenanceDate 는 더 이상 여기서 파생하지 않는다. logType MAINTENANCE 는
+// 자산에 대해 deprecated(프론트는 FAILURE/REPAIR 만 노출). 컬럼은 호환 위해 유지.
 model MaintenanceLog {
   id          String    @id @default(uuid())
   equipmentId String    @map("equipment_id")
-  logType     String    @db.VarChar(20) // MAINTENANCE, FAILURE, REPAIR
+  logType     String    @db.VarChar(20) // FAILURE, REPAIR (MAINTENANCE deprecated → InspectionLog)
   title       String    @db.VarChar(200)
   description String?   @db.Text
   logDate     DateTime? @map("log_date") @db.Date
@@ -380,6 +385,27 @@ model MaintenanceLog {
   updatedBy User? @relation("MaintenanceLogUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("maintenance_logs")
+}
+
+// 점검(정기) 이력 전용. 가장 최근 inspectionDate 가 자산 현황의 "마지막 점검일"
+// (lastMaintenanceDate) 로 파생된다. (상세패널 오버홀 S3)
+model InspectionLog {
+  id             String   @id @default(uuid())
+  assetId        String   @map("asset_id")
+  inspectionDate DateTime @map("inspection_date") @db.Date
+  inspector      String   @db.VarChar(100)
+  content        String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  createdById    String?  @map("created_by")
+  updatedById    String?  @map("updated_by")
+
+  asset     Asset @relation("InspectionLogAsset", fields: [assetId], references: [id], onDelete: Cascade)
+  createdBy User? @relation("InspectionLogCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("InspectionLogUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([assetId])
+  @@map("inspection_logs")
 }
 
 // ==================== 이력 ====================
@@ -453,7 +479,8 @@ model Asset {
   slotIndex     Int?      @map("slot_index")
   slotSpan      Int?      @map("slot_span")
   totalU        Int?      @map("total_u")
-  attributes    Json?
+  // 랙이 어떤 프리셋에서 생성됐는지 추적(과거 attributes JSON 에 있던 sourcePresetId 이전).
+  sourcePresetId String?  @map("source_preset_id")
   installDate   DateTime? @map("install_date") @db.Date
   warrantyUntil DateTime? @map("warranty_until") @db.Date
   replaceDue    DateTime? @map("replace_due") @db.Date
@@ -480,6 +507,7 @@ model Asset {
   fiberPathsAsA     FiberPath[]      @relation("FiberPathOfdA")
   fiberPathsAsB     FiberPath[]      @relation("FiberPathOfdB")
   maintenanceLogs   MaintenanceLog[] @relation("MaintenanceLogAsset")
+  inspectionLogs    InspectionLog[]  @relation("InspectionLogAsset")
   photos            EquipmentPhoto[] @relation("EquipmentPhotoAsset")
 
   @@index([substationId])
