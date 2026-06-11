@@ -21,6 +21,7 @@ import { generateTempId } from '../../../utils/idHelpers';
 import { Toolbar } from './Toolbar';
 import { EditorInsertBar } from './EditorInsertBar';
 import { CanvasView } from './CanvasView';
+import { EditorStatusBar } from './EditorStatusBar';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
 import { NetworkTopologyModal } from '../../network/NetworkTopologyModal';
@@ -493,6 +494,13 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                     &times;
                   </button>
                 </div>
+              )}
+
+              {/* 하단 상태바 — 그리드·스냅·줄자·투명도·줌 단일 홈 (Excel/PPT식).
+                  캔버스 컬럼 맨 아래(전체 폭). 우측 패널은 absolute 오버레이라
+                  이 바는 캔버스 영역 폭을 그대로 차지한다. */}
+              {!snapshotActive && (
+                <EditorStatusBar floorPlan={floorPlan} containerRef={containerRef} />
               )}
             </div>
           </>

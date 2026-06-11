@@ -6,6 +6,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { CanvasContextMenu, type CanvasContextMenuState } from './CanvasContextMenu';
 import { EmptyStateGuide } from './EmptyStateGuide';
 import { EditorHelpButton } from './EditorHelpButton';
+import { zoomToCenter as zoomToCenterShared } from '../utils/zoom';
 
 interface CanvasViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -33,32 +34,16 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
 
   const tool = useEditorStore((s) => s.tool);
   const zoom = useEditorStore((s) => s.zoom);
-  const panX = useEditorStore((s) => s.panX);
-  const panY = useEditorStore((s) => s.panY);
   const showGrid = useEditorStore((s) => s.showGrid);
   const gridSnap = useEditorStore((s) => s.gridSnap);
-  const setViewport = useEditorStore((s) => s.setViewport);
   const setShowGrid = useEditorStore((s) => s.setShowGrid);
   const setGridSnap = useEditorStore((s) => s.setGridSnap);
 
   const isPanning = useEditorStore((s) => s.isPanning);
   const isSpacePressed = useEditorStore((s) => s.isSpacePressed);
 
-  /** Zoom to a new level, keeping the viewport center stable */
-  const zoomToCenter = (newZoom: number) => {
-    const container = containerRef?.current;
-    if (!container) {
-      setViewport(newZoom, panX, panY);
-      return;
-    }
-    const cx = container.clientWidth / 2;
-    const cy = container.clientHeight / 2;
-    const oldScale = zoom / 100;
-    const newScale = newZoom / 100;
-    const worldX = (cx - panX) / oldScale;
-    const worldY = (cy - panY) / oldScale;
-    setViewport(newZoom, cx - worldX * newScale, cy - worldY * newScale);
-  };
+  /** Zoom to a new level, keeping the viewport center stable (shared impl). */
+  const zoomToCenter = (newZoom: number) => zoomToCenterShared(newZoom, containerRef?.current);
 
   return (
     <div ref={containerRef as React.RefObject<HTMLDivElement>} className="flex-1 relative overflow-hidden bg-gray-200">
