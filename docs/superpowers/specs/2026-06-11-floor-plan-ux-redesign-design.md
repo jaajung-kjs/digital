@@ -38,20 +38,26 @@
   - ESC / 닫기 → `null`.
 - 효과: 상세 위에 설계서가 겹쳐 쌓이던 문제 소멸. (현 `detailPanelEquipmentId` + `showReport/showWorkOrders/showLayers` 분리 상태 → 단일 enum + 선택 id 로 정리.)
 
-### 3c. 하단 상태바 `<EditorStatusBar>` (신규)
+### 3c. 하단 상태바 `<EditorStatusBar>` (신규) — 모든 뷰 컨트롤의 단일 홈
 - 위치: `frontend/src/features/editor/components/EditorStatusBar.tsx`.
-- 높이 ~30px, 모노크롬 아이콘 + 작은 텍스트, 세그먼트형.
-- 항목(좌→우):
-  - **격자**: `격자 60 / 10 cm` — 클릭 시 인라인 편집(또는 작은 popover)로 주/보조 크기. (FloorSettingsPanel 의 격자 기능 이관)
-  - **스냅** 토글(있으면) / **cm 줄자(showLengths)** 토글 — 현 툴바의 줄자 이관.
-  - **배경 투명도**: 배경 로드 시 **상시 인라인 슬라이더 + %**. (Contrast 팝오버·설정패널 투명도 폐기 → 1액션)
-  - 우측 끝: 버전/줌 등 읽기전용 정보.
+- 높이 ~30px, 모노크롬 아이콘 + 작은 텍스트, 세그먼트형. **Excel·PowerPoint 상태바 패턴**(좌=상태/토글, 우=줌) — 가장 비즈니스.
+- **좌측 그룹(뷰/표시 상태)**:
+  - **그리드**: ON/OFF 토글(단축키 G) + 크기 `60 / 10 cm`(클릭 시 인라인 편집). — 현 우상단 토글 + FloorSettingsPanel 크기 통합.
+  - **스냅**: ON/OFF 토글(단축키 S). — 현 우상단 토글 이관.
+  - **cm 줄자(showLengths)** 토글. — 현 상단 툴바 이관.
+  - **배경 투명도**: 배경 로드 시 상시 인라인 슬라이더 + %. (Contrast 팝오버·설정패널 투명도 폐기 → 1액션)
+  - **케이블 그룹 필터**: 색점 세그먼트(전원·접지·네트워크·광·제어 토글). — 현 떠있는 `ConnectionLegend`를 상태바로 이관(범례=색점이 겸함).
+- **우측 끝(줌)**: `−  100%  +` + 줌 슬라이더/드롭다운. — 현 우상단 zoom 알약 이관.
+- **도움말**: 캔버스 우하단 작은 버튼으로 분리(또는 상태바 우측). 떠있는 알약 군집 해체.
 
 ### 3d. 제거/이관
 - **`FloorSettingsPanel` 제거**: 격자→상태바, 투명도→상태바, 배경 도면 불러오기/교체/제거→툴바 "도면 불러오기" + 배경 패널. (설정 버튼 소멸)
 - **툴바 투명도 팝오버(Contrast) 제거** → 상태바 슬라이더.
+- **`CanvasView`의 우상단 떠있는 컨트롤(확대·그리드·스냅·도움말 알약) + `ConnectionLegend`(케이블 필터) 제거** → 전부 하단 상태바로. (캔버스 위 떠있는 군집 소멸 — 일관성 핵심)
 - **`BackgroundLayersPanel` → "배경" 패널**로(우측 SidePanel): 레이어 표시/숨김 + 배경 교체/제거 통합.
 - **`WorkOrderHistoryPanel`(이력) 좌측→우측** 이동(우=리뷰 원칙).
+- **상단 툴바 제목 옆 `버전` 라벨 삭제**(불필요).
+- **상단 2줄(액션 + 도구) 유지**(합치면 가로 스크롤 — 뷰 컨트롤이 상태바로 빠져 둘 다 깔끔해짐).
 
 ## 4. z-index·모션 정책 (통일)
 - 캔버스 0 → 좌/우 패널·상태바 `z-20` → 상단 팝오버(격자 인라인 등) `z-30` → 모달(도면 가져오기 등) `z-50`.
@@ -60,7 +66,7 @@
 
 ## 5. 변경 파일 (예상)
 - 신규: `SidePanel.tsx`, `EditorStatusBar.tsx`.
-- 변경: `FloorPlanEditor.tsx`(렌더·상태 enum), `Toolbar.tsx`(display 버튼 제거·리뷰 토글 정리), `EquipmentDetailPanel.tsx`/`ReportPanel.tsx`/`WorkOrderHistoryPanel.tsx`/배경 패널(SidePanel 채택), `editorStore`(rightPanel enum + 격자/투명도 셀렉터 유지).
+- 변경: `FloorPlanEditor.tsx`(렌더·상태 enum·상태바 마운트), `Toolbar.tsx`(display 버튼·**버전 라벨** 제거·리뷰 토글 정리), `CanvasView.tsx`(우상단 zoom/grid/snap/help 알약 제거 → 상태바로), `ConnectionLegend.tsx`/`ConnectionOverlay.tsx`(떠있는 케이블 필터 → 상태바 세그먼트), `EquipmentDetailPanel.tsx`/`ReportPanel.tsx`/`WorkOrderHistoryPanel.tsx`/배경 패널(SidePanel 채택), `editorStore`(rightPanel enum + zoom/grid/snap/opacity/cableFilter 셀렉터 유지·재배치).
 - 제거: `FloorSettingsPanel.tsx`, 툴바 투명도 팝오버 블록, **dead `EditorSidebar.tsx`**.
 
 ## 6. 비범위(Out of scope)
@@ -71,7 +77,9 @@
 - 단축키(F7/F9) 도입은 후속(여지만 남김).
 
 ## 7. 성공 기준
-- 설정 버튼·투명도 팝오버 소멸. 격자·투명도가 하단 상태바에 상시 노출(1액션).
+- 설정 버튼·투명도 팝오버 소멸. 격자·스냅·줄자·투명도·줌·케이블필터가 **하단 상태바 하나**에 상시 노출(1액션).
+- **캔버스 위 떠있는 컨트롤 0**(우상단 알약·케이블 필터 군집 소멸) → 캔버스 깨끗.
 - 우측 패널 항상 ≤1개(겹침 0). 설계서 포함 모든 우측 패널이 **오른쪽에서** 슬라이드.
 - 4개 패널이 단일 `<SidePanel>` 사용 — 토큰·모션·헤더·ESC 일관.
-- 엔터프라이즈 톤(뉴트럴·고밀도·절제 모션). 회귀 없음(배치/그리기/저장 정상).
+- 제목 옆 버전 라벨 삭제. 상단 2줄(액션/도구) 깔끔.
+- 엔터프라이즈 톤(뉴트럴·고밀도·절제 모션). 회귀 없음(배치/그리기/저장·줌·그리드·스냅 동작 정상).
