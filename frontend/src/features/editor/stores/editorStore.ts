@@ -129,6 +129,22 @@ export interface EditorStoreState {
 
   clipboard: { type: 'equipment'; data: FloorPlanEquipment } | null;
 
+  /**
+   * 우측 패널 단일 enum — 우측에는 동시에 최대 하나만 뜬다(상호배타).
+   * null = 아무 패널도 안 열림. 'detail' 은 detailAssetId 가 가리키는 설비 상세.
+   * 이전의 detailPanelEquipmentId / showReport / showWorkOrders / showLayers
+   * 4개 분리 상태를 통합한 것. (showSettings / opacity 팝오버는 별개 — Task 4.)
+   */
+  rightPanel: 'detail' | 'report' | 'history' | 'background' | null;
+  /** rightPanel === 'detail' 일 때 상세를 띄울 자산(설비/모듈) id. */
+  detailAssetId: string | null;
+  /**
+   * 캔버스 SELECTION/highlight 호환 alias — `rightPanel==='detail' ? detailAssetId : null`
+   * 을 그대로 미러링한다. 캔버스 하이라이트(useCanvas), 키보드 삭제(useEditorKeyboard),
+   * 선택 브리지(useEditorSelectionBridge) 가 "현재 상세로 연 설비 id" 로 이 값을 읽으므로
+   * enum 액션(openDetail/openPanel/togglePanel/closeRightPanel)이 항상 이 필드를 동기화한다.
+   * 직접 set 하지 말 것 — 항상 enum 액션을 통해서만 바뀐다.
+   */
   detailPanelEquipmentId: string | null;
   /** Detail panel 진입 / 캔버스 focus 요청 시마다 증가하는 카운터.
    *  같은 설비를 재 더블클릭해도 이 값이 바뀌어 viewport 가 재정렬됨. */
@@ -235,7 +251,17 @@ export interface EditorStoreActions {
   setViewportInitialized: (init: boolean) => void;
   setMouseWorldPosition: (pos: { x: number; y: number }) => void;
   setClipboard: (cb: EditorStoreState['clipboard']) => void;
-  setDetailPanelEquipmentId: (id: string | null) => void;
+
+  // ── 우측 패널 단일 enum 액션 (상호배타) ──────────────────────────────────
+  /** 설비/모듈 상세를 연다 — 다른 우측 패널은 닫힌다. */
+  openDetail: (id: string) => void;
+  /** report/history/background 패널을 연다 — 상세 포함 다른 패널은 닫힌다. */
+  openPanel: (kind: 'report' | 'history' | 'background') => void;
+  /** 같은 패널이면 닫고, 아니면 연다 (툴바 토글 버튼용). */
+  togglePanel: (kind: 'report' | 'history' | 'background') => void;
+  /** 우측 패널을 닫는다 (detailAssetId 도 비움). */
+  closeRightPanel: () => void;
+
   bumpFocusTick: () => void;
   setSelectedCableId: (id: string | null) => void;
   setRestoredFromVersion: (v: string | null) => void;
@@ -308,6 +334,8 @@ const initialState: EditorStoreState = {
   viewportInitialized: false,
   mouseWorldPosition: { x: 0, y: 0 },
   clipboard: null,
+  rightPanel: null,
+  detailAssetId: null,
   detailPanelEquipmentId: null,
   focusTick: 0,
   selectedCableId: null,
@@ -417,16 +445,37 @@ export const useEditorStore = create<FullStore>()((set) => ({
   setViewportInitialized: (viewportInitialized) => set({ viewportInitialized }),
   setMouseWorldPosition: (mouseWorldPosition) => set({ mouseWorldPosition }),
   setClipboard: (clipboard) => set({ clipboard }),
-  setDetailPanelEquipmentId: (detailPanelEquipmentId) =>
-    // 다른 설비를 더블클릭하거나 패널을 닫을 때, 직전 설비에 매여 있던
-    // 랙 모듈 다이얼로그 / 슬롯 추가 팝오버 상태도 같이 닫는다.
-    // 이걸 안 비우면 다이얼로그가 다른 랙으로 전환된 뒤에도 옛 모듈을
-    // 그대로 띄워서 데이터가 어긋난 상태로 노출됨.
+
+  // ── 우측 패널 단일 enum (상호배타) ───────────────────────────────────────
+  // 어느 패널을 열든 enum 하나만 바뀌므로 나머지는 구조적으로 닫힌다.
+  // 상세를 새로 열거나 우측 패널을 닫을 때, 직전 설비에 매여 있던 랙 모듈
+  // 다이얼로그 / 슬롯 추가 팝오버 상태도 같이 비운다 — 안 비우면 다이얼로그가
+  // 다른 랙으로 전환된 뒤에도 옛 모듈을 띄워 데이터가 어긋난 채 노출됨.
+  openDetail: (id) =>
     set({
-      detailPanelEquipmentId,
+      rightPanel: 'detail',
+      detailAssetId: id,
+      detailPanelEquipmentId: id,
       selectedRackModuleId: null,
       addingAtSlot: null,
     }),
+  openPanel: (kind) =>
+    set({ rightPanel: kind, detailAssetId: null, detailPanelEquipmentId: null }),
+  togglePanel: (kind) =>
+    set((state) =>
+      state.rightPanel === kind
+        ? { rightPanel: null, detailAssetId: null, detailPanelEquipmentId: null }
+        : { rightPanel: kind, detailAssetId: null, detailPanelEquipmentId: null },
+    ),
+  closeRightPanel: () =>
+    set({
+      rightPanel: null,
+      detailAssetId: null,
+      detailPanelEquipmentId: null,
+      selectedRackModuleId: null,
+      addingAtSlot: null,
+    }),
+
   bumpFocusTick: () => set((state) => ({ focusTick: state.focusTick + 1 })),
   setSelectedCableId: (selectedCableId) =>
     set(

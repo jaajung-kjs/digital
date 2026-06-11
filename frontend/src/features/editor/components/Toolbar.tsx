@@ -19,11 +19,13 @@ interface ToolbarProps {
   onToggleReport?: () => void;
   onToggleSettings?: () => void;
   onToggleLayers?: () => void;
+  /** 현재 열린 우측 패널 enum — 토글 버튼 active 강조용 (rightPanel === kind). */
+  activeRightPanel?: 'detail' | 'report' | 'history' | 'background' | null;
   /** DWG/DXF 배경 도면 가져오기 모달 열기 (부모가 DwgImportModal 렌더). */
   onImportClick?: () => void;
 }
 
-export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggleReport, onToggleSettings, onToggleLayers, onImportClick }: ToolbarProps) {
+export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggleReport, onToggleSettings, onToggleLayers, activeRightPanel, onImportClick }: ToolbarProps) {
   const showLengths = useEditorStore((s) => s.showLengths);
   const setShowLengths = useEditorStore((s) => s.setShowLengths);
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
@@ -134,7 +136,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggl
           )}
 
           {onToggleLayers && effectiveBackgroundDrawing && (
-            <IconButton aria-label="배경 레이어" title="배경 레이어" onClick={onToggleLayers}>
+            <IconButton aria-label="배경 레이어" title="배경 레이어" onClick={onToggleLayers} active={activeRightPanel === 'background'}>
               <Layers size={18} />
             </IconButton>
           )}
@@ -150,6 +152,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggl
               aria-label="설계서 미리보기"
               title="설계서 미리보기"
               onClick={onToggleReport}
+              active={activeRightPanel === 'report'}
               className="flex items-center gap-1"
             >
               <FileText size={18} />
@@ -162,6 +165,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggl
               aria-label="작업지시서 이력"
               title="작업지시서 이력"
               onClick={onToggleWorkOrders}
+              active={activeRightPanel === 'history'}
               className="flex items-center gap-1"
             >
               <History size={18} />

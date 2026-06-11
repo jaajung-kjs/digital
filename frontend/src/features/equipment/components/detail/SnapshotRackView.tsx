@@ -8,7 +8,7 @@ import { useSnapshotStore } from '../../../editor/stores/snapshotStore';
 
 export function SnapshotRackView({ equipmentId }: { equipmentId: string }) {
   const snapshotEquipment = useSnapshotStore((s) => s.equipment);
-  const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
+  const openDetail = useEditorStore((s) => s.openDetail);
 
   const internalEquipment = useMemo(
     () => snapshotEquipment.filter((e) => e.parentEquipmentId === equipmentId),
@@ -28,7 +28,7 @@ export function SnapshotRackView({ equipmentId }: { equipmentId: string }) {
       {internalEquipment.map((eq) => (
         <div
           key={eq.id}
-          onClick={() => setDetailPanelEquipmentId(eq.id)}
+          onClick={() => openDetail(eq.id)}
           className="border border-line rounded px-3 py-2 hover:bg-info-bg cursor-pointer transition-colors"
         >
           <p className="text-sm font-medium text-content-muted truncate">{eq.name}</p>

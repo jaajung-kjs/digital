@@ -23,7 +23,7 @@ interface EquipmentDetailPanelProps {
  * U-slot grid; everything else uses the standard 360px panel.
  */
 export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
-  const setDetailPanelEquipmentId = useEditorStore((s) => s.setDetailPanelEquipmentId);
+  const closeRightPanel = useEditorStore((s) => s.closeRightPanel);
   const focusTick = useEditorStore((s) => s.focusTick);
   const snapshotActive = useSnapshotStore((s) => s.active);
   const isTemp = isTempId(equipmentId);
@@ -76,7 +76,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       width={384}
       title={title}
       headerExtra={kindBadge}
-      onClose={() => setDetailPanelEquipmentId(null)}
+      onClose={() => closeRightPanel()}
     >
       {/* Snapshot read-only banner */}
       {snapshotActive && (

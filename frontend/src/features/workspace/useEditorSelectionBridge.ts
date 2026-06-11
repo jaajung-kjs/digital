@@ -41,7 +41,7 @@ export function useEditorSelectionBridge(
     const present = useSubstationWorkingCopy.getState().effectiveAssets().some((a) => a.id === selectedAssetId);
     if (present) {
       ed.setSelectedIds([selectedAssetId]);
-      ed.setDetailPanelEquipmentId(selectedAssetId);
+      ed.openDetail(selectedAssetId);
       ed.bumpFocusTick();
     }
   }, [active, selectedAssetId]);

@@ -56,7 +56,7 @@ export function useEditorKeyboard(
 
       if (e.key === 'Escape') {
         if (es.detailPanelEquipmentId) {
-          es.setDetailPanelEquipmentId(null);
+          es.closeRightPanel();
           return;
         }
         cs.resetDrawingState();
@@ -148,7 +148,7 @@ export function useEditorKeyboard(
         if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
         useSubstationWorkingCopy.getState().stageRackModuleDelete(moduleDeleteId);
         es.setSelectedRackModuleId(null);
-        if (es.detailPanelEquipmentId === moduleDeleteId) es.setDetailPanelEquipmentId(null);
+        if (es.detailPanelEquipmentId === moduleDeleteId) es.closeRightPanel();
         return;
       }
 

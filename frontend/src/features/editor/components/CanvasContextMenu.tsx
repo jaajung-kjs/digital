@@ -25,7 +25,7 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   const handleOpenDetail = () => {
     const es = useEditorStore.getState();
     es.setSelectedIds([target.id]);
-    es.setDetailPanelEquipmentId(target.id);
+    es.openDetail(target.id);
     es.bumpFocusTick();
     onClose();
   };

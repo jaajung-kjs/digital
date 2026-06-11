@@ -54,10 +54,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const isAdmin = useIsAdmin();
-  const [showWorkOrders, setShowWorkOrders] = useState(false);
-  const [showReport, setShowReport] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showLayers, setShowLayers] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
   const {
@@ -97,6 +94,11 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   }, [floorId, kindToAssetTypeId]);
 
   const resetEditor = useEditorStore(s => s.resetEditor);
+  const rightPanel = useEditorStore(s => s.rightPanel);
+  const detailAssetId = useEditorStore(s => s.detailAssetId);
+  const togglePanel = useEditorStore(s => s.togglePanel);
+  const closeRightPanel = useEditorStore(s => s.closeRightPanel);
+  // 캔버스 focus useEffect / URL deep-link 가 쓰는 "현재 상세 설비 id" alias.
   const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
   const snapshotActive = useSnapshotStore(s => s.active);
   const snapshotLabel = useSnapshotStore(s => s.label);
@@ -130,7 +132,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     // 영구 ref 가드를 두지 않아 "도면에서 보기" 반복 시에도 매번 재포커스된다.
     const es = useEditorStore.getState();
     es.setSelectedIds([targetId]);
-    es.setDetailPanelEquipmentId(targetId);
+    es.openDetail(targetId);
     es.bumpFocusTick();
     // URL 정리 — 함수형 업데이터로 최신 params 에서 equipmentId 만 제거 (tab/floor 보존).
     setSearchParams((p) => { p.delete('equipmentId'); return p; }, { replace: true });
@@ -399,10 +401,11 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         floor={floor}
         floorPlan={floorPlan}
         isAdmin={isAdmin}
-        onToggleWorkOrders={() => setShowWorkOrders(p => !p)}
-        onToggleReport={() => setShowReport(p => !p)}
+        activeRightPanel={rightPanel}
+        onToggleWorkOrders={() => togglePanel('history')}
+        onToggleReport={() => togglePanel('report')}
         onToggleSettings={() => setShowSettings(p => !p)}
-        onToggleLayers={() => setShowLayers(p => !p)}
+        onToggleLayers={() => togglePanel('background')}
         onImportClick={() => setShowImportModal(true)}
       />
 
@@ -438,17 +441,26 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
               <NetworkTopologyModal />
 
-              {detailPanelEquipmentId && (
-                <EquipmentDetailPanel equipmentId={detailPanelEquipmentId} floorId={floorId} />
+              {/* 우측 패널 — 단일 enum 으로 동시에 최대 하나만 렌더(상호배타).
+                  detail/report/history/background 가 같은 우측 슬롯을 공유하므로
+                  더 이상 겹치지 않는다. (도면 설정은 별개 앵커드 팝오버 — Task 4.) */}
+              {rightPanel === 'detail' && detailAssetId && (
+                <EquipmentDetailPanel equipmentId={detailAssetId} floorId={floorId} />
               )}
 
-
-              {showWorkOrders && (
-                <WorkOrderHistoryPanel floorId={floorId} onClose={() => setShowWorkOrders(false)} />
+              {rightPanel === 'history' && (
+                <WorkOrderHistoryPanel floorId={floorId} onClose={() => closeRightPanel()} />
               )}
 
-              {showReport && !snapshotActive && (
-                <ReportPanel floorId={floorId} onClose={() => setShowReport(false)} />
+              {rightPanel === 'report' && !snapshotActive && (
+                <ReportPanel floorId={floorId} onClose={() => closeRightPanel()} />
+              )}
+
+              {rightPanel === 'background' && effectiveBackgroundDrawing && (
+                <BackgroundLayersPanel
+                  bg={effectiveBackgroundDrawing}
+                  onClose={() => closeRightPanel()}
+                />
               )}
 
               {showSettings && !snapshotActive && (
@@ -457,13 +469,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                   floorPlan={floorPlan}
                   onClose={() => setShowSettings(false)}
                   onImportClick={() => setShowImportModal(true)}
-                />
-              )}
-
-              {showLayers && effectiveBackgroundDrawing && (
-                <BackgroundLayersPanel
-                  bg={effectiveBackgroundDrawing}
-                  onClose={() => setShowLayers(false)}
                 />
               )}
 
