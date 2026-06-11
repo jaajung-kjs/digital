@@ -65,6 +65,19 @@ export const assetDescriptor = makeDescriptor<Asset>('assets');
 export const cableDescriptor = makeDescriptor<Cable>('cables');
 export const fiberPathDescriptor = makeDescriptor<FiberPath>('fiberPaths');
 
+// ── 컬렉션 레지스트리 (북극성 ① 코어 제네릭화) ──────────────────────────────────
+// 워킹카피 컬렉션을 '데이터'로 등록한다. dirty/revert(freshOverlays) 등 종류-무관 기계는
+// 이 레지스트리를 *순회*하므로, 새 컬렉션 추가 = 여기 한 줄 → dirty/revert 에 자동 참여
+// (엔티티마다 dirty 합산·revert 분기를 손대던 보일러플레이트 제거).
+const COLLECTIONS = {
+  assets: assetDescriptor,
+  cables: cableDescriptor,
+  fiberPaths: fiberPathDescriptor,
+};
+type CollectionKey = keyof typeof COLLECTIONS;
+const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
+type AnyDescriptor = CollectionDescriptor<{ id: string; updatedAt?: string | null }>;
+
 interface SavedCollections {
   assets: Asset[];
   cables: Cable[];
@@ -83,22 +96,18 @@ const emptySaved = (): SavedCollections => ({
   fiberPaths: [],
 });
 
-/** saved 컬렉션에서 baseVersions 까지 채운 빈 overlay 세트를 만든다. */
+/** saved 컬렉션에서 baseVersions 까지 채운 빈 overlay 세트를 만든다(레지스트리 순회). */
 function freshOverlays(saved: SavedCollections): Overlays {
-  return {
-    assets: {
-      ...emptyOverlay<Asset, Partial<Asset>>(),
-      baseVersions: snapshotBaseVersions(saved.assets, assetDescriptor.idOf, assetDescriptor.versionOf!),
-    },
-    cables: {
-      ...emptyOverlay<Cable, Partial<Cable>>(),
-      baseVersions: snapshotBaseVersions(saved.cables, cableDescriptor.idOf, cableDescriptor.versionOf!),
-    },
-    fiberPaths: {
-      ...emptyOverlay<FiberPath, Partial<FiberPath>>(),
-      baseVersions: snapshotBaseVersions(saved.fiberPaths, fiberPathDescriptor.idOf, fiberPathDescriptor.versionOf!),
-    },
-  };
+  const out: Record<string, unknown> = {};
+  for (const key of COLLECTION_KEYS) {
+    const desc = COLLECTIONS[key] as unknown as AnyDescriptor;
+    const rows = saved[key] as { id: string; updatedAt?: string | null }[];
+    out[key] = {
+      ...emptyOverlay(),
+      baseVersions: snapshotBaseVersions(rows, desc.idOf, desc.versionOf!),
+    };
+  }
+  return out as unknown as Overlays;
 }
 
 export interface SubstationWorkingCopyState {
@@ -386,12 +395,8 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       },
 
       dirtyCount: () => {
-        const o = get().overlays;
-        return (
-          overlayDirtyCount(o.assets) +
-          overlayDirtyCount(o.cables) +
-          overlayDirtyCount(o.fiberPaths)
-        );
+        const o = get().overlays as unknown as Record<CollectionKey, Overlay<unknown, unknown>>;
+        return COLLECTION_KEYS.reduce((sum, k) => sum + overlayDirtyCount(o[k]), 0);
       },
     }),
     {
