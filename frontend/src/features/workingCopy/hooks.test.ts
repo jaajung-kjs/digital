@@ -60,7 +60,7 @@ describe('workingCopy hooks', () => {
     expect(result.current).toBe(1);
   });
 
-  it('useUnifiedDirty sums overlay dirty + pendingUploads + pendingLogs + floor settings', async () => {
+  it('useUnifiedDirty sums overlay dirty(케이블+로그 등) + pendingUploads + floor settings', async () => {
     await act(async () => {
       await useSubstationWorkingCopy.getState().load('s1');
     });
@@ -87,9 +87,9 @@ describe('workingCopy hooks', () => {
     rerender();
     expect(result.current).toBe(3);
 
-    // + 1 pending log
+    // + 1 staged log (substationStore logs 컬렉션 — overlay dirty 에 합산)
     act(() => {
-      useEditorStore.getState().addPendingLog({ id: 'l1', equipmentId: 'e1', logType: 'CHECK', title: 't' });
+      useSubstationWorkingCopy.getState().put('logs', { id: 'l1', equipmentId: 'e1', logType: 'CHECK', title: 't' });
     });
     rerender();
     expect(result.current).toBe(4);

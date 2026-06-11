@@ -80,16 +80,6 @@ export interface PendingUpload {
   objectUrl: string;
 }
 
-export interface PendingLog {
-  id: string;
-  equipmentId: string;
-  logType: string;
-  title: string;
-  description?: string;
-  logDate?: string;
-  severity?: string;
-  status?: string;
-}
 
 /**
  * 스테이징된 점검(inspection) — git-like: 작성/수정/삭제는 즉시 백엔드로 가지 않고
@@ -113,9 +103,7 @@ export interface EditorStoreState {
   showGrid: boolean;
 
   pendingUploads: PendingUpload[];
-  pendingLogs: PendingLog[];
-  /** 저장된(커밋된) 고장 이력의 삭제 스테이징 — SAVE 시 DELETE flush. (점검은 substationStore 로 이전됨.) */
-  pendingLogDeletes: string[];
+  // 고장이력/점검은 substationStore(logs/inspections 컬렉션)로 이전됨 — editorStore 엔 더 이상 없음.
 
   // Staged background drawing & opacity. Like the rest of the editor, DWG
   // changes (import / clear / opacity) are git-like — they live here until
@@ -240,10 +228,6 @@ export interface EditorStoreActions {
 
   addPendingUpload: (upload: PendingUpload) => void;
   removePendingUpload: (id: string) => void;
-  addPendingLog: (log: PendingLog) => void;
-  updatePendingLog: (id: string, updates: Partial<PendingLog>) => void;
-  removePendingLog: (id: string) => void;
-  stagePendingLogDelete: (id: string) => void;
   clearPendingData: () => void;
 
   /** Stage a freshly-parsed DWG. Caller is responsible for fitting viewport. */
@@ -335,8 +319,6 @@ const initialState: EditorStoreState = {
   majorGridSize: 60,
   showGrid: true,
   pendingUploads: [],
-  pendingLogs: [],
-  pendingLogDeletes: [],
   stagedBackgroundDrawing: undefined,
   stagedBackgroundOpacity: undefined,
   connectionFilters: null,
@@ -418,24 +400,10 @@ export const useEditorStore = create<FullStore>()((set) => ({
     if (upload) URL.revokeObjectURL(upload.objectUrl);
     return { pendingUploads: state.pendingUploads.filter((u) => u.id !== id) };
   }),
-  addPendingLog: (log) => set((state) => ({
-    pendingLogs: [...state.pendingLogs, log],
-  })),
-  updatePendingLog: (id, updates) => set((state) => ({
-    pendingLogs: state.pendingLogs.map((l) => l.id === id ? { ...l, ...updates } : l),
-  })),
-  removePendingLog: (id) => set((state) => ({
-    pendingLogs: state.pendingLogs.filter((l) => l.id !== id),
-  })),
-  stagePendingLogDelete: (id) => set((state) => ({
-    pendingLogDeletes: state.pendingLogDeletes.includes(id) ? state.pendingLogDeletes : [...state.pendingLogDeletes, id],
-  })),
   clearPendingData: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);
     return {
       pendingUploads: [],
-      pendingLogs: [],
-      pendingLogDeletes: [],
       stagedBackgroundDrawing: undefined,
       stagedBackgroundOpacity: undefined,
     };

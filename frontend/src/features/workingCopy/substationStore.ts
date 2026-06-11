@@ -85,11 +85,25 @@ export interface InspectionRow {
 }
 export const inspectionDescriptor = makeDescriptor<InspectionRow>('inspections');
 
+/** 고장이력(maintenance log) staged 레코드. inspections 와 동일 — saved 는 [](RQ), overlay 만 staging. */
+export interface LogRow {
+  id: string;
+  equipmentId: string;
+  logType: string;
+  title: string;
+  description?: string | null;
+  logDate?: string | null;
+  severity?: string | null;
+  updatedAt?: string | null;
+}
+export const logDescriptor = makeDescriptor<LogRow>('logs');
+
 const COLLECTIONS = {
   assets: assetDescriptor,
   cables: cableDescriptor,
   fiberPaths: fiberPathDescriptor,
   inspections: inspectionDescriptor,
+  logs: logDescriptor,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
 export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
@@ -106,6 +120,7 @@ interface SavedCollections {
   cables: Cable[];
   fiberPaths: FiberPath[];
   inspections: InspectionRow[]; // 항상 [] — 실 saved 는 RQ(useInspectionLogs)
+  logs: LogRow[]; // 항상 [] — 실 saved 는 RQ(useMaintenanceLogs)
 }
 
 interface Overlays {
@@ -113,6 +128,7 @@ interface Overlays {
   cables: Overlay<Cable, Partial<Cable>>;
   fiberPaths: Overlay<FiberPath, Partial<FiberPath>>;
   inspections: Overlay<InspectionRow, Partial<InspectionRow>>;
+  logs: Overlay<LogRow, Partial<LogRow>>;
 }
 
 const emptySaved = (): SavedCollections => ({
@@ -120,6 +136,7 @@ const emptySaved = (): SavedCollections => ({
   cables: [],
   fiberPaths: [],
   inspections: [],
+  logs: [],
 });
 
 /** saved 컬렉션에서 baseVersions 까지 채운 빈 overlay 세트를 만든다(레지스트리 순회). */
@@ -232,6 +249,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           cables: data.data.cables ?? [],
           fiberPaths: data.data.fiberPaths ?? [],
           inspections: [],
+          logs: [],
         };
         set({ substationId, saved, overlays: freshOverlays(saved) });
         // 다른 변전소 로드 시 이전 overlay 가 undo 로 복원되지 않도록 history 클리어.
@@ -247,6 +265,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           cables: data.data.cables ?? [],
           fiberPaths: data.data.fiberPaths ?? [],
           inspections: [],
+          logs: [],
         };
         // staged overlay(creates/updates/deletes)는 보존하고 baseVersions 만 최신 saved 기준으로 재스냅샷.
         set((s) => ({
@@ -257,6 +276,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             cables: { ...s.overlays.cables, baseVersions: snapshotBaseVersions(newSaved.cables, cableDescriptor.idOf, cableDescriptor.versionOf!) },
             fiberPaths: { ...s.overlays.fiberPaths, baseVersions: snapshotBaseVersions(newSaved.fiberPaths, fiberPathDescriptor.idOf, fiberPathDescriptor.versionOf!) },
             inspections: s.overlays.inspections, // saved 가 [] 이라 baseVersions 재스냅샷 불필요 — staged 보존만.
+            logs: s.overlays.logs,
           },
         }));
       },

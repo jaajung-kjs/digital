@@ -16,6 +16,7 @@ vi.mock('./substationStore', () => ({
       overlays: {
         assets: {}, cables: {}, fiberPaths: {},
         inspections: { creates: {}, updates: {}, deletes: [] },
+        logs: { creates: {}, updates: {}, deletes: [] },
       },
       saved: { assets: [], cables: [] },
       load: vi.fn(async () => {}),
@@ -23,6 +24,10 @@ vi.mock('./substationStore', () => ({
   },
   inspectionDescriptor: {
     name: 'inspections', idOf: (x: { id: string }) => x.id, versionOf: () => null,
+    isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
+  },
+  logDescriptor: {
+    name: 'logs', idOf: (x: { id: string }) => x.id, versionOf: () => null,
     isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
   },
 }));

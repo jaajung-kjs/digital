@@ -5,8 +5,10 @@ import {
   cableDescriptor,
   fiberPathDescriptor,
   inspectionDescriptor,
+  logDescriptor,
   sumOverlaysDirty,
   type InspectionRow,
+  type LogRow,
 } from './substationStore';
 import { mergeEffective } from './effective';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
@@ -51,6 +53,13 @@ export function useEffectiveInspections(): InspectionRow[] {
   const saved = useSubstationWorkingCopy((s) => s.saved.inspections);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.inspections);
   return useMemo(() => mergeEffective(saved, overlay, inspectionDescriptor), [saved, overlay]);
+}
+
+/** staged 고장이력(저장 대기 create + pending update). saved 는 []이므로 결과 = staged creates. */
+export function useEffectiveLogs(): LogRow[] {
+  const saved = useSubstationWorkingCopy((s) => s.saved.logs);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.logs);
+  return useMemo(() => mergeEffective(saved, overlay, logDescriptor), [saved, overlay]);
 }
 
 /**
@@ -142,13 +151,11 @@ export function useWorkingCopyDirty() {
  * 설정(배경) staged 여부를 더한다. 0 이면 저장할 게 없다 → 저장 바 숨김.
  */
 export function useUnifiedDirty(): number {
-  // wc(sumOverlaysDirty)에 inspections 오버레이가 포함되므로 점검은 여기서 따로 안 센다(이중집계 방지).
+  // wc(sumOverlaysDirty)에 logs/inspections 오버레이가 포함되므로 여기서 따로 안 센다(이중집계 방지).
   const wc = useWorkingCopyDirty();
   const uploads = useEditorStore((s) => s.pendingUploads.length);
-  const logs = useEditorStore((s) => s.pendingLogs.length);
-  const logDeletes = useEditorStore((s) => s.pendingLogDeletes.length);
   const floorDirty = useEditorStore(selectFloorSettingsDirty);
-  return wc + uploads + logs + logDeletes + (floorDirty ? 1 : 0);
+  return wc + uploads + (floorDirty ? 1 : 0);
 }
 
 /**
@@ -164,10 +171,8 @@ export function getUnifiedDirtyCount(): number {
   const overlay = sumOverlaysDirty(wc.overlays);
   const es = useEditorStore.getState();
   return (
-    overlay + // overlay(sumOverlaysDirty)에 inspections 포함 — 점검은 따로 안 더한다.
+    overlay + // overlay(sumOverlaysDirty)에 logs/inspections 포함 — 따로 안 더한다.
     es.pendingUploads.length +
-    es.pendingLogs.length +
-    es.pendingLogDeletes.length +
     (selectFloorSettingsDirty(es) ? 1 : 0)
   );
 }

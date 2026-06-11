@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { generateTempId } from '../../../../utils/idHelpers';
-import { useEditorStore } from '../../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
+import { useEffectiveLogs } from '../../../workingCopy/hooks';
 import { useMaintenanceLogs } from '../../hooks/useMaintenanceLogs';
 import {
   LOG_TYPE_LABELS,
@@ -33,12 +34,12 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
   const { data, isLoading } = useMaintenanceLogs(equipmentId);
   const savedLogs = Array.isArray(data) ? data : [];
 
-  const pendingLogs = useEditorStore((s) => s.pendingLogs);
-  const addPendingLog = useEditorStore((s) => s.addPendingLog);
-  const updatePendingLog = useEditorStore((s) => s.updatePendingLog);
-  const removePendingLog = useEditorStore((s) => s.removePendingLog);
-  const pendingLogDeletes = useEditorStore((s) => s.pendingLogDeletes);
-  const stagePendingLogDelete = useEditorStore((s) => s.stagePendingLogDelete);
+  // C2: 고장이력 staging 은 워킹카피(substationStore logs 컬렉션)로 — 단일 SAVE/revert.
+  const pendingLogs = useEffectiveLogs();
+  const logDeletes = useSubstationWorkingCopy((s) => s.overlays.logs.deletes);
+  const put = useSubstationWorkingCopy((s) => s.put);
+  const patch = useSubstationWorkingCopy((s) => s.patch);
+  const remove = useSubstationWorkingCopy((s) => s.remove);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -58,7 +59,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
         logDate: l.logDate ?? '', severity: l.severity ?? 'LOW', createdByName: null as string | null, isPending: true as const,
       })),
     ...savedLogs
-      .filter((l) => !pendingLogDeletes.includes(l.id)) // 삭제 스테이징된 행은 숨김(SAVE 시 DELETE).
+      .filter((l) => !logDeletes.includes(l.id)) // 삭제 스테이징된 행은 숨김(SAVE 시 DELETE).
       .map((l) => ({
         id: l.id, logType: l.logType as string, title: l.title, description: l.description ?? '',
         logDate: (l.logDate ?? l.createdAt) as string, severity: (l.severity ?? '') as string, createdByName: l.createdByName ?? null, isPending: false as const,
@@ -81,8 +82,8 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
       severity: form.severity,
       description: form.description.trim() || undefined,
     };
-    if (editingId) updatePendingLog(editingId, payload);
-    else addPendingLog({ id: generateTempId(), equipmentId, ...payload });
+    if (editingId) patch('logs', editingId, payload);
+    else put('logs', { id: generateTempId(), equipmentId, ...payload });
     reset();
   };
 
@@ -96,9 +97,10 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
     });
     setEditingId(it.id);
   };
+  // 보류(temp)·저장(real) 모두 remove 하나로 — isTempId 가 분기(temp=create 제거 / real=delete staging).
   const handleRemove = (id: string) => {
     if (editingId === id) reset();
-    removePendingLog(id);
+    remove('logs', id);
   };
 
   if (isLoading) {
@@ -212,7 +214,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
                           </IconAction>
                         </>
                       ) : (
-                        <IconAction onClick={() => stagePendingLogDelete(it.id)} title="삭제" danger>
+                        <IconAction onClick={() => handleRemove(it.id)} title="삭제" danger>
                           <Trash2 size={14} />
                         </IconAction>
                       )}
