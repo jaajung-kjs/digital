@@ -71,7 +71,7 @@ export function useEffectivePhotos(): PhotoRow[] {
 
 /**
  * SSOT-2d Task 4 — 한 층(floorId)의 배치(placement)-레벨 설비를
- * effective(saved+overlay) 에서 뽑아 FloorPlanEquipment 로 변환해 반환한다.
+ * effective(saved+overlay) 에서 뽑아 Asset[] 로 반환한다.
  *
  * 캔버스 hot path 용: saved/overlay 슬라이스 ref 는 load/stage 때만 바뀌므로
  * useMemo 로 변환 결과 배열의 참조가 변경 없을 때 안정(referentially stable)하다.

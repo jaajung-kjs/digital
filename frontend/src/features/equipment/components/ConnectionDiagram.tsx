@@ -15,7 +15,6 @@ import {
   useEffectiveCables,
   useEffectiveFiberPaths,
 } from '../../workingCopy/hooks';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 
 
 interface ConnectionDiagramProps {
@@ -28,10 +27,8 @@ export function ConnectionDiagram({
   // SSOT-2d3a Task 5 — editorStore 영속 컬렉션 대신 통합 스토어 effective 를 읽는다.
   // 설비/랙모듈은 effective assets 에서 매핑, 케이블/회로/파이버패스는 effective 훅.
   const effectiveAssets = useEffectiveAssets();
-  const editorEquipment = useMemo(
-    () => effectiveAssets.map(assetToEquipment),
-    [effectiveAssets],
-  );
+  // 설비 이름 lookup 은 effective assets(Asset) 를 직접 쓴다(.id/.name 만 읽음).
+  const editorEquipment = effectiveAssets;
   const editorRackModules = useMemo(
     () =>
       effectiveAssets.filter((a) => a.parentAssetId && a.slotIndex != null),

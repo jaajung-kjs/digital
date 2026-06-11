@@ -1,10 +1,8 @@
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../../../utils/api';
 import { isTempId } from '../../../../../utils/idHelpers';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
 import { useEffectiveAssets } from '../../../../workingCopy/hooks';
-import { assetToEquipment } from '../../../../workingCopy/assetToEquipment';
 import { isFloorPlaced } from '../../../../workingCopy/floorAnchor';
 import type { EquipmentDetail } from '../types';
 
@@ -37,10 +35,6 @@ export function useMergedEquipmentDetail(equipmentId: string): {
   const selfAsset = effectiveAssets.find((a) => a.id === equipmentId);
   const fetchEnabled = !selfAsset || isFloorPlaced(selfAsset);
   const { data: backendData, isLoading, error } = useEquipmentDetail(equipmentId, fetchEnabled);
-  const localEquipment = useMemo(
-    () => effectiveAssets.map(assetToEquipment),
-    [effectiveAssets],
-  );
 
   if (snapshotActive) {
     const snapEq = snapshotEquipment.find((e) => e.id === equipmentId);
@@ -59,7 +53,7 @@ export function useMergedEquipmentDetail(equipmentId: string): {
     return { equipment, isLoading: false, error: null };
   }
 
-  const localEq = localEquipment.find((e) => e.id === equipmentId);
+  const localEq = effectiveAssets.find((a) => a.id === equipmentId);
   if (!localEq) {
     return { equipment: null, isLoading: isTemp ? false : isLoading, error };
   }
@@ -73,8 +67,8 @@ export function useMergedEquipmentDetail(equipmentId: string): {
     manager: pick(localEq.manager, backendData?.manager),
     description: pick(localEq.description, backendData?.description),
     installDate: pick(localEq.installDate, backendData?.installDate),
-    width2d: localEq.width,
-    height2d: localEq.height,
+    width2d: localEq.width2d ?? 0,
+    height2d: localEq.height2d ?? 0,
     frontImageUrl: backendData?.frontImageUrl ?? null,
     rearImageUrl: backendData?.rearImageUrl ?? null,
   };

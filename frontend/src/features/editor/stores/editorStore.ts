@@ -544,7 +544,7 @@ export const selectFloorSettingsDirty = (s: EditorStoreState): boolean =>
 // "현재 선택된 설비" 는 selectedIds[0] (editorStore transient) + 통합 스토어의
 // effective(saved+overlay) asset 으로 도출한다. SSOT-2d 이후 설비 데이터의 단일
 // 진실은 substation working-copy 이므로, 선택 id 만 editorStore 에서 읽고 실제
-// 설비는 effective asset → assetToEquipment 로 매핑한다 (editorStore.localEquipment
+// 설비는 effective asset 을 직접 읽는다 (editorStore.localEquipment
 // 는 비어 있으므로 더 이상 읽지 않는다).
 export function useSelectedEquipment(): Asset | null {
   const id = useEditorStore((s) => s.selectedIds[0]);

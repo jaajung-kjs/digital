@@ -5,7 +5,8 @@ import { queryClient } from '../../../lib/queryClient';
 import { isTempId } from '../../../utils/idHelpers';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
+import { kindOf } from '../../workingCopy/placement';
+import type { Asset } from '../../../types/asset';
 
 /**
  * 글로벌 OFD directory — pending FiberPath display 와 picker 가 공유하는 단일 source.
@@ -38,7 +39,7 @@ async function fetchOfdList(): Promise<Array<{ id: string; name: string; substat
 
 function mergeLocalUnsaved(
   saved: Array<{ id: string; name: string; substationName?: string; floorId?: string | null }>,
-  localEquipment: { id: string; name: string; kind: string }[],
+  localAssets: Asset[],
 ): OfdDirectoryEntry[] {
   const m = new Map<string, OfdDirectoryEntry>(
     saved.map((e) => ({
@@ -48,8 +49,8 @@ function mergeLocalUnsaved(
       floorId: e.floorId ?? null,
     })).map((e) => [e.id, e]),
   );
-  for (const eq of localEquipment) {
-    if (eq.kind !== 'OFD') continue;
+  for (const eq of localAssets) {
+    if (kindOf(eq) !== 'OFD') continue;
     if (m.has(eq.id)) continue;
     if (!isTempId(eq.id)) continue;
     m.set(eq.id, { id: eq.id, name: eq.name, substationName: '', floorId: null });
@@ -78,16 +79,12 @@ export function useOfdDirectoryWithStatus(): {
     queryFn: fetchOfdList,
     staleTime: 5 * 60 * 1000,
   });
-  // SSOT-2d3a Task 5 — effective assets → equipment 로 매핑해 OFD 만 합친다.
+  // SSOT-2d3a Task 5 — effective assets(Asset) 에서 OFD 만 directory 에 합친다.
   const effectiveAssets = useEffectiveAssets();
-  const localEquipment = useMemo(
-    () => effectiveAssets.map(assetToEquipment),
-    [effectiveAssets],
-  );
   const directory = useMemo(() => {
-    const list = mergeLocalUnsaved(data ?? [], localEquipment);
+    const list = mergeLocalUnsaved(data ?? [], effectiveAssets);
     return new Map(list.map((e) => [e.id, e]));
-  }, [data, localEquipment]);
+  }, [data, effectiveAssets]);
   return { directory, isLoading };
 }
 
@@ -98,8 +95,8 @@ export function useOfdDirectoryWithStatus(): {
  */
 export function getOfdDirectory(): Map<string, OfdDirectoryEntry> {
   const saved = queryClient.getQueryData<Awaited<ReturnType<typeof fetchOfdList>>>(QUERY_KEY) ?? [];
-  const localEquipment = useSubstationWorkingCopy.getState().effectiveAssets().map(assetToEquipment);
-  const list = mergeLocalUnsaved(saved, localEquipment);
+  const localAssets = useSubstationWorkingCopy.getState().effectiveAssets();
+  const list = mergeLocalUnsaved(saved, localAssets);
   return new Map(list.map((e) => [e.id, e]));
 }
 

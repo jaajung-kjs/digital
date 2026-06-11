@@ -10,7 +10,6 @@ import { create } from 'zustand';
 import { traceCable } from '../../../utils/cableTracer';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { assetsByIdMap, floorAnchor } from '../../workingCopy/floorAnchor';
 import { cableDtoToLocal, type CableDetailDTO } from '../../network/store';
 import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
@@ -19,7 +18,7 @@ import type { TraceResult, PathSegment } from '../types';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { Asset } from '../../../types/asset';
 import type { FiberPathDetail } from '../../fiber/types';
-import type { FloorPlanEquipment, FloorPlanFiberPath } from '../../../types/floorPlan';
+import type { FloorPlanFiberPath } from '../../../types/floorPlan';
 
 /**
  * Snapshot fiberPaths (FloorPlanFiberPath) 는 backend denorm 으로 name/substationName
@@ -108,7 +107,8 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         const result = traceCable({
           cableId,
           cables: snapshotState.cables,
-          equipment: snapshotState.equipment,
+          // snapshot overlay 는 dead path(snapshot.active 항상 false) — 타입만 맞춘다.
+          equipment: snapshotState.equipment as unknown as Asset[],
           rackModules: [],
           assets: [],
           fiberPaths: snapshotFiberPaths,
@@ -136,9 +136,8 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         .effectiveCables()
         .map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
       const effAssets = wc.effectiveAssets();
-      const localEquipment: FloorPlanEquipment[] = effAssets
-        .filter((a) => !(a.parentAssetId && a.slotIndex != null))
-        .map(assetToEquipment);
+      const localEquipment: Asset[] = effAssets
+        .filter((a) => !(a.parentAssetId && a.slotIndex != null));
       const localRackModules: Asset[] = effAssets
         .filter((a) => a.parentAssetId && a.slotIndex != null);
       const allFiberPaths = composeFiberPaths(

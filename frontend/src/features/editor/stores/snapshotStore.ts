@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { FloorPlanEquipment, FloorPlanCable, FloorPlanFiberPath } from '../../../types/floorPlan';
+import type { EquipmentKind } from '../../../types/equipmentKind';
+import type { FloorPlanCable, FloorPlanFiberPath } from '../../../types/floorPlan';
 
 export interface SnapshotPhoto {
   id: string;
@@ -9,7 +10,28 @@ export interface SnapshotPhoto {
   takenAt?: string | null;
 }
 
-export type SnapshotEquipment = FloorPlanEquipment & { photos?: SnapshotPhoto[] };
+/**
+ * Snapshot overlay 가 보여 줄 과거 버전 설비 — 평면도 설비 타입과 디커플된 독립 모양.
+ * (overlay 는 현재 dead path: enter 가 호출되지 않아 equipment 는 항상 []).
+ * 소비처(ConnectionDiagram / SnapshotRackView / PhotosTab / useEquipmentDetail)가
+ * 읽는 필드만 담는다.
+ */
+export interface SnapshotEquipment {
+  id: string;
+  name: string;
+  kind?: EquipmentKind;
+  positionX?: number;
+  positionY?: number;
+  width?: number;
+  height?: number;
+  manager?: string | null;
+  description?: string | null;
+  installDate?: string | null;
+  parentEquipmentId?: string | null;
+  materialCategoryCode?: string | null;
+  properties?: Record<string, unknown> | null;
+  photos?: SnapshotPhoto[];
+}
 
 /**
  * Snapshot Overlay Store — read-only past version preview.

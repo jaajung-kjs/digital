@@ -60,7 +60,7 @@ export interface WorkingCopyRow {
 
 /**
  * 캔버스 배치(draw) 입력 — 신규 설비 stage 의 최소 계약.
- * FloorPlanEquipment 뷰모델에 의존하지 않고 stage 에 필요한 필드만 받는다.
+ * 별도 뷰모델에 의존하지 않고 stage 에 필요한 필드만 받는다.
  */
 export interface PlacementDraw {
   id: string;
@@ -260,7 +260,7 @@ export interface SubstationWorkingCopyState {
    * create/update/delete 를 단일 set 으로 stage 한다(단일 undo 스텝).
    * - snapshot 에 없는 현 floor asset/cable → delete
    * - snapshot 에만 있는 → create, 양쪽에 있는 → update(snapshot 필드로 교체)
-   * 입력은 Asset[]/Cable[] 형태(audit-log snapshot 의 FloorPlanEquipment/cable shape 매핑은 호출측의 몫 — Task 4).
+   * 입력은 Asset[]/Cable[] 형태(audit-log snapshot 의 equipment/cable shape 매핑은 호출측의 몫 — Task 4).
    */
   stageReplaceFloorFromSnapshot: (
     floorId: string,

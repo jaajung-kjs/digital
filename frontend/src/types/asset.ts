@@ -37,7 +37,7 @@ export interface Asset {
     /**
      * 배치형 종류 식별자 — 백엔드 `/workingcopy` 응답에 포함.
      * DB 원시값은 'RACK' | 'OFD' | 'DIST' | 'GROUNDING' | 'HVAC' (DIST=분전반 약어).
-     * 평면도 매핑 시 assetToEquipment 가 EquipmentKind('DISTRIBUTION') 로 정규화한다.
+     * 평면도 매핑 시 placement.kindOf 가 EquipmentKind('DISTRIBUTION') 로 정규화한다.
      * 현황 대장 등 비배치 사용처에서는 없을 수 있어 optional.
      */
     placementKind?: string | null;

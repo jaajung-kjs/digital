@@ -11,7 +11,6 @@
 import { create } from 'zustand';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
-import { assetToEquipment } from '../workingCopy/assetToEquipment';
 import { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLocal';
 import { fetchAllFiberPathsCached } from '../fiber/hooks/useFiberPaths';
 import { queryClient } from '../../lib/queryClient';
@@ -108,8 +107,7 @@ export const useNetworkTopologyStore = create<State>((set) => ({
       //    이름은 globalFiberPaths 의 ofdA/B + ports[].sideX + directory 로 tracer 가 채움.
       const effAssets = wc.effectiveAssets();
       const equipment = effAssets
-        .filter((a) => !(a.parentAssetId && a.slotIndex != null))
-        .map(assetToEquipment);
+        .filter((a) => !(a.parentAssetId && a.slotIndex != null));
       const rackModules = effAssets
         .filter((a) => a.parentAssetId && a.slotIndex != null);
 

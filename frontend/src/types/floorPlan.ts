@@ -13,54 +13,6 @@
 import type { EquipmentKind } from './equipmentKind';
 import type { RackModule } from './rackModule';
 
-// 평면도 장비.
-//
-// NOTE: P6 이후 Equipment 자체에는 `category`, `materialCategoryId/Code/Name`,
-// `parentEquipmentId`, `model / manufacturer / specification`
-// 등 그루핑·세부 메타데이터가 더 이상 없다. 대신 `kind` 와 `properties` (JSON) 를 사용한다.
-// 랙 슬롯 자식은 `RackModule` 별도 모델로 분리 (slotIndex / slotSpan).
-export interface FloorPlanEquipment {
-  id: string;
-  kind: EquipmentKind;
-  name: string;
-  positionX: number;
-  positionY: number;
-  width: number;
-  height: number;
-  rotation: number;
-  /** EQP-RACK 설비의 슬롯 수. RACK 외에는 null. */
-  totalU: number | null;
-  description?: string | null;
-  manager?: string | null;
-  /** 설치일 (ISO date string). InfoTab 편집 / 도면 저장 경로로 동기화. */
-  installDate?: string | null;
-  height3d?: number | null;
-  frontImageUrl?: string | null;
-  rearImageUrl?: string | null;
-  /** kind-specific metadata — 자유 형식 JSON. */
-  properties?: Record<string, unknown> | null;
-
-  // ── P8 deprecation shims — do not use in new code ──
-  /** @deprecated P8 */
-  model?: string | null;
-  /** @deprecated P8 */
-  manufacturer?: string | null;
-  /** @deprecated P8 */
-  materialCategoryId?: string | null;
-  /** @deprecated P8 */
-  materialCategoryCode?: string | null;
-  /** @deprecated P8 */
-  materialCategoryName?: string | null;
-  /** @deprecated P8 */
-  displayColor?: string | null;
-  /** @deprecated P8 */
-  specParams?: Record<string, unknown> | null;
-  /** @deprecated P8 */
-  specification?: string | null;
-  /** @deprecated P8 */
-  parentEquipmentId?: string | null;
-}
-
 // 평면도 케이블.
 //
 // endpoint 는 polymorphic — 양 쪽 각각 Equipment(non-RACK) 또는 RackModule.
@@ -134,7 +86,8 @@ export interface FloorPlanDetail {
   // 백엔드는 응답에 여전히 포함하지만 프론트엔드 타입에서는 노출하지 않는다.
   backgroundDrawing?: BackgroundDrawing | null;
   backgroundOpacity?: number;
-  equipment: FloorPlanEquipment[];
+  // GET /plan 폴백용 saved 설비 — fit(자동 맞춤)이 읽는 배치 필드만 노출.
+  equipment: { positionX: number; positionY: number; width: number; height: number }[];
   /**
    * Rack modules — fetched separately via `useRackModules(rackId)` per rack
    * in P9. The plan response itself does NOT include these (see floor.service.ts);
@@ -231,24 +184,6 @@ export interface DwgImportResult {
 //   - `rackModules`: 별도 배열 — undefined 면 기존 모듈 유지, 배열이면 reconciliation.
 //   - `cables`: source/target 각각 polymorphic.
 //   - `fiberPaths` / `deletedFiberPathIds`: 변동 없음.
-
-export interface UpdateFloorPlanEquipmentInput {
-  id?: string | null;
-  tempId?: string;
-  kind: EquipmentKind;
-  name: string;
-  positionX: number;
-  positionY: number;
-  width: number;
-  height: number;
-  rotation?: number;
-  totalU?: number | null;
-  description?: string | null;
-  manager?: string | null;
-  installDate?: string | null;
-  height3d?: number | null;
-  properties?: Record<string, unknown> | null;
-}
 
 export interface UpdateFloorPlanRackModuleInput {
   id?: string | null;

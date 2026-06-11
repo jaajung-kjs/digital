@@ -13,8 +13,8 @@
  */
 
 import type { LocalCable } from '../features/editor/stores/editorStore';
-import type { FloorPlanEquipment } from '../types/floorPlan';
 import type { Asset } from '../types/asset';
+import { kindOf } from '../features/workingCopy/placement';
 import type { FiberPathDetail } from '../features/fiber/types';
 import type {
   TraceResult,
@@ -156,7 +156,7 @@ export interface TraceCableInput {
   /** All cables (local state) */
   cables: LocalCable[];
   /** All equipment (local state) */
-  equipment: FloorPlanEquipment[];
+  equipment: Asset[];
   /** Rack modules (local state, RACK 자식 Asset) — endpoint id 가 모듈 id 일 때 이름 lookup 용 */
   rackModules?: Asset[];
   /**
@@ -243,7 +243,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
         substationId: subName,
         substationName: subName,
         floorId: null,
-        materialCategoryCode: equip.materialCategoryCode ?? (ext?.isOfd ? OFD_CATEGORY_CODE : null),
+        // Asset 에는 materialCategoryCode 가 없다(이전 매핑도 채운 적 없어 항상 undefined→fallback).
+        materialCategoryCode: ext?.isOfd ? OFD_CATEGORY_CODE : null,
         isSource,
         isTarget,
       });
@@ -319,7 +320,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
   const ofdIds = new Set<string>();
   if (cableType === 'FIBER') {
     for (const eq of equipment) {
-      if (eq.kind === 'OFD') ofdIds.add(eq.id);
+      if (kindOf(eq) === 'OFD') ofdIds.add(eq.id);
     }
     for (const fp of fiberPaths) {
       ofdIds.add(fp.ofdA.id);

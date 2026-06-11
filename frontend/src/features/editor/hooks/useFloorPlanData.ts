@@ -157,7 +157,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       const effectiveEquipment = floorId
         ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
         : [];
-      // 폴백(GET /plan 의 saved equipment)은 FloorPlanEquipment 모양이라 fit 가
+      // 폴백(GET /plan 의 saved equipment)은 최소 배치 모양이라 fit 가
       // 읽는 배치 필드(positionX/Y/width2d/height2d)만 Asset 투영으로 흡수한다.
       const fitEquipment: Asset[] =
         effectiveEquipment.length > 0

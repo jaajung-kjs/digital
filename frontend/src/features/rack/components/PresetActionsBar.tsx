@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets, useEffectiveRackModules } from '../../workingCopy/hooks';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { useRackPresets } from '../hooks/useRackPresets';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
 import { useIsAdmin } from '../../../stores/authStore';
@@ -39,8 +38,8 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const { data: presets } = useRackPresets();
   const { data: categories } = useRackModuleCategories();
   const isAdmin = useIsAdmin();
-  // SSOT-2d3a Task 2 — 읽기를 통합 스토어 effective 로. 랙은 effective assets 에서
-  // FloorPlanEquipment 로 매핑, 모듈 수는 effective 랙모듈에서.
+  // SSOT-2d3a Task 2 — 읽기를 통합 스토어 effective 로. 랙은 effective assets(Asset)
+  // 에서 직접 찾고, 모듈 수는 effective 랙모듈에서.
   const effectiveAssets = useEffectiveAssets();
   const rackModules = useEffectiveRackModules(rackEquipmentId);
 
@@ -49,10 +48,10 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
     [presets],
   );
 
-  const rackEquipment = useMemo(() => {
-    const asset = effectiveAssets.find((a) => a.id === rackEquipmentId);
-    return asset ? assetToEquipment(asset) : undefined;
-  }, [effectiveAssets, rackEquipmentId]);
+  const rackEquipment = useMemo(
+    () => effectiveAssets.find((a) => a.id === rackEquipmentId),
+    [effectiveAssets, rackEquipmentId],
+  );
 
   const existingModuleCount = rackModules.length;
 

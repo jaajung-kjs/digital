@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { calculateFitToContent } from './useViewport';
-import type { BackgroundDrawing, FloorPlanEquipment } from '../../../types/floorPlan';
+import type { BackgroundDrawing } from '../../../types/floorPlan';
+import type { Asset } from '../../../types/asset';
 
 // "화면 맞춤"(에디터 #3): 배경 도면(DWG)을 제외하고 실제로 배치한 설비 bounds 로 fit.
 // 설비가 하나도 없을 때만 배경/캔버스로 폴백한다.
@@ -8,9 +9,16 @@ import type { BackgroundDrawing, FloorPlanEquipment } from '../../../types/floor
 const CANVAS_W = 800;
 const CANVAS_H = 600;
 
-// calculateFitToContent 은 positionX/Y/width/height 만 읽는다 — 그 4개만 채운다.
-function eq(partial: Pick<FloorPlanEquipment, 'positionX' | 'positionY' | 'width' | 'height'>): FloorPlanEquipment {
-  return { id: 'e', name: '', rotation: 0, totalU: null, ...partial } as FloorPlanEquipment;
+// calculateFitToContent 은 positionX/Y/width2d/height2d 만 읽는다 — 그 4개만 채운다.
+function eq(partial: { positionX: number; positionY: number; width: number; height: number }): Asset {
+  return {
+    id: 'e',
+    name: '',
+    positionX: partial.positionX,
+    positionY: partial.positionY,
+    width2d: partial.width,
+    height2d: partial.height,
+  } as Asset;
 }
 
 // 설비 중심을 역산해 fit 의 center 가 실제로 어디에 맞춰졌는지 검증한다.
@@ -27,7 +35,7 @@ function centerFromFit(
 
 describe('calculateFitToContent — 화면 맞춤 bounds 소스', () => {
   it('설비가 있으면 배경 도면을 제외하고 설비 bounds 로 fit 한다', () => {
-    const equipment: FloorPlanEquipment[] = [eq({ positionX: 1000, positionY: 1000, width: 100, height: 100 })];
+    const equipment: Asset[] = [eq({ positionX: 1000, positionY: 1000, width: 100, height: 100 })];
     // 배경 도면은 설비에서 멀리 떨어진 거대한 영역. 이게 포함되면 center 가 설비에서 벗어난다.
     const background = {
       bounds: { minX: -50000, minY: -50000, maxX: 50000, maxY: 50000 },

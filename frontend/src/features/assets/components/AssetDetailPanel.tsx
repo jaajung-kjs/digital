@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import type { Asset } from '../../../types/asset';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
-import { normalizeKindForAsset } from '../../workingCopy/assetToEquipment';
+import { kindOf } from '../../workingCopy/placement';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
 import { SidePanel } from '../../editor/components/SidePanel';
@@ -35,7 +35,7 @@ function kindFromAsset(asset?: Asset | null): DetailPanelKind | null {
   if (!asset || asset.parentAssetId != null) return null;
   const pk = asset.assetType?.placementKind;
   if (!pk) return null;
-  return EQUIPMENT_KIND_INFO[normalizeKindForAsset(pk)].detailPanelKind;
+  return EQUIPMENT_KIND_INFO[kindOf(asset)].detailPanelKind;
 }
 
 /**

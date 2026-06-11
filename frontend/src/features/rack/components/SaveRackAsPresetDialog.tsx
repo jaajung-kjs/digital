@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useEffectiveAssets, useEffectiveRackModules } from '../../workingCopy/hooks';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { useCreateRackPreset, useUpdateRackPreset } from '../hooks/useRackPresets';
 import type {
   CreateRackPresetInput,
@@ -48,10 +47,7 @@ export function SaveRackAsPresetDialog({
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
 
   const rack = useMemo(
-    () =>
-      effectiveAssets
-        .filter((a) => a.id === rackEquipmentId)
-        .map(assetToEquipment)[0],
+    () => effectiveAssets.find((a) => a.id === rackEquipmentId),
     [effectiveAssets, rackEquipmentId],
   );
 
@@ -66,8 +62,8 @@ export function SaveRackAsPresetDialog({
   );
 
   const totalU = rack?.totalU ?? 42;
-  const canvasWidth = rack?.width ?? 0;
-  const canvasHeight = rack?.height ?? 0;
+  const canvasWidth = rack?.width2d ?? 0;
+  const canvasHeight = rack?.height2d ?? 0;
 
   // 모드 판별: 기존 프리셋이 있고 이름이 그대로면 PATCH, 아니면 POST.
   const isOverwriteMode = !!originalPreset && name.trim() === originalPreset.name;
