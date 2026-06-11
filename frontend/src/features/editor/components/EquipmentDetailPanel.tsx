@@ -1,45 +1,40 @@
 import { useMemo } from 'react';
-import { SidePanel } from './SidePanel';
 import { useEditorStore } from '../stores/editorStore';
-import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEffectiveAssets, useEffectiveEquipment } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
-import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
-import {
-  EQUIPMENT_KIND_INFO,
-  type DetailPanelKind,
-} from '../../../types/equipmentKind';
+import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
+import { AssetDetailPanel } from '../../assets/components/AssetDetailPanel';
 
 interface EquipmentDetailPanelProps {
   equipmentId: string;
-  /** SSOT-2d Task 3 — effective 설비 조회용 (header 의 kind/name lookup). */
+  /** effective 설비 조회용(헤더 name/kind lookup). */
   floorId: string;
 }
 
 /**
- * P9: detail panel routing now derives from `Equipment.kind` directly —
- * no MaterialCategory lookup. RACK keeps the wider 480px layout to fit the
- * U-slot grid; everything else uses the standard 360px panel.
+ * 평면도 상세 패널 — '무엇을 열지'만 캔버스 상태에서 resolve 하는 얇은 어댑터.
+ *
+ * 패널 자체(헤더·본문·삭제·셸)는 공유 AssetDetailPanel(variant="overlay")이 담당한다.
+ * 에디터 전용 개념(과거 도면 스냅샷 · 미저장 임시 설비 · 재포커스 focusTick · 캔버스 선택)만
+ * 여기 남는다 — 현황 패널은 이런 개념이 없으므로 공유 컴포넌트가 이를 알 필요가 없다.
  */
 export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
   const closeRightPanel = useEditorStore((s) => s.closeRightPanel);
   const focusTick = useEditorStore((s) => s.focusTick);
   const snapshotActive = useSnapshotStore((s) => s.active);
+  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
   const isTemp = isTempId(equipmentId);
   const { equipment, isLoading } = useMergedEquipmentDetail(equipmentId);
 
-  // Determine equipment record (also used by header).
-  // SSOT-2d Task 3 — 비스냅샷 경로는 통합 스토어 effective 에서 읽는다.
-  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
+  // 비스냅샷은 통합 스토어 effective 에서, 스냅샷은 과거 도면 설비에서 헤더 정보를 읽는다.
   const effectiveEquipment = useEffectiveEquipment(floorId);
   const localEquipment = snapshotActive ? snapshotEquipment : effectiveEquipment;
   const localEq = localEquipment.find((e) => e.id === equipmentId);
 
-  // 랙 모듈은 평면도에 배치되지 않아 effectiveEquipment(floor) 에 없다.
-  // 그 경우 전역 effective assets 에서 모듈 Asset(parentAssetId 있음)을 찾아
-  // 같은 통합 본문(AssetDetailBody)에 주입한다. 모듈은 leaf 라 공간 섹션 없음(kind=null).
+  // 랙 모듈은 평면도에 배치되지 않아 effectiveEquipment(floor)에 없다 → 전역 effective assets
+  // 에서 모듈 Asset(parentAssetId 있음)을 찾아 주입. 모듈은 leaf 라 공간 섹션 없음(kind=null).
   const effectiveAssets = useEffectiveAssets();
   const moduleAsset = useMemo(
     () =>
@@ -61,41 +56,24 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       ? '로딩 중...'
       : equipment?.name ?? '설비 상세';
 
-  // 삭제(#1) — 설비는 cascade(자식·연결 케이블), 모듈은 단일. 확인 후 stage + 패널 닫기.
-  const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
-  const stageEquipmentDeleteCascade = useSubstationWorkingCopy((s) => s.stageEquipmentDeleteCascade);
-  const handleDelete = () => {
-    const what = moduleAsset ? '이 모듈' : '이 설비';
-    if (!confirm(`'${title}' — ${what}을(를) 삭제할까요? (저장 전까지 되돌릴 수 있습니다.)`)) return;
-    if (moduleAsset) stageAssetDelete(equipmentId);
-    else stageEquipmentDeleteCascade(equipmentId);
-    closeRightPanel();
-  };
-  return (
-    <SidePanel
-      side="right"
-      width={384}
-      title={title}
-      onDelete={snapshotActive ? undefined : handleDelete}
-      onClose={() => closeRightPanel()}
-    >
-      {/* Snapshot read-only banner */}
-      {snapshotActive && (
-        <div className="px-4 py-2 bg-warning-bg border-b border-line text-sm text-warning font-medium text-center shrink-0">
-          과거 도면 보기 중 (읽기 전용)
-        </div>
-      )}
+  const banner = snapshotActive ? (
+    <div className="px-4 py-2 bg-warning-bg border-b border-line text-sm text-warning font-medium text-center shrink-0">
+      과거 도면 보기 중 (읽기 전용)
+    </div>
+  ) : null;
 
-      {/* Body — delegated to resolved panel.
-          key 로 equipmentId+focusTick 을 묶어 다른 설비로 전환하거나 같은 설비를
-          재더블클릭할 때 패널 서브트리 전체를 remount. 탭/편집 폼/라이트박스 같은
-          내부 useState 들이 직전 설비의 잔여 상태를 끌고 오지 않게 한다. */}
-      <AssetDetailBody
-        key={`${equipmentId}-${focusTick}`}
-        equipmentId={equipmentId}
-        kind={detailKind}
-        asset={moduleAsset}
-      />
-    </SidePanel>
+  return (
+    <AssetDetailPanel
+      variant="overlay"
+      title={title}
+      equipmentId={equipmentId}
+      detailKind={detailKind}
+      asset={moduleAsset}
+      mode="edit"
+      onClose={() => closeRightPanel()}
+      banner={banner}
+      bodyKey={`${equipmentId}-${focusTick}`}
+      canDelete={!snapshotActive}
+    />
   );
 }
