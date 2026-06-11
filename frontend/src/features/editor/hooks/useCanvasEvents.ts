@@ -349,7 +349,7 @@ export function useCanvasEvents(
     }
     if (cableDrawing?.phase === 'drawingPath') {
       const found = findItemAt(x, y, null, localEquipment);
-      if (found?.type === 'equipment' && found.item.id !== cableDrawing.sourceEquipmentId) {
+      if (found?.type === 'equipment' && found.item.id !== cableDrawing.sourceContainerAssetId) {
         const eq = found.item as FloorPlanEquipment;
         const center = getEquipmentCenter(eq);
         if (needsEndpointPicker(eq.kind)) {

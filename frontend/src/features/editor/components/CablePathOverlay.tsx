@@ -20,7 +20,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
   const waypoints = cable?.waypoints ?? [];
   const previewPoint = cable?.previewPoint ?? null;
   const hoveredEquipmentId = cable?.hoveredEquipmentId ?? null;
-  const sourceEquipmentId = cable?.sourceEquipmentId ?? null;
+  const sourceContainerAssetId = cable?.sourceContainerAssetId ?? null;
 
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
@@ -112,7 +112,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     }
 
     // Hovered equipment highlight
-    if (hoveredEquipmentId && hoveredEquipmentId !== sourceEquipmentId) {
+    if (hoveredEquipmentId && hoveredEquipmentId !== sourceContainerAssetId) {
       const eq = localEquipment.find((e) => e.id === hoveredEquipmentId);
       if (eq) {
         ctx.shadowColor = '#22c55e';
@@ -131,8 +131,8 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     }
 
     // Source equipment highlight
-    if (sourceEquipmentId) {
-      const srcEq = localEquipment.find((e) => e.id === sourceEquipmentId);
+    if (sourceContainerAssetId) {
+      const srcEq = localEquipment.find((e) => e.id === sourceContainerAssetId);
       if (srcEq) {
         ctx.shadowColor = '#3b82f6';
         ctx.shadowBlur = 8;
@@ -180,7 +180,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     ctx.restore();
   }, [
     phase, sourcePosition, waypoints, previewPoint, hoveredEquipmentId,
-    sourceEquipmentId, zoom, panX, panY, localEquipment, canvasRef,
+    sourceContainerAssetId, zoom, panX, panY, localEquipment, canvasRef,
   ]);
 
   if (phase !== 'drawingPath' && phase !== 'selectingSource') return null;

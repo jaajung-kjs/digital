@@ -13,20 +13,20 @@ export type CableDrawingPhase =
 export interface CableDrawingData {
   phase: CableDrawingPhase;
 
-  /** Source endpoint — 부모 설비 id (랙이면 모듈의 부모 랙 id, OFD 면 OFD id,
-   *  분전반이면 회로의 부모 분전반 id) */
-  sourceEquipmentId: string | null;
-  sourceModuleId: string | null;
-  sourceCircuitId: string | null;
+  /** Source CONTAINER — 도면에 배치된 설비/랙/분전반/OFD 의 asset id.
+   *  어떤 picker 가 열릴지를 결정한다 (랙→모듈, 분전반→회로, OFD→포트). */
+  sourceContainerAssetId: string | null;
+  /** Source INNER pick — 랙 모듈 asset 또는 분전반 분기 asset 의 id.
+   *  (모듈/회로는 상호배타 → 단일 필드로 병합). null 이면 컨테이너 자체가 endpoint. */
+  sourceInnerAssetId: string | null;
   sourcePosition: { x: number; y: number } | null;
   sourceFiberPathId: string | null;
   sourcePortNumber: number | null;
 
   waypoints: [number, number][];
 
-  targetEquipmentId: string | null;
-  targetModuleId: string | null;
-  targetCircuitId: string | null;
+  targetContainerAssetId: string | null;
+  targetInnerAssetId: string | null;
   targetPosition: { x: number; y: number } | null;
   targetFiberPathId: string | null;
   targetPortNumber: number | null;
@@ -38,16 +38,14 @@ export interface CableDrawingData {
 
 const cableInitial: CableDrawingData = {
   phase: 'selectingSource',
-  sourceEquipmentId: null,
-  sourceModuleId: null,
-  sourceCircuitId: null,
+  sourceContainerAssetId: null,
+  sourceInnerAssetId: null,
   sourcePosition: null,
   sourceFiberPathId: null,
   sourcePortNumber: null,
   waypoints: [],
-  targetEquipmentId: null,
-  targetModuleId: null,
-  targetCircuitId: null,
+  targetContainerAssetId: null,
+  targetInnerAssetId: null,
   targetPosition: null,
   targetFiberPathId: null,
   targetPortNumber: null,
@@ -66,17 +64,17 @@ export type InteractionMode =
 interface InteractionActions {
   /** Cable drawing 시작 — 도구모음에서 케이블 선택 시 호출 */
   cableActivate: () => void;
-  cableSetPendingSource: (equipmentId: string, position: { x: number; y: number }) => void;
+  cableSetPendingSource: (containerAssetId: string, position: { x: number; y: number }) => void;
   cableSetSource: (
-    equipmentId: string,
+    containerAssetId: string,
     position: { x: number; y: number },
-    extras?: { moduleId?: string | null; circuitId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
+    extras?: { innerAssetId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
   ) => void;
-  cableSetPendingTarget: (equipmentId: string, position: { x: number; y: number }) => void;
+  cableSetPendingTarget: (containerAssetId: string, position: { x: number; y: number }) => void;
   cableSetTarget: (
-    equipmentId: string,
+    containerAssetId: string,
     position: { x: number; y: number },
-    extras?: { moduleId?: string | null; circuitId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
+    extras?: { innerAssetId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
   ) => void;
   cableAddWaypoint: (x: number, y: number) => void;
   cableRemoveLastWaypoint: () => void;
@@ -98,7 +96,7 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
   cableActivate: () =>
     set({ mode: { kind: 'cableDrawing', data: { ...cableInitial } } }),
 
-  cableSetPendingSource: (equipmentId, position) =>
+  cableSetPendingSource: (containerAssetId, position) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
       return {
@@ -107,9 +105,8 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
           data: {
             ...state.mode.data,
             phase: 'pickingSourceModule',
-            sourceEquipmentId: equipmentId,
-            sourceModuleId: null,
-            sourceCircuitId: null,
+            sourceContainerAssetId: containerAssetId,
+            sourceInnerAssetId: null,
             sourceFiberPathId: null,
             sourcePortNumber: null,
             sourcePosition: position,
@@ -118,7 +115,7 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
       };
     }),
 
-  cableSetSource: (equipmentId, position, extras) =>
+  cableSetSource: (containerAssetId, position, extras) =>
     set((state) => {
       // Idle 상태에서도 source 가 들어올 수 있음 (예: ConnectionDiagram 카드 클릭).
       // 그 경우 cable drawing 을 새로 시작하는 의미.
@@ -129,16 +126,14 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
           data: {
             ...prev,
             phase: 'drawingPath',
-            sourceEquipmentId: equipmentId,
-            sourceModuleId: extras?.moduleId ?? null,
-            sourceCircuitId: extras?.circuitId ?? null,
+            sourceContainerAssetId: containerAssetId,
+            sourceInnerAssetId: extras?.innerAssetId ?? null,
             sourceFiberPathId: extras?.fiberPathId ?? null,
             sourcePortNumber: extras?.portNumber ?? null,
             sourcePosition: position,
             waypoints: [],
-            targetEquipmentId: null,
-            targetModuleId: null,
-            targetCircuitId: null,
+            targetContainerAssetId: null,
+            targetInnerAssetId: null,
             targetFiberPathId: null,
             targetPortNumber: null,
             targetPosition: null,
@@ -149,7 +144,7 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
       };
     }),
 
-  cableSetPendingTarget: (equipmentId, position) =>
+  cableSetPendingTarget: (containerAssetId, position) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
       return {
@@ -158,9 +153,8 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
           data: {
             ...state.mode.data,
             phase: 'pickingTargetModule',
-            targetEquipmentId: equipmentId,
-            targetModuleId: null,
-            targetCircuitId: null,
+            targetContainerAssetId: containerAssetId,
+            targetInnerAssetId: null,
             targetFiberPathId: null,
             targetPortNumber: null,
             targetPosition: position,
@@ -169,7 +163,7 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
       };
     }),
 
-  cableSetTarget: (equipmentId, position, extras) =>
+  cableSetTarget: (containerAssetId, position, extras) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
       return {
@@ -178,9 +172,8 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
           data: {
             ...state.mode.data,
             phase: 'selectingSpec',
-            targetEquipmentId: equipmentId,
-            targetModuleId: extras?.moduleId ?? null,
-            targetCircuitId: extras?.circuitId ?? null,
+            targetContainerAssetId: containerAssetId,
+            targetInnerAssetId: extras?.innerAssetId ?? null,
             targetFiberPathId: extras?.fiberPathId ?? null,
             targetPortNumber: extras?.portNumber ?? null,
             targetPosition: position,

@@ -74,17 +74,16 @@ function CableSpecModal() {
     const fiberPortNumber = data.targetPortNumber ?? data.sourcePortNumber ?? null;
 
     const newCableId = generateTempId();
-    // 단계4b — endpoint 는 단일 assetId. 회로 endpoint 는 BRANCH asset 이고 picker
-    //   (CircuitPicker)가 BRANCH asset id 를 circuitId 채널로 실어 보내므로 진짜 asset id
-    //   다 → 모듈/설비와 동일하게 정밀 asset id(branch ?? module ?? equipment) 하나로 stage.
+    // 단계4b — endpoint 는 단일 assetId. INNER pick(랙 모듈 / 분전반 분기 asset)이 있으면
+    //   그게 정밀 endpoint, 없으면 CONTAINER asset 자체가 endpoint.
     //   READ 는 floorAnchor 가 branch→feeder→분전반 / module→랙 으로 해소해 시각화.
-    const oneAssetId = (eqId?: string | null, modId?: string | null, circId?: string | null) =>
-      circId ?? modId ?? eqId ?? null;
+    const sourceAssetId = data.sourceInnerAssetId ?? data.sourceContainerAssetId ?? null;
+    const targetAssetId = data.targetInnerAssetId ?? data.targetContainerAssetId ?? null;
     // SSOT-2d Task 4 — 케이블 생성을 통합 스토어 stage 액션으로.
     useSubstationWorkingCopy.getState().stageCableCreate({
       id: newCableId,
-      sourceAssetId: oneAssetId(data.sourceEquipmentId, data.sourceModuleId, data.sourceCircuitId),
-      targetAssetId: oneAssetId(data.targetEquipmentId, data.targetModuleId, data.targetCircuitId),
+      sourceAssetId,
+      targetAssetId,
       cableType,
       categoryId: selectedCat.id,
       categoryCode: selectedCat.code,
