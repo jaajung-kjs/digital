@@ -89,12 +89,12 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   };
 
   return (
-    <div className="px-3 py-2 border-b bg-gray-50 flex items-center gap-2">
+    <div className="px-3 py-2 border-b bg-surface-2 flex items-center gap-2">
       {/* 프리셋 선택 */}
       <select
         value={selectedPreset?.id ?? ''}
         onChange={(e) => setSelectedPresetId(e.target.value || null)}
-        className="flex-1 min-w-0 px-2 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        className="flex-1 min-w-0 px-2 py-1.5 text-sm bg-surface border border-line rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
         aria-label="프리셋 선택"
       >
         <option value="">(새 프리셋…)</option>
@@ -115,7 +115,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
             ? `'${selectedPreset.name}' 을 현재 랙에 적용`
             : '프리셋을 먼저 선택하세요'
         }
-        className="px-3 py-1.5 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        className="px-3 py-1.5 text-sm bg-surface border border-line rounded-md hover:bg-surface-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
       >
         불러오기
       </button>
@@ -132,7 +132,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
               ? `'${selectedPreset.name}' 덮어쓰기 (이름 바꾸면 새 프리셋)`
               : '현재 랙 구성을 새 프리셋으로 저장'
         }
-        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        className="px-3 py-1.5 text-sm bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
       >
         저장
       </button>
@@ -234,26 +234,26 @@ function ApplyPresetConfirmDialog({
 }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <div className="bg-surface rounded-lg p-6 max-w-md w-full mx-4">
         <h3 className="text-lg font-semibold mb-3">프리셋 적용</h3>
-        <p className="text-sm text-gray-600 mb-2">
+        <p className="text-sm text-content-muted mb-2">
           현재 {existingModuleCount}개 모듈이 모두 삭제되고 프리셋{' '}
-          <strong className="text-gray-900">'{preset.name}'</strong> 의{' '}
+          <strong className="text-content">'{preset.name}'</strong> 의{' '}
           {preset.modules.length}개 모듈로 교체됩니다.
         </p>
-        <p className="text-xs text-gray-400 mb-4">
+        <p className="text-xs text-content-faint mb-4">
           저장 전까지는 작업 사본에만 반영되며, 플로어 플랜을 저장하면 확정됩니다.
         </p>
         <div className="flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+            className="px-4 py-2 text-content hover:bg-surface-2 rounded-md"
           >
             취소
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover"
           >
             적용
           </button>

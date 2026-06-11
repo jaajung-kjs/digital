@@ -141,10 +141,10 @@ export function SaveRackAsPresetDialog({
   if (!rack) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-          <p className="text-sm text-gray-500">랙 장비를 찾을 수 없습니다.</p>
+        <div className="bg-surface rounded-lg p-6 max-w-md w-full mx-4">
+          <p className="text-sm text-content-muted">랙 장비를 찾을 수 없습니다.</p>
           <div className="flex justify-end mt-4">
-            <button onClick={onClose} className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
+            <button onClick={onClose} className="px-4 py-2 text-content hover:bg-surface-2 rounded-md">
               닫기
             </button>
           </div>
@@ -156,11 +156,11 @@ export function SaveRackAsPresetDialog({
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="bg-surface rounded-lg p-6 max-w-md w-full mx-4">
           <h3 className="text-lg font-semibold mb-1">
             {isOverwriteMode ? '프리셋 덮어쓰기' : '프리셋 저장'}
           </h3>
-          <p className="text-xs text-gray-400 mb-4">
+          <p className="text-xs text-content-faint mb-4">
             {isOverwriteMode
               ? `기존 '${originalPreset!.name}' 프리셋을 현재 랙 구성으로 덮어씁니다. 이름을 바꾸면 새 프리셋으로 저장됩니다.`
               : originalPreset
@@ -169,64 +169,64 @@ export function SaveRackAsPresetDialog({
           </p>
 
           <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              이름 <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-content mb-1">
+              이름 <span className="text-danger">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
               placeholder="예: 표준 네트워크 랙"
               autoFocus
             />
           </div>
 
           <div className="mb-3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
+            <label className="block text-sm font-medium text-content mb-1">설명</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
               rows={2}
               placeholder="(선택)"
             />
           </div>
 
           {/* snapshot summary */}
-          <div className="mb-3 px-3 py-2 bg-gray-50 rounded-md border border-gray-100 text-xs text-gray-600 space-y-0.5">
+          <div className="mb-3 px-3 py-2 bg-surface-2 rounded-md border border-line text-xs text-content-muted space-y-0.5">
             <div>
-              <span className="font-medium text-gray-700">슬롯:</span> {totalU}U
+              <span className="font-medium text-content">슬롯:</span> {totalU}U
             </div>
             <div>
-              <span className="font-medium text-gray-700">캔버스:</span>{' '}
+              <span className="font-medium text-content">캔버스:</span>{' '}
               {Math.round(canvasWidth)} × {Math.round(canvasHeight)}
             </div>
             <div>
-              <span className="font-medium text-gray-700">모듈:</span> {modules.length}개 포함
+              <span className="font-medium text-content">모듈:</span> {modules.length}개 포함
             </div>
           </div>
 
           {orphanModules.length > 0 && (
-            <p className="mb-3 text-xs text-amber-600">
+            <p className="mb-3 text-xs text-warning">
               카테고리 코드가 없는 모듈이 {orphanModules.length}개 있어 저장할 수 없습니다.
             </p>
           )}
 
-          {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
+          {error && <p className="mb-3 text-xs text-danger">{error}</p>}
 
           <div className="flex justify-end gap-2">
             <button
               onClick={onClose}
               disabled={isPending}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-50"
+              className="px-4 py-2 text-content hover:bg-surface-2 rounded-md disabled:opacity-50"
             >
               취소
             </button>
             <button
               onClick={handleSaveClick}
               disabled={!canSave}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
             >
               {isPending
                 ? '저장 중…'
@@ -240,16 +240,16 @@ export function SaveRackAsPresetDialog({
 
       {showOverwriteConfirm && originalPreset && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+          <div className="bg-surface rounded-lg p-6 max-w-sm w-full mx-4">
             <h4 className="text-base font-semibold mb-2">기존 프리셋 덮어쓰기</h4>
-            <p className="text-sm text-gray-600 mb-4">
-              <strong className="text-gray-900">'{originalPreset.name}'</strong> 프리셋의 모듈 구성이 현재 랙 ({modules.length}개 모듈) 로 영구 교체됩니다. 되돌릴 수 없습니다.
+            <p className="text-sm text-content-muted mb-4">
+              <strong className="text-content">'{originalPreset.name}'</strong> 프리셋의 모듈 구성이 현재 랙 ({modules.length}개 모듈) 로 영구 교체됩니다. 되돌릴 수 없습니다.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowOverwriteConfirm(false)}
                 disabled={isPending}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-50"
+                className="px-4 py-2 text-content hover:bg-surface-2 rounded-md disabled:opacity-50"
               >
                 취소
               </button>
@@ -259,7 +259,7 @@ export function SaveRackAsPresetDialog({
                   void doOverwrite();
                 }}
                 disabled={isPending}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
+                className="px-4 py-2 bg-danger text-white rounded-md hover:opacity-90 disabled:opacity-50"
               >
                 덮어쓰기
               </button>

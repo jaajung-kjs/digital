@@ -50,16 +50,16 @@ export function AssetDetailPanel({ asset, mode = 'edit', onClose, onPatch }: Pro
           {/* ISA-101: 종류 점은 무채색. 색은 상태 배지에만. */}
           <span className="inline-block w-2 h-2 rounded-full shrink-0 bg-eq-3" />
           <span className="text-sm font-semibold truncate">{asset.name}</span>
-          <span className="text-xs text-gray-400 shrink-0">{asset.assetType.name}</span>
+          <span className="text-xs text-content-faint shrink-0">{asset.assetType.name}</span>
           {alert && <span className="text-xs px-1.5 py-0.5 rounded-full bg-warning-bg text-warning font-medium shrink-0" title={alert.label}>{alert.label}</span>}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {asset.floorId ? (
             <button onClick={() => asset.floorId && (ws ? ws.gotoFloor(asset.floorId, asset.id) : navigate(floorPlanUrl(asset.floorId, asset.id)))}
-              className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200">도면에서 보기</button>
+              className="text-xs px-2 py-1 rounded bg-surface-2 hover:bg-line">도면에서 보기</button>
           ) : (
             <button disabled title="도면에 배치되지 않음"
-              className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-300 cursor-not-allowed">도면에서 보기</button>
+              className="text-xs px-2 py-1 rounded bg-surface-2 text-content-faint cursor-not-allowed">도면에서 보기</button>
           )}
           <button aria-label="닫기" onClick={onClose} className="text-content-muted hover:text-content"><X size={16} /></button>
         </div>

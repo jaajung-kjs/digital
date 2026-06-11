@@ -75,19 +75,19 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
   };
 
   if (isLoading) {
-    return <div className="p-4 text-sm text-gray-500">불러오는 중...</div>;
+    return <div className="p-4 text-sm text-content-muted">불러오는 중...</div>;
   }
 
   // mergedPaths 가 이미 usePortStatus 안에서 deletedFiberPathIds 를 필터링했음 (workingCopy/merge.ts).
   const activePaths = mergedPaths;
 
   return (
-    <div className="p-4 border-b border-gray-200">
+    <div className="p-4 border-b border-line">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">경로 슬롯</h3>
+        <h3 className="text-sm font-semibold text-content">경로 슬롯</h3>
         <button
           onClick={() => setShowCreate(!showCreate)}
-          className="rounded bg-blue-600 px-3 py-1 text-xs text-white hover:bg-blue-700"
+          className="rounded bg-primary px-3 py-1 text-xs text-white hover:bg-primary-hover"
         >
           {showCreate ? '취소' : '경로 추가'}
         </button>
@@ -95,9 +95,9 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
 
       {/* Create flow */}
       {showCreate && (
-        <div className="mb-4 rounded border border-blue-200 bg-blue-50 p-3">
+        <div className="mb-4 rounded border border-primary bg-info-bg p-3">
           <div className="mb-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">포트 수</label>
+            <label className="block text-xs font-medium text-content-muted mb-1">포트 수</label>
             <div className="flex gap-2">
               {([24, 48] as const).map((count) => (
                 <button
@@ -105,8 +105,8 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
                   onClick={() => setPortCount(count)}
                   className={`rounded px-3 py-1 text-xs font-medium ${
                     portCount === count
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+                      ? 'bg-primary text-white'
+                      : 'bg-surface text-content-muted border border-line hover:bg-surface-2'
                   }`}
                 >
                   {count}코어
@@ -116,33 +116,33 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
           </div>
 
           <div className="mb-2">
-            <label className="block text-xs font-medium text-gray-600 mb-1">연결할 변전소</label>
+            <label className="block text-xs font-medium text-content-muted mb-1">연결할 변전소</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="변전소 검색..."
-              className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+              className="w-full rounded border border-line px-2 py-1 text-sm focus:border-primary focus:outline-none"
             />
           </div>
 
           {isLoadingOfd ? (
-            <p className="text-xs text-gray-500">변전소 목록 불러오는 중...</p>
+            <p className="text-xs text-content-muted">변전소 목록 불러오는 중...</p>
           ) : (
             <div className="max-h-48 overflow-y-auto">
               {filteredList.length === 0 ? (
-                <p className="text-xs text-gray-400 py-2">연결 가능한 변전소가 없습니다.</p>
+                <p className="text-xs text-content-faint py-2">연결 가능한 변전소가 없습니다.</p>
               ) : (
                 filteredList.map((eq) => (
                   <button
                     key={eq.id}
                     onClick={() => handleCreate(eq.id)}
-                    className="block w-full text-left rounded px-2 py-1.5 text-sm hover:bg-blue-100"
+                    className="block w-full text-left rounded px-2 py-1.5 text-sm hover:bg-info-bg"
                   >
-                    <span className="font-medium text-gray-700">
+                    <span className="font-medium text-content">
                       {eq.substationName || '알 수 없음'}
                     </span>
-                    <span className="ml-1 text-xs text-gray-400">변전소</span>
+                    <span className="ml-1 text-xs text-content-faint">변전소</span>
                   </button>
                 ))
               )}
@@ -153,7 +153,7 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
 
       {/* Path list — pending + saved 모두 usePortStatus.mergedPaths 에 포함 */}
       {activePaths.length === 0 ? (
-        <p className="text-sm text-gray-400">등록된 경로가 없습니다.</p>
+        <p className="text-sm text-content-faint">등록된 경로가 없습니다.</p>
       ) : (
         <div className="space-y-2">
           {activePaths.map((path) => {
@@ -165,20 +165,20 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
             return (
               <div
                 key={path.id}
-                className="rounded border border-gray-200 bg-white"
+                className="rounded border border-line bg-surface"
               >
                 <div
-                  className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-gray-50"
+                  className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-surface-2"
                   onClick={() => togglePath(path)}
                 >
                   <div>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-content">
                       {local.substationName} - {remote.substationName}
                     </span>
-                    <span className="ml-2 text-xs text-gray-400">
+                    <span className="ml-2 text-xs text-content-faint">
                       {path.portCount}코어
                     </span>
-                    <span className="ml-2 text-xs text-gray-500">
+                    <span className="ml-2 text-xs text-content-muted">
                       {usage}/{path.portCount} 사용
                     </span>
                   </div>
@@ -188,18 +188,18 @@ export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigat
                         e.stopPropagation();
                         handleDelete(path.id);
                       }}
-                      className="rounded px-2 py-0.5 text-xs text-red-500 hover:bg-red-50"
+                      className="rounded px-2 py-0.5 text-xs text-danger hover:bg-danger-bg"
                     >
                       삭제
                     </button>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-content-faint">
                       {isExpanded ? '▲' : '▼'}
                     </span>
                   </div>
                 </div>
 
                 {isExpanded && (
-                  <div className="border-t border-gray-100 p-3">
+                  <div className="border-t border-line p-3">
                     <FiberPortGrid fiberPath={path} localOfdId={ofdId} onPortConnect={onPortConnect} onPortDelete={onPortDelete} onNavigateRemote={onNavigateRemote} />
                   </div>
                 )}

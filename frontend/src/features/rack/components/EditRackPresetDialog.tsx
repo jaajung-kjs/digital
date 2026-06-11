@@ -53,49 +53,49 @@ export function EditRackPresetDialog({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <div className="bg-surface rounded-lg p-6 max-w-md w-full mx-4">
         <h3 className="text-lg font-semibold mb-1">프리셋 수정</h3>
-        <p className="text-xs text-gray-400 mb-4">
+        <p className="text-xs text-content-faint mb-4">
           코드: {preset.code} · {preset.totalU}U · 모듈 {preset.modules.length}개
         </p>
 
         <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            이름 <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-content mb-1">
+            이름 <span className="text-danger">*</span>
           </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
             autoFocus
           />
         </div>
 
         <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-700 mb-1">설명</label>
+          <label className="block text-sm font-medium text-content mb-1">설명</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
             rows={2}
           />
         </div>
 
-        {error && <p className="mb-3 text-xs text-red-600">{error}</p>}
+        {error && <p className="mb-3 text-xs text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <button
             onClick={onClose}
             disabled={updatePreset.isPending}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md disabled:opacity-50"
+            className="px-4 py-2 text-content hover:bg-surface-2 rounded-md disabled:opacity-50"
           >
             취소
           </button>
           <button
             onClick={handleSave}
             disabled={!canSave}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-hover disabled:opacity-50"
           >
             {updatePreset.isPending ? '저장 중…' : '저장'}
           </button>

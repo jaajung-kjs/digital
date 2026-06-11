@@ -29,7 +29,7 @@ function getSelectedColor(port: FiberPortStatus): string {
   const hasB = !!port.sideB;
   if (hasA && hasB) return 'bg-green-200 border-green-500 ring-2 ring-green-300';
   if (hasA || hasB) return 'bg-amber-100 border-amber-500 ring-2 ring-amber-300';
-  return 'bg-blue-100 border-blue-400 ring-2 ring-blue-300';
+  return 'bg-info-bg border-primary ring-2 ring-primary/30';
 }
 
 export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDelete, onNavigateRemote }: FiberPortGridProps) {
@@ -70,7 +70,7 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
   return (
     <div>
       {/* Path label */}
-      <div className="mb-2 text-xs font-medium text-gray-600">
+      <div className="mb-2 text-xs font-medium text-content-muted">
         {localSub} - {remoteSub}
       </div>
 
@@ -87,15 +87,15 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
               className={`rounded border p-1.5 text-center cursor-pointer transition-all hover:opacity-80 ${color}`}
               onClick={() => handleCellClick(port)}
             >
-              <div className="font-mono text-xs font-bold text-gray-700">
+              <div className="font-mono text-xs font-bold text-content">
                 #{port.portNumber}
               </div>
               {localSide ? (
-                <div className="truncate text-[10px] text-gray-500">
+                <div className="truncate text-[10px] text-content-muted">
                   {localSide.assetName}
                 </div>
               ) : (
-                <div className="text-[10px] text-gray-400">빈 포트</div>
+                <div className="text-[10px] text-content-faint">빈 포트</div>
               )}
             </div>
           );
@@ -123,7 +123,7 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
       )}
 
       {/* Legend */}
-      <div className="mt-3 flex items-center gap-4 text-[10px] text-gray-500">
+      <div className="mt-3 flex items-center gap-4 text-[10px] text-content-muted">
         <div className="flex items-center gap-1">
           <span className="inline-block h-3 w-3 rounded border border-green-400 bg-green-100" />
           양측 연결
@@ -189,15 +189,15 @@ function PortDetail({
     normalizeCableColor(localCable?.displayColor) || (localCable ? CABLE_COLORS[localCable.cableType] : null) || '#22c55e';
 
   return (
-    <div className="mt-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
+    <div className="mt-2 rounded-lg border border-line bg-surface p-3 shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-semibold text-gray-700">
+        <span className="text-xs font-semibold text-content">
           포트 #{port.portNumber} 상세
         </span>
         <button
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-xs"
+          className="text-content-faint hover:text-content text-xs"
         >
           닫기
         </button>
@@ -209,14 +209,14 @@ function PortDetail({
         <div
           className={`group rounded border px-3 py-2 transition-colors ${
             isCardSelected
-              ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300'
-              : 'border-gray-200 bg-white'
+              ? 'border-primary bg-info-bg ring-1 ring-primary/30'
+              : 'border-line bg-surface'
           }`}
         >
           <div className="flex items-center gap-2 text-sm">
             <div className="min-w-0 flex-1 text-center">
-              <p className="truncate text-sm font-medium text-gray-700">{localSide!.assetName}</p>
-              <p className="truncate text-[10px] text-gray-400">자국 · {localSubName}</p>
+              <p className="truncate text-sm font-medium text-content">{localSide!.assetName}</p>
+              <p className="truncate text-[10px] text-content-faint">자국 · {localSubName}</p>
             </div>
             <div className="flex flex-col items-center shrink-0">
               <span
@@ -225,40 +225,40 @@ function PortDetail({
               >
                 {badgeLabel}
               </span>
-              <div className="my-0.5 h-px w-12 bg-gray-300" />
+              <div className="my-0.5 h-px w-12 bg-line" />
             </div>
             <div className="min-w-0 flex-1 text-center">
-              <p className="truncate text-sm font-medium text-gray-700">
+              <p className="truncate text-sm font-medium text-content">
                 {hasRemote ? remoteSide!.assetName : '대국 미연결'}
               </p>
-              <p className="truncate text-[10px] text-gray-400">대국 · {remoteSubName}</p>
+              <p className="truncate text-[10px] text-content-faint">대국 · {remoteSubName}</p>
             </div>
           </div>
-          <p className="mt-1 text-[11px] text-gray-400 text-center truncate">
+          <p className="mt-1 text-[11px] text-content-faint text-center truncate">
             {localSubName}-{remoteSubName} #{port.portNumber}
           </p>
         </div>
       ) : (
         // 자국 없음 (대국만 또는 빈 포트) — trace 불가, 정보만 표시. 자국/대국 모두 "빈 포트" 톤 통일.
-        <div className="rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2">
+        <div className="rounded border border-dashed border-line bg-surface-2 px-3 py-2">
           <div className="flex items-center gap-2 text-sm">
             <div className="min-w-0 flex-1 text-center">
-              <p className="truncate text-sm font-medium text-gray-400">빈 포트</p>
-              <p className="truncate text-[10px] text-gray-400">자국 · {localSubName}</p>
+              <p className="truncate text-sm font-medium text-content-faint">빈 포트</p>
+              <p className="truncate text-[10px] text-content-faint">자국 · {localSubName}</p>
             </div>
-            <div className="shrink-0 text-gray-300">|</div>
+            <div className="shrink-0 text-content-faint">|</div>
             <div className="min-w-0 flex-1 text-center">
-              <p className={`truncate text-sm font-medium ${hasRemote ? 'text-gray-700' : 'text-gray-400'}`}>
+              <p className={`truncate text-sm font-medium ${hasRemote ? 'text-content' : 'text-content-faint'}`}>
                 {hasRemote ? remoteSide!.assetName : '빈 포트'}
               </p>
-              <p className="truncate text-[10px] text-gray-400">대국 · {remoteSubName}</p>
+              <p className="truncate text-[10px] text-content-faint">대국 · {remoteSubName}</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-gray-100">
+      <div className="flex items-center gap-2 mt-3 pt-2 border-t border-line">
         {/* 자국 있음 → 삭제. 자국 카드 클릭으로 이미 trace 시작됐고, 외부망은 PathTraceDetail 의 "상세" 로. */}
         {hasLocal && onDelete && (
           <button
@@ -269,7 +269,7 @@ function PortDetail({
                 clearHighlight();
               }
             }}
-            className="text-xs text-gray-500 hover:text-red-600"
+            className="text-xs text-content-muted hover:text-danger"
           >
             삭제
           </button>
@@ -279,7 +279,7 @@ function PortDetail({
         {!hasLocal && hasRemote && onConnect && (
           <button
             onClick={onConnect}
-            className="flex-1 rounded bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600"
+            className="flex-1 rounded bg-warning px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
           >
             자국 연결 추가
           </button>
@@ -290,12 +290,12 @@ function PortDetail({
           onNavigateRemote ? (
             <button
               onClick={(e) => { e.stopPropagation(); onNavigateRemote(); }}
-              className="ml-auto rounded bg-amber-500 px-3 py-1 text-xs font-medium text-white hover:bg-amber-600"
+              className="ml-auto rounded bg-warning px-3 py-1 text-xs font-medium text-white hover:opacity-90"
             >
               대국({remoteSubName}) 도면으로 이동
             </button>
           ) : (
-            <p className="ml-auto text-[10px] text-amber-600">
+            <p className="ml-auto text-[10px] text-warning">
               대국({remoteSubName}) 도면에서 연결해주세요
             </p>
           )
@@ -305,7 +305,7 @@ function PortDetail({
         {isEmpty && onConnect && (
           <button
             onClick={onConnect}
-            className="flex-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+            className="flex-1 rounded bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-hover"
           >
             연결
           </button>

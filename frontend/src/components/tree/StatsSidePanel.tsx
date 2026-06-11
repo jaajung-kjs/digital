@@ -35,7 +35,7 @@ export function StatsSidePanel() {
 
   if (!viewingNode || viewingNode.type === 'floor') {
     return (
-      <div className="h-full flex items-center justify-center px-6 text-center text-xs text-gray-400">
+      <div className="h-full flex items-center justify-center px-6 text-center text-xs text-content-faint">
         본부 / 지사 / 변전소를 선택하면 현황이 표시됩니다
       </div>
     );
@@ -44,7 +44,7 @@ export function StatsSidePanel() {
   return (
     // viewingNode 가 바뀌면 자식 컴포넌트의 expand state 전체 reset.
     <div className="py-2" key={viewingNode.id}>
-      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+      <div className="px-3 py-2 text-xs font-semibold text-content-muted uppercase tracking-wider">
         현황
       </div>
       <StatsTreeRow
@@ -235,8 +235,8 @@ export function StatsTreeRow({
   return (
     <div
       className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors ${
-        muted ? 'text-gray-400' : 'text-gray-700'
-      } ${onClick && !muted ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+        muted ? 'text-content-faint' : 'text-content'
+      } ${onClick && !muted ? 'cursor-pointer hover:bg-surface-2' : ''}`}
       style={{ paddingLeft: `${level * 16 + 8}px` }}
       onClick={onClick}
     >
@@ -247,7 +247,7 @@ export function StatsTreeRow({
             e.stopPropagation();
             onToggle?.();
           }}
-          className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 flex-shrink-0"
+          className="w-4 h-4 flex items-center justify-center text-content-faint hover:text-content-muted flex-shrink-0"
         >
           {expanded ? '−' : '+'}
         </button>
@@ -264,7 +264,7 @@ export function StatsTreeRow({
       {icon && <span className="flex-shrink-0 text-xs">{icon}</span>}
       <span className="truncate flex-1">{label}</span>
       {count != null && (
-        <span className="tabular-nums text-xs text-gray-600 flex-shrink-0">{count}</span>
+        <span className="tabular-nums text-xs text-content-muted flex-shrink-0">{count}</span>
       )}
     </div>
   );

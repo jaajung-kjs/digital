@@ -19,13 +19,13 @@ export function Breadcrumb() {
     } else navigate('/');
   };
 
-  if (!trail.length) return <span className="text-sm text-gray-400">전체</span>;
+  if (!trail.length) return <span className="text-sm text-content-faint">전체</span>;
   return (
     <nav className="flex items-center gap-1 text-sm min-w-0">
       {trail.map((t, i) => (
         <span key={t.id} className="flex items-center gap-1 min-w-0">
-          {i > 0 && <span className="text-gray-300">›</span>}
-          <button className="hover:underline text-gray-600 truncate" onClick={() => go(t)}>{t.name}</button>
+          {i > 0 && <span className="text-content-faint">›</span>}
+          <button className="hover:underline text-content-muted truncate" onClick={() => go(t)}>{t.name}</button>
         </span>
       ))}
     </nav>

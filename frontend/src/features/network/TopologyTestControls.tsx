@@ -73,7 +73,7 @@ export function TopologyTestControls(props: TopologyTestControlsProps) {
 
   return (
     <Panel position="top-left">
-      <div className="bg-white/95 rounded-md shadow border border-gray-200 px-3 py-2 flex flex-col gap-1.5 text-[11px]">
+      <div className="bg-surface/95 rounded-md shadow border border-line px-3 py-2 flex flex-col gap-1.5 text-[11px]">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -81,8 +81,8 @@ export function TopologyTestControls(props: TopologyTestControlsProps) {
             onClick={onToggleAddMode}
             className={`px-2 py-1 rounded border text-[11px] font-medium ${
               addMode
-                ? 'bg-teal-600 text-white border-teal-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-surface text-content border-line hover:bg-surface-2'
             }`}
           >
             {addMode ? '추가 취소' : '경로 추가'}
@@ -90,11 +90,11 @@ export function TopologyTestControls(props: TopologyTestControlsProps) {
           <button
             type="button"
             onClick={onReset}
-            className="px-2 py-1 rounded border border-gray-300 bg-white text-gray-700 text-[11px] font-medium hover:bg-gray-50"
+            className="px-2 py-1 rounded border border-line bg-surface text-content text-[11px] font-medium hover:bg-surface-2"
           >
             초기화
           </button>
-          <span className="text-gray-400">
+          <span className="text-content-faint">
             끊은 경로 {cutCount} · 추가 경로 {addCount}
           </span>
         </div>
@@ -104,7 +104,7 @@ export function TopologyTestControls(props: TopologyTestControlsProps) {
             {endLabel && <EndpointChip role="end" label={endLabel} onClear={onClearEnd} />}
           </div>
         )}
-        <span className={hint.error ? 'text-red-600' : 'text-gray-500'}>{hint.text}</span>
+        <span className={hint.error ? 'text-danger' : 'text-content-muted'}>{hint.text}</span>
       </div>
     </Panel>
   );

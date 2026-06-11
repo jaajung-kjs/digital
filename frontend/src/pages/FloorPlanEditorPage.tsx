@@ -15,7 +15,7 @@ export function FloorPlanEditorPage() {
   if (!floorId) {
     return (
       <div className="flex justify-center items-center h-full">
-        <p className="text-gray-500">Floor ID가 필요합니다.</p>
+        <p className="text-content-muted">Floor ID가 필요합니다.</p>
       </div>
     );
   }

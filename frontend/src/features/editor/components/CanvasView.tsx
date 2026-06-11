@@ -36,7 +36,7 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
   const isSpacePressed = useEditorStore((s) => s.isSpacePressed);
 
   return (
-    <div ref={containerRef as React.RefObject<HTMLDivElement>} className="flex-1 relative overflow-hidden bg-gray-200">
+    <div ref={containerRef as React.RefObject<HTMLDivElement>} className="flex-1 relative overflow-hidden bg-surface-2">
       <canvas
         ref={canvasRef as React.RefObject<HTMLCanvasElement>}
         onClick={handleCanvasClick}

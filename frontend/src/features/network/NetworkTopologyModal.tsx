@@ -109,7 +109,7 @@ function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
         </span>
       )}
       <div
-        className="rounded-lg bg-white shadow-sm overflow-hidden"
+        className="rounded-lg bg-surface shadow-sm overflow-hidden"
         style={{
           border: `${borderWidth}px solid ${borderColor}`,
           boxShadow: role ? `0 0 0 3px ${role.color}` : undefined,
@@ -118,25 +118,25 @@ function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
         {/* Floating edge 가 노드 중심 기준 경계점을 계산하므로 핸들 위치 무관 — 단일 (hidden) 핸들 한 쌍만 둠. */}
         <Handle type="target" position={Position.Top} style={{ opacity: 0, top: '50%', left: '50%' }} />
         <Handle type="source" position={Position.Bottom} style={{ opacity: 0, top: '50%', left: '50%' }} />
-        <div className="bg-gray-50 px-2.5 py-1.5 border-b border-gray-200">
+        <div className="bg-surface-2 px-2.5 py-1.5 border-b border-line">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-800 truncate">{name}</span>
+            <span className="text-xs font-bold text-content truncate">{name}</span>
             {tier === 'junction' && (
               <span className="ml-1 shrink-0 text-[10px] text-amber-600 font-medium">분기점</span>
             )}
           </div>
         </div>
         <div className="px-2.5 py-1.5">
-          <div className="text-[11px] text-gray-600 truncate">{ofdName}</div>
+          <div className="text-[11px] text-content-muted truncate">{ofdName}</div>
           {modules.length > 0 && (
             <div className="mt-1 space-y-0.5">
               {modules.slice(0, 3).map((m) => (
-                <div key={m.id} className="text-[10px] text-gray-500 truncate">
+                <div key={m.id} className="text-[10px] text-content-muted truncate">
                   · {m.name}
                 </div>
               ))}
               {modules.length > 3 && (
-                <div className="text-[10px] text-gray-400">+ {modules.length - 3}개</div>
+                <div className="text-[10px] text-content-faint">+ {modules.length - 3}개</div>
               )}
             </div>
           )}
@@ -500,35 +500,35 @@ export function NetworkTopologyModal() {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => e.target === e.currentTarget && close()}
     >
-      <div className="bg-white rounded-lg shadow-xl w-[min(1200px,95vw)] h-[min(800px,90vh)] flex flex-col">
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200">
+      <div className="bg-surface rounded-lg shadow-xl w-[min(1200px,95vw)] h-[min(800px,90vh)] flex flex-col">
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-line">
           <div>
-            <h3 className="text-sm font-semibold text-gray-800">네트워크 토폴로지</h3>
+            <h3 className="text-sm font-semibold text-content">네트워크 토폴로지</h3>
             {traceResult && layoutData && (
-              <p className="text-[11px] text-gray-500 mt-0.5">
+              <p className="text-[11px] text-content-muted mt-0.5">
                 {traceResult.nodes.length}개 노드 · {layoutData.fundamental}개 링 · 상위링 {layoutData.composite}개
               </p>
             )}
           </div>
-          <button onClick={close} className="text-gray-400 hover:text-gray-600 text-lg leading-none" aria-label="닫기">
+          <button onClick={close} className="text-content-faint hover:text-content text-lg leading-none" aria-label="닫기">
             ×
           </button>
         </div>
 
         <div className="flex-1 relative">
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
-              <span className="text-sm text-gray-500">불러오는 중...</span>
+            <div className="absolute inset-0 flex items-center justify-center bg-surface/80 z-10">
+              <span className="text-sm text-content-muted">불러오는 중...</span>
             </div>
           )}
           {error && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm text-red-500">{error}</span>
+              <span className="text-sm text-danger">{error}</span>
             </div>
           )}
           {!isLoading && !error && rfNodes.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-sm text-gray-400">표시할 네트워크 토폴로지가 없습니다.</span>
+              <span className="text-sm text-content-faint">표시할 네트워크 토폴로지가 없습니다.</span>
             </div>
           )}
           {!isLoading && !error && rfNodes.length > 0 && (
@@ -568,7 +568,7 @@ export function NetworkTopologyModal() {
           )}
         </div>
 
-        <div className="px-4 py-2 border-t border-gray-200 flex items-center gap-4 text-[11px] text-gray-500 flex-wrap">
+        <div className="px-4 py-2 border-t border-line flex items-center gap-4 text-[11px] text-content-muted flex-wrap">
           <span className="flex items-center gap-1.5">
             <span className="inline-block w-4 h-0.5 bg-red-600" /> 시드 경로
           </span>

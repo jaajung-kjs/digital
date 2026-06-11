@@ -39,20 +39,20 @@ export function EmptyStateGuide({ floorPlan, floorId, onImportClick }: EmptyStat
       className="absolute inset-0 flex items-center justify-center pointer-events-none"
       style={{ zIndex: 12 }}
     >
-      <div className="bg-white/95 backdrop-blur border border-gray-200 rounded-2xl shadow-lg px-8 py-6 max-w-md pointer-events-auto">
-        <h3 className="text-base font-semibold text-gray-900 mb-1">
+      <div className="bg-surface/95 backdrop-blur border border-line rounded-2xl shadow-lg px-8 py-6 max-w-md pointer-events-auto">
+        <h3 className="text-base font-semibold text-content mb-1">
           평면도 시작하기
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-content-muted mb-4">
           아래 순서로 도면을 구성해 보세요.
         </p>
         <ol className="space-y-3">
           <li className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold flex items-center justify-center">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-info-bg text-primary text-xs font-semibold flex items-center justify-center">
               1
             </span>
-            <div className="text-sm text-gray-700 flex-1">
-              <Ruler size={14} className="inline-block mr-1 -mt-0.5 text-gray-500" />
+            <div className="text-sm text-content flex-1">
+              <Ruler size={14} className="inline-block mr-1 -mt-0.5 text-content-muted" />
               <span className="font-medium">도면 가져오기</span>
               {onImportClick ? (
                 <button
@@ -62,32 +62,32 @@ export function EmptyStateGuide({ floorPlan, floorId, onImportClick }: EmptyStat
                   DWG/DXF 파일 선택
                 </button>
               ) : (
-                <span className="block text-xs text-gray-500 mt-0.5">
+                <span className="block text-xs text-content-muted mt-0.5">
                   DWG/DXF 임포트 — 우상단 ⚙️ 버튼
                 </span>
               )}
             </div>
           </li>
           <li className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold flex items-center justify-center">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-info-bg text-primary text-xs font-semibold flex items-center justify-center">
               2
             </span>
-            <div className="text-sm text-gray-700">
-              <Boxes size={14} className="inline-block mr-1 -mt-0.5 text-gray-500" />
+            <div className="text-sm text-content">
+              <Boxes size={14} className="inline-block mr-1 -mt-0.5 text-content-muted" />
               <span className="font-medium">설비 배치</span>
-              <span className="block text-xs text-gray-500 mt-0.5">
+              <span className="block text-xs text-content-muted mt-0.5">
                 왼쪽 [설비]에서 종류 선택 후 캔버스에 드래그 — [랙 프리셋]은 클릭 한 번으로 배치
               </span>
             </div>
           </li>
           <li className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold flex items-center justify-center">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-info-bg text-primary text-xs font-semibold flex items-center justify-center">
               3
             </span>
-            <div className="text-sm text-gray-700">
-              <Cable size={14} className="inline-block mr-1 -mt-0.5 text-gray-500" />
+            <div className="text-sm text-content">
+              <Cable size={14} className="inline-block mr-1 -mt-0.5 text-content-muted" />
               <span className="font-medium">케이블 연결</span>
-              <span className="block text-xs text-gray-500 mt-0.5">
+              <span className="block text-xs text-content-muted mt-0.5">
                 왼쪽 [케이블]에서 그룹 선택 후 두 객체를 클릭 — 랙/OFD는 모듈/포트 선택 모달이 열립니다
               </span>
             </div>

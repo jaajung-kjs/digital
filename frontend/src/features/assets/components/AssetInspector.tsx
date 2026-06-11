@@ -31,9 +31,9 @@ interface Props {
 function Field({ label, value, onCommit, type = 'text' }: { label: string; value: string; onCommit: (v: string) => void; type?: string }) {
   return (
     <label className="flex items-center gap-2 text-sm py-0.5">
-      <span className="w-24 shrink-0 text-gray-500 text-xs">{label}</span>
+      <span className="w-24 shrink-0 text-content-muted text-xs">{label}</span>
       <input type={type} defaultValue={value} onBlur={(e) => { if (e.target.value !== value) onCommit(e.target.value); }}
-        className="flex-1 px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded text-sm" />
+        className="flex-1 px-1 py-0.5 border border-transparent hover:border-line focus:border-primary rounded text-sm" />
     </label>
   );
 }
@@ -41,8 +41,8 @@ function Field({ label, value, onCommit, type = 'text' }: { label: string; value
 function ReadField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-2 text-sm py-0.5">
-      <span className="w-24 shrink-0 text-gray-500 text-xs">{label}</span>
-      <span className="flex-1 px-1 py-0.5 text-sm">{value || <span className="text-gray-300">—</span>}</span>
+      <span className="w-24 shrink-0 text-content-muted text-xs">{label}</span>
+      <span className="flex-1 px-1 py-0.5 text-sm">{value || <span className="text-content-faint">—</span>}</span>
     </div>
   );
 }
@@ -51,9 +51,9 @@ function ReadField({ label, value }: { label: string; value: string }) {
 function DescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
   return (
     <label className="flex items-start gap-2 text-sm py-0.5">
-      <span className="w-24 shrink-0 text-gray-500 text-xs pt-1">설명</span>
+      <span className="w-24 shrink-0 text-content-muted text-xs pt-1">설명</span>
       <textarea defaultValue={value} rows={2} onBlur={(e) => { if (e.target.value !== value) onCommit(e.target.value); }}
-        className="flex-1 px-1 py-0.5 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded text-sm resize-none" />
+        className="flex-1 px-1 py-0.5 border border-transparent hover:border-line focus:border-primary rounded text-sm resize-none" />
     </label>
   );
 }
@@ -92,7 +92,7 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
           <button
             type="button"
             onClick={() => onSelectAsset(parentRack.id)}
-            className="text-xs text-blue-600 hover:text-blue-700 hover:underline"
+            className="text-xs text-primary hover:text-primary-hover hover:underline"
           >
             ← {parentRack.name}
           </button>
@@ -142,10 +142,10 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
         )}
       </section>
 
-      <section className="px-4 py-3 border-t border-gray-100">
-        <h3 className="text-sm font-semibold text-gray-700 mb-1">속성</h3>
+      <section className="px-4 py-3 border-t border-line">
+        <h3 className="text-sm font-semibold text-content mb-1">속성</h3>
         {(asset.assetType?.fieldTemplate ?? []).length === 0 ? (
-          <p className="text-xs text-gray-400">이 종류엔 속성 없음</p>
+          <p className="text-xs text-content-faint">이 종류엔 속성 없음</p>
         ) : (
           <AssetAttributesView
             fields={asset.assetType?.fieldTemplate ?? []}

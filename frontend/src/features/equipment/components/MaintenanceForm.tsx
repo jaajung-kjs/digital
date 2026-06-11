@@ -92,11 +92,11 @@ export function MaintenanceForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded border border-gray-200 bg-white p-3"
+      className="rounded border border-line bg-surface p-3"
     >
       {/* Log Type */}
       <div className="mb-2">
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label className="mb-1 block text-xs font-medium text-content-muted">
           유형
         </label>
         <select
@@ -104,7 +104,7 @@ export function MaintenanceForm({
           onChange={(e) =>
             setFormData({ ...formData, logType: e.target.value })
           }
-          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full rounded border border-line px-2 py-1 text-sm focus:border-primary focus:outline-none"
         >
           {LOG_TYPES.map((t) => (
             <option key={t.value} value={t.value}>
@@ -116,7 +116,7 @@ export function MaintenanceForm({
 
       {/* Title */}
       <div className="mb-2">
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label className="mb-1 block text-xs font-medium text-content-muted">
           제목
         </label>
         <input
@@ -127,13 +127,13 @@ export function MaintenanceForm({
           }
           placeholder="제목을 입력하세요"
           required
-          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full rounded border border-line px-2 py-1 text-sm focus:border-primary focus:outline-none"
         />
       </div>
 
       {/* Description */}
       <div className="mb-2">
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label className="mb-1 block text-xs font-medium text-content-muted">
           설명
         </label>
         <textarea
@@ -143,13 +143,13 @@ export function MaintenanceForm({
           }
           placeholder="상세 내용 (선택)"
           rows={3}
-          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full rounded border border-line px-2 py-1 text-sm focus:border-primary focus:outline-none"
         />
       </div>
 
       {/* Severity */}
       <div className="mb-2">
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label className="mb-1 block text-xs font-medium text-content-muted">
           심각도
         </label>
         <select
@@ -157,7 +157,7 @@ export function MaintenanceForm({
           onChange={(e) =>
             setFormData({ ...formData, severity: e.target.value })
           }
-          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full rounded border border-line px-2 py-1 text-sm focus:border-primary focus:outline-none"
         >
           {SEVERITIES.map((s) => (
             <option key={s.value} value={s.value}>
@@ -169,7 +169,7 @@ export function MaintenanceForm({
 
       {/* Status */}
       <div className="mb-2">
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label className="mb-1 block text-xs font-medium text-content-muted">
           상태
         </label>
         <select
@@ -177,7 +177,7 @@ export function MaintenanceForm({
           onChange={(e) =>
             setFormData({ ...formData, status: e.target.value })
           }
-          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full rounded border border-line px-2 py-1 text-sm focus:border-primary focus:outline-none"
         >
           {STATUSES.map((s) => (
             <option key={s.value} value={s.value}>
@@ -189,14 +189,14 @@ export function MaintenanceForm({
 
       {/* Resolved Date */}
       <div className="mb-3">
-        <label className="mb-1 block text-xs font-medium text-gray-600">
+        <label className="mb-1 block text-xs font-medium text-content-muted">
           해결일
         </label>
         <input
           type="date"
           value={resolvedAt}
           onChange={(e) => setResolvedAt(e.target.value)}
-          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-blue-400 focus:outline-none"
+          className="w-full rounded border border-line px-2 py-1 text-sm focus:border-primary focus:outline-none"
         />
       </div>
 
@@ -205,14 +205,14 @@ export function MaintenanceForm({
         <button
           type="submit"
           disabled={isPending || !formData.title.trim()}
-          className="flex-1 rounded bg-blue-500 py-1.5 text-sm text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="flex-1 rounded bg-primary py-1.5 text-sm text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:bg-line"
         >
           {isPending ? '저장 중...' : isEdit ? '수정' : '등록'}
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded border border-gray-300 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+          className="flex-1 rounded border border-line py-1.5 text-sm text-content-muted hover:bg-surface-2"
         >
           취소
         </button>

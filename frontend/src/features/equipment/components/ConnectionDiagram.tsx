@@ -142,7 +142,7 @@ export function ConnectionDiagram({
     <div>
       <div className="p-3">
         {relevantCables.length === 0 ? (
-          <div className="text-center text-sm text-gray-400 py-2">
+          <div className="text-center text-sm text-content-faint py-2">
             연결 정보가 없습니다.
           </div>
         ) : (
@@ -184,13 +184,13 @@ export function ConnectionDiagram({
                   onClick={handleClick}
                   className={`group relative rounded border px-3 py-2 transition-colors cursor-pointer ${
                     isCardSelected
-                      ? 'border-blue-400 bg-blue-50 ring-1 ring-blue-300'
-                      : 'border-gray-200 bg-white hover:bg-blue-50'
-                  } ${isTracing ? 'ring-2 ring-blue-400 animate-pulse' : ''}`}
+                      ? 'border-primary bg-info-bg ring-1 ring-primary/30'
+                      : 'border-line bg-surface hover:bg-info-bg'
+                  } ${isTracing ? 'ring-2 ring-primary/30 animate-pulse' : ''}`}
                 >
                   <div className="flex items-center gap-2 text-sm">
                     <div className="min-w-0 flex-1 text-center">
-                      <p className="truncate text-sm font-medium text-gray-700">
+                      <p className="truncate text-sm font-medium text-content">
                         {localEqName}
                       </p>
                     </div>
@@ -205,17 +205,17 @@ export function ConnectionDiagram({
                       >
                         {cable.categoryName || cable.categoryCode || cable.cableType}
                       </span>
-                      <div className="my-0.5 h-px w-12 bg-gray-300" />
+                      <div className="my-0.5 h-px w-12 bg-line" />
                     </div>
 
                     <div className="min-w-0 flex-1 text-center">
-                      <p className="truncate text-sm font-medium text-gray-700">
+                      <p className="truncate text-sm font-medium text-content">
                         {remoteName}
                       </p>
                     </div>
                   </div>
                   {cable.cableType === 'FIBER' && cable.fiberPortNumber != null && (
-                    <p className="mt-1 text-[11px] text-gray-400 text-center truncate">
+                    <p className="mt-1 text-[11px] text-content-faint text-center truncate">
                       {cable.fiberPathLabel ?? buildCableFiberPathLabel(cable, fiberPathById) ?? '경로'}
                       {` #${cable.fiberPortNumber}`}
                     </p>
@@ -225,7 +225,7 @@ export function ConnectionDiagram({
                   <div className="flex justify-end pr-1">
                     <button
                       onClick={handleDelete}
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      className="text-xs text-content-faint hover:text-danger transition-colors"
                     >
                       삭제
                     </button>

@@ -29,7 +29,7 @@ export function RackView({ equipmentId }: Props) {
   if (!rack) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-gray-400">랙 장비를 찾을 수 없습니다.</p>
+        <p className="text-sm text-content-faint">랙 장비를 찾을 수 없습니다.</p>
       </div>
     );
   }

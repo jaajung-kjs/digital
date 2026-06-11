@@ -129,7 +129,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
       <div className="flex-1 overflow-auto p-4">
       <div className="flex items-center gap-2 mb-3">
         <select
-          className="text-sm border border-gray-200 rounded px-2 py-1"
+          className="text-sm border border-line rounded px-2 py-1"
           value={filterTypeId}
           onChange={(e) => setFilterTypeId(e.target.value)}
         >
@@ -138,15 +138,15 @@ export function SubstationAssetGrid({ substationId }: Props) {
         </select>
         <button
           onClick={() => setAlertOnly((v) => !v)}
-          className={`text-sm px-2 py-1 rounded ${alertOnly ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+          className={`text-sm px-2 py-1 rounded ${alertOnly ? 'bg-warning text-white' : 'bg-surface-2 text-content-muted'}`}
         >임박만</button>
         <button
           onClick={() => downloadCsv(`장비대장_${new Date().toISOString().slice(0, 10)}.csv`, buildCsv(shown, columns))}
-          className="text-sm px-2 py-1 rounded bg-gray-100 text-gray-700"
+          className="text-sm px-2 py-1 rounded bg-surface-2 text-content"
         >내보내기</button>
         <div className="flex-1" />
         <select
-          className="text-sm border border-gray-200 rounded px-2 py-1"
+          className="text-sm border border-line rounded px-2 py-1"
           value={newTypeId}
           onChange={(e) => setNewTypeId(e.target.value)}
         >
@@ -154,7 +154,7 @@ export function SubstationAssetGrid({ substationId }: Props) {
           {types.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
         </select>
         <input
-          className="text-sm border border-gray-200 rounded px-2 py-1"
+          className="text-sm border border-line rounded px-2 py-1"
           placeholder="이름"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
@@ -163,14 +163,14 @@ export function SubstationAssetGrid({ substationId }: Props) {
         <button
           onClick={handleAdd}
           disabled={!newTypeId || !newName.trim()}
-          className="text-sm px-3 py-1 rounded bg-blue-600 text-white disabled:bg-gray-300"
+          className="text-sm px-3 py-1 rounded bg-primary text-white disabled:bg-line"
         >+ 추가</button>
       </div>
 
       {!loaded ? (
-        <p className="text-sm text-gray-400">불러오는 중…</p>
+        <p className="text-sm text-content-faint">불러오는 중…</p>
       ) : shown.length === 0 ? (
-        <p className="text-sm text-gray-400">아직 등록된 자산이 없습니다. 위에서 종류를 고르고 이름을 입력해 추가하세요.</p>
+        <p className="text-sm text-content-faint">아직 등록된 자산이 없습니다. 위에서 종류를 고르고 이름을 입력해 추가하세요.</p>
       ) : (
         <table className="w-full border-collapse">
           <thead>

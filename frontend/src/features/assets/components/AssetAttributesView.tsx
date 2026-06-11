@@ -20,20 +20,20 @@ export function AssetAttributesView({ fields, attributes, readOnly, onChange }: 
         if (readOnly) {
           return (
             <div key={f.key} className="flex items-center gap-2 text-sm py-0.5">
-              <span className="w-24 shrink-0 text-gray-500 text-xs">{f.label}</span>
+              <span className="w-24 shrink-0 text-content-muted text-xs">{f.label}</span>
               <span className="flex-1">{val || '-'}</span>
             </div>
           );
         }
         return (
           <label key={f.key} className="flex items-center gap-2 text-sm py-0.5">
-            <span className="w-24 shrink-0 text-gray-500 text-xs">{f.label}</span>
+            <span className="w-24 shrink-0 text-content-muted text-xs">{f.label}</span>
             {f.type === 'select' && f.options ? (
               <select
                 aria-label={f.label}
                 value={val}
                 onChange={(e) => onChange?.(f.key, e.target.value)}
-                className="flex-1 px-1 py-0.5 border border-gray-200 rounded text-sm">
+                className="flex-1 px-1 py-0.5 border border-line rounded text-sm">
                 <option value=""></option>
                 {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -43,7 +43,7 @@ export function AssetAttributesView({ fields, attributes, readOnly, onChange }: 
                 type={inputType(f.type)}
                 defaultValue={val}
                 onBlur={(e) => { if (e.target.value !== val) onChange?.(f.key, e.target.value); }}
-                className="flex-1 px-1 py-0.5 border border-gray-200 rounded text-sm"
+                className="flex-1 px-1 py-0.5 border border-line rounded text-sm"
               />
             )}
           </label>

@@ -32,16 +32,16 @@ export const LOG_TYPE_LABELS: Record<string, string> = {
 };
 
 export const LOG_TYPE_COLORS: Record<string, string> = {
-  MAINTENANCE: 'bg-blue-100 text-blue-700',
-  FAILURE: 'bg-red-100 text-red-700',
-  REPAIR: 'bg-emerald-100 text-emerald-700',
+  MAINTENANCE: 'bg-info-bg text-primary',
+  FAILURE: 'bg-danger-bg text-danger',
+  REPAIR: 'bg-success-bg text-success',
 };
 
 export const SEVERITY_COLORS: Record<string, string> = {
-  CRITICAL: 'bg-red-100 text-red-800',
-  HIGH: 'bg-orange-100 text-orange-800',
-  MEDIUM: 'bg-yellow-100 text-yellow-800',
-  LOW: 'bg-green-100 text-green-800',
+  CRITICAL: 'bg-danger-bg text-danger',
+  HIGH: 'bg-warning-bg text-warning',
+  MEDIUM: 'bg-warning-bg text-warning',
+  LOW: 'bg-success-bg text-success',
 };
 
 export const SEVERITY_LABELS: Record<string, string> = {
@@ -52,10 +52,10 @@ export const SEVERITY_LABELS: Record<string, string> = {
 };
 
 export const STATUS_COLORS: Record<string, string> = {
-  OPEN: 'bg-blue-100 text-blue-800',
-  IN_PROGRESS: 'bg-blue-100 text-blue-800',
-  RESOLVED: 'bg-green-100 text-green-800',
-  CLOSED: 'bg-gray-100 text-gray-800',
+  OPEN: 'bg-info-bg text-primary',
+  IN_PROGRESS: 'bg-info-bg text-primary',
+  RESOLVED: 'bg-success-bg text-success',
+  CLOSED: 'bg-surface-2 text-content-muted',
 };
 
 export const STATUS_LABELS: Record<string, string> = {

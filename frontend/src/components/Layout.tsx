@@ -11,29 +11,29 @@ export function Layout() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-bg">
       {/* Header */}
-      <header className="bg-white shadow-sm">
+      <header className="bg-surface shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center">
-              <span className="text-xl font-bold text-blue-600">
+              <span className="text-xl font-bold text-primary">
                 ICT 디지털 트윈
               </span>
             </Link>
 
             {/* User Menu */}
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-content-muted">
                 {user?.name}
-                <span className="ml-1 text-xs text-gray-400">
+                <span className="ml-1 text-xs text-content-faint">
                   ({user?.role === 'ADMIN' ? '관리자' : '일반'})
                 </span>
               </span>
               <button
                 onClick={handleLogout}
-                className="text-sm text-gray-600 hover:text-gray-900"
+                className="text-sm text-content-muted hover:text-content"
               >
                 로그아웃
               </button>

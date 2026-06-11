@@ -33,10 +33,10 @@ export function actionLabel(action: DiffAction): string {
 
 export function actionBadgeColor(action: DiffAction): string {
   switch (action) {
-    case 'install': return 'bg-green-100 text-green-700';
-    case 'remove': return 'bg-red-100 text-red-700';
-    case 'relocate': return 'bg-blue-100 text-blue-700';
-    case 'modify': return 'bg-yellow-100 text-yellow-700';
+    case 'install': return 'bg-success-bg text-success';
+    case 'remove': return 'bg-danger-bg text-danger';
+    case 'relocate': return 'bg-info-bg text-primary';
+    case 'modify': return 'bg-warning-bg text-warning';
   }
 }
 

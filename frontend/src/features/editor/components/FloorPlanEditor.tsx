@@ -389,13 +389,13 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   if (isLoading && !isPlanNotFound) {
     return (
       <div className="flex justify-center items-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-gray-100 overflow-hidden">
+    <div className="h-full w-full flex flex-col bg-surface-2 overflow-hidden">
       <Toolbar
         floor={floor}
         floorPlan={floorPlan}
@@ -413,9 +413,9 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         {isPlanNotFound ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <h3 className="text-lg font-medium text-gray-900">평면도를 찾을 수 없습니다</h3>
-              <p className="mt-2 text-gray-500">이 실의 평면도 데이터가 없습니다.</p>
-              <Link to="/" className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <h3 className="text-lg font-medium text-content">평면도를 찾을 수 없습니다</h3>
+              <p className="mt-2 text-content-muted">이 실의 평면도 데이터가 없습니다.</p>
+              <Link to="/" className="mt-4 inline-block px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover">
                 트리로 돌아가기
               </Link>
             </div>
@@ -465,20 +465,20 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
               {/* Preview mode banner (top of canvas area) */}
               {snapshotActive && (
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-amber-50 border border-amber-300 rounded-lg shadow-sm">
-                  <span className="text-xs font-medium text-amber-800">과거 도면 보기 — {snapshotLabel}</span>
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 px-4 py-2 bg-warning-bg border border-warning rounded-lg shadow-sm">
+                  <span className="text-xs font-medium text-warning">과거 도면 보기 — {snapshotLabel}</span>
                 </div>
               )}
 
               {/* Restore banner — shown after restoring from a past version until save */}
               {restoredFromVersion && !snapshotActive && (
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-300 rounded-lg shadow-sm">
-                  <span className="text-xs font-medium text-blue-800">
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-info-bg border border-info rounded-lg shadow-sm">
+                  <span className="text-xs font-medium text-primary">
                     {restoredFromVersion} 버전에서 복원됨 — 저장하지 않으면 반영되지 않습니다
                   </span>
                   <button
                     onClick={() => setRestoredFromVersion(null)}
-                    className="text-blue-400 hover:text-blue-600 text-xs"
+                    className="text-primary hover:text-primary-hover text-xs"
                     title="닫기"
                   >
                     &times;

@@ -99,7 +99,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
     <div className="flex-1 px-2 pb-2 min-h-0 relative">
       <div
         ref={gridRef}
-        className="h-full border border-gray-300 rounded-md overflow-hidden bg-white grid gap-1"
+        className="h-full border border-line rounded-md overflow-hidden bg-surface grid gap-1"
         style={{
           // 1 열 고정. column 을 explicit 으로 지정하지 않으면 같은 row 에
           // 여러 아이템이 있을 때 implicit column 이 추가되어 grid 가 2 열로
@@ -117,10 +117,10 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
           aria-hidden
           className="pointer-events-none absolute inset-0 flex items-center justify-center px-4"
         >
-          <div className="bg-white/90 backdrop-blur-sm border border-blue-200 rounded-lg px-4 py-3 text-center shadow-sm">
-            <p className="text-xs text-gray-700 font-medium">비어 있는 랙입니다</p>
-            <p className="text-[11px] text-gray-500 mt-1">슬롯을 클릭해서 모듈 추가</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">또는 상단 [프리셋 적용]</p>
+          <div className="bg-surface/90 backdrop-blur-sm border border-info rounded-lg px-4 py-3 text-center shadow-sm">
+            <p className="text-xs text-content font-medium">비어 있는 랙입니다</p>
+            <p className="text-[11px] text-content-muted mt-1">슬롯을 클릭해서 모듈 추가</p>
+            <p className="text-[11px] text-content-faint mt-0.5">또는 상단 [프리셋 적용]</p>
           </div>
         </div>
       )}

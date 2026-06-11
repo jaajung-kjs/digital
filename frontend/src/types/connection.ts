@@ -12,11 +12,11 @@ export interface CableTypeMeta {
 }
 
 export const CABLE_TYPES: CableTypeMeta[] = [
-  { value: 'LAN', label: 'LAN', color: '#3b82f6', badgeClass: 'bg-green-100 text-green-700' },
-  { value: 'FIBER', label: 'FIBER', color: '#22c55e', badgeClass: 'bg-yellow-100 text-yellow-700' },
-  { value: 'AC', label: 'AC', color: '#ef4444', badgeClass: 'bg-red-100 text-red-700' },
-  { value: 'DC', label: 'DC', color: '#f97316', badgeClass: 'bg-blue-100 text-blue-700' },
-  { value: 'GROUND', label: '접지', color: '#eab308', badgeClass: 'bg-gray-100 text-gray-700' },
+  { value: 'LAN', label: 'LAN', color: '#3b82f6', badgeClass: 'bg-success-bg text-success' },
+  { value: 'FIBER', label: 'FIBER', color: '#22c55e', badgeClass: 'bg-warning-bg text-warning' },
+  { value: 'AC', label: 'AC', color: '#ef4444', badgeClass: 'bg-danger-bg text-danger' },
+  { value: 'DC', label: 'DC', color: '#f97316', badgeClass: 'bg-info-bg text-primary' },
+  { value: 'GROUND', label: '접지', color: '#eab308', badgeClass: 'bg-surface-2 text-content-muted' },
 ];
 
 /** Hex color lookup by cable type (for canvas) */

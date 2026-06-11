@@ -81,7 +81,7 @@ function AddModal({ childType, onClose, onSubmit }: AddModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        className="bg-surface rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b" style={{ backgroundColor: style.bg }}>
@@ -93,7 +93,7 @@ function AddModal({ childType, onClose, onSubmit }: AddModalProps) {
               <h3 className="text-lg font-bold" style={{ color: style.text }}>
                 {LEVEL_LABELS[childType]} 추가
               </h3>
-              <p className="text-xs text-gray-500">새로운 {LEVEL_LABELS[childType]}를 생성합니다</p>
+              <p className="text-xs text-content-muted">새로운 {LEVEL_LABELS[childType]}를 생성합니다</p>
             </div>
           </div>
         </div>
@@ -101,35 +101,35 @@ function AddModal({ childType, onClose, onSubmit }: AddModalProps) {
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {isFloor ? (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">층 번호 *</label>
+              <label className="block text-sm font-medium text-content mb-1">층 번호 *</label>
               <input
                 type="number"
                 value={extra.floorNumber || ''}
                 onChange={(e) => setExtra({ ...extra, floorNumber: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-sm"
+                className="w-full px-3 py-2 border border-line rounded-lg focus:ring-2 focus:border-transparent text-sm"
                 placeholder="예: 1 (지하는 -1)"
                 autoFocus
               />
-              <p className="text-xs text-gray-400 mt-1">이름은 자동 생성됩니다 (예: 1층, B1층)</p>
+              <p className="text-xs text-content-faint mt-1">이름은 자동 생성됩니다 (예: 1층, B1층)</p>
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
+              <label className="block text-sm font-medium text-content mb-1">이름 *</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-sm"
+                className="w-full px-3 py-2 border border-line rounded-lg focus:ring-2 focus:border-transparent text-sm"
                 placeholder={`${LEVEL_LABELS[childType]} 이름`}
                 autoFocus
               />
             </div>
           )}
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-content-muted hover:text-content transition-colors">
               취소
             </button>
             <button
@@ -168,15 +168,15 @@ function DeleteConfirmModal({ node, onClose, onConfirm }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-4 border-b bg-red-50">
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-4 border-b bg-danger-bg">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-100">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-danger-bg">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-red-700">삭제 확인</h3>
+            <h3 className="text-lg font-bold text-danger">삭제 확인</h3>
           </div>
         </div>
         <div className="px-6 py-5">
@@ -184,14 +184,14 @@ function DeleteConfirmModal({ node, onClose, onConfirm }: {
             <span>{NODE_ICONS[node.type]}</span>
             <span className="font-semibold text-sm" style={{ color: style.text }}>{node.name}</span>
           </div>
-          <p className="text-sm text-gray-600 mb-1">이 {LEVEL_LABELS[node.type]}를 삭제하시겠습니까?</p>
-          <p className="text-xs text-red-500">하위 항목이 모두 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+          <p className="text-sm text-content-muted mb-1">이 {LEVEL_LABELS[node.type]}를 삭제하시겠습니까?</p>
+          <p className="text-xs text-danger">하위 항목이 모두 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
           <div className="flex justify-end gap-3 mt-5">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">취소</button>
+            <button onClick={onClose} className="px-4 py-2 text-sm text-content-muted hover:text-content">취소</button>
             <button
               onClick={handleConfirm}
               disabled={loading}
-              className="px-5 py-2 text-sm text-white bg-red-500 rounded-lg font-medium hover:bg-red-600 disabled:opacity-50"
+              className="px-5 py-2 text-sm text-white bg-danger rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
             >
               {loading ? '삭제 중...' : '삭제'}
             </button>
@@ -230,7 +230,7 @@ function RenameModal({ node, onClose, onSubmit }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-4 border-b" style={{ backgroundColor: style.bg }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: style.iconBg }}>
@@ -241,18 +241,18 @@ function RenameModal({ node, onClose, onSubmit }: {
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">이름</label>
+            <label className="block text-sm font-medium text-content mb-1">이름</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-sm"
+              className="w-full px-3 py-2 border border-line rounded-lg focus:ring-2 focus:border-transparent text-sm"
               autoFocus
             />
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-danger">{error}</p>}
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">취소</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-content-muted hover:text-content">취소</button>
             <button
               type="submit"
               disabled={loading}
@@ -515,11 +515,11 @@ export function TreeVisualization() {
   /* ── 빈 상태 ── */
   if (roots.length === 0 && !showAddModal) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-gray-400 text-sm gap-4 h-full">
+      <div className="flex-1 flex flex-col items-center justify-center text-content-faint text-sm gap-4 h-full">
         <span>데이터가 없습니다</span>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
         >
           + 본부 추가
         </button>
@@ -538,7 +538,7 @@ export function TreeVisualization() {
   const childType: NodeType | null = displayChildren.length > 0 ? displayChildren[0].type : null;
 
   return (
-    <div className="flex-1 overflow-auto bg-gray-50 relative" ref={containerRef}>
+    <div className="flex-1 overflow-auto bg-bg relative" ref={containerRef}>
       {/* SVG 연결선 */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
         {viewingNode && lines.map((line, i) => (
@@ -559,7 +559,7 @@ export function TreeVisualization() {
           <div className="flex flex-col items-center mb-2">
             <button
               onClick={() => setViewingNodeId(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 transition-colors mb-1"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-content-faint hover:text-content hover:bg-line/60 transition-colors mb-1"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -609,7 +609,7 @@ export function TreeVisualization() {
                       }}
                       className="ml-1 w-5 h-5 rounded-full flex items-center justify-center
                         opacity-0 group-hover/ancestor:opacity-100 transition-opacity
-                        hover:bg-white/60"
+                        hover:bg-surface/60"
                       title="이름 수정"
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={style.text} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -624,10 +624,10 @@ export function TreeVisualization() {
         )}
 
         {/* ── 현재 레벨 라벨 ── */}
-        <div className="mt-6 mb-4 text-xs font-semibold text-gray-400 uppercase tracking-widest">
+        <div className="mt-6 mb-4 text-xs font-semibold text-content-faint uppercase tracking-widest">
           {childType ? LEVEL_LABELS[childType] : (viewingNode ? LEVEL_LABELS[addableChildType] : LEVEL_LABELS.headquarters)}
           {displayChildren.length > 0 && (
-            <span className="ml-1.5 text-gray-300">({displayChildren.length})</span>
+            <span className="ml-1.5 text-content-faint">({displayChildren.length})</span>
           )}
         </div>
 
@@ -647,7 +647,7 @@ export function TreeVisualization() {
               <div key={child.id} className="relative flex items-stretch">
                 {/* 드롭 인디케이터 (왼쪽) */}
                 {dropIndex === idx && dragId && dragId !== child.id && (
-                  <div className="absolute -left-3.5 top-2 bottom-2 w-1 rounded-full bg-blue-500 z-10" />
+                  <div className="absolute -left-3.5 top-2 bottom-2 w-1 rounded-full bg-primary z-10" />
                 )}
                 <div
                   ref={(el) => setChildRef(child.id, el)}
@@ -673,7 +673,7 @@ export function TreeVisualization() {
                 <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={(e) => { e.stopPropagation(); setRenameTarget(child); }}
-                    className="w-6 h-6 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-blue-50 hover:border-blue-300"
+                    className="w-6 h-6 rounded-full bg-surface border border-line shadow-sm flex items-center justify-center hover:bg-info-bg hover:border-primary"
                     title="이름 수정"
                   >
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -682,7 +682,7 @@ export function TreeVisualization() {
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); setDeleteTarget(child); }}
-                    className="w-6 h-6 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center hover:bg-red-50 hover:border-red-300"
+                    className="w-6 h-6 rounded-full bg-surface border border-line shadow-sm flex items-center justify-center hover:bg-danger-bg hover:border-danger"
                     title="삭제"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round">
@@ -704,12 +704,12 @@ export function TreeVisualization() {
                   {child.name}
                 </span>
                 {child.meta?.address && (
-                  <span className="text-[10px] text-gray-400 truncate w-full text-center px-2 mt-0.5">
+                  <span className="text-[10px] text-content-faint truncate w-full text-center px-2 mt-0.5">
                     {child.meta.address}
                   </span>
                 )}
                 {!isLeaf && (
-                  <span className="text-[10px] text-gray-400 mt-1">
+                  <span className="text-[10px] text-content-faint mt-1">
                     {child.type === 'headquarters' && child.meta?.branchCount != null && `지사 ${child.meta.branchCount}개`}
                     {child.type === 'branch' && child.meta?.substationCount != null && `변전소 ${child.meta.substationCount}개`}
                     {child.type === 'substation' && child.meta?.floorCount != null && `${child.meta.floorCount}개 층`}
@@ -723,7 +723,7 @@ export function TreeVisualization() {
                 {child.type === 'substation' && (
                   <button
                     onClick={(e) => { e.stopPropagation(); navigate(`/substations/${child.id}/workspace`); }}
-                    className="mt-2 text-xs px-2 py-1 rounded bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    className="mt-2 text-xs px-2 py-1 rounded bg-info-bg text-primary hover:bg-info-bg"
                     title="이 변전소 워크스페이스 (현황·도면) 열기"
                   >
                     워크스페이스
@@ -732,7 +732,7 @@ export function TreeVisualization() {
                 </div>
                 {/* 드롭 인디케이터 (마지막 아이템 오른쪽) */}
                 {dropIndex === idx + 1 && idx === displayChildren.length - 1 && dragId && dragId !== child.id && (
-                  <div className="absolute -right-3.5 top-2 bottom-2 w-1 rounded-full bg-blue-500 z-10" />
+                  <div className="absolute -right-3.5 top-2 bottom-2 w-1 rounded-full bg-primary z-10" />
                 )}
               </div>
             );
@@ -745,15 +745,15 @@ export function TreeVisualization() {
               className="flex flex-col items-center justify-center w-36 h-36
                 rounded-2xl border-2 border-dashed cursor-pointer
                 transition-all duration-200 select-none
-                hover:shadow-lg hover:-translate-y-1 hover:border-gray-400
-                border-gray-300 bg-white"
+                hover:shadow-lg hover:-translate-y-1 hover:border-line
+                border-line bg-surface"
             >
-              <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-2 bg-gray-100">
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-2 bg-surface-2">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-gray-400">
+              <span className="text-sm font-medium text-content-faint">
                 {LEVEL_LABELS[addableChildType]} 추가
               </span>
             </div>
@@ -761,7 +761,7 @@ export function TreeVisualization() {
         </div>
 
         {displayChildren.length === 0 && !canAdd && (
-          <div className="text-gray-400 text-sm py-12">하위 항목이 없습니다</div>
+          <div className="text-content-faint text-sm py-12">하위 항목이 없습니다</div>
         )}
       </div>
 

@@ -167,13 +167,13 @@ export function PathTraceDetail() {
   const badgeDisplayColor = firstEdge?.displayColor;
 
   return (
-    <div className="border-t border-gray-200 bg-blue-50/50 px-3 py-2">
+    <div className="border-t border-line bg-info-bg/50 px-3 py-2">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-semibold text-blue-700">경로</span>
+          <span className="text-xs font-semibold text-primary">경로</span>
           <span
             className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-              badgeDisplayColor ? '' : (CABLE_BADGE_CLASSES[cableType] || 'bg-gray-100 text-gray-600')
+              badgeDisplayColor ? '' : (CABLE_BADGE_CLASSES[cableType] || 'bg-surface-2 text-content-muted')
             }`}
             style={badgeDisplayColor
               ? { backgroundColor: badgeDisplayColor, color: '#ffffff' }
@@ -185,14 +185,14 @@ export function PathTraceDetail() {
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => { e.stopPropagation(); openTopology(); }}
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            className="text-xs text-primary hover:text-primary-hover font-medium"
             title="이 장비가 속한 전체 네트워크망 보기"
           >
             상세
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); clearHighlight(); }}
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="text-xs text-content-faint hover:text-content"
           >
             닫기
           </button>
@@ -204,15 +204,15 @@ export function PathTraceDetail() {
           {displayItems.map((item, i) => (
             <span key={item.key} className="inline-flex items-center">
               {i > 0 && (
-                <span className={`mx-1 text-xs ${item.isFiberEdge ? 'text-purple-400' : 'text-gray-300'}`}>
+                <span className={`mx-1 text-xs ${item.isFiberEdge ? 'text-purple-400' : 'text-content-faint'}`}>
                   {item.isFiberEdge ? '┄' : '→'}
                 </span>
               )}
               <span
                 className={`rounded px-1.5 py-0.5 text-xs leading-tight ${
                   item.isEndpoint
-                    ? 'bg-blue-100 text-blue-700 font-medium'
-                    : 'bg-gray-100 text-gray-600'
+                    ? 'bg-info-bg text-primary font-medium'
+                    : 'bg-surface-2 text-content-muted'
                 }`}
               >
                 {item.label}

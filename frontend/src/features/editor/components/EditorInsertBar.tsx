@@ -232,7 +232,7 @@ export function EditorInsertBar() {
                         <span
                           aria-hidden
                           className="w-2.5 h-2.5 rounded-full flex-shrink-0 ring-1 ring-black/5"
-                          style={{ backgroundColor: '#6366f1' }}
+                          style={{ backgroundColor: 'var(--primary)' }}
                         />
                         <span className="truncate">{preset.name}</span>
                         <span className="ml-auto text-[10px] text-content-faint">

@@ -22,7 +22,7 @@ export function OverviewView({ nodeType, nodeId }: OverviewViewProps) {
   return (
     // node 가 바뀌면 자식 컴포넌트의 expand state 전체 reset.
     <div className="p-4 max-w-3xl" key={nodeId}>
-      <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+      <div className="px-3 py-2 text-xs font-semibold text-content-muted uppercase tracking-wider">
         현황
       </div>
       <StatsTreeRow

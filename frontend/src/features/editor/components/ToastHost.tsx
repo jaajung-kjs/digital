@@ -1,9 +1,9 @@
 import { useToastStore, type ToastType } from '../stores/toastStore';
 
 const TOAST_BG: Record<ToastType, string> = {
-  success: 'bg-green-600',
-  error: 'bg-red-600',
-  info: 'bg-gray-800',
+  success: 'bg-success',
+  error: 'bg-danger',
+  info: 'bg-content',
 };
 
 /**

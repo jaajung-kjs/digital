@@ -58,31 +58,31 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
   return (
     <section>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-gray-700">사진</h3>
+        <h3 className="text-sm font-semibold text-content">사진</h3>
         <div className="flex gap-1">
           {(['front', 'rear'] as const).map((s) => (
             <button key={s} onClick={() => setSide(s)}
-              className={`text-xs px-2 py-0.5 rounded ${side === s ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
+              className={`text-xs px-2 py-0.5 rounded ${side === s ? 'bg-primary text-white' : 'bg-surface-2 text-content-muted'}`}>
               {s === 'front' ? '전면' : '후면'}
             </button>
           ))}
           <button onClick={() => fileRef.current?.click()}
-            className="text-xs px-2 py-0.5 rounded bg-green-600 text-white">+ 업로드</button>
+            className="text-xs px-2 py-0.5 rounded bg-success text-white">+ 업로드</button>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
         </div>
       </div>
       {isEmpty ? (
-        <p className="text-xs text-gray-400">{side === 'front' ? '전면' : '후면'} 사진 없음</p>
+        <p className="text-xs text-content-faint">{side === 'front' ? '전면' : '후면'} 사진 없음</p>
       ) : (
         <div className="grid grid-cols-3 gap-2">
           {shown.map((item) => (
             <div key={item.id} className="relative group">
-              <img src={item.url} alt="" className="w-full h-20 object-cover rounded border border-gray-200" />
+              <img src={item.url} alt="" className="w-full h-20 object-cover rounded border border-line" />
               {item.isPending && (
-                <span className="absolute bottom-0.5 left-0.5 text-[10px] bg-amber-500 text-white rounded px-1">저장 대기</span>
+                <span className="absolute bottom-0.5 left-0.5 text-[10px] bg-warning text-white rounded px-1">저장 대기</span>
               )}
               <button aria-label="사진 삭제" onClick={() => onDelete(item)}
-                className="absolute top-0.5 right-0.5 bg-white/80 rounded p-0.5 opacity-0 group-hover:opacity-100"><X size={12} /></button>
+                className="absolute top-0.5 right-0.5 bg-surface/80 rounded p-0.5 opacity-0 group-hover:opacity-100"><X size={12} /></button>
             </div>
           ))}
         </div>
