@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { X } from 'lucide-react';
-import { Badge, Button, IconButton } from '../../components/ui';
+import { Badge, Button } from '../../components/ui';
+import { SidePanel } from '../editor/components/SidePanel';
 import { useWorkOrders, useWorkOrder } from './useWorkOrders';
 import { ReportView } from '../editor/components/history/ReportView';
 import type { AuditLog } from '../../types/maintenance';
@@ -55,15 +55,7 @@ export function WorkOrderHistoryPanel({ floorId, onClose }: WorkOrderHistoryPane
   };
 
   return (
-    <div className="absolute left-0 top-0 bottom-0 w-[380px] bg-surface border-r border-line shadow-[4px_0_12px_rgba(0,0,0,0.08)] z-20 flex flex-col animate-slide-in-left">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-surface-2 shrink-0">
-        <h3 className="text-sm font-bold text-content">작업지시서 이력</h3>
-        <IconButton aria-label="닫기" title="닫기" onClick={onClose}>
-          <X size={16} />
-        </IconButton>
-      </div>
-
+    <SidePanel side="right" width={380} title="작업지시서 이력" onClose={onClose}>
       {/* Selected detail toolbar */}
       {selectedId && (
         <div className="flex items-center border-b border-line px-3 py-2 shrink-0">
@@ -126,6 +118,6 @@ export function WorkOrderHistoryPanel({ floorId, onClose }: WorkOrderHistoryPane
           </ul>
         )}
       </div>
-    </div>
+    </SidePanel>
   );
 }
