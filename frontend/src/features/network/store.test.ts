@@ -5,8 +5,8 @@ import type { LocalCable } from '../editor/stores/editorStore';
 function cable(id: string, extra: Partial<LocalCable> = {}): LocalCable {
   return {
     id,
-    sourceEquipmentId: `${id}-src`,
-    targetEquipmentId: `${id}-tgt`,
+    sourceAssetId: `${id}-src`,
+    targetAssetId: `${id}-tgt`,
     sourceModuleId: null,
     targetModuleId: null,
     sourceCircuitId: null,

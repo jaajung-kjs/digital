@@ -177,7 +177,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
   startCircuitTrace: (branchAssetIds) => {
     if (branchAssetIds.length === 0) return;
     // 단계3b: 회로는 BRANCH asset. 인자는 분기 asset id 들. 케이블 endpoint 가
-    //   단일 asset id(flat sourceEquipmentId 자리)이므로 그 id 가 분기 집합에 들면 hit.
+    //   단일 asset id(flat sourceAssetId 자리)이므로 그 id 가 분기 집합에 들면 hit.
     const wc = useSubstationWorkingCopy.getState();
     const cables: LocalCable[] = wc
       .effectiveCables()
@@ -188,12 +188,12 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
     const nodeIds = new Set<string>(branchAssetIds);
     const edgeIds = new Set<string>();
     for (const cable of cables) {
-      const srcHit = !!cable.sourceEquipmentId && branchSet.has(cable.sourceEquipmentId);
-      const tgtHit = !!cable.targetEquipmentId && branchSet.has(cable.targetEquipmentId);
+      const srcHit = !!cable.sourceAssetId && branchSet.has(cable.sourceAssetId);
+      const tgtHit = !!cable.targetAssetId && branchSet.has(cable.targetAssetId);
       if (!srcHit && !tgtHit) continue;
       edgeIds.add(cable.id);
-      nodeIds.add(cable.sourceEquipmentId);
-      nodeIds.add(cable.targetEquipmentId);
+      nodeIds.add(cable.sourceAssetId);
+      nodeIds.add(cable.targetAssetId);
     }
     set({
       active: true,

@@ -14,8 +14,8 @@ export interface TraceNode {
 
 export interface TraceEdge {
   id: string;
-  sourceEquipmentId: string;
-  targetEquipmentId: string;
+  sourceAssetId: string;
+  targetAssetId: string;
   type: 'cable' | 'fiberPath';
   cableType?: CableType;
   label?: string;

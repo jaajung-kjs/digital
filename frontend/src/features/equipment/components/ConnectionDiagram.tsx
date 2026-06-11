@@ -89,7 +89,7 @@ export function ConnectionDiagram({
     return m;
   }, [effectiveAssets]);
 
-  // endpoint = 단일 asset id (flat sourceEquipmentId 자리). 그 자체이거나 자식 모듈/분기면
+  // endpoint = 단일 asset id (flat sourceAssetId 자리). 그 자체이거나 자식 모듈/분기면
   //   이 설비의 연결. 단계4b — nested moduleId 제거, endpoint assetId 하나로만 판정.
   const isSelfSide = useCallback(
     (assetId: string | null | undefined) =>
@@ -121,7 +121,7 @@ export function ConnectionDiagram({
   const relevantCables = useMemo(() => {
     return localCables.filter(
       (cable) =>
-        isSelfSide(cable.sourceEquipmentId) || isSelfSide(cable.targetEquipmentId),
+        isSelfSide(cable.sourceAssetId) || isSelfSide(cable.targetAssetId),
     );
   }, [localCables, isSelfSide]);
 
@@ -148,11 +148,11 @@ export function ConnectionDiagram({
         ) : (
         <div className="space-y-2">
           {relevantCables.map((cable: LocalCable) => {
-            const sourceIsSelf = isSelfSide(cable.sourceEquipmentId);
-            // endpoint 의 flat id(sourceEquipmentId 자리)는 단일 asset id —
+            const sourceIsSelf = isSelfSide(cable.sourceAssetId);
+            // endpoint 의 flat id(sourceAssetId 자리)는 단일 asset id —
             //   분기면 branch asset id, 모듈이면 모듈 id, 그 외엔 설비 id.
-            const selfAssetId = sourceIsSelf ? cable.sourceEquipmentId : cable.targetEquipmentId;
-            const remoteAssetId = sourceIsSelf ? cable.targetEquipmentId : cable.sourceEquipmentId;
+            const selfAssetId = sourceIsSelf ? cable.sourceAssetId : cable.targetAssetId;
+            const remoteAssetId = sourceIsSelf ? cable.targetAssetId : cable.sourceAssetId;
 
             // self 가 이 설비 본체면 설비명, 자식 모듈/분기면 그 노드명.
             const localEqName =

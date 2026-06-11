@@ -37,9 +37,9 @@ export function syncCableEndpointsTo(movedEquipmentId: string): void {
   for (const raw of wc.effectiveCables()) {
     const cable = cableDtoToLocal(raw as unknown as CableDetailDTO);
     if (!cable.pathPoints || cable.pathPoints.length < 2) continue;
-    // cableDtoToLocal 의 sourceEquipmentId 는 polymorphic(설비/모듈/회로 id) — anchor 입력으로 적합.
-    const isSource = anchoredToMoved(cable.sourceEquipmentId);
-    const isTarget = anchoredToMoved(cable.targetEquipmentId);
+    // cableDtoToLocal 의 sourceAssetId 는 polymorphic(설비/모듈/회로 id) — anchor 입력으로 적합.
+    const isSource = anchoredToMoved(cable.sourceAssetId);
+    const isTarget = anchoredToMoved(cable.targetAssetId);
     if (!isSource && !isTarget) continue;
     const pts = cable.pathPoints.map((p) => [...p] as [number, number]);
     if (isSource) pts[0] = newCenter;

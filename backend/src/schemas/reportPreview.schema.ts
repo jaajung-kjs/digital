@@ -35,8 +35,8 @@ const cableSnapshotItem = z.object({
   materialCategoryName: z.string().nullable().optional(),
   specification: z.string().nullable().optional(),
   totalLength: z.number().nullable().optional(),
-  sourceEquipmentId: z.string(),
-  targetEquipmentId: z.string(),
+  sourceAssetId: z.string(),
+  targetAssetId: z.string(),
   label: z.string().nullable().optional(),
 });
 

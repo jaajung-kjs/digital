@@ -73,8 +73,8 @@ function buildPathSegments(nodes: TraceNode[], edges: TraceEdge[]): PathSegment[
   const adj = new Map<string, { neighborId: string; edgeId: string }[]>();
   for (const n of nodes) adj.set(n.equipmentId, []);
   for (const e of edges) {
-    adj.get(e.sourceEquipmentId)?.push({ neighborId: e.targetEquipmentId, edgeId: e.id });
-    adj.get(e.targetEquipmentId)?.push({ neighborId: e.sourceEquipmentId, edgeId: e.id });
+    adj.get(e.sourceAssetId)?.push({ neighborId: e.targetAssetId, edgeId: e.id });
+    adj.get(e.targetAssetId)?.push({ neighborId: e.sourceAssetId, edgeId: e.id });
   }
 
   // Precompute degrees
@@ -220,8 +220,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
   }
 
   const cableType = startCable.cableType;
-  const sourceId = startCable.sourceEquipmentId;
-  const targetId = startCable.targetEquipmentId;
+  const sourceId = startCable.sourceAssetId;
+  const targetId = startCable.targetAssetId;
 
   // Node and edge maps
   const nodeMap = new Map<string, TraceNode>();
@@ -294,24 +294,24 @@ export function traceCable(input: TraceCableInput): TraceResult {
   const addEdge = (edge: TraceEdge) => {
     if (edgeMap.has(edge.id)) return;
     edgeMap.set(edge.id, edge);
-    if (!adjacency.has(edge.sourceEquipmentId)) {
-      adjacency.set(edge.sourceEquipmentId, new Set());
+    if (!adjacency.has(edge.sourceAssetId)) {
+      adjacency.set(edge.sourceAssetId, new Set());
     }
-    if (!adjacency.has(edge.targetEquipmentId)) {
-      adjacency.set(edge.targetEquipmentId, new Set());
+    if (!adjacency.has(edge.targetAssetId)) {
+      adjacency.set(edge.targetAssetId, new Set());
     }
-    adjacency.get(edge.sourceEquipmentId)!.add(edge.targetEquipmentId);
-    adjacency.get(edge.targetEquipmentId)!.add(edge.sourceEquipmentId);
+    adjacency.get(edge.sourceAssetId)!.add(edge.targetAssetId);
+    adjacency.get(edge.targetAssetId)!.add(edge.sourceAssetId);
   };
 
   // 2. In-memory adjacency by cableType
   const sameCables = cables.filter((c) => c.cableType === cableType);
   const cableAdjacency = new Map<string, LocalCable[]>();
   for (const cable of sameCables) {
-    if (!cableAdjacency.has(cable.sourceEquipmentId)) cableAdjacency.set(cable.sourceEquipmentId, []);
-    if (!cableAdjacency.has(cable.targetEquipmentId)) cableAdjacency.set(cable.targetEquipmentId, []);
-    cableAdjacency.get(cable.sourceEquipmentId)!.push(cable);
-    cableAdjacency.get(cable.targetEquipmentId)!.push(cable);
+    if (!cableAdjacency.has(cable.sourceAssetId)) cableAdjacency.set(cable.sourceAssetId, []);
+    if (!cableAdjacency.has(cable.targetAssetId)) cableAdjacency.set(cable.targetAssetId, []);
+    cableAdjacency.get(cable.sourceAssetId)!.push(cable);
+    cableAdjacency.get(cable.targetAssetId)!.push(cable);
   }
 
   // 3. OFD ids — 로컬 equipment(현재 floor) + fiberPaths.ofdA/B (모든 변전소).
@@ -340,8 +340,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
   addNode(targetId, false, true);
   addEdge({
     id: startCable.id,
-    sourceEquipmentId: sourceId,
-    targetEquipmentId: targetId,
+    sourceAssetId: sourceId,
+    targetAssetId: targetId,
     type: 'cable',
     cableType: startCable.cableType as TraceEdge['cableType'],
     label: startCable.label ?? undefined,
@@ -390,7 +390,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
       if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber && isOfd) {
         const portKey = `${cable.fiberPathId}:${cable.fiberPortNumber}`;
         const otherId2 =
-          cable.sourceEquipmentId === equipId ? cable.targetEquipmentId : cable.sourceEquipmentId;
+          cable.sourceAssetId === equipId ? cable.targetAssetId : cable.sourceAssetId;
         if (ofdIds.has(otherId2)) {
           const reachable = ofdReachablePorts.get(equipId);
           if (!reachable || !reachable.has(portKey)) continue;
@@ -400,12 +400,12 @@ export function traceCable(input: TraceCableInput): TraceResult {
 
       visitedEdges.add(cable.id);
 
-      addNode(cable.sourceEquipmentId, cable.sourceEquipmentId === sourceId, cable.sourceEquipmentId === targetId);
-      addNode(cable.targetEquipmentId, cable.targetEquipmentId === sourceId, cable.targetEquipmentId === targetId);
+      addNode(cable.sourceAssetId, cable.sourceAssetId === sourceId, cable.sourceAssetId === targetId);
+      addNode(cable.targetAssetId, cable.targetAssetId === sourceId, cable.targetAssetId === targetId);
       addEdge({
         id: cable.id,
-        sourceEquipmentId: cable.sourceEquipmentId,
-        targetEquipmentId: cable.targetEquipmentId,
+        sourceAssetId: cable.sourceAssetId,
+        targetAssetId: cable.targetAssetId,
         type: 'cable',
         cableType: cable.cableType as TraceEdge['cableType'],
         label: cable.label ?? undefined,
@@ -416,7 +416,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
       });
 
       const otherId =
-        cable.sourceEquipmentId === equipId ? cable.targetEquipmentId : cable.sourceEquipmentId;
+        cable.sourceAssetId === equipId ? cable.targetAssetId : cable.sourceAssetId;
 
       // Propagate port context across FIBER cables
       if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber) {
@@ -498,8 +498,8 @@ function traverseFiberPaths(
     for (const cable of cables) {
       if (
         cable.fiberPortNumber != null &&
-        cable.sourceEquipmentId !== ofdId &&
-        cable.targetEquipmentId !== ofdId
+        cable.sourceAssetId !== ofdId &&
+        cable.targetAssetId !== ofdId
       ) {
         otherSideByKey.set(`${cable.fiberPathId}:${cable.fiberPortNumber}`, cable);
       }
@@ -528,8 +528,8 @@ function traverseFiberPaths(
 
     addEdge({
       id: edgeKey,
-      sourceEquipmentId: fp.ofdA.id,
-      targetEquipmentId: fp.ofdB.id,
+      sourceAssetId: fp.ofdA.id,
+      targetAssetId: fp.ofdB.id,
       type: 'fiberPath',
       cableType: 'FIBER',
       fiberPathId: fp.id,

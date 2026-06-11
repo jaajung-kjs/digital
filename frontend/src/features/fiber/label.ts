@@ -12,8 +12,8 @@ export function fiberPathLabelFor(fp: FiberPathDetail, localOfdId: string): stri
 }
 
 type CableEndpoints = {
-  sourceEquipmentId?: string | null;
-  targetEquipmentId?: string | null;
+  sourceAssetId?: string | null;
+  targetAssetId?: string | null;
   fiberPathId?: string | null;
 };
 
@@ -31,7 +31,7 @@ export function buildCableFiberPathLabel(
   if (!fp) return null;
   // 케이블의 source/target 중 ofdB 와 닿으면 ofdB 가 local, 아니면 ofdA (백엔드와 동일 규약).
   const localOfdId =
-    cable.sourceEquipmentId === fp.ofdB.id || cable.targetEquipmentId === fp.ofdB.id
+    cable.sourceAssetId === fp.ofdB.id || cable.targetAssetId === fp.ofdB.id
       ? fp.ofdB.id
       : fp.ofdA.id;
   return fiberPathLabelFor(fp, localOfdId);

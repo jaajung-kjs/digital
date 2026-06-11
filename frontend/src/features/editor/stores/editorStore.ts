@@ -30,8 +30,8 @@ export interface LocalCable {
    * 이름·위치 lookup 은 반드시 이 판별자로 분기할 것 — equipMap 만 보면 모듈/회로
    * endpoint 가 '?' 로 깨진다.
    */
-  sourceEquipmentId: string;
-  targetEquipmentId: string;
+  sourceAssetId: string;
+  targetAssetId: string;
   /** Rack module endpoint id — null when endpoint is the Equipment itself. */
   sourceModuleId?: string | null;
   targetModuleId?: string | null;

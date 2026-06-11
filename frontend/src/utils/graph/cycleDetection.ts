@@ -29,7 +29,7 @@ export function detectRings(
   // 1. Pair -> edgeIds lookup (supports parallel edges)
   const pairToEdgeIds = new Map<string, string[]>();
   for (const [edgeId, edge] of edgeMap) {
-    const key = pairKey(edge.sourceEquipmentId, edge.targetEquipmentId);
+    const key = pairKey(edge.sourceAssetId, edge.targetAssetId);
     if (!pairToEdgeIds.has(key)) pairToEdgeIds.set(key, []);
     pairToEdgeIds.get(key)!.push(edgeId);
   }
@@ -65,7 +65,7 @@ export function detectRings(
   const chords: { edgeId: string; u: string; v: string }[] = [];
   for (const [edgeId, edge] of edgeMap) {
     if (!treeEdgeIds.has(edgeId)) {
-      chords.push({ edgeId, u: edge.sourceEquipmentId, v: edge.targetEquipmentId });
+      chords.push({ edgeId, u: edge.sourceAssetId, v: edge.targetAssetId });
     }
   }
   if (chords.length === 0) return [];
@@ -206,8 +206,8 @@ export function detectRings(
       for (const eid of outerEdgeIds) {
         const edge = edgeMap.get(eid);
         if (edge) {
-          outerNodeIds.add(edge.sourceEquipmentId);
-          outerNodeIds.add(edge.targetEquipmentId);
+          outerNodeIds.add(edge.sourceAssetId);
+          outerNodeIds.add(edge.targetAssetId);
         }
       }
 
