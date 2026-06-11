@@ -242,7 +242,7 @@ model BomMaterial {
 
 model Port {
   id            String   @id @default(uuid())
-  equipmentId   String   @map("equipment_id")
+  assetId   String   @map("asset_id")
   name          String   @db.VarChar(50)
   portType      PortType @map("port_type")
   portNumber    Int?     @map("port_number")
@@ -254,9 +254,9 @@ model Port {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  equipment Asset @relation("PortAsset", fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment Asset @relation("PortAsset", fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@unique([equipmentId, name])
+  @@unique([assetId, name])
   @@map("ports")
 }
 
@@ -348,14 +348,14 @@ model FiberPath {
 
 model EquipmentPhoto {
   id          String    @id @default(uuid())
-  equipmentId String    @map("equipment_id")
+  assetId String    @map("asset_id")
   side        String    @db.VarChar(10) // 'front' | 'rear'
   imageUrl    String    @map("image_url") @db.VarChar(500)
   description String?   @db.Text
   takenAt     DateTime? @map("taken_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  equipment Asset @relation("EquipmentPhotoAsset", fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment Asset @relation("EquipmentPhotoAsset", fields: [assetId], references: [id], onDelete: Cascade)
 
   @@map("equipment_photos")
 }
@@ -367,7 +367,7 @@ model EquipmentPhoto {
 // 자산에 대해 deprecated(프론트는 FAILURE/REPAIR 만 노출). 컬럼은 호환 위해 유지.
 model MaintenanceLog {
   id          String    @id @default(uuid())
-  equipmentId String    @map("equipment_id")
+  assetId String    @map("asset_id")
   logType     String    @db.VarChar(20) // FAILURE, REPAIR (MAINTENANCE deprecated → InspectionLog)
   title       String    @db.VarChar(200)
   description String?   @db.Text
@@ -380,7 +380,7 @@ model MaintenanceLog {
   createdById String?   @map("created_by")
   updatedById String?   @map("updated_by")
 
-  equipment Asset @relation("MaintenanceLogAsset", fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment Asset @relation("MaintenanceLogAsset", fields: [assetId], references: [id], onDelete: Cascade)
   createdBy User? @relation("MaintenanceLogCreatedBy", fields: [createdById], references: [id])
   updatedBy User? @relation("MaintenanceLogUpdatedBy", fields: [updatedById], references: [id])
 

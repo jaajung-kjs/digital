@@ -35,7 +35,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
 
   const shown = useMemo<Shown[]>(() => {
     const pending = stagedPhotos
-      .filter((u) => u.equipmentId === assetId && u.side === side)
+      .filter((u) => u.assetId === assetId && u.side === side)
       .map((u) => ({ id: u.id, url: u.objectUrl ?? '', isPending: true as const, date: null }));
     const savedShown = saved
       .filter((p) => p.side === side && !photoDeletes.includes(p.id)) // 삭제 staged 제외
@@ -54,7 +54,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
     if (!file) return;
     const compressed = await compressImage(file);
     const objectUrl = URL.createObjectURL(compressed);
-    put(PHOTO_DEF.key, { id: generateTempId(), equipmentId: assetId, side, file: compressed, description: '', objectUrl });
+    put(PHOTO_DEF.key, { id: generateTempId(), assetId, side, file: compressed, description: '', objectUrl });
   };
 
   const onDelete = (item: { id: string; isPending: boolean; url: string }) => {

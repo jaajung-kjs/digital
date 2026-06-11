@@ -78,15 +78,15 @@ describe('workingCopy hooks', () => {
 
     // + 2 staged photos (substationStore photos 컬렉션 — overlay dirty 에 합산)
     act(() => {
-      useSubstationWorkingCopy.getState().put('photos', { id: 'u1', equipmentId: 'e1', side: 'front', objectUrl: 'blob:a' });
-      useSubstationWorkingCopy.getState().put('photos', { id: 'u2', equipmentId: 'e1', side: 'rear', objectUrl: 'blob:b' });
+      useSubstationWorkingCopy.getState().put('photos', { id: 'u1', assetId: 'e1', side: 'front', objectUrl: 'blob:a' });
+      useSubstationWorkingCopy.getState().put('photos', { id: 'u2', assetId: 'e1', side: 'rear', objectUrl: 'blob:b' });
     });
     rerender();
     expect(result.current).toBe(3);
 
     // + 1 staged log (substationStore logs 컬렉션 — overlay dirty 에 합산)
     act(() => {
-      useSubstationWorkingCopy.getState().put('logs', { id: 'l1', equipmentId: 'e1', logType: 'CHECK', title: 't' });
+      useSubstationWorkingCopy.getState().put('logs', { id: 'l1', assetId: 'e1', logType: 'CHECK', title: 't' });
     });
     rerender();
     expect(result.current).toBe(4);

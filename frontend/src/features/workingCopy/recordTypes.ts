@@ -42,7 +42,6 @@ export interface RecordFieldDef {
 /** 미디어 레코드(커밋 flush)의 최소 계약 — MEDIA_FLUSHERS 가 다루는 union. */
 export interface RecordPayload {
   id: string;
-  equipmentId?: string;
   assetId?: string;
   side?: string;
   file?: File;
@@ -76,8 +75,8 @@ export interface RecordTypeDef {
   key: 'inspections' | 'logs' | 'photos';
   /** 표시/로그 라벨. */
   label: string;
-  /** 부모 식별 필드 — inspections=assetId, logs/photos=equipmentId. */
-  parentKey: 'assetId' | 'equipmentId';
+  /** 부모 식별 필드 — 모든 타입(inspections/logs/photos) 공통 assetId. */
+  parentKey: 'assetId';
   /** UI 종류 — form-list(점검/고장이력) | gallery(사진). */
   ui: 'form-list' | 'gallery';
   /** form-list 폼 필드(gallery 는 비움). */
@@ -130,7 +129,7 @@ export const ASSET_RECORD_TYPES: RecordTypeDef[] = [
   {
     key: 'logs',
     label: 'log',
-    parentKey: 'equipmentId',
+    parentKey: 'assetId',
     ui: 'form-list',
     fields: [
       {
@@ -175,7 +174,7 @@ export const ASSET_RECORD_TYPES: RecordTypeDef[] = [
   {
     key: 'photos',
     label: 'photo',
-    parentKey: 'equipmentId',
+    parentKey: 'assetId',
     ui: 'gallery',
     fields: [
       { name: 'side', label: '면', type: 'select', options: [

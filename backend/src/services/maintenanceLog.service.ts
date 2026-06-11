@@ -57,7 +57,7 @@ class MaintenanceLogService {
     }
 
     const logs = await prisma.maintenanceLog.findMany({
-      where: { equipmentId },
+      where: { assetId: equipmentId },
       include: LOG_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
@@ -80,7 +80,7 @@ class MaintenanceLogService {
 
     const log = await prisma.maintenanceLog.create({
       data: {
-        equipmentId,
+        assetId: equipmentId,
         logType: input.logType,
         title: input.title,
         description: input.description,
@@ -148,7 +148,7 @@ class MaintenanceLogService {
   private mapToDetail(l: any): MaintenanceLogDetail {
     return {
       id: l.id,
-      equipmentId: l.equipmentId,
+      equipmentId: l.assetId,
       logType: l.logType,
       title: l.title,
       description: l.description,

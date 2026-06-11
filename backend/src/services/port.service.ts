@@ -57,13 +57,13 @@ class PortService {
     }
 
     const ports = await prisma.port.findMany({
-      where: { equipmentId },
+      where: { assetId: equipmentId },
       orderBy: [{ sortOrder: 'asc' }, { portNumber: 'asc' }],
     });
 
     return ports.map((p) => ({
       id: p.id,
-      equipmentId: p.equipmentId,
+      equipmentId: p.assetId,
       name: p.name,
       portType: p.portType,
       portNumber: p.portNumber,
@@ -92,7 +92,7 @@ class PortService {
 
     return {
       id: port.id,
-      equipmentId: port.equipmentId,
+      equipmentId: port.assetId,
       name: port.name,
       portType: port.portType,
       portNumber: port.portNumber,
@@ -126,7 +126,7 @@ class PortService {
     // 동일 설비 내 포트 이름 중복 확인
     const existing = await prisma.port.findFirst({
       where: {
-        equipmentId,
+        assetId: equipmentId,
         name: input.name,
       },
     });
@@ -137,7 +137,7 @@ class PortService {
 
     const port = await prisma.port.create({
       data: {
-        equipmentId,
+        assetId: equipmentId,
         name: input.name,
         portType: input.portType,
         portNumber: input.portNumber,
@@ -150,7 +150,7 @@ class PortService {
 
     return {
       id: port.id,
-      equipmentId: port.equipmentId,
+      equipmentId: port.assetId,
       name: port.name,
       portType: port.portType,
       portNumber: port.portNumber,
@@ -183,7 +183,7 @@ class PortService {
 
     // 중복 이름 확인
     const existingPorts = await prisma.port.findMany({
-      where: { equipmentId },
+      where: { assetId: equipmentId },
       select: { name: true },
     });
     const existingNames = new Set(existingPorts.map((p) => p.name));
@@ -202,7 +202,7 @@ class PortService {
 
     await prisma.port.createMany({
       data: inputs.map((input, index) => ({
-        equipmentId,
+        assetId: equipmentId,
         name: input.name,
         portType: input.portType,
         portNumber: input.portNumber,
@@ -233,7 +233,7 @@ class PortService {
     if (input.name && input.name !== existing.name) {
       const nameExists = await prisma.port.findFirst({
         where: {
-          equipmentId: existing.equipmentId,
+          assetId: existing.assetId,
           name: input.name,
           id: { not: id },
         },
@@ -260,7 +260,7 @@ class PortService {
 
     return {
       id: port.id,
-      equipmentId: port.equipmentId,
+      equipmentId: port.assetId,
       name: port.name,
       portType: port.portType,
       portNumber: port.portNumber,

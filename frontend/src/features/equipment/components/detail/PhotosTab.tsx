@@ -30,7 +30,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
 
   const allPhotos: LightboxPhoto[] = useMemo(() => {
     const uploads = stagedPhotos
-      .filter((u) => u.equipmentId === equipment.id && u.side === photoSide);
+      .filter((u) => u.assetId === equipment.id && u.side === photoSide);
 
     const saved = (savedPhotos ?? [])
       .filter((p) => p.side === photoSide);
@@ -70,7 +70,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
     const objectUrl = URL.createObjectURL(compressed);
     put(RECORD_TYPE_BY_KEY.photos.key, {
       id: generateTempId(),
-      equipmentId: equipment.id,
+      assetId: equipment.id,
       side: photoSide,
       file: compressed,
       description,

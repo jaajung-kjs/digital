@@ -120,7 +120,7 @@ export interface InspectionRow {
 /** 고장이력(maintenance log) staged 레코드. inspections 와 동일 — saved 는 [](RQ), overlay 만 staging. */
 export interface LogRow {
   id: string;
-  equipmentId: string;
+  assetId: string;
   logType: string;
   title: string;
   description?: string | null;
@@ -132,7 +132,7 @@ export interface LogRow {
 /** 사진 staged 레코드. create 는 압축 File + 미리보기 blob(objectUrl)을 들고 있다(커밋 시 multipart POST). */
 export interface PhotoRow {
   id: string;
-  equipmentId: string;
+  assetId: string;
   side: string;
   file?: File;
   description?: string;

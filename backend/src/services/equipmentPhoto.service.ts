@@ -36,13 +36,13 @@ class EquipmentPhotoService {
     }
 
     const photos = await prisma.equipmentPhoto.findMany({
-      where: { equipmentId },
+      where: { assetId: equipmentId },
       orderBy: { createdAt: 'desc' },
     });
 
     return photos.map((p) => ({
       id: p.id,
-      equipmentId: p.equipmentId,
+      equipmentId: p.assetId,
       side: p.side,
       imageUrl: p.imageUrl,
       description: p.description,
@@ -72,7 +72,7 @@ class EquipmentPhotoService {
 
     const photo = await prisma.equipmentPhoto.create({
       data: {
-        equipmentId,
+        assetId: equipmentId,
         side: input.side,
         imageUrl: input.imageUrl,
         description: input.description,
@@ -82,7 +82,7 @@ class EquipmentPhotoService {
 
     return {
       id: photo.id,
-      equipmentId: photo.equipmentId,
+      equipmentId: photo.assetId,
       side: photo.side,
       imageUrl: photo.imageUrl,
       description: photo.description,

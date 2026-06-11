@@ -65,7 +65,7 @@ function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): Floo
 // flush·무효화는 이 배열을 순회하므로 별도 if 블록·hadX 플래그가 필요 없다(북극성 ①).
 type MediaRecord = {
   id: string;
-  equipmentId?: string; assetId?: string;
+  assetId?: string;
   side?: string; file?: File; description?: string | null;
   logType?: string; title?: string; logDate?: string | null; severity?: string | null;
   inspectionDate?: string; inspector?: string; content?: string | null;
