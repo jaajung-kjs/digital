@@ -1,7 +1,10 @@
 import { Prisma, CableType } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { collectConflicts, VersionConflictError, type ConflictItem } from './concurrency.js';
-import type { SubstationCommitInput } from '../schemas/substationCommit.schema.js';
+import {
+  type SubstationCommitInput,
+  ASSET_SCALAR_FIELDS,
+} from '../schemas/substationCommit.schema.js';
 import {
   assertCableEndpointsValid,
   assertRackParentValid,
@@ -49,26 +52,51 @@ const toInt = (v: unknown) => (v == null ? undefined : Math.trunc(Number(v)));
 // 랙 모듈도 Asset 행이다. asset/rackModule 의 create·update 가 각자 필드를 나열하면
 // 한 곳이 빠져 드롭 버그(status·description 등)가 난다 → 공통 스칼라는 여기 한 곳에서.
 // create: 기본값(null/0) 채움. update: 부분 패치(undefined=미변경).
-const assetCommonCreate = (c: Record<string, unknown>) => ({
-  name: c.name as string,
-  installDate: dateOrNull(c.installDate),
-  manager: (c.manager ?? null) as string | null,
-  description: (c.description ?? null) as string | null,
-  status: (c.status ?? null) as string | null,
-  warrantyUntil: dateOrNull(c.warrantyUntil),
-  replaceDue: dateOrNull(c.replaceDue),
-  sortOrder: (c.sortOrder ?? 0) as number,
-});
-const assetCommonUpdate = (p: Record<string, unknown>) => ({
-  name: p.name as string | undefined,
-  installDate: patchDate(p.installDate),
-  manager: p.manager as string | null | undefined,
-  description: p.description as string | null | undefined,
-  status: p.status as string | null | undefined,
-  warrantyUntil: patchDate(p.warrantyUntil),
-  replaceDue: patchDate(p.replaceDue),
-  sortOrder: p.sortOrder as number | undefined,
-});
+// ASSET_SCALAR_FIELDS(스키마의 SSOT)로부터 create/update data 를 파생한다.
+// 새 스칼라 컬럼은 그 배열에 한 줄 추가하면 여기 두 함수에 자동 반영된다.
+// kind 별 매핑(현재 의미 그대로):
+//   create: date → dateOrNull, number → ?? 0(NOT NULL) | ?? null, string → ?? null | as(NOT NULL name)
+//   update: date → patchDate, 그 외 → pass-through(undefined=미변경)
+const assetCommonCreate = (c: Record<string, unknown>) => {
+  const out: Record<string, unknown> = {};
+  for (const f of ASSET_SCALAR_FIELDS) {
+    const v = c[f.key];
+    if (f.kind === 'date') {
+      out[f.key] = dateOrNull(v);
+    } else if (f.nullable) {
+      out[f.key] = v ?? null; // string|number nullable → 기본 null
+    } else {
+      // NOT NULL: name 은 그대로(필수), number(sortOrder) 는 0 기본값.
+      out[f.key] = f.kind === 'number' ? (v ?? 0) : v;
+    }
+  }
+  return out as {
+    name: string;
+    installDate: Date | null;
+    manager: string | null;
+    description: string | null;
+    status: string | null;
+    warrantyUntil: Date | null;
+    replaceDue: Date | null;
+    sortOrder: number;
+  };
+};
+const assetCommonUpdate = (p: Record<string, unknown>) => {
+  const out: Record<string, unknown> = {};
+  for (const f of ASSET_SCALAR_FIELDS) {
+    out[f.key] = f.kind === 'date' ? patchDate(p[f.key]) : p[f.key];
+  }
+  return out as {
+    name: string | undefined;
+    installDate: Date | null | undefined;
+    manager: string | null | undefined;
+    description: string | null | undefined;
+    status: string | null | undefined;
+    warrantyUntil: Date | null | undefined;
+    replaceDue: Date | null | undefined;
+    sortOrder: number | undefined;
+  };
+};
 
 export interface CommitResult {
   idMaps: {

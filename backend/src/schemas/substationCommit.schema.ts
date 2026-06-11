@@ -38,15 +38,54 @@ function collection<C extends z.ZodTypeAny, P extends z.ZodTypeAny>(create: C, p
 // positionX/positionY/width2d/height2d/rotation/totalU 컬럼. placement 는 선택.
 // 자산/랙모듈 공통 스칼라 필드(SSOT) — asset/rackModule 스키마가 같은 정의를 공유해서
 // 한 필드를 한 곳에만 적으면 양쪽에 반영된다(한쪽에서 빠져 Zod 가 strip → 드롭되던 버그 차단).
-const assetCommonFields = {
-  name: z.string(),
-  installDate: z.string().nullable().optional(),
-  manager: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  status: z.string().nullable().optional(),
-  warrantyUntil: z.string().nullable().optional(),
-  replaceDue: z.string().nullable().optional(),
-  sortOrder: z.number().optional(),
+/**
+ * 자산 스칼라 필드의 SINGLE SOURCE OF TRUTH (P5b).
+ *
+ * 새 스칼라 컬럼을 추가하려면 이 배열에 한 줄만 append 하면 된다.
+ * - Zod shape(`assetCommonFields`)
+ * - 서비스의 create data(`assetCommonCreate`)
+ * - 서비스의 update data(`assetCommonUpdate`)
+ * 셋 다 이 리스트로부터 파생된다.
+ *
+ * 각 entry: { key, kind, nullable, optionalOnCreate? }
+ *  - kind: 'string' | 'date' | 'number' (date 는 wire 상 ISO 문자열 → z.string())
+ *  - nullable: false 면 NOT NULL (create 필수, update 는 항상 partial 이라 무관)
+ *  - optionalOnCreate: true 면 Zod 에서 `.optional()` (nullable=false 라도)
+ */
+export const ASSET_SCALAR_FIELDS = [
+  { key: 'name', kind: 'string', nullable: false },
+  { key: 'installDate', kind: 'date', nullable: true },
+  { key: 'manager', kind: 'string', nullable: true },
+  { key: 'description', kind: 'string', nullable: true },
+  { key: 'status', kind: 'string', nullable: true },
+  { key: 'warrantyUntil', kind: 'date', nullable: true },
+  { key: 'replaceDue', kind: 'date', nullable: true },
+  { key: 'sortOrder', kind: 'number', nullable: false, optionalOnCreate: true },
+] as const;
+
+/** kind → 기본 Zod 타입(date 는 wire 상 ISO 문자열이라 z.string()). */
+function baseZod(kind: 'string' | 'date' | 'number') {
+  return kind === 'number' ? z.number() : z.string();
+}
+
+const assetCommonFields = Object.fromEntries(
+  ASSET_SCALAR_FIELDS.map((f) => {
+    let schema: z.ZodTypeAny = baseZod(f.kind);
+    // 현재 스키마 재현: nullable 필드는 .nullable().optional(),
+    // NOT NULL 필드는 required (단 optionalOnCreate=true 면 .optional()).
+    if (f.nullable) schema = schema.nullable().optional();
+    else if ('optionalOnCreate' in f && f.optionalOnCreate) schema = schema.optional();
+    return [f.key, schema];
+  }),
+) as {
+  name: z.ZodString;
+  installDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+  manager: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+  description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+  status: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+  warrantyUntil: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+  replaceDue: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+  sortOrder: z.ZodOptional<z.ZodNumber>;
 };
 
 const assetCreate = z.object({
