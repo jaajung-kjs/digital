@@ -21,7 +21,7 @@ export function useMaintenanceLogs(equipmentId: string) {
     queryKey: LOG_KEYS.list(equipmentId),
     queryFn: async () => {
       const { data } = await api.get<{ data: MaintenanceLog[] }>(
-        `/equipment/${equipmentId}/maintenance-logs`,
+        `/assets/${equipmentId}/maintenance-logs`,
       );
       return data.data;
     },

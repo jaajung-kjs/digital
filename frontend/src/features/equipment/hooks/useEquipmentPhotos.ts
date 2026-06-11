@@ -14,7 +14,7 @@ export function useEquipmentPhotos(equipmentId: string) {
     queryKey: PHOTO_KEYS.list(equipmentId),
     queryFn: async () => {
       const { data } = await api.get<{ data: EquipmentPhoto[] }>(
-        `/equipment/${equipmentId}/photos`
+        `/assets/${equipmentId}/photos`
       );
       return data.data;
     },
@@ -27,7 +27,7 @@ export function useUploadPhoto(equipmentId: string) {
   return useMutation({
     mutationFn: async (formData: FormData) => {
       const { data } = await api.post<{ data: EquipmentPhoto }>(
-        `/equipment/${equipmentId}/photos`,
+        `/assets/${equipmentId}/photos`,
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },

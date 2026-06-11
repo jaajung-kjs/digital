@@ -6,7 +6,7 @@ import { PortType } from '@prisma/client';
 
 export interface PortDetail {
   id: string;
-  equipmentId: string;
+  assetId: string;
   name: string;
   portType: PortType;
   portNumber: number | null;
@@ -63,7 +63,7 @@ class PortService {
 
     return ports.map((p) => ({
       id: p.id,
-      equipmentId: p.assetId,
+      assetId: p.assetId,
       name: p.name,
       portType: p.portType,
       portNumber: p.portNumber,
@@ -92,7 +92,7 @@ class PortService {
 
     return {
       id: port.id,
-      equipmentId: port.assetId,
+      assetId: port.assetId,
       name: port.name,
       portType: port.portType,
       portNumber: port.portNumber,
@@ -150,7 +150,7 @@ class PortService {
 
     return {
       id: port.id,
-      equipmentId: port.assetId,
+      assetId: port.assetId,
       name: port.name,
       portType: port.portType,
       portNumber: port.portNumber,
@@ -260,7 +260,7 @@ class PortService {
 
     return {
       id: port.id,
-      equipmentId: port.assetId,
+      assetId: port.assetId,
       name: port.name,
       portType: port.portType,
       portNumber: port.portNumber,

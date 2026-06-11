@@ -5,7 +5,7 @@ import { NotFoundError, ValidationError } from '../utils/errors.js';
 
 export interface EquipmentPhotoDetail {
   id: string;
-  equipmentId: string;
+  assetId: string;
   side: string;
   imageUrl: string;
   description: string | null;
@@ -42,7 +42,7 @@ class EquipmentPhotoService {
 
     return photos.map((p) => ({
       id: p.id,
-      equipmentId: p.assetId,
+      assetId: p.assetId,
       side: p.side,
       imageUrl: p.imageUrl,
       description: p.description,
@@ -82,7 +82,7 @@ class EquipmentPhotoService {
 
     return {
       id: photo.id,
-      equipmentId: photo.assetId,
+      assetId: photo.assetId,
       side: photo.side,
       imageUrl: photo.imageUrl,
       description: photo.description,

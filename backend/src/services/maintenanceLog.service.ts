@@ -6,7 +6,7 @@ import { NotFoundError } from '../utils/errors.js';
 /** Serialized to JSON — Date fields become ISO strings via res.json() */
 export interface MaintenanceLogDetail {
   id: string;
-  equipmentId: string;
+  assetId: string;
   logType: string;
   title: string;
   description: string | null;
@@ -148,7 +148,7 @@ class MaintenanceLogService {
   private mapToDetail(l: any): MaintenanceLogDetail {
     return {
       id: l.id,
-      equipmentId: l.assetId,
+      assetId: l.assetId,
       logType: l.logType,
       title: l.title,
       description: l.description,

@@ -4,8 +4,8 @@ import { maintenanceLogService } from '../services/maintenanceLog.service.js';
 export const maintenanceLogController = {
   async getByEquipmentId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { equipmentId } = req.params;
-      const logs = await maintenanceLogService.getByEquipmentId(equipmentId);
+      const { assetId } = req.params;
+      const logs = await maintenanceLogService.getByEquipmentId(assetId);
       res.json({ data: logs });
     } catch (error) {
       next(error);
@@ -14,9 +14,9 @@ export const maintenanceLogController = {
 
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { equipmentId } = req.params;
+      const { assetId } = req.params;
       const userId = req.user!.userId;
-      const log = await maintenanceLogService.create(equipmentId, req.body, userId);
+      const log = await maintenanceLogService.create(assetId, req.body, userId);
       res.status(201).json({ data: log });
     } catch (error) {
       next(error);

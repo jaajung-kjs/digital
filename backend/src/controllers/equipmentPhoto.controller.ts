@@ -7,13 +7,13 @@ export interface MulterRequest extends Request {
 
 export const equipmentPhotoController = {
   /**
-   * GET /api/equipment/:equipmentId/photos
+   * GET /api/assets/:assetId/photos
    * 설비 사진 목록 조회
    */
   async getByEquipmentId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { equipmentId } = req.params;
-      const photos = await equipmentPhotoService.getByEquipmentId(equipmentId);
+      const { assetId } = req.params;
+      const photos = await equipmentPhotoService.getByEquipmentId(assetId);
 
       res.json({ data: photos });
     } catch (error) {
@@ -22,12 +22,12 @@ export const equipmentPhotoController = {
   },
 
   /**
-   * POST /api/equipment/:equipmentId/photos
+   * POST /api/assets/:assetId/photos
    * 설비 사진 업로드
    */
   async create(req: MulterRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { equipmentId } = req.params;
+      const { assetId } = req.params;
       const { side, description, takenAt } = req.body;
 
       if (!req.file) {
@@ -51,7 +51,7 @@ export const equipmentPhotoController = {
       }
 
       const imageUrl = `/uploads/equipment/${req.file.filename}`;
-      const photo = await equipmentPhotoService.create(equipmentId, {
+      const photo = await equipmentPhotoService.create(assetId, {
         side,
         imageUrl,
         description,

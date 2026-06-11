@@ -4,7 +4,7 @@ export type { PortType };
 // 포트 정보
 export interface Port {
   id: string;
-  equipmentId: string;
+  assetId: string;
   name: string;
   portType: PortType;
   portNumber: number | null;

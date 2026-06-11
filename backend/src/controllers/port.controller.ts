@@ -3,13 +3,13 @@ import { portService } from '../services/port.service.js';
 
 export const portController = {
   /**
-   * GET /api/equipment/:equipmentId/ports
+   * GET /api/assets/:assetId/ports
    * 설비 내 포트 목록 조회
    */
   async getByEquipmentId(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { equipmentId } = req.params;
-      const ports = await portService.getByEquipmentId(equipmentId);
+      const { assetId } = req.params;
+      const ports = await portService.getByEquipmentId(assetId);
 
       res.json({ data: ports });
     } catch (error) {
@@ -33,13 +33,13 @@ export const portController = {
   },
 
   /**
-   * POST /api/equipment/:equipmentId/ports
+   * POST /api/assets/:assetId/ports
    * 포트 생성
    */
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { equipmentId } = req.params;
-      const port = await portService.create(equipmentId, req.body);
+      const { assetId } = req.params;
+      const port = await portService.create(assetId, req.body);
 
       res.status(201).json({ data: port });
     } catch (error) {
@@ -48,14 +48,14 @@ export const portController = {
   },
 
   /**
-   * POST /api/equipment/:equipmentId/ports/bulk
+   * POST /api/assets/:assetId/ports/bulk
    * 포트 일괄 생성
    */
   async createBulk(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { equipmentId } = req.params;
+      const { assetId } = req.params;
       const { ports } = req.body;
-      const createdPorts = await portService.createBulk(equipmentId, ports);
+      const createdPorts = await portService.createBulk(assetId, ports);
 
       res.status(201).json({ data: createdPorts });
     } catch (error) {

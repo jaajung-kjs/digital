@@ -91,7 +91,7 @@ app.use('/api/equipment', equipmentRouter);
 app.use('/api/ports', portsRouter);
 app.use('/api/organizations', organizationRouter);
 app.use('/api/cables', cablesRouter);
-app.use('/api/equipment-photos', equipmentPhotosRouter);
+app.use('/api/asset-photos', equipmentPhotosRouter);
 app.use('/api/maintenance-logs', maintenanceLogsRouter);
 app.use('/api/inspection-logs', inspectionLogsRouter);
 app.use('/api', fiberPathsRouter);

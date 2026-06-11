@@ -1,6 +1,6 @@
 export interface EquipmentPhoto {
   id: string;
-  equipmentId: string;
+  assetId: string;
   side: 'front' | 'rear';
   imageUrl: string;
   description?: string;
@@ -13,7 +13,7 @@ export type { LogType, Severity, LogStatus };
 
 export interface MaintenanceLog {
   id: string;
-  equipmentId: string;
+  assetId: string;
   logType: LogType;
   title: string;
   description?: string;
