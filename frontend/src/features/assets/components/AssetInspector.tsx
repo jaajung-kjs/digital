@@ -152,6 +152,48 @@ function StatusField({ value, onCommit, readOnly }: { value: string | null; onCo
   );
 }
 
+/**
+ * P5b-render: 스칼라(식별/생애주기) 필드를 스키마-드리븐으로 렌더. 새 자산 필드 추가가
+ * JSX 편집이 아니라 이 스키마 한 줄 추가로 끝나도록 한다. 현재 하드코딩과 라벨·순서·컴포넌트·
+ * 커밋 강제(coercion)가 바이트 동일해야 한다 — 각 타입별 핸들러가 그 규칙을 캡슐화한다.
+ *
+ * 종류별(fieldTemplate) 필드는 의도적으로 제외(보류): #7 에서 Asset.attributes 가 제거돼
+ * fieldTemplate 키의 자산별 값 소스가 없고(스칼라 컬럼은 백엔드 ASSET_SCALAR_FIELDS 로 고정),
+ * AssetInspector 테스트가 모델/속성 UI 미렌더를 명시적으로 단언한다. 값 소스가 확인되면 추가.
+ */
+type FieldType = 'text' | 'date' | 'status' | 'textarea';
+interface AssetFieldDef {
+  key: keyof Asset | string;
+  label: string;
+  type: FieldType;
+}
+const BASE_ASSET_FIELDS: AssetFieldDef[] = [
+  { key: 'name',        label: '이름',   type: 'text' },
+  { key: 'manager',     label: '담당자', type: 'text' },
+  { key: 'installDate', label: '설치일', type: 'date' },
+  { key: 'status',      label: '상태',   type: 'status' },
+  { key: 'description', label: '설명',   type: 'textarea' },
+];
+
+/** 타입별: asset → 표시/편집 값(문자열). 하드코딩과 동일한 추출 규칙. */
+function fieldValue(field: AssetFieldDef, asset: Asset): string {
+  const raw = asset[field.key];
+  if (field.type === 'date') return toDateInputValue((raw as string | null) ?? null);
+  return (raw as string | null) ?? '';
+}
+
+/** 타입별: 편집 커밋 시 patch 강제(coercion). 하드코딩과 동일한 규칙(바이트 동일 출력). */
+function fieldPatch(field: AssetFieldDef, v: string): Partial<Asset> | null {
+  switch (field.key) {
+    case 'name':
+      return v.trim() ? { name: v.trim() } : null; // 비어 있으면 patch 안 함
+    case 'status':
+      return { status: v };
+    default:
+      return { [field.key]: v || null }; // manager/installDate/description
+  }
+}
+
 export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, spatialLabel }: Props) {
   const ro = mode === 'view';
   const patch = (p: Partial<Asset>) => onPatch?.(asset.id, p);
@@ -179,50 +221,50 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, s
     ? `${asset.width2d != null ? Math.round(asset.width2d) : '-'} x ${asset.height2d != null ? Math.round(asset.height2d) : '-'}`
     : '';
 
+  // 스키마-드리븐 렌더러 — type → 기존 컴포넌트. read/edit 모두 하드코딩과 동일 DOM·props.
+  const renderField = (field: AssetFieldDef) => {
+    // 상태 필드: read/edit 모두 StatusField(값은 raw status, readOnly 토글만 다름).
+    if (field.type === 'status') {
+      return ro
+        ? <StatusField key={field.key} value={asset.status} readOnly />
+        : <StatusField key={field.key} value={asset.status} onCommit={(v) => patch({ status: v })} />;
+    }
+    const value = fieldValue(field, asset);
+    if (ro) return <ReadField key={field.key} label={field.label} value={value} />;
+    const commit = (v: string) => { const p = fieldPatch(field, v); if (p) patch(p); };
+    if (field.type === 'textarea') return <DescField key={field.key} value={value} onCommit={commit} />;
+    return (
+      <Field
+        key={field.key}
+        label={field.label}
+        value={value}
+        onCommit={commit}
+        {...(field.type === 'date' ? { type: 'date' } : {})}
+      />
+    );
+  };
+
   // 정보 탭 — 식별/생애주기 필드(밑줄 없음, 연필-인라인) + (있으면) 공간 섹션(실장도 등).
   // 필드는 라인 없이 여백으로 구분, 공간 섹션 사이에만 아주 옅은 구분선 하나.
+  // 순서 재현: 이름 → [종류/모듈 카테고리·슬롯(RO)] → 담당자 → 설치일 → 상태 → [크기(RO)] → 설명.
+  // 종류/카테고리/슬롯/크기는 자산 컬럼이 아니라 파생 RO 값이라 스키마 밖(JSX)에 그대로 둔다.
+  const kindFields = isModule ? (
+    <>
+      <ReadField label="카테고리" value={categoryLabel} />
+      <ReadField label="슬롯 위치" value={`슬롯 ${slotIndex + 1}–${slotIndex + slotSpan} (${slotSpan}슬롯)`} />
+    </>
+  ) : (
+    <ReadField label="종류" value={kindLabel} />
+  );
   const infoTab = (
     <div className="space-y-0.5">
-      {ro ? (
-        <>
-          <ReadField label="이름" value={asset.name} />
-          {/* 모듈은 종류 대신 카테고리/슬롯 위치(RO)를 보여준다. */}
-          {isModule ? (
-            <>
-              <ReadField label="카테고리" value={categoryLabel} />
-              <ReadField label="슬롯 위치" value={`슬롯 ${slotIndex + 1}–${slotIndex + slotSpan} (${slotSpan}슬롯)`} />
-            </>
-          ) : (
-            <ReadField label="종류" value={kindLabel} />
-          )}
-          <ReadField label="담당자" value={asset.manager ?? ''} />
-          <ReadField label="설치일" value={toDateInputValue(asset.installDate)} />
-          <StatusField value={asset.status} readOnly />
-          {isPlaced && <ReadField label="크기 (px)" value={sizeValue} />}
-          <ReadField label="설명" value={asset.description ?? ''} />
-        </>
-      ) : (
-        <>
-          <Field label="이름" value={asset.name} onCommit={(v) => v.trim() && patch({ name: v.trim() })} />
-          {/* 종류는 항상 읽기전용 — 변경은 대장 종류 변경(별도 흐름)에서만.
-              모듈은 종류 대신 카테고리/슬롯 위치(RO). */}
-          {isModule ? (
-            <>
-              <ReadField label="카테고리" value={categoryLabel} />
-              <ReadField label="슬롯 위치" value={`슬롯 ${slotIndex + 1}–${slotIndex + slotSpan} (${slotSpan}슬롯)`} />
-            </>
-          ) : (
-            <ReadField label="종류" value={kindLabel} />
-          )}
-          <Field label="담당자" value={asset.manager ?? ''} onCommit={(v) => patch({ manager: v || null })} />
-          <Field label="설치일" type="date" value={toDateInputValue(asset.installDate)} onCommit={(v) => patch({ installDate: v || null })} />
-          <StatusField value={asset.status} onCommit={(v) => patch({ status: v })} />
-          {isPlaced && (
-            <ReadField label="크기 (px)" value={sizeValue} />
-          )}
-          <DescField value={asset.description ?? ''} onCommit={(v) => patch({ description: v || null })} />
-        </>
-      )}
+      {renderField(BASE_ASSET_FIELDS[0]) /* 이름 */}
+      {kindFields}
+      {renderField(BASE_ASSET_FIELDS[1]) /* 담당자 */}
+      {renderField(BASE_ASSET_FIELDS[2]) /* 설치일 */}
+      {renderField(BASE_ASSET_FIELDS[3]) /* 상태 */}
+      {isPlaced && <ReadField label="크기 (px)" value={sizeValue} />}
+      {renderField(BASE_ASSET_FIELDS[4]) /* 설명 */}
 
       {/* 공간 섹션(실장도/OFD 경로/분전반 회로) — 정보 탭 안. 필드 블록과 옅은 구분선 하나로만 분리. */}
       {spatial && (
