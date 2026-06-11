@@ -14,23 +14,15 @@ import type { FiberPathDetail, FiberPortStatus, FiberPortUsage } from '../types'
  * 통합 스토어 effective cable 한쪽 끝의 폴리모픽 endpoint(equipmentId | moduleId).
  * cable.service DTO(connections 뷰와 동일)는 source/target 를 nested 객체로 준다.
  */
-export interface EffectiveCableEndpoint {
-  equipmentId?: string | null;
-  moduleId?: string | null;
-}
 export interface EffectiveCable {
   id: string;
   cableType?: string | null;
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
-  source?: EffectiveCableEndpoint | null;
-  target?: EffectiveCableEndpoint | null;
+  // 단계4b — endpoint = 단일 assetId(구 nested source/target {equipmentId,moduleId} 폐지).
+  sourceAssetId?: string | null;
+  targetAssetId?: string | null;
 }
-
-const touches = (ep: EffectiveCableEndpoint | null | undefined, id: string): boolean =>
-  !!ep && (ep.equipmentId === id || ep.moduleId === id);
-const otherIdOf = (ep: EffectiveCableEndpoint | null | undefined): string =>
-  ep?.moduleId ?? ep?.equipmentId ?? '';
 
 /**
  * 이 변전소의 staged 케이블을 fiber path 의 **로컬 side** 에만 overlay 한다.
@@ -58,8 +50,8 @@ export function overlayLocalStagedCables(
     (c) => c.cableType === 'FIBER' && c.fiberPathId && c.fiberPortNumber != null,
   );
 
-  const usageFor = (cable: EffectiveCable, otherEnd: EffectiveCableEndpoint | null | undefined): FiberPortUsage => {
-    const id = otherIdOf(otherEnd);
+  const usageFor = (cable: EffectiveCable, otherAssetId: string | null | undefined): FiberPortUsage => {
+    const id = otherAssetId ?? '';
     return { cableId: cable.id, equipmentId: id, equipmentName: resolveName(id) };
   };
 
@@ -74,12 +66,13 @@ export function overlayLocalStagedCables(
       let localUsage: FiberPortUsage | null = null;
       for (const cable of fiberCables) {
         if (cable.fiberPathId !== path.id || cable.fiberPortNumber !== port.portNumber) continue;
-        if (touches(cable.source, localOfdId)) {
-          localUsage = usageFor(cable, cable.target);
+        // endpoint = 단일 assetId. 로컬 OFD 에 닿는 쪽을 찾고 반대쪽(자국 설비)을 usage 로.
+        if (cable.sourceAssetId === localOfdId) {
+          localUsage = usageFor(cable, cable.targetAssetId);
           break;
         }
-        if (touches(cable.target, localOfdId)) {
-          localUsage = usageFor(cable, cable.source);
+        if (cable.targetAssetId === localOfdId) {
+          localUsage = usageFor(cable, cable.sourceAssetId);
           break;
         }
       }

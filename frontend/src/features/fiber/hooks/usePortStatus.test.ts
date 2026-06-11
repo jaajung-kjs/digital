@@ -59,7 +59,7 @@ describe('overlayLocalStagedCables — local side only', () => {
     // staged local cable touching ofd-a, remote end = eq-x.
     const cable: EffectiveCable = {
       id: 'cable-a', cableType: 'FIBER', fiberPathId: 'path-1', fiberPortNumber: 1,
-      source: { equipmentId: 'ofd-a' }, target: { equipmentId: 'eq-x' },
+      sourceAssetId: 'ofd-a', targetAssetId: 'eq-x',
     };
 
     const [out] = overlayLocalStagedCables([path], [cable], resolveName, 'ofd-a');
@@ -75,7 +75,7 @@ describe('overlayLocalStagedCables — local side only', () => {
     const path = makePath();
     const cable: EffectiveCable = {
       id: 'cable-b', cableType: 'FIBER', fiberPathId: 'path-1', fiberPortNumber: 1,
-      source: { moduleId: 'mod-y' }, target: { equipmentId: 'ofd-b' },
+      sourceAssetId: 'mod-y', targetAssetId: 'ofd-b',
     };
     const [out] = overlayLocalStagedCables([path], [cable], resolveName, 'ofd-b');
     const port1 = out.ports.find((p) => p.portNumber === 1)!;
@@ -95,9 +95,9 @@ describe('overlayLocalStagedCables — local side only', () => {
 
   it('ignores non-fiber cables and cables without a path/port assignment', () => {
     const cables: EffectiveCable[] = [
-      { id: 'c1', cableType: 'COPPER', fiberPathId: 'path-1', fiberPortNumber: 1, source: { equipmentId: 'ofd-a' }, target: { equipmentId: 'eq-x' } },
-      { id: 'c2', cableType: 'FIBER', fiberPathId: null, fiberPortNumber: 1, source: { equipmentId: 'ofd-a' }, target: { equipmentId: 'eq-x' } },
-      { id: 'c3', cableType: 'FIBER', fiberPathId: 'path-1', fiberPortNumber: null, source: { equipmentId: 'ofd-a' }, target: { equipmentId: 'eq-x' } },
+      { id: 'c1', cableType: 'COPPER', fiberPathId: 'path-1', fiberPortNumber: 1, sourceAssetId: 'ofd-a', targetAssetId: 'eq-x' },
+      { id: 'c2', cableType: 'FIBER', fiberPathId: null, fiberPortNumber: 1, sourceAssetId: 'ofd-a', targetAssetId: 'eq-x' },
+      { id: 'c3', cableType: 'FIBER', fiberPathId: 'path-1', fiberPortNumber: null, sourceAssetId: 'ofd-a', targetAssetId: 'eq-x' },
     ];
     const [out] = overlayLocalStagedCables([makePath()], cables, resolveName, 'ofd-a');
     expect(out.ports.every((p) => p.sideA === null)).toBe(true);
@@ -151,7 +151,7 @@ describe('usePortStatus — hybrid (backend base + this-substation staged overla
       { id: 'path-1', ofdAId: 'ofd-a', ofdBId: 'ofd-b', portCount: 2 },
     ]);
     mockUseEffectiveCables.mockReturnValue([
-      { id: 'cable-a', cableType: 'FIBER', fiberPathId: 'path-1', fiberPortNumber: 1, source: { equipmentId: 'ofd-a' }, target: { equipmentId: 'eq-x' } },
+      { id: 'cable-a', cableType: 'FIBER', fiberPathId: 'path-1', fiberPortNumber: 1, sourceAssetId: 'ofd-a', targetAssetId: 'eq-x' },
     ]);
 
     const { result } = renderHook(() => usePortStatus('ofd-a'));
