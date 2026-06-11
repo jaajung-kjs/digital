@@ -64,7 +64,7 @@
 - Modify: `FloorPlanEditor.tsx`(하단 마운트)
 
 **설계(좌→우, Excel식):**
-- 좌측: 그리드 ON/OFF(G) + 크기 `60/10cm`(클릭 인라인 편집) · 스냅(S) · cm 줄자(showLengths) · 배경 투명도 슬라이더(배경 있을 때) · 케이블 그룹 색점 세그먼트(connectionFilters 토글).
+- 좌측: 그리드 ON/OFF(G) + 크기 `60/10cm`(클릭 인라인 편집) · 스냅(S) · cm 줄자(showLengths) · 배경 투명도 슬라이더(배경 있을 때). **케이블 필터는 상태바에 안 넣음**(별도 레전드 — Task 4-2).
 - 우측: `− 100% +` 줌 + 슬라이더/드롭다운.
 - 전부 기존 editorStore 셀렉터/액션 재사용(setShowGrid/setGridSnap/setShowLengths/stageBackgroundOpacity/setConnectionFilters/setViewport+zoomToCenter 로직). 높이 ~30px, 모노크롬, 토큰.
 - 이 시점엔 기존 우상단 알약·필터와 **일시적 중복**(다음 Task에서 제거) — 앱 동작 유지.
@@ -83,14 +83,14 @@
 
 **Files:**
 - Modify: `CanvasView.tsx`(우상단 zoom/grid/snap/help 알약 블록 제거)
-- Modify: `connections/components/ConnectionLegend.tsx` + `ConnectionOverlay.tsx`(떠있는 케이블 필터 렌더 제거 — 상태바가 대체)
+- Modify: `connections/components/ConnectionLegend.tsx`(제거 아님 — 좌하단 단독 레전드로 이동 + 토큰·접기 재스타일)
 - Modify: `Toolbar.tsx`(투명도 Contrast 팝오버 제거, cm 줄자 제거(상태바로), **버전 라벨 제거**)
 - Remove: `FloorSettingsPanel.tsx` + `FloorPlanEditor`의 설정 렌더/토글/`showSettings`
 - 도움말(EditorHelpButton): 캔버스 우하단 단독 작은 버튼으로 재배치
 
 **Steps:**
 1. CanvasView 우상단 오버레이 블록 삭제(zoom/grid/snap/help). 도움말은 우하단으로.
-2. ConnectionLegend 떠있는 렌더 제거(컴포넌트는 상태바 세그먼트로 이미 대체 → 파일 삭제 또는 상태바 내부로 흡수).
+2. **(4-2) ConnectionLegend 재스타일**: 위치 좌하단(`bottom-[상태바+gap] left-3`), 디자인 토큰(`bg-surface/85`·`border-line`), 접기 가능(축소 칩). 필터 로직 불변. *제거하지 않음.*
 3. Toolbar: Contrast 팝오버 블록·줄자·버전 라벨·설정 버튼 제거. 도면 불러오기·리뷰 토글·Undo/Redo는 유지.
 4. FloorSettingsPanel 삭제 + 관련 상태/렌더 제거.
 5. 검증 + dev 수동: 캔버스 위 떠있는 것 0, 모든 뷰 컨트롤은 상태바에만, 제목 옆 버전 없음.
@@ -112,16 +112,26 @@
 
 ---
 
-## Task 6 — 비즈니스 톤 정돈 패스
+## Task 6 — 비즈니스 톤 + 인터랙션 상태(호버·포커스·전환) 통일 패스
 
-**Files:** 상단 액션줄/도구줄(`Toolbar.tsx`/`EditorInsertBar.tsx`), 상태바, 패널 — 스타일만.
+> 전제: Task 1~5의 신규 컴포넌트(SidePanel·StatusBar·legend 등)는 *처음부터* 아래 상태 토큰을 적용해 만든다. 이 Task는 기존 컨트롤까지 포함한 **전면 통일 스윕**.
 
-**설계:** 뉴트럴 팔레트(하드코딩 색 → 토큰), 고밀도(패딩·아이콘 크기 통일), 절제 모션(150–180ms), 1px 구분선 일관, 활성/호버 상태 통일(현재 `bg-blue-100`/`bg-info-bg` 등 혼재 → 토큰 하나로). 상단 2줄 정렬·간격 정돈.
+**Files:** `Toolbar.tsx`·`EditorInsertBar.tsx`·`EditorStatusBar.tsx`·`SidePanel.tsx`·각 패널 본문·`ConnectionLegend.tsx`·공통 버튼(`IconButton` 등) — 스타일/상태만.
+
+**설계(비즈니스 인터랙션 시스템):**
+- **팔레트**: 뉴트럴 그레이 + primary 액센트 절제. 하드코딩 색(`bg-blue-100`·`bg-gray-200`·`text-gray-*`) → 디자인 토큰.
+- **호버**: 모든 인터랙티브 요소 일관 — 버튼/툴 `hover:bg-surface-2`, 행/리스트 `hover:bg-surface-2`, 미묘한 `transition-colors 150ms`. 제각각 호버(`hover:bg-blue-50` 등) 제거.
+- **포커스**: 키보드 접근 `focus-visible:ring-2 ring-primary/40 ring-offset-1`(엔터프라이즈·a11y). 현재 누락분 추가.
+- **활성/선택(active/selected)**: 선택된 도구·탭·필터 = 토큰 하나(`bg-info-bg text-primary` 류)로 통일. pressed 상태 일관.
+- **전환/모션**: 색/배경 150ms, 패널 슬라이드 150–180ms, 토글 즉각. 바운스·과한 그림자 없음. 그림자는 미묘하게(`shadow-sm`/패널 1단).
+- **구분/밀도**: 1px `border-line` 일관, 컴팩트 패딩·아이콘 크기(예: 아이콘 16, 버튼 h-7~8), 정렬·간격 정돈(상단 2줄 포함).
+- **세부**: 툴팁(title→일관), disabled 상태(`opacity-40 cursor-not-allowed`), 빈 상태 문구 톤, 슬라이더/인풋 포커스링.
 
 **Steps:**
-1. 토큰·간격·활성상태 통일(동작 불변, 클래스만).
-2. 검증(tsc/build/test) + dev 수동: 전체가 "한 사람이 만든" 일관 톤.
-3. Commit: `style(editor): 평면도 비즈니스 톤 통일 — 토큰·밀도·모션·활성상태 일관`
+1. 공통 버튼/IconButton·툴·행의 호버/포커스/활성 상태를 토큰으로 통일(동작 불변, 클래스만).
+2. 전환·그림자·구분선·밀도 통일. 상단 2줄·상태바·패널·레전드 정렬 정돈.
+3. 검증(tsc/build/test) + dev 수동: 모든 요소가 동일한 호버·포커스·전환 — "한 사람이 만든" 엔터프라이즈 느낌.
+4. Commit: `style(editor): 평면도 비즈니스 인터랙션 통일 — 호버·포커스·활성·전환·밀도 토큰화`
 
 ---
 
