@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 const WORKFLOW: { step: string; text: string }[] = [
-  { step: '1', text: '도면 가져오기 — 우상단 ⚙️ 에서 DWG/DXF 임포트' },
+  { step: '1', text: '도면 가져오기 — 상단 [도면 불러오기] 에서 DWG/DXF 임포트' },
   { step: '2', text: '설비 배치 — 왼쪽 [설비]/[랙 프리셋] 선택 후 캔버스 클릭' },
   { step: '3', text: '케이블 연결 — 왼쪽 [케이블] 그룹 선택 후 두 객체 클릭' },
 ];
@@ -40,7 +40,7 @@ export function EditorHelpButton() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-8 z-50 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-4">
+          <div className="absolute right-0 bottom-9 z-50 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-4">
             <h4 className="text-sm font-semibold text-gray-900 mb-2">작업 흐름</h4>
             <ol className="space-y-1.5 mb-3">
               {WORKFLOW.map((w) => (

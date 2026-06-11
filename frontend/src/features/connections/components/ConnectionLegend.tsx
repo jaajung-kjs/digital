@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, Filter } from 'lucide-react';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
@@ -30,6 +31,7 @@ export function ConnectionLegend() {
   const setConnectionFilters = useEditorStore((s) => s.setConnectionFilters);
   const { data: cableCategories } = useCableCategories();
   const initialized = useRef(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   // Map: displayGroup -> [category code, ...] (only categories with displayGroup)
   const groupedCodes = useMemo(() => {
@@ -98,13 +100,39 @@ export function ConnectionLegend() {
     }
   };
 
+  // Collapsed → small chip (click to expand). Expanded → header + group toggles.
+  if (collapsed) {
+    const activeGroups = CABLE_DISPLAY_GROUPS.filter((g) => groupState(g) !== 'off').length;
+    return (
+      <button
+        type="button"
+        onClick={() => setCollapsed(false)}
+        title="케이블 필터 펼치기"
+        className="absolute left-3 bottom-10 z-[15] flex items-center gap-1.5 bg-surface/85 backdrop-blur-sm border border-line rounded-lg px-2.5 py-1.5 shadow-sm text-xs text-content-muted hover:bg-surface-2 hover:text-content transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+        <Filter size={13} />
+        <span className="font-medium">케이블 필터</span>
+        <span className="text-[10px] text-content-faint">
+          {activeGroups}/{CABLE_DISPLAY_GROUPS.length}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div
-      className="absolute top-14 right-3 bg-white/85 backdrop-blur-sm border border-gray-200 rounded-lg px-2.5 py-2 shadow-sm"
-      style={{ zIndex: 15 }}
+      className="absolute left-3 bottom-10 z-[15] bg-surface/85 backdrop-blur-sm border border-line rounded-lg px-2.5 py-2 shadow-sm"
     >
       <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-xs font-medium text-gray-500">케이블 필터</span>
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          title="접기"
+          className="flex items-center gap-1 text-xs font-medium text-content-muted hover:text-content transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+        >
+          <ChevronDown size={13} />
+          <span>케이블 필터</span>
+        </button>
         <label className="flex items-center gap-1 cursor-pointer ml-auto">
           <input
             type="checkbox"
@@ -113,9 +141,9 @@ export function ConnectionLegend() {
             }}
             checked={allSelected}
             onChange={toggleAll}
-            className="w-3 h-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="w-3 h-3 rounded border-line text-primary focus:ring-primary/40"
           />
-          <span className="text-[11px] text-gray-600">전체</span>
+          <span className="text-[11px] text-content-muted">전체</span>
         </label>
       </div>
       <div className="flex items-center gap-1">

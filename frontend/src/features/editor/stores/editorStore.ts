@@ -133,7 +133,8 @@ export interface EditorStoreState {
    * 우측 패널 단일 enum — 우측에는 동시에 최대 하나만 뜬다(상호배타).
    * null = 아무 패널도 안 열림. 'detail' 은 detailAssetId 가 가리키는 설비 상세.
    * 이전의 detailPanelEquipmentId / showReport / showWorkOrders / showLayers
-   * 4개 분리 상태를 통합한 것. (showSettings / opacity 팝오버는 별개 — Task 4.)
+   * 4개 분리 상태를 통합한 것. 도면 설정(그리드/투명도)·배경 교체·제거는
+   * 각각 하단 상태바와 'background' 패널로 이관됨(별도 설정 패널 폐기).
    */
   rightPanel: 'detail' | 'report' | 'history' | 'background' | null;
   /** rightPanel === 'detail' 일 때 상세를 띄울 자산(설비/모듈) id. */

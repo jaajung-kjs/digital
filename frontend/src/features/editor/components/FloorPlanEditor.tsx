@@ -29,7 +29,6 @@ import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { EquipmentResizeHandlesHost } from './EquipmentResizeHandlesHost';
 import { ReportPanel } from '../../report/ReportPanel';
 import { WorkOrderHistoryPanel } from '../../report/WorkOrderHistoryPanel';
-import { FloorSettingsPanel } from './FloorSettingsPanel';
 import { DwgImportModal } from './DwgImportModal';
 import { BackgroundLayersPanel } from './BackgroundLayersPanel';
 import { CableSpecModalWrapper } from './modals/CableSpecModal';
@@ -55,7 +54,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const isAdmin = useIsAdmin();
-  const [showSettings, setShowSettings] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
   const {
@@ -405,7 +403,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         activeRightPanel={rightPanel}
         onToggleWorkOrders={() => togglePanel('history')}
         onToggleReport={() => togglePanel('report')}
-        onToggleSettings={() => setShowSettings(p => !p)}
         onToggleLayers={() => togglePanel('background')}
         onImportClick={() => setShowImportModal(true)}
       />
@@ -444,7 +441,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
               {/* 우측 패널 — 단일 enum 으로 동시에 최대 하나만 렌더(상호배타).
                   detail/report/history/background 가 같은 우측 슬롯을 공유하므로
-                  더 이상 겹치지 않는다. (도면 설정은 별개 앵커드 팝오버 — Task 4.) */}
+                  더 이상 겹치지 않는다. (그리드/투명도는 하단 상태바, 배경 교체/제거는 'background' 패널.) */}
               {rightPanel === 'detail' && detailAssetId && (
                 <EquipmentDetailPanel equipmentId={detailAssetId} floorId={floorId} />
               )}
@@ -460,16 +457,10 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
               {rightPanel === 'background' && effectiveBackgroundDrawing && (
                 <BackgroundLayersPanel
                   bg={effectiveBackgroundDrawing}
-                  onClose={() => closeRightPanel()}
-                />
-              )}
-
-              {showSettings && !snapshotActive && (
-                <FloorSettingsPanel
-                  floorId={floorId}
                   floorPlan={floorPlan}
-                  onClose={() => setShowSettings(false)}
+                  canEdit={!snapshotActive}
                   onImportClick={() => setShowImportModal(true)}
+                  onClose={() => closeRightPanel()}
                 />
               )}
 

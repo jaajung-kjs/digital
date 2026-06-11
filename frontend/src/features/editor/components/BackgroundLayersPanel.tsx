@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { SidePanel } from './SidePanel';
 import { useEditorStore } from '../stores/editorStore';
-import type { BackgroundDrawing } from '../../../types/floorPlan';
+import type { BackgroundDrawing, FloorPlanDetail } from '../../../types/floorPlan';
 
 /**
  * DWG-C — CAD-style layer panel for the imported BackgroundDrawing.
@@ -16,14 +16,35 @@ import type { BackgroundDrawing } from '../../../types/floorPlan';
 interface Props {
   bg: BackgroundDrawing;
   onClose?: () => void;
+  /** 도면 크기 readout 및 파일명 표시용. */
+  floorPlan?: FloorPlanDetail;
+  /** 배경 도면 교체/제거 가능 여부 (snapshot 보기 중엔 false). */
+  canEdit?: boolean;
+  /** 배경 교체 — 부모가 DwgImportModal 을 띄움. */
+  onImportClick?: () => void;
 }
 
-export function BackgroundLayersPanel({ bg, onClose }: Props) {
+export function BackgroundLayersPanel({ bg, onClose, floorPlan, canEdit = false, onImportClick }: Props) {
   const hiddenBgLayers = useEditorStore((s) => s.hiddenBgLayers);
   const toggleBgLayerVisibility = useEditorStore((s) => s.toggleBgLayerVisibility);
   const showAllBgLayers = useEditorStore((s) => s.showAllBgLayers);
   const hideAllBgLayers = useEditorStore((s) => s.hideAllBgLayers);
+  const stagedBackgroundOpacity = useEditorStore((s) => s.stagedBackgroundOpacity);
+  const stageBackgroundOpacity = useEditorStore((s) => s.stageBackgroundOpacity);
+  const stageBackgroundClear = useEditorStore((s) => s.stageBackgroundClear);
   const [search, setSearch] = useState('');
+
+  const opacity = stagedBackgroundOpacity ?? floorPlan?.backgroundOpacity ?? 0.3;
+
+  const handleClearBackground = () => {
+    if (!confirm('배경 도면을 제거하시겠습니까? (저장 전까지는 되돌릴 수 있습니다.)')) return;
+    stageBackgroundClear();
+    onClose?.();
+  };
+
+  // 도면 크기 표시용 (자동 확장된 캔버스 — 사용자 입력 X).
+  const canvasWidthM = floorPlan ? (floorPlan.canvasWidth / 100).toFixed(1) : '—';
+  const canvasHeightM = floorPlan ? (floorPlan.canvasHeight / 100).toFixed(1) : '—';
 
   // Entity count per layer (paths + texts + filled). Pre-computed so the
   // sort/render pass stays cheap.
@@ -55,8 +76,63 @@ export function BackgroundLayersPanel({ bg, onClose }: Props) {
   );
 
   return (
-    <SidePanel side="right" width={300} title="배경 레이어" onClose={() => onClose?.()}>
-      {/* Toolbar */}
+    <SidePanel side="right" width={300} title="배경" onClose={() => onClose?.()}>
+      {/* 배경 도면 관리 — 투명도·교체·제거·도면 크기 (FloorSettingsPanel 에서 이관) */}
+      <div className="px-3 py-2.5 border-b border-line shrink-0 space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-content-muted">배경 도면</span>
+          <span
+            className="text-[10px] text-content-faint truncate max-w-[160px]"
+            title={bg.source.fileName}
+          >
+            {bg.source.fileName}
+          </span>
+        </div>
+
+        {canEdit && (
+          <>
+            <div>
+              <label className="block text-[11px] text-content-muted mb-1">
+                투명도 ({Math.round(opacity * 100)}%)
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={opacity}
+                onChange={(e) => stageBackgroundOpacity(parseFloat(e.target.value))}
+                className="w-full accent-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              {onImportClick && (
+                <button
+                  type="button"
+                  onClick={() => onImportClick()}
+                  className="flex-1 px-3 py-1.5 text-xs border border-line rounded text-content hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  교체
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleClearBackground}
+                className="px-3 py-1.5 text-xs text-danger border border-danger/30 rounded hover:bg-danger/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+              >
+                제거
+              </button>
+            </div>
+          </>
+        )}
+
+        <div className="bg-surface-2 rounded px-2.5 py-1.5 text-[11px] text-content-muted">
+          도면 크기: {canvasWidthM} m × {canvasHeightM} m
+        </div>
+      </div>
+
+      {/* Layer toolbar */}
       <div className="px-3 py-2 border-b border-line flex items-center gap-2 shrink-0">
         <input
           value={search}

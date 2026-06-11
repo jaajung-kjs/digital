@@ -6,7 +6,6 @@ import { useEditorStore } from '../stores/editorStore';
 import { CanvasContextMenu, type CanvasContextMenuState } from './CanvasContextMenu';
 import { EmptyStateGuide } from './EmptyStateGuide';
 import { EditorHelpButton } from './EditorHelpButton';
-import { zoomToCenter as zoomToCenterShared } from '../utils/zoom';
 
 interface CanvasViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -33,17 +32,8 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
   } = useCanvasEvents(canvasRef, floorPlan, floorId, onPlacePreset, setContextMenu);
 
   const tool = useEditorStore((s) => s.tool);
-  const zoom = useEditorStore((s) => s.zoom);
-  const showGrid = useEditorStore((s) => s.showGrid);
-  const gridSnap = useEditorStore((s) => s.gridSnap);
-  const setShowGrid = useEditorStore((s) => s.setShowGrid);
-  const setGridSnap = useEditorStore((s) => s.setGridSnap);
-
   const isPanning = useEditorStore((s) => s.isPanning);
   const isSpacePressed = useEditorStore((s) => s.isSpacePressed);
-
-  /** Zoom to a new level, keeping the viewport center stable (shared impl). */
-  const zoomToCenter = (newZoom: number) => zoomToCenterShared(newZoom, containerRef?.current);
 
   return (
     <div ref={containerRef as React.RefObject<HTMLDivElement>} className="flex-1 relative overflow-hidden bg-gray-200">
@@ -64,68 +54,10 @@ export function CanvasView({ canvasRef, containerRef, floorPlan, floorId, onPlac
 
       <EmptyStateGuide floorPlan={floorPlan} floorId={floorId} onImportClick={onImportClick} />
 
-      <div className="absolute top-3 right-3 flex items-center gap-1.5">
-        <div className="bg-white/95 backdrop-blur shadow-sm border border-line rounded-lg flex items-center h-8 px-1 gap-0.5">
-          <button onClick={() => zoomToCenter(Math.max(10, zoom - 10))} className="w-6 h-6 flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-2 rounded transition-colors" title="축소">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M20 12H4" /></svg>
-          </button>
-          <div
-            className="w-14 h-6 flex items-center justify-center text-xs font-mono text-content-muted cursor-pointer hover:bg-surface-2 rounded"
-            onClick={() => zoomToCenter(100)}
-            title="100%로 리셋"
-          >
-            {zoom}%
-          </div>
-          <button onClick={() => zoomToCenter(Math.min(1000, zoom + 10))} className="w-6 h-6 flex items-center justify-center text-content-muted hover:text-content hover:bg-surface-2 rounded transition-colors" title="확대">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M12 4v16m8-8H4" /></svg>
-          </button>
-          <div className="w-px h-4 bg-line-strong mx-0.5" />
-          <select
-            value=""
-            onChange={(e) => { if (e.target.value) zoomToCenter(parseInt(e.target.value)); }}
-            className="w-6 h-6 bg-transparent text-content-muted hover:text-content hover:bg-surface-2 rounded cursor-pointer appearance-none text-center text-xs"
-            title="줌 프리셋"
-          >
-            <option value="" className="bg-surface">&#9662;</option>
-            <option value="10" className="bg-surface">10%</option>
-            <option value="25" className="bg-surface">25%</option>
-            <option value="50" className="bg-surface">50%</option>
-            <option value="100" className="bg-surface">100%</option>
-            <option value="200" className="bg-surface">200%</option>
-            <option value="400" className="bg-surface">400%</option>
-          </select>
-        </div>
-
-        <div className="bg-white/95 backdrop-blur shadow-sm border border-line rounded-lg flex items-center h-8 px-0.5">
-          <button
-            onClick={() => setShowGrid(!showGrid)}
-            className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
-              showGrid ? 'text-primary bg-info-bg' : 'text-content-faint hover:text-content-muted hover:bg-surface-2'
-            }`}
-            title={`그리드 ${showGrid ? 'ON' : 'OFF'} (G)`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 0h7v7h-7v-7z" />
-            </svg>
-          </button>
-          <button
-            onClick={() => setGridSnap(!gridSnap)}
-            className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
-              gridSnap ? 'text-warning bg-warning-bg' : 'text-content-faint hover:text-content-muted hover:bg-surface-2'
-            }`}
-            title={`스냅 ${gridSnap ? 'ON' : 'OFF'} (S)`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path d="M4 12h4m8 0h4M12 4v4m0 8v4" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="bg-white/95 backdrop-blur shadow-sm border border-line rounded-lg flex items-center h-8 px-1">
-          <EditorHelpButton />
-        </div>
-
+      {/* 도움말 — 캔버스 우하단 단독 버튼 (뷰 컨트롤은 하단 상태바로 일원화됨).
+          상태바(~30px) 위에 떠 있도록 bottom-10. */}
+      <div className="absolute bottom-10 right-3 bg-surface/95 backdrop-blur shadow-sm border border-line rounded-lg flex items-center h-8 px-1">
+        <EditorHelpButton />
       </div>
 
       {children}
