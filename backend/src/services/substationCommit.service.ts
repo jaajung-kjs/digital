@@ -23,7 +23,7 @@ import {
  *  - 검증은 bulkUpdatePlan 과 동일한 planApply 공유 헬퍼 사용.
  *
  * NOTE: rackModules 와 분전 회로(feeder/branch)는 모두 Asset(자식) 행으로 저장된다
- *       (별도 RackModule/DistributionCircuit 커밋 경로 없음 — 단계3b/4b).
+ *       (별도 회로 커밋 경로 없음 — 단계3b/4b/4c, DistributionCircuit 모델 제거됨).
  *       케이블 endpoint 는 단일 Asset 노드 — source_asset_id/target_asset_id 만 쓴다.
  */
 

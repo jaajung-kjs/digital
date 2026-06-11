@@ -75,8 +75,9 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
     const { data } = res.body;
     expect(Array.isArray(data.assets)).toBe(true);
     expect(Array.isArray(data.cables)).toBe(true);
-    expect(Array.isArray(data.distributionCircuits)).toBe(true);
     expect(Array.isArray(data.fiberPaths)).toBe(true);
+    // 단계4c — 분전반 회로는 FEEDER/BRANCH Asset 으로 통합, 별도 컬렉션 없음.
+    expect(data.distributionCircuits).toBeUndefined();
   });
 
   it('assets[0] 가 placement + 트리 + updatedAt 컬럼을 캐리한다', async () => {
