@@ -8,7 +8,7 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets, useEffectiveAssetsOverlay, useUnifiedDirty } from '../../workingCopy/hooks';
 import { StatusSummary } from './StatusSummary';
 import { AssetDetailPanel } from './AssetDetailPanel';
-import { Badge, type BadgeStatus } from '../../../components/ui';
+import { Badge } from '../../../components/ui';
 import type { Asset } from '../../../types/asset';
 
 const COLUMNS = ['종류', '이름', '설치장소', '설치일', '담당자', '마지막 점검일', '상태'] as const;

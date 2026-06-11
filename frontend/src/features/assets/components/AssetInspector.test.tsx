@@ -53,7 +53,7 @@ describe('AssetInspector — 단일 인스펙터(SSOT)', () => {
     wrap(<AssetInspector asset={asset} mode="view" onSelectAsset={vi.fn()} today={today} />);
     expect(screen.queryByLabelText('모델')).toBeNull();
     expect(screen.getByText('비고 메모')).toBeTruthy();  // 설명 읽기전용 표시
-    expect(screen.getByText('운영중')).toBeTruthy();      // 상태 읽기전용 표시
+    expect(screen.getByText('ON')).toBeTruthy();           // 상태 = ON/OFF 뱃지(기본 ON)
   });
 });
 
