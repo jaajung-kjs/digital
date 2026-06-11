@@ -28,7 +28,7 @@ export function DetailTabs({ tabs, initial }: { tabs: DetailTab[]; initial?: str
       {/* 탭 바 — 패널 헤더 아래 sticky, 단일 하단 라인. */}
       <div
         role="tablist"
-        className="sticky top-0 z-10 flex shrink-0 items-stretch border-b border-line bg-surface px-2"
+        className="sticky top-0 z-10 flex shrink-0 items-stretch border-b border-line bg-surface"
       >
         {tabs.map((t) => {
           const on = t.label === current?.label;
@@ -39,10 +39,11 @@ export function DetailTabs({ tabs, initial }: { tabs: DetailTab[]; initial?: str
               role="tab"
               aria-selected={on}
               onClick={() => setActive(t.label)}
-              className={`relative -mb-px flex items-center gap-1 px-3 py-2 text-xs border-b-2 transition-colors focus-visible:outline-none ${
+              // flex-1 로 5개 탭이 패널 폭을 균등 분배 — 우측 여백 없음.
+              className={`relative -mb-px flex flex-1 items-center justify-center gap-1 px-1 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors focus-visible:outline-none ${
                 on
                   ? 'text-content font-medium border-primary'
-                  : 'text-content-muted hover:text-content border-transparent'
+                  : 'text-content-muted hover:text-content hover:bg-surface-2/50 border-transparent'
               }`}
             >
               {t.label}

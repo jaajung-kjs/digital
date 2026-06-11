@@ -27,7 +27,7 @@ describe('InspectionSection — 점검(#5)', () => {
     admin = true;
   });
 
-  it('최근 점검일 강조 + 목록(날짜·점검자·내용) 렌더', async () => {
+  it('이력 목록(날짜·점검자·내용)을 누적 표시', async () => {
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({
       data: { data: [
         { id: 'i1', assetId: 'a1', inspectionDate: '2026-06-01', inspector: '홍길동', content: '이상 없음' },
@@ -35,16 +35,17 @@ describe('InspectionSection — 점검(#5)', () => {
     });
     wrap(<InspectionSection assetId="a1" />);
     await waitFor(() => expect(screen.getByText('홍길동')).toBeTruthy());
-    expect(screen.getByText(/최근 점검일/)).toBeTruthy();
+    expect(screen.getByText('점검 이력')).toBeTruthy();
     expect(screen.getByText('이상 없음')).toBeTruthy();
   });
 
-  it('관리자: + 점검 추가 → 폼 작성 → POST', async () => {
+  it('관리자: 작성 폼이 항상 노출(토글 없음) → 작성 → POST', async () => {
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: [] } });
     (api.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: { id: 'new' } } });
     wrap(<InspectionSection assetId="a1" />);
-    await waitFor(() => expect(screen.getByText('점검 이력이 없습니다.')).toBeTruthy());
-    fireEvent.click(screen.getByText('+ 점검 추가'));
+    // 빈 상태 문구는 한 곳에서만.
+    await waitFor(() => expect(screen.getByText('아직 기록된 점검이 없습니다.')).toBeTruthy());
+    // 폼이 바로 보인다(추가 버튼 클릭 불필요).
     fireEvent.change(screen.getByLabelText('점검자'), { target: { value: '김점검' } });
     fireEvent.click(screen.getByText('점검 등록'));
     await waitFor(() => expect(api.post).toHaveBeenCalled());
@@ -53,11 +54,12 @@ describe('InspectionSection — 점검(#5)', () => {
     expect(body.inspector).toBe('김점검');
   });
 
-  it('비관리자: 추가 버튼 없음(읽기 전용)', async () => {
+  it('비관리자: 작성 폼 없음(읽기 전용)', async () => {
     admin = false;
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: [] } });
     wrap(<InspectionSection assetId="a1" />);
-    await waitFor(() => expect(screen.getByText('점검 이력이 없습니다.')).toBeTruthy());
-    expect(screen.queryByText('+ 점검 추가')).toBeNull();
+    await waitFor(() => expect(screen.getByText('아직 기록된 점검이 없습니다.')).toBeTruthy());
+    expect(screen.queryByLabelText('점검자')).toBeNull();
+    expect(screen.queryByText('점검 등록')).toBeNull();
   });
 });
