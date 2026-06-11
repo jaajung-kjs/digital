@@ -16,8 +16,8 @@ export interface FiberPathDetail {
 
 export interface FiberPortStatus {
   portNumber: number;
-  sideA: { cableId: string; equipmentId: string; equipmentName: string } | null;
-  sideB: { cableId: string; equipmentId: string; equipmentName: string } | null;
+  sideA: { cableId: string; assetId: string; assetName: string } | null;
+  sideB: { cableId: string; assetId: string; assetName: string } | null;
 }
 
 export interface CreateFiberPathInput {
@@ -64,15 +64,15 @@ const fiberPathCablesInclude = {
   },
 } as const;
 
-// OFD 가 cable 한 쪽 endpoint 일 때 "반대편" 을 {equipmentId, equipmentName} 형태로 반환.
+// OFD 가 cable 한 쪽 endpoint 일 때 "반대편" 을 {assetId, assetName} 형태로 반환.
 // endpoint = 단일 Asset 이므로 반대편 asset 의 id 를 그대로 반환 — frontend 의 endpoint 모델
-// (asset id space) 과 일치한다. 그래서 BFS 의 노드 id 와 fiberPath sideX.equipmentId 가 같은 ID space.
+// (asset id space) 과 일치한다. 그래서 BFS 의 노드 id 와 fiberPath sideX.assetId 가 같은 ID space.
 function resolveOtherEndpoint(
   cable: any,
   ofdSide: 'source' | 'target',
-): { equipmentId: string; equipmentName: string } | null {
+): { assetId: string; assetName: string } | null {
   const other = ofdSide === 'source' ? cable.targetAsset : cable.sourceAsset;
-  if (other) return { equipmentId: other.id, equipmentName: other.name };
+  if (other) return { assetId: other.id, assetName: other.name };
   return null;
 }
 
@@ -225,8 +225,8 @@ class FiberPathService {
         if (!other) continue;
         const usage = {
           cableId: cable.id,
-          equipmentId: other.equipmentId,
-          equipmentName: other.equipmentName,
+          assetId: other.assetId,
+          assetName: other.assetName,
         };
         if (attach.fpSide === 'A') sideA = usage;
         else sideB = usage;

@@ -38,12 +38,12 @@ interface ConnectionOverlayProps {
 
 function mapCablesToRenderable(
   cables: LocalCable[],
-  equipmentPositions: Map<string, { x: number; y: number; width: number; height: number }>
+  endpointPositions: Map<string, { x: number; y: number; width: number; height: number }>
 ): RenderableConnection[] {
   const result: RenderableConnection[] = [];
   for (const cable of cables) {
-    const sourcePos = equipmentPositions.get(cable.sourceAssetId);
-    const targetPos = equipmentPositions.get(cable.targetAssetId);
+    const sourcePos = endpointPositions.get(cable.sourceAssetId);
+    const targetPos = endpointPositions.get(cable.targetAssetId);
     if (!sourcePos || !targetPos) continue;
     result.push({
       id: cable.id,
@@ -65,12 +65,12 @@ function mapCablesToRenderable(
 
 function mapPlanCablesToRenderable(
   cables: FloorPlanCable[],
-  equipmentPositions: Map<string, { x: number; y: number; width: number; height: number }>
+  endpointPositions: Map<string, { x: number; y: number; width: number; height: number }>
 ): RenderableConnection[] {
   const result: RenderableConnection[] = [];
   for (const cable of cables) {
-    const sourcePos = equipmentPositions.get(cable.sourceAssetId);
-    const targetPos = equipmentPositions.get(cable.targetAssetId);
+    const sourcePos = endpointPositions.get(cable.sourceAssetId);
+    const targetPos = endpointPositions.get(cable.targetAssetId);
     if (!sourcePos || !targetPos) continue;
     result.push({
       id: cable.id,
@@ -130,7 +130,8 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   // 각 케이블 endpoint asset id 를 floorAnchor 로 placed ancestor(설비/랙/분전반)까지
   // 해소해 그 사각형을 endpoint id(key) 로 매핑한다. branch endpoint 는
   // branch→feeder→panel 으로 해소 — 회로 특수처리(distributionEquipmentId) 불필요.
-  const equipmentPositions = useMemo(() => {
+  // key = cable endpoint id(설비/모듈/분기 혼재) → floorAnchor 로 해소한 배치 사각형.
+  const endpointPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; width: number; height: number }>();
     for (const eq of localEquipment) {
       map.set(eq.id, { x: eq.positionX, y: eq.positionY, width: eq.width, height: eq.height });
@@ -156,20 +157,20 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
 
   const renderableConnections = useMemo(() => {
     const all = snapshotActive
-      ? (connections ? mapPlanCablesToRenderable(connections, equipmentPositions) : [])
-      : (cables ? mapCablesToRenderable(cables, equipmentPositions) : []);
+      ? (connections ? mapPlanCablesToRenderable(connections, endpointPositions) : [])
+      : (cables ? mapCablesToRenderable(cables, endpointPositions) : []);
     // null = filters not yet initialized → show all cables
     if (connectionFilters === null) return all;
     return all.filter((c) =>
       cableMatchesFilter(c.materialCategoryCode, connectionFilters)
     );
-  }, [connections, cables, snapshotActive, equipmentPositions, connectionFilters]);
+  }, [connections, cables, snapshotActive, endpointPositions, connectionFilters]);
 
   // Build hit-test entries from connection identity only (not viewport-dependent)
   const hitTestEntries = useMemo(() => {
     const all = snapshotActive
-      ? (connections ? mapPlanCablesToRenderable(connections, equipmentPositions) : [])
-      : (cables ? mapCablesToRenderable(cables, equipmentPositions) : []);
+      ? (connections ? mapPlanCablesToRenderable(connections, endpointPositions) : [])
+      : (cables ? mapCablesToRenderable(cables, endpointPositions) : []);
     // null = filters not yet initialized → include all for hit testing
     if (connectionFilters === null) {
       return all
@@ -182,7 +183,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
         && c.id && c.pathPoints && c.pathPoints.length >= 2
       )
       .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
-  }, [connections, cables, snapshotActive, equipmentPositions, connectionFilters]);
+  }, [connections, cables, snapshotActive, endpointPositions, connectionFilters]);
 
   // Populate cable hit test store for useCanvasEvents.
   // NB: useCableHitTestStore 의 setter 는 영속 컬렉션이 아니라 viewport hit-test
@@ -222,8 +223,8 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       const scale = zoom / 100;
       ctx.save();
       ctx.setTransform(scale, 0, 0, scale, panX, panY);
-      for (const [eqId, pos] of equipmentPositions) {
-        if (!highlightedNodeIds.has(eqId)) continue;
+      for (const [nodeId, pos] of endpointPositions) {
+        if (!highlightedNodeIds.has(nodeId)) continue;
         ctx.shadowColor = '#3b82f6';
         ctx.shadowBlur = 10;
         ctx.strokeStyle = '#3b82f6';
@@ -235,7 +236,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       renderConnections(context, renderableConnections);
     }
 
-  }, [renderableConnections, zoom, panX, panY, equipmentPositions, canvasRef,
+  }, [renderableConnections, zoom, panX, panY, endpointPositions, canvasRef,
     selectedCableId,
     highlightActive, highlightedNodeIds, highlightedEdgeIds]);
 
@@ -267,8 +268,8 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       color: c.color ?? undefined,
       label: c.label ?? undefined,
       materialCategoryCode: c.categoryCode ?? undefined,
-      sourceEquipment: { id: c.sourceAssetId, name: '', parentEquipmentId: null, floorId: null },
-      targetEquipment: { id: c.targetAssetId, name: '', parentEquipmentId: null, floorId: null },
+      sourceEndpoint: { id: c.sourceAssetId, name: '', floorId: null },
+      targetEndpoint: { id: c.targetAssetId, name: '', floorId: null },
     } as RoomConnection);
 
     if (snapshotActive && connections) {

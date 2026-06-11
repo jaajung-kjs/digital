@@ -65,13 +65,13 @@ function buildPathSegments(nodes: TraceNode[], edges: TraceEdge[]): PathSegment[
   if (nodes.length === 0) return [];
   if (edges.length === 0)
     return nodes.map((n) => ({
-      nodes: [{ nodeId: n.equipmentId, edgeId: null }],
+      nodes: [{ nodeId: n.nodeId, edgeId: null }],
       branchPointId: null,
     }));
 
   // Build undirected adjacency
   const adj = new Map<string, { neighborId: string; edgeId: string }[]>();
-  for (const n of nodes) adj.set(n.equipmentId, []);
+  for (const n of nodes) adj.set(n.nodeId, []);
   for (const e of edges) {
     adj.get(e.sourceAssetId)?.push({ neighborId: e.targetAssetId, edgeId: e.id });
     adj.get(e.targetAssetId)?.push({ neighborId: e.sourceAssetId, edgeId: e.id });
@@ -83,7 +83,7 @@ function buildPathSegments(nodes: TraceNode[], edges: TraceEdge[]): PathSegment[
   const degree = (id: string) => degreeMap.get(id) ?? 0;
 
   // Pick start: prefer degree-1 leaf with isSource, then any leaf, then isSource
-  const leaves = nodes.filter((n) => degree(n.equipmentId) === 1);
+  const leaves = nodes.filter((n) => degree(n.nodeId) === 1);
   const startNode =
     leaves.find((n) => n.isSource) ??
     leaves[0] ??
@@ -123,8 +123,8 @@ function buildPathSegments(nodes: TraceNode[], edges: TraceEdge[]): PathSegment[
     segments.push({ nodes: seg, branchPointId });
   }
 
-  visited.add(startNode.equipmentId);
-  walkSegment([{ nodeId: startNode.equipmentId, edgeId: null }], null);
+  visited.add(startNode.nodeId);
+  walkSegment([{ nodeId: startNode.nodeId, edgeId: null }], null);
 
   while (pending.length > 0) {
     const branch = pending.pop()!;
@@ -141,8 +141,8 @@ function buildPathSegments(nodes: TraceNode[], edges: TraceEdge[]): PathSegment[
 
   // Safety: disconnected nodes
   for (const n of nodes) {
-    if (!visited.has(n.equipmentId)) {
-      segments.push({ nodes: [{ nodeId: n.equipmentId, edgeId: null }], branchPointId: null });
+    if (!visited.has(n.nodeId)) {
+      segments.push({ nodes: [{ nodeId: n.nodeId, edgeId: null }], branchPointId: null });
     }
   }
 
@@ -197,15 +197,15 @@ export function traceCable(input: TraceCableInput): TraceResult {
     externalInfo.set(fp.ofdB.id, { name: fp.ofdB.name, substationName: fp.ofdB.substationName, isOfd: true });
     for (const port of fp.ports) {
       if (port.sideA) {
-        externalInfo.set(port.sideA.equipmentId, {
-          name: port.sideA.equipmentName,
+        externalInfo.set(port.sideA.assetId, {
+          name: port.sideA.assetName,
           substationName: fp.ofdA.substationName,
           isOfd: false,
         });
       }
       if (port.sideB) {
-        externalInfo.set(port.sideB.equipmentId, {
-          name: port.sideB.equipmentName,
+        externalInfo.set(port.sideB.assetId, {
+          name: port.sideB.assetName,
           substationName: fp.ofdB.substationName,
           isOfd: false,
         });
@@ -231,16 +231,16 @@ export function traceCable(input: TraceCableInput): TraceResult {
   // substationId 자리에 substationName 을 두 번 채움 — 토폴로지의 그룹핑 key 가 substationName
   // 이고 frontend 에 실제 substationId 가 없는 한 동일 값으로 통일 (NetworkTopologyModal 의
   // groupBySubstation 이 substationName 기준이라 layout 이 자동 정상).
-  const addNode = (equipId: string, isSource: boolean, isTarget: boolean) => {
-    if (nodeMap.has(equipId)) return;
-    const ext = externalInfo.get(equipId);
+  const addNode = (nodeId: string, isSource: boolean, isTarget: boolean) => {
+    if (nodeMap.has(nodeId)) return;
+    const ext = externalInfo.get(nodeId);
     const subName = ext?.substationName ?? '';
 
-    const equip = equipMap.get(equipId);
+    const equip = equipMap.get(nodeId);
     if (equip) {
-      nodeMap.set(equipId, {
-        equipmentId: equip.id,
-        equipmentName: equip.name,
+      nodeMap.set(nodeId, {
+        nodeId: equip.id,
+        nodeName: equip.name,
         substationId: subName,
         substationName: subName,
         floorId: null,
@@ -250,11 +250,11 @@ export function traceCable(input: TraceCableInput): TraceResult {
       });
       return;
     }
-    const mod = moduleMap.get(equipId);
+    const mod = moduleMap.get(nodeId);
     if (mod) {
-      nodeMap.set(equipId, {
-        equipmentId: equipId,
-        equipmentName: mod.name,
+      nodeMap.set(nodeId, {
+        nodeId,
+        nodeName: mod.name,
         substationId: subName,
         substationName: subName,
         floorId: null,
@@ -264,11 +264,11 @@ export function traceCable(input: TraceCableInput): TraceResult {
       });
       return;
     }
-    const branchLabel = branchAssetLabel(equipId, assetMap);
+    const branchLabel = branchAssetLabel(nodeId, assetMap);
     if (branchLabel) {
-      nodeMap.set(equipId, {
-        equipmentId: equipId,
-        equipmentName: branchLabel,
+      nodeMap.set(nodeId, {
+        nodeId,
+        nodeName: branchLabel,
         substationId: subName,
         substationName: subName,
         floorId: null,
@@ -279,9 +279,9 @@ export function traceCable(input: TraceCableInput): TraceResult {
       return;
     }
     // Cross-floor lookup via externalInfo. isOfd === false → 모듈, 그 외(true 또는 undefined) → OFD.
-    nodeMap.set(equipId, {
-      equipmentId: equipId,
-      equipmentName: ext?.name ?? equipId,
+    nodeMap.set(nodeId, {
+      nodeId,
+      nodeName: ext?.name ?? nodeId,
       substationId: subName,
       substationName: subName,
       floorId: null,
@@ -380,19 +380,19 @@ export function traceCable(input: TraceCableInput): TraceResult {
   // 4. BFS
   let qHead = 0;
   while (qHead < queue.length) {
-    const equipId = queue[qHead++]!;
-    const isOfd = ofdIds.has(equipId);
+    const nodeId = queue[qHead++]!;
+    const isOfd = ofdIds.has(nodeId);
 
-    for (const cable of cableAdjacency.get(equipId) ?? []) {
+    for (const cable of cableAdjacency.get(nodeId) ?? []) {
       if (visitedEdges.has(cable.id)) continue;
 
       // FIBER + OFD↔OFD cable: port isolation
       if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber && isOfd) {
         const portKey = `${cable.fiberPathId}:${cable.fiberPortNumber}`;
         const otherId2 =
-          cable.sourceAssetId === equipId ? cable.targetAssetId : cable.sourceAssetId;
+          cable.sourceAssetId === nodeId ? cable.targetAssetId : cable.sourceAssetId;
         if (ofdIds.has(otherId2)) {
-          const reachable = ofdReachablePorts.get(equipId);
+          const reachable = ofdReachablePorts.get(nodeId);
           if (!reachable || !reachable.has(portKey)) continue;
         }
         // OFD ↔ non-OFD: always allow
@@ -416,7 +416,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
       });
 
       const otherId =
-        cable.sourceAssetId === equipId ? cable.targetAssetId : cable.sourceAssetId;
+        cable.sourceAssetId === nodeId ? cable.targetAssetId : cable.sourceAssetId;
 
       // Propagate port context across FIBER cables
       if (cableType === 'FIBER' && cable.fiberPathId && cable.fiberPortNumber) {
@@ -426,8 +426,8 @@ export function traceCable(input: TraceCableInput): TraceResult {
           ofdReachablePorts.get(otherId)!.add(portKey);
         }
         if (isOfd) {
-          if (!ofdReachablePorts.has(equipId)) ofdReachablePorts.set(equipId, new Set());
-          ofdReachablePorts.get(equipId)!.add(portKey);
+          if (!ofdReachablePorts.has(nodeId)) ofdReachablePorts.set(nodeId, new Set());
+          ofdReachablePorts.get(nodeId)!.add(portKey);
         }
       }
 
@@ -440,7 +440,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
     // FIBER OFD: traverse FiberPaths via reachable ports (port-isolated)
     if (cableType === 'FIBER' && isOfd) {
       traverseFiberPaths(
-        equipId,
+        nodeId,
         fiberPaths,
         fiberCablesByPathId,
         visited,
@@ -478,7 +478,7 @@ function traverseFiberPaths(
   visitedEdges: Set<string>,
   ofdReachablePorts: Map<string, Set<string>>,
   queue: string[],
-  addNode: (equipId: string, isSource: boolean, isTarget: boolean) => void,
+  addNode: (nodeId: string, isSource: boolean, isTarget: boolean) => void,
   addEdge: (edge: TraceEdge) => void,
 ): void {
   const reachable = ofdReachablePorts.get(ofdId);

@@ -17,8 +17,8 @@ export interface FiberPortStatus {
 
 export interface FiberPortUsage {
   cableId: string;
-  equipmentId: string;
-  equipmentName: string;
+  assetId: string;
+  assetName: string;
 }
 
 export interface CreateFiberPathInput {

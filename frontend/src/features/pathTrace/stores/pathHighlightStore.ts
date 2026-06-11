@@ -54,7 +54,7 @@ function idleState() {
     error: null as string | null,
     highlightedNodeIds: new Set<string>(),
     /** module id 가 부모 랙 id 로 펼쳐진 set — 캔버스는 모듈을 따로 안 그림. */
-    highlightedEquipmentIds: new Set<string>(),
+    highlightedPlacedIds: new Set<string>(),
     highlightedEdgeIds: new Set<string>(),
     segments: [] as PathSegment[],
   };
@@ -65,7 +65,7 @@ function idleState() {
  * 배치(placement) 설비 id 로 펼친다. 모듈/분기 같은 내부 노드는 floorAnchor 가
  * 가장 가까운 배치 조상(랙/분전반)으로 해소한다(branch→feeder→분전반 walk 포함).
  */
-function expandToEquipmentIds(nodeIds: Set<string>, effectiveAssets: Asset[]): Set<string> {
+function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]): Set<string> {
   const result = new Set(nodeIds);
   const byId = assetsByIdMap(effectiveAssets);
   for (const id of nodeIds) {
@@ -82,7 +82,7 @@ interface PathHighlightState {
   isLoading: boolean;
   error: string | null;
   highlightedNodeIds: Set<string>;
-  highlightedEquipmentIds: Set<string>;
+  highlightedPlacedIds: Set<string>;
   highlightedEdgeIds: Set<string>;
   segments: PathSegment[];
 
@@ -116,12 +116,12 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
           fiberPaths: snapshotFiberPaths,
         });
 
-        const ids = new Set(result.nodes.map((n) => n.equipmentId));
+        const ids = new Set(result.nodes.map((n) => n.nodeId));
         set({
           active: true,
           traceResult: result,
           highlightedNodeIds: ids,
-          highlightedEquipmentIds: expandToEquipmentIds(ids, []),
+          highlightedPlacedIds: expandToPlacedIds(ids, []),
           highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
           segments: result.segments,
         });
@@ -158,13 +158,13 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         fiberPaths: allFiberPaths,
       });
 
-      const ids = new Set(result.nodes.map((n) => n.equipmentId));
+      const ids = new Set(result.nodes.map((n) => n.nodeId));
       set({
         active: true,
         traceResult: result,
         isLoading: false,
         highlightedNodeIds: ids,
-        highlightedEquipmentIds: expandToEquipmentIds(ids, effAssets),
+        highlightedPlacedIds: expandToPlacedIds(ids, effAssets),
         highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
         segments: result.segments,
       });
@@ -202,7 +202,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
       isLoading: false,
       error: null,
       highlightedNodeIds: nodeIds,
-      highlightedEquipmentIds: expandToEquipmentIds(nodeIds, effAssets),
+      highlightedPlacedIds: expandToPlacedIds(nodeIds, effAssets),
       highlightedEdgeIds: edgeIds,
       segments: [],
     });

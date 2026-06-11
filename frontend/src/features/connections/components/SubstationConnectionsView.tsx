@@ -5,9 +5,9 @@ import { useSelection } from '../../workspace/SelectionContext';
 import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
 
-interface Endpoint { equipmentId: string | null; moduleId: string | null; name: string }
+interface Endpoint { assetId: string | null; name: string }
 interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; length: number | null }
-const epId = (e: Endpoint) => e.equipmentId ?? e.moduleId;
+const epId = (e: Endpoint) => e.assetId;
 
 export function SubstationConnectionsTable({ connections, typeFilter, onDelete, onUpdate, onSelectAsset }: {
   connections: Conn[]; typeFilter: string;

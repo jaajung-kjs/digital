@@ -128,7 +128,7 @@ export function OfdPortPicker({
                             portNumber: port.portNumber,
                           })
                         }
-                        title={used ? `사용 중: ${localSide?.equipmentName ?? ''}` : `포트 ${port.portNumber}`}
+                        title={used ? `사용 중: ${localSide?.assetName ?? ''}` : `포트 ${port.portNumber}`}
                         className={`h-7 rounded text-[10px] font-medium transition-colors ${
                           used
                             ? 'bg-gray-100 text-gray-300 cursor-not-allowed'

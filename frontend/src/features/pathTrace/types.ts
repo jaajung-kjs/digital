@@ -1,8 +1,8 @@
 import type { CableType } from '../../types/connection';
 
 export interface TraceNode {
-  equipmentId: string;
-  equipmentName: string;
+  nodeId: string;
+  nodeName: string;
   substationId: string;
   substationName: string;
   floorId: string | null;
@@ -60,6 +60,6 @@ export interface SegmentNode {
  */
 export interface PathSegment {
   nodes: SegmentNode[];
-  /** equipmentId of the node this branch forks from (null for main segment) */
+  /** nodeId of the node this branch forks from (null for main segment) */
   branchPointId: string | null;
 }

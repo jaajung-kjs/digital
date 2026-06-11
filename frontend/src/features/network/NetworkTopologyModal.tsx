@@ -159,9 +159,9 @@ interface SubstationGroup {
 function groupBySubstation(nodes: TraceNode[]): SubstationGroup[] {
   const groups = new Map<string, SubstationGroup>();
   for (const n of nodes) {
-    const key = n.substationName || n.substationId || n.equipmentId;
+    const key = n.substationName || n.substationId || n.nodeId;
     if (!groups.has(key)) {
-      groups.set(key, { id: key, name: n.substationName || n.equipmentName, ofdNode: null, modules: [] });
+      groups.set(key, { id: key, name: n.substationName || n.nodeName, ofdNode: null, modules: [] });
     }
     const g = groups.get(key)!;
     if (n.materialCategoryCode === 'EQP-OFD') g.ofdNode = n;
@@ -250,7 +250,7 @@ export function NetworkTopologyModal() {
     if (!traceResult) return null;
     const groups = groupBySubstation(traceResult.nodes);
     const ofdToGroup = new Map<string, string>();
-    for (const g of groups) if (g.ofdNode) ofdToGroup.set(g.ofdNode.equipmentId, g.id);
+    for (const g of groups) if (g.ofdNode) ofdToGroup.set(g.ofdNode.nodeId, g.id);
 
     const hasSPQR = traceResult.rings.some((r) => r.level === 1);
     const layoutInput = { nodeIds: groups.map((g) => g.id), ofdToGroup, edges: traceResult.edges, rings: traceResult.rings };
@@ -281,7 +281,7 @@ export function NetworkTopologyModal() {
     );
 
     const nodes: Node<SubstationNodeData>[] = groups.map((g) => {
-      const ofdId = g.ofdNode?.equipmentId;
+      const ofdId = g.ofdNode?.nodeId;
       let tier: NodeTier = 'default';
       if (ofdId) {
         if (seedRingNodes.has(ofdId)) tier = 'seedRing';
@@ -294,8 +294,8 @@ export function NetworkTopologyModal() {
         position: positions.get(g.id) ?? { x: 0, y: 0 },
         data: {
           name: g.name,
-          ofdName: g.ofdNode?.equipmentName ?? '',
-          modules: g.modules.map((m) => ({ id: m.equipmentId, name: m.equipmentName })),
+          ofdName: g.ofdNode?.nodeName ?? '',
+          modules: g.modules.map((m) => ({ id: m.nodeId, name: m.nodeName })),
           tier,
         },
       };
