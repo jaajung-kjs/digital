@@ -17,7 +17,8 @@ import type { AssetListItem } from './nodeStatus';
 //   유지한다.
 // - deletes: 해당 행 제거.
 // - creates: 새로 스테이징된 자산을 행으로 추가(커밋→refetch 전까지 제한 표시).
-//   단 랙 모듈 자식(parentAssetId + slotIndex)은 현황 리스트에서 제외.
+//   랙 모듈 자식 포함 — 서버 listByNode 가 parentAssetId 필터 없이 모듈도 반환하므로
+//   저장 전후 동일하게 행으로 보여야 "저장해야 현황 반영" 불일치가 없다.
 // ──────────────────────────────────────────────────────────────────────────
 
 /** asset update patch 의 공유 필드만 골라 AssetListItem 키로 매핑(있는 키만). */
@@ -62,8 +63,10 @@ export function useSubstationStatusRows(substationId: string): AssetListItem[] {
         const p = overlay.updates[r.id];
         return p ? { ...r, ...assetPatchToListItem(p) } : r;
       });
+    // 새 staged 자산을 행으로 추가. 서버 listByNode 는 parentAssetId 필터가 없어
+    // 저장 후 랙 모듈도 행으로 뜨므로, pre-save 에서도 동일하게 포함해야 "저장해야
+    // 현황에 반영"되는 불일치가 사라진다(SSOT — staged 가 현황 리스트에 즉시 반영).
     const creates = (Object.values(overlay.creates) as Asset[])
-      .filter((a) => !(a.parentAssetId != null && a.slotIndex != null)) // 랙 모듈 자식 제외
       .map((a) => assetCreateToListItem(a, substationId));
     return [...rows, ...creates];
   }, [list, overlay, substationId]);
