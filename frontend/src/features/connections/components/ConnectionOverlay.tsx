@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { RoomConnection } from '../../../types/connection';
-import type { FloorPlanCable } from '../../../types/floorPlan';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
-import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import {
   useEffectiveAssets,
   useEffectiveEquipment,
   useEffectiveFloorCables,
 } from '../../workingCopy/hooks';
+import { widthOf, heightOf } from '../../workingCopy/placement';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { floorAnchor, assetsByIdMap } from '../../workingCopy/floorAnchor';
 import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
@@ -63,33 +62,6 @@ function mapCablesToRenderable(
   return result;
 }
 
-function mapPlanCablesToRenderable(
-  cables: FloorPlanCable[],
-  endpointPositions: Map<string, { x: number; y: number; width: number; height: number }>
-): RenderableConnection[] {
-  const result: RenderableConnection[] = [];
-  for (const cable of cables) {
-    const sourcePos = endpointPositions.get(cable.sourceAssetId);
-    const targetPos = endpointPositions.get(cable.targetAssetId);
-    if (!sourcePos || !targetPos) continue;
-    result.push({
-      id: cable.id,
-      sourceX: sourcePos.x + sourcePos.width / 2,
-      sourceY: sourcePos.y + sourcePos.height / 2,
-      targetX: targetPos.x + targetPos.width / 2,
-      targetY: targetPos.y + targetPos.height / 2,
-      cableType: cable.cableType,
-      label: cable.label || cable.categoryName || cable.categoryCode || undefined,
-      color: normalizeCableColor(cable.color || cable.displayColor) || CABLE_COLORS[cable.cableType] || '#6b7280',
-      pathPoints: cable.pathPoints ?? undefined,
-      pathLength: cable.pathLength,
-      totalLength: cable.totalLength,
-      materialCategoryCode: cable.categoryCode ?? undefined,
-    });
-  }
-  return result;
-}
-
 export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps) {
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
@@ -100,11 +72,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const selectedCableId = useEditorStore((s) => s.selectedCableId);
   const setSelectedCableId = useEditorStore((s) => s.setSelectedCableId);
 
-  const snapshotActive = useSnapshotStore((s) => s.active);
-  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
-  const snapshotCables = useSnapshotStore((s) => s.cables);
-
-  const localEquipment = snapshotActive ? snapshotEquipment : editorEquipment;
+  const localEquipment = editorEquipment;
 
   // effective 케이블은 이 층에 닿는 것만(useEffectiveFloorCables). cableDtoToLocal 이
   // 단일 endpoint assetId 를 flat LocalCable(sourceAssetId 자리)로 매핑한다 —
@@ -121,9 +89,8 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
 
   const overlayRef = useRef<HTMLCanvasElement>(null);
 
-  // Use localCables directly (no merge needed), or snapshot cables in preview mode
-  const connections = snapshotActive ? snapshotCables : null;
-  const cables = snapshotActive ? null : editorCables;
+  // Use localCables directly (no merge needed).
+  const cables = editorCables;
 
   // 단계3a — 끝점 위치 = floor anchor(렌더 대표). endpoint 는 이제 단일 assetId
   // (sourceAssetId/targetAssetId 자리에 assetId 가 들어온다 — cableDtoToLocal).
@@ -134,43 +101,37 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const endpointPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; width: number; height: number }>();
     for (const eq of localEquipment) {
-      map.set(eq.id, { x: eq.positionX, y: eq.positionY, width: eq.width, height: eq.height });
+      map.set(eq.id, { x: eq.positionX ?? 0, y: eq.positionY ?? 0, width: widthOf(eq), height: heightOf(eq) });
     }
-    if (!snapshotActive) {
-      const assetsById = assetsByIdMap(effectiveAssets);
-      // endpoint id(key) → placed ancestor(floorAnchor) 사각형. 직접 배치 id 는 자기 좌표
-      // (이미 localEquipment 로 들어와 있음), 그 외(모듈/분기 등)는 부모 체인을 거슬러 해소.
-      const setAnchor = (key: string) => {
-        if (!key || map.has(key)) return;
-        const a = floorAnchor(key, assetsById);
-        if (a?.positionX != null && a.positionY != null) {
-          map.set(key, { x: a.positionX, y: a.positionY, width: a.width2d ?? 0, height: a.height2d ?? 0 });
-        }
-      };
-      for (const c of editorCables) {
-        setAnchor(c.sourceAssetId);
-        setAnchor(c.targetAssetId);
+    const assetsById = assetsByIdMap(effectiveAssets);
+    // endpoint id(key) → placed ancestor(floorAnchor) 사각형. 직접 배치 id 는 자기 좌표
+    // (이미 localEquipment 로 들어와 있음), 그 외(모듈/분기 등)는 부모 체인을 거슬러 해소.
+    const setAnchor = (key: string) => {
+      if (!key || map.has(key)) return;
+      const a = floorAnchor(key, assetsById);
+      if (a?.positionX != null && a.positionY != null) {
+        map.set(key, { x: a.positionX, y: a.positionY, width: a.width2d ?? 0, height: a.height2d ?? 0 });
       }
+    };
+    for (const c of editorCables) {
+      setAnchor(c.sourceAssetId);
+      setAnchor(c.targetAssetId);
     }
     return map;
-  }, [localEquipment, editorCables, effectiveAssets, snapshotActive]);
+  }, [localEquipment, editorCables, effectiveAssets]);
 
   const renderableConnections = useMemo(() => {
-    const all = snapshotActive
-      ? (connections ? mapPlanCablesToRenderable(connections, endpointPositions) : [])
-      : (cables ? mapCablesToRenderable(cables, endpointPositions) : []);
+    const all = cables ? mapCablesToRenderable(cables, endpointPositions) : [];
     // null = filters not yet initialized → show all cables
     if (connectionFilters === null) return all;
     return all.filter((c) =>
       cableMatchesFilter(c.materialCategoryCode, connectionFilters)
     );
-  }, [connections, cables, snapshotActive, endpointPositions, connectionFilters]);
+  }, [cables, endpointPositions, connectionFilters]);
 
   // Build hit-test entries from connection identity only (not viewport-dependent)
   const hitTestEntries = useMemo(() => {
-    const all = snapshotActive
-      ? (connections ? mapPlanCablesToRenderable(connections, endpointPositions) : [])
-      : (cables ? mapCablesToRenderable(cables, endpointPositions) : []);
+    const all = cables ? mapCablesToRenderable(cables, endpointPositions) : [];
     // null = filters not yet initialized → include all for hit testing
     if (connectionFilters === null) {
       return all
@@ -183,7 +144,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
         && c.id && c.pathPoints && c.pathPoints.length >= 2
       )
       .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
-  }, [connections, cables, snapshotActive, endpointPositions, connectionFilters]);
+  }, [cables, endpointPositions, connectionFilters]);
 
   // Populate cable hit test store for useCanvasEvents.
   // NB: useCableHitTestStore 의 setter 는 영속 컬렉션이 아니라 viewport hit-test
@@ -257,7 +218,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const selectedCable = useMemo(() => {
     if (!selectedCableId) return null;
     // Build a RoomConnection-compatible shape for CableWaypointHandles
-    const toWaypointCable = (c: FloorPlanCable | LocalCable): RoomConnection => ({
+    const toWaypointCable = (c: LocalCable): RoomConnection => ({
       id: c.id,
       sourceAssetId: c.sourceAssetId,
       targetAssetId: c.targetAssetId,
@@ -272,17 +233,13 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       targetEndpoint: { id: c.targetAssetId, name: '', floorId: null },
     } as RoomConnection);
 
-    if (snapshotActive && connections) {
-      const found = connections.find((c) => c.id === selectedCableId);
-      return found ? toWaypointCable(found) : null;
-    }
     if (cables) {
       const cable = cables.find((c) => c.id === selectedCableId);
       if (!cable) return null;
       return toWaypointCable(cable);
     }
     return null;
-  }, [selectedCableId, connections, cables, snapshotActive]);
+  }, [selectedCableId, cables]);
 
   return (
     <>

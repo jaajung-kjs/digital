@@ -5,6 +5,7 @@ import type {
   FloorPlanDetail,
 } from '../../../types/floorPlan';
 import type { FloorDetail } from '../../../types/substation';
+import type { Asset } from '../../../types/asset';
 import { useEditorStore } from '../stores/editorStore';
 import { useViewport } from './useViewport';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
@@ -156,8 +157,17 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       const effectiveEquipment = floorId
         ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
         : [];
-      const fitEquipment =
-        effectiveEquipment.length > 0 ? effectiveEquipment : floorPlan.equipment;
+      // 폴백(GET /plan 의 saved equipment)은 FloorPlanEquipment 모양이라 fit 가
+      // 읽는 배치 필드(positionX/Y/width2d/height2d)만 Asset 투영으로 흡수한다.
+      const fitEquipment: Asset[] =
+        effectiveEquipment.length > 0
+          ? effectiveEquipment
+          : floorPlan.equipment.map((e) => ({
+              positionX: e.positionX,
+              positionY: e.positionY,
+              width2d: e.width,
+              height2d: e.height,
+            } as Asset));
       fitToContent(
         fitEquipment,
         effectiveBg,

@@ -1,16 +1,17 @@
 import { useEffect } from 'react';
-import type { FloorPlanDetail, FloorPlanEquipment } from '../../../types/floorPlan';
+import type { FloorPlanDetail } from '../../../types/floorPlan';
+import type { Asset } from '../../../types/asset';
 import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useSnapshotStore } from '../stores/snapshotStore';
+import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useEditorHistory } from './useEditorHistory';
 import { calculateFitToContent } from './useViewport';
 import { useCommitWorkingCopy } from '../../workingCopy/useCommitWorkingCopy';
 
-function nudgeEquipment(eq: FloorPlanEquipment, dx: number, dy: number): FloorPlanEquipment {
-  return { ...eq, positionX: eq.positionX + dx, positionY: eq.positionY + dy };
+function nudgeEquipment(eq: Asset, dx: number, dy: number): Asset {
+  return { ...eq, positionX: (eq.positionX ?? 0) + dx, positionY: (eq.positionY ?? 0) + dy };
 }
 
 /**
@@ -64,8 +65,6 @@ export function useEditorKeyboard(
         es.clearSelection();
       }
 
-      if (useSnapshotStore.getState().active) return;
-
       // Tool shortcuts — number keys (preferred) and legacy letters
       if (e.key === '1' && !e.ctrlKey) es.setTool('select');
       if (e.key === '2' && !e.ctrlKey) es.setTool('equipment');
@@ -101,8 +100,8 @@ export function useEditorKeyboard(
           if (!es.selectedIds.includes(eq.id)) continue;
           const moved = nudgeEquipment(eq, dx, dy);
           wc.stageEquipmentUpdate(moved.id, {
-            positionX: moved.positionX,
-            positionY: moved.positionY,
+            positionX: moved.positionX ?? 0,
+            positionY: moved.positionY ?? 0,
           });
         }
         // selectedEquipment 가 selector 로 도출되므로 별도 동기화 불필요.
@@ -198,10 +197,11 @@ export function useEditorKeyboard(
         return;
       }
 
-      // Ctrl+C copy equipment
+      // Ctrl+C copy equipment — 클립보드는 붙여넣기(생성) 쓰기 경로용 FloorPlanEquipment
+      // 모양을 유지한다. 선택은 Asset 이므로 경계에서 한 번 투영.
       if (e.ctrlKey && key === 'c' && selectedEquipment) {
         e.preventDefault();
-        es.setClipboard({ type: 'equipment', data: { ...selectedEquipment } });
+        es.setClipboard({ type: 'equipment', data: assetToEquipment(selectedEquipment) });
       }
 
       // Ctrl+V paste equipment (opens name modal)

@@ -14,9 +14,9 @@ import {
 } from './substationStore';
 import { mergeEffective } from './effective';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
-import { assetToEquipment } from './assetToEquipment';
 import { assetToRackModule } from './assetToRackModule';
 import type { RackModule } from '../../types/rackModule';
+import type { Asset } from '../../types/asset';
 import { useEditorStore, selectFloorSettingsDirty } from '../editor/stores/editorStore';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -79,14 +79,13 @@ export function useEffectivePhotos(): PhotoRow[] {
  * useMemo 로 변환 결과 배열의 참조가 변경 없을 때 안정(referentially stable)하다.
  * 필터: 같은 층 AND 랙-모듈 자식(parentAssetId && slotIndex!=null) 제외.
  */
-export function useEffectiveEquipment(floorId: string) {
+/** 한 층의 배치(placement) Asset — 캔버스가 Asset 을 직접 투영(북극성 ③). 랙모듈 자식 제외. */
+export function useEffectiveEquipment(floorId: string): Asset[] {
   const saved = useSubstationWorkingCopy((s) => s.saved.assets);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.assets);
   return useMemo(() => {
     const eff = mergeEffective(saved, overlay, assetDescriptor);
-    return eff
-      .filter((a) => a.floorId === floorId && !(a.parentAssetId && a.slotIndex != null))
-      .map(assetToEquipment);
+    return eff.filter((a) => a.floorId === floorId && !(a.parentAssetId && a.slotIndex != null));
   }, [saved, overlay, floorId]);
 }
 

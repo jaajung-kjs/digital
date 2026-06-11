@@ -1,11 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
-import type { FloorPlanEquipment } from '../../../types/floorPlan';
+import type { Asset } from '../../../types/asset';
+import { widthOf, heightOf } from '../../workingCopy/placement';
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
 
 interface EquipmentResizeHandlesProps {
-  equipment: FloorPlanEquipment;
+  equipment: Asset;
   zoom: number;
   panX: number;
   panY: number;
@@ -50,10 +51,10 @@ const MIN_DIM_CM = 20;
  */
 export function EquipmentResizeHandles({ equipment, zoom, panX, panY }: EquipmentResizeHandlesProps) {
   const scale = zoom / 100;
-  const screenX = equipment.positionX * scale + panX;
-  const screenY = equipment.positionY * scale + panY;
-  const screenW = equipment.width * scale;
-  const screenH = equipment.height * scale;
+  const screenX = (equipment.positionX ?? 0) * scale + panX;
+  const screenY = (equipment.positionY ?? 0) * scale + panY;
+  const screenW = widthOf(equipment) * scale;
+  const screenH = heightOf(equipment) * scale;
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 13 }}>
@@ -75,7 +76,7 @@ export function EquipmentResizeHandles({ equipment, zoom, panX, panY }: Equipmen
 
 interface HandleNodeProps {
   handle: HandleDef;
-  equipment: FloorPlanEquipment;
+  equipment: Asset;
   scale: number;
   screenX: number;
   screenY: number;
@@ -102,10 +103,10 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
       startRef.current = {
         mouseX: e.clientX,
         mouseY: e.clientY,
-        origX: equipment.positionX,
-        origY: equipment.positionY,
-        origW: equipment.width,
-        origH: equipment.height,
+        origX: equipment.positionX ?? 0,
+        origY: equipment.positionY ?? 0,
+        origW: widthOf(equipment),
+        origH: heightOf(equipment),
       };
       setIsDragging(true);
 

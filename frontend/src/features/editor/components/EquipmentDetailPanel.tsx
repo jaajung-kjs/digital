@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
-import { useSnapshotStore } from '../stores/snapshotStore';
 import { useEffectiveAssets, useEffectiveEquipment } from '../../workingCopy/hooks';
+import { kindOf } from '../../workingCopy/placement';
 import { isTempId } from '../../../utils/idHelpers';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
@@ -23,31 +23,28 @@ interface EquipmentDetailPanelProps {
 export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
   const closeRightPanel = useEditorStore((s) => s.closeRightPanel);
   const focusTick = useEditorStore((s) => s.focusTick);
-  const snapshotActive = useSnapshotStore((s) => s.active);
-  const snapshotEquipment = useSnapshotStore((s) => s.equipment);
   const isTemp = isTempId(equipmentId);
   const { equipment, isLoading } = useMergedEquipmentDetail(equipmentId);
 
-  // 비스냅샷은 통합 스토어 effective 에서, 스냅샷은 과거 도면 설비에서 헤더 정보를 읽는다.
+  // 통합 스토어 effective 에서 헤더 정보를 읽는다.
   const effectiveEquipment = useEffectiveEquipment(floorId);
-  const localEquipment = snapshotActive ? snapshotEquipment : effectiveEquipment;
-  const localEq = localEquipment.find((e) => e.id === equipmentId);
+  const localEq = effectiveEquipment.find((e) => e.id === equipmentId);
 
   // 랙 모듈은 평면도에 배치되지 않아 effectiveEquipment(floor)에 없다 → 전역 effective assets
   // 에서 모듈 Asset(parentAssetId 있음)을 찾아 주입. 모듈은 leaf 라 공간 섹션 없음(kind=null).
   const effectiveAssets = useEffectiveAssets();
   const moduleAsset = useMemo(
     () =>
-      !localEq && !snapshotActive
+      !localEq
         ? (effectiveAssets.find((a) => a.id === equipmentId && a.parentAssetId != null) ?? null)
         : null,
-    [localEq, snapshotActive, effectiveAssets, equipmentId],
+    [localEq, effectiveAssets, equipmentId],
   );
 
   const detailKind = useMemo<DetailPanelKind | null>(() => {
     if (moduleAsset) return null; // 모듈은 내부설비/경로 같은 공간 섹션이 없음
     if (!localEq) return null;
-    return EQUIPMENT_KIND_INFO[localEq.kind]?.detailPanelKind ?? null;
+    return EQUIPMENT_KIND_INFO[kindOf(localEq)]?.detailPanelKind ?? null;
   }, [moduleAsset, localEq]);
 
   const title = moduleAsset
@@ -56,11 +53,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       ? '로딩 중...'
       : equipment?.name ?? '설비 상세';
 
-  const banner = snapshotActive ? (
-    <div className="px-4 py-2 bg-warning-bg border-b border-line text-sm text-warning font-medium text-center shrink-0">
-      과거 도면 보기 중 (읽기 전용)
-    </div>
-  ) : null;
+  const banner = null;
 
   return (
     <AssetDetailPanel
@@ -73,7 +66,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       onClose={() => closeRightPanel()}
       banner={banner}
       bodyKey={`${equipmentId}-${focusTick}`}
-      canDelete={!snapshotActive}
+      canDelete={true}
     />
   );
 }

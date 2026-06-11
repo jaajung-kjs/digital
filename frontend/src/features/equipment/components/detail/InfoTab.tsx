@@ -4,7 +4,7 @@ import { EQUIPMENT_KIND_INFO } from '../../../../types/equipmentKind';
 import { toDateInputValue } from '../../../../utils/date';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../../workingCopy/hooks';
-import { assetToEquipment } from '../../../workingCopy/assetToEquipment';
+import { kindOf } from '../../../workingCopy/placement';
 import type { EquipmentDetail } from './types';
 
 /* ================================================================
@@ -15,12 +15,12 @@ export function InfoTab({ equipment, readOnly }: { equipment: EquipmentDetail; r
   const [isEditing, setIsEditing] = useState(false);
 
   // 통합 스토어 effective assets 에서 `kind` 를 조회(EquipmentDetail 은 kind 를 안 들고 옴).
-  // assetType.placementKind → EquipmentKind 정규화는 assetToEquipment 가 처리.
+  // assetType.placementKind → EquipmentKind 정규화는 kindOf 가 처리(placement.ts).
   const effectiveAssets = useEffectiveAssets();
   const kindLabel = useMemo(() => {
     const a = effectiveAssets.find((x) => x.id === equipment.id);
     if (!a) return '-';
-    const kind = assetToEquipment(a).kind;
+    const kind = kindOf(a);
     return EQUIPMENT_KIND_INFO[kind]?.label ?? kind;
   }, [effectiveAssets, equipment.id]);
 

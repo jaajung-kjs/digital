@@ -3,6 +3,7 @@ vi.mock('../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
 import { cableOnFloor, assetsByIdMap } from './floorAnchor';
+import { kindOf } from './placement';
 
 const rack = { id:'r1', name:'랙', substationId:'s1', floorId:'f1', assetType:{ placementKind:'RACK' }, positionX:10, positionY:20, width2d:100, height2d:200, totalU:42, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
 const mod = { id:'m1', name:'모듈', substationId:'s1', floorId:'f1', assetType:{ placementKind:null }, parentAssetId:'r1', slotIndex:3, slotSpan:1, updatedAt:'2026-01-01T00:00:00.000Z' };
@@ -31,11 +32,11 @@ describe('substationWorkingCopy', () => {
     expect(s.effectiveTopAssets().map(a=>a.id).sort()).toEqual(['o1','r1']);  // m1(랙모듈) 제외
     expect(s.effectiveRackModules('r1').map(a=>a.id)).toEqual(['m1']);
   });
-  it('effectiveEquipment(floor) → FloorPlanEquipment[]', async () => {
+  it('effectiveEquipment(floor) → Asset[]', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
     const eq = useSubstationWorkingCopy.getState().effectiveEquipment('f1');
     expect(eq.map(e=>e.id).sort()).toEqual(['o1','r1']);
-    expect(eq.find(e=>e.id==='r1')!.kind).toBe('RACK');
+    expect(kindOf(eq.find(e=>e.id==='r1')!)).toBe('RACK');
   });
   it('revert → dirty 0', async () => {
     await useSubstationWorkingCopy.getState().load('s1');

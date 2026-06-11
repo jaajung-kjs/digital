@@ -4,6 +4,7 @@ vi.mock('../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
 import { useEffectiveCables, useWorkingCopyDirty, useEffectiveEquipment, useEffectiveRackModules, useEffectiveFloorCables, useUnifiedDirty } from './hooks';
+import { kindOf } from './placement';
 import { useEditorStore } from '../editor/stores/editorStore';
 
 // jsdom 에 없는 URL.revokeObjectURL 스텁(clearPendingData/resetEditor 가 호출).
@@ -103,13 +104,13 @@ describe('workingCopy hooks', () => {
     });
   });
 
-  it('useEffectiveEquipment(f1) → f1 placement-level only, as FloorPlanEquipment', async () => {
+  it('useEffectiveEquipment(f1) → f1 placement-level only, as Asset', async () => {
     await act(async () => {
       await useSubstationWorkingCopy.getState().load('s1');
     });
     const { result, rerender } = renderHook(() => useEffectiveEquipment('f1'));
     expect(result.current.map((e: any) => e.id).sort()).toEqual(['o1', 'panel1', 'r1']); // m1 (rack module) + x1 (other floor) excluded; panel1 placed DIST
-    expect(result.current.find((e: any) => e.id === 'r1')!.kind).toBe('RACK');
+    expect(kindOf(result.current.find((e: any) => e.id === 'r1')!)).toBe('RACK');
     const ref1 = result.current;
     rerender();
     expect(result.current).toBe(ref1); // stable ref when nothing changed

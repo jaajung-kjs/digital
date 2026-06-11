@@ -3,7 +3,8 @@
  * FloorPlanElement가 제거된 이후 이 파일은 설비 그리기/미리보기/길이표시만 담당한다.
  */
 
-import type { FloorPlanEquipment } from '../../types/floorPlan';
+import type { Asset } from '../../types/asset';
+import { widthOf, heightOf } from '../../features/workingCopy/placement';
 import { SELECTION_STYLES, ELEMENT_COLORS } from '../canvas/canvasDrawing';
 import { distance } from '../geometry/geometryUtils';
 
@@ -53,30 +54,34 @@ const fontSizeCache = new Map<string, number>();
 
 export function renderEquipmentItem(
   ctx: CanvasRenderingContext2D,
-  item: FloorPlanEquipment,
+  item: Asset,
   isSelected: boolean,
 ): void {
+  const w = widthOf(item);
+  const h = heightOf(item);
+  const px = item.positionX ?? 0;
+  const py = item.positionY ?? 0;
   ctx.save();
-  ctx.translate(item.positionX + item.width / 2, item.positionY + item.height / 2);
-  ctx.rotate((item.rotation * Math.PI) / 180);
-  ctx.translate(-item.width / 2, -item.height / 2);
+  ctx.translate(px + w / 2, py + h / 2);
+  ctx.rotate(((item.rotation ?? 0) * Math.PI) / 180);
+  ctx.translate(-w / 2, -h / 2);
 
   ctx.fillStyle = isSelected ? SELECTION_STYLES.fill : ELEMENT_COLORS.rack.fill;
   ctx.strokeStyle = isSelected ? SELECTION_STYLES.stroke : ELEMENT_COLORS.rack.stroke;
   ctx.lineWidth = isSelected ? 2 : 1;
-  ctx.fillRect(0, 0, item.width, item.height);
-  ctx.strokeRect(0, 0, item.width, item.height);
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeRect(0, 0, w, h);
 
   ctx.fillStyle = ELEMENT_COLORS.rack.text;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
   const padding = 4;
-  const maxWidth = item.width - padding * 2;
-  const maxHeight = item.height - padding * 2;
+  const maxWidth = w - padding * 2;
+  const maxHeight = h - padding * 2;
 
   if (maxWidth > 5 && maxHeight > 5) {
-    const cacheKey = `${item.name}|${item.width}|${item.height}`;
+    const cacheKey = `${item.name}|${w}|${h}`;
     let fontSize = fontSizeCache.get(cacheKey);
     if (fontSize === undefined) {
       let lo = 6;
@@ -94,7 +99,7 @@ export function renderEquipmentItem(
       fontSizeCache.set(cacheKey, fontSize);
     }
     ctx.font = `bold ${fontSize}px sans-serif`;
-    ctx.fillText(item.name, item.width / 2, item.height / 2, maxWidth);
+    ctx.fillText(item.name, w / 2, h / 2, maxWidth);
   }
 
   ctx.restore();
@@ -102,7 +107,7 @@ export function renderEquipmentItem(
 
 export function renderEquipmentItems(
   ctx: CanvasRenderingContext2D,
-  items: FloorPlanEquipment[],
+  items: Asset[],
   selectedIds: string[],
 ): void {
   for (const item of items) {
@@ -198,11 +203,15 @@ export function renderEquipmentDrawPreview(
 /** 설비 가로/세로 길이 표시 */
 export function renderEquipmentLengths(
   ctx: CanvasRenderingContext2D,
-  items: FloorPlanEquipment[],
+  items: Asset[],
   zoom: number = 100,
 ): void {
   for (const item of items) {
-    renderLengthLabel(ctx, item.positionX, item.positionY, item.positionX + item.width, item.positionY, zoom);
-    renderLengthLabel(ctx, item.positionX, item.positionY, item.positionX, item.positionY + item.height, zoom);
+    const px = item.positionX ?? 0;
+    const py = item.positionY ?? 0;
+    const w = widthOf(item);
+    const h = heightOf(item);
+    renderLengthLabel(ctx, px, py, px + w, py, zoom);
+    renderLengthLabel(ctx, px, py, px, py + h, zoom);
   }
 }

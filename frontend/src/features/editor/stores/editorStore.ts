@@ -5,12 +5,12 @@ import type {
   FloorPlanEquipment,
 } from '../../../types/floorPlan';
 import type { EquipmentKind } from '../../../types/equipmentKind';
+import type { Asset } from '../../../types/asset';
 import type { RackPreset } from '../../../types/rackPreset';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 
 /** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
 export type ConnectionFilterKey = string;
@@ -547,18 +547,16 @@ export const selectFloorSettingsDirty = (s: EditorStoreState): boolean =>
 // 진실은 substation working-copy 이므로, 선택 id 만 editorStore 에서 읽고 실제
 // 설비는 effective asset → assetToEquipment 로 매핑한다 (editorStore.localEquipment
 // 는 비어 있으므로 더 이상 읽지 않는다).
-export function useSelectedEquipment(): FloorPlanEquipment | null {
+export function useSelectedEquipment(): Asset | null {
   const id = useEditorStore((s) => s.selectedIds[0]);
   const assets = useEffectiveAssets();
   if (!id) return null;
-  const a = assets.find((x) => x.id === id);
-  return a ? assetToEquipment(a) : null;
+  return assets.find((x) => x.id === id) ?? null;
 }
 
 /** Non-hook context (event handler / store action) 에서 같은 의미 도출. */
-export function getSelectedEquipment(): FloorPlanEquipment | null {
+export function getSelectedEquipment(): Asset | null {
   const selId = useEditorStore.getState().selectedIds[0];
   if (!selId) return null;
-  const a = useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === selId);
-  return a ? assetToEquipment(a) : null;
+  return useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === selId) ?? null;
 }

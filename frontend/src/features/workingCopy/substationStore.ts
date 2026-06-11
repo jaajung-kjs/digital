@@ -16,7 +16,6 @@ import {
 } from './overlay';
 import { mergeEffective } from './effective';
 import type { CollectionDescriptor } from './descriptor';
-import { assetToEquipment } from './assetToEquipment';
 import { equipmentToAssetCreate, equipmentToAssetPatch } from './equipmentToAsset';
 import { rackModuleToAssetCreate, rackModuleToAssetPatch } from './rackModuleToAsset';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
@@ -246,7 +245,7 @@ export interface SubstationWorkingCopyState {
   effectiveAssets: () => Asset[];
   effectiveTopAssets: () => Asset[];
   effectiveAssetsByFloor: (floorId: string) => Asset[];
-  effectiveEquipment: (floorId: string) => FloorPlanEquipment[];
+  effectiveEquipment: (floorId: string) => Asset[];
   effectiveRackModules: (rackId: string) => Asset[];
   effectiveCables: () => Cable[];
   effectiveFiberPaths: () => FiberPath[];
@@ -471,7 +470,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       },
       effectiveTopAssets: () => get().effectiveAssets().filter((a) => !isRackModuleChild(a)),
       effectiveAssetsByFloor: (floorId) => get().effectiveTopAssets().filter((a) => a.floorId === floorId),
-      effectiveEquipment: (floorId) => get().effectiveAssetsByFloor(floorId).map(assetToEquipment),
+      effectiveEquipment: (floorId) => get().effectiveAssetsByFloor(floorId),
       effectiveRackModules: (rackId) =>
         get().effectiveAssets().filter((a) => a.parentAssetId === rackId && a.slotIndex != null),
       effectiveCables: () => {

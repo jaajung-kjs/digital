@@ -1,5 +1,4 @@
 import { useEditorStore, useSelectedEquipment } from '../stores/editorStore';
-import { useSnapshotStore } from '../stores/snapshotStore';
 import { EquipmentResizeHandles } from './EquipmentResizeHandles';
 
 /**
@@ -12,10 +11,8 @@ export function EquipmentResizeHandlesHost() {
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
-  const snapshotActive = useSnapshotStore((s) => s.active);
   const selected = useSelectedEquipment();
 
-  if (snapshotActive) return null;
   if (tool !== 'select') return null;
   if (!selected) return null;
 

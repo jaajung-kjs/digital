@@ -2,19 +2,22 @@
  * Hit Test 유틸리티 — Equipment 클릭 감지.
  */
 
-import type { FloorPlanEquipment } from '../../types/floorPlan';
+import type { Asset } from '../../types/asset';
+import { widthOf, heightOf } from '../../features/workingCopy/placement';
 
 export function hitTestEquipment(
   x: number,
   y: number,
-  item: FloorPlanEquipment
+  item: Asset
 ): boolean {
-  return x >= item.positionX && x <= item.positionX + item.width &&
-         y >= item.positionY && y <= item.positionY + item.height;
+  const px = item.positionX ?? 0;
+  const py = item.positionY ?? 0;
+  return x >= px && x <= px + widthOf(item) &&
+         y >= py && y <= py + heightOf(item);
 }
 
 export type HitTestResult =
-  | { type: 'equipment'; item: FloorPlanEquipment }
+  | { type: 'equipment'; item: Asset }
   | null;
 
 /**
@@ -25,7 +28,7 @@ export function findItemAt(
   y: number,
   // 호환성을 위해 elements 인자는 받지만 사용하지 않음 (호출처 정리 후 제거)
   _elements: unknown,
-  equipment: FloorPlanEquipment[]
+  equipment: Asset[]
 ): HitTestResult {
   const eq = equipment.find((item) => hitTestEquipment(x, y, item));
   if (eq) return { type: 'equipment', item: eq };

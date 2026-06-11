@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useCableDrawing } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
+import { widthOf, heightOf } from '../../workingCopy/placement';
 import { calculatePathLength, formatCableLength } from '../../../utils/cable/pathLength';
 
 export { calculatePathLength };
@@ -47,6 +48,10 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
       if (hoveredAssetId) {
         const eq = localEquipment.find((e) => e.id === hoveredAssetId);
         if (eq) {
+          const eqX = eq.positionX ?? 0;
+          const eqY = eq.positionY ?? 0;
+          const eqW = widthOf(eq);
+          const eqH = heightOf(eq);
           const scale = zoom / 100;
           ctx.save();
           ctx.setTransform(scale, 0, 0, scale, panX, panY);
@@ -55,13 +60,13 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
           ctx.strokeStyle = '#3b82f6';
           ctx.lineWidth = 3;
           ctx.setLineDash([6, 3]);
-          ctx.strokeRect(eq.positionX - 3, eq.positionY - 3, eq.width + 6, eq.height + 6);
+          ctx.strokeRect(eqX - 3, eqY - 3, eqW + 6, eqH + 6);
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
           ctx.fillStyle = '#3b82f6';
           ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('출발', eq.positionX + eq.width / 2, eq.positionY - 8);
+          ctx.fillText('출발', eqX + eqW / 2, eqY - 8);
           ctx.restore();
         }
       }
@@ -115,18 +120,22 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     if (hoveredAssetId && hoveredAssetId !== sourceContainerAssetId) {
       const eq = localEquipment.find((e) => e.id === hoveredAssetId);
       if (eq) {
+        const eqX = eq.positionX ?? 0;
+        const eqY = eq.positionY ?? 0;
+        const eqW = widthOf(eq);
+        const eqH = heightOf(eq);
         ctx.shadowColor = '#22c55e';
         ctx.shadowBlur = 10;
         ctx.strokeStyle = '#22c55e';
         ctx.lineWidth = 3;
         ctx.setLineDash([6, 3]);
-        ctx.strokeRect(eq.positionX - 3, eq.positionY - 3, eq.width + 6, eq.height + 6);
+        ctx.strokeRect(eqX - 3, eqY - 3, eqW + 6, eqH + 6);
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#22c55e';
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('도착', eq.positionX + eq.width / 2, eq.positionY - 8);
+        ctx.fillText('도착', eqX + eqW / 2, eqY - 8);
       }
     }
 
@@ -134,18 +143,22 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     if (sourceContainerAssetId) {
       const srcEq = localEquipment.find((e) => e.id === sourceContainerAssetId);
       if (srcEq) {
+        const sX = srcEq.positionX ?? 0;
+        const sY = srcEq.positionY ?? 0;
+        const sW = widthOf(srcEq);
+        const sH = heightOf(srcEq);
         ctx.shadowColor = '#3b82f6';
         ctx.shadowBlur = 8;
         ctx.strokeStyle = '#3b82f6';
         ctx.lineWidth = 3;
         ctx.setLineDash([6, 3]);
-        ctx.strokeRect(srcEq.positionX - 3, srcEq.positionY - 3, srcEq.width + 6, srcEq.height + 6);
+        ctx.strokeRect(sX - 3, sY - 3, sW + 6, sH + 6);
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#3b82f6';
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('출발', srcEq.positionX + srcEq.width / 2, srcEq.positionY - 8);
+        ctx.fillText('출발', sX + sW / 2, sY - 8);
       }
     }
 

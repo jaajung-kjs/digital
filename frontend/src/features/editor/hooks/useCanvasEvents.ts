@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { FloorPlanDetail, FloorPlanEquipment } from '../../../types/floorPlan';
+import type { FloorPlanDetail } from '../../../types/floorPlan';
 import { needsEndpointPicker } from '../../../types/equipmentKind';
 import { snapToGrid as snapToGridUtil } from '../../../utils/canvas/canvasTransform';
 import { findItemAt } from '../../../utils/floorplan/hitTestUtils';
 import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils/floorplan/dragSystem';
 import { type Position, getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
-import { useSnapshotStore } from '../stores/snapshotStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { kindOf, widthOf, heightOf } from '../../workingCopy/placement';
 import {
   useInteractionStore,
   getCableDrawing,
@@ -105,20 +105,6 @@ export function useCanvasEvents(
       e.preventDefault();
       canvasStore.getState().setIsPanning(true);
       canvasStore.getState().setPanStart({ x: screenX, y: screenY });
-      return;
-    }
-
-    // Snapshot preview: read-only selection + panning
-    const snap = useSnapshotStore.getState();
-    if (snap.active) {
-      const found = findItemAt(x, y, null, snap.equipment);
-      if (found) {
-        editorStore.getState().setSelectedIds([found.item.id]);
-      } else {
-        canvasStore.getState().setIsPanning(true);
-        canvasStore.getState().setPanStart({ x: screenX, y: screenY });
-        editorStore.getState().clearSelection();
-      }
       return;
     }
 
@@ -265,8 +251,8 @@ export function useCanvasEvents(
       // 첫 프레임만 temporal 에 기록(드래그 직전 overlay 가 단일 pastState 로 캡처),
       // 이후 프레임은 pause 해 history 폭주를 막는다(mouseup 에서 resume).
       useSubstationWorkingCopy.getState().stageEquipmentUpdate(moved.id, {
-        positionX: moved.positionX,
-        positionY: moved.positionY,
+        positionX: moved.positionX ?? 0,
+        positionY: moved.positionY ?? 0,
       });
       if (!dragRecordedRef.current) {
         dragRecordedRef.current = true;
@@ -318,7 +304,6 @@ export function useCanvasEvents(
 
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan || !canvasRef.current) return;
-    if (useSnapshotStore.getState().active) return;
 
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
@@ -332,10 +317,10 @@ export function useCanvasEvents(
     if (cableDrawing?.phase === 'selectingSource') {
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment') {
-        const eq = found.item as FloorPlanEquipment;
+        const eq = found.item;
         const center = getEquipmentCenter(eq);
         // P9: RACK / OFD endpoints require a module / port selection step.
-        if (needsEndpointPicker(eq.kind)) {
+        if (needsEndpointPicker(kindOf(eq))) {
           interaction.cableSetPendingSource(eq.id, center);
         } else {
           interaction.cableSetSource(eq.id, center);
@@ -350,9 +335,9 @@ export function useCanvasEvents(
     if (cableDrawing?.phase === 'drawingPath') {
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment' && found.item.id !== cableDrawing.sourceContainerAssetId) {
-        const eq = found.item as FloorPlanEquipment;
+        const eq = found.item;
         const center = getEquipmentCenter(eq);
-        if (needsEndpointPicker(eq.kind)) {
+        if (needsEndpointPicker(kindOf(eq))) {
           interaction.cableSetPendingTarget(eq.id, center);
         } else {
           interaction.cableSetTarget(eq.id, center);
@@ -379,12 +364,12 @@ export function useCanvasEvents(
     if (tool === 'cable') {
       const found = findItemAt(x, y, null, localEquipment);
       if (found?.type === 'equipment') {
-        const eq = found.item as FloorPlanEquipment;
+        const eq = found.item;
         const center = {
-          x: eq.positionX + eq.width / 2,
-          y: eq.positionY + eq.height / 2,
+          x: (eq.positionX ?? 0) + widthOf(eq) / 2,
+          y: (eq.positionY ?? 0) + heightOf(eq) / 2,
         };
-        if (needsEndpointPicker(eq.kind)) {
+        if (needsEndpointPicker(kindOf(eq))) {
           interaction.cableSetPendingSource(eq.id, center);
         } else {
           interaction.cableSetSource(eq.id, center);
@@ -443,15 +428,16 @@ export function useCanvasEvents(
     const x = (e.clientX - rect.left - panX) / (zoom / 100);
     const y = (e.clientY - rect.top - panY) / (zoom / 100);
 
-    const snapState = useSnapshotStore.getState();
-    const equipment = snapState.active ? snapState.equipment : effectiveEquipment();
+    const equipment = effectiveEquipment();
 
     for (const eq of [...equipment].reverse()) {
+      const eqX = eq.positionX ?? 0;
+      const eqY = eq.positionY ?? 0;
       if (
-        x >= eq.positionX &&
-        x <= eq.positionX + eq.width &&
-        y >= eq.positionY &&
-        y <= eq.positionY + eq.height
+        x >= eqX &&
+        x <= eqX + widthOf(eq) &&
+        y >= eqY &&
+        y <= eqY + heightOf(eq)
       ) {
         // 패널 진입과 동시에 선택 상태도 고정 — 캔버스 하이라이트(2px 파란 외곽)가
         // 더블클릭 흐름 전체에서 일관되게 유지된다.
@@ -494,7 +480,6 @@ export function useCanvasEvents(
   const handleCanvasContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     if (!floorPlan || !canvasRef.current) return;
-    if (useSnapshotStore.getState().active) return;
 
     const { x, y } = getCanvasCoordinates(e);
     const localEquipment = effectiveEquipment();

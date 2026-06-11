@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
-import type { BackgroundDrawing, FloorPlanEquipment } from '../../../types/floorPlan';
+import type { BackgroundDrawing } from '../../../types/floorPlan';
+import type { Asset } from '../../../types/asset';
+import { widthOf, heightOf } from '../../workingCopy/placement';
 import { useEditorStore } from '../stores/editorStore';
 
 /**
@@ -24,7 +26,7 @@ const VIEWPORT_KEY_VERSION = 'v2';
  * 큰 도면은 down-scale 되어 화면에 들어온다.
  */
 export function calculateFitToContent(
-  equipment: FloorPlanEquipment[],
+  equipment: Asset[],
   background: BackgroundDrawing | null | undefined,
   fallbackCanvasSize: { width: number; height: number } | null,
   canvasWidth: number,
@@ -36,10 +38,14 @@ export function calculateFitToContent(
   let maxY = -Infinity;
 
   for (const eq of equipment) {
-    if (eq.positionX < minX) minX = eq.positionX;
-    if (eq.positionY < minY) minY = eq.positionY;
-    if (eq.positionX + eq.width > maxX) maxX = eq.positionX + eq.width;
-    if (eq.positionY + eq.height > maxY) maxY = eq.positionY + eq.height;
+    const px = eq.positionX ?? 0;
+    const py = eq.positionY ?? 0;
+    const w = widthOf(eq);
+    const h = heightOf(eq);
+    if (px < minX) minX = px;
+    if (py < minY) minY = py;
+    if (px + w > maxX) maxX = px + w;
+    if (py + h > maxY) maxY = py + h;
   }
 
   // 설비가 하나라도 있으면 배경 도면은 프레이밍에서 제외한다(요구사항). 설비가
@@ -136,7 +142,7 @@ export function useViewport(floorId: string | undefined) {
   const { setViewport } = useEditorStore();
 
   const fitToContent = useCallback((
-    equipment: FloorPlanEquipment[],
+    equipment: Asset[],
     background: BackgroundDrawing | null | undefined,
     fallbackCanvasSize: { width: number; height: number } | null,
     canvasWidth: number,

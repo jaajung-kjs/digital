@@ -33,18 +33,14 @@ export function useCanvas(
     if (!canvas || !ctx || !floorPlan) return;
 
     const editorState = useEditorStore.getState();
-    const snapshot = useSnapshotStore.getState();
-
     const { zoom, panX, panY, showGrid, selectedIds, showLengths, tool } = editorState;
 
-    // SSOT-2d Task 3 — 비스냅샷 설비는 통합 스토어 effective 에서 읽는다(렌더 hot path,
-    // getState 로 동기 조회). floorId 없으면 빈 배열.
-    const localEquipment = snapshot.active
-      ? snapshot.equipment
-      : floorId
-        ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
-        : [];
-    const majorGridSize = snapshot.active ? snapshot.majorGridSize : editorState.majorGridSize;
+    // 설비는 통합 스토어 effective(Asset)에서 직접 읽는다 — 캔버스가 Asset 을 투영(북극성 ③).
+    // 렌더 hot path 라 getState 동기 조회. floorId 없으면 빈 배열.
+    const localEquipment = floorId
+      ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
+      : [];
+    const majorGridSize = editorState.majorGridSize;
 
     const {
       isDrawingEquipment, equipmentStart, equipmentPreviewEnd,
@@ -94,7 +90,7 @@ export function useCanvas(
     }
 
     // Equipment (excluding rack-internal — those render inside the rack view)
-    const floorEquipment = localEquipment.filter((eq) => !eq.parentEquipmentId);
+    const floorEquipment = localEquipment.filter((eq) => !eq.parentAssetId);
 
     const pathHighlight = usePathHighlightStore.getState();
     if (pathHighlight.active) {
@@ -118,14 +114,7 @@ export function useCanvas(
     // 스냅샷 보기 중에는 통합 effective 가 비어 self-find 로 폴백한다.
     const detailPanelEqId = editorState.detailPanelEquipmentId;
     if (detailPanelEqId) {
-      const target = snapshot.active
-        ? (() => {
-            const eq = floorEquipment.find((e) => e.id === detailPanelEqId);
-            return eq
-              ? { x: eq.positionX, y: eq.positionY, width: eq.width, height: eq.height }
-              : null;
-          })()
-        : floorTargetFor(detailPanelEqId, useSubstationWorkingCopy.getState().effectiveAssets());
+      const target = floorTargetFor(detailPanelEqId, useSubstationWorkingCopy.getState().effectiveAssets());
       if (target) {
         ctx.save();
         ctx.shadowColor = '#3b82f6';

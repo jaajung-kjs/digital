@@ -1,6 +1,5 @@
 import { type LocalCable } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { floorAnchor, assetsByIdMap } from '../../workingCopy/floorAnchor';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
@@ -23,8 +22,7 @@ export function syncCableEndpointsTo(movedEquipmentId: string): void {
   const assets = wc.effectiveAssets();
   const movedAsset = assets.find((a) => a.id === movedEquipmentId);
   if (!movedAsset) return;
-  const eq = assetToEquipment(movedAsset);
-  const c = getEquipmentCenter(eq);
+  const c = getEquipmentCenter(movedAsset);
   const newCenter: [number, number] = [c.x, c.y];
   // 끝점이 이 설비를 floor anchor(렌더 대표)로 갖는 케이블이 따라와야 한다.
   // 랙을 옮기면 그 모듈 endpoint 케이블이, 분전반을 옮기면 회로 endpoint 케이블이

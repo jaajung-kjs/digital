@@ -3,7 +3,7 @@
  * FloorPlanElement가 제거된 후, 평면도 위에서 드래그 가능한 건 설비뿐.
  */
 
-import type { FloorPlanEquipment } from '../../types/floorPlan';
+import type { Asset } from '../../types/asset';
 import { Position, getEquipmentPosition } from './elementSystem';
 
 export interface DragTarget {
@@ -19,7 +19,7 @@ export interface DragSession {
 }
 
 export function createDragSession(
-  item: { type: 'equipment'; item: FloorPlanEquipment },
+  item: { type: 'equipment'; item: Asset },
   mousePosition: Position,
 ): DragSession {
   return {
@@ -49,13 +49,13 @@ function calculateNewPosition(
 }
 
 export interface DragApplyResult {
-  equipment: FloorPlanEquipment[];
+  equipment: Asset[];
 }
 
 export function applyDrag(
   // 호환성: elements 인자는 무시 (호출처 정리 후 제거 예정)
   _elements: unknown,
-  equipment: FloorPlanEquipment[],
+  equipment: Asset[],
   session: DragSession,
   currentMousePosition: Position,
   snapFn?: (pos: Position) => Position,

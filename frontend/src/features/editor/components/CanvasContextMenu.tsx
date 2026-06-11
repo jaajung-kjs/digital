@@ -45,10 +45,9 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   const handleDeleteEquipment = () => {
     const es = useEditorStore.getState();
     const asset = useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === target.id);
-    const eq = asset ? assetToEquipment(asset) : undefined;
     onClose();
-    if (!eq) return;
-    if (!window.confirm(`'${eq.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
+    if (!asset) return;
+    if (!window.confirm(`'${asset.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
     useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(target.id);
     es.clearSelection();
   };
