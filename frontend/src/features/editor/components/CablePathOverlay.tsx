@@ -19,7 +19,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
   const sourcePosition = cable?.sourcePosition ?? null;
   const waypoints = cable?.waypoints ?? [];
   const previewPoint = cable?.previewPoint ?? null;
-  const hoveredEquipmentId = cable?.hoveredEquipmentId ?? null;
+  const hoveredAssetId = cable?.hoveredAssetId ?? null;
   const sourceContainerAssetId = cable?.sourceContainerAssetId ?? null;
 
   const zoom = useEditorStore((s) => s.zoom);
@@ -44,8 +44,8 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     // selectingSource: 호버된 설비가 있으면 "출발 후보" 로 미리 강조.
     // 이 단계에선 sourcePosition 이 아직 없으므로 별도 분기.
     if (phase === 'selectingSource') {
-      if (hoveredEquipmentId) {
-        const eq = localEquipment.find((e) => e.id === hoveredEquipmentId);
+      if (hoveredAssetId) {
+        const eq = localEquipment.find((e) => e.id === hoveredAssetId);
         if (eq) {
           const scale = zoom / 100;
           ctx.save();
@@ -112,8 +112,8 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     }
 
     // Hovered equipment highlight
-    if (hoveredEquipmentId && hoveredEquipmentId !== sourceContainerAssetId) {
-      const eq = localEquipment.find((e) => e.id === hoveredEquipmentId);
+    if (hoveredAssetId && hoveredAssetId !== sourceContainerAssetId) {
+      const eq = localEquipment.find((e) => e.id === hoveredAssetId);
       if (eq) {
         ctx.shadowColor = '#22c55e';
         ctx.shadowBlur = 10;
@@ -179,7 +179,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
 
     ctx.restore();
   }, [
-    phase, sourcePosition, waypoints, previewPoint, hoveredEquipmentId,
+    phase, sourcePosition, waypoints, previewPoint, hoveredAssetId,
     sourceContainerAssetId, zoom, panX, panY, localEquipment, canvasRef,
   ]);
 
