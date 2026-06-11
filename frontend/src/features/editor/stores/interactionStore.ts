@@ -33,7 +33,7 @@ export interface CableDrawingData {
 
   /** Cursor 미리보기 점 (drawingPath 단계) */
   previewPoint: { x: number; y: number } | null;
-  hoveredEquipmentId: string | null;
+  hoveredAssetId: string | null;
 }
 
 const cableInitial: CableDrawingData = {
@@ -50,7 +50,7 @@ const cableInitial: CableDrawingData = {
   targetFiberPathId: null,
   targetPortNumber: null,
   previewPoint: null,
-  hoveredEquipmentId: null,
+  hoveredAssetId: null,
 };
 
 // ── Discriminated union ──────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
             targetPortNumber: null,
             targetPosition: null,
             previewPoint: null,
-            hoveredEquipmentId: null,
+            hoveredAssetId: null,
           },
         },
       };
@@ -178,7 +178,7 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
             targetPortNumber: extras?.portNumber ?? null,
             targetPosition: position,
             previewPoint: null,
-            hoveredEquipmentId: null,
+            hoveredAssetId: null,
           },
         },
       };
@@ -225,9 +225,9 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
   cableSetHovered: (id) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
-      if (state.mode.data.hoveredEquipmentId === id) return state;
+      if (state.mode.data.hoveredAssetId === id) return state;
       return {
-        mode: { kind: 'cableDrawing', data: { ...state.mode.data, hoveredEquipmentId: id } },
+        mode: { kind: 'cableDrawing', data: { ...state.mode.data, hoveredAssetId: id } },
       };
     }),
 

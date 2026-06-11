@@ -200,7 +200,7 @@ export function useCanvasEvents(
     const cableDrawing = getCableDrawing();
     const interaction = useInteractionStore.getState();
     if (cableDrawing?.phase === 'selectingSource') {
-      updateHoveredEquipment(cableDrawing.hoveredEquipmentId, interaction.cableSetHovered);
+      updateHoveredEquipment(cableDrawing.hoveredAssetId, interaction.cableSetHovered);
       return;
     }
     if (cableDrawing?.phase === 'drawingPath') {
@@ -219,7 +219,7 @@ export function useCanvasEvents(
         }
       }
       interaction.cableSetPreviewPoint({ x: snapped.x, y: snapped.y });
-      updateHoveredEquipment(cableDrawing.hoveredEquipmentId, interaction.cableSetHovered);
+      updateHoveredEquipment(cableDrawing.hoveredAssetId, interaction.cableSetHovered);
       return;
     }
 
