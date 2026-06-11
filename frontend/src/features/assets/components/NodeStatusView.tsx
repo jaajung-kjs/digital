@@ -92,10 +92,15 @@ function AssetRow({
  */
 function StagedEditDetailPanel({
   assetId,
+  targetSubstationId,
+  loadedSubstationId,
   blockedByDirtyName,
   onClose,
 }: {
   assetId: string;
+  targetSubstationId: string;
+  /** 현재 로드된 변전소(=working copy store 의 substationId). */
+  loadedSubstationId: string | null;
   /** 가드 발동 시(다른 변전소가 미저장) — 그 변전소 이름(없으면 null). 가드 아니면 undefined. */
   blockedByDirtyName: string | null | undefined;
   onClose: () => void;
@@ -118,11 +123,9 @@ function StagedEditDetailPanel({
     );
   }
 
-  // 워킹카피(effective = saved+overlay)에 자산이 있으면 *항상* 그걸 쓴다 → 편집 + 막 추가한
-  // 랙 모듈 등 staged 변경이 현황에 실시간 반영. (loaded 플래그에만 의존하면 targetSubstationId
-  // 가 잠깐 안 잡힐 때 서버 fetched(읽기전용)로 떨어져 staged 가 현황에 안 보이는 버그가 났다.)
-  // effective 에 없을 때만(미로드/다른 변전소) 서버 fetched 로 읽기전용 폴백.
-  const asset = effective.find((a) => a.id === assetId);
+  // 대상 변전소가 아직 로드 안 됨(로딩 중) → useAsset 페치로 읽기전용 표시(스테이지 불가).
+  const loaded = loadedSubstationId === targetSubstationId;
+  const asset = loaded ? effective.find((a) => a.id === assetId) : undefined;
   const display = asset ?? fetched;
   if (!display) {
     return (
@@ -330,6 +333,8 @@ export function NodeStatusView({
           targetSubstationId && (
             <StagedEditDetailPanel
               assetId={selectedId}
+              targetSubstationId={targetSubstationId}
+              loadedSubstationId={loadedSubstationId}
               blockedByDirtyName={blocked ? dirtySubstationName : undefined}
               onClose={() => setSelectedId(null)}
             />
