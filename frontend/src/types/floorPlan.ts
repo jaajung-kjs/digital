@@ -66,9 +66,8 @@ export interface FloorPlanEquipment {
 // endpoint 는 polymorphic — 양 쪽 각각 Equipment(non-RACK) 또는 RackModule.
 // 정확히 한 쪽이 not-null 이라야 한다.
 //
-// P8 SHIM: 백엔드는 `sourceEquipmentId | null` 로 보내지만, UI 가 RackModule 을
-// 처리하기 전 (P9) 까지는 어댑터에서 `''` 로 채워 넣어 string 으로 유지한다.
-// `materialCategory*` aliases 는 P9 에서 제거.
+// 케이블 endpoint = 단일 asset id(sourceAssetId/targetAssetId). 백엔드 DTO 의
+// source.assetId 를 cableDtoToLocal 이 이 flat 자리로 옮긴다(없으면 '' 로 유지).
 export interface FloorPlanCable {
   id: string;
   sourceAssetId: string;
