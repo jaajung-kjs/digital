@@ -310,13 +310,13 @@ async function remove(id: string): Promise<void> {
   const existing = await prisma.asset.findUnique({
     where: { id },
     include: {
-      sourceCablesMod: { select: { id: true } },
-      targetCablesMod: { select: { id: true } },
+      sourceCablesAsset: { select: { id: true } },
+      targetCablesAsset: { select: { id: true } },
     },
   });
   if (!existing) throw new NotFoundError('랙 모듈');
 
-  const connectionCount = existing.sourceCablesMod.length + existing.targetCablesMod.length;
+  const connectionCount = existing.sourceCablesAsset.length + existing.targetCablesAsset.length;
   if (connectionCount > 0) {
     throw new ConflictError(
       `연결된 케이블이 ${connectionCount}개 있어 삭제할 수 없습니다. 케이블을 먼저 제거하세요.`,

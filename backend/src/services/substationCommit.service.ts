@@ -464,10 +464,11 @@ async function run(
         where: { id: u.id },
         select: { sourceAssetId: true, targetAssetId: true, fiberPathId: true, fiberPortNumber: true },
       });
+      // endpoint 는 필수(NOT NULL). 변경 시 resolveNode, 미변경 시 existing(이미 non-null).
       const sourceAssetId =
-        p.sourceAssetId !== undefined ? resolveNode(p.sourceAssetId) : existing.sourceAssetId;
+        (p.sourceAssetId !== undefined ? resolveNode(p.sourceAssetId) : existing.sourceAssetId)!;
       const targetAssetId =
-        p.targetAssetId !== undefined ? resolveNode(p.targetAssetId) : existing.targetAssetId;
+        (p.targetAssetId !== undefined ? resolveNode(p.targetAssetId) : existing.targetAssetId)!;
       const fiberPathId = p.fiberPathId !== undefined ? resolveFiber(p.fiberPathId) : existing.fiberPathId;
       const fiberPortNumber =
         p.fiberPortNumber !== undefined ? (p.fiberPortNumber as number | null) : existing.fiberPortNumber;
