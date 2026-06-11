@@ -356,6 +356,10 @@ async function run(
           installDate: patchDate(p.installDate),
           manager: p.manager as string | null | undefined,
           description: p.description as string | null | undefined,
+          // 랙 모듈도 자산 공통 필드(status/보증/교체)를 동일하게 저장 — 비모듈 경로와 패리티.
+          status: p.status as string | null | undefined,
+          warrantyUntil: patchDate(p.warrantyUntil),
+          replaceDue: patchDate(p.replaceDue),
           sourcePresetId: p.properties !== undefined ? extractSourcePresetId(p.properties) : undefined,
           sortOrder: p.sortOrder as number | undefined,
           updatedById: userId,

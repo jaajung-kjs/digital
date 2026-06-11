@@ -64,6 +64,8 @@ async function flushPendingMedia(
   pendingUploads: PendingUpload[],
   pendingLogs: PendingLog[],
   pendingInspections: PendingInspection[],
+  pendingLogDeletes: string[],
+  pendingInspectionDeletes: string[],
   idMapsAssets: Record<string, string> | undefined,
 ): Promise<void> {
   const idMaps = buildIdMaps({ equipmentIdMap: idMapsAssets });
@@ -129,6 +131,24 @@ async function flushPendingMedia(
         if (failures.length > 0) {
           console.warn(`[Save] ${failures.length} inspection creation(s) failed:`, failures);
         }
+      }),
+    );
+  }
+
+  // 저장된 이력의 삭제 스테이징 — 실 id 라 매핑 불필요, 바로 DELETE.
+  if (pendingLogDeletes.length > 0) {
+    pendingTasks.push(
+      Promise.allSettled(pendingLogDeletes.map((id) => api.delete(`/maintenance-logs/${id}`))).then((results) => {
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) console.warn(`[Save] ${failures.length} log deletion(s) failed:`, failures);
+      }),
+    );
+  }
+  if (pendingInspectionDeletes.length > 0) {
+    pendingTasks.push(
+      Promise.allSettled(pendingInspectionDeletes.map((id) => api.delete(`/inspection-logs/${id}`))).then((results) => {
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) console.warn(`[Save] ${failures.length} inspection deletion(s) failed:`, failures);
       }),
     );
   }
@@ -219,8 +239,8 @@ export function useCommitWorkingCopy() {
     const ed = useEditorStore.getState();
     const floor = buildFloorSection(ed);
     const hadUploads = ed.pendingUploads.length > 0;
-    const hadLogs = ed.pendingLogs.length > 0;
-    const hadInspections = ed.pendingInspections.length > 0;
+    const hadLogs = ed.pendingLogs.length > 0 || ed.pendingLogDeletes.length > 0;
+    const hadInspections = ed.pendingInspections.length > 0 || ed.pendingInspectionDeletes.length > 0;
 
     // #3 Task 3 — 작업지시서 아카이브용 PRE-commit 스냅샷.
     // 커밋 후 store.load 가 오버레이를 비우므로, 활성 층 changes 는 반드시 지금
@@ -236,7 +256,7 @@ export function useCommitWorkingCopy() {
 
     try {
       const result = await commitSubstation(substationId, wc.overlays, wc.saved.assets, queryClient, floor);
-      await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, ed.pendingInspections, result.idMaps?.assets);
+      await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, ed.pendingInspections, ed.pendingLogDeletes, ed.pendingInspectionDeletes, result.idMaps?.assets);
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
       // 2회차 저장 409 방지(견고화) — floor 섹션을 커밋하면 백엔드가 floor.updatedAt 을

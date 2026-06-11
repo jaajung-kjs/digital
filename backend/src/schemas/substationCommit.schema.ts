@@ -99,6 +99,10 @@ const rackModuleCreate = z.object({
   installDate: z.string().nullable().optional(),
   manager: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  // 자산 공통 필드 — 랙 모듈도 status/보증/교체를 커밋(비모듈 경로와 패리티).
+  status: z.string().nullable().optional(),
+  warrantyUntil: z.string().nullable().optional(),
+  replaceDue: z.string().nullable().optional(),
   properties: z.unknown().optional(),
   sortOrder: z.number().optional(),
 });

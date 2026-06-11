@@ -37,6 +37,8 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
   const addPendingLog = useEditorStore((s) => s.addPendingLog);
   const updatePendingLog = useEditorStore((s) => s.updatePendingLog);
   const removePendingLog = useEditorStore((s) => s.removePendingLog);
+  const pendingLogDeletes = useEditorStore((s) => s.pendingLogDeletes);
+  const stagePendingLogDelete = useEditorStore((s) => s.stagePendingLogDelete);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -55,10 +57,12 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
         id: l.id, logType: l.logType, title: l.title, description: l.description ?? '',
         logDate: l.logDate ?? '', severity: l.severity ?? 'LOW', createdByName: null as string | null, isPending: true as const,
       })),
-    ...savedLogs.map((l) => ({
-      id: l.id, logType: l.logType as string, title: l.title, description: l.description ?? '',
-      logDate: (l.logDate ?? l.createdAt) as string, severity: (l.severity ?? '') as string, createdByName: l.createdByName ?? null, isPending: false as const,
-    })),
+    ...savedLogs
+      .filter((l) => !pendingLogDeletes.includes(l.id)) // 삭제 스테이징된 행은 숨김(SAVE 시 DELETE).
+      .map((l) => ({
+        id: l.id, logType: l.logType as string, title: l.title, description: l.description ?? '',
+        logDate: (l.logDate ?? l.createdAt) as string, severity: (l.severity ?? '') as string, createdByName: l.createdByName ?? null, isPending: false as const,
+      })),
   ];
 
   const reset = () => {
@@ -196,14 +200,22 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
                     )}
                     {it.isPending && <span className="text-xs text-warning">저장 대기</span>}
                   </div>
-                  {canWrite && it.isPending && (
+                  {canWrite && (
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <IconAction onClick={() => handleEdit(it)} title="수정">
-                        <Pencil size={14} />
-                      </IconAction>
-                      <IconAction onClick={() => handleRemove(it.id)} title="삭제" danger>
-                        <Trash2 size={14} />
-                      </IconAction>
+                      {it.isPending ? (
+                        <>
+                          <IconAction onClick={() => handleEdit(it)} title="수정">
+                            <Pencil size={14} />
+                          </IconAction>
+                          <IconAction onClick={() => handleRemove(it.id)} title="삭제" danger>
+                            <Trash2 size={14} />
+                          </IconAction>
+                        </>
+                      ) : (
+                        <IconAction onClick={() => stagePendingLogDelete(it.id)} title="삭제" danger>
+                          <Trash2 size={14} />
+                        </IconAction>
+                      )}
                     </div>
                   )}
                 </div>

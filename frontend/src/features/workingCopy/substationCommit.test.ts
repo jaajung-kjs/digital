@@ -89,6 +89,19 @@ describe('buildSubstationCommitPayload', () => {
     expect(payload.assets!.deletes.map((d: any) => d.id)).toContain('a2');
   });
 
+  it('status 패치: 비모듈·랙 모듈 모두 status 가 payload 에 포함(드롭 안 됨)', () => {
+    let assets: AnyOverlay = ov();
+    assets.baseVersions = { a1: 'v-a1', m1: 'v-m1' };
+    assets = stageUpdate(assets, 'a1', { status: 'OFF' } as any); // 비모듈
+    assets = stageUpdate(assets, 'm1', { status: 'OFF' } as any); // 랙 모듈
+    const payload = buildSubstationCommitPayload(
+      { assets, cables: ov() as any, fiberPaths: ov() as any } as any,
+      savedAssets as any,
+    );
+    expect((payload.assets!.updates.find((u: any) => u.id === 'a1')!.patch as any).status).toBe('OFF');
+    expect((payload.rackModules!.updates.find((u: any) => u.id === 'm1')!.patch as any).status).toBe('OFF');
+  });
+
   it('cable create → tempId + 단일 sourceAssetId/targetAssetId, nested/flat 없음', () => {
     // 단계4b — CableSpecModal 이 stage 하는 정규 shape: id + 단일 assetId(nested 제거).
     const cables = stageCreate(emptyOverlay<any, any>(), 'tmpC', {

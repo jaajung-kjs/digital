@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNodeAssets } from '../../hooks/useNodeAssets';
 import { useEffectiveAssetsOverlay } from '../workingCopy/hooks';
+import { useEditorStore } from '../editor/stores/editorStore';
 import type { Asset } from '../../types/asset';
 import type { AssetListItem } from './nodeStatus';
 
@@ -55,13 +56,27 @@ function assetCreateToListItem(asset: Asset, substationId: string): AssetListIte
 export function useSubstationStatusRows(substationId: string): AssetListItem[] {
   const { data: list = [] } = useNodeAssets('substation', substationId);
   const overlay = useEffectiveAssetsOverlay();
+  const pendingInspections = useEditorStore((s) => s.pendingInspections);
   return useMemo(() => {
+    // staged(저장 대기) 점검의 자산별 최신 점검일 → 현황 '마지막 점검일'에 즉시 반영
+    // (백엔드 lastMaintenanceDate 는 커밋 후에야 갱신되므로, pre-save 에도 일관되게 보이게).
+    const pendingLatest = new Map<string, string>();
+    for (const ins of pendingInspections) {
+      const cur = pendingLatest.get(ins.assetId);
+      if (!cur || ins.inspectionDate > cur) pendingLatest.set(ins.assetId, ins.inspectionDate);
+    }
+    const withPending = (id: string, saved: string | null): string | null => {
+      const p = pendingLatest.get(id);
+      if (!p) return saved;
+      return !saved || p > saved.slice(0, 10) ? p : saved;
+    };
     const deleted = new Set(overlay.deletes);
     const rows = list
       .filter((r) => !deleted.has(r.id))
       .map((r) => {
         const p = overlay.updates[r.id];
-        return p ? { ...r, ...assetPatchToListItem(p) } : r;
+        const merged = p ? { ...r, ...assetPatchToListItem(p) } : r;
+        return { ...merged, lastMaintenanceDate: withPending(r.id, merged.lastMaintenanceDate) };
       });
     // 새 staged 자산을 행으로 추가. 서버 listByNode 는 parentAssetId 필터가 없어
     // 저장 후 랙 모듈도 행으로 뜨므로, pre-save 에서도 동일하게 포함해야 "저장해야
@@ -69,5 +84,5 @@ export function useSubstationStatusRows(substationId: string): AssetListItem[] {
     const creates = (Object.values(overlay.creates) as Asset[])
       .map((a) => assetCreateToListItem(a, substationId));
     return [...rows, ...creates];
-  }, [list, overlay, substationId]);
+  }, [list, overlay, pendingInspections, substationId]);
 }

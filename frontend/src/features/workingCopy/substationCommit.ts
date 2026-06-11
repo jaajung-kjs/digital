@@ -167,7 +167,9 @@ function toRackModulePatch(patch: Partial<Asset>): Record<string, unknown> {
   if ('sourcePresetId' in p) {
     out.properties = p.sourcePresetId ? { sourcePresetId: p.sourcePresetId } : null;
   }
-  for (const k of ['name', 'slotIndex', 'slotSpan', 'installDate', 'manager', 'description', 'sortOrder'] as const) {
+  // status/warrantyUntil/replaceDue 도 자산 공통 필드 — 랙 모듈도 동일하게 커밋해야
+  // '상태 OFF 저장 시 ON 복귀' 같은 드롭 버그가 안 생긴다(비모듈 경로와 필드 패리티).
+  for (const k of ['name', 'slotIndex', 'slotSpan', 'installDate', 'manager', 'description', 'sortOrder', 'status', 'warrantyUntil', 'replaceDue'] as const) {
     if (k in p) out[k] = p[k];
   }
   return out;

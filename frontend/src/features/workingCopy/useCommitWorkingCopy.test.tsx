@@ -35,6 +35,8 @@ vi.mock('../editor/stores/editorStore', () => ({
       pendingUploads: [],
       pendingLogs: [],
       pendingInspections: [],
+      pendingLogDeletes: [],
+      pendingInspectionDeletes: [],
       clearPendingData: vi.fn(),
       setBaseFloorVersion: setBaseFloorVersionSpy,
     }),

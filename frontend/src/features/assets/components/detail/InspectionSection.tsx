@@ -34,6 +34,8 @@ export function InspectionSection({ assetId }: { assetId: string }) {
   const addPendingInspection = useEditorStore((s) => s.addPendingInspection);
   const updatePendingInspection = useEditorStore((s) => s.updatePendingInspection);
   const removePendingInspection = useEditorStore((s) => s.removePendingInspection);
+  const pendingInspectionDeletes = useEditorStore((s) => s.pendingInspectionDeletes);
+  const stagePendingInspectionDelete = useEditorStore((s) => s.stagePendingInspectionDelete);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ inspectionDate: todayStr(), inspector: '', content: '' });
@@ -43,7 +45,9 @@ export function InspectionSection({ assetId }: { assetId: string }) {
     ...pendingInspections
       .filter((i) => i.assetId === assetId)
       .map((i) => ({ id: i.id, inspectionDate: i.inspectionDate, inspector: i.inspector, content: i.content ?? '', isPending: true as const })),
-    ...savedLogs.map((l) => ({ id: l.id, inspectionDate: l.inspectionDate, inspector: l.inspector, content: l.content ?? '', isPending: false as const })),
+    ...savedLogs
+      .filter((l) => !pendingInspectionDeletes.includes(l.id)) // 삭제 스테이징된 행은 숨김(SAVE 시 DELETE).
+      .map((l) => ({ id: l.id, inspectionDate: l.inspectionDate, inspector: l.inspector, content: l.content ?? '', isPending: false as const })),
   ];
 
   const reset = () => {
@@ -138,14 +142,22 @@ export function InspectionSection({ assetId }: { assetId: string }) {
                     <span className="text-content-muted truncate">{it.inspector}</span>
                     {it.isPending && <span className="text-xs text-warning shrink-0">저장 대기</span>}
                   </div>
-                  {isAdmin && it.isPending && (
+                  {isAdmin && (
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <IconAction onClick={() => handleEdit(it)} title="수정">
-                        <Pencil size={14} />
-                      </IconAction>
-                      <IconAction onClick={() => handleRemove(it.id)} title="삭제" danger>
-                        <Trash2 size={14} />
-                      </IconAction>
+                      {it.isPending ? (
+                        <>
+                          <IconAction onClick={() => handleEdit(it)} title="수정">
+                            <Pencil size={14} />
+                          </IconAction>
+                          <IconAction onClick={() => handleRemove(it.id)} title="삭제" danger>
+                            <Trash2 size={14} />
+                          </IconAction>
+                        </>
+                      ) : (
+                        <IconAction onClick={() => stagePendingInspectionDelete(it.id)} title="삭제" danger>
+                          <Trash2 size={14} />
+                        </IconAction>
+                      )}
                     </div>
                   )}
                 </div>

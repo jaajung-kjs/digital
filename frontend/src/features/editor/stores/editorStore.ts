@@ -123,6 +123,9 @@ export interface EditorStoreState {
   pendingUploads: PendingUpload[];
   pendingLogs: PendingLog[];
   pendingInspections: PendingInspection[];
+  /** 저장된(커밋된) 고장/점검 이력의 삭제 스테이징 — SAVE 시 DELETE flush. */
+  pendingLogDeletes: string[];
+  pendingInspectionDeletes: string[];
 
   // Staged background drawing & opacity. Like the rest of the editor, DWG
   // changes (import / clear / opacity) are git-like — they live here until
@@ -253,6 +256,8 @@ export interface EditorStoreActions {
   addPendingInspection: (inspection: PendingInspection) => void;
   updatePendingInspection: (id: string, updates: Partial<PendingInspection>) => void;
   removePendingInspection: (id: string) => void;
+  stagePendingLogDelete: (id: string) => void;
+  stagePendingInspectionDelete: (id: string) => void;
   clearPendingData: () => void;
 
   /** Stage a freshly-parsed DWG. Caller is responsible for fitting viewport. */
@@ -346,6 +351,8 @@ const initialState: EditorStoreState = {
   pendingUploads: [],
   pendingLogs: [],
   pendingInspections: [],
+  pendingLogDeletes: [],
+  pendingInspectionDeletes: [],
   stagedBackgroundDrawing: undefined,
   stagedBackgroundOpacity: undefined,
   connectionFilters: null,
@@ -445,12 +452,20 @@ export const useEditorStore = create<FullStore>()((set) => ({
   removePendingInspection: (id) => set((state) => ({
     pendingInspections: state.pendingInspections.filter((i) => i.id !== id),
   })),
+  stagePendingLogDelete: (id) => set((state) => ({
+    pendingLogDeletes: state.pendingLogDeletes.includes(id) ? state.pendingLogDeletes : [...state.pendingLogDeletes, id],
+  })),
+  stagePendingInspectionDelete: (id) => set((state) => ({
+    pendingInspectionDeletes: state.pendingInspectionDeletes.includes(id) ? state.pendingInspectionDeletes : [...state.pendingInspectionDeletes, id],
+  })),
   clearPendingData: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);
     return {
       pendingUploads: [],
       pendingLogs: [],
       pendingInspections: [],
+      pendingLogDeletes: [],
+      pendingInspectionDeletes: [],
       stagedBackgroundDrawing: undefined,
       stagedBackgroundOpacity: undefined,
     };
