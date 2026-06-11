@@ -217,11 +217,19 @@ ASCII (터미널용):
 
 - **P1 ✅** C2/C1 위반 제거: 케이블 연결탭 effective+stage, 죽은 즉시-CRUD 훅 제거. (`8093c79`)
 - **P2 ✅** 드리프트 제거: 중복 로직(assetPatchToListItem·statusIsOn·isRackModuleAsset) 단일화. (`91dba3b`)
-- **P3 — 워킹카피 코어 제네릭화 (북극성 ①)** *(중위험)*: 엔티티별 이름 함수(stageAssetUpdate…)를 **제네릭 코어**(`put/patch/remove/query` over typed-record store) 위로. 기존 컬렉션을 한 번에 한 종류씩 그 위로 이주(이름 함수는 제네릭 위임 래퍼 → 호출부 무변경, 동작 보장). media(photo/log/inspection)는 **제네릭으로** 흡수(editorStore=UI전용, 사진삭제 활성버그 동반 해결). 각 종류의 영속화는 descriptor 의 `flush`/`commit` 로 등록 — **새 엔티티 = 데이터 등록, 함수 0.**
+- **P3 — 워킹카피 코어 제네릭화 + media 흡수 (북극성 ①)** *(진행 중, 대부분 완료)*:
+  - **P3.1 ✅** 컬렉션 레지스트리(`COLLECTIONS`) + `freshOverlays`·`dirtyCount` 레지스트리 순회 → 새 컬렉션이 dirty/revert 에 자동 참여. (`367f3ec`)
+  - **P3.2-prep ✅** dirty 단일 소스 `sumOverlaysDirty`(store/hook/non-hook 통일). (`59d6eeb`)
+  - **제네릭 ops ✅** `put/patch/remove(coll)` + `useEffective<coll>` — 새 엔티티는 전용 stage 함수 0개.
+  - **P3.2 ✅** 점검(inspections) → substationStore 컬렉션. (`fc9af4d`)
+  - **P3.3a ✅** 고장이력(logs) → substationStore 컬렉션. (`3e36057`)
+  - **P3.3b ✅** 사진(photos) → substationStore 컬렉션 + **사진삭제 버그 해결** + blob URL 수명관리. (`51154b5`)
+  - → **editorStore = UI/캔버스 전용 달성**(도메인 큐 0). saved 는 [](실 saved 는 RQ), overlay 만 staging.
+  - **P3.4 (남음, 선택)** load/commit 도 레지스트리 순회로 + 기존 이름 함수(stageAssetUpdate…)를 제네릭 위임 래퍼로 정리.
 - **P4 — 뷰=투영 (북극성 ②)** *(고위험·세부 plan 별도)*: 캔버스가 asset 레코드를 직접 투영하도록 → `FloorPlanEquipment` 변환기 4개 + 타입 제거.
 - **P5 — 백엔드 type 디스패치 커밋 (북극성 ③, 선택)** + 위생(deprecated 잔재, 스냅샷 중복 컴포넌트).
 
-순서 근거: 저위험·활성버그 먼저(P1·P2 완료). P3 는 코어 제네릭화로 북극성 ①에 도달하며 보일러플레이트를 구조적으로 없앤다(이름 함수는 위임 래퍼로 동작 보장). P4·P5 는 회귀 위험이 커 세부 plan 후.
+순서 근거: 저위험·활성버그 먼저(P1·P2 완료). P3 는 코어 제네릭화로 북극성 ①에 도달 — media 3종(점검/고장이력/사진)을 제네릭 컬렉션으로 흡수해 editorStore 를 UI 전용으로 만들었다(보일러플레이트 구조적 제거). P4·P5 는 회귀 위험이 커 세부 plan 후.
 
 ---
 
