@@ -62,7 +62,7 @@ export function SidePanel({
     >
       {/* 공통 헤더 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-surface-2 shrink-0">
-        <h3 className="text-sm font-medium text-content truncate min-w-0">{title}</h3>
+        <h3 className="text-base font-semibold text-content truncate min-w-0">{title}</h3>
         <div className="flex items-center gap-2 shrink-0">
           {headerExtra}
           <button

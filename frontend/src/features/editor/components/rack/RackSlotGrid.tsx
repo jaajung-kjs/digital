@@ -137,9 +137,9 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
           className="pointer-events-none absolute inset-0 flex items-center justify-center px-4"
         >
           <div className="bg-surface/90 backdrop-blur-sm border border-info rounded-lg px-4 py-3 text-center shadow-sm">
-            <p className="text-xs text-content font-medium">비어 있는 랙입니다</p>
-            <p className="text-[11px] text-content-muted mt-1">슬롯을 클릭해서 모듈 추가</p>
-            <p className="text-[11px] text-content-faint mt-0.5">또는 상단 [프리셋 적용]</p>
+            <p className="text-sm text-content font-medium">비어 있는 랙입니다</p>
+            <p className="text-xs text-content-muted mt-1">슬롯을 클릭해서 모듈 추가</p>
+            <p className="text-xs text-content-faint mt-0.5">또는 상단 [프리셋 적용]</p>
           </div>
         </div>
       )}

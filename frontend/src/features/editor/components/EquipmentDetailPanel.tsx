@@ -94,7 +94,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     >
       {/* Snapshot read-only banner */}
       {snapshotActive && (
-        <div className="px-4 py-2 bg-warning-bg border-b border-line text-xs text-warning font-medium text-center shrink-0">
+        <div className="px-4 py-2 bg-warning-bg border-b border-line text-sm text-warning font-medium text-center shrink-0">
           과거 도면 보기 중 (읽기 전용)
         </div>
       )}

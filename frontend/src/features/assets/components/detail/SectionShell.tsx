@@ -13,7 +13,7 @@ import type { ReactNode } from 'react';
 /** 빈 상태 — 동일 톤(연결 섹션 등에서 사용). */
 export function SectionEmpty({ children }: { children: ReactNode }) {
   return (
-    <p className="text-xs text-content-faint text-center py-4">{children}</p>
+    <p className="text-sm text-content-faint text-center py-4">{children}</p>
   );
 }
 
@@ -50,7 +50,7 @@ export function GhostButton({ onClick, children }: { onClick: () => void; childr
     <button
       type="button"
       onClick={onClick}
-      className="text-xs font-medium px-3 py-1.5 rounded text-content-muted hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="text-sm font-medium px-3 py-1.5 rounded text-content-muted hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       {children}
     </button>
@@ -72,7 +72,7 @@ export function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="text-xs font-medium px-3 py-1.5 rounded bg-primary text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="text-sm font-medium px-3 py-1.5 rounded bg-primary text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       {children}
     </button>

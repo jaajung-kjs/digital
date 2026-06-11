@@ -90,7 +90,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
   };
 
   if (isTemp) {
-    return <p className="text-xs text-content-faint py-2">자산을 저장한 뒤 고장 이력을 기록할 수 있습니다.</p>;
+    return <p className="text-sm text-content-faint py-2">자산을 저장한 뒤 고장 이력을 기록할 수 있습니다.</p>;
   }
   if (isLoading) {
     return (
@@ -170,11 +170,11 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
       {/* 이력 — 아래로 누적(최근순). 빈 상태는 한 곳에서만. */}
       <div className={canWrite ? 'border-t border-line pt-3' : ''}>
         <div className="flex items-baseline gap-1.5 mb-2">
-          <span className="text-xs font-semibold text-content-muted">고장 이력</span>
-          {logs.length > 0 && <span className="text-[11px] text-content-faint">{logs.length}건</span>}
+          <span className="text-sm font-semibold text-content-muted">고장 이력</span>
+          {logs.length > 0 && <span className="text-xs text-content-faint">{logs.length}건</span>}
         </div>
         {logs.length === 0 ? (
-          <p className="text-xs text-content-faint py-1">기록된 고장 이력이 없습니다.</p>
+          <p className="text-sm text-content-faint py-1">기록된 고장 이력이 없습니다.</p>
         ) : (
           <div className="space-y-2">
             {logs.map((log) => (

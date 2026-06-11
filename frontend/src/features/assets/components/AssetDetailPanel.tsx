@@ -61,7 +61,7 @@ export function AssetDetailPanel({ asset, mode = 'edit', onClose, onPatch }: Pro
         <div className="flex items-center gap-2 min-w-0">
           {/* ISA-101: 종류 점은 무채색. 색은 상태 배지에만. */}
           <span className="inline-block w-2 h-2 rounded-full shrink-0 bg-eq-3" />
-          <span className="text-sm font-semibold truncate">{asset.name}</span>
+          <span className="text-base font-semibold truncate">{asset.name}</span>
           {alert && <span className="text-xs px-1.5 py-0.5 rounded-full bg-warning-bg text-warning font-medium shrink-0" title={alert.label}>{alert.label}</span>}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">

@@ -66,7 +66,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
               key={s}
               type="button"
               onClick={() => setSide(s)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors focus-visible:outline-none ${
+              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors focus-visible:outline-none ${
                 side === s ? 'bg-primary text-white shadow-sm' : 'text-content-muted hover:text-content'
               }`}
             >
@@ -77,9 +77,9 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="inline-flex items-center gap-1 text-xs font-medium rounded px-2 py-1 text-primary hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="inline-flex items-center gap-1 text-sm font-medium rounded px-2 py-1 text-primary hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
-          <Upload size={13} /> 업로드
+          <Upload size={14} /> 업로드
         </button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
       </div>
@@ -87,8 +87,8 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
       {shown.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line py-12 text-content-faint">
           <ImageIcon size={28} className="opacity-50" />
-          <p className="text-xs">{side === 'front' ? '전면' : '후면'} 사진이 없습니다</p>
-          <button type="button" onClick={() => fileRef.current?.click()} className="text-xs text-primary hover:underline">
+          <p className="text-sm">{side === 'front' ? '전면' : '후면'} 사진이 없습니다</p>
+          <button type="button" onClick={() => fileRef.current?.click()} className="text-sm text-primary hover:underline">
             사진 업로드
           </button>
         </div>
@@ -103,7 +103,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
                 onClick={() => setLightbox(item.url)}
                 className="w-full max-h-[24rem] object-contain cursor-zoom-in"
               />
-              <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-between px-2 py-1 bg-gradient-to-t from-black/65 to-transparent text-[11px] text-white">
+              <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-between px-2 py-1 bg-gradient-to-t from-black/65 to-transparent text-xs text-white">
                 <span>
                   {item.isPending ? '저장 대기' : item.date ? fmtDate(item.date) : ''}
                 </span>

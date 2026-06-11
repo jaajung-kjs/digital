@@ -40,7 +40,7 @@ export function DetailTabs({ tabs, initial }: { tabs: DetailTab[]; initial?: str
               aria-selected={on}
               onClick={() => setActive(t.label)}
               // flex-1 로 5개 탭이 패널 폭을 균등 분배 — 우측 여백 없음.
-              className={`relative -mb-px flex flex-1 items-center justify-center gap-1 px-1 py-2.5 text-xs whitespace-nowrap border-b-2 transition-colors focus-visible:outline-none ${
+              className={`relative -mb-px flex flex-1 items-center justify-center gap-1 px-1 py-2.5 text-sm whitespace-nowrap border-b-2 transition-colors focus-visible:outline-none ${
                 on
                   ? 'text-content font-medium border-primary'
                   : 'text-content-muted hover:text-content hover:bg-surface-2/50 border-transparent'
@@ -48,7 +48,7 @@ export function DetailTabs({ tabs, initial }: { tabs: DetailTab[]; initial?: str
             >
               {t.label}
               {t.count ? (
-                <span className="text-[10px] text-content-faint font-normal">{t.count}</span>
+                <span className="text-xs text-content-faint font-normal">{t.count}</span>
               ) : null}
             </button>
           );

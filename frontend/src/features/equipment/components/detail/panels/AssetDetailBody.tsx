@@ -120,7 +120,7 @@ function LiveBody({
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
         </div>
       ) : (
-        <p className="px-4 py-3 text-xs text-content-faint">대장 정보를 불러올 수 없습니다.</p>
+        <p className="px-4 py-3 text-sm text-content-faint">대장 정보를 불러올 수 없습니다.</p>
       )}
     </div>
   );

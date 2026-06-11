@@ -227,7 +227,7 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, s
       {spatial && (
         <div className="mt-4 pt-3 border-t border-line">
           {spatialLabel && (
-            <h3 className="text-xs font-semibold text-content-muted mb-2">{spatialLabel}</h3>
+            <h3 className="text-sm font-semibold text-content-muted mb-2">{spatialLabel}</h3>
           )}
           {spatial}
         </div>
