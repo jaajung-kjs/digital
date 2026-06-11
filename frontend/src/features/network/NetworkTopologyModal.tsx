@@ -14,6 +14,7 @@
  */
 
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ReactFlow,
   Background,
@@ -493,7 +494,9 @@ export function NetworkTopologyModal() {
 
   if (!modalOpen) return null;
 
-  return (
+  // document.body 로 포털 — 현황 탭 등에서 에디터 래퍼가 invisible(visibility:hidden)
+  // 이면 모달이 그 상속을 받아 backdrop·패널이 투명해지던 버그 방지. 항상 뷰포트 최상위.
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -592,6 +595,7 @@ export function NetworkTopologyModal() {
           </span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
