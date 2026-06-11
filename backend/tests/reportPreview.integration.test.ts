@@ -170,8 +170,8 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
       cables: await prisma.cable.count({
         where: {
           OR: [
-            { sourceEquipment: { substationId: subId } },
-            { targetEquipment: { substationId: subId } },
+            { sourceAsset: { substationId: subId } },
+            { targetAsset: { substationId: subId } },
           ],
         },
       }),
