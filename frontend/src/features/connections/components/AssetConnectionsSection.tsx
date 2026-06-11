@@ -1,9 +1,11 @@
 import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
 import { SectionEmpty } from '../../assets/components/detail/SectionShell';
+import { formatCableLength } from '../../../utils/cable/pathLength';
 
 interface Endpoint { assetId: string | null; name: string }
-interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; length: number | null }
+// effective 케이블은 totalLength(cm)를 들고 있다. 표시 시 formatCableLength 로 환산.
+interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; totalLength?: number | null }
 interface Props {
   assetId: string;
   connections: Conn[];
@@ -33,6 +35,7 @@ export function AssetConnectionsSection({ assetId, connections, onDelete, onUpda
             <input key={c.id + (c.label ?? '')} aria-label="라벨" defaultValue={c.label ?? ''}
               onBlur={(e) => { const v = e.target.value || null; if (v !== c.label) onUpdate(c.id, { label: v }); }}
               className="w-16 text-xs border border-line rounded px-1 py-0.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" placeholder="라벨" />
+            <span className="text-xs text-content-muted tabular-nums shrink-0 w-12 text-right">{formatCableLength(c.totalLength)}</span>
             <button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-content-faint hover:text-danger shrink-0"><X size={14} /></button>
           </div>
         );

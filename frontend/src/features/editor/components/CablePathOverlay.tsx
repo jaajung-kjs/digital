@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useCableDrawing } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
-import { calculatePathLength } from '../../../utils/cable/pathLength';
+import { calculatePathLength, formatCableLength } from '../../../utils/cable/pathLength';
 
 export { calculatePathLength };
 
@@ -153,7 +153,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     // CM-B: pathLength is already in cm (좌표가 cm). m 환산 = ÷100.
     if (previewPoint) {
       const { pathLength, bufferLength, totalLength } = calculatePathLength(allPoints);
-      const text = `현재: ${(pathLength / 100).toFixed(2)}m (+${bufferLength}cm 여유 = ${(totalLength / 100).toFixed(2)}m)`;
+      const text = `현재: ${formatCableLength(pathLength)} (+${bufferLength}cm 여유 = ${formatCableLength(totalLength)})`;
 
       ctx.font = '12px sans-serif';
       const metrics = ctx.measureText(text);

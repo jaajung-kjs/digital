@@ -20,3 +20,19 @@ export function calculatePathLength(
   const totalLength = pathLength + bufferLength;
   return { pathLength, bufferLength, totalLength };
 }
+
+/**
+ * 케이블 길이(cm)를 사람이 읽는 문자열로 포맷한다. 표/캔버스 라벨 어디서든
+ * 동일한 단위 규칙을 쓰도록 단일 진실 소스로 둔다.
+ *  - 100cm 미만: `Ncm` (정수)
+ *  - 100cm 이상: `N.N m` (소수 1자리)
+ *  - null/undefined/음수: '-' (산출값 없음)
+ *
+ * 좌표가 cm 단위(1 canvas unit = 1 cm, DWG import 시 mm÷10 로 보존)라는
+ * 시스템 규약에 기반한다. 별도 floor scale 은 좌표에 이미 반영돼 있다.
+ */
+export function formatCableLength(cm: number | null | undefined): string {
+  if (cm == null || !Number.isFinite(cm) || cm < 0) return '-';
+  if (cm < 100) return `${Math.round(cm)}cm`;
+  return `${(cm / 100).toFixed(1)}m`;
+}

@@ -4,9 +4,11 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelection } from '../../workspace/SelectionContext';
 import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
+import { formatCableLength } from '../../../utils/cable/pathLength';
 
 interface Endpoint { assetId: string | null; name: string }
-interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; length: number | null }
+// effective 케이블은 totalLength(cm)를 들고 있다. 표시 시 formatCableLength 로 환산.
+interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; totalLength?: number | null }
 const epId = (e: Endpoint) => e.assetId;
 
 export function SubstationConnectionsTable({ connections, typeFilter, onDelete, onUpdate, onSelectAsset }: {
@@ -38,7 +40,7 @@ export function SubstationConnectionsTable({ connections, typeFilter, onDelete, 
                 onBlur={(e) => { const v = e.target.value || null; if (v !== c.label) onUpdate(c.id, { label: v }); }}
                 className="w-20 text-xs border border-line rounded px-1 py-0.5" placeholder="-" />
             </td>
-            <td className="p-2 text-content-muted">{c.length ?? '-'}</td>
+            <td className="p-2 text-content-muted tabular-nums">{formatCableLength(c.totalLength)}</td>
             <td className="p-2"><button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-content-faint hover:text-danger"><X size={14} /></button></td>
           </tr>
         ))}

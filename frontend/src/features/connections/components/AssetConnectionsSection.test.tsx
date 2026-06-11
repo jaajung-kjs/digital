@@ -4,7 +4,7 @@ import { AssetConnectionsSection } from './AssetConnectionsSection';
 
 const conns = [
   { id: 'c1', source: { assetId: 'A', name: '장비A' },
-    target: { assetId: 'B', name: '장비B' }, cableType: 'LAN', label: 'L1', length: null },
+    target: { assetId: 'B', name: '장비B' }, cableType: 'LAN', label: 'L1', totalLength: 540 },
 ] as any;
 const noop = { onDelete: vi.fn(), onUpdate: vi.fn(), onSelectAsset: vi.fn() };
 
@@ -13,6 +13,7 @@ describe('AssetConnectionsSection', () => {
     render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} />);
     expect(screen.getByText(/장비B/)).toBeInTheDocument();
     expect((screen.getByLabelText('유형') as HTMLSelectElement).value).toBe('LAN');
+    expect(screen.getByText('5.4m')).toBeInTheDocument(); // 540cm → 5.4m
   });
   it('상대 이름 클릭 → onSelectAsset(상대 id)', () => {
     const onSelectAsset = vi.fn();
