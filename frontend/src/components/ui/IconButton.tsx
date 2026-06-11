@@ -20,9 +20,10 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       type={type ?? 'button'}
       disabled={disabled}
       className={cn(
-        'p-2 rounded text-content-muted transition-colors hover:bg-surface-2',
+        'p-2 rounded text-content-muted transition-colors duration-150 hover:bg-surface-2',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1',
         active && 'bg-info-bg text-primary',
-        disabled && 'opacity-50 cursor-not-allowed',
+        disabled && 'opacity-40 cursor-not-allowed',
         className,
       )}
       {...rest}

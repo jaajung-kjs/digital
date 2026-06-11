@@ -14,7 +14,7 @@ interface Props {
 const epId = (e: Endpoint) => e.assetId;
 
 export function AssetConnectionsSection({ assetId, connections, onDelete, onUpdate, onSelectAsset }: Props) {
-  if (!connections.length) return <p className="text-xs text-gray-400">연결 없음</p>;
+  if (!connections.length) return <p className="text-xs text-content-faint">연결 없음</p>;
   return (
     <div className="space-y-0.5">
       {connections.map((c) => {
@@ -23,15 +23,15 @@ export function AssetConnectionsSection({ assetId, connections, onDelete, onUpda
         const otherId = epId(other);
         return (
           <div key={c.id} className="flex items-center gap-2 text-sm py-0.5">
-            <button className="flex-1 text-left text-blue-700 hover:underline truncate"
+            <button className="flex-1 text-left text-primary hover:underline truncate"
               onClick={() => otherId && onSelectAsset(otherId)}>{other.name}</button>
             <select aria-label="유형" value={c.cableType} onChange={(e) => onUpdate(c.id, { cableType: e.target.value })}
-              className="text-xs border border-gray-200 rounded px-1 py-0.5 shrink-0">
+              className="text-xs border border-line rounded px-1 py-0.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
               {CABLE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
             <input key={c.id + (c.label ?? '')} aria-label="라벨" defaultValue={c.label ?? ''}
               onBlur={(e) => { const v = e.target.value || null; if (v !== c.label) onUpdate(c.id, { label: v }); }}
-              className="w-16 text-xs border border-gray-200 rounded px-1 py-0.5 shrink-0" placeholder="라벨" />
+              className="w-16 text-xs border border-line rounded px-1 py-0.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" placeholder="라벨" />
             <button aria-label="연결 삭제" onClick={() => onDelete(c.id)} className="text-content-faint hover:text-danger shrink-0"><X size={14} /></button>
           </div>
         );

@@ -178,12 +178,7 @@ export function ConnectionLegend() {
             };
             className = 'border border-dashed';
           } else {
-            style = {
-              backgroundColor: '#ffffff',
-              borderColor: '#d1d5db',
-              color: '#6b7280',
-            };
-            className = 'border';
+            className = 'border border-line bg-surface text-content-muted';
           }
 
           const title =
@@ -202,7 +197,7 @@ export function ConnectionLegend() {
               onClick={() => toggleGroup(group)}
               disabled={disabled}
               title={title}
-              className={`${className} rounded-full px-2 py-0.5 text-[11px] leading-none font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1`}
+              className={`${className} rounded-full px-2 py-0.5 text-[11px] leading-none font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
               style={style}
             >
               <span

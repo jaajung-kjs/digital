@@ -63,19 +63,19 @@ export function RackModulePicker({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-[420px] max-h-[85vh] flex flex-col">
-        <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
+      <div className="bg-surface rounded-lg shadow-xl w-[420px] max-h-[85vh] flex flex-col">
+        <div className="px-4 py-3 border-b border-line flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">
+            <h3 className="text-sm font-semibold text-content">
               랙 모듈 선택
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-content-muted mt-0.5">
               {rackName ? `${rackName} — ` : ''}연결할 모듈을 클릭하세요
             </p>
           </div>
           <button
             onClick={onCancel}
-            className="p-1 rounded hover:bg-gray-100 text-gray-500"
+            className="p-1 rounded hover:bg-surface-2 text-content-muted transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             title="닫기 (ESC)"
           >
             <X size={16} />
@@ -83,8 +83,8 @@ export function RackModulePicker({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          <div className="text-[11px] text-gray-400 mb-1">전면 뷰</div>
-          <div className="border border-gray-300 rounded">
+          <div className="text-[11px] text-content-faint mb-1">전면 뷰</div>
+          <div className="border border-line rounded">
             {Array.from({ length: RACK_SLOT_COUNT }, (_, slotIdx) => {
               const mod = slotMap.get(slotIdx);
               if (mod) {
@@ -96,15 +96,15 @@ export function RackModulePicker({
                     key={slotIdx}
                     type="button"
                     onClick={() => onSelect(mod.id)}
-                    className="w-full flex cursor-pointer hover:brightness-110 transition-all"
+                    className="w-full flex cursor-pointer hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     style={{ height: `${mod.slotSpan * 22}px` }}
                     title={`${mod.name} (슬롯 ${mod.slotIndex}~${mod.slotIndex + mod.slotSpan - 1})`}
                   >
-                    <div className="w-9 flex items-center justify-center text-[10px] text-gray-400 border-r border-gray-200 bg-gray-50 shrink-0">
+                    <div className="w-9 flex items-center justify-center text-[10px] text-content-faint border-r border-line bg-surface-2 shrink-0">
                       {slotIdx + 1}
                     </div>
                     <div
-                      className="flex-1 flex items-center justify-center text-xs font-medium text-white border-b border-gray-200 px-1 truncate"
+                      className="flex-1 flex items-center justify-center text-xs font-medium text-white border-b border-line px-1 truncate"
                       style={{ backgroundColor: color }}
                     >
                       {mod.name}
@@ -114,26 +114,26 @@ export function RackModulePicker({
               }
               return (
                 <div key={slotIdx} className="flex" style={{ height: '22px' }}>
-                  <div className="w-9 flex items-center justify-center text-[10px] text-gray-300 border-r border-gray-200 bg-gray-50 shrink-0">
+                  <div className="w-9 flex items-center justify-center text-[10px] text-content-faint border-r border-line bg-surface-2 shrink-0">
                     {slotIdx + 1}
                   </div>
-                  <div className="flex-1 border-b border-gray-100 bg-white" />
+                  <div className="flex-1 border-b border-line bg-surface" />
                 </div>
               );
             })}
           </div>
 
           {modules.length === 0 && (
-            <p className="mt-3 text-xs text-gray-400 text-center">
+            <p className="mt-3 text-xs text-content-faint text-center">
               이 랙에는 모듈이 없습니다 — 랙 본체에 연결하세요.
             </p>
           )}
         </div>
 
-        <div className="px-4 py-3 border-t shrink-0 flex justify-end">
+        <div className="px-4 py-3 border-t border-line shrink-0 flex justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
+            className="px-4 py-2 text-sm text-content-muted hover:bg-surface-2 rounded transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             취소
           </button>

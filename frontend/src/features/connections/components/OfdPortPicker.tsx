@@ -54,17 +54,17 @@ export function OfdPortPicker({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-lg shadow-xl w-[520px] max-h-[85vh] flex flex-col">
-        <div className="px-4 py-3 border-b flex items-center justify-between shrink-0">
+      <div className="bg-surface rounded-lg shadow-xl w-[520px] max-h-[85vh] flex flex-col">
+        <div className="px-4 py-3 border-b border-line flex items-center justify-between shrink-0">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">OFD 포트 선택</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h3 className="text-sm font-semibold text-content">OFD 포트 선택</h3>
+            <p className="text-xs text-content-muted mt-0.5">
               {ofdName ? `${ofdName} — ` : ''}연결할 포트를 클릭하세요
             </p>
           </div>
           <button
             onClick={onCancel}
-            className="p-1 rounded hover:bg-gray-100 text-gray-500"
+            className="p-1 rounded hover:bg-surface-2 text-content-muted transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             title="닫기 (ESC)"
           >
             <X size={16} />
@@ -74,22 +74,22 @@ export function OfdPortPicker({
         <div className="flex-1 overflow-y-auto p-4">
           <button
             onClick={() => onSelect({ fiberPathId: null, portNumber: null })}
-            className="w-full text-left px-3 py-2 mb-3 rounded border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
+            className="w-full text-left px-3 py-2 mb-3 rounded border border-line text-sm text-content-muted hover:bg-surface-2 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             title="포트를 지정하지 않고 OFD 본체를 끝점으로 사용합니다."
           >
             <span className="font-medium">OFD 본체에 연결</span>
-            <span className="ml-2 text-xs text-gray-400">(포트 미지정)</span>
+            <span className="ml-2 text-xs text-content-faint">(포트 미지정)</span>
           </button>
 
           {isLoading ? (
-            <div className="py-8 text-center text-xs text-gray-400">불러오는 중...</div>
+            <div className="py-8 text-center text-xs text-content-faint">불러오는 중...</div>
           ) : mergedPaths.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-6">
+            <p className="text-xs text-content-faint text-center py-6">
               이 OFD에는 경로가 없습니다 — OFD 본체에 연결하세요.
             </p>
           ) : (
             <>
-              <div className="text-[11px] text-gray-400 mb-1">경로</div>
+              <div className="text-[11px] text-content-faint mb-1">경로</div>
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {mergedPaths.map((p) => {
                   const remote =
@@ -100,10 +100,10 @@ export function OfdPortPicker({
                       key={p.id}
                       type="button"
                       onClick={() => setActivePathId(p.id)}
-                      className={`text-xs px-2 py-1 rounded border transition-colors ${
+                      className={`text-xs px-2 py-1 rounded border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                         active
-                          ? 'border-blue-400 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          ? 'border-primary bg-info-bg text-primary'
+                          : 'border-line text-content-muted hover:bg-surface-2'
                       }`}
                     >
                       → {remote.substationName ?? remote.name ?? '대국'} ({p.portCount}코어)
@@ -129,10 +129,10 @@ export function OfdPortPicker({
                           })
                         }
                         title={used ? `사용 중: ${localSide?.assetName ?? ''}` : `포트 ${port.portNumber}`}
-                        className={`h-7 rounded text-[10px] font-medium transition-colors ${
+                        className={`h-7 rounded text-[10px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                           used
-                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-400'
+                            ? 'bg-surface-2 text-content-faint cursor-not-allowed opacity-40'
+                            : 'bg-surface border border-line text-content-muted hover:bg-info-bg hover:border-primary'
                         }`}
                       >
                         {port.portNumber}
@@ -145,10 +145,10 @@ export function OfdPortPicker({
           )}
         </div>
 
-        <div className="px-4 py-3 border-t shrink-0 flex justify-end">
+        <div className="px-4 py-3 border-t border-line shrink-0 flex justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded"
+            className="px-4 py-2 text-sm text-content-muted hover:bg-surface-2 rounded transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             취소
           </button>

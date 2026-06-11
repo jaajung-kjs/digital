@@ -89,15 +89,17 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
         }}
       />
       <div
-        className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[140px]"
+        className="fixed z-50 bg-surface border border-line rounded-md shadow-lg py-1 min-w-[140px]"
         style={{ left: x, top: y }}
       >
         {items.map((item) => (
           <button
             key={item.label}
             type="button"
-            className={`w-full text-left px-3 py-1.5 text-sm ${
-              item.danger ? 'text-red-600 hover:bg-red-50' : 'hover:bg-gray-50'
+            className={`w-full text-left px-3 py-1.5 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+              item.danger
+                ? 'text-danger hover:bg-danger-bg'
+                : 'text-content hover:bg-surface-2'
             }`}
             onClick={item.onClick}
           >

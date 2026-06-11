@@ -17,9 +17,9 @@ interface EditorStatusBarProps {
  *   left  → grid (toggle + size readout/editor) · snap · cm 줄자 · 배경 투명도
  *   right → zoom (−, %, +, presets)
  *
- * The cable-group filter intentionally lives elsewhere (corner legend — Task 4).
- * The old floating top-right pills / FloorSettingsPanel grid section /
- * Toolbar opacity popover are removed in Task 4 — this bar only ADDs the home.
+ * The cable-group filter intentionally lives elsewhere (corner legend).
+ * Floating top-right pills and the Toolbar opacity popover were removed; the
+ * grid/snap/줄자/투명도/줌 view controls all live here as the single home.
  */
 export function EditorStatusBar({ floorPlan, containerRef }: EditorStatusBarProps) {
   const showGrid = useEditorStore((s) => s.showGrid);
@@ -192,7 +192,7 @@ interface GridControlProps {
 /**
  * Grid ON/OFF toggle + size readout `격자 60 / 10 cm` (60=major, 10=minor).
  * Clicking the readout opens a tiny inline popover with number inputs that
- * apply on blur/Enter — replaces FloorSettingsPanel's grid section.
+ * apply on blur/Enter — the single home for grid sizing.
  */
 function GridControl({
   showGrid,

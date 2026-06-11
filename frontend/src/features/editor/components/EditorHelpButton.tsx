@@ -32,7 +32,7 @@ export function EditorHelpButton() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-6 h-6 flex items-center justify-center text-sm font-semibold text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+        className="w-6 h-6 flex items-center justify-center text-sm font-semibold text-content-muted hover:text-content hover:bg-surface-2 rounded transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         title="도움말"
       >
         ?
@@ -40,29 +40,29 @@ export function EditorHelpButton() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 bottom-9 z-50 w-72 bg-white border border-gray-200 rounded-lg shadow-lg p-4">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">작업 흐름</h4>
+          <div className="absolute right-0 bottom-9 z-50 w-72 bg-surface border border-line rounded-lg shadow-lg p-4">
+            <h4 className="text-sm font-semibold text-content mb-2">작업 흐름</h4>
             <ol className="space-y-1.5 mb-3">
               {WORKFLOW.map((w) => (
-                <li key={w.step} className="flex gap-2 text-xs text-gray-600">
-                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-50 text-blue-600 text-[10px] font-semibold flex items-center justify-center">
+                <li key={w.step} className="flex gap-2 text-xs text-content-muted">
+                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-info-bg text-primary text-[10px] font-semibold flex items-center justify-center">
                     {w.step}
                   </span>
                   <span>{w.text}</span>
                 </li>
               ))}
             </ol>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2 border-t border-gray-100 pt-3">
+            <h4 className="text-sm font-semibold text-content mb-2 border-t border-line pt-3">
               단축키
             </h4>
             <table className="w-full text-xs">
               <tbody>
                 {SHORTCUTS.map((s) => (
                   <tr key={s.keys}>
-                    <td className="py-0.5 pr-3 font-mono text-gray-500 whitespace-nowrap align-top">
+                    <td className="py-0.5 pr-3 font-mono text-content-faint whitespace-nowrap align-top">
                       {s.keys}
                     </td>
-                    <td className="py-0.5 text-gray-700">{s.desc}</td>
+                    <td className="py-0.5 text-content-muted">{s.desc}</td>
                   </tr>
                 ))}
               </tbody>

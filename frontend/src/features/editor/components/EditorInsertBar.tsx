@@ -124,15 +124,15 @@ export function EditorInsertBar() {
       : undefined;
 
   return (
-    <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 border-b border-gray-200 bg-gray-50 overflow-x-auto">
+    <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 border-b border-line bg-surface overflow-x-auto">
       {/* ───── 선택 (Select) ───── */}
       <button
         type="button"
         onClick={handleSelect}
-        className={`px-2 py-1 text-xs rounded font-medium transition-colors whitespace-nowrap ${
+        className={`px-2 py-1 text-xs rounded font-medium transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
           tool === 'select'
-            ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
-            : 'hover:bg-gray-200 text-gray-700'
+            ? 'bg-info-bg text-primary'
+            : 'hover:bg-surface-2 text-content-muted'
         }`}
       >
         선택
@@ -141,7 +141,7 @@ export function EditorInsertBar() {
       <Separator />
 
       {/* ───── 설비 (5 standalone kinds) ───── */}
-      <span className="text-xs text-gray-500 whitespace-nowrap pl-1 pr-0.5">설비:</span>
+      <span className="text-xs text-content-faint whitespace-nowrap pl-1 pr-0.5">설비:</span>
       {EQUIPMENT_KINDS.map((kind) => {
         const info = EQUIPMENT_KIND_INFO[kind];
         const active =
@@ -158,10 +158,10 @@ export function EditorInsertBar() {
                 ? '빈 랙 (12 슬롯) — 캔버스에 드래그로 배치'
                 : `${info.label} — 캔버스에 드래그로 배치`
             }
-            className={`px-2 py-1 text-xs rounded font-medium transition-colors whitespace-nowrap ${
+            className={`px-2 py-1 text-xs rounded font-medium transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
               active
-                ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
-                : 'hover:bg-gray-200 text-gray-700'
+                ? 'bg-info-bg text-primary'
+                : 'hover:bg-surface-2 text-content-muted'
             }`}
           >
             {info.label}
@@ -176,10 +176,10 @@ export function EditorInsertBar() {
         ref={presetBtnRef}
         type="button"
         onClick={togglePresetMenu}
-        className={`px-2 py-1 text-xs rounded font-medium transition-colors whitespace-nowrap flex items-center gap-1 shrink-0 ${
+        className={`px-2 py-1 text-xs rounded font-medium transition-colors duration-150 whitespace-nowrap flex items-center gap-1 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
           activePreset
-            ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-200'
-            : 'hover:bg-gray-200 text-gray-700'
+            ? 'bg-info-bg text-primary'
+            : 'hover:bg-surface-2 text-content-muted'
         }`}
       >
         {activePreset ? `랙 프리셋: ${activePreset.name}` : '랙 프리셋'}
@@ -199,11 +199,11 @@ export function EditorInsertBar() {
               }}
             />
             <div
-              className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg py-1 min-w-[200px] max-h-72 overflow-y-auto"
+              className="fixed z-50 bg-surface border border-line rounded-md shadow-lg py-1 min-w-[200px] max-h-72 overflow-y-auto"
               style={{ left: menuPos.left, top: menuPos.top }}
             >
               {activePresets.length === 0 ? (
-                <div className="px-3 py-1.5 text-xs text-gray-400">
+                <div className="px-3 py-1.5 text-xs text-content-faint">
                   프리셋 없음
                 </div>
               ) : (
@@ -214,8 +214,8 @@ export function EditorInsertBar() {
                   return (
                     <div
                       key={preset.id}
-                      className={`group flex items-center gap-2 px-3 py-1.5 text-sm ${
-                        active ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      className={`group flex items-center gap-2 px-3 py-1.5 text-sm transition-colors duration-150 ${
+                        active ? 'bg-info-bg' : 'hover:bg-surface-2'
                       }`}
                     >
                       <button
@@ -226,7 +226,7 @@ export function EditorInsertBar() {
                           `${preset.totalU}U 랙 — 클릭 후 캔버스에 클릭하면 즉시 배치`
                         }
                         className={`flex-1 min-w-0 text-left flex items-center gap-2 ${
-                          active ? 'text-blue-700' : 'text-gray-700'
+                          active ? 'text-primary' : 'text-content-muted'
                         }`}
                       >
                         <span
@@ -235,7 +235,7 @@ export function EditorInsertBar() {
                           style={{ backgroundColor: '#6366f1' }}
                         />
                         <span className="truncate">{preset.name}</span>
-                        <span className="ml-auto text-[10px] text-gray-400">
+                        <span className="ml-auto text-[10px] text-content-faint">
                           {preset.totalU}U
                         </span>
                       </button>
@@ -244,7 +244,7 @@ export function EditorInsertBar() {
                           <button
                             type="button"
                             title="수정"
-                            className="px-1 text-[11px] text-gray-500 hover:text-gray-800"
+                            className="px-1 text-[11px] text-content-muted hover:text-content transition-colors duration-150"
                             onClick={() => {
                               setEditTarget(preset);
                               setPresetMenuOpen(false);
@@ -255,7 +255,7 @@ export function EditorInsertBar() {
                           <button
                             type="button"
                             title="삭제"
-                            className="px-1 text-[11px] text-red-500 hover:text-red-700"
+                            className="px-1 text-[11px] text-danger hover:opacity-80 transition-opacity duration-150"
                             onClick={() => handleDeletePreset(preset)}
                           >
                             삭제
@@ -274,7 +274,7 @@ export function EditorInsertBar() {
       <Separator />
 
       {/* ───── 케이블 (5 displayGroup pills) ───── */}
-      <span className="text-xs text-gray-500 whitespace-nowrap pl-1 pr-0.5">케이블:</span>
+      <span className="text-xs text-content-faint whitespace-nowrap pl-1 pr-0.5">케이블:</span>
       {CABLE_DISPLAY_GROUPS.map((group) => {
         const color = CABLE_GROUP_COLORS[group];
         const active =
@@ -284,15 +284,15 @@ export function EditorInsertBar() {
             key={group}
             type="button"
             onClick={() => handleCableGroupClick(group)}
-            className="px-2 py-1 text-xs rounded font-medium transition-colors whitespace-nowrap border flex items-center gap-1"
+            className={`px-2 py-1 text-xs rounded font-medium transition-colors duration-150 whitespace-nowrap border flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
+              active
+                ? ''
+                : 'bg-surface border-line text-content-muted hover:bg-surface-2'
+            }`}
             style={
               active
                 ? { backgroundColor: color, borderColor: color, color: '#fff' }
-                : {
-                    backgroundColor: '#fff',
-                    borderColor: '#d1d5db',
-                    color: '#4b5563',
-                  }
+                : undefined
             }
           >
             <span
@@ -316,5 +316,5 @@ export function EditorInsertBar() {
 }
 
 function Separator() {
-  return <div className="w-px h-5 bg-gray-200 mx-1 shrink-0" />;
+  return <div className="w-px h-5 bg-line mx-1 shrink-0" />;
 }
