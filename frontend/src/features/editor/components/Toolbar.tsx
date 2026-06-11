@@ -70,7 +70,7 @@ export function Toolbar({ floor, floorPlan, isAdmin, onToggleWorkOrders, onToggl
           )}
 
           {onToggleLayers && effectiveBackgroundDrawing && (
-            <IconButton aria-label="배경" title="배경 (레이어·교체·제거)" onClick={onToggleLayers} active={activeRightPanel === 'background'}>
+            <IconButton aria-label="배경 레이어" title="배경 레이어" onClick={onToggleLayers} active={activeRightPanel === 'background'}>
               <Layers size={18} />
             </IconButton>
           )}

@@ -459,7 +459,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
                   bg={effectiveBackgroundDrawing}
                   floorPlan={floorPlan}
                   canEdit={!snapshotActive}
-                  onImportClick={() => setShowImportModal(true)}
                   onClose={() => closeRightPanel()}
                 />
               )}
