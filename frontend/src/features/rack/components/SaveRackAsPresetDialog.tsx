@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useEffectiveAssets, useEffectiveRackModulesMapped } from '../../workingCopy/hooks';
+import { useEffectiveAssets, useEffectiveRackModules } from '../../workingCopy/hooks';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { useCreateRackPreset, useUpdateRackPreset } from '../hooks/useRackPresets';
 import type {
@@ -38,7 +38,7 @@ export function SaveRackAsPresetDialog({
 }: SaveRackAsPresetDialogProps) {
   // SSOT-2d3a Task 5 — 랙/모듈을 통합 스토어 effective 에서 읽는다.
   const effectiveAssets = useEffectiveAssets();
-  const rackModules = useEffectiveRackModulesMapped(rackEquipmentId);
+  const rackModules = useEffectiveRackModules(rackEquipmentId);
   const createPreset = useCreateRackPreset();
   const updatePreset = useUpdateRackPreset();
 
@@ -56,12 +56,12 @@ export function SaveRackAsPresetDialog({
   );
 
   const modules = useMemo(
-    () => [...rackModules].sort((a, b) => a.slotIndex - b.slotIndex),
+    () => [...rackModules].sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0)),
     [rackModules],
   );
 
   const orphanModules = useMemo(
-    () => modules.filter((m) => !m.categoryCode),
+    () => modules.filter((m) => !m.assetType?.code),
     [modules],
   );
 
@@ -83,11 +83,11 @@ export function SaveRackAsPresetDialog({
 
   const buildModuleInputs = (): RackPresetModuleInput[] =>
     modules
-      .filter((m) => !!m.categoryCode)
+      .filter((m) => !!m.assetType?.code)
       .map((m) => ({
-        slotIndex: m.slotIndex,
-        slotSpan: m.slotSpan,
-        categoryCode: m.categoryCode as string,
+        slotIndex: m.slotIndex ?? 0,
+        slotSpan: m.slotSpan ?? 1,
+        categoryCode: m.assetType!.code as string,
         defaultName: m.name || null,
       }));
 

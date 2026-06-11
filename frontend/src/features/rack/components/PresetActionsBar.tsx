@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useEffectiveAssets, useEffectiveRackModulesMapped } from '../../workingCopy/hooks';
+import { useEffectiveAssets, useEffectiveRackModules } from '../../workingCopy/hooks';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
 import { useRackPresets } from '../hooks/useRackPresets';
 import { useRackModuleCategories } from '../hooks/useRackModuleCategories';
@@ -42,7 +42,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   // SSOT-2d3a Task 2 — 읽기를 통합 스토어 effective 로. 랙은 effective assets 에서
   // FloorPlanEquipment 로 매핑, 모듈 수는 effective 랙모듈에서.
   const effectiveAssets = useEffectiveAssets();
-  const rackModules = useEffectiveRackModulesMapped(rackEquipmentId);
+  const rackModules = useEffectiveRackModules(rackEquipmentId);
 
   const activePresets = useMemo(
     () => (presets ?? []).filter((p) => p.isActive),

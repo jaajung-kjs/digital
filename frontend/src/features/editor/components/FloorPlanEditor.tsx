@@ -3,11 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useIsAdmin } from '../../../stores/authStore';
 import type { Asset } from '../../../types/asset';
-import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
+import type { RackModuleCategory } from '../../../types/rackModule';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
-import { useSubstationWorkingCopy, type PlacementDraw } from '../../workingCopy/substationStore';
+import { useSubstationWorkingCopy, type PlacementDraw, type RackModuleDraw } from '../../workingCopy/substationStore';
 import { getUnifiedDirtyCount } from '../../workingCopy/hooks';
 import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
 import { useSnapshotStore } from '../stores/snapshotStore';
@@ -335,7 +335,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     const codeToCategory = new Map<string, RackModuleCategory>(
       (rackModuleCategories ?? []).map((c) => [c.code, c]),
     );
-    const newModules: RackModule[] = [];
+    const newModules: RackModuleDraw[] = [];
     preset.modules.forEach((mod, idx) => {
       const cat = codeToCategory.get(mod.categoryCode);
       if (!cat) {
@@ -349,10 +349,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         id: generateTempId(),
         rackEquipmentId: rackId,
         categoryId: cat.id,
-        categoryCode: cat.code,
-        categoryName: cat.name,
-        categoryDisplayColor: cat.displayColor,
-        categoryDefaultSlotSpan: cat.defaultSlotSpan,
         name: mod.defaultName ?? cat.name,
         slotIndex: mod.slotIndex,
         slotSpan: mod.slotSpan,
@@ -361,8 +357,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
         description: null,
         properties: null,
         sortOrder: idx,
-        createdAt: '',
-        updatedAt: '',
       });
     });
 

@@ -16,7 +16,6 @@ import {
   useEffectiveFiberPaths,
 } from '../../workingCopy/hooks';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
-import { assetToRackModule } from '../../workingCopy/assetToRackModule';
 
 
 interface ConnectionDiagramProps {
@@ -35,9 +34,7 @@ export function ConnectionDiagram({
   );
   const editorRackModules = useMemo(
     () =>
-      effectiveAssets
-        .filter((a) => a.parentAssetId && a.slotIndex != null)
-        .map(assetToRackModule),
+      effectiveAssets.filter((a) => a.parentAssetId && a.slotIndex != null),
     [effectiveAssets],
   );
   // effective 케이블은 nested source/target — flat LocalCable 로 매핑(끝점 lookup).
@@ -67,7 +64,7 @@ export function ConnectionDiagram({
     () =>
       new Set(
         editorRackModules
-          .filter((m) => m.rackEquipmentId === equipmentId)
+          .filter((m) => m.parentAssetId === equipmentId)
           .map((m) => m.id),
       ),
     [editorRackModules, equipmentId],

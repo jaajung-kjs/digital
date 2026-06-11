@@ -5,25 +5,30 @@ import {
   availableSpanAt,
   nextNameFor,
 } from './slotGeometry';
-import type { RackModule, RackModuleCategory } from '../../../types/rackModule';
+import type { RackModuleCategory } from '../../../types/rackModule';
+import type { Asset } from '../../../types/asset';
 
-function mod(id: string, slotIndex: number, slotSpan: number, categoryId = 'cat', name = id): RackModule {
+function mod(id: string, slotIndex: number, slotSpan: number, assetTypeId = 'cat', name = id): Asset {
   return {
-    id, slotIndex, slotSpan,
-    rackEquipmentId: 'rack',
-    categoryId,
-    categoryCode: null,
-    categoryName: 'Cat',
-    categoryDisplayColor: null,
-    categoryDefaultSlotSpan: 1,
+    id,
+    substationId: 's1',
+    assetTypeId,
+    assetType: { placementKind: null } as Asset['assetType'],
     name,
+    parentAssetId: 'rack',
+    floorId: null,
+    roomText: null,
+    sourcePresetId: null,
     installDate: null,
+    warrantyUntil: null,
+    replaceDue: null,
     manager: null,
     description: null,
-    properties: null,
+    status: null,
     sortOrder: slotIndex,
-    createdAt: '',
     updatedAt: '',
+    slotIndex,
+    slotSpan,
   };
 }
 

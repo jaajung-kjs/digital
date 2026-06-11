@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { planMove, planResize, type PlanResult } from '../utils/slotGeometry';
 import { useEditorStore } from '../stores/editorStore';
-import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule } from '../../../types/rackModule';
+import { RACK_SLOT_COUNT, type ModuleSlotUpdate } from '../../../types/rackModule';
+
+/** 슬롯 드래그가 다루는 최소 모듈 shape — 랙모듈 Asset 은 slotIndex/slotSpan 가 항상 채워져 있다. */
+interface SlotModule {
+  id: string;
+  slotIndex: number;
+  slotSpan: number;
+}
 
 type DragMode = 'move' | 'resize';
 // 8px: 리사이즈 핸들(h=12) 위에서 짧은 클릭이 잘못 드래그로 분류되는 일을 줄임.
@@ -17,16 +24,16 @@ interface DragInternal {
   mode: DragMode;
   startY: number;
   slotPixelHeight: number;
-  module: RackModule;
-  siblings: RackModule[];
+  module: SlotModule;
+  siblings: SlotModule[];
   active: boolean;
   plan: PlanResult;
   candidate: ModuleSlotUpdate;
 }
 
 interface UseSlotDragOptions {
-  module: RackModule;
-  siblings: RackModule[];
+  module: SlotModule;
+  siblings: SlotModule[];
   gridRef: React.RefObject<HTMLElement | null>;
   onClick: () => void;
   onCommit: (updates: ModuleSlotUpdate[]) => void;

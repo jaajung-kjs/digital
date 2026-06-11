@@ -12,7 +12,6 @@ import { create } from 'zustand';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { assetToEquipment } from '../workingCopy/assetToEquipment';
-import { assetToRackModule } from '../workingCopy/assetToRackModule';
 import { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLocal';
 import { fetchAllFiberPathsCached } from '../fiber/hooks/useFiberPaths';
 import { queryClient } from '../../lib/queryClient';
@@ -112,8 +111,7 @@ export const useNetworkTopologyStore = create<State>((set) => ({
         .filter((a) => !(a.parentAssetId && a.slotIndex != null))
         .map(assetToEquipment);
       const rackModules = effAssets
-        .filter((a) => a.parentAssetId && a.slotIndex != null)
-        .map(assetToRackModule);
+        .filter((a) => a.parentAssetId && a.slotIndex != null);
 
       // cableTracer 호출 — 모든 cable 위에서 BFS. seedCable 의 ring 자연 인식.
       // 다른 변전소는 cableTracer 가 fiberPaths 의 ofdA/B + ports[].sideX 정보로 이름 채움.

@@ -14,7 +14,6 @@
 
 import type { LocalCable } from '../features/editor/stores/editorStore';
 import type { FloorPlanEquipment } from '../types/floorPlan';
-import type { RackModule } from '../types/rackModule';
 import type { Asset } from '../types/asset';
 import type { FiberPathDetail } from '../features/fiber/types';
 import type {
@@ -158,8 +157,8 @@ export interface TraceCableInput {
   cables: LocalCable[];
   /** All equipment (local state) */
   equipment: FloorPlanEquipment[];
-  /** Rack modules (local state) — endpoint id 가 모듈 id 일 때 이름 lookup 용 */
-  rackModules?: RackModule[];
+  /** Rack modules (local state, RACK 자식 Asset) — endpoint id 가 모듈 id 일 때 이름 lookup 용 */
+  rackModules?: Asset[];
   /**
    * Effective assets (local state) — endpoint id 가 분전 분기(BRANCH) asset 일 때
    * 라벨을 "분전반 · feeder/branch" 로 해소하기 위한 parent 체인 lookup 용.

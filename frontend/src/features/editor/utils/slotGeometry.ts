@@ -1,4 +1,6 @@
-import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule, type RackModuleCategory } from '../../../types/rackModule';
+import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModuleCategory } from '../../../types/rackModule';
+import type { Asset } from '../../../types/asset';
+import type { RackModuleDraw } from '../../workingCopy/substationStore';
 import { generateTempId } from '../../../utils/idHelpers';
 
 interface Sized {
@@ -69,13 +71,13 @@ function escapeRegex(s: string): string {
 }
 
 export function nextNameFor(
-  modules: RackModule[],
+  modules: Asset[],
   category: Pick<RackModuleCategory, 'id' | 'name'>,
 ): string {
   const pattern = new RegExp(`^${escapeRegex(category.name)}-(\\d+)$`);
   let maxN = 0;
   for (const m of modules) {
-    if (m.categoryId !== category.id) continue;
+    if (m.assetTypeId !== category.id) continue;
     const match = m.name.match(pattern);
     if (match) maxN = Math.max(maxN, parseInt(match[1], 10));
   }
@@ -83,8 +85,9 @@ export function nextNameFor(
 }
 
 /**
- * RackModule factory — 모든 인라인 add 진입점 (RackSlotGrid 의 빈 슬롯 클릭,
+ * 랙모듈 draw factory — 모든 인라인 add 진입점 (RackSlotGrid 의 빈 슬롯 클릭,
  * PresetActionsBar 의 preset 적용) 이 같은 shape 으로 만든다.
+ * stageRackModuleCreate 가 이 draw 를 RACK 자식 Asset 으로 변환한다.
  */
 export function buildRackModule(args: {
   rackEquipmentId: string;
@@ -93,17 +96,12 @@ export function buildRackModule(args: {
   slotSpan: number;
   name: string;
   sortOrder?: number;
-}): RackModule {
-  const now = new Date().toISOString();
+}): RackModuleDraw {
   const { rackEquipmentId, category, slotIndex, slotSpan, name, sortOrder } = args;
   return {
     id: generateTempId(),
     rackEquipmentId,
     categoryId: category.id,
-    categoryCode: category.code,
-    categoryName: category.name,
-    categoryDisplayColor: category.displayColor,
-    categoryDefaultSlotSpan: category.defaultSlotSpan,
     name,
     slotIndex,
     slotSpan,
@@ -112,7 +110,5 @@ export function buildRackModule(args: {
     description: null,
     properties: null,
     sortOrder: sortOrder ?? slotIndex,
-    createdAt: now,
-    updatedAt: now,
   };
 }

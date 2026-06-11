@@ -16,10 +16,26 @@ import {
 } from './overlay';
 import { mergeEffective } from './effective';
 import type { CollectionDescriptor } from './descriptor';
-import { rackModuleToAssetCreate, rackModuleToAssetPatch } from './rackModuleToAsset';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
 import { isRackModuleAsset as isRackModuleChild } from './assetClassify';
-import type { RackModule } from '../../types/rackModule';
+
+/**
+ * stageRackModuleCreate 의 입력 — 랙모듈 신규 staging 용 작은 명시 draw 타입.
+ * (RackModule 뷰 타입을 캔버스/쓰기 경로에서 더 이상 쓰지 않으므로 분리한다.)
+ */
+export interface RackModuleDraw {
+  id: string;
+  rackEquipmentId: string;
+  categoryId: string;
+  name: string;
+  slotIndex: number;
+  slotSpan: number;
+  installDate?: string | null;
+  manager?: string | null;
+  description?: string | null;
+  properties?: Record<string, unknown> | null;
+  sortOrder?: number;
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2b Task 3 — substation-scoped Unit-of-Work.
@@ -253,8 +269,7 @@ export interface SubstationWorkingCopyState {
 
   // ── 랙모듈(=RACK 자식 Asset) stage 액션 — assets overlay 에 위임. ──
   /** 랙모듈 신규 stage. floorId 는 부모 랙 Asset 에서 상속(없으면 null). */
-  stageRackModuleCreate: (m: RackModule) => void;
-  stageRackModuleUpdate: (id: string, patch: Partial<RackModule>) => void;
+  stageRackModuleCreate: (m: RackModuleDraw) => void;
   stageRackModuleDelete: (id: string) => void;
 
   // ── effective selectors (getState() 로 호출 가능한 plain method) ──
@@ -483,18 +498,39 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           // floorId 는 부모 랙 Asset 의 floorId 를 상속(effective 에서 조회, 없으면 null).
           const parent = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor)
             .find((a) => a.id === m.rackEquipmentId);
-          const asset = rackModuleToAssetCreate(m, {
+          // 랙모듈은 별도 컬렉션이 아니라 ASSETS 의 RACK 자식 Asset(parentAssetId +
+          // slotIndex + slotSpan). 배치 좌표/totalU 는 랙모듈에 없어 null.
+          const asset: Asset = {
+            id: m.id,
             substationId: s.substationId,
+            assetTypeId: m.categoryId,
+            // staged create — 실제 assetType 은 서버 커밋 후에야 안다. 랙모듈은 배치형 아님.
+            assetType: { placementKind: null } as Asset['assetType'],
+            name: m.name,
+            parentAssetId: m.rackEquipmentId,
             floorId: parent?.floorId ?? null,
-            tempId: m.id,
-          });
+            roomText: null,
+            positionX: null,
+            positionY: null,
+            width2d: null,
+            height2d: null,
+            rotation: 0,
+            totalU: null,
+            slotIndex: m.slotIndex,
+            slotSpan: m.slotSpan,
+            description: m.description ?? null,
+            manager: m.manager ?? null,
+            installDate: m.installDate ?? null,
+            status: null,
+            warrantyUntil: null,
+            replaceDue: null,
+            sourcePresetId:
+              (m.properties as { sourcePresetId?: string } | null | undefined)?.sourcePresetId ?? null,
+            sortOrder: m.sortOrder ?? 0,
+            updatedAt: '',
+          };
           return { overlays: { ...s.overlays, assets: stageCreate(s.overlays.assets, asset.id, asset) } };
         }),
-
-      stageRackModuleUpdate: (id, patch) =>
-        set((s) => ({
-          overlays: { ...s.overlays, assets: stageUpdate(s.overlays.assets, id, rackModuleToAssetPatch(patch)) },
-        })),
 
       stageRackModuleDelete: (id) =>
         set((s) => ({ overlays: { ...s.overlays, assets: stageDelete(s.overlays.assets, id, isTempId(id)) } })),

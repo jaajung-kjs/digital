@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { RACK_SLOT_COUNT } from '../../../types/rackModule';
-import { useEffectiveRackModulesMapped } from '../../workingCopy/hooks';
+import { useEffectiveRackModules } from '../../workingCopy/hooks';
 
 interface RackModulePickerProps {
   rackEquipmentId: string;
@@ -31,10 +31,10 @@ export function RackModulePicker({
 }: RackModulePickerProps) {
   // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로. effectiveRackModulesMapped 는
   // 이미 해당 랙(rackEquipmentId)의 모듈만 RackModule shape 으로 반환한다.
-  const rackModules = useEffectiveRackModulesMapped(rackEquipmentId);
+  const rackModules = useEffectiveRackModules(rackEquipmentId);
 
   const modules = useMemo(
-    () => [...rackModules].sort((a, b) => a.slotIndex - b.slotIndex),
+    () => [...rackModules].sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0)),
     [rackModules],
   );
 
@@ -45,7 +45,9 @@ export function RackModulePicker({
   const slotMap = useMemo(() => {
     const map = new Map<number, (typeof modules)[number]>();
     for (const m of modules) {
-      for (let i = m.slotIndex; i < m.slotIndex + m.slotSpan; i++) {
+      const start = m.slotIndex ?? 0;
+      const span = m.slotSpan ?? 1;
+      for (let i = start; i < start + span; i++) {
         map.set(i, m);
       }
     }
@@ -89,16 +91,18 @@ export function RackModulePicker({
               const mod = slotMap.get(slotIdx);
               if (mod) {
                 // Only render at the first (top) slot of the module.
-                if (slotIdx !== mod.slotIndex) return null;
-                const color = mod.categoryDisplayColor ?? '#6b7280';
+                if (slotIdx !== (mod.slotIndex ?? 0)) return null;
+                const color = mod.assetType?.displayColor ?? '#6b7280';
+                const modStart = mod.slotIndex ?? 0;
+                const modSpan = mod.slotSpan ?? 1;
                 return (
                   <button
                     key={slotIdx}
                     type="button"
                     onClick={() => onSelect(mod.id)}
                     className="w-full flex cursor-pointer hover:brightness-110 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    style={{ height: `${mod.slotSpan * 22}px` }}
-                    title={`${mod.name} (슬롯 ${mod.slotIndex}~${mod.slotIndex + mod.slotSpan - 1})`}
+                    style={{ height: `${modSpan * 22}px` }}
+                    title={`${mod.name} (슬롯 ${modStart}~${modStart + modSpan - 1})`}
                   >
                     <div className="w-9 flex items-center justify-center text-[10px] text-content-faint border-r border-line bg-surface-2 shrink-0">
                       {slotIdx + 1}

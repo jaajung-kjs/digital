@@ -2,11 +2,12 @@ import { useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import { useSlotDrag } from '../../hooks/useSlotDrag';
-import { RACK_SLOT_COUNT, type ModuleSlotUpdate, type RackModule } from '../../../../types/rackModule';
+import { RACK_SLOT_COUNT, type ModuleSlotUpdate } from '../../../../types/rackModule';
+import type { Asset } from '../../../../types/asset';
 
 interface Props {
-  module: RackModule;
-  siblings: RackModule[];
+  module: Asset;
+  siblings: Asset[];
   gridRef: React.RefObject<HTMLElement | null>;
 }
 
@@ -27,21 +28,32 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   // 모듈 클릭 → 다른 모든 자산과 동일한 통합 상세 패널을 연다.
   // (하드코딩 중앙 모달 RackModuleDialog 제거 — 모듈도 Asset 이므로 AssetDetailBody 가 처리.)
   const openDetail = useEditorStore((s) => s.openDetail);
-  const stageRackModuleUpdate = useSubstationWorkingCopy((s) => s.stageRackModuleUpdate);
+  const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
+
+  // 랙모듈 Asset 은 slotIndex/slotSpan 가 항상 채워져 있다(필터 slotIndex != null).
+  // 슬롯 기하 계산용 non-null 로컬 + 드래그 훅에 넘길 narrowed shape.
+  const slotIndex = module.slotIndex ?? 0;
+  const slotSpan = module.slotSpan ?? 1;
+  const dragModule = { id: module.id, slotIndex, slotSpan };
+  const dragSiblings = siblings.map((s) => ({
+    id: s.id,
+    slotIndex: s.slotIndex ?? 0,
+    slotSpan: s.slotSpan ?? 1,
+  }));
 
   const onCommit = useCallback((updates: ModuleSlotUpdate[]) => {
     for (const u of updates) {
-      stageRackModuleUpdate(u.id, { slotIndex: u.slotIndex, slotSpan: u.slotSpan });
+      stageAssetUpdate(u.id, { slotIndex: u.slotIndex, slotSpan: u.slotSpan });
     }
-  }, [stageRackModuleUpdate]);
+  }, [stageAssetUpdate]);
 
   const onClick = useCallback(() => {
     openDetail(module.id);
   }, [openDetail, module.id]);
 
   const { handlePointerDown, dragState } = useSlotDrag({
-    module,
-    siblings,
+    module: dragModule,
+    siblings: dragSiblings,
     gridRef,
     onClick,
     onCommit,
@@ -56,12 +68,12 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
 
   // 셀은 어떤 모드든 항상 원래 슬롯에 원래 크기로 dim 표시 (이동 모드와 동일).
   // 후보 위치/크기는 outline 인디케이터로 시각화.
-  const cellStart = module.slotIndex + 1;
-  const cellEnd = module.slotIndex + module.slotSpan + 1;
+  const cellStart = slotIndex + 1;
+  const cellEnd = slotIndex + slotSpan + 1;
   const slotLabel =
-    module.slotSpan > 1
-      ? `${module.slotIndex + 1}–${module.slotIndex + module.slotSpan}`
-      : `${module.slotIndex + 1}`;
+    slotSpan > 1
+      ? `${slotIndex + 1}–${slotIndex + slotSpan}`
+      : `${slotIndex + 1}`;
 
   return (
     <>
@@ -81,7 +93,7 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
           opacity: dragging ? 0.35 : 1,
         }}
         className="relative flex items-center gap-1.5 px-2.5 text-[11px] font-medium rounded-[5px] border border-black/40 select-none cursor-grab hover:brightness-110 transition-[filter,opacity] overflow-hidden min-h-0"
-        aria-label={`${module.name}, 슬롯 ${module.slotIndex + 1}-${module.slotIndex + module.slotSpan} (${module.slotSpan}슬롯) — 클릭하여 편집`}
+        aria-label={`${module.name}, 슬롯 ${slotIndex + 1}-${slotIndex + slotSpan} (${slotSpan}슬롯) — 클릭하여 편집`}
         title="클릭=편집, 드래그=이동, 하단 핸들=리사이즈"
       >
         <span className="truncate flex-1 leading-tight">{module.name}</span>

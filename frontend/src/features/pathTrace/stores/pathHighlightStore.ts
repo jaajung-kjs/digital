@@ -11,14 +11,12 @@ import { traceCable } from '../../../utils/cableTracer';
 import { useSnapshotStore } from '../../editor/stores/snapshotStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { assetToEquipment } from '../../workingCopy/assetToEquipment';
-import { assetToRackModule } from '../../workingCopy/assetToRackModule';
 import { assetsByIdMap, floorAnchor } from '../../workingCopy/floorAnchor';
 import { cableDtoToLocal, type CableDetailDTO } from '../../network/store';
 import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
 import { composeFiberPaths } from '../../workingCopy/merge';
 import type { TraceResult, PathSegment } from '../types';
 import type { LocalCable } from '../../editor/stores/editorStore';
-import type { RackModule } from '../../../types/rackModule';
 import type { Asset } from '../../../types/asset';
 import type { FiberPathDetail } from '../../fiber/types';
 import type { FloorPlanEquipment, FloorPlanFiberPath } from '../../../types/floorPlan';
@@ -141,9 +139,8 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
       const localEquipment: FloorPlanEquipment[] = effAssets
         .filter((a) => !(a.parentAssetId && a.slotIndex != null))
         .map(assetToEquipment);
-      const localRackModules: RackModule[] = effAssets
-        .filter((a) => a.parentAssetId && a.slotIndex != null)
-        .map(assetToRackModule);
+      const localRackModules: Asset[] = effAssets
+        .filter((a) => a.parentAssetId && a.slotIndex != null);
       const allFiberPaths = composeFiberPaths(
         wc.effectiveFiberPaths() as unknown as Array<{ id: string; ofdAId: string; ofdBId: string; portCount: number; description?: string | null }>,
         directory,

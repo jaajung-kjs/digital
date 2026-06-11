@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
-import { RACK_SLOT_COUNT, type RackModule } from '../../../../types/rackModule';
+import { RACK_SLOT_COUNT } from '../../../../types/rackModule';
+import type { Asset } from '../../../../types/asset';
 import { EmptySlot } from './EmptySlot';
 import { ModuleCell } from './ModuleCell';
 import { CategoryComboboxPopover } from './CategoryComboboxPopover';
@@ -10,7 +11,7 @@ import { availableSpanAt, buildRackModule, nextNameFor } from '../../utils/slotG
 
 interface Props {
   rackEquipmentId: string;
-  modules: RackModule[];
+  modules: Asset[];
 }
 
 /**
@@ -34,11 +35,18 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
     setAddingAtSlot({ rackEquipmentId, slotIndex });
   };
 
+  // 슬롯 기하(availableSpanAt) 용 non-null shape — 랙모듈 Asset 은 slotIndex/slotSpan 가 항상 채워짐.
+  const sizedModules = modules.map((m) => ({
+    id: m.id,
+    slotIndex: m.slotIndex ?? 0,
+    slotSpan: m.slotSpan ?? 1,
+  }));
+
   const handlePick = (catId: string) => {
     if (!addingAtSlot) return;
     const cat = (categories ?? []).find((c) => c.id === catId);
     if (!cat) return;
-    const avail = availableSpanAt(modules, addingAtSlot.slotIndex);
+    const avail = availableSpanAt(sizedModules, addingAtSlot.slotIndex);
     if (avail < 1) {
       setAddingAtSlot(null);
       return;
@@ -57,11 +65,13 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
 
   // 각 슬롯이 어떤 모듈에 속하는지 (없으면 빈 슬롯).
   // 자식들은 모두 explicit grid 위치를 가지므로 순서/구분 신경 안 써도 됨.
-  const moduleBySlot = new Map<number, RackModule>();
-  for (const m of modules) moduleBySlot.set(m.slotIndex, m);
+  const moduleBySlot = new Map<number, Asset>();
+  for (const m of modules) moduleBySlot.set(m.slotIndex ?? 0, m);
   const occupiedAny = new Set<number>();
   for (const m of modules) {
-    for (let i = m.slotIndex; i < m.slotIndex + m.slotSpan; i++) occupiedAny.add(i);
+    const start = m.slotIndex ?? 0;
+    const span = m.slotSpan ?? 1;
+    for (let i = start; i < start + span; i++) occupiedAny.add(i);
   }
 
   const children: React.ReactNode[] = [];
@@ -146,7 +156,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
       {addingAtSlot && addingAtSlot.rackEquipmentId === rackEquipmentId && anchorRef.current && (
         <CategoryComboboxPopover
           anchorRect={anchorRef.current}
-          availableSpan={availableSpanAt(modules, addingAtSlot.slotIndex)}
+          availableSpan={availableSpanAt(sizedModules, addingAtSlot.slotIndex)}
           onPick={(c) => handlePick(c.id)}
           onCancel={() => setAddingAtSlot(null)}
         />
