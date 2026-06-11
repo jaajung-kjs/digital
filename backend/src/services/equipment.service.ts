@@ -260,15 +260,15 @@ class EquipmentService {
     const asset = await prisma.asset.findFirst({
       where: { id, parentAssetId: null },
       include: {
-        sourceCablesEq: { select: { id: true } },
-        targetCablesEq: { select: { id: true } },
+        sourceCablesAsset: { select: { id: true } },
+        targetCablesAsset: { select: { id: true } },
         children: { select: { id: true } },
       },
     });
 
     if (!asset) throw new NotFoundError('설비');
 
-    const connectionCount = asset.sourceCablesEq.length + asset.targetCablesEq.length;
+    const connectionCount = asset.sourceCablesAsset.length + asset.targetCablesAsset.length;
     if (connectionCount > 0) {
       throw new ConflictError(
         `연결된 케이블이 ${connectionCount}개 있어 삭제할 수 없습니다. 케이블을 먼저 제거하세요.`
