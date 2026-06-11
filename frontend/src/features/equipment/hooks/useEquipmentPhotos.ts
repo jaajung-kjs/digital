@@ -43,14 +43,5 @@ export function useUploadPhoto(equipmentId: string) {
   });
 }
 
-export function useDeletePhoto() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/equipment-photos/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PHOTO_KEYS.all });
-    },
-  });
-}
+// 사진 삭제는 즉시 api.delete 가 아니라 워킹카피 staging(substationStore remove('photos', id))으로만.
+// C2 위반이던 useDeletePhoto(즉시 DELETE)는 제거 — 저장 시 flushPendingMedia 가 DELETE flush.

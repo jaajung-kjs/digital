@@ -17,6 +17,7 @@ vi.mock('./substationStore', () => ({
         assets: {}, cables: {}, fiberPaths: {},
         inspections: { creates: {}, updates: {}, deletes: [] },
         logs: { creates: {}, updates: {}, deletes: [] },
+        photos: { creates: {}, updates: {}, deletes: [] },
       },
       saved: { assets: [], cables: [] },
       load: vi.fn(async () => {}),
@@ -30,6 +31,11 @@ vi.mock('./substationStore', () => ({
     name: 'logs', idOf: (x: { id: string }) => x.id, versionOf: () => null,
     isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
   },
+  photoDescriptor: {
+    name: 'photos', idOf: (x: { id: string }) => x.id, versionOf: () => null,
+    isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
+  },
+  revokeStagedPhotoUrls: () => {},
 }));
 
 // editor store — 활성 층 + baseFloorVersion 보유.

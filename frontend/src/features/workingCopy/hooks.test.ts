@@ -75,14 +75,10 @@ describe('workingCopy hooks', () => {
     rerender();
     expect(result.current).toBe(1);
 
-    // + 2 pending uploads
+    // + 2 staged photos (substationStore photos 컬렉션 — overlay dirty 에 합산)
     act(() => {
-      useEditorStore.getState().addPendingUpload({
-        id: 'u1', equipmentId: 'e1', side: 'front', file: new File([''], 'a.jpg'), description: '', objectUrl: 'blob:a',
-      });
-      useEditorStore.getState().addPendingUpload({
-        id: 'u2', equipmentId: 'e1', side: 'rear', file: new File([''], 'b.jpg'), description: '', objectUrl: 'blob:b',
-      });
+      useSubstationWorkingCopy.getState().put('photos', { id: 'u1', equipmentId: 'e1', side: 'front', objectUrl: 'blob:a' });
+      useSubstationWorkingCopy.getState().put('photos', { id: 'u2', equipmentId: 'e1', side: 'rear', objectUrl: 'blob:b' });
     });
     rerender();
     expect(result.current).toBe(3);

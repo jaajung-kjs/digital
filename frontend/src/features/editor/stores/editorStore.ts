@@ -71,15 +71,6 @@ export interface PendingFiberPath {
   description?: string | null;
 }
 
-export interface PendingUpload {
-  id: string;
-  equipmentId: string;
-  side: 'front' | 'rear';
-  file: File;
-  description: string;
-  objectUrl: string;
-}
-
 
 /**
  * 스테이징된 점검(inspection) — git-like: 작성/수정/삭제는 즉시 백엔드로 가지 않고
@@ -102,8 +93,7 @@ export interface EditorStoreState {
   majorGridSize: number;
   showGrid: boolean;
 
-  pendingUploads: PendingUpload[];
-  // 고장이력/점검은 substationStore(logs/inspections 컬렉션)로 이전됨 — editorStore 엔 더 이상 없음.
+  // 사진/고장이력/점검은 substationStore(photos/logs/inspections 컬렉션)로 이전됨 — editorStore 는 UI/캔버스 상태 전용.
 
   // Staged background drawing & opacity. Like the rest of the editor, DWG
   // changes (import / clear / opacity) are git-like — they live here until
@@ -226,8 +216,6 @@ export interface EditorStoreActions {
   setMajorGridSize: (size: number) => void;
   setShowGrid: (show: boolean) => void;
 
-  addPendingUpload: (upload: PendingUpload) => void;
-  removePendingUpload: (id: string) => void;
   clearPendingData: () => void;
 
   /** Stage a freshly-parsed DWG. Caller is responsible for fitting viewport. */
@@ -318,7 +306,6 @@ const initialState: EditorStoreState = {
   gridSize: 10,
   majorGridSize: 60,
   showGrid: true,
-  pendingUploads: [],
   stagedBackgroundDrawing: undefined,
   stagedBackgroundOpacity: undefined,
   connectionFilters: null,
@@ -363,12 +350,6 @@ const initialState: EditorStoreState = {
 
 type FullStore = EditorStoreState & EditorStoreActions;
 
-function revokeUploadUrls(uploads: PendingUpload[]) {
-  for (const upload of uploads) {
-    URL.revokeObjectURL(upload.objectUrl);
-  }
-}
-
 export const useEditorStore = create<FullStore>()((set) => ({
   ...initialState,
 
@@ -392,18 +373,8 @@ export const useEditorStore = create<FullStore>()((set) => ({
   setMajorGridSize: (majorGridSize) => set({ majorGridSize }),
   setShowGrid: (showGrid) => set({ showGrid }),
 
-  addPendingUpload: (upload) => set((state) => ({
-    pendingUploads: [...state.pendingUploads, upload],
-  })),
-  removePendingUpload: (id) => set((state) => {
-    const upload = state.pendingUploads.find((u) => u.id === id);
-    if (upload) URL.revokeObjectURL(upload.objectUrl);
-    return { pendingUploads: state.pendingUploads.filter((u) => u.id !== id) };
-  }),
-  clearPendingData: () => set((state) => {
-    revokeUploadUrls(state.pendingUploads);
+  clearPendingData: () => set(() => {
     return {
-      pendingUploads: [],
       stagedBackgroundDrawing: undefined,
       stagedBackgroundOpacity: undefined,
     };
@@ -479,8 +450,7 @@ export const useEditorStore = create<FullStore>()((set) => ({
     selectedRackModuleId: null,
   }),
   resetEditor: () =>
-    set((state) => {
-      revokeUploadUrls(state.pendingUploads);
+    set(() => {
       // Allocate a fresh hiddenBgLayers Set so a stale reference from
       // `initialState` isn't shared across editor sessions.
       return { ...initialState, hiddenBgLayers: new Set<string>() };

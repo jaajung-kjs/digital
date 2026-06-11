@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSubstationWorkingCopy } from './substationStore';
+import { useSubstationWorkingCopy, revokeStagedPhotoUrls } from './substationStore';
 import { useUnifiedDirty } from './hooks';
 import { useCommitWorkingCopy, type Conflict } from './useCommitWorkingCopy';
 import { useEditorStore } from '../editor/stores/editorStore';
@@ -42,7 +42,8 @@ export function WorkingCopyCommitBar({ substationId }: { substationId: string })
   };
 
   const onRevert = () => {
-    // 통합 overlay 되돌리기 + 에디터가 별도 큐로 가진 pending 사진/로그/스테이징 배경 폐기.
+    // 통합 overlay 되돌리기 + 에디터 staged 배경 폐기. 사진 blob URL 은 revert(오버레이 비우기) 전에 해제.
+    revokeStagedPhotoUrls(useSubstationWorkingCopy.getState().overlays);
     useSubstationWorkingCopy.getState().revert();
     useEditorStore.getState().clearPendingData();
   };

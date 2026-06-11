@@ -6,9 +6,11 @@ import {
   fiberPathDescriptor,
   inspectionDescriptor,
   logDescriptor,
+  photoDescriptor,
   sumOverlaysDirty,
   type InspectionRow,
   type LogRow,
+  type PhotoRow,
 } from './substationStore';
 import { mergeEffective } from './effective';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
@@ -60,6 +62,13 @@ export function useEffectiveLogs(): LogRow[] {
   const saved = useSubstationWorkingCopy((s) => s.saved.logs);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.logs);
   return useMemo(() => mergeEffective(saved, overlay, logDescriptor), [saved, overlay]);
+}
+
+/** staged 사진(저장 대기 업로드). saved 는 []이므로 결과 = staged creates. */
+export function useEffectivePhotos(): PhotoRow[] {
+  const saved = useSubstationWorkingCopy((s) => s.saved.photos);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.photos);
+  return useMemo(() => mergeEffective(saved, overlay, photoDescriptor), [saved, overlay]);
 }
 
 /**
@@ -146,16 +155,14 @@ export function useWorkingCopyDirty() {
 /**
  * USP Task 1 — 단일 dirty 신호.
  *
- * 통합 working-copy overlay(assets/cables/dist/fiber)의 staged 변경 합계에
- * 에디터가 아직 별도 큐로 보유한 pendingUploads/pendingLogs 와 floor-level
- * 설정(배경) staged 여부를 더한다. 0 이면 저장할 게 없다 → 저장 바 숨김.
+ * 통합 working-copy overlay(assets/cables/fiber/inspections/logs/photos)의 staged 변경
+ * 합계에 floor-level 설정(배경) staged 여부를 더한다. 0 이면 저장할 게 없다 → 저장 바 숨김.
+ * (사진·로그·점검은 substationStore 컬렉션으로 흡수돼 wc 에 이미 포함된다.)
  */
 export function useUnifiedDirty(): number {
-  // wc(sumOverlaysDirty)에 logs/inspections 오버레이가 포함되므로 여기서 따로 안 센다(이중집계 방지).
   const wc = useWorkingCopyDirty();
-  const uploads = useEditorStore((s) => s.pendingUploads.length);
   const floorDirty = useEditorStore(selectFloorSettingsDirty);
-  return wc + uploads + (floorDirty ? 1 : 0);
+  return wc + (floorDirty ? 1 : 0);
 }
 
 /**
@@ -168,13 +175,9 @@ export function useUnifiedDirty(): number {
  */
 export function getUnifiedDirtyCount(): number {
   const wc = useSubstationWorkingCopy.getState();
-  const overlay = sumOverlaysDirty(wc.overlays);
+  const overlay = sumOverlaysDirty(wc.overlays); // 사진·로그·점검 포함
   const es = useEditorStore.getState();
-  return (
-    overlay + // overlay(sumOverlaysDirty)에 logs/inspections 포함 — 따로 안 더한다.
-    es.pendingUploads.length +
-    (selectFloorSettingsDirty(es) ? 1 : 0)
-  );
+  return overlay + (selectFloorSettingsDirty(es) ? 1 : 0);
 }
 
 /** 주어진 substationId 의 working copy 가 현재 로드돼 있는지. */

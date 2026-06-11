@@ -2,7 +2,8 @@ import { useState, useRef, useMemo } from 'react';
 import { X, ImageIcon, Trash2 } from 'lucide-react';
 import { compressImage } from '../../../../utils/imageCompression';
 import { generateTempId } from '../../../../utils/idHelpers';
-import { useEditorStore } from '../../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
+import { useEffectivePhotos } from '../../../workingCopy/hooks';
 import { useSnapshotStore } from '../../../editor/stores/snapshotStore';
 import { useEquipmentPhotos } from '../../hooks/useEquipmentPhotos';
 import { PhotoLightbox } from './PhotoLightbox';
@@ -109,14 +110,14 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const pendingUploads = useEditorStore((s) => s.pendingUploads);
-  const addPendingUpload = useEditorStore((s) => s.addPendingUpload);
-  const removePendingUpload = useEditorStore((s) => s.removePendingUpload);
+  const stagedPhotos = useEffectivePhotos();
+  const put = useSubstationWorkingCopy((s) => s.put);
+  const remove = useSubstationWorkingCopy((s) => s.remove);
 
   const { data: savedPhotos } = useEquipmentPhotos(equipment.id);
 
   const allPhotos: LightboxPhoto[] = useMemo(() => {
-    const uploads = pendingUploads
+    const uploads = stagedPhotos
       .filter((u) => u.equipmentId === equipment.id && u.side === photoSide);
 
     const saved = (savedPhotos ?? [])
@@ -125,7 +126,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
     return [
       ...uploads.map((u) => ({
         id: `pending-${u.id}`,
-        url: u.objectUrl,
+        url: u.objectUrl ?? '',
         date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
         description: u.description || null,
       })),
@@ -138,7 +139,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
         description: p.description,
       })),
     ];
-  }, [pendingUploads, savedPhotos, equipment.id, photoSide]);
+  }, [stagedPhotos, savedPhotos, equipment.id, photoSide]);
 
   const latestPhoto = allPhotos.length > 0 ? allPhotos[0] : null;
   const currentImageUrl = latestPhoto?.url ?? null;
@@ -155,7 +156,7 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
     if (!pendingFile) return;
     const compressed = await compressImage(pendingFile);
     const objectUrl = URL.createObjectURL(compressed);
-    addPendingUpload({
+    put('photos', {
       id: generateTempId(),
       equipmentId: equipment.id,
       side: photoSide,
@@ -169,10 +170,11 @@ export function PhotosTab({ equipment, readOnly }: { equipment: EquipmentDetail;
   const handleDeletePhoto = (photoId: string) => {
     if (photoId.startsWith('pending-')) {
       const uploadId = photoId.replace('pending-', '');
-      removePendingUpload(uploadId);
+      const staged = stagedPhotos.find((u) => u.id === uploadId);
+      if (staged?.objectUrl) URL.revokeObjectURL(staged.objectUrl);
+      remove('photos', uploadId);
     }
-    // Note: server-side photo deletion is not supported in local-only mode.
-    // Photos can only be deleted after save via the backend API.
+    // 저장된(커밋된) 사진 삭제는 현황 패널(AssetPhotoSection)에서 stage 로 지원. 에디터 탭은 보류 사진만 제거.
   };
 
   const handleDeleteCurrent = () => {

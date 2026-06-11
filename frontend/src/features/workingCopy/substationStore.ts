@@ -98,12 +98,25 @@ export interface LogRow {
 }
 export const logDescriptor = makeDescriptor<LogRow>('logs');
 
+/** 사진 staged 레코드. create 는 압축 File + 미리보기 blob(objectUrl)을 들고 있다(커밋 시 multipart POST). */
+export interface PhotoRow {
+  id: string;
+  equipmentId: string;
+  side: string;
+  file?: File;
+  description?: string;
+  objectUrl?: string;
+  updatedAt?: string | null;
+}
+export const photoDescriptor = makeDescriptor<PhotoRow>('photos');
+
 const COLLECTIONS = {
   assets: assetDescriptor,
   cables: cableDescriptor,
   fiberPaths: fiberPathDescriptor,
   inspections: inspectionDescriptor,
   logs: logDescriptor,
+  photos: photoDescriptor,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
 export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
@@ -121,6 +134,7 @@ interface SavedCollections {
   fiberPaths: FiberPath[];
   inspections: InspectionRow[]; // 항상 [] — 실 saved 는 RQ(useInspectionLogs)
   logs: LogRow[]; // 항상 [] — 실 saved 는 RQ(useMaintenanceLogs)
+  photos: PhotoRow[]; // 항상 [] — 실 saved 는 RQ(useEquipmentPhotos)
 }
 
 interface Overlays {
@@ -129,6 +143,7 @@ interface Overlays {
   fiberPaths: Overlay<FiberPath, Partial<FiberPath>>;
   inspections: Overlay<InspectionRow, Partial<InspectionRow>>;
   logs: Overlay<LogRow, Partial<LogRow>>;
+  photos: Overlay<PhotoRow, Partial<PhotoRow>>;
 }
 
 const emptySaved = (): SavedCollections => ({
@@ -137,7 +152,15 @@ const emptySaved = (): SavedCollections => ({
   fiberPaths: [],
   inspections: [],
   logs: [],
+  photos: [],
 });
+
+/** staged 사진의 blob objectUrl 을 해제 — 커밋 성공/되돌리기 시 호출(메모리 누수 방지). */
+export function revokeStagedPhotoUrls(overlays: Overlays): void {
+  for (const p of Object.values(overlays.photos.creates)) {
+    if (p.objectUrl) URL.revokeObjectURL(p.objectUrl);
+  }
+}
 
 /** saved 컬렉션에서 baseVersions 까지 채운 빈 overlay 세트를 만든다(레지스트리 순회). */
 function freshOverlays(saved: SavedCollections): Overlays {
@@ -250,6 +273,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           fiberPaths: data.data.fiberPaths ?? [],
           inspections: [],
           logs: [],
+          photos: [],
         };
         set({ substationId, saved, overlays: freshOverlays(saved) });
         // 다른 변전소 로드 시 이전 overlay 가 undo 로 복원되지 않도록 history 클리어.
@@ -266,6 +290,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           fiberPaths: data.data.fiberPaths ?? [],
           inspections: [],
           logs: [],
+          photos: [],
         };
         // staged overlay(creates/updates/deletes)는 보존하고 baseVersions 만 최신 saved 기준으로 재스냅샷.
         set((s) => ({
@@ -277,6 +302,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             fiberPaths: { ...s.overlays.fiberPaths, baseVersions: snapshotBaseVersions(newSaved.fiberPaths, fiberPathDescriptor.idOf, fiberPathDescriptor.versionOf!) },
             inspections: s.overlays.inspections, // saved 가 [] 이라 baseVersions 재스냅샷 불필요 — staged 보존만.
             logs: s.overlays.logs,
+            photos: s.overlays.photos,
           },
         }));
       },

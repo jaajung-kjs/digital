@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom';
 import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import { compressImage } from '../../../utils/imageCompression';
 import { generateTempId } from '../../../utils/idHelpers';
-import { useEditorStore } from '../../editor/stores/editorStore';
-// 현황(대장) 사진도 에디터 PhotosTab 과 동일한 보류 큐로 스테이징 → 단일 저장 시 flushPendingMedia 가 업로드.
-// 저장된 사진은 editor 와 동일한 query key(['equipment-photos', id])를 써서 commit 무효화로 자동 갱신.
-import { useEquipmentPhotos, useDeletePhoto } from '../../equipment/hooks/useEquipmentPhotos';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useEffectivePhotos } from '../../workingCopy/hooks';
+// 사진은 워킹카피(substationStore photos 컬렉션)로 스테이징 → 단일 저장 시 flushPendingMedia 가 업로드.
+// 저장된 사진은 query key(['equipment-photos', id])로 commit 무효화 자동 갱신. 삭제도 stage(C2).
+import { useEquipmentPhotos } from '../../equipment/hooks/useEquipmentPhotos';
 
 type Shown = { id: string; url: string; isPending: boolean; date: string | null };
 
@@ -21,18 +22,18 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { data: saved = [] } = useEquipmentPhotos(assetId);
-  const del = useDeletePhoto();
 
-  const pendingUploads = useEditorStore((s) => s.pendingUploads);
-  const addPendingUpload = useEditorStore((s) => s.addPendingUpload);
-  const removePendingUpload = useEditorStore((s) => s.removePendingUpload);
+  const stagedPhotos = useEffectivePhotos();
+  const photoDeletes = useSubstationWorkingCopy((s) => s.overlays.photos.deletes);
+  const put = useSubstationWorkingCopy((s) => s.put);
+  const remove = useSubstationWorkingCopy((s) => s.remove);
 
   const shown = useMemo<Shown[]>(() => {
-    const pending = pendingUploads
+    const pending = stagedPhotos
       .filter((u) => u.equipmentId === assetId && u.side === side)
-      .map((u) => ({ id: u.id, url: u.objectUrl, isPending: true as const, date: null }));
+      .map((u) => ({ id: u.id, url: u.objectUrl ?? '', isPending: true as const, date: null }));
     const savedShown = saved
-      .filter((p) => p.side === side)
+      .filter((p) => p.side === side && !photoDeletes.includes(p.id)) // 삭제 staged 제외
       .map((p) => ({
         id: p.id,
         url: p.imageUrl,
@@ -40,7 +41,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
         date: p.takenAt ?? p.createdAt ?? null,
       }));
     return [...pending, ...savedShown];
-  }, [pendingUploads, saved, assetId, side]);
+  }, [stagedPhotos, photoDeletes, saved, assetId, side]);
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -48,12 +49,12 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
     if (!file) return;
     const compressed = await compressImage(file);
     const objectUrl = URL.createObjectURL(compressed);
-    addPendingUpload({ id: generateTempId(), equipmentId: assetId, side, file: compressed, description: '', objectUrl });
+    put('photos', { id: generateTempId(), equipmentId: assetId, side, file: compressed, description: '', objectUrl });
   };
 
-  const onDelete = (item: { id: string; isPending: boolean }) => {
-    if (item.isPending) { removePendingUpload(item.id); return; }
-    if (window.confirm('사진을 삭제할까요?')) del.mutate(item.id);
+  const onDelete = (item: { id: string; isPending: boolean; url: string }) => {
+    if (item.isPending) { if (item.url) URL.revokeObjectURL(item.url); remove('photos', item.id); return; }
+    if (window.confirm('사진을 삭제할까요?')) remove('photos', item.id); // C2: 즉시삭제 X, stage(저장 시 DELETE)
   };
 
   return (

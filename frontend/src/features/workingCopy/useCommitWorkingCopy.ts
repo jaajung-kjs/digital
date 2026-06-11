@@ -3,10 +3,9 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
 import { buildIdMaps } from './idMaps';
 import { commitSubstation, type FloorCommitSection } from './substationCommit';
-import { useSubstationWorkingCopy, inspectionDescriptor, logDescriptor, type InspectionRow, type LogRow } from './substationStore';
+import { useSubstationWorkingCopy, inspectionDescriptor, logDescriptor, photoDescriptor, revokeStagedPhotoUrls, type InspectionRow, type LogRow, type PhotoRow } from './substationStore';
 import { mergeEffective } from './effective';
 import { useEditorStore } from '../editor/stores/editorStore';
-import type { PendingUpload } from '../editor/stores/editorStore';
 import { overlayToChanges } from '../report/overlayToChanges';
 import { WORK_ORDER_KEYS } from '../report/useWorkOrders';
 import type { ReportPreviewChanges, ConstructionReport } from '../../types/constructionReport';
@@ -62,7 +61,8 @@ function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): Floo
  * 둘 다 allSettled — 일부 실패해도 나머지는 진행하고 실패만 경고한다.
  */
 async function flushPendingMedia(
-  pendingUploads: PendingUpload[],
+  photoCreates: PhotoRow[],
+  photoDeletes: string[],
   logCreates: LogRow[],
   inspectionCreates: InspectionRow[],
   pendingLogDeletes: string[],
@@ -74,10 +74,11 @@ async function flushPendingMedia(
 
   const pendingTasks: Promise<void>[] = [];
 
-  if (pendingUploads.length > 0) {
+  if (photoCreates.length > 0) {
     pendingTasks.push(
       Promise.allSettled(
-        pendingUploads.map(async (upload) => {
+        photoCreates.map(async (upload) => {
+          if (!upload.file) return;
           const formData = new FormData();
           formData.append('file', upload.file);
           formData.append('side', upload.side);
@@ -91,6 +92,19 @@ async function flushPendingMedia(
         const failures = results.filter((r) => r.status === 'rejected');
         if (failures.length > 0) {
           console.warn(`[Save] ${failures.length} photo upload(s) failed:`, failures);
+        }
+      }),
+    );
+  }
+
+  if (photoDeletes.length > 0) {
+    pendingTasks.push(
+      Promise.allSettled(
+        photoDeletes.map((id) => api.delete(`/equipment-photos/${id}`)),
+      ).then((results) => {
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) {
+          console.warn(`[Save] ${failures.length} photo deletion(s) failed:`, failures);
         }
       }),
     );
@@ -239,8 +253,10 @@ export function useCommitWorkingCopy() {
 
     const ed = useEditorStore.getState();
     const floor = buildFloorSection(ed);
-    const hadUploads = ed.pendingUploads.length > 0;
-    // 고장이력/점검은 워킹카피(substationStore) 오버레이에서 flush — effective creates(staged) + deletes.
+    // 사진/고장이력/점검은 워킹카피(substationStore) 오버레이에서 flush — effective creates(staged) + deletes.
+    const photoCreates = mergeEffective([], wc.overlays.photos, photoDescriptor);
+    const photoDeletes = wc.overlays.photos.deletes;
+    const hadUploads = photoCreates.length > 0 || photoDeletes.length > 0;
     const logCreates = mergeEffective([], wc.overlays.logs, logDescriptor);
     const logDeletes = wc.overlays.logs.deletes;
     const hadLogs = logCreates.length > 0 || logDeletes.length > 0;
@@ -262,7 +278,8 @@ export function useCommitWorkingCopy() {
 
     try {
       const result = await commitSubstation(substationId, wc.overlays, wc.saved.assets, queryClient, floor);
-      await flushPendingMedia(ed.pendingUploads, logCreates, inspectionCreates, logDeletes, inspectionDeletes, result.idMaps?.assets);
+      await flushPendingMedia(photoCreates, photoDeletes, logCreates, inspectionCreates, logDeletes, inspectionDeletes, result.idMaps?.assets);
+      revokeStagedPhotoUrls(wc.overlays); // 업로드 완료 → 미리보기 blob 해제
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
       // 2회차 저장 409 방지(견고화) — floor 섹션을 커밋하면 백엔드가 floor.updatedAt 을
