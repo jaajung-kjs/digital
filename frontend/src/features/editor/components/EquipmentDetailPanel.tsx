@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Trash2 } from 'lucide-react';
 import { SidePanel } from './SidePanel';
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
@@ -72,24 +71,12 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     else stageEquipmentDeleteCascade(equipmentId);
     closeRightPanel();
   };
-  const headerExtra = snapshotActive ? null : (
-    <button
-      type="button"
-      onClick={handleDelete}
-      title="삭제"
-      aria-label="삭제"
-      className="p-1 rounded text-content-faint hover:text-danger hover:bg-danger-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-    >
-      <Trash2 size={15} />
-    </button>
-  );
-
   return (
     <SidePanel
       side="right"
       width={384}
       title={title}
-      headerExtra={headerExtra}
+      onDelete={snapshotActive ? undefined : handleDelete}
       onClose={() => closeRightPanel()}
     >
       {/* Snapshot read-only banner */}

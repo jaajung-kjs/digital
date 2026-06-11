@@ -243,7 +243,6 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, s
     { label: '사진', render: () => <AssetPhotoSection assetId={asset.id} /> },
     {
       label: '연결',
-      count: connections.length || undefined,
       render: () => (
         <AssetConnectionsSection
           assetId={asset.id}

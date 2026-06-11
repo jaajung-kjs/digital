@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
 
 interface SidePanelProps {
   /** 캔버스 어느 쪽에 붙고 어디서 슬라이드해 들어올지 */
@@ -8,6 +8,8 @@ interface SidePanelProps {
   title: ReactNode;
   /** 닫기(X)·ESC 공통 핸들러 */
   onClose: () => void;
+  /** 있으면 헤더에 삭제(휴지통) 노출 */
+  onDelete?: () => void;
   /** 패널 너비(px) */
   width?: number;
   /** 본문 */
@@ -30,6 +32,7 @@ export function SidePanel({
   side = 'right',
   title,
   onClose,
+  onDelete,
   width = 384,
   children,
   headerExtra,
@@ -60,22 +63,8 @@ export function SidePanel({
           : 'left-0 border-r border-line shadow-[4px_0_12px_rgba(0,0,0,0.08)] animate-slide-in-left',
       ].join(' ')}
     >
-      {/* 공통 헤더 */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-surface-2 shrink-0">
-        <h3 className="text-base font-semibold text-content truncate min-w-0">{title}</h3>
-        <div className="flex items-center gap-2 shrink-0">
-          {headerExtra}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            title="닫기"
-            className="p-1 rounded text-content-muted hover:bg-surface-2 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      </div>
+      {/* 공통 헤더 — 현황 패널과 단일 소스(DetailPanelHeader) */}
+      <DetailPanelHeader title={title} onClose={onClose} onDelete={onDelete} extra={headerExtra} />
 
       {/* 본문 */}
       <div className="flex-1 min-h-0 flex flex-col">{children}</div>

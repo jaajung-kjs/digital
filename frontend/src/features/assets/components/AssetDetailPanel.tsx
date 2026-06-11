@@ -1,14 +1,10 @@
 import { useMemo } from 'react';
-import { X, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import type { Asset } from '../../../types/asset';
-import { assetAlert } from '../alerts';
-import { floorPlanUrl } from '../navUrls';
-import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
 import { normalizeKindForAsset } from '../../workingCopy/assetToEquipment';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
+import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
 
 interface Props {
   asset: Asset;
@@ -27,12 +23,7 @@ interface Props {
  * 캔버스 밖(현황/대장)에서도 그대로 동작한다.
  */
 export function AssetDetailPanel({ asset, mode = 'edit', onClose, onPatch }: Props) {
-  const navigate = useNavigate();
-  const ws = useWorkspaceNav();
-  const today = useMemo(() => new Date(), []);
-  const alert = assetAlert(asset, today);
-
-  // 삭제(#1) — edit 모드(워킹카피 로드)에서만. 최상위 설비는 cascade, 모듈/분기는 단일.
+  // 삭제 — edit 모드(워킹카피 로드)에서만. 최상위 설비는 cascade, 모듈/분기는 단일.
   const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
   const stageEquipmentDeleteCascade = useSubstationWorkingCopy((s) => s.stageEquipmentDeleteCascade);
   const handleDelete = () => {
@@ -54,32 +45,13 @@ export function AssetDetailPanel({ asset, mode = 'edit', onClose, onPatch }: Pro
   }, [asset.parentAssetId, asset.assetType?.placementKind]);
 
   return (
-    <aside
-      className="w-96 shrink-0 border-l border-line bg-surface h-full overflow-y-auto flex flex-col"
-    >
-      <header className="flex items-center justify-between px-4 py-2 border-b border-line sticky top-0 bg-surface z-10 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          {/* ISA-101: 종류 점은 무채색. 색은 상태 배지에만. */}
-          <span className="inline-block w-2 h-2 rounded-full shrink-0 bg-eq-3" />
-          <span className="text-base font-semibold truncate">{asset.name}</span>
-          {alert && <span className="text-xs px-1.5 py-0.5 rounded-full bg-warning-bg text-warning font-medium shrink-0" title={alert.label}>{alert.label}</span>}
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {asset.floorId ? (
-            <button onClick={() => asset.floorId && (ws ? ws.gotoFloor(asset.floorId, asset.id) : navigate(floorPlanUrl(asset.floorId, asset.id)))}
-              className="text-xs px-2 py-1 rounded bg-surface-2 hover:bg-line transition-colors">도면에서 보기</button>
-          ) : (
-            <button disabled title="도면에 배치되지 않음"
-              className="text-xs px-2 py-1 rounded bg-surface-2 text-content-faint cursor-not-allowed">도면에서 보기</button>
-          )}
-          {mode === 'edit' && (
-            <button aria-label="삭제" title="삭제" onClick={handleDelete}
-              className="p-1 rounded text-content-faint hover:text-danger hover:bg-danger-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"><Trash2 size={15} /></button>
-          )}
-          <button aria-label="닫기" onClick={onClose} className="p-1 rounded text-content-muted hover:text-content hover:bg-surface-2 transition-colors"><X size={16} /></button>
-        </div>
-      </header>
-
+    <aside className="w-96 shrink-0 border-l border-line bg-surface h-full flex flex-col">
+      {/* 평면도 패널(SidePanel)과 단일 소스 헤더 — 픽셀 단위 동일. */}
+      <DetailPanelHeader
+        title={asset.name}
+        onClose={onClose}
+        onDelete={mode === 'edit' ? handleDelete : undefined}
+      />
       <div className="flex-1 min-h-0 flex flex-col">
         <AssetDetailBody equipmentId={asset.id} kind={detailKind} mode={mode} onPatch={onPatch} asset={asset} />
       </div>
