@@ -69,10 +69,27 @@ export const fiberPathDescriptor = makeDescriptor<FiberPath>('fiberPaths');
 // 워킹카피 컬렉션을 '데이터'로 등록한다. dirty/revert(freshOverlays) 등 종류-무관 기계는
 // 이 레지스트리를 *순회*하므로, 새 컬렉션 추가 = 여기 한 줄 → dirty/revert 에 자동 참여
 // (엔티티마다 dirty 합산·revert 분기를 손대던 보일러플레이트 제거).
+/**
+ * 점검(inspection) 컬렉션 레코드. 점검의 '저장된' 데이터는 변전소 워킹카피 endpoint 에 없고
+ * 자산별 React Query(useInspectionLogs)로 로드되므로, store 의 saved.inspections 는 항상 []
+ * (실 saved 는 RQ). overlay 만 staging(create/update/delete) — 단일 워킹카피의 dirty/revert/
+ * commit 에 다른 컬렉션과 동일하게 참여한다(북극성 ①). 컴포넌트가 RQ(saved)+overlay 를 머지.
+ */
+export interface InspectionRow {
+  id: string;
+  assetId: string;
+  inspectionDate: string;
+  inspector: string;
+  content?: string | null;
+  updatedAt?: string | null;
+}
+export const inspectionDescriptor = makeDescriptor<InspectionRow>('inspections');
+
 const COLLECTIONS = {
   assets: assetDescriptor,
   cables: cableDescriptor,
   fiberPaths: fiberPathDescriptor,
+  inspections: inspectionDescriptor,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
 export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
@@ -88,18 +105,21 @@ interface SavedCollections {
   assets: Asset[];
   cables: Cable[];
   fiberPaths: FiberPath[];
+  inspections: InspectionRow[]; // 항상 [] — 실 saved 는 RQ(useInspectionLogs)
 }
 
 interface Overlays {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Cable, Partial<Cable>>;
   fiberPaths: Overlay<FiberPath, Partial<FiberPath>>;
+  inspections: Overlay<InspectionRow, Partial<InspectionRow>>;
 }
 
 const emptySaved = (): SavedCollections => ({
   assets: [],
   cables: [],
   fiberPaths: [],
+  inspections: [],
 });
 
 /** saved 컬렉션에서 baseVersions 까지 채운 빈 overlay 세트를 만든다(레지스트리 순회). */
@@ -137,6 +157,11 @@ export interface SubstationWorkingCopyState {
   stageFiberPathCreate: (item: FiberPath) => void;
   stageFiberPathUpdate: (id: string, patch: Partial<FiberPath>) => void;
   stageFiberPathDelete: (id: string) => void;
+
+  // ── 제네릭 ops (북극성 ① — 컬렉션 키로 stage. 새 엔티티는 이걸 쓰면 전용 함수 0개) ──
+  put: (coll: CollectionKey, item: { id: string }) => void;
+  patch: (coll: CollectionKey, id: string, fields: Record<string, unknown>) => void;
+  remove: (coll: CollectionKey, id: string) => void;
 
   // ── editor-facing mutation actions (2d-1 T3) ──
   // 캔버스 편집 결과(FloorPlanEquipment)를 받아 Asset overlay 로 stage 한다.
@@ -206,6 +231,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           assets: data.data.assets ?? [],
           cables: data.data.cables ?? [],
           fiberPaths: data.data.fiberPaths ?? [],
+          inspections: [],
         };
         set({ substationId, saved, overlays: freshOverlays(saved) });
         // 다른 변전소 로드 시 이전 overlay 가 undo 로 복원되지 않도록 history 클리어.
@@ -220,6 +246,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           assets: data.data.assets ?? [],
           cables: data.data.cables ?? [],
           fiberPaths: data.data.fiberPaths ?? [],
+          inspections: [],
         };
         // staged overlay(creates/updates/deletes)는 보존하고 baseVersions 만 최신 saved 기준으로 재스냅샷.
         set((s) => ({
@@ -229,6 +256,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             assets: { ...s.overlays.assets, baseVersions: snapshotBaseVersions(newSaved.assets, assetDescriptor.idOf, assetDescriptor.versionOf!) },
             cables: { ...s.overlays.cables, baseVersions: snapshotBaseVersions(newSaved.cables, cableDescriptor.idOf, cableDescriptor.versionOf!) },
             fiberPaths: { ...s.overlays.fiberPaths, baseVersions: snapshotBaseVersions(newSaved.fiberPaths, fiberPathDescriptor.idOf, fiberPathDescriptor.versionOf!) },
+            inspections: s.overlays.inspections, // saved 가 [] 이라 baseVersions 재스냅샷 불필요 — staged 보존만.
           },
         }));
       },
@@ -255,6 +283,23 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageUpdate(s.overlays.fiberPaths, id, patch) } })),
       stageFiberPathDelete: (id) =>
         set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageDelete(s.overlays.fiberPaths, id, isTempId(id)) } })),
+
+      // 제네릭 ops — 컬렉션 키로 overlay 에 stage(엔티티 무관). overlay 는 키마다 타입이 달라 loose cast.
+      put: (coll, item) =>
+        set((s) => {
+          const o = s.overlays as unknown as Record<CollectionKey, Overlay<{ id: string }, unknown>>;
+          return { overlays: { ...s.overlays, [coll]: stageCreate(o[coll], item.id, item) } };
+        }),
+      patch: (coll, id, fields) =>
+        set((s) => {
+          const o = s.overlays as unknown as Record<CollectionKey, Overlay<{ id: string }, unknown>>;
+          return { overlays: { ...s.overlays, [coll]: stageUpdate(o[coll], id, fields) } };
+        }),
+      remove: (coll, id) =>
+        set((s) => {
+          const o = s.overlays as unknown as Record<CollectionKey, Overlay<{ id: string }, unknown>>;
+          return { overlays: { ...s.overlays, [coll]: stageDelete(o[coll], id, isTempId(id)) } };
+        }),
 
       // ── editor-facing mutation actions (2d-1 T3) ──
       stageEquipmentCreate: (eq, assetTypeId) =>

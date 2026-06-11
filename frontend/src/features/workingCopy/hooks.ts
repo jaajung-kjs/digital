@@ -4,7 +4,9 @@ import {
   assetDescriptor,
   cableDescriptor,
   fiberPathDescriptor,
+  inspectionDescriptor,
   sumOverlaysDirty,
+  type InspectionRow,
 } from './substationStore';
 import { mergeEffective } from './effective';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
@@ -42,6 +44,13 @@ export function useEffectiveFiberPaths() {
   const saved = useSubstationWorkingCopy((s) => s.saved.fiberPaths);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.fiberPaths);
   return useMemo(() => mergeEffective(saved, overlay, fiberPathDescriptor), [saved, overlay]);
+}
+
+/** staged 점검(저장 대기 create + pending update). saved 는 []이므로 결과 = staged creates. */
+export function useEffectiveInspections(): InspectionRow[] {
+  const saved = useSubstationWorkingCopy((s) => s.saved.inspections);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.inspections);
+  return useMemo(() => mergeEffective(saved, overlay, inspectionDescriptor), [saved, overlay]);
 }
 
 /**
