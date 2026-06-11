@@ -130,7 +130,16 @@ ASCII (터미널용):
 | 노드 대장 Asset(useSubstationAssets) | ❌ 별도 스코프 | 직접 CRUD 허용 | 서버 쿼리 | 즉시 |
 | 인증/사용자/카테고리 | ❌ | 직접 CRUD 허용 | 서버 쿼리 | 즉시 |
 
-> **이상(理想)**: 미디어형(사진/로그/점검)도 구조 오버레이로 흡수해 commit payload 한 줄기로 — 단 사진은 바이너리(File)라 별도 큐가 합리적. 그래서 현재는 **두 메커니즘(구조 오버레이 + 미디어 큐)이되 C3(단일 commit/revert/dirty) 계약을 공유**하는 것을 표준으로 한다. logs/inspections 를 substationCommit payload 로 흡수하는 것은 백엔드 커밋 확장이 필요 — P3+ 선택.
+> **목표(단순화의 핵심): 스토어 하나.** `substationStore` = 유일한 워킹카피. 모든 도메인 데이터
+> (asset·cable·fiber·rackModule·photo·log·inspection)가 여기 **오버레이 컬렉션 `{creates,updates,deletes}`**
+> 으로 산다. 읽기=`useEffectiveX`, 쓰기=`stageX`, 저장=commit, 되돌리기=revert.
+> `editorStore` 는 **UI/캔버스 상태 전용**(도구·줌·팬·선택·스냅샷) — 도메인 데이터 0.
+>
+> "구조 오버레이 vs 미디어 큐" 구분은 본질이 아니라 우연이다(한쪽은 오버레이 엔진, 한쪽은 배열을
+> 썼을 뿐). 사진/로그/점검도 같은 오버레이로 표현하고, **flush 방식만** 엔티티별로 다르다
+> (asset/cable/fiber = commit payload 한 줄기 / photo = 파일 업로드 / log·inspection = 전용 엔드포인트).
+> flush 차이는 **commit 계층의 디테일**일 뿐, 편집·읽기 모델은 하나다. **백엔드 변경 불필요**
+> (flush 단계가 editorStore 대신 substationStore 오버레이에서 읽기만 바꾸면 됨).
 
 ---
 
@@ -163,15 +172,15 @@ ASCII (터미널용):
 
 각 단계: front/back `tsc` 0 + `vitest` + **실측**(staged→effective 반영 / commit→DB / revert→폐기) + 회귀 테스트 + 단계 커밋.
 
-- **P1 — C2/C1 위반 제거(활성 버그)**
+- **P1 — C2/C1 위반 제거(활성 버그)** *(저위험·우선)*
   - 케이블 연결 탭: `useEffectiveCables`+effective assets 로 연결 목록 구성(읽기), 편집/삭제는 `stageCableUpdate/Delete`(쓰기). 즉시 `useCableMutations` 제거.
-  - 사진 삭제: `pendingPhotoDeletes` 신설 → flush(DELETE)/dirty/revert/UI 배선.
-  - 죽은 즉시-CRUD 훅 제거(#7).
-- **P2 — 필드SSOT 단일화(드리프트 제거)**: #8 로직 단일 모듈화 + #10 DTO 정리.
-- **P3 — 모델 이중성 붕괴(C)**: FloorPlanEquipment 필드명→Asset 정렬 → 변환기 항등화 → 삭제 → 타입 제거. (회귀 위험 큼 — 별도 세부 plan.)
-- **P4 — 위생**: deprecated 잔재(`today` prop 등), 스냅샷 path 중복 컴포넌트 검토.
+  - 죽은 즉시-CRUD 훅 제거(useCreateFiberPath/useDeleteFiberPath, useAssetPhotos, useAssetMaintenanceLogs).
+- **P2 — 필드SSOT 단일화(드리프트 제거)** *(저위험)*: 중복 로직(isRackModule·statusIsOn·assetPatchToListItem·computeLastMaintenanceDate) 단일 모듈화 + 중복 CableDetailDTO 정리.
+- **P3 — 스토어 하나 (핵심 단순화)** *(중위험·고효용)*: editorStore 의 도메인 큐(pendingUploads/Logs/Inspections + deletes)를 `substationStore` 오버레이 컬렉션으로 이전. 사진 삭제 staging 도 여기로(활성 버그 #5 동반 해결). flush/dirty/revert 가 substationStore 한 곳에서 읽게. editorStore = UI 전용. **백엔드 무변경.** → "어느 스토어?"가 사라짐.
+- **P4 — 모델 이중성 붕괴(캔버스→Asset)** *(고위험·마지막)*: FloorPlanEquipment 필드명→Asset 정렬 → 변환기 항등화 → 삭제 → 타입 제거. 별도 세부 plan.
+- **P5 — 위생**: deprecated 잔재(`today` prop 등), 스냅샷 path 중복 컴포넌트 검토.
 
-P1·P2 는 활성 버그 + 저위험 고효용 → 먼저. P3 는 큰 회귀 위험 → 마지막, 세부 plan 별도.
+순서 근거: P1(활성버그)·P2(드리프트)는 저위험 즉효 → 먼저. P3(스토어 하나)는 가장 큰 직관성 향상이고 백엔드 무변경·중위험 → 그 다음. P4(캔버스)는 회귀 위험 최대 → 마지막. 사진 삭제 활성버그는 P3 에서 스토어 이전과 함께 해결(중복작업 회피).
 
 ---
 
