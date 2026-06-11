@@ -77,7 +77,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="text-xs font-medium rounded px-2 py-1 text-primary hover:bg-info-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="text-xs font-medium rounded px-2 py-1 text-primary hover:bg-surface-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               + 업로드
             </button>

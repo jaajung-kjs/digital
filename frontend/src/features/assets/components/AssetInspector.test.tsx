@@ -26,17 +26,20 @@ describe('AssetInspector — 단일 인스펙터(SSOT)', () => {
     // #7: 커스텀 속성(모델 등) 입력/속성 섹션은 더 이상 렌더되지 않는다.
     expect(screen.queryByLabelText('모델')).toBeNull();
     expect(screen.queryByText('속성')).toBeNull();
-    // 접이식 보조 섹션 — 점검/고장이력/사진/연결 (#5·#6)
-    expect(screen.getByText('점검')).toBeTruthy();
-    expect(screen.getByText('고장이력')).toBeTruthy();
+    // 탭 바(#6) — 정보/점검/고장이력/사진/연결 탭 라벨이 모두 보인다.
+    expect(screen.getByRole('tab', { name: '정보' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: '점검' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /고장이력/ })).toBeTruthy();
     expect(screen.queryByText('유지보수')).toBeNull();
-    expect(screen.getByText('사진')).toBeTruthy();
-    expect(screen.getByText('연결')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: '사진' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /연결/ })).toBeTruthy();
   });
 
-  it('edit 모드: 설명 변경 → onPatch({ description })', () => {
+  it('edit 모드: 설명(연필-인라인) 변경 → onPatch({ description })', () => {
     const onPatch = vi.fn();
     wrap(<AssetInspector asset={asset} mode="edit" onPatch={onPatch} onSelectAsset={vi.fn()} today={today} />);
+    // 줄찍찍 제거: 평소엔 plain text, 연필 클릭 시 인풋으로 전환.
+    fireEvent.click(screen.getByTitle('설명 수정'));
     const desc = document.querySelector('textarea') as HTMLTextAreaElement;
     fireEvent.change(desc, { target: { value: '수정된 메모' } });
     fireEvent.blur(desc);
@@ -62,11 +65,12 @@ describe('AssetInspector — 필드별 수정 affordance(#8 S7)', () => {
     expect(screen.queryByTitle('종류 수정')).toBeNull();
   });
 
-  it('수정(연필) 클릭 → 해당 인풋에 focus(편집 시작)', () => {
+  it('수정(연필) 클릭 → 인풋으로 전환 + focus(편집 시작)', () => {
     wrap(<AssetInspector asset={asset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
-    const nameInput = screen.getByDisplayValue('장비1') as HTMLInputElement;
-    expect(document.activeElement).not.toBe(nameInput);
+    // 평소엔 인풋 없음(plain text). 연필 클릭 시 인풋 등장 + autoFocus.
+    expect(screen.queryByDisplayValue('장비1')).toBeNull();
     fireEvent.click(screen.getByTitle('이름 수정'));
+    const nameInput = screen.getByDisplayValue('장비1') as HTMLInputElement;
     expect(document.activeElement).toBe(nameInput);
   });
 
@@ -127,6 +131,7 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
   it('모듈: 이름 편집 → onPatch(통합 overlay 스테이징과 동일 경로)', () => {
     const onPatch = vi.fn();
     wrap(<AssetInspector asset={moduleAsset} mode="edit" onPatch={onPatch} onSelectAsset={vi.fn()} today={today} />);
+    fireEvent.click(screen.getByTitle('이름 수정'));
     const nameInput = screen.getByDisplayValue('모듈1') as HTMLInputElement;
     fireEvent.change(nameInput, { target: { value: '모듈A' } });
     fireEvent.blur(nameInput);

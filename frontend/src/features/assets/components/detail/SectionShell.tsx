@@ -3,11 +3,11 @@ import type { ReactNode } from 'react';
 /**
  * 상세패널 보조 섹션(점검·고장이력·사진·연결) 공유 셸.
  * 네 섹션이 한 제품처럼 보이도록 헤더·여백·버튼·빈 상태·리스트 아이템을
- * 단일 토큰/패턴으로 통일. CollapsibleSection 안에 들어가는 본문 톤을 맞춘다.
+ * 단일 토큰/패턴으로 통일. 탭 바(DetailTabs) 본문 안에서 동일 톤으로 렌더.
  *
- * 디자인 결정: 384px 좁은 패널에서는 4-탭 스트립이 비좁아 가독성이 떨어진다.
- * 정보 필드는 상단 고정, 보조 섹션은 기존 접이식(CollapsibleSection)을 유지하되
- * 이 셸로 내부 톤을 통일하는 방식을 택했다.
+ * 디자인 결정(#6): 접이식 섹션을 버리고 상단 탭 바(정보·점검·고장이력·사진·연결)로
+ * 재구성. 보조 섹션은 중립(neutral) 톤만 사용 — 파란 add-form(bg-info-bg)·필드 밑줄
+ * (줄찍찍) 제거, 라인 남발 없이 여백으로 구분, 통일된 비즈니스 톤.
  */
 
 /** 섹션 헤더 — 제목 + (선택) 우측 액션. 네 섹션 동일 정렬/여백. */
@@ -46,7 +46,7 @@ export function SectionAction({
       onClick={onClick}
       className={`text-xs font-medium rounded px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
         tone === 'primary'
-          ? 'text-primary hover:bg-info-bg'
+          ? 'text-primary hover:bg-surface-2'
           : 'text-content-muted hover:bg-surface-2'
       }`}
     >
@@ -62,19 +62,19 @@ export function SectionEmpty({ children }: { children: ReactNode }) {
   );
 }
 
-/** 리스트 아이템 카드 — 점검/고장이력 공유. */
+/** 리스트 아이템 카드 — 점검/고장이력 공유. 라이트 카드(중립 표면). */
 export function SectionItem({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-line bg-surface-2 p-3">
+    <div className="group rounded-lg border border-line bg-surface p-3">
       {children}
     </div>
   );
 }
 
-/** 추가/편집 폼 래퍼 — 강조 배경 + 일관 여백. */
+/** 추가/편집 폼 래퍼 — 중립 톤(파란 강조·primary 보더 없음). 튀지 않고 차분하게. */
 export function SectionForm({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-3 rounded-lg border border-primary/40 bg-info-bg p-3 space-y-2.5">
+    <div className="mb-3 rounded-lg border border-line bg-surface-2/60 p-3 space-y-2">
       {children}
     </div>
   );
@@ -99,7 +99,7 @@ export function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full text-sm px-3 py-2 rounded bg-primary text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="text-xs font-medium px-3 py-1.5 rounded bg-primary text-white hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       {children}
     </button>

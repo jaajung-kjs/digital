@@ -141,12 +141,14 @@ export function InspectionSection({ assetId }: { assetId: string }) {
             onChange={(e) => setForm((p) => ({ ...p, content: e.target.value }))}
             className={`${fieldClass} resize-none`}
           />
-          <PrimaryButton
-            onClick={handleSubmit}
-            disabled={pending || !form.inspectionDate || !form.inspector.trim()}
-          >
-            {editingId ? '수정 적용' : '점검 등록'}
-          </PrimaryButton>
+          <div className="flex justify-end pt-0.5">
+            <PrimaryButton
+              onClick={handleSubmit}
+              disabled={pending || !form.inspectionDate || !form.inspector.trim()}
+            >
+              {editingId ? '수정 적용' : '점검 등록'}
+            </PrimaryButton>
+          </div>
         </SectionForm>
       )}
 

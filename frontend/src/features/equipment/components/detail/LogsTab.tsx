@@ -189,9 +189,11 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
             onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
             className={`${fieldClass} resize-none`} rows={2}
           />
-          <PrimaryButton onClick={handleSubmit} disabled={!formData.title.trim()}>
-            {editingLogId ? '수정 적용' : '등록'}
-          </PrimaryButton>
+          <div className="flex justify-end pt-0.5">
+            <PrimaryButton onClick={handleSubmit} disabled={!formData.title.trim()}>
+              {editingLogId ? '수정 적용' : '등록'}
+            </PrimaryButton>
+          </div>
         </SectionForm>
       )}
 

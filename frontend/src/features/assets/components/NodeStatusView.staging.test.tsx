@@ -79,8 +79,9 @@ describe('NodeStatusView — 본부·사업소 편집은 staging 경유(SSOT)', 
     // 행 클릭(s1 자산) → WC 로드 트리거.
     fireEvent.click(screen.getByText('랙01'));
 
-    // 로드 완료 → 인스펙터 편집 모드. #7 속성 입력 제거 후 설명 textarea 가 항상 존재하는 편집 필드.
-    await screen.findByText('설명');
+    // 로드 완료 → 인스펙터 편집 모드. #6 연필-인라인: 평소 plain text → 연필 클릭 시 textarea.
+    await screen.findByTitle('설명 수정');
+    fireEvent.click(screen.getByTitle('설명 수정'));
     const desc = document.querySelector('textarea') as HTMLTextAreaElement;
     fireEvent.change(desc, { target: { value: '수정메모' } });
     fireEvent.blur(desc);

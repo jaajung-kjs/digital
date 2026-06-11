@@ -61,6 +61,8 @@ describe('AssetDetailBody — SSOT 단일 상세 본문', () => {
   it('편집(이름) → stageAssetUpdate(통합 WC)', () => {
     stageAssetUpdate.mockClear();
     wrap(<AssetDetailBody equipmentId="e1" kind="rack" asset={asset} />);
+    // 연필-인라인(#6): 평소 plain text → 연필 클릭 시 인풋 전환.
+    fireEvent.click(screen.getByTitle('이름 수정'));
     const nameInput = screen.getByDisplayValue('랙01') as HTMLInputElement;
     fireEvent.change(nameInput, { target: { value: '랙02' } });
     fireEvent.blur(nameInput);

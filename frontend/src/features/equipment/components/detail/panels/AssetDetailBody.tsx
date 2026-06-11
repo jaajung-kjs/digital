@@ -103,13 +103,16 @@ function LiveBody({
     mode === 'edit' ? (onPatch ?? ((id: string, p: Partial<Asset>) => stageAssetUpdate(id, p))) : undefined;
 
   return (
-    <div className="flex-1 overflow-y-auto min-h-0">
+    <div className="flex flex-col flex-1 min-h-0">
       {asset ? (
+        // 공간 섹션(실장도 등)은 정보 탭 안으로 — AssetInspector 가 spatial 을 받아 렌더.
         <AssetInspector
           asset={asset}
           mode={mode}
           onPatch={patch}
           onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
+          spatial={spatial}
+          spatialLabel={spatialLabel}
           today={today}
         />
       ) : isLoading ? (
@@ -118,16 +121,6 @@ function LiveBody({
         </div>
       ) : (
         <p className="px-4 py-3 text-xs text-content-faint">대장 정보를 불러올 수 없습니다.</p>
-      )}
-
-      {spatial && (
-        // 공간 섹션 헤더 톤을 보조 섹션(CollapsibleSection) 헤더와 일치(text-xs font-semibold).
-        <section className="px-4 py-2 border-t border-line">
-          {spatialLabel && (
-            <h3 className="text-xs font-semibold text-content-muted mb-2">{spatialLabel}</h3>
-          )}
-          {spatial}
-        </section>
       )}
     </div>
   );
