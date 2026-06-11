@@ -2,10 +2,10 @@ import { useMemo, type ReactNode } from 'react';
 import type { Asset } from '../../../../../types/asset';
 import type { DetailPanelKind } from '../../../../../types/equipmentKind';
 import { useSnapshotStore } from '../../../../editor/stores/snapshotStore';
-import { isTempId } from '../../../../../utils/idHelpers';
 import { useAsset } from '../../../../assets/hooks/useAsset';
 import { useSelection } from '../../../../workspace/SelectionContext';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
+import { useEffectiveAssets } from '../../../../workingCopy/hooks';
 import { AssetInspector } from '../../../../assets/components/AssetInspector';
 import { BaseEquipmentTabsPanel } from './BaseEquipmentTabsPanel';
 import { resolveSpatialSection } from './resolveSpatialSection';
@@ -35,7 +35,6 @@ interface Props {
  */
 export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, asset: injected }: Props) {
   const snapshotActive = useSnapshotStore((s) => s.active);
-  const isTemp = isTempId(equipmentId);
 
   const spatial = useMemo(
     () => (kind ? resolveSpatialSection(kind, equipmentId) : null),
@@ -59,7 +58,6 @@ export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, ass
   return (
     <LiveBody
       equipmentId={equipmentId}
-      isTemp={isTemp}
       mode={mode}
       onPatch={onPatch}
       injected={injected}
@@ -71,7 +69,6 @@ export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, ass
 
 function LiveBody({
   equipmentId,
-  isTemp,
   mode,
   onPatch,
   injected,
@@ -79,17 +76,24 @@ function LiveBody({
   spatialLabel,
 }: {
   equipmentId: string;
-  isTemp: boolean;
   mode: 'edit' | 'view';
   onPatch?: (id: string, patch: Partial<Asset>) => void;
   injected?: Asset | null;
   spatial?: ReactNode;
   spatialLabel?: string;
 }) {
-  // 현황/대장은 풀 Asset 을 주입(injected) → 페치 생략. 에디터는 useAsset 으로 대장 레코드를 읽는다.
-  const fetched = useAsset(injected ? undefined : equipmentId);
-  const asset = injected ?? fetched.data;
-  const isLoading = injected ? false : fetched.isLoading;
+  // SSOT: 자산은 *워킹카피(effective)*에서 읽는다 — overlay(스테이징)·저장 후 reload 가 모두
+  // 반영된 단일 소스. 서버 useAsset(캐시)로 읽으면 ①저장 후 stale 값으로 되돌아가고(예: 상태
+  // ON/OFF), ②미저장 신규(temp)는 서버에 없어 404 → 안내문구가 뜬다. effective 에 있으면
+  // 그것을, 없을 때만(다른 변전소·미로드) 서버 페치로 폴백.
+  const effective = useEffectiveAssets();
+  const fromEffective = useMemo(
+    () => (injected ? undefined : effective.find((a) => a.id === equipmentId)),
+    [injected, effective, equipmentId],
+  );
+  const fetched = useAsset(injected || fromEffective ? undefined : equipmentId);
+  const asset = injected ?? fromEffective ?? fetched.data;
+  const isLoading = injected || fromEffective ? false : fetched.isLoading;
   const sel = useSelection();
   const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
   const today = useMemo(() => new Date(), []);
@@ -108,10 +112,6 @@ function LiveBody({
           onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
           today={today}
         />
-      ) : isTemp ? (
-        <p className="px-4 py-3 text-xs text-content-faint">
-          아직 저장되지 않은 설비입니다. 도면을 저장하면 대장 정보가 표시됩니다.
-        </p>
       ) : isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
