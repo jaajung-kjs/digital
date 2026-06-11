@@ -142,14 +142,13 @@ export function useWorkingCopyDirty() {
  * 설정(배경) staged 여부를 더한다. 0 이면 저장할 게 없다 → 저장 바 숨김.
  */
 export function useUnifiedDirty(): number {
+  // wc(sumOverlaysDirty)에 inspections 오버레이가 포함되므로 점검은 여기서 따로 안 센다(이중집계 방지).
   const wc = useWorkingCopyDirty();
   const uploads = useEditorStore((s) => s.pendingUploads.length);
   const logs = useEditorStore((s) => s.pendingLogs.length);
-  const inspections = useEditorStore((s) => s.pendingInspections.length);
   const logDeletes = useEditorStore((s) => s.pendingLogDeletes.length);
-  const inspDeletes = useEditorStore((s) => s.pendingInspectionDeletes.length);
   const floorDirty = useEditorStore(selectFloorSettingsDirty);
-  return wc + uploads + logs + inspections + logDeletes + inspDeletes + (floorDirty ? 1 : 0);
+  return wc + uploads + logs + logDeletes + (floorDirty ? 1 : 0);
 }
 
 /**
@@ -165,12 +164,10 @@ export function getUnifiedDirtyCount(): number {
   const overlay = sumOverlaysDirty(wc.overlays);
   const es = useEditorStore.getState();
   return (
-    overlay +
+    overlay + // overlay(sumOverlaysDirty)에 inspections 포함 — 점검은 따로 안 더한다.
     es.pendingUploads.length +
     es.pendingLogs.length +
-    es.pendingInspections.length +
     es.pendingLogDeletes.length +
-    es.pendingInspectionDeletes.length +
     (selectFloorSettingsDirty(es) ? 1 : 0)
   );
 }

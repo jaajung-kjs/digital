@@ -15,18 +15,18 @@ vi.mock('../../../../stores/authStore', () => ({
 }));
 
 import { InspectionSection } from './InspectionSection';
-import { useEditorStore } from '../../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 
 const wrap = (ui: ReactNode) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
 };
 
-describe('InspectionSection — 점검(git-like 스테이징)', () => {
+describe('InspectionSection — 점검(git-like 스테이징, 워킹카피)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     admin = true;
-    useEditorStore.setState({ pendingInspections: [] });
+    useSubstationWorkingCopy.getState().revert(); // inspections 오버레이 비우기
   });
 
   it('이력 목록(날짜·점검자·내용)을 누적 표시', async () => {
@@ -41,19 +41,18 @@ describe('InspectionSection — 점검(git-like 스테이징)', () => {
     expect(screen.getByText('이상 없음')).toBeTruthy();
   });
 
-  it('작성 시 즉시 POST 가 아니라 스테이징(pendingInspections) — git-like 단일 SAVE', async () => {
+  it('작성 시 즉시 POST 가 아니라 워킹카피(substationStore) 오버레이에 staging — git-like 단일 SAVE', async () => {
     (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: [] } });
     wrap(<InspectionSection assetId="a1" />);
     await waitFor(() => expect(screen.getByText('아직 기록된 점검이 없습니다.')).toBeTruthy());
-    // 폼이 바로 보인다(추가 버튼 클릭 불필요).
     fireEvent.change(screen.getByLabelText('점검자'), { target: { value: '김점검' } });
     fireEvent.click(screen.getByText('점검 추가'));
-    // 즉시 백엔드로 가지 않는다 — 워킹카피 staging 큐에만 쌓인다.
+    // 즉시 백엔드로 가지 않는다 — substationStore inspections 오버레이에만 쌓인다.
     expect(api.post).not.toHaveBeenCalled();
-    const pending = useEditorStore.getState().pendingInspections;
-    expect(pending).toHaveLength(1);
-    expect(pending[0].assetId).toBe('a1');
-    expect(pending[0].inspector).toBe('김점검');
+    const creates = Object.values(useSubstationWorkingCopy.getState().overlays.inspections.creates) as Array<{ assetId: string; inspector: string }>;
+    expect(creates).toHaveLength(1);
+    expect(creates[0].assetId).toBe('a1');
+    expect(creates[0].inspector).toBe('김점검');
     // 목록에 '저장 대기'로 노출.
     expect(screen.getByText('김점검')).toBeTruthy();
     expect(screen.getByText('저장 대기')).toBeTruthy();

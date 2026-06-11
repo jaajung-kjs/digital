@@ -26,6 +26,7 @@ const overlay = {
 
 vi.mock('../workingCopy/hooks', () => ({
   useEffectiveAssetsOverlay: () => overlay,
+  useEffectiveInspections: () => [],
 }));
 
 import { useSubstationStatusRows } from './useSubstationStatusRows';

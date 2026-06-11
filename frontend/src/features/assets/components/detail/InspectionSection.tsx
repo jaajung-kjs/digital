@@ -3,7 +3,8 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { generateTempId } from '../../../../utils/idHelpers';
 import { toDateInputValue } from '../../../../utils/date';
 import { useIsAdmin } from '../../../../stores/authStore';
-import { useEditorStore } from '../../../editor/stores/editorStore';
+import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
+import { useEffectiveInspections } from '../../../workingCopy/hooks';
 import { useInspectionLogs } from '../../hooks/useInspectionLogs';
 import {
   SectionItem,
@@ -30,23 +31,23 @@ export function InspectionSection({ assetId }: { assetId: string }) {
   const { data, isLoading } = useInspectionLogs(assetId);
   const savedLogs = Array.isArray(data) ? data : [];
 
-  const pendingInspections = useEditorStore((s) => s.pendingInspections);
-  const addPendingInspection = useEditorStore((s) => s.addPendingInspection);
-  const updatePendingInspection = useEditorStore((s) => s.updatePendingInspection);
-  const removePendingInspection = useEditorStore((s) => s.removePendingInspection);
-  const pendingInspectionDeletes = useEditorStore((s) => s.pendingInspectionDeletes);
-  const stagePendingInspectionDelete = useEditorStore((s) => s.stagePendingInspectionDelete);
+  // C2: 점검 staging 은 워킹카피(substationStore inspections 컬렉션)로 — 단일 SAVE/revert.
+  const stagedInspections = useEffectiveInspections();
+  const inspectionDeletes = useSubstationWorkingCopy((s) => s.overlays.inspections.deletes);
+  const put = useSubstationWorkingCopy((s) => s.put);
+  const patch = useSubstationWorkingCopy((s) => s.patch);
+  const remove = useSubstationWorkingCopy((s) => s.remove);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ inspectionDate: todayStr(), inspector: '', content: '' });
 
-  // 표시 목록: 보류(저장 대기) + 저장됨(백엔드). 보류는 가장 위(최근 작성).
+  // 표시 목록: 보류(저장 대기, staged create) + 저장됨(RQ, 삭제 staged 제외). 보류가 위.
   const items = [
-    ...pendingInspections
+    ...stagedInspections
       .filter((i) => i.assetId === assetId)
       .map((i) => ({ id: i.id, inspectionDate: i.inspectionDate, inspector: i.inspector, content: i.content ?? '', isPending: true as const })),
     ...savedLogs
-      .filter((l) => !pendingInspectionDeletes.includes(l.id)) // 삭제 스테이징된 행은 숨김(SAVE 시 DELETE).
+      .filter((l) => !inspectionDeletes.includes(l.id)) // 삭제 스테이징된 행은 숨김(SAVE 시 DELETE).
       .map((l) => ({ id: l.id, inspectionDate: l.inspectionDate, inspector: l.inspector, content: l.content ?? '', isPending: false as const })),
   ];
 
@@ -59,8 +60,8 @@ export function InspectionSection({ assetId }: { assetId: string }) {
   const handleSubmit = () => {
     if (!canSubmit) return;
     const payload = { inspectionDate: form.inspectionDate, inspector: form.inspector.trim(), content: form.content.trim() || null };
-    if (editingId) updatePendingInspection(editingId, payload);
-    else addPendingInspection({ id: generateTempId(), assetId, ...payload });
+    if (editingId) patch('inspections', editingId, payload);
+    else put('inspections', { id: generateTempId(), assetId, ...payload });
     reset();
   };
 
@@ -68,9 +69,10 @@ export function InspectionSection({ assetId }: { assetId: string }) {
     setForm({ inspectionDate: toDateInputValue(it.inspectionDate), inspector: it.inspector, content: it.content });
     setEditingId(it.id);
   };
+  // 보류(temp)·저장(real) 모두 remove 하나로 — isTempId 가 분기(temp=create 제거 / real=delete staging).
   const handleRemove = (id: string) => {
     if (editingId === id) reset();
-    removePendingInspection(id);
+    remove('inspections', id);
   };
 
   if (isLoading) {
@@ -154,7 +156,7 @@ export function InspectionSection({ assetId }: { assetId: string }) {
                           </IconAction>
                         </>
                       ) : (
-                        <IconAction onClick={() => stagePendingInspectionDelete(it.id)} title="삭제" danger>
+                        <IconAction onClick={() => handleRemove(it.id)} title="삭제" danger>
                           <Trash2 size={14} />
                         </IconAction>
                       )}

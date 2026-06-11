@@ -96,14 +96,6 @@ export interface PendingLog {
  * 이 큐에 쌓였다가 단일 SAVE(commit) 시 flushPendingMedia 가 한꺼번에 POST 한다.
  * (id 는 tempId. 저장 시 부모 자산이 신규면 idMap 으로 실제 id 로 매핑.)
  */
-export interface PendingInspection {
-  id: string;
-  assetId: string;
-  inspectionDate: string;
-  inspector: string;
-  content?: string | null;
-}
-
 // ==================== Store ====================
 
 export interface EditorStoreState {
@@ -122,10 +114,8 @@ export interface EditorStoreState {
 
   pendingUploads: PendingUpload[];
   pendingLogs: PendingLog[];
-  pendingInspections: PendingInspection[];
-  /** 저장된(커밋된) 고장/점검 이력의 삭제 스테이징 — SAVE 시 DELETE flush. */
+  /** 저장된(커밋된) 고장 이력의 삭제 스테이징 — SAVE 시 DELETE flush. (점검은 substationStore 로 이전됨.) */
   pendingLogDeletes: string[];
-  pendingInspectionDeletes: string[];
 
   // Staged background drawing & opacity. Like the rest of the editor, DWG
   // changes (import / clear / opacity) are git-like — they live here until
@@ -253,11 +243,7 @@ export interface EditorStoreActions {
   addPendingLog: (log: PendingLog) => void;
   updatePendingLog: (id: string, updates: Partial<PendingLog>) => void;
   removePendingLog: (id: string) => void;
-  addPendingInspection: (inspection: PendingInspection) => void;
-  updatePendingInspection: (id: string, updates: Partial<PendingInspection>) => void;
-  removePendingInspection: (id: string) => void;
   stagePendingLogDelete: (id: string) => void;
-  stagePendingInspectionDelete: (id: string) => void;
   clearPendingData: () => void;
 
   /** Stage a freshly-parsed DWG. Caller is responsible for fitting viewport. */
@@ -350,9 +336,7 @@ const initialState: EditorStoreState = {
   showGrid: true,
   pendingUploads: [],
   pendingLogs: [],
-  pendingInspections: [],
   pendingLogDeletes: [],
-  pendingInspectionDeletes: [],
   stagedBackgroundDrawing: undefined,
   stagedBackgroundOpacity: undefined,
   connectionFilters: null,
@@ -443,29 +427,15 @@ export const useEditorStore = create<FullStore>()((set) => ({
   removePendingLog: (id) => set((state) => ({
     pendingLogs: state.pendingLogs.filter((l) => l.id !== id),
   })),
-  addPendingInspection: (inspection) => set((state) => ({
-    pendingInspections: [...state.pendingInspections, inspection],
-  })),
-  updatePendingInspection: (id, updates) => set((state) => ({
-    pendingInspections: state.pendingInspections.map((i) => i.id === id ? { ...i, ...updates } : i),
-  })),
-  removePendingInspection: (id) => set((state) => ({
-    pendingInspections: state.pendingInspections.filter((i) => i.id !== id),
-  })),
   stagePendingLogDelete: (id) => set((state) => ({
     pendingLogDeletes: state.pendingLogDeletes.includes(id) ? state.pendingLogDeletes : [...state.pendingLogDeletes, id],
-  })),
-  stagePendingInspectionDelete: (id) => set((state) => ({
-    pendingInspectionDeletes: state.pendingInspectionDeletes.includes(id) ? state.pendingInspectionDeletes : [...state.pendingInspectionDeletes, id],
   })),
   clearPendingData: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);
     return {
       pendingUploads: [],
       pendingLogs: [],
-      pendingInspections: [],
       pendingLogDeletes: [],
-      pendingInspectionDeletes: [],
       stagedBackgroundDrawing: undefined,
       stagedBackgroundOpacity: undefined,
     };

@@ -159,7 +159,7 @@ export interface SubstationWorkingCopyState {
   stageFiberPathDelete: (id: string) => void;
 
   // ── 제네릭 ops (북극성 ① — 컬렉션 키로 stage. 새 엔티티는 이걸 쓰면 전용 함수 0개) ──
-  put: (coll: CollectionKey, item: { id: string }) => void;
+  put: (coll: CollectionKey, item: { id: string; [k: string]: unknown }) => void;
   patch: (coll: CollectionKey, id: string, fields: Record<string, unknown>) => void;
   remove: (coll: CollectionKey, id: string) => void;
 

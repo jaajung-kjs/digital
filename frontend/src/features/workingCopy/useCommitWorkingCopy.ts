@@ -3,9 +3,10 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
 import { buildIdMaps } from './idMaps';
 import { commitSubstation, type FloorCommitSection } from './substationCommit';
-import { useSubstationWorkingCopy } from './substationStore';
+import { useSubstationWorkingCopy, inspectionDescriptor, type InspectionRow } from './substationStore';
+import { mergeEffective } from './effective';
 import { useEditorStore } from '../editor/stores/editorStore';
-import type { PendingUpload, PendingLog, PendingInspection } from '../editor/stores/editorStore';
+import type { PendingUpload, PendingLog } from '../editor/stores/editorStore';
 import { overlayToChanges } from '../report/overlayToChanges';
 import { WORK_ORDER_KEYS } from '../report/useWorkOrders';
 import type { ReportPreviewChanges, ConstructionReport } from '../../types/constructionReport';
@@ -63,7 +64,7 @@ function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): Floo
 async function flushPendingMedia(
   pendingUploads: PendingUpload[],
   pendingLogs: PendingLog[],
-  pendingInspections: PendingInspection[],
+  inspectionCreates: InspectionRow[],
   pendingLogDeletes: string[],
   pendingInspectionDeletes: string[],
   idMapsAssets: Record<string, string> | undefined,
@@ -116,10 +117,10 @@ async function flushPendingMedia(
     );
   }
 
-  if (pendingInspections.length > 0) {
+  if (inspectionCreates.length > 0) {
     pendingTasks.push(
       Promise.allSettled(
-        pendingInspections.map(async (insp) => {
+        inspectionCreates.map(async (insp) => {
           await api.post(`/assets/${resolveEquipmentId(insp.assetId)}/inspections`, {
             inspectionDate: insp.inspectionDate,
             inspector: insp.inspector,
@@ -240,7 +241,11 @@ export function useCommitWorkingCopy() {
     const floor = buildFloorSection(ed);
     const hadUploads = ed.pendingUploads.length > 0;
     const hadLogs = ed.pendingLogs.length > 0 || ed.pendingLogDeletes.length > 0;
-    const hadInspections = ed.pendingInspections.length > 0 || ed.pendingInspectionDeletes.length > 0;
+    // 점검은 워킹카피(substationStore) inspections 오버레이에서 flush — effective creates(staged) + deletes.
+    const inspectionOverlay = wc.overlays.inspections;
+    const inspectionCreates = mergeEffective([], inspectionOverlay, inspectionDescriptor);
+    const inspectionDeletes = inspectionOverlay.deletes;
+    const hadInspections = inspectionCreates.length > 0 || inspectionDeletes.length > 0;
 
     // #3 Task 3 — 작업지시서 아카이브용 PRE-commit 스냅샷.
     // 커밋 후 store.load 가 오버레이를 비우므로, 활성 층 changes 는 반드시 지금
@@ -256,7 +261,7 @@ export function useCommitWorkingCopy() {
 
     try {
       const result = await commitSubstation(substationId, wc.overlays, wc.saved.assets, queryClient, floor);
-      await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, ed.pendingInspections, ed.pendingLogDeletes, ed.pendingInspectionDeletes, result.idMaps?.assets);
+      await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, inspectionCreates, ed.pendingLogDeletes, inspectionDeletes, result.idMaps?.assets);
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
       // 2회차 저장 409 방지(견고화) — floor 섹션을 커밋하면 백엔드가 floor.updatedAt 을

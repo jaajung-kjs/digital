@@ -13,10 +13,17 @@ vi.mock('./substationStore', () => ({
   useSubstationWorkingCopy: {
     getState: () => ({
       substationId: 'sub1',
-      overlays: { assets: {}, cables: {}, fiberPaths: {} },
+      overlays: {
+        assets: {}, cables: {}, fiberPaths: {},
+        inspections: { creates: {}, updates: {}, deletes: [] },
+      },
       saved: { assets: [], cables: [] },
       load: vi.fn(async () => {}),
     }),
+  },
+  inspectionDescriptor: {
+    name: 'inspections', idOf: (x: { id: string }) => x.id, versionOf: () => null,
+    isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
   },
 }));
 

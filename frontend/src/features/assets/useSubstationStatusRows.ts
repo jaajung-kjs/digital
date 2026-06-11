@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useNodeAssets } from '../../hooks/useNodeAssets';
-import { useEffectiveAssetsOverlay } from '../workingCopy/hooks';
-import { useEditorStore } from '../editor/stores/editorStore';
+import { useEffectiveAssetsOverlay, useEffectiveInspections } from '../workingCopy/hooks';
 import type { Asset } from '../../types/asset';
 import { assetPatchToListItem, type AssetListItem } from './nodeStatus';
 
@@ -46,7 +45,7 @@ function assetCreateToListItem(asset: Asset, substationId: string): AssetListIte
 export function useSubstationStatusRows(substationId: string): AssetListItem[] {
   const { data: list = [] } = useNodeAssets('substation', substationId);
   const overlay = useEffectiveAssetsOverlay();
-  const pendingInspections = useEditorStore((s) => s.pendingInspections);
+  const pendingInspections = useEffectiveInspections(); // staged 점검(워킹카피)
   return useMemo(() => {
     // staged(저장 대기) 점검의 자산별 최신 점검일 → 현황 '마지막 점검일'에 즉시 반영
     // (백엔드 lastMaintenanceDate 는 커밋 후에야 갱신되므로, pre-save 에도 일관되게 보이게).
