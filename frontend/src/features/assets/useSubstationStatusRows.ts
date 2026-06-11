@@ -3,7 +3,7 @@ import { useNodeAssets } from '../../hooks/useNodeAssets';
 import { useEffectiveAssetsOverlay } from '../workingCopy/hooks';
 import { useEditorStore } from '../editor/stores/editorStore';
 import type { Asset } from '../../types/asset';
-import type { AssetListItem } from './nodeStatus';
+import { assetPatchToListItem, type AssetListItem } from './nodeStatus';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2c Task 4 — 현황 리스트 라이브 머지.
@@ -21,16 +21,6 @@ import type { AssetListItem } from './nodeStatus';
 //   랙 모듈 자식 포함 — 서버 listByNode 가 parentAssetId 필터 없이 모듈도 반환하므로
 //   저장 전후 동일하게 행으로 보여야 "저장해야 현황 반영" 불일치가 없다.
 // ──────────────────────────────────────────────────────────────────────────
-
-/** asset update patch 의 공유 필드만 골라 AssetListItem 키로 매핑(있는 키만). */
-function assetPatchToListItem(patch: Partial<Asset>): Partial<AssetListItem> {
-  const out: Partial<AssetListItem> = {};
-  if ('name' in patch) out.name = patch.name as string;
-  if ('manager' in patch) out.manager = patch.manager ?? null;
-  if ('installDate' in patch) out.installDate = patch.installDate ?? null;
-  if ('status' in patch) out.status = patch.status ?? null;
-  return out;
-}
 
 /** 새로 스테이징된 자산을 현황 리스트 행으로 변환(커밋 전 제한 표시). */
 function assetCreateToListItem(asset: Asset, substationId: string): AssetListItem {

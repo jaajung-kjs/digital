@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
 import type { Asset } from '../../types/asset';
 import { buildDelta } from './delta';
+import { isRackModuleAsset as isRackModule } from './assetClassify';
 import type { Overlay } from './overlay';
 import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 
@@ -80,10 +81,6 @@ interface AssetLike {
   slotIndex?: number | null;
 }
 
-/** Task 3 규칙: parentAssetId 가 있고 slotIndex 가 null 이 아니면 랙 모듈 자식. */
-function isRackModule(a: AssetLike | undefined): boolean {
-  return !!a && a.parentAssetId != null && a.slotIndex != null;
-}
 
 /** creates/updates/deletes 가 모두 비면 undefined — 2a 백엔드가 해당 컬렉션 OCC findMany 를 건너뛴다. */
 function omitIfEmpty(c: Collection): Collection | undefined {

@@ -11,6 +11,7 @@ import { useEffectiveAssetConnections } from '../../connections/hooks/useEffecti
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { statusIsOn } from '../nodeStatus';
 
 /**
  * 단일 상세 인스펙터(SSOT) — 평면도(에디터)·현황·대장 그리드 모든 진입점에서
@@ -125,8 +126,6 @@ function DescField({ value, onCommit }: { value: string; onCommit: (v: string) =
   );
 }
 
-/** 자산 상태 — ON/OFF 이진(기본 ON, status==='OFF' 일 때만 OFF). 색은 상태 전용(ISA-101). */
-const statusOn = (status: string | null | undefined) => status !== 'OFF';
 function StatusPill({ on }: { on: boolean }) {
   return (
     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${on ? 'bg-success-bg text-success' : 'bg-surface-2 text-content-muted'}`}>
@@ -136,7 +135,7 @@ function StatusPill({ on }: { on: boolean }) {
   );
 }
 function StatusField({ value, onCommit, readOnly }: { value: string | null; onCommit?: (v: string) => void; readOnly?: boolean }) {
-  const on = statusOn(value);
+  const on = statusIsOn(value);
   return (
     <div className="flex items-center gap-2 text-sm py-1">
       <span className="w-20 shrink-0 text-content-muted text-xs">상태</span>

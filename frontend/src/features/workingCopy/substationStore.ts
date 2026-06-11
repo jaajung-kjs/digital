@@ -20,6 +20,7 @@ import { assetToEquipment } from './assetToEquipment';
 import { equipmentToAssetCreate, equipmentToAssetPatch } from './equipmentToAsset';
 import { rackModuleToAssetCreate, rackModuleToAssetPatch } from './rackModuleToAsset';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
+import { isRackModuleAsset as isRackModuleChild } from './assetClassify';
 import type { RackModule } from '../../types/rackModule';
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -174,10 +175,6 @@ type HistorySlice = Pick<SubstationWorkingCopyState, 'overlays'>;
 // 자신의 seq 가 최신인지 확인한다(아니면 폐기).
 let loadSeq = 0;
 
-/** 어떤 asset 이 랙 모듈 자식인지: parentAssetId 가 있고 slotIndex 가 null 이 아님. */
-function isRackModuleChild(a: Asset): boolean {
-  return a.parentAssetId != null && a.slotIndex != null;
-}
 
 export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
   temporal<SubstationWorkingCopyState, [], [], HistorySlice>(

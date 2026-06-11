@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useNodeAssets, type NodeKind } from '../../../hooks/useNodeAssets';
 import { useSelection } from '../../workspace/SelectionContext';
-import { installLocation, inspectionState, type AssetListItem } from '../nodeStatus';
+import { installLocation, inspectionState, assetPatchToListItem, statusIsOn, type AssetListItem } from '../nodeStatus';
 import { assetAlert } from '../alerts';
 import { useAsset } from '../hooks/useAsset';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
@@ -55,18 +55,6 @@ function uniq(values: (string | null | undefined)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v))).sort();
 }
 
-/** asset overlay update patch 의 공유 필드만 골라 AssetListItem 키로 매핑(있는 키만). */
-function assetPatchToListItem(patch: Partial<Asset>): Partial<AssetListItem> {
-  const out: Partial<AssetListItem> = {};
-  if ('name' in patch) out.name = patch.name as string;
-  if ('manager' in patch) out.manager = patch.manager ?? null;
-  if ('installDate' in patch) out.installDate = patch.installDate ?? null;
-  if ('status' in patch) out.status = patch.status ?? null;
-  return out;
-}
-
-// 자산 상태 = ON/OFF 이진(기본 ON, 'OFF' 일 때만 OFF). 색은 ON=success/OFF=neutral.
-const statusIsOn = (status: string | null | undefined) => status !== 'OFF';
 
 function AssetRow({
   item,
