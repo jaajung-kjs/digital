@@ -84,8 +84,18 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
         aria-label={`${module.name}, 슬롯 ${module.slotIndex + 1}-${module.slotIndex + module.slotSpan} (${module.slotSpan}슬롯) — 클릭하여 편집`}
         title="클릭=편집, 드래그=이동, 하단 핸들=리사이즈"
       >
-        <span className="truncate flex-1 leading-tight">{module.name}</span>
-        <span aria-hidden className="shrink-0 font-mono text-[9px] tabular-nums opacity-60">
+        <div className="flex-1 min-w-0 flex flex-col justify-center leading-[1.15]">
+          <span className="truncate font-medium">{module.name}</span>
+          {module.categoryName && (
+            <span className="truncate text-[9px] font-normal opacity-55">
+              {module.categoryName}
+            </span>
+          )}
+        </div>
+        <span
+          aria-hidden
+          className="shrink-0 self-start mt-px font-mono text-[9px] tabular-nums opacity-55"
+        >
           {slotLabel}
         </span>
         {/* 리사이즈 핸들 — 절제된 그립(faceplate 톤). */}
