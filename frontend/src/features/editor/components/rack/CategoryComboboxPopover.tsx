@@ -152,10 +152,15 @@ export function CategoryComboboxPopover({ anchorRect, availableSpan, onPick, onC
                 onClick={() => onPick(c)}
                 className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-surface-2 text-left"
               >
+                {/* 실제 모듈과 동일한 다크 페이스플레이트 미니 칩 (ISA-101 무채색 —
+                    카테고리 displayColor 는 신뢰 안 함, 모듈 렌더와 일치). */}
                 <span
                   aria-hidden
-                  className="w-2.5 h-2.5 rounded-sm flex-shrink-0 ring-1 ring-black/5"
-                  style={{ backgroundColor: c.displayColor ?? 'var(--text-muted)' }}
+                  className="w-2.5 h-2.5 rounded-sm flex-shrink-0 border border-black/40"
+                  style={{
+                    background: 'var(--eq-1)',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)',
+                  }}
                 />
                 <span className="truncate flex-1">{c.name}</span>
                 <span className="text-[10px] text-content-faint">{c.defaultSlotSpan}U</span>

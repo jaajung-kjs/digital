@@ -47,9 +47,10 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
     onCommit,
   });
 
-  // ISA-101: 랙 모듈은 무채색(eq-3). 종류는 라벨/아이콘으로 구분, 색은 상태 전용.
-  // categoryDisplayColor(기존 DB 의 보라/네온 포함)를 신뢰하지 않는다.
-  const color = '#a8a29e'; // --eq-3
+  // ISA-101: 랙 모듈은 무채색 다크 페이스플레이트(실제 장비 faceplate 느낌). 종류는
+  // 라벨로 구분, 색은 상태/알람 전용. categoryDisplayColor(DB 보라/네온)는 신뢰 안 함.
+  const FACEPLATE_BG = 'var(--eq-1)'; // #44403c — 다크 무채색 바디
+  const FACEPLATE_FG = 'var(--eq-4)'; // #d6d3d1 — 밝은 라벨
   const dragging = dragState != null;
   const rejected = dragState?.plan.rejected === true;
 
@@ -57,6 +58,10 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   // 후보 위치/크기는 outline 인디케이터로 시각화.
   const cellStart = module.slotIndex + 1;
   const cellEnd = module.slotIndex + module.slotSpan + 1;
+  const slotLabel =
+    module.slotSpan > 1
+      ? `${module.slotIndex + 1}–${module.slotIndex + module.slotSpan}`
+      : `${module.slotIndex + 1}`;
 
   return (
     <>
@@ -69,22 +74,28 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
           gridRowEnd: cellEnd,
           gridColumnStart: 1,
           gridColumnEnd: 2,
-          backgroundColor: color,
+          background: FACEPLATE_BG,
+          color: FACEPLATE_FG,
+          // 페이스플레이트 베젤 — 상단 하이라이트 + 하단 음영(절제된 입체감).
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.28)',
           opacity: dragging ? 0.35 : 1,
         }}
-        className="relative flex items-center px-2 text-stone-900 text-xs font-medium rounded select-none cursor-grab hover:brightness-105 transition-opacity overflow-hidden min-h-0"
+        className="relative flex items-center gap-1.5 px-2.5 text-[11px] font-medium rounded-[5px] border border-black/40 select-none cursor-grab hover:brightness-110 transition-[filter,opacity] overflow-hidden min-h-0"
         aria-label={`${module.name}, 슬롯 ${module.slotIndex + 1}-${module.slotIndex + module.slotSpan} (${module.slotSpan}슬롯) — 클릭하여 편집`}
         title="클릭=편집, 드래그=이동, 하단 핸들=리사이즈"
       >
-        <span className="truncate flex-1">{module.name}</span>
-        {/* 리사이즈 핸들 — 흰 그립 항상 표시 (opacity-70 → hover 100). */}
+        <span className="truncate flex-1 leading-tight">{module.name}</span>
+        <span aria-hidden className="shrink-0 font-mono text-[9px] tabular-nums opacity-60">
+          {slotLabel}
+        </span>
+        {/* 리사이즈 핸들 — 절제된 그립(faceplate 톤). */}
         <div
           onPointerDown={(e) => handlePointerDown(e, 'resize')}
-          className="absolute left-0 right-0 bottom-0 h-3 flex items-center justify-center cursor-ns-resize bg-black/15 hover:bg-black/30 transition-colors"
+          className="absolute left-0 right-0 bottom-0 h-2.5 flex items-center justify-center cursor-ns-resize bg-black/20 hover:bg-black/35 transition-colors"
           title="드래그해서 크기 조절"
           aria-label="크기 조절 핸들"
         >
-          <span aria-hidden className="block w-7 h-0.5 rounded-full bg-white opacity-70 mb-0.5" />
+          <span aria-hidden className="block w-6 h-0.5 rounded-full bg-white/40" />
         </div>
       </div>
 
@@ -94,7 +105,8 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
           - 거부 시 빨간 outline + animate-pulse (셀 자체는 안 깜빡임 → 깜빡임 버그 해결) */}
       {dragging && dragState && (() => {
         const area = indicatorGridArea(dragState.candidate.slotIndex, dragState.candidate.slotSpan);
-        const borderColor = rejected ? '#ef4444' : color;
+        // 상태 색만 색을 쓴다(ISA-101): 거부=danger, 정상 이동=primary outline.
+        const borderColor = rejected ? 'var(--danger)' : 'var(--primary)';
         return (
           <div
             aria-hidden

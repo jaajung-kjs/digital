@@ -23,9 +23,8 @@ export function EmptySlot({ slotIndex, isActive, onClick }: Props) {
     onClick(ref.current.getBoundingClientRect());
   };
 
-  const activeClasses = 'border-primary bg-info-bg text-primary opacity-100';
-  const hoverClasses =
-    'hover:border-primary hover:bg-info-bg hover:text-primary hover:opacity-100';
+  const activeClasses = 'bg-info-bg text-primary ring-1 ring-inset ring-primary';
+  const hoverClasses = 'hover:bg-info-bg hover:text-primary';
 
   return (
     <div
@@ -47,13 +46,13 @@ export function EmptySlot({ slotIndex, isActive, onClick }: Props) {
         // 드래그 중에는 인디케이터만 보이도록 빈 슬롯은 hover 효과 차단.
         pointerEvents: isDragging ? 'none' : undefined,
       }}
-      className={`flex items-center justify-center min-h-0 overflow-hidden text-[11px] text-content-faint border border-dashed border-line rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 cursor-pointer opacity-75 ${
+      className={`group/slot flex items-center justify-center min-h-0 overflow-hidden text-[11px] text-content-faint bg-surface-2/50 rounded-[3px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 cursor-pointer ${
         isActive ? activeClasses : isDragging ? '' : hoverClasses
       }`}
       aria-label={`슬롯 ${slotIndex + 1}/${RACK_SLOT_COUNT} — 모듈 추가`}
       title={`슬롯 ${slotIndex + 1} — 클릭해서 추가`}
     >
-      + 추가
+      <span className="opacity-0 group-hover/slot:opacity-100 transition-opacity">+ 추가</span>
     </div>
   );
 }
