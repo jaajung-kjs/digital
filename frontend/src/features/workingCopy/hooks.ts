@@ -4,10 +4,10 @@ import {
   assetDescriptor,
   cableDescriptor,
   fiberPathDescriptor,
+  sumOverlaysDirty,
 } from './substationStore';
 import { mergeEffective } from './effective';
 import { assetsByIdMap, cableOnFloor } from './floorAnchor';
-import { overlayDirtyCount } from './overlay';
 import { assetToEquipment } from './assetToEquipment';
 import { assetToRackModule } from './assetToRackModule';
 import type { RackModule } from '../../types/rackModule';
@@ -119,18 +119,10 @@ export function useEffectiveAssetsOverlay() {
   return useSubstationWorkingCopy((s) => s.overlays.assets);
 }
 
-/** 전 컬렉션 staged 변경 합계(creates+updates+deletes). 0 이면 깨끗함. */
+/** 전 컬렉션 staged 변경 합계(creates+updates+deletes). 0 이면 깨끗함. 레지스트리 단일 소스. */
 export function useWorkingCopyDirty() {
-  const assets = useSubstationWorkingCopy((s) => s.overlays.assets);
-  const cables = useSubstationWorkingCopy((s) => s.overlays.cables);
-  const fiberPaths = useSubstationWorkingCopy((s) => s.overlays.fiberPaths);
-  return useMemo(
-    () =>
-      overlayDirtyCount(assets) +
-      overlayDirtyCount(cables) +
-      overlayDirtyCount(fiberPaths),
-    [assets, cables, fiberPaths],
-  );
+  const overlays = useSubstationWorkingCopy((s) => s.overlays);
+  return useMemo(() => sumOverlaysDirty(overlays), [overlays]);
 }
 
 /**
@@ -161,10 +153,7 @@ export function useUnifiedDirty(): number {
  */
 export function getUnifiedDirtyCount(): number {
   const wc = useSubstationWorkingCopy.getState();
-  const overlay =
-    overlayDirtyCount(wc.overlays.assets) +
-    overlayDirtyCount(wc.overlays.cables) +
-    overlayDirtyCount(wc.overlays.fiberPaths);
+  const overlay = sumOverlaysDirty(wc.overlays);
   const es = useEditorStore.getState();
   return (
     overlay +

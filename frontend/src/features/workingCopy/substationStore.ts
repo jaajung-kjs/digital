@@ -74,9 +74,15 @@ const COLLECTIONS = {
   cables: cableDescriptor,
   fiberPaths: fiberPathDescriptor,
 };
-type CollectionKey = keyof typeof COLLECTIONS;
-const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
+export type CollectionKey = keyof typeof COLLECTIONS;
+export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
 type AnyDescriptor = CollectionDescriptor<{ id: string; updatedAt?: string | null }>;
+
+/** 전 컬렉션 staged 변경 합계 — dirty 의 단일 소스(레지스트리 순회). store/hook/non-hook 모두 이걸 쓴다. */
+export function sumOverlaysDirty(overlays: Overlays): number {
+  const o = overlays as unknown as Record<CollectionKey, Overlay<unknown, unknown>>;
+  return COLLECTION_KEYS.reduce((sum, k) => sum + overlayDirtyCount(o[k]), 0);
+}
 
 interface SavedCollections {
   assets: Asset[];
@@ -395,8 +401,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       },
 
       dirtyCount: () => {
-        const o = get().overlays as unknown as Record<CollectionKey, Overlay<unknown, unknown>>;
-        return COLLECTION_KEYS.reduce((sum, k) => sum + overlayDirtyCount(o[k]), 0);
+        return sumOverlaysDirty(get().overlays);
       },
     }),
     {
