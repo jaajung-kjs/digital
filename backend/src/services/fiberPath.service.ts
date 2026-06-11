@@ -54,32 +54,25 @@ function getFloorId(equipment: any): string | null {
 // Cable include shape — endpoint 는 equipment 또는 rackModule 중 한 쪽.
 // (cable.service.ts 와 동일한 polymorphic 패턴; fiberPath 화면에서도 모듈 endpoint 를 표시해야
 //  port status build 시 null deref 없이 "OFD 반대편" 을 식별할 수 있다.)
+// 단계4c — endpoint = 단일 Asset 노드. source/target asset 만 조인한다.
 const fiberPathCablesInclude = {
   cables: {
     include: {
-      sourceEquipment: { select: { id: true, name: true } },
-      sourceModule: { select: { id: true, name: true, parentAssetId: true } },
-      targetEquipment: { select: { id: true, name: true } },
-      targetModule: { select: { id: true, name: true, parentAssetId: true } },
+      sourceAsset: { select: { id: true, name: true } },
+      targetAsset: { select: { id: true, name: true } },
     },
   },
 } as const;
 
 // OFD 가 cable 한 쪽 endpoint 일 때 "반대편" 을 {equipmentId, equipmentName} 형태로 반환.
-// 반대편이 RackModule 이면 module 자체의 id 를 반환 — frontend 의 polymorphic endpoint 모델
-// (LocalCable.sourceEquipmentId 자리에 fallback 으로 moduleId 가 들어감) 과 일치하게 하기 위함.
-// 그래서 BFS 의 노드 id 와 fiberPath sideX.equipmentId 가 같은 ID space.
+// endpoint = 단일 Asset 이므로 반대편 asset 의 id 를 그대로 반환 — frontend 의 endpoint 모델
+// (asset id space) 과 일치한다. 그래서 BFS 의 노드 id 와 fiberPath sideX.equipmentId 가 같은 ID space.
 function resolveOtherEndpoint(
   cable: any,
   ofdSide: 'source' | 'target',
 ): { equipmentId: string; equipmentName: string } | null {
-  if (ofdSide === 'source') {
-    if (cable.targetEquipment) return { equipmentId: cable.targetEquipment.id, equipmentName: cable.targetEquipment.name };
-    if (cable.targetModule) return { equipmentId: cable.targetModule.id, equipmentName: cable.targetModule.name };
-    return null;
-  }
-  if (cable.sourceEquipment) return { equipmentId: cable.sourceEquipment.id, equipmentName: cable.sourceEquipment.name };
-  if (cable.sourceModule) return { equipmentId: cable.sourceModule.id, equipmentName: cable.sourceModule.name };
+  const other = ofdSide === 'source' ? cable.targetAsset : cable.sourceAsset;
+  if (other) return { equipmentId: other.id, equipmentName: other.name };
   return null;
 }
 
@@ -218,13 +211,13 @@ class FiberPathService {
       for (const cable of cables) {
         if (cable.fiberPortNumber !== portNumber) continue;
 
-        // OFD 는 항상 equipment endpoint (RACK 처럼 module 형태가 아님) → sourceEquipmentId/targetEquipmentId 로 식별.
-        // 반대편 endpoint 는 equipment 또는 rackModule 일 수 있어 resolveOtherEndpoint 가 polymorphic 하게 처리.
+        // OFD 는 단일 asset endpoint → sourceAssetId/targetAssetId 로 식별.
+        // 반대편 endpoint 도 단일 asset 이라 resolveOtherEndpoint 가 그대로 반환.
         const attach =
-          cable.sourceEquipmentId === ofdAId ? { fpSide: 'A' as const, ofdSide: 'source' as const } :
-          cable.targetEquipmentId === ofdAId ? { fpSide: 'A' as const, ofdSide: 'target' as const } :
-          cable.sourceEquipmentId === ofdBId ? { fpSide: 'B' as const, ofdSide: 'source' as const } :
-          cable.targetEquipmentId === ofdBId ? { fpSide: 'B' as const, ofdSide: 'target' as const } :
+          cable.sourceAssetId === ofdAId ? { fpSide: 'A' as const, ofdSide: 'source' as const } :
+          cable.targetAssetId === ofdAId ? { fpSide: 'A' as const, ofdSide: 'target' as const } :
+          cable.sourceAssetId === ofdBId ? { fpSide: 'B' as const, ofdSide: 'source' as const } :
+          cable.targetAssetId === ofdBId ? { fpSide: 'B' as const, ofdSide: 'target' as const } :
           null;
         if (!attach) continue;
 

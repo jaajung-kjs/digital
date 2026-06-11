@@ -90,8 +90,8 @@ export const substationController = {
 
   /**
    * POST /api/substations/:substationId/commit
-   * 통합 변전소 커밋 (SSOT-2a) — assets/cables/rackModules/distributionCircuits/
-   * fiberPaths + 선택적 floor 를 단일 트랜잭션에 커밋. 입력은 validate 미들웨어에서
+   * 통합 변전소 커밋 (SSOT-2a) — assets/cables/fiberPaths + 선택적 floor 를
+   * 단일 트랜잭션에 커밋. 입력은 validate 미들웨어에서
    * substationCommitSchema 로 검증됨. VersionConflictError → errorHandler → 409.
    */
   async commit(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -112,7 +112,7 @@ export const substationController = {
   /**
    * GET /api/substations/:substationId/workingcopy
    * 통합 working-copy 벌크 로드 (SSOT-2b) — assets(배치 포함)/cables/
-   * distributionCircuits/fiberPaths 전 컬렉션을 단일 응답으로 반환.
+   * fiberPaths 전 컬렉션을 단일 응답으로 반환.
    */
   async getWorkingCopy(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

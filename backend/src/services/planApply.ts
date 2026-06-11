@@ -134,28 +134,4 @@ export async function assertRackParentValid(
   }
 }
 
-/**
- * 분전반 회로의 부모 설비가 DIST 인지 확인.
- * (구 bulkUpdatePlan 의 dist 부모 검사와 동일.)
- */
-export async function assertDistParentValid(
-  tx: Tx,
-  resolvedDistId: string,
-): Promise<void> {
-  const dist = await tx.asset.findUnique({
-    where: { id: resolvedDistId },
-    include: { assetType: true },
-  });
-  if (!dist) {
-    throw new ValidationError(
-      `분전반 회로의 부모 설비를 찾을 수 없습니다 (distributionEquipmentId=${resolvedDistId}).`,
-    );
-  }
-  if (dist.assetType.placementKind !== 'DIST') {
-    throw new ValidationError(
-      `분전반 회로의 부모가 DISTRIBUTION 이 아닙니다 (placementKind=${dist.assetType.placementKind}).`,
-    );
-  }
-}
-
 export { assertSlotValid, assertNoSlotCollision };

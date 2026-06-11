@@ -9,26 +9,24 @@ import { cableService } from './cable.service.js';
  *     스칼라 컬럼을 캐리하므로 select 로 과도하게 제한하지 않는다. 프론트 매퍼용
  *     assetType 만 include.
  *   - cables: cable.service.getBySubstationId 재사용 — connections 뷰와 동일한 DTO.
- *   - distributionCircuits: 배전 설비(Asset.substationId) 조인.
  *   - fiberPaths: OFD 설비(ofdA/ofdB.substationId) 조인.
+ *
+ * 단계4c — 분전반 회로는 FEEDER/BRANCH Asset(assets 컬렉션) 으로 통합됐다.
+ * 별도 distributionCircuits 컬렉션은 제거.
  */
 export async function getWorkingCopy(substationId: string) {
-  const [assets, cables, distributionCircuits, fiberPaths] = await Promise.all([
+  const [assets, cables, fiberPaths] = await Promise.all([
     prisma.asset.findMany({
       where: { substationId },
       include: { assetType: { select: { id: true, code: true, name: true, group: true, displayColor: true, fieldTemplate: true, placementKind: true } } },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     cableService.getBySubstationId(substationId),
-    prisma.distributionCircuit.findMany({
-      where: { distribution: { substationId } },
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    }),
     prisma.fiberPath.findMany({
       where: { OR: [{ ofdA: { substationId } }, { ofdB: { substationId } }] },
       orderBy: { createdAt: 'asc' },
     }),
   ]);
 
-  return { assets, cables, distributionCircuits, fiberPaths };
+  return { assets, cables, fiberPaths };
 }
