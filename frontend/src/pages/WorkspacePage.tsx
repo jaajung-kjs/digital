@@ -62,6 +62,16 @@ export function WorkspacePage() {
   // 공유 선택(본부·사업소 평면도/연결 컨텍스트의 근원). 변전소도 에디터 선택 브리지에 사용.
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
+  // 활성 노드가 바뀌면(다른 본부·사업소·변전소 클릭) 이전 선택을 리셋한다. 안 그러면 stale 선택이
+  // 남아(특히 본부·사업소는 working copy 가 안 바뀌어 assetsById 에 옛 자산이 남음) 평면도가 옛
+  // 자산의 층으로 잘못 열린다. render-phase 리셋 — 자식(그리드 ?assetId 자동선택 등) effect 보다
+  // 먼저 settle 되어 딥링크 선택과 경쟁하지 않는다.
+  const [prevNodeId, setPrevNodeId] = useState<string | null>(activeNode?.id ?? null);
+  if ((activeNode?.id ?? null) !== prevNodeId) {
+    setPrevNodeId(activeNode?.id ?? null);
+    setSelectedAssetId(null);
+  }
+
   // 온디맨드 로드된 working copy(본부·사업소: 선택 자산의 변전소를 NodeStatusView 가 로드).
   const loadedSubstationId = useSubstationWorkingCopy((s) => s.substationId);
   const effective = useEffectiveAssets();

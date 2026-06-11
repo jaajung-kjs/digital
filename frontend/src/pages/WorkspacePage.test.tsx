@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useOrganizationStore } from '../stores/organizationStore';
@@ -57,7 +57,11 @@ vi.mock('../features/workspace/useSubstationFloors', () => ({
 }));
 
 // useEffectiveAssets / useWorkingCopyLoader — 선택 자산 해석용 effective 목록을 주입.
-let effectiveAssets: { id: string; substationId: string; floorId: string | null }[] = [];
+let effectiveAssets: {
+  id: string; substationId: string; floorId: string | null;
+  parentAssetId?: string | null; positionX?: number | null; positionY?: number | null;
+  width2d?: number | null; height2d?: number | null;
+}[] = [];
 vi.mock('../features/workingCopy/hooks', () => ({
   useWorkingCopyLoader: () => {},
   useEffectiveAssets: () => effectiveAssets,
@@ -160,7 +164,7 @@ describe('WorkspacePage — 본부 노드', () => {
 
   it('평면도: 선택 자산이 있으면 그 자산의 층으로 에디터가 로드된다', () => {
     seedHq();
-    effectiveAssets = [{ id: 'a1', substationId: 's9', floorId: 'floor-9' }];
+    effectiveAssets = [{ id: 'a1', substationId: 's9', floorId: 'floor-9', positionX: 0, positionY: 0, width2d: 10, height2d: 10 }];
     renderHome('?view=status');
     // 현황에서 자산 선택 → 공유 선택 a1. 평면도 탭으로 가면 a1 의 층(floor-9) 에디터.
     fireEvent.click(screen.getByText('자산선택'));
@@ -168,6 +172,26 @@ describe('WorkspacePage — 본부 노드', () => {
     expect(screen.getByTestId('editor').textContent).toBe('editor:floor-9');
     // 커밋 바는 선택 자산의 변전소(s9)에 바인딩.
     expect(screen.getByTestId('commit-bar').textContent).toBe('commit:s9');
+  });
+
+  it('자산 선택 후 다른(빈) 본부로 이동하면 선택이 리셋돼 평면도가 비어 있다', () => {
+    seedHq();
+    effectiveAssets = [{ id: 'a1', substationId: 's9', floorId: 'floor-9', positionX: 0, positionY: 0, width2d: 10, height2d: 10 }];
+    renderHome('?view=status');
+    fireEvent.click(screen.getByText('자산선택')); // hq1 에서 a1 선택
+
+    // 자산이 없는 다른 본부(hq2)로 이동 → 활성 노드 변경 → 선택 리셋.
+    act(() => {
+      useOrganizationStore.setState({
+        roots: [{ id: 'hq2', name: '빈 본부', type: 'headquarters', parentId: null, children: [], childrenLoaded: true, expanded: true } as never],
+        viewingNodeId: 'hq2',
+      });
+    });
+
+    fireEvent.click(screen.getByText('평면도'));
+    // 이전 자산(a1)의 층으로 가지 않고 안내문(에디터 미마운트).
+    expect(screen.queryByTestId('editor')).toBeNull();
+    expect(screen.getByText('현황에서 설비를 선택하면 그 설비의 평면도를 봅니다.')).toBeTruthy();
   });
 });
 
