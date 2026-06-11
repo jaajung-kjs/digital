@@ -6,6 +6,7 @@ import type {
   CableSnapshotItem,
 } from '../../types/constructionReport';
 import { mergeEffective } from '../workingCopy/effective';
+import { assetsByIdMap, cableOnFloor } from '../workingCopy/floorAnchor';
 import {
   assetDescriptor,
   cableDescriptor,
@@ -37,12 +38,6 @@ interface SavedCollections {
 interface Overlays {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Cable, Partial<Cable>>;
-}
-
-/** 케이블 endpoint {equipmentId, moduleId} 추출 (floor-cable predicate). */
-function endpointIds(e: unknown): (string | null | undefined)[] {
-  const o = e as { equipmentId?: string | null; moduleId?: string | null } | undefined;
-  return [o?.equipmentId, o?.moduleId];
 }
 
 /**
@@ -126,23 +121,19 @@ export function overlayToChanges(
   activeFloorId: string,
 ): ReportPreviewChanges {
   // ── before: saved 활성 층 ──
+  // 멤버십: endpoint 단일 assetId 를 floorAnchor 로 해소(모듈→랙·분기→분전반)해 이 층인 케이블.
   const savedFloorAssets = saved.assets.filter((a) => a.floorId === activeFloorId);
-  const savedFloorAssetIds = new Set(savedFloorAssets.map((a) => a.id));
+  const savedAssetsById = assetsByIdMap(saved.assets);
   const savedFloorCables = saved.cables.filter((c) =>
-    [...endpointIds((c as { source?: unknown }).source), ...endpointIds((c as { target?: unknown }).target)].some(
-      (x) => x != null && savedFloorAssetIds.has(x),
-    ),
+    cableOnFloor(c as { sourceAssetId?: string | null; targetAssetId?: string | null }, activeFloorId, savedAssetsById),
   );
 
   // ── after: effective(saved+overlay) 활성 층 ──
-  const effAssets = mergeEffective(saved.assets, overlays.assets, assetDescriptor).filter(
-    (a) => a.floorId === activeFloorId,
-  );
-  const effAssetIds = new Set(effAssets.map((a) => a.id));
+  const allEffAssets = mergeEffective(saved.assets, overlays.assets, assetDescriptor);
+  const effAssets = allEffAssets.filter((a) => a.floorId === activeFloorId);
+  const effAssetsById = assetsByIdMap(allEffAssets);
   const effCables = mergeEffective(saved.cables, overlays.cables, cableDescriptor).filter((c) =>
-    [...endpointIds((c as { source?: unknown }).source), ...endpointIds((c as { target?: unknown }).target)].some(
-      (x) => x != null && effAssetIds.has(x),
-    ),
+    cableOnFloor(c as { sourceAssetId?: string | null; targetAssetId?: string | null }, activeFloorId, effAssetsById),
   );
 
   const before = buildSnapshot(savedFloorAssets, savedFloorCables);

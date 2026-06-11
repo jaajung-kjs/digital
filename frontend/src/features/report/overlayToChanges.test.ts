@@ -28,6 +28,8 @@ function asset(id: string, over: Partial<Asset> = {}): Asset {
     updatedAt: '2026-01-01T00:00:00.000Z',
     positionX: 10,
     positionY: 20,
+    width2d: 100,
+    height2d: 100,
     ...over,
   };
 }
@@ -119,8 +121,8 @@ describe('overlayToChanges', () => {
     const eq = asset('eq-1');
     const cable: WorkingCopyRow = {
       id: 'c-1',
-      source: { equipmentId: 'eq-1', moduleId: null },
-      target: { equipmentId: 'eq-other', moduleId: null },
+      sourceAssetId: 'eq-1',
+      targetAssetId: 'eq-other',
       cableType: 'UTP',
       categoryCode: 'CBL-UTP',
       totalLength: 12,
