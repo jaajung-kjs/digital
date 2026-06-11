@@ -226,8 +226,8 @@ ASCII (터미널용):
   - **P3.3b ✅** 사진(photos) → substationStore 컬렉션 + **사진삭제 버그 해결** + blob URL 수명관리. (`51154b5`)
   - → **editorStore = UI/캔버스 전용 달성**(도메인 큐 0). saved 는 [](실 saved 는 RQ), overlay 만 staging.
   - **P3.4 (남음, 선택)** load/commit 도 레지스트리 순회로 + 기존 이름 함수(stageAssetUpdate…)를 제네릭 위임 래퍼로 정리.
-- **P4 — 뷰=투영 (북극성 ②)** *(고위험·세부 plan 별도)*: 캔버스가 asset 레코드를 직접 투영하도록 → `FloorPlanEquipment` 변환기 4개 + 타입 제거.
-- **P5 — 백엔드 type 디스패치 커밋 (북극성 ③, 선택)** + 위생(deprecated 잔재, 스냅샷 중복 컴포넌트).
+- **P4 ✅ — 뷰=투영 (북극성 ③)**: 캔버스가 Asset 레코드를 직접 투영. 변환기 4개(equipmentToAsset/assetToEquipment/rackModuleToAsset/assetToRackModule) + `FloorPlanEquipment` 타입 **전부 삭제**(grep=0). A0(placement.ts 접근자 kindOf/widthOf/heightOf) → A1(읽기경로+죽은스냅샷 제거) → A2(쓰기경로+클립보드) → A3(RackModule→Asset) → A4(타입 삭제). 각 단계 tsc/test/build + 브라우저 스모크. (`9f5acb7`·`e325284`·`ec86ab9`·`ad46498`·`a3d95fd`)
+- **P5 (남음, 선택) — 백엔드 type 디스패치 커밋** + 위생(스냅샷 오버레이 dead code 제거, deprecated 잔재).
 
 순서 근거: 저위험·활성버그 먼저(P1·P2 완료). P3 는 코어 제네릭화로 북극성 ①에 도달 — media 3종(점검/고장이력/사진)을 제네릭 컬렉션으로 흡수해 editorStore 를 UI 전용으로 만들었다(보일러플레이트 구조적 제거). P4·P5 는 회귀 위험이 커 세부 plan 후.
 
