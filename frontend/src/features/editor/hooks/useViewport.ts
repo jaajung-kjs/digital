@@ -9,13 +9,19 @@ import { useEditorStore } from '../stores/editorStore';
 const VIEWPORT_KEY_VERSION = 'v2';
 
 /**
- * Compute zoom/pan that fits the union of equipment bbox + DWG background
- * bbox onto the canvas. Falls back to the floor's own canvas size when
- * neither equipment nor background exists.
+ * "화면 맞춤" — 배치된 설비(equipment) bbox 에 맞춰 zoom/pan 을 계산한다.
  *
- * Padding stays at 50 (cm in the new convention — about half a meter
- * around the content). zoom is capped at 200 to avoid huge magnification
- * on very small drawings; floor: bigger drawings down-scale to fit.
+ * 사용자 요구(에디터 #3): 화면맞춤은 배경 도면(DWG)을 제외하고 **실제로 배치한
+ * 설비**들만 한눈에 들어오게 맞춘다. 따라서 설비가 하나라도 있으면 background 는
+ * 프레이밍에서 무시한다.
+ *
+ * 폴백 순서(설비가 하나도 없을 때만):
+ *   1) DWG 배경 bounds — import 후 설비를 아직 안 둔 빈 평면도라도 도면이 보이게.
+ *   2) floor 의 canvas 영역.
+ *   3) 둘 다 없으면 좌상단 기본(zoom 100, pan 0,0).
+ *
+ * Padding 50 (cm 단위, 약 0.5 m). zoom 은 200 으로 상한(작은 도면 과확대 방지),
+ * 큰 도면은 down-scale 되어 화면에 들어온다.
  */
 export function calculateFitToContent(
   equipment: FloorPlanEquipment[],
@@ -36,15 +42,17 @@ export function calculateFitToContent(
     if (eq.positionY + eq.height > maxY) maxY = eq.positionY + eq.height;
   }
 
-  if (background?.bounds) {
+  // 설비가 하나라도 있으면 배경 도면은 프레이밍에서 제외한다(요구사항). 설비가
+  // 전혀 없을 때만(빈 평면도) 배경 bounds 로 폴백해 import 직후에도 도면이 보이게.
+  if (!isFinite(minX) && background?.bounds) {
     const b = background.bounds;
-    if (b.minX < minX) minX = b.minX;
-    if (b.minY < minY) minY = b.minY;
-    if (b.maxX > maxX) maxX = b.maxX;
-    if (b.maxY > maxY) maxY = b.maxY;
+    minX = b.minX;
+    minY = b.minY;
+    maxX = b.maxX;
+    maxY = b.maxY;
   }
 
-  // 비어 있으면 floor 의 canvas 영역으로 fit. 그것도 없으면 좌상단 기본.
+  // 설비·배경 모두 없으면 floor 의 canvas 영역으로 fit. 그것도 없으면 좌상단 기본.
   if (!isFinite(minX)) {
     if (fallbackCanvasSize) {
       minX = 0;

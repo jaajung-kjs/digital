@@ -181,7 +181,7 @@ export function useEditorKeyboard(
         redo();
       }
 
-      // Ctrl+0 fit to content (equipment + DWG bg, with canvas fallback)
+      // Ctrl+0 화면 맞춤 — 배치된 설비 bounds 로 fit. 설비가 없을 때만 배경 도면/캔버스 폴백.
       if (e.ctrlKey && e.key === '0') {
         e.preventDefault();
         const container = containerRef?.current;
