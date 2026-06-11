@@ -46,14 +46,9 @@ export function normalizeCableColor<T extends string | null | undefined>(color: 
   return color;
 }
 
-export interface EquipmentInfo {
+export interface EndpointInfo {
   id: string;
   name: string;
-  /**
-   * @deprecated P8 — Equipment no longer has parentEquipmentId (rack children
-   * are now `RackModule`). Adapter shape only; removed in P9.
-   */
-  parentEquipmentId: string | null;
   floorId: string | null;
 }
 
@@ -90,8 +85,8 @@ export interface RoomConnection {
   specParams?: Record<string, unknown> | null;
   pathLength?: number | null;
   totalLength?: number | null;
-  sourceEquipment: EquipmentInfo;
-  targetEquipment: EquipmentInfo;
+  sourceEndpoint: EndpointInfo;
+  targetEndpoint: EndpointInfo;
 }
 
 /** Alias for floor-plan-scoped connections (same shape as RoomConnection) */

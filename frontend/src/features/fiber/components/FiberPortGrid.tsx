@@ -92,7 +92,7 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
               </div>
               {localSide ? (
                 <div className="truncate text-[10px] text-gray-500">
-                  {localSide.equipmentName}
+                  {localSide.assetName}
                 </div>
               ) : (
                 <div className="text-[10px] text-gray-400">빈 포트</div>
@@ -215,7 +215,7 @@ function PortDetail({
         >
           <div className="flex items-center gap-2 text-sm">
             <div className="min-w-0 flex-1 text-center">
-              <p className="truncate text-sm font-medium text-gray-700">{localSide!.equipmentName}</p>
+              <p className="truncate text-sm font-medium text-gray-700">{localSide!.assetName}</p>
               <p className="truncate text-[10px] text-gray-400">자국 · {localSubName}</p>
             </div>
             <div className="flex flex-col items-center shrink-0">
@@ -229,7 +229,7 @@ function PortDetail({
             </div>
             <div className="min-w-0 flex-1 text-center">
               <p className="truncate text-sm font-medium text-gray-700">
-                {hasRemote ? remoteSide!.equipmentName : '대국 미연결'}
+                {hasRemote ? remoteSide!.assetName : '대국 미연결'}
               </p>
               <p className="truncate text-[10px] text-gray-400">대국 · {remoteSubName}</p>
             </div>
@@ -249,7 +249,7 @@ function PortDetail({
             <div className="shrink-0 text-gray-300">|</div>
             <div className="min-w-0 flex-1 text-center">
               <p className={`truncate text-sm font-medium ${hasRemote ? 'text-gray-700' : 'text-gray-400'}`}>
-                {hasRemote ? remoteSide!.equipmentName : '빈 포트'}
+                {hasRemote ? remoteSide!.assetName : '빈 포트'}
               </p>
               <p className="truncate text-[10px] text-gray-400">대국 · {remoteSubName}</p>
             </div>
@@ -264,7 +264,7 @@ function PortDetail({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (confirm(`${localSide!.equipmentName} 연결을 삭제하시겠습니까?`)) {
+              if (confirm(`${localSide!.assetName} 연결을 삭제하시겠습니까?`)) {
                 onDelete(localSide!.cableId);
                 clearHighlight();
               }

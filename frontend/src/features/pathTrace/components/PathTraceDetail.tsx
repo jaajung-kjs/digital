@@ -46,7 +46,7 @@ function buildDisplayItems(
   allEdges: TraceEdge[],
   nodeMap: Map<string, TraceNode>,
 ): DisplayItem[] {
-  // OFD equipmentId → fiberPath edges (for closing edge lookup)
+  // OFD nodeId → fiberPath edges (for closing edge lookup)
   const fiberEdgesByEquip = new Map<string, TraceEdge[]>();
   for (const edge of allEdges) {
     if (edge.type !== 'fiberPath') continue;
@@ -56,7 +56,7 @@ function buildDisplayItems(
     }
   }
 
-  const visitedIds = new Set(steps.map((s) => s.node.equipmentId));
+  const visitedIds = new Set(steps.map((s) => s.node.nodeId));
   const items: DisplayItem[] = [];
 
   for (let i = 0; i < steps.length; i++) {
@@ -76,11 +76,11 @@ function buildDisplayItems(
           label: `${from}-${to}${port}`,
           isEndpoint: step.node.isSource || step.node.isTarget,
           isFiberEdge: !!incomingIsFiber,
-          key: `${step.node.equipmentId}-${i}`,
+          key: `${step.node.nodeId}-${i}`,
         });
       } else if (incomingIsFiber) {
         // Terminal OFD: find the closing fiberPath (ring edge not in segment)
-        const thisOfdId = step.node.equipmentId;
+        const thisOfdId = step.node.nodeId;
         const incomingEdgeId = step.edge?.id;
         const fiberEdges = fiberEdgesByEquip.get(thisOfdId) ?? [];
         const closingEdge = fiberEdges.find((e) => {
@@ -103,26 +103,26 @@ function buildDisplayItems(
             label: `${from}-${to}${port}`,
             isEndpoint: step.node.isSource || step.node.isTarget,
             isFiberEdge: true,
-            key: `${step.node.equipmentId}-${i}`,
+            key: `${step.node.nodeId}-${i}`,
           });
         }
         // No closing edge → skip (already represented by previous label)
       } else {
         // OFD connected by cables only → show equipment name
         items.push({
-          label: step.node.equipmentName,
+          label: step.node.nodeName,
           isEndpoint: step.node.isSource || step.node.isTarget,
           isFiberEdge: false,
-          key: `${step.node.equipmentId}-${i}`,
+          key: `${step.node.nodeId}-${i}`,
         });
       }
     } else {
       // Non-OFD: show equipment name as-is
       items.push({
-        label: step.node.equipmentName,
+        label: step.node.nodeName,
         isEndpoint: step.node.isSource || step.node.isTarget,
         isFiberEdge: !!incomingIsFiber,
-        key: `${step.node.equipmentId}-${i}`,
+        key: `${step.node.nodeId}-${i}`,
       });
     }
   }
@@ -148,7 +148,7 @@ export function PathTraceDetail() {
   const { nodeMap, edgeMap } = useMemo(() => {
     if (!traceResult) return { nodeMap: new Map<string, TraceNode>(), edgeMap: new Map<string, TraceEdge>() };
     return {
-      nodeMap: new Map(traceResult.nodes.map((n) => [n.equipmentId, n])),
+      nodeMap: new Map(traceResult.nodes.map((n) => [n.nodeId, n])),
       edgeMap: new Map(traceResult.edges.map((e) => [e.id, e])),
     };
   }, [traceResult]);

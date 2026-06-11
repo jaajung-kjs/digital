@@ -98,7 +98,7 @@ export function useCanvas(
 
     const pathHighlight = usePathHighlightStore.getState();
     if (pathHighlight.active) {
-      const highlightedIds = pathHighlight.highlightedEquipmentIds;
+      const highlightedIds = pathHighlight.highlightedPlacedIds;
       const dimmed = floorEquipment.filter((eq) => !highlightedIds.has(eq.id));
       const highlighted = floorEquipment.filter((eq) => highlightedIds.has(eq.id));
       ctx.save();

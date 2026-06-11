@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
 
-interface Endpoint { equipmentId: string | null; moduleId: string | null; name: string }
+interface Endpoint { assetId: string | null; name: string }
 interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; length: number | null }
 interface Props {
   assetId: string;
@@ -11,7 +11,7 @@ interface Props {
   onSelectAsset: (assetId: string) => void;
 }
 
-const epId = (e: Endpoint) => e.equipmentId ?? e.moduleId;
+const epId = (e: Endpoint) => e.assetId;
 
 export function AssetConnectionsSection({ assetId, connections, onDelete, onUpdate, onSelectAsset }: Props) {
   if (!connections.length) return <p className="text-xs text-gray-400">연결 없음</p>;

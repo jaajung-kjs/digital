@@ -3,8 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { AssetConnectionsSection } from './AssetConnectionsSection';
 
 const conns = [
-  { id: 'c1', source: { equipmentId: 'A', moduleId: null, name: '장비A' },
-    target: { equipmentId: 'B', moduleId: null, name: '장비B' }, cableType: 'LAN', label: 'L1', length: null },
+  { id: 'c1', source: { assetId: 'A', name: '장비A' },
+    target: { assetId: 'B', name: '장비B' }, cableType: 'LAN', label: 'L1', length: null },
 ] as any;
 const noop = { onDelete: vi.fn(), onUpdate: vi.fn(), onSelectAsset: vi.fn() };
 

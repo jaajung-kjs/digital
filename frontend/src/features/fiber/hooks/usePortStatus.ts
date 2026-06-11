@@ -52,7 +52,7 @@ export function overlayLocalStagedCables(
 
   const usageFor = (cable: EffectiveCable, otherAssetId: string | null | undefined): FiberPortUsage => {
     const id = otherAssetId ?? '';
-    return { cableId: cable.id, equipmentId: id, equipmentName: resolveName(id) };
+    return { cableId: cable.id, assetId: id, assetName: resolveName(id) };
   };
 
   return paths.map((path) => {

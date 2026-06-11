@@ -52,7 +52,7 @@ describe('overlayLocalStagedCables — local side only', () => {
     // backend already computed sideB (remote, cross-substation).
     const path = makePath({
       ports: [
-        makePort(1, null, { cableId: 'remote-cable', equipmentId: 'remote-eq', equipmentName: 'Remote Switch' }),
+        makePort(1, null, { cableId: 'remote-cable', assetId: 'remote-eq', assetName: 'Remote Switch' }),
         makePort(2),
       ],
     });
@@ -66,9 +66,9 @@ describe('overlayLocalStagedCables — local side only', () => {
     const port1 = out.ports.find((p) => p.portNumber === 1)!;
 
     // local side (A) overlaid from the staged cable.
-    expect(port1.sideA).toEqual({ cableId: 'cable-a', equipmentId: 'eq-x', equipmentName: 'Switch X' });
+    expect(port1.sideA).toEqual({ cableId: 'cable-a', assetId: 'eq-x', assetName: 'Switch X' });
     // remote side (B) untouched — stays from backend.
-    expect(port1.sideB).toEqual({ cableId: 'remote-cable', equipmentId: 'remote-eq', equipmentName: 'Remote Switch' });
+    expect(port1.sideB).toEqual({ cableId: 'remote-cable', assetId: 'remote-eq', assetName: 'Remote Switch' });
   });
 
   it('maps local side to sideB when the viewed OFD is ofdB', () => {
@@ -80,13 +80,13 @@ describe('overlayLocalStagedCables — local side only', () => {
     const [out] = overlayLocalStagedCables([path], [cable], resolveName, 'ofd-b');
     const port1 = out.ports.find((p) => p.portNumber === 1)!;
     expect(out.ports[0].portNumber).toBe(1);
-    expect(port1.sideB).toEqual({ cableId: 'cable-b', equipmentId: 'mod-y', equipmentName: 'Rack Module Y' });
+    expect(port1.sideB).toEqual({ cableId: 'cable-b', assetId: 'mod-y', assetName: 'Rack Module Y' });
   });
 
   it('clears the local side when no effective cable matches (staged deletion)', () => {
     // backend had sideA filled, but the local cable was staged-deleted (not in effective).
     const path = makePath({
-      ports: [makePort(1, { cableId: 'gone', equipmentId: 'eq-x', equipmentName: 'Switch X' }, null)],
+      ports: [makePort(1, { cableId: 'gone', assetId: 'eq-x', assetName: 'Switch X' }, null)],
       portCount: 1,
     });
     const [out] = overlayLocalStagedCables([path], [], resolveName, 'ofd-a');
@@ -121,8 +121,8 @@ describe('usePortStatus — hybrid (backend base + this-substation staged overla
   it('(a) passes backend ports through (both sides) when nothing is staged', () => {
     const backendPath = makePath({
       ports: [makePort(1,
-        { cableId: 'ca', equipmentId: 'eq-x', equipmentName: 'Switch X' },
-        { cableId: 'cb', equipmentId: 'remote', equipmentName: 'Remote' },
+        { cableId: 'ca', assetId: 'eq-x', assetName: 'Switch X' },
+        { cableId: 'cb', assetId: 'remote', assetName: 'Remote' },
       ), makePort(2)],
     });
     mockUseFiberPaths.mockReturnValue({ data: [backendPath], isLoading: false });
@@ -135,7 +135,7 @@ describe('usePortStatus — hybrid (backend base + this-substation staged overla
     expect(result.current.mergedPaths).toHaveLength(1);
     const port1 = result.current.mergedPaths[0].ports.find((p) => p.portNumber === 1)!;
     // remote (B) still from backend.
-    expect(port1.sideB).toEqual({ cableId: 'cb', equipmentId: 'remote', equipmentName: 'Remote' });
+    expect(port1.sideB).toEqual({ cableId: 'cb', assetId: 'remote', assetName: 'Remote' });
     // local (A) recomputed from effective — no staged cable → cleared.
     expect(port1.sideA).toBeNull();
     expect(result.current.isLoading).toBe(false);
@@ -144,7 +144,7 @@ describe('usePortStatus — hybrid (backend base + this-substation staged overla
   it('(b) overlays a staged local cable onto the local side, remote stays from backend', () => {
     const backendPath = makePath({
       ports: [makePort(1, null,
-        { cableId: 'cb', equipmentId: 'remote', equipmentName: 'Remote' }), makePort(2)],
+        { cableId: 'cb', assetId: 'remote', assetName: 'Remote' }), makePort(2)],
     });
     mockUseFiberPaths.mockReturnValue({ data: [backendPath], isLoading: false });
     mockUseEffectiveFiberPaths.mockReturnValue([
@@ -156,8 +156,8 @@ describe('usePortStatus — hybrid (backend base + this-substation staged overla
 
     const { result } = renderHook(() => usePortStatus('ofd-a'));
     const port1 = result.current.mergedPaths[0].ports.find((p) => p.portNumber === 1)!;
-    expect(port1.sideA).toEqual({ cableId: 'cable-a', equipmentId: 'eq-x', equipmentName: 'Switch X' });
-    expect(port1.sideB).toEqual({ cableId: 'cb', equipmentId: 'remote', equipmentName: 'Remote' });
+    expect(port1.sideA).toEqual({ cableId: 'cable-a', assetId: 'eq-x', assetName: 'Switch X' });
+    expect(port1.sideB).toEqual({ cableId: 'cb', assetId: 'remote', assetName: 'Remote' });
   });
 
   it('(c) drops a staged-deleted path (in backend, no longer in effective)', () => {

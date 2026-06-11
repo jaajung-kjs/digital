@@ -1,6 +1,5 @@
 export interface CableEndpointDTO {
-  equipmentId: string | null;
-  moduleId: string | null;
+  assetId: string | null;
   name: string;
   floorId?: string | null;
 }
