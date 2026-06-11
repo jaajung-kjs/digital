@@ -91,6 +91,19 @@ export interface PendingLog {
   status?: string;
 }
 
+/**
+ * 스테이징된 점검(inspection) — git-like: 작성/수정/삭제는 즉시 백엔드로 가지 않고
+ * 이 큐에 쌓였다가 단일 SAVE(commit) 시 flushPendingMedia 가 한꺼번에 POST 한다.
+ * (id 는 tempId. 저장 시 부모 자산이 신규면 idMap 으로 실제 id 로 매핑.)
+ */
+export interface PendingInspection {
+  id: string;
+  assetId: string;
+  inspectionDate: string;
+  inspector: string;
+  content?: string | null;
+}
+
 // ==================== Store ====================
 
 export interface EditorStoreState {
@@ -109,6 +122,7 @@ export interface EditorStoreState {
 
   pendingUploads: PendingUpload[];
   pendingLogs: PendingLog[];
+  pendingInspections: PendingInspection[];
 
   // Staged background drawing & opacity. Like the rest of the editor, DWG
   // changes (import / clear / opacity) are git-like — they live here until
@@ -236,6 +250,9 @@ export interface EditorStoreActions {
   addPendingLog: (log: PendingLog) => void;
   updatePendingLog: (id: string, updates: Partial<PendingLog>) => void;
   removePendingLog: (id: string) => void;
+  addPendingInspection: (inspection: PendingInspection) => void;
+  updatePendingInspection: (id: string, updates: Partial<PendingInspection>) => void;
+  removePendingInspection: (id: string) => void;
   clearPendingData: () => void;
 
   /** Stage a freshly-parsed DWG. Caller is responsible for fitting viewport. */
@@ -328,6 +345,7 @@ const initialState: EditorStoreState = {
   showGrid: true,
   pendingUploads: [],
   pendingLogs: [],
+  pendingInspections: [],
   stagedBackgroundDrawing: undefined,
   stagedBackgroundOpacity: undefined,
   connectionFilters: null,
@@ -418,11 +436,21 @@ export const useEditorStore = create<FullStore>()((set) => ({
   removePendingLog: (id) => set((state) => ({
     pendingLogs: state.pendingLogs.filter((l) => l.id !== id),
   })),
+  addPendingInspection: (inspection) => set((state) => ({
+    pendingInspections: [...state.pendingInspections, inspection],
+  })),
+  updatePendingInspection: (id, updates) => set((state) => ({
+    pendingInspections: state.pendingInspections.map((i) => i.id === id ? { ...i, ...updates } : i),
+  })),
+  removePendingInspection: (id) => set((state) => ({
+    pendingInspections: state.pendingInspections.filter((i) => i.id !== id),
+  })),
   clearPendingData: () => set((state) => {
     revokeUploadUrls(state.pendingUploads);
     return {
       pendingUploads: [],
       pendingLogs: [],
+      pendingInspections: [],
       stagedBackgroundDrawing: undefined,
       stagedBackgroundOpacity: undefined,
     };

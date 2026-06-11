@@ -7,11 +7,7 @@ vi.mock('../../../utils/api', () => ({
   api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
 import { api } from '../../../utils/api';
-import {
-  useInspectionLogs,
-  useCreateInspectionLog,
-  useDeleteInspectionLog,
-} from './useInspectionLogs';
+import { useInspectionLogs } from './useInspectionLogs';
 
 const mkWrapper = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -21,7 +17,7 @@ const mkWrapper = () => {
   return { qc, wrapper };
 };
 
-describe('useInspectionLogs', () => {
+describe('useInspectionLogs (읽기 전용 — 쓰기는 staging)', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('점검 목록을 /assets/:id/inspections 에서 조회', async () => {
@@ -39,31 +35,5 @@ describe('useInspectionLogs', () => {
     const { wrapper } = mkWrapper();
     renderHook(() => useInspectionLogs('temp-abc'), { wrapper });
     expect(api.get).not.toHaveBeenCalled();
-  });
-
-  it('생성 성공 시 inspection-logs + nodeAssets 둘 다 무효화(마지막 점검일 갱신)', async () => {
-    (api.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: { id: 'i2' } } });
-    const { qc, wrapper } = mkWrapper();
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-    const { result } = renderHook(() => useCreateInspectionLog('a1'), { wrapper });
-    await result.current.mutateAsync({ inspectionDate: '2026-06-09', inspector: '김' });
-    expect(api.post).toHaveBeenCalledWith('/assets/a1/inspections', {
-      inspectionDate: '2026-06-09',
-      inspector: '김',
-    });
-    const keys = invalidateSpy.mock.calls.map((c) => JSON.stringify(c[0]));
-    expect(keys.some((k) => k.includes('inspection-logs'))).toBe(true);
-    expect(keys.some((k) => k.includes('nodeAssets'))).toBe(true);
-  });
-
-  it('삭제 성공 시 nodeAssets 무효화', async () => {
-    (api.delete as ReturnType<typeof vi.fn>).mockResolvedValue({});
-    const { qc, wrapper } = mkWrapper();
-    const invalidateSpy = vi.spyOn(qc, 'invalidateQueries');
-    const { result } = renderHook(() => useDeleteInspectionLog(), { wrapper });
-    await result.current.mutateAsync('i2');
-    expect(api.delete).toHaveBeenCalledWith('/inspection-logs/i2');
-    const keys = invalidateSpy.mock.calls.map((c) => JSON.stringify(c[0]));
-    expect(keys.some((k) => k.includes('nodeAssets'))).toBe(true);
   });
 });

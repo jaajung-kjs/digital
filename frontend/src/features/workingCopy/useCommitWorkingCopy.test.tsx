@@ -34,6 +34,7 @@ vi.mock('../editor/stores/editorStore', () => ({
       stagedBackgroundOpacity: undefined,
       pendingUploads: [],
       pendingLogs: [],
+      pendingInspections: [],
       clearPendingData: vi.fn(),
       setBaseFloorVersion: setBaseFloorVersionSpy,
     }),

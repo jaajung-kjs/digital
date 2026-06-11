@@ -1,13 +1,19 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { isTempId } from '../../../utils/idHelpers';
 import type { MaintenanceLog } from '../../../types/maintenance';
-import type { MaintenanceFormData } from '../types/equipment';
 
+/**
+ * 고장이력(maintenance_logs) — **읽기 전용 쿼리만** 제공.
+ *
+ * git-like 불변식: 고장/수리 작성·수정·삭제는 즉시 백엔드로 보내지 않는다. editorStore 의
+ * pendingLogs 큐에 스테이징했다가 단일 SAVE(commit) 시 flushPendingMedia 가 반영한다.
+ * 그래서 여기엔 create/update/delete mutation 훅을 두지 않는다 — 직접 CRUD 경로 자체를
+ * 없애 staging 우회(=git-like 위반) 버그가 구조적으로 불가능하게 한다.
+ */
 const LOG_KEYS = {
   all: ['maintenance-logs'] as const,
-  list: (equipmentId: string) =>
-    [...LOG_KEYS.all, equipmentId] as const,
+  list: (equipmentId: string) => [...LOG_KEYS.all, equipmentId] as const,
 };
 
 export function useMaintenanceLogs(equipmentId: string) {
@@ -15,59 +21,10 @@ export function useMaintenanceLogs(equipmentId: string) {
     queryKey: LOG_KEYS.list(equipmentId),
     queryFn: async () => {
       const { data } = await api.get<{ data: MaintenanceLog[] }>(
-        `/equipment/${equipmentId}/maintenance-logs`
+        `/equipment/${equipmentId}/maintenance-logs`,
       );
       return data.data;
     },
     enabled: !!equipmentId && !isTempId(equipmentId),
-  });
-}
-
-export function useCreateMaintenanceLog(equipmentId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (formData: MaintenanceFormData) => {
-      const { data } = await api.post<{ data: MaintenanceLog }>(
-        `/equipment/${equipmentId}/maintenance-logs`,
-        formData
-      );
-      return data.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: LOG_KEYS.list(equipmentId),
-      });
-    },
-  });
-}
-
-export function useUpdateMaintenanceLog() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      id,
-      ...formData
-    }: MaintenanceFormData & { id: string }) => {
-      const { data } = await api.put<{ data: MaintenanceLog }>(
-        `/maintenance-logs/${id}`,
-        formData
-      );
-      return data.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: LOG_KEYS.all });
-    },
-  });
-}
-
-export function useDeleteMaintenanceLog() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await api.delete(`/maintenance-logs/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: LOG_KEYS.all });
-    },
   });
 }

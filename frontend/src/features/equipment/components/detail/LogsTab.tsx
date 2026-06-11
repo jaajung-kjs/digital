@@ -1,13 +1,8 @@
 import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
-import { isTempId } from '../../../../utils/idHelpers';
-import { toDateInputValue } from '../../../../utils/date';
-import {
-  useMaintenanceLogs,
-  useCreateMaintenanceLog,
-  useUpdateMaintenanceLog,
-  useDeleteMaintenanceLog,
-} from '../../hooks/useMaintenanceLogs';
+import { generateTempId } from '../../../../utils/idHelpers';
+import { useEditorStore } from '../../../editor/stores/editorStore';
+import { useMaintenanceLogs } from '../../hooks/useMaintenanceLogs';
 import {
   LOG_TYPE_LABELS,
   LOG_TYPE_COLORS,
@@ -25,21 +20,23 @@ import {
 } from '../../../assets/components/detail/SectionShell';
 
 /* ================================================================
-   고장이력(failure/repair) — 점검(MAINTENANCE) 제외, 기본 FAILURE.
-   점검은 별도 점검 탭에서 기록. 점검 섹션과 동일한 '항상 노출 폼 + 누적 이력'
-   패턴 + 실시간 CRUD(useMaintenanceLogs)로 통일.
+   고장이력(failure/repair) — git-like 스테이징. 점검(MAINTENANCE) 제외, 기본 FAILURE.
+   작성/수정/삭제는 즉시 백엔드로 가지 않고 editorStore.pendingLogs 에 쌓였다가 단일
+   SAVE(commit) 시 반영(자산/케이블 편집과 동일한 단일 저장 경로).
+    - 보류(저장 대기) 항목: 인라인 수정/삭제 가능. 저장된 항목: 커밋 이력 → 읽기전용.
    ================================================================ */
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const fmtDate = (s: string) => new Date(s).toLocaleDateString('ko-KR');
 
 export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: boolean }) {
-  const isTemp = isTempId(equipmentId);
   const { data, isLoading } = useMaintenanceLogs(equipmentId);
-  const logs = Array.isArray(data) ? data : [];
-  const createLog = useCreateMaintenanceLog(equipmentId);
-  const updateLog = useUpdateMaintenanceLog();
-  const deleteLog = useDeleteMaintenanceLog();
+  const savedLogs = Array.isArray(data) ? data : [];
+
+  const pendingLogs = useEditorStore((s) => s.pendingLogs);
+  const addPendingLog = useEditorStore((s) => s.addPendingLog);
+  const updatePendingLog = useEditorStore((s) => s.updatePendingLog);
+  const removePendingLog = useEditorStore((s) => s.removePendingLog);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -50,13 +47,25 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
     description: '',
   });
 
+  // 표시 목록: 보류(저장 대기) + 저장됨(백엔드). 보류가 위(최근 작성).
+  const items = [
+    ...pendingLogs
+      .filter((l) => l.equipmentId === equipmentId)
+      .map((l) => ({
+        id: l.id, logType: l.logType, title: l.title, description: l.description ?? '',
+        logDate: l.logDate ?? '', severity: l.severity ?? 'LOW', createdByName: null as string | null, isPending: true as const,
+      })),
+    ...savedLogs.map((l) => ({
+      id: l.id, logType: l.logType as string, title: l.title, description: l.description ?? '',
+      logDate: (l.logDate ?? l.createdAt) as string, severity: (l.severity ?? '') as string, createdByName: l.createdByName ?? null, isPending: false as const,
+    })),
+  ];
+
   const reset = () => {
     setForm({ logType: 'FAILURE', severity: 'LOW', title: '', logDate: todayStr(), description: '' });
     setEditingId(null);
   };
-
-  const pending = createLog.isPending || updateLog.isPending;
-  const canSubmit = !!form.title.trim() && !pending;
+  const canSubmit = !!form.title.trim();
   const canWrite = !readOnly;
 
   const handleSubmit = () => {
@@ -68,30 +77,26 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
       severity: form.severity,
       description: form.description.trim() || undefined,
     };
-    if (editingId) updateLog.mutate({ id: editingId, ...payload }, { onSuccess: reset });
-    else createLog.mutate(payload, { onSuccess: reset });
+    if (editingId) updatePendingLog(editingId, payload);
+    else addPendingLog({ id: generateTempId(), equipmentId, ...payload });
+    reset();
   };
 
-  const handleEdit = (log: (typeof logs)[number]) => {
+  const handleEdit = (it: { id: string; logType: string; title: string; description: string; logDate: string; severity: string }) => {
     setForm({
-      logType: log.logType,
-      severity: log.severity ?? 'LOW',
-      title: log.title,
-      logDate: log.logDate ? toDateInputValue(log.logDate) : '',
-      description: log.description ?? '',
+      logType: it.logType,
+      severity: it.severity || 'LOW',
+      title: it.title,
+      logDate: it.logDate ? it.logDate.slice(0, 10) : '',
+      description: it.description,
     });
-    setEditingId(log.id);
+    setEditingId(it.id);
   };
-
-  const handleDelete = (id: string) => {
-    if (!window.confirm('이 고장 이력을 삭제하시겠습니까?')) return;
+  const handleRemove = (id: string) => {
     if (editingId === id) reset();
-    deleteLog.mutate(id);
+    removePendingLog(id);
   };
 
-  if (isTemp) {
-    return <p className="text-sm text-content-faint py-2">자산을 저장한 뒤 고장 이력을 기록할 수 있습니다.</p>;
-  }
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-6">
@@ -102,7 +107,7 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
 
   return (
     <div className="space-y-4">
-      {/* 작성 폼 — 항상 노출. 점검 탭과 동일한 라벨-필드 구성. */}
+      {/* 작성 폼 — 항상 노출. 등록하면 아래 이력에 '저장 대기'로 쌓이고 SAVE 시 반영. */}
       {canWrite && (
         <div className="space-y-2">
           <FormRow label="유형">
@@ -161,55 +166,52 @@ export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOn
           <div className="flex justify-end gap-2">
             {editingId && <GhostButton onClick={reset}>취소</GhostButton>}
             <PrimaryButton onClick={handleSubmit} disabled={!canSubmit}>
-              {editingId ? '수정 적용' : '고장 등록'}
+              {editingId ? '수정 적용' : '고장 추가'}
             </PrimaryButton>
           </div>
         </div>
       )}
 
-      {/* 이력 — 아래로 누적(최근순). 빈 상태는 한 곳에서만. */}
+      {/* 이력 — 보류(저장 대기) + 저장됨. 빈 상태는 한 곳에서만. */}
       <div className={canWrite ? 'border-t border-line pt-3' : ''}>
         <div className="flex items-baseline gap-1.5 mb-2">
           <span className="text-sm font-semibold text-content-muted">고장 이력</span>
-          {logs.length > 0 && <span className="text-xs text-content-faint">{logs.length}건</span>}
+          {items.length > 0 && <span className="text-xs text-content-faint">{items.length}건</span>}
         </div>
-        {logs.length === 0 ? (
+        {items.length === 0 ? (
           <p className="text-sm text-content-faint py-1">기록된 고장 이력이 없습니다.</p>
         ) : (
           <div className="space-y-2">
-            {logs.map((log) => (
-              <SectionItem key={log.id}>
+            {items.map((it) => (
+              <SectionItem key={it.id}>
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-1.5">
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${LOG_TYPE_COLORS[log.logType] ?? 'bg-line text-content-muted'}`}>
-                      {LOG_TYPE_LABELS[log.logType] ?? log.logType}
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${LOG_TYPE_COLORS[it.logType] ?? 'bg-line text-content-muted'}`}>
+                      {LOG_TYPE_LABELS[it.logType] ?? it.logType}
                     </span>
-                    {log.severity && (
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${SEVERITY_COLORS[log.severity] ?? 'bg-surface-2 text-content-muted'}`}>
-                        {SEVERITY_LABELS[log.severity] ?? log.severity}
+                    {it.severity && (
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${SEVERITY_COLORS[it.severity] ?? 'bg-surface-2 text-content-muted'}`}>
+                        {SEVERITY_LABELS[it.severity] ?? it.severity}
                       </span>
                     )}
+                    {it.isPending && <span className="text-xs text-warning">저장 대기</span>}
                   </div>
-                  {canWrite && (
+                  {canWrite && it.isPending && (
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <IconAction onClick={() => handleEdit(log)} title="수정">
+                      <IconAction onClick={() => handleEdit(it)} title="수정">
                         <Pencil size={14} />
                       </IconAction>
-                      <IconAction onClick={() => handleDelete(log.id)} title="삭제" danger>
+                      <IconAction onClick={() => handleRemove(it.id)} title="삭제" danger>
                         <Trash2 size={14} />
                       </IconAction>
                     </div>
                   )}
                 </div>
-                <p className="text-sm font-medium text-content">{log.title}</p>
-                {log.description && <p className="text-sm text-content-muted mt-1 whitespace-pre-wrap">{log.description}</p>}
+                <p className="text-sm font-medium text-content">{it.title}</p>
+                {it.description && <p className="text-sm text-content-muted mt-1 whitespace-pre-wrap">{it.description}</p>}
                 <div className="flex items-center justify-between mt-1.5">
-                  <p className="text-xs text-content-faint">
-                    {fmtDate(log.logDate ?? log.createdAt)}
-                  </p>
-                  {log.createdByName && (
-                    <p className="text-xs text-content-faint">작성: {log.createdByName}</p>
-                  )}
+                  <p className="text-xs text-content-faint">{it.logDate ? fmtDate(it.logDate) : ''}</p>
+                  {it.createdByName && <p className="text-xs text-content-faint">작성: {it.createdByName}</p>}
                 </div>
               </SectionItem>
             ))}

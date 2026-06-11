@@ -5,7 +5,7 @@ import { buildIdMaps } from './idMaps';
 import { commitSubstation, type FloorCommitSection } from './substationCommit';
 import { useSubstationWorkingCopy } from './substationStore';
 import { useEditorStore } from '../editor/stores/editorStore';
-import type { PendingUpload, PendingLog } from '../editor/stores/editorStore';
+import type { PendingUpload, PendingLog, PendingInspection } from '../editor/stores/editorStore';
 import { overlayToChanges } from '../report/overlayToChanges';
 import { WORK_ORDER_KEYS } from '../report/useWorkOrders';
 import type { ReportPreviewChanges, ConstructionReport } from '../../types/constructionReport';
@@ -63,6 +63,7 @@ function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): Floo
 async function flushPendingMedia(
   pendingUploads: PendingUpload[],
   pendingLogs: PendingLog[],
+  pendingInspections: PendingInspection[],
   idMapsAssets: Record<string, string> | undefined,
 ): Promise<void> {
   const idMaps = buildIdMaps({ equipmentIdMap: idMapsAssets });
@@ -113,17 +114,42 @@ async function flushPendingMedia(
     );
   }
 
+  if (pendingInspections.length > 0) {
+    pendingTasks.push(
+      Promise.allSettled(
+        pendingInspections.map(async (insp) => {
+          await api.post(`/assets/${resolveEquipmentId(insp.assetId)}/inspections`, {
+            inspectionDate: insp.inspectionDate,
+            inspector: insp.inspector,
+            content: insp.content ?? null,
+          });
+        }),
+      ).then((results) => {
+        const failures = results.filter((r) => r.status === 'rejected');
+        if (failures.length > 0) {
+          console.warn(`[Save] ${failures.length} inspection creation(s) failed:`, failures);
+        }
+      }),
+    );
+  }
+
   await Promise.all(pendingTasks);
 }
 
-/** 사진/로그는 commit 무효화 세트 밖(큐 패턴) — 별도로 invalidate. */
+/** 사진/로그/점검은 commit 무효화 세트 밖(큐 패턴) — 별도로 invalidate. */
 function invalidateMediaQueries(
   queryClient: QueryClient,
   hadUploads: boolean,
   hadLogs: boolean,
+  hadInspections: boolean,
 ): void {
   if (hadUploads) queryClient.invalidateQueries({ queryKey: ['equipment-photos'] });
   if (hadLogs) queryClient.invalidateQueries({ queryKey: ['maintenance-logs'] });
+  if (hadInspections) {
+    queryClient.invalidateQueries({ queryKey: ['inspection-logs'] });
+    // 점검 반영 → 현황 '마지막 점검일' 갱신.
+    queryClient.invalidateQueries({ queryKey: ['nodeAssets'] });
+  }
 }
 
 /** changes 에 실제 변경분이 있는지(설비/케이블 어느 한쪽이라도). */
@@ -194,6 +220,7 @@ export function useCommitWorkingCopy() {
     const floor = buildFloorSection(ed);
     const hadUploads = ed.pendingUploads.length > 0;
     const hadLogs = ed.pendingLogs.length > 0;
+    const hadInspections = ed.pendingInspections.length > 0;
 
     // #3 Task 3 — 작업지시서 아카이브용 PRE-commit 스냅샷.
     // 커밋 후 store.load 가 오버레이를 비우므로, 활성 층 changes 는 반드시 지금
@@ -209,7 +236,7 @@ export function useCommitWorkingCopy() {
 
     try {
       const result = await commitSubstation(substationId, wc.overlays, wc.saved.assets, queryClient, floor);
-      await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, result.idMaps?.assets);
+      await flushPendingMedia(ed.pendingUploads, ed.pendingLogs, ed.pendingInspections, result.idMaps?.assets);
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
       // 2회차 저장 409 방지(견고화) — floor 섹션을 커밋하면 백엔드가 floor.updatedAt 을
@@ -226,7 +253,7 @@ export function useCommitWorkingCopy() {
       if (activeFloorId != null) {
         queryClient.invalidateQueries({ queryKey: ['floorPlan', activeFloorId] });
       }
-      invalidateMediaQueries(queryClient, hadUploads, hadLogs);
+      invalidateMediaQueries(queryClient, hadUploads, hadLogs, hadInspections);
       // 활성 층에 변경이 있었으면 설계서를 작업지시서로 아카이브(실패해도 커밋은 성공).
       if (activeFloorId && preCommitChanges && hasFloorChanges(preCommitChanges)) {
         await archiveWorkOrder(substationId, activeFloorId, preCommitChanges, queryClient);

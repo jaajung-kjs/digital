@@ -144,8 +144,9 @@ export function useUnifiedDirty(): number {
   const wc = useWorkingCopyDirty();
   const uploads = useEditorStore((s) => s.pendingUploads.length);
   const logs = useEditorStore((s) => s.pendingLogs.length);
+  const inspections = useEditorStore((s) => s.pendingInspections.length);
   const floorDirty = useEditorStore(selectFloorSettingsDirty);
-  return wc + uploads + logs + (floorDirty ? 1 : 0);
+  return wc + uploads + logs + inspections + (floorDirty ? 1 : 0);
 }
 
 /**
@@ -167,6 +168,7 @@ export function getUnifiedDirtyCount(): number {
     overlay +
     es.pendingUploads.length +
     es.pendingLogs.length +
+    es.pendingInspections.length +
     (selectFloorSettingsDirty(es) ? 1 : 0)
   );
 }
