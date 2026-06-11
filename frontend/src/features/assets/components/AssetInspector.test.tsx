@@ -51,6 +51,32 @@ describe('AssetInspector — 단일 인스펙터(SSOT)', () => {
   });
 });
 
+describe('AssetInspector — 필드별 수정 affordance(#8 S7)', () => {
+  it('edit 모드: 편집 가능 필드에 수정(연필) 버튼 — 이름/담당자/설치일/설명', () => {
+    wrap(<AssetInspector asset={asset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
+    expect(screen.getByTitle('이름 수정')).toBeTruthy();
+    expect(screen.getByTitle('담당자 수정')).toBeTruthy();
+    expect(screen.getByTitle('설치일 수정')).toBeTruthy();
+    expect(screen.getByTitle('설명 수정')).toBeTruthy();
+    // 읽기전용(종류)에는 연필 없음
+    expect(screen.queryByTitle('종류 수정')).toBeNull();
+  });
+
+  it('수정(연필) 클릭 → 해당 인풋에 focus(편집 시작)', () => {
+    wrap(<AssetInspector asset={asset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
+    const nameInput = screen.getByDisplayValue('장비1') as HTMLInputElement;
+    expect(document.activeElement).not.toBe(nameInput);
+    fireEvent.click(screen.getByTitle('이름 수정'));
+    expect(document.activeElement).toBe(nameInput);
+  });
+
+  it('view 모드: 수정(연필) 버튼 없음(읽기전용)', () => {
+    wrap(<AssetInspector asset={asset} mode="view" onSelectAsset={vi.fn()} today={today} />);
+    expect(screen.queryByTitle('이름 수정')).toBeNull();
+    expect(screen.queryByTitle('설명 수정')).toBeNull();
+  });
+});
+
 describe('AssetInspector — 랙 모듈(통합 패널)', () => {
   // 상위 랙 자산을 working copy 에 seed → breadcrumb 라벨(← 랙01) 해석.
   beforeEach(() => {
@@ -83,6 +109,10 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
     expect(screen.getByText('슬롯 3–4 (2슬롯)')).toBeTruthy();
     // 종류는 모듈에서 카테고리로 대체 → '종류' 라벨 없음
     expect(screen.queryByText('종류')).toBeNull();
+    // 읽기전용 카테고리/슬롯에는 수정(연필) 없음, 편집 가능 이름엔 있음
+    expect(screen.queryByTitle('카테고리 수정')).toBeNull();
+    expect(screen.queryByTitle('슬롯 위치 수정')).toBeNull();
+    expect(screen.getByTitle('이름 수정')).toBeTruthy();
     // 랙으로 breadcrumb
     expect(screen.getByText('← 랙01')).toBeTruthy();
   });

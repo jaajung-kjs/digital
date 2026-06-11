@@ -121,9 +121,10 @@ function LiveBody({
       )}
 
       {spatial && (
-        <section className="px-4 py-3 border-t border-line">
+        // 공간 섹션 헤더 톤을 보조 섹션(CollapsibleSection) 헤더와 일치(text-xs font-semibold).
+        <section className="px-4 py-2 border-t border-line">
           {spatialLabel && (
-            <h3 className="text-sm font-semibold text-content-muted mb-2">{spatialLabel}</h3>
+            <h3 className="text-xs font-semibold text-content-muted mb-2">{spatialLabel}</h3>
           )}
           {spatial}
         </section>

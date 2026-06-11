@@ -1,5 +1,8 @@
+import { useRef } from 'react';
+import { Pencil } from 'lucide-react';
 import type { Asset } from '../../../types/asset';
 import { toDateInputValue } from '../../../utils/date';
+import { IconAction } from './detail/SectionShell';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { InspectionSection } from './detail/InspectionSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
@@ -28,40 +31,72 @@ interface Props {
   today?: Date;
 }
 
+/* 편집 가능 인풋의 항상 보이는 affordance(#8): 옅은 밑줄을 기본으로 깔아 "여기 수정됨"을
+   한눈에 보이게 하고, hover 시 보더 강화, focus 시 primary. 우측 연필(IconAction)을 누르면
+   해당 인풋에 focus(편집 시작) — 날짜는 네이티브 picker 도 함께 연다. */
+const EDITABLE_INPUT =
+  'flex-1 min-w-0 px-1 py-0.5 rounded text-sm bg-transparent border border-transparent border-b-line/70 ' +
+  'hover:border-line hover:bg-surface-2/40 focus:border-primary focus:bg-surface ' +
+  'focus-visible:outline-none transition-colors';
+
+function focusInput(el: HTMLInputElement | HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.focus();
+  // 날짜는 picker 도 띄워 클릭 1번에 바로 선택. (지원 브라우저 한정 — 없으면 focus 로 충분.)
+  const anyEl = el as HTMLInputElement & { showPicker?: () => void };
+  if (el instanceof HTMLInputElement && el.type === 'date' && typeof anyEl.showPicker === 'function') {
+    try { anyEl.showPicker(); } catch { /* user-gesture 밖이면 무시 */ }
+  }
+}
+
 function Field({ label, value, onCommit, type = 'text' }: { label: string; value: string; onCommit: (v: string) => void; type?: string }) {
+  const ref = useRef<HTMLInputElement>(null);
   const commit = (v: string) => { if (v !== value) onCommit(v); };
   return (
-    <label className="flex items-center gap-2 text-sm py-0.5">
-      <span className="w-24 shrink-0 text-content-muted text-xs">{label}</span>
+    <div className="group flex items-center gap-2 text-sm py-0.5">
+      <span className="w-20 shrink-0 text-content-muted text-xs">{label}</span>
       <input
+        ref={ref}
         type={type}
         defaultValue={value}
         onBlur={(e) => commit(e.target.value)}
         // Enter 즉시 반영(blur→commit). 날짜는 선택만 해도 즉시 반영(onChange).
         onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         onChange={type === 'date' ? (e) => commit(e.target.value) : undefined}
-        className="flex-1 px-1 py-0.5 border border-transparent hover:border-line focus:border-primary rounded text-sm" />
-    </label>
+        className={EDITABLE_INPUT} />
+      {/* 연필은 항상 보이되 평소엔 옅게(affordance), hover/focus 시 또렷이. */}
+      <span className="shrink-0 opacity-40 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+        <IconAction onClick={() => focusInput(ref.current)} title={`${label} 수정`}>
+          <Pencil size={13} />
+        </IconAction>
+      </span>
+    </div>
   );
 }
 
 function ReadField({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-2 text-sm py-0.5">
-      <span className="w-24 shrink-0 text-content-muted text-xs">{label}</span>
-      <span className="flex-1 px-1 py-0.5 text-sm">{value || <span className="text-content-faint">—</span>}</span>
+      <span className="w-20 shrink-0 text-content-muted text-xs">{label}</span>
+      <span className="flex-1 min-w-0 px-1 py-0.5 text-sm truncate">{value || <span className="text-content-faint">—</span>}</span>
     </div>
   );
 }
 
 /** 설명 — 여러 줄. 평면도/현황/대장 동일하게 노출(읽기/편집). */
 function DescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
   return (
-    <label className="flex items-start gap-2 text-sm py-0.5">
-      <span className="w-24 shrink-0 text-content-muted text-xs pt-1">설명</span>
-      <textarea defaultValue={value} rows={2} onBlur={(e) => { if (e.target.value !== value) onCommit(e.target.value); }}
-        className="flex-1 px-1 py-0.5 border border-transparent hover:border-line focus:border-primary rounded text-sm resize-none" />
-    </label>
+    <div className="group flex items-start gap-2 text-sm py-0.5">
+      <span className="w-20 shrink-0 text-content-muted text-xs pt-1">설명</span>
+      <textarea ref={ref} defaultValue={value} rows={2} onBlur={(e) => { if (e.target.value !== value) onCommit(e.target.value); }}
+        className={`${EDITABLE_INPUT} resize-none`} />
+      <span className="shrink-0 pt-0.5 opacity-40 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+        <IconAction onClick={() => focusInput(ref.current)} title="설명 수정">
+          <Pencil size={13} />
+        </IconAction>
+      </span>
+    </div>
   );
 }
 
@@ -79,7 +114,7 @@ function StatusField({ value, onCommit, readOnly }: { value: string | null; onCo
   const on = statusOn(value);
   return (
     <div className="flex items-center gap-2 text-sm py-0.5">
-      <span className="w-24 shrink-0 text-content-muted text-xs">상태</span>
+      <span className="w-20 shrink-0 text-content-muted text-xs">상태</span>
       {readOnly ? (
         <StatusPill on={on} />
       ) : (
@@ -134,7 +169,7 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset }: Props) {
         </div>
       )}
 
-      <section className="px-4 py-3">
+      <section className="px-4 py-3 space-y-0.5">
         {ro ? (
           <>
             <ReadField label="이름" value={asset.name} />
