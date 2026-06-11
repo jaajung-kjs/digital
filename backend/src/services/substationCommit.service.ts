@@ -45,6 +45,31 @@ const dateOrNull = (v: unknown) => (v ? new Date(v as string) : null);
 const patchDate = (v: unknown) => (v === undefined ? undefined : v ? new Date(v as string) : null);
 const toInt = (v: unknown) => (v == null ? undefined : Math.trunc(Number(v)));
 
+// ── 자산/랙모듈 공통 스칼라(SSOT) ─────────────────────────────────────────────
+// 랙 모듈도 Asset 행이다. asset/rackModule 의 create·update 가 각자 필드를 나열하면
+// 한 곳이 빠져 드롭 버그(status·description 등)가 난다 → 공통 스칼라는 여기 한 곳에서.
+// create: 기본값(null/0) 채움. update: 부분 패치(undefined=미변경).
+const assetCommonCreate = (c: Record<string, unknown>) => ({
+  name: c.name as string,
+  installDate: dateOrNull(c.installDate),
+  manager: (c.manager ?? null) as string | null,
+  description: (c.description ?? null) as string | null,
+  status: (c.status ?? null) as string | null,
+  warrantyUntil: dateOrNull(c.warrantyUntil),
+  replaceDue: dateOrNull(c.replaceDue),
+  sortOrder: (c.sortOrder ?? 0) as number,
+});
+const assetCommonUpdate = (p: Record<string, unknown>) => ({
+  name: p.name as string | undefined,
+  installDate: patchDate(p.installDate),
+  manager: p.manager as string | null | undefined,
+  description: p.description as string | null | undefined,
+  status: p.status as string | null | undefined,
+  warrantyUntil: patchDate(p.warrantyUntil),
+  replaceDue: patchDate(p.replaceDue),
+  sortOrder: p.sortOrder as number | undefined,
+});
+
 export interface CommitResult {
   idMaps: {
     assets: Record<string, string>;
@@ -197,15 +222,10 @@ async function run(
         data: {
           substationId,
           assetTypeId: c.assetTypeId,
-          name: c.name,
+          ...assetCommonCreate(c as unknown as Record<string, unknown>),
           parentAssetId: c.parentAssetId ?? null,
           roomText: c.roomText ?? null,
           sourcePresetId: resolveSourcePresetId(c.attributes, c.sourcePresetId),
-          installDate: dateOrNull(c.installDate),
-          manager: c.manager ?? null,
-          status: c.status ?? null,
-          warrantyUntil: dateOrNull(c.warrantyUntil),
-          replaceDue: dateOrNull(c.replaceDue),
           // placement
           floorId: c.floorId ?? null,
           positionX: c.positionX ?? null,
@@ -228,7 +248,7 @@ async function run(
         where: { id: u.id, substationId },
         data: {
           assetTypeId: p.assetTypeId as string | undefined,
-          name: p.name as string | undefined,
+          ...assetCommonUpdate(p as Record<string, unknown>),
           parentAssetId: p.parentAssetId as string | null | undefined,
           roomText: p.roomText as string | null | undefined,
           sourcePresetId:
@@ -237,11 +257,6 @@ async function run(
               : p.attributes !== undefined
                 ? extractSourcePresetId(p.attributes)
                 : undefined,
-          installDate: patchDate(p.installDate),
-          manager: p.manager as string | null | undefined,
-          status: p.status as string | null | undefined,
-          warrantyUntil: patchDate(p.warrantyUntil),
-          replaceDue: patchDate(p.replaceDue),
           // placement
           floorId: p.floorId as string | null | undefined,
           positionX: p.positionX as number | null | undefined,
@@ -304,15 +319,11 @@ async function run(
         data: {
           substationId,
           assetTypeId: c.categoryId,
-          name: c.name,
           parentAssetId: rackId,
           slotIndex: c.slotIndex,
           slotSpan: c.slotSpan,
-          installDate: dateOrNull(c.installDate),
-          manager: c.manager ?? null,
-          description: c.description ?? null,
+          ...assetCommonCreate(c as unknown as Record<string, unknown>),
           sourcePresetId: extractSourcePresetId(c.properties),
-          sortOrder: c.sortOrder ?? 0,
           createdById: userId,
           updatedById: userId,
         },
@@ -350,18 +361,10 @@ async function run(
         data: {
           parentAssetId: rackId,
           assetTypeId: p.categoryId as string | undefined,
-          name: p.name as string | undefined,
           slotIndex: p.slotIndex as number | undefined,
           slotSpan: p.slotSpan as number | undefined,
-          installDate: patchDate(p.installDate),
-          manager: p.manager as string | null | undefined,
-          description: p.description as string | null | undefined,
-          // 랙 모듈도 자산 공통 필드(status/보증/교체)를 동일하게 저장 — 비모듈 경로와 패리티.
-          status: p.status as string | null | undefined,
-          warrantyUntil: patchDate(p.warrantyUntil),
-          replaceDue: patchDate(p.replaceDue),
+          ...assetCommonUpdate(p as Record<string, unknown>),
           sourcePresetId: p.properties !== undefined ? extractSourcePresetId(p.properties) : undefined,
-          sortOrder: p.sortOrder as number | undefined,
           updatedById: userId,
         },
       });

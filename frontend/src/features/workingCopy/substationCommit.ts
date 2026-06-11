@@ -114,39 +114,55 @@ function toCableCreate(c: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-/** Asset create → rackModules.create (필드명 매핑). */
-function toRackModuleCreate(a: Asset & { id: string }): Record<string, unknown> {
-  const out: Record<string, unknown> = {
-    tempId: a.id,
-    rackEquipmentId: a.parentAssetId,
-    categoryId: a.assetTypeId,
-    name: a.name,
-    slotIndex: a.slotIndex,
-    slotSpan: a.slotSpan ?? 1,
-  };
-  if (a.installDate != null) out.installDate = a.installDate;
-  if (a.manager != null) out.manager = a.manager;
-  if (a.description != null) out.description = a.description;
-  // 프리셋 추적: 전용 컬럼 sourcePresetId → 백엔드 모듈 properties.sourcePresetId(#7).
-  if (a.sourcePresetId != null) out.properties = { sourcePresetId: a.sourcePresetId };
-  if (a.sortOrder != null) out.sortOrder = a.sortOrder;
+// ── 자산/랙모듈 공통 스칼라 필드(SSOT) ─────────────────────────────────────────
+// 랙 모듈도 결국 Asset 행이다. 두 경로(assets / rackModules)가 따로 필드를 나열하면
+// 한 곳이 빠져 드롭 버그(예: status OFF→ON 복귀)가 난다 → 공통 스칼라는 *여기 한 곳*에서.
+const ASSET_COMMON_FIELDS = [
+  'name', 'installDate', 'manager', 'description', 'status', 'warrantyUntil', 'replaceDue', 'sortOrder',
+] as const;
+
+/** patch/asset 에서 존재하는 공통 스칼라 필드만 추려 담는다. */
+function pickCommon(src: Record<string, unknown>, includeUndefined: boolean): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of ASSET_COMMON_FIELDS) {
+    if (k in src && (includeUndefined || src[k] !== undefined)) out[k] = src[k];
+  }
   return out;
 }
 
-/** Asset create → assets.create (placement 포함, 필드 verbatim). */
+/** sourcePresetId(전용 컬럼) → 백엔드 랙모듈 properties.sourcePresetId(#7) 매핑. */
+function sourcePresetToProps(v: unknown): { sourcePresetId: string } | null {
+  return v ? { sourcePresetId: v as string } : null;
+}
+
+/** Asset create → rackModules.create. 모듈 전용 키 + 공통 스칼라(한 곳). */
+function toRackModuleCreate(a: Asset & { id: string }): Record<string, unknown> {
+  const rec = a as unknown as Record<string, unknown>;
+  return {
+    tempId: a.id,
+    rackEquipmentId: a.parentAssetId,
+    categoryId: a.assetTypeId,
+    slotIndex: a.slotIndex,
+    slotSpan: a.slotSpan ?? 1,
+    ...(a.sourcePresetId != null ? { properties: sourcePresetToProps(a.sourcePresetId) } : {}),
+    ...pickCommon(rec, false),
+  };
+}
+
+/** Asset create → assets.create (placement 포함). 공통 스칼라 + 자산 전용 키. */
 function toAssetCreate(a: Asset & { id: string }): Record<string, unknown> {
+  const rec = a as unknown as Record<string, unknown>;
   const out: Record<string, unknown> = {
     tempId: a.id,
     assetTypeId: a.assetTypeId,
-    name: a.name,
+    ...pickCommon(rec, false),
   };
-  const passthrough: (keyof Asset)[] = [
-    'parentAssetId', 'roomText', 'sourcePresetId', 'installDate', 'manager', 'status',
-    'warrantyUntil', 'replaceDue',
+  // 자산 전용(모듈엔 없음): 참조/배치 키. 공통 스칼라는 위 pickCommon 한 곳에서.
+  const assetOnly: (keyof Asset)[] = [
+    'parentAssetId', 'roomText', 'sourcePresetId',
     'floorId', 'positionX', 'positionY', 'width2d', 'height2d', 'rotation', 'totalU',
   ];
-  const rec = a as unknown as Record<string, unknown>;
-  for (const k of passthrough) {
+  for (const k of assetOnly) {
     const v = rec[k as string];
     if (v !== undefined) out[k as string] = v;
   }
@@ -154,25 +170,18 @@ function toAssetCreate(a: Asset & { id: string }): Record<string, unknown> {
 }
 
 /**
- * Asset patch → rackModules.patch — 존재하는 키만 매핑(renamed keys 포함).
- * parentAssetId→rackEquipmentId, assetTypeId→categoryId,
- * sourcePresetId→properties.sourcePresetId(#7).
- * 나머지(name/slotIndex/slotSpan/installDate/manager/description/sortOrder)는 동명.
+ * Asset patch → rackModules.patch. 모듈 전용 키만 *이름을 바꿔* 매핑하고, 나머지 자산
+ * 스칼라는 *그대로 통과*시킨다(allowlist 없음 → 새 필드를 추가해도 드롭 불가). 모듈과
+ * 무관한 키(placement 등)는 백엔드 Zod 가 strip 하므로 과잉 전송은 무해.
+ * (자산 patch 는 raw 로 전송 → 두 경로 모두 "필드 나열"이 사라져 드롭 버그가 구조적으로 불가능.)
  */
 function toRackModulePatch(patch: Partial<Asset>): Record<string, unknown> {
-  const p = patch as Record<string, unknown>;
+  const p = { ...(patch as Record<string, unknown>) };
   const out: Record<string, unknown> = {};
-  if ('parentAssetId' in p) out.rackEquipmentId = p.parentAssetId;
-  if ('assetTypeId' in p) out.categoryId = p.assetTypeId;
-  if ('sourcePresetId' in p) {
-    out.properties = p.sourcePresetId ? { sourcePresetId: p.sourcePresetId } : null;
-  }
-  // status/warrantyUntil/replaceDue 도 자산 공통 필드 — 랙 모듈도 동일하게 커밋해야
-  // '상태 OFF 저장 시 ON 복귀' 같은 드롭 버그가 안 생긴다(비모듈 경로와 필드 패리티).
-  for (const k of ['name', 'slotIndex', 'slotSpan', 'installDate', 'manager', 'description', 'sortOrder', 'status', 'warrantyUntil', 'replaceDue'] as const) {
-    if (k in p) out[k] = p[k];
-  }
-  return out;
+  if ('parentAssetId' in p) { out.rackEquipmentId = p.parentAssetId; delete p.parentAssetId; }
+  if ('assetTypeId' in p) { out.categoryId = p.assetTypeId; delete p.assetTypeId; }
+  if ('sourcePresetId' in p) { out.properties = sourcePresetToProps(p.sourcePresetId); delete p.sourcePresetId; }
+  return { ...p, ...out };
 }
 
 /**

@@ -36,21 +36,29 @@ function collection<C extends z.ZodTypeAny, P extends z.ZodTypeAny>(create: C, p
 // ==================== Asset (register fields + placement) ====================
 // register 필드는 AssetCommitInput.creates, placement 는 Asset 의 floorId/
 // positionX/positionY/width2d/height2d/rotation/totalU 컬럼. placement 는 선택.
+// 자산/랙모듈 공통 스칼라 필드(SSOT) — asset/rackModule 스키마가 같은 정의를 공유해서
+// 한 필드를 한 곳에만 적으면 양쪽에 반영된다(한쪽에서 빠져 Zod 가 strip → 드롭되던 버그 차단).
+const assetCommonFields = {
+  name: z.string(),
+  installDate: z.string().nullable().optional(),
+  manager: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  status: z.string().nullable().optional(),
+  warrantyUntil: z.string().nullable().optional(),
+  replaceDue: z.string().nullable().optional(),
+  sortOrder: z.number().optional(),
+};
+
 const assetCreate = z.object({
   tempId: z.string(),
   assetTypeId: z.string(),
-  name: z.string(),
+  ...assetCommonFields,
   parentAssetId: z.string().nullable().optional(),
   roomText: z.string().nullable().optional(),
   // sourcePresetId 전용 컬럼(상세패널 오버홀 S3). attributes 는 프론트(S4 이전)가
   // properties↔attributes 라운드트립으로 보내는 free-form JSON 호환 — sourcePresetId 만 추출.
   sourcePresetId: z.string().nullable().optional(),
   attributes: z.unknown().optional(),
-  installDate: z.string().nullable().optional(),
-  manager: z.string().nullable().optional(),
-  status: z.string().nullable().optional(),
-  warrantyUntil: z.string().nullable().optional(),
-  replaceDue: z.string().nullable().optional(),
   // placement (도면 미배치 Asset 은 모두 생략 가능)
   floorId: z.string().nullable().optional(),
   positionX: z.number().nullable().optional(),
@@ -93,18 +101,11 @@ const rackModuleCreate = z.object({
   tempId: z.string(),
   rackEquipmentId: z.string(),
   categoryId: z.string(),
-  name: z.string(),
   slotIndex: z.number(),
   slotSpan: z.number(),
-  installDate: z.string().nullable().optional(),
-  manager: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  // 자산 공통 필드 — 랙 모듈도 status/보증/교체를 커밋(비모듈 경로와 패리티).
-  status: z.string().nullable().optional(),
-  warrantyUntil: z.string().nullable().optional(),
-  replaceDue: z.string().nullable().optional(),
+  // 자산 공통 스칼라(name/status/보증/교체/sortOrder 등) — assetCreate 와 동일 정의 공유.
+  ...assetCommonFields,
   properties: z.unknown().optional(),
-  sortOrder: z.number().optional(),
 });
 const rackModulePatch = rackModuleCreate.omit({ tempId: true }).partial();
 
