@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import { isTempId } from '../../../utils/idHelpers';
-import type { FiberPathDetail, CreateFiberPathInput } from '../types';
+import type { FiberPathDetail } from '../types';
 
 const FIBER_PATH_KEYS = {
   all: ['fiber-paths'] as const,
@@ -50,35 +50,5 @@ export function useFiberPathDetail(pathId: string, enabled = true) {
   });
 }
 
-export function useCreateFiberPath() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: CreateFiberPathInput) => {
-      const { data } = await api.post<{ data: FiberPathDetail }>(
-        '/fiber-paths',
-        input
-      );
-      return data.data;
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: FIBER_PATH_KEYS.byOfd(variables.ofdAId),
-      });
-      queryClient.invalidateQueries({
-        queryKey: FIBER_PATH_KEYS.byOfd(variables.ofdBId),
-      });
-    },
-  });
-}
-
-export function useDeleteFiberPath() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (pathId: string) => {
-      await api.delete(`/fiber-paths/${pathId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: FIBER_PATH_KEYS.all });
-    },
-  });
-}
+// fiber path 생성/삭제는 워킹카피 staging(substationStore.stageFiberPathCreate/Delete)으로만.
+// 즉시 CRUD(useCreateFiberPath/useDeleteFiberPath)는 C2 위반 + 미사용이라 제거함.

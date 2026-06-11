@@ -7,10 +7,10 @@ import { DetailTabs } from './detail/DetailTabs';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { InspectionSection } from './detail/InspectionSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
-import { useAssetConnections } from '../../connections/hooks/useAssetConnections';
-import { useCableMutations } from '../../connections/hooks/useCableMutations';
+import { useEffectiveAssetConnections } from '../../connections/hooks/useEffectiveAssetConnections';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
+import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 
 /**
  * 단일 상세 인스펙터(SSOT) — 평면도(에디터)·현황·대장 그리드 모든 진입점에서
@@ -156,8 +156,10 @@ function StatusField({ value, onCommit, readOnly }: { value: string | null; onCo
 export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, spatialLabel }: Props) {
   const ro = mode === 'view';
   const patch = (p: Partial<Asset>) => onPatch?.(asset.id, p);
-  const { data: connections = [] } = useAssetConnections(asset.id);
-  const { deleteCable, updateCable } = useCableMutations();
+  // C1/C2: 연결은 effective(워킹카피)에서 읽고 stage 로 쓴다 — 서버 즉시 CRUD 제거.
+  const connections = useEffectiveAssetConnections(asset.id);
+  const stageCableUpdate = useSubstationWorkingCopy((s) => s.stageCableUpdate);
+  const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
   // 랙 모듈(parentAssetId 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출하고
   // 상위 랙으로 돌아가는 breadcrumb 를 보여준다. (구 RackModuleDialog 의 RO 정보 대체.)
@@ -247,8 +249,8 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, s
         <AssetConnectionsSection
           assetId={asset.id}
           connections={connections}
-          onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) deleteCable.mutate(id); }}
-          onUpdate={(id, p) => updateCable.mutate({ id, patch: p })}
+          onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) stageCableDelete(id); }}
+          onUpdate={(id, p) => stageCableUpdate(id, p)}
           onSelectAsset={onSelectAsset}
         />
       ),

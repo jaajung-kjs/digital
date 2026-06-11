@@ -15,10 +15,7 @@ vi.mock('../../../services/assetApi', () => ({
 // working copy load 는 /substations/:id/workingcopy 를 api.get 으로 가져온다 → 픽스처 주입.
 vi.mock('../../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 // 인스펙터 연결 섹션은 네트워크 — 테스트에선 무력화.
-vi.mock('../../connections/hooks/useAssetConnections', () => ({ useAssetConnections: () => ({ data: [] }) }));
-vi.mock('../../connections/hooks/useCableMutations', () => ({
-  useCableMutations: () => ({ deleteCable: { mutate: vi.fn() }, updateCable: { mutate: vi.fn() } }),
-}));
+// 연결은 effective(워킹카피)에서 읽으므로 서버 훅 mock 불필요(빈 스토어 → 빈 목록).
 // 인스펙터 폴백(로딩 중) 페치는 사용 안 함 — effective 에서 해석.
 vi.mock('../hooks/useAsset', () => ({ useAsset: () => ({ data: undefined }) }));
 // 상세 본문의 종류별 공간 섹션(랙뷰/OFD 경로 등)은 자체 네트워크/스토어 의존이 무거움 —
