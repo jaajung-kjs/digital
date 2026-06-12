@@ -13,6 +13,10 @@
   --eq-1:#44403c; --eq-2:#78716c; --eq-3:#a8a29e; --eq-4:#d6d3d1;
   /* 포커스 링 — translucent 명시값(이 설정은 색을 raw var 로 정의해 Tailwind opacity 모디파이어가 안 먹음) */
   --ring-primary: rgb(21 64 107 / 0.4); --ring-primary-weak: rgb(21 64 107 / 0.2); --ring-danger: rgb(185 28 28 / 0.4);
+  /* 오버레이 스크림 — 모달 백드롭 통일(black/white 외 var 색은 opacity 안 먹으므로 명시 rgb) */
+  --overlay: rgb(0 0 0 / 0.45); --overlay-strong: rgb(0 0 0 / 0.8);
+  /* 에디터 선택 외곽선 — 비즈니스 navy(=primary) */
+  --selection: #15406b;
   --radius:8px;
 }
 
