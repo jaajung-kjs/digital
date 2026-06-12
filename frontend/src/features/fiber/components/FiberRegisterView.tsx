@@ -21,12 +21,7 @@ export function FiberRegisterView({ substationId }: { substationId: string }) {
         {ofds.length === 0 ? (
           <p className="p-4 text-sm text-content-faint">이 변전소에 OFD(광단국)가 없습니다.</p>
         ) : (
-          ofds.map((ofd) => (
-            <section key={ofd.id}>
-              <h2 className="mb-2 text-sm font-semibold text-content">{ofd.name}</h2>
-              <OfdFiberRegister ofdId={ofd.id} />
-            </section>
-          ))
+          ofds.map((ofd) => <OfdFiberRegister key={ofd.id} ofdId={ofd.id} />)
         )}
       </div>
       {selectedAssetId && (

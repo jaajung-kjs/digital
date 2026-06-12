@@ -37,7 +37,12 @@ function commitMeta(
   });
 }
 
-/** 한 OFD 의 선번장 — 광경로(상대국)별 섹션 + 코어 행. usePortStatus 합법 호출 단위. */
+// 통일 그리드 양식(현황 NodeStatusView 규약): 헤더 셀 / 본문 셀 클래스.
+const TH = 'px-2 py-2 text-[12px] font-medium tracking-wide text-content-muted whitespace-nowrap';
+const TD = 'px-2 text-[13px] align-middle whitespace-nowrap';
+const CELL_INPUT = 'w-full text-[13px] border border-line rounded px-1.5 py-1 bg-surface text-content';
+
+/** 한 OFD 의 선번장 — 광경로(출발-도착 변전소)별 섹션 + 코어 행. usePortStatus 합법 호출 단위. */
 export function OfdFiberRegister({ ofdId }: { ofdId: string }) {
   const { mergedPaths, isLoading } = usePortStatus(ofdId);
   const fiberCores = useEffectiveFiberCores();
@@ -51,26 +56,29 @@ export function OfdFiberRegister({ ofdId }: { ofdId: string }) {
   if (!sections.length) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {sections.map(({ path, rows }) => {
-        const remoteName = path.ofdA.id === ofdId ? path.ofdB.substationName : path.ofdA.substationName;
+        // 출발 = 보고 있는 OFD 의 변전소, 도착 = 상대국.
+        const localIsA = path.ofdA.id === ofdId;
+        const fromName = localIsA ? path.ofdA.substationName : path.ofdB.substationName;
+        const toName = localIsA ? path.ofdB.substationName : path.ofdA.substationName;
         const used = rows.filter((r) => r.usage === '사용').length;
         return (
           <section key={path.id}>
-            <header className="mb-1 flex items-center gap-2 px-1 text-[12px] font-medium text-content-muted">
-              <span>{remoteName}</span>
-              <span className="ml-auto tabular-nums text-content-faint">사용 {used}/{path.portCount}</span>
+            <header className="mb-1.5 flex items-baseline gap-2 px-1">
+              <h3 className="text-sm font-semibold text-content">{fromName} - {toName}</h3>
+              <span className="ml-auto text-[12px] tabular-nums text-content-faint">사용 {used}/{path.portCount}</span>
             </header>
-            <table className="w-full text-[13px]">
+            <table className="w-full border-collapse">
               <thead>
-                <tr className="text-left text-[11px] text-content-faint border-b border-line">
-                  <th className="px-2 py-1 w-12 tabular-nums">코어</th>
-                  <th className="px-2 py-1">근접자산</th>
-                  <th className="px-2 py-1">상대국측</th>
-                  <th className="px-2 py-1">용도</th>
-                  <th className="px-2 py-1">수용내역</th>
-                  <th className="px-2 py-1 w-16">융착</th>
-                  <th className="px-2 py-1 w-14">사용</th>
+                <tr className="text-left bg-surface-2 border-b border-line-strong">
+                  <th className={`${TH} w-14`}>코어</th>
+                  <th className={TH}>근접자산</th>
+                  <th className={TH}>상대국측</th>
+                  <th className={TH}>용도</th>
+                  <th className={TH}>수용내역</th>
+                  <th className={`${TH} w-24`}>융착</th>
+                  <th className={`${TH} w-28`}>사용</th>
                 </tr>
               </thead>
               <tbody>
@@ -100,40 +108,46 @@ function CoreRow({ ofdId, row }: { ofdId: string; row: FiberCoreRow }) {
   return (
     <tr
       onClick={onClick}
-      className={`border-b border-line cursor-pointer ${active ? 'bg-info-bg' : 'hover:bg-surface-2'}`}
+      className={`h-9 cursor-pointer border-b border-line transition-colors ${
+        active ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2 active:bg-surface-3'
+      }`}
     >
-      <td className="px-2 py-1.5 tabular-nums text-content-muted">{row.coreNumber}</td>
-      <td className="px-2 py-1.5 truncate">{row.near?.assetName ?? <span className="text-content-faint">—</span>}</td>
-      <td className="px-2 py-1.5 truncate text-content-muted">{row.far?.assetName ?? <span className="text-content-faint">—</span>}</td>
-      <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+      <td className={`${TD} tabular-nums text-content-muted`}>{row.coreNumber}</td>
+      <td className={`${TD} text-content max-w-[12rem] truncate`} title={row.near?.assetName ?? undefined}>
+        {row.near?.assetName ?? <span className="text-content-faint">—</span>}
+      </td>
+      <td className={`${TD} text-content-muted max-w-[12rem] truncate`} title={row.far?.assetName ?? undefined}>
+        {row.far?.assetName ?? <span className="text-content-faint">—</span>}
+      </td>
+      <td className={TD} onClick={(e) => e.stopPropagation()}>
         <input
           aria-label="용도" placeholder="용도" defaultValue={row.purpose ?? ''}
           key={`${row.coreNumber}-purpose-${row.purpose ?? ''}`}
           onBlur={(e) => { const v = e.target.value || null; if (v !== row.purpose) commitMeta(row, 'purpose', v); }}
-          className="w-full text-[12px] border border-line rounded px-1 py-0.5 bg-surface"
+          className={CELL_INPUT}
         />
       </td>
-      <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+      <td className={TD} onClick={(e) => e.stopPropagation()}>
         <input
           aria-label="수용내역" placeholder="수용내역" defaultValue={row.circuitText ?? ''}
           key={`${row.coreNumber}-circuit-${row.circuitText ?? ''}`}
           onBlur={(e) => { const v = e.target.value || null; if (v !== row.circuitText) commitMeta(row, 'circuitText', v); }}
-          className="w-full text-[12px] border border-line rounded px-1 py-0.5 bg-surface"
+          className={CELL_INPUT}
         />
       </td>
-      <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+      <td className={TD} onClick={(e) => e.stopPropagation()}>
         <select aria-label="융착" value={row.spliceType ?? ''}
           onChange={(e) => { const v = e.target.value || null; if (v !== row.spliceType) commitMeta(row, 'spliceType', v); }}
-          className="text-[12px] border border-line rounded px-1 py-0.5 bg-surface">
+          className={CELL_INPUT}>
           <option value="">—</option>
           <option value="융착">융착</option>
           <option value="패치">패치</option>
         </select>
       </td>
-      <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+      <td className={TD} onClick={(e) => e.stopPropagation()}>
         <select aria-label="사용" value={row.usageOverride ?? '자동'}
           onChange={(e) => { const v = e.target.value === '자동' ? null : e.target.value; if (v !== row.usageOverride) commitMeta(row, 'usageOverride', v); }}
-          className="text-[12px] border border-line rounded px-1 py-0.5 bg-surface">
+          className={CELL_INPUT}>
           <option value="자동">자동{row.usage === '사용' ? '(사용)' : '(미사용)'}</option>
           <option value="사용">사용</option>
           <option value="미사용">미사용</option>
