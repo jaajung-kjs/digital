@@ -7,9 +7,11 @@
  */
 
 import { create } from 'zustand';
+import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { traceCable } from '../../../utils/cableTracer';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { assetsByIdMap, floorAnchor } from '../../workingCopy/floorAnchor';
+import { floorAnchor } from '../../workingCopy/floorAnchor';
+import { toMapById } from '../../../utils/byId';
 import { cableDtoToLocal, type CableDetailDTO } from '../../network/store';
 import { ensureOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
 import { composeFiberPaths } from '../../workingCopy/merge';
@@ -39,7 +41,7 @@ function idleState() {
  */
 function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]): Set<string> {
   const result = new Set(nodeIds);
-  const byId = assetsByIdMap(effectiveAssets);
+  const byId = toMapById(effectiveAssets);
   for (const id of nodeIds) {
     const anchor = floorAnchor(id, byId);
     if (anchor) result.add(anchor.id);
@@ -85,9 +87,9 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
         .map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
       const effAssets = wc.effectiveAssets();
       const localEquipment: Asset[] = effAssets
-        .filter((a) => !(a.parentAssetId && a.slotIndex != null));
+        .filter((a) => !isRackModuleAsset(a));
       const localRackModules: Asset[] = effAssets
-        .filter((a) => a.parentAssetId && a.slotIndex != null);
+        .filter((a) => isRackModuleAsset(a));
       const allFiberPaths = composeFiberPaths(
         wc.effectiveFiberPaths() as unknown as Array<{ id: string; ofdAId: string; ofdBId: string; portCount: number; description?: string | null }>,
         directory,

@@ -111,7 +111,7 @@ export function useCanvas(
     // 단일 choke-point: floorTargetFor 로 선택 asset → 도면 anchor rect 해소.
     // 미배치 모듈/회로/포트는 부모 설비(랙/OFD/분전반) rect 로 하이라이트된다.
     // 스냅샷 보기 중에는 통합 effective 가 비어 self-find 로 폴백한다.
-    const detailPanelEqId = editorState.detailPanelEquipmentId;
+    const detailPanelEqId = editorState.detailAssetId;
     if (detailPanelEqId) {
       const target = floorTargetFor(detailPanelEqId, useSubstationWorkingCopy.getState().effectiveAssets());
       if (target) {

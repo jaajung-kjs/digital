@@ -1,5 +1,5 @@
 import { RecordFormList } from '../../../workingCopy/RecordFormList';
-import { RECORD_TYPE_BY_KEY } from '../../../workingCopy/recordTypes';
+import { RECORD_TYPE_BY_KEY, LOGS } from '../../../workingCopy/recordTypes';
 
 /**
  * 고장이력(failure/repair) — git-like 스테이징. 점검(MAINTENANCE) 제외, 기본 FAILURE.
@@ -10,5 +10,5 @@ import { RECORD_TYPE_BY_KEY } from '../../../workingCopy/recordTypes';
  *    SAVE(commit) 시 반영된다. 보류 항목은 인라인 수정/삭제, 저장 항목은 삭제만.
  */
 export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: boolean }) {
-  return <RecordFormList def={RECORD_TYPE_BY_KEY.logs} parentId={equipmentId} readOnly={readOnly} />;
+  return <RecordFormList def={RECORD_TYPE_BY_KEY[LOGS]} parentId={equipmentId} readOnly={readOnly} />;
 }

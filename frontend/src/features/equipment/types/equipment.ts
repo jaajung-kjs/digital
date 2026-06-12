@@ -1,29 +1,4 @@
-
-export interface EquipmentFormData {
-  name: string;
-  model?: string;
-  manufacturer?: string;
-  serialNumber?: string;
-  manager?: string;
-  description?: string;
-  positionX: number;
-  positionY: number;
-  width2d: number;
-  height2d: number;
-  rotation?: number;
-  height3d?: number;
-  materialCategoryId?: string | null;
-  materialCategoryCode?: string | null;
-}
-
-export interface MaintenanceFormData {
-  logType: string;
-  title: string;
-  description?: string;
-  logDate?: string;
-  severity?: string;
-  status?: string;
-}
+// 고장이력(MaintenanceLog) 행 배지·드롭다운용 enum 맵. recordTypes.ts(ASSET_RECORD_TYPES)가 사용.
 
 // 표시용 라벨 — 레거시 MAINTENANCE(점검) 행도 목록에서 올바르게 표시하기 위해 유지.
 export const LOG_TYPE_LABELS: Record<string, string> = {
@@ -61,17 +36,4 @@ export const SEVERITY_LABELS: Record<string, string> = {
   LOW: '낮음',
 };
 
-export const STATUS_COLORS: Record<string, string> = {
-  OPEN: 'bg-info-bg text-primary',
-  IN_PROGRESS: 'bg-info-bg text-primary',
-  RESOLVED: 'bg-success-bg text-success',
-  CLOSED: 'bg-surface-2 text-content-muted',
-};
-
-export const STATUS_LABELS: Record<string, string> = {
-  OPEN: '\uC5F4\uB9BC',
-  IN_PROGRESS: '\uC9C4\uD589\uC911',
-  RESOLVED: '\uD574\uACB0',
-  CLOSED: '\uC885\uB8CC',
-};
 

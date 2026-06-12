@@ -93,8 +93,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   const detailAssetId = useEditorStore(s => s.detailAssetId);
   const togglePanel = useEditorStore(s => s.togglePanel);
   const closeRightPanel = useEditorStore(s => s.closeRightPanel);
-  // 캔버스 focus useEffect / URL deep-link 가 쓰는 "현재 상세 설비 id" alias.
-  const detailPanelEquipmentId = useEditorStore(s => s.detailPanelEquipmentId);
   const restoredFromVersion = useEditorStore(s => s.restoredFromVersion);
   const floorConflict = useEditorStore(s => s.floorConflict);
   const setRestoredFromVersion = useEditorStore(s => s.setRestoredFromVersion);
@@ -151,11 +149,11 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
   //     ID 변경(다른 설비) + 클릭 반복 둘 다 한 효과로 처리.
   const focusTick = useEditorStore((s) => s.focusTick);
   useEffect(() => {
-    if (!detailPanelEquipmentId) return;
+    if (!detailAssetId) return;
     // 단일 choke-point: 선택 asset → 도면 anchor rect. 미배치 모듈/회로/포트는
     // floorTargetFor 가 부모 설비(랙/OFD/분전반) rect 로 해소하므로 그 설비에 포커스.
     const target = floorTargetFor(
-      detailPanelEquipmentId,
+      detailAssetId,
       useSubstationWorkingCopy.getState().effectiveAssets(),
     );
     if (!target || !containerRef.current) return;
@@ -173,7 +171,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
       RIGHT_PANEL_WIDTH,
     );
     useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
-  }, [detailPanelEquipmentId, focusTick]);
+  }, [detailAssetId, focusTick]);
 
   // (2) 케이블 경로 하이라이트 시 viewport 정렬 — 연결 탭에서 케이블 카드 클릭마다
   //     pathHighlightStore.tracingCableId 가 새 값으로 set 되므로 deps 가 그 ID 와

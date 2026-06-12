@@ -1,22 +1,18 @@
 import { useRef, useState, useMemo } from 'react';
+import { formatDate } from '../../../utils/date';
+import { PHOTOS } from '../../workingCopy/recordTypes';
 import { createPortal } from 'react-dom';
 import { X, Upload, Image as ImageIcon } from 'lucide-react';
 import { compressImage } from '../../../utils/imageCompression';
-import { generateTempId } from '../../../utils/idHelpers';
+import { generateTempId, isTempId } from '../../../utils/idHelpers';
+import { useAssetRecords } from '../../workingCopy/hooks';
+// 사진은 자산이 소유한 레코드(recordType='photos') — 단일 records 컬렉션의 한 종류.
+// saved(워킹카피 endpoint, imageUrl) + overlay(staging, File/objectUrl) effective. 단일 저장 시
+// 업로드/삭제 후 load 가 saved 를 재조정. 삭제도 stage(C2).
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useEffectivePhotos } from '../../workingCopy/hooks';
-// 사진은 워킹카피(substationStore photos 컬렉션)로 스테이징 → 단일 저장 시 flushPendingMedia 가 업로드.
-// 저장된 사진은 query key(['equipment-photos', id])로 commit 무효화 자동 갱신. 삭제도 stage(C2).
-// P5c: 사진 갤러리 UI 는 두 현행 표현(현황 세로 스택 / 에디터 풀높이 뷰어)이 너무 달라
-// 통합하지 않고 유지하되, 데이터-레이어(컬렉션 키/엔드포인트/무효화)는 레지스트리(PHOTO_DEF)에서 읽는다.
-import { useEquipmentPhotos } from '../../equipment/hooks/useEquipmentPhotos';
-import { RECORD_TYPE_BY_KEY } from '../../workingCopy/recordTypes';
-
-const PHOTO_DEF = RECORD_TYPE_BY_KEY.photos;
 
 type Shown = { id: string; url: string; isPending: boolean; date: string | null };
 
-const fmtDate = (s: string) => new Date(s).toLocaleDateString('ko-KR');
 
 /**
  * 사진 섹션 — 전면/후면 세그먼트 토글 + 큰 사진(세로 사진도 꽉 차게 object-contain) +
@@ -26,27 +22,23 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
   const [side, setSide] = useState<'front' | 'rear'>('front');
   const [lightbox, setLightbox] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const { data: saved = [] } = useEquipmentPhotos(assetId);
 
-  const stagedPhotos = useEffectivePhotos();
-  const photoDeletes = useSubstationWorkingCopy((s) => s.overlays.photos.deletes);
+  const photos = useAssetRecords(assetId, PHOTOS); // 자산의 사진 레코드(saved+staged 단일 소스)
   const put = useSubstationWorkingCopy((s) => s.put);
   const remove = useSubstationWorkingCopy((s) => s.remove);
 
   const shown = useMemo<Shown[]>(() => {
-    const pending = stagedPhotos
-      .filter((u) => u.assetId === assetId && u.side === side)
-      .map((u) => ({ id: u.id, url: u.objectUrl ?? '', isPending: true as const, date: null }));
-    const savedShown = saved
-      .filter((p) => p.side === side && !photoDeletes.includes(p.id)) // 삭제 staged 제외
-      .map((p) => ({
-        id: p.id,
-        url: p.imageUrl,
-        isPending: false as const,
-        date: p.takenAt ?? p.createdAt ?? null,
-      }));
-    return [...pending, ...savedShown];
-  }, [stagedPhotos, photoDeletes, saved, assetId, side]);
+    const mine = photos.filter((p) => p.side === side);
+    const toShown = (p: (typeof mine)[number]): Shown =>
+      isTempId(p.id)
+        ? { id: p.id, url: String(p.objectUrl ?? ''), isPending: true, date: null }
+        : { id: p.id, url: String(p.imageUrl ?? ''), isPending: false, date: (p.takenAt ?? p.createdAt ?? null) as string | null };
+    // 보류(temp) 위, 저장됨(real) 아래.
+    return [
+      ...mine.filter((p) => isTempId(p.id)).map(toShown),
+      ...mine.filter((p) => !isTempId(p.id)).map(toShown),
+    ];
+  }, [photos, side]);
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -54,12 +46,12 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
     if (!file) return;
     const compressed = await compressImage(file);
     const objectUrl = URL.createObjectURL(compressed);
-    put(PHOTO_DEF.key, { id: generateTempId(), assetId, side, file: compressed, description: '', objectUrl });
+    put('records', { id: generateTempId(), assetId, recordType: PHOTOS, side, file: compressed, description: '', objectUrl });
   };
 
   const onDelete = (item: { id: string; isPending: boolean; url: string }) => {
-    if (item.isPending) { if (item.url) URL.revokeObjectURL(item.url); remove(PHOTO_DEF.key, item.id); return; }
-    if (window.confirm('사진을 삭제할까요?')) remove(PHOTO_DEF.key, item.id); // C2: 즉시삭제 X, stage(저장 시 DELETE)
+    if (item.isPending) { if (item.url) URL.revokeObjectURL(item.url); remove('records', item.id); return; }
+    if (window.confirm('사진을 삭제할까요?')) remove('records', item.id); // C2: 즉시삭제 X, stage(저장 시 DELETE)
   };
 
   return (
@@ -111,7 +103,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
               />
               <figcaption className="absolute inset-x-0 bottom-0 flex items-center justify-between px-2 py-1 bg-gradient-to-t from-black/65 to-transparent text-xs text-white">
                 <span>
-                  {item.isPending ? '저장 대기' : item.date ? fmtDate(item.date) : ''}
+                  {item.isPending ? '저장 대기' : item.date ? formatDate(item.date) : ''}
                 </span>
               </figcaption>
               <button

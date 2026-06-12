@@ -55,7 +55,7 @@ export function useEditorKeyboard(
       }
 
       if (e.key === 'Escape') {
-        if (es.detailPanelEquipmentId) {
+        if (es.detailAssetId) {
           es.closeRightPanel();
           return;
         }
@@ -129,12 +129,12 @@ export function useEditorKeyboard(
       }
 
       // Delete — rack module.
-      // 모듈 클릭은 이제 통합 패널(detailPanelEquipmentId)을 연다. 패널이 가리키는
+      // 모듈 클릭은 이제 통합 패널(detailAssetId)을 연다. 패널이 가리키는
       // 자산이 랙 자식(parentAssetId 있음)이면 모듈 삭제로 처리. (구 selectedRackModuleId
       // 도 호환을 위해 함께 검사.)
       const moduleDeleteId = (() => {
         if (es.selectedRackModuleId) return es.selectedRackModuleId;
-        const panelId = es.detailPanelEquipmentId;
+        const panelId = es.detailAssetId;
         if (!panelId) return null;
         const a = useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === panelId);
         return a?.parentAssetId != null ? panelId : null;
@@ -146,7 +146,7 @@ export function useEditorKeyboard(
         if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
         useSubstationWorkingCopy.getState().stageRackModuleDelete(moduleDeleteId);
         es.setSelectedRackModuleId(null);
-        if (es.detailPanelEquipmentId === moduleDeleteId) es.closeRightPanel();
+        if (es.detailAssetId === moduleDeleteId) es.closeRightPanel();
         return;
       }
 

@@ -15,12 +15,8 @@ import { usersRouter } from './routes/users.routes.js';
 import { substationsRouter } from './routes/substations.routes.js';
 import { floorsRouter } from './routes/floors.routes.js';
 import { equipmentRouter } from './routes/equipment.routes.js';
-import { portsRouter } from './routes/ports.routes.js';
 import { organizationRouter } from './routes/organization.routes.js';
 import { cablesRouter } from './routes/cables.routes.js';
-import { equipmentPhotosRouter } from './routes/equipmentPhotos.routes.js';
-import { maintenanceLogsRouter } from './routes/maintenanceLogs.routes.js';
-import { inspectionLogsRouter } from './routes/inspectionLogs.routes.js';
 import { fiberPathsRouter } from './routes/fiberPaths.routes.js';
 import { cableCategoriesRouter } from './routes/cableCategories.routes.js';
 import { rackModuleCategoriesRouter } from './routes/rackModuleCategories.routes.js';
@@ -32,6 +28,9 @@ import { assetTypesRouter } from './routes/assetTypes.routes.js';
 import { assetsRouter } from './routes/assets.routes.js';
 import { assetCommitRouter } from './routes/assetCommit.routes.js';
 import { nodesRouter } from './routes/nodes.routes.js';
+import { uploadsRouter } from './routes/uploads.routes.js';
+import { assetRecordSchemaRouter } from './routes/assetRecordSchema.routes.js';
+import { commitRouter } from './routes/commit.routes.js';
 
 const app = express();
 
@@ -88,12 +87,8 @@ app.use('/api/users', usersRouter);
 app.use('/api/substations', substationsRouter);
 app.use('/api/floors', floorsRouter);
 app.use('/api/equipment', equipmentRouter);
-app.use('/api/ports', portsRouter);
 app.use('/api/organizations', organizationRouter);
 app.use('/api/cables', cablesRouter);
-app.use('/api/asset-photos', equipmentPhotosRouter);
-app.use('/api/maintenance-logs', maintenanceLogsRouter);
-app.use('/api/inspection-logs', inspectionLogsRouter);
 app.use('/api', fiberPathsRouter);
 // 카테고리/프리셋/BOM 자재 라우트 (P7) — MaterialCategory/Material 폐기 후 신규 분리.
 app.use('/api/cable-categories', cableCategoriesRouter);
@@ -106,6 +101,9 @@ app.use('/api/asset-types', assetTypesRouter);
 app.use('/api/assets', assetsRouter);
 app.use('/api/substations', assetCommitRouter);
 app.use('/api/nodes', nodesRouter);
+app.use('/api/uploads', uploadsRouter);
+app.use('/api/asset-record-schema', assetRecordSchemaRouter);
+app.use('/api/commit', commitRouter);
 
 // 404 handler
 app.use((_req, res) => {

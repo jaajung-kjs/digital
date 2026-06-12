@@ -4,7 +4,6 @@
  */
 
 import type { Asset } from '../../types/asset';
-import { widthOf, heightOf } from '../../features/workingCopy/placement';
 import { SELECTION_STYLES, ELEMENT_COLORS } from '../canvas/canvasDrawing';
 import { distance } from '../geometry/geometryUtils';
 
@@ -57,8 +56,8 @@ export function renderEquipmentItem(
   item: Asset,
   isSelected: boolean,
 ): void {
-  const w = widthOf(item);
-  const h = heightOf(item);
+  const w = item.width2d ?? 0;
+  const h = item.height2d ?? 0;
   const px = item.positionX ?? 0;
   const py = item.positionY ?? 0;
   ctx.save();
@@ -209,8 +208,8 @@ export function renderEquipmentLengths(
   for (const item of items) {
     const px = item.positionX ?? 0;
     const py = item.positionY ?? 0;
-    const w = widthOf(item);
-    const h = heightOf(item);
+    const w = item.width2d ?? 0;
+    const h = item.height2d ?? 0;
     renderLengthLabel(ctx, px, py, px + w, py, zoom);
     renderLengthLabel(ctx, px, py, px, py + h, zoom);
   }

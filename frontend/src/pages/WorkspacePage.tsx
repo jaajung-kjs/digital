@@ -9,7 +9,8 @@ import { SelectionContext } from '../features/workspace/SelectionContext';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
 import { useWorkingCopyLoader, useEffectiveAssets } from '../features/workingCopy/hooks';
-import { floorAnchor, assetsByIdMap } from '../features/workingCopy/floorAnchor';
+import { floorAnchor } from '../features/workingCopy/floorAnchor';
+import { toMapById } from '../utils/byId';
 import { useSubstationWorkingCopy } from '../features/workingCopy/substationStore';
 import { WorkingCopyCommitBar } from '../features/workingCopy/WorkingCopyCommitBar';
 import { useOrganizationStore } from '../stores/organizationStore';
@@ -83,7 +84,7 @@ export function WorkspacePage() {
   // 선택 자산의 floor 표현(anchor) — 미배치 자산(랙 모듈·회로·포트)은 부모 설비로 해소.
   // 예: 모듈을 선택하고 평면도로 가면 그 모듈의 랙(=anchor)의 floor/substation 을 연다.
   // 단일 floorAnchor 로 해소(깊이 무관) — 도면 위치 해소의 단일 정답.
-  const assetsById = useMemo(() => assetsByIdMap(effective), [effective]);
+  const assetsById = useMemo(() => toMapById(effective), [effective]);
   const selectedAsset = selectedAssetId ? assetsById.get(selectedAssetId) : undefined;
   const selectedAnchor = selectedAssetId ? floorAnchor(selectedAssetId, assetsById) : null;
 

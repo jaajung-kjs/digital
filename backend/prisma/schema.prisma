@@ -238,38 +238,6 @@ model BomMaterial {
   @@map("bom_materials")
 }
 
-// ==================== 포트 ====================
-
-model Port {
-  id            String   @id @default(uuid())
-  assetId   String   @map("asset_id")
-  name          String   @db.VarChar(50)
-  portType      PortType @map("port_type")
-  portNumber    Int?     @map("port_number")
-  label         String?  @db.VarChar(100)
-  speed         String?  @db.VarChar(50)
-  connectorType String?  @map("connector_type") @db.VarChar(50)
-  description   String?  @db.Text
-  sortOrder     Int      @default(0) @map("sort_order")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  equipment Asset @relation("PortAsset", fields: [assetId], references: [id], onDelete: Cascade)
-
-  @@unique([assetId, name])
-  @@map("ports")
-}
-
-enum PortType {
-  AC
-  DC
-  LAN
-  FIBER
-  CONSOLE
-  USB
-  OTHER
-}
-
 // ==================== 케이블 (다형 endpoint) ====================
 // 각 side 한 쪽만 NOT NULL — CHECK constraint로 강제
 // RACK kind Equipment 는 endpoint 불가 (service validation)
@@ -503,7 +471,6 @@ model Asset {
 
   sourceCablesAsset Cable[]          @relation("CableSourceAsset")
   targetCablesAsset Cable[]          @relation("CableTargetAsset")
-  ports             Port[]           @relation("PortAsset")
   fiberPathsAsA     FiberPath[]      @relation("FiberPathOfdA")
   fiberPathsAsB     FiberPath[]      @relation("FiberPathOfdB")
   maintenanceLogs   MaintenanceLog[] @relation("MaintenanceLogAsset")

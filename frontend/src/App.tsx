@@ -7,7 +7,6 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
-import { SubstationAssetGridPage } from './pages/SubstationAssetGridPage';
 import { queryClient } from './lib/queryClient';
 
 function AppContent() {
@@ -41,10 +40,6 @@ function AppContent() {
           element={<WorkspacePage />}
         />
         <Route path="/floors/:floorId/plan" element={<FloorPlanEditorPage />} />
-        <Route
-          path="/substations/:substationId/assets"
-          element={<SubstationAssetGridPage />}
-        />
       </Route>
 
       {/* Catch all */}

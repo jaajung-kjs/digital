@@ -33,9 +33,9 @@ describe('buildSubstationCommitPayload', () => {
     } as any);
 
     const overlays = {
-      assets, cables: ov() as any, fiberPaths: ov() as any,
+      assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any,
     };
-    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any);
+    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any, [], new Map());
 
     // placement-level OFD → payload.assets.creates ; rack module → payload.rackModules.creates
     expect(payload.assets!.creates.map((c: any) => c.tempId)).toContain('tmpO');
@@ -67,9 +67,9 @@ describe('buildSubstationCommitPayload', () => {
     assets = stageDelete(assets, 'a2');
 
     const overlays = {
-      assets, cables: ov() as any, fiberPaths: ov() as any,
+      assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any,
     };
-    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any);
+    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any, [], new Map());
 
     // m1 update → rackModules, with renamed keys
     const rmUpd = payload.rackModules!.updates.find((u: any) => u.id === 'm1');
@@ -95,8 +95,8 @@ describe('buildSubstationCommitPayload', () => {
     assets = stageUpdate(assets, 'a1', { status: 'OFF' } as any); // 비모듈
     assets = stageUpdate(assets, 'm1', { status: 'OFF' } as any); // 랙 모듈
     const payload = buildSubstationCommitPayload(
-      { assets, cables: ov() as any, fiberPaths: ov() as any } as any,
-      savedAssets as any,
+      { assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any } as any,
+      savedAssets as any, [], new Map(),
     );
     expect((payload.assets!.updates.find((u: any) => u.id === 'a1')!.patch as any).status).toBe('OFF');
     expect((payload.rackModules!.updates.find((u: any) => u.id === 'm1')!.patch as any).status).toBe('OFF');
@@ -118,9 +118,9 @@ describe('buildSubstationCommitPayload', () => {
 
     const overlays = {
       assets: ov() as any, cables: cables as any,
-      distributionCircuits: ov() as any, fiberPaths: ov() as any,
+      distributionCircuits: ov() as any, fiberPaths: ov() as any, records: ov() as any,
     };
-    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any);
+    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any, [], new Map());
 
     const c = payload.cables!.creates.find((x: any) => x.tempId === 'tmpC') as any;
     expect(c).toBeTruthy();

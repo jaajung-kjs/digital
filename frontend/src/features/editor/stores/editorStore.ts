@@ -71,11 +71,6 @@ export interface PendingFiberPath {
 }
 
 
-/**
- * 스테이징된 점검(inspection) — git-like: 작성/수정/삭제는 즉시 백엔드로 가지 않고
- * 이 큐에 쌓였다가 단일 SAVE(commit) 시 flushPendingMedia 가 한꺼번에 POST 한다.
- * (id 는 tempId. 저장 시 부모 자산이 신규면 idMap 으로 실제 id 로 매핑.)
- */
 // ==================== Store ====================
 
 export interface EditorStoreState {
@@ -116,21 +111,18 @@ export interface EditorStoreState {
   /**
    * 우측 패널 단일 enum — 우측에는 동시에 최대 하나만 뜬다(상호배타).
    * null = 아무 패널도 안 열림. 'detail' 은 detailAssetId 가 가리키는 설비 상세.
-   * 이전의 detailPanelEquipmentId / showReport / showWorkOrders / showLayers
-   * 4개 분리 상태를 통합한 것. 도면 설정(그리드/투명도)·배경 교체·제거는
-   * 각각 하단 상태바와 'background' 패널로 이관됨(별도 설정 패널 폐기).
+   * 이전의 showReport / showWorkOrders / showLayers 분리 상태를 통합한 것. 도면
+   * 설정(그리드/투명도)·배경 교체·제거는 각각 하단 상태바와 'background' 패널로
+   * 이관됨(별도 설정 패널 폐기).
    */
   rightPanel: 'detail' | 'report' | 'history' | 'background' | null;
-  /** rightPanel === 'detail' 일 때 상세를 띄울 자산(설비/모듈) id. */
-  detailAssetId: string | null;
   /**
-   * 캔버스 SELECTION/highlight 호환 alias — `rightPanel==='detail' ? detailAssetId : null`
-   * 을 그대로 미러링한다. 캔버스 하이라이트(useCanvas), 키보드 삭제(useEditorKeyboard),
-   * 선택 브리지(useEditorSelectionBridge) 가 "현재 상세로 연 설비 id" 로 이 값을 읽으므로
-   * enum 액션(openDetail/openPanel/togglePanel/closeRightPanel)이 항상 이 필드를 동기화한다.
-   * 직접 set 하지 말 것 — 항상 enum 액션을 통해서만 바뀐다.
+   * rightPanel === 'detail' 일 때 상세를 띄울 자산(설비/모듈) id — "현재 상세로 연 설비"의
+   * 단일 소스. 캔버스 하이라이트(useCanvas)·키보드 삭제(useEditorKeyboard)·선택 브리지
+   * (useEditorSelectionBridge)·URL 딥링크 포커스(FloorPlanEditor)가 모두 이 값을 읽는다.
+   * enum 액션(openDetail/openPanel/togglePanel/closeRightPanel)으로만 바뀐다(직접 set 금지).
    */
-  detailPanelEquipmentId: string | null;
+  detailAssetId: string | null;
   /** Detail panel 진입 / 캔버스 focus 요청 시마다 증가하는 카운터.
    *  같은 설비를 재 더블클릭해도 이 값이 바뀌어 viewport 가 재정렬됨. */
   focusTick: number;
@@ -314,7 +306,6 @@ const initialState: EditorStoreState = {
   clipboard: null,
   rightPanel: null,
   detailAssetId: null,
-  detailPanelEquipmentId: null,
   focusTick: 0,
   selectedCableId: null,
   restoredFromVersion: null,
@@ -407,23 +398,21 @@ export const useEditorStore = create<FullStore>()((set) => ({
     set({
       rightPanel: 'detail',
       detailAssetId: id,
-      detailPanelEquipmentId: id,
       selectedRackModuleId: null,
       addingAtSlot: null,
     }),
   openPanel: (kind) =>
-    set({ rightPanel: kind, detailAssetId: null, detailPanelEquipmentId: null }),
+    set({ rightPanel: kind, detailAssetId: null }),
   togglePanel: (kind) =>
     set((state) =>
       state.rightPanel === kind
-        ? { rightPanel: null, detailAssetId: null, detailPanelEquipmentId: null }
-        : { rightPanel: kind, detailAssetId: null, detailPanelEquipmentId: null },
+        ? { rightPanel: null, detailAssetId: null }
+        : { rightPanel: kind, detailAssetId: null },
     ),
   closeRightPanel: () =>
     set({
       rightPanel: null,
       detailAssetId: null,
-      detailPanelEquipmentId: null,
       selectedRackModuleId: null,
       addingAtSlot: null,
     }),

@@ -9,6 +9,8 @@
  */
 
 import { create } from 'zustand';
+import { isRackModuleAsset } from '../workingCopy/assetClassify';
+import { toMapById } from '../../utils/byId';
 import { traceCable, type TraceResult } from '../../utils/cableTracer';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLocal';
@@ -34,7 +36,7 @@ export function overlayStagedOntoGlobal(
   stagedCables: LocalCable[],
   deletes: string[],
 ): LocalCable[] {
-  const stagedById = new Map(stagedCables.map((c) => [c.id, c]));
+  const stagedById = toMapById(stagedCables);
   const deleted = new Set(deletes);
   const merged = globalCables
     .filter((c) => !deleted.has(c.id))
@@ -107,9 +109,9 @@ export const useNetworkTopologyStore = create<State>((set) => ({
       //    이름은 globalFiberPaths 의 ofdA/B + ports[].sideX + directory 로 tracer 가 채움.
       const effAssets = wc.effectiveAssets();
       const equipment = effAssets
-        .filter((a) => !(a.parentAssetId && a.slotIndex != null));
+        .filter((a) => !isRackModuleAsset(a));
       const rackModules = effAssets
-        .filter((a) => a.parentAssetId && a.slotIndex != null);
+        .filter((a) => isRackModuleAsset(a));
 
       // cableTracer 호출 — 모든 cable 위에서 BFS. seedCable 의 ring 자연 인식.
       // 다른 변전소는 cableTracer 가 fiberPaths 의 ofdA/B + ports[].sideX 정보로 이름 채움.

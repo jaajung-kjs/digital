@@ -8,3 +8,10 @@ export function toDateInputValue(s: string | null | undefined): string {
   if (!s) return '';
   return s.slice(0, 10);
 }
+
+/** 한국어 날짜 표시(YYYY. M. D.) — 화면 표시 단일 포맷터. 빈값은 '-'. */
+export function formatDate(s: string | null | undefined): string {
+  if (!s) return '-';
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('ko-KR');
+}

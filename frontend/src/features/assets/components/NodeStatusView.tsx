@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { formatDate } from '../../../utils/date';
+import { INSPECTIONS } from '../../workingCopy/recordTypes';
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useNodeAssets, type NodeKind } from '../../../hooks/useNodeAssets';
 import { useSelection } from '../../workspace/SelectionContext';
-import { installLocation, inspectionState, assetPatchToListItem, statusIsOn, type AssetListItem } from '../nodeStatus';
+import { installLocation, inspectionState, projectStatusRows, statusIsOn, type AssetListItem } from '../nodeStatus';
 import { assetAlert } from '../alerts';
 import { useAsset } from '../hooks/useAsset';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useEffectiveAssets, useEffectiveAssetsOverlay, useUnifiedDirty } from '../../workingCopy/hooks';
+import { useEffectiveAssets, useEffectiveAssetsOverlay, useRecordsByType, useWorkingCopyLoader } from '../../workingCopy/hooks';
 import { StatusSummary } from './StatusSummary';
 import { AssetDetailPanel } from './AssetDetailPanel';
 import { Badge } from '../../../components/ui';
@@ -87,7 +89,7 @@ function AssetRow({
       </td>
       <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap max-w-[14rem] truncate" title={installLocation(item)}>{installLocation(item)}</td>
       <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">
-        {item.installDate ? new Date(item.installDate).toLocaleDateString('ko-KR') : '—'}
+        {item.installDate ? formatDate(item.installDate) : '—'}
       </td>
       <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">{item.manager ?? '—'}</td>
       <td className={`px-2 text-sm align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
@@ -113,35 +115,18 @@ function StagedEditDetailPanel({
   assetId,
   targetSubstationId,
   loadedSubstationId,
-  blockedByDirtyName,
   onClose,
 }: {
   assetId: string;
   targetSubstationId: string;
   /** 현재 로드된 변전소(=working copy store 의 substationId). */
   loadedSubstationId: string | null;
-  /** 가드 발동 시(다른 변전소가 미저장) — 그 변전소 이름(없으면 null). 가드 아니면 undefined. */
-  blockedByDirtyName: string | null | undefined;
   onClose: () => void;
 }) {
   const effective = useEffectiveAssets();
   const { data: fetched } = useAsset(assetId);
 
-  // 가드: 다른 변전소가 미저장 상태 → 읽기전용 + 안내. 편집(stage) 차단.
-  if (blockedByDirtyName !== undefined) {
-    const name = blockedByDirtyName ?? '다른 변전소';
-    return (
-      <aside className="w-96 shrink-0 border-l border-line bg-surface h-full overflow-y-auto">
-        <div className="px-4 py-3 border-b border-line bg-warning-bg text-sm text-warning">
-          다른 변전소({name})에 미저장 변경이 있습니다. 먼저 저장하거나 되돌린 뒤 편집하세요.
-        </div>
-        {fetched && (
-          <AssetDetailPanel key={fetched.id} asset={fetched} mode="view" onClose={onClose} />
-        )}
-      </aside>
-    );
-  }
-
+  // 전역 워킹카피라 변전소 dirty 가드 없음(자산 A는 어디서든 편집 가능 — 종전 차단 분기 제거).
   // 대상 변전소가 아직 로드 안 됨(로딩 중) → useAsset 페치로 읽기전용 표시(스테이지 불가).
   const loaded = loadedSubstationId === targetSubstationId;
   const asset = loaded ? effective.find((a) => a.id === assetId) : undefined;
@@ -192,23 +177,21 @@ export function NodeStatusView({
   // 이 경로는 더 이상 직접 저장하지 않고, 자산이 속한 변전소 working copy 에 온디맨드 로드 후 stage 한다.
   const isHqPath = resolveAsset === undefined && onPatch === undefined;
   const loadedSubstationId = useSubstationWorkingCopy((s) => s.substationId);
-  const dirty = useUnifiedDirty();
   const overlay = useEffectiveAssetsOverlay();
+  const inspectionRecords = useRecordsByType(INSPECTIONS);
   const effectiveAssetsRef = useEffectiveAssets();
 
-  // 라이브 머지(본부·사업소): 로드된 변전소에 속한 행만 effective(스테이징 반영)로 덮어쓴다.
-  // 다른 변전소 행은 백엔드 페치 그대로 — 변전소 현황(useSubstationStatusRows)과 동일한 동작.
+  // 라이브 머지(본부·사업소): 전역 워킹카피라 **어느 변전소 자산이든** 편집이 라이브로 보인다.
+  // 변전소 현황(useSubstationStatusRows)과 동일한 단일 투영 projectStatusRows. 신규 자산은 이
+  // 노드 범위(serverRows 의 변전소)로 한정(scopeId=null). 포커스 변전소만 보이던 문제 해소.
   const fetchedMerged = useMemo(() => {
-    if (!isHqPath || !loadedSubstationId) return fetchedItems;
-    const deleted = new Set(overlay.deletes);
-    return fetchedItems
-      .filter((r) => !(r.substationId === loadedSubstationId && deleted.has(r.id)))
-      .map((r) => {
-        if (r.substationId !== loadedSubstationId) return r;
-        const p = overlay.updates[r.id];
-        return p ? { ...r, ...assetPatchToListItem(p) } : r;
-      });
-  }, [isHqPath, loadedSubstationId, fetchedItems, overlay]);
+    if (!isHqPath) return fetchedItems;
+    const inspections = inspectionRecords.map((r) => ({
+      assetId: r.assetId,
+      inspectionDate: String(r.inspectionDate ?? ''),
+    }));
+    return projectStatusRows(fetchedItems, overlay, inspections, null);
+  }, [isHqPath, fetchedItems, overlay, inspectionRecords]);
 
   // rows 가 주어지면 그것을 데이터 소스로(필터/요약 모두 items 기준).
   const items = rows ?? fetchedMerged;
@@ -225,26 +208,9 @@ export function NodeStatusView({
   const selectedItem = selectedId ? items.find((i) => i.id === selectedId) : undefined;
   const targetSubstationId = isHqPath ? selectedItem?.substationId : undefined;
 
-  // 가드 조건: 다른 변전소가 로드돼 있고 미저장(dirty>0)이면 전환 금지.
-  const blocked =
-    !!targetSubstationId &&
-    !!loadedSubstationId &&
-    loadedSubstationId !== targetSubstationId &&
-    dirty > 0;
-  // 가드 시 안내에 쓸, 현재 로드된(미저장) 변전소 이름 — 페치 행에서 해석(없으면 null).
-  const dirtySubstationName = useMemo(
-    () => (blocked ? fetchedItems.find((i) => i.substationId === loadedSubstationId)?.substationName ?? null : null),
-    [blocked, fetchedItems, loadedSubstationId],
-  );
-
-  // 온디맨드 로드: 대상 변전소가 아직 로드 안 됐고 가드에 걸리지 않으면 load.
-  // load 는 idempotent(loadSeq 가드) + substationId 가 바뀔 때만 진입 → 루프 없음.
-  const load = useSubstationWorkingCopy((s) => s.load);
-  useEffect(() => {
-    if (isHqPath && targetSubstationId && !blocked && loadedSubstationId !== targetSubstationId) {
-      void load(targetSubstationId);
-    }
-  }, [isHqPath, targetSubstationId, blocked, loadedSubstationId, load]);
+  // 전역 워킹카피라 변전소 dirty 가드 없음 — 자산 A는 어디서 열든 자산 A. 온디맨드 로드는
+  // 정식 훅(useWorkingCopyLoader)으로 — 손으로 재구현하던 effect 제거(중복 통일).
+  useWorkingCopyLoader(isHqPath ? targetSubstationId ?? null : null);
   void effectiveAssetsRef; // 구독 유지(effective 갱신 시 리스트/인스펙터 재렌더).
 
   const [search, setSearch] = useState('');
@@ -396,7 +362,6 @@ export function NodeStatusView({
               assetId={selectedId}
               targetSubstationId={targetSubstationId}
               loadedSubstationId={loadedSubstationId}
-              blockedByDirtyName={blocked ? dirtySubstationName : undefined}
               onClose={() => setSelectedId(null)}
             />
           )

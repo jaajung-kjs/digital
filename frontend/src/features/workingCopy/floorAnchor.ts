@@ -1,4 +1,5 @@
 import type { Asset } from '../../types/asset';
+import { toMapById } from '../../utils/byId';
 
 /**
  * Floor anchor (렌더 대표) — 컨테인먼트 계층(변전소→…→랙→모듈→포트 / 분전반→회로)
@@ -26,11 +27,6 @@ export function isFloorPlaced(asset: Asset | null | undefined): boolean {
   );
 }
 
-/** Asset 리스트 → id 맵 헬퍼. */
-export function assetsByIdMap(assets: Asset[]): Map<string, Asset> {
-  return new Map(assets.map((a) => [a.id, a]));
-}
-
 /**
  * assetId 의 floor anchor(렌더 대표 Asset)를 반환한다.
  * - 자신이 placed 면 자신.
@@ -54,22 +50,6 @@ export function floorAnchor(
     hops++;
   }
   return null;
-}
-
-/**
- * assetId 의 anchor 중심 좌표 — anchor 의 (positionX+width/2, positionY+height/2).
- * placed ancestor 가 없으면 null.
- */
-export function anchorPosition(
-  assetId: string | null | undefined,
-  assetsById: Map<string, Asset>,
-): { x: number; y: number } | null {
-  const anchor = floorAnchor(assetId, assetsById);
-  if (!anchor) return null;
-  // isFloorPlaced 가 true 면 좌표/크기 모두 non-null 보장.
-  const x = (anchor.positionX as number) + (anchor.width2d as number) / 2;
-  const y = (anchor.positionY as number) + (anchor.height2d as number) / 2;
-  return { x, y };
 }
 
 /** 도면 좌표계 사각형 — anchor 의 좌상단 + 크기. */
@@ -97,7 +77,7 @@ export function floorTargetFor(
   assetId: string | null | undefined,
   effectiveAssets: Asset[],
 ): FloorRect | null {
-  const anchor = floorAnchor(assetId, assetsByIdMap(effectiveAssets));
+  const anchor = floorAnchor(assetId, toMapById(effectiveAssets));
   if (!anchor) return null;
   // isFloorPlaced 가 true 면 좌표/크기 모두 non-null 보장.
   return {

@@ -32,8 +32,3 @@ export function generateTempId(): string {
 export function isTempId(id: string): boolean {
   return id.startsWith(TEMP_PREFIX);
 }
-
-/** Convert a plain object `{ tempId: realId }` map into a `Map<string, string>`. */
-export function buildTempIdMap(idMap: Record<string, string>): Map<string, string> {
-  return new Map(Object.entries(idMap));
-}

@@ -14,6 +14,7 @@
  */
 
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { toMapById } from '../../utils/byId';
 import { createPortal } from 'react-dom';
 import {
   ReactFlow,
@@ -344,7 +345,7 @@ export function NetworkTopologyModal() {
   const pathNodeIds = useMemo<Set<string>>(() => {
     const ids = new Set<string>();
     if (!foundPath) return ids;
-    const byId = new Map(routableEdges.map((e) => [e.id, e] as const));
+    const byId = toMapById(routableEdges);
     for (const eid of foundPath) {
       const e = byId.get(eid);
       if (e) {

@@ -49,33 +49,6 @@ export function distanceToLineSegment(
 }
 
 /**
- * 점을 특정 중심점 기준으로 역회전 (히트박스 계산용)
- * @param px 회전할 점의 x 좌표
- * @param py 회전할 점의 y 좌표
- * @param cx 회전 중심 x 좌표
- * @param cy 회전 중심 y 좌표
- * @param angleDeg 역회전할 각도 (도 단위)
- * @returns 역회전된 점 좌표
- */
-export function rotatePointAroundOrigin(
-  px: number,
-  py: number,
-  cx: number,
-  cy: number,
-  angleDeg: number
-): { x: number; y: number } {
-  const angleRad = (-angleDeg * Math.PI) / 180; // 역회전
-  const cos = Math.cos(angleRad);
-  const sin = Math.sin(angleRad);
-  const dx = px - cx;
-  const dy = py - cy;
-  return {
-    x: cx + dx * cos - dy * sin,
-    y: cy + dx * sin + dy * cos,
-  };
-}
-
-/**
  * 두 점 사이의 거리 계산
  * @param x1 첫 번째 점의 x 좌표
  * @param y1 첫 번째 점의 y 좌표
@@ -87,44 +60,4 @@ export function distance(x1: number, y1: number, x2: number, y2: number): number
   const dx = x2 - x1;
   const dy = y2 - y1;
   return Math.sqrt(dx * dx + dy * dy);
-}
-
-/**
- * 바운딩 박스 타입
- */
-export interface BoundingBox {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
-
-/**
- * 점이 바운딩 박스 안에 있는지 확인
- * @param x 점의 x 좌표
- * @param y 점의 y 좌표
- * @param box 바운딩 박스
- * @returns 점이 박스 안에 있으면 true
- */
-export function isPointInBoundingBox(x: number, y: number, box: BoundingBox): boolean {
-  return x >= box.minX && x <= box.maxX && y >= box.minY && y <= box.maxY;
-}
-
-/**
- * 점이 원 안에 있는지 확인
- * @param px 점의 x 좌표
- * @param py 점의 y 좌표
- * @param cx 원의 중심 x 좌표
- * @param cy 원의 중심 y 좌표
- * @param radius 원의 반지름
- * @returns 점이 원 안에 있으면 true
- */
-export function isPointInCircle(
-  px: number,
-  py: number,
-  cx: number,
-  cy: number,
-  radius: number
-): boolean {
-  return distance(px, py, cx, cy) <= radius;
 }

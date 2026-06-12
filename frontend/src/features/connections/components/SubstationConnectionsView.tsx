@@ -1,15 +1,13 @@
 import { useState } from 'react';
-import { useEffectiveCables } from '../../workingCopy/hooks';
+import { useEffectiveAssetConnections, type AssetConnection } from '../hooks/useEffectiveAssetConnections';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelection } from '../../workspace/SelectionContext';
 import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
 import { formatCableLength } from '../../../utils/cable/pathLength';
 
-interface Endpoint { assetId: string | null; name: string }
-// effective 케이블은 totalLength(cm)를 들고 있다. 표시 시 formatCableLength 로 환산.
-interface Conn { id: string; source: Endpoint; target: Endpoint; cableType: string; label: string | null; totalLength?: number | null }
-const epId = (e: Endpoint) => e.assetId;
+type Conn = AssetConnection; // 연결 목록 단일 빌더의 행 타입(끝점 이름은 단일 리졸버 — DTO 스냅샷 아님).
+const epId = (e: Conn['source']) => e.assetId;
 
 export function SubstationConnectionsTable({ connections, typeFilter, onDelete, onUpdate, onSelectAsset }: {
   connections: Conn[]; typeFilter: string;
@@ -52,9 +50,9 @@ export function SubstationConnectionsTable({ connections, typeFilter, onDelete, 
 const TYPES = ['', ...CABLE_TYPES];
 
 export function SubstationConnectionsView(_: { substationId: string }) {
-  // 통합 스토어의 effective 케이블을 읽는다(saved + 스테이징 오버레이). 스토어는
-  // 워크스페이스 레벨(T2 useWorkingCopyLoader)에서 로드돼 있으므로 여기선 읽기만 한다.
-  const connections = useEffectiveCables() as unknown as Conn[];
+  // 연결 목록 단일 빌더(null=전체). 끝점 이름은 단일 리졸버로 effective 자산에서 해소되므로
+  // staged 이름 변경·랙모듈/분기 endpoint 도 올바로 보인다(종전 DTO 스냅샷 이름 드리프트 제거).
+  const connections = useEffectiveAssetConnections(null);
   const sel = useSelection();
   const [typeFilter, setTypeFilter] = useState('');
   return (

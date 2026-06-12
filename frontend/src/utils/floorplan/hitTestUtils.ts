@@ -3,17 +3,17 @@
  */
 
 import type { Asset } from '../../types/asset';
-import { widthOf, heightOf } from '../../features/workingCopy/placement';
 
-export function hitTestEquipment(
+/** findItemAt 내부 전용 — 좌표가 설비 AABB 안에 드는가. */
+function hitTestEquipment(
   x: number,
   y: number,
   item: Asset
 ): boolean {
   const px = item.positionX ?? 0;
   const py = item.positionY ?? 0;
-  return x >= px && x <= px + widthOf(item) &&
-         y >= py && y <= py + heightOf(item);
+  return x >= px && x <= px + (item.width2d ?? 0) &&
+         y >= py && y <= py + (item.height2d ?? 0);
 }
 
 export type HitTestResult =

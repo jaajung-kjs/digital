@@ -7,6 +7,7 @@ import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { kindOf } from '../../workingCopy/placement';
 import type { Asset } from '../../../types/asset';
+import { toMapById } from '../../../utils/byId';
 
 /**
  * 글로벌 OFD directory — pending FiberPath display 와 picker 가 공유하는 단일 source.
@@ -83,7 +84,7 @@ export function useOfdDirectoryWithStatus(): {
   const effectiveAssets = useEffectiveAssets();
   const directory = useMemo(() => {
     const list = mergeLocalUnsaved(data ?? [], effectiveAssets);
-    return new Map(list.map((e) => [e.id, e]));
+    return toMapById(list);
   }, [data, effectiveAssets]);
   return { directory, isLoading };
 }
@@ -97,7 +98,7 @@ export function getOfdDirectory(): Map<string, OfdDirectoryEntry> {
   const saved = queryClient.getQueryData<Awaited<ReturnType<typeof fetchOfdList>>>(QUERY_KEY) ?? [];
   const localAssets = useSubstationWorkingCopy.getState().effectiveAssets();
   const list = mergeLocalUnsaved(saved, localAssets);
-  return new Map(list.map((e) => [e.id, e]));
+  return toMapById(list);
 }
 
 /**

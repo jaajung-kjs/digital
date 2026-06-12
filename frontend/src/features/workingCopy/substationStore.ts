@@ -16,8 +16,8 @@ import {
 } from './overlay';
 import { mergeEffective } from './effective';
 import type { CollectionDescriptor } from './descriptor';
-import { ASSET_RECORD_TYPES, type RecordTypeKey } from './recordTypes';
-import { assetsByIdMap, cableOnFloor } from './floorAnchor';
+import { type RecordTypeKey, PHOTOS } from './recordTypes';
+import { toMapById } from '../../utils/byId';
 import { isRackModuleAsset as isRackModuleChild } from './assetClassify';
 
 /**
@@ -39,13 +39,13 @@ export interface RackModuleDraw {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// SSOT-2b Task 3 — substation-scoped Unit-of-Work.
+// 전역 Unit-of-Work (변전소 스코프 없음).
 //
-// 한 변전소의 working copy 전체(assets / cables / fiberPaths)를 단일 store 에
-// 담는다(단계3b 에서 분전 회로는 FEEDER/BRANCH asset 으로 흡수). 각 컬렉션은 Lv1 엔진(overlay/effective/
-// descriptor)을 그대로 재사용하고, undo/redo 는 zundo `temporal` 로 overlays
-// 슬라이스만 history 에 담아 제공한다. 효과(effective) 셀렉터는 getState()로
-// 호출 가능한 plain method 로 둔다 — React 메모이즈 hook 은 2c/2d 의 몫.
+// 데이터는 노드(assets, 자산 안 records[] 중첩) + 엣지(cables/fiberPaths)가 전부이고
+// 임의의 변전소 경계가 없다. saved 는 둘러본 만큼 누적되는 전역 캐시, overlay(스테이징)도
+// 전역 — load 가 변전소를 바꿔도 비우지 않는다(자산 A는 어디서 열든 자산 A). 커밋은 overlay
+// 전체를 POST /commit 한 트랜잭션으로(엔티티별 OCC). 각 컬렉션은 Lv1 엔진(overlay/effective/
+// descriptor)을 재사용하고, undo/redo 는 zundo `temporal`(overlays 슬라이스, load 는 pause 로 비기록).
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
@@ -81,93 +81,54 @@ type Cable = WorkingCopyRow;
 type FiberPath = WorkingCopyRow;
 
 /** 컬렉션 공통 descriptor 빌더 — id/updatedAt 키 규약은 전 컬렉션 동일. */
-function makeDescriptor<T extends { id: string; updatedAt?: string | null }>(
-  name: string,
-): CollectionDescriptor<T, Partial<T>> {
+function makeDescriptor<T extends { id: string; updatedAt?: string | null }>(): CollectionDescriptor<T> {
   return {
-    name,
     idOf: (x) => x.id,
     versionOf: (x) => x.updatedAt ?? null,
-    isTemp: isTempId,
-    applyPatch: (x, p) => ({ ...x, ...p }),
   };
 }
 
 // 효과(effective) 병합용 descriptor — 2c React 바인딩 훅(hooks.ts)이 재사용한다.
-export const assetDescriptor = makeDescriptor<Asset>('assets');
-export const cableDescriptor = makeDescriptor<Cable>('cables');
-export const fiberPathDescriptor = makeDescriptor<FiberPath>('fiberPaths');
+export const assetDescriptor = makeDescriptor<Asset>();
+export const cableDescriptor = makeDescriptor<Cable>();
+export const fiberPathDescriptor = makeDescriptor<FiberPath>();
 
 // ── 컬렉션 레지스트리 (북극성 ① 코어 제네릭화) ──────────────────────────────────
 // 워킹카피 컬렉션을 '데이터'로 등록한다. dirty/revert(freshOverlays) 등 종류-무관 기계는
 // 이 레지스트리를 *순회*하므로, 새 컬렉션 추가 = 여기 한 줄 → dirty/revert 에 자동 참여
 // (엔티티마다 dirty 합산·revert 분기를 손대던 보일러플레이트 제거).
 /**
- * 점검(inspection) 컬렉션 레코드. 점검의 '저장된' 데이터는 변전소 워킹카피 endpoint 에 없고
- * 자산별 React Query(useInspectionLogs)로 로드되므로, store 의 saved.inspections 는 항상 []
- * (실 saved 는 RQ). overlay 만 staging(create/update/delete) — 단일 워킹카피의 dirty/revert/
- * commit 에 다른 컬렉션과 동일하게 참여한다(북극성 ①). 컴포넌트가 RQ(saved)+overlay 를 머지.
+ * 자산 하위레코드(점검/고장이력/사진 + 미래 종류)의 단일 제네릭 표현. 점검·고장이력·사진은
+ * 자산의 *속성*이므로 형제 컬렉션이 아니라 **하나의 records 컬렉션**으로 두고 `recordType` 으로
+ * 구분한다. 새 레코드 종류 추가 = recordTypes.ts(ASSET_RECORD_TYPES) 데이터 한 줄 — 전용
+ * 컬렉션/오버레이/훅/flush 함수는 0개. saved(영속)는 워킹카피 endpoint 가 각 자산 안에
+ * records[] 로 중첩해 주고(buildSaved 가 평탄화), overlay 가 staging(create/update/delete)을 담는다.
+ *
+ * 종류별 필드(inspections: inspectionDate/inspector/content; logs: logType/title/logDate/severity;
+ * photos: side/imageUrl + staged 시 file/objectUrl)는 [k] 로 자유. 단일 출처는 recordTypes.ts.
  */
-export interface InspectionRow {
+export interface AssetRecord {
   id: string;
   assetId: string;
-  inspectionDate: string;
-  inspector: string;
-  content?: string | null;
+  recordType: RecordTypeKey;
   updatedAt?: string | null;
+  createdByName?: string | null;
+  [k: string]: unknown;
 }
 
-/** 고장이력(maintenance log) staged 레코드. inspections 와 동일 — saved 는 [](RQ), overlay 만 staging. */
-export interface LogRow {
-  id: string;
-  assetId: string;
-  logType: string;
-  title: string;
-  description?: string | null;
-  logDate?: string | null;
-  severity?: string | null;
-  updatedAt?: string | null;
-}
-
-/** 사진 staged 레코드. create 는 압축 File + 미리보기 blob(objectUrl)을 들고 있다(커밋 시 multipart POST). */
-export interface PhotoRow {
-  id: string;
-  assetId: string;
-  side: string;
-  file?: File;
-  description?: string;
-  objectUrl?: string;
-  updatedAt?: string | null;
-}
-
-type RecordRow = { id: string; updatedAt?: string | null; [k: string]: unknown };
-
-// 미디어(자산 하위레코드) descriptor 는 레지스트리(ASSET_RECORD_TYPES)에서 파생한다 —
-// inspections/logs/photos 의 종류-지식(키/엔드포인트/무효화)은 recordTypes.ts 가 단일 출처.
-// 새 레코드 타입 추가 = 레지스트리 엔트리 1개 → 여기 COLLECTIONS/Overlays 에 자동 참여.
-const recordDescriptors = Object.fromEntries(
-  ASSET_RECORD_TYPES.map((d) => [d.key, makeDescriptor<RecordRow>(d.key)]),
-) as Record<RecordTypeKey, CollectionDescriptor<RecordRow, Partial<RecordRow>>>;
+// 자산 하위레코드는 단일 records 컬렉션 — 종류는 recordType 데이터로 구분(전용 descriptor 없음).
+const recordsDescriptor = makeDescriptor<AssetRecord>();
+export { recordsDescriptor };
 
 const COLLECTIONS = {
   assets: assetDescriptor,
   cables: cableDescriptor,
   fiberPaths: fiberPathDescriptor,
-  ...recordDescriptors,
+  records: recordsDescriptor,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
 export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
 type AnyDescriptor = CollectionDescriptor<{ id: string; updatedAt?: string | null }>;
-
-// 레지스트리-파생 미디어 descriptor 의 back-compat 별칭(커밋 flush/effective 훅이 import).
-export const inspectionDescriptor = recordDescriptors.inspections as unknown as CollectionDescriptor<InspectionRow, Partial<InspectionRow>>;
-export const logDescriptor = recordDescriptors.logs as unknown as CollectionDescriptor<LogRow, Partial<LogRow>>;
-export const photoDescriptor = recordDescriptors.photos as unknown as CollectionDescriptor<PhotoRow, Partial<PhotoRow>>;
-
-/** 레지스트리-파생 미디어 descriptor 조회(hooks.useEffectiveRecords 가 컬렉션 무관하게 사용). */
-export function recordDescriptorOf(key: RecordTypeKey): CollectionDescriptor<RecordRow, Partial<RecordRow>> {
-  return recordDescriptors[key];
-}
 
 /** 전 컬렉션 staged 변경 합계 — dirty 의 단일 소스(레지스트리 순회). store/hook/non-hook 모두 이걸 쓴다. */
 export function sumOverlaysDirty(overlays: Overlays): number {
@@ -179,42 +140,43 @@ interface SavedCollections {
   assets: Asset[];
   cables: Cable[];
   fiberPaths: FiberPath[];
-  inspections: InspectionRow[]; // 항상 [] — 실 saved 는 RQ(useInspectionLogs)
-  logs: LogRow[]; // 항상 [] — 실 saved 는 RQ(useMaintenanceLogs)
-  photos: PhotoRow[]; // 항상 [] — 실 saved 는 RQ(useEquipmentPhotos)
+  records: AssetRecord[]; // 워킹카피가 각 자산 안에 중첩해 반환 → buildSaved 가 평탄화
 }
 
 interface Overlays {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Cable, Partial<Cable>>;
   fiberPaths: Overlay<FiberPath, Partial<FiberPath>>;
-  inspections: Overlay<InspectionRow, Partial<InspectionRow>>;
-  logs: Overlay<LogRow, Partial<LogRow>>;
-  photos: Overlay<PhotoRow, Partial<PhotoRow>>;
+  records: Overlay<AssetRecord, Partial<AssetRecord>>;
 }
 
-// 구조형(structured) 컬렉션 = saved 가 변전소 워킹카피 endpoint 에서 일괄 로드됨(OCC 대상).
-// 그 외(media: inspections/logs/photos) = saved 는 항상 [](실 saved 는 자산별 RQ). 이 분류가
-// load 의 유일한 종류-지식이고, 새 컬렉션은 여기 추가 여부만 정하면 load/emptySaved/refresh 자동.
-// media 키 = 레지스트리(ASSET_RECORD_TYPES)의 키. structured = 그 외 전부(워킹카피 endpoint 로드).
-const MEDIA_KEYS = new Set<CollectionKey>(ASSET_RECORD_TYPES.map((d) => d.key as CollectionKey));
-const STRUCTURED_KEYS = new Set<CollectionKey>(COLLECTION_KEYS.filter((k) => !MEDIA_KEYS.has(k)));
-
-/** 워킹카피 응답(raw)에서 saved 컬렉션을 레지스트리 순회로 구성 — structured 는 raw[key], media 는 []. */
+/**
+ * 워킹카피 응답(raw)에서 saved 컬렉션을 구성한다. 자산 하위레코드는 각 자산 안에 records[] 로
+ * 중첩돼 오므로(자산이 자기 레코드를 소유), 여기서 평탄화해 단일 records 컬렉션으로 만든다.
+ */
 function buildSaved(raw: Record<string, unknown>): SavedCollections {
-  const out: Record<string, unknown> = {};
-  for (const key of COLLECTION_KEYS) {
-    out[key] = STRUCTURED_KEYS.has(key) ? ((raw[key] as unknown[]) ?? []) : [];
+  const rawAssets = (raw.assets as Array<Asset & { records?: AssetRecord[] }>) ?? [];
+  const assets: Asset[] = [];
+  const records: AssetRecord[] = [];
+  for (const a of rawAssets) {
+    const { records: rs, ...rest } = a;
+    assets.push(rest as Asset);
+    if (rs && rs.length) records.push(...rs);
   }
-  return out as unknown as SavedCollections;
+  return {
+    assets,
+    cables: (raw.cables as Cable[]) ?? [],
+    fiberPaths: (raw.fiberPaths as FiberPath[]) ?? [],
+    records,
+  };
 }
 
 const emptySaved = (): SavedCollections => buildSaved({});
 
-/** staged 사진의 blob objectUrl 을 해제 — 커밋 성공/되돌리기 시 호출(메모리 누수 방지). */
+/** staged 사진(records 중 recordType==='photos')의 blob objectUrl 을 해제 — 커밋/되돌리기 시(누수 방지). */
 export function revokeStagedPhotoUrls(overlays: Overlays): void {
-  for (const p of Object.values(overlays.photos.creates)) {
-    if (p.objectUrl) URL.revokeObjectURL(p.objectUrl);
+  for (const r of Object.values(overlays.records.creates)) {
+    if (r.recordType === PHOTOS && typeof r.objectUrl === 'string') URL.revokeObjectURL(r.objectUrl);
   }
 }
 
@@ -226,8 +188,37 @@ function freshOverlays(saved: SavedCollections): Overlays {
     const rows = saved[key] as { id: string; updatedAt?: string | null }[];
     out[key] = {
       ...emptyOverlay(),
-      baseVersions: snapshotBaseVersions(rows, desc.idOf, desc.versionOf!),
+      baseVersions: snapshotBaseVersions(rows, desc.idOf, desc.versionOf),
     };
+  }
+  return out as unknown as Overlays;
+}
+
+/**
+ * 전역 워킹카피: 새로 로드한 변전소 saved 를 기존 saved 에 id 기준 병합한다(다른 변전소로 이동해도
+ * 누적; 같은 변전소 재로드는 최신으로 갱신). 워킹카피는 변전소 스코프가 아니라 전역이다 —
+ * 자산은 노드, 케이블/광경로는 엣지일 뿐 임의의 변전소 경계가 없다.
+ */
+function mergeSavedById(prev: SavedCollections, incoming: SavedCollections): SavedCollections {
+  const out: Record<string, unknown> = {};
+  for (const key of COLLECTION_KEYS) {
+    const desc = COLLECTIONS[key] as unknown as AnyDescriptor;
+    const byId = new Map<string, { id: string }>();
+    for (const r of prev[key] as { id: string }[]) byId.set(desc.idOf(r as never), r);
+    for (const r of incoming[key] as { id: string }[]) byId.set(desc.idOf(r as never), r); // 새 로드 우선
+    out[key] = [...byId.values()];
+  }
+  return out as unknown as SavedCollections;
+}
+
+/** staged overlay(creates/updates/deletes)는 보존하고, 새로 로드한 saved 의 baseVersions 만 합친다(전역). */
+function addBaseVersions(overlays: Overlays, incoming: SavedCollections): Overlays {
+  const out: Record<string, unknown> = {};
+  const o = overlays as unknown as Record<CollectionKey, Overlay<{ id: string; updatedAt?: string | null }, unknown>>;
+  for (const key of COLLECTION_KEYS) {
+    const desc = COLLECTIONS[key] as unknown as AnyDescriptor;
+    const rows = incoming[key] as { id: string; updatedAt?: string | null }[];
+    out[key] = { ...o[key], baseVersions: { ...o[key].baseVersions, ...snapshotBaseVersions(rows, desc.idOf, desc.versionOf) } };
   }
   return out as unknown as Overlays;
 }
@@ -242,6 +233,8 @@ export interface SubstationWorkingCopyState {
   /** 409 후 재로드: saved/baseVersions 만 최신화하고 staged overlay 는 보존. */
   refreshBaseVersions: (substationId: string) => Promise<void>;
   revert: () => void;
+  /** 전역 워킹카피 전체 초기화(로그아웃/전환 등) — saved·overlay·undo 히스토리 모두 비움. */
+  reset: () => void;
 
   // ── stage actions ──
   stageAssetCreate: (item: Asset) => void;
@@ -251,7 +244,6 @@ export interface SubstationWorkingCopyState {
   stageCableUpdate: (id: string, patch: Partial<Cable>) => void;
   stageCableDelete: (id: string) => void;
   stageFiberPathCreate: (item: FiberPath) => void;
-  stageFiberPathUpdate: (id: string, patch: Partial<FiberPath>) => void;
   stageFiberPathDelete: (id: string) => void;
 
   // ── 제네릭 ops (북극성 ① — 컬렉션 키로 stage. 새 엔티티는 이걸 쓰면 전용 함수 0개) ──
@@ -271,18 +263,6 @@ export interface SubstationWorkingCopyState {
   stageEquipmentDeleteCascade: (id: string) => void;
   /** 케이블 다건 업데이트를 단일 set 으로 stage(단일 undo). */
   stageCableUpdates: (updates: Record<string, Partial<Cable>>) => void;
-
-  /**
-   * 버전 복원: 한 층의 현재 effective(assets/cables)를 snapshot 과 diff 하여
-   * create/update/delete 를 단일 set 으로 stage 한다(단일 undo 스텝).
-   * - snapshot 에 없는 현 floor asset/cable → delete
-   * - snapshot 에만 있는 → create, 양쪽에 있는 → update(snapshot 필드로 교체)
-   * 입력은 Asset[]/Cable[] 형태(audit-log snapshot 의 equipment/cable shape 매핑은 호출측의 몫 — Task 4).
-   */
-  stageReplaceFloorFromSnapshot: (
-    floorId: string,
-    snapshot: { assets: Asset[]; cables: Cable[] },
-  ) => void;
 
   // ── 랙모듈(=RACK 자식 Asset) stage 액션 — assets overlay 에 위임. ──
   /** 랙모듈 신규 stage. floorId 는 부모 랙 Asset 에서 상속(없으면 null). */
@@ -321,32 +301,42 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         const seq = ++loadSeq;
         const { data } = await api.get(`/substations/${substationId}/workingcopy`);
         if (seq !== loadSeq) return; // 더 최신 load 가 시작됨 → 폐기
-        const saved = buildSaved(data.data);
-        set({ substationId, saved, overlays: freshOverlays(saved) });
-        // 다른 변전소 로드 시 이전 overlay 가 undo 로 복원되지 않도록 history 클리어.
-        useSubstationWorkingCopy.temporal.getState().clear();
+        const incoming = buildSaved(data.data);
+        // 전역 워킹카피: saved 누적 병합 + 기존 staged overlay/히스토리 보존(변전소 이동해도 안 비움).
+        // → 변전소 A 자산 편집 후 B 로 이동해 B 자산 편집, 한 번에 커밋(POST /commit) 가능.
+        // load 는 사용자 편집이 아니므로 undo 히스토리에 기록하지 않는다(temporal pause).
+        const t = useSubstationWorkingCopy.temporal.getState();
+        t.pause();
+        set((s) => ({
+          substationId,
+          saved: mergeSavedById(s.saved, incoming),
+          overlays: addBaseVersions(s.overlays, incoming),
+        }));
+        t.resume();
       },
 
       refreshBaseVersions: async (substationId) => {
         const seq = ++loadSeq;
         const { data } = await api.get(`/substations/${substationId}/workingcopy`);
         if (seq !== loadSeq) return; // 더 최신 load/refresh 가 시작됨 → 폐기
-        const newSaved = buildSaved(data.data);
-        // staged overlay(creates/updates/deletes)는 보존하고 baseVersions 만 최신 saved 기준으로 재스냅샷
-        // (media 는 newSaved=[] → baseVersions 빈 채 staged 보존). 레지스트리 순회로 종류-무관.
-        set((s) => {
-          const prev = s.overlays as unknown as Record<CollectionKey, Overlay<{ id: string; updatedAt?: string | null }, unknown>>;
-          const next: Record<string, unknown> = {};
-          for (const key of COLLECTION_KEYS) {
-            const desc = COLLECTIONS[key] as unknown as AnyDescriptor;
-            const rows = (newSaved as unknown as Record<CollectionKey, { id: string; updatedAt?: string | null }[]>)[key];
-            next[key] = { ...prev[key], baseVersions: snapshotBaseVersions(rows, desc.idOf, desc.versionOf!) };
-          }
-          return { substationId, saved: newSaved, overlays: next as unknown as Overlays };
-        });
+        const incoming = buildSaved(data.data);
+        // 409 후: staged overlay 는 보존하고, 이 변전소 saved/baseVersions 만 최신으로 병합(전역 누적).
+        const t = useSubstationWorkingCopy.temporal.getState();
+        t.pause();
+        set((s) => ({
+          substationId,
+          saved: mergeSavedById(s.saved, incoming),
+          overlays: addBaseVersions(s.overlays, incoming),
+        }));
+        t.resume();
       },
 
       revert: () => set((s) => ({ overlays: freshOverlays(s.saved) })),
+
+      reset: () => {
+        set({ substationId: null, saved: emptySaved(), overlays: freshOverlays(emptySaved()) });
+        useSubstationWorkingCopy.temporal.getState().clear();
+      },
 
       stageAssetCreate: (item) =>
         set((s) => ({ overlays: { ...s.overlays, assets: stageCreate(s.overlays.assets, item.id, item) } })),
@@ -364,8 +354,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
 
       stageFiberPathCreate: (item) =>
         set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageCreate(s.overlays.fiberPaths, item.id, item) } })),
-      stageFiberPathUpdate: (id, patch) =>
-        set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageUpdate(s.overlays.fiberPaths, id, patch) } })),
       stageFiberPathDelete: (id) =>
         set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageDelete(s.overlays.fiberPaths, id, isTempId(id)) } })),
 
@@ -439,7 +427,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           //   조상: 모듈→랙, 분기→피더→분전반)이 삭제 대상이면 케이블도 함께 삭제한다.
           //   DB 도 source_asset_id ON DELETE CASCADE 로 동일하게 정리되지만, 워킹카피
           //   에서 미리 staged delete 로 반영해 UI 가 즉시 일관되게 한다.
-          const assetsById = assetsByIdMap(effA);
+          const assetsById = toMapById(effA);
           const endpointHitsTarget = (assetId: string | null | undefined): boolean => {
             let cur = assetId ? assetsById.get(assetId) : undefined;
             // 미머지 endpoint(예: saved 에만 있는 id) 라도 자기 자신 직접 일치는 잡는다.
@@ -469,43 +457,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           let cables = s.overlays.cables;
           for (const [id, patch] of Object.entries(updates)) cables = stageUpdate(cables, id, patch);
           return { overlays: { ...s.overlays, cables } };
-        }),
-
-      stageReplaceFloorFromSnapshot: (floorId, snapshot) =>
-        set((s) => {
-          // 전 effective assets — floorAnchor 가 parent 체인을 거슬러 올라가려면 이 floor
-          // 자산만이 아니라 부모(랙/분전반/피더)까지 다 보여야 한다.
-          const allEffA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor);
-          // 현 floor 의 effective assets — top/모듈 모두 floorId 로 식별(랙모듈도 floorId 상속).
-          const effA = allEffA.filter((a) => a.floorId === floorId);
-          // 단계3a — floor cables = 단일 endpoint assetId 를 floorAnchor 로 해소해 이 층에
-          // 닿는 케이블. branch endpoint 는 branch→feeder→panel 으로 해소되어 회로
-          // 특수처리(distributionEquipmentId 증강) 불필요. useEffectiveFloorCables 와 동일.
-          const assetsById = assetsByIdMap(allEffA);
-          const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor).filter((c) =>
-            cableOnFloor(c as unknown as Parameters<typeof cableOnFloor>[0], floorId, assetsById),
-          );
-
-          let assets = s.overlays.assets;
-          let cables = s.overlays.cables;
-
-          const snapAIds = new Set(snapshot.assets.map((a) => a.id));
-          const curA = new Map(effA.map((a) => [a.id, a]));
-          for (const a of effA) if (!snapAIds.has(a.id)) assets = stageDelete(assets, a.id, isTempId(a.id));
-          for (const a of snapshot.assets) {
-            if (!curA.has(a.id)) assets = stageCreate(assets, a.id, a);
-            else assets = stageUpdate(assets, a.id, a as Partial<Asset>); // snapshot 필드로 교체
-          }
-
-          const snapCIds = new Set(snapshot.cables.map((c) => c.id));
-          const curC = new Map(effC.map((c) => [c.id, c]));
-          for (const c of effC) if (!snapCIds.has(c.id)) cables = stageDelete(cables, c.id, isTempId(c.id));
-          for (const c of snapshot.cables) {
-            if (!curC.has(c.id)) cables = stageCreate(cables, c.id, c);
-            else cables = stageUpdate(cables, c.id, c as Partial<Cable>);
-          }
-
-          return { overlays: { ...s.overlays, assets, cables } };
         }),
 
       // ── 랙모듈 stage 액션 (assets overlay 위임) ──
@@ -560,7 +511,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       effectiveAssetsByFloor: (floorId) => get().effectiveTopAssets().filter((a) => a.floorId === floorId),
       effectiveEquipment: (floorId) => get().effectiveAssetsByFloor(floorId),
       effectiveRackModules: (rackId) =>
-        get().effectiveAssets().filter((a) => a.parentAssetId === rackId && a.slotIndex != null),
+        get().effectiveAssets().filter((a) => isRackModuleChild(a) && a.parentAssetId === rackId),
       effectiveCables: () => {
         const s = get();
         return mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor);

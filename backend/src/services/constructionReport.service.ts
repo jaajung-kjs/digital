@@ -204,6 +204,9 @@ function computeCableDiff(
   const afterMap = new Map(after.map((c) => [c.id, c]));
   const items: DiffItem[] = [];
 
+  // 캔버스 1 unit = 1 cm 이므로 totalLength 는 cm. 설계서/BOM 길이 단위는 m → cm→m 변환.
+  const cmToM = (cm: number | null | undefined): number | undefined => (cm != null ? cm / 100 : undefined);
+
   for (const [id, cable] of afterMap) {
     if (!beforeMap.has(id)) {
       const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType, cable.materialCategoryName, cable.specification);
@@ -213,7 +216,7 @@ function computeCableDiff(
         materialCategoryCode: cable.materialCategoryCode ?? null,
         specification,
         quantity: 1, unit: 'm',
-        length: cable.totalLength ?? undefined,
+        length: cmToM(cable.totalLength),
       });
     }
   }
@@ -227,7 +230,7 @@ function computeCableDiff(
         materialCategoryCode: cable.materialCategoryCode ?? null,
         specification,
         quantity: 1, unit: 'm',
-        length: cable.totalLength ?? undefined,
+        length: cmToM(cable.totalLength),
       });
     }
   }
@@ -251,7 +254,7 @@ function computeCableDiff(
         materialCategoryCode: afterCable.materialCategoryCode ?? null,
         specification,
         quantity: 1, unit: 'm',
-        length: afterCable.totalLength ?? undefined,
+        length: cmToM(afterCable.totalLength),
       });
     }
   }

@@ -11,16 +11,13 @@ describe('editorStore rightPanel (single mutually-exclusive enum)', () => {
     const s = useEditorStore.getState();
     expect(s.rightPanel).toBeNull();
     expect(s.detailAssetId).toBeNull();
-    expect(s.detailPanelEquipmentId).toBeNull();
   });
 
-  it("openDetail('a') → detail + detailAssetId 'a' + alias 동기화", () => {
+  it("openDetail('a') → detail + detailAssetId 'a'", () => {
     useEditorStore.getState().openDetail('a');
     const s = useEditorStore.getState();
     expect(s.rightPanel).toBe('detail');
     expect(s.detailAssetId).toBe('a');
-    // 캔버스 선택/하이라이트가 읽는 alias 가 detail 을 반영.
-    expect(s.detailPanelEquipmentId).toBe('a');
   });
 
   it("openPanel('report') 가 열려 있던 detail 을 닫는다 (상호배타)", () => {
@@ -29,8 +26,6 @@ describe('editorStore rightPanel (single mutually-exclusive enum)', () => {
     const s = useEditorStore.getState();
     expect(s.rightPanel).toBe('report');
     expect(s.detailAssetId).toBeNull();
-    // detail 이 닫혔으므로 alias 도 null.
-    expect(s.detailPanelEquipmentId).toBeNull();
   });
 
   it('togglePanel: 같은 종류면 닫고, 다른 종류면 연다', () => {
@@ -47,22 +42,21 @@ describe('editorStore rightPanel (single mutually-exclusive enum)', () => {
     expect(useEditorStore.getState().rightPanel).toBe('background');
   });
 
-  it('closeRightPanel → null + detailAssetId/alias null', () => {
+  it('closeRightPanel → null + detailAssetId null', () => {
     useEditorStore.getState().openDetail('a');
     useEditorStore.getState().closeRightPanel();
     const s = useEditorStore.getState();
     expect(s.rightPanel).toBeNull();
     expect(s.detailAssetId).toBeNull();
-    expect(s.detailPanelEquipmentId).toBeNull();
   });
 
-  it('alias 는 detail 일 때만 채워진다 (report/history/background 는 null)', () => {
+  it('detailAssetId 는 detail 일 때만 채워진다 (report/history/background 는 null)', () => {
     const store = useEditorStore.getState();
     store.openPanel('history');
-    expect(useEditorStore.getState().detailPanelEquipmentId).toBeNull();
+    expect(useEditorStore.getState().detailAssetId).toBeNull();
     store.openDetail('x');
-    expect(useEditorStore.getState().detailPanelEquipmentId).toBe('x');
+    expect(useEditorStore.getState().detailAssetId).toBe('x');
     store.openPanel('background');
-    expect(useEditorStore.getState().detailPanelEquipmentId).toBeNull();
+    expect(useEditorStore.getState().detailAssetId).toBeNull();
   });
 });

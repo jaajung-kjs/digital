@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useCableDrawing } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
-import { widthOf, heightOf } from '../../workingCopy/placement';
 import { calculatePathLength, formatCableLength } from '../../../utils/cable/pathLength';
 
 export { calculatePathLength };
@@ -50,8 +49,8 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
         if (eq) {
           const eqX = eq.positionX ?? 0;
           const eqY = eq.positionY ?? 0;
-          const eqW = widthOf(eq);
-          const eqH = heightOf(eq);
+          const eqW = eq.width2d ?? 0;
+          const eqH = eq.height2d ?? 0;
           const scale = zoom / 100;
           ctx.save();
           ctx.setTransform(scale, 0, 0, scale, panX, panY);
@@ -122,8 +121,8 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
       if (eq) {
         const eqX = eq.positionX ?? 0;
         const eqY = eq.positionY ?? 0;
-        const eqW = widthOf(eq);
-        const eqH = heightOf(eq);
+        const eqW = eq.width2d ?? 0;
+        const eqH = eq.height2d ?? 0;
         ctx.shadowColor = '#22c55e';
         ctx.shadowBlur = 10;
         ctx.strokeStyle = '#22c55e';
@@ -145,8 +144,8 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
       if (srcEq) {
         const sX = srcEq.positionX ?? 0;
         const sY = srcEq.positionY ?? 0;
-        const sW = widthOf(srcEq);
-        const sH = heightOf(srcEq);
+        const sW = srcEq.width2d ?? 0;
+        const sH = srcEq.height2d ?? 0;
         ctx.shadowColor = '#3b82f6';
         ctx.shadowBlur = 8;
         ctx.strokeStyle = '#3b82f6';

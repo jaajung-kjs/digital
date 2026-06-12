@@ -3,6 +3,7 @@ import { usePathHighlightStore } from '../stores/pathHighlightStore';
 import { useNetworkTopologyStore } from '../../network/store';
 import { CABLE_BADGE_CLASSES } from '../../../types/connection';
 import type { TraceNode, TraceEdge, SegmentNode } from '../types';
+import { toMapById } from '../../../utils/byId';
 
 interface ResolvedStep {
   node: TraceNode;
@@ -149,7 +150,7 @@ export function PathTraceDetail() {
     if (!traceResult) return { nodeMap: new Map<string, TraceNode>(), edgeMap: new Map<string, TraceEdge>() };
     return {
       nodeMap: new Map(traceResult.nodes.map((n) => [n.nodeId, n])),
-      edgeMap: new Map(traceResult.edges.map((e) => [e.id, e])),
+      edgeMap: toMapById(traceResult.edges),
     };
   }, [traceResult]);
 

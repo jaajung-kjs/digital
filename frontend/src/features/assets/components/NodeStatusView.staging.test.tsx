@@ -60,9 +60,8 @@ const wrap = (ui: ReactNode) => {
 beforeEach(() => {
   vi.restoreAllMocks();
   updateMock.mockClear();
-  // 깨끗한 store 로 리셋.
-  act(() => useSubstationWorkingCopy.getState().revert());
-  useSubstationWorkingCopy.setState({ substationId: null });
+  // 깨끗한 전역 store 로 리셋(saved·overlay·substationId 모두).
+  act(() => useSubstationWorkingCopy.getState().reset());
   (api.get as any).mockResolvedValue({
     data: { data: { assets: [wcAsset], cables: [], fiberPaths: [] } },
   });
@@ -90,7 +89,7 @@ describe('NodeStatusView — 본부·사업소 편집은 staging 경유(SSOT)', 
     expect(updateMock).not.toHaveBeenCalled();
   });
 
-  it('가드: 다른 변전소(s1)에 미저장이 있으면 s2 자산 편집을 차단(읽기전용 + 안내)', async () => {
+  it('전역: 다른 변전소(s1) 미저장이 있어도 s2 자산 편집을 차단하지 않는다(가드 제거, staged 보존)', async () => {
     // s1 을 로드하고 미저장 staging 을 만든다.
     await act(async () => {
       await useSubstationWorkingCopy.getState().load('s1');
@@ -99,12 +98,12 @@ describe('NodeStatusView — 본부·사업소 편집은 staging 경유(SSOT)', 
     expect(useSubstationWorkingCopy.getState().dirtyCount()).toBeGreaterThan(0);
 
     wrap(<NodeStatusView nodeType="branch" nodeId="b1" />);
-    // 다른 변전소(s2) 자산 선택.
+    // 다른 변전소(s2) 자산 선택 — 전역 워킹카피라 차단 없이 s2 를 누적 로드한다.
     fireEvent.click(screen.getByText('OFD-9'));
 
-    // 가드 안내가 보이고(미저장 변전소 이름 포함), 로드된 변전소는 s1 그대로(전환 안 됨).
-    const banner = await screen.findByText(/미저장 변경이 있습니다/);
-    expect(banner.textContent).toContain('춘천S/S');
-    expect(useSubstationWorkingCopy.getState().substationId).toBe('s1');
+    // 가드 배너 없음 + s2 로 전환(온디맨드 로드) + s1 staged 변경은 전역 overlay 에 보존.
+    await waitFor(() => expect(useSubstationWorkingCopy.getState().substationId).toBe('s2'));
+    expect(screen.queryByText(/미저장 변경이 있습니다/)).toBeNull();
+    expect(useSubstationWorkingCopy.getState().dirtyCount()).toBeGreaterThan(0);
   });
 });

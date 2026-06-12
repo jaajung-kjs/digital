@@ -7,7 +7,7 @@ import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils
 import { type Position, getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { kindOf, widthOf, heightOf } from '../../workingCopy/placement';
+import { kindOf } from '../../workingCopy/placement';
 import {
   useInteractionStore,
   getCableDrawing,
@@ -366,8 +366,8 @@ export function useCanvasEvents(
       if (found?.type === 'equipment') {
         const eq = found.item;
         const center = {
-          x: (eq.positionX ?? 0) + widthOf(eq) / 2,
-          y: (eq.positionY ?? 0) + heightOf(eq) / 2,
+          x: (eq.positionX ?? 0) + (eq.width2d ?? 0) / 2,
+          y: (eq.positionY ?? 0) + (eq.height2d ?? 0) / 2,
         };
         if (needsEndpointPicker(kindOf(eq))) {
           interaction.cableSetPendingSource(eq.id, center);
@@ -435,9 +435,9 @@ export function useCanvasEvents(
       const eqY = eq.positionY ?? 0;
       if (
         x >= eqX &&
-        x <= eqX + widthOf(eq) &&
+        x <= eqX + (eq.width2d ?? 0) &&
         y >= eqY &&
-        y <= eqY + heightOf(eq)
+        y <= eqY + (eq.height2d ?? 0)
       ) {
         // 패널 진입과 동시에 선택 상태도 고정 — 캔버스 하이라이트(2px 파란 외곽)가
         // 더블클릭 흐름 전체에서 일관되게 유지된다.

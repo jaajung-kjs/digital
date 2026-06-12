@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
+import { kindOf } from '../../workingCopy/placement';
 import { useCableDrawing, useInteractionStore } from '../stores/interactionStore';
 import { RackModulePicker } from '../../connections/components/RackModulePicker';
 import { OfdPortPicker } from '../../connections/components/OfdPortPicker';
@@ -54,13 +55,15 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
   const center = isSource ? sourcePosition : targetPosition;
   if (!center) return null;
 
+  const activeKind = kindOf(activeEquipment);
+
   const handleCancel = () => {
     // Cancel the whole drawing flow — easier than trying to back up to the
     // previous phase since the user has already committed an endpoint click.
     useInteractionStore.getState().cancel();
   };
 
-  if (activeEquipment.kind === 'RACK') {
+  if (activeKind === 'RACK') {
     return (
       <RackModulePicker
         rackEquipmentId={activeEquipment.id}
@@ -81,7 +84,7 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
     );
   }
 
-  if (activeEquipment.kind === 'DISTRIBUTION') {
+  if (activeKind === 'DISTRIBUTION') {
     return (
       <CircuitPicker
         distributionEquipmentId={activeEquipment.id}
@@ -102,7 +105,7 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
     );
   }
 
-  if (activeEquipment.kind === 'OFD') {
+  if (activeKind === 'OFD') {
     return (
       <OfdPortPicker
         ofdEquipmentId={activeEquipment.id}

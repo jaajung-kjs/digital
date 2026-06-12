@@ -12,6 +12,7 @@ import {
   assertNoSlotCollision,
 } from './planApply.js';
 import { extractSourcePresetId } from './sourcePreset.js';
+import { getAssetRecordModel } from './assetRecordSchema.service.js';
 
 /**
  * 프론트는 설비/모듈의 source preset 을 여전히 `properties: { sourcePresetId }`(또는
@@ -47,6 +48,22 @@ const dateOrNull = (v: unknown) => (v ? new Date(v as string) : null);
 /** undefined → undefined(미변경), 그 외 → Date|null. patch 의 날짜 필드용. */
 const patchDate = (v: unknown) => (v === undefined ? undefined : v ? new Date(v as string) : null);
 const toInt = (v: unknown) => (v == null ? undefined : Math.trunc(Number(v)));
+
+// ── 자산 기록(records) 제네릭 헬퍼 — 스키마-구동(assetRecordSchema) 모델로 라우팅 ──
+interface RecordDelegate {
+  findMany: (a: unknown) => Promise<Record<string, unknown>[]>;
+  create: (a: { data: Record<string, unknown> }) => Promise<{ id: string }>;
+  update: (a: unknown) => Promise<unknown>;
+  deleteMany: (a: unknown) => Promise<unknown>;
+}
+/** prisma 트랜잭션에서 모델 델리게이트를 이름으로 동적 접근(inspectionLog/maintenanceLog/equipmentPhoto…). */
+function recordDelegate(tx: Tx, delegate: string): RecordDelegate {
+  return (tx as unknown as Record<string, RecordDelegate>)[delegate];
+}
+/** 기록 컬럼 값 강제 변환 — date 는 ISO 문자열→Date, 그 외 통과. */
+function coerceRecordField(type: string, v: unknown): unknown {
+  return type === 'date' ? (v ? new Date(v as string) : null) : v;
+}
 
 // ── 자산/랙모듈 공통 스칼라(SSOT) ─────────────────────────────────────────────
 // 랙 모듈도 Asset 행이다. asset/rackModule 의 create·update 가 각자 필드를 나열하면
@@ -104,6 +121,7 @@ export interface CommitResult {
     cables: Record<string, string>;
     rackModules: Record<string, string>;
     fiberPaths: Record<string, string>;
+    records: Record<string, string>;
   };
   updated: {
     assets: { id: string; updatedAt: string }[];
@@ -124,6 +142,11 @@ async function loadOcc(
   };
 }
 
+/**
+ * 전역 커밋 — 변전소 스코프 없음(노드+엣지+기록을 한 트랜잭션에). substationId 는 더 이상
+ * 스코프가 아니라, substationId 를 싣지 않은 신규 자산 create 의 기본 변전소일 뿐이다
+ * (구 per-변전소 라우트 호환). 전역 라우트는 각 create 가 자기 substationId 를 싣는다.
+ */
 export async function commitSubstation(
   substationId: string,
   input: SubstationCommitInput,
@@ -150,7 +173,7 @@ async function run(
   userId: string,
 ): Promise<CommitResult> {
   const idMaps: CommitResult['idMaps'] = {
-    assets: {}, cables: {}, rackModules: {}, fiberPaths: {},
+    assets: {}, cables: {}, rackModules: {}, fiberPaths: {}, records: {},
   };
   const updated: CommitResult['updated'] = {
     assets: [], cables: [], rackModules: [], fiberPaths: [],
@@ -163,7 +186,7 @@ async function run(
   if (input.assets) {
     const ids = [...input.assets.updates.map((u) => u.id), ...input.assets.deletes.map((d) => d.id)];
     const rows = ids.length
-      ? await tx.asset.findMany({ where: { id: { in: ids }, substationId }, select: { id: true, updatedAt: true, name: true } })
+      ? await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
       : [];
     const { current, nameById } = await loadOcc(rows);
     conflicts.push(
@@ -177,14 +200,7 @@ async function run(
     // C1: cable 은 substationId 컬럼이 없어 endpoint asset/회로의 substationId 로 스코핑.
     const rows = ids.length
       ? await tx.cable.findMany({
-          where: {
-            id: { in: ids },
-            // endpoint asset(설비/모듈/분기)의 substationId 로 스코핑.
-            OR: [
-              { sourceAsset: { substationId } },
-              { targetAsset: { substationId } },
-            ],
-          },
+          where: { id: { in: ids } },
           select: { id: true, updatedAt: true },
         })
       : [];
@@ -198,7 +214,7 @@ async function run(
   if (input.rackModules) {
     const ids = [...input.rackModules.updates.map((u) => u.id), ...input.rackModules.deletes.map((d) => d.id)];
     const rows = ids.length
-      ? await tx.asset.findMany({ where: { id: { in: ids }, substationId }, select: { id: true, updatedAt: true, name: true } })
+      ? await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
       : [];
     const { current, nameById } = await loadOcc(rows);
     conflicts.push(
@@ -212,7 +228,7 @@ async function run(
     // C1: OFD endpoint asset 의 substationId 로 스코핑 (양 끝 중 하나라도 이 변전소).
     const rows = ids.length
       ? await tx.fiberPath.findMany({
-          where: { id: { in: ids }, OR: [{ ofdA: { substationId } }, { ofdB: { substationId } }] },
+          where: { id: { in: ids } },
           select: { id: true, updatedAt: true },
         })
       : [];
@@ -227,13 +243,34 @@ async function run(
   if (input.floor) {
     // C2: floor 가 이 변전소 소유인지 검증 (다른 변전소 floor 변조 차단).
     floorRow = await tx.floor.findFirst({
-      where: { id: input.floor.id, substationId },
+      where: { id: input.floor.id },
       select: { id: true, updatedAt: true, name: true },
     });
     if (!floorRow) {
       conflicts.push({ collection: 'floor', id: input.floor.id });
     } else if (input.floor.baseVersion != null && floorRow.updatedAt.toISOString() !== input.floor.baseVersion) {
       conflicts.push({ collection: 'floor', id: floorRow.id, name: floorRow.name });
+    }
+  }
+
+  // records — 스키마-구동 모델별 제네릭 OCC. updatedAt 있는 모델(hasVersion)만 검사(사진 제외).
+  if (input.records) {
+    const refs = [...input.records.updates, ...input.records.deletes];
+    const byType = new Map<string, { id: string; baseVersion: string | null }[]>();
+    for (const x of refs) {
+      const arr = byType.get(x.recordType) ?? [];
+      arr.push({ id: x.id, baseVersion: x.baseVersion });
+      byType.set(x.recordType, arr);
+    }
+    for (const [recordType, rs] of byType) {
+      const m = getAssetRecordModel(recordType);
+      if (!m || !m.hasVersion) continue;
+      const rows = (await recordDelegate(tx, m.delegate).findMany({
+        where: { id: { in: rs.map((x) => x.id) } },
+        select: { id: true, updatedAt: true },
+      })) as { id: string; updatedAt: Date }[];
+      const { current } = await loadOcc(rows);
+      conflicts.push(...collectConflicts('records', current, rs));
     }
   }
 
@@ -248,7 +285,7 @@ async function run(
     for (const c of a.creates) {
       const created = await tx.asset.create({
         data: {
-          substationId,
+          substationId: (c as { substationId?: string }).substationId ?? substationId,
           assetTypeId: c.assetTypeId,
           ...assetCommonCreate(c as unknown as Record<string, unknown>),
           parentAssetId: c.parentAssetId ?? null,
@@ -273,7 +310,7 @@ async function run(
       const p = u.patch;
       // C1: 변전소 스코핑 — 다른 변전소 asset 이면 매치 실패 → P2025 (롤백).
       await tx.asset.update({
-        where: { id: u.id, substationId },
+        where: { id: u.id },
         data: {
           assetTypeId: p.assetTypeId as string | undefined,
           ...assetCommonUpdate(p as Record<string, unknown>),
@@ -299,7 +336,7 @@ async function run(
     }
 
     if (a.deletes.length) {
-      await tx.asset.deleteMany({ where: { id: { in: a.deletes.map((d) => d.id) }, substationId } });
+      await tx.asset.deleteMany({ where: { id: { in: a.deletes.map((d) => d.id) } } });
     }
 
     const touched = [...a.updates.map((u) => u.id), ...Object.values(idMaps.assets)];
@@ -312,13 +349,63 @@ async function run(
   const resolveAsset = (id: string | null | undefined): string | null =>
     id ? idMaps.assets[id] ?? id : null;
 
+  // ── 2.5) records (자산 소유 하위레코드) — 스키마-구동 제네릭, 종류별 하드코딩 없음 ──
+  // recordType(테이블명)으로 assetRecordSchema 모델을 해소 → 그 모델의 컬럼만 매핑(date 강제),
+  // assetId(같은 페이로드 asset tempId 가능 → resolveAsset)·audit 자동. DB 에 자산 기록 테이블이
+  // 추가되면 코드 수정 없이 커밋된다. 사진은 바이너리만 커밋 직전 업로드(imageUrl 컬럼으로 들어옴).
+  if (input.records) {
+    const r = input.records;
+
+    // deletes — recordType 별 모델 deleteMany.
+    const delByType = new Map<string, string[]>();
+    for (const d of r.deletes) {
+      const a = delByType.get(d.recordType) ?? [];
+      a.push(d.id);
+      delByType.set(d.recordType, a);
+    }
+    for (const [recordType, ids] of delByType) {
+      const m = getAssetRecordModel(recordType);
+      if (!m) continue;
+      await recordDelegate(tx, m.delegate).deleteMany({ where: { id: { in: ids } } });
+    }
+
+    // creates — 모델 컬럼을 스키마-구동으로 매핑. assetId 해소 + audit 자동.
+    for (const c of r.creates) {
+      const rec = c as unknown as Record<string, unknown>;
+      const m = getAssetRecordModel(rec.recordType as string);
+      if (!m) continue;
+      const data: Record<string, unknown> = { assetId: resolveAsset(rec.assetId as string)! };
+      for (const f of m.fields) {
+        if (rec[f.name] === undefined) continue;
+        data[f.name] = coerceRecordField(f.type, rec[f.name]);
+      }
+      if (m.hasAudit) { data.createdById = userId; data.updatedById = userId; }
+      const created = await recordDelegate(tx, m.delegate).create({ data });
+      idMaps.records[rec.tempId as string] = created.id;
+    }
+
+    // updates — patch 컬럼만(date 강제), updatedById 자동.
+    for (const u of r.updates) {
+      const m = getAssetRecordModel(u.recordType);
+      if (!m) continue;
+      const p = u.patch as Record<string, unknown>;
+      const data: Record<string, unknown> = {};
+      for (const f of m.fields) {
+        if (p[f.name] === undefined) continue;
+        data[f.name] = coerceRecordField(f.type, p[f.name]);
+      }
+      if (m.hasAudit) data.updatedById = userId;
+      await recordDelegate(tx, m.delegate).update({ where: { id: u.id }, data });
+    }
+  }
+
   // ── 3) rackModules (Asset children) ──
   if (input.rackModules) {
     const m = input.rackModules;
 
     if (m.deletes.length) {
       // C1: 랙 모듈도 Asset 행이므로 substationId 로 스코핑.
-      await tx.asset.deleteMany({ where: { id: { in: m.deletes.map((d) => d.id) }, substationId } });
+      await tx.asset.deleteMany({ where: { id: { in: m.deletes.map((d) => d.id) } } });
     }
 
     // 슬롯 충돌 검사용 live 슬롯 추적 (랙별). 초기: 관련 랙의 DB 잔존 모듈.
@@ -385,7 +472,7 @@ async function run(
         }
       }
       await tx.asset.update({
-        where: { id: u.id, substationId },
+        where: { id: u.id },
         data: {
           parentAssetId: rackId,
           assetTypeId: p.categoryId as string | undefined,
@@ -412,10 +499,7 @@ async function run(
     if (fp.deletes.length) {
       // C1: OFD endpoint asset 의 substationId 로 스코핑.
       await tx.fiberPath.deleteMany({
-        where: {
-          id: { in: fp.deletes.map((d) => d.id) },
-          OR: [{ ofdA: { substationId } }, { ofdB: { substationId } }],
-        },
+        where: { id: { in: fp.deletes.map((d) => d.id) } },
       });
     }
 
@@ -469,12 +553,7 @@ async function run(
 
     if (cab.deletes.length) {
       // C1: endpoint asset 의 substationId 로 스코핑.
-      await tx.cable.deleteMany({
-        where: {
-          id: { in: cab.deletes.map((d) => d.id) },
-          OR: [{ sourceAsset: { substationId } }, { targetAsset: { substationId } }],
-        },
-      });
+      await tx.cable.deleteMany({ where: { id: { in: cab.deletes.map((d) => d.id) } } });
     }
 
     for (const c of cab.creates) {

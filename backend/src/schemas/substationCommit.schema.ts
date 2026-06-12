@@ -91,6 +91,9 @@ const assetCommonFields = Object.fromEntries(
 const assetCreate = z.object({
   tempId: z.string(),
   assetTypeId: z.string(),
+  // 전역 커밋: 신규 자산은 자기 substationId 를 싣는다(노드는 어느 변전소든 한 커밋에).
+  // 구 per-변전소 라우트는 생략 가능(URL substationId 폴백).
+  substationId: z.string().optional(),
   ...assetCommonFields,
   parentAssetId: z.string().nullable().optional(),
   roomText: z.string().nullable().optional(),
@@ -159,11 +162,35 @@ const fiberPathCreate = z.object({
 });
 const fiberPathPatch = fiberPathCreate.omit({ tempId: true }).partial();
 
+// ==================== Records (asset-owned sub-records) ====================
+// 점검/고장이력/사진은 자산이 소유한 단일 records 컬렉션 — recordType 으로 구분.
+// create 는 tempId + assetId(같은 페이로드 asset tempId 가능) + recordType + 종류별 필드(passthrough).
+// 사진 바이너리는 커밋 직전 업로드(/uploads/photo)해 imageUrl 로 참조 — 커밋은 메타데이터만 트랜잭션.
+// update/delete 는 recordType 으로 대상 테이블(inspection/maintenance/photo)을 라우팅한다.
+// recordType = 자산 기록 테이블명(DB-구동). 서비스가 assetRecordSchema 로 모델을 해소·검증한다
+// (고정 enum 없음 — DB 에 자산 기록 테이블이 생기면 코드 수정 없이 받는다).
+const recordTypeKey = z.string();
+const recordCreate = z
+  .object({ tempId: z.string(), assetId: z.string(), recordType: recordTypeKey })
+  .passthrough();
+const recordsCollection = z.object({
+  creates: z.array(recordCreate).optional().default([]),
+  updates: z
+    .array(z.object({ id: z.string(), recordType: recordTypeKey, baseVersion: z.string().nullable(), patch: z.record(z.unknown()) }))
+    .optional()
+    .default([]),
+  deletes: z
+    .array(z.object({ id: z.string(), recordType: recordTypeKey, baseVersion: z.string().nullable() }))
+    .optional()
+    .default([]),
+});
+
 // ==================== Unified commit ====================
 export const substationCommitSchema = z.object({
   assets: collection(assetCreate, assetPatch).optional(),
   cables: collection(cableCreate, cablePatch).optional(),
   rackModules: collection(rackModuleCreate, rackModulePatch).optional(),
+  records: recordsCollection.optional(),
   // 분전 회로(feeder/branch)는 통합 노드 모델에서 Asset(자식) 이므로 assets 컬렉션으로
   // 커밋된다 — 별도 distributionCircuits 컬렉션 없음(단계3b/4b).
   fiberPaths: collection(fiberPathCreate, fiberPathPatch).optional(),

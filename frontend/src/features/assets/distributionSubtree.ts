@@ -23,15 +23,15 @@ function codeOf(a: Asset): string | undefined {
   return a.assetType?.code ?? undefined;
 }
 
-/** 분전반의 FEEDER 자산들 — sortOrder, name 순. */
-export function feedersOfPanel(assets: Asset[], panelId: string): Asset[] {
+/** 분전반의 FEEDER 자산들 — sortOrder, name 순. (feederGroupsOfPanel/branchAssetIdsOfPanel 내부) */
+function feedersOfPanel(assets: Asset[], panelId: string): Asset[] {
   return assets
     .filter((a) => a.parentAssetId === panelId && codeOf(a) === FEEDER_CODE)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 
-/** FEEDER 자산의 BRANCH 자산들 — sortOrder, name 순. */
-export function branchesOfFeeder(assets: Asset[], feederId: string): Asset[] {
+/** FEEDER 자산의 BRANCH 자산들 — sortOrder, name 순. (feederGroupsOfPanel/branchAssetIdsOfPanel 내부) */
+function branchesOfFeeder(assets: Asset[], feederId: string): Asset[] {
   return assets
     .filter((a) => a.parentAssetId === feederId && codeOf(a) === BRANCH_CODE)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));

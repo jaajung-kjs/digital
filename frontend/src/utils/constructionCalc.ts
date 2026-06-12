@@ -40,15 +40,6 @@ export function actionBadgeColor(action: DiffAction): string {
   }
 }
 
-export function actionIcon(action: DiffAction): string {
-  switch (action) {
-    case 'install': return '+';
-    case 'remove': return '-';
-    case 'relocate': return '~';
-    case 'modify': return '*';
-  }
-}
-
 // ============================================================
 // CSV export (lightweight — no external dependency)
 // ============================================================

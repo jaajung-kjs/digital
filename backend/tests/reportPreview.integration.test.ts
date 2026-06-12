@@ -76,7 +76,7 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
    * 설비 자재코드는 프론트가 보내는 **접두사 없는** assetType.code('RACK')로 둔다.
    * 백엔드가 'RACK' → 'EQP-RACK' 로 해소해 BOM/노무가 산출되어야 한다(회귀 가드).
    */
-  const L = 10;
+  const L = 10; // 기대 길이(m). totalLength 는 cm 단위이므로 fixture 에는 L*100 을 넣는다.
   const changes = {
     before: { equipment: [], cables: [] },
     after: {
@@ -88,7 +88,7 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
           id: 'cb1',
           cableType: 'LAN',
           materialCategoryCode: 'CBL-UTP',
-          totalLength: L,
+          totalLength: L * 100, // cm (= L m) — 캔버스 1 unit = 1 cm
           sourceAssetId: 'eq1',
           targetAssetId: 'eq1',
         },

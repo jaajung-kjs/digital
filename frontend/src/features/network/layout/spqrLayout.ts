@@ -26,6 +26,7 @@
  */
 
 import type { TraceEdge, TraceRing } from '../../pathTrace/types';
+import { toMapById } from '../../../utils/byId';
 import { BOX_W, LEAF_GAP, MIN_NODE_DISTANCE, NODE_GAP, resolveOverlap, ringRadius } from './geometry';
 
 // ─── Block types ────────────────────────────────────────────────────────
@@ -92,8 +93,8 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
   // P/R-blocks (composite ring 단위)
   //   cycleDetection 의 fundamental cycle 들은 spanning tree path 를 공유해서 "common vertex"
   //   가 진짜 poles 가 아닌 경우 많음. 따라서 *실제 2-vertex cut* 을 brute force 로 찾는다.
-  const edgeMap = new Map(edges.map((e) => [e.id, e] as const));
-  const ringById = new Map(rings.map((r) => [r.id, r] as const));
+  const edgeMap = toMapById(edges);
+  const ringById = toMapById(rings);
   for (const cr of compositeRings) {
     const childRings = cr.childRingIds.map((id) => ringById.get(id)).filter((r): r is TraceRing => !!r);
     // block 의 OFD 와 인접도 모음

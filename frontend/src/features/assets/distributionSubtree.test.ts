@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import {
-  feedersOfPanel,
-  branchesOfFeeder,
   feederGroupsOfPanel,
   branchAssetIdsOfPanel,
   nextBranchName,
@@ -35,20 +33,12 @@ const assets: Asset[] = [
 ];
 
 describe('distributionSubtree', () => {
-  it('feedersOfPanel — 이 분전반의 FEEDER asset 만', () => {
-    const feeders = feedersOfPanel(assets, PANEL);
-    expect(feeders.map((f) => f.id)).toEqual(['F1']);
-  });
-
-  it('branchesOfFeeder — FEEDER 의 BRANCH asset 만, sortOrder 순', () => {
-    const branches = branchesOfFeeder(assets, 'F1');
-    expect(branches.map((b) => b.name)).toEqual(['L1', 'L2']);
-  });
-
-  it('feederGroupsOfPanel — 피더 → 그 분기 그룹 (seeded F1 → B1/B2)', () => {
+  it('feederGroupsOfPanel — 피더 → 그 분기 그룹 (seeded F1 → B1/B2, 다른 분전반 누설 없음)', () => {
     const groups = feederGroupsOfPanel(assets, PANEL);
     expect(groups).toHaveLength(1);
+    expect(groups[0].feeder.id).toBe('F1');
     expect(groups[0].feeder.name).toBe('테스트피더');
+    expect(groups[0].branches.map((b) => b.name)).toEqual(['L1', 'L2']);
     expect(groups[0].branches.map((b) => b.id)).toEqual(['B1', 'B2']);
   });
 
@@ -59,7 +49,7 @@ describe('distributionSubtree', () => {
 
   it('nextBranchName — max+1, 삭제분 재사용 안 함', () => {
     expect(nextBranchName([])).toBe('L1');
-    expect(nextBranchName(branchesOfFeeder(assets, 'F1'))).toBe('L3');
+    expect(nextBranchName(feederGroupsOfPanel(assets, PANEL)[0].branches)).toBe('L3');
   });
 
   it('buildSubtreeAsset — FEEDER/BRANCH 내부 노드 (parentAssetId 채움, 미배치)', () => {

@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
 import type { Asset } from '../../../types/asset';
-import { widthOf, heightOf } from '../../workingCopy/placement';
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
@@ -53,8 +52,8 @@ export function EquipmentResizeHandles({ equipment, zoom, panX, panY }: Equipmen
   const scale = zoom / 100;
   const screenX = (equipment.positionX ?? 0) * scale + panX;
   const screenY = (equipment.positionY ?? 0) * scale + panY;
-  const screenW = widthOf(equipment) * scale;
-  const screenH = heightOf(equipment) * scale;
+  const screenW = (equipment.width2d ?? 0) * scale;
+  const screenH = (equipment.height2d ?? 0) * scale;
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 13 }}>
@@ -105,8 +104,8 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
         mouseY: e.clientY,
         origX: equipment.positionX ?? 0,
         origY: equipment.positionY ?? 0,
-        origW: widthOf(equipment),
-        origH: heightOf(equipment),
+        origW: equipment.width2d ?? 0,
+        origH: equipment.height2d ?? 0,
       };
       setIsDragging(true);
 

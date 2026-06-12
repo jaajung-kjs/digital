@@ -6,7 +6,8 @@ import type {
   CableSnapshotItem,
 } from '../../types/constructionReport';
 import { mergeEffective } from '../workingCopy/effective';
-import { assetsByIdMap, cableOnFloor } from '../workingCopy/floorAnchor';
+import { cableOnFloor } from '../workingCopy/floorAnchor';
+import { toMapById } from '../../utils/byId';
 import {
   assetDescriptor,
   cableDescriptor,
@@ -92,8 +93,8 @@ function pruneUnchanged<T extends { id: string }>(
   before: T[],
   after: T[],
 ): { before: T[]; after: T[] } {
-  const beforeMap = new Map(before.map((x) => [x.id, x]));
-  const afterMap = new Map(after.map((x) => [x.id, x]));
+  const beforeMap = toMapById(before);
+  const afterMap = toMapById(after);
   const keepBefore: T[] = [];
   const keepAfter: T[] = [];
   for (const b of before) {
@@ -123,7 +124,7 @@ export function overlayToChanges(
   // ── before: saved 활성 층 ──
   // 멤버십: endpoint 단일 assetId 를 floorAnchor 로 해소(모듈→랙·분기→분전반)해 이 층인 케이블.
   const savedFloorAssets = saved.assets.filter((a) => a.floorId === activeFloorId);
-  const savedAssetsById = assetsByIdMap(saved.assets);
+  const savedAssetsById = toMapById(saved.assets);
   const savedFloorCables = saved.cables.filter((c) =>
     cableOnFloor(c as { sourceAssetId?: string | null; targetAssetId?: string | null }, activeFloorId, savedAssetsById),
   );
@@ -131,7 +132,7 @@ export function overlayToChanges(
   // ── after: effective(saved+overlay) 활성 층 ──
   const allEffAssets = mergeEffective(saved.assets, overlays.assets, assetDescriptor);
   const effAssets = allEffAssets.filter((a) => a.floorId === activeFloorId);
-  const effAssetsById = assetsByIdMap(allEffAssets);
+  const effAssetsById = toMapById(allEffAssets);
   const effCables = mergeEffective(saved.cables, overlays.cables, cableDescriptor).filter((c) =>
     cableOnFloor(c as { sourceAssetId?: string | null; targetAssetId?: string | null }, activeFloorId, effAssetsById),
   );

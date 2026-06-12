@@ -14,10 +14,10 @@ vi.mock('../../hooks/useNodeAssets', () => ({
 
 const overlay = {
   creates: {
-    t1: { id: 't1', assetTypeId: 'X', name: 'NEW', floorId: 'f1' },
+    t1: { id: 't1', assetTypeId: 'X', name: 'NEW', floorId: 'f1', substationId: 's1' },
     // 랙 모듈 자식(parentAssetId + slotIndex)도 행으로 포함 — 서버 listByNode 가 모듈을
     // 반환하므로 저장 전후 동일하게 보여야 한다(SSOT 실시간 반영).
-    tmod: { id: 'tmod', assetTypeId: 'Y', name: 'MODULE', parentAssetId: 'a1', slotIndex: 2 },
+    tmod: { id: 'tmod', assetTypeId: 'Y', name: 'MODULE', parentAssetId: 'a1', slotIndex: 2, substationId: 's1' },
   },
   updates: { a1: { name: 'A1-edit' } },
   deletes: ['a2'],
@@ -26,7 +26,7 @@ const overlay = {
 
 vi.mock('../workingCopy/hooks', () => ({
   useEffectiveAssetsOverlay: () => overlay,
-  useEffectiveInspections: () => [],
+  useRecordsByType: () => [],
 }));
 
 import { useSubstationStatusRows } from './useSubstationStatusRows';

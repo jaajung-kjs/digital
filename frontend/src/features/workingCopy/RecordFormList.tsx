@@ -1,12 +1,11 @@
 import { useState } from 'react';
+import { INSPECTIONS, LOGS } from './recordTypes';
 import { Pencil, Trash2 } from 'lucide-react';
-import { generateTempId } from '../../utils/idHelpers';
-import { toDateInputValue } from '../../utils/date';
+import { generateTempId, isTempId } from '../../utils/idHelpers';
+import { toDateInputValue, formatDate } from '../../utils/date';
 import { useSubstationWorkingCopy } from './substationStore';
-import { useEffectiveRecords } from './hooks';
+import { useAssetRecords } from './hooks';
 import type { RecordTypeDef, RecordFieldDef } from './recordTypes';
-import { useInspectionLogs } from '../assets/hooks/useInspectionLogs';
-import { useMaintenanceLogs } from '../equipment/hooks/useMaintenanceLogs';
 import {
   SectionItem,
   PrimaryButton,
@@ -20,16 +19,14 @@ import {
  * P5c — 데이터-주도 form-list 렌더러.
  *
  * InspectionSection + LogsTab 의 git-like 스테이징 UI 를 ASSET_RECORD_TYPES 레지스트리
- * 한 정의(def)로 재현한다. 저장된 데이터는 자산별 RQ 로, 스테이징은 워킹카피 overlay 로.
- *  - 보류(저장 대기) 항목: 인라인 수정/삭제. 저장된 항목: 커밋 이력 → 읽기전용(삭제만).
- *  - 표시 목록 = 보류(staged create) 위 + 저장됨(RQ, 삭제 staged 제외).
+ * 한 정의(def)로 재현한다. 저장·스테이징 모두 워킹카피 단일 소스(saved+overlay effective)로
+ * 조회한다 — 자산별 RQ 이중머지를 폐지(데이터는 워킹카피 한 곳).
+ *  - 보류(temp id = staged create): 인라인 수정/삭제. 저장됨(real id): 커밋 이력 → 삭제만.
+ *  - 표시 목록 = 보류(위) + 저장됨. 삭제 staged 는 effective 가 이미 제외.
  *  - 폼/행은 def.fields(type 별) + def.formList(헤더/빈상태/버튼/행변형)로 구동.
- *
- * 종전 두 컴포넌트와 마크업 byte-identical 을 목표로 한다(행 변형만 명시 분기).
  */
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const fmtDate = (s: string) => new Date(s).toLocaleDateString('ko-KR');
 
 type FormState = Record<string, string>;
 
@@ -41,14 +38,6 @@ function initialForm(fields: RecordFieldDef[]): FormState {
     else out[f.name] = f.defaultValue ?? '';
   }
   return out;
-}
-
-/** 저장된 RQ 행을 컬렉션별로 로드 — 키마다 다른 읽기 전용 쿼리 훅을 분기(둘 다 항상 호출, hooks 규칙 준수). */
-function useSavedRecords(def: RecordTypeDef, parentId: string): { rows: Record<string, unknown>[]; isLoading: boolean } {
-  const inspection = useInspectionLogs(def.key === 'inspections' ? parentId : '');
-  const maintenance = useMaintenanceLogs(def.key === 'logs' ? parentId : '');
-  const active = def.key === 'inspections' ? inspection : maintenance;
-  return { rows: Array.isArray(active.data) ? (active.data as unknown as Record<string, unknown>[]) : [], isLoading: active.isLoading };
 }
 
 /** 한 필드를 type 별로 렌더(FormRow 래핑). */
@@ -101,10 +90,9 @@ export function RecordFormList({
   readOnly?: boolean;
 }) {
   const fl = def.formList!;
-  const { rows: savedRows, isLoading } = useSavedRecords(def, parentId);
 
-  const staged = useEffectiveRecords<Record<string, unknown> & { id: string }>(def.key);
-  const deletes = useSubstationWorkingCopy((s) => s.overlays[def.key].deletes);
+  // 단일 소스: 이 자산의 이 종류 레코드(saved+overlay effective). 삭제 staged 는 effective 가 제외.
+  const records = useAssetRecords(parentId, def.key) as (Record<string, unknown> & { id: string })[];
   const put = useSubstationWorkingCopy((s) => s.put);
   const patch = useSubstationWorkingCopy((s) => s.patch);
   const remove = useSubstationWorkingCopy((s) => s.remove);
@@ -114,8 +102,8 @@ export function RecordFormList({
 
   const canWrite = !readOnly;
 
-  // 표시 목록: 보류(저장 대기, staged create) 위 + 저장됨(RQ, 삭제 staged 제외).
-  const items = buildItems(def, parentId, staged, savedRows, deletes);
+  // 표시 목록: 보류(temp id) 위 + 저장됨(real id).
+  const items = buildItems(def, parentId, records);
 
   const reset = () => {
     setForm(initialForm(def.fields));
@@ -128,8 +116,8 @@ export function RecordFormList({
   const handleSubmit = () => {
     if (!canSubmit) return;
     const payload = buildPayload(def, form);
-    if (editingId) patch(def.key, editingId, payload);
-    else put(def.key, { id: generateTempId(), [def.parentKey]: parentId, ...payload });
+    if (editingId) patch('records', editingId, payload);
+    else put('records', { id: generateTempId(), assetId: parentId, recordType: def.key, ...payload });
     reset();
   };
 
@@ -149,16 +137,8 @@ export function RecordFormList({
   // 보류(temp)·저장(real) 모두 remove 하나로 — isTempId 가 분기(temp=create 제거 / real=delete staging).
   const handleRemove = (id: string) => {
     if (editingId === id) reset();
-    remove(def.key, id);
+    remove('records', id);
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-6">
-        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-4">
@@ -221,11 +201,10 @@ function buildPayload(def: RecordTypeDef, form: FormState): Record<string, unkno
   for (const f of def.fields) {
     const v = form[f.name] ?? '';
     if (f.type === 'textarea') {
-      // 점검 content: '' → null; 고장 description: '' → undefined. media 외엔 createBody 가 최종 정규화하지만
-      // overlay(staged) 표현을 종전과 맞추기 위해 컬렉션별 빈값 규약을 따른다.
-      out[f.name] = def.key === 'inspections' ? (v.trim() || null) : (v.trim() || undefined);
+      // 빈 textarea 규약: 점검 content '' → null, 고장 description '' → undefined(종전 표현 유지).
+      out[f.name] = def.key === INSPECTIONS ? (v.trim() || null) : (v.trim() || undefined);
     } else if (f.type === 'date') {
-      out[f.name] = def.key === 'logs' ? (v || undefined) : v;
+      out[f.name] = def.key === LOGS ? (v || undefined) : v;
     } else if (f.required) {
       out[f.name] = v.trim();
     } else {
@@ -235,31 +214,25 @@ function buildPayload(def: RecordTypeDef, form: FormState): Record<string, unkno
   return out;
 }
 
-/** 보류(staged) + 저장됨(RQ, 삭제 staged 제외) 을 표시 행으로 — 보류가 위. */
+/** effective(saved+staged) 레코드를 표시 행으로 — 보류(temp id)가 위, 저장됨(real id)이 아래. */
 function buildItems(
   def: RecordTypeDef,
   parentId: string,
-  staged: (Record<string, unknown> & { id: string })[],
-  saved: Record<string, unknown>[],
-  deletes: string[],
+  records: (Record<string, unknown> & { id: string })[],
 ): RowItem[] {
-  const pending = staged
-    .filter((r) => r[def.parentKey] === parentId)
-    .map((r) => ({ id: r.id, isPending: true as const, values: r, createdByName: null }));
-
-  const persisted = saved
-    .filter((r) => !deletes.includes(r.id as string))
-    .map((r) => {
-      const values: Record<string, unknown> = {};
-      for (const f of def.fields) {
-        // 고장이력: logDate 없으면 createdAt 폴백, severity 없으면 ''(종전 LogsTab 동작).
-        if (def.key === 'logs' && f.name === 'logDate') values[f.name] = (r.logDate ?? r.createdAt) ?? '';
-        else if (def.key === 'logs' && f.name === 'severity') values[f.name] = r.severity ?? '';
-        else values[f.name] = r[f.name] ?? null;
-      }
-      return { id: r.id as string, isPending: false as const, values, createdByName: (r.createdByName as string) ?? null };
-    });
-
+  const toRow = (r: Record<string, unknown> & { id: string }): RowItem => {
+    const values: Record<string, unknown> = {};
+    for (const f of def.fields) {
+      // 고장이력: logDate 없으면 createdAt 폴백, severity 없으면 ''(종전 LogsTab 동작).
+      if (def.key === LOGS && f.name === 'logDate') values[f.name] = (r.logDate ?? r.createdAt) ?? '';
+      else if (def.key === LOGS && f.name === 'severity') values[f.name] = r.severity ?? '';
+      else values[f.name] = r[f.name] ?? null;
+    }
+    return { id: r.id, isPending: isTempId(r.id), values, createdByName: (r.createdByName as string) ?? null };
+  };
+  const mine = records.filter((r) => r.assetId === parentId);
+  const pending = mine.filter((r) => isTempId(r.id)).map(toRow);
+  const persisted = mine.filter((r) => !isTempId(r.id)).map(toRow);
   return [...pending, ...persisted];
 }
 
@@ -282,7 +255,7 @@ function InspectionRow({
     <SectionItem>
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-2 text-sm min-w-0">
-          <span className="font-medium text-content shrink-0">{fmtDate(inspectionDate)}</span>
+          <span className="font-medium text-content shrink-0">{formatDate(inspectionDate)}</span>
           <span className="text-content-muted truncate">{inspector}</span>
           {it.isPending && <span className="text-xs text-warning shrink-0">저장 대기</span>}
         </div>
@@ -333,7 +306,7 @@ function LogRow({
       <p className="text-sm font-medium text-content">{title}</p>
       {description && <p className="text-sm text-content-muted mt-1 whitespace-pre-wrap">{description}</p>}
       <div className="flex items-center justify-between mt-1.5">
-        <p className="text-xs text-content-faint">{logDate ? fmtDate(logDate) : ''}</p>
+        <p className="text-xs text-content-faint">{logDate ? formatDate(logDate) : ''}</p>
         {it.createdByName && <p className="text-xs text-content-faint">작성: {it.createdByName}</p>}
       </div>
     </SectionItem>

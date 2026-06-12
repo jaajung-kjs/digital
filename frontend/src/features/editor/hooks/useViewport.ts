@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import type { BackgroundDrawing } from '../../../types/floorPlan';
 import type { Asset } from '../../../types/asset';
-import { widthOf, heightOf } from '../../workingCopy/placement';
 import { useEditorStore } from '../stores/editorStore';
 
 /**
@@ -40,8 +39,8 @@ export function calculateFitToContent(
   for (const eq of equipment) {
     const px = eq.positionX ?? 0;
     const py = eq.positionY ?? 0;
-    const w = widthOf(eq);
-    const h = heightOf(eq);
+    const w = eq.width2d ?? 0;
+    const h = eq.height2d ?? 0;
     if (px < minX) minX = px;
     if (py < minY) minY = py;
     if (px + w > maxX) maxX = px + w;

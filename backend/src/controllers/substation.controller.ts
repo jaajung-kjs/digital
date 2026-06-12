@@ -110,6 +110,21 @@ export const substationController = {
   },
 
   /**
+   * POST /api/commit — 전역 커밋(변전소 스코프 없음).
+   * 노드(자산)+엣지(케이블/광경로)+기록을 어느 변전소든 한 트랜잭션에 커밋한다.
+   * 신규 자산은 자기 substationId 를 payload 에 싣는다(URL param 없음). 나머지는 commit() 과 동일.
+   */
+  async commitGlobal(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.userId;
+      const result = await commitSubstation('', req.body as SubstationCommitInput, userId);
+      res.json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  /**
    * GET /api/substations/:substationId/workingcopy
    * 통합 working-copy 벌크 로드 (SSOT-2b) — assets(배치 포함)/cables/
    * fiberPaths 전 컬렉션을 단일 응답으로 반환.

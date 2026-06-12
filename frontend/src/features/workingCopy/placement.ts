@@ -14,8 +14,3 @@ export function kindOf(a: Pick<Asset, 'assetType'>): EquipmentKind {
   if (pk && (EQUIPMENT_KINDS as string[]).includes(pk)) return pk as EquipmentKind;
   return 'RACK'; // null/unknown — 안전 기본값(throw 안 함)
 }
-
-/** 배치 폭(2D, cm). Asset.width2d 는 nullable → 0 으로 안전화(캔버스 NaN 방지). */
-export const widthOf = (a: Pick<Asset, 'width2d'>): number => a.width2d ?? 0;
-/** 배치 높이(2D, cm). */
-export const heightOf = (a: Pick<Asset, 'height2d'>): number => a.height2d ?? 0;

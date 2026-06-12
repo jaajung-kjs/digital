@@ -5,7 +5,7 @@ import type { Overlay } from './overlay';
 export function mergeEffective<T, P>(
   saved: T[],
   overlay: Overlay<T, P>,
-  d: CollectionDescriptor<T, P>,
+  d: CollectionDescriptor<T>,
 ): T[] {
   const deleted = new Set(overlay.deletes);
   const result: T[] = [];

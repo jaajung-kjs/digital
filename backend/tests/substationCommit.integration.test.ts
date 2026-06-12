@@ -257,61 +257,35 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     expect(f2.gridSize).toBe(50);
   });
 
-  it('M4a) 크로스 변전소 asset update → 409, sub2 asset 미변경', async () => {
+  // 전역 커밋: 변전소 스코프가 없으므로 다른 변전소의 노드/엣지/floor 도 같은 커밋으로 변경된다
+  // (자산 A는 어디서든 자산 A — 변전소 A·B 자산을 한 번에 고쳐 한 트랜잭션으로 저장).
+  it('M4a) 전역: 다른 변전소 asset update 도 성공(변전소 스코프 없음)', async () => {
     const a2before = await prisma.asset.findUniqueOrThrow({ where: { id: asset2Id } });
     const input = substationCommitSchema.parse({
       assets: { updates: [{ id: asset2Id, baseVersion: a2before.updatedAt.toISOString(), patch: { positionX: 777 } }] },
     });
-    let err: VersionConflictError | null = null;
-    try {
-      await commitSubstation(subId, input, userId);
-    } catch (e) {
-      err = e as VersionConflictError;
-    }
-    expect(err).toBeInstanceOf(VersionConflictError);
-    expect(err!.conflicts.some((c) => c.collection === 'assets' && c.id === asset2Id)).toBe(true);
-
-    // sub2 asset 은 그대로
+    await commitSubstation(subId, input, userId); // subId(sub1) 컨텍스트지만 sub2 자산도 전역으로 갱신
     const a2after = await prisma.asset.findUniqueOrThrow({ where: { id: asset2Id } });
-    expect(a2after.positionX).toBe(a2before.positionX);
-    expect(a2after.updatedAt.toISOString()).toBe(a2before.updatedAt.toISOString());
+    expect(a2after.positionX).toBe(777);
   });
 
-  it('M4b) 크로스 변전소 asset delete → 409, sub2 asset 존속', async () => {
+  it('M4b) 전역: 다른 변전소 asset delete 도 성공', async () => {
     const a2before = await prisma.asset.findUniqueOrThrow({ where: { id: asset2Id } });
     const input = substationCommitSchema.parse({
       assets: { deletes: [{ id: asset2Id, baseVersion: a2before.updatedAt.toISOString() }] },
     });
-    let err: VersionConflictError | null = null;
-    try {
-      await commitSubstation(subId, input, userId);
-    } catch (e) {
-      err = e as VersionConflictError;
-    }
-    expect(err).toBeInstanceOf(VersionConflictError);
-    expect(err!.conflicts.some((c) => c.collection === 'assets' && c.id === asset2Id)).toBe(true);
-
-    // sub2 asset 은 여전히 존재
-    expect(await prisma.asset.findUnique({ where: { id: asset2Id } })).not.toBeNull();
+    await commitSubstation(subId, input, userId);
+    expect(await prisma.asset.findUnique({ where: { id: asset2Id } })).toBeNull();
   });
 
-  it('M4c) 크로스 변전소 floor → 409, sub2 floor 미변경', async () => {
+  it('M4c) 전역: 다른 변전소 floor 도 성공', async () => {
     const f2before = await prisma.floor.findUniqueOrThrow({ where: { id: floor2Id } });
     const input = substationCommitSchema.parse({
       floor: { id: floor2Id, baseVersion: f2before.updatedAt.toISOString(), settings: { gridSize: 123 } },
     });
-    let err: VersionConflictError | null = null;
-    try {
-      await commitSubstation(subId, input, userId);
-    } catch (e) {
-      err = e as VersionConflictError;
-    }
-    expect(err).toBeInstanceOf(VersionConflictError);
-    expect(err!.conflicts.some((c) => c.collection === 'floor' && c.id === floor2Id)).toBe(true);
-
-    // sub2 floor 미변경
+    await commitSubstation(subId, input, userId);
     const f2after = await prisma.floor.findUniqueOrThrow({ where: { id: floor2Id } });
-    expect(f2after.gridSize).toBe(f2before.gridSize);
+    expect(f2after.gridSize).toBe(123);
   });
 
   it('6) 인증 없음 → 401, malformed body → 400', async () => {

@@ -1,13 +1,11 @@
 import { useCallback } from 'react';
+import { PHOTOS } from './recordTypes';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
-import { buildIdMaps } from './idMaps';
 import { commitSubstation, type FloorCommitSection } from './substationCommit';
-import { useSubstationWorkingCopy, recordDescriptorOf, revokeStagedPhotoUrls } from './substationStore';
-import { ASSET_RECORD_TYPES, createRecord, type RecordTypeKey } from './recordTypes';
+import { useSubstationWorkingCopy, recordsDescriptor, revokeStagedPhotoUrls, type AssetRecord } from './substationStore';
 import { mergeEffective } from './effective';
 import type { Overlay } from './overlay';
-import type { CollectionDescriptor } from './descriptor';
 import { useEditorStore } from '../editor/stores/editorStore';
 import { overlayToChanges } from '../report/overlayToChanges';
 import { WORK_ORDER_KEYS } from '../report/useWorkOrders';
@@ -58,84 +56,32 @@ function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): Floo
   };
 }
 
-// ── media flush 레지스트리 (P5c — ASSET_RECORD_TYPES 파생) ────────────────────
-// 사진/로그/점검의 *영속화 지식*(엔드포인트·payload·무효화 쿼리)은 recordTypes.ts 의
-// ASSET_RECORD_TYPES 가 단일 출처다. 여기서는 그 레지스트리를 *순회*해 flusher 배열을
-// 만든다 — 새 media 레코드 타입 추가 = 레지스트리 엔트리 1개 → flush/무효화 자동 참여.
-// flush·무효화는 이 배열을 순회하므로 별도 if 블록·hadX 플래그가 필요 없다(북극성 ①).
-type MediaRecord = {
-  id: string;
-  assetId?: string;
-  side?: string; file?: File; description?: string | null;
-  logType?: string; title?: string; logDate?: string | null; severity?: string | null;
-  inspectionDate?: string; inspector?: string; content?: string | null;
-};
-interface MediaFlusher {
-  key: RecordTypeKey;
-  descriptor: CollectionDescriptor<MediaRecord>;
-  label: string;
-  create: (r: MediaRecord, resolveEquipmentId: (id: string) => string) => Promise<unknown>;
-  del: (id: string) => Promise<unknown>;
-  invalidate: unknown[][];
-}
-
-// 레지스트리에서 flusher 를 파생. parentKey(assetId/equipmentId)로 부모 realId 를 해소하고,
-// create 는 createRecord(media=multipart / 그 외=JSON)로, del/invalidate 는 레지스트리 엔드포인트로.
-const MEDIA_FLUSHERS: MediaFlusher[] = ASSET_RECORD_TYPES.map((def) => ({
-  key: def.key,
-  descriptor: recordDescriptorOf(def.key) as unknown as CollectionDescriptor<MediaRecord>,
-  label: def.label,
-  create: (r: MediaRecord, resolve: (id: string) => string) =>
-    createRecord(def, r, resolve((r[def.parentKey] as string)!)),
-  del: (id: string) => api.delete(def.deleteUrl(id)),
-  invalidate: def.invalidate,
-}));
-
-/**
- * 커밋 성공 후 staged media 를 레지스트리 순회로 flush(tempId→realId 해석). 각 컬렉션:
- * effective creates → create(), overlay.deletes → del(). allSettled(실패만 경고).
- * 변경이 있었던 컬렉션 키 집합을 반환(커밋 후 쿼리 무효화용).
- */
-async function flushPendingMedia(
-  overlays: Record<string, Overlay<MediaRecord, Partial<MediaRecord>>>,
-  idMapsAssets: Record<string, string> | undefined,
-): Promise<Set<MediaFlusher['key']>> {
-  const idMaps = buildIdMaps({ equipmentIdMap: idMapsAssets });
-  const resolveEquipmentId = (id: string) => idMaps.equipment.get(id) ?? id;
-
-  const tasks: Promise<void>[] = [];
-  const changed = new Set<MediaFlusher['key']>();
-
-  for (const f of MEDIA_FLUSHERS) {
-    const overlay = overlays[f.key];
-    const creates = mergeEffective([], overlay, f.descriptor);
-    const deletes = overlay.deletes;
-    if (creates.length === 0 && deletes.length === 0) continue;
-    changed.add(f.key);
-    if (creates.length > 0) {
-      tasks.push(Promise.allSettled(creates.map((r) => f.create(r, resolveEquipmentId))).then((rs) => {
-        const fails = rs.filter((r) => r.status === 'rejected');
-        if (fails.length > 0) console.warn(`[Save] ${fails.length} ${f.label} creation(s) failed:`, fails);
-      }));
-    }
-    if (deletes.length > 0) {
-      tasks.push(Promise.allSettled(deletes.map((id) => f.del(id))).then((rs) => {
-        const fails = rs.filter((r) => r.status === 'rejected');
-        if (fails.length > 0) console.warn(`[Save] ${fails.length} ${f.label} deletion(s) failed:`, fails);
-      }));
-    }
-  }
-
-  await Promise.all(tasks);
-  return changed;
-}
-
-/** 변경된 media 컬렉션들의 무효화 쿼리를 레지스트리에서 실행. */
-function invalidateMediaQueries(queryClient: QueryClient, changed: Set<MediaFlusher['key']>): void {
-  for (const f of MEDIA_FLUSHERS) {
-    if (!changed.has(f.key)) continue;
-    for (const queryKey of f.invalidate) queryClient.invalidateQueries({ queryKey });
-  }
+// ── 사진 바이너리 선업로드 ────────────────────────────────────────────────────
+// 사진 레코드(recordType='photos')의 압축 File 을 커밋 직전에 업로드(/uploads/photo)해 imageUrl 을
+// 받는다. 그 imageUrl 을 통합 커밋의 records.creates 에 실어 equipmentPhoto 행을 트랜잭션 안에서
+// 만든다 — 사진까지 단일 원자 쓰기 경로(바이너리만 트랜잭션 밖). 반환: 레코드 tempId → imageUrl.
+async function uploadStagedPhotos(
+  recordsOverlay: Overlay<AssetRecord, Partial<AssetRecord>>,
+): Promise<Map<string, string>> {
+  const photos = mergeEffective([], recordsOverlay, recordsDescriptor).filter(
+    (r) => r.recordType === PHOTOS && r.file instanceof File,
+  );
+  const urls = new Map<string, string>();
+  await Promise.all(
+    photos.map(async (p) => {
+      try {
+        const fd = new FormData();
+        fd.append('file', p.file as File);
+        const { data } = await api.post('/uploads/photo', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        urls.set(p.id, data.data.imageUrl as string);
+      } catch (e) {
+        console.warn('[Save] 사진 업로드 실패(해당 사진은 이번 저장에서 제외):', e);
+      }
+    }),
+  );
+  return urls;
 }
 
 /** changes 에 실제 변경분이 있는지(설비/케이블 어느 한쪽이라도). */
@@ -218,12 +164,14 @@ export function useCommitWorkingCopy() {
       : null;
 
     try {
-      const result = await commitSubstation(substationId, wc.overlays, wc.saved.assets, queryClient, floor);
-      const changedMedia = await flushPendingMedia(
-        wc.overlays as unknown as Record<string, Overlay<MediaRecord, Partial<MediaRecord>>>,
-        result.idMaps?.assets,
+      // 사진 바이너리만 커밋 직전 업로드(URL 확보) → 메타데이터는 통합 커밋 트랜잭션에서 원자적으로.
+      const photoUrls = await uploadStagedPhotos(wc.overlays.records);
+      const result = await commitSubstation(
+        substationId, wc.overlays, wc.saved.assets, wc.saved.records, photoUrls, queryClient, floor,
       );
       revokeStagedPhotoUrls(wc.overlays); // 업로드 완료 → 미리보기 blob 해제
+      // 전역 커밋 완료 → staged overlay 전부 클리어(전역 load 는 더 이상 overlay 를 비우지 않으므로 명시적으로).
+      useSubstationWorkingCopy.getState().revert();
       await useSubstationWorkingCopy.getState().load(substationId);
       useEditorStore.getState().clearPendingData();
       // 2회차 저장 409 방지(견고화) — floor 섹션을 커밋하면 백엔드가 floor.updatedAt 을
@@ -240,7 +188,7 @@ export function useCommitWorkingCopy() {
       if (activeFloorId != null) {
         queryClient.invalidateQueries({ queryKey: ['floorPlan', activeFloorId] });
       }
-      invalidateMediaQueries(queryClient, changedMedia);
+      // 레코드(점검/로그/사진) 무효화는 불필요 — commitSubstation 이 nodeAssets 무효화 + load 가 saved 재조정.
       // 활성 층에 변경이 있었으면 설계서를 작업지시서로 아카이브(실패해도 커밋은 성공).
       if (activeFloorId && preCommitChanges && hasFloorChanges(preCommitChanges)) {
         await archiveWorkOrder(substationId, activeFloorId, preCommitChanges, queryClient);

@@ -5,7 +5,7 @@ import type { CollectionDescriptor } from './descriptor';
 
 interface Row { id: string; name: string; v: string }
 const d: CollectionDescriptor<Row> = {
-  name: 'rows', idOf: (r) => r.id, versionOf: (r) => r.v, isTemp: (id) => id.startsWith('temp-'),
+  idOf: (r) => r.id, versionOf: (r) => r.v,
 };
 const saved: Row[] = [{ id: 'a', name: 'A', v: '1' }, { id: 'b', name: 'B', v: '1' }];
 

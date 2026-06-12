@@ -1,7 +1,8 @@
 import { type LocalCable } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
-import { floorAnchor, assetsByIdMap } from '../../workingCopy/floorAnchor';
+import { floorAnchor } from '../../workingCopy/floorAnchor';
+import { toMapById } from '../../../utils/byId';
 import { calculatePathLength } from '../../../utils/cable/pathLength';
 import { getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 
@@ -27,7 +28,7 @@ export function syncCableEndpointsTo(movedEquipmentId: string): void {
   // 끝점이 이 설비를 floor anchor(렌더 대표)로 갖는 케이블이 따라와야 한다.
   // 랙을 옮기면 그 모듈 endpoint 케이블이, 분전반을 옮기면 회로 endpoint 케이블이
   // 같이 따라옴 — anchor 가 곧 placed ancestor 이므로 깊이에 무관하게 동작.
-  const assetsById = assetsByIdMap(assets);
+  const assetsById = toMapById(assets);
   // cable 의 polymorphic endpoint id(설비/모듈/회로)의 anchor 가 movedEquipmentId 인가.
   const anchoredToMoved = (endpointId: string | null | undefined): boolean =>
     !!endpointId && floorAnchor(endpointId, assetsById)?.id === movedEquipmentId;

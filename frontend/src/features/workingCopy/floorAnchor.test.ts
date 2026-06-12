@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { isFloorPlaced, floorAnchor, anchorPosition, assetsByIdMap, floorTargetFor, cableOnFloor } from './floorAnchor';
+import { isFloorPlaced, floorAnchor, floorTargetFor, cableOnFloor } from './floorAnchor';
+import { toMapById } from '../../utils/byId';
 import type { Asset } from '../../types/asset';
 
 function asset(p: Partial<Asset> & { id: string }): Asset {
@@ -40,7 +41,7 @@ const orphan = asset({ id: 'orphan', parentAssetId: null });
 const cycA = asset({ id: 'cycA', parentAssetId: 'cycB' });
 const cycB = asset({ id: 'cycB', parentAssetId: 'cycA' });
 
-const map = assetsByIdMap([rack, module, dist, circuit, orphan, cycA, cycB]);
+const map = toMapById([rack, module, dist, circuit, orphan, cycA, cycB]);
 
 describe('isFloorPlaced', () => {
   it('placed = floorId + coords + size', () => {
@@ -70,21 +71,6 @@ describe('floorAnchor', () => {
   it('unknown id → null', () => {
     expect(floorAnchor('nope', map)).toBeNull();
     expect(floorAnchor(null, map)).toBeNull();
-  });
-});
-
-describe('anchorPosition', () => {
-  it('center of placed anchor', () => {
-    expect(anchorPosition('rack', map)).toEqual({ x: 120, y: 230 });
-  });
-  it('module resolves to rack center', () => {
-    expect(anchorPosition('mod', map)).toEqual({ x: 120, y: 230 });
-  });
-  it('circuit resolves to dist center', () => {
-    expect(anchorPosition('circ', map)).toEqual({ x: 25, y: 35 });
-  });
-  it('orphan → null', () => {
-    expect(anchorPosition('orphan', map)).toBeNull();
   });
 });
 
@@ -123,7 +109,7 @@ describe('cableOnFloor (단계4a: 단일 endpoint assetId + floorAnchor 멤버�
   const panel = asset({ id: 'panel', floorId: 'f1', positionX: 1, positionY: 1, width2d: 10, height2d: 10 });
   const feeder = asset({ id: 'feeder', parentAssetId: 'panel' });
   const branch = asset({ id: 'branch', parentAssetId: 'feeder' });
-  const cmap = assetsByIdMap([rack, module, dist, circuit, panel, feeder, branch]);
+  const cmap = toMapById([rack, module, dist, circuit, panel, feeder, branch]);
 
   it('eq/mod endpoint(assetId) — 자신/랙으로 해소되어 f1 멤버', () => {
     expect(cableOnFloor({ sourceAssetId: 'rack', targetAssetId: 'mod' }, 'f1', cmap)).toBe(true);

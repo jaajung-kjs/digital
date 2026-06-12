@@ -6,9 +6,9 @@ import {
   useEffectiveEquipment,
   useEffectiveFloorCables,
 } from '../../workingCopy/hooks';
-import { widthOf, heightOf } from '../../workingCopy/placement';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
-import { floorAnchor, assetsByIdMap } from '../../workingCopy/floorAnchor';
+import { floorAnchor } from '../../workingCopy/floorAnchor';
+import { toMapById } from '../../../utils/byId';
 import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 
 /** Check if a cable matches the current filter set (DB category codes) */
@@ -101,9 +101,9 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const endpointPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; width: number; height: number }>();
     for (const eq of localEquipment) {
-      map.set(eq.id, { x: eq.positionX ?? 0, y: eq.positionY ?? 0, width: widthOf(eq), height: heightOf(eq) });
+      map.set(eq.id, { x: eq.positionX ?? 0, y: eq.positionY ?? 0, width: eq.width2d ?? 0, height: eq.height2d ?? 0 });
     }
-    const assetsById = assetsByIdMap(effectiveAssets);
+    const assetsById = toMapById(effectiveAssets);
     // endpoint id(key) → placed ancestor(floorAnchor) 사각형. 직접 배치 id 는 자기 좌표
     // (이미 localEquipment 로 들어와 있음), 그 외(모듈/분기 등)는 부모 체인을 거슬러 해소.
     const setAnchor = (key: string) => {

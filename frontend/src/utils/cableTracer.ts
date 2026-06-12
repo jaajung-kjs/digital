@@ -13,6 +13,7 @@
  */
 
 import type { LocalCable } from '../features/editor/stores/editorStore';
+import { toMapById } from './byId';
 import type { Asset } from '../types/asset';
 import { kindOf } from '../features/workingCopy/placement';
 import type { FiberPathDetail } from '../features/fiber/types';
@@ -180,11 +181,11 @@ export function traceCable(input: TraceCableInput): TraceResult {
   const { cableId, cables, equipment, rackModules, assets, fiberPaths } = input;
 
   // Lookups (현재 floor 한정)
-  const equipMap = new Map(equipment.map((e) => [e.id, e]));
-  const moduleMap = new Map((rackModules ?? []).map((m) => [m.id, m]));
+  const equipMap = toMapById(equipment);
+  const moduleMap = toMapById(rackModules ?? []);
   // 단계4a — 분전 분기는 BRANCH asset. endpoint id 가 BRANCH asset 이면 parent 체인
   //   (branch→feeder→panel) 을 걸어 "분전반 · feeder/branch" 라벨을 만든다.
-  const assetMap = new Map((assets ?? []).map((a) => [a.id, a]));
+  const assetMap = toMapById(assets ?? []);
 
   // fiberPaths 응답은 모든 변전소의 OFD/모듈 이름·변전소명 정보를 갖고 있어
   // cross-floor lookup 용 source of truth. equipMap/moduleMap 에 없는 원격 노드는
@@ -488,7 +489,7 @@ function traverseFiberPaths(
   const relevantFps = fiberPaths.filter(
     (fp) => reachableFpIds.has(fp.id) && (fp.ofdA.id === ofdId || fp.ofdB.id === ofdId),
   );
-  const fpById = new Map(relevantFps.map((fp) => [fp.id, fp]));
+  const fpById = toMapById(relevantFps);
 
   // 반대편 cable lookup (이 OFD 가 endpoint 아닌 cable)
   const otherSideByKey = new Map<string, LocalCable>();

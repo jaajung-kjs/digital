@@ -19,6 +19,7 @@
  */
 
 import type { TraceEdge, TraceRing } from '../../pathTrace/types';
+import { toMapById } from '../../../utils/byId';
 import { BRIDGE_GAP, LEAF_GAP, MIN_NODE_DISTANCE, resolveOverlap, ringRadius } from './geometry';
 
 export interface BCTreeLayoutInput {
@@ -45,7 +46,7 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
       memberRings.get(gid)!.push(ring.id);
     }
   }
-  const ringById = new Map(fundamental.map((r) => [r.id, r] as const));
+  const ringById = toMapById(fundamental);
 
   // 그룹-그룹 FP adjacency (bridge / leaf 탐색용).
   const fpAdj = new Map<string, Set<string>>();

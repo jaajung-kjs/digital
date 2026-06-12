@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { PHOTOS } from './recordTypes';
 import { api } from '../../utils/api';
 import type { Asset } from '../../types/asset';
 import { buildDelta } from './delta';
@@ -7,10 +8,9 @@ import type { Overlay } from './overlay';
 import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 
 // ──────────────────────────────────────────────────────────────────────────
-// SSOT-2b Task 4 — commit 빌더.
-//
-// 통합 store(Task 3)의 overlay 3종(assets / cables / fiberPaths)을 2a
-// `POST /substations/:id/commit` 페이로드로 변환한다(분전 회로는 단계3b 에서 asset 흡수).
+// commit 빌더 — 전역 워킹카피 overlay(assets / cables / fiberPaths / records)를
+// 전역 커밋 `POST /commit` 페이로드로 변환한다(변전소 스코프 없음). 신규 자산은 자기
+// substationId 를 싣고, records 는 recordType(DB 테이블명)으로 백엔드가 제네릭 라우팅한다.
 //
 // 핵심은 단일 `assets` overlay 를 페이로드의 두 컬렉션으로 *분리*하는 것:
 //   - placement-level Asset(OFD/RACK/DIST/GROUNDING/HVAC) → payload.assets
@@ -23,16 +23,25 @@ import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 // id 만 있으므로 savedAssets 에서 lookup 해 판정한다.
 // ──────────────────────────────────────────────────────────────────────────
 
+type RecordRow = Record<string, unknown>;
 type Overlays = {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Record<string, unknown>, Partial<Record<string, unknown>>>;
   fiberPaths: Overlay<Record<string, unknown>, Partial<Record<string, unknown>>>;
+  records: Overlay<RecordRow, Partial<RecordRow>>;
 };
 
 interface Collection {
   creates: Record<string, unknown>[];
   updates: { id: string; baseVersion: string | null; patch: Record<string, unknown> }[];
   deletes: { id: string; baseVersion: string | null }[];
+}
+
+/** 자산 하위레코드(점검/로그/사진) 델타 — update/delete 에 recordType 을 실어 백엔드가 테이블 라우팅. */
+interface RecordsCollection {
+  creates: Record<string, unknown>[];
+  updates: { id: string; recordType: string; baseVersion: string | null; patch: Record<string, unknown> }[];
+  deletes: { id: string; recordType: string; baseVersion: string | null }[];
 }
 
 /**
@@ -59,6 +68,7 @@ export interface SubstationCommitPayload {
   cables?: Collection;
   rackModules?: Collection;
   fiberPaths?: Collection;
+  records?: RecordsCollection;
   floor?: FloorCommitSection;
 }
 
@@ -152,6 +162,8 @@ function toAssetCreate(a: Asset & { id: string }): Record<string, unknown> {
   const out: Record<string, unknown> = {
     tempId: a.id,
     assetTypeId: a.assetTypeId,
+    // 전역 커밋: 신규 자산은 자기 substationId 를 싣는다(어느 변전소 노드든 한 커밋에).
+    substationId: a.substationId,
     ...pickCommon(rec, false),
   };
   // 자산 전용(모듈엔 없음): 참조/배치 키. 공통 스칼라는 위 pickCommon 한 곳에서.
@@ -182,14 +194,58 @@ function toRackModulePatch(patch: Partial<Asset>): Record<string, unknown> {
 }
 
 /**
+ * records(점검/로그/사진) overlay → records 델타. update/delete 에 recordType 을 실어
+ * 백엔드가 대상 테이블을 라우팅한다(recordType 은 saved 레코드에서 조회). 사진 create 는
+ * 커밋 직전 업로드한 imageUrl(photoUrls)로 바이너리를 대체한다 — File/objectUrl 은 보내지 않는다.
+ */
+function buildRecordsCollection(
+  overlay: Overlay<RecordRow, Partial<RecordRow>>,
+  savedRecords: { id: string; recordType: string }[],
+  photoUrls: Map<string, string>,
+): RecordsCollection | undefined {
+  const d = buildDelta(overlay);
+  const typeById = new Map(savedRecords.map((r) => [r.id, r.recordType]));
+
+  const creates = d.creates.map((c) => {
+    const rec = c as Record<string, unknown>;
+    if (rec.recordType === PHOTOS) {
+      return {
+        tempId: rec.id,
+        assetId: rec.assetId,
+        recordType: PHOTOS,
+        side: rec.side,
+        description: rec.description ?? null,
+        imageUrl: photoUrls.get(rec.id as string), // 업로드 실패 시 undefined → 백엔드가 skip
+      };
+    }
+    // inspections/logs: 종류 필드 통과(id→tempId, blob/메타 제거).
+    const { id, objectUrl: _o, file: _f, ...rest } = rec;
+    return { ...rest, tempId: id };
+  });
+
+  const updates = d.updates
+    .map((u) => ({ id: u.id, recordType: typeById.get(u.id), baseVersion: u.baseVersion, patch: u.patch }))
+    .filter((u): u is RecordsCollection['updates'][number] => u.recordType !== undefined);
+  const deletes = d.deletes
+    .map((del) => ({ id: del.id, recordType: typeById.get(del.id), baseVersion: del.baseVersion }))
+    .filter((del): del is RecordsCollection['deletes'][number] => del.recordType !== undefined);
+
+  return creates.length || updates.length || deletes.length ? { creates, updates, deletes } : undefined;
+}
+
+/**
  * overlay 세트를 2a 커밋 페이로드로 변환한다.
  *
- * @param overlays  store 의 overlays(assets/cables/fiberPaths)
+ * @param overlays  store 의 overlays(assets/cables/fiberPaths/records)
  * @param savedAssets  서버에서 로드한 saved asset 목록 — update/delete 분류용 lookup.
+ * @param savedRecords  saved 레코드 — records update/delete 의 recordType 라우팅용.
+ * @param photoUrls  커밋 직전 업로드한 사진 imageUrl(레코드 tempId → URL).
  */
 export function buildSubstationCommitPayload(
   overlays: Overlays,
   savedAssets: Asset[],
+  savedRecords: { id: string; recordType: string }[],
+  photoUrls: Map<string, string>,
   floor?: FloorCommitSection,
 ): SubstationCommitPayload {
   // assets 분리 ─────────────────────────────────────────────
@@ -233,11 +289,14 @@ export function buildSubstationCommitPayload(
   };
   const fiberPaths = buildDelta(overlays.fiberPaths) as Collection;
 
+  const records = buildRecordsCollection(overlays.records, savedRecords, photoUrls);
+
   return {
     assets: omitIfEmpty(assetsCol),
     rackModules: omitIfEmpty(rackCol),
     cables: omitIfEmpty(cables),
     fiberPaths: omitIfEmpty(fiberPaths),
+    ...(records ? { records } : {}),
     ...(floor ? { floor } : {}),
   };
 }
@@ -251,11 +310,14 @@ export async function commitSubstation(
   substationId: string,
   overlays: Overlays,
   savedAssets: Asset[],
+  savedRecords: { id: string; recordType: string }[],
+  photoUrls: Map<string, string>,
   queryClient: QueryClient,
   floor?: FloorCommitSection,
 ): Promise<SubstationCommitResult> {
-  const payload = buildSubstationCommitPayload(overlays, savedAssets, floor);
-  const { data } = await api.post(`/substations/${substationId}/commit`, payload);
+  const payload = buildSubstationCommitPayload(overlays, savedAssets, savedRecords, photoUrls, floor);
+  // 전역 단일 커밋 — 변전소 스코프 없음. overlay 전체(어느 변전소든)를 한 트랜잭션에.
+  const { data } = await api.post(`/commit`, payload);
 
   // 통합 커밋은 asset/cable/fiber/rack/dist 를 모두 건드린다 → commit.ts 의 무효화 세트를 그대로 미러.
   queryClient.invalidateQueries({ queryKey: ['nodeAssets'] });

@@ -1,19 +1,18 @@
 import { useEffect, useMemo } from 'react';
+import { isRackModuleAsset } from './assetClassify';
 import {
   useSubstationWorkingCopy,
   assetDescriptor,
   cableDescriptor,
   fiberPathDescriptor,
-  recordDescriptorOf,
+  recordsDescriptor,
   sumOverlaysDirty,
-  type CollectionKey,
-  type InspectionRow,
-  type LogRow,
-  type PhotoRow,
+  type AssetRecord,
 } from './substationStore';
 import type { RecordTypeKey } from './recordTypes';
 import { mergeEffective } from './effective';
-import { assetsByIdMap, cableOnFloor } from './floorAnchor';
+import { cableOnFloor } from './floorAnchor';
+import { toMapById } from '../../utils/byId';
 import type { Asset } from '../../types/asset';
 import { useEditorStore, selectFloorSettingsDirty } from '../editor/stores/editorStore';
 
@@ -49,35 +48,28 @@ export function useEffectiveFiberPaths() {
 }
 
 /**
- * 자산 하위레코드(inspections/logs/photos)의 staged effective(저장 대기 create + pending update).
- * saved 는 []이므로 결과 = staged creates. 레지스트리-파생 descriptor 로 컬렉션 무관 단일 구현 —
- * 종전의 useEffectiveInspections/Logs/Photos 는 이걸 감싸는 thin wrapper(back-compat).
+ * effective(saved+staged) 자산 하위레코드 전체 — 단일 records 컬렉션(점검/고장이력/사진/미래종류).
+ * 종류 구분은 recordType 필드(데이터). 삭제 staged 는 mergeEffective 가 이미 제외.
  */
-export function useEffectiveRecords<T = Record<string, unknown> & { id: string }>(
-  key: RecordTypeKey,
-): T[] {
-  const saved = useSubstationWorkingCopy((s) => s.saved[key as CollectionKey]);
-  const overlay = useSubstationWorkingCopy((s) => s.overlays[key as CollectionKey]);
-  const descriptor = recordDescriptorOf(key);
+export function useEffectiveRecords(): AssetRecord[] {
+  const saved = useSubstationWorkingCopy((s) => s.saved.records);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.records);
+  return useMemo(() => mergeEffective(saved, overlay, recordsDescriptor), [saved, overlay]);
+}
+
+/** 한 자산의 한 종류 레코드(상세 패널·사진 갤러리). */
+export function useAssetRecords(assetId: string, recordType: RecordTypeKey): AssetRecord[] {
+  const all = useEffectiveRecords();
   return useMemo(
-    () => mergeEffective(saved as never[], overlay as never, descriptor as never) as T[],
-    [saved, overlay, descriptor],
+    () => all.filter((r) => r.assetId === assetId && r.recordType === recordType),
+    [all, assetId, recordType],
   );
 }
 
-/** staged 점검 — useEffectiveRecords('inspections') 의 thin wrapper. */
-export function useEffectiveInspections(): InspectionRow[] {
-  return useEffectiveRecords<InspectionRow>('inspections');
-}
-
-/** staged 고장이력 — useEffectiveRecords('logs') 의 thin wrapper. */
-export function useEffectiveLogs(): LogRow[] {
-  return useEffectiveRecords<LogRow>('logs');
-}
-
-/** staged 사진 — useEffectiveRecords('photos') 의 thin wrapper. */
-export function useEffectivePhotos(): PhotoRow[] {
-  return useEffectiveRecords<PhotoRow>('photos');
+/** 한 종류 전체(현황 '마지막 점검일' 파생 등 — 변전소 전 자산 횡단). */
+export function useRecordsByType(recordType: RecordTypeKey): AssetRecord[] {
+  const all = useEffectiveRecords();
+  return useMemo(() => all.filter((r) => r.recordType === recordType), [all, recordType]);
 }
 
 /**
@@ -94,7 +86,7 @@ export function useEffectiveEquipment(floorId: string): Asset[] {
   const overlay = useSubstationWorkingCopy((s) => s.overlays.assets);
   return useMemo(() => {
     const eff = mergeEffective(saved, overlay, assetDescriptor);
-    return eff.filter((a) => a.floorId === floorId && !(a.parentAssetId && a.slotIndex != null));
+    return eff.filter((a) => a.floorId === floorId && !isRackModuleAsset(a));
   }, [saved, overlay, floorId]);
 }
 
@@ -107,7 +99,7 @@ export function useEffectiveRackModules(rackId: string) {
   const overlay = useSubstationWorkingCopy((s) => s.overlays.assets);
   return useMemo(() => {
     const eff = mergeEffective(saved, overlay, assetDescriptor);
-    return eff.filter((a) => a.parentAssetId === rackId && a.slotIndex != null);
+    return eff.filter((a) => isRackModuleAsset(a) && a.parentAssetId === rackId);
   }, [saved, overlay, rackId]);
 }
 
@@ -125,7 +117,7 @@ export function useEffectiveFloorCables(floorId: string) {
     const effAssets = mergeEffective(savedAssets, overlayAssets, assetDescriptor);
     // 단계3a — 멤버십은 단일 endpoint assetId + floorAnchor 하나로. branch endpoint 는
     // branch→feeder→panel 으로 해소되어 회로 특수처리(distributionEquipmentId 증강) 불필요.
-    const assetsById = assetsByIdMap(effAssets);
+    const assetsById = toMapById(effAssets);
     const effCables = mergeEffective(savedCables, overlayCables, cableDescriptor);
     return effCables.filter((c) =>
       cableOnFloor(c as unknown as Parameters<typeof cableOnFloor>[0], floorId, assetsById),
@@ -138,21 +130,16 @@ export function useEffectiveAssetsOverlay() {
   return useSubstationWorkingCopy((s) => s.overlays.assets);
 }
 
-/** 전 컬렉션 staged 변경 합계(creates+updates+deletes). 0 이면 깨끗함. 레지스트리 단일 소스. */
-export function useWorkingCopyDirty() {
-  const overlays = useSubstationWorkingCopy((s) => s.overlays);
-  return useMemo(() => sumOverlaysDirty(overlays), [overlays]);
-}
-
 /**
  * USP Task 1 — 단일 dirty 신호.
  *
- * 통합 working-copy overlay(assets/cables/fiber/inspections/logs/photos)의 staged 변경
- * 합계에 floor-level 설정(배경) staged 여부를 더한다. 0 이면 저장할 게 없다 → 저장 바 숨김.
- * (사진·로그·점검은 substationStore 컬렉션으로 흡수돼 wc 에 이미 포함된다.)
+ * 전 컬렉션 staged 변경 합계(assets/cables/fiber/inspections/logs/photos creates+updates+
+ * deletes)에 floor-level 설정(배경) staged 여부를 더한다. 0 이면 저장할 게 없다 → 저장 바 숨김.
+ * (사진·로그·점검은 substationStore 컬렉션으로 흡수돼 overlay 에 이미 포함된다.) 저장 바 단일 소스.
  */
 export function useUnifiedDirty(): number {
-  const wc = useWorkingCopyDirty();
+  const overlays = useSubstationWorkingCopy((s) => s.overlays);
+  const wc = useMemo(() => sumOverlaysDirty(overlays), [overlays]);
   const floorDirty = useEditorStore(selectFloorSettingsDirty);
   return wc + (floorDirty ? 1 : 0);
 }

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks';
+import { buildEndpointNameResolver, buildSelfSideChecker } from '../endpointName';
 
 export interface AssetConnection {
   id: string;
@@ -11,32 +12,34 @@ export interface AssetConnection {
 }
 
 /**
- * 현 자산에 연결된 케이블을 **워킹카피(effective)에서** 읽어 연결 목록으로 구성한다.
+ * 연결(케이블) 목록을 **워킹카피(effective)에서** 읽어 구성한다 — 연결 목록의 단일 빌더.
  *
- * C1(Read 계약): 상세패널 연결 탭은 서버(useAssetConnections)가 아니라 effective 로 읽어야
- * staged 케이블 변경(추가/수정/삭제)이 저장 전에도 즉시 반영된다. 상대 endpoint 이름은
- * effective assets 에서 해석한다(이름도 staged 변경 반영).
+ * - assetId 를 주면 그 자산의 연결(자식 랙모듈/분전 분기 포함, buildSelfSideChecker), null 이면
+ *   전체(변전소 연결 뷰). 끝점 이름은 buildEndpointNameResolver 단일 소스(모듈/분기/설비, staged 반영).
+ * - effective 로 읽으므로 staged 케이블 추가/수정/삭제·이름 변경이 저장 전에도 즉시 반영된다.
  */
-export function useEffectiveAssetConnections(assetId: string): AssetConnection[] {
+export function useEffectiveAssetConnections(assetId: string | null): AssetConnection[] {
   const cables = useEffectiveCables();
   const assets = useEffectiveAssets();
   return useMemo(() => {
-    const nameById = new Map(assets.map((a) => [a.id, a.name]));
-    // effective cable 은 느슨한 행(WorkingCopyRow, index=unknown) → 필드 캐스트.
-    return cables
+    const resolve = buildEndpointNameResolver(assets);
+    const epName = (id: string | null) => (id ? resolve(id) || '(미상)' : '');
+    const all = cables
       .map((c) => c as Record<string, unknown>)
-      .filter((c) => c.sourceAssetId === assetId || c.targetAssetId === assetId)
       .map((c) => {
         const src = (c.sourceAssetId as string | null) ?? null;
         const tgt = (c.targetAssetId as string | null) ?? null;
         return {
           id: c.id as string,
-          source: { assetId: src, name: (src && nameById.get(src)) || '(미상)' },
-          target: { assetId: tgt, name: (tgt && nameById.get(tgt)) || '(미상)' },
+          source: { assetId: src, name: epName(src) },
+          target: { assetId: tgt, name: epName(tgt) },
           cableType: (c.cableType as string) ?? '',
           label: (c.label as string | null | undefined) ?? null,
           totalLength: (c.totalLength as number | null | undefined) ?? null,
         };
       });
+    if (!assetId) return all; // 전체(변전소 연결 뷰)
+    const isSelf = buildSelfSideChecker(assets, assetId);
+    return all.filter((r) => isSelf(r.source.assetId) || isSelf(r.target.assetId));
   }, [cables, assets, assetId]);
 }

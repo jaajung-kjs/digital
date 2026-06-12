@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 vi.mock('../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
-import { useEffectiveCables, useWorkingCopyDirty, useEffectiveEquipment, useEffectiveRackModules, useEffectiveFloorCables, useUnifiedDirty } from './hooks';
+import { useEffectiveCables, useEffectiveEquipment, useEffectiveRackModules, useEffectiveFloorCables, useUnifiedDirty } from './hooks';
 import { kindOf } from './placement';
 import { useEditorStore } from '../editor/stores/editorStore';
 
@@ -29,6 +29,7 @@ const assets = [
   { id: 'branch1', name: 'branch1', parentAssetId: 'feeder1', updatedAt: TS },
 ];
 beforeEach(() => {
+  useSubstationWorkingCopy.getState().reset();
   (api.get as any).mockResolvedValue({
     data: { data: { assets, cables: [cable], fiberPaths: [] } },
   });
@@ -48,19 +49,6 @@ describe('workingCopy hooks', () => {
     expect(result.current.find((c: any) => c.id === 'c1').label).toBe('X');
   });
 
-  it('useWorkingCopyDirty counts staged changes', async () => {
-    await act(async () => {
-      await useSubstationWorkingCopy.getState().load('s1');
-    });
-    const { result, rerender } = renderHook(() => useWorkingCopyDirty());
-    expect(result.current).toBe(0);
-    act(() => {
-      useSubstationWorkingCopy.getState().stageCableUpdate('c1', { label: 'Y' });
-    });
-    rerender();
-    expect(result.current).toBe(1);
-  });
-
   it('useUnifiedDirty sums overlay dirty(케이블+로그 등) + pendingUploads + floor settings', async () => {
     await act(async () => {
       await useSubstationWorkingCopy.getState().load('s1');
@@ -76,17 +64,17 @@ describe('workingCopy hooks', () => {
     rerender();
     expect(result.current).toBe(1);
 
-    // + 2 staged photos (substationStore photos 컬렉션 — overlay dirty 에 합산)
+    // + 2 staged photos (자산 소유 records 컬렉션, recordType='photos' — overlay dirty 에 합산)
     act(() => {
-      useSubstationWorkingCopy.getState().put('photos', { id: 'u1', assetId: 'e1', side: 'front', objectUrl: 'blob:a' });
-      useSubstationWorkingCopy.getState().put('photos', { id: 'u2', assetId: 'e1', side: 'rear', objectUrl: 'blob:b' });
+      useSubstationWorkingCopy.getState().put('records', { id: 'u1', assetId: 'e1', recordType: 'photos', side: 'front', objectUrl: 'blob:a' });
+      useSubstationWorkingCopy.getState().put('records', { id: 'u2', assetId: 'e1', recordType: 'photos', side: 'rear', objectUrl: 'blob:b' });
     });
     rerender();
     expect(result.current).toBe(3);
 
-    // + 1 staged log (substationStore logs 컬렉션 — overlay dirty 에 합산)
+    // + 1 staged log (records 컬렉션, recordType='logs' — overlay dirty 에 합산)
     act(() => {
-      useSubstationWorkingCopy.getState().put('logs', { id: 'l1', assetId: 'e1', logType: 'CHECK', title: 't' });
+      useSubstationWorkingCopy.getState().put('records', { id: 'l1', assetId: 'e1', recordType: 'logs', logType: 'CHECK', title: 't' });
     });
     rerender();
     expect(result.current).toBe(4);

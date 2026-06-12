@@ -4,8 +4,9 @@ import type { FiberPathDetail } from './types';
  * fiber path 의 표시 라벨 — 'local' OFD 관점에서 `local-remote` substation 이름.
  * 백엔드 cable.service.ts `buildFiberPathLabel` 의 프론트 미러(단일 SoT). substation
  * 이름이 비면 OFD 이름으로 폴백 (cableTracer 가 기존에 쓰던 규약과 동일).
+ * buildCableFiberPathLabel 내부 전용.
  */
-export function fiberPathLabelFor(fp: FiberPathDetail, localOfdId: string): string {
+function fiberPathLabelFor(fp: FiberPathDetail, localOfdId: string): string {
   const local = fp.ofdA.id === localOfdId ? fp.ofdA : fp.ofdB;
   const remote = fp.ofdA.id === localOfdId ? fp.ofdB : fp.ofdA;
   return `${local.substationName || local.name}-${remote.substationName || remote.name}`;

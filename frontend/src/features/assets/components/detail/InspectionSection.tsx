@@ -1,6 +1,6 @@
 import { useIsAdmin } from '../../../../stores/authStore';
 import { RecordFormList } from '../../../workingCopy/RecordFormList';
-import { RECORD_TYPE_BY_KEY } from '../../../workingCopy/recordTypes';
+import { RECORD_TYPE_BY_KEY, INSPECTIONS } from '../../../workingCopy/recordTypes';
 
 /**
  * 점검(inspection) 섹션 — git-like 스테이징.
@@ -12,5 +12,5 @@ import { RECORD_TYPE_BY_KEY } from '../../../workingCopy/recordTypes';
  */
 export function InspectionSection({ assetId }: { assetId: string }) {
   const isAdmin = useIsAdmin();
-  return <RecordFormList def={RECORD_TYPE_BY_KEY.inspections} parentId={assetId} readOnly={!isAdmin} />;
+  return <RecordFormList def={RECORD_TYPE_BY_KEY[INSPECTIONS]} parentId={assetId} readOnly={!isAdmin} />;
 }

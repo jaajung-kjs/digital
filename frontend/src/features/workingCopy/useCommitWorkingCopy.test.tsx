@@ -15,19 +15,18 @@ vi.mock('./substationStore', () => ({
       substationId: 'sub1',
       overlays: {
         assets: {}, cables: {}, fiberPaths: {},
-        inspections: { creates: {}, updates: {}, deletes: [] },
-        logs: { creates: {}, updates: {}, deletes: [] },
-        photos: { creates: {}, updates: {}, deletes: [] },
+        // 자산 하위레코드는 단일 records 컬렉션(점검/로그/사진).
+        records: { creates: {}, updates: {}, deletes: [] },
       },
-      saved: { assets: [], cables: [] },
+      saved: { assets: [], cables: [], records: [] },
       load: vi.fn(async () => {}),
+      revert: vi.fn(),
     }),
   },
-  // P5c — MEDIA_FLUSHERS 가 레지스트리 순회로 recordDescriptorOf(key) 를 호출한다.
-  recordDescriptorOf: (name: string) => ({
-    name, idOf: (x: { id: string }) => x.id, versionOf: () => null,
-    isTemp: () => false, applyPatch: (x: object, p: object) => ({ ...x, ...p }),
-  }),
+  // flushPendingRecords 가 mergeEffective([], overlay, recordsDescriptor) 로 staged 레코드를 읽는다.
+  recordsDescriptor: {
+    idOf: (x: { id: string }) => x.id, versionOf: () => null,
+  },
   revokeStagedPhotoUrls: () => {},
 }));
 
