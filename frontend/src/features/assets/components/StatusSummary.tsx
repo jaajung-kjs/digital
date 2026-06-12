@@ -25,7 +25,7 @@ export function StatusSummary({
   const chipClass = (selected: boolean) =>
     selected
       ? `${base} bg-primary text-white`
-      : `${base} bg-surface-2 text-content-muted ${interactive ? 'hover:bg-info-bg hover:text-primary cursor-pointer' : ''}`;
+      : `${base} bg-surface-2 text-content-muted ${interactive ? 'press-btn hover:bg-info-bg hover:text-primary cursor-pointer' : ''}`;
 
   return (
     <div className="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2 border-b border-line bg-surface">
