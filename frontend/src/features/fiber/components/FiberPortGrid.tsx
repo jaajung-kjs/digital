@@ -27,9 +27,9 @@ function getPortColor(port: FiberPortStatus): string {
 function getSelectedColor(port: FiberPortStatus): string {
   const hasA = !!port.sideA;
   const hasB = !!port.sideB;
-  if (hasA && hasB) return 'bg-success-bg border-success ring-2 ring-success/40';
-  if (hasA || hasB) return 'bg-warning-bg border-warning ring-2 ring-warning/40';
-  return 'bg-info-bg border-primary ring-2 ring-primary/30';
+  if (hasA && hasB) return 'bg-success-bg border-success ring-2 ring-success';
+  if (hasA || hasB) return 'bg-warning-bg border-warning ring-2 ring-warning';
+  return 'bg-info-bg border-primary ring-2 ring-primary';
 }
 
 export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDelete, onNavigateRemote }: FiberPortGridProps) {
