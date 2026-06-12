@@ -4,19 +4,30 @@
 
 /* Design tokens (CSS variables) */
 :root{
-  --bg:#eef0f3; --surface:#ffffff; --surface-2:#f4f6f8; --surface-3:#e7eaee; --sidebar:#f8f9fb;
-  --border:#e2e6eb; --border-2:#cdd3da;
-  --text:#1c1917; --text-2:#57534e; --text-muted:#a8a29e;
-  --primary:#15406b; --primary-hover:#1a4e85;
-  --success:#15803d; --warning:#b45309; --danger:#b91c1c; --info:#1e40af;
-  --success-bg:#dcfce7; --warning-bg:#fef3c7; --danger-bg:#fee2e2; --info-bg:#dbeafe;
-  --eq-1:#44403c; --eq-2:#78716c; --eq-3:#a8a29e; --eq-4:#d6d3d1;
-  /* 포커스 링 — translucent 명시값(이 설정은 색을 raw var 로 정의해 Tailwind opacity 모디파이어가 안 먹음) */
-  --ring-primary: rgb(21 64 107 / 0.4); --ring-primary-weak: rgb(21 64 107 / 0.2); --ring-danger: rgb(185 28 28 / 0.4);
-  /* 오버레이 스크림 — 모달 백드롭 통일(black/white 외 var 색은 opacity 안 먹으므로 명시 rgb) */
+  /* ── 색 토큰 (듀얼 변수) ──────────────────────────────────────────────
+     *-rgb : "R G B" 채널 — Tailwind alpha 의 단일 소스. config 가
+             rgb(var(--x-rgb) / <alpha-value>) 로 래핑 → bg-surface/80, ring-primary/40
+             같은 opacity 모디파이어가 전역에서 정상 동작.
+     --x   : 합성 색 별칭 — canvas/inline/box-shadow 의 직접 var(--x) 소비자용.
+             채널에서 파생하므로 단일 소스 유지(호출부 수정 불필요). */
+  --bg-rgb:238 240 243; --surface-rgb:255 255 255; --surface-2-rgb:244 246 248; --surface-3-rgb:231 234 238; --sidebar-rgb:248 249 251;
+  --border-rgb:226 230 235; --border-2-rgb:205 211 218;
+  --text-rgb:28 25 23; --text-2-rgb:87 83 78; --text-muted-rgb:168 162 158;
+  --primary-rgb:21 64 107; --primary-hover-rgb:26 78 133;
+  --success-rgb:21 128 61; --warning-rgb:180 83 9; --danger-rgb:185 28 28; --info-rgb:30 64 175;
+  --success-bg-rgb:220 252 231; --warning-bg-rgb:254 243 199; --danger-bg-rgb:254 226 226; --info-bg-rgb:219 234 254;
+  --eq-1-rgb:68 64 60; --eq-2-rgb:120 113 108; --eq-3-rgb:168 162 158; --eq-4-rgb:214 211 209;
+
+  --bg:rgb(var(--bg-rgb)); --surface:rgb(var(--surface-rgb)); --surface-2:rgb(var(--surface-2-rgb)); --surface-3:rgb(var(--surface-3-rgb)); --sidebar:rgb(var(--sidebar-rgb));
+  --border:rgb(var(--border-rgb)); --border-2:rgb(var(--border-2-rgb));
+  --text:rgb(var(--text-rgb)); --text-2:rgb(var(--text-2-rgb)); --text-muted:rgb(var(--text-muted-rgb));
+  --primary:rgb(var(--primary-rgb)); --primary-hover:rgb(var(--primary-hover-rgb));
+  --success:rgb(var(--success-rgb)); --warning:rgb(var(--warning-rgb)); --danger:rgb(var(--danger-rgb)); --info:rgb(var(--info-rgb));
+  --success-bg:rgb(var(--success-bg-rgb)); --warning-bg:rgb(var(--warning-bg-rgb)); --danger-bg:rgb(var(--danger-bg-rgb)); --info-bg:rgb(var(--info-bg-rgb));
+  --eq-1:rgb(var(--eq-1-rgb)); --eq-2:rgb(var(--eq-2-rgb)); --eq-3:rgb(var(--eq-3-rgb)); --eq-4:rgb(var(--eq-4-rgb));
+
+  /* 오버레이 스크림 — 모달 백드롭 통일 */
   --overlay: rgb(0 0 0 / 0.45); --overlay-strong: rgb(0 0 0 / 0.8);
-  /* 에디터 선택 외곽선 — 비즈니스 navy(=primary) */
-  --selection: #15406b;
   --radius:8px;
 }
 
@@ -29,22 +40,24 @@ body {
 
 /* 인터랙션 표준 헬퍼 — 동일 조합 반복을 한 곳에서 보장(spec §7) */
 @layer components {
-  /* 포커스 링(기본) — primary 40%, box-shadow 기반. 모든 포커스 가능 요소 공통 */
+  /* 포커스 링 — 채널 토큰(--*-rgb)을 box-shadow 로 직접 소비.
+     @apply + opacity 모디파이어(/40)는 Tailwind JIT(dev)에서 깨지므로 의도적으로 회피.
+     인라인 ring-primary/40 과 시각적으로 동일한 2px navy 40% 링. */
   .focus-ring:focus-visible {
     outline: 2px solid transparent;
     outline-offset: 2px;
-    box-shadow: 0 0 0 2px var(--ring-primary);
+    box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 0.4);
   }
   /* 포커스 링(위험 동작) — danger 40% */
   .focus-ring-danger:focus-visible {
     outline: 2px solid transparent;
     outline-offset: 2px;
-    box-shadow: 0 0 0 2px var(--ring-danger);
+    box-shadow: 0 0 0 2px rgb(var(--danger-rgb) / 0.4);
   }
   /* 포커스 링(인풋) — primary 20%, border-primary 와 함께 은은하게(:focus) */
   .focus-ring-input:focus {
     outline: 2px solid transparent;
-    box-shadow: 0 0 0 3px var(--ring-primary-weak);
+    box-shadow: 0 0 0 3px rgb(var(--primary-rgb) / 0.2);
   }
   /* 버튼 눌림 — transition(all)로 색+transform 동시 전환, 눌림 시 살짝 축소 */
   .press-btn {
