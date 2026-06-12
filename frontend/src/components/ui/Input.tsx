@@ -14,7 +14,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       className={cn(
         'w-full bg-surface border border-line rounded px-3 py-2 text-sm text-content',
         'placeholder:text-content-faint',
-        'focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary',
+        'transition-colors focus:outline-none focus:border-primary focus-ring-input',
         disabled && 'opacity-50 cursor-not-allowed',
         className,
       )}

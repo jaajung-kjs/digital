@@ -7,7 +7,7 @@ interface Props {
 
 export function ConflictDialog({ conflicts, onReloadLatest, onClose, message }: Props) {
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center" style={{ zIndex: 70 }}>
+    <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center" style={{ zIndex: 70 }}>
       <div className="bg-surface rounded-lg shadow-lg p-5 w-96">
         <h2 className="text-sm font-semibold mb-2">충돌 — 다른 사용자가 먼저 변경했습니다</h2>
         <ul className="text-sm text-content-muted mb-3 max-h-40 overflow-auto">

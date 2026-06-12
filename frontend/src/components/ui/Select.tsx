@@ -15,7 +15,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         disabled={disabled}
         className={cn(
           'w-full appearance-none bg-surface border border-line rounded pl-3 pr-9 py-2 text-sm text-content',
-          'focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary',
+          'transition-colors focus:outline-none focus:border-primary focus-ring-input',
           disabled && 'opacity-50 cursor-not-allowed',
           className,
         )}

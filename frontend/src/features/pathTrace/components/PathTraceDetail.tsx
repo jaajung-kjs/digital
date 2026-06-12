@@ -174,10 +174,10 @@ export function PathTraceDetail() {
           <span className="text-xs font-semibold text-primary">경로</span>
           <span
             className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-              badgeDisplayColor ? '' : (CABLE_BADGE_CLASSES[cableType] || 'bg-surface-2 text-content-muted')
+              badgeDisplayColor ? 'text-white' : (CABLE_BADGE_CLASSES[cableType] || 'bg-surface-2 text-content-muted')
             }`}
             style={badgeDisplayColor
-              ? { backgroundColor: badgeDisplayColor, color: '#ffffff' }
+              ? { backgroundColor: badgeDisplayColor }
               : undefined}
           >
             {badgeLabel}

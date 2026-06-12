@@ -10,12 +10,14 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   { padding = true, className, children, ...rest },
   ref,
 ) {
+  const interactive = typeof rest.onClick === 'function';
   return (
     <div
       ref={ref}
       className={cn(
         'bg-surface border border-line rounded shadow-sm',
         padding && 'p-4',
+        interactive && 'row-interactive cursor-pointer',
         className,
       )}
       {...rest}

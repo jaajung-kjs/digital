@@ -19,16 +19,16 @@ interface FiberPortGridProps {
 function getPortColor(port: FiberPortStatus): string {
   const hasA = !!port.sideA;
   const hasB = !!port.sideB;
-  if (hasA && hasB) return 'bg-green-100 border-green-400';
-  if (hasA || hasB) return 'bg-amber-50 border-amber-400';
-  return 'bg-gray-50 border-gray-300';
+  if (hasA && hasB) return 'bg-success-bg border-success';
+  if (hasA || hasB) return 'bg-warning-bg border-warning';
+  return 'bg-surface-2 border-line';
 }
 
 function getSelectedColor(port: FiberPortStatus): string {
   const hasA = !!port.sideA;
   const hasB = !!port.sideB;
-  if (hasA && hasB) return 'bg-green-200 border-green-500 ring-2 ring-green-300';
-  if (hasA || hasB) return 'bg-amber-100 border-amber-500 ring-2 ring-amber-300';
+  if (hasA && hasB) return 'bg-success-bg border-success ring-2 ring-success/40';
+  if (hasA || hasB) return 'bg-warning-bg border-warning ring-2 ring-warning/40';
   return 'bg-info-bg border-primary ring-2 ring-primary/30';
 }
 
@@ -125,15 +125,15 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
       {/* Legend */}
       <div className="mt-3 flex items-center gap-4 text-[10px] text-content-muted">
         <div className="flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded border border-green-400 bg-green-100" />
+          <span className="inline-block h-3 w-3 rounded border border-success bg-success-bg" />
           양측 연결
         </div>
         <div className="flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded border border-amber-400 bg-amber-50" />
+          <span className="inline-block h-3 w-3 rounded border border-warning bg-warning-bg" />
           편측 연결
         </div>
         <div className="flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded border border-gray-300 bg-gray-50" />
+          <span className="inline-block h-3 w-3 rounded border border-line bg-surface-2" />
           빈 포트
         </div>
       </div>
@@ -220,8 +220,8 @@ function PortDetail({
             </div>
             <div className="flex flex-col items-center shrink-0">
               <span
-                className="rounded px-1.5 py-0.5 text-xs font-medium"
-                style={{ backgroundColor: badgeColor, color: '#ffffff' }}
+                className="rounded px-1.5 py-0.5 text-xs font-medium text-white"
+                style={{ backgroundColor: badgeColor }}
               >
                 {badgeLabel}
               </span>

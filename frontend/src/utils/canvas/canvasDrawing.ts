@@ -4,9 +4,9 @@
 
 /** 선택 상태 하이라이트 스타일 */
 export const SELECTION_STYLES = {
-  stroke: '#3b82f6',      // blue-500
-  fill: '#dbeafe',        // blue-100
-  point: '#2563eb',       // blue-600
+  stroke: '#15406b',      // primary navy (비즈니스 UI 선택색)
+  fill: '#d8e3ef',        // 연한 navy 틴트
+  point: '#0f3050',       // 진한 navy
   pointRadius: 4,
 } as const;
 

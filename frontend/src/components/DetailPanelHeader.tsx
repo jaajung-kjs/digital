@@ -30,7 +30,7 @@ export function DetailPanelHeader({
             onClick={onDelete}
             title="삭제"
             aria-label="삭제"
-            className="p-1 rounded text-content-faint hover:text-danger hover:bg-danger-bg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+            className="press-btn focus-ring-danger p-1 rounded text-content-faint hover:text-danger hover:bg-danger-bg"
           >
             <Trash2 size={15} />
           </button>
@@ -40,7 +40,7 @@ export function DetailPanelHeader({
           onClick={onClose}
           aria-label="닫기"
           title="닫기"
-          className="p-1 rounded text-content-muted hover:bg-surface-2 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="press-btn focus-ring p-1 rounded text-content-muted hover:bg-surface-2"
         >
           <X size={16} />
         </button>

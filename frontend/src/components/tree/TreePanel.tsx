@@ -185,7 +185,7 @@ export function TreePanel() {
           onDragOver={(e) => handleTreeDragOver(e, node)}
           onDrop={handleTreeDrop}
           onDragEnd={() => { setDragId(null); setDropTarget(null); }}
-          className={`flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-surface-2 rounded-md text-sm transition-colors ${
+          className={`flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-surface-2 active:bg-surface-3 rounded-md text-sm transition-colors ${
             isSelected ? 'bg-line text-primary font-medium' : 'text-content-muted'
           } ${isDragging ? 'opacity-40' : ''}`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
@@ -203,7 +203,7 @@ export function TreePanel() {
             >
               <ChevronRight
                 size={14}
-                className={`transition-transform ${node.expanded ? 'rotate-90' : ''}`}
+                className={`transition-transform duration-150 ${node.expanded ? 'rotate-90' : ''}`}
               />
             </button>
           ) : (
