@@ -12,8 +12,8 @@ interface FiberPortGridProps {
   onPortConnect?: (portNumber: number, fiberPathId: string) => void;
   /** Called when user wants to delete a cable from a port */
   onPortDelete?: (cableId: string) => void;
-  /** Called when user wants to navigate to the remote OFD's room to connect there */
-  onNavigateRemote?: (remoteRoomId: string) => void;
+  /** 대국 OFD 로 이동 — 대국 OFD 자산 id + 그 층 id(층은 cross-substation 폴백 힌트). */
+  onNavigateRemote?: (remoteOfdId: string, remoteFloorId: string) => void;
 }
 
 function getPortColor(port: FiberPortStatus): string {
@@ -40,7 +40,8 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
   const isLocalA = fiberPath.ofdA.id === localOfdId;
   const localSub = isLocalA ? fiberPath.ofdA.substationName : fiberPath.ofdB.substationName;
   const remoteSub = isLocalA ? fiberPath.ofdB.substationName : fiberPath.ofdA.substationName;
-  const remoteRoomId = isLocalA ? fiberPath.ofdB.floorId : fiberPath.ofdA.floorId;
+  const remoteOfd = isLocalA ? fiberPath.ofdB : fiberPath.ofdA;
+  const remoteRoomId = remoteOfd.floorId;
 
   const getLocalSide = (port: FiberPortStatus): FiberPortUsage | null =>
     isLocalA ? port.sideA : port.sideB;
@@ -116,7 +117,7 @@ export function FiberPortGrid({ fiberPath, localOfdId, onPortConnect, onPortDele
           } : undefined}
           onDelete={onPortDelete}
           onNavigateRemote={remoteRoomId && onNavigateRemote ? () => {
-            onNavigateRemote(remoteRoomId);
+            onNavigateRemote(remoteOfd.id, remoteRoomId);
           } : undefined}
           onClose={() => { setSelectedPort(null); clearHighlight(); }}
         />

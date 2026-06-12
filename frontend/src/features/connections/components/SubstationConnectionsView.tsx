@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useEffectiveAssetConnections, type AssetConnection } from '../hooks/useEffectiveAssetConnections';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelection } from '../../workspace/SelectionContext';
+import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { X } from 'lucide-react';
 import { CABLE_TYPES } from '../constants';
 import { formatCableLength } from '../../../utils/cable/pathLength';
@@ -54,6 +55,7 @@ export function SubstationConnectionsView(_: { substationId: string }) {
   // staged 이름 변경·랙모듈/분기 endpoint 도 올바로 보인다(종전 DTO 스냅샷 이름 드리프트 제거).
   const connections = useEffectiveAssetConnections(null);
   const sel = useSelection();
+  const nav = useWorkspaceNav();
   const [typeFilter, setTypeFilter] = useState('');
   return (
     <div className="h-full overflow-auto">
@@ -68,7 +70,7 @@ export function SubstationConnectionsView(_: { substationId: string }) {
         connections={connections} typeFilter={typeFilter}
         onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) useSubstationWorkingCopy.getState().stageCableDelete(id); }}
         onUpdate={(id, patch) => useSubstationWorkingCopy.getState().stageCableUpdate(id, patch)}
-        onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
+        onSelectAsset={(id) => (nav ? nav.gotoAsset(id) : sel?.setSelectedAssetId(id))}
       />
     </div>
   );

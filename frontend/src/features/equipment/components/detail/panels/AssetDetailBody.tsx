@@ -3,6 +3,7 @@ import type { Asset } from '../../../../../types/asset';
 import type { DetailPanelKind } from '../../../../../types/equipmentKind';
 import { useAsset } from '../../../../assets/hooks/useAsset';
 import { useSelection } from '../../../../workspace/SelectionContext';
+import { useWorkspaceNav } from '../../../../workspace/WorkspaceNavContext';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../../../workingCopy/hooks';
 import { AssetInspector } from '../../../../assets/components/AssetInspector';
@@ -76,6 +77,7 @@ function LiveBody({
   const asset = injected ?? fromEffective ?? fetched.data;
   const isLoading = injected || fromEffective ? false : fetched.isLoading;
   const sel = useSelection();
+  const nav = useWorkspaceNav();
   const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
   const today = useMemo(() => new Date(), []);
 
@@ -91,7 +93,7 @@ function LiveBody({
           asset={asset}
           mode={mode}
           onPatch={patch}
-          onSelectAsset={(id) => sel?.setSelectedAssetId(id)}
+          onSelectAsset={(id) => (nav ? nav.gotoAsset(id) : sel?.setSelectedAssetId(id))}
           spatial={spatial}
           spatialLabel={spatialLabel}
           today={today}

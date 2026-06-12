@@ -1,5 +1,6 @@
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useOrganizationStore } from '../stores/organizationStore';
+import { workspaceFloorUrl } from '../features/workspace/workspaceUrls';
 import { buildTrail, type TrailItem } from './breadcrumbTrail';
 
 export function Breadcrumb() {
@@ -15,7 +16,7 @@ export function Breadcrumb() {
     if (t.type === 'substation') navigate(`/substations/${t.id}/workspace`);
     else if (t.type === 'floor') {
       const n = findNode(t.id);
-      if (n?.parentId) navigate(`/substations/${n.parentId}/workspace?view=plan&floor=${t.id}`);
+      if (n?.parentId) navigate(workspaceFloorUrl(n.parentId, t.id));
     } else navigate('/');
   };
 

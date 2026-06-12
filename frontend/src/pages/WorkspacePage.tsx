@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { FloorPlanEditor } from '../features/editor/components/FloorPlanEditor';
 import { NodeStatusView } from '../features/assets/components/NodeStatusView';
 import { SubstationStatusView } from '../features/assets/components/SubstationStatusView';
@@ -12,6 +12,7 @@ import { useWorkingCopyLoader, useEffectiveAssets } from '../features/workingCop
 import { floorAnchor } from '../features/workingCopy/floorAnchor';
 import { toMapById } from '../utils/byId';
 import { useSubstationWorkingCopy } from '../features/workingCopy/substationStore';
+import { workspaceFloorUrl } from '../features/workspace/workspaceUrls';
 import { WorkingCopyCommitBar } from '../features/workingCopy/WorkingCopyCommitBar';
 import { useOrganizationStore } from '../stores/organizationStore';
 import type { NodeKind } from '../hooks/useNodeAssets';
@@ -42,6 +43,7 @@ type ViewKey = (typeof VIEWS)[number]['key'];
 export function WorkspacePage() {
   const { substationId } = useParams<{ substationId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { viewingNodeId, findNode } = useOrganizationStore();
 
   // 활성 노드: URL 변전소 우선, 없으면 viewingNode(본부·사업소·변전소).
@@ -101,11 +103,11 @@ export function WorkspacePage() {
   const nav: WorkspaceNav = useMemo(() => ({
     gotoFloor: (floorId, assetId) => {
       if (isSubstationNode) {
-        // 변전소: URL 파라미터로 층·장비 진입(기존 동작).
+        // 변전소: URL 파라미터로 층·자산 진입. 포커스 파라미터는 단일 ?assetId=
+        // (FloorPlanEditor 가 평면도 딥링크 포커스로 소비).
         setSearchParams((p) => {
           p.set('view', 'plan'); p.delete('tab'); p.set('floor', floorId);
-          if (assetId) p.set('equipmentId', assetId); else p.delete('equipmentId');
-          p.delete('assetId');
+          if (assetId) p.set('assetId', assetId); else p.delete('assetId');
           return p;
         });
       } else {
@@ -115,14 +117,32 @@ export function WorkspacePage() {
         setSearchParams((p) => { p.set('view', 'plan'); p.delete('tab'); return p; });
       }
     },
-    gotoRegister: (assetId) =>
-      setSearchParams((p) => {
-        p.set('view', 'status'); p.delete('tab');
-        if (assetId) p.set('assetId', assetId); else p.delete('assetId');
-        p.delete('equipmentId');
-        return p;
-      }),
-  }), [isSubstationNode, setSearchParams]);
+    gotoAsset: (assetId, hint) => {
+      // 단일 해소: 자산의 floor anchor(직접 배치된 가장 가까운 조상)로 소속 층·변전소를 푼다.
+      // 로컬 working copy 에 없으면(타 변전소 OFD 대국 등) hint.floorId 로 폴백.
+      const anchor = floorAnchor(assetId, assetsById);
+      const targetSubstationId = anchor?.substationId ?? null;
+      const targetFloorId = anchor?.floorId ?? hint?.floorId ?? null;
+
+      // 같은 컨텍스트 변전소 안 → 제자리 평면도 진입(라우트 유지, gotoFloor 로직 재사용).
+      if (targetSubstationId && targetSubstationId === contextSubstationId && targetFloorId) {
+        setSelectedAssetId(assetId);
+        nav.gotoFloor(targetFloorId, assetId);
+        return;
+      }
+      // 타 변전소(또는 본부·사업소 컨텍스트) → 그 변전소 워크스페이스 평면도로 라우트 이동.
+      // ?assetId= 포커스 페이로드를 동반해 도착 후 자동 reveal+center.
+      if (targetSubstationId && targetFloorId) {
+        navigate(workspaceFloorUrl(targetSubstationId, targetFloorId, { assetId }));
+        return;
+      }
+      // 변전소 미해소(로컬에 없고 floorId 만 앎 — OFD 대국) → 층→변전소 리다이렉트 셸 경유.
+      // 셸이 floorId 로 substationId 를 풀어 같은 ?assetId= 포커스 URL 로 수렴시킨다.
+      if (targetFloorId) {
+        navigate(`/floors/${targetFloorId}/plan?assetId=${assetId}`);
+      }
+    },
+  }), [isSubstationNode, setSearchParams, setSelectedAssetId, navigate, assetsById, contextSubstationId]);
 
   // 평면도 에디터가 활성일 때만 에디터↔공유 선택 브리지를 돈다.
   useEditorSelectionBridge(selectedAssetId, view === 'plan');
@@ -203,7 +223,7 @@ export function WorkspacePage() {
             */}
             {planFloorId ? (
               <div className={view === 'plan' ? 'absolute inset-0' : 'absolute inset-0 invisible pointer-events-none'}>
-                <FloorPlanEditor key={planFloorId} floorId={planFloorId} />
+                <FloorPlanEditor key={planFloorId} floorId={planFloorId} active={view === 'plan'} />
               </div>
             ) : view === 'plan' ? (
               <div className="absolute inset-0 bg-surface overflow-hidden">

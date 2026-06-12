@@ -11,7 +11,7 @@ interface FiberPathManagerProps {
   ofdId: string;
   onPortConnect?: (portNumber: number, fiberPathId: string) => void;
   onPortDelete?: (cableId: string) => void;
-  onNavigateRemote?: (remoteRoomId: string) => void;
+  onNavigateRemote?: (remoteOfdId: string, remoteFloorId: string) => void;
 }
 
 export function FiberPathManager({ ofdId, onPortConnect, onPortDelete, onNavigateRemote }: FiberPathManagerProps) {

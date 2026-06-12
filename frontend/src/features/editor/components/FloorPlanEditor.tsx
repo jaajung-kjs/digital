@@ -47,9 +47,15 @@ function CablePathOverlayWrapper({ canvasRef, floorId }: { canvasRef: React.RefO
 
 interface FloorPlanEditorProps {
   floorId: string;
+  /**
+   * 평면도 탭이 실제 활성인지. 에디터는 탭 전환 시 언마운트하지 않고 숨겨두므로(상태 보존),
+   * ?assetId= 딥링크 포커스는 활성일 때만 소비해야 한다 — 안 그러면 현황 탭의 ?assetId=
+   * 딥링크를 숨은 에디터가 가로채(param 삭제) 현황 선택을 막는다. 기본 true(레거시 호출).
+   */
+  active?: boolean;
 }
 
-export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
+export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -107,26 +113,27 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     };
   }, [resetEditor]);
 
-  // ── URL query 로 들어온 equipmentId 자동 진입 ─────────────────────────────
-  // /tree 페이지 통계 패널에서 랙 클릭 시 navigate(`?equipmentId=X`) → 도면 로드
-  // 후 해당 설비의 detail panel + viewport focus 를 자동 트리거. 한 번 처리하면
+  // ── URL query 로 들어온 ?assetId= 자동 진입(평면도 딥링크 포커스) ───────────
+  // gotoAsset/연결 클릭/현황 "도면에서 보기" 등 모든 진입점이 같은 ?assetId= 로 수렴.
+  // 도면 로드 후 해당 자산의 detail panel + viewport focus 를 자동 트리거. 한 번 처리하면
   // URL query 를 비워서 새로고침/뒤로가기 후 재실행 방지.
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
-    const targetId = searchParams.get('equipmentId');
+    if (!active) return; // 숨은(비활성) 에디터는 ?assetId= 를 가로채지 않는다(현황 딥링크 보호).
+    const targetId = searchParams.get('assetId');
     if (!targetId) return;
     // 단일 choke-point 로 "도면에 보이는가" 판정 — 미배치 모듈/회로/포트도 부모
     // 설비 anchor 로 해소되면 통과. anchor 없으면(데이터 미로드/orphan) 다음 render 재시도.
     const target = floorTargetFor(targetId, useSubstationWorkingCopy.getState().effectiveAssets());
     if (!target) return;
-    // URL 을 처리 후 비우므로(아래) 매 equipmentId 진입마다 1회 실행된다.
+    // URL 을 처리 후 비우므로(아래) 매 assetId 진입마다 1회 실행된다.
     // 영구 ref 가드를 두지 않아 "도면에서 보기" 반복 시에도 매번 재포커스된다.
     const es = useEditorStore.getState();
     es.openDetail(targetId);
     es.bumpFocusTick();
-    // URL 정리 — 함수형 업데이터로 최신 params 에서 equipmentId 만 제거 (tab/floor 보존).
-    setSearchParams((p) => { p.delete('equipmentId'); return p; }, { replace: true });
-  }, [searchParams, setSearchParams, floorPlan]);
+    // URL 정리 — 함수형 업데이터로 최신 params 에서 assetId 만 제거 (tab/floor 보존).
+    setSearchParams((p) => { p.delete('assetId'); return p; }, { replace: true });
+  }, [active, searchParams, setSearchParams, floorPlan]);
 
   // tool ↔ interaction mode sync — 케이블 도구 선택 시 cableDrawing 진입,
   // 다른 도구로 전환 시 종료.

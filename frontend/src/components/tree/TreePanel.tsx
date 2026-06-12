@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, MapPin, Zap, Layers, ChevronRight } from 'lucide-react';
 import { organizationApi, fetchChildNodes } from '../../services/organizationApi';
 import { useOrganizationStore } from '../../stores/organizationStore';
+import { workspaceFloorUrl } from '../../features/workspace/workspaceUrls';
 import type { TreeNodeData, NodeType } from '../../types/organization';
 
 // 계층 레벨별 lucide 아이콘 (node.type 기준): 본부=Building2, 사업소=MapPin,
@@ -60,13 +61,9 @@ export function TreePanel() {
       selectNode(node.id, node.type);
 
       if (node.type === 'floor') {
-        // floor 노드의 parentId 는 항상 소속 substation id (fetchChildNodes 참고).
-        // substationId 가 있으면 워크스페이스로 일원화, 없으면 기존 /floors/:id/plan 유지.
-        if (node.parentId) {
-          navigate(`/substations/${node.parentId}/workspace?view=plan&floor=${node.id}`);
-        } else {
-          navigate(`/floors/${node.id}/plan`);
-        }
+        // floor 노드의 parentId 는 항상 소속 substation id (fetchChildNodes 참고) → 정규
+        // 워크스페이스 URL(단일 빌더)로 일원화.
+        if (node.parentId) navigate(workspaceFloorUrl(node.parentId, node.id));
         return;
       }
 
@@ -92,13 +89,8 @@ export function TreePanel() {
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
       if (node.type === 'floor') {
-        // floor 노드의 parentId 는 항상 소속 substation id (fetchChildNodes 참고).
-        // substationId 가 있으면 워크스페이스로 일원화, 없으면 기존 /floors/:id/plan 유지.
-        if (node.parentId) {
-          navigate(`/substations/${node.parentId}/workspace?view=plan&floor=${node.id}`);
-        } else {
-          navigate(`/floors/${node.id}/plan`);
-        }
+        // floor 노드의 parentId 는 항상 소속 substation id (fetchChildNodes 참고) → 단일 빌더.
+        if (node.parentId) navigate(workspaceFloorUrl(node.parentId, node.id));
       } else if (node.type === 'substation') {
         navigate(`/substations/${node.id}/workspace`);
       }

@@ -10,7 +10,8 @@ import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
  * 현재 층에 있으면 상세 패널을 열고(revealDetail) viewport 를 그 자산으로 센터링
  * (bumpFocusTick)하는 부수효과만 담당한다 — 현황표 행 클릭 → 도면 진입 흐름용.
  * 선택을 다시 쓰지 않으므로 루프가 없다.
- * - cross-floor 는 비대상(표의 "도면에서 보기"=gotoFloor 가 처리)
+ * - cross-floor 는 비대상 — 타 층 자산 진입은 gotoAsset(WorkspaceNavContext)이 그 층으로
+ *   라우트 이동 후 ?assetId= 딥링크로 reveal+center 한다(이 브리지는 현재 층 한정).
  * @param active 배치도 뷰 활성(=에디터 마운트) 여부
  */
 export function useEditorSelectionBridge(

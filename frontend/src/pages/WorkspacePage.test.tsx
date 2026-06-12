@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useOrganizationStore } from '../stores/organizationStore';
 import { useSelection } from '../features/workspace/SelectionContext';
 import { useSelectionStore } from '../features/workspace/selectionStore';
+import { useWorkspaceNav } from '../features/workspace/WorkspaceNavContext';
 
 // FloorPlanEditor 는 무겁고(다수 query/store) 마운트 유지/floorId 만 검증하면 되므로
 // 마운트 카운터를 노출하는 가벼운 stub 으로 대체한다.
@@ -38,10 +40,18 @@ vi.mock('../features/assets/components/NodeStatusView', () => ({
     );
   },
 }));
+// 연결 뷰 목: gotoAsset(끝점 클릭)을 트리거하는 버튼을 노출 — 타 층 동변전소 / 타 변전소.
 vi.mock('../features/connections/components/SubstationConnectionsView', () => ({
-  SubstationConnectionsView: ({ substationId }: { substationId: string }) => (
-    <div data-testid="connections">connections:{substationId}</div>
-  ),
+  SubstationConnectionsView: ({ substationId }: { substationId: string }) => {
+    const nav = useWorkspaceNav();
+    return (
+      <div data-testid="connections">
+        connections:{substationId}
+        <button onClick={() => nav?.gotoAsset('cross-floor')}>끝점-타층</button>
+        <button onClick={() => nav?.gotoAsset('cross-sub')}>끝점-타변전소</button>
+      </div>
+    );
+  },
 }));
 vi.mock('../features/workingCopy/WorkingCopyCommitBar', () => ({
   WorkingCopyCommitBar: ({ substationId }: { substationId: string }) => (
@@ -74,12 +84,19 @@ vi.mock('../features/workingCopy/substationStore', () => ({
 
 import { WorkspacePage } from './WorkspacePage';
 
+// 현재 URL(경로+쿼리)을 노출하는 프로브 — gotoAsset 라우트 전환 검증용.
+function LocationProbe() {
+  const loc = useLocation();
+  return <div data-testid="loc">{loc.pathname}{loc.search}</div>;
+}
+
 function renderSubstation(search: string) {
   return render(
     <MemoryRouter initialEntries={[`/substations/s1/workspace${search}`]}>
       <Routes>
         <Route path="/substations/:substationId/workspace" element={<WorkspacePage />} />
       </Routes>
+      <LocationProbe />
     </MemoryRouter>,
   );
 }
@@ -194,6 +211,36 @@ describe('WorkspacePage — 본부 노드', () => {
     // 이전 자산(a1)의 층으로 가지 않고 안내문(에디터 미마운트).
     expect(screen.queryByTestId('editor')).toBeNull();
     expect(screen.getByText('현황에서 설비를 선택하면 그 설비의 평면도를 봅니다.')).toBeTruthy();
+  });
+});
+
+describe('WorkspacePage — gotoAsset(연결 끝점 클릭) 단일 내비', () => {
+  it('타 층(동일 변전소) 끝점 클릭 → 그 층 평면도 + ?assetId= 포커스로 진입(버그 수정)', () => {
+    // s1 의 다른 층(floor-2)에 배치된 끝점. floorAnchor 가 floor-2/s1 로 해소.
+    effectiveAssets = [
+      { id: 'cross-floor', substationId: 's1', floorId: 'floor-2', positionX: 0, positionY: 0, width2d: 10, height2d: 10 },
+    ];
+    renderSubstation('?view=connections');
+    fireEvent.click(screen.getByText('끝점-타층'));
+    // 같은 변전소라 라우트 유지 + 평면도 전환 + 층/포커스 파라미터.
+    const loc = screen.getByTestId('loc').textContent!;
+    expect(loc).toContain('/substations/s1/workspace');
+    expect(loc).toContain('view=plan');
+    expect(loc).toContain('floor=floor-2');
+    expect(loc).toContain('assetId=cross-floor');
+  });
+
+  it('타 변전소 끝점 클릭 → 그 변전소 워크스페이스 평면도로 라우트 이동 + ?assetId=', () => {
+    effectiveAssets = [
+      { id: 'cross-sub', substationId: 's9', floorId: 'floor-9', positionX: 0, positionY: 0, width2d: 10, height2d: 10 },
+    ];
+    renderSubstation('?view=connections');
+    fireEvent.click(screen.getByText('끝점-타변전소'));
+    const loc = screen.getByTestId('loc').textContent!;
+    expect(loc).toContain('/substations/s9/workspace');
+    expect(loc).toContain('view=plan');
+    expect(loc).toContain('floor=floor-9');
+    expect(loc).toContain('assetId=cross-sub');
   });
 });
 
