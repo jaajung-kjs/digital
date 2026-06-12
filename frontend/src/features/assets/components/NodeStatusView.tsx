@@ -77,7 +77,7 @@ function AssetRow({
     <tr
       onClick={onSelect}
       className={`h-12 cursor-pointer border-b border-line transition-colors ${
-        selected ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2'
+        selected ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2 active:bg-surface-3'
       }`}
     >
       <td className="pl-4 pr-2 text-sm text-content align-middle whitespace-nowrap">{item.assetTypeName}</td>
@@ -314,24 +314,31 @@ export function NodeStatusView({
           ) : (
             <table className="w-full border-collapse">
               <thead>
-                <tr className="text-left bg-surface-2 border-b border-line sticky top-0">
+                <tr className="text-left bg-surface border-b border-line sticky top-0">
                   {COLUMNS.map((c, i) => {
                     const active = sort?.col === c;
+                    const pad = i === 0 ? 'pl-4 pr-2' : i === COLUMNS.length - 1 ? 'px-2 pr-4' : 'px-2';
                     return (
-                      <th key={c} className={`${i === 0 ? 'pl-4 pr-2' : i === COLUMNS.length - 1 ? 'px-2 pr-4' : 'px-2'} py-2 text-xs font-medium uppercase tracking-wide text-content-muted`}>
+                      <th
+                        key={c}
+                        aria-sort={active ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        className={`p-0 text-[13px] font-medium tracking-wide ${active ? 'bg-surface-2' : ''}`}
+                      >
                         <button
                           type="button"
                           onClick={() => cycleSort(c)}
                           aria-label={`${c} 정렬`}
-                          className="group inline-flex items-center gap-1 cursor-pointer select-none uppercase tracking-wide hover:text-content"
+                          className={`group w-full h-full inline-flex items-center gap-1 ${pad} py-2.5 cursor-pointer select-none transition-colors hover:bg-surface-2 active:bg-surface-3 focus-ring ${
+                            active ? 'text-content font-semibold' : 'text-content-muted'
+                          }`}
                         >
                           {c}
                           {active && sort?.dir === 'asc' ? (
-                            <ChevronUp className="w-3.5 h-3.5 text-content" />
+                            <ChevronUp className="w-3.5 h-3.5 text-content shrink-0" />
                           ) : active && sort?.dir === 'desc' ? (
-                            <ChevronDown className="w-3.5 h-3.5 text-content" />
+                            <ChevronDown className="w-3.5 h-3.5 text-content shrink-0" />
                           ) : (
-                            <ChevronsUpDown className="w-3.5 h-3.5 text-content-faint opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <ChevronsUpDown className="w-3.5 h-3.5 text-content-faint shrink-0" />
                           )}
                         </button>
                       </th>
