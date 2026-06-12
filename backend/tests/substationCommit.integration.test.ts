@@ -21,7 +21,7 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
   let app: Express;
   let token: string;
   let userId: string;
-  let hqId: string, brId: string, subId: string, floorId: string, typeId: string, placementTypeId: string;
+  let hqId: string, brId: string, subId: string, floorId: string, typeId: string, placementTypeId: string, rackTypeId: string;
   // 두 번째 변전소 (크로스 변전소 스코핑 검증용)
   let sub2Id: string, floor2Id: string, asset2Id: string;
   const createdAssets: string[] = [];
@@ -58,6 +58,8 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     typeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: null, isActive: true } })).id;
     // 케이블 endpoint 가 될 수 있는 배치형(RACK/DIST/OFD 제외) — GROUNDING.
     placementTypeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: 'GROUNDING', isActive: true } })).id;
+    // 랙(RACK) — 랙 모듈의 부모가 될 수 있는 배치형. 모듈 카테고리는 placementKind=null(typeId).
+    rackTypeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: 'RACK', isActive: true } })).id;
 
     // 두 번째 변전소 + 자체 floor/asset — 크로스 변전소 mutation 차단 검증용.
     const sub2 = await prisma.substation.create({ data: { name: '__sc_sub2__', branchId: br.id } }); sub2Id = sub2.id;
@@ -286,6 +288,64 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     await commitSubstation(subId, input, userId);
     const f2after = await prisma.floor.findUniqueOrThrow({ where: { id: floor2Id } });
     expect(f2after.gridSize).toBe(123);
+  });
+
+  // ── 하위 자산 단일 경로 통합(rackModules 경로 폐지) 회귀 검증 ──
+  it('U1) 랙 모듈을 통합 assets 컬렉션으로 create — slotIndex/slotSpan + parentAssetId(실 랙) 영속 + substationId 정상', async () => {
+    // 먼저 랙(부모) 자산 생성.
+    const rack = await prisma.asset.create({
+      data: { substationId: subId, assetTypeId: rackTypeId, name: '랙U1', floorId, positionX: 3, positionY: 3, width2d: 20, height2d: 40 },
+    });
+    createdAssets.push(rack.id);
+
+    // 랙 모듈을 assets 컬렉션으로 — parentAssetId=실제 랙, slotIndex/slotSpan 동반.
+    const input = substationCommitSchema.parse({
+      assets: {
+        creates: [
+          { tempId: 'mod1', assetTypeId: typeId, name: '모듈U1', parentAssetId: rack.id, slotIndex: 0, slotSpan: 2 },
+        ],
+      },
+    });
+    const res = await commitSubstation(subId, input, userId);
+    const modId = res.idMaps.assets['mod1'];
+    expect(modId).toMatch(/^[0-9a-f-]{36}$/);
+    createdAssets.push(modId);
+
+    const mod = await prisma.asset.findUniqueOrThrow({ where: { id: modId } });
+    expect(mod.parentAssetId).toBe(rack.id);
+    expect(mod.slotIndex).toBe(0);
+    expect(mod.slotSpan).toBe(2);
+    // 전역 라우트의 substationId='' 폴백 버그 회귀 — substationId 가 올바르게 채워져야(FK 위반 없음).
+    expect(mod.substationId).toBe(subId);
+
+    // 슬롯 충돌 검증이 유지되는지 — 같은 슬롯(1, 겹침)에 또 만들면 충돌.
+    const collide = substationCommitSchema.parse({
+      assets: { creates: [{ tempId: 'mod2', assetTypeId: typeId, name: '모듈충돌', parentAssetId: rack.id, slotIndex: 1, slotSpan: 1 }] },
+    });
+    await expect(commitSubstation(subId, collide, userId)).rejects.toThrow();
+  });
+
+  it('U2) 부모+자식 단일 커밋 — 자식 parentAssetId=부모 tempId 가 부모 실 id 로 해소', async () => {
+    // feeder(부모) + branch(자식, parentAssetId=feeder tempId) 를 한 커밋에. 슬롯 없음(slotIndex=null).
+    const input = substationCommitSchema.parse({
+      assets: {
+        creates: [
+          { tempId: 'feeder1', assetTypeId: typeId, name: 'FEEDER1' },
+          { tempId: 'branch1', assetTypeId: typeId, name: 'BRANCH1', parentAssetId: 'feeder1' },
+        ],
+      },
+    });
+    const res = await commitSubstation(subId, input, userId);
+    const feederId = res.idMaps.assets['feeder1'];
+    const branchId = res.idMaps.assets['branch1'];
+    expect(feederId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(branchId).toMatch(/^[0-9a-f-]{36}$/);
+    createdAssets.push(feederId, branchId);
+
+    const branch = await prisma.asset.findUniqueOrThrow({ where: { id: branchId } });
+    // tempId('feeder1') 가 부모의 실 id 로 해소돼야(FK 위반 없음).
+    expect(branch.parentAssetId).toBe(feederId);
+    expect(branch.slotIndex).toBeNull();
   });
 
   it('6) 인증 없음 → 401, malformed body → 400', async () => {

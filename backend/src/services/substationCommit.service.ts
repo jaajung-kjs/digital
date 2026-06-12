@@ -13,6 +13,7 @@ import {
 } from './planApply.js';
 import { extractSourcePresetId } from './sourcePreset.js';
 import { getAssetRecordModel } from './assetRecordSchema.service.js';
+import { ValidationError } from '../utils/errors.js';
 
 /**
  * 프론트는 설비/모듈의 source preset 을 여전히 `properties: { sourcePresetId }`(또는
@@ -115,6 +116,22 @@ const assetCommonUpdate = (p: Record<string, unknown>) => {
   };
 };
 
+/** 부모(같은 배치의 create)가 자식보다 먼저 오도록 위상정렬 — parentAssetId tempId 해소를 위해. */
+function orderCreatesByParent<T extends { tempId: string; parentAssetId?: string | null }>(creates: T[]): T[] {
+  const byTempId = new Map(creates.map((c) => [c.tempId, c]));
+  const ordered: T[] = [];
+  const seen = new Set<string>();
+  const visit = (c: T) => {
+    if (seen.has(c.tempId)) return;
+    seen.add(c.tempId);
+    const parent = c.parentAssetId != null ? byTempId.get(c.parentAssetId) : undefined;
+    if (parent) visit(parent);
+    ordered.push(c);
+  };
+  for (const c of creates) visit(c);
+  return ordered;
+}
+
 export interface CommitResult {
   idMaps: {
     assets: Record<string, string>;
@@ -210,18 +227,6 @@ async function run(
       ...collectConflicts('cables', current, input.cables.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
     );
   }
-  // rackModules (stored as Asset rows)
-  if (input.rackModules) {
-    const ids = [...input.rackModules.updates.map((u) => u.id), ...input.rackModules.deletes.map((d) => d.id)];
-    const rows = ids.length
-      ? await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
-      : [];
-    const { current, nameById } = await loadOcc(rows);
-    conflicts.push(
-      ...collectConflicts('rackModules', current, input.rackModules.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion, name: nameById.get(u.id) ?? undefined }))),
-      ...collectConflicts('rackModules', current, input.rackModules.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion, name: nameById.get(d.id) ?? undefined }))),
-    );
-  }
   // fiberPaths
   if (input.fiberPaths) {
     const ids = [...input.fiberPaths.updates.map((u) => u.id), ...input.fiberPaths.deletes.map((d) => d.id)];
@@ -276,21 +281,51 @@ async function run(
 
   if (conflicts.length) throw new VersionConflictError(conflicts);
 
+  // ── 슬롯 충돌 검사용 live 슬롯 추적 (랙별). 슬롯형(slotIndex!=null) 자식만 포함 ──
+  // assets create/update 양쪽이 공유. 비-슬롯 자식(feeder/branch 등 slotIndex=null)은 제외.
+  const liveByRack = new Map<string, { id: string; slotIndex: number; slotSpan: number }[]>();
+  const deletedAssetIds = new Set<string>((input.assets?.deletes ?? []).map((d) => d.id));
+  const ensureLive = async (rackId: string) => {
+    if (liveByRack.has(rackId)) return liveByRack.get(rackId)!;
+    const sibs = await tx.asset.findMany({
+      where: { parentAssetId: rackId },
+      select: { id: true, slotIndex: true, slotSpan: true },
+    });
+    const arr = sibs
+      .filter((s) => !deletedAssetIds.has(s.id) && s.slotIndex != null)
+      .map((s) => ({ id: s.id, slotIndex: s.slotIndex ?? 0, slotSpan: s.slotSpan ?? 1 }));
+    liveByRack.set(rackId, arr);
+    return arr;
+  };
+
   // ── 2) assets first (so tempIds resolve for refs) ──
   if (input.assets) {
     const a = input.assets;
 
     // NOTE: 변전소당 OFD 1개 제약은 제거됨 — 변전소는 여러 광단국(OFD)을 가질 수 있다.
 
-    for (const c of a.creates) {
+    for (const c of orderCreatesByParent(a.creates)) {
+      const parentId = c.parentAssetId != null ? (idMaps.assets[c.parentAssetId] ?? c.parentAssetId) : null;
+      const cSlotIndex = (c as { slotIndex?: number | null }).slotIndex ?? null;
+      const cSlotSpan = (c as { slotSpan?: number | null }).slotSpan ?? 1;
+      // slotIndex 가 있으면 랙 모듈 — 부모 카테고리·슬롯 유효성·충돌 검증(종전 rackModules 경로 이관).
+      if (cSlotIndex != null) {
+        if (!parentId) throw new ValidationError('랙 모듈은 부모(랙)가 필요합니다');
+        await assertRackParentValid(tx, parentId, c.assetTypeId);
+        assertSlotValid(cSlotIndex, cSlotSpan);
+        const arr = await ensureLive(parentId);
+        assertNoSlotCollision(cSlotIndex, cSlotSpan, arr);
+      }
       const created = await tx.asset.create({
         data: {
           substationId: (c as { substationId?: string }).substationId ?? substationId,
           assetTypeId: c.assetTypeId,
           ...assetCommonCreate(c as unknown as Record<string, unknown>),
-          parentAssetId: c.parentAssetId ?? null,
+          parentAssetId: parentId,
           roomText: c.roomText ?? null,
           sourcePresetId: resolveSourcePresetId(c.attributes, c.sourcePresetId),
+          slotIndex: cSlotIndex,
+          slotSpan: cSlotIndex != null ? cSlotSpan : null,
           // placement
           floorId: c.floorId ?? null,
           positionX: c.positionX ?? null,
@@ -304,17 +339,38 @@ async function run(
         },
       });
       idMaps.assets[c.tempId] = created.id;
+      if (cSlotIndex != null) liveByRack.get(parentId!)!.push({ id: created.id, slotIndex: cSlotIndex, slotSpan: cSlotSpan });
     }
 
     for (const u of a.updates) {
       const p = u.patch;
+      const patchParent =
+        'parentAssetId' in p ? (idMaps.assets[p.parentAssetId as string] ?? p.parentAssetId) : undefined;
+      const touchesSlot = p.slotIndex !== undefined || p.slotSpan !== undefined || 'parentAssetId' in p;
+      if (touchesSlot) {
+        const cur = await tx.asset.findUnique({
+          where: { id: u.id },
+          select: { parentAssetId: true, slotIndex: true, slotSpan: true },
+        });
+        const mergedSlotIndex = (p.slotIndex as number | null | undefined) ?? cur?.slotIndex ?? null;
+        if (mergedSlotIndex != null) {
+          const mergedRackId = (patchParent as string | null | undefined) ?? cur?.parentAssetId ?? null;
+          const mergedSlotSpan = (p.slotSpan as number | undefined) ?? cur?.slotSpan ?? 1;
+          assertSlotValid(mergedSlotIndex, mergedSlotSpan);
+          if (mergedRackId) {
+            if (p.assetTypeId) await assertRackParentValid(tx, mergedRackId, p.assetTypeId as string);
+            const arr = await ensureLive(mergedRackId);
+            assertNoSlotCollision(mergedSlotIndex, mergedSlotSpan, arr, [u.id]);
+          }
+        }
+      }
       // C1: 변전소 스코핑 — 다른 변전소 asset 이면 매치 실패 → P2025 (롤백).
       await tx.asset.update({
         where: { id: u.id },
         data: {
           assetTypeId: p.assetTypeId as string | undefined,
           ...assetCommonUpdate(p as Record<string, unknown>),
-          parentAssetId: p.parentAssetId as string | null | undefined,
+          parentAssetId: patchParent as string | null | undefined,
           roomText: p.roomText as string | null | undefined,
           sourcePresetId:
             p.sourcePresetId !== undefined
@@ -329,6 +385,8 @@ async function run(
           width2d: p.width2d as number | null | undefined,
           height2d: p.height2d as number | null | undefined,
           rotation: p.rotation === undefined ? undefined : toInt(p.rotation),
+          slotIndex: p.slotIndex as number | null | undefined,
+          slotSpan: p.slotSpan as number | null | undefined,
           totalU: p.totalU as number | null | undefined,
           updatedById: userId,
         },
@@ -396,99 +454,6 @@ async function run(
       }
       if (m.hasAudit) data.updatedById = userId;
       await recordDelegate(tx, m.delegate).update({ where: { id: u.id }, data });
-    }
-  }
-
-  // ── 3) rackModules (Asset children) ──
-  if (input.rackModules) {
-    const m = input.rackModules;
-
-    if (m.deletes.length) {
-      // C1: 랙 모듈도 Asset 행이므로 substationId 로 스코핑.
-      await tx.asset.deleteMany({ where: { id: { in: m.deletes.map((d) => d.id) } } });
-    }
-
-    // 슬롯 충돌 검사용 live 슬롯 추적 (랙별). 초기: 관련 랙의 DB 잔존 모듈.
-    const liveByRack = new Map<string, { id: string; slotIndex: number; slotSpan: number }[]>();
-    const ensureLive = async (rackId: string) => {
-      if (liveByRack.has(rackId)) return liveByRack.get(rackId)!;
-      const sibs = await tx.asset.findMany({
-        where: { parentAssetId: rackId },
-        select: { id: true, slotIndex: true, slotSpan: true },
-      });
-      const deletedIds = new Set(m.deletes.map((d) => d.id));
-      const arr = sibs
-        .filter((s) => !deletedIds.has(s.id))
-        .map((s) => ({ id: s.id, slotIndex: s.slotIndex ?? 0, slotSpan: s.slotSpan ?? 1 }));
-      liveByRack.set(rackId, arr);
-      return arr;
-    };
-
-    for (const c of m.creates) {
-      const rackId = resolveAsset(c.rackEquipmentId)!;
-      await assertRackParentValid(tx, rackId, c.categoryId);
-      assertSlotValid(c.slotIndex, c.slotSpan);
-      const arr = await ensureLive(rackId);
-      assertNoSlotCollision(c.slotIndex, c.slotSpan, arr);
-      const created = await tx.asset.create({
-        data: {
-          substationId,
-          assetTypeId: c.categoryId,
-          parentAssetId: rackId,
-          slotIndex: c.slotIndex,
-          slotSpan: c.slotSpan,
-          ...assetCommonCreate(c as unknown as Record<string, unknown>),
-          sourcePresetId: extractSourcePresetId(c.properties),
-          createdById: userId,
-          updatedById: userId,
-        },
-      });
-      idMaps.rackModules[c.tempId] = created.id;
-      arr.push({ id: created.id, slotIndex: c.slotIndex, slotSpan: c.slotSpan });
-    }
-
-    for (const u of m.updates) {
-      const p = u.patch;
-      const rackId = p.rackEquipmentId ? resolveAsset(p.rackEquipmentId as string) : undefined;
-      if (rackId && p.categoryId) {
-        await assertRackParentValid(tx, rackId, p.categoryId as string);
-      }
-      // W1: 부분 패치(slotIndex 또는 slotSpan 또는 부모만)도 검증되도록 현재 행에
-      //     패치를 병합한 값으로 슬롯 유효성·충돌을 검사.
-      const touchesSlot =
-        p.slotIndex !== undefined || p.slotSpan !== undefined || p.rackEquipmentId !== undefined;
-      if (touchesSlot) {
-        const cur = await tx.asset.findUnique({
-          where: { id: u.id },
-          select: { parentAssetId: true, slotIndex: true, slotSpan: true },
-        });
-        const mergedRackId = rackId ?? cur?.parentAssetId ?? null;
-        const mergedSlotIndex = (p.slotIndex as number | undefined) ?? cur?.slotIndex ?? 0;
-        const mergedSlotSpan = (p.slotSpan as number | undefined) ?? cur?.slotSpan ?? 1;
-        assertSlotValid(mergedSlotIndex, mergedSlotSpan);
-        if (mergedRackId) {
-          const arr = await ensureLive(mergedRackId);
-          assertNoSlotCollision(mergedSlotIndex, mergedSlotSpan, arr, [u.id]);
-        }
-      }
-      await tx.asset.update({
-        where: { id: u.id },
-        data: {
-          parentAssetId: rackId,
-          assetTypeId: p.categoryId as string | undefined,
-          slotIndex: p.slotIndex as number | undefined,
-          slotSpan: p.slotSpan as number | undefined,
-          ...assetCommonUpdate(p as Record<string, unknown>),
-          sourcePresetId: p.properties !== undefined ? extractSourcePresetId(p.properties) : undefined,
-          updatedById: userId,
-        },
-      });
-    }
-
-    const touched = [...m.updates.map((u) => u.id), ...Object.values(idMaps.rackModules)];
-    if (touched.length) {
-      const rows = await tx.asset.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
-      updated.rackModules = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
     }
   }
 

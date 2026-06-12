@@ -109,6 +109,8 @@ const assetCreate = z.object({
   height2d: z.number().nullable().optional(),
   rotation: z.number().optional(),
   totalU: z.number().nullable().optional(),
+  slotIndex: z.number().nullable().optional(),
+  slotSpan: z.number().nullable().optional(),
 });
 const assetPatch = assetCreate.omit({ tempId: true }).partial();
 
@@ -136,20 +138,6 @@ const cableCreate = z.object({
   description: z.string().nullable().optional(),
 });
 const cablePatch = cableCreate.omit({ tempId: true }).partial();
-
-// ==================== RackModule ====================
-// floor.service.ts PlanRackModuleInput 형태 그대로.
-const rackModuleCreate = z.object({
-  tempId: z.string(),
-  rackEquipmentId: z.string(),
-  categoryId: z.string(),
-  slotIndex: z.number(),
-  slotSpan: z.number(),
-  // 자산 공통 스칼라(name/status/보증/교체/sortOrder 등) — assetCreate 와 동일 정의 공유.
-  ...assetCommonFields,
-  properties: z.unknown().optional(),
-});
-const rackModulePatch = rackModuleCreate.omit({ tempId: true }).partial();
 
 // ==================== FiberPath ====================
 // floor.service.ts UpdatePlanInput.fiberPaths 형태 그대로.
@@ -189,7 +177,6 @@ const recordsCollection = z.object({
 export const substationCommitSchema = z.object({
   assets: collection(assetCreate, assetPatch).optional(),
   cables: collection(cableCreate, cablePatch).optional(),
-  rackModules: collection(rackModuleCreate, rackModulePatch).optional(),
   records: recordsCollection.optional(),
   // 분전 회로(feeder/branch)는 통합 노드 모델에서 Asset(자식) 이므로 assets 컬렉션으로
   // 커밋된다 — 별도 distributionCircuits 컬렉션 없음(단계3b/4b).
