@@ -67,3 +67,13 @@ backend/uploads/
 
 # Local deploy package
 dist-deploy/
+
+# DB backups (local only)
+.db-backups/
+
+# Playwright MCP / verification artifacts
+.playwright-mcp/
+verify-*.png
+
+# Local archive (작업 자료)
+필요자료.zip
