@@ -89,8 +89,7 @@ describe('AssetConnectionsSection — 읽기전용 경로 뷰', () => {
     expect(screen.getAllByText('장비A').length).toBeGreaterThan(0); // 시작점(두 경로 모두)
     expect(screen.getByText('광단자함')).toBeInTheDocument(); // FIBER root(도착)
     expect(screen.getByText('장비C')).toBeInTheDocument();   // LAN 도착(자연 끝)
-    expect(screen.queryByText('장비B')).toBeNull();          // 중간 노드는 펼치지 않음
-    expect(screen.getAllByText('…').length).toBeGreaterThan(0); // 중간 생략 표시
+    expect(screen.queryByText('장비B')).toBeNull();          // 중간 노드는 안 보여줌(끝점만)
     // 인라인 편집 affordance 제거됨
     expect(screen.queryByLabelText('유형')).toBeNull();
     expect(screen.queryByLabelText('라벨')).toBeNull();

@@ -150,25 +150,18 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
 }
 
 /**
- * "근접자산 → … → root" 한 줄 요약 — 시작은 케이블의 실제 근접 자산(모듈 등), 도착(root/끝)은
- * 강조, 중간은 … 로 생략. (전체 노드별 체인은 클릭 시 PathTraceDetail.)
+ * "근접자산 → root" 끝점만 — 시작은 케이블의 실제 근접 자산(모듈 등), 도착은 root(강조).
+ * 중간 hop 은 안 보여준다(실제 경로는 행 클릭 → 도면 하이라이트로 한눈에).
  */
 function RouteLine({ path }: { path: PathToRoot }) {
   const chain = path.chain;
   const dest = path.root?.name ?? (chain.length ? chain[chain.length - 1].name : null);
-  const hasMiddle = chain.length >= 2;
   return (
-    <span className="inline-flex min-w-0 items-center gap-1">
+    <span className="inline-flex min-w-0 items-center gap-1.5">
       <span className="truncate text-content-muted">{path.start.name}</span>
       {dest && (
         <>
           <span className="shrink-0 text-content-faint">→</span>
-          {hasMiddle && (
-            <>
-              <span className="shrink-0 text-content-faint">…</span>
-              <span className="shrink-0 text-content-faint">→</span>
-            </>
-          )}
           <span className="truncate font-medium text-content">{dest}</span>
         </>
       )}
