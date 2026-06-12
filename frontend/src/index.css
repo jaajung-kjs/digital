@@ -11,6 +11,8 @@
   --success:#15803d; --warning:#b45309; --danger:#b91c1c; --info:#1e40af;
   --success-bg:#dcfce7; --warning-bg:#fef3c7; --danger-bg:#fee2e2; --info-bg:#dbeafe;
   --eq-1:#44403c; --eq-2:#78716c; --eq-3:#a8a29e; --eq-4:#d6d3d1;
+  /* 포커스 링 — translucent 명시값(이 설정은 색을 raw var 로 정의해 Tailwind opacity 모디파이어가 안 먹음) */
+  --ring-primary: rgb(21 64 107 / 0.4); --ring-primary-weak: rgb(21 64 107 / 0.2); --ring-danger: rgb(185 28 28 / 0.4);
   --radius:8px;
 }
 
@@ -23,10 +25,22 @@ body {
 
 /* 인터랙션 표준 헬퍼 — 동일 조합 반복을 한 곳에서 보장(spec §7) */
 @layer components {
-  /* 포커스 링 — 모든 포커스 가능 요소 공통(위험 동작은 inline ring-danger/40 사용) */
-  .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary;
-    --tw-ring-opacity: 0.4;
+  /* 포커스 링(기본) — primary 40%, box-shadow 기반. 모든 포커스 가능 요소 공통 */
+  .focus-ring:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--ring-primary);
+  }
+  /* 포커스 링(위험 동작) — danger 40% */
+  .focus-ring-danger:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--ring-danger);
+  }
+  /* 포커스 링(인풋) — primary 20%, border-primary 와 함께 은은하게(:focus) */
+  .focus-ring-input:focus {
+    outline: 2px solid transparent;
+    box-shadow: 0 0 0 3px var(--ring-primary-weak);
   }
   /* 버튼 눌림 — transition(all)로 색+transform 동시 전환, 눌림 시 살짝 축소 */
   .press-btn {

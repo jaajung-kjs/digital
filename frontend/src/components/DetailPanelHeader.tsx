@@ -30,7 +30,7 @@ export function DetailPanelHeader({
             onClick={onDelete}
             title="삭제"
             aria-label="삭제"
-            className="press-btn p-1 rounded text-content-faint hover:text-danger hover:bg-danger-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+            className="press-btn focus-ring-danger p-1 rounded text-content-faint hover:text-danger hover:bg-danger-bg"
           >
             <Trash2 size={15} />
           </button>
