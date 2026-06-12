@@ -27,6 +27,7 @@ export default {
         // 디자인 토큰 (시맨틱)
         surface: 'var(--surface)',
         'surface-2': 'var(--surface-2)',
+        'surface-3': 'var(--surface-3)',
         bg: 'var(--bg)',
         sidebar: 'var(--sidebar)',
         line: {
