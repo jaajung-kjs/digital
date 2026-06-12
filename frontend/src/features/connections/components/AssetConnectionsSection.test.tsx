@@ -31,6 +31,7 @@ const assets = [
 const cables = [
   { id: 'fA', sourceAssetId: 'A', targetAssetId: 'B', cableType: 'FIBER' },
   { id: 'fB', sourceAssetId: 'B', targetAssetId: 'OFD1', cableType: 'FIBER' },
+  { id: 'fA2', sourceAssetId: 'A', targetAssetId: 'OFD1', cableType: 'FIBER' }, // A→OFD 직결(다른 포트) — fA 와 같은 도착
   { id: 'lan', sourceAssetId: 'A', targetAssetId: 'C', cableType: 'LAN' },
 ];
 
@@ -123,6 +124,17 @@ describe('AssetConnectionsSection — 읽기전용 경로 뷰', () => {
     const lanOnly = conns.filter((c: { cableType: string }) => c.cableType === 'LAN');
     render(<AssetConnectionsSection assetId="A" connections={lanOnly} activeFloorId="f1" />);
     expect(screen.queryByLabelText('외부망 토폴로지')).toBeNull();
+  });
+
+  it('같은 시작→도착 경로(다른 케이블/포트)는 한 항목으로 묶음', () => {
+    // A→B→OFD1 (fA) 와 A→OFD1 직결 (fA2) 은 둘 다 "장비A → OFD(광단자함)" → 한 항목.
+    const dup = [
+      { id: 'fA', source: { assetId: 'A', name: '장비A' }, target: { assetId: 'B', name: '장비B' }, cableType: 'FIBER', label: null, totalLength: 0 },
+      { id: 'fA2', source: { assetId: 'A', name: '장비A' }, target: { assetId: 'OFD1', name: '광단자함' }, cableType: 'FIBER', label: null, totalLength: 0 },
+    ] as any;
+    render(<AssetConnectionsSection assetId="A" connections={dup} activeFloorId="f1" />);
+    // 도착(광단자함) 항목은 하나만.
+    expect(screen.getAllByText('광단자함')).toHaveLength(1);
   });
 
   it('연결 없음 → 빈 상태', () => {

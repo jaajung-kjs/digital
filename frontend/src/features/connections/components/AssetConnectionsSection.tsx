@@ -7,7 +7,6 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
 import { tracePathToRoot, type PathToRoot } from '../tracePathToRoot';
-import { buildEndpointNameResolver } from '../endpointName';
 import type { AssetConnection } from '../hooks/useEffectiveAssetConnections';
 import type { Asset } from '../../../types/asset';
 
@@ -62,16 +61,17 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
   const effectiveAssets = useEffectiveAssets();
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
 
-  const selfName = useMemo(
-    () => buildEndpointNameResolver(effectiveAssets)(assetId) || '(미상)',
-    [effectiveAssets, assetId],
-  );
-
   const groups = useMemo(() => {
     const byId = toMapById(effectiveAssets);
     const byType = new Map<string, Entry[]>();
+    // 같은 (시작 자산 → 도착) 경로는 하나로 묶는다 — 같은 OFD 로 가는 여러 포트/케이블은 한 항목.
+    const seen = new Set<string>();
     for (const conn of connections) {
       const path = tracePathToRoot(assetId, conn.id, effectiveCables, effectiveAssets);
+      const destId = path.root?.assetId ?? path.chain[path.chain.length - 1]?.assetId ?? conn.id;
+      const key = `${conn.cableType}|${path.start.assetId}|${destId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       const external = pathHasExternal(path, activeFloorId, byId);
       const list = byType.get(conn.cableType) ?? [];
       list.push({ conn, path, external });
@@ -125,7 +125,7 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
                       title="도면에서 경로 하이라이트"
                       className="min-w-0 flex-1 rounded px-2 py-1.5 text-left text-[13px] focus-ring"
                     >
-                      <RouteLine selfName={selfName} path={path} conn={conn} assetId={assetId} />
+                      <RouteLine path={path} />
                     </button>
                     {external && (
                       <button
@@ -150,35 +150,28 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
 }
 
 /**
- * "이자산 → … → root" 한 줄 요약 — 시작은 이 자산, 도착(root/끝)은 강조, 중간은 … 로 생략.
- * (전체 노드별 체인은 클릭 시 PathTraceDetail.)
+ * "근접자산 → … → root" 한 줄 요약 — 시작은 케이블의 실제 근접 자산(모듈 등), 도착(root/끝)은
+ * 강조, 중간은 … 로 생략. (전체 노드별 체인은 클릭 시 PathTraceDetail.)
  */
-function RouteLine({
-  selfName,
-  path,
-  conn,
-  assetId,
-}: {
-  selfName: string;
-  path: PathToRoot;
-  conn: AssetConnection;
-  assetId: string;
-}) {
+function RouteLine({ path }: { path: PathToRoot }) {
   const chain = path.chain;
-  const otherName = conn.source.assetId === assetId ? conn.target.name : conn.source.name;
-  const dest = path.root?.name ?? (chain.length ? chain[chain.length - 1].name : otherName) ?? '(미상)';
+  const dest = path.root?.name ?? (chain.length ? chain[chain.length - 1].name : null);
   const hasMiddle = chain.length >= 2;
   return (
     <span className="inline-flex min-w-0 items-center gap-1">
-      <span className="truncate text-content-muted">{selfName}</span>
-      <span className="shrink-0 text-content-faint">→</span>
-      {hasMiddle && (
+      <span className="truncate text-content-muted">{path.start.name}</span>
+      {dest && (
         <>
-          <span className="shrink-0 text-content-faint">…</span>
           <span className="shrink-0 text-content-faint">→</span>
+          {hasMiddle && (
+            <>
+              <span className="shrink-0 text-content-faint">…</span>
+              <span className="shrink-0 text-content-faint">→</span>
+            </>
+          )}
+          <span className="truncate font-medium text-content">{dest}</span>
         </>
       )}
-      <span className="truncate font-medium text-content">{dest}</span>
     </span>
   );
 }
