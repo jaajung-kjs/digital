@@ -316,7 +316,7 @@ export function NodeStatusView({
           ) : (
             <table className="w-full border-collapse">
               <thead>
-                <tr className="text-left bg-surface border-b border-line sticky top-0">
+                <tr className="text-left bg-surface-2 border-b border-line-strong sticky top-0">
                   {COLUMNS.map((c, i) => {
                     const active = sort?.col === c;
                     const pad = i === 0 ? 'pl-4 pr-2' : i === COLUMNS.length - 1 ? 'px-2 pr-4' : 'px-2';
@@ -324,13 +324,13 @@ export function NodeStatusView({
                       <th
                         key={c}
                         aria-sort={active ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                        className={`p-0 text-[12px] font-medium tracking-wide ${active ? 'bg-surface-2' : ''}`}
+                        className={`p-0 text-[12px] font-medium tracking-wide ${active ? 'bg-surface-3' : ''}`}
                       >
                         <button
                           type="button"
                           onClick={() => cycleSort(c)}
                           aria-label={`${c} 정렬`}
-                          className={`group w-full h-full inline-flex items-center gap-1 ${pad} py-2 cursor-pointer select-none transition-colors hover:bg-surface-2 active:bg-surface-3 focus-ring ${
+                          className={`group w-full h-full inline-flex items-center gap-1 ${pad} py-2 cursor-pointer select-none transition-colors hover:bg-surface-3 active:bg-surface-3 focus-ring ${
                             active ? 'text-content font-semibold' : 'text-content-muted'
                           }`}
                         >
