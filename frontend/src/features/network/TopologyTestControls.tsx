@@ -50,7 +50,7 @@ function EndpointChip({
   return (
     <span
       className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${
-        isStart ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+        isStart ? 'bg-success-bg text-success' : 'bg-danger-bg text-danger'
       }`}
     >
       {isStart ? '시작' : '종료'}: {label}
