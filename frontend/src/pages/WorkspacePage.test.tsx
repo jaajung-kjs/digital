@@ -40,13 +40,13 @@ vi.mock('../features/assets/components/NodeStatusView', () => ({
     );
   },
 }));
-// 연결 뷰 목: gotoAsset(끝점 클릭)을 트리거하는 버튼을 노출 — 타 층 동변전소 / 타 변전소.
-vi.mock('../features/connections/components/SubstationConnectionsView', () => ({
-  SubstationConnectionsView: ({ substationId }: { substationId: string }) => {
+// 선번장 뷰 목: gotoAsset(끝점 클릭)을 트리거하는 버튼을 노출 — 타 층 동변전소 / 타 변전소.
+vi.mock('../features/fiber/components/FiberRegisterView', () => ({
+  FiberRegisterView: ({ substationId }: { substationId: string }) => {
     const nav = useWorkspaceNav();
     return (
-      <div data-testid="connections">
-        connections:{substationId}
+      <div data-testid="fiber">
+        fiber:{substationId}
         <button onClick={() => nav?.gotoAsset('cross-floor')}>끝점-타층</button>
         <button onClick={() => nav?.gotoAsset('cross-sub')}>끝점-타변전소</button>
       </div>
@@ -165,12 +165,12 @@ describe('WorkspacePage — 본부 노드', () => {
     });
   }
 
-  it('본부 노드도 탭(현황/평면도/연결)을 렌더한다', () => {
+  it('본부 노드도 탭(현황/평면도/선번장)을 렌더한다', () => {
     seedHq();
     renderHome('?view=status');
     expect(screen.getByText('현황')).toBeTruthy();
     expect(screen.getByText('평면도')).toBeTruthy();
-    expect(screen.getByText('연결')).toBeTruthy();
+    expect(screen.getByText('선번장')).toBeTruthy();
     expect(screen.getByTestId('node-status').textContent).toContain('node-status:headquarters:hq1');
   });
 
@@ -214,13 +214,13 @@ describe('WorkspacePage — 본부 노드', () => {
   });
 });
 
-describe('WorkspacePage — gotoAsset(연결 끝점 클릭) 단일 내비', () => {
+describe('WorkspacePage — gotoAsset(선번장 끝점 클릭) 단일 내비', () => {
   it('타 층(동일 변전소) 끝점 클릭 → 그 층 평면도 + ?assetId= 포커스로 진입(버그 수정)', () => {
     // s1 의 다른 층(floor-2)에 배치된 끝점. floorAnchor 가 floor-2/s1 로 해소.
     effectiveAssets = [
       { id: 'cross-floor', substationId: 's1', floorId: 'floor-2', positionX: 0, positionY: 0, width2d: 10, height2d: 10 },
     ];
-    renderSubstation('?view=connections');
+    renderSubstation('?view=fiber');
     fireEvent.click(screen.getByText('끝점-타층'));
     // 같은 변전소라 라우트 유지 + 평면도 전환 + 층/포커스 파라미터.
     const loc = screen.getByTestId('loc').textContent!;
@@ -234,7 +234,7 @@ describe('WorkspacePage — gotoAsset(연결 끝점 클릭) 단일 내비', () =
     effectiveAssets = [
       { id: 'cross-sub', substationId: 's9', floorId: 'floor-9', positionX: 0, positionY: 0, width2d: 10, height2d: 10 },
     ];
-    renderSubstation('?view=connections');
+    renderSubstation('?view=fiber');
     fireEvent.click(screen.getByText('끝점-타변전소'));
     const loc = screen.getByTestId('loc').textContent!;
     expect(loc).toContain('/substations/s9/workspace');
