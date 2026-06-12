@@ -21,7 +21,8 @@ import {
  * InspectionSection + LogsTab 의 git-like 스테이징 UI 를 ASSET_RECORD_TYPES 레지스트리
  * 한 정의(def)로 재현한다. 저장·스테이징 모두 워킹카피 단일 소스(saved+overlay effective)로
  * 조회한다 — 자산별 RQ 이중머지를 폐지(데이터는 워킹카피 한 곳).
- *  - 보류(temp id = staged create): 인라인 수정/삭제. 저장됨(real id): 커밋 이력 → 삭제만.
+ *  - 보류(temp id = staged create)·저장됨(real id) 모두 수정/삭제. 저장된 행 수정은
+ *    patch→overlay update→commit(OCC 버전체크)로 반영(백엔드 update + audit 지원).
  *  - 표시 목록 = 보류(위) + 저장됨. 삭제 staged 는 effective 가 이미 제외.
  *  - 폼/행은 def.fields(type 별) + def.formList(헤더/빈상태/버튼/행변형)로 구동.
  */
@@ -313,7 +314,7 @@ function LogRow({
   );
 }
 
-/** 보류=수정/삭제, 저장=삭제만(종전 두 컴포넌트 공통). */
+/** 보류·저장 모두 수정/삭제. 저장된 레코드 수정은 patch→overlay update→commit(OCC 버전체크)로 반영. */
 function RowActions({
   it,
   onEdit,
@@ -325,20 +326,12 @@ function RowActions({
 }) {
   return (
     <div className="flex items-center gap-0.5 shrink-0">
-      {it.isPending ? (
-        <>
-          <IconAction onClick={() => onEdit(it)} title="수정">
-            <Pencil size={14} />
-          </IconAction>
-          <IconAction onClick={() => onRemove(it.id)} title="삭제" danger>
-            <Trash2 size={14} />
-          </IconAction>
-        </>
-      ) : (
-        <IconAction onClick={() => onRemove(it.id)} title="삭제" danger>
-          <Trash2 size={14} />
-        </IconAction>
-      )}
+      <IconAction onClick={() => onEdit(it)} title="수정">
+        <Pencil size={14} />
+      </IconAction>
+      <IconAction onClick={() => onRemove(it.id)} title="삭제" danger>
+        <Trash2 size={14} />
+      </IconAction>
     </div>
   );
 }
