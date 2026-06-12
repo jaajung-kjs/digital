@@ -130,6 +130,7 @@ export const useNetworkTopologyStore = create<State>((set) => ({
         cables: mergedCables,
         equipment,
         rackModules,
+        assets: effAssets,
         fiberPaths: globalFiberPaths,
       });
 

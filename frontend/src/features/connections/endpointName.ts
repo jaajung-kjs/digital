@@ -4,6 +4,31 @@ import { branchAssetIdsOfPanel, FEEDER_CODE, BRANCH_CODE } from '../assets/distr
 import { toMapById } from '../../utils/byId';
 
 /**
+ * 분전 분기(BRANCH) asset id 의 표시 라벨을 부모 체인으로 해소하는 **단일 공유 헬퍼**.
+ *
+ * 반환값: "feeder/branch" (예: "F1/L3").
+ * 분기 계층이 아니면(타입 코드·부모 체인·placementKind 불일치) null 을 반환 →
+ * 호출측이 일반(설비/모듈/external) 라벨 경로로 빠진다.
+ *
+ * STRICT 가드:
+ *   - branch.assetType.code === BRANCH_CODE
+ *   - parent(feeder).assetType.code === FEEDER_CODE
+ *   - grandparent(panel).assetType.placementKind === 'DIST'
+ *
+ * 이 헬퍼를 `buildEndpointNameResolver`(연결 목록)와 `cableTracer`(토폴로지/경로추적)가
+ * 공유하여 뷰 간 라벨 드리프트를 차단한다.
+ */
+export function resolveBranchLabel(assetId: string, assetMap: Map<string, Asset>): string | null {
+  const branch = assetMap.get(assetId);
+  if (!branch || branch.assetType?.code !== BRANCH_CODE) return null;
+  const feeder = branch.parentAssetId ? assetMap.get(branch.parentAssetId) : undefined;
+  if (!feeder || feeder.assetType?.code !== FEEDER_CODE) return null;
+  const panel = feeder.parentAssetId ? assetMap.get(feeder.parentAssetId) : undefined;
+  if (panel?.assetType?.placementKind !== 'DIST') return null;
+  return `${feeder.name}/${branch.name}`;
+}
+
+/**
  * 연결(케이블) endpoint(assetId) → 표시명 **단일 리졸버**. 랙모듈 → 자기 이름, 분전 분기 →
  * "피더/분기" 라벨, 그 외 → 설비명. effective assets 기반이라 staged 변경(이름 등)도 반영한다.
  *
@@ -16,12 +41,8 @@ export function buildEndpointNameResolver(assets: Asset[]): (assetId: string | n
   //   (이전엔 분전반마다 feederGroupsOfPanel 을 호출해 전 자산을 재순회 → O(n²).)
   const branchLabel = new Map<string, string>();
   for (const b of assets) {
-    if (b.assetType?.code !== BRANCH_CODE) continue;
-    const feeder = b.parentAssetId ? byId.get(b.parentAssetId) : undefined;
-    if (feeder?.assetType?.code !== FEEDER_CODE) continue;
-    const panel = feeder.parentAssetId ? byId.get(feeder.parentAssetId) : undefined;
-    if (panel?.assetType?.placementKind !== 'DIST') continue;
-    branchLabel.set(b.id, `${feeder.name}/${b.name}`);
+    const label = resolveBranchLabel(b.id, byId);
+    if (label !== null) branchLabel.set(b.id, label);
   }
   return (assetId) => {
     if (!assetId) return '';
