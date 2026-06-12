@@ -8,6 +8,7 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
 import { tracePathToRoot, type PathToRoot } from '../tracePathToRoot';
+import { buildEndpointNameResolver } from '../endpointName';
 import type { AssetConnection } from '../hooks/useEffectiveAssetConnections';
 
 // 종류별 표시 순서(프로젝트 CABLE_TYPES 의 value 순서).
@@ -38,6 +39,11 @@ interface Entry {
 export function AssetConnectionsSection({ assetId, connections, activeFloorId }: Props) {
   const effectiveCables = useEffectiveCables();
   const effectiveAssets = useEffectiveAssets();
+  // 이 자산의 표시명 — 경로 시작점("이자산 → … → root")으로 쓴다. 단일 이름 소스 재사용.
+  const selfName = useMemo(
+    () => buildEndpointNameResolver(effectiveAssets)(assetId) || '(미상)',
+    [effectiveAssets, assetId],
+  );
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const highlightedNodeIds = usePathHighlightStore((s) => s.highlightedNodeIds);
   const traceActive = usePathHighlightStore((s) => s.active);
@@ -97,7 +103,7 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
                       active ? 'bg-primary/10 text-primary' : 'hover:bg-surface-2'
                     }`}
                   >
-                    <RouteLine path={path} />
+                    <RouteLine selfName={selfName} path={path} conn={conn} assetId={assetId} />
                   </button>
                   <span className="text-xs text-content-muted tabular-nums shrink-0 w-12 text-right">
                     {formatCableLength(conn.totalLength)}
@@ -121,21 +127,39 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
   );
 }
 
-/** "상대명 → … → root명" 한 줄 — root 강조. 체인이 비면 연결 끝점명 폴백. */
-function RouteLine({ path }: { path: PathToRoot }) {
-  const nodes = path.chain;
-  if (!nodes.length) return <span className="text-content-faint">연결 끝</span>;
+/**
+ * "이자산 → … → root" 한 줄 — 시작은 이 자산, 끝(root/도착)은 강조, 중간은 … 로 생략.
+ * (전체 노드별 체인은 클릭 시 PathTraceDetail 이 보여준다 — 여기선 직관적 요약.)
+ */
+function RouteLine({
+  selfName,
+  path,
+  conn,
+  assetId,
+}: {
+  selfName: string;
+  path: PathToRoot;
+  conn: AssetConnection;
+  assetId: string;
+}) {
+  const chain = path.chain;
+  // 도착명: root 있으면 root, 없으면 체인 끝, 둘 다 없으면 연결 상대(폴백).
+  const otherName = conn.source.assetId === assetId ? conn.target.name : conn.source.name;
+  const dest = path.root?.name ?? (chain.length ? chain[chain.length - 1].name : otherName) ?? '(미상)';
+  const hasMiddle = chain.length >= 2; // 시작·도착 사이에 중간 노드가 있음.
+
+  const arrow = <span className="shrink-0 text-content-faint">→</span>;
   return (
-    <span className="inline-flex items-center gap-1 flex-wrap">
-      {nodes.map((n, i) => {
-        const isRoot = path.root != null && i === nodes.length - 1;
-        return (
-          <span key={n.assetId + i} className="inline-flex items-center gap-1">
-            {i > 0 && <span className="text-content-faint">→</span>}
-            <span className={isRoot ? 'font-semibold text-content' : 'truncate'}>{n.name}</span>
-          </span>
-        );
-      })}
+    <span className="inline-flex min-w-0 items-center gap-1">
+      <span className="truncate text-content-muted">{selfName}</span>
+      {arrow}
+      {hasMiddle && (
+        <>
+          <span className="shrink-0 text-content-faint">…</span>
+          {arrow}
+        </>
+      )}
+      <span className="truncate font-semibold text-content">{dest}</span>
     </span>
   );
 }

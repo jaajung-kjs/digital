@@ -84,10 +84,12 @@ describe('AssetConnectionsSection — 읽기전용 경로 뷰', () => {
     // 종류 헤더
     expect(screen.getByText('FIBER')).toBeInTheDocument();
     expect(screen.getByText('LAN')).toBeInTheDocument();
-    // 경로 체인 노드명 + root
-    expect(screen.getByText('장비B')).toBeInTheDocument();
-    expect(screen.getByText('광단자함')).toBeInTheDocument();
-    expect(screen.getByText('장비C')).toBeInTheDocument();
+    // 경로 요약 "이자산 → … → root": 시작=이 자산, 도착=root/끝(강조), 중간은 … 로 생략.
+    expect(screen.getAllByText('장비A').length).toBeGreaterThan(0); // 시작점(두 경로 모두)
+    expect(screen.getByText('광단자함')).toBeInTheDocument(); // FIBER root(도착)
+    expect(screen.getByText('장비C')).toBeInTheDocument();   // LAN 도착(자연 끝)
+    expect(screen.queryByText('장비B')).toBeNull();          // 중간 노드는 펼치지 않음
+    expect(screen.getAllByText('…').length).toBeGreaterThan(0); // 중간 생략 표시
     // 길이
     expect(screen.getByText('5.4m')).toBeInTheDocument();
     // 인라인 편집 affordance 제거됨
