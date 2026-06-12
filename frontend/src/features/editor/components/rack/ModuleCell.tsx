@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
+import { useSelection } from '../../../workspace/SelectionContext';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import { useSlotDrag } from '../../hooks/useSlotDrag';
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate } from '../../../../types/rackModule';
@@ -27,6 +28,9 @@ function indicatorGridArea(slotIndex: number, slotSpan: number): { start: number
 export function ModuleCell({ module, siblings, gridRef }: Props) {
   // 모듈 클릭 → 다른 모든 자산과 동일한 통합 상세 패널을 연다.
   // (하드코딩 중앙 모달 RackModuleDialog 제거 — 모듈도 Asset 이므로 AssetDetailBody 가 처리.)
+  // 공유 선택(SelectionContext)을 우선 사용 → 평면도(브리지로 에디터 패널)·현황(인라인 패널)
+  // 양쪽에서 동작. 워크스페이스 밖(공유 선택 없음)에선 에디터 openDetail 폴백.
+  const sel = useSelection();
   const openDetail = useEditorStore((s) => s.openDetail);
   const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
 
@@ -48,8 +52,9 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   }, [stageAssetUpdate]);
 
   const onClick = useCallback(() => {
-    openDetail(module.id);
-  }, [openDetail, module.id]);
+    if (sel) sel.setSelectedAssetId(module.id);
+    else openDetail(module.id);
+  }, [sel, openDetail, module.id]);
 
   const { handlePointerDown, dragState } = useSlotDrag({
     module: dragModule,
