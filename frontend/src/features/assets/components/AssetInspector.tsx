@@ -128,8 +128,8 @@ function DescField({ value, onCommit }: { value: string; onCommit: (v: string) =
 
 function StatusPill({ on }: { on: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${on ? 'bg-success-bg text-success' : 'bg-surface-2 text-content-muted'}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-success' : 'bg-content-faint'}`} />
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${on ? 'bg-danger-bg text-danger' : 'bg-surface-2 text-content-muted'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${on ? 'bg-danger' : 'bg-content-faint'}`} />
       {on ? 'ON' : 'OFF'}
     </span>
   );
