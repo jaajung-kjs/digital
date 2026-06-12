@@ -19,6 +19,8 @@ interface Props {
   onPatch?: (id: string, patch: Partial<Asset>) => void;
   /** 이미 풀 Asset 을 들고 있는 진입점(현황/대장)은 페치 대신 직접 주입. */
   asset?: Asset | null;
+  /** 처음 활성화할 탭 라벨(예: '연결'). 없으면 첫 탭. */
+  initialTab?: string;
 }
 
 /**
@@ -31,7 +33,7 @@ interface Props {
  * - 실 id: AssetInspector + 공간 섹션.
  * - temp(미저장 신규): asset 없음 → 안내 + (있으면)공간 섹션.
  */
-export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, asset: injected }: Props) {
+export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, asset: injected, initialTab }: Props) {
   const spatial = useMemo(
     () => (kind ? resolveSpatialSection(kind, equipmentId) : null),
     [kind, equipmentId],
@@ -45,6 +47,7 @@ export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, ass
       injected={injected}
       spatial={spatial?.node}
       spatialLabel={spatial?.label}
+      initialTab={initialTab}
     />
   );
 }
@@ -56,6 +59,7 @@ function LiveBody({
   injected,
   spatial,
   spatialLabel,
+  initialTab,
 }: {
   equipmentId: string;
   mode: 'edit' | 'view';
@@ -63,6 +67,7 @@ function LiveBody({
   injected?: Asset | null;
   spatial?: ReactNode;
   spatialLabel?: string;
+  initialTab?: string;
 }) {
   // SSOT: 자산은 *워킹카피(effective)*에서 읽는다 — overlay(스테이징)·저장 후 reload 가 모두
   // 반영된 단일 소스. 서버 useAsset(캐시)로 읽으면 ①저장 후 stale 값으로 되돌아가고(예: 상태
@@ -97,6 +102,7 @@ function LiveBody({
           spatial={spatial}
           spatialLabel={spatialLabel}
           today={today}
+          initialTab={initialTab}
         />
       ) : isLoading ? (
         <div className="flex items-center justify-center py-12">
