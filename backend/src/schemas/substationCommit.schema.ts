@@ -150,6 +150,19 @@ const fiberPathCreate = z.object({
 });
 const fiberPathPatch = fiberPathCreate.omit({ tempId: true }).partial();
 
+// ==================== FiberCore (광코어 희소 메타) ====================
+const fiberCoreCreate = z.object({
+  tempId: z.string(),
+  fiberPathId: z.string(), // real id 또는 같은 커밋의 fiberPath tempId
+  coreNumber: z.number(),
+  purpose: z.string().nullable().optional(),
+  circuitText: z.string().nullable().optional(),
+  spliceType: z.string().nullable().optional(),
+  usageOverride: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+});
+const fiberCorePatch = fiberCoreCreate.omit({ tempId: true }).partial();
+
 // ==================== Records (asset-owned sub-records) ====================
 // 점검/고장이력/사진은 자산이 소유한 단일 records 컬렉션 — recordType 으로 구분.
 // create 는 tempId + assetId(같은 페이로드 asset tempId 가능) + recordType + 종류별 필드(passthrough).
@@ -181,6 +194,7 @@ export const substationCommitSchema = z.object({
   // 분전 회로(feeder/branch)는 통합 노드 모델에서 Asset(자식) 이므로 assets 컬렉션으로
   // 커밋된다 — 별도 distributionCircuits 컬렉션 없음(단계3b/4b).
   fiberPaths: collection(fiberPathCreate, fiberPathPatch).optional(),
+  fiberCores: collection(fiberCoreCreate, fiberCorePatch).optional(),
   floor: z
     .object({
       id: z.string(),
