@@ -10,6 +10,7 @@ import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
+import { useSelectionStore } from '../../workspace/selectionStore';
 
 /** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
 export type ConnectionFilterKey = string;
@@ -110,19 +111,16 @@ export interface EditorStoreState {
 
   /**
    * 우측 패널 단일 enum — 우측에는 동시에 최대 하나만 뜬다(상호배타).
-   * null = 아무 패널도 안 열림. 'detail' 은 detailAssetId 가 가리키는 설비 상세.
-   * 이전의 showReport / showWorkOrders / showLayers 분리 상태를 통합한 것. 도면
-   * 설정(그리드/투명도)·배경 교체·제거는 각각 하단 상태바와 'background' 패널로
-   * 이관됨(별도 설정 패널 폐기).
+   * null = 아무 패널도 안 열림. 'detail' 은 공유선택(selectionStore.selectedAssetId)이
+   * 가리키는 설비 상세. 이전의 showReport / showWorkOrders / showLayers 분리 상태를
+   * 통합한 것. 도면 설정(그리드/투명도)·배경 교체·제거는 각각 하단 상태바와
+   * 'background' 패널로 이관됨(별도 설정 패널 폐기).
+   *
+   * 상세 대상 자산 id 는 더 이상 여기 두지 않고 워크스페이스 단일 선택 소스
+   * (useSelectionStore.selectedAssetId)가 SSOT — openDetail/openPanel/togglePanel/
+   * closeRightPanel 이 그 store 에 위임해 쓴다(캔버스·키보드·브리지가 모두 그걸 읽음).
    */
   rightPanel: 'detail' | 'report' | 'history' | 'background' | null;
-  /**
-   * rightPanel === 'detail' 일 때 상세를 띄울 자산(설비/모듈) id — "현재 상세로 연 설비"의
-   * 단일 소스. 캔버스 하이라이트(useCanvas)·키보드 삭제(useEditorKeyboard)·선택 브리지
-   * (useEditorSelectionBridge)·URL 딥링크 포커스(FloorPlanEditor)가 모두 이 값을 읽는다.
-   * enum 액션(openDetail/openPanel/togglePanel/closeRightPanel)으로만 바뀐다(직접 set 금지).
-   */
-  detailAssetId: string | null;
   /** Detail panel 진입 / 캔버스 focus 요청 시마다 증가하는 카운터.
    *  같은 설비를 재 더블클릭해도 이 값이 바뀌어 viewport 가 재정렬됨. */
   focusTick: number;
@@ -231,8 +229,10 @@ export interface EditorStoreActions {
   openPanel: (kind: 'report' | 'history' | 'background') => void;
   /** 같은 패널이면 닫고, 아니면 연다 (툴바 토글 버튼용). */
   togglePanel: (kind: 'report' | 'history' | 'background') => void;
-  /** 우측 패널을 닫는다 (detailAssetId 도 비움). */
+  /** 우측 패널을 닫는다 (공유선택도 비움). */
   closeRightPanel: () => void;
+  /** 공유선택을 건드리지 않고 상세 패널만 연다 (선택 브리지용 — 루프 방지). */
+  revealDetail: () => void;
 
   bumpFocusTick: () => void;
   setSelectedCableId: (id: string | null) => void;
@@ -305,7 +305,6 @@ const initialState: EditorStoreState = {
   mouseWorldPosition: { x: 0, y: 0 },
   clipboard: null,
   rightPanel: null,
-  detailAssetId: null,
   focusTick: 0,
   selectedCableId: null,
   restoredFromVersion: null,
@@ -394,25 +393,33 @@ export const useEditorStore = create<FullStore>()((set) => ({
   // 상세를 새로 열거나 우측 패널을 닫을 때, 직전 설비에 매여 있던 랙 모듈
   // 다이얼로그 / 슬롯 추가 팝오버 상태도 같이 비운다 — 안 비우면 다이얼로그가
   // 다른 랙으로 전환된 뒤에도 옛 모듈을 띄워 데이터가 어긋난 채 노출됨.
-  openDetail: (id) =>
+  openDetail: (id) => {
     set({
       rightPanel: 'detail',
-      detailAssetId: id,
       selectedRackModuleId: null,
       addingAtSlot: null,
-    }),
-  openPanel: (kind) =>
-    set({ rightPanel: kind, detailAssetId: null }),
-  togglePanel: (kind) =>
-    set((state) =>
-      state.rightPanel === kind
-        ? { rightPanel: null, detailAssetId: null }
-        : { rightPanel: kind, detailAssetId: null },
-    ),
-  closeRightPanel: () =>
+    });
+    useSelectionStore.getState().setSelectedAssetId(id);
+  },
+  openPanel: (kind) => {
+    set({ rightPanel: kind });
+    useSelectionStore.getState().setSelectedAssetId(null);
+  },
+  togglePanel: (kind) => {
+    set((state) => (state.rightPanel === kind ? { rightPanel: null } : { rightPanel: kind }));
+    useSelectionStore.getState().setSelectedAssetId(null);
+  },
+  closeRightPanel: () => {
     set({
       rightPanel: null,
-      detailAssetId: null,
+      selectedRackModuleId: null,
+      addingAtSlot: null,
+    });
+    useSelectionStore.getState().setSelectedAssetId(null);
+  },
+  revealDetail: () =>
+    set({
+      rightPanel: 'detail',
       selectedRackModuleId: null,
       addingAtSlot: null,
     }),

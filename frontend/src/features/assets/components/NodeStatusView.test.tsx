@@ -1,7 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { SelectionContext } from '../../workspace/SelectionContext';
+
+// 공유 선택은 Zustand selectionStore 백킹(useSelection) — 테스트는 setter 를 스파이로 주입.
+let selectionState: { selectedAssetId: string | null; setSelectedAssetId: (id: string | null) => void } = {
+  selectedAssetId: null,
+  setSelectedAssetId: () => {},
+};
+vi.mock('../../workspace/SelectionContext', () => ({
+  useSelection: () => selectionState,
+}));
 
 vi.mock('../../../hooks/useNodeAssets', () => ({
   useNodeAssets: () => ({ data: [
@@ -14,11 +22,10 @@ vi.mock('../hooks/useAsset', () => ({ useAsset: () => ({ data: undefined }) }));
 import { NodeStatusView } from './NodeStatusView';
 
 function renderView(onSelect: (id: string | null) => void, selectedAssetId: string | null = null) {
+  selectionState = { selectedAssetId, setSelectedAssetId: onSelect };
   return render(
     <MemoryRouter>
-      <SelectionContext.Provider value={{ selectedAssetId, setSelectedAssetId: onSelect }}>
-        <NodeStatusView nodeType="substation" nodeId="s1" />
-      </SelectionContext.Provider>
+      <NodeStatusView nodeType="substation" nodeId="s1" />
     </MemoryRouter>,
   );
 }

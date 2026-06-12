@@ -10,6 +10,7 @@ import {
 import { renderGrid } from '../renderers/gridRenderer';
 import { renderBackgroundDrawing } from '../renderers/backgroundLayerRenderer';
 import { useEditorStore } from '../stores/editorStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { floorTargetFor } from '../../workingCopy/floorAnchor';
@@ -111,7 +112,7 @@ export function useCanvas(
     // 단일 choke-point: floorTargetFor 로 선택 asset → 도면 anchor rect 해소.
     // 미배치 모듈/회로/포트는 부모 설비(랙/OFD/분전반) rect 로 하이라이트된다.
     // 스냅샷 보기 중에는 통합 effective 가 비어 self-find 로 폴백한다.
-    const detailPanelEqId = editorState.detailAssetId;
+    const detailPanelEqId = useSelectionStore.getState().selectedAssetId;
     if (detailPanelEqId) {
       const target = floorTargetFor(detailPanelEqId, useSubstationWorkingCopy.getState().effectiveAssets());
       if (target) {
@@ -180,11 +181,15 @@ export function useCanvas(
     const unsubPathHighlight = usePathHighlightStore.subscribe(scheduleRender);
     // SSOT-2d Task 3 — 설비가 통합 스토어로 이동했으므로 그 변경에도 재렌더.
     const unsubWorkingCopy = useSubstationWorkingCopy.subscribe(scheduleRender);
+    // 상세 대상(공유선택)이 detailAssetId 대신 selectionStore 로 옮겨졌으므로
+    // 선택 글로우가 선택 변경에 갱신되도록 그 store 변경에도 재렌더.
+    const unsubSelection = useSelectionStore.subscribe(scheduleRender);
 
     return () => {
       unsubEditor();
       unsubPathHighlight();
       unsubWorkingCopy();
+      unsubSelection();
       if (renderRequestRef.current) cancelAnimationFrame(renderRequestRef.current);
     };
   }, [renderCanvas]);

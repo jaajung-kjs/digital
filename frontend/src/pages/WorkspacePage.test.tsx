@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useOrganizationStore } from '../stores/organizationStore';
 import { useSelection } from '../features/workspace/SelectionContext';
+import { useSelectionStore } from '../features/workspace/selectionStore';
 
 // FloorPlanEditor 는 무겁고(다수 query/store) 마운트 유지/floorId 만 검증하면 되므로
 // 마운트 카운터를 노출하는 가벼운 stub 으로 대체한다.
@@ -98,6 +99,7 @@ beforeEach(() => {
   liveCount = 0;
   effectiveAssets = [];
   useOrganizationStore.setState({ roots: [], viewingNodeId: null });
+  useSelectionStore.setState({ selectedAssetId: null });
 });
 
 describe('WorkspacePage — 변전소 노드', () => {

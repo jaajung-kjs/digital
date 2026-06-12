@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { Asset } from '../../../types/asset';
 import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -55,7 +56,7 @@ export function useEditorKeyboard(
       }
 
       if (e.key === 'Escape') {
-        if (es.detailAssetId) {
+        if (useSelectionStore.getState().selectedAssetId) {
           es.closeRightPanel();
           return;
         }
@@ -129,12 +130,12 @@ export function useEditorKeyboard(
       }
 
       // Delete — rack module.
-      // 모듈 클릭은 이제 통합 패널(detailAssetId)을 연다. 패널이 가리키는
+      // 모듈 클릭은 이제 통합 패널(공유선택)을 연다. 패널이 가리키는
       // 자산이 랙 자식(parentAssetId 있음)이면 모듈 삭제로 처리. (구 selectedRackModuleId
       // 도 호환을 위해 함께 검사.)
       const moduleDeleteId = (() => {
         if (es.selectedRackModuleId) return es.selectedRackModuleId;
-        const panelId = es.detailAssetId;
+        const panelId = useSelectionStore.getState().selectedAssetId;
         if (!panelId) return null;
         const a = useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === panelId);
         return a?.parentAssetId != null ? panelId : null;
@@ -146,7 +147,7 @@ export function useEditorKeyboard(
         if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
         useSubstationWorkingCopy.getState().stageRackModuleDelete(moduleDeleteId);
         es.setSelectedRackModuleId(null);
-        if (es.detailAssetId === moduleDeleteId) es.closeRightPanel();
+        if (useSelectionStore.getState().selectedAssetId === moduleDeleteId) es.closeRightPanel();
         return;
       }
 

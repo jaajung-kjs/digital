@@ -7,6 +7,7 @@ import type { RackModuleCategory } from '../../../types/rackModule';
 import { useFloorPlanData } from '../hooks/useFloorPlanData';
 import { useEditorKeyboard } from '../hooks/useEditorKeyboard';
 import { useEditorStore, type LocalCable } from '../stores/editorStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import { useSubstationWorkingCopy, type PlacementDraw, type RackModuleDraw } from '../../workingCopy/substationStore';
 import { getUnifiedDirtyCount } from '../../workingCopy/hooks';
 import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
@@ -90,7 +91,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
   const resetEditor = useEditorStore(s => s.resetEditor);
   const rightPanel = useEditorStore(s => s.rightPanel);
-  const detailAssetId = useEditorStore(s => s.detailAssetId);
+  const detailAssetId = useSelectionStore(s => s.selectedAssetId);
   const togglePanel = useEditorStore(s => s.togglePanel);
   const closeRightPanel = useEditorStore(s => s.closeRightPanel);
   const restoredFromVersion = useEditorStore(s => s.restoredFromVersion);

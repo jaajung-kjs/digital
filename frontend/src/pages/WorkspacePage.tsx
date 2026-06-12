@@ -5,7 +5,7 @@ import { NodeStatusView } from '../features/assets/components/NodeStatusView';
 import { SubstationStatusView } from '../features/assets/components/SubstationStatusView';
 import { SubstationConnectionsView } from '../features/connections/components/SubstationConnectionsView';
 import { WorkspaceNavContext, type WorkspaceNav } from '../features/workspace/WorkspaceNavContext';
-import { SelectionContext } from '../features/workspace/SelectionContext';
+import { useSelectionStore } from '../features/workspace/selectionStore';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
 import { useWorkingCopyLoader, useEffectiveAssets } from '../features/workingCopy/hooks';
@@ -61,7 +61,9 @@ export function WorkspacePage() {
     : 'status';
 
   // 공유 선택(본부·사업소 평면도/연결 컨텍스트의 근원). 변전소도 에디터 선택 브리지에 사용.
-  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  // SSOT: 워크스페이스 단일 선택 store(React·캔버스 핸들러 양쪽 접근).
+  const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
+  const setSelectedAssetId = useSelectionStore((s) => s.setSelectedAssetId);
 
   // 활성 노드가 바뀌면(다른 본부·사업소·변전소 클릭) 이전 선택을 리셋한다. 안 그러면 stale 선택이
   // 남아(특히 본부·사업소는 working copy 가 안 바뀌어 assetsById 에 옛 자산이 남음) 평면도가 옛
@@ -123,7 +125,7 @@ export function WorkspacePage() {
   }), [isSubstationNode, setSearchParams]);
 
   // 평면도 에디터가 활성일 때만 에디터↔공유 선택 브리지를 돈다.
-  useEditorSelectionBridge(selectedAssetId, setSelectedAssetId, view === 'plan');
+  useEditorSelectionBridge(selectedAssetId, view === 'plan');
 
   // 컨텍스트 변전소의 통합 working copy 를 store 에 로드(idempotent).
   // 변전소 노드: 자기 변전소. 본부·사업소: 선택 자산이 가리키는 변전소(없으면 no-op).
@@ -160,7 +162,6 @@ export function WorkspacePage() {
 
   return (
     <WorkspaceNavContext.Provider value={nav}>
-      <SelectionContext.Provider value={{ selectedAssetId, setSelectedAssetId }}>
         <div className="h-full flex flex-col">
           <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-line bg-surface">
             <div className="flex gap-1">
@@ -233,7 +234,6 @@ export function WorkspacePage() {
             ) : null}
           </div>
         </div>
-      </SelectionContext.Provider>
     </WorkspaceNavContext.Provider>
   );
 }
