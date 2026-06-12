@@ -4,18 +4,6 @@ import { emptyOverlay, stageCreate, stageUpdate, stageDelete } from './overlay';
 import type { Asset } from '../../types/asset';
 import type { Overlay } from './overlay';
 
-// saved: a RACK asset r1 (so a child referencing it is a rack module)
-const savedAssets = [
-  { id: 'r1', name: '랙', assetType: { placementKind: 'RACK' }, parentAssetId: null, slotIndex: null },
-  // saved rack-module child m1 (for update/delete classification via savedAssets lookup)
-  { id: 'm1', name: '기존모듈', assetType: { placementKind: null }, parentAssetId: 'r1', slotIndex: 2, slotSpan: 1, assetTypeId: 'tMOD' },
-  // saved placement-level OFD a1
-  { id: 'a1', name: '기존OFD', assetType: { placementKind: 'OFD' }, parentAssetId: null, slotIndex: null, floorId: 'f1' },
-  // saved rack-module m2 + placement a2 — used for delete classification
-  { id: 'm2', name: '모듈2', assetType: { placementKind: null }, parentAssetId: 'r1', slotIndex: 5, slotSpan: 1, assetTypeId: 'tMOD' },
-  { id: 'a2', name: 'OFD2', assetType: { placementKind: 'OFD' }, parentAssetId: null, slotIndex: null, floorId: 'f1' },
-];
-
 type AnyOverlay = Overlay<Asset, Partial<Asset>>;
 const ov = () => emptyOverlay<Asset, Partial<Asset>>();
 
@@ -35,7 +23,7 @@ describe('buildSubstationCommitPayload', () => {
     const overlays = {
       assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any,
     };
-    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any, [], new Map());
+    const payload = buildSubstationCommitPayload(overlays as any, [], new Map());
 
     // 분리 컬렉션 폐지 — rackModules 없음. 둘 다 assets.creates 로.
     expect(payload.rackModules).toBeUndefined();
@@ -70,7 +58,7 @@ describe('buildSubstationCommitPayload', () => {
     const overlays = {
       assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any,
     };
-    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any, [], new Map());
+    const payload = buildSubstationCommitPayload(overlays as any, [], new Map());
 
     expect(payload.rackModules).toBeUndefined();
 
@@ -98,7 +86,7 @@ describe('buildSubstationCommitPayload', () => {
     assets = stageUpdate(assets, 'm1', { status: 'OFF' } as any); // 랙 모듈
     const payload = buildSubstationCommitPayload(
       { assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any } as any,
-      savedAssets as any, [], new Map(),
+      [], new Map(),
     );
     expect((payload.assets!.updates.find((u: any) => u.id === 'a1')!.patch as any).status).toBe('OFF');
     expect((payload.assets!.updates.find((u: any) => u.id === 'm1')!.patch as any).status).toBe('OFF');
@@ -122,7 +110,7 @@ describe('buildSubstationCommitPayload', () => {
       assets: ov() as any, cables: cables as any,
       distributionCircuits: ov() as any, fiberPaths: ov() as any, records: ov() as any,
     };
-    const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any, [], new Map());
+    const payload = buildSubstationCommitPayload(overlays as any, [], new Map());
 
     const c = payload.cables!.creates.find((x: any) => x.tempId === 'tmpC') as any;
     expect(c).toBeTruthy();

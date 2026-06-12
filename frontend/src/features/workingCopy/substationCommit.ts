@@ -189,13 +189,11 @@ function buildRecordsCollection(
  * overlay 세트를 2a 커밋 페이로드로 변환한다.
  *
  * @param overlays  store 의 overlays(assets/cables/fiberPaths/records)
- * @param _savedAssets  (미사용 — 종전 랙모듈 분류용. 통합 후 분류 불필요하나 시그니처 유지.)
  * @param savedRecords  saved 레코드 — records update/delete 의 recordType 라우팅용.
  * @param photoUrls  커밋 직전 업로드한 사진 imageUrl(레코드 tempId → URL).
  */
 export function buildSubstationCommitPayload(
   overlays: Overlays,
-  _savedAssets: Asset[],
   savedRecords: { id: string; recordType: string }[],
   photoUrls: Map<string, string>,
   floor?: FloorCommitSection,
@@ -243,13 +241,12 @@ export function buildSubstationCommitPayload(
 export async function commitSubstation(
   substationId: string,
   overlays: Overlays,
-  savedAssets: Asset[],
   savedRecords: { id: string; recordType: string }[],
   photoUrls: Map<string, string>,
   queryClient: QueryClient,
   floor?: FloorCommitSection,
 ): Promise<SubstationCommitResult> {
-  const payload = buildSubstationCommitPayload(overlays, savedAssets, savedRecords, photoUrls, floor);
+  const payload = buildSubstationCommitPayload(overlays, savedRecords, photoUrls, floor);
   // 전역 단일 커밋 — 변전소 스코프 없음. overlay 전체(어느 변전소든)를 한 트랜잭션에.
   const { data } = await api.post(`/commit`, payload);
 

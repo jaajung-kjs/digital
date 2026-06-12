@@ -167,7 +167,7 @@ export function useCommitWorkingCopy() {
       // 사진 바이너리만 커밋 직전 업로드(URL 확보) → 메타데이터는 통합 커밋 트랜잭션에서 원자적으로.
       const photoUrls = await uploadStagedPhotos(wc.overlays.records);
       const result = await commitSubstation(
-        substationId, wc.overlays, wc.saved.assets, wc.saved.records, photoUrls, queryClient, floor,
+        substationId, wc.overlays, wc.saved.records, photoUrls, queryClient, floor,
       );
       revokeStagedPhotoUrls(wc.overlays); // 업로드 완료 → 미리보기 blob 해제
       // 전역 커밋 완료 → staged overlay 전부 클리어(전역 load 는 더 이상 overlay 를 비우지 않으므로 명시적으로).

@@ -199,12 +199,10 @@ export function NodeStatusView({
   const items = rows ?? fetchedMerged;
   const today = useMemo(() => new Date(), []);
 
-  // 선택: 공유 SelectionContext 가 있으면(변전소 워크스페이스 — 에디터 선택 브리지) 그것을,
-  // 없으면(본부·사업소 — provider 없음) 로컬 state 를 사용한다.
+  // 선택: 단일 selectionStore(useSelection 백킹) — 변전소·본부·사업소 어디서나 공유.
   const sel = useSelection();
-  const [localSelected, setLocalSelected] = useState<string | null>(null);
-  const selectedId = sel ? sel.selectedAssetId : localSelected;
-  const setSelectedId = sel ? sel.setSelectedAssetId : setLocalSelected;
+  const selectedId = sel.selectedAssetId;
+  const setSelectedId = sel.setSelectedAssetId;
 
   // 선택된 자산이 속한 변전소(본부·사업소 경로) — 행 데이터(AssetListItem)에서 해석.
   const selectedItem = selectedId ? items.find((i) => i.id === selectedId) : undefined;
