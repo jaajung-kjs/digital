@@ -9,7 +9,7 @@ export function CollapsibleSection({ title, badge, defaultOpen = false, children
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-2 py-2 text-xs font-semibold text-content-muted hover:text-content"
+        className="w-full flex items-center gap-2 py-2 text-xs font-semibold text-content-muted transition-colors hover:text-content active:text-content-muted focus-ring rounded"
       >
         <span className="text-content-faint w-3">{open ? '▾' : '▸'}</span>
         <span>{title}</span>
