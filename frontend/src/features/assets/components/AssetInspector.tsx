@@ -9,8 +9,8 @@ import { InspectionSection } from './detail/InspectionSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
 import { useEffectiveAssetConnections } from '../../connections/hooks/useEffectiveAssetConnections';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
-import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
+import { useEditorStore } from '../../editor/stores/editorStore';
 import { statusIsOn } from '../nodeStatus';
 
 /**
@@ -27,7 +27,8 @@ interface Props {
   asset: Asset;
   mode: 'edit' | 'view';
   onPatch?: (id: string, patch: Partial<Asset>) => void;
-  onSelectAsset: (id: string) => void;
+  /** @deprecated 연결 탭이 읽기전용 경로 뷰로 바뀌며 끝점 직접 네비게이션 제거 — 호출부 호환 위해 유지. */
+  onSelectAsset?: (id: string) => void;
   /** 종류별 공간 섹션(랙 실장도 / OFD 경로 / 분전반 회로) — 있으면 정보 탭 하단에 함께 노출. */
   spatial?: ReactNode;
   /** 공간 섹션 제목(실장도 등). */
@@ -194,13 +195,12 @@ function fieldPatch(field: AssetFieldDef, v: string): Partial<Asset> | null {
   }
 }
 
-export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, spatialLabel }: Props) {
+export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel }: Props) {
   const ro = mode === 'view';
   const patch = (p: Partial<Asset>) => onPatch?.(asset.id, p);
-  // C1/C2: 연결은 effective(워킹카피)에서 읽고 stage 로 쓴다 — 서버 즉시 CRUD 제거.
+  // 연결은 effective(워킹카피)에서 읽는다. 편집은 캔버스로 이동 — 연결 탭은 읽기전용 경로 뷰.
   const connections = useEffectiveAssetConnections(asset.id);
-  const stageCableUpdate = useSubstationWorkingCopy((s) => s.stageCableUpdate);
-  const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
+  const activeFloorId = useEditorStore((s) => s.activeFloorId);
 
   // 랙 모듈(parentAssetId + slotIndex 둘 다 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출.
   // 상위 자산 네비게이션은 헤더 브레드크럼(AssetDetailPanel)으로 이동.
@@ -286,9 +286,7 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, s
         <AssetConnectionsSection
           assetId={asset.id}
           connections={connections}
-          onDelete={(id) => { if (window.confirm('이 연결을 삭제할까요?')) stageCableDelete(id); }}
-          onUpdate={(id, p) => stageCableUpdate(id, p)}
-          onSelectAsset={onSelectAsset}
+          activeFloorId={activeFloorId}
         />
       ),
     },

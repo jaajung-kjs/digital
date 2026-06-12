@@ -1,44 +1,131 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+
+// 연결 탭 = 읽기전용 경로중심 뷰. 종류별로 묶어 "상대명 → … → root명" 경로를 보여주고,
+// 클릭 → 통합 trace store(startTrace), 활성 항목 재클릭 → clearHighlight, 외부 구간 있으면
+// [상세] → openTopology. 인라인 편집(유형/라벨/삭제) UI 는 제거됐다.
+
+const startTrace = vi.fn();
+const clearHighlight = vi.fn();
+const openTopology = vi.fn();
+
+// asset 헬퍼 — floorAnchor 가 동작하도록 배치(좌표/크기/floorId) 자산을 만든다.
+function asset(p: { id: string; name: string; kind?: string | null; floorId?: string | null }) {
+  return {
+    id: p.id, substationId: 's1', assetTypeId: 't',
+    assetType: { id: 't', code: 't', name: p.kind ?? 't', group: null, displayColor: null, fieldTemplate: [], placementKind: p.kind ?? null },
+    name: p.name, parentAssetId: null, floorId: p.floorId ?? null, roomText: null, attributes: {},
+    positionX: 0, positionY: 0, width2d: 10, height2d: 10,
+    installDate: null, warrantyUntil: null, replaceDue: null, manager: null, description: null, status: null,
+    sortOrder: 0, updatedAt: '',
+  };
+}
+
+// A(현재 자산, f1) — FIBER 케이블 → B(중계, f1) → OFD(root). + LAN 케이블 A→C.
+const assets = [
+  asset({ id: 'A', name: '장비A', floorId: 'f1' }),
+  asset({ id: 'B', name: '장비B', floorId: 'f1' }),
+  asset({ id: 'OFD1', name: '광단자함', kind: 'OFD', floorId: 'f2' }), // 다른 층 → 외부
+  asset({ id: 'C', name: '장비C', floorId: 'f1' }),
+];
+const cables = [
+  { id: 'fA', sourceAssetId: 'A', targetAssetId: 'B', cableType: 'FIBER' },
+  { id: 'fB', sourceAssetId: 'B', targetAssetId: 'OFD1', cableType: 'FIBER' },
+  { id: 'lan', sourceAssetId: 'A', targetAssetId: 'C', cableType: 'LAN' },
+];
+
+let storeState: Record<string, unknown> = {};
+function mockStore(over: Record<string, unknown> = {}) {
+  storeState = {
+    tracingCableId: null,
+    highlightedNodeIds: new Set<string>(),
+    active: false,
+    startTrace, clearHighlight, openTopology,
+    ...over,
+  };
+}
+
+vi.mock('../../workingCopy/hooks', () => ({
+  useEffectiveAssets: () => assets,
+  useEffectiveCables: () => cables,
+}));
+vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
+  const hook = (sel: (s: unknown) => unknown) => sel(storeState);
+  (hook as unknown as { getState: () => unknown }).getState = () => storeState;
+  return { usePathHighlightStore: hook };
+});
+
 import { AssetConnectionsSection } from './AssetConnectionsSection';
+import { tracePathToRoot } from '../tracePathToRoot';
 
 const conns = [
-  { id: 'c1', source: { assetId: 'A', name: '장비A' },
-    target: { assetId: 'B', name: '장비B' }, cableType: 'LAN', label: 'L1', totalLength: 540 },
+  { id: 'fA', source: { assetId: 'A', name: '장비A' }, target: { assetId: 'B', name: '장비B' }, cableType: 'FIBER', label: null, totalLength: 540 },
+  { id: 'lan', source: { assetId: 'A', name: '장비A' }, target: { assetId: 'C', name: '장비C' }, cableType: 'LAN', label: null, totalLength: 200 },
 ] as any;
-const noop = { onDelete: vi.fn(), onUpdate: vi.fn(), onSelectAsset: vi.fn() };
 
-describe('AssetConnectionsSection', () => {
-  it('상대(target) 이름·유형 표시 — 이 자산이 source(A)', () => {
-    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} />);
-    expect(screen.getByText(/장비B/)).toBeInTheDocument();
-    expect((screen.getByLabelText('유형') as HTMLSelectElement).value).toBe('LAN');
-    expect(screen.getByText('5.4m')).toBeInTheDocument(); // 540cm → 5.4m
+beforeEach(() => { startTrace.mockClear(); clearHighlight.mockClear(); openTopology.mockClear(); mockStore(); });
+
+describe('tracePathToRoot', () => {
+  it('FIBER 경로를 OFD(root)까지 추적 — A→B→OFD, root=OFD', () => {
+    const r = tracePathToRoot('A', 'fA', cables, assets);
+    expect(r.chain.map((n) => n.assetId)).toEqual(['B', 'OFD1']);
+    expect(r.root).toEqual({ assetId: 'OFD1', name: '광단자함', kind: 'OFD' });
   });
-  it('상대 이름 클릭 → onSelectAsset(상대 id)', () => {
-    const onSelectAsset = vi.fn();
-    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} onSelectAsset={onSelectAsset} />);
-    fireEvent.click(screen.getByText(/장비B/));
-    expect(onSelectAsset).toHaveBeenCalledWith('B');
+  it('LAN 은 root 없이 자연 끝까지 — A→C, root=null', () => {
+    const r = tracePathToRoot('A', 'lan', cables, assets);
+    expect(r.chain.map((n) => n.assetId)).toEqual(['C']);
+    expect(r.root).toBeNull();
   });
-  it('삭제 → onDelete(cableId)', () => {
-    const onDelete = vi.fn();
-    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} onDelete={onDelete} />);
-    fireEvent.click(screen.getByLabelText('연결 삭제'));
-    expect(onDelete).toHaveBeenCalledWith('c1');
+});
+
+describe('AssetConnectionsSection — 읽기전용 경로 뷰', () => {
+  it('종류별 그룹 + 경로 체인 + 길이 표시 (편집 UI 없음)', () => {
+    render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
+    // 종류 헤더
+    expect(screen.getByText('FIBER')).toBeInTheDocument();
+    expect(screen.getByText('LAN')).toBeInTheDocument();
+    // 경로 체인 노드명 + root
+    expect(screen.getByText('장비B')).toBeInTheDocument();
+    expect(screen.getByText('광단자함')).toBeInTheDocument();
+    expect(screen.getByText('장비C')).toBeInTheDocument();
+    // 길이
+    expect(screen.getByText('5.4m')).toBeInTheDocument();
+    // 인라인 편집 affordance 제거됨
+    expect(screen.queryByLabelText('유형')).toBeNull();
+    expect(screen.queryByLabelText('라벨')).toBeNull();
+    expect(screen.queryByLabelText('연결 삭제')).toBeNull();
   });
-  it('유형 변경 → onUpdate(cableType)', () => {
-    const onUpdate = vi.fn();
-    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} onUpdate={onUpdate} />);
-    fireEvent.change(screen.getByLabelText('유형'), { target: { value: 'DC' } });
-    expect(onUpdate).toHaveBeenCalledWith('c1', { cableType: 'DC' });
+
+  it('항목 클릭 → startTrace(cableId)', () => {
+    render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
+    fireEvent.click(screen.getByText('광단자함'));
+    expect(startTrace).toHaveBeenCalledWith('fA');
   });
-  it('라벨 변경(blur) → onUpdate(label)', () => {
-    const onUpdate = vi.fn();
-    render(<AssetConnectionsSection assetId="A" connections={conns} {...noop} onUpdate={onUpdate} />);
-    const input = screen.getByLabelText('라벨') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: 'L2' } });
-    fireEvent.blur(input);
-    expect(onUpdate).toHaveBeenCalledWith('c1', { label: 'L2' });
+
+  it('활성 항목 재클릭 → clearHighlight', () => {
+    mockStore({ tracingCableId: 'fA', active: true });
+    render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
+    fireEvent.click(screen.getByText('광단자함'));
+    expect(clearHighlight).toHaveBeenCalled();
+    expect(startTrace).not.toHaveBeenCalled();
+  });
+
+  it('활성 + 외부 구간(OFD가 다른 층) → [상세] 노출 → openTopology', () => {
+    mockStore({ tracingCableId: 'fA', active: true, highlightedNodeIds: new Set(['A', 'B', 'OFD1']) });
+    render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
+    const detail = screen.getByText(/상세/);
+    fireEvent.click(detail);
+    expect(openTopology).toHaveBeenCalled();
+  });
+
+  it('활성이지만 외부 구간 없으면 [상세] 숨김', () => {
+    mockStore({ tracingCableId: 'lan', active: true, highlightedNodeIds: new Set(['A', 'C']) });
+    render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
+    expect(screen.queryByText(/상세/)).toBeNull();
+  });
+
+  it('연결 없음 → 빈 상태', () => {
+    render(<AssetConnectionsSection assetId="A" connections={[]} activeFloorId="f1" />);
+    expect(screen.getByText('연결 없음')).toBeInTheDocument();
   });
 });
