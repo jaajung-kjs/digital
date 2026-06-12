@@ -96,15 +96,11 @@ export function useEditorKeyboard(
         if (e.key === 'ArrowUp') dy = -step;
         if (e.key === 'ArrowDown') dy = step;
 
-        const wc = useSubstationWorkingCopy.getState();
-        for (const eq of localEquipment) {
-          if (!es.selectedIds.includes(eq.id)) continue;
-          const moved = nudgeEquipment(eq, dx, dy);
-          wc.stageAssetUpdate(moved.id, {
-            positionX: moved.positionX ?? 0,
-            positionY: moved.positionY ?? 0,
-          });
-        }
+        const moved = nudgeEquipment(selectedEquipment, dx, dy);
+        useSubstationWorkingCopy.getState().stageAssetUpdate(moved.id, {
+          positionX: moved.positionX ?? 0,
+          positionY: moved.positionY ?? 0,
+        });
         // selectedEquipment 가 selector 로 도출되므로 별도 동기화 불필요.
         return;
       }
@@ -131,11 +127,9 @@ export function useEditorKeyboard(
       }
 
       // Delete — rack module.
-      // 모듈 클릭은 이제 통합 패널(공유선택)을 연다. 패널이 가리키는
-      // 자산이 랙 자식(parentAssetId 있음)이면 모듈 삭제로 처리. (구 selectedRackModuleId
-      // 도 호환을 위해 함께 검사.)
+      // 모듈 클릭은 통합 패널(공유선택)을 연다. 패널이 가리키는 자산이 랙
+      // 자식(parentAssetId 있음)이면 모듈 삭제로 처리.
       const moduleDeleteId = (() => {
-        if (es.selectedRackModuleId) return es.selectedRackModuleId;
         const panelId = useSelectionStore.getState().selectedAssetId;
         if (!panelId) return null;
         const a = useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === panelId);
@@ -147,21 +141,15 @@ export function useEditorKeyboard(
         const name = mod?.name ?? '모듈';
         if (!window.confirm(`'${name}' 모듈을 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
         useSubstationWorkingCopy.getState().stageRackModuleDelete(moduleDeleteId);
-        es.setSelectedRackModuleId(null);
         if (useSelectionStore.getState().selectedAssetId === moduleDeleteId) es.closeRightPanel();
         return;
       }
 
       // Delete — equipment (cascades cables + pending data)
-      if (isDeleteKey && es.selectedIds.length > 0) {
+      if (isDeleteKey && selectedEquipment) {
         e.preventDefault();
-        const equipmentToDelete = localEquipment.filter((eq) => es.selectedIds.includes(eq.id));
-        const summary = equipmentToDelete.length === 1
-          ? `'${equipmentToDelete[0].name}' 설비를 삭제하시겠습니까?`
-          : `${equipmentToDelete.length}개 설비를 삭제하시겠습니까?`;
-        if (!window.confirm(`${summary} 연결된 케이블도 함께 삭제됩니다.`)) return;
-        const wc = useSubstationWorkingCopy.getState();
-        for (const eq of equipmentToDelete) wc.stageEquipmentDeleteCascade(eq.id);
+        if (!window.confirm(`'${selectedEquipment.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
+        useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(selectedEquipment.id);
         es.clearSelection();
       }
 

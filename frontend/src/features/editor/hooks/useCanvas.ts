@@ -33,7 +33,11 @@ export function useCanvas(
     if (!canvas || !ctx || !floorPlan) return;
 
     const editorState = useEditorStore.getState();
-    const { zoom, panX, panY, showGrid, selectedIds, showLengths, tool } = editorState;
+    const { zoom, panX, panY, showGrid, showLengths, tool } = editorState;
+    // 통합 선택(selectionStore.selectedAssetId) 단일 소스 — 캔버스 하이라이트 대상.
+    // 렌더러는 id 배열을 받으므로 단일 선택을 0/1 길이 배열로 감싼다.
+    const selectedAssetId = useSelectionStore.getState().selectedAssetId;
+    const selectedIds = selectedAssetId ? [selectedAssetId] : [];
 
     // 설비는 통합 스토어 effective(Asset)에서 직접 읽는다 — 캔버스가 Asset 을 투영(북극성 ③).
     // 렌더 hot path 라 getState 동기 조회. floorId 없으면 빈 배열.

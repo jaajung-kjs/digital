@@ -77,8 +77,6 @@ export interface PendingFiberPath {
 export interface EditorStoreState {
   tool: EditorTool;
 
-  selectedIds: string[];
-
   zoom: number;
   panX: number;
   panY: number;
@@ -175,9 +173,6 @@ export interface EditorStoreState {
   // CableSpecModal then filters categories by that group.
   preselectedCableDisplayGroup: CableDisplayGroup | null;
 
-  // P9: rack module dialog selection (RackEquipmentPanel slot click).
-  selectedRackModuleId: string | null;
-
   /** Which rack slot is currently showing the inline "add module" popover. */
   addingAtSlot: { rackEquipmentId: string; slotIndex: number } | null;
 
@@ -196,7 +191,6 @@ export interface EditorStoreState {
 
 export interface EditorStoreActions {
   setTool: (tool: EditorTool) => void;
-  setSelectedIds: (ids: string[]) => void;
   setZoom: (zoom: number) => void;
   setPan: (panX: number, panY: number) => void;
   setViewport: (zoom: number, panX: number, panY: number) => void;
@@ -222,7 +216,9 @@ export interface EditorStoreActions {
   setMouseWorldPosition: (pos: { x: number; y: number }) => void;
   setClipboard: (cb: EditorStoreState['clipboard']) => void;
 
-  // ── 우측 패널 단일 enum 액션 (상호배타) ──────────────────────────────────
+  // ── 통합 선택 + 우측 패널 단일 enum 액션 (상호배타) ──────────────────────
+  /** 캔버스/1차 선택만 갱신한다 (상세 패널·viewport 는 건드리지 않음). */
+  selectEquipment: (id: string) => void;
   /** 설비/모듈 상세를 연다 — 다른 우측 패널은 닫힌다. */
   openDetail: (id: string) => void;
   /** report/history/background 패널을 연다 — 상세 포함 다른 패널은 닫힌다. */
@@ -272,7 +268,6 @@ export interface EditorStoreActions {
   // P9: cable group preselection.
   setPreselectedCableDisplayGroup: (group: CableDisplayGroup | null) => void;
 
-  setSelectedRackModuleId: (id: string | null) => void;
   setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
   setIsDraggingRackModule: (v: boolean) => void;
 
@@ -289,7 +284,6 @@ export interface EditorStoreActions {
 
 const initialState: EditorStoreState = {
   tool: 'select',
-  selectedIds: [],
   zoom: 100,
   panX: 0,
   panY: 0,
@@ -330,7 +324,6 @@ const initialState: EditorStoreState = {
   newEquipmentKind: null,
   newEquipmentPreset: null,
   preselectedCableDisplayGroup: null,
-  selectedRackModuleId: null,
   addingAtSlot: null,
   isDraggingRackModule: false,
   hiddenBgLayers: new Set<string>(),
@@ -343,17 +336,6 @@ export const useEditorStore = create<FullStore>()((set) => ({
   ...initialState,
 
   setTool: (tool) => set({ tool }),
-  // ── Selection mutex ────────────────────────────────────────────────────────
-  // 설비 / 케이블 / 랙 모듈 셋 중 동시에 하나만 활성화되도록 setter 가 서로의
-  // 필드를 같이 비운다. 호출자 코드가 "다른 선택도 비워야 하나?" 를 매번
-  // 신경 쓸 필요 없게 invariant 를 store 에 박는다.
-  setSelectedIds: (selectedIds) =>
-    set({
-      selectedIds,
-      ...(selectedIds.length > 0
-        ? { selectedCableId: null, selectedRackModuleId: null }
-        : {}),
-    }),
   setZoom: (zoom) => set({ zoom }),
   setPan: (panX, panY) => set({ panX, panY }),
   setViewport: (zoom, panX, panY) => set({ zoom, panX, panY }),
@@ -388,15 +370,21 @@ export const useEditorStore = create<FullStore>()((set) => ({
   setMouseWorldPosition: (mouseWorldPosition) => set({ mouseWorldPosition }),
   setClipboard: (clipboard) => set({ clipboard }),
 
-  // ── 우측 패널 단일 enum (상호배타) ───────────────────────────────────────
+  // ── 통합 선택 + 우측 패널 단일 enum (상호배타) ──────────────────────────
+  // 통합 선택(selectionStore.selectedAssetId)이 캔버스 하이라이트·드래그·삭제·
+  // 상세 패널 모두의 단일 대상이다. 설비를 선택하면 케이블 선택은 비워(상호배타).
   // 어느 패널을 열든 enum 하나만 바뀌므로 나머지는 구조적으로 닫힌다.
-  // 상세를 새로 열거나 우측 패널을 닫을 때, 직전 설비에 매여 있던 랙 모듈
-  // 다이얼로그 / 슬롯 추가 팝오버 상태도 같이 비운다 — 안 비우면 다이얼로그가
-  // 다른 랙으로 전환된 뒤에도 옛 모듈을 띄워 데이터가 어긋난 채 노출됨.
+  // 상세를 새로 열거나 우측 패널을 닫을 때, 직전 설비에 매여 있던 슬롯 추가
+  // 팝오버 상태도 같이 비운다.
+  /** 캔버스/1차 선택만 갱신 (상세 패널은 건드리지 않음 — 클릭=선택, 더블클릭=상세). */
+  selectEquipment: (id) => {
+    set({ selectedCableId: null });
+    useSelectionStore.getState().setSelectedAssetId(id);
+  },
   openDetail: (id) => {
     set({
       rightPanel: 'detail',
-      selectedRackModuleId: null,
+      selectedCableId: null,
       addingAtSlot: null,
     });
     useSelectionStore.getState().setSelectedAssetId(id);
@@ -412,7 +400,6 @@ export const useEditorStore = create<FullStore>()((set) => ({
   closeRightPanel: () => {
     set({
       rightPanel: null,
-      selectedRackModuleId: null,
       addingAtSlot: null,
     });
     useSelectionStore.getState().setSelectedAssetId(null);
@@ -420,30 +407,27 @@ export const useEditorStore = create<FullStore>()((set) => ({
   revealDetail: () =>
     set({
       rightPanel: 'detail',
-      selectedRackModuleId: null,
       addingAtSlot: null,
     }),
 
   bumpFocusTick: () => set((state) => ({ focusTick: state.focusTick + 1 })),
-  setSelectedCableId: (selectedCableId) =>
-    set(
-      selectedCableId
-        ? {
-            selectedCableId,
-            selectedIds: [],
-            selectedRackModuleId: null,
-          }
-        : { selectedCableId: null },
-    ),
+  setSelectedCableId: (selectedCableId) => {
+    if (selectedCableId) {
+      // 케이블 선택은 설비 선택과 상호배타 — 통합 선택을 비운다.
+      useSelectionStore.getState().setSelectedAssetId(null);
+      set({ selectedCableId });
+    } else {
+      set({ selectedCableId: null });
+    }
+  },
   setRestoredFromVersion: (restoredFromVersion) => set({ restoredFromVersion }),
   setBaseFloorVersion: (v) => set({ baseFloorVersion: v }),
   setActiveFloorId: (v) => set({ activeFloorId: v }),
   setFloorConflict: (c) => set({ floorConflict: c }),
-  clearSelection: () => set({
-    selectedIds: [],
-    selectedCableId: null,
-    selectedRackModuleId: null,
-  }),
+  clearSelection: () => {
+    set({ selectedCableId: null });
+    useSelectionStore.getState().setSelectedAssetId(null);
+  },
   resetEditor: () =>
     set(() => {
       // Allocate a fresh hiddenBgLayers Set so a stale reference from
@@ -478,16 +462,6 @@ export const useEditorStore = create<FullStore>()((set) => ({
   setPreselectedCableDisplayGroup: (preselectedCableDisplayGroup) =>
     set({ preselectedCableDisplayGroup }),
 
-  setSelectedRackModuleId: (selectedRackModuleId) =>
-    set(
-      selectedRackModuleId
-        ? {
-            selectedRackModuleId,
-            selectedIds: [],
-            selectedCableId: null,
-          }
-        : { selectedRackModuleId: null },
-    ),
   setAddingAtSlot: (s) => set({ addingAtSlot: s }),
   setIsDraggingRackModule: (v) => set({ isDraggingRackModule: v }),
   // DWG-C: replace the entire hidden-layer set in one go (e.g. when bulk
@@ -537,13 +511,12 @@ export const useEditorStore = create<FullStore>()((set) => ({
 export const selectFloorSettingsDirty = (s: EditorStoreState): boolean =>
   s.stagedBackgroundDrawing !== undefined || s.stagedBackgroundOpacity !== undefined;
 
-// "현재 선택된 설비" 는 selectedIds[0] (editorStore transient) + 통합 스토어의
-// effective(saved+overlay) asset 으로 도출한다. SSOT-2d 이후 설비 데이터의 단일
-// 진실은 substation working-copy 이므로, 선택 id 만 editorStore 에서 읽고 실제
-// 설비는 effective asset 을 직접 읽는다 (editorStore.localEquipment
-// 는 비어 있으므로 더 이상 읽지 않는다).
+// "현재 선택된 설비" 는 통합 선택(selectionStore.selectedAssetId) + 통합 스토어의
+// effective(saved+overlay) asset 으로 도출한다. SSOT 이후 설비 데이터의 단일
+// 진실은 substation working-copy, 선택의 단일 진실은 selectionStore 이므로, 선택
+// id 만 selectionStore 에서 읽고 실제 설비는 effective asset 을 직접 읽는다.
 export function useSelectedEquipment(): Asset | null {
-  const id = useEditorStore((s) => s.selectedIds[0]);
+  const id = useSelectionStore((s) => s.selectedAssetId);
   const assets = useEffectiveAssets();
   if (!id) return null;
   return assets.find((x) => x.id === id) ?? null;
@@ -551,7 +524,7 @@ export function useSelectedEquipment(): Asset | null {
 
 /** Non-hook context (event handler / store action) 에서 같은 의미 도출. */
 export function getSelectedEquipment(): Asset | null {
-  const selId = useEditorStore.getState().selectedIds[0];
+  const selId = useSelectionStore.getState().selectedAssetId;
   if (!selId) return null;
   return useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === selId) ?? null;
 }

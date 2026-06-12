@@ -85,7 +85,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     useSubstationWorkingCopy.getState().stageAssetCreate(copy);
     cs.setPasteEquipmentModalOpen(false);
     cs.setPasteEquipmentName('');
-    es.setSelectedIds([newId]);
+    es.selectEquipment(newId);
     es.setClipboard({ type: 'equipment', data: copy });
   }, [floorId]);
 
@@ -122,7 +122,6 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     // URL 을 처리 후 비우므로(아래) 매 equipmentId 진입마다 1회 실행된다.
     // 영구 ref 가드를 두지 않아 "도면에서 보기" 반복 시에도 매번 재포커스된다.
     const es = useEditorStore.getState();
-    es.setSelectedIds([targetId]);
     es.openDetail(targetId);
     es.bumpFocusTick();
     // URL 정리 — 함수형 업데이터로 최신 params 에서 equipmentId 만 제거 (tab/floor 보존).
@@ -272,7 +271,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
     cs.setNewEquipmentName('');
     cs.resetNewEquipmentSelection();
     setTool('select');
-    cs.setSelectedIds([baseEquip.id]);
+    cs.selectEquipment(baseEquip.id);
     useToastStore.getState().showToast('설비를 배치했습니다');
   };
 
@@ -359,7 +358,7 @@ export function FloorPlanEditor({ floorId }: FloorPlanEditorProps) {
 
     cs.resetNewEquipmentSelection();
     setTool('select');
-    cs.setSelectedIds([rackId]);
+    cs.selectEquipment(rackId);
     useToastStore.getState().showToast('랙을 배치했습니다');
   }, [rackModuleCategories, floorId, kindToAssetTypeId, setTool]);
 

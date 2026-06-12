@@ -126,8 +126,8 @@ export function useCanvasEvents(
       if (found) {
         const session = createDragSession(found, { x, y });
         canvasStore.getState().setDragSession(session);
-        // setSelectedIds 가 mutex 를 보장 → selectedCableId / selectedRackModuleId 자동 클리어.
-        editorStore.getState().setSelectedIds([found.item.id]);
+        // selectEquipment 가 통합 선택을 갱신하고 케이블 선택을 자동 클리어(상호배타).
+        editorStore.getState().selectEquipment(found.item.id);
         usePathHighlightStore.getState().clearHighlight();
       } else {
         // Cable hit test
@@ -439,9 +439,8 @@ export function useCanvasEvents(
         y >= eqY &&
         y <= eqY + (eq.height2d ?? 0)
       ) {
-        // 패널 진입과 동시에 선택 상태도 고정 — 캔버스 하이라이트(2px 파란 외곽)가
+        // openDetail 이 통합 선택을 고정하므로 캔버스 하이라이트(2px 파란 외곽)가
         // 더블클릭 흐름 전체에서 일관되게 유지된다.
-        editorStore.getState().setSelectedIds([eq.id]);
         editorStore.getState().openDetail(eq.id);
         // 매 더블클릭마다 focusTick 증가 → 같은 설비를 재 더블클릭해도
         // viewport useEffect 가 다시 실행되어 재정렬.
