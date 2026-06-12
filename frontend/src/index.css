@@ -25,7 +25,8 @@ body {
 @layer components {
   /* 포커스 링 — 모든 포커스 가능 요소 공통(위험 동작은 inline ring-danger/40 사용) */
   .focus-ring {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary;
+    --tw-ring-opacity: 0.4;
   }
   /* 버튼 눌림 — transition(all)로 색+transform 동시 전환, 눌림 시 살짝 축소 */
   .press-btn {
