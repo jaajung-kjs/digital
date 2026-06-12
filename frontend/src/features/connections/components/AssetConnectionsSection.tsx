@@ -115,7 +115,7 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
                 return (
                   <li
                     key={conn.id}
-                    className={`group flex items-stretch rounded transition-colors ${
+                    className={`group flex items-center rounded transition-colors ${
                       active ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2'
                     }`}
                   >
@@ -123,9 +123,20 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
                       type="button"
                       onClick={() => onRowClick(conn.id)}
                       title="도면에서 경로 하이라이트"
-                      className="min-w-0 flex-1 rounded px-2 py-1.5 text-left text-[13px] focus-ring"
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] focus-ring"
                     >
-                      <RouteLine path={path} />
+                      <span className="min-w-0 shrink truncate text-content-muted">{path.start.name}</span>
+                      {routeDest(path) && (
+                        <>
+                          {/* 케이블색 연결선(wire) — 양 끝을 잇는 구조. */}
+                          <span
+                            aria-hidden
+                            className="h-0.5 min-w-[14px] flex-1 rounded-full opacity-60"
+                            style={{ backgroundColor: meta?.color ?? 'rgb(var(--border-rgb))' }}
+                          />
+                          <span className="min-w-0 shrink truncate font-medium text-content">{routeDest(path)}</span>
+                        </>
+                      )}
                     </button>
                     {external && (
                       <button
@@ -133,7 +144,7 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
                         onClick={() => void onTopology(conn.id)}
                         title="외부망 토폴로지 보기"
                         aria-label="외부망 토폴로지"
-                        className="mr-1 shrink-0 self-center rounded p-1 text-content-faint transition-colors hover:bg-surface-3 hover:text-primary focus-ring"
+                        className="mr-1.5 shrink-0 rounded p-1 text-content-faint transition-colors hover:bg-surface-3 hover:text-primary focus-ring"
                       >
                         <ArrowUpRight size={14} />
                       </button>
@@ -149,22 +160,7 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
   );
 }
 
-/**
- * "근접자산 → root" 끝점만 — 시작은 케이블의 실제 근접 자산(모듈 등), 도착은 root(강조).
- * 중간 hop 은 안 보여준다(실제 경로는 행 클릭 → 도면 하이라이트로 한눈에).
- */
-function RouteLine({ path }: { path: PathToRoot }) {
-  const chain = path.chain;
-  const dest = path.root?.name ?? (chain.length ? chain[chain.length - 1].name : null);
-  return (
-    <span className="inline-flex min-w-0 items-center gap-1.5">
-      <span className="truncate text-content-muted">{path.start.name}</span>
-      {dest && (
-        <>
-          <span className="shrink-0 text-content-faint">→</span>
-          <span className="truncate font-medium text-content">{dest}</span>
-        </>
-      )}
-    </span>
-  );
+/** 경로 도착명 — root 있으면 root, 없으면 체인 끝(자연 끝), 둘 다 없으면 null. */
+function routeDest(path: PathToRoot): string | null {
+  return path.root?.name ?? (path.chain.length ? path.chain[path.chain.length - 1].name : null);
 }
