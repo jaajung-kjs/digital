@@ -64,7 +64,7 @@ export function RackModulePicker({
   }, [onCancel]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]">
       <div className="bg-surface rounded-lg shadow-xl w-[420px] max-h-[85vh] flex flex-col">
         <div className="px-4 py-3 border-b border-line flex items-center justify-between shrink-0">
           <div>
