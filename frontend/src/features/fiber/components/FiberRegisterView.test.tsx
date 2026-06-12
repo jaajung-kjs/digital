@@ -64,4 +64,12 @@ describe('OfdFiberRegister', () => {
     expect(setSelectedAssetId).toHaveBeenCalledWith('a2');
     expect(startTrace).toHaveBeenCalledWith('c2');
   });
+
+  it('빈 메타 코어의 용도 입력 → put(fiberCores, 신규)', () => {
+    render(<OfdFiberRegister ofdId="ofd1" />);
+    const inputs = screen.getAllByPlaceholderText('용도');
+    fireEvent.change(inputs[0], { target: { value: '통합단말' } });
+    fireEvent.blur(inputs[0]);
+    expect(put).toHaveBeenCalledWith('fiberCores', expect.objectContaining({ fiberPathId: 'fp1', coreNumber: 1, purpose: '통합단말' }));
+  });
 });

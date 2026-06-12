@@ -33,6 +33,7 @@ export function buildFiberCoreRows(
       purpose: m?.purpose ?? null,
       circuitText: m?.circuitText ?? null,
       spliceType: m?.spliceType ?? null,
+      usageOverride: m?.usageOverride ?? null,
       usage,
     };
   });

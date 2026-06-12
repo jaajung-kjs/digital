@@ -44,5 +44,6 @@ export interface FiberCoreRow {
   purpose: string | null;
   circuitText: string | null;
   spliceType: string | null;
+  usageOverride: string | null;  // 원본 오버라이드(null=자동/도출) — 편집 컨트롤용
   usage: '사용' | '미사용';       // usageOverride ?? (occupied ? 사용 : 미사용)
 }
