@@ -1,6 +1,6 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError, ValidationError } from '../utils/errors.js';
-import { CableType, Prisma } from '@prisma/client';
+import { CableType } from '@prisma/client';
 import { placementKindToKind, type PlacementKind } from './assetPlanMapper.js';
 
 /** Build specification string from specTemplate format + specParams */
@@ -55,41 +55,6 @@ export interface CableDetail {
   updatedAt: Date;
 }
 
-export interface CreateCableInput {
-  // 단계4b — endpoint 는 단일 Asset 노드(설비/랙 모듈/분전 분기).
-  sourceAssetId: string;
-  targetAssetId: string;
-  cableType: CableType;
-  categoryId?: string | null;
-  specParams?: unknown;
-  label?: string | null;
-  length?: number | null;
-  color?: string | null;
-  description?: string | null;
-  fiberPathId?: string | null;
-  fiberPortNumber?: number | null;
-  pathPoints?: unknown;
-  pathLength?: number | null;
-  bufferLength?: number | null;
-  totalLength?: number | null;
-}
-
-export interface UpdateCableInput {
-  cableType?: CableType;
-  label?: string | null;
-  length?: number | null;
-  color?: string | null;
-  pathPoints?: unknown;
-  description?: string | null;
-  categoryId?: string | null;
-  specParams?: unknown;
-  fiberPathId?: string | null;
-  fiberPortNumber?: number | null;
-  pathLength?: number | null;
-  bufferLength?: number | null;
-  totalLength?: number | null;
-}
-
 // ==================== Helpers ====================
 
 const cableInclude = {
@@ -125,36 +90,6 @@ const cableInclude = {
   },
   category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
 } as const;
-
-/**
- * Resolve a single-asset endpoint into validated FK + kind.
- * Throws if the asset doesn't exist or is a RACK/DISTRIBUTION container
- * (connect to the inner module / branch instead).
- */
-async function resolveEndpoint(
-  side: 'source' | 'target',
-  assetId: string,
-): Promise<{ assetId: string; floorId: string | null; kind: PlacementKind | null }> {
-  const a = await prisma.asset.findUnique({
-    where: { id: assetId },
-    select: {
-      id: true,
-      floorId: true,
-      assetType: { select: { placementKind: true } },
-      parent: { select: { floorId: true, parent: { select: { floorId: true } } } },
-    },
-  });
-  if (!a) throw new NotFoundError(`${side} endpoint asset`);
-  const kind = placementKindToKind(a.assetType.placementKind);
-  if (kind === 'RACK') {
-    throw new ValidationError(`${side}: RACK 설비는 케이블 endpoint 가 될 수 없습니다. 랙 안 모듈에 연결하세요.`);
-  }
-  if (kind === 'DISTRIBUTION') {
-    throw new ValidationError(`${side}: 분전반은 케이블 endpoint 가 될 수 없습니다. 회로(분기)에 연결하세요.`);
-  }
-  const floorId = a.floorId ?? a.parent?.floorId ?? a.parent?.parent?.floorId ?? null;
-  return { assetId: a.id, floorId, kind };
-}
 
 /**
  * Build fiber path label oriented "자국-대국".
@@ -216,105 +151,6 @@ class CableService {
     const cable = await prisma.cable.findUnique({ where: { id }, include: cableInclude });
     if (!cable) throw new NotFoundError('케이블');
     return this.mapToDetail(cable);
-  }
-
-  async create(input: CreateCableInput, userId: string): Promise<CableDetail> {
-    const source = await resolveEndpoint('source', input.sourceAssetId);
-    const target = await resolveEndpoint('target', input.targetAssetId);
-
-    if (source.assetId === target.assetId) {
-      throw new ValidationError('소스와 타겟 endpoint 는 서로 달라야 합니다.');
-    }
-
-    assertOfdFiberPath(source.kind, target.kind, input.fiberPathId, input.fiberPortNumber);
-
-    const cable = await prisma.cable.create({
-      data: {
-        sourceAssetId: source.assetId,
-        targetAssetId: target.assetId,
-        cableType: input.cableType,
-        categoryId: input.categoryId ?? null,
-        specParams: input.specParams as Prisma.InputJsonValue | undefined,
-        label: input.label,
-        length: input.length,
-        color: input.color,
-        description: input.description,
-        fiberPathId: input.fiberPathId ?? null,
-        fiberPortNumber: input.fiberPortNumber ?? null,
-        pathPoints: input.pathPoints as Prisma.InputJsonValue | undefined,
-        pathLength: input.pathLength ?? null,
-        bufferLength: input.bufferLength ?? 4,
-        totalLength: input.totalLength ?? null,
-        createdById: userId,
-        updatedById: userId,
-      },
-      include: cableInclude,
-    });
-
-    return this.mapToDetail(cable);
-  }
-
-  async update(id: string, input: UpdateCableInput, userId: string): Promise<CableDetail> {
-    const existing = await prisma.cable.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundError('케이블');
-
-    // Re-check OFD fiberPath requirement when fiber-related fields are touched.
-    if (
-      input.fiberPathId !== undefined ||
-      input.fiberPortNumber !== undefined
-    ) {
-      const [srcKind, tgtKind] = await Promise.all([
-        existing.sourceAssetId
-          ? prisma.asset
-              .findUnique({
-                where: { id: existing.sourceAssetId },
-                select: { assetType: { select: { placementKind: true } } },
-              })
-              .then((e) => placementKindToKind(e?.assetType.placementKind ?? null))
-          : Promise.resolve<PlacementKind | null>(null),
-        existing.targetAssetId
-          ? prisma.asset
-              .findUnique({
-                where: { id: existing.targetAssetId },
-                select: { assetType: { select: { placementKind: true } } },
-              })
-              .then((e) => placementKindToKind(e?.assetType.placementKind ?? null))
-          : Promise.resolve<PlacementKind | null>(null),
-      ]);
-      const nextFiberPathId = input.fiberPathId !== undefined ? input.fiberPathId : existing.fiberPathId;
-      const nextFiberPortNumber =
-        input.fiberPortNumber !== undefined ? input.fiberPortNumber : existing.fiberPortNumber;
-      assertOfdFiberPath(srcKind, tgtKind, nextFiberPathId, nextFiberPortNumber);
-    }
-
-    const cable = await prisma.cable.update({
-      where: { id },
-      data: {
-        cableType: input.cableType,
-        label: input.label,
-        length: input.length,
-        color: input.color,
-        pathPoints: input.pathPoints as Prisma.InputJsonValue | undefined,
-        description: input.description,
-        categoryId: input.categoryId,
-        specParams: input.specParams as Prisma.InputJsonValue | undefined,
-        fiberPathId: input.fiberPathId,
-        fiberPortNumber: input.fiberPortNumber,
-        pathLength: input.pathLength,
-        bufferLength: input.bufferLength ?? undefined,
-        totalLength: input.totalLength,
-        updatedById: userId,
-      },
-      include: cableInclude,
-    });
-
-    return this.mapToDetail(cable);
-  }
-
-  async delete(id: string): Promise<void> {
-    const cable = await prisma.cable.findUnique({ where: { id } });
-    if (!cable) throw new NotFoundError('케이블');
-    await prisma.cable.delete({ where: { id } });
   }
 
   /**

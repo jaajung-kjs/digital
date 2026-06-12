@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { substationController } from '../controllers/substation.controller.js';
 import { floorController } from '../controllers/floor.controller.js';
 import { assetController } from '../controllers/asset.controller.js';
+import { cableController } from '../controllers/cable.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { substationCommitSchema } from '../schemas/substationCommit.schema.js';
 import { reportPreviewSchema } from '../schemas/reportPreview.schema.js';
 
 const router = Router();
@@ -62,15 +62,6 @@ router.put(
 // 변전소 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, substationController.delete);
 
-// 통합 변전소 커밋 (SSOT-2a, 관리자만 — 기존 assets/commit·plan 과 동일)
-router.post(
-  '/:substationId/commit',
-  authenticate,
-  adminOnly,
-  validate(substationCommitSchema),
-  substationController.commit
-);
-
 // 통합 working-copy 벌크 로드 (SSOT-2b, 인증 필요)
 router.get(
   '/:substationId/workingcopy',
@@ -92,6 +83,9 @@ router.post(
 router.get('/:substationId/floors', floorController.getList);
 
 router.get('/:substationId/assets', authenticate, assetController.listBySubstation);
+
+// 변전소 연결(케이블) 조회 (Phase-B)
+router.get('/:substationId/connections', authenticate, cableController.getBySubstation);
 
 // 층 생성 (관리자만)
 router.post(

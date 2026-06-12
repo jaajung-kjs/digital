@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import express, { Express } from 'express';
 import { assetsRouter } from '../src/routes/assets.routes.js';
-import { assetCommitRouter } from '../src/routes/assetCommit.routes.js';
+import { substationsRouter } from '../src/routes/substations.routes.js';
 import { authRouter } from '../src/routes/auth.routes.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 import prisma from '../src/config/prisma.js';
@@ -18,7 +18,7 @@ describe('연결 조회 — 변전소/자산', () => {
     app = express(); app.use(express.json());
     app.use('/api/auth', authRouter);
     app.use('/api/assets', assetsRouter);
-    app.use('/api/substations', assetCommitRouter);
+    app.use('/api/substations', substationsRouter);
     app.use(errorHandler);
 
     token = (
