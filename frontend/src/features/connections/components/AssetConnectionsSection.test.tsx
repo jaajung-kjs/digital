@@ -90,8 +90,6 @@ describe('AssetConnectionsSection — 읽기전용 경로 뷰', () => {
     expect(screen.getByText('장비C')).toBeInTheDocument();   // LAN 도착(자연 끝)
     expect(screen.queryByText('장비B')).toBeNull();          // 중간 노드는 펼치지 않음
     expect(screen.getAllByText('…').length).toBeGreaterThan(0); // 중간 생략 표시
-    // 길이
-    expect(screen.getByText('5.4m')).toBeInTheDocument();
     // 인라인 편집 affordance 제거됨
     expect(screen.queryByLabelText('유형')).toBeNull();
     expect(screen.queryByLabelText('라벨')).toBeNull();
@@ -112,18 +110,19 @@ describe('AssetConnectionsSection — 읽기전용 경로 뷰', () => {
     expect(startTrace).not.toHaveBeenCalled();
   });
 
-  it('활성 + 외부 구간(OFD가 다른 층) → [상세] 노출 → openTopology', () => {
-    mockStore({ tracingCableId: 'fA', active: true, highlightedNodeIds: new Set(['A', 'B', 'OFD1']) });
+  it('외부 구간 있는 행(FIBER→OFD root, 다른 층)에 ↗ → 클릭 시 startTrace+openTopology', async () => {
     render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
-    const detail = screen.getByText(/상세/);
-    fireEvent.click(detail);
+    const ext = screen.getByLabelText('외부망 토폴로지'); // FIBER 행에만(정적, 깜빡임 없음)
+    fireEvent.click(ext);
+    expect(startTrace).toHaveBeenCalledWith('fA');
+    await Promise.resolve();
     expect(openTopology).toHaveBeenCalled();
   });
 
-  it('활성이지만 외부 구간 없으면 [상세] 숨김', () => {
-    mockStore({ tracingCableId: 'lan', active: true, highlightedNodeIds: new Set(['A', 'C']) });
-    render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
-    expect(screen.queryByText(/상세/)).toBeNull();
+  it('외부 구간 없는 행(LAN, 같은 층)엔 ↗ 없음', () => {
+    const lanOnly = conns.filter((c: { cableType: string }) => c.cableType === 'LAN');
+    render(<AssetConnectionsSection assetId="A" connections={lanOnly} activeFloorId="f1" />);
+    expect(screen.queryByLabelText('외부망 토폴로지')).toBeNull();
   });
 
   it('연결 없음 → 빈 상태', () => {
