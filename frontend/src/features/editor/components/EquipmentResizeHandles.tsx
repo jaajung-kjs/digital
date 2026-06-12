@@ -194,11 +194,11 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
         top,
         width: size,
         height: size,
-        border: '2px solid #3b82f6',
+        border: '2px solid #15406b',
         borderRadius: 2,
         cursor: handle.cursor,
         zIndex: 14,
-        boxShadow: isDragging ? '0 0 6px #3b82f6' : '0 1px 2px rgba(0,0,0,0.3)',
+        boxShadow: isDragging ? '0 0 6px #15406b' : '0 1px 2px rgba(0,0,0,0.3)',
       }}
       title="드래그하여 크기 조절"
       aria-label={`리사이즈 핸들 ${handle.key}`}

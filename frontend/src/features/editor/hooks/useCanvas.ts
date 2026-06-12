@@ -116,9 +116,9 @@ export function useCanvas(
       const target = floorTargetFor(detailPanelEqId, useSubstationWorkingCopy.getState().effectiveAssets());
       if (target) {
         ctx.save();
-        ctx.shadowColor = '#3b82f6';
+        ctx.shadowColor = '#15406b';
         ctx.shadowBlur = 10;
-        ctx.strokeStyle = '#3b82f6';
+        ctx.strokeStyle = '#15406b';
         ctx.lineWidth = 2;
         ctx.strokeRect(target.x - 2, target.y - 2, target.width + 4, target.height + 4);
         ctx.restore();
