@@ -17,10 +17,3 @@ export interface EquipmentDetail {
   specification?: string | null;
   specParams?: Record<string, unknown> | null;
 }
-
-export interface LightboxPhoto {
-  id?: string;
-  url: string;
-  date: string;
-  description?: string | null;
-}

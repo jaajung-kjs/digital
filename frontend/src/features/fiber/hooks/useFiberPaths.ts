@@ -37,18 +37,5 @@ export function useFiberPaths(ofdId: string, enabled = true) {
   });
 }
 
-export function useFiberPathDetail(pathId: string, enabled = true) {
-  return useQuery({
-    queryKey: FIBER_PATH_KEYS.detail(pathId),
-    queryFn: async () => {
-      const { data } = await api.get<{ data: FiberPathDetail }>(
-        `/fiber-paths/${pathId}`
-      );
-      return data.data;
-    },
-    enabled: enabled && !!pathId,
-  });
-}
-
 // fiber path 생성/삭제는 워킹카피 staging(substationStore.stageFiberPathCreate/Delete)으로만.
 // 즉시 CRUD(useCreateFiberPath/useDeleteFiberPath)는 C2 위반 + 미사용이라 제거함.

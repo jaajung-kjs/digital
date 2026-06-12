@@ -10,7 +10,6 @@
 //  • RACK 의 슬롯 자식들은 더 이상 Equipment 가 아니라 `RackModule` 별도 모델.
 //  • Cable 의 endpoint 는 polymorphic — Equipment 또는 RackModule 한 쪽.
 
-import type { EquipmentKind } from './equipmentKind';
 import type { RackModule } from './rackModule';
 
 // 평면도 케이블.
@@ -184,59 +183,6 @@ export interface DwgImportResult {
 //   - `rackModules`: 별도 배열 — undefined 면 기존 모듈 유지, 배열이면 reconciliation.
 //   - `cables`: source/target 각각 polymorphic.
 //   - `fiberPaths` / `deletedFiberPathIds`: 변동 없음.
-
-export interface UpdateFloorPlanRackModuleInput {
-  id?: string | null;
-  tempId?: string;
-  /** real rack equipment id OR equipment.tempId — backend resolves it. */
-  rackEquipmentId: string;
-  categoryId: string;
-  name: string;
-  slotIndex: number;
-  slotSpan: number;
-  installDate?: string | null;
-  manager?: string | null;
-  description?: string | null;
-  properties?: Record<string, unknown> | null;
-  sortOrder?: number;
-}
-
-export interface UpdateFloorPlanCableInput {
-  id?: string | null;
-  source: { equipmentId?: string | null; moduleId?: string | null; circuitId?: string | null };
-  target: { equipmentId?: string | null; moduleId?: string | null; circuitId?: string | null };
-  cableType: string;
-  label?: string | null;
-  length?: number | null;
-  color?: string | null;
-  fiberPathId?: string | null;
-  fiberPortNumber?: number | null;
-  categoryId?: string | null;
-  specParams?: Record<string, unknown> | null;
-  pathPoints?: [number, number][] | null;
-  pathLength?: number | null;
-  bufferLength?: number | null;
-  totalLength?: number | null;
-  description?: string | null;
-}
-
-// 평면도 위 장비 아이템 (테이블/요약 표시용)
-export interface EquipmentItem {
-  id: string;
-  kind: EquipmentKind;
-  name: string;
-  floorId: string;
-  positionX: number;
-  positionY: number;
-  width2d: number;
-  height2d: number;
-  rotation: number;
-  height3d?: number;
-  frontImageUrl?: string;
-  rearImageUrl?: string;
-  manager?: string;
-  description?: string;
-}
 
 // 에디터 도구
 export type EditorTool = 'select' | 'equipment' | 'cable';

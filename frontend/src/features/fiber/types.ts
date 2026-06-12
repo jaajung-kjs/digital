@@ -20,10 +20,3 @@ export interface FiberPortUsage {
   assetId: string;
   assetName: string;
 }
-
-export interface CreateFiberPathInput {
-  ofdAId: string;
-  ofdBId: string;
-  portCount: 24 | 48;
-  description?: string;
-}

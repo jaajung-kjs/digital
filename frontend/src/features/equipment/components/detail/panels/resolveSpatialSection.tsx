@@ -43,8 +43,3 @@ export function resolveSpatialSection(
       return null;
   }
 }
-
-/** rack 은 U-슬롯 그리드 때문에 더 넓은 패널이 필요. */
-export function spatialNeedsWidePanel(kind: DetailPanelKind | null): boolean {
-  return kind === 'rack';
-}

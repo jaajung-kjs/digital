@@ -11,16 +11,6 @@ export const SELECTION_STYLES = {
 } as const;
 
 /**
- * 기본 스타일 상수
- */
-export const DEFAULT_STYLES = {
-  strokeColor: '#1a1a1a',
-  strokeWidth: 2,
-  fillColor: 'transparent',
-  strokeStyle: 'solid' as const,
-} as const;
-
-/**
  * 요소 타입별 기본 색상
  */
 export const ELEMENT_COLORS = {

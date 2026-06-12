@@ -1,13 +1,3 @@
-export interface EquipmentPhoto {
-  id: string;
-  assetId: string;
-  side: 'front' | 'rear';
-  imageUrl: string;
-  description?: string;
-  takenAt?: string;
-  createdAt: string;
-}
-
 import type { LogType, Severity, LogStatus } from './enums';
 export type { LogType, Severity, LogStatus };
 

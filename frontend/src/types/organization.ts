@@ -37,10 +37,3 @@ export interface BranchSubstationItem {
   address: string | null;
   floorCount: number;
 }
-
-export const NODE_ICONS: Record<NodeType, string> = {
-  headquarters: '\uD83C\uDFE2',
-  branch: '\uD83C\uDFEC',
-  substation: '\u26A1',
-  floor: '\uD83D\uDCD0',
-};

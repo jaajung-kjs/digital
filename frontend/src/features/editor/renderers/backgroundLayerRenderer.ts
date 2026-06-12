@@ -157,32 +157,5 @@ function drawTextBody(
   }
 }
 
-/**
- * Collect snap candidate points from background paths — every vertex of every
- * visible path. Hidden layers (layer.isVisible=false OR in `hiddenLayers`) are
- * skipped. Returns up to `maxPoints` to avoid blowing up snap performance.
- */
-export function collectBackgroundSnapPoints(
-  bg: BackgroundDrawing | null | undefined,
-  hiddenLayers?: Set<string>,
-  maxPoints = 2000,
-): Array<{ x: number; y: number }> {
-  if (!bg?.paths || bg.paths.length === 0) return [];
-  if (!Array.isArray(bg.layers)) return [];
-  const layerMap = new Map<string, BgLayer>(bg.layers.map((l) => [l.name, l]));
-  const out: Array<{ x: number; y: number }> = [];
-  for (const p of bg.paths) {
-    const layer = layerMap.get(p.layer);
-    if (!layer) continue;
-    if (layer.isVisible === false) continue;
-    if (hiddenLayers?.has(p.layer)) continue;
-    for (let i = 0; i < p.points.length; i += 2) {
-      out.push({ x: p.points[i], y: p.points[i + 1] });
-      if (out.length >= maxPoints) return out;
-    }
-  }
-  return out;
-}
-
 // Re-export entity types for convenience for downstream renderers
 export type { BackgroundDrawing, BgLayer, BgPath, BgText, BgFilled };

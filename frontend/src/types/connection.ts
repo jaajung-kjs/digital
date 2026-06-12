@@ -88,6 +88,3 @@ export interface RoomConnection {
   sourceEndpoint: EndpointInfo;
   targetEndpoint: EndpointInfo;
 }
-
-/** Alias for floor-plan-scoped connections (same shape as RoomConnection) */
-export type FloorPlanConnection = RoomConnection;

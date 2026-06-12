@@ -10,9 +10,6 @@ export type UserRole = 'ADMIN' | 'VIEWER';
 // derives from MaterialCategory.code (e.g. 'EQP-OFD', 'EQP-RACK'). See
 // frontend/src/types/material.ts for category metadata.
 
-// schema.prisma: enum PortType
-export type PortType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'CONSOLE' | 'USB' | 'OTHER';
-
 // schema.prisma: enum CableType
 export type CableType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'GROUND';
 
