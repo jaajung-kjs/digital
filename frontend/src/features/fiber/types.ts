@@ -20,3 +20,15 @@ export interface FiberPortUsage {
   assetId: string;
   assetName: string;
 }
+
+/** 광코어 희소 메타(선번장) — DB FiberCore 와 1:1. updatedAt 은 OCC 용. */
+export interface FiberCore {
+  id: string;
+  fiberPathId: string;
+  coreNumber: number;
+  purpose: string | null;
+  circuitText: string | null;
+  spliceType: string | null;
+  usageOverride: string | null;
+  updatedAt?: string | null;
+}

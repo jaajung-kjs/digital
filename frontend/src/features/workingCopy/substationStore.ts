@@ -5,6 +5,7 @@ import { api } from '../../utils/api';
 import { isTempId } from '../../utils/idHelpers';
 import type { Asset } from '../../types/asset';
 import type { EquipmentKind } from '../../types/equipmentKind';
+import type { FiberCore } from '../fiber/types';
 import {
   emptyOverlay,
   stageCreate,
@@ -92,6 +93,7 @@ function makeDescriptor<T extends { id: string; updatedAt?: string | null }>(): 
 export const assetDescriptor = makeDescriptor<Asset>();
 export const cableDescriptor = makeDescriptor<Cable>();
 export const fiberPathDescriptor = makeDescriptor<FiberPath>();
+export const fiberCoreDescriptor = makeDescriptor<FiberCore>();
 
 // ── 컬렉션 레지스트리 (북극성 ① 코어 제네릭화) ──────────────────────────────────
 // 워킹카피 컬렉션을 '데이터'로 등록한다. dirty/revert(freshOverlays) 등 종류-무관 기계는
@@ -124,6 +126,7 @@ const COLLECTIONS = {
   assets: assetDescriptor,
   cables: cableDescriptor,
   fiberPaths: fiberPathDescriptor,
+  fiberCores: fiberCoreDescriptor,
   records: recordsDescriptor,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -140,6 +143,7 @@ interface SavedCollections {
   assets: Asset[];
   cables: Cable[];
   fiberPaths: FiberPath[];
+  fiberCores: FiberCore[];
   records: AssetRecord[]; // 워킹카피가 각 자산 안에 중첩해 반환 → buildSaved 가 평탄화
 }
 
@@ -147,6 +151,7 @@ interface Overlays {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Cable, Partial<Cable>>;
   fiberPaths: Overlay<FiberPath, Partial<FiberPath>>;
+  fiberCores: Overlay<FiberCore, Partial<FiberCore>>;
   records: Overlay<AssetRecord, Partial<AssetRecord>>;
 }
 
@@ -167,6 +172,7 @@ function buildSaved(raw: Record<string, unknown>): SavedCollections {
     assets,
     cables: (raw.cables as Cable[]) ?? [],
     fiberPaths: (raw.fiberPaths as FiberPath[]) ?? [],
+    fiberCores: (raw.fiberCores as FiberCore[]) ?? [],
     records,
   };
 }
@@ -277,6 +283,7 @@ export interface SubstationWorkingCopyState {
   effectiveRackModules: (rackId: string) => Asset[];
   effectiveCables: () => Cable[];
   effectiveFiberPaths: () => FiberPath[];
+  effectiveFiberCores: () => FiberCore[];
 
   dirtyCount: () => number;
 }
@@ -519,6 +526,10 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       effectiveFiberPaths: () => {
         const s = get();
         return mergeEffective(s.saved.fiberPaths, s.overlays.fiberPaths, fiberPathDescriptor);
+      },
+      effectiveFiberCores: () => {
+        const s = get();
+        return mergeEffective(s.saved.fiberCores, s.overlays.fiberCores, fiberCoreDescriptor);
       },
 
       dirtyCount: () => {
