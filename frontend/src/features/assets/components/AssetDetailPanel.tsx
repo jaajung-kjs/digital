@@ -68,6 +68,8 @@ interface Props {
   bodyKey?: string;
   /** 삭제 노출 여부. 기본 mode==='edit'. */
   canDelete?: boolean;
+  /** 처음 활성화할 탭 라벨(예: '연결'). 없으면 첫 탭. */
+  initialTab?: string;
 }
 
 /** asset 의 placementKind → 공간 섹션 종류. 모듈/미배치/미상은 null(섹션 없음). */
@@ -105,6 +107,7 @@ export function AssetDetailPanel({
   banner,
   bodyKey,
   canDelete,
+  initialTab,
 }: Props) {
   const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
   const stageEquipmentDeleteCascade = useSubstationWorkingCopy((s) => s.stageEquipmentDeleteCascade);
@@ -131,6 +134,7 @@ export function AssetDetailPanel({
       mode={mode}
       onPatch={onPatch}
       asset={asset}
+      initialTab={initialTab}
     />
   );
 

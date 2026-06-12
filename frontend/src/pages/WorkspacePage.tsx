@@ -3,7 +3,7 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { FloorPlanEditor } from '../features/editor/components/FloorPlanEditor';
 import { NodeStatusView } from '../features/assets/components/NodeStatusView';
 import { SubstationStatusView } from '../features/assets/components/SubstationStatusView';
-import { SubstationConnectionsView } from '../features/connections/components/SubstationConnectionsView';
+import { FiberRegisterView } from '../features/fiber/components/FiberRegisterView';
 import { WorkspaceNavContext, type WorkspaceNav } from '../features/workspace/WorkspaceNavContext';
 import { useSelectionStore } from '../features/workspace/selectionStore';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
@@ -20,7 +20,7 @@ import type { NodeKind } from '../hooks/useNodeAssets';
 const VIEWS = [
   { key: 'status', label: '현황' },
   { key: 'plan', label: '평면도' },
-  { key: 'connections', label: '연결' },
+  { key: 'fiber', label: '선번장' },
 ] as const;
 type ViewKey = (typeof VIEWS)[number]['key'];
 
@@ -59,7 +59,7 @@ export function WorkspacePage() {
   const rawView = searchParams.get('view') ?? (searchParams.get('tab') === 'plan' ? 'plan' : null);
   const view: ViewKey =
     rawView === 'plan' ? 'plan'
-    : rawView === 'connections' ? 'connections'
+    : rawView === 'fiber' ? 'fiber'
     : 'status';
 
   // 공유 선택(본부·사업소 평면도/연결 컨텍스트의 근원). 변전소도 에디터 선택 브리지에 사용.
@@ -243,10 +243,10 @@ export function WorkspacePage() {
                 )}
               </div>
             ) : null}
-            {view === 'connections' ? (
+            {view === 'fiber' ? (
               <div className="absolute inset-0 bg-surface overflow-hidden">
                 {contextSubstationId ? (
-                  <SubstationConnectionsView substationId={contextSubstationId} />
+                  <FiberRegisterView substationId={contextSubstationId} />
                 ) : (
                   selectPrompt
                 )}

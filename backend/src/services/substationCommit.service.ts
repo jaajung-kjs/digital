@@ -138,6 +138,7 @@ export interface CommitResult {
     cables: Record<string, string>;
     rackModules: Record<string, string>;
     fiberPaths: Record<string, string>;
+    fiberCores: Record<string, string>;
     records: Record<string, string>;
   };
   updated: {
@@ -145,6 +146,7 @@ export interface CommitResult {
     cables: { id: string; updatedAt: string }[];
     rackModules: { id: string; updatedAt: string }[];
     fiberPaths: { id: string; updatedAt: string }[];
+    fiberCores: { id: string; updatedAt: string }[];
     floor?: { id: string; updatedAt: string };
   };
 }
@@ -190,10 +192,10 @@ async function run(
   userId: string,
 ): Promise<CommitResult> {
   const idMaps: CommitResult['idMaps'] = {
-    assets: {}, cables: {}, rackModules: {}, fiberPaths: {}, records: {},
+    assets: {}, cables: {}, rackModules: {}, fiberPaths: {}, fiberCores: {}, records: {},
   };
   const updated: CommitResult['updated'] = {
-    assets: [], cables: [], rackModules: [], fiberPaths: [],
+    assets: [], cables: [], rackModules: [], fiberPaths: [], fiberCores: [],
   };
 
   // ── 1) per-entity OCC across all present collections ──
@@ -241,6 +243,18 @@ async function run(
     conflicts.push(
       ...collectConflicts('fiberPaths', current, input.fiberPaths.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
       ...collectConflicts('fiberPaths', current, input.fiberPaths.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
+    );
+  }
+  // fiberCores
+  if (input.fiberCores) {
+    const ids = [...input.fiberCores.updates.map((u) => u.id), ...input.fiberCores.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.fiberCore.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } })
+      : [];
+    const { current } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('fiberCores', current, input.fiberCores.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
+      ...collectConflicts('fiberCores', current, input.fiberCores.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
     );
   }
   // floor
@@ -505,6 +519,49 @@ async function run(
 
   const resolveFiber = (id: string | null | undefined): string | null =>
     id ? idMaps.fiberPaths[id] ?? id : null;
+
+  // ── 4b) fiberCores ── (fiberPaths 뒤 — fiberPathId tempId 해소 위해)
+  if (input.fiberCores) {
+    const fc = input.fiberCores;
+    if (fc.deletes.length) {
+      await tx.fiberCore.deleteMany({ where: { id: { in: fc.deletes.map((d) => d.id) } } });
+    }
+    for (const c of fc.creates) {
+      const created = await tx.fiberCore.create({
+        data: {
+          fiberPathId: resolveFiber(c.fiberPathId)!,
+          coreNumber: c.coreNumber,
+          purpose: c.purpose ?? null,
+          circuitText: c.circuitText ?? null,
+          spliceType: c.spliceType ?? null,
+          usageOverride: c.usageOverride ?? null,
+          description: c.description ?? null,
+          createdById: userId,
+          updatedById: userId,
+        },
+      });
+      idMaps.fiberCores[c.tempId] = created.id;
+    }
+    for (const u of fc.updates) {
+      const p = u.patch;
+      await tx.fiberCore.update({
+        where: { id: u.id },
+        data: {
+          purpose: p.purpose as string | null | undefined,
+          circuitText: p.circuitText as string | null | undefined,
+          spliceType: p.spliceType as string | null | undefined,
+          usageOverride: p.usageOverride as string | null | undefined,
+          description: p.description as string | null | undefined,
+          updatedById: userId,
+        },
+      });
+    }
+    const touched = [...fc.updates.map((u) => u.id), ...Object.values(idMaps.fiberCores)];
+    if (touched.length) {
+      const rows = await tx.fiberCore.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
+      updated.fiberCores = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
+    }
+  }
 
   // 단계4b: 케이블 endpoint 노드 해소 — tempId(같은 페이로드의 asset create)면 real id 로,
   // 아니면 그대로. asset / cable idMap 양쪽을 본다(케이블이 다른 케이블을 참조하진 않지만

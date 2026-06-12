@@ -106,7 +106,7 @@ export const substationController = {
   /**
    * GET /api/substations/:substationId/workingcopy
    * 통합 working-copy 벌크 로드 (SSOT-2b) — assets(배치 포함)/cables/
-   * fiberPaths 전 컬렉션을 단일 응답으로 반환.
+   * fiberPaths/fiberCores 전 컬렉션을 단일 응답으로 반환.
    */
   async getWorkingCopy(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

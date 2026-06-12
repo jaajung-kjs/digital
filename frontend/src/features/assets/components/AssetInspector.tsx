@@ -35,6 +35,8 @@ interface Props {
   spatialLabel?: string;
   /** @deprecated 생애주기 표시 제거로 미사용. 호출부 호환을 위해 유지. */
   today?: Date;
+  /** 처음 활성화할 탭 라벨(예: '연결'). 없으면 첫 탭. */
+  initialTab?: string;
 }
 
 /* 인라인 편집 affordance(#6·#8): 밑줄(줄찍찍) 제거. 평소엔 값을 plain text 로 보여주고,
@@ -195,7 +197,7 @@ function fieldPatch(field: AssetFieldDef, v: string): Partial<Asset> | null {
   }
 }
 
-export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel }: Props) {
+export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, initialTab }: Props) {
   const ro = mode === 'view';
   const patch = (p: Partial<Asset>) => onPatch?.(asset.id, p);
   // 연결은 effective(워킹카피)에서 읽는다. 편집은 캔버스로 이동 — 연결 탭은 읽기전용 경로 뷰.
@@ -294,7 +296,7 @@ export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel }: 
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <DetailTabs tabs={tabs} />
+      <DetailTabs tabs={tabs} initial={initialTab} />
     </div>
   );
 }

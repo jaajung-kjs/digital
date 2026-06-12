@@ -43,6 +43,8 @@ model User {
   updatedRackPresets     RackPreset[]     @relation("RackPresetUpdatedBy")
   createdAssets          Asset[]          @relation("AssetCreatedBy")
   updatedAssets          Asset[]          @relation("AssetUpdatedBy")
+  fiberCoresCreated      FiberCore[]      @relation("FiberCoreCreatedBy")
+  fiberCoresUpdated      FiberCore[]      @relation("FiberCoreUpdatedBy")
 
   @@map("users")
 }
@@ -307,9 +309,39 @@ model FiberPath {
   cables    Cable[] @relation("CableFiberPath")
   createdBy User?   @relation("FiberPathCreator", fields: [createdById], references: [id])
   updatedBy User?   @relation("FiberPathUpdater", fields: [updatedById], references: [id])
+  fiberCores FiberCore[]
 
   @@unique([ofdAId, ofdBId])
   @@map("fiber_paths")
+}
+
+// ==================== 광코어 메타(선번장) ====================
+// FiberPath(OFD쌍) 밑 코어별 *희소* 메타. 점유/빈/양측 자산은 저장하지 않는다 —
+// 그건 케이블에서 도출(usePortStatus). 여기엔 케이블이 못 담는 실무 메타만:
+// 용도·수용내역(회선/링)·융착/패치·사용여부override. 메타가 있는 코어만 행이 생긴다.
+model FiberCore {
+  id          String @id @default(uuid())
+  fiberPathId String @map("fiber_path_id")
+  coreNumber  Int    @map("core_number") // 1..portCount
+
+  purpose       String? @map("purpose") @db.VarChar(50)        // 용도
+  circuitText   String? @map("circuit_text") @db.VarChar(200)  // 수용내역(회선/링명)
+  spliceType    String? @map("splice_type") @db.VarChar(10)    // 융착 | 패치 | null
+  usageOverride String? @map("usage_override") @db.VarChar(10) // 사용 | 미사용 | null(=도출)
+
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdById String?  @map("created_by")
+  updatedById String?  @map("updated_by")
+
+  fiberPath FiberPath @relation(fields: [fiberPathId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("FiberCoreCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?     @relation("FiberCoreUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([fiberPathId, coreNumber])
+  @@index([fiberPathId])
+  @@map("fiber_cores")
 }
 
 // ==================== 설비 사진 ====================
