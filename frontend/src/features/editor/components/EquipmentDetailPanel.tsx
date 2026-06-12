@@ -5,6 +5,7 @@ import { kindOf } from '../../workingCopy/placement';
 import { isTempId } from '../../../utils/idHelpers';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
+import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { AssetDetailPanel } from '../../assets/components/AssetDetailPanel';
 
 interface EquipmentDetailPanelProps {
@@ -36,7 +37,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
   const moduleAsset = useMemo(
     () =>
       !localEq
-        ? (effectiveAssets.find((a) => a.id === equipmentId && a.parentAssetId != null) ?? null)
+        ? (effectiveAssets.find((a) => a.id === equipmentId && isRackModuleAsset(a)) ?? null)
         : null,
     [localEq, effectiveAssets, equipmentId],
   );

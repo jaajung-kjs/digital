@@ -6,6 +6,7 @@ import { useSelection } from '../../workspace/SelectionContext';
 import type { Asset } from '../../../types/asset';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
 import { kindOf } from '../../workingCopy/placement';
+import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
 import { SidePanel } from '../../editor/components/SidePanel';
@@ -71,6 +72,10 @@ interface Props {
 
 /** asset 의 placementKind → 공간 섹션 종류. 모듈/미배치/미상은 null(섹션 없음). */
 function kindFromAsset(asset?: Asset | null): DetailPanelKind | null {
+  // parentAssetId != null 은 "자식 자산(랙 모듈 + 배전 FEEDER/BRANCH 모두)" 을 의미한다.
+  // 랙 모듈(slotIndex 있음)뿐 아니라 FEEDER/BRANCH(slotIndex 없음)도 독립 평면도 배치가
+  // 없으므로 공간 섹션(실장도/경로 등)을 렌더하지 않는다 — isRackModuleAsset(strict)가
+  // 아니라 '부모가 있는 모든 자식' 이라는 넓은 의미로 의도적으로 쓰인다.
   if (!asset || asset.parentAssetId != null) return null;
   const pk = asset.assetType?.placementKind;
   if (!pk) return null;
@@ -107,7 +112,7 @@ export function AssetDetailPanel({
   const id = equipmentId ?? asset?.id ?? '';
   const headerTitle = title ?? asset?.name ?? '설비 상세';
   const kind = detailKind !== undefined ? detailKind : kindFromAsset(asset);
-  const isModule = asset?.parentAssetId != null; // 평면도 비모듈은 asset=null → cascade.
+  const isModule = isRackModuleAsset(asset); // strict: 슬롯 있는 자식만 모듈. 피더(slotIndex 없음)는 cascade 경로.
   const showDelete = (canDelete ?? mode === 'edit') && !!id;
 
   const handleDelete = () => {

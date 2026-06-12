@@ -9,6 +9,7 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { useEditorHistory } from './useEditorHistory';
 import { calculateFitToContent } from './useViewport';
 import { useCommitWorkingCopy } from '../../workingCopy/useCommitWorkingCopy';
+import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 
 function nudgeEquipment(eq: Asset, dx: number, dy: number): Asset {
   return { ...eq, positionX: (eq.positionX ?? 0) + dx, positionY: (eq.positionY ?? 0) + dy };
@@ -138,7 +139,7 @@ export function useEditorKeyboard(
         const panelId = useSelectionStore.getState().selectedAssetId;
         if (!panelId) return null;
         const a = useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === panelId);
-        return a?.parentAssetId != null ? panelId : null;
+        return isRackModuleAsset(a) ? panelId : null;
       })();
       if (isDeleteKey && moduleDeleteId) {
         e.preventDefault();

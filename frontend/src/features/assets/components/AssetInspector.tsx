@@ -10,6 +10,7 @@ import { LogsTab } from '../../equipment/components/detail/LogsTab';
 import { useEffectiveAssetConnections } from '../../connections/hooks/useEffectiveAssetConnections';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { statusIsOn } from '../nodeStatus';
 
 /**
@@ -201,9 +202,9 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, s
   const stageCableUpdate = useSubstationWorkingCopy((s) => s.stageCableUpdate);
   const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
-  // 랙 모듈(parentAssetId 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출.
+  // 랙 모듈(parentAssetId + slotIndex 둘 다 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출.
   // 상위 자산 네비게이션은 헤더 브레드크럼(AssetDetailPanel)으로 이동.
-  const isModule = asset.parentAssetId != null;
+  const isModule = isRackModuleAsset(asset);
   const slotIndex = asset.slotIndex ?? 0;
   const slotSpan = asset.slotSpan ?? 1;
   const categoryLabel = asset.assetType?.name ?? '';
