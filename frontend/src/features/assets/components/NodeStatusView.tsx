@@ -73,30 +73,32 @@ function AssetRow({
   const insp = inspectionState(item.lastMaintenanceDate, today);
   const inspClass =
     insp.level === 'none' ? 'text-content-faint' : insp.level === 'overdue' ? 'text-warning font-medium' : 'text-content';
+  const statusOn = statusIsOn(item.status);
   return (
     <tr
       onClick={onSelect}
-      className={`h-12 cursor-pointer border-b border-line transition-colors ${
+      className={`h-9 cursor-pointer border-b border-line transition-colors ${
         selected ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2 active:bg-surface-3'
       }`}
     >
-      <td className="pl-4 pr-2 text-sm text-content align-middle whitespace-nowrap">{item.assetTypeName}</td>
-      <td className="px-2 text-sm align-middle whitespace-nowrap">
+      <td className="pl-4 pr-2 text-[13px] text-content align-middle whitespace-nowrap">{item.assetTypeName}</td>
+      <td className="px-2 text-[13px] align-middle whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5">
           <span className="font-medium text-content">{item.name}</span>
           {alert && <Badge status="danger">{alert.label}</Badge>}
         </span>
       </td>
-      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap max-w-[14rem] truncate" title={installLocation(item)}>{installLocation(item)}</td>
-      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">
+      <td className="px-2 text-[13px] text-content-muted align-middle whitespace-nowrap max-w-[14rem] truncate" title={installLocation(item)}>{installLocation(item)}</td>
+      <td className="px-2 text-[13px] text-content-muted align-middle whitespace-nowrap tabular-nums">
         {item.installDate ? formatDate(item.installDate) : '—'}
       </td>
-      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">{item.manager ?? '—'}</td>
-      <td className={`px-2 text-sm align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
-      <td className="px-2 pr-4 text-sm align-middle whitespace-nowrap">
-        <Badge status={statusIsOn(item.status) ? 'success' : 'neutral'}>
-          {statusIsOn(item.status) ? 'ON' : 'OFF'}
-        </Badge>
+      <td className="px-2 text-[13px] text-content-muted align-middle whitespace-nowrap">{item.manager ?? '—'}</td>
+      <td className={`px-2 text-[13px] align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
+      <td className="px-2 pr-4 text-[13px] align-middle whitespace-nowrap">
+        <span className="inline-flex items-center gap-1.5">
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusOn ? 'bg-success' : 'bg-content-faint'}`} />
+          <span className={statusOn ? 'text-content' : 'text-content-muted'}>{statusOn ? 'ON' : 'OFF'}</span>
+        </span>
       </td>
     </tr>
   );
@@ -322,13 +324,13 @@ export function NodeStatusView({
                       <th
                         key={c}
                         aria-sort={active ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                        className={`p-0 text-[13px] font-medium tracking-wide ${active ? 'bg-surface-2' : ''}`}
+                        className={`p-0 text-[12px] font-medium tracking-wide ${active ? 'bg-surface-2' : ''}`}
                       >
                         <button
                           type="button"
                           onClick={() => cycleSort(c)}
                           aria-label={`${c} 정렬`}
-                          className={`group w-full h-full inline-flex items-center gap-1 ${pad} py-2.5 cursor-pointer select-none transition-colors hover:bg-surface-2 active:bg-surface-3 focus-ring ${
+                          className={`group w-full h-full inline-flex items-center gap-1 ${pad} py-2 cursor-pointer select-none transition-colors hover:bg-surface-2 active:bg-surface-3 focus-ring ${
                             active ? 'text-content font-semibold' : 'text-content-muted'
                           }`}
                         >
