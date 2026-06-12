@@ -16,6 +16,8 @@ interface SidePanelProps {
   children: ReactNode;
   /** 타이틀 우측, 닫기 버튼 좌측에 들어갈 헤더 보조 요소(예: kind 뱃지) */
   headerExtra?: ReactNode;
+  /** 제목 위 상위 맥락(브레드크럼 등) */
+  eyebrow?: ReactNode;
 }
 
 /**
@@ -36,6 +38,7 @@ export function SidePanel({
   width = 384,
   children,
   headerExtra,
+  eyebrow,
 }: SidePanelProps) {
   // ESC 로 닫기 — 모달/라이트박스(fixed inset-0 오버레이)가 떠 있으면 무시.
   // 상세 패널이 쓰던 가드를 그대로 이관했다.
@@ -64,7 +67,7 @@ export function SidePanel({
       ].join(' ')}
     >
       {/* 공통 헤더 — 현황 패널과 단일 소스(DetailPanelHeader) */}
-      <DetailPanelHeader title={title} onClose={onClose} onDelete={onDelete} extra={headerExtra} />
+      <DetailPanelHeader title={title} onClose={onClose} onDelete={onDelete} extra={headerExtra} eyebrow={eyebrow} />
 
       {/* 본문 */}
       <div className="flex-1 min-h-0 flex flex-col">{children}</div>

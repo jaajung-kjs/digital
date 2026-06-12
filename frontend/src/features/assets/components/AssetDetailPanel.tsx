@@ -1,11 +1,50 @@
 import type { ReactNode } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useEffectiveAssets } from '../../workingCopy/hooks';
+import { useSelection } from '../../workspace/SelectionContext';
 import type { Asset } from '../../../types/asset';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
 import { kindOf } from '../../workingCopy/placement';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
 import { SidePanel } from '../../editor/components/SidePanel';
+
+/**
+ * 상위 맥락 브레드크럼(eyebrow) — 부모 자산이 있으면 조상 체인을 제목 위에 작게 표시.
+ * 각 조상 클릭 → 공유 선택(setSelectedAssetId)으로 해당 자산 패널 열기(← 뒤로가기 대체, 표준 패턴).
+ * 부모 없으면 null(단일 줄 헤더). 좁은 패널이라 이름 truncate, 깊으면 자연 overflow.
+ */
+function AssetBreadcrumb({ asset }: { asset?: Asset | null }) {
+  const effectiveAssets = useEffectiveAssets();
+  const sel = useSelection();
+  if (!asset?.parentAssetId) return null;
+  const chain: Asset[] = [];
+  let cur: Asset | undefined = effectiveAssets.find((a) => a.id === asset.parentAssetId);
+  for (let guard = 0; cur && guard < 20; guard++) {
+    chain.unshift(cur);
+    const pid = cur.parentAssetId ?? null;
+    cur = pid ? effectiveAssets.find((a) => a.id === pid) : undefined;
+  }
+  if (chain.length === 0) return null;
+  return (
+    <nav aria-label="상위 자산" className="flex items-center gap-0.5 mb-0.5 overflow-hidden text-xs">
+      {chain.map((a) => (
+        <span key={a.id} className="inline-flex min-w-0 items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => sel?.setSelectedAssetId(a.id)}
+            title={a.name}
+            className="max-w-[9rem] truncate rounded-sm text-content-muted transition-colors hover:text-primary hover:underline focus-ring"
+          >
+            {a.name}
+          </button>
+          <ChevronRight size={12} className="shrink-0 text-content-faint" />
+        </span>
+      ))}
+    </nav>
+  );
+}
 
 interface Props {
   /** 현황/대장: 풀 Asset. 평면도: 모듈이면 모듈 Asset, 비모듈이면 생략(equipmentId 로 본문 resolve). */
@@ -96,6 +135,7 @@ export function AssetDetailPanel({
         side="right"
         width={384}
         title={headerTitle}
+        eyebrow={<AssetBreadcrumb asset={asset} />}
         onClose={onClose}
         onDelete={showDelete ? handleDelete : undefined}
       >
@@ -109,6 +149,7 @@ export function AssetDetailPanel({
     <aside className="w-96 shrink-0 border-l border-line bg-surface h-full flex flex-col">
       <DetailPanelHeader
         title={headerTitle}
+        eyebrow={<AssetBreadcrumb asset={asset} />}
         onClose={onClose}
         onDelete={showDelete ? handleDelete : undefined}
       />

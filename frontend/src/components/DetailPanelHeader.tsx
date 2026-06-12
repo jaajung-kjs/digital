@@ -11,6 +11,7 @@ export function DetailPanelHeader({
   onClose,
   onDelete,
   extra,
+  eyebrow,
 }: {
   title: ReactNode;
   onClose: () => void;
@@ -18,10 +19,15 @@ export function DetailPanelHeader({
   onDelete?: () => void;
   /** 제목 우측·닫기 좌측 보조 요소(예: 스냅샷 등 특수 액션). */
   extra?: ReactNode;
+  /** 제목 위 작은 상위 맥락(브레드크럼 등). 없으면 단일 줄 헤더. */
+  eyebrow?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-line bg-surface-2 shrink-0">
-      <h3 className="text-base font-semibold text-content truncate min-w-0">{title}</h3>
+    <div className="flex items-start justify-between px-4 py-3 border-b border-line bg-surface-2 shrink-0">
+      <div className="min-w-0 flex-1">
+        {eyebrow}
+        <h3 className="text-base font-semibold text-content truncate min-w-0">{title}</h3>
+      </div>
       <div className="flex items-center gap-2 shrink-0">
         {extra}
         {onDelete && (

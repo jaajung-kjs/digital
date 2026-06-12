@@ -9,7 +9,6 @@ import { InspectionSection } from './detail/InspectionSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
 import { useEffectiveAssetConnections } from '../../connections/hooks/useEffectiveAssetConnections';
 import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
-import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { statusIsOn } from '../nodeStatus';
 
@@ -202,13 +201,9 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, s
   const stageCableUpdate = useSubstationWorkingCopy((s) => s.stageCableUpdate);
   const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
-  // 랙 모듈(parentAssetId 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출하고
-  // 상위 랙으로 돌아가는 breadcrumb 를 보여준다. (구 RackModuleDialog 의 RO 정보 대체.)
+  // 랙 모듈(parentAssetId 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출.
+  // 상위 자산 네비게이션은 헤더 브레드크럼(AssetDetailPanel)으로 이동.
   const isModule = asset.parentAssetId != null;
-  const effectiveAssets = useEffectiveAssets();
-  const parentRack = isModule
-    ? effectiveAssets.find((a) => a.id === asset.parentAssetId) ?? null
-    : null;
   const slotIndex = asset.slotIndex ?? 0;
   const slotSpan = asset.slotSpan ?? 1;
   const categoryLabel = asset.assetType?.name ?? '';
@@ -300,19 +295,6 @@ export function AssetInspector({ asset, mode, onPatch, onSelectAsset, spatial, s
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* 랙으로 — 모듈에서 상위 랙 패널로 복귀. onSelectAsset 이 에디터/현황/대장 모두에서
-          공유 선택을 통해 상위 랙 상세 패널을 연다. */}
-      {isModule && parentRack && (
-        <div className="px-4 pt-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => onSelectAsset(parentRack.id)}
-            className="text-xs text-primary hover:text-primary-hover hover:underline"
-          >
-            ← {parentRack.name}
-          </button>
-        </div>
-      )}
       <DetailTabs tabs={tabs} />
     </div>
   );
