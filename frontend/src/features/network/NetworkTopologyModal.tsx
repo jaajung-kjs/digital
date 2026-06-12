@@ -1,7 +1,7 @@
 /**
  * Network Topology Modal — cable trace 결과를 React Flow 로 시각화.
  *
- * 입력 = useNetworkTopologyStore.traceResult (cableTracer 결과). 변전소 단위로 노드 그룹화 후,
+ * 입력 = usePathHighlightStore.traceResult (cableTracer 결과 — 하이라이트와 공유). 변전소 단위로 노드 그룹화 후,
  * BC-tree (vertex 공유) 또는 SPQR (edge 공유) layout 으로 좌표 계산. fiberPath edge 만 그림.
  *
  * 시드 cable 의 fiberPathId 강조 (빨강), 시드가 속한 ring (파랑), 그 ring 을 포함하는 composite
@@ -28,7 +28,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { useNetworkTopologyStore } from './store';
+import { usePathHighlightStore } from '../pathTrace/stores/pathHighlightStore';
 import { computeLayoutBCTree } from './layout/bcTreeLayout';
 import { computeLayoutSPQR } from './layout/spqrLayout';
 import { FloatingEdge } from './edges/FloatingEdge';
@@ -199,12 +199,12 @@ function computeRingHighlights(
 type GraphEdgeMeta = { id: string; source: string; target: string; tier: Tier; label?: string };
 
 export function NetworkTopologyModal() {
-  const modalOpen = useNetworkTopologyStore((s) => s.modalOpen);
-  const traceResult = useNetworkTopologyStore((s) => s.traceResult);
-  const highlightedFpId = useNetworkTopologyStore((s) => s.highlightedFiberPathId);
-  const isLoading = useNetworkTopologyStore((s) => s.isLoading);
-  const error = useNetworkTopologyStore((s) => s.error);
-  const close = useNetworkTopologyStore((s) => s.close);
+  const modalOpen = usePathHighlightStore((s) => s.modalOpen);
+  const traceResult = usePathHighlightStore((s) => s.traceResult);
+  const highlightedFpId = usePathHighlightStore((s) => s.highlightedFiberPathId);
+  const isLoading = usePathHighlightStore((s) => s.isLoading);
+  const error = usePathHighlightStore((s) => s.error);
+  const close = usePathHighlightStore((s) => s.closeTopology);
 
   // ── 테스트 상태 (모달 한정) ───────────────────────────────────────────────
   const [cutEdgeIds, setCutEdgeIds] = useState<Set<string>>(new Set<string>());

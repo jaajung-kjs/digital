@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { overlayStagedOntoGlobal } from './store';
-import type { LocalCable } from '../editor/stores/editorStore';
+import { overlayStagedOntoGlobal } from './pathHighlightStore';
+import type { LocalCable } from '../../editor/stores/editorStore';
 
 function cable(id: string, extra: Partial<LocalCable> = {}): LocalCable {
   return {

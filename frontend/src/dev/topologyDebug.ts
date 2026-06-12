@@ -11,7 +11,6 @@
  * 실서비스 빌드에는 포함되지 않음 (`import.meta.env.DEV` 가드).
  */
 
-import { useNetworkTopologyStore } from '../features/network/store';
 import { usePathHighlightStore } from '../features/pathTrace/stores/pathHighlightStore';
 
 // ─── Seed edge-case 등록표 ───────────────────────────────────────────────
@@ -58,8 +57,9 @@ async function openCaseImpl(caseId: string, { resize = true }: { resize?: boolea
     return; // page reload — 새 페이지가 ?openCase 보고 자동 실행함.
   }
 
+  // 단일 store: startTrace 가 글로벌+staged 1회 추적 → openTopology 가 그 결과로 모달.
   await usePathHighlightStore.getState().startTrace(c.cable);
-  await useNetworkTopologyStore.getState().loadAndOpen(c.cable);
+  usePathHighlightStore.getState().openTopology();
 
   if (resize) {
     // Layout / animation 끝날 시간 + 모달 크기 키워서 시각화 잘 보이게.
@@ -82,10 +82,9 @@ export const topoDebug = {
       .join('\n');
   },
   openCase: openCaseImpl,
-  close: () => useNetworkTopologyStore.getState().close(),
-  state: () => useNetworkTopologyStore.getState(),
+  close: () => usePathHighlightStore.getState().closeTopology(),
+  state: () => usePathHighlightStore.getState(),
   stores: {
-    network: useNetworkTopologyStore,
     pathHighlight: usePathHighlightStore,
   },
 };

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { usePathHighlightStore } from '../stores/pathHighlightStore';
-import { useNetworkTopologyStore } from '../../network/store';
 import { CABLE_BADGE_CLASSES } from '../../../types/connection';
 import type { TraceNode, TraceEdge, SegmentNode } from '../types';
 import { toMapById } from '../../../utils/byId';
@@ -137,13 +136,13 @@ export function PathTraceDetail() {
   const segments = usePathHighlightStore((s) => s.segments);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
-  const loadAndOpen = useNetworkTopologyStore((s) => s.loadAndOpen);
+  const openTopology = usePathHighlightStore((s) => s.openTopology);
 
-  // "상세" 클릭 = 현재 trace cable 을 시드로 네트워크 토폴로지 모달 진입.
-  // 모달이 그 cable 부터 BFS → 도달 가능한 모든 망 + ring 인식.
-  const openTopology = () => {
+  // "상세" 클릭 = 이미 활성화된 trace 결과를 그대로 네트워크 토폴로지 모달에 띄움.
+  // 같은 store 의 traceResult 를 재사용 — 재추적 없음.
+  const handleOpenTopology = () => {
     if (!tracingCableId) return;
-    void loadAndOpen(tracingCableId);
+    openTopology();
   };
 
   const { nodeMap, edgeMap } = useMemo(() => {
@@ -185,7 +184,7 @@ export function PathTraceDetail() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={(e) => { e.stopPropagation(); openTopology(); }}
+            onClick={(e) => { e.stopPropagation(); handleOpenTopology(); }}
             className="text-xs text-primary hover:text-primary-hover font-medium"
             title="이 장비가 속한 전체 네트워크망 보기"
           >
