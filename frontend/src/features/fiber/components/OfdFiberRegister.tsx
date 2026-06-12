@@ -5,10 +5,10 @@ import { buildFiberCoreRows } from '../fiberRegister';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { generateTempId } from '../../../utils/idHelpers';
+import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import type { FiberCoreRow } from '../types';
 
-/** 코어 메타 한 필드를 워킹카피에 스테이징한다 — 희소: 기존 행은 patch, 없으면 put(신규 임시 id). */
+/** 코어 메타 한 필드를 워킹카피에 스테이징한다 — 희소: 기존 행(저장됨/스테이징됨)은 patch, 정말 없으면 put(신규 임시 id). */
 function commitMeta(
   row: FiberCoreRow,
   field: 'purpose' | 'circuitText' | 'spliceType' | 'usageOverride',
@@ -17,15 +17,24 @@ function commitMeta(
   const wc = useSubstationWorkingCopy.getState();
   if (row.coreRecordId) {
     wc.patch('fiberCores', row.coreRecordId, { [field]: value });
-  } else {
-    wc.put('fiberCores', {
-      id: generateTempId(),
-      fiberPathId: row.fiberPathId,
-      coreNumber: row.coreNumber,
-      purpose: null, circuitText: null, spliceType: null, usageOverride: null,
-      [field]: value,
-    });
+    return;
   }
+  // 같은 (fiberPathId, coreNumber) 로 이미 스테이징된 신규 create 가 있으면 거기에 patch
+  // — 두 번째 put 으로 UNIQUE(fiberPathId, coreNumber) 위반/커밋 롤백을 막는다.
+  const existing = wc.effectiveFiberCores().find(
+    (c) => isTempId(c.id) && c.fiberPathId === row.fiberPathId && c.coreNumber === row.coreNumber,
+  );
+  if (existing) {
+    wc.patch('fiberCores', existing.id, { [field]: value });
+    return;
+  }
+  wc.put('fiberCores', {
+    id: generateTempId(),
+    fiberPathId: row.fiberPathId,
+    coreNumber: row.coreNumber,
+    purpose: null, circuitText: null, spliceType: null, usageOverride: null,
+    [field]: value,
+  });
 }
 
 /** 한 OFD 의 선번장 — 광경로(상대국)별 섹션 + 코어 행. usePortStatus 합법 호출 단위. */
@@ -114,7 +123,7 @@ function CoreRow({ ofdId, row }: { ofdId: string; row: FiberCoreRow }) {
       </td>
       <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
         <select aria-label="융착" value={row.spliceType ?? ''}
-          onChange={(e) => commitMeta(row, 'spliceType', e.target.value || null)}
+          onChange={(e) => { const v = e.target.value || null; if (v !== row.spliceType) commitMeta(row, 'spliceType', v); }}
           className="text-[12px] border border-line rounded px-1 py-0.5 bg-surface">
           <option value="">—</option>
           <option value="융착">융착</option>
@@ -123,7 +132,7 @@ function CoreRow({ ofdId, row }: { ofdId: string; row: FiberCoreRow }) {
       </td>
       <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
         <select aria-label="사용" value={row.usageOverride ?? '자동'}
-          onChange={(e) => commitMeta(row, 'usageOverride', e.target.value === '자동' ? null : e.target.value)}
+          onChange={(e) => { const v = e.target.value === '자동' ? null : e.target.value; if (v !== row.usageOverride) commitMeta(row, 'usageOverride', v); }}
           className="text-[12px] border border-line rounded px-1 py-0.5 bg-surface">
           <option value="자동">자동{row.usage === '사용' ? '(사용)' : '(미사용)'}</option>
           <option value="사용">사용</option>

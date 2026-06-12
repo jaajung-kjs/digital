@@ -161,7 +161,7 @@ const fiberCoreCreate = z.object({
   usageOverride: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
 });
-const fiberCorePatch = fiberCoreCreate.omit({ tempId: true }).partial();
+const fiberCorePatch = fiberCoreCreate.omit({ tempId: true, fiberPathId: true, coreNumber: true }).partial();
 
 // ==================== Records (asset-owned sub-records) ====================
 // 점검/고장이력/사진은 자산이 소유한 단일 records 컬렉션 — recordType 으로 구분.

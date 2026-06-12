@@ -42,7 +42,7 @@ export function ConnectionDiagram({
   // Unmount = context gone → clear highlight automatically.
   useEffect(() => () => clearHighlight(), [clearHighlight]);
 
-  // 연결 판정·끝점 이름은 연결 목록(SubstationConnectionsView)과 같은 단일 소스
+  // 연결 판정·끝점 이름은 연결 목록(AssetConnectionsSection)과 같은 단일 소스
   // (connections/endpointName). self-side = 자기 자신 + 자식 랙모듈 + 자식 분전 분기.
   const isSelfSide = useMemo(
     () => buildSelfSideChecker(effectiveAssets, equipmentId),
