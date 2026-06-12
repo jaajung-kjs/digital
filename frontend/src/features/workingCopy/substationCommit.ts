@@ -3,7 +3,6 @@ import { PHOTOS } from './recordTypes';
 import { api } from '../../utils/api';
 import type { Asset } from '../../types/asset';
 import { buildDelta } from './delta';
-import { isRackModuleAsset as isRackModule } from './assetClassify';
 import type { Overlay } from './overlay';
 import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 
@@ -12,15 +11,10 @@ import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 // 전역 커밋 `POST /commit` 페이로드로 변환한다(변전소 스코프 없음). 신규 자산은 자기
 // substationId 를 싣고, records 는 recordType(DB 테이블명)으로 백엔드가 제네릭 라우팅한다.
 //
-// 핵심은 단일 `assets` overlay 를 페이로드의 두 컬렉션으로 *분리*하는 것:
-//   - placement-level Asset(OFD/RACK/DIST/GROUNDING/HVAC) → payload.assets
-//   - 랙 자식(모듈)                                        → payload.rackModules
-//     (필드명 매핑: parentAssetId→rackEquipmentId, assetTypeId→categoryId,
-//      sourcePresetId→properties.sourcePresetId)
-//
-// 분류 규칙(Task 3 와 동일): asset 이 `parentAssetId != null && slotIndex != null`
-// 이면 랙 모듈. CREATE 는 create item 자신의 필드로, UPDATE/DELETE 는 patch 에
-// id 만 있으므로 savedAssets 에서 lookup 해 판정한다.
+// 모든 Asset(placement 노드 + 하위 자산: 랙 모듈·피더·분기)을 단일 `assets` 컬렉션으로
+// 보낸다. 종전엔 랙 모듈만 별도 payload.rackModules 로 분리했으나, 같은 Asset 인데 경로가
+// 갈려 substationId·parentAssetId(tempId) 해소가 달라 하위 자산 저장이 깨졌다(422 FK).
+// 통합 후 백엔드는 slotIndex 유무로 랙 슬롯 검증만 조건부 적용한다.
 // ──────────────────────────────────────────────────────────────────────────
 
 type RecordRow = Record<string, unknown>;
@@ -66,7 +60,6 @@ export interface FloorCommitSection {
 export interface SubstationCommitPayload {
   assets?: Collection;
   cables?: Collection;
-  rackModules?: Collection;
   fiberPaths?: Collection;
   records?: RecordsCollection;
   floor?: FloorCommitSection;
@@ -83,14 +76,6 @@ export interface SubstationCommitResult {
   updated?: { floor?: { id: string; updatedAt: string } } & Record<string, unknown>;
   [key: string]: unknown;
 }
-
-/** 분류에 쓰는 asset 의 최소 계약(saved/created 공통). */
-interface AssetLike {
-  id?: string;
-  parentAssetId?: string | null;
-  slotIndex?: number | null;
-}
-
 
 /** creates/updates/deletes 가 모두 비면 undefined — 2a 백엔드가 해당 컬렉션 OCC findMany 를 건너뛴다. */
 function omitIfEmpty(c: Collection): Collection | undefined {
@@ -137,26 +122,7 @@ function pickCommon(src: Record<string, unknown>, includeUndefined: boolean): Re
   return out;
 }
 
-/** sourcePresetId(전용 컬럼) → 백엔드 랙모듈 properties.sourcePresetId(#7) 매핑. */
-function sourcePresetToProps(v: unknown): { sourcePresetId: string } | null {
-  return v ? { sourcePresetId: v as string } : null;
-}
-
-/** Asset create → rackModules.create. 모듈 전용 키 + 공통 스칼라(한 곳). */
-function toRackModuleCreate(a: Asset & { id: string }): Record<string, unknown> {
-  const rec = a as unknown as Record<string, unknown>;
-  return {
-    tempId: a.id,
-    rackEquipmentId: a.parentAssetId,
-    categoryId: a.assetTypeId,
-    slotIndex: a.slotIndex,
-    slotSpan: a.slotSpan ?? 1,
-    ...(a.sourcePresetId != null ? { properties: sourcePresetToProps(a.sourcePresetId) } : {}),
-    ...pickCommon(rec, false),
-  };
-}
-
-/** Asset create → assets.create (placement 포함). 공통 스칼라 + 자산 전용 키. */
+/** Asset create → assets.create (placement·슬롯 포함). 공통 스칼라 + 자산 전용 키. */
 function toAssetCreate(a: Asset & { id: string }): Record<string, unknown> {
   const rec = a as unknown as Record<string, unknown>;
   const out: Record<string, unknown> = {
@@ -166,9 +132,10 @@ function toAssetCreate(a: Asset & { id: string }): Record<string, unknown> {
     substationId: a.substationId,
     ...pickCommon(rec, false),
   };
-  // 자산 전용(모듈엔 없음): 참조/배치 키. 공통 스칼라는 위 pickCommon 한 곳에서.
+  // 참조/배치/슬롯 키(공통 스칼라는 위 pickCommon 한 곳에서). 모든 하위 자산이 단일 경로로
+  // 가므로 슬롯(slotIndex/slotSpan)도 여기서 함께 — slotIndex 있으면 백엔드가 랙 모듈로 검증.
   const assetOnly: (keyof Asset)[] = [
-    'parentAssetId', 'roomText', 'sourcePresetId',
+    'parentAssetId', 'roomText', 'sourcePresetId', 'slotIndex', 'slotSpan',
     'floorId', 'positionX', 'positionY', 'width2d', 'height2d', 'rotation', 'totalU',
   ];
   for (const k of assetOnly) {
@@ -176,21 +143,6 @@ function toAssetCreate(a: Asset & { id: string }): Record<string, unknown> {
     if (v !== undefined) out[k as string] = v;
   }
   return out;
-}
-
-/**
- * Asset patch → rackModules.patch. 모듈 전용 키만 *이름을 바꿔* 매핑하고, 나머지 자산
- * 스칼라는 *그대로 통과*시킨다(allowlist 없음 → 새 필드를 추가해도 드롭 불가). 모듈과
- * 무관한 키(placement 등)는 백엔드 Zod 가 strip 하므로 과잉 전송은 무해.
- * (자산 patch 는 raw 로 전송 → 두 경로 모두 "필드 나열"이 사라져 드롭 버그가 구조적으로 불가능.)
- */
-function toRackModulePatch(patch: Partial<Asset>): Record<string, unknown> {
-  const p = { ...(patch as Record<string, unknown>) };
-  const out: Record<string, unknown> = {};
-  if ('parentAssetId' in p) { out.rackEquipmentId = p.parentAssetId; delete p.parentAssetId; }
-  if ('assetTypeId' in p) { out.categoryId = p.assetTypeId; delete p.assetTypeId; }
-  if ('sourcePresetId' in p) { out.properties = sourcePresetToProps(p.sourcePresetId); delete p.sourcePresetId; }
-  return { ...p, ...out };
 }
 
 /**
@@ -237,47 +189,30 @@ function buildRecordsCollection(
  * overlay 세트를 2a 커밋 페이로드로 변환한다.
  *
  * @param overlays  store 의 overlays(assets/cables/fiberPaths/records)
- * @param savedAssets  서버에서 로드한 saved asset 목록 — update/delete 분류용 lookup.
+ * @param _savedAssets  (미사용 — 종전 랙모듈 분류용. 통합 후 분류 불필요하나 시그니처 유지.)
  * @param savedRecords  saved 레코드 — records update/delete 의 recordType 라우팅용.
  * @param photoUrls  커밋 직전 업로드한 사진 imageUrl(레코드 tempId → URL).
  */
 export function buildSubstationCommitPayload(
   overlays: Overlays,
-  savedAssets: Asset[],
+  _savedAssets: Asset[],
   savedRecords: { id: string; recordType: string }[],
   photoUrls: Map<string, string>,
   floor?: FloorCommitSection,
 ): SubstationCommitPayload {
-  // assets 분리 ─────────────────────────────────────────────
-  const savedById = new Map<string, AssetLike>();
-  for (const a of savedAssets) savedById.set(a.id, a);
-
+  // assets — 모든 하위 자산(랙 모듈·피더·분기)을 단일 컬렉션으로. 종전 rackModules 분리는
+  // 폐지: 같은 Asset 인데 경로가 갈려 substationId·parentAssetId(tempId) 해소가 달라 저장
+  // 버그가 났다. 백엔드는 slotIndex 유무로 랙 슬롯 검증만 조건부 적용한다.
   const ad = buildDelta(overlays.assets);
-
-  const assetsCol: Collection = { creates: [], updates: [], deletes: [] };
-  const rackCol: Collection = { creates: [], updates: [], deletes: [] };
-
-  // creates — create item 자신의 필드로 분류.
-  for (const c of ad.creates) {
-    const a = c as Asset & { id: string };
-    if (isRackModule(a)) rackCol.creates.push(toRackModuleCreate(a));
-    else assetsCol.creates.push(toAssetCreate(a));
-  }
-
-  // updates — savedAssets lookup 으로 분류(patch 엔 id 만 보장됨).
-  for (const u of ad.updates) {
-    if (isRackModule(savedById.get(u.id))) {
-      rackCol.updates.push({ id: u.id, baseVersion: u.baseVersion, patch: toRackModulePatch(u.patch) });
-    } else {
-      assetsCol.updates.push({ id: u.id, baseVersion: u.baseVersion, patch: u.patch as Record<string, unknown> });
-    }
-  }
-
-  // deletes — savedAssets lookup 으로 분류. {id, baseVersion} 그대로.
-  for (const d of ad.deletes) {
-    if (isRackModule(savedById.get(d.id))) rackCol.deletes.push(d);
-    else assetsCol.deletes.push(d);
-  }
+  const assetsCol: Collection = {
+    creates: ad.creates.map((c) => toAssetCreate(c as Asset & { id: string })),
+    updates: ad.updates.map((u) => ({
+      id: u.id,
+      baseVersion: u.baseVersion,
+      patch: u.patch as Record<string, unknown>,
+    })),
+    deletes: ad.deletes,
+  };
 
   // cables — create 는 id→tempId + nested source/target 로 매핑(toCableCreate).
   // update/delete 는 {id, baseVersion, patch} 그대로(패치는 nested-agnostic).
@@ -293,7 +228,6 @@ export function buildSubstationCommitPayload(
 
   return {
     assets: omitIfEmpty(assetsCol),
-    rackModules: omitIfEmpty(rackCol),
     cables: omitIfEmpty(cables),
     fiberPaths: omitIfEmpty(fiberPaths),
     ...(records ? { records } : {}),

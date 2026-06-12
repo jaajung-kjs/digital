@@ -20,14 +20,14 @@ type AnyOverlay = Overlay<Asset, Partial<Asset>>;
 const ov = () => emptyOverlay<Asset, Partial<Asset>>();
 
 describe('buildSubstationCommitPayload', () => {
-  it('assets overlay 를 placement-level / rackModules 로 분리', () => {
+  it('모든 하위 자산(랙 모듈 포함)을 단일 assets 컬렉션으로 — rackModules 분리 폐지', () => {
     let assets: AnyOverlay = ov();
     // (a) placement-level OFD create
     assets = stageCreate(assets, 'tmpO', {
       id: 'tmpO', assetTypeId: 'tOFD', name: 'OFD', floorId: 'f1', positionX: 5, positionY: 6,
       parentAssetId: null, slotIndex: null,
     } as any);
-    // (b) rack-module child create (parent=r1 RACK, slotIndex set)
+    // (b) 랙 모듈 자식 create (parent=r1 RACK, slotIndex 있음)
     assets = stageCreate(assets, 'tmpM', {
       id: 'tmpM', assetTypeId: 'tMOD', name: '모듈', parentAssetId: 'r1', slotIndex: 3, slotSpan: 1,
     } as any);
@@ -37,32 +37,33 @@ describe('buildSubstationCommitPayload', () => {
     };
     const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any, [], new Map());
 
-    // placement-level OFD → payload.assets.creates ; rack module → payload.rackModules.creates
-    expect(payload.assets!.creates.map((c: any) => c.tempId)).toContain('tmpO');
-    expect(payload.assets!.creates.map((c: any) => c.tempId)).not.toContain('tmpM');
+    // 분리 컬렉션 폐지 — rackModules 없음. 둘 다 assets.creates 로.
+    expect(payload.rackModules).toBeUndefined();
+    const ids = payload.assets!.creates.map((c: any) => c.tempId);
+    expect(ids).toContain('tmpO');
+    expect(ids).toContain('tmpM');
 
-    const rm = payload.rackModules!.creates.find((c: any) => c.tempId === 'tmpM');
-    expect(rm).toBeTruthy();
-    expect(rm!.rackEquipmentId).toBe('r1'); // parentAssetId → rackEquipmentId
-    expect(rm!.categoryId).toBe('tMOD'); // assetTypeId → categoryId
-    expect(rm!.slotIndex).toBe(3);
-    expect(rm!.slotSpan).toBe(1);
+    // 랙 모듈은 Asset 필드 그대로(rackEquipmentId/categoryId 매핑 없음) + 슬롯 보존.
+    const rm = payload.assets!.creates.find((c: any) => c.tempId === 'tmpM') as any;
+    expect(rm.parentAssetId).toBe('r1');
+    expect(rm.assetTypeId).toBe('tMOD');
+    expect(rm.slotIndex).toBe(3);
+    expect(rm.slotSpan).toBe(1);
+    expect(rm.rackEquipmentId).toBeUndefined();
+    expect(rm.categoryId).toBeUndefined();
 
-    // placement create keeps placement fields verbatim
-    const ofd = payload.assets!.creates.find((c: any) => c.tempId === 'tmpO');
-    expect(ofd!.floorId).toBe('f1');
-    expect(ofd!.positionX).toBe(5);
+    // placement create 는 placement 필드 그대로.
+    const ofd = payload.assets!.creates.find((c: any) => c.tempId === 'tmpO') as any;
+    expect(ofd.floorId).toBe('f1');
+    expect(ofd.positionX).toBe(5);
   });
 
-  it('update/delete 를 savedAssets lookup 으로 분류', () => {
+  it('update/delete — 모든 하위 자산이 assets 컬렉션으로(분류 없음), patch raw 통과', () => {
     let assets: AnyOverlay = ov();
-    // baseVersions needed for OCC token on update/delete
     assets.baseVersions = { m1: 'v-m1', a1: 'v-a1', m2: 'v-m2', a2: 'v-a2' };
-    // update saved rack-module m1 → rackModules.updates with mapped patch keys
+    // 랙 모듈 m1 update → assets.updates, 키 매핑 없이 raw(sourcePresetId 그대로, properties 아님)
     assets = stageUpdate(assets, 'm1', { name: '모듈수정', sourcePresetId: 'p1', slotSpan: 2 } as any);
-    // update saved placement-level a1 → assets.updates verbatim
     assets = stageUpdate(assets, 'a1', { positionX: 99 } as any);
-    // delete saved rack-module m2 + saved placement a2
     assets = stageDelete(assets, 'm2');
     assets = stageDelete(assets, 'a2');
 
@@ -71,25 +72,26 @@ describe('buildSubstationCommitPayload', () => {
     };
     const payload = buildSubstationCommitPayload(overlays as any, savedAssets as any, [], new Map());
 
-    // m1 update → rackModules, with renamed keys
-    const rmUpd = payload.rackModules!.updates.find((u: any) => u.id === 'm1');
-    expect(rmUpd).toBeTruthy();
-    expect(rmUpd!.baseVersion).toBe('v-m1');
-    expect((rmUpd!.patch as any).name).toBe('모듈수정');
-    expect((rmUpd!.patch as any).properties).toEqual({ sourcePresetId: 'p1' }); // sourcePresetId → properties.sourcePresetId
-    expect((rmUpd!.patch as any).slotSpan).toBe(2);
+    expect(payload.rackModules).toBeUndefined();
 
-    // a1 update → assets verbatim
-    const aUpd = payload.assets!.updates.find((u: any) => u.id === 'a1');
-    expect(aUpd).toBeTruthy();
-    expect((aUpd!.patch as any).positionX).toBe(99);
+    const mUpd = payload.assets!.updates.find((u: any) => u.id === 'm1') as any;
+    expect(mUpd).toBeTruthy();
+    expect(mUpd.baseVersion).toBe('v-m1');
+    expect(mUpd.patch.name).toBe('모듈수정');
+    expect(mUpd.patch.sourcePresetId).toBe('p1'); // raw — properties 매핑 없음
+    expect(mUpd.patch.properties).toBeUndefined();
+    expect(mUpd.patch.slotSpan).toBe(2);
 
-    // deletes routed correctly
-    expect(payload.rackModules!.deletes.map((d: any) => d.id)).toContain('m2');
-    expect(payload.assets!.deletes.map((d: any) => d.id)).toContain('a2');
+    const aUpd = payload.assets!.updates.find((u: any) => u.id === 'a1') as any;
+    expect(aUpd.patch.positionX).toBe(99);
+
+    // deletes 모두 assets.deletes
+    const delIds = payload.assets!.deletes.map((d: any) => d.id);
+    expect(delIds).toContain('m2');
+    expect(delIds).toContain('a2');
   });
 
-  it('status 패치: 비모듈·랙 모듈 모두 status 가 payload 에 포함(드롭 안 됨)', () => {
+  it('status 패치: 비모듈·랙 모듈 모두 assets.updates 에 status 포함(드롭 안 됨)', () => {
     let assets: AnyOverlay = ov();
     assets.baseVersions = { a1: 'v-a1', m1: 'v-m1' };
     assets = stageUpdate(assets, 'a1', { status: 'OFF' } as any); // 비모듈
@@ -99,7 +101,7 @@ describe('buildSubstationCommitPayload', () => {
       savedAssets as any, [], new Map(),
     );
     expect((payload.assets!.updates.find((u: any) => u.id === 'a1')!.patch as any).status).toBe('OFF');
-    expect((payload.rackModules!.updates.find((u: any) => u.id === 'm1')!.patch as any).status).toBe('OFF');
+    expect((payload.assets!.updates.find((u: any) => u.id === 'm1')!.patch as any).status).toBe('OFF');
   });
 
   it('cable create → tempId + 단일 sourceAssetId/targetAssetId, nested/flat 없음', () => {
