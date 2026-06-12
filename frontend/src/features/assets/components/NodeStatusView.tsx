@@ -96,7 +96,7 @@ function AssetRow({
       <td className={`px-2 text-[13px] align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
       <td className="px-2 pr-4 text-[13px] align-middle whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusOn ? 'bg-danger' : 'bg-content-faint'}`} />
+          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusOn ? 'bg-danger' : 'bg-content-faint'}`} />
           <span className={statusOn ? 'text-content' : 'text-content-muted'}>{statusOn ? 'ON' : 'OFF'}</span>
         </span>
       </td>
