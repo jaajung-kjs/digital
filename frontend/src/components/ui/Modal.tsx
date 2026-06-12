@@ -29,12 +29,12 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]"
       onClick={onClose}
     >
       <Card
         padding={false}
-        className={cn('mx-4 w-full max-w-md', className)}
+        className={cn('mx-4 w-full max-w-md hover:!bg-surface active:!bg-surface cursor-default', className)}
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
