@@ -33,6 +33,12 @@ export async function getWorkingCopy(substationId: string) {
     }),
   ]);
 
+  // 광코어 메타(희소) — 이 변전소 OFD 가 속한 광경로의 코어만.
+  const fiberPathIds = fiberPaths.map((p) => p.id);
+  const fiberCores = fiberPathIds.length
+    ? await prisma.fiberCore.findMany({ where: { fiberPathId: { in: fiberPathIds } } })
+    : [];
+
   // 자산 하위레코드(점검/고장이력/사진 + 미래 무엇이든)는 자산의 *속성*이다 — 형제 컬렉션이
   // 아니라 각 자산 안에 records[] 로 중첩한다. 어떤 테이블이 자산 기록인지·그 컬럼이 무엇인지는
   // DB 스키마(assetRecordSchema)에서 자동 도출 — 여기엔 종류별 하드코딩이 없다(완전 제네릭).
@@ -65,5 +71,5 @@ export async function getWorkingCopy(substationId: string) {
   }
   const assetsWithRecords = assets.map((a) => ({ ...a, records: recordsByAsset.get(a.id) ?? [] }));
 
-  return { assets: assetsWithRecords, cables, fiberPaths };
+  return { assets: assetsWithRecords, cables, fiberPaths, fiberCores };
 }
