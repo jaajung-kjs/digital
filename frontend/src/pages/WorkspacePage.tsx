@@ -4,6 +4,7 @@ import { FloorPlanEditor } from '../features/editor/components/FloorPlanEditor';
 import { NodeStatusView } from '../features/assets/components/NodeStatusView';
 import { SubstationStatusView } from '../features/assets/components/SubstationStatusView';
 import { FiberRegisterView } from '../features/fiber/components/FiberRegisterView';
+import { PowerView } from '../features/power/components/PowerView';
 import { WorkspaceNavContext, type WorkspaceNav } from '../features/workspace/WorkspaceNavContext';
 import { useSelectionStore } from '../features/workspace/selectionStore';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
@@ -21,6 +22,7 @@ const VIEWS = [
   { key: 'status', label: '현황' },
   { key: 'plan', label: '평면도' },
   { key: 'fiber', label: '선번장' },
+  { key: 'power', label: '계통' },
 ] as const;
 type ViewKey = (typeof VIEWS)[number]['key'];
 
@@ -60,6 +62,7 @@ export function WorkspacePage() {
   const view: ViewKey =
     rawView === 'plan' ? 'plan'
     : rawView === 'fiber' ? 'fiber'
+    : rawView === 'power' ? 'power'
     : 'status';
 
   // 공유 선택(본부·사업소 평면도/연결 컨텍스트의 근원). 변전소도 에디터 선택 브리지에 사용.
@@ -247,6 +250,15 @@ export function WorkspacePage() {
               <div className="absolute inset-0 bg-surface overflow-hidden">
                 {contextSubstationId ? (
                   <FiberRegisterView substationId={contextSubstationId} />
+                ) : (
+                  selectPrompt
+                )}
+              </div>
+            ) : null}
+            {view === 'power' ? (
+              <div className="absolute inset-0 bg-surface overflow-hidden">
+                {contextSubstationId ? (
+                  <PowerView substationId={contextSubstationId} />
                 ) : (
                   selectPrompt
                 )}
