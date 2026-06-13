@@ -28,6 +28,11 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
 
   const src = seed.sourceAssetId ?? null;
   const tgt = seed.targetAssetId ?? null;
+  // 전제조건: 시드는 설비에 닿는 케이블(OUT/일반)이어야 한다 — start 가 passive(설비) 노드면
+  // cableTrace 의 conduit 채널짝이 끝까지 이어진다. 시드가 OPGW(양끝 conduit 슬롯)면 start 가
+  // conduit 로 떨어져 채널 미정 → 부분 경로(그 슬롯에 직결된 것까지)만 나온다. 단, 현재 UI 는
+  // OPGW 를 클릭-트레이스 시드로 노출하지 않는다(선번장 행=OUT 코어 케이블, OPGW 는 미배치 슬롯
+  // 간 트렁크라 도면 미표시). 트렁크 트레이스는 단일 코어 개념이 없어 의미가 모호하므로 그대로 둔다.
   const start = kindOf(src) === null ? src : kindOf(tgt) === null ? tgt : src;
   if (!start) return null;
   const cableType = seed.cableType ?? 'FIBER';
@@ -38,6 +43,8 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   // 코어번호 K: 시드 number, 없으면 트레이스 내 OUT 케이블의 number
   const K = seed.number ?? tracedCables.find((c) => c.sourceRole === 'OUT' || c.targetRole === 'OUT')?.number ?? null;
 
+  // collapse: conduit(슬롯)→부모 OFD. parentById 가 null/미설정인 고아 슬롯이면 슬롯 자신을 유지
+  // (현재 데이터 불변식상 모든 슬롯은 OFD 부모를 가짐 — 고아는 미발생). s===t 엣지는 아래서 스킵.
   const collapse = (id: string | null | undefined): string | null => {
     if (!id) return null;
     if (kindOf(id) === 'conduit') return graph.parentById.get(id) ?? id;
@@ -72,6 +79,9 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
     if (!s || !t || s === t) continue;
     if (isOpgw(c)) {
       edges.push({ id: c.id, sourceAssetId: s, targetAssetId: t, type: 'fiberPath', fiberPathId: c.id, fiberPortNumber: K ?? undefined });
+      // 시드가 OUT 이면 그 슬롯 끝점을 공유하는 OPGW 를 seed 광edge 로. 슬롯당 OPGW 는 1개라는
+      // 불변식(P4 마이그레이션)상 유일 매칭. (워킹/예비 쌍처럼 슬롯당 OPGW 2개가 생기면 순회 첫
+      // 매칭이 선택됨 — 현재 모델엔 없음.)
       if (!seedFiberEdgeId && (seedEnds.has(c.sourceAssetId ?? '') || seedEnds.has(c.targetAssetId ?? ''))) seedFiberEdgeId = c.id;
     } else {
       edges.push({ id: c.id, sourceAssetId: s, targetAssetId: t, type: 'cable' });
