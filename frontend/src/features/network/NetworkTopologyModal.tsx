@@ -1,7 +1,7 @@
 /**
  * Network Topology Modal — cable trace 결과를 React Flow 로 시각화.
  *
- * 입력 = usePathHighlightStore.traceResult (cableTracer 결과 — 하이라이트와 공유). 변전소 단위로 노드 그룹화 후,
+ * 입력 = usePathHighlightStore.projection (projectTrace 결과 — 하이라이트와 공유). 변전소 단위로 노드 그룹화 후,
  * BC-tree (vertex 공유) 또는 SPQR (edge 공유) layout 으로 좌표 계산. fiberPath edge 만 그림.
  *
  * 시드 cable 의 fiberPathId 강조 (빨강), 시드가 속한 ring (파랑), 그 ring 을 포함하는 composite
@@ -200,11 +200,12 @@ type GraphEdgeMeta = { id: string; source: string; target: string; tier: Tier; l
 
 export function NetworkTopologyModal() {
   const modalOpen = usePathHighlightStore((s) => s.modalOpen);
-  const traceResult = usePathHighlightStore((s) => s.traceResult);
-  const highlightedFpId = usePathHighlightStore((s) => s.highlightedFiberPathId);
+  const projection = usePathHighlightStore((s) => s.projection);
   const isLoading = usePathHighlightStore((s) => s.isLoading);
   const error = usePathHighlightStore((s) => s.error);
   const close = usePathHighlightStore((s) => s.closeTopology);
+
+  const highlightedFpId = projection?.seedFiberEdgeId ?? null;
 
   // ── 테스트 상태 (모달 한정) ───────────────────────────────────────────────
   const [cutEdgeIds, setCutEdgeIds] = useState<Set<string>>(new Set<string>());
@@ -225,10 +226,10 @@ export function NetworkTopologyModal() {
     setAddAnchor(null);
   }, []);
 
-  // traceResult 가 바뀌면(닫기→null, 재열기→새 객체) 테스트 상태 초기화.
+  // projection 이 바뀌면(닫기→null, 재열기→새 객체) 테스트 상태 초기화.
   useEffect(() => {
     resetTestState();
-  }, [traceResult, resetTestState]);
+  }, [projection, resetTestState]);
 
   // ESC — addMode 중이면 addMode 취소, 아니면 경로찾기 선택 해제. (도면 ESC=해제와 통일)
   useEffect(() => {
@@ -247,22 +248,22 @@ export function NetworkTopologyModal() {
     return () => window.removeEventListener('keydown', onKey);
   }, [addMode, pathStart, pathEnd]);
 
-  // Layout 은 traceResult 만으로 결정 — highlightedFpId/테스트 상태 변경 시 재계산 안 함.
+  // Layout 은 projection 만으로 결정 — highlightedFpId/테스트 상태 변경 시 재계산 안 함.
   const layoutData = useMemo(() => {
-    if (!traceResult) return null;
-    const groups = groupBySubstation(traceResult.nodes);
+    if (!projection) return null;
+    const groups = groupBySubstation(projection.nodes);
     const ofdToGroup = new Map<string, string>();
     for (const g of groups) if (g.ofdNode) ofdToGroup.set(g.ofdNode.nodeId, g.id);
 
-    const hasSPQR = traceResult.rings.some((r) => r.level === 1);
-    const layoutInput = { nodeIds: groups.map((g) => g.id), ofdToGroup, edges: traceResult.edges, rings: traceResult.rings };
+    const hasSPQR = projection.rings.some((r) => r.level === 1);
+    const layoutInput = { nodeIds: groups.map((g) => g.id), ofdToGroup, edges: projection.edges, rings: projection.rings };
     const positions = hasSPQR ? computeLayoutSPQR(layoutInput) : computeLayoutBCTree(layoutInput);
 
     // 분기점 = OFD 가 2개 이상의 level-0 ring 에 포함. ring 통계도 동일 loop 에서.
     const ringCount = new Map<string, number>();
     let fundamental = 0;
     let composite = 0;
-    for (const r of traceResult.rings) {
+    for (const r of projection.rings) {
       if (r.level === 0) {
         fundamental++;
         for (const nid of r.nodeIds) ringCount.set(nid, (ringCount.get(nid) ?? 0) + 1);
@@ -271,14 +272,14 @@ export function NetworkTopologyModal() {
       }
     }
     return { groups, ofdToGroup, positions, ringCount, fundamental, composite };
-  }, [traceResult]);
+  }, [projection]);
 
   // base 그래프 — 노드 + fiberPath 엣지(위상·tier). 6가지 테스트 상태와 무관.
   const baseGraph = useMemo<{ nodes: Node<SubstationNodeData>[]; graphEdges: GraphEdgeMeta[] }>(() => {
-    if (!traceResult || !layoutData) return { nodes: [], graphEdges: [] };
+    if (!projection || !layoutData) return { nodes: [], graphEdges: [] };
     const { groups, ofdToGroup, positions, ringCount } = layoutData;
     const { seedRingNodes, seedRingEdges, superRingNodes, superRingEdges } = computeRingHighlights(
-      traceResult.rings,
+      projection.rings,
       highlightedFpId,
     );
 
@@ -305,7 +306,7 @@ export function NetworkTopologyModal() {
 
     // FiberPath edge 만 그림 — cable edge 는 변전소 안 표현이라 그래프에서 생략.
     const graphEdges: GraphEdgeMeta[] = [];
-    for (const e of traceResult.edges) {
+    for (const e of projection.edges) {
       if (e.type !== 'fiberPath') continue;
       const source = ofdToGroup.get(e.sourceAssetId);
       const target = ofdToGroup.get(e.targetAssetId);
@@ -322,7 +323,7 @@ export function NetworkTopologyModal() {
       graphEdges.push({ id: e.id, source, target, tier, label });
     }
     return { nodes, graphEdges };
-  }, [traceResult, layoutData, highlightedFpId]);
+  }, [projection, layoutData, highlightedFpId]);
 
   // 경로찾기 그래프 = (base + 추가) − 끊김.
   const routableEdges = useMemo<GraphEdge[]>(() => {
@@ -508,9 +509,9 @@ export function NetworkTopologyModal() {
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-line">
           <div>
             <h3 className="text-sm font-semibold text-content">네트워크 토폴로지</h3>
-            {traceResult && layoutData && (
+            {projection && layoutData && (
               <p className="text-[11px] text-content-muted mt-0.5">
-                {traceResult.nodes.length}개 노드 · {layoutData.fundamental}개 링 · 상위링 {layoutData.composite}개
+                {projection.nodes.length}개 노드 · {layoutData.fundamental}개 링 · 상위링 {layoutData.composite}개
               </p>
             )}
           </div>

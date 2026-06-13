@@ -1,28 +1,26 @@
 /**
  * Cable trace 단일 store — 시드 cable 1회 추적 결과로 *세 가지* 를 동시에 먹인다:
- *   1. 캔버스 하이라이트 (highlightedNodeIds/PlacedIds/EdgeIds/segments)
- *   2. PathTraceDetail 경로 상세 텍스트 (traceResult/segments)
- *   3. 네트워크 토폴로지 모달 (traceResult/highlightedFiberPathId, modalOpen 으로 토글)
+ *   1. 캔버스 하이라이트 (highlightedNodeIds/PlacedIds/EdgeIds)
+ *   2. PathTraceDetail 경로 상세 텍스트 (projection)
+ *   3. 네트워크 토폴로지 모달 (projection, modalOpen 으로 토글)
  *
- * 데이터는 GLOBAL(전 변전소) cable + fiber-path 위에 *이 변전소* staged 변경을
+ * 데이터는 GLOBAL(전 변전소) slim-assets + cables 위에 *이 변전소* staged 변경을
  * 오버레이한 superset. 로컬 하이라이트는 그 superset 의 subset 이므로 한 번의 trace 로
  * 하이라이트·토폴로지 양쪽을 충족한다 — 더 이상 scope 별로 재추적하지 않는다.
- * "상세" 버튼은 이미 계산된 traceResult 를 그대로 모달에 띄운다(openTopology — 재추적 X).
+ * "상세" 버튼은 이미 계산된 projection 을 그대로 모달에 띄운다(openTopology — 재추적 X).
  */
 
 import { create } from 'zustand';
-import { isRackModuleAsset } from '../../workingCopy/assetClassify';
-import { traceCable } from '../../../utils/cableTracer';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
-import { fetchAllFiberPathsCached } from '../../fiber/hooks/useFiberPaths';
 import { queryClient } from '../../../lib/queryClient';
 import { api } from '../../../utils/api';
-import type { TraceResult, PathSegment } from '../types';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { Asset } from '../../../types/asset';
+import { projectTrace, type TraceProjection } from '../../trace/traceProjection';
+import { buildTraceGraph, fetchAllSlimAssetsCached, type SlimAssetDTO, type TraceCableInput } from '../../trace/traceGraph';
 
 /**
  * 글로벌(전 변전소) cable 위에 *이 변전소* 의 staged 변경을 오버레이.
@@ -55,7 +53,7 @@ export function overlayStagedOntoGlobal(
 function idleState() {
   return {
     active: false,
-    traceResult: null as TraceResult | null,
+    projection: null as TraceProjection | null,
     tracingCableId: null as string | null,
     isLoading: false,
     error: null as string | null,
@@ -63,10 +61,8 @@ function idleState() {
     /** module id 가 부모 랙 id 로 펼쳐진 set — 캔버스는 모듈을 따로 안 그림. */
     highlightedPlacedIds: new Set<string>(),
     highlightedEdgeIds: new Set<string>(),
-    segments: [] as PathSegment[],
     // 토폴로지 모달 상태 — 같은 trace 결과를 공유.
     modalOpen: false,
-    highlightedFiberPathId: null as string | null,
   };
 }
 
@@ -87,18 +83,15 @@ function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]): Set<
 
 interface PathHighlightState {
   active: boolean;
-  traceResult: TraceResult | null;
+  projection: TraceProjection | null;
   tracingCableId: string | null;
   isLoading: boolean;
   error: string | null;
   highlightedNodeIds: Set<string>;
   highlightedPlacedIds: Set<string>;
   highlightedEdgeIds: Set<string>;
-  segments: PathSegment[];
-  /** 토폴로지 모달 표시 여부 — traceResult 를 공유, 별도 추적 없음. */
+  /** 토폴로지 모달 표시 여부 — projection 을 공유, 별도 추적 없음. */
   modalOpen: boolean;
-  /** 시드 cable 의 fiberPathId — 모달이 그 edge/ring 을 강조. */
-  highlightedFiberPathId: string | null;
 
   startTrace: (cableId: string) => void;
   /**
@@ -106,7 +99,7 @@ interface PathHighlightState {
    * 주어진 circuitId 들에 물린 케이블 + 반대편 endpoint 를 1-hop 하이라이트.
    */
   startCircuitTrace: (circuitIds: string[]) => void;
-  /** 이미 계산된 traceResult 로 토폴로지 모달 열기 — 재추적 없음. */
+  /** 이미 계산된 projection 으로 토폴로지 모달 열기 — 재추적 없음. */
   openTopology: () => void;
   /** 토폴로지 모달 닫기 — trace/하이라이트는 유지(닫기만). */
   closeTopology: () => void;
@@ -118,72 +111,33 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
 
   startTrace: async (cableId) => {
     set({ tracingCableId: cableId, isLoading: true, error: null });
-
     try {
-      // GLOBAL(전 변전소) backend 데이터 위에 이 변전소 staged 변경을 오버레이한 superset
-      // 에서 단일 추적. 로컬 하이라이트는 그 subset, 토폴로지는 전체 — 한 trace 로 양쪽 충족.
-      //  - fiber paths: GET /fiber-paths — 양쪽 포트(ports[].sideX) + ofdA/B 가
-      //    cross-substation 으로 채워진 FiberPathDetail[]. 이게 있어야 tracer 가
-      //    OFD↔OFD 를 다른 변전소까지 hop + 분기 이름까지 채운다.
-      //  - cables: GET /cables — 전 변전소 cable. 원격 OFD 의 cable 도 포함되어야
-      //    tracer 가 그쪽으로 traverse 가능.
-      const globalFiberPaths = await fetchAllFiberPathsCached(queryClient);
-      const globalCables = (
-        await queryClient.fetchQuery({
-          queryKey: ['cables'],
-          staleTime: 30_000,
-          queryFn: async () =>
-            (await api.get<{ data: CableDetailDTO[] }>('/cables')).data.data,
-        })
-      ).map(cableDtoToLocal);
-
-      // 이 변전소의 staged cable 변경을 글로벌 위에 오버레이 — 방금 그린 로컬 cable 도
-      // 추적/토폴로지에 보이게. effectiveCables() = 이 변전소의 saved+staged.
+      const slimAssets = await fetchAllSlimAssetsCached(queryClient);
+      const globalCables = await queryClient.fetchQuery({
+        queryKey: ['cables'], staleTime: 30_000,
+        queryFn: async () => (await api.get<{ data: TraceCableInput[] }>('/cables')).data.data,
+      });
       const wc = useSubstationWorkingCopy.getState();
-      const stagedCables: LocalCable[] = wc
-        .effectiveCables()
-        .map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
-      const mergedCables = overlayStagedOntoGlobal(
+      const graph = buildTraceGraph({
+        slimAssets: slimAssets as SlimAssetDTO[],
         globalCables,
-        stagedCables,
-        wc.overlays.cables.deletes,
-      );
-
-      // 설비/랙모듈 — 이 변전소 effective assets(로컬 이름). 원격 OFD/모듈 이름은
-      // globalFiberPaths 의 ofdA/B + ports[].sideX 로 tracer 가 채움.
-      const effAssets = wc.effectiveAssets();
-      const equipment: Asset[] = effAssets.filter((a) => !isRackModuleAsset(a));
-      const rackModules: Asset[] = effAssets.filter((a) => isRackModuleAsset(a));
-
-      const seedCable = mergedCables.find((c) => c.id === cableId);
-      if (!seedCable) {
-        set({
-          isLoading: false,
-          tracingCableId: null,
-          error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.',
-        });
+        stagedAssets: wc.effectiveAssets() as never[],
+        stagedCables: wc.effectiveCables() as unknown as TraceCableInput[],
+        deletes: [...wc.overlays.cables.deletes, ...wc.overlays.assets.deletes],
+      });
+      const projection = projectTrace(cableId, graph);
+      if (!projection) {
+        set({ isLoading: false, tracingCableId: null, error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.' });
         return;
       }
-
-      const result = traceCable({
-        cableId,
-        cables: mergedCables,
-        equipment,
-        rackModules,
-        assets: effAssets,
-        fiberPaths: globalFiberPaths,
-      });
-
-      const ids = new Set(result.nodes.map((n) => n.nodeId));
+      const ids = new Set(projection.nodeIds);
       set({
         active: true,
-        traceResult: result,
-        highlightedFiberPathId: seedCable.fiberPathId ?? null,
+        projection,
         isLoading: false,
         highlightedNodeIds: ids,
-        highlightedPlacedIds: expandToPlacedIds(ids, effAssets),
-        highlightedEdgeIds: new Set(result.edges.map((e) => e.id)),
-        segments: result.segments,
+        highlightedPlacedIds: expandToPlacedIds(ids, wc.effectiveAssets()),
+        highlightedEdgeIds: new Set(projection.cableIds),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : '경로 추적에 실패했습니다.';
@@ -214,16 +168,14 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
     }
     set({
       active: true,
-      traceResult: null,
+      projection: null,
       tracingCableId: null,
       isLoading: false,
       error: null,
       highlightedNodeIds: nodeIds,
       highlightedPlacedIds: expandToPlacedIds(nodeIds, effAssets),
       highlightedEdgeIds: edgeIds,
-      segments: [],
       modalOpen: false,
-      highlightedFiberPathId: null,
     });
   },
 

@@ -32,6 +32,10 @@ export interface TraceGraph {
   nameById: Map<string, string>;
   /** 자산 id → 그 자산이 속한 변전소 이름(대국 섹션 헤더용). */
   subNameById: Map<string, string>;
+  /** 자산 id → parentAssetId(슬롯→OFD 접기용). */
+  parentById: Map<string, string | null>;
+  /** 자산 id → assetType code(OFD 판별 'OFD'). */
+  codeById: Map<string, string | null>;
 }
 
 const ASSET_KEYS = { all: ['assets-slim'] as const };
@@ -63,7 +67,7 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
 export function buildTraceGraph(input: {
   slimAssets: SlimAssetDTO[];
   globalCables: TraceCableInput[];
-  stagedAssets: { id: string; assetType?: { connectionKind?: string | null } | null; name?: string }[];
+  stagedAssets: { id: string; parentAssetId?: string | null; assetType?: { connectionKind?: string | null; code?: string | null } | null; name?: string }[];
   stagedCables: TraceCableInput[];
   deletes: string[];
 }): TraceGraph {
@@ -83,6 +87,8 @@ export function buildTraceGraph(input: {
   const stagedAssetById = new Map(input.stagedAssets.map((a) => [a.id, a]));
   const nameById = new Map<string, string>();
   const subNameById = new Map<string, string>();
+  const parentById = new Map<string, string | null>();
+  const codeById = new Map<string, string | null>();
   const assetById = new Map<string, TraceAsset>();
   for (const a of input.slimAssets) {
     if (deleted.has(a.id)) continue;
@@ -95,6 +101,8 @@ export function buildTraceGraph(input: {
     });
     nameById.set(a.id, (staged?.name ?? a.name));
     if (a.substationName) subNameById.set(a.id, a.substationName);
+    parentById.set(a.id, a.parentAssetId ?? null);
+    codeById.set(a.id, a.code ?? null);
   }
   // 주의: staged-create 자산은 substationName 을 안 들고 온다(effectiveAssets 는 substationId 만).
   // → subNameById 미설정. P3a 는 커밋된 OFD/슬롯(global slim 피드에 substationName 있음)만 다루므로 무방.
@@ -103,9 +111,12 @@ export function buildTraceGraph(input: {
     if (assetById.has(a.id) || deleted.has(a.id)) continue;
     assetById.set(a.id, { id: a.id, connectionKind: (a.assetType?.connectionKind ?? null) as TraceAsset['connectionKind'] });
     if (a.name) nameById.set(a.id, a.name);
+    const sa = a as { parentAssetId?: string | null; assetType?: { code?: string | null } | null };
+    if (!parentById.has(a.id)) parentById.set(a.id, sa.parentAssetId ?? null);
+    if (!codeById.has(a.id)) codeById.set(a.id, sa.assetType?.code ?? null);
   }
 
-  return { assets: [...assetById.values()], cables: mergedCables.map(toTraceCable), nameById, subNameById };
+  return { assets: [...assetById.values()], cables: mergedCables.map(toTraceCable), nameById, subNameById, parentById, codeById };
 }
 
 /**
