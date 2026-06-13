@@ -27,6 +27,9 @@ describe('buildTraceGraph + projections', () => {
     expect(remote).not.toContain('eqA');
     expect(remote).not.toContain('slotA');
     expect(remoteSlotSubstation('slotA', g)).toBe('홍천S/S');
+    expect(g.parentById.get('slotA')).toBe('ofdW');
+    expect(g.codeById.get('slotA')).toBe('OFD-SLOT');
+    expect(g.parentById.get('eqA')).toBe(null);
   });
 
   it('이 변전소 staged cable 이 global 위에 오버레이된다 (deletes 제거 + 임시 id 추가)', () => {
