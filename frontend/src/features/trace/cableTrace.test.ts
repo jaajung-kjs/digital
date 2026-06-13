@@ -90,4 +90,22 @@ describe('cableTrace — 엣지케이스', () => {
     const r = cableTrace('L', 'DC', assets, cables);
     expect(new Set(r.nodeIds)).toEqual(new Set(['L', 'F', 'C', 'AC']));
   });
+
+  it('conduit 노드에서 시작하면 대국 출력은 도달 안 함(ch 미정 — 진입점은 설비여야 함, 동작 핀)', () => {
+    const assets = [
+      { id: 'S1', connectionKind: 'conduit' as const },
+      { id: 'S2', connectionKind: 'conduit' as const },
+      { id: 'eqA', connectionKind: null },
+      { id: 'eqB', connectionKind: null },
+    ];
+    const cables = [
+      { id: 'o1', cableType: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'eqA', sourceRole: 'OUT' as const, targetRole: null, number: 5 },
+      { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'S2', sourceRole: 'IN' as const, targetRole: 'IN' as const },
+      { id: 'o2', cableType: 'FIBER', sourceAssetId: 'S2', targetAssetId: 'eqB', sourceRole: 'OUT' as const, targetRole: null, number: 5 },
+    ];
+    const r = cableTrace('S1', 'FIBER', assets, cables);
+    expect(r.nodeIds).toContain('eqA');  // 시작 슬롯의 로컬 출력은 도달
+    expect(r.nodeIds).toContain('S2');   // OPGW 건너 대국 슬롯까지는 감
+    expect(r.nodeIds).not.toContain('eqB'); // 대국 출력은 채널 미정이라 도달 안 함(전제: 설비에서 시작)
+  });
 });
