@@ -5,6 +5,9 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
+// 전 변전소 자산 최소 목록(전역 cableTrace 피드) — '/:id' 보다 먼저.
+router.get('/', authenticate, assetController.listAll);
+
 // 자산 연결 조회 (Phase-B) — `/:id` 보다 먼저 등록해 더 구체적인 경로가 매칭되게 한다.
 router.get('/:assetId/connections', authenticate, cableController.getByAsset);
 
