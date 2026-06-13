@@ -246,10 +246,11 @@ model BomMaterial {
 // OFD endpoint 는 fiberPathId + fiberPortNumber 필수 (service validation)
 
 model Cable {
-  id            String @id @default(uuid())
+  id            String  @id @default(uuid())
   // 통합 노드 모델(단계4c) — endpoint = 단일 Asset 노드 (필수).
-  sourceAssetId String @map("source_asset_id")
-  targetAssetId String @map("target_asset_id")
+  sourceAssetId String  @map("source_asset_id")
+  targetAssetId String  @map("target_asset_id")
+  substationId  String? @map("substation_id") // 선택적 변전소 귀속(OPGW 등 변전소 범위 케이블)
 
   cableType  CableType @map("cable_type")
   categoryId String?   @map("category_id") // CableCategory FK
@@ -487,6 +488,7 @@ model Asset {
   totalU        Int?      @map("total_u")
   // 랙이 어떤 프리셋에서 생성됐는지 추적(과거 attributes JSON 에 있던 sourcePresetId 이전).
   sourcePresetId String?  @map("source_preset_id")
+  attributes     Json?    @map("attributes") // 자유형 메타(마이그레이션 마커 등)
   installDate   DateTime? @map("install_date") @db.Date
   warrantyUntil DateTime? @map("warranty_until") @db.Date
   replaceDue    DateTime? @map("replace_due") @db.Date
