@@ -99,6 +99,7 @@ function toCableCreate(c: Record<string, unknown>): Record<string, unknown> {
   const passthrough = [
     'label', 'length', 'color', 'description', 'fiberPathId', 'fiberPortNumber',
     'categoryId', 'specParams', 'pathPoints', 'pathLength', 'bufferLength', 'totalLength',
+    'sourceRole', 'targetRole',
   ];
   for (const k of passthrough) {
     if (c[k] !== undefined) out[k] = c[k];
