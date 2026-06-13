@@ -49,6 +49,9 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
     // connectionKind 'conduit' 는 이후 광-conduit 슬라이스용 예약값 — 아직 트레이서가 읽지 않는다.
     placementKind: 'OFD', connectionKind: 'conduit',
     fieldTemplate: [] },
+  { code: 'OFD-SLOT', name: '광슬롯', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 21,
+    connectionKind: 'conduit',
+    fieldTemplate: [] },
   { code: 'DIST', name: '분전반', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 30,
     placementKind: 'DIST',
     fieldTemplate: [] },
