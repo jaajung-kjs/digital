@@ -96,6 +96,9 @@ export function buildTraceGraph(input: {
     nameById.set(a.id, (staged?.name ?? a.name));
     if (a.substationName) subNameById.set(a.id, a.substationName);
   }
+  // 주의: staged-create 자산은 substationName 을 안 들고 온다(effectiveAssets 는 substationId 만).
+  // → subNameById 미설정. P3a 는 커밋된 OFD/슬롯(global slim 피드에 substationName 있음)만 다루므로 무방.
+  // staged 슬롯 생성(P6 자동생성)이 들어오면 그때 substationName 을 스레드한다.
   for (const a of input.stagedAssets) {
     if (assetById.has(a.id) || deleted.has(a.id)) continue;
     assetById.set(a.id, { id: a.id, connectionKind: (a.assetType?.connectionKind ?? null) as TraceAsset['connectionKind'] });
@@ -112,7 +115,9 @@ export function buildTraceGraph(input: {
 export function traceRemoteEndpoints(startAssetId: string, graph: TraceGraph, cableType = 'FIBER'): string[] {
   const kindOf = new Map(graph.assets.map((a) => [a.id, a.connectionKind ?? null]));
   const r = cableTrace(startAssetId, cableType, graph.assets, graph.cables);
-  return r.nodeIds.filter((id) => id !== startAssetId && (kindOf.get(id) ?? null) === null);
+  // kindOf.has(id) 로 존재 여부를 확인 — 삭제된 자산은 graph.assets 에서 이미 빠졌으므로
+  // kindOf 에 없어야 정상. undefined → null 로 떨어지는 false positive 를 막는다.
+  return r.nodeIds.filter((id) => id !== startAssetId && kindOf.has(id) && (kindOf.get(id) ?? null) === null);
 }
 
 /**
@@ -148,7 +153,7 @@ export function useTraceGraph(): { graph: TraceGraph | null; isLoading: boolean 
   const savedCables = useSubstationWorkingCopy((s) => s.saved.cables);
   const overlayAssets = useSubstationWorkingCopy((s) => s.overlays.assets);
   const savedAssets = useSubstationWorkingCopy((s) => s.saved.assets);
-  void savedCables; void overlayAssets; void savedAssets; // 구독 트리거용(값은 getState 로 읽음)
+  void savedCables; void savedAssets; // 구독 트리거용(값은 getState 로 읽음)
 
   const isLoading = slimQ.isLoading || cableQ.isLoading;
   if (!slimQ.data || !cableQ.data) return { graph: null, isLoading };
@@ -159,7 +164,7 @@ export function useTraceGraph(): { graph: TraceGraph | null; isLoading: boolean 
     globalCables: cableQ.data,
     stagedAssets: wc.effectiveAssets() as never[],
     stagedCables: wc.effectiveCables() as unknown as TraceCableInput[],
-    deletes: overlayCables.deletes,
+    deletes: [...overlayCables.deletes, ...overlayAssets.deletes],
   });
   return { graph, isLoading };
 }

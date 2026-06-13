@@ -40,4 +40,10 @@ describe('buildTraceGraph + projections', () => {
     expect(g.cables.some((c) => c.id === 'oA5')).toBe(false);
     expect(g.cables.some((c) => c.id === 'tmp-new')).toBe(true);
   });
+
+  it('deletes 에 든 asset id 는 그래프에서 빠진다 (스테이징 삭제 반영)', () => {
+    const g = buildTraceGraph({ slimAssets, globalCables, stagedAssets: [], stagedCables: [], deletes: ['eqB'] });
+    expect(g.assets.some((a) => a.id === 'eqB')).toBe(false);
+    expect(traceRemoteEndpoints('eqA', g)).not.toContain('eqB'); // 삭제된 대국설비는 투영 안됨
+  });
 });
