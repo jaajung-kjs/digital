@@ -451,7 +451,7 @@ model AssetType {
   group            String?  @map("group_name") @db.VarChar(20)
   isContainer      Boolean  @default(false) @map("is_container")
   placementKind    String?  @map("placement_kind") @db.VarChar(20) // 'RACK'|'OFD'|'DIST'|'GROUNDING'|'HVAC'|null(모듈/장치)
-  connectionKind   String?  @map("connection_kind") @db.VarChar(20) // 'distributor'|'conduit'|null(=none)
+  connectionKind   String?  @map("connection_kind") @db.VarChar(20) // 'distributor'|'conduit'|null(=none). 'conduit' 는 이후 광-conduit 슬라이스용 예약값(아직 트레이서 미사용).
   defaultSlotSpan  Int      @default(1) @map("default_slot_span")
   fieldTemplate    Json?    @map("field_template")
   requiredToCreate Json?    @map("required_to_create")

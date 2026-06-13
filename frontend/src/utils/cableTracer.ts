@@ -141,8 +141,8 @@ export interface TraceCableInput {
   /** Rack modules (local state, RACK 자식 Asset) — endpoint id 가 모듈 id 일 때 이름 lookup 용 */
   rackModules?: Asset[];
   /**
-   * Effective assets (local state) — endpoint id 가 분전 분기(BRANCH) asset 일 때
-   * `resolveBranchLabel`(endpointName.ts 공유 헬퍼) 로 "feeder/branch" 라벨을 해소.
+   * Effective assets (local state) — endpoint id 가 분전 피더(FEEDER) asset 일 때
+   * `resolveBranchLabel`(endpointName.ts 공유 헬퍼) 로 피더 이름을 해소.
    * 연결 목록과 동일 포맷으로 뷰 간 드리프트를 차단한다.
    */
   assets?: Asset[];
@@ -164,7 +164,7 @@ export function traceCable(input: TraceCableInput): TraceResult {
   // Lookups (현재 floor 한정)
   const equipMap = toMapById(equipment);
   const moduleMap = toMapById(rackModules ?? []);
-  // 분전 분기(BRANCH) endpoint 라벨 — resolveBranchLabel(공유 헬퍼) 로 "feeder/branch" 해소.
+  // 분전 피더(FEEDER) endpoint 라벨 — resolveBranchLabel(공유 헬퍼) 로 피더 이름 해소.
   const assetMap = toMapById(assets ?? []);
 
   // fiberPaths 응답은 모든 변전소의 OFD/모듈 이름·변전소명 정보를 갖고 있어

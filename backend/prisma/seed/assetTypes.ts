@@ -46,6 +46,7 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
     placementKind: 'RACK',
     fieldTemplate: [] },
   { code: 'OFD', name: 'OFD(광분배함)', group: '통신', isContainer: true, displayColor: '#78716c', sortOrder: 20,
+    // connectionKind 'conduit' 는 이후 광-conduit 슬라이스용 예약값 — 아직 트레이서가 읽지 않는다.
     placementKind: 'OFD', connectionKind: 'conduit',
     fieldTemplate: [] },
   { code: 'DIST', name: '분전반', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 30,
