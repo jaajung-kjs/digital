@@ -34,6 +34,9 @@ export interface CableDetail {
   sourceAssetId: string | null;
   targetAssetId: string | null;
   cableType: CableType;
+  sourceRole: 'IN' | 'OUT' | null;
+  targetRole: 'IN' | 'OUT' | null;
+  number: number | null;
   label: string | null;
   length: number | null;
   color: string | null;
@@ -246,6 +249,9 @@ class CableService {
       sourceAssetId: c.sourceAssetId ?? null,
       targetAssetId: c.targetAssetId ?? null,
       cableType: c.cableType,
+      sourceRole: (c.sourceRole ?? null) as 'IN' | 'OUT' | null,
+      targetRole: (c.targetRole ?? null) as 'IN' | 'OUT' | null,
+      number: c.number ?? null,
       label: c.label,
       length: c.length,
       color: c.color,

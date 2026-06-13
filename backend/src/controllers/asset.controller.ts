@@ -25,4 +25,12 @@ export const assetController = {
       res.json({ data: await assetService.getById(req.params.id) });
     } catch (error) { next(error); }
   },
+  async listAll(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const assets = await assetService.listAllSlim();
+      res.json({ data: assets });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

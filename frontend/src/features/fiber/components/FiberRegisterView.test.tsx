@@ -1,32 +1,59 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-const { setSelectedAssetId, startTrace, put, patch, fiberCoresRef } = vi.hoisted(() => ({
+const { setSelectedAssetId, patch, effectiveCables } = vi.hoisted(() => ({
   setSelectedAssetId: vi.fn(),
-  startTrace: vi.fn(),
-  put: vi.fn(),
   patch: vi.fn(),
-  fiberCoresRef: { current: [] as unknown[] },
+  effectiveCables: vi.fn(() => [] as unknown[]),
 }));
 
-vi.mock('../hooks/usePortStatus', () => ({
-  usePortStatus: () => ({
-    isLoading: false,
-    mergedPaths: [{
-      id: 'fp1',
-      ofdA: { id: 'ofd1', name: '원주OFD', substationName: '원주', floorId: 'f1' },
-      ofdB: { id: 'ofd2', name: '홍천OFD', substationName: '홍천', floorId: 'f2' },
-      portCount: 2, description: null, createdAt: '', updatedAt: '',
-      ports: [
-        { portNumber: 1, sideA: null, sideB: null },
-        { portNumber: 2, sideA: { cableId: 'c2', assetId: 'a2', assetName: '송변전광단말' }, sideB: { cableId: 'c2r', assetId: 'r2', assetName: '홍천단말' } },
-      ],
-    }],
-  }),
-}));
+// 슬롯(conduit) 자식이 있는 OFD 자산 + 슬롯 자산 + 빈 케이블 목록 기본 세팅.
+const SLOT_ASSET = {
+  id: 'slot1',
+  name: '슬롯A',
+  parentAssetId: 'ofd1',
+  substationId: 's1',
+  assetType: { connectionKind: 'conduit' },
+};
+const OFD_ASSET = {
+  id: 'ofd1',
+  name: '원주OFD',
+  substationId: 's1',
+  assetType: { placementKind: 'OFD', connectionKind: null },
+  parentAssetId: null,
+};
+
 vi.mock('../../workingCopy/hooks', () => ({
-  useEffectiveFiberCores: () => fiberCoresRef.current,
-  useEffectiveAssets: () => [{ id: 'ofd1', name: '원주OFD', substationId: 's1', assetType: { placementKind: 'OFD' } }],
+  useEffectiveAssets: () => [OFD_ASSET, SLOT_ASSET],
+  useEffectiveCables: () => [],
+}));
+vi.mock('../../trace/traceGraph', () => ({
+  useTraceGraph: () => ({
+    graph: {
+      nameById: new Map([['a-near', '송변전광단말'], ['a-far', '홍천단말']]),
+      subNameById: new Map([['ofd1', '원주'], ['slot1', '원주']]),
+      assets: [],
+      cables: [],
+    },
+    isLoading: false,
+  }),
+  remoteSlotSubstation: (_slotId: string, _graph: unknown) => '홍천',
+}));
+vi.mock('../slotRegister', () => ({
+  buildSlotCoreRows: (_slot: unknown, _cables: unknown, _graph: unknown) => [
+    {
+      coreNumber: 1, cableId: null, occupied: false,
+      nearAssetId: null, farName: null,
+      purpose: null, circuitText: null, spliceType: null, usageOverride: null,
+      usage: '미사용',
+    },
+    {
+      coreNumber: 2, cableId: 'c2', occupied: true,
+      nearAssetId: 'a-near', farName: '홍천단말',
+      purpose: null, circuitText: null, spliceType: null, usageOverride: null,
+      usage: '사용',
+    },
+  ],
 }));
 vi.mock('../../workspace/selectionStore', () => {
   const st = { selectedAssetId: null, setSelectedAssetId };
@@ -35,13 +62,13 @@ vi.mock('../../workspace/selectionStore', () => {
   return { useSelectionStore: hook };
 });
 vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
-  const st = { startTrace, tracingCableId: null };
+  const st = { tracingCableId: null };
   const hook = (sel: (s: unknown) => unknown) => sel(st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { usePathHighlightStore: hook };
 });
 vi.mock('../../workingCopy/substationStore', () => {
-  const st = { put, patch, substationId: 's1', effectiveFiberCores: () => fiberCoresRef.current };
+  const st = { patch, substationId: 's1', effectiveCables };
   const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { useSubstationWorkingCopy: hook };
@@ -49,37 +76,36 @@ vi.mock('../../workingCopy/substationStore', () => {
 
 import { OfdFiberRegister } from './OfdFiberRegister';
 
-beforeEach(() => { setSelectedAssetId.mockClear(); startTrace.mockClear(); put.mockClear(); patch.mockClear(); fiberCoresRef.current = []; });
+beforeEach(() => { setSelectedAssetId.mockClear(); patch.mockClear(); effectiveCables.mockReturnValue([]); });
 
 describe('OfdFiberRegister', () => {
-  it('상대국 섹션 + 코어 행(점유/빈)을 렌더한다', () => {
+  it('섹션 헤더(원주 - 홍천)와 코어 행(점유/빈)을 렌더한다', () => {
     render(<OfdFiberRegister ofdId="ofd1" />);
-    // 상대국 섹션 헤더(substationName '홍천') — far-side 셀('홍천단말')도 /홍천/ 와 매치하므로 getAllByText.
-    expect(screen.getAllByText(/홍천/).length).toBeGreaterThan(0);
+    expect(screen.getByText('원주 - 홍천')).toBeInTheDocument();
     expect(screen.getByText('송변전광단말')).toBeInTheDocument();
+    expect(screen.getByText('홍천단말')).toBeInTheDocument();
   });
 
-  it('점유 코어 클릭 → 근접자산 선택(하이라이트는 연결탭, startTrace 안 함)', () => {
+  it('점유 코어 행 클릭 → 근접자산 선택', () => {
     render(<OfdFiberRegister ofdId="ofd1" />);
     fireEvent.click(screen.getByText('송변전광단말'));
-    expect(setSelectedAssetId).toHaveBeenCalledWith('a2');
-    expect(startTrace).not.toHaveBeenCalled();
+    expect(setSelectedAssetId).toHaveBeenCalledWith('a-near');
   });
 
-  it('빈 메타 코어의 용도 입력 → put(fiberCores, 신규)', () => {
+  it('빈 코어 행 클릭 → ofdId 선택(fallback)', () => {
     render(<OfdFiberRegister ofdId="ofd1" />);
-    const inputs = screen.getAllByPlaceholderText('용도');
-    fireEvent.change(inputs[0], { target: { value: '통합단말' } });
-    fireEvent.blur(inputs[0]);
-    expect(put).toHaveBeenCalledWith('fiberCores', expect.objectContaining({ fiberPathId: 'fp1', coreNumber: 1, purpose: '통합단말' }));
+    // 빈 코어 행 — 코어번호 "1" 셀 클릭
+    const coreCells = screen.getAllByText(/^1$/);
+    fireEvent.click(coreCells[0]);
+    expect(setSelectedAssetId).toHaveBeenCalledWith('ofd1');
   });
 
-  it('기존 메타 코어(coreRecordId) 편집 → patch(fiberCores, id)', () => {
-    fiberCoresRef.current = [{ id: 'fc-existing', fiberPathId: 'fp1', coreNumber: 1, purpose: '기존', circuitText: null, spliceType: null, usageOverride: null }];
+  it('점유 코어 용도 blur → patch(cables, cableId, specParams 머지)', () => {
+    effectiveCables.mockReturnValue([{ id: 'c2', specParams: { purpose: null } }]);
     render(<OfdFiberRegister ofdId="ofd1" />);
     const inputs = screen.getAllByPlaceholderText('용도');
-    fireEvent.change(inputs[0], { target: { value: '신규용도' } });
-    fireEvent.blur(inputs[0]);
-    expect(patch).toHaveBeenCalledWith('fiberCores', 'fc-existing', { purpose: '신규용도' });
+    // inputs[1] = 코어2(점유, cableId='c2')
+    fireEvent.blur(inputs[1], { target: { value: '통합단말' } });
+    expect(patch).toHaveBeenCalledWith('cables', 'c2', expect.objectContaining({ specParams: expect.objectContaining({ purpose: '통합단말' }) }));
   });
 });
