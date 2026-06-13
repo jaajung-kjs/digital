@@ -59,11 +59,11 @@ describe('OfdFiberRegister', () => {
     expect(screen.getByText('송변전광단말')).toBeInTheDocument();
   });
 
-  it('점유 코어 클릭 → 근접자산 선택 + startTrace', () => {
+  it('점유 코어 클릭 → 근접자산 선택(하이라이트는 연결탭, startTrace 안 함)', () => {
     render(<OfdFiberRegister ofdId="ofd1" />);
     fireEvent.click(screen.getByText('송변전광단말'));
     expect(setSelectedAssetId).toHaveBeenCalledWith('a2');
-    expect(startTrace).toHaveBeenCalledWith('c2');
+    expect(startTrace).not.toHaveBeenCalled();
   });
 
   it('빈 메타 코어의 용도 입력 → put(fiberCores, 신규)', () => {
