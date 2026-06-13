@@ -183,6 +183,23 @@ const cableCategories: CableCategorySeed[] = [
     },
   },
   {
+    code: 'CBL-OPGW',
+    name: 'OPGW(광복합가공지선)',
+    displayColor: '#22c55e',
+    iconName: 'cable-fiber',
+    unit: 'm',
+    sortOrder: 8.5,
+    displayGroup: '광',
+    description: 'OPGW 광복합가공지선 — 변전소간 광케이블 (KS C 6710, ITU-T G.652)',
+    specTemplate: {
+      params: [
+        { key: 'mode', label: '모드', inputType: 'select', options: ['SM', 'MM'] },
+        { key: 'cores', label: '코어수(C)', inputType: 'select', options: [4, 6, 8, 12, 24, 48] },
+      ],
+      format: '{mode} {cores}C',
+    },
+  },
+  {
     code: 'CBL-IV',
     name: '접지전선 IV/F-GV',
     displayColor: '#eab308',
