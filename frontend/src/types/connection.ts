@@ -85,6 +85,7 @@ export interface RoomConnection {
   specParams?: Record<string, unknown> | null;
   sourceRole?: 'IN' | 'OUT' | null;
   targetRole?: 'IN' | 'OUT' | null;
+  number?: number | null;
   pathLength?: number | null;
   totalLength?: number | null;
   sourceEndpoint: EndpointInfo;
