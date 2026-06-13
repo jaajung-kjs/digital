@@ -1,13 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import {
-  feederGroupsOfPanel,
-  branchAssetIdsOfPanel,
-  nextBranchName,
-  buildSubtreeAsset,
-} from './distributionSubtree';
+import { feedersOfPanel, buildSubtreeAsset } from './distributionSubtree';
 import type { Asset, AssetType } from '../../types/asset';
 
-// 단계3b — 분전반 → FEEDER → BRANCH asset 계층. (seeded panel→F1→B1/B2 형태 재현)
+// 분전반 → FEEDER asset 계층 (피더-직접). 케이블은 피더로 직접 그려진다(별도 분기 노드 없음).
 function a(p: Partial<Asset> & { id: string; code: string }): Asset {
   return {
     id: p.id,
@@ -25,37 +20,27 @@ function a(p: Partial<Asset> & { id: string; code: string }): Asset {
 const PANEL = 'panel-1';
 const assets: Asset[] = [
   a({ id: PANEL, code: 'DIST', name: '분전반', floorId: 'f1' }),
-  a({ id: 'F1', code: 'FEEDER', name: '테스트피더', parentAssetId: PANEL, sortOrder: 0 }),
-  a({ id: 'B1', code: 'BRANCH', name: 'L1', parentAssetId: 'F1', sortOrder: 0 }),
-  a({ id: 'B2', code: 'BRANCH', name: 'L2', parentAssetId: 'F1', sortOrder: 1 }),
-  // 다른 분전반의 노드 — 누설되면 안 됨
+  a({ id: 'F1', code: 'FEEDER', name: 'DC 48V Main', parentAssetId: PANEL, sortOrder: 0 }),
+  a({ id: 'F2', code: 'FEEDER', name: 'AC 220V', parentAssetId: PANEL, sortOrder: 1 }),
+  // 다른 분전반의 피더 — 누설되면 안 됨
   a({ id: 'F-other', code: 'FEEDER', name: '딴피더', parentAssetId: 'panel-2' }),
 ];
 
 describe('distributionSubtree', () => {
-  it('feederGroupsOfPanel — 피더 → 그 분기 그룹 (seeded F1 → B1/B2, 다른 분전반 누설 없음)', () => {
-    const groups = feederGroupsOfPanel(assets, PANEL);
-    expect(groups).toHaveLength(1);
-    expect(groups[0].feeder.id).toBe('F1');
-    expect(groups[0].feeder.name).toBe('테스트피더');
-    expect(groups[0].branches.map((b) => b.name)).toEqual(['L1', 'L2']);
-    expect(groups[0].branches.map((b) => b.id)).toEqual(['B1', 'B2']);
+  it('feedersOfPanel — 분전반의 FEEDER 자산 (sortOrder 순, 다른 분전반 누설 없음)', () => {
+    const feeders = feedersOfPanel(assets, PANEL);
+    expect(feeders.map((f) => f.id)).toEqual(['F1', 'F2']);
+    expect(feeders.map((f) => f.name)).toEqual(['DC 48V Main', 'AC 220V']);
   });
 
-  it('branchAssetIdsOfPanel — 분전반 하위 분기 asset id 집합', () => {
-    const ids = branchAssetIdsOfPanel(assets, PANEL);
-    expect([...ids].sort()).toEqual(['B1', 'B2']);
+  it('feedersOfPanel — 피더 없는 분전반은 빈 배열', () => {
+    expect(feedersOfPanel(assets, 'no-such-panel')).toEqual([]);
   });
 
-  it('nextBranchName — max+1, 삭제분 재사용 안 함', () => {
-    expect(nextBranchName([])).toBe('L1');
-    expect(nextBranchName(feederGroupsOfPanel(assets, PANEL)[0].branches)).toBe('L3');
-  });
-
-  it('buildSubtreeAsset — FEEDER/BRANCH 내부 노드 (parentAssetId 채움, 미배치)', () => {
-    const type = { id: 'bt', code: 'BRANCH', name: '분기', group: null, displayColor: null, fieldTemplate: null, placementKind: null } as AssetType;
-    const built = buildSubtreeAsset({ id: 'new', substationId: 's1', type, name: 'L9', parentAssetId: 'F1', sortOrder: 2 });
-    expect(built).toMatchObject({ id: 'new', name: 'L9', parentAssetId: 'F1', floorId: null, assetTypeId: 'bt', sortOrder: 2 });
-    expect(built.assetType.code).toBe('BRANCH');
+  it('buildSubtreeAsset — FEEDER 내부 노드 (parentAssetId 채움, 미배치)', () => {
+    const type = { id: 'ft', code: 'FEEDER', name: '계통', group: null, displayColor: null, fieldTemplate: null, placementKind: null } as AssetType;
+    const built = buildSubtreeAsset({ id: 'new', substationId: 's1', type, name: 'F9', parentAssetId: PANEL, sortOrder: 2 });
+    expect(built).toMatchObject({ id: 'new', name: 'F9', parentAssetId: PANEL, floorId: null, assetTypeId: 'ft', sortOrder: 2 });
+    expect(built.assetType.code).toBe('FEEDER');
   });
 });

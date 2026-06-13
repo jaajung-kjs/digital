@@ -129,6 +129,8 @@ const cableCreate = z.object({
   color: z.string().nullable().optional(),
   fiberPathId: z.string().nullable().optional(),
   fiberPortNumber: z.number().nullable().optional(),
+  sourceRole: z.enum(['IN', 'OUT']).nullable().optional(),
+  targetRole: z.enum(['IN', 'OUT']).nullable().optional(),
   categoryId: z.string().nullable().optional(),
   specParams: z.unknown().optional(),
   pathPoints: z.unknown().optional(),

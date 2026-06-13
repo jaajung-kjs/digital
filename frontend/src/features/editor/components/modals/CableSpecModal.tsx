@@ -13,6 +13,9 @@ import { calculatePathLength } from '../../../../utils/cable/pathLength';
 import { generateTempId } from '../../../../utils/idHelpers';
 import { MaterialSelectionModal } from '../MaterialSelectionModal';
 import { useToastStore } from '../../stores/toastStore';
+import { useEffectiveAssets } from '../../../workingCopy/hooks';
+
+type EndpointRole = 'IN' | 'OUT' | null;
 
 export function CableSpecModalWrapper() {
   return <CableSpecModal />;
@@ -32,14 +35,35 @@ function CableSpecModal() {
     (s) => s.preselectedCableDisplayGroup,
   );
   const { data: cableCategories } = useCableCategories();
+  const effectiveAssets = useEffectiveAssets();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+
+  // 전원계통 방향성 — distributor 끝점이면 IN/OUT 을 지정한다.
+  // endpoint asset = INNER pick(분기/모듈) 우선, 없으면 CONTAINER asset.
+  const sourceEndpointId = cable?.sourceInnerAssetId ?? cable?.sourceContainerAssetId ?? null;
+  const targetEndpointId = cable?.targetInnerAssetId ?? cable?.targetContainerAssetId ?? null;
+  const isDistributor = (assetId: string | null): boolean => {
+    if (!assetId) return false;
+    const a = effectiveAssets.find((x) => x.id === assetId);
+    return a?.assetType?.connectionKind === 'distributor';
+  };
+  const sourceIsDist = isDistributor(sourceEndpointId);
+  const targetIsDist = isDistributor(targetEndpointId);
+
+  // distributor 끝점은 기본 '출력'(OUT), 비-distributor 끝점은 null.
+  const [sourceRole, setSourceRole] = useState<EndpointRole>(null);
+  const [targetRole, setTargetRole] = useState<EndpointRole>(null);
 
   // Reset selection when the modal opens.
   useEffect(() => {
     if (phase === 'selectingSpec') {
       setSelectedCategoryId(null);
+      setSourceRole(sourceIsDist ? 'OUT' : null);
+      setTargetRole(targetIsDist ? 'OUT' : null);
     }
+    // sourceIsDist/targetIsDist 는 phase 전환 시점의 끝점으로 결정 — phase 의존만.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   const visibleCategories = useMemo<CableCategory[]>(() => {
@@ -97,6 +121,9 @@ function CableSpecModal() {
       totalLength,
       fiberPathId,
       fiberPortNumber,
+      // 전원계통 방향성 — distributor 끝점만 role 을 가진다(아니면 null).
+      sourceRole: sourceIsDist ? sourceRole : null,
+      targetRole: targetIsDist ? targetRole : null,
     });
 
     useInteractionStore.getState().cancel();
@@ -160,6 +187,68 @@ function CableSpecModal() {
           })
         )}
       </div>
+
+      {(sourceIsDist || targetIsDist) && (
+        <div className="mt-3 pt-3 border-t border-line space-y-2">
+          <p className="text-[11px] text-content-faint">
+            방향성 설비 연결 — 입력/출력을 지정하세요.
+          </p>
+          {sourceIsDist && (
+            <RoleSelector
+              label="출발"
+              value={sourceRole}
+              onChange={setSourceRole}
+            />
+          )}
+          {targetIsDist && (
+            <RoleSelector
+              label="도착"
+              value={targetRole}
+              onChange={setTargetRole}
+            />
+          )}
+        </div>
+      )}
     </MaterialSelectionModal>
+  );
+}
+
+/** distributor 끝점의 IN(입력)/OUT(출력) 선택기. 기본 OUT. */
+function RoleSelector({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: EndpointRole;
+  onChange: (r: EndpointRole) => void;
+}) {
+  const options: { role: 'IN' | 'OUT'; text: string }[] = [
+    { role: 'IN', text: '입력' },
+    { role: 'OUT', text: '출력' },
+  ];
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-content-faint w-8">{label}</span>
+      <div className="flex gap-1.5">
+        {options.map((o) => {
+          const active = value === o.role;
+          return (
+            <button
+              key={o.role}
+              type="button"
+              onClick={() => onChange(o.role)}
+              className={`px-3 py-1 rounded-md border text-sm transition-colors ${
+                active
+                  ? 'border-primary bg-info-bg ring-1 ring-primary/30 text-content'
+                  : 'border-line hover:bg-surface-2 text-content-faint'
+              }`}
+            >
+              {o.text}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }

@@ -99,7 +99,6 @@ function CoreRow({ ofdId, row }: { ofdId: string; row: FiberCoreRow }) {
   const onClick = () => {
     if (row.near) {
       useSelectionStore.getState().setSelectedAssetId(row.near.assetId);
-      usePathHighlightStore.getState().startTrace(row.near.cableId);
     } else {
       useSelectionStore.getState().setSelectedAssetId(ofdId);
     }

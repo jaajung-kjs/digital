@@ -41,6 +41,11 @@ export interface Asset {
      * 현황 대장 등 비배치 사용처에서는 없을 수 있어 optional.
      */
     placementKind?: string | null;
+    /**
+     * 연결 방향성 종류 — 'distributor'(피더/충전기/UPS 등 IN/OUT 구분 필요).
+     * 케이블 드로잉 시 이 끝점이 distributor 면 IN/OUT 지정 UI 가 뜬다.
+     */
+    connectionKind?: string | null;
   };
   name: string;
   parentAssetId: string | null;

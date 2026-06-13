@@ -19,6 +19,7 @@ interface AssetTypeSeed {
   sortOrder: number;
   fieldTemplate: FieldDef[];
   placementKind?: string | null;
+  connectionKind?: string;
   defaultSlotSpan?: number;
 }
 
@@ -45,15 +46,15 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
     placementKind: 'RACK',
     fieldTemplate: [] },
   { code: 'OFD', name: 'OFD(광분배함)', group: '통신', isContainer: true, displayColor: '#78716c', sortOrder: 20,
-    placementKind: 'OFD',
+    // connectionKind 'conduit' 는 이후 광-conduit 슬라이스용 예약값 — 아직 트레이서가 읽지 않는다.
+    placementKind: 'OFD', connectionKind: 'conduit',
     fieldTemplate: [] },
   { code: 'DIST', name: '분전반', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 30,
     placementKind: 'DIST',
     fieldTemplate: [] },
-  // 통합 노드 모델 — 분전반 내부 회로를 노드 계층으로(분전반→FEEDER→BRANCH). 미배치 내부 노드(placementKind 없음).
+  // 통합 노드 모델 — 분전반 내부 회로를 노드 계층으로(분전반→FEEDER). 미배치 내부 노드(placementKind 없음).
   { code: 'FEEDER', name: '피더', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 33,
-    fieldTemplate: [] },
-  { code: 'BRANCH', name: '분기', group: '전원', isContainer: false, displayColor: '#a8a29e', sortOrder: 34,
+    connectionKind: 'distributor',
     fieldTemplate: [] },
   { code: 'GROUNDING', name: '접지함체', group: '구조', isContainer: false, displayColor: '#44403c', sortOrder: 31,
     placementKind: 'GROUNDING', fieldTemplate: [] },
@@ -88,6 +89,7 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
   { code: 'OPT-XPONDER', name: '광전송장치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 60,
     fieldTemplate: OPT_FIELDS },
   { code: 'CHARGER', name: '충전기', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 70,
+    connectionKind: 'distributor',
     fieldTemplate: [
       { key: 'spec', label: '규격', type: 'text' },
       { key: 'formType', label: '형식', type: 'text' },
@@ -97,6 +99,7 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
       ...ASSET_LIFECYCLE,
     ] },
   { code: 'UPS', name: 'UPS', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 80,
+    connectionKind: 'distributor',
     fieldTemplate: [{ key: 'spec', label: '규격', type: 'text' }, ...ASSET_LIFECYCLE] },
   { code: 'BATTERY', name: '축전지', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 90,
     fieldTemplate: [{ key: 'spec', label: '규격', type: 'text' }, ...ASSET_LIFECYCLE] },
@@ -134,13 +137,13 @@ export async function seedAssetTypes(prisma: PrismaClient): Promise<void> {
         name: t.name, group: t.group, isContainer: t.isContainer,
         displayColor: t.displayColor, sortOrder: t.sortOrder,
         fieldTemplate: t.fieldTemplate, requiredToCreate: ['name'],
-        placementKind: t.placementKind ?? null, defaultSlotSpan: t.defaultSlotSpan ?? 1,
+        placementKind: t.placementKind ?? null, connectionKind: t.connectionKind ?? null, defaultSlotSpan: t.defaultSlotSpan ?? 1,
       },
       create: {
         code: t.code, name: t.name, group: t.group, isContainer: t.isContainer,
         displayColor: t.displayColor, sortOrder: t.sortOrder,
         fieldTemplate: t.fieldTemplate, requiredToCreate: ['name'],
-        placementKind: t.placementKind ?? null, defaultSlotSpan: t.defaultSlotSpan ?? 1,
+        placementKind: t.placementKind ?? null, connectionKind: t.connectionKind ?? null, defaultSlotSpan: t.defaultSlotSpan ?? 1,
       },
     });
   }

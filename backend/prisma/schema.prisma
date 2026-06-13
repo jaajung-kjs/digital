@@ -260,6 +260,9 @@ model Cable {
   fiberPathId     String? @map("fiber_path_id")
   fiberPortNumber Int?    @map("fiber_port_number")
 
+  sourceRole String? @map("source_role") @db.VarChar(4) // 'IN'|'OUT'|null (source 끝이 방향성 자산일 때)
+  targetRole String? @map("target_role") @db.VarChar(4) // 'IN'|'OUT'|null (target 끝이 방향성 자산일 때)
+
   label        String? @db.VarChar(100)
   length       Float?
   pathLength   Float?  @map("path_length")
@@ -448,6 +451,7 @@ model AssetType {
   group            String?  @map("group_name") @db.VarChar(20)
   isContainer      Boolean  @default(false) @map("is_container")
   placementKind    String?  @map("placement_kind") @db.VarChar(20) // 'RACK'|'OFD'|'DIST'|'GROUNDING'|'HVAC'|null(모듈/장치)
+  connectionKind   String?  @map("connection_kind") @db.VarChar(20) // 'distributor'|'conduit'|null(=none). 'conduit' 는 이후 광-conduit 슬라이스용 예약값(아직 트레이서 미사용).
   defaultSlotSpan  Int      @default(1) @map("default_slot_span")
   fieldTemplate    Json?    @map("field_template")
   requiredToCreate Json?    @map("required_to_create")

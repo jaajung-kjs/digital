@@ -89,14 +89,16 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
       <CircuitPicker
         distributionEquipmentId={activeEquipment.id}
         distributionName={activeEquipment.name}
-        onSelect={(circuitId) => {
+        onSelect={(feederId) => {
+          // 케이블은 FEEDER(분전반의 전원 계통)로 직접 그려진다 — innerAssetId = 피더 asset id.
+          // FEEDER 는 connectionKind='distributor' 라 이후 CableSpecModal 의 IN/OUT 선택이 적용된다.
           if (isSource) {
             useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
-              innerAssetId: circuitId,
+              innerAssetId: feederId,
             });
           } else {
             useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
-              innerAssetId: circuitId,
+              innerAssetId: feederId,
             });
           }
         }}
