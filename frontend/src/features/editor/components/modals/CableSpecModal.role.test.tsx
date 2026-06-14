@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // 전원계통 방향성 — distributor(피더/충전기/UPS) 끝점으로 케이블을 그리면 그 끝에
 // IN/OUT(입력/출력) 지정 UI 가 뜨고, 선택한 role 이 stageCableCreate 에 실린다.
 //
-// 추가(P6): conduit(슬롯) 끝점 → role=OUT 자동·number=코어번호·fiberPathId null.
+// 추가(P6): conduit(슬롯) 끝점 → role=OUT 자동·number=코어번호. fiberPathId 는 P7 에서 제거됨.
 
 // 카테고리(전원) 만 모킹.
 vi.mock('../../../cables/hooks/useCableCategories', () => ({
@@ -66,7 +66,7 @@ describe('CableSpecModal — conduit(슬롯) 끝점 OUT 코어 케이블(P6)', (
     useInteractionStore.getState().cancel();
   });
 
-  it('설비→슬롯(conduit) 드로잉 — slot 끝 role=OUT, number=코어번호, fiberPathId/fiberPortNumber null, source role null', () => {
+  it('설비→슬롯(conduit) 드로잉 — slot 끝 role=OUT, number=코어번호, fiberPathId/fiberPortNumber 없음(P7), source role null', () => {
     // 슬롯 자산을 conduit 으로 mock.
     mockUseEffectiveAssets.mockReturnValue([
       { id: 'eq-1', assetType: { connectionKind: null } },
@@ -107,8 +107,8 @@ describe('CableSpecModal — conduit(슬롯) 끝점 OUT 코어 케이블(P6)', (
     // 코어 번호가 number 필드에 실린다.
     expect(arg.number).toBe(3);
 
-    // 신모델: fiberPathId / fiberPortNumber 는 null.
-    expect(arg.fiberPathId).toBeNull();
-    expect(arg.fiberPortNumber).toBeNull();
+    // 신모델: fiberPathId / fiberPortNumber 는 케이블 payload 에 없음(P7 제거).
+    expect(arg.fiberPathId).toBeUndefined();
+    expect(arg.fiberPortNumber).toBeUndefined();
   });
 });

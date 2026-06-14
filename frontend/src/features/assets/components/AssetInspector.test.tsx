@@ -88,11 +88,10 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
     useSubstationWorkingCopy.setState({
       saved: {
         assets: [{ id: 'rack1', name: '랙01' }],
-        cables: [], fiberPaths: [],
+        cables: [],
       },
       overlays: {
         assets: { ...empty }, cables: { ...empty },
-        fiberPaths: { ...empty },
       },
     } as never);
   });

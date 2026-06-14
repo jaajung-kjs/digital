@@ -55,7 +55,7 @@ beforeEach(() => {
       // working copy 로드를 지연시켜 "plan 먼저, wc 나중" 순서를 강제.
       return new Promise((resolve) => {
         wcResolve = () => resolve({ data: { data: {
-          assets: [asset], cables: [], fiberPaths: [],
+          assets: [asset], cables: [],
         } } });
       });
     }

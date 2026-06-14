@@ -21,7 +21,7 @@ describe('buildSubstationCommitPayload', () => {
     } as any);
 
     const overlays = {
-      assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any,
+      assets, cables: ov() as any, records: ov() as any,
     };
     const payload = buildSubstationCommitPayload(overlays as any, [], new Map());
 
@@ -56,7 +56,7 @@ describe('buildSubstationCommitPayload', () => {
     assets = stageDelete(assets, 'a2');
 
     const overlays = {
-      assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any,
+      assets, cables: ov() as any, records: ov() as any,
     };
     const payload = buildSubstationCommitPayload(overlays as any, [], new Map());
 
@@ -85,7 +85,7 @@ describe('buildSubstationCommitPayload', () => {
     assets = stageUpdate(assets, 'a1', { status: 'OFF' } as any); // 비모듈
     assets = stageUpdate(assets, 'm1', { status: 'OFF' } as any); // 랙 모듈
     const payload = buildSubstationCommitPayload(
-      { assets, cables: ov() as any, fiberPaths: ov() as any, records: ov() as any } as any,
+      { assets, cables: ov() as any, records: ov() as any } as any,
       [], new Map(),
     );
     expect((payload.assets!.updates.find((u: any) => u.id === 'a1')!.patch as any).status).toBe('OFF');
@@ -108,7 +108,7 @@ describe('buildSubstationCommitPayload', () => {
 
     const overlays = {
       assets: ov() as any, cables: cables as any,
-      distributionCircuits: ov() as any, fiberPaths: ov() as any, records: ov() as any,
+      distributionCircuits: ov() as any, records: ov() as any,
     };
     const payload = buildSubstationCommitPayload(overlays as any, [], new Map());
 

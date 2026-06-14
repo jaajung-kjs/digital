@@ -21,7 +21,7 @@ interface RackModulePickerProps {
  * RackView but each populated slot is a click target — empty slots are
  * read-only.
  *
- * Symmetric to FiberPortGrid (used for OFD endpoints).
+ * Mirrors the slot-picker pattern used for OFD endpoints (P7: FiberPortGrid removed).
  */
 export function RackModulePicker({
   rackEquipmentId,

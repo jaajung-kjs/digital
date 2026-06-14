@@ -14,7 +14,7 @@ const ofd = {
 beforeEach(() => {
   useSubstationWorkingCopy.getState().reset();
   (api.get as any).mockResolvedValue({
-    data: { data: { assets: [ofd], cables: [], fiberPaths: [] } },
+    data: { data: { assets: [ofd], cables: [] } },
   });
 });
 

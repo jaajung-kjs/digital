@@ -1,9 +1,7 @@
-import { useEffect } from 'react';
 import { useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../utils/api';
 import type { FloorDetail } from '../types/substation';
-import { ensureOfdDirectory } from '../features/fiber/hooks/useOfdDirectory';
 
 // ──────────────────────────────────────────────────────────────────────────
 // 레거시 `/floors/:floorId/plan` → 단일 평면도 뷰(워크스페이스)로의 리다이렉트 셸.
@@ -20,11 +18,6 @@ export function FloorPlanEditorPage() {
   // 포커스 페이로드(?assetId=)를 정규 워크스페이스 URL 로 그대로 전달 — gotoAsset 의
   // cross-substation(OFD 대국) 경로가 이 셸을 거쳐 도착 후에도 자산을 reveal+center.
   const assetId = sp.get('assetId');
-
-  // OFD directory prefetch — 첫 OFD 패널 진입 시 변전소명이 '?' 로 깜빡이지 않게.
-  useEffect(() => {
-    void ensureOfdDirectory();
-  }, []);
 
   // floorId → substationId. useFloorPlanData 와 동일한 ['floor', id] 키라 캐시 공유.
   const { data: floor, isLoading, isError } = useQuery({

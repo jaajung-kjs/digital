@@ -29,11 +29,10 @@ vi.mock('../../../../workingCopy/substationStore', async (importOriginal) => ({
       stageCableUpdate: vi.fn(),
       stageCableDelete: vi.fn(),
       // 연결 탭이 effective cables 를 읽으므로 모든 컬렉션 빈 상태로 제공.
-      saved: { assets: [], cables: [], fiberPaths: [] },
+      saved: { assets: [], cables: [] },
       overlays: {
         assets: { creates: {}, updates: {}, deletes: [] },
         cables: { creates: {}, updates: {}, deletes: [] },
-        fiberPaths: { creates: {}, updates: {}, deletes: [] },
       },
     }),
 }));

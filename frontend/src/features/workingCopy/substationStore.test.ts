@@ -11,7 +11,7 @@ const mod = { id:'m1', name:'모듈', substationId:'s1', floorId:'f1', assetType
 const ofd = { id:'o1', name:'OFD', substationId:'s1', floorId:'f1', assetType:{ placementKind:'OFD' }, positionX:5, positionY:5, width2d:40, height2d:60, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
 const cable = { id:'c1', sourceAssetId:'r1', targetAssetId:'o1', source:{ equipmentId:'r1', moduleId:null }, target:{ equipmentId:'o1', moduleId:null }, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
 
-beforeEach(() => { useSubstationWorkingCopy.getState().reset(); (api.get as any).mockResolvedValue({ data: { data: { assets:[rack,mod,ofd], cables:[cable], fiberPaths:[] } } }); });
+beforeEach(() => { useSubstationWorkingCopy.getState().reset(); (api.get as any).mockResolvedValue({ data: { data: { assets:[rack,mod,ofd], cables:[cable] } } }); });
 
 describe('substationWorkingCopy', () => {
   it('load → effective = saved, dirty 0', async () => {

@@ -63,7 +63,7 @@ beforeEach(() => {
   // 깨끗한 전역 store 로 리셋(saved·overlay·substationId 모두).
   act(() => useSubstationWorkingCopy.getState().reset());
   (api.get as any).mockResolvedValue({
-    data: { data: { assets: [wcAsset], cables: [], fiberPaths: [] } },
+    data: { data: { assets: [wcAsset], cables: [] } },
   });
 });
 

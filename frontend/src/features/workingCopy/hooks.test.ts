@@ -31,7 +31,7 @@ const assets = [
 beforeEach(() => {
   useSubstationWorkingCopy.getState().reset();
   (api.get as any).mockResolvedValue({
-    data: { data: { assets, cables: [cable], fiberPaths: [] } },
+    data: { data: { assets, cables: [cable] } },
   });
 });
 
@@ -126,7 +126,7 @@ describe('workingCopy hooks', () => {
       { id: 'c-legacy', sourceAssetId: null, targetAssetId: null, source: { equipmentId: 'r1', moduleId: null }, target: { equipmentId: null, moduleId: null }, updatedAt: TS },
     ];
     (api.get as any).mockResolvedValue({
-      data: { data: { assets, cables, fiberPaths: [] } },
+      data: { data: { assets, cables } },
     });
     await act(async () => {
       await useSubstationWorkingCopy.getState().load('s1');

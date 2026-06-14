@@ -14,7 +14,7 @@ vi.mock('./substationStore', () => ({
     getState: () => ({
       substationId: 'sub1',
       overlays: {
-        assets: {}, cables: {}, fiberPaths: {},
+        assets: {}, cables: {},
         // 자산 하위레코드는 단일 records 컬렉션(점검/로그/사진).
         records: { creates: {}, updates: {}, deletes: [] },
       },

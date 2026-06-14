@@ -5,7 +5,6 @@ import { api } from '../../utils/api';
 import { isTempId } from '../../utils/idHelpers';
 import type { Asset } from '../../types/asset';
 import type { EquipmentKind } from '../../types/equipmentKind';
-import type { FiberCore } from '../fiber/types';
 import {
   emptyOverlay,
   stageCreate,
@@ -42,7 +41,7 @@ export interface RackModuleDraw {
 // ──────────────────────────────────────────────────────────────────────────
 // 전역 Unit-of-Work (변전소 스코프 없음).
 //
-// 데이터는 노드(assets, 자산 안 records[] 중첩) + 엣지(cables/fiberPaths)가 전부이고
+// 데이터는 노드(assets, 자산 안 records[] 중첩) + 엣지(cables)가 전부이고
 // 임의의 변전소 경계가 없다. saved 는 둘러본 만큼 누적되는 전역 캐시, overlay(스테이징)도
 // 전역 — load 가 변전소를 바꿔도 비우지 않는다(자산 A는 어디서 열든 자산 A). 커밋은 overlay
 // 전체를 POST /commit 한 트랜잭션으로(엔티티별 OCC). 각 컬렉션은 Lv1 엔진(overlay/effective/
@@ -50,7 +49,7 @@ export interface RackModuleDraw {
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
- * cables / fiberPaths row 의 최소 계약.
+ * cables row 의 최소 계약.
  * 배치 Asset 외 컬렉션은 store 내부에서 id/updatedAt 만 알면 충분하다
  * (엔진이 idOf/versionOf 만 요구). 구체 타입은 commit 빌더(2b-T4)의 몫.
  */
@@ -79,7 +78,6 @@ export interface PlacementDraw {
 }
 
 type Cable = WorkingCopyRow;
-type FiberPath = WorkingCopyRow;
 
 /** 컬렉션 공통 descriptor 빌더 — id/updatedAt 키 규약은 전 컬렉션 동일. */
 function makeDescriptor<T extends { id: string; updatedAt?: string | null }>(): CollectionDescriptor<T> {
@@ -92,8 +90,6 @@ function makeDescriptor<T extends { id: string; updatedAt?: string | null }>(): 
 // 효과(effective) 병합용 descriptor — 2c React 바인딩 훅(hooks.ts)이 재사용한다.
 export const assetDescriptor = makeDescriptor<Asset>();
 export const cableDescriptor = makeDescriptor<Cable>();
-export const fiberPathDescriptor = makeDescriptor<FiberPath>();
-export const fiberCoreDescriptor = makeDescriptor<FiberCore>();
 
 // ── 컬렉션 레지스트리 (북극성 ① 코어 제네릭화) ──────────────────────────────────
 // 워킹카피 컬렉션을 '데이터'로 등록한다. dirty/revert(freshOverlays) 등 종류-무관 기계는
@@ -125,8 +121,6 @@ export { recordsDescriptor };
 const COLLECTIONS = {
   assets: assetDescriptor,
   cables: cableDescriptor,
-  fiberPaths: fiberPathDescriptor,
-  fiberCores: fiberCoreDescriptor,
   records: recordsDescriptor,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
@@ -142,16 +136,12 @@ export function sumOverlaysDirty(overlays: Overlays): number {
 interface SavedCollections {
   assets: Asset[];
   cables: Cable[];
-  fiberPaths: FiberPath[];
-  fiberCores: FiberCore[];
   records: AssetRecord[]; // 워킹카피가 각 자산 안에 중첩해 반환 → buildSaved 가 평탄화
 }
 
 interface Overlays {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Cable, Partial<Cable>>;
-  fiberPaths: Overlay<FiberPath, Partial<FiberPath>>;
-  fiberCores: Overlay<FiberCore, Partial<FiberCore>>;
   records: Overlay<AssetRecord, Partial<AssetRecord>>;
 }
 
@@ -171,8 +161,6 @@ function buildSaved(raw: Record<string, unknown>): SavedCollections {
   return {
     assets,
     cables: (raw.cables as Cable[]) ?? [],
-    fiberPaths: (raw.fiberPaths as FiberPath[]) ?? [],
-    fiberCores: (raw.fiberCores as FiberCore[]) ?? [],
     records,
   };
 }
@@ -249,8 +237,6 @@ export interface SubstationWorkingCopyState {
   stageCableCreate: (item: Cable) => void;
   stageCableUpdate: (id: string, patch: Partial<Cable>) => void;
   stageCableDelete: (id: string) => void;
-  stageFiberPathCreate: (item: FiberPath) => void;
-  stageFiberPathDelete: (id: string) => void;
 
   // ── 제네릭 ops (북극성 ① — 컬렉션 키로 stage. 새 엔티티는 이걸 쓰면 전용 함수 0개) ──
   put: (coll: CollectionKey, item: { id: string; [k: string]: unknown }) => void;
@@ -282,8 +268,6 @@ export interface SubstationWorkingCopyState {
   effectiveEquipment: (floorId: string) => Asset[];
   effectiveRackModules: (rackId: string) => Asset[];
   effectiveCables: () => Cable[];
-  effectiveFiberPaths: () => FiberPath[];
-  effectiveFiberCores: () => FiberCore[];
 
   dirtyCount: () => number;
 }
@@ -358,11 +342,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set((s) => ({ overlays: { ...s.overlays, cables: stageUpdate(s.overlays.cables, id, patch) } })),
       stageCableDelete: (id) =>
         set((s) => ({ overlays: { ...s.overlays, cables: stageDelete(s.overlays.cables, id, isTempId(id)) } })),
-
-      stageFiberPathCreate: (item) =>
-        set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageCreate(s.overlays.fiberPaths, item.id, item) } })),
-      stageFiberPathDelete: (id) =>
-        set((s) => ({ overlays: { ...s.overlays, fiberPaths: stageDelete(s.overlays.fiberPaths, id, isTempId(id)) } })),
 
       // 제네릭 ops — 컬렉션 키로 overlay 에 stage(엔티티 무관). overlay 는 키마다 타입이 달라 loose cast.
       put: (coll, item) =>
@@ -522,14 +501,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       effectiveCables: () => {
         const s = get();
         return mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor);
-      },
-      effectiveFiberPaths: () => {
-        const s = get();
-        return mergeEffective(s.saved.fiberPaths, s.overlays.fiberPaths, fiberPathDescriptor);
-      },
-      effectiveFiberCores: () => {
-        const s = get();
-        return mergeEffective(s.saved.fiberCores, s.overlays.fiberCores, fiberCoreDescriptor);
       },
 
       dirtyCount: () => {

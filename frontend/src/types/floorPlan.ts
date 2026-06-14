@@ -44,9 +44,6 @@ export interface FloorPlanCable {
   label?: string | null;
   color?: string | null;
   description?: string | null;
-  fiberPathId?: string | null;
-  fiberPortNumber?: number | null;
-  fiberPathLabel?: string | null;
 
   // ── P8 deprecation shims — removed in P9 ──
   /** @deprecated P8 — alias for `categoryId`. */
@@ -55,22 +52,6 @@ export interface FloorPlanCable {
   materialCategoryCode?: string | null;
   /** @deprecated P8 — alias for `categoryName`. */
   materialCategoryName?: string | null;
-}
-
-export interface FloorPlanFiberPath {
-  id: string;
-  ofdAId: string;
-  ofdBId: string;
-  portCount: number;
-  description?: string | null;
-  /**
-   * Backend denorm — OFD 의 name+substationName. 현재 floor 가 아닌 원격 OFD 정보도
-   * 포함되어 cross-substation 표시를 추가 쿼리 없이 즉시 가능.
-   */
-  ofdAName: string;
-  ofdASubstationName: string;
-  ofdBName: string;
-  ofdBSubstationName: string;
 }
 
 export interface FloorPlanDetail {
@@ -94,7 +75,6 @@ export interface FloorPlanDetail {
    */
   rackModules?: RackModule[];
   cables: FloorPlanCable[];
-  fiberPaths: FloorPlanFiberPath[];
   version: number;
   updatedAt: string;
 }
@@ -182,7 +162,6 @@ export interface DwgImportResult {
 //   - `equipment`: 도면 위 5종 (RACK 포함). `kind` 필수.
 //   - `rackModules`: 별도 배열 — undefined 면 기존 모듈 유지, 배열이면 reconciliation.
 //   - `cables`: source/target 각각 polymorphic.
-//   - `fiberPaths` / `deletedFiberPathIds`: 변동 없음.
 
 // 에디터 도구
 export type EditorTool = 'select' | 'equipment' | 'cable';
