@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 
 // 전원계통 방향성 — distributor(피더/충전기/UPS) 끝점으로 케이블을 그리면 그 끝에
 // IN/OUT(입력/출력) 지정 UI 가 뜨고, 선택한 role 이 stageCableCreate 에 실린다.
+//
+// 추가(P6): conduit(슬롯) 끝점 → role=OUT 자동·number=코어번호·fiberPathId null.
 
 // 카테고리(전원) 만 모킹.
 vi.mock('../../../cables/hooks/useCableCategories', () => ({
@@ -11,13 +13,10 @@ vi.mock('../../../cables/hooks/useCableCategories', () => ({
   }),
 }));
 
-// 끝점 자산의 connectionKind 를 알아내기 위해 effective assets 를 모킹.
-// target(panel-1) 이 distributor, source(rack-1) 는 일반 설비.
+// useEffectiveAssets 를 vi.fn() 으로 노출해 각 it 에서 mockReturnValue 로 제어.
+const mockUseEffectiveAssets = vi.fn();
 vi.mock('../../../workingCopy/hooks', () => ({
-  useEffectiveAssets: () => [
-    { id: 'rack-1', assetType: { connectionKind: null } },
-    { id: 'panel-1', assetType: { connectionKind: 'distributor' } },
-  ],
+  useEffectiveAssets: () => mockUseEffectiveAssets(),
 }));
 
 import { CableSpecModalWrapper } from './CableSpecModal';
@@ -27,6 +26,11 @@ import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 describe('CableSpecModal — distributor 끝점 IN/OUT 지정', () => {
   beforeEach(() => {
     useInteractionStore.getState().cancel();
+    // 기존 테스트 기본값: rack-1=일반, panel-1=distributor.
+    mockUseEffectiveAssets.mockReturnValue([
+      { id: 'rack-1', assetType: { connectionKind: null } },
+      { id: 'panel-1', assetType: { connectionKind: 'distributor' } },
+    ]);
   });
 
   it('distributor target 일 때 입력/출력 선택 UI 가 뜨고, 출력 선택 시 targetRole=OUT', () => {
@@ -54,5 +58,57 @@ describe('CableSpecModal — distributor 끝점 IN/OUT 지정', () => {
     expect(stageCableCreate).toHaveBeenCalledWith(
       expect.objectContaining({ targetRole: 'OUT', sourceRole: null }),
     );
+  });
+});
+
+describe('CableSpecModal — conduit(슬롯) 끝점 OUT 코어 케이블(P6)', () => {
+  beforeEach(() => {
+    useInteractionStore.getState().cancel();
+  });
+
+  it('설비→슬롯(conduit) 드로잉 — slot 끝 role=OUT, number=코어번호, fiberPathId/fiberPortNumber null, source role null', () => {
+    // 슬롯 자산을 conduit 으로 mock.
+    mockUseEffectiveAssets.mockReturnValue([
+      { id: 'eq-1', assetType: { connectionKind: null } },
+      { id: 'slot-1', assetType: { connectionKind: 'conduit' } },
+    ]);
+
+    const stageCableCreate = vi.fn();
+    useSubstationWorkingCopy.setState({ stageCableCreate } as never);
+
+    // OFD 드롭 흐름: containerAssetId = OFD equipment id, slotId/coreNumber 는 extras 채널.
+    // CableSpecModal 은 sourceAssetId = sourceSlotId ?? ... 로 슬롯을 endpoint 로 해소.
+    const ix = useInteractionStore.getState();
+    ix.cableSetSource('eq-1', { x: 0, y: 0 }, {});
+    // cableSetTarget: containerAssetId = OFD id(ofd-1), slotId = 'slot-1', coreNumber = 3.
+    ix.cableSetTarget('ofd-1', { x: 10, y: 10 }, { slotId: 'slot-1', coreNumber: 3 });
+
+    render(<CableSpecModalWrapper />);
+
+    // conduit 끝점이라도 distributor UI(입력/출력)는 뜨지 않아야 한다.
+    expect(screen.queryByText('입력')).toBeNull();
+    expect(screen.queryByText('출력')).toBeNull();
+
+    // 카테고리 선택 → 확인.
+    fireEvent.click(screen.getByText('전력'));
+    fireEvent.click(screen.getByText('확인'));
+
+    expect(stageCableCreate).toHaveBeenCalledTimes(1);
+    const arg = stageCableCreate.mock.calls[0][0] as Record<string, unknown>;
+
+    // endpoint: source = 설비, target = 슬롯(conduit).
+    expect(arg.sourceAssetId).toBe('eq-1');
+    expect(arg.targetAssetId).toBe('slot-1');
+
+    // 슬롯 끝 role = OUT, 설비 끝 role = null.
+    expect(arg.targetRole).toBe('OUT');
+    expect(arg.sourceRole).toBeNull();
+
+    // 코어 번호가 number 필드에 실린다.
+    expect(arg.number).toBe(3);
+
+    // 신모델: fiberPathId / fiberPortNumber 는 null.
+    expect(arg.fiberPathId).toBeNull();
+    expect(arg.fiberPortNumber).toBeNull();
   });
 });

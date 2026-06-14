@@ -9,13 +9,17 @@ import { useInteractionStore } from '../editor/stores/interactionStore';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { getEquipmentCenter } from '../../utils/floorplan/elementSystem';
 
-export function startOfdCableDrawing(ofdEquipmentId: string, fiberPathId: string, portNumber: number): void {
+/**
+ * @deprecated Task 5 에서 삭제 예정 — 구 FiberPathManager 전용(현재 미마운트).
+ * P6 Task 2 에서 fiberPathId/portNumber → slotId/coreNumber 로 시그니처 변경.
+ */
+export function startOfdCableDrawing(ofdEquipmentId: string, slotId: string, coreNumber: number): void {
   const editor = useEditorStore.getState();
   const asset = useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === ofdEquipmentId);
   if (!asset) return;
   editor.setPreselectedCableDisplayGroup('광');
-  useInteractionStore.getState().cableSetSource(ofdEquipmentId, getEquipmentCenter(asset), {
-    fiberPathId,
-    portNumber,
+  useInteractionStore.getState().cableSetSource(slotId, getEquipmentCenter(asset), {
+    slotId,
+    coreNumber,
   });
 }

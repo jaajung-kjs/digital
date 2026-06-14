@@ -3,7 +3,7 @@ import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { kindOf } from '../../workingCopy/placement';
 import { useCableDrawing, useInteractionStore } from '../stores/interactionStore';
 import { RackModulePicker } from '../../connections/components/RackModulePicker';
-import { OfdPortPicker } from '../../connections/components/OfdPortPicker';
+import { SlotCorePicker } from '../../connections/components/SlotCorePicker';
 import { CircuitPicker } from '../../connections/components/CircuitPicker';
 
 /**
@@ -109,19 +109,21 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
 
   if (activeKind === 'OFD') {
     return (
-      <OfdPortPicker
-        ofdEquipmentId={activeEquipment.id}
-        ofdName={activeEquipment.name}
-        onSelect={({ fiberPathId, portNumber }) => {
+      <SlotCorePicker
+        ofdId={activeEquipment.id}
+        onSelect={({ slotId, coreNumber }) => {
+          // containerAssetId = OFD equipment id (highlight + self-loop guard 유지).
+          // slotId 는 extras 채널로 흘러 CableSpecModal 이 sourceAssetId/targetAssetId = slotId 로 해소.
+          // center = OFD 중심 (경로 기하) — floorAnchor 가 슬롯→OFD 렌더.
           if (isSource) {
             useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
-              fiberPathId,
-              portNumber,
+              slotId,
+              coreNumber,
             });
           } else {
             useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
-              fiberPathId,
-              portNumber,
+              slotId,
+              coreNumber,
             });
           }
         }}
