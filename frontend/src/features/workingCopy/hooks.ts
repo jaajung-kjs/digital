@@ -4,7 +4,6 @@ import {
   useSubstationWorkingCopy,
   assetDescriptor,
   cableDescriptor,
-  fiberPathDescriptor,
   recordsDescriptor,
   sumOverlaysDirty,
   type AssetRecord,
@@ -39,12 +38,6 @@ export function useEffectiveCables() {
   const saved = useSubstationWorkingCopy((s) => s.saved.cables);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.cables);
   return useMemo(() => mergeEffective(saved, overlay, cableDescriptor), [saved, overlay]);
-}
-
-export function useEffectiveFiberPaths() {
-  const saved = useSubstationWorkingCopy((s) => s.saved.fiberPaths);
-  const overlay = useSubstationWorkingCopy((s) => s.overlays.fiberPaths);
-  return useMemo(() => mergeEffective(saved, overlay, fiberPathDescriptor), [saved, overlay]);
 }
 
 /**
