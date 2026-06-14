@@ -28,6 +28,7 @@ export const MATERIAL_TO_CABLE_TYPE: Record<string, CableType> = {
   'CBL-FCV': 'AC', 'CBL-FR': 'AC', 'CBL-VCT': 'AC', 'CBL-HIV': 'AC',
   'CBL-UTP': 'LAN',
   'CBL-OPT': 'FIBER', 'CBL-OPJ': 'FIBER', 'CBL-OPT-B': 'FIBER',
+  'CBL-OPGW': 'FIBER',
   'CBL-IV': 'GROUND', 'CBL-BARE': 'GROUND',
   'CBL-CVV': 'DC', 'CBL-CPEV': 'LAN', 'CBL-PCM': 'LAN',
   'CBL-COAX': 'LAN', 'CBL-CHAMP': 'LAN', 'CBL-SIG': 'DC',
