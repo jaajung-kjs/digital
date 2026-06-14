@@ -10,7 +10,6 @@ import { getAssetRecordModels } from './assetRecordSchema.service.js';
  *     스칼라 컬럼을 캐리하므로 select 로 과도하게 제한하지 않는다. 프론트 매퍼용
  *     assetType 만 include.
  *   - cables: cable.service.getBySubstationId 재사용 — connections 뷰와 동일한 DTO.
- *   - fiberPaths: OFD 설비(ofdA/ofdB.substationId) 조인.
  *   - inspections/logs/photos: 자산 하위레코드도 변전소 단위로 함께 반환한다.
  *     이전엔 이것만 빠져서 프론트가 자산별 RQ 로 따로 가져와 staging overlay 와
  *     머지하는 'media 특수처리'가 생겼다. 여기서 함께 주면 프론트는 saved+overlay
@@ -18,26 +17,17 @@ import { getAssetRecordModels } from './assetRecordSchema.service.js';
  *
  * 단계4c — 분전반 회로는 FEEDER/BRANCH Asset(assets 컬렉션) 으로 통합됐다.
  * 별도 distributionCircuits 컬렉션은 제거.
+ * P7 — fiberPaths/fiberCores 는 새 SLOT/OUT/OPGW 모델로 마이그레이션 완료. 제거.
  */
 export async function getWorkingCopy(substationId: string) {
-  const [assets, cables, fiberPaths] = await Promise.all([
+  const [assets, cables] = await Promise.all([
     prisma.asset.findMany({
       where: { substationId },
       include: { assetType: { select: { id: true, code: true, name: true, group: true, displayColor: true, fieldTemplate: true, placementKind: true, connectionKind: true } } },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     }),
     cableService.getBySubstationId(substationId),
-    prisma.fiberPath.findMany({
-      where: { OR: [{ ofdA: { substationId } }, { ofdB: { substationId } }] },
-      orderBy: { createdAt: 'asc' },
-    }),
   ]);
-
-  // 광코어 메타(희소) — 이 변전소 OFD 가 속한 광경로의 코어만.
-  const fiberPathIds = fiberPaths.map((p) => p.id);
-  const fiberCores = fiberPathIds.length
-    ? await prisma.fiberCore.findMany({ where: { fiberPathId: { in: fiberPathIds } } })
-    : [];
 
   // 자산 하위레코드(점검/고장이력/사진 + 미래 무엇이든)는 자산의 *속성*이다 — 형제 컬렉션이
   // 아니라 각 자산 안에 records[] 로 중첩한다. 어떤 테이블이 자산 기록인지·그 컬럼이 무엇인지는
@@ -71,5 +61,5 @@ export async function getWorkingCopy(substationId: string) {
   }
   const assetsWithRecords = assets.map((a) => ({ ...a, records: recordsByAsset.get(a.id) ?? [] }));
 
-  return { assets: assetsWithRecords, cables, fiberPaths, fiberCores };
+  return { assets: assetsWithRecords, cables };
 }

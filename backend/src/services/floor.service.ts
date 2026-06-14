@@ -1,7 +1,6 @@
 import prisma from '../config/prisma.js';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
-import { buildFiberPathLabel } from './cable.service.js';
 import {
   assetToPlanEquipment,
   type PlacementKind,
@@ -73,9 +72,6 @@ interface PlanCableDTO {
   color: string | null;
   pathPoints: unknown;
   description: string | null;
-  fiberPathId: string | null;
-  fiberPortNumber: number | null;
-  fiberPathLabel: string | null;
   categoryId: string | null;
   categoryCode: string | null;
   categoryName: string | null;
@@ -100,21 +96,6 @@ export interface FloorPlanDetail {
   backgroundOpacity: number;
   equipment: PlanEquipmentDTO[];
   cables: PlanCableDTO[];
-  fiberPaths: {
-    id: string;
-    ofdAId: string;
-    ofdBId: string;
-    portCount: number;
-    description: string | null;
-    /**
-     * Denorm — OFD 가 어느 변전소인지 frontend 가 추가 쿼리 없이 알도록. 원격 OFD
-     * (다른 floor) 도 substation 정보가 포함되어 있어 pending path 표시도 즉시 가능.
-     */
-    ofdAName: string;
-    ofdASubstationName: string;
-    ofdBName: string;
-    ofdBSubstationName: string;
-  }[];
   version: number;
   updatedAt: Date;
 }
@@ -195,7 +176,6 @@ class FloorService {
           backgroundDrawing: snapshot.plan.backgroundDrawing ?? null,
           backgroundOpacity: snapshot.plan.backgroundOpacity ?? 0.3,
           cables: snapshot.cables ?? [],
-          fiberPaths: snapshot.fiberPaths ?? [],
         };
       }
       throw new NotFoundError('해당 버전');
@@ -204,7 +184,7 @@ class FloorService {
     const floor = await prisma.floor.findUnique({ where: { id } });
     if (!floor) throw new NotFoundError('층');
 
-    const [equipmentAssets, cables, ofdEquipment] = await Promise.all([
+    const [equipmentAssets, cables] = await Promise.all([
       prisma.asset.findMany({
         where: { floorId: id, parentAssetId: null },
         include: { assetType: true },
@@ -224,52 +204,10 @@ class FloorService {
         },
         include: {
           category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
-          fiberPath: {
-            select: {
-              id: true,
-              ofdAId: true,
-              ofdBId: true,
-              ofdA: { select: { floor: { select: { substation: { select: { name: true } } } } } },
-              ofdB: { select: { floor: { select: { substation: { select: { name: true } } } } } },
-            },
-          },
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.asset.findMany({
-        where: { floorId: id, parentAssetId: null, assetType: { placementKind: 'OFD' } },
-        select: { id: true },
-      }),
     ]);
-
-    const ofdIds = ofdEquipment.map((e) => e.id);
-    // 양쪽 OFD 의 name + substationName 까지 denorm 해서 보냄 — frontend 가 cross-substation
-    // 표시를 추가 쿼리 없이 즉시 가능. include 패턴은 fiberPath.service.ts 의 동일 join.
-    const rawFiberPaths = ofdIds.length > 0
-      ? await prisma.fiberPath.findMany({
-          where: { OR: [{ ofdAId: { in: ofdIds } }, { ofdBId: { in: ofdIds } }] },
-          select: {
-            id: true,
-            ofdAId: true,
-            ofdBId: true,
-            portCount: true,
-            description: true,
-            ofdA: { select: { name: true, floor: { select: { substation: { select: { name: true } } } } } },
-            ofdB: { select: { name: true, floor: { select: { substation: { select: { name: true } } } } } },
-          },
-        })
-      : [];
-    const fiberPaths = rawFiberPaths.map((fp) => ({
-      id: fp.id,
-      ofdAId: fp.ofdAId,
-      ofdBId: fp.ofdBId,
-      portCount: fp.portCount,
-      description: fp.description,
-      ofdAName: fp.ofdA?.name ?? '',
-      ofdASubstationName: fp.ofdA?.floor?.substation?.name ?? '',
-      ofdBName: fp.ofdB?.name ?? '',
-      ofdBSubstationName: fp.ofdB?.floor?.substation?.name ?? '',
-    }));
 
     return {
       id: floor.id,
@@ -293,9 +231,6 @@ class FloorService {
         color: c.color,
         pathPoints: c.pathPoints,
         description: c.description,
-        fiberPathId: c.fiberPathId,
-        fiberPortNumber: c.fiberPortNumber,
-        fiberPathLabel: buildFiberPathLabel(c),
         categoryId: c.categoryId,
         categoryCode: c.category?.code ?? null,
         categoryName: c.category?.name ?? null,
@@ -306,7 +241,6 @@ class FloorService {
         bufferLength: c.bufferLength ?? 4,
         totalLength: c.totalLength,
       })),
-      fiberPaths,
       version: floor.version,
       updatedAt: floor.updatedAt,
     };
@@ -410,7 +344,6 @@ class FloorService {
       return {
         plan: snapshot.plan,
         cables: snapshot.cables ?? [],
-        fiberPaths: snapshot.fiberPaths ?? [],
       };
     }
 

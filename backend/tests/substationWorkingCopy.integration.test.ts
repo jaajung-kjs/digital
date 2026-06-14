@@ -8,8 +8,8 @@ import prisma from '../src/config/prisma.js';
 
 /**
  * SSOT-2b Task 1 — GET /api/substations/:id/workingcopy 벌크 로드.
- * 통합 working-copy 스토어가 단일 요청으로 전 컬렉션(assets+placement / cables /
- * distributionCircuits / fiberPaths)을 받을 수 있는지 검증한다.
+ * 통합 working-copy 스토어가 단일 요청으로 전 컬렉션(assets+placement / cables)을
+ * 받을 수 있는지 검증한다. (fiberPaths/fiberCores 는 P7 에서 제거됨)
  * production 라우트(substationsRouter)를 직접 마운트해 인증 게이팅까지 확인.
  */
 describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy)', () => {
@@ -75,9 +75,10 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
     const { data } = res.body;
     expect(Array.isArray(data.assets)).toBe(true);
     expect(Array.isArray(data.cables)).toBe(true);
-    expect(Array.isArray(data.fiberPaths)).toBe(true);
     // 단계4c — 분전반 회로는 FEEDER/BRANCH Asset 으로 통합, 별도 컬렉션 없음.
     expect(data.distributionCircuits).toBeUndefined();
+    // P7 — fiberPaths/fiberCores 제거됨.
+    expect(data.fiberPaths).toBeUndefined();
   });
 
   it('assets[0] 가 placement + 트리 + updatedAt 컬럼을 캐리한다', async () => {

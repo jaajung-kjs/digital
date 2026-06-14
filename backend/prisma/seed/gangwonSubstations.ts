@@ -1,4 +1,4 @@
-import { PrismaClient, CableType } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * 강원본부 직할 변전소 시드 — `직할_OFD선번장_251218_최종본.xlsx` 기반.
@@ -92,9 +92,8 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
   const ofdType = await prisma.assetType.findUnique({ where: { code: 'OFD' } });
   const rackType = await prisma.assetType.findUnique({ where: { code: 'RACK' } });
   const optTerm = await prisma.assetType.findUnique({ where: { code: 'EQP-OPT-TERM' } });
-  const cblOpt = await prisma.cableCategory.findUnique({ where: { code: 'CBL-OPT' } });
-  if (!ofdType || !rackType || !optTerm || !cblOpt) {
-    console.warn('  ⚠️  OFD/RACK/EQP-OPT-TERM AssetType 또는 CBL-OPT 카테고리 없음 — 강원 직할 시드 skip');
+  if (!ofdType || !rackType || !optTerm) {
+    console.warn('  ⚠️  OFD/RACK/EQP-OPT-TERM AssetType 없음 — 강원 직할 시드 skip');
     return;
   }
 
@@ -182,42 +181,5 @@ export async function seedGangwonSubstations(prisma: PrismaClient, adminId: stri
     });
   }
 
-  // ─── 변전소쌍별: FiberPath + 양측 패치 케이블 ───
-  const nameByKey = new Map(SUBSTATIONS.map((s) => [s.key, s.name]));
-  for (let e = 0; e < EDGES.length; e++) {
-    const [a, b] = EDGES[e];
-    const id = gwUuid(TYPE.path, e + 1);
-    await prisma.fiberPath.upsert({
-      where: { id },
-      update: {},
-      create: {
-        id,
-        ofdAId: ofdId(a),
-        ofdBId: ofdId(b),
-        portCount: 24,
-        description: `${nameByKey.get(a)}-${nameByKey.get(b)} 송변전 광경로`,
-      },
-    });
-
-    for (const [side, type] of [[a, TYPE.cableA], [b, TYPE.cableB]] as const) {
-      const cableId = gwUuid(type, e + 1);
-      await prisma.cable.upsert({
-        where: { id: cableId },
-        update: {},
-        create: {
-          id: cableId,
-          sourceModuleId: moduleId(side),
-          targetEquipmentId: ofdId(side),
-          cableType: CableType.FIBER,
-          categoryId: cblOpt.id,
-          fiberPathId: id,
-          fiberPortNumber: 1,
-          label: `송변전광단말장치-OFD (${nameByKey.get(side)})`,
-          bufferLength: 4,
-        },
-      });
-    }
-  }
-
-  console.log(`  ✅ 강원 직할 ${SUBSTATIONS.length}개 변전소 / ${EDGES.length}개 광경로`);
+  console.log(`  ✅ 강원 직할 ${SUBSTATIONS.length}개 변전소 (광경로 시드는 P7에서 제거됨)`);
 }

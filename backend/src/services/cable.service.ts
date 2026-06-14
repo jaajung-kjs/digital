@@ -1,5 +1,5 @@
 import prisma from '../config/prisma.js';
-import { NotFoundError, ValidationError } from '../utils/errors.js';
+import { NotFoundError } from '../utils/errors.js';
 import { CableType } from '@prisma/client';
 import { placementKindToKind, type PlacementKind } from './assetPlanMapper.js';
 
@@ -42,9 +42,6 @@ export interface CableDetail {
   color: string | null;
   pathPoints: unknown;
   description: string | null;
-  fiberPathId: string | null;
-  fiberPortNumber: number | null;
-  fiberPathDescription: string | null;
   categoryId: string | null;
   categoryCode: string | null;
   categoryName: string | null;
@@ -82,62 +79,8 @@ const cableInclude = {
       parent: { select: { floorId: true, parent: { select: { floorId: true } } } },
     },
   },
-  fiberPath: {
-    select: {
-      id: true,
-      ofdAId: true,
-      ofdBId: true,
-      ofdA: { select: { floor: { select: { substation: { select: { name: true } } } } } },
-      ofdB: { select: { floor: { select: { substation: { select: { name: true } } } } } },
-    },
-  },
   category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
 } as const;
-
-/**
- * Build fiber path label oriented "자국-대국".
- * Module-level export so other services (e.g. floor.service) can reuse without
- * duplicating the orientation logic.
- */
-export function buildFiberPathLabel(c: any): string | null {
-  const fp = c.fiberPath;
-  if (!fp) return null;
-
-  const nameA = fp.ofdA?.floor?.substation?.name;
-  const nameB = fp.ofdB?.floor?.substation?.name;
-  if (!nameA || !nameB) return null;
-
-  // 케이블의 한 쪽 endpoint asset 이 OFD 면 그쪽이 local
-  const cableOfdId = c.sourceAssetId === fp.ofdAId || c.targetAssetId === fp.ofdAId
-    ? fp.ofdAId
-    : c.sourceAssetId === fp.ofdBId || c.targetAssetId === fp.ofdBId
-      ? fp.ofdBId
-      : null;
-  if (!cableOfdId) return `${nameA}-${nameB}`;
-
-  const localName = cableOfdId === fp.ofdAId ? nameA : nameB;
-  const remoteName = cableOfdId === fp.ofdAId ? nameB : nameA;
-  return `${localName}-${remoteName}`;
-}
-
-/**
- * OFD 한 쪽이라도 endpoint 면 fiberPathId + fiberPortNumber 필수.
- * 외부에서 호출하므로 export.
- */
-export function assertOfdFiberPath(
-  sourceKind: PlacementKind | null,
-  targetKind: PlacementKind | null,
-  fiberPathId: string | null | undefined,
-  fiberPortNumber: number | null | undefined,
-): void {
-  const hasOfd = sourceKind === 'OFD' || targetKind === 'OFD';
-  if (!hasOfd) return;
-  if (!fiberPathId || !fiberPortNumber) {
-    throw new ValidationError(
-      'OFD 가 endpoint 인 케이블은 fiberPathId 와 fiberPortNumber 가 필요합니다.',
-    );
-  }
-}
 
 // ==================== Service ====================
 
@@ -257,9 +200,6 @@ class CableService {
       color: c.color,
       pathPoints: c.pathPoints,
       description: c.description,
-      fiberPathId: c.fiberPathId ?? null,
-      fiberPortNumber: c.fiberPortNumber ?? null,
-      fiberPathDescription: buildFiberPathLabel(c),
       categoryId: c.categoryId ?? null,
       categoryCode: c.category?.code ?? null,
       categoryName: c.category?.name ?? null,
