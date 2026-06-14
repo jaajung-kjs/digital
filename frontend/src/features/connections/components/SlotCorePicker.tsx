@@ -29,8 +29,8 @@ export function SlotCorePicker({
     [assets, ofdId],
   );
 
-  // pickedSlotId: null = ユーザーがまだ選択していない (初回は slots[0] にフォールバック).
-  // slots が非同期で hydrate しても slotId が stale になるのを防ぐ.
+  // pickedSlotId: null = 아직 선택 안 함(최초엔 slots[0] 으로 폴백).
+  // slots 가 비동기로 hydrate 돼도 slotId 가 stale 안 되게.
   const [pickedSlotId, setPickedSlotId] = useState<string | null>(null);
   const slotId = pickedSlotId ?? slots[0]?.id ?? null;
 
