@@ -4,16 +4,12 @@ import { type LocalCable } from '../../editor/stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
-import { useOfdDirectory } from '../../fiber/hooks/useOfdDirectory';
 import { buildEndpointNameResolver, buildSelfSideChecker } from '../../connections/endpointName';
-import { composeFiberPaths } from '../../workingCopy/merge';
-import { toMapById } from '../../../utils/byId';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
-import { buildCableFiberPathLabel } from '../../fiber/label';
+import { useTraceGraph, remoteSlotSubstation } from '../../trace/traceGraph';
 import {
   useEffectiveAssets,
   useEffectiveCables,
-  useEffectiveFiberPaths,
 } from '../../workingCopy/hooks';
 
 
@@ -49,24 +45,8 @@ export function ConnectionDiagram({
     [effectiveAssets, equipmentId],
   );
 
-  // git-like: 케이블의 fiberPathLabel 을 read-time 에 합성하기 위한 path 맵.
-  // 통합 스토어 effective fiber paths(saved+staged, deletes 반영) 를 directory 로 합성 —
-  // 저장 전에도 commit 후와 동일 라벨.
-  const effectiveFiberPaths = useEffectiveFiberPaths();
-  const ofdDirectory = useOfdDirectory();
-  const fiberPathById = useMemo(() => {
-    const composed = composeFiberPaths(
-      effectiveFiberPaths as unknown as Array<{
-        id: string;
-        ofdAId: string;
-        ofdBId: string;
-        portCount: number;
-        description?: string | null;
-      }>,
-      ofdDirectory,
-    );
-    return toMapById(composed);
-  }, [effectiveFiberPaths, ofdDirectory]);
+  // 광 케이블 경로 라벨: 신모델 — cable.number(심선 번호) + remoteSlotSubstation(슬롯 대국 변전소).
+  const { graph } = useTraceGraph();
 
   const relevantCables = useMemo(() => {
     return localCables.filter(
@@ -155,12 +135,17 @@ export function ConnectionDiagram({
                       </p>
                     </div>
                   </div>
-                  {cable.cableType === 'FIBER' && cable.fiberPortNumber != null && (
-                    <p className="mt-1 text-[11px] text-content-faint text-center truncate">
-                      {cable.fiberPathLabel ?? buildCableFiberPathLabel(cable, fiberPathById) ?? '경로'}
-                      {` #${cable.fiberPortNumber}`}
-                    </p>
-                  )}
+                  {cable.cableType === 'FIBER' && cable.number != null && (() => {
+                    const slotId = [cable.sourceAssetId, cable.targetAssetId].find(
+                      (id) => id && graph?.codeById.get(id) === 'OFD-SLOT',
+                    ) ?? null;
+                    const route = graph && slotId ? remoteSlotSubstation(slotId, graph) : null;
+                    return (
+                      <p className="mt-1 text-[11px] text-content-faint text-center truncate">
+                        {(route ?? '경로')}{` #${cable.number}`}
+                      </p>
+                    );
+                  })()}
                 </div>
                 {isCardSelected && (
                   <div className="flex justify-end pr-1">

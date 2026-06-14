@@ -39,6 +39,10 @@ export interface LocalCable {
   sourceCircuitId?: string | null;
   targetCircuitId?: string | null;
   cableType: string;
+  sourceRole?: 'IN' | 'OUT' | null;
+  targetRole?: 'IN' | 'OUT' | null;
+  /** 케이블 심선/회선 번호 (광 core 번호 등). */
+  number?: number | null;
   /** CableCategory join — name/displayColor surfaced for UI labels. */
   categoryId?: string | null;
   categoryCode?: string | null;
