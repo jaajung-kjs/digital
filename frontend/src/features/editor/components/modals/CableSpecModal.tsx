@@ -91,18 +91,43 @@ function CableSpecModal() {
     // pathPoints 가 cm 좌표 — calculatePathLength 가 cm 길이를 직접 돌려준다.
     const { pathLength, bufferLength, totalLength } = calculatePathLength(pathPoints);
 
-    // For OFD ports we attach the fiberPath via either side. The model uses
-    // single `fiberPathId / fiberPortNumber` fields so target-side wins when
-    // both endpoints are OFDs (rare; usually only one side is fiber-tracked).
-    const fiberPathId = data.targetFiberPathId ?? data.sourceFiberPathId ?? null;
-    const fiberPortNumber = data.targetPortNumber ?? data.sourcePortNumber ?? null;
+    // 신모델(P6): OFD 드롭 시 코어번호를 드로잉 데이터에서 읽는다.
+    // slotId 는 sourceAssetId/targetAssetId 를 통해 이미 endpoint 로 해소된다.
+    const coreNumber = data.targetCoreNumber ?? data.sourceCoreNumber ?? null;
 
     const newCableId = generateTempId();
-    // 단계4b — endpoint 는 단일 assetId. INNER pick(랙 모듈 / 분전반 분기 asset)이 있으면
-    //   그게 정밀 endpoint, 없으면 CONTAINER asset 자체가 endpoint.
-    //   READ 는 floorAnchor 가 branch→feeder→분전반 / module→랙 으로 해소해 시각화.
-    const sourceAssetId = data.sourceInnerAssetId ?? data.sourceContainerAssetId ?? null;
-    const targetAssetId = data.targetInnerAssetId ?? data.targetContainerAssetId ?? null;
+    // 단계4b — endpoint 는 단일 assetId. 우선순위:
+    //   1) slotId (OFD 드롭 시 슬롯이 실제 endpoint)
+    //   2) innerAssetId (랙 모듈 / 분전반 분기 asset)
+    //   3) containerAssetId (설비 자체)
+    // containerAssetId 는 OFD 드롭에서도 OFD equipment id 를 유지하므로,
+    // 슬롯 endpoint 는 slotId 채널로만 꺼낸다.
+    // READ 는 floorAnchor 가 slot→OFD / module→랙 / feeder→분전반 으로 해소해 시각화.
+    const sourceAssetId = data.sourceSlotId ?? data.sourceInnerAssetId ?? data.sourceContainerAssetId ?? null;
+    const targetAssetId = data.targetSlotId ?? data.targetInnerAssetId ?? data.targetContainerAssetId ?? null;
+
+    // 슬롯(conduit) 끝점 판정 — conduit slot 은 role='OUT' 을 받는다.
+    const isConduit = (assetId: string | null): boolean => {
+      if (!assetId) return false;
+      const a = effectiveAssets.find((x) => x.id === assetId);
+      return a?.assetType?.connectionKind === 'conduit';
+    };
+    const sourceIsConduit = isConduit(sourceAssetId);
+    const targetIsConduit = isConduit(targetAssetId);
+
+    // slotId 가 있으면 신모델(P6) — conduit 슬롯 끝이 OUT.
+    // slotId 없으면 구모델 호환(non-fiber 케이블) — distributor role 만 적용.
+    const computeSourceRole = (): 'IN' | 'OUT' | null => {
+      if (sourceIsConduit) return 'OUT';
+      if (sourceIsDist) return sourceRole;
+      return null;
+    };
+    const computeTargetRole = (): 'IN' | 'OUT' | null => {
+      if (targetIsConduit) return 'OUT';
+      if (targetIsDist) return targetRole;
+      return null;
+    };
+
     // SSOT-2d Task 4 — 케이블 생성을 통합 스토어 stage 액션으로.
     useSubstationWorkingCopy.getState().stageCableCreate({
       id: newCableId,
@@ -119,11 +144,14 @@ function CableSpecModal() {
       pathLength,
       bufferLength,
       totalLength,
-      fiberPathId,
-      fiberPortNumber,
-      // 전원계통 방향성 — distributor 끝점만 role 을 가진다(아니면 null).
-      sourceRole: sourceIsDist ? sourceRole : null,
-      targetRole: targetIsDist ? targetRole : null,
+      // 신모델: fiberPathId/fiberPortNumber 는 신규 케이블에 싣지 않음(null).
+      fiberPathId: null,
+      fiberPortNumber: null,
+      // number = 코어 번호(슬롯 드롭 시), 없으면 null.
+      number: coreNumber ?? null,
+      // 전원계통 방향성 + 슬롯(conduit) OUT role 병합.
+      sourceRole: computeSourceRole(),
+      targetRole: computeTargetRole(),
     });
 
     useInteractionStore.getState().cancel();

@@ -23,6 +23,9 @@ export interface CableDetailDTO {
   source: { assetId: string | null; name?: string; kind?: string | null; floorId?: string | null };
   target: { assetId: string | null; name?: string; kind?: string | null; floorId?: string | null };
   cableType: string;
+  sourceRole?: 'IN' | 'OUT' | null;
+  targetRole?: 'IN' | 'OUT' | null;
+  number?: number | null;
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
   fiberPathDescription?: string | null;
@@ -53,6 +56,9 @@ export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
     sourceCircuitId: null,
     targetCircuitId: null,
     cableType: c.cableType,
+    sourceRole: c.sourceRole ?? null,
+    targetRole: c.targetRole ?? null,
+    number: c.number ?? null,
     categoryId: c.categoryId ?? null,
     categoryCode: c.categoryCode ?? null,
     categoryName: c.categoryName ?? null,

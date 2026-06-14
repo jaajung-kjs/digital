@@ -60,5 +60,8 @@ export function buildSelfSideChecker(assets: Asset[], assetId: string): (id: str
     assets.filter((a) => isRackModuleAsset(a) && a.parentAssetId === assetId).map((a) => a.id),
   );
   const childFeeders = new Set(feedersOfPanel(assets, assetId).map((f) => f.id));
-  return (id) => !!id && (id === assetId || childModules.has(id) || childFeeders.has(id));
+  const childConduits = new Set(
+    assets.filter((a) => a.parentAssetId === assetId && a.assetType?.connectionKind === 'conduit').map((a) => a.id),
+  );
+  return (id) => !!id && (id === assetId || childModules.has(id) || childFeeders.has(id) || childConduits.has(id));
 }

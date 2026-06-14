@@ -14,22 +14,26 @@ export interface CableDrawingData {
   phase: CableDrawingPhase;
 
   /** Source CONTAINER — 도면에 배치된 설비/랙/분전반/OFD 의 asset id.
-   *  어떤 picker 가 열릴지를 결정한다 (랙→모듈, 분전반→회로, OFD→포트). */
+   *  어떤 picker 가 열릴지를 결정한다 (랙→모듈, 분전반→회로, OFD→슬롯). */
   sourceContainerAssetId: string | null;
   /** Source INNER pick — 랙 모듈 asset 또는 분전반 분기 asset 의 id.
    *  (모듈/회로는 상호배타 → 단일 필드로 병합). null 이면 컨테이너 자체가 endpoint. */
   sourceInnerAssetId: string | null;
   sourcePosition: { x: number; y: number } | null;
-  sourceFiberPathId: string | null;
-  sourcePortNumber: number | null;
+  /** OFD 드롭 시 선택된 슬롯(경로) id — endpoint assetId 가 이 슬롯이 됨. */
+  sourceSlotId: string | null;
+  /** OFD 드롭 시 선택된 코어 번호. */
+  sourceCoreNumber: number | null;
 
   waypoints: [number, number][];
 
   targetContainerAssetId: string | null;
   targetInnerAssetId: string | null;
   targetPosition: { x: number; y: number } | null;
-  targetFiberPathId: string | null;
-  targetPortNumber: number | null;
+  /** OFD 드롭 시 선택된 슬롯(경로) id — endpoint assetId 가 이 슬롯이 됨. */
+  targetSlotId: string | null;
+  /** OFD 드롭 시 선택된 코어 번호. */
+  targetCoreNumber: number | null;
 
   /** Cursor 미리보기 점 (drawingPath 단계) */
   previewPoint: { x: number; y: number } | null;
@@ -41,14 +45,14 @@ const cableInitial: CableDrawingData = {
   sourceContainerAssetId: null,
   sourceInnerAssetId: null,
   sourcePosition: null,
-  sourceFiberPathId: null,
-  sourcePortNumber: null,
+  sourceSlotId: null,
+  sourceCoreNumber: null,
   waypoints: [],
   targetContainerAssetId: null,
   targetInnerAssetId: null,
   targetPosition: null,
-  targetFiberPathId: null,
-  targetPortNumber: null,
+  targetSlotId: null,
+  targetCoreNumber: null,
   previewPoint: null,
   hoveredAssetId: null,
 };
@@ -68,13 +72,13 @@ interface InteractionActions {
   cableSetSource: (
     containerAssetId: string,
     position: { x: number; y: number },
-    extras?: { innerAssetId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
+    extras?: { innerAssetId?: string | null; slotId?: string | null; coreNumber?: number | null },
   ) => void;
   cableSetPendingTarget: (containerAssetId: string, position: { x: number; y: number }) => void;
   cableSetTarget: (
     containerAssetId: string,
     position: { x: number; y: number },
-    extras?: { innerAssetId?: string | null; fiberPathId?: string | null; portNumber?: number | null },
+    extras?: { innerAssetId?: string | null; slotId?: string | null; coreNumber?: number | null },
   ) => void;
   cableAddWaypoint: (x: number, y: number) => void;
   cableRemoveLastWaypoint: () => void;
@@ -107,8 +111,8 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
             phase: 'pickingSourceModule',
             sourceContainerAssetId: containerAssetId,
             sourceInnerAssetId: null,
-            sourceFiberPathId: null,
-            sourcePortNumber: null,
+            sourceSlotId: null,
+            sourceCoreNumber: null,
             sourcePosition: position,
           },
         },
@@ -128,14 +132,14 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
             phase: 'drawingPath',
             sourceContainerAssetId: containerAssetId,
             sourceInnerAssetId: extras?.innerAssetId ?? null,
-            sourceFiberPathId: extras?.fiberPathId ?? null,
-            sourcePortNumber: extras?.portNumber ?? null,
+            sourceSlotId: extras?.slotId ?? null,
+            sourceCoreNumber: extras?.coreNumber ?? null,
             sourcePosition: position,
             waypoints: [],
             targetContainerAssetId: null,
             targetInnerAssetId: null,
-            targetFiberPathId: null,
-            targetPortNumber: null,
+            targetSlotId: null,
+            targetCoreNumber: null,
             targetPosition: null,
             previewPoint: null,
             hoveredAssetId: null,
@@ -155,8 +159,8 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
             phase: 'pickingTargetModule',
             targetContainerAssetId: containerAssetId,
             targetInnerAssetId: null,
-            targetFiberPathId: null,
-            targetPortNumber: null,
+            targetSlotId: null,
+            targetCoreNumber: null,
             targetPosition: position,
           },
         },
@@ -174,8 +178,8 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
             phase: 'selectingSpec',
             targetContainerAssetId: containerAssetId,
             targetInnerAssetId: extras?.innerAssetId ?? null,
-            targetFiberPathId: extras?.fiberPathId ?? null,
-            targetPortNumber: extras?.portNumber ?? null,
+            targetSlotId: extras?.slotId ?? null,
+            targetCoreNumber: extras?.coreNumber ?? null,
             targetPosition: position,
             previewPoint: null,
             hoveredAssetId: null,
