@@ -37,11 +37,7 @@ export function makeEndpointKindResolver(tx: Tx) {
 export interface ResolvedCableEndpoints {
   sourceAssetId: string | null;
   targetAssetId: string | null;
-  fiberPathId: string | null;
-  fiberPortNumber: number | null | undefined;
 }
-// NOTE: fiberPathId/fiberPortNumber are kept for interface compatibility but are no longer
-// validated — fiber was migrated to SLOT/OUT/OPGW model (P7).
 
 /**
  * 케이블 endpoint 유효성 검사 (단계4b — 단일 Asset 노드, real id 로 해소된 뒤 호출).

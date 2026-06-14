@@ -458,7 +458,7 @@ async function run(
       const sourceAssetId = resolveNode(c.sourceAssetId)!;
       const targetAssetId = resolveNode(c.targetAssetId)!;
       await assertCableEndpointsValid(tx, [
-        { sourceAssetId, targetAssetId, fiberPathId: null, fiberPortNumber: null },
+        { sourceAssetId, targetAssetId },
       ]);
       const created = await tx.cable.create({
         data: {
@@ -498,7 +498,7 @@ async function run(
       const targetAssetId =
         (p.targetAssetId !== undefined ? resolveNode(p.targetAssetId) : existing.targetAssetId)!;
       await assertCableEndpointsValid(tx, [
-        { sourceAssetId, targetAssetId, fiberPathId: null, fiberPortNumber: null },
+        { sourceAssetId, targetAssetId },
       ]);
       await tx.cable.update({
         where: { id: u.id },

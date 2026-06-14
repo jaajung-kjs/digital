@@ -17,7 +17,6 @@ import { getAssetRecordModels } from './assetRecordSchema.service.js';
  *
  * 단계4c — 분전반 회로는 FEEDER/BRANCH Asset(assets 컬렉션) 으로 통합됐다.
  * 별도 distributionCircuits 컬렉션은 제거.
- * P7 — fiberPaths/fiberCores 는 새 SLOT/OUT/OPGW 모델로 마이그레이션 완료. 제거.
  */
 export async function getWorkingCopy(substationId: string) {
   const [assets, cables] = await Promise.all([
