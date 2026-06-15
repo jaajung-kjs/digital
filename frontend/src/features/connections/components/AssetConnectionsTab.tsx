@@ -14,10 +14,10 @@ export function AssetConnectionsTab({ assetId }: Props) {
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
 
-  // 언마운트 시 하이라이트 해제
+  // 자산 전환(탭 유지) 또는 언마운트 시 이전 자산의 하이라이트 잔상 해제.
   useEffect(() => {
     return () => clearHighlight();
-  }, []);
+  }, [assetId, clearHighlight]);
 
   if (isLoading) {
     return (
@@ -54,7 +54,7 @@ export function AssetConnectionsTab({ assetId }: Props) {
           {/* 행 목록 */}
           {group.rows.map((row) => {
             const isActive = tracingCableId === row.cableId;
-            const label = `${row.fromName} → ${row.toName}${row.truncated ? ' …' : ''}`;
+            const label = `${row.fromName} → ${row.toName}`;
             return (
               <div
                 key={row.cableId}
@@ -71,9 +71,6 @@ export function AssetConnectionsTab({ assetId }: Props) {
                     <span className="truncate text-sm text-content">{row.fromName}</span>
                     <span className="text-xs text-content-faint flex-shrink-0">→</span>
                     <span className="truncate text-sm text-content">{row.toName}</span>
-                    {row.truncated && (
-                      <span className="text-xs text-content-faint flex-shrink-0">…</span>
-                    )}
                   </span>
                 </button>
 

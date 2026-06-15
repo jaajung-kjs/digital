@@ -12,7 +12,7 @@ const groups = [
     key: '광',
     label: '광',
     color: '#a0f',
-    rows: [{ cableId: 'c1', fromName: '송광치', toName: 'OFD#1', truncated: false }],
+    rows: [{ cableId: 'c1', fromName: '송광치', toName: 'OFD#1' }],
   },
 ];
 
