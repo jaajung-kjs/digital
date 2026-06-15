@@ -6,6 +6,8 @@ import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
 import { useSelectionStore } from '../../../../workspace/selectionStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
 import { feedersOfPanel, buildSubtreeAsset, FEEDER_CODE } from '../../../../assets/distributionSubtree';
+import { buildFeederCircuits } from '../../../../power/feederCircuits';
+import { useTraceGraph } from '../../../../trace/traceGraph';
 
 /**
  * 분전반 회로 GUI — 전원 계통(FEEDER) 목록 관리.
@@ -20,6 +22,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
     targetAssetId?: string | null;
   }[];
   const { data: assetTypes = [] } = useAssetTypes();
+  const { graph } = useTraceGraph();
   const stageAssetCreate = useSubstationWorkingCopy((s) => s.stageAssetCreate);
   const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
 
@@ -104,6 +107,30 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                   <span className="block text-sm font-semibold text-content-muted truncate">
                     {feeder.name}
                   </span>
+                  {(() => {
+                    const cs = graph ? buildFeederCircuits({ id: feeder.id }, graph.cables as never[], graph.nameById) : [];
+                    const used = cs.filter((c) => c.occupied).length;
+                    return (
+                      <>
+                        <span className="mt-0.5 block text-[11px] text-content-faint">CB {used}/{cs.length}</span>
+                        <span className="mt-1 flex flex-wrap gap-0.5">
+                          {cs.map((c) => (
+                            <span
+                              key={c.cbNumber}
+                              className={`inline-block h-2 w-2 rounded-[1px] ${
+                                !c.occupied
+                                  ? 'bg-surface-2'
+                                  : c.switchState.toUpperCase() === 'ON'
+                                    ? 'bg-success'
+                                    : 'bg-content-faint'
+                              }`}
+                              title={`CB ${c.cbNumber}${c.occupied ? ` · ${c.loadName ?? ''} ${c.switchState}` : ' 빈'}`}
+                            />
+                          ))}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </button>
                 <button
                   type="button"

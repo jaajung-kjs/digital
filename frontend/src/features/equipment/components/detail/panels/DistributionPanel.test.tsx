@@ -50,6 +50,12 @@ vi.mock('../../../../workspace/selectionStore', () => {
   return { useSelectionStore: hook };
 });
 vi.mock('../../../../../utils/idHelpers', () => ({ generateTempId: () => 'tmp-new' }));
+// CB 미리보기 — 전역 graph.cables 로 피더 회로 파생. 여기선 회로 없음(빈 그래프)
+// 이어도 카드가 렌더되면 충분하다. useQuery 의존(QueryClientProvider)을 피하려
+// 훅을 모킹한다.
+vi.mock('../../../../trace/traceGraph', () => ({
+  useTraceGraph: () => ({ graph: { cables: [], nameById: new Map() }, isLoading: false }),
+}));
 
 import { DistributionCircuits } from './DistributionPanel';
 
