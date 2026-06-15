@@ -10,7 +10,7 @@ const slimAssets = [
   { id: 'eqC', name: '광단말C', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, connectionKind: null, code: 'OPT-TRANS' },
 ];
 const globalCables = [
-  { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 24 } },
+  { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 24 }, categoryName: 'HIV 2.5sq', categoryId: 'cat1' },
   { id: 'oA5', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 5 },
   { id: 'oB5', cableType: 'FIBER', sourceAssetId: 'slotB', targetAssetId: 'eqB', sourceRole: 'OUT', targetRole: null, number: 5 },
   { id: 'oB6', cableType: 'FIBER', sourceAssetId: 'slotB', targetAssetId: 'eqC', sourceRole: 'OUT', targetRole: null, number: 6 },
@@ -50,6 +50,13 @@ describe('buildTraceGraph + projections', () => {
     const opgw = g.cables.find((c) => c.id === 'opgw');
     expect(opgw?.specParams).toEqual({ cores: 24 });
     expect((opgw?.specParams as { cores?: number } | undefined)?.cores).toBe(24);
+  });
+
+  it('toTraceCable 가 categoryName/categoryId 를 보존한다 (계통 규격)', () => {
+    // 기존 specParams 회귀 테스트와 같은 buildTraceGraph 경로로, 입력 케이블에 category 를 실어
+    // graph.cables 에 보존되는지 확인. (보존 안 하면 계통 규격 컬럼이 빈다.)
+    const g = buildTraceGraph({ slimAssets, globalCables, stagedAssets: [], stagedCables: [], deletes: [] });
+    expect(g.cables.find((c) => c.id === 'opgw')).toMatchObject({ categoryName: 'HIV 2.5sq', categoryId: 'cat1' });
   });
 
   it('deletes 에 든 asset id 는 그래프에서 빠진다 (스테이징 삭제 반영)', () => {

@@ -24,6 +24,9 @@ export interface TraceCableInput {
   targetRole?: 'IN' | 'OUT' | null;
   number?: number | null;
   specParams?: Record<string, unknown> | null;
+  categoryName?: string | null;
+  categoryId?: string | null;
+  displayColor?: string | null;
 }
 
 export interface TraceGraph {
@@ -60,6 +63,9 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
   targetRole: c.targetRole ?? null,
   number: c.number ?? null,
   specParams: (c as { specParams?: Record<string, unknown> | null }).specParams ?? null,
+  categoryName: (c as { categoryName?: string | null }).categoryName ?? null,
+  categoryId: (c as { categoryId?: string | null }).categoryId ?? null,
+  displayColor: (c as { displayColor?: string | null }).displayColor ?? null,
 });
 
 /**
