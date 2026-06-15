@@ -20,6 +20,27 @@ describe('substationWorkingCopy', () => {
     expect(s.effectiveAssets().length).toBe(3);
     expect(s.dirtyCount()).toBe(0);
   });
+
+  it('재로드 시 incoming(DB)에서 사라진 S 자산/케이블은 saved 에서 드롭 — 삭제가 커밋 후 반영(되살아나지 않음)', async () => {
+    await useSubstationWorkingCopy.getState().load('s1'); // assets[r1,m1,o1], cables[c1]
+    expect(useSubstationWorkingCopy.getState().effectiveAssets().map(a => a.id).sort()).toEqual(['m1', 'o1', 'r1']);
+    // 커밋으로 m1(모듈)·c1(케이블) 삭제 → workingcopy 응답에서 빠진 상태로 재로드.
+    (api.get as any).mockResolvedValue({ data: { data: { assets: [rack, ofd], cables: [] } } });
+    await useSubstationWorkingCopy.getState().load('s1');
+    const s = useSubstationWorkingCopy.getState();
+    expect(s.effectiveAssets().map(a => a.id).sort()).toEqual(['o1', 'r1']); // m1 드롭(되살아나지 않음)
+    expect(s.effectiveCables().length).toBe(0); // c1 드롭
+  });
+
+  it('타 변전소(S2) 재로드는 S1 saved 를 보존(전역 누적 — 스코프 밖은 유지)', async () => {
+    await useSubstationWorkingCopy.getState().load('s1'); // s1: r1,m1,o1 + c1
+    const s2asset = { id: 'x1', name: '타변전소설비', substationId: 's2', floorId: 'f2', assetType: { placementKind: 'RACK' }, parentAssetId: null, slotIndex: null, updatedAt: '2026-01-01T00:00:00.000Z' };
+    (api.get as any).mockResolvedValue({ data: { data: { assets: [s2asset], cables: [] } } });
+    await useSubstationWorkingCopy.getState().load('s2');
+    const s = useSubstationWorkingCopy.getState();
+    expect(s.effectiveAssets().map(a => a.id).sort()).toEqual(['m1', 'o1', 'r1', 'x1']); // s1 보존 + s2 추가
+    expect(s.effectiveCables().map(c => c.id)).toEqual(['c1']); // s1 케이블 보존(s2 로드가 안 지움)
+  });
   it('stageAssetUpdate → effective 반영 + dirty 1', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
     useSubstationWorkingCopy.getState().stageAssetUpdate('o1', { name: 'OFD-X' });
