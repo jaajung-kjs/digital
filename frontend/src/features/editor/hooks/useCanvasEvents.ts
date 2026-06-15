@@ -126,9 +126,10 @@ export function useCanvasEvents(
       if (found) {
         const session = createDragSession(found, { x, y });
         canvasStore.getState().setDragSession(session);
-        // 단일 클릭은 설비를 선택(하이라이트=포커싱)하거나 패널을 열지 않는다 — 드래그 준비만.
-        // 선택·포커스·상세 패널은 더블클릭(openDetail)에서만 일어난다. 드래그는 dragSession 으로
-        // 동작하므로(선택 불필요), selectEquipment 호출을 제거해도 드래그는 그대로 유지된다.
+        // 단일 클릭 = 설비 선택(하이라이트 + 리사이즈 핸들). 단, 뷰포트 강제이동·상세 패널은
+        // 더블클릭에서만 — selectEquipment 는 selectedAssetId 만 바꾸고 focusTick 을 bump 하지
+        // 않으므로, focusTick 에만 묶인 viewport 정렬 effect 가 단일클릭에선 발화하지 않는다.
+        editorStore.getState().selectEquipment(found.item.id);
         usePathHighlightStore.getState().clearHighlight();
       } else {
         // Cable hit test
