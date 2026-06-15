@@ -79,46 +79,53 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
           </p>
         )}
         {/* 3열 고정 — 실제 배전반 뱅크처럼. 넘치면 다음 행으로 wrap (가로
-            스크롤 없음). */}
+            스크롤 없음). 피더 = 흰 모듈 카드(차단기·슬롯과 동일 언어): 좌측 가압상태 띠 +
+            recessed 미니 차단기 레일 미리보기 + 요약. 클릭 → 그 피더 차단기 레일. */}
         <div className="grid grid-cols-3 gap-2 items-start">
           {feeders.map((feeder) => {
+            // 점유 CB(분기). 하나라도 ON 이면 가압(energized) → 좌측 띠 success.
+            const cs = feederCircuits.get(feeder.id) ?? [];
+            const onCount = cs.filter((c) => c.switchState.toUpperCase() === 'ON').length;
+            const energized = onCount > 0;
             return (
               <div
                 key={feeder.id}
-                className="relative rounded-md border border-line bg-surface overflow-hidden group/feeder"
+                className="group/feeder relative overflow-hidden rounded-md border border-line bg-surface shadow-sm transition-[box-shadow,border-color] duration-150 hover:border-content-faint hover:shadow-md"
               >
-                {/* 클릭하면 그 피더로 바로 이동하므로 '선택/눌림' 상태는 없다 — 카드는 항상 균일. */}
+                {/* 클릭하면 그 피더로 바로 이동 — '선택/눌림' 상태 없음(카드는 균일). */}
                 <button
                   type="button"
                   onClick={() => useSelectionStore.getState().setSelectedAssetId(feeder.id)}
-                  className="w-full px-2 py-3 pr-7 text-left bg-surface hover:bg-surface-2 transition-colors"
+                  className="flex w-full items-stretch gap-2 text-left"
                   title="클릭해 이 계통(피더)으로 이동"
                 >
-                  <span className="block text-sm font-semibold text-content-muted truncate">
-                    {feeder.name}
-                  </span>
-                  {(() => {
-                    // 점유된 CB(분기)만 — 미리보기 점/개수. 빈 슬롯은 피더 패널에서 추가.
-                    const cs = feederCircuits.get(feeder.id) ?? [];
-                    return (
-                      <>
-                        <span className="mt-0.5 block text-xs text-content-faint">CB {cs.length}개</span>
-                        {cs.length > 0 && (
-                          <span className="mt-1 flex flex-wrap gap-0.5">
-                            {cs.map((c) => (
-                              <span
-                                key={c.cbNumber}
-                                className={`inline-block h-2 w-2 rounded-[1px] ${
-                                  c.switchState.toUpperCase() === 'ON' ? 'bg-success' : 'bg-content-faint'
-                                }`}
-                                title={`CB ${c.cbNumber} · ${c.loadName ?? ''} ${c.switchState}`}
-                              />
-                            ))}
-                          </span>
-                        )}
-                      </>
-                    );
-                  })()}
+                  {/* 좌측 가압상태 띠 — 가압=success, 미가압=중립. */}
+                  <span aria-hidden className={`w-1 shrink-0 self-stretch ${energized ? 'bg-success' : 'bg-content-faint'}`} />
+                  <div className="min-w-0 flex-1 py-2.5 pr-7">
+                    <span className="block truncate text-sm font-medium text-content">{feeder.name}</span>
+                    {/* recessed 미니 차단기 레일 — 큰 레일의 축소판(가압=success, 차단=중립). */}
+                    {cs.length > 0 ? (
+                      <span className="mt-1.5 flex flex-wrap gap-0.5 rounded bg-surface-2 p-1 shadow-inner">
+                        {cs.map((c) => (
+                          <span
+                            key={c.cbNumber}
+                            className={`h-3 w-1.5 rounded-[1px] ${
+                              c.switchState.toUpperCase() === 'ON' ? 'bg-success' : 'bg-content-faint'
+                            }`}
+                            title={`CB ${c.cbNumber} · ${c.loadName ?? ''} ${c.switchState}`}
+                          />
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="mt-1.5 block text-[11px] text-content-faint">회로 없음</span>
+                    )}
+                    <span className="mt-1.5 flex items-center gap-1.5 text-xs text-content-muted">
+                      <span className="font-medium text-content">{cs.length}</span> 회로
+                      {cs.length > 0 && (
+                        <span className={energized ? 'text-success' : 'text-content-faint'}>· {onCount} ON</span>
+                      )}
+                    </span>
+                  </div>
                 </button>
                 <button
                   type="button"
@@ -128,7 +135,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                       stageAssetDelete(feeder.id);
                     }
                   }}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-surface border border-line text-danger leading-none opacity-0 group-hover/feeder:opacity-100 hover:bg-danger-bg transition-opacity flex items-center justify-center"
+                  className="absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-line bg-surface leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover/feeder:opacity-100"
                   title="계통 삭제"
                   aria-label="계통 삭제"
                 >
