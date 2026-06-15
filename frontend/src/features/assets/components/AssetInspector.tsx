@@ -8,6 +8,7 @@ import { DetailTabs } from './detail/DetailTabs';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { InspectionSection } from './detail/InspectionSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
+import { AssetConnectionsTab } from '../../connections/components/AssetConnectionsTab';
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { statusIsOn } from '../nodeStatus';
 import { useTraceGraph } from '../../trace/traceGraph';
@@ -250,12 +251,7 @@ export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, in
     // 고장/수리 이력(점검은 별도 점검 탭). 종류/날짜/심각도/설명 + 편집. 보류 큐 공유.
     { label: '고장이력', render: () => <LogsTab equipmentId={asset.id} readOnly={ro} /> },
     { label: '사진', render: () => <AssetPhotoSection assetId={asset.id} /> },
-    {
-      label: '연결',
-      render: () => (
-        <div className="p-3 text-sm text-content-faint">연결 UI 재작성 예정</div>
-      ),
-    },
+    { label: '연결', render: () => <AssetConnectionsTab assetId={asset.id} /> },
   ];
 
   return (
