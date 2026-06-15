@@ -74,17 +74,13 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   // 후보 위치/크기는 outline 인디케이터로 시각화.
   const cellStart = slotIndex + 1;
   const cellEnd = slotIndex + slotSpan + 1;
-  const slotLabel =
-    slotSpan > 1
-      ? `${slotIndex + 1}–${slotIndex + slotSpan}`
-      : `${slotIndex + 1}`;
 
   return (
     <>
-      {/* 랙·OFD 공용 SlotTile 단일 비주얼. 랙 전용 드래그(onPointerDown)·리사이즈(footer)만 주입. */}
+      {/* 랙·OFD 공용 SlotTile 단일 비주얼. 랙 전용 드래그(onPointerDown)·리사이즈(footer)만 주입.
+          슬롯 번호는 좌측 레일에 있으므로 타일 우측 숫자는 두지 않는다. */}
       <SlotTile
         title={module.name}
-        meta={slotLabel}
         accentColor={accent}
         draggable
         onPointerDown={(e) => handlePointerDown(e, 'move')}

@@ -33,8 +33,8 @@ export function PortGrid({
 }) {
   return (
     <div className="space-y-2">
-      {/* 백플레인 프레임 — 차단기 레일과 동일한 디자인 언어(border + bg-surface-2). */}
-      <div className="rounded-md border border-line bg-surface-2 p-2">
+      {/* 백플레인 프레임 — 차단기 레일과 동일한 디자인 언어(border + bg-surface-2 + recessed shadow-inner). */}
+      <div className="rounded-md border border-line bg-surface-2 p-2 shadow-inner">
         <div
           className="grid gap-1"
           style={{ gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))` }}

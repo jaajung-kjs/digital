@@ -25,7 +25,7 @@ export function BreakerRail({
   onDeleteCb?: (cbNumber: number, cableId: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-6 gap-1.5 rounded-md border border-line bg-surface-2 p-2">
+    <div className="grid grid-cols-6 gap-1.5 rounded-md border border-line bg-surface-2 p-2 shadow-inner">
       {circuits.map((c) => {
         // 빈 자리 = 추가 버튼(랙/OFD 빈 슬롯 동형). 클릭 → 평면도 케이블 그리기.
         if (!c.occupied) {
@@ -60,7 +60,7 @@ export function BreakerRail({
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(c.cbNumber); } }}
             aria-label={`차단기 ${c.cbNumber}`}
             aria-current={selected ? 'true' : undefined}
-            className={`group relative flex min-h-[4.25rem] flex-col items-center justify-between gap-1 rounded-md border bg-surface py-1.5 shadow-sm cursor-pointer transition-colors ${borderCls}`}
+            className={`group relative flex min-h-[4.25rem] flex-col items-center justify-between gap-1 rounded-md border bg-surface py-1.5 shadow-sm cursor-pointer transition-[box-shadow,border-color] duration-150 hover:shadow-md ${borderCls}`}
           >
             <span className={`text-xs font-mono font-medium tabular-nums leading-none ${on ? 'text-content' : 'text-content-muted'}`}>{c.cbNumber}</span>
             {/* 실제 차단기 레버 — 리세스 슬롯 안의 노브가 ON=위 / OFF=아래로 이동. */}

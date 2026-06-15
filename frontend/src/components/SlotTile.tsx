@@ -67,7 +67,7 @@ export function SlotTile({
       style={style}
       aria-label={ariaLabel}
       title={tooltip}
-      className={`group relative flex h-full w-full items-stretch gap-2 overflow-hidden rounded-md border bg-surface shadow-sm transition-colors ${
+      className={`group relative flex h-full w-full items-stretch gap-2 overflow-hidden rounded-md border bg-surface shadow-sm transition-[box-shadow,border-color,opacity] duration-150 hover:shadow-md ${
         draggable ? 'cursor-grab select-none' : onClick ? 'cursor-pointer' : 'cursor-default'
       } ${selected ? 'border-primary ring-2 ring-primary/40' : 'border-line hover:border-content-faint'}${className ? ` ${className}` : ''}`}
     >

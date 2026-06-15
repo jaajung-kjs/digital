@@ -36,11 +36,12 @@ export function SlotRailGrid({
           </div>
         ))}
       </div>
-      {/* 슬롯 그리드 (gridRef — 드래그 geometry 의 기준; padding 금지 → row 계산 오프셋 방지).
-          백플레인 위에서 흰 모듈이 뜨도록 bg-surface-2, 셀 사이는 gap-1 로 분리. */}
+      {/* 슬롯 그리드 (gridRef — 드래그 geometry 의 기준). 세로 padding 은 금지(row 계산은 clientY
+          delta 기반이라 row 높이가 바뀌면 어긋남) — 좌우 padding(px)만 추가해 여백 확보(드래그 무관).
+          recessed 백플레인(shadow-inner)으로 흰 모듈이 박혀 보이게(고급 입체감). */}
       <div
         ref={gridRef}
-        className="flex-1 bg-surface-2 grid gap-1"
+        className="flex-1 bg-surface-2 grid gap-1 px-1.5 shadow-inner"
         style={{
           // 1 열 고정. column 을 explicit 으로 지정하지 않으면 같은 row 에
           // 여러 아이템이 있을 때 implicit column 이 추가되어 grid 가 2 열로
