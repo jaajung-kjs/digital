@@ -52,6 +52,8 @@ export interface FeederInput {
   sourceName: string | null;
   capacity: string;
   switchState: string;
+  spec: string;
+  categoryId: string | null;
 }
 
 const asStr = (v: unknown): string => (v === null || v === undefined || v === '' ? '' : String(v));
@@ -72,6 +74,8 @@ export function buildFeederInput(feeder: { id: string }, cables: Cable[], nameBy
     sourceName: src ? (nameById.get(src) ?? null) : null,
     capacity: asStr(sp.capacity),
     switchState: asStr(sp.switchState),
+    spec: asStr(c.categoryName),
+    categoryId: c.categoryId ?? null,
   };
 }
 

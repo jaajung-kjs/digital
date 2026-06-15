@@ -61,6 +61,25 @@ describe('PanelCircuitView', () => {
     expect(setSelected).toHaveBeenCalledWith('f1', 7);
   });
 
+  it('IN 케이블이 있으면 입력 행(빨강 배지 + 공급원명)을 맨 위에 렌더한다', () => {
+    assetsRef.current = [
+      ...assetsRef.current,
+      { id: 'TR', name: '주변압기', substationId: 's1', parentAssetId: null, assetType: { code: 'TR', placementKind: null, connectionKind: null } },
+    ];
+    cablesRef.current = [
+      { id: 'in1', sourceAssetId: 'TR', targetAssetId: 'f1', sourceRole: null, targetRole: 'IN', categoryName: 'CV', categoryId: 'cat-9', number: null, specParams: { capacity: '50A', switchState: 'ON' } },
+      ...cablesRef.current,
+    ];
+    render(<ConnectionRegisterGrid substationId="s1" descriptor={powerRegisterDescriptor} />);
+    expect(screen.getByText('입력')).toBeInTheDocument();
+    expect(screen.getByText('주변압기')).toBeInTheDocument();
+    // 입력 행이 OUT(CB7) 행보다 위
+    const tbody = screen.getByRole('table').querySelector('tbody')!;
+    const rows = within(tbody).getAllByRole('row');
+    expect(rows[0]).toHaveTextContent('입력');
+    expect(rows[0]).toHaveTextContent('주변압기');
+  });
+
   it('분전반이 없으면 빈 상태 메시지', () => {
     assetsRef.current = [];
     cablesRef.current = [];

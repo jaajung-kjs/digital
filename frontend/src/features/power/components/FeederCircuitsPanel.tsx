@@ -170,8 +170,32 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
             <span className="text-xs font-medium text-danger">입력</span>
             <span className="min-w-0 flex-1 truncate text-sm text-content">{input.sourceName ?? '—'}</span>
             {input.capacity && (
-              <span className="rounded bg-danger-bg px-1.5 py-0.5 text-xs font-medium text-danger">{input.capacity}</span>
+              <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                input.switchState.toUpperCase() === 'ON' ? 'text-success bg-success-bg' : 'text-content-muted bg-surface-2'
+              }`}>{input.capacity}</span>
             )}
+            {/* 가로 개폐 스위치 — 차단기 토글의 가로판. 노브가 ON=오른쪽 / OFF=왼쪽으로 이동. */}
+            {(() => {
+              const isOn = input.switchState.toUpperCase() === 'ON';
+              return (
+                <button
+                  type="button"
+                  aria-label="입력 개폐"
+                  onClick={(e) => { e.stopPropagation(); commitMeta(input.cableId, 'switchState', isOn ? 'OFF' : 'ON'); }}
+                  title={isOn ? 'ON — 클릭해 차단' : 'OFF — 클릭해 투입'}
+                  className={`relative h-5 w-8 shrink-0 rounded-full border shadow-inner transition-colors ${
+                    isOn ? 'border-success/50 bg-success-bg' : 'border-line bg-surface-2'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border shadow-sm transition-all duration-200 ${
+                      isOn ? 'right-[3px] border-success bg-success' : 'left-[3px] border-line bg-surface'
+                    }`}
+                  />
+                </button>
+              );
+            })()}
             <button
               type="button"
               aria-label="입력 삭제"
