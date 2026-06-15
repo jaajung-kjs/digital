@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { buildPowerRows, commitMeta } from './powerRegisterDescriptor';
 
 const cables = [
-  { id: 'cb1', sourceAssetId: 'feeder1', targetAssetId: 'load1', sourceRole: 'OUT', targetRole: null, categoryName: 'CV', specParams: { cbNumber: '1', capacity: '20A', switchState: 'ON' } },
-  { id: 'cb2', sourceAssetId: 'load2', targetAssetId: 'feeder1', sourceRole: null, targetRole: 'OUT', categoryName: 'CV', specParams: { cbNumber: '2', capacity: '30A', switchState: 'OFF' } },
+  { id: 'cb1', sourceAssetId: 'feeder1', targetAssetId: 'load1', sourceRole: 'OUT', targetRole: null, categoryName: 'CV', categoryId: 'cat-1', number: 1, specParams: { capacity: '20A', switchState: 'ON' } },
+  { id: 'cb2', sourceAssetId: 'load2', targetAssetId: 'feeder1', sourceRole: null, targetRole: 'OUT', categoryName: 'CV', categoryId: 'cat-1', number: 2, specParams: { capacity: '30A', switchState: 'OFF' } },
   { id: 'x', sourceAssetId: 'a', targetAssetId: 'b', sourceRole: null, targetRole: null, specParams: {} },
 ];
 const nameById = new Map([['load1', '부하A'], ['load2', '부하B']]);

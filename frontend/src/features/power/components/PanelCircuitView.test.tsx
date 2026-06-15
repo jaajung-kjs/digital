@@ -24,6 +24,9 @@ vi.mock('../../trace/traceGraph', () => ({
 vi.mock('../../pathTrace/stores/pathHighlightStore', () => ({
   usePathHighlightStore: (sel: (s: unknown) => unknown) => sel({ tracingCableId: null }),
 }));
+vi.mock('../../cables/hooks/useCableCategories', () => ({
+  useCableCategories: () => ({ data: [] }),
+}));
 
 import { ConnectionRegisterGrid } from '../../connections/registerGrid/ConnectionRegisterGrid';
 import { powerRegisterDescriptor } from '../powerRegisterDescriptor';
@@ -36,7 +39,7 @@ beforeEach(() => {
     { id: 'L1', name: '통합단말장치', substationId: 's1', parentAssetId: null, assetType: { code: 'TERM', placementKind: null, connectionKind: null } },
   ];
   cablesRef.current = [
-    { id: 'c1', sourceAssetId: 'f1', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: null, categoryName: 'F-CV 전력케이블', specParams: { cbNumber: 7, capacity: '30A', switchState: 'ON' } },
+    { id: 'c1', sourceAssetId: 'f1', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: null, categoryName: 'F-CV 전력케이블', categoryId: 'cat-1', number: 7, specParams: { capacity: '30A', switchState: 'ON' } },
   ];
 });
 

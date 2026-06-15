@@ -82,7 +82,7 @@ function SectionView<Row>({ section, columns, rowKey, rowTraceCableId, rowSelect
         <h3 className="text-sm font-semibold text-content">{section.title}</h3>
         <span className="ml-auto text-[12px] tabular-nums text-content-faint">{section.usedLabel}</span>
       </header>
-      <table className="w-full border-collapse">
+      <table className="w-full border-collapse table-fixed">
         <thead>
           <tr className="text-left bg-surface-2 border-b border-line-strong">
             {columns.map((c, i) => (
