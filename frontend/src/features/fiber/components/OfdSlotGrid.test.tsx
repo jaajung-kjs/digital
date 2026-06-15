@@ -95,7 +95,7 @@ function wrap(ui: ReactNode) {
 }
 
 // ── import after mocks ────────────────────────────────────────────────────────
-import { OfdSlotGrid } from './OfdSlotGrid';
+import { OfdSlotRail } from './OfdSlotRail';
 
 beforeEach(() => {
   put.mockClear();
@@ -107,41 +107,46 @@ beforeEach(() => {
     .mockReturnValueOnce('tmp-opgw');
 });
 
-describe('OfdSlotGrid', () => {
+describe('OfdSlotRail', () => {
   it('슬롯 타일을 "출발-대국" 형식 제목으로 렌더한다', () => {
-    wrap(<OfdSlotGrid ofdId={OFD_ID} />);
+    wrap(<OfdSlotRail ofdId={OFD_ID} />);
     // subNameById.get(ofdId)='원주변전소', remoteSlotSubstation(slotId)='홍천변전소'
     expect(screen.getByText('원주변전소 - 홍천변전소')).toBeInTheDocument();
   });
 
   it('슬롯 타일에 코어 수(N코어) 자막을 표시한다', () => {
-    wrap(<OfdSlotGrid ofdId={OFD_ID} />);
+    wrap(<OfdSlotRail ofdId={OFD_ID} />);
     // OPGW_CABLE.specParams.cores = 48
     expect(screen.getByText('48코어')).toBeInTheDocument();
   });
 
   it('슬롯 타일 클릭 → setSelectedAssetId(slot.id)', () => {
-    wrap(<OfdSlotGrid ofdId={OFD_ID} />);
+    wrap(<OfdSlotRail ofdId={OFD_ID} />);
     fireEvent.click(screen.getByText('원주변전소 - 홍천변전소'));
     expect(setSelectedAssetId).toHaveBeenCalledWith(SLOT_ID);
   });
 
-  it('"+ 슬롯 추가" 빈 타일이 렌더된다', () => {
-    wrap(<OfdSlotGrid ofdId={OFD_ID} />);
-    expect(screen.getByText('+ 슬롯 추가')).toBeInTheDocument();
+  it('빈 슬롯 클릭 → 팝오버에 "대국 OFD 선택" 이 나타난다', () => {
+    wrap(<OfdSlotRail ofdId={OFD_ID} />);
+    // 빈 슬롯이 최소 3개 렌더됨 — 첫 번째 클릭
+    const emptySlots = screen.getAllByRole('button', { name: /빈 슬롯/ });
+    expect(emptySlots.length).toBeGreaterThanOrEqual(3);
+    fireEvent.click(emptySlots[0]);
+    expect(screen.getByRole('dialog', { name: '경로 추가' })).toBeInTheDocument();
+    expect(screen.getByText('홍천변전소 대국')).toBeInTheDocument();
   });
 
-  it('48 버튼 클릭 후 대국 OFD 선택 → put(assets) 2회 + put(cables) 1회', () => {
-    wrap(<OfdSlotGrid ofdId={OFD_ID} />);
+  it('팝오버에서 48 코어 선택 후 대국 OFD 클릭 → put(assets) 2회 + put(cables) 1회', () => {
+    wrap(<OfdSlotRail ofdId={OFD_ID} />);
 
-    // open add form
-    fireEvent.click(screen.getByText('+ 슬롯 추가'));
-    expect(screen.getByText('홍천변전소 대국')).toBeInTheDocument();
+    // 빈 슬롯 클릭으로 팝오버 열기
+    const emptySlots = screen.getAllByRole('button', { name: /빈 슬롯/ });
+    fireEvent.click(emptySlots[0]);
 
-    // select 48 cores
+    // 48코어 선택
     fireEvent.click(screen.getByRole('button', { name: '48' }));
 
-    // click peer OFD
+    // 대국 OFD 선택
     fireEvent.click(screen.getByText('홍천변전소 대국'));
 
     // 2 slot assets + 1 OPGW cable
@@ -155,13 +160,22 @@ describe('OfdSlotGrid', () => {
   });
 
   it('24 버튼을 클릭하면 cores=24 로 경로 생성한다', () => {
-    wrap(<OfdSlotGrid ofdId={OFD_ID} />);
-    fireEvent.click(screen.getByText('+ 슬롯 추가'));
+    wrap(<OfdSlotRail ofdId={OFD_ID} />);
+    const emptySlots = screen.getAllByRole('button', { name: /빈 슬롯/ });
+    fireEvent.click(emptySlots[0]);
     // 24 is the default; clicking it explicitly keeps cores=24
     fireEvent.click(screen.getByRole('button', { name: '24' }));
     fireEvent.click(screen.getByText('홍천변전소 대국'));
 
     const cableCall = put.mock.calls.find((c) => c[0] === 'cables');
     expect(cableCall?.[1]).toMatchObject({ specParams: { cores: 24 } });
+  });
+
+  it('좌측 번호 레일이 슬롯 수만큼 렌더된다 (N ≥ 4)', () => {
+    wrap(<OfdSlotRail ofdId={OFD_ID} />);
+    // 1 slot + 3 empty = N=4 minimum, but slots.length=1 so N=max(4, 1+3)=4
+    // rail shows 1..4 — check "1" and "4" exist (aria-hidden, so use getAllByText)
+    expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('4').length).toBeGreaterThanOrEqual(1);
   });
 });
