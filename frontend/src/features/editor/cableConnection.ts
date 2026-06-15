@@ -24,6 +24,9 @@ export function startCableConnection(opts?: {
   group?: CableDisplayGroup;
 }): void {
   const editor = useEditorStore.getState();
+  // 케이블 그리기 진입 시 열려있던 우측 상세 패널을 닫는다 — 안 닫으면 컨테이너 pick 때
+  // setSelectedAssetId 로 그 패널도 같은 뷰를 띄워 다이얼로그와 이중 picker 가 된다.
+  editor.closeRightPanel();
   editor.setTool('cable');
   editor.setPreselectedCableDisplayGroup(opts?.group ?? null);
   useInteractionStore.getState().cableActivate({ source: opts?.source, category: opts?.category });

@@ -46,15 +46,33 @@ export function buildFeederCircuits(
   return out.sort((a, b) => a.cbNumber - b.cbNumber);
 }
 
-export interface FeederInput { cableId: string; sourceAssetId: string | null; sourceName: string | null }
+export interface FeederInput {
+  cableId: string;
+  sourceAssetId: string | null;
+  sourceName: string | null;
+  capacity: string;
+  switchState: string;
+}
 
-/** 피더의 공급(Input) — 그 피더 끝의 role==='IN' 케이블 1개(없으면 null). 다중이면 첫 1개. */
+const asStr = (v: unknown): string => (v === null || v === undefined || v === '' ? '' : String(v));
+
+/**
+ * 피더의 공급(Input) — 그 피더 끝의 role==='IN' 케이블 1개(없으면 null). 다중이면 첫 1개.
+ * 분기(CB)와 동일하게 케이블 specParams 의 capacity/switchState 를 노출한다(공통 케이블 속성).
+ */
 export function buildFeederInput(feeder: { id: string }, cables: Cable[], nameById: Map<string, string>): FeederInput | null {
   const c = cables.find((x) =>
     (x.sourceAssetId === feeder.id || x.targetAssetId === feeder.id) && roleAt(x as CableLike, feeder.id) === 'IN');
   if (!c) return null;
   const src = other(c as CableLike, feeder.id);
-  return { cableId: c.id, sourceAssetId: src, sourceName: src ? (nameById.get(src) ?? null) : null };
+  const sp = ((c as { specParams?: Record<string, unknown> | null }).specParams ?? {}) as Record<string, unknown>;
+  return {
+    cableId: c.id,
+    sourceAssetId: src,
+    sourceName: src ? (nameById.get(src) ?? null) : null,
+    capacity: asStr(sp.capacity),
+    switchState: asStr(sp.switchState),
+  };
 }
 
 /** 피더 DIN 레일 고정 그리드 — 한 줄(ROW=6열) 단위로 채운다(랙 슬롯 동형, BreakerRail grid-cols-6). */

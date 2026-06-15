@@ -32,6 +32,7 @@ import { WorkOrderHistoryPanel } from '../../report/WorkOrderHistoryPanel';
 import { DwgImportModal } from './DwgImportModal';
 import { BackgroundLayersPanel } from './BackgroundLayersPanel';
 import { CableSpecModalWrapper } from './modals/CableSpecModal';
+import { CableEndpointDialog } from './CableEndpointDialog';
 import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
 import { EquipmentPasteModal } from './modals/EquipmentPasteModal';
 import { ToastHost } from './ToastHost';
@@ -481,6 +482,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
       <EquipmentMaterialModal onAdd={handleAddEquipment} />
       <CableSpecModalWrapper />
+      <CableEndpointDialog />
       {showImportModal && floorId && (
         <DwgImportModal
           floorId={floorId}

@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 
-const { startTrace, clearHighlight, patch, stageCableDelete, startCableConnection, gotoAsset, onPick, pickState, inputState } = vi.hoisted(() => ({
+const { startTrace, clearHighlight, patch, stageCableDelete, startCableConnection, gotoAsset, onPick, pickState, inputState, inCable } = vi.hoisted(() => ({
   startTrace: vi.fn(), clearHighlight: vi.fn(), patch: vi.fn(),
   stageCableDelete: vi.fn(), startCableConnection: vi.fn(), gotoAsset: vi.fn(),
   onPick: vi.fn(),
+  // in1 = 입력(IN) 케이블 — commitMeta 의 specParams 머지가 기존 switchState 를 보존하는지 검증용.
+  inCable: { id: 'in1', sourceAssetId: 'src1', targetAssetId: 'f1', sourceRole: null, targetRole: 'IN', number: null, specParams: { capacity: '20A', switchState: 'ON' } },
   pickState: { active: false, side: null as 'source' | 'target' | null },
   // buildFeederInput 결과를 테스트마다 제어(null=빈 입력, 객체=점유 입력).
-  inputState: { value: null as { cableId: string; sourceAssetId: string | null; sourceName: string | null } | null },
+  inputState: { value: null as { cableId: string; sourceAssetId: string | null; sourceName: string | null; capacity: string; switchState: string } | null },
 }));
 
 const FEEDER = 'f1';
@@ -26,7 +28,7 @@ vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
   return { usePathHighlightStore: hook };
 });
 vi.mock('../../workingCopy/substationStore', () => {
-  const st = { patch, stageCableDelete, effectiveCables: () => [cb1] };
+  const st = { patch, stageCableDelete, effectiveCables: () => [cb1, inCable] };
   const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { useSubstationWorkingCopy: hook };
@@ -96,17 +98,36 @@ describe('FeederCircuitsPanel', () => {
     expect(patch).toHaveBeenCalledWith('cables', 'c1', { specParams: { capacity: '20A', switchState: 'OFF' } });
   });
 
-  describe('입력(IN) 슬롯', () => {
-    it('점유 입력 → 공급원 이름 표시 + 삭제 → 확인 후 stageCableDelete', () => {
-      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입' };
+  describe('입력(IN) 모듈', () => {
+    it('점유 입력 → 공급원 이름 + 암페어 표시', () => {
+      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입', capacity: '20A', switchState: 'ON' };
+      render(<FeederCircuitsPanel feederId={FEEDER} />);
+      const tile = screen.getByRole('button', { name: '입력' });
+      expect(within(tile).getByText('한전 인입')).toBeInTheDocument();
+      expect(within(tile).getByText('20A')).toBeInTheDocument();
+    });
+    it('점유 입력 타일 클릭 → 상세카드(공급원/용량/개폐) + 용량 편집 시 commitMeta(in cableId) + startTrace', () => {
+      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입', capacity: '20A', switchState: 'ON' };
+      render(<FeederCircuitsPanel feederId={FEEDER} />);
+      fireEvent.click(screen.getByRole('button', { name: '입력' }));
+      expect(startTrace).toHaveBeenCalledWith('in1');
+      expect(screen.getByText('공급원')).toBeInTheDocument();
+      // 용량 인라인 편집(✎ 클릭 → 입력) → commitMeta(specParams 머지 patch)는 입력 케이블 id 로.
+      fireEvent.click(screen.getByRole('button', { name: '용량 수정' }));
+      const inp = screen.getByLabelText('용량') as HTMLInputElement;
+      fireEvent.change(inp, { target: { value: '30A' } });
+      fireEvent.blur(inp);
+      expect(patch).toHaveBeenCalledWith('cables', 'in1', { specParams: { capacity: '30A', switchState: 'ON' } });
+    });
+    it('점유 입력 삭제 → 확인 후 stageCableDelete', () => {
+      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입', capacity: '', switchState: '' };
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
       render(<FeederCircuitsPanel feederId={FEEDER} />);
-      expect(screen.getByText('한전 인입')).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: '입력 삭제' }));
       expect(stageCableDelete).toHaveBeenCalledWith('in1');
       confirmSpy.mockRestore();
     });
-    it('빈 입력 → "입력 연결" 어포던스 + 클릭 시 startCableConnection(IN source)/평면도 이동', () => {
+    it('빈 입력 → 빨강 "입력 연결" 버튼 + 클릭 시 startCableConnection(IN source)/평면도 이동', () => {
       inputState.value = null;
       render(<FeederCircuitsPanel feederId={FEEDER} />);
       const btn = screen.getByRole('button', { name: '입력 연결' });
@@ -163,7 +184,7 @@ describe('FeederCircuitsPanel', () => {
     });
 
     it('점유 IN 슬롯도 피킹 모드면 onPick(IN) — 삭제 버튼 대신 클릭 타깃', () => {
-      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입' };
+      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입', capacity: '20A', switchState: 'ON' };
       render(<FeederCircuitsPanel feederId={FEEDER} />);
       fireEvent.click(screen.getByRole('button', { name: '입력 선택' }));
       expect(onPick).toHaveBeenCalledWith(
