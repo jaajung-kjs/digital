@@ -5,7 +5,6 @@ import { kindOf } from '../../workingCopy/placement';
 import { isTempId } from '../../../utils/idHelpers';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
-import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { AssetDetailPanel } from '../../assets/components/AssetDetailPanel';
 
 interface EquipmentDetailPanelProps {
@@ -31,25 +30,24 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
   const effectiveEquipment = useEffectiveEquipment(floorId);
   const localEq = effectiveEquipment.find((e) => e.id === equipmentId);
 
-  // 랙 모듈은 평면도에 배치되지 않아 effectiveEquipment(floor)에 없다 → 전역 effective assets
-  // 에서 모듈 Asset(parentAssetId 있음)을 찾아 주입. 모듈은 leaf 라 공간 섹션 없음(kind=null).
+  // 선택 자산을 제네릭하게 해소(랙 모듈만이 아니라 모든 자식 — 피더·OFD-슬롯 포함)해서
+  // 공유 패널에 넘긴다. AssetBreadcrumb 가 parentAssetId 있으면 부모 eyebrow 를 렌더하므로,
+  // 부모 있는 자식이면 평면도에서 *어디서 열든* eyebrow 가 뜬다(현황과 동일). 배치 최상위
+  // 자산은 parentAssetId 가 없어 자연히 eyebrow 없음.
   const effectiveAssets = useEffectiveAssets();
-  const moduleAsset = useMemo(
-    () =>
-      !localEq
-        ? (effectiveAssets.find((a) => a.id === equipmentId && isRackModuleAsset(a)) ?? null)
-        : null,
-    [localEq, effectiveAssets, equipmentId],
+  const asset = useMemo(
+    () => effectiveAssets.find((a) => a.id === equipmentId) ?? null,
+    [effectiveAssets, equipmentId],
   );
 
   const detailKind = useMemo<DetailPanelKind | null>(() => {
-    if (moduleAsset) return null; // 모듈은 내부설비/경로 같은 공간 섹션이 없음
+    // 미배치 자식(랙 모듈·피더·OFD-슬롯)은 공간 섹션 없음. 배치 설비만 kind 기반 섹션.
     if (!localEq) return null;
     return EQUIPMENT_KIND_INFO[kindOf(localEq)]?.detailPanelKind ?? null;
-  }, [moduleAsset, localEq]);
+  }, [localEq]);
 
-  const title = moduleAsset
-    ? moduleAsset.name
+  const title = !localEq && asset
+    ? asset.name
     : !isTemp && isLoading
       ? '로딩 중...'
       : equipment?.name ?? '설비 상세';
@@ -62,7 +60,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       title={title}
       equipmentId={equipmentId}
       detailKind={detailKind}
-      asset={moduleAsset}
+      asset={asset}
       mode="edit"
       onClose={() => closeRightPanel()}
       banner={banner}
