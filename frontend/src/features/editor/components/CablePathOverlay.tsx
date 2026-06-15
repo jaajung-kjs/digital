@@ -3,6 +3,7 @@ import { useCableDrawing } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { calculatePathLength, formatCableLength } from '../../../utils/cable/pathLength';
+import { SELECTION_STYLES } from '../../../utils/canvas/canvasDrawing';
 
 export { calculatePathLength };
 
@@ -54,15 +55,15 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
           const scale = zoom / 100;
           ctx.save();
           ctx.setTransform(scale, 0, 0, scale, panX, panY);
-          ctx.shadowColor = '#3b82f6';
+          ctx.shadowColor = SELECTION_STYLES.stroke;
           ctx.shadowBlur = 10;
-          ctx.strokeStyle = '#3b82f6';
+          ctx.strokeStyle = SELECTION_STYLES.stroke;
           ctx.lineWidth = 3;
           ctx.setLineDash([6, 3]);
           ctx.strokeRect(eqX - 3, eqY - 3, eqW + 6, eqH + 6);
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
-          ctx.fillStyle = '#3b82f6';
+          ctx.fillStyle = SELECTION_STYLES.stroke;
           ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText('출발', eqX + eqW / 2, eqY - 8);
@@ -88,7 +89,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
 
     // Draw polyline
     if (allPoints.length >= 2) {
-      ctx.strokeStyle = '#3b82f6';
+      ctx.strokeStyle = SELECTION_STYLES.stroke;
       ctx.lineWidth = 2.5;
       ctx.setLineDash([8, 4]);
       ctx.beginPath();
@@ -101,7 +102,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     }
 
     // Source marker (circle)
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = SELECTION_STYLES.stroke;
     ctx.beginPath();
     ctx.arc(sourcePosition.x, sourcePosition.y, 6, 0, Math.PI * 2);
     ctx.fill();
@@ -110,7 +111,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     ctx.stroke();
 
     // Waypoint markers (small squares)
-    ctx.fillStyle = '#3b82f6';
+    ctx.fillStyle = SELECTION_STYLES.stroke;
     for (const wp of waypoints) {
       ctx.fillRect(wp[0] - 4, wp[1] - 4, 8, 8);
     }
@@ -146,15 +147,15 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
         const sY = srcEq.positionY ?? 0;
         const sW = srcEq.width2d ?? 0;
         const sH = srcEq.height2d ?? 0;
-        ctx.shadowColor = '#3b82f6';
+        ctx.shadowColor = SELECTION_STYLES.stroke;
         ctx.shadowBlur = 8;
-        ctx.strokeStyle = '#3b82f6';
+        ctx.strokeStyle = SELECTION_STYLES.stroke;
         ctx.lineWidth = 3;
         ctx.setLineDash([6, 3]);
         ctx.strokeRect(sX - 3, sY - 3, sW + 6, sH + 6);
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
-        ctx.fillStyle = '#3b82f6';
+        ctx.fillStyle = SELECTION_STYLES.stroke;
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText('출발', sX + sW / 2, sY - 8);
@@ -176,7 +177,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
       const labelY = previewPoint.y - 15;
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.strokeStyle = '#3b82f6';
+      ctx.strokeStyle = SELECTION_STYLES.stroke;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.roundRect(labelX, labelY - bgHeight / 2, bgWidth, bgHeight, 4);

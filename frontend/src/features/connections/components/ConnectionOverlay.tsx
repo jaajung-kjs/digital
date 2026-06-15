@@ -9,6 +9,7 @@ import {
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
+import { SELECTION_STYLES } from '../../../utils/canvas/canvasDrawing';
 import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 
 /** Check if a cable matches the current filter set (DB category codes) */
@@ -186,9 +187,9 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       ctx.setTransform(scale, 0, 0, scale, panX, panY);
       for (const [nodeId, pos] of endpointPositions) {
         if (!highlightedNodeIds.has(nodeId)) continue;
-        ctx.shadowColor = '#3b82f6';
+        ctx.shadowColor = SELECTION_STYLES.stroke;
         ctx.shadowBlur = 10;
-        ctx.strokeStyle = '#3b82f6';
+        ctx.strokeStyle = SELECTION_STYLES.stroke;
         ctx.lineWidth = 2;
         ctx.strokeRect(pos.x - 2, pos.y - 2, pos.width + 4, pos.height + 4);
       }
