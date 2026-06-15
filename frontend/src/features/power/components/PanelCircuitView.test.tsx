@@ -17,8 +17,15 @@ vi.mock('../../workspace/selectionStore', () => {
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { useSelectionStore: hook };
 });
+vi.mock('../../trace/traceGraph', () => ({
+  useTraceGraph: () => ({ graph: null }),
+}));
+vi.mock('../../pathTrace/stores/pathHighlightStore', () => ({
+  usePathHighlightStore: (sel: (s: unknown) => unknown) => sel({ tracingCableId: null }),
+}));
 
-import { PanelCircuitView } from './PanelCircuitView';
+import { ConnectionRegisterGrid } from '../../connections/registerGrid/ConnectionRegisterGrid';
+import { powerRegisterDescriptor } from '../powerRegisterDescriptor';
 
 beforeEach(() => {
   setSelectedAssetId.mockClear();
@@ -34,7 +41,7 @@ beforeEach(() => {
 
 describe('PanelCircuitView', () => {
   it('피더 섹션 헤더 + CB 행(번호/부하/용량/SW)을 렌더한다', () => {
-    render(<PanelCircuitView substationId="s1" />);
+    render(<ConnectionRegisterGrid substationId="s1" descriptor={powerRegisterDescriptor} />);
     expect(screen.getByText('피더-A')).toBeInTheDocument();
     expect(screen.getByText('7')).toBeInTheDocument();
     expect(screen.getByText('통합단말장치')).toBeInTheDocument();
@@ -43,7 +50,7 @@ describe('PanelCircuitView', () => {
   });
 
   it('CB 행 클릭 → 부하(LOAD) 자산 선택', () => {
-    render(<PanelCircuitView substationId="s1" />);
+    render(<ConnectionRegisterGrid substationId="s1" descriptor={powerRegisterDescriptor} />);
     fireEvent.click(screen.getByText('통합단말장치'));
     expect(setSelectedAssetId).toHaveBeenCalledWith('L1');
   });
@@ -51,7 +58,7 @@ describe('PanelCircuitView', () => {
   it('분전반이 없으면 빈 상태 메시지', () => {
     assetsRef.current = [];
     cablesRef.current = [];
-    render(<PanelCircuitView substationId="s1" />);
+    render(<ConnectionRegisterGrid substationId="s1" descriptor={powerRegisterDescriptor} />);
     expect(screen.getByText('이 변전소에 분전반이 없습니다.')).toBeInTheDocument();
   });
 });
