@@ -3,6 +3,7 @@ import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks'
 import { useTraceGraph } from '../../trace/traceGraph';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { buildSlotPorts, type PortState } from '../slotPorts';
+import type { CableLike } from '../slotRegister';
 import { PortGrid } from '../../../components/PortGrid';
 import type { Asset } from '../../../types/asset';
 
@@ -14,8 +15,8 @@ const STATE_LABEL: Record<PortState, string> = { empty: '미연결', half: '편�
  */
 export function SlotPortsPanel({ slotId }: { slotId: string }) {
   const assets = useEffectiveAssets() as Asset[];
-  // buildSlotPorts 는 CableLike 만 보면 됨 — 훅의 넓은 반환타입을 좁히지 않고 통과(레포 패턴).
-  const cables = useEffectiveCables() as never[];
+  // buildSlotPorts 는 CableLike(부분 형태)만 보면 됨 — 훅의 넓은 반환을 CableLike[] 로 좁혀 통과.
+  const cables = useEffectiveCables() as unknown as CableLike[];
   const { graph } = useTraceGraph();
   const [selectedCore, setSelectedCore] = useState<number | null>(null);
 
