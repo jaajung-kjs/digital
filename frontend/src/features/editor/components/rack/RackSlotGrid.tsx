@@ -8,6 +8,7 @@ import { ModuleCell } from './ModuleCell';
 import { CategoryComboboxPopover } from './CategoryComboboxPopover';
 import { useRackModuleCategories } from '../../../rack/hooks/useRackModuleCategories';
 import { availableSpanAt, buildRackModule, nextNameFor } from '../../utils/slotGeometry';
+import { SlotRailGrid } from '../../../../components/SlotRailGrid';
 
 interface Props {
   rackEquipmentId: string;
@@ -107,40 +108,10 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
 
   return (
     <div className="flex-1 px-2 pb-2 min-h-0 relative">
-      {/* 랙 프레임 — 마운팅 레일(슬롯 번호) + 슬롯 영역 (실장도 느낌). */}
-      <div className="h-full flex border border-line-strong rounded-md overflow-hidden bg-surface-2 shadow-sm">
-        {/* 슬롯 번호 레일 — 그리드와 동일 row 템플릿+gap 으로 정렬. */}
-        <div
-          aria-hidden
-          className="shrink-0 w-6 grid gap-1 border-r border-line-strong bg-surface-2"
-          style={{ gridTemplateRows: `repeat(${RACK_SLOT_COUNT}, minmax(0, 1fr))` }}
-        >
-          {Array.from({ length: RACK_SLOT_COUNT }, (_, i) => (
-            <div
-              key={i}
-              className="flex items-center justify-center text-[9px] font-mono tabular-nums text-content-faint leading-none"
-            >
-              {i + 1}
-            </div>
-          ))}
-        </div>
-        {/* 슬롯 그리드 (gridRef — 드래그 geometry 의 기준). */}
-        <div
-          ref={gridRef}
-          className="flex-1 bg-surface grid gap-1"
-          style={{
-            // 1 열 고정. column 을 explicit 으로 지정하지 않으면 같은 row 에
-            // 여러 아이템이 있을 때 implicit column 이 추가되어 grid 가 2 열로
-            // 갈라진다 (드래그 인디케이터가 원본 셀과 같은 row 일 때).
-            gridTemplateColumns: 'minmax(0, 1fr)',
-            gridTemplateRows: `repeat(${RACK_SLOT_COUNT}, minmax(0, 1fr))`,
-            // 혹시라도 implicit column 이 만들어지지 않도록 폭 0 으로 고정.
-            gridAutoColumns: '0',
-          }}
-        >
-          {children}
-        </div>
-      </div>
+      {/* 랙 프레임 — SlotRailGrid 공용 컴포넌트(랙·OFD 공유). */}
+      <SlotRailGrid slotCount={RACK_SLOT_COUNT} gridRef={gridRef}>
+        {children}
+      </SlotRailGrid>
       {isEmpty && (
         <div
           aria-hidden
