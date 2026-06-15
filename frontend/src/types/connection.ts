@@ -68,9 +68,6 @@ export interface RoomConnection {
   color?: string;
   pathPoints?: [number, number][];
   description?: string;
-  fiberPathId?: string | null;
-  fiberPortNumber?: number | null;
-  fiberPathDescription?: string | null;
   /** @deprecated P8 — use `categoryId`. */
   materialCategoryId?: string | null;
   /** @deprecated P8 — use `categoryCode`. */

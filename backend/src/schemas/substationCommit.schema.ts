@@ -9,7 +9,7 @@ import { z } from 'zod';
  *
  * - 각 *Create 는 `tempId` 를 가진다. 커밋 시 real id 로 치환되어 idMap 으로 반환.
  * - 다른 엔티티 참조(equipmentId, rackEquipmentId, distributionEquipmentId,
- *   source/target id, ofdAId/ofdBId, fiberPathId)는 `z.string()` — real id 이거나
+ *   source/target id)는 `z.string()` — real id 이거나
  *   같은 페이로드 안의 tempId(커밋 시점 resolve)일 수 있다.
  * - specParams / properties / attributes / pathPoints 같은 free-form JSON 은
  *   over-constrain 을 피하려 `z.unknown()`.
@@ -127,8 +127,6 @@ const cableCreate = z.object({
   label: z.string().nullable().optional(),
   length: z.number().nullable().optional(),
   color: z.string().nullable().optional(),
-  fiberPathId: z.string().nullable().optional(),
-  fiberPortNumber: z.number().nullable().optional(),
   number: z.number().nullable().optional(),
   sourceRole: z.enum(['IN', 'OUT']).nullable().optional(),
   targetRole: z.enum(['IN', 'OUT']).nullable().optional(),
@@ -141,30 +139,6 @@ const cableCreate = z.object({
   description: z.string().nullable().optional(),
 });
 const cablePatch = cableCreate.omit({ tempId: true }).partial();
-
-// ==================== FiberPath ====================
-// floor.service.ts UpdatePlanInput.fiberPaths 형태 그대로.
-const fiberPathCreate = z.object({
-  tempId: z.string(),
-  ofdAId: z.string(),
-  ofdBId: z.string(),
-  portCount: z.number(),
-  description: z.string().nullable().optional(),
-});
-const fiberPathPatch = fiberPathCreate.omit({ tempId: true }).partial();
-
-// ==================== FiberCore (광코어 희소 메타) ====================
-const fiberCoreCreate = z.object({
-  tempId: z.string(),
-  fiberPathId: z.string(), // real id 또는 같은 커밋의 fiberPath tempId
-  coreNumber: z.number(),
-  purpose: z.string().nullable().optional(),
-  circuitText: z.string().nullable().optional(),
-  spliceType: z.string().nullable().optional(),
-  usageOverride: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-});
-const fiberCorePatch = fiberCoreCreate.omit({ tempId: true, fiberPathId: true, coreNumber: true }).partial();
 
 // ==================== Records (asset-owned sub-records) ====================
 // 점검/고장이력/사진은 자산이 소유한 단일 records 컬렉션 — recordType 으로 구분.
@@ -196,8 +170,6 @@ export const substationCommitSchema = z.object({
   records: recordsCollection.optional(),
   // 분전 회로(feeder/branch)는 통합 노드 모델에서 Asset(자식) 이므로 assets 컬렉션으로
   // 커밋된다 — 별도 distributionCircuits 컬렉션 없음(단계3b/4b).
-  fiberPaths: collection(fiberPathCreate, fiberPathPatch).optional(),
-  fiberCores: collection(fiberCoreCreate, fiberCorePatch).optional(),
   floor: z
     .object({
       id: z.string(),

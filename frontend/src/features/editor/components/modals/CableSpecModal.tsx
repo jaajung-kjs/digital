@@ -144,9 +144,6 @@ function CableSpecModal() {
       pathLength,
       bufferLength,
       totalLength,
-      // 신모델: fiberPathId/fiberPortNumber 는 신규 케이블에 싣지 않음(null).
-      fiberPathId: null,
-      fiberPortNumber: null,
       // number = 코어 번호(슬롯 드롭 시), 없으면 null.
       number: coreNumber ?? null,
       // 전원계통 방향성 + 슬롯(conduit) OUT role 병합.

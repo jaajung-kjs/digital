@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client';
 import { ValidationError } from '../utils/errors.js';
 import { placementKindToKind, type PlacementKind } from './assetPlanMapper.js';
 import { assertSlotValid, assertNoSlotCollision } from './rackModule.service.js';
-import { assertOfdFiberPath } from './cable.service.js';
 
 /**
  * 도면/통합 커밋의 공유 검증 predicate 모음.
@@ -38,8 +37,6 @@ export function makeEndpointKindResolver(tx: Tx) {
 export interface ResolvedCableEndpoints {
   sourceAssetId: string | null;
   targetAssetId: string | null;
-  fiberPathId: string | null;
-  fiberPortNumber: number | null | undefined;
 }
 
 /**
@@ -47,7 +44,6 @@ export interface ResolvedCableEndpoints {
  *  - source/target 각각 존재하는 asset 을 참조해야 한다.
  *  - 직접 배치 컨테이너(RACK/DISTRIBUTION) 자체는 endpoint 가 될 수 없다
  *    (랙 안 모듈 / 분전 분기에 연결). 모듈·분기·일반 설비는 OK.
- *  - OFD endpoint 면 fiberPathId + fiberPortNumber 필수.
  */
 export async function assertCableEndpointsValid(
   tx: Tx,
@@ -74,8 +70,6 @@ export async function assertCableEndpointsValid(
     // 내부 노드(kind=null: 모듈/피더/분기) 및 일반 설비는 통과.
     assertContainerNotEndpoint(src.kind, 'source');
     assertContainerNotEndpoint(tgt.kind, 'target');
-
-    assertOfdFiberPath(src.kind, tgt.kind, c.fiberPathId, c.fiberPortNumber);
   }
 }
 

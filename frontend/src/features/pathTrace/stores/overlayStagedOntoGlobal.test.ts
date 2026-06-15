@@ -21,9 +21,6 @@ function cable(id: string, extra: Partial<LocalCable> = {}): LocalCable {
     pathLength: null,
     bufferLength: undefined,
     totalLength: null,
-    fiberPathId: null,
-    fiberPortNumber: null,
-    fiberPathLabel: null,
     ...extra,
   };
 }
@@ -66,10 +63,10 @@ describe('overlayStagedOntoGlobal', () => {
 
   it('a just-drawn staged cable (temp seed) is resolvable in the merged list', () => {
     const global: LocalCable[] = [cable('remote')];
-    const staged = [cable('temp-seed', { fiberPathId: 'fp-1', fiberPortNumber: 1 })];
+    const staged = [cable('temp-seed', { number: 3 })];
     const merged = overlayStagedOntoGlobal(global, staged, []);
     const seed = merged.find((c) => c.id === 'temp-seed');
     expect(seed).toBeDefined();
-    expect(seed?.fiberPathId).toBe('fp-1');
+    expect(seed?.number).toBe(3);
   });
 });

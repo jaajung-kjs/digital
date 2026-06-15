@@ -37,15 +37,10 @@ model User {
   updatedMaintenanceLogs MaintenanceLog[] @relation("MaintenanceLogUpdatedBy")
   createdInspectionLogs  InspectionLog[]  @relation("InspectionLogCreatedBy")
   updatedInspectionLogs  InspectionLog[]  @relation("InspectionLogUpdatedBy")
-  createdFiberPaths      FiberPath[]      @relation("FiberPathCreator")
-  updatedFiberPaths      FiberPath[]      @relation("FiberPathUpdater")
   createdRackPresets     RackPreset[]     @relation("RackPresetCreatedBy")
   updatedRackPresets     RackPreset[]     @relation("RackPresetUpdatedBy")
   createdAssets          Asset[]          @relation("AssetCreatedBy")
   updatedAssets          Asset[]          @relation("AssetUpdatedBy")
-  fiberCoresCreated      FiberCore[]      @relation("FiberCoreCreatedBy")
-  fiberCoresUpdated      FiberCore[]      @relation("FiberCoreUpdatedBy")
-
   @@map("users")
 }
 
@@ -243,7 +238,6 @@ model BomMaterial {
 // ==================== 케이블 (다형 endpoint) ====================
 // 각 side 한 쪽만 NOT NULL — CHECK constraint로 강제
 // RACK kind Equipment 는 endpoint 불가 (service validation)
-// OFD endpoint 는 fiberPathId + fiberPortNumber 필수 (service validation)
 
 model Cable {
   id            String  @id @default(uuid())
@@ -256,10 +250,6 @@ model Cable {
   categoryId String?   @map("category_id") // CableCategory FK
   specParams Json?     @map("spec_params")
   pathPoints Json?     @map("path_points")
-
-  // OFD 광경로 식별
-  fiberPathId     String? @map("fiber_path_id")
-  fiberPortNumber Int?    @map("fiber_port_number")
 
   number Int? @map("number") // 범용 슬롯/포트/CB 번호 (fiberPortNumber 일반화 — 대통일 P1)
 
@@ -281,7 +271,6 @@ model Cable {
 
   sourceAsset Asset          @relation("CableSourceAsset", fields: [sourceAssetId], references: [id], onDelete: Cascade)
   targetAsset Asset          @relation("CableTargetAsset", fields: [targetAssetId], references: [id], onDelete: Cascade)
-  fiberPath   FiberPath?     @relation("CableFiberPath", fields: [fiberPathId], references: [id], onDelete: SetNull)
   category    CableCategory? @relation(fields: [categoryId], references: [id])
   createdBy   User?          @relation("CableCreatedBy", fields: [createdById], references: [id])
   updatedBy   User?          @relation("CableUpdatedBy", fields: [updatedById], references: [id])
@@ -295,59 +284,6 @@ enum CableType {
   LAN
   FIBER
   GROUND
-}
-
-// ==================== 광경로 (변전소간 OFD 연결) ====================
-
-model FiberPath {
-  id          String   @id @default(uuid())
-  ofdAId      String   @map("ofd_a_id")
-  ofdBId      String   @map("ofd_b_id")
-  portCount   Int      @map("port_count") // 24 or 48
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  createdById String?  @map("created_by_id")
-  updatedById String?  @map("updated_by_id")
-
-  ofdA      Asset   @relation("FiberPathOfdA", fields: [ofdAId], references: [id], onDelete: Cascade)
-  ofdB      Asset   @relation("FiberPathOfdB", fields: [ofdBId], references: [id], onDelete: Cascade)
-  cables    Cable[] @relation("CableFiberPath")
-  createdBy User?   @relation("FiberPathCreator", fields: [createdById], references: [id])
-  updatedBy User?   @relation("FiberPathUpdater", fields: [updatedById], references: [id])
-  fiberCores FiberCore[]
-
-  @@unique([ofdAId, ofdBId])
-  @@map("fiber_paths")
-}
-
-// ==================== 광코어 메타(선번장) ====================
-// FiberPath(OFD쌍) 밑 코어별 *희소* 메타. 점유/빈/양측 자산은 저장하지 않는다 —
-// 그건 케이블에서 도출(usePortStatus). 여기엔 케이블이 못 담는 실무 메타만:
-// 용도·수용내역(회선/링)·융착/패치·사용여부override. 메타가 있는 코어만 행이 생긴다.
-model FiberCore {
-  id          String @id @default(uuid())
-  fiberPathId String @map("fiber_path_id")
-  coreNumber  Int    @map("core_number") // 1..portCount
-
-  purpose       String? @map("purpose") @db.VarChar(50)        // 용도
-  circuitText   String? @map("circuit_text") @db.VarChar(200)  // 수용내역(회선/링명)
-  spliceType    String? @map("splice_type") @db.VarChar(10)    // 융착 | 패치 | null
-  usageOverride String? @map("usage_override") @db.VarChar(10) // 사용 | 미사용 | null(=도출)
-
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-  createdById String?  @map("created_by")
-  updatedById String?  @map("updated_by")
-
-  fiberPath FiberPath @relation(fields: [fiberPathId], references: [id], onDelete: Cascade)
-  createdBy User?     @relation("FiberCoreCreatedBy", fields: [createdById], references: [id])
-  updatedBy User?     @relation("FiberCoreUpdatedBy", fields: [updatedById], references: [id])
-
-  @@unique([fiberPathId, coreNumber])
-  @@index([fiberPathId])
-  @@map("fiber_cores")
 }
 
 // ==================== 설비 사진 ====================
@@ -511,8 +447,6 @@ model Asset {
 
   sourceCablesAsset Cable[]          @relation("CableSourceAsset")
   targetCablesAsset Cable[]          @relation("CableTargetAsset")
-  fiberPathsAsA     FiberPath[]      @relation("FiberPathOfdA")
-  fiberPathsAsB     FiberPath[]      @relation("FiberPathOfdB")
   maintenanceLogs   MaintenanceLog[] @relation("MaintenanceLogAsset")
   inspectionLogs    InspectionLog[]  @relation("InspectionLogAsset")
   photos            EquipmentPhoto[] @relation("EquipmentPhotoAsset")

@@ -28,14 +28,14 @@ function resolveSourcePresetId(json: unknown, direct?: unknown): string | null {
 /**
  * 통합 변전소 커밋 (SSOT-2a).
  *
- * assets(+placement) / cables / rackModules / fiberPaths
+ * assets(+placement) / cables / rackModules
  * + 선택적 floor 를 하나의 delta 페이로드로 받아 단일 트랜잭션에 커밋한다.
  *
  *  - per-entity OCC: 각 컬렉션의 update/delete 대상 baseVersion 을 현재
  *    updatedAt.toISOString() 와 비교(assetCommit 동일 규약). 하나라도 stale 면
  *    전체 409 (롤백).
  *  - tempId 교차 해소: assets 의 create tempId → real id 를 먼저 만들고,
- *    cables/rackModules/fiberPaths 의 참조에서 치환.
+ *    cables/rackModules 의 참조에서 치환.
  *  - 검증은 bulkUpdatePlan 과 동일한 planApply 공유 헬퍼 사용.
  *
  * NOTE: rackModules 와 분전 회로(feeder/branch)는 모두 Asset(자식) 행으로 저장된다
@@ -137,16 +137,12 @@ export interface CommitResult {
     assets: Record<string, string>;
     cables: Record<string, string>;
     rackModules: Record<string, string>;
-    fiberPaths: Record<string, string>;
-    fiberCores: Record<string, string>;
     records: Record<string, string>;
   };
   updated: {
     assets: { id: string; updatedAt: string }[];
     cables: { id: string; updatedAt: string }[];
     rackModules: { id: string; updatedAt: string }[];
-    fiberPaths: { id: string; updatedAt: string }[];
-    fiberCores: { id: string; updatedAt: string }[];
     floor?: { id: string; updatedAt: string };
   };
 }
@@ -192,10 +188,10 @@ async function run(
   userId: string,
 ): Promise<CommitResult> {
   const idMaps: CommitResult['idMaps'] = {
-    assets: {}, cables: {}, rackModules: {}, fiberPaths: {}, fiberCores: {}, records: {},
+    assets: {}, cables: {}, rackModules: {}, records: {},
   };
   const updated: CommitResult['updated'] = {
-    assets: [], cables: [], rackModules: [], fiberPaths: [], fiberCores: [],
+    assets: [], cables: [], rackModules: [],
   };
 
   // ── 1) per-entity OCC across all present collections ──
@@ -227,34 +223,6 @@ async function run(
     conflicts.push(
       ...collectConflicts('cables', current, input.cables.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
       ...collectConflicts('cables', current, input.cables.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
-    );
-  }
-  // fiberPaths
-  if (input.fiberPaths) {
-    const ids = [...input.fiberPaths.updates.map((u) => u.id), ...input.fiberPaths.deletes.map((d) => d.id)];
-    // C1: OFD endpoint asset 의 substationId 로 스코핑 (양 끝 중 하나라도 이 변전소).
-    const rows = ids.length
-      ? await tx.fiberPath.findMany({
-          where: { id: { in: ids } },
-          select: { id: true, updatedAt: true },
-        })
-      : [];
-    const { current } = await loadOcc(rows);
-    conflicts.push(
-      ...collectConflicts('fiberPaths', current, input.fiberPaths.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
-      ...collectConflicts('fiberPaths', current, input.fiberPaths.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
-    );
-  }
-  // fiberCores
-  if (input.fiberCores) {
-    const ids = [...input.fiberCores.updates.map((u) => u.id), ...input.fiberCores.deletes.map((d) => d.id)];
-    const rows = ids.length
-      ? await tx.fiberCore.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } })
-      : [];
-    const { current } = await loadOcc(rows);
-    conflicts.push(
-      ...collectConflicts('fiberCores', current, input.fiberCores.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion }))),
-      ...collectConflicts('fiberCores', current, input.fiberCores.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion }))),
     );
   }
   // floor
@@ -471,98 +439,6 @@ async function run(
     }
   }
 
-  // ── 4) fiberPaths ──
-  if (input.fiberPaths) {
-    const fp = input.fiberPaths;
-
-    if (fp.deletes.length) {
-      // C1: OFD endpoint asset 의 substationId 로 스코핑.
-      await tx.fiberPath.deleteMany({
-        where: { id: { in: fp.deletes.map((d) => d.id) } },
-      });
-    }
-
-    for (const c of fp.creates) {
-      const created = await tx.fiberPath.create({
-        data: {
-          ofdAId: resolveAsset(c.ofdAId)!,
-          ofdBId: resolveAsset(c.ofdBId)!,
-          portCount: c.portCount,
-          description: c.description ?? null,
-          createdById: userId,
-          updatedById: userId,
-        },
-      });
-      idMaps.fiberPaths[c.tempId] = created.id;
-    }
-
-    for (const u of fp.updates) {
-      const p = u.patch;
-      await tx.fiberPath.update({
-        where: { id: u.id },
-        data: {
-          ofdAId: p.ofdAId ? resolveAsset(p.ofdAId as string)! : undefined,
-          ofdBId: p.ofdBId ? resolveAsset(p.ofdBId as string)! : undefined,
-          portCount: p.portCount as number | undefined,
-          description: p.description as string | null | undefined,
-          updatedById: userId,
-        },
-      });
-    }
-
-    const touched = [...fp.updates.map((u) => u.id), ...Object.values(idMaps.fiberPaths)];
-    if (touched.length) {
-      const rows = await tx.fiberPath.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
-      updated.fiberPaths = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
-    }
-  }
-
-  const resolveFiber = (id: string | null | undefined): string | null =>
-    id ? idMaps.fiberPaths[id] ?? id : null;
-
-  // ── 4b) fiberCores ── (fiberPaths 뒤 — fiberPathId tempId 해소 위해)
-  if (input.fiberCores) {
-    const fc = input.fiberCores;
-    if (fc.deletes.length) {
-      await tx.fiberCore.deleteMany({ where: { id: { in: fc.deletes.map((d) => d.id) } } });
-    }
-    for (const c of fc.creates) {
-      const created = await tx.fiberCore.create({
-        data: {
-          fiberPathId: resolveFiber(c.fiberPathId)!,
-          coreNumber: c.coreNumber,
-          purpose: c.purpose ?? null,
-          circuitText: c.circuitText ?? null,
-          spliceType: c.spliceType ?? null,
-          usageOverride: c.usageOverride ?? null,
-          description: c.description ?? null,
-          createdById: userId,
-          updatedById: userId,
-        },
-      });
-      idMaps.fiberCores[c.tempId] = created.id;
-    }
-    for (const u of fc.updates) {
-      const p = u.patch;
-      await tx.fiberCore.update({
-        where: { id: u.id },
-        data: {
-          purpose: p.purpose as string | null | undefined,
-          circuitText: p.circuitText as string | null | undefined,
-          spliceType: p.spliceType as string | null | undefined,
-          usageOverride: p.usageOverride as string | null | undefined,
-          description: p.description as string | null | undefined,
-          updatedById: userId,
-        },
-      });
-    }
-    const touched = [...fc.updates.map((u) => u.id), ...Object.values(idMaps.fiberCores)];
-    if (touched.length) {
-      const rows = await tx.fiberCore.findMany({ where: { id: { in: touched } }, select: { id: true, updatedAt: true } });
-      updated.fiberCores = rows.map((r) => ({ id: r.id, updatedAt: r.updatedAt.toISOString() }));
-    }
-  }
-
   // 단계4b: 케이블 endpoint 노드 해소 — tempId(같은 페이로드의 asset create)면 real id 로,
   // 아니면 그대로. asset / cable idMap 양쪽을 본다(케이블이 다른 케이블을 참조하진 않지만
   // resolveNode 는 단일 노드 해소 choke-point 로 둔다).
@@ -581,9 +457,8 @@ async function run(
     for (const c of cab.creates) {
       const sourceAssetId = resolveNode(c.sourceAssetId)!;
       const targetAssetId = resolveNode(c.targetAssetId)!;
-      const fiberPathId = resolveFiber(c.fiberPathId);
       await assertCableEndpointsValid(tx, [
-        { sourceAssetId, targetAssetId, fiberPathId, fiberPortNumber: c.fiberPortNumber ?? undefined },
+        { sourceAssetId, targetAssetId },
       ]);
       const created = await tx.cable.create({
         data: {
@@ -595,8 +470,6 @@ async function run(
           length: c.length ?? null,
           color: c.color ?? null,
           description: c.description ?? null,
-          fiberPathId,
-          fiberPortNumber: c.fiberPortNumber ?? null,
           number: c.number ?? null,
           sourceRole: c.sourceRole ?? null,
           targetRole: c.targetRole ?? null,
@@ -617,18 +490,15 @@ async function run(
       const p = u.patch;
       const existing = await tx.cable.findUniqueOrThrow({
         where: { id: u.id },
-        select: { sourceAssetId: true, targetAssetId: true, fiberPathId: true, fiberPortNumber: true },
+        select: { sourceAssetId: true, targetAssetId: true },
       });
       // endpoint 는 필수(NOT NULL). 변경 시 resolveNode, 미변경 시 existing(이미 non-null).
       const sourceAssetId =
         (p.sourceAssetId !== undefined ? resolveNode(p.sourceAssetId) : existing.sourceAssetId)!;
       const targetAssetId =
         (p.targetAssetId !== undefined ? resolveNode(p.targetAssetId) : existing.targetAssetId)!;
-      const fiberPathId = p.fiberPathId !== undefined ? resolveFiber(p.fiberPathId) : existing.fiberPathId;
-      const fiberPortNumber =
-        p.fiberPortNumber !== undefined ? (p.fiberPortNumber as number | null) : existing.fiberPortNumber;
       await assertCableEndpointsValid(tx, [
-        { sourceAssetId, targetAssetId, fiberPathId, fiberPortNumber },
+        { sourceAssetId, targetAssetId },
       ]);
       await tx.cable.update({
         where: { id: u.id },
@@ -640,8 +510,6 @@ async function run(
           length: p.length as number | null | undefined,
           color: p.color as string | null | undefined,
           description: p.description as string | null | undefined,
-          fiberPathId,
-          fiberPortNumber,
           number: p.number as number | null | undefined,
           sourceRole: p.sourceRole as 'IN' | 'OUT' | null | undefined,
           targetRole: p.targetRole as 'IN' | 'OUT' | null | undefined,

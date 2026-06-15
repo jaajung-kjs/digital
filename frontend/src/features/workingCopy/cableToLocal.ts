@@ -26,9 +26,6 @@ export interface CableDetailDTO {
   sourceRole?: 'IN' | 'OUT' | null;
   targetRole?: 'IN' | 'OUT' | null;
   number?: number | null;
-  fiberPathId?: string | null;
-  fiberPortNumber?: number | null;
-  fiberPathDescription?: string | null;
   categoryId?: string | null;
   categoryCode?: string | null;
   categoryName?: string | null;
@@ -68,8 +65,5 @@ export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
     pathLength: c.pathLength ?? null,
     bufferLength: c.bufferLength,
     totalLength: c.totalLength ?? null,
-    fiberPathId: c.fiberPathId ?? null,
-    fiberPortNumber: c.fiberPortNumber ?? null,
-    fiberPathLabel: c.fiberPathDescription ?? null,
   };
 }

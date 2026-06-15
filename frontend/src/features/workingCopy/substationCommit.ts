@@ -7,7 +7,7 @@ import type { Overlay } from './overlay';
 import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 
 // ──────────────────────────────────────────────────────────────────────────
-// commit 빌더 — 전역 워킹카피 overlay(assets / cables / fiberPaths / records)를
+// commit 빌더 — 전역 워킹카피 overlay(assets / cables / records)를
 // 전역 커밋 `POST /commit` 페이로드로 변환한다(변전소 스코프 없음). 신규 자산은 자기
 // substationId 를 싣고, records 는 recordType(DB 테이블명)으로 백엔드가 제네릭 라우팅한다.
 //
@@ -21,7 +21,6 @@ type RecordRow = Record<string, unknown>;
 type Overlays = {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Record<string, unknown>, Partial<Record<string, unknown>>>;
-  fiberPaths: Overlay<Record<string, unknown>, Partial<Record<string, unknown>>>;
   records: Overlay<RecordRow, Partial<RecordRow>>;
 };
 
@@ -60,7 +59,6 @@ export interface FloorCommitSection {
 export interface SubstationCommitPayload {
   assets?: Collection;
   cables?: Collection;
-  fiberPaths?: Collection;
   records?: RecordsCollection;
   floor?: FloorCommitSection;
 }
@@ -97,7 +95,7 @@ function toCableCreate(c: Record<string, unknown>): Record<string, unknown> {
     cableType: c.cableType,
   };
   const passthrough = [
-    'label', 'length', 'color', 'description', 'fiberPathId', 'fiberPortNumber',
+    'label', 'length', 'color', 'description',
     'categoryId', 'specParams', 'pathPoints', 'pathLength', 'bufferLength', 'totalLength',
     'sourceRole', 'targetRole', 'number',
   ];
@@ -189,7 +187,7 @@ function buildRecordsCollection(
 /**
  * overlay 세트를 2a 커밋 페이로드로 변환한다.
  *
- * @param overlays  store 의 overlays(assets/cables/fiberPaths/records)
+ * @param overlays  store 의 overlays(assets/cables/records)
  * @param savedRecords  saved 레코드 — records update/delete 의 recordType 라우팅용.
  * @param photoUrls  커밋 직전 업로드한 사진 imageUrl(레코드 tempId → URL).
  */
@@ -221,14 +219,11 @@ export function buildSubstationCommitPayload(
     updates: cd.updates as Collection['updates'],
     deletes: cd.deletes,
   };
-  const fiberPaths = buildDelta(overlays.fiberPaths) as Collection;
-
   const records = buildRecordsCollection(overlays.records, savedRecords, photoUrls);
 
   return {
     assets: omitIfEmpty(assetsCol),
     cables: omitIfEmpty(cables),
-    fiberPaths: omitIfEmpty(fiberPaths),
     ...(records ? { records } : {}),
     ...(floor ? { floor } : {}),
   };
