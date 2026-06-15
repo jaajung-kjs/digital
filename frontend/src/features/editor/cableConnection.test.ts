@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-const { stageCableCreate, cancelCableDrawing, setSelectedCableId, showToast, setTool, setPreselectedCableDisplayGroup } = vi.hoisted(() => ({ stageCableCreate: vi.fn(), cancelCableDrawing: vi.fn(), setSelectedCableId: vi.fn(), showToast: vi.fn(), setTool: vi.fn(), setPreselectedCableDisplayGroup: vi.fn() }));
+const { stageCableCreate, cancelCableDrawing, setSelectedCableId, showToast, setTool, setPreselectedCableDisplayGroup, closeRightPanel } = vi.hoisted(() => ({ stageCableCreate: vi.fn(), cancelCableDrawing: vi.fn(), setSelectedCableId: vi.fn(), showToast: vi.fn(), setTool: vi.fn(), setPreselectedCableDisplayGroup: vi.fn(), closeRightPanel: vi.fn() }));
 vi.mock('../workingCopy/substationStore', () => ({ useSubstationWorkingCopy: { getState: () => ({ stageCableCreate }) } }));
-vi.mock('./stores/editorStore', () => ({ useEditorStore: { getState: () => ({ cancelCableDrawing, setSelectedCableId, setTool, setPreselectedCableDisplayGroup }) } }));
+vi.mock('./stores/editorStore', () => ({ useEditorStore: { getState: () => ({ cancelCableDrawing, setSelectedCableId, setTool, setPreselectedCableDisplayGroup, closeRightPanel }) } }));
 vi.mock('./stores/toastStore', () => ({ useToastStore: { getState: () => ({ showToast }) } }));
 vi.mock('../../utils/idHelpers', () => ({ generateTempId: () => 'tmp1' }));
 import { commitCable, startCableConnection } from './cableConnection';
