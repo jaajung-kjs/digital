@@ -227,9 +227,11 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
         //           빈 칸(＋) = 그 빈 CB 로 연결.
         // 일반 모드: 점유 = 선택, 빈 칸(＋) = 그 자리에 CB 추가(평면도 케이블 그리기).
         onSelect={pick.active ? pickCb : selectCb}
-        onToggle={toggle}
+        // 피킹 모드: 점유 차단기는 흐리게 + 토글/삭제 비활성(연결만).
+        onToggle={pick.active ? () => {} : toggle}
         onAddCb={pick.active ? pickCb : addCb}
-        onDeleteCb={deleteCb}
+        onDeleteCb={pick.active ? undefined : deleteCb}
+        dimOccupied={pick.active}
       />
       {showInput && input && (
         <DetailCard>

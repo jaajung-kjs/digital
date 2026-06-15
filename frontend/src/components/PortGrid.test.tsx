@@ -33,4 +33,10 @@ describe('PortGrid', () => {
     fireEvent.click(screen.getByRole('button', { name: /포트 2/ }));
     expect(onSelect).toHaveBeenCalledWith(2);
   });
+  it('dimOccupied → 자국 점유 포트만 흐리게(opacity-40), 빈 포트는 그대로', () => {
+    render(<PortGrid ports={ports} selectedCore={null} onSelect={() => {}} dimOccupied />);
+    expect(screen.getByRole('button', { name: /^포트 1$/ }).className).not.toContain('opacity-40'); // empty
+    expect(screen.getByRole('button', { name: /^포트 2$/ }).className).toContain('opacity-40'); // localCableId 있음
+    expect(screen.getByRole('button', { name: /^포트 3$/ }).className).toContain('opacity-40');
+  });
 });

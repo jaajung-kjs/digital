@@ -56,4 +56,9 @@ describe('BreakerRail', () => {
     render(<BreakerRail circuits={circuits} selectedCb={1} onSelect={() => {}} onToggle={() => {}} />);
     expect(screen.getByRole('button', { name: '차단기 1' }).className).toContain('ring-primary');
   });
+  it('dimOccupied → 점유 차단기만 흐리게(opacity-40), 빈 칸은 그대로', () => {
+    render(<BreakerRail circuits={circuits} selectedCb={null} onSelect={() => {}} onToggle={() => {}} dimOccupied />);
+    expect(screen.getByRole('button', { name: '차단기 1' }).className).toContain('opacity-40');
+    expect(screen.getByRole('button', { name: '차단기 3 추가' }).className).not.toContain('opacity-40');
+  });
 });

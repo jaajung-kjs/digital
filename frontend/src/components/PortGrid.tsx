@@ -25,11 +25,14 @@ export function PortGrid({
   selectedCore,
   onSelect,
   perRow = 12,
+  dimOccupied = false,
 }: {
   ports: SlotPort[];
   selectedCore: number | null;
   onSelect: (coreNumber: number) => void;
   perRow?: number;
+  /** 케이블 피킹 모드: 자국 측 이미 점유된(localCableId 있음) 포트는 픽 불가 → 흐리게. */
+  dimOccupied?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -41,6 +44,7 @@ export function PortGrid({
         >
           {ports.map((p) => {
             const selected = selectedCore === p.coreNumber;
+            const dimmed = dimOccupied && !!p.localCableId; // 자국 점유 → 픽 불가
             return (
               <button
                 key={p.coreNumber}
@@ -50,7 +54,7 @@ export function PortGrid({
                 aria-pressed={selected}
                 className={`relative flex aspect-square items-center justify-center rounded-md border text-[11px] font-mono font-medium tabular-nums shadow-sm transition-colors ${
                   TILE_CLASS[p.state]
-                } ${selected ? 'z-10 border-primary ring-2 ring-primary/40' : 'hover:border-content-faint'}`}
+                } ${selected ? 'z-10 border-primary ring-2 ring-primary/40' : 'hover:border-content-faint'} ${dimmed ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 {p.coreNumber}
                 {p.state !== 'empty' && (

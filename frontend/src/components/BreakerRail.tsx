@@ -16,6 +16,7 @@ export function BreakerRail({
   onToggle,
   onAddCb,
   onDeleteCb,
+  dimOccupied = false,
 }: {
   circuits: FeederCircuit[];
   selectedCb: number | null;
@@ -23,6 +24,8 @@ export function BreakerRail({
   onToggle: (cbNumber: number) => void;
   onAddCb?: (cbNumber: number) => void;
   onDeleteCb?: (cbNumber: number, cableId: string) => void;
+  /** 케이블 피킹 모드: 점유된(이미 연결된) 차단기는 픽 불가 → 흐리게. */
+  dimOccupied?: boolean;
 }) {
   return (
     <div className="grid grid-cols-6 gap-1.5 rounded-md border border-line bg-surface-2 p-2 shadow-inner">
@@ -60,7 +63,7 @@ export function BreakerRail({
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(c.cbNumber); } }}
             aria-label={`차단기 ${c.cbNumber}`}
             aria-current={selected ? 'true' : undefined}
-            className={`group relative flex min-h-[4.25rem] flex-col items-center justify-between gap-1 rounded-md border bg-surface py-1.5 shadow-sm cursor-pointer transition-[box-shadow,border-color] duration-150 hover:shadow-md ${borderCls}`}
+            className={`group relative flex min-h-[4.25rem] flex-col items-center justify-between gap-1 rounded-md border bg-surface py-1.5 shadow-sm cursor-pointer transition-[box-shadow,border-color] duration-150 hover:shadow-md ${borderCls} ${dimOccupied ? 'opacity-40' : ''}`}
           >
             <span className={`text-xs font-mono font-medium tabular-nums leading-none ${on ? 'text-content' : 'text-content-muted'}`}>{c.cbNumber}</span>
             {/* 실제 차단기 레버 — 리세스 슬롯 안의 노브가 ON=위 / OFF=아래로 이동. */}

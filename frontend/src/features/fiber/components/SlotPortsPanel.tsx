@@ -90,8 +90,9 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
       <PortGrid
         ports={ports}
         selectedCore={selectedCore}
-        // 피킹 모드: 포트 클릭 = endpoint onPick. 일반 모드: 포트 선택.
+        // 피킹 모드: 포트 클릭 = endpoint onPick(자국 점유 포트는 흐리게 + 픽 불가). 일반 모드: 포트 선택.
         onSelect={pick.active ? pickPort : (n) => useSelectionStore.getState().setSelectedCore(n)}
+        dimOccupied={pick.active}
       />
       {selected && (
         <DetailCard>
