@@ -82,19 +82,26 @@ describe('SlotPortsPanel', () => {
   describe('케이블 피킹 모드(active)', () => {
     beforeEach(() => { pickState.active = true; pickState.side = 'source'; });
 
-    it('포트 클릭 → onPick(슬롯 OUT, 코어 번호) — 선택/트레이스 안 함', () => {
+    it('빈 포트 클릭 → onPick(슬롯 OUT, 코어 번호) — 선택/트레이스 안 함', () => {
       render(<SlotPortsPanel slotId={SLOT} />);
-      fireEvent.click(screen.getByRole('button', { name: /^포트 3$/ }));
+      fireEvent.click(screen.getByRole('button', { name: /^포트 1$/ }));
       expect(onPick).toHaveBeenCalledWith({
         containerAssetId: OFD,
         position: { x: 110, y: 220 },
         slotId: SLOT,
-        coreNumber: 3,
+        coreNumber: 1,
         role: 'OUT',
       });
       // 일반 동작(상세/트레이스)은 일어나지 않는다.
       expect(startTrace).not.toHaveBeenCalled();
       expect(screen.queryByText(/자국장비/)).not.toBeInTheDocument();
+    });
+
+    it('점유(자국 측) 포트 클릭 → onPick 안 함(빈 포트에만 연결)', () => {
+      render(<SlotPortsPanel slotId={SLOT} />);
+      // 포트 3 = 자국 OUT 케이블 점유(localCableId 있음) → 픽 불가.
+      fireEvent.click(screen.getByRole('button', { name: /^포트 3$/ }));
+      expect(onPick).not.toHaveBeenCalled();
     });
   });
 });

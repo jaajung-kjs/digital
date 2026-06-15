@@ -77,11 +77,11 @@ describe('FeederCircuitsPanel', () => {
     expect(screen.getByText(/복도등/)).toBeInTheDocument();
     expect(startTrace).toHaveBeenCalledWith('c1');
   });
-  it('빈 자리 추가(＋) 클릭 → startCableConnection(피더 OUT 출발) + 평면도 이동(피더)', () => {
+  it('빈 자리 추가(＋) 클릭 → startCableConnection(피더 OUT + 그 빈 CB 번호) + 평면도 이동(피더)', () => {
     render(<FeederCircuitsPanel feederId={FEEDER} />);
     fireEvent.click(screen.getByRole('button', { name: '차단기 3 추가' }));
     expect(startCableConnection).toHaveBeenCalledWith({
-      source: { containerAssetId: DIST, position: { x: 30, y: 50 }, innerAssetId: FEEDER, role: 'OUT' },
+      source: { containerAssetId: DIST, position: { x: 30, y: 50 }, innerAssetId: FEEDER, role: 'OUT', number: 3 },
     });
     expect(gotoAsset).toHaveBeenCalledWith(FEEDER);
   });
@@ -155,17 +155,12 @@ describe('FeederCircuitsPanel', () => {
   describe('케이블 피킹 모드(active)', () => {
     beforeEach(() => { pickState.active = true; pickState.side = 'source'; });
 
-    it('점유 CB 클릭 → onPick(피더 OUT, 그 CB 번호) — 선택/트레이스 안 함', () => {
+    it('점유 CB 클릭 → onPick 안 함(점유된 분기엔 연결 불가, 빈 곳만) — 선택/트레이스도 안 함', () => {
       render(<FeederCircuitsPanel feederId={FEEDER} />);
       fireEvent.click(screen.getByRole('button', { name: '차단기 1' }));
-      expect(onPick).toHaveBeenCalledWith({
-        containerAssetId: DIST,
-        position: { x: 30, y: 50 },
-        innerAssetId: FEEDER,
-        role: 'OUT',
-        number: 1,
-      });
-      // 일반 동작(부하 상세/트레이스)은 일어나지 않는다.
+      // 1대다 자산: 이미 케이블이 있는 CB 는 픽되지 않는다.
+      expect(onPick).not.toHaveBeenCalled();
+      // 일반 동작(부하 상세/트레이스)도 일어나지 않는다(피킹 모드).
       expect(startTrace).not.toHaveBeenCalled();
       expect(screen.queryByText(/복도등/)).not.toBeInTheDocument();
     });

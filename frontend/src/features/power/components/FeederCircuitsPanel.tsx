@@ -60,6 +60,8 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   // 빈 칸 = 다음 빈 CB 번호(슬롯의 cbNumber), 점유 칸 = 그 CB 번호.
   const pickCb = (cbNumber: number) => {
     if (!feeder || !anchorRect) return;
+    // 1대다 자산: 점유된 분기엔 연결 불가 — 빈 CB 에만 연결한다.
+    if (slots.find((s) => s.cbNumber === cbNumber)?.occupied) return;
     pick.onPick({
       containerAssetId: anchorRect.anchorId,
       position: anchorRect.position,
@@ -90,11 +92,12 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
     commitMeta(c.cableId, 'switchState', c.switchState.toUpperCase() === 'ON' ? 'OFF' : 'ON');
   };
 
-  // CB 추가 = 평면도로 이동 + 케이블 그리기 진입(피더 OUT 출발 자동주입 → 부하 CB 도착만 그린다). 빈 차단기 = 이 버튼.
-  const addCb = () => {
+  // CB 추가 = 평면도로 이동 + 케이블 그리기 진입(피더 OUT 출발 자동주입 → 부하 CB 도착만 그린다).
+  // 클릭한 빈 차단기 번호를 출발 CB 번호로 주입한다(그 자리에 들어간다).
+  const addCb = (cbNumber: number) => {
     if (!feeder || !anchorRect) return;
     startCableConnection({
-      source: { containerAssetId: anchorRect.anchorId, position: anchorRect.position, innerAssetId: feeder.id, role: 'OUT' },
+      source: { containerAssetId: anchorRect.anchorId, position: anchorRect.position, innerAssetId: feeder.id, role: 'OUT', number: cbNumber },
     });
     nav?.gotoAsset(feeder.id);
   };
@@ -220,13 +223,12 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
       <BreakerRail
         circuits={slots}
         selectedCb={selectedCb}
-        // 피킹 모드: 점유 칸 클릭 = 그 CB endpoint, 빈 칸(＋) = 다음 빈 CB endpoint.
-        // 일반 모드: 점유 = 선택, 빈 칸 = CB 추가(평면도 케이블 그리기).
+        // 피킹 모드: 점유 칸 클릭 = pickCb(점유면 가드로 무시) → 사실상 빈 칸만 연결됨.
+        //           빈 칸(＋) = 그 빈 CB 로 연결.
+        // 일반 모드: 점유 = 선택, 빈 칸(＋) = 그 자리에 CB 추가(평면도 케이블 그리기).
         onSelect={pick.active ? pickCb : selectCb}
         onToggle={toggle}
-        onAddCb={pick.active
-          ? () => { const empty = slots.find((s) => !s.occupied); if (empty) pickCb(empty.cbNumber); }
-          : addCb}
+        onAddCb={pick.active ? pickCb : addCb}
         onDeleteCb={deleteCb}
       />
       {showInput && input && (

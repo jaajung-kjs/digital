@@ -44,8 +44,10 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
   }, [slot, assets]);
 
   // 포트 클릭 → 케이블 endpoint(슬롯 OUT, 코어 번호) 로 onPick.
+  // 1대다 자산: 자국 측이 이미 점유된 포트엔 연결 불가 — 빈 포트(자국 free)에만 연결한다.
   const pickPort = (coreNumber: number) => {
     if (!slot || !anchorRect) return;
+    if (ports.find((p) => p.coreNumber === coreNumber)?.localCableId) return;
     pick.onPick({
       containerAssetId: anchorRect.anchorId,
       position: anchorRect.position,

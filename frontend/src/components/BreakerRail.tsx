@@ -21,7 +21,7 @@ export function BreakerRail({
   selectedCb: number | null;
   onSelect: (cbNumber: number) => void;
   onToggle: (cbNumber: number) => void;
-  onAddCb?: () => void;
+  onAddCb?: (cbNumber: number) => void;
   onDeleteCb?: (cbNumber: number, cableId: string) => void;
 }) {
   return (
@@ -33,7 +33,7 @@ export function BreakerRail({
             <button
               key={c.cbNumber}
               type="button"
-              onClick={onAddCb}
+              onClick={() => onAddCb?.(c.cbNumber)}
               disabled={!onAddCb}
               aria-label={`차단기 ${c.cbNumber} 추가`}
               className="flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line bg-surface/40 text-content-faint transition-colors hover:border-primary hover:text-primary hover:bg-info-bg disabled:cursor-default disabled:hover:border-line disabled:hover:bg-surface/40 disabled:hover:text-content-faint"
