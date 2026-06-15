@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -26,6 +26,8 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   const nav = useWorkspaceNav();
   const selectedCb = useSelectionStore((s) => s.selectedCore);
   const setSelectedCb = (n: number | null) => useSelectionStore.getState().setSelectedCore(n);
+  // 입력(IN) 상세 카드 표시 — CB 선택과 상호배타(하나만 뜬다).
+  const [showInput, setShowInput] = useState(false);
 
   const pick = useCablePick();
 
@@ -69,11 +71,18 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
 
   useEffect(() => {
     const hi = usePathHighlightStore.getState();
+    // 입력 상세를 보면 입력 케이블을 하이라이트(CB 선택과 동형). 둘 다 없으면 nothing.
+    if (showInput && input?.cableId) { hi.startTrace(input.cableId); return; }
     if (selectedCb === null) return;
     if (selected?.cableId) hi.startTrace(selected.cableId);
     else hi.clearHighlight();
-  }, [selectedCb, selected?.cableId]);
+  }, [selectedCb, selected?.cableId, showInput, input?.cableId]);
   useEffect(() => () => usePathHighlightStore.getState().clearHighlight(), []);
+
+  // CB 선택 = 입력 카드는 닫는다(한 번에 하나만).
+  const selectCb = (cbNumber: number | null) => { setShowInput(false); setSelectedCb(cbNumber); };
+  // 입력 타일 클릭(일반 모드) = 입력 카드 열기 + CB 선택 해제.
+  const openInput = () => { setSelectedCb(null); setShowInput(true); };
 
   const toggle = (cbNumber: number) => {
     const c = occupied.find((x) => x.cbNumber === cbNumber);
@@ -109,6 +118,7 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
     if (!input) return;
     if (!confirm('입력(공급) 케이블을 삭제할까요? 연결이 제거됩니다.')) return;
     useSubstationWorkingCopy.getState().stageCableDelete(input.cableId);
+    setShowInput(false);
   };
   // 피킹 모드: IN 슬롯 클릭 → 이 피더의 IN endpoint(번호 없음) 로 onPick.
   const pickIn = () => {
@@ -127,32 +137,49 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
 
   return (
     <div className="space-y-3">
-      {/* 입력(IN) 슬롯 — 분기 그리드 위. 점유=공급원 표시(+삭제), 빈=입력 연결. 피킹 모드면 전체가 IN endpoint pick. */}
+      {/* 입력(IN) 모듈 — 분기 그리드 위 가로 전폭. 흰 바디 + 좌측 빨강 악센트(입력 식별, 분기 초록과 구분).
+          일반=클릭 시 상세카드(공급원/용량/개폐), 피킹 모드=전체가 IN endpoint pick. 빈=빨강 점선 "입력 연결". */}
       {input ? (
         pick.active ? (
           <button
             type="button"
             onClick={pickIn}
             aria-label="입력 선택"
-            className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 py-2 shadow-sm transition-colors hover:border-primary hover:bg-info-bg"
+            className="relative flex w-full items-center gap-2 overflow-hidden rounded-md border border-line bg-surface py-2 pl-3 pr-3 shadow-sm transition-colors hover:border-primary hover:bg-info-bg"
           >
-            <span className="text-xs font-medium text-content-muted">입력</span>
-            <span className="text-sm text-content">{input.sourceName ?? '—'}</span>
+            <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-danger" />
+            <span className="text-xs font-medium text-danger">입력</span>
+            <span className="min-w-0 flex-1 truncate text-left text-sm text-content">{input.sourceName ?? '—'}</span>
+            {input.capacity && (
+              <span className="rounded bg-danger-bg px-1.5 py-0.5 text-xs font-medium text-danger">{input.capacity}</span>
+            )}
           </button>
         ) : (
-          <div className="group flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 py-2 shadow-sm">
-            <span className="text-xs font-medium text-content-muted">입력</span>
-            <span className="flex items-center gap-2">
-              <span className="text-sm text-content">{input.sourceName ?? '—'}</span>
-              <button
-                type="button"
-                aria-label="입력 삭제"
-                onClick={deleteInput}
-                className="flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100"
-              >
-                ×
-              </button>
-            </span>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={openInput}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openInput(); } }}
+            aria-label="입력"
+            aria-current={showInput ? 'true' : undefined}
+            className={`group relative flex w-full cursor-pointer items-center gap-2 overflow-hidden rounded-md border bg-surface py-2 pl-3 pr-3 shadow-sm transition-[box-shadow,border-color] duration-150 hover:shadow-md ${
+              showInput ? 'border-primary ring-2 ring-primary/30' : 'border-line hover:border-content-faint'
+            }`}
+          >
+            <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-danger" />
+            <span className="text-xs font-medium text-danger">입력</span>
+            <span className="min-w-0 flex-1 truncate text-sm text-content">{input.sourceName ?? '—'}</span>
+            {input.capacity && (
+              <span className="rounded bg-danger-bg px-1.5 py-0.5 text-xs font-medium text-danger">{input.capacity}</span>
+            )}
+            <button
+              type="button"
+              aria-label="입력 삭제"
+              onClick={(e) => { e.stopPropagation(); deleteInput(); }}
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100"
+            >
+              ×
+            </button>
           </div>
         )
       ) : (
@@ -160,7 +187,7 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
           type="button"
           onClick={pick.active ? pickIn : connectInput}
           aria-label={pick.active ? '입력 선택' : '입력 연결'}
-          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-surface/40 px-3 py-2 text-content-faint transition-colors hover:border-primary hover:bg-info-bg hover:text-primary"
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-danger/40 bg-danger-bg/30 px-3 py-2 text-danger/70 transition-colors hover:border-danger hover:bg-danger-bg hover:text-danger"
         >
           <span className="text-base leading-none" aria-hidden="true">＋</span>
           <span className="text-xs font-medium">입력 연결</span>
@@ -171,13 +198,34 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
         selectedCb={selectedCb}
         // 피킹 모드: 점유 칸 클릭 = 그 CB endpoint, 빈 칸(＋) = 다음 빈 CB endpoint.
         // 일반 모드: 점유 = 선택, 빈 칸 = CB 추가(평면도 케이블 그리기).
-        onSelect={pick.active ? pickCb : setSelectedCb}
+        onSelect={pick.active ? pickCb : selectCb}
         onToggle={toggle}
         onAddCb={pick.active
           ? () => { const empty = slots.find((s) => !s.occupied); if (empty) pickCb(empty.cbNumber); }
           : addCb}
         onDeleteCb={deleteCb}
       />
+      {showInput && input && (
+        <DetailCard>
+          <DetailCardHeader
+            title="입력"
+            badge={input.switchState || '—'}
+            badgeStatus={input.switchState.toUpperCase() === 'ON' ? 'success' : 'neutral'}
+            onDelete={deleteInput}
+          />
+          <DetailRow label="공급원">{input.sourceName ?? '—'}</DetailRow>
+          <DetailRow label="용량">
+            <EditableField value={input.capacity} ariaLabel="용량" placeholder="용량"
+              onCommit={(v) => commitMeta(input.cableId, 'capacity', v || null)} />
+          </DetailRow>
+          <DetailRow label="개폐">
+            <EditableField value={input.switchState} type="select" ariaLabel="개폐"
+              options={[{ value: '', label: '—' }, { value: 'ON', label: 'ON' }, { value: 'OFF', label: 'OFF' }]}
+              onCommit={(v) => commitMeta(input.cableId, 'switchState', v || null)} />
+          </DetailRow>
+          <DetailNote>입력(공급) 케이블 속성. 자세한 계통은 계통뷰에서.</DetailNote>
+        </DetailCard>
+      )}
       {selected && (
         <DetailCard>
           <DetailCardHeader

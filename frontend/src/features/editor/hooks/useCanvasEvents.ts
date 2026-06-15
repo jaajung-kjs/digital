@@ -336,7 +336,7 @@ export function useCanvasEvents(
       return;
     }
     if (cableDrawing?.phase === 'pickingSourceEndpoint' || cableDrawing?.phase === 'pickingTargetEndpoint') {
-      // 우측 상세 패널이 click 흐름을 소유한다(leaf view 의 onPick). 캔버스 클릭은 무시.
+      // 엔드포인트 picking 동안엔 CableEndpointDialog(다이얼로그) 가 click 흐름을 소유한다(leaf view 의 onPick). 캔버스 클릭은 무시.
       return;
     }
     if (cableDrawing?.phase === 'drawingPath') {

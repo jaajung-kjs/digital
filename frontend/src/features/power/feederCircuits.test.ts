@@ -58,9 +58,14 @@ describe('feederGridSlots (고정 그리드 패딩)', () => {
 
 describe('buildFeederInput — role=IN 공급', () => {
   const inCable = { id: 'in1', sourceAssetId: 'srcEq', targetAssetId: 'f1', sourceRole: null, targetRole: 'IN', number: null, specParams: {} };
-  it('IN 케이블 1개 해소(공급원명 포함)', () => {
+  it('IN 케이블 1개 해소(공급원명 + 용량/개폐 포함, specParams 비면 빈 문자열)', () => {
     const r = buildFeederInput({ id: 'f1' }, [inCable] as never, new Map([['srcEq', '주변압기']]));
-    expect(r).toEqual({ cableId: 'in1', sourceAssetId: 'srcEq', sourceName: '주변압기' });
+    expect(r).toEqual({ cableId: 'in1', sourceAssetId: 'srcEq', sourceName: '주변압기', capacity: '', switchState: '' });
+  });
+  it('IN 케이블 specParams 의 용량/개폐를 노출', () => {
+    const withSpec = { ...inCable, specParams: { capacity: '50A', switchState: 'ON' } };
+    const r = buildFeederInput({ id: 'f1' }, [withSpec] as never, new Map([['srcEq', '주변압기']]));
+    expect(r).toEqual({ cableId: 'in1', sourceAssetId: 'srcEq', sourceName: '주변압기', capacity: '50A', switchState: 'ON' });
   });
   it('IN 없으면 null (분기 OUT 케이블은 무시)', () => {
     const out = { id: 'o1', sourceAssetId: 'f1', targetAssetId: 'load', sourceRole: 'OUT', targetRole: null, number: 1, specParams: {} };
