@@ -189,17 +189,48 @@ function freshOverlays(saved: SavedCollections): Overlays {
 }
 
 /**
- * 전역 워킹카피: 새로 로드한 변전소 saved 를 기존 saved 에 id 기준 병합한다(다른 변전소로 이동해도
- * 누적; 같은 변전소 재로드는 최신으로 갱신). 워킹카피는 변전소 스코프가 아니라 전역이다 —
- * 자산은 노드, 케이블/광경로는 엣지일 뿐 임의의 변전소 경계가 없다.
+ * 전역 워킹카피: 새로 로드한 변전소 saved 를 기존 saved 에 병합한다(다른 변전소로 이동해도 누적).
+ *
+ * **변전소 S 재로드는 S 스코프에 대해 incoming 이 권위다** — 그래서 incoming(=DB 의 현재 S 셋)에
+ * 없는 *S 소속* prev 항목은 **삭제된 것으로 보고 드롭**한다. 이게 없으면 순수 합집합이라 삭제된
+ * 자산/케이블이 saved 에 영구히 남아, 커밋 후 overlay 를 비우면 되살아난다(새로고침해야 사라지는 버그).
+ * 타 변전소 항목은 S 스코프가 아니므로 보존(전역 누적 유지).
+ *
+ * S 스코프 판정: 자산=substationId, 케이블=양 끝점 중 하나가 S 자산, 레코드=소속 자산(assetId)이 S.
  */
-function mergeSavedById(prev: SavedCollections, incoming: SavedCollections): SavedCollections {
+function mergeSavedById(
+  prev: SavedCollections,
+  incoming: SavedCollections,
+  substationId: string,
+): SavedCollections {
+  // S 소속 자산 id(삭제된 것 포함 — prev 의 S 자산 + incoming 자산). 케이블/레코드 스코프 판정용.
+  const sAssetIds = new Set<string>();
+  for (const a of prev.assets as Asset[]) if (a.substationId === substationId) sAssetIds.add(a.id);
+  for (const a of incoming.assets as Asset[]) sAssetIds.add(a.id);
+
+  const inScope = (key: CollectionKey, r: { id: string }): boolean => {
+    if (key === 'assets') return (r as Asset).substationId === substationId;
+    if (key === 'cables') {
+      const c = r as unknown as { sourceAssetId?: string | null; targetAssetId?: string | null };
+      return (!!c.sourceAssetId && sAssetIds.has(c.sourceAssetId)) || (!!c.targetAssetId && sAssetIds.has(c.targetAssetId));
+    }
+    const rec = r as unknown as { assetId?: string | null };
+    return !!rec.assetId && sAssetIds.has(rec.assetId);
+  };
+
   const out: Record<string, unknown> = {};
   for (const key of COLLECTION_KEYS) {
     const desc = COLLECTIONS[key] as unknown as AnyDescriptor;
+    const incomingById = new Map<string, { id: string }>();
+    for (const r of incoming[key] as { id: string }[]) incomingById.set(desc.idOf(r as never), r);
     const byId = new Map<string, { id: string }>();
-    for (const r of prev[key] as { id: string }[]) byId.set(desc.idOf(r as never), r);
-    for (const r of incoming[key] as { id: string }[]) byId.set(desc.idOf(r as never), r); // 새 로드 우선
+    for (const r of prev[key] as { id: string }[]) {
+      const id = desc.idOf(r as never);
+      if (incomingById.has(id)) continue;       // incoming 이 권위 — 아래에서 일괄 추가
+      if (inScope(key, r)) continue;            // S 스코프인데 incoming 에 없음 = 삭제 → 드롭
+      byId.set(id, r);                          // 타 변전소 → 보존
+    }
+    for (const [id, r] of incomingById) byId.set(id, r); // incoming 권위(추가/갱신)
     out[key] = [...byId.values()];
   }
   return out as unknown as SavedCollections;
@@ -300,7 +331,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         t.pause();
         set((s) => ({
           substationId,
-          saved: mergeSavedById(s.saved, incoming),
+          saved: mergeSavedById(s.saved, incoming, substationId),
           overlays: addBaseVersions(s.overlays, incoming),
         }));
         t.resume();
@@ -316,7 +347,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         t.pause();
         set((s) => ({
           substationId,
-          saved: mergeSavedById(s.saved, incoming),
+          saved: mergeSavedById(s.saved, incoming, substationId),
           overlays: addBaseVersions(s.overlays, incoming),
         }));
         t.resume();
