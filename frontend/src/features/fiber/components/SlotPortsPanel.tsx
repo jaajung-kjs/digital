@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks';
+import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { buildSlotPorts, type PortState } from '../slotPorts';
@@ -15,9 +15,9 @@ const STATE_LABEL: Record<PortState, string> = { empty: '미연결', half: '편�
  */
 export function SlotPortsPanel({ slotId }: { slotId: string }) {
   const assets = useEffectiveAssets() as Asset[];
-  // buildSlotPorts 는 CableLike(부분 형태)만 보면 됨 — 훅의 넓은 반환을 CableLike[] 로 좁혀 통과.
-  const cables = useEffectiveCables() as unknown as CableLike[];
   const { graph } = useTraceGraph();
+  // 포트 상태도 전역 케이블에서 파생 — 선번장과 동일 SSOT, 대국 OUT 포함.
+  const cables = (graph?.cables ?? []) as unknown as CableLike[];
   const [selectedCore, setSelectedCore] = useState<number | null>(null);
 
   const slot = useMemo(() => assets.find((a) => a.id === slotId) ?? null, [assets, slotId]);

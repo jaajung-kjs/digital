@@ -43,10 +43,9 @@ const SLIM = [
 ];
 const CATS = [{ id: 'cat-opj', code: 'CBL-OPJ', name: '광점퍼코드', displayColor: null }];
 
-// useEffectiveCables 는 descriptor(commitMeta 비사용) + EquipmentSelectCell 양쪽이 본다.
+// EquipmentSelectCell + ConnectionRegisterGrid 는 이제 graph.cables(전역 SSOT)에서 읽는다.
 vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => [OFD_ASSET, SLOT_ASSET],
-  useEffectiveCables: () => FIBER_CABLES,
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => ({ data: CATS }) }));
 vi.mock('../../trace/traceGraph', () => ({

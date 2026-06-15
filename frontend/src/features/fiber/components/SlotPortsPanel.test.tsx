@@ -14,7 +14,6 @@ const localOut3 = { id: 'c-l3', cableType: 'FIBER', sourceAssetId: 'eqpL', targe
 
 vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => [SLOT_ASSET],
-  useEffectiveCables: () => [opgw, localOut3],
 }));
 vi.mock('../../trace/traceGraph', () => ({
   useTraceGraph: () => ({
