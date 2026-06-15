@@ -34,6 +34,7 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   const sel = useSelection();
   const openDetail = useEditorStore((s) => s.openDetail);
   const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
+  const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
 
   // 랙모듈 Asset 은 slotIndex/slotSpan 가 항상 채워져 있다(필터 slotIndex != null).
   // 슬롯 기하 계산용 non-null 로컬 + 드래그 훅에 넘길 narrowed shape.
@@ -83,6 +84,9 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
         title={module.name}
         accentColor={accent}
         draggable
+        onDelete={() => {
+          if (confirm(`'${module.name}' 모듈을 삭제할까요?`)) stageAssetDelete(module.id);
+        }}
         onPointerDown={(e) => handlePointerDown(e, 'move')}
         style={{
           gridRowStart: cellStart,

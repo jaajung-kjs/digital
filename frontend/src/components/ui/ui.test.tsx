@@ -71,6 +71,22 @@ describe('DetailCard', () => {
     expect(screen.getByText('CB 1')).toBeInTheDocument();
   });
 
+  it('onEdit/onDelete 를 주면 수정·삭제 버튼을 렌더하고 호출한다', () => {
+    const onEdit = vi.fn();
+    const onDelete = vi.fn();
+    render(<DetailCardHeader title="CB 1" onEdit={onEdit} onDelete={onDelete} />);
+    fireEvent.click(screen.getByRole('button', { name: '수정' }));
+    fireEvent.click(screen.getByRole('button', { name: '삭제' }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('핸들러가 없으면 액션 버튼을 렌더하지 않는다', () => {
+    render(<DetailCardHeader title="CB 1" />);
+    expect(screen.queryByRole('button', { name: '수정' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '삭제' })).not.toBeInTheDocument();
+  });
+
   it('DetailRow 는 라벨(text-xs) + 값(text-sm 본문), DetailNote 는 보조설명', () => {
     render(
       <DetailCard>

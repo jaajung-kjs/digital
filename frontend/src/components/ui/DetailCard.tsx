@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { cn } from './cn';
 import { Badge, type BadgeStatus } from './Badge';
 
@@ -18,20 +19,43 @@ export function DetailCard({ children, className }: { children: ReactNode; class
   );
 }
 
-/** 카드 헤더 — 제목(좌) + 선택적 상태 배지(우측 정렬은 호출측 자유). */
+/**
+ * 카드 헤더 — 제목(좌) + 상태 배지 + 우측 수정/삭제 액션(점검·고장이력 카드와 동일 패턴).
+ * onEdit/onDelete 를 주면 우측에 연필/휴지통 아이콘 버튼이 뜬다(상세 카드 일관성).
+ */
 export function DetailCardHeader({
   title,
   badge,
   badgeStatus = 'neutral',
+  onEdit,
+  onDelete,
 }: {
   title: ReactNode;
   badge?: ReactNode;
   badgeStatus?: BadgeStatus;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <div className="flex items-center gap-2">
       <span className="font-medium text-content">{title}</span>
       {badge != null && <Badge status={badgeStatus}>{badge}</Badge>}
+      {(onEdit || onDelete) && (
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
+          {onEdit && (
+            <button type="button" onClick={onEdit} title="수정" aria-label="수정"
+              className="rounded p-0.5 text-content-faint transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+              <Pencil size={14} />
+            </button>
+          )}
+          {onDelete && (
+            <button type="button" onClick={onDelete} title="삭제" aria-label="삭제"
+              className="rounded p-0.5 text-content-faint transition-colors hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

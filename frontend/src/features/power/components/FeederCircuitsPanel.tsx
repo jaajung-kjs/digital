@@ -80,6 +80,7 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
             title={`CB ${selected.cbNumber}`}
             badge={selected.occupied ? (selected.switchState || '—') : '미연결'}
             badgeStatus={selected.occupied && selected.switchState.toUpperCase() === 'ON' ? 'success' : 'neutral'}
+            onDelete={selected.occupied && selected.cableId ? () => deleteCb(selected.cbNumber, selected.cableId!) : undefined}
           />
           <DetailRow label="부하">{selected.loadName ?? '—'}</DetailRow>
           {selected.occupied && selected.cableId && (

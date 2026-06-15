@@ -45,6 +45,7 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../co
 </DetailCard>
 ```
 외형: `rounded-lg border border-line bg-surface p-3` — 점검·고장이력 리스트 카드(`SectionItem`)와 **동일 톤**.
+수정/삭제가 필요하면 `DetailCardHeader` 에 `onEdit`/`onDelete` 를 주면 우측에 연필/휴지통 액션이 뜬다(점검·고장 카드와 동일 패턴).
 
 ### 리스트 아이템 카드(점검·고장이력 등) → `SectionItem`
 `src/features/assets/components/detail/SectionShell.tsx`

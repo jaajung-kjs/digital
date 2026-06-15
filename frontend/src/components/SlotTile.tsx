@@ -84,6 +84,7 @@ export function SlotTile({
       )}
       {onDelete && (
         <button type="button" aria-label="삭제" title="삭제"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100">
           ✕

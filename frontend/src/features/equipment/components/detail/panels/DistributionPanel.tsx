@@ -101,13 +101,14 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                   title="클릭해 이 계통(피더)으로 이동"
                 >
                   <span className="block truncate pr-6 text-sm font-medium text-content">{feeder.name}</span>
-                  {/* recessed 미니 차단기 그리드 — 고정 24칸(6열, 큰 레일과 동일 배열). CB 0개든
-                      24개든 항상 같은 크기·모양. 빈칸=속빈 외곽선, 차단(OFF)=채운 회색, 가압(ON)=초록. */}
-                  <span className="mt-1.5 grid grid-cols-6 gap-0.5 rounded bg-surface-2 p-1 shadow-inner">
+                  {/* recessed 미니 차단기 — 고정 24칸(같은 크기·모양). 실제 차단기처럼 세로가 더 긴
+                      비율(h-3 w-1.5)로 좌측 정렬 wrap → 스위치 느낌 + 우측 여백 유지.
+                      빈칸=속빈 외곽선, 차단(OFF)=채운 회색, 가압(ON)=초록. */}
+                  <span className="mt-1.5 flex flex-wrap gap-1 rounded bg-surface-2 p-1.5 shadow-inner">
                     {feederGridSlots(cs).slice(0, 24).map((s) => (
                       <span
                         key={s.cbNumber}
-                        className={`h-2 rounded-[1px] ${
+                        className={`h-3 w-1.5 rounded-[1px] ${
                           !s.occupied
                             ? 'ring-1 ring-inset ring-line'
                             : s.switchState.toUpperCase() === 'ON'
