@@ -14,15 +14,15 @@ export interface SlotCoreRow {
 }
 
 interface SlotLike { id: string; name?: string; parentAssetId?: string | null }
-interface CableLike {
+export interface CableLike {
   id: string; cableType?: string | null;
   sourceAssetId?: string | null; targetAssetId?: string | null;
   sourceRole?: 'IN' | 'OUT' | null; targetRole?: 'IN' | 'OUT' | null;
   number?: number | null; specParams?: Record<string, unknown> | null;
 }
 
-const roleAt = (c: CableLike, a: string) => (c.sourceAssetId === a ? c.sourceRole : c.targetRole) ?? null;
-const other = (c: CableLike, a: string) => (c.sourceAssetId === a ? c.targetAssetId : c.sourceAssetId) ?? null;
+export const roleAt = (c: CableLike, a: string) => (c.sourceAssetId === a ? c.sourceRole : c.targetRole) ?? null;
+export const other = (c: CableLike, a: string) => (c.sourceAssetId === a ? c.targetAssetId : c.sourceAssetId) ?? null;
 const str = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v));
 
 /** 한 OFD-SLOT 의 코어 행(점유 OUT 케이블 + 용량까지 빈 코어). graph 있으면 far 투영. */

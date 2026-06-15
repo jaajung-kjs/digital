@@ -4,8 +4,9 @@ import { useEffectiveAssets, useEffectiveEquipment } from '../../workingCopy/hoo
 import { kindOf } from '../../workingCopy/placement';
 import { isTempId } from '../../../utils/idHelpers';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
-import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
+import { type DetailPanelKind } from '../../../types/equipmentKind';
 import { AssetDetailPanel } from '../../assets/components/AssetDetailPanel';
+import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
 
 interface EquipmentDetailPanelProps {
   equipmentId: string;
@@ -40,11 +41,10 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     [effectiveAssets, equipmentId],
   );
 
-  const detailKind = useMemo<DetailPanelKind | null>(() => {
-    // 미배치 자식(랙 모듈·피더·OFD-슬롯)은 공간 섹션 없음. 배치 설비만 kind 기반 섹션.
-    if (!localEq) return null;
-    return EQUIPMENT_KIND_INFO[kindOf(localEq)]?.detailPanelKind ?? null;
-  }, [localEq]);
+  const detailKind = useMemo<DetailPanelKind | null>(
+    () => resolveAssetDetailKind(asset, localEq ? { kind: kindOf(localEq) } : null),
+    [asset, localEq],
+  );
 
   const title = !localEq && asset
     ? asset.name
