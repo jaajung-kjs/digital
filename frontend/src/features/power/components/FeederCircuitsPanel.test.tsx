@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-const { startTrace, clearHighlight, patch, stageCableDelete, setTool, gotoAsset, onPick, pickState } = vi.hoisted(() => ({
+const { startTrace, clearHighlight, patch, stageCableDelete, setTool, gotoAsset, onPick, cableActivate, pickState, inputState } = vi.hoisted(() => ({
   startTrace: vi.fn(), clearHighlight: vi.fn(), patch: vi.fn(),
   stageCableDelete: vi.fn(), setTool: vi.fn(), gotoAsset: vi.fn(),
-  onPick: vi.fn(),
+  onPick: vi.fn(), cableActivate: vi.fn(),
   pickState: { active: false, side: null as 'source' | 'target' | null },
+  // buildFeederInput 결과를 테스트마다 제어(null=빈 입력, 객체=점유 입력).
+  inputState: { value: null as { cableId: string; sourceAssetId: string | null; sourceName: string | null } | null },
 }));
 
 const FEEDER = 'f1';
@@ -35,6 +37,17 @@ vi.mock('../../editor/stores/editorStore', () => {
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { useEditorStore: hook };
 });
+vi.mock('../../editor/stores/interactionStore', () => {
+  const st = { cableActivate };
+  const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
+  (hook as unknown as { getState: () => unknown }).getState = () => st;
+  return { useInteractionStore: hook };
+});
+// 분기(buildFeederCircuits/feederGridSlots)는 실제, 입력(buildFeederInput)만 제어.
+vi.mock('../feederCircuits', async (importActual) => {
+  const actual = await importActual<typeof import('../feederCircuits')>();
+  return { ...actual, buildFeederInput: () => inputState.value };
+});
 vi.mock('../../workspace/WorkspaceNavContext', () => ({
   useWorkspaceNav: () => ({ gotoAsset, gotoFloor: vi.fn() }),
 }));
@@ -54,8 +67,9 @@ import { useSelectionStore } from '../../workspace/selectionStore';
 beforeEach(() => {
   startTrace.mockClear(); clearHighlight.mockClear(); patch.mockClear();
   stageCableDelete.mockClear(); setTool.mockClear(); gotoAsset.mockClear();
-  onPick.mockClear();
+  onPick.mockClear(); cableActivate.mockClear();
   pickState.active = false; pickState.side = null;
+  inputState.value = null;
   useSelectionStore.setState({ selectedAssetId: null, selectedCore: null });
 });
 
@@ -90,6 +104,30 @@ describe('FeederCircuitsPanel', () => {
     expect(patch).toHaveBeenCalledWith('cables', 'c1', { specParams: { capacity: '20A', switchState: 'OFF' } });
   });
 
+  describe('입력(IN) 슬롯', () => {
+    it('점유 입력 → 공급원 이름 표시 + 삭제 → 확인 후 stageCableDelete', () => {
+      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입' };
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      render(<FeederCircuitsPanel feederId={FEEDER} />);
+      expect(screen.getByText('한전 인입')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '입력 삭제' }));
+      expect(stageCableDelete).toHaveBeenCalledWith('in1');
+      confirmSpy.mockRestore();
+    });
+    it('빈 입력 → "입력 연결" 어포던스 + 클릭 시 케이블 도구/cableActivate(IN source)/평면도 이동', () => {
+      inputState.value = null;
+      render(<FeederCircuitsPanel feederId={FEEDER} />);
+      const btn = screen.getByRole('button', { name: '입력 연결' });
+      expect(btn).toBeInTheDocument();
+      fireEvent.click(btn);
+      expect(setTool).toHaveBeenCalledWith('cable');
+      expect(cableActivate).toHaveBeenCalledWith({
+        source: { containerAssetId: DIST, position: { x: 30, y: 50 }, innerAssetId: FEEDER, role: 'IN' },
+      });
+      expect(gotoAsset).toHaveBeenCalledWith(FEEDER);
+    });
+  });
+
   describe('케이블 피킹 모드(active)', () => {
     beforeEach(() => { pickState.active = true; pickState.side = 'source'; });
 
@@ -117,6 +155,30 @@ describe('FeederCircuitsPanel', () => {
       );
       expect(setTool).not.toHaveBeenCalled();
       expect(gotoAsset).not.toHaveBeenCalled();
+    });
+
+    it('IN 슬롯 클릭 → onPick(피더 IN, 번호 없음)', () => {
+      inputState.value = null; // 빈 입력도 피킹 모드면 IN endpoint pick.
+      render(<FeederCircuitsPanel feederId={FEEDER} />);
+      fireEvent.click(screen.getByRole('button', { name: '입력 선택' }));
+      expect(onPick).toHaveBeenCalledWith({
+        containerAssetId: DIST,
+        position: { x: 30, y: 50 },
+        innerAssetId: FEEDER,
+        role: 'IN',
+      });
+      expect(onPick.mock.calls[0][0]).not.toHaveProperty('number');
+      expect(setTool).not.toHaveBeenCalled();
+    });
+
+    it('점유 IN 슬롯도 피킹 모드면 onPick(IN) — 삭제 버튼 대신 클릭 타깃', () => {
+      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입' };
+      render(<FeederCircuitsPanel feederId={FEEDER} />);
+      fireEvent.click(screen.getByRole('button', { name: '입력 선택' }));
+      expect(onPick).toHaveBeenCalledWith(
+        expect.objectContaining({ innerAssetId: FEEDER, role: 'IN' }),
+      );
+      expect(stageCableDelete).not.toHaveBeenCalled();
     });
   });
 });

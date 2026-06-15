@@ -4,8 +4,9 @@ import { useTraceGraph } from '../../trace/traceGraph';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEditorStore } from '../../editor/stores/editorStore';
+import { useInteractionStore } from '../../editor/stores/interactionStore';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
-import { buildFeederCircuits, feederGridSlots } from '../feederCircuits';
+import { buildFeederCircuits, buildFeederInput, feederGridSlots } from '../feederCircuits';
 import { commitMeta } from '../powerRegisterDescriptor';
 import { useCablePick } from '../../editor/hooks/useCablePick';
 import { floorAnchor, floorTargetFor } from '../../workingCopy/floorAnchor';
@@ -37,6 +38,11 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   );
   const slots = useMemo(() => feederGridSlots(occupied), [occupied]);
   const selected = occupied.find((c) => c.cbNumber === selectedCb) ?? null;
+  // 피더 공급(IN) — role==='IN' 케이블 1개(없으면 null). 전역 graph.cables 에서 파생(SSOT).
+  const input = useMemo(
+    () => (feeder && graph ? buildFeederInput({ id: feeder.id }, graph.cables as never[], graph.nameById) : null),
+    [feeder, graph],
+  );
 
   // 케이블 피킹 모드: 피더의 placed floor anchor + 중심좌표를 1회 해소.
   // anchor = 피더가 도면에 보이는 대표 설비(보통 분전반), position = 그 사각형 중심.
@@ -89,12 +95,77 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
     if (selectedCb === cbNumber) setSelectedCb(null);
   };
 
+  // 입력(IN) 연결 = 평면도로 이동 + 이 피더의 IN 을 출발점으로 케이블 그리기 진입(addCb 의 IN 판). Phase 4 에서 startCableConnection 으로 교체.
+  const connectInput = () => {
+    if (!feeder || !anchorRect) return;
+    useEditorStore.getState().setTool('cable');
+    useInteractionStore.getState().cableActivate({
+      source: { containerAssetId: anchorRect.anchorId, position: anchorRect.position, innerAssetId: feeder.id, role: 'IN' },
+    });
+    nav?.gotoAsset(feeder.id);
+  };
+  // 입력(IN) 삭제 = 그 공급 케이블 제거(피더에서 즉시 빠진다).
+  const deleteInput = () => {
+    if (!input) return;
+    if (!confirm('입력(공급) 케이블을 삭제할까요? 연결이 제거됩니다.')) return;
+    useSubstationWorkingCopy.getState().stageCableDelete(input.cableId);
+  };
+  // 피킹 모드: IN 슬롯 클릭 → 이 피더의 IN endpoint(번호 없음) 로 onPick.
+  const pickIn = () => {
+    if (!feeder || !anchorRect) return;
+    pick.onPick({
+      containerAssetId: anchorRect.anchorId,
+      position: anchorRect.position,
+      innerAssetId: feeder.id,
+      role: 'IN',
+    });
+  };
+
   if (!feeder) {
     return <p className="px-1 text-xs text-content-faint">분기 정보를 불러올 수 없습니다.</p>;
   }
 
   return (
     <div className="space-y-3">
+      {/* 입력(IN) 슬롯 — 분기 그리드 위. 점유=공급원 표시(+삭제), 빈=입력 연결. 피킹 모드면 전체가 IN endpoint pick. */}
+      {input ? (
+        pick.active ? (
+          <button
+            type="button"
+            onClick={pickIn}
+            aria-label="입력 선택"
+            className="flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 py-2 shadow-sm transition-colors hover:border-primary hover:bg-info-bg"
+          >
+            <span className="text-xs font-medium text-content-muted">입력</span>
+            <span className="text-sm text-content">{input.sourceName ?? '—'}</span>
+          </button>
+        ) : (
+          <div className="group flex w-full items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 py-2 shadow-sm">
+            <span className="text-xs font-medium text-content-muted">입력</span>
+            <span className="flex items-center gap-2">
+              <span className="text-sm text-content">{input.sourceName ?? '—'}</span>
+              <button
+                type="button"
+                aria-label="입력 삭제"
+                onClick={deleteInput}
+                className="flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100"
+              >
+                ×
+              </button>
+            </span>
+          </div>
+        )
+      ) : (
+        <button
+          type="button"
+          onClick={pick.active ? pickIn : connectInput}
+          aria-label={pick.active ? '입력 선택' : '입력 연결'}
+          className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-line bg-surface/40 px-3 py-2 text-content-faint transition-colors hover:border-primary hover:bg-info-bg hover:text-primary"
+        >
+          <span className="text-base leading-none" aria-hidden="true">＋</span>
+          <span className="text-xs font-medium">입력 연결</span>
+        </button>
+      )}
       <BreakerRail
         circuits={slots}
         selectedCb={selectedCb}
