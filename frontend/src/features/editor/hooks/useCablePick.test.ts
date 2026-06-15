@@ -23,10 +23,10 @@ describe('useCablePick', () => {
     act(() => {
       const s = useInteractionStore.getState();
       s.cableActivate({ category: { id: 'c', code: 'C', name: 'C', displayColor: null } });
-      s.cableSetPendingSource('distA');
+      s.cableSetPendingSource();
     });
     const { result } = renderHook(() => useCablePick());
-    expect(result.current).toMatchObject({ active: true, side: 'source', pendingContainerId: 'distA' });
+    expect(result.current).toMatchObject({ active: true, side: 'source' });
     act(() => result.current.onPick({ containerAssetId: 'distA', position: { x: 0, y: 0 }, innerAssetId: 'f1', role: 'OUT' }));
     expect(useInteractionStore.getState().mode).toMatchObject({ kind: 'cableDrawing', data: { phase: 'drawingPath' } });
   });
@@ -36,7 +36,7 @@ describe('useCablePick', () => {
       const s = useInteractionStore.getState();
       s.cableActivate({ category: { id: 'c', code: 'C', name: 'C', displayColor: null } });
       s.cableSetSource({ containerAssetId: 'a', position: { x: 0, y: 0 } });
-      s.cableSetPendingTarget('b');
+      s.cableSetPendingTarget();
     });
     const { result } = renderHook(() => useCablePick());
     expect(result.current.side).toBe('target');

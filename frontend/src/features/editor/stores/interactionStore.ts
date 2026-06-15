@@ -31,9 +31,6 @@ export interface CableDrawingData {
   /** 도착 endpoint. */
   target: EndpointRef | null;
 
-  /** picker 가 열려 있는 동안 대상 컨테이너 설비의 asset id. */
-  pendingContainerId: string | null;
-
   waypoints: [number, number][];
 
   /** Cursor 미리보기 점 (drawingPath 단계) */
@@ -46,7 +43,6 @@ const cableInitial: CableDrawingData = {
   category: null,
   source: null,
   target: null,
-  pendingContainerId: null,
   waypoints: [],
   previewPoint: null,
   hoveredAssetId: null,
@@ -66,9 +62,9 @@ interface InteractionActions {
   cableActivate: (opts?: { source?: EndpointRef; category?: SelectedCableCategory }) => void;
   /** selectingType 에서 종류 확정 → 출발 선택(또는 source 주입돼 있으면 경로). */
   cableSetType: (category: SelectedCableCategory) => void;
-  cableSetPendingSource: (containerId: string) => void;
+  cableSetPendingSource: () => void;
   cableSetSource: (ref: EndpointRef) => void;
-  cableSetPendingTarget: (containerId: string) => void;
+  cableSetPendingTarget: () => void;
   cableSetTarget: (ref: EndpointRef) => void;
   cableAddWaypoint: (x: number, y: number) => void;
   cableRemoveLastWaypoint: () => void;
@@ -121,7 +117,7 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
       };
     }),
 
-  cableSetPendingSource: (containerId) =>
+  cableSetPendingSource: () =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
       if (state.mode.data.phase !== 'selectingSource') return state;
@@ -131,7 +127,6 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
           data: {
             ...state.mode.data,
             phase: 'pickingSourceEndpoint',
-            pendingContainerId: containerId,
           },
         },
       };
@@ -149,7 +144,6 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
             phase: 'drawingPath',
             source: ref,
             target: null,
-            pendingContainerId: null,
             waypoints: [],
             previewPoint: null,
             hoveredAssetId: null,
@@ -158,7 +152,7 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
       };
     }),
 
-  cableSetPendingTarget: (containerId) =>
+  cableSetPendingTarget: () =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
       if (state.mode.data.phase !== 'drawingPath') return state;
@@ -168,7 +162,6 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
           data: {
             ...state.mode.data,
             phase: 'pickingTargetEndpoint',
-            pendingContainerId: containerId,
           },
         },
       };
@@ -184,7 +177,6 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
             ...state.mode.data,
             phase: 'ready',
             target: ref,
-            pendingContainerId: null,
             previewPoint: null,
             hoveredAssetId: null,
           },

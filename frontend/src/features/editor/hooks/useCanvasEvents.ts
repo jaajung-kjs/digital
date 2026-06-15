@@ -170,8 +170,8 @@ export function useCanvasEvents(
       return;
     }
 
-    // 2cm throttle 로 hovered 설비 갱신. cable selectingSource / drawingPath /
-    // ofd selectingTarget 세 흐름이 동일 패턴이라 헬퍼로 통합.
+    // 2cm throttle 로 hovered 설비 갱신. cable selectingSource / drawingPath
+    // 두 흐름이 동일 패턴이라 헬퍼로 통합.
     const updateHoveredEquipment = (
       currentHovered: string | null,
       setHovered: (id: string | null) => void,
@@ -324,7 +324,7 @@ export function useCanvasEvents(
         const center = getEquipmentCenter(eq);
         // RACK / DISTRIBUTION / OFD endpoints require a module / circuit / port step.
         if (needsEndpointPicker(kindOf(eq))) {
-          interaction.cableSetPendingSource(eq.id);
+          interaction.cableSetPendingSource();
           // 컨테이너(랙/분전반/OFD)의 우측 상세 패널을 열어 그 안에서 endpoint 를 picking.
           useEditorStore.getState().openDetail(eq.id);
         } else {
@@ -343,7 +343,7 @@ export function useCanvasEvents(
         const eq = found.item;
         const center = getEquipmentCenter(eq);
         if (needsEndpointPicker(kindOf(eq))) {
-          interaction.cableSetPendingTarget(eq.id);
+          interaction.cableSetPendingTarget();
           // 컨테이너의 우측 상세 패널을 열어 그 안에서 target endpoint 를 picking.
           useEditorStore.getState().openDetail(eq.id);
         } else {

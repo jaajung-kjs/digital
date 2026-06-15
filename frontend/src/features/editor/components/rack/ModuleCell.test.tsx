@@ -44,7 +44,7 @@ vi.mock('../../../workingCopy/substationStore', () => {
 });
 vi.mock('../../../workingCopy/hooks', () => ({ useEffectiveAssets: () => [MODULE] }));
 vi.mock('../../hooks/useCablePick', () => ({
-  useCablePick: () => ({ active: pickState.active, side: pickState.side, pendingContainerId: null, onPick }),
+  useCablePick: () => ({ active: pickState.active, side: pickState.side, onPick }),
 }));
 // 모듈의 floor anchor = 랙(RACK), 중심좌표 사각형 (x=5,y=5,w=10,h=20) → (10,15).
 vi.mock('../../../workingCopy/floorAnchor', () => ({

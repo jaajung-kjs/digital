@@ -5,7 +5,6 @@ import type { EndpointRef } from '../cableEndpoint';
 export interface CablePick {
   active: boolean;
   side: 'source' | 'target' | null;
-  pendingContainerId: string | null;
   onPick: (ref: EndpointRef) => void;
 }
 
@@ -20,5 +19,5 @@ export function useCablePick(): CablePick {
     if (side === 'source') s.cableSetSource(ref);
     else if (side === 'target') { s.cableSetTarget(ref); commitCable(); }
   };
-  return { active: side !== null, side, pendingContainerId: data?.pendingContainerId ?? null, onPick };
+  return { active: side !== null, side, onPick };
 }

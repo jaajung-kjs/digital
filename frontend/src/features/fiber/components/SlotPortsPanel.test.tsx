@@ -37,7 +37,7 @@ vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
 });
 
 vi.mock('../../editor/hooks/useCablePick', () => ({
-  useCablePick: () => ({ active: pickState.active, side: pickState.side, pendingContainerId: null, onPick }),
+  useCablePick: () => ({ active: pickState.active, side: pickState.side, onPick }),
 }));
 // 슬롯의 floor anchor = OFD, 중심좌표는 사각형 (x=100,y=200,w=20,h=40) → (110,220).
 vi.mock('../../workingCopy/floorAnchor', () => ({

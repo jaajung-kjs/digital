@@ -43,7 +43,7 @@ vi.mock('../../workspace/WorkspaceNavContext', () => ({
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => ({ data: [] }) }));
 vi.mock('../../editor/hooks/useCablePick', () => ({
-  useCablePick: () => ({ active: pickState.active, side: pickState.side, pendingContainerId: null, onPick }),
+  useCablePick: () => ({ active: pickState.active, side: pickState.side, onPick }),
 }));
 // 피더의 floor anchor = 분전반(DIST), 중심좌표는 사각형 (x=10,y=20,w=40,h=60) → (30,50).
 vi.mock('../../workingCopy/floorAnchor', () => ({
