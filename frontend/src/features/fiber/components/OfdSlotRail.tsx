@@ -25,6 +25,7 @@ interface CableWithRoles {
 
 interface PopoverState {
   anchor: DOMRect;
+  rowIndex: number;
 }
 
 /**
@@ -106,9 +107,9 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
 
   const configMissing = !slotTypeId || !opgwCat;
 
-  const handleEmptyClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleEmptyClick = (rowIndex: number, e: React.MouseEvent<HTMLDivElement>) => {
     if (configMissing) return;
-    setPopover({ anchor: (e.currentTarget as HTMLDivElement).getBoundingClientRect() });
+    setPopover({ anchor: (e.currentTarget as HTMLDivElement).getBoundingClientRect(), rowIndex });
   };
 
   return (
@@ -152,7 +153,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
             <OfdEmptySlot
               key={`empty-${rowIndex}`}
               rowIndex={rowIndex}
-              isActive={popover !== null}
+              isActive={popover?.rowIndex === rowIndex}
               configMissing={configMissing}
               onClick={handleEmptyClick}
             />
@@ -182,7 +183,7 @@ interface OfdEmptySlotProps {
   rowIndex: number;
   isActive: boolean;
   configMissing: boolean;
-  onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onClick: (rowIndex: number, e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 function OfdEmptySlot({ rowIndex, isActive, configMissing, onClick }: OfdEmptySlotProps) {
@@ -193,11 +194,11 @@ function OfdEmptySlot({ rowIndex, isActive, configMissing, onClick }: OfdEmptySl
     <div
       role="button"
       tabIndex={configMissing ? -1 : 0}
-      onClick={configMissing ? undefined : onClick}
+      onClick={configMissing ? undefined : (e) => onClick(rowIndex, e)}
       onKeyDown={(e) => {
         if (!configMissing && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
-          onClick(e as unknown as React.MouseEvent<HTMLDivElement>);
+          onClick(rowIndex, e as unknown as React.MouseEvent<HTMLDivElement>);
         }
       }}
       style={{
