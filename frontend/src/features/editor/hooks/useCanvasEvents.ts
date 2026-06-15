@@ -12,6 +12,7 @@ import {
   useInteractionStore,
   getCableDrawing,
 } from '../stores/interactionStore';
+import { commitCable } from '../cableConnection';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
@@ -196,8 +197,8 @@ export function useCanvasEvents(
       if (e.shiftKey) {
         const lastPt = cableDrawing.waypoints.length > 0
           ? cableDrawing.waypoints[cableDrawing.waypoints.length - 1]
-          : cableDrawing.sourcePosition
-            ? [cableDrawing.sourcePosition.x, cableDrawing.sourcePosition.y]
+          : cableDrawing.source
+            ? [cableDrawing.source.position.x, cableDrawing.source.position.y]
             : null;
         if (lastPt) {
           const dx = Math.abs(snapped.x - lastPt[0]);
@@ -321,28 +322,29 @@ export function useCanvasEvents(
       if (found?.type === 'equipment') {
         const eq = found.item;
         const center = getEquipmentCenter(eq);
-        // P9: RACK / OFD endpoints require a module / port selection step.
+        // RACK / DISTRIBUTION / OFD endpoints require a module / circuit / port step.
         if (needsEndpointPicker(kindOf(eq))) {
-          interaction.cableSetPendingSource(eq.id, center);
+          interaction.cableSetPendingSource(eq.id);
         } else {
-          interaction.cableSetSource(eq.id, center);
+          interaction.cableSetSource({ containerAssetId: eq.id, position: center });
         }
       }
       return;
     }
-    if (cableDrawing?.phase === 'pickingSourceModule' || cableDrawing?.phase === 'pickingTargetModule') {
+    if (cableDrawing?.phase === 'pickingSourceEndpoint' || cableDrawing?.phase === 'pickingTargetEndpoint') {
       // Picker modals own the click flow; ignore canvas clicks.
       return;
     }
     if (cableDrawing?.phase === 'drawingPath') {
       const found = findItemAt(x, y, null, localEquipment);
-      if (found?.type === 'equipment' && found.item.id !== cableDrawing.sourceContainerAssetId) {
+      if (found?.type === 'equipment' && found.item.id !== cableDrawing.source?.containerAssetId) {
         const eq = found.item;
         const center = getEquipmentCenter(eq);
         if (needsEndpointPicker(kindOf(eq))) {
-          interaction.cableSetPendingTarget(eq.id, center);
+          interaction.cableSetPendingTarget(eq.id);
         } else {
-          interaction.cableSetTarget(eq.id, center);
+          interaction.cableSetTarget({ containerAssetId: eq.id, position: center });
+          commitCable();
         }
       } else if (!found || found.type !== 'equipment') {
         if (e.shiftKey && cableDrawing.waypoints.length > 0) {
@@ -351,17 +353,17 @@ export function useCanvasEvents(
           const dy = Math.abs(snapped.y - lastPt[1]);
           if (dx > dy) snapped.y = lastPt[1];
           else snapped.x = lastPt[0];
-        } else if (e.shiftKey && cableDrawing.sourcePosition) {
-          const dx = Math.abs(snapped.x - cableDrawing.sourcePosition.x);
-          const dy = Math.abs(snapped.y - cableDrawing.sourcePosition.y);
-          if (dx > dy) snapped.y = cableDrawing.sourcePosition.y;
-          else snapped.x = cableDrawing.sourcePosition.x;
+        } else if (e.shiftKey && cableDrawing.source) {
+          const dx = Math.abs(snapped.x - cableDrawing.source.position.x);
+          const dy = Math.abs(snapped.y - cableDrawing.source.position.y);
+          if (dx > dy) snapped.y = cableDrawing.source.position.y;
+          else snapped.x = cableDrawing.source.position.x;
         }
         interaction.cableAddWaypoint(snapped.x, snapped.y);
       }
       return;
     }
-    if (cableDrawing?.phase === 'selectingSpec') return;
+    if (cableDrawing?.phase === 'selectingType' || cableDrawing?.phase === 'ready') return;
 
     if (tool === 'cable') {
       const found = findItemAt(x, y, null, localEquipment);
@@ -372,9 +374,9 @@ export function useCanvasEvents(
           y: (eq.positionY ?? 0) + (eq.height2d ?? 0) / 2,
         };
         if (needsEndpointPicker(kindOf(eq))) {
-          interaction.cableSetPendingSource(eq.id, center);
+          interaction.cableSetPendingSource(eq.id);
         } else {
-          interaction.cableSetSource(eq.id, center);
+          interaction.cableSetSource({ containerAssetId: eq.id, position: center });
         }
       }
       return;

@@ -3,20 +3,23 @@ import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { kindOf } from '../../workingCopy/placement';
 import { useCableDrawing, useInteractionStore } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
+import { getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
+import { commitCable } from '../cableConnection';
 import { RackModulePicker } from '../../connections/components/RackModulePicker';
 import { SlotCorePicker } from '../../connections/components/SlotCorePicker';
 import { CircuitPicker } from '../../connections/components/CircuitPicker';
 
 /**
- * P9 host: opens the right endpoint picker (rack module / OFD port) based on
- * the cable drawing store's phase. Sits at the editor root so it can render
- * above the canvas regardless of which equipment was clicked.
+ * 출발/도착 endpoint 의 모듈/회로/슬롯 picker 를 phase 에 따라 연다. 에디터
+ * 루트에 위치해 어느 설비를 클릭하든 캔버스 위에 렌더된다.
  *
- * Source phase: pickingSourceModule  → picker over `sourceContainerAssetId`.
- * Target phase: pickingTargetModule  → picker over `targetContainerAssetId`.
+ * Source phase: pickingSourceEndpoint  → picker over pendingContainerId.
+ * Target phase: pickingTargetEndpoint  → picker over pendingContainerId.
  *
- * On select / cancel, the store transitions to drawingPath / selectingSpec
- * (or back to selectingSource for a cancel).
+ * 선택 시 EndpointRef 를 만들어 cableSetSource (source) 또는
+ * cableSetTarget + commitCable (target) 로 흘려보낸다.
+ *
+ * NOTE: 이 host 는 Phase 2 에서 제거 예정(피커가 직접 EndpointRef 를 만들도록).
  */
 interface CableEndpointPickerHostProps {
   /** SSOT-2d Task 3 — effective 설비(activeEquipment) 조회용. */
@@ -26,35 +29,24 @@ interface CableEndpointPickerHostProps {
 export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProps) {
   const cable = useCableDrawing();
   const phase = cable?.phase ?? 'idle';
-  const sourceContainerAssetId = cable?.sourceContainerAssetId ?? null;
-  const sourcePosition = cable?.sourcePosition ?? null;
-  const targetContainerAssetId = cable?.targetContainerAssetId ?? null;
-  const targetPosition = cable?.targetPosition ?? null;
+  const pendingContainerId = cable?.pendingContainerId ?? null;
 
   // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로.
   const localEquipment = useEffectiveEquipment(floorId);
 
-  const activeEquipmentId =
-    phase === 'pickingSourceModule'
-      ? sourceContainerAssetId
-      : phase === 'pickingTargetModule'
-        ? targetContainerAssetId
-        : null;
-
   const activeEquipment = useMemo(
     () =>
-      activeEquipmentId
-        ? localEquipment.find((eq) => eq.id === activeEquipmentId) ?? null
+      pendingContainerId
+        ? localEquipment.find((eq) => eq.id === pendingContainerId) ?? null
         : null,
-    [activeEquipmentId, localEquipment],
+    [pendingContainerId, localEquipment],
   );
 
   if (!activeEquipment) return null;
-  if (phase !== 'pickingSourceModule' && phase !== 'pickingTargetModule') return null;
+  if (phase !== 'pickingSourceEndpoint' && phase !== 'pickingTargetEndpoint') return null;
 
-  const isSource = phase === 'pickingSourceModule';
-  const center = isSource ? sourcePosition : targetPosition;
-  if (!center) return null;
+  const isSource = phase === 'pickingSourceEndpoint';
+  const center = getEquipmentCenter(activeEquipment);
 
   const activeKind = kindOf(activeEquipment);
 
@@ -64,22 +56,29 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
     useEditorStore.getState().cancelCableDrawing();
   };
 
+  /** source → cableSetSource, target → cableSetTarget + commitCable. */
+  const apply = (ref: {
+    innerAssetId?: string | null;
+    slotId?: string | null;
+    coreNumber?: number | null;
+    role?: 'IN' | 'OUT' | null;
+  }) => {
+    const ix = useInteractionStore.getState();
+    const endpoint = { containerAssetId: activeEquipment.id, position: center, ...ref };
+    if (isSource) {
+      ix.cableSetSource(endpoint);
+    } else {
+      ix.cableSetTarget(endpoint);
+      commitCable();
+    }
+  };
+
   if (activeKind === 'RACK') {
     return (
       <RackModulePicker
         rackEquipmentId={activeEquipment.id}
         rackName={activeEquipment.name}
-        onSelect={(moduleId) => {
-          if (isSource) {
-            useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
-              innerAssetId: moduleId,
-            });
-          } else {
-            useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
-              innerAssetId: moduleId,
-            });
-          }
-        }}
+        onSelect={(moduleId) => apply({ innerAssetId: moduleId })}
         onCancel={handleCancel}
       />
     );
@@ -92,16 +91,8 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
         distributionName={activeEquipment.name}
         onSelect={(feederId) => {
           // 케이블은 FEEDER(분전반의 전원 계통)로 직접 그려진다 — innerAssetId = 피더 asset id.
-          // FEEDER 는 connectionKind='distributor' 라 이후 CableSpecModal 의 IN/OUT 선택이 적용된다.
-          if (isSource) {
-            useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
-              innerAssetId: feederId,
-            });
-          } else {
-            useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
-              innerAssetId: feederId,
-            });
-          }
+          // FEEDER 는 connectionKind='distributor' → 출력 케이블이므로 role='OUT'.
+          apply({ innerAssetId: feederId, role: 'OUT' });
         }}
         onCancel={handleCancel}
       />
@@ -114,19 +105,9 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
         ofdId={activeEquipment.id}
         onSelect={({ slotId, coreNumber }) => {
           // containerAssetId = OFD equipment id (highlight + self-loop guard 유지).
-          // slotId 는 extras 채널로 흘러 CableSpecModal 이 sourceAssetId/targetAssetId = slotId 로 해소.
+          // slotId 는 endpointAssetId() 가 endpoint 로 해소. conduit 슬롯 끝은 role='OUT'.
           // center = OFD 중심 (경로 기하) — floorAnchor 가 슬롯→OFD 렌더.
-          if (isSource) {
-            useInteractionStore.getState().cableSetSource(activeEquipment.id, center, {
-              slotId,
-              coreNumber,
-            });
-          } else {
-            useInteractionStore.getState().cableSetTarget(activeEquipment.id, center, {
-              slotId,
-              coreNumber,
-            });
-          }
+          apply({ slotId, coreNumber, role: 'OUT' });
         }}
         onCancel={handleCancel}
       />
