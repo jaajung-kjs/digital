@@ -1,11 +1,33 @@
 import { useEditorStore } from './stores/editorStore';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
-import { getCableDrawing } from './stores/interactionStore';
+import { getCableDrawing, useInteractionStore } from './stores/interactionStore';
+import type { SelectedCableCategory } from './stores/interactionStore';
 import { endpointAssetId } from './cableEndpoint';
+import type { EndpointRef } from './cableEndpoint';
+import type { CableDisplayGroup } from '../../types/cableCategory';
 import { getCableTypeFromMaterial } from '../../types/material';
 import { calculatePathLength } from '../../utils/cable/pathLength';
 import { generateTempId } from '../../utils/idHelpers';
 import { useToastStore } from './stores/toastStore';
+
+/**
+ * 모든 케이블 생성 진입점의 단일 함수. source 를 주면 출발 자동주입(종류→도착만).
+ *
+ * 순서: setTool('cable') 이 FloorPlanEditor 의 tool↔mode 동기화 effect 를 큐잉하지만,
+ * 곧바로 동기 실행되는 cableActivate(opts) 가 실제 상태(source/category)를 세팅한다.
+ * effect 가 나중에 실행될 때 mode.kind==='cableDrawing' 이라 guard 에 걸려 빈 호출을
+ * 건너뛰므로 source/category 가 보존된다.
+ */
+export function startCableConnection(opts?: {
+  source?: EndpointRef;
+  category?: SelectedCableCategory;
+  group?: CableDisplayGroup;
+}): void {
+  const editor = useEditorStore.getState();
+  editor.setTool('cable');
+  editor.setPreselectedCableDisplayGroup(opts?.group ?? null);
+  useInteractionStore.getState().cableActivate({ source: opts?.source, category: opts?.category });
+}
 
 /**
  * 도착 endpoint 확정(phase==='ready') 시 케이블을 생성한다.

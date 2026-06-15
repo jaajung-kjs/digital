@@ -3,8 +3,7 @@ import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useEditorStore } from '../../editor/stores/editorStore';
-import { useInteractionStore } from '../../editor/stores/interactionStore';
+import { startCableConnection } from '../../editor/cableConnection';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { buildFeederCircuits, buildFeederInput, feederGridSlots } from '../feederCircuits';
 import { commitMeta } from '../powerRegisterDescriptor';
@@ -82,10 +81,12 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
     commitMeta(c.cableId, 'switchState', c.switchState.toUpperCase() === 'ON' ? 'OFF' : 'ON');
   };
 
-  // CB 추가 = 평면도로 이동 + 케이블 그리기 진입(피더→부하 CB 를 직접 그린다). 빈 차단기 = 이 버튼.
+  // CB 추가 = 평면도로 이동 + 케이블 그리기 진입(피더 OUT 출발 자동주입 → 부하 CB 도착만 그린다). 빈 차단기 = 이 버튼.
   const addCb = () => {
-    if (!feeder) return;
-    useEditorStore.getState().setTool('cable');
+    if (!feeder || !anchorRect) return;
+    startCableConnection({
+      source: { containerAssetId: anchorRect.anchorId, position: anchorRect.position, innerAssetId: feeder.id, role: 'OUT' },
+    });
     nav?.gotoAsset(feeder.id);
   };
   // CB 삭제 = 그 분기 케이블 제거(피더에서 즉시 빠진다). 선택 중이던 CB면 선택 해제.
@@ -95,11 +96,10 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
     if (selectedCb === cbNumber) setSelectedCb(null);
   };
 
-  // 입력(IN) 연결 = 평면도로 이동 + 이 피더의 IN 을 출발점으로 케이블 그리기 진입(addCb 의 IN 판). Phase 4 에서 startCableConnection 으로 교체.
+  // 입력(IN) 연결 = 평면도로 이동 + 이 피더의 IN 을 출발점으로 케이블 그리기 진입(addCb 의 IN 판).
   const connectInput = () => {
     if (!feeder || !anchorRect) return;
-    useEditorStore.getState().setTool('cable');
-    useInteractionStore.getState().cableActivate({
+    startCableConnection({
       source: { containerAssetId: anchorRect.anchorId, position: anchorRect.position, innerAssetId: feeder.id, role: 'IN' },
     });
     nav?.gotoAsset(feeder.id);

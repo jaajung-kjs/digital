@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditorStore } from '../stores/editorStore';
+import { startCableConnection } from '../cableConnection';
 import { useDeleteRackPreset, useRackPresets } from '../../rack/hooks/useRackPresets';
 import { EditRackPresetDialog } from '../../rack/components/EditRackPresetDialog';
 import { useIsAdmin } from '../../../stores/authStore';
@@ -109,9 +110,8 @@ export function EditorInsertBar() {
   };
 
   const handleCableGroupClick = (group: CableDisplayGroup) => {
-    setTool('cable');
     resetNewEquipmentSelection();
-    setPreselectedCableDisplayGroup(group);
+    startCableConnection({ group });
   };
 
   const activePresets = (rackPresets ?? []).filter((p) => p.isActive);
