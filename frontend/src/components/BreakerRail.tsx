@@ -25,7 +25,7 @@ export function BreakerRail({
   onDeleteCb?: (cbNumber: number, cableId: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-6 gap-1.5 rounded-md bg-surface-2 p-2">
+    <div className="grid grid-cols-6 gap-1.5 rounded-md border border-line bg-surface-2 p-2">
       {circuits.map((c) => {
         // 빈 자리 = 추가 버튼(랙/OFD 빈 슬롯 동형). 클릭 → 평면도 케이블 그리기.
         if (!c.occupied) {
@@ -36,7 +36,7 @@ export function BreakerRail({
               onClick={onAddCb}
               disabled={!onAddCb}
               aria-label={`차단기 ${c.cbNumber} 추가`}
-              className="flex min-h-[4rem] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line text-content-faint transition-colors hover:border-primary hover:text-primary hover:bg-info-bg disabled:cursor-default disabled:hover:border-line disabled:hover:bg-transparent disabled:hover:text-content-faint"
+              className="flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line bg-surface/40 text-content-faint transition-colors hover:border-primary hover:text-primary hover:bg-info-bg disabled:cursor-default disabled:hover:border-line disabled:hover:bg-surface/40 disabled:hover:text-content-faint"
             >
               <span className="text-[11px] font-mono tabular-nums leading-none opacity-60">{c.cbNumber}</span>
               <span className="text-lg leading-none" aria-hidden="true">＋</span>
@@ -44,7 +44,13 @@ export function BreakerRail({
           );
         }
         const on = isOn(c.switchState);
-        const stateCls = on ? 'bg-success-bg text-success' : 'bg-surface text-content-muted';
+        const selected = selectedCb === c.cbNumber;
+        // 물리 차단기 모듈처럼 — 항상 흰 바디 + 그림자, 상태는 테두리·스위치·용량 색으로(배경 도배 X).
+        const borderCls = selected
+          ? 'border-primary ring-2 ring-primary/30'
+          : on
+            ? 'border-success/45 hover:border-success/70'
+            : 'border-line hover:border-content-faint';
         return (
           <div
             key={c.cbNumber}
@@ -53,36 +59,34 @@ export function BreakerRail({
             onClick={() => onSelect(c.cbNumber)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(c.cbNumber); } }}
             aria-label={`차단기 ${c.cbNumber}`}
-            aria-current={selectedCb === c.cbNumber ? 'true' : undefined}
-            className={`group relative flex min-h-[4rem] flex-col items-center justify-between gap-1 rounded-md py-1.5 cursor-pointer transition-shadow ${stateCls} ${
-              selectedCb === c.cbNumber ? 'ring-2 ring-primary' : ''
-            }`}
+            aria-current={selected ? 'true' : undefined}
+            className={`group relative flex min-h-[4.25rem] flex-col items-center justify-between gap-1 rounded-md border bg-surface py-1.5 shadow-sm cursor-pointer transition-colors ${borderCls}`}
           >
-            <span className="text-xs font-mono tabular-nums leading-none">{c.cbNumber}</span>
-            {/* 실제 차단기 레버 — ON=위, OFF=아래. */}
+            <span className={`text-xs font-mono font-medium tabular-nums leading-none ${on ? 'text-content' : 'text-content-muted'}`}>{c.cbNumber}</span>
+            {/* 실제 차단기 레버 — 리세스 슬롯 안의 노브가 ON=위 / OFF=아래로 이동. */}
             <button
               type="button"
               aria-label={`차단기 ${c.cbNumber} 개폐`}
               onClick={(e) => { e.stopPropagation(); onToggle(c.cbNumber); }}
               title={on ? 'ON — 클릭해 차단' : 'OFF — 클릭해 투입'}
-              className={`relative h-7 w-4 rounded border transition-colors ${
-                on ? 'border-success/40 bg-success-bg' : 'border-line bg-surface-2'
+              className={`relative h-8 w-5 rounded-full border shadow-inner transition-colors ${
+                on ? 'border-success/50 bg-success-bg' : 'border-line bg-surface-2'
               }`}
             >
               <span
                 aria-hidden="true"
-                className={`absolute inset-x-[2px] top-[2px] h-3 rounded-[2px] transition-all duration-200 ${
-                  on ? 'translate-y-0 bg-success' : 'translate-y-[14px] bg-content-faint'
+                className={`absolute left-1/2 h-3.5 w-3.5 -translate-x-1/2 rounded-full border shadow-sm transition-all duration-200 ${
+                  on ? 'top-[3px] border-success bg-success' : 'top-[15px] border-line bg-surface'
                 }`}
               />
             </button>
-            <span className="text-[11px] leading-none opacity-70">{c.capacity || '·'}</span>
+            <span className={`text-[11px] font-medium leading-none ${on ? 'text-success' : 'text-content-muted'}`}>{c.capacity || '·'}</span>
             {onDeleteCb && c.cableId && (
               <button
                 type="button"
                 aria-label={`차단기 ${c.cbNumber} 삭제`}
                 onClick={(e) => { e.stopPropagation(); onDeleteCb(c.cbNumber, c.cableId!); }}
-                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 transition-opacity hover:bg-danger-bg group-hover:opacity-100"
+                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100"
               >
                 ×
               </button>

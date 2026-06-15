@@ -19,9 +19,9 @@ describe('BreakerRail', () => {
     expect(screen.getByRole('button', { name: '차단기 1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '차단기 3 추가' })).toBeInTheDocument();
   });
-  it('개폐상태별 클래스 (ON=success, 빈=dashed 추가버튼)', () => {
+  it('개폐상태별 클래스 (ON=success 테두리, 빈=dashed 추가버튼)', () => {
     render(<BreakerRail circuits={circuits} selectedCb={null} onSelect={() => {}} onToggle={() => {}} />);
-    expect(screen.getByRole('button', { name: '차단기 1' }).className).toContain('text-success');
+    expect(screen.getByRole('button', { name: '차단기 1' }).className).toContain('border-success');
     expect(screen.getByRole('button', { name: '차단기 3 추가' }).className).toContain('border-dashed');
   });
   it('점유 차단기 클릭 → onSelect(번호)', () => {
