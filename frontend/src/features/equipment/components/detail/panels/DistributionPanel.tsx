@@ -6,7 +6,7 @@ import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
 import { useSelectionStore } from '../../../../workspace/selectionStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
 import { feedersOfPanel, buildSubtreeAsset, FEEDER_CODE } from '../../../../assets/distributionSubtree';
-import { buildFeederCircuits } from '../../../../power/feederCircuits';
+import { buildFeederCircuits, type FeederCircuit } from '../../../../power/feederCircuits';
 import { useTraceGraph } from '../../../../trace/traceGraph';
 
 /**
@@ -38,6 +38,15 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const feeders = useMemo(
     () => feedersOfPanel(effectiveAssets, equipmentId),
     [effectiveAssets, equipmentId],
+  );
+
+  // CB 미리보기용 — 피더별 회로를 graph/feeders 변경 시 1회만 파생(매 렌더 O(N×M) 제거).
+  const feederCircuits = useMemo(
+    () =>
+      graph
+        ? new Map(feeders.map((f) => [f.id, buildFeederCircuits({ id: f.id }, graph.cables as never[], graph.nameById)]))
+        : new Map<string, FeederCircuit[]>(),
+    [graph, feeders],
   );
 
   // 피더별 연결 여부 — 칸 색을 결정 (연결됨=파랑, 빈=회색 점선).
@@ -108,7 +117,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                     {feeder.name}
                   </span>
                   {(() => {
-                    const cs = graph ? buildFeederCircuits({ id: feeder.id }, graph.cables as never[], graph.nameById) : [];
+                    const cs = feederCircuits.get(feeder.id) ?? [];
                     const used = cs.filter((c) => c.occupied).length;
                     return (
                       <>
