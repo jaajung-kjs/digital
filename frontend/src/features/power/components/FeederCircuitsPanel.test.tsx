@@ -119,6 +119,18 @@ describe('FeederCircuitsPanel', () => {
       fireEvent.blur(inp);
       expect(patch).toHaveBeenCalledWith('cables', 'in1', { specParams: { capacity: '30A', switchState: 'ON' } });
     });
+    it('점유 입력 → 가로 스위치 렌더 + 클릭 시 switchState 반전 패치(stopPropagation: 상세카드 안 열림)', () => {
+      inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입', capacity: '20A', switchState: 'ON' };
+      render(<FeederCircuitsPanel feederId={FEEDER} />);
+      const sw = screen.getByRole('button', { name: '입력 개폐' });
+      expect(sw).toBeInTheDocument();
+      fireEvent.click(sw);
+      // ON → OFF 반전, specParams 머지 유지.
+      expect(patch).toHaveBeenCalledWith('cables', 'in1', { specParams: { capacity: '20A', switchState: 'OFF' } });
+      // 스위치 클릭은 타일 열기(상세카드/트레이스) 를 트리거하지 않는다.
+      expect(startTrace).not.toHaveBeenCalled();
+      expect(screen.queryByText('공급원')).not.toBeInTheDocument();
+    });
     it('점유 입력 삭제 → 확인 후 stageCableDelete', () => {
       inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입', capacity: '', switchState: '' };
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
