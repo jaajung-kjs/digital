@@ -93,7 +93,7 @@ export function OfdSlotGrid({ ofdId }: { ofdId: string }) {
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">
         {slots.map((slot) => {
-          const local = graph?.subNameById.get(ofdId) ?? null;
+          const local = graph?.subNameById.get(ofdId) ?? localOfd?.substationName ?? null;
           const remote = graph ? remoteSlotSubstation(slot.id, graph) : null;
           const title = [local, remote].filter(Boolean).join(' - ') || slot.name;
           const n = coresOf(slot.id);
@@ -141,6 +141,7 @@ export function OfdSlotGrid({ ofdId }: { ofdId: string }) {
             {peerOfds.map((o) => (
               <button
                 key={o.id}
+                type="button"
                 onClick={() => addRoute(o)}
                 className="block w-full rounded px-1.5 py-1 text-left text-xs hover:bg-surface-2"
               >
