@@ -49,6 +49,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     {
       label: '번호',
       width: 'w-14',
+      sortKey: (r) => r.cbNumber,
       cell: (r) => (
         <EditableField
           value={r.cbNumber}
@@ -60,6 +61,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     },
     {
       label: '부하',
+      sortKey: (r) => r.loadName,
       cell: (r) => (
         <span className="text-content max-w-[12rem] truncate inline-block align-bottom" title={r.loadName ?? undefined}>
           {r.loadName ?? <span className="text-content-faint">—</span>}
@@ -69,6 +71,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     {
       label: '용량',
       width: 'w-20',
+      sortKey: (r) => r.capacity,
       cell: (r) => (
         <EditableField
           value={r.capacity}
@@ -80,6 +83,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     },
     {
       label: '규격',
+      sortKey: (r) => r.spec,
       cell: (r) => (
         <span className="text-content-muted max-w-[12rem] truncate inline-block align-bottom" title={r.spec || undefined}>
           {r.spec || <span className="text-content-faint">—</span>}
@@ -89,6 +93,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     {
       label: 'SW',
       width: 'w-20',
+      sortKey: (r) => r.switchState,
       cell: (r) => (
         <EditableField
           value={r.switchState}
