@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSlotPorts } from './slotPorts';
+import { buildSlotPorts, twinSlotIdOf } from './slotPorts';
 import type { CableLike } from './slotRegister';
 import type { TraceGraph } from '../trace/traceGraph';
 
@@ -84,5 +84,15 @@ describe('buildSlotPorts', () => {
 
   it('OPGW(용량) 없으면 빈 배열', () => {
     expect(buildSlotPorts({ id: SLOT }, [localOut3], graph)).toEqual([]);
+  });
+});
+
+describe('twinSlotIdOf', () => {
+  it('OPGW(IN-IN) 반대편 슬롯 id', () => {
+    expect(twinSlotIdOf('slotA', [opgw])).toBe('slotB');
+    expect(twinSlotIdOf('slotB', [opgw])).toBe('slotA');
+  });
+  it('OPGW 없으면 null', () => {
+    expect(twinSlotIdOf('slotA', [])).toBeNull();
   });
 });
