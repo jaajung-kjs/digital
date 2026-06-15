@@ -221,7 +221,11 @@ export function NodeStatusView({
           </select>
         </div>
 
-        <div className="flex-1 overflow-auto p-3">
+        <div className="flex-1 overflow-auto">
+          {/* 여백은 안쪽 래퍼에 — 스크롤 컨테이너에 padding-top 을 주면 sticky 헤더 위로
+              스크롤된 행이 비쳐 보인다(overflow+padding+sticky 고전 이슈). 래퍼에 두면
+              sticky 헤더는 컨테이너 top:0 에 flush 고정되고 좌우/상하 여백은 유지된다. */}
+          <div className="p-3">
           {filtered.length === 0 ? (
             <p className="text-sm text-content-faint px-4 py-3">
               {items.length === 0 ? '자산이 없습니다.' : '검색 결과가 없습니다.'}
@@ -247,6 +251,7 @@ export function NodeStatusView({
               <tbody>{filtered.map(renderRow)}</tbody>
             </table>
           )}
+          </div>
         </div>
       </div>
 
