@@ -7,6 +7,11 @@ describe('resolveAssetDetailKind', () => {
     expect(resolveAssetDetailKind(asset, null)).toBe('conduit-ports');
   });
 
+  it('distributor 자산(피더) → feeder-circuits', () => {
+    const asset = { id: 'f', assetType: { connectionKind: 'distributor', code: 'FEEDER' } } as never;
+    expect(resolveAssetDetailKind(asset, null)).toBe('feeder-circuits');
+  });
+
   it('배치설비(placed) → 해당 kind', () => {
     const placed = { kind: 'RACK' } as never;
     expect(resolveAssetDetailKind(null, placed)).toBe('rack');

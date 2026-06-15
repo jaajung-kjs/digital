@@ -4,6 +4,7 @@ import { RackInternal } from './RackEquipmentPanel';
 import { OfdPathsView } from './OfdEquipmentPanel';
 import { DistributionCircuits } from './DistributionPanel';
 import { SlotPortsPanel } from '../../../../fiber/components/SlotPortsPanel';
+import { FeederCircuitsPanel } from '../../../../power/components/FeederCircuitsPanel';
 
 export interface SpatialSection {
   /** 섹션 헤더 라벨. */
@@ -43,6 +44,11 @@ export function resolveSpatialSection(
       return {
         label: '포트',
         node: <SlotPortsPanel slotId={equipmentId} />,
+      };
+    case 'feeder-circuits':
+      return {
+        label: '분기',
+        node: <FeederCircuitsPanel feederId={equipmentId} />,
       };
     case 'grounding':
     case 'hvac':

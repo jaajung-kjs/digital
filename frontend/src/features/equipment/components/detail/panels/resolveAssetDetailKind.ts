@@ -14,6 +14,7 @@ export function resolveAssetDetailKind(
   placed: PlacedLike | null | undefined,
 ): DetailPanelKind | null {
   if (asset?.assetType?.connectionKind === 'conduit') return 'conduit-ports';
+  if (asset?.assetType?.connectionKind === 'distributor') return 'feeder-circuits';
   if (placed) return EQUIPMENT_KIND_INFO[placed.kind]?.detailPanelKind ?? null;
   return null;
 }

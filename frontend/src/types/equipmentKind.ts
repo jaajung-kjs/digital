@@ -16,7 +16,7 @@ export type EquipmentDetailPanelKind =
   | 'grounding'
   | 'hvac';
 
-export type DetailPanelKind = EquipmentDetailPanelKind | 'conduit-ports';
+export type DetailPanelKind = EquipmentDetailPanelKind | 'conduit-ports' | 'feeder-circuits';
 
 export interface EquipmentKindMeta {
   label: string;

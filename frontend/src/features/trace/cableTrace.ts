@@ -8,6 +8,9 @@ export interface TraceCable {
   targetRole?: 'IN' | 'OUT' | null;
   number?: number | null;
   specParams?: Record<string, unknown> | null;
+  categoryName?: string | null;
+  categoryId?: string | null;
+  displayColor?: string | null;
 }
 export interface TraceResult { nodeIds: string[]; cableIds: string[]; truncated?: boolean }
 

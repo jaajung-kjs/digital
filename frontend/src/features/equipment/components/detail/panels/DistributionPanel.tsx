@@ -6,6 +6,8 @@ import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
 import { useSelectionStore } from '../../../../workspace/selectionStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
 import { feedersOfPanel, buildSubtreeAsset, FEEDER_CODE } from '../../../../assets/distributionSubtree';
+import { buildFeederCircuits, type FeederCircuit } from '../../../../power/feederCircuits';
+import { useTraceGraph } from '../../../../trace/traceGraph';
 
 /**
  * 분전반 회로 GUI — 전원 계통(FEEDER) 목록 관리.
@@ -20,6 +22,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
     targetAssetId?: string | null;
   }[];
   const { data: assetTypes = [] } = useAssetTypes();
+  const { graph } = useTraceGraph();
   const stageAssetCreate = useSubstationWorkingCopy((s) => s.stageAssetCreate);
   const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
 
@@ -35,6 +38,15 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const feeders = useMemo(
     () => feedersOfPanel(effectiveAssets, equipmentId),
     [effectiveAssets, equipmentId],
+  );
+
+  // CB 미리보기용 — 피더별 회로를 graph/feeders 변경 시 1회만 파생(매 렌더 O(N×M) 제거).
+  const feederCircuits = useMemo(
+    () =>
+      graph
+        ? new Map(feeders.map((f) => [f.id, buildFeederCircuits({ id: f.id }, graph.cables as never[], graph.nameById)]))
+        : new Map<string, FeederCircuit[]>(),
+    [graph, feeders],
   );
 
   // 피더별 연결 여부 — 칸 색을 결정 (연결됨=파랑, 빈=회색 점선).
@@ -104,6 +116,30 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                   <span className="block text-sm font-semibold text-content-muted truncate">
                     {feeder.name}
                   </span>
+                  {(() => {
+                    const cs = feederCircuits.get(feeder.id) ?? [];
+                    const used = cs.filter((c) => c.occupied).length;
+                    return (
+                      <>
+                        <span className="mt-0.5 block text-[11px] text-content-faint">CB {used}/{cs.length}</span>
+                        <span className="mt-1 flex flex-wrap gap-0.5">
+                          {cs.map((c) => (
+                            <span
+                              key={c.cbNumber}
+                              className={`inline-block h-2 w-2 rounded-[1px] ${
+                                !c.occupied
+                                  ? 'bg-surface-2'
+                                  : c.switchState.toUpperCase() === 'ON'
+                                    ? 'bg-success'
+                                    : 'bg-content-faint'
+                              }`}
+                              title={`CB ${c.cbNumber}${c.occupied ? ` · ${c.loadName ?? ''} ${c.switchState}` : ' 빈'}`}
+                            />
+                          ))}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </button>
                 <button
                   type="button"
