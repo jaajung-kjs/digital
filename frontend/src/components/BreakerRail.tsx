@@ -24,27 +24,31 @@ export function BreakerRail({
             ? 'bg-success-bg text-success'
             : 'bg-surface text-content-muted';
         return (
-          <button
+          <div
             key={c.cbNumber}
-            type="button"
+            role="button"
+            tabIndex={0}
             onClick={() => onSelect(c.cbNumber)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(c.cbNumber); } }}
             aria-label={`차단기 ${c.cbNumber}`}
-            aria-pressed={selectedCb === c.cbNumber}
-            className={`relative flex w-9 flex-col items-center gap-1 rounded-[3px] py-1.5 transition-shadow ${stateCls} ${
+            aria-current={selectedCb === c.cbNumber ? 'true' : undefined}
+            className={`relative flex w-9 min-w-9 flex-col items-center gap-1 rounded-[3px] py-1.5 cursor-pointer transition-shadow ${stateCls} ${
               selectedCb === c.cbNumber ? 'ring-2 ring-primary' : ''
             }`}
           >
             <span className="text-[9px] font-mono tabular-nums leading-none">{c.cbNumber}</span>
-            <span
-              role={c.occupied ? 'button' : undefined}
-              aria-label={c.occupied ? `차단기 ${c.cbNumber} 개폐` : undefined}
-              onClick={(e) => { if (c.occupied) { e.stopPropagation(); onToggle(c.cbNumber); } }}
-              className={`block h-5 w-2.5 rounded-[2px] ${
-                !c.occupied ? 'bg-surface-2' : on ? 'bg-success' : 'bg-content-faint'
-              }`}
-            />
+            {c.occupied ? (
+              <button
+                type="button"
+                aria-label={`차단기 ${c.cbNumber} 개폐`}
+                onClick={(e) => { e.stopPropagation(); onToggle(c.cbNumber); }}
+                className={`block h-5 w-2.5 rounded-[2px] ${on ? 'bg-success' : 'bg-content-faint'}`}
+              />
+            ) : (
+              <span aria-hidden="true" className="block h-5 w-2.5 rounded-[2px] bg-surface-2" />
+            )}
             <span className="text-[8px] leading-none opacity-70">{c.occupied ? c.capacity || '·' : '—'}</span>
-          </button>
+          </div>
         );
       })}
     </div>
