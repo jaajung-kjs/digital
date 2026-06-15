@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -6,7 +6,7 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { startCableConnection } from '../../editor/cableConnection';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { buildFeederCircuits, buildFeederInput, feederGridSlots } from '../feederCircuits';
-import { commitMeta } from '../powerRegisterDescriptor';
+import { commitMeta, FEEDER_INPUT_CORE } from '../powerRegisterDescriptor';
 import { useCablePick } from '../../editor/hooks/useCablePick';
 import { floorAnchor, floorTargetFor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
@@ -26,8 +26,9 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   const nav = useWorkspaceNav();
   const selectedCb = useSelectionStore((s) => s.selectedCore);
   const setSelectedCb = (n: number | null) => useSelectionStore.getState().setSelectedCore(n);
-  // 입력(IN) 상세 카드 표시 — CB 선택과 상호배타(하나만 뜬다).
-  const [showInput, setShowInput] = useState(false);
+  // 입력(IN) 선택 = 공유 selectedCore === FEEDER_INPUT_CORE (센티넬). CB(양수)와 상호배타.
+  // 계통뷰 그리드 행 ↔ 사이드패널 IN 슬롯이 같은 selectedCore 로 동기화(실제 CB처럼).
+  const showInput = selectedCb === FEEDER_INPUT_CORE;
 
   const pick = useCablePick();
 
@@ -81,10 +82,10 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   }, [selectedCb, selected?.cableId, showInput, input?.cableId]);
   useEffect(() => () => usePathHighlightStore.getState().clearHighlight(), []);
 
-  // CB 선택 = 입력 카드는 닫는다(한 번에 하나만).
-  const selectCb = (cbNumber: number | null) => { setShowInput(false); setSelectedCb(cbNumber); };
-  // 입력 타일 클릭(일반 모드) = 입력 카드 열기 + CB 선택 해제.
-  const openInput = () => { setSelectedCb(null); setShowInput(true); };
+  // CB 선택 = selectedCore = CB번호(입력은 자동 해제 — 다른 코어값).
+  const selectCb = (cbNumber: number | null) => setSelectedCb(cbNumber);
+  // 입력 타일 클릭 = 입력 선택 토글(실제 CB처럼 클릭=선택, 재클릭=해제). 그리드와 동기화.
+  const openInput = () => setSelectedCb(showInput ? null : FEEDER_INPUT_CORE);
 
   const toggle = (cbNumber: number) => {
     const c = occupied.find((x) => x.cbNumber === cbNumber);
@@ -121,7 +122,7 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
     if (!input) return;
     if (!confirm('입력(공급) 케이블을 삭제할까요? 연결이 제거됩니다.')) return;
     useSubstationWorkingCopy.getState().stageCableDelete(input.cableId);
-    setShowInput(false);
+    if (showInput) setSelectedCb(null);
   };
   // 피킹 모드: IN 슬롯 클릭 → 이 피더의 IN endpoint(번호 없음) 로 onPick.
   const pickIn = () => {

@@ -7,6 +7,10 @@ import { toMapById } from '../../utils/byId';
 import type { Asset } from '../../types/asset';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
 
+/** 피더 입력(IN)의 공유 선택 코어 센티넬 — CB 번호는 1..N(양수)이라 0 은 입력 전용.
+ *  계통뷰 그리드 행 ↔ 사이드패널 IN 슬롯이 selectedCore 로 선택을 동기화하는 데 쓴다. */
+export const FEEDER_INPUT_CORE = 0;
+
 export interface CbRow {
   cableId: string;
   loadAssetId: string | null;
@@ -124,7 +128,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
   },
   rowKey: (row) => row.cableId,
   onRowClick: (_row, feeder) => feeder.id,
-  rowCore: (row) => row.isInput ? null : (parseInt(row.cbNumber, 10) || null),
+  rowCore: (row) => row.isInput ? FEEDER_INPUT_CORE : (parseInt(row.cbNumber, 10) || null),
   columns: [
     {
       label: '번호',
