@@ -89,7 +89,9 @@ export function CableEndpointDialog() {
     >
       <p className="mb-3 text-xs text-content-faint">연결할 지점을 클릭하세요</p>
 
-      {trail.length > 0 && (
+      {/* 브레드크럼은 실제 드릴다운(분전반›피더, OFD›슬롯)이 있을 때만 — 단일 컨테이너(랙 등)
+          에선 컨테이너 이름 하나만 덜렁 떠 노이즈가 되므로 감춘다. */}
+      {trail.length > 1 && (
         <nav className="mb-3 flex flex-wrap items-center gap-1 text-xs text-content-muted">
           {trail.map((c, i) => {
             const isLast = i === trail.length - 1;
