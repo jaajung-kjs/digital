@@ -111,15 +111,14 @@ export function WorkspacePage() {
   const autoOpenedKey = useRef<string | null>(null);
   useEffect(() => {
     if (view !== 'fiber' && view !== 'power') { autoOpenedKey.current = null; return; }
-    if (!contextSubstationId) return;
+    if (!contextSubstationId || !effective.length) return;
     const key = `${view}:${contextSubstationId}`;
     if (autoOpenedKey.current === key) return;
+    autoOpenedKey.current = key;
     const containers = view === 'fiber'
       ? fiberRegisterDescriptor.selectContainers(effective, contextSubstationId)
       : powerRegisterDescriptor.selectContainers(effective, contextSubstationId);
-    if (!containers.length) return;
-    autoOpenedKey.current = key;
-    setSelectedAssetId(containers[0].id);
+    setSelectedAssetId(containers[0]?.id ?? null);
   }, [view, contextSubstationId, effective, setSelectedAssetId]);
 
   const nav: WorkspaceNav = useMemo(() => ({

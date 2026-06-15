@@ -35,4 +35,6 @@ export interface RegisterDescriptor<Row> {
   onRowClick(row: Row, child: Asset): string | null;
   /** 이 행이 활성 하이라이트면 그 trace 시드 cableId(없으면 미정의 → 비활성). */
   rowTraceCableId?(row: Row): string | null;
+  /** 행이 대응하는 코어 번호(없으면 미정의 → 코어 무관 선택). */
+  rowCore?(row: Row): number | null;
 }

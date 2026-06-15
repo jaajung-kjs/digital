@@ -8,10 +8,7 @@ import { DetailTabs } from './detail/DetailTabs';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { InspectionSection } from './detail/InspectionSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
-import { useEffectiveAssetConnections } from '../../connections/hooks/useEffectiveAssetConnections';
-import { AssetConnectionsSection } from '../../connections/components/AssetConnectionsSection';
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
-import { useEditorStore } from '../../editor/stores/editorStore';
 import { statusIsOn } from '../nodeStatus';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { fiberSlotLabel } from '../../fiber/fiberSlotLabel';
@@ -169,9 +166,6 @@ function fieldPatch(field: AssetFieldDef, v: string): Partial<Asset> | null {
 export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, initialTab }: Props) {
   const ro = mode === 'view';
   const patch = (p: Partial<Asset>) => onPatch?.(asset.id, p);
-  // 연결은 effective(워킹카피)에서 읽는다. 편집은 캔버스로 이동 — 연결 탭은 읽기전용 경로 뷰.
-  const connections = useEffectiveAssetConnections(asset.id);
-  const activeFloorId = useEditorStore((s) => s.activeFloorId);
   const { graph } = useTraceGraph();
 
   // 랙 모듈(parentAssetId + slotIndex 둘 다 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출.
@@ -259,11 +253,7 @@ export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, in
     {
       label: '연결',
       render: () => (
-        <AssetConnectionsSection
-          assetId={asset.id}
-          connections={connections}
-          activeFloorId={activeFloorId}
-        />
+        <div className="p-3 text-sm text-content-faint">연결 UI 재작성 예정</div>
       ),
     },
   ];

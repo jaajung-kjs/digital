@@ -47,6 +47,7 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
               rowKey={descriptor.rowKey}
               rowTraceCableId={descriptor.rowTraceCableId}
               rowSelectedId={(row) => descriptor.onRowClick(row, child)}
+              rowCore={(row) => descriptor.rowCore?.(row) ?? null}
               sort={sort}
               cycleSort={cycleSort}
             />
@@ -57,12 +58,13 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   );
 }
 
-function SectionView<Row>({ section, columns, rowKey, rowTraceCableId, rowSelectedId, sort, cycleSort }: {
+function SectionView<Row>({ section, columns, rowKey, rowTraceCableId, rowSelectedId, rowCore, sort, cycleSort }: {
   section: RegisterSection<Row>;
   columns: RegisterColumn<Row>[];
   rowKey: (row: Row) => string | number;
   rowTraceCableId?: (row: Row) => string | null;
   rowSelectedId: (row: Row) => string | null;
+  rowCore: (row: Row) => number | null;
   sort: GridSort;
   cycleSort: (col: string) => void;
 }) {
@@ -100,37 +102,43 @@ function SectionView<Row>({ section, columns, rowKey, rowTraceCableId, rowSelect
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <RowView
-              key={rowKey(row)}
-              row={row}
-              columns={columns}
-              traceCableId={rowTraceCableId?.(row) ?? null}
-              selectedId={rowSelectedId(row)}
-              onClick={() => {
-                const id = rowSelectedId(row);
-                if (id) useSelectionStore.getState().setSelectedAssetId(id);
-              }}
-            />
-          ))}
+          {rows.map((row) => {
+            const core = rowCore(row);
+            return (
+              <RowView
+                key={rowKey(row)}
+                row={row}
+                columns={columns}
+                traceCableId={rowTraceCableId?.(row) ?? null}
+                selectedId={rowSelectedId(row)}
+                rowCore={core}
+                onClick={() => {
+                  const id = rowSelectedId(row);
+                  if (id) useSelectionStore.getState().setSelected(id, core);
+                }}
+              />
+            );
+          })}
         </tbody>
       </table>
     </section>
   );
 }
 
-function RowView<Row>({ row, columns, traceCableId, selectedId, onClick }: {
+function RowView<Row>({ row, columns, traceCableId, selectedId, rowCore, onClick }: {
   row: Row;
   columns: RegisterColumn<Row>[];
   traceCableId: string | null;
   selectedId: string | null;
+  rowCore: number | null;
   onClick: () => void;
 }) {
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
   const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
+  const selectedCore = useSelectionStore((s) => s.selectedCore);
   const highlighted =
     (!!traceCableId && tracingCableId === traceCableId) ||
-    (!!selectedId && selectedAssetId === selectedId);
+    (!!selectedId && selectedAssetId === selectedId && (rowCore ?? null) === (selectedCore ?? null));
   return (
     <tr onClick={onClick} className={rowClass(highlighted)}>
       {columns.map((c, i) => (
