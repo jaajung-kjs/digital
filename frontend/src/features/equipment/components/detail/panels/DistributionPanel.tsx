@@ -92,14 +92,15 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                 key={feeder.id}
                 className="group/feeder relative overflow-hidden rounded-md border border-line bg-surface shadow-sm transition-[box-shadow,border-color] duration-150 hover:border-content-faint hover:shadow-md"
               >
-                {/* 클릭하면 그 피더로 바로 이동 — '선택/눌림' 상태 없음(좌측 강조 띠 제거). */}
+                {/* 클릭하면 그 피더로 바로 이동 — '선택/눌림' 상태 없음(좌측 강조 띠 제거).
+                    우측 패딩(삭제버튼 자리)은 이름 줄에만 — 미니그리드·요약은 full-width. */}
                 <button
                   type="button"
                   onClick={() => useSelectionStore.getState().setSelectedAssetId(feeder.id)}
-                  className="block w-full px-2.5 py-2.5 pr-7 text-left"
+                  className="block w-full px-2.5 py-2.5 text-left"
                   title="클릭해 이 계통(피더)으로 이동"
                 >
-                  <span className="block truncate text-sm font-medium text-content">{feeder.name}</span>
+                  <span className="block truncate pr-6 text-sm font-medium text-content">{feeder.name}</span>
                   {/* recessed 미니 차단기 그리드 — 고정 24칸(6열, 큰 레일과 동일 배열). CB 0개든
                       24개든 항상 같은 크기·모양. 빈칸=속빈 외곽선, 차단(OFF)=채운 회색, 가압(ON)=초록. */}
                   <span className="mt-1.5 grid grid-cols-6 gap-0.5 rounded bg-surface-2 p-1 shadow-inner">
@@ -117,11 +118,14 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                       />
                     ))}
                   </span>
-                  <span className="mt-1.5 block truncate text-xs text-content-muted">
-                    <span className="font-medium text-content">{cs.length}</span> 회로
-                    {cs.length > 0 && (
-                      <span className={energized ? 'text-success' : 'text-content-faint'}>{' · '}{onCount} ON</span>
-                    )}
+                  {/* 2줄 고정 요약 — 좁은 카드에서 한 줄로 짤리지 않게, 높이를 미리 확보(항상 2줄). */}
+                  <span className="mt-1.5 block text-xs leading-tight">
+                    <span className="block text-content-muted">
+                      <span className="font-medium text-content">{cs.length}</span> 회로
+                    </span>
+                    <span className={`mt-0.5 block ${energized ? 'text-success' : 'text-content-faint'}`}>
+                      {cs.length > 0 ? `${onCount} ON` : '—'}
+                    </span>
                   </span>
                 </button>
                 <button
@@ -186,7 +190,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
               <button
                 type="button"
                 onClick={() => setAddingFeeder(true)}
-                className="flex h-full min-h-[7rem] w-full items-center justify-center rounded-md border border-dashed border-line text-xs text-content-faint hover:border-primary hover:text-primary hover:bg-info-bg transition-colors"
+                className="flex h-full min-h-[8rem] w-full items-center justify-center rounded-md border border-dashed border-line text-xs text-content-faint hover:border-primary hover:text-primary hover:bg-info-bg transition-colors"
               >
                 ＋ 전원 계통
               </button>
