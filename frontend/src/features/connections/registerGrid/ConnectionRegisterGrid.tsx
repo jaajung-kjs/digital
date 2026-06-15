@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks';
+import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useTraceGraph } from '../../trace/traceGraph';
@@ -17,13 +17,12 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   substationId: string; descriptor: RegisterDescriptor<Row>;
 }) {
   const assets = useEffectiveAssets() as Asset[];
-  const cables = useEffectiveCables();
   const { graph, isLoading } = useTraceGraph();
   const { sort, cycleSort } = useGridSort();
 
   // descriptor must be a module-level stable ref
   const groups = useMemo(() => {
-    const ctx = { assets, cables: cables as unknown[], graph, isLoading };
+    const ctx = { assets, cables: (graph?.cables ?? []) as unknown[], graph, isLoading };
     return descriptor.selectContainers(assets, substationId).map((container) => ({
       container,
       header: descriptor.containerHeader?.(container, ctx) ?? null,
@@ -31,7 +30,7 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
         .filter((a) => a.parentAssetId === container.id && a.assetType?.connectionKind === descriptor.childKind)
         .map((child) => ({ child, section: descriptor.buildSection(child, ctx) })),
     }));
-  }, [assets, cables, graph, isLoading, substationId, descriptor]);
+  }, [assets, graph, isLoading, substationId, descriptor]);
 
   if (!groups.length) return <p className="p-3 text-sm text-content-faint">{descriptor.emptyMessage}</p>;
 

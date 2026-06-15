@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useEffectiveCables } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
@@ -15,9 +14,9 @@ import type { Asset } from '../../../types/asset';
 export function EquipmentSelectCell({ slot, coreNumber, side }: {
   slot: Asset; coreNumber: number; side: 'local' | 'remote';
 }) {
-  // 훅의 넓은 반환을 buildSlotPorts/roleAt 가 보는 CableLike 로 좁힘.
-  const cables = useEffectiveCables() as unknown as CableLike[];
   const { graph } = useTraceGraph();
+  // 연결 상태는 전역 SSOT(graph.cables = 전역 /cables + staged 오버레이)에서 읽는다 — 변전소 스코프 없음(대국 케이블도 보임).
+  const cables = (graph?.cables ?? []) as unknown as CableLike[];
   const { data: categories = [] } = useCableCategories();
   const { data: slim = [] } = useSlimAssets();
   const opjCat = categories.find((c) => c.code === 'CBL-OPJ');

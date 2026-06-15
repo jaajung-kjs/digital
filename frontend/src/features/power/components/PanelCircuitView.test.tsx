@@ -10,7 +10,6 @@ const { setSelectedAssetId, assetsRef, cablesRef } = vi.hoisted(() => ({
 
 vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => assetsRef.current,
-  useEffectiveCables: () => cablesRef.current,
 }));
 vi.mock('../../workspace/selectionStore', () => {
   const st = { selectedAssetId: null, setSelectedAssetId };
@@ -19,7 +18,7 @@ vi.mock('../../workspace/selectionStore', () => {
   return { useSelectionStore: hook };
 });
 vi.mock('../../trace/traceGraph', () => ({
-  useTraceGraph: () => ({ graph: null, isLoading: false }),
+  useTraceGraph: () => ({ graph: { cables: cablesRef.current }, isLoading: false }),
 }));
 vi.mock('../../pathTrace/stores/pathHighlightStore', () => ({
   usePathHighlightStore: (sel: (s: unknown) => unknown) => sel({ tracingCableId: null }),

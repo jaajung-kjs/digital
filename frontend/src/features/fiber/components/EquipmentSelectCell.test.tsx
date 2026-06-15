@@ -25,10 +25,16 @@ const CATS = [{ id: 'cat-opj', code: 'CBL-OPJ', name: '광점퍼코드', display
 // 카테고리 모킹은 테스트마다 교체 가능(빈 배열로 disabled 케이스 검증).
 const cats = vi.hoisted(() => ({ value: { data: [] as { id: string; code: string; name: string; displayColor: string | null }[] } }));
 
-vi.mock('../../workingCopy/hooks', () => ({ useEffectiveCables: () => [opgw, localOut3] }));
+vi.mock('../../workingCopy/hooks', () => ({}));
 vi.mock('../../trace/traceGraph', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../trace/traceGraph')>()),
-  useTraceGraph: () => ({ graph: { nameById: new Map([['eqpL','자국장비'],['eqpR','대국장비']]) }, isLoading: false }),
+  useTraceGraph: () => ({
+    graph: {
+      cables: [opgw, localOut3],
+      nameById: new Map([['eqpL','자국장비'],['eqpR','대국장비']]),
+    },
+    isLoading: false,
+  }),
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => cats.value }));
 vi.mock('../../workingCopy/substationStore', () => {
