@@ -1,4 +1,5 @@
 import { buildPowerRows } from './powerRegisterDescriptor';
+import { roleAt, other, type CableLike } from '../fiber/slotRegister';
 
 export interface FeederCircuit {
   cbNumber: number;
@@ -43,6 +44,17 @@ export function buildFeederCircuits(
     });
   }
   return out.sort((a, b) => a.cbNumber - b.cbNumber);
+}
+
+export interface FeederInput { cableId: string; sourceAssetId: string | null; sourceName: string | null }
+
+/** 피더의 공급(Input) — 그 피더 끝의 role==='IN' 케이블 1개(없으면 null). 다중이면 첫 1개. */
+export function buildFeederInput(feeder: { id: string }, cables: Cable[], nameById: Map<string, string>): FeederInput | null {
+  const c = cables.find((x) =>
+    (x.sourceAssetId === feeder.id || x.targetAssetId === feeder.id) && roleAt(x as CableLike, feeder.id) === 'IN');
+  if (!c) return null;
+  const src = other(c as CableLike, feeder.id);
+  return { cableId: c.id, sourceAssetId: src, sourceName: src ? (nameById.get(src) ?? null) : null };
 }
 
 /** 피더 DIN 레일 고정 그리드 — 한 줄(ROW=6열) 단위로 채운다(랙 슬롯 동형, BreakerRail grid-cols-6). */

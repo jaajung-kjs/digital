@@ -32,9 +32,15 @@ describe('getHintMessage', () => {
     ).toBe('경유점을 클릭하거나 도착 설비를 클릭하세요 · Shift 직선 · Backspace 되돌리기 · ESC 취소');
   });
 
-  it('케이블 모달 단계(selectingSpec)에서는 안내 없음', () => {
+  it('케이블 모달 단계(selectingType)에서는 안내 없음', () => {
     expect(
-      getHintMessage({ tool: 'cable', isDrawingEquipment: false, hasPreset: false, cablePhase: 'selectingSpec' }),
+      getHintMessage({ tool: 'cable', isDrawingEquipment: false, hasPreset: false, cablePhase: 'selectingType' }),
+    ).toBeNull();
+  });
+
+  it('케이블 확정 단계(ready)에서는 안내 없음', () => {
+    expect(
+      getHintMessage({ tool: 'cable', isDrawingEquipment: false, hasPreset: false, cablePhase: 'ready' }),
     ).toBeNull();
   });
 

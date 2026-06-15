@@ -16,11 +16,11 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
 
   const cable = useCableDrawing();
   const phase = cable?.phase ?? 'idle';
-  const sourcePosition = cable?.sourcePosition ?? null;
+  const sourcePosition = cable?.source?.position ?? null;
   const waypoints = cable?.waypoints ?? [];
   const previewPoint = cable?.previewPoint ?? null;
   const hoveredAssetId = cable?.hoveredAssetId ?? null;
-  const sourceContainerAssetId = cable?.sourceContainerAssetId ?? null;
+  const sourceContainerAssetId = cable?.source?.containerAssetId ?? null;
 
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);

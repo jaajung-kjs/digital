@@ -5,6 +5,7 @@ import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
+import { startCableConnection } from '../cableConnection';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useEditorHistory } from './useEditorHistory';
 import { calculateFitToContent } from './useViewport';
@@ -68,10 +69,10 @@ export function useEditorKeyboard(
       // Tool shortcuts — number keys (preferred) and legacy letters
       if (e.key === '1' && !e.ctrlKey) es.setTool('select');
       if (e.key === '2' && !e.ctrlKey) es.setTool('equipment');
-      if (e.key === '3' && !e.ctrlKey) es.setTool('cable');
+      if (e.key === '3' && !e.ctrlKey) startCableConnection();
       if (key === 'v' && !e.ctrlKey) es.setTool('select');
       if (key === 'k') es.setTool('equipment');
-      if (key === 'c' && !e.ctrlKey) es.setTool('cable');
+      if (key === 'c' && !e.ctrlKey) startCableConnection();
       if (key === 'g') es.setShowGrid(!es.showGrid);
       if (key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
 

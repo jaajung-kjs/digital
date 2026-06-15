@@ -1,31 +1,22 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
-import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
-import {
-  useCableDrawing,
-  getCableDrawing,
-} from '../../stores/interactionStore';
+import { useCableDrawing } from '../../stores/interactionStore';
+import { useInteractionStore } from '../../stores/interactionStore';
 import { useCableCategories } from '../../../cables/hooks/useCableCategories';
-import { getCableTypeFromMaterial } from '../../../../types/material';
 import type { CableCategory } from '../../../../types/cableCategory';
-import { calculatePathLength } from '../../../../utils/cable/pathLength';
-import { generateTempId } from '../../../../utils/idHelpers';
 import { MaterialSelectionModal } from '../MaterialSelectionModal';
-import { useToastStore } from '../../stores/toastStore';
-import { useEffectiveAssets } from '../../../workingCopy/hooks';
-
-type EndpointRole = 'IN' | 'OUT' | null;
 
 export function CableSpecModalWrapper() {
   return <CableSpecModal />;
 }
 
 /**
- * P9: cable category picker shown after the user finishes drawing source →
- * waypoints → target. Categories filtered by `preselectedCableDisplayGroup`
- * (sidebar pill), or all categories when no group is preselected.
+ * 케이블 종류(카테고리) 선택 전용 모달. 종류-우선 흐름의 첫 단계
+ * (phase==='selectingType')에서만 노출된다. 출발/도착 endpoint·역할·생성은
+ * 캔버스/피커 + commitCable 가 담당한다(1.3~1.5).
  *
- * CM-B: pathPoints 자체가 cm 단위이므로 scaleRatio 인자 없이 길이 계산.
+ * 카테고리는 `preselectedCableDisplayGroup`(사이드바 pill)로 필터링하거나,
+ * 미지정 시 전체를 보여준다.
  */
 function CableSpecModal() {
   const cable = useCableDrawing();
@@ -34,35 +25,12 @@ function CableSpecModal() {
     (s) => s.preselectedCableDisplayGroup,
   );
   const { data: cableCategories } = useCableCategories();
-  const effectiveAssets = useEffectiveAssets();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
-  // 전원계통 방향성 — distributor 끝점이면 IN/OUT 을 지정한다.
-  // endpoint asset = INNER pick(분기/모듈) 우선, 없으면 CONTAINER asset.
-  const sourceEndpointId = cable?.sourceInnerAssetId ?? cable?.sourceContainerAssetId ?? null;
-  const targetEndpointId = cable?.targetInnerAssetId ?? cable?.targetContainerAssetId ?? null;
-  const isDistributor = (assetId: string | null): boolean => {
-    if (!assetId) return false;
-    const a = effectiveAssets.find((x) => x.id === assetId);
-    return a?.assetType?.connectionKind === 'distributor';
-  };
-  const sourceIsDist = isDistributor(sourceEndpointId);
-  const targetIsDist = isDistributor(targetEndpointId);
-
-  // distributor 끝점은 기본 '출력'(OUT), 비-distributor 끝점은 null.
-  const [sourceRole, setSourceRole] = useState<EndpointRole>(null);
-  const [targetRole, setTargetRole] = useState<EndpointRole>(null);
-
   // Reset selection when the modal opens.
   useEffect(() => {
-    if (phase === 'selectingSpec') {
-      setSelectedCategoryId(null);
-      setSourceRole(sourceIsDist ? 'OUT' : null);
-      setTargetRole(targetIsDist ? 'OUT' : null);
-    }
-    // sourceIsDist/targetIsDist 는 phase 전환 시점의 끝점으로 결정 — phase 의존만.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (phase === 'selectingType') setSelectedCategoryId(null);
   }, [phase]);
 
   const visibleCategories = useMemo<CableCategory[]>(() => {
@@ -71,7 +39,7 @@ function CableSpecModal() {
     return all.filter((c) => c.displayGroup === preselectedGroup);
   }, [cableCategories, preselectedGroup]);
 
-  if (phase !== 'selectingSpec') return null;
+  if (phase !== 'selectingType') return null;
 
   const selectedCat = selectedCategoryId
     ? visibleCategories.find((c) => c.id === selectedCategoryId) ?? null
@@ -79,80 +47,13 @@ function CableSpecModal() {
 
   const handleConfirm = () => {
     if (!selectedCat) return;
-    const data = getCableDrawing();
-    if (!data) return;
-    const pathPoints: [number, number][] = [];
-    if (data.sourcePosition) pathPoints.push([data.sourcePosition.x, data.sourcePosition.y]);
-    pathPoints.push(...data.waypoints);
-    if (data.targetPosition) pathPoints.push([data.targetPosition.x, data.targetPosition.y]);
-    const cableType = getCableTypeFromMaterial(selectedCat.code);
-
-    // pathPoints 가 cm 좌표 — calculatePathLength 가 cm 길이를 직접 돌려준다.
-    const { pathLength, bufferLength, totalLength } = calculatePathLength(pathPoints);
-
-    // 신모델(P6): OFD 드롭 시 코어번호를 드로잉 데이터에서 읽는다.
-    // slotId 는 sourceAssetId/targetAssetId 를 통해 이미 endpoint 로 해소된다.
-    const coreNumber = data.targetCoreNumber ?? data.sourceCoreNumber ?? null;
-
-    const newCableId = generateTempId();
-    // 단계4b — endpoint 는 단일 assetId. 우선순위:
-    //   1) slotId (OFD 드롭 시 슬롯이 실제 endpoint)
-    //   2) innerAssetId (랙 모듈 / 분전반 분기 asset)
-    //   3) containerAssetId (설비 자체)
-    // containerAssetId 는 OFD 드롭에서도 OFD equipment id 를 유지하므로,
-    // 슬롯 endpoint 는 slotId 채널로만 꺼낸다.
-    // READ 는 floorAnchor 가 slot→OFD / module→랙 / feeder→분전반 으로 해소해 시각화.
-    const sourceAssetId = data.sourceSlotId ?? data.sourceInnerAssetId ?? data.sourceContainerAssetId ?? null;
-    const targetAssetId = data.targetSlotId ?? data.targetInnerAssetId ?? data.targetContainerAssetId ?? null;
-
-    // 슬롯(conduit) 끝점 판정 — conduit slot 은 role='OUT' 을 받는다.
-    const isConduit = (assetId: string | null): boolean => {
-      if (!assetId) return false;
-      const a = effectiveAssets.find((x) => x.id === assetId);
-      return a?.assetType?.connectionKind === 'conduit';
-    };
-    const sourceIsConduit = isConduit(sourceAssetId);
-    const targetIsConduit = isConduit(targetAssetId);
-
-    // slotId 가 있으면 신모델(P6) — conduit 슬롯 끝이 OUT.
-    // slotId 없으면 구모델 호환(non-fiber 케이블) — distributor role 만 적용.
-    const computeSourceRole = (): 'IN' | 'OUT' | null => {
-      if (sourceIsConduit) return 'OUT';
-      if (sourceIsDist) return sourceRole;
-      return null;
-    };
-    const computeTargetRole = (): 'IN' | 'OUT' | null => {
-      if (targetIsConduit) return 'OUT';
-      if (targetIsDist) return targetRole;
-      return null;
-    };
-
-    // SSOT-2d Task 4 — 케이블 생성을 통합 스토어 stage 액션으로.
-    useSubstationWorkingCopy.getState().stageCableCreate({
-      id: newCableId,
-      sourceAssetId,
-      targetAssetId,
-      cableType,
-      categoryId: selectedCat.id,
-      categoryCode: selectedCat.code,
-      categoryName: selectedCat.name,
+    useInteractionStore.getState().cableSetType({
+      id: selectedCat.id,
+      code: selectedCat.code,
+      name: selectedCat.name,
       displayColor: selectedCat.displayColor,
-      specParams: {},
-      specification: selectedCat.name,
-      pathPoints,
-      pathLength,
-      bufferLength,
-      totalLength,
-      // number = 코어 번호(슬롯 드롭 시), 없으면 null.
-      number: coreNumber ?? null,
-      // 전원계통 방향성 + 슬롯(conduit) OUT role 병합.
-      sourceRole: computeSourceRole(),
-      targetRole: computeTargetRole(),
     });
-
-    useEditorStore.getState().cancelCableDrawing(); // interaction idle + tool select(단일 진입점)
-    useEditorStore.getState().setSelectedCableId(newCableId);
-    useToastStore.getState().showToast('케이블을 연결했습니다');
+    setSelectedCategoryId(null);
   };
 
   const handleCancel = () => {
@@ -209,68 +110,6 @@ function CableSpecModal() {
           })
         )}
       </div>
-
-      {(sourceIsDist || targetIsDist) && (
-        <div className="mt-3 pt-3 border-t border-line space-y-2">
-          <p className="text-[11px] text-content-faint">
-            방향성 설비 연결 — 입력/출력을 지정하세요.
-          </p>
-          {sourceIsDist && (
-            <RoleSelector
-              label="출발"
-              value={sourceRole}
-              onChange={setSourceRole}
-            />
-          )}
-          {targetIsDist && (
-            <RoleSelector
-              label="도착"
-              value={targetRole}
-              onChange={setTargetRole}
-            />
-          )}
-        </div>
-      )}
     </MaterialSelectionModal>
-  );
-}
-
-/** distributor 끝점의 IN(입력)/OUT(출력) 선택기. 기본 OUT. */
-function RoleSelector({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: EndpointRole;
-  onChange: (r: EndpointRole) => void;
-}) {
-  const options: { role: 'IN' | 'OUT'; text: string }[] = [
-    { role: 'IN', text: '입력' },
-    { role: 'OUT', text: '출력' },
-  ];
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-content-faint w-8">{label}</span>
-      <div className="flex gap-1.5">
-        {options.map((o) => {
-          const active = value === o.role;
-          return (
-            <button
-              key={o.role}
-              type="button"
-              onClick={() => onChange(o.role)}
-              className={`px-3 py-1 rounded-md border text-sm transition-colors ${
-                active
-                  ? 'border-primary bg-info-bg ring-1 ring-primary/30 text-content'
-                  : 'border-line hover:bg-surface-2 text-content-faint'
-              }`}
-            >
-              {o.text}
-            </button>
-          );
-        })}
-      </div>
-    </div>
   );
 }

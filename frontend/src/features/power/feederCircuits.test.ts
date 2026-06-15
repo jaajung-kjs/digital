@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildFeederCircuits, feederGridSlots, type FeederCircuit } from './feederCircuits';
+import { buildFeederCircuits, feederGridSlots, buildFeederInput, type FeederCircuit } from './feederCircuits';
 
 const FEEDER = 'f1';
 const cb1 = { id: 'c1', sourceAssetId: FEEDER, targetAssetId: 'eqpA', sourceRole: 'OUT', targetRole: null, number: 1, categoryName: 'HIV 2.5sq', categoryId: 'cat1', specParams: { capacity: '20A', switchState: 'ON' } };
@@ -53,5 +53,17 @@ describe('feederGridSlots (고정 그리드 패딩)', () => {
     const slots = feederGridSlots([occ(24)]);
     expect(slots).toHaveLength(30); // ceil(25/6)*6
     expect(slots.some((s) => !s.occupied)).toBe(true);
+  });
+});
+
+describe('buildFeederInput — role=IN 공급', () => {
+  const inCable = { id: 'in1', sourceAssetId: 'srcEq', targetAssetId: 'f1', sourceRole: null, targetRole: 'IN', number: null, specParams: {} };
+  it('IN 케이블 1개 해소(공급원명 포함)', () => {
+    const r = buildFeederInput({ id: 'f1' }, [inCable] as never, new Map([['srcEq', '주변압기']]));
+    expect(r).toEqual({ cableId: 'in1', sourceAssetId: 'srcEq', sourceName: '주변압기' });
+  });
+  it('IN 없으면 null (분기 OUT 케이블은 무시)', () => {
+    const out = { id: 'o1', sourceAssetId: 'f1', targetAssetId: 'load', sourceRole: 'OUT', targetRole: null, number: 1, specParams: {} };
+    expect(buildFeederInput({ id: 'f1' }, [out] as never, new Map())).toBeNull();
   });
 });

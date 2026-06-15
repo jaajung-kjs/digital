@@ -12,8 +12,8 @@ export interface HintState {
 
 /**
  * 현재 도구/단계에 맞는 캔버스 하단 안내 문구를 반환한다. 표시할 안내가
- * 없으면 null. 케이블의 모달 단계(pickingSourceModule / pickingTargetModule /
- * selectingSpec)는 모달이 흐름을 소유하므로 안내를 표시하지 않는다.
+ * 없으면 null. 케이블의 모달 단계(selectingType / pickingSourceEndpoint /
+ * pickingTargetEndpoint / ready)는 모달·피커가 흐름을 소유하므로 안내를 표시하지 않는다.
  */
 export function getHintMessage(s: HintState): string | null {
   if (s.tool === 'equipment') {
