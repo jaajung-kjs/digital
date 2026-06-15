@@ -161,7 +161,11 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
       label: '위치',
       width: 'w-32',
       sortKey: (r) => r.location ?? '',
-      cell: (r) => <span className="truncate text-content-muted">{r.location ?? '—'}</span>,
+      cell: (r) => (
+        <span className="text-content-muted max-w-[8rem] truncate inline-block align-bottom" title={r.location ?? undefined}>
+          {r.location ?? '—'}
+        </span>
+      ),
     },
     {
       label: '용량',
