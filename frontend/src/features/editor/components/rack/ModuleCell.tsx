@@ -64,10 +64,8 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
     onCommit,
   });
 
-  // ISA-101: 랙 모듈은 무채색 다크 페이스플레이트(실제 장비 faceplate 느낌). 종류는
-  // 라벨로 구분, 색은 상태/알람 전용. categoryDisplayColor(DB 보라/네온)는 신뢰 안 함.
-  const FACEPLATE_BG = 'var(--eq-1)'; // #44403c — 다크 무채색 바디
-  const FACEPLATE_FG = 'var(--eq-4)'; // #d6d3d1 — 밝은 라벨
+  // 흰 모듈 룩(차단기·포트 그리드와 통일). 종류는 라벨 + 좌측 카테고리 색 띠로 구분.
+  const accent = module.assetType?.displayColor ?? null;
   const dragging = dragState != null;
   const rejected = dragState?.plan.rejected === true;
 
@@ -91,28 +89,26 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
           gridRowEnd: cellEnd,
           gridColumnStart: 1,
           gridColumnEnd: 2,
-          background: FACEPLATE_BG,
-          color: FACEPLATE_FG,
-          // 페이스플레이트 베젤 — 상단 하이라이트 + 하단 음영(절제된 입체감).
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07), inset 0 -1px 0 rgba(0,0,0,0.28)',
           opacity: dragging ? 0.35 : 1,
         }}
-        className="relative flex items-center gap-1.5 px-2.5 text-[11px] font-medium rounded-[5px] border border-black/40 select-none cursor-grab hover:brightness-110 transition-[filter,opacity] overflow-hidden min-h-0"
+        className="relative flex items-center gap-2 py-1.5 pl-1.5 pr-2.5 text-[11px] font-medium rounded-md border border-line bg-surface text-content shadow-sm select-none cursor-grab hover:border-content-faint transition-[border-color,opacity] overflow-hidden min-h-0"
         aria-label={`${module.name}, 슬롯 ${slotIndex + 1}-${slotIndex + slotSpan} (${slotSpan}슬롯) — 클릭하여 편집`}
         title="클릭=편집, 드래그=이동, 하단 핸들=리사이즈"
       >
+        {/* 좌측 카테고리 색 띠 — 종류 식별(없으면 중립 라인색). */}
+        <span aria-hidden className="my-0.5 w-1 self-stretch shrink-0 rounded-full bg-line" style={accent ? { background: accent } : undefined} />
         <span className="truncate flex-1 leading-tight">{module.name}</span>
-        <span aria-hidden className="shrink-0 font-mono text-[9px] tabular-nums opacity-55">
+        <span aria-hidden className="shrink-0 font-mono text-[9px] tabular-nums text-content-faint">
           {slotLabel}
         </span>
-        {/* 리사이즈 핸들 — 절제된 그립(faceplate 톤). */}
+        {/* 리사이즈 핸들 — 절제된 그립(중립 톤). */}
         <div
           onPointerDown={(e) => handlePointerDown(e, 'resize')}
-          className="absolute left-0 right-0 bottom-0 h-2.5 flex items-center justify-center cursor-ns-resize bg-black/20 hover:bg-black/35 transition-colors"
+          className="absolute left-0 right-0 bottom-0 h-2.5 flex items-center justify-center cursor-ns-resize border-t border-line bg-surface-2 hover:bg-surface-3 transition-colors"
           title="드래그해서 크기 조절"
           aria-label="크기 조절 핸들"
         >
-          <span aria-hidden className="block w-6 h-0.5 rounded-full bg-white/40" />
+          <span aria-hidden className="block w-6 h-0.5 rounded-full bg-content-faint" />
         </div>
       </div>
 

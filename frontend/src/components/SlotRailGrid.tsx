@@ -19,26 +19,28 @@ export function SlotRailGrid({
   children: ReactNode;
 }) {
   return (
-    <div className="h-full flex border border-line-strong rounded-md overflow-hidden bg-surface-2 shadow-sm">
-      {/* 슬롯 번호 레일 — 그리드와 동일 row 템플릿+gap 으로 정렬. */}
+    // 백플레인 프레임 — 차단기 레일·포트 그리드와 동일 디자인 언어(border-line + bg-surface-2 + shadow-sm).
+    <div className="h-full flex border border-line rounded-md overflow-hidden bg-surface-2 shadow-sm">
+      {/* 슬롯 번호 레일(유닛 눈금) — 그리드와 동일 row 템플릿+gap 으로 정렬. */}
       <div
         aria-hidden
-        className="shrink-0 w-6 grid gap-1 border-r border-line-strong bg-surface-2"
+        className="shrink-0 w-7 grid gap-1 border-r border-line bg-surface-2"
         style={{ gridTemplateRows: `repeat(${slotCount}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: slotCount }, (_, i) => (
           <div
             key={i}
-            className="flex items-center justify-center text-[9px] font-mono tabular-nums text-content-faint leading-none"
+            className="flex items-center justify-center text-[11px] font-mono tabular-nums text-content-muted leading-none"
           >
             {i + 1}
           </div>
         ))}
       </div>
-      {/* 슬롯 그리드 (gridRef — 드래그 geometry 의 기준). */}
+      {/* 슬롯 그리드 (gridRef — 드래그 geometry 의 기준; padding 금지 → row 계산 오프셋 방지).
+          백플레인 위에서 흰 모듈이 뜨도록 bg-surface-2, 셀 사이는 gap-1 로 분리. */}
       <div
         ref={gridRef}
-        className="flex-1 bg-surface grid gap-1"
+        className="flex-1 bg-surface-2 grid gap-1"
         style={{
           // 1 열 고정. column 을 explicit 으로 지정하지 않으면 같은 row 에
           // 여러 아이템이 있을 때 implicit column 이 추가되어 grid 가 2 열로

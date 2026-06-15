@@ -176,8 +176,8 @@ interface OfdEmptySlotProps {
 }
 
 function OfdEmptySlot({ rowIndex, isActive, configMissing, onClick }: OfdEmptySlotProps) {
-  const activeClasses = 'bg-info-bg text-primary ring-1 ring-inset ring-primary';
-  const hoverClasses = 'hover:bg-info-bg hover:text-primary';
+  const activeClasses = 'border-primary bg-info-bg text-primary ring-1 ring-inset ring-primary';
+  const hoverClasses = 'hover:border-primary hover:bg-info-bg hover:text-primary';
 
   return (
     <div
@@ -196,7 +196,7 @@ function OfdEmptySlot({ rowIndex, isActive, configMissing, onClick }: OfdEmptySl
         gridColumnStart: 1,
         gridColumnEnd: 2,
       }}
-      className={`group/slot flex items-center justify-center min-h-0 overflow-hidden text-[11px] text-content-faint bg-surface-2/50 rounded-[3px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+      className={`group/slot flex items-center justify-center min-h-0 overflow-hidden text-[11px] text-content-faint bg-surface/40 border border-dashed border-line rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
         configMissing ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
       } ${isActive ? activeClasses : hoverClasses}`}
       aria-label={`빈 슬롯 ${rowIndex + 1} — 경로 추가`}
