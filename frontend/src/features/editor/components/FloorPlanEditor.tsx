@@ -156,11 +156,16 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
   //     ID 변경(다른 설비) + 클릭 반복 둘 다 한 효과로 처리.
   const focusTick = useEditorStore((s) => s.focusTick);
   useEffect(() => {
-    if (!detailAssetId) return;
+    // 뷰포트 강제이동(정렬)은 패널-오픈 동작에만 묶는다 — 더블클릭·딥링크·평면도진입이 모두
+    // focusTick 을 bump 한다. 단일클릭(selectEquipment)은 selectedAssetId 만 바꾸고 focusTick 을
+    // bump 하지 않으므로, deps 를 [focusTick] 으로만 두면 단일클릭에선 정렬이 안 일어난다(선택만).
+    // 대상 id 는 deps 가 아니라 getState 로 fresh 하게 읽는다(focusTick bump 시점엔 이미 최신).
+    const id = useSelectionStore.getState().selectedAssetId;
+    if (!id) return;
     // 단일 choke-point: 선택 asset → 도면 anchor rect. 미배치 모듈/회로/포트는
     // floorTargetFor 가 부모 설비(랙/OFD/분전반) rect 로 해소하므로 그 설비에 포커스.
     const target = floorTargetFor(
-      detailAssetId,
+      id,
       useSubstationWorkingCopy.getState().effectiveAssets(),
     );
     if (!target || !containerRef.current) return;
@@ -178,7 +183,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       RIGHT_PANEL_WIDTH,
     );
     useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
-  }, [detailAssetId, focusTick]);
+  }, [focusTick]);
 
   // (2) 케이블 경로 하이라이트 시 viewport 정렬 — 연결 탭에서 케이블 카드 클릭마다
   //     pathHighlightStore.tracingCableId 가 새 값으로 set 되므로 deps 가 그 ID 와
