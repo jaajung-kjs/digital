@@ -11,25 +11,26 @@ const opgw: CableLike = {
   sourceAssetId: SLOT, targetAssetId: TWIN,
   sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 },
 };
+// 실제 buildCoreOutCable 형태: 설비=source(role null), 슬롯=target(role 'OUT').
 const localOut3: CableLike = {
   id: 'c-l3', cableType: 'FIBER',
   sourceAssetId: 'eqpL', targetAssetId: SLOT,
-  sourceRole: 'OUT', targetRole: 'OUT', number: 3,
+  sourceRole: null, targetRole: 'OUT', number: 3,
 };
 const remoteOut3: CableLike = {
   id: 'c-r3', cableType: 'FIBER',
   sourceAssetId: 'eqpR', targetAssetId: TWIN,
-  sourceRole: 'OUT', targetRole: 'OUT', number: 3,
+  sourceRole: null, targetRole: 'OUT', number: 3,
 };
 const localOut5: CableLike = {
   id: 'c-l5', cableType: 'FIBER',
   sourceAssetId: 'eqpL2', targetAssetId: SLOT,
-  sourceRole: 'OUT', targetRole: 'OUT', number: 5,
+  sourceRole: null, targetRole: 'OUT', number: 5,
 };
 const remoteOut8: CableLike = {
   id: 'c-r8', cableType: 'FIBER',
   sourceAssetId: 'eqpR2', targetAssetId: TWIN,
-  sourceRole: 'OUT', targetRole: 'OUT', number: 8,
+  sourceRole: null, targetRole: 'OUT', number: 8,
 };
 
 const graph = {
