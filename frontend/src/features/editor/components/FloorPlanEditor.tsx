@@ -24,7 +24,6 @@ import { CanvasView } from './CanvasView';
 import { EditorStatusBar } from './EditorStatusBar';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
-import { NetworkTopologyModal } from '../../network/NetworkTopologyModal';
 import { EquipmentDetailPanel } from './EquipmentDetailPanel';
 import { EquipmentResizeHandlesHost } from './EquipmentResizeHandlesHost';
 import { ReportPanel } from '../../report/ReportPanel';
@@ -428,8 +427,6 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
                 <EquipmentResizeHandlesHost />
                 <EditorHintBar />
               </CanvasView>
-
-              <NetworkTopologyModal />
 
               {/* 우측 패널 — 단일 enum 으로 동시에 최대 하나만 렌더(상호배타).
                   detail/report/history/background 가 같은 우측 슬롯을 공유하므로

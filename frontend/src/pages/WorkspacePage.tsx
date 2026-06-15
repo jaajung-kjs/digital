@@ -18,6 +18,7 @@ import { useSubstationWorkingCopy } from '../features/workingCopy/substationStor
 import { workspaceFloorUrl } from '../features/workspace/workspaceUrls';
 import { WorkingCopyCommitBar } from '../features/workingCopy/WorkingCopyCommitBar';
 import { useOrganizationStore } from '../stores/organizationStore';
+import { NetworkTopologyModal } from '../features/network/NetworkTopologyModal';
 import type { NodeKind } from '../hooks/useNodeAssets';
 
 const VIEWS = [
@@ -203,6 +204,7 @@ export function WorkspacePage() {
 
   return (
     <WorkspaceNavContext.Provider value={nav}>
+        <NetworkTopologyModal />
         <div className="h-full flex flex-col">
           <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b border-line bg-surface">
             <div className="flex gap-1">
