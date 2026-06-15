@@ -362,9 +362,14 @@ export const useEditorStore = create<FullStore>()((set) => ({
   // 어느 패널을 열든 enum 하나만 바뀌므로 나머지는 구조적으로 닫힌다.
   // 상세를 새로 열거나 우측 패널을 닫을 때, 직전 설비에 매여 있던 슬롯 추가
   // 팝오버 상태도 같이 비운다.
-  /** 캔버스/1차 선택만 갱신 (상세 패널은 건드리지 않음 — 클릭=선택, 더블클릭=상세). */
+  /**
+   * 캔버스/1차 선택만 갱신 (클릭=선택[리사이즈 핸들], 더블클릭=상세 패널).
+   * 상세 패널이 떠 있으면 닫는다 — rightPanel 이 'detail' 로 남아 있으면 selectedAssetId 변경
+   * 만으로 패널이 다시 떠버리므로(단일클릭으로 패널이 열리던 버그), 단일클릭 선택 시 상세
+   * 패널을 명시적으로 닫는다. 패널은 openDetail(더블클릭/딥링크/평면도진입)에서만 연다.
+   */
   selectEquipment: (id) => {
-    set({ selectedCableId: null });
+    set((s) => ({ selectedCableId: null, rightPanel: s.rightPanel === 'detail' ? null : s.rightPanel }));
     useSelectionStore.getState().setSelectedAssetId(id);
   },
   openDetail: (id) => {
