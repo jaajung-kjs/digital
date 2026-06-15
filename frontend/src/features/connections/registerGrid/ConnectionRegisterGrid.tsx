@@ -35,7 +35,8 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   if (!groups.length) return <p className="p-3 text-sm text-content-faint">{descriptor.emptyMessage}</p>;
 
   return (
-    <div className="space-y-6">
+    // 표가 넓은 패널에서 끝없이 늘어나지 않게 폭 제한 — 컬럼이 균형있게 보이고 우측 짤림 방지.
+    <div className="space-y-6 max-w-4xl">
       {groups.map(({ container, header, sections }) => (
         <div key={container.id} className="space-y-4">
           {header && <h2 className="px-1 text-sm font-bold text-content">{header}</h2>}

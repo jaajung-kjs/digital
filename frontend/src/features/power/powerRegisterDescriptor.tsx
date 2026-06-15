@@ -159,7 +159,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     },
     {
       label: '위치',
-      width: 'w-32',
+      width: 'w-40',
       sortKey: (r) => r.location ?? '',
       cell: (r) => (
         <span className="text-content-muted max-w-[8rem] truncate inline-block align-bottom" title={r.location ?? undefined}>
@@ -182,13 +182,13 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     },
     {
       label: '규격',
-      width: 'w-36',
+      width: 'w-52',
       sortKey: (r) => r.spec,
       cell: (r) => <SpecCell cableId={r.cableId} categoryId={r.categoryId} name={r.spec} />,
     },
     {
       label: 'SW',
-      width: 'w-16',
+      width: 'w-20',
       sortKey: (r) => r.switchState,
       cell: (r) => (
         <EditableField
