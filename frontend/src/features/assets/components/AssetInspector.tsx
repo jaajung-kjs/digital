@@ -3,6 +3,7 @@ import { Pencil } from 'lucide-react';
 import type { Asset } from '../../../types/asset';
 import { toDateInputValue } from '../../../utils/date';
 import { IconAction } from './detail/SectionShell';
+import { EditableField } from './EditableField';
 import { DetailTabs } from './detail/DetailTabs';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { InspectionSection } from './detail/InspectionSection';
@@ -45,51 +46,17 @@ const INLINE_INPUT =
   'flex-1 min-w-0 px-1.5 py-0.5 rounded text-sm bg-surface border border-line ' +
   'focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-colors';
 
-const ROW = 'group flex items-center gap-2 text-sm py-1';
 const LABEL = 'w-20 shrink-0 text-content-muted text-xs';
 const VALUE = 'flex-1 min-w-0 text-sm text-content truncate';
 const PENCIL =
   'shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 group-focus-within:opacity-100 transition-opacity';
 
-function openPicker(el: HTMLInputElement | HTMLTextAreaElement | null) {
-  if (!el) return;
-  el.focus();
-  // 날짜는 picker 도 띄워 클릭 1번에 바로 선택. (지원 브라우저 한정 — 없으면 focus 로 충분.)
-  const anyEl = el as HTMLInputElement & { showPicker?: () => void };
-  if (el instanceof HTMLInputElement && el.type === 'date' && typeof anyEl.showPicker === 'function') {
-    try { anyEl.showPicker(); } catch { /* user-gesture 밖이면 무시 */ }
-  }
-}
-
-function Field({ label, value, onCommit, type = 'text' }: { label: string; value: string; onCommit: (v: string) => void; type?: string }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const [editing, setEditing] = useState(type === 'date');
-  const commit = (v: string) => { if (v !== value) onCommit(v); };
-  const start = () => { setEditing(true); requestAnimationFrame(() => openPicker(ref.current)); };
+/** 단일 줄 텍스트·날짜 편집 — 공유 EditableField 래퍼. valueClickEdits 로 값 클릭도 편집 시작. */
+function Field({ label, value, onCommit, type = 'text' }: { label: string; value: string; onCommit: (v: string) => void; type?: 'text' | 'date' }) {
   return (
-    <div className={ROW}>
+    <div className="flex items-center gap-2 text-sm py-1">
       <span className={LABEL}>{label}</span>
-      {editing ? (
-        <input
-          ref={ref}
-          type={type}
-          defaultValue={value}
-          autoFocus={type !== 'date'}
-          onBlur={(e) => { commit(e.target.value); if (type !== 'date') setEditing(false); }}
-          // Enter 즉시 반영(blur→commit). 날짜는 선택만 해도 즉시 반영(onChange).
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-          onChange={type === 'date' ? (e) => commit(e.target.value) : undefined}
-          className={INLINE_INPUT} />
-      ) : (
-        <button type="button" onClick={start} className={`${VALUE} text-left hover:text-primary transition-colors`}>
-          {value || <span className="text-content-faint">—</span>}
-        </button>
-      )}
-      <span className={PENCIL}>
-        <IconAction onClick={start} title={`${label} 수정`}>
-          <Pencil size={13} />
-        </IconAction>
-      </span>
+      <EditableField value={value} type={type} ariaLabel={label} valueClickEdits onCommit={onCommit} />
     </div>
   );
 }
