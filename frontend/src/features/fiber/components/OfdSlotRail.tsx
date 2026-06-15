@@ -10,8 +10,12 @@ import { generateTempId } from '../../../utils/idHelpers';
 import { buildRouteCreate, routeDeleteIds } from '../fiberWrite';
 import { api } from '../../../utils/api';
 import { SlotTile } from '../../../components/SlotTile';
+import { SlotRailGrid } from '../../../components/SlotRailGrid';
 import { OfdRoutePopover } from './OfdRoutePopover';
 import type { Asset } from '../../../types/asset';
+
+/** 12슬롯 고정 — 랙과 동일. 비어 있는 슬롯은 빈 셀로 표시. */
+const OFD_SLOT_COUNT = 12;
 
 interface CableWithRoles {
   id: string; sourceAssetId?: string | null; targetAssetId?: string | null;
@@ -24,10 +28,14 @@ interface PopoverState {
 }
 
 /**
- * OFD 경로 GUI — RackSlotGrid 프레임 구조를 그대로 복제:
- *   바깥 테두리(frame) + 좌측 번호 레일 + 1열 슬롯 그리드.
- * 점유 슬롯: SlotTile(faceplate), 빈 슬롯: EmptySlot 룩 인라인.
- * 빈 슬롯 클릭 → anchorRect 기반 OfdRoutePopover(대국+코어 선택).
+ * OFD 경로 GUI — SlotRailGrid(랙·OFD 공유 컴포넌트)를 사용해
+ * 랙과 완전히 동일한 frame + 좌측 번호 레일 + 1열 슬롯 그리드를 렌더.
+ * 프레임 마크업 복제 없음(SlotRailGrid 가 유일한 출처).
+ *
+ * 점유 슬롯: SlotTile h-full(faceplate, 클릭→선택, hover→삭제).
+ * 빈 슬롯: 랙 EmptySlot 동일 룩(bg-surface-2/50, hover bg-info-bg, "+ 추가").
+ * 빈 슬롯 클릭 → OfdRoutePopover(코어 수 + 대국 OFD 선택).
+ * TODO(P3): 빈 슬롯 클릭 UI 를 포트 수 + 대국 변전소 선택 피커로 교체 예정.
  */
 export function OfdSlotRail({ ofdId }: { ofdId: string }) {
   const assets = useEffectiveAssets() as Asset[];
@@ -98,97 +106,64 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
 
   const configMissing = !slotTypeId || !opgwCat;
 
-  // N = 경로 수 + 3 빈 슬롯 (최소 4).
-  const N = Math.max(4, slots.length + 3);
-
-  // 빈 슬롯 클릭 핸들러 — ref 콜백 방식(각 빈 슬롯마다 별도 ref 불가이므로 인라인 div 클릭 이벤트에서 getBoundingClientRect 사용).
   const handleEmptyClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (configMissing) return;
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    setPopover({ anchor: rect });
+    setPopover({ anchor: (e.currentTarget as HTMLDivElement).getBoundingClientRect() });
   };
 
-  // 슬롯 높이: N * 40px (최소 160px) — 랙 슬롯과 동일한 느낌.
-  const railHeight = Math.max(N * 40, 160);
-
   return (
-    <div className="relative px-2 pb-2" style={{ height: railHeight }}>
-      {/* 랙 프레임 — RackSlotGrid 의 outer frame 과 동일 클래스/구조 */}
-      <div className="h-full flex border border-line-strong rounded-md overflow-hidden bg-surface-2 shadow-sm">
-        {/* 슬롯 번호 레일 — 랙과 동일 gridTemplateRows + gap */}
-        <div
-          aria-hidden
-          className="shrink-0 w-6 grid gap-1 border-r border-line-strong bg-surface-2"
-          style={{ gridTemplateRows: `repeat(${N}, minmax(0, 1fr))` }}
-        >
-          {Array.from({ length: N }, (_, i) => (
+    // 12슬롯 × 40px = 480px — 랙과 동일한 슬롯당 높이.
+    <div className="relative px-2 pb-2" style={{ height: OFD_SLOT_COUNT * 40 }}>
+      {/* SlotRailGrid — 프레임·레일·그리드는 공용 컴포넌트가 단독 소유. */}
+      <SlotRailGrid slotCount={OFD_SLOT_COUNT}>
+        {/* 점유 슬롯 (경로 0..slots.length-1) */}
+        {slots.map((slot, i) => {
+          const local = graph?.subNameById.get(ofdId) ?? localOfd?.substationName ?? null;
+          const remote = graph ? remoteSlotSubstation(slot.id, graph) : null;
+          const title = [local, remote].filter(Boolean).join(' - ') || slot.name;
+          const n = coresOf(slot.id);
+          return (
+            // 포지셔닝 wrapper — SlotTile 이 grid 행을 꽉 채우도록 h-full.
             <div
-              key={i}
-              className="flex items-center justify-center text-[9px] font-mono tabular-nums text-content-faint leading-none"
+              key={slot.id}
+              style={{
+                gridRowStart: i + 1,
+                gridRowEnd: i + 2,
+                gridColumnStart: 1,
+                gridColumnEnd: 2,
+              }}
             >
-              {i + 1}
-            </div>
-          ))}
-        </div>
-
-        {/* 1열 슬롯 그리드 — RackSlotGrid 와 동일 gridTemplateColumns/Rows/AutoColumns */}
-        <div
-          className="flex-1 bg-surface grid gap-1"
-          style={{
-            gridTemplateColumns: 'minmax(0, 1fr)',
-            gridTemplateRows: `repeat(${N}, minmax(0, 1fr))`,
-            gridAutoColumns: '0',
-          }}
-        >
-          {/* 점유 슬롯 (경로) */}
-          {slots.map((slot, i) => {
-            const local = graph?.subNameById.get(ofdId) ?? localOfd?.substationName ?? null;
-            const remote = graph ? remoteSlotSubstation(slot.id, graph) : null;
-            const title = [local, remote].filter(Boolean).join(' - ') || slot.name;
-            const n = coresOf(slot.id);
-            return (
-              <div
-                key={slot.id}
-                style={{
-                  gridRowStart: i + 1,
-                  gridRowEnd: i + 2,
-                  gridColumnStart: 1,
-                  gridColumnEnd: 2,
-                }}
-              >
-                <SlotTile
-                  title={title}
-                  subtitle={n ? `${n}코어` : undefined}
-                  selected={selectedAssetId === slot.id}
-                  onClick={() => useSelectionStore.getState().setSelectedAssetId(slot.id)}
-                  onDelete={() => deleteRoute(slot)}
-                />
-              </div>
-            );
-          })}
-
-          {/* 빈 슬롯 (항상 3개, slots.length 이후 위치) */}
-          {Array.from({ length: N - slots.length }, (_, j) => {
-            const rowIndex = slots.length + j;
-            return (
-              <EmptySlotCell
-                key={`empty-${rowIndex}`}
-                rowIndex={rowIndex}
-                isActive={popover !== null}
-                onClick={handleEmptyClick}
-                configMissing={configMissing}
+              <SlotTile
+                title={title}
+                subtitle={n ? `${n}코어` : undefined}
+                selected={selectedAssetId === slot.id}
+                onClick={() => useSelectionStore.getState().setSelectedAssetId(slot.id)}
+                onDelete={() => deleteRoute(slot)}
+                className="h-full"
               />
-            );
-          })}
-        </div>
-      </div>
+            </div>
+          );
+        })}
 
-      {/* 설정 누락 경고 */}
+        {/* 빈 슬롯 (slots.length..OFD_SLOT_COUNT-1) — 랙 EmptySlot 룩 인라인. */}
+        {Array.from({ length: OFD_SLOT_COUNT - slots.length }, (_, j) => {
+          const rowIndex = slots.length + j;
+          return (
+            <OfdEmptySlot
+              key={`empty-${rowIndex}`}
+              rowIndex={rowIndex}
+              isActive={popover !== null}
+              configMissing={configMissing}
+              onClick={handleEmptyClick}
+            />
+          );
+        })}
+      </SlotRailGrid>
+
       {configMissing && (
         <p className="mt-1 px-1 text-[11px] text-content-faint">설정 로딩/누락</p>
       )}
 
-      {/* 경로 추가 팝오버 */}
       {popover && (
         <OfdRoutePopover
           anchorRect={popover.anchor}
@@ -201,16 +176,16 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
   );
 }
 
-// ── 빈 슬롯 인라인 컴포넌트 — EmptySlot 룩 복제 (editorStore 의존 없음) ────────
+// ── 빈 슬롯 셀 — editorStore 의존 없는 EmptySlot 룩 ─────────────────────────
 
-interface EmptySlotCellProps {
+interface OfdEmptySlotProps {
   rowIndex: number;
   isActive: boolean;
-  onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
   configMissing: boolean;
+  onClick: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-function EmptySlotCell({ rowIndex, isActive, onClick, configMissing }: EmptySlotCellProps) {
+function OfdEmptySlot({ rowIndex, isActive, configMissing, onClick }: OfdEmptySlotProps) {
   const activeClasses = 'bg-info-bg text-primary ring-1 ring-inset ring-primary';
   const hoverClasses = 'hover:bg-info-bg hover:text-primary';
 

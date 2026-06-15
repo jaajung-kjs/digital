@@ -128,9 +128,9 @@ describe('OfdSlotRail', () => {
 
   it('빈 슬롯 클릭 → 팝오버에 "대국 OFD 선택" 이 나타난다', () => {
     wrap(<OfdSlotRail ofdId={OFD_ID} />);
-    // 빈 슬롯이 최소 3개 렌더됨 — 첫 번째 클릭
+    // slotCount=12, 점유=1 → 빈 슬롯 11개
     const emptySlots = screen.getAllByRole('button', { name: /빈 슬롯/ });
-    expect(emptySlots.length).toBeGreaterThanOrEqual(3);
+    expect(emptySlots.length).toBe(11);
     fireEvent.click(emptySlots[0]);
     expect(screen.getByRole('dialog', { name: '경로 추가' })).toBeInTheDocument();
     expect(screen.getByText('홍천변전소 대국')).toBeInTheDocument();
@@ -171,11 +171,10 @@ describe('OfdSlotRail', () => {
     expect(cableCall?.[1]).toMatchObject({ specParams: { cores: 24 } });
   });
 
-  it('좌측 번호 레일이 슬롯 수만큼 렌더된다 (N ≥ 4)', () => {
+  it('좌측 번호 레일이 12슬롯(랙과 동일)으로 렌더된다', () => {
     wrap(<OfdSlotRail ofdId={OFD_ID} />);
-    // 1 slot + 3 empty = N=4 minimum, but slots.length=1 so N=max(4, 1+3)=4
-    // rail shows 1..4 — check "1" and "4" exist (aria-hidden, so use getAllByText)
+    // slotCount=12 고정 — 레일에 "1"부터 "12" 까지 렌더됨 (aria-hidden).
     expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('4').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('12').length).toBeGreaterThanOrEqual(1);
   });
 });
