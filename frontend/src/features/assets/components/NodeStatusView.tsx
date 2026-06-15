@@ -221,7 +221,7 @@ export function NodeStatusView({
           </select>
         </div>
 
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto p-3">
           {filtered.length === 0 ? (
             <p className="text-sm text-content-faint px-4 py-3">
               {items.length === 0 ? '자산이 없습니다.' : '검색 결과가 없습니다.'}
