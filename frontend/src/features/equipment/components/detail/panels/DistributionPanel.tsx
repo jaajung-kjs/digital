@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
-import { useEffectiveAssets, useEffectiveCables } from '../../../../workingCopy/hooks';
+import { useEffectiveAssets } from '../../../../workingCopy/hooks';
 import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
 import { useSelectionStore } from '../../../../workspace/selectionStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
@@ -17,10 +17,6 @@ import { useTraceGraph } from '../../../../trace/traceGraph';
  */
 export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const effectiveAssets = useEffectiveAssets();
-  const localCables = useEffectiveCables() as unknown as {
-    sourceAssetId?: string | null;
-    targetAssetId?: string | null;
-  }[];
   const { data: assetTypes = [] } = useAssetTypes();
   const { graph } = useTraceGraph();
   const stageAssetCreate = useSubstationWorkingCopy((s) => s.stageAssetCreate);
@@ -48,17 +44,6 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
         : new Map<string, FeederCircuit[]>(),
     [graph, feeders],
   );
-
-  // 피더별 연결 여부 — 칸 색을 결정 (연결됨=파랑, 빈=회색 점선).
-  // 케이블 endpoint 가 FEEDER asset id 이므로 source/target.assetId 로 판정.
-  const connectedFeederIds = useMemo(() => {
-    const s = new Set<string>();
-    for (const c of localCables) {
-      if (c.sourceAssetId) s.add(c.sourceAssetId);
-      if (c.targetAssetId) s.add(c.targetAssetId);
-    }
-    return s;
-  }, [localCables]);
 
   const [addingFeeder, setAddingFeeder] = useState(false);
   const [newFeeder, setNewFeeder] = useState('');
@@ -97,46 +82,40 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
             스크롤 없음). */}
         <div className="grid grid-cols-3 gap-2 items-start">
           {feeders.map((feeder) => {
-            const connected = connectedFeederIds.has(feeder.id);
             return (
               <div
                 key={feeder.id}
                 className="relative rounded-md border border-line bg-surface overflow-hidden group/feeder"
               >
+                {/* 클릭하면 그 피더로 바로 이동하므로 '선택/눌림' 상태는 없다 — 카드는 항상 균일. */}
                 <button
                   type="button"
                   onClick={() => useSelectionStore.getState().setSelectedAssetId(feeder.id)}
-                  className={`w-full px-2 py-3 pr-7 text-left transition-colors ${
-                    connected
-                      ? 'bg-info-bg hover:bg-info-bg border-l-2 border-l-primary'
-                      : 'bg-surface hover:bg-surface-2'
-                  }`}
-                  title={connected ? '연결됨 — 클릭해 선택' : '미연결 계통 — 클릭해 선택'}
+                  className="w-full px-2 py-3 pr-7 text-left bg-surface hover:bg-surface-2 transition-colors"
+                  title="클릭해 이 계통(피더)으로 이동"
                 >
                   <span className="block text-sm font-semibold text-content-muted truncate">
                     {feeder.name}
                   </span>
                   {(() => {
+                    // 점유된 CB(분기)만 — 미리보기 점/개수. 빈 슬롯은 피더 패널에서 추가.
                     const cs = feederCircuits.get(feeder.id) ?? [];
-                    const used = cs.filter((c) => c.occupied).length;
                     return (
                       <>
-                        <span className="mt-0.5 block text-[11px] text-content-faint">CB {used}/{cs.length}</span>
-                        <span className="mt-1 flex flex-wrap gap-0.5">
-                          {cs.map((c) => (
-                            <span
-                              key={c.cbNumber}
-                              className={`inline-block h-2 w-2 rounded-[1px] ${
-                                !c.occupied
-                                  ? 'bg-surface-2'
-                                  : c.switchState.toUpperCase() === 'ON'
-                                    ? 'bg-success'
-                                    : 'bg-content-faint'
-                              }`}
-                              title={`CB ${c.cbNumber}${c.occupied ? ` · ${c.loadName ?? ''} ${c.switchState}` : ' 빈'}`}
-                            />
-                          ))}
-                        </span>
+                        <span className="mt-0.5 block text-[11px] text-content-faint">CB {cs.length}개</span>
+                        {cs.length > 0 && (
+                          <span className="mt-1 flex flex-wrap gap-0.5">
+                            {cs.map((c) => (
+                              <span
+                                key={c.cbNumber}
+                                className={`inline-block h-2 w-2 rounded-[1px] ${
+                                  c.switchState.toUpperCase() === 'ON' ? 'bg-success' : 'bg-content-faint'
+                                }`}
+                                title={`CB ${c.cbNumber} · ${c.loadName ?? ''} ${c.switchState}`}
+                              />
+                            ))}
+                          </span>
+                        )}
                       </>
                     );
                   })()}

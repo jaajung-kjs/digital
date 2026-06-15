@@ -5,7 +5,7 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
-import { buildFeederCircuits } from '../feederCircuits';
+import { buildFeederCircuits, feederGridSlots } from '../feederCircuits';
 import { commitMeta } from '../powerRegisterDescriptor';
 import { BreakerRail } from '../../../components/BreakerRail';
 import { EditableField } from '../../assets/components/EditableField';
@@ -24,11 +24,13 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   const setSelectedCb = (n: number | null) => useSelectionStore.getState().setSelectedCore(n);
 
   const feeder = useMemo(() => assets.find((a) => a.id === feederId) ?? null, [assets, feederId]);
-  const circuits = useMemo(
+  // 점유 회로(데이터) → 고정 그리드(빈 슬롯 패딩, 표시).
+  const occupied = useMemo(
     () => (feeder && graph ? buildFeederCircuits({ id: feeder.id }, graph.cables as never[], graph.nameById) : []),
     [feeder, graph],
   );
-  const selected = circuits.find((c) => c.cbNumber === selectedCb) ?? null;
+  const slots = useMemo(() => feederGridSlots(occupied), [occupied]);
+  const selected = occupied.find((c) => c.cbNumber === selectedCb) ?? null;
 
   useEffect(() => {
     const hi = usePathHighlightStore.getState();
@@ -39,7 +41,7 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   useEffect(() => () => usePathHighlightStore.getState().clearHighlight(), []);
 
   const toggle = (cbNumber: number) => {
-    const c = circuits.find((x) => x.cbNumber === cbNumber);
+    const c = occupied.find((x) => x.cbNumber === cbNumber);
     if (!c?.cableId) return;
     commitMeta(c.cableId, 'switchState', c.switchState.toUpperCase() === 'ON' ? 'OFF' : 'ON');
   };
@@ -57,14 +59,14 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
     if (selectedCb === cbNumber) setSelectedCb(null);
   };
 
-  if (!circuits.length) {
+  if (!feeder) {
     return <p className="px-1 text-[11px] text-content-faint">분기 정보를 불러올 수 없습니다.</p>;
   }
 
   return (
     <div className="space-y-3">
       <BreakerRail
-        circuits={circuits}
+        circuits={slots}
         selectedCb={selectedCb}
         onSelect={setSelectedCb}
         onToggle={toggle}

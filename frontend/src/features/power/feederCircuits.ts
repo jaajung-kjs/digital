@@ -1,4 +1,4 @@
-import { buildPowerRows, type CbRow } from './powerRegisterDescriptor';
+import { buildPowerRows } from './powerRegisterDescriptor';
 
 export interface FeederCircuit {
   cbNumber: number;
@@ -15,9 +15,16 @@ export interface FeederCircuit {
 // buildPowerRows 의 두 번째 인자(cables) 원소 형태.
 type Cable = Parameters<typeof buildPowerRows>[1][number];
 
+/** 빈(미점유) 차단기 슬롯. */
+const emptySlot = (cbNumber: number): FeederCircuit => ({
+  cbNumber, occupied: false, cableId: null,
+  loadAssetId: null, loadName: null, capacity: '', switchState: '', spec: '', categoryId: null,
+});
+
 /**
- * 피더의 분기(CB) — 점유는 buildPowerRows(SSOT) 재사용, 그 위에 빈 위치를 1..N 으로 패딩.
- * N = max(점유 최대 번호 + 2, 6). 빈 번호는 occupied=false 빈 차단기.
+ * 피더의 분기(CB) — 실제 점유된 회로만(데이터). buildPowerRows(SSOT) 재사용.
+ * 표시용 빈 슬롯 패딩은 분리(feederGridSlots) — 데이터/뷰 관심사 분리.
+ * (분전반 미리보기는 이 점유 목록만, 피더 DIN 레일은 feederGridSlots 로 고정 그리드 표시.)
  */
 export function buildFeederCircuits(
   feeder: { id: string },
@@ -25,29 +32,35 @@ export function buildFeederCircuits(
   nameById: Map<string, string>,
 ): FeederCircuit[] {
   const rows = buildPowerRows(feeder.id, cables, nameById);
-  const byNum = new Map<number, CbRow>();
+  const out: FeederCircuit[] = [];
   for (const r of rows) {
     const n = parseInt(r.cbNumber, 10);
-    if (!Number.isNaN(n)) byNum.set(n, r);
+    if (Number.isNaN(n)) continue;
+    out.push({
+      cbNumber: n, occupied: true, cableId: r.cableId,
+      loadAssetId: r.loadAssetId, loadName: r.loadName,
+      capacity: r.capacity, switchState: r.switchState, spec: r.spec, categoryId: r.categoryId,
+    });
   }
+  return out.sort((a, b) => a.cbNumber - b.cbNumber);
+}
+
+/** 피더 DIN 레일 고정 그리드 — 한 줄(ROW) 단위로 채운다(랙 슬롯 동형). */
+const ROW = 8;
+const MIN_SLOTS = 24; // 8×3 — 기본 빈 그리드(점유 0개라도 UI 를 꽉 채운다).
+
+/**
+ * 점유 회로를 cbNumber 위치에 두고, 나머지는 빈 슬롯(＋추가)으로 채운 고정 그리드.
+ * N = max(MIN_SLOTS, 점유최대+1 을 ROW 배수로 올림) — 항상 8×3 이상, 점유가 많으면 줄 단위로 증가,
+ * 그리고 마지막 줄에 빈 슬롯이 최소 하나는 남도록(추가 가능).
+ */
+export function feederGridSlots(occupied: FeederCircuit[], minSlots = MIN_SLOTS): FeederCircuit[] {
+  const byNum = new Map<number, FeederCircuit>();
+  for (const c of occupied) byNum.set(c.cbNumber, c);
   const maxNum = byNum.size ? Math.max(...byNum.keys()) : 0;
-  const N = Math.max(maxNum + 2, 6);
+  const N = Math.max(minSlots, Math.ceil((maxNum + 1) / ROW) * ROW);
 
   const out: FeederCircuit[] = [];
-  for (let n = 1; n <= N; n++) {
-    const r = byNum.get(n);
-    out.push(
-      r
-        ? {
-            cbNumber: n, occupied: true, cableId: r.cableId,
-            loadAssetId: r.loadAssetId, loadName: r.loadName,
-            capacity: r.capacity, switchState: r.switchState, spec: r.spec, categoryId: r.categoryId,
-          }
-        : {
-            cbNumber: n, occupied: false, cableId: null,
-            loadAssetId: null, loadName: null, capacity: '', switchState: '', spec: '', categoryId: null,
-          },
-    );
-  }
+  for (let n = 1; n <= N; n++) out.push(byNum.get(n) ?? emptySlot(n));
   return out;
 }

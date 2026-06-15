@@ -3,9 +3,10 @@ import type { FeederCircuit } from '../features/power/feederCircuits';
 const isOn = (s: string) => s.toUpperCase() === 'ON';
 
 /**
- * 차단기 DIN 레일 — 가로 배열 차단기 모듈(번호 + 개폐 토글 + 용량). 색=개폐상태. 순수 표시.
- * 빈 자리는 랙/OFD 빈 슬롯처럼 "＋" 추가 버튼(onAddCb) — 클릭하면 평면도에서 케이블을 그려
- * CB(피더→부하)를 만든다. 점유 차단기는 hover 시 삭제(onDeleteCb).
+ * 차단기 DIN 레일 — 8열 고정 그리드(랙 슬롯 동형). 빈 자리는 "＋" 추가 버튼(onAddCb):
+ * 클릭하면 평면도에서 케이블을 그려 CB(피더→부하)를 만든다. 점유 차단기는 실제 스위치처럼
+ * ON=레버 위 / OFF=레버 아래로 내려간 토글 + hover 삭제(onDeleteCb). 순수 표시.
+ * `circuits` 는 feederGridSlots 로 만든 고정 그리드(점유+빈 슬롯)를 그대로 받는다.
  */
 export function BreakerRail({
   circuits,
@@ -23,7 +24,7 @@ export function BreakerRail({
   onDeleteCb?: (cbNumber: number, cableId: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1 rounded-md bg-surface-2 p-2">
+    <div className="grid grid-cols-8 gap-1 rounded-md bg-surface-2 p-2">
       {circuits.map((c) => {
         // 빈 자리 = 추가 버튼(랙/OFD 빈 슬롯 동형). 클릭 → 평면도 케이블 그리기.
         if (!c.occupied) {
@@ -34,9 +35,9 @@ export function BreakerRail({
               onClick={onAddCb}
               disabled={!onAddCb}
               aria-label={`차단기 ${c.cbNumber} 추가`}
-              className="flex w-9 min-w-9 flex-col items-center justify-center gap-0.5 rounded-[3px] border border-dashed border-line py-1.5 text-content-faint transition-colors hover:border-primary hover:text-primary hover:bg-info-bg disabled:cursor-default disabled:hover:border-line disabled:hover:bg-transparent disabled:hover:text-content-faint"
+              className="flex min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-[3px] border border-dashed border-line text-content-faint transition-colors hover:border-primary hover:text-primary hover:bg-info-bg disabled:cursor-default disabled:hover:border-line disabled:hover:bg-transparent disabled:hover:text-content-faint"
             >
-              <span className="text-[9px] font-mono tabular-nums leading-none">{c.cbNumber}</span>
+              <span className="text-[8px] font-mono tabular-nums leading-none opacity-60">{c.cbNumber}</span>
               <span className="text-sm leading-none" aria-hidden="true">＋</span>
             </button>
           );
@@ -52,18 +53,29 @@ export function BreakerRail({
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(c.cbNumber); } }}
             aria-label={`차단기 ${c.cbNumber}`}
             aria-current={selectedCb === c.cbNumber ? 'true' : undefined}
-            className={`group relative flex w-9 min-w-9 flex-col items-center gap-1 rounded-[3px] py-1.5 cursor-pointer transition-shadow ${stateCls} ${
+            className={`group relative flex min-h-[3.25rem] flex-col items-center justify-between gap-0.5 rounded-[3px] py-1 cursor-pointer transition-shadow ${stateCls} ${
               selectedCb === c.cbNumber ? 'ring-2 ring-primary' : ''
             }`}
           >
-            <span className="text-[9px] font-mono tabular-nums leading-none">{c.cbNumber}</span>
+            <span className="text-[8px] font-mono tabular-nums leading-none">{c.cbNumber}</span>
+            {/* 실제 차단기 레버 — ON=위, OFF=아래. */}
             <button
               type="button"
               aria-label={`차단기 ${c.cbNumber} 개폐`}
               onClick={(e) => { e.stopPropagation(); onToggle(c.cbNumber); }}
-              className={`block h-5 w-2.5 rounded-[2px] ${on ? 'bg-success' : 'bg-content-faint'}`}
-            />
-            <span className="text-[8px] leading-none opacity-70">{c.capacity || '·'}</span>
+              title={on ? 'ON — 클릭해 차단' : 'OFF — 클릭해 투입'}
+              className={`relative h-6 w-3.5 rounded-[3px] border transition-colors ${
+                on ? 'border-success/40 bg-success-bg' : 'border-line bg-surface-2'
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`absolute inset-x-[2px] top-[2px] h-2.5 rounded-[2px] transition-all duration-200 ${
+                  on ? 'translate-y-0 bg-success' : 'translate-y-[12px] bg-content-faint'
+                }`}
+              />
+            </button>
+            <span className="text-[7px] leading-none opacity-70">{c.capacity || '·'}</span>
             {onDeleteCb && c.cableId && (
               <button
                 type="button"

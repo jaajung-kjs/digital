@@ -68,10 +68,15 @@ describe('DistributionCircuits — FEEDER asset 그리드 (피더-전용)', () =
     expect(screen.getByText('두번째피더')).toBeInTheDocument();
   });
 
-  it('연결된 피더(F1) 칸은 "연결됨" 타이틀 — 케이블 endpoint = feeder asset id', () => {
+  it('피더 카드는 균일 — 클릭하면 바로 이동하므로 선택/눌림 상태가 없다', () => {
     render(<DistributionCircuits equipmentId={PANEL} />);
-    expect(screen.getByText('테스트피더').closest('button')?.getAttribute('title')).toMatch(/연결됨/);
-    expect(screen.getByText('두번째피더').closest('button')?.getAttribute('title')).toMatch(/미연결/);
+    // 모든 카드가 같은 "이동" 타이틀 + 같은 배경(연결됨/선택 강조 없음).
+    const f1 = screen.getByText('테스트피더').closest('button')!;
+    const f2 = screen.getByText('두번째피더').closest('button')!;
+    expect(f1.getAttribute('title')).toMatch(/이동/);
+    expect(f2.getAttribute('title')).toMatch(/이동/);
+    expect(f1.className).not.toContain('border-l-primary');
+    expect(f1.className).toBe(f2.className);
   });
 
   it('피더 칸 클릭 → setSelectedAssetId(feeder id)', () => {
