@@ -12,7 +12,7 @@ export function SlotTile({ title, subtitle, state = 'occupied', selected = false
   if (state === 'empty') {
     return (
       <button type="button" onClick={onClick}
-        className="group flex h-16 flex-col items-center justify-center rounded-md border border-dashed border-line bg-surface-2/50 text-xs text-content-faint transition-colors hover:bg-surface-2 hover:text-content">
+        className="group flex h-12 w-full flex-col items-center justify-center rounded-md border border-dashed border-line bg-surface-2/50 text-xs text-content-faint transition-colors hover:bg-info-bg hover:text-primary">
         {title}
       </button>
     );
@@ -20,7 +20,7 @@ export function SlotTile({ title, subtitle, state = 'occupied', selected = false
   return (
     <div role="button" tabIndex={onClick ? 0 : -1} onClick={onClick}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); }}
-      className={`group relative flex h-16 ${onClick ? 'cursor-pointer' : 'cursor-default'} flex-col justify-center rounded-md px-2.5 py-1.5 text-left transition-shadow ${selected ? 'ring-2 ring-primary' : ''}`}
+      className={`group relative flex h-12 w-full ${onClick ? 'cursor-pointer' : 'cursor-default'} flex-col justify-center rounded-md px-2.5 py-1.5 text-left transition-shadow ${selected ? 'ring-2 ring-primary' : ''}`}
       style={{ background: FACEPLATE_BG, color: FACEPLATE_FG, boxShadow: BEZEL }}>
       <span className="truncate text-[13px] font-medium">{title}</span>
       {subtitle != null && <span className="truncate text-[11px] opacity-70">{subtitle}</span>}

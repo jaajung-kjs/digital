@@ -91,7 +91,7 @@ export function OfdSlotGrid({ ofdId }: { ofdId: string }) {
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-1">
         {slots.map((slot) => {
           const local = graph?.subNameById.get(ofdId) ?? localOfd?.substationName ?? null;
           const remote = graph ? remoteSlotSubstation(slot.id, graph) : null;
