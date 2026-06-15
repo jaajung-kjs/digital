@@ -1,7 +1,8 @@
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { StagedAssetDetailPanel } from '../../assets/components/StagedAssetDetailPanel';
-import { PanelCircuitView } from './PanelCircuitView';
+import { ConnectionRegisterGrid } from '../../connections/registerGrid/ConnectionRegisterGrid';
+import { powerRegisterDescriptor } from '../powerRegisterDescriptor';
 
 /** 계통 뷰(변전소 스코프) — 분전반·피더·CB 그리드 + 행 클릭 시 공유 선택 사이드패널(연결탭). */
 export function PowerView({ substationId }: { substationId: string }) {
@@ -12,7 +13,7 @@ export function PowerView({ substationId }: { substationId: string }) {
   return (
     <div className="h-full flex">
       <div className="flex-1 overflow-auto p-3">
-        <PanelCircuitView substationId={substationId} />
+        <ConnectionRegisterGrid substationId={substationId} descriptor={powerRegisterDescriptor} />
       </div>
       {selectedAssetId && (
         <StagedAssetDetailPanel

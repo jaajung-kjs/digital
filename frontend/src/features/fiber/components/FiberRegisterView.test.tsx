@@ -73,27 +73,30 @@ vi.mock('../../workingCopy/substationStore', () => {
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { useSubstationWorkingCopy: hook };
 });
+vi.mock('../../assets/components/StagedAssetDetailPanel', () => ({
+  StagedAssetDetailPanel: () => null,
+}));
 
-import { OfdFiberRegister } from './OfdFiberRegister';
+import { FiberRegisterView } from './FiberRegisterView';
 
 beforeEach(() => { setSelectedAssetId.mockClear(); patch.mockClear(); effectiveCables.mockReturnValue([]); });
 
 describe('OfdFiberRegister', () => {
   it('섹션 헤더(원주 - 홍천)와 코어 행(점유/빈)을 렌더한다', () => {
-    render(<OfdFiberRegister ofdId="ofd1" />);
+    render(<FiberRegisterView substationId="s1" />);
     expect(screen.getByText('원주 - 홍천')).toBeInTheDocument();
     expect(screen.getByText('송변전광단말')).toBeInTheDocument();
     expect(screen.getByText('홍천단말')).toBeInTheDocument();
   });
 
   it('점유 코어 행 클릭 → 근접자산 선택', () => {
-    render(<OfdFiberRegister ofdId="ofd1" />);
+    render(<FiberRegisterView substationId="s1" />);
     fireEvent.click(screen.getByText('송변전광단말'));
     expect(setSelectedAssetId).toHaveBeenCalledWith('a-near');
   });
 
   it('빈 코어 행 클릭 → ofdId 선택(fallback)', () => {
-    render(<OfdFiberRegister ofdId="ofd1" />);
+    render(<FiberRegisterView substationId="s1" />);
     // 빈 코어 행 — 코어번호 "1" 셀 클릭
     const coreCells = screen.getAllByText(/^1$/);
     fireEvent.click(coreCells[0]);
@@ -102,7 +105,7 @@ describe('OfdFiberRegister', () => {
 
   it('점유 코어 용도 blur → patch(cables, cableId, specParams 머지)', () => {
     effectiveCables.mockReturnValue([{ id: 'c2', specParams: { purpose: null } }]);
-    render(<OfdFiberRegister ofdId="ofd1" />);
+    render(<FiberRegisterView substationId="s1" />);
     const inputs = screen.getAllByPlaceholderText('용도');
     // inputs[1] = 코어2(점유, cableId='c2')
     fireEvent.blur(inputs[1], { target: { value: '통합단말' } });
