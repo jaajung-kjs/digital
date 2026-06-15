@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { fiberRegisterDescriptor } from '../features/fiber/fiberRegisterDescriptor';
+import { powerRegisterDescriptor } from '../features/power/powerRegisterDescriptor';
 import { FloorPlanEditor } from '../features/editor/components/FloorPlanEditor';
 import { NodeStatusView } from '../features/assets/components/NodeStatusView';
 import { SubstationStatusView } from '../features/assets/components/SubstationStatusView';
@@ -102,6 +104,23 @@ export function WorkspacePage() {
   const planFloorId = isSubstationNode
     ? (floorParam ?? selectedAnchor?.floorId ?? floors[0]?.id ?? null)
     : (selectedAnchor?.floorId ?? null);
+
+  // 선번장(fiber)→첫 OFD, 계통(power)→첫 분전반 사이드패널 자동 오픈.
+  // (뷰,변전소) 진입당 1회만 — 패널을 닫아도 재오픈하지 않고(autoOpenedKey 가드),
+  // 변전소가 바뀌면 새 키로 다시 발화. 컨테이너 로드 전이면 키를 안 박고 다음 렌더에 재시도.
+  const autoOpenedKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (view !== 'fiber' && view !== 'power') { autoOpenedKey.current = null; return; }
+    if (!contextSubstationId) return;
+    const key = `${view}:${contextSubstationId}`;
+    if (autoOpenedKey.current === key) return;
+    const containers = view === 'fiber'
+      ? fiberRegisterDescriptor.selectContainers(effective, contextSubstationId)
+      : powerRegisterDescriptor.selectContainers(effective, contextSubstationId);
+    if (!containers.length) return;
+    autoOpenedKey.current = key;
+    setSelectedAssetId(containers[0].id);
+  }, [view, contextSubstationId, effective, setSelectedAssetId]);
 
   const nav: WorkspaceNav = useMemo(() => ({
     gotoFloor: (floorId, assetId) => {
