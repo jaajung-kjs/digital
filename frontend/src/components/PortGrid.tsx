@@ -1,9 +1,15 @@
 import type { SlotPort, PortState } from '../features/fiber/slotPorts';
 
+// 상태 → 배경색 토큰(범례 스와치도 이걸 직접 사용 — 위치 의존 split 제거).
+const BG_CLASS: Record<PortState, string> = {
+  empty: 'bg-surface-2',
+  half: 'bg-warning-bg',
+  full: 'bg-success-bg',
+};
 const STATE_CLASS: Record<PortState, string> = {
-  empty: 'bg-surface-2 text-content-faint',
-  half: 'bg-warning-bg text-warning',
-  full: 'bg-success-bg text-success',
+  empty: `${BG_CLASS.empty} text-content-faint`,
+  half: `${BG_CLASS.half} text-warning`,
+  full: `${BG_CLASS.full} text-success`,
 };
 
 const LEGEND: { state: PortState; label: string }[] = [
@@ -48,7 +54,7 @@ export function PortGrid({
       <div className="flex items-center gap-3 text-[10px] text-content-muted">
         {LEGEND.map((l) => (
           <span key={l.state} className="flex items-center gap-1">
-            <span className={`inline-block h-2.5 w-2.5 rounded-[2px] ${STATE_CLASS[l.state].split(' ')[0]}`} />
+            <span className={`inline-block h-2.5 w-2.5 rounded-[2px] ${BG_CLASS[l.state]}`} />
             {l.label}
           </span>
         ))}
