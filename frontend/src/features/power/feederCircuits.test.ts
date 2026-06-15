@@ -56,8 +56,6 @@ describe('feederGridSlots (고정 그리드 패딩)', () => {
   });
 });
 
-import { buildFeederInput } from './feederCircuits';
-
 describe('buildFeederInput — role=IN 공급', () => {
   const inCable = { id: 'in1', sourceAssetId: 'srcEq', targetAssetId: 'f1', sourceRole: null, targetRole: 'IN', number: null, specParams: {} };
   it('IN 케이블 1개 해소(공급원명 포함)', () => {
