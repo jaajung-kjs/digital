@@ -7,6 +7,7 @@ import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils
 import { type Position, getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import { kindOf } from '../../workingCopy/placement';
 import {
   useInteractionStore,
@@ -325,8 +326,9 @@ export function useCanvasEvents(
         // RACK / DISTRIBUTION / OFD endpoints require a module / circuit / port step.
         if (needsEndpointPicker(kindOf(eq))) {
           interaction.cableSetPendingSource();
-          // 컨테이너(랙/분전반/OFD)의 우측 상세 패널을 열어 그 안에서 endpoint 를 picking.
-          useEditorStore.getState().openDetail(eq.id);
+          // 컨테이너(랙/분전반/OFD)를 선택만 해 둔다 — 우측 패널 대신 CableEndpointDialog 가
+          // selectedAssetId 를 현재 노드로 읽어 내부뷰를 다이얼로그로 노출한다.
+          useSelectionStore.getState().setSelectedAssetId(eq.id);
         } else {
           interaction.cableSetSource({ containerAssetId: eq.id, position: center });
         }
@@ -344,8 +346,8 @@ export function useCanvasEvents(
         const center = getEquipmentCenter(eq);
         if (needsEndpointPicker(kindOf(eq))) {
           interaction.cableSetPendingTarget();
-          // 컨테이너의 우측 상세 패널을 열어 그 안에서 target endpoint 를 picking.
-          useEditorStore.getState().openDetail(eq.id);
+          // 컨테이너를 선택만 해 둔다 — CableEndpointDialog 가 내부뷰를 다이얼로그로 노출한다.
+          useSelectionStore.getState().setSelectedAssetId(eq.id);
         } else {
           interaction.cableSetTarget({ containerAssetId: eq.id, position: center });
           commitCable();
