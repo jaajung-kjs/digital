@@ -6,6 +6,7 @@ export interface RegisterCtx {
   assets: Asset[];
   cables: unknown[]; // effective Cable rows (descriptor가 좁혀 읽음)
   graph: TraceGraph | null;
+  isLoading: boolean;
 }
 export interface RegisterColumn<Row> { label: string; width?: string; cell(row: Row): ReactNode }
 export interface RegisterSection<Row> { key: string; title: string; usedLabel: string; rows: Row[] }

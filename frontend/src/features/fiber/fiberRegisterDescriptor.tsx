@@ -13,7 +13,8 @@ function commitMeta(cableId: string, field: string, value: string | null) {
   wc.patch('cables', cableId, { specParams: { ...prev, [field]: value } });
 }
 
-export type FiberRow = SlotCoreRow & { __ofdId: string; __nameById?: Map<string, string> };
+/** __nameById 동봉 — cell(row) 시그니처에 ctx 없으므로 row 에 해소맵 첨부. */
+export type FiberRow = SlotCoreRow & { __nameById?: Map<string, string> };
 
 export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
   emptyMessage: '이 변전소에 OFD(광단국)가 없습니다.',
@@ -24,12 +25,17 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     const graph = ctx.graph as TraceGraph | null;
     const ofdId = slot.parentAssetId ?? slot.id;
     const rows = buildSlotCoreRows(slot as never, ctx.cables as never[], graph)
-      .map((r): FiberRow => ({ ...r, __ofdId: ofdId, __nameById: graph?.nameById }));
+      .map((r): FiberRow => ({ ...r, __nameById: graph?.nameById }));
     const used = rows.filter((r) => r.usage === '사용').length;
     const localSub = graph?.subNameById.get(ofdId) ?? null;
     const remoteSub = graph ? remoteSlotSubstation(slot.id, graph) : null;
     const title = [localSub, remoteSub].filter(Boolean).join(' - ') || (slot.name ?? '광경로');
-    return { key: slot.id, title, usedLabel: `사용 ${used}/${rows.length}`, rows };
+    return {
+      key: slot.id,
+      title,
+      usedLabel: `사용 ${used}/${rows.length}${ctx.isLoading ? ' · 대국 불러오는 중…' : ''}`,
+      rows,
+    };
   },
   rowKey: (row) => row.coreNumber,
   rowTraceCableId: (row) => row.cableId,

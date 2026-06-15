@@ -15,41 +15,42 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
 }) {
   const assets = useEffectiveAssets() as Asset[];
   const cables = useEffectiveCables();
-  const { graph } = useTraceGraph();
-  const ctx = { assets, cables: cables as unknown[], graph };
+  const { graph, isLoading } = useTraceGraph();
 
-  const containers = useMemo(
-    () => descriptor.selectContainers(assets, substationId),
-    [assets, substationId, descriptor],
-  );
-  if (!containers.length) return <p className="p-3 text-sm text-content-faint">{descriptor.emptyMessage}</p>;
+  // descriptor must be a module-level stable ref
+  const groups = useMemo(() => {
+    const ctx = { assets, cables: cables as unknown[], graph, isLoading };
+    return descriptor.selectContainers(assets, substationId).map((container) => ({
+      container,
+      header: descriptor.containerHeader?.(container, ctx) ?? null,
+      sections: assets
+        .filter((a) => a.parentAssetId === container.id && a.assetType?.connectionKind === descriptor.childKind)
+        .map((child) => ({ child, section: descriptor.buildSection(child, ctx) })),
+    }));
+  }, [assets, cables, graph, isLoading, substationId, descriptor]);
+
+  if (!groups.length) return <p className="p-3 text-sm text-content-faint">{descriptor.emptyMessage}</p>;
 
   return (
     <div className="space-y-6">
-      {containers.map((container) => {
-        const header = descriptor.containerHeader?.(container, ctx) ?? null;
-        const children = assets.filter(
-          (a) => a.parentAssetId === container.id && a.assetType?.connectionKind === descriptor.childKind,
-        );
-        return (
-          <div key={container.id} className="space-y-4">
-            {header && <h2 className="px-1 text-sm font-bold text-content">{header}</h2>}
-            {children.map((child) => (
-              <SectionView
-                key={child.id}
-                section={descriptor.buildSection(child, ctx)}
-                columns={descriptor.columns}
-                rowKey={descriptor.rowKey}
-                rowTraceCableId={descriptor.rowTraceCableId}
-                onRowClick={(row) => {
-                  const id = descriptor.onRowClick(row, child);
-                  if (id) useSelectionStore.getState().setSelectedAssetId(id);
-                }}
-              />
-            ))}
-          </div>
-        );
-      })}
+      {groups.map(({ container, header, sections }) => (
+        <div key={container.id} className="space-y-4">
+          {header && <h2 className="px-1 text-sm font-bold text-content">{header}</h2>}
+          {sections.map(({ child, section }) => (
+            <SectionView
+              key={child.id}
+              section={section}
+              columns={descriptor.columns}
+              rowKey={descriptor.rowKey}
+              rowTraceCableId={descriptor.rowTraceCableId}
+              onRowClick={(row) => {
+                const id = descriptor.onRowClick(row, child);
+                if (id) useSelectionStore.getState().setSelectedAssetId(id);
+              }}
+            />
+          ))}
+        </div>
+      ))}
     </div>
   );
 }

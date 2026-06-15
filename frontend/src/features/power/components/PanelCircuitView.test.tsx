@@ -18,7 +18,7 @@ vi.mock('../../workspace/selectionStore', () => {
   return { useSelectionStore: hook };
 });
 vi.mock('../../trace/traceGraph', () => ({
-  useTraceGraph: () => ({ graph: null }),
+  useTraceGraph: () => ({ graph: null, isLoading: false }),
 }));
 vi.mock('../../pathTrace/stores/pathHighlightStore', () => ({
   usePathHighlightStore: (sel: (s: unknown) => unknown) => sel({ tracingCableId: null }),
