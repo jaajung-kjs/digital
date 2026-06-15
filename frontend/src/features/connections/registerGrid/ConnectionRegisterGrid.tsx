@@ -9,7 +9,8 @@ import { rowClass } from '../../../components/grid/rowClasses';
 import type { Asset } from '../../../types/asset';
 import type { RegisterColumn, RegisterDescriptor, RegisterSection } from './registerTypes';
 
-const TD = 'px-2 text-[13px] align-middle whitespace-nowrap';
+const cellPad = (first: boolean, last: boolean) => (first ? 'pl-4 pr-2' : last ? 'px-2 pr-4' : 'px-2');
+const TD_BASE = 'text-[13px] align-middle whitespace-nowrap';
 
 /** 컨테이너 자산 → connectionKind 자식(섹션) → 테이블 → 행클릭 선택. 도메인 로직은 descriptor. */
 export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
@@ -133,7 +134,9 @@ function RowView<Row>({ row, columns, traceCableId, selectedId, onClick }: {
     (!!selectedId && selectedAssetId === selectedId);
   return (
     <tr onClick={onClick} className={rowClass(highlighted)}>
-      {columns.map((c, i) => <td key={i} className={TD}>{c.cell(row)}</td>)}
+      {columns.map((c, i) => (
+        <td key={i} className={`${TD_BASE} ${cellPad(i === 0, i === columns.length - 1)}`}>{c.cell(row)}</td>
+      ))}
     </tr>
   );
 }

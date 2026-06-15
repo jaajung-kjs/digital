@@ -49,7 +49,8 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     {
       label: '번호',
       width: 'w-14',
-      sortKey: (r) => r.cbNumber,
+      sortType: 'number',
+      sortKey: (r) => { const n = parseInt(r.cbNumber, 10); return Number.isNaN(n) ? null : n; },
       cell: (r) => (
         <EditableField
           value={r.cbNumber}
