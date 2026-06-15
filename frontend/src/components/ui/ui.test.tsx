@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { Modal } from './Modal';
+import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from './DetailCard';
 
 describe('Button', () => {
   it('renders primary variant by default', () => {
@@ -46,6 +47,40 @@ describe('Badge', () => {
     const el = screen.getByText('오류');
     expect(el).toHaveClass('bg-danger-bg');
     expect(el).toHaveClass('text-danger');
+  });
+});
+
+describe('DetailCard', () => {
+  it('표준 카드 외형(rounded-lg/border-line/bg-surface/p-3/text-sm)으로 통일', () => {
+    const { container } = render(<DetailCard>본문</DetailCard>);
+    const card = container.firstChild as HTMLElement;
+    for (const cls of ['rounded-lg', 'border-line', 'bg-surface', 'p-3', 'text-sm']) {
+      expect(card).toHaveClass(cls);
+    }
+  });
+
+  it('헤더는 제목 + 상태 배지(Badge)를 렌더', () => {
+    render(<DetailCardHeader title="포트 3" badge="양측" badgeStatus="success" />);
+    expect(screen.getByText('포트 3')).toBeInTheDocument();
+    const badge = screen.getByText('양측');
+    expect(badge).toHaveClass('text-success');
+  });
+
+  it('배지가 없으면 배지를 렌더하지 않는다', () => {
+    render(<DetailCardHeader title="CB 1" />);
+    expect(screen.getByText('CB 1')).toBeInTheDocument();
+  });
+
+  it('DetailRow 는 라벨(text-xs) + 값(text-sm 본문), DetailNote 는 보조설명', () => {
+    render(
+      <DetailCard>
+        <DetailRow label="부하">복도등</DetailRow>
+        <DetailNote>안내</DetailNote>
+      </DetailCard>,
+    );
+    expect(screen.getByText('부하')).toHaveClass('text-xs');
+    expect(screen.getByText('복도등')).toBeInTheDocument();
+    expect(screen.getByText('안내')).toHaveClass('text-xs');
   });
 });
 

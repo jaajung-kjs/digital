@@ -35,7 +35,7 @@ const occ = (n: number): FeederCircuit => ({
 });
 
 describe('feederGridSlots (고정 그리드 패딩)', () => {
-  it('점유 0개 → 기본 24칸(8×3) 빈 슬롯', () => {
+  it('점유 0개 → 기본 24칸(6×4) 빈 슬롯', () => {
     const slots = feederGridSlots([]);
     expect(slots).toHaveLength(24);
     expect(slots.every((s) => !s.occupied)).toBe(true);
@@ -49,9 +49,9 @@ describe('feederGridSlots (고정 그리드 패딩)', () => {
     expect(slots[3].occupied).toBe(true); // CB 4
     expect(slots[1].occupied).toBe(false); // CB 2 빈
   });
-  it('점유가 24 이상이면 줄(8) 단위로 늘리고 빈 슬롯을 남긴다', () => {
+  it('점유가 24 이상이면 줄(6) 단위로 늘리고 빈 슬롯을 남긴다', () => {
     const slots = feederGridSlots([occ(24)]);
-    expect(slots).toHaveLength(32); // ceil(25/8)*8
+    expect(slots).toHaveLength(30); // ceil(25/6)*6
     expect(slots.some((s) => !s.occupied)).toBe(true);
   });
 });

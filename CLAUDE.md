@@ -13,3 +13,8 @@
 ## 빌드 확인이 필요할 때
 - `npm run build` 로 로컬에서 타입체크 + 빌드 검증
 - Docker 이미지 빌드는 하지 않는다
+
+# 프론트엔드 UI 규칙 (필독)
+- **사이드패널·상세 카드·폼 등 UI를 만들기 전에 반드시 `frontend/src/components/ui/CONVENTIONS.md` 를 먼저 읽고 그대로 따른다.**
+- 타이포 스케일(본문 `text-sm` / 라벨·메타 `text-xs`, `text-xs` 미만 금지), 시맨틱 색 토큰, 공용 컴포넌트(`DetailCard`·`SectionItem`·`FormRow`·`EditableField`·`Badge`·`Button` 등) 재사용이 강제 규칙이다.
+- 패널 안에서 일회용 `<div className>` 카드/필드를 새로 만들지 말 것 — 비일관성의 원인. 공용 컴포넌트로 표현 불가하면 `src/components/ui` 에 추가하고 CONVENTIONS.md·index.ts 에 등록한다.

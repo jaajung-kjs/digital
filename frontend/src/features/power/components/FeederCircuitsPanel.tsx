@@ -8,6 +8,7 @@ import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { buildFeederCircuits, feederGridSlots } from '../feederCircuits';
 import { commitMeta } from '../powerRegisterDescriptor';
 import { BreakerRail } from '../../../components/BreakerRail';
+import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
 import { EditableField } from '../../assets/components/EditableField';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import type { Asset } from '../../../types/asset';
@@ -60,7 +61,7 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   };
 
   if (!feeder) {
-    return <p className="px-1 text-[11px] text-content-faint">분기 정보를 불러올 수 없습니다.</p>;
+    return <p className="px-1 text-xs text-content-faint">분기 정보를 불러올 수 없습니다.</p>;
   }
 
   return (
@@ -74,35 +75,28 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
         onDeleteCb={deleteCb}
       />
       {selected && (
-        <div className="rounded border border-line p-2 text-xs space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">CB {selected.cbNumber}</span>
-            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-content-muted">
-              {selected.occupied ? (selected.switchState || '—') : '미연결'}
-            </span>
-          </div>
-          <div className="text-content-muted">부하: <span className="text-content">{selected.loadName ?? '—'}</span></div>
+        <DetailCard>
+          <DetailCardHeader
+            title={`CB ${selected.cbNumber}`}
+            badge={selected.occupied ? (selected.switchState || '—') : '미연결'}
+            badgeStatus={selected.occupied && selected.switchState.toUpperCase() === 'ON' ? 'success' : 'neutral'}
+          />
+          <DetailRow label="부하">{selected.loadName ?? '—'}</DetailRow>
           {selected.occupied && selected.cableId && (
             <>
-              <div className="flex items-center gap-2 text-content-muted">
-                <span className="w-10 shrink-0 whitespace-nowrap">용량</span>
-                <span className="min-w-0 flex-1">
-                  <EditableField value={selected.capacity} ariaLabel="용량" placeholder="용량"
-                    onCommit={(v) => commitMeta(selected.cableId!, 'capacity', v || null)} />
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-content-muted">
-                <span className="w-10 shrink-0 whitespace-nowrap">개폐</span>
-                <span className="min-w-0 flex-1">
-                  <EditableField value={selected.switchState} type="select" ariaLabel="개폐"
-                    options={[{ value: '', label: '—' }, { value: 'ON', label: 'ON' }, { value: 'OFF', label: 'OFF' }]}
-                    onCommit={(v) => commitMeta(selected.cableId!, 'switchState', v || null)} />
-                </span>
-              </div>
+              <DetailRow label="용량">
+                <EditableField value={selected.capacity} ariaLabel="용량" placeholder="용량"
+                  onCommit={(v) => commitMeta(selected.cableId!, 'capacity', v || null)} />
+              </DetailRow>
+              <DetailRow label="개폐">
+                <EditableField value={selected.switchState} type="select" ariaLabel="개폐"
+                  options={[{ value: '', label: '—' }, { value: 'ON', label: 'ON' }, { value: 'OFF', label: 'OFF' }]}
+                  onCommit={(v) => commitMeta(selected.cableId!, 'switchState', v || null)} />
+              </DetailRow>
             </>
           )}
-          <p className="text-[10px] text-content-faint">자세한 회로 정보는 계통뷰에서.</p>
-        </div>
+          <DetailNote>자세한 회로 정보는 계통뷰에서.</DetailNote>
+        </DetailCard>
       )}
     </div>
   );

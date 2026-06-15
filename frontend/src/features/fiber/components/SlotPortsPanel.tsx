@@ -6,6 +6,7 @@ import { useSelectionStore } from '../../workspace/selectionStore';
 import { buildSlotPorts, type PortState } from '../slotPorts';
 import type { CableLike } from '../slotRegister';
 import { PortGrid } from '../../../components/PortGrid';
+import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
 import type { Asset } from '../../../types/asset';
 
 const STATE_LABEL: Record<PortState, string> = { empty: '미연결', half: '편도', full: '양측' };
@@ -52,24 +53,23 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
   };
 
   if (ports.length === 0) {
-    return <p className="px-1 text-[11px] text-content-faint">광경로(용량) 설정이 없어 포트를 표시할 수 없습니다.</p>;
+    return <p className="px-1 text-xs text-content-faint">광경로(용량) 설정이 없어 포트를 표시할 수 없습니다.</p>;
   }
 
   return (
     <div className="space-y-3">
       <PortGrid ports={ports} selectedCore={selectedCore} onSelect={(n) => useSelectionStore.getState().setSelectedCore(n)} />
       {selected && (
-        <div className="rounded border border-line p-2 text-xs space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">포트 {selected.coreNumber}</span>
-            <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] text-content-muted">
-              {STATE_LABEL[selected.state]}
-            </span>
-          </div>
-          <div className="text-content-muted">자국: <span className="text-content">{label(selected.localAssetId)}</span></div>
-          <div className="text-content-muted">대국: <span className="text-content">{label(selected.remoteAssetId)}</span></div>
-          <p className="text-[10px] text-content-faint">자세한 코어 정보는 선번장에서 확인하세요.</p>
-        </div>
+        <DetailCard>
+          <DetailCardHeader
+            title={`포트 ${selected.coreNumber}`}
+            badge={STATE_LABEL[selected.state]}
+            badgeStatus={selected.state === 'full' ? 'success' : selected.state === 'half' ? 'info' : 'neutral'}
+          />
+          <DetailRow label="자국">{label(selected.localAssetId)}</DetailRow>
+          <DetailRow label="대국">{label(selected.remoteAssetId)}</DetailRow>
+          <DetailNote>자세한 코어 정보는 선번장에서 확인하세요.</DetailNote>
+        </DetailCard>
       )}
     </div>
   );

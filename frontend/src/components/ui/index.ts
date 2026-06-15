@@ -7,6 +7,7 @@ export { Badge } from './Badge';
 export type { BadgeProps, BadgeStatus } from './Badge';
 export { Card } from './Card';
 export type { CardProps } from './Card';
+export { DetailCard, DetailCardHeader, DetailRow, DetailNote } from './DetailCard';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 export { Select } from './Select';

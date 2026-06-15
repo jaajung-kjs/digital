@@ -45,13 +45,13 @@ export function buildFeederCircuits(
   return out.sort((a, b) => a.cbNumber - b.cbNumber);
 }
 
-/** 피더 DIN 레일 고정 그리드 — 한 줄(ROW) 단위로 채운다(랙 슬롯 동형). */
-const ROW = 8;
-const MIN_SLOTS = 24; // 8×3 — 기본 빈 그리드(점유 0개라도 UI 를 꽉 채운다).
+/** 피더 DIN 레일 고정 그리드 — 한 줄(ROW=6열) 단위로 채운다(랙 슬롯 동형, BreakerRail grid-cols-6). */
+const ROW = 6;
+const MIN_SLOTS = 24; // 6×4 — 기본 빈 그리드(점유 0개라도 UI 를 꽉 채운다).
 
 /**
  * 점유 회로를 cbNumber 위치에 두고, 나머지는 빈 슬롯(＋추가)으로 채운 고정 그리드.
- * N = max(MIN_SLOTS, 점유최대+1 을 ROW 배수로 올림) — 항상 8×3 이상, 점유가 많으면 줄 단위로 증가,
+ * N = max(MIN_SLOTS, 점유최대+1 을 ROW 배수로 올림) — 항상 6×4 이상, 점유가 많으면 줄 단위로 증가,
  * 그리고 마지막 줄에 빈 슬롯이 최소 하나는 남도록(추가 가능).
  */
 export function feederGridSlots(occupied: FeederCircuit[], minSlots = MIN_SLOTS): FeederCircuit[] {

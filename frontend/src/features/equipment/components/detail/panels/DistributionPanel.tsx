@@ -102,7 +102,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                     const cs = feederCircuits.get(feeder.id) ?? [];
                     return (
                       <>
-                        <span className="mt-0.5 block text-[11px] text-content-faint">CB {cs.length}개</span>
+                        <span className="mt-0.5 block text-xs text-content-faint">CB {cs.length}개</span>
                         {cs.length > 0 && (
                           <span className="mt-1 flex flex-wrap gap-0.5">
                             {cs.map((c) => (
