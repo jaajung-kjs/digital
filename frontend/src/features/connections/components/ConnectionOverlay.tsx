@@ -207,8 +207,8 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       if (e.key !== 'Escape') return;
       if (highlightActive) clearHighlight();
       if (selectedCableId) setSelectedCableId(null);
-      const interaction = useInteractionStore.getState();
-      if (interaction.mode.kind !== 'idle') interaction.cancel();
+      // 케이블 그리기 취소는 단일 진입점으로 — interaction idle + tool select 함께 복원(먹통 방지).
+      if (useInteractionStore.getState().mode.kind !== 'idle') useEditorStore.getState().cancelCableDrawing();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);

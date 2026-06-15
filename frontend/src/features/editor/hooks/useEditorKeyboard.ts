@@ -49,14 +49,13 @@ export function useEditorKeyboard(
         useInteractionStore.getState().cableRemoveLastWaypoint();
         return;
       }
-      if (cbd && e.key === 'Escape') {
-        e.preventDefault();
-        useInteractionStore.getState().cancel();
-        es.setTool('select');
-        return;
-      }
-
       if (e.key === 'Escape') {
+        // 케이블 그리기 중이면 단일 진입점으로 종료(interaction idle + tool select 함께).
+        if (cbd) {
+          e.preventDefault();
+          es.cancelCableDrawing();
+          return;
+        }
         if (useSelectionStore.getState().selectedAssetId) {
           es.closeRightPanel();
           return;

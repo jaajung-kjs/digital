@@ -11,6 +11,7 @@ import type { DragSession } from '../../../utils/floorplan/dragSystem';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSelectionStore } from '../../workspace/selectionStore';
+import { useInteractionStore } from './interactionStore';
 
 /** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
 export type ConnectionFilterKey = string;
@@ -177,6 +178,12 @@ export interface EditorStoreState {
 
 export interface EditorStoreActions {
   setTool: (tool: EditorTool) => void;
+  /**
+   * 케이블 그리기 종료의 단일 진입점 — interaction mode 를 idle 로, tool 을 select 로 *함께* 되돌린다.
+   * 둘을 따로 두면(예: cancel 만 하고 tool='cable' 로 남김) mode=idle 이라 케이블 분기도 안 타고
+   * tool≠select 라 선택 분기도 안 타서 캔버스가 먹통이 된다. 모든 취소(ESC·picker·modal)는 이 액션으로.
+   */
+  cancelCableDrawing: () => void;
   setZoom: (zoom: number) => void;
   setPan: (panX: number, panY: number) => void;
   setViewport: (zoom: number, panX: number, panY: number) => void;
@@ -322,6 +329,10 @@ export const useEditorStore = create<FullStore>()((set) => ({
   ...initialState,
 
   setTool: (tool) => set({ tool }),
+  cancelCableDrawing: () => {
+    useInteractionStore.getState().cancel();
+    set({ tool: 'select' });
+  },
   setZoom: (zoom) => set({ zoom }),
   setPan: (panX, panY) => set({ panX, panY }),
   setViewport: (zoom, panX, panY) => set({ zoom, panX, panY }),
