@@ -173,13 +173,13 @@ export function useCommitWorkingCopy() {
       // 전역 커밋 완료 → staged overlay 전부 클리어(전역 load 는 더 이상 overlay 를 비우지 않으므로 명시적으로).
       useSubstationWorkingCopy.getState().revert();
       await useSubstationWorkingCopy.getState().load(substationId);
-      // 연결 상태(선번장/포트GUI/드롭다운)는 전역 graph.cables(=['cables'])·['assets-slim'] 에서 파생한다.
-      // 커밋의 fire-and-forget 무효화만으로는 새로고침 없이 안 반영되는 경우가 있어, 이 전역 피드를
-      // 명시적으로 await 재조회한다(예전 saved.cables 동기 갱신이 하던 역할의 전역판).
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ['cables'] }),
-        queryClient.refetchQueries({ queryKey: ['assets-slim'] }),
-      ]);
+      // 커밋 후 보이는 데이터 동기화의 두 층:
+      //  1) 워킹카피(effective) — 위 load 가 갱신(mergeSavedById 가 변전소 스코프 권위로 삭제까지 반영).
+      //  2) react-query 서버 캐시(현황 ['nodeAssets'], 연결 ['substation-connections'], ['cables'],
+      //     ['assets-slim'] 등) — 커밋의 fire-and-forget 무효화만으론 새로고침 없이 반영 안 되는 경우가 있다.
+      // → 모든 활성(화면에 떠 있는) 쿼리를 명시적으로 await 재조회해, 커밋이 끝나는 시점에 모든 뷰가
+      //   DB 와 동기화되도록 한다("쓰기 후 보이는 데이터 전부 다시 읽기" — 새로고침과 동일 효과).
+      await queryClient.refetchQueries({ type: 'active' });
       useEditorStore.getState().clearPendingData();
       // 2회차 저장 409 방지(견고화) — floor 섹션을 커밋하면 백엔드가 floor.updatedAt 을
       // bump 하지만 in-memory baseFloorVersion 은 stale 인 채라 다음 커밋의 floor OCC 가
