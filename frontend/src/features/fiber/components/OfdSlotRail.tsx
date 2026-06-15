@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
-import { useTraceGraph, remoteSlotSubstation, type SlimAssetDTO } from '../../trace/traceGraph';
+import { useTraceGraph, type SlimAssetDTO } from '../../trace/traceGraph';
 import { useAssetTypeIdByCode } from '../../assets/useAssetTypeIdByCode';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
+import { useSlimAssets } from '../../assets/hooks/useSlimAssets';
 import { generateTempId } from '../../../utils/idHelpers';
 import { buildRouteCreate, routeDeleteIds } from '../fiberWrite';
-import { api } from '../../../utils/api';
+import { fiberSlotLabel } from '../fiberSlotLabel';
 import { SlotTile } from '../../../components/SlotTile';
 import { SlotRailGrid } from '../../../components/SlotRailGrid';
 import { OfdRoutePopover } from './OfdRoutePopover';
@@ -49,11 +49,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
 
   const [popover, setPopover] = useState<PopoverState | null>(null);
 
-  const { data: slim = [] } = useQuery({
-    queryKey: ['assets-slim'],
-    staleTime: 30_000,
-    queryFn: async () => (await api.get<{ data: SlimAssetDTO[] }>('/assets')).data.data,
-  });
+  const { data: slim = [] } = useSlimAssets();
 
   const peerOfds = useMemo(() => slim.filter((a) => a.code === 'OFD' && a.id !== ofdId), [slim, ofdId]);
   const localOfd = useMemo(() => slim.find((a) => a.id === ofdId) ?? null, [slim, ofdId]);
@@ -72,9 +68,6 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
         c.targetRole === 'IN' &&
         (c.sourceAssetId === slotId || c.targetAssetId === slotId),
     );
-
-  const coresOf = (slotId: string) =>
-    Number((opgwOf(slotId)?.specParams as Record<string, unknown> | undefined)?.cores ?? 0);
 
   const addRoute = (remote: SlimAssetDTO, cores: number) => {
     if (!slotTypeId || !opgwCat || !localOfd) return;
@@ -119,12 +112,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
       <SlotRailGrid slotCount={OFD_SLOT_COUNT}>
         {/* 점유 슬롯 (경로 0..slots.length-1) */}
         {slots.map((slot, i) => {
-          const local = graph?.subNameById.get(ofdId) ?? localOfd?.substationName ?? null;
-          const remote = graph ? remoteSlotSubstation(slot.id, graph) : null;
-          const base = [local, remote].filter(Boolean).join(' - ');
-          const n = coresOf(slot.id);
-          // "변전소 - 변전소 #포트수" (코어수는 타이틀에 인라인, 별도 자막 없음).
-          const title = base ? (n ? `${base} #${n}` : base) : slot.name;
+          const title = fiberSlotLabel(slot.id, graph) || slot.name;
           return (
             // 포지셔닝 wrapper — SlotTile 이 grid 행을 꽉 채우도록 h-full.
             <div

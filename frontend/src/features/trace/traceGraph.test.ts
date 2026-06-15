@@ -10,7 +10,7 @@ const slimAssets = [
   { id: 'eqC', name: '광단말C', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, connectionKind: null, code: 'OPT-TRANS' },
 ];
 const globalCables = [
-  { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null },
+  { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 24 } },
   { id: 'oA5', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 5 },
   { id: 'oB5', cableType: 'FIBER', sourceAssetId: 'slotB', targetAssetId: 'eqB', sourceRole: 'OUT', targetRole: null, number: 5 },
   { id: 'oB6', cableType: 'FIBER', sourceAssetId: 'slotB', targetAssetId: 'eqC', sourceRole: 'OUT', targetRole: null, number: 6 },
@@ -42,6 +42,14 @@ describe('buildTraceGraph + projections', () => {
     });
     expect(g.cables.some((c) => c.id === 'oA5')).toBe(false);
     expect(g.cables.some((c) => c.id === 'tmp-new')).toBe(true);
+  });
+
+  it('toTraceCable 이 specParams 를 보존한다 (graph.cables 에서 OPGW cores 읽힘 — 프로덕션 회귀 가드)', () => {
+    // 실제 경로: 입력 cable → toTraceCable → graph.cables. specParams 가 strip 되면 이 단언이 깨진다.
+    const g = buildTraceGraph({ slimAssets, globalCables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const opgw = g.cables.find((c) => c.id === 'opgw');
+    expect(opgw?.specParams).toEqual({ cores: 24 });
+    expect((opgw?.specParams as { cores?: number } | undefined)?.cores).toBe(24);
   });
 
   it('deletes 에 든 asset id 는 그래프에서 빠진다 (스테이징 삭제 반영)', () => {

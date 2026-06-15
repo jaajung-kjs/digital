@@ -7,6 +7,7 @@ export interface TraceCable {
   sourceRole?: 'IN' | 'OUT' | null;
   targetRole?: 'IN' | 'OUT' | null;
   number?: number | null;
+  specParams?: Record<string, unknown> | null;
 }
 export interface TraceResult { nodeIds: string[]; cableIds: string[]; truncated?: boolean }
 

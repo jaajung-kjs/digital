@@ -13,6 +13,8 @@ import { AssetConnectionsSection } from '../../connections/components/AssetConne
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { statusIsOn } from '../nodeStatus';
+import { useTraceGraph } from '../../trace/traceGraph';
+import { fiberSlotLabel } from '../../fiber/fiberSlotLabel';
 
 /**
  * 단일 상세 인스펙터(SSOT) — 평면도(에디터)·현황·대장 그리드 모든 진입점에서
@@ -170,6 +172,7 @@ export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, in
   // 연결은 effective(워킹카피)에서 읽는다. 편집은 캔버스로 이동 — 연결 탭은 읽기전용 경로 뷰.
   const connections = useEffectiveAssetConnections(asset.id);
   const activeFloorId = useEditorStore((s) => s.activeFloorId);
+  const { graph } = useTraceGraph();
 
   // 랙 모듈(parentAssetId + slotIndex 둘 다 있음) — leaf 자산. 카테고리/슬롯 위치는 읽기전용으로 노출.
   // 상위 자산 네비게이션은 헤더 브레드크럼(AssetDetailPanel)으로 이동.
@@ -188,6 +191,10 @@ export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, in
 
   // 스키마-드리븐 렌더러 — type → 기존 컴포넌트. read/edit 모두 하드코딩과 동일 DOM·props.
   const renderField = (field: AssetFieldDef) => {
+    // 경로슬롯(conduit): 이름은 파생(자국-대국#코어수) 읽기전용 — 수정 불가.
+    if (field.key === 'name' && asset.assetType?.connectionKind === 'conduit') {
+      return <ReadField key="name" label={field.label} value={fiberSlotLabel(asset.id, graph) || (asset.name ?? '')} />;
+    }
     // 상태 필드: read/edit 모두 StatusField(값은 raw status, readOnly 토글만 다름).
     if (field.type === 'status') {
       return ro

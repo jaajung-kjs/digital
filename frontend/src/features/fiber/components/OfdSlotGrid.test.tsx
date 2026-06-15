@@ -52,6 +52,7 @@ vi.mock('../../trace/traceGraph', () => ({
     graph: {
       subNameById: new Map([[OFD_ID, '원주변전소'], [SLOT_ID, '원주변전소']]),
       nameById: new Map(),
+      parentById: new Map([[SLOT_ID, OFD_ID]]),
       assets: [],
       cables: [OPGW_CABLE],
     },
