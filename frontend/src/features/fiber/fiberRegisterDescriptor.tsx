@@ -38,7 +38,9 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
   },
   rowKey: (row) => row.coreNumber,
   rowTraceCableId: (row) => row.cableId,
-  onRowClick: (row, slot) => row.nearAssetId ?? (slot.parentAssetId ?? slot.id),
+  // 점유 코어만 근접자산 선택. 빈 코어는 null — 부모(OFD) id 로 폴백하면 모든 빈 행이
+  // 같은 selectedId 라 한꺼번에 하이라이트되는 "전체 선택" 버그가 생긴다.
+  onRowClick: (row) => row.nearAssetId ?? null,
   columns: [
     {
       label: '코어',

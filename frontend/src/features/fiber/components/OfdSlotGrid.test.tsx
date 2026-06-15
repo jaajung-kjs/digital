@@ -108,21 +108,21 @@ beforeEach(() => {
 });
 
 describe('OfdSlotRail', () => {
-  it('슬롯 타일을 "출발-대국" 형식 제목으로 렌더한다', () => {
+  it('슬롯 타일을 "출발-대국 #포트수" 형식 제목으로 렌더한다', () => {
     wrap(<OfdSlotRail ofdId={OFD_ID} />);
-    // subNameById.get(ofdId)='원주변전소', remoteSlotSubstation(slotId)='홍천변전소'
-    expect(screen.getByText('원주변전소 - 홍천변전소')).toBeInTheDocument();
+    // subNameById.get(ofdId)='원주변전소', remoteSlotSubstation(slotId)='홍천변전소',
+    // OPGW_CABLE.specParams.cores=48 → 타이틀에 "#48" 인라인.
+    expect(screen.getByText('원주변전소 - 홍천변전소 #48')).toBeInTheDocument();
   });
 
-  it('슬롯 타일에 코어 수(N코어) 자막을 표시한다', () => {
+  it('코어 수를 별도 자막(N코어)으로 표시하지 않는다', () => {
     wrap(<OfdSlotRail ofdId={OFD_ID} />);
-    // OPGW_CABLE.specParams.cores = 48
-    expect(screen.getByText('48코어')).toBeInTheDocument();
+    expect(screen.queryByText('48코어')).not.toBeInTheDocument();
   });
 
   it('슬롯 타일 클릭 → setSelectedAssetId(slot.id)', () => {
     wrap(<OfdSlotRail ofdId={OFD_ID} />);
-    fireEvent.click(screen.getByText('원주변전소 - 홍천변전소'));
+    fireEvent.click(screen.getByText('원주변전소 - 홍천변전소 #48'));
     expect(setSelectedAssetId).toHaveBeenCalledWith(SLOT_ID);
   });
 
