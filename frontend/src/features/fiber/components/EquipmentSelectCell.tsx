@@ -57,7 +57,7 @@ export function EquipmentSelectCell({ slot, coreNumber, side }: {
       });
       wc.put('cables', cable as unknown as { id: string; [k: string]: unknown });
     }
-  }, [currentId, outCable?.id, targetSlotId, opjCat]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentId, outCable?.id, targetSlotId, opjCat, coreNumber]);
 
   // 옵션 라벨·읽기모드 표시 동일 이름 출처(slim 우선, graph 폴백).
   const nameOf = (id: string) => slim.find((a) => a.id === id)?.name ?? graph?.nameById.get(id) ?? id;
