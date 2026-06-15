@@ -3,6 +3,7 @@ import type { DetailPanelKind } from '../../../../../types/equipmentKind';
 import { RackInternal } from './RackEquipmentPanel';
 import { OfdPathsView } from './OfdEquipmentPanel';
 import { DistributionCircuits } from './DistributionPanel';
+import { SlotPortsPanel } from '../../../../fiber/components/SlotPortsPanel';
 
 export interface SpatialSection {
   /** 섹션 헤더 라벨. */
@@ -37,6 +38,11 @@ export function resolveSpatialSection(
       return {
         label: '회로',
         node: <DistributionCircuits equipmentId={equipmentId} />,
+      };
+    case 'conduit-ports':
+      return {
+        label: '포트',
+        node: <SlotPortsPanel slotId={equipmentId} />,
       };
     case 'grounding':
     case 'hvac':
