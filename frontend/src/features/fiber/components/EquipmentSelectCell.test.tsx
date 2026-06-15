@@ -12,11 +12,14 @@ const TWIN = 'slotB';
 const SLOT_ASSET = { id: SLOT, name: '슬롯', parentAssetId: 'ofdA', substationId: 's1', assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } };
 const opgw = { id: 'opgw', cableType: 'FIBER', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
 const localOut3 = { id: 'c-l3', cableType: 'FIBER', sourceAssetId: 'eqpL', targetAssetId: SLOT, sourceRole: null, targetRole: 'OUT', number: 3 };
+// 대국 OUT 코어 3 — 자국 c-l3 와 같은 number, targetRole='OUT'. endpoint 가드 없으면 대국 조회에 자국이 잘못 잡힘.
+const remoteOut3 = { id: 'c-r3', cableType: 'FIBER', sourceAssetId: 'eqpR', targetAssetId: TWIN, sourceRole: null, targetRole: 'OUT', number: 3 };
 
 const SLIM = [
   { id: 'eqpL', name: '자국장비', code: 'EQP', substationId: 's1', substationName: '춘천', parentAssetId: null, connectionKind: null },
   { id: 'eqpL2', name: '자국장비2', code: 'EQP', substationId: 's1', substationName: '춘천', parentAssetId: null, connectionKind: null },
   { id: 'eqpR', name: '대국장비', code: 'EQP', substationId: 's2', substationName: '북춘천', parentAssetId: null, connectionKind: null },
+  { id: 'eqpR2', name: '대국장비2', code: 'EQP', substationId: 's2', substationName: '북춘천', parentAssetId: null, connectionKind: null },
   { id: TWIN, name: '북춘천슬롯', code: 'OFD-SLOT', substationId: 's2', substationName: '북춘천', parentAssetId: 'ofdB', connectionKind: 'conduit' },
   { id: 'ofdA', name: 'OFD', code: 'OFD', substationId: 's1', substationName: '춘천', parentAssetId: null, connectionKind: null },
 ];
@@ -30,8 +33,8 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../trace/traceGraph')>()),
   useTraceGraph: () => ({
     graph: {
-      cables: [opgw, localOut3],
-      nameById: new Map([['eqpL','자국장비'],['eqpR','대국장비']]),
+      cables: [opgw, localOut3, remoteOut3],
+      nameById: new Map([['eqpL','자국장비'],['eqpR','대국장비'],['eqpR2','대국장비2']]),
     },
     isLoading: false,
   }),
@@ -100,6 +103,17 @@ describe('EquipmentSelectCell', () => {
     chooseOption('자국설비', '');
     expect(remove).not.toHaveBeenCalled();
     confirm.mockRestore();
+  });
+
+  it('endpoint 가드: 대국 셀이 자국 케이블을 매칭하지 않는다(전염 방지)', () => {
+    // graph.cables = [opgw, localOut3(자국, target=slotA), remoteOut3(대국, target=twinB)] 둘 다 number 3·targetRole OUT.
+    wrap(<EquipmentSelectCell slot={SLOT_ASSET as never} coreNumber={3} side="remote" />);
+    // 대국 셀의 현재값은 c-r3(eqpR) 이어야 함 — 자국 c-l3(eqpL) 가 잘못 잡히면 안 됨.
+    expect(screen.getByText('대국장비')).toBeInTheDocument();
+    expect(screen.queryByText('자국장비')).toBeNull();
+    // 변경 시 대국 케이블(c-r3)을 패치 — 자국(c-l3) 아님.
+    chooseOption('대국설비', 'eqpR2');
+    expect(patch).toHaveBeenCalledWith('cables', 'c-r3', { sourceAssetId: 'eqpR2' });
   });
 
   it('CBL-OPJ 카테고리 없음 → disabled(연필 버튼 없음)', () => {

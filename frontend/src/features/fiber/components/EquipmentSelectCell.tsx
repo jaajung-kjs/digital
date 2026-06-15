@@ -27,8 +27,14 @@ export function EquipmentSelectCell({ slot, coreNumber, side }: {
     ? slot.substationId
     : (twinId ? (slim.find((a) => a.id === twinId)?.substationId ?? null) : null);
 
+  // endpoint 가드 필수: roleAt 은 targetSlotId 가 endpoint 가 아니면 targetRole 로 fall-through 하므로,
+  // 가드 없이는 다른 슬롯(예: 자국)의 targetRole='OUT' 케이블이 대국 조회에 잘못 매칭된다(전염 버그).
   const outCable = targetSlotId
-    ? cables.find((c) => c.cableType === 'FIBER' && roleAt(c, targetSlotId) === 'OUT' && c.number === coreNumber)
+    ? cables.find((c) =>
+        c.cableType === 'FIBER' &&
+        c.number === coreNumber &&
+        (c.sourceAssetId === targetSlotId || c.targetAssetId === targetSlotId) &&
+        roleAt(c, targetSlotId) === 'OUT')
     : undefined;
   const currentId = outCable && targetSlotId ? other(outCable, targetSlotId) : null;
 
