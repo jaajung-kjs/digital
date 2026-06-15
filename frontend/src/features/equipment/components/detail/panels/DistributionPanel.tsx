@@ -6,7 +6,7 @@ import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
 import { useSelectionStore } from '../../../../workspace/selectionStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
 import { feedersOfPanel, buildSubtreeAsset, FEEDER_CODE } from '../../../../assets/distributionSubtree';
-import { buildFeederCircuits, type FeederCircuit } from '../../../../power/feederCircuits';
+import { buildFeederCircuits, feederGridSlots, type FeederCircuit } from '../../../../power/feederCircuits';
 import { useTraceGraph } from '../../../../trace/traceGraph';
 
 /**
@@ -103,22 +103,23 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                   <span aria-hidden className={`w-1 shrink-0 self-stretch ${energized ? 'bg-success' : 'bg-content-faint'}`} />
                   <div className="min-w-0 flex-1 py-2.5 pr-7">
                     <span className="block truncate text-sm font-medium text-content">{feeder.name}</span>
-                    {/* recessed 미니 차단기 레일 — 큰 레일의 축소판(가압=success, 차단=중립). */}
-                    {cs.length > 0 ? (
-                      <span className="mt-1.5 flex flex-wrap gap-0.5 rounded bg-surface-2 p-1 shadow-inner">
-                        {cs.map((c) => (
-                          <span
-                            key={c.cbNumber}
-                            className={`h-3 w-1.5 rounded-[1px] ${
-                              c.switchState.toUpperCase() === 'ON' ? 'bg-success' : 'bg-content-faint'
-                            }`}
-                            title={`CB ${c.cbNumber} · ${c.loadName ?? ''} ${c.switchState}`}
-                          />
-                        ))}
-                      </span>
-                    ) : (
-                      <span className="mt-1.5 block text-[11px] text-content-faint">회로 없음</span>
-                    )}
+                    {/* recessed 미니 차단기 그리드 — 고정 24칸(6열, 큰 레일과 동일 배열).
+                        CB 0개든 24개든 항상 같은 크기·모양. 빈칸=faint, 차단=중립, 가압=success. */}
+                    <span className="mt-1.5 grid grid-cols-6 gap-0.5 rounded bg-surface-2 p-1 shadow-inner">
+                      {feederGridSlots(cs).slice(0, 24).map((s) => (
+                        <span
+                          key={s.cbNumber}
+                          className={`h-2 rounded-[1px] ${
+                            !s.occupied
+                              ? 'bg-line'
+                              : s.switchState.toUpperCase() === 'ON'
+                                ? 'bg-success'
+                                : 'bg-content-faint'
+                          }`}
+                          title={s.occupied ? `CB ${s.cbNumber} · ${s.loadName ?? ''} ${s.switchState}` : `CB ${s.cbNumber} 빈`}
+                        />
+                      ))}
+                    </span>
                     <span className="mt-1.5 flex items-center gap-1.5 text-xs text-content-muted">
                       <span className="font-medium text-content">{cs.length}</span> 회로
                       {cs.length > 0 && (
@@ -189,7 +190,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
               <button
                 type="button"
                 onClick={() => setAddingFeeder(true)}
-                className="w-full h-16 rounded-md border border-dashed border-line text-xs text-content-faint hover:border-primary hover:text-primary hover:bg-info-bg transition-colors"
+                className="flex h-full min-h-[7rem] w-full items-center justify-center rounded-md border border-dashed border-line text-xs text-content-faint hover:border-primary hover:text-primary hover:bg-info-bg transition-colors"
               >
                 ＋ 전원 계통
               </button>
