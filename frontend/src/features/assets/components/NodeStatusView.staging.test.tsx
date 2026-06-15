@@ -18,6 +18,12 @@ vi.mock('../../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 // 연결은 effective(워킹카피)에서 읽으므로 서버 훅 mock 불필요(빈 스토어 → 빈 목록).
 // 인스펙터 폴백(로딩 중) 페치는 사용 안 함 — effective 에서 해석.
 vi.mock('../hooks/useAsset', () => ({ useAsset: () => ({ data: undefined }) }));
+// AssetDetailPanel 이 이제 useTraceGraph 를 호출(conduit 제목 override) — 비-conduit 자산이므로
+// graph=null 로 충분(fiberSlotLabel(_, null)='' → 기존 동작 불변). 실제 페치는 무력화된 api.get 과 충돌.
+vi.mock('../../trace/traceGraph', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../trace/traceGraph')>()),
+  useTraceGraph: () => ({ graph: null, isLoading: false }),
+}));
 // 상세 본문의 종류별 공간 섹션(랙뷰/OFD 경로 등)은 자체 네트워크/스토어 의존이 무거움 —
 // 이 staging 테스트는 인스펙터 편집 경로만 검증하므로 공간 섹션은 무력화한다.
 vi.mock('../../equipment/components/detail/panels/resolveSpatialSection', () => ({

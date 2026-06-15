@@ -2,6 +2,28 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import type { TraceGraph } from '../../trace/traceGraph';
+
+// useTraceGraph 를 모킹 — conduit 슬롯 파생 라벨이 결정적으로 나오도록 그래프를 주입.
+// (fiberSlotLabel.test.ts 의 그래프 구성을 미러: 슬롯→OFD parent, OFD/twin subName,
+//  OPGW(IN-IN, cores=24) → 라벨 "춘천S/S - 북춘천S/S #24")
+const SLOT = 'slotA';
+const TWIN = 'slotB';
+const OFD = 'ofdA';
+const opgw = { id: 'opgw', cableType: 'FIBER', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
+const slotGraph = {
+  assets: [], cables: [opgw],
+  nameById: new Map(),
+  subNameById: new Map([[OFD, '춘천S/S'], [TWIN, '북춘천S/S']]),
+  parentById: new Map([[SLOT, OFD]]),
+  codeById: new Map(),
+} as unknown as TraceGraph;
+let mockGraph: TraceGraph | null = null;
+vi.mock('../../trace/traceGraph', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../trace/traceGraph')>()),
+  useTraceGraph: () => ({ graph: mockGraph, isLoading: false }),
+}));
+
 import { AssetInspector } from './AssetInspector';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 
@@ -16,6 +38,8 @@ const wrap = (ui: ReactNode) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
 };
+
+beforeEach(() => { mockGraph = null; });
 
 describe('AssetInspector — 단일 인스펙터(SSOT)', () => {
   it('핵심 필드를 모두 렌더: 종류(읽기전용)/설명/점검/고장이력/사진/연결 — 속성 UI 없음(#7)', () => {
@@ -128,5 +152,32 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
     fireEvent.change(nameInput, { target: { value: '모듈A' } });
     fireEvent.blur(nameInput);
     expect(onPatch).toHaveBeenCalledWith('m1', { name: '모듈A' });
+  });
+});
+
+describe('AssetInspector — 경로슬롯(conduit) 이름 파생 읽기전용', () => {
+  const conduitAsset = {
+    id: SLOT, substationId: 's1', assetTypeId: 'ofdslot',
+    assetType: { name: 'OFD-SLOT', placementKind: null, connectionKind: 'conduit', fieldTemplate: [] },
+    name: 'DB저장이름(표시안됨)', attributes: {}, installDate: null, manager: null, status: '운영중',
+    description: '', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '',
+  } as never;
+
+  it('conduit: 이름이 파생 라벨(자국-대국#코어수) 읽기전용 — 편집 affordance 없음', () => {
+    mockGraph = slotGraph;
+    wrap(<AssetInspector asset={conduitAsset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
+    // 파생 라벨 표시, DB name 은 표시되지 않음
+    expect(screen.getByText('춘천S/S - 북춘천S/S #24')).toBeTruthy();
+    expect(screen.queryByText('DB저장이름(표시안됨)')).toBeNull();
+    // 읽기전용 — 이름 수정(연필)·편집 인풋 없음
+    expect(screen.queryByTitle('이름 수정')).toBeNull();
+    expect(screen.queryByDisplayValue('춘천S/S - 북춘천S/S #24')).toBeNull();
+    expect(screen.queryByDisplayValue('DB저장이름(표시안됨)')).toBeNull();
+  });
+
+  it('비-conduit 자산은 이름이 여전히 편집 가능(연필 노출)', () => {
+    mockGraph = slotGraph; // graph 가 있어도 conduit 아니면 영향 없음
+    wrap(<AssetInspector asset={asset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
+    expect(screen.getByTitle('이름 수정')).toBeTruthy();
   });
 });

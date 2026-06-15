@@ -11,6 +11,8 @@ import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetD
 import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
 import { SidePanel } from '../../editor/components/SidePanel';
+import { useTraceGraph } from '../../trace/traceGraph';
+import { fiberSlotLabel } from '../../fiber/fiberSlotLabel';
 
 /**
  * 상위 맥락 브레드크럼(eyebrow) — 부모 자산이 있으면 조상 체인을 제목 위에 작게 표시.
@@ -112,7 +114,10 @@ export function AssetDetailPanel({
   const stageEquipmentDeleteCascade = useSubstationWorkingCopy((s) => s.stageEquipmentDeleteCascade);
 
   const id = equipmentId ?? asset?.id ?? '';
-  const headerTitle = title ?? asset?.name ?? '설비 상세';
+  const { graph } = useTraceGraph();
+  const conduitLabel =
+    asset?.assetType?.connectionKind === 'conduit' ? fiberSlotLabel(asset.id, graph) : '';
+  const headerTitle = conduitLabel || title || asset?.name || '설비 상세';
   const kind = detailKind !== undefined ? detailKind : kindFromAsset(asset);
   const isModule = isRackModuleAsset(asset); // strict: 슬롯 있는 자식만 모듈. 피더(slotIndex 없음)는 cascade 경로.
   const showDelete = (canDelete ?? mode === 'edit') && !!id;
