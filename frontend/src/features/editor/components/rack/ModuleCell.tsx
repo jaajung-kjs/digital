@@ -4,6 +4,7 @@ import { useSelection } from '../../../workspace/SelectionContext';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import { useSlotDrag } from '../../hooks/useSlotDrag';
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate } from '../../../../types/rackModule';
+import { SlotTile } from '../../../../components/SlotTile';
 import type { Asset } from '../../../../types/asset';
 
 interface Props {
@@ -80,9 +81,12 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
 
   return (
     <>
-      <div
-        role="button"
-        tabIndex={0}
+      {/* 랙·OFD 공용 SlotTile 단일 비주얼. 랙 전용 드래그(onPointerDown)·리사이즈(footer)만 주입. */}
+      <SlotTile
+        title={module.name}
+        meta={slotLabel}
+        accentColor={accent}
+        draggable
         onPointerDown={(e) => handlePointerDown(e, 'move')}
         style={{
           gridRowStart: cellStart,
@@ -91,26 +95,20 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
           gridColumnEnd: 2,
           opacity: dragging ? 0.35 : 1,
         }}
-        className="relative flex items-center gap-2 py-1.5 pl-1.5 pr-2.5 text-[11px] font-medium rounded-md border border-line bg-surface text-content shadow-sm select-none cursor-grab hover:border-content-faint transition-[border-color,opacity] overflow-hidden min-h-0"
-        aria-label={`${module.name}, 슬롯 ${slotIndex + 1}-${slotIndex + slotSpan} (${slotSpan}슬롯) — 클릭하여 편집`}
-        title="클릭=편집, 드래그=이동, 하단 핸들=리사이즈"
-      >
-        {/* 좌측 카테고리 색 띠 — 종류 식별(없으면 중립 라인색). */}
-        <span aria-hidden className="my-0.5 w-1 self-stretch shrink-0 rounded-full bg-line" style={accent ? { background: accent } : undefined} />
-        <span className="truncate flex-1 leading-tight">{module.name}</span>
-        <span aria-hidden className="shrink-0 font-mono text-[9px] tabular-nums text-content-faint">
-          {slotLabel}
-        </span>
-        {/* 리사이즈 핸들 — 절제된 그립(중립 톤). */}
-        <div
-          onPointerDown={(e) => handlePointerDown(e, 'resize')}
-          className="absolute left-0 right-0 bottom-0 h-2.5 flex items-center justify-center cursor-ns-resize border-t border-line bg-surface-2 hover:bg-surface-3 transition-colors"
-          title="드래그해서 크기 조절"
-          aria-label="크기 조절 핸들"
-        >
-          <span aria-hidden className="block w-6 h-0.5 rounded-full bg-content-faint" />
-        </div>
-      </div>
+        ariaLabel={`${module.name}, 슬롯 ${slotIndex + 1}-${slotIndex + slotSpan} (${slotSpan}슬롯) — 클릭하여 편집`}
+        tooltip="클릭=편집, 드래그=이동, 하단 핸들=리사이즈"
+        footer={
+          // 리사이즈 핸들 — 평상시 투명(좌측 색 띠를 가리지 않음), hover 시에만 살짝 강조. 중앙 그립.
+          <div
+            onPointerDown={(e) => handlePointerDown(e, 'resize')}
+            className="absolute inset-x-0 bottom-0 flex h-2.5 items-center justify-center cursor-ns-resize transition-colors hover:bg-surface-2/60"
+            title="드래그해서 크기 조절"
+            aria-label="크기 조절 핸들"
+          >
+            <span aria-hidden className="block h-0.5 w-6 rounded-full bg-content-faint" />
+          </div>
+        }
+      />
 
       {/* 통합 드래그 인디케이터 — 이동/리사이즈 모두 동일 outline.
           - 풀 슬롯스팬 유지, slotIndex 만 clamp → 절대 잘리지 않음

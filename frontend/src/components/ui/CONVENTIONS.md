@@ -61,6 +61,12 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../co
 
 ### 빈 상태 → `SectionEmpty`(`SectionShell`)
 
+### 슬롯/포트/차단기 그리드(장비 내부 GUI) → 공용 단일 컴포넌트
+"백플레인 + 흰 입체 모듈 + 좌측/상태 색 악센트" 한 가지 언어로 통일. 새 슬롯형 GUI는 이걸 재사용한다.
+- **슬롯 레일(랙·OFD 공용)**: `src/components/SlotRailGrid.tsx`(프레임+번호레일) + `src/components/SlotTile.tsx`(모듈 타일). **랙·OFD 는 반드시 같은 SlotTile 을 쓴다** — 드래그/리사이즈만 `onPointerDown`/`footer` 로 주입(별도 컴포넌트 복제 금지).
+- **차단기 레일**(피더 분기): `src/components/BreakerRail.tsx`.
+- **포트 그리드**(광슬롯): `src/components/PortGrid.tsx`.
+
 ## 4. 새 패턴이 필요하면
 
 기존 컴포넌트로 안 되면 **`src/components/ui` 에 공용으로 추가**하고:

@@ -114,24 +114,20 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
         {slots.map((slot, i) => {
           const title = fiberSlotLabel(slot.id, graph) || slot.name;
           return (
-            // 포지셔닝 wrapper — SlotTile 이 grid 행을 꽉 채우도록 h-full.
-            <div
+            // 랙 ModuleCell 과 동일한 SlotTile — 드래그/리사이즈만 없을 뿐 같은 비주얼.
+            <SlotTile
               key={slot.id}
+              title={title}
+              selected={selectedAssetId === slot.id}
+              onClick={() => useSelectionStore.getState().setSelectedAssetId(slot.id)}
+              onDelete={() => deleteRoute(slot)}
               style={{
                 gridRowStart: i + 1,
                 gridRowEnd: i + 2,
                 gridColumnStart: 1,
                 gridColumnEnd: 2,
               }}
-            >
-              <SlotTile
-                title={title}
-                selected={selectedAssetId === slot.id}
-                onClick={() => useSelectionStore.getState().setSelectedAssetId(slot.id)}
-                onDelete={() => deleteRoute(slot)}
-                className="h-full"
-              />
-            </div>
+            />
           );
         })}
 
