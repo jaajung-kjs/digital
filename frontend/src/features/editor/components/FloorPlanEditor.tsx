@@ -35,7 +35,6 @@ import { CableSpecModalWrapper } from './modals/CableSpecModal';
 import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
 import { EquipmentPasteModal } from './modals/EquipmentPasteModal';
 import { ToastHost } from './ToastHost';
-import { CableEndpointPickerHost } from './CableEndpointPickerHost';
 import { EditorHintBar } from './EditorHintBar';
 import { ConflictDialog } from '../../workingCopy/ConflictDialog';
 
@@ -481,7 +480,6 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       </div>
 
       <EquipmentMaterialModal onAdd={handleAddEquipment} />
-      <CableEndpointPickerHost floorId={floorId} />
       <CableSpecModalWrapper />
       {showImportModal && floorId && (
         <DwgImportModal

@@ -325,6 +325,8 @@ export function useCanvasEvents(
         // RACK / DISTRIBUTION / OFD endpoints require a module / circuit / port step.
         if (needsEndpointPicker(kindOf(eq))) {
           interaction.cableSetPendingSource(eq.id);
+          // 컨테이너(랙/분전반/OFD)의 우측 상세 패널을 열어 그 안에서 endpoint 를 picking.
+          useEditorStore.getState().openDetail(eq.id);
         } else {
           interaction.cableSetSource({ containerAssetId: eq.id, position: center });
         }
@@ -332,7 +334,7 @@ export function useCanvasEvents(
       return;
     }
     if (cableDrawing?.phase === 'pickingSourceEndpoint' || cableDrawing?.phase === 'pickingTargetEndpoint') {
-      // Picker modals own the click flow; ignore canvas clicks.
+      // 우측 상세 패널이 click 흐름을 소유한다(leaf view 의 onPick). 캔버스 클릭은 무시.
       return;
     }
     if (cableDrawing?.phase === 'drawingPath') {
@@ -342,6 +344,8 @@ export function useCanvasEvents(
         const center = getEquipmentCenter(eq);
         if (needsEndpointPicker(kindOf(eq))) {
           interaction.cableSetPendingTarget(eq.id);
+          // 컨테이너의 우측 상세 패널을 열어 그 안에서 target endpoint 를 picking.
+          useEditorStore.getState().openDetail(eq.id);
         } else {
           interaction.cableSetTarget({ containerAssetId: eq.id, position: center });
           commitCable();
@@ -364,23 +368,6 @@ export function useCanvasEvents(
       return;
     }
     if (cableDrawing?.phase === 'selectingType' || cableDrawing?.phase === 'ready') return;
-
-    if (tool === 'cable') {
-      const found = findItemAt(x, y, null, localEquipment);
-      if (found?.type === 'equipment') {
-        const eq = found.item;
-        const center = {
-          x: (eq.positionX ?? 0) + (eq.width2d ?? 0) / 2,
-          y: (eq.positionY ?? 0) + (eq.height2d ?? 0) / 2,
-        };
-        if (needsEndpointPicker(kindOf(eq))) {
-          interaction.cableSetPendingSource(eq.id);
-        } else {
-          interaction.cableSetSource({ containerAssetId: eq.id, position: center });
-        }
-      }
-      return;
-    }
 
     switch (tool) {
       case 'equipment': {
