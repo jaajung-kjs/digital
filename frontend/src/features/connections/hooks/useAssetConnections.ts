@@ -54,11 +54,14 @@ export function makeCategoryGroupOf(categories: CableCategory[]): (cable: { cate
  * Pure — all data is injected via `graph`/`assets`/`categoryGroupOf`.
  *
  * 요약 한 행 = 한 케이블의 `출발(self) → 도착(즉시 상대)`. 도착은 conduit 슬롯이면
- * 그 부모(OFD)로 접는다. 전체 경로(끝까지)는 행 클릭 시 `startTrace` 가 추적/하이라이트한다.
+ * 그 부모(OFD)로 접는다. 전체 경로(끝까지)는 행 클릭 시 `startTrace` 가 관통 추적/하이라이트한다.
+ *
+ * **통과설비 입력 흡수:** 분전반·OFD 같은 통과설비에서 입력(IN)/트렁크(OPGW) 케이블은
+ * 출력 경로가 그 입력을 통해 상대설비로 이어지므로 별도 행으로 내지 않는다(self 끝 역할 IN → skip).
+ * → "input 1행 + output 1행" 으로 갈라지던 중복을 제거하고 출력(실제 설비 연결)만 남긴다.
  *
  * 중복제거 = `(종류·self·도착)` 단위. 같은 종류로 같은 곳에 가는 다중 케이블(링/다중코어)은
- * 1행으로 접되, **종류가 다르거나(전원·접지)** **도착이 다르면(피더 입력 vs 분기)** 별도 행으로 보존한다.
- * → projectTrace 의 nodeIds 기반 접기가 입력·분기를 뭉개거나 다른 종류를 삼키던 문제를 제거.
+ * 1행으로 접되, **종류가 다르거나(전원·접지)** **도착이 다르면(분기 부하별)** 별도 행으로 보존한다.
  */
 export function buildConnectionGroups(opts: {
   graph: TraceGraph;
@@ -92,6 +95,17 @@ export function buildConnectionGroups(opts: {
     const srcSelf = isSelf(cable.sourceAssetId);
     const selfRaw = srcSelf ? cable.sourceAssetId : cable.targetAssetId;
     const otherRaw = srcSelf ? cable.targetAssetId : cable.sourceAssetId;
+
+    // 통과설비(분전반·OFD)의 입력(IN)/트렁크(OPGW) 케이블은 별도 행으로 내지 않는다.
+    // 입력은 같은 self 의 출력 경로에 흡수되므로(output 이 input 을 통해 상대설비로 이어짐),
+    // self 가 distributor/conduit 이고 그 끝 역할이 IN 이면 상류 공급/트렁크 → skip.
+    // (passive 단말은 역할 격리 없음 → 그대로 표시. 클릭 시 startTrace 가 끝까지 관통 추적.)
+    const selfKind = selfRaw ? (kindById.get(selfRaw) ?? null) : null;
+    if (selfKind === 'distributor' || selfKind === 'conduit') {
+      const selfRole = cable.sourceAssetId === selfRaw ? cable.sourceRole : cable.targetRole;
+      if (selfRole === 'IN') continue;
+    }
+
     const selfId = collapse(selfRaw);
     const farId = collapse(otherRaw);
     if (!selfId || !farId) continue; // dangling/self-loop

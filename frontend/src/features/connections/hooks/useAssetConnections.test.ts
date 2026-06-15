@@ -9,6 +9,8 @@ const assets = [
   { id: 'S', name: '슬롯1', parentAssetId: 'OFD', assetType: { connectionKind: 'conduit' } },
   { id: 'S2', name: '슬롯2', parentAssetId: 'OFD', assetType: { connectionKind: 'conduit' } },
   { id: 'OFD', name: 'OFD#1', parentAssetId: null, assetType: { placementKind: 'OFD' } },
+  { id: 'RS', name: '원격슬롯', parentAssetId: 'ROFD', assetType: { connectionKind: 'conduit' } },
+  { id: 'E1', name: '단말1', parentAssetId: null, assetType: {} },
   { id: 'F', name: '피더1', parentAssetId: null, assetType: { connectionKind: 'distributor' } },
   { id: 'SRC', name: '변압기', parentAssetId: null, assetType: {} },
   { id: 'L1', name: '부하1', parentAssetId: null, assetType: {} },
@@ -19,12 +21,13 @@ const baseGraph = {
   assets: [
     { id: 'M', connectionKind: null }, { id: 'S', connectionKind: 'conduit' },
     { id: 'S2', connectionKind: 'conduit' }, { id: 'OFD', connectionKind: null },
+    { id: 'RS', connectionKind: 'conduit' }, { id: 'E1', connectionKind: null },
     { id: 'F', connectionKind: 'distributor' }, { id: 'SRC', connectionKind: null },
     { id: 'L1', connectionKind: null }, { id: 'L2', connectionKind: null },
   ],
-  nameById: new Map([['M', '송광치'], ['S', '슬롯1'], ['S2', '슬롯2'], ['OFD', 'OFD#1'], ['F', '피더1'], ['SRC', '변압기'], ['L1', '부하1'], ['L2', '부하2']]),
+  nameById: new Map([['M', '송광치'], ['S', '슬롯1'], ['S2', '슬롯2'], ['OFD', 'OFD#1'], ['RS', '원격슬롯'], ['E1', '단말1'], ['F', '피더1'], ['SRC', '변압기'], ['L1', '부하1'], ['L2', '부하2']]),
   subNameById: new Map(),
-  parentById: new Map([['S', 'OFD'], ['S2', 'OFD']]),
+  parentById: new Map([['S', 'OFD'], ['S2', 'OFD'], ['RS', 'ROFD']]),
   codeById: new Map(),
 } as unknown as TraceGraph;
 
@@ -57,10 +60,10 @@ describe('buildConnectionGroups', () => {
     expect(buildConnectionGroups({ graph, assets, assetId: 'R', categoryGroupOf: catGroupOf })).toEqual([]);
   });
 
-  it('같은 두 끝(A↔B) 사이 전원·접지는 종류가 달라 각각 1행(종류 무시 중복제거 회귀 방지)', () => {
+  it('같은 도착에 전원·접지가 동시연결되면 종류가 달라 각각 1행(종류 무시 중복제거 회귀 방지)', () => {
     const graph = withCables([
-      { id: 'p', cableType: 'POWER', sourceAssetId: 'SRC', targetAssetId: 'F', categoryId: 'pwr' },
-      { id: 'g', cableType: 'GROUND', sourceAssetId: 'SRC', targetAssetId: 'F', categoryId: 'gnd' },
+      { id: 'p', cableType: 'POWER', sourceAssetId: 'F', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: 'IN', categoryId: 'pwr' },
+      { id: 'g', cableType: 'GROUND', sourceAssetId: 'F', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: 'IN', categoryId: 'gnd' },
     ]);
     const groups = buildConnectionGroups({ graph, assets, assetId: 'F', categoryGroupOf: catGroupOf });
     expect(groups.map((g) => g.key).sort()).toEqual(['전원', '접지']);
@@ -68,7 +71,7 @@ describe('buildConnectionGroups', () => {
     expect(groups.find((g) => g.key === '접지')!.rows).toHaveLength(1);
   });
 
-  it('피더 입력(공급)과 분기(부하)는 도착이 달라 각각 보존(분기 누락 회귀 방지)', () => {
+  it('분전반/피더: 입력(공급, IN)은 흡수되고 분기(부하, OUT)만 행으로 — input/output 분리 제거', () => {
     const graph = withCables([
       { id: 'in', cableType: 'POWER', sourceAssetId: 'SRC', targetAssetId: 'F', sourceRole: 'OUT', targetRole: 'IN', categoryId: 'pwr' },
       { id: 'b1', cableType: 'POWER', sourceAssetId: 'F', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: 'IN', categoryId: 'pwr' },
@@ -77,8 +80,19 @@ describe('buildConnectionGroups', () => {
     const groups = buildConnectionGroups({ graph, assets, assetId: 'F', categoryGroupOf: catGroupOf });
     expect(groups).toHaveLength(1);
     const rows = groups[0].rows;
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.fromName === '피더1')).toBe(true);
-    expect(new Set(rows.map((r) => r.toName))).toEqual(new Set(['변압기', '부하1', '부하2']));
+    expect(new Set(rows.map((r) => r.toName))).toEqual(new Set(['부하1', '부하2']));
+  });
+
+  it('OFD: 출력(설비 연결)만 행으로, OPGW 입력(IN/트렁크)은 흡수(숨김)', () => {
+    const graph = withCables([
+      { id: 'out1', cableType: 'FIBER', sourceAssetId: 'E1', targetAssetId: 'S', targetRole: 'OUT', categoryId: 'fib' },
+      { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'S', targetAssetId: 'RS', sourceRole: 'IN', targetRole: 'IN', categoryId: 'fib' },
+    ]);
+    const groups = buildConnectionGroups({ graph, assets, assetId: 'OFD', categoryGroupOf: catGroupOf });
+    expect(groups).toHaveLength(1);
+    expect(groups[0].rows).toHaveLength(1);
+    expect(groups[0].rows[0]).toMatchObject({ fromName: 'OFD#1', toName: '단말1' });
   });
 });
