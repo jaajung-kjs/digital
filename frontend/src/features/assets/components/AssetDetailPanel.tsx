@@ -4,10 +4,11 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSelection } from '../../workspace/SelectionContext';
 import type { Asset } from '../../../types/asset';
-import { EQUIPMENT_KIND_INFO, type DetailPanelKind } from '../../../types/equipmentKind';
+import { type DetailPanelKind } from '../../../types/equipmentKind';
 import { kindOf } from '../../workingCopy/placement';
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
+import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
 import { SidePanel } from '../../editor/components/SidePanel';
 
@@ -72,16 +73,14 @@ interface Props {
   initialTab?: string;
 }
 
-/** asset 의 placementKind → 공간 섹션 종류. 모듈/미배치/미상은 null(섹션 없음). */
+/** asset → 공간 섹션 종류. conduit(광슬롯)=포트, 배치설비=종류별, 그 외 자식/미상=null. resolveAssetDetailKind(SSOT) 위임. */
 function kindFromAsset(asset?: Asset | null): DetailPanelKind | null {
-  // parentAssetId != null 은 "자식 자산(랙 모듈 + 배전 FEEDER/BRANCH 모두)" 을 의미한다.
-  // 랙 모듈(slotIndex 있음)뿐 아니라 FEEDER/BRANCH(slotIndex 없음)도 독립 평면도 배치가
-  // 없으므로 공간 섹션(실장도/경로 등)을 렌더하지 않는다 — isRackModuleAsset(strict)가
-  // 아니라 '부모가 있는 모든 자식' 이라는 넓은 의미로 의도적으로 쓰인다.
-  if (!asset || asset.parentAssetId != null) return null;
-  const pk = asset.assetType?.placementKind;
-  if (!pk) return null;
-  return EQUIPMENT_KIND_INFO[kindOf(asset)].detailPanelKind;
+  // 배치설비(placed) = 부모 없고 placementKind 있는 최상위 자산. conduit 분기는 resolver 가 우선 처리.
+  const placed =
+    asset && asset.parentAssetId == null && asset.assetType?.placementKind
+      ? { kind: kindOf(asset) }
+      : null;
+  return resolveAssetDetailKind(asset, placed);
 }
 
 /**
