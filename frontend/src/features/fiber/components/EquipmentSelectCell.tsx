@@ -1,13 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import { useEffectiveCables } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useTraceGraph, type SlimAssetDTO } from '../../trace/traceGraph';
+import { useTraceGraph } from '../../trace/traceGraph';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
+import { useSlimAssets } from '../../assets/hooks/useSlimAssets';
 import { roleAt, other, type CableLike } from '../slotRegister';
 import { twinSlotIdOf } from '../slotPorts';
 import { buildCoreOutCable } from '../fiberWrite';
 import { generateTempId } from '../../../utils/idHelpers';
-import { api } from '../../../utils/api';
 import { EditableField } from '../../assets/components/EditableField';
 import type { Asset } from '../../../types/asset';
 
@@ -15,13 +15,11 @@ import type { Asset } from '../../../types/asset';
 export function EquipmentSelectCell({ slot, coreNumber, side }: {
   slot: Asset; coreNumber: number; side: 'local' | 'remote';
 }) {
+  // 훅의 넓은 반환을 buildSlotPorts/roleAt 가 보는 CableLike 로 좁힘.
   const cables = useEffectiveCables() as unknown as CableLike[];
   const { graph } = useTraceGraph();
   const { data: categories = [] } = useCableCategories();
-  const { data: slim = [] } = useQuery({
-    queryKey: ['assets-slim'], staleTime: 30_000,
-    queryFn: async () => (await api.get<{ data: SlimAssetDTO[] }>('/assets')).data.data,
-  });
+  const { data: slim = [] } = useSlimAssets();
   const opjCat = categories.find((c) => c.code === 'CBL-OPJ');
 
   const twinId = twinSlotIdOf(slot.id, cables);
@@ -43,7 +41,7 @@ export function EquipmentSelectCell({ slot, coreNumber, side }: {
   const disabled = !targetSlotId || !targetSub || !opjCat;
   const ariaLabel = side === 'local' ? '자국설비' : '대국설비';
 
-  const commit = (v: string) => {
+  const commit = useCallback((v: string) => {
     if (v === (currentId ?? '')) return;
     const wc = useSubstationWorkingCopy.getState();
     if (v === '') {
@@ -59,10 +57,15 @@ export function EquipmentSelectCell({ slot, coreNumber, side }: {
       });
       wc.put('cables', cable as unknown as { id: string; [k: string]: unknown });
     }
-  };
+  }, [currentId, outCable?.id, targetSlotId, opjCat]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const nameOf = (id: string) => graph?.nameById.get(id) ?? slim.find((a) => a.id === id)?.name ?? id;
-  const options = [{ value: '', label: '—' }, ...candidates.map((a) => ({ value: a.id, label: a.name ?? a.id }))];
+  // 옵션 라벨·읽기모드 표시 동일 이름 출처(slim 우선, graph 폴백).
+  const nameOf = (id: string) => slim.find((a) => a.id === id)?.name ?? graph?.nameById.get(id) ?? id;
+  // 현재 연결된 설비는 후보 필터가 제외해도 항상 선택지로 보장.
+  const optionAssets = currentId && !candidates.some((a) => a.id === currentId)
+    ? [...slim.filter((a) => a.id === currentId), ...candidates]
+    : candidates;
+  const options = [{ value: '', label: '—' }, ...optionAssets.map((a) => ({ value: a.id, label: a.name ?? a.id }))];
 
   return (
     <EditableField

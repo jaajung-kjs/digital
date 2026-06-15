@@ -22,12 +22,15 @@ const SLIM = [
 ];
 const CATS = [{ id: 'cat-opj', code: 'CBL-OPJ', name: '광점퍼코드', displayColor: null }];
 
+// 카테고리 모킹은 테스트마다 교체 가능(빈 배열로 disabled 케이스 검증).
+const cats = vi.hoisted(() => ({ value: { data: [] as { id: string; code: string; name: string; displayColor: string | null }[] } }));
+
 vi.mock('../../workingCopy/hooks', () => ({ useEffectiveCables: () => [opgw, localOut3] }));
 vi.mock('../../trace/traceGraph', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../trace/traceGraph')>()),
   useTraceGraph: () => ({ graph: { nameById: new Map([['eqpL','자국장비'],['eqpR','대국장비']]) }, isLoading: false }),
 }));
-vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => ({ data: CATS }) }));
+vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => cats.value }));
 vi.mock('../../workingCopy/substationStore', () => {
   const st = { put, patch, remove };
   const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
@@ -51,7 +54,7 @@ function chooseOption(ariaLabel: string, value: string) {
   fireEvent.change(screen.getByLabelText(ariaLabel), { target: { value } });
 }
 
-beforeEach(() => { put.mockClear(); patch.mockClear(); remove.mockClear(); });
+beforeEach(() => { put.mockClear(); patch.mockClear(); remove.mockClear(); cats.value = { data: CATS }; });
 
 describe('EquipmentSelectCell', () => {
   it('자국 빈 코어: 설비 선택 → buildCoreOutCable put(자국슬롯)', () => {
@@ -75,5 +78,27 @@ describe('EquipmentSelectCell', () => {
     chooseOption('대국설비', 'eqpR');
     const [, cable] = put.mock.calls[0];
     expect(cable).toMatchObject({ sourceAssetId: 'eqpR', targetAssetId: TWIN, number: 5 });
+  });
+
+  it('점유 코어에서 빈값 선택 + confirm→true → remove', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    wrap(<EquipmentSelectCell slot={SLOT_ASSET as never} coreNumber={3} side="local" />);
+    chooseOption('자국설비', '');
+    expect(remove).toHaveBeenCalledWith('cables', 'c-l3');
+    confirm.mockRestore();
+  });
+
+  it('점유 코어에서 빈값 선택 + confirm→false → remove 미호출', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    wrap(<EquipmentSelectCell slot={SLOT_ASSET as never} coreNumber={3} side="local" />);
+    chooseOption('자국설비', '');
+    expect(remove).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it('CBL-OPJ 카테고리 없음 → disabled(연필 버튼 없음)', () => {
+    cats.value = { data: [] };
+    wrap(<EquipmentSelectCell slot={SLOT_ASSET as never} coreNumber={5} side="local" />);
+    expect(screen.queryByTitle('자국설비 수정')).toBeNull();
   });
 });

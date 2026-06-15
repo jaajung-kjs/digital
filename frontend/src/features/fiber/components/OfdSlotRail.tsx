@@ -1,15 +1,14 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useTraceGraph, type SlimAssetDTO } from '../../trace/traceGraph';
 import { useAssetTypeIdByCode } from '../../assets/useAssetTypeIdByCode';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
+import { useSlimAssets } from '../../assets/hooks/useSlimAssets';
 import { generateTempId } from '../../../utils/idHelpers';
 import { buildRouteCreate, routeDeleteIds } from '../fiberWrite';
 import { fiberSlotLabel } from '../fiberSlotLabel';
-import { api } from '../../../utils/api';
 import { SlotTile } from '../../../components/SlotTile';
 import { SlotRailGrid } from '../../../components/SlotRailGrid';
 import { OfdRoutePopover } from './OfdRoutePopover';
@@ -50,11 +49,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
 
   const [popover, setPopover] = useState<PopoverState | null>(null);
 
-  const { data: slim = [] } = useQuery({
-    queryKey: ['assets-slim'],
-    staleTime: 30_000,
-    queryFn: async () => (await api.get<{ data: SlimAssetDTO[] }>('/assets')).data.data,
-  });
+  const { data: slim = [] } = useSlimAssets();
 
   const peerOfds = useMemo(() => slim.filter((a) => a.code === 'OFD' && a.id !== ofdId), [slim, ofdId]);
   const localOfd = useMemo(() => slim.find((a) => a.id === ofdId) ?? null, [slim, ofdId]);
