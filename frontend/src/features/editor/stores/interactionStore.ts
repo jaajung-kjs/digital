@@ -1,39 +1,40 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
+import type { EndpointRef } from '../cableEndpoint';
 
 // ── Cable drawing ────────────────────────────────────────────────────────────
 
+/** CableSpecModal 이 종류 선택 후 store 에 싣는 카테고리 요약. */
+export interface SelectedCableCategory {
+  id: string;
+  code: string;
+  name: string;
+  displayColor: string | null;
+}
+
 export type CableDrawingPhase =
+  | 'selectingType'          // 케이블 종류(카테고리) 선택 대기 (CableSpecModal)
   | 'selectingSource'        // 출발 설비 클릭 대기
-  | 'pickingSourceModule'    // 랙/OFD 가 출발이면 모듈/포트 picker 가 열려 있음
+  | 'pickingSourceEndpoint'  // 랙/분전반/OFD 가 출발이면 모듈/회로/슬롯 picker 가 열려 있음
   | 'drawingPath'            // 출발 확정, 경유점 그리는 중
-  | 'pickingTargetModule'    // 도착이 랙/OFD → 모듈/포트 picker
-  | 'selectingSpec';         // 양 끝 확정 → CableSpecModal 열림
+  | 'pickingTargetEndpoint'  // 도착이 랙/분전반/OFD → 모듈/회로/슬롯 picker
+  | 'ready';                 // 양 끝 확정 → commitCable 가능
 
 export interface CableDrawingData {
   phase: CableDrawingPhase;
 
-  /** Source CONTAINER — 도면에 배치된 설비/랙/분전반/OFD 의 asset id.
-   *  어떤 picker 가 열릴지를 결정한다 (랙→모듈, 분전반→회로, OFD→슬롯). */
-  sourceContainerAssetId: string | null;
-  /** Source INNER pick — 랙 모듈 asset 또는 분전반 분기 asset 의 id.
-   *  (모듈/회로는 상호배타 → 단일 필드로 병합). null 이면 컨테이너 자체가 endpoint. */
-  sourceInnerAssetId: string | null;
-  sourcePosition: { x: number; y: number } | null;
-  /** OFD 드롭 시 선택된 슬롯(경로) id — endpoint assetId 가 이 슬롯이 됨. */
-  sourceSlotId: string | null;
-  /** OFD 드롭 시 선택된 코어 번호. */
-  sourceCoreNumber: number | null;
+  /** 선택된 케이블 종류. selectingType 이후 채워진다. */
+  category: SelectedCableCategory | null;
+
+  /** 출발 endpoint (containerAssetId + 선택적 inner/slot/core/role/number). */
+  source: EndpointRef | null;
+  /** 도착 endpoint. */
+  target: EndpointRef | null;
+
+  /** picker 가 열려 있는 동안 대상 컨테이너 설비의 asset id. */
+  pendingContainerId: string | null;
 
   waypoints: [number, number][];
-
-  targetContainerAssetId: string | null;
-  targetInnerAssetId: string | null;
-  targetPosition: { x: number; y: number } | null;
-  /** OFD 드롭 시 선택된 슬롯(경로) id — endpoint assetId 가 이 슬롯이 됨. */
-  targetSlotId: string | null;
-  /** OFD 드롭 시 선택된 코어 번호. */
-  targetCoreNumber: number | null;
 
   /** Cursor 미리보기 점 (drawingPath 단계) */
   previewPoint: { x: number; y: number } | null;
@@ -41,18 +42,12 @@ export interface CableDrawingData {
 }
 
 const cableInitial: CableDrawingData = {
-  phase: 'selectingSource',
-  sourceContainerAssetId: null,
-  sourceInnerAssetId: null,
-  sourcePosition: null,
-  sourceSlotId: null,
-  sourceCoreNumber: null,
+  phase: 'selectingType',
+  category: null,
+  source: null,
+  target: null,
+  pendingContainerId: null,
   waypoints: [],
-  targetContainerAssetId: null,
-  targetInnerAssetId: null,
-  targetPosition: null,
-  targetSlotId: null,
-  targetCoreNumber: null,
   previewPoint: null,
   hoveredAssetId: null,
 };
@@ -66,20 +61,15 @@ export type InteractionMode =
 // ── Store ────────────────────────────────────────────────────────────────────
 
 interface InteractionActions {
-  /** Cable drawing 시작 — 도구모음에서 케이블 선택 시 호출 */
-  cableActivate: () => void;
-  cableSetPendingSource: (containerAssetId: string, position: { x: number; y: number }) => void;
-  cableSetSource: (
-    containerAssetId: string,
-    position: { x: number; y: number },
-    extras?: { innerAssetId?: string | null; slotId?: string | null; coreNumber?: number | null },
-  ) => void;
-  cableSetPendingTarget: (containerAssetId: string, position: { x: number; y: number }) => void;
-  cableSetTarget: (
-    containerAssetId: string,
-    position: { x: number; y: number },
-    extras?: { innerAssetId?: string | null; slotId?: string | null; coreNumber?: number | null },
-  ) => void;
+  /** Cable drawing 시작 — 도구모음에서 케이블 선택 시 호출.
+   *  source/category 가 주입되면 그에 맞춰 초기 phase 를 결정한다. */
+  cableActivate: (opts?: { source?: EndpointRef; category?: SelectedCableCategory }) => void;
+  /** selectingType 에서 종류 확정 → 출발 선택(또는 source 주입돼 있으면 경로). */
+  cableSetType: (category: SelectedCableCategory) => void;
+  cableSetPendingSource: (containerId: string) => void;
+  cableSetSource: (ref: EndpointRef) => void;
+  cableSetPendingTarget: (containerId: string) => void;
+  cableSetTarget: (ref: EndpointRef) => void;
   cableAddWaypoint: (x: number, y: number) => void;
   cableRemoveLastWaypoint: () => void;
   cableSetPreviewPoint: (point: { x: number; y: number } | null) => void;
@@ -97,32 +87,59 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
   mode: { kind: 'idle' },
 
   // ── Cable drawing actions ────────────────────────────────────────────────
-  cableActivate: () =>
-    set({ mode: { kind: 'cableDrawing', data: { ...cableInitial } } }),
+  cableActivate: (opts) =>
+    set(() => {
+      const category = opts?.category ?? null;
+      const source = opts?.source ?? null;
+      const phase: CableDrawingPhase = category
+        ? source
+          ? 'drawingPath'
+          : 'selectingSource'
+        : 'selectingType';
+      return {
+        mode: {
+          kind: 'cableDrawing',
+          data: { ...cableInitial, category, source, phase },
+        },
+      };
+    }),
 
-  cableSetPendingSource: (containerAssetId, position) =>
+  cableSetType: (category) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
+      if (state.mode.data.phase !== 'selectingType') return state;
+      const source = state.mode.data.source;
       return {
         mode: {
           kind: 'cableDrawing',
           data: {
             ...state.mode.data,
-            phase: 'pickingSourceModule',
-            sourceContainerAssetId: containerAssetId,
-            sourceInnerAssetId: null,
-            sourceSlotId: null,
-            sourceCoreNumber: null,
-            sourcePosition: position,
+            category,
+            phase: source ? 'drawingPath' : 'selectingSource',
           },
         },
       };
     }),
 
-  cableSetSource: (containerAssetId, position, extras) =>
+  cableSetPendingSource: (containerId) =>
+    set((state) => {
+      if (state.mode.kind !== 'cableDrawing') return state;
+      if (state.mode.data.phase !== 'selectingSource') return state;
+      return {
+        mode: {
+          kind: 'cableDrawing',
+          data: {
+            ...state.mode.data,
+            phase: 'pickingSourceEndpoint',
+            pendingContainerId: containerId,
+          },
+        },
+      };
+    }),
+
+  cableSetSource: (ref) =>
     set((state) => {
       // Idle 상태에서도 source 가 들어올 수 있음 (예: ConnectionDiagram 카드 클릭).
-      // 그 경우 cable drawing 을 새로 시작하는 의미.
       const prev = state.mode.kind === 'cableDrawing' ? state.mode.data : cableInitial;
       return {
         mode: {
@@ -130,17 +147,10 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
           data: {
             ...prev,
             phase: 'drawingPath',
-            sourceContainerAssetId: containerAssetId,
-            sourceInnerAssetId: extras?.innerAssetId ?? null,
-            sourceSlotId: extras?.slotId ?? null,
-            sourceCoreNumber: extras?.coreNumber ?? null,
-            sourcePosition: position,
+            source: ref,
+            target: null,
+            pendingContainerId: null,
             waypoints: [],
-            targetContainerAssetId: null,
-            targetInnerAssetId: null,
-            targetSlotId: null,
-            targetCoreNumber: null,
-            targetPosition: null,
             previewPoint: null,
             hoveredAssetId: null,
           },
@@ -148,26 +158,23 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
       };
     }),
 
-  cableSetPendingTarget: (containerAssetId, position) =>
+  cableSetPendingTarget: (containerId) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
+      if (state.mode.data.phase !== 'drawingPath') return state;
       return {
         mode: {
           kind: 'cableDrawing',
           data: {
             ...state.mode.data,
-            phase: 'pickingTargetModule',
-            targetContainerAssetId: containerAssetId,
-            targetInnerAssetId: null,
-            targetSlotId: null,
-            targetCoreNumber: null,
-            targetPosition: position,
+            phase: 'pickingTargetEndpoint',
+            pendingContainerId: containerId,
           },
         },
       };
     }),
 
-  cableSetTarget: (containerAssetId, position, extras) =>
+  cableSetTarget: (ref) =>
     set((state) => {
       if (state.mode.kind !== 'cableDrawing') return state;
       return {
@@ -175,12 +182,9 @@ export const useInteractionStore = create<InteractionStore>((set) => ({
           kind: 'cableDrawing',
           data: {
             ...state.mode.data,
-            phase: 'selectingSpec',
-            targetContainerAssetId: containerAssetId,
-            targetInnerAssetId: extras?.innerAssetId ?? null,
-            targetSlotId: extras?.slotId ?? null,
-            targetCoreNumber: extras?.coreNumber ?? null,
-            targetPosition: position,
+            phase: 'ready',
+            target: ref,
+            pendingContainerId: null,
             previewPoint: null,
             hoveredAssetId: null,
           },
