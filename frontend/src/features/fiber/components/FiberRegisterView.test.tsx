@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 
 const { setSelectedAssetId, patch, effectiveCables } = vi.hoisted(() => ({
   setSelectedAssetId: vi.fn(),
@@ -23,23 +25,46 @@ const OFD_ASSET = {
   parentAssetId: null,
 };
 
+// OPGW(IN-IN): 자국 slot1 ↔ 대국 twin 슬롯. twinSlotIdOf·fiberSlotLabel(#코어수) 근거.
+const OPGW = {
+  id: 'opgw1', cableType: 'FIBER', sourceAssetId: 'slot1', targetAssetId: 'twin1',
+  sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 },
+};
+// 코어2 자국측 OUT 케이블 — EquipmentSelectCell 가 연결 설비(a-near)를 표시.
+const OUT2 = {
+  id: 'c2', cableType: 'FIBER', sourceAssetId: 'a-near', targetAssetId: 'slot1',
+  sourceRole: null, targetRole: 'OUT', number: 2,
+};
+const FIBER_CABLES = [OPGW, OUT2];
+
+// EquipmentSelectCell 가 useSlimAssets(['assets-slim']) 로 읽는 후보·이름 출처.
+const SLIM = [
+  { id: 'a-near', name: '송변전광단말', code: 'EQP', substationId: 's1', parentAssetId: null, connectionKind: null },
+  { id: 'twin1', name: '홍천슬롯', code: 'OFD-SLOT', substationId: 's2', parentAssetId: 'ofd2', connectionKind: 'conduit' },
+];
+const CATS = [{ id: 'cat-opj', code: 'CBL-OPJ', name: '광점퍼코드', displayColor: null }];
+
+// useEffectiveCables 는 descriptor(commitMeta 비사용) + EquipmentSelectCell 양쪽이 본다.
 vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => [OFD_ASSET, SLOT_ASSET],
-  useEffectiveCables: () => [],
+  useEffectiveCables: () => FIBER_CABLES,
 }));
+vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => ({ data: CATS }) }));
 vi.mock('../../trace/traceGraph', () => ({
   useTraceGraph: () => ({
     graph: {
-      nameById: new Map([['a-near', '송변전광단말'], ['a-far', '홍천단말']]),
+      nameById: new Map([['a-near', '송변전광단말'], ['twin1', '홍천슬롯']]),
       subNameById: new Map([['ofd1', '원주'], ['slot1', '원주']]),
+      parentById: new Map([['slot1', 'ofd1']]),
       assets: [],
-      cables: [],
+      cables: FIBER_CABLES,
     },
     isLoading: false,
   }),
   remoteSlotSubstation: (_slotId: string, _graph: unknown) => '홍천',
 }));
-vi.mock('../slotRegister', () => ({
+vi.mock('../slotRegister', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../slotRegister')>()),
   buildSlotCoreRows: (_slot: unknown, _cables: unknown, _graph: unknown) => [
     {
       coreNumber: 1, cableId: null, occupied: false,
@@ -79,24 +104,47 @@ vi.mock('../../assets/components/StagedAssetDetailPanel', () => ({
 
 import { FiberRegisterView } from './FiberRegisterView';
 
+function renderView() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  qc.setQueryData(['assets-slim'], SLIM);
+  return render(
+    <QueryClientProvider client={qc}>
+      <FiberRegisterView substationId="s1" />
+    </QueryClientProvider>,
+  );
+}
+
 beforeEach(() => { setSelectedAssetId.mockClear(); patch.mockClear(); effectiveCables.mockReturnValue([]); });
 
 describe('OfdFiberRegister', () => {
-  it('섹션 헤더(원주 - 홍천)와 코어 행(점유/빈)을 렌더한다', () => {
-    render(<FiberRegisterView substationId="s1" />);
-    expect(screen.getByText('원주 - 홍천')).toBeInTheDocument();
-    expect(screen.getByText('송변전광단말')).toBeInTheDocument();
-    expect(screen.getByText('홍천단말')).toBeInTheDocument();
+  it('섹션 헤더(fiberSlotLabel: 원주 - 홍천 #24)와 자국설비/대국설비 열을 렌더한다', () => {
+    renderView();
+    // 제목은 fiberSlotLabel 파생: 자국 - 대국 #코어수(OPGW specParams.cores).
+    expect(screen.getByText('원주 - 홍천 #24')).toBeInTheDocument();
+    // 읽기전용 자산명 열 → EquipmentSelectCell 드롭다운으로 교체.
+    expect(screen.getByText('자국설비')).toBeInTheDocument();
+    expect(screen.getByText('대국설비')).toBeInTheDocument();
   });
 
-  it('점유 코어 행 클릭 → 근접자산 선택', () => {
-    render(<FiberRegisterView substationId="s1" />);
-    fireEvent.click(screen.getByText('송변전광단말'));
+  it('점유 코어 자국설비 셀이 EquipmentSelectCell 드롭다운(연결 설비명 표시 + 수정 어포던스)을 렌더한다', () => {
+    renderView();
+    // 코어2 자국측 OUT 케이블(a-near) → display(읽기모드) + 옵션 라벨에 연결 설비명 표시.
+    expect(screen.getAllByText('송변전광단말').length).toBeGreaterThan(0);
+    // 자국/대국 모두 수정(✎) 어포던스 노출 — CBL-OPJ 카테고리 존재로 비활성 아님.
+    expect(screen.getAllByTitle('자국설비 수정').length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle('대국설비 수정').length).toBeGreaterThan(0);
+  });
+
+  it('점유 코어 행 클릭(코어 번호 셀) → onRowClick 으로 근접자산 선택', () => {
+    renderView();
+    // 자국설비 셀은 이제 드롭다운이므로 행 선택은 비-드롭다운 셀(코어 번호 "2")로 검증.
+    const coreCells = screen.getAllByText(/^2$/);
+    fireEvent.click(coreCells[0]);
     expect(setSelectedAssetId).toHaveBeenCalledWith('a-near');
   });
 
   it('빈 코어 행 클릭 → 선택 안 함(부모 OFD 로 폴백하지 않음 — 전체선택 버그 방지)', () => {
-    render(<FiberRegisterView substationId="s1" />);
+    renderView();
     // 빈 코어 행 — 코어번호 "1" 셀 클릭. nearAssetId 없으면 null → setSelectedAssetId 미호출.
     const coreCells = screen.getAllByText(/^1$/);
     fireEvent.click(coreCells[0]);
@@ -105,9 +153,9 @@ describe('OfdFiberRegister', () => {
 
   it('점유 코어 용도 ✎ 클릭 → 입력 → blur → patch(cables, cableId, specParams 머지)', () => {
     effectiveCables.mockReturnValue([{ id: 'c2', specParams: { purpose: null } }]);
-    render(<FiberRegisterView substationId="s1" />);
-    // 용도 ✎ 버튼은 DOM에 존재(opacity만 0) — 코어2(점유, cableId='c2')의 ✎ 버튼: 두 번째(index 1)
-    // 코어1은 disabled(cableId 없음)이라 ✎ 없음 — 코어2의 ✎ 버튼이 유일
+    renderView();
+    // 용도 ✎ 버튼은 DOM에 존재(opacity만 0) — 코어2(점유, cableId='c2')의 ✎ 버튼.
+    // 코어1은 disabled(cableId 없음)이라 ✎ 없음 — 코어2의 ✎ 버튼이 유일.
     const pencilButton = screen.getByRole('button', { name: /용도 수정/ });
     fireEvent.click(pencilButton);
     // 편집모드: input 나타남

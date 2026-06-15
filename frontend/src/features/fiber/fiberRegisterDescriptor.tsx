@@ -1,8 +1,11 @@
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
-import { remoteSlotSubstation, type TraceGraph } from '../trace/traceGraph';
+import { type TraceGraph } from '../trace/traceGraph';
 import { buildSlotCoreRows, type SlotCoreRow } from './slotRegister';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
 import { EditableField } from '../assets/components/EditableField';
+import { fiberSlotLabel } from './fiberSlotLabel';
+import { EquipmentSelectCell } from './components/EquipmentSelectCell';
+import type { Asset } from '../../types/asset';
 
 /** 점유 코어 한 필드를 OUT 케이블 specParams 에 머지 스테이징(기존 키 보존). */
 function commitMeta(cableId: string, field: string, value: string | null) {
@@ -12,8 +15,8 @@ function commitMeta(cableId: string, field: string, value: string | null) {
   wc.patch('cables', cableId, { specParams: { ...prev, [field]: value } });
 }
 
-/** __nameById 동봉 — cell(row) 시그니처에 ctx 없으므로 row 에 해소맵 첨부. */
-export type FiberRow = SlotCoreRow & { __nameById?: Map<string, string> };
+/** __nameById·__slot 동봉 — cell(row) 시그니처에 ctx 없으므로 row 에 해소맵·슬롯 첨부. */
+export type FiberRow = SlotCoreRow & { __nameById?: Map<string, string>; __slot?: Asset };
 
 export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
   emptyMessage: '이 변전소에 OFD(광단국)가 없습니다.',
@@ -22,13 +25,10 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     assets.filter((a) => a.assetType?.placementKind === 'OFD' && a.substationId === substationId),
   buildSection: (slot, ctx: RegisterCtx) => {
     const graph = ctx.graph as TraceGraph | null;
-    const ofdId = slot.parentAssetId ?? slot.id;
     const rows = buildSlotCoreRows(slot as never, ctx.cables as never[], graph)
-      .map((r): FiberRow => ({ ...r, __nameById: graph?.nameById }));
+      .map((r): FiberRow => ({ ...r, __nameById: graph?.nameById, __slot: slot as unknown as Asset }));
     const used = rows.filter((r) => r.usage === '사용').length;
-    const localSub = graph?.subNameById.get(ofdId) ?? null;
-    const remoteSub = graph ? remoteSlotSubstation(slot.id, graph) : null;
-    const title = [localSub, remoteSub].filter(Boolean).join(' - ') || (slot.name ?? '광경로');
+    const title = (graph ? fiberSlotLabel(slot.id, graph) : '') || (slot.name ?? '광경로');
     return {
       key: slot.id,
       title,
@@ -50,31 +50,14 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
       cell: (r) => <span className="tabular-nums text-content-muted">{r.coreNumber}</span>,
     },
     {
-      label: '근접자산',
+      label: '자국설비',
       sortKey: (r) => (r.nearAssetId ? r.__nameById?.get(r.nearAssetId) ?? null : null),
-      cell: (r) => {
-        const name = r.nearAssetId ? (r.__nameById?.get(r.nearAssetId) ?? null) : null;
-        return (
-          <span
-            className="text-content max-w-[12rem] truncate inline-block align-bottom"
-            title={name ?? undefined}
-          >
-            {name ?? <span className="text-content-faint">—</span>}
-          </span>
-        );
-      },
+      cell: (r) => (r.__slot ? <EquipmentSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="local" /> : null),
     },
     {
-      label: '상대국측',
+      label: '대국설비',
       sortKey: (r) => r.farName,
-      cell: (r) => (
-        <span
-          className="text-content-muted max-w-[12rem] truncate inline-block align-bottom"
-          title={r.farName ?? undefined}
-        >
-          {r.farName ?? <span className="text-content-faint">—</span>}
-        </span>
-      ),
+      cell: (r) => (r.__slot ? <EquipmentSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="remote" /> : null),
     },
     {
       label: '용도',
