@@ -121,8 +121,10 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
         {slots.map((slot, i) => {
           const local = graph?.subNameById.get(ofdId) ?? localOfd?.substationName ?? null;
           const remote = graph ? remoteSlotSubstation(slot.id, graph) : null;
-          const title = [local, remote].filter(Boolean).join(' - ') || slot.name;
+          const base = [local, remote].filter(Boolean).join(' - ');
           const n = coresOf(slot.id);
+          // "변전소 - 변전소 #포트수" (코어수는 타이틀에 인라인, 별도 자막 없음).
+          const title = base ? (n ? `${base} #${n}` : base) : slot.name;
           return (
             // 포지셔닝 wrapper — SlotTile 이 grid 행을 꽉 채우도록 h-full.
             <div
@@ -136,7 +138,6 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
             >
               <SlotTile
                 title={title}
-                subtitle={n ? `${n}코어` : undefined}
                 selected={selectedAssetId === slot.id}
                 onClick={() => useSelectionStore.getState().setSelectedAssetId(slot.id)}
                 onDelete={() => deleteRoute(slot)}

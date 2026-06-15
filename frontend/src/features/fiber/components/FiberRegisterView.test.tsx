@@ -95,12 +95,12 @@ describe('OfdFiberRegister', () => {
     expect(setSelectedAssetId).toHaveBeenCalledWith('a-near');
   });
 
-  it('빈 코어 행 클릭 → ofdId 선택(fallback)', () => {
+  it('빈 코어 행 클릭 → 선택 안 함(부모 OFD 로 폴백하지 않음 — 전체선택 버그 방지)', () => {
     render(<FiberRegisterView substationId="s1" />);
-    // 빈 코어 행 — 코어번호 "1" 셀 클릭
+    // 빈 코어 행 — 코어번호 "1" 셀 클릭. nearAssetId 없으면 null → setSelectedAssetId 미호출.
     const coreCells = screen.getAllByText(/^1$/);
     fireEvent.click(coreCells[0]);
-    expect(setSelectedAssetId).toHaveBeenCalledWith('ofd1');
+    expect(setSelectedAssetId).not.toHaveBeenCalled();
   });
 
   it('점유 코어 용도 ✎ 클릭 → 입력 → blur → patch(cables, cableId, specParams 머지)', () => {
