@@ -14,9 +14,7 @@ export function fiberSlotLabel(slotId: string, graph: TraceGraph | null): string
     (c) => c.cableType === 'FIBER' && c.sourceRole === 'IN' && c.targetRole === 'IN'
       && (c.sourceAssetId === slotId || c.targetAssetId === slotId),
   );
-  const cores = Number(
-    ((opgw as { specParams?: Record<string, unknown> | null } | undefined)?.specParams)?.cores ?? 0,
-  );
+  const cores = Number((opgw?.specParams as Record<string, unknown> | undefined)?.cores ?? 0);
   const base = [local, remote].filter(Boolean).join(' - ');
   if (!base) return '';
   return cores ? `${base} #${cores}` : base;

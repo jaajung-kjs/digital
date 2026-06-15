@@ -32,4 +32,9 @@ describe('fiberSlotLabel', () => {
     const g = graphOf({ cables: [{ ...opgw, specParams: {} }] } as unknown as TraceGraph);
     expect(fiberSlotLabel(SLOT, g)).toBe('춘천S/S - 북춘천S/S');
   });
+
+  it('코어수 0 이면 # 생략', () => {
+    const g = graphOf({ cables: [{ ...opgw, specParams: { cores: 0 } }] } as unknown as TraceGraph);
+    expect(fiberSlotLabel(SLOT, g)).toBe('춘천S/S - 북춘천S/S');
+  });
 });

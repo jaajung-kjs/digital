@@ -23,6 +23,7 @@ export interface TraceCableInput {
   sourceRole?: 'IN' | 'OUT' | null;
   targetRole?: 'IN' | 'OUT' | null;
   number?: number | null;
+  specParams?: Record<string, unknown> | null;
 }
 
 export interface TraceGraph {
@@ -58,6 +59,7 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
   sourceRole: c.sourceRole ?? null,
   targetRole: c.targetRole ?? null,
   number: c.number ?? null,
+  specParams: (c as { specParams?: Record<string, unknown> | null }).specParams ?? null,
 });
 
 /**
