@@ -103,12 +103,16 @@ describe('OfdFiberRegister', () => {
     expect(setSelectedAssetId).toHaveBeenCalledWith('ofd1');
   });
 
-  it('점유 코어 용도 blur → patch(cables, cableId, specParams 머지)', () => {
+  it('점유 코어 용도 ✎ 클릭 → 입력 → blur → patch(cables, cableId, specParams 머지)', () => {
     effectiveCables.mockReturnValue([{ id: 'c2', specParams: { purpose: null } }]);
     render(<FiberRegisterView substationId="s1" />);
-    const inputs = screen.getAllByPlaceholderText('용도');
-    // inputs[1] = 코어2(점유, cableId='c2')
-    fireEvent.blur(inputs[1], { target: { value: '통합단말' } });
+    // 용도 ✎ 버튼은 DOM에 존재(opacity만 0) — 코어2(점유, cableId='c2')의 ✎ 버튼: 두 번째(index 1)
+    // 코어1은 disabled(cableId 없음)이라 ✎ 없음 — 코어2의 ✎ 버튼이 유일
+    const pencilButton = screen.getByRole('button', { name: /용도 수정/ });
+    fireEvent.click(pencilButton);
+    // 편집모드: input 나타남
+    const input = screen.getByPlaceholderText('용도');
+    fireEvent.blur(input, { target: { value: '통합단말' } });
     expect(patch).toHaveBeenCalledWith('cables', 'c2', expect.objectContaining({ specParams: expect.objectContaining({ purpose: '통합단말' }) }));
   });
 });

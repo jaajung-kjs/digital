@@ -2,8 +2,7 @@ import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { remoteSlotSubstation, type TraceGraph } from '../trace/traceGraph';
 import { buildSlotCoreRows, type SlotCoreRow } from './slotRegister';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
-
-const CELL_INPUT = 'w-full text-[13px] border border-line rounded px-1.5 py-1 bg-surface text-content';
+import { EditableField } from '../assets/components/EditableField';
 
 /** 점유 코어 한 필드를 OUT 케이블 specParams 에 머지 스테이징(기존 키 보존). */
 function commitMeta(cableId: string, field: string, value: string | null) {
@@ -74,36 +73,24 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     {
       label: '용도',
       cell: (r) => (
-        <input
-          aria-label="용도"
+        <EditableField
+          value={r.purpose ?? ''}
+          ariaLabel="용도"
           placeholder="용도"
-          defaultValue={r.purpose ?? ''}
           disabled={!r.cableId}
-          key={`${r.coreNumber}-purpose-${r.purpose ?? ''}`}
-          onClick={(e) => e.stopPropagation()}
-          onBlur={(e) => {
-            const v = e.target.value || null;
-            if (r.cableId && v !== r.purpose) commitMeta(r.cableId, 'purpose', v);
-          }}
-          className={CELL_INPUT}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'purpose', v || null)}
         />
       ),
     },
     {
       label: '수용내역',
       cell: (r) => (
-        <input
-          aria-label="수용내역"
+        <EditableField
+          value={r.circuitText ?? ''}
+          ariaLabel="수용내역"
           placeholder="수용내역"
-          defaultValue={r.circuitText ?? ''}
           disabled={!r.cableId}
-          key={`${r.coreNumber}-circuit-${r.circuitText ?? ''}`}
-          onClick={(e) => e.stopPropagation()}
-          onBlur={(e) => {
-            const v = e.target.value || null;
-            if (r.cableId && v !== r.circuitText) commitMeta(r.cableId, 'circuitText', v);
-          }}
-          className={CELL_INPUT}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'circuitText', v || null)}
         />
       ),
     },
@@ -111,42 +98,33 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
       label: '융착',
       width: 'w-24',
       cell: (r) => (
-        <select
-          aria-label="융착"
+        <EditableField
           value={r.spliceType ?? ''}
+          type="select"
+          ariaLabel="융착"
           disabled={!r.cableId}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            const v = e.target.value || null;
-            if (r.cableId && v !== r.spliceType) commitMeta(r.cableId, 'spliceType', v);
-          }}
-          className={CELL_INPUT}
-        >
-          <option value="">—</option>
-          <option value="융착">융착</option>
-          <option value="패치">패치</option>
-        </select>
+          options={[{ value: '', label: '—' }, { value: '융착', label: '융착' }, { value: '패치', label: '패치' }]}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'spliceType', v || null)}
+        />
       ),
     },
     {
       label: '사용',
       width: 'w-28',
       cell: (r) => (
-        <select
-          aria-label="사용"
-          value={r.usageOverride ?? '자동'}
+        <EditableField
+          value={r.usageOverride ?? ''}
+          type="select"
+          ariaLabel="사용"
           disabled={!r.cableId}
-          onClick={(e) => e.stopPropagation()}
-          onChange={(e) => {
-            const v = e.target.value === '자동' ? null : e.target.value;
-            if (r.cableId && v !== r.usageOverride) commitMeta(r.cableId, 'usageOverride', v);
-          }}
-          className={CELL_INPUT}
-        >
-          <option value="자동">자동{r.occupied ? '(사용)' : '(미사용)'}</option>
-          <option value="사용">사용</option>
-          <option value="미사용">미사용</option>
-        </select>
+          display={(v) => v || `자동${r.occupied ? '(사용)' : '(미사용)'}`}
+          options={[
+            { value: '', label: `자동${r.occupied ? '(사용)' : '(미사용)'}` },
+            { value: '사용', label: '사용' },
+            { value: '미사용', label: '미사용' },
+          ]}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'usageOverride', v || null)}
+        />
       ),
     },
   ],
