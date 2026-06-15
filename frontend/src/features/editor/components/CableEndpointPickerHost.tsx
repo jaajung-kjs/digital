@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useEffectiveEquipment } from '../../workingCopy/hooks';
 import { kindOf } from '../../workingCopy/placement';
 import { useCableDrawing, useInteractionStore } from '../stores/interactionStore';
+import { useEditorStore } from '../stores/editorStore';
 import { RackModulePicker } from '../../connections/components/RackModulePicker';
 import { SlotCorePicker } from '../../connections/components/SlotCorePicker';
 import { CircuitPicker } from '../../connections/components/CircuitPicker';
@@ -58,9 +59,9 @@ export function CableEndpointPickerHost({ floorId }: CableEndpointPickerHostProp
   const activeKind = kindOf(activeEquipment);
 
   const handleCancel = () => {
-    // Cancel the whole drawing flow — easier than trying to back up to the
-    // previous phase since the user has already committed an endpoint click.
-    useInteractionStore.getState().cancel();
+    // 전체 그리기 취소 — interaction idle + tool select 를 *함께* 되돌린다(단일 진입점).
+    // (cancel 만 하면 tool='cable' 이 남아 캔버스가 먹통이 되던 버그.)
+    useEditorStore.getState().cancelCableDrawing();
   };
 
   if (activeKind === 'RACK') {

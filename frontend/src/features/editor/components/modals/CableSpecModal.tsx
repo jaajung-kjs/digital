@@ -3,7 +3,6 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
 import {
   useCableDrawing,
-  useInteractionStore,
   getCableDrawing,
 } from '../../stores/interactionStore';
 import { useCableCategories } from '../../../cables/hooks/useCableCategories';
@@ -151,15 +150,13 @@ function CableSpecModal() {
       targetRole: computeTargetRole(),
     });
 
-    useInteractionStore.getState().cancel();
+    useEditorStore.getState().cancelCableDrawing(); // interaction idle + tool select(단일 진입점)
     useEditorStore.getState().setSelectedCableId(newCableId);
-    useEditorStore.getState().setTool('select');
     useToastStore.getState().showToast('케이블을 연결했습니다');
   };
 
   const handleCancel = () => {
-    useInteractionStore.getState().cancel();
-    useEditorStore.getState().setTool('select');
+    useEditorStore.getState().cancelCableDrawing();
   };
 
   return (
