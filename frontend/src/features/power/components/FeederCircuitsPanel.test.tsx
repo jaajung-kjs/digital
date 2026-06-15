@@ -28,8 +28,12 @@ vi.mock('../../workingCopy/substationStore', () => {
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => ({ data: [] }) }));
 
 import { FeederCircuitsPanel } from './FeederCircuitsPanel';
+import { useSelectionStore } from '../../workspace/selectionStore';
 
-beforeEach(() => { startTrace.mockClear(); clearHighlight.mockClear(); patch.mockClear(); });
+beforeEach(() => {
+  startTrace.mockClear(); clearHighlight.mockClear(); patch.mockClear();
+  useSelectionStore.setState({ selectedAssetId: null, selectedCore: null });
+});
 
 describe('FeederCircuitsPanel', () => {
   it('차단기 레일을 렌더(1..N)', () => {

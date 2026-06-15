@@ -54,11 +54,11 @@ describe('PanelCircuitView', () => {
     expect(screen.getByText('ON')).toBeInTheDocument();
   });
 
-  it('CB 행 클릭 → 부하(LOAD) 자산 선택(코어 무관 → null)', () => {
+  it('CB 행 클릭 → 피더 선택 + 해당 CB 코어(rowCore=cbNumber)', () => {
     render(<ConnectionRegisterGrid substationId="s1" descriptor={powerRegisterDescriptor} />);
     fireEvent.click(screen.getByText('통합단말장치'));
-    // 계통(power)은 rowCore 미정의 → setSelected(id, null). selectedAssetonly 동작과 동일.
-    expect(setSelected).toHaveBeenCalledWith('L1', null);
+    // 계통(power)은 onRowClick→feeder.id, rowCore→cbNumber. 피더 분기패널이 해당 CB를 선택.
+    expect(setSelected).toHaveBeenCalledWith('f1', 7);
   });
 
   it('분전반이 없으면 빈 상태 메시지', () => {

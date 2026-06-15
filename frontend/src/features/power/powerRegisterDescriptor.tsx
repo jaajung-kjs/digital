@@ -98,7 +98,8 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     return { key: feeder.id, title: feeder.name, usedLabel: `사용 ${used}/${rows.length}`, rows };
   },
   rowKey: (row) => row.cableId,
-  onRowClick: (row, feeder) => row.loadAssetId ?? feeder.id,
+  onRowClick: (_row, feeder) => feeder.id,
+  rowCore: (row) => { const n = parseInt(row.cbNumber, 10); return Number.isNaN(n) ? null : n; },
   columns: [
     {
       label: '번호',

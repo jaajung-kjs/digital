@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
@@ -6,6 +6,7 @@ import { buildFeederCircuits } from '../feederCircuits';
 import { commitMeta } from '../powerRegisterDescriptor';
 import { BreakerRail } from '../../../components/BreakerRail';
 import { EditableField } from '../../assets/components/EditableField';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import type { Asset } from '../../../types/asset';
 
 /**
@@ -15,7 +16,8 @@ import type { Asset } from '../../../types/asset';
 export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   const assets = useEffectiveAssets() as Asset[];
   const { graph } = useTraceGraph();
-  const [selectedCb, setSelectedCb] = useState<number | null>(null);
+  const selectedCb = useSelectionStore((s) => s.selectedCore);
+  const setSelectedCb = (n: number | null) => useSelectionStore.getState().setSelectedCore(n);
 
   const feeder = useMemo(() => assets.find((a) => a.id === feederId) ?? null, [assets, feederId]);
   const circuits = useMemo(
@@ -56,15 +58,21 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
           <div className="text-content-muted">부하: <span className="text-content">{selected.loadName ?? '—'}</span></div>
           {selected.occupied && selected.cableId && (
             <>
-              <label className="flex items-center gap-2 text-content-muted">용량
-                <EditableField value={selected.capacity} ariaLabel="용량" placeholder="용량"
-                  onCommit={(v) => commitMeta(selected.cableId!, 'capacity', v || null)} />
-              </label>
-              <label className="flex items-center gap-2 text-content-muted">개폐
-                <EditableField value={selected.switchState} type="select" ariaLabel="개폐"
-                  options={[{ value: '', label: '—' }, { value: 'ON', label: 'ON' }, { value: 'OFF', label: 'OFF' }]}
-                  onCommit={(v) => commitMeta(selected.cableId!, 'switchState', v || null)} />
-              </label>
+              <div className="flex items-center gap-2 text-content-muted">
+                <span className="w-10 shrink-0 whitespace-nowrap">용량</span>
+                <span className="min-w-0 flex-1">
+                  <EditableField value={selected.capacity} ariaLabel="용량" placeholder="용량"
+                    onCommit={(v) => commitMeta(selected.cableId!, 'capacity', v || null)} />
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-content-muted">
+                <span className="w-10 shrink-0 whitespace-nowrap">개폐</span>
+                <span className="min-w-0 flex-1">
+                  <EditableField value={selected.switchState} type="select" ariaLabel="개폐"
+                    options={[{ value: '', label: '—' }, { value: 'ON', label: 'ON' }, { value: 'OFF', label: 'OFF' }]}
+                    onCommit={(v) => commitMeta(selected.cableId!, 'switchState', v || null)} />
+                </span>
+              </div>
             </>
           )}
           <p className="text-[10px] text-content-faint">자세한 회로 정보는 계통뷰에서.</p>
