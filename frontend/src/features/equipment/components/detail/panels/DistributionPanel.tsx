@@ -92,41 +92,37 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
                 key={feeder.id}
                 className="group/feeder relative overflow-hidden rounded-md border border-line bg-surface shadow-sm transition-[box-shadow,border-color] duration-150 hover:border-content-faint hover:shadow-md"
               >
-                {/* 클릭하면 그 피더로 바로 이동 — '선택/눌림' 상태 없음(카드는 균일). */}
+                {/* 클릭하면 그 피더로 바로 이동 — '선택/눌림' 상태 없음(좌측 강조 띠 제거). */}
                 <button
                   type="button"
                   onClick={() => useSelectionStore.getState().setSelectedAssetId(feeder.id)}
-                  className="flex w-full items-stretch gap-2 text-left"
+                  className="block w-full px-2.5 py-2.5 pr-7 text-left"
                   title="클릭해 이 계통(피더)으로 이동"
                 >
-                  {/* 좌측 가압상태 띠 — 가압=success, 미가압=중립. */}
-                  <span aria-hidden className={`w-1 shrink-0 self-stretch ${energized ? 'bg-success' : 'bg-content-faint'}`} />
-                  <div className="min-w-0 flex-1 py-2.5 pr-7">
-                    <span className="block truncate text-sm font-medium text-content">{feeder.name}</span>
-                    {/* recessed 미니 차단기 그리드 — 고정 24칸(6열, 큰 레일과 동일 배열).
-                        CB 0개든 24개든 항상 같은 크기·모양. 빈칸=faint, 차단=중립, 가압=success. */}
-                    <span className="mt-1.5 grid grid-cols-6 gap-0.5 rounded bg-surface-2 p-1 shadow-inner">
-                      {feederGridSlots(cs).slice(0, 24).map((s) => (
-                        <span
-                          key={s.cbNumber}
-                          className={`h-2 rounded-[1px] ${
-                            !s.occupied
-                              ? 'bg-line'
-                              : s.switchState.toUpperCase() === 'ON'
-                                ? 'bg-success'
-                                : 'bg-content-faint'
-                          }`}
-                          title={s.occupied ? `CB ${s.cbNumber} · ${s.loadName ?? ''} ${s.switchState}` : `CB ${s.cbNumber} 빈`}
-                        />
-                      ))}
-                    </span>
-                    <span className="mt-1.5 flex items-center gap-1.5 text-xs text-content-muted">
-                      <span className="font-medium text-content">{cs.length}</span> 회로
-                      {cs.length > 0 && (
-                        <span className={energized ? 'text-success' : 'text-content-faint'}>· {onCount} ON</span>
-                      )}
-                    </span>
-                  </div>
+                  <span className="block truncate text-sm font-medium text-content">{feeder.name}</span>
+                  {/* recessed 미니 차단기 그리드 — 고정 24칸(6열, 큰 레일과 동일 배열). CB 0개든
+                      24개든 항상 같은 크기·모양. 빈칸=속빈 외곽선, 차단(OFF)=채운 회색, 가압(ON)=초록. */}
+                  <span className="mt-1.5 grid grid-cols-6 gap-0.5 rounded bg-surface-2 p-1 shadow-inner">
+                    {feederGridSlots(cs).slice(0, 24).map((s) => (
+                      <span
+                        key={s.cbNumber}
+                        className={`h-2 rounded-[1px] ${
+                          !s.occupied
+                            ? 'ring-1 ring-inset ring-line'
+                            : s.switchState.toUpperCase() === 'ON'
+                              ? 'bg-success'
+                              : 'bg-content-faint'
+                        }`}
+                        title={s.occupied ? `CB ${s.cbNumber} · ${s.loadName ?? ''} ${s.switchState}` : `CB ${s.cbNumber} 미사용`}
+                      />
+                    ))}
+                  </span>
+                  <span className="mt-1.5 block truncate text-xs text-content-muted">
+                    <span className="font-medium text-content">{cs.length}</span> 회로
+                    {cs.length > 0 && (
+                      <span className={energized ? 'text-success' : 'text-content-faint'}>{' · '}{onCount} ON</span>
+                    )}
+                  </span>
                 </button>
                 <button
                   type="button"
