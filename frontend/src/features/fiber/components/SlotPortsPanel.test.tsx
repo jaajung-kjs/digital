@@ -1,14 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-const { startTrace, clearHighlight } = vi.hoisted(() => ({
+const { startTrace, clearHighlight, onPick, pickState } = vi.hoisted(() => ({
   startTrace: vi.fn(),
   clearHighlight: vi.fn(),
+  onPick: vi.fn(),
+  pickState: { active: false, side: null as 'source' | 'target' | null },
 }));
 
 const SLOT = 'slotA';
 const TWIN = 'slotB';
-const SLOT_ASSET = { id: SLOT, name: '슬롯A', parentAssetId: 'ofd1', assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } };
+const OFD = 'ofd1';
+const SLOT_ASSET = { id: SLOT, name: '슬롯A', parentAssetId: OFD, assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } };
 const opgw = { id: 'opgw', cableType: 'FIBER', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
 const localOut3 = { id: 'c-l3', cableType: 'FIBER', sourceAssetId: 'eqpL', targetAssetId: SLOT, sourceRole: null, targetRole: 'OUT', number: 3 };
 
@@ -33,12 +36,23 @@ vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
   return { usePathHighlightStore: hook };
 });
 
+vi.mock('../../editor/hooks/useCablePick', () => ({
+  useCablePick: () => ({ active: pickState.active, side: pickState.side, pendingContainerId: null, onPick }),
+}));
+// 슬롯의 floor anchor = OFD, 중심좌표는 사각형 (x=100,y=200,w=20,h=40) → (110,220).
+vi.mock('../../workingCopy/floorAnchor', () => ({
+  floorAnchor: () => ({ id: OFD, positionX: 100, positionY: 200, width2d: 20, height2d: 40 }),
+  floorTargetFor: () => ({ x: 100, y: 200, width: 20, height: 40 }),
+}));
+
 import { SlotPortsPanel } from './SlotPortsPanel';
 import { useSelectionStore } from '../../workspace/selectionStore';
 
 beforeEach(() => {
   startTrace.mockClear();
   clearHighlight.mockClear();
+  onPick.mockClear();
+  pickState.active = false; pickState.side = null;
   // 선택 코어는 전역 store(SSOT) — 테스트 간 누수 방지로 리셋.
   useSelectionStore.setState({ selectedAssetId: null, selectedCore: null });
 });
@@ -63,5 +77,24 @@ describe('SlotPortsPanel', () => {
     // "미연결" 은 PortGrid 범례에도 상존 → 선택 포트 상세 카드 내부의 라벨만 검증.
     const card = screen.getByText(/^포트 1$/).closest('div')!;
     expect(card).toHaveTextContent(/미연결/);
+  });
+
+  describe('케이블 피킹 모드(active)', () => {
+    beforeEach(() => { pickState.active = true; pickState.side = 'source'; });
+
+    it('포트 클릭 → onPick(슬롯 OUT, 코어 번호) — 선택/트레이스 안 함', () => {
+      render(<SlotPortsPanel slotId={SLOT} />);
+      fireEvent.click(screen.getByRole('button', { name: /^포트 3$/ }));
+      expect(onPick).toHaveBeenCalledWith({
+        containerAssetId: OFD,
+        position: { x: 110, y: 220 },
+        slotId: SLOT,
+        coreNumber: 3,
+        role: 'OUT',
+      });
+      // 일반 동작(상세/트레이스)은 일어나지 않는다.
+      expect(startTrace).not.toHaveBeenCalled();
+      expect(screen.queryByText(/자국장비/)).not.toBeInTheDocument();
+    });
   });
 });

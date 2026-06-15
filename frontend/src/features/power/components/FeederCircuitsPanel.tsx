@@ -7,6 +7,9 @@ import { useEditorStore } from '../../editor/stores/editorStore';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { buildFeederCircuits, feederGridSlots } from '../feederCircuits';
 import { commitMeta } from '../powerRegisterDescriptor';
+import { useCablePick } from '../../editor/hooks/useCablePick';
+import { floorAnchor, floorTargetFor } from '../../workingCopy/floorAnchor';
+import { toMapById } from '../../../utils/byId';
 import { BreakerRail } from '../../../components/BreakerRail';
 import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
 import { EditableField } from '../../assets/components/EditableField';
@@ -24,6 +27,8 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   const selectedCb = useSelectionStore((s) => s.selectedCore);
   const setSelectedCb = (n: number | null) => useSelectionStore.getState().setSelectedCore(n);
 
+  const pick = useCablePick();
+
   const feeder = useMemo(() => assets.find((a) => a.id === feederId) ?? null, [assets, feederId]);
   // 점유 회로(데이터) → 고정 그리드(빈 슬롯 패딩, 표시).
   const occupied = useMemo(
@@ -32,6 +37,30 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
   );
   const slots = useMemo(() => feederGridSlots(occupied), [occupied]);
   const selected = occupied.find((c) => c.cbNumber === selectedCb) ?? null;
+
+  // 케이블 피킹 모드: 피더의 placed floor anchor + 중심좌표를 1회 해소.
+  // anchor = 피더가 도면에 보이는 대표 설비(보통 분전반), position = 그 사각형 중심.
+  const anchorRect = useMemo(() => {
+    if (!feeder) return null;
+    const anchor = floorAnchor(feeder.id, toMapById(assets));
+    if (!anchor) return null;
+    const rect = floorTargetFor(feeder.id, assets);
+    if (!rect) return null;
+    return { anchorId: anchor.id, position: { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 } };
+  }, [feeder, assets]);
+
+  // CB 칸(점유/빈) 클릭 → 케이블 endpoint(피더 OUT, CB 번호) 로 onPick.
+  // 빈 칸 = 다음 빈 CB 번호(슬롯의 cbNumber), 점유 칸 = 그 CB 번호.
+  const pickCb = (cbNumber: number) => {
+    if (!feeder || !anchorRect) return;
+    pick.onPick({
+      containerAssetId: anchorRect.anchorId,
+      position: anchorRect.position,
+      innerAssetId: feeder.id,
+      role: 'OUT',
+      number: cbNumber,
+    });
+  };
 
   useEffect(() => {
     const hi = usePathHighlightStore.getState();
@@ -69,9 +98,13 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
       <BreakerRail
         circuits={slots}
         selectedCb={selectedCb}
-        onSelect={setSelectedCb}
+        // 피킹 모드: 점유 칸 클릭 = 그 CB endpoint, 빈 칸(＋) = 다음 빈 CB endpoint.
+        // 일반 모드: 점유 = 선택, 빈 칸 = CB 추가(평면도 케이블 그리기).
+        onSelect={pick.active ? pickCb : setSelectedCb}
         onToggle={toggle}
-        onAddCb={addCb}
+        onAddCb={pick.active
+          ? () => { const empty = slots.find((s) => !s.occupied); if (empty) pickCb(empty.cbNumber); }
+          : addCb}
         onDeleteCb={deleteCb}
       />
       {selected && (

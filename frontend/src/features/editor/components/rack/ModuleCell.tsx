@@ -2,6 +2,10 @@ import { useCallback } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { useSelection } from '../../../workspace/SelectionContext';
 import { useSubstationWorkingCopy } from '../../../workingCopy/substationStore';
+import { useEffectiveAssets } from '../../../workingCopy/hooks';
+import { useCablePick } from '../../hooks/useCablePick';
+import { floorAnchor, floorTargetFor } from '../../../workingCopy/floorAnchor';
+import { toMapById } from '../../../../utils/byId';
 import { useSlotDrag } from '../../hooks/useSlotDrag';
 import { RACK_SLOT_COUNT, type ModuleSlotUpdate } from '../../../../types/rackModule';
 import { SlotTile } from '../../../../components/SlotTile';
@@ -35,6 +39,8 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   const openDetail = useEditorStore((s) => s.openDetail);
   const stageAssetUpdate = useSubstationWorkingCopy((s) => s.stageAssetUpdate);
   const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
+  const pick = useCablePick();
+  const assets = useEffectiveAssets();
 
   // 랙모듈 Asset 은 slotIndex/slotSpan 가 항상 채워져 있다(필터 slotIndex != null).
   // 슬롯 기하 계산용 non-null 로컬 + 드래그 훅에 넘길 narrowed shape.
@@ -54,9 +60,22 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
   }, [stageAssetUpdate]);
 
   const onClick = useCallback(() => {
+    // 케이블 피킹 모드: 모듈 클릭 = endpoint onPick(랙 anchor + 중심좌표, innerAssetId=모듈).
+    if (pick.active) {
+      const anchor = floorAnchor(module.id, toMapById(assets));
+      const rect = floorTargetFor(module.id, assets);
+      if (anchor && rect) {
+        pick.onPick({
+          containerAssetId: anchor.id,
+          position: { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 },
+          innerAssetId: module.id,
+        });
+      }
+      return;
+    }
     if (sel) sel.setSelectedAssetId(module.id);
     else openDetail(module.id);
-  }, [sel, openDetail, module.id]);
+  }, [pick, assets, sel, openDetail, module.id]);
 
   const { handlePointerDown, dragState } = useSlotDrag({
     module: dragModule,

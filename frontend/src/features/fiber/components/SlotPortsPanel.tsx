@@ -5,6 +5,9 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { buildSlotPorts, type PortState } from '../slotPorts';
 import type { CableLike } from '../slotRegister';
+import { useCablePick } from '../../editor/hooks/useCablePick';
+import { floorAnchor, floorTargetFor } from '../../workingCopy/floorAnchor';
+import { toMapById } from '../../../utils/byId';
 import { PortGrid } from '../../../components/PortGrid';
 import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
 import type { Asset } from '../../../types/asset';
@@ -22,11 +25,35 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
   const cables = (graph?.cables ?? []) as unknown as CableLike[];
   const selectedCore = useSelectionStore((s) => s.selectedCore);
 
+  const pick = useCablePick();
+
   const slot = useMemo(() => assets.find((a) => a.id === slotId) ?? null, [assets, slotId]);
   const ports = useMemo(
     () => (slot ? buildSlotPorts({ id: slot.id }, cables, graph) : []),
     [slot, cables, graph],
   );
+
+  // 케이블 피킹 모드: 슬롯(conduit)의 placed floor anchor(보통 OFD) + 중심좌표 1회 해소.
+  const anchorRect = useMemo(() => {
+    if (!slot) return null;
+    const anchor = floorAnchor(slot.id, toMapById(assets));
+    if (!anchor) return null;
+    const rect = floorTargetFor(slot.id, assets);
+    if (!rect) return null;
+    return { anchorId: anchor.id, position: { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 } };
+  }, [slot, assets]);
+
+  // 포트 클릭 → 케이블 endpoint(슬롯 OUT, 코어 번호) 로 onPick.
+  const pickPort = (coreNumber: number) => {
+    if (!slot || !anchorRect) return;
+    pick.onPick({
+      containerAssetId: anchorRect.anchorId,
+      position: anchorRect.position,
+      slotId: slot.id,
+      coreNumber,
+      role: 'OUT',
+    });
+  };
 
   const selected = ports.find((p) => p.coreNumber === selectedCore) ?? null;
   const traceCableId = selected ? (selected.localCableId ?? selected.remoteCableId) : null;
@@ -58,7 +85,12 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
 
   return (
     <div className="space-y-3">
-      <PortGrid ports={ports} selectedCore={selectedCore} onSelect={(n) => useSelectionStore.getState().setSelectedCore(n)} />
+      <PortGrid
+        ports={ports}
+        selectedCore={selectedCore}
+        // 피킹 모드: 포트 클릭 = endpoint onPick. 일반 모드: 포트 선택.
+        onSelect={pick.active ? pickPort : (n) => useSelectionStore.getState().setSelectedCore(n)}
+      />
       {selected && (
         <DetailCard>
           <DetailCardHeader
