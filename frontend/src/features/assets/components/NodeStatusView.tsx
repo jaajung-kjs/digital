@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { formatDate } from '../../../utils/date';
 import { INSPECTIONS } from '../../workingCopy/recordTypes';
-import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { useNodeAssets, type NodeKind } from '../../../hooks/useNodeAssets';
 import { useSelection } from '../../workspace/SelectionContext';
 import { installLocation, inspectionState, projectStatusRows, statusIsOn, type AssetListItem } from '../nodeStatus';
@@ -13,8 +12,9 @@ import { AssetDetailPanel } from './AssetDetailPanel';
 import { StagedAssetDetailPanel } from './StagedAssetDetailPanel';
 import { Badge } from '../../../components/ui';
 import type { Asset } from '../../../types/asset';
-
-type SortType = 'text' | 'date' | 'status';
+import { sortRows, useGridSort, type SortType } from '../../../components/grid/useGridSort';
+import { SortableHeaderCell } from '../../../components/grid/SortableHeaderCell';
+import { rowClass } from '../../../components/grid/rowClasses';
 
 interface ColumnDef {
   label: string;
@@ -32,26 +32,6 @@ const COLUMN_DEFS: ColumnDef[] = [
   { label: '마지막 점검일', type: 'date', accessor: (i) => i.lastMaintenanceDate },
   { label: '상태', type: 'status', accessor: (i) => (statusIsOn(i.status) ? 'ON' : 'OFF') },
 ];
-
-const COLUMNS = COLUMN_DEFS.map((c) => c.label);
-
-type SortState = { col: string; dir: 'asc' | 'desc' } | null;
-
-/** 한 컬럼의 두 행을 정렬 타입별로 비교(asc 기준). null 은 항상 뒤로. */
-function compareBy(def: ColumnDef, a: AssetListItem, b: AssetListItem): number {
-  const av = def.accessor(a);
-  const bv = def.accessor(b);
-  // null/빈값은 항상 뒤로(정렬 방향과 무관).
-  const aEmpty = av == null || av === '';
-  const bEmpty = bv == null || bv === '';
-  if (aEmpty && bEmpty) return 0;
-  if (aEmpty) return 1;
-  if (bEmpty) return -1;
-  if (def.type === 'text') return (av as string).localeCompare(bv as string, 'ko');
-  if (def.type === 'date') return new Date(av as string).getTime() - new Date(bv as string).getTime();
-  // status: ON 먼저(ON<OFF). 문자열 비교로 'ON' < 'OFF'.
-  return (av as string).localeCompare(bv as string);
-}
 
 function uniq(values: (string | null | undefined)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v))).sort();
@@ -77,9 +57,7 @@ function AssetRow({
   return (
     <tr
       onClick={onSelect}
-      className={`h-9 cursor-pointer border-b border-line transition-colors ${
-        selected ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2 active:bg-surface-3'
-      }`}
+      className={rowClass(selected ?? false)}
     >
       <td className="pl-4 pr-2 text-[13px] text-content align-middle whitespace-nowrap">{item.assetTypeName}</td>
       <td className="px-2 text-[13px] align-middle whitespace-nowrap">
@@ -167,28 +145,14 @@ export function NodeStatusView({
   const [statusFilter, setStatusFilter] = useState('');
 
   // 3-state 정렬: 1클릭 asc → 2클릭 desc → 3클릭 취소(null=원본 순서). 한 번에 한 컬럼만.
-  const [sort, setSort] = useState<SortState>(null);
-  const cycleSort = (label: string) =>
-    setSort((cur) => {
-      if (!cur || cur.col !== label) return { col: label, dir: 'asc' };
-      if (cur.dir === 'asc') return { col: label, dir: 'desc' };
-      return null; // desc → 취소
-    });
+  const { sort, cycleSort } = useGridSort();
 
   // items(오버레이 머지 후)에서 정렬 사본을 파생. sort 가 null 이면 원본 순서 그대로.
   const sortedItems = useMemo(() => {
     if (!sort) return items;
     const def = COLUMN_DEFS.find((c) => c.label === sort.col);
     if (!def) return items;
-    const factor = sort.dir === 'asc' ? 1 : -1;
-    // 안정 정렬: 같은 값은 원본 인덱스 유지.
-    return items
-      .map((item, idx) => ({ item, idx }))
-      .sort((a, b) => {
-        const c = compareBy(def, a.item, b.item);
-        return c !== 0 ? c * factor : a.idx - b.idx;
-      })
-      .map((w) => w.item);
+    return sortRows(items, def.accessor, def.type, sort.dir);
   }, [items, sort]);
 
   const statuses = useMemo(() => uniq(items.map((i) => i.status)), [items]);
@@ -223,6 +187,8 @@ export function NodeStatusView({
   // 인스펙터에 표시할 자산. 변전소는 resolveAsset(effective lookup)로 즉시 해석되고,
   // 본부·사업소는 selectedId 만 있으면 ReadOnlyDetailPanel 이 useAsset 으로 페치한다.
   const resolvedAsset = selectedId && resolveAsset ? resolveAsset(selectedId) : undefined;
+
+  const lastColIdx = COLUMN_DEFS.length - 1;
 
   return (
     <div className="flex h-full bg-surface">
@@ -264,35 +230,18 @@ export function NodeStatusView({
             <table className="w-full border-collapse">
               <thead>
                 <tr className="text-left bg-surface-2 border-b border-line-strong sticky top-0">
-                  {COLUMNS.map((c, i) => {
-                    const active = sort?.col === c;
-                    const pad = i === 0 ? 'pl-4 pr-2' : i === COLUMNS.length - 1 ? 'px-2 pr-4' : 'px-2';
-                    return (
-                      <th
-                        key={c}
-                        aria-sort={active ? (sort?.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-                        className={`p-0 text-[12px] font-medium tracking-wide ${active ? 'bg-surface-3' : ''}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => cycleSort(c)}
-                          aria-label={`${c} 정렬`}
-                          className={`group w-full h-full inline-flex items-center gap-1 ${pad} py-2 cursor-pointer select-none transition-colors hover:bg-surface-3 active:bg-surface-3 focus-ring ${
-                            active ? 'text-content font-semibold' : 'text-content-muted'
-                          }`}
-                        >
-                          {c}
-                          {active && sort?.dir === 'asc' ? (
-                            <ChevronUp className="w-3.5 h-3.5 text-content shrink-0" />
-                          ) : active && sort?.dir === 'desc' ? (
-                            <ChevronDown className="w-3.5 h-3.5 text-content shrink-0" />
-                          ) : (
-                            <ChevronsUpDown className="w-3.5 h-3.5 text-content-faint shrink-0" />
-                          )}
-                        </button>
-                      </th>
-                    );
-                  })}
+                  {COLUMN_DEFS.map((c, i) => (
+                    <SortableHeaderCell
+                      key={c.label}
+                      label={c.label}
+                      first={i === 0}
+                      last={i === lastColIdx}
+                      sortable
+                      active={sort?.col === c.label}
+                      dir={sort?.dir ?? 'asc'}
+                      onClick={() => cycleSort(c.label)}
+                    />
+                  ))}
                 </tr>
               </thead>
               <tbody>{filtered.map(renderRow)}</tbody>

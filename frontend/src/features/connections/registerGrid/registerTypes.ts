@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Asset } from '../../../types/asset';
 import type { TraceGraph } from '../../trace/traceGraph';
+import type { SortType } from '../../../components/grid/useGridSort';
 
 export interface RegisterCtx {
   assets: Asset[];
@@ -8,7 +9,14 @@ export interface RegisterCtx {
   graph: TraceGraph | null;
   isLoading: boolean;
 }
-export interface RegisterColumn<Row> { label: string; width?: string; cell(row: Row): ReactNode }
+export interface RegisterColumn<Row> {
+  label: string;
+  width?: string;
+  cell(row: Row): ReactNode;
+  /** 있으면 정렬 가능 헤더(없으면 정적). */
+  sortKey?(row: Row): string | number | null;
+  sortType?: SortType; // 기본 'text'
+}
 export interface RegisterSection<Row> { key: string; title: string; usedLabel: string; rows: Row[] }
 
 export interface RegisterDescriptor<Row> {

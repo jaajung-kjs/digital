@@ -3,11 +3,14 @@ import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks'
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useTraceGraph } from '../../trace/traceGraph';
+import { useGridSort, sortRows, type GridSort } from '../../../components/grid/useGridSort';
+import { SortableHeaderCell } from '../../../components/grid/SortableHeaderCell';
+import { rowClass } from '../../../components/grid/rowClasses';
 import type { Asset } from '../../../types/asset';
 import type { RegisterColumn, RegisterDescriptor, RegisterSection } from './registerTypes';
 
-const TH = 'px-2 py-2 text-[12px] font-medium tracking-wide text-content-muted whitespace-nowrap';
-const TD = 'px-2 text-[13px] align-middle whitespace-nowrap';
+const cellPad = (first: boolean, last: boolean) => (first ? 'pl-4 pr-2' : last ? 'px-2 pr-4' : 'px-2');
+const TD_BASE = 'text-[13px] align-middle whitespace-nowrap';
 
 /** 컨테이너 자산 → connectionKind 자식(섹션) → 테이블 → 행클릭 선택. 도메인 로직은 descriptor. */
 export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
@@ -16,6 +19,7 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   const assets = useEffectiveAssets() as Asset[];
   const cables = useEffectiveCables();
   const { graph, isLoading } = useTraceGraph();
+  const { sort, cycleSort } = useGridSort();
 
   // descriptor must be a module-level stable ref
   const groups = useMemo(() => {
@@ -43,10 +47,9 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
               columns={descriptor.columns}
               rowKey={descriptor.rowKey}
               rowTraceCableId={descriptor.rowTraceCableId}
-              onRowClick={(row) => {
-                const id = descriptor.onRowClick(row, child);
-                if (id) useSelectionStore.getState().setSelectedAssetId(id);
-              }}
+              rowSelectedId={(row) => descriptor.onRowClick(row, child)}
+              sort={sort}
+              cycleSort={cycleSort}
             />
           ))}
         </div>
@@ -55,32 +58,60 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   );
 }
 
-function SectionView<Row>({ section, columns, rowKey, rowTraceCableId, onRowClick }: {
-  section: RegisterSection<Row>; columns: RegisterColumn<Row>[];
+function SectionView<Row>({ section, columns, rowKey, rowTraceCableId, rowSelectedId, sort, cycleSort }: {
+  section: RegisterSection<Row>;
+  columns: RegisterColumn<Row>[];
   rowKey: (row: Row) => string | number;
   rowTraceCableId?: (row: Row) => string | null;
-  onRowClick: (row: Row) => void;
+  rowSelectedId: (row: Row) => string | null;
+  sort: GridSort;
+  cycleSort: (col: string) => void;
 }) {
+  const rows = useMemo(() => {
+    if (!sort) return section.rows;
+    const col = columns.find((c) => c.label === sort.col);
+    if (!col?.sortKey) return section.rows;
+    return sortRows(section.rows, col.sortKey, col.sortType ?? 'text', sort.dir);
+  }, [section.rows, sort, columns]);
+
+  const last = columns.length - 1;
+
   return (
     <section>
       <header className="mb-1.5 flex items-baseline gap-2 px-1">
         <h3 className="text-sm font-semibold text-content">{section.title}</h3>
         <span className="ml-auto text-[12px] tabular-nums text-content-faint">{section.usedLabel}</span>
       </header>
-      <table className="w-full border-collapse">
+      <table className="w-full border-collapse table-fixed">
         <thead>
           <tr className="text-left bg-surface-2 border-b border-line-strong">
-            {columns.map((c, i) => <th key={i} className={`${TH}${c.width ? ` ${c.width}` : ''}`}>{c.label}</th>)}
+            {columns.map((c, i) => (
+              <SortableHeaderCell
+                key={i}
+                label={c.label}
+                width={c.width}
+                first={i === 0}
+                last={i === last}
+                sortable={!!c.sortKey}
+                active={sort?.col === c.label}
+                dir={sort?.dir ?? 'asc'}
+                onClick={c.sortKey ? () => cycleSort(c.label) : undefined}
+              />
+            ))}
           </tr>
         </thead>
         <tbody>
-          {section.rows.map((row) => (
+          {rows.map((row) => (
             <RowView
               key={rowKey(row)}
               row={row}
               columns={columns}
               traceCableId={rowTraceCableId?.(row) ?? null}
-              onClick={() => onRowClick(row)}
+              selectedId={rowSelectedId(row)}
+              onClick={() => {
+                const id = rowSelectedId(row);
+                if (id) useSelectionStore.getState().setSelectedAssetId(id);
+              }}
             />
           ))}
         </tbody>
@@ -89,19 +120,23 @@ function SectionView<Row>({ section, columns, rowKey, rowTraceCableId, onRowClic
   );
 }
 
-function RowView<Row>({ row, columns, traceCableId, onClick }: {
-  row: Row; columns: RegisterColumn<Row>[]; traceCableId: string | null; onClick: () => void;
+function RowView<Row>({ row, columns, traceCableId, selectedId, onClick }: {
+  row: Row;
+  columns: RegisterColumn<Row>[];
+  traceCableId: string | null;
+  selectedId: string | null;
+  onClick: () => void;
 }) {
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
-  const active = !!traceCableId && tracingCableId === traceCableId;
+  const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
+  const highlighted =
+    (!!traceCableId && tracingCableId === traceCableId) ||
+    (!!selectedId && selectedAssetId === selectedId);
   return (
-    <tr
-      onClick={onClick}
-      className={`h-9 cursor-pointer border-b border-line transition-colors ${
-        active ? 'bg-info-bg shadow-[inset_3px_0_0_var(--primary)]' : 'hover:bg-surface-2 active:bg-surface-3'
-      }`}
-    >
-      {columns.map((c, i) => <td key={i} className={TD}>{c.cell(row)}</td>)}
+    <tr onClick={onClick} className={rowClass(highlighted)}>
+      {columns.map((c, i) => (
+        <td key={i} className={`${TD_BASE} ${cellPad(i === 0, i === columns.length - 1)}`}>{c.cell(row)}</td>
+      ))}
     </tr>
   );
 }

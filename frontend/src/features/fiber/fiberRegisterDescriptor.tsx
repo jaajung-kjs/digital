@@ -43,10 +43,13 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     {
       label: '코어',
       width: 'w-14',
+      sortKey: (r) => r.coreNumber,
+      sortType: 'number',
       cell: (r) => <span className="tabular-nums text-content-muted">{r.coreNumber}</span>,
     },
     {
       label: '근접자산',
+      sortKey: (r) => (r.nearAssetId ? r.__nameById?.get(r.nearAssetId) ?? null : null),
       cell: (r) => {
         const name = r.nearAssetId ? (r.__nameById?.get(r.nearAssetId) ?? null) : null;
         return (
@@ -61,6 +64,7 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     },
     {
       label: '상대국측',
+      sortKey: (r) => r.farName,
       cell: (r) => (
         <span
           className="text-content-muted max-w-[12rem] truncate inline-block align-bottom"
@@ -72,6 +76,7 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     },
     {
       label: '용도',
+      sortKey: (r) => r.purpose,
       cell: (r) => (
         <EditableField
           value={r.purpose ?? ''}
@@ -84,6 +89,7 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     },
     {
       label: '수용내역',
+      sortKey: (r) => r.circuitText,
       cell: (r) => (
         <EditableField
           value={r.circuitText ?? ''}
@@ -97,6 +103,7 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     {
       label: '융착',
       width: 'w-24',
+      sortKey: (r) => r.spliceType,
       cell: (r) => (
         <EditableField
           value={r.spliceType ?? ''}
@@ -111,6 +118,7 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     {
       label: '사용',
       width: 'w-28',
+      sortKey: (r) => r.usageOverride ?? (r.occupied ? '사용' : '미사용'),
       cell: (r) => (
         <EditableField
           value={r.usageOverride ?? ''}

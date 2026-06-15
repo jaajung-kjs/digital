@@ -1,10 +1,30 @@
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { EditableField } from '../assets/components/EditableField';
+import { useCableCategories } from '../cables/hooks/useCableCategories';
 import type { Asset } from '../../types/asset';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
 
-export interface CbRow { cableId: string; loadAssetId: string | null; loadName: string | null; cbNumber: string; capacity: string; switchState: string; spec: string }
-interface PowerCable { id: string; sourceAssetId?: string | null; targetAssetId?: string | null; sourceRole?: string | null; targetRole?: string | null; categoryName?: string | null; specParams?: Record<string, unknown> | null }
+export interface CbRow {
+  cableId: string;
+  loadAssetId: string | null;
+  loadName: string | null;
+  cbNumber: string;
+  capacity: string;
+  switchState: string;
+  spec: string;
+  categoryId: string | null;
+}
+interface PowerCable {
+  id: string;
+  sourceAssetId?: string | null;
+  targetAssetId?: string | null;
+  sourceRole?: string | null;
+  targetRole?: string | null;
+  categoryName?: string | null;
+  categoryId?: string | null;
+  number?: number | null;
+  specParams?: Record<string, unknown> | null;
+}
 
 const asStr = (v: unknown): string => (v === null || v === undefined || v === '' ? '' : String(v));
 
@@ -25,10 +45,44 @@ export function buildPowerRows(feederId: string, cables: PowerCable[], nameById:
     const loadAssetId = c.sourceAssetId === feederId ? c.targetAssetId ?? null : c.sourceAssetId ?? null;
     const sp = (c.specParams ?? {}) as Record<string, unknown>;
     return {
-      cableId: c.id, loadAssetId, loadName: (loadAssetId && nameById.get(loadAssetId)) || null,
-      cbNumber: asStr(sp.cbNumber), capacity: asStr(sp.capacity), switchState: asStr(sp.switchState), spec: asStr(c.categoryName),
+      cableId: c.id,
+      loadAssetId,
+      loadName: (loadAssetId && nameById.get(loadAssetId)) || null,
+      cbNumber: asStr(c.number),
+      capacity: asStr(sp.capacity),
+      switchState: asStr(sp.switchState),
+      spec: asStr(c.categoryName),
+      categoryId: c.categoryId ?? null,
     };
   });
+}
+
+/** 규격 셀 — 전원 그룹 케이블 카테고리 드롭다운으로 categoryId 를 패치한다. */
+function SpecCell({ cableId, categoryId, name }: { cableId: string; categoryId: string | null; name: string }) {
+  const { data: cats = [] } = useCableCategories();
+  const options = cats
+    .filter((c) => c.displayGroup === '전원')
+    .map((c) => ({ value: c.id, label: c.name }));
+
+  return (
+    <EditableField
+      value={categoryId ?? ''}
+      type="select"
+      ariaLabel="규격"
+      options={[{ value: '', label: '—' }, ...options]}
+      display={() => name || <span className="text-content-faint">—</span>}
+      onCommit={(catId) => {
+        const cat = cats.find((c) => c.id === catId);
+        useSubstationWorkingCopy.getState().patch('cables', cableId, {
+          categoryId: catId || null,
+          categoryName: cat?.name ?? null,
+          categoryCode: cat?.code ?? null,
+          displayColor: cat?.displayColor ?? null,
+          specification: cat?.name ?? null,
+        });
+      }}
+    />
+  );
 }
 
 export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
@@ -49,17 +103,25 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     {
       label: '번호',
       width: 'w-14',
+      sortType: 'number',
+      sortKey: (r) => { const n = parseInt(r.cbNumber, 10); return Number.isNaN(n) ? null : n; },
       cell: (r) => (
         <EditableField
           value={r.cbNumber}
           ariaLabel="번호"
           placeholder="번호"
-          onCommit={(v) => commitMeta(r.cableId, 'cbNumber', v || null)}
+          onCommit={(v) => {
+            const n = v ? parseInt(v, 10) : NaN;
+            useSubstationWorkingCopy.getState().patch('cables', r.cableId, {
+              number: Number.isNaN(n) ? null : n,
+            });
+          }}
         />
       ),
     },
     {
       label: '부하',
+      sortKey: (r) => r.loadName,
       cell: (r) => (
         <span className="text-content max-w-[12rem] truncate inline-block align-bottom" title={r.loadName ?? undefined}>
           {r.loadName ?? <span className="text-content-faint">—</span>}
@@ -69,6 +131,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     {
       label: '용량',
       width: 'w-20',
+      sortKey: (r) => r.capacity,
       cell: (r) => (
         <EditableField
           value={r.capacity}
@@ -80,15 +143,13 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     },
     {
       label: '규격',
-      cell: (r) => (
-        <span className="text-content-muted max-w-[12rem] truncate inline-block align-bottom" title={r.spec || undefined}>
-          {r.spec || <span className="text-content-faint">—</span>}
-        </span>
-      ),
+      sortKey: (r) => r.spec,
+      cell: (r) => <SpecCell cableId={r.cableId} categoryId={r.categoryId} name={r.spec} />,
     },
     {
       label: 'SW',
       width: 'w-20',
+      sortKey: (r) => r.switchState,
       cell: (r) => (
         <EditableField
           value={r.switchState}
