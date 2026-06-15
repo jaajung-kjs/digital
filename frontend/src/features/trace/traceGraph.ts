@@ -62,10 +62,10 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
   sourceRole: c.sourceRole ?? null,
   targetRole: c.targetRole ?? null,
   number: c.number ?? null,
-  specParams: (c as { specParams?: Record<string, unknown> | null }).specParams ?? null,
-  categoryName: (c as { categoryName?: string | null }).categoryName ?? null,
-  categoryId: (c as { categoryId?: string | null }).categoryId ?? null,
-  displayColor: (c as { displayColor?: string | null }).displayColor ?? null,
+  specParams: c.specParams ?? null,
+  categoryName: c.categoryName ?? null,
+  categoryId: c.categoryId ?? null,
+  displayColor: c.displayColor ?? null,
 });
 
 /**
