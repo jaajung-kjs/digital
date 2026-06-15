@@ -26,6 +26,7 @@ export function EditableField({
   ariaLabel?: string; valueClickEdits?: boolean; onCommit: (v: string) => void;
 }) {
   const cancel = useRef(false);
+  const committed = useRef(false);
   const [editing, setEditing] = useState(false);
   const start = () => { if (!disabled) setEditing(true); };
 
@@ -54,13 +55,19 @@ export function EditableField({
         placeholder={placeholder}
         defaultValue={value}
         className={INLINE_INPUT}
+        ref={(el) => {
+          if (el && type === 'date') requestAnimationFrame(() => {
+            try { (el as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* no user gesture */ }
+          });
+        }}
         onClick={(e) => e.stopPropagation()}
         onBlur={(e) => {
-          if (!cancel.current && e.target.value !== value) onCommit(e.target.value);
+          if (!cancel.current && !committed.current && e.target.value !== value) onCommit(e.target.value);
           cancel.current = false;
+          committed.current = false;
           setEditing(false);
         }}
-        onChange={type === 'date' ? (e) => { onCommit(e.target.value); setEditing(false); } : undefined}
+        onChange={type === 'date' ? (e) => { committed.current = true; onCommit(e.target.value); setEditing(false); } : undefined}
         onKeyDown={(e) => {
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           else if (e.key === 'Escape') { cancel.current = true; (e.target as HTMLInputElement).blur(); }
@@ -75,13 +82,14 @@ export function EditableField({
       {valueClickEdits ? (
         <button
           type="button"
+          title={value || undefined}
           onClick={(e) => { e.stopPropagation(); start(); }}
           className="min-w-0 flex-1 truncate text-left text-sm text-content hover:text-primary transition-colors"
         >
           {shown}
         </button>
       ) : (
-        <span className="min-w-0 flex-1 truncate text-sm text-content">{shown}</span>
+        <span title={value || undefined} className="min-w-0 flex-1 truncate text-sm text-content">{shown}</span>
       )}
       {!disabled && (
         <span className={PENCIL} onClick={(e) => e.stopPropagation()}>
