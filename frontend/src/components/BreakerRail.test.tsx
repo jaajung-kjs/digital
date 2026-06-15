@@ -14,21 +14,27 @@ const circuits: FeederCircuit[] = [
 ];
 
 describe('BreakerRail', () => {
-  it('차단기 수만큼 번호 셀 렌더', () => {
+  it('점유 차단기는 번호 셀, 빈 자리는 추가(＋) 버튼', () => {
     render(<BreakerRail circuits={circuits} selectedCb={null} onSelect={() => {}} onToggle={() => {}} />);
     expect(screen.getByRole('button', { name: '차단기 1' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '차단기 3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '차단기 3 추가' })).toBeInTheDocument();
   });
-  it('개폐상태별 클래스 (ON=success, 빈=dashed)', () => {
+  it('개폐상태별 클래스 (ON=success, 빈=dashed 추가버튼)', () => {
     render(<BreakerRail circuits={circuits} selectedCb={null} onSelect={() => {}} onToggle={() => {}} />);
     expect(screen.getByRole('button', { name: '차단기 1' }).className).toContain('text-success');
-    expect(screen.getByRole('button', { name: '차단기 3' }).className).toContain('border-dashed');
+    expect(screen.getByRole('button', { name: '차단기 3 추가' }).className).toContain('border-dashed');
   });
-  it('차단기 클릭 → onSelect(번호)', () => {
+  it('점유 차단기 클릭 → onSelect(번호)', () => {
     const onSelect = vi.fn();
     render(<BreakerRail circuits={circuits} selectedCb={null} onSelect={onSelect} onToggle={() => {}} />);
     fireEvent.click(screen.getByRole('button', { name: '차단기 2' }));
     expect(onSelect).toHaveBeenCalledWith(2);
+  });
+  it('빈 자리 추가(＋) 클릭 → onAddCb', () => {
+    const onAddCb = vi.fn();
+    render(<BreakerRail circuits={circuits} selectedCb={null} onSelect={() => {}} onToggle={() => {}} onAddCb={onAddCb} />);
+    fireEvent.click(screen.getByRole('button', { name: '차단기 3 추가' }));
+    expect(onAddCb).toHaveBeenCalled();
   });
   it('점유 차단기 토글 클릭 → onToggle(번호), 셀 클릭과 분리(stopPropagation)', () => {
     const onSelect = vi.fn();
@@ -36,6 +42,14 @@ describe('BreakerRail', () => {
     render(<BreakerRail circuits={circuits} selectedCb={null} onSelect={onSelect} onToggle={onToggle} />);
     fireEvent.click(screen.getByRole('button', { name: '차단기 1 개폐' }));
     expect(onToggle).toHaveBeenCalledWith(1);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+  it('점유 차단기 삭제 클릭 → onDeleteCb(번호, cableId), 셀 클릭과 분리', () => {
+    const onSelect = vi.fn();
+    const onDeleteCb = vi.fn();
+    render(<BreakerRail circuits={circuits} selectedCb={null} onSelect={onSelect} onToggle={() => {}} onDeleteCb={onDeleteCb} />);
+    fireEvent.click(screen.getByRole('button', { name: '차단기 1 삭제' }));
+    expect(onDeleteCb).toHaveBeenCalledWith(1, 'c1');
     expect(onSelect).not.toHaveBeenCalled();
   });
   it('선택된 차단기에 ring', () => {
