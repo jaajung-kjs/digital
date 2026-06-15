@@ -34,10 +34,13 @@ vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
 });
 
 import { SlotPortsPanel } from './SlotPortsPanel';
+import { useSelectionStore } from '../../workspace/selectionStore';
 
 beforeEach(() => {
   startTrace.mockClear();
   clearHighlight.mockClear();
+  // 선택 코어는 전역 store(SSOT) — 테스트 간 누수 방지로 리셋.
+  useSelectionStore.setState({ selectedAssetId: null, selectedCore: null });
 });
 
 describe('SlotPortsPanel', () => {

@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const { setSelectedAssetId, patch, effectiveCables } = vi.hoisted(() => ({
+const { setSelectedAssetId, setSelected, patch, effectiveCables } = vi.hoisted(() => ({
   setSelectedAssetId: vi.fn(),
+  setSelected: vi.fn(),
   patch: vi.fn(),
   effectiveCables: vi.fn(() => [] as unknown[]),
 }));
@@ -79,7 +80,7 @@ vi.mock('../slotRegister', async (importOriginal) => ({
   ],
 }));
 vi.mock('../../workspace/selectionStore', () => {
-  const st = { selectedAssetId: null, setSelectedAssetId };
+  const st = { selectedAssetId: null, selectedCore: null, setSelectedAssetId, setSelected };
   const hook = (sel: (s: unknown) => unknown) => sel(st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { useSelectionStore: hook };
@@ -112,7 +113,7 @@ function renderView() {
   );
 }
 
-beforeEach(() => { setSelectedAssetId.mockClear(); patch.mockClear(); effectiveCables.mockReturnValue([]); });
+beforeEach(() => { setSelectedAssetId.mockClear(); setSelected.mockClear(); patch.mockClear(); effectiveCables.mockReturnValue([]); });
 
 describe('OfdFiberRegister', () => {
   it('섹션 헤더(fiberSlotLabel: 원주 - 홍천 #24)와 자국설비/대국설비 열을 렌더한다', () => {
@@ -133,20 +134,21 @@ describe('OfdFiberRegister', () => {
     expect(screen.getAllByTitle('대국설비 수정').length).toBeGreaterThan(0);
   });
 
-  it('점유 코어 행 클릭(코어 번호 셀) → onRowClick 으로 근접자산 선택', () => {
+  it('점유 코어 행 클릭(코어 번호 셀) → onRowClick 으로 슬롯 포트 패널 + 해당 코어 활성화', () => {
     renderView();
     // 자국설비 셀은 이제 드롭다운이므로 행 선택은 비-드롭다운 셀(코어 번호 "2")로 검증.
+    // UX#3: 코어 행 클릭 → setSelected(슬롯id, 코어번호) — 슬롯 포트 사이드패널로 이동.
     const coreCells = screen.getAllByText(/^2$/);
     fireEvent.click(coreCells[0]);
-    expect(setSelectedAssetId).toHaveBeenCalledWith('a-near');
+    expect(setSelected).toHaveBeenCalledWith('slot1', 2);
   });
 
-  it('빈 코어 행 클릭 → 선택 안 함(부모 OFD 로 폴백하지 않음 — 전체선택 버그 방지)', () => {
+  it('빈 코어 행 클릭 → 슬롯 포트 패널 + 빈 코어 활성화(점유 코어와 동일 동작)', () => {
     renderView();
-    // 빈 코어 행 — 코어번호 "1" 셀 클릭. nearAssetId 없으면 null → setSelectedAssetId 미호출.
+    // UX#3: 빈 코어도 동일 — 슬롯id 로 이동하고 rowCore(코어번호)로 그 포트를 활성화한다.
     const coreCells = screen.getAllByText(/^1$/);
     fireEvent.click(coreCells[0]);
-    expect(setSelectedAssetId).not.toHaveBeenCalled();
+    expect(setSelected).toHaveBeenCalledWith('slot1', 1);
   });
 
   it('점유 코어 용도 ✎ 클릭 → 입력 → blur → patch(cables, cableId, specParams 머지)', () => {

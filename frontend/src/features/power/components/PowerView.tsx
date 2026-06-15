@@ -20,7 +20,6 @@ export function PowerView({ substationId }: { substationId: string }) {
           assetId={selectedAssetId}
           targetSubstationId={substationId}
           loadedSubstationId={loadedSubstationId}
-          initialTab="연결"
           onClose={() => setSelectedAssetId(null)}
         />
       )}

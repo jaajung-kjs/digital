@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import { buildSlotPorts, type PortState } from '../slotPorts';
 import type { CableLike } from '../slotRegister';
 import { PortGrid } from '../../../components/PortGrid';
@@ -18,7 +19,7 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
   const { graph } = useTraceGraph();
   // 포트 상태도 전역 케이블에서 파생 — 선번장과 동일 SSOT, 대국 OUT 포함.
   const cables = (graph?.cables ?? []) as unknown as CableLike[];
-  const [selectedCore, setSelectedCore] = useState<number | null>(null);
+  const selectedCore = useSelectionStore((s) => s.selectedCore);
 
   const slot = useMemo(() => assets.find((a) => a.id === slotId) ?? null, [assets, slotId]);
   const ports = useMemo(
@@ -56,7 +57,7 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
 
   return (
     <div className="space-y-3">
-      <PortGrid ports={ports} selectedCore={selectedCore} onSelect={setSelectedCore} />
+      <PortGrid ports={ports} selectedCore={selectedCore} onSelect={(n) => useSelectionStore.getState().setSelectedCore(n)} />
       {selected && (
         <div className="rounded border border-line p-2 text-xs space-y-1">
           <div className="flex items-center gap-2">

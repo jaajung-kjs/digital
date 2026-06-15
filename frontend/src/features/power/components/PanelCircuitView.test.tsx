@@ -2,8 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import type { RegisterDescriptor } from '../../connections/registerGrid/registerTypes';
 
-const { setSelectedAssetId, assetsRef, cablesRef } = vi.hoisted(() => ({
+const { setSelectedAssetId, setSelected, assetsRef, cablesRef } = vi.hoisted(() => ({
   setSelectedAssetId: vi.fn(),
+  setSelected: vi.fn(),
   assetsRef: { current: [] as unknown[] },
   cablesRef: { current: [] as unknown[] },
 }));
@@ -12,7 +13,7 @@ vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => assetsRef.current,
 }));
 vi.mock('../../workspace/selectionStore', () => {
-  const st = { selectedAssetId: null, setSelectedAssetId };
+  const st = { selectedAssetId: null, selectedCore: null, setSelectedAssetId, setSelected };
   const hook = (sel: (s: unknown) => unknown) => sel(st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { useSelectionStore: hook };
@@ -32,6 +33,7 @@ import { powerRegisterDescriptor } from '../powerRegisterDescriptor';
 
 beforeEach(() => {
   setSelectedAssetId.mockClear();
+  setSelected.mockClear();
   assetsRef.current = [
     { id: 'p1', name: '1번 분전반', substationId: 's1', parentAssetId: null, assetType: { code: 'DIST', placementKind: 'DIST', connectionKind: null } },
     { id: 'f1', name: '피더-A', substationId: 's1', parentAssetId: 'p1', assetType: { code: 'FEEDER', placementKind: null, connectionKind: 'distributor' } },
@@ -52,10 +54,11 @@ describe('PanelCircuitView', () => {
     expect(screen.getByText('ON')).toBeInTheDocument();
   });
 
-  it('CB 행 클릭 → 부하(LOAD) 자산 선택', () => {
+  it('CB 행 클릭 → 부하(LOAD) 자산 선택(코어 무관 → null)', () => {
     render(<ConnectionRegisterGrid substationId="s1" descriptor={powerRegisterDescriptor} />);
     fireEvent.click(screen.getByText('통합단말장치'));
-    expect(setSelectedAssetId).toHaveBeenCalledWith('L1');
+    // 계통(power)은 rowCore 미정의 → setSelected(id, null). selectedAssetonly 동작과 동일.
+    expect(setSelected).toHaveBeenCalledWith('L1', null);
   });
 
   it('분전반이 없으면 빈 상태 메시지', () => {
