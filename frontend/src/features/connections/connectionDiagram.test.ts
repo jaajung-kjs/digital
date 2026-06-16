@@ -50,15 +50,18 @@ const fiberSlim = [
   A('ofd', 'OFD', null, 'subL', null, 'OFD'), A('slot', '남춘천', 'conduit', 'subL', 'ofd', 'OFD-SLOT'),
   A('rofd', '원격OFD', null, 'subR', null, 'OFD'), A('rslot', '춘천', 'conduit', 'subR', 'rofd', 'OFD-SLOT'),
   A('o1', '단말광1', null), A('o2', '단말광2', null),
+  A('ro1', '대국단말1', null, 'subR'), A('ro2', '대국단말2', null, 'subR'), // 대국 단말(완전 연결)
 ];
 const fiberAssets = [
   As('ofd', 'OFD', null, { placementKind: 'OFD', code: 'OFD' }), As('slot', '남춘천', 'ofd', { connectionKind: 'conduit' }),
-  As('o1', '단말광1', null), As('o2', '단말광2', null),
+  As('o1', '단말광1', null), As('o2', '단말광2', null), As('ro1', '대국단말1', null), As('ro2', '대국단말2', null),
 ];
 const fiberCables = [
   { id: 'f1', cableType: 'FIBER', sourceAssetId: 'slot', targetAssetId: 'o1', sourceRole: 'OUT', targetRole: null, number: 1 },
   { id: 'f2', cableType: 'FIBER', sourceAssetId: 'slot', targetAssetId: 'o2', sourceRole: 'OUT', targetRole: null, number: 2 },
   { id: 'fopgw', cableType: 'FIBER', sourceAssetId: 'slot', targetAssetId: 'rslot', sourceRole: 'IN', targetRole: 'IN' },
+  { id: 'fr1', cableType: 'FIBER', sourceAssetId: 'rslot', targetAssetId: 'ro1', sourceRole: 'OUT', targetRole: null, number: 1 }, // 대국 #1 단말
+  { id: 'fr2', cableType: 'FIBER', sourceAssetId: 'rslot', targetAssetId: 'ro2', sourceRole: 'OUT', targetRole: null, number: 2 }, // 대국 #2 단말
 ];
 const fiberGraph = buildTraceGraph({ slimAssets: fiberSlim, globalCables: fiberCables, stagedAssets: [], stagedCables: [], deletes: [] });
 
@@ -135,6 +138,17 @@ describe('buildConnectionDiagram', () => {
     expect(comps).toHaveLength(2); // 코어 #1·#2 = 별도 회로(채널 격리)
     expect(comps.every((c) => c.root.kind === 'boundary')).toBe(true); // 각 루트=슬롯(대국 경계)
     expect(comps.flatMap((c) => flatten(c.root).map((s) => s.split('>').pop())).sort()).toEqual(['단말광1', '단말광2']);
+  });
+  it('편도(대국 단말 없음): conduit 만 거쳐 끝나면 끊긴 연결 → 표시 안 함', () => {
+    const slim = [A('slot', '남춘천', 'conduit', 'subL', null, 'OFD-SLOT'), A('rslot', '춘천', 'conduit', 'subR', null, 'OFD-SLOT'), A('o1', '단말광1', null)];
+    const assets = [As('slot', '남춘천', null, { connectionKind: 'conduit' }), As('o1', '단말광1', null)];
+    const cables = [
+      { id: 'f1', cableType: 'FIBER', sourceAssetId: 'slot', targetAssetId: 'o1', sourceRole: 'OUT', targetRole: null, number: 1 },
+      { id: 'fopgw', cableType: 'FIBER', sourceAssetId: 'slot', targetAssetId: 'rslot', sourceRole: 'IN', targetRole: 'IN' },
+    ];
+    const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+    // o1 → slot → opgw → rslot(대국 단말 없음). 비-conduit 노드 = {o1} 1개 → 끊김 → 빈 결과.
+    expect(buildConnectionDiagram({ graph: g, assets, assetId: 'o1', categoryGroupOf: catGroupOf })).toEqual([]);
   });
   it('P5 같은 두 끝에 전원+접지 → 종류가 달라 2그룹', () => {
     const cables = [

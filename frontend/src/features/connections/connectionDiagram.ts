@@ -87,6 +87,11 @@ export function buildConnectionDiagram(opts: {
       for (const o of originsIn(set)) if (!tracedOrigins.has(o)) next.push(o);
       frontier = next;
     }
+    // 유효성: 실제 단말(비-conduit 노드)이 2개 이상 연결돼야 진짜 연결이다. conduit(슬롯)만 거쳐
+    // 대국에 단말이 없으면(편도) 물리적으로 끊긴 것 → 토폴로지/연결도에 표시하지 않는다.
+    const nodes = new Set<string>();
+    for (const id of set) { const c = cableById.get(id); if (!c) continue; if (c.sourceAssetId) nodes.add(c.sourceAssetId); if (c.targetAssetId) nodes.add(c.targetAssetId); }
+    if ([...nodes].filter((n) => kindOf(n) !== 'conduit').length < 2) continue;
     const sig = ct + '|' + [...set].sort().join('|');
     if (seenSig.has(sig)) continue;
     seenSig.add(sig);
