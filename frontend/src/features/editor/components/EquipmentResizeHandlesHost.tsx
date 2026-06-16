@@ -11,10 +11,14 @@ export function EquipmentResizeHandlesHost() {
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
+  const activeFloorId = useEditorStore((s) => s.activeFloorId);
   const selected = useSelectedEquipment();
 
   if (tool !== 'select') return null;
   if (!selected) return null;
+  // 현재 층에 실제 배치된 설비만 핸들 표시. 도면에 없는 설비(모듈·내부설비·타 층)는 위치가 없어
+  // 0,0 에 빈 리사이즈 핸들이 그려지므로 제외한다.
+  if (selected.floorId !== activeFloorId || selected.positionX == null || selected.positionY == null) return null;
 
   return (
     <EquipmentResizeHandles
