@@ -78,11 +78,24 @@ cat > "$TMPDIR/decode-and-deploy.sh" <<'DECODE'
 #      (first run creates .env from env.example and asks you to edit it)
 #   4) edit .env, then ./decode-and-deploy.sh again
 #
-# Incremental update:
+# ⚠️  One-time upgrade from an OLD deployed version (incompatible schema):
+#   If a previous deploy left a postgres_data volume built by an OLDER schema,
+#   `prisma migrate deploy` will fail against it. Wipe the old DB volume ONCE
+#   before the first run of this new version — this is the ONLY time data is
+#   deleted. After that every re-run preserves the volume (see below).
+#       podman rm -f ict-twin-postgres 2>/dev/null || true
+#       podman volume rm postgres_data 2>/dev/null || true
+#   (uploads_data may be kept or wiped independently; it is schema-agnostic.)
+#   Then run ./decode-and-deploy.sh as usual — the empty volume is recreated
+#   and migrate+seed rebuilds everything from scratch.
+#
+# Incremental update (every subsequent deploy — data is PRESERVED):
 #   only overwrite the .txt files you changed (e.g. backend.txt). Older
 #   .txt files left untouched mean the same image stays loaded. The script
 #   recreates only the containers whose image was reloaded; named volumes
 #   (postgres_data, uploads_data) and the existing .env are never touched.
+#   `prisma migrate deploy` applies only new migrations and the seed is
+#   idempotent (create-only upsert), so operator edits survive re-deploys.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -308,3 +321,8 @@ echo "  2) base64 -d deploy.txt > decode-and-deploy.sh"
 echo "  3) chmod +x decode-and-deploy.sh"
 echo "  4) ./decode-and-deploy.sh"
 echo "     ↳ first run: creates .env, then re-run after editing secrets"
+echo
+echo "⚠️  Upgrading from an OLDER schema version? Wipe the old DB volume ONCE"
+echo "    before step 4 (this is the only time data is deleted):"
+echo "      podman rm -f ict-twin-postgres; podman volume rm postgres_data"
+echo "    Every later re-run preserves postgres_data / uploads_data."
