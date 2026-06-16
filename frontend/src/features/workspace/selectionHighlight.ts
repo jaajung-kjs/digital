@@ -45,10 +45,19 @@ export type HighlightAction =
 export function resolveHighlight(
   assetId: string | null,
   core: number | null,
+  /** 연결탭이 정확 지목한 컴포넌트 시드(있으면 최우선) — core-null 다중 컴포넌트 유일 구분. */
+  anchorCableId: string | null,
   cables: CableLike[],
   components: DiagramComponent[],
 ): HighlightAction {
   if (!assetId) return { kind: 'clear' };
+  // 1) 정확 지목: 시드(또는 소속) 케이블로 컴포넌트 1개 확정.
+  if (anchorCableId) {
+    const exact = components.find((c) => c.seedCableId === anchorCableId)
+      ?? components.find((c) => c.cableIds.includes(anchorCableId));
+    if (exact) return { kind: 'diagram', comp: exact };
+  }
+  // 2) (자산,코어) → 해소 케이블 → 그 케이블이 속한 컴포넌트.
   const cableId = resolveSelectedCable(assetId, core, cables);
   if (cableId) {
     const byCable = components.find((c) => c.cableIds.includes(cableId));
@@ -70,15 +79,16 @@ export function resolveHighlight(
 export function useSelectionHighlight(): void {
   const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
   const selectedCore = useSelectionStore((s) => s.selectedCore);
+  const selectedCableId = useSelectionStore((s) => s.selectedCableId);
   const { graph } = useTraceGraph();
   const { groups } = useAssetDiagram(selectedAssetId ?? '');
   useEffect(() => {
     const cables = ((graph as TraceGraph | null)?.cables ?? []) as CableLike[];
     const components = groups.flatMap((g) => g.components);
-    const action = resolveHighlight(selectedAssetId, selectedCore, cables, components);
+    const action = resolveHighlight(selectedAssetId, selectedCore, selectedCableId, cables, components);
     const hi = usePathHighlightStore.getState();
     if (action.kind === 'diagram') hi.highlightDiagram(action.comp.seedCableId, action.comp.nodeIds, action.comp.cableIds);
     else if (action.kind === 'trace') hi.startTrace(action.cableId);
     else hi.clearHighlight();
-  }, [selectedAssetId, selectedCore, groups, graph]);
+  }, [selectedAssetId, selectedCore, selectedCableId, groups, graph]);
 }
