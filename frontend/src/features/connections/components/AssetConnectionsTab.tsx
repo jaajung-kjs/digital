@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
 import { useAssetDiagram } from '../hooks/useAssetConnections';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import { DiagramTree } from './DiagramTree';
 
 interface Props { assetId: string }
@@ -8,12 +8,9 @@ interface Props { assetId: string }
 export function AssetConnectionsTab({ assetId }: Props) {
   const { groups, isLoading } = useAssetDiagram(assetId);
   const startTrace = usePathHighlightStore((s) => s.startTrace);
-  const highlightDiagram = usePathHighlightStore((s) => s.highlightDiagram);
   const openTopology = usePathHighlightStore((s) => s.openTopology);
-  const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
-  const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
-
-  useEffect(() => () => clearHighlight(), [assetId, clearHighlight]);
+  const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
+  const selectedCore = useSelectionStore((s) => s.selectedCore);
 
   if (isLoading) return <div className="flex items-center justify-center py-8 text-xs text-content-faint">불러오는 중…</div>;
   if (groups.length === 0) return <div className="flex items-center justify-center py-8 text-xs text-content-faint">연결된 케이블이 없습니다.</div>;
@@ -28,10 +25,10 @@ export function AssetConnectionsTab({ assetId }: Props) {
             <span className="ml-auto text-xs text-content-faint">{group.components.length}</span>
           </div>
           {group.components.map((comp) => {
-            const isActive = tracingCableId === comp.seedCableId;
+            const isActive = selectedAssetId === assetId && selectedCore === comp.core;
             return (
               <div key={comp.seedCableId} className={`flex items-start border-b border-line ${isActive ? 'bg-info-bg/40' : 'hover:bg-surface-2'}`}>
-                <button type="button" onClick={() => highlightDiagram(comp.seedCableId, comp.nodeIds, comp.cableIds)} className="flex-1 text-left px-3 py-2 min-w-0">
+                <button type="button" onClick={() => useSelectionStore.getState().setSelected(assetId, comp.core)} className="flex-1 text-left px-3 py-2 min-w-0">
                   <DiagramTree root={comp.root} />
                 </button>
                 <button type="button" aria-label="상세" title="네트워크 토폴로지 보기"
