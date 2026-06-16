@@ -150,26 +150,59 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
   // 우측 detail panel 폭 (EquipmentDetailPanel.tsx 의 w-[360px] 와 동기화).
   const RIGHT_PANEL_WIDTH = 360;
 
-  // (1) Detail panel 진입 / 같은 설비를 재 더블클릭 시 viewport 정렬.
-  //     focusTick 을 deps 에 포함시켜 같은 ID 에서도 재실행되게 함.
-  //     ID 변경(다른 설비) + 클릭 반복 둘 다 한 효과로 처리.
+  // 단일 viewport 정렬 효과 — focusTick 펄스에만 묶는다.
+  //   카메라는 명시적 focusTick bump 때만 이동한다. 분기:
+  //   • 연결 경로 하이라이트 중(pathHighlightStore.active && highlightedEdgeIds>0)이면
+  //     케이블 경로 bounds 로 fit. useSelectionHighlight 가 traced 케이블 변경 시 focusTick 을 bump.
+  //   • 아니면 선택 자산(selectedAssetId) 중심으로 정렬. 더블클릭·딥링크·평면도진입이 focusTick bump.
+  //   • 둘 다 아니면 이동 없음.
+  //   단일클릭(selectEquipment)은 focusTick 을 bump 하지 않으므로 카메라가 움직이지 않는다(선택만).
   const focusTick = useEditorStore((s) => s.focusTick);
   useEffect(() => {
-    // 뷰포트 강제이동(정렬)은 패널-오픈 동작에만 묶는다 — 더블클릭·딥링크·평면도진입이 모두
-    // focusTick 을 bump 한다. 단일클릭(selectEquipment)은 selectedAssetId 만 바꾸고 focusTick 을
-    // bump 하지 않으므로, deps 를 [focusTick] 으로만 두면 단일클릭에선 정렬이 안 일어난다(선택만).
-    // 대상 id 는 deps 가 아니라 getState 로 fresh 하게 읽는다(focusTick bump 시점엔 이미 최신).
-    const id = useSelectionStore.getState().selectedAssetId;
-    if (!id) return;
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const hi = usePathHighlightStore.getState();
+    if (hi.active && hi.highlightedEdgeIds.size > 0) {
+      // ── 연결 경로로 fit: highlightedEdgeIds 의 케이블 pathPoints bounds ──
+      const cables = useSubstationWorkingCopy.getState().effectiveCables() as unknown as LocalCable[];
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const cable of cables) {
+        if (!hi.highlightedEdgeIds.has(cable.id)) continue;
+        const pts = cable.pathPoints;
+        if (!pts) continue;
+        for (const [x, y] of pts) {
+          if (x < minX) minX = x;
+          if (y < minY) minY = y;
+          if (x > maxX) maxX = x;
+          if (y > maxY) maxY = y;
+        }
+      }
+      if (!isFinite(minX)) return;
+      const fit = calculateCenterOnBounds(
+        { minX, minY, maxX, maxY },
+        rect.width,
+        rect.height,
+        RIGHT_PANEL_WIDTH,
+        // 케이블 경로는 endpoint 가 이미 설비 중심이라 padding 조금만 줘도 양 끝 설비가 보임.
+        200,
+        100,
+      );
+      useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
+      return;
+    }
+
+    // ── 선택 자산 중심 ──
     // 단일 choke-point: 선택 asset → 도면 anchor rect. 미배치 모듈/회로/포트는
     // floorTargetFor 가 부모 설비(랙/OFD/분전반) rect 로 해소하므로 그 설비에 포커스.
+    const id = useSelectionStore.getState().selectedAssetId;
+    if (!id) return;
     const target = floorTargetFor(
       id,
       useSubstationWorkingCopy.getState().effectiveAssets(),
     );
-    if (!target || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
+    if (!target) return;
     const fit = calculateCenterOnBounds(
       {
         minX: target.x,
@@ -183,43 +216,6 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     );
     useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
   }, [focusTick]);
-
-  // (2) 케이블 경로 하이라이트 시 viewport 정렬 — 연결 탭에서 케이블 카드 클릭마다
-  //     pathHighlightStore.tracingCableId 가 새 값으로 set 되므로 deps 가 그 ID 와
-  //     active 상태. 같은 케이블 카드 두 번 클릭하면 active false→true 전환 또는
-  //     tracingCableId 변경으로 재실행.
-  const pathHighlightActive = usePathHighlightStore((s) => s.active);
-  const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
-  const highlightedEdgeIds = usePathHighlightStore((s) => s.highlightedEdgeIds);
-  useEffect(() => {
-    if (!pathHighlightActive || highlightedEdgeIds.size === 0) return;
-    const cables = useSubstationWorkingCopy.getState().effectiveCables() as unknown as LocalCable[];
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const cable of cables) {
-      if (!highlightedEdgeIds.has(cable.id)) continue;
-      const pts = cable.pathPoints;
-      if (!pts) continue;
-      for (const [x, y] of pts) {
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
-    }
-    if (!isFinite(minX) || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    const fit = calculateCenterOnBounds(
-      { minX, minY, maxX, maxY },
-      rect.width,
-      rect.height,
-      RIGHT_PANEL_WIDTH,
-      // 케이블 경로는 endpoint 가 이미 설비 중심이라 padding 조금만 줘도 양 끝 설비가 보임.
-      200,
-      100,
-    );
-    useEditorStore.getState().setViewport(fit.zoom, fit.panX, fit.panY);
-  }, [pathHighlightActive, tracingCableId, highlightedEdgeIds]);
 
   // Navigation guard: warn on unsaved changes (통합 dirty 신호 기준).
   useEffect(() => {
