@@ -71,11 +71,10 @@ describe('FeederCircuitsPanel', () => {
     expect(screen.getByRole('button', { name: '차단기 1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '차단기 6 추가' })).toBeInTheDocument();
   });
-  it('점유 차단기 클릭 → 부하 상세 + startTrace(cableId)', () => {
+  it('점유 차단기 클릭 → 부하 상세', () => {
     render(<FeederCircuitsPanel feederId={FEEDER} />);
     fireEvent.click(screen.getByRole('button', { name: '차단기 1' }));
     expect(screen.getByText(/복도등/)).toBeInTheDocument();
-    expect(startTrace).toHaveBeenCalledWith('c1');
   });
   it('빈 자리 추가(＋) 클릭 → startCableConnection(피더 OUT + 그 빈 CB 번호) + 평면도 이동(피더)', () => {
     render(<FeederCircuitsPanel feederId={FEEDER} />);
@@ -106,11 +105,10 @@ describe('FeederCircuitsPanel', () => {
       expect(within(tile).getByText('한전 인입')).toBeInTheDocument();
       expect(within(tile).getByText('20A')).toBeInTheDocument();
     });
-    it('점유 입력 타일 클릭 → 상세카드(공급원/용량/개폐) + 용량 편집 시 commitMeta(in cableId) + startTrace', () => {
+    it('점유 입력 타일 클릭 → 상세카드(공급원/용량/개폐) + 용량 편집 시 commitMeta(in cableId)', () => {
       inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입', capacity: '20A', switchState: 'ON' };
       render(<FeederCircuitsPanel feederId={FEEDER} />);
       fireEvent.click(screen.getByRole('button', { name: '입력' }));
-      expect(startTrace).toHaveBeenCalledWith('in1');
       expect(screen.getByText('공급원')).toBeInTheDocument();
       // 용량 인라인 편집(✎ 클릭 → 입력) → commitMeta(specParams 머지 patch)는 입력 케이블 id 로.
       fireEvent.click(screen.getByRole('button', { name: '용량 수정' }));

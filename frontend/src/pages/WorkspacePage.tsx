@@ -10,6 +10,7 @@ import { PowerView } from '../features/power/components/PowerView';
 import { WorkspaceNavContext, type WorkspaceNav } from '../features/workspace/WorkspaceNavContext';
 import { useSelectionStore } from '../features/workspace/selectionStore';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
+import { useSelectionHighlight } from '../features/workspace/selectionHighlight';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
 import { useWorkingCopyLoader, useEffectiveAssets } from '../features/workingCopy/hooks';
 import { floorAnchor } from '../features/workingCopy/floorAnchor';
@@ -168,6 +169,7 @@ export function WorkspacePage() {
 
   // 평면도 에디터가 활성일 때만 에디터↔공유 선택 브리지를 돈다.
   useEditorSelectionBridge(selectedAssetId, view === 'plan');
+  useSelectionHighlight(); // 선택(selectedCore)→하이라이트 파생, 어느 뷰/탭에서 선택해도 단일 소스
 
   // 컨텍스트 변전소의 통합 working copy 를 store 에 로드(idempotent).
   // 변전소 노드: 자기 변전소. 본부·사업소: 선택 자산이 가리키는 변전소(없으면 no-op).

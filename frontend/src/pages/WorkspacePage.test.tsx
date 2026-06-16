@@ -61,6 +61,11 @@ vi.mock('../features/workingCopy/WorkingCopyCommitBar', () => ({
 vi.mock('../features/workspace/useEditorSelectionBridge', () => ({
   useEditorSelectionBridge: () => {},
 }));
+// 하이라이트 파생 훅(useTraceGraph 의존)은 셸 렌더 검증과 무관 — no-op 으로 목.
+// (파생 로직은 selectionHighlight.resolveSelectedCable 단위 테스트에서 검증.)
+vi.mock('../features/workspace/selectionHighlight', () => ({
+  useSelectionHighlight: () => {},
+}));
 vi.mock('../features/workspace/useSubstationFloors', () => ({
   useSubstationFloors: (substationId?: string) => ({
     data: substationId ? [{ id: 'floor-1', name: '1F' }] : [],

@@ -63,17 +63,15 @@ describe('SlotPortsPanel', () => {
     expect(screen.getByRole('button', { name: /포트 24/ })).toBeInTheDocument();
   });
 
-  it('점유 포트 클릭 → 자국 설비명 상세 + startTrace(localCableId)', () => {
+  it('점유 포트 클릭 → 자국 설비명 상세', () => {
     render(<SlotPortsPanel slotId={SLOT} />);
     fireEvent.click(screen.getByRole('button', { name: /포트 3/ }));
     expect(screen.getByText(/자국장비/)).toBeInTheDocument();
-    expect(startTrace).toHaveBeenCalledWith('c-l3');
   });
 
-  it('빈 포트 클릭 → clearHighlight + 미연결 표시', () => {
+  it('빈 포트 클릭 → 미연결 표시', () => {
     render(<SlotPortsPanel slotId={SLOT} />);
     fireEvent.click(screen.getByRole('button', { name: /^포트 1$/ }));
-    expect(clearHighlight).toHaveBeenCalled();
     // "미연결" 은 PortGrid 범례에도 상존 → 선택 포트 상세 카드 내부의 라벨만 검증.
     const card = screen.getByText(/^포트 1$/).closest('div')!;
     expect(card).toHaveTextContent(/미연결/);

@@ -1,7 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useTraceGraph } from '../../trace/traceGraph';
-import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { buildSlotPorts, type PortState } from '../slotPorts';
 import type { CableLike } from '../slotRegister';
@@ -58,19 +57,6 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
   };
 
   const selected = ports.find((p) => p.coreNumber === selectedCore) ?? null;
-  const traceCableId = selected ? (selected.localCableId ?? selected.remoteCableId) : null;
-
-  // 선택 포트 → 코어 트레이스 하이라이트. selectedCore/traceCableId(원시값)에만 의존 →
-  // cables/graph 폴링으로 ports 가 새 참조가 돼도 선택이 그대로면 재트레이스 안 함.
-  useEffect(() => {
-    const hi = usePathHighlightStore.getState();
-    if (selectedCore === null) return;          // 미선택이면 하이라이트 건드리지 않음
-    if (traceCableId) hi.startTrace(traceCableId);
-    else hi.clearHighlight();
-  }, [selectedCore, traceCableId]);
-
-  // 패널 unmount 시 잔상 제거.
-  useEffect(() => () => usePathHighlightStore.getState().clearHighlight(), []);
 
   const nameOf = (id: string | null) => (id ? (graph?.nameById.get(id) ?? id) : null);
   const subOf = (id: string | null) => (id ? (graph?.subNameById.get(id) ?? null) : null);

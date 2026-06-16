@@ -1,7 +1,6 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useTraceGraph } from '../../trace/traceGraph';
-import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { startCableConnection } from '../../editor/cableConnection';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
@@ -71,16 +70,6 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
       number: cbNumber,
     });
   };
-
-  useEffect(() => {
-    const hi = usePathHighlightStore.getState();
-    // 입력 상세를 보면 입력 케이블을 하이라이트(CB 선택과 동형). 둘 다 없으면 nothing.
-    if (showInput && input?.cableId) { hi.startTrace(input.cableId); return; }
-    if (selectedCb === null) return;
-    if (selected?.cableId) hi.startTrace(selected.cableId);
-    else hi.clearHighlight();
-  }, [selectedCb, selected?.cableId, showInput, input?.cableId]);
-  useEffect(() => () => usePathHighlightStore.getState().clearHighlight(), []);
 
   // CB 선택 = selectedCore = CB번호(입력은 자동 해제 — 다른 코어값).
   const selectCb = (cbNumber: number | null) => setSelectedCb(cbNumber);
