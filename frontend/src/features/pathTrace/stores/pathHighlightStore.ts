@@ -19,7 +19,8 @@ import { api } from '../../../utils/api';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { Asset } from '../../../types/asset';
 import { projectTrace, type TraceProjection } from '../../trace/traceProjection';
-import { buildTraceGraph, fetchAllSlimAssetsCached, type SlimAssetDTO, type TraceCableInput } from '../../trace/traceGraph';
+import { buildTraceGraph, fetchAllSlimAssetsCached, findNodeName, type SlimAssetDTO, type TraceCableInput } from '../../trace/traceGraph';
+import { useOrganizationStore } from '../../../stores/organizationStore';
 
 /**
  * 글로벌(전 변전소) cable 위에 *이 변전소* 의 staged 변경을 오버레이.
@@ -95,12 +96,15 @@ async function loadProjection(cableId: string): Promise<
       queryFn: async () => (await api.get<{ data: TraceCableInput[] }>('/cables')).data.data,
     });
     const wc = useSubstationWorkingCopy.getState();
+    const subId = wc.substationId;
+    const currentSubName = subId ? findNodeName(useOrganizationStore.getState().roots, subId) : null;
     const graph = buildTraceGraph({
       slimAssets: slimAssets as SlimAssetDTO[],
       globalCables,
       stagedAssets: wc.effectiveAssets() as never[],
       stagedCables: wc.effectiveCables() as unknown as TraceCableInput[],
       deletes: [...wc.overlays.cables.deletes, ...wc.overlays.assets.deletes],
+      currentSubName,
     });
     const projection = projectTrace(cableId, graph);
     if (!projection) {

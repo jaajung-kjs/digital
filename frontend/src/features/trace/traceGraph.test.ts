@@ -75,3 +75,35 @@ describe('buildTraceGraph + projections', () => {
     expect(g.subById.get('x')).toBe('subA');
   });
 });
+
+const slim = (over: Partial<{ id: string; name: string; substationId: string; substationName: string | null; parentAssetId: string | null; connectionKind: 'distributor'|'conduit'|null; code: string | null }>) => ({
+  id: 'x', name: 'x', substationId: 'sub-A', substationName: 'A변전소', parentAssetId: null, connectionKind: null, code: null, ...over,
+});
+
+describe('buildTraceGraph staged 메타데이터', () => {
+  it('staged-create 자산: substationId 로 subById/subNameById 채움(slim 변전소명 사용)', () => {
+    const g = buildTraceGraph({
+      slimAssets: [slim({ id: 'committed1', substationId: 'sub-A', substationName: 'A변전소' })],
+      globalCables: [],
+      stagedAssets: [{ id: 'temp1', substationId: 'sub-A', name: '새슬롯', assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } }],
+      stagedCables: [],
+      deletes: [],
+    });
+    expect(g.subById.get('temp1')).toBe('sub-A');
+    expect(g.subNameById.get('temp1')).toBe('A변전소');
+    expect(g.nameById.get('temp1')).toBe('새슬롯');
+  });
+  it('slim 에 그 변전소가 없으면 currentSubName fallback', () => {
+    const g = buildTraceGraph({
+      slimAssets: [], globalCables: [],
+      stagedAssets: [{ id: 'temp1', substationId: 'sub-NEW', name: 'x', assetType: { connectionKind: 'conduit' } }],
+      stagedCables: [], deletes: [], currentSubName: '새변전소',
+    });
+    expect(g.subById.get('temp1')).toBe('sub-NEW');
+    expect(g.subNameById.get('temp1')).toBe('새변전소');
+  });
+  it('커밋 자산(slim) 회귀: slim 의 substationName 사용', () => {
+    const g = buildTraceGraph({ slimAssets: [slim({ id: 'c1', substationId: 'sub-A', substationName: 'A변전소' })], globalCables: [], stagedAssets: [], stagedCables: [], deletes: [] });
+    expect(g.subNameById.get('c1')).toBe('A변전소');
+  });
+});

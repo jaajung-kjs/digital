@@ -1,7 +1,20 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
+import { useOrganizationStore } from '../../stores/organizationStore';
 import { cableTrace, type TraceAsset, type TraceCable } from './cableTrace';
+
+/** org 트리(roots)에서 id 의 노드 이름을 재귀 탐색. 없으면 null. (React 밖에서도 사용.) */
+export function findNodeName(roots: { id: string; name: string; children?: { id: string; name: string; children?: unknown[] }[] }[], id: string): string | null {
+  for (const n of roots) {
+    if (n.id === id) return n.name;
+    if (n.children && n.children.length) {
+      const r = findNodeName(n.children as typeof roots, id);
+      if (r) return r;
+    }
+  }
+  return null;
+}
 
 /** 전 변전소 slim asset DTO (백엔드 GET /api/assets). */
 export interface SlimAssetDTO {
@@ -77,9 +90,11 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
 export function buildTraceGraph(input: {
   slimAssets: SlimAssetDTO[];
   globalCables: TraceCableInput[];
-  stagedAssets: { id: string; parentAssetId?: string | null; assetType?: { connectionKind?: string | null; code?: string | null } | null; name?: string }[];
+  stagedAssets: { id: string; substationId?: string | null; parentAssetId?: string | null; assetType?: { connectionKind?: string | null; code?: string | null } | null; name?: string }[];
   stagedCables: TraceCableInput[];
   deletes: string[];
+  /** slim 에 아직 없는 변전소(신규 생성)의 이름 fallback — org 트리에서 해소해 전달. */
+  currentSubName?: string | null;
 }): TraceGraph {
   const deleted = new Set(input.deletes);
 
@@ -101,6 +116,11 @@ export function buildTraceGraph(input: {
   const parentById = new Map<string, string | null>();
   const codeById = new Map<string, string | null>();
   const assetById = new Map<string, TraceAsset>();
+  // substationId → substationName (slim 피드에서 수집) — staged 자산의 변전소명 해소용.
+  const subNameByStationId = new Map<string, string>();
+  for (const a of input.slimAssets) {
+    if (a.substationId && a.substationName) subNameByStationId.set(a.substationId, a.substationName);
+  }
   for (const a of input.slimAssets) {
     if (deleted.has(a.id)) continue;
     const staged = stagedAssetById.get(a.id);
@@ -116,9 +136,9 @@ export function buildTraceGraph(input: {
     parentById.set(a.id, a.parentAssetId ?? null);
     codeById.set(a.id, a.code ?? null);
   }
-  // 주의: staged-create 자산은 substationName 을 안 들고 온다(effectiveAssets 는 substationId 만).
-  // → subNameById 미설정. P3a 는 커밋된 OFD/슬롯(global slim 피드에 substationName 있음)만 다루므로 무방.
-  // staged 슬롯 생성(P6 자동생성)이 들어오면 그때 substationName 을 스레드한다.
+  // staged-create 자산은 substationName 을 안 들고 온다(effectiveAssets 는 substationId 만).
+  // → substationId 로 slim 변전소명(subNameByStationId)을, 없으면 currentSubName(신규 변전소)을
+  //   subNameById 에 채운다. 저장 전에도 자국/대국 슬롯명·피더 파생 GUI 가 완성된다.
   for (const a of input.stagedAssets) {
     if (assetById.has(a.id) || deleted.has(a.id)) continue;
     assetById.set(a.id, { id: a.id, connectionKind: (a.assetType?.connectionKind ?? null) as TraceAsset['connectionKind'] });
@@ -126,6 +146,14 @@ export function buildTraceGraph(input: {
     const sa = a as { parentAssetId?: string | null; assetType?: { code?: string | null } | null };
     if (!parentById.has(a.id)) parentById.set(a.id, sa.parentAssetId ?? null);
     if (!codeById.has(a.id)) codeById.set(a.id, sa.assetType?.code ?? null);
+    const subId = (a as { substationId?: string | null }).substationId ?? null;
+    if (subId) {
+      if (!subById.has(a.id)) subById.set(a.id, subId);
+      if (!subNameById.has(a.id)) {
+        const sname = subNameByStationId.get(subId) ?? input.currentSubName ?? null;
+        if (sname) subNameById.set(a.id, sname);
+      }
+    }
   }
 
   return { assets: [...assetById.values()], cables: mergedCables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById };
@@ -177,6 +205,9 @@ export function useTraceGraph(): { graph: TraceGraph | null; isLoading: boolean 
   const overlayAssets = useSubstationWorkingCopy((s) => s.overlays.assets);
   const savedAssets = useSubstationWorkingCopy((s) => s.saved.assets);
   void savedCables; void savedAssets; // 구독 트리거용(값은 getState 로 읽음)
+  // 신규(아직 slim 에 없는) 변전소명 fallback — org 트리에서 현재 변전소 id 로 해소.
+  const subId = useSubstationWorkingCopy((s) => s.substationId);
+  const currentSubName = useOrganizationStore((s) => (subId ? findNodeName(s.roots, subId) : null));
 
   const isLoading = slimQ.isLoading || cableQ.isLoading;
   if (!slimQ.data || !cableQ.data) return { graph: null, isLoading };
@@ -188,6 +219,7 @@ export function useTraceGraph(): { graph: TraceGraph | null; isLoading: boolean 
     stagedAssets: wc.effectiveAssets() as never[],
     stagedCables: wc.effectiveCables() as unknown as TraceCableInput[],
     deletes: [...overlayCables.deletes, ...overlayAssets.deletes],
+    currentSubName,
   });
   return { graph, isLoading };
 }
