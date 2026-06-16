@@ -110,7 +110,9 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
     const setAnchor = (key: string) => {
       if (!key || map.has(key)) return;
       const a = floorAnchor(key, assetsById);
-      if (a?.positionX != null && a.positionY != null) {
+      // 현재 층의 anchor 만 매핑한다. 대국(OPGW 건너편)·타 층 끝점은 이 도면에 위치가 없으므로
+      // 매핑하지 않는다 — 안 그러면 타 변전소/층 설비 좌표가 이 도면에 팬텀으로 그려진다.
+      if (a?.positionX != null && a.positionY != null && a.floorId === floorId) {
         map.set(key, { x: a.positionX, y: a.positionY, width: a.width2d ?? 0, height: a.height2d ?? 0 });
       }
     };
@@ -119,7 +121,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       setAnchor(c.targetAssetId);
     }
     return map;
-  }, [localEquipment, editorCables, effectiveAssets]);
+  }, [localEquipment, editorCables, effectiveAssets, floorId]);
 
   const renderableConnections = useMemo(() => {
     const all = cables ? mapCablesToRenderable(cables, endpointPositions) : [];
