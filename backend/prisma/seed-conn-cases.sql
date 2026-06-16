@@ -1,11 +1,11 @@
--- 연결도 단일함수 검증용 시드 (P1~P5). 멱등(ON CONFLICT DO NOTHING).
+-- 연결도 단일함수 검증용 시드 (P1~P5). 재실행 시 sub-conn 자산/케이블을 리셋 후 재생성.
 BEGIN;
 
+-- 변전소/층(본부 귀속 — 네비게이션 노출). 첫 branch 에 귀속.
 INSERT INTO substations (id, name, branch_id, sort_order, updated_at) VALUES
   ('sub-conn', '연결테스트변전소', (SELECT id FROM branches ORDER BY sort_order, id LIMIT 1), 900, NOW()),
   ('sub-conn-remote', '대국변전소', (SELECT id FROM branches ORDER BY sort_order, id LIMIT 1), 901, NOW())
 ON CONFLICT (id) DO NOTHING;
--- 기존에 branch 없이 들어간 행 보정(네비게이션 노출용).
 UPDATE substations SET branch_id = (SELECT id FROM branches ORDER BY sort_order, id LIMIT 1)
 WHERE id LIKE 'sub-conn%' AND branch_id IS NULL;
 
@@ -14,31 +14,42 @@ INSERT INTO floors (id, substation_id, name, floor_number, sort_order, updated_a
   ('flr-conn-b1', 'sub-conn', 'B1층', 'B1', 1, NOW())
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO assets (id, substation_id, asset_type_id, name, parent_asset_id, floor_id, position_x_2d, position_y_2d, width_2d, height_2d, updated_at)
-VALUES
-  ('a-chg',  'sub-conn', (SELECT id FROM asset_types WHERE code='CHARGER'), '충전기',  NULL,        'flr-conn-1', 100, 100, 60, 40, NOW()),
-  ('a-ups',  'sub-conn', (SELECT id FROM asset_types WHERE code='UPS'),     'UPS',     NULL,        'flr-conn-1', 200, 100, 60, 40, NOW()),
-  ('a-dist', 'sub-conn', (SELECT id FROM asset_types WHERE code='DIST'),    '분전반',  NULL,        'flr-conn-1', 300, 100, 80, 60, NOW()),
-  ('a-fA',   'sub-conn', (SELECT id FROM asset_types WHERE code='FEEDER'),  '피더A',   'a-dist',    NULL, NULL, NULL, NULL, NULL, NOW()),
-  ('a-fB',   'sub-conn', (SELECT id FROM asset_types WHERE code='FEEDER'),  '피더B',   'a-dist',    NULL, NULL, NULL, NULL, NULL, NOW()),
-  ('a-t1',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-PWR-DC'), '단말1', NULL,       'flr-conn-1', 400,  80, 50, 30, NOW()),
-  ('a-t2',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-PWR-DC'), '단말2', NULL,       'flr-conn-1', 400, 140, 50, 30, NOW()),
-  ('a-t3',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-PWR-DC'), '단말3', NULL,       'flr-conn-1', 400, 200, 50, 30, NOW()),
-  ('a-chg2', 'sub-conn', (SELECT id FROM asset_types WHERE code='CHARGER'), '충전기B1', NULL,       'flr-conn-b1', 100, 100, 60, 40, NOW()),
-  ('a-fC',   'sub-conn', (SELECT id FROM asset_types WHERE code='FEEDER'),  '피더C',   'a-dist',    NULL, NULL, NULL, NULL, NULL, NOW()),
-  ('a-t4',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-PWR-DC'), '단말4', NULL,       'flr-conn-1', 500, 100, 50, 30, NOW()),
-  ('a-ofd',  'sub-conn', (SELECT id FROM asset_types WHERE code='OFD'),      'OFD',    NULL,        'flr-conn-1', 600, 100, 80, 80, NOW()),
-  ('a-slot', 'sub-conn', (SELECT id FROM asset_types WHERE code='OFD-SLOT'), '남춘천', 'a-ofd',     NULL, NULL, NULL, NULL, NULL, NOW()),
-  ('a-rofd', 'sub-conn-remote', (SELECT id FROM asset_types WHERE code='OFD'),      '원격OFD', NULL, NULL, NULL, NULL, NULL, NULL, NOW()),
-  ('a-rslot','sub-conn-remote', (SELECT id FROM asset_types WHERE code='OFD-SLOT'), '춘천',    'a-rofd', NULL, NULL, NULL, NULL, NULL, NOW()),
-  ('a-o1',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-OPT-TERM'), '단말광1', NULL,   'flr-conn-1', 700,  80, 50, 30, NOW()),
-  ('a-o2',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-OPT-TERM'), '단말광2', NULL,   'flr-conn-1', 700, 140, 50, 30, NOW()),
-  ('a-n1',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-NET-SW'), '설비N1', NULL,      'flr-conn-1', 100, 300, 50, 30, NOW()),
-  ('a-n2',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-NET-SW'), '설비N2', NULL,      'flr-conn-1', 200, 300, 50, 30, NOW()),
-  ('a-n3',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-NET-SW'), '설비N3', NULL,      'flr-conn-1', 300, 300, 50, 30, NOW()),
-  ('a-n4',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-NET-SW'), '설비N4', NULL,      'flr-conn-1', 400, 300, 50, 30, NOW())
-ON CONFLICT (id) DO NOTHING;
+-- 리셋: 이 변전소 자산 삭제(케이블은 FK CASCADE 로 함께 삭제).
+DELETE FROM cables WHERE id LIKE 'c-%';
+DELETE FROM assets WHERE substation_id IN ('sub-conn', 'sub-conn-remote');
 
+-- 컨테이너(랙·분전반·OFD) — floor/position 보유. 모듈/슬롯/피더는 parent 아래(배치 없음).
+INSERT INTO assets (id, substation_id, asset_type_id, name, parent_asset_id, slot_index, floor_id, position_x_2d, position_y_2d, width_2d, height_2d, updated_at)
+VALUES
+  -- P1 전력 다단: 랙[충전기,UPS](모듈) → 분전반[피더A,B] → 단말들
+  ('a-rack', 'sub-conn', (SELECT id FROM asset_types WHERE code='RACK'), '전력랙', NULL, NULL, 'flr-conn-1', 100, 100, 80, 160, NOW()),
+  ('a-chg',  'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-CHARGER'), '충전기', 'a-rack', 0, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-ups',  'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-UPS'),     'UPS',    'a-rack', 1, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-dist', 'sub-conn', (SELECT id FROM asset_types WHERE code='DIST'),    '분전반',  NULL, NULL, 'flr-conn-1', 300, 100, 80, 60, NOW()),
+  ('a-fA',   'sub-conn', (SELECT id FROM asset_types WHERE code='FEEDER'),  '피더A',   'a-dist', NULL, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-fB',   'sub-conn', (SELECT id FROM asset_types WHERE code='FEEDER'),  '피더B',   'a-dist', NULL, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-t1',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-PWR-DC'), '단말1', NULL, NULL, 'flr-conn-1', 400,  80, 50, 30, NOW()),
+  ('a-t2',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-PWR-DC'), '단말2', NULL, NULL, 'flr-conn-1', 400, 140, 50, 30, NOW()),
+  ('a-t3',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-PWR-DC'), '단말3', NULL, NULL, 'flr-conn-1', 400, 200, 50, 30, NOW()),
+  -- P2 공급원 타 층: B1층 랙[충전기B1](모듈) → 분전반 피더C(1층) → 단말4(1층)
+  ('a-rack-b1','sub-conn', (SELECT id FROM asset_types WHERE code='RACK'), '전력랙B1', NULL, NULL, 'flr-conn-b1', 100, 100, 80, 120, NOW()),
+  ('a-chg2', 'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-CHARGER'), '충전기B1', 'a-rack-b1', 0, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-fC',   'sub-conn', (SELECT id FROM asset_types WHERE code='FEEDER'),  '피더C',   'a-dist', NULL, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-t4',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-PWR-DC'), '단말4', NULL, NULL, 'flr-conn-1', 500, 100, 50, 30, NOW()),
+  -- P3 광: 로컬 OFD[슬롯S], 대국 OFD[슬롯RS], 단말광1/2
+  ('a-ofd',  'sub-conn', (SELECT id FROM asset_types WHERE code='OFD'),      'OFD',    NULL, NULL, 'flr-conn-1', 600, 100, 80, 80, NOW()),
+  ('a-slot', 'sub-conn', (SELECT id FROM asset_types WHERE code='OFD-SLOT'), '남춘천', 'a-ofd', 0, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-rofd', 'sub-conn-remote', (SELECT id FROM asset_types WHERE code='OFD'),      '원격OFD', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-rslot','sub-conn-remote', (SELECT id FROM asset_types WHERE code='OFD-SLOT'), '춘천',    'a-rofd', 0, NULL, NULL, NULL, NULL, NULL, NOW()),
+  ('a-o1',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-OPT-TERM'), '단말광1', NULL, NULL, 'flr-conn-1', 700,  80, 50, 30, NOW()),
+  ('a-o2',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-OPT-TERM'), '단말광2', NULL, NULL, 'flr-conn-1', 700, 140, 50, 30, NOW()),
+  -- P4 네트워크 무방향 체인
+  ('a-n1',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-NET-SW'), '설비N1', NULL, NULL, 'flr-conn-1', 100, 300, 50, 30, NOW()),
+  ('a-n2',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-NET-SW'), '설비N2', NULL, NULL, 'flr-conn-1', 200, 300, 50, 30, NOW()),
+  ('a-n3',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-NET-SW'), '설비N3', NULL, NULL, 'flr-conn-1', 300, 300, 50, 30, NOW()),
+  ('a-n4',   'sub-conn', (SELECT id FROM asset_types WHERE code='EQP-NET-SW'), '설비N4', NULL, NULL, 'flr-conn-1', 400, 300, 50, 30, NOW());
+
+-- 케이블: 공급쪽=OUT, 부하쪽=IN. (충전기가 공급 원점)
 INSERT INTO cables (id, cable_type, source_asset_id, target_asset_id, source_role, target_role, number, category_id, updated_at) VALUES
   ('c-chg-ups', 'AC', 'a-chg', 'a-ups', 'OUT', 'IN', NULL, NULL, NOW()),
   ('c-ups-fA',  'AC', 'a-ups', 'a-fA',  'OUT', 'IN', NULL, NULL, NOW()),
@@ -53,10 +64,10 @@ INSERT INTO cables (id, cable_type, source_asset_id, target_asset_id, source_rol
   ('c-opgw',    'FIBER', 'a-slot', 'a-rslot', 'IN', 'IN', NULL, (SELECT id FROM cable_categories WHERE code='CBL-OPGW'), NOW()),
   ('c-n1-n2',   'LAN', 'a-n1', 'a-n2', NULL, NULL, NULL, NULL, NOW()),
   ('c-n2-n3',   'LAN', 'a-n2', 'a-n3', NULL, NULL, NULL, NULL, NOW()),
-  ('c-n3-n4',   'LAN', 'a-n3', 'a-n4', NULL, NULL, NULL, NULL, NOW())
-ON CONFLICT (id) DO NOTHING;
+  ('c-n3-n4',   'LAN', 'a-n3', 'a-n4', NULL, NULL, NULL, NULL, NOW());
 
 COMMIT;
 
 SELECT 'assets(sub-conn)' AS metric, COUNT(*) FROM assets WHERE substation_id IN ('sub-conn','sub-conn-remote')
-UNION ALL SELECT 'cables(P1~P4)', COUNT(*) FROM cables WHERE id LIKE 'c-%';
+UNION ALL SELECT 'modules(충전기/UPS)', COUNT(*) FROM assets WHERE id IN ('a-chg','a-ups','a-chg2') AND parent_asset_id IS NOT NULL AND slot_index IS NOT NULL
+UNION ALL SELECT 'cables', COUNT(*) FROM cables WHERE id LIKE 'c-%';
