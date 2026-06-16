@@ -94,6 +94,8 @@ interface PathHighlightState {
   modalOpen: boolean;
 
   startTrace: (cableId: string) => void;
+  /** 연결도(가지친 트리)의 노드/케이블을 그대로 하이라이트 — 재추적 없음(projectTrace 불일치 방지). */
+  highlightDiagram: (seedCableId: string, nodeIds: string[], cableIds: string[]) => void;
   /**
    * 전원 계통 추적 (상위 진입) — 분전반 회로(feeder/branch) 에서 fan-out.
    * 주어진 circuitId 들에 물린 케이블 + 반대편 endpoint 를 1-hop 하이라이트.
@@ -143,6 +145,22 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
       const message = err instanceof Error ? err.message : '경로 추적에 실패했습니다.';
       set({ isLoading: false, tracingCableId: null, error: message });
     }
+  },
+
+  highlightDiagram: (seedCableId, nodeIds, cableIds) => {
+    const effAssets = useSubstationWorkingCopy.getState().effectiveAssets();
+    const ids = new Set(nodeIds);
+    set({
+      active: true,
+      projection: null,
+      tracingCableId: seedCableId,
+      isLoading: false,
+      error: null,
+      highlightedNodeIds: ids,
+      highlightedPlacedIds: expandToPlacedIds(ids, effAssets),
+      highlightedEdgeIds: new Set(cableIds),
+      modalOpen: false,
+    });
   },
 
   startCircuitTrace: (branchAssetIds) => {

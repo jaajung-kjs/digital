@@ -92,6 +92,7 @@ export function buildConnectionDiagram(opts: {
     const inSub = (id?: string | null) => !!id && subOf(id) === selfSub;
     const adj = new Map<string, { to: string; cable: Cable }[]>();
     const boundaryNodes = new Set<string>();
+    const boundaryRemote = new Map<string, string>(); // in-sub 노드 → 대국(off-sub) 이웃 id
     const touchCables = new Map<string, Cable[]>();
     const addAdj = (a: string, to: string, c: Cable) => { const r = adj.get(a); if (r) r.push({ to, cable: c }); else adj.set(a, [{ to, cable: c }]); };
     const addTouch = (a: string, c: Cable) => { const r = touchCables.get(a); if (r) r.push(c); else touchCables.set(a, [c]); };
@@ -101,8 +102,8 @@ export function buildConnectionDiagram(opts: {
       if (inSub(s)) addTouch(s, c);
       if (inSub(t)) addTouch(t, c);
       if (inSub(s) && inSub(t)) { addAdj(s, t, c); addAdj(t, s, c); }
-      else if (inSub(s)) boundaryNodes.add(s);
-      else if (inSub(t)) boundaryNodes.add(t);
+      else if (inSub(s)) { boundaryNodes.add(s); boundaryRemote.set(s, t); }
+      else if (inSub(t)) { boundaryNodes.add(t); boundaryRemote.set(t, s); }
     }
     const allInSub = new Set([...touchCables.keys()]);
     const seen = new Set<string>();
@@ -135,21 +136,58 @@ export function buildConnectionDiagram(opts: {
         }
       }
       const isOpgw = (c: Cable | null) => !!c && c.sourceRole === 'IN' && c.targetRole === 'IN';
+      // 대국 경계 노드(슬롯) 라벨 = "로컬변전소 - 대국변전소"(OPGW 링크). subName 없으면 자산명 폴백.
+      const subName = (id?: string | null) => (id ? (graph.subNameById.get(id) ?? null) : null);
+      const boundaryLabel = (id: string): string => {
+        const local = subName(id), remote = subName(boundaryRemote.get(id));
+        return local && remote ? `${local} - ${remote}` : resolveName(id);
+      };
       const build = (id: string): DiagramNode => ({
         id,
-        label: resolveName(id),
+        label: boundaryNodes.has(id) ? boundaryLabel(id) : resolveName(id),
         kind: boundaryNodes.has(id) ? 'boundary' : 'asset',
         isSelf: isSelf(id),
         isOrigin: id === origin,
         edgeFiber: isOpgw(parentEdge.get(id) ?? null),
         children: (childOrder.get(id) ?? []).map(build),
       });
-      const root = build(rootId);
-      const compCableIds = [...new Set(poolCables.filter((c) => compNodes.has(c.sourceAssetId ?? '') || compNodes.has(c.targetAssetId ?? '')).map((c) => c.id))];
-      const seedCableId = compCableIds[0] ?? '';
-      const repCable = cableById.get(seedCableId);
+      const fullRoot = build(rootId);
+
+      // 가지치기: 루트→self 경로 + self 하위만 유지. 단말 관점=내 공급경로(형제 제거),
+      // 통과설비 관점=내 하위 분배 전체. 한 규칙 = 조상(self) ∪ self ∪ 하위(self).
+      const hasSelfBelow = new Map<string, boolean>();
+      const computeHasSelf = (n: DiagramNode): boolean => {
+        let v = n.isSelf;
+        for (const c of n.children) if (computeHasSelf(c)) v = true;
+        hasSelfBelow.set(n.id, v);
+        return v;
+      };
+      computeHasSelf(fullRoot);
+      const prune = (n: DiagramNode, underSelf: boolean): DiagramNode => {
+        const nowUnder = underSelf || n.isSelf;
+        const kids = n.children.filter((c) => hasSelfBelow.get(c.id) || nowUnder).map((c) => prune(c, nowUnder));
+        return { ...n, children: kids };
+      };
+      const root = prune(fullRoot, false);
+
+      // 표시된(가지친) 트리의 노드/케이블 = 하이라이트 대상.
+      const nodeIds: string[] = [];
+      const cableIdSet = new Set<string>();
+      const walk = (n: DiagramNode, isRoot: boolean) => {
+        nodeIds.push(n.id);
+        if (!isRoot) { const c = parentEdge.get(n.id); if (c) cableIdSet.add(c.id); }
+        n.children.forEach((ch) => walk(ch, false));
+      };
+      walk(root, true);
+      const cableIds = [...cableIdSet];
+      // seed = self 에 닿는 케이블 우선([상세] 토폴로지 진입점).
+      const selfSet = new Set(nodeIds.filter((id) => isSelf(id)));
+      const seedCableId =
+        cableIds.find((cid) => { const c = cableById.get(cid); return !!c && (selfSet.has(c.sourceAssetId ?? '') || selfSet.has(c.targetAssetId ?? '')); })
+        ?? cableIds[0] ?? '';
+      const repCable = cableById.get(cableIds[0] ?? '') ?? cableById.get(seedCableId);
       const cg = repCable ? categoryGroupOf(repCable) : { key: '기타', label: '기타', color: null };
-      addToGroup(cg, { seedCableId, root, cableIds: compCableIds, nodeIds: [...compNodes] });
+      addToGroup(cg, { seedCableId, root, cableIds, nodeIds });
     }
   }
 

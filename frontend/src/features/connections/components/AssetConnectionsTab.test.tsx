@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-const { startTrace, openTopology, clearHighlight } = vi.hoisted(() => ({
-  startTrace: vi.fn(), openTopology: vi.fn(), clearHighlight: vi.fn(),
+const { startTrace, highlightDiagram, openTopology, clearHighlight } = vi.hoisted(() => ({
+  startTrace: vi.fn(), highlightDiagram: vi.fn(), openTopology: vi.fn(), clearHighlight: vi.fn(),
 }));
 
 const node = (label: string, children: unknown[] = []) =>
@@ -17,7 +17,7 @@ vi.mock('../hooks/useAssetConnections', () => ({
 }));
 
 vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
-  const st = { startTrace, openTopology, clearHighlight, tracingCableId: null };
+  const st = { startTrace, highlightDiagram, openTopology, clearHighlight, tracingCableId: null };
   const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { usePathHighlightStore: hook };
@@ -25,7 +25,7 @@ vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
 
 import { AssetConnectionsTab } from './AssetConnectionsTab';
 
-beforeEach(() => { startTrace.mockClear(); openTopology.mockClear(); clearHighlight.mockClear(); });
+beforeEach(() => { startTrace.mockClear(); highlightDiagram.mockClear(); openTopology.mockClear(); clearHighlight.mockClear(); });
 
 describe('AssetConnectionsTab', () => {
   it('종류 그룹 + 트리 렌더', () => {
@@ -34,10 +34,10 @@ describe('AssetConnectionsTab', () => {
     expect(screen.getByText('충전기')).toBeInTheDocument();
     expect(screen.getByText('단말1')).toBeInTheDocument();
   });
-  it('트리 클릭 → startTrace(seedCableId)', () => {
+  it('트리 클릭 → highlightDiagram(표시된 노드/케이블)', () => {
     render(<AssetConnectionsTab assetId="R" />);
     fireEvent.click(screen.getByText('충전기'));
-    expect(startTrace).toHaveBeenCalledWith('c1');
+    expect(highlightDiagram).toHaveBeenCalledWith('c1', ['chg', 't1'], ['c1']);
   });
   it('상세 클릭 → startTrace + openTopology', () => {
     render(<AssetConnectionsTab assetId="R" />);

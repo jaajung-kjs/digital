@@ -8,6 +8,7 @@ interface Props { assetId: string }
 export function AssetConnectionsTab({ assetId }: Props) {
   const { groups, isLoading } = useAssetDiagram(assetId);
   const startTrace = usePathHighlightStore((s) => s.startTrace);
+  const highlightDiagram = usePathHighlightStore((s) => s.highlightDiagram);
   const openTopology = usePathHighlightStore((s) => s.openTopology);
   const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
   const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
@@ -30,7 +31,7 @@ export function AssetConnectionsTab({ assetId }: Props) {
             const isActive = tracingCableId === comp.seedCableId;
             return (
               <div key={comp.seedCableId} className={`flex items-start border-b border-line ${isActive ? 'bg-info-bg/40' : 'hover:bg-surface-2'}`}>
-                <button type="button" onClick={() => startTrace(comp.seedCableId)} className="flex-1 text-left px-3 py-2 min-w-0">
+                <button type="button" onClick={() => highlightDiagram(comp.seedCableId, comp.nodeIds, comp.cableIds)} className="flex-1 text-left px-3 py-2 min-w-0">
                   <DiagramTree root={comp.root} />
                 </button>
                 <button type="button" aria-label="상세" title="네트워크 토폴로지 보기"

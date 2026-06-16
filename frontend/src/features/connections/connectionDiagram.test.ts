@@ -63,25 +63,28 @@ const fiberCables = [
 const fiberGraph = buildTraceGraph({ slimAssets: fiberSlim, globalCables: fiberCables, stagedAssets: [], stagedCables: [], deletes: [] });
 
 describe('buildConnectionDiagram', () => {
-  it('P1 전력 다단: 충전기(원점) 루트, 분배 분기 — 단말1 관점', () => {
+  it('P1 단말1 관점: 충전기(원점) 루트지만 내 공급경로만(가지치기) — 형제 단말2·단말3 제거', () => {
     const groups = buildConnectionDiagram({ graph: p1Graph, assets: p1Assets, assetId: 't1', categoryGroupOf: catGroupOf });
     expect(groups).toHaveLength(1);
     expect(groups[0].key).toBe('전원');
     const root = groups[0].components[0].root;
     expect(root.label).toBe('충전기');
     expect(root.isOrigin).toBe(true);
-    expect(flatten(root).sort()).toEqual(['충전기>UPS>피더A>단말1', '충전기>UPS>피더A>단말2', '충전기>UPS>피더B>단말3'].sort());
-    const t1 = flattenNodes(root).find((n) => n.label === '단말1')!;
-    expect(t1.isSelf).toBe(true);
+    expect(flatten(root)).toEqual(['충전기>UPS>피더A>단말1']); // 내 경로만
+    expect(flattenNodes(root).find((n) => n.label === '단말1')!.isSelf).toBe(true);
+    // 표시집합(하이라이트 대상)도 내 경로만 — 형제 제외.
+    expect(new Set(groups[0].components[0].nodeIds)).toEqual(new Set(['chg', 'ups', 'fA', 't1']));
   });
-  it('P1 다관점 동일성: 충전기/피더/단말 누가 봐도 같은 트리(강조만 다름)', () => {
-    const fromT1 = rootOf('t1'); const fromChg = rootOf('chg'); const fromFA = rootOf('fA');
-    const shape = (r: DiagramNode) => flatten(r).sort();
-    expect(shape(fromChg)).toEqual(shape(fromT1));
-    expect(shape(fromFA)).toEqual(shape(fromT1));
-    const selfLabel = (r: DiagramNode) => flattenNodes(r).filter((n) => n.isSelf).map((n) => n.label);
-    expect(selfLabel(fromChg)).toEqual(['충전기']);
-    expect(selfLabel(fromT1)).toEqual(['단말1']);
+  it('P1 관점별 가지치기: 충전기·UPS=전체, 피더A=내하위만, 단말1=내경로만 (강조만 다름)', () => {
+    const shape = (id: string) => flatten(rootOf(id)).sort();
+    const full = ['충전기>UPS>피더A>단말1', '충전기>UPS>피더A>단말2', '충전기>UPS>피더B>단말3'].sort();
+    expect(shape('chg')).toEqual(full);
+    expect(shape('ups')).toEqual(full);                                                  // 상류 = 전체 동일
+    expect(shape('fA')).toEqual(['충전기>UPS>피더A>단말1', '충전기>UPS>피더A>단말2'].sort()); // 피더A = 내하위(피더B 제거)
+    expect(flatten(rootOf('t1'))).toEqual(['충전기>UPS>피더A>단말1']);                     // 단말 = 내경로
+    const selfLabel = (id: string) => flattenNodes(rootOf(id)).filter((n) => n.isSelf).map((n) => n.label).sort();
+    expect(selfLabel('chg')).toEqual(['충전기']);
+    expect(selfLabel('t1')).toEqual(['단말1']);
   });
   it('P4 네트워크 무방향: 원점 없음 → 자기(설비3) 루트, 양방향 분기', () => {
     const slim = [A('n1', '설비1', null), A('n2', '설비2', null), A('n3', '설비3', null), A('n4', '설비4', null)];
@@ -104,6 +107,7 @@ describe('buildConnectionDiagram', () => {
     const slot = root.children[0];
     expect(slot.kind).toBe('boundary');
     expect(slot.children).toHaveLength(0);
+    expect(slot.label).toBe('subL - subR'); // 경계 라벨 = 로컬변전소 - 대국변전소(OPGW 링크)
   });
   it('P3 광 OFD(슬롯) 관점: 슬롯 루트 → 단말광1·단말광2 분기', () => {
     const root = buildConnectionDiagram({ graph: fiberGraph, assets: fiberAssets, assetId: 'ofd', categoryGroupOf: catGroupOf })[0].components[0].root;
