@@ -74,3 +74,28 @@ describe('resolveHighlight', () => {
     expect(resolveHighlight('S', 9, null, [], [])).toEqual({ kind: 'clear' });
   });
 });
+
+import { resolveSelection, cableToAddress } from './selectionHighlight';
+import type { TraceGraph } from '../trace/traceGraph';
+
+// 최소 graph 스텁 — resolveSelection 은 trace 폴백에서만 projectTrace(graph) 사용.
+const graphStub = { cables, nameById: new Map(), subNameById: new Map() } as unknown as TraceGraph;
+const effAssets: never[] = [];
+
+describe('resolveSelection', () => {
+  it('연결(diagram): 슬롯 코어 → kind=connection + 그 컴포넌트의 cableIds', () => {
+    const r = resolveSelection('S', 3, null, graphStub, components, effAssets);
+    expect(r.kind).toBe('connection');
+    if (r.kind === 'connection') expect([...r.cableIds]).toContain('o3');
+  });
+  it('자산만(매칭 없음) → kind=asset', () => {
+    const r = resolveSelection('S', 9, null, graphStub, [], effAssets);
+    expect(r).toEqual({ kind: 'asset', assetId: 'S' });
+  });
+  it('선택 없음 → kind=none', () => {
+    expect(resolveSelection(null, 3, null, graphStub, components, effAssets)).toEqual({ kind: 'none' });
+  });
+  it('cableToAddress: 케이블 → (자산,core) 역매핑(보는 자산 우선)', () => {
+    expect(cableToAddress('b2', 'F', graphStub)).toEqual({ assetId: 'F', core: 2 });
+  });
+});

@@ -4,8 +4,11 @@ import { usePathHighlightStore } from '../pathTrace/stores/pathHighlightStore';
 import { useSelectionStore } from './selectionStore';
 import { useAssetDiagram } from '../connections/hooks/useAssetConnections';
 import { FEEDER_INPUT_CORE } from '../power/powerRegisterDescriptor';
+import { projectTrace } from '../trace/traceProjection';
+import { expandToPlacedIds } from '../pathTrace/stores/pathHighlightStore';
 import type { TraceGraph } from '../trace/traceGraph';
 import type { DiagramComponent } from '../connections/connectionDiagram';
+import type { Asset } from '../../types/asset';
 
 type CableLike = { id: string; sourceAssetId?: string | null; targetAssetId?: string | null; sourceRole?: string | null; targetRole?: string | null; number?: number | null };
 
@@ -91,4 +94,61 @@ export function useSelectionHighlight(): void {
     else if (action.kind === 'trace') hi.startTrace(action.cableId);
     else hi.clearHighlight();
   }, [selectedAssetId, selectedCore, selectedCableId, groups, graph]);
+}
+
+export type ResolvedSelection =
+  | { kind: 'connection'; cableId: string; nodeIds: Set<string>; placedIds: Set<string>; cableIds: Set<string> }
+  | { kind: 'asset'; assetId: string }
+  | { kind: 'none' };
+
+/** 케이블 → (자산, core) 역매핑. 보는 자산(viewedAssetId)이 끝단이면 그쪽 우선, 아니면 source 끝단. */
+export function cableToAddress(
+  cableId: string,
+  viewedAssetId: string | null,
+  graph: TraceGraph,
+): { assetId: string; core: number | null } | null {
+  const c = (graph.cables as CableLike[]).find((x) => x.id === cableId);
+  if (!c) return null;
+  const pick = (id?: string | null, role?: string | null, number?: number | null) =>
+    id ? { assetId: id, core: role === 'IN' ? FEEDER_INPUT_CORE : (number ?? null) } : null;
+  if (viewedAssetId && c.targetAssetId === viewedAssetId) return pick(c.targetAssetId, c.targetRole, c.number);
+  if (viewedAssetId && c.sourceAssetId === viewedAssetId) return pick(c.sourceAssetId, c.sourceRole, c.number);
+  return pick(c.sourceAssetId, c.sourceRole, c.number);
+}
+
+export function resolveSelection(
+  assetId: string | null,
+  core: number | null,
+  anchorCableId: string | null,
+  graph: TraceGraph,
+  components: DiagramComponent[],
+  effectiveAssets: Asset[],
+): ResolvedSelection {
+  if (!assetId) return { kind: 'none' };
+  const cables = (graph.cables ?? []) as CableLike[];
+  const action = resolveHighlight(assetId, core, anchorCableId, cables, components);
+  if (action.kind === 'diagram') {
+    const nodeIds = new Set(action.comp.nodeIds);
+    return {
+      kind: 'connection',
+      cableId: action.comp.seedCableId,
+      nodeIds,
+      placedIds: expandToPlacedIds(nodeIds, effectiveAssets),
+      cableIds: new Set(action.comp.cableIds),
+    };
+  }
+  if (action.kind === 'trace') {
+    const projection = projectTrace(action.cableId, graph);
+    if (projection) {
+      const nodeIds = new Set(projection.nodeIds);
+      return {
+        kind: 'connection',
+        cableId: action.cableId,
+        nodeIds,
+        placedIds: expandToPlacedIds(nodeIds, effectiveAssets),
+        cableIds: new Set(projection.cableIds),
+      };
+    }
+  }
+  return { kind: 'asset', assetId };
 }

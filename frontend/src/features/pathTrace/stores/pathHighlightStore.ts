@@ -71,7 +71,7 @@ function idleState() {
  * 배치(placement) 설비 id 로 펼친다. 모듈/분기 같은 내부 노드는 floorAnchor 가
  * 가장 가까운 배치 조상(랙/분전반)으로 해소한다(branch→feeder→분전반 walk 포함).
  */
-function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]): Set<string> {
+export function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]): Set<string> {
   const result = new Set(nodeIds);
   const byId = toMapById(effectiveAssets);
   for (const id of nodeIds) {
