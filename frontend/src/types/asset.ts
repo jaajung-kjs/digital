@@ -19,6 +19,7 @@ export interface AssetType {
   iconName: string | null;
   displayColor: string | null;
   placementKind: string | null;
+  connectionKind: string | null;
   sortOrder: number;
   isActive: boolean;
 }

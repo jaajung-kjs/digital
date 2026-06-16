@@ -12,6 +12,7 @@ export interface AssetTypeDetail {
   iconName: string | null;
   displayColor: string | null;
   placementKind: string | null;
+  connectionKind: string | null;
   sortOrder: number;
   isActive: boolean;
 }
@@ -21,6 +22,7 @@ class AssetTypeService {
     id: string; code: string; name: string; group: string | null;
     isContainer: boolean; fieldTemplate: unknown; requiredToCreate: unknown;
     iconName: string | null; displayColor: string | null; placementKind: string | null;
+    connectionKind: string | null;
     sortOrder: number; isActive: boolean;
   }): AssetTypeDetail {
     return {
@@ -28,6 +30,7 @@ class AssetTypeService {
       isContainer: t.isContainer, fieldTemplate: t.fieldTemplate ?? null,
       requiredToCreate: t.requiredToCreate ?? null, iconName: t.iconName,
       displayColor: t.displayColor, placementKind: t.placementKind ?? null,
+      connectionKind: t.connectionKind ?? null,
       sortOrder: t.sortOrder, isActive: t.isActive,
     };
   }

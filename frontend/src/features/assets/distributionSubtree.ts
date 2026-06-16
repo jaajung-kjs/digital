@@ -50,6 +50,8 @@ export function buildSubtreeAsset(params: {
       displayColor: type.displayColor,
       fieldTemplate: type.fieldTemplate,
       placementKind: type.placementKind,
+      // connectionKind 누락 시 resolveAssetDetailKind 가 null → 저장 전 스위치/포트 UI 미렌더.
+      connectionKind: type.connectionKind,
     },
     name,
     parentAssetId,
