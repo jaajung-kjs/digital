@@ -28,6 +28,48 @@ export interface TraceProjection {
 type CableLike = TraceGraph['cables'][number];
 const isOpgw = (c: CableLike) => c.sourceRole === 'IN' && c.targetRole === 'IN';
 
+/**
+ * conduit dead-end(편도) 가지치기: 대국 단말이 없어 conduit(슬롯)에서 끊긴 가지를 제거한다.
+ * conduit 노드의 degree 가 ≤1 이면(코어 한쪽 or OPGW 한쪽만) 제거를 반복 → 실단말끼리 잇는
+ * 경로만 남는다. 이후 고립(degree 0) 노드 제거. conduit 없는 경로(전력 등)는 영향 없음.
+ */
+function pruneDanglingConduits(
+  nodeIds: string[],
+  cableIds: string[],
+  cableById: Map<string, CableLike>,
+  kindOf: (id: string | null | undefined) => string | null,
+): { nodeIds: string[]; cableIds: string[] } {
+  const nodes = new Set(nodeIds);
+  const cables = new Set(cableIds);
+  const degrees = () => {
+    const d = new Map<string, number>();
+    for (const cid of cables) {
+      const c = cableById.get(cid);
+      if (!c) continue;
+      for (const a of [c.sourceAssetId, c.targetAssetId]) if (a && nodes.has(a)) d.set(a, (d.get(a) ?? 0) + 1);
+    }
+    return d;
+  };
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const deg = degrees();
+    for (const n of [...nodes]) {
+      if (kindOf(n) === 'conduit' && (deg.get(n) ?? 0) <= 1) {
+        nodes.delete(n);
+        for (const cid of [...cables]) {
+          const c = cableById.get(cid);
+          if (c && (c.sourceAssetId === n || c.targetAssetId === n)) cables.delete(cid);
+        }
+        changed = true;
+      }
+    }
+  }
+  const deg = degrees();
+  for (const n of [...nodes]) if ((deg.get(n) ?? 0) === 0) nodes.delete(n);
+  return { nodeIds: [...nodes], cableIds: [...cables] };
+}
+
 export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProjection | null {
   const cableById = new Map(graph.cables.map((c) => [c.id, c]));
   const seed = cableById.get(seedCableId);
@@ -47,7 +89,9 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   const cableType = seed.cableType ?? 'FIBER';
 
   const tr = cableTrace(start, cableType, graph.assets, graph.cables);
-  const tracedCables = tr.cableIds.map((id) => cableById.get(id)).filter((c): c is CableLike => !!c);
+  // 대국 단말 없는 conduit dead-end(편도) 가지치기 — 실제로 끊긴 연결은 토폴로지/하이라이트에서 제외.
+  const { nodeIds: trNodeIds, cableIds: trCableIds } = pruneDanglingConduits(tr.nodeIds, tr.cableIds, cableById, kindOf);
+  const tracedCables = trCableIds.map((id) => cableById.get(id)).filter((c): c is CableLike => !!c);
 
   // 코어번호 K: 시드 number, 없으면 트레이스 내 OUT 케이블의 number
   const K = seed.number ?? tracedCables.find((c) => c.sourceRole === 'OUT' || c.targetRole === 'OUT')?.number ?? null;
@@ -62,7 +106,7 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
 
   // ── 토폴로지 nodes ──
   const nodeById = new Map<string, TraceNode>();
-  for (const raw of tr.nodeIds) {
+  for (const raw of trNodeIds) {
     const id = collapse(raw);
     if (!id || nodeById.has(id)) continue;
     const code = graph.codeById.get(id) ?? null;
@@ -110,11 +154,11 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   }
   const rings = detectRings(adjacency, edgeMap, nodeById);
 
-  const steps = buildSteps(start, tr.nodeIds, tracedCables, graph, collapse);
-  const tree = buildTree(start, tr.nodeIds, tracedCables, graph, collapse);
+  const steps = buildSteps(start, trNodeIds, tracedCables, graph, collapse);
+  const tree = buildTree(start, trNodeIds, tracedCables, graph, collapse);
 
   return {
-    seedCableId, nodeIds: tr.nodeIds, cableIds: tr.cableIds,
+    seedCableId, nodeIds: trNodeIds, cableIds: trCableIds,
     steps, tree, nodes: [...nodeById.values()], edges, rings, seedFiberEdgeId, truncated: !!tr.truncated,
   };
 }

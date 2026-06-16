@@ -50,6 +50,24 @@ describe('projectTrace', () => {
     while (n.children.length) { expect(n.children).toHaveLength(1); n = n.children[0]; depth++; }
     expect(depth).toBeGreaterThanOrEqual(2); // eqA → ofdW → ofdH → eqB
   });
+  it('편도(대국 단말 없음): conduit dead-end 가지치기 → 대국 OFD/슬롯 제외, 빈 토폴로지', () => {
+    const slim2 = [
+      { id: 'ofdW', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, connectionKind: null, code: 'OFD' },
+      { id: 'ofdH', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, connectionKind: null, code: 'OFD' },
+      { id: 'slotA', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: 'ofdW', connectionKind: 'conduit' as const, code: 'OFD-SLOT' },
+      { id: 'slotB', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: 'ofdH', connectionKind: 'conduit' as const, code: 'OFD-SLOT' },
+      { id: 'eqA', name: '광단말A', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, connectionKind: null, code: 'OPT-TRANS' },
+    ];
+    const cables2 = [
+      { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null },
+      { id: 'oA5', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 5 }, // 대국(slotB) 단말 없음
+    ];
+    const g2 = buildTraceGraph({ slimAssets: slim2, globalCables: cables2, stagedAssets: [], stagedCables: [], deletes: [] });
+    const p = projectTrace('oA5', g2)!;
+    expect(p.nodeIds).not.toContain('slotB');                       // 대국 슬롯 제외
+    expect(p.nodes.map((n) => n.nodeId)).not.toContain('ofdH');     // 대국 OFD 노드 제외
+    expect(p.nodes).toHaveLength(0);                                // 끊긴 연결 → 빈 토폴로지
+  });
 });
 
 // SRC ─IN─ F(distributor) ─OUT─ L1 ; F ─OUT─ L2  (전원 분배 fan-out)
