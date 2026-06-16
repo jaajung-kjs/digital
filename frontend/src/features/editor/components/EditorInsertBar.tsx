@@ -10,25 +10,9 @@ import {
   EQUIPMENT_KIND_INFO,
   type EquipmentKind,
 } from '../../../types/equipmentKind';
+import { CABLE_DISPLAY_GROUPS, CABLE_DISPLAY_GROUP_COLORS as CABLE_GROUP_COLORS } from '../../../types/cableCategory';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { RackPreset } from '../../../types/rackPreset';
-
-const CABLE_DISPLAY_GROUPS: CableDisplayGroup[] = [
-  '전원',
-  '접지',
-  '네트워크',
-  '광',
-  '제어',
-];
-
-// Group representative colors — match ConnectionLegend GROUP_COLORS / EditorInsertBar.
-const CABLE_GROUP_COLORS: Record<CableDisplayGroup, string> = {
-  '전원': '#ef4444',
-  '접지': '#eab308',
-  '네트워크': '#3b82f6',
-  '광': '#22c55e',
-  '제어': '#6b7280',
-};
 
 /**
  * Horizontal "insert" toolbar — the left EditorInsertBar relaid out horizontally.

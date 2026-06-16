@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { buildConnectionGroups } from './useAssetConnections';
+import { buildConnectionGroups, makeCategoryGroupOf } from './useAssetConnections';
 import type { TraceGraph } from '../../trace/traceGraph';
 import type { Asset } from '../../../types/asset';
+import type { CableCategory } from '../../../types/cableCategory';
 
 const assets = [
   { id: 'R', name: '#1랙', parentAssetId: null, assetType: { placementKind: 'RACK' } },
@@ -83,6 +84,18 @@ describe('buildConnectionGroups', () => {
     expect(rows).toHaveLength(2);
     expect(rows.every((r) => r.fromName === '피더1')).toBe(true);
     expect(new Set(rows.map((r) => r.toName))).toEqual(new Set(['부하1', '부하2']));
+  });
+
+  it('분류된 광 + 미분류 FIBER 가 같은 곳으로 가면 1그룹(광)·1행으로 병합(시드 데이터 split 회귀 방지)', () => {
+    const cats = [{ id: 'fib', displayGroup: '광', displayColor: '#22c55e', name: '광케이블' }] as unknown as CableCategory[];
+    const graph = withCables([
+      { id: 'cc', cableType: 'FIBER', sourceAssetId: 'M', targetAssetId: 'S', categoryId: 'fib' },  // 분류됨 → 광
+      { id: 'cu', cableType: 'FIBER', sourceAssetId: 'M', targetAssetId: 'S2', categoryId: null },   // 미분류 → 폴백
+    ]);
+    const groups = buildConnectionGroups({ graph, assets, assetId: 'R', categoryGroupOf: makeCategoryGroupOf(cats) });
+    expect(groups).toHaveLength(1);
+    expect(groups[0]).toMatchObject({ key: '광', label: '광', color: '#22c55e' });
+    expect(groups[0].rows).toHaveLength(1);
   });
 
   it('OFD: 출력(설비 연결)만 행으로, OPGW 입력(IN/트렁크)은 흡수(숨김)', () => {

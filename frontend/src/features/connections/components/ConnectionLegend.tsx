@@ -3,26 +3,7 @@ import { ChevronDown, Filter } from 'lucide-react';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
-
-const CABLE_DISPLAY_GROUPS: CableDisplayGroup[] = [
-  '전원',
-  '접지',
-  '네트워크',
-  '광',
-  '제어',
-];
-
-// Group representative colors derived from seed displayColor values
-// (전원→CBL-FCV/FR/VCT/HIV #ef4444, 접지→CBL-IV/BARE #eab308,
-//  네트워크→CBL-UTP #3b82f6, 광→CBL-OPT/OPJ/OPT-B #22c55e,
-//  제어→CBL-COAX/SIG #6b7280)
-const GROUP_COLORS: Record<CableDisplayGroup, string> = {
-  '전원': '#ef4444',
-  '접지': '#eab308',
-  '네트워크': '#3b82f6',
-  '광': '#22c55e',
-  '제어': '#6b7280',
-};
+import { CABLE_DISPLAY_GROUPS, CABLE_DISPLAY_GROUP_COLORS as GROUP_COLORS } from '../../../types/cableCategory';
 
 type GroupState = 'on' | 'off' | 'partial';
 
