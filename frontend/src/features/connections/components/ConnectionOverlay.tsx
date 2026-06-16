@@ -8,6 +8,7 @@ import {
 } from '../../workingCopy/hooks';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import { toMapById } from '../../../utils/byId';
 import { SELECTION_STYLES } from '../../../utils/canvas/canvasDrawing';
 import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
@@ -185,10 +186,17 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
 
       // Glow rects around highlighted equipment
       const scale = zoom / 100;
+      // 선택 요소(자산) 는 메인 캔버스에서 이미 선택 styling/상세 글로우를 받는다.
+      // 오버레이에서 다시 글로우하면 navy 2겹이 되므로, 선택 자산이 해소되는 동일 앵커 노드는 건너뛴다.
+      const selectedAssetId = useSelectionStore.getState().selectedAssetId;
+      const assetsById = toMapById(effectiveAssets);
+      const selectedAnchorId = floorAnchor(selectedAssetId, assetsById)?.id ?? null;
       ctx.save();
       ctx.setTransform(scale, 0, 0, scale, panX, panY);
       for (const [nodeId, pos] of endpointPositions) {
         if (!highlightedNodeIds.has(nodeId)) continue;
+        // selected 요소가 해소되는 앵커와 같은 노드면 글로우 생략(메인 캔버스가 이미 강조).
+        if (selectedAnchorId && (floorAnchor(nodeId, assetsById)?.id ?? null) === selectedAnchorId) continue;
         ctx.shadowColor = SELECTION_STYLES.stroke;
         ctx.shadowBlur = 10;
         ctx.strokeStyle = SELECTION_STYLES.stroke;

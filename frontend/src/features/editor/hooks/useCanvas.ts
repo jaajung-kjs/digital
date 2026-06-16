@@ -117,7 +117,10 @@ export function useCanvas(
     // 미배치 모듈/회로/포트는 부모 설비(랙/OFD/분전반) rect 로 하이라이트된다.
     // 스냅샷 보기 중에는 통합 effective 가 비어 self-find 로 폴백한다.
     const detailPanelEqId = useSelectionStore.getState().selectedAssetId;
-    if (detailPanelEqId) {
+    // 선택 자산이 도면에 직접 그려지면 renderEquipmentItems 선택 styling 이 이미 표시한다(navy 중복 방지).
+    // 미배치 모듈/포트/회로만 부모 앵커(floorTargetFor)에 글로우로 표시한다.
+    const isDrawn = !!detailPanelEqId && floorEquipment.some((eq) => eq.id === detailPanelEqId);
+    if (detailPanelEqId && !isDrawn) {
       const target = floorTargetFor(detailPanelEqId, useSubstationWorkingCopy.getState().effectiveAssets());
       if (target) {
         ctx.save();
