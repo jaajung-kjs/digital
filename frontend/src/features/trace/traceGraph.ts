@@ -36,6 +36,8 @@ export interface TraceGraph {
   nameById: Map<string, string>;
   /** 자산 id → 그 자산이 속한 변전소 이름(대국 섹션 헤더용). */
   subNameById: Map<string, string>;
+  /** 자산 id → 그 자산이 속한 substationId(변전소 스코프 판정용). */
+  subById: Map<string, string>;
   /** 자산 id → parentAssetId(슬롯→OFD 접기용). */
   parentById: Map<string, string | null>;
   /** 자산 id → assetType code(OFD 판별 'OFD'). */
@@ -95,6 +97,7 @@ export function buildTraceGraph(input: {
   const stagedAssetById = new Map(input.stagedAssets.map((a) => [a.id, a]));
   const nameById = new Map<string, string>();
   const subNameById = new Map<string, string>();
+  const subById = new Map<string, string>();
   const parentById = new Map<string, string | null>();
   const codeById = new Map<string, string | null>();
   const assetById = new Map<string, TraceAsset>();
@@ -109,6 +112,7 @@ export function buildTraceGraph(input: {
     });
     nameById.set(a.id, (staged?.name ?? a.name));
     if (a.substationName) subNameById.set(a.id, a.substationName);
+    subById.set(a.id, a.substationId);
     parentById.set(a.id, a.parentAssetId ?? null);
     codeById.set(a.id, a.code ?? null);
   }
@@ -124,7 +128,7 @@ export function buildTraceGraph(input: {
     if (!codeById.has(a.id)) codeById.set(a.id, sa.assetType?.code ?? null);
   }
 
-  return { assets: [...assetById.values()], cables: mergedCables.map(toTraceCable), nameById, subNameById, parentById, codeById };
+  return { assets: [...assetById.values()], cables: mergedCables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById };
 }
 
 /**

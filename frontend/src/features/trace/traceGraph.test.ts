@@ -64,4 +64,14 @@ describe('buildTraceGraph + projections', () => {
     expect(g.assets.some((a) => a.id === 'eqB')).toBe(false);
     expect(traceRemoteEndpoints('eqA', g)).not.toContain('eqB'); // 삭제된 대국설비는 투영 안됨
   });
+
+  it('subById: 자산 → substationId 매핑을 노출한다', () => {
+    const g = buildTraceGraph({
+      slimAssets: [
+        { id: 'x', name: 'X', substationId: 'subA', substationName: 'A', parentAssetId: null, connectionKind: null, code: null },
+      ],
+      globalCables: [], stagedAssets: [], stagedCables: [], deletes: [],
+    });
+    expect(g.subById.get('x')).toBe('subA');
+  });
 });
