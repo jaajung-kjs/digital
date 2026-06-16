@@ -2,12 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 // 연결 탭 = 읽기전용 경로중심 뷰. 종류별로 묶어 "상대명 → … → root명" 경로를 보여주고,
-// 클릭 → 통합 trace store(startTrace), 활성 항목 재클릭 → clearHighlight, 외부 구간 있으면
-// [상세] → openTopology. 인라인 편집(유형/라벨/삭제) UI 는 제거됐다.
+// 행 클릭 → 연결 선택(setSelectedComponent, 파생 하이라이트), 활성 행 재클릭 → 선택 해제
+// (setSelectedAssetId(null)), 외부 구간 있으면 [상세] → prepareTopology. 인라인 편집 UI 는 제거됐다.
 
-const startTrace = vi.fn();
-const clearHighlight = vi.fn();
-const openTopology = vi.fn();
+const { prepareTopology, setSelectedComponent, setSelectedAssetId } = vi.hoisted(() => ({
+  prepareTopology: vi.fn(), setSelectedComponent: vi.fn(), setSelectedAssetId: vi.fn(),
+}));
 
 // asset 헬퍼 — floorAnchor 가 동작하도록 배치(좌표/크기/floorId) 자산을 만든다.
 function asset(p: { id: string; name: string; kind?: string | null; floorId?: string | null }) {
@@ -35,25 +35,37 @@ const cables = [
   { id: 'lan', sourceAssetId: 'A', targetAssetId: 'C', cableType: 'LAN' },
 ];
 
-let storeState: Record<string, unknown> = {};
-function mockStore(over: Record<string, unknown> = {}) {
-  storeState = {
-    tracingCableId: null,
-    highlightedNodeIds: new Set<string>(),
-    active: false,
-    startTrace, clearHighlight, openTopology,
-    ...over,
-  };
+// 선택 스토어 — selectedCableId 가 active 행 판정/재클릭 토글의 기준.
+const selection: { selectedCableId: string | null } = { selectedCableId: null };
+function mockStore(over: { selectedCableId?: string | null } = {}) {
+  selection.selectedCableId = over.selectedCableId ?? null;
 }
 
 vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => assets,
   useEffectiveCables: () => cables,
 }));
+vi.mock('../../trace/traceGraph', () => ({
+  // cableToAddress 가 동작하도록 graph.cables 에 source/target 끝단 정보를 제공.
+  useTraceGraph: () => ({
+    graph: { cables: cables.map((c) => ({ id: c.id, sourceAssetId: c.sourceAssetId, targetAssetId: c.targetAssetId, sourceRole: 'OUT', targetRole: null, number: null })) },
+    isLoading: false,
+  }),
+}));
 vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
-  const hook = (sel: (s: unknown) => unknown) => sel(storeState);
-  (hook as unknown as { getState: () => unknown }).getState = () => storeState;
+  const st = { prepareTopology };
+  const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
+  (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { usePathHighlightStore: hook };
+});
+vi.mock('../../workspace/selectionStore', () => {
+  const st = {
+    get selectedCableId() { return selection.selectedCableId; },
+    setSelectedComponent, setSelectedAssetId,
+  };
+  const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
+  (hook as unknown as { getState: () => unknown }).getState = () => st;
+  return { useSelectionStore: hook };
 });
 
 import { AssetConnectionsSection } from './AssetConnectionsSection';
@@ -64,7 +76,7 @@ const conns = [
   { id: 'lan', source: { assetId: 'A', name: '장비A' }, target: { assetId: 'C', name: '장비C' }, cableType: 'LAN', label: null, totalLength: 200 },
 ] as any;
 
-beforeEach(() => { startTrace.mockClear(); clearHighlight.mockClear(); openTopology.mockClear(); mockStore(); });
+beforeEach(() => { prepareTopology.mockClear(); setSelectedComponent.mockClear(); setSelectedAssetId.mockClear(); mockStore(); });
 
 describe('tracePathToRoot', () => {
   it('FIBER 경로를 OFD(root)까지 추적 — A→B→OFD, root=OFD', () => {
@@ -96,27 +108,25 @@ describe('AssetConnectionsSection — 읽기전용 경로 뷰', () => {
     expect(screen.queryByLabelText('연결 삭제')).toBeNull();
   });
 
-  it('항목 클릭 → startTrace(cableId)', () => {
+  it('항목 클릭 → setSelectedComponent(asset, core, cableId)', () => {
     render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
     fireEvent.click(screen.getByText('광단자함'));
-    expect(startTrace).toHaveBeenCalledWith('fA');
+    expect(setSelectedComponent).toHaveBeenCalledWith('A', null, 'fA');
   });
 
-  it('활성 항목 재클릭 → clearHighlight', () => {
-    mockStore({ tracingCableId: 'fA', active: true });
+  it('활성 항목 재클릭 → 선택 해제(setSelectedAssetId(null))', () => {
+    mockStore({ selectedCableId: 'fA' });
     render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
     fireEvent.click(screen.getByText('광단자함'));
-    expect(clearHighlight).toHaveBeenCalled();
-    expect(startTrace).not.toHaveBeenCalled();
+    expect(setSelectedAssetId).toHaveBeenCalledWith(null);
+    expect(setSelectedComponent).not.toHaveBeenCalled();
   });
 
-  it('외부 구간 있는 행(FIBER→OFD root, 다른 층)에 ↗ → 클릭 시 startTrace+openTopology', async () => {
+  it('외부 구간 있는 행(FIBER→OFD root, 다른 층)에 ↗ → 클릭 시 prepareTopology', () => {
     render(<AssetConnectionsSection assetId="A" connections={conns} activeFloorId="f1" />);
     const ext = screen.getByLabelText('외부망 토폴로지'); // FIBER 행에만(정적, 깜빡임 없음)
     fireEvent.click(ext);
-    expect(startTrace).toHaveBeenCalledWith('fA');
-    await Promise.resolve();
-    expect(openTopology).toHaveBeenCalled();
+    expect(prepareTopology).toHaveBeenCalledWith('fA');
   });
 
   it('외부 구간 없는 행(LAN, 같은 층)엔 ↗ 없음', () => {

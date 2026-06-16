@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { CABLE_COLORS, normalizeCableColor } from '../../../types/connection';
 import { type LocalCable } from '../../editor/stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
+import { cableToAddress } from '../../workspace/selectionHighlight';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
 import { buildEndpointNameResolver, buildSelfSideChecker } from '../../connections/endpointName';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
@@ -29,14 +30,7 @@ export function ConnectionDiagram({
   );
   const stageCableDelete = useSubstationWorkingCopy((s) => s.stageCableDelete);
 
-  const startTrace = usePathHighlightStore((s) => s.startTrace);
-  const clearHighlight = usePathHighlightStore((s) => s.clearHighlight);
-  const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
-  const isTraceLoading = usePathHighlightStore((s) => s.isLoading);
-  const traceActive = usePathHighlightStore((s) => s.active);
-
-  // Unmount = context gone → clear highlight automatically.
-  useEffect(() => () => clearHighlight(), [clearHighlight]);
+  const selectedCableId = useSelectionStore((s) => s.selectedCableId);
 
   // 연결 판정·끝점 이름은 연결 목록(AssetConnectionsSection)과 같은 단일 소스
   // (connections/endpointName). self-side = 자기 자신 + 자식 랙모듈 + 자식 분전 분기.
@@ -81,22 +75,23 @@ export function ConnectionDiagram({
             const localEqName =
               nameOfEndpoint(selfAssetId) || nameOfEndpoint(equipmentId) || '';
             const remoteName = nameOfEndpoint(remoteAssetId);
-            const isTracing = tracingCableId === cable.id && isTraceLoading;
-            const isCardSelected = traceActive && tracingCableId === cable.id;
+            const isCardSelected = selectedCableId === cable.id;
 
             const handleClick = () => {
-              if (isCardSelected) {
-                clearHighlight();
-              } else {
-                startTrace(cable.id);
+              const sel = useSelectionStore.getState();
+              if (sel.selectedCableId === cable.id) {
+                sel.setSelectedAssetId(null);
+                return;
               }
+              const addr = graph ? cableToAddress(cable.id, equipmentId, graph) : null;
+              sel.setSelectedComponent(addr?.assetId ?? equipmentId, addr?.core ?? null, cable.id);
             };
 
             const handleDelete = (e: React.MouseEvent) => {
               e.stopPropagation();
               if (!confirm(`${remoteName} 연결을 삭제하시겠습니까?`)) return;
               stageCableDelete(cable.id);
-              clearHighlight();
+              useSelectionStore.getState().setSelectedAssetId(null);
             };
 
             return (
@@ -107,7 +102,7 @@ export function ConnectionDiagram({
                     isCardSelected
                       ? 'border-primary bg-info-bg ring-1 ring-primary/30'
                       : 'border-line bg-surface hover:bg-info-bg'
-                  } ${isTracing ? 'ring-2 ring-primary/30 animate-pulse' : ''}`}
+                  }`}
                 >
                   <div className="flex items-center gap-2 text-sm">
                     <div className="min-w-0 flex-1 text-center">

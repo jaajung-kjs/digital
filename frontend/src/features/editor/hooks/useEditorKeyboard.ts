@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { Asset } from '../../../types/asset';
 import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
@@ -6,7 +6,8 @@ import { useSelectionStore } from '../../workspace/selectionStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
 import { startCableConnection } from '../cableConnection';
-import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useTraceGraph, type TraceGraph } from '../../trace/traceGraph';
+import { cableToAddress } from '../../workspace/selectionHighlight';
 import { useEditorHistory } from './useEditorHistory';
 import { calculateFitToContent } from './useViewport';
 import { useCommitWorkingCopy } from '../../workingCopy/useCommitWorkingCopy';
@@ -27,6 +28,12 @@ export function useEditorKeyboard(
   const { undo, redo } = useEditorHistory();
   // USP Task 2 — Ctrl+S 는 단일 커밋 경로(WorkingCopyCommitBar 와 동일)로 통합.
   const commit = useCommitWorkingCopy();
+
+  // Enter 로 선택 케이블을 (자산,core) 주소로 역매핑하기 위한 그래프 —
+  // 이벤트 핸들러가 최신 그래프를 읽도록 ref 에 담는다(리스너 재등록 없이).
+  const { graph } = useTraceGraph();
+  const graphRef = useRef<TraceGraph | null>(graph);
+  graphRef.current = graph;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -105,10 +112,12 @@ export function useEditorKeyboard(
         return;
       }
 
-      // Enter — trace selected cable
+      // Enter — 선택 케이블을 연결로 선택(파생 하이라이트가 도면을 칠함)
       if (e.key === 'Enter' && es.selectedCableId) {
         e.preventDefault();
-        usePathHighlightStore.getState().startTrace(es.selectedCableId);
+        const g = graphRef.current;
+        const addr = g ? cableToAddress(es.selectedCableId, null, g) : null;
+        useSelectionStore.getState().setSelectedComponent(addr?.assetId ?? '', addr?.core ?? null, es.selectedCableId);
         return;
       }
 

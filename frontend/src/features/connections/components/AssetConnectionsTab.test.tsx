@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-const { startTrace, highlightDiagram, openTopology, clearHighlight } = vi.hoisted(() => ({
-  startTrace: vi.fn(), highlightDiagram: vi.fn(), openTopology: vi.fn(), clearHighlight: vi.fn(),
+const { prepareTopology } = vi.hoisted(() => ({
+  prepareTopology: vi.fn(),
 }));
 const { setSelectedComponent, selection } = vi.hoisted(() => ({
   setSelectedComponent: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock('../../trace/traceGraph', () => ({
 }));
 
 vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
-  const st = { startTrace, highlightDiagram, openTopology, clearHighlight, tracingCableId: null };
+  const st = { prepareTopology, tracingCableId: null };
   const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { usePathHighlightStore: hook };
@@ -46,7 +46,7 @@ vi.mock('../../workspace/selectionStore', () => {
 import { AssetConnectionsTab } from './AssetConnectionsTab';
 
 beforeEach(() => {
-  startTrace.mockClear(); highlightDiagram.mockClear(); openTopology.mockClear(); clearHighlight.mockClear();
+  prepareTopology.mockClear();
   setSelectedComponent.mockClear();
   selection.selectedAssetId = null; selection.selectedCore = null; selection.selectedCableId = null;
 });
@@ -58,17 +58,15 @@ describe('AssetConnectionsTab', () => {
     expect(screen.getByText('충전기')).toBeInTheDocument();
     expect(screen.getByText('단말1')).toBeInTheDocument();
   });
-  it('트리 클릭 → setSelectedComponent(assetId, core, seedCableId) — highlightDiagram 아님', () => {
+  it('트리 클릭 → setSelectedComponent(assetId, core, seedCableId)', () => {
     render(<AssetConnectionsTab assetId="R" />);
     fireEvent.click(screen.getByText('충전기'));
     expect(setSelectedComponent).toHaveBeenCalledWith('R', 3, 'c1');
-    expect(highlightDiagram).not.toHaveBeenCalled();
   });
-  it('상세 클릭 → startTrace + openTopology', () => {
+  it('상세 클릭 → prepareTopology(seedCableId)', () => {
     render(<AssetConnectionsTab assetId="R" />);
     fireEvent.click(screen.getByRole('button', { name: '상세' }));
-    expect(startTrace).toHaveBeenCalledWith('c1');
-    expect(openTopology).toHaveBeenCalled();
+    expect(prepareTopology).toHaveBeenCalledWith('c1');
   });
   it('선택된 컴포넌트가 active 표시(하이라이트와 동일 규칙) — 시드 앵커', () => {
     selection.selectedAssetId = 'R'; selection.selectedCore = 3; selection.selectedCableId = 'c1';

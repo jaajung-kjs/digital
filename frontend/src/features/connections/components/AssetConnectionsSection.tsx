@@ -4,6 +4,9 @@ import { CABLE_TYPES } from '../../../types/connection';
 import { SectionEmpty } from '../../assets/components/detail/SectionShell';
 import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
+import { useTraceGraph } from '../../trace/traceGraph';
+import { cableToAddress } from '../../workspace/selectionHighlight';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
 import { tracePathToRoot, type PathToRoot } from '../tracePathToRoot';
@@ -59,7 +62,8 @@ function pathHasExternal(
 export function AssetConnectionsSection({ assetId, connections, activeFloorId }: Props) {
   const effectiveCables = useEffectiveCables();
   const effectiveAssets = useEffectiveAssets();
-  const tracingCableId = usePathHighlightStore((s) => s.tracingCableId);
+  const selectedCableId = useSelectionStore((s) => s.selectedCableId);
+  const { graph } = useTraceGraph();
 
   const groups = useMemo(() => {
     const byId = toMapById(effectiveAssets);
@@ -87,12 +91,16 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
   if (!connections.length) return <SectionEmpty>연결 없음</SectionEmpty>;
 
   const onRowClick = (cableId: string) => {
-    if (tracingCableId === cableId) usePathHighlightStore.getState().clearHighlight();
-    else void usePathHighlightStore.getState().startTrace(cableId);
+    const sel = useSelectionStore.getState();
+    if (sel.selectedCableId === cableId) {
+      sel.setSelectedAssetId(null);
+      return;
+    }
+    const addr = graph ? cableToAddress(cableId, assetId, graph) : null;
+    sel.setSelectedComponent(addr?.assetId ?? assetId, addr?.core ?? null, cableId);
   };
-  const onTopology = async (cableId: string) => {
-    if (tracingCableId !== cableId) await usePathHighlightStore.getState().startTrace(cableId);
-    usePathHighlightStore.getState().openTopology();
+  const onTopology = (cableId: string) => {
+    void usePathHighlightStore.getState().prepareTopology(cableId);
   };
 
   return (
@@ -111,7 +119,7 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
             </header>
             <ul className="space-y-px">
               {entries.map(({ conn, path, external }) => {
-                const active = tracingCableId === conn.id;
+                const active = selectedCableId === conn.id;
                 return (
                   <li
                     key={conn.id}
@@ -141,7 +149,7 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
                     {external && (
                       <button
                         type="button"
-                        onClick={() => void onTopology(conn.id)}
+                        onClick={() => onTopology(conn.id)}
                         title="외부망 토폴로지 보기"
                         aria-label="외부망 토폴로지"
                         className="mr-1.5 shrink-0 rounded p-1 text-content-faint transition-colors hover:bg-surface-3 hover:text-primary focus-ring"

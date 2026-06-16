@@ -57,9 +57,8 @@ async function openCaseImpl(caseId: string, { resize = true }: { resize?: boolea
     return; // page reload — 새 페이지가 ?openCase 보고 자동 실행함.
   }
 
-  // 단일 store: startTrace 가 글로벌+staged 1회 추적 → openTopology 가 그 결과로 모달.
-  await usePathHighlightStore.getState().startTrace(c.cable);
-  usePathHighlightStore.getState().openTopology();
+  // 단일 store: prepareTopology 가 글로벌+staged 1회 추적 후 토폴로지 모달을 연다.
+  await usePathHighlightStore.getState().prepareTopology(c.cable);
 
   if (resize) {
     // Layout / animation 끝날 시간 + 모달 크기 키워서 시각화 잘 보이게.

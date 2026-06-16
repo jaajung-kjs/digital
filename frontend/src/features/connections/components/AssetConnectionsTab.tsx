@@ -10,8 +10,7 @@ interface Props { assetId: string }
 
 export function AssetConnectionsTab({ assetId }: Props) {
   const { groups, isLoading } = useAssetDiagram(assetId);
-  const startTrace = usePathHighlightStore((s) => s.startTrace);
-  const openTopology = usePathHighlightStore((s) => s.openTopology);
+  const prepareTopology = usePathHighlightStore((s) => s.prepareTopology);
   const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
   const selectedCore = useSelectionStore((s) => s.selectedCore);
   const selectedCableId = useSelectionStore((s) => s.selectedCableId);
@@ -48,7 +47,7 @@ export function AssetConnectionsTab({ assetId }: Props) {
                   <DiagramTree root={comp.root} />
                 </button>
                 <button type="button" aria-label="상세" title="네트워크 토폴로지 보기"
-                  onClick={() => { startTrace(comp.seedCableId); openTopology(); }}
+                  onClick={() => prepareTopology(comp.seedCableId)}
                   className="px-2 py-2 text-xs text-primary hover:text-primary-hover flex-shrink-0">↗</button>
               </div>
             );

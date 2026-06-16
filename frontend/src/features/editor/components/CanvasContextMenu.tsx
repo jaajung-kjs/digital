@@ -1,6 +1,8 @@
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
+import { useTraceGraph } from '../../trace/traceGraph';
+import { cableToAddress } from '../../workspace/selectionHighlight';
 
 export interface CanvasContextMenuState {
   /** 메뉴를 띄울 화면 좌표 (clientX/clientY) */
@@ -20,6 +22,7 @@ interface CanvasContextMenuProps {
  */
 export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   const { x, y, target } = menu;
+  const { graph } = useTraceGraph();
 
   const handleOpenDetail = () => {
     const es = useEditorStore.getState();
@@ -50,7 +53,8 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   };
 
   const handleTraceCable = () => {
-    usePathHighlightStore.getState().startTrace(target.id);
+    const addr = graph ? cableToAddress(target.id, null, graph) : null;
+    useSelectionStore.getState().setSelectedComponent(addr?.assetId ?? target.id, addr?.core ?? null, target.id);
     onClose();
   };
 
