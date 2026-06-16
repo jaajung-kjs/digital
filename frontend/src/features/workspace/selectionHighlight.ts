@@ -4,7 +4,6 @@ import { usePathHighlightStore } from '../pathTrace/stores/pathHighlightStore';
 import { useSelectionStore } from './selectionStore';
 import { useAssetDiagram } from '../connections/hooks/useAssetConnections';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
-import { useEditorStore } from '../editor/stores/editorStore';
 import { FEEDER_INPUT_CORE } from '../power/powerRegisterDescriptor';
 import { projectTrace } from '../trace/traceProjection';
 import { expandToPlacedIds } from '../pathTrace/stores/pathHighlightStore';
@@ -95,9 +94,9 @@ export function useSelectionHighlight(): void {
     const r = resolveSelection(selectedAssetId, selectedCore, selectedCableId, graph, components, effAssets);
     const hi = usePathHighlightStore.getState();
     if (r.kind === 'connection') {
-      const prev = hi.tracingCableId;
+      // 카메라 이동은 FloorPlanEditor 의 tracingCableId effect 가 담당(focusTick bump 제거 —
+      // 연결 선택이 패널 본문을 remount 시켜 정보탭으로 리셋되던 회귀 차단).
       hi.setHighlight({ cableId: r.cableId, nodeIds: r.nodeIds, placedIds: r.placedIds, cableIds: r.cableIds });
-      if (prev !== r.cableId) useEditorStore.getState().bumpFocusTick();
     } else {
       // kind==='asset'(자산만 선택) 또는 kind==='none' — 자산 선택은 경로 하이라이트를 띄우지 않는다(설계상).
       hi.clearHighlight();
