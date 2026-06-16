@@ -14,7 +14,8 @@ import {
   getCableDrawing,
 } from '../stores/interactionStore';
 import { commitCable } from '../cableConnection';
-import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
+import { useTraceGraph, type TraceGraph } from '../../trace/traceGraph';
+import { cableToAddress } from '../../workspace/selectionHighlight';
 import { useCableHitTestStore, pointToPolylineDistance } from '../../connections/stores/cableHitTestStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
 import type { CanvasContextMenuState } from '../components/CanvasContextMenu';
@@ -68,6 +69,12 @@ export function useCanvasEvents(
   // pastState 로 캡처)하고 나머지 프레임은 temporal.pause() 로 묶은 뒤,
   // mouseup 에서 resume() 한다 → 드래그 전체가 단일 undo 스텝.
   const dragRecordedRef = useRef(false);
+
+  // 케이블 클릭을 (자산,core) 주소로 역매핑하기 위한 그래프 —
+  // 이벤트 핸들러가 최신 그래프를 읽도록 ref 에 담는다(리스너 재등록 없이).
+  const { graph } = useTraceGraph();
+  const graphRef = useRef<TraceGraph | null>(graph);
+  graphRef.current = graph;
 
   const getCanvasCoordinates = useCallback((e: PointerLike) => {
     if (!canvasRef.current) return { x: 0, y: 0 };
@@ -131,20 +138,25 @@ export function useCanvasEvents(
         // 단일 클릭 = 설비 선택(하이라이트 + 리사이즈 핸들). 단, 뷰포트 강제이동·상세 패널은
         // 더블클릭에서만 — selectEquipment 는 selectedAssetId 만 바꾸고 focusTick 을 bump 하지
         // 않으므로, focusTick 에만 묶인 viewport 정렬 effect 가 단일클릭에선 발화하지 않는다.
+        // 하이라이트는 useSelectionHighlight 가 selectedAssetId 로 파생.
         editorStore.getState().selectEquipment(found.item.id);
-        usePathHighlightStore.getState().clearHighlight();
       } else {
         // Cable hit test
         const closestCableId = findClosestCableId(x, y, editorStore.getState().zoom);
         if (closestCableId) {
-          editorStore.getState().setSelectedCableId(closestCableId);
-          // 다른 케이블을 새로 선택했으면 직전 경로 추적 하이라이트도 같이 해제.
-          usePathHighlightStore.getState().clearHighlight();
+          editorStore.getState().setSelectedCableId(closestCableId); // 웨이포인트 편집 UI
+          // 케이블 클릭 = 연결 선택(파생이 경로 하이라이트+카메라). 끝단 주소로 SSOT 동기화.
+          // setSelectedCableId 가 내부적으로 SSOT assetId 를 null 로 비우므로,
+          // setSelectedComponent 는 반드시 그 뒤에 호출해 연결 선택을 다시 세운다.
+          const g = graphRef.current;
+          if (g) {
+            const addr = cableToAddress(closestCableId, null, g);
+            useSelectionStore.getState().setSelectedComponent(addr?.assetId ?? closestCableId, addr?.core ?? null, closestCableId);
+          }
         } else {
           canvasStore.getState().setIsPanning(true);
           canvasStore.getState().setPanStart({ x: screenX, y: screenY });
           editorStore.getState().clearSelection();
-          usePathHighlightStore.getState().clearHighlight();
         }
       }
     }
