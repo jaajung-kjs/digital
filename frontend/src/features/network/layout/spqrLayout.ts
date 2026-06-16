@@ -27,7 +27,7 @@
 
 import type { TraceEdge, TraceRing } from '../../pathTrace/types';
 import { toMapById } from '../../../utils/byId';
-import { BOX_W, LEAF_GAP, MIN_NODE_DISTANCE, NODE_GAP, resolveOverlap, ringRadius } from './geometry';
+import { BOX_W, MIN_NODE_DISTANCE, NODE_GAP, growRadialForest, resolveOverlap, ringRadius } from './geometry';
 
 // ─── Block types ────────────────────────────────────────────────────────
 interface BlockS {
@@ -377,7 +377,9 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
     placeBlock(rootIdx, null, 0);
   }
 
-  // ─── 9. BFS for leaves (ring 밖에 매달린 비-block 노드) ────────────────
+  // ─── 9. leaves (ring/block 밖에 매달린 트리) — size-aware radial 부채꼴 배치 ──
+  //   기존엔 한 노드의 모든 leaf 를 같은 outDir 에 쌓아 *정확히 겹쳤다*(인제=신춘천).
+  //   bcTree 와 공용인 growRadialForest 로 형제를 sector 분배해 충돌 제거.
   const fpAdjGroup = new Map<string, Set<string>>();
   for (const e of edges) {
     if (e.type !== 'fiberPath') continue;
@@ -389,26 +391,8 @@ export function computeLayoutSPQR(input: SPQRLayoutInput): Map<string, { x: numb
     fpAdjGroup.get(s)!.add(t);
     fpAdjGroup.get(t)!.add(s);
   }
-  const queue: { node: string; from: string }[] = [];
-  for (const p of positions.keys()) {
-    for (const n of fpAdjGroup.get(p) ?? []) {
-      if (!positions.has(n)) queue.push({ node: n, from: p });
-    }
-  }
-  let qhead = 0;
-  while (qhead < queue.length) {
-    const item = queue[qhead++];
-    if (positions.has(item.node)) continue;
-    const fromPos = positions.get(item.from)!;
-    const center = nodeRingCenter.get(item.from) ?? { x: 0, y: 0 };
-    const outDir = Math.atan2(fromPos.y - center.y, fromPos.x - center.x);
-    const pos = { x: fromPos.x + LEAF_GAP * Math.cos(outDir), y: fromPos.y + LEAF_GAP * Math.sin(outDir) };
-    positions.set(item.node, pos);
-    nodeRingCenter.set(item.node, { x: fromPos.x - LEAF_GAP * Math.cos(outDir), y: fromPos.y - LEAF_GAP * Math.sin(outDir) });
-    for (const n of fpAdjGroup.get(item.node) ?? []) {
-      if (!positions.has(n)) queue.push({ node: n, from: item.node });
-    }
-  }
+  const pending = new Set(nodeIds.filter((id) => !positions.has(id)));
+  growRadialForest(positions, nodeRingCenter, fpAdjGroup, pending);
 
   // ─── 10. 미배치 노드 fallback — MIN_NODE_DISTANCE grid ────────────────
   let s = 0;

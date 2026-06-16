@@ -30,6 +30,56 @@ export function ringRadius(N: number): number {
   return (BOX_W + NODE_GAP) / (2 * Math.sin(Math.PI / N));
 }
 
+type XY = { x: number; y: number };
+
+/**
+ * 이미 배치된 anchor(블록/링 멤버)에 매달린 트리(forest)를 size-aware radial 로 배치한다.
+ * 한 노드에 매달린 형제 서브트리를 *leaf 수 비례 sector* 로 나눠 바깥 방향(±90° wedge)으로
+ * 부채꼴 펼친다 → 같은 방향에 여러 leaf 가 쌓여 *정확히 겹치는* 문제를 없앤다.
+ * (`adj` = 그룹 단위 FP 인접, `pending` = 아직 미배치인 트리 노드 집합.)
+ * BC-tree / SPQR 공용 — 두 레이아웃의 트리 부분이 동일 동작을 공유한다.
+ */
+export function growRadialForest(
+  positions: Map<string, XY>,
+  nodeRingCenter: Map<string, XY>,
+  adj: Map<string, Set<string>>,
+  pending: Set<string>,
+): void {
+  if (pending.size === 0) return;
+  const weightMemo = new Map<string, number>();
+  const leafWeight = (node: string, parent: string | null): number => {
+    const key = `${node}|${parent}`;
+    const cached = weightMemo.get(key);
+    if (cached !== undefined) return cached;
+    const kids = [...(adj.get(node) ?? [])].filter((n) => n !== parent && pending.has(n));
+    const w = kids.length === 0 ? 1 : kids.reduce((sum, k) => sum + leafWeight(k, node), 0);
+    weightMemo.set(key, w);
+    return w;
+  };
+  const grow = (node: string, parent: string | null, wLo: number, wHi: number): void => {
+    const np = positions.get(node)!;
+    const kids = [...(adj.get(node) ?? [])].filter((n) => n !== parent && pending.has(n) && !positions.has(n));
+    if (kids.length === 0) return;
+    const weights = kids.map((k) => leafWeight(k, node));
+    const total = weights.reduce((a, b) => a + b, 0);
+    let acc = wLo;
+    kids.forEach((k, i) => {
+      const span = ((wHi - wLo) * weights[i]) / total;
+      const dir = acc + span / 2;
+      positions.set(k, { x: np.x + MIN_NODE_DISTANCE * Math.cos(dir), y: np.y + MIN_NODE_DISTANCE * Math.sin(dir) });
+      grow(k, node, acc, acc + span);
+      acc += span;
+    });
+  };
+  for (const anchor of [...positions.keys()]) {
+    const c = nodeRingCenter.get(anchor);
+    const ap = positions.get(anchor);
+    if (!ap) continue;
+    const center = c ? Math.atan2(ap.y - c.y, ap.x - c.x) : 0;
+    grow(anchor, null, center - Math.PI / 2, center + Math.PI / 2);
+  }
+}
+
 /**
  * 박스 겹침 해소 — closed-form 으로 배치된 좌표에서 *실측* 후 균등 scale.
  *
