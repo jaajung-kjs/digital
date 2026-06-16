@@ -116,6 +116,9 @@ export function WorkspacePage() {
     if (!contextSubstationId || !effective.length) return;
     const key = `${view}:${contextSubstationId}`;
     if (autoOpenedKey.current === key) return;
+    // 이미 선택이 있으면(뷰 전환으로 넘어온 지속 선택) 자동선택이 사용자 선택을 덮어쓰지 않는다.
+    // 키만 박아 이후 재발화를 막는다. (노드·변전소 변경 시 선택이 null 로 리셋되므로 자동선택 정상 발화.)
+    if (useSelectionStore.getState().selectedAssetId) { autoOpenedKey.current = key; return; }
     autoOpenedKey.current = key;
     const containers = view === 'fiber'
       ? fiberRegisterDescriptor.selectContainers(effective, contextSubstationId)
@@ -189,12 +192,9 @@ export function WorkspacePage() {
 
   // 평면도 탭 클릭 동작: 변전소는 첫 층으로 gotoFloor(URL 파라미터), 본부·사업소는 view만 전환.
   const onClickPlan = () => {
-    // 선번장/계통뷰는 진입 시 첫 컨테이너(OFD/분전반)를 공유 선택으로 자동 오픈한다(위 effect).
-    // 그 상태로 평면도 탭을 누르면 useEditorSelectionBridge 가 그 설비 상세 패널을 자동으로 열어
-    // 평면도가 선택+패널이 열린 채로 뜬다. 평면도 탭은 "도면을 보겠다"는 의도이므로, 선번장/계통뷰
-    // 에서 넘어올 때는 공유 선택을 비워 깨끗하게 연다. (현황→평면도는 view≠fiber/power 라 유지 →
-    // 현황 선택 reveal 흐름 불변. 자산 위치 클릭=gotoAsset 는 onClickPlan 미경유라 reveal 유지.)
-    if (view === 'fiber' || view === 'power') setSelectedAssetId(null);
+    // 선택은 변전소 단위 SSOT 로 뷰 전환 간 지속된다(평면도는 선택을 투영). 평면도 진입 시
+    // useEditorSelectionBridge 가 그 선택에 포커스를 맞춘다. (노드·변전소 변경 시에만 위 render-phase
+    // 리셋으로 선택이 비워진다.)
     if (isSubstationNode && planFloorId) nav.gotoFloor(planFloorId);
     else switchView('plan');
   };
