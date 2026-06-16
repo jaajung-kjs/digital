@@ -1,4 +1,5 @@
 import { traceRemoteEndpoints, type TraceGraph } from '../trace/traceGraph';
+import { roleAt, other } from '../cables/cableEndpoint';
 
 export interface SlotCoreRow {
   coreNumber: number;
@@ -21,8 +22,7 @@ export interface CableLike {
   number?: number | null; specParams?: Record<string, unknown> | null;
 }
 
-export const roleAt = (c: CableLike, a: string) => (c.sourceAssetId === a ? c.sourceRole : c.targetRole) ?? null;
-export const other = (c: CableLike, a: string) => (c.sourceAssetId === a ? c.targetAssetId : c.sourceAssetId) ?? null;
+export { roleAt, other }; // 공용 유틸 re-export(기존 임포터 호환)
 const str = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v));
 
 /** 한 OFD-SLOT 의 코어 행(점유 OUT 케이블 + 용량까지 빈 코어). graph 있으면 far 투영. */

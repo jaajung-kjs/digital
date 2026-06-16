@@ -1,4 +1,5 @@
 import { cableTrace } from '../trace/cableTrace';
+import { roleAt, other } from '../cables/cableEndpoint';
 import { buildSelfSideChecker, buildEndpointNameResolver } from './endpointName';
 import type { TraceGraph } from '../trace/traceGraph';
 import type { Asset } from '../../types/asset';
@@ -30,8 +31,6 @@ export function buildConnectionDiagram(opts: {
   const selfSub = subOf(assetId);
   const cableById = new Map(graph.cables.map((c) => [c.id, c]));
   const resolveName = (id: string) => nameOf(id) || graph.nameById.get(id) || id;
-  const roleAt = (c: Cable, a: string) => (c.sourceAssetId === a ? c.sourceRole : c.targetRole) ?? null;
-  const other = (c: Cable, a: string) => (c.sourceAssetId === a ? c.targetAssetId : c.sourceAssetId) ?? null;
   // 공급 방향: IN 끝=공급받음(하류), OUT 끝=공급(상류). 한쪽 역할만 있으면 반대끝이 보완한다
   //  (실데이터: 입력 케이블이 피더쪽만 IN, 공급원쪽은 NULL — 그래도 공급원을 원점으로 잡아야 함).
   const isSuppliedAt = (c: Cable, n: string) => {

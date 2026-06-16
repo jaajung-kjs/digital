@@ -1,3 +1,5 @@
+import { roleAt, other } from '../cables/cableEndpoint';
+
 export interface TraceAsset { id: string; connectionKind?: 'distributor' | 'conduit' | null }
 export interface TraceCable {
   id: string;
@@ -45,8 +47,6 @@ export function cableTrace(
   };
   for (const c of typed) { push(c.sourceAssetId, c); push(c.targetAssetId, c); }
 
-  const roleAt = (c: TraceCable, a: string) => (c.sourceAssetId === a ? c.sourceRole : c.targetRole) ?? null;
-  const other = (c: TraceCable, a: string) => (c.sourceAssetId === a ? c.targetAssetId : c.sourceAssetId) ?? null;
 
   const nodeIds = new Set<string>([startAssetId]);
   const cableIds = new Set<string>();
