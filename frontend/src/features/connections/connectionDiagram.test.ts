@@ -130,10 +130,11 @@ describe('buildConnectionDiagram', () => {
     expect(slot.children).toHaveLength(0);
     expect(slot.label).toBe('subL - subR'); // 경계 라벨 = 로컬변전소 - 대국변전소(OPGW 링크)
   });
-  it('P3 광 OFD(슬롯) 관점: 슬롯 루트 → 단말광1·단말광2 분기', () => {
-    const root = buildConnectionDiagram({ graph: fiberGraph, assets: fiberAssets, assetId: 'ofd', categoryGroupOf: catGroupOf })[0].components[0].root;
-    expect(root.kind).toBe('boundary');
-    expect(flatten(root).map((s) => s.split('>').pop()).sort()).toEqual(['단말광1', '단말광2']);
+  it('P3 광 OFD: 코어(포트)별 회로 분리 — 단말광1·단말광2 가 별도 컴포넌트(같은 슬롯이라도 코어 다르면 분리)', () => {
+    const comps = buildConnectionDiagram({ graph: fiberGraph, assets: fiberAssets, assetId: 'ofd', categoryGroupOf: catGroupOf })[0].components;
+    expect(comps).toHaveLength(2); // 코어 #1·#2 = 별도 회로(채널 격리)
+    expect(comps.every((c) => c.root.kind === 'boundary')).toBe(true); // 각 루트=슬롯(대국 경계)
+    expect(comps.flatMap((c) => flatten(c.root).map((s) => s.split('>').pop())).sort()).toEqual(['단말광1', '단말광2']);
   });
   it('P5 같은 두 끝에 전원+접지 → 종류가 달라 2그룹', () => {
     const cables = [

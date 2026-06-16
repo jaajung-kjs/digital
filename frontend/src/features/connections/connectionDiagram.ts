@@ -62,30 +62,35 @@ export function buildConnectionDiagram(opts: {
     return out;
   };
 
-  const poolByType = new Map<string, Set<string>>();
+  // 각 candidate 의 passive(설비) 끝에서 cableTrace = 한 회로(circuit). cableTrace 가 conduit
+  // 채널을 격리하므로 같은 슬롯이라도 다른 코어(포트)는 다른 회로가 된다 — 포트별 분리가 물리
+  // 연결대로 자동으로 일어난다(휴리스틱 없음). passive 끝이 없는 케이블(OPGW 트렁크=양끝 conduit)은
+  // seed 안 함(설비 seed 가 그 회로를 포함). 전력은 공급 원점에서 하류로 down-fan 해 형제까지 포함.
+  const circuits: string[][] = [];
+  const seenSig = new Set<string>();
   for (const seed of candidates) {
     const ct = seed.cableType ?? '';
     const ends = [seed.sourceAssetId, seed.targetAssetId];
-    const start = ends.find((e) => e && kindOf(e) === null) ?? ends.find((e) => e && isSelf(e)) ?? seed.sourceAssetId;
+    const start = ends.find((e) => e && kindOf(e) === null) ?? ends.find((e) => e && isSelf(e) && kindOf(e) !== 'conduit');
     if (!start) continue;
-    let pool = poolByType.get(ct);
-    if (!pool) { pool = new Set(); poolByType.set(ct, pool); }
-    const tr = cableTrace(start, ct, graph.assets, graph.cables);
-    tr.cableIds.forEach((id) => pool!.add(id));
-    pool.add(seed.id);
-    // 공급 원점을 향해 추적했으면, 그 원점에서 다시 하류로 펼쳐 형제 분배까지 포함시킨다.
+    const set = new Set<string>(cableTrace(start, ct, graph.assets, graph.cables).cableIds);
+    set.add(seed.id);
     const tracedOrigins = new Set<string>();
-    let frontier = originsIn(pool);
+    let frontier = originsIn(set);
     while (frontier.length) {
       const next: string[] = [];
       for (const o of frontier) {
         if (tracedOrigins.has(o)) continue;
         tracedOrigins.add(o);
-        cableTrace(o, ct, graph.assets, graph.cables).cableIds.forEach((id) => pool!.add(id));
+        cableTrace(o, ct, graph.assets, graph.cables).cableIds.forEach((id) => set.add(id));
       }
-      for (const o of originsIn(pool)) if (!tracedOrigins.has(o)) next.push(o);
+      for (const o of originsIn(set)) if (!tracedOrigins.has(o)) next.push(o);
       frontier = next;
     }
+    const sig = ct + '|' + [...set].sort().join('|');
+    if (seenSig.has(sig)) continue;
+    seenSig.add(sig);
+    circuits.push([...set]);
   }
 
   const groupMap = new Map<string, DiagramGroup>();
@@ -96,8 +101,8 @@ export function buildConnectionDiagram(opts: {
     g.components.push(comp);
   };
 
-  for (const pool of poolByType.values()) {
-    const poolCables = [...pool].map((id) => cableById.get(id)).filter((c): c is Cable => !!c);
+  for (const circuitCableIds of circuits) {
+    const poolCables = circuitCableIds.map((id) => cableById.get(id)).filter((c): c is Cable => !!c);
     const inSub = (id?: string | null) => !!id && subOf(id) === selfSub;
     const adj = new Map<string, { to: string; cable: Cable }[]>();
     const boundaryNodes = new Set<string>();
