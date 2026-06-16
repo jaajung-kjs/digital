@@ -31,10 +31,23 @@ export function buildConnectionDiagram(opts: {
   const cableById = new Map(graph.cables.map((c) => [c.id, c]));
   const resolveName = (id: string) => nameOf(id) || graph.nameById.get(id) || id;
   const roleAt = (c: Cable, a: string) => (c.sourceAssetId === a ? c.sourceRole : c.targetRole) ?? null;
+  const other = (c: Cable, a: string) => (c.sourceAssetId === a ? c.targetAssetId : c.sourceAssetId) ?? null;
+  // 공급 방향: IN 끝=공급받음(하류), OUT 끝=공급(상류). 한쪽 역할만 있으면 반대끝이 보완한다
+  //  (실데이터: 입력 케이블이 피더쪽만 IN, 공급원쪽은 NULL — 그래도 공급원을 원점으로 잡아야 함).
+  const isSuppliedAt = (c: Cable, n: string) => {
+    const r = roleAt(c, n); if (r === 'IN') return true; if (r === 'OUT') return false;
+    const o = other(c, n); return !!o && roleAt(c, o) === 'OUT';
+  };
+  const isSupplierAt = (c: Cable, n: string) => {
+    const r = roleAt(c, n); if (r === 'OUT') return true; if (r === 'IN') return false;
+    const o = other(c, n); return !!o && roleAt(c, o) === 'IN';
+  };
+  // 공급 원점 = 공급하는(supplier) 엣지 ≥1 이고 공급받는(supplied) 엣지 0 인 노드.
+  const isOriginNode = (list: Cable[], n: string) =>
+    list.some((c) => isSupplierAt(c, n)) && !list.some((c) => isSuppliedAt(c, n));
 
   const candidates = graph.cables.filter((c) => isSelf(c.sourceAssetId) || isSelf(c.targetAssetId));
 
-  // 한 pool 안에서 공급 원점(OUT≥1, IN==0)을 찾는다. 경계 OPGW(IN-IN)도 IN 으로 센다.
   const originsIn = (cableIds: Iterable<string>): string[] => {
     const cs = [...cableIds].map((id) => cableById.get(id)).filter((c): c is Cable => !!c);
     const touch = new Map<string, Cable[]>();
@@ -45,11 +58,7 @@ export function buildConnectionDiagram(opts: {
       }
     }
     const out: string[] = [];
-    for (const [a, list] of touch) {
-      const outN = list.filter((c) => roleAt(c, a) === 'OUT').length;
-      const inN = list.filter((c) => roleAt(c, a) === 'IN').length;
-      if (outN >= 1 && inN === 0) out.push(a);
-    }
+    for (const [a, list] of touch) if (isOriginNode(list, a)) out.push(a);
     return out;
   };
 
@@ -115,10 +124,7 @@ export function buildConnectionDiagram(opts: {
 
       let origin: string | null = null;
       for (const n of [...compNodes].sort()) {
-        const cs = touchCables.get(n) ?? [];
-        const outN = cs.filter((c) => roleAt(c, n) === 'OUT').length;
-        const inN = cs.filter((c) => roleAt(c, n) === 'IN').length;
-        if (outN >= 1 && inN === 0) { origin = n; break; }
+        if (isOriginNode(touchCables.get(n) ?? [], n)) { origin = n; break; }
       }
       const selfInComp = [...compNodes].filter((n) => isSelf(n)).sort();
       const rootId = origin ?? selfInComp[0] ?? [...compNodes].sort()[0];

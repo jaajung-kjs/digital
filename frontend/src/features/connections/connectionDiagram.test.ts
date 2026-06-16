@@ -86,6 +86,27 @@ describe('buildConnectionDiagram', () => {
     expect(selfLabel('chg')).toEqual(['충전기']);
     expect(selfLabel('t1')).toEqual(['단말1']);
   });
+  it('실데이터형: 입력 케이블 공급측 역할이 NULL 이어도 충전기를 원점으로(입력이 분기로 안 보임)', () => {
+    // 입력: DC48V=IN, 충전기=NULL(공급측 무역할). 출력: DC48V=OUT, 부하=NULL.
+    const slim = [
+      A('chg', '충전기', 'distributor'), A('dc', 'DC48V', 'distributor'),
+      A('pdc', '전원DC', null), A('term', '통합단말', null),
+    ];
+    const assets = [
+      As('chg', '충전기', null, { connectionKind: 'distributor' }), As('dc', 'DC48V', null, { connectionKind: 'distributor' }),
+      As('pdc', '전원DC', null), As('term', '통합단말', null),
+    ];
+    const cables = [
+      { id: 'in', cableType: 'AC', sourceAssetId: 'dc', targetAssetId: 'chg', sourceRole: 'IN', targetRole: null },
+      { id: 'o1', cableType: 'AC', sourceAssetId: 'dc', targetAssetId: 'pdc', sourceRole: 'OUT', targetRole: null },
+      { id: 'o2', cableType: 'AC', sourceAssetId: 'dc', targetAssetId: 'term', sourceRole: 'OUT', targetRole: null },
+    ];
+    const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const root = buildConnectionDiagram({ graph: g, assets, assetId: 'dc', categoryGroupOf: catGroupOf })[0].components[0].root;
+    expect(root.label).toBe('충전기');   // 충전기가 원점(루트) — 입력이 분기로 안 보임
+    expect(root.isOrigin).toBe(true);
+    expect(flatten(root).sort()).toEqual(['충전기>DC48V>전원DC', '충전기>DC48V>통합단말'].sort());
+  });
   it('P4 네트워크 무방향: 원점 없음 → 자기(설비3) 루트, 양방향 분기', () => {
     const slim = [A('n1', '설비1', null), A('n2', '설비2', null), A('n3', '설비3', null), A('n4', '설비4', null)];
     const assets = [As('n1', '설비1', null), As('n2', '설비2', null), As('n3', '설비3', null), As('n4', '설비4', null)];
