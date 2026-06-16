@@ -4,11 +4,20 @@ import { detectRings } from '../../utils/graph/cycleDetection';
 import type { TraceNode, TraceEdge, TraceRing } from '../pathTrace/types';
 
 export interface TraceStep { id: string; label: string; isEndpoint: boolean; isFiberEdge: boolean }
+/** 경로 트리 노드 — 분배(통과설비 fan-out)를 분기로 표현. 선형 경로면 자식 1개 체인. */
+export interface TraceTreeNode {
+  id: string;
+  label: string;
+  isEndpoint: boolean;   // 루트(출발) 또는 말단(leaf)
+  isFiberEdge: boolean;  // 부모→이 노드 들어오는 엣지가 OPGW(IN-IN)
+  children: TraceTreeNode[];
+}
 export interface TraceProjection {
   seedCableId: string;
   nodeIds: string[];
   cableIds: string[];
   steps: TraceStep[];
+  tree: TraceTreeNode | null;
   nodes: TraceNode[];
   edges: TraceEdge[];
   rings: TraceRing[];
@@ -102,11 +111,75 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   const rings = detectRings(adjacency, edgeMap, nodeById);
 
   const steps = buildSteps(start, tr.nodeIds, tracedCables, graph, collapse);
+  const tree = buildTree(start, tr.nodeIds, tracedCables, graph, collapse);
 
   return {
     seedCableId, nodeIds: tr.nodeIds, cableIds: tr.cableIds,
-    steps, nodes: [...nodeById.values()], edges, rings, seedFiberEdgeId, truncated: !!tr.truncated,
+    steps, tree, nodes: [...nodeById.values()], edges, rings, seedFiberEdgeId, truncated: !!tr.truncated,
   };
+}
+
+/**
+ * 경로 트리 — start 에서 BFS 트리(back-edge 제거). conduit 슬롯은 부모 OFD 로 접고,
+ * 접혀서 부모와 같은 노드가 되면 손주를 끌어올려 중복을 없앤다. 분배(통과설비 fan-out)는
+ * 자식 2개↑ 분기로, 선형 경로는 자식 1개 체인으로 표현.
+ */
+function buildTree(
+  start: string,
+  nodeIds: string[],
+  tracedCables: CableLike[],
+  graph: TraceGraph,
+  collapse: (id: string | null | undefined) => string | null,
+): TraceTreeNode | null {
+  const node = new Set(nodeIds);
+  const adj = new Map<string, { to: string; cable: CableLike }[]>();
+  const addAdj = (a: string, to: string, cable: CableLike) => {
+    const arr = adj.get(a);
+    if (arr) arr.push({ to, cable });
+    else adj.set(a, [{ to, cable }]);
+  };
+  for (const c of tracedCables) {
+    const a = c.sourceAssetId, b = c.targetAssetId;
+    if (!a || !b || !node.has(a) || !node.has(b)) continue;
+    addAdj(a, b, c);
+    addAdj(b, a, c);
+  }
+  // BFS 트리 엣지(부모 1개) 수집 — back-edge 는 무시.
+  const visited = new Set<string>([start]);
+  const childrenRaw = new Map<string, { to: string; cable: CableLike }[]>();
+  const q = [start];
+  while (q.length) {
+    const cur = q.shift()!;
+    for (const { to, cable } of adj.get(cur) ?? []) {
+      if (visited.has(to)) continue;
+      visited.add(to);
+      const arr = childrenRaw.get(cur);
+      if (arr) arr.push({ to, cable });
+      else childrenRaw.set(cur, [{ to, cable }]);
+      q.push(to);
+    }
+  }
+  const labelOf = (cid: string): string => {
+    const isOfd = graph.codeById.get(cid) === 'OFD';
+    return isOfd ? (graph.subNameById.get(cid) ?? graph.nameById.get(cid) ?? cid) : (graph.nameById.get(cid) ?? cid);
+  };
+  const build = (rawId: string, incoming: CableLike | null): TraceTreeNode | null => {
+    const cid = collapse(rawId);
+    if (!cid) return null;
+    const isFiberEdge = !!incoming && incoming.sourceRole === 'IN' && incoming.targetRole === 'IN';
+    const tn: TraceTreeNode = { id: cid, label: labelOf(cid), isEndpoint: false, isFiberEdge, children: [] };
+    for (const { to, cable } of childrenRaw.get(rawId) ?? []) {
+      const child = build(to, cable);
+      if (!child) continue;
+      if (child.id === cid) tn.children.push(...child.children); // 접힘 중복(슬롯→OFD) → 손주 승격
+      else tn.children.push(child);
+    }
+    tn.isEndpoint = tn.children.length === 0;
+    return tn;
+  };
+  const tree = build(start, null);
+  if (tree) tree.isEndpoint = true; // 루트(출발)도 끝점 강조
+  return tree;
 }
 
 function buildSteps(

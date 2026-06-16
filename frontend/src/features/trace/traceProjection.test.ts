@@ -44,4 +44,37 @@ describe('projectTrace', () => {
     expect(labels.some((l) => l.includes('홍천S/S') || l === '광단말B')).toBe(true);
     expect(p.steps[0].isEndpoint).toBe(true);
   });
+  it('경로 트리: 광 채널 경로는 선형(분기 없음)', () => {
+    let n = projectTrace('oA5', graph)!.tree!;
+    let depth = 0;
+    while (n.children.length) { expect(n.children).toHaveLength(1); n = n.children[0]; depth++; }
+    expect(depth).toBeGreaterThanOrEqual(2); // eqA → ofdW → ofdH → eqB
+  });
+});
+
+// SRC ─IN─ F(distributor) ─OUT─ L1 ; F ─OUT─ L2  (전원 분배 fan-out)
+describe('projectTrace tree (통과설비 분배 분기)', () => {
+  const slimP = [
+    { id: 'SRC', name: '변압기', substationId: 's', substationName: 'S', parentAssetId: null, connectionKind: null, code: null },
+    { id: 'F', name: '피더', substationId: 's', substationName: 'S', parentAssetId: null, connectionKind: 'distributor' as const, code: null },
+    { id: 'L1', name: '부하1', substationId: 's', substationName: 'S', parentAssetId: null, connectionKind: null, code: null },
+    { id: 'L2', name: '부하2', substationId: 's', substationName: 'S', parentAssetId: null, connectionKind: null, code: null },
+  ];
+  const cablesP = [
+    { id: 'in', cableType: 'AC', sourceAssetId: 'SRC', targetAssetId: 'F', sourceRole: 'OUT', targetRole: 'IN', number: null },
+    { id: 'b1', cableType: 'AC', sourceAssetId: 'F', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: 'IN', number: null },
+    { id: 'b2', cableType: 'AC', sourceAssetId: 'F', targetAssetId: 'L2', sourceRole: 'OUT', targetRole: 'IN', number: null },
+  ];
+  const g = buildTraceGraph({ slimAssets: slimP, globalCables: cablesP, stagedAssets: [], stagedCables: [], deletes: [] });
+
+  it('입력 시드 → 변압기 → 피더 → {부하1, 부하2} 분기 트리', () => {
+    const t = projectTrace('in', g)!.tree!;
+    expect(t.id).toBe('SRC');
+    expect(t.isEndpoint).toBe(true);            // 루트 강조
+    expect(t.children).toHaveLength(1);
+    const f = t.children[0];
+    expect(f.id).toBe('F');
+    expect(f.children.map((c) => c.id).sort()).toEqual(['L1', 'L2']);  // 분기 2개
+    expect(f.children.every((c) => c.isEndpoint && c.children.length === 0)).toBe(true);
+  });
 });
