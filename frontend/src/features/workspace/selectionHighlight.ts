@@ -2,8 +2,10 @@ import { useEffect } from 'react';
 import { useTraceGraph } from '../trace/traceGraph';
 import { usePathHighlightStore } from '../pathTrace/stores/pathHighlightStore';
 import { useSelectionStore } from './selectionStore';
+import { useAssetDiagram } from '../connections/hooks/useAssetConnections';
 import { FEEDER_INPUT_CORE } from '../power/powerRegisterDescriptor';
 import type { TraceGraph } from '../trace/traceGraph';
+import type { DiagramComponent } from '../connections/connectionDiagram';
 
 type CableLike = { id: string; sourceAssetId?: string | null; targetAssetId?: string | null; sourceRole?: string | null; targetRole?: string | null; number?: number | null };
 
@@ -28,18 +30,55 @@ export function resolveSelectedCable(
 }
 
 /**
+ * 선택 → 하이라이트 동작 결정(순수). 연결탭이 보여주는 *바로 그 컴포넌트* 를
+ * 도면에 칠하기 위해, 해소된 케이블이 속한 연결도 컴포넌트를 찾아 그대로 하이라이트한다.
+ * highlightDiagram 사용 = projectTrace 재추적 불일치 방지(연결탭 트리와 1:1).
+ * - diagram: (asset,core)→케이블→그 케이블이 속한 컴포넌트. 없으면 core===comp.core 매칭.
+ * - trace: 컴포넌트엔 못 들지만 케이블은 있는 경우(연결도 범위 밖) 단일 추적 폴백.
+ * - clear: 자산/케이블 없음.
+ */
+export type HighlightAction =
+  | { kind: 'diagram'; comp: DiagramComponent }
+  | { kind: 'trace'; cableId: string }
+  | { kind: 'clear' };
+
+export function resolveHighlight(
+  assetId: string | null,
+  core: number | null,
+  cables: CableLike[],
+  components: DiagramComponent[],
+): HighlightAction {
+  if (!assetId) return { kind: 'clear' };
+  const cableId = resolveSelectedCable(assetId, core, cables);
+  if (cableId) {
+    const byCable = components.find((c) => c.cableIds.includes(cableId));
+    if (byCable) return { kind: 'diagram', comp: byCable };
+  }
+  if (core != null) {
+    const byCore = components.find((c) => c.core === core);
+    if (byCore) return { kind: 'diagram', comp: byCore };
+  }
+  if (cableId) return { kind: 'trace', cableId };
+  return { kind: 'clear' };
+}
+
+/**
  * 선택(selectedAssetId, selectedCore) → 하이라이트 파생. 워크스페이스에서 1회 마운트.
- * per-panel startTrace 를 대체하는 단일 소스 — 어느 뷰/탭에서 선택해도 동일 하이라이트.
+ * per-panel startTrace 를 대체하는 단일 소스 — 그리드/포트/연결탭 어디서 선택해도
+ * 연결탭이 보여주는 동일 컴포넌트가 도면에 칠해진다.
  */
 export function useSelectionHighlight(): void {
   const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
   const selectedCore = useSelectionStore((s) => s.selectedCore);
   const { graph } = useTraceGraph();
+  const { groups } = useAssetDiagram(selectedAssetId ?? '');
   useEffect(() => {
     const cables = ((graph as TraceGraph | null)?.cables ?? []) as CableLike[];
-    const id = resolveSelectedCable(selectedAssetId, selectedCore, cables);
+    const components = groups.flatMap((g) => g.components);
+    const action = resolveHighlight(selectedAssetId, selectedCore, cables, components);
     const hi = usePathHighlightStore.getState();
-    if (id) hi.startTrace(id);
+    if (action.kind === 'diagram') hi.highlightDiagram(action.comp.seedCableId, action.comp.nodeIds, action.comp.cableIds);
+    else if (action.kind === 'trace') hi.startTrace(action.cableId);
     else hi.clearHighlight();
-  }, [selectedAssetId, selectedCore, graph]);
+  }, [selectedAssetId, selectedCore, groups, graph]);
 }
