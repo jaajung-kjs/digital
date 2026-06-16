@@ -87,11 +87,9 @@ export function buildConnectionDiagram(opts: {
       for (const o of originsIn(set)) if (!tracedOrigins.has(o)) next.push(o);
       frontier = next;
     }
-    // 유효성: 실제 단말(비-conduit 노드)이 2개 이상 연결돼야 진짜 연결이다. conduit(슬롯)만 거쳐
-    // 대국에 단말이 없으면(편도) 물리적으로 끊긴 것 → 토폴로지/연결도에 표시하지 않는다.
-    const nodes = new Set<string>();
-    for (const id of set) { const c = cableById.get(id); if (!c) continue; if (c.sourceAssetId) nodes.add(c.sourceAssetId); if (c.targetAssetId) nodes.add(c.targetAssetId); }
-    if ([...nodes].filter((n) => kindOf(n) !== 'conduit').length < 2) continue;
+    // 편도(대국 단말 없는) 가지치기는 *토폴로지 전용*(projectTrace 의 pruneDanglingConduits).
+    // 연결도(로컬)는 실제 케이블이 존재하면 그대로 보여준다 — 대국 설비 유무와 무관하게
+    // 자국까지의 물리적 경로는 도면/연결탭에 표시하는 게 일관된 규칙. (cf. 2bfbc74)
     const sig = ct + '|' + [...set].sort().join('|');
     if (seenSig.has(sig)) continue;
     seenSig.add(sig);

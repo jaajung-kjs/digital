@@ -139,7 +139,7 @@ describe('buildConnectionDiagram', () => {
     expect(comps.every((c) => c.root.kind === 'boundary')).toBe(true); // 각 루트=슬롯(대국 경계)
     expect(comps.flatMap((c) => flatten(c.root).map((s) => s.split('>').pop())).sort()).toEqual(['단말광1', '단말광2']);
   });
-  it('편도(대국 단말 없음): conduit 만 거쳐 끝나면 끊긴 연결 → 표시 안 함', () => {
+  it('편도(대국 단말 없음): 실제 케이블 존재 → 연결도(로컬)엔 자국까지 표시 — 끊긴 대국 제외는 토폴로지 전담', () => {
     const slim = [A('slot', '남춘천', 'conduit', 'subL', null, 'OFD-SLOT'), A('rslot', '춘천', 'conduit', 'subR', null, 'OFD-SLOT'), A('o1', '단말광1', null)];
     const assets = [As('slot', '남춘천', null, { connectionKind: 'conduit' }), As('o1', '단말광1', null)];
     const cables = [
@@ -147,8 +147,16 @@ describe('buildConnectionDiagram', () => {
       { id: 'fopgw', cableType: 'FIBER', sourceAssetId: 'slot', targetAssetId: 'rslot', sourceRole: 'IN', targetRole: 'IN' },
     ];
     const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
-    // o1 → slot → opgw → rslot(대국 단말 없음). 비-conduit 노드 = {o1} 1개 → 끊김 → 빈 결과.
-    expect(buildConnectionDiagram({ graph: g, assets, assetId: 'o1', categoryGroupOf: catGroupOf })).toEqual([]);
+    // o1 → slot → opgw → rslot(대국 단말 없음). 대국 설비가 없어도 자국 케이블(f1)은 실재 →
+    // 연결도엔 단말광1 → 자국(슬롯=대국 경계)까지 표시. 죽은 대국(rslot/fopgw)은 트리에서 제외,
+    // nodeIds=자국 단말+슬롯만 → 도면 하이라이트도 자국 경로. (편도 제거는 projectTrace 토폴로지 전담)
+    const groups = buildConnectionDiagram({ graph: g, assets, assetId: 'o1', categoryGroupOf: catGroupOf });
+    expect(groups).toHaveLength(1);
+    const comp = groups[0].components[0];
+    expect(comp.root.label).toBe('단말광1');             // 자국 단말이 self 루트
+    expect(comp.root.children[0].kind).toBe('boundary');  // 슬롯=대국 경계 leaf (자국까지만)
+    expect(new Set(comp.nodeIds)).toEqual(new Set(['o1', 'slot'])); // 하이라이트=자국 단말+슬롯, 죽은 대국 제외
+    expect(comp.cableIds).toEqual(['f1']);                // OPGW(fopgw)는 트리/하이라이트에서 빠짐
   });
   it('core: 슬롯/OFD 회로=닿는 코어번호, 피더 다분기=null', () => {
     // (a) OFD 관점: 코어#1·#2 = 별도 회로 → 각 컴포넌트 core = 그 코어번호.
