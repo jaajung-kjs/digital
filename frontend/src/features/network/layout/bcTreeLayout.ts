@@ -148,13 +148,31 @@ export function computeLayoutBCTree(input: BCTreeLayoutInput): Map<string, { x: 
         }
       });
 
-      // bridge 방향: ring 1개뿐이면 2π/(1+bridges) 균등; 아니면 ring 사이 gap 중앙.
+      // bridge 방향: ring 1개뿐이면 2π/(1+bridges) 균등; 아니면 ring 사이 gap 에 분산.
+      // ringCount>1 일 때 같은 gap(idx%ringCount)에 여러 bridge 가 와도 그 안에서 (k+1)/(m+1)
+      // 로 균등 분산 → *정확히 겹치는*(modulo 충돌) 문제를 없앤다. gap 당 1개면 frac=0.5 라
+      // 기존((g+0.5)*ringStep)과 완전히 동일 — 정상 케이스 동작 불변.
       const bridgeStep = ringCount === 1 ? (2 * Math.PI) / (1 + bridges.length) : ringStep;
+      const bridgeDirs: number[] = [];
+      if (ringCount === 1) {
+        bridges.forEach((_, idx) => bridgeDirs.push(dirToCurrentCenter + (idx + 1) * bridgeStep));
+      } else {
+        const gapTotal = new Map<number, number>();
+        for (let idx = 0; idx < bridges.length; idx++) {
+          const g = idx % ringCount;
+          gapTotal.set(g, (gapTotal.get(g) ?? 0) + 1);
+        }
+        const gapSeen = new Map<number, number>();
+        for (let idx = 0; idx < bridges.length; idx++) {
+          const g = idx % ringCount;
+          const k = gapSeen.get(g) ?? 0;
+          gapSeen.set(g, k + 1);
+          const frac = (k + 1) / (gapTotal.get(g)! + 1);
+          bridgeDirs.push(dirToCurrentCenter + (g + frac) * ringStep);
+        }
+      }
       bridges.forEach((brNode, idx) => {
-        const outDir =
-          ringCount === 1
-            ? dirToCurrentCenter + (idx + 1) * bridgeStep
-            : dirToCurrentCenter + ((idx % ringCount) + 0.5) * ringStep;
+        const outDir = bridgeDirs[idx];
         const nbrRings = memberRings.get(brNode) ?? [];
         const targetRingId = nbrRings.find((rid) => !placed.has(rid));
         if (targetRingId) {
