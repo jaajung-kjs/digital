@@ -12,7 +12,7 @@ export interface DiagramNode {
   edgeFiber: boolean;
   children: DiagramNode[];
 }
-export interface DiagramComponent { seedCableId: string; root: DiagramNode; cableIds: string[]; nodeIds: string[]; }
+export interface DiagramComponent { seedCableId: string; root: DiagramNode; cableIds: string[]; nodeIds: string[]; core: number | null; }
 export interface DiagramGroup { key: string; label: string; color: string | null; components: DiagramComponent[]; }
 interface CategoryGroup { key: string; label: string; color: string | null }
 type Cable = TraceGraph['cables'][number];
@@ -203,7 +203,16 @@ export function buildConnectionDiagram(opts: {
         ?? cableIds[0] ?? '';
       const repCable = cableById.get(cableIds[0] ?? '') ?? cableById.get(seedCableId);
       const cg = repCable ? categoryGroupOf(repCable) : { key: '기타', label: '기타', color: null };
-      addToGroup(cg, { seedCableId, root, cableIds, nodeIds });
+      // 컴포넌트의 sub-선택(core): self 에 닿고 number 있는 케이블의 distinct number 가 1개면 그 값.
+      // 슬롯 회로=OUT 코어 1개→코어번호, 피더 다분기=여러 number→null.
+      const selfNums = [...new Set(
+        cableIds
+          .map((cid) => cableById.get(cid))
+          .filter((c): c is Cable => !!c && c.number != null && (selfSet.has(c.sourceAssetId ?? '') || selfSet.has(c.targetAssetId ?? '')))
+          .map((c) => c.number as number),
+      )];
+      const core = selfNums.length === 1 ? selfNums[0] : null;
+      addToGroup(cg, { seedCableId, root, cableIds, nodeIds, core });
     }
   }
 

@@ -150,6 +150,24 @@ describe('buildConnectionDiagram', () => {
     // o1 → slot → opgw → rslot(대국 단말 없음). 비-conduit 노드 = {o1} 1개 → 끊김 → 빈 결과.
     expect(buildConnectionDiagram({ graph: g, assets, assetId: 'o1', categoryGroupOf: catGroupOf })).toEqual([]);
   });
+  it('core: 슬롯/OFD 회로=닿는 코어번호, 피더 다분기=null', () => {
+    // (a) OFD 관점: 코어#1·#2 = 별도 회로 → 각 컴포넌트 core = 그 코어번호.
+    const comps = buildConnectionDiagram({ graph: fiberGraph, assets: fiberAssets, assetId: 'ofd', categoryGroupOf: catGroupOf })[0].components;
+    expect(comps.map((c) => c.core).sort()).toEqual([1, 2]);
+
+    // (b) 피더 다분기: 입력 + 서로 다른 number 의 OUT 2개 → 한 컴포넌트, core=null.
+    const slim = [A('fA', '피더A', 'distributor'), A('src', '공급원', null), A('t1', '단말1', null), A('t2', '단말2', null)];
+    const assets = [As('fA', '피더A', null, { connectionKind: 'distributor' }), As('src', '공급원', null), As('t1', '단말1', null), As('t2', '단말2', null)];
+    const cables = [
+      { id: 'in', cableType: 'AC', sourceAssetId: 'src', targetAssetId: 'fA', sourceRole: 'OUT', targetRole: 'IN' },
+      { id: 'b1', cableType: 'AC', sourceAssetId: 'fA', targetAssetId: 't1', sourceRole: 'OUT', targetRole: null, number: 1 },
+      { id: 'b2', cableType: 'AC', sourceAssetId: 'fA', targetAssetId: 't2', sourceRole: 'OUT', targetRole: null, number: 2 },
+    ];
+    const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const fComps = buildConnectionDiagram({ graph: g, assets, assetId: 'fA', categoryGroupOf: catGroupOf })[0].components;
+    expect(fComps).toHaveLength(1);
+    expect(fComps[0].core).toBe(null);
+  });
   it('P5 같은 두 끝에 전원+접지 → 종류가 달라 2그룹', () => {
     const cables = [
       { id: 'g1', cableType: 'AC', sourceAssetId: 'fA', targetAssetId: 't1', sourceRole: 'OUT', targetRole: null },
