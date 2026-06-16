@@ -216,7 +216,11 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      if (highlightActive) clearHighlight();
+      if (highlightActive) {
+        // 파생 SSOT(선택)도 비워야 재파생 시 하이라이트가 되살아나지 않는다.
+        useSelectionStore.getState().setSelectedAssetId(null);
+        clearHighlight();
+      }
       if (selectedCableId) setSelectedCableId(null);
       // 케이블 그리기 취소는 단일 진입점으로 — interaction idle + tool select 함께 복원(먹통 방지).
       if (useInteractionStore.getState().mode.kind !== 'idle') useEditorStore.getState().cancelCableDrawing();

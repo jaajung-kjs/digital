@@ -116,6 +116,10 @@ describe('resolveSelection', () => {
     const r = resolveSelection('S', 9, null, graphStub, [], effAssets);
     expect(r).toEqual({ kind: 'asset', assetId: 'S' });
   });
+  it('자산만(core·anchor 없음) → kind=asset (대표 케이블로 연결 해소 안 함)', () => {
+    // F 는 연결이 있는 자산이지만 core/anchor 가 없으면 자산 선택일 뿐
+    expect(resolveSelection('F', null, null, graphStub, components, effAssets)).toEqual({ kind: 'asset', assetId: 'F' });
+  });
   it('선택 없음 → kind=none', () => {
     expect(resolveSelection(null, 3, null, graphStub, components, effAssets)).toEqual({ kind: 'none' });
   });

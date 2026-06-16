@@ -43,7 +43,8 @@ export function makeCategoryGroupOf(categories: CableCategory[]): (cable: { cate
 /**
  * Derives an asset's (and its contained sub-assets') cable connections as
  * grouped diagram trees (`buildConnectionDiagram`). 그룹 = 케이블 종류, 컴포넌트 =
- * 연결 트리. 트리 클릭 시 seed cableId 로 `startTrace` 하면 경로 전체가 하이라이트된다.
+ * 연결 트리. 트리 클릭 시 setSelectedComponent(자산, core, seed cableId)로 선택을 갱신하면,
+ * 선택에서 파생되는 하이라이트(useSelectionHighlight)가 그 경로 전체를 칠한다.
  */
 export function useAssetDiagram(assetId: string): { groups: DiagramGroup[]; isLoading: boolean } {
   const assets = useEffectiveAssets();

@@ -156,7 +156,9 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
   //     케이블 경로 bounds 로 fit. useSelectionHighlight 가 traced 케이블 변경 시 focusTick 을 bump.
   //   • 아니면 선택 자산(selectedAssetId) 중심으로 정렬. 더블클릭·딥링크·평면도진입이 focusTick bump.
   //   • 둘 다 아니면 이동 없음.
-  //   단일클릭(selectEquipment)은 focusTick 을 bump 하지 않으므로 카메라가 움직이지 않는다(선택만).
+  //   설비 단일클릭(core/anchor 없음)은 resolveSelection 이 kind:'asset' 로 해소 →
+  //   useSelectionHighlight 가 경로 하이라이트를 세우지 않고 focusTick 도 bump 하지 않는다
+  //   (딤/경로 강조·카메라 이동 없이 선택 표시만).
   const focusTick = useEditorStore((s) => s.focusTick);
   useEffect(() => {
     if (!containerRef.current) return;

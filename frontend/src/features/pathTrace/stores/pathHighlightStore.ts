@@ -136,7 +136,7 @@ interface PathHighlightState {
   clearHighlight: () => void;
 }
 
-export const usePathHighlightStore = create<PathHighlightState>((set) => ({
+export const usePathHighlightStore = create<PathHighlightState>((set, get) => ({
   ...idleState(),
 
   // 토폴로지 모달은 독립 라이프사이클(prepareTopology 가 열고 closeTopology 가 닫음)이므로
@@ -155,6 +155,8 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
   prepareTopology: async (cableId) => {
     set({ tracingCableId: cableId, isLoading: true, error: null });
     const r = await loadProjection(cableId);
+    // await 중 다른 연결이 선택되었으면(tracingCableId 변경) 이 결과는 버린다(stale).
+    if (get().tracingCableId !== cableId) return;
     if (!r.ok) { set({ isLoading: false, tracingCableId: null, error: r.error }); return; }
     set({ projection: r.projection, isLoading: false, modalOpen: true });
   },

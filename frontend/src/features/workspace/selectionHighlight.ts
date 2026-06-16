@@ -134,6 +134,8 @@ export function resolveSelection(
   effectiveAssets: Asset[],
 ): ResolvedSelection {
   if (!assetId) return { kind: 'none' };
+  // 구체적 연결 신호가 없으면(core·anchor 둘 다 없음) 자산 선택일 뿐 — 경로 하이라이트/카메라 없음.
+  if (core == null && !anchorCableId) return { kind: 'asset', assetId };
   const cables = (graph.cables ?? []) as CableLike[];
   const action = resolveHighlight(assetId, core, anchorCableId, cables, components);
   if (action.kind === 'diagram') {

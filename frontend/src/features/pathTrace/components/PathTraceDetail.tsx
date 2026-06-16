@@ -1,4 +1,5 @@
 import { usePathHighlightStore } from '../stores/pathHighlightStore';
+import { useSelectionStore } from '../../workspace/selectionStore';
 import type { TraceTreeNode } from '../../trace/traceProjection';
 
 function Chip({ node }: { node: TraceTreeNode }) {
@@ -95,7 +96,12 @@ export function PathTraceDetail() {
             상세
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); clearHighlight(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              // 파생 SSOT(선택)도 비워야 그래프 변경 재파생 시 하이라이트가 되살아나지 않는다.
+              useSelectionStore.getState().setSelectedAssetId(null);
+              clearHighlight();
+            }}
             className="text-xs text-content-faint hover:text-content"
           >
             닫기

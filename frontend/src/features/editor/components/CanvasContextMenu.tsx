@@ -53,8 +53,10 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   };
 
   const handleTraceCable = () => {
-    const addr = graph ? cableToAddress(target.id, null, graph) : null;
-    useSelectionStore.getState().setSelectedComponent(addr?.assetId ?? target.id, addr?.core ?? null, target.id);
+    // graph 가 아직 준비 안 됐으면 bail — 케이블 id 를 assetId 로 넘기면 안 된다(엉뚱한 해소).
+    if (!graph) { onClose(); return; }
+    const addr = cableToAddress(target.id, null, graph);
+    if (addr) useSelectionStore.getState().setSelectedComponent(addr.assetId, addr.core, target.id);
     onClose();
   };
 
