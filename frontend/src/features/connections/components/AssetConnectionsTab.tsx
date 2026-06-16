@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { Split } from 'lucide-react';
 import { useAssetConnections } from '../hooks/useAssetConnections';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { PathTraceDetail } from '../../pathTrace/components/PathTraceDetail';
@@ -68,8 +69,12 @@ export function AssetConnectionsTab({ assetId }: Props) {
                   className="flex-1 text-left px-3 py-2 text-sm text-content min-w-0"
                 >
                   <span className="inline-flex items-center gap-1 min-w-0">
-                    <span className="truncate text-sm text-content">{row.fromName}</span>
-                    <span className="text-xs text-content-faint flex-shrink-0">→</span>
+                    <span className="truncate text-sm text-content flex-shrink-0">{row.fromName}</span>
+                    {row.branched ? (
+                      <Split className="h-3.5 w-3.5 flex-shrink-0 text-content-faint" aria-hidden="true" />
+                    ) : (
+                      <span className="text-xs text-content-faint flex-shrink-0">→</span>
+                    )}
                     <span className="truncate text-sm text-content">{row.toName}</span>
                   </span>
                 </button>

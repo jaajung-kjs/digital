@@ -11,6 +11,7 @@ const assets = [
   { id: 'S2', name: '슬롯2', parentAssetId: 'OFD', assetType: { connectionKind: 'conduit' } },
   { id: 'OFD', name: 'OFD#1', parentAssetId: null, assetType: { placementKind: 'OFD' } },
   { id: 'RS', name: '원격슬롯', parentAssetId: 'ROFD', assetType: { connectionKind: 'conduit' } },
+  { id: 'ROFD', name: '원격OFD', parentAssetId: null, assetType: { placementKind: 'OFD' } },
   { id: 'E1', name: '단말1', parentAssetId: null, assetType: {} },
   { id: 'F', name: '피더1', parentAssetId: null, assetType: { connectionKind: 'distributor' } },
   { id: 'SRC', name: '변압기', parentAssetId: null, assetType: {} },
@@ -22,11 +23,11 @@ const baseGraph = {
   assets: [
     { id: 'M', connectionKind: null }, { id: 'S', connectionKind: 'conduit' },
     { id: 'S2', connectionKind: 'conduit' }, { id: 'OFD', connectionKind: null },
-    { id: 'RS', connectionKind: 'conduit' }, { id: 'E1', connectionKind: null },
+    { id: 'RS', connectionKind: 'conduit' }, { id: 'ROFD', connectionKind: null }, { id: 'E1', connectionKind: null },
     { id: 'F', connectionKind: 'distributor' }, { id: 'SRC', connectionKind: null },
     { id: 'L1', connectionKind: null }, { id: 'L2', connectionKind: null },
   ],
-  nameById: new Map([['M', '송광치'], ['S', '슬롯1'], ['S2', '슬롯2'], ['OFD', 'OFD#1'], ['RS', '원격슬롯'], ['E1', '단말1'], ['F', '피더1'], ['SRC', '변압기'], ['L1', '부하1'], ['L2', '부하2']]),
+  nameById: new Map([['M', '송광치'], ['S', '슬롯1'], ['S2', '슬롯2'], ['OFD', 'OFD#1'], ['RS', '원격슬롯'], ['ROFD', '원격OFD'], ['E1', '단말1'], ['F', '피더1'], ['SRC', '변압기'], ['L1', '부하1'], ['L2', '부하2']]),
   subNameById: new Map(),
   parentById: new Map([['S', 'OFD'], ['S2', 'OFD'], ['RS', 'ROFD']]),
   codeById: new Map(),
@@ -72,7 +73,7 @@ describe('buildConnectionGroups', () => {
     expect(groups.find((g) => g.key === '접지')!.rows).toHaveLength(1);
   });
 
-  it('분전반/피더: 입력(공급, IN)은 흡수되고 분기(부하, OUT)만 행으로 — input/output 분리 제거', () => {
+  it('피더(분배): 입력→출력들을 한 행으로 집계 — `입력상대 → 출력상대들`, branched + 트리 seed', () => {
     const graph = withCables([
       { id: 'in', cableType: 'POWER', sourceAssetId: 'SRC', targetAssetId: 'F', sourceRole: 'OUT', targetRole: 'IN', categoryId: 'pwr' },
       { id: 'b1', cableType: 'POWER', sourceAssetId: 'F', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: 'IN', categoryId: 'pwr' },
@@ -81,9 +82,11 @@ describe('buildConnectionGroups', () => {
     const groups = buildConnectionGroups({ graph, assets, assetId: 'F', categoryGroupOf: catGroupOf });
     expect(groups).toHaveLength(1);
     const rows = groups[0].rows;
-    expect(rows).toHaveLength(2);
-    expect(rows.every((r) => r.fromName === '피더1')).toBe(true);
-    expect(new Set(rows.map((r) => r.toName))).toEqual(new Set(['부하1', '부하2']));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].fromName).toBe('변압기');           // 출발 = 입력(공급) 상대
+    expect(rows[0].branched).toBe(true);
+    expect(rows[0].toName.split(', ').sort()).toEqual(['부하1', '부하2']); // 도착 = 출력 상대들
+    expect(rows[0].cableId).toBe('in');                 // seed = passive 끝(변압기) 가진 입력 → 트리 전체 하이라이트
   });
 
   it('분류된 광 + 미분류 FIBER 가 같은 곳으로 가면 1그룹(광)·1행으로 병합(시드 데이터 split 회귀 방지)', () => {
@@ -98,7 +101,7 @@ describe('buildConnectionGroups', () => {
     expect(groups[0].rows).toHaveLength(1);
   });
 
-  it('OFD: 출력(설비 연결)만 행으로, OPGW 입력(IN/트렁크)은 흡수(숨김)', () => {
+  it('OFD(분배): OPGW 입력 → 출력(설비)을 한 행으로 — `입력상대 → 출력상대`', () => {
     const graph = withCables([
       { id: 'out1', cableType: 'FIBER', sourceAssetId: 'E1', targetAssetId: 'S', targetRole: 'OUT', categoryId: 'fib' },
       { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'S', targetAssetId: 'RS', sourceRole: 'IN', targetRole: 'IN', categoryId: 'fib' },
@@ -106,6 +109,7 @@ describe('buildConnectionGroups', () => {
     const groups = buildConnectionGroups({ graph, assets, assetId: 'OFD', categoryGroupOf: catGroupOf });
     expect(groups).toHaveLength(1);
     expect(groups[0].rows).toHaveLength(1);
-    expect(groups[0].rows[0]).toMatchObject({ fromName: 'OFD#1', toName: '단말1' });
+    expect(groups[0].rows[0]).toMatchObject({ fromName: '원격OFD', toName: '단말1' });
+    expect(groups[0].rows[0].cableId).toBe('out1');     // seed = passive 끝(단말1) → OPGW(conduit끝) 대신 출력 케이블 관통
   });
 });
