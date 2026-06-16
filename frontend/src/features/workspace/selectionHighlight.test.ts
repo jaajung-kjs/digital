@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { resolveSelectedCable, resolveHighlight } from './selectionHighlight';
+import { resolveSelectedCable, resolveHighlight, resolveSelection, cableToAddress } from './selectionHighlight';
 import type { DiagramComponent } from '../connections/connectionDiagram';
+import type { TraceGraph } from '../trace/traceGraph';
 
 const cables = [
   { id: 'in', sourceAssetId: 'src', targetAssetId: 'F', sourceRole: 'OUT', targetRole: 'IN', number: null },
@@ -75,11 +76,19 @@ describe('resolveHighlight', () => {
   });
 });
 
-import { resolveSelection, cableToAddress } from './selectionHighlight';
-import type { TraceGraph } from '../trace/traceGraph';
-
-// 최소 graph 스텁 — resolveSelection 은 trace 폴백에서만 projectTrace(graph) 사용.
-const graphStub = { cables, nameById: new Map(), subNameById: new Map() } as unknown as TraceGraph;
+// 완전한 graph — TraceGraph 의 모든 필드를 채워 cast 가 결손을 숨기지 않게 한다.
+// assets 가 비어 connectionKind 가 전부 null → projectTrace 의 start 가 source 로 잡힌다.
+const fullGraph = (cs: typeof cables): TraceGraph =>
+  ({
+    assets: [],
+    cables: cs,
+    nameById: new Map(),
+    subNameById: new Map(),
+    subById: new Map(),
+    parentById: new Map(),
+    codeById: new Map(),
+  } as unknown as TraceGraph);
+const graphStub = fullGraph(cables);
 const effAssets: never[] = [];
 
 describe('resolveSelection', () => {
@@ -88,6 +97,21 @@ describe('resolveSelection', () => {
     expect(r.kind).toBe('connection');
     if (r.kind === 'connection') expect([...r.cableIds]).toContain('o3');
   });
+  it('trace 폴백(컴포넌트 없음): 케이블→projectTrace→kind=connection + 시드 cableId', () => {
+    // components:[] → resolveHighlight 는 {kind:'trace', cableId:'o3'} 반환.
+    const r = resolveSelection('S', 3, null, graphStub, [], effAssets);
+    expect(r.kind).toBe('connection');
+    // seedCableId 는 projectTrace 시드(o3). cableIds 집합 내용은 projectTrace 내부
+    // 가지치기(pruneDanglingConduits)에 달려 있어 단언하지 않는다 — 분기 발화만 검증.
+    if (r.kind === 'connection') expect(r.cableId).toBe('o3');
+  });
+  it('trace 폴백에서 projectTrace 가 시드를 못 찾으면 → kind=asset', () => {
+    // graph.cables 에 'o3' 가 없어 projectTrace 가 null → asset 폴백.
+    // resolveHighlight 는 cableId 인자 cables 로 'o3' 를 해소하지만 graph 엔 없음.
+    const graphMissingSeed = fullGraph(cables.filter((c) => c.id !== 'o3'));
+    const r = resolveSelection('S', 3, 'o3', graphMissingSeed, [], effAssets);
+    expect(r).toEqual({ kind: 'asset', assetId: 'S' });
+  });
   it('자산만(매칭 없음) → kind=asset', () => {
     const r = resolveSelection('S', 9, null, graphStub, [], effAssets);
     expect(r).toEqual({ kind: 'asset', assetId: 'S' });
@@ -95,7 +119,20 @@ describe('resolveSelection', () => {
   it('선택 없음 → kind=none', () => {
     expect(resolveSelection(null, 3, null, graphStub, components, effAssets)).toEqual({ kind: 'none' });
   });
-  it('cableToAddress: 케이블 → (자산,core) 역매핑(보는 자산 우선)', () => {
+});
+
+describe('cableToAddress', () => {
+  it('보는 자산이 source 끝단 → 그 끝단(role/number)', () => {
     expect(cableToAddress('b2', 'F', graphStub)).toEqual({ assetId: 'F', core: 2 });
+  });
+  it('보는 자산이 target 끝단 → 그 끝단(IN → FEEDER_INPUT_CORE)', () => {
+    // 'in' = {source:'src' OUT, target:'F' IN} — F 가 target IN 끝단.
+    expect(cableToAddress('in', 'F', graphStub)).toEqual({ assetId: 'F', core: 0 });
+  });
+  it('보는 자산 null → source 끝단', () => {
+    expect(cableToAddress('b2', null, graphStub)).toEqual({ assetId: 'F', core: 2 });
+  });
+  it('케이블 없음 → null', () => {
+    expect(cableToAddress('zzz', 'F', graphStub)).toBeNull();
   });
 });
