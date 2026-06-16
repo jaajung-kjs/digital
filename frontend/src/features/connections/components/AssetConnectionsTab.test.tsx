@@ -2,22 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 const { startTrace, openTopology, clearHighlight } = vi.hoisted(() => ({
-  startTrace: vi.fn(),
-  openTopology: vi.fn(),
-  clearHighlight: vi.fn(),
+  startTrace: vi.fn(), openTopology: vi.fn(), clearHighlight: vi.fn(),
 }));
 
-const groups = [
-  {
-    key: '광',
-    label: '광',
-    color: '#a0f',
-    rows: [{ cableId: 'c1', fromName: '송광치', toName: 'OFD#1' }],
-  },
-];
+const node = (label: string, children: unknown[] = []) =>
+  ({ id: label, label, kind: 'asset', isSelf: false, isOrigin: false, edgeFiber: false, children });
+const groups = [{
+  key: '전원', label: '전원', color: '#ef4444',
+  components: [{ seedCableId: 'c1', cableIds: ['c1'], nodeIds: ['chg', 't1'], root: node('충전기', [node('단말1')]) }],
+}];
 
 vi.mock('../hooks/useAssetConnections', () => ({
-  useAssetConnections: () => ({ groups, isLoading: false }),
+  useAssetDiagram: () => ({ groups, isLoading: false }),
 }));
 
 vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
@@ -27,32 +23,22 @@ vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
   return { usePathHighlightStore: hook };
 });
 
-vi.mock('../../pathTrace/components/PathTraceDetail', () => ({
-  PathTraceDetail: () => <div data-testid="path-detail" />,
-}));
-
 import { AssetConnectionsTab } from './AssetConnectionsTab';
 
-beforeEach(() => {
-  startTrace.mockClear();
-  openTopology.mockClear();
-  clearHighlight.mockClear();
-});
+beforeEach(() => { startTrace.mockClear(); openTopology.mockClear(); clearHighlight.mockClear(); });
 
 describe('AssetConnectionsTab', () => {
-  it('종류 그룹 + 출발→도착 행 렌더', () => {
+  it('종류 그룹 + 트리 렌더', () => {
     render(<AssetConnectionsTab assetId="R" />);
-    expect(screen.getByText('광')).toBeInTheDocument();
-    expect(screen.getByText(/송광치/)).toBeInTheDocument();
-    expect(screen.getByText(/OFD#1/)).toBeInTheDocument();
+    expect(screen.getByText('전원')).toBeInTheDocument();
+    expect(screen.getByText('충전기')).toBeInTheDocument();
+    expect(screen.getByText('단말1')).toBeInTheDocument();
   });
-
-  it('행 클릭 → startTrace(cableId)', () => {
+  it('트리 클릭 → startTrace(seedCableId)', () => {
     render(<AssetConnectionsTab assetId="R" />);
-    fireEvent.click(screen.getByRole('button', { name: /송광치.*OFD#1/ }));
+    fireEvent.click(screen.getByText('충전기'));
     expect(startTrace).toHaveBeenCalledWith('c1');
   });
-
   it('상세 클릭 → startTrace + openTopology', () => {
     render(<AssetConnectionsTab assetId="R" />);
     fireEvent.click(screen.getByRole('button', { name: '상세' }));
