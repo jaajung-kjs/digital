@@ -37,7 +37,6 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     };
   },
   rowKey: (row) => row.coreNumber,
-  rowTraceCableId: (row) => row.cableId,
   rowCore: (row) => row.coreNumber,
   // 코어 행 클릭 → 그 코어가 속한 경로슬롯(conduit)의 포트 사이드패널로 이동.
   // 빈 코어도 동일(슬롯 id 로 이동, rowCore 로 해당 포트 활성화).
