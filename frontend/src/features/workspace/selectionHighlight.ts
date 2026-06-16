@@ -37,7 +37,8 @@ export function resolveSelectedCable(
 /**
  * 선택 → 하이라이트 동작 결정(순수). 연결탭이 보여주는 *바로 그 컴포넌트* 를
  * 도면에 칠하기 위해, 해소된 케이블이 속한 연결도 컴포넌트를 찾아 그대로 하이라이트한다.
- * highlightDiagram 사용 = projectTrace 재추적 불일치 방지(연결탭 트리와 1:1).
+ * 결과는 resolveSelection 을 거쳐 useSelectionHighlight → setHighlight 로 파생 캐시에 기록된다
+ * (diagram 분기는 projectTrace 재추적 없이 컴포넌트 그대로 — 연결탭 트리와 1:1).
  * - diagram: (asset,core)→케이블→그 케이블이 속한 컴포넌트. 없으면 core===comp.core 매칭.
  * - trace: 컴포넌트엔 못 들지만 케이블은 있는 경우(연결도 범위 밖) 단일 추적 폴백.
  * - clear: 자산/케이블 없음.
@@ -98,6 +99,7 @@ export function useSelectionHighlight(): void {
       hi.setHighlight({ cableId: r.cableId, nodeIds: r.nodeIds, placedIds: r.placedIds, cableIds: r.cableIds });
       if (prev !== r.cableId) useEditorStore.getState().bumpFocusTick();
     } else {
+      // kind==='asset'(자산만 선택) 또는 kind==='none' — 자산 선택은 경로 하이라이트를 띄우지 않는다(설계상).
       hi.clearHighlight();
     }
   }, [selectedAssetId, selectedCore, selectedCableId, groups, graph]);

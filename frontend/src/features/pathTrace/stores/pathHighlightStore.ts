@@ -81,11 +81,11 @@ export function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]
 }
 
 /**
- * 시드 cable 1회 추적 → projection + nodeIds. 그래프 빌드(global slim-assets + cables
+ * 시드 cable 1회 추적 → projection. 그래프 빌드(global slim-assets + cables
  * 위에 이 변전소 staged 오버레이)는 비동기. 파생 작성자(prepareTopology)만 사용한다.
  */
 async function loadProjection(cableId: string): Promise<
-  | { ok: true; projection: TraceProjection; ids: Set<string> }
+  | { ok: true; projection: TraceProjection }
   | { ok: false; error: string }
 > {
   try {
@@ -106,7 +106,7 @@ async function loadProjection(cableId: string): Promise<
     if (!projection) {
       return { ok: false, error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.' };
     }
-    return { ok: true, projection, ids: new Set(projection.nodeIds) };
+    return { ok: true, projection };
   } catch (err) {
     const message = err instanceof Error ? err.message : '경로 추적에 실패했습니다.';
     return { ok: false, error: message };
@@ -139,6 +139,8 @@ interface PathHighlightState {
 export const usePathHighlightStore = create<PathHighlightState>((set) => ({
   ...idleState(),
 
+  // 토폴로지 모달은 독립 라이프사이클(prepareTopology 가 열고 closeTopology 가 닫음)이므로
+  // setHighlight 는 projection/modalOpen 을 의도적으로 건드리지 않는다(선택 변경이 방금 연 모달을 닫지 않도록).
   setHighlight: (h) =>
     set({
       active: true,
@@ -153,7 +155,7 @@ export const usePathHighlightStore = create<PathHighlightState>((set) => ({
   prepareTopology: async (cableId) => {
     set({ tracingCableId: cableId, isLoading: true, error: null });
     const r = await loadProjection(cableId);
-    if (!r.ok) { set({ isLoading: false, error: r.error }); return; }
+    if (!r.ok) { set({ isLoading: false, tracingCableId: null, error: r.error }); return; }
     set({ projection: r.projection, isLoading: false, modalOpen: true });
   },
 
