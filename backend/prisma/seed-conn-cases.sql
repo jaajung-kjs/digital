@@ -1,10 +1,13 @@
 -- 연결도 단일함수 검증용 시드 (P1~P5). 멱등(ON CONFLICT DO NOTHING).
 BEGIN;
 
-INSERT INTO substations (id, name, sort_order, updated_at) VALUES
-  ('sub-conn', '연결테스트변전소', 900, NOW()),
-  ('sub-conn-remote', '대국변전소', 901, NOW())
+INSERT INTO substations (id, name, branch_id, sort_order, updated_at) VALUES
+  ('sub-conn', '연결테스트변전소', (SELECT id FROM branches ORDER BY sort_order, id LIMIT 1), 900, NOW()),
+  ('sub-conn-remote', '대국변전소', (SELECT id FROM branches ORDER BY sort_order, id LIMIT 1), 901, NOW())
 ON CONFLICT (id) DO NOTHING;
+-- 기존에 branch 없이 들어간 행 보정(네비게이션 노출용).
+UPDATE substations SET branch_id = (SELECT id FROM branches ORDER BY sort_order, id LIMIT 1)
+WHERE id LIKE 'sub-conn%' AND branch_id IS NULL;
 
 INSERT INTO floors (id, substation_id, name, floor_number, sort_order, updated_at) VALUES
   ('flr-conn-1', 'sub-conn', '1층', '1', 0, NOW()),
