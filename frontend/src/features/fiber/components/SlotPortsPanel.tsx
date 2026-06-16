@@ -5,10 +5,12 @@ import { useSelectionStore } from '../../workspace/selectionStore';
 import { buildSlotPorts, type PortState } from '../slotPorts';
 import type { CableLike } from '../slotRegister';
 import { useCablePick } from '../../editor/hooks/useCablePick';
+import { startCableConnection } from '../../editor/cableConnection';
+import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { floorAnchor, floorTargetFor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
 import { PortGrid } from '../../../components/PortGrid';
-import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
 import type { Asset } from '../../../types/asset';
 
 const STATE_LABEL: Record<PortState, string> = { empty: '미연결', half: '편도', full: '양측' };
@@ -25,6 +27,7 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
   const selectedCore = useSelectionStore((s) => s.selectedCore);
 
   const pick = useCablePick();
+  const nav = useWorkspaceNav();
 
   const slot = useMemo(() => assets.find((a) => a.id === slotId) ?? null, [assets, slotId]);
   const ports = useMemo(
@@ -58,6 +61,22 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
 
   const selected = ports.find((p) => p.coreNumber === selectedCore) ?? null;
 
+  // 선택한 빈 자국 포트에서 케이블 출발(자국 OUT) → 평면도로 이동 + 출발 자동주입.
+  // 1대다 자산: 자국 점유 포트는 출발 불가 — 빈 포트만 originate.
+  const connectFromPort = () => {
+    if (!slot || !anchorRect || selectedCore == null) return;
+    startCableConnection({
+      source: {
+        containerAssetId: anchorRect.anchorId,
+        position: anchorRect.position,
+        slotId: slot.id,
+        coreNumber: selectedCore,
+        role: 'OUT',
+      },
+    });
+    nav?.gotoAsset(slot.id);
+  };
+
   const nameOf = (id: string | null) => (id ? (graph?.nameById.get(id) ?? id) : null);
   const subOf = (id: string | null) => (id ? (graph?.subNameById.get(id) ?? null) : null);
   const label = (id: string | null) => {
@@ -89,6 +108,13 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
           />
           <DetailRow label="자국">{label(selected.localAssetId)}</DetailRow>
           <DetailRow label="대국">{label(selected.remoteAssetId)}</DetailRow>
+          {!pick.active && !selected.localCableId && anchorRect && (
+            <div className="mt-2">
+              <Button variant="secondary" size="sm" onClick={connectFromPort}>
+                케이블 연결
+              </Button>
+            </div>
+          )}
           <DetailNote>자세한 코어 정보는 선번장에서 확인하세요.</DetailNote>
         </DetailCard>
       )}
