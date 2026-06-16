@@ -187,6 +187,12 @@ export function WorkspacePage() {
 
   // 평면도 탭 클릭 동작: 변전소는 첫 층으로 gotoFloor(URL 파라미터), 본부·사업소는 view만 전환.
   const onClickPlan = () => {
+    // 선번장/계통뷰는 진입 시 첫 컨테이너(OFD/분전반)를 공유 선택으로 자동 오픈한다(위 effect).
+    // 그 상태로 평면도 탭을 누르면 useEditorSelectionBridge 가 그 설비 상세 패널을 자동으로 열어
+    // 평면도가 선택+패널이 열린 채로 뜬다. 평면도 탭은 "도면을 보겠다"는 의도이므로, 선번장/계통뷰
+    // 에서 넘어올 때는 공유 선택을 비워 깨끗하게 연다. (현황→평면도는 view≠fiber/power 라 유지 →
+    // 현황 선택 reveal 흐름 불변. 자산 위치 클릭=gotoAsset 는 onClickPlan 미경유라 reveal 유지.)
+    if (view === 'fiber' || view === 'power') setSelectedAssetId(null);
     if (isSubstationNode && planFloorId) nav.gotoFloor(planFloorId);
     else switchView('plan');
   };
