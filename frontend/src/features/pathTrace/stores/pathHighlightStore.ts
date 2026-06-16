@@ -14,7 +14,6 @@ import { create } from 'zustand';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
-import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
 import { queryClient } from '../../../lib/queryClient';
 import { api } from '../../../utils/api';
 import type { LocalCable } from '../../editor/stores/editorStore';
@@ -81,6 +80,39 @@ export function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]
   return result;
 }
 
+/**
+ * 시드 cable 1회 추적 → projection + nodeIds. 그래프 빌드(global slim-assets + cables
+ * 위에 이 변전소 staged 오버레이)는 비동기. 파생 작성자(prepareTopology)만 사용한다.
+ */
+async function loadProjection(cableId: string): Promise<
+  | { ok: true; projection: TraceProjection; ids: Set<string> }
+  | { ok: false; error: string }
+> {
+  try {
+    const slimAssets = await fetchAllSlimAssetsCached(queryClient);
+    const globalCables = await queryClient.fetchQuery({
+      queryKey: ['cables'], staleTime: 30_000,
+      queryFn: async () => (await api.get<{ data: TraceCableInput[] }>('/cables')).data.data,
+    });
+    const wc = useSubstationWorkingCopy.getState();
+    const graph = buildTraceGraph({
+      slimAssets: slimAssets as SlimAssetDTO[],
+      globalCables,
+      stagedAssets: wc.effectiveAssets() as never[],
+      stagedCables: wc.effectiveCables() as unknown as TraceCableInput[],
+      deletes: [...wc.overlays.cables.deletes, ...wc.overlays.assets.deletes],
+    });
+    const projection = projectTrace(cableId, graph);
+    if (!projection) {
+      return { ok: false, error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.' };
+    }
+    return { ok: true, projection, ids: new Set(projection.nodeIds) };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '경로 추적에 실패했습니다.';
+    return { ok: false, error: message };
+  }
+}
+
 interface PathHighlightState {
   active: boolean;
   projection: TraceProjection | null;
@@ -93,14 +125,10 @@ interface PathHighlightState {
   /** 토폴로지 모달 표시 여부 — projection 을 공유, 별도 추적 없음. */
   modalOpen: boolean;
 
-  startTrace: (cableId: string) => void;
-  /** 연결도(가지친 트리)의 노드/케이블을 그대로 하이라이트 — 재추적 없음(projectTrace 불일치 방지). */
-  highlightDiagram: (seedCableId: string, nodeIds: string[], cableIds: string[]) => void;
-  /**
-   * 전원 계통 추적 (상위 진입) — 분전반 회로(feeder/branch) 에서 fan-out.
-   * 주어진 circuitId 들에 물린 케이블 + 반대편 endpoint 를 1-hop 하이라이트.
-   */
-  startCircuitTrace: (circuitIds: string[]) => void;
+  /** 파생 전용 — useSelectionHighlight 만 호출. */
+  setHighlight: (h: { cableId: string | null; nodeIds: Set<string>; placedIds: Set<string>; cableIds: Set<string> }) => void;
+  /** 토폴로지 모달용 projection 비동기 빌드 후 모달 열기 — 하이라이트는 파생 캐시가 별도 작성. */
+  prepareTopology: (cableId: string) => Promise<void>;
   /** 이미 계산된 projection 으로 토폴로지 모달 열기 — 재추적 없음. */
   openTopology: () => void;
   /** 토폴로지 모달 닫기 — trace/하이라이트는 유지(닫기만). */
@@ -111,90 +139,22 @@ interface PathHighlightState {
 export const usePathHighlightStore = create<PathHighlightState>((set) => ({
   ...idleState(),
 
-  startTrace: async (cableId) => {
+  setHighlight: (h) =>
+    set({
+      active: true,
+      tracingCableId: h.cableId,
+      isLoading: false,
+      error: null,
+      highlightedNodeIds: h.nodeIds,
+      highlightedPlacedIds: h.placedIds,
+      highlightedEdgeIds: h.cableIds,
+    }),
+
+  prepareTopology: async (cableId) => {
     set({ tracingCableId: cableId, isLoading: true, error: null });
-    try {
-      const slimAssets = await fetchAllSlimAssetsCached(queryClient);
-      const globalCables = await queryClient.fetchQuery({
-        queryKey: ['cables'], staleTime: 30_000,
-        queryFn: async () => (await api.get<{ data: TraceCableInput[] }>('/cables')).data.data,
-      });
-      const wc = useSubstationWorkingCopy.getState();
-      const graph = buildTraceGraph({
-        slimAssets: slimAssets as SlimAssetDTO[],
-        globalCables,
-        stagedAssets: wc.effectiveAssets() as never[],
-        stagedCables: wc.effectiveCables() as unknown as TraceCableInput[],
-        deletes: [...wc.overlays.cables.deletes, ...wc.overlays.assets.deletes],
-      });
-      const projection = projectTrace(cableId, graph);
-      if (!projection) {
-        set({ isLoading: false, tracingCableId: null, error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.' });
-        return;
-      }
-      const ids = new Set(projection.nodeIds);
-      set({
-        active: true,
-        projection,
-        isLoading: false,
-        highlightedNodeIds: ids,
-        highlightedPlacedIds: expandToPlacedIds(ids, wc.effectiveAssets()),
-        highlightedEdgeIds: new Set(projection.cableIds),
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '경로 추적에 실패했습니다.';
-      set({ isLoading: false, tracingCableId: null, error: message });
-    }
-  },
-
-  highlightDiagram: (seedCableId, nodeIds, cableIds) => {
-    const effAssets = useSubstationWorkingCopy.getState().effectiveAssets();
-    const ids = new Set(nodeIds);
-    set({
-      active: true,
-      projection: null,
-      tracingCableId: seedCableId,
-      isLoading: false,
-      error: null,
-      highlightedNodeIds: ids,
-      highlightedPlacedIds: expandToPlacedIds(ids, effAssets),
-      highlightedEdgeIds: new Set(cableIds),
-      modalOpen: false,
-    });
-  },
-
-  startCircuitTrace: (branchAssetIds) => {
-    if (branchAssetIds.length === 0) return;
-    // 단계3b: 회로는 BRANCH asset. 인자는 분기 asset id 들. 케이블 endpoint 가
-    //   단일 asset id(flat sourceAssetId 자리)이므로 그 id 가 분기 집합에 들면 hit.
-    const wc = useSubstationWorkingCopy.getState();
-    const cables: LocalCable[] = wc
-      .effectiveCables()
-      .map((c) => cableDtoToLocal(c as unknown as CableDetailDTO));
-    const effAssets = wc.effectiveAssets();
-
-    const branchSet = new Set(branchAssetIds);
-    const nodeIds = new Set<string>(branchAssetIds);
-    const edgeIds = new Set<string>();
-    for (const cable of cables) {
-      const srcHit = !!cable.sourceAssetId && branchSet.has(cable.sourceAssetId);
-      const tgtHit = !!cable.targetAssetId && branchSet.has(cable.targetAssetId);
-      if (!srcHit && !tgtHit) continue;
-      edgeIds.add(cable.id);
-      nodeIds.add(cable.sourceAssetId);
-      nodeIds.add(cable.targetAssetId);
-    }
-    set({
-      active: true,
-      projection: null,
-      tracingCableId: null,
-      isLoading: false,
-      error: null,
-      highlightedNodeIds: nodeIds,
-      highlightedPlacedIds: expandToPlacedIds(nodeIds, effAssets),
-      highlightedEdgeIds: edgeIds,
-      modalOpen: false,
-    });
+    const r = await loadProjection(cableId);
+    if (!r.ok) { set({ isLoading: false, error: r.error }); return; }
+    set({ projection: r.projection, isLoading: false, modalOpen: true });
   },
 
   openTopology: () => set({ modalOpen: true }),

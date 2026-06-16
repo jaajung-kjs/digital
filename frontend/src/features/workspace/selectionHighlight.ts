@@ -3,6 +3,8 @@ import { useTraceGraph } from '../trace/traceGraph';
 import { usePathHighlightStore } from '../pathTrace/stores/pathHighlightStore';
 import { useSelectionStore } from './selectionStore';
 import { useAssetDiagram } from '../connections/hooks/useAssetConnections';
+import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
+import { useEditorStore } from '../editor/stores/editorStore';
 import { FEEDER_INPUT_CORE } from '../power/powerRegisterDescriptor';
 import { projectTrace } from '../trace/traceProjection';
 import { expandToPlacedIds } from '../pathTrace/stores/pathHighlightStore';
@@ -86,13 +88,18 @@ export function useSelectionHighlight(): void {
   const { graph } = useTraceGraph();
   const { groups } = useAssetDiagram(selectedAssetId ?? '');
   useEffect(() => {
-    const cables = ((graph as TraceGraph | null)?.cables ?? []) as CableLike[];
+    if (!graph) return;
     const components = groups.flatMap((g) => g.components);
-    const action = resolveHighlight(selectedAssetId, selectedCore, selectedCableId, cables, components);
+    const effAssets = useSubstationWorkingCopy.getState().effectiveAssets() as Asset[];
+    const r = resolveSelection(selectedAssetId, selectedCore, selectedCableId, graph, components, effAssets);
     const hi = usePathHighlightStore.getState();
-    if (action.kind === 'diagram') hi.highlightDiagram(action.comp.seedCableId, action.comp.nodeIds, action.comp.cableIds);
-    else if (action.kind === 'trace') hi.startTrace(action.cableId);
-    else hi.clearHighlight();
+    if (r.kind === 'connection') {
+      const prev = hi.tracingCableId;
+      hi.setHighlight({ cableId: r.cableId, nodeIds: r.nodeIds, placedIds: r.placedIds, cableIds: r.cableIds });
+      if (prev !== r.cableId) useEditorStore.getState().bumpFocusTick();
+    } else {
+      hi.clearHighlight();
+    }
   }, [selectedAssetId, selectedCore, selectedCableId, groups, graph]);
 }
 
