@@ -1,8 +1,5 @@
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useSelectionStore } from '../../workspace/selectionStore';
-import { useTraceGraph } from '../../trace/traceGraph';
-import { cableToAddress } from '../../workspace/selectionHighlight';
 
 export interface CanvasContextMenuState {
   /** 메뉴를 띄울 화면 좌표 (clientX/clientY) */
@@ -22,7 +19,6 @@ interface CanvasContextMenuProps {
  */
 export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   const { x, y, target } = menu;
-  const { graph } = useTraceGraph();
 
   const handleOpenDetail = () => {
     const es = useEditorStore.getState();
@@ -52,14 +48,6 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     es.clearSelection();
   };
 
-  const handleTraceCable = () => {
-    // graph 가 아직 준비 안 됐으면 bail — 케이블 id 를 assetId 로 넘기면 안 된다(엉뚱한 해소).
-    if (!graph) { onClose(); return; }
-    const addr = cableToAddress(target.id, null, graph);
-    if (addr) useSelectionStore.getState().setSelectedComponent(addr.assetId, addr.core, target.id);
-    onClose();
-  };
-
   const handleDeleteCable = () => {
     const es = useEditorStore.getState();
     onClose();
@@ -76,7 +64,6 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
           { label: '삭제', onClick: handleDeleteEquipment, danger: true },
         ]
       : [
-          { label: '경로 추적', onClick: handleTraceCable },
           { label: '삭제', onClick: handleDeleteCable, danger: true },
         ];
 
