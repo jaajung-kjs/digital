@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 
-const { startTrace, clearHighlight, patch, stageCableDelete, startCableConnection, gotoAsset, onPick, pickState, inputState, inCable } = vi.hoisted(() => ({
-  startTrace: vi.fn(), clearHighlight: vi.fn(), patch: vi.fn(),
+const { patch, stageCableDelete, startCableConnection, gotoAsset, onPick, pickState, inputState, inCable } = vi.hoisted(() => ({
+  patch: vi.fn(),
   stageCableDelete: vi.fn(), startCableConnection: vi.fn(), gotoAsset: vi.fn(),
   onPick: vi.fn(),
   // in1 = 입력(IN) 케이블 — commitMeta 의 specParams 머지가 기존 switchState 를 보존하는지 검증용.
@@ -21,12 +21,6 @@ vi.mock('../../workingCopy/hooks', () => ({ useEffectiveAssets: () => [FEEDER_AS
 vi.mock('../../trace/traceGraph', () => ({
   useTraceGraph: () => ({ graph: { cables: [cb1], nameById: new Map([['eqpA', '복도등']]) }, isLoading: false }),
 }));
-vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
-  const st = { startTrace, clearHighlight };
-  const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
-  (hook as unknown as { getState: () => unknown }).getState = () => st;
-  return { usePathHighlightStore: hook };
-});
 vi.mock('../../workingCopy/substationStore', () => {
   const st = { patch, stageCableDelete, effectiveCables: () => [cb1, inCable] };
   const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
@@ -57,7 +51,7 @@ import { FeederCircuitsPanel } from './FeederCircuitsPanel';
 import { useSelectionStore } from '../../workspace/selectionStore';
 
 beforeEach(() => {
-  startTrace.mockClear(); clearHighlight.mockClear(); patch.mockClear();
+  patch.mockClear();
   stageCableDelete.mockClear(); startCableConnection.mockClear(); gotoAsset.mockClear();
   onPick.mockClear();
   pickState.active = false; pickState.side = null;
@@ -125,8 +119,7 @@ describe('FeederCircuitsPanel', () => {
       fireEvent.click(sw);
       // ON → OFF 반전, specParams 머지 유지.
       expect(patch).toHaveBeenCalledWith('cables', 'in1', { specParams: { capacity: '20A', switchState: 'OFF' } });
-      // 스위치 클릭은 타일 열기(상세카드/트레이스) 를 트리거하지 않는다.
-      expect(startTrace).not.toHaveBeenCalled();
+      // 스위치 클릭은 타일 열기(상세카드) 를 트리거하지 않는다.
       expect(screen.queryByText('공급원')).not.toBeInTheDocument();
     });
     it('점유 입력 삭제 → 확인 후 stageCableDelete', () => {
@@ -158,8 +151,7 @@ describe('FeederCircuitsPanel', () => {
       fireEvent.click(screen.getByRole('button', { name: '차단기 1' }));
       // 1대다 자산: 이미 케이블이 있는 CB 는 픽되지 않는다.
       expect(onPick).not.toHaveBeenCalled();
-      // 일반 동작(부하 상세/트레이스)도 일어나지 않는다(피킹 모드).
-      expect(startTrace).not.toHaveBeenCalled();
+      // 일반 동작(부하 상세)도 일어나지 않는다(피킹 모드).
       expect(screen.queryByText(/복도등/)).not.toBeInTheDocument();
     });
 

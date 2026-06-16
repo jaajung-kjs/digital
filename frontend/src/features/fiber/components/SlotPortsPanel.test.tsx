@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-const { startTrace, clearHighlight, onPick, pickState, startCableConnection, gotoAsset } = vi.hoisted(() => ({
-  startTrace: vi.fn(),
-  clearHighlight: vi.fn(),
+const { onPick, pickState, startCableConnection, gotoAsset } = vi.hoisted(() => ({
   onPick: vi.fn(),
   pickState: { active: false, side: null as 'source' | 'target' | null },
   startCableConnection: vi.fn(),
@@ -31,13 +29,6 @@ vi.mock('../../trace/traceGraph', () => ({
     isLoading: false,
   }),
 }));
-vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
-  const st = { startTrace, clearHighlight };
-  const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
-  (hook as unknown as { getState: () => unknown }).getState = () => st;
-  return { usePathHighlightStore: hook };
-});
-
 vi.mock('../../editor/hooks/useCablePick', () => ({
   useCablePick: () => ({ active: pickState.active, side: pickState.side, onPick }),
 }));
@@ -55,8 +46,6 @@ import { SlotPortsPanel } from './SlotPortsPanel';
 import { useSelectionStore } from '../../workspace/selectionStore';
 
 beforeEach(() => {
-  startTrace.mockClear();
-  clearHighlight.mockClear();
   onPick.mockClear();
   startCableConnection.mockClear();
   gotoAsset.mockClear();
@@ -107,7 +96,7 @@ describe('SlotPortsPanel', () => {
   describe('케이블 피킹 모드(active)', () => {
     beforeEach(() => { pickState.active = true; pickState.side = 'source'; });
 
-    it('빈 포트 클릭 → onPick(슬롯 OUT, 코어 번호) — 선택/트레이스 안 함', () => {
+    it('빈 포트 클릭 → onPick(슬롯 OUT, 코어 번호) — 선택 안 함', () => {
       render(<SlotPortsPanel slotId={SLOT} />);
       fireEvent.click(screen.getByRole('button', { name: /^포트 1$/ }));
       expect(onPick).toHaveBeenCalledWith({
@@ -117,8 +106,7 @@ describe('SlotPortsPanel', () => {
         coreNumber: 1,
         role: 'OUT',
       });
-      // 일반 동작(상세/트레이스)은 일어나지 않는다.
-      expect(startTrace).not.toHaveBeenCalled();
+      // 일반 동작(상세)은 일어나지 않는다.
       expect(screen.queryByText(/자국장비/)).not.toBeInTheDocument();
     });
 

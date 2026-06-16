@@ -116,8 +116,9 @@ export function useEditorKeyboard(
       if (e.key === 'Enter' && es.selectedCableId) {
         e.preventDefault();
         const g = graphRef.current;
-        const addr = g ? cableToAddress(es.selectedCableId, null, g) : null;
-        useSelectionStore.getState().setSelectedComponent(addr?.assetId ?? '', addr?.core ?? null, es.selectedCableId);
+        if (!g) return; // 그래프 미준비 — 빈 assetId 로 잘못된 선택을 쓰지 않는다.
+        const addr = cableToAddress(es.selectedCableId, null, g);
+        useSelectionStore.getState().setSelectedComponent(addr?.assetId ?? es.selectedCableId, addr?.core ?? null, es.selectedCableId);
         return;
       }
 
