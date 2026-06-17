@@ -49,7 +49,7 @@ export const organizationApi = {
     return data.data;
   },
   renameSubstation: async (id: string, payload: { name: string }): Promise<BranchSubstationItem> => {
-    const { data } = await api.patch<{ data: BranchSubstationItem }>(`/substations/${id}`, payload);
+    const { data } = await api.put<{ data: BranchSubstationItem }>(`/substations/${id}`, payload);
     return data.data;
   },
   deleteSubstation: async (id: string): Promise<void> => {
@@ -66,7 +66,7 @@ export const organizationApi = {
     return data.data;
   },
   renameFloor: async (id: string, payload: { name: string }): Promise<FloorListItem> => {
-    const { data } = await api.patch<{ data: FloorListItem }>(`/floors/${id}`, payload);
+    const { data } = await api.put<{ data: FloorListItem }>(`/floors/${id}`, payload);
     return data.data;
   },
   deleteFloor: async (id: string): Promise<void> => {
