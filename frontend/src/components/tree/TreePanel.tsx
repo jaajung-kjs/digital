@@ -1,8 +1,9 @@
 import { useEffect, useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Building2, MapPin, Zap, Layers, ChevronRight, Plus } from 'lucide-react';
-import { organizationApi, fetchChildNodes } from '../../services/organizationApi';
+import { organizationApi, fetchChildNodes, hqToNode } from '../../services/organizationApi';
 import { useOrganizationStore } from '../../stores/organizationStore';
+import { useToastStore } from '../../features/editor/stores/toastStore';
 import { workspaceFloorUrl } from '../../features/workspace/workspaceUrls';
 import { IconButton } from '../ui';
 import { TreeNodeMenu } from './TreeNodeMenu';
@@ -10,6 +11,12 @@ import { OrgNodeModal } from './OrgNodeModal';
 import { useOrgNodeCrud } from './useOrgNodeCrud';
 import { childType } from './orgNodeActions';
 import type { TreeNodeData, NodeType } from '../../types/organization';
+
+/** node 와 그 하위(재귀)에 id 가 존재하는지 — 삭제 cascade 가 현재 라우트 대상을 포함하는지 판단 */
+function subtreeContainsId(node: TreeNodeData, id: string): boolean {
+  if (node.id === id) return true;
+  return node.children.some((c) => subtreeContainsId(c, id));
+}
 
 /** 삭제 확인 문구 — 타입별 cascade 경고 */
 function deleteMessage(node: TreeNodeData): string {
@@ -45,6 +52,9 @@ const NODE_LUCIDE_ICON: Record<NodeType, typeof Building2> = {
 
 export function TreePanel() {
   const navigate = useNavigate();
+  const { substationId: routeSubstationId } = useParams<{ substationId: string }>();
+  const [searchParams] = useSearchParams();
+  const routeFloorId = searchParams.get('floor');
   const {
     roots, setRoots, selectedNodeId, selectNode,
     toggleNode, setChildren, setViewingNodeId,
@@ -65,26 +75,33 @@ export function TreePanel() {
     setModal({ mode: 'edit', targetType: node.type, node, initialName: node.name });
   }, []);
   const handleDelete = useCallback((node: TreeNodeData) => {
-    if (window.confirm(deleteMessage(node))) {
-      void crud.remove(node).catch((e) => alert(deleteErr(e)));
-    }
-  }, [crud]);
+    if (!window.confirm(deleteMessage(node))) return;
+    // 삭제 전에 현재 라우트 대상이 삭제 subtree 안에 있는지 판단 — remove 가 트리에서 노드를
+    // 제거하기 전 스냅샷으로 평가한다(이후엔 더 이상 찾을 수 없다).
+    const killsActiveSubstation = !!routeSubstationId && subtreeContainsId(node, routeSubstationId);
+    const killsActiveFloor =
+      node.type === 'floor' && !!routeFloorId && node.id === routeFloorId;
+    void crud
+      .remove(node)
+      .then(() => {
+        // 활성 변전소(직접 삭제 또는 본부·지사 cascade)가 사라지면 스테일 워크스페이스 URL 탈출.
+        if (killsActiveSubstation) {
+          navigate('/');
+          return;
+        }
+        // 활성 층만 삭제: 변전소는 유효 → 그 변전소 워크스페이스로 보내 다른 층을 자동 재선택.
+        if (killsActiveFloor) {
+          if (routeSubstationId) navigate(`/substations/${routeSubstationId}/workspace`);
+          else navigate('/');
+        }
+      })
+      .catch((e) => useToastStore.getState().showToast(deleteErr(e), 'error'));
+  }, [crud, navigate, routeSubstationId, routeFloorId]);
 
   useEffect(() => {
     if (roots.length > 0) return;
     organizationApi.listHeadquarters().then((hqs) => {
-      setRoots(
-        hqs.map((hq) => ({
-          id: hq.id,
-          name: hq.name,
-          type: 'headquarters',
-          parentId: null,
-          children: [],
-          childrenLoaded: false,
-          expanded: false,
-          meta: { branchCount: hq.branchCount },
-        })),
-      );
+      setRoots(hqs.map(hqToNode));
     });
   }, [roots.length, setRoots]);
 

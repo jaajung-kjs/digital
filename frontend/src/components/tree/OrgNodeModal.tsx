@@ -92,7 +92,7 @@ export function OrgNodeModal({
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>취소</Button>
-          <Button disabled={!name.trim() || submitting} onClick={handleSubmit}>
+          <Button disabled={!canSubmit} onClick={handleSubmit}>
             {mode === 'add' ? '추가' : '저장'}
           </Button>
         </>
