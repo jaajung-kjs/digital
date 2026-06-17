@@ -12,13 +12,11 @@ interface OrganizationState {
   viewingNodeId: string | null;
   setViewingNodeId: (id: string | null) => void;
 
-  toggleNode: (id: string) => void;
   expandNode: (id: string) => void;
   expandAncestors: (id: string) => void;
   setChildren: (parentId: string, children: TreeNodeData[]) => void;
   renameNode: (id: string, name: string) => void;
   removeNode: (id: string) => void;
-  reorderChildren: (parentId: string | null, childIds: string[]) => void;
   findNode: (id: string) => TreeNodeData | null;
 
   reset: () => void;
@@ -68,14 +66,6 @@ export const useOrganizationStore = create<OrganizationState>((set, get) => ({
 
   setViewingNodeId: (id) => set({ viewingNodeId: id }),
 
-  toggleNode: (id) =>
-    set((state) => ({
-      roots: updateNodeInTree(state.roots, id, (node) => ({
-        ...node,
-        expanded: !node.expanded,
-      })),
-    })),
-
   expandNode: (id) =>
     set((state) => ({
       roots: updateNodeInTree(state.roots, id, (node) => ({
@@ -120,23 +110,6 @@ export const useOrganizationStore = create<OrganizationState>((set, get) => ({
     set((state) => ({
       roots: updateNodeInTree(state.roots, id, (node) => ({ ...node, name })),
     })),
-
-  reorderChildren: (parentId, childIds) =>
-    set((state) => {
-      const idOrder = new Map(childIds.map((id, i) => [id, i]));
-      const sortByOrder = <T extends { id: string }>(items: T[]) =>
-        [...items].sort((a, b) => (idOrder.get(a.id) ?? 0) - (idOrder.get(b.id) ?? 0));
-
-      if (!parentId) {
-        return { roots: sortByOrder(state.roots) };
-      }
-      return {
-        roots: updateNodeInTree(state.roots, parentId, (node) => ({
-          ...node,
-          children: sortByOrder(node.children),
-        })),
-      };
-    }),
 
   removeNode: (id) =>
     set((state) => ({

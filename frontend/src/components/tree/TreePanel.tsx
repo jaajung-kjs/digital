@@ -1,8 +1,15 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Building2, MapPin, Zap, Layers, ChevronRight, Plus } from 'lucide-react';
-import { organizationApi, fetchChildNodes, hqToNode } from '../../services/organizationApi';
+import { organizationApi } from '../../services/organizationApi';
 import { useOrganizationStore } from '../../stores/organizationStore';
+import { useSubstationWorkingCopy } from '../../features/workingCopy/substationStore';
+import {
+  useEffectiveHeadquarters,
+  useEffectiveBranches,
+  useEffectiveSubstations,
+  useEffectiveFloors,
+} from '../../features/workingCopy/hooks';
 import { useToastStore } from '../../features/editor/stores/toastStore';
 import { workspaceFloorUrl } from '../../features/workspace/workspaceUrls';
 import { IconButton } from '../ui';
@@ -10,6 +17,7 @@ import { TreeNodeMenu } from './TreeNodeMenu';
 import { OrgNodeModal } from './OrgNodeModal';
 import { useOrgNodeCrud } from './useOrgNodeCrud';
 import { childType } from './orgNodeActions';
+import { buildOrgTree } from './buildOrgTree';
 import type { TreeNodeData, NodeType } from '../../types/organization';
 
 /** node 와 그 하위(재귀)에 id 가 존재하는지 — 삭제 cascade 가 현재 라우트 대상을 포함하는지 판단 */
@@ -50,22 +58,93 @@ const NODE_LUCIDE_ICON: Record<NodeType, typeof Building2> = {
   floor: Layers,
 };
 
+/** 트리에서 id 노드의 조상 id 들을 수집(자기 자신 제외). */
+function ancestorIds(node: TreeNodeData, id: string, trail: string[] = []): string[] | null {
+  if (node.id === id) return trail;
+  for (const c of node.children) {
+    const found = ancestorIds(c, id, [...trail, node.id]);
+    if (found) return found;
+  }
+  return null;
+}
+
 export function TreePanel() {
   const navigate = useNavigate();
   const { substationId: routeSubstationId } = useParams<{ substationId: string }>();
   const [searchParams] = useSearchParams();
   const routeFloorId = searchParams.get('floor');
-  const {
-    roots, setRoots, selectedNodeId, selectNode,
-    toggleNode, setChildren, setViewingNodeId,
-    reorderChildren, findNode,
-  } = useOrganizationStore();
+
+  // 데이터소스: WC effective 4컬렉션 → 평면→트리 구성(전체 eager). 펼침은 로컬 상태.
+  const hqs = useEffectiveHeadquarters();
+  const branches = useEffectiveBranches();
+  const subs = useEffectiveSubstations();
+  const floors = useEffectiveFloors();
+  const roots = useMemo(
+    () => buildOrgTree(hqs, branches, subs, floors),
+    [hqs, branches, subs, floors],
+  );
+
+  // 선택 하이라이트·viewingNode 는 organizationStore 가 계속 소유(다른 소비자 공유).
+  const { selectedNodeId, selectNode, setViewingNodeId, setRoots } = useOrganizationStore();
+
+  // findNode/breadcrumb/trace/route-sync 소비자가 store.roots 를 계속 읽으므로
+  // 빌드된 트리를 store 에 미러링한다(렌더는 위 roots 로컬, store 는 lookup 용).
+  useEffect(() => {
+    setRoots(roots);
+  }, [roots, setRoots]);
+
+  // 펼침 상태(로컬). chevron 토글 / 라우트·선택 변화 시 조상 펼침.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const expandAncestorsOf = useCallback(
+    (id: string) => {
+      let trail: string[] | null = null;
+      for (const r of roots) {
+        const t = ancestorIds(r, id);
+        if (t) {
+          trail = t;
+          break;
+        }
+      }
+      if (!trail || trail.length === 0) return;
+      setExpandedIds((prev) => {
+        if (trail!.every((a) => prev.has(a))) return prev;
+        const next = new Set(prev);
+        for (const a of trail!) next.add(a);
+        return next;
+      });
+    },
+    [roots],
+  );
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
 
   const crud = useOrgNodeCrud();
   const [modal, setModal] = useState<ModalState | null>(null);
+
+  // 트리에서 id 노드 찾기(로컬 roots 기준).
+  const findInRoots = useCallback(
+    (id: string): TreeNodeData | null => {
+      const walk = (nodes: TreeNodeData[]): TreeNodeData | null => {
+        for (const n of nodes) {
+          if (n.id === id) return n;
+          const f = walk(n.children);
+          if (f) return f;
+        }
+        return null;
+      };
+      return walk(roots);
+    },
+    [roots],
+  );
 
   const handleAddChild = useCallback((node: TreeNodeData) => {
     const ct = childType(node.type);
@@ -83,7 +162,9 @@ export function TreePanel() {
       node.type === 'floor' && !!routeFloorId && node.id === routeFloorId;
     void crud
       .remove(node)
-      .then(() => {
+      .then(async () => {
+        // crud 는 즉시(immediate) 반영 — WC effective 도 새로 로드해 트리에서 사라지게 한다.
+        await useSubstationWorkingCopy.getState().loadOrgTree();
         // 활성 변전소(직접 삭제 또는 본부·지사 cascade)가 사라지면 스테일 워크스페이스 URL 탈출.
         if (killsActiveSubstation) {
           navigate('/');
@@ -98,59 +179,40 @@ export function TreePanel() {
       .catch((e) => useToastStore.getState().showToast(deleteErr(e), 'error'));
   }, [crud, navigate, routeSubstationId, routeFloorId]);
 
+  // eager 전체 트리 로드(1회). 비어 있을 때만 — 이후 stage/commit 은 effective 가 반영.
   useEffect(() => {
-    if (roots.length > 0) return;
-    organizationApi.listHeadquarters().then((hqs) => {
-      setRoots(hqs.map(hqToNode));
-    });
-  }, [roots.length, setRoots]);
+    if (hqs.length === 0) void useSubstationWorkingCopy.getState().loadOrgTree();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const loadChildren = useCallback(
-    async (node: TreeNodeData) => {
-      if (node.childrenLoaded) {
-        toggleNode(node.id);
-        return;
-      }
-      const children = await fetchChildNodes(node);
-      setChildren(node.id, children);
-    },
-    [toggleNode, setChildren],
-  );
+  // 라우트·선택 동기화: 활성 노드(라우트 우선)의 조상을 로컬 펼침.
+  const activeId = routeFloorId ?? routeSubstationId ?? selectedNodeId ?? null;
+  useEffect(() => {
+    if (activeId) expandAncestorsOf(activeId);
+  }, [activeId, expandAncestorsOf]);
 
   const handleClick = useCallback(
-    async (node: TreeNodeData) => {
+    (node: TreeNodeData) => {
       selectNode(node.id, node.type);
 
       if (node.type === 'floor') {
-        // floor 노드의 parentId 는 항상 소속 substation id (fetchChildNodes 참고) → 정규
-        // 워크스페이스 URL(단일 빌더)로 일원화.
+        // floor 노드의 parentId 는 항상 소속 substation id → 정규 워크스페이스 URL(단일 빌더).
         if (node.parentId) navigate(workspaceFloorUrl(node.parentId, node.id));
         return;
       }
 
-      if (node.type === 'substation') {
-        // 주 네비게이터: 단일클릭으로 워크스페이스 이동 + 층 펼치기.
-        // loadChildren 은 미로드면 fetch+펼침, 로드되어 있으면 토글 → 다시 클릭하면 접힘.
-        // (라우트 동기화의 expandAncestors 는 조상만 펼치므로 자기 접힘은 유지됨.)
-        await loadChildren(node);
-        setViewingNodeId(node.id);
-        navigate(`/substations/${node.id}/workspace`);
-        return;
-      }
-
-      // headquarters / branch: 워크스페이스 없음 — 선택 + 토글(다시 클릭하면 접힘) +
-      // viewingNode 유지하고 홈(/)으로 이동해 해당 노드의 현황(NodeStatusView)이 렌더되도록 한다.
-      await loadChildren(node);
+      // 본부/지사/변전소: 단일클릭으로 펼침 토글. 변전소는 워크스페이스 이동, 그 외는 홈.
+      toggleExpand(node.id);
       setViewingNodeId(node.id);
-      navigate('/');
+      if (node.type === 'substation') navigate(`/substations/${node.id}/workspace`);
+      else navigate('/');
     },
-    [selectNode, setViewingNodeId, loadChildren, navigate],
+    [selectNode, setViewingNodeId, toggleExpand, navigate],
   );
 
   const handleDoubleClick = useCallback(
     (node: TreeNodeData) => {
       if (node.type === 'floor') {
-        // floor 노드의 parentId 는 항상 소속 substation id (fetchChildNodes 참고) → 단일 빌더.
         if (node.parentId) navigate(workspaceFloorUrl(node.parentId, node.id));
       } else if (node.type === 'substation') {
         navigate(`/substations/${node.id}/workspace`);
@@ -168,7 +230,7 @@ export function TreePanel() {
   const handleTreeDragOver = useCallback((e: React.DragEvent, node: TreeNodeData) => {
     e.preventDefault();
     if (!dragId || dragId === node.id) return;
-    const dragNode = findNode(dragId);
+    const dragNode = findInRoots(dragId);
     if (!dragNode || dragNode.type !== node.type || dragNode.parentId !== node.parentId) return;
     e.dataTransfer.dropEffect = 'move';
     const rect = e.currentTarget.getBoundingClientRect();
@@ -176,19 +238,19 @@ export function TreePanel() {
     setDropTarget((prev) =>
       prev?.id === node.id && prev.position === position ? prev : { id: node.id, position }
     );
-  }, [dragId, findNode]);
+  }, [dragId, findInRoots]);
 
   const handleTreeDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     if (!dragId || !dropTarget) { setDragId(null); setDropTarget(null); return; }
-    const dragNode = findNode(dragId);
-    const targetNode = findNode(dropTarget.id);
+    const dragNode = findInRoots(dragId);
+    const targetNode = findInRoots(dropTarget.id);
     if (!dragNode || !targetNode || dragNode.type !== targetNode.type || dragNode.parentId !== targetNode.parentId) {
       setDragId(null); setDropTarget(null); return;
     }
 
     const parentId = dragNode.parentId;
-    const siblings = parentId ? (findNode(parentId)?.children ?? []) : roots;
+    const siblings = parentId ? (findInRoots(parentId)?.children ?? []) : roots;
     const oldIndex = siblings.findIndex((n) => n.id === dragId);
     let targetIndex = siblings.findIndex((n) => n.id === dropTarget.id);
     if (dropTarget.position === 'after') targetIndex++;
@@ -203,27 +265,25 @@ export function TreePanel() {
       setDragId(null); setDropTarget(null); return;
     }
 
-    reorderChildren(parentId, newIds);
     const reorderItems = newIds.map((id, i) => ({ id, sortOrder: i }));
     try {
+      // reorder 는 즉시(immediate) — API 반영 후 WC effective 재로드로 새 순서 반영.
       await organizationApi.reorder(dragNode.type, reorderItems);
+      await useSubstationWorkingCopy.getState().loadOrgTree();
     } catch {
-      reorderChildren(parentId, siblings.map((n) => n.id));
+      useToastStore.getState().showToast('순서 변경에 실패했습니다.', 'error');
     }
     setDragId(null); setDropTarget(null);
-  }, [dragId, dropTarget, findNode, roots, reorderChildren]);
+  }, [dragId, dropTarget, findInRoots, roots]);
 
   const hasChildren = (node: TreeNodeData) => {
     if (node.type === 'floor') return false; // Floor는 leaf
-    if (node.childrenLoaded) return node.children.length > 0;
-    if (node.type === 'headquarters') return (node.meta?.branchCount ?? 0) > 0;
-    if (node.type === 'branch') return (node.meta?.substationCount ?? 0) > 0;
-    if (node.type === 'substation') return (node.meta?.floorCount ?? 0) > 0;
-    return true;
+    return node.children.length > 0;
   };
 
   const renderNode = (node: TreeNodeData, level: number) => {
     const isSelected = selectedNodeId === node.id;
+    const isExpanded = expandedIds.has(node.id);
     const canExpand = hasChildren(node);
     const isDragging = dragId === node.id;
     const isDropBefore = dropTarget?.id === node.id && dropTarget.position === 'before';
@@ -249,14 +309,14 @@ export function TreePanel() {
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                loadChildren(node);
+                toggleExpand(node.id);
               }}
-              aria-label={node.expanded ? '\uc811\uae30' : '\ud3bc\uce58\uae30'}
+              aria-label={isExpanded ? '접기' : '펼치기'}
               className="w-4 h-4 flex items-center justify-center text-content-faint hover:text-content-muted flex-shrink-0"
             >
               <ChevronRight
                 size={14}
-                className={`transition-transform duration-150 ${node.expanded ? 'rotate-90' : ''}`}
+                className={`transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`}
               />
             </button>
           ) : (
@@ -278,7 +338,7 @@ export function TreePanel() {
           </div>
         </div>
         {isDropAfter && <div className="h-0.5 bg-primary rounded-full mx-2" style={{ marginLeft: `${level * 16 + 8}px` }} />}
-        {node.expanded && node.children.map((child) => renderNode(child, level + 1))}
+        {isExpanded && node.children.map((child) => renderNode(child, level + 1))}
       </div>
     );
   };
@@ -317,6 +377,8 @@ export function TreePanel() {
             } else {
               await crud.rename(modal.node, v.name);
             }
+            // crud 는 즉시 반영 — WC effective 재로드로 트리에 반영(Task 6 에서 스테이징 전환).
+            await useSubstationWorkingCopy.getState().loadOrgTree();
             setModal(null);
           }}
         />
