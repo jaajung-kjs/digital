@@ -3,7 +3,7 @@ import { PHOTOS } from './recordTypes';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
 import { commitSubstation, type FloorCommitSection } from './substationCommit';
-import { useSubstationWorkingCopy, recordsDescriptor, revokeStagedPhotoUrls, type AssetRecord } from './substationStore';
+import { useSubstationWorkingCopy, recordsDescriptor, revokeStagedPhotoUrls, sumOverlaysDirty, type AssetRecord } from './substationStore';
 import { mergeEffective } from './effective';
 import type { Overlay } from './overlay';
 import { useEditorStore } from '../editor/stores/editorStore';
@@ -146,7 +146,13 @@ export function useCommitWorkingCopy() {
   return useCallback(async (): Promise<{ ok: true } | { ok: false; conflicts: Conflict[] }> => {
     const wc = useSubstationWorkingCopy.getState();
     const substationId = wc.substationId;
-    if (!substationId) return { ok: true };
+    // 변경이 없으면 noop. 단, substationId 가 없어도 dirty 가 있으면(=조직 트리에서 변전소를
+    // 열지 않은 채 한 본부/지사/변전소/층 CRUD) 전역 커밋을 진행해야 한다 — 종전엔 여기서
+    // 무조건 early-return 후 아래 revert() 가 staged 조직 변경을 날려 데이터 손실(C2).
+    const dirtyCount = sumOverlaysDirty(wc.overlays);
+    if (dirtyCount === 0) return { ok: true };
+    // substationId 가 없는 경우 = 조직 전용 커밋 경로. 변전소-스코프 후처리(load/아카이브)는
+    // 아래에서 `if (substationId)` 가드로 건너뛴다.
 
     const ed = useEditorStore.getState();
     const floor = buildFloorSection(ed);
@@ -166,14 +172,17 @@ export function useCommitWorkingCopy() {
     try {
       // 사진 바이너리만 커밋 직전 업로드(URL 확보) → 메타데이터는 통합 커밋 트랜잭션에서 원자적으로.
       const photoUrls = await uploadStagedPhotos(wc.overlays.records);
+      // 전역 단일 커밋 — substationId 가 없으면 ''(backend commitGlobal 가 허용; 신규 자산/조직
+      // create 는 자기 substationId/부모 FK 를 직접 싣는다). org-only 경로에서도 동일 엔드포인트.
       const result = await commitSubstation(
-        substationId, wc.overlays, wc.saved.records, photoUrls, queryClient, floor,
+        substationId ?? '', wc.overlays, wc.saved.records, photoUrls, queryClient, floor,
       );
       revokeStagedPhotoUrls(wc.overlays); // 업로드 완료 → 미리보기 blob 해제
       // 전역 커밋 완료 → staged overlay 전부 클리어(전역 load 는 더 이상 overlay 를 비우지 않으므로 명시적으로).
       // revert 는 모든 컬렉션(조직 4컬렉션 포함)의 staged create/update/delete 를 비운다(freshOverlays 가 레지스트리 순회).
       useSubstationWorkingCopy.getState().revert();
-      await useSubstationWorkingCopy.getState().load(substationId);
+      // 변전소-스코프 재조정 — 변전소가 열려 있을 때만(org-only 경로엔 load 할 변전소가 없다).
+      if (substationId) await useSubstationWorkingCopy.getState().load(substationId);
       // 조직 트리 재로드 — 커밋으로 생성/수정된 조직 행의 real id/updatedAt 을 saved 로 끌어온다
       // (revert 로 staged org overlay 는 비웠으나 saved org 는 stale·temp id 가 남아 있으므로).
       // loadOrgTree 가 saved.org 를 권위로 교체하고 org overlay baseVersions 를 갱신한다.
@@ -202,7 +211,8 @@ export function useCommitWorkingCopy() {
       }
       // 레코드(점검/로그/사진) 무효화는 불필요 — commitSubstation 이 nodeAssets 무효화 + load 가 saved 재조정.
       // 활성 층에 변경이 있었으면 설계서를 작업지시서로 아카이브(실패해도 커밋은 성공).
-      if (activeFloorId && preCommitChanges && hasFloorChanges(preCommitChanges)) {
+      // org-only 경로(변전소 미오픈)에선 아카이브 대상 변전소가 없으므로 건너뛴다.
+      if (substationId && activeFloorId && preCommitChanges && hasFloorChanges(preCommitChanges)) {
         await archiveWorkOrder(substationId, activeFloorId, preCommitChanges, queryClient);
       }
       return { ok: true };

@@ -9,19 +9,27 @@ vi.mock('./substationCommit', () => ({
 }));
 
 // substation working copy store — load 만 stub(재조정 no-op).
+// substationId / dirty 는 테스트가 바꿀 수 있도록 모듈 스코프 가변값으로 둔다(C2 경로 검증).
+const storeStubs = {
+  substationId: 'sub1' as string | null,
+  load: vi.fn(async () => {}),
+  loadOrgTree: vi.fn(async () => {}),
+  revert: vi.fn(),
+};
+const sumOverlaysDirtyMock = vi.fn(() => 1);
 vi.mock('./substationStore', () => ({
   useSubstationWorkingCopy: {
     getState: () => ({
-      substationId: 'sub1',
+      substationId: storeStubs.substationId,
       overlays: {
         assets: {}, cables: {},
         // 자산 하위레코드는 단일 records 컬렉션(점검/로그/사진).
         records: { creates: {}, updates: {}, deletes: [] },
       },
       saved: { assets: [], cables: [], records: [] },
-      load: vi.fn(async () => {}),
-      loadOrgTree: vi.fn(async () => {}),
-      revert: vi.fn(),
+      load: storeStubs.load,
+      loadOrgTree: storeStubs.loadOrgTree,
+      revert: storeStubs.revert,
     }),
   },
   // flushPendingRecords 가 mergeEffective([], overlay, recordsDescriptor) 로 staged 레코드를 읽는다.
@@ -29,6 +37,8 @@ vi.mock('./substationStore', () => ({
     idOf: (x: { id: string }) => x.id, versionOf: () => null,
   },
   revokeStagedPhotoUrls: () => {},
+  // dirty 게이트(C2) — 기본은 변경 있음(>0)으로 두어 커밋이 진행되게 한다.
+  sumOverlaysDirty: () => sumOverlaysDirtyMock(),
 }));
 
 // editor store — 활성 층 + baseFloorVersion 보유.
@@ -76,6 +86,11 @@ describe('useCommitWorkingCopy', () => {
     // vitest config 의 mockReset:true 가 매 테스트 구현을 비우므로 여기서 재설정.
     vi.mocked(commitSubstation).mockResolvedValue({ idMaps: { assets: {} } } as never);
     setBaseFloorVersionSpy.mockClear();
+    storeStubs.substationId = 'sub1';
+    storeStubs.load.mockClear();
+    storeStubs.loadOrgTree.mockClear();
+    storeStubs.revert.mockClear();
+    sumOverlaysDirtyMock.mockReturnValue(1);
   });
 
   it('커밋 응답의 새 floor.updatedAt 으로 baseFloorVersion 을 동기적으로 갱신한다(2회차 409 견고화)', async () => {
@@ -114,5 +129,36 @@ describe('useCommitWorkingCopy', () => {
 
     expect(res).toEqual({ ok: true });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['floorPlan', 'floor1'] });
+  });
+
+  it('C2 — 변전소 미오픈 + dirty 조직 변경: 전역 커밋(substationId="")·early-return 안 함·org 재로드, load 스킵', async () => {
+    storeStubs.substationId = null; // 트리에서 "본부 추가" 등 — 변전소를 열지 않음
+    sumOverlaysDirtyMock.mockReturnValue(1); // 조직 staged 변경 있음
+
+    const qc = new QueryClient();
+    const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
+    const res = await result.current();
+
+    expect(res).toEqual({ ok: true });
+    // 종전 early-return 회귀 방지: 반드시 commit 이 호출돼야 한다(noop·손실 금지).
+    expect(commitSubstation).toHaveBeenCalledTimes(1);
+    // substationId 가 없으면 '' 로 전역 커밋(backend commitGlobal).
+    expect(vi.mocked(commitSubstation).mock.calls[0][0]).toBe('');
+    // 변전소-스코프 load 는 스킵, org 트리는 재로드.
+    expect(storeStubs.load).not.toHaveBeenCalled();
+    expect(storeStubs.revert).toHaveBeenCalled();
+    expect(storeStubs.loadOrgTree).toHaveBeenCalled();
+  });
+
+  it('C2 — 변경 없음(dirty=0)이면 early-return, commit 안 함', async () => {
+    sumOverlaysDirtyMock.mockReturnValue(0);
+
+    const qc = new QueryClient();
+    const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
+    const res = await result.current();
+
+    expect(res).toEqual({ ok: true });
+    expect(commitSubstation).not.toHaveBeenCalled();
+    expect(storeStubs.revert).not.toHaveBeenCalled();
   });
 });

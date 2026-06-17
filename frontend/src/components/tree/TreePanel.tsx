@@ -18,6 +18,7 @@ import { OrgNodeModal } from './OrgNodeModal';
 import { useOrgNodeCrud } from './useOrgNodeCrud';
 import { childType } from './orgNodeActions';
 import { buildOrgTree } from './buildOrgTree';
+import { isTempId } from '../../utils/idHelpers';
 import type { TreeNodeData, NodeType } from '../../types/organization';
 
 /** node 와 그 하위(재귀)에 id 가 존재하는지 — 삭제 cascade 가 현재 라우트 대상을 포함하는지 판단 */
@@ -264,7 +265,13 @@ export function TreePanel() {
       setDragId(null); setDropTarget(null); return;
     }
 
-    const reorderItems = newIds.map((id, i) => ({ id, sortOrder: i }));
+    // staged create(temp-id) 형제는 아직 DB 에 없다 → reorder API(prisma update where:{id})
+    // 가 P2025 로 reorder 전체를 롤백한다. 영속된 형제만 보낸다(스테이지 항목은 커밋 시
+    // create-time sortOrder 유지 — reorder 는 즉시 반영 스코프).
+    const reorderItems = newIds
+      .filter((id) => !isTempId(id))
+      .map((id, i) => ({ id, sortOrder: i }));
+    if (reorderItems.length === 0) { setDragId(null); setDropTarget(null); return; }
     try {
       // reorder 는 즉시(immediate) — API 반영 후 WC effective 재로드로 새 순서 반영.
       await organizationApi.reorder(dragNode.type, reorderItems);
