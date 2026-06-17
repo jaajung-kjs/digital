@@ -1,10 +1,38 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, MapPin, Zap, Layers, ChevronRight } from 'lucide-react';
+import { Building2, MapPin, Zap, Layers, ChevronRight, Plus } from 'lucide-react';
 import { organizationApi, fetchChildNodes } from '../../services/organizationApi';
 import { useOrganizationStore } from '../../stores/organizationStore';
 import { workspaceFloorUrl } from '../../features/workspace/workspaceUrls';
+import { IconButton } from '../ui';
+import { TreeNodeMenu } from './TreeNodeMenu';
+import { OrgNodeModal } from './OrgNodeModal';
+import { useOrgNodeCrud } from './useOrgNodeCrud';
+import { childType } from './orgNodeActions';
 import type { TreeNodeData, NodeType } from '../../types/organization';
+
+/** 삭제 확인 문구 — 타입별 cascade 경고 */
+function deleteMessage(node: TreeNodeData): string {
+  switch (node.type) {
+    case 'headquarters':
+      return `'${node.name}' 본부를 삭제하면 하위 지사·변전소·층·자산이 모두 삭제됩니다. 계속할까요?`;
+    case 'branch':
+      return `'${node.name}' 지사를 삭제하면 하위 변전소·층·자산이 모두 삭제됩니다. 계속할까요?`;
+    case 'substation':
+      return `'${node.name}' 변전소를 삭제하면 하위 층·자산·연결이 모두 삭제됩니다. 계속할까요?`;
+    case 'floor':
+    default:
+      return `'${node.name}' 층을 삭제하시겠습니까? (자산은 미배치 상태로 남습니다)`;
+  }
+}
+
+function deleteErr(e: unknown): string {
+  return e instanceof Error ? e.message : '삭제에 실패했습니다.';
+}
+
+type ModalState =
+  | { mode: 'add'; targetType: NodeType; parent?: TreeNodeData }
+  | { mode: 'edit'; targetType: NodeType; node: TreeNodeData; initialName: string };
 
 // 계층 레벨별 lucide 아이콘 (node.type 기준): 본부=Building2, 사업소=MapPin,
 // 변전소=Zap, 층=Layers
@@ -25,6 +53,22 @@ export function TreePanel() {
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ id: string; position: 'before' | 'after' } | null>(null);
+
+  const crud = useOrgNodeCrud();
+  const [modal, setModal] = useState<ModalState | null>(null);
+
+  const handleAddChild = useCallback((node: TreeNodeData) => {
+    const ct = childType(node.type);
+    if (ct) setModal({ mode: 'add', targetType: ct, parent: node });
+  }, []);
+  const handleRename = useCallback((node: TreeNodeData) => {
+    setModal({ mode: 'edit', targetType: node.type, node, initialName: node.name });
+  }, []);
+  const handleDelete = useCallback((node: TreeNodeData) => {
+    if (window.confirm(deleteMessage(node))) {
+      void crud.remove(node).catch((e) => alert(deleteErr(e)));
+    }
+  }, [crud]);
 
   useEffect(() => {
     if (roots.length > 0) return;
@@ -177,7 +221,7 @@ export function TreePanel() {
           onDragOver={(e) => handleTreeDragOver(e, node)}
           onDrop={handleTreeDrop}
           onDragEnd={() => { setDragId(null); setDropTarget(null); }}
-          className={`flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-surface-2 active:bg-surface-3 rounded-md text-sm transition-colors ${
+          className={`group relative flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-surface-2 active:bg-surface-3 rounded-md text-sm transition-colors ${
             isSelected ? 'bg-line text-primary font-medium' : 'text-content-muted'
           } ${isDragging ? 'opacity-40' : ''}`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
@@ -206,6 +250,14 @@ export function TreePanel() {
             return <Icon size={16} className="flex-shrink-0 text-content-muted" />;
           })()}
           <span className="truncate">{node.name}</span>
+          <div className="ml-auto flex-shrink-0">
+            <TreeNodeMenu
+              node={node}
+              onAddChild={handleAddChild}
+              onRename={handleRename}
+              onDelete={handleDelete}
+            />
+          </div>
         </div>
         {isDropAfter && <div className="h-0.5 bg-primary rounded-full mx-2" style={{ marginLeft: `${level * 16 + 8}px` }} />}
         {node.expanded && node.children.map((child) => renderNode(child, level + 1))}
@@ -215,13 +267,41 @@ export function TreePanel() {
 
   return (
     <div className="py-2">
-      <div className="px-3 py-2 text-xs font-semibold text-content-muted uppercase tracking-wider">
-        조직 트리
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-xs font-semibold text-content-muted uppercase tracking-wider">
+          조직 트리
+        </span>
+        <IconButton
+          aria-label="본부 추가"
+          className="p-1"
+          onClick={() => setModal({ mode: 'add', targetType: 'headquarters' })}
+        >
+          <Plus size={16} />
+        </IconButton>
       </div>
       {roots.length === 0 ? (
         <div className="px-4 py-8 text-center text-sm text-content-faint">로딩 중...</div>
       ) : (
         roots.map((root) => renderNode(root, 0))
+      )}
+
+      {modal && (
+        <OrgNodeModal
+          open
+          mode={modal.mode}
+          targetType={modal.targetType}
+          initialName={modal.mode === 'edit' ? modal.initialName : undefined}
+          onClose={() => setModal(null)}
+          onSubmit={async (v) => {
+            if (modal.mode === 'add') {
+              if (modal.parent) await crud.addChild(modal.parent, v);
+              else await crud.addHeadquarters(v.name);
+            } else {
+              await crud.rename(modal.node, v.name);
+            }
+            setModal(null);
+          }}
+        />
       )}
     </div>
   );
