@@ -30,6 +30,10 @@ const updateBranchSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+// ==================== Org Tree (전체 트리 평면 로드) ====================
+
+router.get('/tree', organizationController.getTree);
+
 // ==================== Headquarters Routes ====================
 
 router.get('/headquarters', headquartersController.getList);
