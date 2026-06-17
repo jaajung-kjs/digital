@@ -14,6 +14,7 @@ import {
 } from './substationStore';
 import type { RecordTypeKey } from './recordTypes';
 import { mergeEffective } from './effective';
+import { isTempId } from '../../utils/idHelpers';
 import { cableOnFloor } from './floorAnchor';
 import { toMapById } from '../../utils/byId';
 import type { Asset } from '../../types/asset';
@@ -191,6 +192,9 @@ export function useWorkingCopyLoader(substationId: string | null) {
   const loaded = useWorkingCopyLoaded(substationId);
   const load = useSubstationWorkingCopy((s) => s.load);
   useEffect(() => {
-    if (substationId && !loaded) void load(substationId);
+    // staged(temp) 변전소는 서버 워킹카피가 없다 — 데이터는 이미 전역 overlay 에 있다.
+    // temp id 로 load 하면 빈 응답으로 substationId 가 temp 가 되고, 변전소-스코프 쿼리가
+    // 404 재시도를 일으켜 커밋 refetch 를 지연시킨다(저장 무반응처럼 보임). → 건너뛴다.
+    if (substationId && !isTempId(substationId) && !loaded) void load(substationId);
   }, [substationId, loaded, load]);
 }
