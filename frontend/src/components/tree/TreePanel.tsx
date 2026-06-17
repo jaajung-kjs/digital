@@ -162,9 +162,8 @@ export function TreePanel() {
       node.type === 'floor' && !!routeFloorId && node.id === routeFloorId;
     void crud
       .remove(node)
-      .then(async () => {
-        // crud 는 즉시(immediate) 반영 — WC effective 도 새로 로드해 트리에서 사라지게 한다.
-        await useSubstationWorkingCopy.getState().loadOrgTree();
+      .then(() => {
+        // crud 는 staged 반영 — effective 트리에서 자동으로 사라진다(별도 재로드 불필요).
         // 활성 변전소(직접 삭제 또는 본부·지사 cascade)가 사라지면 스테일 워크스페이스 URL 탈출.
         if (killsActiveSubstation) {
           navigate('/');
@@ -377,8 +376,7 @@ export function TreePanel() {
             } else {
               await crud.rename(modal.node, v.name);
             }
-            // crud 는 즉시 반영 — WC effective 재로드로 트리에 반영(Task 6 에서 스테이징 전환).
-            await useSubstationWorkingCopy.getState().loadOrgTree();
+            // crud 는 staged 반영 — effective 트리에 자동 반영(별도 재로드 불필요).
             setModal(null);
           }}
         />
