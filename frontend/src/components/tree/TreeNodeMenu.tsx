@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
 import { IconButton } from '../ui';
 import { childLabel } from './orgNodeActions';
@@ -12,9 +13,10 @@ interface TreeNodeMenuProps {
 }
 
 /**
- * 트리 노드 호버 케밥 메뉴. 드롭다운은 앱 표준 메뉴 패턴(CanvasContextMenu 동일)을 따른다 —
- * `fixed z-50` + `fixed inset-0 z-40` 백드롭 + 트리거 사각형 기준 좌표. 트리 행의
- * 스태킹/overflow 에 갇히지 않아 뒤 행 글씨에 가려지지 않는다.
+ * 트리 노드 호버 케밥 메뉴. 드롭다운은 `document.body` 로 portal 렌더한다 —
+ * 트리거가 `opacity-0`(호버 노출) 래퍼와 `transform` 조상(케밥 컨테이너의 -translate-y-1/2)
+ * 안에 있어서, 그 안에 두면 opacity 상속으로 안 보이거나 fixed 기준이 어긋난다.
+ * portal + fixed + z-50 으로 스태킹/opacity/transform 영향을 완전히 벗어난다.
  */
 export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeMenuProps) {
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
@@ -45,7 +47,7 @@ export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeM
   const itemClass = 'w-full text-left px-3 py-1.5 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40';
 
   return (
-    <div ref={wrapRef} className="opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+    <div ref={wrapRef} className={open ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}>
       <IconButton
         aria-label="노드 메뉴"
         active={open}
@@ -56,7 +58,7 @@ export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeM
         <MoreHorizontal size={16} />
       </IconButton>
 
-      {open && (
+      {open && pos && createPortal(
         <>
           <div
             className="fixed inset-0 z-40"
@@ -78,7 +80,8 @@ export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeM
               삭제
             </button>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );
