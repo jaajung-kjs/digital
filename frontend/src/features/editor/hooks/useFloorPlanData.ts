@@ -10,6 +10,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useViewport } from './useViewport';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useWorkingCopyLoader, useWorkingCopyLoaded } from '../../workingCopy/hooks';
+import { isTempId } from '../../../utils/idHelpers';
 
 // SSOT-2d Task 2 — planCablesToLocalCables 제거. 케이블은 더 이상 plan 응답에서
 // editorStore 로 평탄화하지 않는다 (통합 working copy 가 effective 케이블 제공, Task 3).
@@ -46,7 +47,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       const response = await api.get<{ data: FloorDetail }>(`/floors/${floorId}`);
       return response.data.data;
     },
-    enabled: !!floorId,
+    enabled: !!floorId && !isTempId(floorId),
   });
 
   // SSOT-2d Task 2 — 층의 변전소 단위 통합 working copy 로드. 변전소 워크스페이스에선
@@ -65,7 +66,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       const response = await api.get<{ data: FloorPlanDetail }>(`/floors/${floorId}/plan`);
       return response.data.data;
     },
-    enabled: !!floorId,
+    enabled: !!floorId && !isTempId(floorId),
     retry: false,
   });
 

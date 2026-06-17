@@ -143,7 +143,7 @@ function extractConflicts(e: unknown): Conflict[] {
  */
 export function useCommitWorkingCopy() {
   const queryClient = useQueryClient();
-  return useCallback(async (): Promise<{ ok: true } | { ok: false; conflicts: Conflict[] }> => {
+  return useCallback(async (): Promise<{ ok: true; idMaps?: Record<string, Record<string, string>> } | { ok: false; conflicts: Conflict[] }> => {
     const wc = useSubstationWorkingCopy.getState();
     const substationId = wc.substationId;
     // 변경이 없으면 noop. 단, substationId 가 없어도 dirty 가 있으면(=조직 트리에서 변전소를
@@ -215,7 +215,9 @@ export function useCommitWorkingCopy() {
       if (substationId && activeFloorId && preCommitChanges && hasFloorChanges(preCommitChanges)) {
         await archiveWorkOrder(substationId, activeFloorId, preCommitChanges, queryClient);
       }
-      return { ok: true };
+      // idMaps(temp→real)를 호출부에 돌려준다 — staged 로 만든 변전소/층의 temp id 가
+      // URL 에 남아 있으면 커밋 후 real id 로 치환해야 평면도가 404 없이 로드된다.
+      return { ok: true, idMaps: result.idMaps };
     } catch (e) {
       if (is409(e)) return { ok: false, conflicts: extractConflicts(e) };
       throw e;

@@ -17,7 +17,7 @@ import { floorTargetFor } from '../../workingCopy/floorAnchor';
 import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useInteractionStore } from '../stores/interactionStore';
-import { generateTempId } from '../../../utils/idHelpers';
+import { generateTempId, isTempId } from '../../../utils/idHelpers';
 import { Toolbar } from './Toolbar';
 import { EditorInsertBar } from './EditorInsertBar';
 import { CanvasView } from './CanvasView';
@@ -388,9 +388,11 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
 
   const isPlanNotFound = planError && (planError as { response?: { status: number } }).response?.status === 404;
+  // staged 로 만든 층(temp id)은 아직 서버에 없다 → 평면도 로드 불가. 저장 안내를 보여준다.
+  const isUnsaved = isTempId(floorId);
   const isLoading = floorLoading || planLoading;
 
-  if (isLoading && !isPlanNotFound) {
+  if (isLoading && !isPlanNotFound && !isUnsaved) {
     return (
       <div className="flex justify-center items-center h-full">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -414,7 +416,14 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       <EditorInsertBar />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {isPlanNotFound ? (
+        {isUnsaved ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-content">아직 저장되지 않은 층입니다</h3>
+              <p className="mt-2 text-content-muted">상단의 <span className="font-medium text-content">저장</span> 버튼으로 저장하면 평면도를 편집할 수 있습니다.</p>
+            </div>
+          </div>
+        ) : isPlanNotFound ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <h3 className="text-lg font-medium text-content">평면도를 찾을 수 없습니다</h3>

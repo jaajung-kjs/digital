@@ -104,7 +104,7 @@ describe('useCommitWorkingCopy', () => {
     const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
     const res = await result.current();
 
-    expect(res).toEqual({ ok: true });
+    expect(res.ok).toBe(true);
     expect(setBaseFloorVersionSpy).toHaveBeenCalledWith('v2');
   });
 
@@ -116,7 +116,7 @@ describe('useCommitWorkingCopy', () => {
     const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
     const res = await result.current();
 
-    expect(res).toEqual({ ok: true });
+    expect(res.ok).toBe(true);
     expect(setBaseFloorVersionSpy).not.toHaveBeenCalled();
   });
 
@@ -127,7 +127,7 @@ describe('useCommitWorkingCopy', () => {
     const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
     const res = await result.current();
 
-    expect(res).toEqual({ ok: true });
+    expect(res.ok).toBe(true);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['floorPlan', 'floor1'] });
   });
 
@@ -139,7 +139,7 @@ describe('useCommitWorkingCopy', () => {
     const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
     const res = await result.current();
 
-    expect(res).toEqual({ ok: true });
+    expect(res.ok).toBe(true);
     // 종전 early-return 회귀 방지: 반드시 commit 이 호출돼야 한다(noop·손실 금지).
     expect(commitSubstation).toHaveBeenCalledTimes(1);
     // substationId 가 없으면 '' 로 전역 커밋(backend commitGlobal).
@@ -157,7 +157,7 @@ describe('useCommitWorkingCopy', () => {
     const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
     const res = await result.current();
 
-    expect(res).toEqual({ ok: true });
+    expect(res.ok).toBe(true);
     expect(commitSubstation).not.toHaveBeenCalled();
     expect(storeStubs.revert).not.toHaveBeenCalled();
   });

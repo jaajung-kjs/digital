@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSubstationWorkingCopy, revokeStagedPhotoUrls } from './substationStore';
 import { useUnifiedDirty } from './hooks';
@@ -22,6 +23,8 @@ export function WorkingCopyCommitBar() {
   const dirty = useUnifiedDirty();
   const commit = useCommitWorkingCopy();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [busy, setBusy] = useState(false);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
 
@@ -32,8 +35,18 @@ export function WorkingCopyCommitBar() {
     setBusy(true);
     try {
       const result = await commit();
-      if (!result.ok) setConflicts(result.conflicts);
-      // ok=true → 훅이 이미 재조정(load)했다. 추가 작업 없음.
+      if (!result.ok) { setConflicts(result.conflicts); return; }
+      // ok=true → 훅이 이미 재조정(load)했다. staged 로 만든 변전소/층의 temp id 가
+      // URL(경로+쿼리)에 남아 있으면 real id 로 치환 — 안 하면 평면도가 temp id 로 404.
+      // temp id 는 'temp-<uuid>' 고유 문자열이라 단순 문자열 치환이 안전(라우트 구조 비종속).
+      if (result.idMaps) {
+        const before = location.pathname + location.search;
+        let after = before;
+        for (const coll of Object.values(result.idMaps)) {
+          for (const [tmp, real] of Object.entries(coll)) after = after.split(tmp).join(real);
+        }
+        if (after !== before) navigate(after, { replace: true });
+      }
     } catch {
       window.alert('저장에 실패했습니다.');
     } finally {
