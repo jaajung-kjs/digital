@@ -5,6 +5,10 @@ import {
   assetDescriptor,
   cableDescriptor,
   recordsDescriptor,
+  headquartersDescriptor,
+  branchDescriptor,
+  orgSubstationDescriptor,
+  floorDescriptor,
   sumOverlaysDirty,
   type AssetRecord,
 } from './substationStore';
@@ -38,6 +42,31 @@ export function useEffectiveCables() {
   const saved = useSubstationWorkingCopy((s) => s.saved.cables);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.cables);
   return useMemo(() => mergeEffective(saved, overlay, cableDescriptor), [saved, overlay]);
+}
+
+// ── 조직 4컬렉션 effective 훅 — useEffectiveAssets 패턴(saved+overlay 슬라이스 구독 + useMemo). ──
+export function useEffectiveHeadquarters() {
+  const saved = useSubstationWorkingCopy((s) => s.saved.headquarters);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.headquarters);
+  return useMemo(() => mergeEffective(saved, overlay, headquartersDescriptor), [saved, overlay]);
+}
+
+export function useEffectiveBranches() {
+  const saved = useSubstationWorkingCopy((s) => s.saved.branches);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.branches);
+  return useMemo(() => mergeEffective(saved, overlay, branchDescriptor), [saved, overlay]);
+}
+
+export function useEffectiveSubstations() {
+  const saved = useSubstationWorkingCopy((s) => s.saved.substations);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.substations);
+  return useMemo(() => mergeEffective(saved, overlay, orgSubstationDescriptor), [saved, overlay]);
+}
+
+export function useEffectiveFloors() {
+  const saved = useSubstationWorkingCopy((s) => s.saved.floors);
+  const overlay = useSubstationWorkingCopy((s) => s.overlays.floors);
+  return useMemo(() => mergeEffective(saved, overlay, floorDescriptor), [saved, overlay]);
 }
 
 /**

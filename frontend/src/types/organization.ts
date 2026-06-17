@@ -37,3 +37,42 @@ export interface BranchSubstationItem {
   address: string | null;
   floorCount: number;
 }
+
+// ── 평면(flat) 조직 타입 — GET /organizations/tree 응답. 워킹카피 컬렉션의 행 타입.
+//    WC descriptor 가 idOf/versionOf 만 요구하므로 id + updatedAt 이 필수.
+export interface OrgHeadquarters {
+  id: string;
+  name: string;
+  sortOrder: number;
+  updatedAt: string;
+}
+export interface OrgBranch {
+  id: string;
+  name: string;
+  headquartersId: string;
+  sortOrder: number;
+  updatedAt: string;
+}
+export interface OrgSubstation {
+  id: string;
+  name: string;
+  branchId: string | null;
+  address: string | null;
+  sortOrder: number;
+  updatedAt: string;
+}
+export interface OrgFloor {
+  id: string;
+  name: string;
+  substationId: string;
+  floorNumber: string | null;
+  sortOrder: number;
+  updatedAt: string;
+}
+
+export interface OrgTree {
+  headquarters: OrgHeadquarters[];
+  branches: OrgBranch[];
+  substations: OrgSubstation[];
+  floors: OrgFloor[];
+}

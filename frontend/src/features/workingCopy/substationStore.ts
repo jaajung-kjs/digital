@@ -3,7 +3,9 @@ import { temporal } from 'zundo';
 import { shallow } from 'zustand/shallow';
 import { api } from '../../utils/api';
 import { isTempId } from '../../utils/idHelpers';
+import { organizationApi } from '../../services/organizationApi';
 import type { Asset } from '../../types/asset';
+import type { OrgHeadquarters, OrgBranch, OrgSubstation, OrgFloor } from '../../types/organization';
 import type { EquipmentKind } from '../../types/equipmentKind';
 import {
   emptyOverlay,
@@ -118,10 +120,20 @@ export interface AssetRecord {
 const recordsDescriptor = makeDescriptor<AssetRecord>();
 export { recordsDescriptor };
 
+// 조직 4컬렉션 descriptor — loadOrgTree 로 한 번 전역 로드, effective/dirty 엔진 공통 사용.
+export const headquartersDescriptor = makeDescriptor<OrgHeadquarters>();
+export const branchDescriptor = makeDescriptor<OrgBranch>();
+export const orgSubstationDescriptor = makeDescriptor<OrgSubstation>();
+export const floorDescriptor = makeDescriptor<OrgFloor>();
+
 const COLLECTIONS = {
   assets: assetDescriptor,
   cables: cableDescriptor,
   records: recordsDescriptor,
+  headquarters: headquartersDescriptor,
+  branches: branchDescriptor,
+  substations: orgSubstationDescriptor,
+  floors: floorDescriptor,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
 export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
@@ -137,12 +149,21 @@ interface SavedCollections {
   assets: Asset[];
   cables: Cable[];
   records: AssetRecord[]; // 워킹카피가 각 자산 안에 중첩해 반환 → buildSaved 가 평탄화
+  // 조직 4컬렉션 — loadOrgTree 로 전역 로드(per-substation load 와 무관).
+  headquarters: OrgHeadquarters[];
+  branches: OrgBranch[];
+  substations: OrgSubstation[];
+  floors: OrgFloor[];
 }
 
 interface Overlays {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Cable, Partial<Cable>>;
   records: Overlay<AssetRecord, Partial<AssetRecord>>;
+  headquarters: Overlay<OrgHeadquarters, Partial<OrgHeadquarters>>;
+  branches: Overlay<OrgBranch, Partial<OrgBranch>>;
+  substations: Overlay<OrgSubstation, Partial<OrgSubstation>>;
+  floors: Overlay<OrgFloor, Partial<OrgFloor>>;
 }
 
 /**
@@ -162,6 +183,12 @@ function buildSaved(raw: Record<string, unknown>): SavedCollections {
     assets,
     cables: (raw.cables as Cable[]) ?? [],
     records,
+    // 조직 4컬렉션은 per-substation 워킹카피 payload 에 없다 → 기본 []. loadOrgTree 로 전역 채움.
+    // (per-substation load 의 mergeSavedById 가 기존 org saved 를 보존하므로 여기 []는 incoming 으로만 쓰임.)
+    headquarters: (raw.headquarters as OrgHeadquarters[]) ?? [],
+    branches: (raw.branches as OrgBranch[]) ?? [],
+    substations: (raw.substations as OrgSubstation[]) ?? [],
+    floors: (raw.floors as OrgFloor[]) ?? [],
   };
 }
 
@@ -214,6 +241,9 @@ function mergeSavedById(
       const c = r as unknown as { sourceAssetId?: string | null; targetAssetId?: string | null };
       return (!!c.sourceAssetId && sAssetIds.has(c.sourceAssetId)) || (!!c.targetAssetId && sAssetIds.has(c.targetAssetId));
     }
+    // 조직 4컬렉션은 per-substation 스코프가 아니라 전역(loadOrgTree). per-substation load 의
+    // incoming 엔 없으므로 절대 S 스코프로 판정하지 않는다 → 항상 보존(드롭 금지).
+    if (key === 'headquarters' || key === 'branches' || key === 'substations' || key === 'floors') return false;
     const rec = r as unknown as { assetId?: string | null };
     return !!rec.assetId && sAssetIds.has(rec.assetId);
   };
@@ -255,6 +285,8 @@ export interface SubstationWorkingCopyState {
 
   // ── lifecycle ──
   load: (substationId: string) => Promise<void>;
+  /** 조직트리 전체(평면)를 전역 saved 로 1회 로드. per-substation load 와 독립. staged org overlay 는 보존. */
+  loadOrgTree: () => Promise<void>;
   /** 409 후 재로드: saved/baseVersions 만 최신화하고 staged overlay 는 보존. */
   refreshBaseVersions: (substationId: string) => Promise<void>;
   revert: () => void;
@@ -299,6 +331,10 @@ export interface SubstationWorkingCopyState {
   effectiveEquipment: (floorId: string) => Asset[];
   effectiveRackModules: (rackId: string) => Asset[];
   effectiveCables: () => Cable[];
+  effectiveHeadquarters: () => OrgHeadquarters[];
+  effectiveBranches: () => OrgBranch[];
+  effectiveSubstations: () => OrgSubstation[];
+  effectiveFloors: () => OrgFloor[];
 
   dirtyCount: () => number;
 }
@@ -335,6 +371,41 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           overlays: addBaseVersions(s.overlays, incoming),
         }));
         t.resume();
+      },
+
+      loadOrgTree: async () => {
+        const t = await organizationApi.getTree();
+        // 조직 saved 를 권위로 교체하고, 조직 overlay 의 baseVersions 만 새 행으로 갱신한다.
+        // staged creates/updates/deletes 는 보존(전역 1회 로드 후 편집 진행 가능) — load 와 동일하게 비기록.
+        const tt = useSubstationWorkingCopy.temporal.getState();
+        tt.pause();
+        set((s) => {
+          const orgIncoming: Pick<SavedCollections, 'headquarters' | 'branches' | 'substations' | 'floors'> = {
+            headquarters: t.headquarters,
+            branches: t.branches,
+            substations: t.substations,
+            floors: t.floors,
+          };
+          const refreshOverlay = <T extends { id: string; updatedAt?: string | null }>(
+            ov: Overlay<T, Partial<T>>,
+            rows: T[],
+            desc: CollectionDescriptor<T>,
+          ): Overlay<T, Partial<T>> => ({
+            ...ov,
+            baseVersions: snapshotBaseVersions(rows, desc.idOf, desc.versionOf),
+          });
+          return {
+            saved: { ...s.saved, ...orgIncoming },
+            overlays: {
+              ...s.overlays,
+              headquarters: refreshOverlay(s.overlays.headquarters, t.headquarters, headquartersDescriptor),
+              branches: refreshOverlay(s.overlays.branches, t.branches, branchDescriptor),
+              substations: refreshOverlay(s.overlays.substations, t.substations, orgSubstationDescriptor),
+              floors: refreshOverlay(s.overlays.floors, t.floors, floorDescriptor),
+            },
+          };
+        });
+        tt.resume();
       },
 
       refreshBaseVersions: async (substationId) => {
@@ -532,6 +603,22 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       effectiveCables: () => {
         const s = get();
         return mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor);
+      },
+      effectiveHeadquarters: () => {
+        const s = get();
+        return mergeEffective(s.saved.headquarters, s.overlays.headquarters, headquartersDescriptor);
+      },
+      effectiveBranches: () => {
+        const s = get();
+        return mergeEffective(s.saved.branches, s.overlays.branches, branchDescriptor);
+      },
+      effectiveSubstations: () => {
+        const s = get();
+        return mergeEffective(s.saved.substations, s.overlays.substations, orgSubstationDescriptor);
+      },
+      effectiveFloors: () => {
+        const s = get();
+        return mergeEffective(s.saved.floors, s.overlays.floors, floorDescriptor);
       },
 
       dirtyCount: () => {

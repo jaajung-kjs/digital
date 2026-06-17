@@ -1,8 +1,14 @@
 import { api } from '../utils/api';
 import type { HeadquartersItem, BranchItem, BranchSubstationItem, FloorListItem } from '../types';
-import type { TreeNodeData, NodeType } from '../types/organization';
+import type { TreeNodeData, NodeType, OrgTree } from '../types/organization';
 
 export const organizationApi = {
+  // ── 조직트리 전체(평면) — 워킹카피 eager-load 용 ──
+  getTree: async (): Promise<OrgTree> => {
+    const { data } = await api.get<{ data: OrgTree }>('/organizations/tree');
+    return data.data;
+  },
+
   // ── Headquarters ──
   listHeadquarters: async (): Promise<HeadquartersItem[]> => {
     const { data } = await api.get<{ data: HeadquartersItem[] }>('/organizations/headquarters');
