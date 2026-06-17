@@ -1,13 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Input, Button } from '../ui';
+import { NODE_NOUN } from './orgNodeActions';
 import type { NodeType } from '../../types/organization';
-
-const KOREAN_NOUN: Record<NodeType, string> = {
-  headquarters: '본부',
-  branch: '지사',
-  substation: '변전소',
-  floor: '층',
-};
 
 export interface OrgNodeModalProps {
   open: boolean;
@@ -55,7 +49,7 @@ export function OrgNodeModal({
 
   const showAddress = mode === 'add' && targetType === 'substation';
   const showFloorNumber = mode === 'add' && targetType === 'floor';
-  const title = mode === 'add' ? `${KOREAN_NOUN[targetType]} 추가` : '이름 변경';
+  const title = mode === 'add' ? `${NODE_NOUN[targetType]} 추가` : '이름 변경';
 
   const canSubmit = name.trim().length > 0 && !submitting;
 

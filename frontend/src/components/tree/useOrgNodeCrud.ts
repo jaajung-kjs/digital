@@ -23,11 +23,6 @@ function collKeyOf(type: NodeType): CollectionKey {
   }
 }
 
-/** childType(NodeType) → 컬렉션 키. */
-function childCollKey(ct: NodeType): CollectionKey {
-  return collKeyOf(ct);
-}
-
 export function useOrgNodeCrud() {
   const addChild = useCallback(
     async (
@@ -37,7 +32,7 @@ export function useOrgNodeCrud() {
       const ct = childType(parent.type);
       if (!ct) return;
       const wc = useSubstationWorkingCopy.getState();
-      const collKey = childCollKey(ct);
+      const collKey = collKeyOf(ct);
 
       // 형제 수 → 다음 sortOrder(effective 기준, staged 포함).
       let siblings: { id: string }[] = [];
