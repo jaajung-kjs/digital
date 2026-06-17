@@ -163,8 +163,28 @@ const recordsCollection = z.object({
     .default([]),
 });
 
+// ==================== Org tree (조직트리 4컬렉션) ====================
+// 본부/지사/변전소/층 조직 노드 — 자산/케이블과 한 트랜잭션으로 커밋.
+// create 는 tempId, 부모 FK(headquartersId/branchId/substationId)는 같은 페이로드의
+// tempId 이거나 real id 일 수 있는 평문 문자열. update/delete 는 baseVersion(OCC).
+const hqCreate = z.object({ tempId: z.string(), name: z.string().min(1), sortOrder: z.number().int().min(0).optional() });
+const hqPatch = z.object({ name: z.string().min(1).optional(), sortOrder: z.number().int().min(0).optional() });
+
+const branchCreate = z.object({ tempId: z.string(), headquartersId: z.string(), name: z.string().min(1), sortOrder: z.number().int().min(0).optional() });
+const branchPatch = z.object({ headquartersId: z.string().optional(), name: z.string().min(1).optional(), sortOrder: z.number().int().min(0).optional() });
+
+const substationCreate = z.object({ tempId: z.string(), branchId: z.string().nullable().optional(), name: z.string().min(1), address: z.string().nullable().optional(), sortOrder: z.number().int().min(0).optional() });
+const substationPatch = z.object({ branchId: z.string().nullable().optional(), name: z.string().min(1).optional(), address: z.string().nullable().optional(), sortOrder: z.number().int().min(0).optional() });
+
+const floorCreate = z.object({ tempId: z.string(), substationId: z.string(), name: z.string().min(1), floorNumber: z.string().nullable().optional(), sortOrder: z.number().int().min(0).optional() });
+const floorPatch = z.object({ substationId: z.string().optional(), name: z.string().min(1).optional(), floorNumber: z.string().nullable().optional(), sortOrder: z.number().int().min(0).optional() });
+
 // ==================== Unified commit ====================
 export const substationCommitSchema = z.object({
+  headquarters: collection(hqCreate, hqPatch).optional(),
+  branches: collection(branchCreate, branchPatch).optional(),
+  substations: collection(substationCreate, substationPatch).optional(),
+  floors: collection(floorCreate, floorPatch).optional(),
   assets: collection(assetCreate, assetPatch).optional(),
   cables: collection(cableCreate, cablePatch).optional(),
   records: recordsCollection.optional(),
