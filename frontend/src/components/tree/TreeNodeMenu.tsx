@@ -19,7 +19,7 @@ interface TreeNodeMenuProps {
  * portal + fixed + z-50 으로 스태킹/opacity/transform 영향을 완전히 벗어난다.
  */
 export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeMenuProps) {
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const [pos, setPos] = useState<{ right: number; top?: number; bottom?: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const addLabel = childLabel(node.type);
@@ -46,7 +46,11 @@ export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeM
     e.stopPropagation();
     if (open) { setPos(null); return; }
     const r = wrapRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+    if (!r) return;
+    const right = Math.max(8, window.innerWidth - r.right);
+    // 아래 공간이 부족하면(맨 아래 항목/새로 추가된 항목) 트리거 위로 펼친다 — 화면 밖으로 넘쳐 안 보이지 않게.
+    const openUp = r.bottom > window.innerHeight - 160;
+    setPos(openUp ? { right, bottom: window.innerHeight - r.top + 4 } : { right, top: r.bottom + 4 });
   };
 
   const choose = (e: React.MouseEvent, fn: (node: TreeNodeData) => void) => {
@@ -73,7 +77,7 @@ export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeM
         <div
           ref={menuRef}
           className="fixed z-50 min-w-[140px] rounded-md border border-line bg-surface py-1 shadow-lg"
-          style={{ top: pos.top, right: pos.right }}
+          style={{ right: pos.right, top: pos.top, bottom: pos.bottom }}
         >
           {addLabel && (
             <button type="button" className={`${itemClass} text-content hover:bg-surface-2`} onClick={(e) => choose(e, onAddChild)}>

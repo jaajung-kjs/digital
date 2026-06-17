@@ -18,7 +18,7 @@ import { Button } from '../../components/ui';
 // 표면화한다 → 기존 ConflictDialog 에 그대로 전달한다.
 // ──────────────────────────────────────────────────────────────────────────
 
-export function WorkingCopyCommitBar({ substationId }: { substationId: string }) {
+export function WorkingCopyCommitBar() {
   const dirty = useUnifiedDirty();
   const commit = useCommitWorkingCopy();
   const queryClient = useQueryClient();
@@ -59,7 +59,11 @@ export function WorkingCopyCommitBar({ substationId }: { substationId: string })
           onClose={() => setConflicts(null)}
           onReloadLatest={async () => {
             // 최신 saved/baseVersions 만 재조정하고 staged 편집은 보존 → 재커밋 가능.
-            await useSubstationWorkingCopy.getState().refreshBaseVersions(substationId);
+            const wc = useSubstationWorkingCopy.getState();
+            // 변전소가 열려 있으면 그 변전소 saved/baseVersions 재조정. 조직(본부/지사/변전소/층)
+            // base version 은 loadOrgTree 가 갱신 — org-only 충돌도 이 경로로 풀린다.
+            if (wc.substationId) await wc.refreshBaseVersions(wc.substationId);
+            await wc.loadOrgTree();
             // 엔티티 baseVersions 만으론 floor 섹션 409 가 풀리지 않는다 — 활성 층의
             // floorPlan 쿼리도 무효화해 baseFloorVersion 을 fresh updatedAt 으로 재동기화.
             const activeFloorId = useEditorStore.getState().activeFloorId;

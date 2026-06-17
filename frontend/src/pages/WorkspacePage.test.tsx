@@ -53,11 +53,6 @@ vi.mock('../features/fiber/components/FiberRegisterView', () => ({
     );
   },
 }));
-vi.mock('../features/workingCopy/WorkingCopyCommitBar', () => ({
-  WorkingCopyCommitBar: ({ substationId }: { substationId: string }) => (
-    <div data-testid="commit-bar">commit:{substationId}</div>
-  ),
-}));
 vi.mock('../features/workspace/useEditorSelectionBridge', () => ({
   useEditorSelectionBridge: () => {},
 }));
@@ -194,8 +189,6 @@ describe('WorkspacePage — 본부 노드', () => {
     fireEvent.click(screen.getByText('자산선택'));
     fireEvent.click(screen.getByText('평면도'));
     expect(screen.getByTestId('editor').textContent).toBe('editor:floor-9');
-    // 커밋 바는 선택 자산의 변전소(s9)에 바인딩.
-    expect(screen.getByTestId('commit-bar').textContent).toBe('commit:s9');
   });
 
   it('자산 선택 후 다른(빈) 본부로 이동하면 선택이 리셋돼 평면도가 비어 있다', () => {

@@ -15,9 +15,7 @@ import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
 import { useWorkingCopyLoader, useEffectiveAssets } from '../features/workingCopy/hooks';
 import { floorAnchor } from '../features/workingCopy/floorAnchor';
 import { toMapById } from '../utils/byId';
-import { useSubstationWorkingCopy } from '../features/workingCopy/substationStore';
 import { workspaceFloorUrl } from '../features/workspace/workspaceUrls';
-import { WorkingCopyCommitBar } from '../features/workingCopy/WorkingCopyCommitBar';
 import { useOrganizationStore } from '../stores/organizationStore';
 import { NetworkTopologyModal } from '../features/network/NetworkTopologyModal';
 import type { NodeKind } from '../hooks/useNodeAssets';
@@ -84,8 +82,6 @@ export function WorkspacePage() {
     setSelectedAssetId(null);
   }
 
-  // 온디맨드 로드된 working copy(본부·사업소: 선택 자산의 변전소를 NodeStatusView 가 로드).
-  const loadedSubstationId = useSubstationWorkingCopy((s) => s.substationId);
   const effective = useEffectiveAssets();
 
   // 변전소 노드: 층은 ?floor ?? 첫 층. 본부·사업소: 선택 자산의 층(파생, 추측 금지).
@@ -199,13 +195,6 @@ export function WorkspacePage() {
     else switchView('plan');
   };
 
-  // 커밋 바 노출 변전소: 컨텍스트 변전소. 본부·사업소는 로드된 변전소가 컨텍스트와
-  // 일치할 때만(선택 자산의 변전소). 미선택이면 로드된 변전소(NodeStatusView 가 로드한
-  // 것)에 바인딩해, 현황에서 stage 한 편집의 커밋 바가 유지되도록 한다.
-  const commitSubstationId = isSubstationNode
-    ? activeNode.id
-    : (contextSubstationId ?? loadedSubstationId);
-
   const selectPrompt = (
     <div className="p-6 text-sm text-content-muted">현황에서 설비를 선택하면 그 설비의 평면도를 봅니다.</div>
   );
@@ -238,7 +227,6 @@ export function WorkspacePage() {
               </select>
             )}
           </div>
-          {commitSubstationId && <WorkingCopyCommitBar substationId={commitSubstationId} />}
           <div className="flex-1 min-h-0 relative">
             {/*
               평면도 에디터는 탭 전환 시 언마운트하지 않고 CSS 로만 숨긴다.

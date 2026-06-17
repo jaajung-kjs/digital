@@ -3,6 +3,7 @@ import { Outlet, Link, useNavigate } from 'react-router-dom';
 import { Boxes, PanelLeft, LogOut } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { TreePanel } from './tree/TreePanel';
+import { WorkingCopyCommitBar } from '../features/workingCopy/WorkingCopyCommitBar';
 import { Breadcrumb } from './Breadcrumb';
 import { useTreeRouteSync } from '../hooks/useTreeRouteSync';
 import { IconButton } from './ui';
@@ -62,6 +63,8 @@ export function AppShell() {
           </button>
         </div>
       </header>
+      {/* 전역 저장 바 — 워킹카피가 전역이므로 어느 화면에서든(조직 트리 CRUD 포함) dirty 가 있으면 표시. clean 이면 null. */}
+      <WorkingCopyCommitBar />
       <div className="flex-1 min-h-0 flex">
         <nav
           className={`${collapsed ? 'w-0' : 'w-56'} shrink-0 border-r border-line bg-sidebar overflow-hidden transition-[width] duration-150`}
