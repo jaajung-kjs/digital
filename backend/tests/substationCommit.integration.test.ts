@@ -348,6 +348,46 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     expect(branch.slotIndex).toBeNull();
   });
 
+  // ── 조직트리 워킹카피 통합(Task 3) — HQ→지사→변전소→층→자산 단일 커밋 + tempId 재매핑 ──
+  it('O1) org 위상정렬 create — HQ→지사→변전소→층(temp 부모) + 자산 substationId/floorId(temp) 해소', async () => {
+    const input = substationCommitSchema.parse({
+      headquarters: { creates: [{ tempId: 'oh', name: '__org_hq__' }] },
+      branches: { creates: [{ tempId: 'ob', headquartersId: 'oh', name: '__org_br__' }] },
+      substations: { creates: [{ tempId: 'os', branchId: 'ob', name: '__org_sub__', address: '주소1' }] },
+      floors: { creates: [{ tempId: 'of', substationId: 'os', name: '__org_floor__', floorNumber: 'B1' }] },
+      assets: {
+        creates: [
+          { tempId: 'oa', assetTypeId: typeId, name: '__org_asset__', substationId: 'os', floorId: 'of', positionX: 1, positionY: 2 },
+        ],
+      },
+    });
+    // substationId='' — 전역 라우트(자산이 자기 substationId 를 싣는 경로)와 동일하게 빈 컨텍스트.
+    const res = await commitSubstation('', input, userId);
+
+    const newHq = res.idMaps.headquarters['oh'];
+    const newBr = res.idMaps.branches['ob'];
+    const newSub = res.idMaps.substations['os'];
+    const newFloor = res.idMaps.floors['of'];
+    const newAsset = res.idMaps.assets['oa'];
+    for (const id of [newHq, newBr, newSub, newFloor, newAsset]) expect(id).toMatch(/^[0-9a-f-]{36}$/);
+
+    // 위상정렬 부모 FK 해소.
+    const br = await prisma.branch.findUniqueOrThrow({ where: { id: newBr } });
+    expect(br.headquartersId).toBe(newHq);
+    const sub = await prisma.substation.findUniqueOrThrow({ where: { id: newSub } });
+    expect(sub.branchId).toBe(newBr);
+    const floor = await prisma.floor.findUniqueOrThrow({ where: { id: newFloor } });
+    expect(floor.substationId).toBe(newSub);
+
+    // 핵심: 자산의 substationId/floorId 가 새로 만든 변전소/층 real id 로 해소.
+    const asset = await prisma.asset.findUniqueOrThrow({ where: { id: newAsset } });
+    expect(asset.substationId).toBe(newSub);
+    expect(asset.floorId).toBe(newFloor);
+
+    // cleanup — HQ 삭제 시 cascade 로 지사/변전소/층/자산 모두 제거.
+    await prisma.headquarters.delete({ where: { id: newHq } }).catch(() => {});
+  });
+
   it('6) 인증 없음 → 401, malformed body → 400', async () => {
     await request(app).post(`/api/substations/${subId}/commit`).send({}).expect(401);
 

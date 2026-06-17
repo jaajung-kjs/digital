@@ -138,11 +138,19 @@ export interface CommitResult {
     cables: Record<string, string>;
     rackModules: Record<string, string>;
     records: Record<string, string>;
+    headquarters: Record<string, string>;
+    branches: Record<string, string>;
+    substations: Record<string, string>;
+    floors: Record<string, string>;
   };
   updated: {
     assets: { id: string; updatedAt: string }[];
     cables: { id: string; updatedAt: string }[];
     rackModules: { id: string; updatedAt: string }[];
+    headquarters: { id: string; updatedAt: string }[];
+    branches: { id: string; updatedAt: string }[];
+    substations: { id: string; updatedAt: string }[];
+    floors: { id: string; updatedAt: string }[];
     floor?: { id: string; updatedAt: string };
   };
 }
@@ -189,9 +197,11 @@ async function run(
 ): Promise<CommitResult> {
   const idMaps: CommitResult['idMaps'] = {
     assets: {}, cables: {}, rackModules: {}, records: {},
+    headquarters: {}, branches: {}, substations: {}, floors: {},
   };
   const updated: CommitResult['updated'] = {
     assets: [], cables: [], rackModules: [],
+    headquarters: [], branches: [], substations: [], floors: [],
   };
 
   // ── 1) per-entity OCC across all present collections ──
@@ -261,6 +271,56 @@ async function run(
     }
   }
 
+  // org tree (headquarters/branches/substations/floors) — 자산과 동일한 per-entity OCC.
+  // headquarters
+  if (input.headquarters) {
+    const ids = [...input.headquarters.updates.map((u) => u.id), ...input.headquarters.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.headquarters.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
+      : [];
+    const { current, nameById } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('headquarters', current, input.headquarters.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion, name: nameById.get(u.id) ?? undefined }))),
+      ...collectConflicts('headquarters', current, input.headquarters.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion, name: nameById.get(d.id) ?? undefined }))),
+    );
+  }
+  // branches
+  if (input.branches) {
+    const ids = [...input.branches.updates.map((u) => u.id), ...input.branches.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.branch.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
+      : [];
+    const { current, nameById } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('branches', current, input.branches.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion, name: nameById.get(u.id) ?? undefined }))),
+      ...collectConflicts('branches', current, input.branches.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion, name: nameById.get(d.id) ?? undefined }))),
+    );
+  }
+  // substations
+  if (input.substations) {
+    const ids = [...input.substations.updates.map((u) => u.id), ...input.substations.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.substation.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
+      : [];
+    const { current, nameById } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('substations', current, input.substations.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion, name: nameById.get(u.id) ?? undefined }))),
+      ...collectConflicts('substations', current, input.substations.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion, name: nameById.get(d.id) ?? undefined }))),
+    );
+  }
+  // floors
+  if (input.floors) {
+    const ids = [...input.floors.updates.map((u) => u.id), ...input.floors.deletes.map((d) => d.id)];
+    const rows = ids.length
+      ? await tx.floor.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true, name: true } })
+      : [];
+    const { current, nameById } = await loadOcc(rows);
+    conflicts.push(
+      ...collectConflicts('floors', current, input.floors.updates.map((u) => ({ id: u.id, baseVersion: u.baseVersion, name: nameById.get(u.id) ?? undefined }))),
+      ...collectConflicts('floors', current, input.floors.deletes.map((d) => ({ id: d.id, baseVersion: d.baseVersion, name: nameById.get(d.id) ?? undefined }))),
+    );
+  }
+
   if (conflicts.length) throw new VersionConflictError(conflicts);
 
   // ── 슬롯 충돌 검사용 live 슬롯 추적 (랙별). 슬롯형(slotIndex!=null) 자식만 포함 ──
@@ -280,6 +340,104 @@ async function run(
     return arr;
   };
 
+  // ── 1.5) org tree (조직트리) — 위상정렬 create(HQ→지사→변전소→층) + update/delete.
+  // CREATE 는 asset create 보다 먼저 실행돼 idMaps.substations/floors 가 자산 해소 시점에 채워진다.
+  // 각 레벨의 부모는 이전 레벨(이미 생성·remap)이라 레벨 내 위상정렬은 불필요(입력 순서대로).
+  // ── org CREATE (topological: HQ → branch → substation → floor) ──
+  for (const c of (input.headquarters?.creates ?? [])) {
+    const r = await tx.headquarters.create({
+      data: { name: c.name, sortOrder: c.sortOrder ?? 0, createdById: userId, updatedById: userId },
+    });
+    idMaps.headquarters[c.tempId] = r.id;
+  }
+  for (const c of (input.branches?.creates ?? [])) {
+    const headquartersId = idMaps.headquarters[c.headquartersId] ?? c.headquartersId;
+    const r = await tx.branch.create({
+      data: { headquartersId, name: c.name, sortOrder: c.sortOrder ?? 0, createdById: userId, updatedById: userId },
+    });
+    idMaps.branches[c.tempId] = r.id;
+  }
+  for (const c of (input.substations?.creates ?? [])) {
+    const branchId = c.branchId ? (idMaps.branches[c.branchId] ?? c.branchId) : null;
+    const r = await tx.substation.create({
+      data: { branchId, name: c.name, address: c.address ?? null, sortOrder: c.sortOrder ?? 0, createdById: userId, updatedById: userId },
+    });
+    idMaps.substations[c.tempId] = r.id;
+  }
+  for (const c of (input.floors?.creates ?? [])) {
+    const substationId = idMaps.substations[c.substationId] ?? c.substationId;
+    const r = await tx.floor.create({
+      data: { substationId, name: c.name, floorNumber: c.floorNumber ?? null, sortOrder: c.sortOrder ?? 0, createdById: userId, updatedById: userId },
+    });
+    idMaps.floors[c.tempId] = r.id;
+  }
+
+  // ── org UPDATE — 부모 FK 는 idMaps 로 해소(같은 페이로드 신규 부모 가능) ──
+  if (input.headquarters) {
+    for (const u of input.headquarters.updates) {
+      const p = u.patch;
+      const r = await tx.headquarters.update({
+        where: { id: u.id },
+        data: { name: p.name, sortOrder: p.sortOrder, updatedById: userId },
+        select: { id: true, updatedAt: true },
+      });
+      updated.headquarters.push({ id: r.id, updatedAt: r.updatedAt.toISOString() });
+    }
+  }
+  if (input.branches) {
+    for (const u of input.branches.updates) {
+      const p = u.patch;
+      const headquartersId =
+        p.headquartersId !== undefined ? (idMaps.headquarters[p.headquartersId] ?? p.headquartersId) : undefined;
+      const r = await tx.branch.update({
+        where: { id: u.id },
+        data: { headquartersId, name: p.name, sortOrder: p.sortOrder, updatedById: userId },
+        select: { id: true, updatedAt: true },
+      });
+      updated.branches.push({ id: r.id, updatedAt: r.updatedAt.toISOString() });
+    }
+  }
+  if (input.substations) {
+    for (const u of input.substations.updates) {
+      const p = u.patch;
+      const branchId =
+        p.branchId !== undefined ? (p.branchId ? (idMaps.branches[p.branchId] ?? p.branchId) : null) : undefined;
+      const r = await tx.substation.update({
+        where: { id: u.id },
+        data: { branchId, name: p.name, address: p.address, sortOrder: p.sortOrder, updatedById: userId },
+        select: { id: true, updatedAt: true },
+      });
+      updated.substations.push({ id: r.id, updatedAt: r.updatedAt.toISOString() });
+    }
+  }
+  if (input.floors) {
+    for (const u of input.floors.updates) {
+      const p = u.patch;
+      const substationId =
+        p.substationId !== undefined ? (idMaps.substations[p.substationId] ?? p.substationId) : undefined;
+      const r = await tx.floor.update({
+        where: { id: u.id },
+        data: { substationId, name: p.name, floorNumber: p.floorNumber, sortOrder: p.sortOrder, updatedById: userId },
+        select: { id: true, updatedAt: true },
+      });
+      updated.floors.push({ id: r.id, updatedAt: r.updatedAt.toISOString() });
+    }
+  }
+
+  // ── org DELETE — DB onDelete:Cascade 가 하위(지사/변전소/층/자산…)를 처리 ──
+  if (input.headquarters?.deletes.length) {
+    await tx.headquarters.deleteMany({ where: { id: { in: input.headquarters.deletes.map((d) => d.id) } } });
+  }
+  if (input.branches?.deletes.length) {
+    await tx.branch.deleteMany({ where: { id: { in: input.branches.deletes.map((d) => d.id) } } });
+  }
+  if (input.substations?.deletes.length) {
+    await tx.substation.deleteMany({ where: { id: { in: input.substations.deletes.map((d) => d.id) } } });
+  }
+  if (input.floors?.deletes.length) {
+    await tx.floor.deleteMany({ where: { id: { in: input.floors.deletes.map((d) => d.id) } } });
+  }
+
   // ── 2) assets first (so tempIds resolve for refs) ──
   if (input.assets) {
     const a = input.assets;
@@ -298,9 +456,12 @@ async function run(
         const arr = await ensureLive(parentId);
         assertNoSlotCollision(cSlotIndex, cSlotSpan, arr);
       }
+      const rawSubId = (c as { substationId?: string }).substationId;
+      const resolvedSubId = rawSubId ? (idMaps.substations[rawSubId] ?? rawSubId) : substationId;
+      const resolvedFloorId = c.floorId ? (idMaps.floors[c.floorId] ?? c.floorId) : null;
       const created = await tx.asset.create({
         data: {
-          substationId: (c as { substationId?: string }).substationId ?? substationId,
+          substationId: resolvedSubId,
           assetTypeId: c.assetTypeId,
           ...assetCommonCreate(c as unknown as Record<string, unknown>),
           parentAssetId: parentId,
@@ -309,7 +470,7 @@ async function run(
           slotIndex: cSlotIndex,
           slotSpan: cSlotIndex != null ? cSlotSpan : null,
           // placement
-          floorId: c.floorId ?? null,
+          floorId: resolvedFloorId,
           positionX: c.positionX ?? null,
           positionY: c.positionY ?? null,
           width2d: c.width2d ?? null,
@@ -346,10 +507,20 @@ async function run(
           }
         }
       }
+      // substationId/floorId — 같은 페이로드 신규 변전소/층 tempId 면 real id 로 해소.
+      const patchSubId =
+        (p as { substationId?: string }).substationId !== undefined
+          ? (idMaps.substations[(p as { substationId?: string }).substationId!] ?? (p as { substationId?: string }).substationId)
+          : undefined;
+      const patchFloorId =
+        p.floorId !== undefined
+          ? (p.floorId == null ? null : (idMaps.floors[p.floorId as string] ?? (p.floorId as string)))
+          : undefined;
       // C1: 변전소 스코핑 — 다른 변전소 asset 이면 매치 실패 → P2025 (롤백).
       await tx.asset.update({
         where: { id: u.id },
         data: {
+          substationId: patchSubId as string | undefined,
           assetTypeId: p.assetTypeId as string | undefined,
           ...assetCommonUpdate(p as Record<string, unknown>),
           parentAssetId: patchParent as string | null | undefined,
@@ -361,7 +532,7 @@ async function run(
                 ? extractSourcePresetId(p.attributes)
                 : undefined,
           // placement
-          floorId: p.floorId as string | null | undefined,
+          floorId: patchFloorId,
           positionX: p.positionX as number | null | undefined,
           positionY: p.positionY as number | null | undefined,
           width2d: p.width2d as number | null | undefined,
