@@ -18,10 +18,18 @@ import { RACK_MODULE_KEYS } from '../rack/hooks/useRackModules';
 // ──────────────────────────────────────────────────────────────────────────
 
 type RecordRow = Record<string, unknown>;
+// 조직 행은 구체 타입(OrgHeadquarters 등)이라 Record<string,unknown> 인덱스 시그니처가 없다.
+// buildOrgCollection 은 id + 임의 키 접근만 하므로 { id } 베이스로 받아 구체 타입과 호환시킨다.
+type OrgRow = { id: string };
 type Overlays = {
   assets: Overlay<Asset, Partial<Asset>>;
   cables: Overlay<Record<string, unknown>, Partial<Record<string, unknown>>>;
   records: Overlay<RecordRow, Partial<RecordRow>>;
+  // 조직 4컬렉션(Task 4) — assets/cables 와 동일한 buildDelta 엔진으로 델타화한다.
+  headquarters?: Overlay<OrgRow, Partial<OrgRow>>;
+  branches?: Overlay<OrgRow, Partial<OrgRow>>;
+  substations?: Overlay<OrgRow, Partial<OrgRow>>;
+  floors?: Overlay<OrgRow, Partial<OrgRow>>;
 };
 
 interface Collection {
@@ -61,6 +69,10 @@ export interface SubstationCommitPayload {
   cables?: Collection;
   records?: RecordsCollection;
   floor?: FloorCommitSection;
+  headquarters?: Collection;
+  branches?: Collection;
+  substations?: Collection;
+  floors?: Collection;
 }
 
 /**
@@ -184,6 +196,44 @@ function buildRecordsCollection(
   return creates.length || updates.length || deletes.length ? { creates, updates, deletes } : undefined;
 }
 
+// ── 조직 4컬렉션 델타 ────────────────────────────────────────────────────────
+// headquarters/branches/substations/floors 는 assets/cables 와 동일한 buildDelta
+// 엔진을 쓴다(create+update 병합·create tempId redundant update 제외·OCC baseVersion).
+// create 는 id→tempId 로 옮기고 컬렉션별 허용 필드만 통과시킨다. 부모 FK
+// (headquartersId/branchId/substationId)는 같은 커밋의 staged tempId 일 수 있으나
+// 그대로 보낸다 — 백엔드가 idMap 으로 해소한다(Task 3).
+const ORG_CREATE_FIELDS: Record<string, string[]> = {
+  headquarters: ['name', 'sortOrder'],
+  branches: ['name', 'sortOrder', 'headquartersId'],
+  substations: ['name', 'sortOrder', 'branchId', 'address'],
+  floors: ['name', 'sortOrder', 'substationId', 'floorNumber'],
+};
+
+function buildOrgCollection(
+  overlay: Overlay<OrgRow, Partial<OrgRow>> | undefined,
+  fields: string[],
+): Collection | undefined {
+  if (!overlay) return undefined;
+  const d = buildDelta(overlay);
+  const col: Collection = {
+    creates: d.creates.map((c) => {
+      const rec = c as Record<string, unknown>;
+      const out: Record<string, unknown> = { tempId: rec.id };
+      for (const k of fields) {
+        if (rec[k] !== undefined) out[k] = rec[k];
+      }
+      return out;
+    }),
+    updates: d.updates.map((u) => ({
+      id: u.id,
+      baseVersion: u.baseVersion,
+      patch: u.patch as Record<string, unknown>,
+    })),
+    deletes: d.deletes,
+  };
+  return omitIfEmpty(col);
+}
+
 /**
  * overlay 세트를 2a 커밋 페이로드로 변환한다.
  *
@@ -221,11 +271,21 @@ export function buildSubstationCommitPayload(
   };
   const records = buildRecordsCollection(overlays.records, savedRecords, photoUrls);
 
+  // 조직 4컬렉션 — assets/cables 와 동일 엔진. 비면 omitIfEmpty 가 키 자체를 생략.
+  const headquarters = buildOrgCollection(overlays.headquarters, ORG_CREATE_FIELDS.headquarters);
+  const branches = buildOrgCollection(overlays.branches, ORG_CREATE_FIELDS.branches);
+  const substations = buildOrgCollection(overlays.substations, ORG_CREATE_FIELDS.substations);
+  const floors = buildOrgCollection(overlays.floors, ORG_CREATE_FIELDS.floors);
+
   return {
     assets: omitIfEmpty(assetsCol),
     cables: omitIfEmpty(cables),
     ...(records ? { records } : {}),
     ...(floor ? { floor } : {}),
+    ...(headquarters ? { headquarters } : {}),
+    ...(branches ? { branches } : {}),
+    ...(substations ? { substations } : {}),
+    ...(floors ? { floors } : {}),
   };
 }
 

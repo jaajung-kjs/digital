@@ -171,8 +171,13 @@ export function useCommitWorkingCopy() {
       );
       revokeStagedPhotoUrls(wc.overlays); // 업로드 완료 → 미리보기 blob 해제
       // 전역 커밋 완료 → staged overlay 전부 클리어(전역 load 는 더 이상 overlay 를 비우지 않으므로 명시적으로).
+      // revert 는 모든 컬렉션(조직 4컬렉션 포함)의 staged create/update/delete 를 비운다(freshOverlays 가 레지스트리 순회).
       useSubstationWorkingCopy.getState().revert();
       await useSubstationWorkingCopy.getState().load(substationId);
+      // 조직 트리 재로드 — 커밋으로 생성/수정된 조직 행의 real id/updatedAt 을 saved 로 끌어온다
+      // (revert 로 staged org overlay 는 비웠으나 saved org 는 stale·temp id 가 남아 있으므로).
+      // loadOrgTree 가 saved.org 를 권위로 교체하고 org overlay baseVersions 를 갱신한다.
+      await useSubstationWorkingCopy.getState().loadOrgTree();
       // 커밋 후 보이는 데이터 동기화의 두 층:
       //  1) 워킹카피(effective) — 위 load 가 갱신(mergeSavedById 가 변전소 스코프 권위로 삭제까지 반영).
       //  2) react-query 서버 캐시(현황 ['nodeAssets'], 연결 ['substation-connections'], ['cables'],

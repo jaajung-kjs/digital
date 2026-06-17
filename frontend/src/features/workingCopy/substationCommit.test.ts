@@ -133,4 +133,67 @@ describe('buildSubstationCommitPayload', () => {
     expect(c.pathPoints).toEqual([[0, 0], [10, 10]]);
     expect(c.totalLength).toBe(18);
   });
+
+  it('조직 4컬렉션 델타를 페이로드에 포함 — create(id→tempId, 허용 필드)/update/delete', () => {
+    // headquarters create
+    const headquarters = stageCreate(emptyOverlay<any, any>(), 'tmpHQ', {
+      id: 'tmpHQ', name: '본부', sortOrder: 1, junk: 'drop',
+    } as any);
+    // branch create — 부모 FK 는 같은 커밋의 staged tempId(그대로 통과)
+    const branches = stageCreate(emptyOverlay<any, any>(), 'tmpBR', {
+      id: 'tmpBR', name: '지사', headquartersId: 'tmpHQ', sortOrder: 2,
+    } as any);
+    // substation update + delete
+    let substations = emptyOverlay<any, any>();
+    substations.baseVersions = { s1: 'v-s1', s2: 'v-s2' };
+    substations = stageUpdate(substations, 's1', { name: '변전소수정', address: '서울' } as any);
+    substations = stageDelete(substations, 's2');
+    // floor create — substationId FK + floorNumber
+    const floors = stageCreate(emptyOverlay<any, any>(), 'tmpFL', {
+      id: 'tmpFL', name: 'B1', substationId: 's1', floorNumber: 'B1', sortOrder: 0,
+    } as any);
+
+    const overlays = {
+      assets: ov() as any, cables: ov() as any, records: ov() as any,
+      headquarters, branches, substations, floors,
+    };
+    const payload = buildSubstationCommitPayload(overlays as any, [], new Map());
+
+    // headquarters create — id→tempId, 허용 필드만(junk 제거)
+    const hq = payload.headquarters!.creates.find((x: any) => x.tempId === 'tmpHQ') as any;
+    expect(hq).toBeTruthy();
+    expect(hq.id).toBeUndefined();
+    expect(hq.name).toBe('본부');
+    expect(hq.sortOrder).toBe(1);
+    expect(hq.junk).toBeUndefined();
+
+    // branch create — 부모 FK(staged tempId) 그대로
+    const br = payload.branches!.creates.find((x: any) => x.tempId === 'tmpBR') as any;
+    expect(br.headquartersId).toBe('tmpHQ');
+    expect(br.name).toBe('지사');
+
+    // substation update/delete — baseVersion OCC + patch raw
+    const sUpd = payload.substations!.updates.find((u: any) => u.id === 's1') as any;
+    expect(sUpd.baseVersion).toBe('v-s1');
+    expect(sUpd.patch.name).toBe('변전소수정');
+    expect(sUpd.patch.address).toBe('서울');
+    const sDel = payload.substations!.deletes.find((d: any) => d.id === 's2') as any;
+    expect(sDel.baseVersion).toBe('v-s2');
+
+    // floor create — substationId FK + floorNumber
+    const fl = payload.floors!.creates.find((x: any) => x.tempId === 'tmpFL') as any;
+    expect(fl.substationId).toBe('s1');
+    expect(fl.floorNumber).toBe('B1');
+  });
+
+  it('조직 overlay 가 비면 페이로드에서 키 생략', () => {
+    const payload = buildSubstationCommitPayload(
+      { assets: ov() as any, cables: ov() as any, records: ov() as any } as any,
+      [], new Map(),
+    );
+    expect(payload.headquarters).toBeUndefined();
+    expect(payload.branches).toBeUndefined();
+    expect(payload.substations).toBeUndefined();
+    expect(payload.floors).toBeUndefined();
+  });
 });

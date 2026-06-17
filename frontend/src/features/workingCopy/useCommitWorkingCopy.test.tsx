@@ -20,6 +20,7 @@ vi.mock('./substationStore', () => ({
       },
       saved: { assets: [], cables: [], records: [] },
       load: vi.fn(async () => {}),
+      loadOrgTree: vi.fn(async () => {}),
       revert: vi.fn(),
     }),
   },
