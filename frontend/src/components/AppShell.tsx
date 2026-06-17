@@ -64,9 +64,9 @@ export function AppShell() {
       </header>
       <div className="flex-1 min-h-0 flex">
         <nav
-          className={`${collapsed ? 'w-0' : 'w-48'} shrink-0 border-r border-line bg-sidebar overflow-hidden transition-[width] duration-150`}
+          className={`${collapsed ? 'w-0' : 'w-56'} shrink-0 border-r border-line bg-sidebar overflow-hidden transition-[width] duration-150`}
         >
-          <div className="w-48 h-full overflow-y-auto">
+          <div className="w-56 h-full overflow-y-auto">
             <TreePanel />
           </div>
         </nav>

@@ -25,7 +25,7 @@
 
 ## 3. 설계
 
-**원칙:** staged 자산은 전부 현재 로드된 변전소 소속(`useSubstationWorkingCopy.substationId`)이고, `Asset`은 `substationId`를 들고 있다. 그래프 빌드 시 이 `substationId`를 그래프에 흘리고, id→변전소명 맵으로 `subNameById`를 채운다.
+**원칙:** 워킹카피는 **전역**(둘러본 변전소들의 saved·staged를 누적)이라 staged 자산은 여러 변전소에 걸칠 수 있다. 각 `Asset`이 `substationId`를 들고 있으므로, 그래프 빌드 시 자산별 `substationId`를 흘리고 `substationId→변전소명` 맵(slim 기반)으로 `subNameById`를 채운다.
 
 ### 3.1 `buildTraceGraph` 변경 (frontend/src/features/trace/traceGraph.ts)
 1. staged 자산 파라미터 타입(라인 80)에 `substationId?: string | null` 추가. (호출측이 넘기는 `effectiveAssets()`는 full `Asset`이라 이미 보유.)
@@ -73,7 +73,7 @@
 ## 7. 리스크
 - `currentSubName` 트리 탐색이 큰 트리에서 매 렌더 비용 → `useOrganizationStore` 셀렉터 + (필요시) 메모이즈로 최소화.
 - staged-UPDATE(커밋 자산 수정)는 slim 루프가 처리하며 substationName은 slim에서 오므로 변동 없음(자산의 변전소는 안 바뀜).
-- cross-substation staged 자산은 워킹카피가 변전소 단위라 발생하지 않음(staged는 항상 현재 변전소).
+- 워킹카피는 전역이라 staged 자산이 여러 변전소에 걸칠 수 있다. `subNameByStationId`(slim 기반, substationId별)가 이를 처리하므로 cross-substation 도 정상. `currentSubName` fallback은 아직 slim 에 없는 변전소(미커밋 신규)에만 쓰이며, 변전소 생성은 즉시 커밋이라 사실상 드묾.
 
 ## 8. Self-review 메모
 - 플레이스홀더 없음. `findNodeName`/org 접근자는 "이미 있으면 사용, 없으면 순수 헬퍼"로 구현 시 확정(계획에서 정확 경로 지정).

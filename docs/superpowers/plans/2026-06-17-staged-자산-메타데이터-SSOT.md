@@ -4,7 +4,7 @@
 
 **Goal:** `buildTraceGraph`가 staged-create 자산에도 `subById`·`subNameById`(변전소 id·이름)를 채우게 해, 저장 전 staged 자산의 자국/대국 변전소명·파생 GUI가 즉시 정상 표기되도록 한다.
 
-**Architecture:** staged 자산은 전부 현재 변전소 소속이고 `Asset`은 `substationId` 보유. `buildTraceGraph`가 slim 자산에서 `변전소id→이름` 맵을 만들고, staged 자산의 `substationId`로 조회해 `subNameById`를 채운다. slim에 없는 변전소는 `useTraceGraph`가 조직 트리에서 해소한 `currentSubName`으로 fallback.
+**Architecture:** 워킹카피는 전역이라 staged 자산이 여러 변전소에 걸칠 수 있고 각 `Asset`은 `substationId` 보유. `buildTraceGraph`가 slim 자산에서 `변전소id→이름` 맵을 만들고, staged 자산의 `substationId`로 조회해 `subNameById`를 채운다. slim에 없는(미커밋 신규) 변전소는 `useTraceGraph`가 조직 트리에서 해소한 `currentSubName`으로 fallback.
 
 **Tech Stack:** React + Zustand + Vitest + TS. 빌드: `cd frontend && npm run build`. 테스트: `cd frontend && npx vitest run`.
 

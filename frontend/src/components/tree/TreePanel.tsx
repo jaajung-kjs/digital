@@ -267,7 +267,8 @@ export function TreePanel() {
             return <Icon size={16} className="flex-shrink-0 text-content-muted" />;
           })()}
           <span className="truncate">{node.name}</span>
-          <div className="ml-auto flex-shrink-0">
+          {/* 케밥은 절대배치로 흐름 밖에 — 행 높이를 늘리지 않는다(간격 원복). */}
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex-shrink-0">
             <TreeNodeMenu
               node={node}
               onAddChild={handleAddChild}
