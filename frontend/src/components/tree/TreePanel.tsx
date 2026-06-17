@@ -1,7 +1,6 @@
 import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Building2, MapPin, Zap, Layers, ChevronRight, Plus } from 'lucide-react';
-import { organizationApi } from '../../services/organizationApi';
 import { useOrganizationStore } from '../../stores/organizationStore';
 import { useSubstationWorkingCopy } from '../../features/workingCopy/substationStore';
 import {
@@ -18,7 +17,6 @@ import { OrgNodeModal } from './OrgNodeModal';
 import { useOrgNodeCrud } from './useOrgNodeCrud';
 import { childType } from './orgNodeActions';
 import { buildOrgTree } from './buildOrgTree';
-import { isTempId } from '../../utils/idHelpers';
 import type { TreeNodeData, NodeType } from '../../types/organization';
 
 /** node 와 그 하위(재귀)에 id 가 존재하는지 — 삭제 cascade 가 현재 라우트 대상을 포함하는지 판단 */
@@ -240,13 +238,14 @@ export function TreePanel() {
     );
   }, [dragId, findInRoots]);
 
-  const handleTreeDrop = useCallback(async (e: React.DragEvent) => {
+  const handleTreeDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (!dragId || !dropTarget) { setDragId(null); setDropTarget(null); return; }
+    const reset = () => { setDragId(null); setDropTarget(null); };
+    if (!dragId || !dropTarget) return reset();
     const dragNode = findInRoots(dragId);
     const targetNode = findInRoots(dropTarget.id);
     if (!dragNode || !targetNode || dragNode.type !== targetNode.type || dragNode.parentId !== targetNode.parentId) {
-      setDragId(null); setDropTarget(null); return;
+      return reset();
     }
 
     const parentId = dragNode.parentId;
@@ -259,28 +258,13 @@ export function TreePanel() {
     const newItems = [...siblings];
     const [moved] = newItems.splice(oldIndex, 1);
     newItems.splice(targetIndex, 0, moved);
+    if (newItems.every((n, i) => n.id === siblings[i].id)) return reset();
 
-    const newIds = newItems.map((n) => n.id);
-    if (newItems.every((n, i) => n.id === siblings[i].id)) {
-      setDragId(null); setDropTarget(null); return;
-    }
-
-    // staged create(temp-id) 형제는 아직 DB 에 없다 → reorder API(prisma update where:{id})
-    // 가 P2025 로 reorder 전체를 롤백한다. 영속된 형제만 보낸다(스테이지 항목은 커밋 시
-    // create-time sortOrder 유지 — reorder 는 즉시 반영 스코프).
-    const reorderItems = newIds
-      .filter((id) => !isTempId(id))
-      .map((id, i) => ({ id, sortOrder: i }));
-    if (reorderItems.length === 0) { setDragId(null); setDropTarget(null); return; }
-    try {
-      // reorder 는 즉시(immediate) — API 반영 후 WC effective 재로드로 새 순서 반영.
-      await organizationApi.reorder(dragNode.type, reorderItems);
-      await useSubstationWorkingCopy.getState().loadOrgTree();
-    } catch {
-      useToastStore.getState().showToast('순서 변경에 실패했습니다.', 'error');
-    }
-    setDragId(null); setDropTarget(null);
-  }, [dragId, dropTarget, findInRoots, roots]);
+    // staged: 형제 순서를 sortOrder 로 재부여 → effective 가 재정렬, 단일 커밋에 함께 실림.
+    // (모든 타입 동일 경로 — 본부 포함. 즉시-API/temp-id 필터/재로드 없음.)
+    crud.reorder(dragNode.type, newItems.map((n) => n.id));
+    reset();
+  }, [dragId, dropTarget, findInRoots, roots, crud]);
 
   const hasChildren = (node: TreeNodeData) => {
     if (node.type === 'floor') return false; // Floor는 leaf

@@ -96,8 +96,19 @@ export function useOrgNodeCrud() {
     for (const id of d.cables) wc.remove('cables', id);
   }, []);
 
+  /**
+   * 형제 순서 변경 — orderedIds 순서대로 sortOrder 를 0..n 재부여(staged patch).
+   * effective 가 sortOrder 로 재정렬하므로 트리에 즉시 반영되고, 커밋에 함께 실린다.
+   * (temp-id 형제도 동일하게 patch — 즉시-API 없음.)
+   */
+  const reorder = useCallback((type: NodeType, orderedIds: string[]) => {
+    const wc = useSubstationWorkingCopy.getState();
+    const collKey = collKeyOf(type);
+    orderedIds.forEach((id, i) => wc.patch(collKey, id, { sortOrder: i }));
+  }, []);
+
   return useMemo(
-    () => ({ addChild, addHeadquarters, rename, remove }),
-    [addChild, addHeadquarters, rename, remove],
+    () => ({ addChild, addHeadquarters, rename, remove, reorder }),
+    [addChild, addHeadquarters, rename, remove, reorder],
   );
 }

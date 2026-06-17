@@ -92,22 +92,4 @@ router.delete(
 
 router.get('/branches/:branchId/substations', branchController.getSubstations);
 
-// ==================== Reorder (순서 변경) ====================
-
-const reorderSchema = z.object({
-  type: z.enum(['headquarters', 'branch', 'substation', 'floor']),
-  items: z.array(z.object({
-    id: z.string().uuid(),
-    sortOrder: z.number().int().min(0),
-  })).min(1),
-});
-
-router.patch(
-  '/reorder',
-  authenticate,
-  adminOnly,
-  validate(reorderSchema),
-  organizationController.reorder
-);
-
 export { router as organizationRouter };

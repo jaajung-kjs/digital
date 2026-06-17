@@ -21,14 +21,25 @@ interface TreeNodeMenuProps {
 export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeMenuProps) {
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const addLabel = childLabel(node.type);
   const open = pos !== null;
 
+  // 외부 클릭/Esc 로 닫기 — 백드롭 없이(화면을 덮어 hover·클릭을 막지 않도록).
   useEffect(() => {
     if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setPos(null);
+    };
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setPos(null); };
+    document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [open]);
 
   const toggle = (e: React.MouseEvent) => {
@@ -59,28 +70,23 @@ export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeM
       </IconButton>
 
       {open && pos && createPortal(
-        <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={(e) => { e.stopPropagation(); setPos(null); }}
-          />
-          <div
-            className="fixed z-50 min-w-[140px] rounded-md border border-line bg-surface py-1 shadow-lg"
-            style={{ top: pos.top, right: pos.right }}
-          >
-            {addLabel && (
-              <button type="button" className={`${itemClass} text-content hover:bg-surface-2`} onClick={(e) => choose(e, onAddChild)}>
-                {addLabel}
-              </button>
-            )}
-            <button type="button" className={`${itemClass} text-content hover:bg-surface-2`} onClick={(e) => choose(e, onRename)}>
-              이름 변경
+        <div
+          ref={menuRef}
+          className="fixed z-50 min-w-[140px] rounded-md border border-line bg-surface py-1 shadow-lg"
+          style={{ top: pos.top, right: pos.right }}
+        >
+          {addLabel && (
+            <button type="button" className={`${itemClass} text-content hover:bg-surface-2`} onClick={(e) => choose(e, onAddChild)}>
+              {addLabel}
             </button>
-            <button type="button" className={`${itemClass} text-danger hover:bg-danger-bg`} onClick={(e) => choose(e, onDelete)}>
-              삭제
-            </button>
-          </div>
-        </>,
+          )}
+          <button type="button" className={`${itemClass} text-content hover:bg-surface-2`} onClick={(e) => choose(e, onRename)}>
+            이름 변경
+          </button>
+          <button type="button" className={`${itemClass} text-danger hover:bg-danger-bg`} onClick={(e) => choose(e, onDelete)}>
+            삭제
+          </button>
+        </div>,
         document.body,
       )}
     </div>

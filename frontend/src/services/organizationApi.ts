@@ -78,11 +78,6 @@ export const organizationApi = {
   deleteFloor: async (id: string): Promise<void> => {
     await api.delete(`/floors/${id}`);
   },
-
-  // ── Reorder ──
-  reorder: async (type: NodeType, items: { id: string; sortOrder: number }[]): Promise<void> => {
-    await api.patch('/organizations/reorder', { type, items });
-  },
 };
 
 /** Fetch children for a tree node — shared by TreePanel and TreeVisualization */
