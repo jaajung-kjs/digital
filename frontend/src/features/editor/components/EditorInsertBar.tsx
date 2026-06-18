@@ -172,7 +172,7 @@ export function EditorInsertBar() {
         createPortal(
           <>
             <div
-              className="fixed inset-0 z-40"
+              className="fixed inset-0 z-backdrop"
               onClick={() => setPresetMenuOpen(false)}
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -180,7 +180,7 @@ export function EditorInsertBar() {
               }}
             />
             <div
-              className="fixed z-50 bg-surface border border-line rounded-md shadow-lg py-1 min-w-[200px] max-h-72 overflow-y-auto"
+              className="fixed z-modal bg-surface border border-line rounded-md shadow-lg py-1 min-w-[200px] max-h-72 overflow-y-auto"
               style={{ left: menuPos.left, top: menuPos.top }}
             >
               {activePresets.length === 0 ? (

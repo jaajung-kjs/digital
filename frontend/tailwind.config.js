@@ -6,6 +6,17 @@ export default {
   ],
   theme: {
     extend: {
+      // z-index 의미 스케일(SSOT). 0~19 대역은 캔버스 내부 오버레이(인라인 zIndex 10~14)용으로 예약.
+      // 숫자 z-* 유틸은 그대로 두므로 점진 마이그레이션 안전.
+      zIndex: {
+        sticky: '10',   // 스크롤 콘텐츠 위 sticky 헤더(탭바 등)
+        legend: '15',   // 캔버스 위 범례·인디케이터(패널 아래)
+        panel: '20',    // 에디터 슬라이드 패널·캔버스 배너
+        backdrop: '40', // 드롭다운/메뉴 백드롭·인라인 팝오버
+        modal: '50',    // 메뉴·팝오버·모달(최상위 상호작용)
+        top: '60',      // 모달 위 라이트박스·토스트·중첩 다이얼로그
+        alert: '70',    // 충돌 다이얼로그 — 모든 레이어 위
+      },
       keyframes: {
         'slide-in-left': {
           from: { transform: 'translateX(-100%)' },

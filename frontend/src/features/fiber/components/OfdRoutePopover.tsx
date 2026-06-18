@@ -87,7 +87,7 @@ export function OfdRoutePopover({ anchorRect, peerOfds, initialCores = 24, onPic
       ref={ref}
       role="dialog"
       aria-label="경로 추가"
-      className="fixed z-50 bg-surface border border-line rounded-md shadow-lg py-1 w-[232px]"
+      className="fixed z-modal bg-surface border border-line rounded-md shadow-lg py-1 w-[232px]"
       style={{
         left,
         top: layout?.top ?? -9999,

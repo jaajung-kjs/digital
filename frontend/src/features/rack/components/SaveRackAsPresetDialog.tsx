@@ -136,7 +136,7 @@ export function SaveRackAsPresetDialog({
 
   if (!rack) {
     return (
-      <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center z-modal">
         <div className="bg-surface rounded-lg p-6 max-w-md w-full mx-4">
           <p className="text-sm text-content-muted">랙 장비를 찾을 수 없습니다.</p>
           <div className="flex justify-end mt-4">
@@ -151,7 +151,7 @@ export function SaveRackAsPresetDialog({
 
   return (
     <>
-      <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center z-modal">
         <div className="bg-surface rounded-lg p-6 max-w-md w-full mx-4">
           <h3 className="text-lg font-semibold mb-1">
             {isOverwriteMode ? '프리셋 덮어쓰기' : '프리셋 저장'}
@@ -235,7 +235,7 @@ export function SaveRackAsPresetDialog({
       </div>
 
       {showOverwriteConfirm && originalPreset && (
-        <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center z-[60]">
+        <div className="fixed inset-0 bg-[var(--overlay)] flex items-center justify-center z-top">
           <div className="bg-surface rounded-lg p-6 max-w-sm w-full mx-4">
             <h4 className="text-base font-semibold mb-2">기존 프리셋 덮어쓰기</h4>
             <p className="text-sm text-content-muted mb-4">

@@ -251,7 +251,7 @@ function GridControl({
           격자 {majorGridSize} / {gridSize} cm
         </button>
         {open && (
-          <div className="absolute bottom-full left-0 mb-1 z-40 bg-surface rounded shadow-lg border border-line p-3 w-48">
+          <div className="absolute bottom-full left-0 mb-1 z-backdrop bg-surface rounded shadow-lg border border-line p-3 w-48">
             <label className="block text-xs text-content-muted mb-1">주 격자 (cm)</label>
             <input
               type="number"

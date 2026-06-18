@@ -16,7 +16,7 @@ interface TreeNodeMenuProps {
  * 트리 노드 호버 케밥 메뉴. 드롭다운은 `document.body` 로 portal 렌더한다 —
  * 트리거가 `opacity-0`(호버 노출) 래퍼와 `transform` 조상(케밥 컨테이너의 -translate-y-1/2)
  * 안에 있어서, 그 안에 두면 opacity 상속으로 안 보이거나 fixed 기준이 어긋난다.
- * portal + fixed + z-50 으로 스태킹/opacity/transform 영향을 완전히 벗어난다.
+ * portal + fixed + z-modal 으로 스태킹/opacity/transform 영향을 완전히 벗어난다.
  */
 export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeMenuProps) {
   const [pos, setPos] = useState<{ right: number; top?: number; bottom?: number } | null>(null);
@@ -76,7 +76,7 @@ export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeM
       {open && pos && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-50 w-max rounded-md border border-line bg-surface py-1 shadow-lg"
+          className="fixed z-modal w-max rounded-md border border-line bg-surface py-1 shadow-lg"
           style={{ right: pos.right, top: pos.top, bottom: pos.bottom }}
         >
           {addLabel && (

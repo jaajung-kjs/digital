@@ -31,7 +31,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-[var(--overlay)]"
       onClick={onClose}
     >
       <Card

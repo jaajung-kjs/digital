@@ -20,8 +20,7 @@ export function ToastHost() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 right-4 flex flex-col gap-2"
-      style={{ zIndex: 60 }}
+      className="fixed bottom-4 right-4 z-top flex flex-col gap-2"
     >
       {toasts.map((toast) => (
         <button

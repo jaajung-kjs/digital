@@ -466,7 +466,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
               {/* Restore banner — shown after restoring from a past version until save */}
               {restoredFromVersion && (
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-4 py-2 bg-info-bg border border-info rounded-lg shadow-sm">
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 z-panel flex items-center gap-2 px-4 py-2 bg-info-bg border border-info rounded-lg shadow-sm">
                   <span className="text-xs font-medium text-primary">
                     {restoredFromVersion} 버전에서 복원됨 — 저장하지 않으면 반영되지 않습니다
                   </span>

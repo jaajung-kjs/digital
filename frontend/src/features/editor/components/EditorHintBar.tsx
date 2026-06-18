@@ -53,8 +53,7 @@ export function EditorHintBar() {
 
   return (
     <div
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-surface/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-line pointer-events-none select-none"
-      style={{ zIndex: 15 }}
+      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-legend bg-surface/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-md border border-line pointer-events-none select-none"
     >
       <span className="text-sm text-primary">{message}</span>
     </div>

@@ -502,7 +502,7 @@ export function NetworkTopologyModal() {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-[var(--overlay)]"
       onClick={(e) => e.target === e.currentTarget && close()}
     >
       <div className="bg-surface rounded-lg shadow-xl w-[min(1200px,95vw)] h-[min(800px,90vh)] flex flex-col">
@@ -522,7 +522,7 @@ export function NetworkTopologyModal() {
 
         <div className="flex-1 relative">
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-surface/80 z-10">
+            <div className="absolute inset-0 flex items-center justify-center bg-surface/80 z-sticky">
               <span className="text-sm text-content-muted">불러오는 중...</span>
             </div>
           )}

@@ -75,7 +75,7 @@ export function DwgImportModal({ floorId, onClose, onImported }: Props) {
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
+    <div className="fixed inset-0 z-modal flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
       <div
         className="bg-surface rounded shadow-xl border border-line w-[640px] max-h-[85vh] flex flex-col"
         role="dialog"

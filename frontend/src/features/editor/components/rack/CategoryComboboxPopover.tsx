@@ -94,7 +94,7 @@ export function CategoryComboboxPopover({ anchorRect, availableSpan, onPick, onC
     <div
       ref={ref}
       role="listbox"
-      className="fixed z-50 bg-surface border border-line rounded-md shadow-lg py-1 w-56"
+      className="fixed z-modal bg-surface border border-line rounded-md shadow-lg py-1 w-56"
       style={{
         left,
         top: layout?.top ?? -9999,

@@ -70,7 +70,7 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   return (
     <>
       <div
-        className="fixed inset-0 z-40"
+        className="fixed inset-0 z-backdrop"
         onClick={onClose}
         onContextMenu={(e) => {
           e.preventDefault();
@@ -78,7 +78,7 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
         }}
       />
       <div
-        className="fixed z-50 bg-surface border border-line rounded-md shadow-lg py-1 min-w-[140px]"
+        className="fixed z-modal bg-surface border border-line rounded-md shadow-lg py-1 min-w-[140px]"
         style={{ left: x, top: y }}
       >
         {items.map((item) => (

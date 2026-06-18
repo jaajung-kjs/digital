@@ -39,8 +39,8 @@ export function EditorHelpButton() {
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 bottom-9 z-50 w-72 bg-surface border border-line rounded-lg shadow-lg p-4">
+          <div className="fixed inset-0 z-backdrop" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 bottom-9 z-modal w-72 bg-surface border border-line rounded-lg shadow-lg p-4">
             <h4 className="text-sm font-semibold text-content mb-2">작업 흐름</h4>
             <ol className="space-y-1.5 mb-3">
               {WORKFLOW.map((w) => (

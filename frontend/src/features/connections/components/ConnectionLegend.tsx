@@ -89,7 +89,7 @@ export function ConnectionLegend() {
         type="button"
         onClick={() => setCollapsed(false)}
         title="케이블 필터 펼치기"
-        className="absolute left-3 bottom-10 z-[15] flex items-center gap-1.5 bg-surface/85 backdrop-blur-sm border border-line rounded-lg px-2.5 py-1.5 shadow-sm text-xs text-content-muted hover:bg-surface-2 hover:text-content transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        className="absolute left-3 bottom-10 z-legend flex items-center gap-1.5 bg-surface/85 backdrop-blur-sm border border-line rounded-lg px-2.5 py-1.5 shadow-sm text-xs text-content-muted hover:bg-surface-2 hover:text-content transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       >
         <Filter size={13} />
         <span className="font-medium">케이블 필터</span>
@@ -102,7 +102,7 @@ export function ConnectionLegend() {
 
   return (
     <div
-      className="absolute left-3 bottom-10 z-[15] bg-surface/85 backdrop-blur-sm border border-line rounded-lg px-2.5 py-2 shadow-sm"
+      className="absolute left-3 bottom-10 z-legend bg-surface/85 backdrop-blur-sm border border-line rounded-lg px-2.5 py-2 shadow-sm"
     >
       <div className="flex items-center gap-2 mb-1.5">
         <button

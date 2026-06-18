@@ -48,7 +48,7 @@ describe('SidePanel', () => {
     const onClose = vi.fn();
     render(
       <>
-        <div className="fixed inset-0 z-50">modal</div>
+        <div className="fixed inset-0 z-modal">modal</div>
         <SidePanel title="x" onClose={onClose}>
           <div />
         </SidePanel>

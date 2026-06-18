@@ -123,7 +123,7 @@ export function AssetPhotoSection({ assetId }: { assetId: string }) {
       {lightbox &&
         createPortal(
           <div
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-strong)] p-4"
+            className="fixed inset-0 z-top flex items-center justify-center bg-[var(--overlay-strong)] p-4"
             onClick={() => setLightbox(null)}
             role="dialog"
             aria-modal="true"

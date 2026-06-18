@@ -28,7 +28,7 @@ export function DetailTabs({ tabs, initial }: { tabs: DetailTab[]; initial?: str
       {/* 탭 바 — 패널 헤더 아래 sticky, 단일 하단 라인. */}
       <div
         role="tablist"
-        className="sticky top-0 z-10 flex shrink-0 items-stretch border-b border-line bg-surface"
+        className="sticky top-0 z-sticky flex shrink-0 items-stretch border-b border-line bg-surface"
       >
         {tabs.map((t) => {
           const on = t.label === current?.label;

@@ -63,7 +63,7 @@ export function SidePanel({
       data-side={side}
       style={{ width }}
       className={[
-        'absolute inset-y-0 z-20 flex flex-col bg-surface',
+        'absolute inset-y-0 z-panel flex flex-col bg-surface',
         isRight
           ? 'right-0 border-l border-line shadow-[-4px_0_12px_rgba(0,0,0,0.08)] animate-slide-in-right'
           : 'left-0 border-r border-line shadow-[4px_0_12px_rgba(0,0,0,0.08)] animate-slide-in-left',
