@@ -10,7 +10,7 @@ import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
 import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
-import { SidePanel } from '../../editor/components/SidePanel';
+import { SidePanel, RIGHT_PANEL_WIDTH } from '../../editor/components/SidePanel';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { fiberSlotLabel } from '../../fiber/fiberSlotLabel';
 
@@ -146,7 +146,6 @@ export function AssetDetailPanel({
     return (
       <SidePanel
         side="right"
-        width={416}
         title={headerTitle}
         eyebrow={<AssetBreadcrumb asset={asset} />}
         onClose={onClose}
@@ -159,7 +158,7 @@ export function AssetDetailPanel({
   }
 
   return (
-    <aside className="w-[416px] shrink-0 border-l border-line bg-surface h-full flex flex-col">
+    <aside style={{ width: RIGHT_PANEL_WIDTH }} className="shrink-0 border-l border-line bg-surface h-full flex flex-col">
       <DetailPanelHeader
         title={headerTitle}
         eyebrow={<AssetBreadcrumb asset={asset} />}

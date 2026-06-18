@@ -2,6 +2,7 @@ import { useAsset } from '../hooks/useAsset';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { AssetDetailPanel } from './AssetDetailPanel';
+import { RIGHT_PANEL_WIDTH } from '../../editor/components/SidePanel';
 
 /**
  * 선택된 자산의 staged 상세패널(본부·사업소 — 워킹카피가 SSOT).
@@ -38,7 +39,7 @@ export function StagedAssetDetailPanel({
   const display = asset ?? fetched;
   if (!display) {
     return (
-      <aside className="w-[416px] shrink-0 border-l border-line bg-surface h-full overflow-y-auto p-4 text-sm text-content-muted">
+      <aside style={{ width: RIGHT_PANEL_WIDTH }} className="shrink-0 border-l border-line bg-surface h-full overflow-y-auto p-4 text-sm text-content-muted">
         불러오는 중…
       </aside>
     );

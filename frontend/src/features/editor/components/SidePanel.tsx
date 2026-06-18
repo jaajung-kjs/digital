@@ -1,6 +1,9 @@
 import { useEffect, type ReactNode } from 'react';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
 
+/** 우측 상세 사이드패널 가로폭(px) — 모든 상세 패널·캔버스 오프셋의 단일 소스. */
+export const RIGHT_PANEL_WIDTH = 416;
+
 interface SidePanelProps {
   /** 캔버스 어느 쪽에 붙고 어디서 슬라이드해 들어올지 */
   side?: 'left' | 'right';
@@ -35,7 +38,7 @@ export function SidePanel({
   title,
   onClose,
   onDelete,
-  width = 384,
+  width = RIGHT_PANEL_WIDTH,
   children,
   headerExtra,
   eyebrow,
