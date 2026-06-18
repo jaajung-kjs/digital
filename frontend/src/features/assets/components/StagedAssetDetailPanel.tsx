@@ -38,7 +38,7 @@ export function StagedAssetDetailPanel({
   const display = asset ?? fetched;
   if (!display) {
     return (
-      <aside className="w-96 shrink-0 border-l border-line bg-surface h-full overflow-y-auto p-4 text-sm text-content-muted">
+      <aside className="w-[416px] shrink-0 border-l border-line bg-surface h-full overflow-y-auto p-4 text-sm text-content-muted">
         불러오는 중…
       </aside>
     );

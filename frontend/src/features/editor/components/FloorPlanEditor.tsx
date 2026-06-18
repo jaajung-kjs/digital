@@ -147,8 +147,8 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     }
   }, [tool]);
 
-  // 우측 detail panel 폭 (EquipmentDetailPanel.tsx 의 w-[360px] 와 동기화).
-  const RIGHT_PANEL_WIDTH = 360;
+  // 우측 detail panel 폭 (AssetDetailPanel overlay 의 SidePanel width 와 동기화).
+  const RIGHT_PANEL_WIDTH = 416;
 
   // ── 카메라 fit 헬퍼 두 개 (경로 / 자산) — 두 트리거(focusTick, tracingCableId)가 공유 ──
   //   • fitToPath: 연결 경로(highlightedEdgeIds) bounds 로 fit. 활성 연결이 없으면 early-return
