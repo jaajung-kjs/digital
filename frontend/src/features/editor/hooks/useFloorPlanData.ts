@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../../utils/api';
 import type {
@@ -9,8 +9,16 @@ import type { Asset } from '../../../types/asset';
 import { useEditorStore } from '../stores/editorStore';
 import { useViewport } from './useViewport';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
-import { useWorkingCopyLoader, useWorkingCopyLoaded } from '../../workingCopy/hooks';
+import { useWorkingCopyLoader, useWorkingCopyLoaded, useEffectiveFloors } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
+
+// 새(staged, temp) 층의 기본 캔버스 설정 — Prisma Floor 스키마 @default 와 동일.
+// git-like SSOT: 미커밋 층도 워킹카피 안에서 곧장 편집 가능해야 한다. 서버에 행이 없으므로
+// 이 기본값으로 floorPlan 을 합성한다(설비/케이블은 effective 가 제공, 커밋 시 floorId temp→real).
+const DEFAULT_CANVAS = {
+  canvasWidth: 2000, canvasHeight: 1500, gridSize: 10, majorGridSize: 60,
+  backgroundColor: '#ffffff', backgroundOpacity: 0.3,
+} as const;
 
 // SSOT-2d Task 2 — planCablesToLocalCables 제거. 케이블은 더 이상 plan 응답에서
 // editorStore 로 평탄화하지 않는다 (통합 working copy 가 effective 케이블 제공, Task 3).
@@ -41,14 +49,29 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   // stable across refetches. `undefined` = never initialized (first run).
   const prevBgIdRef = useRef<string | null | undefined>(undefined);
 
-  const { data: floor, isLoading: floorLoading } = useQuery({
+  const isTemp = !!floorId && isTempId(floorId);
+
+  const { data: serverFloor, isLoading: floorLoading } = useQuery({
     queryKey: ['floor', floorId],
     queryFn: async () => {
       const response = await api.get<{ data: FloorDetail }>(`/floors/${floorId}`);
       return response.data.data;
     },
-    enabled: !!floorId && !isTempId(floorId),
+    enabled: !!floorId && !isTemp,
   });
+
+  // staged(temp) 층: 서버 행이 없으니 WC 의 org 층 + 기본 캔버스 설정으로 floor/floorPlan 을 합성.
+  // 식별 필드(primitive)에만 의존해 메모이즈 — 설비 배치 등 다른 WC 변경에 객체가 재생성돼
+  // 캔버스 effect 가 재실행(뷰포트 리셋)되지 않게 한다.
+  const wcFloors = useEffectiveFloors();
+  const wcFloor = isTemp ? wcFloors.find((x) => x.id === floorId) : undefined;
+  const floor: FloorDetail | undefined = useMemo(() => {
+    if (!isTemp) return serverFloor;
+    if (!wcFloor) return undefined;
+    return { id: wcFloor.id, substationId: wcFloor.substationId, name: wcFloor.name, floorNumber: wcFloor.floorNumber,
+      description: null, sortOrder: wcFloor.sortOrder, isActive: true, createdAt: '', updatedAt: wcFloor.updatedAt ?? '' };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTemp, serverFloor, wcFloor?.id, wcFloor?.name, wcFloor?.substationId, wcFloor?.floorNumber, wcFloor?.sortOrder, wcFloor?.updatedAt]);
 
   // SSOT-2d Task 2 — 층의 변전소 단위 통합 working copy 로드. 변전소 워크스페이스에선
   // 이미 로드돼 있어(idempotent guard) no-op, 단독 `/floors/:id/plan` 경로에선 여기서
@@ -60,15 +83,24 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   // 때까지 viewportInitialized 를 세우지 않고 effect 를 다시 돌려 실제 설비에 맞춘다.
   const wcLoaded = useWorkingCopyLoaded(floor?.substationId ?? null);
 
-  const { data: floorPlan, isLoading: planLoading, error: planError } = useQuery({
+  const { data: serverPlan, isLoading: planLoading, error: planError } = useQuery({
     queryKey: ['floorPlan', floorId],
     queryFn: async () => {
       const response = await api.get<{ data: FloorPlanDetail }>(`/floors/${floorId}/plan`);
       return response.data.data;
     },
-    enabled: !!floorId && !isTempId(floorId),
+    enabled: !!floorId && !isTemp,
     retry: false,
   });
+
+  // temp 층은 기본값으로 합성 — 설비/케이블은 effective 가 제공하므로 빈 배열, version 0.
+  const floorPlan: FloorPlanDetail | undefined = useMemo(() => {
+    if (!isTemp) return serverPlan;
+    return floor
+      ? { id: floor.id, name: floor.name, ...DEFAULT_CANVAS, backgroundDrawing: null,
+          equipment: [], cables: [], version: 0, updatedAt: '' }
+      : undefined;
+  }, [isTemp, serverPlan, floor]);
 
   // USP Task 2 — 저장(commitSubstation + 사진/로그 flush + 재조정)은
   // useCommitWorkingCopy 로 이관됐다. 여기 있던 saveMutation/handleSave + 헬퍼는 제거됨.
@@ -86,8 +118,11 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   useEffect(() => {
     if (!floorPlan) return;
 
+    // 새(temp) 층은 캔버스설정 OCC 대상이 아니다(org floor create 가 기본값으로 생성) →
+    // baseFloorVersion 을 null 로 둬 commit 의 floor 섹션(OCC update)을 만들지 않는다.
     useEditorStore.getState().setBaseFloorVersion(
-      typeof floorPlan.updatedAt === 'string' ? floorPlan.updatedAt : new Date(floorPlan.updatedAt).toISOString(),
+      isTemp ? null
+        : typeof floorPlan.updatedAt === 'string' ? floorPlan.updatedAt : new Date(floorPlan.updatedAt).toISOString(),
     );
     // USP Task 1 — self-contained 커밋(useCommitWorkingCopy)이 floor 섹션 id 로 쓸
     // 현재 floorId 를 store 에 동기화한다(baseFloorVersion 과 한 쌍).
@@ -98,7 +133,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
 
     useEditorStore.getState().clearPendingData();
     setViewportInitialized(false);
-  }, [floorPlan, floorId, setGridSize, setMajorGridSize, setViewportInitialized]);
+  }, [floorPlan, floorId, isTemp, setGridSize, setMajorGridSize, setViewportInitialized]);
 
   // SSOT-2d Task 2 — 설비+케이블 / 랙모듈 / 회로의 editorStore 시딩 제거.
   // 이 데이터는 통합 working copy 가 effective 훅으로 제공한다(Task 3).

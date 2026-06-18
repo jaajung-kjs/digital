@@ -76,7 +76,7 @@ export function TreeNodeMenu({ node, onAddChild, onRename, onDelete }: TreeNodeM
       {open && pos && createPortal(
         <div
           ref={menuRef}
-          className="fixed z-50 min-w-[140px] rounded-md border border-line bg-surface py-1 shadow-lg"
+          className="fixed z-50 w-max rounded-md border border-line bg-surface py-1 shadow-lg"
           style={{ right: pos.right, top: pos.top, bottom: pos.bottom }}
         >
           {addLabel && (
