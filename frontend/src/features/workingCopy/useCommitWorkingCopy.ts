@@ -155,7 +155,10 @@ export function useCommitWorkingCopy() {
     // 아래에서 `if (substationId)` 가드로 건너뛴다.
 
     const ed = useEditorStore.getState();
-    const floor = buildFloorSection(ed);
+    // 활성 층이 삭제 대상이면 캔버스설정(floor 섹션)을 보내지 않는다 — 백엔드가 같은 트랜잭션에서
+    // 그 층을 deleteMany 한 뒤 floor.update 하려다 P2025 로 실패한다(삭제된 층엔 설정이 없다).
+    const fs = buildFloorSection(ed);
+    const floor = fs && wc.overlays.floors?.deletes?.includes(fs.id) ? undefined : fs;
 
     // #3 Task 3 — 작업지시서 아카이브용 PRE-commit 스냅샷.
     // 커밋 후 store.load 가 오버레이를 비우므로, 활성 층 changes 는 반드시 지금
