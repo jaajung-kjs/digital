@@ -82,7 +82,7 @@ export function OrgNodeModal({
       open={open}
       onClose={onClose}
       title={title}
-      className="max-w-[360px]"
+      size="sm"
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>취소</Button>

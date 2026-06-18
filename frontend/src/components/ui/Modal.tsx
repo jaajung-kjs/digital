@@ -10,11 +10,13 @@ export interface ModalProps {
   title?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
+  /** 패널 최대 폭 — md(기본, max-w-md=448px) / sm(360px). 폭 매직넘버의 단일 소스. */
+  size?: 'sm' | 'md';
   /** 패널에 추가 className */
   className?: string;
 }
 
-export function Modal({ open, onClose, title, children, footer, className }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, size = 'md', className }: ModalProps) {
   // Esc 로 닫기
   useEffect(() => {
     if (!open) return;
@@ -34,7 +36,7 @@ export function Modal({ open, onClose, title, children, footer, className }: Mod
     >
       <Card
         padding={false}
-        className={cn('mx-4 w-full max-w-md hover:!bg-surface active:!bg-surface cursor-default', className)}
+        className={cn('mx-4 w-full hover:!bg-surface active:!bg-surface cursor-default', size === 'sm' ? 'max-w-[360px]' : 'max-w-md', className)}
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}

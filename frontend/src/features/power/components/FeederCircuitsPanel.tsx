@@ -193,7 +193,7 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
               type="button"
               aria-label="입력 삭제"
               onClick={(e) => { e.stopPropagation(); deleteInput(); }}
-              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100"
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-xs leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100"
             >
               ×
             </button>

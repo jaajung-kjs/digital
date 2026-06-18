@@ -252,7 +252,7 @@ function GridControl({
         </button>
         {open && (
           <div className="absolute bottom-full left-0 mb-1 z-40 bg-surface rounded shadow-lg border border-line p-3 w-48">
-            <label className="block text-[11px] text-content-muted mb-1">주 격자 (cm)</label>
+            <label className="block text-xs text-content-muted mb-1">주 격자 (cm)</label>
             <input
               type="number"
               min="1"
@@ -264,7 +264,7 @@ function GridControl({
               aria-label="주 격자 크기"
               className="w-full px-2 py-1 mb-2 border border-line rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
-            <label className="block text-[11px] text-content-muted mb-1">보조 격자 (cm)</label>
+            <label className="block text-xs text-content-muted mb-1">보조 격자 (cm)</label>
             <input
               type="number"
               min="1"

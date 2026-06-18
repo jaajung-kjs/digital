@@ -132,7 +132,7 @@ export function OfdRoutePopover({ anchorRect, peerOfds, initialCores = 24, onPic
 
       {/* 코어 수 선택 */}
       <div className="px-3 py-1.5 border-b border-line">
-        <div className="flex items-center gap-1.5 text-[11px] text-content-muted flex-wrap">
+        <div className="flex items-center gap-1.5 text-xs text-content-muted flex-wrap">
           <span className="shrink-0">코어 수</span>
           {[24, 48].map((n) => (
             <button
@@ -160,7 +160,7 @@ export function OfdRoutePopover({ anchorRect, peerOfds, initialCores = 24, onPic
       </div>
 
       {/* 대국 OFD 목록 */}
-      <div className="px-2 py-0.5 text-[10px] text-content-faint border-b border-line/50">
+      <div className="px-2 py-0.5 text-xs text-content-faint border-b border-line/50">
         대국 OFD 선택
       </div>
       {peerOfds.length === 0 ? (

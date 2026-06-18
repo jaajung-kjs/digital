@@ -7,7 +7,7 @@ const isOn = (s: string) => s.toUpperCase() === 'ON';
  * 클릭하면 평면도에서 케이블을 그려 CB(피더→부하)를 만든다. 점유 차단기는 실제 스위치처럼
  * ON=레버 위 / OFF=레버 아래로 내려간 토글 + hover 삭제(onDeleteCb). 순수 표시.
  * `circuits` 는 feederGridSlots 로 만든 고정 그리드(점유+빈 슬롯)를 그대로 받는다.
- * 타이포: 번호=text-xs, 용량=text-[11px] (CONVENTIONS.md 스케일 — text-xs 미만 지양).
+ * 타이포: 번호=text-xs, 용량=text-xs (CONVENTIONS.md 스케일 — text-xs 미만 지양).
  */
 export function BreakerRail({
   circuits,
@@ -41,7 +41,7 @@ export function BreakerRail({
               aria-label={`차단기 ${c.cbNumber} 추가`}
               className="flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-md border border-dashed border-line bg-surface/40 text-content-faint transition-colors hover:border-primary hover:text-primary hover:bg-info-bg disabled:cursor-default disabled:hover:border-line disabled:hover:bg-surface/40 disabled:hover:text-content-faint"
             >
-              <span className="text-[11px] font-mono tabular-nums leading-none opacity-60">{c.cbNumber}</span>
+              <span className="text-xs font-mono tabular-nums leading-none opacity-60">{c.cbNumber}</span>
               <span className="text-lg leading-none" aria-hidden="true">＋</span>
             </button>
           );
@@ -83,13 +83,13 @@ export function BreakerRail({
                 }`}
               />
             </button>
-            <span className={`text-[11px] font-medium leading-none ${on ? 'text-success' : 'text-content-muted'}`}>{c.capacity || '·'}</span>
+            <span className={`text-xs font-medium leading-none ${on ? 'text-success' : 'text-content-muted'}`}>{c.capacity || '·'}</span>
             {onDeleteCb && c.cableId && (
               <button
                 type="button"
                 aria-label={`차단기 ${c.cbNumber} 삭제`}
                 onClick={(e) => { e.stopPropagation(); onDeleteCb(c.cbNumber, c.cableId!); }}
-                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100"
+                className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-xs leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100"
               >
                 ×
               </button>

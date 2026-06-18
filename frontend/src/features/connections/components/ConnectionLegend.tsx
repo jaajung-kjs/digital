@@ -93,7 +93,7 @@ export function ConnectionLegend() {
       >
         <Filter size={13} />
         <span className="font-medium">케이블 필터</span>
-        <span className="text-[10px] text-content-faint">
+        <span className="text-xs text-content-faint">
           {activeGroups}/{CABLE_DISPLAY_GROUPS.length}
         </span>
       </button>
@@ -124,7 +124,7 @@ export function ConnectionLegend() {
             onChange={toggleAll}
             className="w-3 h-3 rounded border-line text-primary focus:ring-primary/40"
           />
-          <span className="text-[11px] text-content-muted">전체</span>
+          <span className="text-xs text-content-muted">전체</span>
         </label>
       </div>
       <div className="flex items-center gap-1">
@@ -178,7 +178,7 @@ export function ConnectionLegend() {
               onClick={() => toggleGroup(group)}
               disabled={disabled}
               title={title}
-              className={`${className} rounded-full px-2 py-0.5 text-[11px] leading-none font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
+              className={`${className} rounded-full px-2 py-0.5 text-xs leading-none font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
               style={style}
             >
               <span

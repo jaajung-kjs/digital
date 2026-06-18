@@ -10,11 +10,11 @@ export function SortableHeaderCell({ label, width, first, last, sortable = false
 }) {
   const pad = padOf(first, last);
   if (!sortable) {
-    return <th className={`text-[12px] font-medium tracking-wide text-content-muted whitespace-nowrap ${pad} py-2 ${width ?? ''}`}>{label}</th>;
+    return <th className={`text-xs font-medium tracking-wide text-content-muted whitespace-nowrap ${pad} py-2 ${width ?? ''}`}>{label}</th>;
   }
   return (
     <th aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={`p-0 text-[12px] font-medium tracking-wide whitespace-nowrap ${active ? 'bg-surface-3' : ''} ${width ?? ''}`}>
+      className={`p-0 text-xs font-medium tracking-wide whitespace-nowrap ${active ? 'bg-surface-3' : ''} ${width ?? ''}`}>
       <button type="button" onClick={onClick} aria-label={`${label} 정렬`}
         className={`group w-full inline-flex items-center gap-1 ${pad} py-2 cursor-pointer select-none transition-colors hover:bg-surface-3 active:bg-surface-3 ${active ? 'text-content font-semibold' : 'text-content-muted'}`}>
         {label}

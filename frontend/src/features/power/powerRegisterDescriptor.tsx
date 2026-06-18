@@ -137,7 +137,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
       sortKey: (r) => r.isInput ? -1 : (parseInt(r.cbNumber, 10) || 0),
       cell: (r) =>
         r.isInput ? (
-          <span className="inline-flex items-center rounded bg-danger-bg px-1.5 py-0.5 text-[11px] font-medium text-danger">입력</span>
+          <span className="inline-flex items-center rounded bg-danger-bg px-1.5 py-0.5 text-xs font-medium text-danger">입력</span>
         ) : (
           <EditableField
             value={r.cbNumber}

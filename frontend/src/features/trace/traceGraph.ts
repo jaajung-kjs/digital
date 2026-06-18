@@ -1,5 +1,6 @@
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { api } from '../../utils/api';
+import { QUERY_STALE_MS } from '../../lib/queryClient';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { useOrganizationStore } from '../../stores/organizationStore';
 import { cableTrace, type TraceAsset, type TraceCable } from './cableTrace';
@@ -64,7 +65,7 @@ const CABLE_KEYS = { all: ['cables'] as const };
 export function fetchAllSlimAssetsCached(qc: QueryClient): Promise<SlimAssetDTO[]> {
   return qc.fetchQuery({
     queryKey: ASSET_KEYS.all,
-    staleTime: 30_000,
+    staleTime: QUERY_STALE_MS,
     queryFn: async () => (await api.get<{ data: SlimAssetDTO[] }>('/assets')).data.data,
   });
 }
@@ -191,12 +192,12 @@ export function remoteSlotSubstation(slotId: string, graph: TraceGraph, cableTyp
 export function useTraceGraph(): { graph: TraceGraph | null; isLoading: boolean } {
   const slimQ = useQuery({
     queryKey: ASSET_KEYS.all,
-    staleTime: 30_000,
+    staleTime: QUERY_STALE_MS,
     queryFn: async () => (await api.get<{ data: SlimAssetDTO[] }>('/assets')).data.data,
   });
   const cableQ = useQuery({
     queryKey: CABLE_KEYS.all,
-    staleTime: 30_000,
+    staleTime: QUERY_STALE_MS,
     queryFn: async () => (await api.get<{ data: TraceCableInput[] }>('/cables')).data.data,
   });
   // 이 변전소 staged 변경 구독(overlay/saved 슬라이스 ref 변경 시 재계산 트리거).

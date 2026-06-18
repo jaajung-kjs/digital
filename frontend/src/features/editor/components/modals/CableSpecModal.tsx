@@ -101,7 +101,7 @@ function CableSpecModal() {
                   {cat.name}
                 </span>
                 {cat.displayGroup && (
-                  <span className="text-[11px] text-content-faint">
+                  <span className="text-xs text-content-faint">
                     {cat.displayGroup}
                   </span>
                 )}

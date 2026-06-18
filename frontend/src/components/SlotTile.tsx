@@ -77,16 +77,16 @@ export function SlotTile({
         style={accentColor ? { background: accentColor } : undefined} />
       <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
         <span className="truncate text-xs font-medium leading-tight text-content">{title}</span>
-        {subtitle != null && <span className="truncate text-[11px] leading-tight text-content-muted">{subtitle}</span>}
+        {subtitle != null && <span className="truncate text-xs leading-tight text-content-muted">{subtitle}</span>}
       </div>
       {meta != null && (
-        <span aria-hidden className="shrink-0 self-center pr-2 font-mono text-[10px] tabular-nums text-content-faint">{meta}</span>
+        <span aria-hidden className="shrink-0 self-center pr-2 font-mono text-xs tabular-nums text-content-faint">{meta}</span>
       )}
       {onDelete && (
         <button type="button" aria-label="삭제" title="삭제"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-[10px] leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100">
+          className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full border border-line bg-surface text-xs leading-none text-danger opacity-0 shadow-sm transition-opacity hover:bg-danger-bg group-hover:opacity-100">
           ✕
         </button>
       )}

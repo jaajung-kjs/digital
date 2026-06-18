@@ -45,7 +45,7 @@ export function EditorHelpButton() {
             <ol className="space-y-1.5 mb-3">
               {WORKFLOW.map((w) => (
                 <li key={w.step} className="flex gap-2 text-xs text-content-muted">
-                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-info-bg text-primary text-[10px] font-semibold flex items-center justify-center">
+                  <span className="flex-shrink-0 w-4 h-4 rounded-full bg-info-bg text-primary text-xs font-semibold flex items-center justify-center">
                     {w.step}
                   </span>
                   <span>{w.text}</span>

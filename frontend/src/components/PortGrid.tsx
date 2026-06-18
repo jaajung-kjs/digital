@@ -52,7 +52,7 @@ export function PortGrid({
                 onClick={() => onSelect(p.coreNumber)}
                 aria-label={`포트 ${p.coreNumber}`}
                 aria-pressed={selected}
-                className={`relative flex aspect-square items-center justify-center rounded-md border text-[11px] font-mono font-medium tabular-nums shadow-sm transition-colors ${
+                className={`relative flex aspect-square items-center justify-center rounded-md border text-xs font-mono font-medium tabular-nums shadow-sm transition-colors ${
                   TILE_CLASS[p.state]
                 } ${selected ? 'z-10 border-primary ring-2 ring-primary/40' : 'hover:border-content-faint'} ${dimmed ? 'opacity-40 cursor-not-allowed' : ''}`}
               >

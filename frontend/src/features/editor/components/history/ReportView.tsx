@@ -207,7 +207,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
                 <tr key={b.materialCategoryCode + (b.action ?? '') + b.name} className="border-b border-line/50">
                   <td className="py-1 text-content">{b.name}</td>
                   <td className="py-1 text-content-muted">{b.specification || '-'}</td>
-                  <td className="py-1"><span className={`px-1 py-0.5 rounded text-[10px] ${b.action ? actionBadgeColor(b.action) : ''}`}>{b.action ? actionLabel(b.action) : ''}</span></td>
+                  <td className="py-1"><span className={`px-1 py-0.5 rounded text-xs ${b.action ? actionBadgeColor(b.action) : ''}`}>{b.action ? actionLabel(b.action) : ''}</span></td>
                   <td className="py-1 text-right">
                     {editMode ? (
                       <Input

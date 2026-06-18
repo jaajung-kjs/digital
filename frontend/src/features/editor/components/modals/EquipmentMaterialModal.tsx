@@ -61,7 +61,7 @@ export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
       open={open}
       onClose={handleCancel}
       title={`${kindLabel} 추가`}
-      className="max-w-[360px]"
+      size="sm"
       footer={
         <>
           <Button variant="secondary" onClick={handleCancel}>취소</Button>
@@ -78,7 +78,7 @@ export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
         onKeyDown={handleKeyDown}
         placeholder={`예: ${kindLabel}-01`}
       />
-      <p className="mt-1 text-[11px] text-content-faint">Enter 키로 추가</p>
+      <p className="mt-1 text-xs text-content-faint">Enter 키로 추가</p>
     </Modal>
   );
 }

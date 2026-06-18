@@ -164,7 +164,7 @@ export function EditorInsertBar() {
         }`}
       >
         {activePreset ? `랙 프리셋: ${activePreset.name}` : '랙 프리셋'}
-        <span aria-hidden className="text-[10px]">▾</span>
+        <span aria-hidden className="text-xs">▾</span>
       </button>
 
       {presetMenuOpen &&
@@ -216,7 +216,7 @@ export function EditorInsertBar() {
                           style={{ backgroundColor: 'var(--primary)' }}
                         />
                         <span className="truncate">{preset.name}</span>
-                        <span className="ml-auto text-[10px] text-content-faint">
+                        <span className="ml-auto text-xs text-content-faint">
                           {preset.totalU}U
                         </span>
                       </button>
@@ -225,7 +225,7 @@ export function EditorInsertBar() {
                           <button
                             type="button"
                             title="수정"
-                            className="px-1 text-[11px] text-content-muted hover:text-content transition-colors duration-150"
+                            className="px-1 text-xs text-content-muted hover:text-content transition-colors duration-150"
                             onClick={() => {
                               setEditTarget(preset);
                               setPresetMenuOpen(false);
@@ -236,7 +236,7 @@ export function EditorInsertBar() {
                           <button
                             type="button"
                             title="삭제"
-                            className="px-1 text-[11px] text-danger hover:opacity-80 transition-opacity duration-150"
+                            className="px-1 text-xs text-danger hover:opacity-80 transition-opacity duration-150"
                             onClick={() => handleDeletePreset(preset)}
                           >
                             삭제

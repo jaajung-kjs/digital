@@ -138,7 +138,7 @@ export function CategoryComboboxPopover({ anchorRect, availableSpan, onPick, onC
           />
         </>
       )}
-      <div className="px-3 py-1 text-[11px] text-content-muted border-b">
+      <div className="px-3 py-1 text-xs text-content-muted border-b">
         카테고리 선택 — {availableSpan}슬롯 가능
       </div>
       {active.length === 0 ? (
@@ -163,7 +163,7 @@ export function CategoryComboboxPopover({ anchorRect, availableSpan, onPick, onC
                   }}
                 />
                 <span className="truncate flex-1">{c.name}</span>
-                <span className="text-[10px] text-content-faint">{c.defaultSlotSpan}U</span>
+                <span className="text-xs text-content-faint">{c.defaultSlotSpan}U</span>
               </button>
             </li>
           ))}

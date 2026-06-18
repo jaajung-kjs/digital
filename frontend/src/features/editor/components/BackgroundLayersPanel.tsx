@@ -76,7 +76,7 @@ export function BackgroundLayersPanel({ bg, onClose, floorPlan, canEdit = false 
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium text-content-muted">배경 도면</span>
           <span
-            className="text-[10px] text-content-faint truncate max-w-[160px]"
+            className="text-xs text-content-faint truncate max-w-[160px]"
             title={bg.source.fileName}
           >
             {bg.source.fileName}
@@ -95,7 +95,7 @@ export function BackgroundLayersPanel({ bg, onClose, floorPlan, canEdit = false 
           </div>
         )}
 
-        <div className="bg-surface-2 rounded px-2.5 py-1.5 text-[11px] text-content-muted">
+        <div className="bg-surface-2 rounded px-2.5 py-1.5 text-xs text-content-muted">
           도면 크기: {canvasWidthM} m × {canvasHeightM} m
         </div>
       </div>
@@ -162,7 +162,7 @@ export function BackgroundLayersPanel({ bg, onClose, floorPlan, canEdit = false 
                 {layer.name}
               </span>
               {/* Entity count */}
-              <span className="flex-shrink-0 text-[10px] text-content-faint">
+              <span className="flex-shrink-0 text-xs text-content-faint">
                 {count}
               </span>
             </button>

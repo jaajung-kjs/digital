@@ -114,8 +114,8 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
                 className="h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: meta?.color ?? 'rgb(var(--text-muted))' }}
               />
-              <span className="text-[12px] font-medium text-content-muted">{meta?.label ?? type}</span>
-              <span className="ml-auto text-[11px] tabular-nums text-content-faint">{entries.length}</span>
+              <span className="text-xs font-medium text-content-muted">{meta?.label ?? type}</span>
+              <span className="ml-auto text-xs tabular-nums text-content-faint">{entries.length}</span>
             </header>
             <ul className="space-y-px">
               {entries.map(({ conn, path, external }) => {
@@ -131,7 +131,7 @@ export function AssetConnectionsSection({ assetId, connections, activeFloorId }:
                       type="button"
                       onClick={() => onRowClick(conn.id)}
                       title="도면에서 경로 하이라이트"
-                      className="flex min-w-0 flex-1 items-center gap-2 rounded px-2.5 py-2 text-left text-[13px] focus-ring"
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded px-2.5 py-2 text-left text-sm focus-ring"
                     >
                       <span className="min-w-0 shrink truncate text-content-muted">{path.start.name}</span>
                       {routeDest(path) && (

@@ -30,7 +30,7 @@ export function SlotRailGrid({
         {Array.from({ length: slotCount }, (_, i) => (
           <div
             key={i}
-            className="flex items-center justify-center text-[11px] font-mono tabular-nums text-content-muted leading-none"
+            className="flex items-center justify-center text-xs font-mono tabular-nums text-content-muted leading-none"
           >
             {i + 1}
           </div>

@@ -147,7 +147,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
       </SlotRailGrid>
 
       {configMissing && (
-        <p className="mt-1 px-1 text-[11px] text-content-faint">설정 로딩/누락</p>
+        <p className="mt-1 px-1 text-xs text-content-faint">설정 로딩/누락</p>
       )}
 
       {popover && (
@@ -192,7 +192,7 @@ function OfdEmptySlot({ rowIndex, isActive, configMissing, onClick }: OfdEmptySl
         gridColumnStart: 1,
         gridColumnEnd: 2,
       }}
-      className={`group/slot flex items-center justify-center min-h-0 overflow-hidden text-[11px] text-content-faint bg-surface/40 border border-dashed border-line rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
+      className={`group/slot flex items-center justify-center min-h-0 overflow-hidden text-xs text-content-faint bg-surface/40 border border-dashed border-line rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${
         configMissing ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
       } ${isActive ? activeClasses : hoverClasses}`}
       aria-label={`빈 슬롯 ${rowIndex + 1} — 경로 추가`}

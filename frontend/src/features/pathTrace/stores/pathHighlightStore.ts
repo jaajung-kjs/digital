@@ -14,7 +14,7 @@ import { create } from 'zustand';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
-import { queryClient } from '../../../lib/queryClient';
+import { queryClient, QUERY_STALE_MS } from '../../../lib/queryClient';
 import { api } from '../../../utils/api';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { Asset } from '../../../types/asset';
@@ -92,7 +92,7 @@ async function loadProjection(cableId: string): Promise<
   try {
     const slimAssets = await fetchAllSlimAssetsCached(queryClient);
     const globalCables = await queryClient.fetchQuery({
-      queryKey: ['cables'], staleTime: 30_000,
+      queryKey: ['cables'], staleTime: QUERY_STALE_MS,
       queryFn: async () => (await api.get<{ data: TraceCableInput[] }>('/cables')).data.data,
     });
     const wc = useSubstationWorkingCopy.getState();

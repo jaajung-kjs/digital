@@ -59,20 +59,20 @@ function AssetRow({
       onClick={onSelect}
       className={rowClass(selected ?? false)}
     >
-      <td className="pl-4 pr-2 text-[13px] text-content align-middle whitespace-nowrap">{item.assetTypeName}</td>
-      <td className="px-2 text-[13px] align-middle whitespace-nowrap">
+      <td className="pl-4 pr-2 text-sm text-content align-middle whitespace-nowrap">{item.assetTypeName}</td>
+      <td className="px-2 text-sm align-middle whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5">
           <span className="font-medium text-content">{item.name}</span>
           {alert && <Badge status="danger">{alert.label}</Badge>}
         </span>
       </td>
-      <td className="px-2 text-[13px] text-content-muted align-middle whitespace-nowrap max-w-[14rem] truncate" title={installLocation(item)}>{installLocation(item)}</td>
-      <td className="px-2 text-[13px] text-content-muted align-middle whitespace-nowrap tabular-nums">
+      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap max-w-[14rem] truncate" title={installLocation(item)}>{installLocation(item)}</td>
+      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap tabular-nums">
         {item.installDate ? formatDate(item.installDate) : '—'}
       </td>
-      <td className="px-2 text-[13px] text-content-muted align-middle whitespace-nowrap">{item.manager ?? '—'}</td>
-      <td className={`px-2 text-[13px] align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
-      <td className="px-2 pr-4 text-[13px] align-middle whitespace-nowrap">
+      <td className="px-2 text-sm text-content-muted align-middle whitespace-nowrap">{item.manager ?? '—'}</td>
+      <td className={`px-2 text-sm align-middle whitespace-nowrap ${inspClass}`}>{insp.label}</td>
+      <td className="px-2 pr-4 text-sm align-middle whitespace-nowrap">
         <span className="inline-flex items-center gap-1.5">
           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${statusOn ? 'bg-danger' : 'bg-content-faint'}`} />
           <span className={statusOn ? 'text-content' : 'text-content-muted'}>{statusOn ? 'ON' : 'OFF'}</span>

@@ -136,7 +136,7 @@ export function ConnectionDiagram({
                     ) ?? null;
                     const route = graph && slotId ? remoteSlotSubstation(slotId, graph) : null;
                     return (
-                      <p className="mt-1 text-[11px] text-content-faint text-center truncate">
+                      <p className="mt-1 text-xs text-content-faint text-center truncate">
                         {(route ?? '경로')}{` #${cable.number}`}
                       </p>
                     );
