@@ -130,6 +130,25 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
   { code: 'EQP-BATTERY',   name: '축전지', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 112, fieldTemplate: [] },
   { code: 'EQP-PWR-AC',    name: '전원(AC)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 113, fieldTemplate: [] },
   { code: 'EQP-PWR-DC',    name: '전원(DC)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 114, fieldTemplate: [] },
+
+  // 직할 통신자산 적재 신규 종류 (2026-06-19)
+  { code: 'PIU',        name: '보호용단말(SaTOP)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 140, fieldTemplate: [
+    { key: 'model', label: '모델명', type: 'text' }, { key: 'maker', label: '제작사', type: 'text' },
+    { key: 'tlName', label: 'T/L명', type: 'text' }, { key: 'counterpart', label: '대국', type: 'text' } ] },
+  { code: 'SPS',        name: '특수보호장치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 141, fieldTemplate: [
+    { key: 'model', label: '모델명', type: 'text' }, { key: 'counterpart', label: '대국', type: 'text' } ] },
+  { code: 'DAS',        name: '배전자동화', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 142, fieldTemplate: [
+    { key: 'ringName', label: '링 명칭', type: 'text' }, { key: 'circuit', label: '회선', type: 'text' } ] },
+  { code: 'KEPCIT',     name: '권역망전송장치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 143, fieldTemplate: [
+    { key: 'generation', label: '세대', type: 'select', options: ['차세대', '구'] }, { key: 'ringName', label: '링 명칭', type: 'text' }, { key: 'circuit', label: '회선', type: 'text' } ] },
+  { code: 'POWERDUCT',  name: '전력구감시', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 144, fieldTemplate: [
+    { key: 'circuit', label: '회선', type: 'text' } ] },
+  { code: 'OPT-SWITCH', name: '광스위치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 145, fieldTemplate: [
+    { key: 'ipAddress', label: 'IP', type: 'text' }, { key: 'ringNode', label: '링 노드', type: 'number' }, { key: 'maker', label: '제작사', type: 'text' }, { key: 'spec', label: '규격', type: 'text' } ] },
+  { code: 'OPT-CONV',   name: '광컨버터', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 146, fieldTemplate: [
+    { key: 'spec', label: '규격', type: 'text' } ] },
+  { code: 'MUX',        name: '다중화장비', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 147, fieldTemplate: [
+    { key: 'model', label: '모델명', type: 'text' }, { key: 'maker', label: '제작사', type: 'text' } ] },
 ];
 
 export async function seedAssetTypes(prisma: PrismaClient): Promise<void> {
