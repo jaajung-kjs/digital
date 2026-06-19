@@ -71,100 +71,85 @@ async function main() {
     console.log(`✅ Viewer user created: ${viewer.username}`);
   }
 
-  // 한전 15개 본부 + 전력지사 시드
-  for (let i = 0; i < headquartersData.length; i++) {
-    const hqData = headquartersData[i];
-
-    const hq = await prisma.headquarters.upsert({
-      where: { id: `hq-${i + 1}` },
-      update: { name: hqData.name, sortOrder: i },
-      create: {
-        id: `hq-${i + 1}`,
-        name: hqData.name,
-        sortOrder: i,
-        createdById: admin.id,
-      },
-    });
-
-    for (let j = 0; j < hqData.branches.length; j++) {
-      await prisma.branch.upsert({
-        where: {
-          headquartersId_name: {
-            headquartersId: hq.id,
-            name: hqData.branches[j],
-          },
-        },
-        update: { sortOrder: j },
-        create: {
-          headquartersId: hq.id,
-          name: hqData.branches[j],
-          sortOrder: j,
-          createdById: admin.id,
-        },
-      });
-    }
-
-    console.log(`✅ ${hqData.name}: ${hqData.branches.length}개 지사`);
-  }
-
-  // 신규 분리된 도메인 시드 (P6)
-  //   - CableCategory       (16종)
-  //   - BomMaterial         (34종 = 9 parent + 25 leaf)
-  //   - RackPreset          (1종)
+  // ── 참조 데이터: 매 배포 시드 (신규 추가분 반영, 운영 데이터 비파괴) ──
+  //   - CableCategory (16종) / BomMaterial (34종) / AssetType / RackPreset (1종)
+  // assetTypes 는 rackPresets 보다 먼저 — 프리셋 모듈이 assetType code 를 참조.
   await seedCableCategories(prisma);
   await seedBomMaterials(prisma);
-  // assetTypes 는 rackPresets 보다 먼저 — 프리셋 모듈이 assetType code 를 참조.
   await seedAssetTypes(prisma);
   await seedRackPresets(prisma);
 
-  // 강원본부 직할 13개 변전소 + OFD + 광경로 — 매 배포마다 자동 시드
-  await seedGangwonSubstations(prisma, admin.id);
+  // ── 초기 조직/변전소: 첫 배포(빈 DB)에만 시드 ───────────────────────────────
+  // 요구사항: 첫 배포만 기본 데이터를 시드하고, 이후 재배포는 운영 데이터(이름변경·
+  // 삭제·신규 추가)를 보존한다. seed 는 컨테이너 시작마다 실행되므로(Dockerfile CMD:
+  // `migrate deploy && db seed`), 이 가드가 없으면 매 재시작에 기본 본부/변전소가
+  // 재생성·이름 원복돼 운영 데이터가 사라진다(= "기본으로 덮어씌워짐" 버그).
+  const isFirstDeploy = (await prisma.headquarters.count()) === 0;
+  if (!isFirstDeploy) {
+    console.log('↩︎  기존 조직 데이터 감지 — 초기 본부/변전소 시드 건너뜀(운영 데이터 보존)');
+  } else {
+    // 한전 15개 본부 + 전력지사
+    for (let i = 0; i < headquartersData.length; i++) {
+      const hqData = headquartersData[i];
 
-  // 샘플 변전소 + 층 (개발 테스트용)
-  if (process.env.NODE_ENV === 'development') {
-    const substationFixtures = [
-      { hqName: '강원본부', branchName: '직할', subName: '춘천변전소', floors: ['B1F', '1F'] },
-      { hqName: '서울본부', branchName: '강남전력지사', subName: '강남변전소', floors: ['1F'] },
-      { hqName: '경기본부', branchName: '수원전력지사', subName: '수원변전소', floors: ['1F'] },
-    ];
-
-    for (const fix of substationFixtures) {
-      const hq = await prisma.headquarters.findFirst({ where: { name: fix.hqName } });
-      if (!hq) continue;
-      const branch = await prisma.branch.findFirst({
-        where: { headquartersId: hq.id, name: fix.branchName },
-      });
-      if (!branch) continue;
-
-      const sub = await prisma.substation.upsert({
-        where: { id: `sub-${fix.subName}` },
-        update: { name: fix.subName },
-        create: {
-          id: `sub-${fix.subName}`,
-          branchId: branch.id,
-          name: fix.subName,
-          createdById: admin.id,
-          updatedById: admin.id,
-        },
+      const hq = await prisma.headquarters.create({
+        data: { id: `hq-${i + 1}`, name: hqData.name, sortOrder: i, createdById: admin.id },
       });
 
-      for (let i = 0; i < fix.floors.length; i++) {
-        const floorName = fix.floors[i];
-        await prisma.floor.upsert({
-          where: { substationId_name: { substationId: sub.id, name: floorName } },
-          update: { sortOrder: i, floorNumber: floorName },
-          create: {
-            substationId: sub.id,
-            name: floorName,
-            floorNumber: floorName,
-            sortOrder: i,
+      for (let j = 0; j < hqData.branches.length; j++) {
+        await prisma.branch.create({
+          data: { headquartersId: hq.id, name: hqData.branches[j], sortOrder: j, createdById: admin.id },
+        });
+      }
+
+      console.log(`✅ ${hqData.name}: ${hqData.branches.length}개 지사`);
+    }
+
+    // 강원본부 직할 13개 변전소 + OFD + 광경로
+    await seedGangwonSubstations(prisma, admin.id);
+
+    // 샘플 변전소 + 층 (개발 테스트용)
+    if (process.env.NODE_ENV === 'development') {
+      const substationFixtures = [
+        { hqName: '강원본부', branchName: '직할', subName: '춘천변전소', floors: ['B1F', '1F'] },
+        { hqName: '서울본부', branchName: '강남전력지사', subName: '강남변전소', floors: ['1F'] },
+        { hqName: '경기본부', branchName: '수원전력지사', subName: '수원변전소', floors: ['1F'] },
+      ];
+
+      for (const fix of substationFixtures) {
+        const hq = await prisma.headquarters.findFirst({ where: { name: fix.hqName } });
+        if (!hq) continue;
+        const branch = await prisma.branch.findFirst({
+          where: { headquartersId: hq.id, name: fix.branchName },
+        });
+        if (!branch) continue;
+
+        const sub = await prisma.substation.create({
+          data: {
+            id: `sub-${fix.subName}`,
+            branchId: branch.id,
+            name: fix.subName,
             createdById: admin.id,
             updatedById: admin.id,
           },
         });
-      }
 
-      console.log(`✅ ${fix.subName} (${fix.floors.length}개 층)`);
+        for (let i = 0; i < fix.floors.length; i++) {
+          const floorName = fix.floors[i];
+          await prisma.floor.create({
+            data: {
+              substationId: sub.id,
+              name: floorName,
+              floorNumber: floorName,
+              sortOrder: i,
+              createdById: admin.id,
+              updatedById: admin.id,
+            },
+          });
+        }
+
+        console.log(`✅ ${fix.subName} (${fix.floors.length}개 층)`);
+      }
     }
   }
 
