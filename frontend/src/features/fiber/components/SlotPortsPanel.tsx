@@ -31,7 +31,7 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
 
   const slot = useMemo(() => assets.find((a) => a.id === slotId) ?? null, [assets, slotId]);
   const ports = useMemo(
-    () => (slot ? buildSlotPorts({ id: slot.id }, cables, graph) : []),
+    () => (slot ? buildSlotPorts({ id: slot.id, attributes: slot.attributes as Record<string, unknown> | null }, cables, graph) : []),
     [slot, cables, graph],
   );
 
