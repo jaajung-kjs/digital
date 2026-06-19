@@ -96,8 +96,10 @@ def main():
             # 사용 코어만 기록(예비 제외)
             if usage != "사용" and not purpose:
                 continue
+            # 코어 번호는 슬롯(블록) 내 1-based 위치로 — block_cores 가 현재 행의 위치(1..N).
+            # 원본 OFD 패널번호는 보존하지 않는다(사용자 결정 A).
             cores.append({
-                "subKey": subKey, "block": block_idx, "core": core, "peerRaw": peer_raw, "peerKey": peer_key,
+                "subKey": subKey, "block": block_idx, "core": block_cores, "peerRaw": peer_raw, "peerKey": peer_key,
                 "purpose": purpose, "circuitText": circuit,
                 "spliceType": splice_of(circuit), "usageOverride": usage,
                 "loss1310": num(row[5]) if len(row) > 5 else None,

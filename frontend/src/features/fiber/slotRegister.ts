@@ -14,7 +14,7 @@ export interface SlotCoreRow {
   usage: '사용' | '미사용';
 }
 
-interface SlotLike { id: string; name?: string; parentAssetId?: string | null }
+interface SlotLike { id: string; name?: string; parentAssetId?: string | null; attributes?: Record<string, unknown> | null }
 export interface CableLike {
   id: string; cableType?: string | null;
   sourceAssetId?: string | null; targetAssetId?: string | null;
@@ -31,9 +31,11 @@ export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], grap
   const outs = fiber.filter((c) => roleAt(c, slot.id) === 'OUT');
   const opgw = fiber.find((c) => roleAt(c, slot.id) === 'IN');
 
-  const cores = Number((opgw?.specParams as Record<string, unknown> | undefined)?.cores ?? 0);
+  // 용량 우선순위: OPGW 케이블 cores → 슬롯 자체 cores(attributes, OPGW 없는 외부 슬롯) → 최대 점유코어.
+  const opgwCores = Number((opgw?.specParams as Record<string, unknown> | undefined)?.cores ?? 0);
+  const slotCores = Number((slot.attributes as Record<string, unknown> | undefined)?.cores ?? 0);
   const occupiedNums = [...new Set(outs.map((c) => c.number ?? 0).filter((n) => n > 0))];
-  const capacity = Math.max(cores, occupiedNums.length ? Math.max(...occupiedNums) : 0);
+  const capacity = Math.max(opgwCores, slotCores, occupiedNums.length ? Math.max(...occupiedNums) : 0);
 
   const byNum = new Map<number, CableLike>();
   for (const c of outs) if (c.number != null) byNum.set(c.number, c);

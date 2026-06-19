@@ -182,13 +182,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b2-27",
+  "key": "core-guchuncheon-b2-3",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b2",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 27,
+  "number": 3,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -198,13 +198,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b2-28",
+  "key": "core-guchuncheon-b2-4",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b2",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 28,
+  "number": 4,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -214,13 +214,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b2-37",
+  "key": "core-guchuncheon-b2-13",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b2",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 37,
+  "number": 13,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -230,13 +230,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b2-39",
+  "key": "core-guchuncheon-b2-15",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b2",
   "targetKey": "dev-OPT-TERM-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 39,
+  "number": 15,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -247,13 +247,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b2-40",
+  "key": "core-guchuncheon-b2-16",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b2",
   "targetKey": "dev-OPT-TERM-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 40,
+  "number": 16,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -264,13 +264,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b2-41",
+  "key": "core-guchuncheon-b2-17",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b2",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 41,
+  "number": 17,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -280,13 +280,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b2-42",
+  "key": "core-guchuncheon-b2-18",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b2",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 42,
+  "number": 18,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -1087,13 +1087,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-25",
+  "key": "core-guchuncheon-b7-1",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 25,
+  "number": 1,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -1104,13 +1104,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-26",
+  "key": "core-guchuncheon-b7-2",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 26,
+  "number": 2,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -1121,13 +1121,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-27",
+  "key": "core-guchuncheon-b7-3",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 27,
+  "number": 3,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -1138,13 +1138,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-28",
+  "key": "core-guchuncheon-b7-4",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 28,
+  "number": 4,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -1155,13 +1155,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-29",
+  "key": "core-guchuncheon-b7-5",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 29,
+  "number": 5,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -1172,13 +1172,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-30",
+  "key": "core-guchuncheon-b7-6",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 30,
+  "number": 6,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -1189,13 +1189,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-33",
+  "key": "core-guchuncheon-b7-9",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 33,
+  "number": 9,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1206,13 +1206,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-34",
+  "key": "core-guchuncheon-b7-10",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 34,
+  "number": 10,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1223,13 +1223,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-35",
+  "key": "core-guchuncheon-b7-11",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 35,
+  "number": 11,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1240,13 +1240,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-36",
+  "key": "core-guchuncheon-b7-12",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 36,
+  "number": 12,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1257,13 +1257,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-37",
+  "key": "core-guchuncheon-b7-13",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 37,
+  "number": 13,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1274,13 +1274,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-38",
+  "key": "core-guchuncheon-b7-14",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 38,
+  "number": 14,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1291,13 +1291,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-39",
+  "key": "core-guchuncheon-b7-15",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 39,
+  "number": 15,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1308,13 +1308,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-40",
+  "key": "core-guchuncheon-b7-16",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 40,
+  "number": 16,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1325,13 +1325,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-41",
+  "key": "core-guchuncheon-b7-17",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 41,
+  "number": 17,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1342,13 +1342,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-42",
+  "key": "core-guchuncheon-b7-18",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 42,
+  "number": 18,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "기타",
@@ -1359,13 +1359,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-43",
+  "key": "core-guchuncheon-b7-19",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 43,
+  "number": 19,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -1376,13 +1376,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-44",
+  "key": "core-guchuncheon-b7-20",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 44,
+  "number": 20,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -1393,13 +1393,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-45",
+  "key": "core-guchuncheon-b7-21",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 45,
+  "number": 21,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -1410,13 +1410,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-46",
+  "key": "core-guchuncheon-b7-22",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 46,
+  "number": 22,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -1427,13 +1427,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-47",
+  "key": "core-guchuncheon-b7-23",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 47,
+  "number": 23,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -1444,13 +1444,13 @@
   }
  },
  {
-  "key": "core-guchuncheon-b7-48",
+  "key": "core-guchuncheon-b7-24",
   "kind": "CORE",
   "sourceKey": "slot-guchuncheon-b7",
   "targetKey": "ofd-guchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 48,
+  "number": 24,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -4186,13 +4186,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-25",
+  "key": "core-namchuncheon-b2-1",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "ofd-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 25,
+  "number": 1,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -4202,13 +4202,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-26",
+  "key": "core-namchuncheon-b2-2",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "ofd-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 26,
+  "number": 2,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -4218,13 +4218,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-27",
+  "key": "core-namchuncheon-b2-3",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "ofd-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 27,
+  "number": 3,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -4234,13 +4234,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-29",
+  "key": "core-namchuncheon-b2-5",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "ofd-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 29,
+  "number": 5,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -4250,13 +4250,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-30",
+  "key": "core-namchuncheon-b2-6",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "ofd-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 30,
+  "number": 6,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -4266,13 +4266,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-31",
+  "key": "core-namchuncheon-b2-7",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "dev-OPT-TERM-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 31,
+  "number": 7,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -4282,13 +4282,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-32",
+  "key": "core-namchuncheon-b2-8",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "dev-OPT-TERM-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 32,
+  "number": 8,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -4298,13 +4298,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-37",
+  "key": "core-namchuncheon-b2-13",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "ofd-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 37,
+  "number": 13,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -4314,13 +4314,13 @@
   }
  },
  {
-  "key": "core-namchuncheon-b2-38",
+  "key": "core-namchuncheon-b2-14",
   "kind": "CORE",
   "sourceKey": "slot-namchuncheon-b2",
   "targetKey": "ofd-namchuncheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 38,
+  "number": 14,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -4821,13 +4821,13 @@
   }
  },
  {
-  "key": "core-seohongcheon-b2-18",
+  "key": "core-seohongcheon-b2-6",
   "kind": "CORE",
   "sourceKey": "slot-seohongcheon-b2",
   "targetKey": "ofd-seohongcheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 18,
+  "number": 6,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -4837,13 +4837,13 @@
   }
  },
  {
-  "key": "core-seohongcheon-b2-19",
+  "key": "core-seohongcheon-b2-7",
   "kind": "CORE",
   "sourceKey": "slot-seohongcheon-b2",
   "targetKey": "ofd-seohongcheon",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 19,
+  "number": 7,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -5061,13 +5061,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-13",
+  "key": "core-yeolbyeonghap-b3-1",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "dev-OPT-TERM-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 13,
+  "number": 1,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -5077,13 +5077,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-14",
+  "key": "core-yeolbyeonghap-b3-2",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "dev-OPT-TERM-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 14,
+  "number": 2,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -5093,13 +5093,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-15",
+  "key": "core-yeolbyeonghap-b3-3",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "ofd-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 15,
+  "number": 3,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -5109,13 +5109,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-16",
+  "key": "core-yeolbyeonghap-b3-4",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "ofd-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 16,
+  "number": 4,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -5125,13 +5125,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-17",
+  "key": "core-yeolbyeonghap-b3-5",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "ofd-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 17,
+  "number": 5,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -5141,13 +5141,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-18",
+  "key": "core-yeolbyeonghap-b3-6",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "ofd-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 18,
+  "number": 6,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -5157,13 +5157,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-19",
+  "key": "core-yeolbyeonghap-b3-7",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "dev-OPT-TERM-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 19,
+  "number": 7,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -5173,13 +5173,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-20",
+  "key": "core-yeolbyeonghap-b3-8",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "dev-OPT-TERM-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 20,
+  "number": 8,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -5189,13 +5189,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-23",
+  "key": "core-yeolbyeonghap-b3-11",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "ofd-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 23,
+  "number": 11,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -5205,13 +5205,13 @@
   }
  },
  {
-  "key": "core-yeolbyeonghap-b3-24",
+  "key": "core-yeolbyeonghap-b3-12",
   "kind": "CORE",
   "sourceKey": "slot-yeolbyeonghap-b3",
   "targetKey": "ofd-yeolbyeonghap",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 24,
+  "number": 12,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -6135,13 +6135,13 @@
   }
  },
  {
-  "key": "core-inje-b2-25",
+  "key": "core-inje-b2-1",
   "kind": "CORE",
   "sourceKey": "slot-inje-b2",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 25,
+  "number": 1,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "임대",
@@ -6151,13 +6151,13 @@
   }
  },
  {
-  "key": "core-inje-b2-26",
+  "key": "core-inje-b2-2",
   "kind": "CORE",
   "sourceKey": "slot-inje-b2",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 26,
+  "number": 2,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "임대",
@@ -6167,13 +6167,13 @@
   }
  },
  {
-  "key": "core-inje-b2-31",
+  "key": "core-inje-b2-7",
   "kind": "CORE",
   "sourceKey": "slot-inje-b2",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 31,
+  "number": 7,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "임대",
@@ -6183,13 +6183,13 @@
   }
  },
  {
-  "key": "core-inje-b2-32",
+  "key": "core-inje-b2-8",
   "kind": "CORE",
   "sourceKey": "slot-inje-b2",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 32,
+  "number": 8,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "임대",
@@ -6199,13 +6199,13 @@
   }
  },
  {
-  "key": "core-inje-b2-41",
+  "key": "core-inje-b2-17",
   "kind": "CORE",
   "sourceKey": "slot-inje-b2",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 41,
+  "number": 17,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "임대",
@@ -6215,13 +6215,13 @@
   }
  },
  {
-  "key": "core-inje-b2-42",
+  "key": "core-inje-b2-18",
   "kind": "CORE",
   "sourceKey": "slot-inje-b2",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 42,
+  "number": 18,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "임대",
@@ -6231,13 +6231,13 @@
   }
  },
  {
-  "key": "core-inje-b2-45",
+  "key": "core-inje-b2-21",
   "kind": "CORE",
   "sourceKey": "slot-inje-b2",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 45,
+  "number": 21,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "임대",
@@ -6247,13 +6247,13 @@
   }
  },
  {
-  "key": "core-inje-b2-46",
+  "key": "core-inje-b2-22",
   "kind": "CORE",
   "sourceKey": "slot-inje-b2",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 46,
+  "number": 22,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "임대",
@@ -6455,13 +6455,13 @@
   }
  },
  {
-  "key": "core-inje-b4-25",
+  "key": "core-inje-b4-1",
   "kind": "CORE",
   "sourceKey": "slot-inje-b4",
   "targetKey": "dev-OPT-TERM-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 25,
+  "number": 1,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -6471,13 +6471,13 @@
   }
  },
  {
-  "key": "core-inje-b4-26",
+  "key": "core-inje-b4-2",
   "kind": "CORE",
   "sourceKey": "slot-inje-b4",
   "targetKey": "dev-OPT-TERM-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 26,
+  "number": 2,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -6487,13 +6487,13 @@
   }
  },
  {
-  "key": "core-inje-b4-27",
+  "key": "core-inje-b4-3",
   "kind": "CORE",
   "sourceKey": "slot-inje-b4",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 27,
+  "number": 3,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "SCADA",
@@ -6503,13 +6503,13 @@
   }
  },
  {
-  "key": "core-inje-b4-35",
+  "key": "core-inje-b4-11",
   "kind": "CORE",
   "sourceKey": "slot-inje-b4",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 35,
+  "number": 11,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -6519,13 +6519,13 @@
   }
  },
  {
-  "key": "core-inje-b4-36",
+  "key": "core-inje-b4-12",
   "kind": "CORE",
   "sourceKey": "slot-inje-b4",
   "targetKey": "ofd-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 36,
+  "number": 12,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "차세대KepCIT",
@@ -6535,13 +6535,13 @@
   }
  },
  {
-  "key": "core-inje-b4-41",
+  "key": "core-inje-b4-17",
   "kind": "CORE",
   "sourceKey": "slot-inje-b4",
   "targetKey": "dev-OPT-TERM-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 41,
+  "number": 17,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -6551,13 +6551,13 @@
   }
  },
  {
-  "key": "core-inje-b4-42",
+  "key": "core-inje-b4-18",
   "kind": "CORE",
   "sourceKey": "slot-inje-b4",
   "targetKey": "dev-OPT-TERM-inje",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 42,
+  "number": 18,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "송광치",
@@ -10156,13 +10156,13 @@
   }
  },
  {
-  "key": "core-soyanghp-b2-5",
+  "key": "core-soyanghp-b2-1",
   "kind": "CORE",
   "sourceKey": "slot-soyanghp-b2",
   "targetKey": "ofd-soyanghp",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 5,
+  "number": 1,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -10172,13 +10172,13 @@
   }
  },
  {
-  "key": "core-soyanghp-b2-6",
+  "key": "core-soyanghp-b2-2",
   "kind": "CORE",
   "sourceKey": "slot-soyanghp-b2",
   "targetKey": "ofd-soyanghp",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 6,
+  "number": 2,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -10188,13 +10188,13 @@
   }
  },
  {
-  "key": "core-soyanghp-b2-7",
+  "key": "core-soyanghp-b2-3",
   "kind": "CORE",
   "sourceKey": "slot-soyanghp-b2",
   "targetKey": "ofd-soyanghp",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 7,
+  "number": 3,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
@@ -10204,13 +10204,13 @@
   }
  },
  {
-  "key": "core-soyanghp-b2-8",
+  "key": "core-soyanghp-b2-4",
   "kind": "CORE",
   "sourceKey": "slot-soyanghp-b2",
   "targetKey": "ofd-soyanghp",
   "sourceRole": "OUT",
   "targetRole": null,
-  "number": 8,
+  "number": 4,
   "categoryCode": "CBL-OPJ",
   "specParams": {
    "purpose": "소형광",
