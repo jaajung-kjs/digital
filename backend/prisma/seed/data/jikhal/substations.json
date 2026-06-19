@@ -1,0 +1,67 @@
+[
+ {
+  "key": "guchuncheon",
+  "name": "(구)춘천S/S",
+  "isExternal": false
+ },
+ {
+  "key": "sinchuncheon",
+  "name": "(신)춘천S/S",
+  "isExternal": false
+ },
+ {
+  "key": "bukchuncheon",
+  "name": "북춘천S/S",
+  "isExternal": false
+ },
+ {
+  "key": "namchuncheon",
+  "name": "남춘천S/S",
+  "isExternal": false
+ },
+ {
+  "key": "seohongcheon",
+  "name": "서홍천S/S",
+  "isExternal": false
+ },
+ {
+  "key": "yeolbyeonghap",
+  "name": "열병합S/Y",
+  "isExternal": false
+ },
+ {
+  "key": "inje",
+  "name": "인제S/S",
+  "isExternal": false
+ },
+ {
+  "key": "yanggu",
+  "name": "양구S/S",
+  "isExternal": false
+ },
+ {
+  "key": "cheorwon",
+  "name": "철원S/S",
+  "isExternal": false
+ },
+ {
+  "key": "hwacheon",
+  "name": "화천S/S",
+  "isExternal": false
+ },
+ {
+  "key": "hwacheonhp",
+  "name": "화천H/P",
+  "isExternal": false
+ },
+ {
+  "key": "chuncheonhp",
+  "name": "춘천H/P",
+  "isExternal": false
+ },
+ {
+  "key": "soyanghp",
+  "name": "소양강H/P",
+  "isExternal": false
+ }
+]
