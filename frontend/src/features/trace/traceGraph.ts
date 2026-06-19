@@ -26,6 +26,7 @@ export interface SlimAssetDTO {
   parentAssetId: string | null;
   connectionKind: 'distributor' | 'conduit' | null;
   code: string | null;
+  slotIndex: number | null;
 }
 
 /** trace 입력에 필요한 cable 필드만(전역 DTO / 로컬 staged 공통). */
@@ -56,6 +57,8 @@ export interface TraceGraph {
   parentById: Map<string, string | null>;
   /** 자산 id → assetType code(OFD 판별 'OFD'). */
   codeById: Map<string, string | null>;
+  /** 자산 id → OFD 내 슬롯 위치(경로슬롯 -N 순번 파생용). */
+  slotIndexById: Map<string, number | null>;
 }
 
 const ASSET_KEYS = { all: ['assets-slim'] as const };
@@ -116,6 +119,7 @@ export function buildTraceGraph(input: {
   const subById = new Map<string, string>();
   const parentById = new Map<string, string | null>();
   const codeById = new Map<string, string | null>();
+  const slotIndexById = new Map<string, number | null>();
   const assetById = new Map<string, TraceAsset>();
   // substationId → substationName (slim 피드에서 수집) — staged 자산의 변전소명 해소용.
   const subNameByStationId = new Map<string, string>();
@@ -136,6 +140,7 @@ export function buildTraceGraph(input: {
     subById.set(a.id, a.substationId);
     parentById.set(a.id, a.parentAssetId ?? null);
     codeById.set(a.id, a.code ?? null);
+    slotIndexById.set(a.id, a.slotIndex ?? null);
   }
   // staged-create 자산은 substationName 을 안 들고 온다(effectiveAssets 는 substationId 만).
   // → substationId 로 slim 변전소명(subNameByStationId)을, 없으면 currentSubName(신규 변전소)을
@@ -147,6 +152,7 @@ export function buildTraceGraph(input: {
     const sa = a as { parentAssetId?: string | null; assetType?: { code?: string | null } | null };
     if (!parentById.has(a.id)) parentById.set(a.id, sa.parentAssetId ?? null);
     if (!codeById.has(a.id)) codeById.set(a.id, sa.assetType?.code ?? null);
+    if (!slotIndexById.has(a.id)) slotIndexById.set(a.id, (a as { slotIndex?: number | null }).slotIndex ?? null);
     const subId = (a as { substationId?: string | null }).substationId ?? null;
     if (subId) {
       if (!subById.has(a.id)) subById.set(a.id, subId);
@@ -157,7 +163,7 @@ export function buildTraceGraph(input: {
     }
   }
 
-  return { assets: [...assetById.values()], cables: mergedCables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById };
+  return { assets: [...assetById.values()], cables: mergedCables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById, slotIndexById };
 }
 
 /**

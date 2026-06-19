@@ -4,14 +4,14 @@ import { toSlimAsset } from '../src/services/asset.service.js';
 describe('toSlimAsset', () => {
   it('자산 row 를 trace 용 최소 필드로 좁힌다 (connectionKind 는 assetType, substationName 은 substation 조인)', () => {
     const row = {
-      id: 'slot1', name: 'OFD', substationId: 'subA', parentAssetId: 'ofd1',
+      id: 'slot1', name: 'OFD', substationId: 'subA', parentAssetId: 'ofd1', slotIndex: 2,
       assetType: { code: 'OFD-SLOT', connectionKind: 'conduit' },
       substation: { name: '홍천S/S' },
       extra: 'ignored',
     };
     expect(toSlimAsset(row as never)).toEqual({
       id: 'slot1', name: 'OFD', substationId: 'subA', substationName: '홍천S/S',
-      parentAssetId: 'ofd1', connectionKind: 'conduit', code: 'OFD-SLOT',
+      parentAssetId: 'ofd1', connectionKind: 'conduit', code: 'OFD-SLOT', slotIndex: 2,
     });
   });
 
