@@ -41,6 +41,18 @@ const OPT_FIELDS: FieldDef[] = [
   ...ASSET_LIFECYCLE,
 ];
 
+// 계통보호전송장치(PITR-2000/5000) 공통 필드. 2000·5000 은 별개 자산(다른 장비)이나 속성 동일.
+const PITR_FIELDS: FieldDef[] = [
+  { key: 'tlName', label: 'T/L명', type: 'text' },
+  { key: 'tlVoltage', label: 'T/L전압', type: 'text' },
+  { key: 'typeCode', label: 'TYPE', type: 'text' },
+  { key: 'ipCot', label: 'IP(COT)', type: 'text' },
+  { key: 'ipRt', label: 'IP(RT)', type: 'text' },
+  { key: 'routePrimary', label: '회선경로(주)', type: 'text' },
+  { key: 'routeBackup', label: '회선경로(예)', type: 'text' },
+  ...ASSET_LIFECYCLE,
+];
+
 export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
   { code: 'RACK', name: '랙', group: '구조', isContainer: true, displayColor: '#44403c', sortOrder: 10,
     placementKind: 'RACK',
@@ -63,17 +75,6 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
     placementKind: 'GROUNDING', fieldTemplate: [] },
   { code: 'HVAC', name: '공조설비', group: '공조', isContainer: false, displayColor: '#a8a29e', sortOrder: 32,
     placementKind: 'HVAC', fieldTemplate: [] },
-  { code: 'PITR', name: '계통보호전송장치', group: '통신', isContainer: false, displayColor: '#78716c', sortOrder: 40,
-    fieldTemplate: [
-      { key: 'tlName', label: 'T/L명', type: 'text' },
-      { key: 'tlVoltage', label: 'T/L전압', type: 'text' },
-      { key: 'typeCode', label: 'TYPE', type: 'text' },
-      { key: 'ipCot', label: 'IP(COT)', type: 'text' },
-      { key: 'ipRt', label: 'IP(RT)', type: 'text' },
-      { key: 'routePrimary', label: '회선경로(주)', type: 'text' },
-      { key: 'routeBackup', label: '회선경로(예)', type: 'text' },
-      ...ASSET_LIFECYCLE,
-    ] },
   { code: 'RTU', name: 'SCADA RTU', group: '통신', isContainer: false, displayColor: '#78716c', sortOrder: 50,
     fieldTemplate: [
       { key: 'hostOffice', label: '급전(분)소', type: 'text' },
@@ -108,26 +109,20 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
   // ── 광전송 하위종류 ──
   { code: 'OPT-COT', name: '통합단말', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 61, fieldTemplate: OPT_FIELDS },
   { code: 'OPT-SMALL', name: '소형광', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 62, fieldTemplate: OPT_FIELDS },
-  { code: 'OPT-TRANS', name: '송변전광', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 63, fieldTemplate: OPT_FIELDS },
+  { code: 'OPT-TERM', name: '송변전광단말장치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 63, fieldTemplate: OPT_FIELDS },
   { code: 'PCM', name: 'PCM', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 64, fieldTemplate: OPT_FIELDS },
 
-  // ── 흡수된 랙 모듈 카테고리 (구 RackModuleCategory) — placementKind=null(모듈) ──
-  // 랙 프리셋(rackPresets.ts)이 이 code 로 모듈을 참조한다. 기존 카테고리는
-  // defaultSlotSpan 을 갖지 않았으므로 모두 기본값 1.
-  { code: 'EQP-PITR-2000', name: 'PITR-2000', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 101, fieldTemplate: [] },
-  { code: 'EQP-OPT-TERM',  name: '송변전광단말장치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 102, fieldTemplate: [] },
-  { code: 'EQP-PITR-5000', name: 'PITR-5000', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 103, fieldTemplate: [] },
-  { code: 'EQP-NET-SW',    name: '네트워크스위치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 104, fieldTemplate: [] },
-  { code: 'EQP-SPD',       name: '서지보호기', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 105, fieldTemplate: [] },
-  { code: 'EQP-SCADA',     name: 'SCADA', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 106, fieldTemplate: [] },
-  { code: 'EQP-RTU',       name: 'RTU', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 107, fieldTemplate: [] },
-  { code: 'EQP-UTM',       name: 'UTM', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 108, fieldTemplate: [] },
-  { code: 'EQP-NAC',       name: 'NAC', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 109, fieldTemplate: [] },
-  { code: 'EQP-UPS',       name: 'UPS', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 110, fieldTemplate: [] },
-  { code: 'EQP-CHARGER',   name: '충전기', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 111, fieldTemplate: [] },
-  { code: 'EQP-BATTERY',   name: '축전지', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 112, fieldTemplate: [] },
-  { code: 'EQP-PWR-AC',    name: '전원(AC)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 113, fieldTemplate: [] },
-  { code: 'EQP-PWR-DC',    name: '전원(DC)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 114, fieldTemplate: [] },
+  // 계통보호전송장치 — 2000·5000 별개 자산(다른 장비). 통신 단일 자산구조(부모자산으로 랙 내부 배치).
+  { code: 'PITR-2000', name: 'PITR-2000', group: '통신', isContainer: false, displayColor: '#78716c', sortOrder: 41, fieldTemplate: PITR_FIELDS },
+  { code: 'PITR-5000', name: 'PITR-5000', group: '통신', isContainer: false, displayColor: '#78716c', sortOrder: 42, fieldTemplate: PITR_FIELDS },
+  // 기타 통신장비 (랙모듈 카탈로그 통일 — 단일 자산구조라 별도 모듈 종류 불요)
+  { code: 'SCADA',  name: 'SCADA', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 51, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'NET-SW', name: '네트워크스위치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 104, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'SPD',    name: '서지보호기', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 105, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'UTM',    name: 'UTM', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 108, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'NAC',    name: 'NAC', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 109, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'PWR-AC', name: '전원(AC)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 113, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'PWR-DC', name: '전원(DC)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 114, fieldTemplate: ASSET_LIFECYCLE },
 
   // 직할 통신자산 적재 신규 종류 (2026-06-19) — PIU·SPS·DAS·POWERDUCT·MUX 는 사용자 검토로 제외
   // (PIU/SPS=송변전광단말장치 모듈, DAS/전력구감시=별도 자산 불요, MUX=별도 불요).

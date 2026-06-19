@@ -22,9 +22,9 @@ const rackPresets: RackPresetSeed[] = [
     canvasHeight: 200,
     description: 'PITR-5000 본체 + 네트워크스위치 + UPS 표준 구성 (임시)',
     modules: [
-      { slotIndex: 0, slotSpan: 2, categoryCode: 'EQP-PITR-5000', defaultName: 'PITR-5000' },
-      { slotIndex: 3, slotSpan: 1, categoryCode: 'EQP-NET-SW',    defaultName: '네트워크 스위치' },
-      { slotIndex: 5, slotSpan: 2, categoryCode: 'EQP-UPS',       defaultName: 'UPS' },
+      { slotIndex: 0, slotSpan: 2, categoryCode: 'PITR-5000', defaultName: 'PITR-5000' },
+      { slotIndex: 3, slotSpan: 1, categoryCode: 'NET-SW',    defaultName: '네트워크 스위치' },
+      { slotIndex: 5, slotSpan: 2, categoryCode: 'UPS',       defaultName: 'UPS' },
     ],
     sortOrder: 1,
   },

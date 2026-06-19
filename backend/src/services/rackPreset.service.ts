@@ -110,7 +110,7 @@ async function validatePresetModules(
     }
   }
 
-  // 카테고리(=AssetType) 존재 확인. categoryCode 는 AssetType.code 와 동일(시드에서 동일 EQP-* 코드 사용).
+  // 카테고리(=AssetType) 존재 확인. categoryCode 는 AssetType.code 와 동일.
   const codes = Array.from(new Set(normalized.map((m) => m.categoryCode)));
   const existing = await prisma.assetType.findMany({
     where: { code: { in: codes } },
