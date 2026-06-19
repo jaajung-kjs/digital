@@ -108,7 +108,6 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
 
   // ── 광전송 하위종류 ──
   { code: 'OPT-COT', name: '통합단말', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 61, fieldTemplate: OPT_FIELDS },
-  { code: 'OPT-SMALL', name: '소형광', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 62, fieldTemplate: OPT_FIELDS },
   { code: 'OPT-TERM', name: '송변전광단말장치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 63, fieldTemplate: OPT_FIELDS },
   { code: 'PCM', name: 'PCM', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 64, fieldTemplate: OPT_FIELDS },
 
