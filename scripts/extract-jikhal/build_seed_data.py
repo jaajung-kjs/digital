@@ -50,13 +50,19 @@ def main():
                        "parentKey": None, "attributes": {}, "posX": 200, "posY": 200, "w": BOX, "h": BOX})
         assets.append({"key": f"rack-{k}", "subKey": k, "typeCode": "RACK", "name": "통신랙",
                        "parentKey": None, "attributes": {}, "posX": 320, "posY": 200, "w": BOX, "h": BOX})
-    slot_i = collections.defaultdict(int)
-    for b in blocks:
-        si = slot_i[b["subKey"]]; slot_i[b["subKey"]] += 1
-        peer = clean(b["peerRaw"])
-        assets.append({"key": slot_key(b["subKey"], b["block"]), "subKey": b["subKey"], "typeCode": "OFD-SLOT",
-                       "name": f"{peer} ({b['cores']}C)", "parentKey": f"ofd-{b['subKey']}",
-                       "attributes": {"cores": b["cores"]}, "slotIndex": si})
+    # 슬롯 이름 = "자국 - 대국 -N #코어수". 같은 경로(자국→대국) 여러 케이블이면 N=1,2…(등장 순).
+    slot_i = collections.defaultdict(int)   # slotIndex (OFD 내 위치)
+    route_i = collections.defaultdict(int)  # -N (자국→대국 경로 순번)
+    blocks_sorted = sorted(blocks, key=lambda b: (b["subKey"], b["peerKey"], cable_idx(b["peerRaw"]), b["block"]))
+    for b in blocks_sorted:
+        sub, peer = b["subKey"], b["peerKey"]
+        route_i[(sub, peer)] += 1
+        ri = route_i[(sub, peer)]
+        si = slot_i[sub]; slot_i[sub] += 1
+        name = f"{DIRECT[sub]} - {DIRECT[peer]} -{ri} #{b['cores']}"
+        assets.append({"key": slot_key(sub, b["block"]), "subKey": sub, "typeCode": "OFD-SLOT",
+                       "name": name, "parentKey": f"ofd-{sub}",
+                       "attributes": {"cores": b["cores"], "routeIdx": ri, "peer": DIRECT[peer]}, "slotIndex": si})
     # 송변전광단말장치 — 송광치 코어 있는 국소에만, 랙 안 slotIndex 0
     dev_subs = sorted({c["subKey"] for c in cores if c["purpose"] == "송광치"})
     dev_by_sub = {}
@@ -66,17 +72,18 @@ def main():
                        "parentKey": f"rack-{sub}", "attributes": {}, "slotIndex": 0})
         dev_by_sub[sub] = key
 
-    # ── fiberCables: OUT 코어 ──
+    # ── fiberCables: OUT 코어 — 송광치만(나머지 메타전용 코어는 시드 안 함) ──
     cables = []
     for c in cores:
+        if c["purpose"] != "송광치" or c["subKey"] not in dev_by_sub:
+            continue
         sub, blk = c["subKey"], c["block"]
-        tgt = dev_by_sub[sub] if (c["purpose"] == "송광치" and sub in dev_by_sub) else f"ofd-{sub}"
         sp = {kk: c[kk] for kk in ("purpose", "circuitText", "spliceType", "usageOverride",
                                    "loss1310", "loss1550", "dist1310", "dist1550", "inspectResult")
               if c.get(kk) is not None}
         sp["peer"] = clean(c["peerRaw"])
         cables.append({"key": f"core-{sub}-b{blk}-{c['core']}", "kind": "CORE",
-                       "sourceKey": slot_key(sub, blk), "targetKey": tgt, "sourceRole": "OUT", "targetRole": None,
+                       "sourceKey": slot_key(sub, blk), "targetKey": dev_by_sub[sub], "sourceRole": "OUT", "targetRole": None,
                        "number": c["core"], "categoryCode": "CBL-OPJ", "specParams": sp})
 
     # ── fiberCables: OPGW (직할쌍 슬롯↔슬롯) ──
