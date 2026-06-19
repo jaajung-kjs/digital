@@ -78,10 +78,4 @@ export interface Asset {
   /** 랙 자식(모듈) 의 슬롯 위치/길이. */
   slotIndex?: number | null;
   slotSpan?: number | null;
-
-  /**
-   * 새 스칼라 컬럼(백엔드 ASSET_SCALAR_FIELDS 에 append 된)을 타입 편집 없이 허용 (P5b).
-   * 위의 명시 필드들은 그대로 타입 안전성을 유지하고, 이 인덱스 시그니처는 추가 컬럼만 통과시킨다.
-   */
-  [key: string]: unknown;
 }

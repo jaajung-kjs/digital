@@ -147,7 +147,9 @@ const BASE_ASSET_FIELDS: AssetFieldDef[] = [
 
 /** 타입별: asset → 표시/편집 값(문자열). 하드코딩과 동일한 추출 규칙. */
 function fieldValue(field: AssetFieldDef, asset: Asset): string {
-  const raw = asset[field.key];
+  // 종류별(fieldTemplate) 키는 동적 — Asset 의 명시 컬럼 밖이라 이 한 곳만 동적 인덱싱 허용.
+  // (Asset 타입은 인덱스 시그니처 없이 명시 필드만 — 오타·잔재 컬럼은 타입에러로 차단.)
+  const raw = (asset as unknown as Record<string, unknown>)[field.key];
   if (field.type === 'date') return toDateInputValue((raw as string | null) ?? null);
   return (raw as string | null) ?? '';
 }
