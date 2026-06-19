@@ -48,7 +48,7 @@ function asset(p: {
     width2d: p.placed ? 10 : null,
     height2d: p.placed ? 10 : null,
     roomText: null,
-    attributes: {},
+
     installDate: null,
     warrantyUntil: null,
     replaceDue: null,

@@ -422,9 +422,9 @@ model Asset {
   slotIndex     Int?      @map("slot_index")
   slotSpan      Int?      @map("slot_span")
   totalU        Int?      @map("total_u")
-  // 랙이 어떤 프리셋에서 생성됐는지 추적(과거 attributes JSON 에 있던 sourcePresetId 이전).
+  // 랙이 어떤 프리셋에서 생성됐는지 추적하는 전용 컬럼.
+  // (구 attributes JSON 은 영구 제거됨 — 자유형 자산속성 컬럼을 다시 만들지 말 것.)
   sourcePresetId String?  @map("source_preset_id")
-  attributes     Json?    @map("attributes") // 자유형 메타(마이그레이션 마커 등)
   installDate   DateTime? @map("install_date") @db.Date
   warrantyUntil DateTime? @map("warranty_until") @db.Date
   replaceDue    DateTime? @map("replace_due") @db.Date

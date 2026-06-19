@@ -11,19 +11,8 @@ import {
   assertSlotValid,
   assertNoSlotCollision,
 } from './planApply.js';
-import { extractSourcePresetId } from './sourcePreset.js';
 import { getAssetRecordModel } from './assetRecordSchema.service.js';
 import { ValidationError } from '../utils/errors.js';
-
-/**
- * 프론트는 설비/모듈의 source preset 을 여전히 `properties: { sourcePresetId }`(또는
- * 자산은 attributes) JSON 모양으로 보낸다. attributes 컬럼은 드롭됐으므로 경계에서
- * sourcePresetId(컬럼) 로 추출한다. 직접 API 가 sourcePresetId 문자열을 보내면 그대로 사용.
- */
-function resolveSourcePresetId(json: unknown, direct?: unknown): string | null {
-  if (typeof direct === 'string') return direct || null;
-  return extractSourcePresetId(json);
-}
 
 /**
  * 통합 변전소 커밋 (SSOT-2a).
@@ -466,7 +455,7 @@ async function run(
           ...assetCommonCreate(c as unknown as Record<string, unknown>),
           parentAssetId: parentId,
           roomText: c.roomText ?? null,
-          sourcePresetId: resolveSourcePresetId(c.attributes, c.sourcePresetId),
+          sourcePresetId: (c.sourcePresetId as string | null | undefined) ?? null,
           slotIndex: cSlotIndex,
           slotSpan: cSlotIndex != null ? cSlotSpan : null,
           // placement
@@ -526,11 +515,7 @@ async function run(
           parentAssetId: patchParent as string | null | undefined,
           roomText: p.roomText as string | null | undefined,
           sourcePresetId:
-            p.sourcePresetId !== undefined
-              ? (p.sourcePresetId as string | null)
-              : p.attributes !== undefined
-                ? extractSourcePresetId(p.attributes)
-                : undefined,
+            p.sourcePresetId !== undefined ? (p.sourcePresetId as string | null) : undefined,
           // placement
           floorId: patchFloorId,
           positionX: p.positionX as number | null | undefined,

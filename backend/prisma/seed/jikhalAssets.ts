@@ -9,7 +9,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 interface SubRow { key: string; name: string; isExternal: boolean; }
 interface AssetRow {
   key: string; subKey: string; typeCode: string; name: string;
-  parentKey: string | null; attributes?: Record<string, unknown>;
+  parentKey: string | null;
   posX?: number | null; posY?: number | null; w?: number | null; h?: number | null; slotIndex?: number | null;
 }
 interface CableRow {
@@ -69,7 +69,7 @@ export async function seedJikhalAssets(prisma: PrismaClient, adminId: string, br
         id: juuid(T.asset, a.key), substationId: juuid(T.sub, a.subKey), assetTypeId: tId,
         parentAssetId: a.parentKey ? juuid(T.asset, a.parentKey) : null,
         floorId: isExternal.get(a.subKey) ? null : juuid(T.floor, a.subKey),
-        name: a.name, attributes: a.attributes ?? {}, sortOrder: 0,
+        name: a.name, sortOrder: 0,
         positionX: a.posX ?? null, positionY: a.posY ?? null,
         width2d: a.w ?? null, height2d: a.h ?? null, slotIndex: a.slotIndex ?? null,
       },

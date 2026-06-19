@@ -70,9 +70,9 @@ def main():
     assets = []
     for k in DIRECT:
         assets.append({"key": f"ofd-{k}", "subKey": k, "typeCode": "OFD", "name": "OFD",
-                       "parentKey": None, "attributes": {}, "posX": 200, "posY": 200, "w": BOX, "h": BOX})
+                       "parentKey": None, "posX": 200, "posY": 200, "w": BOX, "h": BOX})
         assets.append({"key": f"rack-{k}", "subKey": k, "typeCode": "RACK", "name": "통신랙",
-                       "parentKey": None, "attributes": {}, "posX": 320, "posY": 200, "w": BOX, "h": BOX})
+                       "parentKey": None, "posX": 320, "posY": 200, "w": BOX, "h": BOX})
     # 슬롯 이름 = "자국 - 대국 -N #코어수". 같은 경로(자국→대국) 여러 케이블이면 N=1,2…(등장 순).
     slot_i = collections.defaultdict(int)   # slotIndex (OFD 내 위치)
     route_i = collections.defaultdict(int)  # -N (자국→대국 경로 순번)
@@ -85,14 +85,14 @@ def main():
         name = f"{DIRECT[sub]} - {DIRECT[peer]} -{ri} #{b['cores']}"
         # 코어수는 OPGW(케이블)가 단독 소유 — 슬롯엔 중복 저장하지 않음(SSOT).
         assets.append({"key": slot_key(sub, b["block"]), "subKey": sub, "typeCode": "OFD-SLOT",
-                       "name": name, "parentKey": f"ofd-{sub}", "attributes": {}, "slotIndex": si})
+                       "name": name, "parentKey": f"ofd-{sub}", "slotIndex": si})
     # 송변전광단말장치 — 송광치 코어 있는 국소에만, 랙 안 slotIndex 0
     dev_subs = sorted({c["subKey"] for c in cores if c["purpose"] == "송광치"})
     dev_by_sub = {}
     for sub in dev_subs:
         key = f"dev-OPT-TERM-{sub}"
         assets.append({"key": key, "subKey": sub, "typeCode": "OPT-TERM", "name": "송변전광단말장치",
-                       "parentKey": f"rack-{sub}", "attributes": {}, "slotIndex": 0})
+                       "parentKey": f"rack-{sub}", "slotIndex": 0})
         dev_by_sub[sub] = key
 
     # ── fiberCables: OUT 코어 — 송광치만(나머지 메타전용 코어는 시드 안 함) ──

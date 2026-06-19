@@ -5,7 +5,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -17,7 +16,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -29,7 +27,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -41,7 +38,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -53,7 +49,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -65,7 +60,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -77,7 +71,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -89,7 +82,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -101,7 +93,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -113,7 +104,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -125,7 +115,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -137,7 +126,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -149,7 +137,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -161,7 +148,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -173,7 +159,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -185,7 +170,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -197,7 +181,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -209,7 +192,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -221,7 +203,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -233,7 +214,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -245,7 +225,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -257,7 +236,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -269,7 +247,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -281,7 +258,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -293,7 +269,6 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {},
   "posX": 200,
   "posY": 200,
   "w": 60,
@@ -305,7 +280,6 @@
   "typeCode": "RACK",
   "name": "통신랙",
   "parentKey": null,
-  "attributes": {},
   "posX": 320,
   "posY": 200,
   "w": 60,
@@ -317,7 +291,6 @@
   "typeCode": "OFD-SLOT",
   "name": "북춘천S/S - 춘천H/P -1 #24",
   "parentKey": "ofd-bukchuncheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -326,7 +299,6 @@
   "typeCode": "OFD-SLOT",
   "name": "북춘천S/S - 춘천H/P -2 #24",
   "parentKey": "ofd-bukchuncheon",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -335,7 +307,6 @@
   "typeCode": "OFD-SLOT",
   "name": "북춘천S/S - (구)춘천S/S -1 #24",
   "parentKey": "ofd-bukchuncheon",
-  "attributes": {},
   "slotIndex": 2
  },
  {
@@ -344,7 +315,6 @@
   "typeCode": "OFD-SLOT",
   "name": "철원S/S - 화천S/S -1 #24",
   "parentKey": "ofd-cheorwon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -353,7 +323,6 @@
   "typeCode": "OFD-SLOT",
   "name": "춘천H/P - 북춘천S/S -1 #24",
   "parentKey": "ofd-chuncheonhp",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -362,7 +331,6 @@
   "typeCode": "OFD-SLOT",
   "name": "춘천H/P - 북춘천S/S -2 #24",
   "parentKey": "ofd-chuncheonhp",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -371,7 +339,6 @@
   "typeCode": "OFD-SLOT",
   "name": "춘천H/P - 화천H/P -1 #24",
   "parentKey": "ofd-chuncheonhp",
-  "attributes": {},
   "slotIndex": 2
  },
  {
@@ -380,7 +347,6 @@
   "typeCode": "OFD-SLOT",
   "name": "(구)춘천S/S - 북춘천S/S -1 #24",
   "parentKey": "ofd-guchuncheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -389,7 +355,6 @@
   "typeCode": "OFD-SLOT",
   "name": "(구)춘천S/S - (신)춘천S/S -1 #24",
   "parentKey": "ofd-guchuncheon",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -398,7 +363,6 @@
   "typeCode": "OFD-SLOT",
   "name": "(구)춘천S/S - (신)춘천S/S -2 #24",
   "parentKey": "ofd-guchuncheon",
-  "attributes": {},
   "slotIndex": 2
  },
  {
@@ -407,7 +371,6 @@
   "typeCode": "OFD-SLOT",
   "name": "(구)춘천S/S - 소양강H/P -1 #4",
   "parentKey": "ofd-guchuncheon",
-  "attributes": {},
   "slotIndex": 3
  },
  {
@@ -416,7 +379,6 @@
   "typeCode": "OFD-SLOT",
   "name": "화천S/S - 철원S/S -1 #24",
   "parentKey": "ofd-hwacheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -425,7 +387,6 @@
   "typeCode": "OFD-SLOT",
   "name": "화천S/S - 화천H/P -1 #24",
   "parentKey": "ofd-hwacheon",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -434,7 +395,6 @@
   "typeCode": "OFD-SLOT",
   "name": "화천H/P - 춘천H/P -1 #24",
   "parentKey": "ofd-hwacheonhp",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -443,7 +403,6 @@
   "typeCode": "OFD-SLOT",
   "name": "화천H/P - 화천S/S -1 #24",
   "parentKey": "ofd-hwacheonhp",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -452,7 +411,6 @@
   "typeCode": "OFD-SLOT",
   "name": "화천H/P - 양구S/S -1 #24",
   "parentKey": "ofd-hwacheonhp",
-  "attributes": {},
   "slotIndex": 2
  },
  {
@@ -461,7 +419,6 @@
   "typeCode": "OFD-SLOT",
   "name": "인제S/S - 양구S/S -1 #24",
   "parentKey": "ofd-inje",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -470,7 +427,6 @@
   "typeCode": "OFD-SLOT",
   "name": "남춘천S/S - 열병합S/Y -1 #24",
   "parentKey": "ofd-namchuncheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -479,7 +435,6 @@
   "typeCode": "OFD-SLOT",
   "name": "남춘천S/S - 열병합S/Y -2 #24",
   "parentKey": "ofd-namchuncheon",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -488,7 +443,6 @@
   "typeCode": "OFD-SLOT",
   "name": "서홍천S/S - 열병합S/Y -1 #12",
   "parentKey": "ofd-seohongcheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -497,7 +451,6 @@
   "typeCode": "OFD-SLOT",
   "name": "(신)춘천S/S - (구)춘천S/S -1 #24",
   "parentKey": "ofd-sinchuncheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -506,7 +459,6 @@
   "typeCode": "OFD-SLOT",
   "name": "(신)춘천S/S - (구)춘천S/S -2 #24",
   "parentKey": "ofd-sinchuncheon",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -515,7 +467,6 @@
   "typeCode": "OFD-SLOT",
   "name": "소양강H/P - (구)춘천S/S -1 #4",
   "parentKey": "ofd-soyanghp",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -524,7 +475,6 @@
   "typeCode": "OFD-SLOT",
   "name": "양구S/S - 화천H/P -1 #24",
   "parentKey": "ofd-yanggu",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -533,7 +483,6 @@
   "typeCode": "OFD-SLOT",
   "name": "양구S/S - 인제S/S -1 #24",
   "parentKey": "ofd-yanggu",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -542,7 +491,6 @@
   "typeCode": "OFD-SLOT",
   "name": "열병합S/Y - 남춘천S/S -1 #24",
   "parentKey": "ofd-yeolbyeonghap",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -551,7 +499,6 @@
   "typeCode": "OFD-SLOT",
   "name": "열병합S/Y - 남춘천S/S -2 #24",
   "parentKey": "ofd-yeolbyeonghap",
-  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -560,7 +507,6 @@
   "typeCode": "OFD-SLOT",
   "name": "열병합S/Y - 서홍천S/S -1 #12",
   "parentKey": "ofd-yeolbyeonghap",
-  "attributes": {},
   "slotIndex": 2
  },
  {
@@ -569,7 +515,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-bukchuncheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -578,7 +523,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-cheorwon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -587,7 +531,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-chuncheonhp",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -596,7 +539,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-guchuncheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -605,7 +547,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-hwacheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -614,7 +555,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-hwacheonhp",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -623,7 +563,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-inje",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -632,7 +571,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-namchuncheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -641,7 +579,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-seohongcheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -650,7 +587,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-sinchuncheon",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -659,7 +595,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-yanggu",
-  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -668,7 +603,6 @@
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
   "parentKey": "rack-yeolbyeonghap",
-  "attributes": {},
   "slotIndex": 0
  }
 ]

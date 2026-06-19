@@ -11,7 +11,7 @@ import { z } from 'zod';
  * - 다른 엔티티 참조(equipmentId, rackEquipmentId, distributionEquipmentId,
  *   source/target id)는 `z.string()` — real id 이거나
  *   같은 페이로드 안의 tempId(커밋 시점 resolve)일 수 있다.
- * - specParams / properties / attributes / pathPoints 같은 free-form JSON 은
+ * - specParams / properties / pathPoints 같은 free-form JSON 은
  *   over-constrain 을 피하려 `z.unknown()`.
  *
  * 필드명은 기존 floor.service.ts `UpdatePlanInput` / assetCommit.service.ts
@@ -97,10 +97,8 @@ const assetCreate = z.object({
   ...assetCommonFields,
   parentAssetId: z.string().nullable().optional(),
   roomText: z.string().nullable().optional(),
-  // sourcePresetId 전용 컬럼(상세패널 오버홀 S3). attributes 는 프론트(S4 이전)가
-  // properties↔attributes 라운드트립으로 보내는 free-form JSON 호환 — sourcePresetId 만 추출.
+  // sourcePresetId 전용 컬럼(상세패널 오버홀 S3). 구 attributes free-form JSON 은 영구 제거됨.
   sourcePresetId: z.string().nullable().optional(),
-  attributes: z.unknown().optional(),
   // placement (도면 미배치 Asset 은 모두 생략 가능)
   floorId: z.string().nullable().optional(),
   positionX: z.number().nullable().optional(),

@@ -30,7 +30,7 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 const asset = {
   id: 'a1', substationId: 's1', assetTypeId: 't1',
   assetType: { name: '랙', placementKind: 'RACK', fieldTemplate: [{ key: 'model', label: '모델', type: 'text' }] },
-  name: '장비1', attributes: { model: 'X' }, installDate: null, manager: null, status: '운영중',
+  name: '장비1', installDate: null, manager: null, status: '운영중',
   description: '비고 메모', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '2026-06-05T00:00:00.000Z',
 } as any;
 const today = new Date('2026-06-05T00:00:00Z');
@@ -124,7 +124,7 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
     id: 'm1', substationId: 's1', assetTypeId: 'cat1',
     assetType: { name: '광패치', placementKind: null, fieldTemplate: [] },
     name: '모듈1', parentAssetId: 'rack1', slotIndex: 2, slotSpan: 2,
-    attributes: {}, installDate: null, manager: null, status: '운영중',
+ installDate: null, manager: null, status: '운영중',
     description: '', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '',
   } as never;
 
@@ -159,7 +159,7 @@ describe('AssetInspector — 경로슬롯(conduit) 이름 파생 읽기전용', 
   const conduitAsset = {
     id: SLOT, substationId: 's1', assetTypeId: 'ofdslot',
     assetType: { name: 'OFD-SLOT', placementKind: null, connectionKind: 'conduit', fieldTemplate: [] },
-    name: 'DB저장이름(표시안됨)', attributes: {}, installDate: null, manager: null, status: '운영중',
+    name: 'DB저장이름(표시안됨)', installDate: null, manager: null, status: '운영중',
     description: '', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '',
   } as never;
 

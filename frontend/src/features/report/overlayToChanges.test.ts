@@ -17,7 +17,7 @@ function asset(id: string, over: Partial<Asset> = {}): Asset {
     parentAssetId: null,
     floorId: FLOOR,
     roomText: null,
-    attributes: null,
+
     installDate: null,
     warrantyUntil: null,
     replaceDue: null,

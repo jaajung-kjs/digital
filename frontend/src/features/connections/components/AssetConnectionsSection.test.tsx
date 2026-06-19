@@ -14,7 +14,7 @@ function asset(p: { id: string; name: string; kind?: string | null; floorId?: st
   return {
     id: p.id, substationId: 's1', assetTypeId: 't',
     assetType: { id: 't', code: 't', name: p.kind ?? 't', group: null, displayColor: null, fieldTemplate: [], placementKind: p.kind ?? null },
-    name: p.name, parentAssetId: null, floorId: p.floorId ?? null, roomText: null, attributes: {},
+    name: p.name, parentAssetId: null, floorId: p.floorId ?? null, roomText: null,
     positionX: 0, positionY: 0, width2d: 10, height2d: 10,
     installDate: null, warrantyUntil: null, replaceDue: null, manager: null, description: null, status: null,
     sortOrder: 0, updatedAt: '',

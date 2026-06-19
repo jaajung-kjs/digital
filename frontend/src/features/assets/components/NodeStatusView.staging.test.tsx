@@ -42,7 +42,7 @@ const wcAsset = {
   id: 'a1', substationId: 's1', assetTypeId: 't1',
   assetType: { id: 't1', code: 'RACK', name: '랙', group: null, displayColor: null, fieldTemplate: [{ key: 'model', label: '모델', type: 'text' }] },
   name: '랙01', parentAssetId: null, slotIndex: null, floorId: null, roomText: null,
-  attributes: { model: 'X' }, installDate: '2024-01-01', warrantyUntil: null, replaceDue: null,
+ installDate: '2024-01-01', warrantyUntil: null, replaceDue: null,
   manager: '홍길동', description: null, status: '정상', sortOrder: 0, updatedAt: TS,
 };
 
