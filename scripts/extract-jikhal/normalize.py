@@ -11,6 +11,7 @@ DIRECT = {
 
 # 원문 별칭(정규화 후 문자열) → key. (구)/(신)춘천 모호는 검수에서 별도 처리.
 ALIAS = {
+    "춘천": "guchuncheon",  # 바 '춘천'/'춘천S/S' = (구)춘천(원 춘천변전소). (신)춘천은 '신춘천'으로 구분.
     "구춘천": "guchuncheon", "신춘천": "sinchuncheon", "북춘천": "bukchuncheon", "남춘천": "namchuncheon",
     "서홍천": "seohongcheon", "열병합": "yeolbyeonghap", "춘천열병합": "yeolbyeonghap",
     "인제": "inje", "양구": "yanggu", "철원": "cheorwon", "화천": "hwacheon",
@@ -21,9 +22,11 @@ ALIAS = {
 def _clean(raw):
     s = (raw or "").lower()
     s = re.sub(r"\s+", "", s)
+    # (신)/(구) 춘천 먼저 보존(일반 괄호제거 전): (신)→신, (구)→제거. 그래야 (신)춘천≠구춘천.
+    s = s.replace("(신)", "신").replace("(구)", "")
     s = s.replace("s/s", "").replace("s/y", "").replace("h/p", "hp").replace("s/t", "")
     s = re.sub(r"#\d+", "", s)
-    s = re.sub(r"\(.*?\)", "", s)  # (구)/(신)/(좌측N열) 등 — (구)(신)춘천은 검수에서 보정
+    s = re.sub(r"\(.*?\)", "", s)  # (좌측N열)·(12C) 등
     s = s.replace("비금속", "").replace("경로a", "").replace("경로b", "")
     return s
 

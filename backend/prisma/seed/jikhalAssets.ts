@@ -1,12 +1,16 @@
 import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { PrismaClient } from '@prisma/client';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 interface SubRow { key: string; name: string; isExternal: boolean; }
 interface AssetRow {
   key: string; subKey: string; typeCode: string; name: string;
   parentKey: string | null; attributes?: Record<string, unknown>;
+  posX?: number | null; posY?: number | null; w?: number | null; h?: number | null; slotIndex?: number | null;
 }
 interface CableRow {
   key: string; kind: 'OPGW' | 'CORE'; sourceKey: string; targetKey: string;
@@ -28,7 +32,7 @@ export function orderAssets<A extends { parentKey: string | null }>(rows: A[]): 
 }
 
 function load<T>(name: string): T {
-  return JSON.parse(readFileSync(join(__dirname, 'data', 'jikhal', name), 'utf8')) as T;
+  return JSON.parse(readFileSync(join(HERE, 'data', 'jikhal', name), 'utf8')) as T;
 }
 
 /**
@@ -66,6 +70,8 @@ export async function seedJikhalAssets(prisma: PrismaClient, adminId: string, br
         parentAssetId: a.parentKey ? juuid(T.asset, a.parentKey) : null,
         floorId: isExternal.get(a.subKey) ? null : juuid(T.floor, a.subKey),
         name: a.name, attributes: a.attributes ?? {}, sortOrder: 0,
+        positionX: a.posX ?? null, positionY: a.posY ?? null,
+        width2d: a.w ?? null, height2d: a.h ?? null, slotIndex: a.slotIndex ?? null,
       },
     });
   }

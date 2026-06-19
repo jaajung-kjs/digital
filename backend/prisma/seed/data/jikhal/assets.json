@@ -5,7 +5,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-guchuncheon",
+  "subKey": "guchuncheon",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-sinchuncheon",
@@ -13,7 +29,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-sinchuncheon",
+  "subKey": "sinchuncheon",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-bukchuncheon",
@@ -21,7 +53,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-bukchuncheon",
+  "subKey": "bukchuncheon",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-namchuncheon",
@@ -29,7 +77,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-namchuncheon",
+  "subKey": "namchuncheon",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-seohongcheon",
@@ -37,7 +101,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-seohongcheon",
+  "subKey": "seohongcheon",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-yeolbyeonghap",
@@ -45,7 +125,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-yeolbyeonghap",
+  "subKey": "yeolbyeonghap",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-inje",
@@ -53,7 +149,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-inje",
+  "subKey": "inje",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-yanggu",
@@ -61,7 +173,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-yanggu",
+  "subKey": "yanggu",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-cheorwon",
@@ -69,7 +197,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-cheorwon",
+  "subKey": "cheorwon",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-hwacheon",
@@ -77,7 +221,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-hwacheon",
+  "subKey": "hwacheon",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-hwacheonhp",
@@ -85,7 +245,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-hwacheonhp",
+  "subKey": "hwacheonhp",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-chuncheonhp",
@@ -93,7 +269,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
+ },
+ {
+  "key": "rack-chuncheonhp",
+  "subKey": "chuncheonhp",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "ofd-soyanghp",
@@ -101,17 +293,23 @@
   "typeCode": "OFD",
   "name": "OFD",
   "parentKey": null,
-  "attributes": {}
+  "attributes": {},
+  "posX": 200,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
-  "key": "slot-guchuncheon-b1",
-  "subKey": "guchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "홍천S/S (24C)",
-  "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 24
-  }
+  "key": "rack-soyanghp",
+  "subKey": "soyanghp",
+  "typeCode": "RACK",
+  "name": "통신랙",
+  "parentKey": null,
+  "attributes": {},
+  "posX": 320,
+  "posY": 200,
+  "w": 60,
+  "h": 60
  },
  {
   "key": "slot-guchuncheon-b2",
@@ -121,77 +319,8 @@
   "parentKey": "ofd-guchuncheon",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-guchuncheon-b3",
-  "subKey": "guchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "사택계 (12C) (12C)",
-  "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 12
-  }
- },
- {
-  "key": "slot-guchuncheon-b4",
-  "subKey": "guchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "강원D/D #3 (12C)",
-  "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 12
-  }
- },
- {
-  "key": "slot-guchuncheon-b5",
-  "subKey": "guchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "강원D/D #2 (24C)",
-  "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-guchuncheon-b6",
-  "subKey": "guchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "강원D/D #1 (24C)",
-  "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-guchuncheon-b7",
-  "subKey": "guchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "강원D/D #1 (24C)",
-  "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-guchuncheon-b8",
-  "subKey": "guchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "차세대 SCADA실 (12C) (12C)",
-  "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 12
-  }
- },
- {
-  "key": "slot-guchuncheon-b9",
-  "subKey": "guchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "강원D/D #4 (24C)",
-  "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-guchuncheon-b10",
@@ -201,7 +330,8 @@
   "parentKey": "ofd-guchuncheon",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-guchuncheon-b11",
@@ -211,7 +341,8 @@
   "parentKey": "ofd-guchuncheon",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 2
  },
  {
   "key": "slot-sinchuncheon-b1",
@@ -221,7 +352,8 @@
   "parentKey": "ofd-sinchuncheon",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-sinchuncheon-b2",
@@ -231,7 +363,8 @@
   "parentKey": "ofd-sinchuncheon",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-bukchuncheon-b1",
@@ -241,7 +374,8 @@
   "parentKey": "ofd-bukchuncheon",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-bukchuncheon-b2",
@@ -251,7 +385,8 @@
   "parentKey": "ofd-bukchuncheon",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-bukchuncheon-b3",
@@ -261,17 +396,8 @@
   "parentKey": "ofd-bukchuncheon",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-namchuncheon-b1",
-  "subKey": "namchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "홍천 (24C)",
-  "parentKey": "ofd-namchuncheon",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 2
  },
  {
   "key": "slot-namchuncheon-b2",
@@ -281,17 +407,8 @@
   "parentKey": "ofd-namchuncheon",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-namchuncheon-b3",
-  "subKey": "namchuncheon",
-  "typeCode": "OFD-SLOT",
-  "name": "강원D/D 비금속 (24C)",
-  "parentKey": "ofd-namchuncheon",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-namchuncheon-b4",
@@ -301,7 +418,8 @@
   "parentKey": "ofd-namchuncheon",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-seohongcheon-b1",
@@ -311,17 +429,8 @@
   "parentKey": "ofd-seohongcheon",
   "attributes": {
    "cores": 12
-  }
- },
- {
-  "key": "slot-seohongcheon-b2",
-  "subKey": "seohongcheon",
-  "typeCode": "OFD-SLOT",
-  "name": "청평P/P (12C)",
-  "parentKey": "ofd-seohongcheon",
-  "attributes": {
-   "cores": 12
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-yeolbyeonghap-b1",
@@ -331,17 +440,8 @@
   "parentKey": "ofd-yeolbyeonghap",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-yeolbyeonghap-b2",
-  "subKey": "yeolbyeonghap",
-  "typeCode": "OFD-SLOT",
-  "name": "청평P/P (12C)",
-  "parentKey": "ofd-yeolbyeonghap",
-  "attributes": {
-   "cores": 12
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-yeolbyeonghap-b3",
@@ -351,7 +451,8 @@
   "parentKey": "ofd-yeolbyeonghap",
   "attributes": {
    "cores": 12
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-yeolbyeonghap-b4",
@@ -361,47 +462,8 @@
   "parentKey": "ofd-yeolbyeonghap",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-yeolbyeonghap-b5",
-  "subKey": "yeolbyeonghap",
-  "typeCode": "OFD-SLOT",
-  "name": "홍천B/O 비금속 (24C)",
-  "parentKey": "ofd-yeolbyeonghap",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-inje-b1",
-  "subKey": "inje",
-  "typeCode": "OFD-SLOT",
-  "name": "간성S/S (24C)",
-  "parentKey": "ofd-inje",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-inje-b2",
-  "subKey": "inje",
-  "typeCode": "OFD-SLOT",
-  "name": "간성S/S (24C)",
-  "parentKey": "ofd-inje",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-inje-b3",
-  "subKey": "inje",
-  "typeCode": "OFD-SLOT",
-  "name": "상남S/S (24C)",
-  "parentKey": "ofd-inje",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 2
  },
  {
   "key": "slot-inje-b4",
@@ -411,37 +473,8 @@
   "parentKey": "ofd-inje",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-inje-b5",
-  "subKey": "inje",
-  "typeCode": "OFD-SLOT",
-  "name": "신양양S/S (24C)",
-  "parentKey": "ofd-inje",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-inje-b6",
-  "subKey": "inje",
-  "typeCode": "OFD-SLOT",
-  "name": "인제B/O #경로A (24C)",
-  "parentKey": "ofd-inje",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-inje-b7",
-  "subKey": "inje",
-  "typeCode": "OFD-SLOT",
-  "name": "인제B/O #경로B (24C)",
-  "parentKey": "ofd-inje",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-yanggu-b1",
@@ -451,17 +484,8 @@
   "parentKey": "ofd-yanggu",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-yanggu-b2",
-  "subKey": "yanggu",
-  "typeCode": "OFD-SLOT",
-  "name": "상남S/S (24C)",
-  "parentKey": "ofd-yanggu",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-yanggu-b3",
@@ -471,27 +495,8 @@
   "parentKey": "ofd-yanggu",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-yanggu-b4",
-  "subKey": "yanggu",
-  "typeCode": "OFD-SLOT",
-  "name": "양구B/O #경로A (24C)",
-  "parentKey": "ofd-yanggu",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-yanggu-b5",
-  "subKey": "yanggu",
-  "typeCode": "OFD-SLOT",
-  "name": "양구B/O #경로B (24C)",
-  "parentKey": "ofd-yanggu",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-cheorwon-b1",
@@ -501,37 +506,8 @@
   "parentKey": "ofd-cheorwon",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-cheorwon-b2",
-  "subKey": "cheorwon",
-  "typeCode": "OFD-SLOT",
-  "name": "운천S/S (24C)",
-  "parentKey": "ofd-cheorwon",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-cheorwon-b3",
-  "subKey": "cheorwon",
-  "typeCode": "OFD-SLOT",
-  "name": "철원B/O #경로A (24C)",
-  "parentKey": "ofd-cheorwon",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-cheorwon-b4",
-  "subKey": "cheorwon",
-  "typeCode": "OFD-SLOT",
-  "name": "철원B/O #경로B (24C)",
-  "parentKey": "ofd-cheorwon",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-hwacheon-b1",
@@ -541,7 +517,8 @@
   "parentKey": "ofd-hwacheon",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-hwacheon-b2",
@@ -551,27 +528,8 @@
   "parentKey": "ofd-hwacheon",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-hwacheon-b3",
-  "subKey": "hwacheon",
-  "typeCode": "OFD-SLOT",
-  "name": "화천B/O #경로A (24C)",
-  "parentKey": "ofd-hwacheon",
-  "attributes": {
-   "cores": 24
-  }
- },
- {
-  "key": "slot-hwacheon-b4",
-  "subKey": "hwacheon",
-  "typeCode": "OFD-SLOT",
-  "name": "화천B/O #경로B (24C)",
-  "parentKey": "ofd-hwacheon",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-hwacheonhp-b1",
@@ -581,7 +539,8 @@
   "parentKey": "ofd-hwacheonhp",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-hwacheonhp-b2",
@@ -591,7 +550,8 @@
   "parentKey": "ofd-hwacheonhp",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-hwacheonhp-b3",
@@ -601,17 +561,8 @@
   "parentKey": "ofd-hwacheonhp",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-chuncheonhp-b1",
-  "subKey": "chuncheonhp",
-  "typeCode": "OFD-SLOT",
-  "name": "가평S/S (좌측 2열) (24C)",
-  "parentKey": "ofd-chuncheonhp",
-  "attributes": {
-   "cores": 24
-  }
+  },
+  "slotIndex": 2
  },
  {
   "key": "slot-chuncheonhp-b2",
@@ -621,7 +572,8 @@
   "parentKey": "ofd-chuncheonhp",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 0
  },
  {
   "key": "slot-chuncheonhp-b3",
@@ -631,7 +583,8 @@
   "parentKey": "ofd-chuncheonhp",
   "attributes": {
    "cores": 24
-  }
+  },
+  "slotIndex": 1
  },
  {
   "key": "slot-chuncheonhp-b4",
@@ -641,37 +594,8 @@
   "parentKey": "ofd-chuncheonhp",
   "attributes": {
    "cores": 24
-  }
- },
- {
-  "key": "slot-chuncheonhp-b5",
-  "subKey": "chuncheonhp",
-  "typeCode": "OFD-SLOT",
-  "name": "MCR실 (좌측 2열) (8C)",
-  "parentKey": "ofd-chuncheonhp",
-  "attributes": {
-   "cores": 8
-  }
- },
- {
-  "key": "slot-chuncheonhp-b6",
-  "subKey": "chuncheonhp",
-  "typeCode": "OFD-SLOT",
-  "name": "MCR실 (좌측 4열) (12C)",
-  "parentKey": "ofd-chuncheonhp",
-  "attributes": {
-   "cores": 12
-  }
- },
- {
-  "key": "slot-soyanghp-b1",
-  "subKey": "soyanghp",
-  "typeCode": "OFD-SLOT",
-  "name": "홍천S/S (4C)",
-  "parentKey": "ofd-soyanghp",
-  "attributes": {
-   "cores": 4
-  }
+  },
+  "slotIndex": 2
  },
  {
   "key": "slot-soyanghp-b2",
@@ -681,102 +605,115 @@
   "parentKey": "ofd-soyanghp",
   "attributes": {
    "cores": 4
-  }
- },
- {
-  "key": "dev-OPT-TERM-guchuncheon",
-  "subKey": "guchuncheon",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
- },
- {
-  "key": "dev-OPT-TERM-sinchuncheon",
-  "subKey": "sinchuncheon",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
+  },
+  "slotIndex": 0
  },
  {
   "key": "dev-OPT-TERM-bukchuncheon",
   "subKey": "bukchuncheon",
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
- },
- {
-  "key": "dev-OPT-TERM-namchuncheon",
-  "subKey": "namchuncheon",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
- },
- {
-  "key": "dev-OPT-TERM-seohongcheon",
-  "subKey": "seohongcheon",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
- },
- {
-  "key": "dev-OPT-TERM-yeolbyeonghap",
-  "subKey": "yeolbyeonghap",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
- },
- {
-  "key": "dev-OPT-TERM-inje",
-  "subKey": "inje",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
- },
- {
-  "key": "dev-OPT-TERM-yanggu",
-  "subKey": "yanggu",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
+  "parentKey": "rack-bukchuncheon",
+  "attributes": {},
+  "slotIndex": 0
  },
  {
   "key": "dev-OPT-TERM-cheorwon",
   "subKey": "cheorwon",
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
- },
- {
-  "key": "dev-OPT-TERM-hwacheon",
-  "subKey": "hwacheon",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
- },
- {
-  "key": "dev-OPT-TERM-hwacheonhp",
-  "subKey": "hwacheonhp",
-  "typeCode": "OPT-TERM",
-  "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
+  "parentKey": "rack-cheorwon",
+  "attributes": {},
+  "slotIndex": 0
  },
  {
   "key": "dev-OPT-TERM-chuncheonhp",
   "subKey": "chuncheonhp",
   "typeCode": "OPT-TERM",
   "name": "송변전광단말장치",
-  "parentKey": null,
-  "attributes": {}
+  "parentKey": "rack-chuncheonhp",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-guchuncheon",
+  "subKey": "guchuncheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-guchuncheon",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-hwacheon",
+  "subKey": "hwacheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-hwacheon",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-hwacheonhp",
+  "subKey": "hwacheonhp",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-hwacheonhp",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-inje",
+  "subKey": "inje",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-inje",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-namchuncheon",
+  "subKey": "namchuncheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-namchuncheon",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-seohongcheon",
+  "subKey": "seohongcheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-seohongcheon",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-sinchuncheon",
+  "subKey": "sinchuncheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-sinchuncheon",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-yanggu",
+  "subKey": "yanggu",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-yanggu",
+  "attributes": {},
+  "slotIndex": 0
+ },
+ {
+  "key": "dev-OPT-TERM-yeolbyeonghap",
+  "subKey": "yeolbyeonghap",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치",
+  "parentKey": "rack-yeolbyeonghap",
+  "attributes": {},
+  "slotIndex": 0
  }
 ]
