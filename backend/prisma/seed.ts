@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { seedCableCategories } from './seed/cableCategories.js';
 import { seedBomMaterials } from './seed/bomMaterials.js';
 import { seedRackPresets } from './seed/rackPresets.js';
-import { seedGangwonSubstations } from './seed/gangwonSubstations.js';
+import { seedJikhalAssets } from './seed/jikhalAssets.js';
 import { seedAssetTypes } from './seed/assetTypes.js';
 
 const prisma = new PrismaClient();
@@ -105,52 +105,10 @@ async function main() {
       console.log(`✅ ${hqData.name}: ${hqData.branches.length}개 지사`);
     }
 
-    // 강원본부 직할 13개 변전소 + OFD + 광경로
-    await seedGangwonSubstations(prisma, admin.id);
-
-    // 샘플 변전소 + 층 (개발 테스트용)
-    if (process.env.NODE_ENV === 'development') {
-      const substationFixtures = [
-        { hqName: '강원본부', branchName: '직할', subName: '춘천변전소', floors: ['B1F', '1F'] },
-        { hqName: '서울본부', branchName: '강남전력지사', subName: '강남변전소', floors: ['1F'] },
-        { hqName: '경기본부', branchName: '수원전력지사', subName: '수원변전소', floors: ['1F'] },
-      ];
-
-      for (const fix of substationFixtures) {
-        const hq = await prisma.headquarters.findFirst({ where: { name: fix.hqName } });
-        if (!hq) continue;
-        const branch = await prisma.branch.findFirst({
-          where: { headquartersId: hq.id, name: fix.branchName },
-        });
-        if (!branch) continue;
-
-        const sub = await prisma.substation.create({
-          data: {
-            id: `sub-${fix.subName}`,
-            branchId: branch.id,
-            name: fix.subName,
-            createdById: admin.id,
-            updatedById: admin.id,
-          },
-        });
-
-        for (let i = 0; i < fix.floors.length; i++) {
-          const floorName = fix.floors[i];
-          await prisma.floor.create({
-            data: {
-              substationId: sub.id,
-              name: floorName,
-              floorNumber: floorName,
-              sortOrder: i,
-              createdById: admin.id,
-              updatedById: admin.id,
-            },
-          });
-        }
-
-        console.log(`✅ ${fix.subName} (${fix.floors.length}개 층)`);
-      }
-    }
+    // 강원본부 직할 13개 국소 + OFD/슬롯/선번장/OPGW (검수 JSON 기반, jikhalAssets)
+    const gwHq = await prisma.headquarters.findFirst({ where: { name: '강원본부' } });
+    const jikhal = gwHq ? await prisma.branch.findFirst({ where: { headquartersId: gwHq.id, name: '직할' } }) : null;
+    if (jikhal) await seedJikhalAssets(prisma, admin.id, jikhal.id);
   }
 
   console.log('🎉 Seeding completed!');
