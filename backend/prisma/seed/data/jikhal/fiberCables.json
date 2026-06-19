@@ -1351,5 +1351,18 @@
   "specParams": {
    "cores": 24
   }
+ },
+ {
+  "key": "opgw-soyanghp-guchuncheon-14",
+  "kind": "OPGW",
+  "sourceKey": "slot-soyanghp-b2",
+  "targetKey": "slot-guchuncheon-b9001",
+  "sourceRole": "IN",
+  "targetRole": "IN",
+  "number": null,
+  "categoryCode": "CBL-OPT",
+  "specParams": {
+   "cores": 4
+  }
  }
 ]

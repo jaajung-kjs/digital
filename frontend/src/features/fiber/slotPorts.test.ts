@@ -82,13 +82,10 @@ describe('buildSlotPorts', () => {
     expect(p1.remoteAssetId).toBeNull();
   });
 
-  it('OPGW·슬롯용량·점유 전부 없으면 빈 배열', () => {
+  it('OPGW·점유 전부 없으면 빈 배열', () => {
     expect(buildSlotPorts({ id: SLOT }, [], graph)).toEqual([]);
   });
-  it('OPGW 없어도 슬롯 attributes.cores 로 포트 렌더(용량은 슬롯 소유)', () => {
-    expect(buildSlotPorts({ id: SLOT, attributes: { cores: 12 } }, [], graph)).toHaveLength(12);
-  });
-  it('OPGW 없어도 점유 코어가 있으면 그 번호까지 렌더', () => {
+  it('OPGW 없어도 점유 코어가 있으면 그 번호까지 렌더(점유 바닥값)', () => {
     expect(buildSlotPorts({ id: SLOT }, [localOut3], graph)).toHaveLength(3);
   });
 });

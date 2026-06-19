@@ -31,13 +31,36 @@ def slot_key(sub, block):
     return f"slot-{sub}-b{block}"
 
 
+def complete_reciprocals(blocks):
+    """모든 직할쌍 블록이 양방향 짝을 갖도록 보완(케이블=OPGW 가 코어수 단일 SSOT 라
+    슬롯은 반드시 OPGW 1:1). 한쪽만 기재된 케이블은 반대편 종단 슬롯을 추론 생성한다."""
+    by_dir = collections.defaultdict(list)
+    for b in blocks:
+        by_dir[(b["subKey"], b["peerKey"])].append(b)
+    synth, sid, seen = [], 9000, set()
+    for (a, bsub) in list(by_dir.keys()):
+        pk = pair_key(a, bsub)
+        if pk in seen:
+            continue
+        seen.add(pk)
+        ab = sorted(by_dir.get((a, bsub), []), key=lambda x: (cable_idx(x["peerRaw"]), x["block"]))
+        bb = sorted(by_dir.get((bsub, a), []), key=lambda x: (cable_idx(x["peerRaw"]), x["block"]))
+        short, long_, extras = (a, bsub, bb[len(ab):]) if len(bb) > len(ab) else (bsub, a, ab[len(bb):])
+        for x in extras:
+            sid += 1
+            synth.append({"subKey": short, "peerKey": long_, "peerRaw": DIRECT[long_],
+                          "block": sid, "cores": x["cores"]})
+    return blocks + synth
+
+
 def main():
     os.makedirs(DST, exist_ok=True)
     cores = json.load(open(os.path.join(OUT, "ofd_cores.json")))
     blocks = json.load(open(os.path.join(OUT, "ofd_blocks.json")))
 
-    # ── 직할 13 끼리만 ──
+    # ── 직할 13 끼리만 + 양방향 보완(모든 슬롯이 OPGW 1:1) ──
     blocks = [b for b in blocks if is_direct(b["peerKey"])]
+    blocks = complete_reciprocals(blocks)
     keep = {(b["subKey"], b["block"]) for b in blocks}
     cores = [c for c in cores if (c["subKey"], c["block"]) in keep]
 
@@ -60,9 +83,9 @@ def main():
         ri = route_i[(sub, peer)]
         si = slot_i[sub]; slot_i[sub] += 1
         name = f"{DIRECT[sub]} - {DIRECT[peer]} -{ri} #{b['cores']}"
+        # 코어수는 OPGW(케이블)가 단독 소유 — 슬롯엔 중복 저장하지 않음(SSOT).
         assets.append({"key": slot_key(sub, b["block"]), "subKey": sub, "typeCode": "OFD-SLOT",
-                       "name": name, "parentKey": f"ofd-{sub}",
-                       "attributes": {"cores": b["cores"], "routeIdx": ri, "peer": DIRECT[peer]}, "slotIndex": si})
+                       "name": name, "parentKey": f"ofd-{sub}", "attributes": {}, "slotIndex": si})
     # 송변전광단말장치 — 송광치 코어 있는 국소에만, 랙 안 slotIndex 0
     dev_subs = sorted({c["subKey"] for c in cores if c["purpose"] == "송광치"})
     dev_by_sub = {}

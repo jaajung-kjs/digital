@@ -12,7 +12,7 @@ export interface SlotPort {
   state: PortState;
 }
 
-interface SlotLike { id: string; attributes?: Record<string, unknown> | null }
+interface SlotLike { id: string }
 
 /** 슬롯의 OPGW(IN-IN) 반대편(twin) 슬롯 id. 없으면 null. */
 export function twinSlotIdOf(slotId: string, cables: CableLike[]): string | null {
@@ -25,8 +25,8 @@ export function twinSlotIdOf(slotId: string, cables: CableLike[]): string | null
 
 /**
  * 광슬롯의 포트(코어) 파생 — 자국(slot) + 대국(twin slot) 양쪽 OUT 점유로 상태 판정.
- * 용량(코어수)은 슬롯이 소유한다: slot.attributes.cores 우선 → OPGW cores → 최대 점유.
- * OPGW 가 아직 없어도(미매칭/단방향) 슬롯 자체 용량으로 포트를 그린다(포트 UI 누락 방지).
+ * 용량(코어수)은 OPGW 케이블이 소유한다(단일 SSOT). 모든 슬롯은 OPGW 와 1:1 로 짝지어져
+ * 있으므로 OPGW.cores 가 곧 슬롯 용량. 점유코어는 안전 바닥값(데이터 깨짐 방어).
  */
 export function buildSlotPorts(
   slot: SlotLike,
@@ -38,9 +38,8 @@ export function buildSlotPorts(
   );
   const opgw = fiberOnSlot.find((c) => roleAt(c, slot.id) === 'IN');
   const opgwCores = Number((opgw?.specParams as Record<string, unknown> | undefined)?.cores ?? 0);
-  const slotCores = Number((slot.attributes as Record<string, unknown> | undefined)?.cores ?? 0);
   const maxOcc = fiberOnSlot.reduce((m, c) => (roleAt(c, slot.id) === 'OUT' ? Math.max(m, c.number ?? 0) : m), 0);
-  const capacity = Math.max(slotCores, opgwCores, maxOcc);
+  const capacity = Math.max(opgwCores, maxOcc);
   if (capacity <= 0) return [];
 
   const twinId = twinSlotIdOf(slot.id, cables);

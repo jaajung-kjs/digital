@@ -317,11 +317,7 @@
   "typeCode": "OFD-SLOT",
   "name": "북춘천S/S - 춘천H/P -1 #24",
   "parentKey": "ofd-bukchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "춘천H/P"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -330,11 +326,7 @@
   "typeCode": "OFD-SLOT",
   "name": "북춘천S/S - 춘천H/P -2 #24",
   "parentKey": "ofd-bukchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 2,
-   "peer": "춘천H/P"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -343,11 +335,7 @@
   "typeCode": "OFD-SLOT",
   "name": "북춘천S/S - (구)춘천S/S -1 #24",
   "parentKey": "ofd-bukchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "(구)춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 2
  },
  {
@@ -356,11 +344,7 @@
   "typeCode": "OFD-SLOT",
   "name": "철원S/S - 화천S/S -1 #24",
   "parentKey": "ofd-cheorwon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "화천S/S"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -369,11 +353,7 @@
   "typeCode": "OFD-SLOT",
   "name": "춘천H/P - 북춘천S/S -1 #24",
   "parentKey": "ofd-chuncheonhp",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "북춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -382,11 +362,7 @@
   "typeCode": "OFD-SLOT",
   "name": "춘천H/P - 북춘천S/S -2 #24",
   "parentKey": "ofd-chuncheonhp",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 2,
-   "peer": "북춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -395,11 +371,7 @@
   "typeCode": "OFD-SLOT",
   "name": "춘천H/P - 화천H/P -1 #24",
   "parentKey": "ofd-chuncheonhp",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "화천H/P"
-  },
+  "attributes": {},
   "slotIndex": 2
  },
  {
@@ -408,11 +380,7 @@
   "typeCode": "OFD-SLOT",
   "name": "(구)춘천S/S - 북춘천S/S -1 #24",
   "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "북춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -421,11 +389,7 @@
   "typeCode": "OFD-SLOT",
   "name": "(구)춘천S/S - (신)춘천S/S -1 #24",
   "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "(신)춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -434,12 +398,17 @@
   "typeCode": "OFD-SLOT",
   "name": "(구)춘천S/S - (신)춘천S/S -2 #24",
   "parentKey": "ofd-guchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 2,
-   "peer": "(신)춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 2
+ },
+ {
+  "key": "slot-guchuncheon-b9001",
+  "subKey": "guchuncheon",
+  "typeCode": "OFD-SLOT",
+  "name": "(구)춘천S/S - 소양강H/P -1 #4",
+  "parentKey": "ofd-guchuncheon",
+  "attributes": {},
+  "slotIndex": 3
  },
  {
   "key": "slot-hwacheon-b2",
@@ -447,11 +416,7 @@
   "typeCode": "OFD-SLOT",
   "name": "화천S/S - 철원S/S -1 #24",
   "parentKey": "ofd-hwacheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "철원S/S"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -460,11 +425,7 @@
   "typeCode": "OFD-SLOT",
   "name": "화천S/S - 화천H/P -1 #24",
   "parentKey": "ofd-hwacheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "화천H/P"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -473,11 +434,7 @@
   "typeCode": "OFD-SLOT",
   "name": "화천H/P - 춘천H/P -1 #24",
   "parentKey": "ofd-hwacheonhp",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "춘천H/P"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -486,11 +443,7 @@
   "typeCode": "OFD-SLOT",
   "name": "화천H/P - 화천S/S -1 #24",
   "parentKey": "ofd-hwacheonhp",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "화천S/S"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -499,11 +452,7 @@
   "typeCode": "OFD-SLOT",
   "name": "화천H/P - 양구S/S -1 #24",
   "parentKey": "ofd-hwacheonhp",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "양구S/S"
-  },
+  "attributes": {},
   "slotIndex": 2
  },
  {
@@ -512,11 +461,7 @@
   "typeCode": "OFD-SLOT",
   "name": "인제S/S - 양구S/S -1 #24",
   "parentKey": "ofd-inje",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "양구S/S"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -525,11 +470,7 @@
   "typeCode": "OFD-SLOT",
   "name": "남춘천S/S - 열병합S/Y -1 #24",
   "parentKey": "ofd-namchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "열병합S/Y"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -538,11 +479,7 @@
   "typeCode": "OFD-SLOT",
   "name": "남춘천S/S - 열병합S/Y -2 #24",
   "parentKey": "ofd-namchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 2,
-   "peer": "열병합S/Y"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -551,11 +488,7 @@
   "typeCode": "OFD-SLOT",
   "name": "서홍천S/S - 열병합S/Y -1 #12",
   "parentKey": "ofd-seohongcheon",
-  "attributes": {
-   "cores": 12,
-   "routeIdx": 1,
-   "peer": "열병합S/Y"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -564,11 +497,7 @@
   "typeCode": "OFD-SLOT",
   "name": "(신)춘천S/S - (구)춘천S/S -1 #24",
   "parentKey": "ofd-sinchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "(구)춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -577,11 +506,7 @@
   "typeCode": "OFD-SLOT",
   "name": "(신)춘천S/S - (구)춘천S/S -2 #24",
   "parentKey": "ofd-sinchuncheon",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 2,
-   "peer": "(구)춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -590,11 +515,7 @@
   "typeCode": "OFD-SLOT",
   "name": "소양강H/P - (구)춘천S/S -1 #4",
   "parentKey": "ofd-soyanghp",
-  "attributes": {
-   "cores": 4,
-   "routeIdx": 1,
-   "peer": "(구)춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -603,11 +524,7 @@
   "typeCode": "OFD-SLOT",
   "name": "양구S/S - 화천H/P -1 #24",
   "parentKey": "ofd-yanggu",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "화천H/P"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -616,11 +533,7 @@
   "typeCode": "OFD-SLOT",
   "name": "양구S/S - 인제S/S -1 #24",
   "parentKey": "ofd-yanggu",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "인제S/S"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -629,11 +542,7 @@
   "typeCode": "OFD-SLOT",
   "name": "열병합S/Y - 남춘천S/S -1 #24",
   "parentKey": "ofd-yeolbyeonghap",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 1,
-   "peer": "남춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 0
  },
  {
@@ -642,11 +551,7 @@
   "typeCode": "OFD-SLOT",
   "name": "열병합S/Y - 남춘천S/S -2 #24",
   "parentKey": "ofd-yeolbyeonghap",
-  "attributes": {
-   "cores": 24,
-   "routeIdx": 2,
-   "peer": "남춘천S/S"
-  },
+  "attributes": {},
   "slotIndex": 1
  },
  {
@@ -655,11 +560,7 @@
   "typeCode": "OFD-SLOT",
   "name": "열병합S/Y - 서홍천S/S -1 #12",
   "parentKey": "ofd-yeolbyeonghap",
-  "attributes": {
-   "cores": 12,
-   "routeIdx": 1,
-   "peer": "서홍천S/S"
-  },
+  "attributes": {},
   "slotIndex": 2
  },
  {
