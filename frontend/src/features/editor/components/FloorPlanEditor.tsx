@@ -13,7 +13,8 @@ import { getUnifiedDirtyCount } from '../../workingCopy/hooks';
 import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
 import { useToastStore } from '../stores/toastStore';
 import { calculateCenterOnBounds } from '../hooks/useViewport';
-import { floorTargetFor } from '../../workingCopy/floorAnchor';
+import { floorTargetFor, floorAnchor, cableOnFloor } from '../../workingCopy/floorAnchor';
+import { toMapById } from '../../../utils/byId';
 import { useRackModuleCategories } from '../../rack/hooks/useRackModuleCategories';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { useInteractionStore } from '../stores/interactionStore';
@@ -159,29 +160,45 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     if (rect.width === 0 || rect.height === 0) return;
 
     const hi = usePathHighlightStore.getState();
-    if (!hi.active || hi.highlightedEdgeIds.size === 0) return;
+    if (!hi.active) return;
+    const activeFloorId = useEditorStore.getState().activeFloorId;
+    if (!activeFloorId) return;
 
-    // ── 연결 경로로 fit: highlightedEdgeIds 의 케이블 pathPoints bounds ──
-    const cables = useSubstationWorkingCopy.getState().effectiveCables() as unknown as LocalCable[];
+    // ── 하이라이트의 실제 기하 bounds = 현재 층의 (하이라이트 배치자산 앵커 rect) ∪ (그려진 엣지 pathPoints) ──
+    // 케이블 경로선(pathPoints)은 선번장/포트 연결처럼 미배치인 경우가 많아 그것만으론 비어버린다.
+    // 배치 자산(끝점·중간 OFD = highlightedPlacedIds)은 항상 좌표가 있어 언제나 프레이밍 가능 → 단일 SSOT.
+    const assets = useSubstationWorkingCopy.getState().effectiveAssets();
+    const assetsById = toMapById(assets);
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const cable of cables) {
-      if (!hi.highlightedEdgeIds.has(cable.id)) continue;
-      const pts = cable.pathPoints;
-      if (!pts) continue;
-      for (const [x, y] of pts) {
-        if (x < minX) minX = x;
-        if (y < minY) minY = y;
-        if (x > maxX) maxX = x;
-        if (y > maxY) maxY = y;
-      }
+    const extend = (x: number, y: number, w = 0, h = 0) => {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + w > maxX) maxX = x + w;
+      if (y + h > maxY) maxY = y + h;
+    };
+
+    // (a) 하이라이트된 배치 자산 — 현재 층에 앵커된 것만(다른 층/변전소 자산은 같은 화면에 못 담음).
+    for (const id of hi.highlightedPlacedIds) {
+      const anchor = floorAnchor(id, assetsById);
+      if (!anchor || anchor.floorId !== activeFloorId) continue;
+      extend(anchor.positionX as number, anchor.positionY as number, anchor.width2d as number, anchor.height2d as number);
     }
-    if (!isFinite(minX)) return;
+
+    // (b) 그려진 케이블 경로(있으면 더 정확) — 현재 층 케이블만.
+    const cables = useSubstationWorkingCopy.getState().effectiveCables() as unknown as LocalCable[];
+    for (const cable of cables) {
+      if (!hi.highlightedEdgeIds.has(cable.id) || !cable.pathPoints) continue;
+      if (!cableOnFloor(cable, activeFloorId, assetsById)) continue;
+      for (const [x, y] of cable.pathPoints) extend(x, y);
+    }
+
+    if (!isFinite(minX)) return; // 현재 층에 하이라이트 기하 없음 → 카메라 이동 안 함
     const fit = calculateCenterOnBounds(
       { minX, minY, maxX, maxY },
       rect.width,
       rect.height,
       RIGHT_PANEL_WIDTH,
-      // 케이블 경로는 endpoint 가 이미 설비 중심이라 padding 조금만 줘도 양 끝 설비가 보임.
+      // 끝점이 이미 설비 중심이라 padding 조금만 줘도 양 끝 설비가 보임.
       200,
       100,
     );
