@@ -6,6 +6,7 @@ import { useAssetDiagram } from '../connections/hooks/useAssetConnections';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { FEEDER_INPUT_CORE } from '../power/powerRegisterDescriptor';
 import { projectTrace } from '../trace/traceProjection';
+import { roleAt } from '../cables/cableEndpoint';
 import { expandToPlacedIds } from '../pathTrace/stores/pathHighlightStore';
 import type { TraceGraph } from '../trace/traceGraph';
 import type { DiagramComponent } from '../connections/connectionDiagram';
@@ -26,9 +27,8 @@ export function resolveSelectedCable(
   cables: CableLike[],
 ): string | null {
   if (!assetId) return null;
-  const roleAt = (c: CableLike) => (c.sourceAssetId === assetId ? c.sourceRole : c.targetRole) ?? null;
   const touching = cables.filter((c) => c.sourceAssetId === assetId || c.targetAssetId === assetId);
-  if (core === FEEDER_INPUT_CORE) return touching.find((c) => roleAt(c) === 'IN')?.id ?? null;
+  if (core === FEEDER_INPUT_CORE) return touching.find((c) => roleAt(c, assetId) === 'IN')?.id ?? null;
   if (core != null) return touching.find((c) => (c.number ?? null) === core)?.id ?? null;
   return touching[0]?.id ?? null;
 }

@@ -86,6 +86,7 @@ const fullGraph = (cs: typeof cables): TraceGraph =>
     subNameById: new Map(),
     subById: new Map(),
     parentById: new Map(),
+    kindById: new Map(),
     codeById: new Map(),
   } as unknown as TraceGraph);
 const graphStub = fullGraph(cables);

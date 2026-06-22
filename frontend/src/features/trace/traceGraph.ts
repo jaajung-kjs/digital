@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useEffectiveAssets, useEffectiveCables } from '../workingCopy/hooks';
 import { useOrganizationStore } from '../../stores/organizationStore';
 import { isOfd, isConduit } from '../workingCopy/assetClassify';
+import { other, isOpgwTwin } from '../cables/cableEndpoint';
 import { cableTrace, type TraceAsset, type TraceCable } from './cableTrace';
 
 interface NameNode { id: string; name: string; children?: NameNode[] }
@@ -53,6 +54,8 @@ export interface TraceGraph {
   subById: Map<string, string>;
   /** 자산 id → parentAssetId(슬롯→OFD 접기용). */
   parentById: Map<string, string | null>;
+  /** 자산 id → connectionKind(conduit/distributor) — trace fan-out 판정 단일 맵. */
+  kindById: Map<string, string | null>;
   /** 자산 id → assetType code(커밋 OFD 판별 'OFD'). */
   codeById: Map<string, string | null>;
   /** 자산 id → placementKind(스테이징 OFD/DIST 판별 — code 미정 자산도 식별). */
@@ -90,15 +93,18 @@ export function buildTraceGraph(input: {
   const subNameById = new Map<string, string>();
   const subById = new Map<string, string>();
   const parentById = new Map<string, string | null>();
+  const kindById = new Map<string, string | null>();
   const codeById = new Map<string, string | null>();
   const placementKindById = new Map<string, string | null>();
   const slotIndexById = new Map<string, number | null>();
   const assetById = new Map<string, TraceAsset>();
 
   for (const a of input.assets) {
-    assetById.set(a.id, { id: a.id, connectionKind: (a.assetType?.connectionKind ?? null) as TraceAsset['connectionKind'] });
+    const kind = (a.assetType?.connectionKind ?? null) as TraceAsset['connectionKind'];
+    assetById.set(a.id, { id: a.id, connectionKind: kind });
     if (a.name != null) nameById.set(a.id, a.name);
     parentById.set(a.id, a.parentAssetId ?? null);
+    kindById.set(a.id, kind ?? null);
     codeById.set(a.id, a.assetType?.code ?? null);
     placementKindById.set(a.id, a.assetType?.placementKind ?? null);
     slotIndexById.set(a.id, a.slotIndex ?? null);
@@ -110,7 +116,7 @@ export function buildTraceGraph(input: {
     }
   }
 
-  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById, placementKindById, slotIndexById };
+  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, kindById, codeById, placementKindById, slotIndexById };
 }
 
 /** 그래프 맵에서 자산의 OFD 판정 — 정식 분류(assetClassify.isOfd) 재사용. */
@@ -123,7 +129,7 @@ function graphIsOfd(graph: TraceGraph, id: string): boolean {
  * = 대국측 설비. 이름 해소는 호출측이 graph.nameById 로.
  */
 export function traceRemoteEndpoints(startAssetId: string, graph: TraceGraph, cableType = 'FIBER'): string[] {
-  const kindOf = new Map(graph.assets.map((a) => [a.id, a.connectionKind ?? null]));
+  const kindOf = graph.kindById;
   const r = cableTrace(startAssetId, cableType, graph.assets, graph.cables);
   // kindOf.has(id) 로 존재 여부를 확인 — 삭제된 자산은 graph.assets 에서 이미 빠졌으므로
   // kindOf 에 없어야 정상. undefined → null 로 떨어지는 false positive 를 막는다.
@@ -133,13 +139,12 @@ export function traceRemoteEndpoints(startAssetId: string, graph: TraceGraph, ca
 /**
  * 한 슬롯(conduit)의 대국 변전소 이름 — 슬롯의 OPGW(IN-IN FIBER) → twin 슬롯 → 그 substationName.
  */
-export function remoteSlotSubstation(slotId: string, graph: TraceGraph, cableType = 'FIBER'): string | null {
+export function remoteSlotSubstation(slotId: string, graph: TraceGraph): string | null {
   const opgw = graph.cables.find(
-    (c) => c.cableType === cableType && c.sourceRole === 'IN' && c.targetRole === 'IN'
-      && (c.sourceAssetId === slotId || c.targetAssetId === slotId),
+    (c) => isOpgwTwin(c) && (c.sourceAssetId === slotId || c.targetAssetId === slotId),
   );
   if (!opgw) return null;
-  const twin = opgw.sourceAssetId === slotId ? opgw.targetAssetId : opgw.sourceAssetId;
+  const twin = other(opgw, slotId);
   return twin ? (graph.subNameById.get(twin) ?? null) : null;
 }
 

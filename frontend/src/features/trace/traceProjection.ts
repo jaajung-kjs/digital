@@ -1,6 +1,7 @@
 import { cableTrace } from './cableTrace';
 import type { TraceGraph } from './traceGraph';
 import { isOfd } from '../workingCopy/assetClassify';
+import { isOpgwTwin } from '../cables/cableEndpoint';
 import { detectRings } from '../../utils/graph/cycleDetection';
 import type { TraceNode, TraceEdge, TraceRing } from '../pathTrace/types';
 
@@ -31,7 +32,6 @@ export interface TraceProjection {
 }
 
 type CableLike = TraceGraph['cables'][number];
-const isOpgw = (c: CableLike) => c.sourceRole === 'IN' && c.targetRole === 'IN';
 
 /**
  * conduit dead-end(편도) 가지치기: 대국 단말이 없어 conduit(슬롯)에서 끊긴 가지를 제거한다.
@@ -79,8 +79,7 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   const cableById = new Map(graph.cables.map((c) => [c.id, c]));
   const seed = cableById.get(seedCableId);
   if (!seed) return null;
-  const kindById = new Map(graph.assets.map((a) => [a.id, a.connectionKind ?? null]));
-  const kindOf = (id: string | null | undefined) => (id ? (kindById.get(id) ?? null) : null);
+  const kindOf = (id: string | null | undefined) => (id ? (graph.kindById.get(id) ?? null) : null);
 
   const src = seed.sourceAssetId ?? null;
   const tgt = seed.targetAssetId ?? null;
@@ -129,13 +128,13 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
 
   // ── 토폴로지 edges ──
   const edges: TraceEdge[] = [];
-  let seedFiberEdgeId: string | null = isOpgw(seed) ? seed.id : null;
+  let seedFiberEdgeId: string | null = isOpgwTwin(seed) ? seed.id : null;
   const seedEnds = new Set([seed.sourceAssetId, seed.targetAssetId].filter(Boolean) as string[]);
   for (const c of tracedCables) {
     const s = collapse(c.sourceAssetId);
     const t = collapse(c.targetAssetId);
     if (!s || !t || s === t) continue;
-    if (isOpgw(c)) {
+    if (isOpgwTwin(c)) {
       edges.push({ id: c.id, sourceAssetId: s, targetAssetId: t, type: 'fiberPath', fiberPathId: c.id, fiberPortNumber: K ?? undefined });
       // 시드가 OUT 이면 그 슬롯 끝점을 공유하는 OPGW 를 seed 광edge 로. 슬롯당 OPGW 는 1개라는
       // 불변식(P4 마이그레이션)상 유일 매칭. (워킹/예비 쌍처럼 슬롯당 OPGW 2개가 생기면 순회 첫
@@ -215,7 +214,7 @@ function buildTree(
   const build = (rawId: string, incoming: CableLike | null): TraceTreeNode | null => {
     const cid = collapse(rawId);
     if (!cid) return null;
-    const isFiberEdge = !!incoming && incoming.sourceRole === 'IN' && incoming.targetRole === 'IN';
+    const isFiberEdge = !!incoming && isOpgwTwin(incoming);
     const tn: TraceTreeNode = { id: cid, label: labelOf(cid), isEndpoint: false, isFiberEdge, children: [] };
     for (const { to, cable } of childrenRaw.get(rawId) ?? []) {
       const child = build(to, cable);
@@ -276,7 +275,7 @@ function buildSteps(
     if (!cid) continue;
     if (steps.length && steps[steps.length - 1].id === cid) continue;
     const incoming = chain[i].cable;
-    const isFiberEdge = !!incoming && incoming.sourceRole === 'IN' && incoming.targetRole === 'IN';
+    const isFiberEdge = !!incoming && isOpgwTwin(incoming);
     const ofd = graphNodeIsOfd(graph, cid);
     steps.push({
       id: cid,

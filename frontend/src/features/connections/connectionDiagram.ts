@@ -1,5 +1,5 @@
 import { cableTrace } from '../trace/cableTrace';
-import { roleAt, other } from '../cables/cableEndpoint';
+import { roleAt, other, isOpgwTwin } from '../cables/cableEndpoint';
 import { buildSelfSideChecker, buildEndpointNameResolver } from './endpointName';
 import type { TraceGraph } from '../trace/traceGraph';
 import type { Asset } from '../../types/asset';
@@ -25,8 +25,7 @@ export function buildConnectionDiagram(opts: {
   const { graph, assets, assetId, categoryGroupOf } = opts;
   const isSelf = buildSelfSideChecker(assets, assetId);
   const nameOf = buildEndpointNameResolver(assets);
-  const kindById = new Map(graph.assets.map((a) => [a.id, a.connectionKind ?? null]));
-  const kindOf = (id?: string | null) => (id ? (kindById.get(id) ?? null) : null);
+  const kindOf = (id?: string | null) => (id ? (graph.kindById.get(id) ?? null) : null);
   const subOf = (id?: string | null) => (id ? (graph.subById.get(id) ?? null) : null);
   const selfSub = subOf(assetId);
   const cableById = new Map(graph.cables.map((c) => [c.id, c]));
@@ -148,7 +147,7 @@ export function buildConnectionDiagram(opts: {
           q.push(to);
         }
       }
-      const isOpgw = (c: Cable | null) => !!c && c.sourceRole === 'IN' && c.targetRole === 'IN';
+      const isOpgw = (c: Cable | null) => !!c && isOpgwTwin(c);
       // 대국 경계 노드(슬롯) 라벨 = "로컬변전소 - 대국변전소"(OPGW 링크). subName 없으면 자산명 폴백.
       const subName = (id?: string | null) => (id ? (graph.subNameById.get(id) ?? null) : null);
       const boundaryLabel = (id: string): string => {

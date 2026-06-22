@@ -1,5 +1,6 @@
 import { remoteSlotSubstation, type TraceGraph } from '../trace/traceGraph';
 import { isConduit } from '../workingCopy/assetClassify';
+import { isOpgwTwin } from '../cables/cableEndpoint';
 
 /**
  * 경로슬롯 표시 이름(파생, SSOT) = "자국 - 대국 -N #코어수".
@@ -14,8 +15,7 @@ export function fiberSlotLabel(slotId: string, graph: TraceGraph | null): string
   const local = graph.subNameById.get(ofdId) ?? null;
   const remote = remoteSlotSubstation(slotId, graph);
   const opgw = graph.cables.find(
-    (c) => c.cableType === 'FIBER' && c.sourceRole === 'IN' && c.targetRole === 'IN'
-      && (c.sourceAssetId === slotId || c.targetAssetId === slotId),
+    (c) => isOpgwTwin(c) && (c.sourceAssetId === slotId || c.targetAssetId === slotId),
   );
   const cores = Number((opgw?.specParams as Record<string, unknown> | undefined)?.cores ?? 0);
   const base = [local, remote].filter(Boolean).join(' - ');

@@ -1,5 +1,6 @@
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import { isDist } from '../workingCopy/assetClassify';
+import { other } from '../cables/cableEndpoint';
 import { EditableField } from '../assets/components/EditableField';
 import { useCableCategories } from '../cables/hooks/useCableCategories';
 import { buildFeederInput } from './feederCircuits';
@@ -52,7 +53,7 @@ export function buildPowerRows(feederId: string, cables: PowerCable[], nameById:
     (c) => (c.sourceAssetId === feederId && c.sourceRole === 'OUT') || (c.targetAssetId === feederId && c.targetRole === 'OUT'),
   );
   return cb.map((c) => {
-    const loadAssetId = c.sourceAssetId === feederId ? c.targetAssetId ?? null : c.sourceAssetId ?? null;
+    const loadAssetId = other(c, feederId);
     const sp = (c.specParams ?? {}) as Record<string, unknown>;
     return {
       cableId: c.id,

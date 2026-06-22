@@ -17,3 +17,10 @@ export const roleAt = (c: CableEndpointFields, assetId: string): string | null =
 /** 주어진 자산의 반대편 끝점 자산 id. */
 export const other = (c: CableEndpointFields, assetId: string): string | null =>
   (c.sourceAssetId === assetId ? c.targetAssetId : c.sourceAssetId) ?? null;
+
+/**
+ * OPGW(변전소간 광 트렁크) 판정 — 양끝 역할이 모두 IN 인 FIBER 케이블.
+ * 곳곳에 흩어져 있던 인라인 'IN && IN'(일부는 FIBER 체크 누락) 을 단일 규칙으로 통일.
+ */
+export const isOpgwTwin = (c: CableEndpointFields & { cableType?: string | null }): boolean =>
+  c.cableType === 'FIBER' && c.sourceRole === 'IN' && c.targetRole === 'IN';
