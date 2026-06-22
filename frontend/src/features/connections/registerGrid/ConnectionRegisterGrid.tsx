@@ -34,8 +34,9 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   if (!groups.length) return <p className="p-3 text-sm text-content-faint">{descriptor.emptyMessage}</p>;
 
   return (
-    // 표가 넓은 패널에서 끝없이 늘어나지 않게 폭 제한 — 컬럼이 균형있게 보이고 우측 짤림 방지.
-    <div className="space-y-6 max-w-4xl">
+    // 가용 폭을 채운다(사이드패널 닫히면 표도 확장). 컬럼이 많으면 minWidthClass 로 최소 폭을
+    // 두고 그 미만에선 가로 스크롤(글씨 겹침 방지).
+    <div className="space-y-6">
       {groups.map(({ container, header, sections }) => (
         <div key={container.id} className="space-y-4">
           {header && <h2 className="px-1 text-sm font-bold text-content">{header}</h2>}
@@ -56,6 +57,10 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
     </div>
   );
 }
+
+// 컬럼당 최소 가독 폭(rem). 가용 폭이 (컬럼수 × 이 값) 미만이면 표가 안 줄고 가로 스크롤
+// → table-fixed 가 컬럼을 짜부라뜨려 글씨가 겹치는 것을 모든 그리드에서 방지(공용 규칙).
+const MIN_COL_REM = 6;
 
 function SectionView<Row>({ section, columns, rowKey, rowSelectedId, rowCore, sort, cycleSort }: {
   section: RegisterSection<Row>;
@@ -81,7 +86,8 @@ function SectionView<Row>({ section, columns, rowKey, rowSelectedId, rowCore, so
         <h3 className="text-sm font-semibold text-content">{section.title}</h3>
         <span className="ml-auto text-xs tabular-nums text-content-faint">{section.usedLabel}</span>
       </header>
-      <table className="w-full border-collapse table-fixed">
+      <div className="overflow-x-auto">
+      <table className="w-full border-collapse table-fixed" style={{ minWidth: `${columns.length * MIN_COL_REM}rem` }}>
         <thead>
           <tr className="text-left bg-surface-2 border-b border-line-strong">
             {columns.map((c, i) => (
@@ -118,6 +124,7 @@ function SectionView<Row>({ section, columns, rowKey, rowSelectedId, rowCore, so
           })}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
