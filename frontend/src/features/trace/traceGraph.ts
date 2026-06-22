@@ -52,8 +52,10 @@ export interface TraceGraph {
   subById: Map<string, string>;
   /** 자산 id → parentAssetId(슬롯→OFD 접기용). */
   parentById: Map<string, string | null>;
-  /** 자산 id → assetType code(OFD 판별 'OFD'). */
+  /** 자산 id → assetType code(커밋 OFD 판별 'OFD'). */
   codeById: Map<string, string | null>;
+  /** 자산 id → placementKind(스테이징 OFD/DIST 판별 — code 미정 자산도 식별). */
+  placementKindById: Map<string, string | null>;
   /** 자산 id → OFD 내 슬롯 위치(경로슬롯 -N 순번 파생용). */
   slotIndexById: Map<string, number | null>;
 }
@@ -78,7 +80,7 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
  * — slim 역추론·staged 분기·폴백 체인 없음(단일 SSOT).
  */
 export function buildTraceGraph(input: {
-  assets: { id: string; name?: string; substationId?: string | null; parentAssetId?: string | null; slotIndex?: number | null; assetType?: { connectionKind?: string | null; code?: string | null } | null }[];
+  assets: { id: string; name?: string; substationId?: string | null; parentAssetId?: string | null; slotIndex?: number | null; assetType?: { connectionKind?: string | null; code?: string | null; placementKind?: string | null } | null }[];
   cables: TraceCableInput[];
   /** 변전소 id → 이름 (전 본부 org 트리 전체). 모든 자산 변전소명의 단일 소스. */
   substationNames?: Map<string, string>;
@@ -88,6 +90,7 @@ export function buildTraceGraph(input: {
   const subById = new Map<string, string>();
   const parentById = new Map<string, string | null>();
   const codeById = new Map<string, string | null>();
+  const placementKindById = new Map<string, string | null>();
   const slotIndexById = new Map<string, number | null>();
   const assetById = new Map<string, TraceAsset>();
 
@@ -96,6 +99,7 @@ export function buildTraceGraph(input: {
     if (a.name != null) nameById.set(a.id, a.name);
     parentById.set(a.id, a.parentAssetId ?? null);
     codeById.set(a.id, a.assetType?.code ?? null);
+    placementKindById.set(a.id, a.assetType?.placementKind ?? null);
     slotIndexById.set(a.id, a.slotIndex ?? null);
     const subId = a.substationId ?? null;
     if (subId) {
@@ -105,7 +109,12 @@ export function buildTraceGraph(input: {
     }
   }
 
-  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById, slotIndexById };
+  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById, placementKindById, slotIndexById };
+}
+
+/** OFD 식별 — 커밋(code 'OFD') + 스테이징(placementKind 'OFD', code 미정) 모두. */
+function isOfd(graph: TraceGraph, id: string): boolean {
+  return graph.codeById.get(id) === 'OFD' || graph.placementKindById?.get(id) === 'OFD';
 }
 
 /**
@@ -147,7 +156,7 @@ function toRef(graph: TraceGraph, id: string): AssetRef {
 
 /** 그래프의 모든 OFD 자산(커밋+스테이징). 경로 대국 후보·자국 OFD 해소 단일 소스. */
 export function ofdAssets(graph: TraceGraph): AssetRef[] {
-  return graph.assets.filter((a) => graph.codeById.get(a.id) === 'OFD').map((a) => toRef(graph, a.id));
+  return graph.assets.filter((a) => isOfd(graph, a.id)).map((a) => toRef(graph, a.id));
 }
 
 /** 한 변전소의 '설비' 후보 — OFD·conduit(통로) 제외(커밋+스테이징). 선번장 자국/대국 드롭다운 단일 소스. */
@@ -155,7 +164,7 @@ export function equipmentInSubstation(graph: TraceGraph, substationId: string | 
   if (!substationId) return [];
   return graph.assets
     .filter((a) => graph.subById.get(a.id) === substationId
-      && graph.codeById.get(a.id) !== 'OFD'
+      && !isOfd(graph, a.id)
       && a.connectionKind !== 'conduit')
     .map((a) => toRef(graph, a.id));
 }
