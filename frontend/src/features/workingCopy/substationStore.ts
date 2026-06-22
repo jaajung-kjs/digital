@@ -21,6 +21,9 @@ import type { CollectionDescriptor } from './descriptor';
 import { type RecordTypeKey, PHOTOS } from './recordTypes';
 import { toMapById } from '../../utils/byId';
 import { isRackModuleAsset as isRackModuleChild } from './assetClassify';
+import { slimToAsset, slimCableToCable } from './slimToAsset';
+import type { SlimAssetDTO, TraceCableInput } from '../trace/traceGraph';
+import type { AssetListItem } from '../assets/nodeStatus';
 
 /**
  * stageRackModuleCreate 의 입력 — 랙모듈 신규 staging 용 작은 명시 draw 타입.
@@ -278,6 +281,43 @@ function addBaseVersions(overlays: Overlays, incoming: SavedCollections): Overla
   return out as unknown as Overlays;
 }
 
+/**
+ * lite 행 병합: 신규 id 는 추가, 기존 id 는 detail(updatedAt 비어있지 않음) 보존(lite 가 안 덮음),
+ * 기존이 lite 면 새 lite 로 갱신. saved 의 자산/케이블 둘 다 사용(둘 다 updatedAt 보유).
+ */
+function mergeLiteRows<T extends { id: string; updatedAt?: string | null }>(prev: T[], incoming: T[]): T[] {
+  const byId = new Map(prev.map((r) => [r.id, r]));
+  for (const row of incoming) {
+    const existing = byId.get(row.id);
+    if (existing && existing.updatedAt) continue; // detail 보존
+    byId.set(row.id, row);
+  }
+  return [...byId.values()];
+}
+
+/** 노드 자산 피드(status 투영)의 필드를 기존 saved 자산에 patch(생성·code 미변경). */
+function patchNodeStatus(prev: Asset[], rows: AssetListItem[]): Asset[] {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  let changed = false;
+  const out = prev.map((a) => {
+    const r = byId.get(a.id);
+    if (!r) return a;
+    changed = true;
+    return {
+      ...a,
+      status: r.status ?? a.status,
+      installDate: r.installDate ?? a.installDate,
+      manager: r.manager ?? a.manager,
+      warrantyUntil: r.warrantyUntil ?? a.warrantyUntil,
+      replaceDue: r.replaceDue ?? a.replaceDue,
+      floorId: r.floorId ?? a.floorId,
+      roomText: r.roomText ?? a.roomText,
+      parentAssetId: r.parentAssetId ?? a.parentAssetId,
+    };
+  });
+  return changed ? out : prev;
+}
+
 export interface SubstationWorkingCopyState {
   substationId: string | null;
   saved: SavedCollections;
@@ -305,6 +345,12 @@ export interface SubstationWorkingCopyState {
   put: (coll: CollectionKey, item: { id: string; [k: string]: unknown }) => void;
   patch: (coll: CollectionKey, id: string, fields: Record<string, unknown>) => void;
   remove: (coll: CollectionKey, id: string) => void;
+
+  // ── hydration (서버 피드 → saved). 단일 SSOT: 피드는 입력일 뿐 뷰는 effective 만 읽음. ──
+  /** 전역 slim 피드(모든 변전소)를 saved 에 lite 로 적재. 기존 detail 행은 보존(lite 가 안 덮음). */
+  hydrateGlobal: (assets: SlimAssetDTO[], cables: TraceCableInput[]) => void;
+  /** 노드 자산 피드의 status 필드만 기존 saved 자산에 patch(생성·code 미변경) — 현황뷰 effective 화용. */
+  hydrateNodeAssets: (rows: AssetListItem[]) => void;
 
   // ── editor-facing mutation actions (2d-1 T3) ──
   // 캔버스 배치(draw) 입력을 받아 Asset overlay 로 stage 한다.
@@ -461,6 +507,27 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           const o = s.overlays as unknown as Record<CollectionKey, Overlay<{ id: string }, unknown>>;
           return { overlays: { ...s.overlays, [coll]: stageDelete(o[coll], id, isTempId(id)) } };
         }),
+
+      // ── hydration (피드 → saved). 비기록(temporal.pause), overlays staged 불변. ──
+      hydrateGlobal: (assets, cables) => {
+        const t = useSubstationWorkingCopy.temporal.getState();
+        t.pause();
+        set((s) => ({
+          saved: {
+            ...s.saved,
+            assets: mergeLiteRows(s.saved.assets, assets.map(slimToAsset)),
+            cables: mergeLiteRows(s.saved.cables, cables.map(slimCableToCable)),
+          },
+        }));
+        t.resume();
+      },
+
+      hydrateNodeAssets: (rows) => {
+        const t = useSubstationWorkingCopy.temporal.getState();
+        t.pause();
+        set((s) => ({ saved: { ...s.saved, assets: patchNodeStatus(s.saved.assets, rows) } }));
+        t.resume();
+      },
 
       // ── editor-facing mutation actions (2d-1 T3) ──
       stageEquipmentCreate: (eq, assetTypeId) =>
