@@ -39,6 +39,24 @@ describe('buildSlotCoreRows', () => {
     expect(rows.find((r) => r.coreNumber === 3)!.farName).toBe(null);
   });
 
+  it('선번장 측정/점검 필드(손실·거리·점검결과)를 specParams 에서 읽는다', () => {
+    const lc = [
+      { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 4 } },
+      { id: 'oA2', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 2,
+        specParams: { loss1310: -6.4, dist1310: 18.74, loss1550: -4.4, dist1550: 18.75, inspectResult: '적합' } },
+    ];
+    const r2 = buildSlotCoreRows(slot, lc, null).find((r) => r.coreNumber === 2)!;
+    expect(r2.loss1310).toBe('-6.4');
+    expect(r2.dist1310).toBe('18.74');
+    expect(r2.loss1550).toBe('-4.4');
+    expect(r2.dist1550).toBe('18.75');
+    expect(r2.inspectResult).toBe('적합');
+    // 빈 코어는 전부 null
+    const r1 = buildSlotCoreRows(slot, lc, null).find((r) => r.coreNumber === 1)!;
+    expect(r1.loss1310).toBe(null);
+    expect(r1.inspectResult).toBe(null);
+  });
+
   it('점유 코어가 cores 를 초과하면 용량이 확장되고 1..max 연속(가려지지 않음)', () => {
     const lc = [
       { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 4 } },

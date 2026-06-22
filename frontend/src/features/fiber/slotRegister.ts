@@ -12,6 +12,12 @@ export interface SlotCoreRow {
   spliceType: string | null;
   usageOverride: string | null;
   usage: '사용' | '미사용';
+  // 선번장 측정/점검 필드 (cable.specParams). 값 없으면 null.
+  loss1310: string | null;
+  dist1310: string | null;
+  loss1550: string | null;
+  dist1550: string | null;
+  inspectResult: string | null;
 }
 
 interface SlotLike { id: string; name?: string; parentAssetId?: string | null }
@@ -56,6 +62,9 @@ export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], grap
         purpose: str(sp.purpose), circuitText: str(sp.circuitText),
         spliceType: str(sp.spliceType), usageOverride,
         usage: (usageOverride as '사용' | '미사용' | null) ?? '사용',
+        loss1310: str(sp.loss1310), dist1310: str(sp.dist1310),
+        loss1550: str(sp.loss1550), dist1550: str(sp.dist1550),
+        inspectResult: str(sp.inspectResult),
       });
     } else {
       rows.push({
@@ -63,6 +72,7 @@ export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], grap
         nearAssetId: null, farName: null,
         purpose: null, circuitText: null, spliceType: null, usageOverride: null,
         usage: '미사용',
+        loss1310: null, dist1310: null, loss1550: null, dist1550: null, inspectResult: null,
       });
     }
   }

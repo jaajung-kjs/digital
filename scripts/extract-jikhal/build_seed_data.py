@@ -102,8 +102,13 @@ def main():
             continue
         sub, blk = c["subKey"], c["block"]
         sp = {kk: c[kk] for kk in ("purpose", "circuitText", "spliceType", "usageOverride",
-                                   "loss1310", "loss1550", "dist1310", "dist1550", "inspectResult")
+                                   "loss1310", "loss1550", "dist1310", "dist1550")
               if c.get(kk) is not None}
+        # 점검결과는 실제 결과값(적합/부적합/측정불가/미측정)만 — 그 외(장비표기·케이블종류 등 오염값)는 버림.
+        ir = clean(c.get("inspectResult"))
+        ir = ir.replace(" ", "") if ir else ir  # '적 합' → '적합'
+        if ir in ("적합", "부적합", "측정불가", "미측정"):
+            sp["inspectResult"] = ir
         sp["peer"] = clean(c["peerRaw"])
         cables.append({"key": f"core-{sub}-b{blk}-{c['core']}", "kind": "CORE",
                        "sourceKey": slot_key(sub, blk), "targetKey": dev_by_sub[sub], "sourceRole": "OUT", "targetRole": None,

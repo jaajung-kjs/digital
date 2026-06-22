@@ -160,6 +160,12 @@ const cableCategories: CableCategorySeed[] = [
         { key: 'connA', label: '커넥터A', inputType: 'select', options: ['SC', 'LC', 'ST', 'MU'] },
         { key: 'connB', label: '커넥터B', inputType: 'select', options: ['SC', 'LC', 'ST', 'MU'] },
         { key: 'cores', label: '심수(C)', inputType: 'select', options: [1, 2, 6] },
+        // 선번장 코어 측정/점검 필드 (직할 OFD 선번장 parity). 값 없으면 빈 칸(수동 입력 대기).
+        { key: 'loss1310', label: '손실1310(dB)', inputType: 'number' },
+        { key: 'dist1310', label: '거리1310(km)', inputType: 'number' },
+        { key: 'loss1550', label: '손실1550(dB)', inputType: 'number' },
+        { key: 'dist1550', label: '거리1550(km)', inputType: 'number' },
+        { key: 'inspectResult', label: '점검결과', inputType: 'select', options: ['적합', '부적합', '측정불가', '미측정'] },
       ],
       format: '{connA}-{connB} {cores}C',
     },

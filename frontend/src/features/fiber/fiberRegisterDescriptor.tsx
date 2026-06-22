@@ -120,5 +120,86 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
         />
       ),
     },
+    {
+      label: '손실1310(dB)',
+      width: 'w-24',
+      sortKey: (r) => r.loss1310,
+      sortType: 'number',
+      cell: (r) => (
+        <EditableField
+          value={r.loss1310 ?? ''}
+          ariaLabel="손실1310"
+          placeholder="—"
+          disabled={!r.cableId}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'loss1310', v || null)}
+        />
+      ),
+    },
+    {
+      label: '거리1310(km)',
+      width: 'w-24',
+      sortKey: (r) => r.dist1310,
+      sortType: 'number',
+      cell: (r) => (
+        <EditableField
+          value={r.dist1310 ?? ''}
+          ariaLabel="거리1310"
+          placeholder="—"
+          disabled={!r.cableId}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'dist1310', v || null)}
+        />
+      ),
+    },
+    {
+      label: '손실1550(dB)',
+      width: 'w-24',
+      sortKey: (r) => r.loss1550,
+      sortType: 'number',
+      cell: (r) => (
+        <EditableField
+          value={r.loss1550 ?? ''}
+          ariaLabel="손실1550"
+          placeholder="—"
+          disabled={!r.cableId}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'loss1550', v || null)}
+        />
+      ),
+    },
+    {
+      label: '거리1550(km)',
+      width: 'w-24',
+      sortKey: (r) => r.dist1550,
+      sortType: 'number',
+      cell: (r) => (
+        <EditableField
+          value={r.dist1550 ?? ''}
+          ariaLabel="거리1550"
+          placeholder="—"
+          disabled={!r.cableId}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'dist1550', v || null)}
+        />
+      ),
+    },
+    {
+      label: '점검결과',
+      width: 'w-28',
+      sortKey: (r) => r.inspectResult,
+      cell: (r) => (
+        <EditableField
+          value={r.inspectResult ?? ''}
+          type="select"
+          ariaLabel="점검결과"
+          disabled={!r.cableId}
+          options={[
+            { value: '', label: '—' },
+            { value: '적합', label: '적합' },
+            { value: '부적합', label: '부적합' },
+            { value: '측정불가', label: '측정불가' },
+            { value: '미측정', label: '미측정' },
+          ]}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'inspectResult', v || null)}
+        />
+      ),
+    },
   ],
 };
