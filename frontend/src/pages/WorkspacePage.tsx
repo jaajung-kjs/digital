@@ -13,6 +13,7 @@ import { useEditorSelectionBridge } from '../features/workspace/useEditorSelecti
 import { useSelectionHighlight } from '../features/workspace/selectionHighlight';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
 import { useWorkingCopyLoader, useEffectiveAssets } from '../features/workingCopy/hooks';
+import { useHydrateGlobal } from '../features/workingCopy/useHydrateGlobal';
 import { floorAnchor } from '../features/workingCopy/floorAnchor';
 import { toMapById } from '../utils/byId';
 import { workspaceFloorUrl } from '../features/workspace/workspaceUrls';
@@ -174,6 +175,8 @@ export function WorkspacePage() {
   // 변전소 노드: 자기 변전소. 본부·사업소: 선택 자산이 가리키는 변전소(없으면 no-op).
   // (본부·사업소는 NodeStatusView 도 선택 시 같은 변전소를 온디맨드 로드 — idempotent 가드.)
   useWorkingCopyLoader(contextSubstationId);
+  // 전역 자산·케이블 피드를 워킹카피 saved 로 hydrate(단일 SSOT) — 피드 읽는 유일 지점.
+  useHydrateGlobal();
 
   if (!activeNode) {
     return (
