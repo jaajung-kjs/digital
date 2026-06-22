@@ -23,7 +23,6 @@ import { toMapById } from '../../utils/byId';
 import { isRackModuleAsset as isRackModuleChild } from './assetClassify';
 import { slimToAsset, slimCableToCable } from './slimToAsset';
 import type { SlimAssetDTO, TraceCableInput } from '../trace/traceGraph';
-import type { AssetListItem } from '../assets/nodeStatus';
 
 /**
  * stageRackModuleCreate 의 입력 — 랙모듈 신규 staging 용 작은 명시 draw 타입.
@@ -295,29 +294,6 @@ function mergeLiteRows<T extends { id: string; updatedAt?: string | null }>(prev
   return [...byId.values()];
 }
 
-/** 노드 자산 피드(status 투영)의 필드를 기존 saved 자산에 patch(생성·code 미변경). */
-function patchNodeStatus(prev: Asset[], rows: AssetListItem[]): Asset[] {
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  let changed = false;
-  const out = prev.map((a) => {
-    const r = byId.get(a.id);
-    if (!r) return a;
-    changed = true;
-    return {
-      ...a,
-      status: r.status ?? a.status,
-      installDate: r.installDate ?? a.installDate,
-      manager: r.manager ?? a.manager,
-      warrantyUntil: r.warrantyUntil ?? a.warrantyUntil,
-      replaceDue: r.replaceDue ?? a.replaceDue,
-      floorId: r.floorId ?? a.floorId,
-      roomText: r.roomText ?? a.roomText,
-      parentAssetId: r.parentAssetId ?? a.parentAssetId,
-    };
-  });
-  return changed ? out : prev;
-}
-
 export interface SubstationWorkingCopyState {
   substationId: string | null;
   saved: SavedCollections;
@@ -349,8 +325,6 @@ export interface SubstationWorkingCopyState {
   // ── hydration (서버 피드 → saved). 단일 SSOT: 피드는 입력일 뿐 뷰는 effective 만 읽음. ──
   /** 전역 slim 피드(모든 변전소)를 saved 에 lite 로 적재. 기존 detail 행은 보존(lite 가 안 덮음). */
   hydrateGlobal: (assets: SlimAssetDTO[], cables: TraceCableInput[]) => void;
-  /** 노드 자산 피드의 status 필드만 기존 saved 자산에 patch(생성·code 미변경) — 현황뷰 effective 화용. */
-  hydrateNodeAssets: (rows: AssetListItem[]) => void;
 
   // ── editor-facing mutation actions (2d-1 T3) ──
   // 캔버스 배치(draw) 입력을 받아 Asset overlay 로 stage 한다.
@@ -519,13 +493,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             cables: mergeLiteRows(s.saved.cables, cables.map(slimCableToCable)),
           },
         }));
-        t.resume();
-      },
-
-      hydrateNodeAssets: (rows) => {
-        const t = useSubstationWorkingCopy.temporal.getState();
-        t.pause();
-        set((s) => ({ saved: { ...s.saved, assets: patchNodeStatus(s.saved.assets, rows) } }));
         t.resume();
       },
 
