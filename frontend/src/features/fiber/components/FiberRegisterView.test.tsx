@@ -37,7 +37,7 @@ const OUT2 = {
 };
 const FIBER_CABLES = [OPGW, OUT2];
 
-// EquipmentSelectCell 가 useSlimAssets(['assets-slim']) 로 읽는 후보·이름 출처.
+// EquipmentSelectCell 는 useTraceGraph 그래프(effective)에서 후보·이름을 읽는다.
 const SLIM = [
   { id: 'a-near', name: '송변전광단말', code: 'EQP', substationId: 's1', parentAssetId: null, connectionKind: null },
   { id: 'twin1', name: '홍천슬롯', code: 'OFD-SLOT', substationId: 's2', parentAssetId: 'ofd2', connectionKind: 'conduit' },
