@@ -95,19 +95,17 @@ def main():
                        "parentKey": f"rack-{sub}", "slotIndex": 0})
         dev_by_sub[sub] = key
 
-    # ── fiberCables: OUT 코어 — 송광치만(나머지 메타전용 코어는 시드 안 함) ──
+    # ── fiberCables: OUT 코어(설비 패치) — 송광치만. 순수 연결(메타 미보유). ──
+    # 선번(코어정보=손실/거리/점검일)은 OPGW.coreMeta 소유(아래) — 자국·대국 공유. OUT 케이블은
+    # 슬롯 포트↔설비(OPT-TERM) 물리연결/토폴로지 전용이므로 specParams 를 싣지 않는다.
     cables = []
     for c in cores:
         if c["purpose"] != "송광치" or c["subKey"] not in dev_by_sub:
             continue
         sub, blk = c["subKey"], c["block"]
-        # specParams = 측정 필드(손실/거리)만. 용도·수용내역·융착·사용·점검결과는 적재 안 함.
-        # 마지막점검일(inspectDate)은 코어 단위 원본이 없어 빈 칸(수동 입력 대기).
-        sp = {kk: c[kk] for kk in ("loss1310", "loss1550", "dist1310", "dist1550")
-              if c.get(kk) is not None}
         cables.append({"key": f"core-{sub}-b{blk}-{c['core']}", "kind": "CORE",
                        "sourceKey": slot_key(sub, blk), "targetKey": dev_by_sub[sub], "sourceRole": "OUT", "targetRole": None,
-                       "number": c["core"], "categoryCode": "CBL-OPJ", "specParams": sp})
+                       "number": c["core"], "categoryCode": "CBL-OPJ", "specParams": {}})
 
     # ── fiberCables: OPGW (직할쌍 슬롯↔슬롯) ──
     by_dir = collections.defaultdict(list)

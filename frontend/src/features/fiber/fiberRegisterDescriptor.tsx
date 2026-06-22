@@ -8,12 +8,19 @@ import { fiberSlotLabel } from './fiberSlotLabel';
 import { EquipmentSelectCell } from './components/EquipmentSelectCell';
 import type { Asset } from '../../types/asset';
 
-/** 점유 코어 한 필드를 OUT 케이블 specParams 에 머지 스테이징(기존 키 보존). */
-function commitMeta(cableId: string, field: string, value: string | null) {
+/**
+ * 코어 한 필드를 **OPGW.specParams.coreMeta[coreNumber]** 에 머지 스테이징(기존 키 보존).
+ * 선번(코어정보)은 OPGW 케이블 소유 — 자국·대국이 같은 OPGW 를 공유하므로 한쪽 입력이 양쪽에 반영.
+ * 설비 연결 여부와 무관하게(빈 코어도) 경로(OPGW)만 있으면 편집 가능.
+ */
+function commitMeta(opgwId: string, coreNumber: number, field: string, value: string | null) {
   const wc = useSubstationWorkingCopy.getState();
-  const cable = wc.effectiveCables().find((c) => c.id === cableId);
-  const prev = ((cable?.specParams as Record<string, unknown>) ?? {});
-  wc.patch('cables', cableId, { specParams: { ...prev, [field]: value } });
+  const opgw = wc.effectiveCables().find((c) => c.id === opgwId);
+  const sp = ((opgw?.specParams as Record<string, unknown>) ?? {});
+  const coreMeta = { ...((sp.coreMeta as Record<string, Record<string, unknown>>) ?? {}) };
+  const k = String(coreNumber);
+  coreMeta[k] = { ...(coreMeta[k] ?? {}), [field]: value };
+  wc.patch('cables', opgwId, { specParams: { ...sp, coreMeta } });
 }
 
 /** __nameById·__slot 동봉 — cell(row) 시그니처에 ctx 없으므로 row 에 해소맵·슬롯 첨부. */
@@ -72,8 +79,8 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
           value={r.loss1310 ?? ''}
           ariaLabel="손실1310"
           placeholder="—"
-          disabled={!r.cableId}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'loss1310', v || null)}
+          disabled={!r.opgwId}
+          onCommit={(v) => r.opgwId && commitMeta(r.opgwId, r.coreNumber, 'loss1310', v || null)}
         />
       ),
     },
@@ -87,8 +94,8 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
           value={r.dist1310 ?? ''}
           ariaLabel="거리1310"
           placeholder="—"
-          disabled={!r.cableId}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'dist1310', v || null)}
+          disabled={!r.opgwId}
+          onCommit={(v) => r.opgwId && commitMeta(r.opgwId, r.coreNumber, 'dist1310', v || null)}
         />
       ),
     },
@@ -102,8 +109,8 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
           value={r.loss1550 ?? ''}
           ariaLabel="손실1550"
           placeholder="—"
-          disabled={!r.cableId}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'loss1550', v || null)}
+          disabled={!r.opgwId}
+          onCommit={(v) => r.opgwId && commitMeta(r.opgwId, r.coreNumber, 'loss1550', v || null)}
         />
       ),
     },
@@ -117,8 +124,8 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
           value={r.dist1550 ?? ''}
           ariaLabel="거리1550"
           placeholder="—"
-          disabled={!r.cableId}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'dist1550', v || null)}
+          disabled={!r.opgwId}
+          onCommit={(v) => r.opgwId && commitMeta(r.opgwId, r.coreNumber, 'dist1550', v || null)}
         />
       ),
     },
@@ -131,8 +138,8 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
           value={r.inspectDate ?? ''}
           type="date"
           ariaLabel="마지막점검일"
-          disabled={!r.cableId}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'inspectDate', v || null)}
+          disabled={!r.opgwId}
+          onCommit={(v) => r.opgwId && commitMeta(r.opgwId, r.coreNumber, 'inspectDate', v || null)}
         />
       ),
     },

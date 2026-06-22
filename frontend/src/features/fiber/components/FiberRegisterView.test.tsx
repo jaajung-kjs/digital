@@ -69,12 +69,12 @@ vi.mock('../slotRegister', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../slotRegister')>()),
   buildSlotCoreRows: (_slot: unknown, _cables: unknown, _graph: unknown) => [
     {
-      coreNumber: 1, cableId: null, occupied: false,
+      coreNumber: 1, opgwId: 'opgw1', occupied: false,
       nearAssetId: null, farName: null,
       loss1310: null, dist1310: null, loss1550: null, dist1550: null, inspectDate: null,
     },
     {
-      coreNumber: 2, cableId: 'c2', occupied: true,
+      coreNumber: 2, opgwId: 'opgw1', occupied: true,
       nearAssetId: 'a-near', farName: '홍천단말',
       loss1310: null, dist1310: null, loss1550: null, dist1550: null, inspectDate: null,
     },
@@ -152,16 +152,18 @@ describe('OfdFiberRegister', () => {
     expect(setSelected).toHaveBeenCalledWith('slot1', 1);
   });
 
-  it('점유 코어 손실1310 ✎ 클릭 → 입력 → blur → patch(cables, cableId, specParams 머지)', () => {
-    effectiveCables.mockReturnValue([{ id: 'c2', specParams: { loss1310: null } }]);
+  it('코어 손실1310 ✎ → 입력 → blur → OPGW.coreMeta 에 patch(설비 없는 빈 코어도 편집)', () => {
+    effectiveCables.mockReturnValue([{ id: 'opgw1', specParams: { cores: 2 } }]);
     renderView();
-    // 손실1310 ✎ 버튼은 DOM에 존재(opacity만 0) — 코어2(점유, cableId='c2')의 ✎ 버튼.
-    // 코어1은 disabled(cableId 없음)이라 ✎ 없음 — 코어2의 ✎ 버튼이 유일.
-    const pencilButton = screen.getByRole('button', { name: /손실1310 수정/ });
-    fireEvent.click(pencilButton);
-    // 편집모드: input 나타남
+    // 코어정보는 OPGW 소유 → 빈 코어(코어1)도 편집 가능. 손실1310 ✎ 가 코어마다 존재.
+    const pencils = screen.getAllByRole('button', { name: /손실1310 수정/ });
+    expect(pencils.length).toBe(2); // 두 코어 모두 편집 가능
+    fireEvent.click(pencils[0]);    // 코어1(빈 코어)
     const input = screen.getByPlaceholderText('—');
     fireEvent.blur(input, { target: { value: '-6.43' } });
-    expect(patch).toHaveBeenCalledWith('cables', 'c2', expect.objectContaining({ specParams: expect.objectContaining({ loss1310: '-6.43' }) }));
+    // OPGW(opgw1) 의 coreMeta['1'].loss1310 에 머지.
+    expect(patch).toHaveBeenCalledWith('cables', 'opgw1', expect.objectContaining({
+      specParams: expect.objectContaining({ coreMeta: { '1': { loss1310: '-6.43' } } }),
+    }));
   });
 });
