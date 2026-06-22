@@ -1,4 +1,5 @@
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
+import { isDist } from '../workingCopy/assetClassify';
 import { EditableField } from '../assets/components/EditableField';
 import { useCableCategories } from '../cables/hooks/useCableCategories';
 import { buildFeederInput } from './feederCircuits';
@@ -98,7 +99,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
   emptyMessage: '이 변전소에 분전반이 없습니다.',
   childKind: 'distributor',
   selectContainers: (assets, substationId) =>
-    assets.filter((a) => a.substationId === substationId && (a.assetType?.code === 'DIST' || a.assetType?.placementKind === 'DIST')),
+    assets.filter((a) => a.substationId === substationId && isDist(a.assetType)),
   containerHeader: (panel) => panel.name,
   buildSection: (feeder, ctx: RegisterCtx) => {
     const assetsById = toMapById(ctx.assets as Asset[]);

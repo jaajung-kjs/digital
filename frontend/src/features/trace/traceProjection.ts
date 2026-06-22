@@ -1,7 +1,12 @@
 import { cableTrace } from './cableTrace';
 import type { TraceGraph } from './traceGraph';
+import { isOfd } from '../workingCopy/assetClassify';
 import { detectRings } from '../../utils/graph/cycleDetection';
 import type { TraceNode, TraceEdge, TraceRing } from '../pathTrace/types';
+
+/** 그래프 노드의 OFD 판정 — 정식 분류(code 또는 placementKind), 스테이징 OFD 포함. */
+const graphNodeIsOfd = (graph: TraceGraph, id: string): boolean =>
+  isOfd({ code: graph.codeById.get(id), placementKind: graph.placementKindById?.get(id) });
 
 export interface TraceStep { id: string; label: string; isEndpoint: boolean; isFiberEdge: boolean }
 /** 경로 트리 노드 — 분배(통과설비 fan-out)를 분기로 표현. 선형 경로면 자식 1개 체인. */
@@ -109,14 +114,14 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   for (const raw of trNodeIds) {
     const id = collapse(raw);
     if (!id || nodeById.has(id)) continue;
-    const code = graph.codeById.get(id) ?? null;
+    
     nodeById.set(id, {
       nodeId: id,
       nodeName: graph.nameById.get(id) ?? id,
       substationName: graph.subNameById.get(id) ?? '',
       substationId: '',
       floorId: null,
-      materialCategoryCode: code === 'OFD' ? 'EQP-OFD' : null,
+      materialCategoryCode: graphNodeIsOfd(graph, id) ? 'EQP-OFD' : null,
       isSource: collapse(start) === id,
       isTarget: false,
     });
@@ -204,8 +209,8 @@ function buildTree(
     }
   }
   const labelOf = (cid: string): string => {
-    const isOfd = graph.codeById.get(cid) === 'OFD';
-    return isOfd ? (graph.subNameById.get(cid) ?? graph.nameById.get(cid) ?? cid) : (graph.nameById.get(cid) ?? cid);
+    const ofd = graphNodeIsOfd(graph, cid);
+    return ofd ? (graph.subNameById.get(cid) ?? graph.nameById.get(cid) ?? cid) : (graph.nameById.get(cid) ?? cid);
   };
   const build = (rawId: string, incoming: CableLike | null): TraceTreeNode | null => {
     const cid = collapse(rawId);
@@ -272,10 +277,10 @@ function buildSteps(
     if (steps.length && steps[steps.length - 1].id === cid) continue;
     const incoming = chain[i].cable;
     const isFiberEdge = !!incoming && incoming.sourceRole === 'IN' && incoming.targetRole === 'IN';
-    const isOfd = graph.codeById.get(cid) === 'OFD';
+    const ofd = graphNodeIsOfd(graph, cid);
     steps.push({
       id: cid,
-      label: isOfd ? (graph.subNameById.get(cid) ?? graph.nameById.get(cid) ?? cid) : (graph.nameById.get(cid) ?? cid),
+      label: ofd ? (graph.subNameById.get(cid) ?? graph.nameById.get(cid) ?? cid) : (graph.nameById.get(cid) ?? cid),
       isEndpoint: i === 0 || i === chain.length - 1,
       isFiberEdge,
     });

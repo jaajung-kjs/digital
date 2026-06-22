@@ -1,5 +1,5 @@
 import type { Asset } from '../../types/asset';
-import { isRackModuleAsset } from '../workingCopy/assetClassify';
+import { isRackModuleAsset, isConduit } from '../workingCopy/assetClassify';
 import { FEEDER_CODE, feedersOfPanel } from '../assets/distributionSubtree';
 import { toMapById } from '../../utils/byId';
 
@@ -61,7 +61,7 @@ export function buildSelfSideChecker(assets: Asset[], assetId: string): (id: str
   );
   const childFeeders = new Set(feedersOfPanel(assets, assetId).map((f) => f.id));
   const childConduits = new Set(
-    assets.filter((a) => a.parentAssetId === assetId && a.assetType?.connectionKind === 'conduit').map((a) => a.id),
+    assets.filter((a) => a.parentAssetId === assetId && isConduit(a.assetType)).map((a) => a.id),
   );
   return (id) => !!id && (id === assetId || childModules.has(id) || childFeeders.has(id) || childConduits.has(id));
 }

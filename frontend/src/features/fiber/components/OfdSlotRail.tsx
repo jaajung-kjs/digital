@@ -3,6 +3,7 @@ import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks'
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useTraceGraph, ofdAssets, type AssetRef } from '../../trace/traceGraph';
+import { isConduit } from '../../workingCopy/assetClassify';
 import { useAssetTypeIdByCode } from '../../assets/useAssetTypeIdByCode';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
 import { generateTempId } from '../../../utils/idHelpers';
@@ -55,7 +56,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
 
   // 이 OFD 의 conduit 슬롯들 (working-copy 포함).
   const slots = useMemo(
-    () => assets.filter((a) => a.parentAssetId === ofdId && a.assetType?.connectionKind === 'conduit'),
+    () => assets.filter((a) => a.parentAssetId === ofdId && isConduit(a.assetType)),
     [assets, ofdId],
   );
 

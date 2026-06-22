@@ -6,7 +6,7 @@ import { useSelection } from '../../workspace/SelectionContext';
 import type { Asset } from '../../../types/asset';
 import { type DetailPanelKind } from '../../../types/equipmentKind';
 import { kindOf } from '../../workingCopy/placement';
-import { isRackModuleAsset } from '../../workingCopy/assetClassify';
+import { isRackModuleAsset, isConduit } from '../../workingCopy/assetClassify';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
 import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
@@ -116,7 +116,7 @@ export function AssetDetailPanel({
   const id = equipmentId ?? asset?.id ?? '';
   const { graph } = useTraceGraph();
   const conduitLabel =
-    asset?.assetType?.connectionKind === 'conduit' ? fiberSlotLabel(asset.id, graph) : '';
+    asset && isConduit(asset.assetType) ? fiberSlotLabel(asset.id, graph) : '';
   const headerTitle = conduitLabel || title || asset?.name || '설비 상세';
   const kind = detailKind !== undefined ? detailKind : kindFromAsset(asset);
   const isModule = isRackModuleAsset(asset); // strict: 슬롯 있는 자식만 모듈. 피더(slotIndex 없음)는 cascade 경로.

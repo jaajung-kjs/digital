@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useEffectiveAssets, useEffectiveCables } from '../workingCopy/hooks';
 import { useOrganizationStore } from '../../stores/organizationStore';
+import { isOfd, isConduit } from '../workingCopy/assetClassify';
 import { cableTrace, type TraceAsset, type TraceCable } from './cableTrace';
 
 interface NameNode { id: string; name: string; children?: NameNode[] }
@@ -112,9 +113,9 @@ export function buildTraceGraph(input: {
   return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById, placementKindById, slotIndexById };
 }
 
-/** OFD 식별 — 커밋(code 'OFD') + 스테이징(placementKind 'OFD', code 미정) 모두. */
-function isOfd(graph: TraceGraph, id: string): boolean {
-  return graph.codeById.get(id) === 'OFD' || graph.placementKindById?.get(id) === 'OFD';
+/** 그래프 맵에서 자산의 OFD 판정 — 정식 분류(assetClassify.isOfd) 재사용. */
+function graphIsOfd(graph: TraceGraph, id: string): boolean {
+  return isOfd({ code: graph.codeById.get(id), placementKind: graph.placementKindById?.get(id) });
 }
 
 /**
@@ -156,7 +157,7 @@ function toRef(graph: TraceGraph, id: string): AssetRef {
 
 /** 그래프의 모든 OFD 자산(커밋+스테이징). 경로 대국 후보·자국 OFD 해소 단일 소스. */
 export function ofdAssets(graph: TraceGraph): AssetRef[] {
-  return graph.assets.filter((a) => isOfd(graph, a.id)).map((a) => toRef(graph, a.id));
+  return graph.assets.filter((a) => graphIsOfd(graph, a.id)).map((a) => toRef(graph, a.id));
 }
 
 /** 한 변전소의 '설비' 후보 — OFD·conduit(통로) 제외(커밋+스테이징). 선번장 자국/대국 드롭다운 단일 소스. */
@@ -164,8 +165,8 @@ export function equipmentInSubstation(graph: TraceGraph, substationId: string | 
   if (!substationId) return [];
   return graph.assets
     .filter((a) => graph.subById.get(a.id) === substationId
-      && !isOfd(graph, a.id)
-      && a.connectionKind !== 'conduit')
+      && !graphIsOfd(graph, a.id)
+      && !isConduit({ connectionKind: a.connectionKind }))
     .map((a) => toRef(graph, a.id));
 }
 

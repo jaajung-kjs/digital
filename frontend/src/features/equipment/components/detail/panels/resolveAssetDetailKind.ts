@@ -1,4 +1,5 @@
 import type { Asset } from '../../../../../types/asset';
+import { isConduit, isDistributor } from '../../../../workingCopy/assetClassify';
 import { EQUIPMENT_KIND_INFO, type DetailPanelKind, type EquipmentKind } from '../../../../../types/equipmentKind';
 
 interface PlacedLike { kind: EquipmentKind }
@@ -13,8 +14,8 @@ export function resolveAssetDetailKind(
   asset: Asset | null | undefined,
   placed: PlacedLike | null | undefined,
 ): DetailPanelKind | null {
-  if (asset?.assetType?.connectionKind === 'conduit') return 'conduit-ports';
-  if (asset?.assetType?.connectionKind === 'distributor') return 'feeder-circuits';
+  if (isConduit(asset?.assetType)) return 'conduit-ports';
+  if (isDistributor(asset?.assetType)) return 'feeder-circuits';
   if (placed) return EQUIPMENT_KIND_INFO[placed.kind]?.detailPanelKind ?? null;
   return null;
 }
