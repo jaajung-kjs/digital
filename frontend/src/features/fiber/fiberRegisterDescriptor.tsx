@@ -51,11 +51,13 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     },
     {
       label: '자국설비',
+      width: 'w-48',
       sortKey: (r) => (r.nearAssetId ? r.__nameById?.get(r.nearAssetId) ?? null : null),
       cell: (r) => (r.__slot ? <EquipmentSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="local" /> : null),
     },
     {
       label: '대국설비',
+      width: 'w-48',
       sortKey: (r) => r.farName,
       cell: (r) => (r.__slot ? <EquipmentSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="remote" /> : null),
     },
