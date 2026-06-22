@@ -151,16 +151,16 @@ describe('OfdFiberRegister', () => {
     expect(setSelected).toHaveBeenCalledWith('slot1', 1);
   });
 
-  it('점유 코어 용도 ✎ 클릭 → 입력 → blur → patch(cables, cableId, specParams 머지)', () => {
-    effectiveCables.mockReturnValue([{ id: 'c2', specParams: { purpose: null } }]);
+  it('점유 코어 손실1310 ✎ 클릭 → 입력 → blur → patch(cables, cableId, specParams 머지)', () => {
+    effectiveCables.mockReturnValue([{ id: 'c2', specParams: { loss1310: null } }]);
     renderView();
-    // 용도 ✎ 버튼은 DOM에 존재(opacity만 0) — 코어2(점유, cableId='c2')의 ✎ 버튼.
+    // 손실1310 ✎ 버튼은 DOM에 존재(opacity만 0) — 코어2(점유, cableId='c2')의 ✎ 버튼.
     // 코어1은 disabled(cableId 없음)이라 ✎ 없음 — 코어2의 ✎ 버튼이 유일.
-    const pencilButton = screen.getByRole('button', { name: /용도 수정/ });
+    const pencilButton = screen.getByRole('button', { name: /손실1310 수정/ });
     fireEvent.click(pencilButton);
     // 편집모드: input 나타남
-    const input = screen.getByPlaceholderText('용도');
-    fireEvent.blur(input, { target: { value: '통합단말' } });
-    expect(patch).toHaveBeenCalledWith('cables', 'c2', expect.objectContaining({ specParams: expect.objectContaining({ purpose: '통합단말' }) }));
+    const input = screen.getByPlaceholderText('—');
+    fireEvent.blur(input, { target: { value: '-6.43' } });
+    expect(patch).toHaveBeenCalledWith('cables', 'c2', expect.objectContaining({ specParams: expect.objectContaining({ loss1310: '-6.43' }) }));
   });
 });

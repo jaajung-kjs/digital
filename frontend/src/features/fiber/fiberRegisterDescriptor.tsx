@@ -60,67 +60,6 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
       cell: (r) => (r.__slot ? <EquipmentSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="remote" /> : null),
     },
     {
-      label: '용도',
-      sortKey: (r) => r.purpose,
-      cell: (r) => (
-        <EditableField
-          value={r.purpose ?? ''}
-          ariaLabel="용도"
-          placeholder="용도"
-          disabled={!r.cableId}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'purpose', v || null)}
-        />
-      ),
-    },
-    {
-      label: '수용내역',
-      sortKey: (r) => r.circuitText,
-      cell: (r) => (
-        <EditableField
-          value={r.circuitText ?? ''}
-          ariaLabel="수용내역"
-          placeholder="수용내역"
-          disabled={!r.cableId}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'circuitText', v || null)}
-        />
-      ),
-    },
-    {
-      label: '융착',
-      width: 'w-24',
-      sortKey: (r) => r.spliceType,
-      cell: (r) => (
-        <EditableField
-          value={r.spliceType ?? ''}
-          type="select"
-          ariaLabel="융착"
-          disabled={!r.cableId}
-          options={[{ value: '', label: '—' }, { value: '융착', label: '융착' }, { value: '패치', label: '패치' }]}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'spliceType', v || null)}
-        />
-      ),
-    },
-    {
-      label: '사용',
-      width: 'w-28',
-      sortKey: (r) => r.usageOverride ?? (r.occupied ? '사용' : '미사용'),
-      cell: (r) => (
-        <EditableField
-          value={r.usageOverride ?? ''}
-          type="select"
-          ariaLabel="사용"
-          disabled={!r.cableId}
-          display={(v) => v || `자동${r.occupied ? '(사용)' : '(미사용)'}`}
-          options={[
-            { value: '', label: `자동${r.occupied ? '(사용)' : '(미사용)'}` },
-            { value: '사용', label: '사용' },
-            { value: '미사용', label: '미사용' },
-          ]}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'usageOverride', v || null)}
-        />
-      ),
-    },
-    {
       label: '손실1310(dB)',
       width: 'w-24',
       sortKey: (r) => r.loss1310,
