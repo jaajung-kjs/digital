@@ -6,7 +6,7 @@ import { commitSubstation, type FloorCommitSection } from './substationCommit';
 import { useSubstationWorkingCopy, recordsDescriptor, revokeStagedPhotoUrls, sumOverlaysDirty, type AssetRecord } from './substationStore';
 import { mergeEffective } from './effective';
 import type { Overlay } from './overlay';
-import { useEditorStore } from '../editor/stores/editorStore';
+import { useEditorStore, selectFloorSettingsDirty } from '../editor/stores/editorStore';
 import { overlayToChanges } from '../report/overlayToChanges';
 import { WORK_ORDER_KEYS } from '../report/useWorkOrders';
 import type { ReportPreviewChanges, ConstructionReport } from '../../types/constructionReport';
@@ -149,16 +149,19 @@ export function useCommitWorkingCopy() {
     // 변경이 없으면 noop. 단, substationId 가 없어도 dirty 가 있으면(=조직 트리에서 변전소를
     // 열지 않은 채 한 본부/지사/변전소/층 CRUD) 전역 커밋을 진행해야 한다 — 종전엔 여기서
     // 무조건 early-return 후 아래 revert() 가 staged 조직 변경을 날려 데이터 손실(C2).
-    const dirtyCount = sumOverlaysDirty(wc.overlays);
-    if (dirtyCount === 0) return { ok: true };
-    // substationId 가 없는 경우 = 조직 전용 커밋 경로. 변전소-스코프 후처리(load/아카이브)는
-    // 아래에서 `if (substationId)` 가드로 건너뛴다.
-
     const ed = useEditorStore.getState();
     // 활성 층이 삭제 대상이면 캔버스설정(floor 섹션)을 보내지 않는다 — 백엔드가 같은 트랜잭션에서
     // 그 층을 deleteMany 한 뒤 floor.update 하려다 P2025 로 실패한다(삭제된 층엔 설정이 없다).
     const fs = buildFloorSection(ed);
     const floor = fs && wc.overlays.floors?.deletes?.includes(fs.id) ? undefined : fs;
+
+    // dirty 판정: overlays 변경 + 층 설정(도면 배경 등 editorStore staged). 후자만 바뀐 경우도
+    // 커밋해야 한다 — 종전엔 overlays 만 봐서 '도면만 추가→저장 눌러도 무반응'(floor 섹션 미전송).
+    const dirtyCount = sumOverlaysDirty(wc.overlays);
+    const floorDirty = selectFloorSettingsDirty(ed) && !!floor;
+    if (dirtyCount === 0 && !floorDirty) return { ok: true };
+    // substationId 가 없는 경우 = 조직 전용 커밋 경로. 변전소-스코프 후처리(load/아카이브)는
+    // 아래에서 `if (substationId)` 가드로 건너뛴다.
 
     // #3 Task 3 — 작업지시서 아카이브용 PRE-commit 스냅샷.
     // 커밋 후 store.load 가 오버레이를 비우므로, 활성 층 changes 는 반드시 지금

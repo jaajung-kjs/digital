@@ -44,6 +44,7 @@ vi.mock('./substationStore', () => ({
 // editor store — 활성 층 + baseFloorVersion 보유.
 // setBaseFloorVersion 은 모든 getState() 호출이 같은 spy 를 보도록 모듈 스코프에 둔다.
 const setBaseFloorVersionSpy = vi.fn();
+const stagedBgRef = vi.hoisted(() => ({ value: undefined as unknown }));
 vi.mock('../editor/stores/editorStore', () => ({
   useEditorStore: {
     getState: () => ({
@@ -51,7 +52,7 @@ vi.mock('../editor/stores/editorStore', () => ({
       baseFloorVersion: 'v1',
       gridSize: 20,
       majorGridSize: 60,
-      stagedBackgroundDrawing: undefined,
+      stagedBackgroundDrawing: stagedBgRef.value,
       stagedBackgroundOpacity: undefined,
       pendingUploads: [],
       pendingLogs: [],
@@ -62,6 +63,8 @@ vi.mock('../editor/stores/editorStore', () => ({
       setBaseFloorVersion: setBaseFloorVersionSpy,
     }),
   },
+  selectFloorSettingsDirty: (s: { stagedBackgroundDrawing?: unknown; stagedBackgroundOpacity?: unknown }) =>
+    s.stagedBackgroundDrawing !== undefined || s.stagedBackgroundOpacity !== undefined,
 }));
 
 // overlayToChanges — 변경 없음(아카이브 skip).
@@ -91,6 +94,7 @@ describe('useCommitWorkingCopy', () => {
     storeStubs.loadOrgTree.mockClear();
     storeStubs.revert.mockClear();
     sumOverlaysDirtyMock.mockReturnValue(1);
+    stagedBgRef.value = undefined;
   });
 
   it('커밋 응답의 새 floor.updatedAt 으로 baseFloorVersion 을 동기적으로 갱신한다(2회차 409 견고화)', async () => {
@@ -160,5 +164,21 @@ describe('useCommitWorkingCopy', () => {
     expect(res.ok).toBe(true);
     expect(commitSubstation).not.toHaveBeenCalled();
     expect(storeStubs.revert).not.toHaveBeenCalled();
+  });
+
+  it('도면(층) 설정만 dirty(overlays=0)여도 커밋한다 — 도면-only 저장 무반응 회귀 방지', async () => {
+    sumOverlaysDirtyMock.mockReturnValue(0);   // overlays 변경 없음
+    stagedBgRef.value = 'data:image/png;base64,xxx'; // 도면 배경만 staged
+
+    const qc = new QueryClient();
+    const { result } = renderHook(() => useCommitWorkingCopy(), { wrapper: wrapper(qc) });
+    const res = await result.current();
+
+    expect(res.ok).toBe(true);
+    // early-return 하지 않고 commit 이 호출돼야(floor 섹션 전송).
+    expect(commitSubstation).toHaveBeenCalledTimes(1);
+    // floor 섹션이 마지막 인자로 전달됨(id=floor1).
+    const floorArg = vi.mocked(commitSubstation).mock.calls[0].at(-1) as { id?: string } | undefined;
+    expect(floorArg?.id).toBe('floor1');
   });
 });
