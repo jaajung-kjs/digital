@@ -81,26 +81,48 @@ const slim = (over: Partial<{ id: string; name: string; substationId: string; su
 });
 
 describe('buildTraceGraph staged 메타데이터', () => {
-  it('staged-create 자산: substationId 로 subById/subNameById 채움(slim 변전소명 사용)', () => {
+  it('staged-create 자산: substationId 로 subById/subNameById 채움(org 트리 맵으로 해소)', () => {
     const g = buildTraceGraph({
       slimAssets: [slim({ id: 'committed1', substationId: 'sub-A', substationName: 'A변전소' })],
       globalCables: [],
       stagedAssets: [{ id: 'temp1', substationId: 'sub-A', name: '새슬롯', assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } }],
       stagedCables: [],
       deletes: [],
+      substationNames: new Map([['sub-A', 'A변전소']]),
     });
     expect(g.subById.get('temp1')).toBe('sub-A');
     expect(g.subNameById.get('temp1')).toBe('A변전소');
     expect(g.nameById.get('temp1')).toBe('새슬롯');
   });
-  it('slim 에 그 변전소가 없으면 currentSubName fallback', () => {
+  it('staged 자산: 변전소명을 substationNames(org 트리 전체 맵)로 해소 — slim 무관', () => {
     const g = buildTraceGraph({
       slimAssets: [], globalCables: [],
       stagedAssets: [{ id: 'temp1', substationId: 'sub-NEW', name: 'x', assetType: { connectionKind: 'conduit' } }],
-      stagedCables: [], deletes: [], currentSubName: '새변전소',
+      stagedCables: [], deletes: [],
+      substationNames: new Map([['sub-NEW', '새변전소']]),
     });
     expect(g.subById.get('temp1')).toBe('sub-NEW');
     expect(g.subNameById.get('temp1')).toBe('새변전소');
+  });
+
+  it('타 본부→강원 라벨 붕괴 회귀(Bug1): 자국(스테이징)·대국(강원) 변전소명 모두 해소', () => {
+    // 자국 slotA = 다른 본부 신규 변전소(staged, slim 없음). 대국 slotB = 강원(committed).
+    const g = buildTraceGraph({
+      slimAssets: [slim({ id: 'slotB', substationId: 'sub-GW', substationName: '(구)춘천S/S', parentAssetId: 'ofdGW', connectionKind: 'conduit', code: 'OFD-SLOT' })],
+      globalCables: [{ id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 24 } }],
+      stagedAssets: [
+        { id: 'ofdA', substationId: 'sub-B', name: 'OFD', assetType: { connectionKind: null, code: 'OFD' } },
+        { id: 'slotA', substationId: 'sub-B', name: '(구)춘천S/S', parentAssetId: 'ofdA', assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } },
+      ],
+      stagedCables: [],
+      deletes: [],
+      substationNames: new Map([['sub-B', 'B변전소'], ['sub-GW', '(구)춘천S/S']]),
+    });
+    // 자국 slotA 의 변전소명이 'B변전소'로 해소돼야(붕괴 시 null → 라벨이 대국명만 남음).
+    expect(g.subNameById.get('ofdA')).toBe('B변전소');
+    expect(g.subNameById.get('slotA')).toBe('B변전소');
+    // 대국은 강원(구춘천).
+    expect(remoteSlotSubstation('slotA', g)).toBe('(구)춘천S/S');
   });
   it('커밋 자산(slim) 회귀: slim 의 substationName 사용', () => {
     const g = buildTraceGraph({ slimAssets: [slim({ id: 'c1', substationId: 'sub-A', substationName: 'A변전소' })], globalCables: [], stagedAssets: [], stagedCables: [], deletes: [] });

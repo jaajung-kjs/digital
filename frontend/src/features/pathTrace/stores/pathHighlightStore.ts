@@ -19,7 +19,7 @@ import { api } from '../../../utils/api';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { Asset } from '../../../types/asset';
 import { projectTrace, type TraceProjection } from '../../trace/traceProjection';
-import { buildTraceGraph, fetchAllSlimAssetsCached, findNodeName, type SlimAssetDTO, type TraceCableInput } from '../../trace/traceGraph';
+import { buildTraceGraph, fetchAllSlimAssetsCached, collectNodeNames, type SlimAssetDTO, type TraceCableInput } from '../../trace/traceGraph';
 import { useOrganizationStore } from '../../../stores/organizationStore';
 
 /**
@@ -96,15 +96,14 @@ async function loadProjection(cableId: string): Promise<
       queryFn: async () => (await api.get<{ data: TraceCableInput[] }>('/cables')).data.data,
     });
     const wc = useSubstationWorkingCopy.getState();
-    const subId = wc.substationId;
-    const currentSubName = subId ? findNodeName(useOrganizationStore.getState().roots, subId) : null;
+    const substationNames = collectNodeNames(useOrganizationStore.getState().roots);
     const graph = buildTraceGraph({
       slimAssets: slimAssets as SlimAssetDTO[],
       globalCables,
       stagedAssets: wc.effectiveAssets() as never[],
       stagedCables: wc.effectiveCables() as unknown as TraceCableInput[],
       deletes: [...wc.overlays.cables.deletes, ...wc.overlays.assets.deletes],
-      currentSubName,
+      substationNames,
     });
     const projection = projectTrace(cableId, graph);
     if (!projection) {
