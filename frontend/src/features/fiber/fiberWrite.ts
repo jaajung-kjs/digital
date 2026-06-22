@@ -59,13 +59,6 @@ export function buildCoreOutCable(p: {
   };
 }
 
-/** 점유 코어번호 + 용량 → 가장 작은 빈 번호(없으면 용량+1로 확장). */
-export function nextFreeCore(occupied: number[], cores: number): number {
-  const set = new Set(occupied);
-  for (let n = 1; n <= cores; n++) if (!set.has(n)) return n;
-  return cores + 1;
-}
-
 interface CableLike { id: string; sourceAssetId?: string | null; targetAssetId?: string | null; sourceRole?: string | null; targetRole?: string | null; cableType?: string | null }
 /** 경로 삭제 = 두 슬롯 + 그 슬롯에 닿는 모든 FIBER 케이블(OPGW+OUT). */
 export function routeDeleteIds(slotAId: string, slotBId: string, cables: CableLike[]): { assetIds: string[]; cableIds: string[] } {

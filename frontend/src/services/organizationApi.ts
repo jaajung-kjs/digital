@@ -109,17 +109,3 @@ export async function fetchChildNodes(node: TreeNodeData): Promise<TreeNodeData[
   }
   return [];
 }
-
-/** HeadquartersItem → root TreeNodeData (트리 초기 로드·본부 추가 후 갱신 공용 매핑, SSOT) */
-export function hqToNode(hq: HeadquartersItem): TreeNodeData {
-  return {
-    id: hq.id,
-    name: hq.name,
-    type: 'headquarters',
-    parentId: null,
-    children: [],
-    childrenLoaded: false,
-    expanded: false,
-    meta: { branchCount: hq.branchCount },
-  };
-}

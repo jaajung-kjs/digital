@@ -24,11 +24,6 @@ export const CABLE_COLORS: Record<string, string> = Object.fromEntries(
   CABLE_TYPES.map((t) => [t.value, t.color]),
 );
 
-/** Tailwind badge class lookup by cable type (for UI) */
-export const CABLE_BADGE_CLASSES: Record<string, string> = Object.fromEntries(
-  CABLE_TYPES.map((t) => [t.value, t.badgeClass]),
-);
-
 /**
  * 레거시 보라색 폴백 — 제어(control) 케이블이 DB 에 `displayColor='#a855f7'`(보라)로
  * 시드돼 있던 데이터가 재시드 전까지 남아 있다. 디자인 시스템에서 제어 케이블은

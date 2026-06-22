@@ -19,7 +19,6 @@ export type {
   SpecParam,
   SpecTemplate,
 } from './specTemplate';
-export { buildSpecificationString } from './specTemplate';
 export type { CableDisplayGroup } from './cableCategory';
 export type { DetailPanelKind } from './equipmentKind';
 

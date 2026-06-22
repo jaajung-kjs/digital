@@ -14,39 +14,10 @@ import { create } from 'zustand';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
-import type { LocalCable } from '../../editor/stores/editorStore';
 import type { Asset } from '../../../types/asset';
 import { projectTrace, type TraceProjection } from '../../trace/traceProjection';
 import { buildTraceGraph, collectNodeNames, type TraceCableInput } from '../../trace/traceGraph';
 import { useOrganizationStore } from '../../../stores/organizationStore';
-
-/**
- * 글로벌(전 변전소) cable 위에 *이 변전소* 의 staged 변경을 오버레이.
- *
- * - `deletes` 에 있는 id 는 제거.
- * - 나머지 글로벌 cable 중 이 변전소 id 는 effective(saved+staged) 버전으로 교체.
- * - 글로벌에 없는 staged-create(임시 id) 는 새로 추가.
- *
- * 결과: 다른 변전소 cable 은 글로벌 원본 그대로(cross-substation hop 가능),
- * 이 변전소 cable 은 방금 그린 staged 변경이 반영된 버전.
- */
-export function overlayStagedOntoGlobal(
-  globalCables: LocalCable[],
-  stagedCables: LocalCable[],
-  deletes: string[],
-): LocalCable[] {
-  const stagedById = toMapById(stagedCables);
-  const deleted = new Set(deletes);
-  const merged = globalCables
-    .filter((c) => !deleted.has(c.id))
-    .map((c) => stagedById.get(c.id) ?? c);
-  // 글로벌에 없던 staged-create (임시 id) 추가.
-  const seen = new Set(merged.map((c) => c.id));
-  for (const c of stagedCables) {
-    if (!seen.has(c.id) && !deleted.has(c.id)) merged.push(c);
-  }
-  return merged;
-}
 
 function idleState() {
   return {

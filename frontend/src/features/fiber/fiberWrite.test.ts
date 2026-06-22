@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRouteCreate, buildCoreOutCable, nextFreeCore, routeDeleteIds } from './fiberWrite';
+import { buildRouteCreate, buildCoreOutCable, routeDeleteIds } from './fiberWrite';
 
 describe('fiberWrite', () => {
   it('buildRouteCreate: 슬롯2 + OPGW(IN-IN, cores) — 슬롯은 conduit·각 OFD 자식·대국명', () => {
@@ -39,13 +39,6 @@ describe('fiberWrite', () => {
     expect('fiberPathId' in c ? c.fiberPathId : null).toBeFalsy();
   });
 
-  it('nextFreeCore: 점유 {1,2,5} cores=24 → 3', () => {
-    expect(nextFreeCore([1, 2, 5], 24)).toBe(3);
-    expect(nextFreeCore([1, 2, 3], 24)).toBe(4);
-    expect(nextFreeCore([], 24)).toBe(1);
-    expect(nextFreeCore([1, 2, 24], 24)).toBe(3);   // 중간 빈칸 우선(용량초과 아님)
-    expect(nextFreeCore([1, 2, 3], 3)).toBe(4);      // 가득참 → 용량+1
-  });
 
   it('routeDeleteIds: 슬롯2 + OPGW + 그 슬롯들의 OUT 케이블 모두', () => {
     const ids = routeDeleteIds('slotA', 'slotB', [
