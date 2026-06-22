@@ -20,6 +20,20 @@ describe('hydrateGlobal (전역 단일 SSOT hydration)', () => {
     expect(s.cables.map((c) => c.id)).toEqual(['c1']);
   });
 
+  it('hydrateGlobal: 재조회 피드에 없는(서버 삭제된) 행은 saved 에서 제거 — 피드 거울', () => {
+    const wc = useSubstationWorkingCopy.getState();
+    // 1차 hydrate: a1,a2 + c1,c2.
+    wc.hydrateGlobal([lite({ id: 'a1' }), lite({ id: 'a2' })], [
+      { id: 'c1', cableType: 'FIBER', sourceAssetId: 'a1', targetAssetId: 'a2' },
+      { id: 'c2', cableType: 'FIBER', sourceAssetId: 'a1', targetAssetId: 'a2' },
+    ]);
+    // 2차 hydrate(커밋 후 재조회): c2 가 서버에서 삭제돼 피드에서 빠짐 → saved 에서도 사라져야.
+    wc.hydrateGlobal([lite({ id: 'a1' }), lite({ id: 'a2' })], [
+      { id: 'c1', cableType: 'FIBER', sourceAssetId: 'a1', targetAssetId: 'a2' },
+    ]);
+    expect(useSubstationWorkingCopy.getState().saved.cables.map((c) => c.id)).toEqual(['c1']);
+  });
+
   it('hydrateGlobal: 기존 detail 행을 lite 가 덮지 않음(detail 보존)', () => {
     // 실제 /workingcopy detail 행은 updatedAt(DB 타임스탬프)을 가진다 = detail 마커.
     useSubstationWorkingCopy.setState((s) => ({

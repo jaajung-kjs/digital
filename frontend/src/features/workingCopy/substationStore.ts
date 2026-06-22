@@ -284,14 +284,18 @@ function addBaseVersions(overlays: Overlays, incoming: SavedCollections): Overla
  * lite 행 병합: 신규 id 는 추가, 기존 id 는 detail(updatedAt 비어있지 않음) 보존(lite 가 안 덮음),
  * 기존이 lite 면 새 lite 로 갱신. saved 의 자산/케이블 둘 다 사용(둘 다 updatedAt 보유).
  */
-function mergeLiteRows<T extends { id: string; updatedAt?: string | null }>(prev: T[], incoming: T[]): T[] {
-  const byId = new Map(prev.map((r) => [r.id, r]));
-  for (const row of incoming) {
-    const existing = byId.get(row.id);
-    if (existing && existing.updatedAt) continue; // detail 보존
-    byId.set(row.id, row);
-  }
-  return [...byId.values()];
+/**
+ * 전역 피드(커밋 권위)로 saved 를 **재조정(거울)**: 결과는 피드에 있는 id 만 유지한다.
+ * - 피드에 없는 id(서버에서 삭제됨)는 제거 → 커밋 삭제가 새로고침 없이 반영(가산 전용 버그 방지).
+ * - 피드에 있는 id 중 기존 detail 행(updatedAt 보유)은 보존, 나머지는 피드 lite 행 사용.
+ * saved 의 커밋 행은 항상 전역 피드의 부분집합이어야 한다는 불변식을 강제한다.
+ */
+function reconcileLiteRows<T extends { id: string; updatedAt?: string | null }>(prev: T[], incoming: T[]): T[] {
+  const prevById = new Map(prev.map((r) => [r.id, r]));
+  return incoming.map((row) => {
+    const existing = prevById.get(row.id);
+    return existing && existing.updatedAt ? existing : row; // detail 보존, 그 외 피드 행
+  });
 }
 
 export interface SubstationWorkingCopyState {
@@ -489,8 +493,8 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set((s) => ({
           saved: {
             ...s.saved,
-            assets: mergeLiteRows(s.saved.assets, assets.map(slimToAsset)),
-            cables: mergeLiteRows(s.saved.cables, cables.map(slimCableToCable)),
+            assets: reconcileLiteRows(s.saved.assets, assets.map(slimToAsset)),
+            cables: reconcileLiteRows(s.saved.cables, cables.map(slimCableToCable)),
           },
         }));
         t.resume();
