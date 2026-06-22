@@ -369,7 +369,7 @@
   "key": "slot-guchuncheon-b9001",
   "subKey": "guchuncheon",
   "typeCode": "OFD-SLOT",
-  "name": "(구)춘천S/S - 소양강H/P -1 #4",
+  "name": "(구)춘천S/S - 소양강H/P -1 #24",
   "parentKey": "ofd-guchuncheon",
   "slotIndex": 3
  },
@@ -441,7 +441,7 @@
   "key": "slot-seohongcheon-b1",
   "subKey": "seohongcheon",
   "typeCode": "OFD-SLOT",
-  "name": "서홍천S/S - 열병합S/Y -1 #12",
+  "name": "서홍천S/S - 열병합S/Y -1 #24",
   "parentKey": "ofd-seohongcheon",
   "slotIndex": 0
  },
@@ -465,7 +465,7 @@
   "key": "slot-soyanghp-b2",
   "subKey": "soyanghp",
   "typeCode": "OFD-SLOT",
-  "name": "소양강H/P - (구)춘천S/S -1 #4",
+  "name": "소양강H/P - (구)춘천S/S -1 #24",
   "parentKey": "ofd-soyanghp",
   "slotIndex": 0
  },
@@ -505,7 +505,7 @@
   "key": "slot-yeolbyeonghap-b3",
   "subKey": "yeolbyeonghap",
   "typeCode": "OFD-SLOT",
-  "name": "열병합S/Y - 서홍천S/S -1 #12",
+  "name": "열병합S/Y - 서홍천S/S -1 #24",
   "parentKey": "ofd-yeolbyeonghap",
   "slotIndex": 2
  },

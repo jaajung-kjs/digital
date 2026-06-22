@@ -64,6 +64,18 @@ def main():
     keep = {(b["subKey"], b["block"]) for b in blocks}
     cores = [c for c in cores if (c["subKey"], c["block"]) in keep]
 
+    # 코어수 표준화: 24/48 만 허용, 그 외(4·12 등)는 24 로(실제 트레이 단위). 현재 데이터는 전부 24.
+    def std_cores(c):
+        return 48 if c == 48 else 24
+
+    # 코어 메타 인덱스: (subKey, block) → { "core": {loss1310,dist1310,loss1550,dist1550} } (값 있는 것만).
+    # OPGW.coreMeta 의 소스 — 한쪽(자국 a) 시점만 사용("딱 1개", 양쪽 시점 손실/거리 상이).
+    meta_by_block = collections.defaultdict(dict)
+    for c in cores:
+        m = {kk: c[kk] for kk in ("loss1310", "dist1310", "loss1550", "dist1550") if c.get(kk) is not None}
+        if m:
+            meta_by_block[(c["subKey"], c["block"])][str(c["core"])] = m
+
     subs = [{"key": k, "name": v, "isExternal": False} for k, v in DIRECT.items()]
 
     # ── assets: OFD(60×60) + RACK(60×60) + 슬롯(slotIndex) + 송변전광단말(slotIndex) ──
@@ -82,7 +94,7 @@ def main():
         route_i[(sub, peer)] += 1
         ri = route_i[(sub, peer)]
         si = slot_i[sub]; slot_i[sub] += 1
-        name = f"{DIRECT[sub]} - {DIRECT[peer]} -{ri} #{b['cores']}"
+        name = f"{DIRECT[sub]} - {DIRECT[peer]} -{ri} #{std_cores(b['cores'])}"
         # 코어수는 OPGW(케이블)가 단독 소유 — 슬롯엔 중복 저장하지 않음(SSOT).
         assets.append({"key": slot_key(sub, b["block"]), "subKey": sub, "typeCode": "OFD-SLOT",
                        "name": name, "parentKey": f"ofd-{sub}", "slotIndex": si})
@@ -122,10 +134,15 @@ def main():
         bsort = sorted(bblocks, key=lambda x: (cable_idx(x["peerRaw"]), x["block"]))
         for ab, bb in zip(asort, bsort):
             opgw_n += 1
+            # 선번(코어정보)은 OPGW 소유 — 자국(a) 시점 손실/거리만 coreMeta 로(딱 1개). cores=24 표준화.
+            sp = {"cores": std_cores(ab["cores"])}
+            cm = meta_by_block.get((a, ab["block"]), {})
+            if cm:
+                sp["coreMeta"] = cm
             cables.append({"key": f"opgw-{a}-{bsub}-{opgw_n}", "kind": "OPGW",
                            "sourceKey": slot_key(a, ab["block"]), "targetKey": slot_key(bsub, bb["block"]),
                            "sourceRole": "IN", "targetRole": "IN", "number": None,
-                           "categoryCode": "CBL-OPT", "specParams": {"cores": ab["cores"]}})
+                           "categoryCode": "CBL-OPT", "specParams": sp})
         unmatched += abs(len(asort) - len(bsort))
 
     json.dump(subs, open(os.path.join(DST, "substations.json"), "w"), ensure_ascii=False, indent=1)
