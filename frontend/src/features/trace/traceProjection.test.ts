@@ -2,6 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { projectTrace } from './traceProjection';
 import { buildTraceGraph } from './traceGraph';
 
+// flat slim 픽스처 → buildTraceGraph 단일 입력(assets: assetType 중첩 + substationNames 맵).
+type Flat = { id: string; name: string; substationId: string; substationName: string; parentAssetId: string | null; connectionKind: 'conduit' | 'distributor' | null; code: string | null };
+const toAssets = (flat: Flat[]) => flat.map((f) => ({
+  id: f.id, name: f.name, substationId: f.substationId, parentAssetId: f.parentAssetId, slotIndex: null,
+  assetType: { code: f.code, connectionKind: f.connectionKind },
+}));
+const namesOf = (flat: Flat[]) => new Map(flat.map((f) => [f.substationId, f.substationName]));
+const buildG = (flat: Flat[], cs: unknown[]) =>
+  buildTraceGraph({ assets: toAssets(flat), cables: cs as never[], substationNames: namesOf(flat) });
+
 // eqA─OUT#5─slotA(ofdW) ──OPGW── slotB(ofdH)─OUT#5─eqB ; slotB─OUT#6─eqC
 const slim = [
   { id: 'ofdW', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, connectionKind: null, code: 'OFD' },
@@ -18,7 +28,7 @@ const cables = [
   { id: 'oB5', cableType: 'FIBER', sourceAssetId: 'slotB', targetAssetId: 'eqB', sourceRole: 'OUT', targetRole: null, number: 5 },
   { id: 'oB6', cableType: 'FIBER', sourceAssetId: 'slotB', targetAssetId: 'eqC', sourceRole: 'OUT', targetRole: null, number: 6 },
 ];
-const graph = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+const graph = buildG(slim, cables);
 
 describe('projectTrace', () => {
   it('시드 OUT#5 → 하이라이트 nodeIds/cableIds 는 접기 전 실제 노드/케이블', () => {
@@ -62,7 +72,7 @@ describe('projectTrace', () => {
       { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null },
       { id: 'oA5', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 5 }, // 대국(slotB) 단말 없음
     ];
-    const g2 = buildTraceGraph({ slimAssets: slim2, globalCables: cables2, stagedAssets: [], stagedCables: [], deletes: [] });
+    const g2 = buildG(slim2, cables2);
     const p = projectTrace('oA5', g2)!;
     expect(p.nodeIds).not.toContain('slotB');                       // 대국 슬롯 제외
     expect(p.nodes.map((n) => n.nodeId)).not.toContain('ofdH');     // 대국 OFD 노드 제외
@@ -83,7 +93,7 @@ describe('projectTrace tree (통과설비 분배 분기)', () => {
     { id: 'b1', cableType: 'AC', sourceAssetId: 'F', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: 'IN', number: null },
     { id: 'b2', cableType: 'AC', sourceAssetId: 'F', targetAssetId: 'L2', sourceRole: 'OUT', targetRole: 'IN', number: null },
   ];
-  const g = buildTraceGraph({ slimAssets: slimP, globalCables: cablesP, stagedAssets: [], stagedCables: [], deletes: [] });
+  const g = buildG(slimP, cablesP);
 
   it('입력 시드 → 변압기 → 피더 → {부하1, 부하2} 분기 트리', () => {
     const t = projectTrace('in', g)!.tree!;

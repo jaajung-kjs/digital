@@ -15,14 +15,18 @@ const localOut3 = { id: 'c-l3', cableType: 'FIBER', sourceAssetId: 'eqpL', targe
 // 대국 OUT 코어 3 — 자국 c-l3 와 같은 number, targetRole='OUT'. endpoint 가드 없으면 대국 조회에 자국이 잘못 잡힘.
 const remoteOut3 = { id: 'c-r3', cableType: 'FIBER', sourceAssetId: 'eqpR', targetAssetId: TWIN, sourceRole: null, targetRole: 'OUT', number: 3 };
 
+// buildTraceGraph 단일 입력(assetType 중첩). 변전소명은 NAMES 맵.
+const A = (id: string, name: string, code: string, sub: string, parent: string | null, kind: 'conduit' | null = null) =>
+  ({ id, name, substationId: sub, parentAssetId: parent, slotIndex: null, assetType: { code, connectionKind: kind } });
 const SLIM = [
-  { id: 'eqpL', name: '자국장비', code: 'EQP', substationId: 's1', substationName: '춘천', parentAssetId: null, connectionKind: null },
-  { id: 'eqpL2', name: '자국장비2', code: 'EQP', substationId: 's1', substationName: '춘천', parentAssetId: null, connectionKind: null },
-  { id: 'eqpR', name: '대국장비', code: 'EQP', substationId: 's2', substationName: '북춘천', parentAssetId: null, connectionKind: null },
-  { id: 'eqpR2', name: '대국장비2', code: 'EQP', substationId: 's2', substationName: '북춘천', parentAssetId: null, connectionKind: null },
-  { id: TWIN, name: '북춘천슬롯', code: 'OFD-SLOT', substationId: 's2', substationName: '북춘천', parentAssetId: 'ofdB', connectionKind: 'conduit' },
-  { id: 'ofdA', name: 'OFD', code: 'OFD', substationId: 's1', substationName: '춘천', parentAssetId: null, connectionKind: null },
+  A('eqpL', '자국장비', 'EQP', 's1', null),
+  A('eqpL2', '자국장비2', 'EQP', 's1', null),
+  A('eqpR', '대국장비', 'EQP', 's2', null),
+  A('eqpR2', '대국장비2', 'EQP', 's2', null),
+  A(TWIN, '북춘천슬롯', 'OFD-SLOT', 's2', 'ofdB', 'conduit'),
+  A('ofdA', 'OFD', 'OFD', 's1', null),
 ];
+const NAMES = new Map([['s1', '춘천'], ['s2', '북춘천']]);
 const CATS = [{ id: 'cat-opj', code: 'CBL-OPJ', name: '광점퍼코드', displayColor: null }];
 
 // 카테고리 모킹은 테스트마다 교체 가능(빈 배열로 disabled 케이스 검증).
@@ -36,9 +40,9 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => {
     ...orig,
     useTraceGraph: () => ({
       graph: orig.buildTraceGraph({
-        slimAssets: SLIM as never[],
-        globalCables: [opgw, localOut3, remoteOut3] as never[],
-        stagedAssets: [], stagedCables: [], deletes: [],
+        assets: SLIM as never[],
+        cables: [opgw, localOut3, remoteOut3] as never[],
+        substationNames: NAMES,
       }),
       isLoading: false,
     }),

@@ -77,6 +77,8 @@ vi.mock('../features/workingCopy/hooks', () => ({
   useWorkingCopyLoader: () => {},
   useEffectiveAssets: () => effectiveAssets,
 }));
+// 전역 hydration 훅(useQuery 사용)은 이 테스트 범위 밖 — no-op 모킹(QueryClient 불필요).
+vi.mock('../features/workingCopy/useHydrateGlobal', () => ({ useHydrateGlobal: () => {} }));
 vi.mock('../features/workingCopy/substationStore', () => ({
   useSubstationWorkingCopy: (sel: (s: { substationId: string | null }) => unknown) =>
     sel({ substationId: null }),

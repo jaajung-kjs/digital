@@ -11,9 +11,10 @@ const catGroupOf = (c: { cableType?: string | null }) => {
   return { key: '전원', label: '전원', color: '#ef4444' };
 };
 
-type Slim = Parameters<typeof buildTraceGraph>[0]['slimAssets'][number];
-const A = (id: string, name: string, kind: Slim['connectionKind'], sub = 'subL', parent: string | null = null, code: string | null = null): Slim =>
-  ({ id, name, substationId: sub, substationName: sub, parentAssetId: parent, connectionKind: kind, code });
+// buildTraceGraph 단일 입력용 자산(assetType 중첩). A(): 그래프 입력 자산 헬퍼.
+const A = (id: string, name: string, kind: 'conduit' | 'distributor' | null, sub = 'subL', parent: string | null = null, code: string | null = null) =>
+  ({ id, name, substationId: sub, parentAssetId: parent, slotIndex: null, assetType: { connectionKind: kind, code } });
+const NAMES = new Map([['subL', 'subL'], ['subR', 'subR']]);
 const As = (id: string, name: string, parent: string | null, opts: Partial<{ connectionKind: string; placementKind: string; code: string }> = {}): Asset =>
   ({ id, name, parentAssetId: parent, assetType: { connectionKind: opts.connectionKind ?? null, placementKind: opts.placementKind ?? null, code: opts.code ?? null } } as unknown as Asset);
 
@@ -35,7 +36,7 @@ const p1Cables = [
   { id: 'c5', cableType: 'AC', sourceAssetId: 'fA', targetAssetId: 't2', sourceRole: 'OUT', targetRole: null },
   { id: 'c6', cableType: 'AC', sourceAssetId: 'fB', targetAssetId: 't3', sourceRole: 'OUT', targetRole: null },
 ];
-const p1Graph = buildTraceGraph({ slimAssets: p1Slim, globalCables: p1Cables, stagedAssets: [], stagedCables: [], deletes: [] });
+const p1Graph = buildTraceGraph({ assets: p1Slim, cables: p1Cables, substationNames: NAMES });
 
 const flatten = (n: DiagramNode, prefix = ''): string[] => {
   const here = prefix ? `${prefix}>${n.label}` : n.label;
@@ -63,7 +64,7 @@ const fiberCables = [
   { id: 'fr1', cableType: 'FIBER', sourceAssetId: 'rslot', targetAssetId: 'ro1', sourceRole: 'OUT', targetRole: null, number: 1 }, // 대국 #1 단말
   { id: 'fr2', cableType: 'FIBER', sourceAssetId: 'rslot', targetAssetId: 'ro2', sourceRole: 'OUT', targetRole: null, number: 2 }, // 대국 #2 단말
 ];
-const fiberGraph = buildTraceGraph({ slimAssets: fiberSlim, globalCables: fiberCables, stagedAssets: [], stagedCables: [], deletes: [] });
+const fiberGraph = buildTraceGraph({ assets: fiberSlim, cables: fiberCables, substationNames: NAMES });
 
 describe('buildConnectionDiagram', () => {
   it('P1 단말1 관점: 충전기(원점) 루트지만 내 공급경로만(가지치기) — 형제 단말2·단말3 제거', () => {
@@ -104,7 +105,7 @@ describe('buildConnectionDiagram', () => {
       { id: 'o1', cableType: 'AC', sourceAssetId: 'dc', targetAssetId: 'pdc', sourceRole: 'OUT', targetRole: null },
       { id: 'o2', cableType: 'AC', sourceAssetId: 'dc', targetAssetId: 'term', sourceRole: 'OUT', targetRole: null },
     ];
-    const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const g = buildTraceGraph({ assets: slim, cables: cables, substationNames: NAMES });
     const root = buildConnectionDiagram({ graph: g, assets, assetId: 'dc', categoryGroupOf: catGroupOf })[0].components[0].root;
     expect(root.label).toBe('충전기');   // 충전기가 원점(루트) — 입력이 분기로 안 보임
     expect(root.isOrigin).toBe(true);
@@ -118,7 +119,7 @@ describe('buildConnectionDiagram', () => {
       { id: 'e2', cableType: 'LAN', sourceAssetId: 'n2', targetAssetId: 'n3' },
       { id: 'e3', cableType: 'LAN', sourceAssetId: 'n3', targetAssetId: 'n4' },
     ];
-    const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const g = buildTraceGraph({ assets: slim, cables: cables, substationNames: NAMES });
     const root = buildConnectionDiagram({ graph: g, assets, assetId: 'n3', categoryGroupOf: catGroupOf })[0].components[0].root;
     expect(root.label).toBe('설비3');
     expect(root.isOrigin).toBe(false);
@@ -146,7 +147,7 @@ describe('buildConnectionDiagram', () => {
       { id: 'f1', cableType: 'FIBER', sourceAssetId: 'slot', targetAssetId: 'o1', sourceRole: 'OUT', targetRole: null, number: 1 },
       { id: 'fopgw', cableType: 'FIBER', sourceAssetId: 'slot', targetAssetId: 'rslot', sourceRole: 'IN', targetRole: 'IN' },
     ];
-    const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const g = buildTraceGraph({ assets: slim, cables: cables, substationNames: NAMES });
     // o1 → slot → opgw → rslot(대국 단말 없음). 대국 설비가 없어도 자국 케이블(f1)은 실재 →
     // 연결도엔 단말광1 → 자국(슬롯=대국 경계)까지 표시. 죽은 대국(rslot/fopgw)은 트리에서 제외,
     // nodeIds=자국 단말+슬롯만 → 도면 하이라이트도 자국 경로. (편도 제거는 projectTrace 토폴로지 전담)
@@ -171,7 +172,7 @@ describe('buildConnectionDiagram', () => {
       { id: 'b1', cableType: 'AC', sourceAssetId: 'fA', targetAssetId: 't1', sourceRole: 'OUT', targetRole: null, number: 1 },
       { id: 'b2', cableType: 'AC', sourceAssetId: 'fA', targetAssetId: 't2', sourceRole: 'OUT', targetRole: null, number: 2 },
     ];
-    const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const g = buildTraceGraph({ assets: slim, cables: cables, substationNames: NAMES });
     const fComps = buildConnectionDiagram({ graph: g, assets, assetId: 'fA', categoryGroupOf: catGroupOf })[0].components;
     expect(fComps).toHaveLength(1);
     expect(fComps[0].core).toBe(null);
@@ -183,7 +184,7 @@ describe('buildConnectionDiagram', () => {
     ];
     const slim = [A('fA', '피더A', 'distributor'), A('t1', '단말1', null)];
     const assets = [As('fA', '피더A', null, { connectionKind: 'distributor' }), As('t1', '단말1', null)];
-    const g = buildTraceGraph({ slimAssets: slim, globalCables: cables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const g = buildTraceGraph({ assets: slim, cables: cables, substationNames: NAMES });
     const groups = buildConnectionDiagram({ graph: g, assets, assetId: 't1', categoryGroupOf: catGroupOf });
     expect(groups.map((x) => x.key).sort()).toEqual(['전원', '접지']);
   });

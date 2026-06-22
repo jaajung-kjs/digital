@@ -14,12 +14,10 @@ import { create } from 'zustand';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
-import { queryClient, QUERY_STALE_MS } from '../../../lib/queryClient';
-import { api } from '../../../utils/api';
 import type { LocalCable } from '../../editor/stores/editorStore';
 import type { Asset } from '../../../types/asset';
 import { projectTrace, type TraceProjection } from '../../trace/traceProjection';
-import { buildTraceGraph, fetchAllSlimAssetsCached, collectNodeNames, type SlimAssetDTO, type TraceCableInput } from '../../trace/traceGraph';
+import { buildTraceGraph, collectNodeNames, type TraceCableInput } from '../../trace/traceGraph';
 import { useOrganizationStore } from '../../../stores/organizationStore';
 
 /**
@@ -90,19 +88,12 @@ async function loadProjection(cableId: string): Promise<
   | { ok: false; error: string }
 > {
   try {
-    const slimAssets = await fetchAllSlimAssetsCached(queryClient);
-    const globalCables = await queryClient.fetchQuery({
-      queryKey: ['cables'], staleTime: QUERY_STALE_MS,
-      queryFn: async () => (await api.get<{ data: TraceCableInput[] }>('/cables')).data.data,
-    });
+    // effective(전역 saved∪overlay−deletes)가 단일 SSOT — 피드 직접 fetch 불필요(useHydrateGlobal 이 hydrate).
     const wc = useSubstationWorkingCopy.getState();
     const substationNames = collectNodeNames(useOrganizationStore.getState().roots);
     const graph = buildTraceGraph({
-      slimAssets: slimAssets as SlimAssetDTO[],
-      globalCables,
-      stagedAssets: wc.effectiveAssets() as never[],
-      stagedCables: wc.effectiveCables() as unknown as TraceCableInput[],
-      deletes: [...wc.overlays.cables.deletes, ...wc.overlays.assets.deletes],
+      assets: wc.effectiveAssets(),
+      cables: wc.effectiveCables() as unknown as TraceCableInput[],
       substationNames,
     });
     const projection = projectTrace(cableId, graph);

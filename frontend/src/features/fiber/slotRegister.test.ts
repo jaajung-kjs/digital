@@ -7,12 +7,16 @@ const localCables = [
   { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 4 } },
   { id: 'oA3', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 3, specParams: { purpose: '보호', __migration: 'x' } },
 ];
+// buildTraceGraph 단일 입력(assetType 중첩). 변전소명은 NAMES 맵으로.
+const A = (id: string, name: string, sub: string, parent: string | null, kind: 'conduit' | null, code: string) =>
+  ({ id, name, substationId: sub, parentAssetId: parent, slotIndex: null, assetType: { connectionKind: kind, code } });
 const slim = [
-  { id: 'slotA', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: 'ofdW', connectionKind: 'conduit' as const, code: 'OFD-SLOT' },
-  { id: 'slotB', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: 'ofdH', connectionKind: 'conduit' as const, code: 'OFD-SLOT' },
-  { id: 'eqA', name: '광단말A', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, connectionKind: null, code: 'X' },
-  { id: 'eqB', name: '광단말B', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, connectionKind: null, code: 'X' },
+  A('slotA', 'OFD', 'subW', 'ofdW', 'conduit', 'OFD-SLOT'),
+  A('slotB', 'OFD', 'subH', 'ofdH', 'conduit', 'OFD-SLOT'),
+  A('eqA', '광단말A', 'subW', null, null, 'X'),
+  A('eqB', '광단말B', 'subH', null, null, 'X'),
 ];
+const NAMES = new Map([['subW', '원주S/S'], ['subH', '홍천S/S']]);
 const globalCables = [
   ...localCables.map((c) => ({ ...c })),
   { id: 'oB3', cableType: 'FIBER', sourceAssetId: 'slotB', targetAssetId: 'eqB', sourceRole: 'OUT', targetRole: null, number: 3, specParams: {} },
@@ -20,7 +24,7 @@ const globalCables = [
 
 describe('buildSlotCoreRows', () => {
   it('점유 행(메타·근접) + 용량까지 빈 행 + far 투영, 코어 번호 1..N 연속', () => {
-    const graph = buildTraceGraph({ slimAssets: slim, globalCables, stagedAssets: [], stagedCables: [], deletes: [] });
+    const graph = buildTraceGraph({ assets: slim, cables: globalCables, substationNames: NAMES });
     const rows = buildSlotCoreRows(slot, localCables, graph);
     expect(rows.map((r) => r.coreNumber)).toEqual([1, 2, 3, 4]); // 연속
     const r3 = rows.find((r) => r.coreNumber === 3)!;
