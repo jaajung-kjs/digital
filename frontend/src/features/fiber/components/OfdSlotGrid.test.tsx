@@ -47,13 +47,17 @@ vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveCables: () => [OPGW_CABLE],
 }));
 
-vi.mock('../../trace/traceGraph', () => ({
+vi.mock('../../trace/traceGraph', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../trace/traceGraph')>()), // 실제 ofdAssets 등 유지
   useTraceGraph: () => ({
     graph: {
-      subNameById: new Map([[OFD_ID, '원주변전소'], [SLOT_ID, '원주변전소']]),
-      nameById: new Map(),
+      subNameById: new Map([[OFD_ID, '원주변전소'], [SLOT_ID, '원주변전소'], [REMOTE_OFD_ID, '홍천변전소']]),
+      nameById: new Map([[OFD_ID, '원주OFD'], [REMOTE_OFD_ID, '홍천OFD']]),
+      subById: new Map([[OFD_ID, 's1'], [REMOTE_OFD_ID, 's2']]),
+      codeById: new Map([[OFD_ID, 'OFD'], [REMOTE_OFD_ID, 'OFD']]),
       parentById: new Map([[SLOT_ID, OFD_ID]]),
-      assets: [],
+      // ofdAssets 가 열거하는 OFD 자산(자국+대국) — slim+staged 병합 그래프 단일 SSOT.
+      assets: [{ id: OFD_ID, connectionKind: null }, { id: REMOTE_OFD_ID, connectionKind: null }],
       cables: [OPGW_CABLE],
     },
     isLoading: false,

@@ -29,16 +29,21 @@ const CATS = [{ id: 'cat-opj', code: 'CBL-OPJ', name: '광점퍼코드', display
 const cats = vi.hoisted(() => ({ value: { data: [] as { id: string; code: string; name: string; displayColor: string | null }[] } }));
 
 vi.mock('../../workingCopy/hooks', () => ({}));
-vi.mock('../../trace/traceGraph', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../trace/traceGraph')>()),
-  useTraceGraph: () => ({
-    graph: {
-      cables: [opgw, localOut3, remoteOut3],
-      nameById: new Map([['eqpL','자국장비'],['eqpR','대국장비'],['eqpR2','대국장비2']]),
-    },
-    isLoading: false,
-  }),
-}));
+vi.mock('../../trace/traceGraph', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../../trace/traceGraph')>();
+  // 실제 buildTraceGraph 로 그래프 생성(slim+staged 병합 단일 SSOT) — 컴포넌트가 그래프에서 파생.
+  return {
+    ...orig,
+    useTraceGraph: () => ({
+      graph: orig.buildTraceGraph({
+        slimAssets: SLIM as never[],
+        globalCables: [opgw, localOut3, remoteOut3] as never[],
+        stagedAssets: [], stagedCables: [], deletes: [],
+      }),
+      isLoading: false,
+    }),
+  };
+});
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => cats.value }));
 vi.mock('../../workingCopy/substationStore', () => {
   const st = { put, patch, remove };

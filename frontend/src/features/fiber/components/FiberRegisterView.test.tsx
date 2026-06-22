@@ -49,11 +49,14 @@ vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => [OFD_ASSET, SLOT_ASSET],
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => ({ data: CATS }) }));
-vi.mock('../../trace/traceGraph', () => ({
+vi.mock('../../trace/traceGraph', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../trace/traceGraph')>()), // 실제 equipmentInSubstation 등 유지
   useTraceGraph: () => ({
     graph: {
       nameById: new Map([['a-near', '송변전광단말'], ['twin1', '홍천슬롯']]),
       subNameById: new Map([['ofd1', '원주'], ['slot1', '원주']]),
+      subById: new Map([['slot1', 's1'], ['twin1', 's2']]),
+      codeById: new Map(),
       parentById: new Map([['slot1', 'ofd1']]),
       assets: [],
       cables: FIBER_CABLES,

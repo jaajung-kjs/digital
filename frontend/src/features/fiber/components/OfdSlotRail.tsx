@@ -2,10 +2,9 @@ import { useMemo, useState } from 'react';
 import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
-import { useTraceGraph, type SlimAssetDTO } from '../../trace/traceGraph';
+import { useTraceGraph, ofdAssets, type AssetRef } from '../../trace/traceGraph';
 import { useAssetTypeIdByCode } from '../../assets/useAssetTypeIdByCode';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
-import { useSlimAssets } from '../../assets/hooks/useSlimAssets';
 import { generateTempId } from '../../../utils/idHelpers';
 import { buildRouteCreate, routeDeleteIds } from '../fiberWrite';
 import { fiberSlotLabel } from '../fiberSlotLabel';
@@ -49,10 +48,10 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
 
   const [popover, setPopover] = useState<PopoverState | null>(null);
 
-  const { data: slim = [] } = useSlimAssets();
-
-  const peerOfds = useMemo(() => slim.filter((a) => a.code === 'OFD' && a.id !== ofdId), [slim, ofdId]);
-  const localOfd = useMemo(() => slim.find((a) => a.id === ofdId) ?? null, [slim, ofdId]);
+  // 자국·대국 OFD 모두 그래프 단일 SSOT(slim+staged 병합)에서 — staged OFD 도 저장 전 후보에 보임.
+  const allOfds = useMemo(() => (graph ? ofdAssets(graph) : []), [graph]);
+  const peerOfds = useMemo(() => allOfds.filter((a) => a.id !== ofdId), [allOfds, ofdId]);
+  const localOfd = useMemo(() => allOfds.find((a) => a.id === ofdId) ?? null, [allOfds, ofdId]);
 
   // 이 OFD 의 conduit 슬롯들 (working-copy 포함).
   const slots = useMemo(
@@ -69,8 +68,8 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
         (c.sourceAssetId === slotId || c.targetAssetId === slotId),
     );
 
-  const addRoute = (remote: SlimAssetDTO, cores: number) => {
-    if (!slotTypeId || !opgwCat || !localOfd) return;
+  const addRoute = (remote: AssetRef, cores: number) => {
+    if (!slotTypeId || !opgwCat || !localOfd?.substationId || !remote.substationId) return;
     const { slots: newSlots, opgw } = buildRouteCreate({
       localOfd: { id: localOfd.id, substationId: localOfd.substationId, substationName: localOfd.substationName },
       remoteOfd: { id: remote.id, substationId: remote.substationId, substationName: remote.substationName },

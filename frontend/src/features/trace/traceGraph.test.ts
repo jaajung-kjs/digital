@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTraceGraph, traceRemoteEndpoints, remoteSlotSubstation } from './traceGraph';
+import { buildTraceGraph, traceRemoteEndpoints, remoteSlotSubstation, ofdAssets, equipmentInSubstation } from './traceGraph';
 
 // 원주 slotA ──OPGW── 홍천 slotB. eqA─OUT#5─slotA ; eqB─OUT#5─slotB ; eqC─OUT#6─slotB
 const slimAssets = [
@@ -127,5 +127,39 @@ describe('buildTraceGraph staged 메타데이터', () => {
   it('커밋 자산(slim) 회귀: slim 의 substationName 사용', () => {
     const g = buildTraceGraph({ slimAssets: [slim({ id: 'c1', substationId: 'sub-A', substationName: 'A변전소' })], globalCables: [], stagedAssets: [], stagedCables: [], deletes: [] });
     expect(g.subNameById.get('c1')).toBe('A변전소');
+  });
+});
+
+describe('ofdAssets / equipmentInSubstation (Bug2: staged 가 저장 전에도 후보에 보임)', () => {
+  it('ofdAssets: 커밋 OFD + 스테이징 OFD 모두 열거', () => {
+    const g = buildTraceGraph({
+      slimAssets: [slim({ id: 'ofdGW', substationId: 'sub-GW', substationName: '(구)춘천S/S', code: 'OFD', connectionKind: null })],
+      globalCables: [],
+      stagedAssets: [{ id: 'ofdNEW', substationId: 'sub-B', name: 'OFD', assetType: { connectionKind: null, code: 'OFD' } }],
+      stagedCables: [], deletes: [],
+      substationNames: new Map([['sub-B', 'B변전소']]),
+    });
+    const ids = ofdAssets(g).map((o) => o.id).sort();
+    expect(ids).toEqual(['ofdGW', 'ofdNEW']);
+    const neu = ofdAssets(g).find((o) => o.id === 'ofdNEW')!;
+    expect(neu.substationId).toBe('sub-B');
+    expect(neu.substationName).toBe('B변전소'); // 저장 전에도 이름 해소
+  });
+
+  it('equipmentInSubstation: 스테이징 설비도 후보에 포함, OFD·conduit 제외', () => {
+    const g = buildTraceGraph({
+      slimAssets: [],
+      globalCables: [],
+      stagedAssets: [
+        { id: 'eqNEW', substationId: 'sub-B', name: '통합단말', assetType: { connectionKind: null, code: 'OPT-COT' } },
+        { id: 'ofdB', substationId: 'sub-B', name: 'OFD', assetType: { connectionKind: null, code: 'OFD' } },
+        { id: 'slotB', substationId: 'sub-B', name: '슬롯', assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } },
+      ],
+      stagedCables: [], deletes: [],
+      substationNames: new Map([['sub-B', 'B변전소']]),
+    });
+    const cand = equipmentInSubstation(g, 'sub-B');
+    expect(cand.map((c) => c.id)).toEqual(['eqNEW']); // OFD·conduit 제외, 스테이징 설비만
+    expect(cand[0].name).toBe('통합단말');
   });
 });

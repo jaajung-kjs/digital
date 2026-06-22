@@ -189,6 +189,33 @@ export function remoteSlotSubstation(slotId: string, graph: TraceGraph, cableTyp
   return twin ? (graph.subNameById.get(twin) ?? null) : null;
 }
 
+/** 자산 참조(드롭다운·피커 공용) — 그래프가 단일 소스(slim+staged 병합). */
+export interface AssetRef { id: string; name: string; substationId: string | null; substationName: string | null }
+
+function toRef(graph: TraceGraph, id: string): AssetRef {
+  return {
+    id,
+    name: graph.nameById.get(id) ?? id,
+    substationId: graph.subById.get(id) ?? null,
+    substationName: graph.subNameById.get(id) ?? null,
+  };
+}
+
+/** 그래프의 모든 OFD 자산(커밋+스테이징). 경로 대국 후보·자국 OFD 해소 단일 소스. */
+export function ofdAssets(graph: TraceGraph): AssetRef[] {
+  return graph.assets.filter((a) => graph.codeById.get(a.id) === 'OFD').map((a) => toRef(graph, a.id));
+}
+
+/** 한 변전소의 '설비' 후보 — OFD·conduit(통로) 제외(커밋+스테이징). 선번장 자국/대국 드롭다운 단일 소스. */
+export function equipmentInSubstation(graph: TraceGraph, substationId: string | null): AssetRef[] {
+  if (!substationId) return [];
+  return graph.assets
+    .filter((a) => graph.subById.get(a.id) === substationId
+      && graph.codeById.get(a.id) !== 'OFD'
+      && a.connectionKind !== 'conduit')
+    .map((a) => toRef(graph, a.id));
+}
+
 /**
  * React 훅 — 전역 피드 + 이 변전소 staged 오버레이로 TraceGraph 를 만든다.
  * React Query 가 fetch 를 dedupe. 이 변전소 staged 변경(overlay 슬라이스)을 구독해 재계산.

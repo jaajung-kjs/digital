@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { SlimAssetDTO } from '../../trace/traceGraph';
+import type { AssetRef } from '../../trace/traceGraph';
 
 interface Props {
   anchorRect: DOMRect;
-  peerOfds: SlimAssetDTO[];
+  peerOfds: AssetRef[];
   initialCores?: number;
-  onPick: (peer: SlimAssetDTO, cores: number) => void;
+  onPick: (peer: AssetRef, cores: number) => void;
   onCancel: () => void;
 }
 
