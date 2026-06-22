@@ -7,17 +7,12 @@ export interface SlotCoreRow {
   occupied: boolean;
   nearAssetId: string | null; // slot 반대편(이 변전소 설비)
   farName: string | null;     // 대국측 설비 이름(trace 투영)
-  purpose: string | null;
-  circuitText: string | null;
-  spliceType: string | null;
-  usageOverride: string | null;
-  usage: '사용' | '미사용';
   // 선번장 측정/점검 필드 (cable.specParams). 값 없으면 null.
   loss1310: string | null;
   dist1310: string | null;
   loss1550: string | null;
   dist1550: string | null;
-  inspectResult: string | null;
+  inspectDate: string | null;
 }
 
 interface SlotLike { id: string; name?: string; parentAssetId?: string | null }
@@ -51,7 +46,6 @@ export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], grap
     if (c) {
       const sp = (c.specParams ?? {}) as Record<string, unknown>;
       const nearAssetId = other(c, slot.id);
-      const usageOverride = str(sp.usageOverride);
       const farIds = graph && nearAssetId ? traceRemoteEndpoints(nearAssetId, graph) : [];
       const farName = graph && nearAssetId
         ? (farIds.map((id) => graph.nameById.get(id) ?? id).join(', ') || null)
@@ -59,20 +53,15 @@ export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], grap
       rows.push({
         coreNumber: n, cableId: c.id, occupied: true,
         nearAssetId, farName,
-        purpose: str(sp.purpose), circuitText: str(sp.circuitText),
-        spliceType: str(sp.spliceType), usageOverride,
-        usage: (usageOverride as '사용' | '미사용' | null) ?? '사용',
         loss1310: str(sp.loss1310), dist1310: str(sp.dist1310),
         loss1550: str(sp.loss1550), dist1550: str(sp.dist1550),
-        inspectResult: str(sp.inspectResult),
+        inspectDate: str(sp.inspectDate),
       });
     } else {
       rows.push({
         coreNumber: n, cableId: null, occupied: false,
         nearAssetId: null, farName: null,
-        purpose: null, circuitText: null, spliceType: null, usageOverride: null,
-        usage: '미사용',
-        loss1310: null, dist1310: null, loss1550: null, dist1550: null, inspectResult: null,
+        loss1310: null, dist1310: null, loss1550: null, dist1550: null, inspectDate: null,
       });
     }
   }

@@ -165,7 +165,7 @@ const cableCategories: CableCategorySeed[] = [
         { key: 'dist1310', label: '거리1310(km)', inputType: 'number' },
         { key: 'loss1550', label: '손실1550(dB)', inputType: 'number' },
         { key: 'dist1550', label: '거리1550(km)', inputType: 'number' },
-        { key: 'inspectResult', label: '점검결과', inputType: 'select', options: ['적합', '부적합', '측정불가', '미측정'] },
+        { key: 'inspectDate', label: '마지막점검일', inputType: 'text' },
       ],
       format: '{connA}-{connB} {cores}C',
     },

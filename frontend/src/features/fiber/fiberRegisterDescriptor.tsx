@@ -27,7 +27,7 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     const graph = ctx.graph as TraceGraph | null;
     const rows = buildSlotCoreRows(slot as never, ctx.cables as never[], graph)
       .map((r): FiberRow => ({ ...r, __nameById: graph?.nameById, __slot: slot as unknown as Asset }));
-    const used = rows.filter((r) => r.usage === '사용').length;
+    const used = rows.filter((r) => r.occupied).length;
     const title = (graph ? fiberSlotLabel(slot.id, graph) : '') || (slot.name ?? '광경로');
     return {
       key: slot.id,
@@ -120,23 +120,16 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
       ),
     },
     {
-      label: '점검결과',
-      width: 'w-28',
-      sortKey: (r) => r.inspectResult,
+      label: '마지막점검일',
+      width: 'w-32',
+      sortKey: (r) => r.inspectDate,
       cell: (r) => (
         <EditableField
-          value={r.inspectResult ?? ''}
-          type="select"
-          ariaLabel="점검결과"
+          value={r.inspectDate ?? ''}
+          type="date"
+          ariaLabel="마지막점검일"
           disabled={!r.cableId}
-          options={[
-            { value: '', label: '—' },
-            { value: '적합', label: '적합' },
-            { value: '부적합', label: '부적합' },
-            { value: '측정불가', label: '측정불가' },
-            { value: '미측정', label: '미측정' },
-          ]}
-          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'inspectResult', v || null)}
+          onCommit={(v) => r.cableId && commitMeta(r.cableId, 'inspectDate', v || null)}
         />
       ),
     },

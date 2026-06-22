@@ -68,14 +68,12 @@ vi.mock('../slotRegister', async (importOriginal) => ({
     {
       coreNumber: 1, cableId: null, occupied: false,
       nearAssetId: null, farName: null,
-      purpose: null, circuitText: null, spliceType: null, usageOverride: null,
-      usage: '미사용',
+      loss1310: null, dist1310: null, loss1550: null, dist1550: null, inspectDate: null,
     },
     {
       coreNumber: 2, cableId: 'c2', occupied: true,
       nearAssetId: 'a-near', farName: '홍천단말',
-      purpose: null, circuitText: null, spliceType: null, usageOverride: null,
-      usage: '사용',
+      loss1310: null, dist1310: null, loss1550: null, dist1550: null, inspectDate: null,
     },
   ],
 }));

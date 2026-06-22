@@ -8,13 +8,7 @@
   "targetRole": null,
   "number": 15,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치1링(신춘천-북춘천 패치)",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "북춘천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-guchuncheon-b2-16",
@@ -25,13 +19,7 @@
   "targetRole": null,
   "number": 16,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치1링(신춘천-북춘천 패치)",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "북춘천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-guchuncheon-b10-19",
@@ -42,13 +30,7 @@
   "targetRole": null,
   "number": 19,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "신춘천-북춘천 송변전광단말 #1링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "신춘천 #1"
-  }
+  "specParams": {}
  },
  {
   "key": "core-guchuncheon-b10-20",
@@ -59,13 +41,7 @@
   "targetRole": null,
   "number": 20,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "신춘천-북춘천 송변전광단말 #1링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "신춘천 #1"
-  }
+  "specParams": {}
  },
  {
   "key": "core-guchuncheon-b10-23",
@@ -76,13 +52,7 @@
   "targetRole": null,
   "number": 23,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "신춘천-남춘천 송변전광단말 #2링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "신춘천 #1"
-  }
+  "specParams": {}
  },
  {
   "key": "core-guchuncheon-b10-24",
@@ -93,13 +63,7 @@
   "targetRole": null,
   "number": 24,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "신춘천-남춘천 송변전광단말 #2링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "신춘천 #1"
-  }
+  "specParams": {}
  },
  {
   "key": "core-guchuncheon-b11-8",
@@ -110,13 +74,7 @@
   "targetRole": null,
   "number": 8,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "인제-신춘천 송변전광단말장치 직할#1링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "신춘천 #2"
-  }
+  "specParams": {}
  },
  {
   "key": "core-guchuncheon-b11-9",
@@ -127,13 +85,7 @@
   "targetRole": null,
   "number": 9,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "인제-신춘천 송변전광단말장치 직할#1링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "신춘천 #2"
-  }
+  "specParams": {}
  },
  {
   "key": "core-sinchuncheon-b1-19",
@@ -144,13 +96,7 @@
   "targetRole": null,
   "number": 19,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "신춘천-북춘천 송변전광단말 #1링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "구춘천 #1"
-  }
+  "specParams": {}
  },
  {
   "key": "core-sinchuncheon-b1-20",
@@ -161,13 +107,7 @@
   "targetRole": null,
   "number": 20,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "신춘천-북춘천 송변전광단말 #1링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "구춘천 #1"
-  }
+  "specParams": {}
  },
  {
   "key": "core-sinchuncheon-b1-23",
@@ -178,13 +118,7 @@
   "targetRole": null,
   "number": 23,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "신춘천-남춘천 송변전광단말 #2링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "구춘천 #1"
-  }
+  "specParams": {}
  },
  {
   "key": "core-sinchuncheon-b1-24",
@@ -195,13 +129,7 @@
   "targetRole": null,
   "number": 24,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "신춘천-남춘천 송변전광단말 #2링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "구춘천 #1"
-  }
+  "specParams": {}
  },
  {
   "key": "core-sinchuncheon-b2-8",
@@ -212,13 +140,7 @@
   "targetRole": null,
   "number": 8,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "인제-신춘천 송변전광단말장치 직할#1링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "구춘천 #2"
-  }
+  "specParams": {}
  },
  {
   "key": "core-sinchuncheon-b2-9",
@@ -229,13 +151,7 @@
   "targetRole": null,
   "number": 9,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "인제-신춘천 송변전광단말장치 직할#1링 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "구춘천 #2"
-  }
+  "specParams": {}
  },
  {
   "key": "core-bukchuncheon-b1-15",
@@ -246,13 +162,7 @@
   "targetRole": null,
   "number": 15,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치1링(신춘천-북춘천 패치) EAST Tx",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "춘천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-bukchuncheon-b1-16",
@@ -263,13 +173,7 @@
   "targetRole": null,
   "number": 16,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치1링(신춘천-북춘천 패치) EAST Rx",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "춘천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-bukchuncheon-b3-1",
@@ -280,12 +184,7 @@
   "targetRole": null,
   "number": 1,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치#1링 북춘천-춘천HP WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "춘천H/P #2"
-  }
+  "specParams": {}
  },
  {
   "key": "core-bukchuncheon-b3-4",
@@ -296,12 +195,7 @@
   "targetRole": null,
   "number": 4,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치#1링 북춘천-춘천HP WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "춘천H/P #2"
-  }
+  "specParams": {}
  },
  {
   "key": "core-namchuncheon-b2-7",
@@ -312,12 +206,7 @@
   "targetRole": null,
   "number": 7,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송변전광단말 남춘천-열병합 WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "열병합S/Y"
-  }
+  "specParams": {}
  },
  {
   "key": "core-namchuncheon-b2-8",
@@ -328,12 +217,7 @@
   "targetRole": null,
   "number": 8,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송변전광단말 남춘천-열병합 WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "열병합S/Y"
-  }
+  "specParams": {}
  },
  {
   "key": "core-namchuncheon-b4-11",
@@ -344,13 +228,7 @@
   "targetRole": null,
   "number": 11,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송변전광단말 춘천#2링 서홍천-신춘천(패치)",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "열병합S/Y 비금속"
-  }
+  "specParams": {}
  },
  {
   "key": "core-namchuncheon-b4-12",
@@ -361,13 +239,7 @@
   "targetRole": null,
   "number": 12,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송변전광단말 춘천#2링 서홍천-신춘천(패치)",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "열병합S/Y 비금속"
-  }
+  "specParams": {}
  },
  {
   "key": "core-seohongcheon-b1-1",
@@ -378,12 +250,7 @@
   "targetRole": null,
   "number": 1,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송변전광단말 #2링 EAST Rx",
-   "usageOverride": "사용",
-   "peer": "열병합S/Y"
-  }
+  "specParams": {}
  },
  {
   "key": "core-seohongcheon-b1-2",
@@ -394,12 +261,7 @@
   "targetRole": null,
   "number": 2,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송변전광단말 #2링 EAST Tx",
-   "usageOverride": "사용",
-   "peer": "열병합S/Y"
-  }
+  "specParams": {}
  },
  {
   "key": "core-seohongcheon-b1-7",
@@ -410,12 +272,7 @@
   "targetRole": null,
   "number": 7,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#2링 서홍천-춘천 WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "열병합S/Y"
-  }
+  "specParams": {}
  },
  {
   "key": "core-seohongcheon-b1-8",
@@ -426,12 +283,7 @@
   "targetRole": null,
   "number": 8,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#2링 서홍천-춘천 WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "열병합S/Y"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yeolbyeonghap-b1-7",
@@ -442,12 +294,7 @@
   "targetRole": null,
   "number": 7,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 남춘천S/S-열병합 EAST(Rx)",
-   "usageOverride": "사용",
-   "peer": "남춘천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yeolbyeonghap-b1-8",
@@ -458,12 +305,7 @@
   "targetRole": null,
   "number": 8,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 남춘천S/S-열병합 EAST(Tx)",
-   "usageOverride": "사용",
-   "peer": "남춘천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yeolbyeonghap-b3-1",
@@ -474,12 +316,7 @@
   "targetRole": null,
   "number": 1,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송변전광단말 #2링 WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "서홍천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yeolbyeonghap-b3-2",
@@ -490,12 +327,7 @@
   "targetRole": null,
   "number": 2,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송변전광단말 #2링 WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "서홍천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yeolbyeonghap-b3-7",
@@ -506,12 +338,7 @@
   "targetRole": null,
   "number": 7,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#2링 서홍천-춘천 WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "서홍천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yeolbyeonghap-b3-8",
@@ -522,12 +349,7 @@
   "targetRole": null,
   "number": 8,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#2링 서홍천-춘천 WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "서홍천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yeolbyeonghap-b4-11",
@@ -538,13 +360,7 @@
   "targetRole": null,
   "number": 11,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#2링 서홍천-신춘천 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "남춘천S/S 비금속"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yeolbyeonghap-b4-12",
@@ -555,13 +371,7 @@
   "targetRole": null,
   "number": 12,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#2링 서홍천-신춘천 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "남춘천S/S 비금속"
-  }
+  "specParams": {}
  },
  {
   "key": "core-inje-b4-1",
@@ -572,12 +382,7 @@
   "targetRole": null,
   "number": 1,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 PTPU 인제S/S-양구S/S EAST",
-   "usageOverride": "사용",
-   "peer": "양구S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-inje-b4-2",
@@ -588,12 +393,7 @@
   "targetRole": null,
   "number": 2,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 PTPU 인제S/S-양구S/S WEST",
-   "usageOverride": "사용",
-   "peer": "양구S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-inje-b4-17",
@@ -604,12 +404,7 @@
   "targetRole": null,
   "number": 17,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#1링 양구S/S-인제S/S EAST(Tx)",
-   "usageOverride": "사용",
-   "peer": "양구S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-inje-b4-18",
@@ -620,12 +415,7 @@
   "targetRole": null,
   "number": 18,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#1링 양구S/S-인제S/S EAST(Rx)",
-   "usageOverride": "사용",
-   "peer": "양구S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yanggu-b1-17",
@@ -636,12 +426,7 @@
   "targetRole": null,
   "number": 17,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#1링 양구-인제 WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "인제S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yanggu-b1-18",
@@ -652,12 +437,7 @@
   "targetRole": null,
   "number": 18,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#1링 양구-인제 WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "인제S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yanggu-b3-1",
@@ -668,12 +448,7 @@
   "targetRole": null,
   "number": 1,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천H/P-양구 EAST(Tx)",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-yanggu-b3-2",
@@ -684,12 +459,7 @@
   "targetRole": null,
   "number": 2,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천H/P-양구 EAST(Rx)",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-cheorwon-b1-9",
@@ -700,12 +470,7 @@
   "targetRole": null,
   "number": 9,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천-철원 WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "화천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-cheorwon-b1-10",
@@ -716,12 +481,7 @@
   "targetRole": null,
   "number": 10,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천-철원 WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "화천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheon-b1-11",
@@ -732,12 +492,7 @@
   "targetRole": null,
   "number": 11,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천H/P-철원S/S EAST(Rx)",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheon-b1-12",
@@ -748,12 +503,7 @@
   "targetRole": null,
   "number": 12,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천H/P-철원S/S EAST(Tx)",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheon-b1-13",
@@ -764,13 +514,7 @@
   "targetRole": null,
   "number": 13,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 춘천H/P-화천 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheon-b1-14",
@@ -781,13 +525,7 @@
   "targetRole": null,
   "number": 14,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 춘천H/P-화천 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheon-b2-1",
@@ -798,13 +536,7 @@
   "targetRole": null,
   "number": 1,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 철원-화천H/P Tx 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "철원S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheon-b2-2",
@@ -815,13 +547,7 @@
   "targetRole": null,
   "number": 2,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 철원-화천H/P Rx 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "철원S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheon-b2-9",
@@ -832,12 +558,7 @@
   "targetRole": null,
   "number": 9,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천-철원 WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "철원S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheon-b2-10",
@@ -848,12 +569,7 @@
   "targetRole": null,
   "number": 10,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천-철원 WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "철원S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b1-5",
@@ -864,12 +580,7 @@
   "targetRole": null,
   "number": 5,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 가평연계링 춘천H/P-화천H/P WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "춘천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b1-6",
@@ -880,12 +591,7 @@
   "targetRole": null,
   "number": 6,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 가평연계링 춘천H/P-화천H/P WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "춘천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b1-9",
@@ -896,13 +602,7 @@
   "targetRole": null,
   "number": 9,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#1링 춘천H/P-화천 WEST 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "춘천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b1-10",
@@ -913,13 +613,7 @@
   "targetRole": null,
   "number": 10,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#1링 춘천H/P-화천 WEST 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "춘천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b1-11",
@@ -930,13 +624,7 @@
   "targetRole": null,
   "number": 11,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 가평링 춘천H/P 패치(화천H/P-가평S/S) EAST(Tx)",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "춘천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b1-12",
@@ -947,13 +635,7 @@
   "targetRole": null,
   "number": 12,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 가평링 춘천H/P 패치(화천H/P-가평S/S) EAST(Rx)",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "춘천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b2-11",
@@ -964,12 +646,7 @@
   "targetRole": null,
   "number": 11,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천H/P-철원S/S EAST(Rx)",
-   "usageOverride": "사용",
-   "peer": "화천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b2-12",
@@ -980,12 +657,7 @@
   "targetRole": null,
   "number": 12,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천H/P-철원S/S EAST(Tx)",
-   "usageOverride": "사용",
-   "peer": "화천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b2-13",
@@ -996,13 +668,7 @@
   "targetRole": null,
   "number": 13,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 춘천H/P-화천 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "화천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b2-14",
@@ -1013,13 +679,7 @@
   "targetRole": null,
   "number": 14,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 춘천H/P-화천 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "화천S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b3-1",
@@ -1030,12 +690,7 @@
   "targetRole": null,
   "number": 1,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천H/P-양구 WEST(Tx)",
-   "usageOverride": "사용",
-   "peer": "양구S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-hwacheonhp-b3-2",
@@ -1046,12 +701,7 @@
   "targetRole": null,
   "number": 2,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 화천H/P-양구 WEST(Rx)",
-   "usageOverride": "사용",
-   "peer": "양구S/S"
-  }
+  "specParams": {}
  },
  {
   "key": "core-chuncheonhp-b2-5",
@@ -1062,12 +712,7 @@
   "targetRole": null,
   "number": 5,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 가평연계링 춘천H/P-화천H/P EAST(Tx)",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-chuncheonhp-b2-6",
@@ -1078,12 +723,7 @@
   "targetRole": null,
   "number": 6,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 가평연계링 춘천H/P-화천H/P EAST(Rx)",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-chuncheonhp-b2-9",
@@ -1094,13 +734,7 @@
   "targetRole": null,
   "number": 9,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#1링 춘천H/P-화천 WEST 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-chuncheonhp-b2-10",
@@ -1111,13 +745,7 @@
   "targetRole": null,
   "number": 10,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 춘천#1링 춘천H/P-화천 WEST 패치",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-chuncheonhp-b2-11",
@@ -1128,13 +756,7 @@
   "targetRole": null,
   "number": 11,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 가평링 춘천H/P 패치(화천H/P-가평S/S) EAST(Tx)",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-chuncheonhp-b2-12",
@@ -1145,13 +767,7 @@
   "targetRole": null,
   "number": 12,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 가평링 춘천H/P 패치(화천H/P-가평S/S) EAST(Rx)",
-   "spliceType": "패치",
-   "usageOverride": "사용",
-   "peer": "화천H/P"
-  }
+  "specParams": {}
  },
  {
   "key": "core-chuncheonhp-b4-1",
@@ -1162,12 +778,7 @@
   "targetRole": null,
   "number": 1,
   "categoryCode": "CBL-OPJ",
-  "specParams": {
-   "purpose": "송광치",
-   "circuitText": "송광치 직할#1링 북춘천-춘천H/P EAST(Rx)",
-   "usageOverride": "사용",
-   "peer": "북춘천S/S (좌측 4열)"
-  }
+  "specParams": {}
  },
  {
   "key": "opgw-guchuncheon-bukchuncheon-1",
