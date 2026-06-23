@@ -138,7 +138,7 @@ const COLLECTIONS = {
   floors: floorDescriptor,
 };
 export type CollectionKey = keyof typeof COLLECTIONS;
-export const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
+const COLLECTION_KEYS = Object.keys(COLLECTIONS) as CollectionKey[];
 type AnyDescriptor = CollectionDescriptor<{ id: string; updatedAt?: string | null }>;
 
 /** 전 컬렉션 staged 변경 합계 — dirty 의 단일 소스(레지스트리 순회). store/hook/non-hook 모두 이걸 쓴다. */
@@ -227,6 +227,35 @@ function freshOverlays(saved: SavedCollections): Overlays {
  *
  * S 스코프 판정: 자산=substationId, 케이블=양 끝점 중 하나가 S 자산, 레코드=소속 자산(assetId)이 S.
  */
+/**
+ * saved 한 컬렉션을 incoming 으로 재조정하는 **단일 머지 primitive** — 전역 lite 피드와 변전소
+ * detail 로드가 같은 규칙을 공유한다(과거 reconcileLiteRows / mergeSavedById 이원화 제거).
+ *  - inScope(r) 인데 incoming 에 없음 = 서버에서 삭제됨 → 드롭.
+ *  - inScope 밖 = 보존(다른 변전소 등 incoming 권위 밖).
+ *  - incoming 권위로 추가/갱신. 단 incoming 이 **lite**(updatedAt 없음)이고 기존이 **detail**(updatedAt
+ *    보유)이면 기존 detail 을 보존 — lite 피드가 위치·상태 등 detail 필드를 비우지 않게.
+ */
+function reconcileRows<T extends { id: string; updatedAt?: string | null }>(
+  prev: T[],
+  incoming: T[],
+  idOf: (r: T) => string,
+  inScope: (r: T) => boolean,
+): T[] {
+  const incomingById = new Map(incoming.map((r) => [idOf(r), r] as const));
+  const prevById = new Map(prev.map((r) => [idOf(r), r] as const));
+  const out: T[] = [];
+  for (const r of prev) {
+    if (incomingById.has(idOf(r))) continue; // incoming 권위 → 아래서 추가
+    if (inScope(r)) continue;                // 스코프 안인데 incoming 에 없음 = 삭제 → 드롭
+    out.push(r);                             // 스코프 밖 → 보존
+  }
+  for (const r of incoming) {
+    const ex = prevById.get(idOf(r));
+    out.push(ex?.updatedAt && !r.updatedAt ? ex : r); // detail 보존(incoming 이 lite 일 때만)
+  }
+  return out;
+}
+
 function mergeSavedById(
   prev: SavedCollections,
   incoming: SavedCollections,
@@ -253,17 +282,7 @@ function mergeSavedById(
   const out: Record<string, unknown> = {};
   for (const key of COLLECTION_KEYS) {
     const desc = COLLECTIONS[key] as unknown as AnyDescriptor;
-    const incomingById = new Map<string, { id: string }>();
-    for (const r of incoming[key] as { id: string }[]) incomingById.set(desc.idOf(r as never), r);
-    const byId = new Map<string, { id: string }>();
-    for (const r of prev[key] as { id: string }[]) {
-      const id = desc.idOf(r as never);
-      if (incomingById.has(id)) continue;       // incoming 이 권위 — 아래에서 일괄 추가
-      if (inScope(key, r)) continue;            // S 스코프인데 incoming 에 없음 = 삭제 → 드롭
-      byId.set(id, r);                          // 타 변전소 → 보존
-    }
-    for (const [id, r] of incomingById) byId.set(id, r); // incoming 권위(추가/갱신)
-    out[key] = [...byId.values()];
+    out[key] = reconcileRows(prev[key] as { id: string }[], incoming[key] as { id: string }[], (r) => desc.idOf(r as never), (r) => inScope(key, r));
   }
   return out as unknown as SavedCollections;
 }
@@ -280,35 +299,18 @@ function addBaseVersions(overlays: Overlays, incoming: SavedCollections): Overla
   return out as unknown as Overlays;
 }
 
-/**
- * lite 행 병합: 신규 id 는 추가, 기존 id 는 detail(updatedAt 비어있지 않음) 보존(lite 가 안 덮음),
- * 기존이 lite 면 새 lite 로 갱신. saved 의 자산/케이블 둘 다 사용(둘 다 updatedAt 보유).
- */
-/**
- * 전역 피드(커밋 권위)로 saved 를 **재조정(거울)**: 결과는 피드에 있는 id 만 유지한다.
- * - 피드에 없는 id(서버에서 삭제됨)는 제거 → 커밋 삭제가 새로고침 없이 반영(가산 전용 버그 방지).
- * - 피드에 있는 id 중 기존 detail 행(updatedAt 보유)은 보존, 나머지는 피드 lite 행 사용.
- * saved 의 커밋 행은 항상 전역 피드의 부분집합이어야 한다는 불변식을 강제한다.
- */
-function reconcileLiteRows<T extends { id: string; updatedAt?: string | null }>(prev: T[], incoming: T[]): T[] {
-  const prevById = new Map(prev.map((r) => [r.id, r]));
-  return incoming.map((row) => {
-    const existing = prevById.get(row.id);
-    return existing && existing.updatedAt ? existing : row; // detail 보존, 그 외 피드 행
-  });
-}
-
 export interface SubstationWorkingCopyState {
   substationId: string | null;
   saved: SavedCollections;
   overlays: Overlays;
 
   // ── lifecycle ──
+  /** 변전소 saved/baseVersions 를 서버에서 재로드(전역 누적, staged overlay 보존). 커밋 후·409 후 재조정 공용. */
   load: (substationId: string) => Promise<void>;
+  /** 변전소 detail 만 saved 에 병합(substationId 불변). 커밋 후 비-열린 변전소 detail 동기화용. */
+  syncSubData: (substationId: string) => Promise<void>;
   /** 조직트리 전체(평면)를 전역 saved 로 1회 로드. per-substation load 와 독립. staged org overlay 는 보존. */
   loadOrgTree: () => Promise<void>;
-  /** 409 후 재로드: saved/baseVersions 만 최신화하고 staged overlay 는 보존. */
-  refreshBaseVersions: (substationId: string) => Promise<void>;
   revert: () => void;
   /** 전역 워킹카피 전체 초기화(로그아웃/전환 등) — saved·overlay·undo 히스토리 모두 비움. */
   reset: () => void;
@@ -397,6 +399,21 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         t.resume();
       },
 
+      syncSubData: async (substationId) => {
+        // 커밋 후 detail 캐시 동기화 — 변전소 detail 만 saved 에 병합한다. `load` 와 달리 store
+        // substationId(=열린 변전소)는 건드리지 않으므로, 교차 변전소 편집 시 비-열린 변전소의
+        // detail(트레이스/토폴로지가 읽는 이름·필드 포함)을 stale 없이 갱신할 수 있다.
+        const { data } = await api.get(`/substations/${substationId}/workingcopy`);
+        const incoming = buildSaved(data.data);
+        const t = useSubstationWorkingCopy.temporal.getState();
+        t.pause();
+        set((s) => ({
+          saved: mergeSavedById(s.saved, incoming, substationId),
+          overlays: addBaseVersions(s.overlays, incoming),
+        }));
+        t.resume();
+      },
+
       loadOrgTree: async () => {
         const t = await organizationApi.getTree();
         // 조직 saved 를 권위로 교체하고, 조직 overlay 의 baseVersions 만 새 행으로 갱신한다.
@@ -430,22 +447,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           };
         });
         tt.resume();
-      },
-
-      refreshBaseVersions: async (substationId) => {
-        const seq = ++loadSeq;
-        const { data } = await api.get(`/substations/${substationId}/workingcopy`);
-        if (seq !== loadSeq) return; // 더 최신 load/refresh 가 시작됨 → 폐기
-        const incoming = buildSaved(data.data);
-        // 409 후: staged overlay 는 보존하고, 이 변전소 saved/baseVersions 만 최신으로 병합(전역 누적).
-        const t = useSubstationWorkingCopy.temporal.getState();
-        t.pause();
-        set((s) => ({
-          substationId,
-          saved: mergeSavedById(s.saved, incoming, substationId),
-          overlays: addBaseVersions(s.overlays, incoming),
-        }));
-        t.resume();
       },
 
       revert: () => set((s) => ({ overlays: freshOverlays(s.saved) })),
@@ -493,8 +494,9 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set((s) => ({
           saved: {
             ...s.saved,
-            assets: reconcileLiteRows(s.saved.assets, assets.map(slimToAsset)),
-            cables: reconcileLiteRows(s.saved.cables, cables.map(slimCableToCable)),
+            // 전역 lite 피드는 전체 거울(모든 변전소) → inScope=all: 피드에 없는 id 는 삭제로 드롭.
+            assets: reconcileRows(s.saved.assets, assets.map(slimToAsset), assetDescriptor.idOf, () => true),
+            cables: reconcileRows(s.saved.cables, cables.map(slimCableToCable), cableDescriptor.idOf, () => true),
           },
         }));
         t.resume();

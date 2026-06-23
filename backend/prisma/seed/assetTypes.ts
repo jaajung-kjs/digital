@@ -91,7 +91,6 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
       ...ASSET_LIFECYCLE,
     ] },
   { code: 'CHARGER', name: '충전기', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 70,
-    connectionKind: 'distributor',
     fieldTemplate: [
       { key: 'spec', label: '규격', type: 'text' },
       { key: 'formType', label: '형식', type: 'text' },
@@ -101,7 +100,6 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
       ...ASSET_LIFECYCLE,
     ] },
   { code: 'UPS', name: 'UPS', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 80,
-    connectionKind: 'distributor',
     fieldTemplate: [{ key: 'spec', label: '규격', type: 'text' }, ...ASSET_LIFECYCLE] },
   { code: 'BATTERY', name: '축전지', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 90,
     fieldTemplate: [{ key: 'spec', label: '규격', type: 'text' }, ...ASSET_LIFECYCLE] },

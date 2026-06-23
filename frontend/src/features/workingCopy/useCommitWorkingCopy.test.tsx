@@ -146,8 +146,6 @@ describe('useCommitWorkingCopy', () => {
     expect(res.ok).toBe(true);
     // 종전 early-return 회귀 방지: 반드시 commit 이 호출돼야 한다(noop·손실 금지).
     expect(commitSubstation).toHaveBeenCalledTimes(1);
-    // substationId 가 없으면 '' 로 전역 커밋(backend commitGlobal).
-    expect(vi.mocked(commitSubstation).mock.calls[0][0]).toBe('');
     // 변전소-스코프 load 는 스킵, org 트리는 재로드.
     expect(storeStubs.load).not.toHaveBeenCalled();
     expect(storeStubs.revert).toHaveBeenCalled();

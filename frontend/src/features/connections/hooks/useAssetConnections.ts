@@ -1,9 +1,4 @@
-import { useMemo } from 'react';
-import { useEffectiveAssets } from '../../workingCopy/hooks';
-import { useTraceGraph } from '../../trace/traceGraph';
-import { useCableCategories } from '../../cables/hooks/useCableCategories';
 import { CABLE_TYPE_DISPLAY_GROUP, CABLE_DISPLAY_GROUP_COLORS } from '../../../types/cableCategory';
-import { buildConnectionDiagram, type DiagramGroup } from '../connectionDiagram';
 import type { CableCategory } from '../../../types/cableCategory';
 
 // ── Category group helper ─────────────────────────────────────────────────────
@@ -16,7 +11,7 @@ export interface CategoryGroup {
 
 /**
  * categoryId → CategoryGroup. Falls back to cableType if no category matched,
- * then '기타'.
+ * then '기타'. 연결탭 케이블 명세(cableRegister)의 종류별 섹션 그룹핑에 쓰인다.
  */
 export function makeCategoryGroupOf(categories: CableCategory[]): (cable: { categoryId?: string | null; cableType?: string | null; displayColor?: string | null }) => CategoryGroup {
   const catById = new Map(categories.map((c) => [c.id, c]));
@@ -36,24 +31,4 @@ export function makeCategoryGroupOf(categories: CableCategory[]): (cable: { cate
     const fallback = cable.cableType ?? '기타';
     return { key: fallback, label: fallback, color: cable.displayColor ?? null };
   };
-}
-
-// ── React hook ────────────────────────────────────────────────────────────────
-
-/**
- * Derives an asset's (and its contained sub-assets') cable connections as
- * grouped diagram trees (`buildConnectionDiagram`). 그룹 = 케이블 종류, 컴포넌트 =
- * 연결 트리. 트리 클릭 시 setSelectedComponent(자산, core, seed cableId)로 선택을 갱신하면,
- * 선택에서 파생되는 하이라이트(useSelectionHighlight)가 그 경로 전체를 칠한다.
- */
-export function useAssetDiagram(assetId: string): { groups: DiagramGroup[]; isLoading: boolean } {
-  const assets = useEffectiveAssets();
-  const { graph, isLoading: graphLoading } = useTraceGraph();
-  const { data: categories, isLoading: catLoading } = useCableCategories();
-  return useMemo(() => {
-    const isLoading = graphLoading || catLoading;
-    if (!graph || !categories) return { groups: [], isLoading };
-    const categoryGroupOf = makeCategoryGroupOf(categories);
-    return { groups: buildConnectionDiagram({ graph, assets, assetId, categoryGroupOf }), isLoading };
-  }, [assets, graph, categories, assetId, graphLoading, catLoading]);
 }

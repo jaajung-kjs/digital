@@ -41,6 +41,10 @@ export interface TraceCableInput {
   categoryName?: string | null;
   categoryId?: string | null;
   displayColor?: string | null;
+  // 케이블 일반 속성(CableInspector 편집 대상) — 슬림 피드가 날라야 저장 후에도 값이 보인다.
+  label?: string | null;
+  description?: string | null;
+  color?: string | null;
 }
 
 export interface TraceGraph {

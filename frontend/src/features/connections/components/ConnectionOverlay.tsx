@@ -23,6 +23,7 @@ function cableMatchesFilter(
 }
 import {
   renderConnections,
+  pathOf,
   type RenderableConnection,
   type ConnectionRenderContext,
 } from '../../editor/renderers/connectionRenderer';
@@ -133,22 +134,18 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
     );
   }, [cables, endpointPositions, connectionFilters]);
 
-  // Build hit-test entries from connection identity only (not viewport-dependent)
-  const hitTestEntries = useMemo(() => {
-    const all = cables ? mapCablesToRenderable(cables, endpointPositions) : [];
-    // null = filters not yet initialized → include all for hit testing
-    if (connectionFilters === null) {
-      return all
-        .filter((c) => c.id && c.pathPoints && c.pathPoints.length >= 2)
-        .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
-    }
-    return all
-      .filter((c) =>
-        cableMatchesFilter(c.materialCategoryCode, connectionFilters)
-        && c.id && c.pathPoints && c.pathPoints.length >= 2
-      )
-      .map((c) => ({ id: c.id!, pathPoints: c.pathPoints! }));
-  }, [cables, endpointPositions, connectionFilters]);
+  // Build hit-test entries from the SAME set that gets rendered, using the SAME
+  // path resolver (pathOf). 핵심: pathPoints 가 없는 케이블(시드/선번장 생성 = 순수 연결)도
+  // 렌더러처럼 source→target 직선으로 점유 경로를 잡아 클릭 가능해진다.
+  // 직선 폴백은 두 끝점이 같은 좌표로 해소되면 길이 0(클릭 불가)이지만, 그건 렌더에서도
+  // 점 하나로 그려지는 동일 케이스라 별도 처리하지 않는다.
+  const hitTestEntries = useMemo(
+    () =>
+      renderableConnections
+        .filter((c) => c.id)
+        .map((c) => ({ id: c.id!, pathPoints: pathOf(c) })),
+    [renderableConnections],
+  );
 
   // Populate cable hit test store for useCanvasEvents.
   // NB: useCableHitTestStore 의 setter 는 영속 컬렉션이 아니라 viewport hit-test
@@ -184,19 +181,14 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       const emphasizedWithHighlight = emphasized.map((c) => ({ ...c, highlighted: true }));
       renderConnections(context, emphasizedWithHighlight);
 
-      // Glow rects around highlighted equipment
+      // Glow rects around highlighted equipment. 하이라이트(연결 추적) 중에는 편집 chrome(선택
+      // 외곽선·핸들)을 메인 캔버스가 끄므로(useCanvas), 선택 자산도 동일하게 글로우한다 — 선택
+      // 자산만 하이라이트 안 보이던 문제 해결(navy 2겹 없음, 단일 글로우가 모든 하이라이트 노드에).
       const scale = zoom / 100;
-      // 선택 요소(자산) 는 메인 캔버스에서 이미 선택 styling/상세 글로우를 받는다.
-      // 오버레이에서 다시 글로우하면 navy 2겹이 되므로, 선택 자산이 해소되는 동일 앵커 노드는 건너뛴다.
-      const selectedAssetId = useSelectionStore.getState().selectedAssetId;
-      const assetsById = toMapById(effectiveAssets);
-      const selectedAnchorId = floorAnchor(selectedAssetId, assetsById)?.id ?? null;
       ctx.save();
       ctx.setTransform(scale, 0, 0, scale, panX, panY);
       for (const [nodeId, pos] of endpointPositions) {
         if (!highlightedNodeIds.has(nodeId)) continue;
-        // selected 요소가 해소되는 앵커와 같은 노드면 글로우 생략(메인 캔버스가 이미 강조).
-        if (selectedAnchorId && (floorAnchor(nodeId, assetsById)?.id ?? null) === selectedAnchorId) continue;
         ctx.shadowColor = SELECTION_STYLES.stroke;
         ctx.shadowBlur = 10;
         ctx.strokeStyle = SELECTION_STYLES.stroke;

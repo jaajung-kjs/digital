@@ -45,15 +45,15 @@ export function buildRouteCreate(p: {
   return { slots: [slotA, slotB], opgw };
 }
 
-/** 설비↔슬롯 OUT 코어 케이블. 슬롯 끝 = OUT. */
+/** 슬롯↔설비 OUT 코어 케이블. 규약: 슬롯=source(role OUT), 설비=target(role 없음) — 시드와 동일. */
 export function buildCoreOutCable(p: {
   id: string; equipmentId: string; slotId: string; coreNumber: number; category: CatRef;
   pathPoints: [number, number][] | null; pathLength: number | null; bufferLength: number; totalLength: number | null;
 }): CableCreate {
   return {
-    id: p.id, sourceAssetId: p.equipmentId, targetAssetId: p.slotId, cableType: 'FIBER',
+    id: p.id, sourceAssetId: p.slotId, targetAssetId: p.equipmentId, cableType: 'FIBER',
     categoryId: p.category.id, categoryCode: p.category.code, categoryName: p.category.name,
-    displayColor: p.category.displayColor, sourceRole: null, targetRole: 'OUT', number: p.coreNumber,
+    displayColor: p.category.displayColor, sourceRole: 'OUT', targetRole: null, number: p.coreNumber,
     specParams: {}, specification: p.category.name,
     pathPoints: p.pathPoints, pathLength: p.pathLength, bufferLength: p.bufferLength, totalLength: p.totalLength,
   };

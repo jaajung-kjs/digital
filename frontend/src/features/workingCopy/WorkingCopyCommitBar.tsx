@@ -75,7 +75,7 @@ export function WorkingCopyCommitBar() {
             const wc = useSubstationWorkingCopy.getState();
             // 변전소가 열려 있으면 그 변전소 saved/baseVersions 재조정. 조직(본부/지사/변전소/층)
             // base version 은 loadOrgTree 가 갱신 — org-only 충돌도 이 경로로 풀린다.
-            if (wc.substationId) await wc.refreshBaseVersions(wc.substationId);
+            if (wc.substationId) await wc.load(wc.substationId);
             await wc.loadOrgTree();
             // 엔티티 baseVersions 만으론 floor 섹션 409 가 풀리지 않는다 — 활성 층의
             // floorPlan 쿼리도 무효화해 baseFloorVersion 을 fresh updatedAt 으로 재동기화.

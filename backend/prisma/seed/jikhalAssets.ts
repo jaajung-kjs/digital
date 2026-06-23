@@ -47,7 +47,6 @@ export async function seedJikhalAssets(prisma: PrismaClient, adminId: string, br
   const typeId = new Map((await prisma.assetType.findMany({ select: { id: true, code: true } })).map((t) => [t.code, t.id]));
   const catId = new Map((await prisma.cableCategory.findMany({ select: { id: true, code: true } })).map((c) => [c.code, c.id]));
   const isExternal = new Map(subs.map((s) => [s.key, s.isExternal]));
-  const subOf = new Map(assets.map((a) => [a.key, a.subKey]));
 
   for (let i = 0; i < subs.length; i++) {
     const s = subs[i];
@@ -83,7 +82,6 @@ export async function seedJikhalAssets(prisma: PrismaClient, adminId: string, br
         cableType: 'FIBER', categoryId: catId.get(c.categoryCode) ?? null,
         sourceRole: c.sourceRole, targetRole: c.targetRole, number: c.number,
         specParams: c.specParams,
-        substationId: c.kind === 'OPGW' ? null : juuid(T.sub, subOf.get(c.sourceKey)!),
       },
     });
   }

@@ -73,7 +73,9 @@ export function buildFeederInput(feeder: { id: string }, cables: Cable[], nameBy
     sourceAssetId: src,
     sourceName: src ? (nameById.get(src) ?? null) : null,
     capacity: asStr(sp.capacity),
-    switchState: asStr(sp.switchState),
+    // 개폐(CB) 상태 기본값 = ON. 자산 status(null→ON) 규약과 동일 — 미설정(새 연결 포함)은 ON 으로 보고
+    // 명시적 'OFF' 만 차단으로 표시. "케이블 연결 = 기본 통전(ON)".
+    switchState: asStr(sp.switchState) || 'ON',
     spec: asStr(c.categoryName),
     categoryId: c.categoryId ?? null,
   };

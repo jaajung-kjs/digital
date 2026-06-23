@@ -1,35 +1,42 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
-const { prepareTopology } = vi.hoisted(() => ({
-  prepareTopology: vi.fn(),
-}));
 const { setSelectedComponent, selection } = vi.hoisted(() => ({
   setSelectedComponent: vi.fn(),
   selection: { selectedAssetId: null as string | null, selectedCore: null as number | null, selectedCableId: null as string | null },
 }));
 
-const node = (label: string, children: unknown[] = []) =>
-  ({ id: label, label, kind: 'asset', isSelf: false, isOrigin: false, edgeFiber: false, children });
-const groups = [{
-  key: '전원', label: '전원', color: '#ef4444',
-  components: [{ seedCableId: 'c1', cableIds: ['c1'], nodeIds: ['chg', 't1'], core: 3, root: node('충전기', [node('단말1')]) }],
-}];
+// 명세 리스트는 effective assets + trace graph + 카테고리에서 파생.
+const assets = [
+  { id: 'dev', name: '송변전광단말', parentAssetId: null, assetType: { code: null, placementKind: null, connectionKind: null } },
+  { id: 'slot', name: 'OFD슬롯3', parentAssetId: 'ofd', assetType: { code: null, placementKind: null, connectionKind: 'conduit' } },
+];
+const cables = [
+  { id: 'core1', sourceAssetId: 'slot', targetAssetId: 'dev', sourceRole: 'OUT', targetRole: null, number: 1, categoryId: 'c-fiber', cableType: 'FIBER' },
+];
 
-vi.mock('../hooks/useAssetConnections', () => ({
-  useAssetDiagram: () => ({ groups, isLoading: false }),
-}));
-
+vi.mock('../../workingCopy/hooks', () => ({ useEffectiveAssets: () => assets }));
 vi.mock('../../trace/traceGraph', () => ({
-  useTraceGraph: () => ({ graph: { cables: [{ id: 'c1', sourceAssetId: 'R', targetAssetId: 't1', sourceRole: 'OUT', targetRole: null, number: 3 }] }, isLoading: false }),
+  useTraceGraph: () => ({
+    graph: {
+      cables,
+      assets,
+      nameById: new Map(assets.map((a) => [a.id, a.name])),
+      subNameById: new Map(), subById: new Map(),
+      parentById: new Map(assets.map((a) => [a.id, a.parentAssetId])),
+      kindById: new Map(), codeById: new Map(), placementKindById: new Map(), slotIndexById: new Map(),
+    },
+    isLoading: false,
+  }),
+  remoteSlotSubstation: () => null,
 }));
-
-vi.mock('../../pathTrace/stores/pathHighlightStore', () => {
-  const st = { prepareTopology, tracingCableId: null };
-  const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
-  (hook as unknown as { getState: () => unknown }).getState = () => st;
-  return { usePathHighlightStore: hook };
-});
+vi.mock('../../cables/hooks/useCableCategories', () => ({
+  useCableCategories: () => ({ data: [{ id: 'c-fiber', code: 'OPJ', name: '광점퍼', displayColor: '#a78bfa', displayGroup: '광', isActive: true }] }),
+}));
+// CableInspector 는 별도 단위 — 여기선 리스트/선택만 검증하므로 스텁.
+vi.mock('../../cables/components/CableInspector', () => ({
+  CableInspector: ({ cableId }: { cableId: string }) => <div data-testid="cable-inspector">{cableId}</div>,
+}));
 
 vi.mock('../../workspace/selectionStore', () => {
   const st = {
@@ -37,6 +44,8 @@ vi.mock('../../workspace/selectionStore', () => {
     get selectedCore() { return selection.selectedCore; },
     get selectedCableId() { return selection.selectedCableId; },
     setSelectedComponent,
+    setSelectedAssetId: vi.fn(),
+    setSelected: vi.fn(),
   };
   const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
@@ -46,32 +55,27 @@ vi.mock('../../workspace/selectionStore', () => {
 import { AssetConnectionsTab } from './AssetConnectionsTab';
 
 beforeEach(() => {
-  prepareTopology.mockClear();
   setSelectedComponent.mockClear();
   selection.selectedAssetId = null; selection.selectedCore = null; selection.selectedCableId = null;
 });
 
-describe('AssetConnectionsTab', () => {
-  it('종류 그룹 + 트리 렌더', () => {
-    render(<AssetConnectionsTab assetId="R" />);
-    expect(screen.getByText('전원')).toBeInTheDocument();
-    expect(screen.getByText('충전기')).toBeInTheDocument();
-    expect(screen.getByText('단말1')).toBeInTheDocument();
+describe('AssetConnectionsTab (케이블 명세 리스트)', () => {
+  it('종류 섹션 + 케이블 행 렌더(from→to)', () => {
+    render(<AssetConnectionsTab assetId="dev" />);
+    expect(screen.getByText('광')).toBeInTheDocument(); // 섹션 라벨 = 카테고리 displayGroup
+    // dev 관점 → self(송변전광단말) 가 먼저. 행 접근명 = "송변전광단말 → OFD슬롯3 …"
+    expect(screen.getByRole('button', { name: /송변전광단말.*OFD슬롯3/ })).toBeInTheDocument();
   });
-  it('트리 클릭 → setSelectedComponent(assetId, core, seedCableId)', () => {
-    render(<AssetConnectionsTab assetId="R" />);
-    fireEvent.click(screen.getByText('충전기'));
-    expect(setSelectedComponent).toHaveBeenCalledWith('R', 3, 'c1');
+
+  it('행 클릭 → setSelectedComponent(assetId, number, cableId)', () => {
+    render(<AssetConnectionsTab assetId="dev" />);
+    fireEvent.click(screen.getByRole('button', { name: /송변전광단말.*OFD슬롯3/ }));
+    expect(setSelectedComponent).toHaveBeenCalledWith('dev', 1, 'core1');
   });
-  it('상세 클릭 → prepareTopology(seedCableId)', () => {
-    render(<AssetConnectionsTab assetId="R" />);
-    fireEvent.click(screen.getByRole('button', { name: '상세' }));
-    expect(prepareTopology).toHaveBeenCalledWith('c1');
-  });
-  it('선택된 컴포넌트가 active 표시(하이라이트와 동일 규칙) — 시드 앵커', () => {
-    selection.selectedAssetId = 'R'; selection.selectedCore = 3; selection.selectedCableId = 'c1';
-    const { container } = render(<AssetConnectionsTab assetId="R" />);
-    // active 행은 bg-info-bg/40 클래스를 갖는다
-    expect(container.querySelector('.bg-info-bg\\/40')).not.toBeNull();
+
+  it('selectedCableId 일치 시 하단 선택 카드(CableInspector) 노출', () => {
+    selection.selectedCableId = 'core1';
+    render(<AssetConnectionsTab assetId="dev" />);
+    expect(screen.getByTestId('cable-inspector')).toHaveTextContent('core1');
   });
 });

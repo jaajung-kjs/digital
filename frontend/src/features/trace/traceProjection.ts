@@ -1,8 +1,9 @@
 import { cableTrace } from './cableTrace';
 import type { TraceGraph } from './traceGraph';
 import { isOfd } from '../workingCopy/assetClassify';
-import { isOpgwTwin } from '../cables/cableEndpoint';
+import { isOpgwTwin, roleAt, other } from '../cables/cableEndpoint';
 import { detectRings } from '../../utils/graph/cycleDetection';
+import { buildInternalPath } from '../connections/internalPath';
 import type { TraceNode, TraceEdge, TraceRing } from '../pathTrace/types';
 
 /** 그래프 노드의 OFD 판정 — 정식 분류(code 또는 placementKind), 스테이징 OFD 포함. */
@@ -16,6 +17,7 @@ export interface TraceTreeNode {
   label: string;
   isEndpoint: boolean;   // 루트(출발) 또는 말단(leaf)
   isFiberEdge: boolean;  // 부모→이 노드 들어오는 엣지가 OPGW(IN-IN)
+  cableId: string | null; // 부모→이 노드 들어오는 케이블 id (선택 케이블 위치 강조용). 루트=null
   children: TraceTreeNode[];
 }
 export interface TraceProjection {
@@ -27,6 +29,8 @@ export interface TraceProjection {
   nodes: TraceNode[];
   edges: TraceEdge[];
   rings: TraceRing[];
+  /** 변전소별 내부경로 트리(설비 말단→슬롯, 내부경로 드릴다운과 동일 순서) — 토폴로지 노드 표시용. */
+  internalTrees: { substationName: string; tree: TraceTreeNode }[];
   seedFiberEdgeId: string | null;
   truncated: boolean;
 }
@@ -158,12 +162,63 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   }
   const rings = detectRings(adjacency, edgeMap, nodeById);
 
-  const steps = buildSteps(start, trNodeIds, tracedCables, graph, collapse);
-  const tree = buildTree(start, trNodeIds, tracedCables, graph, collapse);
+  // ── 표시 루트(steps/tree 전용 — 토폴로지 nodes/edges 와 무관) ──
+  // 공급 원점부터 그리기 위해, 역할(IN/OUT)로 공급 경계 노드를 찾고 그 위 역할없는 passive
+  // 체인을 따라 실제 말단(예: 축전지)까지 올라가 루트로 삼는다. 원점 없으면(순수 광) start(내 설비) 유지.
+  const inSet = new Set(trNodeIds);
+  const touch = new Map<string, CableLike[]>();
+  for (const c of tracedCables) for (const a of [c.sourceAssetId, c.targetAssetId]) {
+    if (a && inSet.has(a)) { const arr = touch.get(a); if (arr) arr.push(c); else touch.set(a, [c]); }
+  }
+  const isSupplierAt = (c: CableLike, n: string) => { const r = roleAt(c, n); if (r === 'OUT') return true; if (r === 'IN') return false; const o = other(c, n); return !!o && roleAt(c, o) === 'IN'; };
+  const isSuppliedAt = (c: CableLike, n: string) => { const r = roleAt(c, n); if (r === 'IN') return true; if (r === 'OUT') return false; const o = other(c, n); return !!o && roleAt(c, o) === 'OUT'; };
+  let rootId = start;
+  const originNode = [...inSet].sort().find((n) => {
+    const list = touch.get(n) ?? [];
+    return list.some((c) => isSupplierAt(c, n)) && !list.some((c) => isSuppliedAt(c, n));
+  });
+  if (originNode) {
+    let cur = originNode; const seen = new Set([cur]);
+    for (;;) {
+      const nexts = (touch.get(cur) ?? [])
+        .filter((c) => { const o = other(c, cur); return !!o && roleAt(c, cur) == null && roleAt(c, o) == null && inSet.has(o) && !seen.has(o); })
+        .map((c) => other(c, cur) as string);
+      if (nexts.length !== 1) break;
+      cur = nexts[0]; seen.add(cur);
+    }
+    rootId = cur;
+  }
+
+  const steps = buildSteps(rootId, trNodeIds, tracedCables, graph, collapse);
+  const tree = buildTree(rootId, trNodeIds, tracedCables, graph, collapse);
+
+  // ── 변전소별 내부경로 트리 — 토폴로지 노드가 내부경로 드릴다운과 동일하게 순서로(광스위치→설비→슬롯). ──
+  // 변전소 안 내부 케이블(OPGW 아님) 하나를 시드로 buildInternalPath 재사용. 같은 단위 = 같은 표시.
+  const internalSeedBySub = new Map<string, { subId: string; subName: string; cableId: string }>();
+  for (const c of tracedCables) {
+    if (isOpgwTwin(c)) continue; // OPGW 는 변전소 간(외부) — 내부 시드 아님
+    const a = c.sourceAssetId ?? c.targetAssetId;
+    const subId = a ? graph.subById.get(a) : undefined;
+    if (!subId || internalSeedBySub.has(subId)) continue;
+    internalSeedBySub.set(subId, { subId, subName: (a && graph.subNameById.get(a)) || '', cableId: c.id });
+  }
+  // 토폴로지 노드는 설비 체인(광스위치→송변전광단말)까지만 — 경로슬롯(conduit) 잎은 잘라낸다.
+  // 박스 안에 있다는 것 자체가 그 슬롯으로 이어짐을 암시하므로, 긴 슬롯명으로 노드가 가로로 늘어나지 않게.
+  const dropConduitLeaves = (n: TraceTreeNode): TraceTreeNode => {
+    const children = n.children.filter((c) => kindOf(c.id) !== 'conduit').map(dropConduitLeaves);
+    return { ...n, children, isEndpoint: children.length === 0 };
+  };
+  const internalTrees = [...internalSeedBySub.values()]
+    .map(({ subId, subName, cableId }) => {
+      const r = buildInternalPath(cableId, subId, graph);
+      if (!r || kindOf(r.tree.id) === 'conduit') return null; // 루트가 슬롯뿐이면 표시 생략(폴백)
+      return { substationName: subName, tree: dropConduitLeaves(r.tree) };
+    })
+    .filter((x): x is { substationName: string; tree: TraceTreeNode } => !!x);
 
   return {
     seedCableId, nodeIds: trNodeIds, cableIds: trCableIds,
-    steps, tree, nodes: [...nodeById.values()], edges, rings, seedFiberEdgeId, truncated: !!tr.truncated,
+    steps, tree, nodes: [...nodeById.values()], edges, rings, internalTrees, seedFiberEdgeId, truncated: !!tr.truncated,
   };
 }
 
@@ -215,7 +270,7 @@ function buildTree(
     const cid = collapse(rawId);
     if (!cid) return null;
     const isFiberEdge = !!incoming && isOpgwTwin(incoming);
-    const tn: TraceTreeNode = { id: cid, label: labelOf(cid), isEndpoint: false, isFiberEdge, children: [] };
+    const tn: TraceTreeNode = { id: cid, label: labelOf(cid), isEndpoint: false, isFiberEdge, cableId: incoming?.id ?? null, children: [] };
     for (const { to, cable } of childrenRaw.get(rawId) ?? []) {
       const child = build(to, cable);
       if (!child) continue;

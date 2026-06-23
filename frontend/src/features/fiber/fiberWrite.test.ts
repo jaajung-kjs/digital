@@ -30,10 +30,10 @@ describe('fiberWrite', () => {
       category: { id: 'CAT_OPT', code: 'CBL-OPT', name: '광케이블', displayColor: '#11f' },
       pathPoints: [[0, 0], [1, 1]], pathLength: 1, bufferLength: 4, totalLength: 5,
     });
-    expect(c.sourceAssetId).toBe('eqA');
-    expect(c.targetAssetId).toBe('slotA');
-    expect(c.targetRole).toBe('OUT');        // 슬롯 끝 = OUT
-    expect(c.sourceRole).toBe(null);
+    expect(c.sourceAssetId).toBe('slotA');   // 규약: 슬롯=source
+    expect(c.targetAssetId).toBe('eqA');      // 설비=target
+    expect(c.sourceRole).toBe('OUT');        // 슬롯 끝 = OUT
+    expect(c.targetRole).toBe(null);
     expect(c.number).toBe(5);
     expect(c.cableType).toBe('FIBER');
     expect('fiberPathId' in c ? c.fiberPathId : null).toBeFalsy();

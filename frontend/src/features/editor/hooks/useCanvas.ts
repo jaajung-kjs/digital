@@ -98,14 +98,16 @@ export function useCanvas(
 
     const pathHighlight = usePathHighlightStore.getState();
     if (pathHighlight.active) {
+      // 연결 추적 모드 = 편집 모드 아님 → 선택 chrome(외곽선) 숨기고 하이라이트 글로우(오버레이)가
+      // 단일 비주얼. 선택 자산만 편집 selection 으로 남아 하이라이트 안 보이던 문제 해결.
       const highlightedIds = pathHighlight.highlightedPlacedIds;
       const dimmed = floorEquipment.filter((eq) => !highlightedIds.has(eq.id));
       const highlighted = floorEquipment.filter((eq) => highlightedIds.has(eq.id));
       ctx.save();
       ctx.globalAlpha = 0.2;
-      renderEquipmentItems(ctx, dimmed, selectedIds);
+      renderEquipmentItems(ctx, dimmed, []);
       ctx.restore();
-      renderEquipmentItems(ctx, highlighted, selectedIds);
+      renderEquipmentItems(ctx, highlighted, []);
     } else {
       renderEquipmentItems(ctx, floorEquipment, selectedIds);
     }

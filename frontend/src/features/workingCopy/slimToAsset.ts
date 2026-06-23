@@ -55,6 +55,10 @@ export function slimCableToCable(c: TraceCableInput): WorkingCopyRow {
     categoryId: c.categoryId ?? null,
     categoryName: c.categoryName ?? null,
     displayColor: c.displayColor ?? null,
+    // 케이블 일반 속성(CableInspector) — 저장 후 재조회 시에도 값이 유지되도록 함께 나른다.
+    label: c.label ?? null,
+    description: c.description ?? null,
+    color: c.color ?? null,
     substationId: null,
     updatedAt: '',
   };

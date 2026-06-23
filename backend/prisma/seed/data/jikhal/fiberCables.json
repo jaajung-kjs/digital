@@ -788,7 +788,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -833,7 +833,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24
   }
@@ -846,7 +846,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24
   }
@@ -859,7 +859,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -904,7 +904,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -991,7 +991,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -1072,7 +1072,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24
   }
@@ -1085,7 +1085,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -1106,7 +1106,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -1211,7 +1211,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -1334,7 +1334,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -1397,7 +1397,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -1484,7 +1484,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24,
    "coreMeta": {
@@ -1565,7 +1565,7 @@
   "sourceRole": "IN",
   "targetRole": "IN",
   "number": null,
-  "categoryCode": "CBL-OPT",
+  "categoryCode": "CBL-OPGW",
   "specParams": {
    "cores": 24
   }

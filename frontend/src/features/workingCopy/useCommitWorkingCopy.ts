@@ -178,16 +178,24 @@ export function useCommitWorkingCopy() {
     try {
       // 사진 바이너리만 커밋 직전 업로드(URL 확보) → 메타데이터는 통합 커밋 트랜잭션에서 원자적으로.
       const photoUrls = await uploadStagedPhotos(wc.overlays.records);
-      // 전역 단일 커밋 — substationId 가 없으면 ''(backend commitGlobal 가 허용; 신규 자산/조직
-      // create 는 자기 substationId/부모 FK 를 직접 싣는다). org-only 경로에서도 동일 엔드포인트.
+      // 전역 단일 커밋 — overlay 전체(어느 변전소든)를 한 트랜잭션에. 신규 자산/조직 create 는
+      // 자기 substationId/부모 FK 를 직접 싣는다. org-only 경로(변전소 미오픈)에서도 동일.
       const result = await commitSubstation(
-        substationId ?? '', wc.overlays, wc.saved.records, photoUrls, queryClient, floor,
+        wc.overlays, wc.saved.records, photoUrls, queryClient, floor,
       );
       revokeStagedPhotoUrls(wc.overlays); // 업로드 완료 → 미리보기 blob 해제
       // 전역 커밋 완료 → staged overlay 전부 클리어(전역 load 는 더 이상 overlay 를 비우지 않으므로 명시적으로).
       // revert 는 모든 컬렉션(조직 4컬렉션 포함)의 staged create/update/delete 를 비운다(freshOverlays 가 레지스트리 순회).
       useSubstationWorkingCopy.getState().revert();
-      // 변전소-스코프 재조정 — 변전소가 열려 있을 때만(org-only 경로엔 load 할 변전소가 없다).
+      // 커밋 후 detail 캐시 재동기화 — detail(updatedAt 보유)을 가진 모든 변전소를 갱신한다.
+      // 교차 변전소 편집(A 열고 B 자산 편집 후 한 커밋)도 stale 없이 반영: 전역 lite 피드는
+      // detail 필드를 못 덮으므로(reconcileRows 가 detail 보존) 편집된 변전소의 detail 을 직접 재로드해야
+      // 트레이스/토폴로지가 읽는 이름·필드까지 fresh 해진다. 비-열린 변전소는 syncSubData(merge-only),
+      // 열린 변전소는 마지막에 load 로 substationId 확정.
+      const savedAssets = useSubstationWorkingCopy.getState().saved.assets;
+      const loadedSubs = [...new Set(savedAssets.filter((a) => a.updatedAt).map((a) => a.substationId))]
+        .filter((id): id is string => !!id && id !== substationId);
+      for (const sub of loadedSubs) await useSubstationWorkingCopy.getState().syncSubData(sub);
       if (substationId) await useSubstationWorkingCopy.getState().load(substationId);
       // 조직 트리 재로드 — 커밋으로 생성/수정된 조직 행의 real id/updatedAt 을 saved 로 끌어온다
       // (revert 로 staged org overlay 는 비웠으나 saved org 는 stale·temp id 가 남아 있으므로).

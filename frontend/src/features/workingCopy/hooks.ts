@@ -74,7 +74,7 @@ export function useEffectiveFloors() {
  * effective(saved+staged) 자산 하위레코드 전체 — 단일 records 컬렉션(점검/고장이력/사진/미래종류).
  * 종류 구분은 recordType 필드(데이터). 삭제 staged 는 mergeEffective 가 이미 제외.
  */
-export function useEffectiveRecords(): AssetRecord[] {
+function useEffectiveRecords(): AssetRecord[] {
   const saved = useSubstationWorkingCopy((s) => s.saved.records);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.records);
   return useMemo(() => mergeEffective(saved, overlay, recordsDescriptor), [saved, overlay]);

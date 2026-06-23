@@ -244,7 +244,8 @@ model Cable {
   // 통합 노드 모델(단계4c) — endpoint = 단일 Asset 노드 (필수).
   sourceAssetId String  @map("source_asset_id")
   targetAssetId String  @map("target_asset_id")
-  substationId  String? @map("substation_id") // 선택적 변전소 귀속(OPGW 등 변전소 범위 케이블)
+  // 케이블은 변전소 스코프 컬럼이 없다 — 끝점 자산(sourceAsset/targetAsset)의 substationId 로 스코핑한다.
+  // (OPGW 는 두 변전소를 잇어 단일 substationId 로 표현 불가 → 끝점 기반 스코핑이 SSOT.)
 
   cableType  CableType @map("cable_type")
   categoryId String?   @map("category_id") // CableCategory FK

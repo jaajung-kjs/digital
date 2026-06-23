@@ -63,4 +63,18 @@ describe('editorStore rightPanel (single mutually-exclusive enum)', () => {
     store.openPanel('background');
     expect(detailAssetId()).toBeNull();
   });
+
+  // 케이블 더블클릭 = 자산 openDetail(id, '연결') — 기존 자산 패널을 연결 탭으로 연다(새 패널 없음).
+  it("openDetail('a', '연결') → detail + detailInitialTab '연결'", () => {
+    useEditorStore.getState().openDetail('a', '연결');
+    expect(useEditorStore.getState().rightPanel).toBe('detail');
+    expect(useEditorStore.getState().detailInitialTab).toBe('연결');
+    expect(detailAssetId()).toBe('a');
+  });
+
+  it("openDetail('a') (탭 미지정) → detailInitialTab null (정보 탭)", () => {
+    useEditorStore.getState().openDetail('a', '연결');
+    useEditorStore.getState().openDetail('b');
+    expect(useEditorStore.getState().detailInitialTab).toBeNull();
+  });
 });

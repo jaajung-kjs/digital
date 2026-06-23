@@ -64,7 +64,7 @@ export interface FloorCommitSection {
   };
 }
 
-export interface SubstationCommitPayload {
+interface SubstationCommitPayload {
   assets?: Collection;
   cables?: Collection;
   records?: RecordsCollection;
@@ -295,7 +295,6 @@ export function buildSubstationCommitPayload(
  * VersionConflictError(409)는 그대로 throw — 호출부(2c/2d)가 ConflictDialog 처리.
  */
 export async function commitSubstation(
-  substationId: string,
   overlays: Overlays,
   savedRecords: { id: string; recordType: string }[],
   photoUrls: Map<string, string>,
@@ -306,15 +305,14 @@ export async function commitSubstation(
   // 전역 단일 커밋 — 변전소 스코프 없음. overlay 전체(어느 변전소든)를 한 트랜잭션에.
   const { data } = await api.post(`/commit`, payload);
 
-  // 통합 커밋은 asset/cable/fiber/rack/dist 를 모두 건드린다 → commit.ts 의 무효화 세트를 그대로 미러.
+  // 통합 커밋은 asset/cable/floor/rack 을 건드린다. 실제로 읽히는(살아있는) 쿼리만 무효화한다 —
+  // 나머지 뷰는 effective(워킹카피 saved∪overlay)를 읽으므로 load/hydrate 로 갱신된다.
+  // (effective 이주 전 잔재였던 ['assets',id]·['substation-connections']·['fiber-paths']·
+  //  ['ofd-directory'] 무효화는 읽는 useQuery 가 없어 제거.)
   queryClient.invalidateQueries({ queryKey: ['nodeAssets'] });
-  queryClient.invalidateQueries({ queryKey: ['assets', substationId] });
-  queryClient.invalidateQueries({ queryKey: ['substation-connections', substationId] });
   queryClient.invalidateQueries({ queryKey: ['floorPlan'] });
   queryClient.invalidateQueries({ queryKey: ['floor'] });
-  queryClient.invalidateQueries({ queryKey: ['fiber-paths'] });
   queryClient.invalidateQueries({ queryKey: ['cables'] });
-  queryClient.invalidateQueries({ queryKey: ['ofd-directory'] });
   queryClient.invalidateQueries({ queryKey: RACK_MODULE_KEYS.all });
   queryClient.invalidateQueries({ queryKey: ['stats', 'rack-modules'] });
 

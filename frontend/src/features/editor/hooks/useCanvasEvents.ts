@@ -440,6 +440,27 @@ export function useCanvasEvents(
         return;
       }
     }
+
+    // 설비 미히트 → 케이블 히트테스트. 케이블 더블클릭 = 그 케이블 끝점 자산의 상세 패널을
+    // '연결' 탭으로 열고, 그 케이블의 연결을 선택한다(연결탭 하단 CableInspector 가 그 케이블을 표시).
+    // 새 패널을 만들지 않고 기존 자산 사이드패널-연결탭을 재사용한다.
+    const closestCableId = findClosestCableId(x, y, editorStore.getState().zoom);
+    if (closestCableId) {
+      const cable = useSubstationWorkingCopy
+        .getState()
+        .effectiveCables()
+        .find((c) => (c as { id: string }).id === closestCableId) as
+        | { sourceAssetId?: string | null; targetAssetId?: string | null; number?: number | null }
+        | undefined;
+      // 이 도면에 앵커된 끝점을 우선(둘 다 이 층이면 source) — 그 자산의 연결탭을 연다.
+      const endpoint = cable?.sourceAssetId ?? cable?.targetAssetId ?? null;
+      if (endpoint) {
+        // focusTick bump 안 함 — 카메라는 연결 선택(tracingCableId) effect 가 경로로 맞춘다.
+        // focusTick 은 패널 본문 remount(연결탭 스크롤·탭 리셋)를 유발하므로 케이블에는 쓰지 않음.
+        editorStore.getState().openDetail(endpoint, '연결');
+        useSelectionStore.getState().setSelectedComponent(endpoint, cable?.number ?? null, closestCableId);
+      }
+    }
   }, [floorPlan, canvasRef, editorStore, effectiveEquipment]);
 
   const handleWheel = useCallback((e: WheelEvent) => {

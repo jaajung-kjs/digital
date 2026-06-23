@@ -24,6 +24,8 @@ interface EquipmentDetailPanelProps {
 export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
   const closeRightPanel = useEditorStore((s) => s.closeRightPanel);
   const focusTick = useEditorStore((s) => s.focusTick);
+  // 케이블 더블클릭 등에서 지정한 진입 탭(예: '연결'). bodyKey(focusTick) 로 본문이 remount 되며 적용.
+  const detailInitialTab = useEditorStore((s) => s.detailInitialTab);
   const isTemp = isTempId(equipmentId);
   const { equipment, isLoading } = useMergedEquipmentDetail(equipmentId);
 
@@ -66,6 +68,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
       banner={banner}
       bodyKey={`${equipmentId}-${focusTick}`}
       canDelete={true}
+      initialTab={detailInitialTab ?? undefined}
     />
   );
 }

@@ -142,7 +142,7 @@ def main():
             cables.append({"key": f"opgw-{a}-{bsub}-{opgw_n}", "kind": "OPGW",
                            "sourceKey": slot_key(a, ab["block"]), "targetKey": slot_key(bsub, bb["block"]),
                            "sourceRole": "IN", "targetRole": "IN", "number": None,
-                           "categoryCode": "CBL-OPT", "specParams": sp})
+                           "categoryCode": "CBL-OPGW", "specParams": sp})
         unmatched += abs(len(asort) - len(bsort))
 
     json.dump(subs, open(os.path.join(DST, "substations.json"), "w"), ensure_ascii=False, indent=1)

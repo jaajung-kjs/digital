@@ -61,7 +61,8 @@ export function buildPowerRows(feederId: string, cables: PowerCable[], nameById:
       loadName: (loadAssetId && nameById.get(loadAssetId)) || null,
       cbNumber: asStr(c.number),
       capacity: asStr(sp.capacity),
-      switchState: asStr(sp.switchState),
+      // 개폐(CB) 상태 기본값 = ON. 미설정(새 연결 포함)은 ON, 명시적 'OFF' 만 차단(자산 status 규약과 동일).
+      switchState: asStr(sp.switchState) || 'ON',
       spec: asStr(c.categoryName),
       categoryId: c.categoryId ?? null,
     };

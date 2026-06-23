@@ -33,8 +33,12 @@ export interface RenderableConnection {
   _selected?: boolean;
 }
 
-/** 케이블 렌더 경로 — pathPoints 가 있으면 그대로, 없으면 source→target 2점 직선. */
-function pathOf(conn: RenderableConnection): [number, number][] {
+/**
+ * 케이블이 도면에서 점유하는 경로 — pathPoints 가 있으면 그대로, 없으면 source→target 2점 직선.
+ * 렌더(drawConnection)와 히트테스트(ConnectionOverlay)가 **같은** 경로를 쓰도록 단일 소스로 둔다.
+ * (분기 시: 그려진 선과 클릭 가능한 선이 달라져 "보이는데 클릭 안 되는" 버그가 재발하지 않게.)
+ */
+export function pathOf(conn: RenderableConnection): [number, number][] {
   return conn.pathPoints && conn.pathPoints.length >= 2
     ? conn.pathPoints
     : [

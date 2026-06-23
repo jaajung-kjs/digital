@@ -113,6 +113,9 @@ export interface EditorStoreState {
   /** Currently selected cable ID for waypoint editing */
   selectedCableId: string | null;
 
+  /** 다음 detail 패널 마운트 시 활성화할 탭(예: 케이블 더블클릭 → '연결'). null=첫 탭. */
+  detailInitialTab: string | null;
+
   /** Set after restoring from a past version — cleared on save */
   restoredFromVersion: string | null;
 
@@ -212,8 +215,8 @@ export interface EditorStoreActions {
   // ── 통합 선택 + 우측 패널 단일 enum 액션 (상호배타) ──────────────────────
   /** 캔버스/1차 선택만 갱신한다 (상세 패널·viewport 는 건드리지 않음). */
   selectEquipment: (id: string) => void;
-  /** 설비/모듈 상세를 연다 — 다른 우측 패널은 닫힌다. */
-  openDetail: (id: string) => void;
+  /** 설비/모듈 상세를 연다 — 다른 우측 패널은 닫힌다. initialTab 지정 시 그 탭으로 연다(예: 케이블 더블클릭 → '연결'). */
+  openDetail: (id: string, initialTab?: string) => void;
   /** report/history/background 패널을 연다 — 상세 포함 다른 패널은 닫힌다. */
   openPanel: (kind: 'report' | 'history' | 'background') => void;
   /** 같은 패널이면 닫고, 아니면 연다 (툴바 토글 버튼용). */
@@ -294,6 +297,7 @@ const initialState: EditorStoreState = {
   rightPanel: null,
   focusTick: 0,
   selectedCableId: null,
+  detailInitialTab: null,
   restoredFromVersion: null,
   baseFloorVersion: null,
   activeFloorId: null,
@@ -383,11 +387,12 @@ export const useEditorStore = create<FullStore>()((set) => ({
     set((s) => ({ selectedCableId: null, rightPanel: s.rightPanel === 'detail' ? null : s.rightPanel }));
     useSelectionStore.getState().setSelectedAssetId(id);
   },
-  openDetail: (id) => {
+  openDetail: (id, initialTab) => {
     set({
       rightPanel: 'detail',
       selectedCableId: null,
       addingAtSlot: null,
+      detailInitialTab: initialTab ?? null,
     });
     useSelectionStore.getState().setSelectedAssetId(id);
   },

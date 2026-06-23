@@ -81,7 +81,7 @@ describe('EquipmentSelectCell', () => {
     expect(put).toHaveBeenCalledTimes(1);
     const [coll, cable] = put.mock.calls[0];
     expect(coll).toBe('cables');
-    expect(cable).toMatchObject({ sourceAssetId: 'eqpL2', targetAssetId: SLOT, targetRole: 'OUT', number: 5, categoryCode: 'CBL-OPJ' });
+    expect(cable).toMatchObject({ sourceAssetId: SLOT, targetAssetId: 'eqpL2', sourceRole: 'OUT', number: 5, categoryCode: 'CBL-OPJ' });
   });
 
   it('자국 점유 코어 변경 → patch(sourceAssetId)', () => {
@@ -95,7 +95,7 @@ describe('EquipmentSelectCell', () => {
     wrap(<EquipmentSelectCell slot={SLOT_ASSET as never} coreNumber={5} side="remote" />);
     chooseOption('대국설비', 'eqpR');
     const [, cable] = put.mock.calls[0];
-    expect(cable).toMatchObject({ sourceAssetId: 'eqpR', targetAssetId: TWIN, number: 5 });
+    expect(cable).toMatchObject({ sourceAssetId: TWIN, targetAssetId: 'eqpR', number: 5 });
   });
 
   it('점유 코어에서 빈값 선택 + confirm→true → remove', () => {

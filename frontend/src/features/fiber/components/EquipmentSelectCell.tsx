@@ -50,7 +50,9 @@ export function EquipmentSelectCell({ slot, coreNumber, side }: {
       return;
     }
     if (outCable) {
-      wc.patch('cables', outCable.id, { sourceAssetId: v });
+      // 설비는 슬롯의 반대쪽 끝점 — source/target 순서 가정 없이 그 끝점만 교체.
+      const patch = outCable.sourceAssetId === targetSlotId ? { targetAssetId: v } : { sourceAssetId: v };
+      wc.patch('cables', outCable.id, patch);
     } else if (targetSlotId && opjCat) {
       const cable = buildCoreOutCable({
         id: generateTempId(), equipmentId: v, slotId: targetSlotId, coreNumber,

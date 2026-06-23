@@ -34,6 +34,8 @@ import { computeLayoutSPQR } from './layout/spqrLayout';
 import { FloatingEdge } from './edges/FloatingEdge';
 import { TopologyTestControls } from './TopologyTestControls';
 import { findShortestPath, type GraphEdge } from './pathfinding';
+import { CablePathTree } from '../connections/components/CablePathTree';
+import type { TraceTreeNode } from '../trace/traceProjection';
 import type { TraceNode, TraceRing } from '../pathTrace/types';
 
 const TIER_COLOR = {
@@ -80,12 +82,14 @@ type SubstationNodeData = {
   name: string;
   ofdName: string;
   modules: { id: string; name: string }[];
+  /** 변전소 안 내부경로 트리(설비 말단→슬롯). 있으면 OFD명/모듈 리스트 대신 순서로 표시. */
+  internalTree?: TraceTreeNode;
   tier: NodeTier;
   pathRole?: PathRole;
 };
 
 function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
-  const { name, ofdName, modules, tier, pathRole } = data;
+  const { name, ofdName, modules, internalTree, tier, pathRole } = data;
   const borderColor = TIER_COLOR[tier];
   const borderWidth = tier === 'seedRing' || tier === 'junction' ? 2 : 1;
   const role = pathRole ? ROLE_BADGE[pathRole] : null;
@@ -129,18 +133,26 @@ function SubstationNode({ data }: NodeProps<Node<SubstationNodeData>>) {
           </div>
         </div>
         <div className="px-2.5 py-1.5">
-          <div className="text-xs text-content-muted truncate">{ofdName}</div>
-          {modules.length > 0 && (
-            <div className="mt-1 space-y-0.5">
-              {modules.slice(0, 3).map((m) => (
-                <div key={m.id} className="text-xs text-content-muted truncate">
-                  · {m.name}
+          {internalTree ? (
+            // 내부경로 드릴다운과 동일한 렌더 — 설비 말단 → … → 경로슬롯 순서. 슬롯이 OPGW(외부)로
+            // 이어지므로 "내부경로의 끝 = 외부경로의 시작"이 한눈에 보인다.
+            <CablePathTree tree={internalTree} selectedCableId={null} />
+          ) : (
+            <>
+              <div className="text-xs text-content-muted truncate">{ofdName}</div>
+              {modules.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {modules.slice(0, 3).map((m) => (
+                    <div key={m.id} className="text-xs text-content-muted truncate">
+                      · {m.name}
+                    </div>
+                  ))}
+                  {modules.length > 3 && (
+                    <div className="text-xs text-content-faint">+ {modules.length - 3}개</div>
+                  )}
                 </div>
-              ))}
-              {modules.length > 3 && (
-                <div className="text-xs text-content-faint">+ {modules.length - 3}개</div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -299,6 +311,7 @@ export function NetworkTopologyModal() {
           name: g.name,
           ofdName: g.ofdNode?.nodeName ?? '',
           modules: g.modules.map((m) => ({ id: m.nodeId, name: m.nodeName })),
+          internalTree: projection.internalTrees.find((t) => t.substationName === g.name)?.tree,
           tier,
         },
       };
