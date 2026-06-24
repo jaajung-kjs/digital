@@ -26,4 +26,13 @@ export const cableCategoryController = {
       next(error);
     }
   },
+  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.status(201).json({ data: await cableCategoryService.create(req.body) }); } catch (e) { next(e); }
+  },
+  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ data: await cableCategoryService.update(req.params.id, req.body) }); } catch (e) { next(e); }
+  },
+  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { await cableCategoryService.delete(req.params.id); res.json({ message: '케이블 분류가 삭제되었습니다.' }); } catch (e) { next(e); }
+  },
 };
