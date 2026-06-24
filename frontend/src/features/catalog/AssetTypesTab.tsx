@@ -3,6 +3,7 @@ import { useCatalogStore, newCatalogId } from './catalogStore';
 import type { AssetType } from '../../types/asset';
 import { DetailCard, DetailCardHeader, Badge, Button } from '../../components/ui';
 import { EditableField } from '../assets/components/EditableField';
+import { FormRow, fieldClass } from '../assets/components/detail/SectionShell';
 
 /**
  * 설비종류 탭 — 분류(AssetCategory) → 종류(AssetType) 2단. 모든 편집은 catalogStore 스테이징
@@ -69,39 +70,81 @@ export function AssetTypesTab() {
               {inGroup.map((t) => {
                 const system = t.role !== 'device';
                 return (
-                  <div key={t.id} className="flex items-center gap-2 px-1 py-0.5">
-                    <div className="flex-1 min-w-0">
-                      <EditableField
-                        value={t.name}
-                        ariaLabel="종류명"
-                        valueClickEdits
-                        onCommit={(v) => v.trim() && store().stageUpdateType(t.id, { name: v.trim() })}
-                      />
+                  <div key={t.id} className="px-1 py-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <EditableField
+                          value={t.name}
+                          ariaLabel="종류명"
+                          valueClickEdits
+                          onCommit={(v) => v.trim() && store().stageUpdateType(t.id, { name: v.trim() })}
+                        />
+                      </div>
+                      {system ? (
+                        <Badge>시스템</Badge>
+                      ) : (
+                        <>
+                          <div className="w-28">
+                            <EditableField
+                              value={t.categoryId ?? ''}
+                              type="select"
+                              ariaLabel="분류"
+                              options={catOptions}
+                              valueClickEdits
+                              display={(v) => catOptions.find((o) => o.value === v)?.label ?? '— 미분류 —'}
+                              onCommit={(v) => store().stageUpdateType(t.id, { categoryId: v || null })}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className="px-1 text-xs text-danger hover:opacity-80"
+                            onClick={() => store().stageDeleteType(t.id, isNewType(t.id))}
+                          >
+                            삭제
+                          </button>
+                        </>
+                      )}
                     </div>
-                    {system ? (
-                      <Badge>시스템</Badge>
-                    ) : (
-                      <>
-                        <div className="w-28">
-                          <EditableField
-                            value={t.categoryId ?? ''}
-                            type="select"
-                            ariaLabel="분류"
-                            options={catOptions}
-                            valueClickEdits
-                            display={(v) => catOptions.find((o) => o.value === v)?.label ?? '— 미분류 —'}
-                            onCommit={(v) => store().stageUpdateType(t.id, { categoryId: v || null })}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          className="px-1 text-xs text-danger hover:opacity-80"
-                          onClick={() => store().stageDeleteType(t.id, isNewType(t.id))}
-                        >
-                          삭제
-                        </button>
-                      </>
-                    )}
+                    {/* 노무규칙 편집 — 개당 (설치/철거/노무종류) */}
+                    <div className="space-y-1">
+                      <FormRow label="설치">
+                        <input
+                          type="number"
+                          aria-label="설치(개당)"
+                          className={fieldClass}
+                          placeholder="0.000"
+                          step="0.001"
+                          value={t.installHoursPerUnit ?? ''}
+                          onChange={(e) => {
+                            const n = parseFloat(e.target.value);
+                            if (!isNaN(n)) store().stageUpdateType(t.id, { installHoursPerUnit: n });
+                          }}
+                        />
+                      </FormRow>
+                      <FormRow label="철거">
+                        <input
+                          type="number"
+                          aria-label="철거(개당)"
+                          className={fieldClass}
+                          placeholder="0.000"
+                          step="0.001"
+                          value={t.removeHoursPerUnit ?? ''}
+                          onChange={(e) => {
+                            const n = parseFloat(e.target.value);
+                            if (!isNaN(n)) store().stageUpdateType(t.id, { removeHoursPerUnit: n });
+                          }}
+                        />
+                      </FormRow>
+                      <FormRow label="노무">
+                        <EditableField
+                          value={t.laborType ?? ''}
+                          type="text"
+                          ariaLabel="노무종류"
+                          placeholder="예: 통신내선공"
+                          onCommit={(v) => v.trim() && store().stageUpdateType(t.id, { laborType: v.trim() })}
+                        />
+                      </FormRow>
+                    </div>
                   </div>
                 );
               })}
