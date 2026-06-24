@@ -222,6 +222,12 @@ model CableGroup {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  kind                  String? @unique @db.VarChar(20) // POWER|NETWORK|FIBER|CONTROL|GROUND (고정 5분류 식별)
+  laborType             String? @map("labor_type") @db.VarChar(20)
+  installHoursPerMeter  Float?  @map("install_hours_per_meter")
+  removeHoursPerMeter   Float?  @map("remove_hours_per_meter")
+  relocateHoursPerMeter Float?  @map("relocate_hours_per_meter")
+
   categories CableCategory[]
 
   @@map("cable_groups")
@@ -432,6 +438,11 @@ model AssetType {
   role       AssetRole      @default(device)
   categoryId String?        @map("category_id")
   category   AssetCategory? @relation(fields: [categoryId], references: [id])
+
+  laborType            String? @map("labor_type") @db.VarChar(20)
+  installHoursPerUnit  Float?  @map("install_hours_per_unit")
+  removeHoursPerUnit   Float?  @map("remove_hours_per_unit")
+  relocateHoursPerUnit Float?  @map("relocate_hours_per_unit")
 
   assets Asset[]
 
