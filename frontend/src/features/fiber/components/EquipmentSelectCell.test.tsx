@@ -50,7 +50,8 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => {
 });
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => cats.value }));
 vi.mock('../../workingCopy/substationStore', () => {
-  const st = { put, patch, remove };
+  // effectiveCables: 점검일 자동 갱신(touchCoreInspect→commitCoreMeta)이 OPGW coreMeta 를 머지할 때 읽는다.
+  const st = { put, patch, remove, effectiveCables: () => [opgw, localOut3, remoteOut3] };
   const hook = (sel?: (s: unknown) => unknown) => (sel ? sel(st) : st);
   (hook as unknown as { getState: () => unknown }).getState = () => st;
   return { useSubstationWorkingCopy: hook };

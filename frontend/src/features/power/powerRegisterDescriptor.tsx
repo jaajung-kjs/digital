@@ -4,8 +4,9 @@ import { other } from '../cables/cableEndpoint';
 import { EditableField } from '../assets/components/EditableField';
 import { useCableCategories } from '../cables/hooks/useCableCategories';
 import { buildFeederInput } from './feederCircuits';
-import { floorAnchor } from '../workingCopy/floorAnchor';
-import { toMapById } from '../../utils/byId';
+import { VOLTAGE_OPTIONS } from './voltageBus';
+import { ampDigits } from './powerUnits';
+import { AmpField } from './components/AmpField';
 import type { Asset } from '../../types/asset';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
 
@@ -18,11 +19,11 @@ export interface CbRow {
   loadAssetId: string | null;
   loadName: string | null;
   cbNumber: string;
+  voltage: string;
   capacity: string;
   switchState: string;
   spec: string;
   categoryId: string | null;
-  location?: string;
   isInput?: boolean;
 }
 interface PowerCable {
@@ -60,6 +61,7 @@ export function buildPowerRows(feederId: string, cables: PowerCable[], nameById:
       loadAssetId,
       loadName: (loadAssetId && nameById.get(loadAssetId)) || null,
       cbNumber: asStr(c.number),
+      voltage: '', // 버스(피더 입력) 전압을 buildSection 에서 주입 — CB 는 전압을 따로 갖지 않는다.
       capacity: asStr(sp.capacity),
       // 개폐(CB) 상태 기본값 = ON. 미설정(새 연결 포함)은 ON, 명시적 'OFF' 만 차단(자산 status 규약과 동일).
       switchState: asStr(sp.switchState) || 'ON',
@@ -104,24 +106,23 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     assets.filter((a) => a.substationId === substationId && isDist(a.assetType)),
   containerHeader: (panel) => panel.name,
   buildSection: (feeder, ctx: RegisterCtx) => {
-    const assetsById = toMapById(ctx.assets as Asset[]);
     const nameById = new Map((ctx.assets as Asset[]).map((a) => [a.id, a.name]));
-    const outRows: CbRow[] = buildPowerRows(feeder.id, ctx.cables as PowerCable[], nameById).map((r) => ({
-      ...r,
-      location: floorAnchor(r.loadAssetId, assetsById)?.name ?? '—',
-    }));
     const input = buildFeederInput(feeder, ctx.cables as PowerCable[], nameById);
+    // 전압은 버스(입력) 단위 — 모든 CB 행에 입력 전압을 주입(상속). 입력 없으면 ''.
+    const busVoltage = input?.voltage ?? '';
+    const outRows: CbRow[] = buildPowerRows(feeder.id, ctx.cables as PowerCable[], nameById)
+      .map((r) => ({ ...r, voltage: busVoltage }));
     const inputRow: CbRow | null = input
       ? {
           cableId: input.cableId,
           loadAssetId: input.sourceAssetId,
           loadName: input.sourceName,
           cbNumber: '입력',
+          voltage: input.voltage,
           capacity: input.capacity,
           switchState: input.switchState,
           spec: input.spec,
           categoryId: input.categoryId,
-          location: floorAnchor(input.sourceAssetId, assetsById)?.name ?? '—',
           isInput: true,
         }
       : null;
@@ -157,6 +158,7 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
     },
     {
       label: '부하',
+      width: 'w-48', // cell 의 max-w-[12rem] 과 맞춤 — width 없으면 table-fixed 가 남는 공간을 전부 흡수해 과대폭.
       sortKey: (r) => r.loadName,
       cell: (r) => (
         <span className="text-content max-w-[12rem] truncate inline-block align-bottom" title={r.loadName ?? undefined}>
@@ -165,27 +167,32 @@ export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
       ),
     },
     {
-      label: '위치',
-      width: 'w-40',
-      sortKey: (r) => r.location ?? '',
-      cell: (r) => (
-        <span className="text-content-muted max-w-[8rem] truncate inline-block align-bottom" title={r.location ?? undefined}>
-          {r.location ?? '—'}
-        </span>
-      ),
+      label: '전압',
+      width: 'w-32',
+      sortKey: (r) => r.voltage,
+      // 전압은 버스(입력) 단위 — 입력 행에서만 편집(select), CB 행은 버스 전압 상속(읽기전용).
+      // 입력 전압을 바꾸면 buildSection 이 모든 CB 행에 새 버스 전압을 다시 주입한다.
+      cell: (r) =>
+        r.isInput ? (
+          <EditableField
+            value={r.voltage}
+            type="select"
+            ariaLabel="전압"
+            options={VOLTAGE_OPTIONS}
+            onCommit={(v) => commitMeta(r.cableId, 'voltage', v || null)}
+          />
+        ) : (
+          <span className="text-content-muted truncate inline-block align-bottom w-full" title={r.voltage || undefined}>
+            {r.voltage || <span className="text-content-faint">—</span>}
+          </span>
+        ),
     },
     {
-      label: '용량',
+      label: '용량(A)',
       width: 'w-20',
-      sortKey: (r) => r.capacity,
-      cell: (r) => (
-        <EditableField
-          value={r.capacity}
-          ariaLabel="용량"
-          placeholder="용량"
-          onCommit={(v) => commitMeta(r.cableId, 'capacity', v || null)}
-        />
-      ),
+      sortType: 'number',
+      sortKey: (r) => parseFloat(ampDigits(r.capacity)) || 0,
+      cell: (r) => <AmpField value={r.capacity} onCommit={(v) => commitMeta(r.cableId, 'capacity', v)} />,
     },
     {
       label: '규격',

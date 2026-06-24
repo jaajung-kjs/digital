@@ -24,27 +24,21 @@ describe('buildPowerRows', () => {
   });
 });
 
-// ── buildSection — 입력 행 prepend + 위치(floorAnchor) ──────────────────────
-const placed = (id: string, name: string, parentAssetId: string | null = null): Asset => ({
-  id, name, parentAssetId,
-  floorId: 'fl1', positionX: 0, positionY: 0, width2d: 10, height2d: 10,
-} as unknown as Asset);
-const bare = (id: string, name: string, parentAssetId: string | null): Asset => ({
+// ── buildSection — 입력 행 prepend + 전압(specParam) ──────────────────────
+const asset = (id: string, name: string, parentAssetId: string | null = null): Asset => ({
   id, name, parentAssetId,
 } as unknown as Asset);
 
-describe('powerRegisterDescriptor.buildSection — 입력 행 + 위치', () => {
-  it('IN 케이블 + OUT 2개 → rows[0] 이 입력 행, OUT 행 위치는 floorAnchor 로 해소', () => {
-    const feeder = placed('feeder1', '피더1');
-    const supply = placed('supply', '주변압기');
-    const load1 = placed('load1', '부하A');
-    // load2 는 미배치 → 배치된 부모(panel) 의 이름으로 위치 해소
-    const panel = placed('panel', '분전반1F');
-    const load2 = bare('load2', '부하B', 'panel');
-    const assets = [feeder, supply, load1, load2, panel];
+describe('powerRegisterDescriptor.buildSection — 입력 행 + 전압', () => {
+  it('IN 케이블 + OUT 2개 → rows[0] 이 입력 행, 전압은 버스(입력)에서 상속(CB 자체 전압 무시)', () => {
+    const feeder = asset('feeder1', '피더1');
+    const supply = asset('supply', '주변압기');
+    const load1 = asset('load1', '부하A');
+    const load2 = asset('load2', '부하B');
+    const assets = [feeder, supply, load1, load2];
     const cables = [
-      { id: 'in1', sourceAssetId: 'supply', targetAssetId: 'feeder1', sourceRole: null, targetRole: 'IN', categoryName: 'CV 6sq', categoryId: 'cat-in', number: null, specParams: { capacity: '50A', switchState: 'ON' } },
-      { id: 'cb1', sourceAssetId: 'feeder1', targetAssetId: 'load1', sourceRole: 'OUT', targetRole: null, categoryName: 'CV', categoryId: 'cat-1', number: 1, specParams: { capacity: '20A', switchState: 'ON' } },
+      { id: 'in1', sourceAssetId: 'supply', targetAssetId: 'feeder1', sourceRole: null, targetRole: 'IN', categoryName: 'CV 6sq', categoryId: 'cat-in', number: null, specParams: { capacity: '50A', switchState: 'ON', voltage: '220' } },
+      { id: 'cb1', sourceAssetId: 'feeder1', targetAssetId: 'load1', sourceRole: 'OUT', targetRole: null, categoryName: 'CV', categoryId: 'cat-1', number: 1, specParams: { capacity: '20A', switchState: 'ON', voltage: '380' } },
       { id: 'cb2', sourceAssetId: 'load2', targetAssetId: 'feeder1', sourceRole: null, targetRole: 'OUT', categoryName: 'CV', categoryId: 'cat-1', number: 2, specParams: { capacity: '30A', switchState: 'OFF' } },
     ];
     const ctx = { assets, cables, graph: null, isLoading: false } as unknown as RegisterCtx;
@@ -57,21 +51,22 @@ describe('powerRegisterDescriptor.buildSection — 입력 행 + 위치', () => {
     expect(input.loadName).toBe('주변압기');
     expect(input.spec).toBe('CV 6sq');
     expect(input.categoryId).toBe('cat-in');
-    expect(input.location).toBe('주변압기'); // supply 자신이 배치됨
+    expect(input.voltage).toBe('220'); // 입력(버스) 전압 = specParam.voltage
 
+    // CB 행은 자체 voltage(cb1=380)를 무시하고 버스(입력=220)를 상속 — 입력 바꾸면 전부 따라감.
     const out1 = section.rows.find((r) => r.cableId === 'cb1')!;
     expect(out1.isInput).toBeFalsy();
-    expect(out1.location).toBe('부하A'); // 자신 배치
+    expect(out1.voltage).toBe('220');
     const out2 = section.rows.find((r) => r.cableId === 'cb2')!;
-    expect(out2.location).toBe('분전반1F'); // 미배치 → placed 부모
+    expect(out2.voltage).toBe('220');
 
     // 사용 라벨은 OUT 행만 카운트(입력 행 제외)
     expect(section.usedLabel).toBe('사용 1/2');
   });
 
-  it('IN 케이블 없으면 입력 행 없음, 모든 행에 location', () => {
-    const feeder = placed('feeder1', '피더1');
-    const load1 = placed('load1', '부하A');
+  it('IN 케이블 없으면 입력 행 없음', () => {
+    const feeder = asset('feeder1', '피더1');
+    const load1 = asset('load1', '부하A');
     const assets = [feeder, load1];
     const cables = [
       { id: 'cb1', sourceAssetId: 'feeder1', targetAssetId: 'load1', sourceRole: 'OUT', targetRole: null, categoryName: 'CV', categoryId: 'cat-1', number: 1, specParams: { capacity: '20A', switchState: 'ON' } },
@@ -80,13 +75,13 @@ describe('powerRegisterDescriptor.buildSection — 입력 행 + 위치', () => {
     const section = powerRegisterDescriptor.buildSection(feeder, ctx);
     expect(section.rows).toHaveLength(1);
     expect(section.rows[0].isInput).toBeFalsy();
-    expect(section.rows[0].location).toBe('부하A');
   });
 
-  it('컬럼은 6개(번호·부하·위치·용량·규격·SW), 부하만 너비 미지정', () => {
-    expect(powerRegisterDescriptor.columns.map((c) => c.label)).toEqual(['번호', '부하', '위치', '용량', '규격', 'SW']);
+  it('컬럼은 6개(번호·부하·전압·용량·규격·SW), 모든 컬럼 너비 지정(표 minWidth=폭 합)', () => {
+    expect(powerRegisterDescriptor.columns.map((c) => c.label)).toEqual(['번호', '부하', '전압', '용량(A)', '규격', 'SW']);
+    // width 미지정 컬럼이 없어야 한다 — table-fixed 가 남는 공간을 흡수해 과대폭/겹침 나는 것 방지.
     const unwidthed = powerRegisterDescriptor.columns.filter((c) => !c.width).map((c) => c.label);
-    expect(unwidthed).toEqual(['부하']);
+    expect(unwidthed).toEqual([]);
   });
 });
 

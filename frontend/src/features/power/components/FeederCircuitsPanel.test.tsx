@@ -107,9 +107,10 @@ describe('FeederCircuitsPanel', () => {
       // 용량 인라인 편집(✎ 클릭 → 입력) → commitMeta(specParams 머지 patch)는 입력 케이블 id 로.
       fireEvent.click(screen.getByRole('button', { name: '용량 수정' }));
       const inp = screen.getByLabelText('용량') as HTMLInputElement;
-      fireEvent.change(inp, { target: { value: '30A' } });
+      // 용량은 숫자만 입력 → 저장도 숫자만(A 는 표시 전용 자동).
+      fireEvent.change(inp, { target: { value: '30' } });
       fireEvent.blur(inp);
-      expect(patch).toHaveBeenCalledWith('cables', 'in1', { specParams: { capacity: '30A', switchState: 'ON' } });
+      expect(patch).toHaveBeenCalledWith('cables', 'in1', { specParams: { capacity: '30', switchState: 'ON' } });
     });
     it('점유 입력 → 가로 스위치 렌더 + 클릭 시 switchState 반전 패치(stopPropagation: 상세카드 안 열림)', () => {
       inputState.value = { cableId: 'in1', sourceAssetId: 'src1', sourceName: '한전 인입', capacity: '20A', switchState: 'ON' };

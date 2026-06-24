@@ -4,6 +4,7 @@ import { useTraceGraph, equipmentInSubstation } from '../../trace/traceGraph';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
 import { roleAt, other, type CableLike } from '../slotRegister';
 import { twinSlotIdOf } from '../slotPorts';
+import { touchCoreInspect, opgwIdOfSlot } from '../coreMeta';
 import { buildCoreOutCable } from '../fiberWrite';
 import { generateTempId } from '../../../utils/idHelpers';
 import { EditableField } from '../../assets/components/EditableField';
@@ -45,22 +46,27 @@ export function EquipmentSelectCell({ slot, coreNumber, side }: {
   const commit = useCallback((v: string) => {
     if (v === (currentId ?? '')) return;
     const wc = useSubstationWorkingCopy.getState();
+    // 설비 연결/변경/해제도 "코어를 만진" 것 → 점검일을 오늘로 자동 갱신(OPGW coreMeta 소유).
+    const opgwId = opgwIdOfSlot(slot.id, cables);
+    const touch = () => { if (opgwId) touchCoreInspect(opgwId, coreNumber); };
     if (v === '') {
-      if (outCable && window.confirm('이 코어 연결을 해제할까요?')) wc.remove('cables', outCable.id);
+      if (outCable && window.confirm('이 코어 연결을 해제할까요?')) { wc.remove('cables', outCable.id); touch(); }
       return;
     }
     if (outCable) {
       // 설비는 슬롯의 반대쪽 끝점 — source/target 순서 가정 없이 그 끝점만 교체.
       const patch = outCable.sourceAssetId === targetSlotId ? { targetAssetId: v } : { sourceAssetId: v };
       wc.patch('cables', outCable.id, patch);
+      touch();
     } else if (targetSlotId && opjCat) {
       const cable = buildCoreOutCable({
         id: generateTempId(), equipmentId: v, slotId: targetSlotId, coreNumber,
         category: opjCat, pathPoints: null, pathLength: null, bufferLength: 4, totalLength: null,
       });
       wc.put('cables', cable as unknown as { id: string; [k: string]: unknown });
+      touch();
     }
-  }, [currentId, outCable?.id, targetSlotId, opjCat, coreNumber]);
+  }, [currentId, outCable?.id, targetSlotId, opjCat, coreNumber, slot.id, cables]);
 
   // 이름 출처도 그래프 단일 SSOT.
   const nameOf = (id: string) => graph?.nameById.get(id) ?? id;

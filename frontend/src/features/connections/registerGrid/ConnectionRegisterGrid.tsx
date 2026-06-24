@@ -58,9 +58,13 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   );
 }
 
-// 컬럼당 최소 가독 폭(rem). 가용 폭이 (컬럼수 × 이 값) 미만이면 표가 안 줄고 가로 스크롤
-// → table-fixed 가 컬럼을 짜부라뜨려 글씨가 겹치는 것을 모든 그리드에서 방지(공용 규칙).
+// 컬럼당 최소 가독 폭(rem) — width 미지정 컬럼의 대체값.
 const MIN_COL_REM = 6;
+// Tailwind width 클래스(w-N = N×0.25rem) → rem. 표 minWidth 계산용(컬럼 폭 합).
+const colRem = (w?: string): number => {
+  const m = w?.match(/^w-(\d+(?:\.\d+)?)$/);
+  return m ? parseFloat(m[1]) * 0.25 : MIN_COL_REM;
+};
 
 function SectionView<Row>({ section, columns, rowKey, rowSelectedId, rowCore, sort, cycleSort }: {
   section: RegisterSection<Row>;
@@ -79,6 +83,9 @@ function SectionView<Row>({ section, columns, rowKey, rowSelectedId, rowCore, so
   }, [section.rows, sort, columns]);
 
   const last = columns.length - 1;
+  // 표 최소폭 = 실제 컬럼 width 합(컬럼수 추정이 아님). 사이드패널로 컨테이너가 이보다 좁아지면
+  // overflow-x-auto 가로 스크롤 → table-fixed 가 컬럼을 짜부라뜨려 글씨 겹치는 것을 방지(모든 그리드 공통).
+  const minWidthRem = columns.reduce((s, c) => s + colRem(c.width), 0);
 
   return (
     <section>
@@ -87,7 +94,7 @@ function SectionView<Row>({ section, columns, rowKey, rowSelectedId, rowCore, so
         <span className="ml-auto text-xs tabular-nums text-content-faint">{section.usedLabel}</span>
       </header>
       <div className="overflow-x-auto">
-      <table className="w-full border-collapse table-fixed" style={{ minWidth: `${columns.length * MIN_COL_REM}rem` }}>
+      <table className="w-full border-collapse table-fixed" style={{ minWidth: `${minWidthRem}rem` }}>
         <thead>
           <tr className="text-left bg-surface-2 border-b border-line-strong">
             {columns.map((c, i) => (

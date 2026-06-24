@@ -161,9 +161,11 @@ describe('OfdFiberRegister', () => {
     fireEvent.click(pencils[0]);    // 코어1(빈 코어)
     const input = screen.getByPlaceholderText('—');
     fireEvent.blur(input, { target: { value: '-6.43' } });
-    // OPGW(opgw1) 의 coreMeta['1'].loss1310 에 머지.
+    // OPGW(opgw1) 의 coreMeta['1'].loss1310 에 머지 + 속성 변경이므로 점검일(inspectDate) 자동 갱신.
     expect(patch).toHaveBeenCalledWith('cables', 'opgw1', expect.objectContaining({
-      specParams: expect.objectContaining({ coreMeta: { '1': { loss1310: '-6.43' } } }),
+      specParams: expect.objectContaining({
+        coreMeta: { '1': expect.objectContaining({ loss1310: '-6.43', inspectDate: expect.any(String) }) },
+      }),
     }));
   });
 });

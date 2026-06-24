@@ -21,7 +21,7 @@ export interface EditableFieldOption { value: string; label: string }
 export function EditableField({
   value, type = 'text', options, placeholder, disabled, display, ariaLabel, valueClickEdits = false, onCommit,
 }: {
-  value: string; type?: 'text' | 'select' | 'date'; options?: EditableFieldOption[];
+  value: string; type?: 'text' | 'select' | 'number' | 'date'; options?: EditableFieldOption[];
   placeholder?: string; disabled?: boolean; display?: (v: string) => ReactNode;
   ariaLabel?: string; valueClickEdits?: boolean; onCommit: (v: string) => void;
 }) {

@@ -1,4 +1,5 @@
 import type { FeederCircuit } from '../features/power/feederCircuits';
+import { formatAmp } from '../features/power/powerUnits';
 
 const isOn = (s: string) => s.toUpperCase() === 'ON';
 
@@ -83,7 +84,7 @@ export function BreakerRail({
                 }`}
               />
             </button>
-            <span className={`text-xs font-medium leading-none ${on ? 'text-success' : 'text-content-muted'}`}>{c.capacity || '·'}</span>
+            <span className={`text-xs font-medium leading-none ${on ? 'text-success' : 'text-content-muted'}`}>{formatAmp(c.capacity) || '·'}</span>
             {onDeleteCb && c.cableId && (
               <button
                 type="button"

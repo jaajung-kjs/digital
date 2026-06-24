@@ -6,6 +6,9 @@ import { startCableConnection } from '../../editor/cableConnection';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { buildFeederCircuits, buildFeederInput, feederGridSlots } from '../feederCircuits';
 import { commitMeta, FEEDER_INPUT_CORE } from '../powerRegisterDescriptor';
+import { VOLTAGE_OPTIONS } from '../voltageBus';
+import { formatAmp } from '../powerUnits';
+import { AmpField } from './AmpField';
 import { useCablePick } from '../../editor/hooks/useCablePick';
 import { floorAnchor, floorTargetFor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
@@ -144,7 +147,7 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
             <span className="text-xs font-medium text-danger">입력</span>
             <span className="min-w-0 flex-1 truncate text-left text-sm text-content">{input.sourceName ?? '—'}</span>
             {input.capacity && (
-              <span className="rounded bg-danger-bg px-1.5 py-0.5 text-xs font-medium text-danger">{input.capacity}</span>
+              <span className="rounded bg-danger-bg px-1.5 py-0.5 text-xs font-medium text-danger">{formatAmp(input.capacity)}</span>
             )}
           </button>
         ) : (
@@ -162,10 +165,12 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
             <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-danger" />
             <span className="text-xs font-medium text-danger">입력</span>
             <span className="min-w-0 flex-1 truncate text-sm text-content">{input.sourceName ?? '—'}</span>
+            {/* 전압·용량 = 무채색 사양 칩(ISA-101: 색=상태만). 색 신호는 개폐 스위치 하나로. */}
+            {input.voltage && (
+              <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-xs font-medium text-content-muted tabular-nums">{input.voltage}</span>
+            )}
             {input.capacity && (
-              <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                input.switchState.toUpperCase() === 'ON' ? 'text-success bg-success-bg' : 'text-content-muted bg-surface-2'
-              }`}>{input.capacity}</span>
+              <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-xs font-medium text-content-muted tabular-nums">{formatAmp(input.capacity)}</span>
             )}
             {/* 가로 개폐 스위치 — 차단기 토글의 가로판. 노브가 ON=오른쪽 / OFF=왼쪽으로 이동. */}
             {(() => {
@@ -232,12 +237,16 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
             onDelete={deleteInput}
           />
           <DetailRow label="공급원">{input.sourceName ?? '—'}</DetailRow>
+          <DetailRow label="전압">
+            <EditableField value={input.voltage} type="select" ariaLabel="전압" valueClickEdits
+              options={VOLTAGE_OPTIONS}
+              onCommit={(v) => commitMeta(input.cableId, 'voltage', v || null)} />
+          </DetailRow>
           <DetailRow label="용량">
-            <EditableField value={input.capacity} ariaLabel="용량" placeholder="용량"
-              onCommit={(v) => commitMeta(input.cableId, 'capacity', v || null)} />
+            <AmpField value={input.capacity} valueClickEdits onCommit={(v) => commitMeta(input.cableId, 'capacity', v)} />
           </DetailRow>
           <DetailRow label="개폐">
-            <EditableField value={input.switchState} type="select" ariaLabel="개폐"
+            <EditableField value={input.switchState} type="select" ariaLabel="개폐" valueClickEdits
               options={[{ value: '', label: '—' }, { value: 'ON', label: 'ON' }, { value: 'OFF', label: 'OFF' }]}
               onCommit={(v) => commitMeta(input.cableId, 'switchState', v || null)} />
           </DetailRow>
@@ -256,11 +265,10 @@ export function FeederCircuitsPanel({ feederId }: { feederId: string }) {
           {selected.occupied && selected.cableId && (
             <>
               <DetailRow label="용량">
-                <EditableField value={selected.capacity} ariaLabel="용량" placeholder="용량"
-                  onCommit={(v) => commitMeta(selected.cableId!, 'capacity', v || null)} />
+                <AmpField value={selected.capacity} valueClickEdits onCommit={(v) => commitMeta(selected.cableId!, 'capacity', v)} />
               </DetailRow>
               <DetailRow label="개폐">
-                <EditableField value={selected.switchState} type="select" ariaLabel="개폐"
+                <EditableField value={selected.switchState} type="select" ariaLabel="개폐" valueClickEdits
                   options={[{ value: '', label: '—' }, { value: 'ON', label: 'ON' }, { value: 'OFF', label: 'OFF' }]}
                   onCommit={(v) => commitMeta(selected.cableId!, 'switchState', v || null)} />
               </DetailRow>
