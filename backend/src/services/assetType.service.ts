@@ -6,6 +6,7 @@ export interface CreateAssetTypeInput {
   name: string;
   code?: string;
   group?: string | null;
+  categoryId?: string | null;
   displayColor?: string | null;
   defaultSlotSpan?: number;
   placementKind?: string | null;
@@ -15,6 +16,7 @@ export interface CreateAssetTypeInput {
 
 export interface UpdateAssetTypeInput {
   name?: string;
+  categoryId?: string | null;
   displayColor?: string | null;
   defaultSlotSpan?: number;
   sortOrder?: number;
@@ -25,6 +27,8 @@ export interface AssetTypeDetail {
   code: string;
   name: string;
   group: string | null;
+  role: string;
+  categoryId: string | null;
   isContainer: boolean;
   fieldTemplate: unknown | null;
   requiredToCreate: unknown | null;
@@ -39,6 +43,7 @@ export interface AssetTypeDetail {
 class AssetTypeService {
   private mapToDetail(t: {
     id: string; code: string; name: string; group: string | null;
+    role: string; categoryId: string | null;
     isContainer: boolean; fieldTemplate: unknown; requiredToCreate: unknown;
     iconName: string | null; displayColor: string | null; placementKind: string | null;
     connectionKind: string | null;
@@ -46,6 +51,7 @@ class AssetTypeService {
   }): AssetTypeDetail {
     return {
       id: t.id, code: t.code, name: t.name, group: t.group,
+      role: t.role, categoryId: t.categoryId ?? null,
       isContainer: t.isContainer, fieldTemplate: t.fieldTemplate ?? null,
       requiredToCreate: t.requiredToCreate ?? null, iconName: t.iconName,
       displayColor: t.displayColor, placementKind: t.placementKind ?? null,
@@ -90,6 +96,8 @@ class AssetTypeService {
         code,
         name: input.name.trim(),
         group: input.group ?? null,
+        role: 'device',
+        categoryId: input.categoryId ?? null,
         displayColor: input.displayColor ?? null,
         defaultSlotSpan: input.defaultSlotSpan ?? 1,
         placementKind: input.placementKind ?? null,
@@ -103,10 +111,14 @@ class AssetTypeService {
   async update(id: string, input: UpdateAssetTypeInput): Promise<AssetTypeDetail> {
     const existing = await prisma.assetType.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError('자산 종류');
+    if (existing.role !== 'device' && input.categoryId !== undefined) {
+      throw new ConflictError('시스템 종류는 분류를 변경할 수 없습니다(이름만 수정 가능).');
+    }
     const row = await prisma.assetType.update({
       where: { id },
       data: {
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+        ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
         ...(input.displayColor !== undefined ? { displayColor: input.displayColor } : {}),
         ...(input.defaultSlotSpan !== undefined ? { defaultSlotSpan: input.defaultSlotSpan } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
@@ -120,6 +132,9 @@ class AssetTypeService {
   async delete(id: string): Promise<void> {
     const existing = await prisma.assetType.findUnique({ where: { id } });
     if (!existing) throw new NotFoundError('자산 종류');
+    if (existing.role !== 'device') {
+      throw new ConflictError('시스템 종류는 삭제할 수 없습니다.');
+    }
     const inUse = await prisma.asset.count({ where: { assetTypeId: id } });
     if (inUse > 0) {
       throw new ConflictError(`이 종류를 사용 중인 자산 ${inUse}개가 있어 삭제할 수 없습니다.`);
