@@ -1,7 +1,7 @@
 /**
  * Shared spec template / spec params shape.
  *
- * Used by CableCategory, BomMaterial, and (legacy) MaterialCategory.
+ * Used by CableCategory and (legacy) MaterialCategory.
  * Backed by the Prisma JSON column — kept loose to match what the API returns.
  */
 

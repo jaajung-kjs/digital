@@ -5,7 +5,6 @@
  *   - CableCategory       (./cableCategory)
  *   - RackModuleCategory  (./rackModule)
  *   - RackPreset          (./rackPreset)
- *   - BomMaterial         (./bomMaterial)
  *
  * What's left here is the small mapping helper that turns a CableCategory
  * code (`CBL-UTP` etc.) into a legacy `CableType` enum value used by
