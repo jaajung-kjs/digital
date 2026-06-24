@@ -12,14 +12,12 @@ import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useInteractionStore } from './interactionStore';
 
-/** Filter key — CableCategory.code (e.g. 'CBL-UTP'). */
+/** Filter key — CableCategory.id. */
 export type ConnectionFilterKey = string;
 
 // ==================== Local Cable ====================
 //
 // P8: cable endpoint 는 polymorphic — Equipment 또는 RackModule 한 쪽만 not-null.
-// 기존 `materialCategoryId/Code/Name` 은 `categoryId/Code/Name` 로 이름 변경되었으나
-// editor UI 가 P9 까지는 legacy 이름을 참조하므로 둘 다 둔다.
 
 export interface LocalCable {
   id: string; // real UUID or temp ID
@@ -38,24 +36,21 @@ export interface LocalCable {
   /** 분전반 회로 endpoint id — null when endpoint 가 회로가 아닐 때. */
   sourceCircuitId?: string | null;
   targetCircuitId?: string | null;
-  cableType: string;
   sourceRole?: 'IN' | 'OUT' | null;
   targetRole?: 'IN' | 'OUT' | null;
   /** 케이블 심선/회선 번호 (광 core 번호 등). */
   number?: number | null;
-  /** CableCategory join — name/displayColor surfaced for UI labels. */
+  /** CableCategory join — name/groupColor surfaced for UI labels. */
   categoryId?: string | null;
-  categoryCode?: string | null;
   categoryName?: string | null;
-  displayColor?: string | null;
+  groupId?: string | null;
+  groupColor?: string | null;
   specParams?: Record<string, unknown> | null;
   specification?: string | null;
   pathPoints?: [number, number][] | null;
   pathLength?: number | null;
   bufferLength?: number;
   totalLength?: number | null;
-  label?: string | null;
-  color?: string | null;
 }
 
 // ==================== Store ====================
