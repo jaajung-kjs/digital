@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useEffectiveAssets, useEffectiveCables } from '../workingCopy/hooks';
+import { useCableCategories } from '../cables/hooks/useCableCategories';
 import { useOrganizationStore } from '../../stores/organizationStore';
 import type { AssetRole } from '../../types/asset';
 import { other, isOpgwTwin } from '../cables/cableEndpoint';
@@ -33,6 +34,7 @@ export interface SlimAssetDTO {
 export interface TraceCableInput {
   id: string;
   cableType?: string | null;
+  groupId?: string | null;
   sourceAssetId?: string | null;
   targetAssetId?: string | null;
   sourceRole?: 'IN' | 'OUT' | null;
@@ -74,6 +76,7 @@ export interface TraceGraph {
 const toTraceCable = (c: TraceCableInput): TraceCable => ({
   id: c.id,
   cableType: c.cableType ?? null,
+  groupId: c.groupId ?? null,
   sourceAssetId: c.sourceAssetId ?? null,
   targetAssetId: c.targetAssetId ?? null,
   sourceRole: c.sourceRole ?? null,
@@ -137,9 +140,11 @@ function graphIsOfd(graph: TraceGraph, id: string): boolean {
  * start(설비) 에서 cableType 'FIBER' 로 trace → 도달한 passive(설비) 노드 중 자신 제외 id 들.
  * = 대국측 설비. 이름 해소는 호출측이 graph.nameById 로.
  */
-export function traceRemoteEndpoints(startAssetId: string, graph: TraceGraph, cableType = 'FIBER'): string[] {
+export function traceRemoteEndpoints(startAssetId: string, graph: TraceGraph): string[] {
   const kindOf = graph.kindById;
-  const r = cableTrace(startAssetId, cableType, graph.assets, graph.cables);
+  // 시작 자산에 닿는 케이블의 그룹으로 추적(과거 cableType='FIBER' 고정 → 구조적으로 닿는 그룹).
+  const seed = graph.cables.find((c) => c.sourceAssetId === startAssetId || c.targetAssetId === startAssetId);
+  const r = cableTrace(startAssetId, seed?.groupId ?? null, graph.assets, graph.cables);
   // kindOf.has(id) 로 존재 여부를 확인 — 삭제된 자산은 graph.assets 에서 이미 빠졌으므로
   // kindOf 에 없어야 정상. undefined → null 로 떨어지는 false positive 를 막는다.
   return r.nodeIds.filter((id) => id !== startAssetId && kindOf.has(id) && (kindOf.get(id) ?? null) === null);
@@ -190,9 +195,16 @@ export function equipmentInSubstation(graph: TraceGraph, substationId: string | 
  */
 export function useTraceGraph(): { graph: TraceGraph; isLoading: boolean } {
   const assets = useEffectiveAssets();
-  const cables = useEffectiveCables() as unknown as TraceCableInput[];
+  const rawCables = useEffectiveCables() as unknown as TraceCableInput[];
+  const { data: categories = [] } = useCableCategories();
   const roots = useOrganizationStore((s) => s.roots);
   const substationNames = useMemo(() => collectNodeNames(roots), [roots]);
+  // categoryId → groupId 해소(사용자 그룹). 케이블엔 categoryId 만 있으므로 그룹을 채워 trace 가 그룹으로 동질 추적.
+  const catToGroup = useMemo(() => new Map(categories.map((c) => [c.id, c.groupId])), [categories]);
+  const cables = useMemo(
+    () => rawCables.map((c) => ({ ...c, groupId: c.groupId ?? (c.categoryId ? catToGroup.get(c.categoryId) ?? null : null) })),
+    [rawCables, catToGroup],
+  );
   const graph = useMemo(
     () => buildTraceGraph({ assets, cables, substationNames }),
     [assets, cables, substationNames],

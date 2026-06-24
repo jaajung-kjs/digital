@@ -31,12 +31,12 @@ export function buildInternalPath(
 
   const kindOf = (id: string | null | undefined) => (id ? (graph.kindById.get(id) ?? null) : null);
   const inSub = (id: string | null | undefined): id is string => !!id && graph.subById.get(id) === localSubId;
-  const type = seed.cableType ?? null;
+  const groupId = seed.groupId ?? null;
 
-  // 같은 종류 케이블의 노드별 인접.
+  // 같은 사용자 그룹 케이블의 노드별 인접.
   const at = new Map<string, Cable[]>();
   for (const c of graph.cables) {
-    if (c.cableType !== type) continue;
+    if ((c.groupId ?? null) !== groupId) continue;
     for (const e of [c.sourceAssetId, c.targetAssetId]) {
       if (!e) continue;
       const arr = at.get(e); if (arr) arr.push(c); else at.set(e, [c]);

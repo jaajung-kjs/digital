@@ -4,6 +4,7 @@ export interface TraceAsset { id: string; connectionKind?: 'distributor' | 'cond
 export interface TraceCable {
   id: string;
   cableType?: string | null;
+  groupId?: string | null;
   sourceAssetId?: string | null;
   targetAssetId?: string | null;
   sourceRole?: 'IN' | 'OUT' | null;
@@ -33,12 +34,13 @@ const MAX = 5000; // 폭주 가드
  */
 export function cableTrace(
   startAssetId: string,
-  cableType: string,
+  groupId: string | null,
   assets: TraceAsset[],
   cables: TraceCable[],
 ): TraceResult {
   const kindOf = new Map(assets.map((a) => [a.id, a.connectionKind ?? null]));
-  const typed = cables.filter((c) => c.cableType === cableType);
+  // 같은 사용자 그룹 케이블만 따라간다(과거 cableType 동질 경로 → 그룹 동질 경로).
+  const typed = cables.filter((c) => (c.groupId ?? null) === groupId);
   const at = new Map<string, TraceCable[]>();
   const push = (k: string | null | undefined, c: TraceCable) => {
     if (!k) return;

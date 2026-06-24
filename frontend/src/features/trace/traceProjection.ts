@@ -93,9 +93,9 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   // 간 트렁크라 도면 미표시). 트렁크 트레이스는 단일 코어 개념이 없어 의미가 모호하므로 그대로 둔다.
   const start = kindOf(src) === null ? src : kindOf(tgt) === null ? tgt : src;
   if (!start) return null;
-  const cableType = seed.cableType ?? 'FIBER';
+  const groupId = seed.groupId ?? null;
 
-  const tr = cableTrace(start, cableType, graph.assets, graph.cables);
+  const tr = cableTrace(start, groupId, graph.assets, graph.cables);
   // 대국 단말 없는 conduit dead-end(편도) 가지치기 — 실제로 끊긴 연결은 토폴로지/하이라이트에서 제외.
   const { nodeIds: trNodeIds, cableIds: trCableIds } = pruneDanglingConduits(tr.nodeIds, tr.cableIds, cableById, kindOf);
   const tracedCables = trCableIds.map((id) => cableById.get(id)).filter((c): c is CableLike => !!c);

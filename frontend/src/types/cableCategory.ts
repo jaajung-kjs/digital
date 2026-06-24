@@ -16,6 +16,9 @@ export interface CableCategory {
   description: string | null;
   displayColor: string | null;
   displayGroup: CableDisplayGroup | null;
+  groupId: string | null;
+  groupName: string | null;
+  groupColor: string | null;
   iconName: string | null;
   unit: string | null;
   specTemplate: SpecTemplate | null;
