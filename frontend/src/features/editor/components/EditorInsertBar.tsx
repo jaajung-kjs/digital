@@ -6,8 +6,7 @@ import { useDeleteRackPreset, useRackPresets } from '../../rack/hooks/useRackPre
 import { EditRackPresetDialog } from '../../rack/components/EditRackPresetDialog';
 import { useIsAdmin } from '../../../stores/authStore';
 import { usePlaceableTypes, type PlaceableType } from '../usePlaceableTypes';
-import { CABLE_DISPLAY_GROUPS, CABLE_DISPLAY_GROUP_COLORS as CABLE_GROUP_COLORS } from '../../../types/cableCategory';
-import type { CableDisplayGroup } from '../../../types/cableCategory';
+import { useCableGroups } from '../../cables/hooks/useCableGroups';
 import type { RackPreset } from '../../../types/rackPreset';
 
 /**
@@ -28,14 +27,15 @@ export function EditorInsertBar() {
   const resetNewEquipmentSelection = useEditorStore(
     (s) => s.resetNewEquipmentSelection,
   );
-  const preselectedCableDisplayGroup = useEditorStore(
-    (s) => s.preselectedCableDisplayGroup,
+  const preselectedCableGroupId = useEditorStore(
+    (s) => s.preselectedCableGroupId,
   );
-  const setPreselectedCableDisplayGroup = useEditorStore(
-    (s) => s.setPreselectedCableDisplayGroup,
+  const setPreselectedCableGroupId = useEditorStore(
+    (s) => s.setPreselectedCableGroupId,
   );
 
   const placeable = usePlaceableTypes();
+  const { data: cableGroups } = useCableGroups();
   const { data: rackPresets } = useRackPresets();
   const isAdmin = useIsAdmin();
   const deletePreset = useDeleteRackPreset();
@@ -60,18 +60,18 @@ export function EditorInsertBar() {
   const handleSelect = () => {
     setTool('select');
     resetNewEquipmentSelection();
-    setPreselectedCableDisplayGroup(null);
+    setPreselectedCableGroupId(null);
   };
 
   const handleTypeClick = (t: PlaceableType) => {
     setTool('equipment');
-    setPreselectedCableDisplayGroup(null);
+    setPreselectedCableGroupId(null);
     setNewEquipmentType(t);
   };
 
   const handlePresetClick = (preset: RackPreset) => {
     setTool('equipment');
-    setPreselectedCableDisplayGroup(null);
+    setPreselectedCableGroupId(null);
     setNewEquipmentPreset(preset);
     setPresetMenuOpen(false);
   };
@@ -90,9 +90,9 @@ export function EditorInsertBar() {
     }
   };
 
-  const handleCableGroupClick = (group: CableDisplayGroup) => {
+  const handleCableGroupClick = (groupId: string) => {
     resetNewEquipmentSelection();
-    startCableConnection({ group });
+    startCableConnection({ group: groupId });
   };
 
   const activePresets = (rackPresets ?? []).filter((p) => p.isActive);
@@ -246,17 +246,17 @@ export function EditorInsertBar() {
 
       <Separator />
 
-      {/* ───── 케이블 (5 displayGroup pills) ───── */}
+      {/* ───── 케이블 (사용자 정의 그룹 pills) ───── */}
       <span className="text-xs text-content-faint whitespace-nowrap pl-1 pr-0.5">케이블:</span>
-      {CABLE_DISPLAY_GROUPS.map((group) => {
-        const color = CABLE_GROUP_COLORS[group];
+      {(cableGroups ?? []).filter((g) => g.isActive).map((group) => {
+        const color = group.color ?? '#6b7280';
         const active =
-          tool === 'cable' && preselectedCableDisplayGroup === group;
+          tool === 'cable' && preselectedCableGroupId === group.id;
         return (
           <button
-            key={group}
+            key={group.id}
             type="button"
-            onClick={() => handleCableGroupClick(group)}
+            onClick={() => handleCableGroupClick(group.id)}
             className={`px-2 py-1 text-xs rounded font-medium transition-colors duration-150 whitespace-nowrap border flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
               active
                 ? ''
@@ -273,7 +273,7 @@ export function EditorInsertBar() {
               className="w-1.5 h-1.5 rounded-full inline-block"
               style={{ backgroundColor: active ? '#fff' : color }}
             />
-            {group}
+            {group.name}
           </button>
         );
       })}

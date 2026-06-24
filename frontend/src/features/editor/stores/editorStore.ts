@@ -6,7 +6,6 @@ import type {
 import type { PlaceableType } from '../usePlaceableTypes';
 import type { Asset } from '../../../types/asset';
 import type { RackPreset } from '../../../types/rackPreset';
-import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { DragSession } from '../../../utils/floorplan/dragSystem';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
@@ -157,9 +156,9 @@ export interface EditorStoreState {
   newEquipmentType: PlaceableType | null;
   newEquipmentPreset: RackPreset | null;
 
-  // P9: cable tool preselection — sidebar pill click sets a displayGroup,
-  // CableSpecModal then filters categories by that group.
-  preselectedCableDisplayGroup: CableDisplayGroup | null;
+  // P9: cable tool preselection — insert-bar pill click sets a (user-defined)
+  // cable group id, CableSpecModal then filters categories by that group.
+  preselectedCableGroupId: string | null;
 
   /** Which rack slot is currently showing the inline "add module" popover. */
   addingAtSlot: { rackEquipmentId: string; slotIndex: number } | null;
@@ -260,7 +259,7 @@ export interface EditorStoreActions {
   resetNewEquipmentSelection: () => void;
 
   // P9: cable group preselection.
-  setPreselectedCableDisplayGroup: (group: CableDisplayGroup | null) => void;
+  setPreselectedCableGroupId: (groupId: string | null) => void;
 
   setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
   setIsDraggingRackModule: (v: boolean) => void;
@@ -318,7 +317,7 @@ const initialState: EditorStoreState = {
   newEquipmentPosition: { x: 100, y: 100 },
   newEquipmentType: null,
   newEquipmentPreset: null,
-  preselectedCableDisplayGroup: null,
+  preselectedCableGroupId: null,
   addingAtSlot: null,
   isDraggingRackModule: false,
   hiddenBgLayers: new Set<string>(),
@@ -464,8 +463,8 @@ export const useEditorStore = create<FullStore>()((set) => ({
   resetNewEquipmentSelection: () =>
     set({ newEquipmentType: null, newEquipmentPreset: null }),
 
-  setPreselectedCableDisplayGroup: (preselectedCableDisplayGroup) =>
-    set({ preselectedCableDisplayGroup }),
+  setPreselectedCableGroupId: (preselectedCableGroupId) =>
+    set({ preselectedCableGroupId }),
 
   setAddingAtSlot: (s) => set({ addingAtSlot: s }),
   setIsDraggingRackModule: (v) => set({ isDraggingRackModule: v }),
