@@ -31,7 +31,7 @@ vi.mock('../../trace/traceGraph', () => ({
   remoteSlotSubstation: () => null,
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({
-  useCableCategories: () => ({ data: [{ id: 'c-fiber', code: 'OPJ', name: '광점퍼', displayColor: '#a78bfa', displayGroup: '광', isActive: true }] }),
+  useCableCategories: () => ({ data: [{ id: 'c-fiber', code: 'OPJ', name: '광점퍼', displayColor: '#a78bfa', displayGroup: '광', groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e', isActive: true }] }),
 }));
 // CableInspector 는 별도 단위 — 여기선 리스트/선택만 검증하므로 스텁.
 vi.mock('../../cables/components/CableInspector', () => ({

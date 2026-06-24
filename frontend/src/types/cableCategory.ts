@@ -41,16 +41,3 @@ export const CABLE_DISPLAY_GROUP_COLORS: Record<CableDisplayGroup, string> = {
   '광': '#22c55e',
   '제어': '#6b7280',
 };
-
-/**
- * 레거시 cableType(enum: AC/DC/LAN/FIBER/GROUND) → 표준 displayGroup.
- * categoryId 가 없거나 매칭 안 되는 케이블(구 시드/구데이터)을 원시 'FIBER' 대신 '광' 으로
- * 그룹핑하기 위한 폴백 브리지 — 같은 종류가 두 그룹으로 갈라지는 것을 방지한다.
- */
-export const CABLE_TYPE_DISPLAY_GROUP: Record<string, CableDisplayGroup> = {
-  AC: '전원',
-  DC: '전원',
-  LAN: '네트워크',
-  FIBER: '광',
-  GROUND: '접지',
-};
