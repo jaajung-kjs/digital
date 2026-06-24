@@ -1,13 +1,35 @@
 import prisma from '../config/prisma.js';
 import { ConflictError, NotFoundError } from '../utils/errors.js';
 
-export interface CableGroupDetail { id: string; name: string; color: string | null; sortOrder: number; isActive: boolean }
+export interface CableGroupDetail {
+  id: string;
+  name: string;
+  color: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  kind: string | null;
+  laborType: string | null;
+  installHoursPerMeter: number | null;
+  removeHoursPerMeter: number | null;
+  relocateHoursPerMeter: number | null;
+}
 export interface CreateCableGroupInput { name: string; color?: string | null; sortOrder?: number }
 export interface UpdateCableGroupInput { name?: string; color?: string | null; sortOrder?: number; isActive?: boolean }
 
 class CableGroupService {
-  private map(g: { id: string; name: string; color: string | null; sortOrder: number; isActive: boolean }): CableGroupDetail {
-    return { id: g.id, name: g.name, color: g.color, sortOrder: g.sortOrder, isActive: g.isActive };
+  private map(g: {
+    id: string; name: string; color: string | null; sortOrder: number; isActive: boolean;
+    kind?: string | null; laborType?: string | null;
+    installHoursPerMeter?: number | null; removeHoursPerMeter?: number | null; relocateHoursPerMeter?: number | null;
+  }): CableGroupDetail {
+    return {
+      id: g.id, name: g.name, color: g.color, sortOrder: g.sortOrder, isActive: g.isActive,
+      kind: g.kind ?? null,
+      laborType: g.laborType ?? null,
+      installHoursPerMeter: g.installHoursPerMeter ?? null,
+      removeHoursPerMeter: g.removeHoursPerMeter ?? null,
+      relocateHoursPerMeter: g.relocateHoursPerMeter ?? null,
+    };
   }
 
   async getAll(): Promise<CableGroupDetail[]> {

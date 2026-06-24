@@ -38,6 +38,10 @@ export interface AssetTypeDetail {
   connectionKind: string | null;
   sortOrder: number;
   isActive: boolean;
+  laborType: string | null;
+  installHoursPerUnit: number | null;
+  removeHoursPerUnit: number | null;
+  relocateHoursPerUnit: number | null;
 }
 
 class AssetTypeService {
@@ -48,6 +52,10 @@ class AssetTypeService {
     iconName: string | null; displayColor: string | null; placementKind: string | null;
     connectionKind: string | null;
     sortOrder: number; isActive: boolean;
+    laborType?: string | null;
+    installHoursPerUnit?: number | null;
+    removeHoursPerUnit?: number | null;
+    relocateHoursPerUnit?: number | null;
   }): AssetTypeDetail {
     return {
       id: t.id, code: t.code, name: t.name, group: t.group,
@@ -57,6 +65,10 @@ class AssetTypeService {
       displayColor: t.displayColor, placementKind: t.placementKind ?? null,
       connectionKind: t.connectionKind ?? null,
       sortOrder: t.sortOrder, isActive: t.isActive,
+      laborType: t.laborType ?? null,
+      installHoursPerUnit: t.installHoursPerUnit ?? null,
+      removeHoursPerUnit: t.removeHoursPerUnit ?? null,
+      relocateHoursPerUnit: t.relocateHoursPerUnit ?? null,
     };
   }
 
