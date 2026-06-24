@@ -62,7 +62,6 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
   const opgwOf = (slotId: string) =>
     cables.find(
       (c) =>
-        c.cableType === 'FIBER' &&
         c.sourceRole === 'IN' &&
         c.targetRole === 'IN' &&
         (c.sourceAssetId === slotId || c.targetAssetId === slotId),

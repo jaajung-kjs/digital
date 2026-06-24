@@ -30,7 +30,6 @@ export function EquipmentSelectCell({ slot, coreNumber, side }: {
   // 가드 없이는 다른 슬롯(예: 자국)의 targetRole='OUT' 케이블이 대국 조회에 잘못 매칭된다(전염 버그).
   const outCable = targetSlotId
     ? cables.find((c) =>
-        c.cableType === 'FIBER' &&
         c.number === coreNumber &&
         (c.sourceAssetId === targetSlotId || c.targetAssetId === targetSlotId) &&
         roleAt(c, targetSlotId) === 'OUT')

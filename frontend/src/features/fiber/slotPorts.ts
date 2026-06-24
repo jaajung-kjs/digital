@@ -17,7 +17,7 @@ interface SlotLike { id: string }
 /** 슬롯의 OPGW(IN-IN) 반대편(twin) 슬롯 id. 없으면 null. */
 export function twinSlotIdOf(slotId: string, cables: CableLike[]): string | null {
   const opgw = cables.find(
-    (c) => c.cableType === 'FIBER' && roleAt(c, slotId) === 'IN'
+    (c) => roleAt(c, slotId) === 'IN'
       && (c.sourceAssetId === slotId || c.targetAssetId === slotId),
   );
   return opgw ? other(opgw, slotId) : null;
@@ -34,7 +34,7 @@ export function buildSlotPorts(
   _graph: TraceGraph | null, // reserved — 향후 far-name 투영용, 현재 미사용
 ): SlotPort[] {
   const fiberOnSlot = cables.filter(
-    (c) => c.cableType === 'FIBER' && (c.sourceAssetId === slot.id || c.targetAssetId === slot.id),
+    (c) => c.sourceAssetId === slot.id || c.targetAssetId === slot.id,
   );
   const opgw = fiberOnSlot.find((c) => roleAt(c, slot.id) === 'IN');
   const opgwCores = Number((opgw?.specParams as Record<string, unknown> | undefined)?.cores ?? 0);
@@ -47,7 +47,7 @@ export function buildSlotPorts(
   // OUT 코어 케이블을 (endpoint assetId, coreNumber) 로 1회 인덱싱 — 포트마다 전체 스캔 방지.
   const outIndex = new Map<string, CableLike>();
   for (const c of cables) {
-    if (c.cableType !== 'FIBER' || c.number == null) continue;
+    if (c.number == null) continue;
     if (c.sourceRole === 'OUT' && c.sourceAssetId) outIndex.set(`${c.sourceAssetId}:${c.number}`, c);
     if (c.targetRole === 'OUT' && c.targetAssetId) outIndex.set(`${c.targetAssetId}:${c.number}`, c);
   }

@@ -32,7 +32,7 @@ const str = (v: unknown): string | null => (v === null || v === undefined || v =
  * 용량(1..N)도 OPGW.cores 소유 → 경로 생성 즉시 빈 코어가 N개 보이고 메타 편집 가능.
  */
 export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], graph: TraceGraph | null): SlotCoreRow[] {
-  const fiber = localCables.filter((c) => c.cableType === 'FIBER' && (c.sourceAssetId === slot.id || c.targetAssetId === slot.id));
+  const fiber = localCables.filter((c) => c.sourceAssetId === slot.id || c.targetAssetId === slot.id);
   const outs = fiber.filter((c) => roleAt(c, slot.id) === 'OUT');
   const opgw = fiber.find((c) => roleAt(c, slot.id) === 'IN');
 

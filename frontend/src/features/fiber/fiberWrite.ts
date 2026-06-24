@@ -64,7 +64,7 @@ interface CableLike { id: string; sourceAssetId?: string | null; targetAssetId?:
 export function routeDeleteIds(slotAId: string, slotBId: string, cables: CableLike[]): { assetIds: string[]; cableIds: string[] } {
   const slots = new Set([slotAId, slotBId]);
   const cableIds = cables
-    .filter((c) => c.cableType === 'FIBER' && ((c.sourceAssetId && slots.has(c.sourceAssetId)) || (c.targetAssetId && slots.has(c.targetAssetId))))
+    .filter((c) => (c.sourceAssetId && slots.has(c.sourceAssetId)) || (c.targetAssetId && slots.has(c.targetAssetId)))
     .map((c) => c.id);
   return { assetIds: [slotAId, slotBId], cableIds };
 }
