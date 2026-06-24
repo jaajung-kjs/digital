@@ -29,7 +29,8 @@ describe('slimCableToCable', () => {
       sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 24 },
     });
     expect(c.id).toBe('opgw');
-    expect(c.cableType).toBe('FIBER');
+    // cableType 은 C5 Phase A 에서 워킹카피 행에서도 제거됨
+    expect(c.cableType).toBeUndefined();
     expect(c.sourceAssetId).toBe('sA');
     expect(c.targetRole).toBe('IN');
     expect((c.specParams as { cores: number }).cores).toBe(24);

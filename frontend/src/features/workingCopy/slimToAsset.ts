@@ -46,7 +46,6 @@ export function slimToAsset(s: SlimAssetDTO): Asset {
 export function slimCableToCable(c: TraceCableInput): WorkingCopyRow {
   return {
     id: c.id,
-    cableType: c.cableType ?? null,
     sourceAssetId: c.sourceAssetId ?? null,
     targetAssetId: c.targetAssetId ?? null,
     sourceRole: c.sourceRole ?? null,

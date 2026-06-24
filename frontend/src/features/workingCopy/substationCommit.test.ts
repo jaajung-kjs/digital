@@ -127,8 +127,8 @@ describe('buildSubstationCommitPayload', () => {
     expect(c.targetEquipmentId).toBeUndefined();
     expect(c.sourceModuleId).toBeUndefined();
     expect(c.targetModuleId).toBeUndefined();
-    // canonical passthrough
-    expect(c.cableType).toBe('LAN');
+    // canonical passthrough — cableType 은 C5 Phase A 에서 전송 제거됨
+    expect(c.cableType).toBeUndefined();
     expect(c.categoryId).toBe('catX');
     expect(c.pathPoints).toEqual([[0, 0], [10, 10]]);
     expect(c.totalLength).toBe(18);

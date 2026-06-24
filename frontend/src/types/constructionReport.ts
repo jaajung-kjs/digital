@@ -67,7 +67,7 @@ export interface EquipmentSnapshotItem {
 
 export interface CableSnapshotItem {
   id: string;
-  cableType: string;
+  cableType?: string | null;
   materialCategoryCode?: string | null;
   materialCategoryName?: string | null;
   specification?: string | null;

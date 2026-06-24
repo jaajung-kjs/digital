@@ -67,14 +67,12 @@ function cableToSnapshot(c: Cable): CableSnapshotItem {
   const local = cableDtoToLocal(c as unknown as CableDetailDTO);
   return {
     id: local.id,
-    cableType: local.cableType,
     materialCategoryCode: local.categoryCode ?? null,
     materialCategoryName: local.categoryName ?? null,
     specification: local.specification ?? null,
     totalLength: local.totalLength ?? null,
     sourceAssetId: local.sourceAssetId,
     targetAssetId: local.targetAssetId,
-    label: local.label ?? null,
   };
 }
 
