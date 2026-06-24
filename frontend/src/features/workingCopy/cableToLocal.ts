@@ -30,7 +30,6 @@ export interface CableDetailDTO {
   categoryCode?: string | null;
   categoryName?: string | null;
   displayColor?: string | null;
-  label?: string | null;
   pathPoints?: [number, number][] | null;
   pathLength?: number | null;
   bufferLength?: number;
@@ -60,7 +59,6 @@ export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
     categoryCode: c.categoryCode ?? null,
     categoryName: c.categoryName ?? null,
     displayColor: c.displayColor ?? null,
-    label: c.label ?? null,
     pathPoints: c.pathPoints ?? null,
     pathLength: c.pathLength ?? null,
     bufferLength: c.bufferLength,

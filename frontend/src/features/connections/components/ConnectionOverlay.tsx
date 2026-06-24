@@ -54,7 +54,7 @@ function mapCablesToRenderable(
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
       cableType: cable.cableType,
-      label: cable.label || cable.categoryName || cable.categoryCode || undefined,
+      label: cable.categoryName ?? undefined,
       color: normalizeCableColor(cable.color || cable.displayColor) || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength ?? undefined,

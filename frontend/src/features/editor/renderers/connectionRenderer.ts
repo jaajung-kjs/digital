@@ -109,7 +109,7 @@ function drawConnectionLabel(
   const midX = even ? (points[mid - 1][0] + points[mid][0]) / 2 : points[mid][0];
   const midY = even ? (points[mid - 1][1] + points[mid][1]) / 2 : points[mid][1];
 
-  let text = conn.label || conn.materialCategoryCode || conn.cableType;
+  let text = conn.label || conn.materialCategoryCode || '';
   if (conn.totalLength != null) {
     // totalLength 는 cm. 표/캔버스 공통 포맷(formatCableLength)으로 단위 일치.
     text += ` (${formatCableLength(conn.totalLength)})`;
