@@ -19,9 +19,9 @@ export function newCatalogId(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-type TypeP = Partial<Pick<AssetType, 'name' | 'categoryId'>>;
+type TypeP = Partial<Pick<AssetType, 'name' | 'categoryId' | 'laborType' | 'installHoursPerUnit' | 'removeHoursPerUnit' | 'relocateHoursPerUnit'>>;
 type CatP = Partial<Pick<AssetCategory, 'name' | 'sortOrder'>>;
-type CgP = Partial<Pick<CableGroup, 'name' | 'color' | 'sortOrder'>>;
+type CgP = Partial<Pick<CableGroup, 'name' | 'color' | 'sortOrder' | 'laborType' | 'installHoursPerMeter' | 'removeHoursPerMeter' | 'relocateHoursPerMeter'>>;
 type CcP = Partial<Pick<CableCategory, 'name' | 'groupId'>>;
 
 // 카탈로그는 관리자 단일 편집 → OCC 미사용(versionOf null).

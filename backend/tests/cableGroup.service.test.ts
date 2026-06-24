@@ -31,4 +31,20 @@ describe('CableGroupService', () => {
     await cableGroupService.delete('g1');
     expect(prisma.cableGroup.delete).toHaveBeenCalledWith({ where: { id: 'g1' } });
   });
+
+  it('getAll DTO 가 노무규칙 5필드를 값 그대로 노출한다', async () => {
+    vi.mocked(prisma.cableGroup.findMany).mockResolvedValue([
+      {
+        id: 'g1', name: '전원', color: '#ef4444', sortOrder: 1, isActive: true,
+        kind: 'POWER', laborType: '통신내선공',
+        installHoursPerMeter: 0.03, removeHoursPerMeter: 0.015, relocateHoursPerMeter: null,
+      } as any,
+    ]);
+    const groups = await cableGroupService.getAll();
+    expect(groups[0].kind).toBe('POWER');
+    expect(groups[0].laborType).toBe('통신내선공');
+    expect(groups[0].installHoursPerMeter).toBe(0.03);
+    expect(groups[0].removeHoursPerMeter).toBe(0.015);
+    expect(groups[0].relocateHoursPerMeter).toBeNull();
+  });
 });

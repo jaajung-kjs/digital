@@ -73,4 +73,21 @@ describe('commitCatalog', () => {
     tx.cable.count.mockResolvedValue(3);
     await expect(commitCatalog({ cableCategories: { creates: [], updates: [], deletes: [{ id: 'cc1' }] } })).rejects.toThrow('사용 중인 케이블');
   });
+
+  it('cableGroup update 가 installHoursPerMeter 를 tx update data 에 반영', async () => {
+    await commitCatalog({
+      cableGroups: { creates: [], updates: [{ id: 'g1', patch: { installHoursPerMeter: 0.05 } }], deletes: [] },
+    });
+    const updateData = (tx.cableGroup.update.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(updateData.installHoursPerMeter).toBe(0.05);
+  });
+
+  it('assetType update 가 installHoursPerUnit 를 tx update data 에 반영', async () => {
+    tx.assetType.findUnique.mockResolvedValue({ id: 't1', role: 'device' });
+    await commitCatalog({
+      assetTypes: { creates: [], updates: [{ id: 't1', patch: { installHoursPerUnit: 1.5 } }], deletes: [] },
+    });
+    const updateData = (tx.assetType.update.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(updateData.installHoursPerUnit).toBe(1.5);
+  });
 });
