@@ -8,11 +8,16 @@ export interface AssetFieldDef {
   unit?: string;
 }
 
+/** 자산 구조 역할 — 분류 단일 소스. 직접 비교(=== 'ofd')로 분류한다. */
+export type AssetRole = 'rack' | 'ofd' | 'panel' | 'slot' | 'feeder' | 'standalone' | 'device';
+
 export interface AssetType {
   id: string;
   code: string;
   name: string;
   group: string | null;
+  role: AssetRole;
+  categoryId: string | null;
   isContainer: boolean;
   fieldTemplate: AssetFieldDef[] | null;
   requiredToCreate: string[] | null;
@@ -47,6 +52,8 @@ export interface Asset {
      * 케이블 드로잉 시 이 끝점이 distributor 면 IN/OUT 지정 UI 가 뜬다.
      */
     connectionKind?: string | null;
+    /** 시스템 구조 역할 — 분류 단일 소스(P2~). */
+    role?: AssetRole | null;
   };
   name: string;
   parentAssetId: string | null;

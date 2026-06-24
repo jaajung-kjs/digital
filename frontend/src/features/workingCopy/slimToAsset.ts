@@ -16,6 +16,7 @@ export function slimToAsset(s: SlimAssetDTO): Asset {
     assetType: {
       id: '', code: s.code ?? '', name: '', group: null, displayColor: null,
       fieldTemplate: null, placementKind: null, connectionKind: s.connectionKind ?? null,
+      role: s.role ?? null,
     },
     name: s.name,
     parentAssetId: s.parentAssetId,

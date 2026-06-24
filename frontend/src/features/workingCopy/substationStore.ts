@@ -600,8 +600,8 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             id: m.id,
             substationId: s.substationId,
             assetTypeId: m.categoryId,
-            // staged create — 실제 assetType 은 서버 커밋 후에야 안다. 랙모듈은 배치형 아님.
-            assetType: { placementKind: null } as Asset['assetType'],
+            // staged create — 실제 assetType 은 서버 커밋 후에야 안다. 랙모듈 = device.
+            assetType: { role: 'device' } as Asset['assetType'],
             name: m.name,
             parentAssetId: m.rackEquipmentId,
             floorId: parent?.floorId ?? null,

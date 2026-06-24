@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useEffectiveAssets, useEffectiveCables } from '../workingCopy/hooks';
 import { useOrganizationStore } from '../../stores/organizationStore';
 import { isOfd, isConduit } from '../workingCopy/assetClassify';
+import type { AssetRole } from '../../types/asset';
 import { other, isOpgwTwin } from '../cables/cableEndpoint';
 import { cableTrace, type TraceAsset, type TraceCable } from './cableTrace';
 
@@ -25,6 +26,7 @@ export interface SlimAssetDTO {
   parentAssetId: string | null;
   connectionKind: 'distributor' | 'conduit' | null;
   code: string | null;
+  role: AssetRole | null;
   slotIndex: number | null;
 }
 
@@ -64,6 +66,8 @@ export interface TraceGraph {
   codeById: Map<string, string | null>;
   /** 자산 id → placementKind(스테이징 OFD/DIST 판별 — code 미정 자산도 식별). */
   placementKindById: Map<string, string | null>;
+  /** 자산 id → role(분류 단일 소스). */
+  roleById: Map<string, AssetRole | null>;
   /** 자산 id → OFD 내 슬롯 위치(경로슬롯 -N 순번 파생용). */
   slotIndexById: Map<string, number | null>;
 }
@@ -88,7 +92,7 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
  * — slim 역추론·staged 분기·폴백 체인 없음(단일 SSOT).
  */
 export function buildTraceGraph(input: {
-  assets: { id: string; name?: string; substationId?: string | null; parentAssetId?: string | null; slotIndex?: number | null; assetType?: { connectionKind?: string | null; code?: string | null; placementKind?: string | null } | null }[];
+  assets: { id: string; name?: string; substationId?: string | null; parentAssetId?: string | null; slotIndex?: number | null; assetType?: { connectionKind?: string | null; code?: string | null; placementKind?: string | null; role?: string | null } | null }[];
   cables: TraceCableInput[];
   /** 변전소 id → 이름 (전 본부 org 트리 전체). 모든 자산 변전소명의 단일 소스. */
   substationNames?: Map<string, string>;
@@ -100,6 +104,7 @@ export function buildTraceGraph(input: {
   const kindById = new Map<string, string | null>();
   const codeById = new Map<string, string | null>();
   const placementKindById = new Map<string, string | null>();
+  const roleById = new Map<string, AssetRole | null>();
   const slotIndexById = new Map<string, number | null>();
   const assetById = new Map<string, TraceAsset>();
 
@@ -111,6 +116,7 @@ export function buildTraceGraph(input: {
     kindById.set(a.id, kind ?? null);
     codeById.set(a.id, a.assetType?.code ?? null);
     placementKindById.set(a.id, a.assetType?.placementKind ?? null);
+    roleById.set(a.id, (a.assetType?.role ?? null) as AssetRole | null);
     slotIndexById.set(a.id, a.slotIndex ?? null);
     const subId = a.substationId ?? null;
     if (subId) {
@@ -120,7 +126,7 @@ export function buildTraceGraph(input: {
     }
   }
 
-  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, kindById, codeById, placementKindById, slotIndexById };
+  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, kindById, codeById, placementKindById, roleById, slotIndexById };
 }
 
 /** 그래프 맵에서 자산의 OFD 판정 — 정식 분류(assetClassify.isOfd) 재사용. */
