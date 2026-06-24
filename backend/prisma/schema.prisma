@@ -191,19 +191,12 @@ model RackPreset {
 // ==================== 케이블 카테고리 (16종 시드) ====================
 
 model CableCategory {
-  id           String   @id @default(uuid())
-  code         String   @unique @db.VarChar(30) // 'CBL-FCV' 등
-  name         String   @db.VarChar(100)
-  description  String?  @db.Text
-  displayColor String?  @map("display_color") @db.VarChar(7)
-  displayGroup String?  @map("display_group") @db.VarChar(20) // 전원|접지|네트워크|광|제어
-  iconName     String?  @map("icon_name") @db.VarChar(30)
-  unit         String?  @db.VarChar(20)
-  specTemplate Json?    @map("spec_template")
-  sortOrder    Int      @default(0) @map("sort_order")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(100)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   groupId String?     @map("group_id")
   group   CableGroup? @relation(fields: [groupId], references: [id])
@@ -245,7 +238,6 @@ model Cable {
   // 케이블은 변전소 스코프 컬럼이 없다 — 끝점 자산(sourceAsset/targetAsset)의 substationId 로 스코핑한다.
   // (OPGW 는 두 변전소를 잇어 단일 substationId 로 표현 불가 → 끝점 기반 스코핑이 SSOT.)
 
-  cableType  CableType @map("cable_type")
   categoryId String?   @map("category_id") // CableCategory FK
   specParams Json?     @map("spec_params")
   pathPoints Json?     @map("path_points")
@@ -255,12 +247,10 @@ model Cable {
   sourceRole String? @map("source_role") @db.VarChar(4) // 'IN'|'OUT'|null (source 끝이 방향성 자산일 때)
   targetRole String? @map("target_role") @db.VarChar(4) // 'IN'|'OUT'|null (target 끝이 방향성 자산일 때)
 
-  label        String? @db.VarChar(100)
   length       Float?
   pathLength   Float?  @map("path_length")
   bufferLength Float   @default(4) @map("buffer_length")
   totalLength  Float?  @map("total_length")
-  color        String? @db.VarChar(50)
   description  String? @db.Text
 
   createdAt   DateTime @default(now()) @map("created_at")
@@ -275,14 +265,6 @@ model Cable {
   updatedBy   User?          @relation("CableUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("cables")
-}
-
-enum CableType {
-  AC
-  DC
-  LAN
-  FIBER
-  GROUND
 }
 
 enum AssetRole {

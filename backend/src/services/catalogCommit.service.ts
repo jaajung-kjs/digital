@@ -95,18 +95,18 @@ export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
     }
     if (cc) {
       for (const c of cc.creates) {
-        const g = await t.cableGroup.findUnique({ where: { id: c.groupId } });
-        if (!g) throw new ValidationError(`존재하지 않는 그룹: ${c.groupId}`);
-        await t.cableCategory.create({ data: { id: c.id, code: `CBL-${randomUUID().slice(0, 8).toUpperCase()}`, name: c.name.trim(), groupId: c.groupId, displayGroup: g.name } });
+        if (c.groupId) {
+          const g = await t.cableGroup.findUnique({ where: { id: c.groupId } });
+          if (!g) throw new ValidationError(`존재하지 않는 그룹: ${c.groupId}`);
+        }
+        await t.cableCategory.create({ data: { id: c.id, name: c.name.trim(), groupId: c.groupId } });
       }
       for (const u of cc.updates) {
-        let displayGroup: string | undefined;
         if (u.patch.groupId !== undefined) {
           const g = await t.cableGroup.findUnique({ where: { id: u.patch.groupId } });
           if (!g) throw new ValidationError(`존재하지 않는 그룹: ${u.patch.groupId}`);
-          displayGroup = g.name;
         }
-        await t.cableCategory.update({ where: { id: u.id }, data: { ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}), ...(u.patch.groupId !== undefined ? { groupId: u.patch.groupId, displayGroup } : {}) } });
+        await t.cableCategory.update({ where: { id: u.id }, data: { ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}), ...(u.patch.groupId !== undefined ? { groupId: u.patch.groupId } : {}) } });
       }
       for (const d of cc.deletes) {
         const inUse = await t.cable.count({ where: { categoryId: d.id } });

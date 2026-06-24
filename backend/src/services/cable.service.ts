@@ -23,7 +23,6 @@ export interface CableDetail {
   targetRole: 'IN' | 'OUT' | null;
   number: number | null;
   length: number | null;
-  color: string | null;
   pathPoints: unknown;
   description: string | null;
   categoryId: string | null;
@@ -180,7 +179,6 @@ class CableService {
       targetRole: (c.targetRole ?? null) as 'IN' | 'OUT' | null,
       number: c.number ?? null,
       length: c.length,
-      color: c.color,
       pathPoints: c.pathPoints,
       description: c.description,
       categoryId: c.categoryId ?? null,

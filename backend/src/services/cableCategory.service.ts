@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { ConflictError, NotFoundError, ValidationError } from '../utils/errors.js';
 
@@ -9,17 +8,10 @@ export interface UpdateCableCategoryInput { name?: string; groupId?: string; sor
 
 export interface CableCategoryDetail {
   id: string;
-  code: string;
   name: string;
-  description: string | null;
-  displayColor: string | null;
-  displayGroup: string | null;
   groupId: string | null;
   groupName: string | null;
   groupColor: string | null;
-  iconName: string | null;
-  unit: string | null;
-  specTemplate: unknown;
   sortOrder: number;
   isActive: boolean;
   createdAt: Date;
@@ -27,9 +19,7 @@ export interface CableCategoryDetail {
 }
 
 type CableCategoryRow = {
-  id: string; code: string; name: string; description: string | null;
-  displayColor: string | null; displayGroup: string | null; groupId: string | null;
-  iconName: string | null; unit: string | null; specTemplate: unknown;
+  id: string; name: string; groupId: string | null;
   sortOrder: number; isActive: boolean; createdAt: Date; updatedAt: Date;
   group?: { id: string; name: string; color: string | null } | null;
 };
@@ -40,17 +30,10 @@ class CableCategoryService {
   private mapToDetail(c: CableCategoryRow): CableCategoryDetail {
     return {
       id: c.id,
-      code: c.code,
       name: c.name,
-      description: c.description,
-      displayColor: c.displayColor,
-      displayGroup: c.displayGroup,
       groupId: c.groupId ?? null,
       groupName: c.group?.name ?? null,
       groupColor: c.group?.color ?? null,
-      iconName: c.iconName,
-      unit: c.unit,
-      specTemplate: c.specTemplate,
       sortOrder: c.sortOrder,
       isActive: c.isActive,
       createdAt: c.createdAt,
@@ -60,7 +43,7 @@ class CableCategoryService {
 
   async getAll(): Promise<CableCategoryDetail[]> {
     const categories = await prisma.cableCategory.findMany({
-      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: { group: true },
     });
     return categories.map((c) => this.mapToDetail(c));
@@ -72,7 +55,6 @@ class CableCategoryService {
     return this.mapToDetail(category);
   }
 
-  // groupId 검증 + displayGroup(group.name) 동기화. displayGroup 컬럼은 C5 까지 프론트 호환용으로 유지.
   private async requireGroup(groupId: string): Promise<{ id: string; name: string }> {
     const g = await prisma.cableGroup.findUnique({ where: { id: groupId } });
     if (!g) throw new ValidationError(`존재하지 않는 그룹입니다: ${groupId}`);
@@ -81,9 +63,8 @@ class CableCategoryService {
 
   async create(input: CreateCableCategoryInput): Promise<CableCategoryDetail> {
     const group = await this.requireGroup(input.groupId);
-    const code = `CBL-${randomUUID().slice(0, 8).toUpperCase()}`;
     const row = await prisma.cableCategory.create({
-      data: { code, name: input.name.trim(), groupId: group.id, displayGroup: group.name, sortOrder: input.sortOrder ?? 0 },
+      data: { name: input.name.trim(), groupId: group.id, sortOrder: input.sortOrder ?? 0 },
       include: { group: true },
     });
     return this.mapToDetail(row);
@@ -97,7 +78,7 @@ class CableCategoryService {
       where: { id },
       data: {
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
-        ...(group ? { groupId: group.id, displayGroup: group.name } : {}),
+        ...(group ? { groupId: group.id } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       },

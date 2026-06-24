@@ -174,7 +174,7 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
   it('4) atomicity — valid asset create + WRONG cable delete baseVersion → 409 + asset 미영속', async () => {
     const cable = await prisma.cable.create({
       // 단계4b — endpoint 스코핑은 source_asset_id 로. (OCC delete 가 sourceAsset.substationId 로 찾음)
-      data: { sourceAssetId: createdAssets[0], targetAssetId: createdAssets[0], cableType: 'LAN' },
+      data: { sourceAssetId: createdAssets[0], targetAssetId: createdAssets[0] },
     });
     const wrong = new Date(cable.updatedAt.getTime() - 60000).toISOString();
 

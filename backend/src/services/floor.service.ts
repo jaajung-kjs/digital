@@ -53,9 +53,7 @@ interface PlanCableDTO {
   // 단계4b(통합 노드): endpoint = 단일 Asset id.
   sourceAssetId: string | null;
   targetAssetId: string | null;
-  label: string | null;
   length: number | null;
-  color: string | null;
   pathPoints: unknown;
   description: string | null;
   categoryId: string | null;
@@ -212,9 +210,7 @@ class FloorService {
         id: c.id,
         sourceAssetId: c.sourceAssetId,
         targetAssetId: c.targetAssetId,
-        label: c.label,
         length: c.length,
-        color: c.color,
         pathPoints: c.pathPoints,
         description: c.description,
         categoryId: c.categoryId,

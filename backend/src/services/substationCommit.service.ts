@@ -621,8 +621,6 @@ async function run(
           // endpoint 는 단일 Asset 노드만 쓴다 — legacy *_equipment/module/circuit_id 는 null.
           sourceAssetId,
           targetAssetId,
-          // C5 Phase A: cableType 은 드롭 예정 컬럼(NOT NULL) — Phase B 까지 placeholder.
-          cableType: 'LAN',
           length: c.length ?? null,
           description: c.description ?? null,
           number: c.number ?? null,

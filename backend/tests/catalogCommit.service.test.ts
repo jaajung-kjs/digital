@@ -52,7 +52,7 @@ describe('commitCatalog', () => {
       .rejects.toThrow('분류를 변경할 수 없습니다');
   });
 
-  it('그룹 생성 후 그 id 로 케이블종류 생성(code 자동·displayGroup 동기화)', async () => {
+  it('그룹 생성 후 그 id 로 케이블종류 생성(name+groupId 만)', async () => {
     tx.cableGroup.findUnique.mockResolvedValue({ id: 'g1', name: '전원케이블' });
     await commitCatalog({
       cableGroups: { creates: [{ id: 'g1', name: '전원케이블', color: '#ef4444' }], updates: [], deletes: [] },
@@ -60,8 +60,9 @@ describe('commitCatalog', () => {
     });
     expect(tx.cableGroup.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id: 'g1', name: '전원케이블', color: '#ef4444' }) }));
     const d = (tx.cableCategory.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
-    expect(d).toMatchObject({ id: 'cc1', name: 'Fr-sq3.5', groupId: 'g1', displayGroup: '전원케이블' });
-    expect(d.code).toMatch(/^CBL-/);
+    expect(d).toMatchObject({ id: 'cc1', name: 'Fr-sq3.5', groupId: 'g1' });
+    expect(d.code).toBeUndefined();
+    expect(d.displayGroup).toBeUndefined();
   });
 
   it('사용 중 그룹 삭제 차단', async () => {
