@@ -18,7 +18,7 @@ const OFD_SLOT_COUNT = 12;
 
 interface CableWithRoles {
   id: string; sourceAssetId?: string | null; targetAssetId?: string | null;
-  sourceRole?: string | null; targetRole?: string | null; cableType?: string | null;
+  sourceRole?: string | null; targetRole?: string | null;
   specParams?: Record<string, unknown> | null;
 }
 

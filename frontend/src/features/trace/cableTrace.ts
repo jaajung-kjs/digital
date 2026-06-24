@@ -3,7 +3,6 @@ import { roleAt, other } from '../cables/cableEndpoint';
 export interface TraceAsset { id: string; connectionKind?: 'distributor' | 'conduit' | null }
 export interface TraceCable {
   id: string;
-  cableType?: string | null;
   groupId?: string | null;
   sourceAssetId?: string | null;
   targetAssetId?: string | null;
@@ -13,14 +12,13 @@ export interface TraceCable {
   specParams?: Record<string, unknown> | null;
   categoryName?: string | null;
   categoryId?: string | null;
-  displayColor?: string | null;
 }
 export interface TraceResult { nodeIds: string[]; cableIds: string[]; truncated?: boolean }
 
 const MAX = 5000; // 폭주 가드
 
 /**
- * 범용 케이블 추적 — 같은 cableType 으로 물리 연결된 경로(노드/엣지).
+ * 범용 케이블 추적 — 같은 그룹(groupId)으로 물리 연결된 경로(노드/엣지).
  * 노드 connectionKind 로 전이만 분기: passive=전부, distributor=OUT↔IN 수렴,
  * conduit=OUT#K→IN(OPGW, 채널 K)→대국 OUT#K. 방문 엣지로 사이클 안전.
  *

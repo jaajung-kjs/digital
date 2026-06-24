@@ -106,7 +106,7 @@ function toCableCreate(c: Record<string, unknown>): Record<string, unknown> {
     targetAssetId: c.targetAssetId,
   };
   const passthrough = [
-    'length', 'color', 'description',
+    'length', 'description',
     'categoryId', 'specParams', 'pathPoints', 'pathLength', 'bufferLength', 'totalLength',
     'sourceRole', 'targetRole', 'number',
   ];

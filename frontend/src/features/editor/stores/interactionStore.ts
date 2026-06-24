@@ -7,9 +7,8 @@ import type { EndpointRef } from '../cableEndpoint';
 /** CableSpecModal 이 종류 선택 후 store 에 싣는 카테고리 요약. */
 export interface SelectedCableCategory {
   id: string;
-  code: string;
   name: string;
-  displayColor: string | null;
+  groupColor?: string | null;
 }
 
 export type CableDrawingPhase =

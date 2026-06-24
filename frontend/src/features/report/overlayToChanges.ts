@@ -62,12 +62,12 @@ function assetToSnapshot(a: Asset): EquipmentSnapshotItem {
   };
 }
 
-/** effective Cable row(DTO) → 설계서 cable 스냅샷 항목. 자재코드 ← categoryCode. */
+/** effective Cable row(DTO) → 설계서 cable 스냅샷 항목. 자재코드 ← categoryId(백엔드 해소). */
 function cableToSnapshot(c: Cable): CableSnapshotItem {
   const local = cableDtoToLocal(c as unknown as CableDetailDTO);
   return {
     id: local.id,
-    materialCategoryCode: local.categoryCode ?? null,
+    materialCategoryCode: local.categoryId ?? null,
     materialCategoryName: local.categoryName ?? null,
     specification: local.specification ?? null,
     totalLength: local.totalLength ?? null,

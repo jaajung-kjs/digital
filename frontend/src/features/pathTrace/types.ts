@@ -1,5 +1,3 @@
-import type { CableType } from '../../types/connection';
-
 export interface TraceNode {
   nodeId: string;
   nodeName: string;
@@ -17,7 +15,6 @@ export interface TraceEdge {
   sourceAssetId: string;
   targetAssetId: string;
   type: 'cable' | 'fiberPath';
-  cableType?: CableType;
   label?: string;
   length?: number;
   fiberPathId?: string;

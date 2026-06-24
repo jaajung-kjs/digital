@@ -55,9 +55,8 @@ function CableSpecModal() {
     if (!selectedCat) return;
     useInteractionStore.getState().cableSetType({
       id: selectedCat.id,
-      code: selectedCat.code,
       name: selectedCat.name,
-      displayColor: selectedCat.displayColor,
+      groupColor: selectedCat.groupColor,
     });
     setSelectedCategoryId(null);
   };
@@ -86,7 +85,7 @@ function CableSpecModal() {
         ) : (
           visibleCategories.map((cat) => {
             const active = selectedCategoryId === cat.id;
-            const swatch = cat.displayColor ?? '#9ca3af';
+            const swatch = cat.groupColor ?? '#9ca3af';
             return (
               <button
                 key={cat.id}

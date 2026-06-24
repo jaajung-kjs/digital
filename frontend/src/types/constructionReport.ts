@@ -67,14 +67,12 @@ export interface EquipmentSnapshotItem {
 
 export interface CableSnapshotItem {
   id: string;
-  cableType?: string | null;
   materialCategoryCode?: string | null;
   materialCategoryName?: string | null;
   specification?: string | null;
   totalLength?: number | null;
   sourceAssetId: string;
   targetAssetId: string;
-  label?: string | null;
 }
 
 export interface PlanSnapshot {

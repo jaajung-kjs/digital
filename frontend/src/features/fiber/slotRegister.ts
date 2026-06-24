@@ -17,7 +17,7 @@ export interface SlotCoreRow {
 
 interface SlotLike { id: string; name?: string; parentAssetId?: string | null }
 export interface CableLike {
-  id: string; cableType?: string | null;
+  id: string;
   sourceAssetId?: string | null; targetAssetId?: string | null;
   sourceRole?: 'IN' | 'OUT' | null; targetRole?: 'IN' | 'OUT' | null;
   number?: number | null; specParams?: Record<string, unknown> | null;

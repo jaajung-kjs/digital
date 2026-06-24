@@ -33,7 +33,6 @@ export interface SlimAssetDTO {
 /** trace 입력에 필요한 cable 필드만(전역 DTO / 로컬 staged 공통). */
 export interface TraceCableInput {
   id: string;
-  cableType?: string | null;
   groupId?: string | null;
   sourceAssetId?: string | null;
   targetAssetId?: string | null;
@@ -43,7 +42,6 @@ export interface TraceCableInput {
   specParams?: Record<string, unknown> | null;
   categoryName?: string | null;
   categoryId?: string | null;
-  displayColor?: string | null;
   // 케이블 일반 속성(CableInspector 편집 대상) — 슬림 피드가 날라야 저장 후에도 값이 보인다.
   label?: string | null;
   description?: string | null;
@@ -75,7 +73,6 @@ export interface TraceGraph {
 
 const toTraceCable = (c: TraceCableInput): TraceCable => ({
   id: c.id,
-  cableType: c.cableType ?? null,
   groupId: c.groupId ?? null,
   sourceAssetId: c.sourceAssetId ?? null,
   targetAssetId: c.targetAssetId ?? null,
@@ -85,7 +82,6 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
   specParams: c.specParams ?? null,
   categoryName: c.categoryName ?? null,
   categoryId: c.categoryId ?? null,
-  displayColor: c.displayColor ?? null,
 });
 
 /**
@@ -137,7 +133,7 @@ function graphIsOfd(graph: TraceGraph, id: string): boolean {
 }
 
 /**
- * start(설비) 에서 cableType 'FIBER' 로 trace → 도달한 passive(설비) 노드 중 자신 제외 id 들.
+ * start(설비) 에서 구조 기반 trace → 도달한 passive(설비) 노드 중 자신 제외 id 들.
  * = 대국측 설비. 이름 해소는 호출측이 graph.nameById 로.
  */
 export function traceRemoteEndpoints(startAssetId: string, graph: TraceGraph): string[] {
