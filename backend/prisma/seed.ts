@@ -1,7 +1,6 @@
 import { PrismaClient, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedCableCategories } from './seed/cableCategories.js';
-import { seedBomMaterials } from './seed/bomMaterials.js';
 import { seedRackPresets } from './seed/rackPresets.js';
 import { seedJikhalAssets } from './seed/jikhalAssets.js';
 import { seedAssetTypes } from './seed/assetTypes.js';
@@ -72,10 +71,9 @@ async function main() {
   }
 
   // ── 참조 데이터: 매 배포 시드 (신규 추가분 반영, 운영 데이터 비파괴) ──
-  //   - CableCategory (16종) / BomMaterial (34종) / AssetType / RackPreset (1종)
+  //   - CableCategory (16종) / AssetType / RackPreset (1종)
   // assetTypes 는 rackPresets 보다 먼저 — 프리셋 모듈이 assetType code 를 참조.
   await seedCableCategories(prisma);
-  await seedBomMaterials(prisma);
   await seedAssetTypes(prisma);
   await seedRackPresets(prisma);
 

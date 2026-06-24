@@ -5,8 +5,8 @@ import { ConflictError, ValidationError } from '../utils/errors.js';
 interface CollDelta<C, U> { creates: C[]; updates: { id: string; patch: U }[]; deletes: { id: string }[] }
 export interface CatalogCommitInput {
   assetCategories?: CollDelta<{ id: string; name: string; sortOrder?: number }, { name?: string; sortOrder?: number }>;
-  assetTypes?: CollDelta<{ id: string; name: string; categoryId: string | null }, { name?: string; categoryId?: string | null }>;
-  cableGroups?: CollDelta<{ id: string; name: string; color?: string | null }, { name?: string; color?: string | null; sortOrder?: number }>;
+  assetTypes?: CollDelta<{ id: string; name: string; categoryId: string | null }, { name?: string; categoryId?: string | null; laborType?: string | null; installHoursPerUnit?: number | null; removeHoursPerUnit?: number | null; relocateHoursPerUnit?: number | null }>;
+  cableGroups?: CollDelta<{ id: string; name: string; color?: string | null }, { name?: string; color?: string | null; sortOrder?: number; laborType?: string | null; installHoursPerMeter?: number | null; removeHoursPerMeter?: number | null; relocateHoursPerMeter?: number | null }>;
   cableCategories?: CollDelta<{ id: string; name: string; groupId: string }, { name?: string; groupId?: string }>;
 }
 
@@ -53,6 +53,10 @@ export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
           data: {
             ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}),
             ...(u.patch.categoryId !== undefined ? { categoryId: u.patch.categoryId } : {}),
+            ...(u.patch.laborType !== undefined ? { laborType: u.patch.laborType } : {}),
+            ...(u.patch.installHoursPerUnit !== undefined ? { installHoursPerUnit: u.patch.installHoursPerUnit } : {}),
+            ...(u.patch.removeHoursPerUnit !== undefined ? { removeHoursPerUnit: u.patch.removeHoursPerUnit } : {}),
+            ...(u.patch.relocateHoursPerUnit !== undefined ? { relocateHoursPerUnit: u.patch.relocateHoursPerUnit } : {}),
           },
         });
       }
@@ -79,7 +83,15 @@ export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
     const cc = input.cableCategories;
     if (cg) {
       for (const c of cg.creates) await t.cableGroup.create({ data: { id: c.id, name: c.name.trim(), color: c.color ?? null } });
-      for (const u of cg.updates) await t.cableGroup.update({ where: { id: u.id }, data: { ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}), ...(u.patch.color !== undefined ? { color: u.patch.color } : {}), ...(u.patch.sortOrder !== undefined ? { sortOrder: u.patch.sortOrder } : {}) } });
+      for (const u of cg.updates) await t.cableGroup.update({ where: { id: u.id }, data: {
+        ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}),
+        ...(u.patch.color !== undefined ? { color: u.patch.color } : {}),
+        ...(u.patch.sortOrder !== undefined ? { sortOrder: u.patch.sortOrder } : {}),
+        ...(u.patch.laborType !== undefined ? { laborType: u.patch.laborType } : {}),
+        ...(u.patch.installHoursPerMeter !== undefined ? { installHoursPerMeter: u.patch.installHoursPerMeter } : {}),
+        ...(u.patch.removeHoursPerMeter !== undefined ? { removeHoursPerMeter: u.patch.removeHoursPerMeter } : {}),
+        ...(u.patch.relocateHoursPerMeter !== undefined ? { relocateHoursPerMeter: u.patch.relocateHoursPerMeter } : {}),
+      } });
     }
     if (cc) {
       for (const c of cc.creates) {

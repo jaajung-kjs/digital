@@ -5,7 +5,6 @@
  *   - CableCategory       (./cableCategory)
  *   - RackModuleCategory  (./rackModule)
  *   - RackPreset          (./rackPreset)
- *   - BomMaterial         (./bomMaterial)
  *
  * What remains here is re-exports of shared spec/panel-kind types.
  */

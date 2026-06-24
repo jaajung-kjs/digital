@@ -3,10 +3,12 @@ import { useCatalogStore, newCatalogId } from './catalogStore';
 import type { CableCategory } from '../../types/cableCategory';
 import { DetailCard, DetailCardHeader, Button } from '../../components/ui';
 import { EditableField } from '../assets/components/EditableField';
+import { FormRow, fieldClass } from '../assets/components/detail/SectionShell';
 
 /**
- * 케이블종류 탭 — 그룹(이름+색) → 케이블 종류(이름) 2단. 모두 사용자 정의.
- * 편집은 catalogStore 스테이징(저장 누를 때 원자 commit). 시스템 role 없음(전부 자유).
+ * 케이블종류 탭 — 고정 5분류(읽기전용 헤더+색 스와치) + 분류별 노무규칙 편집
+ * + 분류 아래 케이블 이름(CableCategory) CRUD.
+ * 그룹 추가/삭제/색 편집은 없음(고정 5분류).
  */
 export function CableTypesTab() {
   const baseGroups = useCatalogStore((s) => s.baseCableGroups);
@@ -19,48 +21,79 @@ export function CableTypesTab() {
 
   const store = useCatalogStore.getState;
   const isNewCat = (id: string) => !!useCatalogStore.getState().ccOverlay.creates[id];
-  const isNewGroup = (id: string) => !!useCatalogStore.getState().cgOverlay.creates[id];
 
   const groupOptions = groups.map((g) => ({ value: g.id, label: g.name }));
 
-  const addGroup = () => store().stageCreateCableGroup({ id: newCatalogId(), name: '새 그룹', color: '#6b7280', sortOrder: 0, isActive: true });
   const addCat = (groupId: string) => store().stageCreateCableCategory({
-    id: newCatalogId(), name: '새 종류', groupId, groupName: null, groupColor: null, sortOrder: 0, isActive: true,
+    id: newCatalogId(), name: '새 종류', groupId, code: '', description: null, displayColor: null,
+    displayGroup: null, groupName: null, groupColor: null, iconName: null, unit: null, specTemplate: null, sortOrder: 0, isActive: true,
   } as CableCategory);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center">
         <h2 className="text-sm font-bold text-content">케이블 종류</h2>
-        <Button variant="secondary" size="sm" className="ml-auto" onClick={addGroup}>+ 그룹</Button>
       </div>
 
       {groups.map((g) => {
         const inGroup = cats.filter((c) => c.groupId === g.id);
-        const empty = inGroup.length === 0;
         const color = g.color ?? '#6b7280';
         return (
           <DetailCard key={g.id}>
             <DetailCardHeader
               title={
                 <span className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    aria-label="그룹 색"
-                    value={/^#[0-9a-fA-F]{6}$/.test(color) ? color : '#6b7280'}
-                    onChange={(e) => store().stageUpdateCableGroup(g.id, { color: e.target.value })}
-                    className="w-5 h-5 rounded cursor-pointer border border-line"
+                  {/* 읽기전용 색 스와치 */}
+                  <div
+                    data-color-swatch
+                    style={{ backgroundColor: color }}
+                    className="w-5 h-5 rounded border border-line shrink-0"
                   />
-                  <EditableField
-                    value={g.name}
-                    ariaLabel="그룹명"
-                    valueClickEdits
-                    onCommit={(v) => v.trim() && store().stageUpdateCableGroup(g.id, { name: v.trim() })}
-                  />
+                  <span className="text-sm font-semibold text-content">{g.name}</span>
                 </span>
               }
-              onDelete={empty ? () => store().stageDeleteCableGroup(g.id, isNewGroup(g.id)) : undefined}
             />
+            {/* 노무규칙 편집 */}
+            <div className="px-1 py-1 space-y-1">
+              <FormRow label="설치">
+                <input
+                  type="number"
+                  aria-label="설치(m당)"
+                  className={fieldClass}
+                  placeholder="0.000"
+                  step="0.001"
+                  value={g.installHoursPerMeter ?? ''}
+                  onChange={(e) => {
+                    const n = parseFloat(e.target.value);
+                    if (!isNaN(n)) store().stageUpdateCableGroup(g.id, { installHoursPerMeter: n });
+                  }}
+                />
+              </FormRow>
+              <FormRow label="철거">
+                <input
+                  type="number"
+                  aria-label="철거(m당)"
+                  className={fieldClass}
+                  placeholder="0.000"
+                  step="0.001"
+                  value={g.removeHoursPerMeter ?? ''}
+                  onChange={(e) => {
+                    const n = parseFloat(e.target.value);
+                    if (!isNaN(n)) store().stageUpdateCableGroup(g.id, { removeHoursPerMeter: n });
+                  }}
+                />
+              </FormRow>
+              <FormRow label="노무">
+                <EditableField
+                  value={g.laborType ?? ''}
+                  type="text"
+                  ariaLabel="노무종류"
+                  placeholder="예: 통신내선공"
+                  onCommit={(v) => v.trim() && store().stageUpdateCableGroup(g.id, { laborType: v.trim() })}
+                />
+              </FormRow>
+            </div>
+            {/* 케이블 이름(CableCategory) CRUD */}
             <div className="space-y-1">
               {inGroup.map((c) => (
                 <div key={c.id} className="flex items-center gap-2 px-1 py-0.5">

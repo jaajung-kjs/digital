@@ -8,9 +8,14 @@ import {
 import type {
   ReportOverrides,
   ConstructionReport,
+  BOMItem,
 } from '../../../../utils/constructionCalc';
 import { SURCHARGE_RULES } from '../../../../config/constructionTemplates';
 import type { AuditLog } from '../../../../types/maintenance';
+
+// Backward-compat identity helper: new snapshots use `key`, historical archived
+// snapshots (pre BOM-redesign) used `materialCategoryCode`. Fall back gracefully.
+const bomKey = (b: BOMItem): string => b.key ?? b.materialCategoryCode ?? b.name;
 
 // ============================================================
 // ReportView — editable construction report (설계서)
@@ -89,29 +94,39 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
     // Remove items
     if (overrides.removedItemIds.length > 0) {
       const removed = new Set(overrides.removedItemIds);
-      bom = bom.filter((b) => !removed.has(b.materialCategoryCode));
+      bom = bom.filter((b) => !removed.has(bomKey(b)));
     }
 
-    // Modify quantities
+    // Modify quantities for non-manual BOM items and labor
     for (const mod of overrides.modifiedItems) {
-      const bomItem = bom.find((b) => b.materialCategoryCode === mod.itemId);
+      const bomItem = bom.find((b) => !b.isManual && bomKey(b) === mod.itemId);
       if (bomItem) bomItem.quantity = mod.quantity;
       const laborItem = labor.find((l) => l.workName === mod.itemId);
       if (laborItem) laborItem.hours = mod.quantity;
     }
 
-    // Add manual items
+    // Add manual items (pushed after modify so their render-index is stable)
     for (const added of overrides.addedItems) {
       bom.push({
-        materialCategoryCode: added.materialCategoryCode ?? 'MANUAL',
+        key: 'MANUAL',
         name: added.description,
         quantity: added.quantity,
         unit: added.unit,
-        isAccessory: false,
         isManual: true,
       });
       if (added.laborHours) {
         labor.push({ workName: added.description, laborType: '통신내선공', hours: added.laborHours });
+      }
+    }
+
+    // Modify manual-item quantities by render index (e.g. "MANUAL:0", "MANUAL:1")
+    const manualBom = bom.filter((b) => b.isManual);
+    for (const mod of overrides.modifiedItems) {
+      const match = mod.itemId.match(/^(.+):(\d+)$/);
+      if (!match) continue;
+      const idx = parseInt(match[2], 10);
+      if (!isNaN(idx) && manualBom[idx]) {
+        manualBom[idx].quantity = mod.quantity;
       }
     }
 
@@ -157,8 +172,8 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
     setShowAddForm(false);
   };
 
-  const handleRemoveItem = (materialCategoryCode: string) => {
-    setRemovedItemIds((prev) => [...prev, materialCategoryCode]);
+  const handleRemoveItem = (key: string) => {
+    setRemovedItemIds((prev) => [...prev, key]);
   };
 
   if (!baseReport) {
@@ -190,12 +205,11 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
             {editMode ? '완료' : '편집'}
           </button>
         </div>
-        {report.bom.filter((b) => !b.isAccessory).length > 0 ? (
+        {report.bom.filter((b) => !b.isManual).length > 0 ? (
           <table className="w-full text-xs">
             <thead>
               <tr className="text-content-muted border-b border-line">
                 <th className="text-left py-1 font-medium">분류</th>
-                <th className="text-left py-1 font-medium">규격</th>
                 <th className="text-left py-1 font-medium w-12">구분</th>
                 <th className="text-right py-1 font-medium w-14">수량</th>
                 <th className="text-left py-1 font-medium w-8">단위</th>
@@ -203,21 +217,20 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
               </tr>
             </thead>
             <tbody>
-              {report.bom.filter((b) => !b.isAccessory).map((b) => (
-                <tr key={b.materialCategoryCode + (b.action ?? '') + b.name} className="border-b border-line/50">
+              {report.bom.filter((b) => !b.isManual).map((b) => (
+                <tr key={bomKey(b)} className="border-b border-line/50">
                   <td className="py-1 text-content">{b.name}</td>
-                  <td className="py-1 text-content-muted">{b.specification || '-'}</td>
                   <td className="py-1"><span className={`px-1 py-0.5 rounded text-xs ${b.action ? actionBadgeColor(b.action) : ''}`}>{b.action ? actionLabel(b.action) : ''}</span></td>
                   <td className="py-1 text-right">
                     {editMode ? (
                       <Input
                         type="number"
                         className="w-14 text-right px-1 py-0.5"
-                        value={bomEdits[b.materialCategoryCode] ?? b.quantity}
+                        value={bomEdits[bomKey(b)] ?? b.quantity}
                         min={0}
                         step={0.01}
                         onChange={(e) =>
-                          setBomEdits((prev) => ({ ...prev, [b.materialCategoryCode]: parseFloat(e.target.value) || 0 }))
+                          setBomEdits((prev) => ({ ...prev, [bomKey(b)]: parseFloat(e.target.value) || 0 }))
                         }
                       />
                     ) : (
@@ -228,7 +241,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
                   {editMode && (
                     <td className="py-1 text-center">
                       <button
-                        onClick={() => handleRemoveItem(b.materialCategoryCode)}
+                        onClick={() => handleRemoveItem(bomKey(b))}
                         className="text-danger hover:opacity-70 text-xs"
                         title="삭제"
                       >&times;</button>
@@ -243,32 +256,32 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
         )}
       </section>
 
-      {/* Accessories Section */}
-      {report.bom.filter((b) => b.isAccessory).length > 0 && (
+      {/* Manual items Section */}
+      {report.bom.filter((b) => b.isManual).length > 0 && (
         <section>
-          <h4 className="text-xs font-bold text-content mb-2">부속자재 (자동)</h4>
+          <h4 className="text-xs font-bold text-content mb-2">수동 추가</h4>
           <table className="w-full text-xs">
             <thead>
               <tr className="text-content-muted border-b border-line">
-                <th className="text-left py-1 font-medium">분류</th>
+                <th className="text-left py-1 font-medium">항목명</th>
                 <th className="text-right py-1 font-medium w-16">수량</th>
                 <th className="text-left py-1 font-medium w-10">단위</th>
               </tr>
             </thead>
             <tbody>
-              {report.bom.filter((b) => b.isAccessory).map((b) => (
-                <tr key={b.materialCategoryCode} className="border-b border-line/50">
+              {report.bom.filter((b) => b.isManual).map((b, i) => (
+                <tr key={`${bomKey(b)}:${i}`} className="border-b border-line/50">
                   <td className="py-1 text-content">{b.name}</td>
                   <td className="py-1 text-right">
                     {editMode ? (
                       <Input
                         type="number"
                         className="w-14 text-right px-1 py-0.5"
-                        value={bomEdits[b.materialCategoryCode] ?? b.quantity}
+                        value={bomEdits[`${bomKey(b)}:${i}`] ?? b.quantity}
                         min={0}
                         step={0.01}
                         onChange={(e) =>
-                          setBomEdits((prev) => ({ ...prev, [b.materialCategoryCode]: parseFloat(e.target.value) || 0 }))
+                          setBomEdits((prev) => ({ ...prev, [`${bomKey(b)}:${i}`]: parseFloat(e.target.value) || 0 }))
                         }
                       />
                     ) : (

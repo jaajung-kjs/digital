@@ -29,6 +29,20 @@ describe('AssetTypeService', () => {
     expect(result[0].categoryId).toBe('c1');
   });
 
+  it('getAll DTO 가 노무규칙 4필드를 값 그대로 노출한다', async () => {
+    vi.mocked(prisma.assetType.findMany).mockResolvedValue([
+      row({
+        laborType: '통신설비공',
+        installHoursPerUnit: 0.5, removeHoursPerUnit: 0.25, relocateHoursPerUnit: null,
+      }),
+    ] as any);
+    const result = await assetTypeService.getAll();
+    expect(result[0].laborType).toBe('통신설비공');
+    expect(result[0].installHoursPerUnit).toBe(0.5);
+    expect(result[0].removeHoursPerUnit).toBe(0.25);
+    expect(result[0].relocateHoursPerUnit).toBeNull();
+  });
+
   it('create 는 항상 role=device 로 만들고 categoryId 를 싣는다', async () => {
     vi.mocked(prisma.assetType.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.assetType.aggregate).mockResolvedValue({ _max: { sortOrder: 5 } } as any);

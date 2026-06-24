@@ -2,18 +2,11 @@
  * Construction report calculation - pure function.
  * Takes before/after PlanSnapshots and returns diff + BOM + labor.
  *
- * Ported from frontend/src/utils/constructionCalc.ts so the report can be
- * computed inside the same DB transaction as the save mutation. The output
- * shape is identical to ConstructionReport on the frontend — do NOT diverge
- * without updating frontend/src/types/constructionReport.ts at the same time.
+ * Labor and material computed from DB rules (RuleContext) — no hardcoded templates.
+ * BOM no longer uses materialCategoryCode; cables key on categoryId, equipment on assetTypeId.
  */
 
-import {
-  CONSTRUCTION_TEMPLATES,
-  SURCHARGE_RULES,
-  resolveEquipmentConstructionCode,
-  type AccessoryRule,
-} from '../config/constructionTemplates.js';
+import { SURCHARGE_RULES } from '../config/constructionTemplates.js';
 import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
 
@@ -26,18 +19,14 @@ export interface PlanSnapshot {
     id: string;
     name: string;
     assetTypeId?: string | null;
-    materialCategoryCode?: string | null;
-    materialCategoryName?: string | null;
-    specification?: string | null;
     specParams?: Record<string, unknown> | null;
     positionX?: number;
     positionY?: number;
   }[];
   cables: {
     id: string;
-    materialCategoryCode?: string | null;
-    materialCategoryName?: string | null;
-    specification?: string | null;
+    categoryId?: string | null;
+    name: string;
     totalLength?: number | null;
     sourceAssetId: string;
     targetAssetId: string;
@@ -51,21 +40,19 @@ export interface DiffItem {
   type: 'equipment' | 'cable';
   action: DiffAction;
   name: string;
-  materialCategoryCode: string | null;
-  specification?: string;
+  categoryId?: string | null;
+  assetTypeId?: string | null;
   quantity: number;
   unit: string;
   length?: number;
 }
 
 export interface BOMItem {
-  materialCategoryCode: string;
+  key: string;
   name: string;
-  specification?: string;
   action?: DiffAction;
   quantity: number;
   unit: string;
-  isAccessory: boolean;
   isManual: boolean;
 }
 
@@ -86,7 +73,6 @@ export interface ReportOverrides {
   modifiedItems: { itemId: string; quantity: number }[];
   addedItems: {
     description: string;
-    materialCategoryCode?: string;
     quantity: number;
     unit: string;
     laborHours?: number;
@@ -96,23 +82,29 @@ export interface ReportOverrides {
 }
 
 // ============================================================
-// Display name helper
+// Rule context — loaded from DB by reportPreview
 // ============================================================
 
-function resolveDisplayName(
-  materialCategoryCode: string | null | undefined,
-  specParams: Record<string, unknown> | null | undefined,
-  fallbackName: string,
-  materialCategoryName?: string | null,
-  specification?: string | null,
-): { displayName: string; specification: string | undefined } {
-  let spec = specification ?? undefined;
-  if (!spec && specParams && Object.keys(specParams).length > 0) {
-    const values = Object.values(specParams).filter(v => v != null && v !== '');
-    spec = values.length > 0 ? values.join(' ') : undefined;
-  }
-  const displayName = materialCategoryName || materialCategoryCode || fallbackName;
-  return { displayName, specification: spec };
+export interface CableRule {
+  groupName: string;
+  kind: string | null;
+  laborType: string | null;
+  installHoursPerMeter: number | null;
+  removeHoursPerMeter: number | null;
+  relocateHoursPerMeter: number | null;
+}
+
+export interface EquipRule {
+  name: string;
+  laborType: string | null;
+  installHoursPerUnit: number | null;
+  removeHoursPerUnit: number | null;
+  relocateHoursPerUnit: number | null;
+}
+
+export interface RuleContext {
+  cableRuleByCategoryId: Map<string, CableRule>;
+  equipRuleByTypeId: Map<string, EquipRule>;
 }
 
 // ============================================================
@@ -131,12 +123,10 @@ function computeEquipmentDiff(
 
   for (const [id, eq] of afterMap) {
     if (!beforeMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(eq.materialCategoryCode, eq.specParams, eq.name, eq.materialCategoryName, eq.specification);
       items.push({
         id, type: 'equipment', action: 'install',
-        name: displayName,
-        materialCategoryCode: eq.materialCategoryCode ?? null,
-        specification,
+        name: eq.name,
+        assetTypeId: eq.assetTypeId ?? null,
         quantity: 1, unit: '대',
       });
     }
@@ -144,12 +134,10 @@ function computeEquipmentDiff(
 
   for (const [id, eq] of beforeMap) {
     if (!afterMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(eq.materialCategoryCode, eq.specParams, eq.name, eq.materialCategoryName, eq.specification);
       items.push({
         id, type: 'equipment', action: 'remove',
-        name: displayName,
-        materialCategoryCode: eq.materialCategoryCode ?? null,
-        specification,
+        name: eq.name,
+        assetTypeId: eq.assetTypeId ?? null,
         quantity: 1, unit: '대',
       });
     }
@@ -164,27 +152,23 @@ function computeEquipmentDiff(
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance > POSITION_THRESHOLD) {
-      const { displayName, specification } = resolveDisplayName(afterEq.materialCategoryCode, afterEq.specParams, afterEq.name, afterEq.materialCategoryName, afterEq.specification);
       items.push({
         id, type: 'equipment', action: 'relocate',
-        name: displayName,
-        materialCategoryCode: afterEq.materialCategoryCode ?? null,
-        specification,
+        name: afterEq.name,
+        assetTypeId: afterEq.assetTypeId ?? null,
         quantity: 1, unit: '대',
       });
     } else {
       const changed =
         afterEq.name !== beforeEq.name ||
-        afterEq.materialCategoryCode !== beforeEq.materialCategoryCode ||
+        afterEq.assetTypeId !== beforeEq.assetTypeId ||
         JSON.stringify(afterEq.specParams) !== JSON.stringify(beforeEq.specParams);
 
       if (changed) {
-        const { displayName, specification } = resolveDisplayName(afterEq.materialCategoryCode, afterEq.specParams, afterEq.name, afterEq.materialCategoryName, afterEq.specification);
         items.push({
           id, type: 'equipment', action: 'modify',
-          name: displayName,
-          materialCategoryCode: afterEq.materialCategoryCode ?? null,
-          specification,
+          name: afterEq.name,
+          assetTypeId: afterEq.assetTypeId ?? null,
           quantity: 1, unit: '대',
         });
       }
@@ -202,17 +186,15 @@ function computeCableDiff(
   const afterMap = new Map(after.map((c) => [c.id, c]));
   const items: DiffItem[] = [];
 
-  // 캔버스 1 unit = 1 cm 이므로 totalLength 는 cm. 설계서/BOM 길이 단위는 m → cm→m 변환.
+  // canvas 1 unit = 1 cm, design docs use meters → convert cm→m
   const cmToM = (cm: number | null | undefined): number | undefined => (cm != null ? cm / 100 : undefined);
 
   for (const [id, cable] of afterMap) {
     if (!beforeMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, '', cable.materialCategoryName, cable.specification);
       items.push({
         id, type: 'cable', action: 'install',
-        name: displayName,
-        materialCategoryCode: cable.materialCategoryCode ?? null,
-        specification,
+        name: cable.name,
+        categoryId: cable.categoryId ?? null,
         quantity: 1, unit: 'm',
         length: cmToM(cable.totalLength),
       });
@@ -221,12 +203,10 @@ function computeCableDiff(
 
   for (const [id, cable] of beforeMap) {
     if (!afterMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, '', cable.materialCategoryName, cable.specification);
       items.push({
         id, type: 'cable', action: 'remove',
-        name: displayName,
-        materialCategoryCode: cable.materialCategoryCode ?? null,
-        specification,
+        name: cable.name,
+        categoryId: cable.categoryId ?? null,
         quantity: 1, unit: 'm',
         length: cmToM(cable.totalLength),
       });
@@ -238,18 +218,16 @@ function computeCableDiff(
     if (!beforeCable) continue;
 
     const changed =
-      afterCable.materialCategoryCode !== beforeCable.materialCategoryCode ||
+      afterCable.categoryId !== beforeCable.categoryId ||
       afterCable.totalLength !== beforeCable.totalLength ||
       afterCable.sourceAssetId !== beforeCable.sourceAssetId ||
       afterCable.targetAssetId !== beforeCable.targetAssetId;
 
     if (changed) {
-      const { displayName, specification } = resolveDisplayName(afterCable.materialCategoryCode, null, '', afterCable.materialCategoryName, afterCable.specification);
       items.push({
         id, type: 'cable', action: 'modify',
-        name: displayName,
-        materialCategoryCode: afterCable.materialCategoryCode ?? null,
-        specification,
+        name: afterCable.name,
+        categoryId: afterCable.categoryId ?? null,
         quantity: 1, unit: 'm',
         length: cmToM(afterCable.totalLength),
       });
@@ -260,120 +238,91 @@ function computeCableDiff(
 }
 
 // ============================================================
-// BOM computation
+// Labor computation (DB rule-based)
 // ============================================================
 
-function computeBOM(diff: DiffItem[]): BOMItem[] {
-  const bomMap = new Map<string, BOMItem>();
-  const accMap = new Map<string, BOMItem>();
-
-  for (const item of diff) {
-    if (item.action === 'modify') continue;
-    const code = item.materialCategoryCode;
-    if (!code) continue;
-
-    const key = `${code}:${item.action}`;
-    const existing = bomMap.get(key);
-    if (existing) {
-      existing.quantity += item.length ?? item.quantity;
-    } else {
-      bomMap.set(key, {
-        materialCategoryCode: code,
-        name: item.name,
-        specification: item.specification,
-        action: item.action,
-        quantity: item.length ?? item.quantity,
-        unit: item.unit,
-        isAccessory: false,
-        isManual: false,
-      });
-    }
-
-    const template = CONSTRUCTION_TEMPLATES[code];
-    if (template?.accessories) {
-      for (const acc of template.accessories) {
-        addAccessory(accMap, acc, item);
-      }
-    }
-  }
-
-  return [...bomMap.values(), ...accMap.values()];
+function hoursFor(
+  action: DiffAction,
+  install: number | null,
+  remove: number | null,
+  relocate: number | null,
+): number | null {
+  if (action === 'install') return install;
+  if (action === 'remove') return remove;
+  if (action === 'relocate') return relocate ?? install;
+  return null; // modify etc.
 }
 
-function addAccessory(
-  accMap: Map<string, BOMItem>,
-  acc: AccessoryRule,
-  item: DiffItem,
+function upsertLabor(
+  map: Map<string, LaborItem>,
+  workName: string,
+  laborType: string,
+  hours: number,
 ) {
-  let qty = 0;
-  if (acc.quantityPerUnit) {
-    qty += acc.quantityPerUnit * item.quantity;
-  }
-  if (acc.quantityPerMeter && item.length) {
-    qty += acc.quantityPerMeter * item.length;
-  }
-  if (qty <= 0) return;
+  if (hours <= 0) return;
+  const key = `${workName}|${laborType}`;
+  const ex = map.get(key);
+  if (ex) ex.hours += hours;
+  else map.set(key, { workName, laborType, hours });
+}
 
-  const key = acc.materialCode;
-  const existing = accMap.get(key);
-  if (existing) {
-    existing.quantity += qty;
-  } else {
-    accMap.set(key, {
-      materialCategoryCode: acc.materialCode,
-      name: acc.name,
-      quantity: qty,
-      unit: '개',
-      isAccessory: true,
-      isManual: false,
-    });
+function computeCableLabor(diff: DiffItem[], ctx: RuleContext): LaborItem[] {
+  const map = new Map<string, LaborItem>();
+  for (const it of diff) {
+    if (it.type !== 'cable' || it.action === 'modify' || !it.categoryId || !it.length) continue;
+    const r = ctx.cableRuleByCategoryId.get(it.categoryId);
+    if (!r || !r.laborType) continue;
+    const perM = hoursFor(it.action, r.installHoursPerMeter, r.removeHoursPerMeter, r.relocateHoursPerMeter);
+    if (!perM) continue;
+    const hours = perM * it.length;
+    const actionLabel =
+      it.action === 'install' ? '포설' : it.action === 'remove' ? '철거' : '이설';
+    const workName = `${r.groupName} ${actionLabel}`;
+    upsertLabor(map, workName, r.laborType, hours);
   }
+  return [...map.values()];
+}
+
+function computeEquipmentLabor(diff: DiffItem[], ctx: RuleContext): LaborItem[] {
+  const map = new Map<string, LaborItem>();
+  for (const it of diff) {
+    if (it.type !== 'equipment' || it.action === 'modify' || !it.assetTypeId) continue;
+    const r = ctx.equipRuleByTypeId.get(it.assetTypeId);
+    if (!r || !r.laborType) continue;
+    const perU = hoursFor(
+      it.action,
+      r.installHoursPerUnit,
+      r.removeHoursPerUnit,
+      r.relocateHoursPerUnit,
+    );
+    if (!perU) continue;
+    const hours = perU * it.quantity;
+    const actionLabel =
+      it.action === 'install' ? '설치' : it.action === 'remove' ? '철거' : '이설';
+    const workName = `${r.name} ${actionLabel}`;
+    upsertLabor(map, workName, r.laborType, hours);
+  }
+  return [...map.values()];
 }
 
 // ============================================================
-// Labor computation
+// BOM computation (material only — no accessories)
 // ============================================================
 
-function computeLabor(diff: DiffItem[]): LaborItem[] {
-  const laborMap = new Map<string, LaborItem>();
-
-  for (const item of diff) {
-    if (item.action === 'modify') continue;
-    const code = item.materialCategoryCode;
-    if (!code) continue;
-
-    const template = CONSTRUCTION_TEMPLATES[code];
-    if (!template) continue;
-
-    const rule =
-      item.action === 'install' ? template.install
-        : item.action === 'remove' ? template.remove
-          : template.relocate ?? template.install;
-
-    let hours = 0;
-    if (rule.hoursPerUnit) {
-      hours += rule.hoursPerUnit * item.quantity;
-    }
-    if (rule.hoursPerMeter && item.length) {
-      hours += rule.hoursPerMeter * item.length;
-    }
-
-    if (hours <= 0) continue;
-
-    const key = `${rule.workName}|${rule.laborType}`;
-    const existing = laborMap.get(key);
-    if (existing) {
-      existing.hours += hours;
+function computeMaterial(diff: DiffItem[]): BOMItem[] {
+  const map = new Map<string, BOMItem>();
+  for (const it of diff) {
+    if (it.action === 'modify') continue;
+    const key = `${it.type}:${it.categoryId ?? it.assetTypeId ?? it.id}:${it.action}`;
+    const qty = it.length ?? it.quantity;
+    const ex = map.get(key);
+    if (ex) {
+      ex.quantity += qty;
     } else {
-      laborMap.set(key, {
-        workName: rule.workName,
-        laborType: rule.laborType,
-        hours,
-      });
+      map.set(key, { key, name: it.name, action: it.action, quantity: qty, unit: it.unit, isManual: false });
     }
   }
-
-  return [...laborMap.values()];
+  return [...map.values()];
 }
 
 // ============================================================
@@ -385,6 +334,7 @@ const EMPTY_SNAPSHOT: PlanSnapshot = { equipment: [], cables: [] };
 export function calculateConstructionReport(
   beforeSnapshot: PlanSnapshot | null,
   afterSnapshot: PlanSnapshot,
+  ctx: RuleContext,
   overrides?: ReportOverrides,
 ): ConstructionReport {
   const before = beforeSnapshot ?? EMPTY_SNAPSHOT;
@@ -394,41 +344,47 @@ export function calculateConstructionReport(
     ...computeCableDiff(before.cables, afterSnapshot.cables),
   ];
 
-  let bom = computeBOM(diff);
-  let labor = computeLabor(diff);
+  let bom = computeMaterial(diff);
+  let labor: LaborItem[] = [
+    ...computeCableLabor(diff, ctx),
+    ...computeEquipmentLabor(diff, ctx),
+  ];
 
   if (overrides) {
-    if (overrides.removedItemIds.length > 0) {
+    if (overrides.removedItemIds && overrides.removedItemIds.length > 0) {
       const removed = new Set(overrides.removedItemIds);
-      bom = bom.filter((b) => !removed.has(b.materialCategoryCode));
+      bom = bom.filter((b) => !removed.has(b.key));
     }
 
-    for (const mod of overrides.modifiedItems) {
-      const bomItem = bom.find((b) => b.materialCategoryCode === mod.itemId);
-      if (bomItem) bomItem.quantity = mod.quantity;
-      const laborItem = labor.find((l) => l.workName === mod.itemId);
-      if (laborItem) laborItem.hours = mod.quantity;
-    }
-
-    for (const added of overrides.addedItems) {
-      bom.push({
-        materialCategoryCode: added.materialCategoryCode ?? 'MANUAL',
-        name: added.description,
-        quantity: added.quantity,
-        unit: added.unit,
-        isAccessory: false,
-        isManual: true,
-      });
-      if (added.laborHours) {
-        labor.push({
-          workName: added.description,
-          laborType: '통신내선공',
-          hours: added.laborHours,
-        });
+    if (overrides.modifiedItems) {
+      for (const mod of overrides.modifiedItems) {
+        const bomItem = bom.find((b) => b.key === mod.itemId);
+        if (bomItem) bomItem.quantity = mod.quantity;
+        const laborItem = labor.find((l) => l.workName === mod.itemId);
+        if (laborItem) laborItem.hours = mod.quantity;
       }
     }
 
-    if (overrides.surcharges.length > 0) {
+    if (overrides.addedItems) {
+      for (const added of overrides.addedItems) {
+        bom.push({
+          key: 'MANUAL',
+          name: added.description,
+          quantity: added.quantity,
+          unit: added.unit,
+          isManual: true,
+        });
+        if (added.laborHours) {
+          labor.push({
+            workName: added.description,
+            laborType: '통신내선공',
+            hours: added.laborHours,
+          });
+        }
+      }
+    }
+
+    if (overrides.surcharges && overrides.surcharges.length > 0) {
       let multiplier = 1;
       for (const code of overrides.surcharges) {
         const rule = SURCHARGE_RULES.find((r) => r.code === code);
@@ -453,7 +409,7 @@ export function calculateConstructionReport(
 }
 
 // ============================================================
-// Overlay preview (dry-run) — #3 Task 1
+// Overlay preview (dry-run)
 // ============================================================
 
 export interface ReportPreviewChanges {
@@ -467,9 +423,6 @@ export interface ReportPreviewChanges {
  * `changes` 는 엔진이 그대로 먹는 before/after PlanSnapshot 쌍(활성 층에
  * 영향받는 설비·케이블만). reportPreview 는 floor 가 해당 substation 소유인지만
  * 확인(읽기)하고 `calculateConstructionReport` 를 호출한다. **DB 저장 없음.**
- *
- * before/after 항목은 프론트가 saved+overlay 로 이미 자재코드·길이 등 해석된
- * 필드를 채워 보낸다(엔진 diff 는 항목 단위로 계산하므로 백엔드 재해석 불필요).
  */
 export async function reportPreview(
   substationId: string,
@@ -486,38 +439,47 @@ export async function reportPreview(
     throw new NotFoundError('해당 변전소의 층');
   }
 
-  // 설비 자재코드를 시공 템플릿 키로 해소한다. 정본은 assetTypeId → AssetType.code:
-  //   - staged-create 설비는 assetType 이 placeholder 라 code 가 없고 assetTypeId 만 있다.
-  //   - saved 설비도 assetTypeId 를 갖는다.
-  // 해소된 code 를 resolveEquipmentConstructionCode 로 템플릿 키(RACK→EQP-RACK 등)에 맞춘다.
-  // 케이블 코드(CBL-*)는 이미 템플릿 키라 손대지 않는다. (읽기 전용 findMany 1회 추가.)
-  const assetTypeRows = await prisma.assetType.findMany({ select: { id: true, code: true, name: true } });
-  const assetTypeMap = new Map(assetTypeRows.map((t) => [t.id, t]));
+  // RuleContext 를 DB 에서 로드한다.
+  // 1) 케이블 카테고리 → group(노무 규칙) 조인
+  const cableCategoryRows = await prisma.cableCategory.findMany({
+    include: { group: true },
+  });
+  const cableRuleByCategoryId = new Map<string, CableRule>();
+  for (const cat of cableCategoryRows) {
+    if (cat.group) {
+      cableRuleByCategoryId.set(cat.id, {
+        groupName: cat.group.name,
+        kind: cat.group.kind ?? null,
+        laborType: cat.group.laborType ?? null,
+        installHoursPerMeter: cat.group.installHoursPerMeter ?? null,
+        removeHoursPerMeter: cat.group.removeHoursPerMeter ?? null,
+        relocateHoursPerMeter: cat.group.relocateHoursPerMeter ?? null,
+      });
+    }
+  }
 
-  const before = normalizeEquipmentCodes(changes.before, assetTypeMap);
-  const after = normalizeEquipmentCodes(changes.after, assetTypeMap);
+  // 2) 설비 타입 → 노무 규칙
+  const assetTypeRows = await prisma.assetType.findMany({
+    select: {
+      id: true, name: true,
+      laborType: true,
+      installHoursPerUnit: true,
+      removeHoursPerUnit: true,
+      relocateHoursPerUnit: true,
+    },
+  });
+  const equipRuleByTypeId = new Map<string, EquipRule>();
+  for (const at of assetTypeRows) {
+    equipRuleByTypeId.set(at.id, {
+      name: at.name,
+      laborType: at.laborType ?? null,
+      installHoursPerUnit: at.installHoursPerUnit ?? null,
+      removeHoursPerUnit: at.removeHoursPerUnit ?? null,
+      relocateHoursPerUnit: at.relocateHoursPerUnit ?? null,
+    });
+  }
 
-  return calculateConstructionReport(before, after, overrides);
-}
+  const ctx: RuleContext = { cableRuleByCategoryId, equipRuleByTypeId };
 
-/**
- * 스냅샷 설비의 자재코드를 시공 템플릿 키로 해소한 새 스냅샷을 반환(케이블은 그대로).
- * assetTypeId → AssetType.code 를 우선하고(staged-create 대응), 없으면 보낸 code 로 폴백한 뒤
- * resolveEquipmentConstructionCode 로 템플릿 키에 맞춘다. 표시명도 AssetType.name 으로 보정.
- */
-function normalizeEquipmentCodes(
-  snapshot: PlanSnapshot,
-  assetTypeMap: Map<string, { id: string; code: string; name: string }>,
-): PlanSnapshot {
-  return {
-    ...snapshot,
-    equipment: snapshot.equipment.map((eq) => {
-      const at = eq.assetTypeId ? assetTypeMap.get(eq.assetTypeId) : undefined;
-      return {
-        ...eq,
-        materialCategoryCode: resolveEquipmentConstructionCode(at?.code ?? eq.materialCategoryCode),
-        materialCategoryName: at?.name ?? eq.materialCategoryName,
-      };
-    }),
-  };
+  return calculateConstructionReport(changes.before, changes.after, ctx, overrides);
 }

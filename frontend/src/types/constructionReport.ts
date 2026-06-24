@@ -13,21 +13,22 @@ export interface DiffItem {
   type: 'equipment' | 'cable';
   action: DiffAction;
   name: string;
-  materialCategoryCode: string | null;
-  specification?: string;
+  categoryId?: string | null;
+  assetTypeId?: string | null;
   quantity: number;
   unit: string;
   length?: number;
 }
 
 export interface BOMItem {
-  materialCategoryCode: string;
+  /** Identity key — backend sets this to categoryId:action for cables, assetTypeId:action for equipment, 'MANUAL' for overrides. */
+  key: string;
+  /** @deprecated legacy archived snapshots (pre BOM-redesign branch) used materialCategoryCode as identity; read via bomKey() fallback only. */
+  materialCategoryCode?: string;
   name: string;
-  specification?: string;
   action?: DiffAction;
   quantity: number;
   unit: string;
-  isAccessory: boolean;
   isManual: boolean;
 }
 
@@ -52,14 +53,11 @@ export interface EquipmentSnapshotItem {
   id: string;
   name: string;
   /**
-   * 백엔드가 자재코드(시공 템플릿 키)를 해소하는 정본 키.
+   * 백엔드가 노무규칙을 해소하는 정본 키.
    * staged-create 설비는 assetType 이 placeholder({ placementKind })라 code 가 없으므로
-   * assetTypeId 로 AssetType.code 를 조회해 해소한다. materialCategoryCode/Name 은 표시용.
+   * assetTypeId 로 AssetType 을 조회해 노무규칙을 해소한다.
    */
   assetTypeId?: string | null;
-  materialCategoryCode?: string | null;
-  materialCategoryName?: string | null;
-  specification?: string | null;
   specParams?: Record<string, unknown> | null;
   positionX?: number;
   positionY?: number;
@@ -67,9 +65,10 @@ export interface EquipmentSnapshotItem {
 
 export interface CableSnapshotItem {
   id: string;
-  materialCategoryCode?: string | null;
-  materialCategoryName?: string | null;
-  specification?: string | null;
+  /** CableCategory.id — 백엔드가 노무규칙 조회에 사용하는 정본 키. */
+  categoryId: string | null;
+  /** CableCategory.name — 표시용. */
+  name: string;
   totalLength?: number | null;
   sourceAssetId: string;
   targetAssetId: string;
@@ -89,7 +88,6 @@ export interface ReportOverrides {
   modifiedItems: { itemId: string; quantity: number }[];
   addedItems: {
     description: string;
-    materialCategoryCode?: string;
     quantity: number;
     unit: string;
     laborHours?: number;

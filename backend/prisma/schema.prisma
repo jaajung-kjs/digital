@@ -222,34 +222,15 @@ model CableGroup {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  kind                  String? @unique @db.VarChar(20) // POWER|NETWORK|FIBER|CONTROL|GROUND (고정 5분류 식별)
+  laborType             String? @map("labor_type") @db.VarChar(20)
+  installHoursPerMeter  Float?  @map("install_hours_per_meter")
+  removeHoursPerMeter   Float?  @map("remove_hours_per_meter")
+  relocateHoursPerMeter Float?  @map("relocate_hours_per_meter")
+
   categories CableCategory[]
 
   @@map("cable_groups")
-}
-
-// ==================== BOM 자재 (시공 보고서 전용) ====================
-// 사용자에게 노출되지 않는 부속자재. 34개 시드.
-// Parent-child 트리 구조 유지 (PIPE > PIPE-PVC 등)
-
-model BomMaterial {
-  id           String   @id @default(uuid())
-  code         String   @unique @db.VarChar(30) // 'ACC-PIPE-PVC' 등
-  name         String   @db.VarChar(100)
-  parentId     String?  @map("parent_id")
-  description  String?  @db.Text
-  iconName     String?  @map("icon_name") @db.VarChar(30)
-  unit         String?  @db.VarChar(20)
-  specTemplate Json?    @map("spec_template")
-  displayColor String?  @map("display_color") @db.VarChar(7)
-  sortOrder    Int      @default(0) @map("sort_order")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  parent   BomMaterial?  @relation("BomMaterialHierarchy", fields: [parentId], references: [id])
-  children BomMaterial[] @relation("BomMaterialHierarchy")
-
-  @@map("bom_materials")
 }
 
 // ==================== 케이블 (다형 endpoint) ====================
@@ -432,6 +413,11 @@ model AssetType {
   role       AssetRole      @default(device)
   categoryId String?        @map("category_id")
   category   AssetCategory? @relation(fields: [categoryId], references: [id])
+
+  laborType            String? @map("labor_type") @db.VarChar(20)
+  installHoursPerUnit  Float?  @map("install_hours_per_unit")
+  removeHoursPerUnit   Float?  @map("remove_hours_per_unit")
+  relocateHoursPerUnit Float?  @map("relocate_hours_per_unit")
 
   assets Asset[]
 

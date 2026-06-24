@@ -3,10 +3,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { CableTypesTab } from './CableTypesTab';
 import { useCatalogStore } from './catalogStore';
 
-const group = (id: string, name: string, color: string | null): never =>
-  ({ id, name, color, sortOrder: 0, isActive: true }) as never;
+const group = (id: string, name: string, color: string | null, extra?: object): never =>
+  ({ id, name, color, sortOrder: 0, isActive: true, kind: null, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null, ...extra }) as never;
 const cat = (id: string, name: string, groupId: string): never =>
-  ({ id, name, groupId, groupName: null, groupColor: null, sortOrder: 0, isActive: true }) as never;
+  ({ id, code: id, name, description: null, displayColor: null, displayGroup: null, groupId, groupName: null, groupColor: null, iconName: null, unit: null, specTemplate: null, sortOrder: 0, isActive: true }) as never;
 
 beforeEach(() => {
   useCatalogStore.setState({
@@ -23,10 +23,39 @@ describe('CableTypesTab', () => {
     expect(screen.getByText('Fr-sq3.5')).toBeInTheDocument();
   });
 
-  it('+ 그룹 → stageCreateCableGroup', () => {
+  it('+ 그룹 버튼이 없다 (고정 5분류)', () => {
     render(<CableTypesTab />);
-    fireEvent.click(screen.getByText('+ 그룹'));
-    expect(useCatalogStore.getState().effectiveCableGroups().length).toBe(2);
+    expect(screen.queryByText('+ 그룹')).toBeNull();
+  });
+
+  it('그룹 색 input[type=color]이 없다 (읽기전용 스와치)', () => {
+    render(<CableTypesTab />);
+    expect(document.querySelector('input[type="color"]')).toBeNull();
+  });
+
+  it('그룹 헤더에 읽기전용 색 스와치(div)가 있다', () => {
+    render(<CableTypesTab />);
+    expect(document.querySelector('[data-color-swatch]')).not.toBeNull();
+  });
+
+  it('설치(m당) 입력 변경 → stageUpdateCableGroup 호출', () => {
+    render(<CableTypesTab />);
+    const input = screen.getAllByLabelText('설치(m당)')[0] as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '0.05' } });
+    const overlay = useCatalogStore.getState().cgOverlay;
+    const updates = Object.values(overlay.updates);
+    const found = updates.find((p) => p && (p as Record<string, unknown>).installHoursPerMeter === 0.05);
+    expect(found).toBeDefined();
+  });
+
+  it('철거(m당) 입력 변경 → stageUpdateCableGroup 호출', () => {
+    render(<CableTypesTab />);
+    const input = screen.getAllByLabelText('철거(m당)')[0] as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '0.02' } });
+    const overlay = useCatalogStore.getState().cgOverlay;
+    const updates = Object.values(overlay.updates);
+    const found = updates.find((p) => p && (p as Record<string, unknown>).removeHoursPerMeter === 0.02);
+    expect(found).toBeDefined();
   });
 
   it('+ 종류 → stageCreateCableCategory (dirty 증가)', () => {
@@ -36,8 +65,16 @@ describe('CableTypesTab', () => {
     expect(useCatalogStore.getState().dirtyCount()).toBe(1);
   });
 
-  it('그룹 색 입력이 존재한다', () => {
+  it('종류명 편집 → stageUpdateCableCategory 호출', () => {
     render(<CableTypesTab />);
-    expect(screen.getByLabelText('그룹 색')).toBeInTheDocument();
+    // EditableField with valueClickEdits: click the displayed text to enter editing mode
+    fireEvent.click(screen.getByText('Fr-sq3.5'));
+    // Now the input with aria-label appears
+    const input = screen.getByLabelText('종류명');
+    fireEvent.change(input, { target: { value: '새이름' } });
+    fireEvent.blur(input);
+    const overlay = useCatalogStore.getState().ccOverlay;
+    const updates = Object.values(overlay.updates);
+    expect(updates.some((p) => p && (p as Record<string, unknown>).name === '새이름')).toBe(true);
   });
 });

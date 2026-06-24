@@ -66,6 +66,22 @@ const PITR_FIELDS: FieldDef[] = [
   ...ASSET_LIFECYCLE,
 ];
 
+// 설비 종류코드 → { laborType, install/remove/relocate 개당 시간 } (기존 EQP-* 템플릿에서 도출)
+const ASSET_LABOR: Record<string, { laborType: string; install: number; remove: number; relocate?: number }> = {
+  RACK:         { laborType: '통신내선공', install: 2.0, remove: 1.0, relocate: 3.0 },
+  OFD:          { laborType: '통신내선공', install: 1.5, remove: 0.8 },
+  RTU:          { laborType: '통신내선공', install: 4.0, remove: 2.0, relocate: 5.0 },
+  SCADA:        { laborType: '통신내선공', install: 4.0, remove: 2.0, relocate: 5.0 },
+  UPS:          { laborType: '통신내선공', install: 1.0, remove: 0.5, relocate: 1.5 },
+  'NET-SW':     { laborType: '통신내선공', install: 0.5, remove: 0.3 },
+  'OPT-SWITCH': { laborType: '통신내선공', install: 0.5, remove: 0.3 },
+  UTM:          { laborType: '통신내선공', install: 1.0, remove: 0.5 },
+  NAC:          { laborType: '통신내선공', install: 1.0, remove: 0.5 },
+  'PITR-2000':  { laborType: '통신내선공', install: 3.0, remove: 1.5 },
+  'PITR-5000':  { laborType: '통신내선공', install: 3.0, remove: 1.5 },
+  SPD:          { laborType: '통신내선공', install: 0.3, remove: 0.15 },
+};
+
 export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
   { code: 'RACK', name: '랙', group: '구조', isContainer: true, displayColor: '#44403c', sortOrder: 10,
     placementKind: 'RACK',
@@ -154,14 +170,16 @@ export async function seedAssetTypes(prisma: PrismaClient): Promise<void> {
     categoryId.set(name, cat.id);
   }
 
-  // 2) 종류 upsert (role 파생 + categoryId 연결)
+  // 2) 종류 upsert (role 파생 + categoryId 연결 + 노무규칙)
   for (const t of ASSET_TYPE_SEEDS) {
+    const lab = ASSET_LABOR[t.code];
     const common = {
       name: t.name, group: t.group, role: deriveRole(t), categoryId: categoryId.get(t.group) ?? null,
       isContainer: t.isContainer, displayColor: t.displayColor, sortOrder: t.sortOrder,
       fieldTemplate: t.fieldTemplate, requiredToCreate: ['name'],
       placementKind: t.placementKind ?? null, connectionKind: t.connectionKind ?? null,
       defaultSlotSpan: t.defaultSlotSpan ?? 1,
+      ...(lab ? { laborType: lab.laborType, installHoursPerUnit: lab.install, removeHoursPerUnit: lab.remove, relocateHoursPerUnit: lab.relocate ?? null } : {}),
     };
     await prisma.assetType.upsert({
       where: { code: t.code },
