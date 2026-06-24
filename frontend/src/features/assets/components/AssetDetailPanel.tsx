@@ -5,8 +5,7 @@ import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSelection } from '../../workspace/SelectionContext';
 import type { Asset } from '../../../types/asset';
 import { type DetailPanelKind } from '../../../types/equipmentKind';
-import { kindOf } from '../../workingCopy/placement';
-import { isRackModuleAsset, isConduit } from '../../workingCopy/assetClassify';
+import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { AssetDetailBody } from '../../equipment/components/detail/panels/AssetDetailBody';
 import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
 import { DetailPanelHeader } from '../../../components/DetailPanelHeader';
@@ -75,14 +74,9 @@ interface Props {
   initialTab?: string;
 }
 
-/** asset → 공간 섹션 종류. conduit(광슬롯)=포트, 배치설비=종류별, 그 외 자식/미상=null. resolveAssetDetailKind(SSOT) 위임. */
+/** asset → 공간 섹션 종류. role 단일 소스. resolveAssetDetailKind(SSOT) 위임. */
 function kindFromAsset(asset?: Asset | null): DetailPanelKind | null {
-  // 배치설비(placed) = 부모 없고 placementKind 있는 최상위 자산. conduit 분기는 resolver 가 우선 처리.
-  const placed =
-    asset && asset.parentAssetId == null && asset.assetType?.placementKind
-      ? { kind: kindOf(asset) }
-      : null;
-  return resolveAssetDetailKind(asset, placed);
+  return resolveAssetDetailKind(asset);
 }
 
 /**
@@ -116,7 +110,7 @@ export function AssetDetailPanel({
   const id = equipmentId ?? asset?.id ?? '';
   const { graph } = useTraceGraph();
   const conduitLabel =
-    asset && isConduit(asset.assetType) ? fiberSlotLabel(asset.id, graph) : '';
+    asset && asset.assetType?.role === 'slot' ? fiberSlotLabel(asset.id, graph) : '';
   const headerTitle = conduitLabel || title || asset?.name || '설비 상세';
   const kind = detailKind !== undefined ? detailKind : kindFromAsset(asset);
   const isModule = isRackModuleAsset(asset); // strict: 슬롯 있는 자식만 모듈. 피더(slotIndex 없음)는 cascade 경로.

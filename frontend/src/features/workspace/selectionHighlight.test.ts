@@ -40,6 +40,7 @@ const fullGraph = (cs: typeof cables): TraceGraph =>
     parentById: new Map(),
     kindById: new Map(),
     codeById: new Map(),
+    roleById: new Map(),
   } as unknown as TraceGraph);
 const graphStub = fullGraph(cables);
 const effAssets: never[] = [];

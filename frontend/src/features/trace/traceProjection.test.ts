@@ -4,9 +4,12 @@ import { buildTraceGraph } from './traceGraph';
 
 // flat slim 픽스처 → buildTraceGraph 단일 입력(assets: assetType 중첩 + substationNames 맵).
 type Flat = { id: string; name: string; substationId: string; substationName: string; parentAssetId: string | null; connectionKind: 'conduit' | 'distributor' | null; code: string | null };
+const roleFor = (f: Flat): string =>
+  f.connectionKind === 'conduit' ? 'slot' : f.connectionKind === 'distributor' ? 'feeder'
+    : f.code === 'OFD' ? 'ofd' : f.code === 'DIST' ? 'panel' : 'device';
 const toAssets = (flat: Flat[]) => flat.map((f) => ({
   id: f.id, name: f.name, substationId: f.substationId, parentAssetId: f.parentAssetId, slotIndex: null,
-  assetType: { code: f.code, connectionKind: f.connectionKind },
+  assetType: { code: f.code, connectionKind: f.connectionKind, role: roleFor(f) },
 }));
 const namesOf = (flat: Flat[]) => new Map(flat.map((f) => [f.substationId, f.substationName]));
 const buildG = (flat: Flat[], cs: unknown[]) =>

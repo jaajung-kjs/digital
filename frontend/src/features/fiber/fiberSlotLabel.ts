@@ -1,5 +1,4 @@
 import { remoteSlotSubstation, type TraceGraph } from '../trace/traceGraph';
-import { isConduit } from '../workingCopy/assetClassify';
 import { isOpgwTwin } from '../cables/cableEndpoint';
 
 /**
@@ -24,7 +23,7 @@ export function fiberSlotLabel(slotId: string, graph: TraceGraph | null): string
   // 같은 OFD(자국) → 같은 대국 형제 슬롯들 중 이 슬롯의 순번(-N). 정렬: slotIndex → id.
   const order = (id: string) => graph.slotIndexById?.get(id) ?? Number.MAX_SAFE_INTEGER;
   const siblings = graph.assets
-    .filter((a) => isConduit(a)
+    .filter((a) => graph.roleById.get(a.id) === 'slot'
       && graph.parentById.get(a.id) === ofdId
       && remoteSlotSubstation(a.id, graph) === remote)
     .sort((a, b) => order(a.id) - order(b.id) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

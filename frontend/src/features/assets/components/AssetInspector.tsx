@@ -9,7 +9,7 @@ import { AssetPhotoSection } from './AssetPhotoSection';
 import { InspectionSection } from './detail/InspectionSection';
 import { LogsTab } from '../../equipment/components/detail/LogsTab';
 import { AssetConnectionsTab } from '../../connections/components/AssetConnectionsTab';
-import { isRackModuleAsset, isConduit } from '../../workingCopy/assetClassify';
+import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { statusIsOn } from '../nodeStatus';
 import { useTraceGraph } from '../../trace/traceGraph';
 import { fiberSlotLabel } from '../../fiber/fiberSlotLabel';
@@ -189,7 +189,7 @@ export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, in
   // 스키마-드리븐 렌더러 — type → 기존 컴포넌트. read/edit 모두 하드코딩과 동일 DOM·props.
   const renderField = (field: AssetFieldDef) => {
     // 경로슬롯(conduit): 이름은 파생(자국-대국#코어수) 읽기전용 — 수정 불가.
-    if (field.key === 'name' && isConduit(asset.assetType)) {
+    if (field.key === 'name' && asset.assetType?.role === 'slot') {
       return <ReadField key="name" label={field.label} value={fiberSlotLabel(asset.id, graph) || (asset.name ?? '')} />;
     }
     // 상태 필드: read/edit 모두 StatusField(값은 raw status, readOnly 토글만 다름).

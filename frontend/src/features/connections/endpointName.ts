@@ -1,6 +1,6 @@
 import type { Asset } from '../../types/asset';
-import { isRackModuleAsset, isConduit } from '../workingCopy/assetClassify';
-import { FEEDER_CODE, feedersOfPanel } from '../assets/distributionSubtree';
+import { isRackModuleAsset } from '../workingCopy/assetClassify';
+import { feedersOfPanel } from '../assets/distributionSubtree';
 import { toMapById } from '../../utils/byId';
 
 /**
@@ -12,8 +12,8 @@ import { toMapById } from '../../utils/byId';
  * 호출측이 일반(설비/모듈/external) 라벨 경로로 빠진다.
  *
  * STRICT 가드:
- *   - feeder.assetType.code === FEEDER_CODE
- *   - parent(panel).assetType.placementKind === 'DIST'
+ *   - feeder.assetType.role === 'feeder'
+ *   - parent(panel).assetType.role === 'panel'
  *
  * 이 헬퍼를 `buildEndpointNameResolver`(연결 목록)와 `cableTracer`(토폴로지/경로추적)가
  * 공유하여 뷰 간 라벨 드리프트를 차단한다. (cableTracer 는 이름 fallback 이 없어
@@ -21,9 +21,9 @@ import { toMapById } from '../../utils/byId';
  */
 export function resolveBranchLabel(assetId: string, assetMap: Map<string, Asset>): string | null {
   const feeder = assetMap.get(assetId);
-  if (!feeder || feeder.assetType?.code !== FEEDER_CODE) return null;
+  if (!feeder || feeder.assetType?.role !== 'feeder') return null;
   const panel = feeder.parentAssetId ? assetMap.get(feeder.parentAssetId) : undefined;
-  if (panel?.assetType?.placementKind !== 'DIST') return null;
+  if (panel?.assetType?.role !== 'panel') return null;
   return feeder.name;
 }
 
@@ -61,7 +61,7 @@ export function buildSelfSideChecker(assets: Asset[], assetId: string): (id: str
   );
   const childFeeders = new Set(feedersOfPanel(assets, assetId).map((f) => f.id));
   const childConduits = new Set(
-    assets.filter((a) => a.parentAssetId === assetId && isConduit(a.assetType)).map((a) => a.id),
+    assets.filter((a) => a.parentAssetId === assetId && a.assetType?.role === 'slot').map((a) => a.id),
   );
   return (id) => !!id && (id === assetId || childModules.has(id) || childFeeders.has(id) || childConduits.has(id));
 }

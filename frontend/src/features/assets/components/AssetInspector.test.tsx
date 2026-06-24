@@ -158,7 +158,7 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
 describe('AssetInspector — 경로슬롯(conduit) 이름 파생 읽기전용', () => {
   const conduitAsset = {
     id: SLOT, substationId: 's1', assetTypeId: 'ofdslot',
-    assetType: { name: 'OFD-SLOT', placementKind: null, connectionKind: 'conduit', fieldTemplate: [] },
+    assetType: { name: 'OFD-SLOT', placementKind: null, connectionKind: 'conduit', role: 'slot', fieldTemplate: [] },
     name: 'DB저장이름(표시안됨)', installDate: null, manager: null, status: '운영중',
     description: '', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '',
   } as never;

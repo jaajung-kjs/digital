@@ -35,9 +35,9 @@ beforeEach(() => {
   setSelectedAssetId.mockClear();
   setSelected.mockClear();
   assetsRef.current = [
-    { id: 'p1', name: '1번 분전반', substationId: 's1', parentAssetId: null, assetType: { code: 'DIST', placementKind: 'DIST', connectionKind: null } },
-    { id: 'f1', name: '피더-A', substationId: 's1', parentAssetId: 'p1', assetType: { code: 'FEEDER', placementKind: null, connectionKind: 'distributor' } },
-    { id: 'L1', name: '통합단말장치', substationId: 's1', parentAssetId: null, assetType: { code: 'TERM', placementKind: null, connectionKind: null } },
+    { id: 'p1', name: '1번 분전반', substationId: 's1', parentAssetId: null, assetType: { role: 'panel' } },
+    { id: 'f1', name: '피더-A', substationId: 's1', parentAssetId: 'p1', assetType: { role: 'feeder' } },
+    { id: 'L1', name: '통합단말장치', substationId: 's1', parentAssetId: null, assetType: { role: 'device' } },
   ];
   cablesRef.current = [
     { id: 'c1', sourceAssetId: 'f1', targetAssetId: 'L1', sourceRole: 'OUT', targetRole: null, categoryName: 'F-CV 전력케이블', categoryId: 'cat-1', number: 7, specParams: { capacity: '30A', switchState: 'ON' } },
@@ -64,7 +64,7 @@ describe('PanelCircuitView', () => {
   it('IN 케이블이 있으면 입력 행(빨강 배지 + 공급원명)을 맨 위에 렌더한다', () => {
     assetsRef.current = [
       ...assetsRef.current,
-      { id: 'TR', name: '주변압기', substationId: 's1', parentAssetId: null, assetType: { code: 'TR', placementKind: null, connectionKind: null } },
+      { id: 'TR', name: '주변압기', substationId: 's1', parentAssetId: null, assetType: { role: 'device' } },
     ];
     cablesRef.current = [
       { id: 'in1', sourceAssetId: 'TR', targetAssetId: 'f1', sourceRole: null, targetRole: 'IN', categoryName: 'CV', categoryId: 'cat-9', number: null, specParams: { capacity: '50A', switchState: 'ON' } },
@@ -93,7 +93,7 @@ describe('ConnectionRegisterGrid 정렬 통합', () => {
   type SimpleRow = { id: string; name: string };
   const sortDescriptor: RegisterDescriptor<SimpleRow> = {
     emptyMessage: '없음',
-    childKind: 'distributor',
+    childRole: 'feeder',
     selectContainers: (assets) => assets.filter((a) => a.id === 'c1'),
     buildSection: (_child, _ctx) => ({
       key: 'sec1',
@@ -118,8 +118,8 @@ describe('ConnectionRegisterGrid 정렬 통합', () => {
 
   beforeEach(() => {
     assetsRef.current = [
-      { id: 'c1', name: '컨테이너', substationId: 's1', parentAssetId: null, assetType: { code: 'DIST', placementKind: 'DIST', connectionKind: null } },
-      { id: 's1child', name: '섹션자식', substationId: 's1', parentAssetId: 'c1', assetType: { code: 'FEEDER', placementKind: null, connectionKind: 'distributor' } },
+      { id: 'c1', name: '컨테이너', substationId: 's1', parentAssetId: null, assetType: { role: 'panel' } },
+      { id: 's1child', name: '섹션자식', substationId: 's1', parentAssetId: 'c1', assetType: { role: 'feeder' } },
     ];
     cablesRef.current = [];
   });

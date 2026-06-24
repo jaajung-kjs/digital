@@ -19,11 +19,11 @@ const OPGW_ID = 'opgw1';
 
 const SLOT_ASSET = {
   id: SLOT_ID, name: '슬롯A', parentAssetId: OFD_ID, substationId: 's1',
-  assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' },
+  assetType: { connectionKind: 'conduit', code: 'OFD-SLOT', role: 'slot' },
 };
 const OFD_ASSET = {
   id: OFD_ID, name: '원주OFD', substationId: 's1',
-  assetType: { placementKind: 'OFD', connectionKind: null }, parentAssetId: null,
+  assetType: { placementKind: 'OFD', connectionKind: null, role: 'ofd' }, parentAssetId: null,
 };
 
 const OPGW_CABLE = {
@@ -55,6 +55,7 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
       nameById: new Map([[OFD_ID, '원주OFD'], [REMOTE_OFD_ID, '홍천OFD']]),
       subById: new Map([[OFD_ID, 's1'], [REMOTE_OFD_ID, 's2']]),
       codeById: new Map([[OFD_ID, 'OFD'], [REMOTE_OFD_ID, 'OFD']]),
+      roleById: new Map([[OFD_ID, 'ofd'], [REMOTE_OFD_ID, 'ofd']]),
       parentById: new Map([[SLOT_ID, OFD_ID]]),
       // ofdAssets 가 열거하는 OFD 자산(자국+대국) — slim+staged 병합 그래프 단일 SSOT.
       assets: [{ id: OFD_ID, connectionKind: null }, { id: REMOTE_OFD_ID, connectionKind: null }],

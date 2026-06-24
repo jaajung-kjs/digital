@@ -9,7 +9,9 @@ const graphOf = (cables: unknown[], assets: { id: string; name: string }[]) =>
     cables,
     nameById: new Map(assets.map((a) => [a.id, a.name])),
     subNameById: new Map(), subById: new Map(), parentById: new Map(),
-    kindById: new Map(), codeById: new Map(), placementKindById: new Map(), slotIndexById: new Map(), assets: [],
+    kindById: new Map(), codeById: new Map(), placementKindById: new Map(),
+    roleById: new Map(assets.map((a) => [a.id, (a as { assetType?: { role?: string } }).assetType?.role ?? null])),
+    slotIndexById: new Map(), assets: [],
   }) as never;
 
 describe('buildCableRegister', () => {
@@ -41,8 +43,8 @@ describe('buildCableRegister', () => {
 
   it('피더(distributor) → IN 부모 + OUT 자식 중첩', () => {
     const assets = [
-      asset('panel', { assetType: { code: null, placementKind: 'DIST', connectionKind: null } }),
-      asset('fA', { parentAssetId: 'panel', assetType: { code: 'FEEDER', placementKind: null, connectionKind: 'distributor' } }),
+      asset('panel', { assetType: { role: 'panel' } }),
+      asset('fA', { parentAssetId: 'panel', assetType: { role: 'feeder' } }),
     ];
     const cables = [
       { id: 'in', sourceAssetId: 'src', targetAssetId: 'fA', sourceRole: 'OUT', targetRole: 'IN', cableType: 'POWER', categoryId: null },
@@ -74,8 +76,8 @@ describe('buildCableRegister', () => {
 
   it('자식 집계 — 컨테이너(OFD)는 산하 슬롯 케이블까지 포함', () => {
     const assets = [
-      asset('ofd', { assetType: { code: null, placementKind: 'OFD', connectionKind: null } }),
-      asset('slot', { parentAssetId: 'ofd', assetType: { code: null, placementKind: null, connectionKind: 'conduit' } }),
+      asset('ofd', { assetType: { role: 'ofd' } }),
+      asset('slot', { parentAssetId: 'ofd', assetType: { role: 'slot' } }),
     ];
     const cables = [{ id: 'opgw', sourceAssetId: 'slot', targetAssetId: 'remoteSlot', sourceRole: 'IN', targetRole: 'IN', cableType: 'FIBER', categoryId: null }];
     const secs = buildCableRegister({ graph: graphOf(cables, assets as never), assets: assets as never, assetId: 'ofd', categoryGroupOf: cat });

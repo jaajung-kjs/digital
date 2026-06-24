@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Modal } from '../../../components/ui/Modal';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
-import { kindOf } from '../../workingCopy/placement';
 import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
 import { useSelectionStore } from '../../workspace/selectionStore';
@@ -62,10 +61,9 @@ export function CableEndpointDialog() {
     [assets, nodeId],
   );
 
-  // 에디터 상세 패널과 동일하게 detailKind 를 해석(SSOT) — conduit/distributor 는 asset 만,
-  // 배치설비(랙/OFD/DIST)는 kindOf(asset) 의 EquipmentKind 가 필요.
+  // 에디터 상세 패널과 동일하게 detailKind 를 해석(SSOT) — assetType.role 단일 소스.
   const kind = useMemo(
-    () => resolveAssetDetailKind(asset, asset ? { kind: kindOf(asset) } : null),
+    () => resolveAssetDetailKind(asset),
     [asset],
   );
 

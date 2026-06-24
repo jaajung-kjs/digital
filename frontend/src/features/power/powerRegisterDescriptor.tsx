@@ -1,5 +1,4 @@
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
-import { isDist } from '../workingCopy/assetClassify';
 import { other } from '../cables/cableEndpoint';
 import { EditableField } from '../assets/components/EditableField';
 import { useCableCategories } from '../cables/hooks/useCableCategories';
@@ -101,9 +100,9 @@ function SpecCell({ cableId, categoryId, name }: { cableId: string; categoryId: 
 
 export const powerRegisterDescriptor: RegisterDescriptor<CbRow> = {
   emptyMessage: '이 변전소에 분전반이 없습니다.',
-  childKind: 'distributor',
+  childRole: 'feeder',
   selectContainers: (assets, substationId) =>
-    assets.filter((a) => a.substationId === substationId && isDist(a.assetType)),
+    assets.filter((a) => a.substationId === substationId && a.assetType?.role === 'panel'),
   containerHeader: (panel) => panel.name,
   buildSection: (feeder, ctx: RegisterCtx) => {
     const nameById = new Map((ctx.assets as Asset[]).map((a) => [a.id, a.name]));

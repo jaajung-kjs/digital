@@ -5,7 +5,7 @@ import { useEffectiveAssets } from '../../../../workingCopy/hooks';
 import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
 import { useSelectionStore } from '../../../../workspace/selectionStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
-import { feedersOfPanel, buildSubtreeAsset, FEEDER_CODE } from '../../../../assets/distributionSubtree';
+import { feedersOfPanel, buildSubtreeAsset } from '../../../../assets/distributionSubtree';
 import { buildFeederCircuits, feederGridSlots, type FeederCircuit } from '../../../../power/feederCircuits';
 import { useTraceGraph } from '../../../../trace/traceGraph';
 
@@ -27,7 +27,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
     [effectiveAssets, equipmentId],
   );
   const feederType = useMemo(
-    () => assetTypes.find((t) => t.code === FEEDER_CODE) ?? null,
+    () => assetTypes.find((t) => t.role === 'feeder') ?? null,
     [assetTypes],
   );
 

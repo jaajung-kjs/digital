@@ -1,7 +1,5 @@
 import { roleAt } from '../cables/cableEndpoint';
 import { buildSelfSideChecker, buildEndpointNameResolver } from './endpointName';
-import { FEEDER_CODE } from '../assets/distributionSubtree';
-import { isConduit } from '../workingCopy/assetClassify';
 import { fiberSlotLabel } from '../fiber/fiberSlotLabel';
 import { toMapById } from '../../utils/byId';
 import type { TraceGraph } from '../trace/traceGraph';
@@ -42,10 +40,10 @@ export function buildCableRegister(opts: {
   const resolveName = (id?: string | null) => {
     if (!id) return '';
     const a = byId.get(id);
-    if (a && isConduit(a.assetType)) return fiberSlotLabel(id, graph) || nameOf(id) || id;
+    if (a && a.assetType?.role === 'slot') return fiberSlotLabel(id, graph) || nameOf(id) || id;
     return nameOf(id) || graph.nameById.get(id) || id;
   };
-  const isFeeder = (id?: string | null) => !!id && byId.get(id)?.assetType?.code === FEEDER_CODE;
+  const isFeeder = (id?: string | null) => !!id && byId.get(id)?.assetType?.role === 'feeder';
 
   // 표시는 항상 "내 쪽(self) → 상대(remote)" — 케이블 저장 방향(source/target)과 무관하게
   // 보는 자산이 무조건 먼저. selfId/remoteId 가 그 방향의 단일 출처(휴리스틱·역전 분기 없음).

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useEffectiveAssets, useEffectiveCables } from '../workingCopy/hooks';
 import { useOrganizationStore } from '../../stores/organizationStore';
-import { isOfd, isConduit } from '../workingCopy/assetClassify';
 import type { AssetRole } from '../../types/asset';
 import { other, isOpgwTwin } from '../cables/cableEndpoint';
 import { cableTrace, type TraceAsset, type TraceCable } from './cableTrace';
@@ -129,9 +128,9 @@ export function buildTraceGraph(input: {
   return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, kindById, codeById, placementKindById, roleById, slotIndexById };
 }
 
-/** 그래프 맵에서 자산의 OFD 판정 — 정식 분류(assetClassify.isOfd) 재사용. */
+/** 그래프 맵에서 자산의 OFD 판정 — role 단일 소스. */
 function graphIsOfd(graph: TraceGraph, id: string): boolean {
-  return isOfd({ code: graph.codeById.get(id), placementKind: graph.placementKindById?.get(id) });
+  return graph.roleById.get(id) === 'ofd';
 }
 
 /**
@@ -181,7 +180,7 @@ export function equipmentInSubstation(graph: TraceGraph, substationId: string | 
   return graph.assets
     .filter((a) => graph.subById.get(a.id) === substationId
       && !graphIsOfd(graph, a.id)
-      && !isConduit({ connectionKind: a.connectionKind }))
+      && graph.roleById.get(a.id) !== 'slot')
     .map((a) => toRef(graph, a.id));
 }
 

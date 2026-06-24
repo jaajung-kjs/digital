@@ -38,6 +38,11 @@ function asset(p: {
       fieldTemplate: [],
       placementKind: p.placementKind ?? null,
       connectionKind: p.connectionKind ?? null,
+      role: p.connectionKind === 'conduit' ? 'slot'
+        : p.connectionKind === 'distributor' ? 'feeder'
+        : p.placementKind === 'DIST' ? 'panel'
+        : p.placementKind === 'OFD' ? 'ofd'
+        : p.placementKind === 'RACK' ? 'rack' : 'device',
     },
     name: p.name,
     parentAssetId: p.parent ?? null,
@@ -64,7 +69,7 @@ function asset(p: {
 const PANEL = 'panel-1';
 const FEEDER = 'feeder-1';
 const assets = [
-  asset({ id: PANEL, name: '분전반', placementKind: 'DIST', connectionKind: 'distributor', floorId: 'f1', placed: true }),
+  asset({ id: PANEL, name: '분전반', placementKind: 'DIST', floorId: 'f1', placed: true }),
   asset({ id: FEEDER, name: '전원계통', parent: PANEL, connectionKind: 'distributor' }),
 ];
 

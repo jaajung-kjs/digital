@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useEffectiveAssets, useEffectiveEquipment } from '../../workingCopy/hooks';
-import { kindOf } from '../../workingCopy/placement';
 import { isTempId } from '../../../utils/idHelpers';
 import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
 import { type DetailPanelKind } from '../../../types/equipmentKind';
@@ -44,8 +43,8 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
   );
 
   const detailKind = useMemo<DetailPanelKind | null>(
-    () => resolveAssetDetailKind(asset, localEq ? { kind: kindOf(localEq) } : null),
-    [asset, localEq],
+    () => resolveAssetDetailKind(asset),
+    [asset],
   );
 
   const title = !localEq && asset

@@ -1,21 +1,18 @@
 import type { Asset } from '../../../../../types/asset';
-import { isConduit, isDistributor } from '../../../../workingCopy/assetClassify';
-import { EQUIPMENT_KIND_INFO, type DetailPanelKind, type EquipmentKind } from '../../../../../types/equipmentKind';
-
-interface PlacedLike { kind: EquipmentKind }
+import type { DetailPanelKind } from '../../../../../types/equipmentKind';
 
 /**
- * 상세 패널의 종류(detailKind)를 자산 기준으로 해석(SSOT).
- * - conduit 자산(광슬롯 등) → 'conduit-ports'(포트 GUI). 배치설비가 아니어도 동작.
- * - 그 외 배치설비 → EQUIPMENT_KIND_INFO 의 detailPanelKind.
- * - 둘 다 아니면 null(공간 섹션 없음).
+ * 자산 → 상세 패널의 공간(spatial) 섹션 종류(SSOT). 분류는 assetType.role 단일 소스.
+ * standalone/device 는 공간섹션 없음(일반 인스펙터만).
  */
-export function resolveAssetDetailKind(
-  asset: Asset | null | undefined,
-  placed: PlacedLike | null | undefined,
-): DetailPanelKind | null {
-  if (isConduit(asset?.assetType)) return 'conduit-ports';
-  if (isDistributor(asset?.assetType)) return 'feeder-circuits';
-  if (placed) return EQUIPMENT_KIND_INFO[placed.kind]?.detailPanelKind ?? null;
-  return null;
+const ROLE_TO_PANEL: Record<string, DetailPanelKind> = {
+  slot: 'conduit-ports',
+  feeder: 'feeder-circuits',
+  rack: 'rack',
+  ofd: 'ofd',
+  panel: 'distribution',
+};
+
+export function resolveAssetDetailKind(asset: Asset | null | undefined): DetailPanelKind | null {
+  return ROLE_TO_PANEL[asset?.assetType?.role ?? ''] ?? null;
 }

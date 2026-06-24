@@ -15,7 +15,7 @@ const PANEL = 'panel-1';
 function asset(p: { id: string; code: string; name: string; parent?: string | null; sort?: number; floorId?: string | null }) {
   return {
     id: p.id, substationId: 's1', assetTypeId: p.code,
-    assetType: { id: p.code, code: p.code, name: p.code, group: null, displayColor: null, fieldTemplate: [], placementKind: p.code === 'DIST' ? 'DIST' : null },
+    assetType: { id: p.code, code: p.code, name: p.code, group: null, role: p.code === 'DIST' ? 'panel' : p.code === 'FEEDER' ? 'feeder' : 'device', displayColor: null, fieldTemplate: [], placementKind: p.code === 'DIST' ? 'DIST' : null },
     name: p.name, parentAssetId: p.parent ?? null, floorId: p.floorId ?? null, roomText: null,
     installDate: null, warrantyUntil: null, replaceDue: null, manager: null, description: null, status: null,
     sortOrder: p.sort ?? 0, updatedAt: '',
@@ -40,7 +40,7 @@ vi.mock('../../../../workingCopy/hooks', () => ({
 }));
 vi.mock('../../../../assets/hooks/useAssetTypes', () => ({
   useAssetTypes: () => ({ data: [
-    { id: 'ft', code: 'FEEDER', name: '피더', group: null, displayColor: null, fieldTemplate: null, placementKind: null },
+    { id: 'ft', code: 'FEEDER', name: '피더', group: null, role: 'feeder', displayColor: null, fieldTemplate: null, placementKind: null },
   ] }),
 }));
 vi.mock('../../../../workspace/selectionStore', () => {

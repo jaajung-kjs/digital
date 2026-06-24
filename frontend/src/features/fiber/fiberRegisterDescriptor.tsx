@@ -1,4 +1,3 @@
-import { isOfd } from '../workingCopy/assetClassify';
 import { type TraceGraph } from '../trace/traceGraph';
 import { buildSlotCoreRows, type SlotCoreRow } from './slotRegister';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
@@ -13,9 +12,9 @@ export type FiberRow = SlotCoreRow & { __nameById?: Map<string, string>; __slot?
 
 export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
   emptyMessage: '이 변전소에 OFD(광단국)가 없습니다.',
-  childKind: 'conduit',
+  childRole: 'slot',
   selectContainers: (assets, substationId) =>
-    assets.filter((a) => isOfd(a.assetType) && a.substationId === substationId),
+    assets.filter((a) => a.assetType?.role === 'ofd' && a.substationId === substationId),
   buildSection: (slot, ctx: RegisterCtx) => {
     const graph = ctx.graph as TraceGraph | null;
     const rows = buildSlotCoreRows(slot as never, ctx.cables as never[], graph)

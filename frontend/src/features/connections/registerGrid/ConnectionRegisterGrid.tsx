@@ -26,7 +26,7 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
       container,
       header: descriptor.containerHeader?.(container, ctx) ?? null,
       sections: assets
-        .filter((a) => a.parentAssetId === container.id && a.assetType?.connectionKind === descriptor.childKind)
+        .filter((a) => a.parentAssetId === container.id && a.assetType?.role === descriptor.childRole)
         .map((child) => ({ child, section: descriptor.buildSection(child, ctx) })),
     }));
   }, [assets, graph, isLoading, substationId, descriptor]);

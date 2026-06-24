@@ -23,8 +23,8 @@ export interface RegisterDescriptor<Row> {
   emptyMessage: string;
   /** 컨테이너 자산(OFD / 분전반) 선택. */
   selectContainers(assets: Asset[], substationId: string): Asset[];
-  /** 자식(섹션) = parentAssetId===container && assetType.connectionKind===childKind. */
-  childKind: 'conduit' | 'distributor';
+  /** 자식(섹션) = parentAssetId===container && assetType.role===childRole. */
+  childRole: 'slot' | 'feeder';
   /** 컨테이너 헤더(분전반명 등). 없으면 컨테이너 헤더 미표시. */
   containerHeader?(container: Asset, ctx: RegisterCtx): string | null;
   buildSection(child: Asset, ctx: RegisterCtx): RegisterSection<Row>;

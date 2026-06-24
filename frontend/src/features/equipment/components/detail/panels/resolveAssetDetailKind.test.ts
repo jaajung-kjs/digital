@@ -1,29 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { resolveAssetDetailKind } from './resolveAssetDetailKind';
 
-describe('resolveAssetDetailKind', () => {
-  it('conduit 자산 → conduit-ports', () => {
-    const asset = { id: 's', assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } } as never;
-    expect(resolveAssetDetailKind(asset, null)).toBe('conduit-ports');
-  });
+const a = (role: string) => ({ id: 'x', assetType: { role } }) as never;
 
-  it('distributor 자산(피더) → feeder-circuits', () => {
-    const asset = { id: 'f', assetType: { connectionKind: 'distributor', code: 'FEEDER' } } as never;
-    expect(resolveAssetDetailKind(asset, null)).toBe('feeder-circuits');
-  });
-
-  it('배치설비(placed) → 해당 kind', () => {
-    const placed = { kind: 'RACK' } as never;
-    expect(resolveAssetDetailKind(null, placed)).toBe('rack');
-  });
-
-  it('둘 다 아니면 null', () => {
-    expect(resolveAssetDetailKind(null, null)).toBeNull();
-  });
-
-  it('conduit 가 placed 보다 우선', () => {
-    const asset = { id: 's', assetType: { connectionKind: 'conduit' } } as never;
-    const placed = { kind: 'OFD' } as never;
-    expect(resolveAssetDetailKind(asset, placed)).toBe('conduit-ports');
-  });
+describe('resolveAssetDetailKind (role 단일 소스)', () => {
+  it('slot → conduit-ports', () => { expect(resolveAssetDetailKind(a('slot'))).toBe('conduit-ports'); });
+  it('feeder → feeder-circuits', () => { expect(resolveAssetDetailKind(a('feeder'))).toBe('feeder-circuits'); });
+  it('rack → rack', () => { expect(resolveAssetDetailKind(a('rack'))).toBe('rack'); });
+  it('ofd → ofd', () => { expect(resolveAssetDetailKind(a('ofd'))).toBe('ofd'); });
+  it('panel → distribution', () => { expect(resolveAssetDetailKind(a('panel'))).toBe('distribution'); });
+  it('standalone → null', () => { expect(resolveAssetDetailKind(a('standalone'))).toBeNull(); });
+  it('device → null', () => { expect(resolveAssetDetailKind(a('device'))).toBeNull(); });
+  it('null asset → null', () => { expect(resolveAssetDetailKind(null)).toBeNull(); });
 });

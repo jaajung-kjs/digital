@@ -11,16 +11,10 @@ import type { Asset, AssetType } from '../../types/asset';
  * feeder→분전반 으로 걸어 도면 위치를 해소한다.
  */
 
-export const FEEDER_CODE = 'FEEDER';
-
-function codeOf(a: Asset): string | undefined {
-  return a.assetType?.code ?? undefined;
-}
-
-/** 분전반의 FEEDER 자산들 — sortOrder, name 순. */
+/** 분전반의 피더 자산들(role='feeder') — sortOrder, name 순. */
 export function feedersOfPanel(assets: Asset[], panelId: string): Asset[] {
   return assets
-    .filter((a) => a.parentAssetId === panelId && codeOf(a) === FEEDER_CODE)
+    .filter((a) => a.parentAssetId === panelId && a.assetType?.role === 'feeder')
     .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 }
 

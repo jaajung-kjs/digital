@@ -1,14 +1,13 @@
 import { cableTrace } from './cableTrace';
 import type { TraceGraph } from './traceGraph';
-import { isOfd } from '../workingCopy/assetClassify';
 import { isOpgwTwin, roleAt, other } from '../cables/cableEndpoint';
 import { detectRings } from '../../utils/graph/cycleDetection';
 import { buildInternalPath } from '../connections/internalPath';
 import type { TraceNode, TraceEdge, TraceRing } from '../pathTrace/types';
 
-/** 그래프 노드의 OFD 판정 — 정식 분류(code 또는 placementKind), 스테이징 OFD 포함. */
+/** 그래프 노드의 OFD 판정 — role 단일 소스. */
 const graphNodeIsOfd = (graph: TraceGraph, id: string): boolean =>
-  isOfd({ code: graph.codeById.get(id), placementKind: graph.placementKindById?.get(id) });
+  graph.roleById.get(id) === 'ofd';
 
 export interface TraceStep { id: string; label: string; isEndpoint: boolean; isFiberEdge: boolean }
 /** 경로 트리 노드 — 분배(통과설비 fan-out)를 분기로 표현. 선형 경로면 자식 1개 체인. */
