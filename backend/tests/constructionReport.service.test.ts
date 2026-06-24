@@ -19,7 +19,6 @@ const ruleCtx: RuleContext = {
       },
     ],
   ]),
-  cableNameByCategoryId: new Map([['catFiber', 'OPGW']]),
   equipRuleByTypeId: new Map([
     [
       'typeRack',

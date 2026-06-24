@@ -8,9 +8,14 @@ import {
 import type {
   ReportOverrides,
   ConstructionReport,
+  BOMItem,
 } from '../../../../utils/constructionCalc';
 import { SURCHARGE_RULES } from '../../../../config/constructionTemplates';
 import type { AuditLog } from '../../../../types/maintenance';
+
+// Backward-compat identity helper: new snapshots use `key`, historical archived
+// snapshots (pre BOM-redesign) used `materialCategoryCode`. Fall back gracefully.
+const bomKey = (b: BOMItem): string => b.key ?? b.materialCategoryCode ?? b.name;
 
 // ============================================================
 // ReportView — editable construction report (설계서)
@@ -89,18 +94,18 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
     // Remove items
     if (overrides.removedItemIds.length > 0) {
       const removed = new Set(overrides.removedItemIds);
-      bom = bom.filter((b) => !removed.has(b.key));
+      bom = bom.filter((b) => !removed.has(bomKey(b)));
     }
 
-    // Modify quantities
+    // Modify quantities for non-manual BOM items and labor
     for (const mod of overrides.modifiedItems) {
-      const bomItem = bom.find((b) => b.key === mod.itemId);
+      const bomItem = bom.find((b) => !b.isManual && bomKey(b) === mod.itemId);
       if (bomItem) bomItem.quantity = mod.quantity;
       const laborItem = labor.find((l) => l.workName === mod.itemId);
       if (laborItem) laborItem.hours = mod.quantity;
     }
 
-    // Add manual items
+    // Add manual items (pushed after modify so their render-index is stable)
     for (const added of overrides.addedItems) {
       bom.push({
         key: 'MANUAL',
@@ -111,6 +116,17 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
       });
       if (added.laborHours) {
         labor.push({ workName: added.description, laborType: '통신내선공', hours: added.laborHours });
+      }
+    }
+
+    // Modify manual-item quantities by render index (e.g. "MANUAL:0", "MANUAL:1")
+    const manualBom = bom.filter((b) => b.isManual);
+    for (const mod of overrides.modifiedItems) {
+      const match = mod.itemId.match(/^(.+):(\d+)$/);
+      if (!match) continue;
+      const idx = parseInt(match[2], 10);
+      if (!isNaN(idx) && manualBom[idx]) {
+        manualBom[idx].quantity = mod.quantity;
       }
     }
 
@@ -202,7 +218,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
             </thead>
             <tbody>
               {report.bom.filter((b) => !b.isManual).map((b) => (
-                <tr key={b.key} className="border-b border-line/50">
+                <tr key={bomKey(b)} className="border-b border-line/50">
                   <td className="py-1 text-content">{b.name}</td>
                   <td className="py-1"><span className={`px-1 py-0.5 rounded text-xs ${b.action ? actionBadgeColor(b.action) : ''}`}>{b.action ? actionLabel(b.action) : ''}</span></td>
                   <td className="py-1 text-right">
@@ -210,11 +226,11 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
                       <Input
                         type="number"
                         className="w-14 text-right px-1 py-0.5"
-                        value={bomEdits[b.key] ?? b.quantity}
+                        value={bomEdits[bomKey(b)] ?? b.quantity}
                         min={0}
                         step={0.01}
                         onChange={(e) =>
-                          setBomEdits((prev) => ({ ...prev, [b.key]: parseFloat(e.target.value) || 0 }))
+                          setBomEdits((prev) => ({ ...prev, [bomKey(b)]: parseFloat(e.target.value) || 0 }))
                         }
                       />
                     ) : (
@@ -225,7 +241,7 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
                   {editMode && (
                     <td className="py-1 text-center">
                       <button
-                        onClick={() => handleRemoveItem(b.key)}
+                        onClick={() => handleRemoveItem(bomKey(b))}
                         className="text-danger hover:opacity-70 text-xs"
                         title="삭제"
                       >&times;</button>
@@ -254,18 +270,18 @@ export function ReportView({ log, allLogs: _allLogs, floorId: _roomId, onSaveOve
             </thead>
             <tbody>
               {report.bom.filter((b) => b.isManual).map((b, i) => (
-                <tr key={b.key + i} className="border-b border-line/50">
+                <tr key={`${bomKey(b)}:${i}`} className="border-b border-line/50">
                   <td className="py-1 text-content">{b.name}</td>
                   <td className="py-1 text-right">
                     {editMode ? (
                       <Input
                         type="number"
                         className="w-14 text-right px-1 py-0.5"
-                        value={bomEdits[b.key + i] ?? b.quantity}
+                        value={bomEdits[`${bomKey(b)}:${i}`] ?? b.quantity}
                         min={0}
                         step={0.01}
                         onChange={(e) =>
-                          setBomEdits((prev) => ({ ...prev, [b.key + i]: parseFloat(e.target.value) || 0 }))
+                          setBomEdits((prev) => ({ ...prev, [`${bomKey(b)}:${i}`]: parseFloat(e.target.value) || 0 }))
                         }
                       />
                     ) : (

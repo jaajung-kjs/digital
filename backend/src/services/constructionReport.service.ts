@@ -104,7 +104,6 @@ export interface EquipRule {
 
 export interface RuleContext {
   cableRuleByCategoryId: Map<string, CableRule>;
-  cableNameByCategoryId: Map<string, string>;
   equipRuleByTypeId: Map<string, EquipRule>;
 }
 
@@ -446,9 +445,7 @@ export async function reportPreview(
     include: { group: true },
   });
   const cableRuleByCategoryId = new Map<string, CableRule>();
-  const cableNameByCategoryId = new Map<string, string>();
   for (const cat of cableCategoryRows) {
-    cableNameByCategoryId.set(cat.id, cat.name);
     if (cat.group) {
       cableRuleByCategoryId.set(cat.id, {
         groupName: cat.group.name,
@@ -482,7 +479,7 @@ export async function reportPreview(
     });
   }
 
-  const ctx: RuleContext = { cableRuleByCategoryId, cableNameByCategoryId, equipRuleByTypeId };
+  const ctx: RuleContext = { cableRuleByCategoryId, equipRuleByTypeId };
 
   return calculateConstructionReport(changes.before, changes.after, ctx, overrides);
 }

@@ -23,6 +23,8 @@ export interface DiffItem {
 export interface BOMItem {
   /** Identity key — backend sets this to categoryId:action for cables, assetTypeId:action for equipment, 'MANUAL' for overrides. */
   key: string;
+  /** @deprecated legacy archived snapshots (pre BOM-redesign branch) used materialCategoryCode as identity; read via bomKey() fallback only. */
+  materialCategoryCode?: string;
   name: string;
   action?: DiffAction;
   quantity: number;
