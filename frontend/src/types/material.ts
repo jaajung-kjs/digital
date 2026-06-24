@@ -22,17 +22,11 @@ export type {
 export type { CableDisplayGroup } from './cableCategory';
 export type { DetailPanelKind } from './equipmentKind';
 
-// CableCategory.code → CableType. Codes match the P6 seed.
-export const MATERIAL_TO_CABLE_TYPE: Record<string, CableType> = {
-  'CBL-FCV': 'AC', 'CBL-FR': 'AC', 'CBL-VCT': 'AC', 'CBL-HIV': 'AC',
-  'CBL-UTP': 'LAN',
-  'CBL-OPT': 'FIBER', 'CBL-OPJ': 'FIBER', 'CBL-OPT-B': 'FIBER',
-  'CBL-OPGW': 'FIBER',
-  'CBL-IV': 'GROUND', 'CBL-BARE': 'GROUND',
-  'CBL-CVV': 'DC', 'CBL-CPEV': 'LAN', 'CBL-PCM': 'LAN',
-  'CBL-COAX': 'LAN', 'CBL-CHAMP': 'LAN', 'CBL-SIG': 'DC',
+// displayGroup(고정 5종) → CableType. 케이블 구조타입의 단일 파생 소스.
+export const GROUP_TO_CABLE_TYPE: Record<string, CableType> = {
+  '광': 'FIBER', '전원': 'AC', '네트워크': 'LAN', '제어': 'DC', '접지': 'GROUND',
 };
 
-export function getCableTypeFromMaterial(code: string): CableType {
-  return MATERIAL_TO_CABLE_TYPE[code] || 'LAN';
+export function getCableTypeFromGroup(group: string | null | undefined): CableType {
+  return (group && GROUP_TO_CABLE_TYPE[group]) || 'LAN';
 }
