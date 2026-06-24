@@ -3,7 +3,7 @@ import { useEffectiveAssets, useEffectiveCables } from '../../workingCopy/hooks'
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useTraceGraph, ofdAssets, type AssetRef } from '../../trace/traceGraph';
-import { useAssetTypeIdByCode } from '../../assets/useAssetTypeIdByCode';
+import { useAssetTypeIdByRole } from '../../assets/useAssetTypeIdByRole';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
 import { generateTempId } from '../../../utils/idHelpers';
 import { buildRouteCreate, routeDeleteIds } from '../fiberWrite';
@@ -42,7 +42,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
   const cables = useEffectiveCables() as unknown as CableWithRoles[];
   const { graph } = useTraceGraph();
   const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
-  const slotTypeId = useAssetTypeIdByCode('OFD-SLOT');
+  const slotTypeId = useAssetTypeIdByRole('slot');
   const { data: categories = [] } = useCableCategories();
   const opgwCat = categories.find((c) => c.code === 'CBL-OPGW');
 

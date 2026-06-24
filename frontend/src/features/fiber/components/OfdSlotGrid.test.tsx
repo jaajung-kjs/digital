@@ -66,8 +66,8 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
   remoteSlotSubstation: (slotId: string) => (slotId === SLOT_ID ? '홍천변전소' : null),
 }));
 
-vi.mock('../../assets/useAssetTypeIdByCode', () => ({
-  useAssetTypeIdByCode: () => 'type-ofd-slot',
+vi.mock('../../assets/useAssetTypeIdByRole', () => ({
+  useAssetTypeIdByRole: () => 'type-ofd-slot',
 }));
 
 vi.mock('../../cables/hooks/useCableCategories', () => ({
