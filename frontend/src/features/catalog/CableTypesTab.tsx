@@ -23,7 +23,7 @@ export function CableTypesTab() {
 
   const groupOptions = groups.map((g) => ({ value: g.id, label: g.name }));
 
-  const addGroup = () => store().stageCreateCableGroup({ id: newCatalogId(), name: '새 그룹', color: '#6b7280', sortOrder: 0, isActive: true });
+  const addGroup = () => store().stageCreateCableGroup({ id: newCatalogId(), name: '새 그룹', color: '#6b7280', sortOrder: 0, isActive: true, kind: null, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null });
   const addCat = (groupId: string) => store().stageCreateCableCategory({
     id: newCatalogId(), name: '새 종류', groupId, code: '', description: null, displayColor: null,
     displayGroup: null, groupName: null, groupColor: null, iconName: null, unit: null, specTemplate: null, sortOrder: 0, isActive: true,

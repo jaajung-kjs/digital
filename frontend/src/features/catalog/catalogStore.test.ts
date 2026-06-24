@@ -55,10 +55,32 @@ describe('catalogStore', () => {
   });
 
   it('commit 이 cableGroups 델타 포함', async () => {
-    useCatalogStore.getState().stageCreateCableGroup({ id: newCatalogId(), name: 'G', color: null, sortOrder: 0, isActive: true });
+    useCatalogStore.getState().stageCreateCableGroup({ id: newCatalogId(), name: 'G', color: null, sortOrder: 0, isActive: true, kind: null, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null });
     await useCatalogStore.getState().commit();
     expect(api.post).toHaveBeenCalledWith('/catalog/commit', expect.objectContaining({
       cableGroups: expect.objectContaining({ creates: expect.any(Array) }),
     }));
+  });
+
+  it('stageUpdateCableGroup 노무 patch → commit 에 installHoursPerMeter 전달', async () => {
+    const id = 'cg-labor-1';
+    useCatalogStore.setState({
+      baseCableGroups: [{ id, name: '전원', color: '#ef4444', sortOrder: 0, isActive: true, kind: null, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null }],
+    } as never);
+    useCatalogStore.getState().stageUpdateCableGroup(id, { installHoursPerMeter: 0.05 });
+    await useCatalogStore.getState().commit();
+    const postedBody = vi.mocked(api.post).mock.calls[0][1] as { cableGroups: { updates: { id: string; patch: { installHoursPerMeter?: number } }[] } };
+    expect(postedBody.cableGroups.updates[0].patch.installHoursPerMeter).toBe(0.05);
+  });
+
+  it('stageUpdateType 노무 patch → commit 에 installHoursPerUnit 전달', async () => {
+    const id = 'type-labor-1';
+    useCatalogStore.setState({
+      baseTypes: [{ id, code: 'T1', name: '테스트종류', group: null, role: 'device', categoryId: null, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, placementKind: null, connectionKind: null, sortOrder: 0, isActive: true, laborType: null, installHoursPerUnit: null, removeHoursPerUnit: null, relocateHoursPerUnit: null }],
+    } as never);
+    useCatalogStore.getState().stageUpdateType(id, { installHoursPerUnit: 1.5 });
+    await useCatalogStore.getState().commit();
+    const postedBody = vi.mocked(api.post).mock.calls[0][1] as { assetTypes: { updates: { id: string; patch: { installHoursPerUnit?: number } }[] } };
+    expect(postedBody.assetTypes.updates[0].patch.installHoursPerUnit).toBe(1.5);
   });
 });

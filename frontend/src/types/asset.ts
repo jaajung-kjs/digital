@@ -27,6 +27,10 @@ export interface AssetType {
   connectionKind: string | null;
   sortOrder: number;
   isActive: boolean;
+  laborType: string | null;
+  installHoursPerUnit: number | null;
+  removeHoursPerUnit: number | null;
+  relocateHoursPerUnit: number | null;
 }
 
 export interface Asset {
