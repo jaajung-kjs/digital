@@ -18,6 +18,7 @@ import { equipmentRouter } from './routes/equipment.routes.js';
 import { organizationRouter } from './routes/organization.routes.js';
 import { cablesRouter } from './routes/cables.routes.js';
 import { cableCategoriesRouter } from './routes/cableCategories.routes.js';
+import { cableGroupsRouter } from './routes/cableGroups.routes.js';
 import { rackModuleCategoriesRouter } from './routes/rackModuleCategories.routes.js';
 import { rackModulesRouter } from './routes/rackModules.routes.js';
 import { rackPresetsRouter } from './routes/rackPresets.routes.js';
@@ -90,6 +91,7 @@ app.use('/api/organizations', organizationRouter);
 app.use('/api/cables', cablesRouter);
 // 카테고리/프리셋/BOM 자재 라우트 (P7) — MaterialCategory/Material 폐기 후 신규 분리.
 app.use('/api/cable-categories', cableCategoriesRouter);
+app.use('/api/cable-groups', cableGroupsRouter);
 app.use('/api/rack-module-categories', rackModuleCategoriesRouter);
 app.use('/api/rack-modules', rackModulesRouter);
 app.use('/api/rack-presets', rackPresetsRouter);
