@@ -19,8 +19,8 @@ export const other = (c: CableEndpointFields, assetId: string): string | null =>
   (c.sourceAssetId === assetId ? c.targetAssetId : c.sourceAssetId) ?? null;
 
 /**
- * OPGW(변전소간 광 트렁크) 판정 — 양끝 역할이 모두 IN 인 FIBER 케이블.
- * 곳곳에 흩어져 있던 인라인 'IN && IN'(일부는 FIBER 체크 누락) 을 단일 규칙으로 통일.
+ * OPGW(변전소간 광 트렁크) 판정 — **구조만**: 양끝(슬롯↔슬롯) 역할이 모두 IN.
+ * IN-IN 은 OPGW 에만 나타나므로 cableType 라벨 불필요(전원 피더 IN 은 OUT-IN).
  */
-export const isOpgwTwin = (c: CableEndpointFields & { cableType?: string | null }): boolean =>
-  c.cableType === 'FIBER' && c.sourceRole === 'IN' && c.targetRole === 'IN';
+export const isOpgwTwin = (c: CableEndpointFields): boolean =>
+  c.sourceRole === 'IN' && c.targetRole === 'IN';
