@@ -44,17 +44,15 @@ interface Overlays {
 /**
  * Asset → 설계서 equipment 스냅샷 항목.
  *
- * 자재코드 정본은 백엔드가 `assetTypeId` → AssetType.code 로 해소한다. staged-create
- * 설비는 assetType 이 placeholder({ placementKind })라 `assetType.code` 가 없으므로,
- * assetTypeId 를 함께 보내야 BOM/노무가 산출된다. code/name 은 표시용으로 같이 보낸다.
+ * 노무규칙 정본은 백엔드가 `assetTypeId` 로 해소한다. staged-create
+ * 설비는 assetType 이 placeholder({ placementKind })라 code 가 없으므로,
+ * assetTypeId 를 함께 보내야 노무가 산출된다.
  */
 function assetToSnapshot(a: Asset): EquipmentSnapshotItem {
   return {
     id: a.id,
     name: a.name,
     assetTypeId: a.assetTypeId ?? null,
-    materialCategoryCode: a.assetType?.code ?? null,
-    materialCategoryName: a.assetType?.name ?? null,
     // #7: Asset.attributes 제거 — 설비 specParams 는 더 이상 자산 속성에서 오지 않는다.
     specParams: null,
     positionX: a.positionX ?? 0,
@@ -62,19 +60,16 @@ function assetToSnapshot(a: Asset): EquipmentSnapshotItem {
   };
 }
 
-/** effective Cable row(DTO) → 설계서 cable 스냅샷 항목. 자재코드 ← categoryCode. */
+/** effective Cable row(DTO) → 설계서 cable 스냅샷 항목. 노무규칙 키 ← categoryId. */
 function cableToSnapshot(c: Cable): CableSnapshotItem {
   const local = cableDtoToLocal(c as unknown as CableDetailDTO);
   return {
     id: local.id,
-    cableType: local.cableType,
-    materialCategoryCode: local.categoryCode ?? null,
-    materialCategoryName: local.categoryName ?? null,
-    specification: local.specification ?? null,
+    categoryId: local.categoryId ?? null,
+    name: local.categoryName ?? '',
     totalLength: local.totalLength ?? null,
     sourceAssetId: local.sourceAssetId,
     targetAssetId: local.targetAssetId,
-    label: local.label ?? null,
   };
 }
 

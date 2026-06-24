@@ -52,9 +52,10 @@ describe('overlayToChanges', () => {
     expect(before.equipment.map((e) => e.id)).not.toContain('temp-1');
     expect(after.equipment.map((e) => e.id)).toContain('temp-1');
     const item = after.equipment.find((e) => e.id === 'temp-1');
-    expect(item?.materialCategoryCode).toBe('RACK');
-    // 백엔드가 자재코드를 해소하는 정본 키 — 반드시 함께 전달돼야 함.
+    // Task 5: 설비 스냅샷은 assetTypeId+name 기반 — materialCategoryCode 제거
     expect(item?.assetTypeId).toBe('at-1');
+    expect(item).not.toHaveProperty('materialCategoryCode');
+    expect(item).not.toHaveProperty('materialCategoryName');
   });
 
   it('staged-create(placeholder assetType, code 없음)도 assetTypeId 를 전달한다', () => {
@@ -70,7 +71,8 @@ describe('overlayToChanges', () => {
     const { after } = overlayToChanges(saved, overlays, FLOOR);
     const item = after.equipment.find((e) => e.id === 'temp-2');
     expect(item?.assetTypeId).toBe('at-rack');
-    expect(item?.materialCategoryCode).toBeNull();
+    // Task 5: materialCategoryCode no longer in equipment snapshot
+    expect(item).not.toHaveProperty('materialCategoryCode');
   });
 
   it('deleted equipment → before only, not after', () => {
@@ -124,7 +126,9 @@ describe('overlayToChanges', () => {
       sourceAssetId: 'eq-1',
       targetAssetId: 'eq-other',
       cableType: 'UTP',
+      categoryId: 'cat-fiber',
       categoryCode: 'CBL-UTP',
+      categoryName: '광케이블',
       totalLength: 12,
     };
     const saved = { assets: [eq], cables: [] as WorkingCopyRow[] };
@@ -134,7 +138,12 @@ describe('overlayToChanges', () => {
     const { before, after } = overlayToChanges(saved, overlays, FLOOR);
     expect(before.cables.map((c) => c.id)).not.toContain('c-1');
     const added = after.cables.find((c) => c.id === 'c-1');
-    expect(added?.materialCategoryCode).toBe('CBL-UTP');
+    // Task 5: 케이블 스냅샷은 categoryId+name+totalLength 기반
+    expect(added?.categoryId).toBe('cat-fiber');
+    expect(added?.name).toBe('광케이블'); // name ← categoryName
     expect(added?.totalLength).toBe(12);
+    expect(added).not.toHaveProperty('materialCategoryCode');
+    expect(added).not.toHaveProperty('cableType');
+    expect(added).not.toHaveProperty('label');
   });
 });
