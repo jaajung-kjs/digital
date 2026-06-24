@@ -25,12 +25,10 @@ describe('slimToAsset', () => {
 describe('slimCableToCable', () => {
   it('trace 케이블 입력을 워킹카피 행으로(연결 필드 보존)', () => {
     const c = slimCableToCable({
-      id: 'opgw', cableType: 'FIBER', sourceAssetId: 'sA', targetAssetId: 'sB',
+      id: 'opgw', sourceAssetId: 'sA', targetAssetId: 'sB',
       sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 24 },
     });
     expect(c.id).toBe('opgw');
-    // cableType 은 C5 Phase A 에서 워킹카피 행에서도 제거됨
-    expect(c.cableType).toBeUndefined();
     expect(c.sourceAssetId).toBe('sA');
     expect(c.targetRole).toBe('IN');
     expect((c.specParams as { cores: number }).cores).toBe(24);

@@ -12,8 +12,8 @@ const SLOT = 'slotA';
 const TWIN = 'slotB';
 const OFD = 'ofd1';
 const SLOT_ASSET = { id: SLOT, name: '슬롯A', parentAssetId: OFD, assetType: { connectionKind: 'conduit', code: 'OFD-SLOT' } };
-const opgw = { id: 'opgw', cableType: 'FIBER', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
-const localOut3 = { id: 'c-l3', cableType: 'FIBER', sourceAssetId: 'eqpL', targetAssetId: SLOT, sourceRole: null, targetRole: 'OUT', number: 3 };
+const opgw = { id: 'opgw', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
+const localOut3 = { id: 'c-l3', sourceAssetId: 'eqpL', targetAssetId: SLOT, sourceRole: null, targetRole: 'OUT', number: 3 };
 
 vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => [SLOT_ASSET],

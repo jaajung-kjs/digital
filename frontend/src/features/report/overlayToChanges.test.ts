@@ -123,8 +123,7 @@ describe('overlayToChanges', () => {
       id: 'c-1',
       sourceAssetId: 'eq-1',
       targetAssetId: 'eq-other',
-      cableType: 'UTP',
-      categoryCode: 'CBL-UTP',
+      categoryId: 'cat-utp',
       totalLength: 12,
     };
     const saved = { assets: [eq], cables: [] as WorkingCopyRow[] };
@@ -134,7 +133,7 @@ describe('overlayToChanges', () => {
     const { before, after } = overlayToChanges(saved, overlays, FLOOR);
     expect(before.cables.map((c) => c.id)).not.toContain('c-1');
     const added = after.cables.find((c) => c.id === 'c-1');
-    expect(added?.materialCategoryCode).toBe('CBL-UTP');
+    expect(added?.materialCategoryCode).toBe('cat-utp');
     expect(added?.totalLength).toBe(12);
   });
 });

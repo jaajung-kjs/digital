@@ -25,8 +25,7 @@ export function CableTypesTab() {
 
   const addGroup = () => store().stageCreateCableGroup({ id: newCatalogId(), name: '새 그룹', color: '#6b7280', sortOrder: 0, isActive: true });
   const addCat = (groupId: string) => store().stageCreateCableCategory({
-    id: newCatalogId(), name: '새 종류', groupId, code: '', description: null, displayColor: null,
-    displayGroup: null, groupName: null, groupColor: null, iconName: null, unit: null, specTemplate: null, sortOrder: 0, isActive: true,
+    id: newCatalogId(), name: '새 종류', groupId, groupName: null, groupColor: null, sortOrder: 0, isActive: true,
   } as CableCategory);
 
   return (

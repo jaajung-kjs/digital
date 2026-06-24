@@ -28,7 +28,6 @@ const OFD_ASSET = {
 
 const OPGW_CABLE = {
   id: OPGW_ID,
-  cableType: 'FIBER',
   sourceAssetId: SLOT_ID,
   targetAssetId: 'slot2',
   sourceRole: 'IN',

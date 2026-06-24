@@ -10,9 +10,6 @@ export type UserRole = 'ADMIN' | 'VIEWER';
 // derives from MaterialCategory.code (e.g. 'EQP-OFD', 'EQP-RACK'). See
 // frontend/src/types/material.ts for category metadata.
 
-// schema.prisma: enum CableType
-export type CableType = 'AC' | 'DC' | 'LAN' | 'FIBER' | 'GROUND';
-
 // MaintenanceLog string fields (not Prisma enums, but validated by backend Zod schemas)
 export type LogType = 'MAINTENANCE' | 'FAILURE' | 'REPAIR';
 export type Severity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
