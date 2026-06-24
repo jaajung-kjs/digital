@@ -5,7 +5,8 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { isOpgwTwin } from '../cableEndpoint';
 import { routeDeleteIds } from '../../fiber/fiberWrite';
 import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
-import { EditableField, type EditableFieldOption } from '../../assets/components/EditableField';
+import { EditableField } from '../../assets/components/EditableField';
+import { CableTypePicker } from './CableTypePicker';
 
 /**
  * 케이블 일반 속성(종류·라벨·색·설명) 편집의 단일 SSOT UI — 외형은 공용 DetailCard
@@ -53,14 +54,10 @@ export function CableInspector({ cableId, onDeleted }: { cableId: string; onDele
 
   const src = graph?.nameById.get(cable.sourceAssetId as string) ?? '';
   const tgt = graph?.nameById.get(cable.targetAssetId as string) ?? '';
-  const categoryId = (cable.categoryId as string | null) ?? '';
-  const categoryOptions: EditableFieldOption[] = [
-    { value: '', label: '— 미분류 —' },
-    ...(categories ?? []).filter((c) => c.isActive).map((c) => ({ value: c.id, label: c.name })),
-  ];
-  const commitCategory = (id: string) => {
+  const categoryId = (cable.categoryId as string | null) ?? null;
+  const commitCategory = (id: string | null) => {
     const c = (categories ?? []).find((x) => x.id === id) ?? null;
-    patch({ categoryId: id || null, categoryName: c?.name ?? null, displayColor: c?.displayColor ?? null });
+    patch({ categoryId: id, categoryName: c?.name ?? null, displayColor: c?.groupColor ?? null });
   };
   // 실효 색 = 케이블 오버라이드 ?? 종류 색. 피커는 항상 현재 사용중인 색을 기본값으로.
   const effectiveColor = (cable.color as string | null) || (cable.displayColor as string | null) || '';
@@ -73,28 +70,10 @@ export function CableInspector({ cableId, onDeleted }: { cableId: string; onDele
       {/* 2열 그리드로 세로 길이 절감 — 짧은 필드는 반폭, 설명만 전폭. */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1">
         <DetailRow label="종류">
-          <EditableField
-            value={categoryId}
-            type="select"
-            options={categoryOptions}
-            ariaLabel="종류"
-            valueClickEdits
-            display={(v) => categoryOptions.find((o) => o.value === v)?.label ?? '— 미분류 —'}
-            onCommit={commitCategory}
-          />
+          <CableTypePicker value={categoryId} onChange={commitCategory} />
         </DetailRow>
         <DetailRow label="번호">
           <span className="text-sm text-content">{cable.number != null ? String(cable.number) : <span className="text-content-faint">—</span>}</span>
-        </DetailRow>
-        <DetailRow label="라벨">
-          {/* 라벨 미지정 시 실효 라벨(종류명)을 기본값으로 채움 — 표시용 폴백과 동일. */}
-          <EditableField
-            value={(cable.label as string | null) || (cable.categoryName as string | null) || ''}
-            ariaLabel="라벨"
-            placeholder="라벨"
-            valueClickEdits
-            onCommit={(v) => patch({ label: v.trim() || null })}
-          />
         </DetailRow>
         <DetailRow label="색상">
           <ColorField value={effectiveColor} onCommit={(v) => patch({ color: v })} />
