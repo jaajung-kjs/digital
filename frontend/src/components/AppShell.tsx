@@ -21,6 +21,7 @@ export function AppShell() {
     });
 
   const { user, logout } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -48,6 +49,11 @@ export function AppShell() {
           <Breadcrumb />
         </div>
         <div className="flex items-center gap-3 shrink-0">
+          {isAdmin && (
+            <Link to="/asset-management" className="text-sm text-content-muted hover:text-content transition-colors">
+              자산관리
+            </Link>
+          )}
           <span className="text-sm text-content-muted">
             {user?.name}
             <span className="ml-1 text-xs text-content-faint">

@@ -7,6 +7,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { WorkspacePage } from './pages/WorkspacePage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
+import { AssetManagementPage } from './features/catalog/AssetManagementPage';
 import { queryClient } from './lib/queryClient';
 
 function AppContent() {
@@ -40,6 +41,7 @@ function AppContent() {
           element={<WorkspacePage />}
         />
         <Route path="/floors/:floorId/plan" element={<FloorPlanEditorPage />} />
+        <Route path="/asset-management" element={<AssetManagementPage />} />
       </Route>
 
       {/* Catch all */}
