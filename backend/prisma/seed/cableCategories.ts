@@ -340,33 +340,45 @@ const cableCategories: CableCategorySeed[] = [
   },
 ];
 
+// 그룹 색 — 마이그레이션 백필과 동일 값(단일 소스).
+const GROUP_COLORS: Record<string, string> = {
+  '전원': '#ef4444', '접지': '#eab308', '네트워크': '#3b82f6', '광': '#22c55e', '제어': '#6b7280',
+};
+
 export async function seedCableCategories(prisma: PrismaClient) {
   console.log('🌱 Seeding cable categories...');
+  // 1) displayGroup → CableGroup 멱등 upsert (이름→id 맵)
+  const groupNames = [...new Set(cableCategories.map((c) => c.displayGroup).filter((g): g is string => !!g))];
+  const groupIdByName = new Map<string, string>();
+  let order = 1;
+  for (const name of groupNames) {
+    const g = await prisma.cableGroup.upsert({
+      where: { name },
+      update: {},
+      create: { name, color: GROUP_COLORS[name] ?? null, sortOrder: order++ },
+    });
+    groupIdByName.set(name, g.id);
+  }
+
+  // 2) 카테고리 upsert (groupId 연결 포함)
   for (const cat of cableCategories) {
+    const groupId = cat.displayGroup ? groupIdByName.get(cat.displayGroup) ?? null : null;
+    const common = {
+      name: cat.name,
+      description: cat.description,
+      displayColor: cat.displayColor,
+      displayGroup: cat.displayGroup,
+      groupId,
+      iconName: cat.iconName,
+      unit: cat.unit,
+      specTemplate: (cat.specTemplate as any) ?? undefined,
+      sortOrder: cat.sortOrder,
+    };
     await prisma.cableCategory.upsert({
       where: { code: cat.code },
-      create: {
-        code: cat.code,
-        name: cat.name,
-        description: cat.description,
-        displayColor: cat.displayColor,
-        displayGroup: cat.displayGroup,
-        iconName: cat.iconName,
-        unit: cat.unit,
-        specTemplate: (cat.specTemplate as any) ?? undefined,
-        sortOrder: cat.sortOrder,
-      },
-      update: {
-        name: cat.name,
-        description: cat.description,
-        displayColor: cat.displayColor,
-        displayGroup: cat.displayGroup,
-        iconName: cat.iconName,
-        unit: cat.unit,
-        specTemplate: (cat.specTemplate as any) ?? undefined,
-        sortOrder: cat.sortOrder,
-      },
+      create: { code: cat.code, ...common },
+      update: common,
     });
   }
-  console.log(`  ✅ ${cableCategories.length}개 케이블 카테고리`);
+  console.log(`  ✅ ${cableCategories.length}개 케이블 카테고리 + ${groupNames.length}개 그룹`);
 }
