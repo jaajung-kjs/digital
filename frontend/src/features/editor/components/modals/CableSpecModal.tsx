@@ -3,6 +3,7 @@ import { useEditorStore } from '../../stores/editorStore';
 import { useCableDrawing } from '../../stores/interactionStore';
 import { useInteractionStore } from '../../stores/interactionStore';
 import { useCableCategories } from '../../../cables/hooks/useCableCategories';
+import { useCableGroups } from '../../../cables/hooks/useCableGroups';
 import type { CableCategory } from '../../../../types/cableCategory';
 import { MaterialSelectionModal } from '../MaterialSelectionModal';
 
@@ -15,16 +16,17 @@ export function CableSpecModalWrapper() {
  * (phase==='selectingType')에서만 노출된다. 출발/도착 endpoint·역할·생성은
  * 캔버스/피커 + commitCable 가 담당한다(1.3~1.5).
  *
- * 카테고리는 `preselectedCableDisplayGroup`(사이드바 pill)로 필터링하거나,
+ * 카테고리는 `preselectedCableGroupId`(insert-bar pill)로 필터링하거나,
  * 미지정 시 전체를 보여준다.
  */
 function CableSpecModal() {
   const cable = useCableDrawing();
   const phase = cable?.phase ?? 'idle';
-  const preselectedGroup = useEditorStore(
-    (s) => s.preselectedCableDisplayGroup,
+  const preselectedGroupId = useEditorStore(
+    (s) => s.preselectedCableGroupId,
   );
   const { data: cableCategories } = useCableCategories();
+  const { data: cableGroups } = useCableGroups();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
 
@@ -33,11 +35,15 @@ function CableSpecModal() {
     if (phase === 'selectingType') setSelectedCategoryId(null);
   }, [phase]);
 
+  const preselectedGroupName = preselectedGroupId
+    ? (cableGroups ?? []).find((g) => g.id === preselectedGroupId)?.name ?? null
+    : null;
+
   const visibleCategories = useMemo<CableCategory[]>(() => {
     const all = (cableCategories ?? []).filter((c) => c.isActive);
-    if (!preselectedGroup) return all;
-    return all.filter((c) => c.displayGroup === preselectedGroup);
-  }, [cableCategories, preselectedGroup]);
+    if (!preselectedGroupId) return all;
+    return all.filter((c) => c.groupId === preselectedGroupId);
+  }, [cableCategories, preselectedGroupId]);
 
   if (phase !== 'selectingType') return null;
 
@@ -63,9 +69,9 @@ function CableSpecModal() {
   return (
     <MaterialSelectionModal
       title={
-        preselectedGroup
-          ? `케이블 — ${preselectedGroup}`
-          : '케이블 카테고리 선택'
+        preselectedGroupName
+          ? `케이블 — ${preselectedGroupName}`
+          : '케이블 종류 선택'
       }
       onConfirm={handleConfirm}
       onCancel={handleCancel}
@@ -100,9 +106,9 @@ function CableSpecModal() {
                 <span className="text-sm text-content text-left flex-1 truncate">
                   {cat.name}
                 </span>
-                {cat.displayGroup && (
+                {cat.groupName && (
                   <span className="text-xs text-content-faint">
-                    {cat.displayGroup}
+                    {cat.groupName}
                   </span>
                 )}
               </button>

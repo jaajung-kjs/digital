@@ -4,7 +4,6 @@ import { getCableDrawing, useInteractionStore } from './stores/interactionStore'
 import type { SelectedCableCategory } from './stores/interactionStore';
 import { endpointAssetId } from './cableEndpoint';
 import type { EndpointRef } from './cableEndpoint';
-import type { CableDisplayGroup } from '../../types/cableCategory';
 import { getCableTypeFromMaterial } from '../../types/material';
 import { calculatePathLength } from '../../utils/cable/pathLength';
 import { generateTempId } from '../../utils/idHelpers';
@@ -21,14 +20,15 @@ import { useToastStore } from './stores/toastStore';
 export function startCableConnection(opts?: {
   source?: EndpointRef;
   category?: SelectedCableCategory;
-  group?: CableDisplayGroup;
+  /** 사용자 정의 케이블 그룹 id — 종류 선택 모달의 사전 필터. */
+  group?: string;
 }): void {
   const editor = useEditorStore.getState();
   // 케이블 그리기 진입 시 열려있던 우측 상세 패널을 닫는다 — 안 닫으면 컨테이너 pick 때
   // setSelectedAssetId 로 그 패널도 같은 뷰를 띄워 다이얼로그와 이중 picker 가 된다.
   editor.closeRightPanel();
   editor.setTool('cable');
-  editor.setPreselectedCableDisplayGroup(opts?.group ?? null);
+  editor.setPreselectedCableGroupId(opts?.group ?? null);
   useInteractionStore.getState().cableActivate({ source: opts?.source, category: opts?.category });
 }
 

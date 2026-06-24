@@ -6,6 +6,8 @@ interface CollDelta<C, U> { creates: C[]; updates: { id: string; patch: U }[]; d
 export interface CatalogCommitInput {
   assetCategories?: CollDelta<{ id: string; name: string; sortOrder?: number }, { name?: string; sortOrder?: number }>;
   assetTypes?: CollDelta<{ id: string; name: string; categoryId: string | null }, { name?: string; categoryId?: string | null }>;
+  cableGroups?: CollDelta<{ id: string; name: string; color?: string | null }, { name?: string; color?: string | null; sortOrder?: number }>;
+  cableCategories?: CollDelta<{ id: string; name: string; groupId: string }, { name?: string; groupId?: string }>;
 }
 
 /**
@@ -69,6 +71,42 @@ export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
         const inUse = await t.assetType.count({ where: { categoryId: d.id } });
         if (inUse > 0) throw new ConflictError(`이 분류를 사용 중인 종류 ${inUse}개가 있어 삭제할 수 없습니다.`);
         await t.assetCategory.delete({ where: { id: d.id } });
+      }
+    }
+
+    // ── 케이블 그룹/종류 ──
+    const cg = input.cableGroups;
+    const cc = input.cableCategories;
+    if (cg) {
+      for (const c of cg.creates) await t.cableGroup.create({ data: { id: c.id, name: c.name.trim(), color: c.color ?? null } });
+      for (const u of cg.updates) await t.cableGroup.update({ where: { id: u.id }, data: { ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}), ...(u.patch.color !== undefined ? { color: u.patch.color } : {}), ...(u.patch.sortOrder !== undefined ? { sortOrder: u.patch.sortOrder } : {}) } });
+    }
+    if (cc) {
+      for (const c of cc.creates) {
+        const g = await t.cableGroup.findUnique({ where: { id: c.groupId } });
+        if (!g) throw new ValidationError(`존재하지 않는 그룹: ${c.groupId}`);
+        await t.cableCategory.create({ data: { id: c.id, code: `CBL-${randomUUID().slice(0, 8).toUpperCase()}`, name: c.name.trim(), groupId: c.groupId, displayGroup: g.name } });
+      }
+      for (const u of cc.updates) {
+        let displayGroup: string | undefined;
+        if (u.patch.groupId !== undefined) {
+          const g = await t.cableGroup.findUnique({ where: { id: u.patch.groupId } });
+          if (!g) throw new ValidationError(`존재하지 않는 그룹: ${u.patch.groupId}`);
+          displayGroup = g.name;
+        }
+        await t.cableCategory.update({ where: { id: u.id }, data: { ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}), ...(u.patch.groupId !== undefined ? { groupId: u.patch.groupId, displayGroup } : {}) } });
+      }
+      for (const d of cc.deletes) {
+        const inUse = await t.cable.count({ where: { categoryId: d.id } });
+        if (inUse > 0) throw new ConflictError(`이 종류를 사용 중인 케이블 ${inUse}개가 있어 삭제할 수 없습니다.`);
+        await t.cableCategory.delete({ where: { id: d.id } });
+      }
+    }
+    if (cg) {
+      for (const d of cg.deletes) {
+        const inUse = await t.cableCategory.count({ where: { groupId: d.id } });
+        if (inUse > 0) throw new ConflictError(`이 그룹을 사용 중인 종류 ${inUse}개가 있어 삭제할 수 없습니다.`);
+        await t.cableGroup.delete({ where: { id: d.id } });
       }
     }
   });

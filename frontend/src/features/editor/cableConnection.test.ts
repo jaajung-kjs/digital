@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-const { stageCableCreate, cancelCableDrawing, setSelectedCableId, showToast, setTool, setPreselectedCableDisplayGroup, closeRightPanel } = vi.hoisted(() => ({ stageCableCreate: vi.fn(), cancelCableDrawing: vi.fn(), setSelectedCableId: vi.fn(), showToast: vi.fn(), setTool: vi.fn(), setPreselectedCableDisplayGroup: vi.fn(), closeRightPanel: vi.fn() }));
+const { stageCableCreate, cancelCableDrawing, setSelectedCableId, showToast, setTool, setPreselectedCableGroupId, closeRightPanel } = vi.hoisted(() => ({ stageCableCreate: vi.fn(), cancelCableDrawing: vi.fn(), setSelectedCableId: vi.fn(), showToast: vi.fn(), setTool: vi.fn(), setPreselectedCableGroupId: vi.fn(), closeRightPanel: vi.fn() }));
 vi.mock('../workingCopy/substationStore', () => ({ useSubstationWorkingCopy: { getState: () => ({ stageCableCreate }) } }));
-vi.mock('./stores/editorStore', () => ({ useEditorStore: { getState: () => ({ cancelCableDrawing, setSelectedCableId, setTool, setPreselectedCableDisplayGroup, closeRightPanel }) } }));
+vi.mock('./stores/editorStore', () => ({ useEditorStore: { getState: () => ({ cancelCableDrawing, setSelectedCableId, setTool, setPreselectedCableGroupId, closeRightPanel }) } }));
 vi.mock('./stores/toastStore', () => ({ useToastStore: { getState: () => ({ showToast }) } }));
 vi.mock('../../utils/idHelpers', () => ({ generateTempId: () => 'tmp1' }));
 import { commitCable, startCableConnection } from './cableConnection';
@@ -31,13 +31,13 @@ describe('startCableConnection', () => {
     expect(m.data.phase).toBe('selectingType');
     expect(m.data.source?.innerAssetId).toBe('feedA');
   });
-  it('group 주입 → setPreselectedCableDisplayGroup(group)', () => {
-    startCableConnection({ group: '광' });
-    expect(setPreselectedCableDisplayGroup).toHaveBeenCalledWith('광');
+  it('group 주입 → setPreselectedCableGroupId(groupId)', () => {
+    startCableConnection({ group: 'g1' });
+    expect(setPreselectedCableGroupId).toHaveBeenCalledWith('g1');
   });
-  it('opts 없음 → setPreselectedCableDisplayGroup(null)', () => {
+  it('opts 없음 → setPreselectedCableGroupId(null)', () => {
     startCableConnection();
     expect(setTool).toHaveBeenCalledWith('cable');
-    expect(setPreselectedCableDisplayGroup).toHaveBeenCalledWith(null);
+    expect(setPreselectedCableGroupId).toHaveBeenCalledWith(null);
   });
 });
