@@ -10,6 +10,7 @@ export interface SlimAsset {
   parentAssetId: string | null;
   connectionKind: 'distributor' | 'conduit' | null;
   code: string | null;
+  role: string | null;
   /** OFD 내 슬롯 위치 — 경로슬롯 -N 순번 파생용(같은 대국 슬롯 정렬 기준). */
   slotIndex: number | null;
 }
@@ -17,7 +18,7 @@ export interface SlimAsset {
 /** prisma asset row(assetType + substation 포함)을 trace 용 최소 필드로 좁힌다. 순수 함수. */
 export function toSlimAsset(a: {
   id: string; name: string; substationId: string; parentAssetId: string | null;
-  assetType: { code: string | null; connectionKind: string | null };
+  assetType: { code: string | null; connectionKind: string | null; role?: string | null };
   substation?: { name: string | null } | null;
   slotIndex?: number | null;
 }): SlimAsset {
@@ -29,6 +30,7 @@ export function toSlimAsset(a: {
     parentAssetId: a.parentAssetId ?? null,
     connectionKind: (a.assetType?.connectionKind ?? null) as SlimAsset['connectionKind'],
     code: a.assetType?.code ?? null,
+    role: a.assetType?.role ?? null,
     slotIndex: a.slotIndex ?? null,
   };
 }
@@ -130,7 +132,7 @@ class AssetService {
     const rows = await prisma.asset.findMany({
       select: {
         id: true, name: true, substationId: true, parentAssetId: true, slotIndex: true,
-        assetType: { select: { code: true, connectionKind: true } },
+        assetType: { select: { code: true, connectionKind: true, role: true } },
         substation: { select: { name: true } },
       },
       orderBy: { createdAt: 'asc' },

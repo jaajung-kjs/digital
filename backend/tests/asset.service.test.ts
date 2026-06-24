@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { assetService } from '../src/services/asset.service.js';
+import { assetService, toSlimAsset } from '../src/services/asset.service.js';
 import prisma from '../src/config/prisma.js';
 
 vi.mock('../src/config/prisma.js', () => ({
@@ -26,5 +26,15 @@ describe('AssetService', () => {
     expect(prisma.asset.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { substationId: 's1' } }),
     );
+  });
+});
+
+describe('toSlimAsset role', () => {
+  it('assetType.role 을 slim 에 싣는다', () => {
+    const slim = toSlimAsset({
+      id: 'a', name: 'OFD-1', substationId: 's', parentAssetId: null,
+      assetType: { code: 'OFD', connectionKind: null, role: 'ofd' } as any,
+    });
+    expect(slim.role).toBe('ofd');
   });
 });
