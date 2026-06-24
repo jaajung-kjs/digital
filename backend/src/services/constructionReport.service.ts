@@ -35,14 +35,12 @@ export interface PlanSnapshot {
   }[];
   cables: {
     id: string;
-    cableType: string;
     materialCategoryCode?: string | null;
     materialCategoryName?: string | null;
     specification?: string | null;
     totalLength?: number | null;
     sourceAssetId: string;
     targetAssetId: string;
-    label?: string | null;
   }[];
 }
 
@@ -209,7 +207,7 @@ function computeCableDiff(
 
   for (const [id, cable] of afterMap) {
     if (!beforeMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType, cable.materialCategoryName, cable.specification);
+      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, '', cable.materialCategoryName, cable.specification);
       items.push({
         id, type: 'cable', action: 'install',
         name: displayName,
@@ -223,7 +221,7 @@ function computeCableDiff(
 
   for (const [id, cable] of beforeMap) {
     if (!afterMap.has(id)) {
-      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, cable.label || cable.cableType, cable.materialCategoryName, cable.specification);
+      const { displayName, specification } = resolveDisplayName(cable.materialCategoryCode, null, '', cable.materialCategoryName, cable.specification);
       items.push({
         id, type: 'cable', action: 'remove',
         name: displayName,
@@ -240,14 +238,13 @@ function computeCableDiff(
     if (!beforeCable) continue;
 
     const changed =
-      afterCable.cableType !== beforeCable.cableType ||
       afterCable.materialCategoryCode !== beforeCable.materialCategoryCode ||
       afterCable.totalLength !== beforeCable.totalLength ||
       afterCable.sourceAssetId !== beforeCable.sourceAssetId ||
       afterCable.targetAssetId !== beforeCable.targetAssetId;
 
     if (changed) {
-      const { displayName, specification } = resolveDisplayName(afterCable.materialCategoryCode, null, afterCable.label || afterCable.cableType, afterCable.materialCategoryName, afterCable.specification);
+      const { displayName, specification } = resolveDisplayName(afterCable.materialCategoryCode, null, '', afterCable.materialCategoryName, afterCable.specification);
       items.push({
         id, type: 'cable', action: 'modify',
         name: displayName,

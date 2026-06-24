@@ -86,7 +86,6 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
       cables: [
         {
           id: 'cb1',
-          cableType: 'LAN',
           materialCategoryCode: 'CBL-UTP',
           totalLength: L * 100, // cm (= L m) — 캔버스 1 unit = 1 cm
           sourceAssetId: 'eq1',

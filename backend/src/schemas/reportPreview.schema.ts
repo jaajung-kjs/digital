@@ -30,14 +30,12 @@ const equipmentSnapshotItem = z.object({
 
 const cableSnapshotItem = z.object({
   id: z.string(),
-  cableType: z.string(),
   materialCategoryCode: z.string().nullable().optional(),
   materialCategoryName: z.string().nullable().optional(),
   specification: z.string().nullable().optional(),
   totalLength: z.number().nullable().optional(),
   sourceAssetId: z.string(),
   targetAssetId: z.string(),
-  label: z.string().nullable().optional(),
 });
 
 const planSnapshot = z.object({

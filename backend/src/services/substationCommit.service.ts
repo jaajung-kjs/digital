@@ -1,4 +1,4 @@
-import { Prisma, CableType } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { collectConflicts, VersionConflictError, type ConflictItem } from './concurrency.js';
 import {
@@ -621,10 +621,9 @@ async function run(
           // endpoint 는 단일 Asset 노드만 쓴다 — legacy *_equipment/module/circuit_id 는 null.
           sourceAssetId,
           targetAssetId,
-          cableType: c.cableType as CableType,
-          label: c.label ?? null,
+          // C5 Phase A: cableType 은 드롭 예정 컬럼(NOT NULL) — Phase B 까지 placeholder.
+          cableType: 'LAN',
           length: c.length ?? null,
-          color: c.color ?? null,
           description: c.description ?? null,
           number: c.number ?? null,
           sourceRole: c.sourceRole ?? null,
@@ -661,10 +660,7 @@ async function run(
         data: {
           sourceAssetId,
           targetAssetId,
-          cableType: p.cableType as CableType | undefined,
-          label: p.label as string | null | undefined,
           length: p.length as number | null | undefined,
-          color: p.color as string | null | undefined,
           description: p.description as string | null | undefined,
           number: p.number as number | null | undefined,
           sourceRole: p.sourceRole as 'IN' | 'OUT' | null | undefined,
