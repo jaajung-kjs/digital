@@ -10,7 +10,6 @@ export interface SelectedCableCategory {
   code: string;
   name: string;
   displayColor: string | null;
-  displayGroup: string | null;
 }
 
 export type CableDrawingPhase =

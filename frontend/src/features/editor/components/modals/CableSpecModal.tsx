@@ -52,7 +52,6 @@ function CableSpecModal() {
       code: selectedCat.code,
       name: selectedCat.name,
       displayColor: selectedCat.displayColor,
-      displayGroup: selectedCat.displayGroup,
     });
     setSelectedCategoryId(null);
   };

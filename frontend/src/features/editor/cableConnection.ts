@@ -5,7 +5,7 @@ import type { SelectedCableCategory } from './stores/interactionStore';
 import { endpointAssetId } from './cableEndpoint';
 import type { EndpointRef } from './cableEndpoint';
 import type { CableDisplayGroup } from '../../types/cableCategory';
-import { getCableTypeFromGroup } from '../../types/material';
+import { getCableTypeFromMaterial } from '../../types/material';
 import { calculatePathLength } from '../../utils/cable/pathLength';
 import { generateTempId } from '../../utils/idHelpers';
 import { useToastStore } from './stores/toastStore';
@@ -53,7 +53,7 @@ export function commitCable(): void {
     id,
     sourceAssetId: endpointAssetId(data.source),
     targetAssetId: endpointAssetId(data.target),
-    cableType: getCableTypeFromGroup(data.category.displayGroup),
+    cableType: getCableTypeFromMaterial(data.category.code),
     categoryId: data.category.id,
     categoryCode: data.category.code,
     categoryName: data.category.name,
