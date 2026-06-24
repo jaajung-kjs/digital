@@ -70,12 +70,12 @@ export function buildPowerRows(feederId: string, cables: PowerCable[], nameById:
   });
 }
 
-/** 규격 셀 — 전원 그룹 케이블 카테고리 드롭다운으로 categoryId 를 패치한다. */
+/** 규격 셀 — 케이블의 현재 분류와 같은 그룹 안 이름으로 categoryId 를 패치한다. */
 function SpecCell({ cableId, categoryId, name }: { cableId: string; categoryId: string | null; name: string }) {
   const { data: cats = [] } = useCableCategories();
-  const options = cats
-    .filter((c) => c.displayGroup === '전원')
-    .map((c) => ({ value: c.id, label: c.name }));
+  const currentGroupId = categoryId ? cats.find((c) => c.id === categoryId)?.groupId ?? null : null;
+  const inScope = currentGroupId ? cats.filter((c) => c.groupId === currentGroupId) : cats;
+  const options = inScope.map((c) => ({ value: c.id, label: c.name }));
 
   return (
     <EditableField
@@ -89,8 +89,8 @@ function SpecCell({ cableId, categoryId, name }: { cableId: string; categoryId: 
         useSubstationWorkingCopy.getState().patch('cables', cableId, {
           categoryId: catId || null,
           categoryName: cat?.name ?? null,
-          categoryCode: cat?.code ?? null,
-          displayColor: cat?.displayColor ?? null,
+          groupId: cat?.groupId ?? null,
+          groupColor: cat?.groupColor ?? null,
           specification: cat?.name ?? null,
         });
       }}
