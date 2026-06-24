@@ -23,6 +23,19 @@ interface AssetTypeSeed {
   defaultSlotSpan?: number;
 }
 
+type AssetRole = 'rack' | 'ofd' | 'panel' | 'slot' | 'feeder' | 'standalone' | 'device';
+
+/** 마이그레이션 백필과 동일 규칙으로 role 파생 (단일 소스). */
+function deriveRole(t: AssetTypeSeed): AssetRole {
+  if (t.placementKind === 'RACK') return 'rack';
+  if (t.placementKind === 'OFD' || t.code === 'OFD') return 'ofd';
+  if (t.placementKind === 'DIST' || t.code === 'DIST') return 'panel';
+  if (t.placementKind === 'GROUNDING' || t.placementKind === 'HVAC') return 'standalone';
+  if (t.connectionKind === 'conduit') return 'slot';
+  if (t.connectionKind === 'distributor') return 'feeder';
+  return 'device';
+}
+
 const ASSET_LIFECYCLE: FieldDef[] = [
   { key: 'model', label: '모델명', type: 'text' },
   { key: 'vendor', label: '제작사', type: 'text' },
@@ -133,22 +146,28 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
 ];
 
 export async function seedAssetTypes(prisma: PrismaClient): Promise<void> {
+  // 1) group → AssetCategory 멱등 upsert, 이름→id 맵 구성
+  const groups = [...new Set(ASSET_TYPE_SEEDS.map((t) => t.group))];
+  const categoryId = new Map<string, string>();
+  for (const name of groups) {
+    const cat = await prisma.assetCategory.upsert({ where: { name }, update: {}, create: { name } });
+    categoryId.set(name, cat.id);
+  }
+
+  // 2) 종류 upsert (role 파생 + categoryId 연결)
   for (const t of ASSET_TYPE_SEEDS) {
+    const common = {
+      name: t.name, group: t.group, role: deriveRole(t), categoryId: categoryId.get(t.group) ?? null,
+      isContainer: t.isContainer, displayColor: t.displayColor, sortOrder: t.sortOrder,
+      fieldTemplate: t.fieldTemplate, requiredToCreate: ['name'],
+      placementKind: t.placementKind ?? null, connectionKind: t.connectionKind ?? null,
+      defaultSlotSpan: t.defaultSlotSpan ?? 1,
+    };
     await prisma.assetType.upsert({
       where: { code: t.code },
-      update: {
-        name: t.name, group: t.group, isContainer: t.isContainer,
-        displayColor: t.displayColor, sortOrder: t.sortOrder,
-        fieldTemplate: t.fieldTemplate, requiredToCreate: ['name'],
-        placementKind: t.placementKind ?? null, connectionKind: t.connectionKind ?? null, defaultSlotSpan: t.defaultSlotSpan ?? 1,
-      },
-      create: {
-        code: t.code, name: t.name, group: t.group, isContainer: t.isContainer,
-        displayColor: t.displayColor, sortOrder: t.sortOrder,
-        fieldTemplate: t.fieldTemplate, requiredToCreate: ['name'],
-        placementKind: t.placementKind ?? null, connectionKind: t.connectionKind ?? null, defaultSlotSpan: t.defaultSlotSpan ?? 1,
-      },
+      update: common,
+      create: { code: t.code, ...common },
     });
   }
-  console.log(`✅ seeded ${ASSET_TYPE_SEEDS.length} asset types`);
+  console.log(`✅ seeded ${ASSET_TYPE_SEEDS.length} asset types + ${groups.length} categories`);
 }
