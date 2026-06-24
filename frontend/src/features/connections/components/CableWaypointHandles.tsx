@@ -25,7 +25,7 @@ export function CableWaypointHandles({ cable, zoom, panX, panY }: CableWaypointH
   if (!points || points.length < 2) return null;
 
   const scale = zoom / 100;
-  const color = normalizeCableColor(cable.color || cable.displayColor) || '#6b7280';
+  const color = normalizeCableColor(cable.groupColor) || '#6b7280';
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 12 }}>

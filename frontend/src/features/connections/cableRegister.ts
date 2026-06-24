@@ -29,7 +29,7 @@ export function buildCableRegister(opts: {
   graph: TraceGraph;
   assets: Asset[];
   assetId: string;
-  categoryGroupOf: (c: { categoryId?: string | null; cableType?: string | null; displayColor?: string | null }) => CategoryGroup;
+  categoryGroupOf: (c: { categoryId?: string | null }) => CategoryGroup;
 }): CableSection[] {
   const { graph, assets, assetId, categoryGroupOf } = opts;
   const isSelf = buildSelfSideChecker(assets, assetId);

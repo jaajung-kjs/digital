@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Filter } from 'lucide-react';
 import { useEditorStore } from '../../editor/stores/editorStore';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
-import type { CableDisplayGroup } from '../../../types/cableCategory';
-import { CABLE_DISPLAY_GROUPS, CABLE_DISPLAY_GROUP_COLORS as GROUP_COLORS } from '../../../types/cableCategory';
+import { useCableGroups } from '../../cables/hooks/useCableGroups';
+import type { CableGroup } from '../../../types/cableGroup';
 
 type GroupState = 'on' | 'off' | 'partial';
 
@@ -11,65 +11,65 @@ export function ConnectionLegend() {
   const connectionFilters = useEditorStore((s) => s.connectionFilters);
   const setConnectionFilters = useEditorStore((s) => s.setConnectionFilters);
   const { data: cableCategories } = useCableCategories();
+  const { data: cableGroups } = useCableGroups();
   const initialized = useRef(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  // Map: displayGroup -> [category code, ...] (only categories with displayGroup)
-  const groupedCodes = useMemo(() => {
-    const map = new Map<CableDisplayGroup, string[]>();
-    CABLE_DISPLAY_GROUPS.forEach((g) => map.set(g, []));
+  const groups = (cableGroups ?? []).filter((g) => g.isActive);
+
+  // Map: groupId -> [categoryId, ...]
+  const groupedIds = useMemo(() => {
+    const map = new Map<string, string[]>();
+    groups.forEach((g) => map.set(g.id, []));
     for (const cat of cableCategories ?? []) {
-      if (cat.displayGroup && map.has(cat.displayGroup)) {
-        map.get(cat.displayGroup)!.push(cat.code);
-      }
+      if (cat.groupId && map.has(cat.groupId)) map.get(cat.groupId)!.push(cat.id);
     }
     return map;
-  }, [cableCategories]);
+  }, [groups, cableCategories]);
 
-  // Flat list of all category codes (only those with a displayGroup)
-  const allCodes = useMemo(() => {
+  const allIds = useMemo(() => {
     const out: string[] = [];
-    for (const codes of groupedCodes.values()) out.push(...codes);
+    for (const ids of groupedIds.values()) out.push(...ids);
     return out;
-  }, [groupedCodes]);
+  }, [groupedIds]);
 
   // Initialize filters once when categories load (null → "show all")
   useEffect(() => {
-    if (allCodes.length === 0) return;
+    if (allIds.length === 0) return;
     if (initialized.current) return;
     initialized.current = true;
     if (connectionFilters === null) {
-      setConnectionFilters(allCodes);
+      setConnectionFilters(allIds);
     }
-  }, [allCodes, connectionFilters, setConnectionFilters]);
+  }, [allIds, connectionFilters, setConnectionFilters]);
 
-  const activeFilters = connectionFilters ?? allCodes;
+  const activeFilters = connectionFilters ?? allIds;
 
-  const groupState = (group: CableDisplayGroup): GroupState => {
-    const codes = groupedCodes.get(group) ?? [];
-    if (codes.length === 0) return 'off';
-    const activeCount = codes.filter((c) => activeFilters.includes(c)).length;
+  const groupState = (g: CableGroup): GroupState => {
+    const ids = groupedIds.get(g.id) ?? [];
+    if (ids.length === 0) return 'off';
+    const activeCount = ids.filter((c) => activeFilters.includes(c)).length;
     if (activeCount === 0) return 'off';
-    if (activeCount === codes.length) return 'on';
+    if (activeCount === ids.length) return 'on';
     return 'partial';
   };
 
-  const toggleGroup = (group: CableDisplayGroup) => {
-    const codes = groupedCodes.get(group) ?? [];
-    if (codes.length === 0) return;
-    const state = groupState(group);
+  const toggleGroup = (g: CableGroup) => {
+    const ids = groupedIds.get(g.id) ?? [];
+    if (ids.length === 0) return;
+    const state = groupState(g);
     if (state === 'on') {
-      setConnectionFilters(activeFilters.filter((c) => !codes.includes(c)));
+      setConnectionFilters(activeFilters.filter((c) => !ids.includes(c)));
     } else {
       // off | partial → enable all in group
       const next = new Set(activeFilters);
-      codes.forEach((c) => next.add(c));
+      ids.forEach((c) => next.add(c));
       setConnectionFilters([...next]);
     }
   };
 
   const allSelected =
-    allCodes.length > 0 && allCodes.every((c) => activeFilters.includes(c));
+    allIds.length > 0 && allIds.every((c) => activeFilters.includes(c));
   const noneSelected = activeFilters.length === 0;
   const allIndeterminate = !allSelected && !noneSelected;
 
@@ -77,13 +77,13 @@ export function ConnectionLegend() {
     if (allSelected) {
       setConnectionFilters([]);
     } else {
-      setConnectionFilters(allCodes);
+      setConnectionFilters(allIds);
     }
   };
 
   // Collapsed → small chip (click to expand). Expanded → header + group toggles.
   if (collapsed) {
-    const activeGroups = CABLE_DISPLAY_GROUPS.filter((g) => groupState(g) !== 'off').length;
+    const activeGroups = groups.filter((g) => groupState(g) !== 'off').length;
     return (
       <button
         type="button"
@@ -94,7 +94,7 @@ export function ConnectionLegend() {
         <Filter size={13} />
         <span className="font-medium">케이블 필터</span>
         <span className="text-xs text-content-faint">
-          {activeGroups}/{CABLE_DISPLAY_GROUPS.length}
+          {activeGroups}/{groups.length}
         </span>
       </button>
     );
@@ -128,20 +128,16 @@ export function ConnectionLegend() {
         </label>
       </div>
       <div className="flex items-center gap-1">
-        {CABLE_DISPLAY_GROUPS.map((group) => {
-          const state = groupState(group);
-          const codes = groupedCodes.get(group) ?? [];
-          const total = codes.length;
-          const activeCount = codes.filter((c) =>
+        {groups.map((g) => {
+          const state = groupState(g);
+          const ids = groupedIds.get(g.id) ?? [];
+          const total = ids.length;
+          const activeCount = ids.filter((c) =>
             activeFilters.includes(c),
           ).length;
-          const color = GROUP_COLORS[group];
+          const color = g.color ?? '#6b7280';
           const disabled = total === 0;
 
-          // Visual style per state:
-          //   on      → filled with group color
-          //   partial → dashed border, light fill
-          //   off     → gray outline
           let style: React.CSSProperties = {};
           let className = '';
           if (state === 'on') {
@@ -164,18 +160,18 @@ export function ConnectionLegend() {
 
           const title =
             total === 0
-              ? `${group} (사용 가능한 카테고리 없음)`
+              ? `${g.name} (사용 가능한 카테고리 없음)`
               : state === 'partial'
-                ? `${group} ${activeCount}/${total} 활성 — 클릭하면 전체 켜짐`
+                ? `${g.name} ${activeCount}/${total} 활성 — 클릭하면 전체 켜짐`
                 : state === 'on'
-                  ? `${group} 전체 활성 — 클릭하면 끔`
-                  : `${group} 전체 비활성 — 클릭하면 켬`;
+                  ? `${g.name} 전체 활성 — 클릭하면 끔`
+                  : `${g.name} 전체 비활성 — 클릭하면 켬`;
 
           return (
             <button
-              key={group}
+              key={g.id}
               type="button"
-              onClick={() => toggleGroup(group)}
+              onClick={() => toggleGroup(g)}
               disabled={disabled}
               title={title}
               className={`${className} rounded-full px-2 py-0.5 text-xs leading-none font-medium transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
@@ -188,7 +184,7 @@ export function ConnectionLegend() {
                   opacity: state === 'off' ? 0.5 : 1,
                 }}
               />
-              <span>{group}</span>
+              <span>{g.name}</span>
               {state === 'partial' && (
                 <span className="opacity-70">
                   {activeCount}/{total}

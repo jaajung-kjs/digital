@@ -27,12 +27,12 @@ const OFD_ASSET = {
 
 // OPGW(IN-IN): 자국 slot1 ↔ 대국 twin 슬롯. twinSlotIdOf·fiberSlotLabel(#코어수) 근거.
 const OPGW = {
-  id: 'opgw1', cableType: 'FIBER', sourceAssetId: 'slot1', targetAssetId: 'twin1',
+  id: 'opgw1', sourceAssetId: 'slot1', targetAssetId: 'twin1',
   sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 },
 };
 // 코어2 자국측 OUT 케이블 — EquipmentSelectCell 가 연결 설비(a-near)를 표시.
 const OUT2 = {
-  id: 'c2', cableType: 'FIBER', sourceAssetId: 'a-near', targetAssetId: 'slot1',
+  id: 'c2', sourceAssetId: 'a-near', targetAssetId: 'slot1',
   sourceRole: null, targetRole: 'OUT', number: 2,
 };
 const FIBER_CABLES = [OPGW, OUT2];

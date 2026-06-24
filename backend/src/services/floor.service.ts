@@ -6,19 +6,6 @@ import {
   type PlacementKind,
 } from './assetPlanMapper.js';
 
-/** Build specification string from specTemplate format + specParams */
-function buildSpecification(specTemplate: unknown, specParams: unknown): string | null {
-  if (!specTemplate || !specParams || typeof specTemplate !== 'object') return null;
-  const tmpl = specTemplate as { format?: string };
-  const params = specParams as Record<string, unknown>;
-  if (!tmpl.format) return null;
-  let result = tmpl.format;
-  for (const [key, value] of Object.entries(params)) {
-    result = result.replace(`{${key}}`, String(value ?? ''));
-  }
-  return result;
-}
-
 // ==================== Types ====================
 
 export interface FloorListItem {
@@ -66,16 +53,14 @@ interface PlanCableDTO {
   // 단계4b(통합 노드): endpoint = 단일 Asset id.
   sourceAssetId: string | null;
   targetAssetId: string | null;
-  cableType: string;
-  label: string | null;
   length: number | null;
-  color: string | null;
   pathPoints: unknown;
   description: string | null;
   categoryId: string | null;
-  categoryCode: string | null;
   categoryName: string | null;
-  displayColor: string | null;
+  groupId: string | null;
+  groupName: string | null;
+  groupColor: string | null;
   specification: string | null;
   specParams: unknown;
   pathLength: number | null;
@@ -203,7 +188,7 @@ class FloorService {
           ],
         },
         include: {
-          category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
+          category: { select: { name: true, groupId: true, group: { select: { name: true, color: true } } } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -225,17 +210,15 @@ class FloorService {
         id: c.id,
         sourceAssetId: c.sourceAssetId,
         targetAssetId: c.targetAssetId,
-        cableType: c.cableType,
-        label: c.label,
         length: c.length,
-        color: c.color,
         pathPoints: c.pathPoints,
         description: c.description,
         categoryId: c.categoryId,
-        categoryCode: c.category?.code ?? null,
         categoryName: c.category?.name ?? null,
-        displayColor: c.category?.displayColor ?? null,
-        specification: buildSpecification(c.category?.specTemplate, c.specParams),
+        groupId: c.category?.groupId ?? null,
+        groupName: c.category?.group?.name ?? null,
+        groupColor: c.category?.group?.color ?? null,
+        specification: c.category?.name ?? null,
         specParams: c.specParams,
         pathLength: c.pathLength,
         bufferLength: c.bufferLength ?? 4,

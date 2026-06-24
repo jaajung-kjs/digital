@@ -88,7 +88,7 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     const input = substationCommitSchema.parse({
       assets: { creates: [{ tempId: 'a1', assetTypeId: placementTypeId, name: '랙1', floorId, positionX: 10, positionY: 20, width2d: 100, height2d: 200 }] },
       // 단계4b — endpoint 는 단일 sourceAssetId/targetAssetId(tempId 교차해소). nested 없음.
-      cables: { creates: [{ tempId: 'c1', sourceAssetId: 'a1', targetAssetId: 'a1', cableType: 'LAN' }] },
+      cables: { creates: [{ tempId: 'c1', sourceAssetId: 'a1', targetAssetId: 'a1' }] },
     });
     const res = await commitSubstation(subId, input, userId);
 
@@ -119,7 +119,7 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
           { tempId: 'b2', assetTypeId: placementTypeId, name: '노드B', floorId, positionX: 5, positionY: 5, width2d: 10, height2d: 10 },
         ],
       },
-      cables: { creates: [{ tempId: 'cAsset', sourceAssetId: 'b1', targetAssetId: 'b2', cableType: 'LAN' }] },
+      cables: { creates: [{ tempId: 'cAsset', sourceAssetId: 'b1', targetAssetId: 'b2' }] },
     });
     const res = await commitSubstation(subId, setup, userId);
     const b1 = res.idMaps.assets['b1'];
@@ -174,7 +174,7 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
   it('4) atomicity — valid asset create + WRONG cable delete baseVersion → 409 + asset 미영속', async () => {
     const cable = await prisma.cable.create({
       // 단계4b — endpoint 스코핑은 source_asset_id 로. (OCC delete 가 sourceAsset.substationId 로 찾음)
-      data: { sourceAssetId: createdAssets[0], targetAssetId: createdAssets[0], cableType: 'LAN' },
+      data: { sourceAssetId: createdAssets[0], targetAssetId: createdAssets[0] },
     });
     const wrong = new Date(cable.updatedAt.getTime() - 60000).toISOString();
 
@@ -211,7 +211,7 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
           { tempId: 'cas2', assetTypeId: placementTypeId, name: 'CASCADE-EP2', floorId, positionX: 9, positionY: 9, width2d: 4, height2d: 4 },
         ],
       },
-      cables: { creates: [{ tempId: 'cc', sourceAssetId: 'cas', targetAssetId: 'cas2', cableType: 'LAN' }] },
+      cables: { creates: [{ tempId: 'cc', sourceAssetId: 'cas', targetAssetId: 'cas2' }] },
     });
     const res = await commitSubstation(subId, setup, userId);
     const epId = res.idMaps.assets['cas'];

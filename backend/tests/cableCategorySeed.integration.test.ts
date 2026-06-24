@@ -9,8 +9,8 @@ describe('seedCableCategories group', () => {
     expect(g.map((x) => x.name).sort()).toEqual(['광', '네트워크', '전원', '접지', '제어']);
   });
   it('카테고리 groupId 연결', async () => {
-    const cats = await prisma.cableCategory.findMany({ where: { displayGroup: { not: null } }, include: { group: true } });
+    const cats = await prisma.cableCategory.findMany({ where: { groupId: { not: null } }, include: { group: true } });
     expect(cats.length).toBeGreaterThan(0);
-    for (const c of cats) expect(c.group?.name).toBe(c.displayGroup);
+    for (const c of cats) expect(c.group).not.toBeNull();
   });
 });

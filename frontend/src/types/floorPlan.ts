@@ -29,29 +29,19 @@ export interface FloorPlanCable {
   /** 분전반 회로 endpoint id. */
   sourceCircuitId?: string | null;
   targetCircuitId?: string | null;
-  cableType: string;
   /** CableCategory join — 백엔드가 채워줌. */
   categoryId?: string | null;
-  categoryCode?: string | null;
   categoryName?: string | null;
-  displayColor?: string | null;
+  groupId?: string | null;
+  groupColor?: string | null;
   specParams?: Record<string, unknown> | null;
   specification?: string | null;
   pathPoints?: [number, number][] | null;
   pathLength?: number | null;
   bufferLength?: number;
   totalLength?: number | null;
-  label?: string | null;
-  color?: string | null;
   description?: string | null;
 
-  // ── P8 deprecation shims — removed in P9 ──
-  /** @deprecated P8 — alias for `categoryId`. */
-  materialCategoryId?: string | null;
-  /** @deprecated P8 — alias for `categoryCode`. */
-  materialCategoryCode?: string | null;
-  /** @deprecated P8 — alias for `categoryName`. */
-  materialCategoryName?: string | null;
 }
 
 export interface FloorPlanDetail {

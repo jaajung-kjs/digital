@@ -16,7 +16,6 @@ export interface RenderableConnection {
   sourceY: number;
   targetX: number;
   targetY: number;
-  cableType: string;
   label?: string;
   color: string;
   highlighted?: boolean;
@@ -27,8 +26,8 @@ export interface RenderableConnection {
   /** Path length details for hover display */
   pathLength?: number | null;
   totalLength?: number | null;
-  /** Material category code from DB (used for filtering) */
-  materialCategoryCode?: string | null;
+  /** Material category id from DB (used for filtering) */
+  materialCategoryId?: string | null;
   /** Internal flag: set by renderConnections when cable is selected */
   _selected?: boolean;
 }
@@ -109,7 +108,7 @@ function drawConnectionLabel(
   const midX = even ? (points[mid - 1][0] + points[mid][0]) / 2 : points[mid][0];
   const midY = even ? (points[mid - 1][1] + points[mid][1]) / 2 : points[mid][1];
 
-  let text = conn.label || conn.materialCategoryCode || '';
+  let text = conn.label || '';
   if (conn.totalLength != null) {
     // totalLength 는 cm. 표/캔버스 공통 포맷(formatCableLength)으로 단위 일치.
     text += ` (${formatCableLength(conn.totalLength)})`;

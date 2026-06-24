@@ -36,7 +36,7 @@ describe('연결 조회 — 변전소/자산', () => {
 
     const cable = await prisma.cable.create({
       // 단계4b — endpoint = 단일 source_asset_id/target_asset_id.
-      data: { sourceAssetId: a1.id, targetAssetId: a2.id, cableType: 'LAN' },
+      data: { sourceAssetId: a1.id, targetAssetId: a2.id },
     });
     cableId = cable.id;
 
@@ -48,7 +48,7 @@ describe('연결 조회 — 변전소/자산', () => {
     });
     moduleId = module.id;
     const moduleCable = await prisma.cable.create({
-      data: { sourceAssetId: module.id, targetAssetId: a2.id, cableType: 'LAN' },
+      data: { sourceAssetId: module.id, targetAssetId: a2.id },
     });
     moduleCableId = moduleCable.id;
 
@@ -61,7 +61,7 @@ describe('연결 조회 — 변전소/자산', () => {
     });
     circuitId = branch.id;
     const circuitCable = await prisma.cable.create({
-      data: { sourceAssetId: branch.id, targetAssetId: a1.id, cableType: 'DC' },
+      data: { sourceAssetId: branch.id, targetAssetId: a1.id },
     });
     circuitCableId = circuitCable.id;
   });

@@ -45,7 +45,9 @@ export async function seedJikhalAssets(prisma: PrismaClient, adminId: string, br
   const cables = load<CableRow[]>('fiberCables.json');
 
   const typeId = new Map((await prisma.assetType.findMany({ select: { id: true, code: true } })).map((t) => [t.code, t.id]));
-  const catId = new Map((await prisma.cableCategory.findMany({ select: { id: true, code: true } })).map((c) => [c.code, c.id]));
+  // CableCategory.code 드롭(C5) — jikhal 데이터의 categoryCode(CBL-*)를 카테고리 이름으로 해소.
+  const CABLE_CODE_TO_NAME: Record<string, string> = { 'CBL-OPGW': 'OPGW(광복합가공지선)', 'CBL-OPJ': '광점퍼코드' };
+  const catIdByName = new Map((await prisma.cableCategory.findMany({ select: { id: true, name: true } })).map((c) => [c.name, c.id]));
   const isExternal = new Map(subs.map((s) => [s.key, s.isExternal]));
 
   for (let i = 0; i < subs.length; i++) {
@@ -79,7 +81,7 @@ export async function seedJikhalAssets(prisma: PrismaClient, adminId: string, br
     await prisma.cable.create({
       data: {
         id: juuid(T.cable, c.key), sourceAssetId: juuid(T.asset, c.sourceKey), targetAssetId: juuid(T.asset, c.targetKey),
-        cableType: 'FIBER', categoryId: catId.get(c.categoryCode) ?? null,
+        categoryId: catIdByName.get(CABLE_CODE_TO_NAME[c.categoryCode] ?? '') ?? null,
         sourceRole: c.sourceRole, targetRole: c.targetRole, number: c.number,
         specParams: c.specParams,
       },

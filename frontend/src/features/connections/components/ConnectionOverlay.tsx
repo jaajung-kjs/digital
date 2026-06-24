@@ -13,13 +13,13 @@ import { toMapById } from '../../../utils/byId';
 import { SELECTION_STYLES } from '../../../utils/canvas/canvasDrawing';
 import { normalizeCableColor } from '../../../types/connection';
 
-/** Check if a cable matches the current filter set (DB category codes) */
+/** Check if a cable matches the current filter set (CableCategory.id) */
 function cableMatchesFilter(
-  categoryCode: string | undefined | null,
+  categoryId: string | undefined | null,
   filters: string[],
 ): boolean {
-  if (!categoryCode) return true; // no category = always show
-  return filters.includes(categoryCode);
+  if (!categoryId) return true; // 분류 없는 케이블 = 항상 표시
+  return filters.includes(categoryId);
 }
 import {
   renderConnections,
@@ -53,13 +53,12 @@ function mapCablesToRenderable(
       sourceY: sourcePos.y + sourcePos.height / 2,
       targetX: targetPos.x + targetPos.width / 2,
       targetY: targetPos.y + targetPos.height / 2,
-      cableType: cable.cableType,
       label: cable.categoryName ?? undefined,
-      color: normalizeCableColor(cable.color || cable.displayColor) || '#6b7280',
+      color: normalizeCableColor(cable.groupColor) || '#6b7280',
       pathPoints: cable.pathPoints ?? undefined,
       pathLength: cable.pathLength ?? undefined,
       totalLength: cable.totalLength ?? undefined,
-      materialCategoryCode: cable.categoryCode ?? undefined,
+      materialCategoryId: cable.categoryId ?? undefined,
     });
   }
   return result;
@@ -130,7 +129,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
     // null = filters not yet initialized → show all cables
     if (connectionFilters === null) return all;
     return all.filter((c) =>
-      cableMatchesFilter(c.materialCategoryCode, connectionFilters)
+      cableMatchesFilter(c.materialCategoryId, connectionFilters)
     );
   }, [cables, endpointPositions, connectionFilters]);
 
@@ -229,13 +228,10 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       id: c.id,
       sourceAssetId: c.sourceAssetId,
       targetAssetId: c.targetAssetId,
-      cableType: c.cableType,
       pathPoints: c.pathPoints ?? undefined,
       pathLength: c.pathLength ?? undefined,
       totalLength: c.totalLength ?? undefined,
-      color: c.color ?? undefined,
-      label: c.label ?? undefined,
-      materialCategoryCode: c.categoryCode ?? undefined,
+      materialCategoryId: c.categoryId ?? undefined,
       sourceEndpoint: { id: c.sourceAssetId, name: '', floorId: null },
       targetEndpoint: { id: c.targetAssetId, name: '', floorId: null },
     } as RoomConnection);

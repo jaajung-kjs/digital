@@ -13,7 +13,6 @@ describe('cableDtoToLocal — 단일 assetId 매핑', () => {
     targetAssetId: 'rack-mod-M1',
     source: { assetId: 'branch-B1', name: 'F1/L1', kind: null, floorId: 'f1' },
     target: { assetId: 'rack-mod-M1', name: 'SW1', kind: null, floorId: 'f1' },
-    cableType: 'LAN',
   };
 
   it('flat precise id = assetId, module/circuit id 는 null', () => {
@@ -24,6 +23,5 @@ describe('cableDtoToLocal — 단일 assetId 매핑', () => {
     expect(local.targetModuleId).toBeNull();
     expect(local.sourceCircuitId).toBeNull();
     expect(local.targetCircuitId).toBeNull();
-    expect(local.cableType).toBe('LAN');
   });
 });

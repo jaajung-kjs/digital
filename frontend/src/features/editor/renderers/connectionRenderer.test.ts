@@ -13,7 +13,6 @@ const base: RenderableConnection = {
   sourceY: 0,
   targetX: 100,
   targetY: 0,
-  cableType: 'FIBER',
   color: '#000',
 };
 

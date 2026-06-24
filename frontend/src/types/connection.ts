@@ -1,23 +1,3 @@
-import type { CableType } from './enums';
-export type { CableType };
-
-/** Single source of truth for cable type metadata */
-export interface CableTypeMeta {
-  value: CableType;
-  label: string;
-  /** Hex color for canvas rendering */
-  color: string;
-  /** Tailwind classes for UI badges */
-  badgeClass: string;
-}
-
-export const CABLE_TYPES: CableTypeMeta[] = [
-  { value: 'LAN', label: 'LAN', color: '#3b82f6', badgeClass: 'bg-success-bg text-success' },
-  { value: 'FIBER', label: 'FIBER', color: '#22c55e', badgeClass: 'bg-warning-bg text-warning' },
-  { value: 'AC', label: 'AC', color: '#ef4444', badgeClass: 'bg-danger-bg text-danger' },
-  { value: 'DC', label: 'DC', color: '#f97316', badgeClass: 'bg-info-bg text-primary' },
-  { value: 'GROUND', label: '접지', color: '#eab308', badgeClass: 'bg-surface-2 text-content-muted' },
-];
 
 /**
  * 레거시 보라색 폴백 — 제어(control) 케이블이 DB 에 `displayColor='#a855f7'`(보라)로
@@ -44,31 +24,20 @@ export interface EndpointInfo {
 
 /**
  * API 응답 구조 (flat) — legacy room/connection 응답.
- *
- * NOTE (P8): cable category 메타는 신규 `categoryId/Code/Name` 그리고 legacy
- * `materialCategoryId/Code` 둘 다 노출한다. P9 에서 신규 필드만 사용하도록 정리.
  */
 export interface RoomConnection {
   id: string;
   sourceAssetId: string;
   targetAssetId: string;
-  cableType: CableType;
-  label?: string;
   length?: number;
-  color?: string;
   pathPoints?: [number, number][];
   description?: string;
   /** @deprecated P8 — use `categoryId`. */
   materialCategoryId?: string | null;
-  /** @deprecated P8 — use `categoryCode`. */
-  materialCategoryCode?: string | null;
-  /** @deprecated P8 — Material model removed; always null. */
-  materialId?: string | null;
-  /** New cable-category fields (P8). */
   categoryId?: string | null;
-  categoryCode?: string | null;
   categoryName?: string | null;
-  displayColor?: string | null;
+  groupId?: string | null;
+  groupColor?: string | null;
   specParams?: Record<string, unknown> | null;
   sourceRole?: 'IN' | 'OUT' | null;
   targetRole?: 'IN' | 'OUT' | null;

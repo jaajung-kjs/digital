@@ -1,5 +1,5 @@
 interface OfdRef { id: string; substationId: string; substationName: string | null }
-interface CatRef { id: string; code: string; name: string; displayColor: string | null }
+interface CatRef { id: string; name: string }
 
 export interface SlotCreate {
   id: string; substationId: string; assetTypeId: string;
@@ -11,8 +11,8 @@ export interface SlotCreate {
   warrantyUntil: null; replaceDue: null; sourcePresetId: null; sortOrder: number; updatedAt: string;
 }
 export interface CableCreate {
-  id: string; sourceAssetId: string; targetAssetId: string; cableType: 'FIBER';
-  categoryId: string; categoryCode: string; categoryName: string; displayColor: string | null;
+  id: string; sourceAssetId: string; targetAssetId: string;
+  categoryId: string; categoryName: string;
   sourceRole: 'IN' | 'OUT' | null; targetRole: 'IN' | 'OUT' | null; number: number | null;
   specParams: Record<string, unknown>; specification: string;
   pathPoints: [number, number][] | null; pathLength: number | null; bufferLength: number; totalLength: number | null;
@@ -36,9 +36,9 @@ export function buildRouteCreate(p: {
   const slotA = baseSlot(p.ids.slotA, p.localOfd, p.remoteOfd.substationName ?? '대국', p.slotTypeId);
   const slotB = baseSlot(p.ids.slotB, p.remoteOfd, p.localOfd.substationName ?? '대국', p.slotTypeId);
   const opgw: CableCreate = {
-    id: p.ids.opgw, sourceAssetId: p.ids.slotA, targetAssetId: p.ids.slotB, cableType: 'FIBER',
-    categoryId: p.opgwCategory.id, categoryCode: p.opgwCategory.code, categoryName: p.opgwCategory.name,
-    displayColor: p.opgwCategory.displayColor, sourceRole: 'IN', targetRole: 'IN', number: null,
+    id: p.ids.opgw, sourceAssetId: p.ids.slotA, targetAssetId: p.ids.slotB,
+    categoryId: p.opgwCategory.id, categoryName: p.opgwCategory.name,
+    sourceRole: 'IN', targetRole: 'IN', number: null,
     specParams: { cores: p.cores }, specification: p.opgwCategory.name,
     pathPoints: null, pathLength: null, bufferLength: 4, totalLength: null,
   };
@@ -51,15 +51,15 @@ export function buildCoreOutCable(p: {
   pathPoints: [number, number][] | null; pathLength: number | null; bufferLength: number; totalLength: number | null;
 }): CableCreate {
   return {
-    id: p.id, sourceAssetId: p.slotId, targetAssetId: p.equipmentId, cableType: 'FIBER',
-    categoryId: p.category.id, categoryCode: p.category.code, categoryName: p.category.name,
-    displayColor: p.category.displayColor, sourceRole: 'OUT', targetRole: null, number: p.coreNumber,
+    id: p.id, sourceAssetId: p.slotId, targetAssetId: p.equipmentId,
+    categoryId: p.category.id, categoryName: p.category.name,
+    sourceRole: 'OUT', targetRole: null, number: p.coreNumber,
     specParams: {}, specification: p.category.name,
     pathPoints: p.pathPoints, pathLength: p.pathLength, bufferLength: p.bufferLength, totalLength: p.totalLength,
   };
 }
 
-interface CableLike { id: string; sourceAssetId?: string | null; targetAssetId?: string | null; sourceRole?: string | null; targetRole?: string | null; cableType?: string | null }
+interface CableLike { id: string; sourceAssetId?: string | null; targetAssetId?: string | null; sourceRole?: string | null; targetRole?: string | null }
 /** 경로 삭제 = 두 슬롯 + 그 슬롯에 닿는 모든 FIBER 케이블(OPGW+OUT). */
 export function routeDeleteIds(slotAId: string, slotBId: string, cables: CableLike[]): { assetIds: string[]; cableIds: string[] } {
   const slots = new Set([slotAId, slotBId]);

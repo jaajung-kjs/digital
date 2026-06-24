@@ -10,7 +10,7 @@ import type { TraceGraph } from '../../trace/traceGraph';
 const SLOT = 'slotA';
 const TWIN = 'slotB';
 const OFD = 'ofdA';
-const opgw = { id: 'opgw', cableType: 'FIBER', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
+const opgw = { id: 'opgw', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
 const slotGraph = {
   assets: [], cables: [opgw],
   nameById: new Map(),

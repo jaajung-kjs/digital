@@ -22,14 +22,13 @@ export interface CableDetailDTO {
   targetAssetId: string;
   source: { assetId: string | null; name?: string; kind?: string | null; floorId?: string | null };
   target: { assetId: string | null; name?: string; kind?: string | null; floorId?: string | null };
-  cableType: string;
   sourceRole?: 'IN' | 'OUT' | null;
   targetRole?: 'IN' | 'OUT' | null;
   number?: number | null;
   categoryId?: string | null;
-  categoryCode?: string | null;
   categoryName?: string | null;
-  displayColor?: string | null;
+  groupId?: string | null;
+  groupColor?: string | null;
   pathPoints?: [number, number][] | null;
   pathLength?: number | null;
   bufferLength?: number;
@@ -51,14 +50,13 @@ export function cableDtoToLocal(c: CableDetailDTO): LocalCable {
     targetModuleId: null,
     sourceCircuitId: null,
     targetCircuitId: null,
-    cableType: c.cableType,
     sourceRole: c.sourceRole ?? null,
     targetRole: c.targetRole ?? null,
     number: c.number ?? null,
     categoryId: c.categoryId ?? null,
-    categoryCode: c.categoryCode ?? null,
     categoryName: c.categoryName ?? null,
-    displayColor: c.displayColor ?? null,
+    groupId: c.groupId ?? null,
+    groupColor: c.groupColor ?? null,
     pathPoints: c.pathPoints ?? null,
     pathLength: c.pathLength ?? null,
     bufferLength: c.bufferLength,

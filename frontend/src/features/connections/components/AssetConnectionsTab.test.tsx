@@ -12,7 +12,7 @@ const assets = [
   { id: 'slot', name: 'OFD슬롯3', parentAssetId: 'ofd', assetType: { code: null, placementKind: null, connectionKind: 'conduit' } },
 ];
 const cables = [
-  { id: 'core1', sourceAssetId: 'slot', targetAssetId: 'dev', sourceRole: 'OUT', targetRole: null, number: 1, categoryId: 'c-fiber', cableType: 'FIBER' },
+  { id: 'core1', sourceAssetId: 'slot', targetAssetId: 'dev', sourceRole: 'OUT', targetRole: null, number: 1, categoryId: 'c-fiber' },
 ];
 
 vi.mock('../../workingCopy/hooks', () => ({ useEffectiveAssets: () => assets }));
@@ -31,7 +31,7 @@ vi.mock('../../trace/traceGraph', () => ({
   remoteSlotSubstation: () => null,
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({
-  useCableCategories: () => ({ data: [{ id: 'c-fiber', code: 'OPJ', name: '광점퍼', displayColor: '#a78bfa', displayGroup: '광', groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e', isActive: true }] }),
+  useCableCategories: () => ({ data: [{ id: 'c-fiber', name: '광점퍼', groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e', isActive: true }] }),
 }));
 // CableInspector 는 별도 단위 — 여기선 리스트/선택만 검증하므로 스텁.
 vi.mock('../../cables/components/CableInspector', () => ({
@@ -62,7 +62,7 @@ beforeEach(() => {
 describe('AssetConnectionsTab (케이블 명세 리스트)', () => {
   it('종류 섹션 + 케이블 행 렌더(from→to)', () => {
     render(<AssetConnectionsTab assetId="dev" />);
-    expect(screen.getByText('광')).toBeInTheDocument(); // 섹션 라벨 = 카테고리 displayGroup
+    expect(screen.getByText('광')).toBeInTheDocument(); // 섹션 라벨 = 카테고리 groupName
     // dev 관점 → self(송변전광단말) 가 먼저. 행 접근명 = "송변전광단말 → OFD슬롯3 …"
     expect(screen.getByRole('button', { name: /송변전광단말.*OFD슬롯3/ })).toBeInTheDocument();
   });
