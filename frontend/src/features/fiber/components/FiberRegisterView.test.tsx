@@ -126,13 +126,11 @@ describe('OfdFiberRegister', () => {
     expect(screen.getByText('대국설비')).toBeInTheDocument();
   });
 
-  it('점유 코어 자국설비 셀이 EquipmentSelectCell 드롭다운(연결 설비명 표시 + 수정 어포던스)을 렌더한다', () => {
+  it('점유 코어 자국설비 셀이 연결 설비명을 읽기전용으로 렌더한다', () => {
     renderView();
-    // 코어2 자국측 OUT 케이블(a-near) → display(읽기모드) + 옵션 라벨에 연결 설비명 표시.
+    // 코어2 자국측 OUT 케이블(a-near) → 읽기전용 설비명 표시(드롭다운 없음).
     expect(screen.getAllByText('송변전광단말').length).toBeGreaterThan(0);
-    // 자국/대국 모두 수정(✎) 어포던스 노출 — CBL-OPJ 카테고리 존재로 비활성 아님.
-    expect(screen.getAllByTitle('자국설비 수정').length).toBeGreaterThan(0);
-    expect(screen.getAllByTitle('대국설비 수정').length).toBeGreaterThan(0);
+    expect(screen.queryByTitle('자국설비 수정')).toBeNull();
   });
 
   it('점유 코어 행 클릭(코어 번호 셀) → onRowClick 으로 슬롯 포트 패널 + 해당 코어 활성화', () => {
