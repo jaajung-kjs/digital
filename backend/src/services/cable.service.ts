@@ -1,20 +1,6 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
-import { CableType } from '@prisma/client';
 import { placementKindToKind, type PlacementKind } from './assetPlanMapper.js';
-
-/** Build specification string from specTemplate format + specParams */
-function buildCableSpecification(specTemplate: unknown, specParams: unknown): string | null {
-  if (!specTemplate || !specParams || typeof specTemplate !== 'object') return null;
-  const tmpl = specTemplate as { format?: string };
-  const params = specParams as Record<string, unknown>;
-  if (!tmpl.format) return null;
-  let result = tmpl.format;
-  for (const [key, value] of Object.entries(params)) {
-    result = result.replace(`{${key}}`, String(value ?? ''));
-  }
-  return result;
-}
 
 // ==================== Types ====================
 
@@ -33,7 +19,6 @@ export interface CableDetail {
   // endpoint 의 단일 Asset id (source/target.assetId 와 동일 값, 평탄 노출).
   sourceAssetId: string | null;
   targetAssetId: string | null;
-  cableType: CableType;
   sourceRole: 'IN' | 'OUT' | null;
   targetRole: 'IN' | 'OUT' | null;
   number: number | null;
@@ -42,9 +27,10 @@ export interface CableDetail {
   pathPoints: unknown;
   description: string | null;
   categoryId: string | null;
-  categoryCode: string | null;
   categoryName: string | null;
-  displayColor: string | null;
+  groupId: string | null;
+  groupName: string | null;
+  groupColor: string | null;
   specification: string | null;
   specParams: unknown;
   pathLength: number | null;
@@ -78,7 +64,7 @@ const cableInclude = {
       parent: { select: { floorId: true, parent: { select: { floorId: true } } } },
     },
   },
-  category: { select: { code: true, name: true, displayColor: true, specTemplate: true } },
+  category: { select: { name: true, groupId: true, group: { select: { name: true, color: true } } } },
 } as const;
 
 // ==================== Service ====================
@@ -190,7 +176,6 @@ class CableService {
       target: this.endpointFromIncluded('target', c),
       sourceAssetId: c.sourceAssetId ?? null,
       targetAssetId: c.targetAssetId ?? null,
-      cableType: c.cableType,
       sourceRole: (c.sourceRole ?? null) as 'IN' | 'OUT' | null,
       targetRole: (c.targetRole ?? null) as 'IN' | 'OUT' | null,
       number: c.number ?? null,
@@ -199,10 +184,11 @@ class CableService {
       pathPoints: c.pathPoints,
       description: c.description,
       categoryId: c.categoryId ?? null,
-      categoryCode: c.category?.code ?? null,
       categoryName: c.category?.name ?? null,
-      displayColor: c.category?.displayColor ?? null,
-      specification: buildCableSpecification(c.category?.specTemplate, c.specParams),
+      groupId: c.category?.groupId ?? null,
+      groupName: c.category?.group?.name ?? null,
+      groupColor: c.category?.group?.color ?? null,
+      specification: c.category?.name ?? null,
       specParams: c.specParams ?? null,
       pathLength: c.pathLength ?? null,
       bufferLength: c.bufferLength ?? 4,
