@@ -11,7 +11,7 @@ const mk = (id: string, name: string, role = 'device'): never =>
   ({ id, code: id, name, group: null, role, categoryId: null, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, placementKind: null, connectionKind: null, sortOrder: 0, isActive: true }) as never;
 
 beforeEach(() => {
-  useCatalogStore.setState({ baseTypes: [], baseCategories: [] } as never);
+  useCatalogStore.setState({ baseTypes: [], baseCategories: [], baseCableGroups: [], baseCableCategories: [] } as never);
   useCatalogStore.getState().discard();
   vi.clearAllMocks();
   vi.mocked(api.get).mockResolvedValue({ data: { data: [] } } as never);
@@ -45,5 +45,20 @@ describe('catalogStore', () => {
     useCatalogStore.getState().stageCreateType(mk(newCatalogId(), 'Y'));
     useCatalogStore.getState().discard();
     expect(useCatalogStore.getState().dirtyCount()).toBe(0);
+  });
+
+  it('stageCreateCableGroup → effective + dirty', () => {
+    const id = newCatalogId();
+    useCatalogStore.getState().stageCreateCableGroup({ id, name: '전원', color: '#ef4444', sortOrder: 0, isActive: true });
+    expect(useCatalogStore.getState().effectiveCableGroups().some((g) => g.id === id)).toBe(true);
+    expect(useCatalogStore.getState().dirtyCount()).toBe(1);
+  });
+
+  it('commit 이 cableGroups 델타 포함', async () => {
+    useCatalogStore.getState().stageCreateCableGroup({ id: newCatalogId(), name: 'G', color: null, sortOrder: 0, isActive: true });
+    await useCatalogStore.getState().commit();
+    expect(api.post).toHaveBeenCalledWith('/catalog/commit', expect.objectContaining({
+      cableGroups: expect.objectContaining({ creates: expect.any(Array) }),
+    }));
   });
 });
