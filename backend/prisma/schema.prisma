@@ -205,9 +205,26 @@ model CableCategory {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  groupId String?     @map("group_id")
+  group   CableGroup? @relation(fields: [groupId], references: [id])
+
   cables Cable[]
 
   @@map("cable_categories")
+}
+
+model CableGroup {
+  id        String   @id @default(uuid())
+  name      String   @unique @db.VarChar(50)
+  color     String?  @db.VarChar(7)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  categories CableCategory[]
+
+  @@map("cable_groups")
 }
 
 // ==================== BOM 자재 (시공 보고서 전용) ====================
