@@ -8,7 +8,6 @@ import { type Position, getEquipmentCenter } from '../../../utils/floorplan/elem
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
-import { kindOf } from '../../workingCopy/placement';
 import {
   useInteractionStore,
   getCableDrawing,
@@ -323,7 +322,7 @@ export function useCanvasEvents(
         const eq = found.item;
         const center = getEquipmentCenter(eq);
         // RACK / DISTRIBUTION / OFD endpoints require a module / circuit / port step.
-        if (needsEndpointPicker(kindOf(eq))) {
+        if (needsEndpointPicker(eq.assetType?.role)) {
           interaction.cableSetPendingSource();
           // 컨테이너(랙/분전반/OFD)를 선택만 해 둔다 — 우측 패널 대신 CableEndpointDialog 가
           // selectedAssetId 를 현재 노드로 읽어 내부뷰를 다이얼로그로 노출한다.
@@ -343,7 +342,7 @@ export function useCanvasEvents(
       if (found?.type === 'equipment' && found.item.id !== cableDrawing.source?.containerAssetId) {
         const eq = found.item;
         const center = getEquipmentCenter(eq);
-        if (needsEndpointPicker(kindOf(eq))) {
+        if (needsEndpointPicker(eq.assetType?.role)) {
           interaction.cableSetPendingTarget();
           // 컨테이너를 선택만 해 둔다 — CableEndpointDialog 가 내부뷰를 다이얼로그로 노출한다.
           useSelectionStore.getState().setSelectedAssetId(eq.id);

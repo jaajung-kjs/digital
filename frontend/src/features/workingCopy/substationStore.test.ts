@@ -4,11 +4,10 @@ import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
 import { cableOnFloor } from './floorAnchor';
 import { toMapById } from '../../utils/byId';
-import { kindOf } from './placement';
 
-const rack = { id:'r1', name:'랙', substationId:'s1', floorId:'f1', assetType:{ placementKind:'RACK' }, positionX:10, positionY:20, width2d:100, height2d:200, totalU:42, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
-const mod = { id:'m1', name:'모듈', substationId:'s1', floorId:'f1', assetType:{ placementKind:null }, parentAssetId:'r1', slotIndex:3, slotSpan:1, updatedAt:'2026-01-01T00:00:00.000Z' };
-const ofd = { id:'o1', name:'OFD', substationId:'s1', floorId:'f1', assetType:{ placementKind:'OFD' }, positionX:5, positionY:5, width2d:40, height2d:60, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
+const rack = { id:'r1', name:'랙', substationId:'s1', floorId:'f1', assetType:{ role:'rack' }, positionX:10, positionY:20, width2d:100, height2d:200, totalU:42, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
+const mod = { id:'m1', name:'모듈', substationId:'s1', floorId:'f1', assetType:{ role:'device' }, parentAssetId:'r1', slotIndex:3, slotSpan:1, updatedAt:'2026-01-01T00:00:00.000Z' };
+const ofd = { id:'o1', name:'OFD', substationId:'s1', floorId:'f1', assetType:{ role:'ofd' }, positionX:5, positionY:5, width2d:40, height2d:60, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
 const cable = { id:'c1', sourceAssetId:'r1', targetAssetId:'o1', source:{ equipmentId:'r1', moduleId:null }, target:{ equipmentId:'o1', moduleId:null }, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
 
 beforeEach(() => { useSubstationWorkingCopy.getState().reset(); (api.get as any).mockResolvedValue({ data: { data: { assets:[rack,mod,ofd], cables:[cable] } } }); });
@@ -34,7 +33,7 @@ describe('substationWorkingCopy', () => {
 
   it('타 변전소(S2) 재로드는 S1 saved 를 보존(전역 누적 — 스코프 밖은 유지)', async () => {
     await useSubstationWorkingCopy.getState().load('s1'); // s1: r1,m1,o1 + c1
-    const s2asset = { id: 'x1', name: '타변전소설비', substationId: 's2', floorId: 'f2', assetType: { placementKind: 'RACK' }, parentAssetId: null, slotIndex: null, updatedAt: '2026-01-01T00:00:00.000Z' };
+    const s2asset = { id: 'x1', name: '타변전소설비', substationId: 's2', floorId: 'f2', assetType: { role: 'rack' }, parentAssetId: null, slotIndex: null, updatedAt: '2026-01-01T00:00:00.000Z' };
     (api.get as any).mockResolvedValue({ data: { data: { assets: [s2asset], cables: [] } } });
     await useSubstationWorkingCopy.getState().load('s2');
     const s = useSubstationWorkingCopy.getState();
@@ -58,7 +57,7 @@ describe('substationWorkingCopy', () => {
     await useSubstationWorkingCopy.getState().load('s1');
     const eq = useSubstationWorkingCopy.getState().effectiveEquipment('f1');
     expect(eq.map(e=>e.id).sort()).toEqual(['o1','r1']);
-    expect(kindOf(eq.find(e=>e.id==='r1')!)).toBe('RACK');
+    expect(eq.find(e=>e.id==='r1')!.assetType?.role).toBe('rack');
   });
   it('revert → dirty 0', async () => {
     await useSubstationWorkingCopy.getState().load('s1');

@@ -10,7 +10,7 @@ import { useEditorStore, type LocalCable } from '../stores/editorStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useSubstationWorkingCopy, type PlacementDraw, type RackModuleDraw } from '../../workingCopy/substationStore';
 import { getUnifiedDirtyCount } from '../../workingCopy/hooks';
-import { useKindToAssetTypeId } from '../../assets/useKindToAssetTypeId';
+import { useAssetTypeIdByRole } from '../../assets/useAssetTypeIdByRole';
 import { useToastStore } from '../stores/toastStore';
 import { calculateCenterOnBounds } from '../hooks/useViewport';
 import { floorTargetFor, floorAnchor, cableOnFloor } from '../../workingCopy/floorAnchor';
@@ -70,7 +70,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
   useEditorKeyboard(containerRef, floorPlan);
 
   // SSOT-2d Task 4 — 새로 배치한 설비를 통합 stage 로 올릴 때 assetTypeId 해소.
-  const kindToAssetTypeId = useKindToAssetTypeId();
+  const rackTypeId = useAssetTypeIdByRole('rack');
 
   const handlePasteEquipment = useCallback(() => {
     const es = useEditorStore.getState();
@@ -270,22 +270,22 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
 
   /**
-   * P9: name-modal commit handler for the kind-based flow. Invoked from
-   * EquipmentMaterialModal after the user finishes drag-to-draw and types a
-   * name. Always uses `newEquipmentKind` — preset placement uses
-   * `handlePlacePreset` instead and does not open this modal.
+   * 이름 모달 커밋 핸들러. EquipmentMaterialModal 에서 drag-to-draw + 이름 입력 후 호출.
+   * `newEquipmentType`(배치할 자산종류)을 사용 — 프리셋 배치는 handlePlacePreset 이 처리.
    */
   const handleAddEquipment = () => {
     const cs = useEditorStore.getState();
     const drawnWidth = cs.equipmentDrawnSize?.width ?? 60;
     const drawnHeight = cs.equipmentDrawnSize?.height ?? 100;
-    // RACK kind via the standalone "랙" sidebar entry creates an empty 42U
-    // rack on the canvas; the rack-preset path doesn't go through this modal.
-    const kind = cs.newEquipmentKind ?? 'OFD';
+    const type = cs.newEquipmentType;
+    if (!type) {
+      useToastStore.getState().showToast('설비 종류를 확인할 수 없어 배치하지 못했습니다');
+      return;
+    }
 
     const baseEquip: PlacementDraw = {
       id: generateTempId(),
-      kind,
+      role: type.role,
       name: cs.newEquipmentName,
       floorId,
       positionX: cs.newEquipmentPosition.x,
@@ -294,18 +294,11 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       height: drawnHeight,
       rotation: 0,
       properties: null,
-      // Plain rack via the "랙" kind leaf → empty 42U; preset path doesn't go through this modal.
-      totalU: kind === 'RACK' ? 42 : null,
+      // 빈 랙(role=rack)은 42U; 프리셋 경로는 이 모달을 거치지 않는다.
+      totalU: type.role === 'rack' ? 42 : null,
     };
 
-    const assetTypeId = kindToAssetTypeId(kind);
-    if (!assetTypeId) {
-      // eslint-disable-next-line no-console
-      console.warn(`[add-equipment] assetTypeId 미해소 (kind=${kind}) — 배치 보류`);
-      useToastStore.getState().showToast('설비 종류를 확인할 수 없어 배치하지 못했습니다');
-      return;
-    }
-    useSubstationWorkingCopy.getState().stageEquipmentCreate(baseEquip, assetTypeId);
+    useSubstationWorkingCopy.getState().stageEquipmentCreate(baseEquip, type.id);
 
     cs.setEquipmentModalOpen(false);
     cs.setNewEquipmentName('');
@@ -340,7 +333,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
     const rackEquip: PlacementDraw = {
       id: rackId,
-      kind: 'RACK',
+      role: 'rack',
       name: resolvedName,
       floorId,
       positionX: cs.newEquipmentPosition.x,
@@ -354,10 +347,10 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       properties: { sourcePresetId: preset.id },
     };
 
-    const rackAssetTypeId = kindToAssetTypeId('RACK');
+    const rackAssetTypeId = rackTypeId;
     if (!rackAssetTypeId) {
       // eslint-disable-next-line no-console
-      console.warn('[place-preset] RACK assetTypeId 미해소 — 배치 보류');
+      console.warn('[place-preset] rack assetTypeId 미해소 — 배치 보류');
       useToastStore.getState().showToast('랙 종류를 확인할 수 없어 배치하지 못했습니다');
       return;
     }
@@ -400,7 +393,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     setTool('select');
     cs.selectEquipment(rackId);
     useToastStore.getState().showToast('랙을 배치했습니다');
-  }, [rackModuleCategories, floorId, kindToAssetTypeId, setTool]);
+  }, [rackModuleCategories, floorId, rackTypeId, setTool]);
 
 
   const isPlanNotFound = planError && (planError as { response?: { status: number } }).response?.status === 404;

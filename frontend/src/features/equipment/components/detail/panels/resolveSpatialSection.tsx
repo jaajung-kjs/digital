@@ -50,8 +50,7 @@ export function resolveSpatialSection(
         label: '분기',
         node: <FeederCircuitsPanel feederId={equipmentId} />,
       };
-    case 'grounding':
-    case 'hvac':
+    default:
       return null;
   }
 }

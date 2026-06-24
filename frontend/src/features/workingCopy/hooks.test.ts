@@ -4,7 +4,6 @@ vi.mock('../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
 import { useEffectiveCables, useEffectiveEquipment, useEffectiveRackModules, useEffectiveFloorCables, useUnifiedDirty } from './hooks';
-import { kindOf } from './placement';
 import { useEditorStore } from '../editor/stores/editorStore';
 
 // jsdom 에 없는 URL.revokeObjectURL 스텁(clearPendingData/resetEditor 가 호출).
@@ -16,15 +15,15 @@ const cable = { id: 'c1', cableType: 'LAN', updatedAt: '2026-01-01T00:00:00.000Z
 const TS = '2026-01-01T00:00:00.000Z';
 const assets = [
   // f1 placement-level rack (floorAnchor self)
-  { id: 'r1', name: 'r1', floorId: 'f1', assetType: { placementKind: 'RACK' }, positionX: 10, positionY: 20, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  { id: 'r1', name: 'r1', floorId: 'f1', assetType: { role: 'rack' }, positionX: 10, positionY: 20, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
   // f1 placement-level ofd
-  { id: 'o1', name: 'o1', floorId: 'f1', assetType: { placementKind: 'OFD' }, positionX: 30, positionY: 40, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  { id: 'o1', name: 'o1', floorId: 'f1', assetType: { role: 'ofd' }, positionX: 30, positionY: 40, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
   // f1 rack-module child (no coords → floorAnchor walks to r1)
   { id: 'm1', name: 'm1', floorId: 'f1', parentAssetId: 'r1', slotIndex: 3, updatedAt: TS },
   // other floor placement-level ofd (excluded)
-  { id: 'x1', name: 'x1', floorId: 'f2', assetType: { placementKind: 'OFD' }, positionX: 5, positionY: 5, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  { id: 'x1', name: 'x1', floorId: 'f2', assetType: { role: 'ofd' }, positionX: 5, positionY: 5, width2d: 40, height2d: 60, parentAssetId: null, slotIndex: null, updatedAt: TS },
   // f1 분전반(panel, placed) → feeder(asset) → branch(asset) — 단계3a 통합 노드.
-  { id: 'panel1', name: 'panel1', floorId: 'f1', assetType: { placementKind: 'DIST' }, positionX: 70, positionY: 80, width2d: 30, height2d: 30, parentAssetId: null, slotIndex: null, updatedAt: TS },
+  { id: 'panel1', name: 'panel1', floorId: 'f1', assetType: { role: 'panel' }, positionX: 70, positionY: 80, width2d: 30, height2d: 30, parentAssetId: null, slotIndex: null, updatedAt: TS },
   { id: 'feeder1', name: 'feeder1', parentAssetId: 'panel1', updatedAt: TS },
   { id: 'branch1', name: 'branch1', parentAssetId: 'feeder1', updatedAt: TS },
 ];
@@ -98,7 +97,7 @@ describe('workingCopy hooks', () => {
     });
     const { result, rerender } = renderHook(() => useEffectiveEquipment('f1'));
     expect(result.current.map((e: any) => e.id).sort()).toEqual(['o1', 'panel1', 'r1']); // m1 (rack module) + x1 (other floor) excluded; panel1 placed DIST
-    expect(kindOf(result.current.find((e: any) => e.id === 'r1')!)).toBe('RACK');
+    expect(result.current.find((e: any) => e.id === 'r1')!.assetType?.role).toBe('rack');
     const ref1 = result.current;
     rerender();
     expect(result.current).toBe(ref1); // stable ref when nothing changed

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
-import { EQUIPMENT_KIND_INFO } from '../../../../types/equipmentKind';
 import { Modal, Input, Button } from '../../../../components/ui';
 
 interface EquipmentMaterialModalProps {
@@ -8,9 +7,8 @@ interface EquipmentMaterialModalProps {
 }
 
 /**
- * P9: name-only modal shown after the user drags out an equipment rectangle on
- * the canvas (kind-driven flow). MaterialPicker / spec inputs / recent list
- * have all been removed — the kind is already pinned on `newEquipmentKind`.
+ * 캔버스에서 설비 사각형을 drag-to-draw 한 뒤 뜨는 이름 입력 모달.
+ * 배치할 자산종류는 이미 `newEquipmentType` 에 고정돼 있어 이름만 받는다.
  *
  * UX: autofocused input → Enter → onAdd. ESC/cancel reverts the tool.
  */
@@ -19,7 +17,7 @@ export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
   const setOpen = useEditorStore((s) => s.setEquipmentModalOpen);
   const newEquipmentName = useEditorStore((s) => s.newEquipmentName);
   const setNewEquipmentName = useEditorStore((s) => s.setNewEquipmentName);
-  const newEquipmentKind = useEditorStore((s) => s.newEquipmentKind);
+  const newEquipmentType = useEditorStore((s) => s.newEquipmentType);
   const resetNewEquipmentSelection = useEditorStore(
     (s) => s.resetNewEquipmentSelection,
   );
@@ -33,9 +31,7 @@ export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
     }
   }, [open]);
 
-  const kindLabel = newEquipmentKind
-    ? EQUIPMENT_KIND_INFO[newEquipmentKind].label
-    : '설비';
+  const kindLabel = newEquipmentType?.name ?? '설비';
 
   const canAdd = newEquipmentName.trim().length > 0;
 

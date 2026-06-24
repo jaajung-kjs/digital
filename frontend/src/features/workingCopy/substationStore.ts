@@ -4,9 +4,8 @@ import { shallow } from 'zustand/shallow';
 import { api } from '../../utils/api';
 import { isTempId } from '../../utils/idHelpers';
 import { organizationApi } from '../../services/organizationApi';
-import type { Asset } from '../../types/asset';
+import type { Asset, AssetRole } from '../../types/asset';
 import type { OrgHeadquarters, OrgBranch, OrgSubstation, OrgFloor } from '../../types/organization';
-import type { EquipmentKind } from '../../types/equipmentKind';
 import {
   emptyOverlay,
   stageCreate,
@@ -69,7 +68,7 @@ export interface WorkingCopyRow {
  */
 export interface PlacementDraw {
   id: string;
-  kind: EquipmentKind;
+  role: AssetRole;
   name: string;
   floorId: string | null;
   positionX: number;
@@ -512,7 +511,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             id: eq.id,
             substationId: s.substationId,
             assetTypeId,
-            assetType: { placementKind: eq.kind } as Asset['assetType'],
+            assetType: { role: eq.role } as Asset['assetType'],
             name: eq.name,
             parentAssetId: null,
             floorId: eq.floorId,

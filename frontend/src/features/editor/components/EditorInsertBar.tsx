@@ -5,11 +5,7 @@ import { startCableConnection } from '../cableConnection';
 import { useDeleteRackPreset, useRackPresets } from '../../rack/hooks/useRackPresets';
 import { EditRackPresetDialog } from '../../rack/components/EditRackPresetDialog';
 import { useIsAdmin } from '../../../stores/authStore';
-import {
-  EQUIPMENT_KINDS,
-  EQUIPMENT_KIND_INFO,
-  type EquipmentKind,
-} from '../../../types/equipmentKind';
+import { usePlaceableTypes, type PlaceableType } from '../usePlaceableTypes';
 import { CABLE_DISPLAY_GROUPS, CABLE_DISPLAY_GROUP_COLORS as CABLE_GROUP_COLORS } from '../../../types/cableCategory';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
 import type { RackPreset } from '../../../types/rackPreset';
@@ -25,9 +21,9 @@ import type { RackPreset } from '../../../types/rackPreset';
 export function EditorInsertBar() {
   const tool = useEditorStore((s) => s.tool);
   const setTool = useEditorStore((s) => s.setTool);
-  const newEquipmentKind = useEditorStore((s) => s.newEquipmentKind);
+  const newEquipmentType = useEditorStore((s) => s.newEquipmentType);
   const newEquipmentPreset = useEditorStore((s) => s.newEquipmentPreset);
-  const setNewEquipmentKind = useEditorStore((s) => s.setNewEquipmentKind);
+  const setNewEquipmentType = useEditorStore((s) => s.setNewEquipmentType);
   const setNewEquipmentPreset = useEditorStore((s) => s.setNewEquipmentPreset);
   const resetNewEquipmentSelection = useEditorStore(
     (s) => s.resetNewEquipmentSelection,
@@ -39,6 +35,7 @@ export function EditorInsertBar() {
     (s) => s.setPreselectedCableDisplayGroup,
   );
 
+  const placeable = usePlaceableTypes();
   const { data: rackPresets } = useRackPresets();
   const isAdmin = useIsAdmin();
   const deletePreset = useDeleteRackPreset();
@@ -66,10 +63,10 @@ export function EditorInsertBar() {
     setPreselectedCableDisplayGroup(null);
   };
 
-  const handleKindClick = (kind: EquipmentKind) => {
+  const handleTypeClick = (t: PlaceableType) => {
     setTool('equipment');
     setPreselectedCableDisplayGroup(null);
-    setNewEquipmentKind(kind);
+    setNewEquipmentType(t);
   };
 
   const handlePresetClick = (preset: RackPreset) => {
@@ -123,29 +120,24 @@ export function EditorInsertBar() {
 
       {/* ───── 설비 (5 standalone kinds) ───── */}
       <span className="text-xs text-content-faint whitespace-nowrap pl-1 pr-0.5">설비:</span>
-      {EQUIPMENT_KINDS.map((kind) => {
-        const info = EQUIPMENT_KIND_INFO[kind];
+      {placeable.map((t) => {
         const active =
           tool === 'equipment' &&
-          newEquipmentKind === kind &&
+          newEquipmentType?.id === t.id &&
           !newEquipmentPreset;
         return (
           <button
-            key={kind}
+            key={t.id}
             type="button"
-            onClick={() => handleKindClick(kind)}
-            title={
-              kind === 'RACK'
-                ? '빈 랙 (12 슬롯) — 캔버스에 드래그로 배치'
-                : `${info.label} — 캔버스에 드래그로 배치`
-            }
+            onClick={() => handleTypeClick(t)}
+            title={`${t.name} — 캔버스에 드래그로 배치`}
             className={`px-2 py-1 text-xs rounded font-medium transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
               active
                 ? 'bg-info-bg text-primary'
                 : 'hover:bg-surface-2 text-content-muted'
             }`}
           >
-            {info.label}
+            {t.name}
           </button>
         );
       })}

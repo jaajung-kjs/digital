@@ -3,7 +3,7 @@ import type {
   BackgroundDrawing,
   EditorTool,
 } from '../../../types/floorPlan';
-import type { EquipmentKind } from '../../../types/equipmentKind';
+import type { PlaceableType } from '../usePlaceableTypes';
 import type { Asset } from '../../../types/asset';
 import type { RackPreset } from '../../../types/rackPreset';
 import type { CableDisplayGroup } from '../../../types/cableCategory';
@@ -152,11 +152,9 @@ export interface EditorStoreState {
   pasteEquipmentName: string;
   newEquipmentPosition: { x: number; y: number };
 
-  // P9: kind-based equipment placement.
-  // Either `newEquipmentKind` (drag-to-draw 5종 단독설비) or
-  // `newEquipmentPreset` (single-click rack preset placement) is set when
-  // tool === 'equipment'. Both are cleared on tool change / placement done.
-  newEquipmentKind: EquipmentKind | null;
+  // 배치할 자산종류(데이터 기반 insert bar) 또는 랙 프리셋. tool === 'equipment' 일 때
+  // 둘 중 하나가 설정되고, 도구 변경/배치 완료 시 초기화된다.
+  newEquipmentType: PlaceableType | null;
   newEquipmentPreset: RackPreset | null;
 
   // P9: cable tool preselection — sidebar pill click sets a displayGroup,
@@ -257,7 +255,7 @@ export interface EditorStoreActions {
   setNewEquipmentPosition: (p: { x: number; y: number }) => void;
 
   // P9: kind / preset selection for the equipment tool.
-  setNewEquipmentKind: (kind: EquipmentKind | null) => void;
+  setNewEquipmentType: (type: PlaceableType | null) => void;
   setNewEquipmentPreset: (preset: RackPreset | null) => void;
   resetNewEquipmentSelection: () => void;
 
@@ -318,7 +316,7 @@ const initialState: EditorStoreState = {
   newEquipmentName: '',
   pasteEquipmentName: '',
   newEquipmentPosition: { x: 100, y: 100 },
-  newEquipmentKind: null,
+  newEquipmentType: null,
   newEquipmentPreset: null,
   preselectedCableDisplayGroup: null,
   addingAtSlot: null,
@@ -459,12 +457,12 @@ export const useEditorStore = create<FullStore>()((set) => ({
   setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
   setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
 
-  setNewEquipmentKind: (newEquipmentKind) =>
-    set({ newEquipmentKind, newEquipmentPreset: null }),
+  setNewEquipmentType: (newEquipmentType) =>
+    set({ newEquipmentType, newEquipmentPreset: null }),
   setNewEquipmentPreset: (newEquipmentPreset) =>
-    set({ newEquipmentPreset, newEquipmentKind: null }),
+    set({ newEquipmentPreset, newEquipmentType: null }),
   resetNewEquipmentSelection: () =>
-    set({ newEquipmentKind: null, newEquipmentPreset: null }),
+    set({ newEquipmentType: null, newEquipmentPreset: null }),
 
   setPreselectedCableDisplayGroup: (preselectedCableDisplayGroup) =>
     set({ preselectedCableDisplayGroup }),
