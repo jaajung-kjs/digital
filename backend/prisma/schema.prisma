@@ -287,6 +287,16 @@ enum CableType {
   GROUND
 }
 
+enum AssetRole {
+  rack
+  ofd
+  panel
+  slot
+  feeder
+  standalone
+  device
+}
+
 // ==================== 설비 사진 ====================
 
 model EquipmentPhoto {
@@ -402,9 +412,26 @@ model AssetType {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
+  role       AssetRole      @default(device)
+  categoryId String?        @map("category_id")
+  category   AssetCategory? @relation(fields: [categoryId], references: [id])
+
   assets Asset[]
 
   @@map("asset_types")
+}
+
+model AssetCategory {
+  id        String   @id @default(uuid())
+  name      String   @unique @db.VarChar(50)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  assetTypes AssetType[]
+
+  @@map("asset_categories")
 }
 
 model Asset {
