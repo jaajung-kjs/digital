@@ -39,7 +39,7 @@ const OPGW_CABLE = {
 const SLIM_LOCAL = { id: OFD_ID, name: '원주OFD', code: 'OFD', substationId: 's1', substationName: '원주변전소', parentAssetId: null, connectionKind: null };
 const SLIM_REMOTE = { id: REMOTE_OFD_ID, name: '홍천OFD', code: 'OFD', substationId: 's2', substationName: '홍천변전소', parentAssetId: null, connectionKind: null };
 
-const OPGW_CAT = { id: 'cat-opgw', code: 'CBL-OPGW', name: 'OPGW', displayColor: null };
+const OPGW_CAT = { id: 'cat-opgw', code: 'CBL-OPGW', name: 'OPGW', displayColor: null, groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e', isActive: true };
 
 // ── vi.mock declarations ──────────────────────────────────────────────────────
 vi.mock('../../workingCopy/hooks', () => ({
@@ -70,6 +70,9 @@ vi.mock('../../assets/useAssetTypeIdByRole', () => ({
   useAssetTypeIdByRole: () => 'type-ofd-slot',
 }));
 
+vi.mock('../../cables/hooks/useCableGroups', () => ({
+  useCableGroups: () => ({ data: [{ id: 'g-fiber', name: '광', color: '#22c55e' }] }),
+}));
 vi.mock('../../cables/hooks/useCableCategories', () => ({
   useCableCategories: () => ({ data: [OPGW_CAT] }),
 }));
@@ -152,6 +155,10 @@ describe('OfdSlotRail', () => {
     // 48코어 선택
     fireEvent.click(screen.getByRole('button', { name: '48' }));
 
+    // 종류 선택(그룹→이름)
+    fireEvent.change(screen.getByLabelText('그룹'), { target: { value: 'g-fiber' } });
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: 'cat-opgw' } });
+
     // 대국 OFD 선택
     fireEvent.click(screen.getByText('홍천변전소 대국'));
 
@@ -171,6 +178,8 @@ describe('OfdSlotRail', () => {
     fireEvent.click(emptySlots[0]);
     // 24 is the default; clicking it explicitly keeps cores=24
     fireEvent.click(screen.getByRole('button', { name: '24' }));
+    fireEvent.change(screen.getByLabelText('그룹'), { target: { value: 'g-fiber' } });
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: 'cat-opgw' } });
     fireEvent.click(screen.getByText('홍천변전소 대국'));
 
     const cableCall = put.mock.calls.find((c) => c[0] === 'cables');

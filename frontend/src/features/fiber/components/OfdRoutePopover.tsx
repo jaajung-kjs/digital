@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { AssetRef } from '../../trace/traceGraph';
+import { CableTypePicker } from '../../cables/components/CableTypePicker';
 
 interface Props {
   anchorRect: DOMRect;
   peerOfds: AssetRef[];
   initialCores?: number;
-  onPick: (peer: AssetRef, cores: number) => void;
+  onPick: (peer: AssetRef, cores: number, categoryId: string) => void;
   onCancel: () => void;
 }
 
@@ -21,6 +22,7 @@ export function OfdRoutePopover({ anchorRect, peerOfds, initialCores = 24, onPic
   const ref = useRef<HTMLDivElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [cores, setCores] = useState(initialCores);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
 
   // 열릴 때 첫 버튼으로 포커스, 닫힐 때 복원.
   useEffect(() => {
@@ -159,9 +161,17 @@ export function OfdRoutePopover({ anchorRect, peerOfds, initialCores = 24, onPic
         </div>
       </div>
 
+      {/* 케이블 종류 선택 (그룹→이름) */}
+      <div className="px-3 py-1.5 border-b border-line">
+        <div className="flex items-center gap-1.5 text-xs text-content-muted">
+          <span className="shrink-0">종류</span>
+          <CableTypePicker value={categoryId} onChange={setCategoryId} />
+        </div>
+      </div>
+
       {/* 대국 OFD 목록 */}
       <div className="px-2 py-0.5 text-xs text-content-faint border-b border-line/50">
-        대국 OFD 선택
+        대국 OFD 선택{!categoryId && ' (종류 먼저)'}
       </div>
       {peerOfds.length === 0 ? (
         <div className="px-3 py-2 text-xs text-content-faint">대국 OFD 없음</div>
@@ -171,8 +181,9 @@ export function OfdRoutePopover({ anchorRect, peerOfds, initialCores = 24, onPic
             <li key={o.id}>
               <button
                 type="button"
-                onClick={() => onPick(o, cores)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-surface-2 text-left"
+                disabled={!categoryId}
+                onClick={() => categoryId && onPick(o, cores, categoryId)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-surface-2 text-left disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span
                   aria-hidden

@@ -44,7 +44,6 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
   const selectedAssetId = useSelectionStore((s) => s.selectedAssetId);
   const slotTypeId = useAssetTypeIdByRole('slot');
   const { data: categories = [] } = useCableCategories();
-  const opgwCat = categories.find((c) => c.code === 'CBL-OPGW');
 
   const [popover, setPopover] = useState<PopoverState | null>(null);
 
@@ -67,12 +66,13 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
         (c.sourceAssetId === slotId || c.targetAssetId === slotId),
     );
 
-  const addRoute = (remote: AssetRef, cores: number) => {
-    if (!slotTypeId || !opgwCat || !localOfd?.substationId || !remote.substationId) return;
+  const addRoute = (remote: AssetRef, cores: number, categoryId: string) => {
+    const cat = categories.find((c) => c.id === categoryId);
+    if (!slotTypeId || !cat || !localOfd?.substationId || !remote.substationId) return;
     const { slots: newSlots, opgw } = buildRouteCreate({
       localOfd: { id: localOfd.id, substationId: localOfd.substationId, substationName: localOfd.substationName },
       remoteOfd: { id: remote.id, substationId: remote.substationId, substationName: remote.substationName },
-      cores, slotTypeId, opgwCategory: opgwCat,
+      cores, slotTypeId, opgwCategory: cat,
       ids: { slotA: generateTempId(), slotB: generateTempId(), opgw: generateTempId() },
     });
     const wc = useSubstationWorkingCopy.getState();
@@ -96,7 +96,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
     for (const id of assetIds) wc.remove('assets', id);
   };
 
-  const configMissing = !slotTypeId || !opgwCat;
+  const configMissing = !slotTypeId;
 
   const handleEmptyClick = (rowIndex: number, e: React.MouseEvent<HTMLDivElement>) => {
     if (configMissing) return;
@@ -152,7 +152,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
         <OfdRoutePopover
           anchorRect={popover.anchor}
           peerOfds={peerOfds}
-          onPick={(peer, cores) => addRoute(peer, cores)}
+          onPick={(peer, cores, categoryId) => addRoute(peer, cores, categoryId)}
           onCancel={() => setPopover(null)}
         />
       )}
