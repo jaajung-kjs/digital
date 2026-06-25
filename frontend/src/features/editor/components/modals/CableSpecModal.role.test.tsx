@@ -34,7 +34,7 @@ describe('distributor 끝점 IN/OUT 지정', () => {
 
   it('distributor target 끝점에 role=OUT 이 실리면 targetRole=OUT, sourceRole=null', () => {
     const ix = useInteractionStore.getState();
-    ix.cableActivate({ category: { id: 'cat-pw', code: 'PW', name: '전력', displayColor: '#ef4444' } });
+    ix.cableActivate({ category: { id: 'cat-pw', name: '전력' } });
     ix.cableSetSource({ containerAssetId: 'rack-1', position: { x: 0, y: 0 } });
     // distributor 끝점(피더) → 피커가 role='OUT' 을 실어 보낸다.
     ix.cableSetTarget({ containerAssetId: 'panel-1', position: { x: 10, y: 10 }, innerAssetId: 'F1', role: 'OUT' });
@@ -56,7 +56,7 @@ describe('conduit(슬롯) 끝점 OUT 코어 케이블(P6)', () => {
 
   it('설비→슬롯(conduit) 드로잉 — slot 끝 role=OUT, number=코어번호, fiberPathId/fiberPortNumber 없음(P7), source role null', () => {
     const ix = useInteractionStore.getState();
-    ix.cableActivate({ category: { id: 'cat-pw', code: 'PW', name: '전력', displayColor: '#ef4444' } });
+    ix.cableActivate({ category: { id: 'cat-pw', name: '전력' } });
     ix.cableSetSource({ containerAssetId: 'eq-1', position: { x: 0, y: 0 } });
     // OFD 드롭 흐름: containerAssetId = OFD equipment id, slotId/coreNumber/role 은
     // EndpointRef 채널. endpointAssetId() 가 slotId 를 endpoint 로 해소.

@@ -36,7 +36,7 @@ describe('피더 케이블 endpoint = 피더 asset id', () => {
 
   it('통신랙 → 전원 계통(F1) 케이블 → targetAssetId = F1 (단일 assetId)', () => {
     const ix = useInteractionStore.getState();
-    ix.cableActivate({ category: { id: 'cat-lan', code: 'LAN', name: 'UTP', displayColor: '#3b82f6' } });
+    ix.cableActivate({ category: { id: 'cat-lan', name: 'UTP' } });
     // source = 통신랙(설비).
     ix.cableSetSource({ containerAssetId: 'rack-1', position: { x: 0, y: 0 } });
     // target = 피더 asset (picker 가 innerAssetId 채널로 feeder id 전달).

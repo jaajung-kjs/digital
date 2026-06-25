@@ -40,7 +40,7 @@ const TS = '2026-06-05T00:00:00.000Z';
 // working copy 가 로드하는 풀 Asset — 인스펙터 fieldTemplate 로 '모델' 인풋을 렌더.
 const wcAsset = {
   id: 'a1', substationId: 's1', assetTypeId: 't1',
-  assetType: { id: 't1', code: 'RACK', name: '랙', group: null, displayColor: null, fieldTemplate: [{ key: 'model', label: '모델', type: 'text' }] },
+  assetType: { id: 't1', name: '랙', group: null },
   name: '랙01', parentAssetId: null, slotIndex: null, floorId: null, roomText: null,
  installDate: '2024-01-01', warrantyUntil: null, replaceDue: null,
   manager: '홍길동', description: null, status: '정상', sortOrder: 0, updatedAt: TS,

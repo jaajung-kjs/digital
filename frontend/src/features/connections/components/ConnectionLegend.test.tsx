@@ -9,14 +9,14 @@ vi.mock('../../editor/stores/editorStore', () => ({
 }));
 vi.mock('../../cables/hooks/useCableGroups', () => ({
   useCableGroups: () => ({ data: [
-    { id: 'gP', name: '전원', color: '#ef4444', sortOrder: 0, isActive: true },
-    { id: 'gO', name: '광', color: '#22c55e', sortOrder: 1, isActive: true },
+    { id: 'gP', name: '전원', color: '#ef4444', sortOrder: 0 },
+    { id: 'gO', name: '광', color: '#22c55e', sortOrder: 1 },
   ] }),
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({
   useCableCategories: () => ({ data: [
-    { id: 'catP', name: 'FR', groupId: 'gP', isActive: true },
-    { id: 'catO', name: 'OPGW', groupId: 'gO', isActive: true },
+    { id: 'catP', name: 'FR', groupId: 'gP' },
+    { id: 'catO', name: 'OPGW', groupId: 'gO' },
   ] }),
 }));
 

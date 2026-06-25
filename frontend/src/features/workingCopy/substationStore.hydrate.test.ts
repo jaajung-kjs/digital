@@ -4,7 +4,7 @@ import type { SlimAssetDTO } from '../trace/traceGraph';
 
 const lite = (over: Partial<SlimAssetDTO> = {}): SlimAssetDTO => ({
   id: 'a1', name: 'OFD', substationId: 's1', substationName: '춘천',
-  parentAssetId: null, role: 'ofd', code: 'OFD', slotIndex: null, ...over,
+  parentAssetId: null, role: 'ofd', slotIndex: null, ...over,
 });
 
 describe('hydrateGlobal (전역 단일 SSOT hydration)', () => {

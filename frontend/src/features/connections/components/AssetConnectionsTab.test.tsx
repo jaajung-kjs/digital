@@ -8,8 +8,8 @@ const { setSelectedComponent, selection } = vi.hoisted(() => ({
 
 // 명세 리스트는 effective assets + trace graph + 카테고리에서 파생.
 const assets = [
-  { id: 'dev', name: '송변전광단말', parentAssetId: null, assetType: { code: null, role: 'device' } },
-  { id: 'slot', name: 'OFD슬롯3', parentAssetId: 'ofd', assetType: { code: null, role: 'slot' } },
+  { id: 'dev', name: '송변전광단말', parentAssetId: null, assetType: { role: 'device' } },
+  { id: 'slot', name: 'OFD슬롯3', parentAssetId: 'ofd', assetType: { role: 'slot' } },
 ];
 const cables = [
   { id: 'core1', sourceAssetId: 'slot', targetAssetId: 'dev', sourceRole: 'OUT', targetRole: null, number: 1, categoryId: 'c-fiber' },
@@ -31,7 +31,7 @@ vi.mock('../../trace/traceGraph', () => ({
   remoteSlotSubstation: () => null,
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({
-  useCableCategories: () => ({ data: [{ id: 'c-fiber', name: '광점퍼', groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e', isActive: true }] }),
+  useCableCategories: () => ({ data: [{ id: 'c-fiber', name: '광점퍼', groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e' }] }),
 }));
 // CableInspector 는 별도 단위 — 여기선 리스트/선택만 검증하므로 스텁.
 vi.mock('../../cables/components/CableInspector', () => ({

@@ -11,7 +11,7 @@ const { onPick, pickState, startCableConnection, gotoAsset } = vi.hoisted(() => 
 const SLOT = 'slotA';
 const TWIN = 'slotB';
 const OFD = 'ofd1';
-const SLOT_ASSET = { id: SLOT, name: '슬롯A', parentAssetId: OFD, assetType: { role: 'slot', code: 'OFD-SLOT' } };
+const SLOT_ASSET = { id: SLOT, name: '슬롯A', parentAssetId: OFD, assetType: { role: 'slot' } };
 const opgw = { id: 'opgw', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
 const localOut3 = { id: 'c-l3', sourceAssetId: 'eqpL', targetAssetId: SLOT, sourceRole: null, targetRole: 'OUT', number: 3 };
 

@@ -12,7 +12,7 @@ function asset(id: string, over: Partial<Asset> = {}): Asset {
     id,
     substationId: 'sub-1',
     assetTypeId: 'at-1',
-    assetType: { id: 'at-1', code: 'RACK', name: '랙', group: null, displayColor: null, fieldTemplate: null },
+    assetType: { id: 'at-1', name: '랙', group: null },
     name: id,
     parentAssetId: null,
     floorId: FLOOR,

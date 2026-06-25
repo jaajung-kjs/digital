@@ -11,8 +11,8 @@ describe('cableDtoToLocal — 단일 assetId 매핑', () => {
     id: 'cable-1',
     sourceAssetId: 'branch-B1',
     targetAssetId: 'rack-mod-M1',
-    source: { assetId: 'branch-B1', name: 'F1/L1', kind: null, floorId: 'f1' },
-    target: { assetId: 'rack-mod-M1', name: 'SW1', kind: null, floorId: 'f1' },
+    source: { assetId: 'branch-B1', name: 'F1/L1', floorId: 'f1' },
+    target: { assetId: 'rack-mod-M1', name: 'SW1', floorId: 'f1' },
   };
 
   it('flat precise id = assetId, module/circuit id 는 null', () => {

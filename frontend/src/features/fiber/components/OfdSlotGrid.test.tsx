@@ -19,7 +19,7 @@ const OPGW_ID = 'opgw1';
 
 const SLOT_ASSET = {
   id: SLOT_ID, name: '슬롯A', parentAssetId: OFD_ID, substationId: 's1',
-  assetType: { code: 'OFD-SLOT', role: 'slot' },
+  assetType: { role: 'slot' },
 };
 const OFD_ASSET = {
   id: OFD_ID, name: '원주OFD', substationId: 's1',
@@ -35,10 +35,10 @@ const OPGW_CABLE = {
   specParams: { cores: 48 },
 };
 
-const SLIM_LOCAL = { id: OFD_ID, name: '원주OFD', code: 'OFD', substationId: 's1', substationName: '원주변전소', parentAssetId: null, role: 'ofd' };
-const SLIM_REMOTE = { id: REMOTE_OFD_ID, name: '홍천OFD', code: 'OFD', substationId: 's2', substationName: '홍천변전소', parentAssetId: null, role: 'ofd' };
+const SLIM_LOCAL = { id: OFD_ID, name: '원주OFD', substationId: 's1', substationName: '원주변전소', parentAssetId: null, role: 'ofd' };
+const SLIM_REMOTE = { id: REMOTE_OFD_ID, name: '홍천OFD', substationId: 's2', substationName: '홍천변전소', parentAssetId: null, role: 'ofd' };
 
-const OPGW_CAT = { id: 'cat-opgw', code: 'CBL-OPGW', name: 'OPGW', displayColor: null, groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e', isActive: true };
+const OPGW_CAT = { id: 'cat-opgw', name: 'OPGW', groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e' };
 
 // ── vi.mock declarations ──────────────────────────────────────────────────────
 vi.mock('../../workingCopy/hooks', () => ({
