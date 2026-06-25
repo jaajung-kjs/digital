@@ -4,7 +4,6 @@ import { ConflictError, NotFoundError } from '../utils/errors.js';
 
 export interface CreateAssetTypeInput {
   name: string;
-  code?: string;
   categoryId?: string | null;
   displayColor?: string | null;
   defaultSlotSpan?: number;
@@ -22,7 +21,6 @@ export interface UpdateAssetTypeInput {
 
 export interface AssetTypeDetail {
   id: string;
-  code: string;
   name: string;
   role: string;
   categoryId: string | null;
@@ -41,7 +39,7 @@ export interface AssetTypeDetail {
 
 class AssetTypeService {
   private mapToDetail(t: {
-    id: string; code: string; name: string;
+    id: string; name: string;
     role: string; categoryId: string | null;
     isContainer: boolean; fieldTemplate: unknown; requiredToCreate: unknown;
     iconName: string | null; displayColor: string | null;
@@ -52,7 +50,7 @@ class AssetTypeService {
     relocateHoursPerUnit?: number | null;
   }): AssetTypeDetail {
     return {
-      id: t.id, code: t.code, name: t.name,
+      id: t.id, name: t.name,
       role: t.role, categoryId: t.categoryId ?? null,
       isContainer: t.isContainer, fieldTemplate: t.fieldTemplate ?? null,
       requiredToCreate: t.requiredToCreate ?? null, iconName: t.iconName,
@@ -68,7 +66,7 @@ class AssetTypeService {
   async getAll(): Promise<AssetTypeDetail[]> {
     const rows = await prisma.assetType.findMany({
       where: { isActive: true },
-      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return rows.map((r) => this.mapToDetail(r));
   }
@@ -91,9 +89,8 @@ class AssetTypeService {
   }
 
   async create(input: CreateAssetTypeInput): Promise<AssetTypeDetail> {
-    const code = input.code?.trim() || (await this.generateCode());
-    const dup = await prisma.assetType.findUnique({ where: { code } });
-    if (dup) throw new ConflictError(`이미 존재하는 코드입니다: ${code}`);
+    // code 컬럼은 @unique NOT NULL (S5 드롭 전까지 유지) — 내부 MOD-UUID 생성해서 기록.
+    const code = await this.generateCode();
     // 미지정 시 device 타입 끝에 붙도록 sortOrder 자동 부여.
     const last = await prisma.assetType.aggregate({ _max: { sortOrder: true } });
     const row = await prisma.assetType.create({

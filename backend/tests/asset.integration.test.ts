@@ -36,7 +36,7 @@ describe('Asset API 통합 테스트', () => {
     branchId = branch.id;
     const sub = await prisma.substation.create({ data: { name: '__test_sub__', branchId: branch.id } });
     substationId = sub.id;
-    const pitr = await prisma.assetType.findUniqueOrThrow({ where: { code: 'PITR-2000' } });
+    const pitr = await prisma.assetType.findFirstOrThrow({ where: { name: 'PITR-2000' } });
     pitrTypeId = pitr.id;
 
     // 자산 쓰기는 unified commit 으로만 가능 — read 테스트용 fixture 는 prisma 로 직접 시드한다.
@@ -56,7 +56,7 @@ describe('Asset API 통합 테스트', () => {
 
   it('GET /api/asset-types 는 인증 시 시드된 종류를 반환', async () => {
     const res = await request(app).get('/api/asset-types').set('Authorization', `Bearer ${adminToken}`).expect(200);
-    expect(res.body.data.some((t: any) => t.code === 'PITR-2000')).toBe(true);
+    expect(res.body.data.some((t: any) => t.name === 'PITR-2000')).toBe(true);
   });
 
   it('GET /api/asset-types 는 인증 없이 401', async () => {

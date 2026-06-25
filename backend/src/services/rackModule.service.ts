@@ -9,7 +9,6 @@ export interface RackModuleDetail {
   id: string;
   rackEquipmentId: string;
   categoryId: string;
-  categoryCode: string | null;
   categoryName: string | null;
   categoryDisplayColor: string | null;
   categoryDefaultSlotSpan: number;

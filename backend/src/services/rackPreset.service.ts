@@ -8,7 +8,7 @@ import { RACK_SLOT_COUNT } from './rackModule.service.js';
 export interface RackPresetModule {
   slotIndex: number;
   slotSpan: number;
-  categoryCode: string;
+  categoryId: string;
   defaultName: string | null;
 }
 
@@ -30,7 +30,7 @@ export interface RackPresetDetail {
 export interface RackPresetModuleInput {
   slotIndex: number;
   slotSpan: number;
-  categoryCode: string;
+  categoryId: string;
   defaultName?: string | null;
 }
 
@@ -63,7 +63,7 @@ export interface UpdateRackPresetInput {
  * - slotIndex >= 0, slotSpan >= 1
  * - slotIndex + slotSpan - 1 < RACK_SLOT_COUNT (0-based slots; fixed 12-slot grid)
  * - no slot collisions among modules
- * - every categoryCode resolves to an existing AssetType (모듈 타입 카탈로그)
+ * - every categoryId resolves to an existing AssetType (모듈 타입 카탈로그)
  *
  * NOTE: totalU is accepted for API signature stability but is NOT used for
  * bounds validation — the display grid is always RACK_SLOT_COUNT (12) slots.
@@ -85,13 +85,13 @@ async function validatePresetModules(
     const endSlot = m.slotIndex + m.slotSpan - 1;
     if (endSlot >= RACK_SLOT_COUNT) {
       throw new ValidationError(
-        `프리셋 모듈 ${m.categoryCode} 가 슬롯 ${RACK_SLOT_COUNT - 1} 를 초과합니다 (slot ${m.slotIndex}-${endSlot}).`,
+        `프리셋 모듈 categoryId "${m.categoryId}" 가 슬롯 ${RACK_SLOT_COUNT - 1} 를 초과합니다 (slot ${m.slotIndex}-${endSlot}).`,
       );
     }
     normalized.push({
       slotIndex: m.slotIndex,
       slotSpan: m.slotSpan,
-      categoryCode: m.categoryCode,
+      categoryId: m.categoryId,
       defaultName: m.defaultName ?? null,
     });
   }
@@ -105,22 +105,22 @@ async function validatePresetModules(
     if (aEnd >= b.slotIndex) {
       const bEnd = b.slotIndex + b.slotSpan - 1;
       throw new ConflictError(
-        `프리셋 모듈 슬롯 충돌: ${a.categoryCode} (slot ${a.slotIndex}-${aEnd}) ↔ ${b.categoryCode} (slot ${b.slotIndex}-${bEnd}).`,
+        `프리셋 모듈 슬롯 충돌: categoryId ${a.categoryId} (slot ${a.slotIndex}-${aEnd}) ↔ categoryId ${b.categoryId} (slot ${b.slotIndex}-${bEnd}).`,
       );
     }
   }
 
-  // 카테고리(=AssetType) 존재 확인. categoryCode 는 AssetType.code 와 동일.
-  const codes = Array.from(new Set(normalized.map((m) => m.categoryCode)));
+  // 카테고리(=AssetType) 존재 확인. categoryId 는 AssetType.id.
+  const ids = Array.from(new Set(normalized.map((m) => m.categoryId)));
   const existing = await prisma.assetType.findMany({
-    where: { code: { in: codes } },
-    select: { code: true },
+    where: { id: { in: ids } },
+    select: { id: true },
   });
-  const existingCodes = new Set(existing.map((c) => c.code));
-  for (const code of codes) {
-    if (!existingCodes.has(code)) {
+  const existingIds = new Set(existing.map((c) => c.id));
+  for (const id of ids) {
+    if (!existingIds.has(id)) {
       throw new ValidationError(
-        `프리셋 모듈 categoryCode "${code}" 가 AssetType 에 존재하지 않습니다.`,
+        `프리셋 모듈 categoryId "${id}" 가 AssetType 에 존재하지 않습니다.`,
       );
     }
   }
@@ -159,7 +159,7 @@ class RackPresetService {
     const modules: RackPresetModule[] = rawModules.map((m) => ({
       slotIndex: Number(m.slotIndex ?? 0),
       slotSpan: Number(m.slotSpan ?? 1),
-      categoryCode: String(m.categoryCode ?? ''),
+      categoryId: String(m.categoryId ?? ''),
       defaultName: m.defaultName == null ? null : String(m.defaultName),
     }));
     return {
@@ -261,7 +261,7 @@ class RackPresetService {
       ).map((m) => ({
         slotIndex: Number(m.slotIndex ?? 0),
         slotSpan: Number(m.slotSpan ?? 1),
-        categoryCode: String(m.categoryCode ?? ''),
+        categoryId: String(m.categoryId ?? ''),
         defaultName: m.defaultName == null ? null : String(m.defaultName),
       })) as RackPresetModuleInput[];
       validatedModules = await validatePresetModules(currentModules, newTotalU);

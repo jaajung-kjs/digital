@@ -5,7 +5,6 @@ import { NotFoundError } from '../utils/errors.js';
 
 export interface RackModuleCategoryDetail {
   id: string;
-  code: string;
   name: string;
   description: string | null;
   displayColor: string | null;
@@ -23,7 +22,6 @@ class RackModuleCategoryService {
   // AssetType 에는 description 컬럼이 없어 null 로 채운다.
   private mapToDetail(t: {
     id: string;
-    code: string;
     name: string;
     displayColor: string | null;
     defaultSlotSpan: number;
@@ -34,7 +32,6 @@ class RackModuleCategoryService {
   }): RackModuleCategoryDetail {
     return {
       id: t.id,
-      code: t.code,
       name: t.name,
       description: null,
       displayColor: t.displayColor,
@@ -49,7 +46,7 @@ class RackModuleCategoryService {
   async getAll(): Promise<RackModuleCategoryDetail[]> {
     const types = await prisma.assetType.findMany({
       where: { isActive: true, role: 'device' },
-      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return types.map((t) => this.mapToDetail(t));
   }
