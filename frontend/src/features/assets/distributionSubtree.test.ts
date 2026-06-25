@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { feedersOfPanel, buildSubtreeAsset } from './distributionSubtree';
-import { resolveAssetDetailKind } from '../equipment/components/detail/panels/resolveAssetDetailKind';
+import { resolveAssetDetailKind } from './components/detail/panels/resolveAssetDetailKind';
 import type { Asset, AssetType } from '../../types/asset';
 
 // 분전반(role=panel) → 피더(role=feeder) 계층 (피더-직접). 케이블은 피더로 직접 그려진다.

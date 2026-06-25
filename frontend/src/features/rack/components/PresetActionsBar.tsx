@@ -22,7 +22,7 @@ interface PresetActionsBarProps {
  *  └──────────────────────────────────────────────────┘
  *
  * Lifecycle:
- *   부모 (RackEquipmentPanel) 가 `key={equipmentId}` 로 랙 전환 시 이 컴포넌트를
+ *   부모 (RackAssetPanel) 가 `key={equipmentId}` 로 랙 전환 시 이 컴포넌트를
  *   강제 remount 시킴. → useState 의 lazy init 이 매번 새 랙의 rack.properties.
  *   sourcePresetId 를 다시 읽어 드롭다운 초기값으로 잡힘. 동기화 useEffect 같은
  *   안전망이 필요 없음 (마운트 자체가 동기화).
@@ -56,7 +56,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const existingModuleCount = rackModules.length;
 
   // 랙 진입 시점의 source preset 을 그대로 드롭다운 초기값으로 잡는다.
-  // RackEquipmentPanel 의 key={equipmentId} 가 매 랙마다 이 컴포넌트를 remount
+  // RackAssetPanel 의 key={equipmentId} 가 매 랙마다 이 컴포넌트를 remount
   // 시키므로 lazy init 이 fresh rack 으로 매번 실행됨 (sync useEffect 불필요).
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(
     () => readSourcePresetId(rackEquipment),

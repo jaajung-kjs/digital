@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../../../workingCopy/hooks';
-import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
+import { useAssetTypes } from '../../../hooks/useAssetTypes';
 import { useSelectionStore } from '../../../../workspace/selectionStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
-import { feedersOfPanel, buildSubtreeAsset } from '../../../../assets/distributionSubtree';
+import { feedersOfPanel, buildSubtreeAsset } from '../../../distributionSubtree';
 import { buildFeederCircuits, feederGridSlots, type FeederCircuit } from '../../../../power/feederCircuits';
 import { useTraceGraph } from '../../../../trace/traceGraph';
 

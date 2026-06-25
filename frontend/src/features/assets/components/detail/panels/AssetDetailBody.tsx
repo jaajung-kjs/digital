@@ -1,12 +1,12 @@
 import { useMemo, type ReactNode } from 'react';
 import type { Asset } from '../../../../../types/asset';
 import type { DetailPanelKind } from '../../../../../types/equipmentKind';
-import { useAsset } from '../../../../assets/hooks/useAsset';
+import { useAsset } from '../../../hooks/useAsset';
 import { useSelection } from '../../../../workspace/SelectionContext';
 import { useWorkspaceNav } from '../../../../workspace/WorkspaceNavContext';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../../../workingCopy/hooks';
-import { AssetInspector } from '../../../../assets/components/AssetInspector';
+import { AssetInspector } from '../../AssetInspector';
 import { resolveSpatialSection } from './resolveSpatialSection';
 
 interface Props {

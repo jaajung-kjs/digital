@@ -85,7 +85,7 @@ vi.mock('../stores/editorStore', () => {
 });
 
 // 내부뷰는 단순 마커로 대체 — 셸만 검증.
-vi.mock('../../equipment/components/detail/panels/resolveSpatialSection', () => ({
+vi.mock('../../assets/components/detail/panels/resolveSpatialSection', () => ({
   resolveSpatialSection: (_kind: string, id: string) => ({
     label: '회로',
     node: <div data-testid="spatial-view">분전반 내부뷰 {id}</div>,

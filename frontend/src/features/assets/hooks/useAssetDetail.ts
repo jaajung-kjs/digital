@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../../../../utils/api';
-import { isTempId } from '../../../../../utils/idHelpers';
-import { useEffectiveAssets } from '../../../../workingCopy/hooks';
-import { isFloorPlaced } from '../../../../workingCopy/floorAnchor';
-import type { EquipmentDetail } from '../types';
+import { api } from '../../../utils/api';
+import { isTempId } from '../../../utils/idHelpers';
+import { useEffectiveAssets } from '../../workingCopy/hooks';
+import { isFloorPlaced } from '../../workingCopy/floorAnchor';
+import type { AssetDetailView } from '../components/detail/types';
 
 type AssetDetailResponse = {
   id: string;
@@ -13,10 +13,10 @@ type AssetDetailResponse = {
   installDate?: string | null;
 };
 
-function useEquipmentDetail(equipmentId: string, enabled = true) {
+function useAssetDetail(equipmentId: string, enabled = true) {
   const isTemp = isTempId(equipmentId);
   return useQuery({
-    queryKey: ['equipment-detail', equipmentId],
+    queryKey: ['asset-detail', equipmentId],
     queryFn: async () => {
       const { data } = await api.get<{ data: AssetDetailResponse }>(`/assets/${equipmentId}`);
       return data.data;
@@ -26,8 +26,8 @@ function useEquipmentDetail(equipmentId: string, enabled = true) {
   });
 }
 
-export function useMergedEquipmentDetail(equipmentId: string): {
-  equipment: EquipmentDetail | null;
+export function useMergedAssetDetail(equipmentId: string): {
+  equipment: AssetDetailView | null;
   isLoading: boolean;
   error: unknown;
 } {
@@ -39,7 +39,7 @@ export function useMergedEquipmentDetail(equipmentId: string): {
   // effective 에 아직 없으면(미상) fetch 허용 — 배치 설비가 로드 전일 수 있음.
   const selfAsset = effectiveAssets.find((a) => a.id === equipmentId);
   const fetchEnabled = !selfAsset || isFloorPlaced(selfAsset);
-  const { data: backendData, isLoading, error } = useEquipmentDetail(equipmentId, fetchEnabled);
+  const { data: backendData, isLoading, error } = useAssetDetail(equipmentId, fetchEnabled);
 
   const localEq = effectiveAssets.find((a) => a.id === equipmentId);
   if (!localEq) {
@@ -49,7 +49,7 @@ export function useMergedEquipmentDetail(equipmentId: string): {
   const pick = <T,>(localVal: T | undefined | null, backendVal: T | undefined | null): T | null =>
     localVal !== undefined ? (localVal ?? null) : (backendVal ?? null);
 
-  const equipment: EquipmentDetail = {
+  const equipment: AssetDetailView = {
     id: localEq.id,
     name: localEq.name,
     manager: pick(localEq.manager, backendData?.manager),

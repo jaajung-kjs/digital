@@ -1,4 +1,4 @@
-export interface EquipmentDetail {
+export interface AssetDetailView {
   id: string;
   name: string;
   manager?: string | null;

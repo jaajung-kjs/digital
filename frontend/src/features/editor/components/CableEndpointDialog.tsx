@@ -6,8 +6,8 @@ import { toMapById } from '../../../utils/byId';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useCableDrawing } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
-import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
-import { resolveSpatialSection } from '../../equipment/components/detail/panels/resolveSpatialSection';
+import { resolveAssetDetailKind } from '../../assets/components/detail/panels/resolveAssetDetailKind';
+import { resolveSpatialSection } from '../../assets/components/detail/panels/resolveSpatialSection';
 import type { Asset } from '../../../types/asset';
 
 interface Crumb {

@@ -7,7 +7,7 @@ import { EditableField } from './EditableField';
 import { DetailTabs } from './detail/DetailTabs';
 import { AssetPhotoSection } from './AssetPhotoSection';
 import { InspectionSection } from './detail/InspectionSection';
-import { LogsTab } from '../../equipment/components/detail/LogsTab';
+import { LogsTab } from './detail/LogsTab';
 import { AssetConnectionsTab } from '../../connections/components/AssetConnectionsTab';
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { statusIsOn } from '../nodeStatus';

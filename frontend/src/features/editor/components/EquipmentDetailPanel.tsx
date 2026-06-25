@@ -2,10 +2,10 @@ import { useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { useEffectiveAssets, useEffectiveEquipment } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
-import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
+import { useMergedAssetDetail } from '../../assets/hooks/useAssetDetail';
 import { type DetailPanelKind } from '../../../types/equipmentKind';
 import { AssetDetailPanel } from '../../assets/components/AssetDetailPanel';
-import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
+import { resolveAssetDetailKind } from '../../assets/components/detail/panels/resolveAssetDetailKind';
 
 interface EquipmentDetailPanelProps {
   equipmentId: string;
@@ -26,7 +26,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
   // 케이블 더블클릭 등에서 지정한 진입 탭(예: '연결'). bodyKey(focusTick) 로 본문이 remount 되며 적용.
   const detailInitialTab = useEditorStore((s) => s.detailInitialTab);
   const isTemp = isTempId(equipmentId);
-  const { equipment, isLoading } = useMergedEquipmentDetail(equipmentId);
+  const { equipment, isLoading } = useMergedAssetDetail(equipmentId);
 
   // 통합 스토어 effective 에서 헤더 정보를 읽는다.
   const effectiveEquipment = useEffectiveEquipment(floorId);

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { DetailPanelKind } from '../../../../../types/equipmentKind';
-import { RackInternal } from './RackEquipmentPanel';
-import { OfdPathsView } from './OfdEquipmentPanel';
+import { RackInternal } from './RackAssetPanel';
+import { OfdPathsView } from './OfdAssetPanel';
 import { DistributionCircuits } from './DistributionPanel';
 import { SlotPortsPanel } from '../../../../fiber/components/SlotPortsPanel';
 import { FeederCircuitsPanel } from '../../../../power/components/FeederCircuitsPanel';
