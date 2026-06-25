@@ -12,7 +12,7 @@ interface MulterRequest extends Request {
  * POST /api/uploads/photo — 사진 바이너리 선업로드.
  *
  * DB 행은 만들지 않고 저장 경로(imageUrl)만 반환한다. 통합 커밋(POST /substations/:id/commit)이
- * 이 imageUrl 로 equipmentPhoto 행을 트랜잭션 안에서 생성한다 — 사진까지 단일 원자 쓰기 경로.
+ * 이 imageUrl 로 assetPhoto 행을 트랜잭션 안에서 생성한다 — 사진까지 단일 원자 쓰기 경로.
  * (바이너리만 트랜잭션 밖. 커밋 실패 시 업로드 파일은 고아가 될 수 있으나 데이터 정합성엔 무해.)
  */
 router.post(

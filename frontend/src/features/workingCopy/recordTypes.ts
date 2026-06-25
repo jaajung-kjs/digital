@@ -56,7 +56,7 @@ export interface FormListConfig {
 // 참조하는 표현 로직(현황 점검일·사진 갤러리)용 가독성 별칭 — 구조 정의가 아니라 DB 테이블명.
 export const INSPECTIONS = 'inspection_logs';
 export const LOGS = 'maintenance_logs';
-export const PHOTOS = 'equipment_photos';
+export const PHOTOS = 'asset_photos';
 
 export interface RecordTypeDef {
   /** 레코드 종류 식별자 = record.recordType = DB 테이블명. */

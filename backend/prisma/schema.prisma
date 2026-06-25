@@ -270,7 +270,7 @@ enum AssetRole {
 
 // ==================== 설비 사진 ====================
 
-model EquipmentPhoto {
+model AssetPhoto {
   id          String    @id @default(uuid())
   assetId String    @map("asset_id")
   side        String    @db.VarChar(10) // 'front' | 'rear'
@@ -279,9 +279,9 @@ model EquipmentPhoto {
   takenAt     DateTime? @map("taken_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  equipment Asset @relation("EquipmentPhotoAsset", fields: [assetId], references: [id], onDelete: Cascade)
+  asset Asset @relation("AssetPhotoAsset", fields: [assetId], references: [id], onDelete: Cascade)
 
-  @@map("equipment_photos")
+  @@map("asset_photos")
 }
 
 // ==================== 유지보수 이력 ====================
@@ -304,7 +304,7 @@ model MaintenanceLog {
   createdById String?   @map("created_by")
   updatedById String?   @map("updated_by")
 
-  equipment Asset @relation("MaintenanceLogAsset", fields: [assetId], references: [id], onDelete: Cascade)
+  asset Asset @relation("MaintenanceLogAsset", fields: [assetId], references: [id], onDelete: Cascade)
   createdBy User? @relation("MaintenanceLogCreatedBy", fields: [createdById], references: [id])
   updatedBy User? @relation("MaintenanceLogUpdatedBy", fields: [updatedById], references: [id])
 
@@ -439,7 +439,7 @@ model Asset {
   targetCablesAsset Cable[]          @relation("CableTargetAsset")
   maintenanceLogs   MaintenanceLog[] @relation("MaintenanceLogAsset")
   inspectionLogs    InspectionLog[]  @relation("InspectionLogAsset")
-  photos            EquipmentPhoto[] @relation("EquipmentPhotoAsset")
+  photos            AssetPhoto[] @relation("AssetPhotoAsset")
 
   @@index([substationId])
   @@index([assetTypeId])

@@ -46,7 +46,7 @@ interface RecordDelegate {
   update: (a: unknown) => Promise<unknown>;
   deleteMany: (a: unknown) => Promise<unknown>;
 }
-/** prisma 트랜잭션에서 모델 델리게이트를 이름으로 동적 접근(inspectionLog/maintenanceLog/equipmentPhoto…). */
+/** prisma 트랜잭션에서 모델 델리게이트를 이름으로 동적 접근(inspectionLog/maintenanceLog/assetPhoto…). */
 function recordDelegate(tx: Tx, delegate: string): RecordDelegate {
   return (tx as unknown as Record<string, RecordDelegate>)[delegate];
 }
