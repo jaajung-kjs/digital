@@ -1,46 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { equipmentService } from '../services/equipment.service.js';
-import type { EquipmentKind } from '../services/equipment.service.js';
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
 
-const VALID_KINDS = new Set(['RACK', 'OFD', 'DISTRIBUTION', 'GROUNDING', 'HVAC']);
-
 export const equipmentController = {
   /**
    * GET /api/equipment
-   * 설비 목록 조회 (kind 필터 지원)
-   *
-   *   ?kind=OFD                       ← preferred (P6+)
-   *   ?materialCategoryCode=EQP-OFD   ← legacy alias mapped via prefix
-   *   ?category=OFD                   ← legacy alias
+   * 도면에 배치된 top-level 설비 목록 조회
    */
-  async getAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAll(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const explicitKind = (req.query.kind as string | undefined)?.toUpperCase();
-      const legacyCode = (req.query.materialCategoryCode as string | undefined)?.toUpperCase();
-      const legacyCategory = (req.query.category as string | undefined)?.toUpperCase();
-
-      let kind: EquipmentKind | undefined;
-      if (explicitKind && VALID_KINDS.has(explicitKind)) {
-        kind = explicitKind as EquipmentKind;
-      } else if (legacyCode === 'EQP-OFD') {
-        kind = 'OFD' as EquipmentKind;
-      } else if (legacyCode === 'EQP-RACK' || legacyCode?.startsWith('EQP-RACK-')) {
-        kind = 'RACK' as EquipmentKind;
-      } else if (legacyCode === 'EQP-DIST') {
-        kind = 'DISTRIBUTION' as EquipmentKind;
-      } else if (legacyCode === 'EQP-GROUND') {
-        kind = 'GROUNDING' as EquipmentKind;
-      } else if (legacyCode === 'EQP-COOL') {
-        kind = 'HVAC' as EquipmentKind;
-      } else if (legacyCategory && VALID_KINDS.has(legacyCategory)) {
-        kind = legacyCategory as EquipmentKind;
-      }
-
-      const equipment = await equipmentService.getAll(kind ? { kind } : undefined);
+      const equipment = await equipmentService.getAll();
       res.json({ data: equipment });
     } catch (error) {
       next(error);

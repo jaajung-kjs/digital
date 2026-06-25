@@ -53,7 +53,7 @@ class RackModuleStatsService {
       by: ['assetTypeId'],
       where: {
         parentAssetId: { not: null },
-        parent: { assetType: { placementKind: 'RACK' }, floorId: { in: floorIds } },
+        parent: { assetType: { role: 'rack' }, floorId: { in: floorIds } },
       },
       _count: { _all: true },
     });
@@ -145,7 +145,7 @@ class RackModuleStatsService {
     return prisma.asset.count({
       where: {
         parentAssetId: { not: null },
-        parent: { assetType: { placementKind: 'RACK' }, floorId: { in: floorIds } },
+        parent: { assetType: { role: 'rack' }, floorId: { in: floorIds } },
       },
     });
   }
@@ -168,7 +168,7 @@ class RackModuleStatsService {
               assetTypeId: categoryId,
               parentAssetId: { not: null },
               parent: {
-                assetType: { placementKind: 'RACK' },
+                assetType: { role: 'rack' },
                 floor: { substation: { branchId: b.id } },
               },
             },
@@ -194,7 +194,7 @@ class RackModuleStatsService {
               assetTypeId: categoryId,
               parentAssetId: { not: null },
               parent: {
-                assetType: { placementKind: 'RACK' },
+                assetType: { role: 'rack' },
                 floor: { substationId: s.id },
               },
             },
@@ -212,7 +212,7 @@ class RackModuleStatsService {
     const racks = await prisma.asset.findMany({
       where: {
         floor: { substationId: nodeId },
-        assetType: { placementKind: 'RACK' },
+        assetType: { role: 'rack' },
       },
       select: {
         id: true,
