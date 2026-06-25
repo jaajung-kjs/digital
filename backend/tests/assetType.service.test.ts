@@ -13,9 +13,9 @@ vi.mock('../src/config/prisma.js', () => ({
 }));
 
 const row = (over: Record<string, unknown> = {}) => ({
-  id: 'id1', code: 'RACK', name: '랙', group: '구조', role: 'rack', categoryId: 'c1',
+  id: 'id1', code: 'RACK', name: '랙', role: 'rack', categoryId: 'c1',
   isContainer: true, fieldTemplate: null, requiredToCreate: null, iconName: null,
-  displayColor: null, placementKind: 'RACK', connectionKind: null, sortOrder: 10, isActive: true,
+  displayColor: null, sortOrder: 10, isActive: true,
   ...over,
 });
 

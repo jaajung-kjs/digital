@@ -35,9 +35,9 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
     const sub = await prisma.substation.create({ data: { name: '__wc_sub__', branchId: br.id } }); subId = sub.id;
     const floor = await prisma.floor.create({ data: { substationId: subId, name: '__wc_floor__', createdById: userId, updatedById: userId } });
     floorId = floor.id;
-    typeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: null, isActive: true } })).id;
-    // 케이블 endpoint 가 될 수 있는 배치형(RACK/DIST/OFD 제외) — GROUNDING.
-    placementTypeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: 'GROUNDING', isActive: true } })).id;
+    typeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device', isActive: true } })).id;
+    // 케이블 endpoint 가 될 수 있는 독립형 — standalone(GROUNDING 등).
+    placementTypeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'standalone', isActive: true } })).id;
 
     // 배치 asset (positionX 세팅) — placement 컬럼 영속 확인용.
     const asset = await prisma.asset.create({

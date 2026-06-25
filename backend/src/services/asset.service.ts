@@ -8,7 +8,6 @@ export interface SlimAsset {
   substationId: string;
   substationName: string | null;
   parentAssetId: string | null;
-  connectionKind: 'distributor' | 'conduit' | null;
   code: string | null;
   role: string | null;
   /** OFD 내 슬롯 위치 — 경로슬롯 -N 순번 파생용(같은 대국 슬롯 정렬 기준). */
@@ -18,7 +17,7 @@ export interface SlimAsset {
 /** prisma asset row(assetType + substation 포함)을 trace 용 최소 필드로 좁힌다. 순수 함수. */
 export function toSlimAsset(a: {
   id: string; name: string; substationId: string; parentAssetId: string | null;
-  assetType: { code: string | null; connectionKind: string | null; role?: string | null };
+  assetType: { code: string | null; role?: string | null };
   substation?: { name: string | null } | null;
   slotIndex?: number | null;
 }): SlimAsset {
@@ -28,7 +27,6 @@ export function toSlimAsset(a: {
     substationId: a.substationId,
     substationName: a.substation?.name ?? null,
     parentAssetId: a.parentAssetId ?? null,
-    connectionKind: (a.assetType?.connectionKind ?? null) as SlimAsset['connectionKind'],
     code: a.assetType?.code ?? null,
     role: a.assetType?.role ?? null,
     slotIndex: a.slotIndex ?? null,
@@ -39,7 +37,7 @@ export interface AssetDetail {
   id: string;
   substationId: string;
   assetTypeId: string;
-  assetType: { id: string; code: string; name: string; group: string | null; displayColor: string | null; fieldTemplate: unknown | null };
+  assetType: { id: string; code: string; name: string; displayColor: string | null; fieldTemplate: unknown | null };
   name: string;
   parentAssetId: string | null;
   floorId: string | null;
@@ -57,7 +55,7 @@ export interface AssetDetail {
 
 const assetInclude = {
   assetType: {
-    select: { id: true, code: true, name: true, group: true, displayColor: true, fieldTemplate: true },
+    select: { id: true, code: true, name: true, displayColor: true, fieldTemplate: true },
   },
 } satisfies Prisma.AssetInclude;
 
@@ -106,7 +104,7 @@ class AssetService {
       id: a.id, substationId: a.substationId, assetTypeId: a.assetTypeId,
       assetType: {
         id: a.assetType.id, code: a.assetType.code, name: a.assetType.name,
-        group: a.assetType.group, displayColor: a.assetType.displayColor,
+        displayColor: a.assetType.displayColor,
         fieldTemplate: a.assetType.fieldTemplate ?? null,
       },
       name: a.name, parentAssetId: a.parentAssetId, floorId: a.floorId ?? null, roomText: a.roomText,
@@ -132,7 +130,7 @@ class AssetService {
     const rows = await prisma.asset.findMany({
       select: {
         id: true, name: true, substationId: true, parentAssetId: true, slotIndex: true,
-        assetType: { select: { code: true, connectionKind: true, role: true } },
+        assetType: { select: { code: true, role: true } },
         substation: { select: { name: true } },
       },
       orderBy: { createdAt: 'asc' },

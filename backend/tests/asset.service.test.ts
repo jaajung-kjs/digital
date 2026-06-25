@@ -10,7 +10,7 @@ vi.mock('../src/config/prisma.js', () => ({
   },
 }));
 
-const typeRel = { id: 't1', code: 'PITR', name: '계통보호전송장치', group: '통신', displayColor: '#6366f1', fieldTemplate: [] };
+const typeRel = { id: 't1', code: 'PITR', name: '계통보호전송장치', displayColor: '#6366f1', fieldTemplate: [] };
 
 describe('AssetService', () => {
   beforeEach(() => { vi.clearAllMocks(); });
@@ -33,7 +33,7 @@ describe('toSlimAsset role', () => {
   it('assetType.role 을 slim 에 싣는다', () => {
     const slim = toSlimAsset({
       id: 'a', name: 'OFD-1', substationId: 's', parentAssetId: null,
-      assetType: { code: 'OFD', connectionKind: null, role: 'ofd' } as any,
+      assetType: { code: 'OFD', role: 'ofd' } as any,
     });
     expect(slim.role).toBe('ofd');
   });

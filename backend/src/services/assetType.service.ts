@@ -5,11 +5,9 @@ import { ConflictError, NotFoundError } from '../utils/errors.js';
 export interface CreateAssetTypeInput {
   name: string;
   code?: string;
-  group?: string | null;
   categoryId?: string | null;
   displayColor?: string | null;
   defaultSlotSpan?: number;
-  placementKind?: string | null;
   isContainer?: boolean;
   sortOrder?: number;
 }
@@ -26,7 +24,6 @@ export interface AssetTypeDetail {
   id: string;
   code: string;
   name: string;
-  group: string | null;
   role: string;
   categoryId: string | null;
   isContainer: boolean;
@@ -34,8 +31,6 @@ export interface AssetTypeDetail {
   requiredToCreate: unknown | null;
   iconName: string | null;
   displayColor: string | null;
-  placementKind: string | null;
-  connectionKind: string | null;
   sortOrder: number;
   isActive: boolean;
   laborType: string | null;
@@ -46,11 +41,10 @@ export interface AssetTypeDetail {
 
 class AssetTypeService {
   private mapToDetail(t: {
-    id: string; code: string; name: string; group: string | null;
+    id: string; code: string; name: string;
     role: string; categoryId: string | null;
     isContainer: boolean; fieldTemplate: unknown; requiredToCreate: unknown;
-    iconName: string | null; displayColor: string | null; placementKind: string | null;
-    connectionKind: string | null;
+    iconName: string | null; displayColor: string | null;
     sortOrder: number; isActive: boolean;
     laborType?: string | null;
     installHoursPerUnit?: number | null;
@@ -58,12 +52,11 @@ class AssetTypeService {
     relocateHoursPerUnit?: number | null;
   }): AssetTypeDetail {
     return {
-      id: t.id, code: t.code, name: t.name, group: t.group,
+      id: t.id, code: t.code, name: t.name,
       role: t.role, categoryId: t.categoryId ?? null,
       isContainer: t.isContainer, fieldTemplate: t.fieldTemplate ?? null,
       requiredToCreate: t.requiredToCreate ?? null, iconName: t.iconName,
-      displayColor: t.displayColor, placementKind: t.placementKind ?? null,
-      connectionKind: t.connectionKind ?? null,
+      displayColor: t.displayColor,
       sortOrder: t.sortOrder, isActive: t.isActive,
       laborType: t.laborType ?? null,
       installHoursPerUnit: t.installHoursPerUnit ?? null,
@@ -101,18 +94,16 @@ class AssetTypeService {
     const code = input.code?.trim() || (await this.generateCode());
     const dup = await prisma.assetType.findUnique({ where: { code } });
     if (dup) throw new ConflictError(`이미 존재하는 코드입니다: ${code}`);
-    // 미지정 시 모듈/장치 타입(placementKind=null) 끝에 붙도록 sortOrder 자동 부여.
+    // 미지정 시 device 타입 끝에 붙도록 sortOrder 자동 부여.
     const last = await prisma.assetType.aggregate({ _max: { sortOrder: true } });
     const row = await prisma.assetType.create({
       data: {
         code,
         name: input.name.trim(),
-        group: input.group ?? null,
         role: 'device',
         categoryId: input.categoryId ?? null,
         displayColor: input.displayColor ?? null,
         defaultSlotSpan: input.defaultSlotSpan ?? 1,
-        placementKind: input.placementKind ?? null,
         isContainer: input.isContainer ?? false,
         sortOrder: input.sortOrder ?? (last._max.sortOrder ?? 0) + 1,
       },
