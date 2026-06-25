@@ -58,7 +58,7 @@ function buildFloorSection(ed: ReturnType<typeof useEditorStore.getState>): Floo
 
 // ── 사진 바이너리 선업로드 ────────────────────────────────────────────────────
 // 사진 레코드(recordType='photos')의 압축 File 을 커밋 직전에 업로드(/uploads/photo)해 imageUrl 을
-// 받는다. 그 imageUrl 을 통합 커밋의 records.creates 에 실어 equipmentPhoto 행을 트랜잭션 안에서
+// 받는다. 그 imageUrl 을 통합 커밋의 records.creates 에 실어 assetPhoto 행을 트랜잭션 안에서
 // 만든다 — 사진까지 단일 원자 쓰기 경로(바이너리만 트랜잭션 밖). 반환: 레코드 tempId → imageUrl.
 async function uploadStagedPhotos(
   recordsOverlay: Overlay<AssetRecord, Partial<AssetRecord>>,

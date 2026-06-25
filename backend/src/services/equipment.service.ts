@@ -35,7 +35,7 @@ class EquipmentService {
   /**
    * 배치된 top-level Asset → EquipmentDetail.
    * 과거 Equipment 테이블 전용 필드(frontImageUrl/rearImageUrl/height3d)는 Asset 에 없으므로
-   * null 로 채운다 (사진은 EquipmentPhoto 관계로 별도 관리됨).
+   * null 로 채운다 (사진은 AssetPhoto 관계로 별도 관리됨).
    */
   private mapToDetail(a: AssetWithType): EquipmentDetail {
     return {
@@ -103,8 +103,8 @@ class EquipmentService {
 
   /**
    * 전면/후면 이미지 갱신.
-   * Asset 모델엔 front/rearImageUrl 컬럼이 없다(사진은 EquipmentPhoto 관계). 호환을 위해
-   * Asset 존재만 검증하고 detail 을 반환한다. (실제 사진 관리는 EquipmentPhoto 서비스 담당)
+   * Asset 모델엔 front/rearImageUrl 컬럼이 없다(사진은 AssetPhoto 관계). 호환을 위해
+   * Asset 존재만 검증하고 detail 을 반환한다. (실제 사진 관리는 AssetPhoto 서비스 담당)
    */
   async updateImage(
     id: string,
