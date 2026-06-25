@@ -51,11 +51,8 @@ class SubstationService {
   /**
    * 변전소 목록 조회
    */
-  async getList(isActive?: boolean): Promise<SubstationListItem[]> {
-    const where = isActive !== undefined ? { isActive } : {};
-
+  async getList(): Promise<SubstationListItem[]> {
     const substations = await prisma.substation.findMany({
-      where,
       include: {
         _count: {
           select: { floors: true },

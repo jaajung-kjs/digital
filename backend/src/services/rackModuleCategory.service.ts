@@ -45,7 +45,7 @@ class RackModuleCategoryService {
 
   async getAll(): Promise<RackModuleCategoryDetail[]> {
     const types = await prisma.assetType.findMany({
-      where: { isActive: true, role: 'device' },
+      where: { role: 'device' },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return types.map((t) => this.mapToDetail(t));
@@ -53,7 +53,7 @@ class RackModuleCategoryService {
 
   async getById(id: string): Promise<RackModuleCategoryDetail> {
     const type = await prisma.assetType.findUnique({ where: { id } });
-    if (!type || type.role !== 'device' || !type.isActive) throw new NotFoundError('랙 모듈 카테고리');
+    if (!type || type.role !== 'device') throw new NotFoundError('랙 모듈 카테고리');
     return this.mapToDetail(type);
   }
 }

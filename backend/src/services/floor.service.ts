@@ -121,7 +121,7 @@ class FloorService {
     if (!substation) throw new NotFoundError('변전소');
 
     const floors = await prisma.floor.findMany({
-      where: { substationId, isActive: true },
+      where: { substationId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 

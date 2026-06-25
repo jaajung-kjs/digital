@@ -18,7 +18,6 @@ class AssetCategoryService {
 
   async getAll(): Promise<AssetCategoryDetail[]> {
     const rows = await prisma.assetCategory.findMany({
-      where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return rows.map((r) => this.map(r));

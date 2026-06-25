@@ -65,7 +65,6 @@ class AssetTypeService {
 
   async getAll(): Promise<AssetTypeDetail[]> {
     const rows = await prisma.assetType.findMany({
-      where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return rows.map((r) => this.mapToDetail(r));

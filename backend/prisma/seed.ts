@@ -45,7 +45,6 @@ async function main() {
       passwordHash: adminPassword,
       name: '시스템 관리자',
       role: UserRole.ADMIN,
-      isActive: true,
     },
   });
 
@@ -63,7 +62,6 @@ async function main() {
         passwordHash: viewerPassword,
         name: '일반 사용자',
         role: UserRole.VIEWER,
-        isActive: true,
       },
     });
 

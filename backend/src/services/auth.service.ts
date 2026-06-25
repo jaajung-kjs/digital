@@ -15,7 +15,6 @@ import {
 import {
   InvalidCredentialsError,
   AccountLockedError,
-  AccountDisabledError,
   TokenInvalidError,
   NotFoundError,
 } from '../utils/errors.js';
@@ -46,11 +45,6 @@ class AuthService {
 
     if (!user) {
       throw new InvalidCredentialsError();
-    }
-
-    // 계정 비활성화 확인
-    if (!user.isActive) {
-      throw new AccountDisabledError();
     }
 
     // 계정 잠금 확인
@@ -159,10 +153,6 @@ class AuthService {
         where: { id: payload.tokenId },
       });
       throw new TokenInvalidError();
-    }
-
-    if (!storedToken.user.isActive) {
-      throw new AccountDisabledError();
     }
 
     // 새 access token 발급

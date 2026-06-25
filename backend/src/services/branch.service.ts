@@ -46,7 +46,7 @@ class BranchService {
     if (!hq) throw new NotFoundError('본부');
 
     const items = await prisma.branch.findMany({
-      where: { headquartersId, isActive: true },
+      where: { headquartersId },
       include: BRANCH_COUNT_INCLUDE,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
@@ -107,7 +107,7 @@ class BranchService {
     if (!branch) throw new NotFoundError('지사');
 
     const substations = await prisma.substation.findMany({
-      where: { branchId, isActive: true },
+      where: { branchId },
       include: { _count: { select: { floors: true } } },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });

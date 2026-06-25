@@ -41,7 +41,6 @@ function toListItem(h: HqWithCount): HeadquartersListItem {
 class HeadquartersService {
   async getList(): Promise<HeadquartersListItem[]> {
     const items = await prisma.headquarters.findMany({
-      where: { isActive: true },
       include: HQ_COUNT_INCLUDE,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });

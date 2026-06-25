@@ -33,7 +33,7 @@ class CableGroupService {
   }
 
   async getAll(): Promise<CableGroupDetail[]> {
-    const rows = await prisma.cableGroup.findMany({ where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] });
+    const rows = await prisma.cableGroup.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] });
     return rows.map((r) => this.map(r));
   }
 

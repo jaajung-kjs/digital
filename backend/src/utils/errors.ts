@@ -30,12 +30,6 @@ export class AccountLockedError extends AppError {
   }
 }
 
-export class AccountDisabledError extends AppError {
-  constructor() {
-    super(403, 'ACCOUNT_DISABLED', '비활성화된 계정입니다.');
-  }
-}
-
 export class TokenExpiredError extends AppError {
   constructor() {
     super(401, 'TOKEN_EXPIRED', '토큰이 만료되었습니다.');
