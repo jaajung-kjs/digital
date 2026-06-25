@@ -21,8 +21,6 @@ export function slimToAsset(s: SlimAssetDTO): Asset {
     roomText: null,
     sourcePresetId: null,
     installDate: null,
-    warrantyUntil: null,
-    replaceDue: null,
     manager: null,
     description: null,
     status: null,

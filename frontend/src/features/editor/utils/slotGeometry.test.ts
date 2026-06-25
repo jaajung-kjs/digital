@@ -20,8 +20,6 @@ function mod(id: string, slotIndex: number, slotSpan: number, assetTypeId = 'cat
     roomText: null,
     sourcePresetId: null,
     installDate: null,
-    warrantyUntil: null,
-    replaceDue: null,
     manager: null,
     description: null,
     status: null,

@@ -120,7 +120,7 @@ function toCableCreate(c: Record<string, unknown>): Record<string, unknown> {
 // 랙 모듈도 결국 Asset 행이다. 두 경로(assets / rackModules)가 따로 필드를 나열하면
 // 한 곳이 빠져 드롭 버그(예: status OFF→ON 복귀)가 난다 → 공통 스칼라는 *여기 한 곳*에서.
 const ASSET_COMMON_FIELDS = [
-  'name', 'installDate', 'manager', 'description', 'status', 'warrantyUntil', 'replaceDue', 'sortOrder',
+  'name', 'installDate', 'manager', 'description', 'status', 'sortOrder',
 ] as const;
 
 /** patch/asset 에서 존재하는 공통 스칼라 필드만 추려 담는다. */

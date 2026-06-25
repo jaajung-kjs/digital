@@ -13,8 +13,6 @@ export interface CableCategoryDetail {
   groupName: string | null;
   groupColor: string | null;
   sortOrder: number;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 type CableCategoryRow = {
@@ -34,8 +32,6 @@ class CableCategoryService {
       groupName: c.group?.name ?? null,
       groupColor: c.group?.color ?? null,
       sortOrder: c.sortOrder,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
     };
   }
 

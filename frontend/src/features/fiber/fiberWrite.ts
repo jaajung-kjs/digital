@@ -8,7 +8,7 @@ export interface SlotCreate {
   floorId: null; positionX: null; positionY: null; width2d: null; height2d: null;
   rotation: number; totalU: null; slotIndex: null; slotSpan: null;
   description: null; manager: null; installDate: null; status: null;
-  warrantyUntil: null; replaceDue: null; sourcePresetId: null; sortOrder: number; updatedAt: string;
+  sourcePresetId: null; sortOrder: number; updatedAt: string;
 }
 export interface CableCreate {
   id: string; sourceAssetId: string; targetAssetId: string;
@@ -25,7 +25,7 @@ const baseSlot = (id: string, ofd: OfdRef, remoteName: string, slotTypeId: strin
   floorId: null, positionX: null, positionY: null, width2d: null, height2d: null,
   rotation: 0, totalU: null, slotIndex: null, slotSpan: null,
   description: null, manager: null, installDate: null, status: null,
-  warrantyUntil: null, replaceDue: null, sourcePresetId: null, sortOrder: 0, updatedAt: '',
+  sourcePresetId: null, sortOrder: 0, updatedAt: '',
 });
 
 /** OFD↔OFD 경로 = 슬롯2(각 OFD 자식, 대국명) + OPGW(IN-IN, cores). */

@@ -528,8 +528,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             manager: null,
             installDate: null,
             status: null,
-            warrantyUntil: null,
-            replaceDue: null,
             // 랙 프리셋 추적: FE 캐리어 properties.sourcePresetId → Asset 전용 컬럼(#7).
             sourcePresetId: (eq.properties as { sourcePresetId?: string } | null | undefined)?.sourcePresetId ?? null,
             sortOrder: 0,
@@ -617,8 +615,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             manager: m.manager ?? null,
             installDate: m.installDate ?? null,
             status: null,
-            warrantyUntil: null,
-            replaceDue: null,
             sourcePresetId:
               (m.properties as { sourcePresetId?: string } | null | undefined)?.sourcePresetId ?? null,
             sortOrder: m.sortOrder ?? 0,

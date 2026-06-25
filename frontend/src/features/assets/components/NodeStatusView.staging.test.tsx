@@ -42,15 +42,15 @@ const wcAsset = {
   id: 'a1', substationId: 's1', assetTypeId: 't1',
   assetType: { id: 't1', name: '랙', group: null },
   name: '랙01', parentAssetId: null, slotIndex: null, floorId: null, roomText: null,
- installDate: '2024-01-01', warrantyUntil: null, replaceDue: null,
+ installDate: '2024-01-01',
   manager: '홍길동', description: null, status: '정상', sortOrder: 0, updatedAt: TS,
 };
 
 // 본부 리스트(useNodeAssets) — 두 변전소(s1/s2)에 걸친 자산.
 vi.mock('../../../hooks/useNodeAssets', () => ({
   useNodeAssets: () => ({ data: [
-    { id: 'a1', name: '랙01', assetTypeName: '랙', substationId: 's1', substationName: '춘천S/S', floorId: null, floorName: null, roomText: null, installDate: '2024-01-01', manager: '홍길동', status: '정상', warrantyUntil: null, replaceDue: null, lastMaintenanceDate: null },
-    { id: 'b1', name: 'OFD-9', assetTypeName: 'OFD', substationId: 's2', substationName: '원주S/S', floorId: null, floorName: null, roomText: null, installDate: null, manager: null, status: null, warrantyUntil: null, replaceDue: null, lastMaintenanceDate: null },
+    { id: 'a1', name: '랙01', assetTypeName: '랙', substationId: 's1', substationName: '춘천S/S', floorId: null, floorName: null, roomText: null, installDate: '2024-01-01', manager: '홍길동', status: '정상', lastMaintenanceDate: null },
+    { id: 'b1', name: 'OFD-9', assetTypeName: 'OFD', substationId: 's2', substationName: '원주S/S', floorId: null, floorName: null, roomText: null, installDate: null, manager: null, status: null, lastMaintenanceDate: null },
   ] }),
 }));
 

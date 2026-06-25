@@ -15,8 +15,6 @@ function asset(p: Partial<Asset> & { id: string }): Asset {
     roomText: null,
 
     installDate: null,
-    warrantyUntil: null,
-    replaceDue: null,
     manager: null,
     description: null,
     status: null,

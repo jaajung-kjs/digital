@@ -44,8 +44,6 @@ function asset(p: {
     roomText: null,
 
     installDate: null,
-    warrantyUntil: null,
-    replaceDue: null,
     manager: null,
     description: null,
     status: null,
