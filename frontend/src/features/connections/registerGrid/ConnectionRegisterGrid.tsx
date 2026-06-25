@@ -11,7 +11,7 @@ import type { RegisterColumn, RegisterDescriptor, RegisterSection } from './regi
 const cellPad = (first: boolean, last: boolean) => (first ? 'pl-4 pr-2' : last ? 'px-2 pr-4' : 'px-2');
 const TD_BASE = 'text-sm align-middle whitespace-nowrap';
 
-/** 컨테이너 자산 → connectionKind 자식(섹션) → 테이블 → 행클릭 선택. 도메인 로직은 descriptor. */
+/** 컨테이너 자산 → role 별 자식(섹션) → 테이블 → 행클릭 선택. 도메인 로직은 descriptor. */
 export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   substationId: string; descriptor: RegisterDescriptor<Row>;
 }) {

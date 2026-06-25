@@ -63,7 +63,7 @@ function pruneDanglingConduits(
     changed = false;
     const deg = degrees();
     for (const n of [...nodes]) {
-      if (kindOf(n) === 'conduit' && (deg.get(n) ?? 0) <= 1) {
+      if (kindOf(n) === 'slot' && (deg.get(n) ?? 0) <= 1) {
         nodes.delete(n);
         for (const cid of [...cables]) {
           const c = cableById.get(cid);
@@ -82,7 +82,7 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   const cableById = new Map(graph.cables.map((c) => [c.id, c]));
   const seed = cableById.get(seedCableId);
   if (!seed) return null;
-  const kindOf = (id: string | null | undefined) => (id ? (graph.kindById.get(id) ?? null) : null);
+  const kindOf = (id: string | null | undefined) => (id ? (graph.roleById.get(id) ?? null) : null);
 
   const src = seed.sourceAssetId ?? null;
   const tgt = seed.targetAssetId ?? null;
@@ -91,7 +91,7 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   // conduit 로 떨어져 채널 미정 → 부분 경로(그 슬롯에 직결된 것까지)만 나온다. 단, 현재 UI 는
   // OPGW 를 클릭-트레이스 시드로 노출하지 않는다(선번장 행=OUT 코어 케이블, OPGW 는 미배치 슬롯
   // 간 트렁크라 도면 미표시). 트렁크 트레이스는 단일 코어 개념이 없어 의미가 모호하므로 그대로 둔다.
-  const start = kindOf(src) === null ? src : kindOf(tgt) === null ? tgt : src;
+  const start = (kindOf(src) !== 'slot' && kindOf(src) !== 'feeder') ? src : (kindOf(tgt) !== 'slot' && kindOf(tgt) !== 'feeder') ? tgt : src;
   if (!start) return null;
   const groupId = seed.groupId ?? null;
 
@@ -107,7 +107,7 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   // (현재 데이터 불변식상 모든 슬롯은 OFD 부모를 가짐 — 고아는 미발생). s===t 엣지는 아래서 스킵.
   const collapse = (id: string | null | undefined): string | null => {
     if (!id) return null;
-    if (kindOf(id) === 'conduit') return graph.parentById.get(id) ?? id;
+    if (kindOf(id) === 'slot') return graph.parentById.get(id) ?? id;
     return id;
   };
 
@@ -204,13 +204,13 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   // 토폴로지 노드는 설비 체인(광스위치→송변전광단말)까지만 — 경로슬롯(conduit) 잎은 잘라낸다.
   // 박스 안에 있다는 것 자체가 그 슬롯으로 이어짐을 암시하므로, 긴 슬롯명으로 노드가 가로로 늘어나지 않게.
   const dropConduitLeaves = (n: TraceTreeNode): TraceTreeNode => {
-    const children = n.children.filter((c) => kindOf(c.id) !== 'conduit').map(dropConduitLeaves);
+    const children = n.children.filter((c) => kindOf(c.id) !== 'slot').map(dropConduitLeaves);
     return { ...n, children, isEndpoint: children.length === 0 };
   };
   const internalTrees = [...internalSeedBySub.values()]
     .map(({ subId, subName, cableId }) => {
       const r = buildInternalPath(cableId, subId, graph);
-      if (!r || kindOf(r.tree.id) === 'conduit') return null; // 루트가 슬롯뿐이면 표시 생략(폴백)
+      if (!r || kindOf(r.tree.id) === 'slot') return null; // 루트가 슬롯뿐이면 표시 생략(폴백)
       return { substationName: subName, tree: dropConduitLeaves(r.tree) };
     })
     .filter((x): x is { substationName: string; tree: TraceTreeNode } => !!x);

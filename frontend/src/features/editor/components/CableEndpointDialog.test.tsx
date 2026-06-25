@@ -20,8 +20,7 @@ function asset(p: {
   id: string;
   name: string;
   parent?: string | null;
-  placementKind?: string | null;
-  connectionKind?: string | null;
+  role?: string | null;
   floorId?: string | null;
   placed?: boolean;
 }) {
@@ -33,16 +32,9 @@ function asset(p: {
       id: 't',
       code: 't',
       name: 't',
-      group: null,
       displayColor: null,
       fieldTemplate: [],
-      placementKind: p.placementKind ?? null,
-      connectionKind: p.connectionKind ?? null,
-      role: p.connectionKind === 'conduit' ? 'slot'
-        : p.connectionKind === 'distributor' ? 'feeder'
-        : p.placementKind === 'DIST' ? 'panel'
-        : p.placementKind === 'OFD' ? 'ofd'
-        : p.placementKind === 'RACK' ? 'rack' : 'device',
+      role: p.role ?? 'device',
     },
     name: p.name,
     parentAssetId: p.parent ?? null,
@@ -69,8 +61,8 @@ function asset(p: {
 const PANEL = 'panel-1';
 const FEEDER = 'feeder-1';
 const assets = [
-  asset({ id: PANEL, name: '분전반', placementKind: 'DIST', floorId: 'f1', placed: true }),
-  asset({ id: FEEDER, name: '전원계통', parent: PANEL, connectionKind: 'distributor' }),
+  asset({ id: PANEL, name: '분전반', role: 'panel', floorId: 'f1', placed: true }),
+  asset({ id: FEEDER, name: '전원계통', parent: PANEL, role: 'feeder' }),
 ];
 
 vi.mock('../../workingCopy/hooks', () => ({

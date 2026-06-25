@@ -77,12 +77,12 @@ function mapDetail(
 async function getByRackId(rackId: string): Promise<RackModuleDetail[]> {
   const rack = await prisma.asset.findUnique({
     where: { id: rackId },
-    include: { assetType: true },
+    select: { id: true, assetType: { select: { role: true } } },
   });
   if (!rack) throw new NotFoundError('랙 설비');
-  if (rack.assetType.placementKind !== 'RACK') {
+  if (rack.assetType.role !== 'rack') {
     throw new ValidationError(
-      `해당 설비는 RACK 이 아닙니다 (placementKind=${rack.assetType.placementKind}). 랙 모듈은 RACK 설비에만 속합니다.`,
+      `해당 설비는 RACK 이 아닙니다 (role=${rack.assetType.role}). 랙 모듈은 RACK 설비에만 속합니다.`,
     );
   }
   const modules = await prisma.asset.findMany({

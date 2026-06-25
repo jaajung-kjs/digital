@@ -36,9 +36,9 @@ export function AssetTypesTab() {
   const addCategory = () => store().stageCreateCategory({ id: newCatalogId(), name: '새 분류', sortOrder: 0, isActive: true });
   const addType = (categoryId: string | null) =>
     store().stageCreateType({
-      id: newCatalogId(), code: '', name: '새 종류', group: null, role: 'device', categoryId,
+      id: newCatalogId(), code: '', name: '새 종류', role: 'device', categoryId,
       isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null,
-      displayColor: null, placementKind: null, connectionKind: null, sortOrder: 0, isActive: true,
+      displayColor: null, sortOrder: 0, isActive: true,
     } as AssetType);
 
   return (

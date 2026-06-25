@@ -8,7 +8,7 @@ import { useCatalogStore, newCatalogId } from './catalogStore';
 import { api } from '../../utils/api';
 
 const mk = (id: string, name: string, role = 'device'): never =>
-  ({ id, code: id, name, group: null, role, categoryId: null, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, placementKind: null, connectionKind: null, sortOrder: 0, isActive: true }) as never;
+  ({ id, code: id, name, group: null, role, categoryId: null, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, sortOrder: 0, isActive: true }) as never;
 
 beforeEach(() => {
   useCatalogStore.setState({ baseTypes: [], baseCategories: [], baseCableGroups: [], baseCableCategories: [] } as never);
@@ -76,7 +76,7 @@ describe('catalogStore', () => {
   it('stageUpdateType 노무 patch → commit 에 installHoursPerUnit 전달', async () => {
     const id = 'type-labor-1';
     useCatalogStore.setState({
-      baseTypes: [{ id, code: 'T1', name: '테스트종류', group: null, role: 'device', categoryId: null, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, placementKind: null, connectionKind: null, sortOrder: 0, isActive: true, laborType: null, installHoursPerUnit: null, removeHoursPerUnit: null, relocateHoursPerUnit: null }],
+      baseTypes: [{ id, code: 'T1', name: '테스트종류', group: null, role: 'device', categoryId: null, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, sortOrder: 0, isActive: true, laborType: null, installHoursPerUnit: null, removeHoursPerUnit: null, relocateHoursPerUnit: null }],
     } as never);
     useCatalogStore.getState().stageUpdateType(id, { installHoursPerUnit: 1.5 });
     await useCatalogStore.getState().commit();

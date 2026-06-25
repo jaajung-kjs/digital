@@ -1,10 +1,7 @@
 import prisma from '../config/prisma.js';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
-import {
-  assetToPlanEquipment,
-  type PlacementKind,
-} from './assetPlanMapper.js';
+import { assetToPlanEquipment } from './assetPlanMapper.js';
 
 // ==================== Types ====================
 
@@ -32,7 +29,6 @@ export interface FloorDetailBasic {
 
 interface PlanEquipmentDTO {
   id: string;
-  kind: PlacementKind | null;
   name: string;
   positionX: number;
   positionY: number;

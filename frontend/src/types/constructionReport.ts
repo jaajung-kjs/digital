@@ -54,7 +54,7 @@ export interface EquipmentSnapshotItem {
   name: string;
   /**
    * 백엔드가 노무규칙을 해소하는 정본 키.
-   * staged-create 설비는 assetType 이 placeholder({ placementKind })라 code 가 없으므로
+   * staged-create 설비는 assetType 이 placeholder({ role })라 code 가 없으므로
    * assetTypeId 로 AssetType 을 조회해 노무규칙을 해소한다.
    */
   assetTypeId?: string | null;

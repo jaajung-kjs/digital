@@ -55,11 +55,11 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     const sub = await prisma.substation.create({ data: { name: '__sc_sub__', branchId: br.id } }); subId = sub.id;
     const floor = await prisma.floor.create({ data: { substationId: subId, name: '__sc_floor__', createdById: userId, updatedById: userId } });
     floorId = floor.id;
-    typeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: null, isActive: true } })).id;
-    // 케이블 endpoint 가 될 수 있는 배치형(RACK/DIST/OFD 제외) — GROUNDING.
-    placementTypeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: 'GROUNDING', isActive: true } })).id;
-    // 랙(RACK) — 랙 모듈의 부모가 될 수 있는 배치형. 모듈 카테고리는 placementKind=null(typeId).
-    rackTypeId = (await prisma.assetType.findFirstOrThrow({ where: { placementKind: 'RACK', isActive: true } })).id;
+    typeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device', isActive: true } })).id;
+    // 케이블 endpoint 가 될 수 있는 독립형 — standalone(GROUNDING 등).
+    placementTypeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'standalone', isActive: true } })).id;
+    // 랙(RACK) — 랙 모듈의 부모가 될 수 있는 배치형.
+    rackTypeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'rack', isActive: true } })).id;
 
     // 두 번째 변전소 + 자체 floor/asset — 크로스 변전소 mutation 차단 검증용.
     const sub2 = await prisma.substation.create({ data: { name: '__sc_sub2__', branchId: br.id } }); sub2Id = sub2.id;

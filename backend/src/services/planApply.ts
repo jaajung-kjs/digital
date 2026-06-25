@@ -1,6 +1,5 @@
 import { Prisma } from '@prisma/client';
 import { ValidationError } from '../utils/errors.js';
-import { placementKindToKind, type PlacementKind } from './assetPlanMapper.js';
 import { assertSlotValid, assertNoSlotCollision } from './rackModule.service.js';
 
 /**
@@ -16,18 +15,18 @@ import { assertSlotValid, assertNoSlotCollision } from './rackModule.service.js'
 type Tx = Prisma.TransactionClient;
 
 /**
- * Asset 존재 + placementKind 를 한 번에 조회 (단계4b 케이블 endpoint 검증용).
- * found=false 면 endpoint asset 이 없는 것. found=true 면 kind 는 null(내부 노드:
- * 모듈/피더/분기) 이거나 배치 종류(OFD/RACK/DIST/…).
+ * Asset 존재 + role 을 한 번에 조회 (단계4b 케이블 endpoint 검증용).
+ * found=false 면 endpoint asset 이 없는 것. found=true 면 role 은 배치형('rack'/'ofd'/…)
+ * 또는 내부 노드('device') — device 는 모듈/분기에 해당.
  */
 export function makeEndpointKindResolver(tx: Tx) {
-  const cache = new Map<string, { found: boolean; kind: PlacementKind | null }>();
-  return async (assetId: string): Promise<{ found: boolean; kind: PlacementKind | null }> => {
+  const cache = new Map<string, { found: boolean; role: string | null }>();
+  return async (assetId: string): Promise<{ found: boolean; role: string | null }> => {
     if (cache.has(assetId)) return cache.get(assetId)!;
-    const e = await tx.asset.findUnique({ where: { id: assetId }, include: { assetType: true } });
+    const e = await tx.asset.findUnique({ where: { id: assetId }, select: { id: true, assetType: { select: { role: true } } } });
     const res = e
-      ? { found: true, kind: placementKindToKind(e.assetType.placementKind) }
-      : { found: false, kind: null };
+      ? { found: true, role: e.assetType.role as string }
+      : { found: false, role: null };
     cache.set(assetId, res);
     return res;
   };
@@ -66,21 +65,21 @@ export async function assertCableEndpointsValid(
     if (!tgt.found) {
       throw new ValidationError(`target endpoint asset 을 찾을 수 없습니다 (id=${c.targetAssetId}).`);
     }
-    // 직접 배치 컨테이너(RACK/DISTRIBUTION) 자체는 endpoint 금지 — 모듈/분기에 연결.
-    // 내부 노드(kind=null: 모듈/피더/분기) 및 일반 설비는 통과.
-    assertContainerNotEndpoint(src.kind, 'source');
-    assertContainerNotEndpoint(tgt.kind, 'target');
+    // 직접 배치 컨테이너(rack/panel) 자체는 endpoint 금지 — 모듈/분기에 연결.
+    // device(모듈/피더/분기) 및 일반 설비는 통과.
+    assertContainerNotEndpoint(src.role, 'source');
+    assertContainerNotEndpoint(tgt.role, 'target');
   }
 }
 
-/** RACK/DISTRIBUTION 컨테이너는 케이블 endpoint 가 될 수 없다(모듈/분기에 연결). */
-function assertContainerNotEndpoint(kind: PlacementKind | null, side: 'source' | 'target'): void {
-  if (kind === 'RACK') {
+/** rack/panel 컨테이너는 케이블 endpoint 가 될 수 없다(모듈/분기에 연결). */
+function assertContainerNotEndpoint(role: string | null, side: 'source' | 'target'): void {
+  if (role === 'rack') {
     throw new ValidationError(
       `${side}: RACK 설비는 케이블 endpoint 가 될 수 없습니다 — 랙 안 모듈에 연결하세요.`,
     );
   }
-  if (kind === 'DISTRIBUTION') {
+  if (role === 'panel') {
     throw new ValidationError(
       `${side}: 분전반은 케이블 endpoint 가 될 수 없습니다 — 회로(분기)에 연결하세요.`,
     );
@@ -105,25 +104,25 @@ export async function assertRackParentValid(
 ): Promise<void> {
   const rack = await tx.asset.findUnique({
     where: { id: resolvedRackId },
-    include: { assetType: true },
+    select: { id: true, assetType: { select: { role: true } } },
   });
   if (!rack) {
     throw new ValidationError(
       `랙 모듈의 부모 설비를 찾을 수 없습니다 (rackEquipmentId=${resolvedRackId}).`,
     );
   }
-  if (rack.assetType.placementKind !== 'RACK') {
+  if (rack.assetType.role !== 'rack') {
     throw new ValidationError(
-      `랙 모듈의 부모가 RACK 이 아닙니다 (placementKind=${rack.assetType.placementKind}).`,
+      `랙 모듈의 부모가 RACK 이 아닙니다 (role=${rack.assetType.role}).`,
     );
   }
   const category = await tx.assetType.findUnique({
     where: { id: categoryId },
-    select: { id: true, placementKind: true },
+    select: { id: true, role: true },
   });
-  if (!category || category.placementKind !== null) {
+  if (!category || category.role !== 'device') {
     throw new ValidationError(
-      `유효한 모듈 카테고리가 아닙니다 (categoryId=${categoryId}, placementKind 이 있는 배치형 종류는 모듈로 쓸 수 없습니다).`,
+      `유효한 모듈 카테고리가 아닙니다 (categoryId=${categoryId}, device role 이 아닌 배치형 종류는 모듈로 쓸 수 없습니다).`,
     );
   }
 }

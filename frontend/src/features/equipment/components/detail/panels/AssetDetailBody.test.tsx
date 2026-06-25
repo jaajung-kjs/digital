@@ -11,7 +11,7 @@ const stageAssetUpdate = vi.fn();
 
 const asset = {
   id: 'e1', substationId: 's1', assetTypeId: 't1',
-  assetType: { name: '랙', placementKind: 'RACK', fieldTemplate: [] },
+  assetType: { name: '랙', role: 'rack', fieldTemplate: [] },
   name: '랙01', installDate: null, manager: null, status: '운영중',
   description: '메모', warrantyUntil: null, replaceDue: null, floorId: 'f1', updatedAt: '',
 } as never;
@@ -81,7 +81,7 @@ describe('AssetDetailBody — SSOT 단일 상세 본문', () => {
   it('랙 모듈(주입 asset + kind=null): 모듈 필드 + 공간 섹션(내부 설비) 없음', () => {
     const moduleAsset = {
       id: 'mod1', substationId: 's1', assetTypeId: 'cat1',
-      assetType: { name: '광패치', placementKind: null, fieldTemplate: [] },
+      assetType: { name: '광패치', role: 'device', fieldTemplate: [] },
       name: '모듈1', parentAssetId: 'e1', slotIndex: 0, slotSpan: 1,
  installDate: null, manager: null, status: '운영중',
       description: '', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '',

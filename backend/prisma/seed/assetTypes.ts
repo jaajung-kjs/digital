@@ -13,28 +13,17 @@ interface FieldDef {
 interface AssetTypeSeed {
   code: string;
   name: string;
-  group: string;
+  /** 카테고리 이름 (로컬 키 — AssetCategory 해소용, DB group 컬럼 미기록). */
+  category: string;
+  role: AssetRole;
   isContainer: boolean;
   displayColor: string;
   sortOrder: number;
   fieldTemplate: FieldDef[];
-  placementKind?: string | null;
-  connectionKind?: string;
   defaultSlotSpan?: number;
 }
 
 type AssetRole = 'rack' | 'ofd' | 'panel' | 'slot' | 'feeder' | 'standalone' | 'device';
-
-/** 마이그레이션 백필과 동일 규칙으로 role 파생 (단일 소스). */
-function deriveRole(t: AssetTypeSeed): AssetRole {
-  if (t.placementKind === 'RACK') return 'rack';
-  if (t.placementKind === 'OFD' || t.code === 'OFD') return 'ofd';
-  if (t.placementKind === 'DIST' || t.code === 'DIST') return 'panel';
-  if (t.placementKind === 'GROUNDING' || t.placementKind === 'HVAC') return 'standalone';
-  if (t.connectionKind === 'conduit') return 'slot';
-  if (t.connectionKind === 'distributor') return 'feeder';
-  return 'device';
-}
 
 const ASSET_LIFECYCLE: FieldDef[] = [
   { key: 'model', label: '모델명', type: 'text' },
@@ -83,28 +72,22 @@ const ASSET_LABOR: Record<string, { laborType: string; install: number; remove: 
 };
 
 export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
-  { code: 'RACK', name: '랙', group: '구조', isContainer: true, displayColor: '#44403c', sortOrder: 10,
-    placementKind: 'RACK',
+  { code: 'RACK', name: '랙', category: '구조', role: 'rack', isContainer: true, displayColor: '#44403c', sortOrder: 10,
     fieldTemplate: [] },
-  { code: 'OFD', name: 'OFD(광분배함)', group: '통신', isContainer: true, displayColor: '#78716c', sortOrder: 20,
-    // OFD 는 일반 컨테이너(connectionKind 없음). conduit 인 건 자식 OFD-SLOT.
-    placementKind: 'OFD',
+  { code: 'OFD', name: 'OFD(광분배함)', category: '통신', role: 'ofd', isContainer: true, displayColor: '#78716c', sortOrder: 20,
     fieldTemplate: [] },
-  { code: 'OFD-SLOT', name: '광슬롯', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 21,
-    connectionKind: 'conduit',
+  { code: 'OFD-SLOT', name: '광슬롯', category: '통신', role: 'slot', isContainer: false, displayColor: '#a8a29e', sortOrder: 21,
     fieldTemplate: [] },
-  { code: 'DIST', name: '분전반', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 30,
-    placementKind: 'DIST',
+  { code: 'DIST', name: '분전반', category: '전원', role: 'panel', isContainer: true, displayColor: '#78716c', sortOrder: 30,
     fieldTemplate: [] },
-  // 통합 노드 모델 — 분전반 내부 회로를 노드 계층으로(분전반→FEEDER). 미배치 내부 노드(placementKind 없음).
-  { code: 'FEEDER', name: '피더', group: '전원', isContainer: true, displayColor: '#78716c', sortOrder: 33,
-    connectionKind: 'distributor',
+  // 통합 노드 모델 — 분전반 내부 회로를 노드 계층으로(분전반→FEEDER). 미배치 내부 노드.
+  { code: 'FEEDER', name: '피더', category: '전원', role: 'feeder', isContainer: true, displayColor: '#78716c', sortOrder: 33,
     fieldTemplate: [] },
-  { code: 'GROUNDING', name: '접지함체', group: '구조', isContainer: false, displayColor: '#44403c', sortOrder: 31,
-    placementKind: 'GROUNDING', fieldTemplate: [] },
-  { code: 'HVAC', name: '공조설비', group: '공조', isContainer: false, displayColor: '#a8a29e', sortOrder: 32,
-    placementKind: 'HVAC', fieldTemplate: [] },
-  { code: 'RTU', name: 'SCADA RTU', group: '통신', isContainer: false, displayColor: '#78716c', sortOrder: 50,
+  { code: 'GROUNDING', name: '접지함체', category: '구조', role: 'standalone', isContainer: false, displayColor: '#44403c', sortOrder: 31,
+    fieldTemplate: [] },
+  { code: 'HVAC', name: '공조설비', category: '공조', role: 'standalone', isContainer: false, displayColor: '#a8a29e', sortOrder: 32,
+    fieldTemplate: [] },
+  { code: 'RTU', name: 'SCADA RTU', category: '통신', role: 'device', isContainer: false, displayColor: '#78716c', sortOrder: 50,
     fieldTemplate: [
       { key: 'hostOffice', label: '급전(분)소', type: 'text' },
       { key: 'voltage', label: '전압', type: 'text' },
@@ -119,7 +102,7 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
       { key: 'ipAddr', label: 'IP', type: 'text' },
       ...ASSET_LIFECYCLE,
     ] },
-  { code: 'CHARGER', name: '충전기', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 70,
+  { code: 'CHARGER', name: '충전기', category: '전원', role: 'device', isContainer: false, displayColor: '#78716c', sortOrder: 70,
     fieldTemplate: [
       { key: 'spec', label: '규격', type: 'text' },
       { key: 'formType', label: '형식', type: 'text' },
@@ -128,56 +111,55 @@ export const ASSET_TYPE_SEEDS: AssetTypeSeed[] = [
       { key: 'outputV', label: '출력V', type: 'text' },
       ...ASSET_LIFECYCLE,
     ] },
-  { code: 'UPS', name: 'UPS', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 80,
+  { code: 'UPS', name: 'UPS', category: '전원', role: 'device', isContainer: false, displayColor: '#78716c', sortOrder: 80,
     fieldTemplate: [{ key: 'spec', label: '규격', type: 'text' }, ...ASSET_LIFECYCLE] },
-  { code: 'BATTERY', name: '축전지', group: '전원', isContainer: false, displayColor: '#78716c', sortOrder: 90,
+  { code: 'BATTERY', name: '축전지', category: '전원', role: 'device', isContainer: false, displayColor: '#78716c', sortOrder: 90,
     fieldTemplate: [{ key: 'spec', label: '규격', type: 'text' }, ...ASSET_LIFECYCLE] },
 
   // ── 광전송 하위종류 ──
-  { code: 'OPT-COT', name: '통합단말', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 61, fieldTemplate: OPT_FIELDS },
-  { code: 'OPT-TERM', name: '송변전광단말장치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 63, fieldTemplate: OPT_FIELDS },
-  { code: 'PCM', name: 'PCM', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 64, fieldTemplate: OPT_FIELDS },
+  { code: 'OPT-COT', name: '통합단말', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 61, fieldTemplate: OPT_FIELDS },
+  { code: 'OPT-TERM', name: '송변전광단말장치', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 63, fieldTemplate: OPT_FIELDS },
+  { code: 'PCM', name: 'PCM', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 64, fieldTemplate: OPT_FIELDS },
 
   // 계통보호전송장치 — 2000·5000 별개 자산(다른 장비). 통신 단일 자산구조(부모자산으로 랙 내부 배치).
-  { code: 'PITR-2000', name: 'PITR-2000', group: '통신', isContainer: false, displayColor: '#78716c', sortOrder: 41, fieldTemplate: PITR_FIELDS },
-  { code: 'PITR-5000', name: 'PITR-5000', group: '통신', isContainer: false, displayColor: '#78716c', sortOrder: 42, fieldTemplate: PITR_FIELDS },
+  { code: 'PITR-2000', name: 'PITR-2000', category: '통신', role: 'device', isContainer: false, displayColor: '#78716c', sortOrder: 41, fieldTemplate: PITR_FIELDS },
+  { code: 'PITR-5000', name: 'PITR-5000', category: '통신', role: 'device', isContainer: false, displayColor: '#78716c', sortOrder: 42, fieldTemplate: PITR_FIELDS },
   // 기타 통신장비 (랙모듈 카탈로그 통일 — 단일 자산구조라 별도 모듈 종류 불요)
-  { code: 'SCADA',  name: 'SCADA', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 51, fieldTemplate: ASSET_LIFECYCLE },
-  { code: 'NET-SW', name: '네트워크스위치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 104, fieldTemplate: ASSET_LIFECYCLE },
-  { code: 'SPD',    name: '서지보호기', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 105, fieldTemplate: ASSET_LIFECYCLE },
-  { code: 'UTM',    name: 'UTM', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 108, fieldTemplate: ASSET_LIFECYCLE },
-  { code: 'NAC',    name: 'NAC', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 109, fieldTemplate: ASSET_LIFECYCLE },
-  { code: 'PWR-AC', name: '전원(AC)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 113, fieldTemplate: ASSET_LIFECYCLE },
-  { code: 'PWR-DC', name: '전원(DC)', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 114, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'SCADA',  name: 'SCADA', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 51, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'NET-SW', name: '네트워크스위치', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 104, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'SPD',    name: '서지보호기', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 105, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'UTM',    name: 'UTM', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 108, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'NAC',    name: 'NAC', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 109, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'PWR-AC', name: '전원(AC)', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 113, fieldTemplate: ASSET_LIFECYCLE },
+  { code: 'PWR-DC', name: '전원(DC)', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 114, fieldTemplate: ASSET_LIFECYCLE },
 
   // 직할 통신자산 적재 신규 종류 (2026-06-19) — PIU·SPS·DAS·POWERDUCT·MUX 는 사용자 검토로 제외
   // (PIU/SPS=송변전광단말장치 모듈, DAS/전력구감시=별도 자산 불요, MUX=별도 불요).
   // 광전송장치(구 OPT-XPONDER) = 권역망전송장치 = KEPCIT 통일. 광설비 공통 OPT_FIELDS + 세대.
-  { code: 'KEPCIT',     name: '권역망전송장치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 60, fieldTemplate: [
+  { code: 'KEPCIT',     name: '권역망전송장치', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 60, fieldTemplate: [
     { key: 'generation', label: '세대', type: 'select', options: ['차세대', '구'] }, ...OPT_FIELDS ] },
-  { code: 'OPT-SWITCH', name: '광스위치', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 145, fieldTemplate: [
+  { code: 'OPT-SWITCH', name: '광스위치', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 145, fieldTemplate: [
     { key: 'ipAddress', label: 'IP', type: 'text' }, { key: 'ringNode', label: '링 노드', type: 'number' }, { key: 'maker', label: '제작사', type: 'text' }, { key: 'spec', label: '규격', type: 'text' } ] },
-  { code: 'OPT-CONV',   name: '광컨버터', group: '통신', isContainer: false, displayColor: '#a8a29e', sortOrder: 146, fieldTemplate: [
+  { code: 'OPT-CONV',   name: '광컨버터', category: '통신', role: 'device', isContainer: false, displayColor: '#a8a29e', sortOrder: 146, fieldTemplate: [
     { key: 'spec', label: '규격', type: 'text' } ] },
 ];
 
 export async function seedAssetTypes(prisma: PrismaClient): Promise<void> {
-  // 1) group → AssetCategory 멱등 upsert, 이름→id 맵 구성
-  const groups = [...new Set(ASSET_TYPE_SEEDS.map((t) => t.group))];
+  // 1) category → AssetCategory 멱등 upsert, 이름→id 맵 구성
+  const categories = [...new Set(ASSET_TYPE_SEEDS.map((t) => t.category))];
   const categoryId = new Map<string, string>();
-  for (const name of groups) {
+  for (const name of categories) {
     const cat = await prisma.assetCategory.upsert({ where: { name }, update: {}, create: { name } });
     categoryId.set(name, cat.id);
   }
 
-  // 2) 종류 upsert (role 파생 + categoryId 연결 + 노무규칙)
+  // 2) 종류 upsert (role 직접 명시 + categoryId 연결 + 노무규칙)
   for (const t of ASSET_TYPE_SEEDS) {
     const lab = ASSET_LABOR[t.code];
     const common = {
-      name: t.name, group: t.group, role: deriveRole(t), categoryId: categoryId.get(t.group) ?? null,
+      name: t.name, role: t.role, categoryId: categoryId.get(t.category) ?? null,
       isContainer: t.isContainer, displayColor: t.displayColor, sortOrder: t.sortOrder,
       fieldTemplate: t.fieldTemplate, requiredToCreate: ['name'],
-      placementKind: t.placementKind ?? null, connectionKind: t.connectionKind ?? null,
       defaultSlotSpan: t.defaultSlotSpan ?? 1,
       ...(lab ? { laborType: lab.laborType, installHoursPerUnit: lab.install, removeHoursPerUnit: lab.remove, relocateHoursPerUnit: lab.relocate ?? null } : {}),
     };
@@ -187,5 +169,5 @@ export async function seedAssetTypes(prisma: PrismaClient): Promise<void> {
       create: { code: t.code, ...common },
     });
   }
-  console.log(`✅ seeded ${ASSET_TYPE_SEEDS.length} asset types + ${groups.length} categories`);
+  console.log(`✅ seeded ${ASSET_TYPE_SEEDS.length} asset types + ${categories.length} categories`);
 }

@@ -1,22 +1,13 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
-import { Prisma } from '@prisma/client';
 import type { Asset, AssetType } from '@prisma/client';
-import { placementKindToKind, kindToPlacementCode, type PlacementKind } from './assetPlanMapper.js';
 import { sourcePresetToProperties } from './sourcePreset.js';
 
 // ==================== Types ====================
 
-/**
- * 과거 EquipmentKind enum 자리. Asset 모델로 이행하면서 enum 은 삭제됐고,
- * 프론트/컨트롤러 계약은 동일한 string union 으로 유지된다. ('DIST' 가 아닌 'DISTRIBUTION')
- */
-export type EquipmentKind = PlacementKind;
-
 export interface EquipmentDetail {
   id: string;
   floorId: string;
-  kind: EquipmentKind;
   name: string;
   positionX: number;
   positionY: number;
@@ -47,12 +38,9 @@ class EquipmentService {
    * null 로 채운다 (사진은 EquipmentPhoto 관계로 별도 관리됨).
    */
   private mapToDetail(a: AssetWithType): EquipmentDetail {
-    const kind = placementKindToKind(a.assetType.placementKind);
-    if (!kind) throw new Error(`Asset ${a.id} 는 placementKind 가 없어 설비로 매핑할 수 없습니다.`);
     return {
       id: a.id,
       floorId: a.floorId ?? '',
-      kind,
       name: a.name,
       positionX: a.positionX ?? 0,
       positionY: a.positionY ?? 0,
@@ -73,19 +61,13 @@ class EquipmentService {
     };
   }
 
-  /** 도면 객체 목록 조회 (kind 필터 지원). */
-  async getAll(filters?: { kind?: EquipmentKind }): Promise<(EquipmentDetail & { substationName?: string })[]> {
-    const where: Prisma.AssetWhereInput = {
-      parentAssetId: null,
-      floorId: { not: null },
-      assetType: { placementKind: { not: null } },
-    };
-    if (filters?.kind) {
-      where.assetType = { placementKind: kindToPlacementCode(filters.kind) };
-    }
-
+  /** 도면 객체 목록 조회 — 도면에 배치된 top-level 설비 전부. */
+  async getAll(): Promise<(EquipmentDetail & { substationName?: string })[]> {
     const assets = await prisma.asset.findMany({
-      where,
+      where: {
+        parentAssetId: null,
+        floorId: { not: null },
+      },
       include: {
         assetType: true,
         floor: { include: { substation: { select: { name: true } } } },
@@ -105,7 +87,7 @@ class EquipmentService {
     if (!floor) throw new NotFoundError('층');
 
     const assets = await prisma.asset.findMany({
-      where: { floorId, parentAssetId: null, assetType: { placementKind: { not: null } } },
+      where: { floorId, parentAssetId: null },
       include: { assetType: true },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });

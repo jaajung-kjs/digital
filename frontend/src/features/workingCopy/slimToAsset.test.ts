@@ -5,7 +5,7 @@ describe('slimToAsset', () => {
   it('slim 행을 detail=null 완전 Asset 으로 매핑(필수 경량 필드 보존)', () => {
     const a = slimToAsset({
       id: 'a1', name: 'OFD', substationId: 's1', substationName: '춘천',
-      parentAssetId: 'p1', connectionKind: 'conduit', code: 'OFD-SLOT', slotIndex: 2,
+      parentAssetId: 'p1', role: 'slot', code: 'OFD-SLOT', slotIndex: 2,
     });
     expect(a.id).toBe('a1');
     expect(a.name).toBe('OFD');
@@ -13,7 +13,7 @@ describe('slimToAsset', () => {
     expect(a.parentAssetId).toBe('p1');
     expect(a.slotIndex).toBe(2);
     expect(a.assetType.code).toBe('OFD-SLOT');
-    expect(a.assetType.connectionKind).toBe('conduit');
+    expect(a.assetType.role).toBe('slot');
     // detail 필드는 null(부분객체 아님)
     expect(a.positionX).toBeNull();
     expect(a.status).toBeNull();

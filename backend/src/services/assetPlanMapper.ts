@@ -1,30 +1,12 @@
 import type { Asset, AssetType } from '@prisma/client';
 import { sourcePresetToProperties } from './sourcePreset.js';
 
-export type PlacementKind = 'RACK' | 'OFD' | 'DISTRIBUTION' | 'GROUNDING' | 'HVAC';
-
-// AssetType.placementKind 는 'DIST' 약어를 쓰지만, 프론트 계약의 kind 는 'DISTRIBUTION'.
-const PLACEMENT_TO_KIND: Record<string, PlacementKind> = {
-  RACK: 'RACK', OFD: 'OFD', DIST: 'DISTRIBUTION', GROUNDING: 'GROUNDING', HVAC: 'HVAC',
-};
-const KIND_TO_PLACEMENT: Record<PlacementKind, string> = {
-  RACK: 'RACK', OFD: 'OFD', DISTRIBUTION: 'DIST', GROUNDING: 'GROUNDING', HVAC: 'HVAC',
-};
-
-export function placementKindToKind(placementKind: string | null): PlacementKind | null {
-  return placementKind ? PLACEMENT_TO_KIND[placementKind] ?? null : null;
-}
-export function kindToPlacementCode(kind: PlacementKind): string {
-  return KIND_TO_PLACEMENT[kind];
-}
-
 type AssetWithType = Asset & { assetType: AssetType };
 
 /** 배치된 top-level Asset → plan equipment DTO */
 export function assetToPlanEquipment(a: AssetWithType) {
   return {
     id: a.id,
-    kind: placementKindToKind(a.assetType.placementKind),
     name: a.name,
     positionX: a.positionX ?? 0,
     positionY: a.positionY ?? 0,

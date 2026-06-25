@@ -24,7 +24,6 @@ export interface SlimAssetDTO {
   substationId: string;
   substationName: string | null;
   parentAssetId: string | null;
-  connectionKind: 'distributor' | 'conduit' | null;
   code: string | null;
   role: AssetRole | null;
   slotIndex: number | null;
@@ -59,12 +58,8 @@ export interface TraceGraph {
   subById: Map<string, string>;
   /** 자산 id → parentAssetId(슬롯→OFD 접기용). */
   parentById: Map<string, string | null>;
-  /** 자산 id → connectionKind(conduit/distributor) — trace fan-out 판정 단일 맵. */
-  kindById: Map<string, string | null>;
   /** 자산 id → assetType code(커밋 OFD 판별 'OFD'). */
   codeById: Map<string, string | null>;
-  /** 자산 id → placementKind(스테이징 OFD/DIST 판별 — code 미정 자산도 식별). */
-  placementKindById: Map<string, string | null>;
   /** 자산 id → role(분류 단일 소스). */
   roleById: Map<string, AssetRole | null>;
   /** 자산 id → OFD 내 슬롯 위치(경로슬롯 -N 순번 파생용). */
@@ -90,7 +85,7 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
  * — slim 역추론·staged 분기·폴백 체인 없음(단일 SSOT).
  */
 export function buildTraceGraph(input: {
-  assets: { id: string; name?: string; substationId?: string | null; parentAssetId?: string | null; slotIndex?: number | null; assetType?: { connectionKind?: string | null; code?: string | null; placementKind?: string | null; role?: string | null } | null }[];
+  assets: { id: string; name?: string; substationId?: string | null; parentAssetId?: string | null; slotIndex?: number | null; assetType?: { code?: string | null; role?: string | null } | null }[];
   cables: TraceCableInput[];
   /** 변전소 id → 이름 (전 본부 org 트리 전체). 모든 자산 변전소명의 단일 소스. */
   substationNames?: Map<string, string>;
@@ -99,21 +94,16 @@ export function buildTraceGraph(input: {
   const subNameById = new Map<string, string>();
   const subById = new Map<string, string>();
   const parentById = new Map<string, string | null>();
-  const kindById = new Map<string, string | null>();
   const codeById = new Map<string, string | null>();
-  const placementKindById = new Map<string, string | null>();
   const roleById = new Map<string, AssetRole | null>();
   const slotIndexById = new Map<string, number | null>();
   const assetById = new Map<string, TraceAsset>();
 
   for (const a of input.assets) {
-    const kind = (a.assetType?.connectionKind ?? null) as TraceAsset['connectionKind'];
-    assetById.set(a.id, { id: a.id, connectionKind: kind });
+    assetById.set(a.id, { id: a.id, role: (a.assetType?.role ?? null) as AssetRole | null });
     if (a.name != null) nameById.set(a.id, a.name);
     parentById.set(a.id, a.parentAssetId ?? null);
-    kindById.set(a.id, kind ?? null);
     codeById.set(a.id, a.assetType?.code ?? null);
-    placementKindById.set(a.id, a.assetType?.placementKind ?? null);
     roleById.set(a.id, (a.assetType?.role ?? null) as AssetRole | null);
     slotIndexById.set(a.id, a.slotIndex ?? null);
     const subId = a.substationId ?? null;
@@ -124,7 +114,7 @@ export function buildTraceGraph(input: {
     }
   }
 
-  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, kindById, codeById, placementKindById, roleById, slotIndexById };
+  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, codeById, roleById, slotIndexById };
 }
 
 /** 그래프 맵에서 자산의 OFD 판정 — role 단일 소스. */
@@ -137,13 +127,12 @@ function graphIsOfd(graph: TraceGraph, id: string): boolean {
  * = 대국측 설비. 이름 해소는 호출측이 graph.nameById 로.
  */
 export function traceRemoteEndpoints(startAssetId: string, graph: TraceGraph): string[] {
-  const kindOf = graph.kindById;
   // 시작 자산에 닿는 케이블의 그룹으로 추적(과거 cableType='FIBER' 고정 → 구조적으로 닿는 그룹).
   const seed = graph.cables.find((c) => c.sourceAssetId === startAssetId || c.targetAssetId === startAssetId);
   const r = cableTrace(startAssetId, seed?.groupId ?? null, graph.assets, graph.cables);
-  // kindOf.has(id) 로 존재 여부를 확인 — 삭제된 자산은 graph.assets 에서 이미 빠졌으므로
-  // kindOf 에 없어야 정상. undefined → null 로 떨어지는 false positive 를 막는다.
-  return r.nodeIds.filter((id) => id !== startAssetId && kindOf.has(id) && (kindOf.get(id) ?? null) === null);
+  // roleById.has(id) 로 존재 여부를 확인 — 삭제된 자산은 graph.assets 에서 이미 빠졌으므로
+  // roleById 에 없어야 정상. passive 설비 = role 이 'feeder'/'slot' 아닌 것(rack/ofd/panel/standalone/device).
+  return r.nodeIds.filter((id) => id !== startAssetId && graph.roleById.has(id) && graph.roleById.get(id) !== 'feeder' && graph.roleById.get(id) !== 'slot');
 }
 
 /**

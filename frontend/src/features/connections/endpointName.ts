@@ -8,7 +8,7 @@ import { toMapById } from '../../utils/byId';
  *
  * 반환값: 피더 이름 (예: "DC 48V Main"). 케이블은 피더로 직접 그려지므로
  * (CB = 피더로 가는 출력 케이블, 별도 노드 없음) endpoint 의 라벨 = 피더 이름이다.
- * 피더 계층이 아니면(타입 코드·부모 placementKind 불일치) null 을 반환 →
+ * 피더 계층이 아니면(타입 코드·부모 role 불일치) null 을 반환 →
  * 호출측이 일반(설비/모듈/external) 라벨 경로로 빠진다.
  *
  * STRICT 가드:

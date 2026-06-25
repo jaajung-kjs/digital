@@ -1,6 +1,6 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
-import { placementKindToKind, type PlacementKind } from './assetPlanMapper.js';
+import type { AssetRole } from '@prisma/client';
 
 // ==================== Types ====================
 
@@ -8,7 +8,7 @@ export interface CableEndpointRef {
   // 단계4b — endpoint 는 단일 Asset 노드. assetId 가 곧 정밀 endpoint id(설비/모듈/분기).
   assetId: string | null;
   name: string;
-  kind: PlacementKind | null;
+  role: AssetRole | null;
   floorId: string | null;
 }
 
@@ -50,7 +50,7 @@ const cableInclude = {
       id: true,
       name: true,
       floorId: true,
-      assetType: { select: { placementKind: true } },
+      assetType: { select: { role: true } },
       parent: { select: { floorId: true, parent: { select: { floorId: true } } } },
     },
   },
@@ -59,7 +59,7 @@ const cableInclude = {
       id: true,
       name: true,
       floorId: true,
-      assetType: { select: { placementKind: true } },
+      assetType: { select: { role: true } },
       parent: { select: { floorId: true, parent: { select: { floorId: true } } } },
     },
   },
@@ -151,19 +151,19 @@ class CableService {
     return cables.map((c) => this.mapToDetail(c));
   }
 
-  // 내부 — endpoint asset → endpoint ref. assetId/name/kind/floorId(anchor) 노출.
+  // 내부 — endpoint asset → endpoint ref. assetId/name/role/floorId(anchor) 노출.
   private endpointFromIncluded(
     side: 'source' | 'target',
     c: any,
   ): CableEndpointRef {
     const asset = side === 'source' ? c.sourceAsset : c.targetAsset;
-    if (!asset) return { assetId: null, name: '', kind: null, floorId: null };
+    if (!asset) return { assetId: null, name: '', role: null, floorId: null };
     const floorId =
       asset.floorId ?? asset.parent?.floorId ?? asset.parent?.parent?.floorId ?? null;
     return {
       assetId: asset.id,
       name: asset.name,
-      kind: placementKindToKind(asset.assetType?.placementKind ?? null),
+      role: (asset.assetType?.role ?? null) as AssetRole | null,
       floorId,
     };
   }

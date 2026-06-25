@@ -12,11 +12,9 @@ const router = Router();
 const createAssetTypeSchema = z.object({
   name: z.string().min(1).max(100),
   code: z.string().min(1).max(30).optional(),
-  group: z.string().max(20).optional().nullable(),
   categoryId: z.string().uuid().optional().nullable(),
   displayColor: z.string().max(7).optional().nullable(),
   defaultSlotSpan: z.number().int().min(1).max(12).optional(),
-  placementKind: z.string().max(20).optional().nullable(),
   isContainer: z.boolean().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });

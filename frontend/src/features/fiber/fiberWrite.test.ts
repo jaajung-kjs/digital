@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildRouteCreate, buildCoreOutCable, routeDeleteIds } from './fiberWrite';
 
 describe('fiberWrite', () => {
-  it('buildRouteCreate: 슬롯2 + OPGW(IN-IN, cores) — 슬롯은 conduit·각 OFD 자식·대국명', () => {
+  it('buildRouteCreate: 슬롯2 + OPGW(IN-IN, cores) — 슬롯은 slot role·각 OFD 자식·대국명', () => {
     const r = buildRouteCreate({
       localOfd: { id: 'ofdW', substationId: 'subW', substationName: '원주S/S' },
       remoteOfd: { id: 'ofdH', substationId: 'subH', substationName: '홍천S/S' },
@@ -14,7 +14,7 @@ describe('fiberWrite', () => {
     expect(a.parentAssetId).toBe('ofdW');
     expect(a.substationId).toBe('subW');
     expect(a.name).toBe('홍천S/S');                 // 대국명
-    expect(a.assetType.connectionKind).toBe('conduit');
+    expect(a.assetType.role).toBe('slot');
     expect(a.assetType.code).toBe('OFD-SLOT');
     expect(r.opgw.sourceAssetId).toBe('t-slotA');
     expect(r.opgw.targetAssetId).toBe('t-slotB');

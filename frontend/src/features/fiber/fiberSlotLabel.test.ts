@@ -13,7 +13,7 @@ const opgw2 = { id: 'opgw2', cableType: 'FIBER', sourceAssetId: SLOT2, targetAss
 
 function graphOf(over: Partial<TraceGraph> = {}): TraceGraph {
   return {
-    assets: [{ id: SLOT, connectionKind: 'conduit' }],
+    assets: [{ id: SLOT, role: 'slot' }],
     cables: [opgw],
     nameById: new Map(),
     subNameById: new Map([[OFD, '춘천S/S'], [TWIN, '북춘천S/S'], [TWIN2, '북춘천S/S']]),
@@ -32,7 +32,7 @@ describe('fiberSlotLabel', () => {
 
   it('같은 대국으로 가는 경로슬롯 2개는 slotIndex 순으로 -1 / -2', () => {
     const g = graphOf({
-      assets: [{ id: SLOT, connectionKind: 'conduit' }, { id: SLOT2, connectionKind: 'conduit' }],
+      assets: [{ id: SLOT, role: 'slot' }, { id: SLOT2, role: 'slot' }],
       cables: [opgw, opgw2],
     } as unknown as TraceGraph);
     expect(fiberSlotLabel(SLOT, g)).toBe('춘천S/S - 북춘천S/S -1 #24');
@@ -41,7 +41,7 @@ describe('fiberSlotLabel', () => {
 
   it('slotIndex 가 반대면 -N 도 따라 바뀐다(정렬 기준 확인)', () => {
     const g = graphOf({
-      assets: [{ id: SLOT, connectionKind: 'conduit' }, { id: SLOT2, connectionKind: 'conduit' }],
+      assets: [{ id: SLOT, role: 'slot' }, { id: SLOT2, role: 'slot' }],
       cables: [opgw, opgw2],
       slotIndexById: new Map([[SLOT, 5], [SLOT2, 1]]),
     } as unknown as TraceGraph);

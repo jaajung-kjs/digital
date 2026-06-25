@@ -15,7 +15,6 @@ export interface AssetType {
   id: string;
   code: string;
   name: string;
-  group: string | null;
   role: AssetRole;
   categoryId: string | null;
   isContainer: boolean;
@@ -23,8 +22,6 @@ export interface AssetType {
   requiredToCreate: string[] | null;
   iconName: string | null;
   displayColor: string | null;
-  placementKind: string | null;
-  connectionKind: string | null;
   sortOrder: number;
   isActive: boolean;
   laborType: string | null;
@@ -41,21 +38,8 @@ export interface Asset {
     id: string;
     code: string;
     name: string;
-    group: string | null;
     displayColor: string | null;
     fieldTemplate: AssetFieldDef[] | null;
-    /**
-     * 배치형 종류 식별자 — 백엔드 `/workingcopy` 응답에 포함.
-     * DB 원시값은 'RACK' | 'OFD' | 'DIST' | 'GROUNDING' | 'HVAC' (DIST=분전반 약어).
-     * 평면도 매핑 시 placement.kindOf 가 EquipmentKind('DISTRIBUTION') 로 정규화한다.
-     * 현황 대장 등 비배치 사용처에서는 없을 수 있어 optional.
-     */
-    placementKind?: string | null;
-    /**
-     * 연결 방향성 종류 — 'distributor'(피더/충전기/UPS 등 IN/OUT 구분 필요).
-     * 케이블 드로잉 시 이 끝점이 distributor 면 IN/OUT 지정 UI 가 뜬다.
-     */
-    connectionKind?: string | null;
     /** 시스템 구조 역할 — 분류 단일 소스(P2~). */
     role?: AssetRole | null;
   };

@@ -61,10 +61,10 @@ describe('overlayToChanges', () => {
   it('staged-create(placeholder assetType, code 없음)도 assetTypeId 를 전달한다', () => {
     const saved = { assets: [] as Asset[], cables: [] as WorkingCopyRow[] };
     const overlays = emptyOverlays();
-    // staged-create: assetType 은 placeholder({ placementKind }), code 없음.
+    // staged-create: assetType 은 placeholder({ role }), code 없음.
     const staged = asset('temp-2', {
       assetTypeId: 'at-rack',
-      assetType: { placementKind: 'RACK' } as Asset['assetType'],
+      assetType: { role: 'rack' } as Asset['assetType'],
     });
     overlays.assets = stageCreate(overlays.assets, staged.id, staged);
 
