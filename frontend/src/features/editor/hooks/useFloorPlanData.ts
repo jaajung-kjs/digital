@@ -69,7 +69,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     if (!isTemp) return serverFloor;
     if (!wcFloor) return undefined;
     return { id: wcFloor.id, substationId: wcFloor.substationId, name: wcFloor.name, floorNumber: wcFloor.floorNumber,
-      description: null, sortOrder: wcFloor.sortOrder, isActive: true, createdAt: '', updatedAt: wcFloor.updatedAt ?? '' };
+      description: null, sortOrder: wcFloor.sortOrder, createdAt: '', updatedAt: wcFloor.updatedAt ?? '' };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTemp, serverFloor, wcFloor?.id, wcFloor?.name, wcFloor?.substationId, wcFloor?.floorNumber, wcFloor?.sortOrder, wcFloor?.updatedAt]);
 

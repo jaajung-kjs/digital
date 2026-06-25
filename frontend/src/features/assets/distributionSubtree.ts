@@ -38,10 +38,7 @@ export function buildSubtreeAsset(params: {
     assetTypeId: type.id,
     assetType: {
       id: type.id,
-      code: type.code,
       name: type.name,
-      displayColor: type.displayColor,
-      fieldTemplate: type.fieldTemplate,
       // role 누락 시 resolveAssetDetailKind 가 null → 저장 전 분기 UI 미렌더. 피더 서브트리이므로 'feeder'.
       role: 'feeder',
     },

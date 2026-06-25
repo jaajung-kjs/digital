@@ -8,7 +8,7 @@ import { useCatalogStore, newCatalogId } from './catalogStore';
 import { api } from '../../utils/api';
 
 const mk = (id: string, name: string, role = 'device'): never =>
-  ({ id, code: id, name, group: null, role, categoryId: null, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, sortOrder: 0, isActive: true }) as never;
+  ({ id, name, role, categoryId: null, sortOrder: 0 }) as never;
 
 beforeEach(() => {
   useCatalogStore.setState({ baseTypes: [], baseCategories: [], baseCableGroups: [], baseCableCategories: [] } as never);
@@ -49,13 +49,13 @@ describe('catalogStore', () => {
 
   it('stageCreateCableGroup → effective + dirty', () => {
     const id = newCatalogId();
-    useCatalogStore.getState().stageCreateCableGroup({ id, name: '전원', color: '#ef4444', sortOrder: 0, isActive: true });
+    useCatalogStore.getState().stageCreateCableGroup({ id, name: '전원', color: '#ef4444', sortOrder: 0, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null });
     expect(useCatalogStore.getState().effectiveCableGroups().some((g) => g.id === id)).toBe(true);
     expect(useCatalogStore.getState().dirtyCount()).toBe(1);
   });
 
   it('commit 이 cableGroups 델타 포함', async () => {
-    useCatalogStore.getState().stageCreateCableGroup({ id: newCatalogId(), name: 'G', color: null, sortOrder: 0, isActive: true, kind: null, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null });
+    useCatalogStore.getState().stageCreateCableGroup({ id: newCatalogId(), name: 'G', color: null, sortOrder: 0, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null });
     await useCatalogStore.getState().commit();
     expect(api.post).toHaveBeenCalledWith('/catalog/commit', expect.objectContaining({
       cableGroups: expect.objectContaining({ creates: expect.any(Array) }),
@@ -65,7 +65,7 @@ describe('catalogStore', () => {
   it('stageUpdateCableGroup 노무 patch → commit 에 installHoursPerMeter 전달', async () => {
     const id = 'cg-labor-1';
     useCatalogStore.setState({
-      baseCableGroups: [{ id, name: '전원', color: '#ef4444', sortOrder: 0, isActive: true, kind: null, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null }],
+      baseCableGroups: [{ id, name: '전원', color: '#ef4444', sortOrder: 0, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null }],
     } as never);
     useCatalogStore.getState().stageUpdateCableGroup(id, { installHoursPerMeter: 0.05 });
     await useCatalogStore.getState().commit();
@@ -76,7 +76,7 @@ describe('catalogStore', () => {
   it('stageUpdateType 노무 patch → commit 에 installHoursPerUnit 전달', async () => {
     const id = 'type-labor-1';
     useCatalogStore.setState({
-      baseTypes: [{ id, code: 'T1', name: '테스트종류', group: null, role: 'device', categoryId: null, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, sortOrder: 0, isActive: true, laborType: null, installHoursPerUnit: null, removeHoursPerUnit: null, relocateHoursPerUnit: null }],
+      baseTypes: [{ id, name: '테스트종류', role: 'device', categoryId: null, sortOrder: 0, laborType: null, installHoursPerUnit: null, removeHoursPerUnit: null, relocateHoursPerUnit: null }],
     } as never);
     useCatalogStore.getState().stageUpdateType(id, { installHoursPerUnit: 1.5 });
     await useCatalogStore.getState().commit();

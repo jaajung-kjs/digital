@@ -56,7 +56,7 @@ export function EditRackPresetDialog({
       <div className="bg-surface rounded-lg p-6 max-w-md w-full mx-4">
         <h3 className="text-lg font-semibold mb-1">프리셋 수정</h3>
         <p className="text-xs text-content-faint mb-4">
-          코드: {preset.code} · {preset.totalU}U · 모듈 {preset.modules.length}개
+          {preset.totalU}U · 모듈 {preset.modules.length}개
         </p>
 
         <div className="mb-3">

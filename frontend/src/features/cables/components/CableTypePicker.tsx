@@ -24,7 +24,7 @@ export function CableTypePicker({ value, onChange }: Props) {
   const effectiveGroupId = currentCat?.groupId ?? groupId;
 
   const names = useMemo(
-    () => categories.filter((c) => c.isActive !== false && c.groupId === effectiveGroupId),
+    () => categories.filter((c) => c.groupId === effectiveGroupId),
     [categories, effectiveGroupId],
   );
   const groupColor = groups.find((g) => g.id === effectiveGroupId)?.color ?? null;

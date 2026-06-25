@@ -13,17 +13,10 @@ export type AssetRole = 'rack' | 'ofd' | 'panel' | 'slot' | 'feeder' | 'standalo
 
 export interface AssetType {
   id: string;
-  code: string;
   name: string;
   role: AssetRole;
   categoryId: string | null;
-  isContainer: boolean;
-  fieldTemplate: AssetFieldDef[] | null;
-  requiredToCreate: string[] | null;
-  iconName: string | null;
-  displayColor: string | null;
   sortOrder: number;
-  isActive: boolean;
   laborType: string | null;
   installHoursPerUnit: number | null;
   removeHoursPerUnit: number | null;
@@ -36,10 +29,7 @@ export interface Asset {
   assetTypeId: string;
   assetType: {
     id: string;
-    code: string;
     name: string;
-    displayColor: string | null;
-    fieldTemplate: AssetFieldDef[] | null;
     /** 시스템 구조 역할 — 분류 단일 소스(P2~). */
     role?: AssetRole | null;
   };

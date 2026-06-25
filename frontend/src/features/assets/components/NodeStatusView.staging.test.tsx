@@ -49,8 +49,8 @@ const wcAsset = {
 // 본부 리스트(useNodeAssets) — 두 변전소(s1/s2)에 걸친 자산.
 vi.mock('../../../hooks/useNodeAssets', () => ({
   useNodeAssets: () => ({ data: [
-    { id: 'a1', name: '랙01', assetTypeName: '랙', assetTypeColor: '#111', substationId: 's1', substationName: '춘천S/S', floorId: null, floorName: null, roomText: null, installDate: '2024-01-01', manager: '홍길동', status: '정상', warrantyUntil: null, replaceDue: null, lastMaintenanceDate: null },
-    { id: 'b1', name: 'OFD-9', assetTypeName: 'OFD', assetTypeColor: '#222', substationId: 's2', substationName: '원주S/S', floorId: null, floorName: null, roomText: null, installDate: null, manager: null, status: null, warrantyUntil: null, replaceDue: null, lastMaintenanceDate: null },
+    { id: 'a1', name: '랙01', assetTypeName: '랙', substationId: 's1', substationName: '춘천S/S', floorId: null, floorName: null, roomText: null, installDate: '2024-01-01', manager: '홍길동', status: '정상', warrantyUntil: null, replaceDue: null, lastMaintenanceDate: null },
+    { id: 'b1', name: 'OFD-9', assetTypeName: 'OFD', substationId: 's2', substationName: '원주S/S', floorId: null, floorName: null, roomText: null, installDate: null, manager: null, status: null, warrantyUntil: null, replaceDue: null, lastMaintenanceDate: null },
   ] }),
 }));
 

@@ -95,7 +95,7 @@ export function EditorInsertBar() {
     startCableConnection({ group: groupId });
   };
 
-  const activePresets = (rackPresets ?? []).filter((p) => p.isActive);
+  const activePresets = rackPresets ?? [];
   const activePreset =
     tool === 'equipment' && newEquipmentPreset
       ? activePresets.find((p) => p.id === newEquipmentPreset.id)
@@ -248,7 +248,7 @@ export function EditorInsertBar() {
 
       {/* ───── 케이블 (사용자 정의 그룹 pills) ───── */}
       <span className="text-xs text-content-faint whitespace-nowrap pl-1 pr-0.5">케이블:</span>
-      {(cableGroups ?? []).filter((g) => g.isActive).map((group) => {
+      {(cableGroups ?? []).map((group) => {
         const color = group.color ?? '#6b7280';
         const active =
           tool === 'cable' && preselectedCableGroupId === group.id;

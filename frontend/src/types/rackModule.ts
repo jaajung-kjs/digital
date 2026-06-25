@@ -2,13 +2,10 @@ export const RACK_SLOT_COUNT = 12 as const;
 
 export interface RackModuleCategory {
   id: string;
-  code: string;
   name: string;
   description: string | null;
   displayColor: string | null;
-  defaultSlotSpan: number;
   sortOrder: number;
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -17,7 +14,6 @@ export interface RackModule {
   id: string;
   rackEquipmentId: string;
   categoryId: string;
-  categoryCode: string | null;
   categoryName: string | null;
   categoryDisplayColor: string | null;
   categoryDefaultSlotSpan: number;

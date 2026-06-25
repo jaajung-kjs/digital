@@ -15,7 +15,7 @@ export function ConnectionLegend() {
   const initialized = useRef(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  const groups = (cableGroups ?? []).filter((g) => g.isActive);
+  const groups = cableGroups ?? [];
 
   // Map: groupId -> [categoryId, ...]
   const groupedIds = useMemo(() => {

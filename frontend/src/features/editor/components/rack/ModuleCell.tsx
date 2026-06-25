@@ -85,8 +85,7 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
     onCommit,
   });
 
-  // 흰 모듈 룩(차단기·포트 그리드와 통일). 종류는 라벨 + 좌측 카테고리 색 띠로 구분.
-  const accent = module.assetType?.displayColor ?? null;
+  // 흰 모듈 룩(차단기·포트 그리드와 통일). accentColor 없음 — displayColor 드롭(슬림화 S3).
   const dragging = dragState != null;
   const rejected = dragState?.plan.rejected === true;
 
@@ -101,7 +100,7 @@ export function ModuleCell({ module, siblings, gridRef }: Props) {
           슬롯 번호는 좌측 레일에 있으므로 타일 우측 숫자는 두지 않는다. */}
       <SlotTile
         title={module.name}
-        accentColor={accent}
+        accentColor={null}
         draggable
         onDelete={() => {
           if (confirm(`'${module.name}' 모듈을 삭제할까요?`)) stageAssetDelete(module.id);

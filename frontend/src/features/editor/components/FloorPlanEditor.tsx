@@ -359,16 +359,16 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
     // Resolve module categories by code; skip silently if a preset references
     // an unknown code (data drift). Emit one console warning per occurrence.
-    const codeToCategory = new Map<string, RackModuleCategory>(
-      (rackModuleCategories ?? []).map((c) => [c.code, c]),
+    const idToCategory = new Map<string, RackModuleCategory>(
+      (rackModuleCategories ?? []).map((c) => [c.id, c]),
     );
     const newModules: RackModuleDraw[] = [];
     preset.modules.forEach((mod, idx) => {
-      const cat = codeToCategory.get(mod.categoryCode);
+      const cat = idToCategory.get(mod.categoryId);
       if (!cat) {
         // eslint-disable-next-line no-console
         console.warn(
-          `[rack-preset] module category code '${mod.categoryCode}' not in rack-module-categories — skipped`,
+          `[rack-preset] module category id '${mod.categoryId}' not in rack-module-categories — skipped`,
         );
         return;
       }

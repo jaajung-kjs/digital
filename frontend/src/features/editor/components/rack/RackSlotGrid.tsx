@@ -52,7 +52,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
       setAddingAtSlot(null);
       return;
     }
-    const slotSpan = Math.min(cat.defaultSlotSpan, avail);
+    const slotSpan = Math.min(1, avail);
     // SSOT-2d Task 4 — 랙모듈 생성을 통합 스토어 stage 액션으로.
     useSubstationWorkingCopy.getState().stageRackModuleCreate(buildRackModule({
       rackEquipmentId,

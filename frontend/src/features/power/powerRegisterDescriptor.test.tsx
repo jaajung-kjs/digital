@@ -5,9 +5,9 @@ import React from 'react';
 // Mock useCableCategories with two groups
 vi.mock('../cables/hooks/useCableCategories', () => ({
   useCableCategories: () => ({ data: [
-    { id: 'catFR', name: 'FR', groupId: 'gP', isActive: true },
-    { id: 'catHIV', name: 'HIV', groupId: 'gP', isActive: true },
-    { id: 'catOPGW', name: 'OPGW', groupId: 'gO', isActive: true },
+    { id: 'catFR', name: 'FR', groupId: 'gP' },
+    { id: 'catHIV', name: 'HIV', groupId: 'gP' },
+    { id: 'catOPGW', name: 'OPGW', groupId: 'gO' },
   ] }),
 }));
 

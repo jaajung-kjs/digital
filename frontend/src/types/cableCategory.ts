@@ -12,5 +12,4 @@ export interface CableCategory {
   groupName: string | null;
   groupColor: string | null;
   sortOrder: number;
-  isActive: boolean;
 }

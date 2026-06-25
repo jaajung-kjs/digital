@@ -12,7 +12,6 @@ describe('slimToAsset', () => {
     expect(a.substationId).toBe('s1');
     expect(a.parentAssetId).toBe('p1');
     expect(a.slotIndex).toBe(2);
-    expect(a.assetType.code).toBe('OFD-SLOT');
     expect(a.assetType.role).toBe('slot');
     // detail 필드는 null(부분객체 아님)
     expect(a.positionX).toBeNull();

@@ -8,7 +8,7 @@ function asset(p: Partial<Asset> & { id: string }): Asset {
     id: p.id,
     substationId: 's1',
     assetTypeId: 'at1',
-    assetType: { id: 'at1', code: 'X', name: 'X', group: null, displayColor: null, fieldTemplate: null },
+    assetType: { id: 'at1', name: 'X' },
     name: p.id,
     parentAssetId: p.parentAssetId ?? null,
     floorId: p.floorId ?? null,
