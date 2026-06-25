@@ -40,7 +40,7 @@ function CableSpecModal() {
     : null;
 
   const visibleCategories = useMemo<CableCategory[]>(() => {
-    const all = (cableCategories ?? []).filter((c) => c.isActive);
+    const all = cableCategories ?? [];
     if (!preselectedGroupId) return all;
     return all.filter((c) => c.groupId === preselectedGroupId);
   }, [cableCategories, preselectedGroupId]);

@@ -11,7 +11,7 @@ const router = Router();
 const presetModuleSchema = z.object({
   slotIndex: z.number().int().min(0).max(11),   // 12-slot fixed grid: slots 0–11
   slotSpan: z.number().int().min(1).max(12),    // max span = full rack (12 slots)
-  categoryCode: z.string().min(1).max(30),
+  categoryId: z.string().uuid(),                // AssetType.id (모듈 종류 참조)
   defaultName: z.string().max(100).optional().nullable(),
 });
 
@@ -34,7 +34,6 @@ const updateRackPresetSchema = z.object({
   description: z.string().optional().nullable(),
   modules: z.array(presetModuleSchema).optional(),
   sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
 });
 
 // ==================== Routes ====================

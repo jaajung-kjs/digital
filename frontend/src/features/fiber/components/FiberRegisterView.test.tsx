@@ -39,10 +39,10 @@ const FIBER_CABLES = [OPGW, OUT2];
 
 // EquipmentSelectCell 는 useTraceGraph 그래프(effective)에서 후보·이름을 읽는다.
 const SLIM = [
-  { id: 'a-near', name: '송변전광단말', code: 'EQP', role: 'device', substationId: 's1', parentAssetId: null },
-  { id: 'twin1', name: '홍천슬롯', code: 'OFD-SLOT', role: 'slot', substationId: 's2', parentAssetId: 'ofd2' },
+  { id: 'a-near', name: '송변전광단말', role: 'device', substationId: 's1', parentAssetId: null },
+  { id: 'twin1', name: '홍천슬롯', role: 'slot', substationId: 's2', parentAssetId: 'ofd2' },
 ];
-const CATS = [{ id: 'cat-opj', code: 'CBL-OPJ', name: '광점퍼코드', displayColor: null }];
+const CATS = [{ id: 'cat-opj', name: '광점퍼코드' }];
 
 // EquipmentSelectCell + ConnectionRegisterGrid 는 이제 graph.cables(전역 SSOT)에서 읽는다.
 vi.mock('../../workingCopy/hooks', () => ({
@@ -56,7 +56,6 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
       nameById: new Map([['a-near', '송변전광단말'], ['twin1', '홍천슬롯']]),
       subNameById: new Map([['ofd1', '원주'], ['slot1', '원주']]),
       subById: new Map([['slot1', 's1'], ['twin1', 's2']]),
-      codeById: new Map(),
       parentById: new Map([['slot1', 'ofd1']]),
       assets: [],
       cables: FIBER_CABLES,

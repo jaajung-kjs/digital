@@ -3,10 +3,10 @@ import { projectTrace } from './traceProjection';
 import { buildTraceGraph } from './traceGraph';
 
 // flat slim 픽스처 → buildTraceGraph 단일 입력(assets: assetType 중첩 + substationNames 맵).
-type Flat = { id: string; name: string; substationId: string; substationName: string; parentAssetId: string | null; role: string | null; code: string | null };
+type Flat = { id: string; name: string; substationId: string; substationName: string; parentAssetId: string | null; role: string | null };
 const toAssets = (flat: Flat[]) => flat.map((f) => ({
   id: f.id, name: f.name, substationId: f.substationId, parentAssetId: f.parentAssetId, slotIndex: null,
-  assetType: { code: f.code, role: f.role },
+  assetType: { role: f.role },
 }));
 const namesOf = (flat: Flat[]) => new Map(flat.map((f) => [f.substationId, f.substationName]));
 const buildG = (flat: Flat[], cs: unknown[]) =>
@@ -14,13 +14,13 @@ const buildG = (flat: Flat[], cs: unknown[]) =>
 
 // eqA─OUT#5─slotA(ofdW) ──OPGW── slotB(ofdH)─OUT#5─eqB ; slotB─OUT#6─eqC
 const slim = [
-  { id: 'ofdW', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, role: 'ofd', code: 'OFD' },
-  { id: 'ofdH', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, role: 'ofd', code: 'OFD' },
-  { id: 'slotA', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: 'ofdW', role: 'slot', code: 'OFD-SLOT' },
-  { id: 'slotB', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: 'ofdH', role: 'slot', code: 'OFD-SLOT' },
-  { id: 'eqA', name: '광단말A', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, role: 'device', code: 'OPT-TRANS' },
-  { id: 'eqB', name: '광단말B', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, role: 'device', code: 'OPT-TRANS' },
-  { id: 'eqC', name: '광단말C', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, role: 'device', code: 'OPT-TRANS' },
+  { id: 'ofdW', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, role: 'ofd' },
+  { id: 'ofdH', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, role: 'ofd' },
+  { id: 'slotA', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: 'ofdW', role: 'slot' },
+  { id: 'slotB', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: 'ofdH', role: 'slot' },
+  { id: 'eqA', name: '광단말A', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, role: 'device' },
+  { id: 'eqB', name: '광단말B', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, role: 'device' },
+  { id: 'eqC', name: '광단말C', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, role: 'device' },
 ];
 const cables = [
   { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null },
@@ -62,11 +62,11 @@ describe('projectTrace', () => {
   });
   it('편도(대국 단말 없음): conduit dead-end 가지치기 → 대국 OFD/슬롯 제외, 빈 토폴로지', () => {
     const slim2 = [
-      { id: 'ofdW', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, role: 'ofd', code: 'OFD' },
-      { id: 'ofdH', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, role: 'ofd', code: 'OFD' },
-      { id: 'slotA', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: 'ofdW', role: 'slot', code: 'OFD-SLOT' },
-      { id: 'slotB', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: 'ofdH', role: 'slot', code: 'OFD-SLOT' },
-      { id: 'eqA', name: '광단말A', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, role: 'device', code: 'OPT-TRANS' },
+      { id: 'ofdW', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, role: 'ofd' },
+      { id: 'ofdH', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: null, role: 'ofd' },
+      { id: 'slotA', name: 'OFD', substationId: 'subW', substationName: '원주S/S', parentAssetId: 'ofdW', role: 'slot' },
+      { id: 'slotB', name: 'OFD', substationId: 'subH', substationName: '홍천S/S', parentAssetId: 'ofdH', role: 'slot' },
+      { id: 'eqA', name: '광단말A', substationId: 'subW', substationName: '원주S/S', parentAssetId: null, role: 'device' },
     ];
     const cables2 = [
       { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null },
@@ -83,10 +83,10 @@ describe('projectTrace', () => {
 // SRC ─IN─ F(distributor) ─OUT─ L1 ; F ─OUT─ L2  (전원 분배 fan-out)
 describe('projectTrace tree (통과설비 분배 분기)', () => {
   const slimP = [
-    { id: 'SRC', name: '변압기', substationId: 's', substationName: 'S', parentAssetId: null, role: 'device', code: null },
-    { id: 'F', name: '피더', substationId: 's', substationName: 'S', parentAssetId: null, role: 'feeder', code: null },
-    { id: 'L1', name: '부하1', substationId: 's', substationName: 'S', parentAssetId: null, role: 'device', code: null },
-    { id: 'L2', name: '부하2', substationId: 's', substationName: 'S', parentAssetId: null, role: 'device', code: null },
+    { id: 'SRC', name: '변압기', substationId: 's', substationName: 'S', parentAssetId: null, role: 'device' },
+    { id: 'F', name: '피더', substationId: 's', substationName: 'S', parentAssetId: null, role: 'feeder' },
+    { id: 'L1', name: '부하1', substationId: 's', substationName: 'S', parentAssetId: null, role: 'device' },
+    { id: 'L2', name: '부하2', substationId: 's', substationName: 'S', parentAssetId: null, role: 'device' },
   ];
   const cablesP = [
     { id: 'in', cableType: 'AC', sourceAssetId: 'SRC', targetAssetId: 'F', sourceRole: 'OUT', targetRole: 'IN', number: null },

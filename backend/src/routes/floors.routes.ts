@@ -29,7 +29,6 @@ const updateFloorSchema = z.object({
   floorNumber: z.string().max(20).optional(),
   description: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
 });
 
 const patchVersionContextSchema = z.object({

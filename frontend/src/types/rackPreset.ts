@@ -9,14 +9,13 @@
 export interface RackPresetModule {
   slotIndex: number;
   slotSpan: number;
-  /** RackModuleCategory.code — categories are resolved at apply time. */
-  categoryCode: string;
+  /** RackModuleCategory.id — categories are resolved at apply time. */
+  categoryId: string;
   defaultName: string | null;
 }
 
 export interface RackPreset {
   id: string;
-  code: string;
   name: string;
   totalU: number;
   canvasWidth: number;
@@ -24,7 +23,6 @@ export interface RackPreset {
   description: string | null;
   modules: RackPresetModule[];
   sortOrder: number;
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -36,12 +34,11 @@ export interface RackPreset {
 export interface RackPresetModuleInput {
   slotIndex: number;
   slotSpan: number;
-  categoryCode: string;
+  categoryId: string;
   defaultName?: string | null;
 }
 
 export interface CreateRackPresetInput {
-  code?: string;
   name: string;
   totalU: number;
   canvasWidth: number;
@@ -59,5 +56,4 @@ export interface UpdateRackPresetInput {
   description?: string | null;
   modules?: RackPresetModuleInput[];
   sortOrder?: number;
-  isActive?: boolean;
 }

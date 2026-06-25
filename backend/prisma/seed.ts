@@ -45,7 +45,6 @@ async function main() {
       passwordHash: adminPassword,
       name: '시스템 관리자',
       role: UserRole.ADMIN,
-      isActive: true,
     },
   });
 
@@ -63,7 +62,6 @@ async function main() {
         passwordHash: viewerPassword,
         name: '일반 사용자',
         role: UserRole.VIEWER,
-        isActive: true,
       },
     });
 
@@ -72,10 +70,10 @@ async function main() {
 
   // ── 참조 데이터: 매 배포 시드 (신규 추가분 반영, 운영 데이터 비파괴) ──
   //   - CableCategory (16종) / AssetType / RackPreset (1종)
-  // assetTypes 는 rackPresets 보다 먼저 — 프리셋 모듈이 assetType code 를 참조.
+  // assetTypes 는 rackPresets 보다 먼저 — 프리셋 모듈이 assetType id 를 참조.
   await seedCableCategories(prisma);
-  await seedAssetTypes(prisma);
-  await seedRackPresets(prisma);
+  const typeKeyToId = await seedAssetTypes(prisma);
+  await seedRackPresets(prisma, typeKeyToId);
 
   // ── 초기 조직/변전소: 첫 배포(빈 DB)에만 시드 ───────────────────────────────
   // 요구사항: 첫 배포만 기본 데이터를 시드하고, 이후 재배포는 운영 데이터(이름변경·
@@ -106,7 +104,7 @@ async function main() {
     // 강원본부 직할 13개 국소 + OFD/슬롯/선번장/OPGW (검수 JSON 기반, jikhalAssets)
     const gwHq = await prisma.headquarters.findFirst({ where: { name: '강원본부' } });
     const jikhal = gwHq ? await prisma.branch.findFirst({ where: { headquartersId: gwHq.id, name: '직할' } }) : null;
-    if (jikhal) await seedJikhalAssets(prisma, admin.id, jikhal.id);
+    if (jikhal) await seedJikhalAssets(prisma, admin.id, jikhal.id, typeKeyToId);
   }
 
   console.log('🎉 Seeding completed!');

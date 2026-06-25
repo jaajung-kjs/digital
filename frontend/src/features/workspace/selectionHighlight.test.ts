@@ -38,7 +38,6 @@ const fullGraph = (cs: typeof cables): TraceGraph =>
     subNameById: new Map(),
     subById: new Map(),
     parentById: new Map(),
-    codeById: new Map(),
     roleById: new Map(),
     slotIndexById: new Map(),
   } as TraceGraph);

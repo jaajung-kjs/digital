@@ -8,13 +8,13 @@ const localCables = [
   { id: 'oA3', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 3, specParams: { purpose: '보호', __migration: 'x' } },
 ];
 // buildTraceGraph 단일 입력(assetType 중첩). 변전소명은 NAMES 맵으로.
-const A = (id: string, name: string, sub: string, parent: string | null, role: 'slot' | 'device', code: string) =>
-  ({ id, name, substationId: sub, parentAssetId: parent, slotIndex: null, assetType: { role, code } });
+const A = (id: string, name: string, sub: string, parent: string | null, role: 'slot' | 'device') =>
+  ({ id, name, substationId: sub, parentAssetId: parent, slotIndex: null, assetType: { role } });
 const slim = [
-  A('slotA', 'OFD', 'subW', 'ofdW', 'slot', 'OFD-SLOT'),
-  A('slotB', 'OFD', 'subH', 'ofdH', 'slot', 'OFD-SLOT'),
-  A('eqA', '광단말A', 'subW', null, 'device', 'X'),
-  A('eqB', '광단말B', 'subH', null, 'device', 'X'),
+  A('slotA', 'OFD', 'subW', 'ofdW', 'slot'),
+  A('slotB', 'OFD', 'subH', 'ofdH', 'slot'),
+  A('eqA', '광단말A', 'subW', null, 'device'),
+  A('eqB', '광단말B', 'subH', null, 'device'),
 ];
 const NAMES = new Map([['subW', '원주S/S'], ['subH', '홍천S/S']]);
 const globalCables = [

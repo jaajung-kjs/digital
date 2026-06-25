@@ -57,7 +57,7 @@ export function CategoryComboboxPopover({ anchorRect, availableSpan, onPick, onC
     };
   }, [onCancel]);
 
-  const active = (categories ?? []).filter((c) => c.isActive);
+  const active = categories ?? [];
 
   // 슬롯이 화면 오른쪽 패널 안에 있으므로 기본은 왼쪽으로 띄움.
   // 좌측 공간이 모자라면 슬롯 오른쪽으로, 양쪽 다 안 되면 슬롯 위 (left=slot.left).

@@ -4,9 +4,9 @@ import { CableTypesTab } from './CableTypesTab';
 import { useCatalogStore } from './catalogStore';
 
 const group = (id: string, name: string, color: string | null, extra?: object): never =>
-  ({ id, name, color, sortOrder: 0, isActive: true, kind: null, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null, ...extra }) as never;
+  ({ id, name, color, sortOrder: 0, laborType: null, installHoursPerMeter: null, removeHoursPerMeter: null, relocateHoursPerMeter: null, ...extra }) as never;
 const cat = (id: string, name: string, groupId: string): never =>
-  ({ id, code: id, name, description: null, displayColor: null, displayGroup: null, groupId, groupName: null, groupColor: null, iconName: null, unit: null, specTemplate: null, sortOrder: 0, isActive: true }) as never;
+  ({ id, name, groupId, groupName: null, groupColor: null, sortOrder: 0 }) as never;
 
 beforeEach(() => {
   useCatalogStore.setState({

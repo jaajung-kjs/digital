@@ -33,12 +33,11 @@ export function AssetTypesTab() {
     { id: null, name: '미분류' },
   ];
 
-  const addCategory = () => store().stageCreateCategory({ id: newCatalogId(), name: '새 분류', sortOrder: 0, isActive: true });
+  const addCategory = () => store().stageCreateCategory({ id: newCatalogId(), name: '새 분류', sortOrder: 0 });
   const addType = (categoryId: string | null) =>
     store().stageCreateType({
-      id: newCatalogId(), code: '', name: '새 종류', role: 'device', categoryId,
-      isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null,
-      displayColor: null, sortOrder: 0, isActive: true,
+      id: newCatalogId(), name: '새 종류', role: 'device', categoryId,
+      sortOrder: 0,
     } as AssetType);
 
   return (

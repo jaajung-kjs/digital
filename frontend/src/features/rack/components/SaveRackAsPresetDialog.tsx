@@ -57,7 +57,7 @@ export function SaveRackAsPresetDialog({
   );
 
   const orphanModules = useMemo(
-    () => modules.filter((m) => !m.assetType?.code),
+    () => modules.filter((m) => !m.assetTypeId),
     [modules],
   );
 
@@ -79,11 +79,11 @@ export function SaveRackAsPresetDialog({
 
   const buildModuleInputs = (): RackPresetModuleInput[] =>
     modules
-      .filter((m) => !!m.assetType?.code)
+      .filter((m) => !!m.assetTypeId)
       .map((m) => ({
         slotIndex: m.slotIndex ?? 0,
         slotSpan: m.slotSpan ?? 1,
-        categoryCode: m.assetType!.code as string,
+        categoryId: m.assetTypeId,
         defaultName: m.name || null,
       }));
 
@@ -205,7 +205,7 @@ export function SaveRackAsPresetDialog({
 
           {orphanModules.length > 0 && (
             <p className="mb-3 text-xs text-warning">
-              카테고리 코드가 없는 모듈이 {orphanModules.length}개 있어 저장할 수 없습니다.
+              카테고리가 없는 모듈이 {orphanModules.length}개 있어 저장할 수 없습니다.
             </p>
           )}
 

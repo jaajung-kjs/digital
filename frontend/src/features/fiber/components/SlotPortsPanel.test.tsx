@@ -11,7 +11,7 @@ const { onPick, pickState, startCableConnection, gotoAsset } = vi.hoisted(() => 
 const SLOT = 'slotA';
 const TWIN = 'slotB';
 const OFD = 'ofd1';
-const SLOT_ASSET = { id: SLOT, name: '슬롯A', parentAssetId: OFD, assetType: { role: 'slot', code: 'OFD-SLOT' } };
+const SLOT_ASSET = { id: SLOT, name: '슬롯A', parentAssetId: OFD, assetType: { role: 'slot' } };
 const opgw = { id: 'opgw', sourceAssetId: SLOT, targetAssetId: TWIN, sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 } };
 const localOut3 = { id: 'c-l3', sourceAssetId: 'eqpL', targetAssetId: SLOT, sourceRole: null, targetRole: 'OUT', number: 3 };
 
@@ -24,7 +24,7 @@ vi.mock('../../trace/traceGraph', () => ({
       assets: [], cables: [opgw, localOut3],
       nameById: new Map([['eqpL', '자국장비']]),
       subNameById: new Map([['eqpL', '원주변전소']]),
-      parentById: new Map(), codeById: new Map(),
+      parentById: new Map(),
     },
     isLoading: false,
   }),

@@ -22,7 +22,7 @@ describe('useCablePick', () => {
   it('pickingSourceEndpoint → active, side=source, onPick→drawingPath', () => {
     act(() => {
       const s = useInteractionStore.getState();
-      s.cableActivate({ category: { id: 'c', code: 'C', name: 'C', displayColor: null } });
+      s.cableActivate({ category: { id: 'c', name: 'C' } });
       s.cableSetPendingSource();
     });
     const { result } = renderHook(() => useCablePick());
@@ -34,7 +34,7 @@ describe('useCablePick', () => {
   it('pickingTargetEndpoint → side=target, onPick→ready 후 commitCable 호출(생성)', () => {
     act(() => {
       const s = useInteractionStore.getState();
-      s.cableActivate({ category: { id: 'c', code: 'C', name: 'C', displayColor: null } });
+      s.cableActivate({ category: { id: 'c', name: 'C' } });
       s.cableSetSource({ containerAssetId: 'a', position: { x: 0, y: 0 } });
       s.cableSetPendingTarget();
     });

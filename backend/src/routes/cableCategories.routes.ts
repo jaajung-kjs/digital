@@ -15,7 +15,6 @@ const updateSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   groupId: z.string().uuid().optional(),
   sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
 });
 
 router.get('/', cableCategoryController.getAll);

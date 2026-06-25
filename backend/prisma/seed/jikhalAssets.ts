@@ -38,13 +38,13 @@ function load<T>(name: string): T {
 /**
  * 직할 통신자산·선번장 적재 — 검수 JSON(data/jikhal/) 을 결정적 UUID 로 생성.
  * 첫-배포 가드 안에서 호출(seed.ts). external 국소는 floorId=null.
+ * typeId: seedAssetTypes 가 반환한 key(구 code 문자열)→AssetType.id 맵 (assets.json 의 typeCode 해소).
  */
-export async function seedJikhalAssets(prisma: PrismaClient, adminId: string, branchId: string): Promise<void> {
+export async function seedJikhalAssets(prisma: PrismaClient, adminId: string, branchId: string, typeId: Map<string, string>): Promise<void> {
   const subs = load<SubRow[]>('substations.json');
   const assets = load<AssetRow[]>('assets.json');
   const cables = load<CableRow[]>('fiberCables.json');
 
-  const typeId = new Map((await prisma.assetType.findMany({ select: { id: true, code: true } })).map((t) => [t.code, t.id]));
   // CableCategory.code 드롭(C5) — jikhal 데이터의 categoryCode(CBL-*)를 카테고리 이름으로 해소.
   const CABLE_CODE_TO_NAME: Record<string, string> = { 'CBL-OPGW': 'OPGW(광복합가공지선)', 'CBL-OPJ': '광점퍼코드' };
   const catIdByName = new Map((await prisma.cableCategory.findMany({ select: { id: true, name: true } })).map((c) => [c.name, c.id]));

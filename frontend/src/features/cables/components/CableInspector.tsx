@@ -7,6 +7,7 @@ import { routeDeleteIds } from '../../fiber/fiberWrite';
 import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
 import { EditableField } from '../../assets/components/EditableField';
 import { CableTypePicker } from './CableTypePicker';
+import { normalizeCableColor } from '../../../types/connection';
 
 /**
  * 케이블 일반 속성(종류·라벨·색·설명) 편집의 단일 SSOT UI — 외형은 공용 DetailCard
@@ -59,8 +60,8 @@ export function CableInspector({ cableId, onDeleted }: { cableId: string; onDele
     const c = (categories ?? []).find((x) => x.id === id) ?? null;
     patch({ categoryId: id, categoryName: c?.name ?? null, displayColor: c?.groupColor ?? null });
   };
-  // 실효 색 = 케이블 오버라이드 ?? 종류 색. 피커는 항상 현재 사용중인 색을 기본값으로.
-  const effectiveColor = (cable.color as string | null) || (cable.displayColor as string | null) || '';
+  // 실효 색 = 종류 그룹색. 피커는 항상 현재 사용중인 색을 기본값으로.
+  const effectiveColor = normalizeCableColor(cable.groupColor as string | null) || '';
   const hasSpec = cable.specParams != null && Object.keys(cable.specParams as object).length > 0;
   const isOpgw = (cable.specParams as { coreMeta?: unknown } | null)?.coreMeta != null;
 

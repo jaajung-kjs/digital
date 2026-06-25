@@ -16,7 +16,6 @@ export interface HeadquartersItem {
   id: string;
   name: string;
   sortOrder: number;
-  isActive: boolean;
   branchCount: number;
   createdAt: string;
 }
@@ -26,7 +25,6 @@ export interface BranchItem {
   headquartersId: string;
   name: string;
   sortOrder: number;
-  isActive: boolean;
   substationCount: number;
   createdAt: string;
 }

@@ -3,7 +3,7 @@ import { formatDate } from '../../utils/date';
 
 export interface AssetListItem {
   id: string; name: string;
-  assetTypeName: string; assetTypeColor: string | null;
+  assetTypeName: string;
   substationId: string; substationName: string;
   floorId: string | null; floorName: string | null; roomText: string | null;
   parentAssetId?: string | null; parentName?: string | null; parentFloorName?: string | null;
@@ -65,7 +65,6 @@ function assetCreateToListItem(asset: Asset, substationId: string): AssetListIte
     id: asset.id,
     name: asset.name,
     assetTypeName: asset.assetType?.name ?? '신규',
-    assetTypeColor: asset.assetType?.displayColor ?? null,
     substationId,
     substationName: '',
     floorId: asset.floorId ?? null,

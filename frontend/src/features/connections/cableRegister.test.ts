@@ -2,14 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { buildCableRegister } from './cableRegister';
 
 const asset = (id: string, over: Record<string, unknown> = {}) =>
-  ({ id, name: id, parentAssetId: null, assetType: { code: null, role: 'device' }, ...over }) as never;
+  ({ id, name: id, parentAssetId: null, assetType: { role: 'device' }, ...over }) as never;
 const cat = () => ({ key: '광', label: '광케이블', color: '#a78bfa' });
 const graphOf = (cables: unknown[], assets: { id: string; name: string }[]) =>
   ({
     cables,
     nameById: new Map(assets.map((a) => [a.id, a.name])),
     subNameById: new Map(), subById: new Map(), parentById: new Map(),
-    codeById: new Map(),
     roleById: new Map(assets.map((a) => [a.id, (a as { assetType?: { role?: string } }).assetType?.role ?? null])),
     slotIndexById: new Map(), assets: [],
   }) as never;

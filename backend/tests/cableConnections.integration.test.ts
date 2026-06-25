@@ -28,7 +28,7 @@ describe('연결 조회 — 변전소/자산', () => {
     const hq = await prisma.headquarters.create({ data: { name: '__conn_hq__' } }); hqId = hq.id;
     const br = await prisma.branch.create({ data: { name: '__conn_br__', headquartersId: hq.id } }); brId = br.id;
     const sub = await prisma.substation.create({ data: { name: '__conn_sub__', branchId: br.id } }); subId = sub.id;
-    typeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device', isActive: true } })).id;
+    typeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device' } })).id;
 
     const a1 = await prisma.asset.create({ data: { substationId: subId, assetTypeId: typeId, name: 'CONN-A1' } });
     const a2 = await prisma.asset.create({ data: { substationId: subId, assetTypeId: typeId, name: 'CONN-A2' } });

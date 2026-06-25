@@ -16,12 +16,11 @@ describe('CableCategoryService 쓰기', () => {
   it('create 는 groupId 를 싣고 name/sortOrder 만 저장', async () => {
     vi.mocked(prisma.cableGroup.findUnique).mockResolvedValue({ id: 'g1', name: '전원', color: '#ef4444' } as any);
     vi.mocked(prisma.cableCategory.create).mockImplementation(async (a: any) => ({
-      id: 'x', sortOrder: 0, isActive: true, createdAt: new Date(), updatedAt: new Date(),
+      id: 'x', sortOrder: 0, createdAt: new Date(), updatedAt: new Date(),
       group: { id: 'g1', name: '전원', color: '#ef4444' }, ...a.data,
     }) as any);
     const res = await cableCategoryService.create({ name: 'Fr-sq3.5', groupId: 'g1' });
     const data = vi.mocked(prisma.cableCategory.create).mock.calls[0][0].data as any;
-    expect(data.code).toBeUndefined();
     expect(data.displayGroup).toBeUndefined();
     expect(data.groupId).toBe('g1');
     expect(res.groupId).toBe('g1');

@@ -6,7 +6,6 @@ export interface FloorListItem {
   floorNumber: string | null;
   description: string | null;
   sortOrder: number;
-  isActive: boolean;
 }
 
 // 층 상세
@@ -17,7 +16,6 @@ export interface FloorDetail {
   floorNumber: string | null;
   description: string | null;
   sortOrder: number;
-  isActive: boolean;
   createdAt: string;
   updatedAt: string;
 }

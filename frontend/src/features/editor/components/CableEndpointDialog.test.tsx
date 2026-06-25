@@ -30,10 +30,7 @@ function asset(p: {
     assetTypeId: 't',
     assetType: {
       id: 't',
-      code: 't',
       name: 't',
-      displayColor: null,
-      fieldTemplate: [],
       role: p.role ?? 'device',
     },
     name: p.name,

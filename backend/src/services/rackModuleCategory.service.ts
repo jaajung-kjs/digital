@@ -5,13 +5,9 @@ import { NotFoundError } from '../utils/errors.js';
 
 export interface RackModuleCategoryDetail {
   id: string;
-  code: string;
   name: string;
   description: string | null;
-  displayColor: string | null;
-  defaultSlotSpan: number;
   sortOrder: number;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,24 +19,16 @@ class RackModuleCategoryService {
   // AssetType 에는 description 컬럼이 없어 null 로 채운다.
   private mapToDetail(t: {
     id: string;
-    code: string;
     name: string;
-    displayColor: string | null;
-    defaultSlotSpan: number;
     sortOrder: number;
-    isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): RackModuleCategoryDetail {
     return {
       id: t.id,
-      code: t.code,
       name: t.name,
       description: null,
-      displayColor: t.displayColor,
-      defaultSlotSpan: t.defaultSlotSpan,
       sortOrder: t.sortOrder,
-      isActive: t.isActive,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
     };
@@ -48,15 +36,15 @@ class RackModuleCategoryService {
 
   async getAll(): Promise<RackModuleCategoryDetail[]> {
     const types = await prisma.assetType.findMany({
-      where: { isActive: true, role: 'device' },
-      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      where: { role: 'device' },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return types.map((t) => this.mapToDetail(t));
   }
 
   async getById(id: string): Promise<RackModuleCategoryDetail> {
     const type = await prisma.assetType.findUnique({ where: { id } });
-    if (!type || type.role !== 'device' || !type.isActive) throw new NotFoundError('랙 모듈 카테고리');
+    if (!type || type.role !== 'device') throw new NotFoundError('랙 모듈 카테고리');
     return this.mapToDetail(type);
   }
 }

@@ -10,7 +10,7 @@ beforeEach(() => { vi.clearAllMocks(); useInteractionStore.getState().cancel(); 
 describe('commitCable', () => {
   it('ready → stageCableCreate + 종료 + 토스트', () => {
     const s = useInteractionStore.getState();
-    s.cableActivate({ category: { id: 'cat', code: 'CBL-XLPE', name: 'XLPE', displayColor: '#f00' } });
+    s.cableActivate({ category: { id: 'cat', name: 'XLPE' } });
     s.cableSetSource({ containerAssetId: 'distA', position: { x: 0, y: 0 }, innerAssetId: 'feedA', role: 'OUT', number: 3 });
     s.cableSetTarget({ containerAssetId: 'eqB', position: { x: 10, y: 0 } });
     commitCable();

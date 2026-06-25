@@ -7,7 +7,6 @@ export interface BranchListItem {
   headquartersId: string;
   name: string;
   sortOrder: number;
-  isActive: boolean;
   substationCount: number;
   createdAt: Date;
 }
@@ -19,7 +18,6 @@ export interface CreateBranchInput {
 export interface UpdateBranchInput {
   name?: string;
   sortOrder?: number;
-  isActive?: boolean;
 }
 
 const BRANCH_COUNT_INCLUDE = {
@@ -34,7 +32,6 @@ function toListItem(b: BranchWithCount): BranchListItem {
     headquartersId: b.headquartersId,
     name: b.name,
     sortOrder: b.sortOrder,
-    isActive: b.isActive,
     substationCount: b._count.substations,
     createdAt: b.createdAt,
   };
@@ -46,7 +43,7 @@ class BranchService {
     if (!hq) throw new NotFoundError('본부');
 
     const items = await prisma.branch.findMany({
-      where: { headquartersId, isActive: true },
+      where: { headquartersId },
       include: BRANCH_COUNT_INCLUDE,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
@@ -107,7 +104,7 @@ class BranchService {
     if (!branch) throw new NotFoundError('지사');
 
     const substations = await prisma.substation.findMany({
-      where: { branchId, isActive: true },
+      where: { branchId },
       include: { _count: { select: { floors: true } } },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });

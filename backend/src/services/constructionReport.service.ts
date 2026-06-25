@@ -87,7 +87,6 @@ export interface ReportOverrides {
 
 export interface CableRule {
   groupName: string;
-  kind: string | null;
   laborType: string | null;
   installHoursPerMeter: number | null;
   removeHoursPerMeter: number | null;
@@ -449,7 +448,6 @@ export async function reportPreview(
     if (cat.group) {
       cableRuleByCategoryId.set(cat.id, {
         groupName: cat.group.name,
-        kind: cat.group.kind ?? null,
         laborType: cat.group.laborType ?? null,
         installHoursPerMeter: cat.group.installHoursPerMeter ?? null,
         removeHoursPerMeter: cat.group.removeHoursPerMeter ?? null,

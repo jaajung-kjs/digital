@@ -76,7 +76,7 @@ describe('substationWorkingCopy', () => {
   // ── 2d-1 T3: 에디터 대면 mutation 액션 ──
   it('stageEquipmentCreate → effective 신규 설비', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
-    const eq = { id:'tmpX', kind:'OFD', name:'새OFD', positionX:1, positionY:2, width:10, height:10, floorId:'f1' } as any;
+    const eq = { id:'tmpX', name:'새OFD', positionX:1, positionY:2, width:10, height:10, floorId:'f1' } as any;
     useSubstationWorkingCopy.getState().stageEquipmentCreate(eq, 'tOFD');
     expect(useSubstationWorkingCopy.getState().effectiveAssets().some(a => a.id==='tmpX')).toBe(true);
   });

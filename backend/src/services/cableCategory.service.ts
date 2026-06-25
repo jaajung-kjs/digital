@@ -2,7 +2,7 @@ import prisma from '../config/prisma.js';
 import { ConflictError, NotFoundError, ValidationError } from '../utils/errors.js';
 
 export interface CreateCableCategoryInput { name: string; groupId: string; sortOrder?: number }
-export interface UpdateCableCategoryInput { name?: string; groupId?: string; sortOrder?: number; isActive?: boolean }
+export interface UpdateCableCategoryInput { name?: string; groupId?: string; sortOrder?: number }
 
 // ==================== Types ====================
 
@@ -13,14 +13,13 @@ export interface CableCategoryDetail {
   groupName: string | null;
   groupColor: string | null;
   sortOrder: number;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 type CableCategoryRow = {
   id: string; name: string; groupId: string | null;
-  sortOrder: number; isActive: boolean; createdAt: Date; updatedAt: Date;
+  sortOrder: number; createdAt: Date; updatedAt: Date;
   group?: { id: string; name: string; color: string | null } | null;
 };
 
@@ -35,7 +34,6 @@ class CableCategoryService {
       groupName: c.group?.name ?? null,
       groupColor: c.group?.color ?? null,
       sortOrder: c.sortOrder,
-      isActive: c.isActive,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
     };
@@ -80,7 +78,6 @@ class CableCategoryService {
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         ...(group ? { groupId: group.id } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
-        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       },
       include: { group: true },
     });

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useInteractionStore, getCableDrawing } from './interactionStore';
 import type { EndpointRef } from '../cableEndpoint';
 const ep = (over: Partial<EndpointRef> = {}): EndpointRef => ({ containerAssetId: 'c', position: { x: 1, y: 2 }, ...over });
-const cat = { id: 'cat', code: 'CBL', name: 'X', displayColor: null };
+const cat = { id: 'cat', name: 'X' };
 beforeEach(() => useInteractionStore.getState().cancel());
 describe('cable FSM — 종류 우선', () => {
   it('cableActivate() → selectingType', () => {

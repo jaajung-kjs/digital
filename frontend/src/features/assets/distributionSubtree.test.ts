@@ -9,7 +9,7 @@ function a(p: Partial<Asset> & { id: string; role: string }): Asset {
     id: p.id,
     substationId: 's1',
     assetTypeId: p.role,
-    assetType: { id: p.role, code: null, name: p.role, group: null, role: p.role, categoryId: null, displayColor: null, fieldTemplate: [] } as never,
+    assetType: { id: p.role, name: p.role, group: null, role: p.role, categoryId: null } as never,
     name: p.name ?? p.id,
     parentAssetId: p.parentAssetId ?? null,
     floorId: p.floorId ?? null,
@@ -39,7 +39,7 @@ describe('distributionSubtree', () => {
   });
 
   it('buildSubtreeAsset — 피더 내부 노드 (parentAssetId 채움, 미배치, role=feeder)', () => {
-    const type = { id: 'ft', name: '계통', group: null, role: 'feeder', categoryId: null, displayColor: null, fieldTemplate: null } as never as AssetType;
+    const type = { id: 'ft', name: '계통', group: null, role: 'feeder', categoryId: null } as never as AssetType;
     const built = buildSubtreeAsset({ id: 'new', substationId: 's1', type, name: 'F9', parentAssetId: PANEL, sortOrder: 2 });
     expect(built).toMatchObject({ id: 'new', name: 'F9', parentAssetId: PANEL, floorId: null, assetTypeId: 'ft', sortOrder: 2 });
     expect(built.assetType.role).toBe('feeder');
@@ -48,7 +48,7 @@ describe('distributionSubtree', () => {
   // 회귀: 저장 전 분전반에서 새 피더 생성 시 스위치 UI 가 안 뜨던 버그.
   // 원인 = staged 피더가 role 누락 → resolveAssetDetailKind null. buildSubtreeAsset 이 role='feeder' 보장.
   describe('staged 자산 메타 완전성 (스위치/포트 UI 게이팅)', () => {
-    const feederType = { id: 'at-feeder', name: '피더', group: '전원', role: 'feeder', categoryId: null, displayColor: null, fieldTemplate: null } as never as AssetType;
+    const feederType = { id: 'at-feeder', name: '피더', group: '전원', role: 'feeder', categoryId: null } as never as AssetType;
 
     it('staged 피더는 role=feeder 를 보존한다', () => {
       const feeder = buildSubtreeAsset({ id: 't1', substationId: 's1', type: feederType, name: 'F', parentAssetId: PANEL });

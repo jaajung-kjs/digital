@@ -5,9 +5,7 @@ export type NodeType = 'headquarters' | 'branch' | 'substation';
 
 export interface CategoryCount {
   categoryId: string;
-  code: string;
   name: string;
-  displayColor: string | null;
   count: number;
 }
 
@@ -62,7 +60,7 @@ class RackModuleStatsService {
     const categoryIds = rows.map((r) => r.assetTypeId);
     const categories = await prisma.assetType.findMany({
       where: { id: { in: categoryIds } },
-      select: { id: true, code: true, name: true, displayColor: true, sortOrder: true },
+      select: { id: true, name: true, sortOrder: true },
     });
     const categoryById = new Map(categories.map((c) => [c.id, c]));
 
@@ -71,9 +69,7 @@ class RackModuleStatsService {
         const cat = categoryById.get(r.assetTypeId);
         return {
           categoryId: r.assetTypeId,
-          code: cat?.code ?? '',
           name: cat?.name ?? '(unknown)',
-          displayColor: cat?.displayColor ?? null,
           sortOrder: cat?.sortOrder ?? 999,
           count: r._count._all,
         };

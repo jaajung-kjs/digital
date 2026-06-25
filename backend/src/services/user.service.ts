@@ -16,7 +16,6 @@ export interface CreateUserInput {
 export interface UpdateUserInput {
   name?: string;
   role?: UserRole;
-  isActive?: boolean;
 }
 
 class UserService {
@@ -30,7 +29,6 @@ class UserService {
         username: true,
         name: true,
         role: true,
-        isActive: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -51,7 +49,6 @@ class UserService {
         username: true,
         name: true,
         role: true,
-        isActive: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -96,7 +93,6 @@ class UserService {
         username: true,
         name: true,
         role: true,
-        isActive: true,
         createdAt: true,
       },
     });
@@ -123,14 +119,12 @@ class UserService {
       data: {
         name: data.name,
         role: data.role,
-        isActive: data.isActive,
       },
       select: {
         id: true,
         username: true,
         name: true,
         role: true,
-        isActive: true,
         createdAt: true,
         updatedAt: true,
       },

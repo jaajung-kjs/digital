@@ -11,16 +11,9 @@ export const substationController = {
    * GET /api/substations
    * 변전소 목록 조회
    */
-  async getList(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getList(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const isActive = req.query.isActive === 'true'
-        ? true
-        : req.query.isActive === 'false'
-          ? false
-          : undefined;
-
-      const substations = await substationService.getList(isActive);
-
+      const substations = await substationService.getList();
       res.json({ data: substations });
     } catch (error) {
       next(error);

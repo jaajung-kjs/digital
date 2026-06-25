@@ -14,7 +14,7 @@ const { patch, stageCableDelete, startCableConnection, gotoAsset, onPick, pickSt
 
 const FEEDER = 'f1';
 const DIST = 'dist1';
-const FEEDER_ASSET = { id: FEEDER, name: 'L1 조명', parentAssetId: DIST, assetType: { role: 'feeder', code: 'FEEDER' } };
+const FEEDER_ASSET = { id: FEEDER, name: 'L1 조명', parentAssetId: DIST, assetType: { role: 'feeder' } };
 const cb1 = { id: 'c1', sourceAssetId: FEEDER, targetAssetId: 'eqpA', sourceRole: 'OUT', targetRole: null, number: 1, categoryName: 'HIV', categoryId: 'cat1', specParams: { capacity: '20A', switchState: 'ON' } };
 
 vi.mock('../../workingCopy/hooks', () => ({ useEffectiveAssets: () => [FEEDER_ASSET] }));

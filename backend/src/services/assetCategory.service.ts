@@ -5,20 +5,18 @@ export interface AssetCategoryDetail {
   id: string;
   name: string;
   sortOrder: number;
-  isActive: boolean;
 }
 
 export interface CreateAssetCategoryInput { name: string; sortOrder?: number }
-export interface UpdateAssetCategoryInput { name?: string; sortOrder?: number; isActive?: boolean }
+export interface UpdateAssetCategoryInput { name?: string; sortOrder?: number }
 
 class AssetCategoryService {
-  private map(c: { id: string; name: string; sortOrder: number; isActive: boolean }): AssetCategoryDetail {
-    return { id: c.id, name: c.name, sortOrder: c.sortOrder, isActive: c.isActive };
+  private map(c: { id: string; name: string; sortOrder: number }): AssetCategoryDetail {
+    return { id: c.id, name: c.name, sortOrder: c.sortOrder };
   }
 
   async getAll(): Promise<AssetCategoryDetail[]> {
     const rows = await prisma.assetCategory.findMany({
-      where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return rows.map((r) => this.map(r));
@@ -39,7 +37,6 @@ class AssetCategoryService {
       data: {
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
-        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       },
     });
     return this.map(row);

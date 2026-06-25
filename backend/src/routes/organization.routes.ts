@@ -17,7 +17,6 @@ const createHeadquartersSchema = z.object({
 const updateHeadquartersSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
 });
 
 const createBranchSchema = z.object({
@@ -27,7 +26,6 @@ const createBranchSchema = z.object({
 const updateBranchSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
 });
 
 // ==================== Org Tree (전체 트리 평면 로드) ====================

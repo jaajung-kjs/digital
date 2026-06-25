@@ -44,7 +44,7 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const rackModules = useEffectiveRackModules(rackEquipmentId);
 
   const activePresets = useMemo(
-    () => (presets ?? []).filter((p) => p.isActive),
+    () => presets ?? [],
     [presets],
   );
 
@@ -193,15 +193,15 @@ function applyPresetToRack(
 
   // 2) expand preset.modules into RackModule rows.
   //    각 모듈은 이 랙(rackEquipmentId)을 rackEquipmentId 로 참조한다.
-  const codeToCategory = new Map<string, RackModuleCategory>(
-    categories.map((c) => [c.code, c]),
+  const idToCategory = new Map<string, RackModuleCategory>(
+    categories.map((c) => [c.id, c]),
   );
   preset.modules.forEach((mod, idx) => {
-    const cat = codeToCategory.get(mod.categoryCode);
+    const cat = idToCategory.get(mod.categoryId);
     if (!cat) {
       // eslint-disable-next-line no-console
       console.warn(
-        `[rack-preset] module category code '${mod.categoryCode}' not in rack-module-categories — skipped`,
+        `[rack-preset] module category id '${mod.categoryId}' not in rack-module-categories — skipped`,
       );
       return;
     }

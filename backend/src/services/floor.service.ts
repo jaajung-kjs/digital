@@ -12,7 +12,6 @@ export interface FloorListItem {
   floorNumber: string | null;
   description: string | null;
   sortOrder: number;
-  isActive: boolean;
 }
 
 export interface FloorDetailBasic {
@@ -22,7 +21,6 @@ export interface FloorDetailBasic {
   floorNumber: string | null;
   description: string | null;
   sortOrder: number;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -92,7 +90,6 @@ export interface UpdateFloorInput {
   floorNumber?: string;
   description?: string;
   sortOrder?: number;
-  isActive?: boolean;
 }
 
 // ==================== Shared ====================
@@ -107,7 +104,6 @@ function toFloorDetailBasic(r: FloorRecord): FloorDetailBasic {
     floorNumber: r.floorNumber,
     description: r.description,
     sortOrder: r.sortOrder,
-    isActive: r.isActive,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
   };
@@ -121,7 +117,7 @@ class FloorService {
     if (!substation) throw new NotFoundError('변전소');
 
     const floors = await prisma.floor.findMany({
-      where: { substationId, isActive: true },
+      where: { substationId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
 
@@ -132,7 +128,6 @@ class FloorService {
       floorNumber: f.floorNumber,
       description: f.description,
       sortOrder: f.sortOrder,
-      isActive: f.isActive,
     }));
   }
 

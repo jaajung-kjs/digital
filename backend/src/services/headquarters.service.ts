@@ -6,7 +6,6 @@ export interface HeadquartersListItem {
   id: string;
   name: string;
   sortOrder: number;
-  isActive: boolean;
   branchCount: number;
   createdAt: Date;
 }
@@ -18,7 +17,6 @@ export interface CreateHeadquartersInput {
 export interface UpdateHeadquartersInput {
   name?: string;
   sortOrder?: number;
-  isActive?: boolean;
 }
 
 const HQ_COUNT_INCLUDE = {
@@ -32,7 +30,6 @@ function toListItem(h: HqWithCount): HeadquartersListItem {
     id: h.id,
     name: h.name,
     sortOrder: h.sortOrder,
-    isActive: h.isActive,
     branchCount: h._count.branches,
     createdAt: h.createdAt,
   };
@@ -41,7 +38,6 @@ function toListItem(h: HqWithCount): HeadquartersListItem {
 class HeadquartersService {
   async getList(): Promise<HeadquartersListItem[]> {
     const items = await prisma.headquarters.findMany({
-      where: { isActive: true },
       include: HQ_COUNT_INCLUDE,
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
