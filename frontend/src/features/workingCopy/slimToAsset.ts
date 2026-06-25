@@ -12,7 +12,7 @@ export function slimToAsset(s: SlimAssetDTO): Asset {
     substationId: s.substationId,
     assetTypeId: '',
     assetType: {
-      id: '', code: s.code ?? '', name: '', group: null, displayColor: null,
+      id: '', code: s.code ?? '', name: '', displayColor: null,
       fieldTemplate: null,
       role: s.role ?? null,
     },

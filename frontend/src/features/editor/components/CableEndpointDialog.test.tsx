@@ -32,7 +32,6 @@ function asset(p: {
       id: 't',
       code: 't',
       name: 't',
-      group: null,
       displayColor: null,
       fieldTemplate: [],
       role: p.role ?? 'device',

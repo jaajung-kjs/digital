@@ -15,7 +15,6 @@ export interface AssetType {
   id: string;
   code: string;
   name: string;
-  group: string | null;
   role: AssetRole;
   categoryId: string | null;
   isContainer: boolean;
@@ -39,7 +38,6 @@ export interface Asset {
     id: string;
     code: string;
     name: string;
-    group: string | null;
     displayColor: string | null;
     fieldTemplate: AssetFieldDef[] | null;
     /** 시스템 구조 역할 — 분류 단일 소스(P2~). */
