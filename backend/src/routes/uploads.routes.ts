@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { authenticate, adminOnly } from '../middleware/auth.js';
-import { uploadEquipmentImage } from '../middleware/upload.js';
+import { uploadAssetImage } from '../middleware/upload.js';
 
 const router = Router();
 
@@ -19,13 +19,13 @@ router.post(
   '/photo',
   authenticate,
   adminOnly,
-  uploadEquipmentImage.single('file'),
+  uploadAssetImage.single('file'),
   (req: MulterRequest, res: Response): void => {
     if (!req.file) {
       res.status(400).json({ error: { code: 'FILE_REQUIRED', message: '이미지 파일이 필요합니다.' } });
       return;
     }
-    res.status(201).json({ data: { imageUrl: `/uploads/equipment/${req.file.filename}` } });
+    res.status(201).json({ data: { imageUrl: `/uploads/assets/${req.file.filename}` } });
   },
 );
 

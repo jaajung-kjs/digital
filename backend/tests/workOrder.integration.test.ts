@@ -23,7 +23,7 @@ describe('작업지시서 아카이브 (floors/:id/work-orders)', () => {
   let hqId: string, brId: string, subId: string, floorId: string;
 
   const report = {
-    diff: [{ type: 'equipment', action: 'install', materialCategoryCode: 'EQP-RACK' }],
+    diff: [{ type: 'asset', action: 'install', materialCategoryCode: 'EQP-RACK' }],
     bom: [{ materialCategoryCode: 'EQP-RACK', name: '랙', quantity: 1, unit: '식' }],
     labor: [{ workName: '랙 설치', laborType: '통신내선공', hours: 2 }],
     totalLaborHours: 2,

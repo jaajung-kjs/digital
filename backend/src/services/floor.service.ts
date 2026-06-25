@@ -1,7 +1,7 @@
 import prisma from '../config/prisma.js';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError } from '../utils/errors.js';
-import { assetToPlanEquipment } from './assetPlanMapper.js';
+import { assetToPlanAsset } from './assetPlanMapper.js';
 
 // ==================== Types ====================
 
@@ -25,7 +25,7 @@ export interface FloorDetailBasic {
   updatedAt: Date;
 }
 
-interface PlanEquipmentDTO {
+interface PlanAssetDTO {
   id: string;
   name: string;
   positionX: number;
@@ -73,7 +73,7 @@ export interface FloorPlanDetail {
   scaleRatio: number | null;
   backgroundDrawing: unknown;
   backgroundOpacity: number;
-  equipment: PlanEquipmentDTO[];
+  assets: PlanAssetDTO[];
   cables: PlanCableDTO[];
   version: number;
   updatedAt: Date;
@@ -160,7 +160,7 @@ class FloorService {
     const floor = await prisma.floor.findUnique({ where: { id } });
     if (!floor) throw new NotFoundError('층');
 
-    const [equipmentAssets, cables] = await Promise.all([
+    const [placedAssets, cables] = await Promise.all([
       prisma.asset.findMany({
         where: { floorId: id, parentAssetId: null },
         include: { assetType: true },
@@ -196,7 +196,7 @@ class FloorService {
       scaleRatio: floor.scaleRatio ?? null,
       backgroundDrawing: floor.backgroundDrawing,
       backgroundOpacity: floor.backgroundOpacity,
-      equipment: equipmentAssets.map((a) => assetToPlanEquipment(a)),
+      assets: placedAssets.map((a) => assetToPlanAsset(a)),
       cables: cables.map((c) => ({
         id: c.id,
         sourceAssetId: c.sourceAssetId,

@@ -12,7 +12,7 @@ import { z } from 'zod';
  * 공유 모양: frontend/src/types/constructionReport.ts 의 PlanSnapshot/ReportOverrides.
  */
 
-const equipmentSnapshotItem = z.object({
+const assetSnapshotItem = z.object({
   id: z.string(),
   name: z.string(),
   assetTypeId: z.string().nullable().optional(),
@@ -31,7 +31,7 @@ const cableSnapshotItem = z.object({
 });
 
 const planSnapshot = z.object({
-  equipment: z.array(equipmentSnapshotItem).default([]),
+  assets: z.array(assetSnapshotItem).default([]),
   cables: z.array(cableSnapshotItem).default([]),
 });
 

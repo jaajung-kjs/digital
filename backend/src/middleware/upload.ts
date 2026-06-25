@@ -18,16 +18,16 @@ const fileFilter = (
   }
 };
 
-// ==================== 설비 이미지 업로드 ====================
+// ==================== 자산 이미지 업로드 ====================
 
-const equipmentUploadDir = 'uploads/equipment';
-if (!fs.existsSync(equipmentUploadDir)) {
-  fs.mkdirSync(equipmentUploadDir, { recursive: true });
+const assetUploadDir = 'uploads/assets';
+if (!fs.existsSync(assetUploadDir)) {
+  fs.mkdirSync(assetUploadDir, { recursive: true });
 }
 
-const equipmentStorage = multer.diskStorage({
+const assetStorage = multer.diskStorage({
   destination: (_req, _file, cb) => {
-    cb(null, equipmentUploadDir);
+    cb(null, assetUploadDir);
   },
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname);
@@ -36,8 +36,8 @@ const equipmentStorage = multer.diskStorage({
   },
 });
 
-export const uploadEquipmentImage = multer({
-  storage: equipmentStorage,
+export const uploadAssetImage = multer({
+  storage: assetStorage,
   fileFilter,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB

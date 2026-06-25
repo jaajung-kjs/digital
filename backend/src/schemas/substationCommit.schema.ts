@@ -8,7 +8,7 @@ import { z } from 'zod';
  * (분전 회로 feeder/branch 는 Asset 이므로 assets 컬렉션으로 들어온다.)
  *
  * - 각 *Create 는 `tempId` 를 가진다. 커밋 시 real id 로 치환되어 idMap 으로 반환.
- * - 다른 엔티티 참조(equipmentId, rackEquipmentId, distributionEquipmentId,
+ * - 다른 엔티티 참조(assetId, rackAssetId, distributionAssetId,
  *   source/target id)는 `z.string()` — real id 이거나
  *   같은 페이로드 안의 tempId(커밋 시점 resolve)일 수 있다.
  * - specParams / properties / pathPoints 같은 free-form JSON 은
@@ -110,7 +110,7 @@ const assetPatch = assetCreate.omit({ tempId: true }).partial();
 
 // ==================== Cable ====================
 // 단계4b(통합 노드 collapse): endpoint = 단일 Asset 노드(설비 / 랙 모듈 / 분전 분기).
-// nested source/target(equipmentId/moduleId/circuitId) + distribution-circuit 커밋
+// nested source/target(assetId/moduleId/circuitId) + distribution-circuit 커밋
 // 경로는 제거됐다 — endpoint 는 sourceAssetId/targetAssetId 하나뿐. create 는 필수,
 // patch 는 partial. tempId 는 같은 페이로드의 asset/cable create 를 가리킬 수 있다.
 const cableCreate = z.object({

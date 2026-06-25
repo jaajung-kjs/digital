@@ -3,8 +3,8 @@ import { sourcePresetToProperties } from './sourcePreset.js';
 
 type AssetWithType = Asset & { assetType: AssetType };
 
-/** 배치된 top-level Asset → plan equipment DTO */
-export function assetToPlanEquipment(a: AssetWithType) {
+/** 배치된 top-level Asset → plan asset DTO */
+export function assetToPlanAsset(a: AssetWithType) {
   return {
     id: a.id,
     name: a.name,
@@ -28,7 +28,7 @@ export function assetToPlanEquipment(a: AssetWithType) {
 export function assetToRackModule(a: AssetWithType) {
   return {
     id: a.id,
-    rackEquipmentId: a.parentAssetId!,
+    rackAssetId: a.parentAssetId!,
     categoryId: a.assetTypeId,
     categoryName: a.assetType.name,
     name: a.name,

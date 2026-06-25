@@ -32,9 +32,9 @@ const ruleCtx: RuleContext = {
   ]),
 };
 
-const before = { equipment: [], cables: [] };
+const before = { assets: [], cables: [] };
 const after = {
-  equipment: [{ id: 'e1', name: '랙1', assetTypeId: 'typeRack' }],
+  assets: [{ id: 'e1', name: '랙1', assetTypeId: 'typeRack' }],
   cables: [
     {
       id: 'c1',

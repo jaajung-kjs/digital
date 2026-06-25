@@ -108,7 +108,7 @@ export async function assertRackParentValid(
   });
   if (!rack) {
     throw new ValidationError(
-      `랙 모듈의 부모 설비를 찾을 수 없습니다 (rackEquipmentId=${resolvedRackId}).`,
+      `랙 모듈의 부모 설비를 찾을 수 없습니다 (rackAssetId=${resolvedRackId}).`,
     );
   }
   if (rack.assetType.role !== 'rack') {
