@@ -45,7 +45,7 @@ interface Overlays {
  * Asset → 설계서 equipment 스냅샷 항목.
  *
  * 노무규칙 정본은 백엔드가 `assetTypeId` 로 해소한다. staged-create
- * 설비는 assetType 이 placeholder({ placementKind })라 code 가 없으므로,
+ * 설비는 assetType 이 placeholder({ role })라 code 가 없으므로,
  * assetTypeId 를 함께 보내야 노무가 산출된다.
  */
 function assetToSnapshot(a: Asset): EquipmentSnapshotItem {

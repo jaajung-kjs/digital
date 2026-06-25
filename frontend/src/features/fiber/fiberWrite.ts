@@ -3,7 +3,7 @@ interface CatRef { id: string; name: string }
 
 export interface SlotCreate {
   id: string; substationId: string; assetTypeId: string;
-  assetType: { code: string; connectionKind: 'conduit'; placementKind: null; role: 'slot' };
+  assetType: { code: string; role: 'slot' };
   name: string; parentAssetId: string;
   floorId: null; positionX: null; positionY: null; width2d: null; height2d: null;
   rotation: number; totalU: null; slotIndex: null; slotSpan: null;
@@ -20,7 +20,7 @@ export interface CableCreate {
 
 const baseSlot = (id: string, ofd: OfdRef, remoteName: string, slotTypeId: string): SlotCreate => ({
   id, substationId: ofd.substationId, assetTypeId: slotTypeId,
-  assetType: { code: 'OFD-SLOT', connectionKind: 'conduit', placementKind: null, role: 'slot' },
+  assetType: { code: 'OFD-SLOT', role: 'slot' },
   name: remoteName, parentAssetId: ofd.id,
   floorId: null, positionX: null, positionY: null, width2d: null, height2d: null,
   rotation: 0, totalU: null, slotIndex: null, slotSpan: null,

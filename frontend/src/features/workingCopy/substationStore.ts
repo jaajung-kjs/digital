@@ -506,7 +506,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
         set((s) => {
           if (!s.substationId) return s; // 미로드 — 무시(null substationId asset 방지)
           // 캔버스 draw 입력 → staged Asset(과거 equipmentToAssetCreate 를 인라인).
-          // staged create — 실제 assetType 은 서버 커밋 후에야 알 수 있어 placementKind 만 채운다.
+          // staged create — 실제 assetType 은 서버 커밋 후에야 알 수 있어 role 만 채운다.
           const asset: Asset = {
             id: eq.id,
             substationId: s.substationId,

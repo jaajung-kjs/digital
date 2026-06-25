@@ -19,11 +19,11 @@ const OPGW_ID = 'opgw1';
 
 const SLOT_ASSET = {
   id: SLOT_ID, name: '슬롯A', parentAssetId: OFD_ID, substationId: 's1',
-  assetType: { connectionKind: 'conduit', code: 'OFD-SLOT', role: 'slot' },
+  assetType: { code: 'OFD-SLOT', role: 'slot' },
 };
 const OFD_ASSET = {
   id: OFD_ID, name: '원주OFD', substationId: 's1',
-  assetType: { placementKind: 'OFD', connectionKind: null, role: 'ofd' }, parentAssetId: null,
+  assetType: { role: 'ofd' }, parentAssetId: null,
 };
 
 const OPGW_CABLE = {
@@ -35,8 +35,8 @@ const OPGW_CABLE = {
   specParams: { cores: 48 },
 };
 
-const SLIM_LOCAL = { id: OFD_ID, name: '원주OFD', code: 'OFD', substationId: 's1', substationName: '원주변전소', parentAssetId: null, connectionKind: null };
-const SLIM_REMOTE = { id: REMOTE_OFD_ID, name: '홍천OFD', code: 'OFD', substationId: 's2', substationName: '홍천변전소', parentAssetId: null, connectionKind: null };
+const SLIM_LOCAL = { id: OFD_ID, name: '원주OFD', code: 'OFD', substationId: 's1', substationName: '원주변전소', parentAssetId: null, role: 'ofd' };
+const SLIM_REMOTE = { id: REMOTE_OFD_ID, name: '홍천OFD', code: 'OFD', substationId: 's2', substationName: '홍천변전소', parentAssetId: null, role: 'ofd' };
 
 const OPGW_CAT = { id: 'cat-opgw', code: 'CBL-OPGW', name: 'OPGW', displayColor: null, groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e', isActive: true };
 
@@ -57,7 +57,7 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
       roleById: new Map([[OFD_ID, 'ofd'], [REMOTE_OFD_ID, 'ofd']]),
       parentById: new Map([[SLOT_ID, OFD_ID]]),
       // ofdAssets 가 열거하는 OFD 자산(자국+대국) — slim+staged 병합 그래프 단일 SSOT.
-      assets: [{ id: OFD_ID, connectionKind: null }, { id: REMOTE_OFD_ID, connectionKind: null }],
+      assets: [{ id: OFD_ID, role: 'ofd' }, { id: REMOTE_OFD_ID, role: 'ofd' }],
       cables: [OPGW_CABLE],
     },
     isLoading: false,

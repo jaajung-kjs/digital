@@ -17,7 +17,7 @@ const SUB_ID = 's1';
 // 한 변(canvas) 안에 들어 있지 않은(0,0 이 아닌) 위치의 설비 — fit 이 0,0 이 아니어야 함.
 const asset = {
   id: 'a1', name: 'A', substationId: SUB_ID, floorId: FLOOR_ID,
-  assetType: { placementKind: 'OFD' },
+  assetType: { role: 'ofd' },
   positionX: 4000, positionY: 4000, width: 100, height: 100,
   parentAssetId: null, slotIndex: null, updatedAt: '2026-01-01T00:00:00.000Z',
 };

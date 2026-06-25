@@ -29,7 +29,7 @@ describe('resolveSelectedCable', () => {
 });
 
 // 완전한 graph — TraceGraph 의 모든 필드를 채워 cast 가 결손을 숨기지 않게 한다.
-// assets 가 비어 connectionKind 가 전부 null → projectTrace 의 start 가 passive 로 잡힌다.
+// assets 가 비어 role 이 전부 없음(undefined) → projectTrace 의 start 가 passive 로 잡힌다.
 const fullGraph = (cs: typeof cables): TraceGraph =>
   ({
     assets: [],
@@ -38,10 +38,10 @@ const fullGraph = (cs: typeof cables): TraceGraph =>
     subNameById: new Map(),
     subById: new Map(),
     parentById: new Map(),
-    kindById: new Map(),
     codeById: new Map(),
     roleById: new Map(),
-  } as unknown as TraceGraph);
+    slotIndexById: new Map(),
+  } as TraceGraph);
 const graphStub = fullGraph(cables);
 const effAssets: never[] = [];
 

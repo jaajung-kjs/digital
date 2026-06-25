@@ -9,19 +9,19 @@ const { setSelectedAssetId, setSelected, patch, effectiveCables } = vi.hoisted((
   effectiveCables: vi.fn(() => [] as unknown[]),
 }));
 
-// 슬롯(conduit) 자식이 있는 OFD 자산 + 슬롯 자산 + 빈 케이블 목록 기본 세팅.
+// 슬롯(role=slot) 자식이 있는 OFD 자산 + 슬롯 자산 + 빈 케이블 목록 기본 세팅.
 const SLOT_ASSET = {
   id: 'slot1',
   name: '슬롯A',
   parentAssetId: 'ofd1',
   substationId: 's1',
-  assetType: { connectionKind: 'conduit', role: 'slot' },
+  assetType: { role: 'slot' },
 };
 const OFD_ASSET = {
   id: 'ofd1',
   name: '원주OFD',
   substationId: 's1',
-  assetType: { placementKind: 'OFD', connectionKind: null, role: 'ofd' },
+  assetType: { role: 'ofd' },
   parentAssetId: null,
 };
 
@@ -39,8 +39,8 @@ const FIBER_CABLES = [OPGW, OUT2];
 
 // EquipmentSelectCell 는 useTraceGraph 그래프(effective)에서 후보·이름을 읽는다.
 const SLIM = [
-  { id: 'a-near', name: '송변전광단말', code: 'EQP', role: 'device', substationId: 's1', parentAssetId: null, connectionKind: null },
-  { id: 'twin1', name: '홍천슬롯', code: 'OFD-SLOT', role: 'slot', substationId: 's2', parentAssetId: 'ofd2', connectionKind: 'conduit' },
+  { id: 'a-near', name: '송변전광단말', code: 'EQP', role: 'device', substationId: 's1', parentAssetId: null },
+  { id: 'twin1', name: '홍천슬롯', code: 'OFD-SLOT', role: 'slot', substationId: 's2', parentAssetId: 'ofd2' },
 ];
 const CATS = [{ id: 'cat-opj', code: 'CBL-OPJ', name: '광점퍼코드', displayColor: null }];
 

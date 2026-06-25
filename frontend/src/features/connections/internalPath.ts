@@ -29,7 +29,7 @@ export function buildInternalPath(
   const seed = cableById.get(seedCableId);
   if (!seed || !localSubId) return null;
 
-  const kindOf = (id: string | null | undefined) => (id ? (graph.kindById.get(id) ?? null) : null);
+  const kindOf = (id: string | null | undefined) => (id ? (graph.roleById.get(id) ?? null) : null);
   const inSub = (id: string | null | undefined): id is string => !!id && graph.subById.get(id) === localSubId;
   const groupId = seed.groupId ?? null;
 
@@ -45,7 +45,7 @@ export function buildInternalPath(
 
   // ── 1) 추적: 변전소 한정 BFS(선택 케이블 양끝 시드, 설비는 통과) → nodeSet / cableSet / crossed ──
   const ends = [seed.sourceAssetId, seed.targetAssetId].filter(Boolean) as string[];
-  const start = ends.find((e) => inSub(e) && kindOf(e) !== null) ?? ends.find((e) => inSub(e)) ?? ends[0];
+  const start = ends.find((e) => inSub(e) && (kindOf(e) === 'slot' || kindOf(e) === 'feeder')) ?? ends.find((e) => inSub(e)) ?? ends[0];
   if (!start) return null;
 
   const nodeSet = new Set<string>();
@@ -63,12 +63,12 @@ export function buildInternalPath(
     const entryRole = roleAt(via, a);
     let exits: Cable[];
     let nextCh: (c: Cable) => number | null = () => null;
-    if (kind === 'distributor') {
+    if (kind === 'feeder') {
       // 피더: OUT 으로 들어오면 IN 한 개로만(직렬), IN 으로 들어오면 모든 OUT 으로(분기).
       if (entryRole === 'OUT') exits = here.filter((c) => roleAt(c, a) === 'IN');
       else if (entryRole === 'IN') exits = here.filter((c) => roleAt(c, a) === 'OUT');
       else exits = here;
-    } else if (kind === 'conduit') {
+    } else if (kind === 'slot') {
       // 경로슬롯: 같은 번호(코어)로만 — 실제 물리연결.
       if (entryRole === 'OUT') { exits = here.filter((c) => roleAt(c, a) === 'IN'); nextCh = () => via.number ?? null; }
       else if (entryRole === 'IN') exits = here.filter((c) => roleAt(c, a) === 'OUT' && (c.number ?? null) === ch);
@@ -107,8 +107,8 @@ export function buildInternalPath(
   // (둘 다 하류 끝이 없으면 = 순수 무방향 1자 회로면, 어느 끝에서 봐도 같은 한 줄이라 사전순 첫 끝.)
   const terminals = [...nodeSet].filter((n) => degreeOf(n) <= 1).sort();
   const rootId =
-    terminals.find((n) => kindOf(n) !== 'conduit' && !supplied(n))
-    ?? terminals.find((n) => kindOf(n) !== 'conduit')
+    terminals.find((n) => kindOf(n) !== 'slot' && !supplied(n))
+    ?? terminals.find((n) => kindOf(n) !== 'slot')
     ?? terminals[0]
     ?? start;
 
@@ -120,7 +120,7 @@ export function buildInternalPath(
     if (s && t && nodeSet.has(s) && nodeSet.has(t)) { addAdj(s, t, c); addAdj(t, s, c); }
   }
   const labelOf = (id: string) =>
-    kindOf(id) === 'conduit' ? (fiberSlotLabel(id, graph) || graph.nameById.get(id) || id) : (graph.nameById.get(id) || id);
+    kindOf(id) === 'slot' ? (fiberSlotLabel(id, graph) || graph.nameById.get(id) || id) : (graph.nameById.get(id) || id);
 
   const visited = new Set<string>([rootId]);
   const build = (id: string, incoming: Cable | null): TraceTreeNode => {

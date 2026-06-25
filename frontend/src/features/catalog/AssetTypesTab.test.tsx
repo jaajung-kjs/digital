@@ -5,7 +5,7 @@ import { useCatalogStore } from './catalogStore';
 
 const cat = (id: string, name: string): never => ({ id, name, sortOrder: 0, isActive: true }) as never;
 const type = (id: string, name: string, categoryId: string | null, role = 'device'): never =>
-  ({ id, code: id, name, group: null, role, categoryId, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, placementKind: null, connectionKind: null, sortOrder: 0, isActive: true, laborType: null, installHoursPerUnit: null, removeHoursPerUnit: null, relocateHoursPerUnit: null }) as never;
+  ({ id, code: id, name, group: null, role, categoryId, isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null, displayColor: null, sortOrder: 0, isActive: true, laborType: null, installHoursPerUnit: null, removeHoursPerUnit: null, relocateHoursPerUnit: null }) as never;
 
 beforeEach(() => {
   useCatalogStore.setState({

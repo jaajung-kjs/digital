@@ -20,8 +20,8 @@ export interface CableDetailDTO {
    */
   sourceAssetId: string;
   targetAssetId: string;
-  source: { assetId: string | null; name?: string; kind?: string | null; floorId?: string | null };
-  target: { assetId: string | null; name?: string; kind?: string | null; floorId?: string | null };
+  source: { assetId: string | null; name?: string; role?: string | null; floorId?: string | null };
+  target: { assetId: string | null; name?: string; role?: string | null; floorId?: string | null };
   sourceRole?: 'IN' | 'OUT' | null;
   targetRole?: 'IN' | 'OUT' | null;
   number?: number | null;

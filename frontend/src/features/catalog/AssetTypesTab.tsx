@@ -38,7 +38,7 @@ export function AssetTypesTab() {
     store().stageCreateType({
       id: newCatalogId(), code: '', name: '새 종류', group: null, role: 'device', categoryId,
       isContainer: false, fieldTemplate: null, requiredToCreate: null, iconName: null,
-      displayColor: null, placementKind: null, connectionKind: null, sortOrder: 0, isActive: true,
+      displayColor: null, sortOrder: 0, isActive: true,
     } as AssetType);
 
   return (

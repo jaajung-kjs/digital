@@ -13,7 +13,7 @@ function mod(id: string, slotIndex: number, slotSpan: number, assetTypeId = 'cat
     id,
     substationId: 's1',
     assetTypeId,
-    assetType: { placementKind: null } as Asset['assetType'],
+    assetType: { role: 'rack' } as Asset['assetType'],
     name,
     parentAssetId: 'rack',
     floorId: null,

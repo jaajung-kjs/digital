@@ -178,8 +178,8 @@ export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, in
   const slotSpan = asset.slotSpan ?? 1;
   const categoryLabel = asset.assetType?.name ?? '';
 
-  // 종류 — 읽기전용. assetType.name(대장 레코드) 우선, 없으면 placementKind.
-  const kindLabel = asset.assetType?.name ?? asset.assetType?.placementKind ?? '';
+  // 종류 — 읽기전용. assetType.name(대장 레코드).
+  const kindLabel = asset.assetType?.name ?? '';
   // 크기 — 평면도에 배치된 자산에만 존재(현황·대장 리스트에는 없음).
   const isPlaced = asset.width2d != null || asset.height2d != null;
   const sizeValue = isPlaced

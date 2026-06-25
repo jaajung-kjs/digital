@@ -19,9 +19,8 @@ const graph = (): TraceGraph => ({
   subNameById: new Map(),
   subById: new Map([['device', 'S1'], ['slot', 'S1'], ['slotX', 'S1'], ['switch', 'S1'], ['remoteSlot', 'S2'], ['remoteDevice', 'S2']]),
   parentById: new Map(),
-  kindById: new Map([['device', null], ['slot', 'conduit'], ['slotX', 'conduit'], ['switch', null], ['remoteSlot', 'conduit'], ['remoteDevice', null]]),
   codeById: new Map(),
-  placementKindById: new Map(),
+  roleById: new Map([['device', null], ['slot', 'slot'], ['slotX', 'slot'], ['switch', null], ['remoteSlot', 'slot'], ['remoteDevice', null]]),
   slotIndexById: new Map(),
 } as unknown as TraceGraph);
 
@@ -83,9 +82,8 @@ const powerGraph = (): TraceGraph => ({
   subNameById: new Map(),
   subById: new Map([['charger', 'S1'], ['ups1', 'S1'], ['ups', 'S1'], ['load1', 'S1'], ['load2', 'S1']]),
   parentById: new Map(),
-  kindById: new Map([['charger', null], ['ups1', null], ['ups', null], ['load1', null], ['load2', null]]), // 전부 passive
   codeById: new Map(),
-  placementKindById: new Map(),
+  roleById: new Map([['charger', null], ['ups1', null], ['ups', null], ['load1', null], ['load2', null]]), // 전부 passive
   slotIndexById: new Map(),
 } as unknown as TraceGraph);
 

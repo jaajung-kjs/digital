@@ -3,8 +3,8 @@ import type { Asset, AssetType } from '../../types/asset';
 /**
  * 분전반 회로의 통합 Asset 모델 (피더-직접).
  *
- * 분전반(placementKind 'DIST') 의 하위는 FEEDER 자산(parentAssetId=분전반)이다.
- * FEEDER 는 내부 노드(floorId/좌표 없음, connectionKind='distributor').
+ * 분전반(role='panel') 의 하위는 FEEDER 자산(parentAssetId=분전반)이다.
+ * FEEDER 는 내부 노드(floorId/좌표 없음, role='feeder').
  *
  * CB = FEEDER 로 직접 그려지는 출력 케이블 (별도 노드 없음). 케이블의 회로
  * endpoint 는 FEEDER 자산 id 하나(sourceAssetId/targetAssetId)이며, floorAnchor 가
@@ -43,8 +43,6 @@ export function buildSubtreeAsset(params: {
       group: type.group,
       displayColor: type.displayColor,
       fieldTemplate: type.fieldTemplate,
-      placementKind: type.placementKind,
-      connectionKind: type.connectionKind,
       // role 누락 시 resolveAssetDetailKind 가 null → 저장 전 분기 UI 미렌더. 피더 서브트리이므로 'feeder'.
       role: 'feeder',
     },

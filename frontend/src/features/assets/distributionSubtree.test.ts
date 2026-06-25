@@ -9,7 +9,7 @@ function a(p: Partial<Asset> & { id: string; role: string }): Asset {
     id: p.id,
     substationId: 's1',
     assetTypeId: p.role,
-    assetType: { id: p.role, code: null, name: p.role, group: null, role: p.role, categoryId: null, displayColor: null, fieldTemplate: [], placementKind: null } as never,
+    assetType: { id: p.role, code: null, name: p.role, group: null, role: p.role, categoryId: null, displayColor: null, fieldTemplate: [] } as never,
     name: p.name ?? p.id,
     parentAssetId: p.parentAssetId ?? null,
     floorId: p.floorId ?? null,

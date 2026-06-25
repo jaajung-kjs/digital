@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { cableTrace } from './cableTrace';
 
-const A = (id: string, k?: 'distributor' | 'conduit') => ({ id, connectionKind: k ?? null });
+const A = (id: string, r?: 'feeder' | 'slot') => ({ id, role: r ?? null });
 
 describe('cableTrace — passive', () => {
   it('일반 자산 체인을 양방향 순회(분기 포함)', () => {
@@ -18,7 +18,7 @@ describe('cableTrace — passive', () => {
 
 describe('cableTrace — distributor', () => {
   it('부하→피더(OUT)→충전기(IN), 형제 OUT 부하로 안 샌다', () => {
-    const assets = [A('L'), A('M'), A('F', 'distributor'), A('C')];
+    const assets = [A('L'), A('M'), A('F', 'feeder'), A('C')];
     const cables = [
       { id: 'c1', groupId: 'AC', sourceAssetId: 'F', targetAssetId: 'L', sourceRole: 'OUT', targetRole: null },
       { id: 'c2', groupId: 'AC', sourceAssetId: 'F', targetAssetId: 'M', sourceRole: 'OUT', targetRole: null },
@@ -32,7 +32,7 @@ describe('cableTrace — distributor', () => {
 
 describe('cableTrace — conduit', () => {
   it('광: 설비→슬롯 OUT#5→OPGW(IN)→대국 슬롯→OUT#5→대국 설비 (번호 짝)', () => {
-    const assets = [A('eqA'), A('S1', 'conduit'), A('S2', 'conduit'), A('eqB'), A('eqC')];
+    const assets = [A('eqA'), A('S1', 'slot'), A('S2', 'slot'), A('eqB'), A('eqC')];
     const cables = [
       { id: 'o1', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 5 },
       { id: 'opgw', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'S2', sourceRole: 'IN', targetRole: 'IN' },
@@ -48,7 +48,7 @@ describe('cableTrace — conduit', () => {
 
 describe('cableTrace — 엣지케이스', () => {
   it('passive 분기: 허브에서 여러 갈래 모두 포함', () => {
-    const assets = [{ id: 'H', connectionKind: null }, { id: 'A', connectionKind: null }, { id: 'B', connectionKind: null }, { id: 'C', connectionKind: null }];
+    const assets = [{ id: 'H', role: null }, { id: 'A', role: null }, { id: 'B', role: null }, { id: 'C', role: null }];
     const cables = [
       { id: 'c1', groupId: 'LAN', sourceAssetId: 'H', targetAssetId: 'A' },
       { id: 'c2', groupId: 'LAN', sourceAssetId: 'H', targetAssetId: 'B' },
@@ -59,7 +59,7 @@ describe('cableTrace — 엣지케이스', () => {
   });
 
   it('링(사이클)에서 무한루프 없이 전부 1회 방문', () => {
-    const assets = [{ id: 'N1', connectionKind: null }, { id: 'N2', connectionKind: null }, { id: 'N3', connectionKind: null }];
+    const assets = [{ id: 'N1', role: null }, { id: 'N2', role: null }, { id: 'N3', role: null }];
     const cables = [
       { id: 'a', groupId: 'FIBER', sourceAssetId: 'N1', targetAssetId: 'N2' },
       { id: 'b', groupId: 'FIBER', sourceAssetId: 'N2', targetAssetId: 'N3' },
@@ -71,7 +71,7 @@ describe('cableTrace — 엣지케이스', () => {
   });
 
   it('groupId 다르면 안 탐(전원 추적이 광·네트워크로 안 샘)', () => {
-    const assets = [{ id: 'X', connectionKind: null }, { id: 'Y', connectionKind: null }];
+    const assets = [{ id: 'X', role: null }, { id: 'Y', role: null }];
     const cables = [
       { id: 'ac', groupId: 'AC', sourceAssetId: 'X', targetAssetId: 'Y' },
       { id: 'lan', groupId: 'LAN', sourceAssetId: 'X', targetAssetId: 'Y' },
@@ -81,7 +81,7 @@ describe('cableTrace — 엣지케이스', () => {
   });
 
   it('다단 distributor 상류: 부하→피더→충전기→AC메인', () => {
-    const assets = [{ id: 'L', connectionKind: null }, { id: 'F', connectionKind: 'distributor' as const }, { id: 'C', connectionKind: 'distributor' as const }, { id: 'AC', connectionKind: null }];
+    const assets = [{ id: 'L', role: null }, { id: 'F', role: 'feeder' as const }, { id: 'C', role: 'feeder' as const }, { id: 'AC', role: null }];
     const cables = [
       { id: 'c1', groupId: 'DC', sourceAssetId: 'F', targetAssetId: 'L', sourceRole: 'OUT' as const, targetRole: null },
       { id: 'c2', groupId: 'DC', sourceAssetId: 'C', targetAssetId: 'F', sourceRole: 'OUT' as const, targetRole: 'IN' as const },
@@ -93,10 +93,10 @@ describe('cableTrace — 엣지케이스', () => {
 
   it('conduit 노드에서 시작하면 대국 출력은 도달 안 함(ch 미정 — 진입점은 설비여야 함, 동작 핀)', () => {
     const assets = [
-      { id: 'S1', connectionKind: 'conduit' as const },
-      { id: 'S2', connectionKind: 'conduit' as const },
-      { id: 'eqA', connectionKind: null },
-      { id: 'eqB', connectionKind: null },
+      { id: 'S1', role: 'slot' as const },
+      { id: 'S2', role: 'slot' as const },
+      { id: 'eqA', role: null },
+      { id: 'eqB', role: null },
     ];
     const cables = [
       { id: 'o1', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'eqA', sourceRole: 'OUT' as const, targetRole: null, number: 5 },

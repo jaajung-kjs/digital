@@ -5,7 +5,7 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 
 const ofd = {
   id: 'o1', name: 'OFD', substationId: 's1', floorId: 'f1',
-  assetType: { placementKind: 'OFD' }, positionX: 5, positionY: 5,
+  assetType: { role: 'ofd' }, positionX: 5, positionY: 5,
   parentAssetId: null, slotIndex: null, updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
