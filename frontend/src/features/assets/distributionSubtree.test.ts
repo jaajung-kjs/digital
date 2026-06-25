@@ -13,7 +13,7 @@ function a(p: Partial<Asset> & { id: string; role: string }): Asset {
     name: p.name ?? p.id,
     parentAssetId: p.parentAssetId ?? null,
     floorId: p.floorId ?? null,
-    roomText: null, installDate: null, warrantyUntil: null, replaceDue: null,
+    roomText: null, installDate: null,
     manager: null, description: null, status: null, sortOrder: p.sortOrder ?? 0, updatedAt: '',
   } as Asset;
 }

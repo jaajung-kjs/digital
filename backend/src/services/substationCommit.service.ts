@@ -83,8 +83,6 @@ const assetCommonCreate = (c: Record<string, unknown>) => {
     manager: string | null;
     description: string | null;
     status: string | null;
-    warrantyUntil: Date | null;
-    replaceDue: Date | null;
     sortOrder: number;
   };
 };
@@ -99,8 +97,6 @@ const assetCommonUpdate = (p: Record<string, unknown>) => {
     manager: string | null | undefined;
     description: string | null | undefined;
     status: string | null | undefined;
-    warrantyUntil: Date | null | undefined;
-    replaceDue: Date | null | undefined;
     sortOrder: number | undefined;
   };
 };

@@ -4,8 +4,8 @@ import type { AssetListItem } from './nodeStatus';
 
 // useNodeAssets 와 store overlay 훅을 모킹해 머지 로직만 격리 검증한다.
 const nodeAssetsData: AssetListItem[] = [
-  { id: 'a1', name: 'A1', assetTypeName: '랙', substationId: 's1', substationName: '춘천', floorId: 'f1', floorName: '통신실', roomText: null, installDate: '2024-01-01', manager: '홍', status: '정상', warrantyUntil: null, replaceDue: null, lastMaintenanceDate: '2026-05-01' },
-  { id: 'a2', name: 'A2', assetTypeName: 'OFD', substationId: 's1', substationName: '춘천', floorId: null, floorName: null, roomText: '배전실', installDate: null, manager: null, status: null, warrantyUntil: null, replaceDue: null, lastMaintenanceDate: null },
+  { id: 'a1', name: 'A1', assetTypeName: '랙', substationId: 's1', substationName: '춘천', floorId: 'f1', floorName: '통신실', roomText: null, installDate: '2024-01-01', manager: '홍', status: '정상', lastMaintenanceDate: '2026-05-01' },
+  { id: 'a2', name: 'A2', assetTypeName: 'OFD', substationId: 's1', substationName: '춘천', floorId: null, floorName: null, roomText: '배전실', installDate: null, manager: null, status: null, lastMaintenanceDate: null },
 ];
 
 vi.mock('../../hooks/useNodeAssets', () => ({

@@ -42,8 +42,6 @@ export interface AssetDetail {
   roomText: string | null;
   sourcePresetId: string | null;
   installDate: Date | null;
-  warrantyUntil: Date | null;
-  replaceDue: Date | null;
   manager: string | null;
   description: string | null;
   status: string | null;
@@ -76,8 +74,6 @@ export interface AssetListItem {
   installDate: Date | null;
   manager: string | null;
   status: string | null;
-  warrantyUntil: Date | null;
-  replaceDue: Date | null;
   lastMaintenanceDate: Date | null;
 }
 
@@ -104,7 +100,7 @@ class AssetService {
       },
       name: a.name, parentAssetId: a.parentAssetId, floorId: a.floorId ?? null, roomText: a.roomText,
       sourcePresetId: a.sourcePresetId ?? null,
-      installDate: a.installDate, warrantyUntil: a.warrantyUntil, replaceDue: a.replaceDue,
+      installDate: a.installDate,
       manager: a.manager, description: a.description,
       status: a.status, sortOrder: a.sortOrder,
       updatedAt: a.updatedAt.toISOString(),
@@ -172,8 +168,6 @@ class AssetService {
       installDate: r.installDate,
       manager: r.manager,
       status: r.status,
-      warrantyUntil: r.warrantyUntil,
-      replaceDue: r.replaceDue,
       lastMaintenanceDate: r.inspectionLogs[0]?.inspectionDate ?? null,
       };
     });

@@ -13,8 +13,8 @@ vi.mock('../../workspace/SelectionContext', () => ({
 
 vi.mock('../../../hooks/useNodeAssets', () => ({
   useNodeAssets: () => ({ data: [
-    { id: 'a1', name: '랙01', assetTypeName: '랙', substationId: 's1', substationName: '춘천S/S', floorId: 'f1', floorName: '통신실', roomText: null, installDate: '2024-01-01', manager: '홍길동', status: '정상', warrantyUntil: null, replaceDue: null, lastMaintenanceDate: null },
-    { id: 'a2', name: 'OFD-7', assetTypeName: 'OFD', substationId: 's1', substationName: '춘천S/S', floorId: null, floorName: null, roomText: '배전실', installDate: null, manager: null, status: null, warrantyUntil: null, replaceDue: null, lastMaintenanceDate: '2026-05-01' },
+    { id: 'a1', name: '랙01', assetTypeName: '랙', substationId: 's1', substationName: '춘천S/S', floorId: 'f1', floorName: '통신실', roomText: null, installDate: '2024-01-01', manager: '홍길동', status: '정상', lastMaintenanceDate: null },
+    { id: 'a2', name: 'OFD-7', assetTypeName: 'OFD', substationId: 's1', substationName: '춘천S/S', floorId: null, floorName: null, roomText: '배전실', installDate: null, manager: null, status: null, lastMaintenanceDate: '2026-05-01' },
   ] }),
 }));
 // 본부·사업소 인스펙터는 useAsset 으로 페치 — 테스트에선 미해결(로딩) 상태로 둔다.

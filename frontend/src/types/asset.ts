@@ -43,8 +43,6 @@ export interface Asset {
    */
   sourcePresetId: string | null;
   installDate: string | null;
-  warrantyUntil: string | null;
-  replaceDue: string | null;
   manager: string | null;
   description: string | null;
   status: string | null;

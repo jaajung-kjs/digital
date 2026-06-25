@@ -8,7 +8,6 @@ export interface AssetListItem {
   floorId: string | null; floorName: string | null; roomText: string | null;
   parentAssetId?: string | null; parentName?: string | null; parentFloorName?: string | null;
   installDate: string | null; manager: string | null; status: string | null;
-  warrantyUntil: string | null; replaceDue: string | null;
   lastMaintenanceDate: string | null;
 }
 
@@ -73,8 +72,6 @@ function assetCreateToListItem(asset: Asset, substationId: string): AssetListIte
     installDate: asset.installDate ?? null,
     manager: asset.manager ?? null,
     status: asset.status ?? null,
-    warrantyUntil: null,
-    replaceDue: null,
     lastMaintenanceDate: null,
   };
 }

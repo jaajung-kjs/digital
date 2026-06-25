@@ -30,7 +30,7 @@ const asset = {
   id: 'a1', substationId: 's1', assetTypeId: 't1',
   assetType: { name: '랙', role: 'rack' },
   name: '장비1', installDate: null, manager: null, status: '운영중',
-  description: '비고 메모', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '2026-06-05T00:00:00.000Z',
+  description: '비고 메모', floorId: null, updatedAt: '2026-06-05T00:00:00.000Z',
 } as any;
 const today = new Date('2026-06-05T00:00:00Z');
 const wrap = (ui: ReactNode) => {
@@ -124,7 +124,7 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
     assetType: { name: '광패치', role: 'device' },
     name: '모듈1', parentAssetId: 'rack1', slotIndex: 2, slotSpan: 2,
  installDate: null, manager: null, status: '운영중',
-    description: '', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '',
+    description: '', floorId: null, updatedAt: '',
   } as never;
 
   it('모듈: 카테고리·슬롯 위치(읽기전용) + 종류 라벨 없음', () => {
@@ -159,7 +159,7 @@ describe('AssetInspector — 경로슬롯(conduit) 이름 파생 읽기전용', 
     id: SLOT, substationId: 's1', assetTypeId: 'ofdslot',
     assetType: { name: 'OFD-SLOT', role: 'slot' },
     name: 'DB저장이름(표시안됨)', installDate: null, manager: null, status: '운영중',
-    description: '', warrantyUntil: null, replaceDue: null, floorId: null, updatedAt: '',
+    description: '', floorId: null, updatedAt: '',
   } as never;
 
   it('conduit: 이름이 파생 라벨(자국-대국#코어수) 읽기전용 — 편집 affordance 없음', () => {

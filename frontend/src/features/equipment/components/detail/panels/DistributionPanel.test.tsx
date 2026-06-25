@@ -17,7 +17,7 @@ function asset(p: { id: string; code: string; name: string; parent?: string | nu
     id: p.id, substationId: 's1', assetTypeId: p.code,
     assetType: { id: p.code, name: p.code, group: null, role: p.code === 'DIST' ? 'panel' : p.code === 'FEEDER' ? 'feeder' : 'device' },
     name: p.name, parentAssetId: p.parent ?? null, floorId: p.floorId ?? null, roomText: null,
-    installDate: null, warrantyUntil: null, replaceDue: null, manager: null, description: null, status: null,
+    installDate: null, manager: null, description: null, status: null,
     sortOrder: p.sort ?? 0, updatedAt: '',
   };
 }

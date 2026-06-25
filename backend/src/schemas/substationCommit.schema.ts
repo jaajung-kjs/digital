@@ -58,8 +58,6 @@ export const ASSET_SCALAR_FIELDS = [
   { key: 'manager', kind: 'string', nullable: true },
   { key: 'description', kind: 'string', nullable: true },
   { key: 'status', kind: 'string', nullable: true },
-  { key: 'warrantyUntil', kind: 'date', nullable: true },
-  { key: 'replaceDue', kind: 'date', nullable: true },
   { key: 'sortOrder', kind: 'number', nullable: false, optionalOnCreate: true },
 ] as const;
 
@@ -83,8 +81,6 @@ const assetCommonFields = Object.fromEntries(
   manager: z.ZodOptional<z.ZodNullable<z.ZodString>>;
   description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
   status: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-  warrantyUntil: z.ZodOptional<z.ZodNullable<z.ZodString>>;
-  replaceDue: z.ZodOptional<z.ZodNullable<z.ZodString>>;
   sortOrder: z.ZodOptional<z.ZodNumber>;
 };
 
