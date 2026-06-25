@@ -9,7 +9,6 @@ export interface SubstationListItem {
   address: string | null;
   description: string | null;
   sortOrder: number;
-  isActive: boolean;
   floorCount: number;
   createdAt: Date;
 }
@@ -20,7 +19,6 @@ export interface SubstationDetail {
   address: string | null;
   description: string | null;
   sortOrder: number;
-  isActive: boolean;
   floors: {
     id: string;
     name: string;
@@ -42,7 +40,6 @@ export interface UpdateSubstationInput {
   address?: string;
   description?: string;
   sortOrder?: number;
-  isActive?: boolean;
 }
 
 // ==================== Service ====================
@@ -67,7 +64,6 @@ class SubstationService {
       address: s.address,
       description: s.description,
       sortOrder: s.sortOrder,
-      isActive: s.isActive,
       floorCount: s._count.floors,
       createdAt: s.createdAt,
     }));
@@ -101,7 +97,6 @@ class SubstationService {
       address: substation.address,
       description: substation.description,
       sortOrder: substation.sortOrder,
-      isActive: substation.isActive,
       floors: substation.floors,
       createdAt: substation.createdAt,
       updatedAt: substation.updatedAt,
@@ -141,7 +136,6 @@ class SubstationService {
       address: substation.address,
       description: substation.description,
       sortOrder: substation.sortOrder,
-      isActive: substation.isActive,
       floors: substation.floors,
       createdAt: substation.createdAt,
       updatedAt: substation.updatedAt,
@@ -188,7 +182,6 @@ class SubstationService {
       address: substation.address,
       description: substation.description,
       sortOrder: substation.sortOrder,
-      isActive: substation.isActive,
       floors: substation.floors,
       createdAt: substation.createdAt,
       updatedAt: substation.updatedAt,

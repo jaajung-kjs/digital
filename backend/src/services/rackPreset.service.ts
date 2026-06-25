@@ -22,7 +22,6 @@ export interface RackPresetDetail {
   description: string | null;
   modules: RackPresetModule[];
   sortOrder: number;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,7 +52,6 @@ export interface UpdateRackPresetInput {
   description?: string | null;
   modules?: RackPresetModuleInput[];
   sortOrder?: number;
-  isActive?: boolean;
 }
 
 // ==================== Helpers ====================
@@ -151,7 +149,6 @@ class RackPresetService {
     modules: unknown;
     description: string | null;
     sortOrder: number;
-    isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): RackPresetDetail {
@@ -172,7 +169,6 @@ class RackPresetService {
       description: p.description,
       modules,
       sortOrder: p.sortOrder,
-      isActive: p.isActive,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
     };
@@ -279,7 +275,6 @@ class RackPresetService {
           ? (validatedModules as unknown as Prisma.InputJsonValue)
           : undefined,
         sortOrder: input.sortOrder,
-        isActive: input.isActive,
         updatedById: userId,
       },
     });

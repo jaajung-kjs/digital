@@ -30,7 +30,6 @@ describe('commitCatalog', () => {
     expect(tx.assetCategory.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ id: 'cat-1', name: '광전송' }) }));
     const typeData = (tx.assetType.create.mock.calls[0][0] as { data: Record<string, unknown> }).data;
     expect(typeData).toMatchObject({ id: 'type-1', name: '송변전광단말', categoryId: 'cat-1', role: 'device' });
-    expect(typeData.code).toMatch(/^MOD-/);
   });
 
   it('role 보유 타입 삭제는 차단', async () => {

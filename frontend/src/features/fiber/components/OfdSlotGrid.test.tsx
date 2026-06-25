@@ -53,7 +53,6 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
       subNameById: new Map([[OFD_ID, '원주변전소'], [SLOT_ID, '원주변전소'], [REMOTE_OFD_ID, '홍천변전소']]),
       nameById: new Map([[OFD_ID, '원주OFD'], [REMOTE_OFD_ID, '홍천OFD']]),
       subById: new Map([[OFD_ID, 's1'], [REMOTE_OFD_ID, 's2']]),
-      codeById: new Map([[OFD_ID, 'OFD'], [REMOTE_OFD_ID, 'OFD']]),
       roleById: new Map([[OFD_ID, 'ofd'], [REMOTE_OFD_ID, 'ofd']]),
       parentById: new Map([[SLOT_ID, OFD_ID]]),
       // ofdAssets 가 열거하는 OFD 자산(자국+대국) — slim+staged 병합 그래프 단일 SSOT.

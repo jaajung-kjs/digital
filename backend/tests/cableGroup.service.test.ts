@@ -13,7 +13,7 @@ describe('CableGroupService', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('create 는 이름 trim + 색 저장', async () => {
-    vi.mocked(prisma.cableGroup.create).mockImplementation(async (a: any) => ({ id: 'g1', sortOrder: 0, isActive: true, ...a.data }) as any);
+    vi.mocked(prisma.cableGroup.create).mockImplementation(async (a: any) => ({ id: 'g1', sortOrder: 0, ...a.data }) as any);
     const res = await cableGroupService.create({ name: ' 전원케이블 ', color: '#ef4444' });
     expect(res.name).toBe('전원케이블');
     expect(res.color).toBe('#ef4444');
@@ -35,13 +35,12 @@ describe('CableGroupService', () => {
   it('getAll DTO 가 노무규칙 5필드를 값 그대로 노출한다', async () => {
     vi.mocked(prisma.cableGroup.findMany).mockResolvedValue([
       {
-        id: 'g1', name: '전원', color: '#ef4444', sortOrder: 1, isActive: true,
-        kind: 'POWER', laborType: '통신내선공',
+        id: 'g1', name: '전원', color: '#ef4444', sortOrder: 1,
+        laborType: '통신내선공',
         installHoursPerMeter: 0.03, removeHoursPerMeter: 0.015, relocateHoursPerMeter: null,
       } as any,
     ]);
     const groups = await cableGroupService.getAll();
-    expect(groups[0].kind).toBe('POWER');
     expect(groups[0].laborType).toBe('통신내선공');
     expect(groups[0].installHoursPerMeter).toBe(0.03);
     expect(groups[0].removeHoursPerMeter).toBe(0.015);

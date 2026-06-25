@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { ConflictError, ValidationError } from '../utils/errors.js';
 
@@ -39,7 +38,7 @@ export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
     if (ty) {
       for (const c of ty.creates) {
         await t.assetType.create({
-          data: { id: c.id, code: `MOD-${randomUUID().slice(0, 8).toUpperCase()}`, name: c.name.trim(), role: 'device', categoryId: c.categoryId, requiredToCreate: ['name'] },
+          data: { id: c.id, name: c.name.trim(), role: 'device', categoryId: c.categoryId },
         });
       }
       for (const u of ty.updates) {

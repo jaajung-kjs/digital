@@ -24,7 +24,6 @@ const updateSubstationSchema = z.object({
   address: z.string().max(255).optional(),
   description: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
 });
 
 const createFloorSchema = z.object({

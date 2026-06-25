@@ -40,8 +40,8 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
     // RACK AssetType id (설비 assetTypeId 검증용)
     rackAssetTypeId = (await prisma.assetType.findFirstOrThrow({ where: { name: '랙' } })).id;
 
-    // 광케이블 카테고리 (FIBER 그룹 소속) id
-    const fiberGroup = await prisma.cableGroup.findFirst({ where: { kind: 'FIBER' } });
+    // 광케이블 카테고리 (광 그룹 소속) id
+    const fiberGroup = await prisma.cableGroup.findFirst({ where: { name: '광' } });
     const fiberCat = fiberGroup
       ? await prisma.cableCategory.findFirst({ where: { groupId: fiberGroup.id } })
       : null;

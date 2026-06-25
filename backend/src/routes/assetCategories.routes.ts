@@ -13,7 +13,6 @@ const createSchema = z.object({
 const updateSchema = z.object({
   name: z.string().min(1).max(50).optional(),
   sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
 });
 
 router.get('/', authenticate, assetCategoryController.getAll);

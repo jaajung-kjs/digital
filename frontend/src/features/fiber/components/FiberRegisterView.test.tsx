@@ -56,7 +56,6 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
       nameById: new Map([['a-near', '송변전광단말'], ['twin1', '홍천슬롯']]),
       subNameById: new Map([['ofd1', '원주'], ['slot1', '원주']]),
       subById: new Map([['slot1', 's1'], ['twin1', 's2']]),
-      codeById: new Map(),
       parentById: new Map([['slot1', 'ofd1']]),
       assets: [],
       cables: FIBER_CABLES,

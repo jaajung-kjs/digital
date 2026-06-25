@@ -19,7 +19,7 @@ describe('노드범위 자산 리스트 GET /api/nodes/:id/assets', () => {
     const br = await prisma.branch.create({ data: { name: '__na_br__', headquartersId: hq.id } }); brId = br.id;
     const sub = await prisma.substation.create({ data: { name: '__na_sub__', branchId: br.id } }); subId = sub.id;
     const sub2 = await prisma.substation.create({ data: { name: '__na_sub2__', branchId: br.id } }); sub2Id = sub2.id;
-    typeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device', isActive: true } })).id;
+    typeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device' } })).id;
 
     const a = await prisma.asset.create({
       data: { substationId: subId, assetTypeId: typeId, name: 'NA-1', installDate: new Date('2024-01-15'), manager: '홍길동' },

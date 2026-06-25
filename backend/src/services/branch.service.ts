@@ -7,7 +7,6 @@ export interface BranchListItem {
   headquartersId: string;
   name: string;
   sortOrder: number;
-  isActive: boolean;
   substationCount: number;
   createdAt: Date;
 }
@@ -19,7 +18,6 @@ export interface CreateBranchInput {
 export interface UpdateBranchInput {
   name?: string;
   sortOrder?: number;
-  isActive?: boolean;
 }
 
 const BRANCH_COUNT_INCLUDE = {
@@ -34,7 +32,6 @@ function toListItem(b: BranchWithCount): BranchListItem {
     headquartersId: b.headquartersId,
     name: b.name,
     sortOrder: b.sortOrder,
-    isActive: b.isActive,
     substationCount: b._count.substations,
     createdAt: b.createdAt,
   };

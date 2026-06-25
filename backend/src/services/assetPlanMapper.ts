@@ -31,8 +31,6 @@ export function assetToRackModule(a: AssetWithType) {
     rackEquipmentId: a.parentAssetId!,
     categoryId: a.assetTypeId,
     categoryName: a.assetType.name,
-    categoryDisplayColor: a.assetType.displayColor,
-    categoryDefaultSlotSpan: a.assetType.defaultSlotSpan,
     name: a.name,
     slotIndex: a.slotIndex ?? 0,
     slotSpan: a.slotSpan ?? 1,

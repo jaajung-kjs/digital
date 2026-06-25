@@ -13,7 +13,7 @@ describe('AssetCategoryService', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
   it('create 는 이름을 trim 해서 만든다', async () => {
-    vi.mocked(prisma.assetCategory.create).mockImplementation(async (a: any) => ({ id: 'c1', sortOrder: 0, isActive: true, ...a.data }) as any);
+    vi.mocked(prisma.assetCategory.create).mockImplementation(async (a: any) => ({ id: 'c1', sortOrder: 0, ...a.data }) as any);
     const res = await assetCategoryService.create({ name: '  광전송장치 ' });
     expect(res.name).toBe('광전송장치');
   });

@@ -24,7 +24,7 @@ vi.mock('../../trace/traceGraph', () => ({
       assets: [], cables: [opgw, localOut3],
       nameById: new Map([['eqpL', '자국장비']]),
       subNameById: new Map([['eqpL', '원주변전소']]),
-      parentById: new Map(), codeById: new Map(),
+      parentById: new Map(),
     },
     isLoading: false,
   }),

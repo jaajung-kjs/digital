@@ -6,25 +6,22 @@ export interface CableGroupDetail {
   name: string;
   color: string | null;
   sortOrder: number;
-  isActive: boolean;
-  kind: string | null;
   laborType: string | null;
   installHoursPerMeter: number | null;
   removeHoursPerMeter: number | null;
   relocateHoursPerMeter: number | null;
 }
 export interface CreateCableGroupInput { name: string; color?: string | null; sortOrder?: number }
-export interface UpdateCableGroupInput { name?: string; color?: string | null; sortOrder?: number; isActive?: boolean }
+export interface UpdateCableGroupInput { name?: string; color?: string | null; sortOrder?: number }
 
 class CableGroupService {
   private map(g: {
-    id: string; name: string; color: string | null; sortOrder: number; isActive: boolean;
-    kind?: string | null; laborType?: string | null;
+    id: string; name: string; color: string | null; sortOrder: number;
+    laborType?: string | null;
     installHoursPerMeter?: number | null; removeHoursPerMeter?: number | null; relocateHoursPerMeter?: number | null;
   }): CableGroupDetail {
     return {
-      id: g.id, name: g.name, color: g.color, sortOrder: g.sortOrder, isActive: g.isActive,
-      kind: g.kind ?? null,
+      id: g.id, name: g.name, color: g.color, sortOrder: g.sortOrder,
       laborType: g.laborType ?? null,
       installHoursPerMeter: g.installHoursPerMeter ?? null,
       removeHoursPerMeter: g.removeHoursPerMeter ?? null,
@@ -51,7 +48,6 @@ class CableGroupService {
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         ...(input.color !== undefined ? { color: input.color } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
-        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
       },
     });
     return this.map(row);

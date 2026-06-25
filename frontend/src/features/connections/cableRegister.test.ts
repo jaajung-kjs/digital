@@ -9,7 +9,6 @@ const graphOf = (cables: unknown[], assets: { id: string; name: string }[]) =>
     cables,
     nameById: new Map(assets.map((a) => [a.id, a.name])),
     subNameById: new Map(), subById: new Map(), parentById: new Map(),
-    codeById: new Map(),
     roleById: new Map(assets.map((a) => [a.id, (a as { assetType?: { role?: string } }).assetType?.role ?? null])),
     slotIndexById: new Map(), assets: [],
   }) as never;

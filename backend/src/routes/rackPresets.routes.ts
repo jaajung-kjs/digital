@@ -34,7 +34,6 @@ const updateRackPresetSchema = z.object({
   description: z.string().optional().nullable(),
   modules: z.array(presetModuleSchema).optional(),
   sortOrder: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
 });
 
 // ==================== Routes ====================

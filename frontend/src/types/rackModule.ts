@@ -4,7 +4,6 @@ export interface RackModuleCategory {
   id: string;
   name: string;
   description: string | null;
-  displayColor: string | null;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -15,8 +14,6 @@ export interface RackModule {
   rackEquipmentId: string;
   categoryId: string;
   categoryName: string | null;
-  categoryDisplayColor: string | null;
-  categoryDefaultSlotSpan: number;
   name: string;
   slotIndex: number;        // 0..11
   slotSpan: number;         // 1..12, slotIndex + slotSpan ≤ 12

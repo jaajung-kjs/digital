@@ -36,7 +36,7 @@ const remoteOut8: CableLike = {
 const graph = {
   assets: [], cables: [opgw],
   nameById: new Map([['eqpL', '자국장비'], ['eqpR', '대국장비'], ['eqpL2', '자국2'], ['eqpR2', '대국2']]),
-  subNameById: new Map(), parentById: new Map(), codeById: new Map(),
+  subNameById: new Map(), parentById: new Map(),
 } as unknown as TraceGraph;
 
 describe('buildSlotPorts', () => {

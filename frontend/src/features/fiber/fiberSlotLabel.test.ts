@@ -18,7 +18,6 @@ function graphOf(over: Partial<TraceGraph> = {}): TraceGraph {
     nameById: new Map(),
     subNameById: new Map([[OFD, '춘천S/S'], [TWIN, '북춘천S/S'], [TWIN2, '북춘천S/S']]),
     parentById: new Map([[SLOT, OFD], [SLOT2, OFD]]),
-    codeById: new Map(),
     roleById: new Map([[SLOT, 'slot'], [SLOT2, 'slot']]),
     slotIndexById: new Map([[SLOT, 0], [SLOT2, 1]]),
     ...over,

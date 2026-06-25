@@ -11,7 +11,6 @@ const ruleCtx: RuleContext = {
       'catFiber',
       {
         groupName: '광',
-        kind: 'FIBER',
         laborType: '통신외선공',
         installHoursPerMeter: 0.04,
         removeHoursPerMeter: 0.02,

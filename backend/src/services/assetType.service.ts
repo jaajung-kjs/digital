@@ -1,21 +1,15 @@
-import { randomUUID } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { ConflictError, NotFoundError } from '../utils/errors.js';
 
 export interface CreateAssetTypeInput {
   name: string;
   categoryId?: string | null;
-  displayColor?: string | null;
-  defaultSlotSpan?: number;
-  isContainer?: boolean;
   sortOrder?: number;
 }
 
 export interface UpdateAssetTypeInput {
   name?: string;
   categoryId?: string | null;
-  displayColor?: string | null;
-  defaultSlotSpan?: number;
   sortOrder?: number;
 }
 
@@ -24,13 +18,7 @@ export interface AssetTypeDetail {
   name: string;
   role: string;
   categoryId: string | null;
-  isContainer: boolean;
-  fieldTemplate: unknown | null;
-  requiredToCreate: unknown | null;
-  iconName: string | null;
-  displayColor: string | null;
   sortOrder: number;
-  isActive: boolean;
   laborType: string | null;
   installHoursPerUnit: number | null;
   removeHoursPerUnit: number | null;
@@ -41,9 +29,7 @@ class AssetTypeService {
   private mapToDetail(t: {
     id: string; name: string;
     role: string; categoryId: string | null;
-    isContainer: boolean; fieldTemplate: unknown; requiredToCreate: unknown;
-    iconName: string | null; displayColor: string | null;
-    sortOrder: number; isActive: boolean;
+    sortOrder: number;
     laborType?: string | null;
     installHoursPerUnit?: number | null;
     removeHoursPerUnit?: number | null;
@@ -52,10 +38,7 @@ class AssetTypeService {
     return {
       id: t.id, name: t.name,
       role: t.role, categoryId: t.categoryId ?? null,
-      isContainer: t.isContainer, fieldTemplate: t.fieldTemplate ?? null,
-      requiredToCreate: t.requiredToCreate ?? null, iconName: t.iconName,
-      displayColor: t.displayColor,
-      sortOrder: t.sortOrder, isActive: t.isActive,
+      sortOrder: t.sortOrder,
       laborType: t.laborType ?? null,
       installHoursPerUnit: t.installHoursPerUnit ?? null,
       removeHoursPerUnit: t.removeHoursPerUnit ?? null,
@@ -76,31 +59,14 @@ class AssetTypeService {
     return this.mapToDetail(row);
   }
 
-  // code 는 내부 로직(분류·프리셋 categoryCode)용 식별자 — 사용자는 name 만 입력하므로
-  // 미지정 시 충돌 없는 'MOD-XXXXXXXX' 를 생성한다.
-  private async generateCode(): Promise<string> {
-    for (let i = 0; i < 5; i += 1) {
-      const code = `MOD-${randomUUID().slice(0, 8).toUpperCase()}`;
-      const dup = await prisma.assetType.findUnique({ where: { code } });
-      if (!dup) return code;
-    }
-    throw new ConflictError('자산 종류 코드를 생성하지 못했습니다. 다시 시도해주세요.');
-  }
-
   async create(input: CreateAssetTypeInput): Promise<AssetTypeDetail> {
-    // code 컬럼은 @unique NOT NULL (S5 드롭 전까지 유지) — 내부 MOD-UUID 생성해서 기록.
-    const code = await this.generateCode();
     // 미지정 시 device 타입 끝에 붙도록 sortOrder 자동 부여.
     const last = await prisma.assetType.aggregate({ _max: { sortOrder: true } });
     const row = await prisma.assetType.create({
       data: {
-        code,
         name: input.name.trim(),
         role: 'device',
         categoryId: input.categoryId ?? null,
-        displayColor: input.displayColor ?? null,
-        defaultSlotSpan: input.defaultSlotSpan ?? 1,
-        isContainer: input.isContainer ?? false,
         sortOrder: input.sortOrder ?? (last._max.sortOrder ?? 0) + 1,
       },
     });
@@ -118,8 +84,6 @@ class AssetTypeService {
       data: {
         ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
-        ...(input.displayColor !== undefined ? { displayColor: input.displayColor } : {}),
-        ...(input.defaultSlotSpan !== undefined ? { defaultSlotSpan: input.defaultSlotSpan } : {}),
         ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
       },
     });

@@ -33,7 +33,6 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   role: z.enum(['ADMIN', 'VIEWER']).optional(),
-  isActive: z.boolean().optional(),
 });
 
 const resetPasswordSchema = z.object({

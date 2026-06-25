@@ -16,7 +16,6 @@ const slotGraph = {
   nameById: new Map(),
   subNameById: new Map([[OFD, '춘천S/S'], [TWIN, '북춘천S/S']]),
   parentById: new Map([[SLOT, OFD]]),
-  codeById: new Map(),
 } as unknown as TraceGraph;
 let mockGraph: TraceGraph | null = null;
 vi.mock('../../trace/traceGraph', async (importOriginal) => ({

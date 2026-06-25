@@ -24,7 +24,7 @@ vi.mock('../../trace/traceGraph', () => ({
       nameById: new Map(assets.map((a) => [a.id, a.name])),
       subNameById: new Map(), subById: new Map(),
       parentById: new Map(assets.map((a) => [a.id, a.parentAssetId])),
-      roleById: new Map(), codeById: new Map(), slotIndexById: new Map(),
+      roleById: new Map(), slotIndexById: new Map(),
     },
     isLoading: false,
   }),

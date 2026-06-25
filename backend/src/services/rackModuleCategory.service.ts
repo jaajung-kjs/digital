@@ -7,10 +7,7 @@ export interface RackModuleCategoryDetail {
   id: string;
   name: string;
   description: string | null;
-  displayColor: string | null;
-  defaultSlotSpan: number;
   sortOrder: number;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -23,10 +20,7 @@ class RackModuleCategoryService {
   private mapToDetail(t: {
     id: string;
     name: string;
-    displayColor: string | null;
-    defaultSlotSpan: number;
     sortOrder: number;
-    isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
   }): RackModuleCategoryDetail {
@@ -34,10 +28,7 @@ class RackModuleCategoryService {
       id: t.id,
       name: t.name,
       description: null,
-      displayColor: t.displayColor,
-      defaultSlotSpan: t.defaultSlotSpan,
       sortOrder: t.sortOrder,
-      isActive: t.isActive,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
     };
