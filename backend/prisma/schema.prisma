@@ -159,7 +159,7 @@ model Floor {
 }
 
 // ==================== 랙 프리셋 (사용자 CRUD) ====================
-// modules: [{ slotIndex, slotSpan, categoryCode, defaultName }]
+// modules: [{ slotIndex, slotSpan, categoryId, defaultName }]
 
 model RackPreset {
   id           String   @id @default(uuid())

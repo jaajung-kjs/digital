@@ -127,7 +127,6 @@ describe('overlayToChanges', () => {
       targetAssetId: 'eq-other',
       cableType: 'UTP',
       categoryId: 'cat-fiber',
-      categoryCode: 'CBL-UTP',
       categoryName: '광케이블',
       totalLength: 12,
     };
