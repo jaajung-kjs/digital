@@ -5,15 +5,23 @@ import { useEffectiveAssets } from '../../../../workingCopy/hooks';
 import { isFloorPlaced } from '../../../../workingCopy/floorAnchor';
 import type { EquipmentDetail } from '../types';
 
+type AssetDetailResponse = {
+  id: string;
+  name: string;
+  manager?: string | null;
+  description?: string | null;
+  installDate?: string | null;
+};
+
 function useEquipmentDetail(equipmentId: string, enabled = true) {
   const isTemp = isTempId(equipmentId);
   return useQuery({
     queryKey: ['equipment-detail', equipmentId],
     queryFn: async () => {
-      const { data } = await api.get<{ data: EquipmentDetail }>(`/equipment/${equipmentId}`);
+      const { data } = await api.get<{ data: AssetDetailResponse }>(`/assets/${equipmentId}`);
       return data.data;
     },
-    // 랙 모듈 등 /equipment 레코드가 없는 자산은 fetch 비활성(404 방지) — 호출부가 enabled=false.
+    // 랙 모듈 등 /assets 레코드가 없는 자산은 fetch 비활성(404 방지) — 호출부가 enabled=false.
     enabled: enabled && !!equipmentId && !isTemp,
   });
 }
@@ -49,8 +57,6 @@ export function useMergedEquipmentDetail(equipmentId: string): {
     installDate: pick(localEq.installDate, backendData?.installDate),
     width2d: localEq.width2d ?? 0,
     height2d: localEq.height2d ?? 0,
-    frontImageUrl: backendData?.frontImageUrl ?? null,
-    rearImageUrl: backendData?.rearImageUrl ?? null,
   };
   return { equipment, isLoading: isTemp ? false : isLoading, error: isTemp ? null : error };
 }

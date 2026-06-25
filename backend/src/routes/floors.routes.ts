@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
 import { floorController } from '../controllers/floor.controller.js';
-import { equipmentController } from '../controllers/equipment.controller.js';
 import { cableController } from '../controllers/cable.controller.js';
 import { dwgImportController } from '../controllers/dwgImport.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
@@ -48,11 +47,6 @@ router.put('/:id', authenticate, adminOnly, validate(updateFloorSchema), floorCo
 
 // 층 삭제 (관리자만)
 router.delete('/:id', authenticate, adminOnly, floorController.delete);
-
-// ==================== Equipment on Floor ====================
-
-// 층에 배치된 설비 조회 (인증 불필요)
-router.get('/:id/equipment', equipmentController.getByFloorId);
 
 // 층의 케이블 연결 조회 (인증 불필요)
 router.get('/:id/connections', cableController.getByFloorId);
