@@ -73,9 +73,14 @@ let effectiveAssets: {
   parentAssetId?: string | null; positionX?: number | null; positionY?: number | null;
   width2d?: number | null; height2d?: number | null;
 }[] = [];
+// orgNodeMap — useFindOrgNode 모의: id → TreeNodeData 소규모 레지스트리.
+// 테스트는 이 맵에 직접 넣어 viewingNodeId 해석을 제어한다.
+const orgNodeMap = new Map<string, { id: string; name: string; type: string; parentId: string | null }>();
 vi.mock('../features/workingCopy/hooks', () => ({
   useWorkingCopyLoader: () => {},
   useEffectiveAssets: () => effectiveAssets,
+  // useFindOrgNode: 워킹카피 트리 대신 테스트 주입 맵을 사용.
+  useFindOrgNode: () => (id: string) => orgNodeMap.get(id) ?? null,
 }));
 // 전역 hydration 훅(useQuery 사용)은 이 테스트 범위 밖 — no-op 모킹(QueryClient 불필요).
 vi.mock('../features/workingCopy/useHydrateGlobal', () => ({ useHydrateGlobal: () => {} }));
@@ -117,7 +122,8 @@ beforeEach(() => {
   mountCount = 0;
   liveCount = 0;
   effectiveAssets = [];
-  useOrganizationStore.setState({ roots: [], viewingNodeId: null });
+  orgNodeMap.clear();
+  useOrganizationStore.setState({ viewingNodeId: null });
   useSelectionStore.setState({ selectedAssetId: null });
 });
 
@@ -156,15 +162,9 @@ describe('WorkspacePage — 변전소 노드', () => {
 
 describe('WorkspacePage — 본부 노드', () => {
   function seedHq() {
-    useOrganizationStore.setState({
-      roots: [
-        {
-          id: 'hq1', name: '본부', type: 'headquarters', parentId: null,
-          children: [], childrenLoaded: true, expanded: true,
-        } as never,
-      ],
-      viewingNodeId: 'hq1',
-    });
+    // 워킹카피 트리 대신 orgNodeMap 에 직접 심어 useFindOrgNode 모의가 해석 가능하게 한다.
+    orgNodeMap.set('hq1', { id: 'hq1', name: '본부', type: 'headquarters', parentId: null });
+    useOrganizationStore.setState({ viewingNodeId: 'hq1' });
   }
 
   it('본부 노드도 탭(현황/평면도/선번장)을 렌더한다', () => {
@@ -201,10 +201,8 @@ describe('WorkspacePage — 본부 노드', () => {
 
     // 자산이 없는 다른 본부(hq2)로 이동 → 활성 노드 변경 → 선택 리셋.
     act(() => {
-      useOrganizationStore.setState({
-        roots: [{ id: 'hq2', name: '빈 본부', type: 'headquarters', parentId: null, children: [], childrenLoaded: true, expanded: true } as never],
-        viewingNodeId: 'hq2',
-      });
+      orgNodeMap.set('hq2', { id: 'hq2', name: '빈 본부', type: 'headquarters', parentId: null });
+      useOrganizationStore.setState({ viewingNodeId: 'hq2' });
     });
 
     fireEvent.click(screen.getByText('평면도'));

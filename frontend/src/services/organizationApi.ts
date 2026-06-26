@@ -1,6 +1,6 @@
 import { api } from '../utils/api';
 import type { HeadquartersItem, BranchItem, BranchSubstationItem, FloorListItem } from '../types';
-import type { TreeNodeData, NodeType, OrgTree } from '../types/organization';
+import type { OrgTree } from '../types/organization';
 
 export const organizationApi = {
   // ── 조직트리 전체(평면) — 워킹카피 eager-load 용 ──
@@ -79,33 +79,3 @@ export const organizationApi = {
     await api.delete(`/floors/${id}`);
   },
 };
-
-/** Fetch children for a tree node — shared by TreePanel and TreeVisualization */
-export async function fetchChildNodes(node: TreeNodeData): Promise<TreeNodeData[]> {
-  if (node.type === 'headquarters') {
-    const branches = await organizationApi.listBranches(node.id);
-    return branches.map((b) => ({
-      id: b.id, name: b.name, type: 'branch' as NodeType,
-      parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-      meta: { substationCount: b.substationCount },
-    }));
-  }
-  if (node.type === 'branch') {
-    const subs = await organizationApi.listSubstations(node.id);
-    return subs.map((s) => ({
-      id: s.id, name: s.name, type: 'substation' as NodeType,
-      parentId: node.id, children: [], childrenLoaded: false, expanded: false,
-      meta: { floorCount: s.floorCount, address: s.address },
-    }));
-  }
-  if (node.type === 'substation') {
-    const floors = await organizationApi.listFloors(node.id);
-    // Floor는 leaf — 클릭으로 에디터 진입, 자식 펼치지 않음
-    return floors.map((f) => ({
-      id: f.id, name: f.name, type: 'floor' as NodeType,
-      parentId: node.id, children: [], childrenLoaded: true, expanded: false,
-      meta: { floorNumber: f.floorNumber },
-    }));
-  }
-  return [];
-}

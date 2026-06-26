@@ -4,6 +4,20 @@ import type { AssetRole, CableRole } from '@prisma/client';
 
 // ==================== Types ====================
 
+export interface SlimCableDTO {
+  id: string;
+  sourceAssetId: string;
+  targetAssetId: string;
+  sourceRole: CableRole | null;
+  targetRole: CableRole | null;
+  number: number | null;
+  categoryId: string | null;
+  groupId: string | null;
+  categoryName: string | null;
+  specParams: unknown;
+  description: string | null;
+}
+
 export interface CableEndpointRef {
   // 단계4b — endpoint 는 단일 Asset 노드. assetId 가 곧 정밀 endpoint id(설비/모듈/분기).
   assetId: string | null;
@@ -69,44 +83,29 @@ const cableInclude = {
 // ==================== Service ====================
 
 class CableService {
-  async getAll(): Promise<CableDetail[]> {
-    const cables = await prisma.cable.findMany({
-      include: cableInclude,
+  async getAll(): Promise<SlimCableDTO[]> {
+    const rows = await prisma.cable.findMany({
+      select: {
+        id: true, sourceAssetId: true, targetAssetId: true,
+        sourceRole: true, targetRole: true, number: true,
+        categoryId: true, specParams: true, description: true,
+        category: { select: { name: true, groupId: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
-    return cables.map((c) => this.mapToDetail(c));
+    return rows.map((r) => ({
+      id: r.id, sourceAssetId: r.sourceAssetId, targetAssetId: r.targetAssetId,
+      sourceRole: r.sourceRole, targetRole: r.targetRole, number: r.number,
+      categoryId: r.categoryId, groupId: r.category?.groupId ?? null,
+      categoryName: r.category?.name ?? null,
+      specParams: r.specParams, description: r.description,
+    }));
   }
 
   async getById(id: string): Promise<CableDetail> {
     const cable = await prisma.cable.findUnique({ where: { id }, include: cableInclude });
     if (!cable) throw new NotFoundError('케이블');
     return this.mapToDetail(cable);
-  }
-
-  /**
-   * 도면(Floor) 에 연결된 모든 케이블 조회.
-   * endpoint asset 의 anchor floor(자신 / 부모 랙 / 분기→피더→분전반)가 매칭되는 케이블.
-   */
-  async getByFloorId(floorId: string): Promise<CableDetail[]> {
-    const floor = await prisma.floor.findUnique({ where: { id: floorId } });
-    if (!floor) throw new NotFoundError('층');
-
-    const cables = await prisma.cable.findMany({
-      where: {
-        OR: [
-          { sourceAsset: { floorId } },
-          { targetAsset: { floorId } },
-          { sourceAsset: { parent: { floorId } } },
-          { targetAsset: { parent: { floorId } } },
-          { sourceAsset: { parent: { parent: { floorId } } } },
-          { targetAsset: { parent: { parent: { floorId } } } },
-        ],
-      },
-      include: cableInclude,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return cables.map((c) => this.mapToDetail(c));
   }
 
   /**
@@ -119,29 +118,6 @@ class CableService {
         OR: [
           { sourceAsset: { substationId } },
           { targetAsset: { substationId } },
-        ],
-      },
-      include: cableInclude,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return cables.map((c) => this.mapToDetail(c));
-  }
-
-  /**
-   * 특정 자산(Asset) 에 연결된 모든 케이블 조회.
-   * 자산 자체, 또는 그 자산의 자식(모듈/피더) 및 손자(분기) endpoint 케이블.
-   */
-  async getByAssetId(assetId: string): Promise<CableDetail[]> {
-    const cables = await prisma.cable.findMany({
-      where: {
-        OR: [
-          { sourceAssetId: assetId },
-          { targetAssetId: assetId },
-          { sourceAsset: { parentAssetId: assetId } },
-          { targetAsset: { parentAssetId: assetId } },
-          { sourceAsset: { parent: { parentAssetId: assetId } } },
-          { targetAsset: { parent: { parentAssetId: assetId } } },
         ],
       },
       include: cableInclude,

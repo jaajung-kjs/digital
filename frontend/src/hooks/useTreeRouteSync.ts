@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useOrganizationStore } from '../stores/organizationStore';
 import { useRevealNode } from './useRevealNode';
+import { useFindOrgNode } from '../features/workingCopy/hooks';
 import type { NodeType } from '../types/organization';
 
 /**
@@ -13,8 +14,10 @@ export function useTreeRouteSync() {
   const params = useParams<{ substationId?: string; floorId?: string }>();
   const [sp] = useSearchParams();
   const floorQ = sp.get('floor');
+  // viewingNodeId: UI 상태 — organizationStore 소유 유지.
   const viewingNodeId = useOrganizationStore((s) => s.viewingNodeId);
-  const findNode = useOrganizationStore((s) => s.findNode);
+  // findNode: 데이터 — 워킹카피 effective 트리에서 파생.
+  const findNode = useFindOrgNode();
   const reveal = useRevealNode();
 
   // Derive the active node from the route (route precedence; home falls back to

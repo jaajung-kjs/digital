@@ -1,5 +1,5 @@
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { useOrganizationStore } from '../stores/organizationStore';
+import { useFindOrgNode } from '../features/workingCopy/hooks';
 import { workspaceFloorUrl } from '../features/workspace/workspaceUrls';
 import { buildTrail, type TrailItem } from './breadcrumbTrail';
 
@@ -7,7 +7,7 @@ export function Breadcrumb() {
   const params = useParams<{ substationId?: string; floorId?: string }>();
   const [sp] = useSearchParams();
   const navigate = useNavigate();
-  const findNode = useOrganizationStore((s) => s.findNode);
+  const findNode = useFindOrgNode();
 
   const deepestId = params.floorId ?? sp.get('floor') ?? params.substationId ?? null;
   const trail = buildTrail((id) => findNode(id) ?? undefined, deepestId);

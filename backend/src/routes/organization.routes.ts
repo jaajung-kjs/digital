@@ -30,11 +30,11 @@ const updateBranchSchema = z.object({
 
 // ==================== Org Tree (전체 트리 평면 로드) ====================
 
-router.get('/tree', organizationController.getTree);
+router.get('/tree', authenticate, organizationController.getTree);
 
 // ==================== Headquarters Routes ====================
 
-router.get('/headquarters', headquartersController.getList);
+router.get('/headquarters', authenticate, headquartersController.getList);
 
 router.post(
   '/headquarters',
@@ -61,7 +61,7 @@ router.delete(
 
 // ==================== Branch Routes ====================
 
-router.get('/headquarters/:hqId/branches', branchController.getList);
+router.get('/headquarters/:hqId/branches', authenticate, branchController.getList);
 
 router.post(
   '/headquarters/:hqId/branches',
@@ -88,6 +88,6 @@ router.delete(
 
 // ==================== Branch → Substations ====================
 
-router.get('/branches/:branchId/substations', branchController.getSubstations);
+router.get('/branches/:branchId/substations', authenticate, branchController.getSubstations);
 
 export { router as organizationRouter };

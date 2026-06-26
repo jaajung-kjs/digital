@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-import { useEffectiveAssets, useEffectiveCables } from '../workingCopy/hooks';
+import { useEffectiveAssets, useEffectiveCables, useEffectiveOrgTree } from '../workingCopy/hooks';
 import { useCableCategories } from '../cables/hooks/useCableCategories';
-import { useOrganizationStore } from '../../stores/organizationStore';
 import type { AssetRole } from '../../types/asset';
 import { other, isOpgwTwin } from '../cables/cableEndpoint';
 import { cableTrace, type TraceAsset, type TraceCable } from './cableTrace';
@@ -177,8 +176,8 @@ export function useTraceGraph(): { graph: TraceGraph; isLoading: boolean } {
   const assets = useEffectiveAssets();
   const rawCables = useEffectiveCables() as unknown as TraceCableInput[];
   const { data: categories = [] } = useCableCategories();
-  const roots = useOrganizationStore((s) => s.roots);
-  const substationNames = useMemo(() => collectNodeNames(roots), [roots]);
+  const orgTree = useEffectiveOrgTree();
+  const substationNames = useMemo(() => collectNodeNames(orgTree), [orgTree]);
   // categoryId → groupId 해소(사용자 그룹). 케이블엔 categoryId 만 있으므로 그룹을 채워 trace 가 그룹으로 동질 추적.
   const catToGroup = useMemo(() => new Map(categories.map((c) => [c.id, c.groupId])), [categories]);
   const cables = useMemo(
