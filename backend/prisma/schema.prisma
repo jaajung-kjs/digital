@@ -183,7 +183,7 @@ model RackPreset {
   @@map("rack_presets")
 }
 
-// ==================== 케이블 카테고리 (16종 시드) ====================
+// ==================== 케이블 카테고리 (18종 시드) ====================
 
 model CableCategory {
   id        String   @id @default(uuid())
@@ -220,8 +220,8 @@ model CableGroup {
 }
 
 // ==================== 케이블 (다형 endpoint) ====================
-// 각 side 한 쪽만 NOT NULL — CHECK constraint로 강제
-// RACK kind Asset 는 endpoint 불가 (service validation)
+// endpoint = sourceAssetId/targetAssetId 모두 NOT NULL 필수 (통합노드 모델, CHECK 없음).
+// 컨테이너 role(rack/ofd/panel)은 케이블 endpoint 불가 (service validation: planApply.assertContainerNotEndpoint).
 
 model Cable {
   id            String  @id @default(uuid())
@@ -257,6 +257,9 @@ model Cable {
   createdBy   User?          @relation("CableCreatedBy", fields: [createdById], references: [id])
   updatedBy   User?          @relation("CableUpdatedBy", fields: [updatedById], references: [id])
 
+  @@index([sourceAssetId])
+  @@index([targetAssetId])
+  @@index([categoryId])
   @@map("cables")
 }
 
@@ -312,6 +315,7 @@ model AssetPhoto {
 
   asset Asset @relation("AssetPhotoAsset", fields: [assetId], references: [id], onDelete: Cascade)
 
+  @@index([assetId])
   @@map("asset_photos")
 }
 
@@ -339,6 +343,7 @@ model MaintenanceLog {
   createdBy User? @relation("MaintenanceLogCreatedBy", fields: [createdById], references: [id])
   updatedBy User? @relation("MaintenanceLogUpdatedBy", fields: [updatedById], references: [id])
 
+  @@index([assetId])
   @@map("maintenance_logs")
 }
 
