@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { Asset } from '../../../types/asset';
-import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
+import { useEditorStore, getSelectedAsset } from '../stores/editorStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
@@ -13,13 +13,13 @@ import { calculateFitToContent } from './useViewport';
 import { useCommitWorkingCopy } from '../../workingCopy/useCommitWorkingCopy';
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 
-function nudgeEquipment(eq: Asset, dx: number, dy: number): Asset {
+function nudgeAsset(eq: Asset, dx: number, dy: number): Asset {
   return { ...eq, positionX: (eq.positionX ?? 0) + dx, positionY: (eq.positionY ?? 0) + dy };
 }
 
 /**
  * Keyboard shortcuts for the editor.
- * Tools: select(V), equipment(K), cable(C), delete via Delete key.
+ * Tools: select(V), asset(K), cable(C), delete via Delete key.
  */
 export function useEditorKeyboard(
   containerRef?: React.RefObject<HTMLDivElement | null>,
@@ -75,23 +75,23 @@ export function useEditorKeyboard(
 
       // Tool shortcuts — number keys (preferred) and legacy letters
       if (e.key === '1' && !e.ctrlKey) es.setTool('select');
-      if (e.key === '2' && !e.ctrlKey) es.setTool('equipment');
+      if (e.key === '2' && !e.ctrlKey) es.setTool('asset');
       if (e.key === '3' && !e.ctrlKey) startCableConnection();
       if (key === 'v' && !e.ctrlKey) es.setTool('select');
-      if (key === 'k') es.setTool('equipment');
+      if (key === 'k') es.setTool('asset');
       if (key === 'c' && !e.ctrlKey) startCableConnection();
       if (key === 'g') es.setShowGrid(!es.showGrid);
       if (key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
 
       // SSOT-2d Task 4 — 설비 읽기는 통합 스토어 effective 에서(쓰기도 stage 액션).
-      const localEquipment = floorPlan
-        ? useSubstationWorkingCopy.getState().effectiveEquipment(floorPlan.id)
+      const localAssets = floorPlan
+        ? useSubstationWorkingCopy.getState().effectiveAssetsByFloor(floorPlan.id)
         : [];
-      const selectedEquipment = getSelectedEquipment();
+      const selectedAsset = getSelectedAsset();
 
-      // Arrow nudge for equipment
+      // Arrow nudge for asset
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !e.ctrlKey) {
-        if (!selectedEquipment) return;
+        if (!selectedAsset) return;
         e.preventDefault();
         const { gridSize, gridSnap: snap } = es;
         const baseStep = snap ? gridSize : 1;
@@ -103,12 +103,12 @@ export function useEditorKeyboard(
         if (e.key === 'ArrowUp') dy = -step;
         if (e.key === 'ArrowDown') dy = step;
 
-        const moved = nudgeEquipment(selectedEquipment, dx, dy);
+        const moved = nudgeAsset(selectedAsset, dx, dy);
         useSubstationWorkingCopy.getState().stageAssetUpdate(moved.id, {
           positionX: moved.positionX ?? 0,
           positionY: moved.positionY ?? 0,
         });
-        // selectedEquipment 가 selector 로 도출되므로 별도 동기화 불필요.
+        // selectedAsset 가 selector 로 도출되므로 별도 동기화 불필요.
         return;
       }
 
@@ -155,11 +155,11 @@ export function useEditorKeyboard(
         return;
       }
 
-      // Delete — equipment (cascades cables + pending data)
-      if (isDeleteKey && selectedEquipment) {
+      // Delete — asset (cascades cables + pending data)
+      if (isDeleteKey && selectedAsset) {
         e.preventDefault();
-        if (!window.confirm(`'${selectedEquipment.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
-        useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(selectedEquipment.id);
+        if (!window.confirm(`'${selectedAsset.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
+        useSubstationWorkingCopy.getState().stageAssetDeleteCascade(selectedAsset.id);
         es.clearSelection();
       }
 
@@ -185,7 +185,7 @@ export function useEditorKeyboard(
         const container = containerRef?.current;
         if (container) {
           const fit = calculateFitToContent(
-            localEquipment,
+            localAssets,
             floorPlan?.backgroundDrawing ?? null,
             floorPlan ? { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight } : null,
             container.clientWidth,
@@ -196,18 +196,18 @@ export function useEditorKeyboard(
         return;
       }
 
-      // Ctrl+C copy equipment — 클립보드는 선택된 Asset 을 그대로 담는다(붙여넣기에서 복제).
-      if (e.ctrlKey && key === 'c' && selectedEquipment) {
+      // Ctrl+C copy asset — 클립보드는 선택된 Asset 을 그대로 담는다(붙여넣기에서 복제).
+      if (e.ctrlKey && key === 'c' && selectedAsset) {
         e.preventDefault();
-        es.setClipboard({ type: 'equipment', data: selectedEquipment });
+        es.setClipboard({ type: 'asset', data: selectedAsset });
       }
 
-      // Ctrl+V paste equipment (opens name modal)
-      if (e.ctrlKey && key === 'v' && es.clipboard?.type === 'equipment') {
+      // Ctrl+V paste asset (opens name modal)
+      if (e.ctrlKey && key === 'v' && es.clipboard?.type === 'asset') {
         e.preventDefault();
         cs.closeAllModals();
-        cs.setPasteEquipmentName('');
-        cs.setPasteEquipmentModalOpen(true);
+        cs.setPasteAssetName('');
+        cs.setPasteAssetModalOpen(true);
       }
     };
 

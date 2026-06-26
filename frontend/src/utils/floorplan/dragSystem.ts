@@ -1,13 +1,13 @@
 /**
- * Equipment 드래그 시스템.
- * FloorPlanElement가 제거된 후, 평면도 위에서 드래그 가능한 건 설비뿐.
+ * Asset 드래그 시스템.
+ * FloorPlanElement가 제거된 후, 평면도 위에서 드래그 가능한 건 자산뿐.
  */
 
 import type { Asset } from '../../types/asset';
-import { Position, getEquipmentPosition } from './elementSystem';
+import { Position, getAssetPosition } from './elementSystem';
 
 export interface DragTarget {
-  type: 'equipment';
+  type: 'asset';
   id: string;
   initialPosition: Position;
 }
@@ -19,15 +19,15 @@ export interface DragSession {
 }
 
 export function createDragSession(
-  item: { type: 'equipment'; item: Asset },
+  item: { type: 'asset'; item: Asset },
   mousePosition: Position,
 ): DragSession {
   return {
     startMousePosition: { ...mousePosition },
     target: {
-      type: 'equipment',
+      type: 'asset',
       id: item.item.id,
-      initialPosition: getEquipmentPosition(item.item),
+      initialPosition: getAssetPosition(item.item),
     },
     isActive: false,
   };
@@ -49,24 +49,24 @@ function calculateNewPosition(
 }
 
 export interface DragApplyResult {
-  equipment: Asset[];
+  assets: Asset[];
 }
 
 export function applyDrag(
   // 호환성: elements 인자는 무시 (호출처 정리 후 제거 예정)
   _elements: unknown,
-  equipment: Asset[],
+  assets: Asset[],
   session: DragSession,
   currentMousePosition: Position,
   snapFn?: (pos: Position) => Position,
 ): DragApplyResult {
   const newPos = calculateNewPosition(session, currentMousePosition, snapFn);
-  const updated = equipment.map((item) =>
+  const updated = assets.map((item) =>
     item.id === session.target.id
       ? { ...item, positionX: newPos.x, positionY: newPos.y }
       : item,
   );
-  return { equipment: updated };
+  return { assets: updated };
 }
 
 function getDragDistance(session: DragSession, currentMousePosition: Position): number {

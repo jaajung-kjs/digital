@@ -77,3 +77,6 @@ verify-*.png
 
 # Local archive (작업 자료)
 필요자료.zip
+
+# TypeScript incremental build cache
+*.tsbuildinfo

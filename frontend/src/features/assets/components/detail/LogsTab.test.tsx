@@ -24,7 +24,7 @@ const EQ = 'eq1';
 
 describe('LogsTab — 고장이력(#6)', () => {
   it('유형 드롭다운에 점검(MAINTENANCE) 옵션이 없다 — 고장/수리만, 기본 FAILURE', async () => {
-    wrap(<LogsTab equipmentId={EQ} />);
+    wrap(<LogsTab assetId={EQ} />);
     const typeSelect = (await screen.findByLabelText('유형')) as HTMLSelectElement;
     const options = Array.from(typeSelect.options).map((o) => o.text);
     expect(options).toEqual(['고장', '수리']);
@@ -33,12 +33,12 @@ describe('LogsTab — 고장이력(#6)', () => {
   });
 
   it('빈 상태 문구는 고장 이력 기준(한 곳에서만)', async () => {
-    wrap(<LogsTab equipmentId={EQ} />);
+    wrap(<LogsTab assetId={EQ} />);
     expect(await screen.findByText('기록된 고장 이력이 없습니다.')).toBeTruthy();
   });
 
   it('readOnly: 작성 폼 없음', async () => {
-    wrap(<LogsTab equipmentId={EQ} readOnly />);
+    wrap(<LogsTab assetId={EQ} readOnly />);
     await screen.findByText('기록된 고장 이력이 없습니다.');
     expect(screen.queryByLabelText('유형')).toBeNull();
     expect(screen.queryByText('고장 등록')).toBeNull();

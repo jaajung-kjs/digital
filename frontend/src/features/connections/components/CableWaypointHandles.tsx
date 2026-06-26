@@ -14,10 +14,10 @@ interface CableWaypointHandlesProps {
 
 /**
  * Renders draggable waypoint handles for a selected cable's pathPoints.
- * First and last points (equipment endpoints) are shown as non-draggable indicators.
+ * First and last points (asset endpoints) are shown as non-draggable indicators.
  * Intermediate waypoints can be dragged to reposition them — and the cable line
  * follows live (updateCable is called on every pointermove, so the canvas
- * redraws the new path in real time, matching the equipment-drag pattern in
+ * redraws the new path in real time, matching the asset-drag pattern in
  * useCanvasEvents.syncCableEndpointsTo).
  */
 export function CableWaypointHandles({ cable, zoom, panX, panY }: CableWaypointHandlesProps) {

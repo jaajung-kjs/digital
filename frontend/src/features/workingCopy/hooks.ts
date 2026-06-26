@@ -104,7 +104,7 @@ export function useRecordsByType(recordType: RecordTypeKey): AssetRecord[] {
  * 필터: 같은 층 AND 랙-모듈 자식(parentAssetId && slotIndex!=null) 제외.
  */
 /** 한 층의 배치(placement) Asset — 캔버스가 Asset 을 직접 투영(북극성 ③). 랙모듈 자식 제외. */
-export function useEffectiveEquipment(floorId: string): Asset[] {
+export function useEffectiveFloorAssets(floorId: string): Asset[] {
   const saved = useSubstationWorkingCopy((s) => s.saved.assets);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.assets);
   return useMemo(() => {
@@ -129,7 +129,7 @@ export function useEffectiveRackModules(rackId: string) {
 /**
  * 한 층(floorId)에 닿는 effective 케이블만 반환한다.
  * effective assets 중 해당 층(top-level 또는 부모 랙이 그 층)에 있는 id 집합을 만들고,
- * source/target 의 {equipmentId, moduleId} 중 하나라도 그 집합에 속하는 케이블만 남긴다.
+ * source/target 의 {assetId, moduleId} 중 하나라도 그 집합에 속하는 케이블만 남긴다.
  */
 export function useEffectiveFloorCables(floorId: string) {
   const savedAssets = useSubstationWorkingCopy((s) => s.saved.assets);
@@ -139,7 +139,7 @@ export function useEffectiveFloorCables(floorId: string) {
   return useMemo(() => {
     const effAssets = mergeEffective(savedAssets, overlayAssets, assetDescriptor);
     // 단계3a — 멤버십은 단일 endpoint assetId + floorAnchor 하나로. branch endpoint 는
-    // branch→feeder→panel 으로 해소되어 회로 특수처리(distributionEquipmentId 증강) 불필요.
+    // branch→feeder→panel 으로 해소되어 회로 특수처리(distributionAssetId 증강) 불필요.
     const assetsById = toMapById(effAssets);
     const effCables = mergeEffective(savedCables, overlayCables, cableDescriptor);
     return effCables.filter((c) =>

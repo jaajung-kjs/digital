@@ -10,7 +10,7 @@ import prisma from '../src/config/prisma.js';
  * #3 Task 1 / Task 4 — POST /api/substations/:id/report-preview オーバーレイ dry-run 설계서.
  *
  * Task 4 변경: 스냅샷이 categoryId/name 기반으로 바뀌었고 BOM 은 key 로 집계.
- * resolveEquipmentConstructionCode(삭제됨) 테스트 제거.
+ * resolveAssetConstructionCode(삭제됨) 테스트 제거.
  */
 describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview)', () => {
   let app: Express;
@@ -58,14 +58,14 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
 
   /**
    * 설비 신규(assetTypeId=RACK) + 케이블 신규(categoryId=광, 길이 L).
-   * 새 스냅샷 모양: cables에 categoryId+name, equipment에 assetTypeId+name.
+   * 새 스냅샷 모양: cables에 categoryId+name, assets에 assetTypeId+name.
    */
   const L = 10; // m. totalLength 는 cm이므로 L*100.
 
   const buildChanges = (catId: string) => ({
-    before: { equipment: [], cables: [] },
+    before: { assets: [], cables: [] },
     after: {
-      equipment: [
+      assets: [
         { id: 'eq1', name: '신규 랙', assetTypeId: rackAssetTypeId ?? undefined },
       ],
       cables: catId
@@ -95,7 +95,7 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
 
     // diff: 설비 install + 케이블 install = 2건
     expect(report.diff).toHaveLength(2);
-    const eqDiff = report.diff.find((d: any) => d.type === 'equipment');
+    const eqDiff = report.diff.find((d: any) => d.type === 'asset');
     const cbDiff = report.diff.find((d: any) => d.type === 'cable');
     expect(eqDiff.action).toBe('install');
     expect(eqDiff.assetTypeId).toBe(rackAssetTypeId);
@@ -121,9 +121,9 @@ describe('오버레이 설계서 프리뷰 (POST /substations/:id/report-preview
 
   it('설비만(assetTypeId) → diff 1건(install) + BOM 설비', async () => {
     const changes = {
-      before: { equipment: [], cables: [] },
+      before: { assets: [], cables: [] },
       after: {
-        equipment: [{ id: 'eq-rack', name: '랙', assetTypeId: rackAssetTypeId }],
+        assets: [{ id: 'eq-rack', name: '랙', assetTypeId: rackAssetTypeId }],
         cables: [],
       },
     };

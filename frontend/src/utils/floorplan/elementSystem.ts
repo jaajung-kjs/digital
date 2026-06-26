@@ -1,5 +1,5 @@
 /**
- * 평면도 위 설비(Equipment)의 위치/크기 헬퍼.
+ * 평면도 위 자산(Asset)의 위치/크기 헬퍼.
  * FloorPlanElement가 제거된 이후 남은 최소 유틸리티.
  */
 
@@ -10,10 +10,10 @@ export interface Position {
   y: number;
 }
 
-export function getEquipmentPosition(eq: Asset): Position {
+export function getAssetPosition(eq: Asset): Position {
   return { x: eq.positionX ?? 0, y: eq.positionY ?? 0 };
 }
 
-export function getEquipmentCenter(eq: Asset): Position {
+export function getAssetCenter(eq: Asset): Position {
   return { x: (eq.positionX ?? 0) + (eq.width2d ?? 0) / 2, y: (eq.positionY ?? 0) + (eq.height2d ?? 0) / 2 };
 }

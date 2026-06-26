@@ -3,7 +3,7 @@
  * Takes before/after PlanSnapshots and returns diff + BOM + labor.
  *
  * Labor and material computed from DB rules (RuleContext) — no hardcoded templates.
- * BOM no longer uses materialCategoryCode; cables key on categoryId, equipment on assetTypeId.
+ * BOM no longer uses materialCategoryCode; cables key on categoryId, assets key on assetTypeId.
  */
 
 import { SURCHARGE_RULES } from '../config/constructionTemplates.js';
@@ -15,7 +15,7 @@ import { NotFoundError } from '../utils/errors.js';
 // ============================================================
 
 export interface PlanSnapshot {
-  equipment: {
+  assets: {
     id: string;
     name: string;
     assetTypeId?: string | null;
@@ -37,7 +37,7 @@ export type DiffAction = 'install' | 'remove' | 'relocate' | 'modify';
 
 export interface DiffItem {
   id: string;
-  type: 'equipment' | 'cable';
+  type: 'asset' | 'cable';
   action: DiffAction;
   name: string;
   categoryId?: string | null;
@@ -112,9 +112,9 @@ export interface RuleContext {
 
 const POSITION_THRESHOLD = 50; // px - significant position change for relocate
 
-function computeEquipmentDiff(
-  before: PlanSnapshot['equipment'],
-  after: PlanSnapshot['equipment'],
+function computeAssetDiff(
+  before: PlanSnapshot['assets'],
+  after: PlanSnapshot['assets'],
 ): DiffItem[] {
   const beforeMap = new Map(before.map((e) => [e.id, e]));
   const afterMap = new Map(after.map((e) => [e.id, e]));
@@ -123,7 +123,7 @@ function computeEquipmentDiff(
   for (const [id, eq] of afterMap) {
     if (!beforeMap.has(id)) {
       items.push({
-        id, type: 'equipment', action: 'install',
+        id, type: 'asset', action: 'install',
         name: eq.name,
         assetTypeId: eq.assetTypeId ?? null,
         quantity: 1, unit: '대',
@@ -134,7 +134,7 @@ function computeEquipmentDiff(
   for (const [id, eq] of beforeMap) {
     if (!afterMap.has(id)) {
       items.push({
-        id, type: 'equipment', action: 'remove',
+        id, type: 'asset', action: 'remove',
         name: eq.name,
         assetTypeId: eq.assetTypeId ?? null,
         quantity: 1, unit: '대',
@@ -152,7 +152,7 @@ function computeEquipmentDiff(
 
     if (distance > POSITION_THRESHOLD) {
       items.push({
-        id, type: 'equipment', action: 'relocate',
+        id, type: 'asset', action: 'relocate',
         name: afterEq.name,
         assetTypeId: afterEq.assetTypeId ?? null,
         quantity: 1, unit: '대',
@@ -165,7 +165,7 @@ function computeEquipmentDiff(
 
       if (changed) {
         items.push({
-          id, type: 'equipment', action: 'modify',
+          id, type: 'asset', action: 'modify',
           name: afterEq.name,
           assetTypeId: afterEq.assetTypeId ?? null,
           quantity: 1, unit: '대',
@@ -282,10 +282,10 @@ function computeCableLabor(diff: DiffItem[], ctx: RuleContext): LaborItem[] {
   return [...map.values()];
 }
 
-function computeEquipmentLabor(diff: DiffItem[], ctx: RuleContext): LaborItem[] {
+function computeAssetLabor(diff: DiffItem[], ctx: RuleContext): LaborItem[] {
   const map = new Map<string, LaborItem>();
   for (const it of diff) {
-    if (it.type !== 'equipment' || it.action === 'modify' || !it.assetTypeId) continue;
+    if (it.type !== 'asset' || it.action === 'modify' || !it.assetTypeId) continue;
     const r = ctx.equipRuleByTypeId.get(it.assetTypeId);
     if (!r || !r.laborType) continue;
     const perU = hoursFor(
@@ -328,7 +328,7 @@ function computeMaterial(diff: DiffItem[]): BOMItem[] {
 // Main function
 // ============================================================
 
-const EMPTY_SNAPSHOT: PlanSnapshot = { equipment: [], cables: [] };
+const EMPTY_SNAPSHOT: PlanSnapshot = { assets: [], cables: [] };
 
 export function calculateConstructionReport(
   beforeSnapshot: PlanSnapshot | null,
@@ -339,14 +339,14 @@ export function calculateConstructionReport(
   const before = beforeSnapshot ?? EMPTY_SNAPSHOT;
 
   const diff: DiffItem[] = [
-    ...computeEquipmentDiff(before.equipment, afterSnapshot.equipment),
+    ...computeAssetDiff(before.assets, afterSnapshot.assets),
     ...computeCableDiff(before.cables, afterSnapshot.cables),
   ];
 
   let bom = computeMaterial(diff);
   let labor: LaborItem[] = [
     ...computeCableLabor(diff, ctx),
-    ...computeEquipmentLabor(diff, ctx),
+    ...computeAssetLabor(diff, ctx),
   ];
 
   if (overrides) {

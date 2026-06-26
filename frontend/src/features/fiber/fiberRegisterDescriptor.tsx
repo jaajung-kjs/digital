@@ -3,7 +3,7 @@ import { buildSlotCoreRows, type SlotCoreRow } from './slotRegister';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
 import { EditableField } from '../assets/components/EditableField';
 import { fiberSlotLabel } from './fiberSlotLabel';
-import { EquipmentSelectCell } from './components/EquipmentSelectCell';
+import { AssetSelectCell } from './components/AssetSelectCell';
 import { commitCoreMeta } from './coreMeta';
 import type { Asset } from '../../types/asset';
 
@@ -45,13 +45,13 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
       label: '자국설비',
       width: 'w-48',
       sortKey: (r) => (r.nearAssetId ? r.__nameById?.get(r.nearAssetId) ?? null : null),
-      cell: (r) => (r.__slot ? <EquipmentSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="local" /> : null),
+      cell: (r) => (r.__slot ? <AssetSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="local" /> : null),
     },
     {
       label: '대국설비',
       width: 'w-48',
       sortKey: (r) => r.farName,
-      cell: (r) => (r.__slot ? <EquipmentSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="remote" /> : null),
+      cell: (r) => (r.__slot ? <AssetSelectCell slot={r.__slot} coreNumber={r.coreNumber} side="remote" /> : null),
     },
     {
       label: '손실1310(dB)',

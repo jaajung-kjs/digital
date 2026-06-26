@@ -1,10 +1,10 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import {
-  renderEquipmentDrawPreview,
-  renderEquipmentItems,
-  renderEquipmentLengths,
-  renderEquipmentPreview,
+  renderAssetDrawPreview,
+  renderAssetItems,
+  renderAssetLengths,
+  renderAssetPreview,
   renderPresetPreview,
 } from '../../../utils/floorplan/renderers';
 import { renderGrid } from '../renderers/gridRenderer';
@@ -17,7 +17,7 @@ import { floorTargetFor } from '../../workingCopy/floorAnchor';
 
 /**
  * Hook managing canvas ref, resize, and render loop.
- * Renders: backgroundColor → DWG outline → grid → equipment → previews
+ * Renders: backgroundColor → DWG outline → grid → assets → previews
  */
 export function useCanvas(
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -41,14 +41,14 @@ export function useCanvas(
 
     // 설비는 통합 스토어 effective(Asset)에서 직접 읽는다 — 캔버스가 Asset 을 투영(북극성 ③).
     // 렌더 hot path 라 getState 동기 조회. floorId 없으면 빈 배열.
-    const localEquipment = floorId
-      ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
+    const localAssets = floorId
+      ? useSubstationWorkingCopy.getState().effectiveAssetsByFloor(floorId)
       : [];
     const majorGridSize = editorState.majorGridSize;
 
     const {
-      isDrawingEquipment, equipmentStart, equipmentPreviewEnd,
-      previewPosition, newEquipmentPreset,
+      isDrawingAsset, assetStart, assetPreviewEnd,
+      previewPosition, newAssetPreset,
     } = editorState;
 
     const scale = zoom / 100;
@@ -93,35 +93,35 @@ export function useCanvas(
       renderGrid(ctx, majorGridSize, viewportLeft, viewportTop, viewportRight, viewportBottom);
     }
 
-    // Equipment (excluding rack-internal — those render inside the rack view)
-    const floorEquipment = localEquipment.filter((eq) => !eq.parentAssetId);
+    // Asset (excluding rack-internal — those render inside the rack view)
+    const floorAssets = localAssets.filter((eq) => !eq.parentAssetId);
 
     const pathHighlight = usePathHighlightStore.getState();
     if (pathHighlight.active) {
       // 연결 추적 모드 = 편집 모드 아님 → 선택 chrome(외곽선) 숨기고 하이라이트 글로우(오버레이)가
       // 단일 비주얼. 선택 자산만 편집 selection 으로 남아 하이라이트 안 보이던 문제 해결.
       const highlightedIds = pathHighlight.highlightedPlacedIds;
-      const dimmed = floorEquipment.filter((eq) => !highlightedIds.has(eq.id));
-      const highlighted = floorEquipment.filter((eq) => highlightedIds.has(eq.id));
+      const dimmed = floorAssets.filter((eq) => !highlightedIds.has(eq.id));
+      const highlighted = floorAssets.filter((eq) => highlightedIds.has(eq.id));
       ctx.save();
       ctx.globalAlpha = 0.2;
-      renderEquipmentItems(ctx, dimmed, []);
+      renderAssetItems(ctx, dimmed, []);
       ctx.restore();
-      renderEquipmentItems(ctx, highlighted, []);
+      renderAssetItems(ctx, highlighted, []);
     } else {
-      renderEquipmentItems(ctx, floorEquipment, selectedIds);
+      renderAssetItems(ctx, floorAssets, selectedIds);
     }
 
     // Detail panel 진입 설비를 케이블 path highlight 와 동일한 푸른 글로우로 강조.
-    // (ConnectionOverlay 의 highlighted-equipment 와 같은 스타일: shadowBlur + 2px stroke)
+    // (ConnectionOverlay 의 highlighted-asset 와 같은 스타일: shadowBlur + 2px stroke)
     //
     // 단일 choke-point: floorTargetFor 로 선택 asset → 도면 anchor rect 해소.
     // 미배치 모듈/회로/포트는 부모 설비(랙/OFD/분전반) rect 로 하이라이트된다.
     // 스냅샷 보기 중에는 통합 effective 가 비어 self-find 로 폴백한다.
     const detailPanelEqId = useSelectionStore.getState().selectedAssetId;
-    // 선택 자산이 도면에 직접 그려지면 renderEquipmentItems 선택 styling 이 이미 표시한다(navy 중복 방지).
+    // 선택 자산이 도면에 직접 그려지면 renderAssetItems 선택 styling 이 이미 표시한다(navy 중복 방지).
     // 미배치 모듈/포트/회로만 부모 앵커(floorTargetFor)에 글로우로 표시한다.
-    const isDrawn = !!detailPanelEqId && floorEquipment.some((eq) => eq.id === detailPanelEqId);
+    const isDrawn = !!detailPanelEqId && floorAssets.some((eq) => eq.id === detailPanelEqId);
     if (detailPanelEqId && !isDrawn) {
       const target = floorTargetFor(detailPanelEqId, useSubstationWorkingCopy.getState().effectiveAssets());
       if (target) {
@@ -136,26 +136,26 @@ export function useCanvas(
     }
 
     if (showLengths) {
-      renderEquipmentLengths(ctx, localEquipment, zoom);
+      renderAssetLengths(ctx, localAssets, zoom);
     }
 
-    if (isDrawingEquipment && equipmentStart) {
-      renderEquipmentDrawPreview(ctx, equipmentStart, equipmentPreviewEnd);
+    if (isDrawingAsset && assetStart) {
+      renderAssetDrawPreview(ctx, assetStart, assetPreviewEnd);
     }
 
-    if (previewPosition && tool === 'equipment' && !isDrawingEquipment) {
+    if (previewPosition && tool === 'asset' && !isDrawingAsset) {
       // 프리셋이 armed 상태면 프리셋 크기로 사각형 미리보기,
       // 아니면 단순 십자선.
-      if (newEquipmentPreset) {
+      if (newAssetPreset) {
         renderPresetPreview(
           ctx,
           previewPosition,
-          newEquipmentPreset.canvasWidth,
-          newEquipmentPreset.canvasHeight,
-          newEquipmentPreset.name,
+          newAssetPreset.canvasWidth,
+          newAssetPreset.canvasHeight,
+          newAssetPreset.name,
         );
       } else {
-        renderEquipmentPreview(ctx, previewPosition);
+        renderAssetPreview(ctx, previewPosition);
       }
     }
 

@@ -47,7 +47,7 @@ beforeEach(() => {
       return Promise.resolve({ data: { data: {
         id: FLOOR_ID, gridSize: 20, majorGridSize: 60,
         canvasWidth: 10000, canvasHeight: 10000,
-        equipment: [], backgroundDrawing: null,
+        assets: [], backgroundDrawing: null,
         updatedAt: '2026-01-01T00:00:00.000Z',
       } } });
     }

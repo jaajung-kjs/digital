@@ -4,8 +4,8 @@ import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
 
-interface EquipmentResizeHandlesProps {
-  equipment: Asset;
+interface AssetResizeHandlesProps {
+  asset: Asset;
   zoom: number;
   panX: number;
   panY: number;
@@ -48,12 +48,12 @@ const MIN_DIM_CM = 20;
  * useCanvasEvents.syncCableEndpointsTo 와 같은 패턴으로 모듈 안에서 직접
  * 호출해서 같이 움직이게.
  */
-export function EquipmentResizeHandles({ equipment, zoom, panX, panY }: EquipmentResizeHandlesProps) {
+export function AssetResizeHandles({ asset, zoom, panX, panY }: AssetResizeHandlesProps) {
   const scale = zoom / 100;
-  const screenX = (equipment.positionX ?? 0) * scale + panX;
-  const screenY = (equipment.positionY ?? 0) * scale + panY;
-  const screenW = (equipment.width2d ?? 0) * scale;
-  const screenH = (equipment.height2d ?? 0) * scale;
+  const screenX = (asset.positionX ?? 0) * scale + panX;
+  const screenY = (asset.positionY ?? 0) * scale + panY;
+  const screenW = (asset.width2d ?? 0) * scale;
+  const screenH = (asset.height2d ?? 0) * scale;
 
   return (
     <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 13 }}>
@@ -61,7 +61,7 @@ export function EquipmentResizeHandles({ equipment, zoom, panX, panY }: Equipmen
         <HandleNode
           key={h.key}
           handle={h}
-          equipment={equipment}
+          asset={asset}
           scale={scale}
           screenX={screenX}
           screenY={screenY}
@@ -75,7 +75,7 @@ export function EquipmentResizeHandles({ equipment, zoom, panX, panY }: Equipmen
 
 interface HandleNodeProps {
   handle: HandleDef;
-  equipment: Asset;
+  asset: Asset;
   scale: number;
   screenX: number;
   screenY: number;
@@ -83,7 +83,7 @@ interface HandleNodeProps {
   screenH: number;
 }
 
-function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, screenH }: HandleNodeProps) {
+function HandleNode({ handle, asset, scale, screenX, screenY, screenW, screenH }: HandleNodeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const startRef = useRef<{
     mouseX: number;
@@ -102,10 +102,10 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
       startRef.current = {
         mouseX: e.clientX,
         mouseY: e.clientY,
-        origX: equipment.positionX ?? 0,
-        origY: equipment.positionY ?? 0,
-        origW: equipment.width2d ?? 0,
-        origH: equipment.height2d ?? 0,
+        origX: asset.positionX ?? 0,
+        origY: asset.positionY ?? 0,
+        origW: asset.width2d ?? 0,
+        origH: asset.height2d ?? 0,
       };
       setIsDragging(true);
 
@@ -148,7 +148,7 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
         }
 
         // SSOT-2d Task 4 — 리사이즈 적용을 통합 스토어 stage 액션으로.
-        useSubstationWorkingCopy.getState().stageAssetUpdate(equipment.id, {
+        useSubstationWorkingCopy.getState().stageAssetUpdate(asset.id, {
           positionX: newX,
           positionY: newY,
           width2d: newW,
@@ -157,7 +157,7 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
 
         // 케이블 endpoint 라이브 동기화 — 설비가 작아져도 중심이 바뀌면
         // 연결된 케이블의 양 끝점이 새 중심으로 따라온다.
-        syncCableEndpointsTo(equipment.id);
+        syncCableEndpointsTo(asset.id);
       };
 
       const onMove = (ev: PointerEvent) => {
@@ -178,7 +178,7 @@ function HandleNode({ handle, equipment, scale, screenX, screenY, screenW, scree
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onUp);
     },
-    [equipment, scale, handle],
+    [asset, scale, handle],
   );
 
   const size = 9;

@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
 import { useEditorStore } from '../stores/editorStore';
-import { useEffectiveAssets, useEffectiveEquipment } from '../../workingCopy/hooks';
+import { useEffectiveAssets, useEffectiveFloorAssets } from '../../workingCopy/hooks';
 import { isTempId } from '../../../utils/idHelpers';
-import { useMergedEquipmentDetail } from '../../equipment/components/detail/hooks/useEquipmentDetail';
-import { type DetailPanelKind } from '../../../types/equipmentKind';
+import { useMergedAssetDetail } from '../../assets/hooks/useAssetDetail';
+import { type DetailPanelKind } from '../../../types/assetDetailKind';
 import { AssetDetailPanel } from '../../assets/components/AssetDetailPanel';
-import { resolveAssetDetailKind } from '../../equipment/components/detail/panels/resolveAssetDetailKind';
+import { resolveAssetDetailKind } from '../../assets/components/detail/panels/resolveAssetDetailKind';
 
-interface EquipmentDetailPanelProps {
-  equipmentId: string;
+interface AssetInspectorPanelProps {
+  assetId: string;
   /** effective 설비 조회용(헤더 name/kind lookup). */
   floorId: string;
 }
@@ -20,17 +20,17 @@ interface EquipmentDetailPanelProps {
  * 에디터 전용 개념(과거 도면 스냅샷 · 미저장 임시 설비 · 재포커스 focusTick · 캔버스 선택)만
  * 여기 남는다 — 현황 패널은 이런 개념이 없으므로 공유 컴포넌트가 이를 알 필요가 없다.
  */
-export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
+export function AssetInspectorPanel({ assetId, floorId }: AssetInspectorPanelProps) {
   const closeRightPanel = useEditorStore((s) => s.closeRightPanel);
   const focusTick = useEditorStore((s) => s.focusTick);
   // 케이블 더블클릭 등에서 지정한 진입 탭(예: '연결'). bodyKey(focusTick) 로 본문이 remount 되며 적용.
   const detailInitialTab = useEditorStore((s) => s.detailInitialTab);
-  const isTemp = isTempId(equipmentId);
-  const { equipment, isLoading } = useMergedEquipmentDetail(equipmentId);
+  const isTemp = isTempId(assetId);
+  const { asset: assetDetailView, isLoading } = useMergedAssetDetail(assetId);
 
   // 통합 스토어 effective 에서 헤더 정보를 읽는다.
-  const effectiveEquipment = useEffectiveEquipment(floorId);
-  const localEq = effectiveEquipment.find((e) => e.id === equipmentId);
+  const floorAssets = useEffectiveFloorAssets(floorId);
+  const localEq = floorAssets.find((e) => e.id === assetId);
 
   // 선택 자산을 제네릭하게 해소(랙 모듈만이 아니라 모든 자식 — 피더·OFD-슬롯 포함)해서
   // 공유 패널에 넘긴다. AssetBreadcrumb 가 parentAssetId 있으면 부모 eyebrow 를 렌더하므로,
@@ -38,8 +38,8 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
   // 자산은 parentAssetId 가 없어 자연히 eyebrow 없음.
   const effectiveAssets = useEffectiveAssets();
   const asset = useMemo(
-    () => effectiveAssets.find((a) => a.id === equipmentId) ?? null,
-    [effectiveAssets, equipmentId],
+    () => effectiveAssets.find((a) => a.id === assetId) ?? null,
+    [effectiveAssets, assetId],
   );
 
   const detailKind = useMemo<DetailPanelKind | null>(
@@ -51,7 +51,7 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     ? asset.name
     : !isTemp && isLoading
       ? '로딩 중...'
-      : equipment?.name ?? '설비 상세';
+      : assetDetailView?.name ?? '설비 상세';
 
   const banner = null;
 
@@ -59,13 +59,13 @@ export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPa
     <AssetDetailPanel
       variant="overlay"
       title={title}
-      equipmentId={equipmentId}
+      assetId={assetId}
       detailKind={detailKind}
       asset={asset}
       mode="edit"
       onClose={() => closeRightPanel()}
       banner={banner}
-      bodyKey={`${equipmentId}-${focusTick}`}
+      bodyKey={`${assetId}-${focusTick}`}
       canDelete={true}
       initialTab={detailInitialTab ?? undefined}
     />

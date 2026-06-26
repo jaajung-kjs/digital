@@ -614,7 +614,7 @@ async function run(
       ]);
       const created = await tx.cable.create({
         data: {
-          // endpoint 는 단일 Asset 노드만 쓴다 — legacy *_equipment/module/circuit_id 는 null.
+          // endpoint 는 단일 Asset 노드만 쓴다 — legacy *_asset/module/circuit_id 는 null.
           sourceAssetId,
           targetAssetId,
           length: c.length ?? null,

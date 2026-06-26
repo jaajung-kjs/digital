@@ -11,7 +11,7 @@ import { readSourcePresetId, updateRackSourcePreset } from '../utils/sourcePrese
 import { SaveRackAsPresetDialog } from './SaveRackAsPresetDialog';
 
 interface PresetActionsBarProps {
-  rackEquipmentId: string;
+  rackAssetId: string;
 }
 
 /**
@@ -22,7 +22,7 @@ interface PresetActionsBarProps {
  *  └──────────────────────────────────────────────────┘
  *
  * Lifecycle:
- *   부모 (RackEquipmentPanel) 가 `key={equipmentId}` 로 랙 전환 시 이 컴포넌트를
+ *   부모 (RackAssetPanel) 가 `key={assetId}` 로 랙 전환 시 이 컴포넌트를
  *   강제 remount 시킴. → useState 의 lazy init 이 매번 새 랙의 rack.properties.
  *   sourcePresetId 를 다시 읽어 드롭다운 초기값으로 잡힘. 동기화 useEffect 같은
  *   안전망이 필요 없음 (마운트 자체가 동기화).
@@ -34,32 +34,32 @@ interface PresetActionsBarProps {
  *   - **저장**: SaveRackAsPresetDialog 가 PATCH (덮어쓰기) / POST (새로) 모두 처리.
  *     이름이 selectedPreset 과 같으면 덮어쓰기, 바뀌면 새로.
  */
-export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
+export function PresetActionsBar({ rackAssetId }: PresetActionsBarProps) {
   const { data: presets } = useRackPresets();
   const { data: categories } = useRackModuleCategories();
   const isAdmin = useIsAdmin();
   // SSOT-2d3a Task 2 — 읽기를 통합 스토어 effective 로. 랙은 effective assets(Asset)
   // 에서 직접 찾고, 모듈 수는 effective 랙모듈에서.
   const effectiveAssets = useEffectiveAssets();
-  const rackModules = useEffectiveRackModules(rackEquipmentId);
+  const rackModules = useEffectiveRackModules(rackAssetId);
 
   const activePresets = useMemo(
     () => presets ?? [],
     [presets],
   );
 
-  const rackEquipment = useMemo(
-    () => effectiveAssets.find((a) => a.id === rackEquipmentId),
-    [effectiveAssets, rackEquipmentId],
+  const rackAsset = useMemo(
+    () => effectiveAssets.find((a) => a.id === rackAssetId),
+    [effectiveAssets, rackAssetId],
   );
 
   const existingModuleCount = rackModules.length;
 
   // 랙 진입 시점의 source preset 을 그대로 드롭다운 초기값으로 잡는다.
-  // RackEquipmentPanel 의 key={equipmentId} 가 매 랙마다 이 컴포넌트를 remount
+  // RackAssetPanel 의 key={assetId} 가 매 랙마다 이 컴포넌트를 remount
   // 시키므로 lazy init 이 fresh rack 으로 매번 실행됨 (sync useEffect 불필요).
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(
-    () => readSourcePresetId(rackEquipment),
+    () => readSourcePresetId(rackAsset),
   );
   const [pendingApply, setPendingApply] = useState<RackPreset | null>(null);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -68,22 +68,22 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
   const selectedPreset =
     activePresets.find((p) => p.id === selectedPresetId) ?? null;
 
-  if (!rackEquipment) return null;
+  if (!rackAsset) return null;
 
   const handleLoadClick = () => {
     if (!selectedPreset) return;
     if (existingModuleCount > 0) {
       setPendingApply(selectedPreset);
     } else {
-      applyPresetToRack(rackEquipmentId, selectedPreset, categories ?? []);
-      updateRackSourcePreset(rackEquipmentId, selectedPreset.id);
+      applyPresetToRack(rackAssetId, selectedPreset, categories ?? []);
+      updateRackSourcePreset(rackAssetId, selectedPreset.id);
     }
   };
 
   const handleConfirmApply = () => {
     if (!pendingApply) return;
-    applyPresetToRack(rackEquipmentId, pendingApply, categories ?? []);
-    updateRackSourcePreset(rackEquipmentId, pendingApply.id);
+    applyPresetToRack(rackAssetId, pendingApply, categories ?? []);
+    updateRackSourcePreset(rackAssetId, pendingApply.id);
     setPendingApply(null);
   };
 
@@ -149,12 +149,12 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
       {/* 저장 dialog — selectedPreset 이 있으면 덮어쓰기 흐름, 없으면 새로 저장 */}
       {saveOpen && (
         <SaveRackAsPresetDialog
-          rackEquipmentId={rackEquipmentId}
+          rackAssetId={rackAssetId}
           originalPreset={selectedPreset}
           onClose={() => setSaveOpen(false)}
           onSaved={(savedId) => {
             // 저장된 프리셋을 이 랙의 source 로 기록 → 닫았다 열어도 유지.
-            updateRackSourcePreset(rackEquipmentId, savedId);
+            updateRackSourcePreset(rackAssetId, savedId);
             setSelectedPresetId(savedId);
           }}
         />
@@ -173,26 +173,26 @@ export function PresetActionsBar({ rackEquipmentId }: PresetActionsBarProps) {
  * (totalU 는 인벤토리 메타데이터로 남아있되 레이아웃에 영향 없음.)
  * Canvas size (width/height) is left untouched on purpose — the user may have
  * already arranged the physical rack on the floor plan and resizing it would
- * shift other equipment around.
+ * shift other assets around.
  */
 function applyPresetToRack(
-  rackEquipmentId: string,
+  rackAssetId: string,
   preset: RackPreset,
   categories: RackModuleCategory[],
 ) {
   const wc = useSubstationWorkingCopy.getState();
 
   // 1) drop all existing modules for this rack from the working copy.
-  //    stageEquipmentDeleteCascade 로 모듈 asset + 닿는 케이블을 함께 스테이징 삭제
+  //    stageAssetDeleteCascade 로 모듈 asset + 닿는 케이블을 함께 스테이징 삭제
   //    (기존 removeRackModule 의 케이블 cascade 와 동일).
   const existing = wc
-    .effectiveRackModules(rackEquipmentId);
+    .effectiveRackModules(rackAssetId);
   for (const m of existing) {
-    wc.stageEquipmentDeleteCascade(m.id);
+    wc.stageAssetDeleteCascade(m.id);
   }
 
   // 2) expand preset.modules into RackModule rows.
-  //    각 모듈은 이 랙(rackEquipmentId)을 rackEquipmentId 로 참조한다.
+  //    각 모듈은 이 랙(rackAssetId)을 rackAssetId 로 참조한다.
   const idToCategory = new Map<string, RackModuleCategory>(
     categories.map((c) => [c.id, c]),
   );
@@ -206,7 +206,7 @@ function applyPresetToRack(
       return;
     }
     wc.stageRackModuleCreate(buildRackModule({
-      rackEquipmentId,
+      rackAssetId,
       category: cat,
       slotIndex: mod.slotIndex,
       slotSpan: mod.slotSpan,

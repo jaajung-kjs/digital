@@ -4,7 +4,7 @@ import {
   SEVERITY_COLORS,
   SEVERITY_LABELS,
   FAILURE_LOG_TYPE_OPTIONS,
-} from '../equipment/types/equipment';
+} from '../assets/types/asset';
 
 // ──────────────────────────────────────────────────────────────────────────
 // ASSET_RECORD_TYPES: 자산 하위레코드(점검/고장이력/사진)의 프론트 **표현(presentation) 설정**.

@@ -1,11 +1,11 @@
 /**
- * Hit Test 유틸리티 — Equipment 클릭 감지.
+ * Hit Test 유틸리티 — Asset 클릭 감지.
  */
 
 import type { Asset } from '../../types/asset';
 
 /** findItemAt 내부 전용 — 좌표가 설비 AABB 안에 드는가. */
-function hitTestEquipment(
+function hitTestAsset(
   x: number,
   y: number,
   item: Asset
@@ -17,7 +17,7 @@ function hitTestEquipment(
 }
 
 export type HitTestResult =
-  | { type: 'equipment'; item: Asset }
+  | { type: 'asset'; item: Asset }
   | null;
 
 /**
@@ -28,9 +28,9 @@ export function findItemAt(
   y: number,
   // 호환성을 위해 elements 인자는 받지만 사용하지 않음 (호출처 정리 후 제거)
   _elements: unknown,
-  equipment: Asset[]
+  assets: Asset[]
 ): HitTestResult {
-  const eq = equipment.find((item) => hitTestEquipment(x, y, item));
-  if (eq) return { type: 'equipment', item: eq };
+  const eq = assets.find((item) => hitTestAsset(x, y, item));
+  if (eq) return { type: 'asset', item: eq };
   return null;
 }

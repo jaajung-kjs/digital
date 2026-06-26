@@ -6,7 +6,7 @@
 // schema.prisma: enum UserRole
 export type UserRole = 'ADMIN' | 'VIEWER';
 
-// NOTE: EquipmentCategory enum was removed. Equipment grouping/identity now
+// NOTE: AssetCategory enum was removed. Asset grouping/identity now
 // derives from MaterialCategory.code (e.g. 'EQP-OFD', 'EQP-RACK'). See
 // frontend/src/types/material.ts for category metadata.
 

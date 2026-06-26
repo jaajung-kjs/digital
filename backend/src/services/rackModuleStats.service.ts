@@ -23,7 +23,7 @@ export interface DistributionItem {
   id: string;
   name: string;
   count: number;
-  /** scope='rack' 일 때만. navigate /floors/{floorId}/plan?equipmentId={id} 용. */
+  /** scope='rack' 일 때만. navigate /floors/{floorId}/plan?assetId={id} 용. */
   floorId?: string;
 }
 

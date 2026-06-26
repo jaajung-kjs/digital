@@ -160,7 +160,7 @@ export function ofdAssets(graph: TraceGraph): AssetRef[] {
 }
 
 /** 한 변전소의 '설비' 후보 — OFD·conduit(통로) 제외(커밋+스테이징). 선번장 자국/대국 드롭다운 단일 소스. */
-export function equipmentInSubstation(graph: TraceGraph, substationId: string | null): AssetRef[] {
+export function assetsInSubstation(graph: TraceGraph, substationId: string | null): AssetRef[] {
   if (!substationId) return [];
   return graph.assets
     .filter((a) => graph.subById.get(a.id) === substationId

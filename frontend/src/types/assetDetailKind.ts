@@ -1,6 +1,6 @@
 /**
  * 자산 상세 패널의 공간섹션 종류 + 끝점 피커 규칙.
- * 분류 자체는 `assetType.role` 단일 소스(이 파일에 더 이상 EquipmentKind enum 없음).
+ * 분류 자체는 `assetType.role` 단일 소스(이 파일에 더 이상 AssetKind enum 없음).
  */
 
 export type DetailPanelKind = 'rack' | 'ofd' | 'distribution' | 'conduit-ports' | 'feeder-circuits';

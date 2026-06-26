@@ -5,7 +5,7 @@ export interface CanvasContextMenuState {
   /** 메뉴를 띄울 화면 좌표 (clientX/clientY) */
   x: number;
   y: number;
-  target: { type: 'equipment' | 'cable'; id: string };
+  target: { type: 'asset' | 'cable'; id: string };
 }
 
 interface CanvasContextMenuProps {
@@ -31,20 +31,20 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     const es = useEditorStore.getState();
     const asset = useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === target.id);
     if (asset) {
-      es.setClipboard({ type: 'equipment', data: asset });
-      es.setPasteEquipmentName('');
-      es.setPasteEquipmentModalOpen(true);
+      es.setClipboard({ type: 'asset', data: asset });
+      es.setPasteAssetName('');
+      es.setPasteAssetModalOpen(true);
     }
     onClose();
   };
 
-  const handleDeleteEquipment = () => {
+  const handleDeleteAsset = () => {
     const es = useEditorStore.getState();
     const asset = useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === target.id);
     onClose();
     if (!asset) return;
     if (!window.confirm(`'${asset.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
-    useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(target.id);
+    useSubstationWorkingCopy.getState().stageAssetDeleteCascade(target.id);
     es.clearSelection();
   };
 
@@ -57,11 +57,11 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   };
 
   const items: { label: string; onClick: () => void; danger?: boolean }[] =
-    target.type === 'equipment'
+    target.type === 'asset'
       ? [
           { label: '상세 열기', onClick: handleOpenDetail },
           { label: '복제', onClick: handleDuplicate },
-          { label: '삭제', onClick: handleDeleteEquipment, danger: true },
+          { label: '삭제', onClick: handleDeleteAsset, danger: true },
         ]
       : [
           { label: '삭제', onClick: handleDeleteCable, danger: true },

@@ -11,7 +11,7 @@ export interface RackModuleCategory {
 
 export interface RackModule {
   id: string;
-  rackEquipmentId: string;
+  rackAssetId: string;
   categoryId: string;
   categoryName: string | null;
   name: string;

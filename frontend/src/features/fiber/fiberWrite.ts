@@ -47,11 +47,11 @@ export function buildRouteCreate(p: {
 
 /** 슬롯↔설비 OUT 코어 케이블. 규약: 슬롯=source(role OUT), 설비=target(role 없음) — 시드와 동일. */
 export function buildCoreOutCable(p: {
-  id: string; equipmentId: string; slotId: string; coreNumber: number; category: CatRef;
+  id: string; assetId: string; slotId: string; coreNumber: number; category: CatRef;
   pathPoints: [number, number][] | null; pathLength: number | null; bufferLength: number; totalLength: number | null;
 }): CableCreate {
   return {
-    id: p.id, sourceAssetId: p.slotId, targetAssetId: p.equipmentId,
+    id: p.id, sourceAssetId: p.slotId, targetAssetId: p.assetId,
     categoryId: p.category.id, categoryName: p.category.name,
     sourceRole: 'OUT', targetRole: null, number: p.coreNumber,
     specParams: {}, specification: p.category.name,

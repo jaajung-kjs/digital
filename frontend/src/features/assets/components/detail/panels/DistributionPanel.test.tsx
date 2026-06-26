@@ -63,13 +63,13 @@ describe('DistributionCircuits — FEEDER asset 그리드 (피더-전용)', () =
   beforeEach(() => { stageAssetCreate.mockClear(); stageAssetDelete.mockClear(); setSelectedAssetId.mockClear(); });
 
   it('그리드가 분전반의 FEEDER 자식을 나열한다 (F1/F2)', () => {
-    render(<DistributionCircuits equipmentId={PANEL} />);
+    render(<DistributionCircuits assetId={PANEL} />);
     expect(screen.getByText('테스트피더')).toBeInTheDocument();
     expect(screen.getByText('두번째피더')).toBeInTheDocument();
   });
 
   it('피더 카드는 균일 — 클릭하면 바로 이동하므로 선택/눌림 상태가 없다', () => {
-    render(<DistributionCircuits equipmentId={PANEL} />);
+    render(<DistributionCircuits assetId={PANEL} />);
     // 모든 카드가 같은 "이동" 타이틀 + 같은 배경(연결됨/선택 강조 없음).
     const f1 = screen.getByText('테스트피더').closest('button')!;
     const f2 = screen.getByText('두번째피더').closest('button')!;
@@ -80,13 +80,13 @@ describe('DistributionCircuits — FEEDER asset 그리드 (피더-전용)', () =
   });
 
   it('피더 칸 클릭 → setSelectedAssetId(feeder id)', () => {
-    render(<DistributionCircuits equipmentId={PANEL} />);
+    render(<DistributionCircuits assetId={PANEL} />);
     fireEvent.click(screen.getByText('테스트피더'));
     expect(setSelectedAssetId).toHaveBeenCalledWith('F1');
   });
 
   it('＋ 전원 계통(새 이름) → FEEDER asset 하나만 stageAssetCreate (분기 없음)', () => {
-    render(<DistributionCircuits equipmentId={PANEL} />);
+    render(<DistributionCircuits assetId={PANEL} />);
     fireEvent.click(screen.getByText('＋ 전원 계통'));
     const input = screen.getByPlaceholderText(/DC 48V Main/);
     fireEvent.change(input, { target: { value: '신규계통' } });
@@ -97,7 +97,7 @@ describe('DistributionCircuits — FEEDER asset 그리드 (피더-전용)', () =
 
   it('계통 삭제 → 해당 FEEDER asset 만 stageAssetDelete (하위 cascade)', () => {
     const spy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<DistributionCircuits equipmentId={PANEL} />);
+    render(<DistributionCircuits assetId={PANEL} />);
     fireEvent.click(screen.getAllByLabelText('계통 삭제')[0]);
     expect(stageAssetDelete).toHaveBeenCalledWith('F1');
     expect(stageAssetDelete).toHaveBeenCalledTimes(1);

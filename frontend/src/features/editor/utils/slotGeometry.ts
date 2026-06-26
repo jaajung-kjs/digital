@@ -90,17 +90,17 @@ export function nextNameFor(
  * stageRackModuleCreate 가 이 draw 를 RACK 자식 Asset 으로 변환한다.
  */
 export function buildRackModule(args: {
-  rackEquipmentId: string;
+  rackAssetId: string;
   category: RackModuleCategory;
   slotIndex: number;
   slotSpan: number;
   name: string;
   sortOrder?: number;
 }): RackModuleDraw {
-  const { rackEquipmentId, category, slotIndex, slotSpan, name, sortOrder } = args;
+  const { rackAssetId, category, slotIndex, slotSpan, name, sortOrder } = args;
   return {
     id: generateTempId(),
-    rackEquipmentId,
+    rackAssetId,
     categoryId: category.id,
     name,
     slotIndex,

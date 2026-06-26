@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useCableDrawing } from '../stores/interactionStore';
 import { useEditorStore } from '../stores/editorStore';
-import { useEffectiveEquipment } from '../../workingCopy/hooks';
+import { useEffectiveFloorAssets } from '../../workingCopy/hooks';
 import { calculatePathLength, formatCableLength } from '../../../utils/cable/pathLength';
 import { SELECTION_STYLES } from '../../../utils/canvas/canvasDrawing';
 
@@ -27,7 +27,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
   // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로.
-  const localEquipment = useEffectiveEquipment(floorId);
+  const localAssets = useEffectiveFloorAssets(floorId);
 
   useEffect(() => {
     if (phase !== 'drawingPath' && phase !== 'selectingSource') return;
@@ -46,7 +46,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     // 이 단계에선 sourcePosition 이 아직 없으므로 별도 분기.
     if (phase === 'selectingSource') {
       if (hoveredAssetId) {
-        const eq = localEquipment.find((e) => e.id === hoveredAssetId);
+        const eq = localAssets.find((e) => e.id === hoveredAssetId);
         if (eq) {
           const eqX = eq.positionX ?? 0;
           const eqY = eq.positionY ?? 0;
@@ -116,9 +116,9 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
       ctx.fillRect(wp[0] - 4, wp[1] - 4, 8, 8);
     }
 
-    // Hovered equipment highlight
+    // Hovered asset highlight
     if (hoveredAssetId && hoveredAssetId !== sourceContainerAssetId) {
-      const eq = localEquipment.find((e) => e.id === hoveredAssetId);
+      const eq = localAssets.find((e) => e.id === hoveredAssetId);
       if (eq) {
         const eqX = eq.positionX ?? 0;
         const eqY = eq.positionY ?? 0;
@@ -139,9 +139,9 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
       }
     }
 
-    // Source equipment highlight
+    // Source asset highlight
     if (sourceContainerAssetId) {
-      const srcEq = localEquipment.find((e) => e.id === sourceContainerAssetId);
+      const srcEq = localAssets.find((e) => e.id === sourceContainerAssetId);
       if (srcEq) {
         const sX = srcEq.positionX ?? 0;
         const sY = srcEq.positionY ?? 0;
@@ -193,7 +193,7 @@ export function CablePathOverlay({ canvasRef, floorId }: CablePathOverlayProps) 
     ctx.restore();
   }, [
     phase, sourcePosition, waypoints, previewPoint, hoveredAssetId,
-    sourceContainerAssetId, zoom, panX, panY, localEquipment, canvasRef,
+    sourceContainerAssetId, zoom, panX, panY, localAssets, canvasRef,
   ]);
 
   if (phase !== 'drawingPath' && phase !== 'selectingSource') return null;

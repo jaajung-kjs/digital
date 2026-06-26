@@ -9,6 +9,6 @@ import { RECORD_TYPE_BY_KEY, LOGS } from '../../../workingCopy/recordTypes';
  *  - 작성/수정/삭제는 즉시 백엔드로 가지 않고 워킹카피 logs overlay 에 스테이징됐다가 단일
  *    SAVE(commit) 시 반영된다. 보류 항목은 인라인 수정/삭제, 저장 항목은 삭제만.
  */
-export function LogsTab({ equipmentId, readOnly }: { equipmentId: string; readOnly?: boolean }) {
-  return <RecordFormList def={RECORD_TYPE_BY_KEY[LOGS]} parentId={equipmentId} readOnly={readOnly} />;
+export function LogsTab({ assetId, readOnly }: { assetId: string; readOnly?: boolean }) {
+  return <RecordFormList def={RECORD_TYPE_BY_KEY[LOGS]} parentId={assetId} readOnly={readOnly} />;
 }

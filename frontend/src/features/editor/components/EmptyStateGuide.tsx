@@ -1,7 +1,7 @@
 import { Ruler, Boxes, Cable } from 'lucide-react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import { useEditorStore } from '../stores/editorStore';
-import { useEffectiveEquipment, useEffectiveFloorCables } from '../../workingCopy/hooks';
+import { useEffectiveFloorAssets, useEffectiveFloorCables } from '../../workingCopy/hooks';
 
 interface EmptyStateGuideProps {
   floorPlan: FloorPlanDetail | undefined;
@@ -11,20 +11,20 @@ interface EmptyStateGuideProps {
 
 /**
  * 3-step onboarding card shown when the floor is completely empty:
- * no equipment, no cables, no background drawing.
+ * no assets, no cables, no background drawing.
  *
  * Step 1 has a direct [DWG 임포트] button so the user does not have to
  * dig through the settings panel for the first import.
  */
 export function EmptyStateGuide({ floorPlan, floorId, onImportClick }: EmptyStateGuideProps) {
   // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로(empty 체크용).
-  const localEquipment = useEffectiveEquipment(floorId ?? '');
+  const localAssets = useEffectiveFloorAssets(floorId ?? '');
   const localCables = useEffectiveFloorCables(floorId ?? '');
   const stagedBackgroundDrawing = useEditorStore((s) => s.stagedBackgroundDrawing);
 
   if (!floorPlan) return null;
 
-  const hasEquipment = localEquipment.length > 0 || floorPlan.equipment.length > 0;
+  const hasAssets = localAssets.length > 0 || floorPlan.assets.length > 0;
   const hasCables = localCables.length > 0 || floorPlan.cables.length > 0;
   // Background can be staged client-side before save — fall through to the
   // server value only when nothing is staged.
@@ -32,7 +32,7 @@ export function EmptyStateGuide({ floorPlan, floorId, onImportClick }: EmptyStat
     stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan.backgroundDrawing;
   const hasBackground = effectiveBackground != null;
 
-  if (hasEquipment || hasCables || hasBackground) return null;
+  if (hasAssets || hasCables || hasBackground) return null;
 
   return (
     <div

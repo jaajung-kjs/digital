@@ -14,7 +14,6 @@ import { authRouter } from './routes/auth.routes.js';
 import { usersRouter } from './routes/users.routes.js';
 import { substationsRouter } from './routes/substations.routes.js';
 import { floorsRouter } from './routes/floors.routes.js';
-import { equipmentRouter } from './routes/equipment.routes.js';
 import { organizationRouter } from './routes/organization.routes.js';
 import { cablesRouter } from './routes/cables.routes.js';
 import { cableCategoriesRouter } from './routes/cableCategories.routes.js';
@@ -86,7 +85,6 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/substations', substationsRouter);
 app.use('/api/floors', floorsRouter);
-app.use('/api/equipment', equipmentRouter);
 app.use('/api/organizations', organizationRouter);
 app.use('/api/cables', cablesRouter);
 // 카테고리/프리셋 라우트 (P7) — MaterialCategory/Material 폐기 후 신규 분리.

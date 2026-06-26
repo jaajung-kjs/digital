@@ -3,7 +3,7 @@ import type { RoomConnection } from '../../../types/connection';
 import { useEditorStore, type LocalCable } from '../../editor/stores/editorStore';
 import {
   useEffectiveAssets,
-  useEffectiveEquipment,
+  useEffectiveFloorAssets,
   useEffectiveFloorCables,
 } from '../../workingCopy/hooks';
 import { cableDtoToLocal, type CableDetailDTO } from '../../workingCopy/cableToLocal';
@@ -69,12 +69,10 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   const panX = useEditorStore((s) => s.panX);
   const panY = useEditorStore((s) => s.panY);
   // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로.
-  const editorEquipment = useEffectiveEquipment(floorId);
+  const floorAssets = useEffectiveFloorAssets(floorId);
   const connectionFilters = useEditorStore((s) => s.connectionFilters);
   const selectedCableId = useEditorStore((s) => s.selectedCableId);
   const setSelectedCableId = useEditorStore((s) => s.setSelectedCableId);
-
-  const localEquipment = editorEquipment;
 
   // effective 케이블은 이 층에 닿는 것만(useEffectiveFloorCables). cableDtoToLocal 이
   // 단일 endpoint assetId 를 flat LocalCable(sourceAssetId 자리)로 매핑한다 —
@@ -98,16 +96,16 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
   // (sourceAssetId/targetAssetId 자리에 assetId 가 들어온다 — cableDtoToLocal).
   // 각 케이블 endpoint asset id 를 floorAnchor 로 placed ancestor(설비/랙/분전반)까지
   // 해소해 그 사각형을 endpoint id(key) 로 매핑한다. branch endpoint 는
-  // branch→feeder→panel 으로 해소 — 회로 특수처리(distributionEquipmentId) 불필요.
+  // branch→feeder→panel 으로 해소 — 회로 특수처리(distributionAssetId) 불필요.
   // key = cable endpoint id(설비/모듈/분기 혼재) → floorAnchor 로 해소한 배치 사각형.
   const endpointPositions = useMemo(() => {
     const map = new Map<string, { x: number; y: number; width: number; height: number }>();
-    for (const eq of localEquipment) {
+    for (const eq of floorAssets) {
       map.set(eq.id, { x: eq.positionX ?? 0, y: eq.positionY ?? 0, width: eq.width2d ?? 0, height: eq.height2d ?? 0 });
     }
     const assetsById = toMapById(effectiveAssets);
     // endpoint id(key) → placed ancestor(floorAnchor) 사각형. 직접 배치 id 는 자기 좌표
-    // (이미 localEquipment 로 들어와 있음), 그 외(모듈/분기 등)는 부모 체인을 거슬러 해소.
+    // (이미 floorAssets 로 들어와 있음), 그 외(모듈/분기 등)는 부모 체인을 거슬러 해소.
     const setAnchor = (key: string) => {
       if (!key || map.has(key)) return;
       const a = floorAnchor(key, assetsById);
@@ -122,7 +120,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       setAnchor(c.targetAssetId);
     }
     return map;
-  }, [localEquipment, editorCables, effectiveAssets, floorId]);
+  }, [floorAssets, editorCables, effectiveAssets, floorId]);
 
   const renderableConnections = useMemo(() => {
     const all = cables ? mapCablesToRenderable(cables, endpointPositions) : [];
@@ -180,7 +178,7 @@ export function ConnectionOverlay({ canvasRef, floorId }: ConnectionOverlayProps
       const emphasizedWithHighlight = emphasized.map((c) => ({ ...c, highlighted: true }));
       renderConnections(context, emphasizedWithHighlight);
 
-      // Glow rects around highlighted equipment. 하이라이트(연결 추적) 중에는 편집 chrome(선택
+      // Glow rects around highlighted assets. 하이라이트(연결 추적) 중에는 편집 chrome(선택
       // 외곽선·핸들)을 메인 캔버스가 끄므로(useCanvas), 선택 자산도 동일하게 글로우한다 — 선택
       // 자산만 하이라이트 안 보이던 문제 해결(navy 2겹 없음, 단일 글로우가 모든 하이라이트 노드에).
       const scale = zoom / 100;

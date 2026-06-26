@@ -39,8 +39,8 @@ export function ReportPanel({ floorId, onClose }: ReportPanelProps) {
   );
 
   const hasChanges =
-    changes.before.equipment.length > 0 ||
-    changes.after.equipment.length > 0 ||
+    changes.before.assets.length > 0 ||
+    changes.after.assets.length > 0 ||
     changes.before.cables.length > 0 ||
     changes.after.cables.length > 0;
 

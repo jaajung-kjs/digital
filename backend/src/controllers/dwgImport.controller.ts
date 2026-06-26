@@ -32,7 +32,7 @@ export const dwgImportController = {
    *
    * Returns the parsed BackgroundDrawing JSON. The caller stages it client-side
    * and commits via PUT /api/floors/:id/plan (backgroundDrawing field) so DWG
-   * import lives inside the same git-like draft envelope as equipment/cables.
+   * import lives inside the same git-like draft envelope as assets/cables.
    *
    * multipart/form-data:
    *   file: .dwg or .dxf

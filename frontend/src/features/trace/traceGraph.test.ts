@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTraceGraph, traceRemoteEndpoints, remoteSlotSubstation, ofdAssets, equipmentInSubstation } from './traceGraph';
+import { buildTraceGraph, traceRemoteEndpoints, remoteSlotSubstation, ofdAssets, assetsInSubstation } from './traceGraph';
 import type { Asset } from '../../types/asset';
 
 // buildTraceGraph 는 effective(=saved∪overlay−deletes) 단일 배열을 입력으로 받는다.
@@ -112,7 +112,7 @@ describe('buildTraceGraph 변전소명 해소(org 트리 맵)', () => {
   });
 });
 
-describe('ofdAssets / equipmentInSubstation (staged 가 저장 전에도 후보에 보임)', () => {
+describe('ofdAssets / assetsInSubstation (staged 가 저장 전에도 후보에 보임)', () => {
   it('ofdAssets: 모든 OFD 자산 열거(이름 해소 포함)', () => {
     const g = buildTraceGraph({
       assets: [
@@ -143,7 +143,7 @@ describe('ofdAssets / equipmentInSubstation (staged 가 저장 전에도 후보�
     expect(ofdAssets(g)[0].substationName).toBe('B변전소');
   });
 
-  it('equipmentInSubstation: 스테이징 OFD(role)도 후보에서 제외', () => {
+  it('assetsInSubstation: 스테이징 OFD(role)도 후보에서 제외', () => {
     const g = buildTraceGraph({
       assets: [
         { id: 'eqNEW', substationId: 'sub-B', name: '통합단말', parentAssetId: null, slotIndex: null, assetType: { role: 'device' } },
@@ -152,10 +152,10 @@ describe('ofdAssets / equipmentInSubstation (staged 가 저장 전에도 후보�
       cables: [],
       substationNames: new Map([['sub-B', 'B변전소']]),
     });
-    expect(equipmentInSubstation(g, 'sub-B').map((c) => c.id)).toEqual(['eqNEW']);
+    expect(assetsInSubstation(g, 'sub-B').map((c) => c.id)).toEqual(['eqNEW']);
   });
 
-  it('equipmentInSubstation: 설비만 포함, OFD·conduit 제외', () => {
+  it('assetsInSubstation: 설비만 포함, OFD·conduit 제외', () => {
     const g = buildTraceGraph({
       assets: [
         A({ id: 'eqNEW', substationId: 'sub-B', name: '통합단말', role: 'device' }),
@@ -165,7 +165,7 @@ describe('ofdAssets / equipmentInSubstation (staged 가 저장 전에도 후보�
       cables: [],
       substationNames: new Map([['sub-B', 'B변전소']]),
     });
-    const cand = equipmentInSubstation(g, 'sub-B');
+    const cand = assetsInSubstation(g, 'sub-B');
     expect(cand.map((c) => c.id)).toEqual(['eqNEW']);
     expect(cand[0].name).toBe('통합단말');
   });

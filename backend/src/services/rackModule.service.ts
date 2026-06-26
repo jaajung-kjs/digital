@@ -7,7 +7,7 @@ import { assetToRackModule } from './assetPlanMapper.js';
 
 export interface RackModuleDetail {
   id: string;
-  rackEquipmentId: string;
+  rackAssetId: string;
   categoryId: string;
   categoryName: string | null;
   name: string;

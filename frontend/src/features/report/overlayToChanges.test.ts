@@ -40,16 +40,16 @@ function emptyOverlays() {
 }
 
 describe('overlayToChanges', () => {
-  it('created equipment → after only, not before', () => {
+  it('created asset → after only, not before', () => {
     const saved = { assets: [] as Asset[], cables: [] as WorkingCopyRow[] };
     const overlays = emptyOverlays();
     const newAsset = asset('temp-1');
     overlays.assets = stageCreate(overlays.assets, newAsset.id, newAsset);
 
     const { before, after } = overlayToChanges(saved, overlays, FLOOR);
-    expect(before.equipment.map((e) => e.id)).not.toContain('temp-1');
-    expect(after.equipment.map((e) => e.id)).toContain('temp-1');
-    const item = after.equipment.find((e) => e.id === 'temp-1');
+    expect(before.assets.map((e) => e.id)).not.toContain('temp-1');
+    expect(after.assets.map((e) => e.id)).toContain('temp-1');
+    const item = after.assets.find((e) => e.id === 'temp-1');
     // Task 5: 설비 스냅샷은 assetTypeId+name 기반 — materialCategoryCode 제거
     expect(item?.assetTypeId).toBe('at-1');
     expect(item).not.toHaveProperty('materialCategoryCode');
@@ -67,21 +67,21 @@ describe('overlayToChanges', () => {
     overlays.assets = stageCreate(overlays.assets, staged.id, staged);
 
     const { after } = overlayToChanges(saved, overlays, FLOOR);
-    const item = after.equipment.find((e) => e.id === 'temp-2');
+    const item = after.assets.find((e) => e.id === 'temp-2');
     expect(item?.assetTypeId).toBe('at-rack');
-    // Task 5: materialCategoryCode no longer in equipment snapshot
+    // Task 5: materialCategoryCode no longer in asset snapshot
     expect(item).not.toHaveProperty('materialCategoryCode');
   });
 
-  it('deleted equipment → before only, not after', () => {
+  it('deleted asset → before only, not after', () => {
     const existing = asset('a-1');
     const saved = { assets: [existing], cables: [] as WorkingCopyRow[] };
     const overlays = emptyOverlays();
     overlays.assets = stageDelete(overlays.assets, 'a-1', false);
 
     const { before, after } = overlayToChanges(saved, overlays, FLOOR);
-    expect(before.equipment.map((e) => e.id)).toContain('a-1');
-    expect(after.equipment.map((e) => e.id)).not.toContain('a-1');
+    expect(before.assets.map((e) => e.id)).toContain('a-1');
+    expect(after.assets.map((e) => e.id)).not.toContain('a-1');
   });
 
   it('updated position → both before and after with different positionX', () => {
@@ -91,18 +91,18 @@ describe('overlayToChanges', () => {
     overlays.assets = stageUpdate(overlays.assets, 'a-1', { positionX: 999 });
 
     const { before, after } = overlayToChanges(saved, overlays, FLOOR);
-    expect(before.equipment.find((e) => e.id === 'a-1')?.positionX).toBe(10);
-    expect(after.equipment.find((e) => e.id === 'a-1')?.positionX).toBe(999);
+    expect(before.assets.find((e) => e.id === 'a-1')?.positionX).toBe(10);
+    expect(after.assets.find((e) => e.id === 'a-1')?.positionX).toBe(999);
   });
 
-  it('unchanged equipment is pruned from both sides', () => {
+  it('unchanged asset is pruned from both sides', () => {
     const existing = asset('a-1');
     const saved = { assets: [existing], cables: [] as WorkingCopyRow[] };
     const overlays = emptyOverlays(); // no staged changes
 
     const { before, after } = overlayToChanges(saved, overlays, FLOOR);
-    expect(before.equipment).toHaveLength(0);
-    expect(after.equipment).toHaveLength(0);
+    expect(before.assets).toHaveLength(0);
+    expect(after.assets).toHaveLength(0);
   });
 
   it('scopes to the active floor only', () => {
@@ -114,7 +114,7 @@ describe('overlayToChanges', () => {
     overlays.assets = stageUpdate(overlays.assets, 'a-2', { positionX: 999 });
 
     const { after } = overlayToChanges(saved, overlays, FLOOR);
-    expect(after.equipment.map((e) => e.id)).toEqual(['a-1']);
+    expect(after.assets.map((e) => e.id)).toEqual(['a-1']);
   });
 
   it('includes floor cables whose endpoint is on the floor', () => {

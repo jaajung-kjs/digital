@@ -76,7 +76,7 @@ export default {
           fiber: '#00AA00',
         },
         // 설비 카테고리 색상
-        equipment: {
+        asset: {
           server: '#4A90D9',
           network: '#50C878',
           storage: '#9B59B6',

@@ -17,7 +17,7 @@ export type ConnectionFilterKey = string;
 
 // ==================== Local Cable ====================
 //
-// P8: cable endpoint 는 polymorphic — Equipment 또는 RackModule 한 쪽만 not-null.
+// P8: cable endpoint 는 polymorphic — Asset 또는 RackModule 한 쪽만 not-null.
 
 export interface LocalCable {
   id: string; // real UUID or temp ID
@@ -30,7 +30,7 @@ export interface LocalCable {
    */
   sourceAssetId: string;
   targetAssetId: string;
-  /** Rack module endpoint id — null when endpoint is the Equipment itself. */
+  /** Rack module endpoint id — null when endpoint is the Asset itself. */
   sourceModuleId?: string | null;
   targetModuleId?: string | null;
   /** 분전반 회로 endpoint id — null when endpoint 가 회로가 아닐 때. */
@@ -86,7 +86,7 @@ export interface EditorStoreState {
   viewportInitialized: boolean;
   mouseWorldPosition: { x: number; y: number };
 
-  clipboard: { type: 'equipment'; data: Asset } | null;
+  clipboard: { type: 'asset'; data: Asset } | null;
 
   /**
    * 우측 패널 단일 enum — 우측에는 동시에 최대 하나만 뜬다(상호배타).
@@ -122,13 +122,13 @@ export interface EditorStoreState {
 
   // ==================== Canvas interaction (formerly canvasStore) ====================
 
-  // Equipment drawing state (drag-to-draw)
-  isDrawingEquipment: boolean;
-  equipmentStart: { x: number; y: number } | null;
-  equipmentPreviewEnd: { x: number; y: number } | null;
-  equipmentDrawnSize: { width: number; height: number } | null;
+  // Asset drawing state (drag-to-draw)
+  isDrawingAsset: boolean;
+  assetStart: { x: number; y: number } | null;
+  assetPreviewEnd: { x: number; y: number } | null;
+  assetDrawnSize: { width: number; height: number } | null;
 
-  // Placement preview position (for equipment)
+  // Placement preview position (for asset)
   previewPosition: { x: number; y: number } | null;
 
   // Drag state
@@ -139,24 +139,24 @@ export interface EditorStoreState {
   panStart: { x: number; y: number } | null;
   isSpacePressed: boolean;
 
-  // Equipment modal states
-  equipmentModalOpen: boolean;
-  pasteEquipmentModalOpen: boolean;
-  newEquipmentName: string;
-  pasteEquipmentName: string;
-  newEquipmentPosition: { x: number; y: number };
+  // Asset modal states
+  assetModalOpen: boolean;
+  pasteAssetModalOpen: boolean;
+  newAssetName: string;
+  pasteAssetName: string;
+  newAssetPosition: { x: number; y: number };
 
-  // 배치할 자산종류(데이터 기반 insert bar) 또는 랙 프리셋. tool === 'equipment' 일 때
+  // 배치할 자산종류(데이터 기반 insert bar) 또는 랙 프리셋. tool === 'asset' 일 때
   // 둘 중 하나가 설정되고, 도구 변경/배치 완료 시 초기화된다.
-  newEquipmentType: PlaceableType | null;
-  newEquipmentPreset: RackPreset | null;
+  newAssetType: PlaceableType | null;
+  newAssetPreset: RackPreset | null;
 
   // P9: cable tool preselection — insert-bar pill click sets a (user-defined)
   // cable group id, CableSpecModal then filters categories by that group.
   preselectedCableGroupId: string | null;
 
   /** Which rack slot is currently showing the inline "add module" popover. */
-  addingAtSlot: { rackEquipmentId: string; slotIndex: number } | null;
+  addingAtSlot: { rackAssetId: string; slotIndex: number } | null;
 
   /** True while a rack module is being dragged (move or resize). Used to
    *  suppress :hover effects on empty slots so they don't flicker as the
@@ -206,7 +206,7 @@ export interface EditorStoreActions {
 
   // ── 통합 선택 + 우측 패널 단일 enum 액션 (상호배타) ──────────────────────
   /** 캔버스/1차 선택만 갱신한다 (상세 패널·viewport 는 건드리지 않음). */
-  selectEquipment: (id: string) => void;
+  selectAsset: (id: string) => void;
   /** 설비/모듈 상세를 연다 — 다른 우측 패널은 닫힌다. initialTab 지정 시 그 탭으로 연다(예: 케이블 더블클릭 → '연결'). */
   openDetail: (id: string, initialTab?: string) => void;
   /** report/history/background 패널을 연다 — 상세 포함 다른 패널은 닫힌다. */
@@ -229,10 +229,10 @@ export interface EditorStoreActions {
 
   // ==================== Canvas interaction actions ====================
 
-  setIsDrawingEquipment: (v: boolean) => void;
-  setEquipmentStart: (s: { x: number; y: number } | null) => void;
-  setEquipmentPreviewEnd: (e: { x: number; y: number } | null) => void;
-  setEquipmentDrawnSize: (s: { width: number; height: number } | null) => void;
+  setIsDrawingAsset: (v: boolean) => void;
+  setAssetStart: (s: { x: number; y: number } | null) => void;
+  setAssetPreviewEnd: (e: { x: number; y: number } | null) => void;
+  setAssetDrawnSize: (s: { width: number; height: number } | null) => void;
 
   setPreviewPosition: (p: { x: number; y: number } | null) => void;
 
@@ -242,21 +242,21 @@ export interface EditorStoreActions {
   setPanStart: (p: { x: number; y: number } | null) => void;
   setIsSpacePressed: (v: boolean) => void;
 
-  setEquipmentModalOpen: (v: boolean) => void;
-  setPasteEquipmentModalOpen: (v: boolean) => void;
-  setNewEquipmentName: (v: string) => void;
-  setPasteEquipmentName: (v: string) => void;
-  setNewEquipmentPosition: (p: { x: number; y: number }) => void;
+  setAssetModalOpen: (v: boolean) => void;
+  setPasteAssetModalOpen: (v: boolean) => void;
+  setNewAssetName: (v: string) => void;
+  setPasteAssetName: (v: string) => void;
+  setNewAssetPosition: (p: { x: number; y: number }) => void;
 
-  // P9: kind / preset selection for the equipment tool.
-  setNewEquipmentType: (type: PlaceableType | null) => void;
-  setNewEquipmentPreset: (preset: RackPreset | null) => void;
-  resetNewEquipmentSelection: () => void;
+  // P9: kind / preset selection for the asset tool.
+  setNewAssetType: (type: PlaceableType | null) => void;
+  setNewAssetPreset: (preset: RackPreset | null) => void;
+  resetNewAssetSelection: () => void;
 
   // P9: cable group preselection.
   setPreselectedCableGroupId: (groupId: string | null) => void;
 
-  setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
+  setAddingAtSlot: (s: { rackAssetId: string; slotIndex: number } | null) => void;
   setIsDraggingRackModule: (v: boolean) => void;
 
   // DWG-C: background layer visibility actions.
@@ -296,22 +296,22 @@ const initialState: EditorStoreState = {
   floorConflict: null,
 
   // Canvas interaction
-  isDrawingEquipment: false,
-  equipmentStart: null,
-  equipmentPreviewEnd: null,
-  equipmentDrawnSize: null,
+  isDrawingAsset: false,
+  assetStart: null,
+  assetPreviewEnd: null,
+  assetDrawnSize: null,
   previewPosition: null,
   dragSession: null,
   isPanning: false,
   panStart: null,
   isSpacePressed: false,
-  equipmentModalOpen: false,
-  pasteEquipmentModalOpen: false,
-  newEquipmentName: '',
-  pasteEquipmentName: '',
-  newEquipmentPosition: { x: 100, y: 100 },
-  newEquipmentType: null,
-  newEquipmentPreset: null,
+  assetModalOpen: false,
+  pasteAssetModalOpen: false,
+  newAssetName: '',
+  pasteAssetName: '',
+  newAssetPosition: { x: 100, y: 100 },
+  newAssetType: null,
+  newAssetPreset: null,
   preselectedCableGroupId: null,
   addingAtSlot: null,
   isDraggingRackModule: false,
@@ -375,7 +375,7 @@ export const useEditorStore = create<FullStore>()((set) => ({
    * 만으로 패널이 다시 떠버리므로(단일클릭으로 패널이 열리던 버그), 단일클릭 선택 시 상세
    * 패널을 명시적으로 닫는다. 패널은 openDetail(더블클릭/딥링크/평면도진입)에서만 연다.
    */
-  selectEquipment: (id) => {
+  selectAsset: (id) => {
     set((s) => ({ selectedCableId: null, rightPanel: s.rightPanel === 'detail' ? null : s.rightPanel }));
     useSelectionStore.getState().setSelectedAssetId(id);
   },
@@ -436,27 +436,27 @@ export const useEditorStore = create<FullStore>()((set) => ({
 
   // ==================== Canvas interaction actions ====================
 
-  setIsDrawingEquipment: (isDrawingEquipment) => set({ isDrawingEquipment }),
-  setEquipmentStart: (equipmentStart) => set({ equipmentStart }),
-  setEquipmentPreviewEnd: (equipmentPreviewEnd) => set({ equipmentPreviewEnd }),
-  setEquipmentDrawnSize: (equipmentDrawnSize) => set({ equipmentDrawnSize }),
+  setIsDrawingAsset: (isDrawingAsset) => set({ isDrawingAsset }),
+  setAssetStart: (assetStart) => set({ assetStart }),
+  setAssetPreviewEnd: (assetPreviewEnd) => set({ assetPreviewEnd }),
+  setAssetDrawnSize: (assetDrawnSize) => set({ assetDrawnSize }),
   setPreviewPosition: (previewPosition) => set({ previewPosition }),
   setDragSession: (dragSession) => set({ dragSession }),
   setIsPanning: (isPanning) => set({ isPanning }),
   setPanStart: (panStart) => set({ panStart }),
   setIsSpacePressed: (isSpacePressed) => set({ isSpacePressed }),
-  setEquipmentModalOpen: (equipmentModalOpen) => set({ equipmentModalOpen }),
-  setPasteEquipmentModalOpen: (pasteEquipmentModalOpen) => set({ pasteEquipmentModalOpen }),
-  setNewEquipmentName: (newEquipmentName) => set({ newEquipmentName }),
-  setPasteEquipmentName: (pasteEquipmentName) => set({ pasteEquipmentName }),
-  setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
+  setAssetModalOpen: (assetModalOpen) => set({ assetModalOpen }),
+  setPasteAssetModalOpen: (pasteAssetModalOpen) => set({ pasteAssetModalOpen }),
+  setNewAssetName: (newAssetName) => set({ newAssetName }),
+  setPasteAssetName: (pasteAssetName) => set({ pasteAssetName }),
+  setNewAssetPosition: (newAssetPosition) => set({ newAssetPosition }),
 
-  setNewEquipmentType: (newEquipmentType) =>
-    set({ newEquipmentType, newEquipmentPreset: null }),
-  setNewEquipmentPreset: (newEquipmentPreset) =>
-    set({ newEquipmentPreset, newEquipmentType: null }),
-  resetNewEquipmentSelection: () =>
-    set({ newEquipmentType: null, newEquipmentPreset: null }),
+  setNewAssetType: (newAssetType) =>
+    set({ newAssetType, newAssetPreset: null }),
+  setNewAssetPreset: (newAssetPreset) =>
+    set({ newAssetPreset, newAssetType: null }),
+  resetNewAssetSelection: () =>
+    set({ newAssetType: null, newAssetPreset: null }),
 
   setPreselectedCableGroupId: (preselectedCableGroupId) =>
     set({ preselectedCableGroupId }),
@@ -483,15 +483,15 @@ export const useEditorStore = create<FullStore>()((set) => ({
     set({ hiddenBgLayers: new Set(layerNames) }),
 
   closeAllModals: () => set({
-    equipmentModalOpen: false,
-    pasteEquipmentModalOpen: false,
+    assetModalOpen: false,
+    pasteAssetModalOpen: false,
   }),
 
   resetDrawingState: () => set({
-    isDrawingEquipment: false,
-    equipmentStart: null,
-    equipmentPreviewEnd: null,
-    equipmentDrawnSize: null,
+    isDrawingAsset: false,
+    assetStart: null,
+    assetPreviewEnd: null,
+    assetDrawnSize: null,
     previewPosition: null,
   }),
 
@@ -514,7 +514,7 @@ export const selectFloorSettingsDirty = (s: EditorStoreState): boolean =>
 // effective(saved+overlay) asset 으로 도출한다. SSOT 이후 설비 데이터의 단일
 // 진실은 substation working-copy, 선택의 단일 진실은 selectionStore 이므로, 선택
 // id 만 selectionStore 에서 읽고 실제 설비는 effective asset 을 직접 읽는다.
-export function useSelectedEquipment(): Asset | null {
+export function useSelectedAsset(): Asset | null {
   const id = useSelectionStore((s) => s.selectedAssetId);
   const assets = useEffectiveAssets();
   if (!id) return null;
@@ -522,7 +522,7 @@ export function useSelectedEquipment(): Asset | null {
 }
 
 /** Non-hook context (event handler / store action) 에서 같은 의미 도출. */
-export function getSelectedEquipment(): Asset | null {
+export function getSelectedAsset(): Asset | null {
   const selId = useSelectionStore.getState().selectedAssetId;
   if (!selId) return null;
   return useSubstationWorkingCopy.getState().effectiveAssets().find((x) => x.id === selId) ?? null;

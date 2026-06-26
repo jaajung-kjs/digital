@@ -219,7 +219,7 @@ model CableGroup {
 
 // ==================== 케이블 (다형 endpoint) ====================
 // 각 side 한 쪽만 NOT NULL — CHECK constraint로 강제
-// RACK kind Equipment 는 endpoint 불가 (service validation)
+// RACK kind Asset 는 endpoint 불가 (service validation)
 
 model Cable {
   id            String  @id @default(uuid())

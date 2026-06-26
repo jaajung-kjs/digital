@@ -1,23 +1,23 @@
 import { useEditorStore } from '../../stores/editorStore';
 import { Modal, Input, Button } from '../../../../components/ui';
 
-interface EquipmentPasteModalProps {
+interface AssetPasteModalProps {
   onPaste: () => void;
 }
 
 /**
- * Modal triggered by Ctrl+V on a copied equipment. Asks for a new name
+ * Modal triggered by Ctrl+V on a copied asset. Asks for a new name
  * before committing the paste via `onPaste`.
  */
-export function EquipmentPasteModal({ onPaste }: EquipmentPasteModalProps) {
-  const open = useEditorStore((s) => s.pasteEquipmentModalOpen);
-  const setOpen = useEditorStore((s) => s.setPasteEquipmentModalOpen);
-  const pasteEquipmentName = useEditorStore((s) => s.pasteEquipmentName);
-  const setPasteEquipmentName = useEditorStore((s) => s.setPasteEquipmentName);
+export function AssetPasteModal({ onPaste }: AssetPasteModalProps) {
+  const open = useEditorStore((s) => s.pasteAssetModalOpen);
+  const setOpen = useEditorStore((s) => s.setPasteAssetModalOpen);
+  const pasteAssetName = useEditorStore((s) => s.pasteAssetName);
+  const setPasteAssetName = useEditorStore((s) => s.setPasteAssetName);
 
   const handleClose = () => {
     setOpen(false);
-    setPasteEquipmentName('');
+    setPasteAssetName('');
   };
 
   return (
@@ -28,7 +28,7 @@ export function EquipmentPasteModal({ onPaste }: EquipmentPasteModalProps) {
       footer={
         <>
           <Button variant="secondary" onClick={handleClose}>취소</Button>
-          <Button onClick={onPaste} disabled={!pasteEquipmentName}>붙여넣기</Button>
+          <Button onClick={onPaste} disabled={!pasteAssetName}>붙여넣기</Button>
         </>
       }
     >
@@ -36,9 +36,9 @@ export function EquipmentPasteModal({ onPaste }: EquipmentPasteModalProps) {
       <label className="block text-sm font-medium text-content mb-1">설비 이름</label>
       <Input
         type="text"
-        value={pasteEquipmentName}
-        onChange={(e) => setPasteEquipmentName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && pasteEquipmentName) onPaste(); }}
+        value={pasteAssetName}
+        onChange={(e) => setPasteAssetName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && pasteAssetName) onPaste(); }}
         placeholder="예: UPS-02"
         autoFocus
       />

@@ -3,7 +3,7 @@
  * Edge-case topology seed generator.
  *
  * 각 case = 그래프 topology 명세 (노드 + 엣지). 이 스크립트가 그걸 SQL 로 변환:
- *   substations + floors + OFD/RACK equipment + rack_modules + fiber_paths + cables.
+ *   substations + floors + OFD/RACK assets + rack_modules + fiber_paths + cables.
  * 각 case 의 모든 entity 는 caseId 접두사로 namespacing 됨 → 기존 데이터와 충돌 없음.
  *
  * 사용:
@@ -227,7 +227,7 @@ function generateSQL(topo) {
   out.push(`DELETE FROM cables       WHERE fiber_path_id IN (SELECT id FROM fiber_paths WHERE id LIKE 'e${digit}ec%');`);
   out.push(`DELETE FROM fiber_paths  WHERE id LIKE 'e${digit}ec%';`);
   out.push(`DELETE FROM rack_modules WHERE id LIKE 'mod-${caseId}-%';`);
-  out.push(`DELETE FROM equipment    WHERE id LIKE 'c${digit}ec%' OR id LIKE 'd${digit}ec%';`);
+  out.push(`DELETE FROM assets    WHERE id LIKE 'c${digit}ec%' OR id LIKE 'd${digit}ec%';`);
   out.push(`DELETE FROM floors       WHERE id LIKE 'b${digit}ec%';`);
   out.push(`DELETE FROM substations  WHERE id LIKE 'sub-${caseId}-%';`);
   out.push(``);
@@ -268,23 +268,23 @@ function generateSQL(topo) {
   out.push(`ON CONFLICT (id) DO NOTHING;`);
   out.push(``);
 
-  // OFD equipment
-  out.push(`-- OFD equipment`);
-  out.push(`INSERT INTO equipment (id, floor_id, kind, name, position_x_2d, position_y_2d, width_2d, height_2d, rotation, sort_order, created_at, updated_at)`);
-  out.push(`SELECT ofd_id, floor_id, 'OFD'::"EquipmentKind", 'OFD-' || node, 400, 300, 100, 60, 0, 0, NOW(), NOW() FROM _${caseId}_map`);
+  // OFD asset
+  out.push(`-- OFD asset`);
+  out.push(`INSERT INTO assets (id, floor_id, kind, name, position_x_2d, position_y_2d, width_2d, height_2d, rotation, sort_order, created_at, updated_at)`);
+  out.push(`SELECT ofd_id, floor_id, 'OFD'::"AssetKind", 'OFD-' || node, 400, 300, 100, 60, 0, 0, NOW(), NOW() FROM _${caseId}_map`);
   out.push(`ON CONFLICT (id) DO NOTHING;`);
   out.push(``);
 
-  // RACK equipment
-  out.push(`-- RACK equipment`);
-  out.push(`INSERT INTO equipment (id, floor_id, kind, name, position_x_2d, position_y_2d, width_2d, height_2d, rotation, total_u, sort_order, created_at, updated_at)`);
-  out.push(`SELECT rack_id, floor_id, 'RACK'::"EquipmentKind", 'RACK-' || node, 700, 300, 120, 80, 0, 12, 1, NOW(), NOW() FROM _${caseId}_map`);
+  // RACK asset
+  out.push(`-- RACK asset`);
+  out.push(`INSERT INTO assets (id, floor_id, kind, name, position_x_2d, position_y_2d, width_2d, height_2d, rotation, total_u, sort_order, created_at, updated_at)`);
+  out.push(`SELECT rack_id, floor_id, 'RACK'::"AssetKind", 'RACK-' || node, 700, 300, 120, 80, 0, 12, 1, NOW(), NOW() FROM _${caseId}_map`);
   out.push(`ON CONFLICT (id) DO NOTHING;`);
   out.push(``);
 
   // RackModule (송변전광단말장치)
   out.push(`-- Rack module (송변전광단말장치, slot 0)`);
-  out.push(`INSERT INTO rack_modules (id, rack_equipment_id, category_id, name, slot_index, slot_span, sort_order, created_at, updated_at)`);
+  out.push(`INSERT INTO rack_modules (id, rack_asset_id, category_id, name, slot_index, slot_span, sort_order, created_at, updated_at)`);
   out.push(`SELECT module_id, rack_id, (SELECT id FROM rack_module_categories WHERE code='EQP-OPT-TERM'), '송변전광단말장치', 0, 1, 0, NOW(), NOW() FROM _${caseId}_map`);
   out.push(`ON CONFLICT (id) DO NOTHING;`);
   out.push(``);
@@ -314,7 +314,7 @@ function generateSQL(topo) {
   for (const side of ['A', 'B']) {
     const idxField = side === 'A' ? 'node_a' : 'node_b';
     const mapField = side === 'A' ? 'a' : 'b';
-    out.push(`INSERT INTO cables (id, source_module_id, target_equipment_id, cable_type, category_id, fiber_path_id, fiber_port_number, label, buffer_length, created_at, updated_at)`);
+    out.push(`INSERT INTO cables (id, source_module_id, target_asset_id, cable_type, category_id, fiber_path_id, fiber_port_number, label, buffer_length, created_at, updated_at)`);
     out.push(`SELECT 'cbl-' || f.fp_id || '-${side}', ${mapField}.module_id, ${mapField}.ofd_id,`);
     out.push(`  'FIBER'::"CableType",`);
     out.push(`  (SELECT id FROM cable_categories WHERE code='CBL-OPT'),`);
@@ -331,7 +331,7 @@ function generateSQL(topo) {
   out.push(`-- Verification`);
   out.push(`SELECT '${caseId} substations' AS metric, COUNT(*) FROM substations WHERE id LIKE 'sub-${caseId}-%'`);
   out.push(`UNION ALL SELECT '${caseId} floors', COUNT(*) FROM floors WHERE id LIKE 'b${digit}ec%'`);
-  out.push(`UNION ALL SELECT '${caseId} OFD', COUNT(*) FROM equipment WHERE id LIKE 'c${digit}ec%'`);
+  out.push(`UNION ALL SELECT '${caseId} OFD', COUNT(*) FROM assets WHERE id LIKE 'c${digit}ec%'`);
   out.push(`UNION ALL SELECT '${caseId} fiber_paths', COUNT(*) FROM fiber_paths WHERE id LIKE 'e${digit}ec%'`);
   out.push(`UNION ALL SELECT '${caseId} cables', COUNT(*) FROM cables WHERE fiber_path_id IN (SELECT id FROM fiber_paths WHERE id LIKE 'e${digit}ec%');`);
   out.push(``);

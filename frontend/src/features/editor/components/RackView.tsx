@@ -3,7 +3,7 @@ import { useEffectiveAssets, useEffectiveRackModules } from '../../workingCopy/h
 import { RackSlotGrid } from './rack/RackSlotGrid';
 
 interface Props {
-  equipmentId: string;
+  assetId: string;
 }
 
 /**
@@ -11,15 +11,15 @@ interface Props {
  * 추가는 인라인 콤보박스(EmptySlot 클릭 → CategoryComboboxPopover),
  * 편집/상세는 통합 상세 패널(모듈 클릭 → openDetail → AssetDetailBody).
  */
-export function RackView({ equipmentId }: Props) {
+export function RackView({ assetId }: Props) {
   // SSOT-2d Task 3 — 읽기를 통합 스토어 effective 로. 랙 존재 확인은 substation 전역
   // effective assets 에서(floorId 불필요), 모듈은 effectiveRackModulesMapped 로.
   const effectiveAssets = useEffectiveAssets();
-  const rackModules = useEffectiveRackModules(equipmentId);
+  const rackModules = useEffectiveRackModules(assetId);
 
   const rack = useMemo(
-    () => effectiveAssets.find((e) => e.id === equipmentId),
-    [effectiveAssets, equipmentId],
+    () => effectiveAssets.find((e) => e.id === assetId),
+    [effectiveAssets, assetId],
   );
   const modules = useMemo(
     () => [...rackModules].sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0)),
@@ -36,7 +36,7 @@ export function RackView({ equipmentId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <RackSlotGrid rackEquipmentId={equipmentId} modules={modules} />
+      <RackSlotGrid rackAssetId={assetId} modules={modules} />
     </div>
   );
 }

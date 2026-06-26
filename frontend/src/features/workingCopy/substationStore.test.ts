@@ -8,7 +8,7 @@ import { toMapById } from '../../utils/byId';
 const rack = { id:'r1', name:'랙', substationId:'s1', floorId:'f1', assetType:{ role:'rack' }, positionX:10, positionY:20, width2d:100, height2d:200, totalU:42, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
 const mod = { id:'m1', name:'모듈', substationId:'s1', floorId:'f1', assetType:{ role:'device' }, parentAssetId:'r1', slotIndex:3, slotSpan:1, updatedAt:'2026-01-01T00:00:00.000Z' };
 const ofd = { id:'o1', name:'OFD', substationId:'s1', floorId:'f1', assetType:{ role:'ofd' }, positionX:5, positionY:5, width2d:40, height2d:60, parentAssetId:null, slotIndex:null, updatedAt:'2026-01-01T00:00:00.000Z' };
-const cable = { id:'c1', sourceAssetId:'r1', targetAssetId:'o1', source:{ equipmentId:'r1', moduleId:null }, target:{ equipmentId:'o1', moduleId:null }, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
+const cable = { id:'c1', sourceAssetId:'r1', targetAssetId:'o1', source:{ assetId:'r1', moduleId:null }, target:{ assetId:'o1', moduleId:null }, cableType:'LAN', updatedAt:'2026-01-01T00:00:00.000Z' };
 
 beforeEach(() => { useSubstationWorkingCopy.getState().reset(); (api.get as any).mockResolvedValue({ data: { data: { assets:[rack,mod,ofd], cables:[cable] } } }); });
 
@@ -53,9 +53,9 @@ describe('substationWorkingCopy', () => {
     expect(s.effectiveTopAssets().map(a=>a.id).sort()).toEqual(['o1','r1']);  // m1(랙모듈) 제외
     expect(s.effectiveRackModules('r1').map(a=>a.id)).toEqual(['m1']);
   });
-  it('effectiveEquipment(floor) → Asset[]', async () => {
+  it('effectiveAssetsByFloor(floor) → Asset[]', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
-    const eq = useSubstationWorkingCopy.getState().effectiveEquipment('f1');
+    const eq = useSubstationWorkingCopy.getState().effectiveAssetsByFloor('f1');
     expect(eq.map(e=>e.id).sort()).toEqual(['o1','r1']);
     expect(eq.find(e=>e.id==='r1')!.assetType?.role).toBe('rack');
   });
@@ -74,10 +74,10 @@ describe('substationWorkingCopy', () => {
   });
 
   // ── 2d-1 T3: 에디터 대면 mutation 액션 ──
-  it('stageEquipmentCreate → effective 신규 설비', async () => {
+  it('stagePlacementCreate → effective 신규 설비', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
     const eq = { id:'tmpX', name:'새OFD', positionX:1, positionY:2, width:10, height:10, floorId:'f1' } as any;
-    useSubstationWorkingCopy.getState().stageEquipmentCreate(eq, 'tOFD');
+    useSubstationWorkingCopy.getState().stagePlacementCreate(eq, 'tOFD');
     expect(useSubstationWorkingCopy.getState().effectiveAssets().some(a => a.id==='tmpX')).toBe(true);
   });
   it('stageAssetUpdate → 위치 반영', async () => {
@@ -85,9 +85,9 @@ describe('substationWorkingCopy', () => {
     useSubstationWorkingCopy.getState().stageAssetUpdate('o1', { positionX: 99 });
     expect(useSubstationWorkingCopy.getState().effectiveAssets().find(a=>a.id==='o1')!.positionX).toBe(99);
   });
-  it('stageEquipmentDeleteCascade → 설비+랙모듈자식+케이블 delete, undo 1스텝', async () => {
+  it('stageAssetDeleteCascade → 설비+랙모듈자식+케이블 delete, undo 1스텝', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
-    useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade('r1');
+    useSubstationWorkingCopy.getState().stageAssetDeleteCascade('r1');
     const ids = useSubstationWorkingCopy.getState().effectiveAssets().map(a=>a.id);
     expect(ids).not.toContain('r1');
     expect(ids).not.toContain('m1');  // rack-module child cascaded
@@ -109,8 +109,8 @@ describe('substationWorkingCopy', () => {
       id: 'tmpC',
       sourceAssetId: 'm1',
       targetAssetId: 'o1',
-      source: { equipmentId: null, moduleId: 'm1', circuitId: null },
-      target: { equipmentId: 'o1', moduleId: null, circuitId: null },
+      source: { assetId: null, moduleId: 'm1', circuitId: null },
+      target: { assetId: 'o1', moduleId: null, circuitId: null },
       cableType: 'LAN',
       pathPoints: [[10, 20], [5, 5]],
     } as any);
@@ -127,7 +127,7 @@ describe('substationWorkingCopy', () => {
   // ── 2d-2 T1: 랙모듈(=RACK 자식 Asset) stage 액션 ──
   it('stageRackModuleCreate → effectiveAssets/effectiveRackModules 에 자식 추가(부모 floor 상속)', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
-    const m = { id:'tm1', rackEquipmentId:'r1', categoryId:'cat1', name:'새모듈', slotIndex:7, slotSpan:1, properties:{x:1} } as any;
+    const m = { id:'tm1', rackAssetId:'r1', categoryId:'cat1', name:'새모듈', slotIndex:7, slotSpan:1, properties:{x:1} } as any;
     useSubstationWorkingCopy.getState().stageRackModuleCreate(m);
     const s = useSubstationWorkingCopy.getState();
     const created = s.effectiveAssets().find(a=>a.id==='tm1')!;
@@ -138,7 +138,7 @@ describe('substationWorkingCopy', () => {
   });
   it('stageAssetUpdate(랙모듈) → slotIndex 이동 반영', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
-    const m = { id:'tm1', rackEquipmentId:'r1', categoryId:'cat1', name:'새모듈', slotIndex:7, slotSpan:1 } as any;
+    const m = { id:'tm1', rackAssetId:'r1', categoryId:'cat1', name:'새모듈', slotIndex:7, slotSpan:1 } as any;
     useSubstationWorkingCopy.getState().stageRackModuleCreate(m);
     useSubstationWorkingCopy.getState().stageAssetUpdate('tm1', { slotIndex:5 });
     expect(useSubstationWorkingCopy.getState().effectiveAssets().find(a=>a.id==='tm1')!.slotIndex).toBe(5);

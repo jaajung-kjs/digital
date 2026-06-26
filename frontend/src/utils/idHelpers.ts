@@ -2,7 +2,7 @@
  * Centralized temp ID utilities.
  *
  * All unsaved entities share a single `temp-` prefix.
- * The entity type (equipment, cable, log, photo) is determined
+ * The entity type (asset, cable, log, photo) is determined
  * from context, not from the ID format.
  */
 

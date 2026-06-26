@@ -10,7 +10,7 @@ import { useEditorStore } from '../stores/editorStore';
 const VIEWPORT_KEY_VERSION = 'v2';
 
 /**
- * "화면 맞춤" — 배치된 설비(equipment) bbox 에 맞춰 zoom/pan 을 계산한다.
+ * "화면 맞춤" — 배치된 자산(asset) bbox 에 맞춰 zoom/pan 을 계산한다.
  *
  * 사용자 요구(에디터 #3): 화면맞춤은 배경 도면(DWG)을 제외하고 **실제로 배치한
  * 설비**들만 한눈에 들어오게 맞춘다. 따라서 설비가 하나라도 있으면 background 는
@@ -25,7 +25,7 @@ const VIEWPORT_KEY_VERSION = 'v2';
  * 큰 도면은 down-scale 되어 화면에 들어온다.
  */
 export function calculateFitToContent(
-  equipment: Asset[],
+  assets: Asset[],
   background: BackgroundDrawing | null | undefined,
   fallbackCanvasSize: { width: number; height: number } | null,
   canvasWidth: number,
@@ -36,7 +36,7 @@ export function calculateFitToContent(
   let maxX = -Infinity;
   let maxY = -Infinity;
 
-  for (const eq of equipment) {
+  for (const eq of assets) {
     const px = eq.positionX ?? 0;
     const py = eq.positionY ?? 0;
     const w = eq.width2d ?? 0;
@@ -141,14 +141,14 @@ export function useViewport(floorId: string | undefined) {
   const { setViewport } = useEditorStore();
 
   const fitToContent = useCallback((
-    equipment: Asset[],
+    assets: Asset[],
     background: BackgroundDrawing | null | undefined,
     fallbackCanvasSize: { width: number; height: number } | null,
     canvasWidth: number,
     canvasHeight: number,
   ) => {
     const fit = calculateFitToContent(
-      equipment,
+      assets,
       background,
       fallbackCanvasSize,
       canvasWidth,

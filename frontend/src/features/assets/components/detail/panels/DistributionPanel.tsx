@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useSubstationWorkingCopy } from '../../../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../../../workingCopy/hooks';
-import { useAssetTypes } from '../../../../assets/hooks/useAssetTypes';
+import { useAssetTypes } from '../../../hooks/useAssetTypes';
 import { useSelectionStore } from '../../../../workspace/selectionStore';
 import { generateTempId } from '../../../../../utils/idHelpers';
-import { feedersOfPanel, buildSubtreeAsset } from '../../../../assets/distributionSubtree';
+import { feedersOfPanel, buildSubtreeAsset } from '../../../distributionSubtree';
 import { buildFeederCircuits, feederGridSlots, type FeederCircuit } from '../../../../power/feederCircuits';
 import { useTraceGraph } from '../../../../trace/traceGraph';
 
@@ -15,7 +15,7 @@ import { useTraceGraph } from '../../../../trace/traceGraph';
  * 출력 케이블, 별도 분기 노드 없음). 읽기는 통합 스토어 effective assets, 쓰기는
  * stageAsset CRUD. 케이블의 회로 endpoint 는 FEEDER asset id (source/target.assetId).
  */
-export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
+export function DistributionCircuits({ assetId }: { assetId: string }) {
   const effectiveAssets = useEffectiveAssets();
   const { data: assetTypes = [] } = useAssetTypes();
   const { graph } = useTraceGraph();
@@ -23,8 +23,8 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
 
   const panel = useMemo(
-    () => effectiveAssets.find((a) => a.id === equipmentId) ?? null,
-    [effectiveAssets, equipmentId],
+    () => effectiveAssets.find((a) => a.id === assetId) ?? null,
+    [effectiveAssets, assetId],
   );
   const feederType = useMemo(
     () => assetTypes.find((t) => t.role === 'feeder') ?? null,
@@ -32,8 +32,8 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
   );
 
   const feeders = useMemo(
-    () => feedersOfPanel(effectiveAssets, equipmentId),
-    [effectiveAssets, equipmentId],
+    () => feedersOfPanel(effectiveAssets, assetId),
+    [effectiveAssets, assetId],
   );
 
   // CB 미리보기용 — 피더별 회로를 graph/feeders 변경 시 1회만 파생(매 렌더 O(N×M) 제거).
@@ -62,7 +62,7 @@ export function DistributionCircuits({ equipmentId }: { equipmentId: string }) {
         substationId: panel.substationId,
         type: feederType,
         name,
-        parentAssetId: equipmentId,
+        parentAssetId: assetId,
         sortOrder: feeders.length,
       }),
     );

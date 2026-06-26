@@ -30,27 +30,27 @@ const OPGW = {
   id: 'opgw1', sourceAssetId: 'slot1', targetAssetId: 'twin1',
   sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 },
 };
-// 코어2 자국측 OUT 케이블 — EquipmentSelectCell 가 연결 설비(a-near)를 표시.
+// 코어2 자국측 OUT 케이블 — AssetSelectCell 가 연결 자산(a-near)를 표시.
 const OUT2 = {
   id: 'c2', sourceAssetId: 'a-near', targetAssetId: 'slot1',
   sourceRole: null, targetRole: 'OUT', number: 2,
 };
 const FIBER_CABLES = [OPGW, OUT2];
 
-// EquipmentSelectCell 는 useTraceGraph 그래프(effective)에서 후보·이름을 읽는다.
+// AssetSelectCell 는 useTraceGraph 그래프(effective)에서 후보·이름을 읽는다.
 const SLIM = [
   { id: 'a-near', name: '송변전광단말', role: 'device', substationId: 's1', parentAssetId: null },
   { id: 'twin1', name: '홍천슬롯', role: 'slot', substationId: 's2', parentAssetId: 'ofd2' },
 ];
 const CATS = [{ id: 'cat-opj', name: '광점퍼코드' }];
 
-// EquipmentSelectCell + ConnectionRegisterGrid 는 이제 graph.cables(전역 SSOT)에서 읽는다.
+// AssetSelectCell + ConnectionRegisterGrid 는 이제 graph.cables(전역 SSOT)에서 읽는다.
 vi.mock('../../workingCopy/hooks', () => ({
   useEffectiveAssets: () => [OFD_ASSET, SLOT_ASSET],
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => ({ data: CATS }) }));
 vi.mock('../../trace/traceGraph', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../trace/traceGraph')>()), // 실제 equipmentInSubstation 등 유지
+  ...(await importOriginal<typeof import('../../trace/traceGraph')>()), // 실제 assetsInSubstation 등 유지
   useTraceGraph: () => ({
     graph: {
       nameById: new Map([['a-near', '송변전광단말'], ['twin1', '홍천슬롯']]),
@@ -120,7 +120,7 @@ describe('OfdFiberRegister', () => {
     renderView();
     // 제목은 fiberSlotLabel 파생: 자국 - 대국 #코어수(OPGW specParams.cores).
     expect(screen.getByText('원주 - 홍천 #24')).toBeInTheDocument();
-    // 읽기전용 자산명 열 → EquipmentSelectCell 드롭다운으로 교체.
+    // 읽기전용 자산명 열 → AssetSelectCell 드롭다운으로 교체.
     expect(screen.getByText('자국설비')).toBeInTheDocument();
     expect(screen.getByText('대국설비')).toBeInTheDocument();
   });

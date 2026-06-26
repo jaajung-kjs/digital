@@ -11,7 +11,7 @@ import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
  * (bumpFocusTick)하는 부수효과만 담당한다 — 본부·사업소 평면도 진입(현황 선택→
  * 제자리 plan 전환) 흐름용. 선택을 다시 쓰지 않으므로 루프가 없다.
  *
- * UX#4 — 평면도 안에서의 단일 클릭(캔버스 selectEquipment)은 상세 패널을 열지
+ * UX#4 — 평면도 안에서의 단일 클릭(캔버스 selectAsset)은 상세 패널을 열지
  * 않는다(클릭=선택, 더블클릭=상세). 따라서 이 브리지는 "평면도 뷰로 진입하는 순간"
  * (active false→true 전이)에만 reveal 한다. 이미 활성인 상태에서 selectedAssetId 가
  * 바뀌는 것(=캔버스 단일 클릭)은 패널을 열지 않는다. 더블클릭은 캔버스 핸들러가
