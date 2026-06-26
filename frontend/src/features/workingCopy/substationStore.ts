@@ -29,7 +29,7 @@ import type { SlimAssetDTO, TraceCableInput } from '../trace/traceGraph';
  */
 export interface RackModuleDraw {
   id: string;
-  rackEquipmentId: string;
+  rackAssetId: string;
   categoryId: string;
   name: string;
   slotIndex: number;
@@ -338,9 +338,9 @@ export interface SubstationWorkingCopyState {
    * 설비 신규 stage. assetTypeId 는 kind→assetType 해석(2d-2)에서 주입.
    * floorId 는 PlacementDraw 본체에 담아 전달한다(에디터가 보유).
    */
-  stageEquipmentCreate: (eq: PlacementDraw, assetTypeId: string) => void;
+  stagePlacementCreate: (eq: PlacementDraw, assetTypeId: string) => void;
   /** 설비 삭제 + 랙모듈 자식 + 해당 설비/모듈에 닿는 케이블까지 캐스케이드(단일 set). */
-  stageEquipmentDeleteCascade: (id: string) => void;
+  stageAssetDeleteCascade: (id: string) => void;
   /** 케이블 다건 업데이트를 단일 set 으로 stage(단일 undo). */
   stageCableUpdates: (updates: Record<string, Partial<Cable>>) => void;
 
@@ -353,7 +353,6 @@ export interface SubstationWorkingCopyState {
   effectiveAssets: () => Asset[];
   effectiveTopAssets: () => Asset[];
   effectiveAssetsByFloor: (floorId: string) => Asset[];
-  effectiveEquipment: (floorId: string) => Asset[];
   effectiveRackModules: (rackId: string) => Asset[];
   effectiveCables: () => Cable[];
   effectiveHeadquarters: () => OrgHeadquarters[];
@@ -502,10 +501,10 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       },
 
       // ── editor-facing mutation actions (2d-1 T3) ──
-      stageEquipmentCreate: (eq, assetTypeId) =>
+      stagePlacementCreate: (eq, assetTypeId) =>
         set((s) => {
           if (!s.substationId) return s; // 미로드 — 무시(null substationId asset 방지)
-          // 캔버스 draw 입력 → staged Asset(과거 equipmentToAssetCreate 를 인라인).
+          // 캔버스 draw 입력 → staged Asset(과거 stageCreate 를 인라인).
           // staged create — 실제 assetType 은 서버 커밋 후에야 알 수 있어 role 만 채운다.
           const asset: Asset = {
             id: eq.id,
@@ -536,7 +535,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           return { overlays: { ...s.overlays, assets: stageCreate(s.overlays.assets, asset.id, asset) } };
         }),
 
-      stageEquipmentDeleteCascade: (id) =>
+      stageAssetDeleteCascade: (id) =>
         set((s) => {
           const effA = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor);
           const effC = mergeEffective(s.saved.cables, s.overlays.cables, cableDescriptor);
@@ -590,7 +589,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           if (!s.substationId) return s; // 미로드 — 무시(null substationId asset 방지)
           // floorId 는 부모 랙 Asset 의 floorId 를 상속(effective 에서 조회, 없으면 null).
           const parent = mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor)
-            .find((a) => a.id === m.rackEquipmentId);
+            .find((a) => a.id === m.rackAssetId);
           // 랙모듈은 별도 컬렉션이 아니라 ASSETS 의 RACK 자식 Asset(parentAssetId +
           // slotIndex + slotSpan). 배치 좌표/totalU 는 랙모듈에 없어 null.
           const asset: Asset = {
@@ -600,7 +599,7 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
             // staged create — 실제 assetType 은 서버 커밋 후에야 안다. 랙모듈 = device.
             assetType: { role: 'device' } as Asset['assetType'],
             name: m.name,
-            parentAssetId: m.rackEquipmentId,
+            parentAssetId: m.rackAssetId,
             floorId: parent?.floorId ?? null,
             roomText: null,
             positionX: null,
@@ -632,7 +631,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
       },
       effectiveTopAssets: () => get().effectiveAssets().filter((a) => !isRackModuleChild(a)),
       effectiveAssetsByFloor: (floorId) => get().effectiveTopAssets().filter((a) => a.floorId === floorId),
-      effectiveEquipment: (floorId) => get().effectiveAssetsByFloor(floorId),
       effectiveRackModules: (rackId) =>
         get().effectiveAssets().filter((a) => isRackModuleChild(a) && a.parentAssetId === rackId),
       effectiveCables: () => {

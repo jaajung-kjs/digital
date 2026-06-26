@@ -16,7 +16,7 @@ export interface CableDetailDTO {
    * 단계4b — endpoint 는 단일 Asset(설비/랙모듈/분전 분기). 백엔드가 정밀 endpoint
    * asset id 를 직접 내려준다. 정밀 endpoint id 의 유일한 source of truth.
    * source/target 은 그 endpoint asset 의 표시 정보(이름/kind/anchor floor) — 더 이상
-   * equipmentId/moduleId/circuitId nested id 를 들지 않는다.
+   * assetId nested id 를 들지 않는다.
    */
   sourceAssetId: string;
   targetAssetId: string;

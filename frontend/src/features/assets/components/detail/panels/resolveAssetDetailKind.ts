@@ -1,5 +1,5 @@
 import type { Asset } from '../../../../../types/asset';
-import type { DetailPanelKind } from '../../../../../types/equipmentKind';
+import type { DetailPanelKind } from '../../../../../types/assetDetailKind';
 
 /**
  * 자산 → 상세 패널의 공간(spatial) 섹션 종류(SSOT). 분류는 assetType.role 단일 소스.

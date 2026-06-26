@@ -31,13 +31,13 @@ describe('buildSubstationCommitPayload', () => {
     expect(ids).toContain('tmpO');
     expect(ids).toContain('tmpM');
 
-    // 랙 모듈은 Asset 필드 그대로(rackEquipmentId/categoryId 매핑 없음) + 슬롯 보존.
+    // 랙 모듈은 Asset 필드 그대로(rackAssetId/categoryId 매핑 없음) + 슬롯 보존.
     const rm = payload.assets!.creates.find((c: any) => c.tempId === 'tmpM') as any;
     expect(rm.parentAssetId).toBe('r1');
     expect(rm.assetTypeId).toBe('tMOD');
     expect(rm.slotIndex).toBe(3);
     expect(rm.slotSpan).toBe(1);
-    expect(rm.rackEquipmentId).toBeUndefined();
+    expect(rm.rackAssetId).toBeUndefined();
     expect(rm.categoryId).toBeUndefined();
 
     // placement create 는 placement 필드 그대로.
@@ -122,9 +122,9 @@ describe('buildSubstationCommitPayload', () => {
     expect(c.targetAssetId).toBe('m1');
     expect(c.source).toBeUndefined();
     expect(c.target).toBeUndefined();
-    // flat denormalized keys 도 페이로드에 없어야 함
-    expect(c.sourceEquipmentId).toBeUndefined();
-    expect(c.targetEquipmentId).toBeUndefined();
+    // flat denormalized 구 keys 도 페이로드에 없어야 함 (단일 sourceAssetId/targetAssetId 로 통일)
+    expect(c.sourceRawId).toBeUndefined();
+    expect(c.targetRawId).toBeUndefined();
     expect(c.sourceModuleId).toBeUndefined();
     expect(c.targetModuleId).toBeUndefined();
     // canonical passthrough — cableType 은 C5 Phase A 에서 전송 제거됨

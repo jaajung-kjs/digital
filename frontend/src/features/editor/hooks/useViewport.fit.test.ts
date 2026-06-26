@@ -35,14 +35,14 @@ function centerFromFit(
 
 describe('calculateFitToContent — 화면 맞춤 bounds 소스', () => {
   it('설비가 있으면 배경 도면을 제외하고 설비 bounds 로 fit 한다', () => {
-    const equipment: Asset[] = [eq({ positionX: 1000, positionY: 1000, width: 100, height: 100 })];
+    const assets: Asset[] = [eq({ positionX: 1000, positionY: 1000, width: 100, height: 100 })];
     // 배경 도면은 설비에서 멀리 떨어진 거대한 영역. 이게 포함되면 center 가 설비에서 벗어난다.
     const background = {
       bounds: { minX: -50000, minY: -50000, maxX: 50000, maxY: 50000 },
     } as unknown as BackgroundDrawing;
 
-    const withBg = calculateFitToContent(equipment, background, null, CANVAS_W, CANVAS_H);
-    const withoutBg = calculateFitToContent(equipment, null, null, CANVAS_W, CANVAS_H);
+    const withBg = calculateFitToContent(assets, background, null, CANVAS_W, CANVAS_H);
+    const withoutBg = calculateFitToContent(assets, null, null, CANVAS_W, CANVAS_H);
 
     // 배경 유무와 무관하게 동일한 fit — 배경은 프레이밍에서 제외됐다.
     expect(withBg).toEqual(withoutBg);

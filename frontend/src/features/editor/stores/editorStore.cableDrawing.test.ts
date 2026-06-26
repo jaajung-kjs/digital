@@ -24,11 +24,11 @@ describe('editorStore — 케이블 그리기 종료 / 단일클릭', () => {
     expect(useEditorStore.getState().tool).toBe('select');
   });
 
-  it('단일클릭(selectEquipment)은 떠 있던 상세 패널을 닫는다 — 패널은 더블클릭(openDetail)에서만', () => {
+  it('단일클릭(selectAsset)은 떠 있던 상세 패널을 닫는다 — 패널은 더블클릭(openDetail)에서만', () => {
     useEditorStore.getState().openDetail('a'); // 더블클릭 → 패널 오픈
     expect(useEditorStore.getState().rightPanel).toBe('detail');
 
-    useEditorStore.getState().selectEquipment('b'); // 단일클릭 = 선택만
+    useEditorStore.getState().selectAsset('b'); // 단일클릭 = 선택만
 
     expect(useEditorStore.getState().rightPanel).toBeNull(); // 패널 닫힘(다시 안 뜸)
     expect(useSelectionStore.getState().selectedAssetId).toBe('b'); // 선택은 b 로

@@ -3,7 +3,7 @@ import { renderHook, act } from '@testing-library/react';
 vi.mock('../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from './substationStore';
-import { useEffectiveCables, useEffectiveEquipment, useEffectiveRackModules, useEffectiveFloorCables, useUnifiedDirty } from './hooks';
+import { useEffectiveCables, useEffectiveFloorAssets, useEffectiveRackModules, useEffectiveFloorCables, useUnifiedDirty } from './hooks';
 import { useEditorStore } from '../editor/stores/editorStore';
 
 // jsdom 에 없는 URL.revokeObjectURL 스텁(clearPendingData/resetEditor 가 호출).
@@ -91,11 +91,11 @@ describe('workingCopy hooks', () => {
     });
   });
 
-  it('useEffectiveEquipment(f1) → f1 placement-level only, as Asset', async () => {
+  it('useEffectiveFloorAssets(f1) → f1 placement-level only, as Asset', async () => {
     await act(async () => {
       await useSubstationWorkingCopy.getState().load('s1');
     });
-    const { result, rerender } = renderHook(() => useEffectiveEquipment('f1'));
+    const { result, rerender } = renderHook(() => useEffectiveFloorAssets('f1'));
     expect(result.current.map((e: any) => e.id).sort()).toEqual(['o1', 'panel1', 'r1']); // m1 (rack module) + x1 (other floor) excluded; panel1 placed DIST
     expect(result.current.find((e: any) => e.id === 'r1')!.assetType?.role).toBe('rack');
     const ref1 = result.current;
@@ -122,7 +122,7 @@ describe('workingCopy hooks', () => {
       { id: 'c-branch', sourceAssetId: 'r1', targetAssetId: 'branch1', source: {}, target: {}, updatedAt: TS },
       { id: 'c-f2', sourceAssetId: 'x1', targetAssetId: null, source: {}, target: {}, updatedAt: TS }, // x1 on f2 only
       // assetId 없는 옛 row 는 이제 비멤버(레거시 nested 폴백 제거됨).
-      { id: 'c-legacy', sourceAssetId: null, targetAssetId: null, source: { equipmentId: 'r1', moduleId: null }, target: { equipmentId: null, moduleId: null }, updatedAt: TS },
+      { id: 'c-legacy', sourceAssetId: null, targetAssetId: null, source: { assetId: 'r1', moduleId: null }, target: { assetId: null, moduleId: null }, updatedAt: TS },
     ];
     (api.get as any).mockResolvedValue({
       data: { data: { assets, cables } },

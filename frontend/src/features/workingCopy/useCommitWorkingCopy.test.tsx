@@ -70,8 +70,8 @@ vi.mock('../editor/stores/editorStore', () => ({
 // overlayToChanges — 변경 없음(아카이브 skip).
 vi.mock('../report/overlayToChanges', () => ({
   overlayToChanges: () => ({
-    before: { equipment: [], cables: [] },
-    after: { equipment: [], cables: [] },
+    before: { assets: [], cables: [] },
+    after: { assets: [], cables: [] },
   }),
 }));
 

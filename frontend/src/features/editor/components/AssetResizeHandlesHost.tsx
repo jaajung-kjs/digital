@@ -26,7 +26,7 @@ export function AssetResizeHandlesHost() {
 
   return (
     <AssetResizeHandles
-      equipment={selected}
+      asset={selected}
       zoom={zoom}
       panX={panX}
       panY={panY}

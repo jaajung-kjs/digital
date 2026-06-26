@@ -58,7 +58,7 @@ describe('conduit(슬롯) 끝점 OUT 코어 케이블(P6)', () => {
     const ix = useInteractionStore.getState();
     ix.cableActivate({ category: { id: 'cat-pw', name: '전력' } });
     ix.cableSetSource({ containerAssetId: 'eq-1', position: { x: 0, y: 0 } });
-    // OFD 드롭 흐름: containerAssetId = OFD equipment id, slotId/coreNumber/role 은
+    // OFD 드롭 흐름: containerAssetId = OFD asset id, slotId/coreNumber/role 은
     // EndpointRef 채널. endpointAssetId() 가 slotId 를 endpoint 로 해소.
     ix.cableSetTarget({ containerAssetId: 'ofd-1', position: { x: 10, y: 10 }, slotId: 'slot-1', coreNumber: 3, role: 'OUT' });
 

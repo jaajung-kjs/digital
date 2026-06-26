@@ -19,7 +19,7 @@ import { fiberSlotLabel } from '../../fiber/fiberSlotLabel';
  * 같은 필드·같은 편집·같은 staging(상위가 넘기는 onPatch=stageAssetUpdate)으로 동작.
  *
  * onPatch 는 Asset 부분 패치를 받는다(UpdateAssetInput 의 상위집합) — 설명/크기 같은
- * 설비(equipment)-레벨 필드도 Asset 에 직접 존재하므로 별도 overlay 없이 동일 경로로 stage.
+ * 자산 레벨 필드도 Asset 에 직접 존재하므로 별도 overlay 없이 동일 경로로 stage.
  *   - 설명(description): 모든 컨텍스트에서 편집 가능.
  *   - 크기(width2d/height2d): 평면도에 배치된 자산(=에디터 컨텍스트)에서만 노출/편집.
  *     비배치(현황·대장 리스트)에서는 width2d/height2d 가 없으므로 자동으로 숨겨진다.
@@ -251,7 +251,7 @@ export function AssetInspector({ asset, mode, onPatch, spatial, spatialLabel, in
     { label: '정보', render: () => infoTab },
     { label: '점검', render: () => <InspectionSection assetId={asset.id} /> },
     // 고장/수리 이력(점검은 별도 점검 탭). 종류/날짜/심각도/설명 + 편집. 보류 큐 공유.
-    { label: '고장이력', render: () => <LogsTab equipmentId={asset.id} readOnly={ro} /> },
+    { label: '고장이력', render: () => <LogsTab assetId={asset.id} readOnly={ro} /> },
     { label: '사진', render: () => <AssetPhotoSection assetId={asset.id} /> },
     { label: '연결', render: () => <AssetConnectionsTab assetId={asset.id} /> },
   ];

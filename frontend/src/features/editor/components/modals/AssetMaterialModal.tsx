@@ -8,7 +8,7 @@ interface AssetMaterialModalProps {
 
 /**
  * 캔버스에서 설비 사각형을 drag-to-draw 한 뒤 뜨는 이름 입력 모달.
- * 배치할 자산종류는 이미 `newEquipmentType` 에 고정돼 있어 이름만 받는다.
+ * 배치할 자산종류는 이미 `newAssetType` 에 고정돼 있어 이름만 받는다.
  *
  * UX: autofocused input → Enter → onAdd. ESC/cancel reverts the tool.
  */

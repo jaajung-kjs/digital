@@ -10,7 +10,7 @@ export type DiffAction = 'install' | 'remove' | 'relocate' | 'modify';
 
 export interface DiffItem {
   id: string;
-  type: 'equipment' | 'cable';
+  type: 'asset' | 'cable';
   action: DiffAction;
   name: string;
   categoryId?: string | null;
@@ -21,7 +21,7 @@ export interface DiffItem {
 }
 
 export interface BOMItem {
-  /** Identity key — backend sets this to categoryId:action for cables, assetTypeId:action for equipment, 'MANUAL' for overrides. */
+  /** Identity key — backend sets this to categoryId:action for cables, assetTypeId:action for assets, 'MANUAL' for overrides. */
   key: string;
   /** @deprecated legacy archived snapshots (pre BOM-redesign branch) used materialCategoryCode as identity; read via bomKey() fallback only. */
   materialCategoryCode?: string;
@@ -49,7 +49,7 @@ export interface ConstructionReport {
  * Report-preview 입력의 한쪽 스냅샷 — backend reportPreview.schema.ts 와 동일 모양.
  * 엔진은 before↔after 를 id 로 diff 한다. materialCategoryCode 가 BOM/노무 join 키.
  */
-export interface EquipmentSnapshotItem {
+export interface AssetSnapshotItem {
   id: string;
   name: string;
   /**
@@ -75,7 +75,7 @@ export interface CableSnapshotItem {
 }
 
 export interface PlanSnapshot {
-  equipment: EquipmentSnapshotItem[];
+  assets: AssetSnapshotItem[];
   cables: CableSnapshotItem[];
 }
 

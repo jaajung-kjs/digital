@@ -4,7 +4,7 @@ import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSelection } from '../../workspace/SelectionContext';
 import type { Asset } from '../../../types/asset';
-import { type DetailPanelKind } from '../../../types/equipmentKind';
+import { type DetailPanelKind } from '../../../types/assetDetailKind';
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 import { AssetDetailBody } from './detail/panels/AssetDetailBody';
 import { resolveAssetDetailKind } from './detail/panels/resolveAssetDetailKind';
@@ -50,10 +50,10 @@ function AssetBreadcrumb({ asset }: { asset?: Asset | null }) {
 }
 
 interface Props {
-  /** 현황/대장: 풀 Asset. 평면도: 모듈이면 모듈 Asset, 비모듈이면 생략(equipmentId 로 본문 resolve). */
+  /** 현황/대장: 풀 Asset. 평면도: 모듈이면 모듈 Asset, 비모듈이면 생략(assetId 로 본문 resolve). */
   asset?: Asset | null;
   /** asset 이 없을 때(평면도 비모듈) 본문 resolve 용 id. 기본 asset.id. */
-  equipmentId?: string;
+  assetId?: string;
   /** 헤더 제목. 기본 asset.name. (평면도는 캔버스에서 resolve 한 이름.) */
   title?: ReactNode;
   /** 공간 섹션 종류. 미지정(undefined) 시 asset 에서 계산. null 은 '섹션 없음'. */
@@ -92,7 +92,7 @@ function kindFromAsset(asset?: Asset | null): DetailPanelKind | null {
  */
 export function AssetDetailPanel({
   asset = null,
-  equipmentId,
+  assetId,
   title,
   detailKind,
   mode = 'edit',
@@ -105,9 +105,9 @@ export function AssetDetailPanel({
   initialTab,
 }: Props) {
   const stageAssetDelete = useSubstationWorkingCopy((s) => s.stageAssetDelete);
-  const stageEquipmentDeleteCascade = useSubstationWorkingCopy((s) => s.stageEquipmentDeleteCascade);
+  const stageAssetDeleteCascade = useSubstationWorkingCopy((s) => s.stageAssetDeleteCascade);
 
-  const id = equipmentId ?? asset?.id ?? '';
+  const id = assetId ?? asset?.id ?? '';
   const { graph } = useTraceGraph();
   const conduitLabel =
     asset && asset.assetType?.role === 'slot' ? fiberSlotLabel(asset.id, graph) : '';
@@ -120,14 +120,14 @@ export function AssetDetailPanel({
     const what = isModule ? '이 항목' : '이 설비';
     if (!window.confirm(`'${headerTitle}' — ${what}을(를) 삭제할까요? (저장 전까지 되돌릴 수 있습니다.)`)) return;
     if (isModule) stageAssetDelete(id);
-    else stageEquipmentDeleteCascade(id);
+    else stageAssetDeleteCascade(id);
     onClose();
   };
 
   const body = (
     <AssetDetailBody
       key={bodyKey}
-      equipmentId={id}
+      assetId={id}
       kind={kind}
       mode={mode}
       onPatch={onPatch}

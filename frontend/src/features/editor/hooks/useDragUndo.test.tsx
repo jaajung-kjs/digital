@@ -18,7 +18,7 @@ beforeEach(() => {
 /**
  * UX#1 regression: a multi-frame drag must collapse into a SINGLE undo step
  * that reverts to the pre-drag position. This mirrors useCanvasEvents'
- * mousemove→stageEquipmentUpdate loop wrapped by pause()/resume().
+ * mousemove→stageAssetUpdate loop wrapped by pause()/resume().
  */
 describe('drag → single undo step', () => {
   function simulateDrag(frames: number[]) {

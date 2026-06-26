@@ -11,7 +11,7 @@ import { availableSpanAt, buildRackModule, nextNameFor } from '../../utils/slotG
 import { SlotRailGrid } from '../../../../components/SlotRailGrid';
 
 interface Props {
-  rackEquipmentId: string;
+  rackAssetId: string;
   modules: Asset[];
 }
 
@@ -23,7 +23,7 @@ interface Props {
  * 않으므로 드래그 인디케이터가 원본 셀과 같은 슬롯에 겹쳐도 원본 셀이
  * 다른 슬롯으로 밀려나지 않는다 (이전 버전 버그).
  */
-export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
+export function RackSlotGrid({ rackAssetId, modules }: Props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
   const addingAtSlot = useEditorStore((s) => s.addingAtSlot);
   const setAddingAtSlot = useEditorStore((s) => s.setAddingAtSlot);
@@ -33,7 +33,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
 
   const handleEmptyClick = (slotIndex: number, anchor: DOMRect) => {
     anchorRef.current = anchor;
-    setAddingAtSlot({ rackEquipmentId, slotIndex });
+    setAddingAtSlot({ rackAssetId, slotIndex });
   };
 
   // 슬롯 기하(availableSpanAt) 용 non-null shape — 랙모듈 Asset 은 slotIndex/slotSpan 가 항상 채워짐.
@@ -55,7 +55,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
     const slotSpan = Math.min(1, avail);
     // SSOT-2d Task 4 — 랙모듈 생성을 통합 스토어 stage 액션으로.
     useSubstationWorkingCopy.getState().stageRackModuleCreate(buildRackModule({
-      rackEquipmentId,
+      rackAssetId,
       category: cat,
       slotIndex: addingAtSlot.slotIndex,
       slotSpan,
@@ -92,7 +92,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
     if (occupiedAny.has(i)) continue; // 위쪽 모듈이 차지한 slot — 아무 것도 안 그림
     const isActive =
       !!addingAtSlot &&
-      addingAtSlot.rackEquipmentId === rackEquipmentId &&
+      addingAtSlot.rackAssetId === rackAssetId &&
       addingAtSlot.slotIndex === i;
     children.push(
       <EmptySlot
@@ -124,7 +124,7 @@ export function RackSlotGrid({ rackEquipmentId, modules }: Props) {
           </div>
         </div>
       )}
-      {addingAtSlot && addingAtSlot.rackEquipmentId === rackEquipmentId && anchorRef.current && (
+      {addingAtSlot && addingAtSlot.rackAssetId === rackAssetId && anchorRef.current && (
         <CategoryComboboxPopover
           anchorRect={anchorRef.current}
           availableSpan={availableSpanAt(sizedModules, addingAtSlot.slotIndex)}

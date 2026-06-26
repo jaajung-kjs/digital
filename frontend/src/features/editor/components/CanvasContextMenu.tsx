@@ -38,13 +38,13 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     onClose();
   };
 
-  const handleDeleteEquipment = () => {
+  const handleDeleteAsset = () => {
     const es = useEditorStore.getState();
     const asset = useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === target.id);
     onClose();
     if (!asset) return;
     if (!window.confirm(`'${asset.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
-    useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(target.id);
+    useSubstationWorkingCopy.getState().stageAssetDeleteCascade(target.id);
     es.clearSelection();
   };
 
@@ -61,7 +61,7 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
       ? [
           { label: '상세 열기', onClick: handleOpenDetail },
           { label: '복제', onClick: handleDuplicate },
-          { label: '삭제', onClick: handleDeleteEquipment, danger: true },
+          { label: '삭제', onClick: handleDeleteAsset, danger: true },
         ]
       : [
           { label: '삭제', onClick: handleDeleteCable, danger: true },

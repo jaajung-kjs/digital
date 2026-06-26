@@ -25,7 +25,7 @@ describe('fiberWrite', () => {
 
   it('buildCoreOutCable: 설비↔슬롯, 슬롯 끝 OUT·number=코어, fiberPathId 없음', () => {
     const c = buildCoreOutCable({
-      id: 't-out', equipmentId: 'eqA', slotId: 'slotA', coreNumber: 5,
+      id: 't-out', assetId: 'eqA', slotId: 'slotA', coreNumber: 5,
       category: { id: 'CAT_OPT', name: '광케이블' },
       pathPoints: [[0, 0], [1, 1]], pathLength: 1, bufferLength: 4, totalLength: 5,
     });

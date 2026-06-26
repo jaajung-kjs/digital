@@ -9,7 +9,7 @@ import type {
 } from '../../../types/rackPreset';
 
 interface SaveRackAsPresetDialogProps {
-  rackEquipmentId: string;
+  rackAssetId: string;
   /** 드롭다운에서 선택된 기존 프리셋. 있으면 이름/설명 prefill + 같은 이름으로
    *  저장하면 PATCH(덮어쓰기) 흐름. null/undefined 면 새 프리셋(POST). */
   originalPreset?: RackPreset | null;
@@ -30,14 +30,14 @@ interface SaveRackAsPresetDialogProps {
  * "새 프리셋" 모드가 됨. 버튼 라벨이 모드를 명시함.
  */
 export function SaveRackAsPresetDialog({
-  rackEquipmentId,
+  rackAssetId,
   originalPreset,
   onClose,
   onSaved,
 }: SaveRackAsPresetDialogProps) {
   // SSOT-2d3a Task 5 — 랙/모듈을 통합 스토어 effective 에서 읽는다.
   const effectiveAssets = useEffectiveAssets();
-  const rackModules = useEffectiveRackModules(rackEquipmentId);
+  const rackModules = useEffectiveRackModules(rackAssetId);
   const createPreset = useCreateRackPreset();
   const updatePreset = useUpdateRackPreset();
 
@@ -47,8 +47,8 @@ export function SaveRackAsPresetDialog({
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
 
   const rack = useMemo(
-    () => effectiveAssets.find((a) => a.id === rackEquipmentId),
-    [effectiveAssets, rackEquipmentId],
+    () => effectiveAssets.find((a) => a.id === rackAssetId),
+    [effectiveAssets, rackAssetId],
   );
 
   const modules = useMemo(

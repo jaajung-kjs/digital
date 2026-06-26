@@ -13,4 +13,4 @@ export type {
   SpecParam,
   SpecTemplate,
 } from './specTemplate';
-export type { DetailPanelKind } from './equipmentKind';
+export type { DetailPanelKind } from './assetDetailKind';

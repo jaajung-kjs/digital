@@ -17,7 +17,7 @@ export type ConnectionFilterKey = string;
 
 // ==================== Local Cable ====================
 //
-// P8: cable endpoint 는 polymorphic — Equipment 또는 RackModule 한 쪽만 not-null.
+// P8: cable endpoint 는 polymorphic — Asset 또는 RackModule 한 쪽만 not-null.
 
 export interface LocalCable {
   id: string; // real UUID or temp ID
@@ -30,7 +30,7 @@ export interface LocalCable {
    */
   sourceAssetId: string;
   targetAssetId: string;
-  /** Rack module endpoint id — null when endpoint is the Equipment itself. */
+  /** Rack module endpoint id — null when endpoint is the Asset itself. */
   sourceModuleId?: string | null;
   targetModuleId?: string | null;
   /** 분전반 회로 endpoint id — null when endpoint 가 회로가 아닐 때. */
@@ -144,7 +144,7 @@ export interface EditorStoreState {
   pasteAssetModalOpen: boolean;
   newAssetName: string;
   pasteAssetName: string;
-  newEquipmentPosition: { x: number; y: number };
+  newAssetPosition: { x: number; y: number };
 
   // 배치할 자산종류(데이터 기반 insert bar) 또는 랙 프리셋. tool === 'asset' 일 때
   // 둘 중 하나가 설정되고, 도구 변경/배치 완료 시 초기화된다.
@@ -156,7 +156,7 @@ export interface EditorStoreState {
   preselectedCableGroupId: string | null;
 
   /** Which rack slot is currently showing the inline "add module" popover. */
-  addingAtSlot: { rackEquipmentId: string; slotIndex: number } | null;
+  addingAtSlot: { rackAssetId: string; slotIndex: number } | null;
 
   /** True while a rack module is being dragged (move or resize). Used to
    *  suppress :hover effects on empty slots so they don't flicker as the
@@ -206,7 +206,7 @@ export interface EditorStoreActions {
 
   // ── 통합 선택 + 우측 패널 단일 enum 액션 (상호배타) ──────────────────────
   /** 캔버스/1차 선택만 갱신한다 (상세 패널·viewport 는 건드리지 않음). */
-  selectEquipment: (id: string) => void;
+  selectAsset: (id: string) => void;
   /** 설비/모듈 상세를 연다 — 다른 우측 패널은 닫힌다. initialTab 지정 시 그 탭으로 연다(예: 케이블 더블클릭 → '연결'). */
   openDetail: (id: string, initialTab?: string) => void;
   /** report/history/background 패널을 연다 — 상세 포함 다른 패널은 닫힌다. */
@@ -246,7 +246,7 @@ export interface EditorStoreActions {
   setPasteAssetModalOpen: (v: boolean) => void;
   setNewAssetName: (v: string) => void;
   setPasteAssetName: (v: string) => void;
-  setNewEquipmentPosition: (p: { x: number; y: number }) => void;
+  setNewAssetPosition: (p: { x: number; y: number }) => void;
 
   // P9: kind / preset selection for the asset tool.
   setNewAssetType: (type: PlaceableType | null) => void;
@@ -256,7 +256,7 @@ export interface EditorStoreActions {
   // P9: cable group preselection.
   setPreselectedCableGroupId: (groupId: string | null) => void;
 
-  setAddingAtSlot: (s: { rackEquipmentId: string; slotIndex: number } | null) => void;
+  setAddingAtSlot: (s: { rackAssetId: string; slotIndex: number } | null) => void;
   setIsDraggingRackModule: (v: boolean) => void;
 
   // DWG-C: background layer visibility actions.
@@ -309,7 +309,7 @@ const initialState: EditorStoreState = {
   pasteAssetModalOpen: false,
   newAssetName: '',
   pasteAssetName: '',
-  newEquipmentPosition: { x: 100, y: 100 },
+  newAssetPosition: { x: 100, y: 100 },
   newAssetType: null,
   newAssetPreset: null,
   preselectedCableGroupId: null,
@@ -375,7 +375,7 @@ export const useEditorStore = create<FullStore>()((set) => ({
    * 만으로 패널이 다시 떠버리므로(단일클릭으로 패널이 열리던 버그), 단일클릭 선택 시 상세
    * 패널을 명시적으로 닫는다. 패널은 openDetail(더블클릭/딥링크/평면도진입)에서만 연다.
    */
-  selectEquipment: (id) => {
+  selectAsset: (id) => {
     set((s) => ({ selectedCableId: null, rightPanel: s.rightPanel === 'detail' ? null : s.rightPanel }));
     useSelectionStore.getState().setSelectedAssetId(id);
   },
@@ -449,7 +449,7 @@ export const useEditorStore = create<FullStore>()((set) => ({
   setPasteAssetModalOpen: (pasteAssetModalOpen) => set({ pasteAssetModalOpen }),
   setNewAssetName: (newAssetName) => set({ newAssetName }),
   setPasteAssetName: (pasteAssetName) => set({ pasteAssetName }),
-  setNewEquipmentPosition: (newEquipmentPosition) => set({ newEquipmentPosition }),
+  setNewAssetPosition: (newAssetPosition) => set({ newAssetPosition }),
 
   setNewAssetType: (newAssetType) =>
     set({ newAssetType, newAssetPreset: null }),

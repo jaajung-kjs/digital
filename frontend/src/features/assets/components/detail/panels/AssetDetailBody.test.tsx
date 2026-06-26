@@ -50,7 +50,7 @@ const wrap = (ui: ReactNode) => {
 
 describe('AssetDetailBody — SSOT 단일 상세 본문', () => {
   it('RACK: 인스펙터(종류/상태/설명) + 랙 공간 섹션(프리셋바·랙뷰)을 함께 렌더', () => {
-    wrap(<AssetDetailBody equipmentId="e1" kind="rack" asset={asset} />);
+    wrap(<AssetDetailBody assetId="e1" kind="rack" asset={asset} />);
     // 인스펙터 필드
     expect(screen.getByText('종류')).toBeTruthy();
     expect(screen.getByText('상태')).toBeTruthy();
@@ -63,7 +63,7 @@ describe('AssetDetailBody — SSOT 단일 상세 본문', () => {
 
   it('편집(이름) → stageAssetUpdate(통합 WC)', () => {
     stageAssetUpdate.mockClear();
-    wrap(<AssetDetailBody equipmentId="e1" kind="rack" asset={asset} />);
+    wrap(<AssetDetailBody assetId="e1" kind="rack" asset={asset} />);
     // 연필-인라인(#6): 평소 plain text → 연필 클릭 시 인풋 전환.
     fireEvent.click(screen.getByTitle('이름 수정'));
     const nameInput = screen.getByDisplayValue('랙01') as HTMLInputElement;
@@ -73,7 +73,7 @@ describe('AssetDetailBody — SSOT 단일 상세 본문', () => {
   });
 
   it('grounding: 공간 섹션 없음 — 인스펙터만', () => {
-    wrap(<AssetDetailBody equipmentId="e1" kind="grounding" asset={asset} />);
+    wrap(<AssetDetailBody assetId="e1" kind="grounding" asset={asset} />);
     expect(screen.getByText('종류')).toBeTruthy();
     expect(screen.queryByText('내부 설비')).toBeNull();
   });
@@ -87,7 +87,7 @@ describe('AssetDetailBody — SSOT 단일 상세 본문', () => {
       description: '', floorId: null, updatedAt: '',
     } as never;
     // 모듈은 leaf → kind=null. injected asset 으로 페치 없이 렌더.
-    wrap(<AssetDetailBody equipmentId="mod1" kind={null} asset={moduleAsset} />);
+    wrap(<AssetDetailBody assetId="mod1" kind={null} asset={moduleAsset} />);
     // 모듈 전용 RO 필드
     expect(screen.getByText('카테고리')).toBeTruthy();
     expect(screen.getByText('슬롯 위치')).toBeTruthy();

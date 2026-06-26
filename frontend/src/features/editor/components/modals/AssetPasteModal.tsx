@@ -6,7 +6,7 @@ interface AssetPasteModalProps {
 }
 
 /**
- * Modal triggered by Ctrl+V on a copied equipment. Asks for a new name
+ * Modal triggered by Ctrl+V on a copied asset. Asks for a new name
  * before committing the paste via `onPaste`.
  */
 export function AssetPasteModal({ onPaste }: AssetPasteModalProps) {

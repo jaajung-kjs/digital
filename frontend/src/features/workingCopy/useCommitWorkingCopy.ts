@@ -87,8 +87,8 @@ async function uploadStagedPhotos(
 /** changes 에 실제 변경분이 있는지(설비/케이블 어느 한쪽이라도). */
 function hasFloorChanges(changes: ReportPreviewChanges): boolean {
   return (
-    changes.before.equipment.length > 0 ||
-    changes.after.equipment.length > 0 ||
+    changes.before.assets.length > 0 ||
+    changes.after.assets.length > 0 ||
     changes.before.cables.length > 0 ||
     changes.after.cables.length > 0
   );

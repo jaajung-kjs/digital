@@ -92,7 +92,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     useSubstationWorkingCopy.getState().stageAssetCreate(copy);
     cs.setPasteAssetModalOpen(false);
     cs.setPasteAssetName('');
-    es.selectEquipment(newId);
+    es.selectAsset(newId);
     es.setClipboard({ type: 'asset', data: copy });
   }, [floorId]);
 
@@ -288,8 +288,8 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       role: type.role,
       name: cs.newAssetName,
       floorId,
-      positionX: cs.newEquipmentPosition.x,
-      positionY: cs.newEquipmentPosition.y,
+      positionX: cs.newAssetPosition.x,
+      positionY: cs.newAssetPosition.y,
       width: drawnWidth,
       height: drawnHeight,
       rotation: 0,
@@ -298,20 +298,20 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       totalU: type.role === 'rack' ? 42 : null,
     };
 
-    useSubstationWorkingCopy.getState().stageEquipmentCreate(baseEquip, type.id);
+    useSubstationWorkingCopy.getState().stagePlacementCreate(baseEquip, type.id);
 
     cs.setAssetModalOpen(false);
     cs.setNewAssetName('');
     cs.resetNewAssetSelection();
     setTool('select');
-    cs.selectEquipment(baseEquip.id);
+    cs.selectAsset(baseEquip.id);
     useToastStore.getState().showToast('설비를 배치했습니다');
   };
 
   /**
    * P9: rack preset placement — single click on canvas. The arming click
    * (sidebar) sets `newAssetPreset`; the canvas click (useCanvasEvents)
-   * sets `newEquipmentPosition` and calls this. We add the rack asset
+   * sets `newAssetPosition` and calls this. We add the rack asset
    * + auto-expand the preset modules into RackModule rows on the editor store.
    */
   const handlePlacePreset = useCallback(() => {
@@ -323,7 +323,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     const baseName = preset.name;
     // Pick a non-conflicting name — append -2/-3/... if there's already a rack with the same name.
     const existingNames = new Set(
-      useSubstationWorkingCopy.getState().effectiveEquipment(floorId).map((eq) => eq.name),
+      useSubstationWorkingCopy.getState().effectiveAssetsByFloor(floorId).map((eq) => eq.name),
     );
     let resolvedName = baseName;
     let suffix = 2;
@@ -336,8 +336,8 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       role: 'rack',
       name: resolvedName,
       floorId,
-      positionX: cs.newEquipmentPosition.x,
-      positionY: cs.newEquipmentPosition.y,
+      positionX: cs.newAssetPosition.x,
+      positionY: cs.newAssetPosition.y,
       width: preset.canvasWidth,
       height: preset.canvasHeight,
       rotation: 0,
@@ -355,7 +355,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       return;
     }
     const wc = useSubstationWorkingCopy.getState();
-    wc.stageEquipmentCreate(rackEquip, rackAssetTypeId);
+    wc.stagePlacementCreate(rackEquip, rackAssetTypeId);
 
     // Resolve module categories by code; skip silently if a preset references
     // an unknown code (data drift). Emit one console warning per occurrence.
@@ -374,7 +374,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
       }
       newModules.push({
         id: generateTempId(),
-        rackEquipmentId: rackId,
+        rackAssetId: rackId,
         categoryId: cat.id,
         name: mod.defaultName ?? cat.name,
         slotIndex: mod.slotIndex,
@@ -391,7 +391,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
     cs.resetNewAssetSelection();
     setTool('select');
-    cs.selectEquipment(rackId);
+    cs.selectAsset(rackId);
     useToastStore.getState().showToast('랙을 배치했습니다');
   }, [rackModuleCategories, floorId, rackTypeId, setTool]);
 
@@ -454,7 +454,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
                   detail/report/history/background 가 같은 우측 슬롯을 공유하므로
                   더 이상 겹치지 않는다. (그리드/투명도는 하단 상태바, 배경 교체/제거는 'background' 패널.) */}
               {rightPanel === 'detail' && detailAssetId && (
-                <AssetInspectorPanel equipmentId={detailAssetId} floorId={floorId} />
+                <AssetInspectorPanel assetId={detailAssetId} floorId={floorId} />
               )}
 
               {rightPanel === 'history' && (

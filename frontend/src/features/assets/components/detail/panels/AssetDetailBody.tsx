@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import type { Asset } from '../../../../../types/asset';
-import type { DetailPanelKind } from '../../../../../types/equipmentKind';
+import type { DetailPanelKind } from '../../../../../types/assetDetailKind';
 import { useAsset } from '../../../hooks/useAsset';
 import { useSelection } from '../../../../workspace/SelectionContext';
 import { useWorkspaceNav } from '../../../../workspace/WorkspaceNavContext';
@@ -10,7 +10,7 @@ import { AssetInspector } from '../../AssetInspector';
 import { resolveSpatialSection } from './resolveSpatialSection';
 
 interface Props {
-  equipmentId: string;
+  assetId: string;
   /** 종류별 공간 섹션 해석용. 없으면 인스펙터만(공간 섹션 없음). */
   kind?: DetailPanelKind | null;
   /** 인스펙터 모드. 변전소=edit(스테이징 편집), 본부·사업소=view(읽기전용). 기본 edit. */
@@ -33,15 +33,15 @@ interface Props {
  * - 실 id: AssetInspector + 공간 섹션.
  * - temp(미저장 신규): asset 없음 → 안내 + (있으면)공간 섹션.
  */
-export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, asset: injected, initialTab }: Props) {
+export function AssetDetailBody({ assetId, kind, mode = 'edit', onPatch, asset: injected, initialTab }: Props) {
   const spatial = useMemo(
-    () => (kind ? resolveSpatialSection(kind, equipmentId) : null),
-    [kind, equipmentId],
+    () => (kind ? resolveSpatialSection(kind, assetId) : null),
+    [kind, assetId],
   );
 
   return (
     <LiveBody
-      equipmentId={equipmentId}
+      assetId={assetId}
       mode={mode}
       onPatch={onPatch}
       injected={injected}
@@ -53,7 +53,7 @@ export function AssetDetailBody({ equipmentId, kind, mode = 'edit', onPatch, ass
 }
 
 function LiveBody({
-  equipmentId,
+  assetId,
   mode,
   onPatch,
   injected,
@@ -61,7 +61,7 @@ function LiveBody({
   spatialLabel,
   initialTab,
 }: {
-  equipmentId: string;
+  assetId: string;
   mode: 'edit' | 'view';
   onPatch?: (id: string, patch: Partial<Asset>) => void;
   injected?: Asset | null;
@@ -75,10 +75,10 @@ function LiveBody({
   // 그것을, 없을 때만(다른 변전소·미로드) 서버 페치로 폴백.
   const effective = useEffectiveAssets();
   const fromEffective = useMemo(
-    () => (injected ? undefined : effective.find((a) => a.id === equipmentId)),
-    [injected, effective, equipmentId],
+    () => (injected ? undefined : effective.find((a) => a.id === assetId)),
+    [injected, effective, assetId],
   );
-  const fetched = useAsset(injected || fromEffective ? undefined : equipmentId);
+  const fetched = useAsset(injected || fromEffective ? undefined : assetId);
   const asset = injected ?? fromEffective ?? fetched.data;
   const isLoading = injected || fromEffective ? false : fetched.isLoading;
   const sel = useSelection();

@@ -13,7 +13,7 @@ import { calculateFitToContent } from './useViewport';
 import { useCommitWorkingCopy } from '../../workingCopy/useCommitWorkingCopy';
 import { isRackModuleAsset } from '../../workingCopy/assetClassify';
 
-function nudgeEquipment(eq: Asset, dx: number, dy: number): Asset {
+function nudgeAsset(eq: Asset, dx: number, dy: number): Asset {
   return { ...eq, positionX: (eq.positionX ?? 0) + dx, positionY: (eq.positionY ?? 0) + dy };
 }
 
@@ -84,14 +84,14 @@ export function useEditorKeyboard(
       if (key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
 
       // SSOT-2d Task 4 — 설비 읽기는 통합 스토어 effective 에서(쓰기도 stage 액션).
-      const localEquipment = floorPlan
-        ? useSubstationWorkingCopy.getState().effectiveEquipment(floorPlan.id)
+      const localAssets = floorPlan
+        ? useSubstationWorkingCopy.getState().effectiveAssetsByFloor(floorPlan.id)
         : [];
-      const selectedEquipment = getSelectedAsset();
+      const selectedAsset = getSelectedAsset();
 
       // Arrow nudge for asset
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !e.ctrlKey) {
-        if (!selectedEquipment) return;
+        if (!selectedAsset) return;
         e.preventDefault();
         const { gridSize, gridSnap: snap } = es;
         const baseStep = snap ? gridSize : 1;
@@ -103,12 +103,12 @@ export function useEditorKeyboard(
         if (e.key === 'ArrowUp') dy = -step;
         if (e.key === 'ArrowDown') dy = step;
 
-        const moved = nudgeEquipment(selectedEquipment, dx, dy);
+        const moved = nudgeAsset(selectedAsset, dx, dy);
         useSubstationWorkingCopy.getState().stageAssetUpdate(moved.id, {
           positionX: moved.positionX ?? 0,
           positionY: moved.positionY ?? 0,
         });
-        // selectedEquipment 가 selector 로 도출되므로 별도 동기화 불필요.
+        // selectedAsset 가 selector 로 도출되므로 별도 동기화 불필요.
         return;
       }
 
@@ -155,11 +155,11 @@ export function useEditorKeyboard(
         return;
       }
 
-      // Delete — equipment (cascades cables + pending data)
-      if (isDeleteKey && selectedEquipment) {
+      // Delete — asset (cascades cables + pending data)
+      if (isDeleteKey && selectedAsset) {
         e.preventDefault();
-        if (!window.confirm(`'${selectedEquipment.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
-        useSubstationWorkingCopy.getState().stageEquipmentDeleteCascade(selectedEquipment.id);
+        if (!window.confirm(`'${selectedAsset.name}' 설비를 삭제하시겠습니까? 연결된 케이블도 함께 삭제됩니다.`)) return;
+        useSubstationWorkingCopy.getState().stageAssetDeleteCascade(selectedAsset.id);
         es.clearSelection();
       }
 
@@ -185,7 +185,7 @@ export function useEditorKeyboard(
         const container = containerRef?.current;
         if (container) {
           const fit = calculateFitToContent(
-            localEquipment,
+            localAssets,
             floorPlan?.backgroundDrawing ?? null,
             floorPlan ? { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight } : null,
             container.clientWidth,
@@ -197,9 +197,9 @@ export function useEditorKeyboard(
       }
 
       // Ctrl+C copy asset — 클립보드는 선택된 Asset 을 그대로 담는다(붙여넣기에서 복제).
-      if (e.ctrlKey && key === 'c' && selectedEquipment) {
+      if (e.ctrlKey && key === 'c' && selectedAsset) {
         e.preventDefault();
-        es.setClipboard({ type: 'asset', data: selectedEquipment });
+        es.setClipboard({ type: 'asset', data: selectedAsset });
       }
 
       // Ctrl+V paste asset (opens name modal)

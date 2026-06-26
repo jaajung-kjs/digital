@@ -31,23 +31,23 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => {
   };
 });
 
-import { EquipmentSelectCell } from './EquipmentSelectCell';
+import { AssetSelectCell } from './AssetSelectCell';
 
 function wrap(ui: ReactNode) { return render(<>{ui}</>); }
 
-describe('EquipmentSelectCell (읽기전용)', () => {
+describe('AssetSelectCell (읽기전용)', () => {
   it('자국 점유 코어 → 연결 설비명 표시', () => {
-    wrap(<EquipmentSelectCell slot={SLOT_ASSET as never} coreNumber={3} side="local" />);
+    wrap(<AssetSelectCell slot={SLOT_ASSET as never} coreNumber={3} side="local" />);
     expect(screen.getByText('자국장비')).toBeInTheDocument();
   });
 
   it('빈 코어 → 대시(—)', () => {
-    wrap(<EquipmentSelectCell slot={SLOT_ASSET as never} coreNumber={5} side="local" />);
+    wrap(<AssetSelectCell slot={SLOT_ASSET as never} coreNumber={5} side="local" />);
     expect(screen.getByText('—')).toBeInTheDocument();
   });
 
   it('endpoint 가드: 대국 셀은 대국 설비(자국 아님)', () => {
-    wrap(<EquipmentSelectCell slot={SLOT_ASSET as never} coreNumber={3} side="remote" />);
+    wrap(<AssetSelectCell slot={SLOT_ASSET as never} coreNumber={3} side="remote" />);
     expect(screen.getByText('대국장비')).toBeInTheDocument();
     expect(screen.queryByText('자국장비')).toBeNull();
   });

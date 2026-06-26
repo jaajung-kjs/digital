@@ -8,7 +8,7 @@ import type { Asset } from '../../../types/asset';
  * 코어 OUT 케이블이 닿은 설비 이름을 표시(미연결 '—'). 코어↔설비 *연결*은
  * 슬롯 포트 패널(SlotPortsPanel)의 "케이블 연결"(표준 케이블 흐름)에서 한다.
  */
-export function EquipmentSelectCell({ slot, coreNumber, side }: {
+export function AssetSelectCell({ slot, coreNumber, side }: {
   slot: Asset; coreNumber: number; side: 'local' | 'remote';
 }) {
   const { graph } = useTraceGraph();

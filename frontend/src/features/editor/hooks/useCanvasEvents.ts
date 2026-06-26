@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
-import { needsEndpointPicker } from '../../../types/equipmentKind';
+import { needsEndpointPicker } from '../../../types/assetDetailKind';
 import { snapToGrid as snapToGridUtil } from '../../../utils/canvas/canvasTransform';
 import { findItemAt } from '../../../utils/floorplan/hitTestUtils';
 import { createDragSession, applyDrag, isDragThresholdMet } from '../../../utils/floorplan/dragSystem';
-import { type Position, getEquipmentCenter } from '../../../utils/floorplan/elementSystem';
+import { type Position, getAssetCenter } from '../../../utils/floorplan/elementSystem';
 import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
@@ -37,7 +37,7 @@ function findClosestCableId(x: number, y: number, zoom: number): string | null {
 
 /**
  * Mouse/wheel event handlers for the canvas.
- * Tools: select, equipment, cable. (Delete via Delete key on selection.)
+ * Tools: select, asset, cable. (Delete via Delete key on selection.)
  *
  * P9: when a rack preset is armed (`newAssetPreset`), the asset tool
  * switches from drag-to-draw to single-click placement; the host component
@@ -53,14 +53,14 @@ export function useCanvasEvents(
   const editorStore = useEditorStore;
   // SSOT-2d Task 3 — 히트테스트/조회 읽기는 통합 스토어 effective 에서.
   // (드래그 적용 등 쓰기 경로는 Task 4 까지 editorStore 유지.)
-  const effectiveEquipment = useCallback(
-    () => (floorId ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId) : []),
+  const effectiveFloorAssets = useCallback(
+    () => (floorId ? useSubstationWorkingCopy.getState().effectiveAssetsByFloor(floorId) : []),
     [floorId],
   );
   // Canvas interaction state has been merged into editorStore (Tier D)
   const canvasStore = useEditorStore;
   const lastHoverPos = useRef<{ x: number; y: number } | null>(null);
-  // UX#1 — 드래그 한 번 = undo 한 스텝. 드래그는 mousemove 마다 stageEquipmentUpdate
+  // UX#1 — 드래그 한 번 = undo 한 스텝. 드래그는 mousemove 마다 stageAssetUpdate
   // 를 호출해 zundo temporal 에 프레임 수만큼 history 가 쌓인다(undo 가 1px 씩만
   // 되돌아가 "동작 안 함"처럼 보임). 첫 프레임만 기록(=드래그 직전 overlay 가
   // pastState 로 캡처)하고 나머지 프레임은 temporal.pause() 로 묶은 뒤,
@@ -99,7 +99,7 @@ export function useCanvasEvents(
     const { x, y } = getCanvasCoordinates(e);
     const { isSpacePressed } = canvasStore.getState();
     const { tool } = editorStore.getState();
-    const localEquipment = effectiveEquipment();
+    const localAssets = effectiveFloorAssets();
 
     if (e.button === 1 || isSpacePressed) {
       e.preventDefault();
@@ -112,7 +112,7 @@ export function useCanvasEvents(
     const cableDrawing = getCableDrawing();
     if (cableDrawing) {
       if (cableDrawing.phase === 'selectingSource') {
-        const found = findItemAt(x, y, null, localEquipment);
+        const found = findItemAt(x, y, null, localAssets);
         if (!found) {
           canvasStore.getState().setIsPanning(true);
           canvasStore.getState().setPanStart({ x: screenX, y: screenY });
@@ -122,15 +122,15 @@ export function useCanvasEvents(
     }
 
     if (tool === 'select') {
-      const found = findItemAt(x, y, null, localEquipment);
+      const found = findItemAt(x, y, null, localAssets);
       if (found) {
         const session = createDragSession(found, { x, y });
         canvasStore.getState().setDragSession(session);
         // 단일 클릭 = 설비 선택(하이라이트 + 리사이즈 핸들). 단, 뷰포트 강제이동·상세 패널은
-        // 더블클릭에서만 — selectEquipment 는 selectedAssetId 만 바꾸고 focusTick 을 bump 하지
+        // 더블클릭에서만 — selectAsset 는 selectedAssetId 만 바꾸고 focusTick 을 bump 하지
         // 않으므로, focusTick 에만 묶인 viewport 정렬 effect 가 단일클릭에선 발화하지 않는다.
         // 하이라이트는 useSelectionHighlight 가 selectedAssetId 로 파생.
-        editorStore.getState().selectEquipment(found.item.id);
+        editorStore.getState().selectAsset(found.item.id);
       } else {
         // Cable hit test
         const closestCableId = findClosestCableId(x, y, editorStore.getState().zoom);
@@ -146,7 +146,7 @@ export function useCanvasEvents(
         }
       }
     }
-  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, canvasStore, effectiveEquipment]);
+  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, canvasStore, effectiveFloorAssets]);
 
   const handleCanvasMouseMove = useCallback((e: PointerLike) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -171,15 +171,15 @@ export function useCanvasEvents(
 
     // 2cm throttle 로 hovered 설비 갱신. cable selectingSource / drawingPath
     // 두 흐름이 동일 패턴이라 헬퍼로 통합.
-    const updateHoveredEquipment = (
+    const updateHoveredAsset = (
       currentHovered: string | null,
       setHovered: (id: string | null) => void,
     ) => {
       const last = lastHoverPos.current;
       if (last && Math.abs(worldX - last.x) < 2 && Math.abs(worldY - last.y) < 2) return;
       lastHoverPos.current = { x: worldX, y: worldY };
-      const localEquipment = effectiveEquipment();
-      const found = findItemAt(worldX, worldY, null, localEquipment);
+      const localAssets = effectiveFloorAssets();
+      const found = findItemAt(worldX, worldY, null, localAssets);
       const newHovered = found?.type === 'asset' ? found.item.id : null;
       if (newHovered !== currentHovered) setHovered(newHovered);
     };
@@ -188,7 +188,7 @@ export function useCanvasEvents(
     const cableDrawing = getCableDrawing();
     const interaction = useInteractionStore.getState();
     if (cableDrawing?.phase === 'selectingSource') {
-      updateHoveredEquipment(cableDrawing.hoveredAssetId, interaction.cableSetHovered);
+      updateHoveredAsset(cableDrawing.hoveredAssetId, interaction.cableSetHovered);
       return;
     }
     if (cableDrawing?.phase === 'drawingPath') {
@@ -207,7 +207,7 @@ export function useCanvasEvents(
         }
       }
       interaction.cableSetPreviewPoint({ x: snapped.x, y: snapped.y });
-      updateHoveredEquipment(cableDrawing.hoveredAssetId, interaction.cableSetHovered);
+      updateHoveredAsset(cableDrawing.hoveredAssetId, interaction.cableSetHovered);
       return;
     }
 
@@ -235,7 +235,7 @@ export function useCanvasEvents(
     }
 
     if (tool === 'select' && !dragSession && canvasRef.current) {
-      const eqs = effectiveEquipment();
+      const eqs = effectiveFloorAssets();
       const found = findItemAt(worldX, worldY, null, eqs);
       canvasRef.current.style.cursor = found ? 'pointer' : 'default';
     }
@@ -245,10 +245,10 @@ export function useCanvasEvents(
     const snapFn = (pos: Position) => snapToGrid(pos.x, pos.y);
     // SSOT-2d Task 4 — 드래그 적용을 통합 스토어 stage 액션으로.
     // applyDrag 은 session.target.id 한 설비만 새 좌표로 옮기므로 그 설비의
-    // 새 positionX/Y 만 추출해 stageEquipmentUpdate 로 올린다(좌표만).
-    const eqs = effectiveEquipment();
+    // 새 positionX/Y 만 추출해 stageAssetUpdate 로 올린다(좌표만).
+    const eqs = effectiveFloorAssets();
     const result = applyDrag(null, eqs, dragSession, snapped, snapFn);
-    const moved = result.equipment.find((e) => e.id === dragSession.target.id);
+    const moved = result.assets.find((e) => e.id === dragSession.target.id);
     if (moved) {
       // 첫 프레임만 temporal 에 기록(드래그 직전 overlay 가 단일 pastState 로 캡처),
       // 이후 프레임은 pause 해 history 폭주를 막는다(mouseup 에서 resume).
@@ -267,7 +267,7 @@ export function useCanvasEvents(
     if (dragSession.target.type === 'asset') {
       syncCableEndpointsTo(dragSession.target.id);
     }
-  }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, effectiveEquipment]);
+  }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, effectiveFloorAssets]);
 
   const handleCanvasMouseUp = useCallback(() => {
     // 드래그 종료 — 묶었던 history 기록을 재개한다(다음 편집부터 정상 기록).
@@ -310,17 +310,17 @@ export function useCanvasEvents(
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
     const { tool } = editorStore.getState();
-    const localEquipment = effectiveEquipment();
+    const localAssets = effectiveFloorAssets();
     const cs = canvasStore.getState();
 
     // Cable drawing
     const cableDrawing = getCableDrawing();
     const interaction = useInteractionStore.getState();
     if (cableDrawing?.phase === 'selectingSource') {
-      const found = findItemAt(x, y, null, localEquipment);
+      const found = findItemAt(x, y, null, localAssets);
       if (found?.type === 'asset') {
         const eq = found.item;
-        const center = getEquipmentCenter(eq);
+        const center = getAssetCenter(eq);
         // RACK / DISTRIBUTION / OFD endpoints require a module / circuit / port step.
         if (needsEndpointPicker(eq.assetType?.role)) {
           interaction.cableSetPendingSource();
@@ -338,10 +338,10 @@ export function useCanvasEvents(
       return;
     }
     if (cableDrawing?.phase === 'drawingPath') {
-      const found = findItemAt(x, y, null, localEquipment);
+      const found = findItemAt(x, y, null, localAssets);
       if (found?.type === 'asset' && found.item.id !== cableDrawing.source?.containerAssetId) {
         const eq = found.item;
-        const center = getEquipmentCenter(eq);
+        const center = getAssetCenter(eq);
         if (needsEndpointPicker(eq.assetType?.role)) {
           interaction.cableSetPendingTarget();
           // 컨테이너를 선택만 해 둔다 — CableEndpointDialog 가 내부뷰를 다이얼로그로 노출한다.
@@ -375,7 +375,7 @@ export function useCanvasEvents(
         // and auto-expands the preset modules. No drag, no name modal.
         if (cs.newAssetPreset) {
           const preset = cs.newAssetPreset;
-          cs.setNewEquipmentPosition({ x: snapped.x, y: snapped.y });
+          cs.setNewAssetPosition({ x: snapped.x, y: snapped.y });
           cs.setAssetDrawnSize({
             width: preset.canvasWidth,
             height: preset.canvasHeight,
@@ -396,7 +396,7 @@ export function useCanvasEvents(
           const eqW = Math.abs(eqEndX - cs.assetStart!.x);
           const eqH = Math.abs(eqEndY - cs.assetStart!.y);
           if (eqW >= 10 && eqH >= 10) {
-            cs.setNewEquipmentPosition({ x: eqX, y: eqY });
+            cs.setNewAssetPosition({ x: eqX, y: eqY });
             cs.setAssetDrawnSize({ width: eqW, height: eqH });
             cs.closeAllModals();
             cs.setAssetModalOpen(true);
@@ -407,7 +407,7 @@ export function useCanvasEvents(
         break;
       }
     }
-  }, [floorPlan, canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, onPlacePreset, effectiveEquipment]);
+  }, [floorPlan, canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, onPlacePreset, effectiveFloorAssets]);
 
   const handleCanvasDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!floorPlan) return;
@@ -419,9 +419,9 @@ export function useCanvasEvents(
     const x = (e.clientX - rect.left - panX) / (zoom / 100);
     const y = (e.clientY - rect.top - panY) / (zoom / 100);
 
-    const equipment = effectiveEquipment();
+    const assets = effectiveFloorAssets();
 
-    for (const eq of [...equipment].reverse()) {
+    for (const eq of [...assets].reverse()) {
       const eqX = eq.positionX ?? 0;
       const eqY = eq.positionY ?? 0;
       if (
@@ -460,7 +460,7 @@ export function useCanvasEvents(
         useSelectionStore.getState().setSelectedComponent(endpoint, cable?.number ?? null, closestCableId);
       }
     }
-  }, [floorPlan, canvasRef, editorStore, effectiveEquipment]);
+  }, [floorPlan, canvasRef, editorStore, effectiveFloorAssets]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
@@ -493,10 +493,10 @@ export function useCanvasEvents(
     if (!floorPlan || !canvasRef.current) return;
 
     const { x, y } = getCanvasCoordinates(e);
-    const localEquipment = effectiveEquipment();
+    const localAssets = effectiveFloorAssets();
 
     // 설비 우선 히트 테스트
-    const found = findItemAt(x, y, null, localEquipment);
+    const found = findItemAt(x, y, null, localAssets);
     if (found?.type === 'asset') {
       onContextMenuRequest?.({
         x: e.clientX,
@@ -515,7 +515,7 @@ export function useCanvasEvents(
         target: { type: 'cable', id: closestCableId },
       });
     }
-  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, onContextMenuRequest, effectiveEquipment]);
+  }, [floorPlan, canvasRef, getCanvasCoordinates, editorStore, onContextMenuRequest, effectiveFloorAssets]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

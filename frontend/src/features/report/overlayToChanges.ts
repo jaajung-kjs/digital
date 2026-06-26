@@ -2,7 +2,7 @@ import type { Asset } from '../../types/asset';
 import type {
   PlanSnapshot,
   ReportPreviewChanges,
-  EquipmentSnapshotItem,
+  AssetSnapshotItem,
   CableSnapshotItem,
 } from '../../types/constructionReport';
 import { mergeEffective } from '../workingCopy/effective';
@@ -26,7 +26,7 @@ import { cableDtoToLocal, type CableDetailDTO } from '../workingCopy/cableToLoca
 //
 // floor-scope:
 //   - assets: floorId === activeFloorId (랙모듈 자식 포함 — 모듈도 floorId 상속).
-//   - cables: source/target 의 {equipmentId, moduleId} 중 하나라도 그 층 asset id
+//   - cables: source/target 의 {assetId, moduleId} 중 하나라도 그 층 asset id
 //     (useEffectiveFloorCables 의 floor-cable predicate 재사용).
 // ──────────────────────────────────────────────────────────────────────────
 
@@ -42,13 +42,13 @@ interface Overlays {
 }
 
 /**
- * Asset → 설계서 equipment 스냅샷 항목.
+ * Asset → 설계서 asset 스냅샷 항목.
  *
  * 노무규칙 정본은 백엔드가 `assetTypeId` 로 해소한다. staged-create
  * 설비는 assetType 이 placeholder({ role })라 code 가 없으므로,
  * assetTypeId 를 함께 보내야 노무가 산출된다.
  */
-function assetToSnapshot(a: Asset): EquipmentSnapshotItem {
+function assetToSnapshot(a: Asset): AssetSnapshotItem {
   return {
     id: a.id,
     name: a.name,
@@ -75,7 +75,7 @@ function cableToSnapshot(c: Cable): CableSnapshotItem {
 
 function buildSnapshot(assets: Asset[], cables: Cable[]): PlanSnapshot {
   return {
-    equipment: assets.map(assetToSnapshot),
+    assets: assets.map(assetToSnapshot),
     cables: cables.map(cableToSnapshot),
   };
 }
@@ -135,11 +135,11 @@ export function overlayToChanges(
   const before = buildSnapshot(savedFloorAssets, savedFloorCables);
   const after = buildSnapshot(effAssets, effCables);
 
-  const eq = pruneUnchanged(before.equipment, after.equipment);
+  const eq = pruneUnchanged(before.assets, after.assets);
   const cb = pruneUnchanged(before.cables, after.cables);
 
   return {
-    before: { equipment: eq.before, cables: cb.before },
-    after: { equipment: eq.after, cables: cb.after },
+    before: { assets: eq.before, cables: cb.before },
+    after: { assets: eq.after, cables: cb.after },
   };
 }

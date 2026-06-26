@@ -19,8 +19,8 @@ const API = 'http://localhost:3000/api';
 
 interface CableDetailDTO {
   id: string;
-  source: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null };
-  target: { equipmentId: string | null; moduleId: string | null; circuitId?: string | null };
+  source: { assetId: string | null; moduleId: string | null; circuitId?: string | null };
+  target: { assetId: string | null; moduleId: string | null; circuitId?: string | null };
   cableType: string;
   fiberPathId?: string | null;
   fiberPortNumber?: number | null;
@@ -33,8 +33,8 @@ interface CableDetailDTO {
 function cableDtoToLocal(c: CableDetailDTO): LocalCable {
   return {
     id: c.id,
-    sourceEquipmentId: c.source.equipmentId ?? c.source.moduleId ?? c.source.circuitId ?? '',
-    targetEquipmentId: c.target.equipmentId ?? c.target.moduleId ?? c.target.circuitId ?? '',
+    sourceAssetId: c.source.assetId ?? c.source.moduleId ?? c.source.circuitId ?? '',
+    targetAssetId: c.target.assetId ?? c.target.moduleId ?? c.target.circuitId ?? '',
     sourceModuleId: c.source.moduleId ?? null,
     targetModuleId: c.target.moduleId ?? null,
     sourceCircuitId: c.source.circuitId ?? null,
@@ -66,13 +66,13 @@ async function main() {
   }
   console.log(`시드 cable: ${seed.id} (FP=${seed.fiberPathId}, port=${seed.fiberPortNumber})`);
 
-  // 사용자 실제 flow 와 동일: equipment/rackModules = 현재 floor 만
+  // 사용자 실제 flow 와 동일: asset/rackModules = 현재 floor 만
   // 단 dev 환경에선 *어떤 floor* 가 active 인지 모르므로 *빈 배열* 로 시도.
   // cableTracer 의 externalInfo lookup (fiberPaths 기반) 이 다 채워야 정상.
   const result = traceCable({
     cableId: seed.id,
     cables,
-    equipment: [],
+    assets: [],
     rackModules: [],
     fiberPaths,
   });
@@ -83,22 +83,22 @@ async function main() {
   console.log(`rings: ${result.rings.length}  (level0=${result.rings.filter((r) => r.level === 0).length}, level1=${result.rings.filter((r) => r.level === 1).length})`);
 
   console.log(`\n=== 노드 이름 검증 (UUID 잔존?) ===`);
-  const uuidLike = result.nodes.filter((n) => /^[0-9a-f]{8}-/i.test(n.equipmentName) || /^[0-9a-f-]{36}$/.test(n.equipmentName));
+  const uuidLike = result.nodes.filter((n) => /^[0-9a-f]{8}-/i.test(n.assetName) || /^[0-9a-f-]{36}$/.test(n.assetName));
   console.log(`UUID-shaped name 노드: ${uuidLike.length}`);
   if (uuidLike.length > 0) {
-    console.log('  ↳', uuidLike.map((n) => n.equipmentName.slice(0, 12)).join(', '));
+    console.log('  ↳', uuidLike.map((n) => n.assetName.slice(0, 12)).join(', '));
   }
   const noSubstation = result.nodes.filter((n) => !n.substationName);
   console.log(`substationName 빈 노드: ${noSubstation.length}`);
   if (noSubstation.length > 0) {
-    console.log('  ↳', noSubstation.map((n) => `${n.equipmentName.slice(0, 20)}(${n.equipmentId.slice(0, 10)})`).join(', '));
+    console.log('  ↳', noSubstation.map((n) => `${n.assetName.slice(0, 20)}(${n.assetId.slice(0, 10)})`).join(', '));
   }
 
   console.log(`\n=== 변전소별 그룹 (NetworkTopologyModal 의 groupBySubstation 시뮬) ===`);
   const groups = new Map<string, { name: string; nodes: typeof result.nodes }>();
   for (const n of result.nodes) {
-    const key = n.substationName || n.substationId || n.equipmentId;
-    if (!groups.has(key)) groups.set(key, { name: n.substationName || n.equipmentName, nodes: [] });
+    const key = n.substationName || n.substationId || n.assetId;
+    if (!groups.has(key)) groups.set(key, { name: n.substationName || n.assetName, nodes: [] });
     groups.get(key)!.nodes.push(n);
   }
   console.log(`그룹 수: ${groups.size}`);

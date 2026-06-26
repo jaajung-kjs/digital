@@ -79,8 +79,8 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   useWorkingCopyLoader(floor?.substationId ?? null);
 
   // 초기 fit 게이트: 통합 working copy 가 이 변전소에 대해 로드 완료됐는지. 로드 전엔
-  // effectiveEquipment(floorId) 가 빈 배열이라 fit 이 0,0 으로 떨어진다 → 로드될
-  // 때까지 viewportInitialized 를 세우지 않고 effect 를 다시 돌려 실제 설비에 맞춘다.
+  // effectiveAssetsByFloor(floorId) 가 빈 배열이라 fit 이 0,0 으로 떨어진다 → 로드될
+  // 때까지 viewportInitialized 를 세우지 않고 effect 를 다시 돌려 실제 자산에 맞춘다.
   const wcLoaded = useWorkingCopyLoaded(floor?.substationId ?? null);
 
   const { data: serverPlan, isLoading: planLoading, error: planError } = useQuery({
@@ -190,15 +190,15 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       // 진입 시 항상 설비 bounds 에 맞춰 fit — stale localStorage 복원으로 0,0 에
       // 떨어지지 않게 한다(사용자 요구: 첫 진입에 모든 설비 한눈에).
       // bounds 는 통합 working copy 의 EFFECTIVE 설비(미저장 staged 배치 포함).
-      // 로드 직후 effective 가 비면 GET /plan 응답의 saved equipment 로 폴백.
-      const effectiveEquipment = floorId
-        ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
+      // 로드 직후 effective 가 비면 GET /plan 응답의 saved assets 로 폴백.
+      const effectiveAssets = floorId
+        ? useSubstationWorkingCopy.getState().effectiveAssetsByFloor(floorId)
         : [];
       // 폴백(GET /plan 의 saved assets)은 최소 배치 모양이라 fit 가
       // 읽는 배치 필드(positionX/Y/width2d/height2d)만 Asset 투영으로 흡수한다.
-      const fitEquipment: Asset[] =
-        effectiveEquipment.length > 0
-          ? effectiveEquipment
+      const fitAssets: Asset[] =
+        effectiveAssets.length > 0
+          ? effectiveAssets
           : floorPlan.assets.map((e) => ({
               positionX: e.positionX,
               positionY: e.positionY,
@@ -206,7 +206,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
               height2d: e.height,
             } as Asset));
       fitToContent(
-        fitEquipment,
+        fitAssets,
         effectiveBg,
         { width: floorPlan.canvasWidth, height: floorPlan.canvasHeight },
         container.clientWidth,

@@ -1,6 +1,6 @@
 /**
- * 평면도 캔버스 렌더러 — 설비(Equipment) 전용.
- * FloorPlanElement가 제거된 이후 이 파일은 설비 그리기/미리보기/길이표시만 담당한다.
+ * 평면도 캔버스 렌더러 — 자산(Asset) 전용.
+ * FloorPlanElement가 제거된 이후 이 파일은 자산 그리기/미리보기/길이표시만 담당한다.
  */
 
 import type { Asset } from '../../types/asset';
@@ -46,12 +46,12 @@ export function renderLengthLabel(
 }
 
 // ============================================
-// Equipment 렌더링
+// Asset 렌더링
 // ============================================
 
 const fontSizeCache = new Map<string, number>();
 
-export function renderEquipmentItem(
+export function renderAssetItem(
   ctx: CanvasRenderingContext2D,
   item: Asset,
   isSelected: boolean,
@@ -104,18 +104,18 @@ export function renderEquipmentItem(
   ctx.restore();
 }
 
-export function renderEquipmentItems(
+export function renderAssetItems(
   ctx: CanvasRenderingContext2D,
   items: Asset[],
   selectedIds: string[],
 ): void {
   for (const item of items) {
-    renderEquipmentItem(ctx, item, selectedIds.includes(item.id));
+    renderAssetItem(ctx, item, selectedIds.includes(item.id));
   }
 }
 
 /** 설비 배치 직전, 마우스 hover 위치에 십자선 표시 */
-export function renderEquipmentPreview(
+export function renderAssetPreview(
   ctx: CanvasRenderingContext2D,
   position: { x: number; y: number },
 ): void {
@@ -165,7 +165,7 @@ export function renderPresetPreview(
 }
 
 /** drag-to-draw 중 설비 박스 미리보기 */
-export function renderEquipmentDrawPreview(
+export function renderAssetDrawPreview(
   ctx: CanvasRenderingContext2D,
   start: { x: number; y: number },
   end: { x: number; y: number } | null,
@@ -200,7 +200,7 @@ export function renderEquipmentDrawPreview(
 }
 
 /** 설비 가로/세로 길이 표시 */
-export function renderEquipmentLengths(
+export function renderAssetLengths(
   ctx: CanvasRenderingContext2D,
   items: Asset[],
   zoom: number = 100,

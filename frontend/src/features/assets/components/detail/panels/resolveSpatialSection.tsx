@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { DetailPanelKind } from '../../../../../types/equipmentKind';
+import type { DetailPanelKind } from '../../../../../types/assetDetailKind';
 import { RackInternal } from './RackAssetPanel';
 import { OfdPathsView } from './OfdAssetPanel';
 import { DistributionCircuits } from './DistributionPanel';
@@ -22,33 +22,33 @@ export interface SpatialSection {
  */
 export function resolveSpatialSection(
   kind: DetailPanelKind,
-  equipmentId: string,
+  assetId: string,
 ): SpatialSection | null {
   switch (kind) {
     case 'rack':
       return {
         label: '내부 설비',
-        node: <RackInternal equipmentId={equipmentId} />,
+        node: <RackInternal assetId={assetId} />,
       };
     case 'ofd':
       return {
         label: '경로',
-        node: <OfdPathsView equipmentId={equipmentId} />,
+        node: <OfdPathsView assetId={assetId} />,
       };
     case 'distribution':
       return {
         label: '회로',
-        node: <DistributionCircuits equipmentId={equipmentId} />,
+        node: <DistributionCircuits assetId={assetId} />,
       };
     case 'conduit-ports':
       return {
         label: '포트',
-        node: <SlotPortsPanel slotId={equipmentId} />,
+        node: <SlotPortsPanel slotId={assetId} />,
       };
     case 'feeder-circuits':
       return {
         label: '분기',
-        node: <FeederCircuitsPanel feederId={equipmentId} />,
+        node: <FeederCircuitsPanel feederId={assetId} />,
       };
     default:
       return null;
