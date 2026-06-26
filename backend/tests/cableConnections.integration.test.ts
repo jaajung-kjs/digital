@@ -25,7 +25,7 @@ describe('연결 조회 — 변전소/자산', () => {
       await request(app).post('/api/auth/login').send({ username: 'admin', password: 'admin123' })
     ).body.accessToken;
 
-    const hq = await prisma.headquarters.create({ data: { name: '__conn_hq__' } }); hqId = hq.id;
+    const hq = await prisma.headquarters.create({ data: { name: `__conn_hq__${Date.now()}` } }); hqId = hq.id;
     const br = await prisma.branch.create({ data: { name: '__conn_br__', headquartersId: hq.id } }); brId = br.id;
     const sub = await prisma.substation.create({ data: { name: '__conn_sub__', branchId: br.id } }); subId = sub.id;
     typeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device' } })).id;
@@ -71,7 +71,7 @@ describe('연결 조회 — 변전소/자산', () => {
     await prisma.asset.deleteMany({ where: { id: { in: [a1Id, a2Id, moduleId, rackId, distId, circuitId] } } });
     await prisma.substation.delete({ where: { id: subId } }).catch(() => {});
     await prisma.branch.delete({ where: { id: brId } }).catch(() => {});
-    await prisma.headquarters.delete({ where: { id: hqId } }).catch(() => {});
+    await prisma.headquarters.deleteMany({ where: { id: hqId } }).catch(() => {});
     await prisma.$disconnect();
   });
 

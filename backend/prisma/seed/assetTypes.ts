@@ -84,13 +84,11 @@ export async function seedAssetTypes(prisma: PrismaClient): Promise<Map<string, 
       sortOrder: t.sortOrder,
       ...(lab ? { laborType: lab.laborType, installHoursPerUnit: lab.install, removeHoursPerUnit: lab.remove, relocateHoursPerUnit: lab.relocate ?? null } : {}),
     };
-    const existing = await prisma.assetType.findFirst({ where: { name: t.name } });
-    let row;
-    if (existing) {
-      row = await prisma.assetType.update({ where: { id: existing.id }, data: common });
-    } else {
-      row = await prisma.assetType.create({ data: common });
-    }
+    const row = await prisma.assetType.upsert({
+      where: { name: t.name },
+      update: common,
+      create: common,
+    });
     typeKeyToId.set(t.key, row.id);
   }
   console.log(`✅ seeded ${ASSET_TYPE_SEEDS.length} asset types + ${categories.length} categories`);

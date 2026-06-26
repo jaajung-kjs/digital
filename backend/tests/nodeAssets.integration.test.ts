@@ -15,7 +15,7 @@ describe('노드범위 자산 리스트 GET /api/nodes/:id/assets', () => {
     app.use('/api/auth', authRouter); app.use('/api/nodes', nodesRouter); app.use(errorHandler);
     token = (await request(app).post('/api/auth/login').send({ username: 'admin', password: 'admin123' })).body.accessToken;
 
-    const hq = await prisma.headquarters.create({ data: { name: '__na_hq__' } }); hqId = hq.id;
+    const hq = await prisma.headquarters.create({ data: { name: `__na_hq__${Date.now()}` } }); hqId = hq.id;
     const br = await prisma.branch.create({ data: { name: '__na_br__', headquartersId: hq.id } }); brId = br.id;
     const sub = await prisma.substation.create({ data: { name: '__na_sub__', branchId: br.id } }); subId = sub.id;
     const sub2 = await prisma.substation.create({ data: { name: '__na_sub2__', branchId: br.id } }); sub2Id = sub2.id;

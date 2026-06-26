@@ -55,12 +55,11 @@ export async function seedCableCategories(prisma: PrismaClient) {
   for (const cat of cableCategories) {
     const groupId = groupIdByName.get(cat.groupName) ?? null;
     if (!groupId) continue;
-    const existing = await prisma.cableCategory.findFirst({ where: { name: cat.name, groupId } });
-    if (existing) {
-      await prisma.cableCategory.update({ where: { id: existing.id }, data: { sortOrder: cat.sortOrder } });
-    } else {
-      await prisma.cableCategory.create({ data: { name: cat.name, groupId, sortOrder: cat.sortOrder } });
-    }
+    await prisma.cableCategory.upsert({
+      where: { name_groupId: { name: cat.name, groupId } },
+      update: { sortOrder: cat.sortOrder },
+      create: { name: cat.name, groupId, sortOrder: cat.sortOrder },
+    });
   }
   console.log(`  ✅ ${cableCategories.length}개 케이블 카테고리 + ${Object.keys(GROUP_RULES).length}개 그룹`);
 }

@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type CableRole } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { collectConflicts, VersionConflictError, type ConflictItem } from './concurrency.js';
 import {
@@ -657,8 +657,8 @@ async function run(
           length: p.length as number | null | undefined,
           description: p.description as string | null | undefined,
           number: p.number as number | null | undefined,
-          sourceRole: p.sourceRole as 'IN' | 'OUT' | null | undefined,
-          targetRole: p.targetRole as 'IN' | 'OUT' | null | undefined,
+          sourceRole: p.sourceRole as CableRole | null | undefined,
+          targetRole: p.targetRole as CableRole | null | undefined,
           categoryId: p.categoryId as string | null | undefined,
           specParams: p.specParams as Prisma.InputJsonValue | undefined,
           pathPoints: p.pathPoints as Prisma.InputJsonValue | undefined,

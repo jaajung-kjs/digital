@@ -64,7 +64,7 @@ enum UserRole {
 
 model Headquarters {
   id          String   @id @default(uuid())
-  name        String   @db.VarChar(100)
+  name        String   @unique @db.VarChar(100)
   sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -101,7 +101,7 @@ model Branch {
 
 model Substation {
   id          String   @id @default(uuid())
-  name        String   @db.VarChar(100)
+  name        String   @unique @db.VarChar(100)
   branchId    String?  @map("branch_id")
   address     String?  @db.VarChar(255)
   description String?  @db.Text
@@ -176,13 +176,14 @@ model RackPreset {
   createdById  String?  @map("created_by")
   updatedById  String?  @map("updated_by")
 
-  createdBy User? @relation("RackPresetCreatedBy", fields: [createdById], references: [id])
-  updatedBy User? @relation("RackPresetUpdatedBy", fields: [updatedById], references: [id])
+  createdBy User?  @relation("RackPresetCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?  @relation("RackPresetUpdatedBy", fields: [updatedById], references: [id])
+  assets    Asset[] @relation("AssetSourcePreset")
 
   @@map("rack_presets")
 }
 
-// ==================== 케이블 카테고리 (16종 시드) ====================
+// ==================== 케이블 카테고리 (18종 시드) ====================
 
 model CableCategory {
   id        String   @id @default(uuid())
@@ -192,10 +193,11 @@ model CableCategory {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   groupId String?     @map("group_id")
-  group   CableGroup? @relation(fields: [groupId], references: [id])
+  group   CableGroup? @relation(fields: [groupId], references: [id], onDelete: Restrict)
 
   cables Cable[]
 
+  @@unique([name, groupId])
   @@map("cable_categories")
 }
 
@@ -218,8 +220,8 @@ model CableGroup {
 }
 
 // ==================== 케이블 (다형 endpoint) ====================
-// 각 side 한 쪽만 NOT NULL — CHECK constraint로 강제
-// RACK kind Asset 는 endpoint 불가 (service validation)
+// endpoint = sourceAssetId/targetAssetId 모두 NOT NULL 필수 (통합노드 모델, CHECK 없음).
+// 컨테이너 role(rack/ofd/panel)은 케이블 endpoint 불가 (service validation: planApply.assertContainerNotEndpoint).
 
 model Cable {
   id            String  @id @default(uuid())
@@ -235,8 +237,8 @@ model Cable {
 
   number Int? @map("number") // 범용 슬롯/포트/CB 번호 (fiberPortNumber 일반화 — 대통일 P1)
 
-  sourceRole String? @map("source_role") @db.VarChar(4) // 'IN'|'OUT'|null (source 끝이 방향성 자산일 때)
-  targetRole String? @map("target_role") @db.VarChar(4) // 'IN'|'OUT'|null (target 끝이 방향성 자산일 때)
+  sourceRole CableRole? @map("source_role") // 'IN'|'OUT'|null (source 끝이 방향성 자산일 때)
+  targetRole CableRole? @map("target_role") // 'IN'|'OUT'|null (target 끝이 방향성 자산일 때)
 
   length       Float?
   pathLength   Float?  @map("path_length")
@@ -255,6 +257,9 @@ model Cable {
   createdBy   User?          @relation("CableCreatedBy", fields: [createdById], references: [id])
   updatedBy   User?          @relation("CableUpdatedBy", fields: [updatedById], references: [id])
 
+  @@index([sourceAssetId])
+  @@index([targetAssetId])
+  @@index([categoryId])
   @@map("cables")
 }
 
@@ -268,12 +273,41 @@ enum AssetRole {
   device
 }
 
+enum CableRole {
+  IN
+  OUT
+}
+
+enum FailureSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FailureLogType {
+  FAILURE
+  REPAIR
+}
+
+enum FailureStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum PhotoSide {
+  front
+  rear
+}
+
 // ==================== 설비 사진 ====================
 
 model AssetPhoto {
   id          String    @id @default(uuid())
   assetId String    @map("asset_id")
-  side        String    @db.VarChar(10) // 'front' | 'rear'
+  side        PhotoSide              // 'front' | 'rear'
   imageUrl    String    @map("image_url") @db.VarChar(500)
   description String?   @db.Text
   takenAt     DateTime? @map("taken_at")
@@ -281,6 +315,7 @@ model AssetPhoto {
 
   asset Asset @relation("AssetPhotoAsset", fields: [assetId], references: [id], onDelete: Cascade)
 
+  @@index([assetId])
   @@map("asset_photos")
 }
 
@@ -292,12 +327,12 @@ model AssetPhoto {
 model MaintenanceLog {
   id          String    @id @default(uuid())
   assetId String    @map("asset_id")
-  logType     String    @db.VarChar(20) // FAILURE, REPAIR (MAINTENANCE deprecated → InspectionLog)
+  logType     FailureLogType             // FAILURE, REPAIR (MAINTENANCE deprecated → InspectionLog)
   title       String    @db.VarChar(200)
   description String?   @db.Text
   logDate     DateTime? @map("log_date") @db.Date
-  severity    String?   @db.VarChar(20) // LOW, MEDIUM, HIGH, CRITICAL
-  status      String    @default("OPEN") @db.VarChar(20) // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  severity    FailureSeverity?           // LOW, MEDIUM, HIGH, CRITICAL
+  status      FailureStatus @default(OPEN) // OPEN, IN_PROGRESS, RESOLVED, CLOSED
   resolvedAt  DateTime? @map("resolved_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -308,6 +343,7 @@ model MaintenanceLog {
   createdBy User? @relation("MaintenanceLogCreatedBy", fields: [createdById], references: [id])
   updatedBy User? @relation("MaintenanceLogUpdatedBy", fields: [updatedById], references: [id])
 
+  @@index([assetId])
   @@map("maintenance_logs")
 }
 
@@ -367,14 +403,14 @@ model AuditLog {
 // 설정/시드 관리 테이블 — createdById/updatedById 감사 필드 없음(의도적).
 model AssetType {
   id        String   @id @default(uuid())
-  name      String   @db.VarChar(100)
+  name      String   @unique @db.VarChar(100)
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   role       AssetRole      @default(device)
   categoryId String?        @map("category_id")
-  category   AssetCategory? @relation(fields: [categoryId], references: [id])
+  category   AssetCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   laborType            String? @map("labor_type") @db.VarChar(20)
   installHoursPerUnit  Float?  @map("install_hours_per_unit")
@@ -427,13 +463,14 @@ model Asset {
   createdById   String?   @map("created_by")
   updatedById   String?   @map("updated_by")
 
-  substation Substation @relation(fields: [substationId], references: [id], onDelete: Cascade)
-  assetType  AssetType  @relation(fields: [assetTypeId], references: [id])
-  parent     Asset?     @relation("AssetTree", fields: [parentAssetId], references: [id], onDelete: Cascade)
-  children   Asset[]    @relation("AssetTree")
-  floor      Floor?     @relation(fields: [floorId], references: [id], onDelete: SetNull)
-  createdBy  User?      @relation("AssetCreatedBy", fields: [createdById], references: [id])
-  updatedBy  User?      @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
+  substation   Substation  @relation(fields: [substationId], references: [id], onDelete: Cascade)
+  assetType    AssetType   @relation(fields: [assetTypeId], references: [id])
+  parent       Asset?      @relation("AssetTree", fields: [parentAssetId], references: [id], onDelete: Cascade)
+  children     Asset[]     @relation("AssetTree")
+  floor        Floor?      @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  sourcePreset RackPreset? @relation("AssetSourcePreset", fields: [sourcePresetId], references: [id], onDelete: SetNull)
+  createdBy    User?       @relation("AssetCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?       @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
 
   sourceCablesAsset Cable[]          @relation("CableSourceAsset")
   targetCablesAsset Cable[]          @relation("CableTargetAsset")
