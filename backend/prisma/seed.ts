@@ -88,13 +88,17 @@ async function main() {
     for (let i = 0; i < headquartersData.length; i++) {
       const hqData = headquartersData[i];
 
-      const hq = await prisma.headquarters.create({
-        data: { id: `hq-${i + 1}`, name: hqData.name, sortOrder: i, createdById: admin.id },
+      const hq = await prisma.headquarters.upsert({
+        where: { name: hqData.name },
+        update: { sortOrder: i, createdById: admin.id },
+        create: { id: `hq-${i + 1}`, name: hqData.name, sortOrder: i, createdById: admin.id },
       });
 
       for (let j = 0; j < hqData.branches.length; j++) {
-        await prisma.branch.create({
-          data: { headquartersId: hq.id, name: hqData.branches[j], sortOrder: j, createdById: admin.id },
+        await prisma.branch.upsert({
+          where: { headquartersId_name: { headquartersId: hq.id, name: hqData.branches[j] } },
+          update: { sortOrder: j, createdById: admin.id },
+          create: { headquartersId: hq.id, name: hqData.branches[j], sortOrder: j, createdById: admin.id },
         });
       }
 

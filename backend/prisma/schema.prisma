@@ -64,7 +64,7 @@ enum UserRole {
 
 model Headquarters {
   id          String   @id @default(uuid())
-  name        String   @db.VarChar(100)
+  name        String   @unique @db.VarChar(100)
   sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -101,7 +101,7 @@ model Branch {
 
 model Substation {
   id          String   @id @default(uuid())
-  name        String   @db.VarChar(100)
+  name        String   @unique @db.VarChar(100)
   branchId    String?  @map("branch_id")
   address     String?  @db.VarChar(255)
   description String?  @db.Text
@@ -196,6 +196,7 @@ model CableCategory {
 
   cables Cable[]
 
+  @@unique([name, groupId])
   @@map("cable_categories")
 }
 
@@ -396,7 +397,7 @@ model AuditLog {
 // 설정/시드 관리 테이블 — createdById/updatedById 감사 필드 없음(의도적).
 model AssetType {
   id        String   @id @default(uuid())
-  name      String   @db.VarChar(100)
+  name      String   @unique @db.VarChar(100)
   sortOrder Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
