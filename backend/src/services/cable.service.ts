@@ -1,6 +1,6 @@
 import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
-import type { AssetRole } from '@prisma/client';
+import type { AssetRole, CableRole } from '@prisma/client';
 
 // ==================== Types ====================
 
@@ -19,8 +19,8 @@ export interface CableDetail {
   // endpoint 의 단일 Asset id (source/target.assetId 와 동일 값, 평탄 노출).
   sourceAssetId: string | null;
   targetAssetId: string | null;
-  sourceRole: 'IN' | 'OUT' | null;
-  targetRole: 'IN' | 'OUT' | null;
+  sourceRole: CableRole | null;
+  targetRole: CableRole | null;
   number: number | null;
   length: number | null;
   pathPoints: unknown;
@@ -175,8 +175,8 @@ class CableService {
       target: this.endpointFromIncluded('target', c),
       sourceAssetId: c.sourceAssetId ?? null,
       targetAssetId: c.targetAssetId ?? null,
-      sourceRole: (c.sourceRole ?? null) as 'IN' | 'OUT' | null,
-      targetRole: (c.targetRole ?? null) as 'IN' | 'OUT' | null,
+      sourceRole: (c.sourceRole ?? null) as CableRole | null,
+      targetRole: (c.targetRole ?? null) as CableRole | null,
       number: c.number ?? null,
       length: c.length,
       pathPoints: c.pathPoints,
