@@ -38,8 +38,8 @@ const updateRackPresetSchema = z.object({
 
 // ==================== Routes ====================
 
-router.get('/', rackPresetController.getAll);
-router.get('/:id', rackPresetController.getById);
+router.get('/', authenticate, rackPresetController.getAll);
+router.get('/:id', authenticate, rackPresetController.getById);
 router.post(
   '/',
   authenticate,

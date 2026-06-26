@@ -32,11 +32,11 @@ const createFloorSchema = z.object({
 
 // ==================== Substation Routes ====================
 
-// 변전소 목록 조회 (인증 불필요 - PRD: 조회: 전체)
-router.get('/', substationController.getList);
+// 변전소 목록 조회
+router.get('/', authenticate, substationController.getList);
 
-// 변전소 상세 조회 (인증 불필요 - PRD: 조회: 전체)
-router.get('/:id', substationController.getById);
+// 변전소 상세 조회
+router.get('/:id', authenticate, substationController.getById);
 
 // 변전소 생성 (관리자만)
 router.post(
@@ -76,8 +76,8 @@ router.post(
 
 // ==================== Floor Routes (nested under substations) ====================
 
-// 층 목록 조회 (인증 불필요 - PRD: 조회: 전체)
-router.get('/:substationId/floors', floorController.getList);
+// 층 목록 조회
+router.get('/:substationId/floors', authenticate, floorController.getList);
 
 // 층 생성 (관리자만)
 router.post(

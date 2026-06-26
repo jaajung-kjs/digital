@@ -17,8 +17,8 @@ const updateSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 
-router.get('/', cableCategoryController.getAll);
-router.get('/:id', cableCategoryController.getById);
+router.get('/', authenticate, cableCategoryController.getAll);
+router.get('/:id', authenticate, cableCategoryController.getById);
 router.post('/', authenticate, adminOnly, validate(createSchema), cableCategoryController.create);
 router.patch('/:id', authenticate, adminOnly, validate(updateSchema), cableCategoryController.update);
 router.delete('/:id', authenticate, adminOnly, cableCategoryController.delete);

@@ -74,13 +74,13 @@ describe('작업지시서 아카이브 (floors/:id/work-orders)', () => {
     expect(rows).toBe(1);
 
     // 목록 — 메타데이터
-    const list = await request(app).get(`/api/floors/${floorId}/work-orders`).expect(200);
+    const list = await request(app).get(`/api/floors/${floorId}/work-orders`).set('Authorization', `Bearer ${token}`).expect(200);
     expect(list.body.data).toHaveLength(1);
     expect(list.body.data[0].id).toBe(woId);
     expect(list.body.data[0].summary).toEqual({ itemCount: 1 });
 
     // 상세 — 설계서 전체
-    const detail = await request(app).get(`/api/floors/${floorId}/work-orders/${woId}`).expect(200);
+    const detail = await request(app).get(`/api/floors/${floorId}/work-orders/${woId}`).set('Authorization', `Bearer ${token}`).expect(200);
     expect(detail.body.data.constructionReport).toEqual(report);
     expect(detail.body.data.summary).toEqual({ itemCount: 1 });
   });

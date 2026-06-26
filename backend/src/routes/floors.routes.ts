@@ -35,11 +35,11 @@ const patchVersionContextSchema = z.object({
 
 // ==================== Floor Routes ====================
 
-// 층 기본 정보 조회 (인증 불필요)
-router.get('/:id', floorController.getById);
+// 층 기본 정보 조회
+router.get('/:id', authenticate, floorController.getById);
 
-// 층 도면 조회 (인증 불필요)
-router.get('/:id/plan', floorController.getPlan);
+// 층 도면 조회
+router.get('/:id/plan', authenticate, floorController.getPlan);
 
 // 층 메타데이터 수정 (관리자만)
 router.put('/:id', authenticate, adminOnly, validate(updateFloorSchema), floorController.update);
@@ -50,7 +50,7 @@ router.delete('/:id', authenticate, adminOnly, floorController.delete);
 // ==================== Versions (Change History) ====================
 
 // 도면 변경 이력 목록
-router.get('/:id/versions', floorController.getAuditLogs);
+router.get('/:id/versions', authenticate, floorController.getAuditLogs);
 
 // 도면 변경 이력 context 수정 (관리자만)
 router.patch(
@@ -75,11 +75,11 @@ router.post(
   floorController.createWorkOrder
 );
 
-// 작업지시서 이력 목록 (인증 불필요 — 조회)
-router.get('/:id/work-orders', floorController.getWorkOrders);
+// 작업지시서 이력 목록
+router.get('/:id/work-orders', authenticate, floorController.getWorkOrders);
 
-// 작업지시서 상세 (인증 불필요 — 조회)
-router.get('/:id/work-orders/:workOrderId', floorController.getWorkOrder);
+// 작업지시서 상세
+router.get('/:id/work-orders/:workOrderId', authenticate, floorController.getWorkOrder);
 
 // ==================== DWG Background Drawing ====================
 
