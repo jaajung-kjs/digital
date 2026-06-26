@@ -176,8 +176,9 @@ model RackPreset {
   createdById  String?  @map("created_by")
   updatedById  String?  @map("updated_by")
 
-  createdBy User? @relation("RackPresetCreatedBy", fields: [createdById], references: [id])
-  updatedBy User? @relation("RackPresetUpdatedBy", fields: [updatedById], references: [id])
+  createdBy User?  @relation("RackPresetCreatedBy", fields: [createdById], references: [id])
+  updatedBy User?  @relation("RackPresetUpdatedBy", fields: [updatedById], references: [id])
+  assets    Asset[] @relation("AssetSourcePreset")
 
   @@map("rack_presets")
 }
@@ -192,7 +193,7 @@ model CableCategory {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   groupId String?     @map("group_id")
-  group   CableGroup? @relation(fields: [groupId], references: [id])
+  group   CableGroup? @relation(fields: [groupId], references: [id], onDelete: Restrict)
 
   cables Cable[]
 
@@ -404,7 +405,7 @@ model AssetType {
 
   role       AssetRole      @default(device)
   categoryId String?        @map("category_id")
-  category   AssetCategory? @relation(fields: [categoryId], references: [id])
+  category   AssetCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   laborType            String? @map("labor_type") @db.VarChar(20)
   installHoursPerUnit  Float?  @map("install_hours_per_unit")
@@ -457,13 +458,14 @@ model Asset {
   createdById   String?   @map("created_by")
   updatedById   String?   @map("updated_by")
 
-  substation Substation @relation(fields: [substationId], references: [id], onDelete: Cascade)
-  assetType  AssetType  @relation(fields: [assetTypeId], references: [id])
-  parent     Asset?     @relation("AssetTree", fields: [parentAssetId], references: [id], onDelete: Cascade)
-  children   Asset[]    @relation("AssetTree")
-  floor      Floor?     @relation(fields: [floorId], references: [id], onDelete: SetNull)
-  createdBy  User?      @relation("AssetCreatedBy", fields: [createdById], references: [id])
-  updatedBy  User?      @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
+  substation   Substation  @relation(fields: [substationId], references: [id], onDelete: Cascade)
+  assetType    AssetType   @relation(fields: [assetTypeId], references: [id])
+  parent       Asset?      @relation("AssetTree", fields: [parentAssetId], references: [id], onDelete: Cascade)
+  children     Asset[]     @relation("AssetTree")
+  floor        Floor?      @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  sourcePreset RackPreset? @relation("AssetSourcePreset", fields: [sourcePresetId], references: [id], onDelete: SetNull)
+  createdBy    User?       @relation("AssetCreatedBy", fields: [createdById], references: [id])
+  updatedBy    User?       @relation("AssetUpdatedBy", fields: [updatedById], references: [id])
 
   sourceCablesAsset Cable[]          @relation("CableSourceAsset")
   targetCablesAsset Cable[]          @relation("CableTargetAsset")
