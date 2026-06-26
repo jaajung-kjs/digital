@@ -122,9 +122,9 @@ describe('buildSubstationCommitPayload', () => {
     expect(c.targetAssetId).toBe('m1');
     expect(c.source).toBeUndefined();
     expect(c.target).toBeUndefined();
-    // flat denormalized 구 keys 도 페이로드에 없어야 함 (단일 sourceAssetId/targetAssetId 로 통일)
-    expect(c.sourceRawId).toBeUndefined();
-    expect(c.targetRawId).toBeUndefined();
+    // flat denormalized 구 보조 id(모듈/회로) 도 페이로드에 없어야 함 (단일 sourceAssetId/targetAssetId 로 통일)
+    expect(c.sourceCircuitId).toBeUndefined();
+    expect(c.targetCircuitId).toBeUndefined();
     expect(c.sourceModuleId).toBeUndefined();
     expect(c.targetModuleId).toBeUndefined();
     // canonical passthrough — cableType 은 C5 Phase A 에서 전송 제거됨
