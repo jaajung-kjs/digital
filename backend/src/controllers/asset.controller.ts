@@ -4,11 +4,6 @@ import { assetService, NodeType } from '../services/asset.service.js';
 const NODE_TYPES: NodeType[] = ['headquarters', 'branch', 'substation'];
 
 export const assetController = {
-  async listBySubstation(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      res.json({ data: await assetService.listBySubstation(req.params.substationId) });
-    } catch (error) { next(error); }
-  },
   async listByNode(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { nodeId } = req.params;

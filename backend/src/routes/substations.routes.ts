@@ -2,8 +2,6 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { substationController } from '../controllers/substation.controller.js';
 import { floorController } from '../controllers/floor.controller.js';
-import { assetController } from '../controllers/asset.controller.js';
-import { cableController } from '../controllers/cable.controller.js';
 import { authenticate, adminOnly } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { reportPreviewSchema } from '../schemas/reportPreview.schema.js';
@@ -80,11 +78,6 @@ router.post(
 
 // 층 목록 조회 (인증 불필요 - PRD: 조회: 전체)
 router.get('/:substationId/floors', floorController.getList);
-
-router.get('/:substationId/assets', authenticate, assetController.listBySubstation);
-
-// 변전소 연결(케이블) 조회 (Phase-B)
-router.get('/:substationId/connections', authenticate, cableController.getBySubstation);
 
 // 층 생성 (관리자만)
 router.post(

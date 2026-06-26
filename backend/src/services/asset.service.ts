@@ -107,15 +107,6 @@ class AssetService {
     };
   }
 
-  async listBySubstation(substationId: string): Promise<AssetDetail[]> {
-    const rows = await prisma.asset.findMany({
-      where: { substationId },
-      include: assetInclude,
-      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-    });
-    return rows.map((r) => this.mapToDetail(r));
-  }
-
   /** 전 변전소 자산을 trace 용 최소 필드로(전역 cableTrace 피드). */
   async listAllSlim(): Promise<SlimAsset[]> {
     const rows = await prisma.asset.findMany({
