@@ -1,13 +1,13 @@
 import { useEditorStore, useSelectedEquipment } from '../stores/editorStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
-import { EquipmentResizeHandles } from './EquipmentResizeHandles';
+import { AssetResizeHandles } from './AssetResizeHandles';
 
 /**
  * 캔버스 오버레이 — 선택된 설비가 정확히 1 개이고 select 도구 모드일 때
  * 그 설비의 8 모서리·꼭지점 리사이즈 핸들을 띄운다. 케이블 그리기/스냅샷
  * 미리보기·연결 추적(하이라이트) 등 편집이 아닌 모드에서는 숨김.
  */
-export function EquipmentResizeHandlesHost() {
+export function AssetResizeHandlesHost() {
   const tool = useEditorStore((s) => s.tool);
   const zoom = useEditorStore((s) => s.zoom);
   const panX = useEditorStore((s) => s.panX);
@@ -25,7 +25,7 @@ export function EquipmentResizeHandlesHost() {
   if (selected.floorId !== activeFloorId || selected.positionX == null || selected.positionY == null) return null;
 
   return (
-    <EquipmentResizeHandles
+    <AssetResizeHandles
       equipment={selected}
       zoom={zoom}
       panX={panX}

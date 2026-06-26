@@ -7,7 +7,7 @@ import { type DetailPanelKind } from '../../../types/equipmentKind';
 import { AssetDetailPanel } from '../../assets/components/AssetDetailPanel';
 import { resolveAssetDetailKind } from '../../assets/components/detail/panels/resolveAssetDetailKind';
 
-interface EquipmentDetailPanelProps {
+interface AssetInspectorPanelProps {
   equipmentId: string;
   /** effective 설비 조회용(헤더 name/kind lookup). */
   floorId: string;
@@ -20,7 +20,7 @@ interface EquipmentDetailPanelProps {
  * 에디터 전용 개념(과거 도면 스냅샷 · 미저장 임시 설비 · 재포커스 focusTick · 캔버스 선택)만
  * 여기 남는다 — 현황 패널은 이런 개념이 없으므로 공유 컴포넌트가 이를 알 필요가 없다.
  */
-export function EquipmentDetailPanel({ equipmentId, floorId }: EquipmentDetailPanelProps) {
+export function AssetInspectorPanel({ equipmentId, floorId }: AssetInspectorPanelProps) {
   const closeRightPanel = useEditorStore((s) => s.closeRightPanel);
   const focusTick = useEditorStore((s) => s.focusTick);
   // 케이블 더블클릭 등에서 지정한 진입 탭(예: '연결'). bodyKey(focusTick) 로 본문이 remount 되며 적용.

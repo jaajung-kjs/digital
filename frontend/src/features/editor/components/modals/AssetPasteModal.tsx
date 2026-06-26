@@ -1,7 +1,7 @@
 import { useEditorStore } from '../../stores/editorStore';
 import { Modal, Input, Button } from '../../../../components/ui';
 
-interface EquipmentPasteModalProps {
+interface AssetPasteModalProps {
   onPaste: () => void;
 }
 
@@ -9,7 +9,7 @@ interface EquipmentPasteModalProps {
  * Modal triggered by Ctrl+V on a copied equipment. Asks for a new name
  * before committing the paste via `onPaste`.
  */
-export function EquipmentPasteModal({ onPaste }: EquipmentPasteModalProps) {
+export function AssetPasteModal({ onPaste }: AssetPasteModalProps) {
   const open = useEditorStore((s) => s.pasteEquipmentModalOpen);
   const setOpen = useEditorStore((s) => s.setPasteEquipmentModalOpen);
   const pasteEquipmentName = useEditorStore((s) => s.pasteEquipmentName);

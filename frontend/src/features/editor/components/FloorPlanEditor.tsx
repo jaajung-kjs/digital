@@ -25,17 +25,17 @@ import { CanvasView } from './CanvasView';
 import { EditorStatusBar } from './EditorStatusBar';
 import { ConnectionOverlay } from '../../connections/components/ConnectionOverlay';
 import { CablePathOverlay } from './CablePathOverlay';
-import { EquipmentDetailPanel } from './EquipmentDetailPanel';
+import { AssetInspectorPanel } from './AssetInspectorPanel';
 import { RIGHT_PANEL_WIDTH } from './SidePanel';
-import { EquipmentResizeHandlesHost } from './EquipmentResizeHandlesHost';
+import { AssetResizeHandlesHost } from './AssetResizeHandlesHost';
 import { ReportPanel } from '../../report/ReportPanel';
 import { WorkOrderHistoryPanel } from '../../report/WorkOrderHistoryPanel';
 import { DwgImportModal } from './DwgImportModal';
 import { BackgroundLayersPanel } from './BackgroundLayersPanel';
 import { CableSpecModalWrapper } from './modals/CableSpecModal';
 import { CableEndpointDialog } from './CableEndpointDialog';
-import { EquipmentMaterialModal } from './modals/EquipmentMaterialModal';
-import { EquipmentPasteModal } from './modals/EquipmentPasteModal';
+import { AssetMaterialModal } from './modals/AssetMaterialModal';
+import { AssetPasteModal } from './modals/AssetPasteModal';
 import { ToastHost } from './ToastHost';
 import { EditorHintBar } from './EditorHintBar';
 import { ConflictDialog } from '../../workingCopy/ConflictDialog';
@@ -270,7 +270,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     stagedBackgroundDrawing !== undefined ? stagedBackgroundDrawing : floorPlan?.backgroundDrawing ?? null;
 
   /**
-   * 이름 모달 커밋 핸들러. EquipmentMaterialModal 에서 drag-to-draw + 이름 입력 후 호출.
+   * 이름 모달 커밋 핸들러. AssetMaterialModal 에서 drag-to-draw + 이름 입력 후 호출.
    * `newEquipmentType`(배치할 자산종류)을 사용 — 프리셋 배치는 handlePlacePreset 이 처리.
    */
   const handleAddEquipment = () => {
@@ -446,7 +446,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
               >
                 <ConnectionOverlay canvasRef={canvasRef} floorId={floorId} />
                 <CablePathOverlayWrapper canvasRef={canvasRef} floorId={floorId} />
-                <EquipmentResizeHandlesHost />
+                <AssetResizeHandlesHost />
                 <EditorHintBar />
               </CanvasView>
 
@@ -454,7 +454,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
                   detail/report/history/background 가 같은 우측 슬롯을 공유하므로
                   더 이상 겹치지 않는다. (그리드/투명도는 하단 상태바, 배경 교체/제거는 'background' 패널.) */}
               {rightPanel === 'detail' && detailAssetId && (
-                <EquipmentDetailPanel equipmentId={detailAssetId} floorId={floorId} />
+                <AssetInspectorPanel equipmentId={detailAssetId} floorId={floorId} />
               )}
 
               {rightPanel === 'history' && (
@@ -499,7 +499,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
         )}
       </div>
 
-      <EquipmentMaterialModal onAdd={handleAddEquipment} />
+      <AssetMaterialModal onAdd={handleAddEquipment} />
       <CableSpecModalWrapper />
       <CableEndpointDialog />
       {showImportModal && floorId && (
@@ -509,7 +509,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
           onImported={() => { /* invalidation handled inside modal */ }}
         />
       )}
-      <EquipmentPasteModal onPaste={handlePasteEquipment} />
+      <AssetPasteModal onPaste={handlePasteEquipment} />
       {floorConflict && (
         <ConflictDialog
           conflicts={floorConflict}

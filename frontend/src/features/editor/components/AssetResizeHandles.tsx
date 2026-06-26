@@ -4,7 +4,7 @@ import { useEditorStore } from '../stores/editorStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { syncCableEndpointsTo } from '../utils/cableSync';
 
-interface EquipmentResizeHandlesProps {
+interface AssetResizeHandlesProps {
   equipment: Asset;
   zoom: number;
   panX: number;
@@ -48,7 +48,7 @@ const MIN_DIM_CM = 20;
  * useCanvasEvents.syncCableEndpointsTo 와 같은 패턴으로 모듈 안에서 직접
  * 호출해서 같이 움직이게.
  */
-export function EquipmentResizeHandles({ equipment, zoom, panX, panY }: EquipmentResizeHandlesProps) {
+export function AssetResizeHandles({ equipment, zoom, panX, panY }: AssetResizeHandlesProps) {
   const scale = zoom / 100;
   const screenX = (equipment.positionX ?? 0) * scale + panX;
   const screenY = (equipment.positionY ?? 0) * scale + panY;

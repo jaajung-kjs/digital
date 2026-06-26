@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useEditorStore } from '../../stores/editorStore';
 import { Modal, Input, Button } from '../../../../components/ui';
 
-interface EquipmentMaterialModalProps {
+interface AssetMaterialModalProps {
   onAdd: () => void;
 }
 
@@ -12,7 +12,7 @@ interface EquipmentMaterialModalProps {
  *
  * UX: autofocused input → Enter → onAdd. ESC/cancel reverts the tool.
  */
-export function EquipmentMaterialModal({ onAdd }: EquipmentMaterialModalProps) {
+export function AssetMaterialModal({ onAdd }: AssetMaterialModalProps) {
   const open = useEditorStore((s) => s.equipmentModalOpen);
   const setOpen = useEditorStore((s) => s.setEquipmentModalOpen);
   const newEquipmentName = useEditorStore((s) => s.newEquipmentName);
