@@ -39,7 +39,7 @@ function findClosestCableId(x: number, y: number, zoom: number): string | null {
  * Mouse/wheel event handlers for the canvas.
  * Tools: select, equipment, cable. (Delete via Delete key on selection.)
  *
- * P9: when a rack preset is armed (`newEquipmentPreset`), the equipment tool
+ * P9: when a rack preset is armed (`newAssetPreset`), the asset tool
  * switches from drag-to-draw to single-click placement; the host component
  * supplies an `onPlacePreset` callback that creates the rack + modules.
  */
@@ -180,7 +180,7 @@ export function useCanvasEvents(
       lastHoverPos.current = { x: worldX, y: worldY };
       const localEquipment = effectiveEquipment();
       const found = findItemAt(worldX, worldY, null, localEquipment);
-      const newHovered = found?.type === 'equipment' ? found.item.id : null;
+      const newHovered = found?.type === 'asset' ? found.item.id : null;
       if (newHovered !== currentHovered) setHovered(newHovered);
     };
 
@@ -214,13 +214,13 @@ export function useCanvasEvents(
     const { x, y } = getCanvasCoordinates(e);
     const snapped = snapToGrid(x, y);
 
-    const { isDrawingEquipment, equipmentStart } = canvasStore.getState();
-    if (tool === 'equipment' && isDrawingEquipment && equipmentStart) {
-      canvasStore.getState().setEquipmentPreviewEnd({ x: snapped.x, y: snapped.y });
+    const { isDrawingAsset, assetStart } = canvasStore.getState();
+    if (tool === 'asset' && isDrawingAsset && assetStart) {
+      canvasStore.getState().setAssetPreviewEnd({ x: snapped.x, y: snapped.y });
       return;
     }
 
-    if (tool === 'equipment') {
+    if (tool === 'asset') {
       canvasStore.getState().setPreviewPosition({ x: snapped.x, y: snapped.y });
     } else {
       canvasStore.getState().setPreviewPosition(null);
@@ -264,7 +264,7 @@ export function useCanvasEvents(
     // 라이브 케이블 프리뷰 — 설비가 움직이는 동안 연결된 케이블의 양 끝점도
     // 함께 따라오게 즉시 갱신 (예전엔 mouseUp 시점에만 반영돼 드래그 중엔
     // 케이블이 고정으로 남아 어색했음).
-    if (dragSession.target.type === 'equipment') {
+    if (dragSession.target.type === 'asset') {
       syncCableEndpointsTo(dragSession.target.id);
     }
   }, [canvasRef, getCanvasCoordinates, snapToGrid, editorStore, canvasStore, effectiveEquipment]);
@@ -318,7 +318,7 @@ export function useCanvasEvents(
     const interaction = useInteractionStore.getState();
     if (cableDrawing?.phase === 'selectingSource') {
       const found = findItemAt(x, y, null, localEquipment);
-      if (found?.type === 'equipment') {
+      if (found?.type === 'asset') {
         const eq = found.item;
         const center = getEquipmentCenter(eq);
         // RACK / DISTRIBUTION / OFD endpoints require a module / circuit / port step.
@@ -339,7 +339,7 @@ export function useCanvasEvents(
     }
     if (cableDrawing?.phase === 'drawingPath') {
       const found = findItemAt(x, y, null, localEquipment);
-      if (found?.type === 'equipment' && found.item.id !== cableDrawing.source?.containerAssetId) {
+      if (found?.type === 'asset' && found.item.id !== cableDrawing.source?.containerAssetId) {
         const eq = found.item;
         const center = getEquipmentCenter(eq);
         if (needsEndpointPicker(eq.assetType?.role)) {
@@ -350,7 +350,7 @@ export function useCanvasEvents(
           interaction.cableSetTarget({ containerAssetId: eq.id, position: center });
           commitCable();
         }
-      } else if (!found || found.type !== 'equipment') {
+      } else if (!found || found.type !== 'asset') {
         if (e.shiftKey && cableDrawing.waypoints.length > 0) {
           const lastPt = cableDrawing.waypoints[cableDrawing.waypoints.length - 1];
           const dx = Math.abs(snapped.x - lastPt[0]);
@@ -370,13 +370,13 @@ export function useCanvasEvents(
     if (cableDrawing?.phase === 'selectingType' || cableDrawing?.phase === 'ready') return;
 
     switch (tool) {
-      case 'equipment': {
+      case 'asset': {
         // P9: rack preset armed → single click places the rack at the cursor
         // and auto-expands the preset modules. No drag, no name modal.
-        if (cs.newEquipmentPreset) {
-          const preset = cs.newEquipmentPreset;
+        if (cs.newAssetPreset) {
+          const preset = cs.newAssetPreset;
           cs.setNewEquipmentPosition({ x: snapped.x, y: snapped.y });
-          cs.setEquipmentDrawnSize({
+          cs.setAssetDrawnSize({
             width: preset.canvasWidth,
             height: preset.canvasHeight,
           });
@@ -384,25 +384,25 @@ export function useCanvasEvents(
           break;
         }
 
-        if (!cs.isDrawingEquipment) {
-          cs.setIsDrawingEquipment(true);
-          cs.setEquipmentStart({ x: snapped.x, y: snapped.y });
-          cs.setEquipmentPreviewEnd(null);
+        if (!cs.isDrawingAsset) {
+          cs.setIsDrawingAsset(true);
+          cs.setAssetStart({ x: snapped.x, y: snapped.y });
+          cs.setAssetPreviewEnd(null);
         } else {
           const eqEndX = snapped.x;
           const eqEndY = snapped.y;
-          const eqX = Math.min(cs.equipmentStart!.x, eqEndX);
-          const eqY = Math.min(cs.equipmentStart!.y, eqEndY);
-          const eqW = Math.abs(eqEndX - cs.equipmentStart!.x);
-          const eqH = Math.abs(eqEndY - cs.equipmentStart!.y);
+          const eqX = Math.min(cs.assetStart!.x, eqEndX);
+          const eqY = Math.min(cs.assetStart!.y, eqEndY);
+          const eqW = Math.abs(eqEndX - cs.assetStart!.x);
+          const eqH = Math.abs(eqEndY - cs.assetStart!.y);
           if (eqW >= 10 && eqH >= 10) {
             cs.setNewEquipmentPosition({ x: eqX, y: eqY });
-            cs.setEquipmentDrawnSize({ width: eqW, height: eqH });
+            cs.setAssetDrawnSize({ width: eqW, height: eqH });
             cs.closeAllModals();
-            cs.setEquipmentModalOpen(true);
+            cs.setAssetModalOpen(true);
           }
-          cs.setIsDrawingEquipment(false);
-          cs.setEquipmentStart(null);
+          cs.setIsDrawingAsset(false);
+          cs.setAssetStart(null);
         }
         break;
       }
@@ -497,11 +497,11 @@ export function useCanvasEvents(
 
     // 설비 우선 히트 테스트
     const found = findItemAt(x, y, null, localEquipment);
-    if (found?.type === 'equipment') {
+    if (found?.type === 'asset') {
       onContextMenuRequest?.({
         x: e.clientX,
         y: e.clientY,
-        target: { type: 'equipment', id: found.item.id },
+        target: { type: 'asset', id: found.item.id },
       });
       return;
     }

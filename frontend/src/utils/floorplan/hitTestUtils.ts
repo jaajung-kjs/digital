@@ -17,7 +17,7 @@ function hitTestEquipment(
 }
 
 export type HitTestResult =
-  | { type: 'equipment'; item: Asset }
+  | { type: 'asset'; item: Asset }
   | null;
 
 /**
@@ -31,6 +31,6 @@ export function findItemAt(
   equipment: Asset[]
 ): HitTestResult {
   const eq = equipment.find((item) => hitTestEquipment(x, y, item));
-  if (eq) return { type: 'equipment', item: eq };
+  if (eq) return { type: 'asset', item: eq };
   return null;
 }

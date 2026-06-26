@@ -72,10 +72,10 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
   // SSOT-2d Task 4 — 새로 배치한 설비를 통합 stage 로 올릴 때 assetTypeId 해소.
   const rackTypeId = useAssetTypeIdByRole('rack');
 
-  const handlePasteEquipment = useCallback(() => {
+  const handlePasteAsset = useCallback(() => {
     const es = useEditorStore.getState();
     const cs = es;
-    if (!es.clipboard || es.clipboard.type !== 'equipment') return;
+    if (!es.clipboard || es.clipboard.type !== 'asset') return;
 
     // 클립보드는 이제 Asset — 복제는 stageAssetCreate 로 그대로 stage(assetTypeId 재해소 불필요).
     const original = es.clipboard.data;
@@ -83,17 +83,17 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     const copy: Asset = {
       ...original,
       id: newId,
-      name: cs.pasteEquipmentName,
+      name: cs.pasteAssetName,
       positionX: (original.positionX ?? 0) + 20,
       positionY: (original.positionY ?? 0) + 20,
       floorId,
       updatedAt: '',
     };
     useSubstationWorkingCopy.getState().stageAssetCreate(copy);
-    cs.setPasteEquipmentModalOpen(false);
-    cs.setPasteEquipmentName('');
+    cs.setPasteAssetModalOpen(false);
+    cs.setPasteAssetName('');
     es.selectEquipment(newId);
-    es.setClipboard({ type: 'equipment', data: copy });
+    es.setClipboard({ type: 'asset', data: copy });
   }, [floorId]);
 
   const resetEditor = useEditorStore(s => s.resetEditor);
@@ -271,13 +271,13 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
   /**
    * 이름 모달 커밋 핸들러. AssetMaterialModal 에서 drag-to-draw + 이름 입력 후 호출.
-   * `newEquipmentType`(배치할 자산종류)을 사용 — 프리셋 배치는 handlePlacePreset 이 처리.
+   * `newAssetType`(배치할 자산종류)을 사용 — 프리셋 배치는 handlePlacePreset 이 처리.
    */
-  const handleAddEquipment = () => {
+  const handleAddAsset = () => {
     const cs = useEditorStore.getState();
-    const drawnWidth = cs.equipmentDrawnSize?.width ?? 60;
-    const drawnHeight = cs.equipmentDrawnSize?.height ?? 100;
-    const type = cs.newEquipmentType;
+    const drawnWidth = cs.assetDrawnSize?.width ?? 60;
+    const drawnHeight = cs.assetDrawnSize?.height ?? 100;
+    const type = cs.newAssetType;
     if (!type) {
       useToastStore.getState().showToast('설비 종류를 확인할 수 없어 배치하지 못했습니다');
       return;
@@ -286,7 +286,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
     const baseEquip: PlacementDraw = {
       id: generateTempId(),
       role: type.role,
-      name: cs.newEquipmentName,
+      name: cs.newAssetName,
       floorId,
       positionX: cs.newEquipmentPosition.x,
       positionY: cs.newEquipmentPosition.y,
@@ -300,9 +300,9 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
     useSubstationWorkingCopy.getState().stageEquipmentCreate(baseEquip, type.id);
 
-    cs.setEquipmentModalOpen(false);
-    cs.setNewEquipmentName('');
-    cs.resetNewEquipmentSelection();
+    cs.setAssetModalOpen(false);
+    cs.setNewAssetName('');
+    cs.resetNewAssetSelection();
     setTool('select');
     cs.selectEquipment(baseEquip.id);
     useToastStore.getState().showToast('설비를 배치했습니다');
@@ -310,13 +310,13 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
   /**
    * P9: rack preset placement — single click on canvas. The arming click
-   * (sidebar) sets `newEquipmentPreset`; the canvas click (useCanvasEvents)
-   * sets `newEquipmentPosition` and calls this. We add the rack equipment
+   * (sidebar) sets `newAssetPreset`; the canvas click (useCanvasEvents)
+   * sets `newEquipmentPosition` and calls this. We add the rack asset
    * + auto-expand the preset modules into RackModule rows on the editor store.
    */
   const handlePlacePreset = useCallback(() => {
     const cs = useEditorStore.getState();
-    const preset = cs.newEquipmentPreset;
+    const preset = cs.newAssetPreset;
     if (!preset) return;
 
     const rackId = generateTempId();
@@ -389,7 +389,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
 
     for (const m of newModules) wc.stageRackModuleCreate(m);
 
-    cs.resetNewEquipmentSelection();
+    cs.resetNewAssetSelection();
     setTool('select');
     cs.selectEquipment(rackId);
     useToastStore.getState().showToast('랙을 배치했습니다');
@@ -499,7 +499,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
         )}
       </div>
 
-      <AssetMaterialModal onAdd={handleAddEquipment} />
+      <AssetMaterialModal onAdd={handleAddAsset} />
       <CableSpecModalWrapper />
       <CableEndpointDialog />
       {showImportModal && floorId && (
@@ -509,7 +509,7 @@ export function FloorPlanEditor({ floorId, active = true }: FloorPlanEditorProps
           onImported={() => { /* invalidation handled inside modal */ }}
         />
       )}
-      <AssetPasteModal onPaste={handlePasteEquipment} />
+      <AssetPasteModal onPaste={handlePasteAsset} />
       {floorConflict && (
         <ConflictDialog
           conflicts={floorConflict}

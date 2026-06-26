@@ -98,7 +98,7 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
     if (!isTemp) return serverPlan;
     return floor
       ? { id: floor.id, name: floor.name, ...DEFAULT_CANVAS, backgroundDrawing: null,
-          equipment: [], cables: [], version: 0, updatedAt: '' }
+          assets: [], cables: [], version: 0, updatedAt: '' }
       : undefined;
   }, [isTemp, serverPlan, floor]);
 
@@ -150,11 +150,11 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
   // measurable, then fit/restore.
   useEffect(() => {
     if (!floorPlan || !containerRef.current || viewportInitialized) return;
-    // GET /plan 의 saved 설비(floorPlan.equipment)가 있으면 WC 로드를 기다리지 않고 즉시 그 좌표로
+    // GET /plan 의 saved 설비(floorPlan.assets)가 있으면 WC 로드를 기다리지 않고 즉시 그 좌표로
     // fit 한다 — 트리 콜드 진입 0,0 버그 해소. (WC load 는 비동기라 경쟁에서 지면 이 게이트가
     // viewport 를 스토어 기본값 0,0 에 남겼다. 현황 진입은 WC 가 이미 로드돼 안 걸렸던 것.)
     // 빈 평면도(폴백 설비도 없음)일 때만 WC 로드를 기다려 staged 신규 설비에 맞춘다.
-    if (!wcLoaded && !floorPlan.equipment?.length) return;
+    if (!wcLoaded && !floorPlan.assets?.length) return;
 
     let cancelled = false;
     const tryInit = () => {
@@ -194,12 +194,12 @@ export function useFloorPlanData(floorId: string | undefined, containerRef: Reac
       const effectiveEquipment = floorId
         ? useSubstationWorkingCopy.getState().effectiveEquipment(floorId)
         : [];
-      // 폴백(GET /plan 의 saved equipment)은 최소 배치 모양이라 fit 가
+      // 폴백(GET /plan 의 saved assets)은 최소 배치 모양이라 fit 가
       // 읽는 배치 필드(positionX/Y/width2d/height2d)만 Asset 투영으로 흡수한다.
       const fitEquipment: Asset[] =
         effectiveEquipment.length > 0
           ? effectiveEquipment
-          : floorPlan.equipment.map((e) => ({
+          : floorPlan.assets.map((e) => ({
               positionX: e.positionX,
               positionY: e.positionY,
               width2d: e.width,

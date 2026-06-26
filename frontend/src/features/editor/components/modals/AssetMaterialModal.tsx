@@ -13,13 +13,13 @@ interface AssetMaterialModalProps {
  * UX: autofocused input → Enter → onAdd. ESC/cancel reverts the tool.
  */
 export function AssetMaterialModal({ onAdd }: AssetMaterialModalProps) {
-  const open = useEditorStore((s) => s.equipmentModalOpen);
-  const setOpen = useEditorStore((s) => s.setEquipmentModalOpen);
-  const newEquipmentName = useEditorStore((s) => s.newEquipmentName);
-  const setNewEquipmentName = useEditorStore((s) => s.setNewEquipmentName);
-  const newEquipmentType = useEditorStore((s) => s.newEquipmentType);
-  const resetNewEquipmentSelection = useEditorStore(
-    (s) => s.resetNewEquipmentSelection,
+  const open = useEditorStore((s) => s.assetModalOpen);
+  const setOpen = useEditorStore((s) => s.setAssetModalOpen);
+  const newAssetName = useEditorStore((s) => s.newAssetName);
+  const setNewAssetName = useEditorStore((s) => s.setNewAssetName);
+  const newAssetType = useEditorStore((s) => s.newAssetType);
+  const resetNewAssetSelection = useEditorStore(
+    (s) => s.resetNewAssetSelection,
   );
   const setTool = useEditorStore((s) => s.setTool);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -31,14 +31,14 @@ export function AssetMaterialModal({ onAdd }: AssetMaterialModalProps) {
     }
   }, [open]);
 
-  const kindLabel = newEquipmentType?.name ?? '설비';
+  const kindLabel = newAssetType?.name ?? '설비';
 
-  const canAdd = newEquipmentName.trim().length > 0;
+  const canAdd = newAssetName.trim().length > 0;
 
   const handleCancel = () => {
     setOpen(false);
-    setNewEquipmentName('');
-    resetNewEquipmentSelection();
+    setNewAssetName('');
+    resetNewAssetSelection();
     setTool('select');
   };
 
@@ -69,8 +69,8 @@ export function AssetMaterialModal({ onAdd }: AssetMaterialModalProps) {
       <Input
         ref={inputRef}
         type="text"
-        value={newEquipmentName}
-        onChange={(e) => setNewEquipmentName(e.target.value)}
+        value={newAssetName}
+        onChange={(e) => setNewAssetName(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={`예: ${kindLabel}-01`}
       />

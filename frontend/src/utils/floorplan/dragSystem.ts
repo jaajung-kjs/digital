@@ -7,7 +7,7 @@ import type { Asset } from '../../types/asset';
 import { Position, getEquipmentPosition } from './elementSystem';
 
 export interface DragTarget {
-  type: 'equipment';
+  type: 'asset';
   id: string;
   initialPosition: Position;
 }
@@ -19,13 +19,13 @@ export interface DragSession {
 }
 
 export function createDragSession(
-  item: { type: 'equipment'; item: Asset },
+  item: { type: 'asset'; item: Asset },
   mousePosition: Position,
 ): DragSession {
   return {
     startMousePosition: { ...mousePosition },
     target: {
-      type: 'equipment',
+      type: 'asset',
       id: item.item.id,
       initialPosition: getEquipmentPosition(item.item),
     },

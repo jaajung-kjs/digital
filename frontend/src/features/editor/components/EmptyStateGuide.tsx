@@ -24,7 +24,7 @@ export function EmptyStateGuide({ floorPlan, floorId, onImportClick }: EmptyStat
 
   if (!floorPlan) return null;
 
-  const hasEquipment = localEquipment.length > 0 || floorPlan.equipment.length > 0;
+  const hasEquipment = localEquipment.length > 0 || floorPlan.assets.length > 0;
   const hasCables = localCables.length > 0 || floorPlan.cables.length > 0;
   // Background can be staged client-side before save — fall through to the
   // server value only when nothing is staged.

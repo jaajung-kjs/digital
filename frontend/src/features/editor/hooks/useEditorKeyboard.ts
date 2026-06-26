@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { FloorPlanDetail } from '../../../types/floorPlan';
 import type { Asset } from '../../../types/asset';
-import { useEditorStore, getSelectedEquipment } from '../stores/editorStore';
+import { useEditorStore, getSelectedAsset } from '../stores/editorStore';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { useInteractionStore, getCableDrawing } from '../stores/interactionStore';
@@ -19,7 +19,7 @@ function nudgeEquipment(eq: Asset, dx: number, dy: number): Asset {
 
 /**
  * Keyboard shortcuts for the editor.
- * Tools: select(V), equipment(K), cable(C), delete via Delete key.
+ * Tools: select(V), asset(K), cable(C), delete via Delete key.
  */
 export function useEditorKeyboard(
   containerRef?: React.RefObject<HTMLDivElement | null>,
@@ -75,10 +75,10 @@ export function useEditorKeyboard(
 
       // Tool shortcuts — number keys (preferred) and legacy letters
       if (e.key === '1' && !e.ctrlKey) es.setTool('select');
-      if (e.key === '2' && !e.ctrlKey) es.setTool('equipment');
+      if (e.key === '2' && !e.ctrlKey) es.setTool('asset');
       if (e.key === '3' && !e.ctrlKey) startCableConnection();
       if (key === 'v' && !e.ctrlKey) es.setTool('select');
-      if (key === 'k') es.setTool('equipment');
+      if (key === 'k') es.setTool('asset');
       if (key === 'c' && !e.ctrlKey) startCableConnection();
       if (key === 'g') es.setShowGrid(!es.showGrid);
       if (key === 's' && !e.ctrlKey) es.setGridSnap(!es.gridSnap);
@@ -87,9 +87,9 @@ export function useEditorKeyboard(
       const localEquipment = floorPlan
         ? useSubstationWorkingCopy.getState().effectiveEquipment(floorPlan.id)
         : [];
-      const selectedEquipment = getSelectedEquipment();
+      const selectedEquipment = getSelectedAsset();
 
-      // Arrow nudge for equipment
+      // Arrow nudge for asset
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !e.ctrlKey) {
         if (!selectedEquipment) return;
         e.preventDefault();
@@ -196,18 +196,18 @@ export function useEditorKeyboard(
         return;
       }
 
-      // Ctrl+C copy equipment — 클립보드는 선택된 Asset 을 그대로 담는다(붙여넣기에서 복제).
+      // Ctrl+C copy asset — 클립보드는 선택된 Asset 을 그대로 담는다(붙여넣기에서 복제).
       if (e.ctrlKey && key === 'c' && selectedEquipment) {
         e.preventDefault();
-        es.setClipboard({ type: 'equipment', data: selectedEquipment });
+        es.setClipboard({ type: 'asset', data: selectedEquipment });
       }
 
-      // Ctrl+V paste equipment (opens name modal)
-      if (e.ctrlKey && key === 'v' && es.clipboard?.type === 'equipment') {
+      // Ctrl+V paste asset (opens name modal)
+      if (e.ctrlKey && key === 'v' && es.clipboard?.type === 'asset') {
         e.preventDefault();
         cs.closeAllModals();
-        cs.setPasteEquipmentName('');
-        cs.setPasteEquipmentModalOpen(true);
+        cs.setPasteAssetName('');
+        cs.setPasteAssetModalOpen(true);
       }
     };
 

@@ -5,7 +5,7 @@ import { useInteractionStore } from '../stores/interactionStore';
 
 export interface HintState {
   tool: EditorTool;
-  isDrawingEquipment: boolean;
+  isDrawingAsset: boolean;
   hasPreset: boolean;
   cablePhase: CableDrawingPhase | null;
 }
@@ -16,8 +16,8 @@ export interface HintState {
  * pickingTargetEndpoint / ready)는 모달·피커가 흐름을 소유하므로 안내를 표시하지 않는다.
  */
 export function getHintMessage(s: HintState): string | null {
-  if (s.tool === 'equipment') {
-    if (s.isDrawingEquipment) return '끝점을 클릭해 크기를 정하세요 · ESC 취소';
+  if (s.tool === 'asset') {
+    if (s.isDrawingAsset) return '끝점을 클릭해 크기를 정하세요 · ESC 취소';
     if (s.hasPreset) return '클릭하면 랙이 배치됩니다 · ESC 취소';
     return '설비 시작점을 클릭하세요 · ESC 취소';
   }
@@ -36,15 +36,15 @@ export function getHintMessage(s: HintState): string | null {
  */
 export function EditorHintBar() {
   const tool = useEditorStore((s) => s.tool);
-  const isDrawingEquipment = useEditorStore((s) => s.isDrawingEquipment);
-  const hasPreset = useEditorStore((s) => s.newEquipmentPreset != null);
+  const isDrawingAsset = useEditorStore((s) => s.isDrawingAsset);
+  const hasPreset = useEditorStore((s) => s.newAssetPreset != null);
   const cablePhase = useInteractionStore((s) =>
     s.mode.kind === 'cableDrawing' ? s.mode.data.phase : null,
   );
 
   const message = getHintMessage({
     tool,
-    isDrawingEquipment,
+    isDrawingAsset,
     hasPreset,
     cablePhase,
   });

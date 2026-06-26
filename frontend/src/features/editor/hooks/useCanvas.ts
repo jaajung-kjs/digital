@@ -47,8 +47,8 @@ export function useCanvas(
     const majorGridSize = editorState.majorGridSize;
 
     const {
-      isDrawingEquipment, equipmentStart, equipmentPreviewEnd,
-      previewPosition, newEquipmentPreset,
+      isDrawingAsset, assetStart, assetPreviewEnd,
+      previewPosition, newAssetPreset,
     } = editorState;
 
     const scale = zoom / 100;
@@ -139,20 +139,20 @@ export function useCanvas(
       renderEquipmentLengths(ctx, localEquipment, zoom);
     }
 
-    if (isDrawingEquipment && equipmentStart) {
-      renderEquipmentDrawPreview(ctx, equipmentStart, equipmentPreviewEnd);
+    if (isDrawingAsset && assetStart) {
+      renderEquipmentDrawPreview(ctx, assetStart, assetPreviewEnd);
     }
 
-    if (previewPosition && tool === 'equipment' && !isDrawingEquipment) {
+    if (previewPosition && tool === 'asset' && !isDrawingAsset) {
       // 프리셋이 armed 상태면 프리셋 크기로 사각형 미리보기,
       // 아니면 단순 십자선.
-      if (newEquipmentPreset) {
+      if (newAssetPreset) {
         renderPresetPreview(
           ctx,
           previewPosition,
-          newEquipmentPreset.canvasWidth,
-          newEquipmentPreset.canvasHeight,
-          newEquipmentPreset.name,
+          newAssetPreset.canvasWidth,
+          newAssetPreset.canvasHeight,
+          newAssetPreset.name,
         );
       } else {
         renderEquipmentPreview(ctx, previewPosition);

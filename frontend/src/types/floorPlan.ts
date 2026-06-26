@@ -57,7 +57,7 @@ export interface FloorPlanDetail {
   backgroundDrawing?: BackgroundDrawing | null;
   backgroundOpacity?: number;
   // GET /plan 폴백용 saved 설비 — fit(자동 맞춤)이 읽는 배치 필드만 노출.
-  equipment: { positionX: number; positionY: number; width: number; height: number }[];
+  assets: { positionX: number; positionY: number; width: number; height: number }[];
   /**
    * Rack modules — fetched separately via `useRackModules(rackId)` per rack
    * in P9. The plan response itself does NOT include these (see floor.service.ts);
@@ -149,9 +149,9 @@ export interface DwgImportResult {
 // ============================================
 //
 // Mirrors backend `UpdatePlanInput` (floor.service.ts P6/P7). The shape is:
-//   - `equipment`: 도면 위 5종 (RACK 포함). `kind` 필수.
+//   - `assets`: 도면 위 5종 (RACK 포함). `kind` 필수.
 //   - `rackModules`: 별도 배열 — undefined 면 기존 모듈 유지, 배열이면 reconciliation.
 //   - `cables`: source/target 각각 polymorphic.
 
 // 에디터 도구
-export type EditorTool = 'select' | 'equipment' | 'cable';
+export type EditorTool = 'select' | 'asset' | 'cable';

@@ -20,12 +20,12 @@ import type { RackPreset } from '../../../types/rackPreset';
 export function EditorInsertBar() {
   const tool = useEditorStore((s) => s.tool);
   const setTool = useEditorStore((s) => s.setTool);
-  const newEquipmentType = useEditorStore((s) => s.newEquipmentType);
-  const newEquipmentPreset = useEditorStore((s) => s.newEquipmentPreset);
-  const setNewEquipmentType = useEditorStore((s) => s.setNewEquipmentType);
-  const setNewEquipmentPreset = useEditorStore((s) => s.setNewEquipmentPreset);
-  const resetNewEquipmentSelection = useEditorStore(
-    (s) => s.resetNewEquipmentSelection,
+  const newAssetType = useEditorStore((s) => s.newAssetType);
+  const newAssetPreset = useEditorStore((s) => s.newAssetPreset);
+  const setNewAssetType = useEditorStore((s) => s.setNewAssetType);
+  const setNewAssetPreset = useEditorStore((s) => s.setNewAssetPreset);
+  const resetNewAssetSelection = useEditorStore(
+    (s) => s.resetNewAssetSelection,
   );
   const preselectedCableGroupId = useEditorStore(
     (s) => s.preselectedCableGroupId,
@@ -59,20 +59,20 @@ export function EditorInsertBar() {
   // ───── Click handlers (verbatim from EditorInsertBar) ─────
   const handleSelect = () => {
     setTool('select');
-    resetNewEquipmentSelection();
+    resetNewAssetSelection();
     setPreselectedCableGroupId(null);
   };
 
   const handleTypeClick = (t: PlaceableType) => {
-    setTool('equipment');
+    setTool('asset');
     setPreselectedCableGroupId(null);
-    setNewEquipmentType(t);
+    setNewAssetType(t);
   };
 
   const handlePresetClick = (preset: RackPreset) => {
-    setTool('equipment');
+    setTool('asset');
     setPreselectedCableGroupId(null);
-    setNewEquipmentPreset(preset);
+    setNewAssetPreset(preset);
     setPresetMenuOpen(false);
   };
 
@@ -91,14 +91,14 @@ export function EditorInsertBar() {
   };
 
   const handleCableGroupClick = (groupId: string) => {
-    resetNewEquipmentSelection();
+    resetNewAssetSelection();
     startCableConnection({ group: groupId });
   };
 
   const activePresets = rackPresets ?? [];
   const activePreset =
-    tool === 'equipment' && newEquipmentPreset
-      ? activePresets.find((p) => p.id === newEquipmentPreset.id)
+    tool === 'asset' && newAssetPreset
+      ? activePresets.find((p) => p.id === newAssetPreset.id)
       : undefined;
 
   return (
@@ -122,9 +122,9 @@ export function EditorInsertBar() {
       <span className="text-xs text-content-faint whitespace-nowrap pl-1 pr-0.5">설비:</span>
       {placeable.map((t) => {
         const active =
-          tool === 'equipment' &&
-          newEquipmentType?.id === t.id &&
-          !newEquipmentPreset;
+          tool === 'asset' &&
+          newAssetType?.id === t.id &&
+          !newAssetPreset;
         return (
           <button
             key={t.id}
@@ -182,8 +182,8 @@ export function EditorInsertBar() {
               ) : (
                 activePresets.map((preset) => {
                   const active =
-                    tool === 'equipment' &&
-                    newEquipmentPreset?.id === preset.id;
+                    tool === 'asset' &&
+                    newAssetPreset?.id === preset.id;
                   return (
                     <div
                       key={preset.id}

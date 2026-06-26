@@ -1,4 +1,4 @@
-import { useEditorStore, useSelectedEquipment } from '../stores/editorStore';
+import { useEditorStore, useSelectedAsset } from '../stores/editorStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { AssetResizeHandles } from './AssetResizeHandles';
 
@@ -14,7 +14,7 @@ export function AssetResizeHandlesHost() {
   const panY = useEditorStore((s) => s.panY);
   const activeFloorId = useEditorStore((s) => s.activeFloorId);
   const highlightActive = usePathHighlightStore((s) => s.active);
-  const selected = useSelectedEquipment();
+  const selected = useSelectedAsset();
 
   if (tool !== 'select') return null;
   // 연결 추적(하이라이트) 중에는 편집 chrome 을 띄우지 않는다 — 하이라이트가 단일 비주얼.

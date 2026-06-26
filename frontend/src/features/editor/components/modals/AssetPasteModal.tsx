@@ -10,14 +10,14 @@ interface AssetPasteModalProps {
  * before committing the paste via `onPaste`.
  */
 export function AssetPasteModal({ onPaste }: AssetPasteModalProps) {
-  const open = useEditorStore((s) => s.pasteEquipmentModalOpen);
-  const setOpen = useEditorStore((s) => s.setPasteEquipmentModalOpen);
-  const pasteEquipmentName = useEditorStore((s) => s.pasteEquipmentName);
-  const setPasteEquipmentName = useEditorStore((s) => s.setPasteEquipmentName);
+  const open = useEditorStore((s) => s.pasteAssetModalOpen);
+  const setOpen = useEditorStore((s) => s.setPasteAssetModalOpen);
+  const pasteAssetName = useEditorStore((s) => s.pasteAssetName);
+  const setPasteAssetName = useEditorStore((s) => s.setPasteAssetName);
 
   const handleClose = () => {
     setOpen(false);
-    setPasteEquipmentName('');
+    setPasteAssetName('');
   };
 
   return (
@@ -28,7 +28,7 @@ export function AssetPasteModal({ onPaste }: AssetPasteModalProps) {
       footer={
         <>
           <Button variant="secondary" onClick={handleClose}>취소</Button>
-          <Button onClick={onPaste} disabled={!pasteEquipmentName}>붙여넣기</Button>
+          <Button onClick={onPaste} disabled={!pasteAssetName}>붙여넣기</Button>
         </>
       }
     >
@@ -36,9 +36,9 @@ export function AssetPasteModal({ onPaste }: AssetPasteModalProps) {
       <label className="block text-sm font-medium text-content mb-1">설비 이름</label>
       <Input
         type="text"
-        value={pasteEquipmentName}
-        onChange={(e) => setPasteEquipmentName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && pasteEquipmentName) onPaste(); }}
+        value={pasteAssetName}
+        onChange={(e) => setPasteAssetName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && pasteAssetName) onPaste(); }}
         placeholder="예: UPS-02"
         autoFocus
       />

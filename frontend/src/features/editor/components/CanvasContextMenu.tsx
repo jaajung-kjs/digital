@@ -5,7 +5,7 @@ export interface CanvasContextMenuState {
   /** 메뉴를 띄울 화면 좌표 (clientX/clientY) */
   x: number;
   y: number;
-  target: { type: 'equipment' | 'cable'; id: string };
+  target: { type: 'asset' | 'cable'; id: string };
 }
 
 interface CanvasContextMenuProps {
@@ -31,9 +31,9 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
     const es = useEditorStore.getState();
     const asset = useSubstationWorkingCopy.getState().effectiveAssets().find((a) => a.id === target.id);
     if (asset) {
-      es.setClipboard({ type: 'equipment', data: asset });
-      es.setPasteEquipmentName('');
-      es.setPasteEquipmentModalOpen(true);
+      es.setClipboard({ type: 'asset', data: asset });
+      es.setPasteAssetName('');
+      es.setPasteAssetModalOpen(true);
     }
     onClose();
   };
@@ -57,7 +57,7 @@ export function CanvasContextMenu({ menu, onClose }: CanvasContextMenuProps) {
   };
 
   const items: { label: string; onClick: () => void; danger?: boolean }[] =
-    target.type === 'equipment'
+    target.type === 'asset'
       ? [
           { label: '상세 열기', onClick: handleOpenDetail },
           { label: '복제', onClick: handleDuplicate },
