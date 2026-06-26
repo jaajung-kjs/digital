@@ -1,10 +1,17 @@
 import { create } from 'zustand';
-import type { NodeType, TreeNodeData } from '../types/organization';
+import type { NodeType } from '../types/organization';
+import { useSubstationWorkingCopy } from '../features/workingCopy/substationStore';
 
-interface OrganizationState {
-  roots: TreeNodeData[];
-  setRoots: (roots: TreeNodeData[]) => void;
+// ──────────────────────────────────────────────────────────────────────────
+// organizationStore — UI 상태 전용.
+//
+// 데이터(roots/findNode/setChildren/...) 는 substationStore 의 effective 4컬렉션
+// (saved∪overlay)에서 buildOrgTree 로 파생한다(features/workingCopy/hooks 의
+// useEffectiveOrgTree / useFindOrgNode / getOrgNode).
+// 이 스토어는 선택·펼침·viewingNode 등 순수 UI 상태만 소유한다.
+// ──────────────────────────────────────────────────────────────────────────
 
+interface OrganizationUIState {
   selectedNodeId: string | null;
   selectedNodeType: NodeType | null;
   selectNode: (id: string, type: NodeType) => void;
@@ -12,114 +19,67 @@ interface OrganizationState {
   viewingNodeId: string | null;
   setViewingNodeId: (id: string | null) => void;
 
+  /** 펼침 집합(Set<id>). expandNode / expandAncestors 가 관리한다. */
+  expandedIds: Set<string>;
   expandNode: (id: string) => void;
+  /**
+   * 주어진 id 의 조상을 펼침 집합에 추가한다.
+   * 부모 포인터는 substationStore saved 평면 컬렉션을 직접 도보(트리 빌드 없음).
+   */
   expandAncestors: (id: string) => void;
-  setChildren: (parentId: string, children: TreeNodeData[]) => void;
-  renameNode: (id: string, name: string) => void;
-  removeNode: (id: string) => void;
-  findNode: (id: string) => TreeNodeData | null;
 
   reset: () => void;
 }
 
-function updateNodeInTree(
-  nodes: TreeNodeData[],
-  id: string,
-  updater: (node: TreeNodeData) => TreeNodeData,
-): TreeNodeData[] {
-  return nodes.map((node) => {
-    if (node.id === id) return updater(node);
-    if (node.children.length > 0) {
-      return { ...node, children: updateNodeInTree(node.children, id, updater) };
-    }
-    return node;
-  });
+/** substationStore saved 평면 컬렉션에서 nodeId 의 부모 id 를 반환(없으면 null). */
+function getParentId(nodeId: string): string | null {
+  const s = useSubstationWorkingCopy.getState();
+  const floor = s.saved.floors.find((f) => f.id === nodeId);
+  if (floor) return floor.substationId;
+  const sub = s.saved.substations.find((sub) => sub.id === nodeId);
+  if (sub) return sub.branchId;
+  const branch = s.saved.branches.find((b) => b.id === nodeId);
+  if (branch) return branch.headquartersId;
+  return null; // headquarters: no parent
 }
 
-function removeNodeFromTree(nodes: TreeNodeData[], id: string): TreeNodeData[] {
-  return nodes
-    .filter((node) => node.id !== id)
-    .map((node) => ({
-      ...node,
-      children: removeNodeFromTree(node.children, id),
-    }));
-}
-
-function findNodeInTree(nodes: TreeNodeData[], id: string): TreeNodeData | null {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    const found = findNodeInTree(node.children, id);
-    if (found) return found;
-  }
-  return null;
-}
-
-export const useOrganizationStore = create<OrganizationState>((set, get) => ({
-  roots: [],
+export const useOrganizationStore = create<OrganizationUIState>((set) => ({
   selectedNodeId: null,
   selectedNodeType: null,
   viewingNodeId: null,
-
-  setRoots: (roots) => set({ roots }),
+  expandedIds: new Set<string>(),
 
   selectNode: (id, type) => set({ selectedNodeId: id, selectedNodeType: type }),
 
   setViewingNodeId: (id) => set({ viewingNodeId: id }),
 
   expandNode: (id) =>
-    set((state) => ({
-      roots: updateNodeInTree(state.roots, id, (node) => ({
-        ...node,
-        expanded: true,
-      })),
-    })),
+    set((state) => {
+      if (state.expandedIds.has(id)) return state;
+      const next = new Set(state.expandedIds);
+      next.add(id);
+      return { expandedIds: next };
+    }),
 
   expandAncestors: (id) => {
-    const { roots, findNode } = get();
-    // Collect all ancestor IDs first
-    const ancestorIds = new Set<string>();
-    let node = findNode(id);
-    while (node?.parentId) {
-      ancestorIds.add(node.parentId);
-      node = findNode(node.parentId);
+    const ancestorIds: string[] = [];
+    let cur = getParentId(id);
+    const seen = new Set<string>();
+    while (cur && !seen.has(cur)) {
+      seen.add(cur);
+      ancestorIds.push(cur);
+      cur = getParentId(cur);
     }
-    if (ancestorIds.size === 0) return;
-    // Single pass over the tree
-    const expandAll = (nodes: TreeNodeData[]): TreeNodeData[] =>
-      nodes.map((n) => {
-        const shouldExpand = ancestorIds.has(n.id);
-        const hasChildren = n.children.length > 0;
-        if (!shouldExpand && !hasChildren) return n;
-        const children = hasChildren ? expandAll(n.children) : n.children;
-        return shouldExpand ? { ...n, expanded: true, children } : (children !== n.children ? { ...n, children } : n);
-      });
-    set({ roots: expandAll(roots) });
+    if (ancestorIds.length === 0) return;
+
+    set((state) => {
+      if (ancestorIds.every((a) => state.expandedIds.has(a))) return state;
+      const next = new Set(state.expandedIds);
+      for (const a of ancestorIds) next.add(a);
+      return { expandedIds: next };
+    });
   },
 
-  setChildren: (parentId, children) =>
-    set((state) => ({
-      roots: updateNodeInTree(state.roots, parentId, (node) => ({
-        ...node,
-        children,
-        childrenLoaded: true,
-        expanded: true,
-      })),
-    })),
-
-  renameNode: (id, name) =>
-    set((state) => ({
-      roots: updateNodeInTree(state.roots, id, (node) => ({ ...node, name })),
-    })),
-
-  removeNode: (id) =>
-    set((state) => ({
-      roots: removeNodeFromTree(state.roots, id),
-      selectedNodeId: state.selectedNodeId === id ? null : state.selectedNodeId,
-      selectedNodeType: state.selectedNodeId === id ? null : state.selectedNodeType,
-      viewingNodeId: state.viewingNodeId === id ? null : state.viewingNodeId,
-    })),
-
-  findNode: (id) => findNodeInTree(get().roots, id),
-
-  reset: () => set({ roots: [], selectedNodeId: null, selectedNodeType: null, viewingNodeId: null }),
+  reset: () =>
+    set({ selectedNodeId: null, selectedNodeType: null, viewingNodeId: null, expandedIds: new Set() }),
 }));

@@ -19,6 +19,8 @@ import { cableOnFloor } from './floorAnchor';
 import { toMapById } from '../../utils/byId';
 import type { Asset } from '../../types/asset';
 import { useEditorStore, selectFloorSettingsDirty } from '../editor/stores/editorStore';
+import { buildOrgTree } from '../../components/tree/buildOrgTree';
+import type { TreeNodeData } from '../../types/organization';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SSOT-2c Task 1 — React 바인딩 훅.
@@ -165,6 +167,87 @@ export function useUnifiedDirty(): number {
   const wc = useMemo(() => sumOverlaysDirty(overlays), [overlays]);
   const floorDirty = useEditorStore(selectFloorSettingsDirty);
   return wc + (floorDirty ? 1 : 0);
+}
+
+// ── 조직 트리 파생 셀렉터 ─────────────────────────────────────────────────
+//
+// substationStore 의 effective 4컬렉션(saved∪overlay)에서 중첩 TreeNodeData[]를
+// 만든다 — useEffectiveAssets 패턴과 동일(saved/overlay 슬라이스 구독 + useMemo).
+// organizationStore 에 트리를 미러링하거나 setRoots 를 호출할 필요가 없어진다.
+// ──────────────────────────────────────────────────────────────────────────
+
+/** 중첩 트리에서 id 노드를 찾는 순수 재귀 헬퍼. */
+function findInTree(nodes: TreeNodeData[], id: string): TreeNodeData | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (n.children.length > 0) {
+      const found = findInTree(n.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * effective(saved+staged) 4컬렉션에서 중첩 TreeNodeData[] 를 파생한다.
+ * TreePanel 의 단일 데이터 소스. saved/overlay 슬라이스가 바뀔 때만 재계산.
+ */
+export function useEffectiveOrgTree(): TreeNodeData[] {
+  const hqs = useEffectiveHeadquarters();
+  const branches = useEffectiveBranches();
+  const subs = useEffectiveSubstations();
+  const floors = useEffectiveFloors();
+  return useMemo(() => buildOrgTree(hqs, branches, subs, floors), [hqs, branches, subs, floors]);
+}
+
+/**
+ * 훅 — effective 트리에서 id 노드를 찾는 함수를 반환한다.
+ * Breadcrumb, WorkspacePage, useTreeRouteSync 등 React 컨텍스트 소비용.
+ * 트리 ref 가 바뀔 때만 새 함수 참조를 반환(useMemo).
+ */
+export function useFindOrgNode(): (id: string) => TreeNodeData | null {
+  const tree = useEffectiveOrgTree();
+  return useMemo(() => (id: string) => findInTree(tree, id), [tree]);
+}
+
+/**
+ * non-hook — getState() 로 즉시 단일 노드를 조회한다.
+ * 이벤트 핸들러/zustand 액션 내부 등 React 렌더 밖에서 사용.
+ * 매 호출마다 effective 를 재계산하므로 hot-path 반복 호출은 지양한다.
+ */
+export function getOrgNode(id: string): TreeNodeData | null {
+  const s = useSubstationWorkingCopy.getState();
+  const hqs = mergeEffective(s.saved.headquarters, s.overlays.headquarters, headquartersDescriptor);
+  const branches = mergeEffective(s.saved.branches, s.overlays.branches, branchDescriptor);
+  const subs = mergeEffective(s.saved.substations, s.overlays.substations, orgSubstationDescriptor);
+  const floors = mergeEffective(s.saved.floors, s.overlays.floors, floorDescriptor);
+  const tree = buildOrgTree(hqs, branches, subs, floors);
+  return findInTree(tree, id);
+}
+
+/**
+ * non-hook — substationStore effective 4컬렉션에서 id→name 맵을 즉시 만든다.
+ * pathHighlightStore(zustand 액션 내부 — React 렌더 밖) 의 단일 소스.
+ * traceGraph.collectNodeNames 와 동일한 커버리지(전 org 노드 포함).
+ * traceGraph 가 이미 hooks 를 import 하므로 순환 방지를 위해 collectNodeNames 를 인라인.
+ */
+export function getOrgNodeNames(): Map<string, string> {
+  const s = useSubstationWorkingCopy.getState();
+  const hqs = mergeEffective(s.saved.headquarters, s.overlays.headquarters, headquartersDescriptor);
+  const branches = mergeEffective(s.saved.branches, s.overlays.branches, branchDescriptor);
+  const subs = mergeEffective(s.saved.substations, s.overlays.substations, orgSubstationDescriptor);
+  const floors = mergeEffective(s.saved.floors, s.overlays.floors, floorDescriptor);
+  const tree = buildOrgTree(hqs, branches, subs, floors);
+  // inline of collectNodeNames(tree) — 순환 import 방지(traceGraph → hooks → traceGraph).
+  const out = new Map<string, string>();
+  const walk = (nodes: TreeNodeData[]) => {
+    for (const n of nodes) {
+      out.set(n.id, n.name);
+      if (n.children.length > 0) walk(n.children);
+    }
+  };
+  walk(tree);
+  return out;
 }
 
 /**

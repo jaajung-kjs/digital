@@ -29,10 +29,16 @@ vi.mock('../../../../workingCopy/substationStore', async (importOriginal) => ({
       stageCableUpdate: vi.fn(),
       stageCableDelete: vi.fn(),
       // 연결 탭이 effective cables 를 읽으므로 모든 컬렉션 빈 상태로 제공.
-      saved: { assets: [], cables: [] },
+      // 조직 4컬렉션도 포함(useEffectiveOrgTree 가 useTraceGraph 내부에서 호출되므로 필수).
+      saved: { assets: [], cables: [], records: [], headquarters: [], branches: [], substations: [], floors: [] },
       overlays: {
         assets: { creates: {}, updates: {}, deletes: [] },
         cables: { creates: {}, updates: {}, deletes: [] },
+        records: { creates: {}, updates: {}, deletes: [] },
+        headquarters: { creates: {}, updates: {}, deletes: [] },
+        branches: { creates: {}, updates: {}, deletes: [] },
+        substations: { creates: {}, updates: {}, deletes: [] },
+        floors: { creates: {}, updates: {}, deletes: [] },
       },
     }),
 }));

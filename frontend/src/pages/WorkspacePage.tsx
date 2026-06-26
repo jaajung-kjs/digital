@@ -12,7 +12,7 @@ import { useSelectionStore } from '../features/workspace/selectionStore';
 import { useEditorSelectionBridge } from '../features/workspace/useEditorSelectionBridge';
 import { useSelectionHighlight } from '../features/workspace/selectionHighlight';
 import { useSubstationFloors } from '../features/workspace/useSubstationFloors';
-import { useWorkingCopyLoader, useEffectiveAssets } from '../features/workingCopy/hooks';
+import { useWorkingCopyLoader, useEffectiveAssets, useFindOrgNode } from '../features/workingCopy/hooks';
 import { useHydrateGlobal } from '../features/workingCopy/useHydrateGlobal';
 import { floorAnchor } from '../features/workingCopy/floorAnchor';
 import { toMapById } from '../utils/byId';
@@ -49,7 +49,9 @@ export function WorkspacePage() {
   const { substationId } = useParams<{ substationId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { viewingNodeId, findNode } = useOrganizationStore();
+  const { viewingNodeId } = useOrganizationStore();
+  // findNode: 데이터 — 워킹카피 effective 트리에서 파생.
+  const findNode = useFindOrgNode();
 
   // 활성 노드: URL 변전소 우선, 없으면 viewingNode(본부·사업소·변전소).
   const activeNode = useMemo<{ type: NodeKind; id: string } | null>(() => {

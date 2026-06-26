@@ -84,13 +84,8 @@ export function TreePanel() {
   );
 
   // 선택 하이라이트·viewingNode 는 organizationStore 가 계속 소유(다른 소비자 공유).
-  const { selectedNodeId, selectNode, setViewingNodeId, setRoots } = useOrganizationStore();
-
-  // findNode/breadcrumb/trace/route-sync 소비자가 store.roots 를 계속 읽으므로
-  // 빌드된 트리를 store 에 미러링한다(렌더는 위 roots 로컬, store 는 lookup 용).
-  useEffect(() => {
-    setRoots(roots);
-  }, [roots, setRoots]);
+  // 데이터(roots)는 워킹카피 effective 에서 파생 — setRoots 미러링 제거.
+  const { selectedNodeId, selectNode, setViewingNodeId } = useOrganizationStore();
 
   // 펼침 상태(로컬). chevron 토글 / 라우트·선택 변화 시 조상 펼침.
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());

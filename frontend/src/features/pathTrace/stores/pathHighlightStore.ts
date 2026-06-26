@@ -16,8 +16,8 @@ import { floorAnchor } from '../../workingCopy/floorAnchor';
 import { toMapById } from '../../../utils/byId';
 import type { Asset } from '../../../types/asset';
 import { projectTrace, type TraceProjection } from '../../trace/traceProjection';
-import { buildTraceGraph, collectNodeNames, type TraceCableInput } from '../../trace/traceGraph';
-import { useOrganizationStore } from '../../../stores/organizationStore';
+import { buildTraceGraph, type TraceCableInput } from '../../trace/traceGraph';
+import { getOrgNodeNames } from '../../workingCopy/hooks';
 
 function idleState() {
   return {
@@ -61,7 +61,7 @@ async function loadProjection(cableId: string): Promise<
   try {
     // effective(전역 saved∪overlay−deletes)가 단일 SSOT — 피드 직접 fetch 불필요(useHydrateGlobal 이 hydrate).
     const wc = useSubstationWorkingCopy.getState();
-    const substationNames = collectNodeNames(useOrganizationStore.getState().roots);
+    const substationNames = getOrgNodeNames();
     const graph = buildTraceGraph({
       assets: wc.effectiveAssets(),
       cables: wc.effectiveCables() as unknown as TraceCableInput[],

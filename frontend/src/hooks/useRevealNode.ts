@@ -1,52 +1,21 @@
 import { useCallback } from 'react';
 import { useOrganizationStore } from '../stores/organizationStore';
-import { fetchChildNodes } from '../services/organizationApi';
-import { api } from '../utils/api';
+import { getOrgNode } from '../features/workingCopy/hooks';
 import type { NodeType } from '../types/organization';
 
 /**
- * Reveal a node in the org tree: cascade-load lazy ancestors, expand them, and
- * highlight the target. Used to keep the tree in sync with the active route
- * regardless of how the user navigated (click, drill, deep-link, breadcrumb).
+ * Reveal a node in the org tree: highlight the target.
+ *
+ * 이전 lazy-load(slow path: /nodes/:id/path + fetchChildNodes + setChildren) 를
+ * 제거한다. 트리가 loadOrgTree 로 eager-load(전체 평면 → 중첩 TreeNodeData[]) 되므로,
+ * getOrgNode 로 찾지 못하면 아직 로드 중인 상태(boot race) — 조용히 bail.
+ * 펼침(expand) 은 TreePanel 의 로컬 expandAncestorsOf 이펙트가 activeId 변화를
+ * 감지해 처리하므로 여기서 중복 호출하지 않는다.
  */
 export function useRevealNode() {
-  return useCallback(async (nodeId: string, nodeType: NodeType) => {
-    const store = useOrganizationStore.getState();
-    // Fast path: node already materialized in the tree → just expand ancestors
-    // + highlight. No network, no loop (selectNode only flips selected ids).
-    if (store.findNode(nodeId)) {
-      store.expandAncestors(nodeId);
-      store.selectNode(nodeId, nodeType);
-      return;
-    }
-    // Slow path: resolve the root→node ancestor chain, then cascade-load each
-    // level so the target materializes in the tree.
-    let path: { id: string; type: NodeType }[];
-    try {
-      const { data } = await api.get<{ data: { id: string; type: NodeType }[] }>(
-        `/nodes/${nodeId}/path`,
-        { params: { nodeType } },
-      );
-      path = data.data;
-    } catch {
-      return; // node/path unavailable — leave tree as-is (no crash)
-    }
-    // Load children for each ancestor except the target itself, top-down.
-    // Re-fetch the node from the store each iteration since setChildren mutates it.
-    for (let i = 0; i < path.length - 1; i++) {
-      const node = useOrganizationStore.getState().findNode(path[i].id);
-      if (!node) break; // root not present yet (boot race) — bail gracefully
-      if (!node.childrenLoaded) {
-        const children = await fetchChildNodes(node);
-        useOrganizationStore.getState().setChildren(node.id, children);
-      } else {
-        useOrganizationStore.getState().expandNode(node.id);
-      }
-    }
-    const s = useOrganizationStore.getState();
-    if (s.findNode(nodeId)) {
-      s.expandAncestors(nodeId);
-      s.selectNode(nodeId, nodeType);
-    }
+  return useCallback((nodeId: string, nodeType: NodeType) => {
+    const node = getOrgNode(nodeId);
+    if (!node) return; // 미로드(boot race) — 조용히 bail
+    useOrganizationStore.getState().selectNode(nodeId, nodeType);
   }, []);
 }
