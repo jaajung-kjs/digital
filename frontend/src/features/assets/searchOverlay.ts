@@ -29,10 +29,8 @@ export function buildSearchOverlay(assets: AssetsOverlay, orgNames: Map<string, 
 /** 순서 안정 해시(React Query 키용). 빈 overlay → ''. */
 export function hashSearchOverlay(o: SearchOverlay): string {
   if (!o.creates.length && !o.updates.length && !o.deletes.length) return '';
-  const creates = [...o.creates].sort((a, b) => a.id.localeCompare(b.id))
-    .map((c) => `${c.id}:${c.name}:${c.role}:${c.substationId}:${c.substationName}`).join('|');
-  const updates = [...o.updates].sort((a, b) => a.id.localeCompare(b.id))
-    .map((u) => `${u.id}:${u.name ?? ''}:${u.substationName ?? ''}`).join('|');
-  const deletes = [...o.deletes].sort().join('|');
-  return `${creates}#${updates}#${deletes}`;
+  const creates = [...o.creates].sort((a, b) => a.id.localeCompare(b.id));
+  const updates = [...o.updates].sort((a, b) => a.id.localeCompare(b.id));
+  const deletes = [...o.deletes].sort();
+  return JSON.stringify({ creates, updates, deletes });
 }
