@@ -20,15 +20,7 @@ import { buildTraceOverlay, fetchServerTraceGraph } from '../../trace/useServerT
 import { queryClient } from '../../../lib/queryClient';
 import { CABLE_CATEGORY_KEYS, fetchCableCategories } from '../../cables/hooks/useCableCategories';
 import type { CableCategory } from '../../../types/cableCategory';
-
-/** 워킹카피 effective cable shape — group 해소용 최소 필드. */
-type CableLike = {
-  id: string;
-  sourceAssetId?: string | null;
-  targetAssetId?: string | null;
-  groupId?: string | null;
-  categoryId?: string | null;
-};
+import { resolveCableSeed, type CableSeedInput } from '../../trace/cableSeed';
 
 function idleState() {
   return {
@@ -67,23 +59,14 @@ export function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]
  */
 async function resolveSeedFromCable(cableId: string): Promise<{ seedAssetId: string; groupId: string } | null> {
   const wc = useSubstationWorkingCopy.getState();
-  const cables = wc.effectiveCables() as unknown as CableLike[];
-  const cable = cables.find((c) => c.id === cableId);
-  if (!cable) return null;
-  const seedAssetId = cable.sourceAssetId ?? cable.targetAssetId ?? null;
-  if (!seedAssetId) return null;
-
-  // 콜드캐시(카테고리 미페치)에서도 groupId 를 해소하려면 ensureQueryData 로 온디맨드 페치한다.
-  // useCableCategories 와 동일한 key/queryFn 을 재사용 → 캐시 엔트리 공유.
+  const cables = wc.effectiveCables() as unknown as CableSeedInput[];
+  // 콜드캐시(카테고리 미페치)에서도 groupId 를 해소하려면 ensureQueryData 로 온디맨드 페치.
   const categories =
     (await queryClient.ensureQueryData<CableCategory[]>({
       queryKey: CABLE_CATEGORY_KEYS.all,
       queryFn: fetchCableCategories,
     })) ?? [];
-  const catToGroup = new Map(categories.map((c) => [c.id, c.groupId]));
-  const groupId = cable.groupId ?? (cable.categoryId ? catToGroup.get(cable.categoryId) ?? null : null);
-  if (!groupId) return null;
-  return { seedAssetId, groupId };
+  return resolveCableSeed(cableId, cables, categories);
 }
 
 /**
