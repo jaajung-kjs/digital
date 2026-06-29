@@ -33,10 +33,10 @@ const mockResponse = {
     { id: 'core5b', groupId: GROUP_ID, sourceAssetId: 'slotB', targetAssetId: 'asset-remote', sourceRole: 'OUT', targetRole: null, number: 5 },
   ],
   nodes: [
-    { id: 'asset-seed',   name: '춘천단말',  role: 'device', parentAssetId: null,   substationId: 'sub-A', substationName: '춘천S/S' },
-    { id: 'slotA',        name: 'OFD슬롯A', role: 'slot',   parentAssetId: 'ofdA', substationId: 'sub-A', substationName: '춘천S/S' },
-    { id: 'slotB',        name: 'OFD슬롯B', role: 'slot',   parentAssetId: 'ofdB', substationId: 'sub-B', substationName: '홍천S/S' },
-    { id: 'asset-remote', name: '홍천단말',  role: 'device', parentAssetId: null,   substationId: 'sub-B', substationName: '홍천S/S' },
+    { id: 'asset-seed',   name: '춘천단말',  role: 'device', parentAssetId: null,   substationId: 'sub-A', substationName: '춘천S/S', slotIndex: null },
+    { id: 'slotA',        name: 'OFD슬롯A', role: 'slot',   parentAssetId: 'ofdA', substationId: 'sub-A', substationName: '춘천S/S', slotIndex: 2 },
+    { id: 'slotB',        name: 'OFD슬롯B', role: 'slot',   parentAssetId: 'ofdB', substationId: 'sub-B', substationName: '홍천S/S', slotIndex: 5 },
+    { id: 'asset-remote', name: '홍천단말',  role: 'device', parentAssetId: null,   substationId: 'sub-B', substationName: '홍천S/S', slotIndex: null },
   ],
   truncated: false,
 };
@@ -259,16 +259,18 @@ describe('useServerTrace — buildTraceGraph 재사용 검증', () => {
     expect(assetIds).toEqual(['asset-remote', 'asset-seed', 'slotA', 'slotB']);
   });
 
-  it('slotIndexById 는 모든 노드에 null(서버가 slotIndex 미제공)', async () => {
+  it('slotIndexById 는 서버 node.slotIndex 를 보존(선번장 슬롯 순번 정렬용)', async () => {
     const { result } = renderHook(
       () => useServerTrace(SEED_ID, GROUP_ID),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.graph).not.toBeNull());
 
-    for (const id of ['asset-seed', 'slotA', 'slotB', 'asset-remote']) {
-      expect(result.current.graph!.slotIndexById.get(id)).toBeNull();
-    }
+    // slot 노드는 서버가 내려준 slotIndex 그대로, slotIndex 미제공(null) 노드는 null.
+    expect(result.current.graph!.slotIndexById.get('slotA')).toBe(2);
+    expect(result.current.graph!.slotIndexById.get('slotB')).toBe(5);
+    expect(result.current.graph!.slotIndexById.get('asset-seed')).toBeNull();
+    expect(result.current.graph!.slotIndexById.get('asset-remote')).toBeNull();
   });
 
   it('isLoading: 로딩 중에는 true, 완료 후 false', async () => {

@@ -27,6 +27,8 @@ interface ServerTraceNode {
   parentAssetId: string | null;
   substationId: string;
   substationName: string | null;
+  /** OFD 내 슬롯 위치 — 선번장 fiberSlotLabel 정렬 보존(null=미설정). */
+  slotIndex: number | null;
 }
 
 /** POST /api/trace 응답 케이블(TraceCable 와 동형). */
@@ -182,10 +184,9 @@ export function stableHash(overlay: ReturnType<typeof buildTraceOverlay>): strin
  * 서버 TraceNode 를 buildTraceGraph 가 기대하는 asset 입력 shape 로 변환한다.
  *
  * buildTraceGraph 는 a.assetType?.role 로 role 을 읽으므로 서버의 직접 role 필드를
- * assetType 중첩으로 감싼다. slotIndex 는 서버 response 에 없으므로 null(buildTraceGraph
- * 가 slotIndexById.set(a.id, a.slotIndex ?? null) → null 으로 처리).
- * slotIndex 가 null 이면 fiberSlotLabel 정렬이 MAX_SAFE_INTEGER 폴백을 쓰는 것 외에
- * projectTrace / traceRemoteEndpoints 에는 영향이 없다.
+ * assetType 중첩으로 감싼다. slotIndex 는 서버 node select 가 함께 내려주므로 그대로
+ * 전달 → slotIndexById 가 채워져 fiberSlotLabel 슬롯 순번 정렬이 전역 그래프와 동일하게
+ * 보존된다(null=미설정 폴백).
  */
 function nodeToAssetInput(n: ServerTraceNode) {
   return {
@@ -193,9 +194,45 @@ function nodeToAssetInput(n: ServerTraceNode) {
     name: n.name,
     substationId: n.substationId,
     parentAssetId: n.parentAssetId,
-    slotIndex: null as null,
+    slotIndex: n.slotIndex ?? null,
     assetType: { role: n.role },
   };
+}
+
+/** 서버 trace 응답을 작은 TraceGraph 로 변환(훅·비훅 공용 단일 소스). */
+export function responseToTraceGraph(data: ServerTraceResponse): TraceGraph {
+  const assets = data.nodes.map(nodeToAssetInput);
+
+  // substationId → substationName 맵(서버 nodes 의 substationName 단일 소스).
+  const substationNames = new Map<string, string>();
+  for (const n of data.nodes) {
+    if (n.substationId && n.substationName) {
+      substationNames.set(n.substationId, n.substationName);
+    }
+  }
+
+  return buildTraceGraph({ assets, cables: data.cables, substationNames });
+}
+
+/**
+ * POST /api/trace 를 직접 호출해 작은 TraceGraph 를 만든다(비-React 경로용).
+ *
+ * zustand 스토어 액션처럼 훅을 쓸 수 없는 곳(pathHighlightStore.loadProjection)에서
+ * useServerTrace 와 동일한 서버 component 를 받아 projectTrace 에 넘긴다.
+ * overlay 는 호출측이 buildTraceOverlay 로 만들어 넘긴다(비면 생략).
+ */
+export async function fetchServerTraceGraph(
+  seedAssetId: string,
+  groupId: string,
+  overlay?: ReturnType<typeof buildTraceOverlay>,
+): Promise<TraceGraph> {
+  const hasOverlay = overlay && stableHash(overlay) !== '';
+  const res = await api.post<{ data: ServerTraceResponse }>('/trace', {
+    seedAssetId,
+    groupId,
+    ...(hasOverlay ? { overlay } : {}),
+  });
+  return responseToTraceGraph(res.data.data);
 }
 
 // ─── 훅 ─────────────────────────────────────────────────────────────────────
@@ -253,21 +290,10 @@ export function useServerTrace(
   });
 
   // ── 서버 응답 → TraceGraph ───────────────────────────────────────────────
-  const graph = useMemo<TraceGraph | null>(() => {
-    if (!data) return null;
-
-    const assets = data.nodes.map(nodeToAssetInput);
-
-    // substationId → substationName 맵(서버 nodes 의 substationName 단일 소스).
-    const substationNames = new Map<string, string>();
-    for (const n of data.nodes) {
-      if (n.substationId && n.substationName) {
-        substationNames.set(n.substationId, n.substationName);
-      }
-    }
-
-    return buildTraceGraph({ assets, cables: data.cables, substationNames });
-  }, [data]);
+  const graph = useMemo<TraceGraph | null>(
+    () => (data ? responseToTraceGraph(data) : null),
+    [data],
+  );
 
   return { graph, isLoading: enabled ? isLoading : false, error };
 }

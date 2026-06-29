@@ -126,6 +126,9 @@ describe('POST /api/trace — 서버 트레이스 통합', () => {
     expect(typeof nodeA.substationName).toBe('string');
     // device 역할(assetType.role) 이 반영되어야 한다
     expect(nodeA.role).toBe('device');
+    // slotIndex 필드가 응답에 포함되어야 한다(슬롯 아닌 자산은 null) — 선번장 순번 보존용.
+    expect(nodeA).toHaveProperty('slotIndex');
+    expect(nodeA.slotIndex).toBeNull();
   });
 
   // ────────────────────────────────────────────────────────────────────────────

@@ -11,6 +11,8 @@ export interface TraceNode {
   parentAssetId: string | null;
   substationId: string;
   substationName: string | null;
+  /** OFD 내 슬롯 위치 — 선번장 fiberSlotLabel 정렬 보존용(null=미설정). */
+  slotIndex: number | null;
 }
 
 /** trace() 응답 */
@@ -159,6 +161,7 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
       name: true,
       parentAssetId: true,
       substationId: true,
+      slotIndex: true,
       assetType: { select: { role: true } },
       substation: { select: { name: true } },
     },
@@ -171,6 +174,7 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
     parentAssetId: a.parentAssetId ?? null,
     substationId: a.substationId,
     substationName: a.substation?.name ?? null,
+    slotIndex: a.slotIndex ?? null,
   }));
 
   // ── 7. 응답 케이블: cableIds ∩ mergedCables ──────────────────────────────
