@@ -39,4 +39,8 @@ describe('mergeSearchOverlay', () => {
     const r = mergeSearchOverlay(committed, { creates: [], updates: [{ id: 'o1', name: '원주개명' }], deletes: [] }, { role: 'ofd' });
     expect(r.find((x) => x.id === 'o1')!.name).toBe('원주개명');
   });
+  it('present 하지 않은 id 의 update 는 행을 추가하지 않는다(upsert 아님)', () => {
+    const r = mergeSearchOverlay(committed, { creates: [], updates: [{ id: 'ghost', name: '없음' }], deletes: [] }, { role: 'ofd' });
+    expect(r.map((x) => x.id).sort()).toEqual(['o1', 'o2']); // ghost 미추가
+  });
 });
