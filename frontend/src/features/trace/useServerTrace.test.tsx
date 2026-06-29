@@ -15,7 +15,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { api } from '../../utils/api';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
-import { useServerTrace } from './useServerTrace';
+import type { AssetsOverlay, CablesOverlay } from '../workingCopy/substationStore';
+import { useServerTrace, buildTraceOverlay, stableHash } from './useServerTrace';
 
 // ─── 픽스처 ──────────────────────────────────────────────────────────────────
 
@@ -177,6 +178,72 @@ describe('useServerTrace — overlay hash', () => {
     expect(callArg.overlay).toBeDefined();
     expect(callArg.overlay.cables.creates.length).toBeGreaterThan(0);
     expect(callArg.overlay.cables.creates[0].tempId).toBe('temp-new-cable');
+  });
+});
+
+describe('stableHash — 순서-안정성(W1)', () => {
+  // CablesOverlay/AssetsOverlay shape 헬퍼 — baseVersions 는 deletes 의 baseVersion 에만 영향.
+  const makeOverlays = (
+    creates: Record<string, Record<string, unknown>>,
+    updates: Record<string, Record<string, unknown>>,
+    deletes: string[],
+    assetCreates: Record<string, { id: string; assetType?: { role?: string | null } }>,
+    baseVersions: Record<string, string> = {},
+  ): { cables: CablesOverlay; assets: AssetsOverlay } => ({
+    cables: { creates, updates, deletes, baseVersions } as unknown as CablesOverlay,
+    assets: { creates: assetCreates, updates: {} } as unknown as AssetsOverlay,
+  });
+
+  it('배열 삽입 순서가 달라도 동일 내용이면 같은 해시', () => {
+    const cA = { id: 'cab-1', sourceAssetId: 'a', targetAssetId: 'b', categoryId: 'cat' };
+    const cB = { id: 'cab-2', sourceAssetId: 'c', targetAssetId: 'd', categoryId: 'cat' };
+
+    // overlay 1: temp 케이블 t1,t2 순으로 생성, deletes [d1,d2], assets x,y 순
+    const o1 = stableHash(
+      buildTraceOverlay(
+        makeOverlays(
+          { t1: cA, t2: cB },
+          {},
+          ['d1', 'd2'],
+          { x: { id: 'x', assetType: { role: 'device' } }, y: { id: 'y', assetType: { role: 'slot' } } },
+        ),
+      ),
+    );
+
+    // overlay 2: 같은 내용을 반대 순서로 구성(키 순서·배열 순서 모두 뒤집음)
+    const o2 = stableHash(
+      buildTraceOverlay(
+        makeOverlays(
+          { t2: cB, t1: cA },
+          {},
+          ['d2', 'd1'],
+          { y: { id: 'y', assetType: { role: 'slot' } }, x: { id: 'x', assetType: { role: 'device' } } },
+        ),
+      ),
+    );
+
+    expect(o1).toBe(o2);
+    expect(o1).not.toBe(''); // 비어있지 않음(실제 delta)
+  });
+
+  it('객체 키 순서가 달라도 같은 해시(replacer 키 정렬)', () => {
+    const o1 = stableHash(
+      buildTraceOverlay(makeOverlays({ t1: { id: 'c1', sourceAssetId: 'a', targetAssetId: 'b' } }, {}, [], {})),
+    );
+    const o2 = stableHash(
+      buildTraceOverlay(makeOverlays({ t1: { id: 'c1', targetAssetId: 'b', sourceAssetId: 'a' } }, {}, [], {})),
+    );
+    expect(o1).toBe(o2);
+  });
+
+  it('내용이 다르면 해시가 다름(거짓 동일 방지)', () => {
+    const o1 = stableHash(buildTraceOverlay(makeOverlays({ t1: { id: 'c1', sourceAssetId: 'a' } }, {}, [], {})));
+    const o2 = stableHash(buildTraceOverlay(makeOverlays({ t1: { id: 'c1', sourceAssetId: 'z' } }, {}, [], {})));
+    expect(o1).not.toBe(o2);
+  });
+
+  it('빈 overlay 는 빈 문자열', () => {
+    expect(stableHash(buildTraceOverlay(makeOverlays({}, {}, [], {})))).toBe('');
   });
 });
 

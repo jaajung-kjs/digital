@@ -15,7 +15,7 @@ import { api } from '../../utils/api';
 import { isTempId } from '../../utils/idHelpers';
 import { buildTraceGraph, type TraceGraph } from './traceGraph';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
-import type { Asset } from '../../types/asset';
+import type { AssetsOverlay, CablesOverlay } from '../workingCopy/substationStore';
 
 // ─── 서버 응답 타입 ─────────────────────────────────────────────────────────
 
@@ -63,18 +63,7 @@ interface ServerTraceResponse {
  * assets: staged creates/updates 중 role 이 있는 것만(traceEndpoint 역할 오버라이드용).
  * staged deletes 는 서버 response nodes 에 이미 반영 불필요(서버가 committed 만 봄).
  */
-function buildTraceOverlay(overlays: {
-  cables: {
-    creates: Record<string, unknown>;
-    updates: Record<string, unknown>;
-    deletes: string[];
-    baseVersions: Record<string, string>;
-  };
-  assets: {
-    creates: Record<string, Asset>;
-    updates: Record<string, Partial<Asset>>;
-  };
-}) {
+export function buildTraceOverlay(overlays: { cables: CablesOverlay; assets: AssetsOverlay }) {
   const { cables, assets } = overlays;
 
   // ── cables delta → 서버 overlay.cables 형식 ────────────────────────────────
@@ -111,9 +100,13 @@ function buildTraceOverlay(overlays: {
       };
     });
 
-  const cableDeletes = cables.deletes
-    .filter((id) => !Object.prototype.hasOwnProperty.call(cables.creates, id)) // temp create → delete 는 skip
-    .map((id) => ({ id, baseVersion: cables.baseVersions[id] ?? null }));
+  // cables.deletes 는 committed(실 id)만 담는다 — 스토어 stageDelete(isTemp) 가 temp
+  // create→delete 를 creates 에서 제거하고 deletes 엔 절대 넣지 않기 때문(overlay.ts).
+  // 따라서 deletes vs creates(tempId 키) 교차 필터는 항상 vacuous → 제거.
+  const cableDeletes = cables.deletes.map((id) => ({
+    id,
+    baseVersion: cables.baseVersions[id] ?? null,
+  }));
 
   // ── assets: staged create/update 에서 role 오버라이드 수집 ───────────────────
   const assetOverrides: { id: string; role: string | null }[] = [];
@@ -143,10 +136,15 @@ function buildTraceOverlay(overlays: {
 }
 
 /**
- * 직렬화 가능한 overlay 객체를 안정적인 해시 문자열로 변환한다.
+ * 직렬화 가능한 overlay 객체를 *순서-안정적인* 해시 문자열로 변환한다.
  * staged delta 가 바뀌면 overlayHash 가 달라져 react-query 가 refetch 한다.
+ *
+ * 주의: 같은 내용의 overlay 라도 creates/updates/deletes/assets 의 배열 순서나 객체 키
+ * 순서가 다르면 단순 JSON.stringify 는 다른 문자열을 만들어 *불필요한 refetch* 를 유발한다.
+ * 따라서 (1) 각 배열을 id 기준으로 정렬하고 (2) JSON.stringify 의 replacer 로 객체 키를
+ * 정렬해 동일 내용 → 동일 해시를 보장한다.
  */
-function stableHash(overlay: ReturnType<typeof buildTraceOverlay>): string {
+export function stableHash(overlay: ReturnType<typeof buildTraceOverlay>): string {
   const { cables, assets } = overlay;
   const isEmpty =
     cables.creates.length === 0 &&
@@ -154,7 +152,28 @@ function stableHash(overlay: ReturnType<typeof buildTraceOverlay>): string {
     cables.deletes.length === 0 &&
     assets.length === 0;
   if (isEmpty) return '';
-  return JSON.stringify(overlay);
+
+  const canonical = {
+    cables: {
+      creates: [...cables.creates].sort((a, b) => a.tempId.localeCompare(b.tempId)),
+      updates: [...cables.updates].sort((a, b) => a.id.localeCompare(b.id)),
+      deletes: [...cables.deletes].sort((a, b) => a.id.localeCompare(b.id)),
+    },
+    assets: [...assets].sort((a, b) => a.id.localeCompare(b.id)),
+  };
+
+  // replacer: 중첩 객체의 키까지 알파벳순으로 직렬화(키 순서 무관 동일 해시).
+  return JSON.stringify(canonical, (_key, value) => {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return Object.keys(value)
+        .sort()
+        .reduce<Record<string, unknown>>((acc, k) => {
+          acc[k] = (value as Record<string, unknown>)[k];
+          return acc;
+        }, {});
+    }
+    return value;
+  });
 }
 
 // ─── 서버 node → buildTraceGraph 입력 ───────────────────────────────────────
@@ -200,16 +219,9 @@ export function useServerTrace(
   groupId: string | null | undefined,
 ): UseServerTraceResult {
   // ── staged overlay 구독 ──────────────────────────────────────────────────
-  const cablesOverlay = useSubstationWorkingCopy((s) => s.overlays.cables) as {
-    creates: Record<string, unknown>;
-    updates: Record<string, unknown>;
-    deletes: string[];
-    baseVersions: Record<string, string>;
-  };
-  const assetsOverlay = useSubstationWorkingCopy((s) => s.overlays.assets) as {
-    creates: Record<string, Asset>;
-    updates: Record<string, Partial<Asset>>;
-  };
+  // 스토어가 export 하는 오버레이 타입을 그대로 써 셀렉터를 타입체크한다(as-cast 제거).
+  const cablesOverlay = useSubstationWorkingCopy((s) => s.overlays.cables);
+  const assetsOverlay = useSubstationWorkingCopy((s) => s.overlays.assets);
 
   // ── overlay 계산(stable) ─────────────────────────────────────────────────
   const overlay = useMemo(
