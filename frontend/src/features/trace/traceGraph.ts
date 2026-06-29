@@ -3,7 +3,7 @@ import { useEffectiveAssets, useEffectiveCables, useEffectiveOrgTree } from '../
 import { useCableCategories } from '../cables/hooks/useCableCategories';
 import type { AssetRole } from '../../types/asset';
 import { other, isOpgwTwin } from '../cables/cableEndpoint';
-import { cableTrace, type TraceAsset, type TraceCable } from './cableTrace';
+import { type TraceAsset, type TraceCable } from './cableTrace';
 
 interface NameNode { id: string; name: string; children?: NameNode[] }
 
@@ -114,19 +114,6 @@ export function buildTraceGraph(input: {
 /** 그래프 맵에서 자산의 OFD 판정 — role 단일 소스. */
 function graphIsOfd(graph: TraceGraph, id: string): boolean {
   return graph.roleById.get(id) === 'ofd';
-}
-
-/**
- * start(설비) 에서 구조 기반 trace → 도달한 passive(설비) 노드 중 자신 제외 id 들.
- * = 대국측 설비. 이름 해소는 호출측이 graph.nameById 로.
- */
-export function traceRemoteEndpoints(startAssetId: string, graph: TraceGraph): string[] {
-  // 시작 자산에 닿는 케이블의 그룹으로 추적(과거 cableType='FIBER' 고정 → 구조적으로 닿는 그룹).
-  const seed = graph.cables.find((c) => c.sourceAssetId === startAssetId || c.targetAssetId === startAssetId);
-  const r = cableTrace(startAssetId, seed?.groupId ?? null, graph.assets, graph.cables);
-  // roleById.has(id) 로 존재 여부를 확인 — 삭제된 자산은 graph.assets 에서 이미 빠졌으므로
-  // roleById 에 없어야 정상. passive 설비 = role 이 'feeder'/'slot' 아닌 것(rack/ofd/panel/standalone/device).
-  return r.nodeIds.filter((id) => id !== startAssetId && graph.roleById.has(id) && graph.roleById.get(id) !== 'feeder' && graph.roleById.get(id) !== 'slot');
 }
 
 /**

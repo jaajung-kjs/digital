@@ -1,4 +1,5 @@
-import { roleAt, other, type CableLike } from './slotRegister';
+import { roleAt, other } from '../cables/cableEndpoint';
+import type { CableLike } from './slotRegister';
 import type { TraceGraph } from '../trace/traceGraph';
 
 export type PortState = 'empty' | 'half' | 'full'; // 미연결 / 편도 / 양측
