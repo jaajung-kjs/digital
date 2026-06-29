@@ -154,20 +154,36 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
   const { nodeIds, cableIds, truncated } = cableTrace(seedAssetId, groupId, traceAssets, mergedCables);
 
   // ── 6. 응답 노드 조회 ────────────────────────────────────────────────────
+  const nodeSelect = {
+    id: true,
+    name: true,
+    parentAssetId: true,
+    substationId: true,
+    slotIndex: true,
+    assetType: { select: { role: true } },
+    substation: { select: { name: true } },
+  } as const;
   const nodeRows = await prisma.asset.findMany({
     where: { id: { in: nodeIds } },
-    select: {
-      id: true,
-      name: true,
-      parentAssetId: true,
-      substationId: true,
-      slotIndex: true,
-      assetType: { select: { role: true } },
-      substation: { select: { name: true } },
-    },
+    select: nodeSelect,
   });
 
-  const nodes: TraceNode[] = nodeRows.map((a) => ({
+  // 슬롯 노드의 부모 OFD 도 component 에 포함한다. 클라 projectTrace 는 슬롯(conduit)을 부모 OFD 로
+  // collapse 해 토폴로지 노드로 렌더하므로, 부모 OFD 의 name/substation 이 응답에 없으면 그 노드가
+  // id(UUID)로 떨어지고 변전소 그룹에도 못 붙는다(유령 그룹). component 를 렌더-자족적으로 만든다.
+  const nodeIdSet = new Set(nodeIds);
+  const parentOfdIds = [
+    ...new Set(
+      nodeRows
+        .filter((a) => a.assetType?.role === 'slot' && a.parentAssetId)
+        .map((a) => a.parentAssetId as string),
+    ),
+  ].filter((id) => !nodeIdSet.has(id));
+  const parentRows = parentOfdIds.length
+    ? await prisma.asset.findMany({ where: { id: { in: parentOfdIds } }, select: nodeSelect })
+    : [];
+
+  const nodes: TraceNode[] = [...nodeRows, ...parentRows].map((a) => ({
     id: a.id,
     name: a.name,
     role: (a.assetType?.role ?? null) as string | null,
