@@ -37,7 +37,7 @@ export const traceRequestSchema = z.object({
   groupId: z.string(),
   overlay: z
     .object({
-      cables: cableCollection,
+      cables: cableCollection.optional().default({ creates: [], updates: [], deletes: [] }),
       assets: z.array(z.object({ id: z.string(), role: z.string().nullable() })),
     })
     .optional(),

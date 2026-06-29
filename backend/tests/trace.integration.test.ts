@@ -186,9 +186,53 @@ describe('POST /api/trace — 서버 트레이스 통합', () => {
   });
 
   // ────────────────────────────────────────────────────────────────────────────
-  // 4) 비인증 → 401
+  // 4) overlay.updates: sourceRole null 명시 → null 로 반영 (null-clear fix)
   // ────────────────────────────────────────────────────────────────────────────
-  it('4) 비인증 요청 → 401', async () => {
+  it('4) overlay.updates A─B sourceRole=null → 케이블 sourceRole null로 클리어', async () => {
+    const res = await request(app)
+      .post('/api/trace')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        seedAssetId: assetAId,
+        groupId,
+        overlay: {
+          cables: {
+            updates: [
+              { id: cableABId, baseVersion: null, patch: { sourceRole: null } },
+            ],
+          },
+          assets: [],
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const data = res.body.data;
+    const cable = data.cables.find((c: { id: string }) => c.id === cableABId);
+    expect(cable).toBeDefined();
+    expect(cable.sourceRole).toBeNull();
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // 5) overlay.cables 생략(asset-only overlay) → 422 아닌 200
+  // ────────────────────────────────────────────────────────────────────────────
+  it('5) overlay.cables 생략(asset-only) → 200 정상 트레이스', async () => {
+    const res = await request(app)
+      .post('/api/trace')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        seedAssetId: assetAId,
+        groupId,
+        overlay: { assets: [] },
+      });
+
+    expect(res.status).toBe(200);
+    expect(new Set(res.body.data.nodeIds)).toEqual(new Set([assetAId, assetBId]));
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // 6) 비인증 → 401
+  // ────────────────────────────────────────────────────────────────────────────
+  it('6) 비인증 요청 → 401', async () => {
     const res = await request(app)
       .post('/api/trace')
       .send({ seedAssetId: assetAId, groupId });
