@@ -50,7 +50,7 @@ vi.mock('../../workingCopy/hooks', () => ({
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({ useCableCategories: () => ({ data: CATS }) }));
 vi.mock('../../trace/traceGraph', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../trace/traceGraph')>()), // 실제 assetsInSubstation 등 유지
+  ...(await importOriginal<typeof import('../../trace/traceGraph')>()),
   useTraceGraph: () => ({
     graph: {
       nameById: new Map([['a-near', '송변전광단말'], ['twin1', '홍천슬롯']]),
