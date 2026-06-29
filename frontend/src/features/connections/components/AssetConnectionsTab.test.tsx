@@ -5,6 +5,15 @@ const { setSelectedComponent, selection } = vi.hoisted(() => ({
   setSelectedComponent: vi.fn(),
   selection: { selectedAssetId: null as string | null, selectedCore: null as number | null, selectedCableId: null as string | null },
 }));
+const { buildInternalPathMock } = vi.hoisted(() => ({ buildInternalPathMock: vi.fn() }));
+vi.mock('../internalPath', () => ({ buildInternalPath: buildInternalPathMock }));
+vi.mock('../../trace/useCableComponentGraph', () => ({
+  useCableComponentGraph: () => ({
+    graph: { __id: 'COMPONENT', cables: [], subById: new Map() },
+    isLoading: false,
+    error: null,
+  }),
+}));
 
 // 명세 리스트는 effective assets + trace graph + 카테고리에서 파생.
 const assets = [
@@ -22,7 +31,7 @@ vi.mock('../../trace/traceGraph', () => ({
       cables,
       assets,
       nameById: new Map(assets.map((a) => [a.id, a.name])),
-      subNameById: new Map(), subById: new Map(),
+      subNameById: new Map(), subById: new Map([['dev', { id: 'sub1' }]]),
       parentById: new Map(assets.map((a) => [a.id, a.parentAssetId])),
       roleById: new Map(), slotIndexById: new Map(),
     },
@@ -56,6 +65,7 @@ import { AssetConnectionsTab } from './AssetConnectionsTab';
 
 beforeEach(() => {
   setSelectedComponent.mockClear();
+  buildInternalPathMock.mockReset();
   selection.selectedAssetId = null; selection.selectedCore = null; selection.selectedCableId = null;
 });
 
@@ -77,5 +87,16 @@ describe('AssetConnectionsTab (케이블 명세 리스트)', () => {
     selection.selectedCableId = 'core1';
     render(<AssetConnectionsTab assetId="dev" />);
     expect(screen.getByTestId('cable-inspector')).toHaveTextContent('core1');
+  });
+
+  it('내부경로는 전역 graph 가 아니라 서버 component 로 계산', () => {
+    selection.selectedCableId = 'core1';
+    buildInternalPathMock.mockReturnValue({ tree: { id: 'x', children: [] }, crossed: false });
+    render(<AssetConnectionsTab assetId="dev" />);
+    expect(buildInternalPathMock).toHaveBeenCalledWith(
+      'core1',
+      expect.anything(),
+      expect.objectContaining({ __id: 'COMPONENT' }),
+    );
   });
 });

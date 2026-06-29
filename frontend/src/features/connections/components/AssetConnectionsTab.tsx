@@ -7,6 +7,7 @@ import { makeCategoryGroupOf } from '../hooks/useAssetConnections';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { buildInternalPath } from '../internalPath';
+import { useCableComponentGraph } from '../../trace/useCableComponentGraph';
 import { buildCableRegister, type CableRow } from '../cableRegister';
 import { CableInspector } from '../../cables/components/CableInspector';
 import { CablePathTree } from './CablePathTree';
@@ -47,6 +48,7 @@ export function AssetConnectionsTab({ assetId }: Props) {
   const { graph, isLoading } = useTraceGraph();
   const { data: categories } = useCableCategories();
   const selectedCableId = useSelectionStore((s) => s.selectedCableId);
+  const { graph: traceComp } = useCableComponentGraph(selectedCableId);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const sections = useMemo(() => {
@@ -54,11 +56,12 @@ export function AssetConnectionsTab({ assetId }: Props) {
     return buildCableRegister({ graph, assets, assetId, categoryGroupOf: makeCategoryGroupOf(categories) });
   }, [graph, categories, assets, assetId]);
 
-  // 선택 케이블의 내부경로(현재 변전소 안). 설비=종단으로 폭발 방지, 밖은 토폴로지.
+  // 선택 케이블의 내부경로 — 서버 trace component 위에서 실행(전역 케이블 의존 제거).
+  // substationId 는 항상 완전한 전역 그래프에서 해소(component 에 패널 자산이 없을 수 있음).
   const localPath = useMemo(() => {
-    if (!selectedCableId || !graph) return null;
-    return buildInternalPath(selectedCableId, graph.subById.get(assetId) ?? null, graph);
-  }, [selectedCableId, graph, assetId]);
+    if (!selectedCableId || !traceComp) return null;
+    return buildInternalPath(selectedCableId, graph?.subById.get(assetId) ?? null, traceComp);
+  }, [selectedCableId, traceComp, graph, assetId]);
 
   if (isLoading) return <div className="py-8 text-center text-xs text-content-faint">불러오는 중…</div>;
   if (sections.length === 0) return <div className="py-8 text-center text-xs text-content-faint">연결된 케이블이 없습니다.</div>;
