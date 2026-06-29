@@ -20,8 +20,6 @@ import type { CollectionDescriptor } from './descriptor';
 import { type RecordTypeKey, PHOTOS } from './recordTypes';
 import { toMapById } from '../../utils/byId';
 import { isRackModuleAsset as isRackModuleChild } from './assetClassify';
-import { slimToAsset, slimCableToCable } from './slimToAsset';
-import type { SlimAssetDTO, TraceCableInput } from '../trace/traceGraph';
 
 /**
  * stageRackModuleCreate 의 입력 — 랙모듈 신규 staging 용 작은 명시 draw 타입.
@@ -330,10 +328,6 @@ export interface SubstationWorkingCopyState {
   patch: (coll: CollectionKey, id: string, fields: Record<string, unknown>) => void;
   remove: (coll: CollectionKey, id: string) => void;
 
-  // ── hydration (서버 피드 → saved). 단일 SSOT: 피드는 입력일 뿐 뷰는 effective 만 읽음. ──
-  /** 전역 slim 피드(모든 변전소)를 saved 에 lite 로 적재. 기존 detail 행은 보존(lite 가 안 덮음). */
-  hydrateGlobal: (assets: SlimAssetDTO[], cables: TraceCableInput[]) => void;
-
   // ── editor-facing mutation actions (2d-1 T3) ──
   // 캔버스 배치(draw) 입력을 받아 Asset overlay 로 stage 한다.
   // 복합/배치 액션은 단일 set → zundo 1 entry(undo 1스텝).
@@ -496,21 +490,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           const o = s.overlays as unknown as Record<CollectionKey, Overlay<{ id: string }, unknown>>;
           return { overlays: { ...s.overlays, [coll]: stageDelete(o[coll], id, isTempId(id)) } };
         }),
-
-      // ── hydration (피드 → saved). 비기록(temporal.pause), overlays staged 불변. ──
-      hydrateGlobal: (assets, cables) => {
-        const t = useSubstationWorkingCopy.temporal.getState();
-        t.pause();
-        set((s) => ({
-          saved: {
-            ...s.saved,
-            // 전역 lite 피드는 전체 거울(모든 변전소) → inScope=all: 피드에 없는 id 는 삭제로 드롭.
-            assets: reconcileRows(s.saved.assets, assets.map(slimToAsset), assetDescriptor.idOf, () => true),
-            cables: reconcileRows(s.saved.cables, cables.map(slimCableToCable), cableDescriptor.idOf, () => true),
-          },
-        }));
-        t.resume();
-      },
 
       // ── editor-facing mutation actions (2d-1 T3) ──
       stagePlacementCreate: (eq, assetTypeId) =>

@@ -26,8 +26,8 @@ const FILES = walk(SRC);
 const rel = (p: string) => relative(SRC, p).replace(/\\/g, '/');
 
 describe('SSOT 가드레일: raw 자산 피드는 단일 지점에서만', () => {
-  it('전역 자산/케이블 리스트 피드(/assets,/cables)는 useHydrateGlobal 에서만 읽는다', () => {
-    const ALLOW = new Set(['features/workingCopy/useHydrateGlobal.ts']);
+  it('전역 자산/케이블 리스트 피드(/assets,/cables)는 어디서도 읽지 않는다 (demand-paging, P3-4)', () => {
+    const ALLOW = new Set<string>([]);
     // api.get('/assets') / api.get('/cables') — 단, /assets/:id 상세는 허용(다른 엔드포인트).
     const re = /api\.get\s*(?:<[^>]*>)?\s*\(\s*['"`]\/(assets|cables)['"`]/;
     const offenders = FILES.filter((f) => !ALLOW.has(rel(f)) && re.test(readFileSync(f, 'utf8'))).map(rel);
