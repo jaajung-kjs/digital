@@ -4,6 +4,12 @@ import { assetService, NodeType } from '../services/asset.service.js';
 const NODE_TYPES: NodeType[] = ['headquarters', 'branch', 'substation'];
 
 export const assetController = {
+  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { role, q, substationId, overlay } = req.body;
+      res.json({ data: await assetService.search({ role, q, substationId }, overlay) });
+    } catch (e) { next(e); }
+  },
   async listByNode(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { nodeId } = req.params;

@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { assetController } from '../controllers/asset.controller.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { assetSearchSchema } from '../schemas/assetSearch.schema.js';
 
 const router = Router();
+
+// 자산 검색(committed ⊕ overlay 머지) — POST /api/assets/search
+router.post('/search', authenticate, validate(assetSearchSchema), assetController.search);
 
 // 전 변전소 자산 최소 목록(전역 cableTrace 피드) — '/:id' 보다 먼저.
 router.get('/', authenticate, assetController.listAll);
