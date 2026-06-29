@@ -18,7 +18,7 @@ import type { Asset } from '../../../types/asset';
 import { projectTrace, type TraceProjection } from '../../trace/traceProjection';
 import { buildTraceOverlay, fetchServerTraceGraph } from '../../trace/useServerTrace';
 import { queryClient } from '../../../lib/queryClient';
-import { CABLE_CATEGORY_KEYS } from '../../cables/hooks/useCableCategories';
+import { CABLE_CATEGORY_KEYS, fetchCableCategories } from '../../cables/hooks/useCableCategories';
 import type { CableCategory } from '../../../types/cableCategory';
 
 /** 워킹카피 effective cable shape — group 해소용 최소 필드. */
@@ -65,7 +65,7 @@ export function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]
  * 시드 cable 의 (seedAssetId, groupId) 해소 — 서버 trace 호출 파라미터.
  * cable 의 group 은 직접 groupId 우선, 없으면 categoryId→groupId(카테고리 카탈로그) 맵.
  */
-function resolveSeedFromCable(cableId: string): { seedAssetId: string; groupId: string } | null {
+async function resolveSeedFromCable(cableId: string): Promise<{ seedAssetId: string; groupId: string } | null> {
   const wc = useSubstationWorkingCopy.getState();
   const cables = wc.effectiveCables() as unknown as CableLike[];
   const cable = cables.find((c) => c.id === cableId);
@@ -73,7 +73,13 @@ function resolveSeedFromCable(cableId: string): { seedAssetId: string; groupId: 
   const seedAssetId = cable.sourceAssetId ?? cable.targetAssetId ?? null;
   if (!seedAssetId) return null;
 
-  const categories = (queryClient.getQueryData(CABLE_CATEGORY_KEYS.all) as CableCategory[] | undefined) ?? [];
+  // 콜드캐시(카테고리 미페치)에서도 groupId 를 해소하려면 ensureQueryData 로 온디맨드 페치한다.
+  // useCableCategories 와 동일한 key/queryFn 을 재사용 → 캐시 엔트리 공유.
+  const categories =
+    (await queryClient.ensureQueryData<CableCategory[]>({
+      queryKey: CABLE_CATEGORY_KEYS.all,
+      queryFn: fetchCableCategories,
+    })) ?? [];
   const catToGroup = new Map(categories.map((c) => [c.id, c.groupId]));
   const groupId = cable.groupId ?? (cable.categoryId ? catToGroup.get(cable.categoryId) ?? null : null);
   if (!groupId) return null;
@@ -90,7 +96,7 @@ async function loadProjection(cableId: string): Promise<
   | { ok: false; error: string }
 > {
   try {
-    const seed = resolveSeedFromCable(cableId);
+    const seed = await resolveSeedFromCable(cableId);
     if (!seed) {
       return { ok: false, error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.' };
     }
