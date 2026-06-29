@@ -247,6 +247,55 @@ describe('stableHash — 순서-안정성(W1)', () => {
   });
 });
 
+describe('useServerTrace — staged-create 노드 backfill', () => {
+  // 서버 nodes[] 는 DB id 만 담는다 → staged 신규자산(temp id)은 nodeIds/cables 에는 있어도
+  // nodes[] 에 없어 role=null/이름없음 으로 떨어진다. 워킹카피 effective 로 보강돼야 한다.
+  const STAGED_FEEDER = 'temp-feeder-1';
+  const responseWithStagedNode = {
+    nodeIds: ['asset-seed', 'slotA', STAGED_FEEDER],
+    cableIds: ['core5', 'temp-cab-1'],
+    cables: [
+      { id: 'core5', groupId: GROUP_ID, sourceAssetId: 'slotA', targetAssetId: 'asset-seed', sourceRole: 'OUT', targetRole: null, number: 5 },
+      { id: 'temp-cab-1', groupId: GROUP_ID, sourceAssetId: 'slotA', targetAssetId: STAGED_FEEDER, sourceRole: 'IN', targetRole: 'IN', number: null },
+    ],
+    nodes: [
+      // staged 자산(temp-feeder-1)은 DB 에 없으므로 서버 nodes[] 에 없음 — backfill 대상.
+      { id: 'asset-seed', name: '춘천단말', role: 'device', parentAssetId: null, substationId: 'sub-A', substationName: '춘천S/S', slotIndex: null },
+      { id: 'slotA', name: 'OFD슬롯A', role: 'slot', parentAssetId: 'ofdA', substationId: 'sub-A', substationName: '춘천S/S', slotIndex: 2 },
+    ],
+    truncated: false,
+  };
+
+  it('staged 케이블로 도달한 staged-create 자산이 role·name 으로 보강됨(role≠null)', async () => {
+    (api.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: responseWithStagedNode } });
+
+    // 워킹카피에 staged-create feeder 자산을 올린다(서버엔 없는 temp id).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (useSubstationWorkingCopy.getState().stageAssetCreate as any)({
+      id: STAGED_FEEDER,
+      name: '신규피더',
+      substationId: 'sub-A',
+      parentAssetId: 'ofdA',
+      slotIndex: null,
+      assetType: { id: 'at-feeder', name: '피더', role: 'feeder' },
+    });
+
+    const { result } = renderHook(
+      () => useServerTrace(SEED_ID, GROUP_ID),
+      { wrapper: makeWrapper() },
+    );
+    await waitFor(() => expect(result.current.graph).not.toBeNull());
+
+    const { graph } = result.current;
+    // role: 워킹카피 effective 에서 보강 — null 이 아닌 'feeder'(cableTrace 분류 정확).
+    expect(graph!.roleById.get(STAGED_FEEDER)).toBe('feeder');
+    // name: id 가 아닌 실제 이름으로 해소(토폴로지 모달 표시).
+    expect(graph!.nameById.get(STAGED_FEEDER)).toBe('신규피더');
+    // assets 에 staged 노드 포함.
+    expect(graph!.assets.map((a) => a.id)).toContain(STAGED_FEEDER);
+  });
+});
+
 describe('useServerTrace — buildTraceGraph 재사용 검증', () => {
   it('graph.assets 에 모든 nodes id 가 포함됨', async () => {
     const { result } = renderHook(

@@ -13,9 +13,16 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../utils/api';
 import { isTempId } from '../../utils/idHelpers';
-import { buildTraceGraph, type TraceGraph } from './traceGraph';
+import { buildTraceGraph, collectNodeNames, type TraceGraph } from './traceGraph';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import type { AssetsOverlay, CablesOverlay } from '../workingCopy/substationStore';
+import {
+  useEffectiveAssets,
+  useEffectiveOrgTree,
+  getEffectiveAssetsSnapshot,
+  getOrgNodeNames,
+} from '../workingCopy/hooks';
+import type { Asset } from '../../types/asset';
 
 // ─── 서버 응답 타입 ─────────────────────────────────────────────────────────
 
@@ -199,8 +206,36 @@ function nodeToAssetInput(n: ServerTraceNode) {
   };
 }
 
-/** 서버 trace 응답을 작은 TraceGraph 로 변환(훅·비훅 공용 단일 소스). */
-export function responseToTraceGraph(data: ServerTraceResponse): TraceGraph {
+/**
+ * 워킹카피 effective 자산을 buildTraceGraph 입력 shape 로 변환한다(staged-create backfill용).
+ * 서버 nodeToAssetInput 와 동형(assetType.role/slotIndex 보존)이라 동일하게 분류·정렬된다.
+ */
+function effectiveAssetToInput(a: Asset) {
+  return {
+    id: a.id,
+    name: a.name,
+    substationId: a.substationId,
+    parentAssetId: a.parentAssetId ?? null,
+    slotIndex: a.slotIndex ?? null,
+    assetType: { role: a.assetType?.role ?? null },
+  };
+}
+
+/**
+ * 서버 trace 응답을 작은 TraceGraph 로 변환(훅·비훅 공용 단일 소스).
+ *
+ * 서버 nodes[] 는 DB id 만 담는다 → staged-create 신규 자산(temp id)은 nodeIds/cables 에는
+ * 있어도 nodes[] 에 없어 role=null/이름없음 으로 떨어진다(over-traversal·id 표시). 워킹카피
+ * effective 자산으로 누락 노드를 보강한다(role·name 의 단일 소스는 클라이언트 working copy).
+ *
+ * @param effectiveAssets 워킹카피 effective 자산(누락 노드 backfill 소스). 비면 보강 없음.
+ * @param orgNames 변전소 id→이름 맵(staged 자산 변전소명 해소용). 서버 substationName 보다 우선 아님(보강용).
+ */
+export function responseToTraceGraph(
+  data: ServerTraceResponse,
+  effectiveAssets?: Asset[],
+  orgNames?: Map<string, string>,
+): TraceGraph {
   const assets = data.nodes.map(nodeToAssetInput);
 
   // substationId → substationName 맵(서버 nodes 의 substationName 단일 소스).
@@ -208,6 +243,23 @@ export function responseToTraceGraph(data: ServerTraceResponse): TraceGraph {
   for (const n of data.nodes) {
     if (n.substationId && n.substationName) {
       substationNames.set(n.substationId, n.substationName);
+    }
+  }
+
+  // ── staged-create backfill: nodeIds 에는 있으나 서버 nodes[] 에 없는 자산 ──────────
+  if (effectiveAssets?.length) {
+    const present = new Set(data.nodes.map((n) => n.id));
+    const effById = new Map(effectiveAssets.map((a) => [a.id, a]));
+    for (const id of data.nodeIds) {
+      if (present.has(id)) continue;
+      const eff = effById.get(id);
+      if (!eff) continue;
+      assets.push(effectiveAssetToInput(eff));
+      // 변전소명: org 트리 effective 에서 해소(있으면). 없어도 role·name 이 핵심이므로 무방.
+      if (eff.substationId && !substationNames.has(eff.substationId)) {
+        const sname = orgNames?.get(eff.substationId);
+        if (sname) substationNames.set(eff.substationId, sname);
+      }
     }
   }
 
@@ -232,7 +284,8 @@ export async function fetchServerTraceGraph(
     groupId,
     ...(hasOverlay ? { overlay } : {}),
   });
-  return responseToTraceGraph(res.data.data);
+  // 비-React 경로: 스토어 getState 스냅샷에서 effective 자산·org 이름을 읽어 staged backfill.
+  return responseToTraceGraph(res.data.data, getEffectiveAssetsSnapshot(), getOrgNodeNames());
 }
 
 // ─── 훅 ─────────────────────────────────────────────────────────────────────
@@ -289,10 +342,15 @@ export function useServerTrace(
     enabled,
   });
 
+  // ── staged-create backfill 소스(워킹카피 effective) ────────────────────────
+  const effectiveAssets = useEffectiveAssets();
+  const orgTree = useEffectiveOrgTree();
+  const orgNames = useMemo(() => collectNodeNames(orgTree), [orgTree]);
+
   // ── 서버 응답 → TraceGraph ───────────────────────────────────────────────
   const graph = useMemo<TraceGraph | null>(
-    () => (data ? responseToTraceGraph(data) : null),
-    [data],
+    () => (data ? responseToTraceGraph(data, effectiveAssets, orgNames) : null),
+    [data, effectiveAssets, orgNames],
   );
 
   return { graph, isLoading: enabled ? isLoading : false, error };
