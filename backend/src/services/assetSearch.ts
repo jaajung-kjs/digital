@@ -22,7 +22,7 @@ export interface AssetSearchCreate {
 /** 검색용 overlay(staged delta). creates 는 필터 재평가용 role 보유, updates 는 표시 필드만. */
 export interface AssetSearchOverlay {
   creates: AssetSearchCreate[];
-  updates: { id: string; name?: string; substationName?: string }[];
+  updates: { id: string; name?: string; substationName?: string | null }[];
   deletes: string[];
 }
 

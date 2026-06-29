@@ -100,4 +100,13 @@ describe('POST /api/assets/search', () => {
 
     expect(res.status).toBe(401);
   });
+
+  it('존재하지 않는 role 값은 400 반환 (500 아님)', async () => {
+    const res = await request(app)
+      .post('/api/assets/search')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ role: 'bogus_not_an_enum' });
+
+    expect(res.status).toBe(400);
+  });
 });
