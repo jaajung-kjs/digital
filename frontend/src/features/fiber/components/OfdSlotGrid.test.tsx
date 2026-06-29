@@ -64,6 +64,21 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
   remoteSlotSubstation: (slotId: string) => (slotId === SLOT_ID ? '홍천변전소' : null),
 }));
 
+// OFD 피어 피커 — 전역 그래프 열거 대신 단일 검색 프리미티브(P3-2).
+// vi.mock 은 호이스팅되므로 모듈 상단 const(OFD_ID 등) 참조 불가 → 리터럴 인라인.
+vi.mock('../../assets/useSearchAssets', () => ({
+  useSearchAssets: ({ role }: { role?: string }) => ({
+    results:
+      role === 'ofd'
+        ? [
+            { id: 'ofd1', name: '원주OFD', substationId: 's1', substationName: '원주변전소' },
+            { id: 'ofd2', name: '홍천OFD', substationId: 's2', substationName: '홍천변전소' },
+          ]
+        : [],
+    isLoading: false,
+  }),
+}));
+
 vi.mock('../../assets/useAssetTypeIdByRole', () => ({
   useAssetTypeIdByRole: () => 'type-ofd-slot',
 }));
