@@ -242,4 +242,32 @@ describe('POST /api/trace — 서버 트레이스 통합', () => {
 
     expect(res.status).toBe(401);
   });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // 7) 슬롯 노드의 부모 OFD 가 응답 nodes 에 포함된다 — 토폴로지가 슬롯을 부모 OFD 로
+  //    collapse 해 렌더하므로, OFD 의 name/substation 이 component 에 있어야 id(UUID)로
+  //    안 떨어지고 변전소 그룹에 붙는다(전역 피드 제거 후 component 렌더-자족성).
+  // ────────────────────────────────────────────────────────────────────────────
+  it('7) 슬롯 노드의 부모 OFD 가 nodes 에 name/substation 과 함께 포함(nodeIds 엔 없음)', async () => {
+    const ofdTypeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'ofd' } })).id;
+    const slotTypeId = (await prisma.assetType.findFirstOrThrow({ where: { role: 'slot' } })).id;
+    const ofd = await prisma.asset.create({ data: { substationId: subId, assetTypeId: ofdTypeId, name: '__tr_OFD__' } });
+    const slot = await prisma.asset.create({ data: { substationId: subId, assetTypeId: slotTypeId, name: '__tr_SLOT__', parentAssetId: ofd.id } });
+    const dev = await prisma.asset.create({ data: { substationId: subId, assetTypeId: deviceTypeId, name: '__tr_DEV2__' } });
+    await prisma.cable.create({ data: { sourceAssetId: slot.id, targetAssetId: dev.id, categoryId: catId } });
+
+    const res = await request(app)
+      .post('/api/trace')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ seedAssetId: slot.id, groupId });
+
+    expect(res.status).toBe(200);
+    const data = res.body.data;
+    expect(data.nodeIds).toContain(slot.id);      // 슬롯은 트레이스 노드
+    expect(data.nodeIds).not.toContain(ofd.id);   // 부모 OFD 는 트레이스 노드 아님
+    const ofdNode = data.nodes.find((n: { id: string }) => n.id === ofd.id);
+    expect(ofdNode).toBeDefined();                // 그러나 렌더용으로 nodes 에 포함
+    expect(ofdNode.name).toBe('__tr_OFD__');
+    expect(ofdNode.substationName).toBe('__tr_sub__');
+  });
 });
