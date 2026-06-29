@@ -124,8 +124,9 @@ export function remoteSlotSubstation(slotId: string, graph: TraceGraph): string 
 }
 
 /**
- * React 훅 — effective(전역 saved∪overlay−deletes) 단일 소스로 TraceGraph 를 만든다.
- * 피드는 useHydrateGlobal 이 saved 로 hydrate(피드 직접 읽지 않음). effective 슬라이스 변경 시 재계산.
+ * React 훅 — effective(resident saved∪overlay−deletes) 단일 소스로 TraceGraph 를 만든다.
+ * saved 는 변전소 demand-load(useWorkingCopyLoader)+연결 대국 page-in 으로 적재(전역 피드 없음 — P3-4).
+ * 그래프는 resident(연 변전소+연결 대국) 범위. effective 슬라이스 변경 시 재계산.
  */
 export function useTraceGraph(): { graph: TraceGraph; isLoading: boolean } {
   const assets = useEffectiveAssets();
