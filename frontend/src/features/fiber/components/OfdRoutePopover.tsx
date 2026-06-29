@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { AssetRef } from '../../trace/traceGraph';
+import type { AssetRef } from '../../assets/useSearchAssets';
 import { CableTypePicker } from '../../cables/components/CableTypePicker';
 
 interface Props {

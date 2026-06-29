@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTraceGraph, remoteSlotSubstation, ofdAssets, assetsInSubstation } from './traceGraph';
+import { buildTraceGraph, remoteSlotSubstation } from './traceGraph';
 import type { Asset } from '../../types/asset';
 
 // buildTraceGraph 는 effective(=saved∪overlay−deletes) 단일 배열을 입력으로 받는다.
@@ -106,61 +106,3 @@ describe('buildTraceGraph 변전소명 해소(org 트리 맵)', () => {
   });
 });
 
-describe('ofdAssets / assetsInSubstation (staged 가 저장 전에도 후보에 보임)', () => {
-  it('ofdAssets: 모든 OFD 자산 열거(이름 해소 포함)', () => {
-    const g = buildTraceGraph({
-      assets: [
-        A({ id: 'ofdGW', substationId: 'sub-GW', role: 'ofd' }),
-        A({ id: 'ofdNEW', substationId: 'sub-B', name: 'OFD', role: 'ofd' }),
-      ],
-      cables: [],
-      substationNames: new Map([['sub-B', 'B변전소'], ['sub-GW', '(구)춘천S/S']]),
-    });
-    const ids = ofdAssets(g).map((o) => o.id).sort();
-    expect(ids).toEqual(['ofdGW', 'ofdNEW']);
-    const neu = ofdAssets(g).find((o) => o.id === 'ofdNEW')!;
-    expect(neu.substationId).toBe('sub-B');
-    expect(neu.substationName).toBe('B변전소');
-  });
-
-  it('ofdAssets: 스테이징 OFD(role=ofd)도 열거 — 저장 전 경로슬롯 추가 가능', () => {
-    const g = buildTraceGraph({
-      assets: [
-        // 에디터로 막 만든 OFD: role='ofd' 만 있음(staged 생성이 role 부여).
-        { id: 'ofdStaged', name: 'OFD', substationId: 'sub-B', parentAssetId: null, slotIndex: null, assetType: { role: 'ofd' } },
-      ],
-      cables: [],
-      substationNames: new Map([['sub-B', 'B변전소']]),
-    });
-    const ids = ofdAssets(g).map((o) => o.id);
-    expect(ids).toEqual(['ofdStaged']);
-    expect(ofdAssets(g)[0].substationName).toBe('B변전소');
-  });
-
-  it('assetsInSubstation: 스테이징 OFD(role)도 후보에서 제외', () => {
-    const g = buildTraceGraph({
-      assets: [
-        { id: 'eqNEW', substationId: 'sub-B', name: '통합단말', parentAssetId: null, slotIndex: null, assetType: { role: 'device' } },
-        { id: 'ofdStaged', substationId: 'sub-B', name: 'OFD', parentAssetId: null, slotIndex: null, assetType: { role: 'ofd' } },
-      ],
-      cables: [],
-      substationNames: new Map([['sub-B', 'B변전소']]),
-    });
-    expect(assetsInSubstation(g, 'sub-B').map((c) => c.id)).toEqual(['eqNEW']);
-  });
-
-  it('assetsInSubstation: 설비만 포함, OFD·conduit 제외', () => {
-    const g = buildTraceGraph({
-      assets: [
-        A({ id: 'eqNEW', substationId: 'sub-B', name: '통합단말', role: 'device' }),
-        A({ id: 'ofdB', substationId: 'sub-B', name: 'OFD', role: 'ofd' }),
-        A({ id: 'slotB', substationId: 'sub-B', name: '슬롯', role: 'slot' }),
-      ],
-      cables: [],
-      substationNames: new Map([['sub-B', 'B변전소']]),
-    });
-    const cand = assetsInSubstation(g, 'sub-B');
-    expect(cand.map((c) => c.id)).toEqual(['eqNEW']);
-    expect(cand[0].name).toBe('통합단말');
-  });
-});
