@@ -60,5 +60,21 @@ export async function getWorkingCopy(substationId: string) {
   }
   const assetsWithRecords = assets.map((a) => ({ ...a, records: recordsByAsset.get(a.id) ?? [] }));
 
-  return { assets: assetsWithRecords, cables };
+  // 연결 대국(§106) — 이 변전소를 한 끝점으로 갖는 케이블의 반대편이 다른 변전소면 그 substationId.
+  // cables 는 끝점 하나가 이 변전소인 것만(getBySubstationId) → 반대편이 sAssetIds 밖이면 cross-substation.
+  const sAssetIds = new Set(assets.map((a) => a.id));
+  const farAssetIds = new Set<string>();
+  for (const c of cables) {
+    const src = c.sourceAssetId;
+    const tgt = c.targetAssetId;
+    if (!src || !tgt) continue;
+    if (sAssetIds.has(src) && !sAssetIds.has(tgt)) farAssetIds.add(tgt);
+    else if (sAssetIds.has(tgt) && !sAssetIds.has(src)) farAssetIds.add(src);
+  }
+  const farAssets = farAssetIds.size
+    ? await prisma.asset.findMany({ where: { id: { in: [...farAssetIds] } }, select: { substationId: true } })
+    : [];
+  const connectedSubstationIds = [...new Set(farAssets.map((a) => a.substationId))].filter((id) => id !== substationId);
+
+  return { assets: assetsWithRecords, cables, connectedSubstationIds };
 }

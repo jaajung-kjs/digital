@@ -18,6 +18,8 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
   let userId: string;
   let hqId: string, brId: string, subId: string, floorId: string, typeId: string, placementTypeId: string;
   let assetId: string, cableId: string;
+  // 크로스변전소 케이블 테스트용
+  let subBId: string, assetBId: string, crossCableId: string;
 
   beforeAll(async () => {
     app = express();
@@ -51,9 +53,27 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
       data: { sourceAssetId: assetId, targetAssetId: assetId },
     });
     cableId = cable.id;
+
+    // 크로스변전소 케이블 테스트: 변전소 B + 자산 B 생성
+    const subB = await prisma.substation.create({ data: { name: '__wc_sub_b__', branchId: br.id } });
+    subBId = subB.id;
+    const assetB = await prisma.asset.create({
+      data: { substationId: subBId, assetTypeId: placementTypeId, name: 'WC_ASSET_B' },
+    });
+    assetBId = assetB.id;
+    // A→B 크로스변전소 케이블
+    const crossCable = await prisma.cable.create({
+      data: { sourceAssetId: assetId, targetAssetId: assetBId },
+    });
+    crossCableId = crossCable.id;
   });
 
   afterAll(async () => {
+    // B 쪽 크로스변전소 케이블·자산·변전소 먼저 정리
+    await prisma.cable.deleteMany({ where: { id: crossCableId } }).catch(() => {});
+    await prisma.asset.deleteMany({ where: { substationId: subBId } }).catch(() => {});
+    await prisma.substation.delete({ where: { id: subBId } }).catch(() => {});
+    // A 쪽 정리
     await prisma.cable.deleteMany({ where: { OR: [
       { sourceAsset: { substationId: subId } },
       { targetAsset: { substationId: subId } },
@@ -108,5 +128,14 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
 
   it('인증 없음 → 401', async () => {
     await request(app).get(`/api/substations/${subId}/workingcopy`).expect(401);
+  });
+
+  it('크로스변전소 케이블의 반대편 변전소를 connectedSubstationIds 로 반환', async () => {
+    const res = await request(app)
+      .get(`/api/substations/${subId}/workingcopy`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.connectedSubstationIds).toContain(subBId);
+    expect(res.body.data.connectedSubstationIds).not.toContain(subId); // 자기 제외
   });
 });
