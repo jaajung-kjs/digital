@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
+import { mergeSearchOverlay, type AssetSearchParams, type AssetSearchOverlay, type AssetSearchResult } from './assetSearch.js';
 
 export interface SlimAsset {
   id: string;
@@ -105,6 +106,23 @@ class AssetService {
       status: a.status, sortOrder: a.sortOrder,
       updatedAt: a.updatedAt.toISOString(),
     };
+  }
+
+  async search(params: AssetSearchParams, overlay?: AssetSearchOverlay): Promise<AssetSearchResult[]> {
+    const where: Prisma.AssetWhereInput = {};
+    if (params.role) where.assetType = { role: params.role as Prisma.EnumAssetRoleFilter['equals'] };
+    if (params.q) where.name = { contains: params.q, mode: 'insensitive' };
+    if (params.substationId) where.substationId = params.substationId;
+
+    const rows = await prisma.asset.findMany({
+      where,
+      select: { id: true, name: true, substationId: true, substation: { select: { name: true } } },
+      orderBy: { name: 'asc' },
+    });
+    const committed: AssetSearchResult[] = rows.map((a) => ({
+      id: a.id, name: a.name, substationId: a.substationId, substationName: a.substation?.name ?? null,
+    }));
+    return mergeSearchOverlay(committed, overlay, params);
   }
 
   /** 전 변전소 자산을 trace 용 최소 필드로(전역 cableTrace 피드). */
