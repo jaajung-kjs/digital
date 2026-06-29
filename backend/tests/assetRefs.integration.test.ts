@@ -68,7 +68,7 @@ describe('POST /api/assets/refs', () => {
       .send({ ids: [assetId, 'nonexistent-id'] });
     expect(res.status).toBe(200);
     const byId = Object.fromEntries(res.body.data.map((r: { id: string }) => [r.id, r]));
-    expect(byId[assetId]).toMatchObject({ id: assetId, name: expect.any(String), substationId: subId });
+    expect(byId[assetId]).toMatchObject({ id: assetId, name: expect.any(String), substationId: subId, substationName: '__refs_sub__' });
     expect(byId['nonexistent-id']).toBeUndefined();
   });
 
