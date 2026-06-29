@@ -61,6 +61,20 @@ describe('buildSlotCoreRows', () => {
     expect(r1.inspectDate).toBe(null);
   });
 
+  it('대국 far-name = twin 슬롯 같은코어 OUT 반대편(표시값과 일치, transitive 아님)', () => {
+    const graph = buildTraceGraph({ assets: slim, cables: globalCables, substationNames: NAMES });
+    const rows = buildSlotCoreRows(slot, localCables, graph);
+    // 코어3: twin(slotB) 의 OUT#3 = oB3 → eqB.
+    expect(rows.find((r) => r.coreNumber === 3)!.farName).toBe('광단말B');
+    // twin 에 해당 코어 OUT 이 없으면 near 가 있어도 far 는 null.
+    const noTwinOut = buildTraceGraph({
+      assets: slim,
+      cables: globalCables.filter((c) => c.id !== 'oB3'),
+      substationNames: NAMES,
+    });
+    expect(buildSlotCoreRows(slot, localCables, noTwinOut).find((r) => r.coreNumber === 3)!.farName).toBe(null);
+  });
+
   it('점유 코어가 cores 를 초과하면 용량이 확장되고 1..max 연속(가려지지 않음)', () => {
     const lc = [
       { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slotA', targetAssetId: 'slotB', sourceRole: 'IN', targetRole: 'IN', number: null, specParams: { cores: 4 } },

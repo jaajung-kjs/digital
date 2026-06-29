@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTraceGraph, traceRemoteEndpoints, remoteSlotSubstation, ofdAssets, assetsInSubstation } from './traceGraph';
+import { buildTraceGraph, remoteSlotSubstation, ofdAssets, assetsInSubstation } from './traceGraph';
 import type { Asset } from '../../types/asset';
 
 // buildTraceGraph 는 effective(=saved∪overlay−deletes) 단일 배열을 입력으로 받는다.
@@ -35,11 +35,6 @@ describe('buildTraceGraph + projections', () => {
     const g = buildTraceGraph({ assets, cables, substationNames: NAMES });
     expect(g.assets.find((a) => a.id === 'slotA')?.role).toBe('slot');
     expect(g.cables.find((c) => c.id === 'oA5')?.number).toBe(5);
-    const remote = traceRemoteEndpoints('eqA', g);
-    expect(remote).toContain('eqB');
-    expect(remote).not.toContain('eqC');
-    expect(remote).not.toContain('eqA');
-    expect(remote).not.toContain('slotA');
     expect(remoteSlotSubstation('slotA', g)).toBe('홍천S/S');
     expect(g.parentById.get('slotA')).toBe('ofdW');
     expect(g.parentById.get('eqA')).toBe(null);
@@ -70,7 +65,6 @@ describe('buildTraceGraph + projections', () => {
   it('입력 자산 집합을 그대로 반영(effective 삭제는 상위에서) — 빠진 자산은 투영 안됨', () => {
     const g = buildTraceGraph({ assets: assets.filter((a) => a.id !== 'eqB'), cables, substationNames: NAMES });
     expect(g.assets.some((a) => a.id === 'eqB')).toBe(false);
-    expect(traceRemoteEndpoints('eqA', g)).not.toContain('eqB');
   });
 
   it('subById: 자산 → substationId 매핑을 노출한다', () => {

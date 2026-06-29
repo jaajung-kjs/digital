@@ -2,7 +2,7 @@
  * useServerTrace — POST /api/trace 응답으로 작은 TraceGraph 를 만드는 React Query 훅.
  *
  * 서버가 반환하는 연결 component(nodes/cables)를 buildTraceGraph 에 그대로 넘겨
- * 기존 projectTrace / traceRemoteEndpoints 가 변경 없이 동작하는 TraceGraph 를 반환한다.
+ * 기존 projectTrace 가 변경 없이 동작하는 TraceGraph 를 반환한다.
  *
  * overlay: 클라이언트 워킹카피의 staged delta(케이블 creates/updates/deletes + 자산 역할)를
  * 직렬화해 서버에 보내 what-if 트레이스를 지원한다. overlayHash 는 staged delta 가 바뀔 때만
@@ -302,7 +302,7 @@ export interface UseServerTraceResult {
  * - seedAssetId: 트레이스 시작 자산(committed 실 id — temp id 면 enabled=false).
  * - groupId: 케이블 그룹 id.
  * - 반환: { graph: TraceGraph | null, isLoading, error }.
- *   graph 는 projectTrace / traceRemoteEndpoints 에 그대로 넘길 수 있다.
+ *   graph 는 projectTrace 에 그대로 넘길 수 있다.
  */
 export function useServerTrace(
   seedAssetId: string | null | undefined,

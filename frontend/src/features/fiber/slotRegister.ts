@@ -1,5 +1,6 @@
-import { traceRemoteEndpoints, type TraceGraph } from '../trace/traceGraph';
+import { type TraceGraph } from '../trace/traceGraph';
 import { roleAt, other } from '../cables/cableEndpoint';
+import { buildSlotPorts } from './slotPorts';
 
 export interface SlotCoreRow {
   coreNumber: number;
@@ -45,14 +46,19 @@ export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], grap
   const byNum = new Map<number, CableLike>();
   for (const c of outs) if (c.number != null) byNum.set(c.number, c);
 
+  // 대국 설비 = twin 슬롯의 같은 코어 OUT 반대편(= 포트/AssetSelectCell 표시값). flat twin+core.
+  const remoteByCore = new Map<number, string | null>(
+    graph
+      ? buildSlotPorts(slot, (graph.cables as unknown as CableLike[]), graph).map((p) => [p.coreNumber, p.remoteAssetId])
+      : [],
+  );
+
   const rows: SlotCoreRow[] = [];
   for (let n = 1; n <= capacity; n++) {
     const c = byNum.get(n); // 설비 패치(연결) — 없으면 빈 코어
     const nearAssetId = c ? other(c, slot.id) : null;
-    const farIds = graph && nearAssetId ? traceRemoteEndpoints(nearAssetId, graph) : [];
-    const farName = graph && nearAssetId
-      ? (farIds.map((id) => graph.nameById.get(id) ?? id).join(', ') || null)
-      : null;
+    const remoteAssetId = remoteByCore.get(n) ?? null;
+    const farName = remoteAssetId ? (graph?.nameById.get(remoteAssetId) ?? remoteAssetId) : null;
     const m = coreMeta[String(n)] ?? {}; // 코어정보 — OPGW 소유(빈 코어도 존재)
     rows.push({
       coreNumber: n, opgwId: opgw?.id ?? null, occupied: !!c,
