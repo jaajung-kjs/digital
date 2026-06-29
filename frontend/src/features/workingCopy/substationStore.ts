@@ -157,9 +157,12 @@ interface SavedCollections {
   floors: OrgFloor[];
 }
 
+export type AssetsOverlay = Overlay<Asset, Partial<Asset>>;
+export type CablesOverlay = Overlay<Cable, Partial<Cable>>;
+
 interface Overlays {
-  assets: Overlay<Asset, Partial<Asset>>;
-  cables: Overlay<Cable, Partial<Cable>>;
+  assets: AssetsOverlay;
+  cables: CablesOverlay;
   records: Overlay<AssetRecord, Partial<AssetRecord>>;
   headquarters: Overlay<OrgHeadquarters, Partial<OrgHeadquarters>>;
   branches: Overlay<OrgBranch, Partial<OrgBranch>>;

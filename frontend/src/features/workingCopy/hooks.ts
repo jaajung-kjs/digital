@@ -41,6 +41,15 @@ export function useEffectiveAssets() {
   return useMemo(() => mergeEffective(saved, overlay, assetDescriptor), [saved, overlay]);
 }
 
+/**
+ * non-hook — getState() 로 effective(saved∪overlay−deletes) 자산 배열을 즉시 만든다.
+ * pathHighlightStore 등 React 렌더 밖(zustand 액션)에서 staged-create backfill 소스로 사용.
+ */
+export function getEffectiveAssetsSnapshot(): Asset[] {
+  const s = useSubstationWorkingCopy.getState();
+  return mergeEffective(s.saved.assets, s.overlays.assets, assetDescriptor);
+}
+
 export function useEffectiveCables() {
   const saved = useSubstationWorkingCopy((s) => s.saved.cables);
   const overlay = useSubstationWorkingCopy((s) => s.overlays.cables);

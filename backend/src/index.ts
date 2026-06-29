@@ -30,6 +30,7 @@ import { nodesRouter } from './routes/nodes.routes.js';
 import { uploadsRouter } from './routes/uploads.routes.js';
 import { assetRecordSchemaRouter } from './routes/assetRecordSchema.routes.js';
 import { commitRouter } from './routes/commit.routes.js';
+import { traceRouter } from './routes/trace.routes.js';
 
 const app = express();
 
@@ -102,6 +103,7 @@ app.use('/api/nodes', nodesRouter);
 app.use('/api/uploads', uploadsRouter);
 app.use('/api/asset-record-schema', assetRecordSchemaRouter);
 app.use('/api/commit', commitRouter);
+app.use('/api/trace', traceRouter);
 
 // 404 handler
 app.use((_req, res) => {

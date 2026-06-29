@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveSelectedCable, resolveSelection, cableToAddress } from './selectionHighlight';
+import { resolveSelectedCable, resolveSelection, cableToAddress, resolveTraceSeed } from './selectionHighlight';
 import type { TraceGraph } from '../trace/traceGraph';
 
 const cables = [
@@ -68,6 +68,43 @@ describe('resolveSelection (선택 케이블 → projectTrace 회로)', () => {
   });
   it('선택 없음 → kind=none', () => {
     expect(resolveSelection(null, 3, null, graphStub, effAssets)).toEqual({ kind: 'none' });
+  });
+});
+
+describe('resolveTraceSeed (선택 → 서버 trace 시드 자산+그룹)', () => {
+  // categoryId→groupId 카탈로그. 시드 cable 에 categoryId 만 있을 때 group 해소.
+  const seedCables = [
+    { id: 'o3', sourceAssetId: 'S', targetAssetId: 'e3', sourceRole: 'OUT', targetRole: null, number: 3, categoryId: 'cat-fiber' },
+    { id: 'b2', sourceAssetId: 'F', targetAssetId: 'L2', sourceRole: 'OUT', targetRole: null, number: 2, groupId: 'grp-power' },
+  ];
+  const catToGroup = new Map<string, string | null>([['cat-fiber', 'grp-fiber']]);
+
+  it('코어 선택 → 그 코어 케이블의 group(categoryId→groupId)로 시드', () => {
+    expect(resolveTraceSeed('S', 3, null, seedCables, catToGroup)).toEqual({
+      seedAssetId: 'S', seedCableId: 'o3', groupId: 'grp-fiber',
+    });
+  });
+  it('cable 에 직접 groupId 있으면 우선', () => {
+    expect(resolveTraceSeed('F', 2, null, seedCables, catToGroup)).toEqual({
+      seedAssetId: 'F', seedCableId: 'b2', groupId: 'grp-power',
+    });
+  });
+  it('anchor 케이블 직접 지목 → 그 케이블 group', () => {
+    expect(resolveTraceSeed('OFD', 8, 'o3', seedCables, catToGroup)).toEqual({
+      seedAssetId: 'OFD', seedCableId: 'o3', groupId: 'grp-fiber',
+    });
+  });
+  it('연결 신호 없음(core·anchor 둘 다 없음) → null', () => {
+    expect(resolveTraceSeed('S', null, null, seedCables, catToGroup)).toBeNull();
+  });
+  it('자산 없음 → null', () => {
+    expect(resolveTraceSeed(null, 3, null, seedCables, catToGroup)).toBeNull();
+  });
+  it('cable 미해소(매칭 코어 없음) → null', () => {
+    expect(resolveTraceSeed('S', 99, null, seedCables, catToGroup)).toBeNull();
+  });
+  it('group 미해소(카탈로그에 없음) → null', () => {
+    expect(resolveTraceSeed('S', 3, null, seedCables, new Map())).toBeNull();
   });
 });
 
