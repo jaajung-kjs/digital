@@ -26,6 +26,9 @@ export const assetController = {
       res.json({ data: await assetService.getById(req.params.id) });
     } catch (error) { next(error); }
   },
+  async refs(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ data: await assetService.refsByIds(req.body.ids) }); } catch (e) { next(e); }
+  },
   async listAll(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const assets = await assetService.listAllSlim();

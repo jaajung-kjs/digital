@@ -182,6 +182,15 @@ class AssetService {
     });
   }
 
+  async refsByIds(ids: string[]): Promise<AssetSearchResult[]> {
+    if (!ids.length) return [];
+    const rows = await prisma.asset.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, substationId: true, substation: { select: { name: true } } },
+    });
+    return rows.map((a) => ({ id: a.id, name: a.name, substationId: a.substationId, substationName: a.substation?.name ?? null }));
+  }
+
   async getById(id: string): Promise<AssetDetail> {
     const row = await prisma.asset.findUnique({ where: { id }, include: assetInclude });
     if (!row) throw new NotFoundError('자산');
