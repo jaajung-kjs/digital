@@ -1,4 +1,3 @@
-import { cableTrace } from './cableTrace';
 import type { TraceGraph } from './traceGraph';
 import { isOpgwTwin, roleAt, other } from '../cables/cableEndpoint';
 import { detectRings } from '../../utils/graph/cycleDetection';
@@ -78,6 +77,12 @@ function pruneDanglingConduits(
   return { nodeIds: [...nodes], cableIds: [...cables] };
 }
 
+/**
+ * 입력 계약(U2): `graph` 는 서버가 반환한 **strand-격리 컴포넌트** — 선택 케이블의 단일 코어에
+ * 속한 cables/assets 만 들어있다(코어별 채널 격리는 서버가 이미 수행). 따라서 과거의 클라이언트측
+ * `cableTrace(start,…)` 채널 재순회는 불필요(잉여) → strand 의 cables 에서 nodeIds/cableIds 를
+ * 직접 도출한다. group 필터는 방어적(컴포넌트가 이미 단일 그룹). 반환 shape 는 불변.
+ */
 export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProjection | null {
   const cableById = new Map(graph.cables.map((c) => [c.id, c]));
   const seed = cableById.get(seedCableId);
@@ -86,18 +91,17 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
 
   const src = seed.sourceAssetId ?? null;
   const tgt = seed.targetAssetId ?? null;
-  // 전제조건: 시드는 설비에 닿는 케이블(OUT/일반)이어야 한다 — start 가 passive(설비) 노드면
-  // cableTrace 의 conduit 채널짝이 끝까지 이어진다. 시드가 OPGW(양끝 conduit 슬롯)면 start 가
-  // conduit 로 떨어져 채널 미정 → 부분 경로(그 슬롯에 직결된 것까지)만 나온다. 단, 현재 UI 는
-  // OPGW 를 클릭-트레이스 시드로 노출하지 않는다(선번장 행=OUT 코어 케이블, OPGW 는 미배치 슬롯
-  // 간 트렁크라 도면 미표시). 트렁크 트레이스는 단일 코어 개념이 없어 의미가 모호하므로 그대로 둔다.
+  // start 는 표시 전용(루트 isSource 플래그·steps/tree 기본 루트) — 시드의 passive(설비) 끝.
   const start = (kindOf(src) !== 'slot' && kindOf(src) !== 'feeder') ? src : (kindOf(tgt) !== 'slot' && kindOf(tgt) !== 'feeder') ? tgt : src;
   if (!start) return null;
   const groupId = seed.groupId ?? null;
 
-  const tr = cableTrace(start, groupId, graph.assets, graph.cables);
+  // 서버 strand 직접 사용 — graph 가 곧 단일 코어 컴포넌트. (group 필터는 방어적)
+  const stCables = graph.cables.filter((c) => (c.groupId ?? null) === groupId);
+  const rawNodeIds = [...new Set(stCables.flatMap((c) => [c.sourceAssetId, c.targetAssetId].filter(Boolean) as string[]))];
+  const rawCableIds = stCables.map((c) => c.id);
   // 대국 단말 없는 conduit dead-end(편도) 가지치기 — 실제로 끊긴 연결은 토폴로지/하이라이트에서 제외.
-  const { nodeIds: trNodeIds, cableIds: trCableIds } = pruneDanglingConduits(tr.nodeIds, tr.cableIds, cableById, kindOf);
+  const { nodeIds: trNodeIds, cableIds: trCableIds } = pruneDanglingConduits(rawNodeIds, rawCableIds, cableById, kindOf);
   const tracedCables = trCableIds.map((id) => cableById.get(id)).filter((c): c is CableLike => !!c);
 
   // 코어번호 K: 시드 number, 없으면 트레이스 내 OUT 케이블의 number
@@ -217,7 +221,7 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
 
   return {
     seedCableId, nodeIds: trNodeIds, cableIds: trCableIds,
-    steps, tree, nodes: [...nodeById.values()], edges, rings, internalTrees, seedFiberEdgeId, truncated: !!tr.truncated,
+    steps, tree, nodes: [...nodeById.values()], edges, rings, internalTrees, seedFiberEdgeId, truncated: false,
   };
 }
 
