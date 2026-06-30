@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../utils/api';
+import { QUERY_STALE_MS } from '../../lib/queryClient';
 import { useEffectiveAssets, useEffectiveOrgTree } from '../workingCopy/hooks';
 import { collectNodeNames } from '../trace/traceGraph';
 import type { AssetRef } from './useSearchAssets';
@@ -33,6 +34,7 @@ export function useAssetRefs(ids: string[]): Map<string, AssetRef> {
     queryKey: ['asset-refs', missKey],
     queryFn: async () => (await api.post<{ data: AssetRef[] }>('/assets/refs', { ids: missing })).data.data,
     enabled: missing.length > 0,
+    staleTime: QUERY_STALE_MS, // 엔티티 ref(committed)는 안정적 — 마운트마다 재페치 억제.
   });
 
   return useMemo(() => {
