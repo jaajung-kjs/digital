@@ -86,7 +86,7 @@ export function useSelectionHighlight(): void {
     [selectedAssetId, selectedCore, selectedCableId, rawCables, catToGroup],
   );
 
-  const { graph } = useServerTrace(seed?.seedAssetId, seed?.groupId);
+  const { graph } = useServerTrace(seed?.seedCableId);
 
   useEffect(() => {
     const hi = usePathHighlightStore.getState();

@@ -12,7 +12,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../utils/api';
-import { isTempId } from '../../utils/idHelpers';
 import { buildTraceGraph, collectNodeNames, type TraceGraph } from './traceGraph';
 import { useSubstationWorkingCopy } from '../workingCopy/substationStore';
 import type { AssetsOverlay, CablesOverlay } from '../workingCopy/substationStore';
@@ -274,14 +273,12 @@ export function responseToTraceGraph(
  * overlay 는 호출측이 buildTraceOverlay 로 만들어 넘긴다(비면 생략).
  */
 export async function fetchServerTraceGraph(
-  seedAssetId: string,
-  groupId: string,
+  seedCableId: string,
   overlay?: ReturnType<typeof buildTraceOverlay>,
 ): Promise<TraceGraph> {
   const hasOverlay = overlay && stableHash(overlay) !== '';
   const res = await api.post<{ data: ServerTraceResponse }>('/trace', {
-    seedAssetId,
-    groupId,
+    seedCableId,
     ...(hasOverlay ? { overlay } : {}),
   });
   // 비-React 경로: 스토어 getState 스냅샷에서 effective 자산·org 이름을 읽어 staged backfill.
@@ -299,14 +296,12 @@ export interface UseServerTraceResult {
 /**
  * POST /api/trace 로 서버 component 를 가져와 작은 TraceGraph 로 변환한다.
  *
- * - seedAssetId: 트레이스 시작 자산(committed 실 id — temp id 면 enabled=false).
- * - groupId: 케이블 그룹 id.
+ * - seedCableId: 트레이스 시작 케이블 id(null 이면 비활성). staged temp id 도 허용 — 서버가 overlay 로 해소.
  * - 반환: { graph: TraceGraph | null, isLoading, error }.
  *   graph 는 projectTrace 에 그대로 넘길 수 있다.
  */
 export function useServerTrace(
-  seedAssetId: string | null | undefined,
-  groupId: string | null | undefined,
+  seedCableId: string | null | undefined,
 ): UseServerTraceResult {
   // ── staged overlay 구독 ──────────────────────────────────────────────────
   // 스토어가 export 하는 오버레이 타입을 그대로 써 셀렉터를 타입체크한다(as-cast 제거).
@@ -324,17 +319,13 @@ export function useServerTrace(
   const overlayParam = overlayHash === '' ? undefined : overlay;
 
   // ── react-query ──────────────────────────────────────────────────────────
-  const enabled =
-    !!seedAssetId &&
-    !!groupId &&
-    !isTempId(seedAssetId);
+  const enabled = !!seedCableId;
 
   const { data, isLoading, error } = useQuery<ServerTraceResponse>({
-    queryKey: ['trace', seedAssetId, groupId, overlayHash],
+    queryKey: ['trace', seedCableId, overlayHash],
     queryFn: async () => {
       const res = await api.post<{ data: ServerTraceResponse }>('/trace', {
-        seedAssetId,
-        groupId,
+        seedCableId,
         ...(overlayParam ? { overlay: overlayParam } : {}),
       });
       return res.data.data;

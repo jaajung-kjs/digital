@@ -20,6 +20,7 @@ import { useServerTrace, buildTraceOverlay, stableHash } from './useServerTrace'
 
 // ─── 픽스처 ──────────────────────────────────────────────────────────────────
 
+const SEED_CABLE_ID = 'core5';
 const SEED_ID = 'asset-seed';
 const GROUP_ID = 'grp-fiber';
 
@@ -61,7 +62,7 @@ beforeEach(() => {
 describe('useServerTrace — 기본 동작', () => {
   it('서버 응답으로 graph 를 만들고 cables / nameById / roleById / parentById 가 채워짐', async () => {
     const { result } = renderHook(
-      () => useServerTrace(SEED_ID, GROUP_ID),
+      () => useServerTrace(SEED_CABLE_ID),
       { wrapper: makeWrapper() },
     );
 
@@ -95,16 +96,15 @@ describe('useServerTrace — 기본 동작', () => {
     expect(graph!.subById.get('slotB')).toBe('sub-B');
   });
 
-  it('api.post 가 /trace 로 seedAssetId / groupId 를 보냄', async () => {
+  it('api.post 가 /trace 로 seedCableId 를 보냄', async () => {
     const { result } = renderHook(
-      () => useServerTrace(SEED_ID, GROUP_ID),
+      () => useServerTrace(SEED_CABLE_ID),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.graph).not.toBeNull());
 
     expect(api.post).toHaveBeenCalledWith('/trace', expect.objectContaining({
-      seedAssetId: SEED_ID,
-      groupId: GROUP_ID,
+      seedCableId: SEED_CABLE_ID,
     }));
     // staged 가 없으면 overlay 없이 보냄
     const callArg = (api.post as ReturnType<typeof vi.fn>).mock.calls[0][1];
@@ -113,33 +113,30 @@ describe('useServerTrace — 기본 동작', () => {
 });
 
 describe('useServerTrace — enabled 게이팅', () => {
-  it('seedAssetId 가 null 이면 api.post 호출 안 함', () => {
+  it('seedCableId 가 null 이면 api.post 호출 안 함', () => {
     renderHook(
-      () => useServerTrace(null, GROUP_ID),
+      () => useServerTrace(null),
       { wrapper: makeWrapper() },
     );
     expect(api.post).not.toHaveBeenCalled();
   });
 
-  it('seedAssetId 가 temp id 면 api.post 호출 안 함', () => {
-    renderHook(
-      () => useServerTrace('temp-abc-123', GROUP_ID),
-      { wrapper: makeWrapper() },
-    );
-    expect(api.post).not.toHaveBeenCalled();
-  });
-
-  it('groupId 가 null 이면 api.post 호출 안 함', () => {
-    renderHook(
-      () => useServerTrace(SEED_ID, null),
-      { wrapper: makeWrapper() },
-    );
-    expect(api.post).not.toHaveBeenCalled();
-  });
-
-  it('비활성 상태에서 graph 는 null, isLoading 은 false', () => {
+  it('seedCableId 가 temp id 면 api.post 를 호출함(서버가 overlay 로 해소)', async () => {
     const { result } = renderHook(
-      () => useServerTrace(null, GROUP_ID),
+      () => useServerTrace('temp-abc-123'),
+      { wrapper: makeWrapper() },
+    );
+    await waitFor(() => expect(api.post).toHaveBeenCalled());
+    expect(api.post).toHaveBeenCalledWith('/trace', expect.objectContaining({
+      seedCableId: 'temp-abc-123',
+    }));
+    // 결과는 정상적으로 graph 가 채워짐
+    await waitFor(() => expect(result.current.graph).not.toBeNull());
+  });
+
+  it('비활성 상태(null)에서 graph 는 null, isLoading 은 false', () => {
+    const { result } = renderHook(
+      () => useServerTrace(null),
       { wrapper: makeWrapper() },
     );
     expect(result.current.graph).toBeNull();
@@ -150,7 +147,7 @@ describe('useServerTrace — enabled 게이팅', () => {
 describe('useServerTrace — overlay hash', () => {
   it('staged cable 이 없으면 overlay 없이 호출', async () => {
     const { result } = renderHook(
-      () => useServerTrace(SEED_ID, GROUP_ID),
+      () => useServerTrace(SEED_CABLE_ID),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.graph).not.toBeNull());
@@ -169,7 +166,7 @@ describe('useServerTrace — overlay hash', () => {
     });
 
     const { result } = renderHook(
-      () => useServerTrace(SEED_ID, GROUP_ID),
+      () => useServerTrace(SEED_CABLE_ID),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.graph).not.toBeNull());
@@ -281,7 +278,7 @@ describe('useServerTrace — staged-create 노드 backfill', () => {
     });
 
     const { result } = renderHook(
-      () => useServerTrace(SEED_ID, GROUP_ID),
+      () => useServerTrace(SEED_CABLE_ID),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.graph).not.toBeNull());
@@ -299,7 +296,7 @@ describe('useServerTrace — staged-create 노드 backfill', () => {
 describe('useServerTrace — buildTraceGraph 재사용 검증', () => {
   it('graph.assets 에 모든 nodes id 가 포함됨', async () => {
     const { result } = renderHook(
-      () => useServerTrace(SEED_ID, GROUP_ID),
+      () => useServerTrace(SEED_CABLE_ID),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.graph).not.toBeNull());
@@ -310,7 +307,7 @@ describe('useServerTrace — buildTraceGraph 재사용 검증', () => {
 
   it('slotIndexById 는 서버 node.slotIndex 를 보존(선번장 슬롯 순번 정렬용)', async () => {
     const { result } = renderHook(
-      () => useServerTrace(SEED_ID, GROUP_ID),
+      () => useServerTrace(SEED_CABLE_ID),
       { wrapper: makeWrapper() },
     );
     await waitFor(() => expect(result.current.graph).not.toBeNull());
@@ -324,7 +321,7 @@ describe('useServerTrace — buildTraceGraph 재사용 검증', () => {
 
   it('isLoading: 로딩 중에는 true, 완료 후 false', async () => {
     const { result } = renderHook(
-      () => useServerTrace(SEED_ID, GROUP_ID),
+      () => useServerTrace(SEED_CABLE_ID),
       { wrapper: makeWrapper() },
     );
     // 완료 후 false
