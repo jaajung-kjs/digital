@@ -10,7 +10,7 @@ type Cable = TraceGraph['cables'][number];
  * 현재 변전소 기준 트리로 레이아웃한다. 채널 재순회 없음: 입력 graph 는 U1 이후
  * 이미 strand-격리돼 있으므로 channel 매칭·role 전이 BFS 는 불필요하다.
  *
- * 두 단계만:
+ * 세 단계:
  *  1) 파티션 — 같은 groupId 케이블 전체를 strand 로 본다.
  *     localSubId 안 노드 = nodeSet. strand 에 localSubId 밖 노드가 있으면 crossed = true.
  *  2) 시작점 — 공급 흐름의 상류 끝(끝 단자 중 비-slot·비-supplied). 전원=충전기, 광=광스위치.

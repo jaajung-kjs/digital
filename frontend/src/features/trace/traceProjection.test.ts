@@ -34,9 +34,8 @@ const graph = buildG(slim, cables);
 describe('projectTrace', () => {
   it('시드 OUT#5 → 하이라이트 nodeIds/cableIds 는 접기 전 실제 노드/케이블', () => {
     const p = projectTrace('oA5', graph)!;
-    expect(p.nodeIds).toContain('eqA');
-    expect(p.nodeIds).toContain('eqB');
-    expect(p.nodeIds).not.toContain('eqC');
+    // strand(oA5 #5) = eqA—slotA—(opgw)—slotB—eqB. 정확히 이 네 노드만(형제 코어 누수 없음).
+    expect([...p.nodeIds].sort()).toEqual(['eqA', 'eqB', 'slotA', 'slotB']);
     expect(p.cableIds).toContain('opgw');
   });
   it('토폴로지: 슬롯→OFD 접힘, OPGW→광edge(OFD↔OFD #5)', () => {
