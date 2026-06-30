@@ -44,20 +44,6 @@ describe('cableTrace — conduit', () => {
     expect(new Set(r.cableIds)).toEqual(new Set(['o1', 'opgw', 'o2']));
     expect(r.nodeIds).not.toContain('eqC');
   });
-
-  it('슬롯 시드(ch 미정): OPGW 건너 대국 슬롯의 모든 OUT 코어 포함 — 토폴로지 component 자족', () => {
-    const assets = [A('eqA'), A('S1', 'slot'), A('S2', 'slot'), A('eqB'), A('eqC')];
-    const cables = [
-      { id: 'o1', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'eqA', sourceRole: 'OUT', targetRole: null, number: 5 },
-      { id: 'opgw', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'S2', sourceRole: 'IN', targetRole: 'IN' },
-      { id: 'o2', groupId: 'FIBER', sourceAssetId: 'S2', targetAssetId: 'eqB', sourceRole: 'OUT', targetRole: null, number: 5 },
-      { id: 'o3', groupId: 'FIBER', sourceAssetId: 'S2', targetAssetId: 'eqC', sourceRole: 'OUT', targetRole: null, number: 6 },
-    ];
-    // S1 슬롯에서 시작 → 특정 코어 미지정(ch=null) → 대국 S2 의 OUT 전부(#5 eqB, #6 eqC) 도달.
-    const r = cableTrace('S1', 'FIBER', assets, cables);
-    expect(new Set(r.nodeIds)).toEqual(new Set(['S1', 'eqA', 'S2', 'eqB', 'eqC']));
-    expect(new Set(r.cableIds)).toEqual(new Set(['o1', 'opgw', 'o2', 'o3']));
-  });
 });
 
 describe('cableTrace — 엣지케이스', () => {
@@ -105,7 +91,7 @@ describe('cableTrace — 엣지케이스', () => {
     expect(new Set(r.nodeIds)).toEqual(new Set(['L', 'F', 'C', 'AC']));
   });
 
-  it('conduit 노드에서 시작하면 대국 슬롯의 모든 OUT 도달(ch 미정 → 전체 코어 — 토폴로지 component 자족)', () => {
+  it('conduit 노드에서 시작하면 대국 출력은 도달 안 함(ch 미정 — 진입점은 설비여야 함, 동작 핀)', () => {
     const assets = [
       { id: 'S1', role: 'slot' as const },
       { id: 'S2', role: 'slot' as const },
@@ -118,8 +104,8 @@ describe('cableTrace — 엣지케이스', () => {
       { id: 'o2', groupId: 'FIBER', sourceAssetId: 'S2', targetAssetId: 'eqB', sourceRole: 'OUT' as const, targetRole: null, number: 5 },
     ];
     const r = cableTrace('S1', 'FIBER', assets, cables);
-    expect(r.nodeIds).toContain('eqA');  // 시작 슬롯의 로컬 출력
-    expect(r.nodeIds).toContain('S2');   // OPGW 건너 대국 슬롯
-    expect(r.nodeIds).toContain('eqB');  // ch 미정(슬롯 시드) → 대국 OUT 전부 포함(예전엔 누락 — 토폴로지 빈경로 버그)
+    expect(r.nodeIds).toContain('eqA');  // 시작 슬롯의 로컬 출력은 도달
+    expect(r.nodeIds).toContain('S2');   // OPGW 건너 대국 슬롯까지는 감
+    expect(r.nodeIds).not.toContain('eqB'); // 대국 출력은 채널 미정이라 도달 안 함(전제: 설비에서 시작)
   });
 });
