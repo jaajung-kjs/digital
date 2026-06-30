@@ -61,6 +61,27 @@ describe('cableTrace — conduit', () => {
   });
 });
 
+describe('cableTrace — passive-passive cable seed', () => {
+  it('passive↔passive 케이블-시드: 양쪽 끝점에서 탐색해 이웃을 발견한다', () => {
+    // devA --[seed]-- devB --[c2]-- devC
+    // devA --[c3]-- devD
+    const assets = [A('devA'), A('devB'), A('devC'), A('devD')];
+    const cables = [
+      { id: 'seed', groupId: 'LAN', sourceAssetId: 'devA', targetAssetId: 'devB', sourceRole: null, targetRole: null },
+      { id: 'c2',   groupId: 'LAN', sourceAssetId: 'devB', targetAssetId: 'devC' },
+      { id: 'c3',   groupId: 'LAN', sourceAssetId: 'devA', targetAssetId: 'devD' },
+    ];
+    const seedCable = cables.find((c) => c.id === 'seed')!;
+    const r = cableTrace('devA', 'LAN', assets, cables, seedCable);
+    // 비어있지 않고 양쪽 이웃 모두 발견해야 함
+    expect(r.nodeIds.length).toBeGreaterThan(2);
+    expect(new Set(r.nodeIds)).toContain('devC');
+    expect(new Set(r.nodeIds)).toContain('devD');
+    expect(new Set(r.cableIds)).toContain('c2');
+    expect(new Set(r.cableIds)).toContain('c3');
+  });
+});
+
 describe('cableTrace — 엣지케이스', () => {
   it('passive 분기: 허브에서 여러 갈래 모두 포함', () => {
     const assets = [{ id: 'H', role: null }, { id: 'A', role: null }, { id: 'B', role: null }, { id: 'C', role: null }];

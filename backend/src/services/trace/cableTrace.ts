@@ -61,10 +61,9 @@ export function cableTrace(
   const nodeIds = new Set<string>(seedEnds);
   const cableIds = new Set<string>(seedCable ? [seedCable.id] : []);
   const seen = new Set<string>(seedCable ? seedEnds.map((e) => `${seedCable.id}|${e}`) : []); // "cableId|towardAssetId"
-  // 케이블-시드: role이 정의된 끝점만 스택에 올림(null-role 끝점은 nodeIds에 포함되나 재귀 탐색 X — 형제 케이블 오염 방지)
+  // 케이블-시드: 양쪽 끝점 모두 스택에 올림(passive-passive 케이블 지원 — 번호 인식 passive 규칙이 형제 코어 누수 차단)
   const stack: { a: string; via: TraceCable | null; ch: number | null }[] = seedCable
     ? seedEnds
-        .filter((e) => roleAt(seedCable, e) !== null)
         .map((e) => ({ a: e, via: seedCable, ch: seedCable.number ?? null }))
     : [{ a: startAssetId, via: null, ch: null }];
   let guard = 0;
@@ -86,7 +85,9 @@ export function cableTrace(
       else if (entryRole === 'IN') exits = here.filter((c) => roleAt(c, a) === 'OUT' && (c.number ?? null) === ch);
       else exits = here;
     } else {
-      exits = here;
+      exits = (via && via.number != null)
+        ? here.filter((c) => (c.number ?? null) == null || c.number === via.number)
+        : here;
     }
 
     for (const c of exits) {
