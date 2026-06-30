@@ -17,10 +17,6 @@ import { toMapById } from '../../../utils/byId';
 import type { Asset } from '../../../types/asset';
 import { projectTrace, type TraceProjection } from '../../trace/traceProjection';
 import { buildTraceOverlay, fetchServerTraceGraph } from '../../trace/useServerTrace';
-import { queryClient } from '../../../lib/queryClient';
-import { CABLE_CATEGORY_KEYS, fetchCableCategories } from '../../cables/hooks/useCableCategories';
-import type { CableCategory } from '../../../types/cableCategory';
-import { resolveCableSeed, type CableSeedInput } from '../../trace/cableSeed';
 
 function idleState() {
   return {
@@ -54,24 +50,8 @@ export function expandToPlacedIds(nodeIds: Set<string>, effectiveAssets: Asset[]
 }
 
 /**
- * 시드 cable 의 (seedAssetId, groupId) 해소 — 서버 trace 호출 파라미터.
- * cable 의 group 은 직접 groupId 우선, 없으면 categoryId→groupId(카테고리 카탈로그) 맵.
- */
-async function resolveSeedFromCable(cableId: string): Promise<{ seedAssetId: string; groupId: string } | null> {
-  const wc = useSubstationWorkingCopy.getState();
-  const cables = wc.effectiveCables() as unknown as CableSeedInput[];
-  // 콜드캐시(카테고리 미페치)에서도 groupId 를 해소하려면 ensureQueryData 로 온디맨드 페치.
-  const categories =
-    (await queryClient.ensureQueryData<CableCategory[]>({
-      queryKey: CABLE_CATEGORY_KEYS.all,
-      queryFn: fetchCableCategories,
-    })) ?? [];
-  return resolveCableSeed(cableId, cables, categories);
-}
-
-/**
  * 시드 cable 1회 추적 → projection. 그래프 소스 = 서버(POST /api/trace) connected
- * component(seedAssetId+groupId), staged delta 는 overlay 로 머지. projectTrace 는
+ * component(seedCableId), staged delta 는 overlay 로 머지. projectTrace 는
  * 그 작은 그래프 위에서 변경 없이 실행된다(전역 buildTraceGraph 의존 제거).
  */
 async function loadProjection(cableId: string): Promise<
@@ -79,13 +59,9 @@ async function loadProjection(cableId: string): Promise<
   | { ok: false; error: string }
 > {
   try {
-    const seed = await resolveSeedFromCable(cableId);
-    if (!seed) {
-      return { ok: false, error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.' };
-    }
     const wc = useSubstationWorkingCopy.getState();
     const overlay = buildTraceOverlay({ cables: wc.overlays.cables, assets: wc.overlays.assets });
-    const graph = await fetchServerTraceGraph(seed.seedAssetId, seed.groupId, overlay);
+    const graph = await fetchServerTraceGraph(cableId, overlay);
     const projection = projectTrace(cableId, graph);
     if (!projection) {
       return { ok: false, error: '시드 케이블을 찾을 수 없습니다. 삭제되었거나 캐시가 갱신되지 않았을 수 있습니다.' };

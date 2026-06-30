@@ -24,26 +24,76 @@ export interface TraceResponse {
   truncated: boolean;
 }
 
+const EMPTY_RESPONSE: TraceResponse = {
+  nodeIds: [],
+  cableIds: [],
+  cables: [],
+  nodes: [],
+  truncated: false,
+};
+
 /**
- * 그룹의 committed 케이블 + 클라이언트 overlay(what-if)를 병합한 뒤
- * cableTrace 를 실행하여 연결 컴포넌트를 반환한다.
+ * 시드 케이블(seedCableId)로 그룹을 도출하고, committed 케이블 + 클라이언트 overlay(what-if)를
+ * 병합한 뒤 cableTrace 를 실행하여 시드 케이블의 strand 컴포넌트를 반환한다.
  *
  * group→cable 경로: CableCategory.groupId → Cable.categoryId.
  * Cable 에는 groupId 컬럼이 없으므로 cableCategory 를 먼저 조회해
  * categoryId 목록을 확보한 다음 케이블을 가져온다.
  */
 export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
-  const { seedAssetId, groupId } = input;
+  const { seedCableId } = input;
   const overlay = input.overlay;
 
-  // ── 1. 그룹 → 카테고리 id 목록 ──────────────────────────────────────────
+  // ── 1. 시드 케이블 해소 ───────────────────────────────────────────────────
+  // 먼저 committed DB 에서 찾는다.
+  const committedSeed = await prisma.cable.findUnique({
+    where: { id: seedCableId },
+    select: {
+      id: true,
+      sourceAssetId: true,
+      targetAssetId: true,
+      sourceRole: true,
+      targetRole: true,
+      number: true,
+      categoryId: true,
+      specParams: true,
+      category: { select: { groupId: true } },
+    },
+  });
+
+  let groupId: string | null = null;
+
+  if (committedSeed) {
+    groupId = committedSeed.category?.groupId ?? null;
+  } else {
+    // overlay.cables.creates 에서 tempId === seedCableId 인 행 탐색
+    const stagedSeed = overlay?.cables?.creates?.find((cr) => cr.tempId === seedCableId);
+    if (stagedSeed) {
+      // staged 시드 케이블에 categoryId 가 없으면(null) groupId 를 도출할 수 없어 빈 결과 반환 — 설계상 의도.
+      const stagedCategoryId = stagedSeed.categoryId ?? null;
+      if (stagedCategoryId) {
+        const cat = await prisma.cableCategory.findUnique({
+          where: { id: stagedCategoryId },
+          select: { groupId: true },
+        });
+        groupId = cat?.groupId ?? null;
+      }
+    }
+  }
+
+  // 시드 케이블을 찾지 못하면 빈 결과 반환
+  if (!groupId) {
+    return EMPTY_RESPONSE;
+  }
+
+  // ── 2. 그룹 → 카테고리 id 목록 ──────────────────────────────────────────
   const cats = await prisma.cableCategory.findMany({
     where: { groupId },
     select: { id: true },
   });
   const catIds = cats.map((c) => c.id);
 
-  // ── 2. committed 케이블 조회 ─────────────────────────────────────────────
+  // ── 3. committed 케이블 조회 ─────────────────────────────────────────────
   const rawCables = catIds.length
     ? await prisma.cable.findMany({
         where: { categoryId: { in: catIds } },
@@ -73,7 +123,7 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
     specParams: (c.specParams as Record<string, unknown> | null) ?? null,
   }));
 
-  // ── 3. overlay 병합 ──────────────────────────────────────────────────────
+  // ── 4. overlay 병합 ──────────────────────────────────────────────────────
   if (overlay) {
     const { cables: delta } = overlay;
 
@@ -119,14 +169,26 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
     }
   }
 
-  // ── 4. 끝점 자산 역할 조회 ───────────────────────────────────────────────
+  // ── 5. 시드 케이블(merged 상태)을 찾아 양끝점을 확보 ─────────────────────
+  const seedCableMerged = mergedCables.find((c) => c.id === seedCableId);
+  if (!seedCableMerged) {
+    // 시드 케이블이 overlay.deletes 로 제거됐거나 못 찾은 경우 빈 결과
+    return EMPTY_RESPONSE;
+  }
+
+  const seedEnd = seedCableMerged.sourceAssetId ?? seedCableMerged.targetAssetId;
+  if (!seedEnd) {
+    return EMPTY_RESPONSE;
+  }
+
+  // ── 6. 끝점 자산 역할 조회 ───────────────────────────────────────────────
   const endpointAssetIds = new Set<string>();
   for (const c of mergedCables) {
     if (c.sourceAssetId) endpointAssetIds.add(c.sourceAssetId);
     if (c.targetAssetId) endpointAssetIds.add(c.targetAssetId);
   }
-  // seedAssetId 도 포함(케이블이 없어도 자신 역할은 필요)
-  endpointAssetIds.add(seedAssetId);
+  // seedEnd 도 포함(케이블이 없어도 자신 역할은 필요)
+  endpointAssetIds.add(seedEnd);
 
   const rawAssets = await prisma.asset.findMany({
     where: { id: { in: [...endpointAssetIds] } },
@@ -150,10 +212,10 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
     role: roleMap.get(id) ?? null,
   }));
 
-  // ── 5. cableTrace 실행 ───────────────────────────────────────────────────
-  const { nodeIds, cableIds, truncated } = cableTrace(seedAssetId, groupId, traceAssets, mergedCables);
+  // ── 7. cableTrace 실행 ───────────────────────────────────────────────────
+  const { nodeIds, cableIds, truncated } = cableTrace(seedEnd, groupId, traceAssets, mergedCables, seedCableMerged);
 
-  // ── 6. 응답 노드 조회 ────────────────────────────────────────────────────
+  // ── 8. 응답 노드 조회 ────────────────────────────────────────────────────
   const nodeSelect = {
     id: true,
     name: true,
@@ -193,7 +255,7 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
     slotIndex: a.slotIndex ?? null,
   }));
 
-  // ── 7. 응답 케이블: cableIds ∩ mergedCables ──────────────────────────────
+  // ── 9. 응답 케이블: cableIds ∩ mergedCables ──────────────────────────────
   const cableIdSet = new Set(cableIds);
   const cables = mergedCables.filter((c) => cableIdSet.has(c.id));
 

@@ -31,6 +31,21 @@ describe('cableTrace — distributor', () => {
 });
 
 describe('cableTrace — conduit', () => {
+  it('케이블-시드: 공유 설비라도 선택한 가닥(코어)만 추적 — 형제 코어 격리', () => {
+    const assets = [A('D'), A('S1', 'slot'), A('S2', 'slot'), A('eqB'), A('eqC')];
+    const cables = [
+      { id: 'p5', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'D', sourceRole: 'OUT', targetRole: null, number: 5 },
+      { id: 'p6', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'D', sourceRole: 'OUT', targetRole: null, number: 6 },
+      { id: 'opgw', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'S2', sourceRole: 'IN', targetRole: 'IN' },
+      { id: 'q5', groupId: 'FIBER', sourceAssetId: 'S2', targetAssetId: 'eqB', sourceRole: 'OUT', targetRole: null, number: 5 },
+      { id: 'q6', groupId: 'FIBER', sourceAssetId: 'S2', targetAssetId: 'eqC', sourceRole: 'OUT', targetRole: null, number: 6 },
+    ];
+    const seed = cables.find((c) => c.id === 'p5')!;
+    const r = cableTrace('D', 'FIBER', assets, cables, seed); // 케이블-시드(코어5)
+    expect(new Set(r.nodeIds)).toEqual(new Set(['D', 'S1', 'S2', 'eqB'])); // 코어5 가닥만
+    expect(r.nodeIds).not.toContain('eqC'); // 형제 코어6 격리
+  });
+
   it('광: 설비→슬롯 OUT#5→OPGW(IN)→대국 슬롯→OUT#5→대국 설비 (번호 짝)', () => {
     const assets = [A('eqA'), A('S1', 'slot'), A('S2', 'slot'), A('eqB'), A('eqC')];
     const cables = [
@@ -43,6 +58,27 @@ describe('cableTrace — conduit', () => {
     expect(new Set(r.nodeIds)).toEqual(new Set(['eqA', 'S1', 'S2', 'eqB']));
     expect(new Set(r.cableIds)).toEqual(new Set(['o1', 'opgw', 'o2']));
     expect(r.nodeIds).not.toContain('eqC');
+  });
+});
+
+describe('cableTrace — passive-passive cable seed', () => {
+  it('passive↔passive 케이블-시드: 양쪽 끝점에서 탐색해 이웃을 발견한다', () => {
+    // devA --[seed]-- devB --[c2]-- devC
+    // devA --[c3]-- devD
+    const assets = [A('devA'), A('devB'), A('devC'), A('devD')];
+    const cables = [
+      { id: 'seed', groupId: 'LAN', sourceAssetId: 'devA', targetAssetId: 'devB', sourceRole: null, targetRole: null },
+      { id: 'c2',   groupId: 'LAN', sourceAssetId: 'devB', targetAssetId: 'devC' },
+      { id: 'c3',   groupId: 'LAN', sourceAssetId: 'devA', targetAssetId: 'devD' },
+    ];
+    const seedCable = cables.find((c) => c.id === 'seed')!;
+    const r = cableTrace('devA', 'LAN', assets, cables, seedCable);
+    // 비어있지 않고 양쪽 이웃 모두 발견해야 함
+    expect(r.nodeIds.length).toBeGreaterThan(2);
+    expect(new Set(r.nodeIds)).toContain('devC');
+    expect(new Set(r.nodeIds)).toContain('devD');
+    expect(new Set(r.cableIds)).toContain('c2');
+    expect(new Set(r.cableIds)).toContain('c3');
   });
 });
 
