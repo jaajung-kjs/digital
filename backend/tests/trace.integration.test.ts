@@ -346,8 +346,9 @@ describe('POST /api/trace — 서버 트레이스 통합', () => {
     expect(data.nodeIds).toContain(devB.id);
     // slot2 도 포함
     expect(data.nodeIds).toContain(slot2.id);
-    // 케이블도 모두 포함
+    // 케이블도 모두 포함 (OPGW 포함 — OPGW 미통과 시 회귀 감지)
     expect(data.cableIds).toContain(patchK.id);
+    expect(data.cableIds).toContain(opgw.id);
     expect(data.cableIds).toContain(qK.id);
   });
 

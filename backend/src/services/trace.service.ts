@@ -62,20 +62,18 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
   });
 
   let groupId: string | null = null;
-  let seedCategoryId: string | null = null;
 
   if (committedSeed) {
     groupId = committedSeed.category?.groupId ?? null;
-    seedCategoryId = committedSeed.categoryId ?? null;
   } else {
     // overlay.cables.creates 에서 tempId === seedCableId 인 행 탐색
     const stagedSeed = overlay?.cables?.creates?.find((cr) => cr.tempId === seedCableId);
     if (stagedSeed) {
-      seedCategoryId = stagedSeed.categoryId ?? null;
-      // categoryId 로 groupId 도출
-      if (seedCategoryId) {
+      // staged 시드 케이블에 categoryId 가 없으면(null) groupId 를 도출할 수 없어 빈 결과 반환 — 설계상 의도.
+      const stagedCategoryId = stagedSeed.categoryId ?? null;
+      if (stagedCategoryId) {
         const cat = await prisma.cableCategory.findUnique({
-          where: { id: seedCategoryId },
+          where: { id: stagedCategoryId },
           select: { groupId: true },
         });
         groupId = cat?.groupId ?? null;

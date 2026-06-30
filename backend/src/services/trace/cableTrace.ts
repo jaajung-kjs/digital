@@ -30,9 +30,12 @@ const MAX = 5000; // 폭주 가드
  * slot=OUT#K→IN(OPGW, 채널 K)→대국 OUT#K. 방문 엣지로 사이클 안전.
  *
  * 전제조건(precondition):
- * - 시작 노드(startAssetId)는 단말(설비) 등 passive 노드여야 slot 채널 짝이 끝까지
- *   이어진다. slot(슬롯) 노드에서 시작하면 OPGW 건너편 출력은 채널 미정이라 도달하지
- *   않는다(설계상 — trace 진입점은 항상 설비).
+ * - 케이블-시드 모드(seedCable 전달 시): trace.service 가 시드 케이블의 양쪽 끝점을 모두
+ *   스택에 올리므로 startAssetId 는 단말 설비일 필요가 없다. 코어 번호 격리(형제 누수 차단)는
+ *   번호 인식 passive 규칙이 담당하며, 단말 설비 시작을 전제하지 않는다.
+ * - 레거시 노드-시드 모드(seedCable 없이 startAssetId 만 전달 시): 시작 노드가 단말(설비) 등
+ *   passive 노드여야 slot 채널 짝이 끝까지 이어진다. slot 에서 시작하면 OPGW 건너편 채널이
+ *   미정이라 도달하지 않는다(설계상).
  * - feeder 자산에 닿는 케이블은 sourceRole/targetRole(IN/OUT)이 채워져야 fan-out
  *   격리가 동작한다. 역할이 없으면 passive처럼 전부 순회(형제 OUT 누수). P4 데이터 생성 시
  *   역할 필수.
