@@ -33,8 +33,7 @@ const cableCollection = z.object({
 });
 
 export const traceRequestSchema = z.object({
-  seedAssetId: z.string(),
-  groupId: z.string(),
+  seedCableId: z.string(),
   overlay: z
     .object({
       cables: cableCollection.optional().default({ creates: [], updates: [], deletes: [] }),
