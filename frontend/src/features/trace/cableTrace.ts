@@ -36,6 +36,7 @@ export function cableTrace(
   groupId: string | null,
   assets: TraceAsset[],
   cables: TraceCable[],
+  seedCable?: TraceCable,
 ): TraceResult {
   const kindOf = new Map(assets.map((a) => [a.id, a.role ?? null]));
   // 같은 사용자 그룹 케이블만 따라간다(과거 cableType 동질 경로 → 그룹 동질 경로).
@@ -48,13 +49,18 @@ export function cableTrace(
   };
   for (const c of typed) { push(c.sourceAssetId, c); push(c.targetAssetId, c); }
 
-
-  const nodeIds = new Set<string>([startAssetId]);
-  const cableIds = new Set<string>();
-  const seen = new Set<string>(); // "cableId|towardAssetId"
-  const stack: { a: string; via: TraceCable | null; ch: number | null }[] = [
-    { a: startAssetId, via: null, ch: null },
-  ];
+  const seedEnds = seedCable
+    ? ([seedCable.sourceAssetId, seedCable.targetAssetId].filter(Boolean) as string[])
+    : [startAssetId];
+  const nodeIds = new Set<string>(seedEnds);
+  const cableIds = new Set<string>(seedCable ? [seedCable.id] : []);
+  const seen = new Set<string>(seedCable ? seedEnds.map((e) => `${seedCable.id}|${e}`) : []); // "cableId|towardAssetId"
+  // 케이블-시드: role이 정의된 끝점만 스택에 올림(null-role 끝점은 nodeIds에 포함되나 재귀 탐색 X — 형제 케이블 오염 방지)
+  const stack: { a: string; via: TraceCable | null; ch: number | null }[] = seedCable
+    ? seedEnds
+        .filter((e) => roleAt(seedCable, e) !== null)
+        .map((e) => ({ a: e, via: seedCable, ch: seedCable.number ?? null }))
+    : [{ a: startAssetId, via: null, ch: null }];
   let guard = 0;
 
   while (stack.length && guard++ < MAX) {
