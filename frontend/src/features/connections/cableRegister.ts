@@ -1,6 +1,5 @@
 import { roleAt } from '../cables/cableEndpoint';
 import { buildSelfSideChecker, buildEndpointNameResolver } from './endpointName';
-import { fiberSlotLabel } from '../fiber/fiberSlotLabel';
 import { toMapById } from '../../utils/byId';
 import type { TraceGraph } from '../trace/traceGraph';
 import type { Asset } from '../../types/asset';
@@ -35,12 +34,11 @@ export function buildCableRegister(opts: {
   const isSelf = buildSelfSideChecker(assets, assetId);
   const nameOf = buildEndpointNameResolver(assets);
   const byId = toMapById(assets);
-  // 끝점 이름은 파생 SSOT 로 해소 — 경로슬롯(conduit)은 저장된 raw name(시드=자국-대국 / UI생성=대국만)이
-  // 제각각이라, 어디서나 같은 fiberSlotLabel("자국-대국-N#코어")을 쓴다. 저장 전후·시드/UI 무관 동일.
+  // 끝점 이름 해소 — 경로슬롯(conduit)은 Tasks 1-3 에서 저장된 slot.name 을 그대로 사용.
   const resolveName = (id?: string | null) => {
     if (!id) return '';
     const a = byId.get(id);
-    if (a && a.assetType?.role === 'slot') return fiberSlotLabel(id, graph) || nameOf(id) || id;
+    if (a && a.assetType?.role === 'slot') return nameOf(id) || id;
     return nameOf(id) || graph.nameById.get(id) || id;
   };
   const isFeeder = (id?: string | null) => !!id && byId.get(id)?.assetType?.role === 'feeder';

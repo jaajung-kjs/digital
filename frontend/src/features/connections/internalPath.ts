@@ -1,5 +1,4 @@
 import { roleAt, other, isOpgwTwin } from '../cables/cableEndpoint';
-import { fiberSlotLabel } from '../fiber/fiberSlotLabel';
 import type { TraceGraph } from '../trace/traceGraph';
 import type { TraceTreeNode } from '../trace/traceProjection';
 
@@ -77,8 +76,7 @@ export function buildInternalPath(
     const s = c.sourceAssetId, t = c.targetAssetId;
     if (s && t && nodeSet.has(s) && nodeSet.has(t)) { addAdj(s, t, c); addAdj(t, s, c); }
   }
-  const labelOf = (id: string) =>
-    kindOf(id) === 'slot' ? (fiberSlotLabel(id, graph) || graph.nameById.get(id) || id) : (graph.nameById.get(id) || id);
+  const labelOf = (id: string) => graph.nameById.get(id) || id;
 
   const visited = new Set<string>([rootId]);
   const build = (id: string, incoming: Cable | null): TraceTreeNode => {

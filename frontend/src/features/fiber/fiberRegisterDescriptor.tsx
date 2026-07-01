@@ -2,7 +2,6 @@ import { type TraceGraph } from '../trace/traceGraph';
 import { buildSlotCoreRows, type SlotCoreRow } from './slotRegister';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
 import { EditableField } from '../assets/components/EditableField';
-import { fiberSlotLabel } from './fiberSlotLabel';
 import { AssetSelectCell } from './components/AssetSelectCell';
 import { commitCoreMeta } from './coreMeta';
 import type { Asset } from '../../types/asset';
@@ -20,7 +19,7 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
     const rows = buildSlotCoreRows(slot as never, ctx.cables as never[], graph)
       .map((r): FiberRow => ({ ...r, __nameById: graph?.nameById, __slot: slot as unknown as Asset }));
     const used = rows.filter((r) => r.occupied).length;
-    const title = (graph ? fiberSlotLabel(slot.id, graph) : '') || (slot.name ?? '광경로');
+    const title = slot.name ?? '광경로';
     return {
       key: slot.id,
       title,

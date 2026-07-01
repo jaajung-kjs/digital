@@ -154,24 +154,24 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
   });
 });
 
-describe('AssetInspector — 경로슬롯(conduit) 이름 파생 읽기전용', () => {
+describe('AssetInspector — 경로슬롯(conduit) 이름 저장된 name 읽기전용', () => {
+  // Tasks 1-3 에서 slot.name 에 저장된 라벨을 그대로 읽기전용으로 표시.
+  // 파생 계산(fiberSlotLabel) 없이 asset.name 직접 사용.
   const conduitAsset = {
     id: SLOT, substationId: 's1', assetTypeId: 'ofdslot',
     assetType: { name: 'OFD-SLOT', role: 'slot' },
-    name: 'DB저장이름(표시안됨)', installDate: null, manager: null, status: '운영중',
+    name: '춘천S/S - 북춘천S/S -1 #24', installDate: null, manager: null, status: '운영중',
     description: '', floorId: null, updatedAt: '',
   } as never;
 
-  it('conduit: 이름이 파생 라벨(자국-대국#코어수) 읽기전용 — 편집 affordance 없음', () => {
-    mockGraph = slotGraph;
+  it('conduit: 저장된 slot.name 읽기전용 표시 — 편집 affordance 없음', () => {
+    mockGraph = slotGraph; // graph 주입(fiberSlotLabel 계산값과 stored name 이 다름을 검증)
     wrap(<AssetInspector asset={conduitAsset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
-    // 파생 라벨 표시, DB name 은 표시되지 않음
-    expect(screen.getByText('춘천S/S - 북춘천S/S #24')).toBeTruthy();
-    expect(screen.queryByText('DB저장이름(표시안됨)')).toBeNull();
+    // 저장된 이름(slot.name) 표시 — graph 가 있어도 fiberSlotLabel 계산값('춘천S/S - 북춘천S/S #24') 아님
+    expect(screen.getByText('춘천S/S - 북춘천S/S -1 #24')).toBeTruthy();
     // 읽기전용 — 이름 수정(연필)·편집 인풋 없음
     expect(screen.queryByTitle('이름 수정')).toBeNull();
-    expect(screen.queryByDisplayValue('춘천S/S - 북춘천S/S #24')).toBeNull();
-    expect(screen.queryByDisplayValue('DB저장이름(표시안됨)')).toBeNull();
+    expect(screen.queryByDisplayValue('춘천S/S - 북춘천S/S -1 #24')).toBeNull();
   });
 
   it('비-conduit 자산은 이름이 여전히 편집 가능(연필 노출)', () => {
