@@ -18,7 +18,7 @@ const REMOTE_OFD_ID = 'ofd2';
 const OPGW_ID = 'opgw1';
 
 const SLOT_ASSET = {
-  id: SLOT_ID, name: '슬롯A', parentAssetId: OFD_ID, substationId: 's1',
+  id: SLOT_ID, name: '원주변전소 - 홍천변전소 #48', parentAssetId: OFD_ID, substationId: 's1',
   assetType: { role: 'slot' },
 };
 const OFD_ASSET = {

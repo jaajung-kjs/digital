@@ -8,7 +8,7 @@ import { useAssetTypeIdByRole } from '../../assets/useAssetTypeIdByRole';
 import { useCableCategories } from '../../cables/hooks/useCableCategories';
 import { generateTempId } from '../../../utils/idHelpers';
 import { buildRouteCreate, routeDeleteIds } from '../fiberWrite';
-import { fiberSlotLabel } from '../fiberSlotLabel';
+import { nextRouteNumber } from '../slotName';
 import { SlotTile } from '../../../components/SlotTile';
 import { SlotRailGrid } from '../../../components/SlotRailGrid';
 import { OfdRoutePopover } from './OfdRoutePopover';
@@ -70,11 +70,15 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
   const addRoute = (remote: AssetRef, cores: number, categoryId: string) => {
     const cat = categories.find((c) => c.id === categoryId);
     if (!slotTypeId || !cat || !localOfd?.substationId || !remote.substationId) return;
+    // -N = 같은 OFD→같은 대국 기존 형제 수 +1. 자국(a)은 resident 정확, 대국(b)은 best-effort.
+    const a = nextRouteNumber(localOfd.id, remote.substationId, graph);
+    const b = nextRouteNumber(remote.id, localOfd.substationId, graph);
     const { slots: newSlots, opgw } = buildRouteCreate({
       localOfd: { id: localOfd.id, substationId: localOfd.substationId, substationName: localOfd.substationName },
       remoteOfd: { id: remote.id, substationId: remote.substationId, substationName: remote.substationName },
       cores, slotTypeId, opgwCategory: cat,
       ids: { slotA: generateTempId(), slotB: generateTempId(), opgw: generateTempId() },
+      numbers: { a, b },
     });
     const wc = useSubstationWorkingCopy.getState();
     for (const s of newSlots) wc.put('assets', s as unknown as { id: string; [k: string]: unknown });
@@ -111,7 +115,7 @@ export function OfdSlotRail({ ofdId }: { ofdId: string }) {
       <SlotRailGrid slotCount={OFD_SLOT_COUNT}>
         {/* 점유 슬롯 (경로 0..slots.length-1) */}
         {slots.map((slot, i) => {
-          const title = fiberSlotLabel(slot.id, graph) || slot.name;
+          const title = slot.name ?? '';
           return (
             // 랙 ModuleCell 과 동일한 SlotTile — 드래그/리사이즈만 없을 뿐 같은 비주얼.
             <SlotTile
