@@ -13,6 +13,8 @@ export interface TraceNode {
   substationName: string | null;
   /** OFD 내 슬롯 위치 — 선번장 fiberSlotLabel 정렬 보존용(null=미설정). */
   slotIndex: number | null;
+  /** 자산이 배치된 도면 id — scope 판정 소스(미배치 시 null). */
+  floorId: string | null;
 }
 
 /** trace() 응답 */
@@ -222,6 +224,9 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
     parentAssetId: true,
     substationId: true,
     slotIndex: true,
+    floorId: true,
+    // 자식 자산(패널 안 feeder 등)이 자기 floorId 가 없으면 부모(패널/랙)의 floorId 를 물려받는다.
+    parent: { select: { floorId: true } },
     assetType: { select: { role: true } },
     substation: { select: { name: true } },
   } as const;
@@ -253,6 +258,7 @@ export async function trace(input: TraceRequestInput): Promise<TraceResponse> {
     substationId: a.substationId,
     substationName: a.substation?.name ?? null,
     slotIndex: a.slotIndex ?? null,
+    floorId: a.floorId ?? a.parent?.floorId ?? null, // 부모 floorId 상속(자기 것 우선)
   }));
 
   // ── 9. 응답 케이블: cableIds ∩ mergedCables ──────────────────────────────

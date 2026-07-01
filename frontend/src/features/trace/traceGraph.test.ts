@@ -71,6 +71,18 @@ describe('buildTraceGraph + projections', () => {
     const g = buildTraceGraph({ assets: [A({ id: 'x', substationId: 'subA' })], cables: [], substationNames: NAMES });
     expect(g.subById.get('x')).toBe('subA');
   });
+
+  it('floorById: 자산 id → floorId(도면 id) 매핑을 노출한다', () => {
+    const assetsWithFloor = [
+      { ...A({ id: 'a1', substationId: 'subA' }), floorId: 'F1' },
+      { ...A({ id: 'a2', substationId: 'subA' }), floorId: null },
+      { ...A({ id: 'a3', substationId: 'subA' }) },
+    ];
+    const g = buildTraceGraph({ assets: assetsWithFloor, cables: [], substationNames: NAMES });
+    expect(g.floorById.get('a1')).toBe('F1');
+    expect(g.floorById.get('a2')).toBeNull();
+    expect(g.floorById.get('a3')).toBeNull();
+  });
 });
 
 describe('buildTraceGraph 변전소명 해소(org 트리 맵)', () => {
