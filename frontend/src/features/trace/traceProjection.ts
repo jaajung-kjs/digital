@@ -78,10 +78,10 @@ function pruneDanglingConduits(
 }
 
 /**
- * 입력 계약(U2): `graph` 는 서버가 반환한 **strand-격리 컴포넌트** — 선택 케이블의 단일 코어에
- * 속한 cables/assets 만 들어있다(코어별 채널 격리는 서버가 이미 수행). 따라서 과거의 클라이언트측
- * `cableTrace(start,…)` 채널 재순회는 불필요(잉여) → strand 의 cables 에서 nodeIds/cableIds 를
- * 직접 도출한다. group 필터는 방어적(컴포넌트가 이미 단일 그룹). 반환 shape 는 불변.
+ * 입력 계약(U2): `graph` 는 서버가 반환한 **연결 컴포넌트** — 시드 케이블에서 물리적으로
+ * 이어진(설비는 전부 통과, OPGW 는 코어별로 운반) cables/assets. 추적은 서버가 이미 수행하므로
+ * 과거의 클라이언트측 `cableTrace(start,…)` 재순회는 불필요(잉여) → 컴포넌트의 cables 에서
+ * nodeIds/cableIds 를 직접 도출한다. group 필터는 방어적(컴포넌트가 이미 단일 그룹). 반환 shape 는 불변.
  */
 export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProjection | null {
   const cableById = new Map(graph.cables.map((c) => [c.id, c]));
@@ -96,7 +96,7 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   if (!start) return null;
   const groupId = seed.groupId ?? null;
 
-  // 서버 strand 직접 사용 — graph 가 곧 단일 코어 컴포넌트. (group 필터는 방어적)
+  // 서버 연결 컴포넌트 직접 사용 — graph 가 곧 추적 결과. (group 필터는 방어적)
   const stCables = graph.cables.filter((c) => (c.groupId ?? null) === groupId);
   const rawNodeIds = [...new Set(stCables.flatMap((c) => [c.sourceAssetId, c.targetAssetId].filter(Boolean) as string[]))];
   const rawCableIds = stCables.map((c) => c.id);
@@ -195,15 +195,17 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
   const steps = buildSteps(rootId, trNodeIds, tracedCables, graph, collapse);
   const tree = buildTree(rootId, trNodeIds, tracedCables, graph, collapse);
 
-  // ── 변전소별 내부경로 트리 — 토폴로지 노드가 내부경로 드릴다운과 동일하게 순서로(광스위치→설비→슬롯). ──
-  // 변전소 안 내부 케이블(OPGW 아님) 하나를 시드로 buildInternalPath 재사용. 같은 단위 = 같은 표시.
-  const internalSeedBySub = new Map<string, { subId: string; subName: string; cableId: string }>();
+  // ── 도면별 내부경로 트리 — 토폴로지 노드가 내부경로 드릴다운과 동일 단위(slice). ──
+  // 도면(floorId) 안 내부 케이블(OPGW 아님) 하나를 시드로 buildInternalPath 재사용. 같은 단위 = 같은 표시.
+  const internalSeedByDrawing = new Map<string, { drawingId: string; subName: string; cableId: string }>();
   for (const c of tracedCables) {
-    if (isOpgwTwin(c)) continue; // OPGW 는 변전소 간(외부) — 내부 시드 아님
+    const sd = graph.floorById?.get(c.sourceAssetId ?? '') ?? null;
+    const td = graph.floorById?.get(c.targetAssetId ?? '') ?? null;
+    if (sd !== td) continue; // 도면 간(외부) 케이블은 내부 시드 아님 — OPGW 한정 아님(범용)
     const a = c.sourceAssetId ?? c.targetAssetId;
-    const subId = a ? graph.subById.get(a) : undefined;
-    if (!subId || internalSeedBySub.has(subId)) continue;
-    internalSeedBySub.set(subId, { subId, subName: (a && graph.subNameById.get(a)) || '', cableId: c.id });
+    const drawingId = a ? graph.floorById?.get(a) ?? null : null;
+    if (!drawingId || internalSeedByDrawing.has(drawingId)) continue;
+    internalSeedByDrawing.set(drawingId, { drawingId, subName: (a && graph.subNameById.get(a)) || '', cableId: c.id });
   }
   // 토폴로지 노드는 설비 체인(광스위치→송변전광단말)까지만 — 경로슬롯(conduit) 잎은 잘라낸다.
   // 박스 안에 있다는 것 자체가 그 슬롯으로 이어짐을 암시하므로, 긴 슬롯명으로 노드가 가로로 늘어나지 않게.
@@ -211,10 +213,11 @@ export function projectTrace(seedCableId: string, graph: TraceGraph): TraceProje
     const children = n.children.filter((c) => kindOf(c.id) !== 'slot').map(dropConduitLeaves);
     return { ...n, children, isEndpoint: children.length === 0 };
   };
-  const internalTrees = [...internalSeedBySub.values()]
-    .map(({ subId, subName, cableId }) => {
-      const r = buildInternalPath(cableId, subId, graph);
-      if (!r || kindOf(r.tree.id) === 'slot') return null; // 루트가 슬롯뿐이면 표시 생략(폴백)
+  const internalTrees = [...internalSeedByDrawing.values()]
+    .map(({ drawingId, subName, cableId }) => {
+      const r = buildInternalPath(cableId, drawingId, graph);
+      // 루트가 슬롯 단독(자식 없음)이면 생략. slice 는 도면 내 상류=슬롯에서 시작하므로 슬롯→설비 트리는 정상.
+      if (!r || (kindOf(r.tree.id) === 'slot' && r.tree.children.length === 0)) return null;
       return { substationName: subName, tree: dropConduitLeaves(r.tree) };
     })
     .filter((x): x is { substationName: string; tree: TraceTreeNode } => !!x);

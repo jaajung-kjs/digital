@@ -60,7 +60,7 @@ export function AssetConnectionsTab({ assetId }: Props) {
   // substationId 는 항상 완전한 전역 그래프에서 해소(component 에 패널 자산이 없을 수 있음).
   const localPath = useMemo(() => {
     if (!selectedCableId || !traceComp) return null;
-    return buildInternalPath(selectedCableId, graph?.subById.get(assetId) ?? null, traceComp);
+    return buildInternalPath(selectedCableId, graph?.floorById.get(assetId) ?? null, traceComp);
   }, [selectedCableId, traceComp, graph, assetId]);
 
   if (isLoading) return <div className="py-8 text-center text-xs text-content-faint">불러오는 중…</div>;
