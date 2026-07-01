@@ -1,7 +1,7 @@
 # 경로슬롯 이름 저장 — SSOT 단순화 설계
 
 **날짜:** 2026-07-01
-**상태:** 초안 (사용자 리뷰 대기)
+**상태:** 구현 완료 — 브랜치 `feat/slot-name-ssot` (커밋 328deb47..c9d133ec, 8 태스크). FE 555/555·BE 139/139·tsc 0·grep 게이트 0. dev DB backfill 28 슬롯·0 고아. `fiberSlotLabel`/`remoteSlotSubstation` 삭제, 슬롯 이름=저장 SSOT.
 **관련:** `docs/architecture/data-scope-architecture-roadmap.md`(A1+ scope 휴리스틱 제거), `docs/superpowers/plans/2026-07-01-phase3-p5bc-scope-heuristic.md`(이 설계가 T1을 대체)
 
 ---

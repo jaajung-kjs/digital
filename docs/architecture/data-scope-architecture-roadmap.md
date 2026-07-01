@@ -101,6 +101,7 @@ unique·enum·FK·인덱스. cables 인덱스 = Phase 2 서버 트레이스 토�
 - 클라 projection(ring/tree/steps) 단계적 서버 이전 또는 서버 subgraph 입력. **병행 검증 후 전환(플래그).**
 
 ### Phase 3 — demand 로딩 (전역 preload 제거, Phase 2 의존)
+- **(2026-07-01 완료)** 선번장 슬롯 라벨 page-in 의존 제거 — 슬롯 이름을 생성 시 저장(SSOT), 표시는 저장값 읽기. `fiberSlotLabel`(매 표시 계산)·`remoteSlotSubstation`(대국 resident 조회) 삭제 → 슬롯 표시가 더는 대국 적재를 요구하지 않음. 대국 자산 이름(설비·포트)은 `useAssetRefs` id-조회로 남음. 설계: `docs/superpowers/specs/2026-07-01-slot-name-ssot-simplification-design.md`.
 - `useHydrateGlobal`(전역 lite preload) → 접근-시 page-in(변전소 열기/트레이스결과/검색이 캐시 hydrate).
 - **lite/full 레이어 삭제**(단층선 ② 해소).
 - resident set = 건드린 변전소(+연결한 대국). **cold evict** → 메모리 bounded.
