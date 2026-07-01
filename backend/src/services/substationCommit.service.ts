@@ -528,7 +528,24 @@ async function run(
     }
 
     if (a.deletes.length) {
-      await tx.asset.deleteMany({ where: { id: { in: a.deletes.map((d) => d.id) } } });
+      let delIds = a.deletes.map((d) => d.id);
+      // 경로슬롯 twin 자동 확장 — 삭제 대상에 닿는 OPGW(IN-IN)의 반대쪽 슬롯도 함께 삭제(고아 방지).
+      // OPGW 케이블 자체는 엔드포인트 FK cascade 로 삭제되므로 여기선 asset 만 확장.
+      const opgws = await tx.cable.findMany({
+        where: {
+          sourceRole: 'IN', targetRole: 'IN',
+          OR: [{ sourceAssetId: { in: delIds } }, { targetAssetId: { in: delIds } }],
+        },
+        select: { sourceAssetId: true, targetAssetId: true },
+      });
+      const delSet = new Set(delIds);
+      for (const o of opgws) {
+        for (const end of [o.sourceAssetId, o.targetAssetId]) {
+          if (end && !delSet.has(end)) delSet.add(end);
+        }
+      }
+      delIds = [...delSet];
+      await tx.asset.deleteMany({ where: { id: { in: delIds } } });
     }
 
     const touched = [...a.updates.map((u) => u.id), ...Object.values(idMaps.assets)];
