@@ -35,6 +35,8 @@ interface ServerTraceNode {
   substationName: string | null;
   /** OFD 내 슬롯 위치 — 선번장 fiberSlotLabel 정렬 보존(null=미설정). */
   slotIndex: number | null;
+  /** 자산이 배치된 도면 id — scope 판정 소스(미배치 시 null). */
+  floorId: string | null;
 }
 
 /** POST /api/trace 응답 케이블(TraceCable 와 동형). */
@@ -201,6 +203,7 @@ function nodeToAssetInput(n: ServerTraceNode) {
     substationId: n.substationId,
     parentAssetId: n.parentAssetId,
     slotIndex: n.slotIndex ?? null,
+    floorId: n.floorId ?? null,
     assetType: { role: n.role },
   };
 }
@@ -216,6 +219,7 @@ function effectiveAssetToInput(a: Asset) {
     substationId: a.substationId,
     parentAssetId: a.parentAssetId ?? null,
     slotIndex: a.slotIndex ?? null,
+    floorId: a.floorId ?? null,
     assetType: { role: a.assetType?.role ?? null },
   };
 }

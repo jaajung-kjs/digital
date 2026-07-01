@@ -130,6 +130,9 @@ describe('POST /api/trace — 서버 트레이스 통합', () => {
     // slotIndex 필드가 응답에 포함되어야 한다(슬롯 아닌 자산은 null) — 선번장 순번 보존용.
     expect(nodeA).toHaveProperty('slotIndex');
     expect(nodeA.slotIndex).toBeNull();
+    // floorId 필드가 응답에 포함되어야 한다(도면 미배치 자산은 null) — scope 판정 소스.
+    expect(nodeA).toHaveProperty('floorId');
+    expect(nodeA.floorId).toBeNull();
   });
 
   // ────────────────────────────────────────────────────────────────────────────
@@ -420,6 +423,44 @@ describe('POST /api/trace — 서버 트레이스 통합', () => {
     expect(data.nodeIds).toContain(devA2.id);
     // 코어 M 에 대응하는 OUT#M 이 slot2b 에 없으므로 devB2 는 포함되지 않아야 한다
     expect(data.nodeIds).not.toContain(devB2.id);
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // 10) floorId: 도면에 배치된 자산의 floorId 가 nodes 응답에 DB 값과 일치해야 한다
+  // ────────────────────────────────────────────────────────────────────────────
+  it('10) 도면 배치 자산의 floorId 가 응답 node.floorId 에 DB 값으로 반영된다', async () => {
+    // Floor 생성 (substation 동일)
+    const floor = await prisma.floor.create({
+      data: { substationId: subId, name: '__tr_floor10__' },
+    });
+    // floorId 가 설정된 자산 D
+    const assetD = await prisma.asset.create({
+      data: { substationId: subId, assetTypeId: deviceTypeId, name: '__tr_D__', floorId: floor.id },
+    });
+    // assetA ─ assetD 케이블 (같은 그룹)
+    const cableAD = await prisma.cable.create({
+      data: { sourceAssetId: assetAId, targetAssetId: assetD.id, categoryId: catId },
+    });
+
+    const res = await request(app)
+      .post('/api/trace')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ seedCableId: cableAD.id });
+
+    expect(res.status).toBe(200);
+    const data = res.body.data;
+    const nodeD = data.nodes.find((n: { id: string }) => n.id === assetD.id);
+    expect(nodeD).toBeDefined();
+    // DB floorId 값이 응답 node.floorId 와 일치해야 한다
+    expect(nodeD.floorId).toBe(floor.id);
+    // floorId 없는 자산은 null
+    const nodeA = data.nodes.find((n: { id: string }) => n.id === assetAId);
+    expect(nodeA?.floorId).toBeNull();
+
+    // 정리
+    await prisma.cable.delete({ where: { id: cableAD.id } }).catch(() => {});
+    await prisma.asset.delete({ where: { id: assetD.id } }).catch(() => {});
+    await prisma.floor.delete({ where: { id: floor.id } }).catch(() => {});
   });
 
   // ────────────────────────────────────────────────────────────────────────────

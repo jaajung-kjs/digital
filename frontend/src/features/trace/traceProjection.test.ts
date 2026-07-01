@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { projectTrace } from './traceProjection';
+import { projectTrace, type TraceTreeNode } from './traceProjection';
 import { buildTraceGraph } from './traceGraph';
 
 // flat slim 픽스처 → buildTraceGraph 단일 입력(assets: assetType 중첩 + substationNames 맵).
 type Flat = { id: string; name: string; substationId: string; substationName: string; parentAssetId: string | null; role: string | null };
 const toAssets = (flat: Flat[]) => flat.map((f) => ({
   id: f.id, name: f.name, substationId: f.substationId, parentAssetId: f.parentAssetId, slotIndex: null,
+  floorId: f.substationId, // 합성 픽스처: 한 변전소 = 한 도면(floorId) — 도면 scope 판정용
   assetType: { role: f.role },
 }));
 const namesOf = (flat: Flat[]) => new Map(flat.map((f) => [f.substationId, f.substationName]));
@@ -109,6 +110,94 @@ describe('projectTrace', () => {
     // internalTrees: 변전소별 1개(인제·양구).
     expect(p.internalTrees.map((t) => t.substationName).sort()).toEqual(['양구S/S', '인제S/S']);
     expect(p.truncated).toBe(false);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Step1: 동치 베이스라인 — slimS strand 토폴로지 출력 고정
+// 이 테스트가 green 이면, Step3 변경 후에도 반드시 green 이어야 한다.
+// ──────────────────────────────────────────────────────────────────────────
+describe('Step1 동치 베이스라인: slimS 토폴로지 고정 (floorId=substationId)', () => {
+  // strand-격리 입력 동일 픽스처(인제/양구): floorId = substationId (toAssets 기본값)
+  const slimS = [
+    { id: 'ofd1', name: 'OFD', substationId: 'subA', substationName: '인제S/S', parentAssetId: null, role: 'ofd' },
+    { id: 'ofd2', name: 'OFD', substationId: 'subB', substationName: '양구S/S', parentAssetId: null, role: 'ofd' },
+    { id: 'slot1', name: 'OFD-1', substationId: 'subA', substationName: '인제S/S', parentAssetId: 'ofd1', role: 'slot' },
+    { id: 'slot2', name: 'OFD-1', substationId: 'subB', substationName: '양구S/S', parentAssetId: 'ofd2', role: 'slot' },
+    { id: 'devA', name: '송변전광단말A', substationId: 'subA', substationName: '인제S/S', parentAssetId: null, role: 'device' },
+    { id: 'devB', name: '송변전광단말B', substationId: 'subB', substationName: '양구S/S', parentAssetId: null, role: 'device' },
+  ];
+  const cablesS = [
+    { id: 'patchA', cableType: 'FIBER', sourceAssetId: 'slot1', targetAssetId: 'devA', sourceRole: 'OUT', targetRole: null, number: 5 },
+    { id: 'opgw', cableType: 'FIBER', sourceAssetId: 'slot1', targetAssetId: 'slot2', sourceRole: 'IN', targetRole: 'IN', number: null },
+    { id: 'patchB', cableType: 'FIBER', sourceAssetId: 'slot2', targetAssetId: 'devB', sourceRole: 'OUT', targetRole: null, number: 5 },
+  ];
+  const gS = buildG(slimS, cablesS);
+
+  it('nodes/edges/rings/internalTrees 출력 고정 — 변경 후도 동일해야 한다', () => {
+    const p = projectTrace('patchA', gS)!;
+    // 토폴로지 nodes: 슬롯→OFD 접힘, 설비2+OFD2
+    expect(p.nodes.map((n) => n.nodeId).sort()).toEqual(['devA', 'devB', 'ofd1', 'ofd2']);
+    // edges: OPGW → fiberPath(OFD↔OFD, 포트#5)
+    const fiber = p.edges.find((e) => e.type === 'fiberPath')!;
+    expect([fiber.sourceAssetId, fiber.targetAssetId].sort()).toEqual(['ofd1', 'ofd2']);
+    expect(fiber.fiberPortNumber).toBe(5);
+    // rings 없음(직선 광경로)
+    expect(p.rings).toHaveLength(0);
+    // internalTrees: 도면(=변전소) 2개 — 설비(루트), 슬롯 잎은 dropConduitLeaves 로 제거(박스=설비만)
+    expect(p.internalTrees).toHaveLength(2);
+    expect(p.internalTrees.map((t) => t.substationName).sort()).toEqual(['양구S/S', '인제S/S']);
+    const tA = p.internalTrees.find((t) => t.substationName === '인제S/S')!;
+    expect(tA.tree.id).toBe('devA');
+    expect(tA.tree.children).toEqual([]); // slot1 은 conduit 잎이라 제거
+    const tB = p.internalTrees.find((t) => t.substationName === '양구S/S')!;
+    expect(tB.tree.id).toBe('devB');
+    expect(tB.tree.children).toEqual([]);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────
+// Step2: 도면간 케이블 범용 경계
+// 같은 변전소(sub1)이지만 도면이 다른(floorA vs floorB) 비-OPGW 케이블은
+// 내부 시드가 아님을 검증한다. isOpgwTwin 한정 로직에선 FAIL,
+// 범용 floorId 체크로 PASS.
+// ──────────────────────────────────────────────────────────────────────────
+describe('Step2 도면간 케이블 범용 경계: 비-OPGW 도면간 케이블 = 내부 시드 아님', () => {
+  // floorId 를 substationId 와 별도로 지정하는 빌더
+  type FlatF = Flat & { floorId: string };
+  const toAssetsF = (flat: FlatF[]) =>
+    flat.map((f) => ({
+      id: f.id, name: f.name, substationId: f.substationId, parentAssetId: f.parentAssetId, slotIndex: null,
+      floorId: f.floorId, // substationId 와 무관한 도면 id
+      assetType: { role: f.role },
+    }));
+  const buildGF = (flat: FlatF[], cs: unknown[]) =>
+    buildTraceGraph({ assets: toAssetsF(flat), cables: cs as never[], substationNames: namesOf(flat) });
+
+  // 같은 변전소, 다른 도면 — floorA 2개 자산, floorB 2개 자산
+  const flatF: FlatF[] = [
+    { id: 'devA1', name: 'devA1', substationId: 'sub1', substationName: 'S1', parentAssetId: null, role: 'device', floorId: 'floorA' },
+    { id: 'devA2', name: 'devA2', substationId: 'sub1', substationName: 'S1', parentAssetId: null, role: 'device', floorId: 'floorA' },
+    { id: 'devB1', name: 'devB1', substationId: 'sub1', substationName: 'S1', parentAssetId: null, role: 'device', floorId: 'floorB' },
+    { id: 'devB2', name: 'devB2', substationId: 'sub1', substationName: 'S1', parentAssetId: null, role: 'device', floorId: 'floorB' },
+  ];
+  // cross 케이블이 먼저 → OLD 코드에서 cross 가 floorA 내부 시드로 잘못 선택되는 것을 노출
+  const cablesF = [
+    { id: 'cross', cableType: 'AC', sourceAssetId: 'devA2', targetAssetId: 'devB1', sourceRole: null, targetRole: null, number: null },
+    { id: 'intA', cableType: 'AC', sourceAssetId: 'devA1', targetAssetId: 'devA2', sourceRole: null, targetRole: null, number: null },
+    { id: 'intB', cableType: 'AC', sourceAssetId: 'devB1', targetAssetId: 'devB2', sourceRole: null, targetRole: null, number: null },
+  ];
+  const gF = buildGF(flatF, cablesF);
+
+  const collectIds = (node: TraceTreeNode): string[] => [node.id, ...node.children.flatMap(collectIds)];
+
+  it('devA1 이 internalTrees 에 포함 — 도면간 비-OPGW 케이블은 내부 시드 아님(범용 경계)', () => {
+    const p = projectTrace('intA', gF)!;
+    expect(p).not.toBeNull();
+    const allIds = p.internalTrees.flatMap((t) => collectIds(t.tree));
+    // devA1 이 어느 도면 트리에도 없으면 cross 가 floorA 내부 시드로 잘못 사용된 것.
+    // isOpgwTwin-한정 skip 에서 cross(비-OPGW 도면간 케이블)는 걸러지지 않아 이 단언이 실패한다.
+    expect(allIds).toContain('devA1');
   });
 });
 

@@ -25,14 +25,15 @@ const MAX = 5000; // 폭주 가드
  *
  * 전제조건(precondition):
  * - 케이블-시드 모드(seedCable 전달 시): trace.service 가 시드 케이블의 양쪽 끝점을 모두
- *   스택에 올리므로 startAssetId 는 단말 설비일 필요가 없다. 코어 번호 격리(형제 누수 차단)는
- *   번호 인식 passive 규칙이 담당하며, 단말 설비 시작을 전제하지 않는다.
+ *   스택에 올리므로 startAssetId 는 단말 설비일 필요가 없다.
  * - 레거시 노드-시드 모드(seedCable 없이 startAssetId 만 전달 시): 시작 노드가 단말(설비) 등
  *   passive 노드여야 slot 채널 짝이 끝까지 이어진다. slot 에서 시작하면 OPGW 건너편 채널이
  *   미정이라 도달하지 않는다(설계상).
- * - feeder 자산에 닿는 케이블은 sourceRole/targetRole(IN/OUT)이 채워져야 fan-out
- *   격리가 동작한다. 역할이 없으면 passive처럼 전부 순회(형제 OUT 누수). P4 데이터 생성 시
- *   역할 필수.
+ * - 설비(passive)는 꽂힌 모든 케이블로 통과한다 — 코어 번호로 거르지 않는다(물리 연결 = 그 설비에
+ *   연결된 전부). 코어 동일성은 OPGW(슬롯) 크로싱에서만 강제된다(아래 slot 규칙). 한 OPGW 가
+ *   여러 코어를 나르므로 seen 키에 채널을 포함해(cableId|toward|ch) 코어별로 1회씩 건넌다.
+ * - feeder 자산에 닿는 케이블은 sourceRole/targetRole(IN/OUT)이 채워져야 흐름 방향(직렬/분기)이
+ *   동작한다. 역할이 없으면 passive처럼 전부 순회. P4 데이터 생성 시 역할 필수.
  */
 export function cableTrace(
   startAssetId: string,
@@ -57,8 +58,8 @@ export function cableTrace(
     : [startAssetId];
   const nodeIds = new Set<string>(seedEnds);
   const cableIds = new Set<string>(seedCable ? [seedCable.id] : []);
-  const seen = new Set<string>(seedCable ? seedEnds.map((e) => `${seedCable.id}|${e}`) : []); // "cableId|towardAssetId"
-  // 케이블-시드: 양쪽 끝점 모두 스택에 올림(passive-passive 케이블 지원 — 번호 인식 passive 규칙이 형제 코어 누수 차단)
+  const seen = new Set<string>(seedCable ? seedEnds.map((e) => `${seedCable.id}|${e}|${seedCable.number ?? ''}`) : []); // "cableId|towardAssetId|channel"
+  // 케이블-시드: 양쪽 끝점 모두 스택에 올림(passive-passive 케이블 지원 — 설비는 꽂힌 전부로 통과)
   const stack: { a: string; via: TraceCable | null; ch: number | null }[] = seedCable
     ? seedEnds
         .map((e) => ({ a: e, via: seedCable, ch: seedCable.number ?? null }))
@@ -82,20 +83,22 @@ export function cableTrace(
       else if (entryRole === 'IN') exits = here.filter((c) => roleAt(c, a) === 'OUT' && (c.number ?? null) === ch);
       else exits = here;
     } else {
-      exits = (via && via.number != null)
-        ? here.filter((c) => (c.number ?? null) == null || c.number === via.number)
-        : here;
+      // 설비(passive): 꽂힌 모든 케이블로 그대로 통과 — 코어 번호로 거르지 않는다.
+      // 물리적으로 설비는 연결된 전부가 이어진 노드(휴리스틱 번호규칙 제거). 코어 동일성은
+      // OPGW(슬롯) 크로싱에서만 강제되며(물리 광섬유 식별), 그건 아래 슬롯 규칙이 담당한다.
+      exits = here;
     }
 
     for (const c of exits) {
       const nb = other(c, a);
       if (!nb) continue;
-      const key = `${c.id}|${nb}`;
+      const nc = nextCh(c);
+      const key = `${c.id}|${nb}|${nc ?? ''}`;
       if (seen.has(key)) continue;
       seen.add(key);
       cableIds.add(c.id);
       nodeIds.add(nb);
-      stack.push({ a: nb, via: c, ch: nextCh(c) });
+      stack.push({ a: nb, via: c, ch: nc });
     }
   }
   return { nodeIds: [...nodeIds], cableIds: [...cableIds], truncated: guard >= MAX };

@@ -1,3 +1,4 @@
+import { effectiveFloorId } from '../assets/effectiveFloorId';
 import { useMemo } from 'react';
 import { useEffectiveAssets, useEffectiveCables, useEffectiveOrgTree } from '../workingCopy/hooks';
 import { useCableCategories } from '../cables/hooks/useCableCategories';
@@ -60,6 +61,8 @@ export interface TraceGraph {
   roleById: Map<string, AssetRole | null>;
   /** 자산 id → OFD 내 슬롯 위치(경로슬롯 -N 순번 파생용). */
   slotIndexById: Map<string, number | null>;
+  /** 자산 id → 배치된 도면 id(scope 판정 소스; 미배치 null). */
+  floorById: Map<string, string | null>;
 }
 
 const toTraceCable = (c: TraceCableInput): TraceCable => ({
@@ -81,7 +84,7 @@ const toTraceCable = (c: TraceCableInput): TraceCable => ({
  * — slim 역추론·staged 분기·폴백 체인 없음(단일 SSOT).
  */
 export function buildTraceGraph(input: {
-  assets: { id: string; name?: string; substationId?: string | null; parentAssetId?: string | null; slotIndex?: number | null; assetType?: { role?: string | null } | null }[];
+  assets: { id: string; name?: string; substationId?: string | null; parentAssetId?: string | null; slotIndex?: number | null; floorId?: string | null; assetType?: { role?: string | null } | null }[];
   cables: TraceCableInput[];
   /** 변전소 id → 이름 (전 본부 org 트리 전체). 모든 자산 변전소명의 단일 소스. */
   substationNames?: Map<string, string>;
@@ -92,6 +95,7 @@ export function buildTraceGraph(input: {
   const parentById = new Map<string, string | null>();
   const roleById = new Map<string, AssetRole | null>();
   const slotIndexById = new Map<string, number | null>();
+  const floorById = new Map<string, string | null>();
   const assetById = new Map<string, TraceAsset>();
 
   for (const a of input.assets) {
@@ -100,6 +104,7 @@ export function buildTraceGraph(input: {
     parentById.set(a.id, a.parentAssetId ?? null);
     roleById.set(a.id, (a.assetType?.role ?? null) as AssetRole | null);
     slotIndexById.set(a.id, a.slotIndex ?? null);
+    floorById.set(a.id, a.floorId ?? null);
     const subId = a.substationId ?? null;
     if (subId) {
       subById.set(a.id, subId);
@@ -108,7 +113,15 @@ export function buildTraceGraph(input: {
     }
   }
 
-  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, roleById, slotIndexById };
+  // floorId 실효화 — 자기 것 없으면 부모 상속(공용 리졸버, 조상 재귀). 그래프 밖 부모(패널 등)는
+  // 서버 trace 가 이미 실효 floorId 로 채워 보내므로, 여기선 그래프 내 조상만 보강한다.
+  for (const id of [...floorById.keys()]) {
+    if (floorById.get(id)) continue;
+    const eff = effectiveFloorId(id, (x) => floorById.get(x) ?? null, (x) => parentById.get(x) ?? null);
+    if (eff) floorById.set(id, eff);
+  }
+
+  return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, roleById, slotIndexById, floorById };
 }
 
 /**

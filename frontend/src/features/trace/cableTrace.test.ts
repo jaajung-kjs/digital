@@ -31,7 +31,9 @@ describe('cableTrace — distributor', () => {
 });
 
 describe('cableTrace — conduit', () => {
-  it('케이블-시드: 공유 설비라도 선택한 가닥(코어)만 추적 — 형제 코어 격리', () => {
+  it('케이블-시드: 공유 설비를 지나면 물리적으로 연결된 전부 추적 — 설비=전부 연결', () => {
+    // 설비 D 에 코어5(p5)·코어6(p6) 패치가 함께 꽂힘 → D 는 물리적으로 둘을 잇는 노드.
+    // OPGW 는 코어별 동일성(5↔5, 6↔6)을 유지하며 두 코어 모두 운반 → eqB·eqC 둘 다 도달.
     const assets = [A('D'), A('S1', 'slot'), A('S2', 'slot'), A('eqB'), A('eqC')];
     const cables = [
       { id: 'p5', groupId: 'FIBER', sourceAssetId: 'S1', targetAssetId: 'D', sourceRole: 'OUT', targetRole: null, number: 5 },
@@ -42,8 +44,8 @@ describe('cableTrace — conduit', () => {
     ];
     const seed = cables.find((c) => c.id === 'p5')!;
     const r = cableTrace('D', 'FIBER', assets, cables, seed); // 케이블-시드(코어5)
-    expect(new Set(r.nodeIds)).toEqual(new Set(['D', 'S1', 'S2', 'eqB'])); // 코어5 가닥만
-    expect(r.nodeIds).not.toContain('eqC'); // 형제 코어6 격리
+    expect(new Set(r.nodeIds)).toEqual(new Set(['D', 'S1', 'S2', 'eqB', 'eqC'])); // 설비 통과 → 형제 코어까지
+    expect(r.nodeIds).toContain('eqC'); // 코어6 — 설비 D 에서 물리적으로 이어짐(한 OPGW 가 코어별로 운반)
   });
 
   it('광: 설비→슬롯 OUT#5→OPGW(IN)→대국 슬롯→OUT#5→대국 설비 (번호 짝)', () => {
