@@ -38,7 +38,6 @@ vi.mock('../../trace/traceGraph', () => ({
     },
     isLoading: false,
   }),
-  remoteSlotSubstation: () => null,
 }));
 vi.mock('../../cables/hooks/useCableCategories', () => ({
   useCableCategories: () => ({ data: [{ id: 'c-fiber', name: '광점퍼', groupId: 'g-fiber', groupName: '광', groupColor: '#22c55e' }] }),

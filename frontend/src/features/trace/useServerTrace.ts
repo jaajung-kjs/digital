@@ -33,7 +33,7 @@ interface ServerTraceNode {
   parentAssetId: string | null;
   substationId: string;
   substationName: string | null;
-  /** OFD 내 슬롯 위치 — 선번장 fiberSlotLabel 정렬 보존(null=미설정). */
+  /** OFD 내 슬롯 위치 — slotIndexById 보존(null=미설정). */
   slotIndex: number | null;
   /** 자산이 배치된 도면 id — scope 판정 소스(미배치 시 null). */
   floorId: string | null;
@@ -193,8 +193,7 @@ export function stableHash(overlay: ReturnType<typeof buildTraceOverlay>): strin
  *
  * buildTraceGraph 는 a.assetType?.role 로 role 을 읽으므로 서버의 직접 role 필드를
  * assetType 중첩으로 감싼다. slotIndex 는 서버 node select 가 함께 내려주므로 그대로
- * 전달 → slotIndexById 가 채워져 fiberSlotLabel 슬롯 순번 정렬이 전역 그래프와 동일하게
- * 보존된다(null=미설정 폴백).
+ * 전달 → slotIndexById 가 채워져 전역 그래프와 동일하게 보존된다(null=미설정 폴백).
  */
 function nodeToAssetInput(n: ServerTraceNode) {
   return {

@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { useEffectiveAssets, useEffectiveCables, useEffectiveOrgTree } from '../workingCopy/hooks';
 import { useCableCategories } from '../cables/hooks/useCableCategories';
 import type { AssetRole } from '../../types/asset';
-import { other, isOpgwTwin } from '../cables/cableEndpoint';
 import { type TraceAsset, type TraceCable } from './cableTrace';
 
 interface NameNode { id: string; name: string; children?: NameNode[] }
@@ -122,18 +121,6 @@ export function buildTraceGraph(input: {
   }
 
   return { assets: [...assetById.values()], cables: input.cables.map(toTraceCable), nameById, subNameById, subById, parentById, roleById, slotIndexById, floorById };
-}
-
-/**
- * 한 슬롯(conduit)의 대국 변전소 이름 — 슬롯의 OPGW(IN-IN FIBER) → twin 슬롯 → 그 substationName.
- */
-export function remoteSlotSubstation(slotId: string, graph: TraceGraph): string | null {
-  const opgw = graph.cables.find(
-    (c) => isOpgwTwin(c) && (c.sourceAssetId === slotId || c.targetAssetId === slotId),
-  );
-  if (!opgw) return null;
-  const twin = other(opgw, slotId);
-  return twin ? (graph.subNameById.get(twin) ?? null) : null;
 }
 
 /**

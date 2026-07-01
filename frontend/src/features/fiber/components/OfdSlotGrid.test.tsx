@@ -60,7 +60,6 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
     },
     isLoading: false,
   }),
-  remoteSlotSubstation: (slotId: string) => (slotId === SLOT_ID ? '홍천변전소' : null),
 }));
 
 // OFD 피어 피커 — 전역 그래프 열거 대신 단일 검색 프리미티브(P3-2).
@@ -131,7 +130,7 @@ beforeEach(() => {
 describe('OfdSlotRail', () => {
   it('슬롯 타일을 "출발-대국 #포트수" 형식 제목으로 렌더한다', () => {
     wrap(<OfdSlotRail ofdId={OFD_ID} />);
-    // subNameById.get(ofdId)='원주변전소', remoteSlotSubstation(slotId)='홍천변전소',
+    // slot.name='원주변전소 - 홍천변전소 #48' — 저장된 name 직접 표시.
     // OPGW_CABLE.specParams.cores=48 → 타이틀에 "#48" 인라인.
     expect(screen.getByText('원주변전소 - 홍천변전소 #48')).toBeInTheDocument();
   });

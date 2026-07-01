@@ -19,7 +19,7 @@ vi.mock('../../../utils/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }));
 // 인스펙터 폴백(로딩 중) 페치는 사용 안 함 — effective 에서 해석.
 vi.mock('../hooks/useAsset', () => ({ useAsset: () => ({ data: undefined }) }));
 // AssetDetailPanel 이 이제 useTraceGraph 를 호출(conduit 제목 override) — 비-conduit 자산이므로
-// graph=null 로 충분(fiberSlotLabel(_, null)='' → 기존 동작 불변). 실제 페치는 무력화된 api.get 과 충돌.
+// graph=null 로 충분(비-conduit 자산). 실제 페치는 무력화된 api.get 과 충돌.
 vi.mock('../../trace/traceGraph', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../trace/traceGraph')>()),
   useTraceGraph: () => ({ graph: null, isLoading: false }),
