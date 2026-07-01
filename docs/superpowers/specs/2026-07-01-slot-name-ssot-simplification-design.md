@@ -80,6 +80,9 @@
 
 ### 3.7 데이터 마이그레이션 (1회)
 
+> **배포 주의:** backfill 은 자동 배선(seed/index/컨테이너 시작)이 **아님** — `npx tsx backend/prisma/backfill/slotNames.ts` 를 비-fresh DB 에 **1회 수동 실행**해야 한다. fresh/seed DB 는 시드가 이미 완성 라벨을 싣고 있어 불필요. 미실행 시 기존(구 buildRouteCreate) 슬롯은 대국명만 표시(빈값 아님, 열화 표시)됨.
+
+
 기존 route-slot의 `name`은 지금 대국명 스냅샷(`fiberWrite.ts:24`, `name=remoteName`)만 들어있다. 백필:
 
 - 모든 route-slot에 대해 현재 그래프에서 `"자국 - 대국 -N #코어수"`를 조립해 `name`에 기록(현행 `fiberSlotLabel` 로직을 마이그레이션 스크립트에서 1회 실행).

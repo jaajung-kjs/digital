@@ -11,7 +11,7 @@ export interface TraceNode {
   parentAssetId: string | null;
   substationId: string;
   substationName: string | null;
-  /** OFD 내 슬롯 위치 — 선번장 fiberSlotLabel 정렬 보존용(null=미설정). */
+  /** OFD 내 슬롯 위치 — 선번장 슬롯 순번(-N) 정렬 보존용(null=미설정). */
   slotIndex: number | null;
   /** 자산이 배치된 도면 id — scope 판정 소스(미배치 시 null). */
   floorId: string | null;
