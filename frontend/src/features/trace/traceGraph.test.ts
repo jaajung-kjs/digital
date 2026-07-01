@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildTraceGraph, remoteSlotSubstation } from './traceGraph';
+import { buildTraceGraph } from './traceGraph';
 import type { Asset } from '../../types/asset';
 
 // buildTraceGraph 는 effective(=saved∪overlay−deletes) 단일 배열을 입력으로 받는다.
@@ -35,7 +35,6 @@ describe('buildTraceGraph + projections', () => {
     const g = buildTraceGraph({ assets, cables, substationNames: NAMES });
     expect(g.assets.find((a) => a.id === 'slotA')?.role).toBe('slot');
     expect(g.cables.find((c) => c.id === 'oA5')?.number).toBe(5);
-    expect(remoteSlotSubstation('slotA', g)).toBe('홍천S/S');
     expect(g.parentById.get('slotA')).toBe('ofdW');
     expect(g.parentById.get('eqA')).toBe(null);
   });
@@ -114,7 +113,6 @@ describe('buildTraceGraph 변전소명 해소(org 트리 맵)', () => {
     });
     expect(g.subNameById.get('ofdA')).toBe('B변전소');
     expect(g.subNameById.get('slotA')).toBe('B변전소');
-    expect(remoteSlotSubstation('slotA', g)).toBe('(구)춘천S/S');
   });
 });
 

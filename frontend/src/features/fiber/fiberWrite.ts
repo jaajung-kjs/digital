@@ -1,3 +1,5 @@
+import { composeSlotName } from './slotName';
+
 interface OfdRef { id: string; substationId: string; substationName: string | null }
 interface CatRef { id: string; name: string }
 
@@ -18,23 +20,26 @@ export interface CableCreate {
   pathPoints: [number, number][] | null; pathLength: number | null; bufferLength: number; totalLength: number | null;
 }
 
-const baseSlot = (id: string, ofd: OfdRef, remoteName: string, slotTypeId: string): SlotCreate => ({
+const baseSlot = (id: string, ofd: OfdRef, name: string, slotTypeId: string): SlotCreate => ({
   id, substationId: ofd.substationId, assetTypeId: slotTypeId,
   assetType: { code: 'OFD-SLOT', role: 'slot' },
-  name: remoteName, parentAssetId: ofd.id,
+  name, parentAssetId: ofd.id,
   floorId: null, positionX: null, positionY: null, width2d: null, height2d: null,
   rotation: 0, totalU: null, slotIndex: null, slotSpan: null,
   description: null, manager: null, installDate: null, status: null,
   sourcePresetId: null, sortOrder: 0, updatedAt: '',
 });
 
-/** OFD↔OFD 경로 = 슬롯2(각 OFD 자식, 대국명) + OPGW(IN-IN, cores). */
+/** OFD↔OFD 경로 = 슬롯2(각 OFD 자식, 완성 라벨) + OPGW(IN-IN, cores). */
 export function buildRouteCreate(p: {
   localOfd: OfdRef; remoteOfd: OfdRef; cores: number; slotTypeId: string; opgwCategory: CatRef;
   ids: { slotA: string; slotB: string; opgw: string };
+  numbers: { a: number; b: number };
 }): { slots: SlotCreate[]; opgw: CableCreate } {
-  const slotA = baseSlot(p.ids.slotA, p.localOfd, p.remoteOfd.substationName ?? '대국', p.slotTypeId);
-  const slotB = baseSlot(p.ids.slotB, p.remoteOfd, p.localOfd.substationName ?? '대국', p.slotTypeId);
+  const nameA = composeSlotName(p.localOfd.substationName, p.remoteOfd.substationName, p.numbers.a, p.cores);
+  const nameB = composeSlotName(p.remoteOfd.substationName, p.localOfd.substationName, p.numbers.b, p.cores);
+  const slotA = baseSlot(p.ids.slotA, p.localOfd, nameA, p.slotTypeId);
+  const slotB = baseSlot(p.ids.slotB, p.remoteOfd, nameB, p.slotTypeId);
   const opgw: CableCreate = {
     id: p.ids.opgw, sourceAssetId: p.ids.slotA, targetAssetId: p.ids.slotB,
     categoryId: p.opgwCategory.id, categoryName: p.opgwCategory.name,

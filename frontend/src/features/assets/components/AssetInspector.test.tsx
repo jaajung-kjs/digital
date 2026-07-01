@@ -4,9 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import type { TraceGraph } from '../../trace/traceGraph';
 
-// useTraceGraph 를 모킹 — conduit 슬롯 파생 라벨이 결정적으로 나오도록 그래프를 주입.
-// (fiberSlotLabel.test.ts 의 그래프 구성을 미러: 슬롯→OFD parent, OFD/twin subName,
-//  OPGW(IN-IN, cores=24) → 라벨 "춘천S/S - 북춘천S/S #24")
+// useTraceGraph 를 모킹 — conduit 슬롯 저장 name 이 결정적으로 나오도록 그래프를 주입.
+// 슬롯→OFD parent, OFD/twin subName, OPGW(IN-IN, cores=24) 구성.
 const SLOT = 'slotA';
 const TWIN = 'slotB';
 const OFD = 'ofdA';
@@ -154,24 +153,24 @@ describe('AssetInspector — 랙 모듈(통합 패널)', () => {
   });
 });
 
-describe('AssetInspector — 경로슬롯(conduit) 이름 파생 읽기전용', () => {
+describe('AssetInspector — 경로슬롯(conduit) 이름 저장된 name 읽기전용', () => {
+  // Tasks 1-3 에서 slot.name 에 저장된 라벨을 그대로 읽기전용으로 표시.
+  // asset.name(SSOT 저장값)을 직접 사용.
   const conduitAsset = {
     id: SLOT, substationId: 's1', assetTypeId: 'ofdslot',
     assetType: { name: 'OFD-SLOT', role: 'slot' },
-    name: 'DB저장이름(표시안됨)', installDate: null, manager: null, status: '운영중',
+    name: '춘천S/S - 북춘천S/S -1 #24', installDate: null, manager: null, status: '운영중',
     description: '', floorId: null, updatedAt: '',
   } as never;
 
-  it('conduit: 이름이 파생 라벨(자국-대국#코어수) 읽기전용 — 편집 affordance 없음', () => {
-    mockGraph = slotGraph;
+  it('conduit: 저장된 slot.name 읽기전용 표시 — 편집 affordance 없음', () => {
+    mockGraph = slotGraph; // graph 주입(stored name 이 graph 값과 무관하게 표시됨을 검증)
     wrap(<AssetInspector asset={conduitAsset} mode="edit" onPatch={vi.fn()} onSelectAsset={vi.fn()} today={today} />);
-    // 파생 라벨 표시, DB name 은 표시되지 않음
-    expect(screen.getByText('춘천S/S - 북춘천S/S #24')).toBeTruthy();
-    expect(screen.queryByText('DB저장이름(표시안됨)')).toBeNull();
+    // 저장된 이름(slot.name) 표시 — graph 있어도 계산값 아닌 저장값('춘천S/S - 북춘천S/S -1 #24') 사용
+    expect(screen.getByText('춘천S/S - 북춘천S/S -1 #24')).toBeTruthy();
     // 읽기전용 — 이름 수정(연필)·편집 인풋 없음
     expect(screen.queryByTitle('이름 수정')).toBeNull();
-    expect(screen.queryByDisplayValue('춘천S/S - 북춘천S/S #24')).toBeNull();
-    expect(screen.queryByDisplayValue('DB저장이름(표시안됨)')).toBeNull();
+    expect(screen.queryByDisplayValue('춘천S/S - 북춘천S/S -1 #24')).toBeNull();
   });
 
   it('비-conduit 자산은 이름이 여전히 편집 가능(연필 노출)', () => {

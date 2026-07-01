@@ -8,12 +8,13 @@ describe('fiberWrite', () => {
       remoteOfd: { id: 'ofdH', substationId: 'subH', substationName: '홍천S/S' },
       cores: 24, slotTypeId: 'AT_SLOT', opgwCategory: { id: 'CAT_OPGW', name: 'OPGW' },
       ids: { slotA: 't-slotA', slotB: 't-slotB', opgw: 't-opgw' },
+      numbers: { a: 1, b: 2 },
     });
     expect(r.slots).toHaveLength(2);
     const a = r.slots.find((s) => s.id === 't-slotA')!;
     expect(a.parentAssetId).toBe('ofdW');
     expect(a.substationId).toBe('subW');
-    expect(a.name).toBe('홍천S/S');                 // 대국명
+    expect(a.name).toBe('원주S/S - 홍천S/S -1 #24');  // 완성 라벨
     expect(a.assetType.role).toBe('slot');
     expect(a.assetType.code).toBe('OFD-SLOT');
     expect(r.opgw.sourceAssetId).toBe('t-slotA');
@@ -21,6 +22,19 @@ describe('fiberWrite', () => {
     expect(r.opgw.sourceRole).toBe('IN');
     expect(r.opgw.targetRole).toBe('IN');
     expect((r.opgw.specParams as { cores: number }).cores).toBe(24);
+  });
+
+  it('buildRouteCreate — slotA/slotB name 을 자국-대국-N #코어 로 저장', () => {
+    const r = buildRouteCreate({
+      localOfd: { id: 'ofdA', substationId: 'subA', substationName: '춘천S/S' },
+      remoteOfd: { id: 'ofdB', substationId: 'subB', substationName: '북춘천S/S' },
+      cores: 24, slotTypeId: 'st', opgwCategory: { id: 'cat', name: 'OPGW' },
+      ids: { slotA: 'a', slotB: 'b', opgw: 'o' },
+      numbers: { a: 2, b: 1 },
+    });
+    const [slotA, slotB] = r.slots;
+    expect(slotA.name).toBe('춘천S/S - 북춘천S/S -2 #24');
+    expect(slotB.name).toBe('북춘천S/S - 춘천S/S -1 #24');
   });
 
   it('buildCoreOutCable: 설비↔슬롯, 슬롯 끝 OUT·number=코어, fiberPathId 없음', () => {

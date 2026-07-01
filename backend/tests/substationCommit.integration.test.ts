@@ -388,6 +388,23 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     await prisma.headquarters.delete({ where: { id: newHq } }).catch(() => {});
   });
 
+  it('T6) 경로슬롯 삭제는 twin 슬롯까지 자동 확장(고아 방지)', async () => {
+    const slotType = (await prisma.assetType.findFirstOrThrow({ where: { role: 'slot' } })).id;
+    const sa = await prisma.asset.create({ data: { substationId: subId, assetTypeId: slotType, name: 'A', parentAssetId: null } });
+    const sb = await prisma.asset.create({ data: { substationId: sub2Id, assetTypeId: slotType, name: 'B', parentAssetId: null } });
+    const opgw = await prisma.cable.create({ data: { sourceAssetId: sa.id, targetAssetId: sb.id, sourceRole: 'IN', targetRole: 'IN' } });
+
+    // slotA 만 삭제 커밋(baseVersion: null → OCC skip) — twin slotB·OPGW 도 사라져야.
+    const input = substationCommitSchema.parse({
+      assets: { deletes: [{ id: sa.id, baseVersion: null }] },
+    });
+    await commitSubstation(subId, input, userId);
+
+    expect(await prisma.asset.findUnique({ where: { id: sa.id } })).toBeNull();
+    expect(await prisma.asset.findUnique({ where: { id: sb.id } })).toBeNull();    // twin 자동 삭제
+    expect(await prisma.cable.findUnique({ where: { id: opgw.id } })).toBeNull(); // OPGW cascade
+  });
+
   it('6) 인증 없음 → 401, malformed body → 400', async () => {
     await request(app).post(`/api/substations/${subId}/commit`).send({}).expect(401);
 

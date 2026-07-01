@@ -25,7 +25,7 @@ const OFD_ASSET = {
   parentAssetId: null,
 };
 
-// OPGW(IN-IN): 자국 slot1 ↔ 대국 twin 슬롯. twinSlotIdOf·fiberSlotLabel(#코어수) 근거.
+// OPGW(IN-IN): 자국 slot1 ↔ 대국 twin 슬롯. twinSlotIdOf 근거.
 const OPGW = {
   id: 'opgw1', sourceAssetId: 'slot1', targetAssetId: 'twin1',
   sourceRole: 'IN', targetRole: 'IN', specParams: { cores: 24 },
@@ -62,7 +62,6 @@ vi.mock('../../trace/traceGraph', async (importOriginal) => ({
     },
     isLoading: false,
   }),
-  remoteSlotSubstation: (_slotId: string, _graph: unknown) => '홍천',
 }));
 vi.mock('../slotRegister', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../slotRegister')>()),
@@ -116,10 +115,10 @@ function renderView() {
 beforeEach(() => { setSelectedAssetId.mockClear(); setSelected.mockClear(); patch.mockClear(); effectiveCables.mockReturnValue([]); });
 
 describe('OfdFiberRegister', () => {
-  it('섹션 헤더(fiberSlotLabel: 원주 - 홍천 #24)와 자국설비/대국설비 열을 렌더한다', () => {
+  it('섹션 헤더(저장된 slot.name)와 자국설비/대국설비 열을 렌더한다', () => {
     renderView();
-    // 제목은 fiberSlotLabel 파생: 자국 - 대국 #코어수(OPGW specParams.cores).
-    expect(screen.getByText('원주 - 홍천 #24')).toBeInTheDocument();
+    // 제목은 저장된 slot.name 직접 읽음.
+    expect(screen.getByText('슬롯A')).toBeInTheDocument();
     // 읽기전용 자산명 열 → AssetSelectCell 드롭다운으로 교체.
     expect(screen.getByText('자국설비')).toBeInTheDocument();
     expect(screen.getByText('대국설비')).toBeInTheDocument();
