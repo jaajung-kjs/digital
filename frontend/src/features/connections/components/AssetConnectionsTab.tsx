@@ -7,7 +7,7 @@ import { makeCategoryGroupOf } from '../hooks/useAssetConnections';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore';
 import { buildInternalPath } from '../internalPath';
-import { useCableComponentGraph } from '../../trace/useCableComponentGraph';
+import { useServerTrace } from '../../trace/useServerTrace';
 import { buildCableRegister, type CableRow } from '../cableRegister';
 import { useAssetRefs } from '../../assets/useAssetRefs';
 import { CableInspector } from '../../cables/components/CableInspector';
@@ -49,7 +49,7 @@ export function AssetConnectionsTab({ assetId }: Props) {
   const { graph, isLoading } = useTraceGraph();
   const { data: categories } = useCableCategories();
   const selectedCableId = useSelectionStore((s) => s.selectedCableId);
-  const { graph: traceComp } = useCableComponentGraph(selectedCableId);
+  const { graph: traceComp } = useServerTrace(selectedCableId);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const remoteIds = useMemo(() => {

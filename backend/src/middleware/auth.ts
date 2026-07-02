@@ -62,27 +62,3 @@ export function authorize(...roles: UserRole[]) {
  * 관리자 권한 검증 미들웨어
  */
 export const adminOnly = authorize(UserRole.ADMIN);
-
-/**
- * 선택적 인증 미들웨어 (인증 없이도 접근 가능, 있으면 user 정보 추가)
- */
-export function optionalAuth(
-  req: Request,
-  _res: Response,
-  next: NextFunction
-): void {
-  try {
-    const authHeader = req.headers.authorization;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      const payload = verifyAccessToken(token);
-      req.user = payload;
-    }
-
-    next();
-  } catch {
-    // 토큰이 유효하지 않아도 계속 진행 (인증 없이)
-    next();
-  }
-}

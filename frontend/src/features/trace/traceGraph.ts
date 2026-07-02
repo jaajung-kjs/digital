@@ -28,7 +28,7 @@ export interface TraceCableInput {
   specParams?: Record<string, unknown> | null;
   categoryName?: string | null;
   categoryId?: string | null;
-  // 케이블 일반 속성(CableInspector 편집 대상) — 슬림 피드가 날라야 저장 후에도 값이 보인다.
+  // 케이블 일반 속성(CableInspector 편집 대상) — effective(saved⊕overlay) 피드가 실어 저장 후에도 값이 보인다.
   label?: string | null;
   description?: string | null;
   color?: string | null;
@@ -114,8 +114,9 @@ export function buildTraceGraph(input: {
 
 /**
  * React 훅 — effective(resident saved∪overlay−deletes) 단일 소스로 TraceGraph 를 만든다.
- * saved 는 변전소 demand-load(useWorkingCopyLoader)+연결 대국 page-in 으로 적재(전역 피드 없음 — P3-4).
- * 그래프는 resident(연 변전소+연결 대국) 범위. effective 슬라이스 변경 시 재계산.
+ * saved 는 변전소 demand-load 로 적재(전역 피드 없음). 대국은 미리 안 당김 — 이름은 useAssetRefs,
+ * 대국 포트는 서버가 워킹카피에 실어준 대국 OUT 패치로 해소(page-in 제거됨).
+ * 그래프는 resident(연 변전소) 범위. effective 슬라이스 변경 시 재계산.
  */
 export function useTraceGraph(): { graph: TraceGraph; isLoading: boolean } {
   const assets = useEffectiveAssets();

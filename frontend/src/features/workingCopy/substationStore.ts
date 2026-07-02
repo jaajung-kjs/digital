@@ -228,31 +228,25 @@ function freshOverlays(saved: SavedCollections): Overlays {
  * S 스코프 판정: 자산=substationId, 케이블=양 끝점 중 하나가 S 자산, 레코드=소속 자산(assetId)이 S.
  */
 /**
- * saved 한 컬렉션을 incoming 으로 재조정하는 **단일 머지 primitive** — 전역 lite 피드와 변전소
- * detail 로드가 같은 규칙을 공유한다(과거 reconcileLiteRows / mergeSavedById 이원화 제거).
+ * saved 한 컬렉션을 incoming(변전소 detail 로드) 으로 재조정하는 **단일 머지 primitive**.
  *  - inScope(r) 인데 incoming 에 없음 = 서버에서 삭제됨 → 드롭.
  *  - inScope 밖 = 보존(다른 변전소 등 incoming 권위 밖).
- *  - incoming 권위로 추가/갱신. 단 incoming 이 **lite**(updatedAt 없음)이고 기존이 **detail**(updatedAt
- *    보유)이면 기존 detail 을 보존 — lite 피드가 위치·상태 등 detail 필드를 비우지 않게.
+ *  - incoming 권위로 추가/갱신.
  */
-function reconcileRows<T extends { id: string; updatedAt?: string | null }>(
+function reconcileRows<T extends { id: string }>(
   prev: T[],
   incoming: T[],
   idOf: (r: T) => string,
   inScope: (r: T) => boolean,
 ): T[] {
   const incomingById = new Map(incoming.map((r) => [idOf(r), r] as const));
-  const prevById = new Map(prev.map((r) => [idOf(r), r] as const));
   const out: T[] = [];
   for (const r of prev) {
     if (incomingById.has(idOf(r))) continue; // incoming 권위 → 아래서 추가
     if (inScope(r)) continue;                // 스코프 안인데 incoming 에 없음 = 삭제 → 드롭
     out.push(r);                             // 스코프 밖 → 보존
   }
-  for (const r of incoming) {
-    const ex = prevById.get(idOf(r));
-    out.push(ex?.updatedAt && !r.updatedAt ? ex : r); // detail 보존(incoming 이 lite 일 때만)
-  }
+  out.push(...incoming);
   return out;
 }
 
