@@ -121,16 +121,17 @@ export function CatalogTable<Row>(props: {
                   <Fragment key={g.id}>
                     {/* 그룹 헤더 행 */}
                     <tr className="bg-surface-2">
-                      <td colSpan={columns.length} className="px-2 py-1">
-                        <div
-                          className="flex items-center gap-2"
-                          draggable={isDraggable || undefined}
-                          onDragStart={isDraggable
-                            ? () => { drag.current = { kind: 'group', groupId: null, id: g.id }; }
-                            : undefined}
-                          onDragOver={(e) => e.preventDefault()}
-                          onDrop={isDraggable ? () => handleGroupDrop(g.id) : undefined}
-                        >
+                      <td
+                        colSpan={columns.length}
+                        className="px-2 py-1"
+                        draggable={isDraggable || undefined}
+                        onDragStart={isDraggable
+                          ? () => { drag.current = { kind: 'group', groupId: null, id: g.id }; }
+                          : undefined}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={isDraggable ? () => handleGroupDrop(g.id) : undefined}
+                      >
+                        <div className="flex items-center gap-2">
                           {g.header}
                           <span className="ml-auto flex items-center gap-2">
                             <Button variant="secondary" size="sm" onClick={g.onAdd}>
