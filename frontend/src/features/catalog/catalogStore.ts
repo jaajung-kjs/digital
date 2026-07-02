@@ -19,10 +19,10 @@ export function newCatalogId(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
-type TypeP = Partial<Pick<AssetType, 'name' | 'categoryId' | 'laborType' | 'installHoursPerUnit' | 'removeHoursPerUnit' | 'relocateHoursPerUnit'>>;
+type TypeP = Partial<Pick<AssetType, 'name' | 'categoryId' | 'sortOrder' | 'laborType' | 'installHoursPerUnit' | 'removeHoursPerUnit' | 'relocateHoursPerUnit'>>;
 type CatP = Partial<Pick<AssetCategory, 'name' | 'sortOrder'>>;
 type CgP = Partial<Pick<CableGroup, 'name' | 'color' | 'sortOrder' | 'laborType' | 'installHoursPerMeter' | 'removeHoursPerMeter' | 'relocateHoursPerMeter'>>;
-type CcP = Partial<Pick<CableCategory, 'name' | 'groupId'>>;
+type CcP = Partial<Pick<CableCategory, 'name' | 'groupId' | 'sortOrder'>>;
 
 // 카탈로그는 관리자 단일 편집 → OCC 미사용(versionOf null).
 const typeDesc: CollectionDescriptor<AssetType> = { idOf: (t) => t.id, versionOf: () => null };
@@ -56,6 +56,10 @@ interface CatalogState {
   stageCreateCableCategory: (c: CableCategory) => void;
   stageUpdateCableCategory: (id: string, p: CcP) => void;
   stageDeleteCableCategory: (id: string, isNew: boolean) => void;
+  selectedAsset: { kind: 'category' | 'type'; id: string } | null;
+  selectedCable: { kind: 'group' | 'category'; id: string } | null;
+  selectAsset: (sel: { kind: 'category' | 'type'; id: string } | null) => void;
+  selectCable: (sel: { kind: 'group' | 'category'; id: string } | null) => void;
   dirtyCount: () => number;
   commit: () => Promise<void>;
   discard: () => void;
@@ -70,6 +74,10 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   catOverlay: emptyOverlay<AssetCategory, CatP>(),
   cgOverlay: emptyOverlay<CableGroup, CgP>(),
   ccOverlay: emptyOverlay<CableCategory, CcP>(),
+  selectedAsset: null,
+  selectedCable: null,
+  selectAsset: (sel) => set({ selectedAsset: sel }),
+  selectCable: (sel) => set({ selectedCable: sel }),
 
   load: async () => {
     const [t, c, cg, cc] = await Promise.all([
@@ -82,6 +90,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       baseTypes: t.data.data, baseCategories: c.data.data,
       baseCableGroups: cg.data.data, baseCableCategories: cc.data.data,
       typeOverlay: emptyOverlay(), catOverlay: emptyOverlay(), cgOverlay: emptyOverlay(), ccOverlay: emptyOverlay(),
+      selectedAsset: null, selectedCable: null,
     });
   },
 
@@ -137,5 +146,5 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     await get().load();
   },
 
-  discard: () => set({ typeOverlay: emptyOverlay(), catOverlay: emptyOverlay(), cgOverlay: emptyOverlay(), ccOverlay: emptyOverlay() }),
+  discard: () => set({ typeOverlay: emptyOverlay(), catOverlay: emptyOverlay(), cgOverlay: emptyOverlay(), ccOverlay: emptyOverlay(), selectedAsset: null, selectedCable: null }),
 }));
