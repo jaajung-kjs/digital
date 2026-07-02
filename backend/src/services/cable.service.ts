@@ -4,20 +4,6 @@ import type { AssetRole, CableRole } from '@prisma/client';
 
 // ==================== Types ====================
 
-export interface SlimCableDTO {
-  id: string;
-  sourceAssetId: string;
-  targetAssetId: string;
-  sourceRole: CableRole | null;
-  targetRole: CableRole | null;
-  number: number | null;
-  categoryId: string | null;
-  groupId: string | null;
-  categoryName: string | null;
-  specParams: unknown;
-  description: string | null;
-}
-
 export interface CableEndpointRef {
   // 단계4b — endpoint 는 단일 Asset 노드. assetId 가 곧 정밀 endpoint id(설비/모듈/분기).
   assetId: string | null;
@@ -83,25 +69,6 @@ const cableInclude = {
 // ==================== Service ====================
 
 class CableService {
-  async getAll(): Promise<SlimCableDTO[]> {
-    const rows = await prisma.cable.findMany({
-      select: {
-        id: true, sourceAssetId: true, targetAssetId: true,
-        sourceRole: true, targetRole: true, number: true,
-        categoryId: true, specParams: true, description: true,
-        category: { select: { name: true, groupId: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-    return rows.map((r) => ({
-      id: r.id, sourceAssetId: r.sourceAssetId, targetAssetId: r.targetAssetId,
-      sourceRole: r.sourceRole, targetRole: r.targetRole, number: r.number,
-      categoryId: r.categoryId, groupId: r.category?.groupId ?? null,
-      categoryName: r.category?.name ?? null,
-      specParams: r.specParams, description: r.description,
-    }));
-  }
-
   async getById(id: string): Promise<CableDetail> {
     const cable = await prisma.cable.findUnique({ where: { id }, include: cableInclude });
     if (!cable) throw new NotFoundError('케이블');
