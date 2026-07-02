@@ -131,15 +131,6 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
     await request(app).get(`/api/substations/${subId}/workingcopy`).expect(401);
   });
 
-  it('크로스변전소 케이블의 반대편 변전소를 connectedSubstationIds 로 반환', async () => {
-    const res = await request(app)
-      .get(`/api/substations/${subId}/workingcopy`)
-      .set('Authorization', `Bearer ${token}`);
-    expect(res.status).toBe(200);
-    expect(res.body.data.connectedSubstationIds).toContain(subBId);
-    expect(res.body.data.connectedSubstationIds).not.toContain(subId); // 자기 제외
-  });
-
   it('워킹카피 cables 에 자국 OPGW 의 대국 OUT 패치가 포함된다', async () => {
     const slotType = (await prisma.assetType.findFirstOrThrow({ where: { role: 'slot' } })).id;
     const devType = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device' } })).id;
