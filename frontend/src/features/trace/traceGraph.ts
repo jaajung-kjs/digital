@@ -16,18 +16,7 @@ export function collectNodeNames(roots: NameNode[], out = new Map<string, string
   return out;
 }
 
-/** 전 변전소 slim asset DTO (백엔드 GET /api/assets). */
-export interface SlimAssetDTO {
-  id: string;
-  name: string;
-  substationId: string;
-  substationName: string | null;
-  parentAssetId: string | null;
-  role: AssetRole | null;
-  slotIndex: number | null;
-}
-
-/** trace 입력에 필요한 cable 필드만(전역 DTO / 로컬 staged 공통). */
+/** trace 입력에 필요한 cable 필드만(로컬 staged / 서버 trace 공통). */
 export interface TraceCableInput {
   id: string;
   groupId?: string | null;

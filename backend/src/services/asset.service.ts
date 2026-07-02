@@ -3,34 +3,6 @@ import prisma from '../config/prisma.js';
 import { NotFoundError } from '../utils/errors.js';
 import { mergeSearchOverlay, type AssetSearchParams, type AssetSearchOverlay, type AssetSearchResult } from './assetSearch.js';
 
-export interface SlimAsset {
-  id: string;
-  name: string;
-  substationId: string;
-  substationName: string | null;
-  parentAssetId: string | null;
-  role: string | null;
-  /** OFD 내 슬롯 위치 — 경로슬롯 -N 순번 파생용(같은 대국 슬롯 정렬 기준). */
-  slotIndex: number | null;
-}
-
-/** prisma asset row(assetType + substation 포함)을 trace 용 최소 필드로 좁힌다. 순수 함수. */
-export function toSlimAsset(a: {
-  id: string; name: string; substationId: string; parentAssetId: string | null;
-  assetType: { role?: string | null };
-  substation?: { name: string | null } | null;
-  slotIndex?: number | null;
-}): SlimAsset {
-  return {
-    id: a.id,
-    name: a.name,
-    substationId: a.substationId,
-    substationName: a.substation?.name ?? null,
-    parentAssetId: a.parentAssetId ?? null,
-    role: a.assetType?.role ?? null,
-    slotIndex: a.slotIndex ?? null,
-  };
-}
 
 export interface AssetDetail {
   id: string;
@@ -123,19 +95,6 @@ class AssetService {
       id: a.id, name: a.name, substationId: a.substationId, substationName: a.substation?.name ?? null,
     }));
     return mergeSearchOverlay(committed, overlay, params);
-  }
-
-  /** 전 변전소 자산을 trace 용 최소 필드로(전역 cableTrace 피드). */
-  async listAllSlim(): Promise<SlimAsset[]> {
-    const rows = await prisma.asset.findMany({
-      select: {
-        id: true, name: true, substationId: true, parentAssetId: true, slotIndex: true,
-        assetType: { select: { role: true } },
-        substation: { select: { name: true } },
-      },
-      orderBy: { createdAt: 'asc' },
-    });
-    return rows.map(toSlimAsset);
   }
 
   /** 노드(본부/지사/변전소) 범위의 자산 리스트 — 설치장소·담당자·마지막 점검일 포함. */
