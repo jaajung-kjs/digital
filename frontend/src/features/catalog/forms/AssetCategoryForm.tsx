@@ -39,7 +39,14 @@ export function AssetCategoryForm({ id }: { id: string }) {
             onCommit={(v) => v.trim() && store().stageUpdateCategory(id, { name: v.trim() })}
           />
         }
-        onDelete={typeCount === 0 ? () => store().stageDeleteCategory(id, isNew()) : undefined}
+        onDelete={
+          typeCount === 0
+            ? () => {
+                store().stageDeleteCategory(id, isNew());
+                store().selectAsset(null);
+              }
+            : undefined
+        }
       />
       <DetailRow label="사용 종류">{typeCount}개</DetailRow>
     </DetailCard>

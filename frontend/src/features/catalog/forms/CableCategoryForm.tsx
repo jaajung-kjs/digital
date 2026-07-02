@@ -42,7 +42,10 @@ export function CableCategoryForm({ id }: { id: string }) {
             onCommit={(v) => v.trim() && store().stageUpdateCableCategory(id, { name: v.trim() })}
           />
         }
-        onDelete={() => store().stageDeleteCableCategory(id, isNew())}
+        onDelete={() => {
+          store().stageDeleteCableCategory(id, isNew());
+          store().selectCable(null);
+        }}
       />
 
       {/* 그룹 Select */}

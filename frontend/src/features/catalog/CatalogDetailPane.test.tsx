@@ -114,7 +114,7 @@ describe('CatalogDetailPane — 분류(AssetCategoryForm) 선택', () => {
   it('이 분류 쓰는 종류 수 메타 렌더', () => {
     render(<CatalogDetailPane segment="asset" />);
     // 1개 종류(t1)가 c1에 속함
-    expect(screen.getByText(/1/)).toBeInTheDocument();
+    expect(screen.getByText('1개')).toBeInTheDocument();
   });
 
   it('종류 0 아니면 삭제 버튼 없음', () => {

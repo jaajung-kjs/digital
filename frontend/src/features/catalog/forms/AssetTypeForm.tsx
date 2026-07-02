@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { useCatalogStore } from '../catalogStore';
 import { DetailCard, DetailCardHeader, Badge } from '../../../components/ui';
 import { EditableField } from '../../assets/components/EditableField';
-import { FormRow, fieldClass } from '../../assets/components/detail/SectionShell';
+import { FormRow } from '../../assets/components/detail/SectionShell';
+import { HoursInput } from './HoursInput';
 
 /**
  * 설비종류 상세 폼 — 선택된 AssetType 을 표시/편집.
@@ -47,7 +48,14 @@ export function AssetTypeForm({ id }: { id: string }) {
             onCommit={(v) => v.trim() && store().stageUpdateType(id, { name: v.trim() })}
           />
         }
-        onDelete={canDelete ? () => store().stageDeleteType(id, isNew()) : undefined}
+        onDelete={
+          canDelete
+            ? () => {
+                store().stageDeleteType(id, isNew());
+                store().selectAsset(null);
+              }
+            : undefined
+        }
       />
 
       {/* 분류 Select */}
@@ -69,48 +77,24 @@ export function AssetTypeForm({ id }: { id: string }) {
       </FormRow>
 
       {/* 노무규칙 — 개당 */}
-      <FormRow label="설치">
-        <input
-          type="number"
-          aria-label="설치(개당)"
-          className={fieldClass}
-          placeholder="0.000"
-          step="0.001"
-          value={assetType.installHoursPerUnit ?? ''}
-          onChange={(e) => {
-            const n = parseFloat(e.target.value);
-            if (!isNaN(n)) store().stageUpdateType(id, { installHoursPerUnit: n });
-          }}
-        />
-      </FormRow>
-      <FormRow label="철거">
-        <input
-          type="number"
-          aria-label="철거(개당)"
-          className={fieldClass}
-          placeholder="0.000"
-          step="0.001"
-          value={assetType.removeHoursPerUnit ?? ''}
-          onChange={(e) => {
-            const n = parseFloat(e.target.value);
-            if (!isNaN(n)) store().stageUpdateType(id, { removeHoursPerUnit: n });
-          }}
-        />
-      </FormRow>
-      <FormRow label="이설">
-        <input
-          type="number"
-          aria-label="이설(개당)"
-          className={fieldClass}
-          placeholder="0.000"
-          step="0.001"
-          value={assetType.relocateHoursPerUnit ?? ''}
-          onChange={(e) => {
-            const n = parseFloat(e.target.value);
-            if (!isNaN(n)) store().stageUpdateType(id, { relocateHoursPerUnit: n });
-          }}
-        />
-      </FormRow>
+      <HoursInput
+        label="설치(개당)"
+        ariaLabel="설치(개당)"
+        value={assetType.installHoursPerUnit}
+        onCommit={(n) => store().stageUpdateType(id, { installHoursPerUnit: n })}
+      />
+      <HoursInput
+        label="철거(개당)"
+        ariaLabel="철거(개당)"
+        value={assetType.removeHoursPerUnit}
+        onCommit={(n) => store().stageUpdateType(id, { removeHoursPerUnit: n })}
+      />
+      <HoursInput
+        label="이설(개당)"
+        ariaLabel="이설(개당)"
+        value={assetType.relocateHoursPerUnit}
+        onCommit={(n) => store().stageUpdateType(id, { relocateHoursPerUnit: n })}
+      />
       <FormRow label="노무">
         <EditableField
           value={assetType.laborType ?? ''}

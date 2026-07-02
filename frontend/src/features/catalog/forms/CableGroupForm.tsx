@@ -2,7 +2,8 @@ import { useMemo } from 'react';
 import { useCatalogStore } from '../catalogStore';
 import { DetailCard, DetailCardHeader } from '../../../components/ui';
 import { EditableField } from '../../assets/components/EditableField';
-import { FormRow, fieldClass } from '../../assets/components/detail/SectionShell';
+import { FormRow } from '../../assets/components/detail/SectionShell';
+import { HoursInput } from './HoursInput';
 
 /**
  * 케이블그룹 상세 폼 — 선택된 CableGroup 을 표시/편집.
@@ -43,7 +44,14 @@ export function CableGroupForm({ id }: { id: string }) {
             onCommit={(v) => v.trim() && store().stageUpdateCableGroup(id, { name: v.trim() })}
           />
         }
-        onDelete={catCount === 0 ? () => store().stageDeleteCableGroup(id, isNew()) : undefined}
+        onDelete={
+          catCount === 0
+            ? () => {
+                store().stageDeleteCableGroup(id, isNew());
+                store().selectCable(null);
+              }
+            : undefined
+        }
       />
 
       {/* 색 편집 — native color picker + 스와치 */}
@@ -64,48 +72,24 @@ export function CableGroupForm({ id }: { id: string }) {
       </FormRow>
 
       {/* 노무규칙 — 미터당 */}
-      <FormRow label="설치">
-        <input
-          type="number"
-          aria-label="설치(m당)"
-          className={fieldClass}
-          placeholder="0.000"
-          step="0.001"
-          value={cableGroup.installHoursPerMeter ?? ''}
-          onChange={(e) => {
-            const n = parseFloat(e.target.value);
-            if (!isNaN(n)) store().stageUpdateCableGroup(id, { installHoursPerMeter: n });
-          }}
-        />
-      </FormRow>
-      <FormRow label="철거">
-        <input
-          type="number"
-          aria-label="철거(m당)"
-          className={fieldClass}
-          placeholder="0.000"
-          step="0.001"
-          value={cableGroup.removeHoursPerMeter ?? ''}
-          onChange={(e) => {
-            const n = parseFloat(e.target.value);
-            if (!isNaN(n)) store().stageUpdateCableGroup(id, { removeHoursPerMeter: n });
-          }}
-        />
-      </FormRow>
-      <FormRow label="이설">
-        <input
-          type="number"
-          aria-label="이설(m당)"
-          className={fieldClass}
-          placeholder="0.000"
-          step="0.001"
-          value={cableGroup.relocateHoursPerMeter ?? ''}
-          onChange={(e) => {
-            const n = parseFloat(e.target.value);
-            if (!isNaN(n)) store().stageUpdateCableGroup(id, { relocateHoursPerMeter: n });
-          }}
-        />
-      </FormRow>
+      <HoursInput
+        label="설치(m당)"
+        ariaLabel="설치(m당)"
+        value={cableGroup.installHoursPerMeter}
+        onCommit={(n) => store().stageUpdateCableGroup(id, { installHoursPerMeter: n })}
+      />
+      <HoursInput
+        label="철거(m당)"
+        ariaLabel="철거(m당)"
+        value={cableGroup.removeHoursPerMeter}
+        onCommit={(n) => store().stageUpdateCableGroup(id, { removeHoursPerMeter: n })}
+      />
+      <HoursInput
+        label="이설(m당)"
+        ariaLabel="이설(m당)"
+        value={cableGroup.relocateHoursPerMeter}
+        onCommit={(n) => store().stageUpdateCableGroup(id, { relocateHoursPerMeter: n })}
+      />
       <FormRow label="노무">
         <EditableField
           value={cableGroup.laborType ?? ''}
