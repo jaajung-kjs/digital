@@ -88,12 +88,12 @@ A2 = 서버 draft(미저장 편집을 서버에 즉시 영속). A1+ = 미저장 
 ### Phase 0 — 무결성 (완료, main 머지)
 unique·enum·FK·인덱스. cables 인덱스 = Phase 2 서버 트레이스 토대.
 
-### Phase 1 — 정리 (지금, 저위험·아키텍처 변경 없음·코드 감소)
-- 같은-scope 중복 엔드포인트 통합(`/substations/:id/assets` vs `/nodes/:id/assets`), `/connections`–`/workingcopy` 케이블 이중 제거.
-- floor 케이블 6-way OR 로직 공유(`getByFloorId` ↔ `getPlan` 복붙 제거).
-- **org tree 단일 스토어화**(split-brain 해소).
-- auth 일관화.
-- **slim cable DTO**(`cableService.listAllSlim`) — Phase 2 전 페이로드 완화 + 트레이스 응답 shape 선행.
+### Phase 1 — 정리 — ✅ **완료 (2026-07-02 검증)**
+- ✅ 중복 자산 엔드포인트: `/substations/:id/assets` 없음, `/nodes/:id/assets` 단일. `/connections` API 없음(케이블은 워킹카피 단일). 이중 없음.
+- ✅ floor 케이블 6-way OR: `floor.service.ts` 단일 소스(복붙 없음). cable.service 는 endpoint 기반 공용 fallback.
+- ✅ org tree 단일 스토어: `substationStore` 4-컬렉션(`loadOrgTree`) 단일. `organizationStore` 는 UI-only. split-brain 없음.
+- ✅ auth 일관: 전 데이터 라우트 `authenticate`(+뮤테이션 `adminOnly`).
+- ✅ 죽은 전역 피드 제거(2026-07-02): slim asset(`GET /assets`)·`GET /api/cables`(getAll) — 워킹카피 통합 후 무소비 → 삭제.
 
 ### Phase 2 — 서버 트레이스 (linchpin, 스케일-트리거)
 - `POST /api/trace { seedId, group, overlay }` — Postgres **재귀 CTE**로 `committed ⊕ overlay` 연결요소 계산(P0 인덱스). node/cable id + 최소필드.
@@ -108,9 +108,10 @@ unique·enum·FK·인덱스. cables 인덱스 = Phase 2 서버 트레이스 토�
 - resident set = 건드린 변전소(+연결한 대국). **cold evict** → 메모리 bounded.
 - 서버 읽기(현황·검색)도 overlay 동봉 + 중앙 머지(페이지네이션 서버 처리).
 
-### Phase 4 — 검색 프리미티브 (피커, Phase 3 의존)
-- `searchAssets({ substationId?, role?, q })` 서버 엔드포인트. 자국/대국/케이블끝점 피커가 전부 *하나*를 scope 인자만 달리해 사용 → 케이스별 헬퍼 소멸.
-- 대국 변전소 특정(OPGW twin 유도/사용자 선택)은 도메인 규칙으로 선번장 기능에 위치(스코프 헬퍼 아님).
+### Phase 4 — 검색 프리미티브 (피커, Phase 3 의존) — 🔶 리스트 피커 완료
+- ✅ `searchAssets({ substationId?, role?, q })` 서버 엔드포인트 + `useSearchAssets` — **자국/대국 설비 피커·대국 OFD 피커 전부 이 하나로 통일**(케이스별 후보 lookup 소멸). `AssetSelectCell`·`OfdSlotRail`.
+- ✅ 대국 변전소 특정(OPGW twin 유도) 도메인 규칙으로 선번장에 위치(스코프 헬퍼 아님).
+- 🔶 **잔여(설계 결정):** 케이블 끝점 피커(`CableEndpointDialog`/포트·랙·CB 클릭)는 **공간 드릴다운 UX**로, resident 자산 위에서 동작. 이건 후보-리스트 헬퍼가 아니라 의도된 별개 방식이며 scope 위반이 아님 — 검색-리스트로 전환은 UX 변경(비필수). 필요 시 별도 결정.
 
 ### (병행·독립)
 - 카탈로그 커밋 통합 / 조직트리 단일화(일부 Phase 1).
