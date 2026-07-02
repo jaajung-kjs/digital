@@ -25,6 +25,8 @@ const cables = [
 ];
 
 vi.mock('../../workingCopy/hooks', () => ({ useEffectiveAssets: () => assets }));
+// useAssetRefs 는 크로스변전소 이름 해소용 — 이 테스트에선 resident 자산만 있으므로 빈 Map 반환.
+vi.mock('../../assets/useAssetRefs', () => ({ useAssetRefs: () => new Map() }));
 vi.mock('../../trace/traceGraph', () => ({
   useTraceGraph: () => ({
     graph: {

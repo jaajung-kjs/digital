@@ -9,6 +9,7 @@ import { usePathHighlightStore } from '../../pathTrace/stores/pathHighlightStore
 import { buildInternalPath } from '../internalPath';
 import { useCableComponentGraph } from '../../trace/useCableComponentGraph';
 import { buildCableRegister, type CableRow } from '../cableRegister';
+import { useAssetRefs } from '../../assets/useAssetRefs';
 import { CableInspector } from '../../cables/components/CableInspector';
 import { CablePathTree } from './CablePathTree';
 
@@ -51,10 +52,19 @@ export function AssetConnectionsTab({ assetId }: Props) {
   const { graph: traceComp } = useCableComponentGraph(selectedCableId);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
+  const remoteIds = useMemo(() => {
+    if (!graph) return [];
+    const ids = new Set<string>();
+    for (const c of graph.cables) {
+      for (const e of [c.sourceAssetId, c.targetAssetId]) if (e) ids.add(e);
+    }
+    return [...ids];
+  }, [graph]);
+  const refs = useAssetRefs(remoteIds);
   const sections = useMemo(() => {
     if (!graph || !categories) return [];
-    return buildCableRegister({ graph, assets, assetId, categoryGroupOf: makeCategoryGroupOf(categories) });
-  }, [graph, categories, assets, assetId]);
+    return buildCableRegister({ graph, assets, assetId, categoryGroupOf: makeCategoryGroupOf(categories), refs });
+  }, [graph, categories, assets, assetId, refs]);
 
   // 선택 케이블의 내부경로 — 서버 trace component 위에서 실행(전역 케이블 의존 제거).
   // substationId 는 항상 완전한 전역 그래프에서 해소(component 에 패널 자산이 없을 수 있음).

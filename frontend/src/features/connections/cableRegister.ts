@@ -29,8 +29,9 @@ export function buildCableRegister(opts: {
   assets: Asset[];
   assetId: string;
   categoryGroupOf: (c: { categoryId?: string | null }) => CategoryGroup;
+  refs?: Map<string, { name: string }>;
 }): CableSection[] {
-  const { graph, assets, assetId, categoryGroupOf } = opts;
+  const { graph, assets, assetId, categoryGroupOf, refs } = opts;
   const isSelf = buildSelfSideChecker(assets, assetId);
   const nameOf = buildEndpointNameResolver(assets);
   const byId = toMapById(assets);
@@ -38,8 +39,8 @@ export function buildCableRegister(opts: {
   const resolveName = (id?: string | null) => {
     if (!id) return '';
     const a = byId.get(id);
-    if (a && a.assetType?.role === 'slot') return nameOf(id) || id;
-    return nameOf(id) || graph.nameById.get(id) || id;
+    if (a && a.assetType?.role === 'slot') return nameOf(id) || refs?.get(id)?.name || id;
+    return nameOf(id) || refs?.get(id)?.name || graph.nameById.get(id) || id;
   };
   const isFeeder = (id?: string | null) => !!id && byId.get(id)?.assetType?.role === 'feeder';
 
