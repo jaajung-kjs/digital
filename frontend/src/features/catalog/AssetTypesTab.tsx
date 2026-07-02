@@ -79,29 +79,28 @@ export function AssetTypesTab() {
                           onCommit={(v) => v.trim() && store().stageUpdateType(t.id, { name: v.trim() })}
                         />
                       </div>
+                      {/* 분류(라벨)는 시스템 종류도 변경 가능 — role(동작)만 불변. */}
+                      <div className="w-28">
+                        <EditableField
+                          value={t.categoryId ?? ''}
+                          type="select"
+                          ariaLabel="분류"
+                          options={catOptions}
+                          valueClickEdits
+                          display={(v) => catOptions.find((o) => o.value === v)?.label ?? '— 미분류 —'}
+                          onCommit={(v) => store().stageUpdateType(t.id, { categoryId: v || null })}
+                        />
+                      </div>
                       {system ? (
                         <Badge>시스템</Badge>
                       ) : (
-                        <>
-                          <div className="w-28">
-                            <EditableField
-                              value={t.categoryId ?? ''}
-                              type="select"
-                              ariaLabel="분류"
-                              options={catOptions}
-                              valueClickEdits
-                              display={(v) => catOptions.find((o) => o.value === v)?.label ?? '— 미분류 —'}
-                              onCommit={(v) => store().stageUpdateType(t.id, { categoryId: v || null })}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            className="px-1 text-xs text-danger hover:opacity-80"
-                            onClick={() => store().stageDeleteType(t.id, isNewType(t.id))}
-                          >
-                            삭제
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          className="px-1 text-xs text-danger hover:opacity-80"
+                          onClick={() => store().stageDeleteType(t.id, isNewType(t.id))}
+                        >
+                          삭제
+                        </button>
                       )}
                     </div>
                     {/* 노무규칙 편집 — 개당 (설치/철거/노무종류) */}
