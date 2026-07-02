@@ -10,6 +10,13 @@ import type { ReactNode } from 'react';
  * (줄찍찍) 제거, 라인 남발 없이 여백으로 구분, 통일된 비즈니스 톤.
  */
 
+/** 빈 상태 — 동일 톤(연결·카탈로그 등에서 사용). CONVENTIONS §빈 상태. */
+export function SectionEmpty({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-sm text-content-faint text-center py-4">{children}</p>
+  );
+}
+
 /** 리스트 아이템 카드 — 점검/고장이력 공유. 라이트 카드(중립 표면). */
 export function SectionItem({ children }: { children: ReactNode }) {
   return (
