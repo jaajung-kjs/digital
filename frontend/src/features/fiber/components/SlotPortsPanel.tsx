@@ -5,6 +5,7 @@ import { useSelectionStore } from '../../workspace/selectionStore';
 import { buildSlotPorts, type PortState } from '../slotPorts';
 import type { CableLike } from '../slotRegister';
 import { useCablePick } from '../../editor/hooks/useCablePick';
+import { useAssetRefs } from '../../assets/useAssetRefs';
 import { startCableConnection } from '../../editor/cableConnection';
 import { useWorkspaceNav } from '../../workspace/WorkspaceNavContext';
 import { floorAnchor, floorTargetFor } from '../../workingCopy/floorAnchor';
@@ -34,6 +35,14 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
     () => (slot ? buildSlotPorts({ id: slot.id }, cables, graph) : []),
     [slot, cables, graph],
   );
+
+  // 대국 자산 이름 해소 — graph.nameById miss 시 useAssetRefs(miss fetch) 폴백.
+  // hooks 규칙: 컴포넌트 top-level(early-return 위).
+  const remoteIds = useMemo(
+    () => ports.map((p) => p.remoteAssetId).filter((x): x is string => !!x),
+    [ports],
+  );
+  const refs = useAssetRefs(remoteIds);
 
   // 케이블 피킹 모드: 슬롯(conduit)의 placed floor anchor(보통 OFD) + 중심좌표 1회 해소.
   const anchorRect = useMemo(() => {
@@ -77,8 +86,8 @@ export function SlotPortsPanel({ slotId }: { slotId: string }) {
     nav?.gotoAsset(slot.id);
   };
 
-  const nameOf = (id: string | null) => (id ? (graph?.nameById.get(id) ?? id) : null);
-  const subOf = (id: string | null) => (id ? (graph?.subNameById.get(id) ?? null) : null);
+  const nameOf = (id: string | null) => (id ? (graph?.nameById.get(id) ?? refs.get(id)?.name ?? id) : null);
+  const subOf = (id: string | null) => (id ? (graph?.subNameById.get(id) ?? refs.get(id)?.substationName ?? null) : null);
   const label = (id: string | null) => {
     const n = nameOf(id);
     if (!n) return '—';

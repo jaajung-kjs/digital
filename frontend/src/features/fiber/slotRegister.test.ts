@@ -85,4 +85,22 @@ describe('buildSlotCoreRows', () => {
     expect(rows.find((r) => r.coreNumber === 6)!.occupied).toBe(true);
     expect(rows.find((r) => r.coreNumber === 4)!.occupied).toBe(false);
   });
+
+  it('farName: refs 주입 시 이름 해소, 미주입 시 id 폴백', () => {
+    // graph.nameById 가 비어 있으면 graph 로 이름 해소 불가 → refs 폴백
+    const g = { nameById: new Map<string, string>(), cables: globalCables } as never;
+    const withRefs = buildSlotCoreRows(slot, localCables, g, new Map([['eqB', { name: '대국설비' }]]));
+    const noRefs = buildSlotCoreRows(slot, localCables, g);
+    // refs 있을 때: remoteAssetId='eqB' → refs 에서 이름 해소
+    expect(withRefs.find((r) => r.coreNumber === 3)!.farName).toBe('대국설비');
+    // refs 없을 때: graph 도 없으므로 remoteAssetId 자체를 문자열로
+    expect(noRefs.find((r) => r.coreNumber === 3)!.farName).toBe('eqB');
+  });
+
+  it('buildSlotPorts 무변경 회귀 — refs 추가 후에도 graph.nameById 해소 우선', () => {
+    const graph = buildTraceGraph({ assets: slim, cables: globalCables, substationNames: NAMES });
+    // refs 에 다른 이름이 있어도 graph.nameById 가 먼저
+    const rows = buildSlotCoreRows(slot, localCables, graph, new Map([['eqB', { name: 'refs이름' }]]));
+    expect(rows.find((r) => r.coreNumber === 3)!.farName).toBe('광단말B'); // graph 우선
+  });
 });

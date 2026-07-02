@@ -32,7 +32,7 @@ const str = (v: unknown): string | null => (v === null || v === undefined || v =
  * OPGW 를 공유하므로 같은 정보를 본다. 설비 패치(OUT 케이블)는 연결/토폴로지 전용(메타 미보유).
  * 용량(1..N)도 OPGW.cores 소유 → 경로 생성 즉시 빈 코어가 N개 보이고 메타 편집 가능.
  */
-export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], graph: TraceGraph | null): SlotCoreRow[] {
+export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], graph: TraceGraph | null, refs?: Map<string, { name: string }>): SlotCoreRow[] {
   const fiber = localCables.filter((c) => c.sourceAssetId === slot.id || c.targetAssetId === slot.id);
   const outs = fiber.filter((c) => roleAt(c, slot.id) === 'OUT');
   const opgw = fiber.find((c) => roleAt(c, slot.id) === 'IN');
@@ -58,7 +58,7 @@ export function buildSlotCoreRows(slot: SlotLike, localCables: CableLike[], grap
     const c = byNum.get(n); // 설비 패치(연결) — 없으면 빈 코어
     const nearAssetId = c ? other(c, slot.id) : null;
     const remoteAssetId = remoteByCore.get(n) ?? null;
-    const farName = remoteAssetId ? (graph?.nameById.get(remoteAssetId) ?? remoteAssetId) : null;
+    const farName = remoteAssetId ? (graph?.nameById.get(remoteAssetId) ?? refs?.get(remoteAssetId)?.name ?? remoteAssetId) : null;
     const m = coreMeta[String(n)] ?? {}; // 코어정보 — OPGW 소유(빈 코어도 존재)
     rows.push({
       coreNumber: n, opgwId: opgw?.id ?? null, occupied: !!c,

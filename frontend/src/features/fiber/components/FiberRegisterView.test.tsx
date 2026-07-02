@@ -99,6 +99,9 @@ vi.mock('../../workingCopy/substationStore', () => {
 vi.mock('../../assets/components/StagedAssetDetailPanel', () => ({
   StagedAssetDetailPanel: () => null,
 }));
+vi.mock('../../assets/useAssetRefs', () => ({
+  useAssetRefs: () => new Map(),
+}));
 
 import { FiberRegisterView } from './FiberRegisterView';
 
