@@ -10,6 +10,11 @@ vi.mock('../../stores/authStore', () => ({
   useAuthStore: vi.fn(),
 }));
 
+// toastStore 모킹(onSave 호출 시 에러 방지)
+vi.mock('../editor/stores/toastStore', () => ({
+  useToastStore: { getState: () => ({ showToast: vi.fn() }) },
+}));
+
 const mockUseAuthStore = vi.mocked(useAuthStore);
 
 // ── 픽스처 헬퍼 ──────────────────────────────────────────────────────────────────
@@ -72,43 +77,18 @@ describe('비ADMIN 리다이렉트', () => {
   });
 });
 
-// ── 세그먼트 전환 ──────────────────────────────────────────────────────────────
-describe('세그먼트 전환 (설비 ↔ 케이블)', () => {
-  it('초기: 설비 세그먼트 — 분류·종류 표시', () => {
+// ── 설비 세그먼트 렌더 ─────────────────────────────────────────────────────────
+describe('설비 세그먼트 렌더', () => {
+  it('초기: 분류 헤더와 종류 행 렌더', () => {
     renderPage();
-    expect(screen.getByText('광전송장치')).toBeInTheDocument();
-    expect(screen.getByText('송변전광단말')).toBeInTheDocument();
-    expect(screen.queryByText('Fr-sq3.5')).toBeNull();
-  });
-
-  it('케이블 버튼 클릭 → 케이블 그룹·종류 표시, 설비 목록 사라짐', () => {
-    renderPage();
-    fireEvent.click(screen.getByRole('button', { name: '케이블' }));
-    expect(screen.getByText('전원')).toBeInTheDocument();
-    expect(screen.getByText('Fr-sq3.5')).toBeInTheDocument();
-    expect(screen.queryByText('광전송장치')).toBeNull();
-  });
-
-  it('설비→케이블→설비 순서 전환', () => {
-    renderPage();
-    fireEvent.click(screen.getByRole('button', { name: '케이블' }));
-    expect(screen.getByText('전원')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '설비' }));
-    expect(screen.getByText('광전송장치')).toBeInTheDocument();
-    expect(screen.queryByText('전원')).toBeNull();
-  });
-});
-
-// ── 설비 리스트 렌더 ───────────────────────────────────────────────────────────
-describe('설비 리스트 렌더', () => {
-  it('분류·종류 항목 렌더', () => {
-    renderPage();
-    expect(screen.getByText('광전송장치')).toBeInTheDocument();
+    // '광전송장치'는 분류헤더 button(title=광전송장치)과 분류열 span 두 곳에 있으므로 getByTitle 사용
+    expect(screen.getByTitle('광전송장치')).toBeInTheDocument();
     expect(screen.getByText('송변전광단말')).toBeInTheDocument();
   });
 
   it('categoryId=null 종류가 있으면 미분류 sentinel 그룹 표시', () => {
     useCatalogStore.setState({
+      baseCategories: [],
       baseTypes: [mkType('tx', '미분류종류', null)],
       load: vi.fn().mockResolvedValue(undefined),
     } as never);
@@ -132,73 +112,79 @@ describe('설비 리스트 렌더', () => {
   });
 });
 
-// ── 종류(leaf) 클릭 → 우측 폼 노출 ───────────────────────────────────────────
-describe('항목 선택 → 우측 폼 노출', () => {
-  it('종류(leaf) 클릭 → AssetTypeForm 렌더(역할 FormRow 노출)', () => {
-    renderPage();
-    fireEvent.click(screen.getByText('송변전광단말'));
-    // AssetTypeForm 에만 있는 FormRow 라벨 "역할" 으로 확인
-    expect(screen.getByText('역할')).toBeInTheDocument();
-  });
-
-  it('분류(group) 클릭 → AssetCategoryForm 렌더(사용 종류 카운트 노출)', () => {
-    renderPage();
-    // 분류 이름 버튼은 '광전송장치'; 첫 번째를 클릭
-    fireEvent.click(screen.getAllByText('광전송장치')[0]);
-    // AssetCategoryForm 은 사용 종류 수를 "N개" 로 렌더
-    expect(screen.getByText('1개')).toBeInTheDocument();
-  });
-
-  it('케이블 세그먼트에서 그룹 클릭 → CableGroupForm 렌더(색 input 노출)', () => {
+// ── 세그먼트 전환 ──────────────────────────────────────────────────────────────
+describe('세그먼트 전환 (설비 ↔ 케이블)', () => {
+  it('케이블 버튼 클릭 → 케이블 그룹·종류 표시, 설비 분류 사라짐', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
-    fireEvent.click(screen.getAllByText('전원')[0]);
-    expect(screen.getByLabelText('그룹 색')).toBeInTheDocument();
+    expect(screen.getByText('전원')).toBeInTheDocument();
+    expect(screen.getByText('Fr-sq3.5')).toBeInTheDocument();
+    // 설비 분류 헤더(button, title=광전송장치) 가 사라져야 함
+    expect(screen.queryByTitle('광전송장치')).toBeNull();
   });
 
-  it('케이블 종류(leaf) 클릭 → CableCategoryForm 렌더(삭제 버튼 노출)', () => {
+  it('설비→케이블→설비 순서 전환', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
-    fireEvent.click(screen.getByText('Fr-sq3.5'));
-    expect(screen.getByTitle('삭제')).toBeInTheDocument();
+    expect(screen.getByText('전원')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '설비' }));
+    // 분류헤더 button 의 title 속성으로 확인 (분류열 span 과 구분)
+    expect(screen.getByTitle('광전송장치')).toBeInTheDocument();
+    expect(screen.queryByText('전원')).toBeNull();
   });
 });
 
-// ── 미분류 sentinel 선택 방지 ─────────────────────────────────────────────────
-describe('미분류 sentinel 선택 방지', () => {
-  it('미분류 그룹 헤더 클릭 → 우측 폼 선택 해제(빈 상태)', () => {
-    useCatalogStore.setState({
-      baseCategories: [],
-      baseTypes: [mkType('tx', '미분류종류', null)],
-      load: vi.fn().mockResolvedValue(undefined),
-    } as never);
-    useCatalogStore.getState().discard();
+// ── 인라인 편집 — stageUpdateType 호출 ────────────────────────────────────────
+describe('인라인 편집', () => {
+  it('종류 이름 셀 편집 → stageUpdateType 호출', () => {
+    const spy = vi.fn();
+    useCatalogStore.setState({ stageUpdateType: spy } as never);
     renderPage();
 
-    // 아이템 먼저 클릭해 우측 폼 활성화
-    fireEvent.click(screen.getByText('미분류종류'));
-    expect(screen.getByText('역할')).toBeInTheDocument();
+    // valueClickEdits=true 이므로 값 버튼 클릭하면 편집 열림
+    const valueBtn = screen.getByTitle('송변전광단말');
+    fireEvent.click(valueBtn);
 
-    // 미분류 그룹 헤더 클릭 — sentinel이므로 선택 해제되어야 함
-    fireEvent.click(screen.getByText('미분류'));
-    // 카테고리 편집 폼 대신 빈 상태 표시
-    expect(screen.getByText('항목을 선택하세요.')).toBeInTheDocument();
+    // 입력 나타남
+    const input = screen.getByRole('textbox', { name: '종류명' });
+    expect(input).toBeInTheDocument();
+
+    // 값 변경 후 blur 로 커밋
+    fireEvent.change(input, { target: { value: '수정된이름' } });
+    fireEvent.blur(input);
+
+    expect(spy).toHaveBeenCalledWith('t1', { name: '수정된이름' });
   });
 });
 
-// ── + 분류 / + 종류 동작 ────────────────────────────────────────────────────────
+// ── + 종류 버튼 → stageCreateType 호출 ───────────────────────────────────────
 describe('추가 버튼', () => {
-  it('+ 분류 클릭 → stageCreateCategory (dirty 증가)', () => {
+  it('+ 종류 클릭 → stageCreateType 호출(dirty 증가)', () => {
     renderPage();
     expect(useCatalogStore.getState().dirtyCount()).toBe(0);
-    fireEvent.click(screen.getByText('+ 분류'));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ 종류' })[0]);
     expect(useCatalogStore.getState().dirtyCount()).toBe(1);
   });
 
-  it('+ 종류 클릭 → stageCreateType (dirty 증가)', () => {
+  it('+ 분류 클릭 → stageCreateCategory 호출(dirty 증가)', () => {
     renderPage();
     expect(useCatalogStore.getState().dirtyCount()).toBe(0);
-    fireEvent.click(screen.getAllByText('+ 종류')[0]);
+    fireEvent.click(screen.getByRole('button', { name: '+ 분류' }));
     expect(useCatalogStore.getState().dirtyCount()).toBe(1);
+  });
+});
+
+// ── CommitBar (dirty>0) ────────────────────────────────────────────────────────
+describe('CommitBar', () => {
+  it('dirty=0 이면 CommitBar 미표시', () => {
+    renderPage();
+    expect(screen.queryByText(/저장.*건/)).toBeNull();
+  });
+
+  it('dirty>0 이면 CommitBar 표시', () => {
+    // 스테이징 1건 추가 후 렌더
+    useCatalogStore.getState().stageCreateCategory({ id: 'tmp1', name: '임시분류', sortOrder: 0 });
+    renderPage();
+    expect(screen.getByText(/저장.*건/)).toBeInTheDocument();
   });
 });
