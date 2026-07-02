@@ -134,3 +134,16 @@ function CatalogTable<Row>({
   - 삭제된 2-pane 컴포넌트 테스트 커버리지는 위 신규 테스트로 이관.
 - **게이트/전수:** FE `tsc` + `vitest run` 전수. `git grep "CatalogListPane\|CatalogDetailPane\|CatalogSaveBar\|AssetCategoryForm\|AssetTypeForm\|CableGroupForm\|CableCategoryForm\|HoursInput\|selectedAsset\|selectedCable" frontend/src` == 0. BE 무변경이라 회귀만 확인.
 - **스모크:** 자산마스터에서 상단 저장바(앰버·상단·저장/되돌리기), 세그먼트 전환, 검색, 설비종류 labor/분류 인라인편집, 케이블그룹 색·미터노무 헤더편집, 드래그정렬, 추가/삭제(시스템 삭제 미표시·사용중 서버차단 토스트), 저장/되돌리기. 위화감 없는 통일 톤.
+
+---
+
+## 구현 완료
+
+브랜치 `feat/catalog-editable-table` (BASE `f3a2568a`), 커밋 `7dd04a8a`‥`f7212b7f`.
+
+- **T1** `7dd04a8a` — 공용 `components/ui/CommitBar.tsx` 추출 + `WorkingCopyCommitBar` 공용화(동작 무변경).
+- **T2** `a8cb90c4` — `catalogStore` 선택상태(`selectedAsset/Cable`) 제거(인라인 테이블 전환, T2-이전 추가분 원복).
+- **T3** `e01c973e` + fix `47d1dd0f` — 제네릭 `CatalogTable` 셸(그룹핑·검색·sibling 드래그정렬·인라인편집, `ConnectionRegisterGrid` 관용구). 드롭존 td 확대.
+- **T4** `0eff7951` + fix `f7212b7f` — `AssetManagementPage` 세그먼트(설비/케이블) + 인라인 테이블 재작성, 상단 `CommitBar`. 구 2-pane·4폼·`HoursInput`·`CatalogSaveBar` 10파일 삭제. `__none__` 정렬 방어가드.
+
+게이트: FE `tsc` 0 + `vitest run` 전수 PASS(567), BE 무변경 회귀 PASS(136), 데드코드 grep 0. dev UI 스모크는 사용자 확인.
