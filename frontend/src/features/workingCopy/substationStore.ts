@@ -392,15 +392,6 @@ export const useSubstationWorkingCopy = create<SubstationWorkingCopyState>()(
           overlays: addBaseVersions(s.overlays, incoming),
         }));
         t.resume();
-        // 연결 대국 page-in(§106) — resident 아닌 연결 변전소만 merge-only 로(1-hop, syncSubData 는 재확장 안 함).
-        const connectedIds: string[] = (data.data.connectedSubstationIds as string[] | undefined) ?? [];
-        if (connectedIds.length) {
-          const st = useSubstationWorkingCopy.getState();
-          const resident = new Set((st.saved.assets as { substationId: string }[]).map((a) => a.substationId));
-          for (const cid of connectedIds) {
-            if (cid && !resident.has(cid)) await st.syncSubData(cid);
-          }
-        }
       },
 
       syncSubData: async (substationId) => {

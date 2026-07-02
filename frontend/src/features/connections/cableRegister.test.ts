@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildCableRegister } from './cableRegister';
+import type { TraceGraph } from '../trace/traceGraph';
 
 const asset = (id: string, over: Record<string, unknown> = {}) =>
   ({ id, name: id, parentAssetId: null, assetType: { role: 'device' }, ...over }) as never;
@@ -81,5 +82,25 @@ describe('buildCableRegister', () => {
     const cables = [{ id: 'opgw', sourceAssetId: 'slot', targetAssetId: 'remoteSlot', sourceRole: 'IN', targetRole: 'IN', cableType: 'FIBER', categoryId: null }];
     const secs = buildCableRegister({ graph: graphOf(cables, assets as never), assets: assets as never, assetId: 'ofd', categoryGroupOf: cat });
     expect(secs[0].rows.map((r) => r.cable.id)).toEqual(['opgw']);
+  });
+
+  describe('refs 주입 — 대국 끝점 이름 해소', () => {
+    const remoteGraph = {
+      cables: [{ id: 'c1', sourceAssetId: 'self', targetAssetId: 'far', sourceRole: null, targetRole: null, categoryId: 'cat' }],
+      nameById: new Map([['self', '자국설비']]),  // far 는 없음(비-resident)
+    } as unknown as TraceGraph;
+    const remoteAssets = [{ id: 'self', name: '자국설비', assetType: { role: 'device' } }] as never;
+    const catFn = () => ({ key: 'k', label: 'L', color: null });
+
+    it('대국 끝점 이름을 refs 로 해소(그래프에 없어도)', () => {
+      const refs = new Map([['far', { id: 'far', name: '대국설비', substationId: 's2', substationName: '북춘천S/S' }]]);
+      const out = buildCableRegister({ graph: remoteGraph, assets: remoteAssets, assetId: 'self', categoryGroupOf: catFn, refs });
+      expect(out[0].rows[0].toName).toBe('대국설비');
+    });
+
+    it('refs 미주입이면 기존 폴백(id)', () => {
+      const out = buildCableRegister({ graph: remoteGraph, assets: remoteAssets, assetId: 'self', categoryGroupOf: catFn });
+      expect(out[0].rows[0].toName).toBe('far');
+    });
   });
 });

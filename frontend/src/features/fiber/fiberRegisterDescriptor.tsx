@@ -1,5 +1,6 @@
 import { type TraceGraph } from '../trace/traceGraph';
-import { buildSlotCoreRows, type SlotCoreRow } from './slotRegister';
+import { buildSlotCoreRows, type SlotCoreRow, type CableLike } from './slotRegister';
+import { buildSlotPorts } from './slotPorts';
 import type { RegisterCtx, RegisterDescriptor } from '../connections/registerGrid/registerTypes';
 import { EditableField } from '../assets/components/EditableField';
 import { AssetSelectCell } from './components/AssetSelectCell';
@@ -14,9 +15,20 @@ export const fiberRegisterDescriptor: RegisterDescriptor<FiberRow> = {
   childRole: 'slot',
   selectContainers: (assets, substationId) =>
     assets.filter((a) => a.assetType?.role === 'ofd' && a.substationId === substationId),
+  collectRemoteIds: (assets, cables, graph) => {
+    // 모든 슬롯의 buildSlotPorts 결과에서 remoteAssetId 수집 — grid 가 useAssetRefs 에 전달.
+    const slots = assets.filter((a) => a.assetType?.role === 'slot');
+    const ids: string[] = [];
+    for (const slot of slots) {
+      for (const p of buildSlotPorts({ id: slot.id }, cables as CableLike[], graph as TraceGraph | null)) {
+        if (p.remoteAssetId) ids.push(p.remoteAssetId);
+      }
+    }
+    return [...new Set(ids)];
+  },
   buildSection: (slot, ctx: RegisterCtx) => {
     const graph = ctx.graph as TraceGraph | null;
-    const rows = buildSlotCoreRows(slot as never, ctx.cables as never[], graph)
+    const rows = buildSlotCoreRows(slot as never, ctx.cables as never[], graph, ctx.refs)
       .map((r): FiberRow => ({ ...r, __nameById: graph?.nameById, __slot: slot as unknown as Asset }));
     const used = rows.filter((r) => r.occupied).length;
     const title = slot.name ?? '광경로';

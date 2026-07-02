@@ -19,7 +19,7 @@ import { getAssetRecordModels } from './assetRecordSchema.service.js';
  * 별도 distributionCircuits 컬렉션은 제거.
  */
 export async function getWorkingCopy(substationId: string) {
-  const [assets, cables] = await Promise.all([
+  const [assets, cablesRaw] = await Promise.all([
     prisma.asset.findMany({
       where: { substationId },
       include: { assetType: { select: { id: true, name: true, role: true, categoryId: true } } },
@@ -27,6 +27,25 @@ export async function getWorkingCopy(substationId: string) {
     }),
     cableService.getBySubstationId(substationId),
   ]);
+
+  // 대국 OUT 패치 포함 — 자국 OPGW(IN-IN) 의 대국(twin) 슬롯에 닿는 OUT 패치를 추가(현 대국 연결 표시용).
+  // 대국 자산은 싣지 않는다(이름은 클라 useAssetRefs). 예측 아님 — 자국 OPGW 로 결정.
+  const localAssetIds = new Set(assets.map((a) => a.id));
+  const twinSlotIds = new Set<string>();
+  for (const c of cablesRaw) {
+    if (c.sourceRole === 'IN' && c.targetRole === 'IN') {
+      for (const e of [c.sourceAssetId, c.targetAssetId] as (string | null)[]) {
+        if (e && !localAssetIds.has(e)) twinSlotIds.add(e); // 반대편(대국) 슬롯
+      }
+    }
+  }
+  let cables = cablesRaw;
+  if (twinSlotIds.size) {
+    const seen = new Set(cablesRaw.map((c) => c.id));
+    const farPatches = await cableService.getByEndpointAssetIds([...twinSlotIds]);
+    const extras = farPatches.filter((fp) => !seen.has(fp.id));
+    cables = extras.length ? [...cablesRaw, ...extras] : cablesRaw;
+  }
 
   // 자산 하위레코드(점검/고장이력/사진 + 미래 무엇이든)는 자산의 *속성*이다 — 형제 컬렉션이
   // 아니라 각 자산 안에 records[] 로 중첩한다. 어떤 테이블이 자산 기록인지·그 컬럼이 무엇인지는
@@ -60,21 +79,5 @@ export async function getWorkingCopy(substationId: string) {
   }
   const assetsWithRecords = assets.map((a) => ({ ...a, records: recordsByAsset.get(a.id) ?? [] }));
 
-  // 연결 대국(§106) — 이 변전소를 한 끝점으로 갖는 케이블의 반대편이 다른 변전소면 그 substationId.
-  // cables 는 끝점 하나가 이 변전소인 것만(getBySubstationId) → 반대편이 sAssetIds 밖이면 cross-substation.
-  const sAssetIds = new Set(assets.map((a) => a.id));
-  const farAssetIds = new Set<string>();
-  for (const c of cables) {
-    const src = c.sourceAssetId;
-    const tgt = c.targetAssetId;
-    if (!src || !tgt) continue;
-    if (sAssetIds.has(src) && !sAssetIds.has(tgt)) farAssetIds.add(tgt);
-    else if (sAssetIds.has(tgt) && !sAssetIds.has(src)) farAssetIds.add(src);
-  }
-  const farAssets = farAssetIds.size
-    ? await prisma.asset.findMany({ where: { id: { in: [...farAssetIds] } }, select: { substationId: true } })
-    : [];
-  const connectedSubstationIds = [...new Set(farAssets.map((a) => a.substationId))].filter((id) => id !== substationId);
-
-  return { assets: assetsWithRecords, cables, connectedSubstationIds };
+  return { assets: assetsWithRecords, cables };
 }

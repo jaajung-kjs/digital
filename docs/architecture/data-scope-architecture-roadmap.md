@@ -100,8 +100,9 @@ unique·enum·FK·인덱스. cables 인덱스 = Phase 2 서버 트레이스 토�
 - overlay는 작은 미저장 변경(staged 케이블/자산 최소필드) → CTE에 `VALUES`로 주입. 저장 전 편집 반영.
 - 클라 projection(ring/tree/steps) 단계적 서버 이전 또는 서버 subgraph 입력. **병행 검증 후 전환(플래그).**
 
-### Phase 3 — demand 로딩 (전역 preload 제거, Phase 2 의존)
-- **(2026-07-01 완료)** 선번장 슬롯 라벨 page-in 의존 제거 — 슬롯 이름을 생성 시 저장(SSOT), 표시는 저장값 읽기. `fiberSlotLabel`(매 표시 계산)·`remoteSlotSubstation`(대국 resident 조회) 삭제 → 슬롯 표시가 더는 대국 적재를 요구하지 않음. 대국 자산 이름(설비·포트)은 `useAssetRefs` id-조회로 남음. 설계: `docs/superpowers/specs/2026-07-01-slot-name-ssot-simplification-design.md`.
+### Phase 3 — demand 로딩 (전역 preload 제거, Phase 2 의존) — **완료(2026-07-02): scope 휴리스틱 0**
+- **(2026-07-01 완료)** 선번장 슬롯 라벨 page-in 의존 제거 — 슬롯 이름을 생성 시 저장(SSOT), 표시는 저장값 읽기. `fiberSlotLabel`(매 표시 계산)·`remoteSlotSubstation`(대국 resident 조회) 삭제 → 슬롯 표시가 더는 대국 적재를 요구하지 않음. 설계: `docs/superpowers/specs/2026-07-01-slot-name-ssot-simplification-design.md`.
+- **(2026-07-02 완료) 연결 대국 page-in(예측 preload) 제거 — 마지막 scope 휴리스틱 소멸.** `substationStore.load()` 의 `connectedSubstationIds`→`syncSubData` 루프 + 백엔드 `connectedSubstationIds` 계산 삭제. 대신: (a) 대국 케이블 끝점·설비 이름은 `useAssetRefs`(id→이름 lazy 조회), (b) 대국 포트 표시는 서버가 워킹카피 `cables` 에 자국 OPGW 의 대국 OUT 패치를 포함(케이블 SSOT, `buildSlotPorts` 무변경), (c) 대국 설비 연결(편집)은 `useSearchAssets` 검색-피커 + 대국 패치 케이블 쓰기(전역 커밋)로 **복구**. fiber 대국이 다른 자산과 동일 패턴(substationId=필드, 검색+해소, 연결=케이블)으로 통일. 설계: `docs/superpowers/specs/2026-07-02-phase3-p5-remove-pagein-design.md`.
 - `useHydrateGlobal`(전역 lite preload) → 접근-시 page-in(변전소 열기/트레이스결과/검색이 캐시 hydrate).
 - **lite/full 레이어 삭제**(단층선 ② 해소).
 - resident set = 건드린 변전소(+연결한 대국). **cold evict** → 메모리 bounded.

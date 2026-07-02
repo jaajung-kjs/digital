@@ -13,18 +13,31 @@ beforeEach(() => {
   useSubstationWorkingCopy.getState().reset();
   (api.get as Mock).mockReset();
   (api.get as Mock).mockImplementation((url: string) => {
-    if (url.includes('/s1/workingcopy')) return Promise.resolve({ data: { data: { assets: [asset('eqA', '자국단말', 's1')], cables: [{ id: 'opgw', sourceAssetId: 'eqA', targetAssetId: 'eqB', cableType: 'FIBER' }], connectedSubstationIds: ['s2'] } } });
-    if (url.includes('/s2/workingcopy')) return Promise.resolve({ data: { data: { assets: [asset('eqB', '대국단말', 's2')], cables: [], connectedSubstationIds: [] } } });
-    return Promise.resolve({ data: { data: { assets: [], cables: [], connectedSubstationIds: [] } } });
+    if (url.includes('/s1/workingcopy')) return Promise.resolve({ data: { data: { assets: [asset('eqA', '자국단말', 's1')], cables: [{ id: 'opgw', sourceAssetId: 'eqA', targetAssetId: 'eqB', cableType: 'FIBER' }] } } });
+    return Promise.resolve({ data: { data: { assets: [], cables: [] } } });
   });
 });
 
-describe('전역 피드 제거 후 resident 그래프 이름 해소 (P3-4)', () => {
-  it('연결 대국 자산 이름이 resident 그래프에서 해소된다(피드 없이)', async () => {
+describe('대국 page-in 제거 후 resident 그래프 (Task 6)', () => {
+  it('자국 자산 이름은 resident 그래프에서 해소된다', async () => {
     await useSubstationWorkingCopy.getState().load('s1');
     const saved = useSubstationWorkingCopy.getState().saved;
     const g = buildTraceGraph({ assets: saved.assets as never[], cables: saved.cables as never[], substationNames: new Map() });
     expect(g.nameById.get('eqA')).toBe('자국단말');
-    expect(g.nameById.get('eqB')).toBe('대국단말'); // 대국(연결 page-in)도 resident → 이름 해소
+  });
+
+  it('대국 자산(eqB)은 page-in 제거 후 resident 그래프에 없다(비-resident)', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    const saved = useSubstationWorkingCopy.getState().saved;
+    const g = buildTraceGraph({ assets: saved.assets as never[], cables: saved.cables as never[], substationNames: new Map() });
+    // 대국 자산은 resident 아님 — 이름은 useAssetRefs/서버 대국 패치로 해소
+    expect(g.nameById.has('eqB')).toBe(false);
+  });
+
+  it('load() 는 s1 만 요청하고 대국(s2) workingcopy 를 요청하지 않는다', async () => {
+    await useSubstationWorkingCopy.getState().load('s1');
+    const calls = (api.get as Mock).mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(calls.some((u) => u.includes('/s2/workingcopy'))).toBe(false);
+    expect(calls.filter((u) => u.includes('/s1/workingcopy')).length).toBe(1);
   });
 });

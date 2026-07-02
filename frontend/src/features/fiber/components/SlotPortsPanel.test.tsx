@@ -29,6 +29,9 @@ vi.mock('../../trace/traceGraph', () => ({
     isLoading: false,
   }),
 }));
+vi.mock('../../assets/useAssetRefs', () => ({
+  useAssetRefs: () => new Map(),
+}));
 vi.mock('../../editor/hooks/useCablePick', () => ({
   useCablePick: () => ({ active: pickState.active, side: pickState.side, onPick }),
 }));

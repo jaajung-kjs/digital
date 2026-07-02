@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useAssetRefs } from '../../assets/useAssetRefs';
 import { useEffectiveAssets } from '../../workingCopy/hooks';
 import { useSelectionStore } from '../../workspace/selectionStore';
 import { useTraceGraph } from '../../trace/traceGraph';
@@ -19,9 +20,17 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
   const { graph, isLoading } = useTraceGraph();
   const { sort, cycleSort } = useGridSort();
 
+  // 대국 자산 id 수집 → useAssetRefs(miss fetch) → ctx.refs 로 buildSection 에 전달.
+  // descriptor 가 collectRemoteIds 를 구현하지 않으면 빈 배열(no-op).
+  const remoteIds = useMemo(
+    () => descriptor.collectRemoteIds?.(assets, (graph?.cables ?? []) as unknown[], graph) ?? [],
+    [assets, graph, descriptor],
+  );
+  const refs = useAssetRefs(remoteIds);
+
   // descriptor must be a module-level stable ref
   const groups = useMemo(() => {
-    const ctx = { assets, cables: (graph?.cables ?? []) as unknown[], graph, isLoading };
+    const ctx = { assets, cables: (graph?.cables ?? []) as unknown[], graph, isLoading, refs };
     return descriptor.selectContainers(assets, substationId).map((container) => ({
       container,
       header: descriptor.containerHeader?.(container, ctx) ?? null,
@@ -29,7 +38,7 @@ export function ConnectionRegisterGrid<Row>({ substationId, descriptor }: {
         .filter((a) => a.parentAssetId === container.id && a.assetType?.role === descriptor.childRole)
         .map((child) => ({ child, section: descriptor.buildSection(child, ctx) })),
     }));
-  }, [assets, graph, isLoading, substationId, descriptor]);
+  }, [assets, graph, isLoading, substationId, descriptor, refs]);
 
   if (!groups.length) return <p className="p-3 text-sm text-content-faint">{descriptor.emptyMessage}</p>;
 
