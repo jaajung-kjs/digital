@@ -113,9 +113,14 @@ export function AssetManagementPage() {
               groups={assetGroups}
               items={assetItems}
               selectedId={selectedAsset?.id ?? null}
-              onSelect={(kind, id) =>
-                store().selectAsset({ kind: kind === 'group' ? 'category' : 'type', id })
-              }
+              onSelect={(kind, id) => {
+                // 미분류 sentinel(__none__)은 실제 카테고리가 아니므로 선택 해제
+                if (kind === 'group' && id === '__none__') {
+                  store().selectAsset(null);
+                } else {
+                  store().selectAsset({ kind: kind === 'group' ? 'category' : 'type', id });
+                }
+              }}
               onAddGroup={() =>
                 store().stageCreateCategory({ id: newCatalogId(), name: '새 분류', sortOrder: 0 })
               }

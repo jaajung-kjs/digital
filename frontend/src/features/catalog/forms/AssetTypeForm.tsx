@@ -71,9 +71,13 @@ export function AssetTypeForm({ id }: { id: string }) {
         />
       </FormRow>
 
-      {/* role 읽기전용 배지 */}
+      {/* role 읽기전용 배지 — 시스템 종류만 배지 표시, 일반(device)은 — */}
       <FormRow label="역할">
-        <Badge>{assetType.role}</Badge>
+        {assetType.role !== 'device' ? (
+          <Badge>시스템</Badge>
+        ) : (
+          <span className="text-xs text-content-faint">—</span>
+        )}
       </FormRow>
 
       {/* 노무규칙 — 개당 */}

@@ -164,6 +164,28 @@ describe('항목 선택 → 우측 폼 노출', () => {
   });
 });
 
+// ── 미분류 sentinel 선택 방지 ─────────────────────────────────────────────────
+describe('미분류 sentinel 선택 방지', () => {
+  it('미분류 그룹 헤더 클릭 → 우측 폼 선택 해제(빈 상태)', () => {
+    useCatalogStore.setState({
+      baseCategories: [],
+      baseTypes: [mkType('tx', '미분류종류', null)],
+      load: vi.fn().mockResolvedValue(undefined),
+    } as never);
+    useCatalogStore.getState().discard();
+    renderPage();
+
+    // 아이템 먼저 클릭해 우측 폼 활성화
+    fireEvent.click(screen.getByText('미분류종류'));
+    expect(screen.getByText('역할')).toBeInTheDocument();
+
+    // 미분류 그룹 헤더 클릭 — sentinel이므로 선택 해제되어야 함
+    fireEvent.click(screen.getByText('미분류'));
+    // 카테고리 편집 폼 대신 빈 상태 표시
+    expect(screen.getByText('항목을 선택하세요.')).toBeInTheDocument();
+  });
+});
+
 // ── + 분류 / + 종류 동작 ────────────────────────────────────────────────────────
 describe('추가 버튼', () => {
   it('+ 분류 클릭 → stageCreateCategory (dirty 증가)', () => {
