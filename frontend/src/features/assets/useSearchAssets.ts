@@ -17,6 +17,8 @@ export interface SearchParams {
   role?: string;
   q?: string;
   substationId?: string;
+  /** false 시 쿼리 비활성 — 결과는 빈 배열, 서버 요청 없음. 기본 true. */
+  enabled?: boolean;
 }
 
 /**
@@ -42,6 +44,7 @@ export function useSearchAssets(params: SearchParams): { results: AssetRef[]; is
       });
       return res.data.data;
     },
+    enabled: params.enabled ?? true,
   });
 
   return { results: data ?? [], isLoading };

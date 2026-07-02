@@ -14,7 +14,9 @@ import type { Asset } from '../../../types/asset';
  *
  * side='local': 읽기전용 — 근단 연결은 SlotPortsPanel 담당.
  * side='remote': 대국 설비 검색-피커 + 대국 OUT 패치 케이블 쓰기(전역 워킹카피).
- *   - 후보 = useSearchAssets({ substationId: 대국sub, role: 'device' }) — 대국 로드 없이 서버 검색.
+ *   - 후보 = useSearchAssets({ substationId: 대국sub, role: 'device', enabled: !!twinSubstationId })
+ *            — 대국 substationId 미해소 전 전 시스템 크로스-fetch 방지.
+ *   - 현재 대국설비 이름 = useAssetRefs([twinId, remoteAssetId]) refs 우선(role 독립·일관).
  *   - 선택 → 기존 대국 OUT 패치 제거 후 buildCoreOutCable 로 신규 staged.
  *   - 해제(빈값) → 기존 패치만 제거.
  */
@@ -27,14 +29,29 @@ export function AssetSelectCell({ slot, coreNumber, side }: {
 
   const twinId = twinSlotIdOf(slot.id, cables);
 
-  // 대국 슬롯의 substationId: twin 슬롯 id 로 useAssetRefs lazy 해소(크로스변전소 이름 조회).
-  const twinRefs = useAssetRefs(twinId ? [twinId] : []);
+  // 대국 OUT 케이블 & 현재 대국설비 id — 훅 전 순수 계산(useAssetRefs 인자에 포함 목적).
+  const remoteOutCable = twinId
+    ? (cables.find((c) =>
+        c.number === coreNumber &&
+        (c.sourceAssetId === twinId || c.targetAssetId === twinId) &&
+        roleAt(c, twinId) === 'OUT',
+      ) ?? null)
+    : null;
+  const remoteAssetId = remoteOutCable && twinId ? other(remoteOutCable, twinId) : null;
+
+  // 대국 슬롯의 substationId + 현재 대국설비 이름 — twinId·remoteAssetId 동시 lazy 해소.
+  // (role 독립·일관: SlotPortsPanel/CableInspector 등 동일 패턴)
+  const twinRefs = useAssetRefs(
+    ([twinId, remoteAssetId].filter(Boolean) as string[]),
+  );
   const twinSubstationId = twinId ? (twinRefs.get(twinId)?.substationId ?? null) : null;
 
-  // 대국 설비 후보 — substationId 없으면 서버 검색 미발동(빈 결과).
+  // 대국 설비 후보 — twinSubstationId 미해소 시 검색 비활성(전 시스템 device 무제한 fetch 방지).
+  // OfdSlotRail 처럼 substationId 없이 쓰는 소비처가 있으므로 opt-in enabled 방식.
   const { results } = useSearchAssets({
     substationId: twinSubstationId ?? undefined,
     role: 'device',
+    enabled: !!twinSubstationId,
   });
 
   // 케이블 종류(대국 OUT 패치용) — '광점퍼코드' 우선, 없으면 첫 번째.
@@ -46,15 +63,6 @@ export function AssetSelectCell({ slot, coreNumber, side }: {
     (c.sourceAssetId === slot.id || c.targetAssetId === slot.id) &&
     roleAt(c, slot.id) === 'OUT',
   ) ?? null;
-
-  // ── 대국 OUT 케이블 (remote side 현재값 + 교체 대상) ────────────────────
-  const remoteOutCable = twinId
-    ? (cables.find((c) =>
-        c.number === coreNumber &&
-        (c.sourceAssetId === twinId || c.targetAssetId === twinId) &&
-        roleAt(c, twinId) === 'OUT',
-      ) ?? null)
-    : null;
 
   // ── side='local' → 읽기전용 ─────────────────────────────────────────────
   if (side === 'local') {
@@ -68,11 +76,11 @@ export function AssetSelectCell({ slot, coreNumber, side }: {
   }
 
   // ── side='remote' → 대국 설비 검색-피커 ─────────────────────────────────
-  const remoteAssetId = remoteOutCable && twinId ? other(remoteOutCable, twinId) : null;
+  // remoteOutCable, remoteAssetId: 훅 전 계산으로 이전됨.
 
-  // 현재 선택값이 results 에 없으면 fallback option(graph nameById 로 이름 표시).
+  // 현재 이름: useAssetRefs refs 우선(크로스변전소 일관), graph nameById 폴백.
   const remoteCurrentName = remoteAssetId
-    ? (graph?.nameById.get(remoteAssetId) ?? results.find((r) => r.id === remoteAssetId)?.name ?? null)
+    ? (twinRefs.get(remoteAssetId)?.name ?? graph?.nameById.get(remoteAssetId) ?? null)
     : null;
 
   const handleChange = (newId: string) => {
@@ -111,7 +119,7 @@ export function AssetSelectCell({ slot, coreNumber, side }: {
           {r.substationName ? `${r.substationName} ` : ''}{r.name}
         </option>
       ))}
-      {/* 현재 선택값이 검색 결과에 없을 때 fallback option — graph nameById 로 이름 표시 */}
+      {/* 현재 선택값이 검색 결과에 없을 때 fallback option — refs/graph nameById 로 이름 표시 */}
       {remoteAssetId && !results.find((r) => r.id === remoteAssetId) && remoteCurrentName && (
         <option value={remoteAssetId}>{remoteCurrentName}</option>
       )}

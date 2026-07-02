@@ -32,4 +32,15 @@ describe('useSearchAssets', () => {
     expect(postMock).toHaveBeenCalledWith('/assets/search', expect.objectContaining({ role: 'ofd' }));
     expect(result.current.results[0].id).toBe('o1');
   });
+
+  it('enabled=false 시 쿼리 비활성 — 빈 결과, 서버 요청 없음', async () => {
+    const { result } = renderHook(
+      () => useSearchAssets({ role: 'device', substationId: 's1', enabled: false }),
+      { wrapper: wrap() },
+    );
+    // 쿼리 비활성 상태에서는 즉시 빈 결과·isLoading false
+    expect(result.current.results).toEqual([]);
+    expect(result.current.isLoading).toBe(false);
+    expect(postMock).not.toHaveBeenCalled();
+  });
 });
