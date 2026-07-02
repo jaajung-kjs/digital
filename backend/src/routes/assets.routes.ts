@@ -13,9 +13,6 @@ router.post('/search', authenticate, validate(assetSearchSchema), assetControlle
 // 엔티티 id 해소 — POST /api/assets/refs
 router.post('/refs', authenticate, validate(assetRefsSchema), assetController.refs);
 
-// 전 변전소 자산 최소 목록(전역 cableTrace 피드) — '/:id' 보다 먼저.
-router.get('/', authenticate, assetController.listAll);
-
 // 자산 하위레코드(점검/고장이력/사진)는 더 이상 per-asset 엔드포인트가 없다 — 읽기는 워킹카피
 // (자산 안 records[] 중첩), 쓰기는 통합 커밋(POST /api/commit)로 일원화됨. 구조는 DB 스키마 자동.
 

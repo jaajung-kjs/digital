@@ -4,8 +4,8 @@
  *   2. PathTraceDetail 경로 상세 텍스트 (projection)
  *   3. 네트워크 토폴로지 모달 (projection, modalOpen 으로 토글)
  *
- * 데이터는 GLOBAL(전 변전소) slim-assets + cables 위에 *이 변전소* staged 변경을
- * 오버레이한 superset. 로컬 하이라이트는 그 superset 의 subset 이므로 한 번의 trace 로
+ * 데이터원 = 서버 trace(POST /api/trace) connected component 에 *이 변전소* staged 변경을
+ * 오버레이한 그래프. 로컬 하이라이트는 그 component 의 subset 이므로 한 번의 trace 로
  * 하이라이트·토폴로지 양쪽을 충족한다 — 더 이상 scope 별로 재추적하지 않는다.
  * "상세" 버튼은 이미 계산된 projection 을 그대로 모달에 띄운다(openTopology — 재추적 X).
  */
