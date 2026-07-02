@@ -1,7 +1,7 @@
 # Phase 3 P3-5 — 연결 대국 page-in 제거 + fiber 대국을 "다른 자산과 동일 패턴"으로 통일 설계
 
 **날짜:** 2026-07-02
-**상태:** 초안 (사용자 리뷰 대기)
+**상태:** 구현 완료 — 브랜치 `refactor/phase3-p5-remove-pagein` (T1–T7). FE 563 · BE 143 · tsc 0 · `git grep connectedSubstationIds`=0. 연결 대국 page-in 제거, 대국 편집 검색-피커 복구, 대국 이름 useAssetRefs, 대국 패치 서버 포함.
 **관련:** `docs/architecture/data-scope-architecture-roadmap.md`(A1+ scope 휴리스틱 0 · 검색 프리미티브), 이전 스펙 `2026-06-30-phase3-p5-entity-resolver-design.md`(useAssetRefs), `2026-07-01-slot-name-ssot-simplification-design.md`(경로슬롯=자산화, 이름 저장).
 
 ---
