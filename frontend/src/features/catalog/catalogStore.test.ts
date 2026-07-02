@@ -84,13 +84,6 @@ describe('catalogStore', () => {
     expect(postedBody.assetTypes.updates[0].patch.installHoursPerUnit).toBe(1.5);
   });
 
-  it('selectAsset/selectCable 로 선택 상태를 보관한다', () => {
-    useCatalogStore.getState().selectAsset({ kind: 'type', id: 't1' });
-    expect(useCatalogStore.getState().selectedAsset).toEqual({ kind: 'type', id: 't1' });
-    useCatalogStore.getState().selectAsset(null);
-    expect(useCatalogStore.getState().selectedAsset).toBeNull();
-  });
-
   it('stageUpdateType 로 sortOrder 스테이징', () => {
     useCatalogStore.getState().stageUpdateType('t1', { sortOrder: 3 });
     expect(useCatalogStore.getState().typeOverlay.updates['t1']).toMatchObject({ sortOrder: 3 });

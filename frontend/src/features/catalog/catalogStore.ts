@@ -56,10 +56,6 @@ interface CatalogState {
   stageCreateCableCategory: (c: CableCategory) => void;
   stageUpdateCableCategory: (id: string, p: CcP) => void;
   stageDeleteCableCategory: (id: string, isNew: boolean) => void;
-  selectedAsset: { kind: 'category' | 'type'; id: string } | null;
-  selectedCable: { kind: 'group' | 'category'; id: string } | null;
-  selectAsset: (sel: { kind: 'category' | 'type'; id: string } | null) => void;
-  selectCable: (sel: { kind: 'group' | 'category'; id: string } | null) => void;
   dirtyCount: () => number;
   commit: () => Promise<void>;
   discard: () => void;
@@ -74,11 +70,6 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   catOverlay: emptyOverlay<AssetCategory, CatP>(),
   cgOverlay: emptyOverlay<CableGroup, CgP>(),
   ccOverlay: emptyOverlay<CableCategory, CcP>(),
-  selectedAsset: null,
-  selectedCable: null,
-  selectAsset: (sel) => set({ selectedAsset: sel }),
-  selectCable: (sel) => set({ selectedCable: sel }),
-
   load: async () => {
     const [t, c, cg, cc] = await Promise.all([
       api.get<{ data: AssetType[] }>('/asset-types'),
@@ -90,7 +81,6 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       baseTypes: t.data.data, baseCategories: c.data.data,
       baseCableGroups: cg.data.data, baseCableCategories: cc.data.data,
       typeOverlay: emptyOverlay(), catOverlay: emptyOverlay(), cgOverlay: emptyOverlay(), ccOverlay: emptyOverlay(),
-      selectedAsset: null, selectedCable: null,
     });
   },
 
@@ -146,5 +136,5 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     await get().load();
   },
 
-  discard: () => set({ typeOverlay: emptyOverlay(), catOverlay: emptyOverlay(), cgOverlay: emptyOverlay(), ccOverlay: emptyOverlay(), selectedAsset: null, selectedCable: null }),
+  discard: () => set({ typeOverlay: emptyOverlay(), catOverlay: emptyOverlay(), cgOverlay: emptyOverlay(), ccOverlay: emptyOverlay() }),
 }));
