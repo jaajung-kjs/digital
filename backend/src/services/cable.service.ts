@@ -127,6 +127,25 @@ class CableService {
     return cables.map((c) => this.mapToDetail(c));
   }
 
+  /**
+   * 끝점 자산 id 목록에 닿는 케이블 조회(대국 OUT 패치 로드용).
+   * getBySubstationId 와 동일한 include/매퍼를 재사용.
+   */
+  async getByEndpointAssetIds(assetIds: string[]): Promise<CableDetail[]> {
+    if (!assetIds.length) return [];
+    const cables = await prisma.cable.findMany({
+      where: {
+        OR: [
+          { sourceAssetId: { in: assetIds } },
+          { targetAssetId: { in: assetIds } },
+        ],
+      },
+      include: cableInclude,
+      orderBy: { createdAt: 'desc' },
+    });
+    return cables.map((c) => this.mapToDetail(c));
+  }
+
   // 내부 — endpoint asset → endpoint ref. assetId/name/role/floorId(anchor) 노출.
   private endpointFromIncluded(
     side: 'source' | 'target',

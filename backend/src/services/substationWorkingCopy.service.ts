@@ -19,7 +19,7 @@ import { getAssetRecordModels } from './assetRecordSchema.service.js';
  * 별도 distributionCircuits 컬렉션은 제거.
  */
 export async function getWorkingCopy(substationId: string) {
-  const [assets, cables] = await Promise.all([
+  const [assets, cablesRaw] = await Promise.all([
     prisma.asset.findMany({
       where: { substationId },
       include: { assetType: { select: { id: true, name: true, role: true, categoryId: true } } },
@@ -27,6 +27,25 @@ export async function getWorkingCopy(substationId: string) {
     }),
     cableService.getBySubstationId(substationId),
   ]);
+
+  // 대국 OUT 패치 포함 — 자국 OPGW(IN-IN) 의 대국(twin) 슬롯에 닿는 OUT 패치를 추가(현 대국 연결 표시용).
+  // 대국 자산은 싣지 않는다(이름은 클라 useAssetRefs). 예측 아님 — 자국 OPGW 로 결정.
+  const localAssetIds = new Set(assets.map((a) => a.id));
+  const twinSlotIds = new Set<string>();
+  for (const c of cablesRaw) {
+    if (c.sourceRole === 'IN' && c.targetRole === 'IN') {
+      for (const e of [c.sourceAssetId, c.targetAssetId] as (string | null)[]) {
+        if (e && !localAssetIds.has(e)) twinSlotIds.add(e); // 반대편(대국) 슬롯
+      }
+    }
+  }
+  let cables = cablesRaw;
+  if (twinSlotIds.size) {
+    const seen = new Set(cablesRaw.map((c) => c.id));
+    const farPatches = await cableService.getByEndpointAssetIds([...twinSlotIds]);
+    const extras = farPatches.filter((fp) => !seen.has(fp.id));
+    cables = extras.length ? [...cablesRaw, ...extras] : cablesRaw;
+  }
 
   // 자산 하위레코드(점검/고장이력/사진 + 미래 무엇이든)는 자산의 *속성*이다 — 형제 컬렉션이
   // 아니라 각 자산 안에 records[] 로 중첩한다. 어떤 테이블이 자산 기록인지·그 컬럼이 무엇인지는

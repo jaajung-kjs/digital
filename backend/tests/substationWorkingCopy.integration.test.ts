@@ -5,6 +5,7 @@ import { authRouter } from '../src/routes/auth.routes.js';
 import { substationsRouter } from '../src/routes/substations.routes.js';
 import { errorHandler } from '../src/middleware/errorHandler.js';
 import prisma from '../src/config/prisma.js';
+import { getWorkingCopy } from '../src/services/substationWorkingCopy.service.js';
 
 /**
  * SSOT-2b Task 1 — GET /api/substations/:id/workingcopy 벌크 로드.
@@ -137,5 +138,20 @@ describe('변전소 working-copy 벌크 로드 (GET /substations/:id/workingcopy
     expect(res.status).toBe(200);
     expect(res.body.data.connectedSubstationIds).toContain(subBId);
     expect(res.body.data.connectedSubstationIds).not.toContain(subId); // 자기 제외
+  });
+
+  it('워킹카피 cables 에 자국 OPGW 의 대국 OUT 패치가 포함된다', async () => {
+    const slotType = (await prisma.assetType.findFirstOrThrow({ where: { role: 'slot' } })).id;
+    const devType = (await prisma.assetType.findFirstOrThrow({ where: { role: 'device' } })).id;
+    // subId = 자국(A), subBId = 대국(B)
+    const sa = await prisma.asset.create({ data: { substationId: subId, assetTypeId: slotType, name: 'wc_sa' } });
+    const sb = await prisma.asset.create({ data: { substationId: subBId, assetTypeId: slotType, name: 'wc_sb' } });
+    const dev = await prisma.asset.create({ data: { substationId: subBId, assetTypeId: devType, name: 'wc_대국설비' } });
+    await prisma.cable.create({ data: { sourceAssetId: sa.id, targetAssetId: sb.id, sourceRole: 'IN', targetRole: 'IN' } });
+    const farPatch = await prisma.cable.create({ data: { sourceAssetId: sb.id, targetAssetId: dev.id, sourceRole: 'OUT', number: 1 } });
+
+    const wc = await getWorkingCopy(subId);
+    expect(wc.cables.some((c: { id: string }) => c.id === farPatch.id)).toBe(true);   // 대국 OUT 패치 포함
+    expect(wc.assets.some((a: { id: string }) => a.id === dev.id)).toBe(false);        // 대국 자산은 미포함
   });
 });
