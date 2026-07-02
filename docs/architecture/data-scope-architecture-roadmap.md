@@ -103,8 +103,8 @@ unique·enum·FK·인덱스. cables 인덱스 = Phase 2 서버 트레이스 토�
 ### Phase 3 — demand 로딩 (전역 preload 제거, Phase 2 의존) — **완료(2026-07-02): scope 휴리스틱 0**
 - **(2026-07-01 완료)** 선번장 슬롯 라벨 page-in 의존 제거 — 슬롯 이름을 생성 시 저장(SSOT), 표시는 저장값 읽기. `fiberSlotLabel`(매 표시 계산)·`remoteSlotSubstation`(대국 resident 조회) 삭제 → 슬롯 표시가 더는 대국 적재를 요구하지 않음. 설계: `docs/superpowers/specs/2026-07-01-slot-name-ssot-simplification-design.md`.
 - **(2026-07-02 완료) 연결 대국 page-in(예측 preload) 제거 — 마지막 scope 휴리스틱 소멸.** `substationStore.load()` 의 `connectedSubstationIds`→`syncSubData` 루프 + 백엔드 `connectedSubstationIds` 계산 삭제. 대신: (a) 대국 케이블 끝점·설비 이름은 `useAssetRefs`(id→이름 lazy 조회), (b) 대국 포트 표시는 서버가 워킹카피 `cables` 에 자국 OPGW 의 대국 OUT 패치를 포함(케이블 SSOT, `buildSlotPorts` 무변경), (c) 대국 설비 연결(편집)은 `useSearchAssets` 검색-피커 + 대국 패치 케이블 쓰기(전역 커밋)로 **복구**. fiber 대국이 다른 자산과 동일 패턴(substationId=필드, 검색+해소, 연결=케이블)으로 통일. 설계: `docs/superpowers/specs/2026-07-02-phase3-p5-remove-pagein-design.md`.
-- `useHydrateGlobal`(전역 lite preload) → 접근-시 page-in(변전소 열기/트레이스결과/검색이 캐시 hydrate).
-- **lite/full 레이어 삭제**(단층선 ② 해소).
+- `useHydrateGlobal`(전역 lite preload) → 접근-시 page-in(변전소 열기/트레이스결과/검색이 캐시 hydrate). ✅ (useHydrateGlobal 제거됨)
+- **lite/full 레이어 삭제**(단층선 ② 해소). ✅ **(2026-07-02 완료)** 죽은 전역 slim 피드(`GET /assets` listAllSlim·`toSlimAsset`·`slimToAsset`·`SlimAssetDTO`) 제거 — 서버 trace+page-in 제거 후 소비처 0. `useEffectiveAssets`=per-substation saved, `pathHighlightStore`=서버 trace.
 - resident set = 건드린 변전소(+연결한 대국). **cold evict** → 메모리 bounded.
 - 서버 읽기(현황·검색)도 overlay 동봉 + 중앙 머지(페이지네이션 서버 처리).
 
