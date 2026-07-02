@@ -111,3 +111,18 @@ reorder를 전 계층에 적용하려면 **assetTypes·cableCategories update가
 - **BE 단위:** `catalogCommit` — assetTypes/cableCategories update에 sortOrder 반영(신규), 기존 가드 회귀(role 고정·시스템 삭제금지·사용중 차단·그룹 CRUD).
 - **게이트/전수:** FE `tsc`+`vitest run` 전수, BE `vitest run --no-file-parallelism` 전수. `git grep AssetTypesTab|CableTypesTab`=0.
 - **스모크:** 자산마스터에서 검색·분류/그룹/종류 CRUD·색·이설·드래그 정렬·저장/취소 정상, 위화감 없는 통일 톤.
+
+---
+
+## 구현 완료
+
+브랜치 `feat/catalog-master-redesign` (BASE `a869c4d9`), 커밋 `aa369f2a`‥`5982511d` (8 커밋).
+
+- **T1** `aa369f2a` — 백엔드 `catalogCommit`: assetType·cableCategory update 에 `sortOrder` 반영.
+- **T2** `540a1a46` — `catalogStore` 선택 상태(`selectedAsset`/`selectedCable` + `selectAsset`/`selectCable`) + Type/CableCategory `sortOrder` 스테이징.
+- **T3** `f19b0972` — `SectionEmpty` 복원(CONVENTIONS §80 재정합).
+- **T4** `d1281c3c` — `CatalogListPane`(제네릭 검색+2단 계층+sibling HTML5 드래그 정렬).
+- **T5** `1bca0bdc`+`cc0fbb43` — `CatalogDetailPane` 라우터 + 폼 4종(`AssetCategoryForm`/`AssetTypeForm`/`CableGroupForm`/`CableCategoryForm`), 케이블 그룹 색·이설 신규, `HoursInput` 헬퍼.
+- **T6** `23424173`+`5982511d` — `AssetManagementPage` 2-pane 세그먼트(설비/케이블), 구 `AssetTypesTab`/`CableTypesTab` 제거.
+
+게이트: FE `tsc` 0 + `vitest run` 전수 PASS(584), BE `catalogCommit` 회귀 포함 PASS, `git grep AssetTypesTab|CableTypesTab`=0. dev UI 스모크는 사용자 확인.
