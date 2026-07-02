@@ -11,7 +11,7 @@ export interface CatalogCommitInput {
 
 /**
  * 카탈로그(설비종류+분류) 변경을 한 트랜잭션으로 원자 적용.
- * 순서: 분류 생성/수정 → 타입 생성/수정/삭제 → 분류 삭제(FK). role 보유 타입은 삭제·분류변경 금지.
+ * 순서: 분류 생성/수정 → 타입 생성/수정/삭제 → 분류 삭제(FK). role 보유(시스템) 타입은 삭제만 금지(이름·분류·노무는 편집 가능, role 만 불변).
  * 신규 id 는 클라이언트 uuid(타입이 같은 commit 의 새 분류를 FK 로 즉시 참조 — remapping 불요).
  */
 export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
@@ -44,9 +44,7 @@ export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
       for (const u of ty.updates) {
         const ex = await t.assetType.findUnique({ where: { id: u.id } });
         if (!ex) throw new ValidationError(`존재하지 않는 종류: ${u.id}`);
-        if (ex.role !== 'device' && u.patch.categoryId !== undefined) {
-          throw new ConflictError('시스템 종류는 분류를 변경할 수 없습니다(이름만 수정 가능).');
-        }
+        // role 은 불변(시드/생성 시 확정) — 이름·분류·노무는 시스템 종류도 자유 편집. 삭제만 보호(아래).
         await t.assetType.update({
           where: { id: u.id },
           data: {

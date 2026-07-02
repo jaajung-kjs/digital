@@ -45,10 +45,12 @@ describe('commitCatalog', () => {
       .rejects.toThrow('사용 중');
   });
 
-  it('role 보유 타입 분류 변경은 차단', async () => {
+  it('시스템(role 보유) 타입도 분류·이름 변경 가능(role 은 불변)', async () => {
     tx.assetType.findUnique.mockResolvedValue({ id: 't', role: 'rack' });
-    await expect(commitCatalog({ assetTypes: { creates: [], updates: [{ id: 't', patch: { categoryId: 'c9' } }], deletes: [] } }))
-      .rejects.toThrow('분류를 변경할 수 없습니다');
+    await commitCatalog({ assetTypes: { creates: [], updates: [{ id: 't', patch: { categoryId: 'c9' } }], deletes: [] } });
+    expect(tx.assetType.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 't' }, data: expect.objectContaining({ categoryId: 'c9' }) }),
+    );
   });
 
   it('그룹 생성 후 그 id 로 케이블종류 생성(name+groupId 만)', async () => {
