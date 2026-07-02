@@ -49,38 +49,39 @@ export function AssetManagementPage() {
     [baseCableCategories, ccOverlay],
   );
 
+  // ── 설비 그룹·아이템 파생 ─────────────────────────────────────────────────────
+  // categoryId=null 종류가 하나라도 있으면 미분류 sentinel 추가
+  const assetGroups = useMemo(() => [
+    ...categories.map((c) => ({ id: c.id, name: c.name })),
+    ...(types.some((t) => t.categoryId === null) ? [{ id: '__none__', name: '미분류' }] : []),
+  ], [categories, types]);
+
+  const assetItems = useMemo(() => types.map((t) => ({
+    id: t.id,
+    parentId: t.categoryId ?? '__none__',
+    name: t.name,
+    system: t.role !== 'device',
+  })), [types]);
+
+  // ── 케이블 그룹·아이템 파생 ───────────────────────────────────────────────────
+  const cableListGroups = useMemo(() => cableGroups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    accent: g.color,
+  })), [cableGroups]);
+
+  const cableListItems = useMemo(() => cableCategories.map((c) => ({
+    id: c.id,
+    parentId: c.groupId,
+    name: c.name,
+  })), [cableCategories]);
+
   useEffect(() => {
     load();
     return () => discard(); // 화면 이탈 시 미저장 스테이징 폐기
   }, [load, discard]);
 
   if (!isAdmin) return <Navigate to="/" replace />;
-
-  // ── 설비 그룹·아이템 파생 ─────────────────────────────────────────────────────
-  // categoryId=null 종류가 하나라도 있으면 미분류 sentinel 추가
-  const hasNone = types.some((t) => t.categoryId === null);
-  const assetGroups = [
-    ...categories.map((c) => ({ id: c.id, name: c.name })),
-    ...(hasNone ? [{ id: '__none__', name: '미분류' }] : []),
-  ];
-  const assetItems = types.map((t) => ({
-    id: t.id,
-    parentId: t.categoryId ?? '__none__',
-    name: t.name,
-    system: t.role !== 'device',
-  }));
-
-  // ── 케이블 그룹·아이템 파생 ───────────────────────────────────────────────────
-  const cableListGroups = cableGroups.map((g) => ({
-    id: g.id,
-    name: g.name,
-    accent: g.color,
-  }));
-  const cableListItems = cableCategories.map((c) => ({
-    id: c.id,
-    parentId: c.groupId,
-    name: c.name,
-  }));
 
   const store = useCatalogStore.getState;
 
@@ -139,7 +140,7 @@ export function AssetManagementPage() {
                   orderedIds.forEach((id, i) => {
                     if (id !== '__none__') store().stageUpdateCategory(id, { sortOrder: i });
                   });
-                } else {
+                } else if (_parentId !== '__none__') {
                   orderedIds.forEach((id, i) => store().stageUpdateType(id, { sortOrder: i }));
                 }
               }}

@@ -153,7 +153,7 @@ describe('항목 선택 → 우측 폼 노출', () => {
     renderPage();
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
     fireEvent.click(screen.getAllByText('전원')[0]);
-    expect(document.querySelector('input[type="color"]')).not.toBeNull();
+    expect(screen.getByLabelText('그룹 색')).toBeInTheDocument();
   });
 
   it('케이블 종류(leaf) 클릭 → CableCategoryForm 렌더(삭제 버튼 노출)', () => {
