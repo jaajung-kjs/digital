@@ -188,9 +188,8 @@ export function useCommitWorkingCopy() {
       // revert 는 모든 컬렉션(조직 4컬렉션 포함)의 staged create/update/delete 를 비운다(freshOverlays 가 레지스트리 순회).
       useSubstationWorkingCopy.getState().revert();
       // 커밋 후 detail 캐시 재동기화 — detail(updatedAt 보유)을 가진 모든 변전소를 갱신한다.
-      // 교차 변전소 편집(A 열고 B 자산 편집 후 한 커밋)도 stale 없이 반영: 전역 lite 피드는
-      // detail 필드를 못 덮으므로(reconcileRows 가 detail 보존) 편집된 변전소의 detail 을 직접 재로드해야
-      // 트레이스/토폴로지가 읽는 이름·필드까지 fresh 해진다. 비-열린 변전소는 syncSubData(merge-only),
+      // 교차 변전소 편집(A 열고 B 자산 편집 후 한 커밋)도 stale 없이 반영: 편집된 변전소의 detail 을
+      // 직접 재로드해야 트레이스/토폴로지가 읽는 이름·필드까지 fresh 해진다. 비-열린 변전소는 syncSubData(merge-only),
       // 열린 변전소는 마지막에 load 로 substationId 확정.
       const savedAssets = useSubstationWorkingCopy.getState().saved.assets;
       const loadedSubs = [...new Set(savedAssets.filter((a) => a.updatedAt).map((a) => a.substationId))]
@@ -203,8 +202,8 @@ export function useCommitWorkingCopy() {
       await useSubstationWorkingCopy.getState().loadOrgTree();
       // 커밋 후 보이는 데이터 동기화의 두 층:
       //  1) 워킹카피(effective) — 위 load 가 갱신(mergeSavedById 가 변전소 스코프 권위로 삭제까지 반영).
-      //  2) react-query 서버 캐시(현황 ['nodeAssets'], 연결 ['substation-connections'], ['cables'],
-      //     ['assets-slim'] 등) — 커밋의 fire-and-forget 무효화만으론 새로고침 없이 반영 안 되는 경우가 있다.
+      //  2) react-query 서버 캐시(현황 ['nodeAssets'], 검색 ['asset-search'] 등) — 커밋의
+      //     fire-and-forget 무효화만으론 새로고침 없이 반영 안 되는 경우가 있다.
       // → 모든 활성(화면에 떠 있는) 쿼리를 명시적으로 await 재조회해, 커밋이 끝나는 시점에 모든 뷰가
       //   DB 와 동기화되도록 한다("쓰기 후 보이는 데이터 전부 다시 읽기" — 새로고침과 동일 효과).
       await queryClient.refetchQueries({ type: 'active' });

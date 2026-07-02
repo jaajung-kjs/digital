@@ -7,8 +7,8 @@ const { setSelectedComponent, selection } = vi.hoisted(() => ({
 }));
 const { buildInternalPathMock } = vi.hoisted(() => ({ buildInternalPathMock: vi.fn() }));
 vi.mock('../internalPath', () => ({ buildInternalPath: buildInternalPathMock }));
-vi.mock('../../trace/useCableComponentGraph', () => ({
-  useCableComponentGraph: () => ({
+vi.mock('../../trace/useServerTrace', () => ({
+  useServerTrace: () => ({
     graph: { __id: 'COMPONENT', cables: [], subById: new Map() },
     isLoading: false,
     error: null,
