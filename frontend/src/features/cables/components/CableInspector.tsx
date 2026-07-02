@@ -1,6 +1,7 @@
 import { useEffectiveCables } from '../../workingCopy/hooks';
 import { useCableCategories } from '../hooks/useCableCategories';
 import { useTraceGraph } from '../../trace/traceGraph';
+import { useAssetRefs } from '../../assets/useAssetRefs';
 import { useSubstationWorkingCopy } from '../../workingCopy/substationStore';
 import { isOpgwTwin } from '../cableEndpoint';
 import { routeDeleteIds } from '../../fiber/fiberWrite';
@@ -35,6 +36,7 @@ export function CableInspector({ cableId, onDeleted }: { cableId: string; onDele
   const { graph } = useTraceGraph();
 
   const cable = cables.find((c) => c.id === cableId);
+  const refs = useAssetRefs([cable?.sourceAssetId as string, cable?.targetAssetId as string].filter(Boolean));
   if (!cable) return <DetailCard><DetailNote>케이블을 찾을 수 없습니다.</DetailNote></DetailCard>;
 
   const patch = (p: Record<string, unknown>) => useSubstationWorkingCopy.getState().stageCableUpdate(cableId, p);
@@ -53,8 +55,8 @@ export function CableInspector({ cableId, onDeleted }: { cableId: string; onDele
     onDeleted?.();
   };
 
-  const src = graph?.nameById.get(cable.sourceAssetId as string) ?? '';
-  const tgt = graph?.nameById.get(cable.targetAssetId as string) ?? '';
+  const src = refs.get(cable.sourceAssetId as string)?.name ?? graph?.nameById.get(cable.sourceAssetId as string) ?? '';
+  const tgt = refs.get(cable.targetAssetId as string)?.name ?? graph?.nameById.get(cable.targetAssetId as string) ?? '';
   const categoryId = (cable.categoryId as string | null) ?? null;
   const commitCategory = (id: string | null) => {
     const c = (categories ?? []).find((x) => x.id === id) ?? null;
