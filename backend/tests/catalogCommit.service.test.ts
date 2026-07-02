@@ -92,4 +92,15 @@ describe('commitCatalog', () => {
     const updateData = (tx.assetType.update.mock.calls[0][0] as { data: Record<string, unknown> }).data;
     expect(updateData.installHoursPerUnit).toBe(1.5);
   });
+
+  it('assetType update 가 sortOrder 를 반영', async () => {
+    tx.assetType.findUnique.mockResolvedValue({ id: 't', role: 'device' });
+    await commitCatalog({ assetTypes: { creates: [], updates: [{ id: 't', patch: { sortOrder: 5 } }], deletes: [] } });
+    expect(tx.assetType.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 't' }, data: expect.objectContaining({ sortOrder: 5 }) }));
+  });
+
+  it('cableCategory update 가 sortOrder 를 반영', async () => {
+    await commitCatalog({ cableCategories: { creates: [], updates: [{ id: 'c', patch: { sortOrder: 3 } }], deletes: [] } });
+    expect(tx.cableCategory.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'c' }, data: expect.objectContaining({ sortOrder: 3 }) }));
+  });
 });

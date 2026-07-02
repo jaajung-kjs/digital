@@ -4,9 +4,9 @@ import { ConflictError, ValidationError } from '../utils/errors.js';
 interface CollDelta<C, U> { creates: C[]; updates: { id: string; patch: U }[]; deletes: { id: string }[] }
 export interface CatalogCommitInput {
   assetCategories?: CollDelta<{ id: string; name: string; sortOrder?: number }, { name?: string; sortOrder?: number }>;
-  assetTypes?: CollDelta<{ id: string; name: string; categoryId: string | null }, { name?: string; categoryId?: string | null; laborType?: string | null; installHoursPerUnit?: number | null; removeHoursPerUnit?: number | null; relocateHoursPerUnit?: number | null }>;
+  assetTypes?: CollDelta<{ id: string; name: string; categoryId: string | null }, { name?: string; categoryId?: string | null; sortOrder?: number; laborType?: string | null; installHoursPerUnit?: number | null; removeHoursPerUnit?: number | null; relocateHoursPerUnit?: number | null }>;
   cableGroups?: CollDelta<{ id: string; name: string; color?: string | null }, { name?: string; color?: string | null; sortOrder?: number; laborType?: string | null; installHoursPerMeter?: number | null; removeHoursPerMeter?: number | null; relocateHoursPerMeter?: number | null }>;
-  cableCategories?: CollDelta<{ id: string; name: string; groupId: string }, { name?: string; groupId?: string }>;
+  cableCategories?: CollDelta<{ id: string; name: string; groupId: string }, { name?: string; groupId?: string; sortOrder?: number }>;
 }
 
 /**
@@ -54,6 +54,7 @@ export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
             ...(u.patch.installHoursPerUnit !== undefined ? { installHoursPerUnit: u.patch.installHoursPerUnit } : {}),
             ...(u.patch.removeHoursPerUnit !== undefined ? { removeHoursPerUnit: u.patch.removeHoursPerUnit } : {}),
             ...(u.patch.relocateHoursPerUnit !== undefined ? { relocateHoursPerUnit: u.patch.relocateHoursPerUnit } : {}),
+            ...(u.patch.sortOrder !== undefined ? { sortOrder: u.patch.sortOrder } : {}),
           },
         });
       }
@@ -103,7 +104,7 @@ export async function commitCatalog(input: CatalogCommitInput): Promise<void> {
           const g = await t.cableGroup.findUnique({ where: { id: u.patch.groupId } });
           if (!g) throw new ValidationError(`존재하지 않는 그룹: ${u.patch.groupId}`);
         }
-        await t.cableCategory.update({ where: { id: u.id }, data: { ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}), ...(u.patch.groupId !== undefined ? { groupId: u.patch.groupId } : {}) } });
+        await t.cableCategory.update({ where: { id: u.id }, data: { ...(u.patch.name !== undefined ? { name: u.patch.name.trim() } : {}), ...(u.patch.groupId !== undefined ? { groupId: u.patch.groupId } : {}), ...(u.patch.sortOrder !== undefined ? { sortOrder: u.patch.sortOrder } : {}) } });
       }
       for (const d of cc.deletes) {
         const inUse = await t.cable.count({ where: { categoryId: d.id } });
