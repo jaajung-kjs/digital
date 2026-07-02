@@ -416,7 +416,7 @@ export function AssetManagementPage() {
             rowKey={(t) => t.id}
             rowMatch={(t, q) => t.name.toLowerCase().includes(q.toLowerCase())}
             query={q}
-            onReorderGroups={(ids) => ids.forEach((id, i) => stageUpdateCategory(id, { sortOrder: i }))}
+            onReorderGroups={(ids) => ids.filter((id) => id !== '__none__').forEach((id, i) => stageUpdateCategory(id, { sortOrder: i }))}
             onReorderRows={(_gid, ids) => ids.forEach((id, i) => stageUpdateType(id, { sortOrder: i }))}
             onAddGroup={() => stageCreateCategory({ id: newCatalogId(), name: '새 분류', sortOrder: 0 })}
             addGroupLabel="+ 분류"

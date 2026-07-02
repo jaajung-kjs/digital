@@ -137,8 +137,8 @@ describe('세그먼트 전환 (설비 ↔ 케이블)', () => {
 // ── 인라인 편집 — stageUpdateType 호출 ────────────────────────────────────────
 describe('인라인 편집', () => {
   it('종류 이름 셀 편집 → stageUpdateType 호출', () => {
-    const spy = vi.fn();
-    useCatalogStore.setState({ stageUpdateType: spy } as never);
+    // vi.spyOn 으로 스파이 설정 — mockRestore() 로 복원하여 후속 테스트 오염 방지
+    const spy = vi.spyOn(useCatalogStore.getState(), 'stageUpdateType').mockImplementation(() => {});
     renderPage();
 
     // valueClickEdits=true 이므로 값 버튼 클릭하면 편집 열림
@@ -154,7 +154,61 @@ describe('인라인 편집', () => {
     fireEvent.blur(input);
 
     expect(spy).toHaveBeenCalledWith('t1', { name: '수정된이름' });
+    spy.mockRestore();
   });
+});
+
+// ── labor 셀 편집 (설치) — number 필드 경로 ───────────────────────────────────
+describe('labor 셀 편집 (설치)', () => {
+  it('설치 셀: 숫자 입력 → stageUpdateType({ installHoursPerUnit: number }) 호출', () => {
+    // valueClickEdits=false 인 number 필드는 연필 아이콘 클릭으로 편집 진입
+    const spy = vi.spyOn(useCatalogStore.getState(), 'stageUpdateType').mockImplementation(() => {});
+    renderPage();
+
+    // 연필 아이콘: title = "${ariaLabel} 수정" = "설치 수정"
+    fireEvent.click(screen.getByTitle('설치 수정'));
+
+    // type="number" 입력의 ARIA role = spinbutton
+    const input = screen.getByRole('spinbutton', { name: '설치' });
+    fireEvent.change(input, { target: { value: '3.5' } });
+    fireEvent.blur(input);
+
+    expect(spy).toHaveBeenCalledWith('t1', { installHoursPerUnit: 3.5 });
+    spy.mockRestore();
+  });
+
+  it('설치 셀: 빈 문자열 → stageUpdateType({ installHoursPerUnit: null }) 호출', () => {
+    // 비어있는 값(null)에서 비어있는 값으로 바꾸면 onBlur 에서 e.target.value === value → 커밋 안 됨.
+    // 따라서 기존 값이 있는 픽스처로 덮어써서 편집 진입 시 defaultValue='5' 로 설정
+    useCatalogStore.setState({
+      baseTypes: [
+        {
+          id: 't1', name: '송변전광단말', role: 'device', categoryId: 'c1', sortOrder: 0,
+          laborType: null, installHoursPerUnit: 5,
+          removeHoursPerUnit: null, relocateHoursPerUnit: null,
+        },
+      ],
+      load: vi.fn().mockResolvedValue(undefined),
+    } as never);
+    useCatalogStore.getState().discard();
+
+    const spy = vi.spyOn(useCatalogStore.getState(), 'stageUpdateType').mockImplementation(() => {});
+    renderPage();
+
+    fireEvent.click(screen.getByTitle('설치 수정'));
+    const input = screen.getByRole('spinbutton', { name: '설치' });
+    // 빈 문자열로 변경 후 blur → installHoursPerUnit: null 로 커밋
+    fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
+
+    expect(spy).toHaveBeenCalledWith('t1', { installHoursPerUnit: null });
+    spy.mockRestore();
+  });
+
+  // NaN 경로: onCommit 내부에 `if (v !== '' && Number.isNaN(Number(v))) return` 가드가 있어
+  // stageUpdateType 을 호출하지 않음. <input type="number"> 는 jsdom 에서 비숫자 입력 시
+  // e.target.value=''' 로 처리되므로 UI 레이어에서 NaN 자체가 생성되지 않는다.
+  // 가드는 소스코드(AssetManagementPage.tsx onCommit 핸들러)에서 직접 확인.
 });
 
 // ── + 종류 버튼 → stageCreateType 호출 ───────────────────────────────────────
