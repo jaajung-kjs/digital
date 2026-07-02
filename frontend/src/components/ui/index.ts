@@ -1,4 +1,5 @@
 export { cn } from './cn';
+export { CommitBar } from './CommitBar';
 export { Button } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 export { IconButton } from './IconButton';
