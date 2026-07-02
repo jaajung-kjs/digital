@@ -405,6 +405,34 @@ describe('통합 변전소 커밋 (substationCommit) — 서비스 + OCC', () =>
     expect(await prisma.cable.findUnique({ where: { id: opgw.id } })).toBeNull(); // OPGW cascade
   });
 
+  it('M4d) 크로스변전소: subA 세션에서 subB 자산 두 개를 잇는 케이블 create → 성공 + 케이블로 저장', async () => {
+    // Task 5 검증: 대국 단독 케이블(양끝 subB 자산) — 자국 세션(subA)에서 stage→commit.
+    // assertCableEndpointsValid 는 substationId 가드가 없으므로 통과해야 한다.
+    const slotType = (await prisma.assetType.findFirstOrThrow({ where: { role: 'slot' } })).id;
+    const crossA = await prisma.asset.create({ data: { substationId: sub2Id, assetTypeId: slotType, name: 'CROSS-SLOT-A' } });
+    const crossB = await prisma.asset.create({ data: { substationId: sub2Id, assetTypeId: slotType, name: 'CROSS-SLOT-B' } });
+
+    // subId(sub1) 컨텍스트에서 sub2 자산 두 개를 잇는 OUT 코어 케이블 create.
+    const input = substationCommitSchema.parse({
+      cables: {
+        creates: [{ tempId: 'cross-out', sourceAssetId: crossA.id, targetAssetId: crossB.id, sourceRole: 'OUT', number: 1 }],
+      },
+    });
+    const res = await commitSubstation(subId, input, userId);
+    const cId = res.idMaps.cables['cross-out'];
+    expect(cId).toMatch(/^[0-9a-f-]{36}$/);
+
+    const cable = await prisma.cable.findUniqueOrThrow({ where: { id: cId } });
+    expect(cable.sourceAssetId).toBe(crossA.id);
+    expect(cable.targetAssetId).toBe(crossB.id);
+    expect(cable.sourceRole).toBe('OUT');
+    expect(cable.number).toBe(1);
+
+    // cleanup
+    await prisma.cable.delete({ where: { id: cId } }).catch(() => {});
+    await prisma.asset.deleteMany({ where: { id: { in: [crossA.id, crossB.id] } } }).catch(() => {});
+  });
+
   it('6) 인증 없음 → 401, malformed body → 400', async () => {
     await request(app).post(`/api/substations/${subId}/commit`).send({}).expect(401);
 

@@ -102,6 +102,9 @@ vi.mock('../../assets/components/StagedAssetDetailPanel', () => ({
 vi.mock('../../assets/useAssetRefs', () => ({
   useAssetRefs: () => new Map(),
 }));
+vi.mock('../../assets/useSearchAssets', () => ({
+  useSearchAssets: () => ({ results: [], isLoading: false }),
+}));
 
 import { FiberRegisterView } from './FiberRegisterView';
 
