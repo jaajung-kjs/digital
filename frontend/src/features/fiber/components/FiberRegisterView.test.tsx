@@ -130,11 +130,12 @@ describe('OfdFiberRegister', () => {
     expect(screen.getByText('대국설비')).toBeInTheDocument();
   });
 
-  it('점유 코어 자국설비 셀이 연결 설비명을 읽기전용으로 렌더한다', () => {
+  it('점유 코어 자국설비 셀 — 연결 설비명 표시 + 편집 가능(대국과 동일 피커)', () => {
     renderView();
-    // 코어2 자국측 OUT 케이블(a-near) → 읽기전용 설비명 표시(드롭다운 없음).
+    // 코어2 자국측 OUT 케이블(a-near) → 설비명 표시.
     expect(screen.getAllByText('송변전광단말').length).toBeGreaterThan(0);
-    expect(screen.queryByTitle('자국설비 수정')).toBeNull();
+    // 자국도 읽기전용 아님 — 대국과 동일하게 EditableField 피커(✎ 수정)로 렌더.
+    expect(screen.getAllByTitle('자국설비 수정').length).toBeGreaterThan(0);
   });
 
   it('점유 코어 행 클릭(코어 번호 셀) → onRowClick 으로 슬롯 포트 패널 + 해당 코어 활성화', () => {
