@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../src/generated/next-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_NEXT")
+}
+
+// ---------- 조직/공간 (구 모델 유지) ----------
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("viewer") // 'admin' | 'viewer'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Headquarters {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  branches  Branch[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Branch {
+  id             String       @id @default(uuid())
+  name           String
+  sortOrder      Int          @default(0)
+  headquartersId String
+  headquarters   Headquarters @relation(fields: [headquartersId], references: [id])
+  substations    Substation[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([headquartersId, name])
+}
+
+model Substation {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  floors    Floor[]
+  assets    Asset[]
+  cables    Cable[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Floor {
+  id                String     @id @default(uuid())
+  name              String
+  sortOrder         Int        @default(0)
+  substationId      String
+  substation        Substation @relation(fields: [substationId], references: [id])
+  backgroundDrawing Json?
+  backgroundOpacity Float      @default(0.5)
+  assets            Asset[]
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@unique([substationId, name])
+}
+
+// ---------- 카탈로그 (타입 정의 = 데이터) ----------
+
+model AssetCategory {
+  id        String      @id @default(uuid())
+  key       String      @unique
+  name      String
+  sortOrder Int         @default(0)
+  types     AssetType[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model AssetType {
+  id             String              @id @default(uuid())
+  key            String              @unique
+  name           String
+  categoryId     String
+  category       AssetCategory       @relation(fields: [categoryId], references: [id])
+  sortOrder      Int                 @default(0)
+  isActive       Boolean             @default(true)
+  // 배치 명세
+  placeable      Boolean             @default(false)
+  defaultWidth   Float?
+  defaultHeight  Float?
+  // 공량 규칙
+  laborType      String?
+  installHours   Float               @default(0)
+  removeHours    Float               @default(0)
+  relocateHours  Float               @default(0)
+  // 커스텀 필드 정의 (FieldDef[])
+  fieldDefs      Json                @default("[]")
+  containerSpecs AssetContainerSpec[]
+  portTemplates  AssetPortTemplate[]
+  linkRules      AssetLinkRule[]
+  assets         Asset[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+}
+
+model AssetContainerSpec {
+  id          String    @id @default(uuid())
+  typeId      String
+  type        AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  key         String
+  name        String
+  slotCount   Int? // null = 자유형
+  allowSpan   Boolean   @default(false)
+  // AcceptRule (categoryKeys/typeKeys)
+  accepts     Json      @default("{}")
+  sortOrder   Int       @default(0)
+
+  @@unique([typeId, key])
+}
+
+model AssetPortTemplate {
+  id          String    @id @default(uuid())
+  typeId      String
+  type        AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  group       String
+  count       Int
+  direction   String // 'IN' | 'OUT' | 'BI'
+  medium      String
+  namePattern String
+  sortOrder   Int       @default(0)
+
+  @@unique([typeId, group])
+}
+
+model AssetLinkRule {
+  id        String    @id @default(uuid())
+  typeId    String
+  type      AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  fromGroup String
+  toGroup   String
+  mapping   String // 'byIndex' | 'all'
+
+  @@unique([typeId, fromGroup, toGroup])
+}
+
+// ---------- 케이블 카탈로그 ----------
+
+model CableGroup {
+  id                String          @id @default(uuid())
+  key               String          @unique
+  name              String
+  color             String
+  laborType         String?
+  installHoursPerM  Float           @default(0)
+  removeHoursPerM   Float           @default(0)
+  sortOrder         Int             @default(0)
+  categories        CableCategory[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model CableCategory {
+  id        String     @id @default(uuid())
+  name      String
+  groupId   String
+  group     CableGroup @relation(fields: [groupId], references: [id])
+  sortOrder Int        @default(0)
+  cables    Cable[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([groupId, name])
+}
+
+// ---------- 인스턴스 ----------
+
+model Asset {
+  id            String      @id @default(uuid())
+  name          String
+  typeId        String
+  type          AssetType   @relation(fields: [typeId], references: [id])
+  substationId  String
+  substation    Substation  @relation(fields: [substationId], references: [id])
+  status        String      @default("normal")
+  // 위치 A: 평면도 배치
+  floorId       String?
+  floor         Floor?      @relation(fields: [floorId], references: [id])
+  x             Float?
+  y             Float?
+  width         Float?
+  height        Float?
+  // 위치 B: 컨테이너 수용
+  parentAssetId String?
+  parentAsset   Asset?      @relation("AssetChildren", fields: [parentAssetId], references: [id])
+  children      Asset[]     @relation("AssetChildren")
+  containerKey  String?
+  slotIndex     Int?
+  slotSpan      Int?
+  // 커스텀 필드 값 { [fieldKey]: value }
+  fieldValues   Json        @default("{}")
+  ports         Port[]
+  logs          MaintenanceLog[]
+  inspections   InspectionLog[]
+  photos        AssetPhoto[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([substationId])
+  @@index([parentAssetId])
+  @@index([floorId])
+}
+
+model Port {
+  id          String  @id @default(uuid())
+  assetId     String
+  asset       Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  group       String
+  index       Int
+  name        String
+  direction   String // 'IN' | 'OUT' | 'BI'
+  medium      String
+  cablesA     Cable[] @relation("CableA")
+  cablesB     Cable[] @relation("CableB")
+
+  @@unique([assetId, group, index])
+  @@index([assetId])
+}
+
+model Cable {
+  id           String         @id @default(uuid())
+  name         String?
+  substationId String
+  substation   Substation     @relation(fields: [substationId], references: [id])
+  aPortId      String
+  aPort        Port           @relation("CableA", fields: [aPortId], references: [id])
+  bPortId      String
+  bPort        Port           @relation("CableB", fields: [bPortId], references: [id])
+  categoryId   String?
+  category     CableCategory? @relation(fields: [categoryId], references: [id])
+  pathPoints   Json           @default("[]")
+  specParams   Json           @default("{}")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([substationId])
+  @@index([aPortId])
+  @@index([bPortId])
+}
+
+// ---------- 이력 (타입 무관 제네릭 — 구 모델 유지) ----------
+
+model MaintenanceLog {
+  id         String   @id @default(uuid())
+  assetId    String
+  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  occurredAt DateTime
+  content    String
+  action     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model InspectionLog {
+  id          String   @id @default(uuid())
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  inspectedAt DateTime
+  content     String
+  result      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AssetPhoto {
+  id        String   @id @default(uuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  filePath  String
+  caption   String?
+  createdAt DateTime @default(now())
+}
