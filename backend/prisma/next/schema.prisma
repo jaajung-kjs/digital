@@ -196,7 +196,7 @@ model Asset {
   height        Float?
   // 위치 B: 컨테이너 수용
   parentAssetId String?
-  parentAsset   Asset?      @relation("AssetChildren", fields: [parentAssetId], references: [id])
+  parentAsset   Asset?      @relation("AssetChildren", fields: [parentAssetId], references: [id], onDelete: Restrict)
   children      Asset[]     @relation("AssetChildren")
   containerKey  String?
   slotIndex     Int?

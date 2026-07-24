@@ -66,6 +66,10 @@ describe('validateSlotPlacement', () => {
     ).toBeNull();
   });
 
+  it('slotSpan 0 → out-of-range (span 가드)', () => {
+    expect(validateSlotPlacement({ ...base, slotSpan: 0 })).toBe('out-of-range');
+  });
+
   it('범위 밖 → out-of-range (slotIndex + span > slotCount)', () => {
     expect(validateSlotPlacement({ ...base, slotIndex: 11, slotSpan: 2 })).toBe('out-of-range');
     expect(validateSlotPlacement({ ...base, slotIndex: -1 })).toBe('out-of-range');

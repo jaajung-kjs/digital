@@ -51,8 +51,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'A', count: 12, direction: 'BI', medium: '광', namePattern: '성단 {n}' },
-      { group: 'B', count: 12, direction: 'BI', medium: '광', namePattern: '선로 {n}' },
+      { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '성단 {n}' },
+      { group: 'B', count: 12, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}' },
     ],
     links: [{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],
   },
@@ -85,8 +85,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ],
     containers: [],
     ports: [
-      { group: 'IN', count: 1, direction: 'IN', medium: '전원', namePattern: 'IN' },
-      { group: 'OUT', count: 1, direction: 'OUT', medium: '전원', namePattern: 'OUT' },
+      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
+      { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
     ],
     links: [{ fromGroup: 'IN', toGroup: 'OUT', mapping: 'all' }],
   },
@@ -126,7 +126,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -140,7 +140,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -154,7 +154,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -168,7 +168,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -183,7 +183,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -197,7 +197,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -211,7 +211,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -226,7 +226,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -240,7 +240,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -255,7 +255,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -269,7 +269,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -283,7 +283,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -297,7 +297,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -311,7 +311,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -325,7 +325,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -339,7 +339,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -354,7 +354,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -368,7 +368,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -382,7 +382,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: '네트워크', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
     links: [],
   },
@@ -435,3 +435,24 @@ export const SEED_CABLE_GROUPS = [
     sortOrder: 5,
   },
 ] as const;
+
+/** 구 MaterialCategory.CABLE 17종 — 레거시 groupName을 CableGroup.key 로 매핑 */
+export const SEED_CABLE_CATEGORIES: { groupKey: string; name: string; sortOrder: number }[] = [
+  { groupKey: 'power',   name: 'F-CV 전력케이블',      sortOrder: 1 },
+  { groupKey: 'power',   name: '난연/내화케이블',       sortOrder: 2 },
+  { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3 },
+  { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4 },
+  { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5 },
+  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 6 },
+  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 7 },
+  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8 },
+  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 9 },
+  { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10 },
+  { groupKey: 'ground',  name: '나동연선',              sortOrder: 11 },
+  { groupKey: 'power',   name: '제어케이블 CVV-S',      sortOrder: 12 },
+  { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13 },
+  { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14 },
+  { groupKey: 'control', name: '동축케이블',            sortOrder: 15 },
+  { groupKey: 'network', name: '챔프케이블',            sortOrder: 16 },
+  { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17 },
+];

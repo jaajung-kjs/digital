@@ -40,7 +40,7 @@ export interface PortTemplate {
   group: string; // 타입 내 유일 (예: 'A', 'IN')
   count: number; // 기본 수량 — 인스턴스에서 오버라이드 가능(12C/24C 광슬롯)
   direction: Direction;
-  medium: string; // CableGroup 이름과 대응하는 자유 문자열 ('광'|'전원'|...)
+  medium: string; // CableGroup.key 와 대응하는 안정 키 (e.g. 'fiber' | 'power' | 'network' | 'control' | 'ground')
   namePattern: string; // '{n}' 치환 (예: '코어 {n}')
 }
 

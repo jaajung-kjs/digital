@@ -1,4 +1,4 @@
-import { SEED_ASSET_TYPES, SEED_CATEGORIES, SEED_CABLE_GROUPS } from '@twin/core';
+import { SEED_ASSET_TYPES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES } from '@twin/core';
 import { PrismaClient } from '../../src/generated/next-client/index.js';
 
 const prisma = new PrismaClient();
@@ -61,6 +61,15 @@ async function main() {
     });
   }
 
+  for (const cat of SEED_CABLE_CATEGORIES) {
+    const group = await prisma.cableGroup.findUniqueOrThrow({ where: { key: cat.groupKey } });
+    await prisma.cableCategory.upsert({
+      where: { groupId_name: { groupId: group.id, name: cat.name } },
+      update: { sortOrder: cat.sortOrder },
+      create: { groupId: group.id, name: cat.name, sortOrder: cat.sortOrder },
+    });
+  }
+
   const counts = {
     categories: await prisma.assetCategory.count(),
     types: await prisma.assetType.count(),
@@ -68,6 +77,7 @@ async function main() {
     portTemplates: await prisma.assetPortTemplate.count(),
     linkRules: await prisma.assetLinkRule.count(),
     cableGroups: await prisma.cableGroup.count(),
+    cableCategories: await prisma.cableCategory.count(),
   };
   console.log('[seed:next]', JSON.stringify(counts));
 }

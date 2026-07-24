@@ -16,11 +16,15 @@ describe('코어 순수성 가드레일', () => {
   });
 
   it('src 에서 node 내장/외부 모듈 import 금지 (테스트 파일 제외)', () => {
+    const builtins = ['fs', 'path', 'os', 'child_process', 'crypto', 'http', 'https', 'url', 'util', 'stream', 'zlib', 'net'];
+    // bare builtin: from 'fs' or from "fs" (word-boundary: no more chars after name before quote)
+    const bareBuiltinPattern = builtins.map((m) => `${m}['"]`).join('|');
+    const forbidden = new RegExp(`from ['"](?:node:|@prisma|express|axios|${bareBuiltinPattern})`);
     const srcDir = new URL('.', import.meta.url).pathname;
     const files = walk(srcDir).filter((f) => f.endsWith('.ts') && !f.includes('.test.'));
     for (const f of files) {
       const code = readFileSync(f, 'utf8');
-      expect(code, f).not.toMatch(/from ['"](node:|@prisma|express|axios)/);
+      expect(code, f).not.toMatch(forbidden);
     }
   });
 });

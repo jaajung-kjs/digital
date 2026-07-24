@@ -35,6 +35,7 @@ export function validateSlotPlacement(args: {
 
   if (spec.slotCount === null) return null; // 자유형
 
+  if (args.slotSpan < 1) return 'out-of-range';
   if (args.slotIndex === null) return 'out-of-range';
   if (args.slotSpan > 1 && !spec.allowSpan) return 'span-not-allowed';
   if (args.slotIndex < 0 || args.slotIndex + args.slotSpan > spec.slotCount) return 'out-of-range';
