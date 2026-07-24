@@ -23,6 +23,7 @@ describe('validateConnection', () => {
 
   it('이미 점유된 포트 → port-occupied', () => {
     expect(validateConnection(port('p1'), port('p2'), new Set(['p2']))).toBe('port-occupied');
+    expect(validateConnection(port('p1'), port('p2'), new Set(['p1']))).toBe('port-occupied');
   });
 
   it('매체 불일치 → medium-mismatch', () => {
