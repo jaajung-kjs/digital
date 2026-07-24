@@ -63,7 +63,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     categoryKey: '전원',
     sortOrder: 30,
     placement: { placeable: true, defaultWidth: 40, defaultHeight: 60 },
-    labor: { laborType: '통신내선공', installHours: 2.0, removeHours: 1.0, relocateHours: 2.0 },
+    labor: NO_LABOR,
     fields: [],
     containers: [
       { key: 'main', name: '회로', slotCount: null, allowSpan: false, accepts: { typeKeys: ['FEEDER'] } },
