@@ -4,7 +4,7 @@ import type { AssetTypeSpec, PortRef } from './types.js';
 export function instantiatePorts(
   spec: AssetTypeSpec,
   assetId: string,
-  countOverrides: Record<string, number> = {},
+  countOverrides: Partial<Record<string, number>> = {},
 ): Omit<PortRef, 'id'>[] {
   return spec.ports.flatMap((tpl) => {
     const count = countOverrides[tpl.group] ?? tpl.count;
