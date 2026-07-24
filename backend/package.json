@@ -16,7 +16,9 @@
     "db:migrate:prod": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "seed:conn": "psql \"$DATABASE_URL\" -f prisma/seed-conn-cases.sql"
+    "seed:conn": "psql \"$DATABASE_URL\" -f prisma/seed-conn-cases.sql",
+    "db:next:migrate": "prisma migrate dev --schema prisma/next/schema.prisma",
+    "db:next:seed": "tsx prisma/next/seed.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

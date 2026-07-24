@@ -51,6 +51,9 @@ uploads/*
 prisma/*.db
 prisma/*.db-journal
 
+# Generated Prisma clients (next-client staged client)
+backend/src/generated/
+
 # Worktrees
 .worktrees/
 
