@@ -65,6 +65,7 @@ describe('buildTraceGraph + traceFrom', () => {
       ports: [...a.ports, ...s.ports, ...b.ports],
       cables,
     });
+    expect(graph.ports.get('slot1:A3')?.name).toBe('성단 3');
     const hops = traceFrom(graph, 'devA:P1');
     expect(hops).toEqual([
       { kind: 'cable', cableId: 'c1', fromPortId: 'devA:P1', toPortId: 'slot1:A3' },

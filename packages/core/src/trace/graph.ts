@@ -85,7 +85,8 @@ export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
   const visited = new Set<string>([startPortId]);
   const queue = [startPortId];
   while (queue.length > 0) {
-    const cur = queue.shift()!;
+    const cur = queue.shift();
+    if (cur === undefined) break;
     for (const e of graph.edges.get(cur) ?? []) {
       if (visited.has(e.toPortId)) continue;
       visited.add(e.toPortId);
