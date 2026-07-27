@@ -80,7 +80,7 @@ async function main() {
       cableGroups: await tx.cableGroup.count(),
       cableCategories: await tx.cableCategory.count(),
     };
-  });
+  }, { timeout: 30_000 });
   console.log('[seed:next]', JSON.stringify(counts));
 }
 
