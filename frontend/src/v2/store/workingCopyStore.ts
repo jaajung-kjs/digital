@@ -51,15 +51,18 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       load: async (substationId) => {
         const t = v2WorkingCopyStore.temporal.getState();
         t.pause();
-        const wc = await fetchWorkingcopy(substationId);
-        set({
-          substationId,
-          saved: { substation: wc.substation, floors: wc.floors, assets: wc.assets, maintenanceLogs: wc.maintenanceLogs, inspectionLogs: wc.inspectionLogs },
-          overlays: emptyOverlays(),
-          baseVersions: Object.fromEntries(wc.assets.map((a) => [a.id, a.updatedAt])),
-        });
-        t.clear();
-        t.resume();
+        try {
+          const wc = await fetchWorkingcopy(substationId);
+          set({
+            substationId,
+            saved: { substation: wc.substation, floors: wc.floors, assets: wc.assets, maintenanceLogs: wc.maintenanceLogs, inspectionLogs: wc.inspectionLogs },
+            overlays: emptyOverlays(),
+            baseVersions: Object.fromEntries(wc.assets.map((a) => [a.id, a.updatedAt])),
+          });
+          t.clear();
+        } finally {
+          t.resume();
+        }
       },
 
       revert: () => {
@@ -74,20 +77,19 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       stageAssetUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, assets: stageUpdate(s.overlays.assets, id, patch) } })),
 
       stageAssetDeleteCascade: (id) => {
-        const s = get();
-        const all = s.effectiveAssets();
-        const targets = new Set<string>([id]);
-        let grew = true;
-        while (grew) {
-          grew = false;
-          for (const a of all) {
-            if (a.parentAssetId && targets.has(a.parentAssetId) && !targets.has(a.id)) {
-              targets.add(a.id);
-              grew = true;
+        set((st) => {
+          const all = mergeEffective(st.saved.assets, st.overlays.assets);
+          const targets = new Set<string>([id]);
+          let grew = true;
+          while (grew) {
+            grew = false;
+            for (const a of all) {
+              if (a.parentAssetId && targets.has(a.parentAssetId) && !targets.has(a.id)) {
+                targets.add(a.id);
+                grew = true;
+              }
             }
           }
-        }
-        set((st) => {
           let assets = st.overlays.assets;
           let maintenance = st.overlays.maintenance;
           let inspections = st.overlays.inspections;

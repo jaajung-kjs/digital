@@ -25,9 +25,22 @@ vi.mock('../../api', () => {
     maintenanceLogs: [{ id: 'm-1', assetId: 'a-mod', occurredAt: '2026-07-01T00:00:00.000Z', content: '고장', action: null, updatedAt: '2026-07-27T00:00:00.000Z' }],
     inspectionLogs: [],
   };
-  return { fetchWorkingcopy: async (_id: string) => wc };
+  let failNext = false;
+  return {
+    fetchWorkingcopy: async (_id: string) => {
+      if (failNext) {
+        failNext = false;
+        throw new Error('network fail');
+      }
+      return wc;
+    },
+    __setFailNext: (v: boolean) => {
+      failNext = v;
+    },
+  };
 });
 
+import * as apiMock from '../../api';
 import { useV2WorkingCopy } from '../workingCopyStore';
 
 describe('useV2WorkingCopy', () => {
@@ -91,6 +104,18 @@ describe('useV2WorkingCopy', () => {
   it('undo: temporal 로 overlay 되돌리기', () => {
     const s = useV2WorkingCopy.getState();
     s.stageAssetUpdate('a-rack', { name: 'x' });
+    useV2WorkingCopy.temporal.getState().undo();
+    expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
+  });
+
+  it('load 실패(fetch reject) 후에도 stage→undo 동작 (temporal resume 보장)', async () => {
+    (apiMock as unknown as { __setFailNext: (v: boolean) => void }).__setFailNext(true);
+    await expect(useV2WorkingCopy.getState().load('sub-1')).rejects.toThrow('network fail');
+    // 기존 상태(성공한 beforeEach load)는 유지되고, temporal은 resume 되어야 한다
+    const s = useV2WorkingCopy.getState();
+    expect(s.effectiveAssets()).toHaveLength(2);
+    s.stageAssetUpdate('a-rack', { name: '실패후수정' });
+    expect(useV2WorkingCopy.getState().dirtyCount()).toBe(1);
     useV2WorkingCopy.temporal.getState().undo();
     expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
   });
