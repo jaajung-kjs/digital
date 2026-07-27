@@ -8,6 +8,7 @@ const app = makeApp();
 const uniq = `t4-cb-${Date.now()}`;
 const admin = { Authorization: authHeader('ADMIN') };
 let subId: string, devAId: string, devBId: string, fiberCatId: string, powerCatId: string;
+let sub2Id: string, otherAssetId: string; // 타 변전소 픽스처 (INVALID_PORT / INVALID_CABLE 용)
 
 const commit = (payload: unknown) => request(app).put(`/api/v2/substations/${subId}/commit`).set(admin).send(payload as object);
 const portOf = async (assetId: string, index: number) =>
@@ -33,12 +34,21 @@ beforeAll(async () => {
       { id: devBId, name: `${uniq}-slotB`, typeId: slotType.id },
     ] },
   }).expect(200);
+  // 두 번째 변전소 + 자산 (타 변전소 포트/케이블 검증용)
+  const sub2 = await nextDb.substation.create({ data: { name: `${uniq}-ss2`, branchId: br.id } });
+  sub2Id = sub2.id;
+  otherAssetId = randomUUID();
+  await request(app)
+    .put(`/api/v2/substations/${sub2Id}/commit`)
+    .set(admin)
+    .send({ assets: { creates: [{ id: otherAssetId, name: `${uniq}-slotX`, typeId: slotType.id }] } })
+    .expect(200);
 });
 
 afterAll(async () => {
-  await nextDb.cable.deleteMany({ where: { substationId: subId } });
-  await nextDb.asset.deleteMany({ where: { substationId: subId } });
-  await nextDb.substation.deleteMany({ where: { id: subId } });
+  await nextDb.cable.deleteMany({ where: { substationId: { in: [subId, sub2Id] } } });
+  await nextDb.asset.deleteMany({ where: { substationId: { in: [subId, sub2Id] } } });
+  await nextDb.substation.deleteMany({ where: { id: { in: [subId, sub2Id] } } });
   await nextDb.branch.deleteMany({ where: { name: { startsWith: uniq } } });
   await nextDb.headquarters.deleteMany({ where: { name: { startsWith: uniq } } });
   await nextDb.$disconnect();
@@ -92,6 +102,7 @@ describe('cables in commit + workingcopy', () => {
     expect(await nextDb.cable.count({ where: { id: cable.id } })).toBe(0);
   });
 
+  // 주의: 이 테스트는 devAId 자산을 삭제(파괴)한다 — 이후 테스트는 devA 포트를 쓸 수 없다.
   it('케이블 물린 자산 삭제(케이블 미포함) → 409 CABLE_ATTACHED; 함께 삭제 → 200', async () => {
     const cid = randomUUID();
     await commit({
@@ -122,5 +133,35 @@ describe('cables in commit + workingcopy', () => {
       cables: { creates: [{ id: cid, aPortId: await portOf(newId, 7), bPortId: await portOf(devBId, 7), categoryId: fiberCatId }] },
     }).expect(200);
     expect(await nextDb.cable.count({ where: { id: cid } })).toBe(1);
+  });
+
+  it('타 변전소 자산의 포트로 생성 → 422 INVALID_PORT', async () => {
+    const res = await commit({
+      cables: { creates: [{ id: randomUUID(), aPortId: await portOf(devBId, 9), bPortId: await portOf(otherAssetId, 9), categoryId: fiberCatId }] },
+    }).expect(422);
+    expect(res.body.error).toBe('INVALID_PORT');
+  });
+
+  it('미존재 categoryId로 생성 → 422 INVALID_CABLE_CATEGORY', async () => {
+    const res = await commit({
+      cables: { creates: [{ id: randomUUID(), aPortId: await portOf(devBId, 10), bPortId: await portOf(devBId, 11), categoryId: randomUUID() }] },
+    }).expect(422);
+    expect(res.body.error).toBe('INVALID_CABLE_CATEGORY');
+  });
+
+  it('타 변전소 케이블 삭제 → 422 INVALID_CABLE', async () => {
+    // (미존재 id 삭제는 checkVersions OCC 가 먼저 409 CONFLICT 로 잡는다 — INVALID_CABLE 의 도달 경로는 타 변전소 케이블)
+    const cid = randomUUID();
+    await request(app)
+      .put(`/api/v2/substations/${sub2Id}/commit`)
+      .set(admin)
+      .send({ cables: { creates: [{ id: cid, aPortId: await portOf(otherAssetId, 1), bPortId: await portOf(otherAssetId, 2), categoryId: fiberCatId }] } })
+      .expect(200);
+    const cbl = await nextDb.cable.findUniqueOrThrow({ where: { id: cid } });
+    const res = await commit({
+      cables: { deletes: [cid] },
+      baseVersions: { [cid]: cbl.updatedAt.toISOString() },
+    }).expect(422);
+    expect(res.body.error).toBe('INVALID_CABLE');
   });
 });

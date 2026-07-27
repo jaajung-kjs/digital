@@ -22,7 +22,7 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
     const assets = payload.assets ?? {};
     const cables = payload.cables ?? {};
     await applyCableDeletes(tx, substationId, cables.deletes ?? []);
-    await assertNoAttachedCables(tx, assets.deletes ?? [], cables.deletes ?? []);
+    await assertNoAttachedCables(tx, assets.deletes ?? []);
     await applyDeletes(tx, substationId, assets.deletes ?? []);
     for (const u of assets.updates ?? []) await applyUpdate(tx, substationId, u);
     for (const c of orderCreates(assets.creates ?? [])) await applyCreate(tx, substationId, c);
@@ -283,15 +283,11 @@ async function applyCableDeletes(tx: Tx, substationId: string, ids: string[]): P
   }
 }
 
-async function assertNoAttachedCables(tx: Tx, deletedAssetIds: string[], cableDeletes: string[]): Promise<void> {
+async function assertNoAttachedCables(tx: Tx, deletedAssetIds: string[]): Promise<void> {
   if (deletedAssetIds.length === 0) return;
+  // cables.deletes 는 이미 이 tx 에서 적용된 뒤 → 여기서 걸리는 케이블 = payload 에 포함되지 않은 것.
   const remaining = await tx.cable.findMany({
-    where: {
-      AND: [
-        { OR: [{ aPort: { assetId: { in: deletedAssetIds } } }, { bPort: { assetId: { in: deletedAssetIds } } }] },
-        ...(cableDeletes.length > 0 ? [{ id: { notIn: cableDeletes } }] : []),
-      ],
-    },
+    where: { OR: [{ aPort: { assetId: { in: deletedAssetIds } } }, { bPort: { assetId: { in: deletedAssetIds } } }] },
     select: { id: true },
   });
   if (remaining.length > 0) {
