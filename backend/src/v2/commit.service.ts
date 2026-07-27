@@ -208,7 +208,10 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
 
   const m = records.maintenance;
   if (m) {
-    for (const id of m.deletes ?? []) await tx.maintenanceLog.deleteMany({ where: { id, asset: { substationId } } });
+    for (const id of m.deletes ?? []) {
+      const del = await tx.maintenanceLog.deleteMany({ where: { id, asset: { substationId } } });
+      if (del.count === 0) throw new HttpError(422, 'INVALID_RECORD', '삭제 대상 이력이 유효하지 않습니다');
+    }
     for (const u of m.updates ?? []) {
       const row = await tx.maintenanceLog.findUnique({ where: { id: u.id }, include: { asset: { select: { substationId: true } } } });
       if (!row || row.asset.substationId !== substationId) throw new HttpError(422, 'INVALID_RECORD', '수정 대상 이력이 유효하지 않습니다');
@@ -231,7 +234,10 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
 
   const i = records.inspections;
   if (i) {
-    for (const id of i.deletes ?? []) await tx.inspectionLog.deleteMany({ where: { id, asset: { substationId } } });
+    for (const id of i.deletes ?? []) {
+      const del = await tx.inspectionLog.deleteMany({ where: { id, asset: { substationId } } });
+      if (del.count === 0) throw new HttpError(422, 'INVALID_RECORD', '삭제 대상 점검이력이 유효하지 않습니다');
+    }
     for (const u of i.updates ?? []) {
       const row = await tx.inspectionLog.findUnique({ where: { id: u.id }, include: { asset: { select: { substationId: true } } } });
       if (!row || row.asset.substationId !== substationId) throw new HttpError(422, 'INVALID_RECORD', '수정 대상 점검이력이 유효하지 않습니다');
