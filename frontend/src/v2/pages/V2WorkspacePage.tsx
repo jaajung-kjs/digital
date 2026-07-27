@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { OrgTreePanel } from '../components/OrgTreePanel';
+import { AssetDetailPanel } from '../components/AssetDetailPanel';
 import { StatusTable } from '../components/StatusTable';
 import { useV2Catalog, useV2NodeAssets, useTypesById } from '../hooks';
 import type { FlatOrgNode } from '../orgTreeSelectors';
@@ -70,6 +71,12 @@ export default function V2WorkspacePage() {
   const rows = selected?.kind === 'substation' ? substationRows : nodeRows;
   const nodeScope = isNodeScope;
 
+  // 상세 패널: 변전소 스코프 + selectedAssetId 가 effective assets 에 있을 때만
+  const showDetailPanel =
+    selected?.kind === 'substation' &&
+    selectedAssetId != null &&
+    mergeEffective(saved.assets, overlays.assets).some((a) => a.id === selectedAssetId);
+
   return (
     <div className="flex h-full min-h-0">
       <aside className="w-64 shrink-0 border-r border-line bg-sidebar" data-testid="v2-org-tree">
@@ -84,13 +91,21 @@ export default function V2WorkspacePage() {
             <div className="border-b border-line px-4 py-2 text-sm font-semibold text-content" data-testid="v2-selected">
               {selected.name}
             </div>
-            <div className="min-h-0 flex-1 overflow-auto">
-              <StatusTable
-                rows={rows}
-                selectedId={selectedAssetId}
-                onSelectAsset={setSelectedAssetId}
-                nodeScope={nodeScope}
-              />
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <div className="min-w-0 flex-1 overflow-auto">
+                <StatusTable
+                  rows={rows}
+                  selectedId={selectedAssetId}
+                  onSelectAsset={setSelectedAssetId}
+                  nodeScope={nodeScope}
+                />
+              </div>
+              {showDetailPanel && (
+                <AssetDetailPanel
+                  assetId={selectedAssetId!}
+                  onSelectAsset={setSelectedAssetId}
+                />
+              )}
             </div>
           </div>
         )}
