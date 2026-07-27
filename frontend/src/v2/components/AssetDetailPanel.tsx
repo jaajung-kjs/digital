@@ -1,12 +1,15 @@
 import { useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
 import type { BadgeStatus } from '../../components/ui/Badge';
-import { Badge, DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../components/ui';
+import { Badge, Button, DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../components/ui';
 import { useV2Catalog, useTypesById } from '../hooks';
+import { freeSlots } from '../newAsset';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2ContainerSpec } from '../types';
 import { deriveDetailSections } from './detailSections';
+import { AddAssetModal } from './AddAssetModal';
 
 // ── 상태 배지 tone → BadgeStatus ─────────────────────────────────────────────
 function toneToStatus(tone: string): BadgeStatus {
@@ -38,10 +41,11 @@ function locationText(
 interface SlotGridProps {
   spec: V2ContainerSpec;
   children: V2Asset[];
+  selectedChildId: string | null;
   onSelectChild: (id: string) => void;
 }
 
-function SlotGrid({ spec, children, onSelectChild }: SlotGridProps) {
+function SlotGrid({ spec, children, selectedChildId, onSelectChild }: SlotGridProps) {
   const slotCount = spec.slotCount!;
   // 슬롯 인덱스(0-based) → 자식 자산 매핑
   const bySlot = new Map<number, V2Asset>();
@@ -54,11 +58,18 @@ function SlotGrid({ spec, children, onSelectChild }: SlotGridProps) {
   while (idx < slotCount) {
     const child = bySlot.get(idx);
     const span = child?.slotSpan ?? 1;
+    const isSelected = child != null && child.id === selectedChildId;
     cells.push(
       <div
         key={idx}
         style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}
-        className={`min-w-0 truncate rounded border px-1 py-0.5 text-xs ${child ? 'cursor-pointer border-line bg-surface-2 text-content hover:bg-surface' : 'border-line text-content-faint'}`}
+        className={`min-w-0 truncate rounded border px-1 py-0.5 text-xs ${
+          isSelected
+            ? 'cursor-pointer border-primary bg-primary/10 text-content'
+            : child
+              ? 'cursor-pointer border-line bg-surface-2 text-content hover:bg-surface'
+              : 'border-line text-content-faint'
+        }`}
         title={child?.name}
         onClick={() => child && onSelectChild(child.id)}
       >
@@ -107,6 +118,12 @@ function FreeChildList({ children, onSelectChild }: FreeChildListProps) {
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'info' | 'inspections' | 'logs';
 
+interface AddModalContext {
+  parentAssetId: string;
+  spec: V2ContainerSpec;
+  siblings: { slotIndex: number | null; slotSpan: number | null }[];
+}
+
 // ── 메인 패널 ─────────────────────────────────────────────────────────────────
 interface AssetDetailPanelProps {
   assetId: string;
@@ -115,8 +132,11 @@ interface AssetDetailPanelProps {
 
 export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelProps) {
   const [tab, setTab] = useState<Tab>('info');
+  const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
   // ── 반응형 슬라이스 구독 (effectiveAssets() 함수 ref 구독 금지)
+  const substationId = useV2WorkingCopy((s) => s.substationId) ?? '';
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
 
@@ -160,6 +180,23 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
   if (!asset) return null;
 
   const location = locationText(asset, floorNameById, assetNameById);
+
+  // 하위 자산 총 수 (cascade 삭제 confirm용)
+  function countDescendants(rootId: string): number {
+    const directChildren = effectiveAssets.filter((a) => a.parentAssetId === rootId);
+    return directChildren.reduce((acc, child) => acc + 1 + countDescendants(child.id), 0);
+  }
+  const descendantCount = countDescendants(assetId);
+
+  // ── 삭제 핸들러 ────────────────────────────────────────────────────────────
+  function handleDelete() {
+    const msg =
+      descendantCount > 0
+        ? `${descendantCount}개 하위 자산이 함께 삭제됩니다. 계속하시겠습니까?`
+        : '이 자산을 삭제하시겠습니까?';
+    if (!window.confirm(msg)) return;
+    useV2WorkingCopy.getState().stageAssetDeleteCascade(assetId);
+  }
 
   // ── 인라인 편집 핸들러 ─────────────────────────────────────────────────────
   function handleNameCommit(value: string) {
@@ -212,7 +249,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
           <>
             {/* 기본 정보 카드 */}
             <DetailCard>
-              <DetailCardHeader title={type?.name ?? '—'} />
+              <DetailCardHeader title={type?.name ?? '—'} onDelete={handleDelete} />
 
               {/* 이름 */}
               <DetailRow label="이름">
@@ -322,18 +359,77 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
                 <p className="text-xs font-semibold text-content-muted">수용</p>
                 {sections.containerSpecs.map((spec) => {
                   const specChildren = childrenBySpecKey.get(spec.key) ?? [];
+                  const selectedChild = selectedChildId != null
+                    ? specChildren.find((c) => c.id === selectedChildId) ?? null
+                    : null;
+                  const freeSlotsForSpec = spec.slotCount != null ? freeSlots(spec, specChildren) : [];
+
+                  function handleChildSelect(childId: string) {
+                    setSelectedChildId((prev) => (prev === childId ? null : childId));
+                  }
+
+                  function handleSlotMove(targetSlot: string) {
+                    if (!selectedChildId || targetSlot === '') return;
+                    useV2WorkingCopy.getState().stageAssetUpdate(selectedChildId, {
+                      slotIndex: parseInt(targetSlot, 10),
+                    });
+                    setSelectedChildId(null);
+                  }
+
                   return (
                     <div key={spec.key} className="space-y-1">
-                      <p className="text-xs text-content-muted">
-                        {spec.name}
-                        {spec.slotCount != null && (
-                          <span className="ml-1 text-content-faint">({spec.slotCount}슬롯)</span>
-                        )}
-                      </p>
+                      <div className="flex items-center gap-1">
+                        <p className="flex-1 text-xs text-content-muted">
+                          {spec.name}
+                          {spec.slotCount != null && (
+                            <span className="ml-1 text-content-faint">({spec.slotCount}슬롯)</span>
+                          )}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leftIcon={<Plus size={12} />}
+                          onClick={() => setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren })}
+                        >
+                          추가
+                        </Button>
+                      </div>
                       {spec.slotCount != null ? (
-                        <SlotGrid spec={spec} children={specChildren} onSelectChild={onSelectAsset} />
+                        <SlotGrid
+                          spec={spec}
+                          children={specChildren}
+                          selectedChildId={selectedChildId}
+                          onSelectChild={handleChildSelect}
+                        />
                       ) : (
                         <FreeChildList children={specChildren} onSelectChild={onSelectAsset} />
+                      )}
+                      {/* 슬롯 이동 패널 (고정 슬롯 + 자식 선택 상태) */}
+                      {spec.slotCount != null && selectedChild != null && (
+                        <div className="mt-1 space-y-1 rounded border border-line bg-surface-2 p-2">
+                          <p className="text-xs text-content-muted">
+                            <span className="font-medium text-content">{selectedChild.name}</span> 이동
+                          </p>
+                          {freeSlotsForSpec.length === 0 ? (
+                            <p className="text-xs text-content-faint">빈 슬롯 없음</p>
+                          ) : (
+                            <Select
+                              value=""
+                              className="py-0.5 text-xs"
+                              onChange={(e) => handleSlotMove(e.currentTarget.value)}
+                            >
+                              <option value="">— 빈 슬롯으로 이동 —</option>
+                              {freeSlotsForSpec.map((idx) => (
+                                <option key={idx} value={String(idx)}>
+                                  슬롯 {idx + 1}
+                                </option>
+                              ))}
+                            </Select>
+                          )}
+                          <p className="text-xs text-content-faint">
+                            슬롯 맞교환은 한 번에 한 자산씩, 중간 저장이 필요합니다.
+                          </p>
+                        </div>
                       )}
                     </div>
                   );
@@ -377,6 +473,16 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
           </>
         )}
       </div>
+
+      {/* 자산 추가 모달 (수용 섹션 + 버튼에서 열림) */}
+      {addModalCtx && (
+        <AddAssetModal
+          open={true}
+          onClose={() => setAddModalCtx(null)}
+          substationId={substationId}
+          containerContext={addModalCtx}
+        />
+      )}
     </div>
   );
 }

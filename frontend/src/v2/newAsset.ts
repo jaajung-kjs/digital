@@ -1,0 +1,61 @@
+import type { V2Asset, V2AssetType, V2ContainerSpec } from './types';
+
+export function acceptedTypes(
+  spec: V2ContainerSpec,
+  types: V2AssetType[],
+  categoryKeyById: Map<string, string>,
+): V2AssetType[] {
+  const { categoryKeys, typeKeys } = spec.accepts;
+  if (!categoryKeys && !typeKeys) return types;
+  return types.filter(
+    (t) =>
+      (categoryKeys?.includes(categoryKeyById.get(t.categoryId) ?? '') ?? false) ||
+      (typeKeys?.includes(t.key) ?? false),
+  );
+}
+
+export function freeSlots(
+  spec: V2ContainerSpec,
+  siblings: { slotIndex: number | null; slotSpan: number | null }[],
+): number[] {
+  if (spec.slotCount === null) return [];
+  const occupied = new Set<number>();
+  for (const s of siblings) {
+    if (s.slotIndex == null) continue;
+    const span = s.slotSpan ?? 1;
+    for (let i = s.slotIndex; i < s.slotIndex + span; i += 1) occupied.add(i);
+  }
+  return Array.from({ length: spec.slotCount }, (_, i) => i).filter((i) => !occupied.has(i));
+}
+
+export function makeNewAsset(args: {
+  type: V2AssetType;
+  name: string;
+  substationId: string;
+  placement?: {
+    parentAssetId: string;
+    containerKey: string;
+    slotIndex: number | null;
+    slotSpan: number;
+  };
+}): V2Asset {
+  return {
+    id: crypto.randomUUID(),
+    name: args.name,
+    typeId: args.type.id,
+    substationId: args.substationId,
+    status: 'normal',
+    floorId: null,
+    x: null,
+    y: null,
+    width: null,
+    height: null,
+    parentAssetId: args.placement?.parentAssetId ?? null,
+    containerKey: args.placement?.containerKey ?? null,
+    slotIndex: args.placement?.slotIndex ?? null,
+    slotSpan: args.placement ? args.placement.slotSpan : null,
+    fieldValues: {},
+    updatedAt: '',
+    ports: [],
+  };
+}

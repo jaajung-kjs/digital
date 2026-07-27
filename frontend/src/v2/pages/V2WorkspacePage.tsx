@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
+import { Button } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/AssetDetailPanel';
+import { AddAssetModal } from '../components/AddAssetModal';
 import { StatusTable } from '../components/StatusTable';
 import { useV2Catalog, useV2NodeAssets, useTypesById } from '../hooks';
 import type { FlatOrgNode } from '../orgTreeSelectors';
@@ -11,6 +14,7 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 export default function V2WorkspacePage() {
   const [selected, setSelected] = useState<FlatOrgNode | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   const handleSelect = (n: FlatOrgNode) => {
     setSelected(n);
@@ -92,7 +96,20 @@ export default function V2WorkspacePage() {
               {selected.name}
             </div>
             <div className="flex min-h-0 flex-1 overflow-hidden">
-              <div className="min-w-0 flex-1 overflow-auto">
+              <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+                {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
+                {selected.kind === 'substation' && substationId === selected.id && (
+                  <div className="shrink-0 border-b border-line px-3 py-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={<Plus size={14} />}
+                      onClick={() => setAddModalOpen(true)}
+                    >
+                      자산 추가
+                    </Button>
+                  </div>
+                )}
                 <StatusTable
                   rows={rows}
                   selectedId={selectedAssetId}
@@ -110,6 +127,15 @@ export default function V2WorkspacePage() {
           </div>
         )}
       </main>
+
+      {/* 자산 추가 모달 (미배치 추가) */}
+      {substationId != null && (
+        <AddAssetModal
+          open={addModalOpen}
+          onClose={() => setAddModalOpen(false)}
+          substationId={substationId}
+        />
+      )}
     </div>
   );
 }
