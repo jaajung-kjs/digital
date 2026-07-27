@@ -29,7 +29,7 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
 
 async function checkVersions(tx: Tx, payload: CommitPayload): Promise<void> {
   const base = payload.baseVersions ?? {};
-  const ids = [...(payload.assets?.updates ?? []).map((u) => u.id), ...(payload.assets?.deletes ?? [])];
+  const ids = [...new Set([...(payload.assets?.updates ?? []).map((u) => u.id), ...(payload.assets?.deletes ?? [])])];
   if (ids.length === 0) return;
   const rows = await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } });
   const server = new Map(rows.map((r) => [r.id, r.updatedAt.toISOString()]));
