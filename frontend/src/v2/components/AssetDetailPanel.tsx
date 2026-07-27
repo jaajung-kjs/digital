@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
 import type { BadgeStatus } from '../../components/ui/Badge';
@@ -134,6 +134,12 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
   const [tab, setTab] = useState<Tab>('info');
   const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+
+  // 자산 전환 시 로컬 상태 리셋 (stale 자식 선택/모달 컨텍스트 방지)
+  useEffect(() => {
+    setSelectedChildId(null);
+    setAddModalCtx(null);
+  }, [assetId]);
 
   // ── 반응형 슬라이스 구독 (effectiveAssets() 함수 ref 구독 금지)
   const substationId = useV2WorkingCopy((s) => s.substationId) ?? '';
