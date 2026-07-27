@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '../../components/ui';
 import type { V2Conflict } from '../types';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -9,11 +10,18 @@ interface ConflictDialogProps {
 }
 
 export function ConflictDialog({ conflicts, substationId, onClear }: ConflictDialogProps) {
+  const [reloading, setReloading] = useState(false);
+
   if (conflicts.length === 0) return null;
 
-  function handleRefresh() {
-    void useV2WorkingCopy.getState().load(substationId);
-    onClear();
+  async function handleRefresh() {
+    setReloading(true);
+    try {
+      await useV2WorkingCopy.getState().load(substationId);
+      onClear();
+    } finally {
+      setReloading(false);
+    }
   }
 
   const reasonLabel = (reason: V2Conflict['reason']) =>
@@ -35,8 +43,8 @@ export function ConflictDialog({ conflicts, substationId, onClear }: ConflictDia
           ))}
         </ul>
         <div className="flex justify-end">
-          <Button size="sm" onClick={handleRefresh}>
-            서버 기준으로 새로고침
+          <Button size="sm" disabled={reloading} onClick={() => void handleRefresh()}>
+            {reloading ? '새로고침 중…' : '서버 기준으로 새로고침'}
           </Button>
         </div>
       </div>

@@ -24,6 +24,11 @@ interface RecordsTabProps {
 
 type AnyRecord = V2MaintenanceLog | V2InspectionLog;
 
+/** 좁힌 필드 접근자 — dateField/extraField 로 파라미터화된 단일 컴포넌트에서 as any 남용 방지 */
+function fieldOf(r: AnyRecord, k: 'occurredAt' | 'inspectedAt' | 'action' | 'result'): string | null {
+  return (r as unknown as Record<string, unknown>)[k] as string | null;
+}
+
 // ── 행 편집 상태 ──────────────────────────────────────────────────────────────
 interface EditState {
   id: string;
@@ -55,7 +60,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
   }, [kind, saved, overlays, assetId]);
 
   const sorted = useMemo(
-    () => [...records].sort((a, b) => (b as any)[dateField].localeCompare((a as any)[dateField])),
+    () => [...records].sort((a, b) => (fieldOf(b, dateField) ?? '').localeCompare(fieldOf(a, dateField) ?? '')),
     [records, dateField],
   );
 
@@ -108,9 +113,9 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
   function handleEditStart(record: AnyRecord) {
     setEditState({
       id: record.id,
-      date: (record as any)[dateField] as string,
+      date: fieldOf(record, dateField) ?? '',
       content: record.content,
-      extra: ((record as any)[extraField] as string | null) ?? '',
+      extra: fieldOf(record, extraField) ?? '',
     });
   }
 
@@ -166,7 +171,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
               className="py-0.5 text-sm"
               placeholder="내용 입력"
               onChange={(e) => setAddState((s) => ({ ...s, content: e.currentTarget.value }))}
-              onKeyDown={(e) => { if (e.code === 'Enter') handleAdd(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
             />
           </DetailRow>
           <DetailRow label={extraLabel}>
@@ -175,7 +180,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
               className="py-0.5 text-sm"
               placeholder="(선택)"
               onChange={(e) => setAddState((s) => ({ ...s, extra: e.currentTarget.value }))}
-              onKeyDown={(e) => { if (e.code === 'Enter') handleAdd(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
             />
           </DetailRow>
           <div className="mt-2 flex justify-end">
@@ -197,8 +202,8 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
 
       {sorted.map((record) => {
         const isEditing = editState?.id === record.id;
-        const dateVal = (record as any)[dateField] as string;
-        const extraVal = ((record as any)[extraField] as string | null) ?? '';
+        const dateVal = fieldOf(record, dateField) ?? '';
+        const extraVal = fieldOf(record, extraField) ?? '';
 
         if (isEditing) {
           return (
@@ -216,7 +221,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
                   value={editState.content}
                   className="py-0.5 text-sm"
                   onChange={(e) => setEditState((s) => s && ({ ...s, content: e.currentTarget.value }))}
-                  onKeyDown={(e) => { if (e.code === 'Enter') handleEditCommit(); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleEditCommit(); }}
                 />
               </DetailRow>
               <DetailRow label={extraLabel}>
@@ -224,7 +229,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
                   value={editState.extra}
                   className="py-0.5 text-sm"
                   onChange={(e) => setEditState((s) => s && ({ ...s, extra: e.currentTarget.value }))}
-                  onKeyDown={(e) => { if (e.code === 'Enter') handleEditCommit(); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleEditCommit(); }}
                 />
               </DetailRow>
               <div className="mt-2 flex justify-end gap-1">

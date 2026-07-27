@@ -31,10 +31,10 @@ export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
     <div className="shrink-0 flex items-center gap-2 border-t border-line bg-surface px-4 py-2">
       <span className="flex-1 text-xs text-content-muted">변경 {dirty}건</span>
       <Button variant="ghost" size="sm" onClick={handleUndo}>
-        되돌리기(U)
+        실행 취소
       </Button>
       <Button variant="ghost" size="sm" onClick={handleRedo}>
-        다시실행(R)
+        다시 실행
       </Button>
       <Button variant="secondary" size="sm" onClick={handleRevert}>
         되돌리기

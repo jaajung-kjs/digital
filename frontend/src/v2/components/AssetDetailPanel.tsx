@@ -256,7 +256,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
                   className="py-0.5 text-sm"
                   onBlur={(e) => handleNameCommit(e.currentTarget.value)}
                   onKeyDown={(e) => {
-                    if (e.code === 'Enter') {
+                    if (e.key === 'Enter') {
                       e.currentTarget.blur();
                     }
                   }}
@@ -316,7 +316,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
                           className="py-0.5 text-sm"
                           onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
                           onKeyDown={(e) => {
-                            if (e.code === 'Enter') e.currentTarget.blur();
+                            if (e.key === 'Enter') e.currentTarget.blur();
                           }}
                           key={strVal}
                         />
