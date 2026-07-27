@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildStatusRows } from '../statusRows';
+import { emptyOverlay, mergeEffective, stageCreate } from '../store/overlay';
+import type { V2Asset } from '../types';
 
 const types = new Map([
   ['t-rack', { id: 't-rack', name: '랙', categoryId: 'c-1' } as never],
@@ -23,5 +25,22 @@ describe('buildStatusRows (변전소 스코프)', () => {
     expect(rows[0]).toMatchObject({ id: 'a-1', typeName: '랙', location: '1층', installDate: '2026-01-01', manager: '홍길동', lastInspectedAt: '2026-07-01T00:00:00.000Z', status: 'normal' });
     expect(rows[1]).toMatchObject({ id: 'a-2', location: '랙1 · 슬롯 4', lastInspectedAt: null });
     expect(rows[2]).toMatchObject({ id: 'a-3', location: '미배치', status: 'standby', lastInspectedAt: null });
+  });
+
+  it('overlay에 스테이지된 자산 create가 mergeEffective→buildStatusRows 경로로 행에 포함된다', () => {
+    const saved = [rack] as unknown as V2Asset[];
+    const staged = { id: 'tmp-1', name: '신규자산', typeId: 't-rack', status: 'normal', floorId: 'f-1', parentAssetId: null, containerKey: null, slotIndex: null, fieldValues: {} } as unknown as V2Asset;
+    const overlay = stageCreate(emptyOverlay<V2Asset>(), staged.id, staged);
+
+    const rows = buildStatusRows({
+      assets: mergeEffective(saved, overlay),
+      floors: floors as never,
+      typesById: types,
+      categoryNameById: categories,
+      inspectionsByAsset: new Map(),
+    });
+
+    expect(rows.map((r) => r.id)).toEqual(['a-1', 'tmp-1']);
+    expect(rows[1]).toMatchObject({ id: 'tmp-1', name: '신규자산', typeName: '랙', location: '1층', status: 'normal' });
   });
 });

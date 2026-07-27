@@ -4,6 +4,7 @@ import { StatusTable } from '../components/StatusTable';
 import { useV2Catalog, useV2NodeAssets, useTypesById } from '../hooks';
 import type { FlatOrgNode } from '../orgTreeSelectors';
 import { buildStatusRows, type StatusRow } from '../statusRows';
+import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 
 export default function V2WorkspacePage() {
@@ -23,38 +24,28 @@ export default function V2WorkspacePage() {
     [catalog.data],
   );
 
-  // ── 변전소 스코프: working copy effective state ──────────────────────────
+  // ── 변전소 스코프: working copy effective state (반응형 슬라이스 구독) ──
   const substationId = useV2WorkingCopy((s) => s.substationId);
-  const savedFloors = useV2WorkingCopy((s) => s.saved.floors);
-  const savedInspectionLogs = useV2WorkingCopy((s) => s.saved.inspectionLogs);
-
-  const effectiveAssets = useV2WorkingCopy((s) => s.effectiveAssets);
-  const effectiveInspectionsFor = useV2WorkingCopy((s) => s.effectiveInspectionsFor);
+  const saved = useV2WorkingCopy((s) => s.saved);
+  const overlays = useV2WorkingCopy((s) => s.overlays);
 
   const substationRows = useMemo<StatusRow[]>(() => {
     if (selected?.kind !== 'substation' || substationId !== selected.id) return [];
-    const assets = effectiveAssets();
+    const assets = mergeEffective(saved.assets, overlays.assets);
     const inspectionsByAsset = new Map<string, string[]>();
-    for (const log of savedInspectionLogs) {
-      const existing = inspectionsByAsset.get(log.assetId) ?? [];
-      existing.push(log.inspectedAt);
-      inspectionsByAsset.set(log.assetId, existing);
-    }
-    // merge overlay inspections
-    for (const a of assets) {
-      const overlayLogs = effectiveInspectionsFor(a.id);
-      if (overlayLogs.length) {
-        inspectionsByAsset.set(a.id, overlayLogs.map((l) => l.inspectedAt));
-      }
+    for (const log of mergeEffective(saved.inspectionLogs, overlays.inspections)) {
+      const list = inspectionsByAsset.get(log.assetId);
+      if (list) list.push(log.inspectedAt);
+      else inspectionsByAsset.set(log.assetId, [log.inspectedAt]);
     }
     return buildStatusRows({
       assets,
-      floors: savedFloors,
+      floors: saved.floors,
       typesById,
       categoryNameById,
       inspectionsByAsset,
     });
-  }, [selected, substationId, effectiveAssets, savedFloors, savedInspectionLogs, effectiveInspectionsFor, typesById, categoryNameById]);
+  }, [selected, substationId, saved, overlays, typesById, categoryNameById]);
 
   // ── 노드 스코프 (본부/지사): useV2NodeAssets ────────────────────────────
   const isNodeScope = selected != null && selected.kind !== 'substation';

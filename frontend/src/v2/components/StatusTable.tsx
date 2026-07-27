@@ -4,7 +4,7 @@ import { Badge } from '../../components/ui/Badge';
 import type { BadgeStatus } from '../../components/ui/Badge';
 import type { StatusRow } from '../statusRows';
 
-type SortKey = keyof Pick<StatusRow, 'typeName' | 'categoryName' | 'name' | 'location' | 'installDate' | 'manager' | 'lastInspectedAt' | 'status'>;
+type SortKey = keyof Pick<StatusRow, 'typeName' | 'categoryName' | 'name' | 'location' | 'installDate' | 'manager' | 'lastInspectedAt' | 'status' | 'substationName'>;
 
 function toneToStatus(tone: string): BadgeStatus {
   if (tone === 'success') return 'success';
@@ -60,14 +60,14 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
   }
 
   const sorted = [...rows].sort((a, b) => {
-    const av = a[sortKey] as string | null;
-    const bv = b[sortKey] as string | null;
+    const av = a[sortKey] ?? null;
+    const bv = b[sortKey] ?? null;
     const cmp = compareValues(av, bv);
     return asc ? cmp : -cmp;
   });
 
-  const cols = nodeScope
-    ? [{ key: 'substationName' as unknown as SortKey, label: '변전소' }, ...BASE_COLS]
+  const cols: { key: SortKey; label: string }[] = nodeScope
+    ? [{ key: 'substationName', label: '변전소' }, ...BASE_COLS]
     : BASE_COLS;
 
   return (
@@ -77,7 +77,7 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
           <tr className="border-b border-line">
             {cols.map((col) => (
               <th
-                key={col.key as string}
+                key={col.key}
                 className="cursor-pointer select-none px-3 py-2 text-left text-xs font-medium text-content-muted hover:text-content"
                 onClick={() => handleHeaderClick(col.key)}
               >
