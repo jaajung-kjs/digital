@@ -7,6 +7,7 @@ import { AddAssetModal } from '../components/AddAssetModal';
 import { StatusTable } from '../components/StatusTable';
 import { SaveBar } from '../components/SaveBar';
 import { ConflictDialog } from '../components/ConflictDialog';
+import { FloorPlanView } from '../components/FloorPlanView';
 import { useV2Catalog, useV2NodeAssets, useTypesById } from '../hooks';
 import type { FlatOrgNode } from '../orgTreeSelectors';
 import { buildStatusRows, type StatusRow } from '../statusRows';
@@ -14,10 +15,13 @@ import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useCommit } from '../store/useCommit';
 
+type ViewMode = '현황' | '평면도';
+
 export default function V2WorkspacePage() {
   const [selected, setSelected] = useState<FlatOrgNode | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('현황');
 
   const { commit, isCommitting, conflicts, clearConflicts, error: commitError, clearError: clearCommitError } = useCommit();
 
@@ -103,37 +107,80 @@ export default function V2WorkspacePage() {
           )}
           {selected != null && (
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="border-b border-line px-4 py-2 text-sm font-semibold text-content" data-testid="v2-selected">
-                {selected.name}
-              </div>
-              <div className="flex min-h-0 flex-1 overflow-hidden">
-                <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-                  {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
-                  {selected.kind === 'substation' && substationId === selected.id && (
-                    <div className="shrink-0 border-b border-line px-3 py-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        leftIcon={<Plus size={14} />}
-                        onClick={() => setAddModalOpen(true)}
+              {/* 헤더: 선택 노드 이름 + 뷰 토글 (변전소 스코프에서만) */}
+              <div className="flex shrink-0 items-center border-b border-line px-4 py-2">
+                <span className="text-sm font-semibold text-content" data-testid="v2-selected">
+                  {selected.name}
+                </span>
+                {selected.kind === 'substation' && substationId === selected.id && (
+                  <div className="ml-4 flex gap-0">
+                    {(['현황', '평면도'] as ViewMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        className={`px-3 py-1 text-sm transition-colors ${
+                          viewMode === mode
+                            ? 'border-b-2 border-primary font-medium text-primary'
+                            : 'text-content-muted hover:text-content'
+                        }`}
+                        onClick={() => setViewMode(mode)}
                       >
-                        자산 추가
-                      </Button>
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex min-h-0 flex-1 overflow-hidden">
+                {/* 평면도 뷰 */}
+                {selected.kind === 'substation' && substationId === selected.id && viewMode === '평면도' ? (
+                  <>
+                    <FloorPlanView
+                      substationId={substationId}
+                      selectedAssetId={selectedAssetId}
+                      onSelectAsset={setSelectedAssetId}
+                    />
+                    {showDetailPanel && (
+                      <AssetDetailPanel
+                        key={selectedAssetId}
+                        assetId={selectedAssetId!}
+                        onSelectAsset={setSelectedAssetId}
+                      />
+                    )}
+                  </>
+                ) : (
+                  /* 현황 뷰 (기본) */
+                  <>
+                    <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+                      {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
+                      {selected.kind === 'substation' && substationId === selected.id && (
+                        <div className="shrink-0 border-b border-line px-3 py-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Plus size={14} />}
+                            onClick={() => setAddModalOpen(true)}
+                          >
+                            자산 추가
+                          </Button>
+                        </div>
+                      )}
+                      <StatusTable
+                        rows={rows}
+                        selectedId={selectedAssetId}
+                        onSelectAsset={setSelectedAssetId}
+                        nodeScope={nodeScope}
+                      />
                     </div>
-                  )}
-                  <StatusTable
-                    rows={rows}
-                    selectedId={selectedAssetId}
-                    onSelectAsset={setSelectedAssetId}
-                    nodeScope={nodeScope}
-                  />
-                </div>
-                {showDetailPanel && (
-                  <AssetDetailPanel
-                    key={selectedAssetId}
-                    assetId={selectedAssetId!}
-                    onSelectAsset={setSelectedAssetId}
-                  />
+                    {showDetailPanel && (
+                      <AssetDetailPanel
+                        key={selectedAssetId}
+                        assetId={selectedAssetId!}
+                        onSelectAsset={setSelectedAssetId}
+                      />
+                    )}
+                  </>
                 )}
               </div>
             </div>
