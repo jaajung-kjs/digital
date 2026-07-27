@@ -1,5 +1,8 @@
 // ported from frontend/src/utils/canvas/canvasDrawing.ts (Stage 3)
 
+/** 배치/이동/리사이즈 공통 스냅 그리드 (world 단위) */
+export const SNAP_GRID = 10;
+
 /** 선택 상태 하이라이트 스타일 */
 export const SELECTION_STYLES = {
   stroke: '#15406b',      // primary navy (비즈니스 UI 선택색)

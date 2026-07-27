@@ -20,9 +20,9 @@ import { useV2Catalog } from '../hooks';
 import { Button } from '../../components/ui';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
+import { SNAP_GRID } from '../canvas/constants';
 
 const MAJOR_GRID = 100;
-const SNAP_GRID = 10;
 
 interface Props {
   substationId: string;
@@ -443,13 +443,16 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
           return;
         }
 
-        // 이동 완료 — 1회 stage
+        // 이동 완료
         wasRecentlyMoving.current = true;
         const r = canvas.getBoundingClientRect();
         const { zoom: z, panX: px, panY: py } = viewportRef.current;
         const wPos = screenToWorld(me.clientX, me.clientY, r, px, py, z);
         const snapped = dragDelta(session, wPos, (p) => snapToGrid(p.x, p.y, SNAP_GRID));
-        useV2WorkingCopy.getState().stageAssetUpdate(session.assetId, { x: snapped.x, y: snapped.y });
+        // 원위치 복귀면 no-op 스테이지 방지 (프리뷰만 클리어)
+        if (snapped.x !== session.initial.x || snapped.y !== session.initial.y) {
+          useV2WorkingCopy.getState().stageAssetUpdate(session.assetId, { x: snapped.x, y: snapped.y });
+        }
         scheduleRender();
       };
 
@@ -588,6 +591,12 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
               resizePreviewRef.current = null;
               setResizePreviewState(null);
               useV2WorkingCopy.getState().stageAssetUpdate(selectedAssetId, r);
+              scheduleRender();
+            }}
+            onResizeCancel={() => {
+              // 무동작 리사이즈 — no-op 스테이지 없이 프리뷰만 정리
+              resizePreviewRef.current = null;
+              setResizePreviewState(null);
               scheduleRender();
             }}
           />

@@ -3,13 +3,13 @@
  *
  * 스크린 좌표 = world * scale + pan
  * 핸들: 9px, bg-surface border border-primary, absolute 포지셔닝
- * 드래그 → 로컬 프리뷰 → mouseup 에 onResizeEnd 호출
+ * 드래그 → 로컬 프리뷰 → mouseup 에 onResizeEnd 호출 (변화 없으면 onResizeCancel)
  */
 import { useRef } from 'react';
 import { HANDLES, applyResize } from '../canvas/resize';
 import type { HandleKey } from '../canvas/resize';
+import { SNAP_GRID } from '../canvas/constants';
 
-const SNAP_GRID = 10;
 const HANDLE_SIZE = 9; // px (스크린)
 const HALF = HANDLE_SIZE / 2;
 
@@ -30,14 +30,30 @@ interface Props {
   viewport: Viewport;
   rect: WorldRect;     // 선택 자산의 월드 좌표 rect (preview 포함, 최신값)
   onResizePreview: (rect: WorldRect) => void;   // 드래그 중 로컬 프리뷰 업데이트
-  onResizeEnd: (rect: WorldRect) => void;       // mouseup 시 stageAssetUpdate 호출
+  onResizeEnd: (rect: WorldRect) => void;       // mouseup 시 stageAssetUpdate 호출 (변화 있을 때만)
+  onResizeCancel: () => void;                   // 무변화 mouseup — 프리뷰만 정리, stage 없음
 }
 
-export function AssetResizeHandles({ viewport, rect, onResizePreview, onResizeEnd }: Props) {
+const cursorMap: Record<HandleKey, string> = {
+  tl: 'nw-resize',
+  t: 'n-resize',
+  tr: 'ne-resize',
+  r: 'e-resize',
+  br: 'se-resize',
+  b: 's-resize',
+  bl: 'sw-resize',
+  l: 'w-resize',
+};
+
+export function AssetResizeHandles({ viewport, rect, onResizePreview, onResizeEnd, onResizeCancel }: Props) {
   const { zoom, panX, panY } = viewport;
   const scale = zoom / 100;
 
-  // 월드 → 스크린 변환
+  // 이벤트 핸들러가 mousedown 시점 클로저가 아닌 최신 viewport 를 읽도록 ref 유지
+  const viewportRef = useRef(viewport);
+  viewportRef.current = viewport;
+
+  // 월드 → 스크린 변환 (렌더용)
   const toScreen = (wx: number, wy: number) => ({
     sx: wx * scale + panX,
     sy: wy * scale + panY,
@@ -61,47 +77,47 @@ export function AssetResizeHandles({ viewport, rect, onResizePreview, onResizeEn
       startRect: { ...rect },
     };
 
-    const onMove = (me: MouseEvent) => {
-      if (!dragRef.current) return;
-      const { handleKey: hk, startClient, startRect } = dragRef.current;
-
-      // 스크린 델타 → 월드 델타
-      const dxScreen = me.clientX - startClient.x;
-      const dyScreen = me.clientY - startClient.y;
-      const dxWorld = dxScreen / scale;
-      const dyWorld = dyScreen / scale;
-
-      const newRect = applyResize(
-        startRect,
-        hk,
+    const computeRect = (me: MouseEvent, session: NonNullable<typeof dragRef.current>): WorldRect => {
+      // 최신 scale 을 이벤트 시점에 읽는다 (드래그 중 줌 변경 대비)
+      const liveScale = viewportRef.current.zoom / 100;
+      const dxWorld = (me.clientX - session.startClient.x) / liveScale;
+      const dyWorld = (me.clientY - session.startClient.y) / liveScale;
+      return applyResize(
+        session.startRect,
+        session.handleKey,
         { x: dxWorld, y: dyWorld },
         20,
         (v) => Math.round(v / SNAP_GRID) * SNAP_GRID,
       );
-      onResizePreview(newRect);
+    };
+
+    const onMove = (me: MouseEvent) => {
+      if (!dragRef.current) return;
+      onResizePreview(computeRect(me, dragRef.current));
     };
 
     const onUp = (me: MouseEvent) => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
 
-      if (!dragRef.current) return;
-      const { handleKey: hk, startClient, startRect } = dragRef.current;
+      const session = dragRef.current;
       dragRef.current = null;
+      if (!session) return;
 
-      const dxScreen = me.clientX - startClient.x;
-      const dyScreen = me.clientY - startClient.y;
-      const dxWorld = dxScreen / scale;
-      const dyWorld = dyScreen / scale;
+      const finalRect = computeRect(me, session);
+      const { startRect } = session;
+      const unchanged =
+        finalRect.x === startRect.x &&
+        finalRect.y === startRect.y &&
+        finalRect.width === startRect.width &&
+        finalRect.height === startRect.height;
 
-      const finalRect = applyResize(
-        startRect,
-        hk,
-        { x: dxWorld, y: dyWorld },
-        20,
-        (v) => Math.round(v / SNAP_GRID) * SNAP_GRID,
-      );
-      onResizeEnd(finalRect);
+      if (unchanged) {
+        // 무동작 클릭 — no-op 스테이지 방지, 프리뷰만 정리
+        onResizeCancel();
+      } else {
+        onResizeEnd(finalRect);
+      }
     };
 
     window.addEventListener('mousemove', onMove);
@@ -115,18 +131,6 @@ export function AssetResizeHandles({ viewport, rect, onResizePreview, onResizeEn
         const wx = rect.x + h.fx * rect.width;
         const wy = rect.y + h.fy * rect.height;
         const { sx, sy } = toScreen(wx, wy);
-
-        // 커서 방향
-        const cursorMap: Record<HandleKey, string> = {
-          tl: 'nw-resize',
-          t: 'n-resize',
-          tr: 'ne-resize',
-          r: 'e-resize',
-          br: 'se-resize',
-          b: 's-resize',
-          bl: 'sw-resize',
-          l: 'w-resize',
-        };
 
         return (
           <div
