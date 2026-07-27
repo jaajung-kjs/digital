@@ -31,6 +31,7 @@ import { uploadsRouter } from './routes/uploads.routes.js';
 import { assetRecordSchemaRouter } from './routes/assetRecordSchema.routes.js';
 import { commitRouter } from './routes/commit.routes.js';
 import { traceRouter } from './routes/trace.routes.js';
+import { v2Router } from './v2/router.js';
 
 const app = express();
 
@@ -104,6 +105,7 @@ app.use('/api/uploads', uploadsRouter);
 app.use('/api/asset-record-schema', assetRecordSchemaRouter);
 app.use('/api/commit', commitRouter);
 app.use('/api/trace', traceRouter);
+app.use('/api/v2', v2Router);
 
 // 404 handler
 app.use((_req, res) => {
