@@ -9,7 +9,7 @@ import { useV2OrgTree } from '../hooks';
 const CHILD_KIND: Record<FlatOrgNode['kind'], OrgKind | null> = {
   hq: 'branches',
   branch: 'substations',
-  substation: null,
+  substation: 'floors',
 };
 const SELF_KIND: Record<FlatOrgNode['kind'], OrgKind> = {
   hq: 'headquarters',
@@ -62,8 +62,10 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
     setModal({ mode: 'rename', kind, targetId, initial: current });
   }
 
+  const confirmPending = createMut.isPending || renameMut.isPending;
+
   function handleConfirm() {
-    if (!modal || !name.trim()) return;
+    if (!modal || !name.trim() || confirmPending) return;
     if (modal.mode === 'create') {
       const body: Record<string, string> = { name: name.trim() };
       const pf = PARENT_FIELD[modal.kind];
@@ -150,7 +152,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
             <Button variant="secondary" size="sm" onClick={() => setModal(null)}>
               취소
             </Button>
-            <Button variant="primary" size="sm" onClick={handleConfirm}>
+            <Button variant="primary" size="sm" disabled={confirmPending} onClick={handleConfirm}>
               확인
             </Button>
           </>
