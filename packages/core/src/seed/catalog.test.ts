@@ -51,6 +51,14 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
     const names = SEED_CABLE_GROUPS.map((g) => g.name);
     for (const n of ['전원', '네트워크', '광']) expect(names).toContain(n);
   });
+
+  it('모든 타입에 공통 필드(installDate/manager)가 있다', () => {
+    for (const t of SEED_ASSET_TYPES) {
+      const keys = t.fields.map((f) => f.key);
+      expect(keys, t.key).toContain('installDate');
+      expect(keys, t.key).toContain('manager');
+    }
+  });
 });
 
 describe('SEED_CABLE_CATEGORIES — 레거시 16종 이관', () => {
