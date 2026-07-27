@@ -1,4 +1,10 @@
-import type { AssetTypeSpec } from '../catalog/types.js';
+import type { AssetTypeSpec, FieldDef } from '../catalog/types.js';
+
+/** 구 현황 컬럼(설치일·담당자)의 데이터 드리븐 흡수 — 전 타입 공통. */
+export const COMMON_FIELDS: FieldDef[] = [
+  { key: 'installDate', label: '설치일', type: 'date' },
+  { key: 'manager', label: '담당자', type: 'text' },
+];
 
 export const SEED_CATEGORIES = [
   { key: '구조', name: '구조', sortOrder: 1 },
@@ -18,7 +24,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 10,
     placement: { placeable: true, defaultWidth: 60, defaultHeight: 80 },
     labor: { laborType: '통신내선공', installHours: 2.0, removeHours: 1.0, relocateHours: 3.0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [
       { key: 'main', name: '슬롯', slotCount: 12, allowSpan: true, accepts: { categoryKeys: ['통신', '전원', '공조'] } },
     ],
@@ -33,7 +39,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 20,
     placement: { placeable: true, defaultWidth: 40, defaultHeight: 40 },
     labor: { laborType: '통신내선공', installHours: 1.5, removeHours: 0.8, relocateHours: 0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [
       { key: 'main', name: '슬롯', slotCount: null, allowSpan: false, accepts: { typeKeys: ['OFD-SLOT'] } },
     ],
@@ -48,7 +54,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 21,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '성단 {n}' },
@@ -64,7 +70,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 30,
     placement: { placeable: true, defaultWidth: 40, defaultHeight: 60 },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [
       { key: 'main', name: '회로', slotCount: null, allowSpan: false, accepts: { typeKeys: ['FEEDER'] } },
     ],
@@ -80,6 +86,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     placement: { placeable: false },
     labor: NO_LABOR,
     fields: [
+      ...COMMON_FIELDS,
       { key: 'breakerNo', label: '차단기 번호', type: 'text' },
       { key: 'switchState', label: '개폐 상태', type: 'select', options: ['ON', 'OFF'] },
     ],
@@ -98,7 +105,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 31,
     placement: { placeable: true },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [],
     links: [],
@@ -110,7 +117,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 32,
     placement: { placeable: true },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [],
     links: [],
@@ -123,7 +130,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 50,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 4.0, removeHours: 2.0, relocateHours: 5.0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -137,7 +144,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 70,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -151,7 +158,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 80,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 1.5 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -165,7 +172,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 90,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -180,7 +187,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 61,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -194,7 +201,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 63,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -208,7 +215,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 64,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -223,7 +230,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 41,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 3.0, removeHours: 1.5, relocateHours: 0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -237,7 +244,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 42,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 3.0, removeHours: 1.5, relocateHours: 0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -252,7 +259,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 51,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 4.0, removeHours: 2.0, relocateHours: 5.0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -266,7 +273,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 104,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.5, removeHours: 0.3, relocateHours: 0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -280,7 +287,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 105,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.3, removeHours: 0.15, relocateHours: 0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -294,7 +301,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 108,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -308,7 +315,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 109,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -322,7 +329,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 113,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -336,7 +343,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 114,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -351,7 +358,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 60,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -365,7 +372,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 145,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.5, removeHours: 0.3, relocateHours: 0 },
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -379,7 +386,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 146,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
+    fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
