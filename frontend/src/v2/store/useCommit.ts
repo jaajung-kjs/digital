@@ -10,11 +10,13 @@ export function useCommit() {
   const queryClient = useQueryClient();
   const [isCommitting, setCommitting] = useState(false);
   const [conflicts, setConflicts] = useState<V2Conflict[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const commit = useCallback(async () => {
     const s = useV2WorkingCopy.getState();
     if (!s.substationId || s.dirtyCount() === 0) return;
     setCommitting(true);
+    setError(null);
     try {
       const recordAssetIds: Record<string, string> = Object.fromEntries([
         ...s.saved.maintenanceLogs.map((r) => [r.id, r.assetId]),
@@ -29,7 +31,7 @@ export function useCommit() {
       if (isAxiosError(e) && e.response?.status === 409) {
         setConflicts((e.response.data?.details as V2Conflict[]) ?? []);
       } else {
-        throw e;
+        setError(isAxiosError(e) ? (e.response?.data?.message ?? e.message) : String(e));
       }
     } finally {
       setCommitting(false);
@@ -37,5 +39,6 @@ export function useCommit() {
   }, [queryClient]);
 
   const clearConflicts = useCallback(() => setConflicts(null), []);
-  return { commit, isCommitting, conflicts, clearConflicts };
+  const clearError = useCallback(() => setError(null), []);
+  return { commit, isCommitting, conflicts, clearConflicts, error, clearError };
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { V2Asset, V2MaintenanceLog } from '../../types';
 import { emptyOverlay, type Overlay } from '../overlay';
 import { buildCommitPayload } from '../buildCommitPayload';
+import { isoToLocalInput } from '../../components/RecordsTab';
 
 const baseAsset: V2Asset = {
   id: 'a-1', name: '자산', typeId: 't-1', substationId: 's-1', status: 'normal',
@@ -60,5 +61,29 @@ describe('buildCommitPayload', () => {
 
   it('빈 오버레이 → {}', () => {
     expect(buildCommitPayload(overlays({}), {})).toEqual({});
+  });
+
+  it('정비 이력 create 에 ISO 날짜가 그대로 통과 (occurredAt ISO 계약)', () => {
+    const iso = '2026-07-25T10:00:00.000Z';
+    const log: V2MaintenanceLog = {
+      id: 'm-iso', assetId: 'a-1', occurredAt: iso, content: '테스트', action: null, updatedAt: '',
+    };
+    const p = buildCommitPayload(
+      overlays({ maintenance: { creates: { 'm-iso': log } } }),
+      {},
+    );
+    const created = p.records?.maintenance?.creates?.[0] as Record<string, unknown> | undefined;
+    expect(created?.occurredAt).toBe(iso);
+  });
+});
+
+describe('isoToLocalInput', () => {
+  it('ISO → datetime-local 포맷(yyyy-MM-ddTHH:mm) 변환', () => {
+    const result = isoToLocalInput('2026-07-25T10:00:00.000Z');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+  });
+
+  it('반환값은 정확히 16자', () => {
+    expect(isoToLocalInput('2026-07-25T10:00:00.000Z')).toHaveLength(16);
   });
 });

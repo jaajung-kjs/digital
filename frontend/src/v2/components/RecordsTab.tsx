@@ -5,6 +5,19 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { mergeEffective } from '../store/overlay';
 import type { V2MaintenanceLog, V2InspectionLog } from '../types';
 
+// ── ISO 변환 헬퍼 ─────────────────────────────────────────────────────────────
+/** datetime-local 입력값(yyyy-MM-ddTHH:mm) → 로컬 시간 기준 ISO 8601 문자열 */
+function localInputToIso(local: string): string {
+  return new Date(local).toISOString();
+}
+
+/** ISO 문자열 → datetime-local 입력값(yyyy-MM-ddTHH:mm, 로컬 시간) */
+export function isoToLocalInput(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // ── props ─────────────────────────────────────────────────────────────────────
 interface RecordsTabProps {
   assetId: string;
@@ -96,11 +109,13 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
   // ── 핸들러 ──────────────────────────────────────────────────────────────────
   function handleAdd() {
     if (!addState.date || !addState.content.trim()) return;
+    const isoDate = localInputToIso(addState.date);
+    if (isNaN(new Date(isoDate).getTime())) return;
     const id = crypto.randomUUID();
     const log: AnyRecord = {
       id,
       assetId,
-      [dateField]: addState.date,
+      [dateField]: isoDate,
       content: addState.content.trim(),
       [extraField]: addState.extra.trim() || null,
       updatedAt: '',
@@ -111,18 +126,21 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
   }
 
   function handleEditStart(record: AnyRecord) {
+    const rawDate = fieldOf(record, dateField) ?? '';
     setEditState({
       id: record.id,
-      date: fieldOf(record, dateField) ?? '',
+      date: rawDate ? isoToLocalInput(rawDate) : '',
       content: record.content,
       extra: fieldOf(record, extraField) ?? '',
     });
   }
 
   function handleEditCommit() {
-    if (!editState) return;
+    if (!editState || !editState.date) return;
+    const isoDate = localInputToIso(editState.date);
+    if (isNaN(new Date(isoDate).getTime())) return;
     const patch: Partial<AnyRecord> = {
-      [dateField]: editState.date,
+      [dateField]: isoDate,
       content: editState.content.trim(),
       [extraField]: editState.extra.trim() || null,
     } as unknown as Partial<AnyRecord>;

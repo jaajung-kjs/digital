@@ -19,7 +19,7 @@ export default function V2WorkspacePage() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
-  const { commit, isCommitting, conflicts, clearConflicts } = useCommit();
+  const { commit, isCommitting, conflicts, clearConflicts, error: commitError, clearError: clearCommitError } = useCommit();
 
   const handleSelect = (n: FlatOrgNode) => {
     setSelected(n);
@@ -136,7 +136,7 @@ export default function V2WorkspacePage() {
       </div>
 
       {/* 저장바 (dirty > 0 일 때만 표시) */}
-      <SaveBar onCommit={commit} isCommitting={isCommitting} />
+      <SaveBar onCommit={commit} isCommitting={isCommitting} error={commitError} onClearError={clearCommitError} />
 
       {/* 자산 추가 모달 (미배치 추가) */}
       {substationId != null && (

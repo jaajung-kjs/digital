@@ -1,13 +1,16 @@
-import { Button } from '../../components/ui';
+import { X } from 'lucide-react';
+import { Button, IconButton } from '../../components/ui';
 import { overlayDirtyCount } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 
 interface SaveBarProps {
   onCommit: () => void;
   isCommitting: boolean;
+  error?: string | null;
+  onClearError?: () => void;
 }
 
-export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
+export function SaveBar({ onCommit, isCommitting, error, onClearError }: SaveBarProps) {
   // 반응형 dirty count — overlays 슬라이스 구독
   const overlays = useV2WorkingCopy((s) => s.overlays);
   const dirty = overlayDirtyCount(overlays.assets) + overlayDirtyCount(overlays.maintenance) + overlayDirtyCount(overlays.inspections);
@@ -28,7 +31,16 @@ export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
   }
 
   return (
-    <div className="shrink-0 flex items-center gap-2 border-t border-line bg-surface px-4 py-2">
+    <div className="shrink-0 flex flex-col border-t border-line bg-surface">
+      {error != null && (
+        <div className="flex items-center gap-1 border-b border-line px-4 py-1">
+          <span className="flex-1 text-xs text-danger">{error}</span>
+          <IconButton aria-label="오류 닫기" onClick={onClearError}>
+            <X size={12} />
+          </IconButton>
+        </div>
+      )}
+      <div className="flex items-center gap-2 px-4 py-2">
       <span className="flex-1 text-xs text-content-muted">변경 {dirty}건</span>
       <Button variant="ghost" size="sm" onClick={handleUndo}>
         실행 취소
@@ -42,6 +54,7 @@ export function SaveBar({ onCommit, isCommitting }: SaveBarProps) {
       <Button size="sm" disabled={isCommitting} onClick={onCommit}>
         {isCommitting ? '저장 중…' : '저장'}
       </Button>
+      </div>
     </div>
   );
 }
