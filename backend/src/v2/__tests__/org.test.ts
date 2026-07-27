@@ -44,6 +44,14 @@ describe('org CRUD + tree', () => {
     expect(row!.name).toBe(`${uniq}-ss2`);
   });
 
+  it('PATCH 비-UUID id → 400', async () => {
+    await request(app).patch('/api/v2/org/substations/not-a-uuid').set(admin).send({ name: `${uniq}-x` }).expect(400);
+  });
+
+  it('PATCH 빈 객체 → 400', async () => {
+    await request(app).patch(`/api/v2/org/substations/${subId}`).set(admin).send({}).expect(400);
+  });
+
   it('자식 있는 노드 삭제 → 409, 리프 삭제 → 200', async () => {
     await request(app).delete(`/api/v2/org/substations/${subId}`).set(admin).expect(409);
     await request(app).delete(`/api/v2/org/floors/${floorId}`).set(admin).expect(200);
