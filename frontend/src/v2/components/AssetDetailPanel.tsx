@@ -10,6 +10,7 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2ContainerSpec } from '../types';
 import { deriveDetailSections } from './detailSections';
 import { AddAssetModal } from './AddAssetModal';
+import { RecordsTab } from './RecordsTab';
 
 // ── 상태 배지 tone → BadgeStatus ─────────────────────────────────────────────
 function toneToStatus(tone: string): BadgeStatus {
@@ -149,15 +150,6 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
   const effectiveAssets = useMemo(() => mergeEffective(saved.assets, overlays.assets), [saved, overlays]);
   const asset = useMemo(() => effectiveAssets.find((a) => a.id === assetId), [effectiveAssets, assetId]);
 
-  const effectiveMaintenanceLogs = useMemo(
-    () => mergeEffective(saved.maintenanceLogs, overlays.maintenance).filter((r) => r.assetId === assetId),
-    [saved, overlays, assetId],
-  );
-  const effectiveInspectionLogs = useMemo(
-    () => mergeEffective(saved.inspectionLogs, overlays.inspections).filter((r) => r.assetId === assetId),
-    [saved, overlays, assetId],
-  );
-
   const floorNameById = useMemo(() => new Map(saved.floors.map((f) => [f.id, f.name])), [saved.floors]);
   const assetNameById = useMemo(() => new Map(effectiveAssets.map((a) => [a.id, a.name])), [effectiveAssets]);
 
@@ -264,7 +256,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
                   className="py-0.5 text-sm"
                   onBlur={(e) => handleNameCommit(e.currentTarget.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.code === 'Enter') {
                       e.currentTarget.blur();
                     }
                   }}
@@ -324,7 +316,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
                           className="py-0.5 text-sm"
                           onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') e.currentTarget.blur();
+                            if (e.code === 'Enter') e.currentTarget.blur();
                           }}
                           key={strVal}
                         />
@@ -446,37 +438,27 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
         )}
 
         {tab === 'inspections' && (
-          <>
-            {effectiveInspectionLogs.length === 0 ? (
-              <p className="text-sm text-content-faint">점검 기록이 없습니다</p>
-            ) : (
-              <div className="space-y-2">
-                {[...effectiveInspectionLogs].sort((a, b) => b.inspectedAt.localeCompare(a.inspectedAt)).map((log) => (
-                  <DetailCard key={log.id}>
-                    <DetailCardHeader title={log.inspectedAt.slice(0, 10)} badge={log.result ?? undefined} badgeStatus="neutral" />
-                    <p className="text-sm text-content">{log.content}</p>
-                  </DetailCard>
-                ))}
-              </div>
-            )}
-          </>
+          <RecordsTab
+            assetId={assetId}
+            kind="inspections"
+            dateField="inspectedAt"
+            extraField="result"
+            dateLabel="점검일"
+            extraLabel="결과"
+            emptyMessage="점검 기록이 없습니다"
+          />
         )}
 
         {tab === 'logs' && (
-          <>
-            {effectiveMaintenanceLogs.length === 0 ? (
-              <p className="text-sm text-content-faint">고장이력이 없습니다</p>
-            ) : (
-              <div className="space-y-2">
-                {[...effectiveMaintenanceLogs].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).map((log) => (
-                  <DetailCard key={log.id}>
-                    <DetailCardHeader title={log.occurredAt.slice(0, 10)} badge={log.action ?? undefined} badgeStatus="neutral" />
-                    <p className="text-sm text-content">{log.content}</p>
-                  </DetailCard>
-                ))}
-              </div>
-            )}
-          </>
+          <RecordsTab
+            assetId={assetId}
+            kind="maintenance"
+            dateField="occurredAt"
+            extraField="action"
+            dateLabel="발생일"
+            extraLabel="조치"
+            emptyMessage="고장이력이 없습니다"
+          />
         )}
       </div>
 

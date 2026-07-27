@@ -147,7 +147,7 @@ export function AddAssetModal({ open, onClose, substationId, containerContext }:
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && canConfirm) handleConfirm();
+              if (e.code === 'Enter' && canConfirm) handleConfirm();
             }}
           />
         </div>

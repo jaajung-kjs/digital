@@ -162,7 +162,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
+          onKeyDown={(e) => { if (e.code === 'Enter') handleConfirm(); }}
           placeholder="이름"
         />
       </Modal>
