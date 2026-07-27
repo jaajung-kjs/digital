@@ -10,6 +10,8 @@ import { renderGrid } from '../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview } from '../canvas/renderers';
 import { screenToWorld, snapToGrid } from '../canvas/transform';
 import { findAssetAt } from '../canvas/hitTest';
+import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
+import type { DragSession } from '../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../floorPlacement';
 import { placedAssetsOf } from '../floorPlanSelectors';
 import { mergeEffective } from '../store/overlay';
@@ -17,6 +19,7 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog } from '../hooks';
 import { Button } from '../../components/ui';
 import { AddAssetModal } from './AddAssetModal';
+import { AssetResizeHandles } from './AssetResizeHandles';
 
 const MAJOR_GRID = 100;
 const SNAP_GRID = 10;
@@ -99,6 +102,22 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
   const activeFloorRef = useRef(activeFloor);
   activeFloorRef.current = activeFloor;
 
+  // ── 이동/리사이즈 프리뷰 refs (드래그 중 stage 금지, 렌더만) ─────────────
+  /** 이동 프리뷰: id + 현재 위치 */
+  const movePreviewRef = useRef<{ id: string; x: number; y: number } | null>(null);
+  /** 리사이즈 프리뷰: id + 현재 rect */
+  const resizePreviewRef = useRef<{ id: string; x: number; y: number; width: number; height: number } | null>(null);
+
+  // 리사이즈 핸들 오버레이 위치를 React 렌더로 반영하기 위한 상태
+  const [resizePreviewState, setResizePreviewState] = useState<{
+    id: string; x: number; y: number; width: number; height: number;
+  } | null>(null);
+
+  // ── 이동 드래그 세션 ref ──────────────────────────────────────────────────
+  const moveDragRef = useRef<DragSession | null>(null);
+  /** 이동 드래그 후 클릭 오발 방지 플래그 */
+  const wasRecentlyMoving = useRef(false);
+
   // ── 배치(armed/draw) 상태 refs ───────────────────────────────────────────
   /** 현재 armed 타입 ID (null이면 배치 모드 아님) */
   const armedTypeIdRef = useRef<string | null>(null);
@@ -174,8 +193,9 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       // 4. grid (major 100)
       renderGrid(ctx, MAJOR_GRID, left, top, right, bottom);
 
-      // 5. 배치 자산 (선택 하이라이트)
-      renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current);
+      // 5. 배치 자산 (선택 하이라이트, 이동/리사이즈 프리뷰 우선 적용)
+      const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
+      renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current, activePreview);
 
       // 6. draw 미리보기 (armed 상태 + 드래그 중)
       if (drawStartRef.current) {
@@ -381,6 +401,61 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       window.addEventListener('mouseup', stopDrawRef.current);
       return;
     }
+
+    // ── 이동 드래그: 자산 위 좌클릭 (팬/armed 아님) ──────────────────────
+    if (e.button === 0) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const canvasRect = canvas.getBoundingClientRect();
+      const { zoom, panX, panY } = viewportRef.current;
+      const world = screenToWorld(e.clientX, e.clientY, canvasRect, panX, panY, zoom);
+      const hit = findAssetAt(world.x, world.y, placedAssetsRef.current);
+      if (!hit) return;
+
+      // 세션 시작
+      moveDragRef.current = createDragSession(hit, world);
+
+      const onMoveMove = (me: MouseEvent) => {
+        const session = moveDragRef.current;
+        if (!session) return;
+        const r = canvas.getBoundingClientRect();
+        const { zoom: z, panX: px, panY: py } = viewportRef.current;
+        const wPos = screenToWorld(me.clientX, me.clientY, r, px, py, z);
+
+        if (!isThresholdMet(session, wPos) && !session.moved) return;
+        session.moved = true;
+
+        const snapped = dragDelta(session, wPos, (p) => snapToGrid(p.x, p.y, SNAP_GRID));
+        movePreviewRef.current = { id: session.assetId, x: snapped.x, y: snapped.y };
+        scheduleRender();
+      };
+
+      const onMoveUp = (me: MouseEvent) => {
+        window.removeEventListener('mousemove', onMoveMove);
+        window.removeEventListener('mouseup', onMoveUp);
+
+        const session = moveDragRef.current;
+        moveDragRef.current = null;
+        movePreviewRef.current = null;
+
+        if (!session || !session.moved) {
+          scheduleRender();
+          return;
+        }
+
+        // 이동 완료 — 1회 stage
+        wasRecentlyMoving.current = true;
+        const r = canvas.getBoundingClientRect();
+        const { zoom: z, panX: px, panY: py } = viewportRef.current;
+        const wPos = screenToWorld(me.clientX, me.clientY, r, px, py, z);
+        const snapped = dragDelta(session, wPos, (p) => snapToGrid(p.x, p.y, SNAP_GRID));
+        useV2WorkingCopy.getState().stageAssetUpdate(session.assetId, { x: snapped.x, y: snapped.y });
+        scheduleRender();
+      };
+
+      window.addEventListener('mousemove', onMoveMove);
+      window.addEventListener('mouseup', onMoveUp);
+    }
   };
 
   // ── 클릭: 자산 선택 ───────────────────────────────────────────────────────
@@ -388,6 +463,11 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
     // 팬 종료(mouseup) 직후 발생하는 click 은 선택으로 취급하지 않는다
     if (wasRecentlyPanning.current) {
       wasRecentlyPanning.current = false;
+      return;
+    }
+    // 이동 드래그 종료 직후 click 오발 방지
+    if (wasRecentlyMoving.current) {
+      wasRecentlyMoving.current = false;
       return;
     }
     if (isPanning.current) return; // 팬 중 클릭 무시
@@ -418,6 +498,17 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
     // 생성 후 disarm
     disarm();
   };
+
+  // ── 리사이즈 핸들: 선택 자산 rect (preview 우선) ─────────────────────────
+  const selectedPlacedAsset = selectedAssetId != null
+    ? placedAssets.find((a) => a.id === selectedAssetId) ?? null
+    : null;
+
+  // 핸들 오버레이에 표시할 rect (리사이즈 프리뷰 > 원본)
+  const handleRect = resizePreviewState ?? (selectedPlacedAsset
+    ? { id: selectedPlacedAsset.id, x: selectedPlacedAsset.x, y: selectedPlacedAsset.y,
+        width: selectedPlacedAsset.width, height: selectedPlacedAsset.height }
+    : null);
 
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
   const canvasCursor = armedTypeId !== null ? 'crosshair' : undefined;
@@ -482,6 +573,25 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
           onClick={onCanvasClick}
           data-testid="floorplan-canvas"
         />
+
+        {/* 리사이즈 핸들 오버레이 (선택 자산 있을 때만) */}
+        {selectedAssetId != null && handleRect != null && (
+          <AssetResizeHandles
+            viewport={viewport}
+            rect={{ x: handleRect.x, y: handleRect.y, width: handleRect.width, height: handleRect.height }}
+            onResizePreview={(r) => {
+              resizePreviewRef.current = { id: selectedAssetId, ...r };
+              setResizePreviewState({ id: selectedAssetId, ...r });
+              scheduleRender();
+            }}
+            onResizeEnd={(r) => {
+              resizePreviewRef.current = null;
+              setResizePreviewState(null);
+              useV2WorkingCopy.getState().stageAssetUpdate(selectedAssetId, r);
+              scheduleRender();
+            }}
+          />
+        )}
 
         {/* 층이 선택됐지만 배치 자산 없음 안내 */}
         {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && (

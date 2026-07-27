@@ -59,14 +59,26 @@ function renderAssetItem(
 /**
  * 배치된 자산 전체 렌더링.
  * selectedId 와 일치하는 자산은 선택 하이라이트로 그린다.
+ * preview 가 있으면 해당 id의 자산은 preview 좌표/크기로 대체 렌더링.
  */
 export function renderPlacedAssets(
   ctx: CanvasRenderingContext2D,
   assets: PlacedAsset[],
   selectedId: string | null,
+  preview?: { id: string; x: number; y: number; width?: number; height?: number } | null,
 ): void {
   for (const asset of assets) {
-    renderAssetItem(ctx, asset, asset.id === selectedId);
+    let item = asset;
+    if (preview && asset.id === preview.id) {
+      item = {
+        ...asset,
+        x: preview.x,
+        y: preview.y,
+        width: preview.width ?? asset.width,
+        height: preview.height ?? asset.height,
+      };
+    }
+    renderAssetItem(ctx, item, item.id === selectedId);
   }
 }
 
