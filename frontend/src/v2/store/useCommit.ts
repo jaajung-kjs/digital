@@ -29,7 +29,9 @@ export function useCommit() {
       await queryClient.invalidateQueries({ queryKey: ['v2', 'node-assets'] });
     } catch (e) {
       if (isAxiosError(e) && e.response?.status === 409) {
-        setConflicts((e.response.data?.details as V2Conflict[]) ?? []);
+        const details = e.response.data?.details;
+        if (Array.isArray(details)) setConflicts(details as V2Conflict[]);
+        else setError(e.response.data?.message ?? '커밋이 충돌로 거절되었습니다');
       } else {
         setError(isAxiosError(e) ? (e.response?.data?.message ?? e.message) : String(e));
       }

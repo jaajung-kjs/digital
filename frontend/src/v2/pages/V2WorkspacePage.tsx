@@ -22,9 +22,14 @@ export default function V2WorkspacePage() {
   const { commit, isCommitting, conflicts, clearConflicts, error: commitError, clearError: clearCommitError } = useCommit();
 
   const handleSelect = (n: FlatOrgNode) => {
+    const st = useV2WorkingCopy.getState();
+    if (n.kind === 'substation') {
+      if (n.id === st.substationId) { setSelected(n); return; } // same substation re-click: no reload/discard
+      if (st.dirtyCount() > 0 && !window.confirm('저장하지 않은 변경이 있습니다. 폐기하고 이동할까요?')) return;
+    }
     setSelected(n);
     setSelectedAssetId(null);
-    if (n.kind === 'substation') void useV2WorkingCopy.getState().load(n.id);
+    if (n.kind === 'substation') void st.load(n.id);
   };
 
   const catalog = useV2Catalog();
@@ -125,6 +130,7 @@ export default function V2WorkspacePage() {
                 </div>
                 {showDetailPanel && (
                   <AssetDetailPanel
+                    key={selectedAssetId}
                     assetId={selectedAssetId!}
                     onSelectAsset={setSelectedAssetId}
                   />

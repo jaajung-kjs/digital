@@ -25,7 +25,9 @@ export function buildCommitPayload(
   const deletedAssets = new Set(overlays.assets.deletes);
 
   const creates = Object.values(overlays.assets.creates).map(toCreateInput);
-  const updates = Object.entries(overlays.assets.updates).map(([id, patch]) => ({ id, patch: patch as V2AssetPatch }));
+  const updates = Object.entries(overlays.assets.updates)
+    .filter(([id]) => !deletedAssets.has(id))
+    .map(([id, patch]) => ({ id, patch: patch as V2AssetPatch }));
   const deletes = overlays.assets.deletes;
   if (creates.length || updates.length || deletes.length) {
     payload.assets = {

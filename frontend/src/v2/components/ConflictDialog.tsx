@@ -25,7 +25,9 @@ export function ConflictDialog({ conflicts, substationId, onClear }: ConflictDia
   }
 
   const reasonLabel = (reason: V2Conflict['reason']) =>
-    reason === 'deleted' ? '삭제됨' : '다른 사용자가 수정함';
+    reason === 'deleted' ? '서버에서 삭제됨' :
+    reason === 'exists' ? '이미 존재하는 자산(재시도 중복)' :
+    '다른 사용자가 수정함';
 
   return (
     <div className="fixed inset-0 z-alert flex items-center justify-center bg-[var(--overlay)]">

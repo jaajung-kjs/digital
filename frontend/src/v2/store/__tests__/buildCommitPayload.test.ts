@@ -63,6 +63,16 @@ describe('buildCommitPayload', () => {
     expect(buildCommitPayload(overlays({}), {})).toEqual({});
   });
 
+  it('삭제된 자산 id 에 대한 update 엔트리는 드랍', () => {
+    const p = buildCommitPayload(
+      overlays({ assets: { updates: { 'a-del': { name: '수정됨' }, 'a-live': { name: '유지' } }, deletes: ['a-del'] } }),
+      { 'a-del': 'v1', 'a-live': 'v2' },
+    );
+    const updateIds = (p.assets?.updates ?? []).map((u) => u.id);
+    expect(updateIds).not.toContain('a-del');
+    expect(updateIds).toContain('a-live');
+  });
+
   it('정비 이력 create 에 ISO 날짜가 그대로 통과 (occurredAt ISO 계약)', () => {
     const iso = '2026-07-25T10:00:00.000Z';
     const log: V2MaintenanceLog = {

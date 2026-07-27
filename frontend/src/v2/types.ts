@@ -38,7 +38,7 @@ export interface V2NodeAssetRow {
   id: string; name: string; status: string; updatedAt: string; substationId: string; substationName: string;
   typeKey: string; typeName: string; categoryName: string; parentAssetId: string | null; parentName: string | null; floorId: string | null;
 }
-export interface V2Conflict { id: string; reason: 'modified' | 'deleted'; serverUpdatedAt?: string }
+export interface V2Conflict { id: string; reason: 'modified' | 'deleted' | 'exists'; serverUpdatedAt?: string }
 
 export interface V2AssetCreateInput {
   id: string; name: string; typeId: string; status?: string;

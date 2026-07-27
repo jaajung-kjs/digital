@@ -211,6 +211,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
   function handleFieldCommit(key: string, value: string) {
     // 커밋 시점 스토어에서 현재 fieldValues 를 읽는다 (렌더 클로저 stale 방지; 이벤트 핸들러라 반응성 무관)
     const current = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === assetId)?.fieldValues ?? {};
+    if (String(current[key] ?? '') === value) return;
     useV2WorkingCopy.getState().stageAssetUpdate(assetId, { fieldValues: { ...current, [key]: value } });
   }
 
