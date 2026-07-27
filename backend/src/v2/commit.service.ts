@@ -23,6 +23,8 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
     for (const u of assets.updates ?? []) await applyUpdate(tx, substationId, u);
     for (const c of orderCreates(assets.creates ?? [])) await applyCreate(tx, substationId, c);
 
+    await applyRecords(tx, substationId, payload.records);
+
     return { committedAt: new Date().toISOString() };
   });
 }
@@ -194,6 +196,61 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
       ...(p.fieldValues !== undefined ? { fieldValues: p.fieldValues as Prisma.InputJsonValue } : {}),
     },
   });
+}
+
+async function assertAssetInSubstation(tx: Tx, substationId: string, assetId: string): Promise<void> {
+  const a = await tx.asset.findUnique({ where: { id: assetId }, select: { substationId: true } });
+  if (!a || a.substationId !== substationId) throw new HttpError(422, 'INVALID_RECORD_ASSET', '레코드 대상 자산이 이 변전소에 없습니다');
+}
+
+async function applyRecords(tx: Tx, substationId: string, records: CommitPayload['records']): Promise<void> {
+  if (!records) return;
+
+  const m = records.maintenance;
+  if (m) {
+    for (const id of m.deletes ?? []) await tx.maintenanceLog.deleteMany({ where: { id, asset: { substationId } } });
+    for (const u of m.updates ?? []) {
+      const row = await tx.maintenanceLog.findUnique({ where: { id: u.id }, include: { asset: { select: { substationId: true } } } });
+      if (!row || row.asset.substationId !== substationId) throw new HttpError(422, 'INVALID_RECORD', '수정 대상 이력이 유효하지 않습니다');
+      await tx.maintenanceLog.update({
+        where: { id: u.id },
+        data: {
+          ...(u.patch.occurredAt !== undefined ? { occurredAt: new Date(u.patch.occurredAt) } : {}),
+          ...(u.patch.content !== undefined ? { content: u.patch.content } : {}),
+          ...(u.patch.action !== undefined ? { action: u.patch.action } : {}),
+        },
+      });
+    }
+    for (const c of m.creates ?? []) {
+      await assertAssetInSubstation(tx, substationId, c.assetId);
+      await tx.maintenanceLog.create({
+        data: { id: c.id, assetId: c.assetId, occurredAt: new Date(c.occurredAt), content: c.content, action: c.action ?? null },
+      });
+    }
+  }
+
+  const i = records.inspections;
+  if (i) {
+    for (const id of i.deletes ?? []) await tx.inspectionLog.deleteMany({ where: { id, asset: { substationId } } });
+    for (const u of i.updates ?? []) {
+      const row = await tx.inspectionLog.findUnique({ where: { id: u.id }, include: { asset: { select: { substationId: true } } } });
+      if (!row || row.asset.substationId !== substationId) throw new HttpError(422, 'INVALID_RECORD', '수정 대상 점검이력이 유효하지 않습니다');
+      await tx.inspectionLog.update({
+        where: { id: u.id },
+        data: {
+          ...(u.patch.inspectedAt !== undefined ? { inspectedAt: new Date(u.patch.inspectedAt) } : {}),
+          ...(u.patch.content !== undefined ? { content: u.patch.content } : {}),
+          ...(u.patch.result !== undefined ? { result: u.patch.result } : {}),
+        },
+      });
+    }
+    for (const c of i.creates ?? []) {
+      await assertAssetInSubstation(tx, substationId, c.assetId);
+      await tx.inspectionLog.create({
+        data: { id: c.id, assetId: c.assetId, inspectedAt: new Date(c.inspectedAt), content: c.content, result: c.result ?? null },
+      });
+    }
+  }
 }
 
 async function applyDeletes(tx: Tx, substationId: string, ids: string[]): Promise<void> {
