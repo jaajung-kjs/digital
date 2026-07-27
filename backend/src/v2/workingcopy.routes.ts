@@ -10,7 +10,7 @@ workingcopyRouter.get('/substations/:id/workingcopy', authenticate, async (req, 
     const substation = await nextDb.substation.findUnique({ where: { id: req.params.id } });
     if (!substation) throw new HttpError(404, 'NOT_FOUND', '변전소를 찾을 수 없습니다');
 
-    const [floors, assets, maintenanceLogs, inspectionLogs] = await Promise.all([
+    const [floors, assets, maintenanceLogs, inspectionLogs, cables] = await Promise.all([
       nextDb.floor.findMany({ where: { substationId: substation.id }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
       nextDb.asset.findMany({
         where: { substationId: substation.id },
@@ -19,9 +19,10 @@ workingcopyRouter.get('/substations/:id/workingcopy', authenticate, async (req, 
       }),
       nextDb.maintenanceLog.findMany({ where: { asset: { substationId: substation.id } }, orderBy: { occurredAt: 'desc' } }),
       nextDb.inspectionLog.findMany({ where: { asset: { substationId: substation.id } }, orderBy: { inspectedAt: 'desc' } }),
+      nextDb.cable.findMany({ where: { substationId: substation.id }, orderBy: { createdAt: 'asc' } }),
     ]);
 
-    res.json({ substation, floors, assets, maintenanceLogs, inspectionLogs });
+    res.json({ substation, floors, assets, maintenanceLogs, inspectionLogs, cables });
   } catch (e) {
     next(e);
   }

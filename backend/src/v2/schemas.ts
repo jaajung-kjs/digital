@@ -38,11 +38,35 @@ const recordOps = <T extends z.ZodRawShape>(createShape: T) =>
     deletes: z.array(z.string().uuid()).optional(),
   });
 
+export const cableCreateSchema = z.object({
+  id: z.string().uuid(),
+  aPortId: z.string().uuid(),
+  bPortId: z.string().uuid(),
+  categoryId: z.string().uuid().nullish(),
+  name: z.string().trim().min(1).nullish(),
+  pathPoints: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
+  specParams: z.record(z.unknown()).optional(),
+});
+
+export const cablePatchSchema = z.object({
+  name: z.string().trim().min(1).nullish().optional(),
+  categoryId: z.string().uuid().nullish().optional(),
+  pathPoints: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
+  specParams: z.record(z.unknown()).optional(),
+});
+
 export const commitPayloadSchema = z.object({
   assets: z
     .object({
       creates: z.array(assetCreateSchema).optional(),
       updates: z.array(z.object({ id: z.string().uuid(), patch: assetPatchSchema })).optional(),
+      deletes: z.array(z.string().uuid()).optional(),
+    })
+    .optional(),
+  cables: z
+    .object({
+      creates: z.array(cableCreateSchema).optional(),
+      updates: z.array(z.object({ id: z.string().uuid(), patch: cablePatchSchema })).optional(),
       deletes: z.array(z.string().uuid()).optional(),
     })
     .optional(),
