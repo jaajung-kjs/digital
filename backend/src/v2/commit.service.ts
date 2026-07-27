@@ -1,5 +1,5 @@
 import { instantiatePorts, validateSlotPlacement } from '@twin/core';
-import type { Prisma } from '../generated/next-client/index.js';
+import { Prisma } from '../generated/next-client/index.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import { TYPE_INCLUDE, typeRowToSpec } from './spec.js';
@@ -13,6 +13,7 @@ const PLACEMENT_KEYS = ['floorId', 'x', 'y', 'width', 'height', 'parentAssetId',
 
 export async function commitSubstation(substationId: string, payload: CommitPayload): Promise<{ committedAt: string }> {
   return nextDb.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${substationId}))`;
     const substation = await tx.substation.findUnique({ where: { id: substationId } });
     if (!substation) throw new HttpError(404, 'NOT_FOUND', '변전소를 찾을 수 없습니다');
 
@@ -26,7 +27,7 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
     await applyRecords(tx, substationId, payload.records);
 
     return { committedAt: new Date().toISOString() };
-  });
+  }, { timeout: 30_000 });
 }
 
 async function checkVersions(tx: Tx, payload: CommitPayload): Promise<void> {
@@ -124,25 +125,32 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
       null,
     );
   }
-  await tx.asset.create({
-    data: {
-      id: input.id,
-      name: input.name,
-      typeId: input.typeId,
-      substationId,
-      status: input.status ?? 'normal',
-      floorId: input.floorId ?? null,
-      x: input.x ?? null,
-      y: input.y ?? null,
-      width: input.width ?? null,
-      height: input.height ?? null,
-      parentAssetId: input.parentAssetId ?? null,
-      containerKey: input.containerKey ?? null,
-      slotIndex: input.slotIndex ?? null,
-      slotSpan: input.slotSpan ?? null,
-      fieldValues: (input.fieldValues ?? {}) as Prisma.InputJsonValue,
-    },
-  });
+  try {
+    await tx.asset.create({
+      data: {
+        id: input.id,
+        name: input.name,
+        typeId: input.typeId,
+        substationId,
+        status: input.status ?? 'normal',
+        floorId: input.floorId ?? null,
+        x: input.x ?? null,
+        y: input.y ?? null,
+        width: input.width ?? null,
+        height: input.height ?? null,
+        parentAssetId: input.parentAssetId ?? null,
+        containerKey: input.containerKey ?? null,
+        slotIndex: input.slotIndex ?? null,
+        slotSpan: input.slotSpan ?? null,
+        fieldValues: (input.fieldValues ?? {}) as Prisma.InputJsonValue,
+      },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      throw new HttpError(409, 'CONFLICT', '이미 존재하는 자산 id 입니다 (재시도 중복)', [{ id: input.id, reason: 'exists' }]);
+    }
+    throw e;
+  }
   const ports = instantiatePorts(spec, input.id, input.portCounts);
   if (ports.length > 0) await tx.port.createMany({ data: ports });
 }

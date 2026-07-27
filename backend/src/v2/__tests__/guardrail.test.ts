@@ -14,7 +14,7 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
   it('v2 소스(테스트 제외)에 자산 타입 키 리터럴·role 비교가 없다', () => {
     const v2dir = dirname(dirname(fileURLToPath(import.meta.url))); // backend/src/v2
     const files = walk(v2dir).filter((f) => f.endsWith('.ts') && !f.includes('__tests__'));
-    const forbidden = /'(RACK|OFD|OFD-SLOT|DIST|FEEDER|GROUNDING|HVAC|PITR-2000|PITR-5000)'|\brole\s*===/;
+    const forbidden = /["'`](RACK|OFD|OFD-SLOT|DIST|FEEDER|GROUNDING|HVAC|PITR-2000|PITR-5000)["'`]|\brole\s*[!=]==|\.key\s*===/;
     for (const f of files) {
       expect(readFileSync(f, 'utf8'), f).not.toMatch(forbidden);
     }

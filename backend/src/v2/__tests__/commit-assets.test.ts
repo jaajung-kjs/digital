@@ -125,6 +125,21 @@ describe('PUT /commit — assets', () => {
       .send({ assets: {} })
       .expect(403);
   });
+
+  it('동일 UUID create 재제출 → 409 CONFLICT (details[0].reason === "exists")', async () => {
+    const assetId = randomUUID();
+    const payload = {
+      assets: {
+        creates: [{ id: assetId, name: `${uniq}-grounding-dup`, typeId: groundingTypeId }],
+      },
+    };
+    // 첫 번째 커밋은 성공
+    await commit(payload).expect(200);
+    // 동일 UUID 재제출 → 409
+    const res = await commit(payload).expect(409);
+    expect(res.body.error).toBe('CONFLICT');
+    expect(res.body.details[0]).toMatchObject({ id: assetId, reason: 'exists' });
+  });
 });
 
 async function rackIdByName(name = `${uniq}-rack`): Promise<string> {
