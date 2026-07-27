@@ -28,32 +28,35 @@ export function freeSlots(
   return Array.from({ length: spec.slotCount }, (_, i) => i).filter((i) => !occupied.has(i));
 }
 
+export type PlacementInput =
+  | { kind: 'container'; parentAssetId: string; containerKey: string; slotIndex: number | null; slotSpan: number }
+  | { kind: 'floor'; floorId: string; x: number; y: number; width: number; height: number };
+
 export function makeNewAsset(args: {
   type: V2AssetType;
   name: string;
   substationId: string;
-  placement?: {
-    parentAssetId: string;
-    containerKey: string;
-    slotIndex: number | null;
-    slotSpan: number;
-  };
+  placement?: PlacementInput;
 }): V2Asset {
+  const p = args.placement;
+  const isContainer = p?.kind === 'container';
+  const isFloor = p?.kind === 'floor';
+
   return {
     id: crypto.randomUUID(),
     name: args.name,
     typeId: args.type.id,
     substationId: args.substationId,
     status: 'normal',
-    floorId: null,
-    x: null,
-    y: null,
-    width: null,
-    height: null,
-    parentAssetId: args.placement?.parentAssetId ?? null,
-    containerKey: args.placement?.containerKey ?? null,
-    slotIndex: args.placement?.slotIndex ?? null,
-    slotSpan: args.placement ? args.placement.slotSpan : null,
+    floorId: isFloor ? p.floorId : null,
+    x: isFloor ? p.x : null,
+    y: isFloor ? p.y : null,
+    width: isFloor ? p.width : null,
+    height: isFloor ? p.height : null,
+    parentAssetId: isContainer ? p.parentAssetId : null,
+    containerKey: isContainer ? p.containerKey : null,
+    slotIndex: isContainer ? p.slotIndex : null,
+    slotSpan: isContainer ? p.slotSpan : null,
     fieldValues: {},
     updatedAt: '',
     ports: [],

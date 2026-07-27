@@ -2,18 +2,24 @@
  * FloorPlanView — 평면도 캔버스 뷰
  *
  * 층 탭바 + canvas + ResizeObserver + rAF 렌더 루프 + 뷰포트(zoom/pan) + 클릭 선택
+ * + placeable 팔레트 바 + armed drag-to-draw 배치
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { renderBackgroundDrawing } from '../canvas/backgroundRenderer';
 import { renderGrid } from '../canvas/gridRenderer';
-import { renderPlacedAssets } from '../canvas/renderers';
-import { screenToWorld } from '../canvas/transform';
+import { renderPlacedAssets, renderDrawPreview } from '../canvas/renderers';
+import { screenToWorld, snapToGrid } from '../canvas/transform';
 import { findAssetAt } from '../canvas/hitTest';
+import { normalizeRect, isDrawLargeEnough } from '../floorPlacement';
 import { placedAssetsOf } from '../floorPlanSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
+import { useV2Catalog } from '../hooks';
+import { Button } from '../../components/ui';
+import { AddAssetModal } from './AddAssetModal';
 
 const MAJOR_GRID = 100;
+const SNAP_GRID = 10;
 
 interface Props {
   substationId: string;
@@ -27,8 +33,13 @@ interface Viewport {
   panY: number;
 }
 
-// substationId is passed for future use (e.g. Task 3 palette, asset placement scoping)
-export function FloorPlanView({ substationId: _substationId, selectedAssetId, onSelectAsset }: Props) {
+interface DrawModalState {
+  floorId: string;
+  rect: { x: number; y: number; width: number; height: number };
+  typeId: string;
+}
+
+export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: Props) {
   // ── 반응형 슬라이스 구독 (함수 참조 구독 금지) ─────────────────────────────
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
@@ -88,6 +99,38 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
   const activeFloorRef = useRef(activeFloor);
   activeFloorRef.current = activeFloor;
 
+  // ── 배치(armed/draw) 상태 refs ───────────────────────────────────────────
+  /** 현재 armed 타입 ID (null이면 배치 모드 아님) */
+  const armedTypeIdRef = useRef<string | null>(null);
+  /** drag-to-draw: 드래그 시작 월드 좌표 */
+  const drawStartRef = useRef<{ x: number; y: number } | null>(null);
+  /** drag-to-draw: 드래그 현재 월드 좌표 */
+  const drawEndRef = useRef<{ x: number; y: number } | null>(null);
+
+  // armed 상태 변경을 React 렌더로 반영 (팔레트 버튼 하이라이트)
+  const [armedTypeId, setArmedTypeId] = useState<string | null>(null);
+
+  // ── AddAssetModal 상태 ────────────────────────────────────────────────────
+  const [drawModal, setDrawModal] = useState<DrawModalState | null>(null);
+
+  // ── catalog (placeable 타입 목록) ─────────────────────────────────────────
+  const catalog = useV2Catalog();
+  const placeableTypes = useMemo(
+    () => (catalog.data?.types ?? []).filter((t) => t.isActive && t.placeable),
+    [catalog.data],
+  );
+
+  // ── disarm 헬퍼 ──────────────────────────────────────────────────────────
+  const disarm = useCallback(() => {
+    armedTypeIdRef.current = null;
+    drawStartRef.current = null;
+    drawEndRef.current = null;
+    setArmedTypeId(null);
+    scheduleRender();
+  // scheduleRender 는 아래 정의되지만 ref 기반이므로 deps 불필요
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const scheduleRender = () => {
     if (rafPending.current) return;
     rafPending.current = true;
@@ -133,6 +176,11 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
 
       // 5. 배치 자산 (선택 하이라이트)
       renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current);
+
+      // 6. draw 미리보기 (armed 상태 + 드래그 중)
+      if (drawStartRef.current) {
+        renderDrawPreview(ctx, drawStartRef.current, drawEndRef.current);
+      }
 
       ctx.restore();
     });
@@ -222,11 +270,34 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
     window.addEventListener('mouseup', stopPanRef.current);
   };
 
+  // ── draw-to-draw window 리스너 (armed 상태 드래그) ──────────────────────
+  const isDrawing = useRef(false);
+
+  const onDrawMoveRef = useRef((_e: MouseEvent) => {});
+  const stopDrawRef = useRef((_e: MouseEvent) => {});
+
+  // 이 ref 들은 아래 onCanvasMouseDown 에서 세팅됨
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault();
         spaceDown.current = true;
+      }
+      if (e.code === 'Escape') {
+        // ESC: disarm 또는 draw 취소
+        if (isDrawing.current) {
+          isDrawing.current = false;
+          drawStartRef.current = null;
+          drawEndRef.current = null;
+          window.removeEventListener('mousemove', onDrawMoveRef.current);
+          window.removeEventListener('mouseup', stopDrawRef.current);
+          scheduleRender();
+        }
+        if (armedTypeIdRef.current !== null) {
+          armedTypeIdRef.current = null;
+          setArmedTypeId(null);
+        }
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -244,9 +315,10 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
       // unmount 시 팬 리스너 잔여물 정리
       if (isPanning.current) stopPanRef.current();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 캔버스 mousedown: 중클릭 팬 or Space 팬 or 클릭 선택 ─────────────────
+  // ── 캔버스 mousedown: armed → draw, 중클릭/Space → 팬, 일반 → 선택 ──────
   const onCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (e.button === 1) {
       // 중클릭 팬
@@ -259,6 +331,56 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
       startPan(e.clientX, e.clientY);
       return;
     }
+    // armed 배치 모드: 좌클릭 drag-to-draw
+    if (e.button === 0 && armedTypeIdRef.current !== null) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const { zoom, panX, panY } = viewportRef.current;
+      const raw = screenToWorld(e.clientX, e.clientY, rect, panX, panY, zoom);
+      const snapped = snapToGrid(raw.x, raw.y, SNAP_GRID);
+
+      drawStartRef.current = snapped;
+      drawEndRef.current = snapped;
+      isDrawing.current = true;
+
+      const capturedTypeId = armedTypeIdRef.current;
+      const capturedFloorId = activeFloorId;
+
+      onDrawMoveRef.current = (me: MouseEvent) => {
+        if (!isDrawing.current) return;
+        const r = canvas.getBoundingClientRect();
+        const { zoom: z, panX: px, panY: py } = viewportRef.current;
+        const rawEnd = screenToWorld(me.clientX, me.clientY, r, px, py, z);
+        const snappedEnd = snapToGrid(rawEnd.x, rawEnd.y, SNAP_GRID);
+        drawEndRef.current = snappedEnd;
+        scheduleRender();
+      };
+
+      stopDrawRef.current = (_me: MouseEvent) => {
+        if (!isDrawing.current) return;
+        isDrawing.current = false;
+        window.removeEventListener('mousemove', onDrawMoveRef.current);
+        window.removeEventListener('mouseup', stopDrawRef.current);
+
+        const start = drawStartRef.current;
+        const end = drawEndRef.current;
+        drawStartRef.current = null;
+        drawEndRef.current = null;
+        scheduleRender();
+
+        if (!start || !end || !capturedFloorId) return;
+        const rectNorm = normalizeRect(start, end);
+        if (!isDrawLargeEnough(rectNorm)) return;
+
+        // 모달 열기
+        setDrawModal({ floorId: capturedFloorId, rect: rectNorm, typeId: capturedTypeId ?? '' });
+      };
+
+      window.addEventListener('mousemove', onDrawMoveRef.current);
+      window.addEventListener('mouseup', stopDrawRef.current);
+      return;
+    }
   };
 
   // ── 클릭: 자산 선택 ───────────────────────────────────────────────────────
@@ -269,6 +391,7 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
       return;
     }
     if (isPanning.current) return; // 팬 중 클릭 무시
+    if (armedTypeIdRef.current !== null) return; // armed 상태에서는 클릭 선택 무시
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -278,8 +401,26 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
     onSelectAsset(hit?.id ?? null);
   };
 
+  // ── arm 토글 ─────────────────────────────────────────────────────────────
+  const handleArmType = (typeId: string) => {
+    if (armedTypeIdRef.current === typeId) {
+      // 같은 버튼 재클릭 → disarm
+      disarm();
+    } else {
+      armedTypeIdRef.current = typeId;
+      setArmedTypeId(typeId);
+    }
+  };
+
+  // ── modal 닫기 (생성 완료 or 취소) ───────────────────────────────────────
+  const handleModalClose = () => {
+    setDrawModal(null);
+    // 생성 후 disarm
+    disarm();
+  };
+
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
-  // (Space 눌린 동안 or 중클릭 팬 중 grab/grabbing 이지만 CSS만으로는 Space 감지가 어려움 — JS cursor on canvas)
+  const canvasCursor = armedTypeId !== null ? 'crosshair' : undefined;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -307,6 +448,26 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
         )}
       </div>
 
+      {/* placeable 팔레트 바 (타입이 있을 때만 표시) */}
+      {placeableTypes.length > 0 && activeFloorId != null && (
+        <div className="flex shrink-0 items-center gap-1 border-b border-line bg-surface px-2 py-1">
+          <span className="text-xs text-content-muted mr-1">배치:</span>
+          {placeableTypes.map((t) => (
+            <Button
+              key={t.id}
+              size="sm"
+              variant={armedTypeId === t.id ? 'primary' : 'secondary'}
+              onClick={() => handleArmType(t.id)}
+            >
+              {t.name}
+            </Button>
+          ))}
+          {armedTypeId !== null && (
+            <span className="ml-2 text-xs text-content-muted">드래그로 영역 지정 · ESC 취소</span>
+          )}
+        </div>
+      )}
+
       {/* 캔버스 컨테이너 */}
       <div
         ref={containerRef}
@@ -316,14 +477,14 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full"
-          style={{ display: 'block' }}
+          style={{ display: 'block', cursor: canvasCursor }}
           onMouseDown={onCanvasMouseDown}
           onClick={onCanvasClick}
           data-testid="floorplan-canvas"
         />
 
         {/* 층이 선택됐지만 배치 자산 없음 안내 */}
-        {activeFloorId != null && placedAssets.length === 0 && (
+        {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <span className="text-xs text-content-faint">
               배치된 자산이 없습니다
@@ -336,6 +497,17 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
           {Math.round(viewport.zoom)}%
         </div>
       </div>
+
+      {/* 평면도 배치 모달 */}
+      {drawModal && (
+        <AddAssetModal
+          open={true}
+          onClose={handleModalClose}
+          substationId={substationId}
+          floorContext={{ floorId: drawModal.floorId, rect: drawModal.rect }}
+          preselectedTypeId={drawModal.typeId}
+        />
+      )}
     </div>
   );
 }
