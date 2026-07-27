@@ -18,12 +18,5 @@ export const TYPE_INCLUDE = {
 
 /** DB 타입행 → 코어 spec. v2에서 이 매핑의 유일한 지점. */
 export function typeRowToSpec(row: TypeRow): AssetTypeSpec {
-  return specFromCatalog({
-    ...row,
-    placeable: row.placeable ?? false,
-    fieldDefs: row.fieldDefs,
-    containerSpecs: row.containerSpecs,
-    portTemplates: row.portTemplates,
-    linkRules: row.linkRules,
-  });
+  return specFromCatalog({ ...row, placeable: row.placeable ?? false });
 }
