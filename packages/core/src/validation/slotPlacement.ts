@@ -1,4 +1,4 @@
-import type { AssetTypeSpec } from '../catalog/types.js';
+import type { AcceptRule, AssetTypeSpec } from '../catalog/types.js';
 
 export interface SlotOccupant {
   assetId: string;
@@ -13,6 +13,13 @@ export type SlotError =
   | 'span-not-allowed'
   | 'overlap';
 
+/** 빈 규칙({}) = 전체 수용. categoryKeys/typeKeys 중 하나라도 일치하면 수용(OR). */
+export function isAccepted(accepts: AcceptRule, child: { typeKey: string; categoryKey: string }): boolean {
+  const { categoryKeys, typeKeys } = accepts;
+  if (!categoryKeys && !typeKeys) return true;
+  return (categoryKeys?.includes(child.categoryKey) ?? false) || (typeKeys?.includes(child.typeKey) ?? false);
+}
+
 /** 자산을 부모 컨테이너에 넣을 수 있는지 타입 명세로 판정한다. null = 유효. */
 export function validateSlotPlacement(args: {
   parentType: AssetTypeSpec;
@@ -26,12 +33,7 @@ export function validateSlotPlacement(args: {
   const spec = args.parentType.containers.find((c) => c.key === args.containerKey);
   if (!spec) return 'container-not-found';
 
-  const { categoryKeys, typeKeys } = spec.accepts;
-  const hasRule = !!categoryKeys || !!typeKeys;
-  const accepted =
-    (categoryKeys?.includes(args.child.categoryKey) ?? false) ||
-    (typeKeys?.includes(args.child.typeKey) ?? false);
-  if (hasRule && !accepted) return 'not-accepted';
+  if (!isAccepted(spec.accepts, args.child)) return 'not-accepted';
 
   if (spec.slotCount === null) return null; // 자유형
 
