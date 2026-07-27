@@ -300,6 +300,10 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Guard: don't intercept keydown in input/textarea/contenteditable
+      const t = e.target as HTMLElement | null;
+      if (t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable)) return;
+
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault();
         spaceDown.current = true;
@@ -321,6 +325,10 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
+      // Guard: don't intercept keyup in input/textarea/contenteditable
+      const t = e.target as HTMLElement | null;
+      if (t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable)) return;
+
       if (e.code === 'Space') {
         spaceDown.current = false;
         // 팬 중이었다면 종료
@@ -340,6 +348,10 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
 
   // ── 캔버스 mousedown: armed → draw, 중클릭/Space → 팬, 일반 → 선택 ──────
   const onCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Clear stale pan/move flags at the top of mousedown (any new gesture starts fresh)
+    wasRecentlyPanning.current = false;
+    wasRecentlyMoving.current = false;
+
     if (e.button === 1) {
       // 중클릭 팬
       e.preventDefault();
