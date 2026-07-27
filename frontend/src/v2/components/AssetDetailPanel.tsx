@@ -174,7 +174,8 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
   }
 
   function handleFieldCommit(key: string, value: string) {
-    const current = asset!.fieldValues;
+    // 커밋 시점 스토어에서 현재 fieldValues 를 읽는다 (렌더 클로저 stale 방지; 이벤트 핸들러라 반응성 무관)
+    const current = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === assetId)?.fieldValues ?? {};
     useV2WorkingCopy.getState().stageAssetUpdate(assetId, { fieldValues: { ...current, [key]: value } });
   }
 
@@ -296,7 +297,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
               <DetailCard>
                 <p className="text-xs font-semibold text-content-muted">포트</p>
                 {type.portTemplates.map((pt) => (
-                  <div key={pt.group} className="space-y-0.5">
+                  <div key={pt.id} className="space-y-0.5">
                     <p className="text-xs text-content-muted">{pt.group}</p>
                     {Array.from({ length: pt.count }, (_, i) => {
                       const portName = pt.namePattern.replace('{n}', String(i + 1));
