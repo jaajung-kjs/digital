@@ -1,10 +1,11 @@
-import type { V2Asset, V2AssetCreateInput, V2AssetPatch, V2CommitPayload, V2InspectionLog, V2MaintenanceLog } from '../types';
+import type { V2Asset, V2AssetCreateInput, V2AssetPatch, V2Cable, V2CableCreateInput, V2CablePatch, V2CommitPayload, V2InspectionLog, V2MaintenanceLog } from '../types';
 import type { Overlay } from './overlay';
 
 interface OverlaysIn {
   assets: Overlay<V2Asset>;
   maintenance: Overlay<V2MaintenanceLog>;
   inspections: Overlay<V2InspectionLog>;
+  cables: Overlay<V2Cable>;
 }
 
 function toCreateInput(a: V2Asset): V2AssetCreateInput {
@@ -14,6 +15,10 @@ function toCreateInput(a: V2Asset): V2AssetCreateInput {
     parentAssetId: a.parentAssetId, containerKey: a.containerKey, slotIndex: a.slotIndex, slotSpan: a.slotSpan,
     fieldValues: a.fieldValues,
   };
+}
+
+function toCableCreateInput(c: V2Cable): V2CableCreateInput {
+  return { id: c.id, aPortId: c.aPortId, bPortId: c.bPortId, categoryId: c.categoryId, name: c.name, pathPoints: c.pathPoints, specParams: c.specParams };
 }
 
 export function buildCommitPayload(
@@ -41,6 +46,25 @@ export function buildCommitPayload(
   for (const id of [...updates.map((u) => u.id), ...deletes]) {
     if (baseVersions[id]) bv[id] = baseVersions[id]!;
   }
+
+  // cables
+  const deletedCables = new Set(overlays.cables.deletes);
+  const cableCreates = Object.values(overlays.cables.creates).map(toCableCreateInput);
+  const cableUpdates = Object.entries(overlays.cables.updates)
+    .filter(([id]) => !deletedCables.has(id))
+    .map(([id, patch]) => ({ id, patch: patch as V2CablePatch }));
+  const cableDeletes = overlays.cables.deletes;
+  if (cableCreates.length || cableUpdates.length || cableDeletes.length) {
+    payload.cables = {
+      ...(cableCreates.length ? { creates: cableCreates } : {}),
+      ...(cableUpdates.length ? { updates: cableUpdates } : {}),
+      ...(cableDeletes.length ? { deletes: cableDeletes } : {}),
+    };
+  }
+  for (const id of [...cableUpdates.map((u) => u.id), ...cableDeletes]) {
+    if (baseVersions[id]) bv[id] = baseVersions[id]!;
+  }
+
   if (Object.keys(bv).length) payload.baseVersions = bv;
 
   const maintenance = recordOps(overlays.maintenance, deletedAssets, recordAssetIds, (r) => ({
