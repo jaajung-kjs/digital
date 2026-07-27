@@ -193,6 +193,34 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
   // ── 팬: 중클릭 또는 Space+드래그 ─────────────────────────────────────────
   // Space key state ref
   const spaceDown = useRef(false);
+  // 팬 종료 직후 click 오발 방지 플래그 (onCanvasClick 진입 시 소거)
+  const wasRecentlyPanning = useRef(false);
+
+  // window 리스너 항등성: add/remove 가 항상 같은 함수 참조를 쓰도록 ref 에 고정
+  const onPanMoveRef = useRef((e: MouseEvent) => {
+    if (!isPanning.current) return;
+    const dx = e.clientX - panStart.current.mouseX;
+    const dy = e.clientY - panStart.current.mouseY;
+    setViewport((prev) => ({
+      ...prev,
+      panX: panStart.current.panX + dx,
+      panY: panStart.current.panY + dy,
+    }));
+  });
+
+  const stopPanRef = useRef(() => {
+    isPanning.current = false;
+    wasRecentlyPanning.current = true;
+    window.removeEventListener('mousemove', onPanMoveRef.current);
+    window.removeEventListener('mouseup', stopPanRef.current);
+  });
+
+  const startPan = (mouseX: number, mouseY: number) => {
+    isPanning.current = true;
+    panStart.current = { mouseX, mouseY, panX: viewportRef.current.panX, panY: viewportRef.current.panY };
+    window.addEventListener('mousemove', onPanMoveRef.current);
+    window.addEventListener('mouseup', stopPanRef.current);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -205,7 +233,7 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
       if (e.code === 'Space') {
         spaceDown.current = false;
         // 팬 중이었다면 종료
-        if (isPanning.current) stopPan();
+        if (isPanning.current) stopPanRef.current();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -213,35 +241,10 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      // unmount 시 팬 리스너 잔여물 정리
+      if (isPanning.current) stopPanRef.current();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const stopPan = () => {
-    isPanning.current = false;
-    window.removeEventListener('mousemove', onPanMove);
-    window.removeEventListener('mouseup', onPanUp);
-  };
-
-  const onPanMove = (e: MouseEvent) => {
-    if (!isPanning.current) return;
-    const dx = e.clientX - panStart.current.mouseX;
-    const dy = e.clientY - panStart.current.mouseY;
-    setViewport((prev) => ({
-      ...prev,
-      panX: panStart.current.panX + dx,
-      panY: panStart.current.panY + dy,
-    }));
-  };
-
-  const onPanUp = () => stopPan();
-
-  const startPan = (mouseX: number, mouseY: number) => {
-    isPanning.current = true;
-    panStart.current = { mouseX, mouseY, panX: viewportRef.current.panX, panY: viewportRef.current.panY };
-    window.addEventListener('mousemove', onPanMove);
-    window.addEventListener('mouseup', onPanUp);
-  };
 
   // ── 캔버스 mousedown: 중클릭 팬 or Space 팬 or 클릭 선택 ─────────────────
   const onCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -260,7 +263,12 @@ export function FloorPlanView({ substationId: _substationId, selectedAssetId, on
 
   // ── 클릭: 자산 선택 ───────────────────────────────────────────────────────
   const onCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isPanning.current) return; // 팬 직후는 선택 무시
+    // 팬 종료(mouseup) 직후 발생하는 click 은 선택으로 취급하지 않는다
+    if (wasRecentlyPanning.current) {
+      wasRecentlyPanning.current = false;
+      return;
+    }
+    if (isPanning.current) return; // 팬 중 클릭 무시
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
