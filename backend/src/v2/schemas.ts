@@ -8,3 +8,37 @@ export const orgPatchSchema = z
 export const branchCreateSchema = orgNameSchema.extend({ headquartersId: z.string().uuid() });
 export const substationCreateSchema = orgNameSchema.extend({ branchId: z.string().uuid() });
 export const floorCreateSchema = orgNameSchema.extend({ substationId: z.string().uuid() });
+
+export const assetCreateSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(1),
+  typeId: z.string().uuid(),
+  status: z.string().optional(),
+  floorId: z.string().uuid().nullish(),
+  x: z.number().nullish(),
+  y: z.number().nullish(),
+  width: z.number().nullish(),
+  height: z.number().nullish(),
+  parentAssetId: z.string().uuid().nullish(),
+  containerKey: z.string().nullish(),
+  slotIndex: z.number().int().nullish(),
+  slotSpan: z.number().int().min(1).nullish(),
+  fieldValues: z.record(z.unknown()).optional(),
+  portCounts: z.record(z.number().int().min(1)).optional(),
+});
+
+export const assetPatchSchema = assetCreateSchema
+  .omit({ id: true, typeId: true, portCounts: true })
+  .partial();
+
+export const commitPayloadSchema = z.object({
+  assets: z
+    .object({
+      creates: z.array(assetCreateSchema).optional(),
+      updates: z.array(z.object({ id: z.string().uuid(), patch: assetPatchSchema })).optional(),
+      deletes: z.array(z.string().uuid()).optional(),
+    })
+    .optional(),
+  baseVersions: z.record(z.string()).optional(),
+});
+export type CommitPayload = z.infer<typeof commitPayloadSchema>;
