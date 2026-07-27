@@ -15,7 +15,16 @@ export interface V2CableCategory { id: string; name: string; sortOrder: number }
 export interface V2CableGroup { id: string; key: string; name: string; color: string; sortOrder: number; categories: V2CableCategory[] }
 export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[] }
 
-export interface V2Floor { id: string; name: string; sortOrder: number; substationId: string }
+export interface V2Floor {
+  id: string;
+  name: string;
+  sortOrder: number;
+  substationId: string;
+  /** DWG/DXF 가져오기 후 서버가 저장한 배경 도면 (없으면 null) */
+  backgroundDrawing?: import('./canvas/backgroundTypes').BackgroundDrawing | null;
+  /** 배경 도면 불투명도 0~1 (기본 0.4) */
+  backgroundOpacity?: number | null;
+}
 export interface V2Substation { id: string; name: string; sortOrder: number; branchId: string; floors: V2Floor[] }
 export interface V2Branch { id: string; name: string; sortOrder: number; headquartersId: string; substations: V2Substation[] }
 export interface V2Hq { id: string; name: string; sortOrder: number; branches: V2Branch[] }

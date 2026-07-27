@@ -30,9 +30,14 @@ describe('freeSlots', () => {
 });
 
 describe('makeNewAsset', () => {
-  it('uuid id + 기본값 + 배치 반영', () => {
-    const a = makeNewAsset({ type: mkType('t1', 'PITR', 'c-comm'), name: '신규', substationId: 'ss', placement: { parentAssetId: 'rack', containerKey: 'main', slotIndex: 3, slotSpan: 1 } });
+  it('uuid id + 기본값 + container 배치 반영', () => {
+    const a = makeNewAsset({ type: mkType('t1', 'PITR', 'c-comm'), name: '신규', substationId: 'ss', placement: { kind: 'container', parentAssetId: 'rack', containerKey: 'main', slotIndex: 3, slotSpan: 1 } });
     expect(a.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(a).toMatchObject({ name: '신규', typeId: 't1', status: 'normal', parentAssetId: 'rack', slotIndex: 3 });
+  });
+  it('floor placement 반영', () => {
+    const a = makeNewAsset({ type: mkType('t1', 'RACK', 'c-struct'), name: '랙', substationId: 'ss',
+      placement: { kind: 'floor', floorId: 'f1', x: 10, y: 20, width: 60, height: 80 } });
+    expect(a).toMatchObject({ floorId: 'f1', x: 10, y: 20, width: 60, height: 80, parentAssetId: null });
   });
 });

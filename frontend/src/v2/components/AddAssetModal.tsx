@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Input, Modal, Select } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
 import { makeNewAsset, acceptedTypes, freeSlots } from '../newAsset';
@@ -16,12 +16,24 @@ interface AddAssetModalProps {
     /** 현재 형제들 — freeSlots 계산용 */
     siblings: { slotIndex: number | null; slotSpan: number | null }[];
   };
+  /** 평면도 배치 컨텍스트: 팔레트 drag-to-draw 후 열릴 때 지정 */
+  floorContext?: {
+    floorId: string;
+    rect: { x: number; y: number; width: number; height: number };
+  };
+  /** 미리 선택할 타입 ID (팔레트 armed 상태에서 전달) */
+  preselectedTypeId?: string;
 }
 
-export function AddAssetModal({ open, onClose, substationId, containerContext }: AddAssetModalProps) {
-  const [selectedTypeId, setSelectedTypeId] = useState('');
+export function AddAssetModal({ open, onClose, substationId, containerContext, floorContext, preselectedTypeId }: AddAssetModalProps) {
+  const [selectedTypeId, setSelectedTypeId] = useState(preselectedTypeId ?? '');
   const [name, setName] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<string>('');
+
+  // preselectedTypeId 가 변경되면 선택 동기화
+  useEffect(() => {
+    if (preselectedTypeId !== undefined) setSelectedTypeId(preselectedTypeId);
+  }, [preselectedTypeId]);
 
   const catalog = useV2Catalog();
 
@@ -42,11 +54,12 @@ export function AddAssetModal({ open, onClose, substationId, containerContext }:
     [catalog.data],
   );
 
-  // 컨테이너 컨텍스트가 있으면 acceptedTypes 필터 적용
+  // 타입 필터: floorContext → placeable 만, containerContext → acceptedTypes, 둘 다 없으면 전체
   const availableTypes = useMemo(() => {
-    if (!containerContext) return allActiveTypes;
-    return acceptedTypes(containerContext.spec, allActiveTypes, categoryKeyById);
-  }, [containerContext, allActiveTypes, categoryKeyById]);
+    if (floorContext) return allActiveTypes.filter((t) => t.placeable);
+    if (containerContext) return acceptedTypes(containerContext.spec, allActiveTypes, categoryKeyById);
+    return allActiveTypes;
+  }, [floorContext, containerContext, allActiveTypes, categoryKeyById]);
 
   // 자유형 슬롯 목록
   const free = useMemo(() => {
@@ -79,11 +92,21 @@ export function AddAssetModal({ open, onClose, substationId, containerContext }:
     if (!type || !name.trim()) return;
 
     let placement: Parameters<typeof makeNewAsset>[0]['placement'];
-    if (containerContext) {
+    if (floorContext) {
+      placement = {
+        kind: 'floor',
+        floorId: floorContext.floorId,
+        x: floorContext.rect.x,
+        y: floorContext.rect.y,
+        width: floorContext.rect.width,
+        height: floorContext.rect.height,
+      };
+    } else if (containerContext) {
       const slotIndex = hasFixedSlots
         ? (selectedSlot !== '' ? parseInt(selectedSlot, 10) : null)
         : null;
       placement = {
+        kind: 'container',
         parentAssetId: containerContext.parentAssetId,
         containerKey: containerContext.spec.key,
         slotIndex,
