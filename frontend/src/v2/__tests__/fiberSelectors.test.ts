@@ -54,4 +54,10 @@ describe('buildFiberRows', () => {
     expect(rows[0]!.meta).toMatchObject({ cableId: 'c3', lengthM: 12.5, lossDb: 0.3, inspectedAt: '2026-07-01' });
     expect(rows[1]!.meta).toMatchObject({ cableId: null, lengthM: null });
   });
+
+  it('meta 폴백: 마지막 그룹에 케이블 없으면 앞 그룹 케이블', () => {
+    const c = cable('c4', 'a2', 'x', { specParams: { lengthM: 7 } }); // A그룹 index2에만 연결
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [c as never] as never);
+    expect(rows[1]!.meta).toMatchObject({ cableId: 'c4', lengthM: 7 });
+  });
 });

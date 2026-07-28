@@ -41,7 +41,7 @@ interface Props {
 
 /** 팝오버 크기 추정값 (플립 계산용) */
 const POPOVER_W = 240;
-const POPOVER_H = 300;
+const POPOVER_H = 320;
 
 export function PortPickerPopover({
   screenPos,
@@ -81,10 +81,10 @@ export function PortPickerPopover({
       />
       {/* 팝오버 본체 — fixed + viewport 좌표 (overflow-hidden 클리핑 해소) */}
       <div
-        className="fixed z-modal min-w-[160px] max-w-[240px] rounded-lg border border-line bg-surface shadow-lg p-2"
+        className="fixed z-modal flex flex-col min-w-[160px] max-w-[240px] max-h-[70vh] rounded-lg border border-line bg-surface shadow-lg p-2"
         style={{ left, top }}
       >
-        <div className="mb-1.5 flex items-center justify-between">
+        <div className="mb-1.5 flex items-center justify-between flex-shrink-0">
           <span className="text-xs font-semibold text-content-muted truncate">{asset.name}</span>
           <button
             type="button"
@@ -103,7 +103,7 @@ export function PortPickerPopover({
         ) : !hasFreePorts ? (
           <p className="text-xs text-content-faint py-1">연결 가능한 포트 없음</p>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 overflow-y-auto max-h-64 min-h-0">
             {filteredGroups.map((group) => {
               if (group.ports.length === 0) return null;
               return (
@@ -134,9 +134,9 @@ export function PortPickerPopover({
           </div>
         )}
 
-        {/* 대국 검색 버튼: 첫 끝점 확정 시에만 표시 */}
+        {/* 대국 검색 버튼: 첫 끝점 확정 시에만 표시 — 리스트 밖 고정 */}
         {hasFirstEndpoint && onOpenRemoteModal && (
-          <div className="mt-1.5 border-t border-line pt-1.5">
+          <div className="mt-1.5 border-t border-line pt-1.5 flex-shrink-0">
             <Button
               variant="ghost"
               size="sm"

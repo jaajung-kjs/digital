@@ -129,7 +129,7 @@ export function buildFiberRows(
   for (const slot of slots) {
     for (let coreIndex = 1; coreIndex <= overallMaxCoreIndex; coreIndex++) {
       const cells: FiberRowCell[] = [];
-      let lastGroupCable: V2Cable | null = null;
+      const cableByGroupIdx: (V2Cable | null)[] = [];
 
       // Build cells for each group in order
       for (let groupIdx = 0; groupIdx < groupsOrder.length; groupIdx++) {
@@ -190,10 +190,7 @@ export function buildFiberRows(
             peer,
           });
 
-          // Track last group cable
-          if (groupIdx === groupsOrder.length - 1) {
-            lastGroupCable = cable;
-          }
+          cableByGroupIdx[groupIdx] = cable;
         } else {
           cells.push({
             group,
@@ -202,15 +199,24 @@ export function buildFiberRows(
             cableId: null,
             peer: null,
           });
+          cableByGroupIdx[groupIdx] = null;
         }
       }
 
-      // Build meta from last group cable
+      // Build meta: prefer last group cable, fall back to first non-null cable in reverse order
+      let metaCable: V2Cable | null = null;
+      for (let gi = groupsOrder.length - 1; gi >= 0; gi--) {
+        if (cableByGroupIdx[gi]) {
+          metaCable = cableByGroupIdx[gi]!;
+          break;
+        }
+      }
+
       const meta: FiberRowMeta = {
-        cableId: lastGroupCable?.id ?? null,
-        lengthM: (lastGroupCable?.specParams?.lengthM as number | null) ?? null,
-        lossDb: (lastGroupCable?.specParams?.lossDb as number | null) ?? null,
-        inspectedAt: (lastGroupCable?.specParams?.inspectedAt as string | null) ?? null,
+        cableId: metaCable?.id ?? null,
+        lengthM: (metaCable?.specParams?.lengthM as number | null) ?? null,
+        lossDb: (metaCable?.specParams?.lossDb as number | null) ?? null,
+        inspectedAt: (metaCable?.specParams?.inspectedAt as string | null) ?? null,
       };
 
       rows.push({
