@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
@@ -55,6 +55,13 @@ export default function V2WorkspacePage() {
   const substationId = useV2WorkingCopy((s) => s.substationId);
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
+
+  // 스테이지 발생(overlays 변경) 시 stale 추적 클리어
+  useEffect(() => {
+    if (traceResult) setTraceResult(null);
+    // overlays 참조가 바뀔 때만 실행 (traceResult 의존 금지 — 무한 루프)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlays]);
 
   const substationRows = useMemo<StatusRow[]>(() => {
     if (selected?.kind !== 'substation' || substationId !== selected.id) return [];

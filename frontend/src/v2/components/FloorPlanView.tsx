@@ -6,6 +6,7 @@
  * + 케이블 도구 (종류 Select, 포트 피커, 캔버스 케이블 렌더)
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../canvas/backgroundRenderer';
 import { renderGrid } from '../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../canvas/renderers';
@@ -15,7 +16,7 @@ import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
 import type { DragSession } from '../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../floorPlacement';
 import { placedAssetsOf } from '../floorPlanSelectors';
-import { cableSegments, distanceToPolyline, freePortsOf, withDescendants } from '../cableSelectors';
+import { cableSegments, distanceToPolyline, freePortsOf, withDescendants, occupiedPortIds } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog } from '../hooks';
@@ -26,6 +27,7 @@ import { PortPickerPopover } from './PortPickerPopover';
 import { SNAP_GRID, SELECTION_STYLES } from '../canvas/constants';
 import type { V2Asset, V2Port } from '../types';
 import type { PortGroup } from './PortPickerPopover';
+import { expandToPlacedAncestors } from '../traceSelectors';
 import type { TraceResult } from '../traceSelectors';
 
 const MAJOR_GRID = 100;
@@ -54,9 +56,12 @@ interface DrawModalState {
 /** 케이블 포트 피커 상태 */
 interface PickerState {
   asset: V2Asset;
+  /** viewport client 좌표 (fixed 팝오버용) */
   screenPos: { x: number; y: number };
   /** 첫 끝점이 이미 확정된 경우 */
   firstEndpoint: { portId: string; assetId: string } | null;
+  /** 사전 연결 검증 에러 (한글) — 있으면 스테이지 대신 안내 표시 */
+  validationError?: string | null;
 }
 
 export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, traceResult }: Props) {
@@ -124,6 +129,18 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   activeFloorRef.current = activeFloor;
   const traceResultRef = useRef(traceResult ?? null);
   traceResultRef.current = traceResult ?? null;
+
+  // ── 추적 자산 확장 집합 (per-frame 계산 제거 — traceResult 변경 시 1회 프리컴퓨트) ──
+  const traceExpandedIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (traceResult == null) {
+      traceExpandedIdsRef.current = new Set();
+    } else {
+      traceExpandedIdsRef.current = expandToPlacedAncestors(traceResult.assetIds, effectiveAssets);
+    }
+  // effectiveAssets 는 traceResult 가 없을 때는 불필요하나, 변경 시 재계산이 필요하므로 포함
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [traceResult]);
 
   // ── 케이블 렌더 refs ───────────────────────────────────────────────────────
   const effectiveCablesRef = useRef(effectiveCables);
@@ -317,15 +334,10 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
       if (traceRes) {
         // 추적 결과 있음: 추적 자산은 선택 스타일, 나머지는 alpha 0.3
-        // 자식(비배치) 자산 id가 traceResult.assetIds에 있을 수 있으므로
-        // 배치 자산 자신 OR 그 자손 중 하나라도 traceResult에 포함되면 추적으로 판단
-        const isTraced = (a: { id: string }) => {
-          if (traceRes.assetIds.has(a.id)) return true;
-          const desc = withDescendants(effectiveAssetsRef.current, a.id);
-          return desc.some((d) => traceRes.assetIds.has(d.id));
-        };
-        const tracedAssets = placedAssetsRef.current.filter((a) => isTraced(a));
-        const dimmedAssets = placedAssetsRef.current.filter((a) => !isTraced(a));
+        // expandToPlacedAncestors로 프리컴퓨트된 집합 사용 (per-frame 스캔 제거)
+        const expandedIds = traceExpandedIdsRef.current;
+        const tracedAssets = placedAssetsRef.current.filter((a) => expandedIds.has(a.id));
+        const dimmedAssets = placedAssetsRef.current.filter((a) => !expandedIds.has(a.id));
         ctx.save();
         ctx.globalAlpha = 0.3;
         renderPlacedAssets(ctx, dimmedAssets, null, activePreview);
@@ -663,21 +675,14 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     if (cableArmedRef.current) {
       const hit = findAssetAt(world.x, world.y, placedAssetsRef.current);
       if (hit) {
-        // 화면 좌표 계산 (컨테이너 기준)
-        const containerRect = containerRef.current?.getBoundingClientRect();
-        const canvasClientRect = canvas.getBoundingClientRect();
-        const offsetX = containerRect ? canvasClientRect.left - containerRect.left : 0;
-        const offsetY = containerRect ? canvasClientRect.top - containerRect.top : 0;
-        const screenX = (hit.x + hit.width / 2) * scale + panX + offsetX;
-        const screenY = (hit.y + hit.height / 2) * scale + panY + offsetY;
-
         // 자산 객체 찾기 (V2Asset 형태)
         const fullAsset = effectiveAssetsRef.current.find((a) => a.id === hit.id);
         if (!fullAsset) return;
 
+        // viewport client 좌표 (fixed 팝오버 — overflow-hidden 클리핑 없음)
         setPickerState({
           asset: fullAsset,
-          screenPos: { x: screenX, y: screenY },
+          screenPos: { x: e.clientX, y: e.clientY },
           firstEndpoint: firstEndpointRef.current,
         });
       }
@@ -719,6 +724,14 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     onSelectAsset(null);
   };
 
+  // ── 연결 검증 에러 → 한글 메시지 ─────────────────────────────────────────
+  const connectErrorLabel = (code: string): string => {
+    if (code === 'same-port') return '같은 포트';
+    if (code === 'port-occupied') return '이미 연결됨';
+    if (code === 'medium-mismatch') return '매체 불일치';
+    return code;
+  };
+
   // ── 포트 선택 핸들러 ──────────────────────────────────────────────────────
   const handlePortSelect = (port: V2Port) => {
     const state = pickerState;
@@ -730,8 +743,26 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       setPickerState(null);
       scheduleRender();
     } else {
-      // 두 번째 끝점 → 케이블 생성
+      // 두 번째 끝점 — 사전 검증 후 스테이지
       const first = state.firstEndpoint;
+
+      // 첫 끝점 포트 ref 찾기 (전체 effective assets에서)
+      const aPort = effectiveAssetsRef.current
+        .flatMap((a) => a.ports)
+        .find((p) => p.id === first.portId);
+      const bPort = port;
+
+      if (aPort) {
+        const occupied = occupiedPortIds(effectiveCablesRef.current);
+        const groupKey = selectedGroupKey;
+        const err = validateConnection(aPort, bPort, occupied, groupKey);
+        if (err) {
+          // 검증 실패 → 피커 내 안내 텍스트, 스테이지 금지
+          setPickerState({ ...state, validationError: connectErrorLabel(err) });
+          return;
+        }
+      }
+
       const substationId = saved.substation?.id ?? '';
       const categoryId = selectedCategoryIdRef.current || null;
 
@@ -967,6 +998,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
             portGroups={pickerPortGroups}
             isUnsaved={pickerState.asset.updatedAt === ''}
             excludePortId={pickerState.firstEndpoint?.portId}
+            validationError={pickerState.validationError}
             onSelectPort={handlePortSelect}
             onClose={() => {
               setPickerState(null);
