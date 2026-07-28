@@ -104,7 +104,6 @@ function SwitchStateCell({ feederId, value, switchStateDef }: SwitchStateCellPro
         defaultValue={displayValue}
         className="py-0.5 text-sm"
         key={displayValue}
-        onBlur={(e) => handleCommit(e.currentTarget.value)}
         onChange={(e) => handleCommit(e.currentTarget.value)}
       >
         <option value="">—</option>
@@ -203,19 +202,19 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     return buildPowerRows(activeContainer, effectiveAssets, effectiveCables);
   }, [activeContainer, effectiveAssets, effectiveCables]);
 
-  // catalog에서 피더 타입의 switchState fieldDef 조회 (타입-불가지: 첫 번째 피더 자산의 typeId 사용)
+  // catalog에서 피더별 switchState fieldDef 조회 (행별 해소 — 혼합 타입 컨테이너 대응)
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
 
-  const switchStateDef = useMemo<FieldDef | null>(() => {
-    // 컨테이너 안 첫 번째 피더의 typeId로 fieldDefs 조회
-    if (!activeContainer || rows.length === 0) return null;
-    const firstFeeder = effectiveAssets.find((a) => a.id === rows[0]!.feederId);
-    if (!firstFeeder) return null;
-    const type = typesById.get(firstFeeder.typeId);
-    if (!type) return null;
-    return type.fieldDefs.find((fd) => fd.key === 'switchState') ?? null;
-  }, [activeContainer, rows, effectiveAssets, typesById]);
+  const switchStateDefByFeeder = useMemo<Map<string, FieldDef | null>>(() => {
+    const map = new Map<string, FieldDef | null>();
+    for (const row of rows) {
+      const feeder = effectiveAssets.find((a) => a.id === row.feederId);
+      const type = feeder ? typesById.get(feeder.typeId) : undefined;
+      map.set(row.feederId, type?.fieldDefs.find((fd) => fd.key === 'switchState') ?? null);
+    }
+    return map;
+  }, [rows, effectiveAssets, typesById]);
 
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
   if (containers.length === 0) {
@@ -284,7 +283,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                   <SwitchStateCell
                     feederId={row.feederId}
                     value={row.switchState}
-                    switchStateDef={switchStateDef}
+                    switchStateDef={switchStateDefByFeeder.get(row.feederId) ?? null}
                   />
                 </td>
 
