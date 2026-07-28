@@ -50,32 +50,58 @@ export interface CableSegment {
 /**
  * 주어진 층(floorId)에 양끝 자산이 모두 배치된 케이블의 세그먼트 목록.
  * points = [a자산 중심, ...pathPoints, b자산 중심]
+ *
+ * 자식(비배치) 포트 → parentAssetId 체인을 따라 배치 조상을 찾아 해소.
  */
 export function cableSegments(
   cables: V2Cable[],
   assets: V2Asset[],
   floorId: string,
 ): CableSegment[] {
-  // 해당 층에 배치된 자산 맵 구축 (portId → asset)
-  const portToAsset = new Map<string, V2Asset>();
+  // 배치 여부 판별 헬퍼
+  const isPlaced = (a: V2Asset) =>
+    a.floorId === floorId &&
+    a.x != null &&
+    a.y != null &&
+    a.width != null &&
+    a.height != null;
+
+  // id → asset 전체 맵
+  const assetById = new Map<string, V2Asset>();
+  for (const a of assets) assetById.set(a.id, a);
+
+  // portId → 포트를 직접 소유하는 asset 맵 (배치 여부 무관)
+  const portToOwner = new Map<string, V2Asset>();
   for (const a of assets) {
-    if (
-      a.floorId === floorId &&
-      a.x != null &&
-      a.y != null &&
-      a.width != null &&
-      a.height != null
-    ) {
-      for (const p of a.ports) {
-        portToAsset.set(p.id, a);
-      }
+    for (const p of a.ports) {
+      portToOwner.set(p.id, a);
     }
   }
 
+  /**
+   * 포트 ID → 배치 조상 (또는 자신이 배치된 경우 자신).
+   * 배치 조상 없으면 null.
+   */
+  const resolvePlaced = (portId: string): V2Asset | null => {
+    const owner = portToOwner.get(portId);
+    if (!owner) return null;
+    // 자신이 배치됐으면 그대로
+    if (isPlaced(owner)) return owner;
+    // parentAssetId 체인을 따라 올라가며 배치 조상 탐색
+    let cur: V2Asset | undefined = owner;
+    while (cur?.parentAssetId != null) {
+      const parent = assetById.get(cur.parentAssetId);
+      if (!parent) break;
+      if (isPlaced(parent)) return parent;
+      cur = parent;
+    }
+    return null;
+  };
+
   const result: CableSegment[] = [];
   for (const cable of cables) {
-    const aAsset = portToAsset.get(cable.aPortId);
-    const bAsset = portToAsset.get(cable.bPortId);
+    const aAsset = resolvePlaced(cable.aPortId);
+    const bAsset = resolvePlaced(cable.bPortId);
     if (!aAsset || !bAsset) continue;
 
     const aCenter = {

@@ -15,13 +15,22 @@ describe('freePortsOf / occupiedPortIds', () => {
 });
 
 describe('cableSegments', () => {
-  const a1 = { id: 'a1', floorId: 'f1', x: 0, y: 0, width: 20, height: 20, ports: [port('p1', 'a1')] };
-  const a2 = { id: 'a2', floorId: 'f1', x: 100, y: 0, width: 20, height: 20, ports: [port('p2', 'a2')] };
-  const a3 = { id: 'a3', floorId: 'f2', x: 0, y: 0, width: 20, height: 20, ports: [port('p3', 'a3')] };
+  const a1 = { id: 'a1', floorId: 'f1', x: 0, y: 0, width: 20, height: 20, parentAssetId: null, ports: [port('p1', 'a1')] };
+  const a2 = { id: 'a2', floorId: 'f1', x: 100, y: 0, width: 20, height: 20, parentAssetId: null, ports: [port('p2', 'a2')] };
+  const a3 = { id: 'a3', floorId: 'f2', x: 0, y: 0, width: 20, height: 20, parentAssetId: null, ports: [port('p3', 'a3')] };
   it('양끝 모두 해당 층 배치 케이블만, 중심점+경유점', () => {
     const segs = cableSegments([cable('c1', 'p1', 'p2', [{ x: 50, y: 50 }]), cable('c2', 'p1', 'p3')] as never, [a1, a2, a3] as never, 'f1');
     expect(segs).toHaveLength(1);
     expect(segs[0]!.points).toEqual([{ x: 10, y: 10 }, { x: 50, y: 50 }, { x: 110, y: 10 }]);
+  });
+  it('자식 포트 케이블은 배치 조상(컨테이너) 중심으로 해소', () => {
+    const ofd = { id: 'ofd', floorId: 'f1', x: 0, y: 0, width: 40, height: 40, parentAssetId: null, ports: [] };
+    const slot = { id: 'slot', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: 'ofd', ports: [port('ps', 'slot')] };
+    const dev = { id: 'dev', floorId: 'f1', x: 100, y: 0, width: 20, height: 20, parentAssetId: null, ports: [port('pd', 'dev')] };
+    const segs = cableSegments([cable('c1', 'ps', 'pd')] as never, [ofd, slot, dev] as never, 'f1');
+    expect(segs).toHaveLength(1);
+    expect(segs[0]!.points[0]).toEqual({ x: 20, y: 20 }); // OFD 중심
+    expect(segs[0]!.aAssetId).toBe('ofd');
   });
 });
 

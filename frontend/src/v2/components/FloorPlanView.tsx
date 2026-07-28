@@ -317,8 +317,15 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
       if (traceRes) {
         // 추적 결과 있음: 추적 자산은 선택 스타일, 나머지는 alpha 0.3
-        const tracedAssets = placedAssetsRef.current.filter((a) => traceRes.assetIds.has(a.id));
-        const dimmedAssets = placedAssetsRef.current.filter((a) => !traceRes.assetIds.has(a.id));
+        // 자식(비배치) 자산 id가 traceResult.assetIds에 있을 수 있으므로
+        // 배치 자산 자신 OR 그 자손 중 하나라도 traceResult에 포함되면 추적으로 판단
+        const isTraced = (a: { id: string }) => {
+          if (traceRes.assetIds.has(a.id)) return true;
+          const desc = withDescendants(effectiveAssetsRef.current, a.id);
+          return desc.some((d) => traceRes.assetIds.has(d.id));
+        };
+        const tracedAssets = placedAssetsRef.current.filter((a) => isTraced(a));
+        const dimmedAssets = placedAssetsRef.current.filter((a) => !isTraced(a));
         ctx.save();
         ctx.globalAlpha = 0.3;
         renderPlacedAssets(ctx, dimmedAssets, null, activePreview);
