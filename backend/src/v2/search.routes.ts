@@ -17,7 +17,7 @@ searchRouter.get('/search/assets', authenticate, async (req, res, next) => {
     const rows = await nextDb.asset.findMany({
       where: { name: { contains: q, mode: 'insensitive' } },
       include: { substation: { select: { id: true, name: true } }, type: { select: { name: true } } },
-      orderBy: [{ substation: { name: 'asc' } }, { name: 'asc' }],
+      orderBy: [{ name: 'asc' }, { substation: { name: 'asc' } }],
       take: limit,
     });
 
@@ -46,14 +46,16 @@ searchRouter.get('/assets/:id/ports', authenticate, async (req, res, next) => {
 
     // occupied: 이 포트가 케이블의 aPortId 또는 bPortId 로 사용 중인지 확인
     const portIds = ports.map((p) => p.id);
-    const occupiedCables = await nextDb.cable.findMany({
-      where: { OR: [{ aPortId: { in: portIds } }, { bPortId: { in: portIds } }] },
-      select: { aPortId: true, bPortId: true },
-    });
     const occupiedSet = new Set<string>();
-    for (const c of occupiedCables) {
-      if (c.aPortId) occupiedSet.add(c.aPortId);
-      if (c.bPortId) occupiedSet.add(c.bPortId);
+    if (portIds.length > 0) {
+      const occupiedCables = await nextDb.cable.findMany({
+        where: { OR: [{ aPortId: { in: portIds } }, { bPortId: { in: portIds } }] },
+        select: { aPortId: true, bPortId: true },
+      });
+      for (const c of occupiedCables) {
+        occupiedSet.add(c.aPortId);
+        occupiedSet.add(c.bPortId);
+      }
     }
 
     res.json(ports.map((p) => ({

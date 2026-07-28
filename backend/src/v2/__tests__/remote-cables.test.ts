@@ -83,6 +83,9 @@ describe('검색/포트 API', () => {
   it('빈 q → 400', async () => {
     await request(app).get('/api/v2/search/assets?q=%20').set(admin).expect(400);
   });
+  it('q 미제공 → 400', async () => {
+    await request(app).get('/api/v2/search/assets').set(admin).expect(400);
+  });
   it('포트 목록 + occupied', async () => {
     const ports = (await request(app).get(`/api/v2/assets/${slotBId}/ports`).set(admin).expect(200)).body;
     const p1 = ports.find((p: { group: string; index: number }) => p.group === 'A' && p.index === 1);
