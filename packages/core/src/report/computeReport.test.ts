@@ -9,6 +9,9 @@ describe('assetReportItem', () => {
     expect(assetReportItem('asset-install', '랙1', '랙', labor)).toMatchObject({ qty: 1, unit: '대', hours: 2, laborType: '통신내선공' });
     expect(assetReportItem('asset-relocate', '랙1', '랙', labor).hours).toBe(3);
   });
+  it('remove 분기', () => {
+    expect(assetReportItem('asset-remove', '랙1', '랙', labor).hours).toBe(1);
+  });
 });
 
 describe('cableReportItem', () => {
