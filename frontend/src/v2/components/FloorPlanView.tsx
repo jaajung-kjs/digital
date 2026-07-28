@@ -15,7 +15,7 @@ import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
 import type { DragSession } from '../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../floorPlacement';
 import { placedAssetsOf } from '../floorPlanSelectors';
-import { cableSegments, distanceToPolyline, freePortsOf } from '../cableSelectors';
+import { cableSegments, distanceToPolyline, freePortsOf, withDescendants } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog } from '../hooks';
@@ -25,6 +25,7 @@ import { AssetResizeHandles } from './AssetResizeHandles';
 import { PortPickerPopover } from './PortPickerPopover';
 import { SNAP_GRID, SELECTION_STYLES } from '../canvas/constants';
 import type { V2Asset, V2Port } from '../types';
+import type { PortGroup } from './PortPickerPopover';
 import type { TraceResult } from '../traceSelectors';
 
 const MAJOR_GRID = 100;
@@ -796,11 +797,17 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
   const canvasCursor = (armedTypeId !== null || cableArmed) ? 'crosshair' : undefined;
 
-  // ── 피커에 넘길 freePorts (V2Asset 전체 필요) ─────────────────────────────
-  const pickerFreePorts = useMemo(() => {
+  // ── 피커에 넘길 portGroups (루트 + 전이적 자식, 저장된 자산만) ─────────────
+  const pickerPortGroups = useMemo((): PortGroup[] => {
     if (!pickerState) return [];
-    return freePortsOf(pickerState.asset, effectiveCables, selectedGroupKey);
-  }, [pickerState, effectiveCables, selectedGroupKey]);
+    // 저장된 자산만 대상 (staged-create 자식은 서버 포트 없음)
+    const savedAssets = effectiveAssets.filter((a) => a.updatedAt !== '');
+    const candidates = withDescendants(savedAssets, pickerState.asset.id);
+    return candidates.map((a) => ({
+      asset: a,
+      ports: freePortsOf(a, effectiveCables, selectedGroupKey),
+    }));
+  }, [pickerState, effectiveAssets, effectiveCables, selectedGroupKey]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -953,7 +960,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           <PortPickerPopover
             screenPos={pickerState.screenPos}
             asset={pickerState.asset}
-            freePorts={pickerFreePorts}
+            portGroups={pickerPortGroups}
             isUnsaved={pickerState.asset.updatedAt === ''}
             onSelectPort={handlePortSelect}
             onClose={() => {

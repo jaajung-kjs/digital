@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cableSegments, distanceToPolyline, freePortsOf, occupiedPortIds } from '../cableSelectors';
+import { cableSegments, distanceToPolyline, freePortsOf, occupiedPortIds, withDescendants } from '../cableSelectors';
 
 const port = (id: string, assetId: string, medium = 'fiber') => ({ id, assetId, group: 'A', index: 1, name: id, direction: 'BI' as const, medium });
 const cable = (id: string, a: string, b: string, pathPoints: {x:number;y:number}[] = []) => ({ id, name: null, substationId: 's', aPortId: a, bPortId: b, categoryId: null, pathPoints, specParams: {}, updatedAt: 'v' });
@@ -29,5 +29,13 @@ describe('distanceToPolyline', () => {
   it('세그먼트 수직거리', () => {
     expect(distanceToPolyline({ x: 5, y: 3 }, [{ x: 0, y: 0 }, { x: 10, y: 0 }])).toBe(3);
     expect(distanceToPolyline({ x: -5, y: 0 }, [{ x: 0, y: 0 }, { x: 10, y: 0 }])).toBe(5);
+  });
+});
+
+describe('withDescendants', () => {
+  it('루트+전이적 자식, 루트 우선', () => {
+    const mk = (id: string, parentAssetId: string | null) => ({ id, name: id, parentAssetId } as never);
+    const list = [mk('rack', null), mk('mod1', 'rack'), mk('sub', 'mod1'), mk('other', null)];
+    expect(withDescendants(list as never, 'rack').map((a: { id: string }) => a.id)).toEqual(['rack', 'mod1', 'sub']);
   });
 });
