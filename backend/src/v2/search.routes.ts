@@ -12,7 +12,7 @@ searchRouter.get('/search/assets', authenticate, async (req, res, next) => {
     if (!q) throw new HttpError(400, 'BAD_REQUEST', '검색어(q)를 입력하세요');
 
     const limitParam = parseInt(req.query.limit as string, 10);
-    const limit = isNaN(limitParam) ? 20 : Math.min(limitParam, 50);
+    const limit = isNaN(limitParam) ? 20 : Math.max(1, Math.min(50, limitParam));
 
     const rows = await nextDb.asset.findMany({
       where: { name: { contains: q, mode: 'insensitive' } },

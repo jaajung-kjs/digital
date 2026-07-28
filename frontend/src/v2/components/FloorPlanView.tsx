@@ -758,11 +758,9 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
 
       if (!aPort) {
         // 첫 끝점 포트를 effective에서 못 찾음 — 무검증 스테이지 금지
+        // firstEndpointRef + pickerState 모두 초기화해 원격 버튼 무동작 방지
         firstEndpointRef.current = null;
-        setPickerState({
-          ...state,
-          validationError: '첫 끝점을 확인할 수 없습니다 — 다시 선택하세요',
-        });
+        setPickerState(null);
         return;
       }
 

@@ -54,7 +54,7 @@ function MetaInput({ value, type, cableId, fieldKey }: MetaInputProps) {
     } else {
       // number field
       const current = (existingParams[fieldKey] as number | null) ?? null;
-      const next = raw.trim() === '' ? null : parseFloat(raw);
+      const next = raw.trim() === '' ? null : Number(raw);
       if (Number.isNaN(next as number) && raw.trim() !== '') return; // invalid input → ignore
       // Compare: both null or equal numbers
       if (current === next) return;

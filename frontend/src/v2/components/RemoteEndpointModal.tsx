@@ -93,6 +93,7 @@ export function RemoteEndpointModal({
       const data = await fetchAssetPorts(asset.id);
       // occupied 제외 + medium 필터 + excludePortId 제외
       const filtered = data.filter((p) => {
+        if (p.occupied) return false;
         if (occupiedPortIds.has(p.id)) return false;
         if (p.id === excludePortId) return false;
         if (mediumFilter && p.medium !== mediumFilter) return false;

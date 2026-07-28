@@ -63,6 +63,19 @@ describe('대국 케이블', () => {
     expect(c.bRef).toMatchObject({ assetName: `${uniq}-슬롯B`, substationName: `${uniq}-국사B` });
   });
 
+  it('비소유 변전소(국사B) 커밋으로 대국 케이블 delete 시도 → 422 INVALID_CABLE', async () => {
+    // 이미 생성된 케이블(substationId=A)을 B국사 커밋으로 삭제 시도
+    // baseVersions 에 케이블 updatedAt 포함 → OCC 통과 후 소유 스코프에서 걸림
+    const cables = await nextDb.cable.findMany({ where: { substationId: subAId } });
+    const cable = cables[0];
+    if (!cable) throw new Error('테스트 전제: 케이블이 없음');
+    const res = await request(app).put(`/api/v2/substations/${subBId}/commit`).set(admin).send({
+      cables: { deletes: [cable.id] },
+      baseVersions: { [cable.id]: cable.updatedAt.toISOString() },
+    }).expect(422);
+    expect(res.body.error).toBe('INVALID_CABLE');
+  });
+
   it('반대편(B국사)에서 끝점 자산 삭제 → 409 CABLE_ATTACHED + 소유 변전소명', async () => {
     const b = await nextDb.asset.findUniqueOrThrow({ where: { id: slotBId } });
     const res = await request(app).put(`/api/v2/substations/${subBId}/commit`).set(admin).send({

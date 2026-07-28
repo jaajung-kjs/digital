@@ -6,7 +6,7 @@ export interface AssetSearchResult { id: string; name: string; substationId: str
 export async function searchAssets(q: string): Promise<AssetSearchResult[]> {
   return (await api.get('/v2/search/assets', { params: { q } })).data;
 }
-export async function fetchAssetPorts(assetId: string): Promise<V2Port[]> {
+export async function fetchAssetPorts(assetId: string): Promise<(V2Port & { occupied: boolean })[]> {
   return (await api.get(`/v2/assets/${assetId}/ports`)).data;
 }
 
