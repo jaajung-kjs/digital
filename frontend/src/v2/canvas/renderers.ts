@@ -82,6 +82,42 @@ export function renderPlacedAssets(
   }
 }
 
+// ============================================
+// 케이블 렌더링
+// ============================================
+
+export interface CableRenderSegment {
+  points: { x: number; y: number }[];
+  color: string;
+  selected: boolean;
+}
+
+/**
+ * 케이블 세그먼트 목록을 폴리라인으로 렌더링.
+ * 색상·선택 여부는 호출부(FloorPlanView)가 categoryId → group.color 맵핑 후 전달.
+ * 선택 시 SELECTION_STYLES stroke 색으로 두껍게 표시.
+ */
+export function renderCables(
+  ctx: CanvasRenderingContext2D,
+  segments: CableRenderSegment[],
+): void {
+  for (const seg of segments) {
+    if (seg.points.length < 2) continue;
+    ctx.save();
+    ctx.strokeStyle = seg.selected ? SELECTION_STYLES.stroke : seg.color;
+    ctx.lineWidth = seg.selected ? 3 : 1.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(seg.points[0]!.x, seg.points[0]!.y);
+    for (let i = 1; i < seg.points.length; i++) {
+      ctx.lineTo(seg.points[i]!.x, seg.points[i]!.y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 /**
  * drag-to-draw 중 설비 박스 미리보기 (치수 라벨 포함).
  */

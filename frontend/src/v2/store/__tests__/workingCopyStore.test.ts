@@ -19,11 +19,12 @@ vi.mock('../../api', () => {
     substation: { id: 'sub-1', name: '변전소A', branchId: 'br-1', sortOrder: 1 },
     floors: [],
     assets: [
-      { id: 'a-rack', name: '랙1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null, fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [] },
-      { id: 'a-mod', name: '모듈1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: 'a-rack', containerKey: 'main', slotIndex: 0, slotSpan: 1, fieldValues: {}, updatedAt: '2026-07-27T00:00:01.000Z', ports: [] },
+      { id: 'a-rack', name: '랙1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null, fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [{ id: 'p-r1', assetId: 'a-rack', group: 'P', index: 1, name: '포트 1', direction: 'BI', medium: 'network' }] },
+      { id: 'a-mod', name: '모듈1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: 'a-rack', containerKey: 'main', slotIndex: 0, slotSpan: 1, fieldValues: {}, updatedAt: '2026-07-27T00:00:01.000Z', ports: [{ id: 'p-m1', assetId: 'a-mod', group: 'P', index: 1, name: '포트 1', direction: 'BI', medium: 'network' }] },
     ],
     maintenanceLogs: [{ id: 'm-1', assetId: 'a-mod', occurredAt: '2026-07-01T00:00:00.000Z', content: '고장', action: null, updatedAt: '2026-07-27T00:00:00.000Z' }],
     inspectionLogs: [],
+    cables: [{ id: 'c-1', name: null, substationId: 'sub-1', aPortId: 'p-r1', bPortId: 'p-m1', categoryId: null, pathPoints: [], specParams: {}, updatedAt: '2026-07-27T00:00:02.000Z' }],
   };
   let failNext = false;
   return {
@@ -118,5 +119,27 @@ describe('useV2WorkingCopy', () => {
     expect(useV2WorkingCopy.getState().dirtyCount()).toBe(1);
     useV2WorkingCopy.temporal.getState().undo();
     expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
+  });
+
+  it('load: cables saved + baseVersions 포함', () => {
+    const s = useV2WorkingCopy.getState();
+    expect(s.effectiveCables()).toHaveLength(1);
+    expect(s.baseVersions['c-1']).toBe('2026-07-27T00:00:02.000Z');
+  });
+
+  it('stageCableCreate/Delete + dirty 반영', () => {
+    const s = useV2WorkingCopy.getState();
+    s.stageCableCreate({ id: 'c-tmp', name: null, substationId: 'sub-1', aPortId: 'p-x', bPortId: 'p-y', categoryId: null, pathPoints: [], specParams: {}, updatedAt: '' });
+    expect(useV2WorkingCopy.getState().effectiveCables()).toHaveLength(2);
+    expect(useV2WorkingCopy.getState().dirtyCount()).toBe(1);
+    s.stageCableDelete('c-tmp');
+    expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
+  });
+
+  it('cascade: 자산 삭제 시 그 포트의 케이블도 삭제 스테이지', () => {
+    useV2WorkingCopy.getState().stageAssetDeleteCascade('a-rack'); // p-r1 보유 → c-1 물림
+    const s = useV2WorkingCopy.getState();
+    expect(s.effectiveCables()).toHaveLength(0);
+    expect(s.overlays.cables.deletes).toEqual(['c-1']);
   });
 });

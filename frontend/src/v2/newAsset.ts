@@ -1,3 +1,4 @@
+import { isAccepted } from '@twin/core';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from './types';
 
 export function acceptedTypes(
@@ -5,12 +6,8 @@ export function acceptedTypes(
   types: V2AssetType[],
   categoryKeyById: Map<string, string>,
 ): V2AssetType[] {
-  const { categoryKeys, typeKeys } = spec.accepts;
-  if (!categoryKeys && !typeKeys) return types;
-  return types.filter(
-    (t) =>
-      (categoryKeys?.includes(categoryKeyById.get(t.categoryId) ?? '') ?? false) ||
-      (typeKeys?.includes(t.key) ?? false),
+  return types.filter((t) =>
+    isAccepted(spec.accepts, { typeKey: t.key, categoryKey: categoryKeyById.get(t.categoryId) ?? '' }),
   );
 }
 

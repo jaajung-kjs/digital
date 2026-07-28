@@ -3,31 +3,40 @@
  *
  * 층 탭바 + canvas + ResizeObserver + rAF 렌더 루프 + 뷰포트(zoom/pan) + 클릭 선택
  * + placeable 팔레트 바 + armed drag-to-draw 배치
+ * + 케이블 도구 (종류 Select, 포트 피커, 캔버스 케이블 렌더)
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { renderBackgroundDrawing } from '../canvas/backgroundRenderer';
 import { renderGrid } from '../canvas/gridRenderer';
-import { renderPlacedAssets, renderDrawPreview } from '../canvas/renderers';
+import { renderPlacedAssets, renderDrawPreview, renderCables } from '../canvas/renderers';
 import { screenToWorld, snapToGrid } from '../canvas/transform';
 import { findAssetAt } from '../canvas/hitTest';
 import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
 import type { DragSession } from '../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../floorPlacement';
 import { placedAssetsOf } from '../floorPlanSelectors';
+import { cableSegments, distanceToPolyline, freePortsOf, withDescendants } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog } from '../hooks';
-import { Button } from '../../components/ui';
+import { Button, Select } from '../../components/ui';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
-import { SNAP_GRID } from '../canvas/constants';
+import { PortPickerPopover } from './PortPickerPopover';
+import { SNAP_GRID, SELECTION_STYLES } from '../canvas/constants';
+import type { V2Asset, V2Port } from '../types';
+import type { PortGroup } from './PortPickerPopover';
+import type { TraceResult } from '../traceSelectors';
 
 const MAJOR_GRID = 100;
+/** 케이블 히트 테스트 임계값 (screen px / scale) */
+const CABLE_HIT_THRESHOLD = 8;
 
 interface Props {
   substationId: string;
   selectedAssetId: string | null;
   onSelectAsset: (id: string | null) => void;
+  traceResult?: TraceResult | null;
 }
 
 interface Viewport {
@@ -42,15 +51,27 @@ interface DrawModalState {
   typeId: string;
 }
 
-export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: Props) {
+/** 케이블 포트 피커 상태 */
+interface PickerState {
+  asset: V2Asset;
+  screenPos: { x: number; y: number };
+  /** 첫 끝점이 이미 확정된 경우 */
+  firstEndpoint: { portId: string; assetId: string } | null;
+}
+
+export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, traceResult }: Props) {
   // ── 반응형 슬라이스 구독 (함수 참조 구독 금지) ─────────────────────────────
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
 
-  // ── effective assets (useMemo, 반응형) ──────────────────────────────────────
+  // ── effective assets / cables (useMemo, 반응형) ──────────────────────────────────────
   const effectiveAssets = useMemo(
     () => mergeEffective(saved.assets, overlays.assets),
     [saved.assets, overlays.assets],
+  );
+  const effectiveCables = useMemo(
+    () => mergeEffective(saved.cables, overlays.cables),
+    [saved.cables, overlays.cables],
   );
 
   // ── 층 목록 (sortOrder 순) ────────────────────────────────────────────────
@@ -101,6 +122,14 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
   selectedAssetIdRef.current = selectedAssetId;
   const activeFloorRef = useRef(activeFloor);
   activeFloorRef.current = activeFloor;
+  const traceResultRef = useRef(traceResult ?? null);
+  traceResultRef.current = traceResult ?? null;
+
+  // ── 케이블 렌더 refs ───────────────────────────────────────────────────────
+  const effectiveCablesRef = useRef(effectiveCables);
+  effectiveCablesRef.current = effectiveCables;
+  const effectiveAssetsRef = useRef(effectiveAssets);
+  effectiveAssetsRef.current = effectiveAssets;
 
   // ── 이동/리사이즈 프리뷰 refs (드래그 중 stage 금지, 렌더만) ─────────────
   /** 이동 프리뷰: id + 현재 위치 */
@@ -132,12 +161,59 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
   // ── AddAssetModal 상태 ────────────────────────────────────────────────────
   const [drawModal, setDrawModal] = useState<DrawModalState | null>(null);
 
-  // ── catalog (placeable 타입 목록) ─────────────────────────────────────────
+  // ── catalog (placeable 타입 목록, cableGroups) ─────────────────────────
   const catalog = useV2Catalog();
   const placeableTypes = useMemo(
     () => (catalog.data?.types ?? []).filter((t) => t.isActive && t.placeable),
     [catalog.data],
   );
+  const cableGroups = useMemo(() => catalog.data?.cableGroups ?? [], [catalog.data]);
+
+  // ── 케이블 도구 상태 ──────────────────────────────────────────────────────
+  /** 케이블 도구 armed (boolean) */
+  const [cableArmed, setCableArmed] = useState(false);
+  const cableArmedRef = useRef(false);
+  /** 선택된 케이블 종류 categoryId */
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const selectedCategoryIdRef = useRef('');
+  selectedCategoryIdRef.current = selectedCategoryId;
+  /** 케이블 도구 포트 피커 상태 */
+  const [pickerState, setPickerState] = useState<PickerState | null>(null);
+  /** 첫 번째 끝점 확정 ref (피커 내 선택 후 두 번째 자산 대기) */
+  const firstEndpointRef = useRef<{ portId: string; assetId: string } | null>(null);
+  /** 선택된 케이블 ID (케이블 클릭 선택) */
+  const [selectedCableId, setSelectedCableId] = useState<string | null>(null);
+  const selectedCableIdRef = useRef<string | null>(null);
+  selectedCableIdRef.current = selectedCableId;
+
+  // cableGroups 초기화 시 첫 category 선택
+  useEffect(() => {
+    if (cableGroups.length > 0 && selectedCategoryId === '') {
+      const firstCat = cableGroups[0]?.categories[0];
+      if (firstCat) setSelectedCategoryId(firstCat.id);
+    }
+  }, [cableGroups, selectedCategoryId]);
+
+  // ── categoryId → color 맵 (렌더용) ───────────────────────────────────────
+  const categoryColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const group of cableGroups) {
+      for (const cat of group.categories) {
+        map.set(cat.id, group.color);
+      }
+    }
+    return map;
+  }, [cableGroups]);
+
+  // selectedCategoryId → group key (medium 필터용)
+  const selectedGroupKey = useMemo(() => {
+    for (const group of cableGroups) {
+      for (const cat of group.categories) {
+        if (cat.id === selectedCategoryId) return group.key;
+      }
+    }
+    return undefined;
+  }, [cableGroups, selectedCategoryId]);
 
   // ── disarm 헬퍼 ──────────────────────────────────────────────────────────
   const disarm = useCallback(() => {
@@ -147,6 +223,16 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
     setArmedTypeId(null);
     scheduleRender();
   // scheduleRender 는 아래 정의되지만 ref 기반이므로 deps 불필요
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** 케이블 도구 해제 */
+  const disarmCable = useCallback(() => {
+    cableArmedRef.current = false;
+    firstEndpointRef.current = null;
+    setCableArmed(false);
+    setPickerState(null);
+    scheduleRender();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -193,11 +279,78 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       // 4. grid (major 100)
       renderGrid(ctx, MAJOR_GRID, left, top, right, bottom);
 
-      // 5. 배치 자산 (선택 하이라이트, 이동/리사이즈 프리뷰 우선 적용)
-      const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
-      renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current, activePreview);
+      // 5. 케이블 (그리드 위, 자산 아래)
+      const floorId = floor?.id ?? null;
+      const traceRes = traceResultRef.current;
+      if (floorId) {
+        const segs = cableSegments(effectiveCablesRef.current, effectiveAssetsRef.current, floorId);
+        if (traceRes) {
+          // 추적 결과 있음: 추적 케이블은 선택 스타일, 나머지는 alpha 0.3
+          const tracedSegs = segs.filter((s) => traceRes.cableIds.has(s.id));
+          const dimmedSegs = segs.filter((s) => !traceRes.cableIds.has(s.id));
+          // 먼저 dim 케이블
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          renderCables(ctx, dimmedSegs.map((seg) => ({
+            points: seg.points,
+            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            selected: false,
+          })));
+          ctx.restore();
+          // 추적 케이블 강조
+          renderCables(ctx, tracedSegs.map((seg) => ({
+            points: seg.points,
+            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            selected: true,
+          })));
+        } else {
+          const cableRenderSegs = segs.map((seg) => ({
+            points: seg.points,
+            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            selected: seg.id === selectedCableIdRef.current,
+          }));
+          renderCables(ctx, cableRenderSegs);
+        }
+      }
 
-      // 6. draw 미리보기 (armed 상태 + 드래그 중)
+      // 6. 배치 자산 (선택 하이라이트, 이동/리사이즈 프리뷰 우선 적용)
+      const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
+      if (traceRes) {
+        // 추적 결과 있음: 추적 자산은 선택 스타일, 나머지는 alpha 0.3
+        // 자식(비배치) 자산 id가 traceResult.assetIds에 있을 수 있으므로
+        // 배치 자산 자신 OR 그 자손 중 하나라도 traceResult에 포함되면 추적으로 판단
+        const isTraced = (a: { id: string }) => {
+          if (traceRes.assetIds.has(a.id)) return true;
+          const desc = withDescendants(effectiveAssetsRef.current, a.id);
+          return desc.some((d) => traceRes.assetIds.has(d.id));
+        };
+        const tracedAssets = placedAssetsRef.current.filter((a) => isTraced(a));
+        const dimmedAssets = placedAssetsRef.current.filter((a) => !isTraced(a));
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        renderPlacedAssets(ctx, dimmedAssets, null, activePreview);
+        ctx.restore();
+        // 추적 자산: selectedAssetIdRef 경유 하이라이트 유지하면서 추적 강조
+        renderPlacedAssets(ctx, tracedAssets, selectedAssetIdRef.current, activePreview);
+      } else {
+        renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current, activePreview);
+      }
+
+      // 6.5 케이블 첫 끝점 자산 강조 (점선 스트로크 — 일반 선택과 구분)
+      const firstEp = firstEndpointRef.current;
+      if (firstEp) {
+        const feAsset = placedAssetsRef.current.find((a) => a.id === firstEp.assetId);
+        if (feAsset) {
+          ctx.save();
+          ctx.strokeStyle = SELECTION_STYLES.stroke;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.strokeRect(feAsset.x - 3, feAsset.y - 3, feAsset.width + 6, feAsset.height + 6);
+          ctx.restore();
+        }
+      }
+
+      // 7. draw 미리보기 (armed 상태 + 드래그 중)
       if (drawStartRef.current) {
         renderDrawPreview(ctx, drawStartRef.current, drawEndRef.current);
       }
@@ -309,6 +462,11 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
         spaceDown.current = true;
       }
       if (e.code === 'Escape') {
+        // ESC: 케이블 도구 해제
+        if (cableArmedRef.current) {
+          disarmCable();
+          return;
+        }
         // ESC: disarm 또는 draw 취소
         if (isDrawing.current) {
           isDrawing.current = false;
@@ -363,6 +521,12 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       startPan(e.clientX, e.clientY);
       return;
     }
+
+    // 케이블 armed: 자산 클릭 → 포트 피커 (mousedown 아닌 onClick에서 처리)
+    if (e.button === 0 && cableArmedRef.current) {
+      return; // 케이블 도구는 onClick에서 처리
+    }
+
     // armed 배치 모드: 좌클릭 drag-to-draw
     if (e.button === 0 && armedTypeIdRef.current !== null) {
       const canvas = canvasRef.current;
@@ -473,7 +637,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
     }
   };
 
-  // ── 클릭: 자산 선택 ───────────────────────────────────────────────────────
+  // ── 클릭: 케이블 도구 / 자산 선택 / 케이블 선택 ─────────────────────────
   const onCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     // 팬 종료(mouseup) 직후 발생하는 click 은 선택으로 취급하지 않는다
     if (wasRecentlyPanning.current) {
@@ -487,23 +651,132 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
     }
     if (isPanning.current) return; // 팬 중 클릭 무시
     if (armedTypeIdRef.current !== null) return; // armed 상태에서는 클릭 선택 무시
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const { zoom, panX, panY } = viewportRef.current;
     const world = screenToWorld(e.clientX, e.clientY, rect, panX, panY, zoom);
-    const hit = findAssetAt(world.x, world.y, placedAssetsRef.current);
-    onSelectAsset(hit?.id ?? null);
+    const scale = zoom / 100;
+
+    // ── 케이블 도구 armed ──────────────────────────────────────────────────
+    if (cableArmedRef.current) {
+      const hit = findAssetAt(world.x, world.y, placedAssetsRef.current);
+      if (hit) {
+        // 화면 좌표 계산 (컨테이너 기준)
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        const canvasClientRect = canvas.getBoundingClientRect();
+        const offsetX = containerRect ? canvasClientRect.left - containerRect.left : 0;
+        const offsetY = containerRect ? canvasClientRect.top - containerRect.top : 0;
+        const screenX = (hit.x + hit.width / 2) * scale + panX + offsetX;
+        const screenY = (hit.y + hit.height / 2) * scale + panY + offsetY;
+
+        // 자산 객체 찾기 (V2Asset 형태)
+        const fullAsset = effectiveAssetsRef.current.find((a) => a.id === hit.id);
+        if (!fullAsset) return;
+
+        setPickerState({
+          asset: fullAsset,
+          screenPos: { x: screenX, y: screenY },
+          firstEndpoint: firstEndpointRef.current,
+        });
+      }
+      return;
+    }
+
+    // ── 자산 히트 우선 (자산이 케이블 위에 그려지므로 시각 순서와 일치) ────
+    const assetHit = findAssetAt(world.x, world.y, placedAssetsRef.current);
+    if (assetHit) {
+      if (selectedCableId !== null) {
+        setSelectedCableId(null);
+        scheduleRender();
+      }
+      onSelectAsset(assetHit.id);
+      return;
+    }
+
+    // ── 케이블 히트 테스트 (자산 미히트 시에만) ───────────────────────────
+    const floorId = activeFloorRef.current?.id ?? null;
+    if (floorId) {
+      const segs = cableSegments(effectiveCablesRef.current, effectiveAssetsRef.current, floorId);
+      const threshold = CABLE_HIT_THRESHOLD / scale;
+      for (let i = segs.length - 1; i >= 0; i--) {
+        const seg = segs[i]!;
+        if (distanceToPolyline(world, seg.points) <= threshold) {
+          setSelectedCableId(seg.id);
+          onSelectAsset(null); // 케이블 선택 시 자산 선택 해제
+          scheduleRender();
+          return;
+        }
+      }
+    }
+
+    // ── 빈 공간 클릭: 선택 해제 ───────────────────────────────────────────
+    if (selectedCableId !== null) {
+      setSelectedCableId(null);
+      scheduleRender();
+    }
+    onSelectAsset(null);
+  };
+
+  // ── 포트 선택 핸들러 ──────────────────────────────────────────────────────
+  const handlePortSelect = (port: V2Port) => {
+    const state = pickerState;
+    if (!state) return;
+
+    if (!state.firstEndpoint) {
+      // 첫 끝점 확정
+      firstEndpointRef.current = { portId: port.id, assetId: state.asset.id };
+      setPickerState(null);
+      scheduleRender();
+    } else {
+      // 두 번째 끝점 → 케이블 생성
+      const first = state.firstEndpoint;
+      const substationId = saved.substation?.id ?? '';
+      const categoryId = selectedCategoryIdRef.current || null;
+
+      useV2WorkingCopy.getState().stageCableCreate({
+        id: crypto.randomUUID(),
+        name: null,
+        substationId,
+        aPortId: first.portId,
+        bPortId: port.id,
+        categoryId,
+        pathPoints: [],
+        specParams: {},
+        updatedAt: '',
+      });
+
+      // 도구 유지 (연속 연결), 첫 끝점 초기화
+      firstEndpointRef.current = null;
+      setPickerState(null);
+      scheduleRender();
+    }
   };
 
   // ── arm 토글 ─────────────────────────────────────────────────────────────
   const handleArmType = (typeId: string) => {
+    if (cableArmedRef.current) disarmCable();
     if (armedTypeIdRef.current === typeId) {
       // 같은 버튼 재클릭 → disarm
       disarm();
     } else {
       armedTypeIdRef.current = typeId;
       setArmedTypeId(typeId);
+    }
+  };
+
+  /** 케이블 도구 토글 */
+  const handleArmCable = () => {
+    if (cableArmedRef.current) {
+      disarmCable();
+    } else {
+      // 기존 배치 모드 해제
+      if (armedTypeIdRef.current !== null) disarm();
+      cableArmedRef.current = true;
+      firstEndpointRef.current = null;
+      setCableArmed(true);
+      scheduleRender();
     }
   };
 
@@ -526,7 +799,19 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
     : null);
 
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
-  const canvasCursor = armedTypeId !== null ? 'crosshair' : undefined;
+  const canvasCursor = (armedTypeId !== null || cableArmed) ? 'crosshair' : undefined;
+
+  // ── 피커에 넘길 portGroups (루트 + 전이적 자식, 저장된 자산만) ─────────────
+  const pickerPortGroups = useMemo((): PortGroup[] => {
+    if (!pickerState) return [];
+    // 저장된 자산만 대상 (staged-create 자식은 서버 포트 없음)
+    const savedAssets = effectiveAssets.filter((a) => a.updatedAt !== '');
+    const candidates = withDescendants(savedAssets, pickerState.asset.id);
+    return candidates.map((a) => ({
+      asset: a,
+      ports: freePortsOf(a, effectiveCables, selectedGroupKey),
+    }));
+  }, [pickerState, effectiveAssets, effectiveCables, selectedGroupKey]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -554,22 +839,82 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
         )}
       </div>
 
-      {/* placeable 팔레트 바 (타입이 있을 때만 표시) */}
-      {placeableTypes.length > 0 && activeFloorId != null && (
-        <div className="flex shrink-0 items-center gap-1 border-b border-line bg-surface px-2 py-1">
-          <span className="text-xs text-content-muted mr-1">배치:</span>
-          {placeableTypes.map((t) => (
-            <Button
-              key={t.id}
-              size="sm"
-              variant={armedTypeId === t.id ? 'primary' : 'secondary'}
-              onClick={() => handleArmType(t.id)}
-            >
-              {t.name}
-            </Button>
-          ))}
-          {armedTypeId !== null && (
-            <span className="ml-2 text-xs text-content-muted">드래그로 영역 지정 · ESC 취소</span>
+      {/* 도구바: 배치 팔레트 + 케이블 도구 */}
+      {activeFloorId != null && (placeableTypes.length > 0 || cableGroups.length > 0) && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-2 py-1 flex-wrap">
+          {/* placeable 팔레트 */}
+          {placeableTypes.length > 0 && (
+            <>
+              <span className="text-xs text-content-muted">배치:</span>
+              {placeableTypes.map((t) => (
+                <Button
+                  key={t.id}
+                  size="sm"
+                  variant={armedTypeId === t.id ? 'primary' : 'secondary'}
+                  onClick={() => handleArmType(t.id)}
+                >
+                  {t.name}
+                </Button>
+              ))}
+              {armedTypeId !== null && (
+                <span className="text-xs text-content-muted">드래그로 영역 지정 · ESC 취소</span>
+              )}
+              {cableGroups.length > 0 && <span className="h-4 w-px bg-line mx-1" />}
+            </>
+          )}
+
+          {/* 케이블 도구 */}
+          {cableGroups.length > 0 && (
+            <>
+              <Button
+                size="sm"
+                variant={cableArmed ? 'primary' : 'secondary'}
+                onClick={handleArmCable}
+              >
+                케이블
+              </Button>
+              {/* 종류 Select (그룹별 optgroup) */}
+              <div className="w-40">
+                <Select
+                  value={selectedCategoryId}
+                  onChange={(e) => setSelectedCategoryId(e.target.value)}
+                  className="py-0.5 text-xs"
+                >
+                  {cableGroups.map((group) => (
+                    <optgroup key={group.id} label={group.name}>
+                      {group.categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </Select>
+              </div>
+              {cableArmed && (
+                <span className="text-xs text-content-muted">
+                  {firstEndpointRef.current ? '두 번째 자산 클릭 · ESC 취소' : '자산 클릭으로 포트 선택 · ESC 취소'}
+                </span>
+              )}
+            </>
+          )}
+
+          {/* 선택된 케이블 삭제 버튼 */}
+          {selectedCableId !== null && (
+            <>
+              <span className="h-4 w-px bg-line mx-1" />
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={() => {
+                  useV2WorkingCopy.getState().stageCableDelete(selectedCableId);
+                  setSelectedCableId(null);
+                  scheduleRender();
+                }}
+              >
+                케이블 삭제
+              </Button>
+            </>
           )}
         </div>
       )}
@@ -614,8 +959,24 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
           />
         )}
 
+        {/* 포트 피커 팝오버 */}
+        {pickerState && (
+          <PortPickerPopover
+            screenPos={pickerState.screenPos}
+            asset={pickerState.asset}
+            portGroups={pickerPortGroups}
+            isUnsaved={pickerState.asset.updatedAt === ''}
+            excludePortId={pickerState.firstEndpoint?.portId}
+            onSelectPort={handlePortSelect}
+            onClose={() => {
+              setPickerState(null);
+              // 첫 끝점 대기 중이 아니면 초기화하지 않음 (피커만 닫기)
+            }}
+          />
+        )}
+
         {/* 층이 선택됐지만 배치 자산 없음 안내 */}
-        {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && (
+        {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && !cableArmed && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <span className="text-xs text-content-faint">
               배치된 자산이 없습니다

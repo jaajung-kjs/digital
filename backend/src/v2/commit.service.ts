@@ -1,4 +1,4 @@
-import { instantiatePorts, validateSlotPlacement } from '@twin/core';
+import { instantiatePorts, validateConnection, validateSlotPlacement } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
@@ -20,9 +20,14 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
     await checkVersions(tx, payload);
 
     const assets = payload.assets ?? {};
+    const cables = payload.cables ?? {};
+    await applyCableDeletes(tx, substationId, cables.deletes ?? []);
+    await assertNoAttachedCables(tx, assets.deletes ?? []);
     await applyDeletes(tx, substationId, assets.deletes ?? []);
     for (const u of assets.updates ?? []) await applyUpdate(tx, substationId, u);
     for (const c of orderCreates(assets.creates ?? [])) await applyCreate(tx, substationId, c);
+    for (const u of cables.updates ?? []) await applyCableUpdate(tx, substationId, u);
+    for (const c of cables.creates ?? []) await applyCableCreate(tx, substationId, c);
 
     await applyRecords(tx, substationId, payload.records);
 
@@ -32,12 +37,16 @@ export async function commitSubstation(substationId: string, payload: CommitPayl
 
 async function checkVersions(tx: Tx, payload: CommitPayload): Promise<void> {
   const base = payload.baseVersions ?? {};
-  const ids = [...new Set([...(payload.assets?.updates ?? []).map((u) => u.id), ...(payload.assets?.deletes ?? [])])];
-  if (ids.length === 0) return;
-  const rows = await tx.asset.findMany({ where: { id: { in: ids } }, select: { id: true, updatedAt: true } });
-  const server = new Map(rows.map((r) => [r.id, r.updatedAt.toISOString()]));
+  const assetIds = [...new Set([...(payload.assets?.updates ?? []).map((u) => u.id), ...(payload.assets?.deletes ?? [])])];
+  const cableIds = [...new Set([...(payload.cables?.updates ?? []).map((u) => u.id), ...(payload.cables?.deletes ?? [])])];
+  if (assetIds.length === 0 && cableIds.length === 0) return;
+  const [assetRows, cableRows] = await Promise.all([
+    assetIds.length ? tx.asset.findMany({ where: { id: { in: assetIds } }, select: { id: true, updatedAt: true } }) : [],
+    cableIds.length ? tx.cable.findMany({ where: { id: { in: cableIds } }, select: { id: true, updatedAt: true } }) : [],
+  ]);
+  const server = new Map([...assetRows, ...cableRows].map((r) => [r.id, r.updatedAt.toISOString()]));
   type Conflict = { id: string; reason: 'deleted' } | { id: string; reason: 'modified'; serverUpdatedAt: string };
-  const conflicts: Conflict[] = ids.flatMap((id): Conflict[] => {
+  const conflicts: Conflict[] = [...assetIds, ...cableIds].flatMap((id): Conflict[] => {
     const now = server.get(id);
     if (!now) return [{ id, reason: 'deleted' }];
     if (base[id] !== now) return [{ id, reason: 'modified', serverUpdatedAt: now }];
@@ -264,6 +273,136 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
         data: { id: c.id, assetId: c.assetId, inspectedAt: new Date(c.inspectedAt), content: c.content, result: c.result ?? null },
       });
     }
+  }
+}
+
+async function applyCableDeletes(tx: Tx, substationId: string, ids: string[]): Promise<void> {
+  for (const id of ids) {
+    const del = await tx.cable.deleteMany({ where: { id, substationId } });
+    if (del.count === 0) throw new HttpError(422, 'INVALID_CABLE', '삭제 대상 케이블이 유효하지 않습니다');
+  }
+}
+
+async function assertNoAttachedCables(tx: Tx, deletedAssetIds: string[]): Promise<void> {
+  if (deletedAssetIds.length === 0) return;
+  // cables.deletes 는 이미 이 tx 에서 적용된 뒤 → 여기서 걸리는 케이블 = payload 에 포함되지 않은 것.
+  const remaining = await tx.cable.findMany({
+    where: { OR: [{ aPort: { assetId: { in: deletedAssetIds } } }, { bPort: { assetId: { in: deletedAssetIds } } }] },
+    select: { id: true },
+  });
+  if (remaining.length > 0) {
+    throw new HttpError(409, 'CABLE_ATTACHED', '삭제할 자산에 연결된 케이블이 있습니다. 케이블을 함께 삭제하세요.', { cableIds: remaining.map((c) => c.id) });
+  }
+}
+
+async function applyCableUpdate(
+  tx: Tx,
+  substationId: string,
+  u: { id: string; patch: { name?: string | null; categoryId?: string | null; pathPoints?: { x: number; y: number }[]; specParams?: Record<string, unknown> } },
+): Promise<void> {
+  const existing = await tx.cable.findUnique({
+    where: { id: u.id },
+    include: { aPort: true, bPort: true },
+  });
+  if (!existing || existing.substationId !== substationId) throw new HttpError(422, 'INVALID_CABLE', '수정 대상 케이블이 유효하지 않습니다');
+  const p = u.patch;
+
+  // categoryId non-null 설정 시: 존재 확인 + 매체 불일치 검사
+  if (p.categoryId != null) {
+    const cat = await tx.cableCategory.findUnique({ where: { id: p.categoryId }, include: { group: true } });
+    if (!cat) throw new HttpError(422, 'INVALID_CABLE_CATEGORY', '케이블 종류가 유효하지 않습니다');
+    const cableMedium = cat.group?.key;
+    const a = existing.aPort;
+    const b = existing.bPort;
+    const err = validateConnection(
+      { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as 'IN' | 'OUT' | 'BI', medium: a.medium },
+      { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as 'IN' | 'OUT' | 'BI', medium: b.medium },
+      new Set<string>(),
+      cableMedium,
+    );
+    if (err === 'medium-mismatch') {
+      throw new HttpError(422, 'CONNECT_MEDIUM_MISMATCH', '케이블 종류와 포트 매체가 일치하지 않습니다');
+    }
+  }
+
+  await tx.cable.update({
+    where: { id: u.id },
+    data: {
+      ...(p.name !== undefined ? { name: p.name } : {}),
+      ...(p.categoryId !== undefined ? { categoryId: p.categoryId } : {}),
+      ...(p.pathPoints !== undefined ? { pathPoints: p.pathPoints as Prisma.InputJsonValue } : {}),
+      ...(p.specParams !== undefined ? { specParams: p.specParams as Prisma.InputJsonValue } : {}),
+    },
+  });
+}
+
+async function applyCableCreate(
+  tx: Tx,
+  substationId: string,
+  input: {
+    id: string;
+    aPortId: string;
+    bPortId: string;
+    categoryId?: string | null;
+    name?: string | null;
+    pathPoints?: { x: number; y: number }[];
+    specParams?: Record<string, unknown>;
+  },
+): Promise<void> {
+  const [a, b] = await Promise.all([
+    tx.port.findUnique({ where: { id: input.aPortId }, include: { asset: { select: { substationId: true } } } }),
+    tx.port.findUnique({ where: { id: input.bPortId }, include: { asset: { select: { substationId: true } } } }),
+  ]);
+  if (!a || !b || a.asset.substationId !== substationId || b.asset.substationId !== substationId) {
+    throw new HttpError(422, 'INVALID_PORT', '케이블 끝점 포트가 유효하지 않습니다');
+  }
+
+  // 점유 검사: 두 포트 중 하나라도 기존 케이블이 연결된 포트면 거부
+  const occupied = await tx.cable.findMany({
+    where: { OR: [{ aPortId: { in: [a.id, b.id] } }, { bPortId: { in: [a.id, b.id] } }] },
+    select: { id: true },
+  });
+  if (occupied.length > 0) {
+    throw new HttpError(422, 'CONNECT_PORT_OCCUPIED', '이미 케이블이 연결된 포트입니다');
+  }
+
+  // 매체 검사: categoryId 있으면 group.key를 cableMedium으로
+  let cableMedium: string | undefined;
+  if (input.categoryId) {
+    const cat = await tx.cableCategory.findUnique({ where: { id: input.categoryId }, include: { group: true } });
+    if (!cat) throw new HttpError(422, 'INVALID_CABLE_CATEGORY', '케이블 종류가 유효하지 않습니다');
+    cableMedium = cat.group?.key;
+  }
+
+  const err = validateConnection(
+    { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as 'IN' | 'OUT' | 'BI', medium: a.medium },
+    { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as 'IN' | 'OUT' | 'BI', medium: b.medium },
+    new Set<string>(),
+    cableMedium,
+  );
+  if (err) {
+    const code = `CONNECT_${err.toUpperCase().replace(/-/g, '_')}`;
+    throw new HttpError(422, code, `연결할 수 없습니다: ${err}`);
+  }
+
+  try {
+    await tx.cable.create({
+      data: {
+        id: input.id,
+        substationId,
+        aPortId: a.id,
+        bPortId: b.id,
+        categoryId: input.categoryId ?? null,
+        name: input.name ?? null,
+        pathPoints: (input.pathPoints ?? []) as Prisma.InputJsonValue,
+        specParams: (input.specParams ?? {}) as Prisma.InputJsonValue,
+      },
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      throw new HttpError(409, 'CONFLICT', '이미 존재하는 케이블 id 입니다 (재시도 중복)', [{ id: input.id, reason: 'exists' }]);
+    }
+    throw e;
   }
 }
 

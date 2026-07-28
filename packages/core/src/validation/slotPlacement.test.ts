@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetTypeSpec } from '../catalog/types.js';
-import { validateSlotPlacement } from './slotPlacement.js';
+import { isAccepted, validateSlotPlacement } from './slotPlacement.js';
 
 const rack: AssetTypeSpec = {
   key: 'RACK',
@@ -99,5 +99,14 @@ describe('validateSlotPlacement', () => {
       containers: [{ key: 'main', name: '목록', slotCount: null, allowSpan: false, accepts: {} }],
     };
     expect(validateSlotPlacement({ ...base, parentType: free, slotIndex: null })).toBeNull();
+  });
+});
+
+describe('isAccepted', () => {
+  it('빈 규칙 전체 수용, categoryKeys/typeKeys OR', () => {
+    expect(isAccepted({}, { typeKey: 'X', categoryKey: 'Y' })).toBe(true);
+    expect(isAccepted({ categoryKeys: ['통신'] }, { typeKey: 'X', categoryKey: '통신' })).toBe(true);
+    expect(isAccepted({ categoryKeys: ['통신'] }, { typeKey: 'X', categoryKey: '구조' })).toBe(false);
+    expect(isAccepted({ typeKeys: ['X'] }, { typeKey: 'X', categoryKey: '구조' })).toBe(true);
   });
 });

@@ -29,4 +29,9 @@ describe('validateConnection', () => {
   it('매체 불일치 → medium-mismatch', () => {
     expect(validateConnection(port('p1', '광'), port('p2', '전원'), new Set())).toBe('medium-mismatch');
   });
+
+  it('cableMedium 지정 시 포트 매체와 불일치 → medium-mismatch', () => {
+    expect(validateConnection(port('p1', 'fiber'), port('p2', 'fiber'), new Set(), 'power')).toBe('medium-mismatch');
+    expect(validateConnection(port('p1', 'fiber'), port('p2', 'fiber'), new Set(), 'fiber')).toBeNull();
+  });
 });

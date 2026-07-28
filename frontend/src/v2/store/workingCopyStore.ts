@@ -2,19 +2,20 @@ import { temporal } from 'zundo';
 import { createStore, useStore } from 'zustand';
 import { shallow } from 'zustand/shallow';
 import { fetchWorkingcopy } from '../api';
-import type { V2Asset, V2InspectionLog, V2MaintenanceLog, V2Workingcopy } from '../types';
+import type { V2Asset, V2Cable, V2InspectionLog, V2MaintenanceLog, V2Workingcopy } from '../types';
 import { emptyOverlay, mergeEffective, overlayDirtyCount, stageCreate, stageDelete, stageUpdate, type Overlay } from './overlay';
 
 interface Overlays {
   assets: Overlay<V2Asset>;
   maintenance: Overlay<V2MaintenanceLog>;
   inspections: Overlay<V2InspectionLog>;
+  cables: Overlay<V2Cable>;
 }
 
-const EMPTY_SAVED = { substation: null as V2Workingcopy['substation'] | null, floors: [] as V2Workingcopy['floors'], assets: [] as V2Asset[], maintenanceLogs: [] as V2MaintenanceLog[], inspectionLogs: [] as V2InspectionLog[] };
+const EMPTY_SAVED = { substation: null as V2Workingcopy['substation'] | null, floors: [] as V2Workingcopy['floors'], assets: [] as V2Asset[], maintenanceLogs: [] as V2MaintenanceLog[], inspectionLogs: [] as V2InspectionLog[], cables: [] as V2Cable[] };
 
 function emptyOverlays(): Overlays {
-  return { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay() };
+  return { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay() };
 }
 
 export interface V2WorkingCopyState {
@@ -33,7 +34,11 @@ export interface V2WorkingCopyState {
   stageInspectionCreate: (log: V2InspectionLog) => void;
   stageInspectionUpdate: (id: string, patch: Partial<V2InspectionLog>) => void;
   stageInspectionDelete: (id: string) => void;
+  stageCableCreate: (cable: V2Cable) => void;
+  stageCableUpdate: (id: string, patch: Partial<V2Cable>) => void;
+  stageCableDelete: (id: string) => void;
   effectiveAssets: () => V2Asset[];
+  effectiveCables: () => V2Cable[];
   effectiveMaintenanceFor: (assetId: string) => V2MaintenanceLog[];
   effectiveInspectionsFor: (assetId: string) => V2InspectionLog[];
   dirtyCount: () => number;
@@ -55,9 +60,12 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
           const wc = await fetchWorkingcopy(substationId);
           set({
             substationId,
-            saved: { substation: wc.substation, floors: wc.floors, assets: wc.assets, maintenanceLogs: wc.maintenanceLogs, inspectionLogs: wc.inspectionLogs },
+            saved: { substation: wc.substation, floors: wc.floors, assets: wc.assets, maintenanceLogs: wc.maintenanceLogs, inspectionLogs: wc.inspectionLogs, cables: wc.cables },
             overlays: emptyOverlays(),
-            baseVersions: Object.fromEntries(wc.assets.map((a) => [a.id, a.updatedAt])),
+            baseVersions: {
+              ...Object.fromEntries(wc.assets.map((a) => [a.id, a.updatedAt])),
+              ...Object.fromEntries(wc.cables.map((c) => [c.id, c.updatedAt])),
+            },
           });
           t.clear();
         } finally {
@@ -98,7 +106,17 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
             for (const m of mergeEffective(st.saved.maintenanceLogs, maintenance).filter((r) => r.assetId === tid)) maintenance = stageDelete(maintenance, m.id);
             for (const i of mergeEffective(st.saved.inspectionLogs, inspections).filter((r) => r.assetId === tid)) inspections = stageDelete(inspections, i.id);
           }
-          return { overlays: { assets, maintenance, inspections } };
+          // cascade cable deletes — compute portIds from pre-delete effective assets
+          const effCables = mergeEffective(st.saved.cables, st.overlays.cables);
+          const preDel = mergeEffective(st.saved.assets, st.overlays.assets);
+          const portIds = new Set(preDel.filter((a) => targets.has(a.id)).flatMap((a) => a.ports.map((p) => p.id)));
+          let cables = st.overlays.cables;
+          for (const cable of effCables) {
+            if (portIds.has(cable.aPortId) || portIds.has(cable.bPortId)) {
+              cables = stageDelete(cables, cable.id);
+            }
+          }
+          return { overlays: { assets, maintenance, inspections, cables } };
         });
       },
 
@@ -109,12 +127,17 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       stageInspectionUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, inspections: stageUpdate(s.overlays.inspections, id, patch) } })),
       stageInspectionDelete: (id) => set((s) => ({ overlays: { ...s.overlays, inspections: stageDelete(s.overlays.inspections, id) } })),
 
+      stageCableCreate: (cable) => set((s) => ({ overlays: { ...s.overlays, cables: stageCreate(s.overlays.cables, cable.id, cable) } })),
+      stageCableUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, cables: stageUpdate(s.overlays.cables, id, patch) } })),
+      stageCableDelete: (id) => set((s) => ({ overlays: { ...s.overlays, cables: stageDelete(s.overlays.cables, id) } })),
+
       effectiveAssets: () => mergeEffective(get().saved.assets, get().overlays.assets),
+      effectiveCables: () => mergeEffective(get().saved.cables, get().overlays.cables),
       effectiveMaintenanceFor: (assetId) => mergeEffective(get().saved.maintenanceLogs, get().overlays.maintenance).filter((r) => r.assetId === assetId),
       effectiveInspectionsFor: (assetId) => mergeEffective(get().saved.inspectionLogs, get().overlays.inspections).filter((r) => r.assetId === assetId),
       dirtyCount: () => {
         const o = get().overlays;
-        return overlayDirtyCount(o.assets) + overlayDirtyCount(o.maintenance) + overlayDirtyCount(o.inspections);
+        return overlayDirtyCount(o.assets) + overlayDirtyCount(o.maintenance) + overlayDirtyCount(o.inspections) + overlayDirtyCount(o.cables);
       },
       isTempId: (id) => id in get().overlays.assets.creates,
     }),

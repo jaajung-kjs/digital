@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
@@ -14,6 +14,7 @@ import { buildStatusRows, type StatusRow } from '../statusRows';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useCommit } from '../store/useCommit';
+import type { TraceResult } from '../traceSelectors';
 
 type ViewMode = '현황' | '평면도';
 
@@ -22,6 +23,7 @@ export default function V2WorkspacePage() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('현황');
+  const [traceResult, setTraceResult] = useState<TraceResult | null>(null);
 
   const { commit, isCommitting, conflicts, clearConflicts, error: commitError, clearError: clearCommitError } = useCommit();
 
@@ -33,8 +35,14 @@ export default function V2WorkspacePage() {
     }
     setSelected(n);
     setSelectedAssetId(null);
+    setTraceResult(null); // 변전소 전환 시 추적 결과 클리어
     if (n.kind === 'substation') void st.load(n.id);
   };
+
+  const handleSelectAssetId = useCallback((id: string | null) => {
+    setSelectedAssetId(id);
+    setTraceResult(null); // 자산 선택 변경 시 추적 결과 클리어
+  }, []);
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
@@ -139,13 +147,17 @@ export default function V2WorkspacePage() {
                     <FloorPlanView
                       substationId={substationId}
                       selectedAssetId={selectedAssetId}
-                      onSelectAsset={setSelectedAssetId}
+                      onSelectAsset={handleSelectAssetId}
+                      traceResult={traceResult}
                     />
                     {showDetailPanel && (
                       <AssetDetailPanel
                         key={selectedAssetId}
                         assetId={selectedAssetId!}
-                        onSelectAsset={setSelectedAssetId}
+                        onSelectAsset={handleSelectAssetId}
+                        onTrace={setTraceResult}
+                        onClearTrace={() => setTraceResult(null)}
+                        traceResult={traceResult}
                       />
                     )}
                   </>
@@ -169,7 +181,7 @@ export default function V2WorkspacePage() {
                       <StatusTable
                         rows={rows}
                         selectedId={selectedAssetId}
-                        onSelectAsset={setSelectedAssetId}
+                        onSelectAsset={handleSelectAssetId}
                         nodeScope={nodeScope}
                       />
                     </div>
@@ -177,7 +189,10 @@ export default function V2WorkspacePage() {
                       <AssetDetailPanel
                         key={selectedAssetId}
                         assetId={selectedAssetId!}
-                        onSelectAsset={setSelectedAssetId}
+                        onSelectAsset={handleSelectAssetId}
+                        onTrace={setTraceResult}
+                        onClearTrace={() => setTraceResult(null)}
+                        traceResult={traceResult}
                       />
                     )}
                   </>

@@ -1,0 +1,138 @@
+/**
+ * traceSelectors — V2 형상(types/assets/cables) → @twin/core 추적 입력 변환 + 추적 실행
+ *
+ * 추적 판단 로직은 코어에만 있다. 이 파일은 V2 형상을 코어 입력으로 변환(buildTraceInputs)하고
+ * 코어 함수를 호출(traceHighlight)한다. 타입 분기 없음.
+ */
+
+import { buildTraceGraph, traceFrom, specFromCatalog } from '@twin/core';
+import type { AssetRef, AssetTypeSpec, CableRef, PortRef, TraceHop } from '@twin/core';
+import type { V2Asset, V2AssetType, V2Cable, V2Category } from './types';
+
+export interface TraceInputs {
+  types: Record<string, AssetTypeSpec>;
+  assets: AssetRef[];
+  ports: PortRef[];
+  cables: CableRef[];
+}
+
+export interface TraceResult {
+  assetIds: Set<string>;
+  cableIds: Set<string>;
+  hops: TraceHop[];
+}
+
+/**
+ * V2 형상(types/categories/assets/cables)을 @twin/core buildTraceGraph 입력 형상으로 변환한다.
+ *
+ * - V2AssetType + V2Category → specFromCatalog(row with category.key join) → AssetTypeSpec
+ * - V2Asset → AssetRef (typeKey = typesById 경유)
+ * - V2Asset.ports 평탄화 → PortRef[]
+ * - V2Cable → CableRef
+ */
+export function buildTraceInputs(args: {
+  types: V2AssetType[];
+  categories: V2Category[];
+  assets: V2Asset[];
+  cables: V2Cable[];
+}): TraceInputs {
+  // categoryId → V2Category
+  const categoriesById = new Map(args.categories.map((c) => [c.id, c]));
+
+  // V2AssetType id → key (AssetRef.typeKey 해소용)
+  const typeKeyById = new Map(args.types.map((t) => [t.id, t.key]));
+
+  // specFromCatalog 호출: category.key join
+  const types: Record<string, AssetTypeSpec> = {};
+  for (const t of args.types) {
+    const cat = categoriesById.get(t.categoryId);
+    if (!cat) continue; // category 없으면 건너뜀 (orphan 방어)
+    const row = {
+      key: t.key,
+      name: t.name,
+      sortOrder: t.sortOrder,
+      category: { key: cat.key },
+      placeable: t.placeable,
+      defaultWidth: t.defaultWidth,
+      defaultHeight: t.defaultHeight,
+      laborType: t.laborType,
+      installHours: t.installHours,
+      removeHours: t.removeHours,
+      relocateHours: t.relocateHours,
+      fieldDefs: t.fieldDefs,
+      containerSpecs: t.containerSpecs,
+      portTemplates: t.portTemplates,
+      linkRules: t.linkRules,
+    };
+    types[t.key] = specFromCatalog(row);
+  }
+
+  // V2Asset → AssetRef + PortRef 평탄화
+  const assets: AssetRef[] = [];
+  const ports: PortRef[] = [];
+  for (const a of args.assets) {
+    const typeKey = typeKeyById.get(a.typeId);
+    if (!typeKey) continue; // 타입 없으면 건너뜀
+
+    assets.push({
+      id: a.id,
+      typeKey,
+      name: a.name,
+      parentAssetId: a.parentAssetId,
+      containerKey: a.containerKey,
+      slotIndex: a.slotIndex,
+      slotSpan: a.slotSpan,
+    });
+
+    for (const p of a.ports) {
+      ports.push({
+        id: p.id,
+        assetId: p.assetId,
+        group: p.group,
+        index: p.index,
+        name: p.name,
+        direction: p.direction,
+        medium: p.medium,
+      });
+    }
+  }
+
+  // V2Cable → CableRef
+  const cables: CableRef[] = args.cables.map((c) => ({
+    id: c.id,
+    aPortId: c.aPortId,
+    bPortId: c.bPortId,
+    categoryKey: null, // categoryId는 cable group key가 아니라 category id이므로 null
+  }));
+
+  return { types, assets, ports, cables };
+}
+
+/**
+ * 주어진 포트(startPortId)에서 시작하여 도달 가능한 모든 자산·케이블·hop을 반환한다.
+ *
+ * - buildTraceGraph + traceFrom 호출 (추적 로직은 코어 전담)
+ * - 시작 포트의 assetId도 assetIds에 포함
+ */
+export function traceHighlight(inputs: TraceInputs, startPortId: string): TraceResult {
+  const graph = buildTraceGraph(inputs);
+  const hops = traceFrom(graph, startPortId);
+
+  // 시작 포트의 assetId 수집 (hops에 등장하지 않을 수 있으므로 직접 조회)
+  const portMap = new Map(inputs.ports.map((p) => [p.id, p]));
+  const startPort = portMap.get(startPortId);
+
+  const assetIds = new Set<string>();
+  const cableIds = new Set<string>();
+
+  // 시작 포트의 자산 포함
+  if (startPort) assetIds.add(startPort.assetId);
+
+  for (const hop of hops) {
+    const toPort = portMap.get(hop.toPortId);
+    if (toPort) assetIds.add(toPort.assetId);
+    if (hop.cableId) cableIds.add(hop.cableId);
+  }
+
+  return { assetIds, cableIds, hops };
+}

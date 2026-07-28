@@ -1,6 +1,5 @@
 import { X } from 'lucide-react';
 import { Button, IconButton } from '../../components/ui';
-import { overlayDirtyCount } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 
 interface SaveBarProps {
@@ -11,9 +10,8 @@ interface SaveBarProps {
 }
 
 export function SaveBar({ onCommit, isCommitting, error, onClearError }: SaveBarProps) {
-  // 반응형 dirty count — overlays 슬라이스 구독
-  const overlays = useV2WorkingCopy((s) => s.overlays);
-  const dirty = overlayDirtyCount(overlays.assets) + overlayDirtyCount(overlays.maintenance) + overlayDirtyCount(overlays.inspections);
+  // 반응형 dirty count — 스토어 파생 getter 구독 (primitive 반환, 재렌더 안전)
+  const dirty = useV2WorkingCopy((s) => s.dirtyCount());
 
   if (dirty === 0) return null;
 
