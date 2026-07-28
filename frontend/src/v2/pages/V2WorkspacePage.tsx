@@ -250,8 +250,8 @@ export default function V2WorkspacePage() {
         />
       )}
 
-      {/* 설계서 패널 */}
-      <ReportPanel open={reportOpen} onClose={() => setReportOpen(false)} />
+      {/* 설계서 패널 (조건부 마운트 — 닫힌 상태에서 store 구독/계산 방지) */}
+      {reportOpen && <ReportPanel open onClose={() => setReportOpen(false)} />}
 
       {/* 충돌 다이얼로그 */}
       {conflicts != null && conflicts.length > 0 && substationId != null && (

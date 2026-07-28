@@ -101,7 +101,7 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
               </thead>
               <tbody>
                 {report.items.map((item, i) => (
-                  <ReportRow key={i} item={item} />
+                  <ReportRow key={`${item.kind}-${item.name}-${i}`} item={item} />
                 ))}
               </tbody>
             </table>
