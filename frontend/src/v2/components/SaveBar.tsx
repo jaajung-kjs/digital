@@ -7,9 +7,10 @@ interface SaveBarProps {
   isCommitting: boolean;
   error?: string | null;
   onClearError?: () => void;
+  onOpenReport?: () => void;
 }
 
-export function SaveBar({ onCommit, isCommitting, error, onClearError }: SaveBarProps) {
+export function SaveBar({ onCommit, isCommitting, error, onClearError, onOpenReport }: SaveBarProps) {
   // 반응형 dirty count — 스토어 파생 getter 구독 (primitive 반환, 재렌더 안전)
   const dirty = useV2WorkingCopy((s) => s.dirtyCount());
 
@@ -45,6 +46,9 @@ export function SaveBar({ onCommit, isCommitting, error, onClearError }: SaveBar
       </Button>
       <Button variant="ghost" size="sm" onClick={handleRedo}>
         다시 실행
+      </Button>
+      <Button variant="secondary" size="sm" onClick={onOpenReport}>
+        설계서
       </Button>
       <Button variant="secondary" size="sm" onClick={handleRevert}>
         되돌리기
