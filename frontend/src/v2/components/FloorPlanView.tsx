@@ -23,7 +23,7 @@ import { Button, Select } from '../../components/ui';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
 import { PortPickerPopover } from './PortPickerPopover';
-import { SNAP_GRID } from '../canvas/constants';
+import { SNAP_GRID, SELECTION_STYLES } from '../canvas/constants';
 import type { V2Asset, V2Port } from '../types';
 
 const MAJOR_GRID = 100;
@@ -290,6 +290,20 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
       renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current, activePreview);
 
+      // 6.5 케이블 첫 끝점 자산 강조 (점선 스트로크 — 일반 선택과 구분)
+      const firstEp = firstEndpointRef.current;
+      if (firstEp) {
+        const feAsset = placedAssetsRef.current.find((a) => a.id === firstEp.assetId);
+        if (feAsset) {
+          ctx.save();
+          ctx.strokeStyle = SELECTION_STYLES.stroke;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 4]);
+          ctx.strokeRect(feAsset.x - 3, feAsset.y - 3, feAsset.width + 6, feAsset.height + 6);
+          ctx.restore();
+        }
+      }
+
       // 7. draw 미리보기 (armed 상태 + 드래그 중)
       if (drawStartRef.current) {
         renderDrawPreview(ctx, drawStartRef.current, drawEndRef.current);
@@ -404,11 +418,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       if (e.code === 'Escape') {
         // ESC: 케이블 도구 해제
         if (cableArmedRef.current) {
-          cableArmedRef.current = false;
-          firstEndpointRef.current = null;
-          setCableArmed(false);
-          setPickerState(null);
-          scheduleRender();
+          disarmCable();
           return;
         }
         // ESC: disarm 또는 draw 취소
@@ -631,7 +641,18 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       return;
     }
 
-    // ── 케이블 히트 테스트 (케이블 클릭 선택) ─────────────────────────────
+    // ── 자산 히트 우선 (자산이 케이블 위에 그려지므로 시각 순서와 일치) ────
+    const assetHit = findAssetAt(world.x, world.y, placedAssetsRef.current);
+    if (assetHit) {
+      if (selectedCableId !== null) {
+        setSelectedCableId(null);
+        scheduleRender();
+      }
+      onSelectAsset(assetHit.id);
+      return;
+    }
+
+    // ── 케이블 히트 테스트 (자산 미히트 시에만) ───────────────────────────
     const floorId = activeFloorRef.current?.id ?? null;
     if (floorId) {
       const segs = cableSegments(effectiveCablesRef.current, effectiveAssetsRef.current, floorId);
@@ -647,13 +668,12 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
       }
     }
 
-    // ── 일반 자산 선택 ─────────────────────────────────────────────────────
+    // ── 빈 공간 클릭: 선택 해제 ───────────────────────────────────────────
     if (selectedCableId !== null) {
       setSelectedCableId(null);
       scheduleRender();
     }
-    const assetHit = findAssetAt(world.x, world.y, placedAssetsRef.current);
-    onSelectAsset(assetHit?.id ?? null);
+    onSelectAsset(null);
   };
 
   // ── 포트 선택 핸들러 ──────────────────────────────────────────────────────
