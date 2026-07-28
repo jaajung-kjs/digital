@@ -13,7 +13,7 @@ interface SaveBarProps {
 export function SaveBar({ onCommit, isCommitting, error, onClearError }: SaveBarProps) {
   // 반응형 dirty count — overlays 슬라이스 구독
   const overlays = useV2WorkingCopy((s) => s.overlays);
-  const dirty = overlayDirtyCount(overlays.assets) + overlayDirtyCount(overlays.maintenance) + overlayDirtyCount(overlays.inspections);
+  const dirty = overlayDirtyCount(overlays.assets) + overlayDirtyCount(overlays.maintenance) + overlayDirtyCount(overlays.inspections) + overlayDirtyCount(overlays.cables);
 
   if (dirty === 0) return null;
 
