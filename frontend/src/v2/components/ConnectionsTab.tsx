@@ -67,11 +67,21 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
     return map;
   }, [effectiveAssets]);
 
-  // assetId → asset 이름
-  const assetNameById = useMemo(
-    () => new Map(effectiveAssets.map((a) => [a.id, a.name])),
-    [effectiveAssets],
-  );
+  // 포트를 그룹별로 묶기 (early return 위 — 훅 순서 보장; asset 미해소 시 빈 Map)
+  const assetPorts = asset?.ports;
+  const portsByGroup = useMemo(() => {
+    const map = new Map<string, V2Port[]>();
+    for (const p of assetPorts ?? []) {
+      const list = map.get(p.group) ?? [];
+      list.push(p);
+      map.set(p.group, list);
+    }
+    // 각 그룹 내 index 순 정렬
+    for (const [, list] of map) {
+      list.sort((a, b) => a.index - b.index);
+    }
+    return map;
+  }, [assetPorts]);
 
   // hop → 표시용 텍스트
   function hopText(hop: import('../traceSelectors').TraceResult['hops'][number]): string {
@@ -93,21 +103,6 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
   }
 
   if (!asset) return null;
-
-  // 포트를 그룹별로 묶기
-  const portsByGroup = useMemo(() => {
-    const map = new Map<string, V2Port[]>();
-    for (const p of asset.ports) {
-      const list = map.get(p.group) ?? [];
-      list.push(p);
-      map.set(p.group, list);
-    }
-    // 각 그룹 내 index 순 정렬
-    for (const [, list] of map) {
-      list.sort((a, b) => a.index - b.index);
-    }
-    return map;
-  }, [asset.ports]);
 
   if (asset.ports.length === 0) {
     return (
@@ -152,7 +147,7 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
               const conn = cableByPortId.get(port.id);
               const peerPort = conn ? portById.get(conn.peerPortId) : undefined;
               const peerAsset = conn ? assetByPortId.get(conn.peerPortId) : undefined;
-              const peerAssetName = peerAsset ? peerAsset.name : (conn ? assetNameById.get(conn.peerPortId) ?? '—' : null);
+              const peerAssetName = peerAsset?.name ?? '—';
 
               return (
                 <div key={port.id} className="flex items-center gap-2 text-xs">
