@@ -1,4 +1,7 @@
+import { buildPortIndex, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
+
+export type { PeerInfo } from './peerResolve';
 
 export const POWER_MEDIUM = 'power';
 
@@ -31,13 +34,6 @@ export function powerContainers(assets: V2Asset[]): V2Asset[] {
   return result;
 }
 
-export interface PeerInfo {
-  assetName: string;
-  portName?: string;
-  substationName: string | null;
-  remote: boolean;
-}
-
 export interface PowerCell {
   portId: string | null;
   cableId: string | null;
@@ -53,12 +49,17 @@ export interface PowerRow {
   outCell: PowerCell;
 }
 
+/** fieldValues 값 문자열화 — 없으면 null (런타임 변환, 캐스트 아님) */
+function fieldString(value: unknown): string | null {
+  return value == null ? null : String(value);
+}
+
 /**
  * Builds power rows for a container.
  * Feeders are children of container with power ports, sorted by name.
- * inCell/outCell: first port with direction 'IN'/'OUT' respectively.
- * 3-tier peer resolution: local effective -> saved refs -> null.
- * breakerNo/switchState: fieldValues strings or null.
+ * inCell/outCell: first port with direction 'IN'/'OUT' respectively (port data field, not role branching).
+ * 3-tier peer resolution via shared helper: local effective -> saved refs -> null.
+ * breakerNo/switchState: fieldValues stringified or null.
  * voltage: IN cable specParams.voltage or null.
  */
 export function buildPowerRows(
@@ -66,7 +67,6 @@ export function buildPowerRows(
   assets: V2Asset[],
   cables: V2Cable[]
 ): PowerRow[] {
-  const assetMap = new Map(assets.map((a) => [a.id, a]));
   const cablesByAPortId = new Map<string, V2Cable>();
   const cablesByBPortId = new Map<string, V2Cable>();
 
@@ -75,69 +75,24 @@ export function buildPowerRows(
     cablesByBPortId.set(cable.bPortId, cable);
   }
 
-  // Step 1: Find feeders = children of container with power ports, sorted by name
+  // Feeders = children of container with power ports, sorted by name
   const feeders = assets
     .filter((a) => a.parentAssetId === container.id && a.ports.some((p) => p.medium === POWER_MEDIUM))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Step 2: Build portId → { port, asset } index (hoisted for efficiency)
-  const portIndex = new Map<string, { port: V2Asset['ports'][number] & { assetId: string }; asset: V2Asset }>();
-  for (const a of assets) {
-    for (const p of a.ports) {
-      portIndex.set(p.id, { port: { ...p, assetId: a.id }, asset: a });
-    }
-  }
+  // portId → { port, asset } index (hoisted — shared helper)
+  const portIndex = buildPortIndex(assets);
 
-  // Helper: resolve peer from 3-tier logic (local -> refs -> null)
-  const resolvePeer = (cable: V2Cable, port: V2Asset['ports'][number]): PeerInfo | null => {
-    // Determine which end is the peer
-    const otherPortId = cable.aPortId === port.id ? cable.bPortId : cable.aPortId;
-    const entry = portIndex.get(otherPortId);
-    const otherPort = entry?.port;
-
-    if (otherPort) {
-      // Local effective peer found
-      const peerAsset = assetMap.get(otherPort.assetId);
-      if (peerAsset) {
-        return {
-          assetName: peerAsset.name,
-          portName: otherPort.name,
-          substationName: null,
-          remote: false,
-        };
-      }
-    } else if (cable.aPortId === port.id && cable.bRef) {
-      // Use bRef
-      return {
-        assetName: cable.bRef.assetName,
-        portName: cable.bRef.portName,
-        substationName: cable.bRef.substationName ?? null,
-        remote: cable.bRef.substationId !== container.substationId,
-      };
-    } else if (cable.bPortId === port.id && cable.aRef) {
-      // Use aRef
-      return {
-        assetName: cable.aRef.assetName,
-        portName: cable.aRef.portName,
-        substationName: cable.aRef.substationName ?? null,
-        remote: cable.aRef.substationId !== container.substationId,
-      };
-    }
-
-    return null;
-  };
-
-  // Step 3: Build rows
   const rows: PowerRow[] = [];
 
   for (const feeder of feeders) {
-    // Get first IN and OUT ports
+    // First IN / OUT power ports (direction is port data, not a role branch)
     const inPort = feeder.ports.find((p) => p.medium === POWER_MEDIUM && p.direction === 'IN');
     const outPort = feeder.ports.find((p) => p.medium === POWER_MEDIUM && p.direction === 'OUT');
 
     // Resolve inCell
-    let inCell: PowerCell & { voltage: string | null } = {
-      portId: null,
+    const inCell: PowerCell & { voltage: string | null } = {
+      portId: inPort?.id ?? null,
       cableId: null,
       peer: null,
       voltage: null,
@@ -146,18 +101,15 @@ export function buildPowerRows(
     if (inPort) {
       const inCable = cablesByAPortId.get(inPort.id) || cablesByBPortId.get(inPort.id) || null;
       if (inCable) {
-        inCell.portId = inPort.id;
         inCell.cableId = inCable.id;
-        inCell.peer = resolvePeer(inCable, inPort);
-        inCell.voltage = (inCable.specParams?.voltage as string | null) ?? null;
-      } else {
-        inCell.portId = inPort.id;
+        inCell.peer = resolvePeer(inPort, inCable, portIndex, container.substationId);
+        inCell.voltage = fieldString(inCable.specParams?.voltage);
       }
     }
 
     // Resolve outCell
-    let outCell: PowerCell = {
-      portId: null,
+    const outCell: PowerCell = {
+      portId: outPort?.id ?? null,
       cableId: null,
       peer: null,
     };
@@ -165,23 +117,16 @@ export function buildPowerRows(
     if (outPort) {
       const outCable = cablesByAPortId.get(outPort.id) || cablesByBPortId.get(outPort.id) || null;
       if (outCable) {
-        outCell.portId = outPort.id;
         outCell.cableId = outCable.id;
-        outCell.peer = resolvePeer(outCable, outPort);
-      } else {
-        outCell.portId = outPort.id;
+        outCell.peer = resolvePeer(outPort, outCable, portIndex, container.substationId);
       }
     }
-
-    // Get breakerNo and switchState from fieldValues
-    const breakerNo = (feeder.fieldValues?.breakerNo as string | null) ?? null;
-    const switchState = (feeder.fieldValues?.switchState as string | null) ?? null;
 
     rows.push({
       feederId: feeder.id,
       feederName: feeder.name,
-      breakerNo,
-      switchState,
+      breakerNo: fieldString(feeder.fieldValues?.breakerNo),
+      switchState: fieldString(feeder.fieldValues?.switchState),
       inCell,
       outCell,
     });
