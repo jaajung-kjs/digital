@@ -19,10 +19,39 @@ workingcopyRouter.get('/substations/:id/workingcopy', authenticate, async (req, 
       }),
       nextDb.maintenanceLog.findMany({ where: { asset: { substationId: substation.id } }, orderBy: { occurredAt: 'desc' } }),
       nextDb.inspectionLog.findMany({ where: { asset: { substationId: substation.id } }, orderBy: { inspectedAt: 'desc' } }),
-      nextDb.cable.findMany({ where: { substationId: substation.id }, orderBy: { createdAt: 'asc' } }),
+      nextDb.cable.findMany({
+        where: { substationId: substation.id },
+        include: {
+          aPort: { include: { asset: { include: { substation: true } } } },
+          bPort: { include: { asset: { include: { substation: true } } } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
 
-    res.json({ substation, floors, assets, maintenanceLogs, inspectionLogs, cables });
+    const enrichedCables = cables.map(({ aPort, bPort, ...rest }) => ({
+      ...rest,
+      aRef: {
+        portName: aPort.name,
+        portGroup: aPort.group,
+        portIndex: aPort.index,
+        assetId: aPort.assetId,
+        assetName: aPort.asset.name,
+        substationId: aPort.asset.substationId,
+        substationName: aPort.asset.substation.name,
+      },
+      bRef: {
+        portName: bPort.name,
+        portGroup: bPort.group,
+        portIndex: bPort.index,
+        assetId: bPort.assetId,
+        assetName: bPort.asset.name,
+        substationId: bPort.asset.substationId,
+        substationName: bPort.asset.substation.name,
+      },
+    }));
+
+    res.json({ substation, floors, assets, maintenanceLogs, inspectionLogs, cables: enrichedCables });
   } catch (e) {
     next(e);
   }

@@ -288,10 +288,14 @@ async function assertNoAttachedCables(tx: Tx, deletedAssetIds: string[]): Promis
   // cables.deletes 는 이미 이 tx 에서 적용된 뒤 → 여기서 걸리는 케이블 = payload 에 포함되지 않은 것.
   const remaining = await tx.cable.findMany({
     where: { OR: [{ aPort: { assetId: { in: deletedAssetIds } } }, { bPort: { assetId: { in: deletedAssetIds } } }] },
-    select: { id: true },
+    select: { id: true, substation: { select: { name: true } } },
   });
   if (remaining.length > 0) {
-    throw new HttpError(409, 'CABLE_ATTACHED', '삭제할 자산에 연결된 케이블이 있습니다. 케이블을 함께 삭제하세요.', { cableIds: remaining.map((c) => c.id) });
+    const ownerSubstationNames = [...new Set(remaining.map((c) => c.substation.name))];
+    throw new HttpError(409, 'CABLE_ATTACHED', '삭제할 자산에 연결된 케이블이 있습니다. 케이블을 함께 삭제하세요.', {
+      cableIds: remaining.map((c) => c.id),
+      ownerSubstationNames,
+    });
   }
 }
 
@@ -353,7 +357,7 @@ async function applyCableCreate(
     tx.port.findUnique({ where: { id: input.aPortId }, include: { asset: { select: { substationId: true } } } }),
     tx.port.findUnique({ where: { id: input.bPortId }, include: { asset: { select: { substationId: true } } } }),
   ]);
-  if (!a || !b || a.asset.substationId !== substationId || b.asset.substationId !== substationId) {
+  if (!a || !b || (a.asset.substationId !== substationId && b.asset.substationId !== substationId)) {
     throw new HttpError(422, 'INVALID_PORT', '케이블 끝점 포트가 유효하지 않습니다');
   }
 
