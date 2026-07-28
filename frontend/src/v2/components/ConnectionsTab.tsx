@@ -13,7 +13,7 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
-import type { V2Asset, V2Port } from '../types';
+import type { V2Asset, V2Cable, V2Port } from '../types';
 
 interface ConnectionsTabProps {
   assetId: string;
@@ -37,10 +37,10 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
 
   // portId → cable + peer port 매핑
   const cableByPortId = useMemo(() => {
-    const map = new Map<string, { cableId: string; peerPortId: string }>();
+    const map = new Map<string, { cableId: string; peerPortId: string; cable: V2Cable }>();
     for (const cable of effectiveCables) {
-      map.set(cable.aPortId, { cableId: cable.id, peerPortId: cable.bPortId });
-      map.set(cable.bPortId, { cableId: cable.id, peerPortId: cable.aPortId });
+      map.set(cable.aPortId, { cableId: cable.id, peerPortId: cable.bPortId, cable });
+      map.set(cable.bPortId, { cableId: cable.id, peerPortId: cable.aPortId, cable });
     }
     return map;
   }, [effectiveCables]);
@@ -147,23 +147,38 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
               const conn = cableByPortId.get(port.id);
               const peerPort = conn ? portById.get(conn.peerPortId) : undefined;
               const peerAsset = conn ? assetByPortId.get(conn.peerPortId) : undefined;
-              const peerAssetName = peerAsset?.name ?? '—';
+
+              // 로컬 해소 성공 시 로컬 이름 사용; 실패 시 saved 케이블의 aRef/bRef 폴백
+              let peerLabel: string | null = null;
+              if (conn && peerPort && peerAsset) {
+                peerLabel = `${peerAsset.name} · ${peerPort.name}`;
+              } else if (conn) {
+                // 로컬 해소 실패 → saved 케이블 refs 폴백
+                const cable = conn.cable;
+                const isA = cable.aPortId === port.id;
+                const ref = isA ? cable.bRef : cable.aRef;
+                if (ref) {
+                  peerLabel = `${ref.assetName} (${ref.substationName}) · ${ref.portName}`;
+                }
+              }
 
               return (
                 <div key={port.id} className="flex items-center gap-2 text-xs">
                   <span className="w-16 shrink-0 text-content">{port.name}</span>
-                  {conn && peerPort ? (
+                  {conn && peerLabel ? (
                     <>
                       <span className="flex-1 truncate text-content-muted">
-                        {peerAssetName} · {peerPort.name}
+                        {peerLabel}
                       </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleTrace(port.id)}
-                      >
-                        추적
-                      </Button>
+                      {peerPort && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleTrace(port.id)}
+                        >
+                          추적
+                        </Button>
+                      )}
                     </>
                   ) : (
                     <span className="flex-1 text-content-faint">—</span>

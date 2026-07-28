@@ -1,5 +1,14 @@
 import { api } from '../utils/api';
-import type { V2Catalog, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Workingcopy } from './types';
+import type { V2Catalog, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+
+export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
+
+export async function searchAssets(q: string): Promise<AssetSearchResult[]> {
+  return (await api.get('/v2/search/assets', { params: { q } })).data;
+}
+export async function fetchAssetPorts(assetId: string): Promise<V2Port[]> {
+  return (await api.get(`/v2/assets/${assetId}/ports`)).data;
+}
 
 export async function fetchCatalog(): Promise<V2Catalog> {
   return (await api.get('/v2/catalog')).data;

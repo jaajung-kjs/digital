@@ -24,8 +24,10 @@ import { Button, Select } from '../../components/ui';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
 import { PortPickerPopover } from './PortPickerPopover';
+import { RemoteEndpointModal } from './RemoteEndpointModal';
 import { SNAP_GRID, SELECTION_STYLES } from '../canvas/constants';
 import type { V2Asset, V2Port } from '../types';
+import type { AssetSearchResult } from '../api';
 import type { PortGroup } from './PortPickerPopover';
 import { expandToPlacedAncestors } from '../traceSelectors';
 import type { TraceResult } from '../traceSelectors';
@@ -198,6 +200,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   const firstEndpointRef = useRef<{ portId: string; assetId: string } | null>(null);
   /** 선택된 케이블 ID (케이블 클릭 선택) */
   const [selectedCableId, setSelectedCableId] = useState<string | null>(null);
+  /** 대국 검색 모달 열림 여부 */
+  const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const selectedCableIdRef = useRef<string | null>(null);
   selectedCableIdRef.current = selectedCableId;
 
@@ -790,6 +794,51 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     }
   };
 
+  // ── 대국 모달에서 포트 선택 → 두 번째 끝점으로 처리 ──────────────────────
+  const handleRemotePortSelect = (port: V2Port, _asset: AssetSearchResult) => {
+    const first = firstEndpointRef.current;
+    if (!first) return;
+
+    const aPort = effectiveAssetsRef.current
+      .flatMap((a) => a.ports)
+      .find((p) => p.id === first.portId);
+    const bPort = port;
+
+    if (!aPort) {
+      firstEndpointRef.current = null;
+      setRemoteModalOpen(false);
+      return;
+    }
+
+    const occupied = occupiedPortIds(effectiveCablesRef.current);
+    const err = validateConnection(aPort, bPort, occupied, selectedGroupKey);
+    if (err) {
+      // 검증 실패 — 모달을 닫고 피커에 에러 표시 (첫 끝점 유지)
+      setRemoteModalOpen(false);
+      return;
+    }
+
+    const substationId = saved.substation?.id ?? '';
+    const categoryId = selectedCategoryIdRef.current || null;
+
+    useV2WorkingCopy.getState().stageCableCreate({
+      id: crypto.randomUUID(),
+      name: null,
+      substationId,
+      aPortId: first.portId,
+      bPortId: port.id,
+      categoryId,
+      pathPoints: [],
+      specParams: {},
+      updatedAt: '',
+    });
+
+    firstEndpointRef.current = null;
+    setRemoteModalOpen(false);
+    setPickerState(null);
+    scheduleRender();
+  };
+
   // ── arm 토글 ─────────────────────────────────────────────────────────────
   const handleArmType = (typeId: string) => {
     if (cableArmedRef.current) disarmCable();
@@ -836,6 +885,9 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
 
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
   const canvasCursor = (armedTypeId !== null || cableArmed) ? 'crosshair' : undefined;
+
+  // ── 점유 포트 ID 집합 (원격 모달용) ─────────────────────────────────────
+  const occupiedCablePortIds = useMemo(() => occupiedPortIds(effectiveCables), [effectiveCables]);
 
   // ── 피커에 넘길 portGroups (루트 + 전이적 자식, 저장된 자산만) ─────────────
   const pickerPortGroups = useMemo((): PortGroup[] => {
@@ -1009,8 +1061,20 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
               setPickerState(null);
               // 첫 끝점 대기 중이 아니면 초기화하지 않음 (피커만 닫기)
             }}
+            hasFirstEndpoint={!!pickerState.firstEndpoint}
+            onOpenRemoteModal={() => setRemoteModalOpen(true)}
           />
         )}
+
+        {/* 대국 검색 모달 */}
+        <RemoteEndpointModal
+          open={remoteModalOpen}
+          onClose={() => setRemoteModalOpen(false)}
+          mediumFilter={selectedGroupKey}
+          excludePortId={firstEndpointRef.current?.portId}
+          occupiedPortIds={occupiedCablePortIds}
+          onSelectPort={handleRemotePortSelect}
+        />
 
         {/* 층이 선택됐지만 배치 자산 없음 안내 */}
         {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && !cableArmed && (

@@ -33,6 +33,10 @@ interface Props {
   onSelectPort: (port: V2Port) => void;
   /** 닫기 콜백 */
   onClose: () => void;
+  /** 첫 끝점이 확정된 경우 true → "다른 변전소에서 찾기…" 버튼 표시 */
+  hasFirstEndpoint?: boolean;
+  /** "다른 변전소에서 찾기…" 버튼 클릭 콜백 */
+  onOpenRemoteModal?: () => void;
 }
 
 /** 팝오버 크기 추정값 (플립 계산용) */
@@ -48,6 +52,8 @@ export function PortPickerPopover({
   validationError,
   onSelectPort,
   onClose,
+  hasFirstEndpoint,
+  onOpenRemoteModal,
 }: Props) {
   const filteredGroups = excludePortId
     ? portGroups.map((g) => ({ ...g, ports: g.ports.filter((p) => p.id !== excludePortId) }))
@@ -125,6 +131,20 @@ export function PortPickerPopover({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* 대국 검색 버튼: 첫 끝점 확정 시에만 표시 */}
+        {hasFirstEndpoint && onOpenRemoteModal && (
+          <div className="mt-1.5 border-t border-line pt-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-xs text-content-muted"
+              onClick={() => { onOpenRemoteModal(); onClose(); }}
+            >
+              다른 변전소에서 찾기…
+            </Button>
           </div>
         )}
       </div>
