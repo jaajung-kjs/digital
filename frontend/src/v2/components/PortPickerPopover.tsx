@@ -5,7 +5,6 @@
  * 클릭된 자산의 자식(전이적 포함)까지 포트를 그룹별로 표시한다.
  * CONVENTIONS 준수: text-xs/text-sm, 시맨틱 색 토큰, z-backdrop/z-modal.
  */
-import { useRef } from 'react';
 import type { V2Asset, V2Port } from '../types';
 import { Button } from '../../components/ui';
 
@@ -50,8 +49,6 @@ export function PortPickerPopover({
   onSelectPort,
   onClose,
 }: Props) {
-  const popoverRef = useRef<HTMLDivElement | null>(null);
-
   const filteredGroups = excludePortId
     ? portGroups.map((g) => ({ ...g, ports: g.ports.filter((p) => p.id !== excludePortId) }))
     : portGroups;
@@ -78,7 +75,6 @@ export function PortPickerPopover({
       />
       {/* 팝오버 본체 — fixed + viewport 좌표 (overflow-hidden 클리핑 해소) */}
       <div
-        ref={popoverRef}
         className="fixed z-modal min-w-[160px] max-w-[240px] rounded-lg border border-line bg-surface shadow-lg p-2"
         style={{ left, top }}
       >

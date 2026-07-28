@@ -138,9 +138,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     } else {
       traceExpandedIdsRef.current = expandToPlacedAncestors(traceResult.assetIds, effectiveAssets);
     }
-  // effectiveAssets 는 traceResult 가 없을 때는 불필요하나, 변경 시 재계산이 필요하므로 포함
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [traceResult]);
+  }, [traceResult, effectiveAssets]);
 
   // ── 케이블 렌더 refs ───────────────────────────────────────────────────────
   const effectiveCablesRef = useRef(effectiveCables);
@@ -752,15 +750,22 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         .find((p) => p.id === first.portId);
       const bPort = port;
 
-      if (aPort) {
-        const occupied = occupiedPortIds(effectiveCablesRef.current);
-        const groupKey = selectedGroupKey;
-        const err = validateConnection(aPort, bPort, occupied, groupKey);
-        if (err) {
-          // 검증 실패 → 피커 내 안내 텍스트, 스테이지 금지
-          setPickerState({ ...state, validationError: connectErrorLabel(err) });
-          return;
-        }
+      if (!aPort) {
+        // 첫 끝점 포트를 effective에서 못 찾음 — 무검증 스테이지 금지
+        firstEndpointRef.current = null;
+        setPickerState({
+          ...state,
+          validationError: '첫 끝점을 확인할 수 없습니다 — 다시 선택하세요',
+        });
+        return;
+      }
+
+      const occupied = occupiedPortIds(effectiveCablesRef.current);
+      const err = validateConnection(aPort, bPort, occupied, selectedGroupKey);
+      if (err) {
+        // 검증 실패 → 피커 내 안내 텍스트, 스테이지 금지
+        setPickerState({ ...state, validationError: connectErrorLabel(err) });
+        return;
       }
 
       const substationId = saved.substation?.id ?? '';
