@@ -106,17 +106,6 @@ export function buildFiberRows(
     }
   }
 
-  // Step 3: Find max coreIndex for each group
-  const maxCoreIndexByGroup = new Map<string, number>();
-
-  for (const slot of slots) {
-    const fiberPorts = slot.ports.filter((p) => p.medium === FIBER_MEDIUM);
-    for (const port of fiberPorts) {
-      const current = maxCoreIndexByGroup.get(port.group) ?? 0;
-      maxCoreIndexByGroup.set(port.group, Math.max(current, port.index));
-    }
-  }
-
   // Step 3.5: Build portId → { port, asset } index once (hoisted — replaces per-cell flatMap)
   const portIndex = new Map<string, { port: V2Asset['ports'][number] & { assetId: string }; asset: V2Asset }>();
   for (const a of assets) {

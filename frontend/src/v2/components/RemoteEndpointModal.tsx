@@ -56,6 +56,7 @@ export function RemoteEndpointModal({
       setSelectedAsset(null);
       setPorts([]);
       setLoadingPorts(false);
+      fetchSeqRef.current++; // 레이스 토큰 리셋 — close 후 도착하는 응답 무시
       if (debounceRef.current) clearTimeout(debounceRef.current);
     }
   }, [open]);

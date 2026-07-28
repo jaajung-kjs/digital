@@ -32,8 +32,8 @@ export function useCommit() {
         const details = e.response.data?.details;
         if (Array.isArray(details)) setConflicts(details as V2Conflict[]);
         else {
-          const names: string[] | undefined = e.response.data?.details?.ownerSubstationNames;
-          if (names && names.length > 0) {
+          const names: unknown = e.response.data?.details?.ownerSubstationNames;
+          if (Array.isArray(names) && names.length > 0) {
             setError(`연결된 케이블이 있습니다. ${names.join(', ')} 변전소에서 케이블을 먼저 삭제하세요.`);
           } else {
             setError(e.response.data?.message ?? '커밋이 충돌로 거절되었습니다');
