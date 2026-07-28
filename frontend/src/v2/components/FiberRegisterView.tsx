@@ -6,7 +6,7 @@
  *   컬럼: 코어 | {groups 동적} | 길이(m) | 손실(dB) | 점검일
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
@@ -215,9 +215,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
               </tr>
             )}
             {rowGroups.map(({ slotId, slotName, rows: slotRows }) => (
-              <>
+              <Fragment key={slotId}>
                 {/* 슬롯 그룹헤더 행 */}
-                <tr key={`header-${slotId}`} className="bg-surface-2">
+                <tr className="bg-surface-2">
                   <td
                     colSpan={totalCols}
                     className="px-3 py-1 text-xs font-medium text-content-muted"
@@ -271,7 +271,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                     </td>
                   </tr>
                 ))}
-              </>
+              </Fragment>
             ))}
           </tbody>
         </table>
