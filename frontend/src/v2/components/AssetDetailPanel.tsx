@@ -11,6 +11,8 @@ import type { V2Asset, V2ContainerSpec } from '../types';
 import { deriveDetailSections } from './detailSections';
 import { AddAssetModal } from './AddAssetModal';
 import { RecordsTab } from './RecordsTab';
+import { ConnectionsTab } from './ConnectionsTab';
+import type { TraceResult } from '../traceSelectors';
 
 // ── 상태 배지 tone → BadgeStatus ─────────────────────────────────────────────
 function toneToStatus(tone: string): BadgeStatus {
@@ -117,7 +119,7 @@ function FreeChildList({ children, onSelectChild }: FreeChildListProps) {
 }
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
-type Tab = 'info' | 'inspections' | 'logs';
+type Tab = 'info' | 'inspections' | 'logs' | 'connections';
 
 interface AddModalContext {
   parentAssetId: string;
@@ -129,9 +131,12 @@ interface AddModalContext {
 interface AssetDetailPanelProps {
   assetId: string;
   onSelectAsset: (id: string) => void;
+  onTrace?: (result: TraceResult) => void;
+  onClearTrace?: () => void;
+  traceResult?: TraceResult | null;
 }
 
-export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelProps) {
+export function AssetDetailPanel({ assetId, onSelectAsset, onTrace, onClearTrace, traceResult }: AssetDetailPanelProps) {
   const [tab, setTab] = useState<Tab>('info');
   const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -220,6 +225,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
     { key: 'info', label: '정보' },
     { key: 'inspections', label: '점검' },
     { key: 'logs', label: '고장이력' },
+    { key: 'connections', label: '연결' },
   ];
 
   return (
@@ -459,6 +465,15 @@ export function AssetDetailPanel({ assetId, onSelectAsset }: AssetDetailPanelPro
             dateLabel="발생일"
             extraLabel="조치"
             emptyMessage="고장이력이 없습니다"
+          />
+        )}
+
+        {tab === 'connections' && (
+          <ConnectionsTab
+            assetId={assetId}
+            onTrace={onTrace ?? (() => {})}
+            onClearTrace={onClearTrace ?? (() => {})}
+            traceResult={traceResult}
           />
         )}
       </div>

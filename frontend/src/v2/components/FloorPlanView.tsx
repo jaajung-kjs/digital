@@ -25,6 +25,7 @@ import { AssetResizeHandles } from './AssetResizeHandles';
 import { PortPickerPopover } from './PortPickerPopover';
 import { SNAP_GRID, SELECTION_STYLES } from '../canvas/constants';
 import type { V2Asset, V2Port } from '../types';
+import type { TraceResult } from '../traceSelectors';
 
 const MAJOR_GRID = 100;
 /** 케이블 히트 테스트 임계값 (screen px / scale) */
@@ -34,6 +35,7 @@ interface Props {
   substationId: string;
   selectedAssetId: string | null;
   onSelectAsset: (id: string | null) => void;
+  traceResult?: TraceResult | null;
 }
 
 interface Viewport {
@@ -56,7 +58,7 @@ interface PickerState {
   firstEndpoint: { portId: string; assetId: string } | null;
 }
 
-export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: Props) {
+export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, traceResult }: Props) {
   // ── 반응형 슬라이스 구독 (함수 참조 구독 금지) ─────────────────────────────
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
@@ -119,6 +121,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
   selectedAssetIdRef.current = selectedAssetId;
   const activeFloorRef = useRef(activeFloor);
   activeFloorRef.current = activeFloor;
+  const traceResultRef = useRef(traceResult ?? null);
+  traceResultRef.current = traceResult ?? null;
 
   // ── 케이블 렌더 refs ───────────────────────────────────────────────────────
   const effectiveCablesRef = useRef(effectiveCables);
@@ -276,19 +280,53 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset }: 
 
       // 5. 케이블 (그리드 위, 자산 아래)
       const floorId = floor?.id ?? null;
+      const traceRes = traceResultRef.current;
       if (floorId) {
         const segs = cableSegments(effectiveCablesRef.current, effectiveAssetsRef.current, floorId);
-        const cableRenderSegs = segs.map((seg) => ({
-          points: seg.points,
-          color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
-          selected: seg.id === selectedCableIdRef.current,
-        }));
-        renderCables(ctx, cableRenderSegs);
+        if (traceRes) {
+          // 추적 결과 있음: 추적 케이블은 선택 스타일, 나머지는 alpha 0.3
+          const tracedSegs = segs.filter((s) => traceRes.cableIds.has(s.id));
+          const dimmedSegs = segs.filter((s) => !traceRes.cableIds.has(s.id));
+          // 먼저 dim 케이블
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          renderCables(ctx, dimmedSegs.map((seg) => ({
+            points: seg.points,
+            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            selected: false,
+          })));
+          ctx.restore();
+          // 추적 케이블 강조
+          renderCables(ctx, tracedSegs.map((seg) => ({
+            points: seg.points,
+            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            selected: true,
+          })));
+        } else {
+          const cableRenderSegs = segs.map((seg) => ({
+            points: seg.points,
+            color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
+            selected: seg.id === selectedCableIdRef.current,
+          }));
+          renderCables(ctx, cableRenderSegs);
+        }
       }
 
       // 6. 배치 자산 (선택 하이라이트, 이동/리사이즈 프리뷰 우선 적용)
       const activePreview = resizePreviewRef.current ?? movePreviewRef.current ?? null;
-      renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current, activePreview);
+      if (traceRes) {
+        // 추적 결과 있음: 추적 자산은 선택 스타일, 나머지는 alpha 0.3
+        const tracedAssets = placedAssetsRef.current.filter((a) => traceRes.assetIds.has(a.id));
+        const dimmedAssets = placedAssetsRef.current.filter((a) => !traceRes.assetIds.has(a.id));
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        renderPlacedAssets(ctx, dimmedAssets, null, activePreview);
+        ctx.restore();
+        // 추적 자산: selectedAssetIdRef 경유 하이라이트 유지하면서 추적 강조
+        renderPlacedAssets(ctx, tracedAssets, selectedAssetIdRef.current, activePreview);
+      } else {
+        renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current, activePreview);
+      }
 
       // 6.5 케이블 첫 끝점 자산 강조 (점선 스트로크 — 일반 선택과 구분)
       const firstEp = firstEndpointRef.current;
