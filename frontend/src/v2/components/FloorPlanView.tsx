@@ -675,9 +675,6 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         const fullAsset = effectiveAssetsRef.current.find((a) => a.id === hit.id);
         if (!fullAsset) return;
 
-        // 첫 끝점이 같은 자산이면 무시
-        if (firstEndpointRef.current?.assetId === hit.id) return;
-
         setPickerState({
           asset: fullAsset,
           screenPos: { x: screenX, y: screenY },
@@ -969,6 +966,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
             asset={pickerState.asset}
             portGroups={pickerPortGroups}
             isUnsaved={pickerState.asset.updatedAt === ''}
+            excludePortId={pickerState.firstEndpoint?.portId}
             onSelectPort={handlePortSelect}
             onClose={() => {
               setPickerState(null);

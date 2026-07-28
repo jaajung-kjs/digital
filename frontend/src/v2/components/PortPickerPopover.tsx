@@ -24,6 +24,8 @@ interface Props {
   portGroups: PortGroup[];
   /** 미저장 자산 (updatedAt === '') 이면 true → "저장 후 연결 가능" 안내만 표시 */
   isUnsaved: boolean;
+  /** 첫 끝점으로 이미 선택된 포트 id — 동일 포트 재선택 방지용 */
+  excludePortId?: string;
   /** 포트 선택 콜백 */
   onSelectPort: (port: V2Port) => void;
   /** 닫기 콜백 */
@@ -35,10 +37,14 @@ export function PortPickerPopover({
   asset,
   portGroups,
   isUnsaved,
+  excludePortId,
   onSelectPort,
   onClose,
 }: Props) {
-  const hasFreePorts = portGroups.some((g) => g.ports.length > 0);
+  const filteredGroups = excludePortId
+    ? portGroups.map((g) => ({ ...g, ports: g.ports.filter((p) => p.id !== excludePortId) }))
+    : portGroups;
+  const hasFreePorts = filteredGroups.some((g) => g.ports.length > 0);
 
   return (
     <>
@@ -71,7 +77,7 @@ export function PortPickerPopover({
           <p className="text-xs text-content-faint py-1">연결 가능한 포트 없음</p>
         ) : (
           <div className="flex flex-col gap-1">
-            {portGroups.map((group) => {
+            {filteredGroups.map((group) => {
               if (group.ports.length === 0) return null;
               return (
                 <div key={group.asset.id}>

@@ -149,6 +149,48 @@ describe('cables in commit + workingcopy', () => {
     expect(res.body.error).toBe('INVALID_CABLE_CATEGORY');
   });
 
+  it('같은 케이블 id 중복 create → 2번째 409 CONFLICT details[0].reason==="exists"', async () => {
+    const cid = randomUUID();
+    // DB에 직접 삽입해 id를 선점 (commit의 포트 점유 검사를 우회해 P2002 경로 유도)
+    const occupyAPortId = await portOf(devBId, 4);
+    const occupyBPortId = await portOf(devBId, 6);
+    await nextDb.cable.create({
+      data: { id: cid, substationId: subId, aPortId: occupyAPortId, bPortId: occupyBPortId, pathPoints: [], specParams: {} },
+    });
+    // commit으로 같은 id, 다른 자유 포트로 재생성 시도 → P2002 → 409 CONFLICT
+    const freeAPortId = await portOf(devBId, 8);
+    const freeBPortId = await portOf(devBId, 10);
+    const res = await commit({ cables: { creates: [{ id: cid, aPortId: freeAPortId, bPortId: freeBPortId, categoryId: fiberCatId }] } }).expect(409);
+    expect(res.body.error).toBe('CONFLICT');
+    expect(res.body.details[0]).toMatchObject({ id: cid, reason: 'exists' });
+    // 정리
+    await nextDb.cable.delete({ where: { id: cid } });
+  });
+
+  it('광 케이블 update: 전원 categoryId → 422 CONNECT_MEDIUM_MISMATCH; 유효 광 categoryId → 200', async () => {
+    // 픽스처: devBId 포트 11, 12 로 광 케이블 생성 (이전 테스트에서 미사용 자유 포트)
+    const cid = randomUUID();
+    const aPortId = await portOf(devBId, 11);
+    const bPortId = await portOf(devBId, 12);
+    await commit({ cables: { creates: [{ id: cid, aPortId, bPortId, categoryId: fiberCatId }] } }).expect(200);
+    let cbl = await nextDb.cable.findUniqueOrThrow({ where: { id: cid } });
+    // 전원 카테고리로 patch → 422 CONNECT_MEDIUM_MISMATCH
+    const res = await commit({
+      cables: { updates: [{ id: cid, patch: { categoryId: powerCatId } }] },
+      baseVersions: { [cid]: cbl.updatedAt.toISOString() },
+    }).expect(422);
+    expect(res.body.error).toBe('CONNECT_MEDIUM_MISMATCH');
+    // 유효 광 카테고리로 patch → 200
+    cbl = await nextDb.cable.findUniqueOrThrow({ where: { id: cid } });
+    await commit({
+      cables: { updates: [{ id: cid, patch: { categoryId: fiberCatId } }] },
+      baseVersions: { [cid]: cbl.updatedAt.toISOString() },
+    }).expect(200);
+    // 정리
+    cbl = await nextDb.cable.findUniqueOrThrow({ where: { id: cid } });
+    await commit({ cables: { deletes: [cid] }, baseVersions: { [cid]: cbl.updatedAt.toISOString() } }).expect(200);
+  });
+
   it('타 변전소 케이블 삭제 → 422 INVALID_CABLE', async () => {
     // (미존재 id 삭제는 checkVersions OCC 가 먼저 409 CONFLICT 로 잡는다 — INVALID_CABLE 의 도달 경로는 타 변전소 케이블)
     const cid = randomUUID();
