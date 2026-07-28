@@ -5,6 +5,28 @@
  * 코어 함수를 호출(traceHighlight)한다. 타입 분기 없음.
  */
 
+/**
+ * 추적 자산 집합을 조상 체인 포함으로 확장한다.
+ * 부모 맵 1회 구성 후 각 id에서 체인 상승 — O(n).
+ * 배치 자산 판정은 호출부(FloorPlanView)가 placedAssets로 필터링하므로
+ * 이 함수 자체는 전체 자산 목록에서 parentById 맵만 사용한다.
+ */
+export function expandToPlacedAncestors(
+  traceAssetIds: Set<string>,
+  assets: { id: string; parentAssetId: string | null }[],
+): Set<string> {
+  const parentById = new Map(assets.map((a) => [a.id, a.parentAssetId]));
+  const result = new Set<string>();
+  for (const id of traceAssetIds) {
+    let cur: string | null | undefined = id;
+    while (cur != null) {
+      result.add(cur);
+      cur = parentById.get(cur) ?? null;
+    }
+  }
+  return result;
+}
+
 import { buildTraceGraph, traceFrom, specFromCatalog } from '@twin/core';
 import type { AssetRef, AssetTypeSpec, CableRef, PortRef, TraceHop } from '@twin/core';
 import type { V2Asset, V2AssetType, V2Cable, V2Category } from './types';

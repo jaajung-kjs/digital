@@ -6,12 +6,14 @@ import { api } from '../../utils/api';
 import {
   createOrgNode,
   deleteOrgNode,
+  fetchAssetPorts,
   fetchCatalog,
   fetchNodeAssets,
   fetchOrgTree,
   fetchWorkingcopy,
   patchOrgNode,
   putCommit,
+  searchAssets,
 } from '../api';
 
 describe('v2 api 경로', () => {
@@ -27,6 +29,15 @@ describe('v2 api 경로', () => {
     expect(api.get).toHaveBeenCalledWith('/v2/nodes/node-1/assets');
     await putCommit('sub-1', { assets: {} });
     expect(api.put).toHaveBeenCalledWith('/v2/substations/sub-1/commit', { assets: {} });
+  });
+
+  it('searchAssets/fetchAssetPorts 경로', async () => {
+    (api.get as any).mockResolvedValue({ data: [] });
+
+    await searchAssets('슬롯');
+    expect(api.get).toHaveBeenCalledWith('/v2/search/assets', { params: { q: '슬롯' } });
+    await fetchAssetPorts('a-1');
+    expect(api.get).toHaveBeenCalledWith('/v2/assets/a-1/ports');
   });
 
   it('org-tree/org CRUD 경로', async () => {

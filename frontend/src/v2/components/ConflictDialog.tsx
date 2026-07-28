@@ -1,12 +1,56 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '../../components/ui';
 import type { V2Conflict } from '../types';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
+import { mergeEffective } from '../store/overlay';
 
 interface ConflictDialogProps {
   conflicts: V2Conflict[];
   substationId: string;
   onClear: () => void;
+}
+
+/** 충돌 id가 effective 케이블로 해소되면 "케이블: {a자산}↔{b자산}", 아니면 축약 id */
+function useConflictLabel(conflictId: string): string {
+  const saved = useV2WorkingCopy((s) => s.saved);
+  const overlays = useV2WorkingCopy((s) => s.overlays);
+  return useMemo(() => {
+    const effectiveAssets = mergeEffective(saved.assets, overlays.assets);
+    const effectiveCables = mergeEffective(saved.cables, overlays.cables);
+    const cable = effectiveCables.find((c) => c.id === conflictId);
+    if (cable) {
+      // 포트 → 자산 해소
+      const portToAsset = new Map<string, string>();
+      for (const a of effectiveAssets) {
+        for (const p of a.ports) {
+          portToAsset.set(p.id, a.name);
+        }
+      }
+      const aName = portToAsset.get(cable.aPortId) ?? cable.aPortId.slice(0, 8);
+      const bName = portToAsset.get(cable.bPortId) ?? cable.bPortId.slice(0, 8);
+      return `케이블: ${aName}↔${bName}`;
+    }
+    // 자산이면 이름 사용
+    const asset = effectiveAssets.find((a) => a.id === conflictId);
+    if (asset) return asset.name;
+    // 미해소 → 축약 id
+    return conflictId.slice(0, 8);
+  }, [conflictId, saved, overlays]);
+}
+
+function ConflictItem({ conflict }: { conflict: V2Conflict }) {
+  const label = useConflictLabel(conflict.id);
+  const reasonLabel = (reason: V2Conflict['reason']) =>
+    reason === 'deleted' ? '서버에서 삭제됨' :
+    reason === 'exists' ? '이미 존재하는 자산(재시도 중복)' :
+    '다른 사용자가 수정함';
+
+  return (
+    <li className="flex items-center gap-2 text-xs text-content">
+      <span className="font-mono text-content-faint truncate">{label}</span>
+      <span className="shrink-0 text-danger">{reasonLabel(conflict.reason)}</span>
+    </li>
+  );
 }
 
 export function ConflictDialog({ conflicts, substationId, onClear }: ConflictDialogProps) {
@@ -24,24 +68,16 @@ export function ConflictDialog({ conflicts, substationId, onClear }: ConflictDia
     }
   }
 
-  const reasonLabel = (reason: V2Conflict['reason']) =>
-    reason === 'deleted' ? '서버에서 삭제됨' :
-    reason === 'exists' ? '이미 존재하는 자산(재시도 중복)' :
-    '다른 사용자가 수정함';
-
   return (
     <div className="fixed inset-0 z-alert flex items-center justify-center bg-[var(--overlay)]">
       <div className="mx-4 w-full max-w-md rounded-lg border border-line bg-surface p-5 shadow-lg">
         <h2 className="text-sm font-semibold text-content mb-1">저장 충돌</h2>
         <p className="text-xs text-content-muted mb-3">
-          아래 자산이 서버와 충돌하여 저장되지 않았습니다.
+          아래 항목이 서버와 충돌하여 저장되지 않았습니다.
         </p>
         <ul className="mb-4 space-y-1">
           {conflicts.map((c) => (
-            <li key={c.id} className="flex items-center gap-2 text-xs text-content">
-              <span className="font-mono text-content-faint truncate">{c.id}</span>
-              <span className="shrink-0 text-danger">{reasonLabel(c.reason)}</span>
-            </li>
+            <ConflictItem key={c.id} conflict={c} />
           ))}
         </ul>
         <div className="flex justify-end">

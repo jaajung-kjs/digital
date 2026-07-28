@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTraceInputs, traceHighlight } from '../traceSelectors';
+import { buildTraceInputs, traceHighlight, expandToPlacedAncestors } from '../traceSelectors';
 
 const cat = { id: 'cat-t', key: '통신', name: '통신', sortOrder: 1 };
 const slotType = {
@@ -30,6 +30,19 @@ const cables = [
   { id: 'c1', name: null, substationId: 's', aPortId: 'd1p1', bPortId: 's1a3', categoryId: null, pathPoints: [], specParams: {}, updatedAt: 'v' },
   { id: 'c2', name: null, substationId: 's', aPortId: 's1b3', bPortId: 'd2p1', categoryId: null, pathPoints: [], specParams: {}, updatedAt: 'v' },
 ];
+
+describe('expandToPlacedAncestors', () => {
+  it('추적 자산의 조상 체인 포함 확장', () => {
+    const assets = [
+      { id: 'ofd', parentAssetId: null },
+      { id: 'slot', parentAssetId: 'ofd' },
+      { id: 'sub', parentAssetId: 'slot' },
+      { id: 'other', parentAssetId: null },
+    ];
+    expect(expandToPlacedAncestors(new Set(['sub']), assets)).toEqual(new Set(['sub', 'slot', 'ofd']));
+    expect(expandToPlacedAncestors(new Set(['ofd']), assets)).toEqual(new Set(['ofd']));
+  });
+});
 
 describe('traceHighlight — OFD 채널 보존 (V2→코어 배선)', () => {
   it('dev1 포트에서 시작 → 슬롯 내부(byIndex) 경유 → dev2까지', () => {

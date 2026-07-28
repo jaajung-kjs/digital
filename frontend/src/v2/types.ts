@@ -39,7 +39,8 @@ export interface V2Asset {
 }
 export interface V2MaintenanceLog { id: string; assetId: string; occurredAt: string; content: string; action: string | null; updatedAt: string }
 export interface V2InspectionLog { id: string; assetId: string; inspectedAt: string; content: string; result: string | null; updatedAt: string }
-export interface V2Cable { id: string; name: string | null; substationId: string; aPortId: string; bPortId: string; categoryId: string | null; pathPoints: { x: number; y: number }[]; specParams: Record<string, unknown>; updatedAt: string }
+export interface V2CableRef { portName: string; portGroup: string; portIndex: number; assetId: string; assetName: string; substationId: string; substationName: string }
+export interface V2Cable { id: string; name: string | null; substationId: string; aPortId: string; bPortId: string; categoryId: string | null; pathPoints: { x: number; y: number }[]; specParams: Record<string, unknown>; updatedAt: string; aRef?: V2CableRef; bRef?: V2CableRef }
 export interface V2Workingcopy {
   substation: { id: string; name: string; branchId: string; sortOrder: number };
   floors: V2Floor[]; assets: V2Asset[]; maintenanceLogs: V2MaintenanceLog[]; inspectionLogs: V2InspectionLog[]; cables: V2Cable[];

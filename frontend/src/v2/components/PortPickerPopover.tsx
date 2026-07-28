@@ -1,6 +1,7 @@
 /**
  * PortPickerPopover — 케이블 연결 시 포트 선택 팝오버.
- * 화면 좌표 근처에 absolute 포지션으로 렌더링.
+ * fixed 포지션 + viewport 좌표로 렌더링 (overflow-hidden 클리핑 해소).
+ * 우/하단 넘칠 때 반대 방향으로 플립.
  * 클릭된 자산의 자식(전이적 포함)까지 포트를 그룹별로 표시한다.
  * CONVENTIONS 준수: text-xs/text-sm, 시맨틱 색 토큰, z-backdrop/z-modal.
  */
@@ -13,7 +14,7 @@ export interface PortGroup {
 }
 
 interface Props {
-  /** 팝오버를 표시할 화면 좌표 (캔버스 좌상단 기준 offset) */
+  /** 팝오버를 표시할 화면 좌표 (viewport client 좌표) */
   screenPos: { x: number; y: number };
   /** 클릭된 자산 (헤더 표시 + 미저장 판정용) */
   asset: V2Asset;
@@ -26,11 +27,21 @@ interface Props {
   isUnsaved: boolean;
   /** 첫 끝점으로 이미 선택된 포트 id — 동일 포트 재선택 방지용 */
   excludePortId?: string;
+  /** 사전 연결 검증 에러 메시지 (있으면 포트 목록 대신 안내 표시) */
+  validationError?: string | null;
   /** 포트 선택 콜백 */
   onSelectPort: (port: V2Port) => void;
   /** 닫기 콜백 */
   onClose: () => void;
+  /** 첫 끝점이 확정된 경우 true → "다른 변전소에서 찾기…" 버튼 표시 */
+  hasFirstEndpoint?: boolean;
+  /** "다른 변전소에서 찾기…" 버튼 클릭 콜백 */
+  onOpenRemoteModal?: () => void;
 }
+
+/** 팝오버 크기 추정값 (플립 계산용) */
+const POPOVER_W = 240;
+const POPOVER_H = 320;
 
 export function PortPickerPopover({
   screenPos,
@@ -38,13 +49,27 @@ export function PortPickerPopover({
   portGroups,
   isUnsaved,
   excludePortId,
+  validationError,
   onSelectPort,
   onClose,
+  hasFirstEndpoint,
+  onOpenRemoteModal,
 }: Props) {
   const filteredGroups = excludePortId
     ? portGroups.map((g) => ({ ...g, ports: g.ports.filter((p) => p.id !== excludePortId) }))
     : portGroups;
   const hasFreePorts = filteredGroups.some((g) => g.ports.length > 0);
+
+  // viewport 우/하단 넘침 방지 플립
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
+  const OFFSET = 8;
+  const left = screenPos.x + OFFSET + POPOVER_W > vw
+    ? screenPos.x - POPOVER_W - OFFSET
+    : screenPos.x + OFFSET;
+  const top = screenPos.y + OFFSET + POPOVER_H > vh
+    ? screenPos.y - POPOVER_H - OFFSET
+    : screenPos.y + OFFSET;
 
   return (
     <>
@@ -54,12 +79,12 @@ export function PortPickerPopover({
         onClick={onClose}
         aria-hidden
       />
-      {/* 팝오버 본체 */}
+      {/* 팝오버 본체 — fixed + viewport 좌표 (overflow-hidden 클리핑 해소) */}
       <div
-        className="absolute z-modal min-w-[160px] max-w-[240px] rounded-lg border border-line bg-surface shadow-lg p-2"
-        style={{ left: screenPos.x + 8, top: screenPos.y + 8 }}
+        className="fixed z-modal flex flex-col min-w-[160px] max-w-[240px] max-h-[70vh] rounded-lg border border-line bg-surface shadow-lg p-2"
+        style={{ left, top }}
       >
-        <div className="mb-1.5 flex items-center justify-between">
+        <div className="mb-1.5 flex items-center justify-between flex-shrink-0">
           <span className="text-xs font-semibold text-content-muted truncate">{asset.name}</span>
           <button
             type="button"
@@ -71,12 +96,14 @@ export function PortPickerPopover({
           </button>
         </div>
 
-        {isUnsaved ? (
+        {validationError ? (
+          <p className="text-xs text-danger py-1">{validationError}</p>
+        ) : isUnsaved ? (
           <p className="text-xs text-warning py-1">저장 후 연결 가능합니다.</p>
         ) : !hasFreePorts ? (
           <p className="text-xs text-content-faint py-1">연결 가능한 포트 없음</p>
         ) : (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 overflow-y-auto max-h-64 min-h-0">
             {filteredGroups.map((group) => {
               if (group.ports.length === 0) return null;
               return (
@@ -104,6 +131,20 @@ export function PortPickerPopover({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* 대국 검색 버튼: 첫 끝점 확정 시에만 표시 — 리스트 밖 고정 */}
+        {hasFirstEndpoint && onOpenRemoteModal && (
+          <div className="mt-1.5 border-t border-line pt-1.5 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-xs text-content-muted"
+              onClick={() => { onOpenRemoteModal(); onClose(); }}
+            >
+              다른 변전소에서 찾기…
+            </Button>
           </div>
         )}
       </div>

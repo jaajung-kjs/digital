@@ -135,9 +135,10 @@ describe('cables in commit + workingcopy', () => {
     expect(await nextDb.cable.count({ where: { id: cid } })).toBe(1);
   });
 
-  it('타 변전소 자산의 포트로 생성 → 422 INVALID_PORT', async () => {
+  it('양끝 모두 타 변전소 자산의 포트로 생성 → 422 INVALID_PORT', async () => {
+    // OR 완화: 최소 한쪽 끝점이 커밋 변전소여야 함 — 양쪽 모두 타 변전소면 INVALID_PORT
     const res = await commit({
-      cables: { creates: [{ id: randomUUID(), aPortId: await portOf(devBId, 9), bPortId: await portOf(otherAssetId, 9), categoryId: fiberCatId }] },
+      cables: { creates: [{ id: randomUUID(), aPortId: await portOf(otherAssetId, 9), bPortId: await portOf(otherAssetId, 10), categoryId: fiberCatId }] },
     }).expect(422);
     expect(res.body.error).toBe('INVALID_PORT');
   });

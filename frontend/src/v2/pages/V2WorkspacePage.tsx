@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
@@ -8,6 +8,7 @@ import { StatusTable } from '../components/StatusTable';
 import { SaveBar } from '../components/SaveBar';
 import { ConflictDialog } from '../components/ConflictDialog';
 import { FloorPlanView } from '../components/FloorPlanView';
+import { FiberRegisterView } from '../components/FiberRegisterView';
 import { useV2Catalog, useV2NodeAssets, useTypesById } from '../hooks';
 import type { FlatOrgNode } from '../orgTreeSelectors';
 import { buildStatusRows, type StatusRow } from '../statusRows';
@@ -16,7 +17,7 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useCommit } from '../store/useCommit';
 import type { TraceResult } from '../traceSelectors';
 
-type ViewMode = '현황' | '평면도';
+type ViewMode = '현황' | '평면도' | '선번장';
 
 export default function V2WorkspacePage() {
   const [selected, setSelected] = useState<FlatOrgNode | null>(null);
@@ -55,6 +56,13 @@ export default function V2WorkspacePage() {
   const substationId = useV2WorkingCopy((s) => s.substationId);
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
+
+  // 스테이지 발생(overlays 변경) 시 stale 추적 클리어
+  useEffect(() => {
+    if (traceResult) setTraceResult(null);
+    // overlays 참조가 바뀔 때만 실행 (traceResult 의존 금지 — 무한 루프)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overlays]);
 
   const substationRows = useMemo<StatusRow[]>(() => {
     if (selected?.kind !== 'substation' || substationId !== selected.id) return [];
@@ -122,7 +130,7 @@ export default function V2WorkspacePage() {
                 </span>
                 {selected.kind === 'substation' && substationId === selected.id && (
                   <div className="ml-4 flex gap-0">
-                    {(['현황', '평면도'] as ViewMode[]).map((mode) => (
+                    {(['현황', '평면도', '선번장'] as ViewMode[]).map((mode) => (
                       <button
                         key={mode}
                         type="button"
@@ -149,6 +157,25 @@ export default function V2WorkspacePage() {
                       selectedAssetId={selectedAssetId}
                       onSelectAsset={handleSelectAssetId}
                       traceResult={traceResult}
+                    />
+                    {showDetailPanel && (
+                      <AssetDetailPanel
+                        key={selectedAssetId}
+                        assetId={selectedAssetId!}
+                        onSelectAsset={handleSelectAssetId}
+                        onTrace={setTraceResult}
+                        onClearTrace={() => setTraceResult(null)}
+                        traceResult={traceResult}
+                      />
+                    )}
+                  </>
+                ) : selected.kind === 'substation' && substationId === selected.id && viewMode === '선번장' ? (
+                  /* 선번장 뷰 */
+                  <>
+                    <FiberRegisterView
+                      substationId={substationId}
+                      selectedAssetId={selectedAssetId}
+                      onSelectAsset={handleSelectAssetId}
                     />
                     {showDetailPanel && (
                       <AssetDetailPanel
