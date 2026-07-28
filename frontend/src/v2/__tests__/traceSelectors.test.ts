@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildTraceInputs, traceHighlight, expandToPlacedAncestors } from '../traceSelectors';
+import { endpointRef } from '../peerResolve';
 
 const cat = { id: 'cat-t', key: '통신', name: '통신', sortOrder: 1 };
 const slotType = {
@@ -41,6 +42,41 @@ describe('expandToPlacedAncestors', () => {
     ];
     expect(expandToPlacedAncestors(new Set(['sub']), assets)).toEqual(new Set(['sub', 'slot', 'ofd']));
     expect(expandToPlacedAncestors(new Set(['ofd']), assets)).toEqual(new Set(['ofd']));
+  });
+});
+
+/**
+ * endpointRef 방향 검증 (I-1/I-2) — ConnectionsTab hopText가 사용하는 실제 프로덕션 헬퍼.
+ *
+ * trace hop의 toPortId가 케이블 bPortId면 bRef(그 포트 자신을 기술하는 ref),
+ * aPortId면 aRef를 반환해야 한다. resolvePeer의 '반대편(peer)' 규칙과 반대 방향.
+ */
+describe('endpointRef — 끝점 자신의 saved ref 판정 (hopText 방향)', () => {
+  const mkRef = (assetName: string, substationName: string) => ({
+    portName: 'p', portGroup: 'G', portIndex: 1, assetId: 'x',
+    assetName, substationId: 'sub', substationName,
+  });
+  const cable = {
+    aPortId: 'portA',
+    bPortId: 'portB',
+    aRef: mkRef('A측자산', 'A변전소'),
+    bRef: mkRef('B측자산', 'B변전소'),
+  };
+
+  it('portId === bPortId 이면 bRef(B측 자산) 반환', () => {
+    expect(endpointRef(cable, 'portB')?.assetName).toBe('B측자산');
+  });
+
+  it('portId === aPortId 이면 aRef(A측 자산) 반환', () => {
+    expect(endpointRef(cable, 'portA')?.assetName).toBe('A측자산');
+  });
+
+  it('케이블에 속하지 않는 portId 이면 null', () => {
+    expect(endpointRef(cable, 'portX')).toBeNull();
+  });
+
+  it('해당 측 ref가 없으면 null', () => {
+    expect(endpointRef({ aPortId: 'portA', bPortId: 'portB' }, 'portB')).toBeNull();
   });
 });
 

@@ -1,3 +1,4 @@
+import { buildPortIndex, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
 export const FIBER_MEDIUM = 'fiber';
@@ -36,14 +37,7 @@ export interface FiberRowCell {
   portId: string | null;
   portName: string | null;
   cableId: string | null;
-  peer:
-    | {
-        assetName: string;
-        portName: string;
-        substationName: string | null;
-        remote: boolean;
-      }
-    | null;
+  peer: PeerInfo | null;
 }
 
 export interface FiberRowMeta {
@@ -78,7 +72,6 @@ export function buildFiberRows(
   assets: V2Asset[],
   cables: V2Cable[]
 ): BuildFiberRowsResult {
-  const assetMap = new Map(assets.map((a) => [a.id, a]));
   const cablesByAPortId = new Map<string, V2Cable>();
   const cablesByBPortId = new Map<string, V2Cable>();
 
@@ -106,28 +99,25 @@ export function buildFiberRows(
     }
   }
 
-  // Step 3: Find max coreIndex for each group
-  const maxCoreIndexByGroup = new Map<string, number>();
+  // Step 3.5: Build portId → { port, asset } index once (hoisted — shared helper)
+  const portIndex = buildPortIndex(assets);
 
+  // Step 3.6: Build per-slot max coreIndex (item 3 — slot-level max, not global max)
+  const maxCoreIndexBySlot = new Map<string, number>();
   for (const slot of slots) {
-    const fiberPorts = slot.ports.filter((p) => p.medium === FIBER_MEDIUM);
-    for (const port of fiberPorts) {
-      const current = maxCoreIndexByGroup.get(port.group) ?? 0;
-      maxCoreIndexByGroup.set(port.group, Math.max(current, port.index));
+    let slotMax = 0;
+    for (const p of slot.ports) {
+      if (p.medium === FIBER_MEDIUM) slotMax = Math.max(slotMax, p.index);
     }
+    maxCoreIndexBySlot.set(slot.id, slotMax);
   }
 
-  // Step 4: Build rows: slot × coreIndex (1..max per group)
+  // Step 4: Build rows: slot × coreIndex (1..slotMax per slot)
   const rows: FiberRow[] = [];
 
-  // Overall max core index across all groups
-  let overallMaxCoreIndex = 0;
-  for (const max of maxCoreIndexByGroup.values()) {
-    overallMaxCoreIndex = Math.max(overallMaxCoreIndex, max);
-  }
-
   for (const slot of slots) {
-    for (let coreIndex = 1; coreIndex <= overallMaxCoreIndex; coreIndex++) {
+    const slotMaxCoreIndex = maxCoreIndexBySlot.get(slot.id) ?? 0;
+    for (let coreIndex = 1; coreIndex <= slotMaxCoreIndex; coreIndex++) {
       const cells: FiberRowCell[] = [];
       const cableByGroupIdx: (V2Cable | null)[] = [];
 
@@ -146,40 +136,8 @@ export function buildFiberRows(
           cable = cablesByAPortId.get(port.id) || cablesByBPortId.get(port.id) || null;
 
           if (cable) {
-            // Determine which end is the peer (the other end of the cable)
-            const otherPortId = cable.aPortId === port.id ? cable.bPortId : cable.aPortId;
-            const otherPort = assets
-              .flatMap((a) => a.ports.map((p) => ({ ...p, assetId: a.id })))
-              .find((p) => p.id === otherPortId);
-
-            if (otherPort) {
-              // Local effective peer found
-              const peerAsset = assetMap.get(otherPort.assetId);
-              if (peerAsset) {
-                peer = {
-                  assetName: peerAsset.name,
-                  portName: otherPort.name,
-                  substationName: null,
-                  remote: false,
-                };
-              }
-            } else if (cable.aPortId === port.id && cable.bRef) {
-              // Use bRef
-              peer = {
-                assetName: cable.bRef.assetName,
-                portName: cable.bRef.portName,
-                substationName: cable.bRef.substationName ?? null,
-                remote: cable.bRef.substationId !== container.substationId,
-              };
-            } else if (cable.bPortId === port.id && cable.aRef) {
-              // Use aRef
-              peer = {
-                assetName: cable.aRef.assetName,
-                portName: cable.aRef.portName,
-                substationName: cable.aRef.substationName ?? null,
-                remote: cable.aRef.substationId !== container.substationId,
-              };
-            }
+            // 3-tier peer resolution — shared helper (local → saved refs → null)
+            peer = resolvePeer(port, cable, portIndex, container.substationId);
           }
 
           cells.push({

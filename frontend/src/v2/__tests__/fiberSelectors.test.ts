@@ -60,4 +60,11 @@ describe('buildFiberRows', () => {
     const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [c as never] as never);
     expect(rows[1]!.meta).toMatchObject({ cableId: 'c4', lengthM: 7 });
   });
+
+  it('슬롯별 core max — 작은 슬롯은 빈 필러 행 없음', () => {
+    const small = asset('slot2', '슬롯2', { parentAssetId: 'ofd', ports: [port('s2a1', 'slot2', 'A', 1), port('s2b1', 'slot2', 'B', 1)] });
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot, small] as never, [] as never);
+    expect(rows.filter((r) => r.slotId === 'slot2')).toHaveLength(1);
+    expect(rows.filter((r) => r.slotId === 'slot')).toHaveLength(2);
+  });
 });

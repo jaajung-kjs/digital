@@ -12,7 +12,7 @@ export interface V2AssetType {
   containerSpecs: V2ContainerSpec[]; portTemplates: V2PortTemplate[]; linkRules: V2LinkRule[];
 }
 export interface V2CableCategory { id: string; name: string; sortOrder: number }
-export interface V2CableGroup { id: string; key: string; name: string; color: string; sortOrder: number; categories: V2CableCategory[] }
+export interface V2CableGroup { id: string; key: string; name: string; color: string; laborType: string | null; installHoursPerM: number; removeHoursPerM: number; sortOrder: number; categories: V2CableCategory[] }
 export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[] }
 
 export interface V2Floor {
