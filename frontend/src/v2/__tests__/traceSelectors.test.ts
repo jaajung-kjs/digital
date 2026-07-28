@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildTraceInputs, traceHighlight, expandToPlacedAncestors } from '../traceSelectors';
+import { endpointRef } from '../peerResolve';
 
 const cat = { id: 'cat-t', key: '통신', name: '통신', sortOrder: 1 };
 const slotType = {
@@ -45,36 +46,37 @@ describe('expandToPlacedAncestors', () => {
 });
 
 /**
- * hopText 방향 검증 — ConnectionsTab.tsx의 로컬 미해소 hop 표기 로직
+ * endpointRef 방향 검증 (I-1/I-2) — ConnectionsTab hopText가 사용하는 실제 프로덕션 헬퍼.
  *
- * 케이블 aPortId↔bPortId에서 toPortId가 bPortId면 bRef를 사용하고
- * toPortId가 aPortId면 aRef를 사용해야 한다 (toPort 자신을 표기).
- * I-1 수정(rev: isToB ? cable.bRef : cable.aRef) 이후 동작을 단언한다.
+ * trace hop의 toPortId가 케이블 bPortId면 bRef(그 포트 자신을 기술하는 ref),
+ * aPortId면 aRef를 반환해야 한다. resolvePeer의 '반대편(peer)' 규칙과 반대 방향.
  */
-describe('hopText ref 방향 — 원격 미해소 hop', () => {
-  function resolveRemoteRef(
-    cable: { aPortId: string; bPortId: string; aRef?: { assetName: string }; bRef?: { assetName: string } },
-    toPortId: string,
-  ): string | undefined {
-    // ConnectionsTab hopText 로직의 ref 선택 부분을 직접 모사
-    const isToB = cable.bPortId === toPortId;
-    const ref = isToB ? cable.bRef : cable.aRef;
-    return ref?.assetName;
-  }
-
+describe('endpointRef — 끝점 자신의 saved ref 판정 (hopText 방향)', () => {
+  const mkRef = (assetName: string, substationName: string) => ({
+    portName: 'p', portGroup: 'G', portIndex: 1, assetId: 'x',
+    assetName, substationId: 'sub', substationName,
+  });
   const cable = {
     aPortId: 'portA',
     bPortId: 'portB',
-    aRef: { assetName: 'A변전소자산' },
-    bRef: { assetName: 'B변전소자산' },
+    aRef: mkRef('A측자산', 'A변전소'),
+    bRef: mkRef('B측자산', 'B변전소'),
   };
 
-  it('toPortId === bPortId 이면 bRef(B측 자산) 반환', () => {
-    expect(resolveRemoteRef(cable, 'portB')).toBe('B변전소자산');
+  it('portId === bPortId 이면 bRef(B측 자산) 반환', () => {
+    expect(endpointRef(cable, 'portB')?.assetName).toBe('B측자산');
   });
 
-  it('toPortId === aPortId 이면 aRef(A측 자산) 반환', () => {
-    expect(resolveRemoteRef(cable, 'portA')).toBe('A변전소자산');
+  it('portId === aPortId 이면 aRef(A측 자산) 반환', () => {
+    expect(endpointRef(cable, 'portA')?.assetName).toBe('A측자산');
+  });
+
+  it('케이블에 속하지 않는 portId 이면 null', () => {
+    expect(endpointRef(cable, 'portX')).toBeNull();
+  });
+
+  it('해당 측 ref가 없으면 null', () => {
+    expect(endpointRef({ aPortId: 'portA', bPortId: 'portB' }, 'portB')).toBeNull();
   });
 });
 

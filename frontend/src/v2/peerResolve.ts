@@ -1,4 +1,4 @@
-import type { V2Asset, V2Cable } from './types';
+import type { V2Asset, V2Cable, V2CableRef } from './types';
 
 /** Peer(대국) 표시 정보 — fiber/power 셀렉터 공유 형태 */
 export interface PeerInfo {
@@ -24,6 +24,22 @@ export function buildPortIndex(assets: V2Asset[]): PortIndex {
     }
   }
   return index;
+}
+
+/**
+ * 케이블 끝점(endpoint) 자신의 saved ref 판정 — 한 곳 규칙.
+ *
+ * portId가 케이블의 bPortId이면 bRef, aPortId이면 aRef를 반환한다 (그 포트 자신을 기술하는 ref).
+ * resolvePeer의 '반대편(peer)' 규칙과 구분: 이 함수는 도착 포트 자신을 표기할 때 쓴다
+ * (예: ConnectionsTab hopText — trace hop의 toPortId가 로컬 미해소일 때).
+ */
+export function endpointRef(
+  cable: Pick<V2Cable, 'aPortId' | 'bPortId' | 'aRef' | 'bRef'>,
+  portId: string,
+): V2CableRef | null {
+  if (cable.bPortId === portId) return cable.bRef ?? null;
+  if (cable.aPortId === portId) return cable.aRef ?? null;
+  return null;
 }
 
 /**

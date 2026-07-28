@@ -9,6 +9,7 @@
 import { useMemo } from 'react';
 import { Button, DetailCard } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
+import { endpointRef } from '../peerResolve';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog } from '../hooks';
@@ -95,13 +96,10 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
       const assetName = toAsset ? toAsset.name : '—';
       return `${assetName} · ${toPort.name}`;
     }
-    // 로컬 미해소 포트 — 해당 케이블 saved refs로 표기
+    // 로컬 미해소 포트 — 해당 케이블 saved refs로 표기 (끝점 자신의 ref — endpointRef 한 곳 규칙)
     const cableEntry = cableByPortId.get(hop.toPortId);
     if (cableEntry) {
-      const cable = cableEntry.cable;
-      // toPortId가 bPortId이면 bRef를 사용, aPortId이면 aRef를 사용 (toPort 자신을 표기)
-      const isToB = cable.bPortId === hop.toPortId;
-      const ref = isToB ? cable.bRef : cable.aRef;
+      const ref = endpointRef(cableEntry.cable, hop.toPortId);
       if (ref) {
         const sub = ref.substationName ? ` (${ref.substationName})` : '';
         return `${ref.assetName} · ${ref.portName}${sub}`;
