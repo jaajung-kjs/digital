@@ -114,6 +114,7 @@ export function RemoteEndpointModal({
   }
 
   function handleBack() {
+    fetchSeqRef.current++; // 레이스 토큰 증가 — 뒤로가기 후 도착하는 포트 응답 무시 (M-3)
     setSelectedAsset(null);
     setPorts([]);
   }

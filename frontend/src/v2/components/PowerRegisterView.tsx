@@ -10,7 +10,6 @@
  *   - 행 클릭 → onSelectAsset(feederId)
  */
 import { useMemo, useState } from 'react';
-import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -18,6 +17,7 @@ import { powerContainers, buildPowerRows } from '../powerSelectors';
 import type { PowerRow } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
 import type { FieldDef } from '@twin/core';
+import { PeerCell } from './PeerCell';
 
 interface Props {
   substationId: string;
@@ -25,24 +25,7 @@ interface Props {
   onSelectAsset: (id: string | null) => void;
 }
 
-// ── 피어 셀 표시 (선번장과 동일 패턴) ──────────────────────────────────────
-interface PeerCellProps {
-  peer: PowerRow['inCell']['peer'];
-}
-
-function PeerCell({ peer }: PeerCellProps) {
-  if (!peer) return <span className="text-content-faint">—</span>;
-  return (
-    <span className="flex flex-wrap items-center gap-1">
-      <span className="text-sm text-content">
-        {peer.assetName} · {peer.portName}
-      </span>
-      {peer.remote && peer.substationName && (
-        <Badge status="info">{peer.substationName}</Badge>
-      )}
-    </span>
-  );
-}
+// PeerCell은 공용 컴포넌트 사용 (M-2 — FiberRegisterView와 공유)
 
 // ── 차단기 번호 인라인 편집 ───────────────────────────────────────────────────
 interface BreakerInputProps {

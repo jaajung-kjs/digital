@@ -11,6 +11,20 @@ interface Overlays {
   inspections: Overlay<V2InspectionLog>;
 }
 
+/** '종류 미지정' 케이블 항목 — categoryId 없거나 group 미해소 시 공량 0 폴백 (M-1: 단일 출처) */
+function unresolvedCableItem(kind: 'cable-install' | 'cable-remove', name: string): ReportItem {
+  return {
+    kind,
+    name,
+    typeName: '—',
+    laborType: null,
+    qty: 0,
+    unit: 'm',
+    hours: 0,
+    note: '종류 미지정',
+  };
+}
+
 const PLACEMENT_FIELDS = new Set<string>([
   'floorId', 'x', 'y', 'width', 'height',
   'parentAssetId', 'containerKey', 'slotIndex', 'slotSpan',
@@ -102,32 +116,14 @@ export function buildReportItems(args: {
 
   // --- cables.creates → cable-install ---
   for (const cable of Object.values(overlays.cables.creates) as V2Cable[]) {
-    // categoryId 없으면 '종류 미지정' 공량 0
+    // categoryId 없거나 group 미해소면 '종류 미지정' 공량 0
     if (!cable.categoryId) {
-      items.push({
-        kind: 'cable-install',
-        name: '케이블',
-        typeName: '—',
-        laborType: null,
-        qty: 0,
-        unit: 'm',
-        hours: 0,
-        note: '종류 미지정',
-      });
+      items.push(unresolvedCableItem('cable-install', '케이블'));
       continue;
     }
     const group = groupByCategoryId.get(cable.categoryId);
     if (!group) {
-      items.push({
-        kind: 'cable-install',
-        name: '케이블',
-        typeName: '—',
-        laborType: null,
-        qty: 0,
-        unit: 'm',
-        hours: 0,
-        note: '종류 미지정',
-      });
+      items.push(unresolvedCableItem('cable-install', '케이블'));
       continue;
     }
     // 이름 = "자산A↔자산B" (effective assets에서 포트 소유 해소)
@@ -150,30 +146,12 @@ export function buildReportItems(args: {
     const cable = savedCablesById.get(id);
     if (!cable) continue;
     if (!cable.categoryId) {
-      items.push({
-        kind: 'cable-remove',
-        name: cable.name ?? '케이블',
-        typeName: '—',
-        laborType: null,
-        qty: 0,
-        unit: 'm',
-        hours: 0,
-        note: '종류 미지정',
-      });
+      items.push(unresolvedCableItem('cable-remove', cable.name ?? '케이블'));
       continue;
     }
     const group = groupByCategoryId.get(cable.categoryId);
     if (!group) {
-      items.push({
-        kind: 'cable-remove',
-        name: cable.name ?? '케이블',
-        typeName: '—',
-        laborType: null,
-        qty: 0,
-        unit: 'm',
-        hours: 0,
-        note: '종류 미지정',
-      });
+      items.push(unresolvedCableItem('cable-remove', cable.name ?? '케이블'));
       continue;
     }
     // saved cables에서 refs 이름 해소

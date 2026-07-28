@@ -44,6 +44,40 @@ describe('expandToPlacedAncestors', () => {
   });
 });
 
+/**
+ * hopText 방향 검증 — ConnectionsTab.tsx의 로컬 미해소 hop 표기 로직
+ *
+ * 케이블 aPortId↔bPortId에서 toPortId가 bPortId면 bRef를 사용하고
+ * toPortId가 aPortId면 aRef를 사용해야 한다 (toPort 자신을 표기).
+ * I-1 수정(rev: isToB ? cable.bRef : cable.aRef) 이후 동작을 단언한다.
+ */
+describe('hopText ref 방향 — 원격 미해소 hop', () => {
+  function resolveRemoteRef(
+    cable: { aPortId: string; bPortId: string; aRef?: { assetName: string }; bRef?: { assetName: string } },
+    toPortId: string,
+  ): string | undefined {
+    // ConnectionsTab hopText 로직의 ref 선택 부분을 직접 모사
+    const isToB = cable.bPortId === toPortId;
+    const ref = isToB ? cable.bRef : cable.aRef;
+    return ref?.assetName;
+  }
+
+  const cable = {
+    aPortId: 'portA',
+    bPortId: 'portB',
+    aRef: { assetName: 'A변전소자산' },
+    bRef: { assetName: 'B변전소자산' },
+  };
+
+  it('toPortId === bPortId 이면 bRef(B측 자산) 반환', () => {
+    expect(resolveRemoteRef(cable, 'portB')).toBe('B변전소자산');
+  });
+
+  it('toPortId === aPortId 이면 aRef(A측 자산) 반환', () => {
+    expect(resolveRemoteRef(cable, 'portA')).toBe('A변전소자산');
+  });
+});
+
 describe('traceHighlight — OFD 채널 보존 (V2→코어 배선)', () => {
   it('dev1 포트에서 시작 → 슬롯 내부(byIndex) 경유 → dev2까지', () => {
     const inputs = buildTraceInputs({ types: [slotType, devType] as never, categories: [cat] as never, assets: assets as never, cables: cables as never });

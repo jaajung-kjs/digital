@@ -99,9 +99,9 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
     const cableEntry = cableByPortId.get(hop.toPortId);
     if (cableEntry) {
       const cable = cableEntry.cable;
-      // toPortId가 bPortId이면 aRef를 사용, aPortId이면 bRef를 사용
+      // toPortId가 bPortId이면 bRef를 사용, aPortId이면 aRef를 사용 (toPort 자신을 표기)
       const isToB = cable.bPortId === hop.toPortId;
-      const ref = isToB ? cable.aRef : cable.bRef;
+      const ref = isToB ? cable.bRef : cable.aRef;
       if (ref) {
         const sub = ref.substationName ? ` (${ref.substationName})` : '';
         return `${ref.assetName} · ${ref.portName}${sub}`;
