@@ -67,9 +67,12 @@ export function PortPickerPopover({
   const left = screenPos.x + OFFSET + POPOVER_W > vw
     ? screenPos.x - POPOVER_W - OFFSET
     : screenPos.x + OFFSET;
-  const top = screenPos.y + OFFSET + POPOVER_H > vh
+  const rawTop = screenPos.y + OFFSET + POPOVER_H > vh
     ? screenPos.y - POPOVER_H - OFFSET
     : screenPos.y + OFFSET;
+  // 실측 클램프: 추정 높이 vs 0.7*뷰포트 중 작은 값으로 하단 클리핑 방지
+  const estimatedH = Math.min(POPOVER_H, 0.7 * vh);
+  const top = Math.min(rawTop, vh - estimatedH);
 
   return (
     <>

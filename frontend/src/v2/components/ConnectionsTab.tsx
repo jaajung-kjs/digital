@@ -90,10 +90,24 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
     }
     // cable hop: toPort의 asset명 + port명
     const toPort = portById.get(hop.toPortId);
-    if (!toPort) return `포트 ${hop.toPortId}`;
-    const toAsset = assetByPortId.get(hop.toPortId);
-    const assetName = toAsset ? toAsset.name : '—';
-    return `${assetName} · ${toPort.name}`;
+    if (toPort) {
+      const toAsset = assetByPortId.get(hop.toPortId);
+      const assetName = toAsset ? toAsset.name : '—';
+      return `${assetName} · ${toPort.name}`;
+    }
+    // 로컬 미해소 포트 — 해당 케이블 saved refs로 표기
+    const cableEntry = cableByPortId.get(hop.toPortId);
+    if (cableEntry) {
+      const cable = cableEntry.cable;
+      // toPortId가 bPortId이면 aRef를 사용, aPortId이면 bRef를 사용
+      const isToB = cable.bPortId === hop.toPortId;
+      const ref = isToB ? cable.aRef : cable.bRef;
+      if (ref) {
+        const sub = ref.substationName ? ` (${ref.substationName})` : '';
+        return `${ref.assetName} · ${ref.portName}${sub}`;
+      }
+    }
+    return `포트 —`;
   }
 
   function handleTrace(portId: string) {

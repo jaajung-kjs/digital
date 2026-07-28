@@ -31,7 +31,14 @@ export function useCommit() {
       if (isAxiosError(e) && e.response?.status === 409) {
         const details = e.response.data?.details;
         if (Array.isArray(details)) setConflicts(details as V2Conflict[]);
-        else setError(e.response.data?.message ?? '커밋이 충돌로 거절되었습니다');
+        else {
+          const names: string[] | undefined = e.response.data?.details?.ownerSubstationNames;
+          if (names && names.length > 0) {
+            setError(`연결된 케이블이 있습니다. ${names.join(', ')} 변전소에서 케이블을 먼저 삭제하세요.`);
+          } else {
+            setError(e.response.data?.message ?? '커밋이 충돌로 거절되었습니다');
+          }
+        }
       } else {
         setError(isAxiosError(e) ? (e.response?.data?.message ?? e.message) : String(e));
       }

@@ -45,6 +45,7 @@ export function RemoteEndpointModal({
   const [loadingPorts, setLoadingPorts] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchSeqRef = useRef(0);
 
   // 모달 닫힐 때 상태 초기화
   useEffect(() => {
@@ -84,13 +85,16 @@ export function RemoteEndpointModal({
     };
   }, [query, open]);
 
-  // 자산 선택 → 포트 목록 로드
+  // 자산 선택 → 포트 목록 로드 (레이스 토큰: 응답 도착 시 현재 선택 자산과 불일치면 무시)
   async function handleSelectAsset(asset: AssetSearchResult) {
+    const seq = ++fetchSeqRef.current;
     setSelectedAsset(asset);
     setPorts([]);
     setLoadingPorts(true);
     try {
       const data = await fetchAssetPorts(asset.id);
+      // 레이스 체크: 요청 후 다른 자산이 선택되었으면 이 응답 무시
+      if (seq !== fetchSeqRef.current) return;
       // occupied 제외 + medium 필터 + excludePortId 제외
       const filtered = data.filter((p) => {
         if (p.occupied) return false;
@@ -101,9 +105,10 @@ export function RemoteEndpointModal({
       });
       setPorts(filtered);
     } catch {
+      if (seq !== fetchSeqRef.current) return;
       setPorts([]);
     } finally {
-      setLoadingPorts(false);
+      if (seq === fetchSeqRef.current) setLoadingPorts(false);
     }
   }
 

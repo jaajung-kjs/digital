@@ -117,17 +117,30 @@ export function buildFiberRows(
     }
   }
 
-  // Step 4: Build rows: slot × coreIndex (1..max per group)
-  const rows: FiberRow[] = [];
-
-  // Overall max core index across all groups
-  let overallMaxCoreIndex = 0;
-  for (const max of maxCoreIndexByGroup.values()) {
-    overallMaxCoreIndex = Math.max(overallMaxCoreIndex, max);
+  // Step 3.5: Build portId → { port, asset } index once (hoisted — replaces per-cell flatMap)
+  const portIndex = new Map<string, { port: V2Asset['ports'][number] & { assetId: string }; asset: V2Asset }>();
+  for (const a of assets) {
+    for (const p of a.ports) {
+      portIndex.set(p.id, { port: { ...p, assetId: a.id }, asset: a });
+    }
   }
 
+  // Step 3.6: Build per-slot max coreIndex (item 3 — slot-level max, not global max)
+  const maxCoreIndexBySlot = new Map<string, number>();
   for (const slot of slots) {
-    for (let coreIndex = 1; coreIndex <= overallMaxCoreIndex; coreIndex++) {
+    let slotMax = 0;
+    for (const p of slot.ports) {
+      if (p.medium === FIBER_MEDIUM) slotMax = Math.max(slotMax, p.index);
+    }
+    maxCoreIndexBySlot.set(slot.id, slotMax);
+  }
+
+  // Step 4: Build rows: slot × coreIndex (1..slotMax per slot)
+  const rows: FiberRow[] = [];
+
+  for (const slot of slots) {
+    const slotMaxCoreIndex = maxCoreIndexBySlot.get(slot.id) ?? 0;
+    for (let coreIndex = 1; coreIndex <= slotMaxCoreIndex; coreIndex++) {
       const cells: FiberRowCell[] = [];
       const cableByGroupIdx: (V2Cable | null)[] = [];
 
@@ -148,9 +161,9 @@ export function buildFiberRows(
           if (cable) {
             // Determine which end is the peer (the other end of the cable)
             const otherPortId = cable.aPortId === port.id ? cable.bPortId : cable.aPortId;
-            const otherPort = assets
-              .flatMap((a) => a.ports.map((p) => ({ ...p, assetId: a.id })))
-              .find((p) => p.id === otherPortId);
+            // Use hoisted portIndex instead of per-cell flatMap
+            const entry = portIndex.get(otherPortId);
+            const otherPort = entry?.port;
 
             if (otherPort) {
               // Local effective peer found
