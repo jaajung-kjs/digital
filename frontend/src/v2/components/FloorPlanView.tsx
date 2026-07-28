@@ -202,6 +202,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   const [selectedCableId, setSelectedCableId] = useState<string | null>(null);
   /** 대국 검색 모달 열림 여부 */
   const [remoteModalOpen, setRemoteModalOpen] = useState(false);
+  /** 대국 모달 내 검증 에러 메시지 */
+  const [remoteError, setRemoteError] = useState<string | null>(null);
   const selectedCableIdRef = useRef<string | null>(null);
   selectedCableIdRef.current = selectedCableId;
 
@@ -805,18 +807,19 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     const bPort = port;
 
     if (!aPort) {
-      firstEndpointRef.current = null;
-      setRemoteModalOpen(false);
+      // 첫 끝점을 effective에서 못 찾음 — 모달 유지 + 에러 표기 (침묵 금지)
+      setRemoteError('첫 끝점을 확인할 수 없습니다 — 다시 선택하세요');
       return;
     }
 
     const occupied = occupiedPortIds(effectiveCablesRef.current);
     const err = validateConnection(aPort, bPort, occupied, selectedGroupKey);
     if (err) {
-      // 검증 실패 — 모달을 닫고 피커에 에러 표시 (첫 끝점 유지)
-      setRemoteModalOpen(false);
+      // 검증 실패 — 모달 유지 + 모달 내 에러 표기 (첫 끝점 유지)
+      setRemoteError(connectErrorLabel(err));
       return;
     }
+    setRemoteError(null);
 
     const substationId = saved.substation?.id ?? '';
     const categoryId = selectedCategoryIdRef.current || null;
@@ -1062,18 +1065,19 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
               // 첫 끝점 대기 중이 아니면 초기화하지 않음 (피커만 닫기)
             }}
             hasFirstEndpoint={!!pickerState.firstEndpoint}
-            onOpenRemoteModal={() => setRemoteModalOpen(true)}
+            onOpenRemoteModal={() => { setRemoteError(null); setRemoteModalOpen(true); }}
           />
         )}
 
         {/* 대국 검색 모달 */}
         <RemoteEndpointModal
           open={remoteModalOpen}
-          onClose={() => setRemoteModalOpen(false)}
+          onClose={() => { setRemoteModalOpen(false); setRemoteError(null); }}
           mediumFilter={selectedGroupKey}
           excludePortId={firstEndpointRef.current?.portId}
           occupiedPortIds={occupiedCablePortIds}
           onSelectPort={handleRemotePortSelect}
+          errorText={remoteError}
         />
 
         {/* 층이 선택됐지만 배치 자산 없음 안내 */}

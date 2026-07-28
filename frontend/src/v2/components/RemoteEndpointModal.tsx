@@ -24,6 +24,8 @@ interface Props {
   occupiedPortIds: ReadonlySet<string>;
   /** 포트 선택 완료 콜백 (모달은 자동으로 닫히지 않음 — 호출자가 닫는다) */
   onSelectPort: (port: V2Port, asset: AssetSearchResult) => void;
+  /** 검증 실패 등 에러 메시지 — 포트 리스트 위에 표시 */
+  errorText?: string | null;
 }
 
 export function RemoteEndpointModal({
@@ -33,6 +35,7 @@ export function RemoteEndpointModal({
   excludePortId,
   occupiedPortIds,
   onSelectPort,
+  errorText,
 }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<AssetSearchResult[]>([]);
@@ -127,6 +130,10 @@ export function RemoteEndpointModal({
               <p className="text-xs text-content-muted">{selectedAsset.substationName} · {selectedAsset.typeName}</p>
             </div>
           </div>
+
+          {errorText && (
+            <p className="text-xs text-danger">{errorText}</p>
+          )}
 
           {loadingPorts ? (
             <p className="text-xs text-content-faint py-2">포트 로딩 중…</p>
