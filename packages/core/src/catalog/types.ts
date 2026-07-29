@@ -42,6 +42,8 @@ export interface PortTemplate {
   direction: Direction;
   medium: string; // CableGroup.key 와 대응하는 안정 키 (e.g. 'fiber' | 'power' | 'network' | 'control' | 'ground')
   namePattern: string; // '{n}' 치환 (예: '코어 {n}')
+  /** 선로측 그룹 선언 — 선번장 meta(lengthM/lossDb/inspectedAt) 기록 대상. 타입당 최대 1개 그룹. */
+  lineSide?: boolean;
 }
 
 export interface InternalLinkRule {
@@ -91,3 +93,13 @@ export interface CableRef {
   bPortId: string;
   categoryKey?: string | null;
 }
+
+/**
+ * 배치 판정 필드 목록의 유일 정의 — 백엔드 재검증 트리거와 프론트 이설 판정이 공유한다.
+ */
+export const PLACEMENT_FIELDS = [
+  'floorId', 'x', 'y', 'width', 'height',
+  'parentAssetId', 'containerKey', 'slotIndex', 'slotSpan',
+] as const;
+
+export type PlacementField = (typeof PLACEMENT_FIELDS)[number];

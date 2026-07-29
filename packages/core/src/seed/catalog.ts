@@ -1,7 +1,7 @@
 import type { AssetTypeSpec, FieldDef } from '../catalog/types.js';
 
 /** 구 현황 컬럼(설치일·담당자)의 데이터 드리븐 흡수 — 전 타입 공통. */
-export const COMMON_FIELDS: FieldDef[] = [
+const COMMON_FIELDS: FieldDef[] = [
   { key: 'installDate', label: '설치일', type: 'date' },
   { key: 'manager', label: '담당자', type: 'text' },
 ];
@@ -58,7 +58,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     containers: [],
     ports: [
       { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '성단 {n}' },
-      { group: 'B', count: 12, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}' },
+      { group: 'B', count: 12, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
     ],
     links: [{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],
   },

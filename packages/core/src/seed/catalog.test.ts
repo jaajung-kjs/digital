@@ -29,6 +29,14 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
     expect(slot.links).toEqual([{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }]);
   });
 
+  it('OFD-SLOT: B 그룹(선로)에 lineSide=true 선언, A 그룹은 미선언', () => {
+    const slot = byKey('OFD-SLOT');
+    const groupA = slot.ports.find((p) => p.group === 'A')!;
+    const groupB = slot.ports.find((p) => p.group === 'B')!;
+    expect(groupB.lineSide).toBe(true);
+    expect(groupA.lineSide).toBeFalsy();
+  });
+
   it('DIST(분전반): 피더만 수용 (구 panel role)', () => {
     expect(byKey('DIST').containers[0]!.accepts).toEqual({ typeKeys: ['FEEDER'] });
   });

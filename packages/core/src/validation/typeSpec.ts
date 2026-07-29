@@ -45,6 +45,7 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
   });
 
   const portGroups = new Set<string>();
+  let lineSideCount = 0;
   spec.ports.forEach((p, i) => {
     if (!KEY_RE.test(p.group)) push(`ports[${i}].group`, '포트 그룹은 영문/숫자/대시/언더스코어만 허용됩니다');
     else if (portGroups.has(p.group)) push(`ports[${i}].group`, `포트 그룹 중복: ${p.group}`);
@@ -53,6 +54,10 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
     if (!DIRECTIONS.has(p.direction)) push(`ports[${i}].direction`, '방향은 IN/OUT/BI 중 하나여야 합니다');
     if (!ctx.mediumKeys.includes(p.medium)) push(`ports[${i}].medium`, `존재하지 않는 매체입니다: ${p.medium}`);
     if (p.count > 1 && !p.namePattern.includes('{n}')) push(`ports[${i}].namePattern`, "이름 패턴에 '{n}' 이 필요합니다 (count > 1)");
+    if (p.lineSide === true) {
+      lineSideCount += 1;
+      if (lineSideCount > 1) push(`ports[${i}].lineSide`, '선로측 그룹은 타입당 1개만 지정할 수 있습니다');
+    }
   });
 
   const linkPairs = new Set<string>();
