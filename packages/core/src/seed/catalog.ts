@@ -92,8 +92,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ],
     containers: [],
     ports: [
-      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
-      { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
+      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN {n}' },
+      { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT {n}' },
     ],
     links: [{ fromGroup: 'IN', toGroup: 'OUT', mapping: 'all' }],
   },
@@ -147,7 +147,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'power', namePattern: '전원 {n}' },
     ],
     links: [],
   },
@@ -161,7 +161,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'power', namePattern: '전원 {n}' },
     ],
     links: [],
   },
@@ -175,7 +175,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      { group: 'P', count: 2, direction: 'BI', medium: 'power', namePattern: '전원 {n}' },
     ],
     links: [],
   },
