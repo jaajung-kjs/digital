@@ -28,7 +28,7 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
   spec.fields.forEach((f, i) => {
     if (f.key.trim() === '') push(`fields[${i}].key`, '필드 키를 입력하세요');
     else if (fieldKeys.has(f.key)) push(`fields[${i}].key`, `필드 키 중복: ${f.key}`);
-    fieldKeys.add(f.key);
+    else fieldKeys.add(f.key);
     if (f.label.trim() === '') push(`fields[${i}].label`, '필드 라벨을 입력하세요');
     if (!FIELD_TYPES.has(f.type)) push(`fields[${i}].type`, '지원하지 않는 자료형입니다');
     if (f.type === 'select' && (f.options ?? []).length === 0) push(`fields[${i}].options`, 'select 필드는 옵션이 1개 이상 필요합니다');
@@ -52,7 +52,7 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
     if (p.count < 1) push(`ports[${i}].count`, '포트 수량은 1 이상이어야 합니다');
     if (!DIRECTIONS.has(p.direction)) push(`ports[${i}].direction`, '방향은 IN/OUT/BI 중 하나여야 합니다');
     if (!ctx.mediumKeys.includes(p.medium)) push(`ports[${i}].medium`, `존재하지 않는 매체입니다: ${p.medium}`);
-    if (!p.namePattern.includes('{n}')) push(`ports[${i}].namePattern`, "이름 패턴에 '{n}' 이 필요합니다");
+    if (p.count > 1 && !p.namePattern.includes('{n}')) push(`ports[${i}].namePattern`, "이름 패턴에 '{n}' 이 필요합니다 (count > 1)");
   });
 
   const linkPairs = new Set<string>();

@@ -60,8 +60,14 @@ describe('validateTypeSpec', () => {
     expect(validateTypeSpec(zero, CTX).some((i) => i.path === 'ports[0].count')).toBe(true);
     const badMedium = base({ ports: [{ group: 'A', ...p, medium: 'laser' }] });
     expect(validateTypeSpec(badMedium, CTX).some((i) => i.path === 'ports[0].medium')).toBe(true);
-    const noN = base({ ports: [{ group: 'A', ...p, namePattern: '코어' }] });
+    const noN = base({ ports: [{ group: 'A', ...p, count: 2, namePattern: '코어' }] });
     expect(validateTypeSpec(noN, CTX).some((i) => i.path === 'ports[0].namePattern')).toBe(true);
+  });
+  it('count=1 포트는 고정 이름 패턴({n} 없음)을 허용한다', () => {
+    const single = base({ ports: [
+      { group: 'IN', count: 1, direction: 'IN' as const, medium: 'power', namePattern: 'IN' },
+    ] });
+    expect(validateTypeSpec(single, CTX)).toEqual([]);
   });
   it('링크 룰: 미존재 그룹·자기 참조·중복 쌍을 거부한다', () => {
     const ports = [

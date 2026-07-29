@@ -92,8 +92,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     ],
     containers: [],
     ports: [
-      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN {n}' },
-      { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT {n}' },
+      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
+      { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
     ],
     links: [{ fromGroup: 'IN', toGroup: 'OUT', mapping: 'all' }],
   },

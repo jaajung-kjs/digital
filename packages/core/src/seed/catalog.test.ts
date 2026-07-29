@@ -36,8 +36,8 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
   it('FEEDER: 전원 IN 1 + OUT 1 + all 패스스루 (구 feeder role의 방향성)', () => {
     const feeder = byKey('FEEDER');
     expect(feeder.ports).toEqual([
-      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN {n}' },
-      { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT {n}' },
+      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
+      { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
     ]);
     expect(feeder.links).toEqual([{ fromGroup: 'IN', toGroup: 'OUT', mapping: 'all' }]);
   });
