@@ -83,7 +83,22 @@ function isUniqueViolation(e: unknown): boolean {
 }
 
 /**
+ * accepts 를 고정 키 순서 + 정렬된 배열로 정규화.
+ * Postgres jsonb 는 키를 길이 우선(typeKeys < categoryKeys)으로 반환하고,
+ * zod 파싱은 스키마 선언 순(categoryKeys 우선)으로 재구성하므로, 양쪽을 동일 형상으로 맞춘다.
+ * absent == undefined == [] (accept-all 의미가 동일하므로).
+ */
+function canonicalizeAccepts(accepts: unknown): { categoryKeys: string[]; typeKeys: string[] } {
+  const a = (accepts ?? {}) as { categoryKeys?: string[]; typeKeys?: string[] };
+  return {
+    categoryKeys: [...(a.categoryKeys ?? [])].sort(),
+    typeKeys: [...(a.typeKeys ?? [])].sort(),
+  };
+}
+
+/**
  * 구조(containers/ports/links) 동일성 비교 키 — id/sortOrder 제외 캐노니컬 JSON.
+ * accepts 는 canonicalizeAccepts 를 통해 키 순서 및 배열 순서를 정규화한다.
  */
 function structuralKey(
   containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: unknown }>,
@@ -93,7 +108,7 @@ function structuralKey(
   const canon = {
     containers: [...containers]
       .sort((a, b) => a.key.localeCompare(b.key))
-      .map((c) => ({ key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts })),
+      .map((c) => ({ key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: canonicalizeAccepts(c.accepts) })),
     ports: [...ports]
       .sort((a, b) => a.group.localeCompare(b.group))
       .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern })),

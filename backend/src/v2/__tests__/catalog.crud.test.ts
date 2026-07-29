@@ -56,6 +56,14 @@ const VALID_PORTS = [
 const VALID_LINKS = [{ fromGroup: 'fiberIn', toGroup: 'fiberOut', mapping: 'byIndex' as const }];
 const VALID_CONTAINERS = [{ key: 'shelf', name: '선반', slotCount: 8, allowSpan: false, accepts: {} }];
 
+/**
+ * both-key accepts: categoryKeys + typeKeys 모두 포함, 2개 이상 (순서 민감성까지 커버).
+ * Postgres jsonb 는 typeKeys 를 먼저 반환하고 zod 는 categoryKeys 를 먼저 구성하므로,
+ * 정규화 없이는 accepts 키 순서 불일치가 항상 발생한다.
+ */
+const BOTH_KEY_ACCEPTS = { categoryKeys: ['통신', '전원'], typeKeys: ['RACK', 'UPS'] };
+const BOTH_KEY_CONTAINERS = [{ key: 'bay', name: '베이', slotCount: 4, allowSpan: false, accepts: BOTH_KEY_ACCEPTS }];
+
 describe('catalog CRUD', () => {
   // 테스트에서 생성한 카테고리/타입 ID
   let catId: string;
@@ -353,6 +361,66 @@ describe('catalog CRUD', () => {
     if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
     const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq3` } });
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
+  });
+
+  it('PUT: accepts에 categoryKeys+typeKeys 두 키가 모두 있어도 비구조 편집은 200, 구조 변경은 409 (JSON 키순서 정규화 회귀)', async () => {
+    // 두 키를 모두 가진 accepts 를 포함한 타입 생성
+    const catRes = await request(app)
+      .post('/api/v2/catalog/categories')
+      .set(admin)
+      .send({ key: `${KEY_PREFIX}_CAT_BK`, name: '분류_양키', sortOrder: 997 })
+      .expect(201);
+    const bkCatId = catRes.body.id;
+
+    const typeRes = await request(app)
+      .post('/api/v2/catalog/types')
+      .set(admin)
+      .send(makeTypeBody(bkCatId, {
+        key: `${KEY_PREFIX}_TYPE_BK`,
+        containers: BOTH_KEY_CONTAINERS,
+      }))
+      .expect(201);
+    const bkTypeId = typeRes.body.id;
+
+    // 인스턴스 생성 — DB 에 저장된 accepts 를 jsonb 로 읽어오게 만들기 위함
+    const sub = await nextDb.substation.create({
+      data: {
+        name: `${uniq}-ss-bk`,
+        branch: { create: { name: `${uniq}-br-bk`, headquarters: { create: { name: `${uniq}-hq-bk` } } } },
+      },
+    });
+    const asset = await nextDb.asset.create({
+      data: { name: `${uniq}-asset-bk`, typeId: bkTypeId, substationId: sub.id },
+    });
+
+    // 비구조 편집 (이름만 변경, accepts 구조 동일): jsonb 키순서 vs zod 키순서 불일치가 있으면 false positive 409
+    const sameStructBody = makeTypeBody(bkCatId, {
+      key: `${KEY_PREFIX}_TYPE_BK`,
+      name: '양키 타입 이름 수정',
+      containers: BOTH_KEY_CONTAINERS,
+    });
+    await request(app).put(`/api/v2/catalog/types/${bkTypeId}`).set(admin).send(sameStructBody).expect(200);
+
+    // 구조 변경 (categoryKeys 에서 항목 하나 제거): 진짜 구조 변경이므로 409
+    const changedAcceptsContainers = [{ key: 'bay', name: '베이', slotCount: 4, allowSpan: false, accepts: { categoryKeys: ['통신'], typeKeys: ['RACK', 'UPS'] } }];
+    const changedStructBody = makeTypeBody(bkCatId, {
+      key: `${KEY_PREFIX}_TYPE_BK`,
+      name: '양키 타입 이름 수정',
+      containers: changedAcceptsContainers,
+    });
+    const res = await request(app).put(`/api/v2/catalog/types/${bkTypeId}`).set(admin).send(changedStructBody).expect(409);
+    expect(res.body.error).toBe('TYPE_IN_USE');
+
+    // 정리
+    await nextDb.asset.delete({ where: { id: asset.id } });
+    await nextDb.substation.delete({ where: { id: sub.id } });
+    const branch = await nextDb.branch.findFirst({ where: { name: `${uniq}-br-bk` } });
+    if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
+    const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq-bk` } });
+    if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
+    await nextDb.assetContainerSpec.deleteMany({ where: { typeId: bkTypeId } });
+    await nextDb.assetType.delete({ where: { id: bkTypeId } });
+    await nextDb.assetCategory.delete({ where: { id: bkCatId } });
   });
 
   it('DELETE: 인스턴스 존재 시 409 TYPE_IN_USE, 없으면 204 후 GET 에서 사라짐', async () => {
