@@ -77,6 +77,11 @@ async function specContext(tx: typeof nextDb) {
   };
 }
 
+/** Prisma unique 위반(P2002) 판별 — 사전 findUnique 는 TOCTOU 라 동시 요청 시 DB @unique 가 최종 방어선. */
+function isUniqueViolation(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && 'code' in e && (e as { code?: unknown }).code === 'P2002';
+}
+
 /**
  * 구조(containers/ports/links) 동일성 비교 키 — id/sortOrder 제외 캐노니컬 JSON.
  */
@@ -109,7 +114,7 @@ catalogRouter.get('/', async (_req, res, next) => {
         include: {
           containerSpecs: { orderBy: { sortOrder: 'asc' } },
           portTemplates: { orderBy: { sortOrder: 'asc' } },
-          linkRules: true,
+          linkRules: { orderBy: { fromGroup: 'asc' } },
           _count: { select: { assets: true } },
         },
         orderBy: { sortOrder: 'asc' },
@@ -137,11 +142,16 @@ catalogRouter.get('/', async (_req, res, next) => {
 catalogRouter.post('/categories', adminOnly, async (req, res, next) => {
   try {
     const { key, name, sortOrder } = categoryCreateSchema.parse(req.body);
-    // key 중복 확인
+    // key 중복 확인 (친절한 공통 경로 — 동시성은 아래 P2002 폴백이 방어)
     const existing = await nextDb.assetCategory.findUnique({ where: { key } });
     if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `카테고리 키가 이미 존재합니다: ${key}`);
-    const row = await nextDb.assetCategory.create({ data: { key, name, sortOrder } });
-    res.status(201).json(row);
+    try {
+      const row = await nextDb.assetCategory.create({ data: { key, name, sortOrder } });
+      res.status(201).json(row);
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new HttpError(409, 'DUPLICATE_KEY', `카테고리 키가 이미 존재합니다: ${key}`);
+      throw e;
+    }
   } catch (e) {
     next(e);
   }
@@ -193,47 +203,53 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
-    // key 중복 확인
+    // key 중복 확인 (친절한 공통 경로 — 동시성은 아래 P2002 폴백이 방어)
     const existing = await nextDb.assetType.findUnique({ where: { key: body.key } });
     if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `타입 키가 이미 존재합니다: ${body.key}`);
 
-    const type = await nextDb.$transaction(async (tx) => {
-      const created = await tx.assetType.create({
-        data: {
-          key: body.key,
-          name: body.name,
-          categoryId: body.categoryId,
-          sortOrder: body.sortOrder,
-          isActive: body.isActive,
-          placeable: body.placeable,
-          defaultWidth: body.defaultWidth,
-          defaultHeight: body.defaultHeight,
-          laborType: body.laborType,
-          installHours: body.installHours,
-          removeHours: body.removeHours,
-          relocateHours: body.relocateHours,
-          fieldDefs: body.fieldDefs as object[],
-        },
+    let type;
+    try {
+      type = await nextDb.$transaction(async (tx) => {
+        const created = await tx.assetType.create({
+          data: {
+            key: body.key,
+            name: body.name,
+            categoryId: body.categoryId,
+            sortOrder: body.sortOrder,
+            isActive: body.isActive,
+            placeable: body.placeable,
+            defaultWidth: body.defaultWidth,
+            defaultHeight: body.defaultHeight,
+            laborType: body.laborType,
+            installHours: body.installHours,
+            removeHours: body.removeHours,
+            relocateHours: body.relocateHours,
+            fieldDefs: body.fieldDefs as object[],
+          },
+        });
+
+        for (const [i, c] of body.containers.entries()) {
+          await tx.assetContainerSpec.create({
+            data: { typeId: created.id, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
+          });
+        }
+        for (const [i, p] of body.ports.entries()) {
+          await tx.assetPortTemplate.create({
+            data: { typeId: created.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, sortOrder: i },
+          });
+        }
+        for (const l of body.links) {
+          await tx.assetLinkRule.create({
+            data: { typeId: created.id, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
+          });
+        }
+
+        return created;
       });
-
-      for (const [i, c] of body.containers.entries()) {
-        await tx.assetContainerSpec.create({
-          data: { typeId: created.id, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
-        });
-      }
-      for (const [i, p] of body.ports.entries()) {
-        await tx.assetPortTemplate.create({
-          data: { typeId: created.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, sortOrder: i },
-        });
-      }
-      for (const l of body.links) {
-        await tx.assetLinkRule.create({
-          data: { typeId: created.id, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
-        });
-      }
-
-      return created;
-    });
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new HttpError(409, 'DUPLICATE_KEY', `타입 키가 이미 존재합니다: ${body.key}`);
+      throw e;
+    }
 
     res.status(201).json({ id: type.id });
   } catch (e) {
@@ -270,14 +286,14 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
-    // 구조 변경 여부 확인
+    // 구조 변경 여부 확인 (한 번만 계산해 가드/교체 판단에 재사용)
+    const oldKey = structuralKey(existing.containerSpecs, existing.portTemplates, existing.linkRules);
+    const newKey = structuralKey(body.containers, body.ports, body.links);
+    const structureChanged = oldKey !== newKey;
+
     const assetCount = existing._count.assets;
-    if (assetCount > 0) {
-      const oldKey = structuralKey(existing.containerSpecs, existing.portTemplates, existing.linkRules);
-      const newKey = structuralKey(body.containers, body.ports, body.links);
-      if (oldKey !== newKey) {
-        throw new HttpError(409, 'TYPE_IN_USE', `사용 중인 타입입니다 (자산 ${assetCount}개) — 구조 변경 불가`);
-      }
+    if (assetCount > 0 && structureChanged) {
+      throw new HttpError(409, 'TYPE_IN_USE', `사용 중인 타입입니다 (자산 ${assetCount}개) — 구조 변경 불가`);
     }
 
     await nextDb.$transaction(async (tx) => {
@@ -300,10 +316,8 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         },
       });
 
-      // 구조가 변경된 경우 (또는 인스턴스 없어 자유롭게) 명세 교체
-      const oldKey = structuralKey(existing.containerSpecs, existing.portTemplates, existing.linkRules);
-      const newKey = structuralKey(body.containers, body.ports, body.links);
-      if (oldKey !== newKey) {
+      // 구조가 변경된 경우(인스턴스 없음 확정) 명세 교체
+      if (structureChanged) {
         await tx.assetContainerSpec.deleteMany({ where: { typeId: id } });
         await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
         await tx.assetLinkRule.deleteMany({ where: { typeId: id } });

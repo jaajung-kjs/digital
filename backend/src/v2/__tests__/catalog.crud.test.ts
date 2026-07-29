@@ -206,6 +206,24 @@ describe('catalog CRUD', () => {
     expect(res.body.error).toBe('DUPLICATE_KEY');
   });
 
+  it('타입 생성: 동시 요청 시에도 정확히 1개만 201, 나머지 409 DUPLICATE_KEY (P2002 폴백)', async () => {
+    // 사전 findUnique 는 TOCTOU — 동시 요청은 둘 다 통과 가능하므로 DB @unique(P2002) 폴백이 409 로 변환해야 한다.
+    // 어느 경로(사전체크/P2002)로든 계약은 동일: 정확히 1개 201, 나머지 409 DUPLICATE_KEY (500 금지).
+    const key = `${KEY_PREFIX}_TYPE_RACE`;
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () =>
+        request(app).post('/api/v2/catalog/types').set(admin).send(makeTypeBody(catId, { key })),
+      ),
+    );
+    const created = results.filter((r) => r.status === 201);
+    const conflicts = results.filter((r) => r.status === 409);
+    expect(created).toHaveLength(1);
+    expect(conflicts).toHaveLength(3);
+    for (const c of conflicts) expect(c.body.error).toBe('DUPLICATE_KEY');
+    // 정리
+    await request(app).delete(`/api/v2/catalog/types/${created[0].body.id}`).set(admin).expect(204);
+  });
+
   it('PUT: 비구조 필드(이름/공량/fieldDefs/배치)는 인스턴스가 있어도 수정된다', async () => {
     // typeId(TYPE_A)에 asset 인스턴스 직접 생성
     const sub = await nextDb.substation.create({
