@@ -299,14 +299,12 @@ export default function V2CatalogAdminPage() {
                       catalog={catalog}
                       onChange={handleChange}
                       issues={issues}
-                      locked={locked}
                     />
 
                     {/* 필드 정의 (잠금 없음 — 항상 편집 가능) */}
                     <FieldDefsEditor
                       draft={draft}
                       onChange={handleChange}
-                      catalog={catalog}
                       locked={false}
                       issues={issues}
                     />

@@ -2,7 +2,7 @@ import type { Direction, FieldDef } from '@twin/core';
 
 export interface V2Category { id: string; key: string; name: string; sortOrder: number }
 export interface V2ContainerSpec { id: string; key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: { categoryKeys?: string[]; typeKeys?: string[] }; sortOrder: number }
-export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number }
+export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; lineSide: boolean }
 export interface V2LinkRule { id: string; fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number; isActive: boolean;
@@ -29,7 +29,7 @@ export interface TypeUpsertBody {
   relocateHours: number;
   fieldDefs: FieldDef[];
   containers: { key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: { categoryKeys?: string[]; typeKeys?: string[] } }[];
-  ports: { group: string; count: number; direction: Direction; medium: string; namePattern: string }[];
+  ports: { group: string; count: number; direction: Direction; medium: string; namePattern: string; lineSide?: boolean }[];
   links: { fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }[];
 }
 export interface V2CableCategory { id: string; name: string; sortOrder: number }

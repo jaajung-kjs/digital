@@ -10,6 +10,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { Select } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
+import { useV2Catalog } from '../hooks';
 import { fiberContainers, buildFiberRows } from '../fiberSelectors';
 import type { FiberRow } from '../fiberSelectors';
 import { PeerCell } from './PeerCell';
@@ -104,6 +105,10 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => fiberContainers(effectiveAssets), [effectiveAssets]);
 
+  // lineSide 선언 판독을 위한 카탈로그 타입 (meta 케이블 선정 — A-V1)
+  const catalog = useV2Catalog();
+  const types = catalog.data?.types;
+
   const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
 
   // 선택된 컨테이너 (null이면 첫 번째)
@@ -116,8 +121,8 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   const { groups, rows } = useMemo(() => {
     if (!activeContainer) return { groups: [] as string[], rows: [] as FiberRow[] };
-    return buildFiberRows(activeContainer, effectiveAssets, effectiveCables);
-  }, [activeContainer, effectiveAssets, effectiveCables]);
+    return buildFiberRows(activeContainer, effectiveAssets, effectiveCables, types ?? []);
+  }, [activeContainer, effectiveAssets, effectiveCables, types]);
 
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
   if (containers.length === 0) {

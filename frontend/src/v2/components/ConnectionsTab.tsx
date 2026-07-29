@@ -9,12 +9,12 @@
 import { useMemo } from 'react';
 import { Button, DetailCard } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
-import { endpointRef } from '../peerResolve';
+import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
-import type { V2Asset, V2Cable, V2Port } from '../types';
+import type { V2Cable, V2Port } from '../types';
 
 interface ConnectionsTabProps {
   assetId: string;
@@ -46,27 +46,9 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
     return map;
   }, [effectiveCables]);
 
-  // portId → asset 역매핑
-  const assetByPortId = useMemo(() => {
-    const map = new Map<string, V2Asset>();
-    for (const a of effectiveAssets) {
-      for (const p of a.ports) {
-        map.set(p.id, a);
-      }
-    }
-    return map;
-  }, [effectiveAssets]);
-
-  // portId → port 역매핑 (전체)
-  const portById = useMemo(() => {
-    const map = new Map<string, V2Port>();
-    for (const a of effectiveAssets) {
-      for (const p of a.ports) {
-        map.set(p.id, p);
-      }
-    }
-    return map;
-  }, [effectiveAssets]);
+  // portId → { port, asset } 인덱스 — buildPortIndex 공유 헬퍼 (B-V1 시정)
+  // hopText·peer 해소 모두 여기서 조회 — 수제 portById/assetByPortId 맵 제거(M-1 시정)
+  const portIndex = useMemo(() => buildPortIndex(effectiveAssets), [effectiveAssets]);
 
   // 포트를 그룹별로 묶기 (early return 위 — 훅 순서 보장; asset 미해소 시 빈 Map)
   const assetPorts = asset?.ports;
@@ -84,17 +66,15 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
     return map;
   }, [assetPorts]);
 
-  // hop → 표시용 텍스트
+  // hop → 표시용 텍스트 (portIndex 단일 조회 — portById/assetByPortId 수제 맵 제거)
   function hopText(hop: import('../traceSelectors').TraceResult['hops'][number]): string {
     if (hop.kind === 'internal') {
       return '↔ 내부';
     }
-    // cable hop: toPort의 asset명 + port명
-    const toPort = portById.get(hop.toPortId);
-    if (toPort) {
-      const toAsset = assetByPortId.get(hop.toPortId);
-      const assetName = toAsset ? toAsset.name : '—';
-      return `${assetName} · ${toPort.name}`;
+    // cable hop: portIndex에서 toPort의 asset명 + port명 조회
+    const entry = portIndex.get(hop.toPortId);
+    if (entry) {
+      return `${entry.asset.name} · ${entry.port.name}`;
     }
     // 로컬 미해소 포트 — 해당 케이블 saved refs로 표기 (끝점 자신의 ref — endpointRef 한 곳 규칙)
     const cableEntry = cableByPortId.get(hop.toPortId);
@@ -157,22 +137,18 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
           <div className="space-y-1">
             {ports.map((port) => {
               const conn = cableByPortId.get(port.id);
-              const peerPort = conn ? portById.get(conn.peerPortId) : undefined;
-              const peerAsset = conn ? assetByPortId.get(conn.peerPortId) : undefined;
 
-              // 로컬 해소 성공 시 로컬 이름 사용; 실패 시 saved 케이블의 aRef/bRef 폴백
+              // 3단 peer 해소 — resolvePeer 공유 헬퍼 (B-V1 시정: 인라인 재구현 → 단일화)
               let peerLabel: string | null = null;
-              if (conn && peerPort && peerAsset) {
-                peerLabel = `${peerAsset.name} · ${peerPort.name}`;
-              } else if (conn) {
-                // 로컬 해소 실패 → saved 케이블 refs 폴백
-                const cable = conn.cable;
-                const isA = cable.aPortId === port.id;
-                const ref = isA ? cable.bRef : cable.aRef;
-                if (ref) {
-                  peerLabel = `${ref.assetName} (${ref.substationName}) · ${ref.portName}`;
+              if (conn) {
+                const peer = resolvePeer(port, conn.cable, portIndex, asset.substationId);
+                if (peer) {
+                  const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
+                  peerLabel = `${peer.assetName} · ${peer.portName}${sub}`;
                 }
               }
+
+              const peerPortEntry = conn ? portIndex.get(conn.peerPortId) : undefined;
 
               return (
                 <div key={port.id} className="flex items-center gap-2 text-xs">
@@ -182,7 +158,7 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
                       <span className="flex-1 truncate text-content-muted">
                         {peerLabel}
                       </span>
-                      {peerPort && (
+                      {peerPortEntry && (
                         <Button
                           variant="ghost"
                           size="sm"

@@ -4,7 +4,6 @@
  * Props:
  *   draft    — TypeDraft
  *   onChange — (patch: Partial<TypeDraft>) => void (배열 전체 교체)
- *   catalog  — V2Catalog (현재 미사용, 인터페이스 통일용)
  *   locked   — boolean (구조 잠금 — 필드는 잠금 대상 아님, 항상 false 전달되지만 인터페이스 통일)
  *   issues   — TypeSpecIssue[]
  */
@@ -12,14 +11,12 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { TypeSpecIssue } from '@twin/core';
 import type { FieldDef } from '@twin/core';
 import { DetailCard, DetailCardHeader, Input, Select, IconButton } from '../../../components/ui';
-import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
 
 interface FieldDefsEditorProps {
   draft: TypeDraft;
   onChange: (patch: Partial<TypeDraft>) => void;
-  catalog: V2Catalog;
   locked: boolean;
   issues: TypeSpecIssue[];
 }

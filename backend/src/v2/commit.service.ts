@@ -1,4 +1,4 @@
-import { instantiatePorts, validateConnection, validateSlotPlacement } from '@twin/core';
+import { instantiatePorts, validateConnection, validateSlotPlacement, PLACEMENT_FIELDS } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
@@ -9,7 +9,6 @@ type Tx = Prisma.TransactionClient;
 type AssetCreate = NonNullable<NonNullable<CommitPayload['assets']>['creates']>[number];
 type AssetUpdate = NonNullable<NonNullable<CommitPayload['assets']>['updates']>[number];
 
-const PLACEMENT_KEYS = ['floorId', 'x', 'y', 'width', 'height', 'parentAssetId', 'containerKey', 'slotIndex', 'slotSpan'] as const;
 
 export async function commitSubstation(substationId: string, payload: CommitPayload): Promise<{ committedAt: string }> {
   return nextDb.$transaction(async (tx) => {
@@ -169,7 +168,7 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
   if (!existing || existing.substationId !== substationId) throw new HttpError(422, 'INVALID_ASSET', '수정 대상 자산이 유효하지 않습니다');
 
   const p = u.patch;
-  const touchesPlacement = PLACEMENT_KEYS.some((k) => k in p);
+  const touchesPlacement = PLACEMENT_FIELDS.some((k) => k in p);
   if (touchesPlacement) {
     const merged = {
       floorId: p.floorId !== undefined ? p.floorId : existing.floorId,
@@ -361,14 +360,13 @@ async function applyCableCreate(
     throw new HttpError(422, 'INVALID_PORT', '케이블 끝점 포트가 유효하지 않습니다');
   }
 
-  // 점유 검사: 두 포트 중 하나라도 기존 케이블이 연결된 포트면 거부
-  const occupied = await tx.cable.findMany({
+  // 실점유 집합 조회: 두 후보 포트에 이미 연결된 케이블의 포트 id 집합.
+  // 코어 validateConnection 이 port-occupied 판정을 담당한다(서비스 선판정 제거).
+  const occupiedCables = await tx.cable.findMany({
     where: { OR: [{ aPortId: { in: [a.id, b.id] } }, { bPortId: { in: [a.id, b.id] } }] },
-    select: { id: true },
+    select: { aPortId: true, bPortId: true },
   });
-  if (occupied.length > 0) {
-    throw new HttpError(422, 'CONNECT_PORT_OCCUPIED', '이미 케이블이 연결된 포트입니다');
-  }
+  const occupiedPortIds = new Set<string>(occupiedCables.flatMap((c) => [c.aPortId, c.bPortId]));
 
   // 매체 검사: categoryId 있으면 group.key를 cableMedium으로
   let cableMedium: string | undefined;
@@ -381,7 +379,7 @@ async function applyCableCreate(
   const err = validateConnection(
     { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as 'IN' | 'OUT' | 'BI', medium: a.medium },
     { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as 'IN' | 'OUT' | 'BI', medium: b.medium },
-    new Set<string>(),
+    occupiedPortIds,
     cableMedium,
   );
   if (err) {

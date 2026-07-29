@@ -56,6 +56,12 @@ const VALID_PORTS = [
 const VALID_LINKS = [{ fromGroup: 'fiberIn', toGroup: 'fiberOut', mapping: 'byIndex' as const }];
 const VALID_CONTAINERS = [{ key: 'shelf', name: '선반', slotCount: 8, allowSpan: false, accepts: {} }];
 
+/** lineSide 왕복용 포트 2그룹 — fiberOut 이 lineSide:true. */
+const LINE_SIDE_PORTS = [
+  { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '성단 {n}' },
+  { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
+];
+
 /**
  * both-key accepts: categoryKeys + typeKeys 모두 포함, 2개 이상 (순서 민감성까지 커버).
  * Postgres jsonb 는 typeKeys 를 먼저 반환하고 zod 는 categoryKeys 를 먼저 구성하므로,
@@ -564,5 +570,130 @@ describe('catalog CRUD', () => {
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
     await nextDb.assetType.delete({ where: { id: tId } });
     await nextDb.assetCategory.delete({ where: { id: cId } });
+  });
+
+  // ── lineSide 왕복 테스트 ────────────────────────────────────────────────────
+
+  it('lineSide:true 그룹 포함 타입 생성 → GET에서 lineSide 필드 왕복', async () => {
+    const catRes = await request(app)
+      .post('/api/v2/catalog/categories')
+      .set(admin)
+      .send({ key: `${KEY_PREFIX}_CAT_LS`, name: '분류_LS', sortOrder: 996 })
+      .expect(201);
+    const lsCatId = catRes.body.id;
+
+    const typeRes = await request(app)
+      .post('/api/v2/catalog/types')
+      .set(admin)
+      .send(makeTypeBody(lsCatId, {
+        key: `${KEY_PREFIX}_TYPE_LS`,
+        ports: LINE_SIDE_PORTS,
+        links: VALID_LINKS,
+      }))
+      .expect(201);
+    const lsTypeId = typeRes.body.id;
+
+    // GET에서 lineSide 필드 확인
+    const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
+    const found = catalog.types.find((t: { id: string }) => t.id === lsTypeId);
+    expect(found).toBeTruthy();
+    const fiberOutPort = found.portTemplates.find((p: { group: string }) => p.group === 'fiberOut');
+    const fiberInPort = found.portTemplates.find((p: { group: string }) => p.group === 'fiberIn');
+    expect(fiberOutPort).toBeTruthy();
+    expect(fiberOutPort.lineSide).toBe(true);
+    expect(fiberInPort.lineSide).toBe(false); // default false
+
+    // 정리
+    await nextDb.assetPortTemplate.deleteMany({ where: { typeId: lsTypeId } });
+    await nextDb.assetLinkRule.deleteMany({ where: { typeId: lsTypeId } });
+    await nextDb.assetType.delete({ where: { id: lsTypeId } });
+    await nextDb.assetCategory.delete({ where: { id: lsCatId } });
+  });
+
+  it('lineSide:true 그룹 2개 → POST 400 INVALID_TYPE_SPEC (validateTypeSpec 위반)', async () => {
+    const catRes = await request(app)
+      .post('/api/v2/catalog/categories')
+      .set(admin)
+      .send({ key: `${KEY_PREFIX}_CAT_LS2`, name: '분류_LS2', sortOrder: 995 })
+      .expect(201);
+    const ls2CatId = catRes.body.id;
+
+    const twoLineSidePorts = [
+      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '성단 {n}', lineSide: true },
+      { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
+    ];
+
+    const res = await request(app)
+      .post('/api/v2/catalog/types')
+      .set(admin)
+      .send(makeTypeBody(ls2CatId, {
+        key: `${KEY_PREFIX}_TYPE_LS2`,
+        ports: twoLineSidePorts,
+        links: VALID_LINKS,
+      }))
+      .expect(400);
+    expect(res.body.error).toBe('INVALID_TYPE_SPEC');
+    const paths = res.body.details.map((d: { path: string }) => d.path) as string[];
+    expect(paths.some((p) => p.includes('lineSide') || p.includes('ports'))).toBe(true);
+
+    // 정리 (타입은 생성 안 됨)
+    await nextDb.assetCategory.delete({ where: { id: ls2CatId } });
+  });
+
+  it('lineSide 변경은 구조 변경 — 인스턴스 있는 타입 lineSide 플립 → 409 TYPE_IN_USE', async () => {
+    const catRes = await request(app)
+      .post('/api/v2/catalog/categories')
+      .set(admin)
+      .send({ key: `${KEY_PREFIX}_CAT_LS3`, name: '분류_LS3', sortOrder: 994 })
+      .expect(201);
+    const ls3CatId = catRes.body.id;
+
+    const typeRes = await request(app)
+      .post('/api/v2/catalog/types')
+      .set(admin)
+      .send(makeTypeBody(ls3CatId, {
+        key: `${KEY_PREFIX}_TYPE_LS3`,
+        ports: LINE_SIDE_PORTS, // fiberOut.lineSide=true
+        links: VALID_LINKS,
+      }))
+      .expect(201);
+    const ls3TypeId = typeRes.body.id;
+
+    // 인스턴스 생성
+    const sub = await nextDb.substation.create({
+      data: {
+        name: `${uniq}-ss-ls3`,
+        branch: { create: { name: `${uniq}-br-ls3`, headquarters: { create: { name: `${uniq}-hq-ls3` } } } },
+      },
+    });
+    const asset = await nextDb.asset.create({ data: { name: `${uniq}-asset-ls3`, typeId: ls3TypeId, substationId: sub.id } });
+
+    // lineSide 플립 (fiberOut.lineSide=false) → 구조 변경 → 409
+    const flippedPorts = [
+      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '성단 {n}' },
+      { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}' }, // lineSide 없음 = false
+    ];
+    const res = await request(app)
+      .put(`/api/v2/catalog/types/${ls3TypeId}`)
+      .set(admin)
+      .send(makeTypeBody(ls3CatId, {
+        key: `${KEY_PREFIX}_TYPE_LS3`,
+        ports: flippedPorts,
+        links: VALID_LINKS,
+      }))
+      .expect(409);
+    expect(res.body.error).toBe('TYPE_IN_USE');
+
+    // 정리
+    await nextDb.asset.delete({ where: { id: asset.id } });
+    await nextDb.substation.delete({ where: { id: sub.id } });
+    const branch = await nextDb.branch.findFirst({ where: { name: `${uniq}-br-ls3` } });
+    if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
+    const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq-ls3` } });
+    if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
+    await nextDb.assetPortTemplate.deleteMany({ where: { typeId: ls3TypeId } });
+    await nextDb.assetLinkRule.deleteMany({ where: { typeId: ls3TypeId } });
+    await nextDb.assetType.delete({ where: { id: ls3TypeId } });
+    await nextDb.assetCategory.delete({ where: { id: ls3CatId } });
   });
 });

@@ -1,5 +1,5 @@
 import { buildPortIndex, resolvePeer, type PeerInfo } from './peerResolve';
-import type { V2Asset, V2Cable } from './types';
+import type { V2Asset, V2AssetType, V2Cable } from './types';
 
 export const FIBER_MEDIUM = 'fiber';
 
@@ -65,12 +65,14 @@ export interface BuildFiberRowsResult {
  * Groups are the union of all fiber port groups from slots (in port order).
  * Rows are generated for each slot × coreIndex (1..max index per group).
  * Cells resolve peer from local effective -> saved refs -> null.
- * Meta contains spec params from the last group's cable.
+ * Meta contains spec params from the DECLARED lineSide group's cable (PortTemplate.lineSide===true).
+ * If no lineSide group is declared, or the lineSide group has no cable for that core, meta.cableId===null.
  */
 export function buildFiberRows(
   container: V2Asset,
   assets: V2Asset[],
-  cables: V2Cable[]
+  cables: V2Cable[],
+  types: V2AssetType[],
 ): BuildFiberRowsResult {
   const cablesByAPortId = new Map<string, V2Cable>();
   const cablesByBPortId = new Map<string, V2Cable>();
@@ -78,6 +80,13 @@ export function buildFiberRows(
   for (const cable of cables) {
     cablesByAPortId.set(cable.aPortId, cable);
     cablesByBPortId.set(cable.bPortId, cable);
+  }
+
+  // Pre-build: typeId → lineSide group name (declared, ≤1 per type)
+  const lineSideGroupByTypeId = new Map<string, string>();
+  for (const t of types) {
+    const lineSidePort = t.portTemplates.find((p) => p.lineSide === true);
+    if (lineSidePort) lineSideGroupByTypeId.set(t.id, lineSidePort.group);
   }
 
   // Step 1: Find slots = children of container with fiber ports, sorted by name
@@ -161,14 +170,13 @@ export function buildFiberRows(
         }
       }
 
-      // Build meta: prefer last group cable, fall back to first non-null cable in reverse order
-      let metaCable: V2Cable | null = null;
-      for (let gi = groupsOrder.length - 1; gi >= 0; gi--) {
-        if (cableByGroupIdx[gi]) {
-          metaCable = cableByGroupIdx[gi]!;
-          break;
-        }
-      }
+      // Build meta: DECLARED lineSide group's cable only — no positional fallback.
+      // If no lineSide group declared for this slot's type, or that group has no cable
+      // for this core index → meta.cableId === null (MetaInput shows "—" disabled).
+      const lineSideGroup = lineSideGroupByTypeId.get(slot.typeId);
+      const lineSideGroupIdx = lineSideGroup !== undefined ? groupsOrder.indexOf(lineSideGroup) : -1;
+      const metaCable: V2Cable | null =
+        lineSideGroupIdx >= 0 ? (cableByGroupIdx[lineSideGroupIdx] ?? null) : null;
 
       const meta: FiberRowMeta = {
         cableId: metaCable?.id ?? null,

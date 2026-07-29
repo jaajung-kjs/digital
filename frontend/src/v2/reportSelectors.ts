@@ -1,5 +1,7 @@
-import { assetReportItem, cableReportItem } from '@twin/core';
+import { assetReportItem, cableReportItem, PLACEMENT_FIELDS } from '@twin/core';
 import type { ReportItem } from '@twin/core';
+import { mergeEffective } from './store/overlay';
+import { buildPortIndex, cableEndpointName } from './peerResolve';
 import type { V2Asset, V2AssetType, V2Cable, V2CableGroup, V2InspectionLog, V2MaintenanceLog } from './types';
 import type { Overlay } from './store/overlay';
 
@@ -25,10 +27,8 @@ function unresolvedCableItem(kind: 'cable-install' | 'cable-remove', name: strin
   };
 }
 
-const PLACEMENT_FIELDS = new Set<string>([
-  'floorId', 'x', 'y', 'width', 'height',
-  'parentAssetId', 'containerKey', 'slotIndex', 'slotSpan',
-]);
+/** PLACEMENT_FIELDS 집합 — @twin/core 상수에서 파생 (B-V3 시정: 로컬 재정의 금지) */
+const PLACEMENT_FIELDS_SET = new Set<string>(PLACEMENT_FIELDS);
 
 export function buildReportItems(args: {
   saved: { assets: V2Asset[]; cables: V2Cable[] };
@@ -51,24 +51,11 @@ export function buildReportItems(args: {
   const savedAssetsById = new Map(saved.assets.map((a) => [a.id, a]));
   const savedCablesById = new Map(saved.cables.map((c) => [c.id, c]));
 
-  // effective assets: saved + creates — deletes — updates (for cable name resolution)
-  const effectiveAssetsById = new Map<string, V2Asset>(savedAssetsById);
-  for (const [id, patch] of Object.entries(overlays.assets.updates)) {
-    const base = effectiveAssetsById.get(id);
-    if (base) effectiveAssetsById.set(id, { ...base, ...patch });
-  }
-  for (const id of overlays.assets.deletes) effectiveAssetsById.delete(id);
-  for (const [id, asset] of Object.entries(overlays.assets.creates)) {
-    effectiveAssetsById.set(id, asset as V2Asset);
-  }
+  // effective assets: mergeEffective 단일 구현 사용 (B-V2 시정: 수제 병합 제거)
+  const effectiveAssets = mergeEffective(saved.assets, overlays.assets);
 
-  // portId → assetName 매핑 (effective)
-  const assetNameByPortId = new Map<string, string>();
-  for (const asset of effectiveAssetsById.values()) {
-    for (const port of asset.ports) {
-      assetNameByPortId.set(port.id, asset.name);
-    }
-  }
+  // portId → { port, asset } 인덱스 — buildPortIndex 공유 헬퍼 (aRef/bRef 접근은 cableEndpointName 경유)
+  const portIndex = buildPortIndex(effectiveAssets);
 
   const items: ReportItem[] = [];
 
@@ -100,7 +87,7 @@ export function buildReportItems(args: {
 
   // --- assets.updates → 배치 필드 존재 시 asset-relocate 1건 ---
   for (const [id, patch] of Object.entries(overlays.assets.updates)) {
-    const hasBatchField = Object.keys(patch).some((k) => PLACEMENT_FIELDS.has(k));
+    const hasBatchField = Object.keys(patch).some((k) => PLACEMENT_FIELDS_SET.has(k));
     if (!hasBatchField) continue;
     const asset = savedAssetsById.get(id);
     if (!asset) continue;
@@ -126,9 +113,9 @@ export function buildReportItems(args: {
       items.push(unresolvedCableItem('cable-install', '케이블'));
       continue;
     }
-    // 이름 = "자산A↔자산B" (effective assets에서 포트 소유 해소)
-    const aName = assetNameByPortId.get(cable.aPortId);
-    const bName = assetNameByPortId.get(cable.bPortId);
+    // 이름 = "자산A↔자산B" (effective assets에서 포트 소유 해소 — cableEndpointName 한 곳 규칙)
+    const aName = portIndex.get(cable.aPortId)?.asset.name;
+    const bName = portIndex.get(cable.bPortId)?.asset.name;
     const name = aName && bName ? `${aName}↔${bName}` : '케이블';
     const lengthM = typeof (cable.specParams as Record<string, unknown>).lengthM === 'number'
       ? (cable.specParams as Record<string, unknown>).lengthM as number
@@ -154,9 +141,9 @@ export function buildReportItems(args: {
       items.push(unresolvedCableItem('cable-remove', cable.name ?? '케이블'));
       continue;
     }
-    // saved cables에서 refs 이름 해소
-    const aName = cable.aRef?.assetName ?? assetNameByPortId.get(cable.aPortId);
-    const bName = cable.bRef?.assetName ?? assetNameByPortId.get(cable.bPortId);
+    // saved cables에서 refs 이름 해소 — cableEndpointName 한 곳 규칙 (aRef/bRef 직접 접근 금지)
+    const aName = cableEndpointName(cable, cable.aPortId, portIndex);
+    const bName = cableEndpointName(cable, cable.bPortId, portIndex);
     const name = cable.name ?? (aName && bName ? `${aName}↔${bName}` : '케이블');
     const lengthM = typeof (cable.specParams as Record<string, unknown>).lengthM === 'number'
       ? (cable.specParams as Record<string, unknown>).lengthM as number

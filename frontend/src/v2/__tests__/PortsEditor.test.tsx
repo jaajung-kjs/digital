@@ -1,9 +1,10 @@
 /**
- * PortsEditor — TDD (4 cases)
+ * PortsEditor — TDD (5 cases)
  * (a) draft.ports 행이 렌더된다
  * (b) + 추가 클릭 → onChange에 기본 행 추가된 배열 전달
  * (c) medium select 옵션이 catalog.cableGroups에서 파생된다
  * (d) locked=true(assetCount>0)이면 입력 전부 disabled
+ * (e) lineSide 체크박스: draft에서 읽기 + onChange에 반전값 전달
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -123,5 +124,24 @@ describe('PortsEditor', () => {
     // + 추가 버튼도 disabled여야 한다
     const addBtn = screen.getByRole('button', { name: /추가/i });
     expect((addBtn as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('(e) lineSide 체크박스: draft.ports[i].lineSide=true이면 체크, onChange로 반전값 전달', () => {
+    const draft = mkDraft([
+      { group: 'B', count: 2, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
+    ]);
+    const onChange = vi.fn();
+
+    render(<PortsEditor draft={draft} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
+
+    // 선로측 체크박스가 체크 상태여야 한다
+    const checkbox = screen.getByRole('checkbox', { name: /포트 1 선로측/i }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
+    // 클릭하면 onChange가 lineSide: false로 호출되어야 한다
+    fireEvent.click(checkbox);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };
+    expect(called.ports[0]).toMatchObject({ lineSide: false });
   });
 });

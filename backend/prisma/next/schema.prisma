@@ -132,6 +132,7 @@ model AssetPortTemplate {
   direction   String // 'IN' | 'OUT' | 'BI'
   medium      String
   namePattern String
+  lineSide    Boolean   @default(false)
   sortOrder   Int       @default(0)
 
   @@unique([typeId, group])

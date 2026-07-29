@@ -84,6 +84,21 @@ describe('validateTypeSpec', () => {
     ] });
     expect(validateTypeSpec(dup, CTX).some((i) => i.path === 'links[1]')).toBe(true);
   });
+  it('lineSide=true 그룹이 1개면 이슈 없음', () => {
+    const s = base({ ports: [
+      { group: 'A', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'A {n}', lineSide: false },
+      { group: 'B', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'B {n}', lineSide: true },
+    ] });
+    expect(validateTypeSpec(s, CTX)).toEqual([]);
+  });
+  it('lineSide=true 그룹이 2개면 두 번째에 이슈 발화', () => {
+    const s = base({ ports: [
+      { group: 'A', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'A {n}', lineSide: true },
+      { group: 'B', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'B {n}', lineSide: true },
+    ] });
+    const issues = validateTypeSpec(s, CTX);
+    expect(issues.some((i) => i.path === 'ports[1].lineSide')).toBe(true);
+  });
   it('시드 전 타입이 시드 카테고리/매체 컨텍스트에서 이슈 0 (모델 증명)', () => {
     const ctx = {
       categoryKeys: SEED_CATEGORIES.map((c) => c.key),

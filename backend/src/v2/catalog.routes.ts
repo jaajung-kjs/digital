@@ -34,7 +34,7 @@ type TypeUpsertBody = {
   relocateHours: number;
   fieldDefs: unknown[];
   containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: object }>;
-  ports: Array<{ group: string; count: number; direction: 'IN' | 'OUT' | 'BI'; medium: string; namePattern: string }>;
+  ports: Array<{ group: string; count: number; direction: 'IN' | 'OUT' | 'BI'; medium: string; namePattern: string; lineSide?: boolean }>;
   links: Array<{ fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }>;
 };
 
@@ -60,7 +60,7 @@ function bodyToSpec(body: TypeUpsertBody, categoryKey: string): AssetTypeSpec {
     },
     fields: body.fieldDefs as AssetTypeSpec['fields'],
     containers: body.containers as AssetTypeSpec['containers'],
-    ports: body.ports as AssetTypeSpec['ports'],
+    ports: body.ports.map((p) => ({ ...p, ...(p.lineSide ? { lineSide: true } : {}) })) as AssetTypeSpec['ports'],
     links: body.links as AssetTypeSpec['links'],
   };
 }
@@ -102,7 +102,7 @@ function canonicalizeAccepts(accepts: unknown): { categoryKeys: string[]; typeKe
  */
 function structuralKey(
   containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: unknown }>,
-  ports: Array<{ group: string; count: number; direction: string; medium: string; namePattern: string }>,
+  ports: Array<{ group: string; count: number; direction: string; medium: string; namePattern: string; lineSide?: boolean | null }>,
   links: Array<{ fromGroup: string; toGroup: string; mapping: string }>,
 ): string {
   const canon = {
@@ -111,7 +111,7 @@ function structuralKey(
       .map((c) => ({ key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: canonicalizeAccepts(c.accepts) })),
     ports: [...ports]
       .sort((a, b) => a.group.localeCompare(b.group))
-      .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern })),
+      .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false })),
     links: [...links]
       .sort((a, b) => `${a.fromGroup}→${a.toGroup}`.localeCompare(`${b.fromGroup}→${b.toGroup}`))
       .map((l) => ({ fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping })),
@@ -250,7 +250,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
         }
         for (const [i, p] of body.ports.entries()) {
           await tx.assetPortTemplate.create({
-            data: { typeId: created.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, sortOrder: i },
+            data: { typeId: created.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
           });
         }
         for (const l of body.links) {
@@ -344,7 +344,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         }
         for (const [i, p] of body.ports.entries()) {
           await tx.assetPortTemplate.create({
-            data: { typeId: id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, sortOrder: i },
+            data: { typeId: id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
           });
         }
         for (const l of body.links) {
