@@ -35,13 +35,22 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** /login 게이트 — 이미 인증된 사용자는 / 로 리다이렉트 */
+function LoginRoute() {
+  const isAuthenticated = useV2AuthStore((s) => s.isAuthenticated);
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+  return <V2LoginPage />;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          {/* 공개 */}
-          <Route path="/login" element={<V2LoginPage />} />
+          {/* 공개 — 이미 인증 시 / 로 */}
+          <Route path="/login" element={<LoginRoute />} />
 
           {/* 인증 필요 — V2Shell 레이아웃 */}
           <Route
