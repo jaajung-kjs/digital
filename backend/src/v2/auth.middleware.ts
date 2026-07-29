@@ -1,4 +1,4 @@
-/** v2 자립 인증 미들웨어 — 구 UserRole enum 미사용, 구 middleware/auth.ts 독립. */
+/** v2 자립 인증 미들웨어 — role 은 소문자 문자열 'admin'|'viewer', 구 middleware/auth.ts 독립. */
 import type { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken, type AccessTokenPayload } from './jwt.js';
 import { HttpError } from './errors.js';
