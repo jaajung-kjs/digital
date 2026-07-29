@@ -72,12 +72,23 @@ describe('catalog CRUD', () => {
 
   afterAll(async () => {
     // 테스트 데이터 정리 (실패해도 무시)
+    // 1. 케이블 (케이블카테고리 FK)
     try {
       await nextDb.cable.deleteMany({ where: { category: { name: { startsWith: uniq } } } });
     } catch { /* ignore */ }
+    // 2. 자산 (타입 FK)
     try {
       await nextDb.asset.deleteMany({ where: { type: { key: { startsWith: KEY_PREFIX } } } });
     } catch { /* ignore */ }
+    // 3. 자산 (uniq 이름으로 생성된 것 — 서브스테이션이 남은 경우 대비)
+    try {
+      await nextDb.asset.deleteMany({ where: { name: { startsWith: uniq } } });
+    } catch { /* ignore */ }
+    // 4. 포트 (uniq 자산에 직접 생성된 것)
+    try {
+      await nextDb.port.deleteMany({ where: { asset: { name: { startsWith: uniq } } } });
+    } catch { /* ignore */ }
+    // 5. 카탈로그 구조 (FK 순서: linkRule → portTemplate → containerSpec → type → category)
     try {
       await nextDb.assetLinkRule.deleteMany({ where: { type: { key: { startsWith: KEY_PREFIX } } } });
     } catch { /* ignore */ }
@@ -93,8 +104,27 @@ describe('catalog CRUD', () => {
     try {
       await nextDb.assetCategory.deleteMany({ where: { key: { startsWith: KEY_PREFIX } } });
     } catch { /* ignore */ }
+    // 6. 케이블 카테고리
     try {
       await nextDb.cableCategory.deleteMany({ where: { name: { startsWith: uniq } } });
+    } catch { /* ignore */ }
+    // 7. 조직 노드 — 각 it()에서 생성한 substation/branch/headquarters 잔여분 일괄 정리
+    //    (각 it() 에서 이미 개별 정리하지만, 테스트 실패 시 누락될 수 있으므로 afterAll 에서도 정리)
+    //    삭제 순서: 포트(port) → 자산(asset) → 서브스테이션(substation) → 지사(branch) → 본사(headquarters)
+    try {
+      const substations = await nextDb.substation.findMany({ where: { name: { startsWith: uniq } } });
+      const subIds = substations.map((s) => s.id);
+      if (subIds.length > 0) {
+        await nextDb.port.deleteMany({ where: { asset: { substationId: { in: subIds } } } });
+        await nextDb.asset.deleteMany({ where: { substationId: { in: subIds } } });
+        await nextDb.substation.deleteMany({ where: { id: { in: subIds } } });
+      }
+    } catch { /* ignore */ }
+    try {
+      await nextDb.branch.deleteMany({ where: { name: { startsWith: uniq } } });
+    } catch { /* ignore */ }
+    try {
+      await nextDb.headquarters.deleteMany({ where: { name: { startsWith: uniq } } });
     } catch { /* ignore */ }
     await nextDb.$disconnect();
   });
