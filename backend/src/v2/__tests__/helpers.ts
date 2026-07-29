@@ -56,11 +56,18 @@ export async function sweepTestFixtures(): Promise<void> {
     try { await nextDb.asset.deleteMany({ where: { name: { startsWith: p }, parentAssetId: { not: null } } }); } catch { /* ignore */ }
     try { await nextDb.asset.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
   }
-  // 4. floors, substations, branches, headquarters
+  // 4. cableCategory (catalog.crud 가 `${uniq}-ccat` 이름으로 생성 — 케이블 삭제 후)
+  for (const p of nameStartsWith) {
+    try { await nextDb.cableCategory.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
+  }
+  // 5. floors, substations, branches, headquarters
   for (const p of nameStartsWith) {
     try { await nextDb.floor.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
     try { await nextDb.substation.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
     try { await nextDb.branch.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
     try { await nextDb.headquarters.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
   }
+  // 6. auth 테스트 사용자 (auth.test.ts: test_auth_<ts> / viewer_<ts>)
+  try { await nextDb.user.deleteMany({ where: { username: { startsWith: 'test_auth_' } } }); } catch { /* ignore */ }
+  try { await nextDb.user.deleteMany({ where: { username: { startsWith: 'viewer_' } } }); } catch { /* ignore */ }
 }

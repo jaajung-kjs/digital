@@ -26,7 +26,10 @@ RUN npm ci --workspaces --if-present
 RUN npm run build -w @twin/core
 
 # Generate Prisma client (next schema only)
-RUN npx prisma generate --schema backend/prisma/next/schema.prisma
+# F-2: 루트 lockfile 이 prisma CLI 를 backend/node_modules 에 중첩 배치하므로
+#      루트 cwd 의 npx 는 레지스트리 fetch 로 폴백(폐쇄망 K-Cloud 실패) —
+#      npm exec -w 로 워크스페이스 스코프에서 해석한다.
+RUN npm exec -w ict-digital-twin-backend -- prisma generate --schema backend/prisma/next/schema.prisma
 
 # Copy backend source
 COPY backend/src ./backend/src
@@ -49,16 +52,24 @@ RUN apk add --no-cache openssl && \
     mkdir -p /app/uploads && \
     chown -R nodejs:nodejs /app
 
-WORKDIR /app
-
-# Copy only necessary files from builder with correct ownership
-COPY --from=builder --chown=nodejs:nodejs /app/backend/package*.json ./
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/backend/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/backend/prisma ./prisma
+# F-2: 빌더의 workspace 레이아웃을 평탄화하지 않고 그대로 유지한다.
+#  - 루트 lockfile 이 prisma/@prisma/client 를 backend/node_modules 에 중첩 배치하므로
+#    루트로 평탄화하면 CMD 의 npx prisma 가 레지스트리 fetch 로 폴백(폐쇄망 실패).
+#  - WORKDIR /app/backend 에서는 npx(./node_modules/.bin/prisma), tsx(루트 호이스트,
+#    npm run 이 상위 node_modules/.bin 을 PATH 에 추가), @twin/core 심링크
+#    (/app/node_modules/@twin/core → ../../packages/core), seed.ts 의
+#    ../../src/generated 상대경로가 전부 자연 해석된다.
+COPY --from=builder --chown=nodejs:nodejs /app/package*.json /app/
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules /app/node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/packages /app/packages
+COPY --from=builder --chown=nodejs:nodejs /app/backend/package*.json /app/backend/
+COPY --from=builder --chown=nodejs:nodejs /app/backend/node_modules /app/backend/node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/backend/dist /app/backend/dist
+COPY --from=builder --chown=nodejs:nodejs /app/backend/prisma /app/backend/prisma
 # C-2: seed.ts imports ../../src/generated/next-client — copy so seed can run in prod image
-COPY --from=builder --chown=nodejs:nodejs /app/backend/src/generated ./src/generated
-COPY --from=builder --chown=nodejs:nodejs /app/packages ./packages
+COPY --from=builder --chown=nodejs:nodejs /app/backend/src/generated /app/backend/src/generated
+
+WORKDIR /app/backend
 
 USER nodejs
 

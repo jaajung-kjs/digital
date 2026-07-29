@@ -27,6 +27,9 @@ COPY frontend/src ./frontend/src
 COPY frontend/index.html ./frontend/
 COPY frontend/vite.config.ts ./frontend/
 COPY frontend/tsconfig*.json ./frontend/
+# F-1: postcss/tailwind 설정이 없으면 vite build 가 조용히 성공하되 Tailwind 를
+#      전혀 돌리지 않아 무스타일 번들이 나온다 — 반드시 함께 복사.
+COPY frontend/postcss.config.js frontend/tailwind.config.js ./frontend/
 
 # Build frontend
 RUN npm run build -w ict-digital-twin-frontend
