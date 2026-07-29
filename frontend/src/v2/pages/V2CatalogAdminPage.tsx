@@ -295,7 +295,6 @@ export default function V2CatalogAdminPage() {
                       catalog={catalog}
                       locked={locked}
                       issues={issues}
-                      assetCount={original?.assetCount ?? 0}
                     />
 
                     {/* 포트 템플릿 (잠금 대상) */}

@@ -64,7 +64,7 @@ export async function deleteCategory(id: string): Promise<void> {
 // 케이블 그룹
 export async function patchCableGroup(
   id: string,
-  body: { name?: string; color?: string; laborType?: string; installHoursPerM?: number; removeHoursPerM?: number },
+  body: { name?: string; color?: string; laborType?: string | null; installHoursPerM?: number; removeHoursPerM?: number },
 ): Promise<void> {
   await api.patch(`/v2/catalog/cable-groups/${id}`, body);
 }

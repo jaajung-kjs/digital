@@ -7,7 +7,7 @@
 import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DetailCard, DetailCardHeader, Input, IconButton, Badge } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, Input, IconButton } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
@@ -26,7 +26,6 @@ interface ContainersEditorProps {
   catalog: V2Catalog;
   locked: boolean;
   issues: TypeSpecIssue[];
-  assetCount?: number;
 }
 
 function defaultContainer(): ContainerRow {
@@ -93,6 +92,7 @@ function AcceptsPopover({
                     <input
                       type="checkbox"
                       checked={catKeys.includes(c.key)}
+                      disabled={disabled}
                       onChange={() => toggleCat(c.key)}
                     />
                     {c.name}
@@ -111,6 +111,7 @@ function AcceptsPopover({
                     <input
                       type="checkbox"
                       checked={typeKeys.includes(t.key)}
+                      disabled={disabled}
                       onChange={() => toggleType(t.key)}
                     />
                     {t.name}
@@ -133,7 +134,7 @@ function AcceptsPopover({
   );
 }
 
-export function ContainersEditor({ draft, onChange, catalog, locked, issues, assetCount }: ContainersEditorProps) {
+export function ContainersEditor({ draft, onChange, catalog, locked, issues }: ContainersEditorProps) {
   const containers = draft.containers;
 
   function update(index: number, patch: Partial<ContainerRow>) {
@@ -153,15 +154,7 @@ export function ContainersEditor({ draft, onChange, catalog, locked, issues, ass
     <DetailCard>
       <DetailCardHeader title="컨테이너" />
 
-      {locked && (assetCount ?? 0) > 0 && (
-        <div className="flex items-center gap-2 rounded bg-warning-bg px-2 py-1.5">
-          <Badge status="warning">{assetCount}개 사용 중</Badge>
-          <span className="text-xs text-warning">
-            자산 {assetCount}개가 이 타입을 사용 중 — 구조(컨테이너·포트·링크)는 변경할 수 없습니다
-          </span>
-        </div>
-      )}
-
+      {/* 구조 잠금 안내는 페이지 레벨 배너(V2CatalogAdminPage 저장바)가 담당 — 여기서 중복 표시하지 않는다 */}
       {containers.length === 0 && !locked && (
         <p className="text-xs text-content-faint">컨테이너가 없습니다. + 추가로 등록하세요.</p>
       )}

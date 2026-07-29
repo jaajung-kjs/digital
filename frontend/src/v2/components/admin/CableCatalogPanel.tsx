@@ -39,7 +39,8 @@ function CableGroupRow({ group }: { group: V2CableGroup }) {
     setError(null);
     const installVal = parseFloat(editInstall);
     const removeVal = parseFloat(editRemove);
-    const laborTypeVal = editLaborType.trim() === '' ? undefined : editLaborType.trim();
+    // 빈 문자열 → null 전송 (백엔드의 명시적 clear 신호; undefined 는 기존값 유지)
+    const laborTypeVal = editLaborType.trim() === '' ? null : editLaborType.trim();
     try {
       await mutations.patchCableGroup.mutateAsync({
         id: group.id,
