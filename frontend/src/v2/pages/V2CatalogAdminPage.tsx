@@ -118,6 +118,24 @@ export default function V2CatalogAdminPage() {
     setSaveError(null);
   }
 
+  // ── 타입 삭제 ────────────────────────────────────────────────────────────
+  async function handleDeleteType() {
+    if (selectedTypeId == null) return;
+    if (!window.confirm('이 타입을 삭제하시겠습니까?')) return;
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await mutations.deleteType.mutateAsync(selectedTypeId);
+      setSelectedTypeId(null);
+      setDraft(null);
+    } catch (err: unknown) {
+      const apiErr = (err as { response?: { data?: { error?: string; message?: string } } }).response?.data;
+      setSaveError(apiErr?.message ?? '타입 삭제 실패');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   // ── 분류 관리 콜백 ────────────────────────────────────────────────────────
   function apiErrorMessage(err: unknown, fallback: string): string {
     const data = (err as { response?: { data?: { message?: string } } }).response?.data;
@@ -258,6 +276,11 @@ export default function V2CatalogAdminPage() {
                         {selectedTypeId == null ? '신규 타입' : (original?.name ?? '')}
                         {dirty && <span className="ml-1 text-warning">●</span>}
                       </span>
+                      {selectedTypeId != null && (
+                        <Button variant="ghost" size="sm" disabled={isSaving} onClick={() => void handleDeleteType()} className="text-danger hover:text-danger">
+                          타입 삭제
+                        </Button>
+                      )}
                       <Button variant="secondary" size="sm" disabled={!dirty || isSaving} onClick={handleCancel}>
                         취소
                       </Button>
