@@ -99,18 +99,15 @@ export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: T
 
         {/* 정렬 */}
         <DetailRow label="정렬">
-          <div className="flex flex-col gap-0.5">
-            <Input
-              aria-label="정렬"
-              type="number"
-              value={draft.sortOrder}
-              onChange={(e) => {
-                const val = parseInt(e.currentTarget.value, 10);
-                onChange({ sortOrder: isNaN(val) ? 0 : val });
-              }}
-            />
-            <FieldError message={issueFor(issues, 'sortOrder')} />
-          </div>
+          <Input
+            aria-label="정렬"
+            type="number"
+            value={draft.sortOrder}
+            onChange={(e) => {
+              const val = parseInt(e.currentTarget.value, 10);
+              onChange({ sortOrder: isNaN(val) ? 0 : val });
+            }}
+          />
         </DetailRow>
 
         {/* 활성 */}
