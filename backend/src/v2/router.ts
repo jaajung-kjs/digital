@@ -1,6 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { ZodError } from 'zod';
 import { HttpError } from './errors.js';
+import { authRouter } from './auth.routes.js';
 import { catalogRouter } from './catalog.routes.js';
 import { commitRouter } from './commit.routes.js';
 import { nodesRouter } from './nodes.routes.js';
@@ -14,6 +15,7 @@ v2Router.get('/health', (_req, res) => {
   res.json({ status: 'ok', model: 'v2' });
 });
 
+v2Router.use('/auth', authRouter);
 v2Router.use('/catalog', catalogRouter);
 v2Router.use('/', orgRouter);
 v2Router.use('/', workingcopyRouter);

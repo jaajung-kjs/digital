@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { adminOnly, authenticate } from '../middleware/auth.js';
+import { adminOnly, authenticate } from './auth.middleware.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import { branchCreateSchema, floorCreateSchema, idParamSchema, orgNameSchema, orgPatchSchema, substationCreateSchema } from './schemas.js';

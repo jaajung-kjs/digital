@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { adminOnly, authenticate } from '../middleware/auth.js';
+import { adminOnly, authenticate } from './auth.middleware.js';
 import { commitSubstation } from './commit.service.js';
 import { commitPayloadSchema } from './schemas.js';
 
