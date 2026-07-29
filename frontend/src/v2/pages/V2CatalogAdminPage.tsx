@@ -26,6 +26,7 @@ export default function V2CatalogAdminPage() {
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // 현재 선택된 원본 타입 (신규이면 null)
@@ -33,7 +34,7 @@ export default function V2CatalogAdminPage() {
     catalog?.types.find((t) => t.id === selectedTypeId) ?? null;
 
   // dirty 여부
-  const dirty = draft != null && original !== undefined ? isDraftDirty(draft, original) : false;
+  const dirty = draft != null ? isDraftDirty(draft, original) : false;
 
   // 이슈 목록 (저장 시도 또는 실시간 표시)
   const issues = draft != null && catalog != null ? draftIssues(draft, catalog) : [];
@@ -104,19 +105,40 @@ export default function V2CatalogAdminPage() {
   }
 
   // ── 분류 관리 콜백 ────────────────────────────────────────────────────────
+  // 서버 에러 메시지 추출 (DUPLICATE_KEY / CATEGORY_IN_USE / 403 등 — message 그대로 표시)
+  function apiErrorMessage(err: unknown, fallback: string): string {
+    const data = (err as { response?: { data?: { message?: string } } }).response?.data;
+    return data?.message ?? fallback;
+  }
+
   async function handleRenameCategory(cat: V2Category, newName: string) {
-    await mutations.patchCategory.mutateAsync({ id: cat.id, body: { name: newName } });
+    setCategoryError(null);
+    try {
+      await mutations.patchCategory.mutateAsync({ id: cat.id, body: { name: newName } });
+    } catch (err: unknown) {
+      setCategoryError(apiErrorMessage(err, '분류 이름 변경 실패'));
+    }
   }
 
   async function handleDeleteCategory(cat: V2Category) {
-    await mutations.deleteCategory.mutateAsync(cat.id);
+    setCategoryError(null);
+    try {
+      await mutations.deleteCategory.mutateAsync(cat.id);
+    } catch (err: unknown) {
+      setCategoryError(apiErrorMessage(err, '분류 삭제 실패'));
+    }
   }
 
   async function handleAddCategory() {
     const name = window.prompt('새 분류 이름을 입력하세요');
     if (!name?.trim()) return;
+    setCategoryError(null);
     const maxOrder = Math.max(0, ...(catalog?.categories.map((c) => c.sortOrder) ?? [0]));
-    await mutations.createCategory.mutateAsync({ name: name.trim(), key: name.trim(), sortOrder: maxOrder + 1 });
+    try {
+      await mutations.createCategory.mutateAsync({ name: name.trim(), key: name.trim(), sortOrder: maxOrder + 1 });
+    } catch (err: unknown) {
+      setCategoryError(apiErrorMessage(err, '분류 추가 실패'));
+    }
   }
 
   // ── 렌더 ─────────────────────────────────────────────────────────────────
@@ -128,7 +150,17 @@ export default function V2CatalogAdminPage() {
   }
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 flex-col">
+      {/* 분류 관리 오류 배너 (좌측 패널 액션의 서버 에러 — DUPLICATE_KEY/CATEGORY_IN_USE/403) */}
+      {categoryError != null && (
+        <div className="shrink-0 flex items-center gap-1 border-b border-line bg-surface px-4 py-1">
+          <span className="flex-1 text-xs text-danger">{categoryError}</span>
+          <IconButton aria-label="분류 오류 닫기" onClick={() => setCategoryError(null)}>
+            <X size={12} />
+          </IconButton>
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1">
       {/* ── 좌측 패널 ────────────────────────────────────────────────── */}
       <TypeListPanel
         catalog={catalog}
@@ -198,6 +230,7 @@ export default function V2CatalogAdminPage() {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

@@ -150,35 +150,29 @@ export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: T
         {draft.placeable && (
           <>
             <DetailRow label="기본 W">
-              <div className="flex flex-col gap-0.5">
-                <Input
-                  aria-label="기본 W"
-                  type="number"
-                  value={draft.defaultWidth ?? ''}
-                  onChange={(e) => {
-                    const raw = e.currentTarget.value;
-                    onChange({ defaultWidth: raw === '' ? null : parseInt(raw, 10) });
-                  }}
-                  placeholder="px"
-                />
-                <FieldError message={issueFor(issues, 'placement.defaultWidth')} />
-              </div>
+              <Input
+                aria-label="기본 W"
+                type="number"
+                value={draft.defaultWidth ?? ''}
+                onChange={(e) => {
+                  const raw = e.currentTarget.value;
+                  onChange({ defaultWidth: raw === '' ? null : parseInt(raw, 10) });
+                }}
+                placeholder="px"
+              />
             </DetailRow>
 
             <DetailRow label="기본 H">
-              <div className="flex flex-col gap-0.5">
-                <Input
-                  aria-label="기본 H"
-                  type="number"
-                  value={draft.defaultHeight ?? ''}
-                  onChange={(e) => {
-                    const raw = e.currentTarget.value;
-                    onChange({ defaultHeight: raw === '' ? null : parseInt(raw, 10) });
-                  }}
-                  placeholder="px"
-                />
-                <FieldError message={issueFor(issues, 'placement.defaultHeight')} />
-              </div>
+              <Input
+                aria-label="기본 H"
+                type="number"
+                value={draft.defaultHeight ?? ''}
+                onChange={(e) => {
+                  const raw = e.currentTarget.value;
+                  onChange({ defaultHeight: raw === '' ? null : parseInt(raw, 10) });
+                }}
+                placeholder="px"
+              />
             </DetailRow>
           </>
         )}
@@ -189,18 +183,15 @@ export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: T
         <DetailCardHeader title="공량" />
 
         <DetailRow label="노무유형">
-          <div className="flex flex-col gap-0.5">
-            <Input
-              aria-label="노무유형"
-              value={draft.laborType ?? ''}
-              onChange={(e) => {
-                const val = e.currentTarget.value;
-                onChange({ laborType: val === '' ? null : val });
-              }}
-              placeholder="예: 통신내선공"
-            />
-            <FieldError message={issueFor(issues, 'labor.laborType')} />
-          </div>
+          <Input
+            aria-label="노무유형"
+            value={draft.laborType ?? ''}
+            onChange={(e) => {
+              const val = e.currentTarget.value;
+              onChange({ laborType: val === '' ? null : val });
+            }}
+            placeholder="예: 통신내선공"
+          />
         </DetailRow>
 
         <DetailRow label="신설(h)">
