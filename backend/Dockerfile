@@ -13,8 +13,8 @@ COPY prisma ./prisma/
 # Install all dependencies (including dev for build)
 RUN npm install
 
-# Generate Prisma client
-RUN npx prisma generate
+# Generate Prisma client (next schema only)
+RUN npx prisma generate --schema prisma/next/schema.prisma
 
 # Copy source and build
 COPY . .
@@ -45,4 +45,4 @@ USER nodejs
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy --schema prisma/next/schema.prisma && npm run db:next:seed && node dist/index.js"]

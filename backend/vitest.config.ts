@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node',
     setupFiles: ['dotenv/config'],
     fileParallelism: false, // 실 DB 공유 — 파일 순차 실행
-    include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'prisma/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'prisma/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

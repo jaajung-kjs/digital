@@ -1,5 +1,4 @@
-import express from 'express';
-import { errorHandler } from '../../middleware/errorHandler.js';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import { signAccessToken } from '../jwt.js';
 import { v2Router } from '../router.js';
 
@@ -7,7 +6,12 @@ export function makeApp() {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
   app.use('/api/v2', v2Router);
-  app.use(errorHandler);
+  // Fallback 500 handler for errors passed via next(err) from v2Router
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('[test 500]', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: String(err) });
+  });
   return app;
 }
 
