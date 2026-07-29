@@ -5,6 +5,14 @@ const prisma = new PrismaClient();
 
 async function main() {
   const counts = await prisma.$transaction(async (tx) => {
+    // Stage 6 이후 카탈로그는 관리자 편집 대상(운영 데이터) — 빈 카탈로그일 때만 시드.
+    // (운영 데이터 원복 방지 원칙: 참조데이터 upsert 는 편집 UI 가 없던 Stage 5 까지의 정책)
+    const existing = await tx.assetType.count();
+    if (existing > 0) {
+      console.log('[seed:next] catalog already populated — skip');
+      return null;
+    }
+
     for (const c of SEED_CATEGORIES) {
       await tx.assetCategory.upsert({
         where: { key: c.key },
@@ -81,7 +89,9 @@ async function main() {
       cableCategories: await tx.cableCategory.count(),
     };
   }, { timeout: 30_000 });
-  console.log('[seed:next]', JSON.stringify(counts));
+  if (counts !== null) {
+    console.log('[seed:next]', JSON.stringify(counts));
+  }
 }
 
 main()
