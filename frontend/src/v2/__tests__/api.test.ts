@@ -1,8 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../../utils/api');
+vi.mock('../httpClient', () => ({
+  httpClient: {
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+  tokenStorage: {
+    getAccessToken: vi.fn(),
+    setAccessToken: vi.fn(),
+    getRefreshToken: vi.fn(),
+    setRefreshToken: vi.fn(),
+    clearTokens: vi.fn(),
+  },
+}));
 
-import { api } from '../../utils/api';
+import { httpClient as api } from '../httpClient';
 import {
   createOrgNode,
   deleteOrgNode,
@@ -18,8 +33,8 @@ import {
 
 describe('v2 api 경로', () => {
   it('catalog/workingcopy/nodes/commit 경로', async () => {
-    (api.get as any).mockResolvedValue({ data: {} });
-    (api.put as any).mockResolvedValue({ data: {} });
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
+    (api.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
 
     await fetchCatalog();
     expect(api.get).toHaveBeenCalledWith('/v2/catalog');
@@ -32,7 +47,7 @@ describe('v2 api 경로', () => {
   });
 
   it('searchAssets/fetchAssetPorts 경로', async () => {
-    (api.get as any).mockResolvedValue({ data: [] });
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: [] });
 
     await searchAssets('슬롯');
     expect(api.get).toHaveBeenCalledWith('/v2/search/assets', { params: { q: '슬롯' } });
@@ -41,10 +56,10 @@ describe('v2 api 경로', () => {
   });
 
   it('org-tree/org CRUD 경로', async () => {
-    (api.get as any).mockResolvedValue({ data: {} });
-    (api.post as any).mockResolvedValue({ data: {} });
-    (api.patch as any).mockResolvedValue({ data: {} });
-    (api.delete as any).mockResolvedValue({ data: {} });
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
+    (api.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
+    (api.patch as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
+    (api.delete as ReturnType<typeof vi.fn>).mockResolvedValue({ data: {} });
 
     await fetchOrgTree();
     expect(api.get).toHaveBeenCalledWith('/v2/org-tree');
