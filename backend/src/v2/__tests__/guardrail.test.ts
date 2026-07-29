@@ -249,3 +249,26 @@ describe('v2 가드레일 Stage 7 — 레거시 모델 필드 토큰 재도입 �
     }
   });
 });
+
+describe('v2 가드레일 §Minor-5 — 프론트엔드 자산타입 키 리터럴 대문자 비교 금지', () => {
+  /**
+   * frontend/src 비-테스트 소스에서 .key === 'UPPERCASE' 형태의 비교가 없어야 한다.
+   * 패턴: \.key\s*===\s*['"][A-Z][A-Z0-9-]*['"]
+   * 백엔드 가드레일과 달리 프론트엔드는 키보드 이벤트(e.key === 'Enter') 등에서
+   * .key 를 정당하게 사용하므로 .key\s*=== 전체 금지는 과잉이다.
+   * 대신 대문자 전용 패턴으로 자산 타입 키 직접 비교(예: type.key === 'RACK')만 차단한다.
+   *
+   * 현재 트리: 0매치 확인 완료(2026-07-29, Stage 7 Task 5 fix round).
+   */
+  it('frontend/src 비-테스트 소스에 .key === 대문자리터럴 자산타입 비교가 없다', () => {
+    // 대문자만으로 구성된(또는 대문자+숫자+하이픈) 키 리터럴 직접 비교 패턴
+    const pattern = /\.key\s*===\s*['"][A-Z][A-Z0-9-]*['"]/;
+
+    for (const f of srcFiles(frontendSrc, ['.ts', '.tsx'])) {
+      expect(
+        readFileSync(f, 'utf8'),
+        `${f}: .key === '대문자키' 직접 비교 감지 — 자산 타입 분기는 카탈로그 메타(isPlaceable 등)를 사용하세요 (§Minor-5)`,
+      ).not.toMatch(pattern);
+    }
+  });
+});

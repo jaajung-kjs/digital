@@ -1,3 +1,5 @@
+# C-3: build context must be repo root (.) to resolve @twin/core workspace dep
+
 # Build stage
 FROM node:20-alpine AS builder
 
@@ -6,19 +8,33 @@ WORKDIR /app
 # Install OpenSSL for Prisma
 RUN apk add --no-cache openssl
 
-# Copy package files
+# Copy root workspace files
 COPY package*.json ./
-COPY prisma ./prisma/
 
-# Install all dependencies (including dev for build)
-RUN npm install
+# Copy workspace package.jsons
+COPY packages/core/package.json ./packages/core/
+COPY backend/package.json ./backend/
+
+# Copy core source
+COPY packages/core/src ./packages/core/src
+COPY packages/core/tsconfig*.json ./packages/core/
+
+# Install all workspace dependencies
+RUN npm ci --workspaces --if-present
+
+# Build @twin/core first
+RUN npm run build -w @twin/core
 
 # Generate Prisma client (next schema only)
-RUN npx prisma generate --schema prisma/next/schema.prisma
+RUN npx prisma generate --schema backend/prisma/next/schema.prisma
 
-# Copy source and build
-COPY . .
-RUN npm run build
+# Copy backend source
+COPY backend/src ./backend/src
+COPY backend/tsconfig.json ./backend/
+COPY backend/prisma ./backend/prisma/
+
+# Build backend
+RUN npm run build -w ict-digital-twin-backend
 
 # Prune dev dependencies
 RUN npm prune --omit=dev
@@ -36,10 +52,13 @@ RUN apk add --no-cache openssl && \
 WORKDIR /app
 
 # Copy only necessary files from builder with correct ownership
-COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
+COPY --from=builder --chown=nodejs:nodejs /app/backend/package*.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nodejs:nodejs /app/backend/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/backend/prisma ./prisma
+# C-2: seed.ts imports ../../src/generated/next-client — copy so seed can run in prod image
+COPY --from=builder --chown=nodejs:nodejs /app/backend/src/generated ./src/generated
+COPY --from=builder --chown=nodejs:nodejs /app/packages ./packages
 
 USER nodejs
 

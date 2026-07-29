@@ -76,4 +76,27 @@ describe('V2LoginPage 제출', () => {
     });
     expect(mockNavigate).not.toHaveBeenCalled();
   });
+
+  it('axios 서버 응답 메시지(response.data.message)를 표시한다', async () => {
+    // AxiosError 덕타입 모킹 — isAxiosError duck-type 검사와 호환
+    const axiosError = {
+      isAxiosError: true,
+      message: 'Request failed with status code 401',
+      response: {
+        status: 401,
+        data: { message: '아이디 또는 비밀번호가 올바르지 않습니다.' },
+      },
+    };
+    mockLogin.mockRejectedValueOnce(axiosError);
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('아이디'), { target: { value: 'wrong' } });
+    fireEvent.change(screen.getByLabelText('비밀번호'), { target: { value: 'bad' } });
+    fireEvent.click(screen.getByRole('button', { name: /접속/ }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('아이디 또는 비밀번호가 올바르지 않습니다.');
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 });

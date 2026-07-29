@@ -22,8 +22,8 @@ services:
   backend:
     image: digital-backend:latest
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: ict-twin-backend
     restart: unless-stopped
     environment:
@@ -47,8 +47,8 @@ services:
   frontend:
     image: digital-frontend:latest
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: ict-twin-frontend
     restart: unless-stopped
     ports:

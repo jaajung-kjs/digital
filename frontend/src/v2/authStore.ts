@@ -7,6 +7,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { isAxiosError } from 'axios';
 import { httpClient, tokenStorage } from './httpClient';
 
 export interface V2User {
@@ -57,7 +58,12 @@ export const useV2AuthStore = create<AuthStore>()(
 
           set({ user: data.user, isAuthenticated: true, isLoading: false });
         } catch (err) {
-          const msg = err instanceof Error ? err.message : '로그인에 실패했습니다.';
+          const msg =
+            isAxiosError(err) && err.response?.data?.message
+              ? (err.response.data.message as string)
+              : err instanceof Error
+              ? err.message
+              : '로그인에 실패했습니다.';
           set({ isLoading: false, error: msg });
           throw err;
         }

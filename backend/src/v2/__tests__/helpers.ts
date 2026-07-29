@@ -1,6 +1,7 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { signAccessToken } from '../jwt.js';
 import { v2Router } from '../router.js';
+import { nextDb } from '../db.js';
 
 export function makeApp() {
   const app = express();
@@ -24,4 +25,42 @@ export function makeApp() {
 export function authHeader(role: 'ADMIN' | 'VIEWER' | 'admin' | 'viewer' = 'admin'): string {
   const normalizedRole = role.toLowerCase() as 'admin' | 'viewer';
   return `Bearer ${signAccessToken({ userId: 'test-user', username: 'tester', role: normalizedRole })}`;
+}
+
+/**
+ * 안정 prefix 기반 전체 스윕 — 과거 런 잔재까지 일괄 회수.
+ * 각 테스트 파일의 beforeAll/afterAll 에서 호출한다.
+ *
+ * nameStartsWith: 조직 계층·자산 이름 prefix (타임스탬프 없는 안정 prefix)
+ * keyStartsWith: 카탈로그 키 prefix (catalog.crud KEY_PREFIX 접두사)
+ */
+export async function sweepTestFixtures(): Promise<void> {
+  const nameStartsWith = ['t4-cb-', 't2a-', 't5-rc-'];
+  const keyStartsWith = ['TEST_'];
+
+  // 1. cables (substation name prefix 경유)
+  for (const p of nameStartsWith) {
+    try { await nextDb.cable.deleteMany({ where: { substation: { name: { startsWith: p } } } }); } catch { /* ignore */ }
+  }
+  // 2. catalog: assets by type key
+  for (const p of keyStartsWith) {
+    try { await nextDb.asset.deleteMany({ where: { type: { key: { startsWith: p } } } }); } catch { /* ignore */ }
+    try { await nextDb.assetLinkRule.deleteMany({ where: { type: { key: { startsWith: p } } } }); } catch { /* ignore */ }
+    try { await nextDb.assetPortTemplate.deleteMany({ where: { type: { key: { startsWith: p } } } }); } catch { /* ignore */ }
+    try { await nextDb.assetContainerSpec.deleteMany({ where: { type: { key: { startsWith: p } } } }); } catch { /* ignore */ }
+    try { await nextDb.assetType.deleteMany({ where: { key: { startsWith: p } } }); } catch { /* ignore */ }
+    try { await nextDb.assetCategory.deleteMany({ where: { key: { startsWith: p } } }); } catch { /* ignore */ }
+  }
+  // 3. assets by name prefix (children first)
+  for (const p of nameStartsWith) {
+    try { await nextDb.asset.deleteMany({ where: { name: { startsWith: p }, parentAssetId: { not: null } } }); } catch { /* ignore */ }
+    try { await nextDb.asset.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
+  }
+  // 4. floors, substations, branches, headquarters
+  for (const p of nameStartsWith) {
+    try { await nextDb.floor.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
+    try { await nextDb.substation.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
+    try { await nextDb.branch.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
+    try { await nextDb.headquarters.deleteMany({ where: { name: { startsWith: p } } }); } catch { /* ignore */ }
+  }
 }

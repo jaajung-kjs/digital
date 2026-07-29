@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { authHeader, makeApp } from './helpers.js';
+import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-rn-${Date.now()}`;
@@ -10,6 +10,7 @@ const admin = { Authorization: authHeader('ADMIN') };
 let hqId: string, brId: string, subId: string, sub2Id: string, a1Id: string;
 
 beforeAll(async () => {
+  await sweepTestFixtures();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   hqId = hq.id;
   const br = await nextDb.branch.create({ data: { name: `${uniq}-br`, headquartersId: hq.id } });
@@ -24,10 +25,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await nextDb.asset.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.substation.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.branch.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.headquarters.deleteMany({ where: { name: { startsWith: uniq } } });
+  await sweepTestFixtures();
   await nextDb.$disconnect();
 });
 

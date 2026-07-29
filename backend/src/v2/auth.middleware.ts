@@ -36,7 +36,7 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
 /**
  * 관리자 역할 목록.
  * 인증 계층의 권한 게이트는 도메인 role 분기 금지 대상이 아니며,
- * Task 5에서 가드레일에 auth 계층 예외를 명시 예정.
+ * Task 5에서 가드레일에 auth 계층 예외가 명시됨(guardrail.test.ts JSDoc).
  */
 const ADMIN_ROLES = ['admin'] as const;
 

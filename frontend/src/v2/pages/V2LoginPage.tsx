@@ -21,8 +21,13 @@ export function V2LoginPage() {
       await login({ username, password });
       navigate('/', { replace: true });
     } catch (err: unknown) {
+      const axiosErr = err as { isAxiosError?: boolean; response?: { data?: { message?: string } } };
       const msg =
-        err instanceof Error ? err.message : '로그인에 실패했습니다.';
+        axiosErr?.isAxiosError && axiosErr.response?.data?.message
+          ? axiosErr.response.data.message
+          : err instanceof Error
+          ? err.message
+          : '로그인에 실패했습니다.';
       setLocalError(msg);
     } finally {
       setSubmitting(false);

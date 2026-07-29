@@ -10,6 +10,15 @@ const REFRESH_SECRET =
 const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN ?? '1h';
 const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN ?? '7d';
 
+// Fail-fast: 프로덕션 환경에서 시크릿 미설정 시 즉시 종료
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.JWT_ACCESS_SECRET || !process.env.JWT_REFRESH_SECRET) {
+    throw new Error(
+      '[v2/jwt] 프로덕션에서는 JWT_ACCESS_SECRET 과 JWT_REFRESH_SECRET 환경 변수를 반드시 설정해야 합니다.',
+    );
+  }
+}
+
 // ── 페이로드 타입 (구 utils/jwt.ts 와 동일 필드 — 토큰 호환) ─────────────
 export interface AccessTokenPayload {
   userId: string;
