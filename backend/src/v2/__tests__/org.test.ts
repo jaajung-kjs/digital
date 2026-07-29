@@ -1,7 +1,7 @@
 import request from 'supertest';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { authHeader, makeApp } from './helpers.js';
+import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-org-${Date.now()}`;
@@ -10,12 +10,12 @@ const admin = { Authorization: authHeader('ADMIN') };
 describe('org CRUD + tree', () => {
   let hqId: string, brId: string, subId: string, floorId: string;
 
+  beforeAll(async () => {
+    await sweepTestFixtures();
+  });
+
   afterAll(async () => {
-    // 자식부터 정리 (실패해도 무시 — 테스트 중 이미 삭제된 경우)
-    await nextDb.floor.deleteMany({ where: { name: { startsWith: uniq } } });
-    await nextDb.substation.deleteMany({ where: { name: { startsWith: uniq } } });
-    await nextDb.branch.deleteMany({ where: { name: { startsWith: uniq } } });
-    await nextDb.headquarters.deleteMany({ where: { name: { startsWith: uniq } } });
+    await sweepTestFixtures();
     await nextDb.$disconnect();
   });
 

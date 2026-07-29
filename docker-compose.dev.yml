@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres123}
-      POSTGRES_DB: ${DB_NAME:-ict_digital_twin}
+      POSTGRES_DB: ${DB_NAME:-digital_next}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:

@@ -1,28 +1,47 @@
+# C-3: build context must be repo root (.) to resolve @twin/core workspace dep
+
 # Build stage
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy root workspace files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Copy workspace package.jsons
+COPY packages/core/package.json ./packages/core/
+COPY frontend/package.json ./frontend/
 
-# Copy source
-COPY . .
+# Copy core source
+COPY packages/core/src ./packages/core/src
+COPY packages/core/tsconfig*.json ./packages/core/
 
-# Build
-RUN npm run build
+# Install all workspace dependencies
+RUN npm ci --workspaces --if-present
+
+# Build @twin/core first
+RUN npm run build -w @twin/core
+
+# Copy frontend source
+COPY frontend/src ./frontend/src
+COPY frontend/index.html ./frontend/
+COPY frontend/vite.config.ts ./frontend/
+COPY frontend/tsconfig*.json ./frontend/
+# F-1: postcss/tailwind 설정이 없으면 vite build 가 조용히 성공하되 Tailwind 를
+#      전혀 돌리지 않아 무스타일 번들이 나온다 — 반드시 함께 복사.
+COPY frontend/postcss.config.js frontend/tailwind.config.js ./frontend/
+
+# Build frontend
+RUN npm run build -w ict-digital-twin-frontend
 
 # Production stage
 FROM nginx:alpine AS production
 
 # Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built files
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 
 # Create non-root user
 RUN chown -R nginx:nginx /usr/share/nginx/html && \

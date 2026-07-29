@@ -1,19 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { authHeader, makeApp } from './helpers.js';
+import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-smoke-${Date.now()}`;
 const admin = { Authorization: authHeader('ADMIN') };
 
+beforeAll(async () => {
+  await sweepTestFixtures();
+});
+
 afterAll(async () => {
-  await nextDb.asset.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.floor.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.substation.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.branch.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.headquarters.deleteMany({ where: { name: { startsWith: uniq } } });
+  await sweepTestFixtures();
   await nextDb.$disconnect();
 });
 

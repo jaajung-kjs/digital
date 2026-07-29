@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate } from './auth.middleware.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
 

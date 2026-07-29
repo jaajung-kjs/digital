@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { authHeader, makeApp } from './helpers.js';
+import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-wc-${Date.now()}`;
@@ -9,6 +9,7 @@ const admin = { Authorization: authHeader('ADMIN') };
 let subId: string, floorId: string, assetId: string;
 
 beforeAll(async () => {
+  await sweepTestFixtures();
   const hq = await nextDb.headquarters.create({ data: { name: `${uniq}-hq` } });
   const br = await nextDb.branch.create({ data: { name: `${uniq}-br`, headquartersId: hq.id } });
   const sub = await nextDb.substation.create({ data: { name: `${uniq}-ss`, branchId: br.id } });
@@ -24,11 +25,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await nextDb.asset.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.floor.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.substation.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.branch.deleteMany({ where: { name: { startsWith: uniq } } });
-  await nextDb.headquarters.deleteMany({ where: { name: { startsWith: uniq } } });
+  await sweepTestFixtures();
   await nextDb.$disconnect();
 });
 

@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { SEED_ASSET_TYPES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES } from '@twin/core';
 import { PrismaClient } from '../../src/generated/next-client/index.js';
 
@@ -5,6 +6,18 @@ const prisma = new PrismaClient();
 
 async function main() {
   const counts = await prisma.$transaction(async (tx) => {
+    // ── Admin 시드 — 카탈로그 skip 여부와 독립(User 수만 검사) ──────────────
+    const userCount = await tx.user.count();
+    if (userCount === 0) {
+      const passwordHash = await bcrypt.hash('admin123', 10);
+      await tx.user.create({
+        data: { username: 'admin', passwordHash, role: 'admin' },
+      });
+      console.log('[seed:next] admin user created');
+    } else {
+      console.log('[seed:next] users already exist — skip admin seed');
+    }
+
     // Stage 6 이후 카탈로그는 관리자 편집 대상(운영 데이터) — 빈 카탈로그일 때만 시드.
     // (운영 데이터 원복 방지 원칙: 참조데이터 upsert 는 편집 UI 가 없던 Stage 5 까지의 정책)
     const existing = await tx.assetType.count();

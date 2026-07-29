@@ -83,3 +83,7 @@ verify-*.png
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# tsc -b(tsconfig.node.json composite) 산출물 — vite 가 .js 를 .ts 보다 우선 로드하므로 추적 금지
+frontend/vite.config.js
+frontend/vite.config.d.ts

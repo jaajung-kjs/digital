@@ -1,7 +1,7 @@
 import { validateTypeSpec } from '@twin/core';
 import type { AssetTypeSpec } from '@twin/core';
 import { Router } from 'express';
-import { authenticate, adminOnly } from '../middleware/auth.js';
+import { authenticate, adminOnly } from './auth.middleware.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import {

@@ -1,4 +1,4 @@
-import { api } from '../utils/api';
+import { httpClient as api } from './httpClient';
 import type { TypeUpsertBody, V2Catalog, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
