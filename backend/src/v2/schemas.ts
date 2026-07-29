@@ -55,6 +55,67 @@ export const cablePatchSchema = z.object({
   specParams: z.record(z.unknown()).optional(),
 });
 
+// ---------- 카탈로그 관리 (Stage 6) ----------
+const keyRe = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+export const fieldDefSchema = z.object({
+  key: z.string().trim().min(1),
+  label: z.string().trim().min(1),
+  type: z.enum(['text', 'number', 'date', 'select']),
+  unit: z.string().optional(),
+  options: z.array(z.string()).optional(),
+});
+export const containerSpecBodySchema = z.object({
+  key: z.string().regex(keyRe),
+  name: z.string().trim().min(1),
+  slotCount: z.number().int().min(1).nullable(),
+  allowSpan: z.boolean(),
+  accepts: z.object({
+    categoryKeys: z.array(z.string()).optional(),
+    typeKeys: z.array(z.string()).optional(),
+  }),
+});
+export const portTemplateBodySchema = z.object({
+  group: z.string().regex(keyRe),
+  count: z.number().int().min(1),
+  direction: z.enum(['IN', 'OUT', 'BI']),
+  medium: z.string().min(1),
+  namePattern: z.string().min(1),
+});
+export const linkRuleBodySchema = z.object({
+  fromGroup: z.string().min(1),
+  toGroup: z.string().min(1),
+  mapping: z.enum(['byIndex', 'all']),
+});
+export const typeUpsertSchema = z.object({
+  key: z.string().regex(keyRe),
+  name: z.string().trim().min(1),
+  categoryId: z.string().uuid(),
+  sortOrder: z.number().int(),
+  isActive: z.boolean(),
+  placeable: z.boolean(),
+  defaultWidth: z.number().positive().nullable(),
+  defaultHeight: z.number().positive().nullable(),
+  laborType: z.string().trim().min(1).nullable(),
+  installHours: z.number().min(0),
+  removeHours: z.number().min(0),
+  relocateHours: z.number().min(0),
+  fieldDefs: z.array(fieldDefSchema),
+  containers: z.array(containerSpecBodySchema),
+  ports: z.array(portTemplateBodySchema),
+  links: z.array(linkRuleBodySchema),
+});
+export const categoryCreateSchema = z.object({ key: z.string().min(1), name: z.string().trim().min(1), sortOrder: z.number().int() });
+export const categoryPatchSchema = z.object({ name: z.string().trim().min(1).optional(), sortOrder: z.number().int().optional() });
+export const cableGroupPatchSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  color: z.string().min(1).optional(),
+  laborType: z.string().trim().min(1).nullable().optional(),
+  installHoursPerM: z.number().min(0).optional(),
+  removeHoursPerM: z.number().min(0).optional(),
+});
+export const cableCategoryCreateSchema = z.object({ groupId: z.string().uuid(), name: z.string().trim().min(1), sortOrder: z.number().int() });
+export const cableCategoryPatchSchema = z.object({ name: z.string().trim().min(1).optional(), sortOrder: z.number().int().optional() });
+
 export const commitPayloadSchema = z.object({
   assets: z
     .object({

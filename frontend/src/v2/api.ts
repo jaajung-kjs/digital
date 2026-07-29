@@ -1,5 +1,5 @@
 import { api } from '../utils/api';
-import type { V2Catalog, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+import type { TypeUpsertBody, V2Catalog, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
 
@@ -35,4 +35,47 @@ export async function patchOrgNode(kind: OrgKind, id: string, body: { name?: str
 }
 export async function deleteOrgNode(kind: OrgKind, id: string) {
   return (await api.delete(`/v2/org/${kind}/${id}`)).data;
+}
+
+// ── 카탈로그 어드민 API ────────────────────────────────────────────────────────
+
+// 타입
+export async function createType(body: TypeUpsertBody): Promise<{ id: string }> {
+  return (await api.post('/v2/catalog/types', body)).data;
+}
+export async function updateType(id: string, body: TypeUpsertBody): Promise<void> {
+  await api.put(`/v2/catalog/types/${id}`, body);
+}
+export async function deleteType(id: string): Promise<void> {
+  await api.delete(`/v2/catalog/types/${id}`);
+}
+
+// 분류(category)
+export async function createCategory(body: { key: string; name: string; sortOrder: number }): Promise<{ id: string }> {
+  return (await api.post('/v2/catalog/categories', body)).data;
+}
+export async function patchCategory(id: string, body: { name?: string; sortOrder?: number }): Promise<void> {
+  await api.patch(`/v2/catalog/categories/${id}`, body);
+}
+export async function deleteCategory(id: string): Promise<void> {
+  await api.delete(`/v2/catalog/categories/${id}`);
+}
+
+// 케이블 그룹
+export async function patchCableGroup(
+  id: string,
+  body: { name?: string; color?: string; laborType?: string | null; installHoursPerM?: number; removeHoursPerM?: number },
+): Promise<void> {
+  await api.patch(`/v2/catalog/cable-groups/${id}`, body);
+}
+
+// 케이블 분류(cable-category)
+export async function createCableCategory(body: { groupId: string; name: string; sortOrder: number }): Promise<{ id: string }> {
+  return (await api.post('/v2/catalog/cable-categories', body)).data;
+}
+export async function patchCableCategory(id: string, body: { name?: string; sortOrder?: number }): Promise<void> {
+  await api.patch(`/v2/catalog/cable-categories/${id}`, body);
+}
+export async function deleteCableCategory(id: string): Promise<void> {
+  await api.delete(`/v2/catalog/cable-categories/${id}`);
 }

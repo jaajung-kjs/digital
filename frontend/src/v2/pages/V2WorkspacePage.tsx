@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { Button } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
@@ -116,6 +117,13 @@ export default function V2WorkspacePage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* 상단 앱 내비게이션 */}
+      <div className="shrink-0 flex items-center gap-4 border-b border-line bg-surface px-4 py-2">
+        <span className="text-sm font-semibold text-content">V2 워크스페이스</span>
+        <Link to="/v2/catalog" className="text-sm text-content-muted hover:text-primary transition-colors">
+          자산 카탈로그
+        </Link>
+      </div>
       <div className="flex min-h-0 flex-1">
         <aside className="w-64 shrink-0 border-r border-line bg-sidebar" data-testid="v2-org-tree">
           <OrgTreePanel selectedId={selected?.id ?? null} onSelect={handleSelect} />

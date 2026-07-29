@@ -9,6 +9,7 @@ import { WorkspacePage } from './pages/WorkspacePage';
 import { FloorPlanEditorPage } from './pages/FloorPlanEditorPage';
 import { AssetManagementPage } from './features/catalog/AssetManagementPage';
 import V2WorkspacePage from './v2/pages/V2WorkspacePage';
+import V2CatalogAdminPage from './v2/pages/V2CatalogAdminPage';
 import { queryClient } from './lib/queryClient';
 
 function AppContent() {
@@ -44,6 +45,7 @@ function AppContent() {
         <Route path="/floors/:floorId/plan" element={<FloorPlanEditorPage />} />
         <Route path="/asset-management" element={<AssetManagementPage />} />
         <Route path="/v2" element={<V2WorkspacePage />} />
+        <Route path="/v2/catalog" element={<V2CatalogAdminPage />} />
       </Route>
 
       {/* Catch all */}

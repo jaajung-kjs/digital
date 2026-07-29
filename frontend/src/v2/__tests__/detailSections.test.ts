@@ -3,7 +3,7 @@ import type { V2AssetType } from '../types';
 import { deriveDetailSections } from '../components/detailSections';
 
 const base: V2AssetType = {
-  id: 't', key: 'X', name: 'X', categoryId: 'c', sortOrder: 1, isActive: true,
+  id: 't', key: 'X', name: 'X', categoryId: 'c', sortOrder: 1, isActive: true, assetCount: 0,
   placeable: false, defaultWidth: null, defaultHeight: null,
   laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
   fieldDefs: [{ key: 'installDate', label: '설치일', type: 'date' }],
