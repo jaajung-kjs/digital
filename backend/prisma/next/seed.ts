@@ -52,7 +52,7 @@ async function main() {
       }
       for (const [i, p] of t.ports.entries()) {
         await tx.assetPortTemplate.create({
-          data: { typeId: type.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, sortOrder: i },
+          data: { typeId: type.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
         });
       }
       for (const l of t.links) {
