@@ -14,7 +14,7 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
-import type { V2Asset, V2Cable, V2Port } from '../types';
+import type { V2Cable, V2Port } from '../types';
 
 interface ConnectionsTabProps {
   assetId: string;
@@ -47,29 +47,8 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
   }, [effectiveCables]);
 
   // portId → { port, asset } 인덱스 — buildPortIndex 공유 헬퍼 (B-V1 시정)
+  // hopText·peer 해소 모두 여기서 조회 — 수제 portById/assetByPortId 맵 제거(M-1 시정)
   const portIndex = useMemo(() => buildPortIndex(effectiveAssets), [effectiveAssets]);
-
-  // portId → port 역매핑 (hopText용)
-  const portById = useMemo(() => {
-    const map = new Map<string, V2Port>();
-    for (const a of effectiveAssets) {
-      for (const p of a.ports) {
-        map.set(p.id, p);
-      }
-    }
-    return map;
-  }, [effectiveAssets]);
-
-  // portId → asset 역매핑 (hopText용)
-  const assetByPortId = useMemo(() => {
-    const map = new Map<string, V2Asset>();
-    for (const a of effectiveAssets) {
-      for (const p of a.ports) {
-        map.set(p.id, a);
-      }
-    }
-    return map;
-  }, [effectiveAssets]);
 
   // 포트를 그룹별로 묶기 (early return 위 — 훅 순서 보장; asset 미해소 시 빈 Map)
   const assetPorts = asset?.ports;
@@ -87,17 +66,15 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
     return map;
   }, [assetPorts]);
 
-  // hop → 표시용 텍스트
+  // hop → 표시용 텍스트 (portIndex 단일 조회 — portById/assetByPortId 수제 맵 제거)
   function hopText(hop: import('../traceSelectors').TraceResult['hops'][number]): string {
     if (hop.kind === 'internal') {
       return '↔ 내부';
     }
-    // cable hop: toPort의 asset명 + port명
-    const toPort = portById.get(hop.toPortId);
-    if (toPort) {
-      const toAsset = assetByPortId.get(hop.toPortId);
-      const assetName = toAsset ? toAsset.name : '—';
-      return `${assetName} · ${toPort.name}`;
+    // cable hop: portIndex에서 toPort의 asset명 + port명 조회
+    const entry = portIndex.get(hop.toPortId);
+    if (entry) {
+      return `${entry.asset.name} · ${entry.port.name}`;
     }
     // 로컬 미해소 포트 — 해당 케이블 saved refs로 표기 (끝점 자신의 ref — endpointRef 한 곳 규칙)
     const cableEntry = cableByPortId.get(hop.toPortId);

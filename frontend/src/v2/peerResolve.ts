@@ -43,6 +43,29 @@ export function endpointRef(
 }
 
 /**
+ * 케이블 끝점 이름 해소 — 한 곳 규칙.
+ *
+ * portId에 해당하는 끝점의 이름을 반환한다:
+ *   1. portIndex에서 asset.name 조회 (로컬 effective)
+ *   2. 해당 끝점의 saved ref assetName (endpointRef 경유 — aRef/bRef 접근 단일화)
+ *   3. fallback 문자열
+ *
+ * 용도: 삭제된 케이블처럼 portIndex에서 미해소인 끝점의 이름을 report 등에서 참조할 때.
+ */
+export function cableEndpointName(
+  cable: Pick<V2Cable, 'aPortId' | 'bPortId' | 'aRef' | 'bRef'>,
+  portId: string,
+  portIndex: PortIndex,
+  fallback = '?',
+): string {
+  const entry = portIndex.get(portId);
+  if (entry) return entry.asset.name;
+  const ref = endpointRef(cable, portId);
+  if (ref) return ref.assetName;
+  return fallback;
+}
+
+/**
  * 3단 peer 해소 (fiber/power 공통 규칙):
  * 1. 로컬 effective: portIndex에서 반대편 포트 조회
  * 2. saved refs: cable.aRef/bRef 폴백 (remote = 다른 변전소 여부)

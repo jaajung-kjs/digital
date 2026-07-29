@@ -1,6 +1,7 @@
 import { assetReportItem, cableReportItem, PLACEMENT_FIELDS } from '@twin/core';
 import type { ReportItem } from '@twin/core';
 import { mergeEffective } from './store/overlay';
+import { buildPortIndex, cableEndpointName } from './peerResolve';
 import type { V2Asset, V2AssetType, V2Cable, V2CableGroup, V2InspectionLog, V2MaintenanceLog } from './types';
 import type { Overlay } from './store/overlay';
 
@@ -52,15 +53,9 @@ export function buildReportItems(args: {
 
   // effective assets: mergeEffective 단일 구현 사용 (B-V2 시정: 수제 병합 제거)
   const effectiveAssets = mergeEffective(saved.assets, overlays.assets);
-  const effectiveAssetsById = new Map(effectiveAssets.map((a) => [a.id, a]));
 
-  // portId → assetName 매핑 (effective)
-  const assetNameByPortId = new Map<string, string>();
-  for (const asset of effectiveAssetsById.values()) {
-    for (const port of asset.ports) {
-      assetNameByPortId.set(port.id, asset.name);
-    }
-  }
+  // portId → { port, asset } 인덱스 — buildPortIndex 공유 헬퍼 (aRef/bRef 접근은 cableEndpointName 경유)
+  const portIndex = buildPortIndex(effectiveAssets);
 
   const items: ReportItem[] = [];
 
@@ -118,9 +113,9 @@ export function buildReportItems(args: {
       items.push(unresolvedCableItem('cable-install', '케이블'));
       continue;
     }
-    // 이름 = "자산A↔자산B" (effective assets에서 포트 소유 해소)
-    const aName = assetNameByPortId.get(cable.aPortId);
-    const bName = assetNameByPortId.get(cable.bPortId);
+    // 이름 = "자산A↔자산B" (effective assets에서 포트 소유 해소 — cableEndpointName 한 곳 규칙)
+    const aName = portIndex.get(cable.aPortId)?.asset.name;
+    const bName = portIndex.get(cable.bPortId)?.asset.name;
     const name = aName && bName ? `${aName}↔${bName}` : '케이블';
     const lengthM = typeof (cable.specParams as Record<string, unknown>).lengthM === 'number'
       ? (cable.specParams as Record<string, unknown>).lengthM as number
@@ -146,9 +141,9 @@ export function buildReportItems(args: {
       items.push(unresolvedCableItem('cable-remove', cable.name ?? '케이블'));
       continue;
     }
-    // saved cables에서 refs 이름 해소
-    const aName = cable.aRef?.assetName ?? assetNameByPortId.get(cable.aPortId);
-    const bName = cable.bRef?.assetName ?? assetNameByPortId.get(cable.bPortId);
+    // saved cables에서 refs 이름 해소 — cableEndpointName 한 곳 규칙 (aRef/bRef 직접 접근 금지)
+    const aName = cableEndpointName(cable, cable.aPortId, portIndex);
+    const bName = cableEndpointName(cable, cable.bPortId, portIndex);
     const name = cable.name ?? (aName && bName ? `${aName}↔${bName}` : '케이블');
     const lengthM = typeof (cable.specParams as Record<string, unknown>).lengthM === 'number'
       ? (cable.specParams as Record<string, unknown>).lengthM as number
