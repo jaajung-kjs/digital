@@ -20,7 +20,6 @@ interface TypeBasicsFormProps {
   catalog: V2Catalog;
   onChange: (patch: Partial<TypeDraft>) => void;
   issues: TypeSpecIssue[];
-  locked: boolean;
 }
 
 /** path에 해당하는 첫 번째 이슈 메시지 (없으면 null) */

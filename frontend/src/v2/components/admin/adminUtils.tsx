@@ -7,9 +7,3 @@ import type { TypeSpecIssue } from '@twin/core';
 export function issueFor(issues: TypeSpecIssue[], path: string): string | null {
   return issues.find((i) => i.path === path)?.message ?? null;
 }
-
-/** 필드 하단 에러 메시지 — text-xs text-danger */
-export function FieldError({ message }: { message: string | null }) {
-  if (!message) return null;
-  return <span className="text-xs text-danger">{message}</span>;
-}

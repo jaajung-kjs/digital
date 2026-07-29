@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SEED_ASSET_TYPES, PLACEMENT_FIELDS } from '@twin/core';
 
@@ -28,17 +28,15 @@ describe('v2 가드레일 — 타입명/역할 분기 금지', () => {
 });
 
 describe('v2 가드레일 — PLACEMENT_FIELDS 리터럴 재정의 금지', () => {
-  it('backend/src/v2 소스(테스트 제외)에 배치 필드명 9개 전체를 나열한 로컬 배열/집합 리터럴이 없다', () => {
-    // PLACEMENT_FIELDS 가 @twin/core 에서 import 되는 곳(commit.service.ts)은
-    // 필드명 리터럴 열거가 없어야 한다. 9개 중 임의 3개 이상을 쉼표 구분으로 나열한 패턴을 탐지.
-    // R-3 에서 frontend/src/v2 로 범위가 확장된다(reportSelectors.ts 이관 후).
-    const v2dir = dirname(dirname(fileURLToPath(import.meta.url))); // backend/src/v2
-    const files = walk(v2dir).filter((f) => f.endsWith('.ts') && !f.includes('__tests__'));
+  function checkDir(v2dir: string, ext: string) {
+    const files = walk(v2dir).filter((f) => f.endsWith(ext) && !f.includes('__tests__'));
 
-    // 9개 필드 중 4개 이상이 하나의 파일에서 리터럴 문자열로 등장하면 재정의 의심.
+    // 9개 필드 중 5개 이상이 하나의 파일에서 리터럴 문자열로 등장하면 재정의 의심.
     // (import 선언의 { PLACEMENT_FIELDS } 나 런타임 사용 시 변수명은 통과 — 리터럴 따옴표 포함 형태만 검사)
+    // 임계값 5: x/y/width/height를 TypeScript Pick 타입 인수로 쓰는 canvas 파일(4개)은 허용.
+    // 진짜 재정의(5개+)는 포착.
     const fieldLiterals = PLACEMENT_FIELDS.map((f) => `["'\`]${f}["'\`]`);
-    const threshold = 4; // 4개 이상 문자열 리터럴 = 재정의 의심
+    const threshold = 5; // 5개 이상 문자열 리터럴 = 재정의 의심
 
     for (const file of files) {
       const src = readFileSync(file, 'utf8');
@@ -48,5 +46,22 @@ describe('v2 가드레일 — PLACEMENT_FIELDS 리터럴 재정의 금지', () =
         `${file}: PLACEMENT_FIELDS 리터럴 ${hits.length}개 발견(재정의 의심) — @twin/core PLACEMENT_FIELDS 를 import하세요`,
       ).toBeLessThan(threshold);
     }
+  }
+
+  it('backend/src/v2 소스(테스트 제외)에 배치 필드명 9개 전체를 나열한 로컬 배열/집합 리터럴이 없다', () => {
+    // PLACEMENT_FIELDS 가 @twin/core 에서 import 되는 곳(commit.service.ts)은
+    // 필드명 리터럴 열거가 없어야 한다. 9개 중 임의 5개 이상을 나열한 패턴을 탐지.
+    const v2dir = dirname(dirname(fileURLToPath(import.meta.url))); // backend/src/v2
+    checkDir(v2dir, '.ts');
+  });
+
+  it('frontend/src/v2 소스(테스트 제외)에 배치 필드명 로컬 배열/집합 리터럴이 없다 (R-3 범위 확장)', () => {
+    // reportSelectors.ts 가 @twin/core PLACEMENT_FIELDS 를 import 한 이후,
+    // frontend/src/v2 전체에서도 리터럴 재정의가 없어야 한다.
+    const backendSrc = dirname(dirname(fileURLToPath(import.meta.url))); // backend/src/v2
+    // backend/src/v2 → ../../.. → project root → frontend/src/v2
+    const fev2dir = resolve(backendSrc, '..', '..', '..', 'frontend', 'src', 'v2');
+    checkDir(fev2dir, '.ts');
+    checkDir(fev2dir, '.tsx');
   });
 });

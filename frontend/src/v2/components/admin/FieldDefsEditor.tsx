@@ -12,14 +12,12 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { TypeSpecIssue } from '@twin/core';
 import type { FieldDef } from '@twin/core';
 import { DetailCard, DetailCardHeader, Input, Select, IconButton } from '../../../components/ui';
-import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
 
 interface FieldDefsEditorProps {
   draft: TypeDraft;
   onChange: (patch: Partial<TypeDraft>) => void;
-  catalog: V2Catalog;
   locked: boolean;
   issues: TypeSpecIssue[];
 }

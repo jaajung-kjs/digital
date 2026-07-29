@@ -1,6 +1,6 @@
 /**
  * PortsEditor — 포트 템플릿 편집
- * group / count / direction(IN·OUT·BI) / medium(cableGroups key) / namePattern
+ * group / count / direction(IN·OUT·BI) / medium(cableGroups key) / namePattern / lineSide(선로측)
  *
  * 구조 잠금(locked=true): 모든 입력 disabled
  */
@@ -18,6 +18,7 @@ interface PortRow {
   direction: Direction;
   medium: string;
   namePattern: string;
+  lineSide?: boolean;
 }
 
 interface PortsEditorProps {
@@ -74,6 +75,7 @@ export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsE
         const dirIssue = issueFor(issues, `ports[${i}].direction`);
         const mediumIssue = issueFor(issues, `ports[${i}].medium`);
         const patternIssue = issueFor(issues, `ports[${i}].namePattern`);
+        const lineSideIssue = issueFor(issues, `ports[${i}].lineSide`);
 
         return (
           <div key={i} className="rounded border border-line bg-surface-2 p-2 space-y-1.5">
@@ -187,6 +189,26 @@ export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsE
                 {p.count > 1 && !p.namePattern.includes('{n}') && !patternIssue && (
                   <span className="text-xs text-content-faint">수량이 2 이상이면 &#123;n&#125; 이 필요합니다</span>
                 )}
+              </div>
+            </div>
+
+            {/* lineSide (선로측) */}
+            <div className="flex items-center gap-2">
+              <span className="w-16 shrink-0 text-xs text-content-muted">선로측</span>
+              <div className="flex flex-1 flex-col gap-0.5">
+                <label className="flex items-center gap-2 text-xs text-content">
+                  <input
+                    type="checkbox"
+                    aria-label={`포트 ${i + 1} 선로측`}
+                    checked={p.lineSide ?? false}
+                    disabled={locked}
+                    onChange={(e) => {
+                      update(i, { lineSide: e.currentTarget.checked });
+                    }}
+                  />
+                  선로측 (meta 기록 대상)
+                </label>
+                {lineSideIssue && <span className="text-xs text-danger">{lineSideIssue}</span>}
               </div>
             </div>
           </div>

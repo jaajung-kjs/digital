@@ -37,12 +37,13 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
       allowSpan,
       accepts: { ...accepts },
     })),
-    ports: t.portTemplates.map(({ group, count, direction, medium, namePattern }) => ({
+    ports: t.portTemplates.map(({ group, count, direction, medium, namePattern, lineSide }) => ({
       group,
       count,
       direction,
       medium,
       namePattern,
+      ...(lineSide ? { lineSide: true } : {}),
     })),
     links: t.linkRules.map(({ fromGroup, toGroup, mapping }) => ({
       fromGroup,
