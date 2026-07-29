@@ -80,6 +80,7 @@ export const portTemplateBodySchema = z.object({
   direction: z.enum(['IN', 'OUT', 'BI']),
   medium: z.string().min(1),
   namePattern: z.string().min(1),
+  lineSide: z.boolean().optional(),
 });
 export const linkRuleBodySchema = z.object({
   fromGroup: z.string().min(1),
