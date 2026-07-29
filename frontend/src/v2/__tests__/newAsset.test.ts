@@ -3,7 +3,7 @@ import type { V2AssetType, V2ContainerSpec } from '../types';
 import { acceptedTypes, freeSlots, makeNewAsset } from '../newAsset';
 
 const mkType = (id: string, key: string, categoryId: string): V2AssetType => ({
-  id, key, name: key, categoryId, sortOrder: 1, isActive: true, placeable: false,
+  id, key, name: key, categoryId, sortOrder: 1, isActive: true, assetCount: 0, placeable: false,
   defaultWidth: null, defaultHeight: null, laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
   fieldDefs: [], containerSpecs: [], portTemplates: [], linkRules: [],
 });
