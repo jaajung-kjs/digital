@@ -1,0 +1,8 @@
+# F-4: 빌드 머신의 로컬 생성 클라이언트(darwin 엔진)가 COPY backend/src 로
+# 컨테이너 생성분(linux-musl)을 덮어써 런타임 엔진 불일치를 일으키는 것을 방지.
+backend/src/generated
+node_modules
+**/node_modules
+**/dist
+backend/uploads
+.git

@@ -25,16 +25,20 @@ RUN npm ci --workspaces --if-present
 # Build @twin/core first
 RUN npm run build -w @twin/core
 
+# Copy prisma schema first — generate 가 참조 (F-3: generate 이전에 COPY 필요)
+COPY backend/prisma ./backend/prisma/
+
 # Generate Prisma client (next schema only)
 # F-2: 루트 lockfile 이 prisma CLI 를 backend/node_modules 에 중첩 배치하므로
 #      루트 cwd 의 npx 는 레지스트리 fetch 로 폴백(폐쇄망 K-Cloud 실패) —
 #      npm exec -w 로 워크스페이스 스코프에서 해석한다.
-RUN npm exec -w ict-digital-twin-backend -- prisma generate --schema backend/prisma/next/schema.prisma
+# F-3: npm exec -w 는 cwd 를 워크스페이스 디렉토리(backend/)로 전환하므로
+#      --schema 는 워크스페이스 상대 경로여야 한다.
+RUN npm exec -w ict-digital-twin-backend -- prisma generate --schema prisma/next/schema.prisma
 
 # Copy backend source
 COPY backend/src ./backend/src
 COPY backend/tsconfig.json ./backend/
-COPY backend/prisma ./backend/prisma/
 
 # Build backend
 RUN npm run build -w ict-digital-twin-backend
