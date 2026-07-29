@@ -72,7 +72,7 @@ export function buildFiberRows(
   container: V2Asset,
   assets: V2Asset[],
   cables: V2Cable[],
-  types: V2AssetType[] = [],
+  types: V2AssetType[],
 ): BuildFiberRowsResult {
   const cablesByAPortId = new Map<string, V2Cable>();
   const cablesByBPortId = new Map<string, V2Cable>();

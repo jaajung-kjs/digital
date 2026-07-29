@@ -4,7 +4,6 @@
  * Props:
  *   draft    — TypeDraft
  *   onChange — (patch: Partial<TypeDraft>) => void (배열 전체 교체)
- *   catalog  — V2Catalog (현재 미사용, 인터페이스 통일용)
  *   locked   — boolean (구조 잠금 — 필드는 잠금 대상 아님, 항상 false 전달되지만 인터페이스 통일)
  *   issues   — TypeSpecIssue[]
  */

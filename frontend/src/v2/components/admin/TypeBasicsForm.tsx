@@ -7,7 +7,6 @@
  *   catalog  — V2Catalog (분류 목록 등)
  *   onChange — (patch: Partial<TypeDraft>) => void
  *   issues   — TypeSpecIssue[] (draftIssues 결과)
- *   locked   — boolean (assetCount > 0 → 일부 구조 편집 잠금, 기본정보엔 현재 미사용)
  */
 import type { TypeSpecIssue } from '@twin/core';
 import { DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../../components/ui';
