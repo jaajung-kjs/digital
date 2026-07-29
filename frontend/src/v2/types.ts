@@ -6,10 +6,31 @@ export interface V2PortTemplate { id: string; group: string; count: number; dire
 export interface V2LinkRule { id: string; fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number; isActive: boolean;
+  assetCount: number;
   placeable: boolean; defaultWidth: number | null; defaultHeight: number | null;
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
   fieldDefs: FieldDef[];
   containerSpecs: V2ContainerSpec[]; portTemplates: V2PortTemplate[]; linkRules: V2LinkRule[];
+}
+
+/** POST /v2/catalog/types, PUT /v2/catalog/types/:id 요청 바디 */
+export interface TypeUpsertBody {
+  key: string;
+  name: string;
+  categoryId: string;
+  sortOrder: number;
+  isActive: boolean;
+  placeable: boolean;
+  defaultWidth: number | null;
+  defaultHeight: number | null;
+  laborType: string | null;
+  installHours: number;
+  removeHours: number;
+  relocateHours: number;
+  fieldDefs: FieldDef[];
+  containers: { key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: { categoryKeys?: string[]; typeKeys?: string[] } }[];
+  ports: { group: string; count: number; direction: Direction; medium: string; namePattern: string }[];
+  links: { fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }[];
 }
 export interface V2CableCategory { id: string; name: string; sortOrder: number }
 export interface V2CableGroup { id: string; key: string; name: string; color: string; laborType: string | null; installHoursPerM: number; removeHoursPerM: number; sortOrder: number; categories: V2CableCategory[] }
