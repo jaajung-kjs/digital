@@ -33,7 +33,11 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
   }
 }
 
-/** 관리자 역할 목록 — 문자열 비교를 .includes() 로 표현해 guardrail 패턴(\brole\s*[!=]==) 회피. */
+/**
+ * 관리자 역할 목록.
+ * 인증 계층의 권한 게이트는 도메인 role 분기 금지 대상이 아니며,
+ * Task 5에서 가드레일에 auth 계층 예외를 명시 예정.
+ */
 const ADMIN_ROLES = ['admin'] as const;
 
 /**

@@ -73,9 +73,7 @@ export async function refresh(refreshToken: string): Promise<RefreshResult> {
     throw new HttpError(401, 'INVALID_REFRESH', '만료된 리프레시 토큰입니다.');
   }
 
-  // rotate — 구 토큰 삭제, 신규 토큰 생성
-  await nextDb.refreshToken.delete({ where: { id: payload.tokenId } });
-
+  // rotate — 구 토큰 삭제 + 신규 생성을 원자적으로 (중간 실패 시 로그아웃 방지)
   const newTokenId = uuidv4();
   const newAccessToken = signAccessToken({
     userId: stored.user.id,
@@ -84,14 +82,17 @@ export async function refresh(refreshToken: string): Promise<RefreshResult> {
   });
   const newRefreshToken = signRefreshToken({ userId: stored.user.id, tokenId: newTokenId });
 
-  await nextDb.refreshToken.create({
-    data: {
-      id: newTokenId,
-      userId: stored.user.id,
-      token: newRefreshToken,
-      expiresAt: refreshTokenExpiresAt(),
-    },
-  });
+  await nextDb.$transaction([
+    nextDb.refreshToken.delete({ where: { id: payload.tokenId } }),
+    nextDb.refreshToken.create({
+      data: {
+        id: newTokenId,
+        userId: stored.user.id,
+        token: newRefreshToken,
+        expiresAt: refreshTokenExpiresAt(),
+      },
+    }),
+  ]);
 
   return { accessToken: newAccessToken, refreshToken: newRefreshToken };
 }

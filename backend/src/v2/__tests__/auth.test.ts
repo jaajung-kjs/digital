@@ -44,6 +44,9 @@ describe('POST /api/v2/auth/login', () => {
       refreshToken: expect.any(String),
       user: { username: TEST_USERNAME, role: 'admin' },
     });
+    // 비밀번호 해시 노출 금지
+    expect(res.body).not.toHaveProperty('passwordHash');
+    expect(res.body.user).not.toHaveProperty('passwordHash');
   });
 
   it('잘못된 비밀번호 → 401 INVALID_CREDENTIALS', async () => {
@@ -163,6 +166,8 @@ describe('GET /api/v2/auth/me', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ username: TEST_USERNAME, role: 'admin' });
     expect(res.body.id).toBeDefined();
+    // 비밀번호 해시 노출 금지
+    expect(res.body).not.toHaveProperty('passwordHash');
   });
 
   it('토큰 없음 → 401', async () => {
