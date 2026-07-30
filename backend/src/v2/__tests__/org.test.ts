@@ -62,3 +62,76 @@ describe('org CRUD + tree', () => {
     await request(app).post('/api/v2/org/headquarters').set(admin).send({ name: '' }).expect(400);
   });
 });
+
+// 862fa5f4에서 본부/지점/변전소/층 4종의 PATCH·DELETE가 단일 orgKinds 테이블(delegate·childCount
+// 함수)로 파라미터화됐다 — 이 describe는 그 테이블 값이 kind별로 실제로 맞는지(델리게이트가 뒤섞이지
+// 않았는지, HAS_CHILDREN/NOT_FOUND 코드가 4종 전부에서 살아있는지) HTTP 레벨로 고정하는 회귀 핀이다.
+// 기존 describe는 substations/floors만 커버해 headquarters/branches PATCH·DELETE가 무커버였다.
+describe('org PATCH/DELETE 4종 테이블 회귀 고정핀', () => {
+  const uniq2 = `t2a-org2-${Date.now()}`;
+  const NONEXISTENT = '00000000-0000-0000-0000-000000000000'; // 형식은 유효하나 존재하지 않는 UUID
+
+  let hqId2: string, brId2: string, subId2: string, floorId2: string;
+
+  beforeAll(async () => {
+    hqId2 = (await request(app).post('/api/v2/org/headquarters').set(admin).send({ name: `${uniq2}-hq` }).expect(201)).body.id;
+    brId2 = (await request(app).post('/api/v2/org/branches').set(admin).send({ headquartersId: hqId2, name: `${uniq2}-br` }).expect(201)).body.id;
+    subId2 = (await request(app).post('/api/v2/org/substations').set(admin).send({ branchId: brId2, name: `${uniq2}-ss` }).expect(201)).body.id;
+    floorId2 = (await request(app).post('/api/v2/org/floors').set(admin).send({ substationId: subId2, name: `${uniq2}-fl` }).expect(201)).body.id;
+  });
+
+  // orgKinds 테이블(org.routes.ts)과 같은 모양: kind → 델리게이트 · id getter.
+  // 델리게이트는 findUnique 만 좁혀 선언 — org.routes.ts 의 OrgKindEntry 와 동일한 이유(4종 델리게이트
+  // 유니온을 그대로 배열 원소 타입에 흘리면 구조적 호출 시그니처 충돌이 남).
+  type OrgReadDelegate = {
+    findUnique: (args: { where: { id: string } }) => Promise<{ id: string; name: string } | null>;
+  };
+  const kindTable: { path: 'headquarters' | 'branches' | 'substations' | 'floors'; delegate: OrgReadDelegate; getId: () => string }[] = [
+    { path: 'headquarters', delegate: nextDb.headquarters, getId: () => hqId2 },
+    { path: 'branches', delegate: nextDb.branch, getId: () => brId2 },
+    { path: 'substations', delegate: nextDb.substation, getId: () => subId2 },
+    { path: 'floors', delegate: nextDb.floor, getId: () => floorId2 },
+  ];
+
+  for (const { path, delegate, getId } of kindTable) {
+    it(`${path} PATCH 이름변경 → 200 + 영속 반영`, async () => {
+      const id = getId();
+      const newName = `${uniq2}-${path}-renamed`;
+      await request(app).patch(`/api/v2/org/${path}/${id}`).set(admin).send({ name: newName }).expect(200);
+      const row = await delegate.findUnique({ where: { id } });
+      expect(row!.name).toBe(newName);
+    });
+
+    it(`${path} PATCH 존재하지 않는 UUID → 404 NOT_FOUND`, async () => {
+      const res = await request(app)
+        .patch(`/api/v2/org/${path}/${NONEXISTENT}`)
+        .set(admin)
+        .send({ name: `${uniq2}-ghost` })
+        .expect(404);
+      expect(res.body.error).toBe('NOT_FOUND');
+    });
+
+    it(`${path} DELETE 존재하지 않는 UUID → 404 NOT_FOUND`, async () => {
+      const res = await request(app).delete(`/api/v2/org/${path}/${NONEXISTENT}`).set(admin).expect(404);
+      expect(res.body.error).toBe('NOT_FOUND');
+    });
+  }
+
+  it('본부/지점/변전소 — 자식 있는데 DELETE → 409 HAS_CHILDREN (3종 전부)', async () => {
+    const hqRes = await request(app).delete(`/api/v2/org/headquarters/${hqId2}`).set(admin).expect(409);
+    expect(hqRes.body.error).toBe('HAS_CHILDREN');
+
+    const brRes = await request(app).delete(`/api/v2/org/branches/${brId2}`).set(admin).expect(409);
+    expect(brRes.body.error).toBe('HAS_CHILDREN');
+
+    const subRes = await request(app).delete(`/api/v2/org/substations/${subId2}`).set(admin).expect(409);
+    expect(subRes.body.error).toBe('HAS_CHILDREN');
+  });
+
+  it('리프→상위 순차 삭제 → 4종 전부 200, 가드 해제 확인', async () => {
+    await request(app).delete(`/api/v2/org/floors/${floorId2}`).set(admin).expect(200);
+    await request(app).delete(`/api/v2/org/substations/${subId2}`).set(admin).expect(200);
+    await request(app).delete(`/api/v2/org/branches/${brId2}`).set(admin).expect(200);
+    await request(app).delete(`/api/v2/org/headquarters/${hqId2}`).set(admin).expect(200);
+  });
+});
