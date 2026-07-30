@@ -26,6 +26,7 @@ import {
   setSessionInvalidHandler,
   getSessionInvalidHandler,
   invokeSessionInvalid,
+  productionResponseDeps,
   type ResponseInterceptorDeps,
 } from '../httpClient';
 
@@ -304,5 +305,17 @@ describe('invokeSessionInvalid — 핸들러 등록 여부에 따른 분기 (B-V
         configurable: true,
       });
     }
+  });
+});
+
+// ── 프로덕션 배선 고정 ────────────────────────────────────────────────────────
+// 조각별 로직이 전부 그린이어도 배선이 빠지면 런타임이 죽는다(과거 전례).
+// 프로덕션 deps 가 실제 tokenStorage·invokeSessionInvalid 를 물고 있는지 고정한다.
+describe('프로덕션 인터셉터 배선', () => {
+  it('productionResponseDeps 가 실 tokenStorage 와 invokeSessionInvalid 를 사용한다', () => {
+    expect(productionResponseDeps.storage).toBe(tokenStorage);
+    expect(productionResponseDeps.onSessionInvalid).toBe(invokeSessionInvalid);
+    expect(typeof productionResponseDeps.retry).toBe('function');
+    expect(typeof productionResponseDeps.postRefresh).toBe('function');
   });
 });

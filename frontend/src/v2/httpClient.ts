@@ -173,20 +173,23 @@ httpClient.interceptors.request.use(createRequestOnFulfilled(tokenStorage), (err
   Promise.reject(error),
 );
 
-httpClient.interceptors.response.use(
-  (res) => res,
-  createResponseOnRejected({
-    storage: tokenStorage,
-    retry: (config) => httpClient(config),
-    postRefresh: async (refreshToken) => {
-      // httpClient 인스턴스 사용(baseURL 공유) — 이 요청이 401이어도
-      // 위 onRejected 의 '/auth/refresh' URL 가드가 재귀를 차단한다.
-      const { data } = await httpClient.post<{ accessToken: string; refreshToken: string }>(
-        '/v2/auth/refresh',
-        { refreshToken },
-      );
-      return data;
-    },
-    onSessionInvalid: invokeSessionInvalid,
-  }),
-);
+/**
+ * 프로덕션 인터셉터 deps — 테스트가 배선 자체를 고정할 수 있도록 export.
+ * (배선 누락은 조각별 테스트가 전부 그린인 채로 런타임을 죽인 전례가 있다)
+ */
+export const productionResponseDeps: ResponseInterceptorDeps = {
+  storage: tokenStorage,
+  retry: (config) => httpClient(config),
+  postRefresh: async (refreshToken) => {
+    // httpClient 인스턴스 사용(baseURL 공유) — 이 요청이 401이어도
+    // 위 onRejected 의 '/auth/refresh' URL 가드가 재귀를 차단한다.
+    const { data } = await httpClient.post<{ accessToken: string; refreshToken: string }>(
+      '/v2/auth/refresh',
+      { refreshToken },
+    );
+    return data;
+  },
+  onSessionInvalid: invokeSessionInvalid,
+};
+
+httpClient.interceptors.response.use((res) => res, createResponseOnRejected(productionResponseDeps));
