@@ -41,7 +41,8 @@ export function useCommit() {
           }
         }
       } else {
-        setError(apiErrorMessage(e, isAxiosError(e) ? e.message : String(e)));
+        // 폴백도 한글 고정 문구 — axios 의 raw 영문 메시지(Network Error 등) 누출 금지
+        setError(apiErrorMessage(e, '저장에 실패했습니다'));
       }
     } finally {
       setCommitting(false);
