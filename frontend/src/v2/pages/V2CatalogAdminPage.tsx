@@ -12,6 +12,7 @@ import { Button, IconButton, Badge } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty } from '../catalogDraft';
 import type { TypeDraft } from '../catalogDraft';
+import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { FieldDefsEditor } from '../components/admin/FieldDefsEditor';
@@ -95,11 +96,11 @@ export default function V2CatalogAdminPage() {
         await mutations.updateType.mutateAsync({ id: selectedTypeId, body: draft });
       }
     } catch (err: unknown) {
-      const apiErr = (err as { response?: { data?: { error?: string; message?: string; details?: { path: string; message: string }[] } } }).response?.data;
-      if (apiErr?.error === 'INVALID_TYPE_SPEC' && apiErr.details) {
-        setSaveError(apiErr.details.map((d) => `[${d.path}] ${d.message}`).join(' / '));
+      const issues = apiErrorIssues(err);
+      if (issues) {
+        setSaveError(issues.map((d) => `[${d.path}] ${d.message}`).join(' / '));
       } else {
-        setSaveError(apiErr?.message ?? '저장 실패');
+        setSaveError(apiErrorMessage(err, '저장 실패'));
       }
     } finally {
       setIsSaving(false);
@@ -129,19 +130,13 @@ export default function V2CatalogAdminPage() {
       setSelectedTypeId(null);
       setDraft(null);
     } catch (err: unknown) {
-      const apiErr = (err as { response?: { data?: { error?: string; message?: string } } }).response?.data;
-      setSaveError(apiErr?.message ?? '타입 삭제 실패');
+      setSaveError(apiErrorMessage(err, '타입 삭제 실패'));
     } finally {
       setIsSaving(false);
     }
   }
 
   // ── 분류 관리 콜백 ────────────────────────────────────────────────────────
-  function apiErrorMessage(err: unknown, fallback: string): string {
-    const data = (err as { response?: { data?: { message?: string } } }).response?.data;
-    return data?.message ?? fallback;
-  }
-
   async function handleRenameCategory(cat: V2Category, newName: string) {
     setCategoryError(null);
     try {
@@ -305,7 +300,6 @@ export default function V2CatalogAdminPage() {
                     <FieldDefsEditor
                       draft={draft}
                       onChange={handleChange}
-                      locked={false}
                       issues={issues}
                     />
 

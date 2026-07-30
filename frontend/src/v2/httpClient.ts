@@ -32,7 +32,7 @@ export const tokenStorage = {
   },
 };
 
-export type TokenStorageLike = typeof tokenStorage;
+type TokenStorageLike = typeof tokenStorage;
 
 // ── 요청 인터셉터 팩토리: Bearer 헤더 자동 첨부 ──────────────────────────────
 export function createRequestOnFulfilled(storage: TokenStorageLike) {

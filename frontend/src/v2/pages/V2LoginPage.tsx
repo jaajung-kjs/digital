@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Boxes, AlertCircle } from 'lucide-react';
 import { useV2AuthStore } from '../authStore';
+import { apiErrorMessage } from '../apiError';
 import { Button, Input } from '../../components/ui';
 
 export function V2LoginPage() {
@@ -21,14 +22,7 @@ export function V2LoginPage() {
       await login({ username, password });
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      const axiosErr = err as { isAxiosError?: boolean; response?: { data?: { message?: string } } };
-      const msg =
-        axiosErr?.isAxiosError && axiosErr.response?.data?.message
-          ? axiosErr.response.data.message
-          : err instanceof Error
-          ? err.message
-          : '로그인에 실패했습니다.';
-      setLocalError(msg);
+      setLocalError(apiErrorMessage(err, '로그인에 실패했습니다.'));
     } finally {
       setSubmitting(false);
     }

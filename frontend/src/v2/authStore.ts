@@ -7,10 +7,9 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { isAxiosError } from 'axios';
 import { httpClient, tokenStorage } from './httpClient';
 
-export interface V2User {
+interface V2User {
   id: string;
   username: string;
   role: string; // 'admin' | 'viewer'
@@ -20,14 +19,12 @@ interface AuthState {
   user: V2User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  error: string | null;
 }
 
 interface AuthActions {
   login: (credentials: { username: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   fetchCurrentUser: () => Promise<void>;
-  clearError: () => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -36,7 +33,6 @@ const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
   isLoading: false,
-  error: null,
 };
 
 export const useV2AuthStore = create<AuthStore>()(
@@ -45,7 +41,7 @@ export const useV2AuthStore = create<AuthStore>()(
       ...initialState,
 
       login: async ({ username, password }) => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true });
         try {
           const { data } = await httpClient.post<{
             accessToken: string;
@@ -58,13 +54,9 @@ export const useV2AuthStore = create<AuthStore>()(
 
           set({ user: data.user, isAuthenticated: true, isLoading: false });
         } catch (err) {
-          const msg =
-            isAxiosError(err) && err.response?.data?.message
-              ? (err.response.data.message as string)
-              : err instanceof Error
-              ? err.message
-              : '로그인에 실패했습니다.';
-          set({ isLoading: false, error: msg });
+          // 표시용 메시지 추출은 apiError.ts 의 apiErrorMessage 가 유일 지점 —
+          // 이 스토어는 세션 상태만 관리하고 호출부(V2LoginPage)가 catch 한다.
+          set({ isLoading: false });
           throw err;
         }
       },
@@ -98,8 +90,6 @@ export const useV2AuthStore = create<AuthStore>()(
           set(initialState);
         }
       },
-
-      clearError: () => set({ error: null }),
     }),
     {
       name: 'auth-storage',
@@ -114,4 +104,3 @@ export const useV2AuthStore = create<AuthStore>()(
 // 헬퍼: 역할 비교 함수로 캡슐화(가드레일: 직접 비교 패턴 금지)
 const ADMIN_ROLE = 'admin';
 export const isAdminRole = (userRole: string | undefined) => userRole === ADMIN_ROLE;
-export const useIsAdmin = () => useV2AuthStore((s) => isAdminRole(s.user?.role));

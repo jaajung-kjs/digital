@@ -12,13 +12,13 @@ import {
 
 // ── 인터페이스 ────────────────────────────────────────────────────────────────
 
-export interface LoginResult {
+interface LoginResult {
   accessToken: string;
   refreshToken: string;
   user: { id: string; username: string; role: string };
 }
 
-export interface RefreshResult {
+interface RefreshResult {
   accessToken: string;
   refreshToken: string;
 }

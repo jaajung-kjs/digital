@@ -11,15 +11,10 @@ import { X, Plus, Pencil, Check, Trash2 } from 'lucide-react';
 import { DetailCard, DetailCardHeader, Input, IconButton, Badge } from '../../../components/ui';
 import type { V2Catalog, V2CableGroup, V2CableCategory } from '../../types';
 import { useCatalogMutations } from '../../hooks';
+import { apiErrorMessage } from '../../apiError';
 
 interface CableCatalogPanelProps {
   catalog: V2Catalog;
-}
-
-/** 에러 메시지 추출 */
-function apiErrorMessage(err: unknown, fallback: string): string {
-  const data = (err as { response?: { data?: { message?: string } } }).response?.data;
-  return data?.message ?? fallback;
 }
 
 /** 그룹 행 인라인 편집 */
