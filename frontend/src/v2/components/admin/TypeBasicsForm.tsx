@@ -12,6 +12,7 @@ import type { TypeSpecIssue } from '@twin/core';
 import { DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../../components/ui';
 import type { V2AssetType, V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
+import { issueFor } from './adminUtils';
 
 interface TypeBasicsFormProps {
   draft: TypeDraft;
@@ -19,11 +20,6 @@ interface TypeBasicsFormProps {
   catalog: V2Catalog;
   onChange: (patch: Partial<TypeDraft>) => void;
   issues: TypeSpecIssue[];
-}
-
-/** path에 해당하는 첫 번째 이슈 메시지 (없으면 null) */
-function issueFor(issues: TypeSpecIssue[], path: string): string | null {
-  return issues.find((i) => i.path === path)?.message ?? null;
 }
 
 /** 필드 하단 에러 메시지 — text-xs text-danger */
