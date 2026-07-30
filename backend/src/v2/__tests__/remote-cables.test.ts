@@ -6,7 +6,7 @@ import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t5-rc-${Date.now()}`;
-const admin = { Authorization: authHeader('ADMIN') };
+const admin = { Authorization: authHeader('admin') };
 let subAId: string, subBId: string, slotAId: string, slotBId: string, fiberCatId: string;
 
 const portOf = async (assetId: string, index: number) =>

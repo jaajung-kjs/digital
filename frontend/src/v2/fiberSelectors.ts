@@ -1,4 +1,4 @@
-import { buildPortIndex, resolvePeer, type PeerInfo } from './peerResolve';
+import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2AssetType, V2Cable } from './types';
 
 export const FIBER_MEDIUM = 'fiber';
@@ -8,28 +8,7 @@ export const FIBER_MEDIUM = 'fiber';
  * Results are sorted by name.
  */
 export function fiberContainers(assets: V2Asset[]): V2Asset[] {
-  const assetMap = new Map(assets.map((a) => [a.id, a]));
-  const containerIds = new Set<string>();
-
-  for (const asset of assets) {
-    // Find all children (assets whose parentAssetId is this asset's id)
-    const children = assets.filter((a) => a.parentAssetId === asset.id);
-
-    // Check if any child has fiber ports
-    const hasFiberChild = children.some((child) =>
-      child.ports.some((p) => p.medium === FIBER_MEDIUM)
-    );
-
-    if (hasFiberChild) {
-      containerIds.add(asset.id);
-    }
-  }
-
-  const result = Array.from(containerIds)
-    .map((id) => assetMap.get(id)!)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  return result;
+  return mediumContainers(assets, FIBER_MEDIUM);
 }
 
 export interface FiberRowCell {
@@ -74,13 +53,7 @@ export function buildFiberRows(
   cables: V2Cable[],
   types: V2AssetType[],
 ): BuildFiberRowsResult {
-  const cablesByAPortId = new Map<string, V2Cable>();
-  const cablesByBPortId = new Map<string, V2Cable>();
-
-  for (const cable of cables) {
-    cablesByAPortId.set(cable.aPortId, cable);
-    cablesByBPortId.set(cable.bPortId, cable);
-  }
+  const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
 
   // Pre-build: typeId → lineSide group name (declared, ≤1 per type)
   const lineSideGroupByTypeId = new Map<string, string>();

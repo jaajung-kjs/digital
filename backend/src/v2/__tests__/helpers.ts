@@ -22,9 +22,8 @@ export function makeApp() {
  * v2 인증 경로를 완전히 통과한다.
  * 기존 테스트의 동기 호출 패턴을 유지하기 위해 동기 함수로 제공한다.
  */
-export function authHeader(role: 'ADMIN' | 'VIEWER' | 'admin' | 'viewer' = 'admin'): string {
-  const normalizedRole = role.toLowerCase() as 'admin' | 'viewer';
-  return `Bearer ${signAccessToken({ userId: 'test-user', username: 'tester', role: normalizedRole })}`;
+export function authHeader(role: 'admin' | 'viewer' = 'admin'): string {
+  return `Bearer ${signAccessToken({ userId: 'test-user', username: 'tester', role })}`;
 }
 
 /**
@@ -33,6 +32,11 @@ export function authHeader(role: 'ADMIN' | 'VIEWER' | 'admin' | 'viewer' = 'admi
  *
  * nameStartsWith: 조직 계층·자산 이름 prefix (타임스탬프 없는 안정 prefix)
  * keyStartsWith: 카탈로그 키 prefix (catalog.crud KEY_PREFIX 접두사)
+ *
+ * ⚠ vitest `fileParallelism: false` 에 의존한다 — 파일 병렬 실행을 켜면
+ *   한 파일의 beforeAll 스윕이 다른 파일의 살아있는 픽스처를 지운다.
+ * ⚠ 케이블은 변전소 이름 prefix 경유로만 지운다. 케이블 픽스처를 새로 만들 때
+ *   소속 변전소 이름에도 같은 prefix 를 붙여야 회수된다(카테고리명만 prefix면 잔존).
  */
 export async function sweepTestFixtures(): Promise<void> {
   const nameStartsWith = ['t4-cb-', 't2a-', 't5-rc-'];

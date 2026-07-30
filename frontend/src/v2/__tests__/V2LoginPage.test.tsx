@@ -63,7 +63,7 @@ describe('V2LoginPage 제출', () => {
     });
   });
 
-  it('실패 시 에러 메시지 표시, 이동 없음', async () => {
+  it('비-axios 에러는 기본 실패 메시지 표시, 이동 없음 (apiErrorMessage fallback 경로)', async () => {
     mockLogin.mockRejectedValueOnce(new Error('아이디 또는 비밀번호가 올바르지 않습니다.'));
     renderPage();
 
@@ -72,7 +72,7 @@ describe('V2LoginPage 제출', () => {
     fireEvent.click(screen.getByRole('button', { name: /접속/ }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('아이디 또는 비밀번호가 올바르지 않습니다.');
+      expect(screen.getByRole('alert')).toHaveTextContent('로그인에 실패했습니다.');
     });
     expect(mockNavigate).not.toHaveBeenCalled();
   });

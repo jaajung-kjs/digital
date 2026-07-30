@@ -27,6 +27,51 @@ export function buildPortIndex(assets: V2Asset[]): PortIndex {
 }
 
 /**
+ * medium(fiber/power) 포트를 가진 자식을 하나라도 보유한 자산 목록 — fiber/power 셀렉터 공유 판정.
+ * medium 값 자체(FIBER_MEDIUM/POWER_MEDIUM)는 각 셀렉터 모듈에 그대로 선언된 §6-1 뷰 파라미터이며,
+ * 이 함수는 그 값을 인자로 받을 뿐 재선언하지 않는다.
+ * 결과는 이름순 정렬.
+ */
+export function mediumContainers(assets: V2Asset[], medium: string): V2Asset[] {
+  const assetMap = new Map(assets.map((a) => [a.id, a]));
+  const containerIds = new Set<string>();
+
+  for (const asset of assets) {
+    // Find all children (assets whose parentAssetId is this asset's id)
+    const children = assets.filter((a) => a.parentAssetId === asset.id);
+
+    // Check if any child has a port of this medium
+    const hasChild = children.some((child) => child.ports.some((p) => p.medium === medium));
+
+    if (hasChild) {
+      containerIds.add(asset.id);
+    }
+  }
+
+  const result = Array.from(containerIds)
+    .map((id) => assetMap.get(id)!)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return result;
+}
+
+/** cable[] → aPortId/bPortId 로 색인한 Map 쌍 — fiber/power 행 빌더 공유 플러밍 */
+export function indexCablesByPort(cables: V2Cable[]): {
+  cablesByAPortId: Map<string, V2Cable>;
+  cablesByBPortId: Map<string, V2Cable>;
+} {
+  const cablesByAPortId = new Map<string, V2Cable>();
+  const cablesByBPortId = new Map<string, V2Cable>();
+
+  for (const cable of cables) {
+    cablesByAPortId.set(cable.aPortId, cable);
+    cablesByBPortId.set(cable.bPortId, cable);
+  }
+
+  return { cablesByAPortId, cablesByBPortId };
+}
+
+/**
  * 케이블 끝점(endpoint) 자신의 saved ref 판정 — 한 곳 규칙.
  *
  * portId가 케이블의 bPortId이면 bRef, aPortId이면 aRef를 반환한다 (그 포트 자신을 기술하는 ref).

@@ -6,7 +6,11 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "strict": true,
-    "types": ["node"]
+    "types": ["node"],
+    /* composite 프로젝트는 tsc -b 그래프상 emit 을 완전히 끌 수 없다(TS6310) — noEmit 대신
+       outDir 로 산출물을 소스 트리 밖(.cache/, 루트 .gitignore 기존 패턴으로 이미 무시됨)으로
+       돌려 vite.config.js/.d.ts 재생성 churn만 제거한다. */
+    "outDir": "./.cache/tsc-node"
   },
   "include": ["vite.config.ts"]
 }

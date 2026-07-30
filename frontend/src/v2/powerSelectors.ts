@@ -1,4 +1,4 @@
-import { buildPortIndex, resolvePeer, type PeerInfo } from './peerResolve';
+import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
 export type { PeerInfo } from './peerResolve';
@@ -10,28 +10,7 @@ export const POWER_MEDIUM = 'power';
  * Results are sorted by name.
  */
 export function powerContainers(assets: V2Asset[]): V2Asset[] {
-  const assetMap = new Map(assets.map((a) => [a.id, a]));
-  const containerIds = new Set<string>();
-
-  for (const asset of assets) {
-    // Find all children (assets whose parentAssetId is this asset's id)
-    const children = assets.filter((a) => a.parentAssetId === asset.id);
-
-    // Check if any child has power ports
-    const hasPowerChild = children.some((child) =>
-      child.ports.some((p) => p.medium === POWER_MEDIUM)
-    );
-
-    if (hasPowerChild) {
-      containerIds.add(asset.id);
-    }
-  }
-
-  const result = Array.from(containerIds)
-    .map((id) => assetMap.get(id)!)
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  return result;
+  return mediumContainers(assets, POWER_MEDIUM);
 }
 
 export interface PowerCell {
@@ -67,13 +46,7 @@ export function buildPowerRows(
   assets: V2Asset[],
   cables: V2Cable[]
 ): PowerRow[] {
-  const cablesByAPortId = new Map<string, V2Cable>();
-  const cablesByBPortId = new Map<string, V2Cable>();
-
-  for (const cable of cables) {
-    cablesByAPortId.set(cable.aPortId, cable);
-    cablesByBPortId.set(cable.bPortId, cable);
-  }
+  const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
 
   // Feeders = children of container with power ports, sorted by name
   const feeders = assets

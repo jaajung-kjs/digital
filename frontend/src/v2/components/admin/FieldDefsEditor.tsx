@@ -4,8 +4,9 @@
  * Props:
  *   draft    — TypeDraft
  *   onChange — (patch: Partial<TypeDraft>) => void (배열 전체 교체)
- *   locked   — boolean (구조 잠금 — 필드는 잠금 대상 아님, 항상 false 전달되지만 인터페이스 통일)
  *   issues   — TypeSpecIssue[]
+ *
+ * 구조 잠금(locked) 대상 아님 — 필드 정의는 항상 편집 가능(호출부 주석 참조).
  */
 import { Plus, Trash2 } from 'lucide-react';
 import type { TypeSpecIssue } from '@twin/core';
@@ -17,7 +18,6 @@ import { issueFor } from './adminUtils';
 interface FieldDefsEditorProps {
   draft: TypeDraft;
   onChange: (patch: Partial<TypeDraft>) => void;
-  locked: boolean;
   issues: TypeSpecIssue[];
 }
 

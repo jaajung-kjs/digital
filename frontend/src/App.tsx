@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useV2AuthStore } from './v2/authStore';
-import { tokenStorage } from './v2/httpClient';
 import { V2Shell } from './v2/V2Shell';
 import V2LoginPage from './v2/pages/V2LoginPage';
 import V2WorkspacePage from './v2/pages/V2WorkspacePage';
@@ -10,32 +9,30 @@ import V2CatalogAdminPage from './v2/pages/V2CatalogAdminPage';
 import { queryClient } from './lib/queryClient';
 
 /**
- * 인증 게이트 — v2 authStore 기반
- * 미인증 → /login 리다이렉트
- * 토큰 있고 user 없으면 /me 복원 시도
- * 토큰 없는데 persist 는 인증 상태(만료 세션: httpClient 가 토큰만 삭제)면
- * fetchCurrentUser 의 no-token 경로가 스토어를 initialState 로 리셋 →
- * persist 정합화 후 /login 으로 정착 (무한 리다이렉트 루프 방지)
+ * 인증 게이트 — v2 authStore 기반 (B-V2 시정: 단일 파생 술어)
+ *
+ * "세션이 유효한가"는 authStore.hasValidSession() 하나만 읽는다(토큰 존재 ∧
+ * persist 인증 상태). 불일치 정합(토큰 없는데 persist 만 인증 상태로 남은 만료
+ * 세션 등)은 게이트가 아니라 스토어의 fetchCurrentUser/resetSession 경로에서만
+ * 일어난다 — 이 컴포넌트는 마운트 시 fetchCurrentUser 를 무조건 1회 호출해
+ * (a) 토큰만 있고 user 가 없으면 /me 로 복원, (b) 토큰이 없으면 리셋, (c) 이미
+ * 복원돼 있으면 아무 것도 하지 않게 위임할 뿐, 조건 자체를 여기서 재기술하지 않는다.
+ * hasValidSession() 은 실제 토큰 존재 여부를 직접 확인하므로, 리셋이 비동기로
+ * 끝나기 전에도(만료 세션) 첫 렌더부터 정확히 false 를 반환해 루프 없이 /login
+ * 으로 내비게이트한다.
  */
 export function RequireAuth({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useV2AuthStore((s) => s.isAuthenticated);
+  const hasValidSession = useV2AuthStore((s) => s.hasValidSession());
   const isLoading = useV2AuthStore((s) => s.isLoading);
   const fetchCurrentUser = useV2AuthStore((s) => s.fetchCurrentUser);
-  const user = useV2AuthStore((s) => s.user);
 
   useEffect(() => {
-    const token = tokenStorage.getAccessToken();
-    if (token && !user) {
-      void fetchCurrentUser();
-    } else if (!token && isAuthenticated) {
-      // 만료 세션: 토큰은 지워졌는데 persist 가 인증 상태로 남음 — 리셋
-      void fetchCurrentUser();
-    }
-  }, [fetchCurrentUser, user, isAuthenticated]);
+    void fetchCurrentUser();
+  }, [fetchCurrentUser]);
 
   if (isLoading) return null;
 
-  if (!isAuthenticated) {
+  if (!hasValidSession) {
     return <Navigate to="/login" replace />;
   }
 
@@ -43,12 +40,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * /login 게이트 — 인증 상태 + 실제 토큰 보유 시에만 / 로 리다이렉트
- * (persist 만 남은 만료 세션은 로그인 폼을 보여준다 — 루프 방지)
+ * /login 게이트 — hasValidSession() 하나만 읽는다(RequireAuth 와 동일한 유일
+ * 술어). persist 만 남은 만료 세션은 토큰이 없으므로 술어가 false → 폼을 보여준다
+ * (루프 방지).
  */
 export function LoginRoute() {
-  const isAuthenticated = useV2AuthStore((s) => s.isAuthenticated);
-  if (isAuthenticated && tokenStorage.getAccessToken()) {
+  const hasValidSession = useV2AuthStore((s) => s.hasValidSession());
+  if (hasValidSession) {
     return <Navigate to="/" replace />;
   }
   return <V2LoginPage />;

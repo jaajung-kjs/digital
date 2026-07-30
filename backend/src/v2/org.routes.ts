@@ -105,131 +105,76 @@ orgRouter.post('/org/floors', adminOnly, async (req, res, next) => {
   }
 });
 
-// PATCH /org/headquarters/:id — 본사 수정
-orgRouter.patch('/org/headquarters/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    const patch = orgPatchSchema.parse(req.body);
-    // 존재 검증
-    const row = await nextDb.headquarters.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
-    const updated = await nextDb.headquarters.update({ where: { id }, data: patch });
-    res.json(updated);
-  } catch (e) {
-    next(e);
-  }
-});
+// 본부/지점/변전소/층 4종의 PATCH·DELETE 핸들러는 델리게이트만 다른 동일 스켈레톤이므로
+// 고정 4종 테이블(kind → 델리게이트·자식카운트 함수)로 파라미터화한다.
+// 주의: 변전소는 자식이 두 관계(floor + asset)에 걸쳐 있어 childCount 함수가 다른 3종과 모양이 다르다 —
+// 이 비대칭은 문자열 분기가 아니라 테이블 값(함수) 차이로만 표현한다.
+interface OrgKindEntry {
+  path: 'headquarters' | 'branches' | 'substations' | 'floors';
+  delegate: {
+    findUnique: (args: { where: { id: string } }) => Promise<{ id: string } | null>;
+    update: (args: { where: { id: string }; data: { name?: string; sortOrder?: number } }) => Promise<unknown>;
+    delete: (args: { where: { id: string } }) => Promise<unknown>;
+  };
+  // 자식 존재 시 DELETE 를 막기 위한 카운트 — kind별로 참조하는 자식 관계가 다르다.
+  childCount: (id: string) => Promise<number>;
+}
 
-// PATCH /org/branches/:id — 지점 수정
-orgRouter.patch('/org/branches/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    const patch = orgPatchSchema.parse(req.body);
-    // 존재 검증
-    const row = await nextDb.branch.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
-    const updated = await nextDb.branch.update({ where: { id }, data: patch });
-    res.json(updated);
-  } catch (e) {
-    next(e);
-  }
-});
+const orgKinds: OrgKindEntry[] = [
+  {
+    path: 'headquarters',
+    delegate: nextDb.headquarters,
+    childCount: (id) => nextDb.branch.count({ where: { headquartersId: id } }),
+  },
+  {
+    path: 'branches',
+    delegate: nextDb.branch,
+    childCount: (id) => nextDb.substation.count({ where: { branchId: id } }),
+  },
+  {
+    path: 'substations',
+    delegate: nextDb.substation,
+    // 변전소 자식: floor + asset(substationId 직결) — 두 관계 합산
+    childCount: async (id) =>
+      (await nextDb.floor.count({ where: { substationId: id } })) + (await nextDb.asset.count({ where: { substationId: id } })),
+  },
+  {
+    path: 'floors',
+    delegate: nextDb.floor,
+    childCount: (id) => nextDb.asset.count({ where: { floorId: id } }),
+  },
+];
 
-// PATCH /org/substations/:id — 변전소 수정
-orgRouter.patch('/org/substations/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    const patch = orgPatchSchema.parse(req.body);
-    // 존재 검증
-    const row = await nextDb.substation.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
-    const updated = await nextDb.substation.update({ where: { id }, data: patch });
-    res.json(updated);
-  } catch (e) {
-    next(e);
-  }
-});
+for (const { path, delegate, childCount } of orgKinds) {
+  // PATCH /org/<kind>/:id — 이름/정렬 수정 (4종 공통 스켈레톤)
+  orgRouter.patch(`/org/${path}/:id`, adminOnly, async (req, res, next) => {
+    try {
+      const id = idParamSchema.parse(req.params.id);
+      const patch = orgPatchSchema.parse(req.body);
+      // 존재 검증
+      const row = await delegate.findUnique({ where: { id } });
+      if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
+      const updated = await delegate.update({ where: { id }, data: patch });
+      res.json(updated);
+    } catch (e) {
+      next(e);
+    }
+  });
 
-// PATCH /org/floors/:id — 층 수정
-orgRouter.patch('/org/floors/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    const patch = orgPatchSchema.parse(req.body);
-    // 존재 검증
-    const row = await nextDb.floor.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
-    const updated = await nextDb.floor.update({ where: { id }, data: patch });
-    res.json(updated);
-  } catch (e) {
-    next(e);
-  }
-});
-
-// DELETE /org/headquarters/:id — 본사 삭제
-orgRouter.delete('/org/headquarters/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    // 존재 검증
-    const row = await nextDb.headquarters.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
-    // 자식 확인
-    const childCount = await nextDb.branch.count({ where: { headquartersId: id } });
-    if (childCount > 0) throw new HttpError(409, 'HAS_CHILDREN', '하위 항목이 있어 삭제할 수 없습니다');
-    await nextDb.headquarters.delete({ where: { id } });
-    res.json({ ok: true });
-  } catch (e) {
-    next(e);
-  }
-});
-
-// DELETE /org/branches/:id — 지점 삭제
-orgRouter.delete('/org/branches/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    // 존재 검증
-    const row = await nextDb.branch.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
-    // 자식 확인
-    const childCount = await nextDb.substation.count({ where: { branchId: id } });
-    if (childCount > 0) throw new HttpError(409, 'HAS_CHILDREN', '하위 항목이 있어 삭제할 수 없습니다');
-    await nextDb.branch.delete({ where: { id } });
-    res.json({ ok: true });
-  } catch (e) {
-    next(e);
-  }
-});
-
-// DELETE /org/substations/:id — 변전소 삭제
-orgRouter.delete('/org/substations/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    // 존재 검증
-    const row = await nextDb.substation.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
-    // 자식 확인: floor + asset(substationId)
-    const childCount = (await nextDb.floor.count({ where: { substationId: id } }))
-      + (await nextDb.asset.count({ where: { substationId: id } }));
-    if (childCount > 0) throw new HttpError(409, 'HAS_CHILDREN', '하위 항목이 있어 삭제할 수 없습니다');
-    await nextDb.substation.delete({ where: { id } });
-    res.json({ ok: true });
-  } catch (e) {
-    next(e);
-  }
-});
-
-// DELETE /org/floors/:id — 층 삭제
-orgRouter.delete('/org/floors/:id', adminOnly, async (req, res, next) => {
-  try {
-    const id = idParamSchema.parse(req.params.id);
-    // 존재 검증
-    const row = await nextDb.floor.findUnique({ where: { id } });
-    if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
-    // 자식 확인: asset(floorId)
-    const childCount = await nextDb.asset.count({ where: { floorId: id } });
-    if (childCount > 0) throw new HttpError(409, 'HAS_CHILDREN', '하위 항목이 있어 삭제할 수 없습니다');
-    await nextDb.floor.delete({ where: { id } });
-    res.json({ ok: true });
-  } catch (e) {
-    next(e);
-  }
-});
+  // DELETE /org/<kind>/:id — 자식 있으면 409, 없으면 삭제 (4종 공통 스켈레톤)
+  orgRouter.delete(`/org/${path}/:id`, adminOnly, async (req, res, next) => {
+    try {
+      const id = idParamSchema.parse(req.params.id);
+      // 존재 검증
+      const row = await delegate.findUnique({ where: { id } });
+      if (!row) throw new HttpError(404, 'NOT_FOUND', '해당 조직을 찾을 수 없습니다');
+      // 자식 확인
+      const count = await childCount(id);
+      if (count > 0) throw new HttpError(409, 'HAS_CHILDREN', '하위 항목이 있어 삭제할 수 없습니다');
+      await delegate.delete({ where: { id } });
+      res.json({ ok: true });
+    } catch (e) {
+      next(e);
+    }
+  });
+}

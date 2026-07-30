@@ -6,7 +6,7 @@ import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-cm-${Date.now()}`;
-const admin = { Authorization: authHeader('ADMIN') };
+const admin = { Authorization: authHeader('admin') };
 let subId: string, floorId: string;
 let rackTypeId: string, pitrTypeId: string, slotTypeId: string, ofdTypeId: string, groundingTypeId: string;
 
@@ -117,7 +117,7 @@ describe('PUT /commit — assets', () => {
   it('VIEWER 커밋 → 403', async () => {
     await request(app)
       .put(`/api/v2/substations/${subId}/commit`)
-      .set('Authorization', authHeader('VIEWER'))
+      .set('Authorization', authHeader('viewer'))
       .send({ assets: {} })
       .expect(403);
   });
