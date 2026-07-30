@@ -32,6 +32,11 @@ export function authHeader(role: 'admin' | 'viewer' = 'admin'): string {
  *
  * nameStartsWith: 조직 계층·자산 이름 prefix (타임스탬프 없는 안정 prefix)
  * keyStartsWith: 카탈로그 키 prefix (catalog.crud KEY_PREFIX 접두사)
+ *
+ * ⚠ vitest `fileParallelism: false` 에 의존한다 — 파일 병렬 실행을 켜면
+ *   한 파일의 beforeAll 스윕이 다른 파일의 살아있는 픽스처를 지운다.
+ * ⚠ 케이블은 변전소 이름 prefix 경유로만 지운다. 케이블 픽스처를 새로 만들 때
+ *   소속 변전소 이름에도 같은 prefix 를 붙여야 회수된다(카테고리명만 prefix면 잔존).
  */
 export async function sweepTestFixtures(): Promise<void> {
   const nameStartsWith = ['t4-cb-', 't2a-', 't5-rc-'];
