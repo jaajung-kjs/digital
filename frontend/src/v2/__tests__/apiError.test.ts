@@ -15,6 +15,15 @@ function axiosError(data: unknown, status = 400) {
   };
 }
 
+/** 네트워크 장애(서버 응답 자체가 없음) 형상 — axios 는 response 를 undefined 로 둔다 */
+function axiosNetworkError() {
+  return {
+    isAxiosError: true,
+    message: 'Network Error',
+    response: undefined,
+  };
+}
+
 describe('apiErrorMessage', () => {
   it('axios 에러의 response.data.message 를 반환한다', () => {
     const err = axiosError({ message: '아이디 또는 비밀번호가 올바르지 않습니다.' });
@@ -30,6 +39,15 @@ describe('apiErrorMessage', () => {
     expect(apiErrorMessage(new Error('아무 메시지'), '기본 실패')).toBe('기본 실패');
     expect(apiErrorMessage('문자열 에러', '기본 실패')).toBe('기본 실패');
     expect(apiErrorMessage(undefined, '기본 실패')).toBe('기본 실패');
+  });
+
+  it('네트워크 장애(response 없음)는 fallback 을 반환한다', () => {
+    expect(apiErrorMessage(axiosNetworkError(), '기본 실패')).toBe('기본 실패');
+  });
+
+  it('response.data.message 가 빈 문자열/공백뿐이면 fallback 을 반환한다 (빈 알림창 방지)', () => {
+    expect(apiErrorMessage(axiosError({ message: '' }), '기본 실패')).toBe('기본 실패');
+    expect(apiErrorMessage(axiosError({ message: '   ' }), '기본 실패')).toBe('기본 실패');
   });
 });
 

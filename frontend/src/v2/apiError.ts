@@ -19,9 +19,13 @@ function apiErrorData(err: unknown): ApiErrorPayload | undefined {
   return err.response?.data as ApiErrorPayload | undefined;
 }
 
-/** axios err.response.data.message 우선, 없으면 fallback */
+/**
+ * axios err.response.data.message 우선, 없으면 fallback.
+ * 빈 문자열/공백뿐인 메시지는 "없음"과 동일하게 취급 — 빈 알림창 노출 방지.
+ */
 export function apiErrorMessage(err: unknown, fallback: string): string {
-  return apiErrorData(err)?.message ?? fallback;
+  const message = apiErrorData(err)?.message;
+  return typeof message === 'string' && message.trim() !== '' ? message : fallback;
 }
 
 /** axios err.response.data.error (없으면 null) */
