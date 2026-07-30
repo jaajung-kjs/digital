@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nextDb } from '../db.js';
-import { makeApp } from './helpers.js';
+import { makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 
@@ -17,6 +17,7 @@ const TEST_USERNAME = `test_auth_${Date.now()}`;
 const TEST_PASSWORD = 'testPass123!';
 
 beforeAll(async () => {
+  await sweepTestFixtures(); // 과거 런 잔재 회수 — 정리는 공유 스윕 한 곳
   const hash = await bcrypt.hash(TEST_PASSWORD, 10);
   await nextDb.user.upsert({
     where: { username: TEST_USERNAME },
@@ -26,7 +27,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await nextDb.user.deleteMany({ where: { username: TEST_USERNAME } });
+  await sweepTestFixtures();
   await nextDb.$disconnect();
 });
 
