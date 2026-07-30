@@ -6,7 +6,7 @@ import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t4-cb-${Date.now()}`;
-const admin = { Authorization: authHeader('ADMIN') };
+const admin = { Authorization: authHeader('admin') };
 let subId: string, devAId: string, devBId: string, fiberCatId: string, powerCatId: string;
 let sub2Id: string, otherAssetId: string; // 타 변전소 픽스처 (INVALID_PORT / INVALID_CABLE 용)
 

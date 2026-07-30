@@ -5,7 +5,7 @@ import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-org-${Date.now()}`;
-const admin = { Authorization: authHeader('ADMIN') };
+const admin = { Authorization: authHeader('admin') };
 
 describe('org CRUD + tree', () => {
   let hqId: string, brId: string, subId: string, floorId: string;
@@ -33,7 +33,7 @@ describe('org CRUD + tree', () => {
   it('VIEWER 쓰기 → 403', async () => {
     await request(app)
       .post('/api/v2/org/headquarters')
-      .set('Authorization', authHeader('VIEWER'))
+      .set('Authorization', authHeader('viewer'))
       .send({ name: `${uniq}-x` })
       .expect(403);
   });

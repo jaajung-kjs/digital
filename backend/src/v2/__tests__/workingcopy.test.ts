@@ -5,7 +5,7 @@ import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 
 const app = makeApp();
 const uniq = `t2a-wc-${Date.now()}`;
-const admin = { Authorization: authHeader('ADMIN') };
+const admin = { Authorization: authHeader('admin') };
 let subId: string, floorId: string, assetId: string;
 
 beforeAll(async () => {
