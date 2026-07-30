@@ -6,15 +6,15 @@
  * isAuthenticated:true 잔존. 이 상태에서 /login 폼에 도달해야 한다(바운스 금지).
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import { RequireAuth, LoginRoute } from '../../App';
 import { useV2AuthStore } from '../authStore';
-import { tokenStorage } from '../httpClient';
+import { tokenStorage, getSessionInvalidHandler } from '../httpClient';
 
 beforeEach(() => {
   localStorage.clear();
-  useV2AuthStore.setState({ user: null, isAuthenticated: false, isLoading: false, error: null });
+  useV2AuthStore.setState({ user: null, isAuthenticated: false, isLoading: false });
 });
 
 function renderRoutes(initialPath: string) {
@@ -107,5 +107,41 @@ describe('완전 미인증', () => {
     renderRoutes('/');
     expect(await screen.findByRole('button', { name: /접속/ })).toBeInTheDocument();
     expect(screen.queryByText('WORKSPACE')).not.toBeInTheDocument();
+  });
+});
+
+describe('httpClient 세션-무효 핸들러 → 게이트 연동 (B-V2)', () => {
+  it('등록된 핸들러 호출(=refresh 실패 재현) → 스토어 리셋 → 하드 리로드 없이 로그인 폼 도달', async () => {
+    tokenStorage.setAccessToken('valid-access');
+    tokenStorage.setRefreshToken('valid-refresh');
+    useV2AuthStore.setState({
+      user: { id: 'u1', username: 'admin', role: 'admin' },
+      isAuthenticated: true,
+    });
+
+    renderRoutes('/');
+    expect(await screen.findByText('WORKSPACE')).toBeInTheDocument();
+
+    // authStore.ts 모듈 초기화 시 등록된 실제 프로덕션 핸들러 — httpClient 의
+    // refresh 실패 경로(createResponseOnRejected)가 호출하는 바로 그 함수.
+    const handler = getSessionInvalidHandler();
+    expect(typeof handler).toBe('function');
+
+    const hrefBefore = window.location.href;
+
+    // httpClient 인터셉터가 refresh 실패 시 하는 일을 그대로 재현: 토큰 삭제 후
+    // 주입된 핸들러 호출. window.location 은 건드리지 않는다(하드 리로드 없음).
+    tokenStorage.clearTokens();
+    act(() => {
+      handler!();
+    });
+
+    // React 재렌더만으로(페이지 이동 없이) 폼 도달
+    expect(await screen.findByRole('button', { name: /접속/ })).toBeInTheDocument();
+    expect(screen.queryByText('WORKSPACE')).not.toBeInTheDocument();
+    expect(window.location.href).toBe(hrefBefore);
+
+    expect(useV2AuthStore.getState().isAuthenticated).toBe(false);
+    expect(useV2AuthStore.getState().user).toBeNull();
   });
 });

@@ -10,22 +10,32 @@
  *   - 요청 인터셉터: Bearer 헤더 첨부/미첨부
  *   - 401 → refresh → 재시도 1회 (새 토큰 저장 + Authorization 갱신)
  *   - 재시도 요청(_retry)의 401 → 그대로 reject (2차 refresh 없음)
- *   - refresh 실패 → 토큰 삭제 + /login 리다이렉트 + 대기 큐 전부 reject
- *   - refresh 토큰 없음 → 즉시 토큰 삭제 + 리다이렉트
+ *   - refresh 실패 → 토큰 삭제 + 주입된 onSessionInvalid 핸들러 호출 + 대기 큐 전부 reject
+ *   - refresh 토큰 없음 → 즉시 토큰 삭제 + onSessionInvalid 호출
  *   - /auth/login·/auth/refresh 401 → refresh 시도 없이 전파
  *   - 동시 401 단일 비행: refresh 1회, 전원 재시도
+ *   - setSessionInvalidHandler/invokeSessionInvalid: 등록된 핸들러 우선 호출,
+ *     미등록 시(테스트/부트 이전)에만 하드 리다이렉트 폴백(B-V2)
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import {
   tokenStorage,
   createRequestOnFulfilled,
   createResponseOnRejected,
+  setSessionInvalidHandler,
+  getSessionInvalidHandler,
+  invokeSessionInvalid,
   type ResponseInterceptorDeps,
 } from '../httpClient';
 
 beforeEach(() => {
   localStorage.clear();
+});
+
+afterEach(() => {
+  // 이 파일의 다른 describe 가 등록한 핸들러가 남아 다음 테스트에 새지 않도록 정리.
+  setSessionInvalidHandler(null);
 });
 
 // ── 헬퍼 ─────────────────────────────────────────────────────────────────────
@@ -60,14 +70,14 @@ function makeDeps(overrides: Partial<ResponseInterceptorDeps> = {}) {
       accessToken: 'new-access',
       refreshToken: 'new-refresh',
     })) as unknown as ResponseInterceptorDeps['postRefresh'],
-    redirectToLogin: vi.fn(),
+    onSessionInvalid: vi.fn(),
     ...overrides,
   };
   return {
     deps,
     retry: deps.retry as ReturnType<typeof vi.fn>,
     postRefresh: deps.postRefresh as unknown as ReturnType<typeof vi.fn>,
-    redirectToLogin: deps.redirectToLogin as ReturnType<typeof vi.fn>,
+    onSessionInvalid: deps.onSessionInvalid as ReturnType<typeof vi.fn>,
   };
 }
 
@@ -111,7 +121,7 @@ describe('createRequestOnFulfilled — Bearer 헤더', () => {
 describe('createResponseOnRejected — 401 refresh 흐름', () => {
   it('401 → refresh → 새 토큰 저장 + Authorization 갱신 + 재시도 1회', async () => {
     tokenStorage.setRefreshToken('old-refresh');
-    const { deps, retry, postRefresh, redirectToLogin } = makeDeps();
+    const { deps, retry, postRefresh, onSessionInvalid } = makeDeps();
     const onRejected = createResponseOnRejected(deps);
 
     const err = make401('/v2/data');
@@ -127,7 +137,7 @@ describe('createResponseOnRejected — 401 refresh 흐름', () => {
     expect((retriedConfig.headers as Record<string, string>).Authorization).toBe('Bearer new-access');
     expect(retriedConfig._retry).toBe(true);
     expect(result.data.ok).toBe(true);
-    expect(redirectToLogin).not.toHaveBeenCalled();
+    expect(onSessionInvalid).not.toHaveBeenCalled();
   });
 
   it('재시도 요청(_retry=true)의 401 → 그대로 reject, 2차 refresh 없음', async () => {
@@ -140,11 +150,11 @@ describe('createResponseOnRejected — 401 refresh 흐름', () => {
     expect(postRefresh).not.toHaveBeenCalled();
   });
 
-  it('refresh 실패 → 토큰 삭제 + redirectToLogin', async () => {
+  it('refresh 실패 → 토큰 삭제 + onSessionInvalid', async () => {
     tokenStorage.setAccessToken('old-access');
     tokenStorage.setRefreshToken('old-refresh');
     const refreshErr = new Error('INVALID_REFRESH');
-    const { deps, retry, redirectToLogin } = makeDeps({
+    const { deps, retry, onSessionInvalid } = makeDeps({
       postRefresh: vi.fn().mockRejectedValue(refreshErr) as unknown as ResponseInterceptorDeps['postRefresh'],
     });
     const onRejected = createResponseOnRejected(deps);
@@ -153,14 +163,14 @@ describe('createResponseOnRejected — 401 refresh 흐름', () => {
 
     expect(tokenStorage.getAccessToken()).toBeNull();
     expect(tokenStorage.getRefreshToken()).toBeNull();
-    expect(redirectToLogin).toHaveBeenCalledTimes(1);
+    expect(onSessionInvalid).toHaveBeenCalledTimes(1);
     expect(retry).not.toHaveBeenCalled();
   });
 
-  it('refresh 토큰 없음 → 즉시 토큰 삭제 + redirectToLogin, refresh 미호출', async () => {
+  it('refresh 토큰 없음 → 즉시 토큰 삭제 + onSessionInvalid, refresh 미호출', async () => {
     tokenStorage.setAccessToken('old-access');
     // refreshToken 없음
-    const { deps, postRefresh, redirectToLogin } = makeDeps();
+    const { deps, postRefresh, onSessionInvalid } = makeDeps();
     const onRejected = createResponseOnRejected(deps);
 
     const err = make401('/v2/data');
@@ -168,7 +178,7 @@ describe('createResponseOnRejected — 401 refresh 흐름', () => {
 
     expect(postRefresh).not.toHaveBeenCalled();
     expect(tokenStorage.getAccessToken()).toBeNull();
-    expect(redirectToLogin).toHaveBeenCalledTimes(1);
+    expect(onSessionInvalid).toHaveBeenCalledTimes(1);
   });
 
   it('/auth/login 401 → refresh 시도 없이 그대로 전파', async () => {
@@ -235,7 +245,7 @@ describe('createResponseOnRejected — 동시 401 단일 비행', () => {
       rejectRefresh = rej;
     });
     const postRefresh = vi.fn(() => refreshPromise);
-    const { deps, retry, redirectToLogin } = makeDeps({
+    const { deps, retry, onSessionInvalid } = makeDeps({
       postRefresh: postRefresh as unknown as ResponseInterceptorDeps['postRefresh'],
     });
     const onRejected = createResponseOnRejected(deps);
@@ -252,8 +262,47 @@ describe('createResponseOnRejected — 동시 401 단일 비행', () => {
     await expect(p3).rejects.toBe(refreshErr);
 
     expect(retry).not.toHaveBeenCalled();
-    expect(redirectToLogin).toHaveBeenCalledTimes(1);
+    expect(onSessionInvalid).toHaveBeenCalledTimes(1);
     expect(tokenStorage.getAccessToken()).toBeNull();
     expect(tokenStorage.getRefreshToken()).toBeNull();
+  });
+});
+
+// ── invokeSessionInvalid: 등록된 핸들러 우선, 미등록 시에만 하드 리다이렉트 ──
+describe('invokeSessionInvalid — 핸들러 등록 여부에 따른 분기 (B-V2)', () => {
+  it('핸들러 등록됨 → 핸들러만 호출, 하드 리다이렉트(location.href 변경) 없음', () => {
+    const originalHref = window.location.href;
+    const handler = vi.fn();
+
+    setSessionInvalidHandler(handler);
+    expect(getSessionInvalidHandler()).toBe(handler);
+
+    invokeSessionInvalid();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    // 프로덕션 refresh 실패 경로가 이 함수를 호출하는 목적 자체가 하드 리로드
+    // 제거(스토어 리셋 기반 재렌더로 대체)이므로, location 은 건드리지 않아야 한다.
+    expect(window.location.href).toBe(originalHref);
+  });
+
+  it('핸들러 미등록(테스트/부트 이전) → 하드 리다이렉트 폴백', () => {
+    expect(getSessionInvalidHandler()).toBeNull();
+
+    // jsdom 은 실제 navigation 을 구현하지 않으므로 location 을 로컬 stub 으로
+    // 교체해 href 대입만 관찰한다(실제 페이지 이동 없이 폴백 분기만 검증).
+    const originalLocation = window.location;
+    const stub = { href: originalLocation.href } as Location;
+    Object.defineProperty(window, 'location', { value: stub, writable: true, configurable: true });
+
+    try {
+      invokeSessionInvalid();
+      expect(stub.href).toBe('/login');
+    } finally {
+      Object.defineProperty(window, 'location', {
+        value: originalLocation,
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 });
