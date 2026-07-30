@@ -191,5 +191,6 @@ export const productionResponseDeps: ResponseInterceptorDeps = {
   },
   onSessionInvalid: invokeSessionInvalid,
 };
+Object.freeze(productionResponseDeps); // 테스트 노출 객체의 런타임 변조 방지
 
 httpClient.interceptors.response.use((res) => res, createResponseOnRejected(productionResponseDeps));

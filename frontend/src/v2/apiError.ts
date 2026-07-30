@@ -2,8 +2,11 @@
  * apiError.ts — 에러→표시 문구 번역의 유일 지점 (§6-4)
  *
  * 백엔드 HttpError 직렬화(router.ts 의 { error, message, details })를 axios
- * 에러에서 읽어 사용자 표시용 메시지/코드/타입스펙 이슈로 변환한다. 이 모듈
- * 하나만이 번역을 담당하며, 다른 곳에서 response.data 를 직접 파싱하지 않는다.
+ * 에러에서 읽어 사용자 표시용 메시지/코드/타입스펙 이슈로 변환한다.
+ *
+ * 범위: **표시 문구 번역**은 이 모듈이 유일 지점이다. response.data 의 다른
+ * 필드를 도메인 목적으로 읽는 것(예: useCommit 의 409 conflict details·
+ * ownerSubstationNames 처리)은 번역이 아니므로 여기 오지 않는다.
  */
 import { isAxiosError } from 'axios';
 import type { TypeSpecIssue } from '@twin/core';

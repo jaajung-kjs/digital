@@ -22,6 +22,9 @@ import { SEED_ASSET_TYPES, PLACEMENT_FIELDS } from '@twin/core';
  *   6. 동적/런타임 import: `await import('@prisma/client')`,
  *      `require('@prisma/client')` — 이 파일의 금지는 정적 `from '...'` 형태만
  *      잡는다.
+ *   7. 중첩 구조분해: `const { cable: { aRef } } = row` / `const { overlays:
+ *      { creates, updates, deletes } } = s` — 구조분해 검출은 1단계 패턴만
+ *      본다(2026-07-30 2차 감사 최종리뷰 M3).
  *
  * 이 중 (1)(2)(3)은 role 비교, (4)(5)는 타입 키 분기, (6)은 @prisma/client
  * 재도입 금지에 대응한다. 발견 시 코드 리뷰에서 사람이 잡아야 한다 — 이
