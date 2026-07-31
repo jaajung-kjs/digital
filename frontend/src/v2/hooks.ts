@@ -3,9 +3,11 @@ import { useMemo } from 'react';
 import {
   createCategory,
   createCableCategory,
+  createOrgNode,
   createType,
   deleteCategory,
   deleteCableCategory,
+  deleteOrgNode,
   deleteType,
   fetchCatalog,
   fetchNodeAssets,
@@ -13,7 +15,9 @@ import {
   patchCategory,
   patchCableCategory,
   patchCableGroup,
+  patchOrgNode,
   updateType,
+  type OrgKind,
 } from './api';
 import type { V2AssetType } from './types';
 
@@ -54,5 +58,26 @@ export function useCatalogMutations() {
     createCableCategory: useMutation({ mutationFn: createCableCategory, onSuccess: invalidate }),
     patchCableCategory: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof patchCableCategory>[1] }) => patchCableCategory(id, body), onSuccess: invalidate }),
     deleteCableCategory: useMutation({ mutationFn: deleteCableCategory, onSuccess: invalidate }),
+  };
+}
+
+/** 조직 트리 뮤테이션 — 성공 시 ['v2','org-tree'] 자동 무효화 */
+export function useOrgMutations() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['v2', 'org-tree'] });
+
+  return {
+    createOrgNode: useMutation({
+      mutationFn: (v: { kind: OrgKind; body: Record<string, string> }) => createOrgNode(v.kind, v.body),
+      onSuccess: invalidate,
+    }),
+    renameOrgNode: useMutation({
+      mutationFn: (v: { kind: OrgKind; id: string; name: string }) => patchOrgNode(v.kind, v.id, { name: v.name }),
+      onSuccess: invalidate,
+    }),
+    deleteOrgNode: useMutation({
+      mutationFn: (v: { kind: OrgKind; id: string }) => deleteOrgNode(v.kind, v.id),
+      onSuccess: invalidate,
+    }),
   };
 }
