@@ -136,6 +136,7 @@ export const commitPayloadSchema = z.object({
     .object({
       maintenance: recordOps({ occurredAt: z.string().datetime(), content: z.string().min(1), action: z.string().nullish() }).optional(),
       inspections: recordOps({ inspectedAt: z.string().datetime(), content: z.string().min(1), result: z.string().nullish() }).optional(),
+      photos: recordOps({ filePath: z.string().min(1), caption: z.string().nullish() }).optional(),
     })
     .optional(),
   baseVersions: z.record(z.string()).optional(),

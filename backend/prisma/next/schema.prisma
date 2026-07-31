@@ -294,4 +294,5 @@ model AssetPhoto {
   filePath  String
   caption   String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
