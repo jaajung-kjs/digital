@@ -4,8 +4,9 @@ import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
 
 export const workingcopyRouter = Router();
+workingcopyRouter.use(authenticate);
 
-workingcopyRouter.get('/substations/:id/workingcopy', authenticate, async (req, res, next) => {
+workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => {
   try {
     const substation = await nextDb.substation.findUnique({ where: { id: req.params.id } });
     if (!substation) throw new HttpError(404, 'NOT_FOUND', '변전소를 찾을 수 없습니다');
