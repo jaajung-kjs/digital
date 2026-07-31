@@ -145,7 +145,7 @@ function cableToolReducer(state: CableToolState, action: CableToolAction): Cable
     case 'SET_REMOTE_ERROR':
       return { ...state, remoteError: action.error };
     case 'REMOTE_CABLE_STAGED':
-      return { ...state, firstEndpoint: null, remoteModalOpen: false, picker: null };
+      return { ...state, firstEndpoint: null, remoteModalOpen: false, picker: null, remoteError: null };
     case 'SELECT_CABLE':
       return { ...state, selectedCableId: action.id };
     case 'DESELECT_CABLE':
@@ -769,7 +769,9 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       return;
     }
     if (isPanning.current) return; // 팬 중 클릭 무시
-    if (placementState.mode === 'armed') return; // armed 상태에서는 클릭 선택 무시
+    // armed 뿐 아니라 modal 단계도 무시해야 한다 — 드로우 mouseup 직후 브라우저가
+    // 합성하는 click 이 열린 AddAssetModal 뒤에서 선택을 바꾸는 것을 막는다(구 ref 가드와 동일 범위).
+    if (placementState.mode !== 'idle') return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;

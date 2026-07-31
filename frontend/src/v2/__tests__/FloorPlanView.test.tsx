@@ -67,9 +67,9 @@ function setStore(assets: V2Asset[], cables: V2Cable[] = []) {
   });
 }
 
-function renderFloorPlan() {
+function renderFloorPlan(onSelectAsset: (id: string | null) => void = vi.fn()) {
   return render(
-    <FloorPlanView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />,
+    <FloorPlanView substationId="sub-1" selectedAssetId={null} onSelectAsset={onSelectAsset} />,
   );
 }
 
@@ -162,6 +162,26 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeTruthy();
     expect(screen.getByDisplayValue('배전반')).toBeTruthy();
+  });
+
+  it('드로우 mouseup 직후 합성 click 은 모달 뒤에서 선택을 바꾸지 않는다', () => {
+    // 리뷰發 회귀핀: 가드가 armed 만 보면 modal 단계의 click 이 통과해
+    // 열린 AddAssetModal 뒤에서 onSelectAsset 이 호출된다(구 ref 가드는 두 단계 모두 차단했음).
+    setStore([asset('a', 0, 0)]); // 드래그 종료 지점과 겹치는 기존 자산
+    const onSelectAsset = vi.fn();
+    renderFloorPlan(onSelectAsset);
+
+    fireEvent.click(screen.getByRole('button', { name: '배전반' }));
+    const canvas = screen.getByTestId('floorplan-canvas');
+
+    fireEvent.mouseDown(canvas, { button: 0, clientX: 0, clientY: 0 });
+    fireEvent.mouseMove(window, { clientX: 40, clientY: 40 });
+    fireEvent.mouseUp(window, { clientX: 40, clientY: 40 });
+    expect(screen.getByRole('dialog')).toBeTruthy(); // modal 단계 진입
+
+    // 브라우저가 mouseup 뒤 합성하는 click
+    fireEvent.click(canvas, { clientX: 40, clientY: 40 });
+    expect(onSelectAsset).not.toHaveBeenCalled();
   });
 
   it('너무 작은 드래그(MIN_DRAW 미만)는 모달을 열지 않는다', () => {
