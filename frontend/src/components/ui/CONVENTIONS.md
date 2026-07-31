@@ -6,8 +6,8 @@
 
 ## 0. 황금률
 
-1. **공용 컴포넌트 먼저.** `src/components/ui` 와 `src/features/assets/components/detail/SectionShell.tsx` 에
-   이미 있는 것을 쓴다. 없으면 *여기에 추가*하고 이 문서에 적는다 — 패널 안에서 일회용으로 만들지 않는다.
+1. **공용 컴포넌트 먼저.** `src/components/ui` 에 이미 있는 것을 쓴다. 없으면 *여기에 추가*하고
+   이 문서에 적는다 — 패널 안에서 일회용으로 만들지 않는다.
 2. **타이포 스케일을 벗어나지 않는다(아래 §1).** `text-[11px]`, `text-[8px]` 같은 임의 초소형 폰트 금지.
 3. **시맨틱 색 토큰만(아래 §2).** 하드코딩 hex(`#fff`)·원시 팔레트(`gray-500`) 금지.
 4. **z-index 는 토큰만(아래 §2.5).** `z-50`·`z-[15]` 같은 raw/임의 z, 인라인 `style={{ zIndex }}` 금지.
@@ -49,41 +49,48 @@
 
 ## 3. 컴포넌트 카탈로그 — "이걸 쓰세요"
 
+실제로 존재하는 공용 컴포넌트는 전부 `src/components/ui`(배럴 `index.ts`)에 있다:
+`Badge`, `Button`, `IconButton`, `Card`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailNote`, `Input`, `Select`, `Modal`, `CommitBar`, `cn`.
+아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다 — v2(`src/v2/`)와 레거시 잔존 화면 공통.
+
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
 `src/components/ui/DetailCard.tsx` — 광슬롯 포트, 피더 CB 등 **무언가 클릭 시 상세가 뜨는 카드는 전부 이것**.
 ```tsx
-import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../components/ui';
 
 <DetailCard>
   <DetailCardHeader title="포트 3" badge="양측" badgeStatus="success" />
   <DetailRow label="자국">{name}</DetailRow>
-  <DetailRow label="대국"><EditableField .../></DetailRow>  {/* 값에 인라인 편집 노드도 가능 */}
+  <DetailRow label="대국">{/* 값 자리에 Input/Select 등 편집 노드도 그대로 넣을 수 있다 */}</DetailRow>
   <DetailNote>자세한 정보는 선번장에서.</DetailNote>
 </DetailCard>
 ```
-외형: `rounded-lg border border-line bg-surface p-3` — 점검·고장이력 리스트 카드(`SectionItem`)와 **동일 톤**.
-수정/삭제가 필요하면 `DetailCardHeader` 에 `onEdit`/`onDelete` 를 주면 우측에 연필/휴지통 액션이 뜬다(점검·고장 카드와 동일 패턴).
+외형: `rounded-lg border border-line bg-surface p-3`.
+수정/삭제가 필요하면 `DetailCardHeader` 에 `onEdit`/`onDelete` 를 주면 우측에 연필/휴지통 액션이 뜬다.
 
-### 리스트 아이템 카드(점검·고장이력 등) → `SectionItem`
-`src/features/assets/components/detail/SectionShell.tsx`
+### 리스트 아이템 카드(점검·고장이력 등) → 역시 `DetailCard`
+별도 "리스트 카드" 컴포넌트는 없다 — `RecordsTab.tsx` 가 실증하듯 점검/고장이력 리스트의 각 항목도 그대로 `DetailCard`(+`DetailCardHeader`) 를 재사용한다. 상세 카드와 리스트 카드를 구분해 별도로 만들지 않는다.
 
-### 작성/편집 폼 한 줄 → `FormRow` + `fieldClass` / 인라인 편집은 `EditableField`
-`SectionShell.tsx` / `src/features/assets/components/EditableField.tsx`
+### 작성/편집 폼 한 줄 → `DetailRow`
+`FormRow`/`EditableField` 라는 별도 컴포넌트는 없다. `DetailRow label="...">` 안에 `Input`/`Select` 를 직접 넣는 것이 v2 의 표준 패턴(`InfoTab.tsx` 참고) — 상세 표시 행과 편집 행을 같은 컴포넌트로 겸한다.
 
 ### 상태 배지(ON/OFF·연결상태 등) → `Badge`
 `src/components/ui/Badge.tsx` (`status`: success·warning·danger·info·neutral). `DetailCardHeader` 의 `badgeStatus` 가 이걸 씀.
 
-### 버튼 → `Button` / `IconButton`(`ui`) · 폼 푸터는 `PrimaryButton`/`GhostButton`(`SectionShell`) · 인라인 아이콘은 `IconAction`
+### 버튼 → `Button` / `IconButton`
+`Button` 은 `variant`(`primary`/`secondary`/`ghost`/`danger`) + `size`(`sm`/`md`) props 로 톤을 결정한다 — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`.
 
-### 입력/선택 → `Input` / `Select`(`ui`) 또는 `fieldClass`
+### 입력/선택 → `Input` / `Select`
+별도의 `fieldClass` 유틸은 없다 — `Input`/`Select` 를 직접 쓴다.
 
-### 빈 상태 → `SectionEmpty`(`SectionShell`)
+### 대화상자 → `Modal`
+Esc 닫기·백드롭 클릭 닫기·`size="sm"/"md"` 폭 고정을 내장. 자체 오버레이(`fixed inset-0` 직접 구현)를 새로 만들지 말고 이걸 재사용한다.
 
-### 슬롯/포트/차단기 그리드(장비 내부 GUI) → 공용 단일 컴포넌트
-"백플레인 + 흰 입체 모듈 + 좌측/상태 색 악센트" 한 가지 언어로 통일. 새 슬롯형 GUI는 이걸 재사용한다.
-- **슬롯 레일(랙·OFD 공용)**: `src/components/SlotRailGrid.tsx`(프레임+번호레일) + `src/components/SlotTile.tsx`(모듈 타일). **랙·OFD 는 반드시 같은 SlotTile 을 쓴다** — 드래그/리사이즈만 `onPointerDown`/`footer` 로 주입(별도 컴포넌트 복제 금지).
-- **차단기 레일**(피더 분기): `src/components/BreakerRail.tsx`.
-- **포트 그리드**(광슬롯): `src/components/PortGrid.tsx`.
+### 저장 대기 바(작업 중 변경사항) → `CommitBar`
+`dirty`(대기 건수)·`onCommit`·`onRevert` 를 받는 고정 바. 워킹카피 편집 화면 상단에서 재사용.
+
+### 슬롯/포트/차단기 그리드(장비 내부 GUI)
+레거시의 `SlotRailGrid`/`SlotTile`/`BreakerRail`/`PortGrid` 공용 컴포넌트는 Stage 7 구코드 정리에서 삭제됐고, v2 재구축에서 아직 대체 공용 컴포넌트로 다시 만들어지지 않았다. 현재는 `InfoTab.tsx` 의 로컬 `SlotGrid` 처럼 **각 화면이 자체적으로** 슬롯 그리드를 렌더링한다. 슬롯형 GUI를 2곳 이상에서 반복 구현하게 되면 그때 `src/components/ui` 에 공용 컴포넌트로 승격하고 이 문서에 등록한다(§4).
 
 ## 4. 새 패턴이 필요하면
 
