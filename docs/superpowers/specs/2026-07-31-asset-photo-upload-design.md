@@ -58,7 +58,7 @@ Stage 7(구코드 제거)에서 구 사진 업로드 라우트·미들웨어·�
 `GET /api/v2/workingcopy/:substationId` 응답에 `photos`를 추가한다(변전소 소속 자산의 `AssetPhoto` 전체, `createdAt asc`).
 
 ### 스키마
-`AssetPhoto`에 `updatedAt DateTime @updatedAt` 추가(가산 마이그레이션 1건). 다른 레코드 종류와 형상을 맞춰 프론트 `recordOps`·오버레이 기계를 **특례 없이** 재사용하기 위함이다 — 여기서 형상을 어긋나게 두면 "사진은 세 번째 레코드 종류"라는 설계 전제가 코드에서 깨진다.
+`AssetPhoto`에 `updatedAt DateTime @updatedAt` 추가(마이그레이션 1건 — 기본값 없는 `NOT NULL` 컬럼이라 **테이블이 비어 있을 때만 적용 가능**하다. Stage 7 이후 이 테이블에 쓰는 코드가 없어 모든 환경에서 비어 있음이 보장된다). 다른 레코드 종류와 형상을 맞춰 프론트 `recordOps`·오버레이 기계를 **특례 없이** 재사용하기 위함이다 — 여기서 형상을 어긋나게 두면 "사진은 세 번째 레코드 종류"라는 설계 전제가 코드에서 깨진다.
 
 자산 삭제 시 사진 행은 `onDelete: Cascade`로 자동 정리되고, 바이너리는 남는다(고아 — 수용).
 

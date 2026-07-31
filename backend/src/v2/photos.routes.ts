@@ -20,7 +20,18 @@ import { HttpError } from './errors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+/**
+ * 허용 MIME → 저장 확장자. 확장자는 **검증된 MIME 에서 파생**한다 —
+ * 클라이언트가 보낸 originalname 을 믿으면 `Content-Type: image/png` + `evil.php`
+ * 조합으로 임의 확장자 파일이 저장된다(서빙 정규식이 막아 영원히 못 읽는 고아가 되지만,
+ * 애초에 만들지 않는 편이 옳다).
+ */
+const MIME_TO_EXT = new Map([
+  ['image/jpeg', '.jpg'],
+  ['image/png', '.png'],
+  ['image/gif', '.gif'],
+  ['image/webp', '.webp'],
+]);
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 /** UPLOADS_DIR 절대 경로. 미설정 시 `<backend>/uploads`(개발 기본값). */
@@ -38,14 +49,14 @@ fs.mkdirSync(assetPhotoDir(), { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, assetPhotoDir()),
-  filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+  filename: (_req, file, cb) => cb(null, `${uuidv4()}${MIME_TO_EXT.get(file.mimetype) ?? ''}`),
 });
 
 const upload = multer({
   storage,
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
-    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+    if (!MIME_TO_EXT.has(file.mimetype)) {
       cb(new HttpError(400, 'INVALID_IMAGE', '이미지 파일만 업로드할 수 있습니다 (jpg, png, gif, webp)'));
       return;
     }
@@ -60,8 +71,13 @@ photosRouter.post('/', authenticate, adminOnly, (req: Request, res: Response, ne
     if (err) {
       // multer 자체 한도(용량 등) 위반은 MulterError 로 온다 — v2 HttpError 계약으로 변환한다.
       // MIME 거절은 fileFilter 에서 이미 HttpError 로 던지므로 여기선 그대로 통과시킨다.
-      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
-        next(new HttpError(413, 'FILE_TOO_LARGE', '파일 크기는 5MB 이하여야 합니다'));
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          next(new HttpError(413, 'FILE_TOO_LARGE', '파일 크기는 5MB 이하여야 합니다'));
+          return;
+        }
+        // 그 외 multer 위반(필드명 오류 등)도 클라이언트 잘못이므로 400 으로 — 전역 500 으로 새지 않게.
+        next(new HttpError(400, 'INVALID_UPLOAD', '업로드 형식이 올바르지 않습니다'));
         return;
       }
       next(err);

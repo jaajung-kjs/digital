@@ -85,3 +85,25 @@ describe('GET /api/v2/photos/:filename', () => {
       .expect(404);
   });
 });
+
+// ── 리뷰發 하드닝 회귀핀 ────────────────────────────────────────────────────
+describe('업로드 하드닝', () => {
+  it('확장자는 클라이언트 파일명이 아니라 검증된 MIME 에서 파생된다', async () => {
+    const res = await request(app)
+      .post('/api/v2/photos')
+      .set(admin)
+      .attach('file', onePixelPng, { filename: 'evil.php', contentType: 'image/png' })
+      .expect(201);
+    expect(res.body.filePath).toMatch(/^assets\/[0-9a-f-]{36}\.png$/); // .php 아님
+    created.push(res.body.filePath.split('/')[1]);
+  });
+
+  it('잘못된 필드명 업로드 → 500 이 아니라 400', async () => {
+    const res = await request(app)
+      .post('/api/v2/photos')
+      .set(admin)
+      .attach('wrongField', onePixelPng, { filename: 'a.png', contentType: 'image/png' })
+      .expect(400);
+    expect(res.body.error).toBe('INVALID_UPLOAD');
+  });
+});
