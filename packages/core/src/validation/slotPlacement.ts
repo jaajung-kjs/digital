@@ -1,4 +1,4 @@
-import type { AcceptRule, AssetTypeSpec } from '../catalog/types.js';
+import type { AcceptRule, AssetTypeSpec, ContainerSpec } from '../catalog/types.js';
 
 export interface SlotOccupant {
   assetId: string;
@@ -48,4 +48,24 @@ export function validateSlotPlacement(args: {
   if (overlaps) return 'overlap';
 
   return null;
+}
+
+/**
+ * 고정 슬롯 컨테이너의 빈 슬롯 인덱스 목록 — validateSlotPlacement의 overlap 판정과 같은
+ * 구간 겹침 모델(후보 슬롯을 span=1 점유로 보고 기존 점유와 겹치는지)을 쓴다.
+ * 자유형 컨테이너(slotCount === null)는 위치 개념이 없으므로 빈 배열.
+ */
+export function freeSlots(
+  spec: Pick<ContainerSpec, 'slotCount'>,
+  occupants: { slotIndex: number | null; slotSpan: number | null }[],
+): number[] {
+  if (spec.slotCount === null) return [];
+
+  const resolved = occupants
+    .filter((o): o is { slotIndex: number; slotSpan: number | null } => o.slotIndex !== null)
+    .map((o) => ({ slotIndex: o.slotIndex, slotSpan: o.slotSpan ?? 1 }));
+
+  return Array.from({ length: spec.slotCount }, (_, i) => i).filter(
+    (i) => !resolved.some((o) => i < o.slotIndex + o.slotSpan && o.slotIndex <= i),
+  );
 }

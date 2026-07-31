@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AssetTypeSpec } from '../catalog/types.js';
-import { isAccepted, validateSlotPlacement } from './slotPlacement.js';
+import { freeSlots, isAccepted, validateSlotPlacement } from './slotPlacement.js';
 
 const rack: AssetTypeSpec = {
   key: 'RACK',
@@ -99,6 +99,40 @@ describe('validateSlotPlacement', () => {
       containers: [{ key: 'main', name: '목록', slotCount: null, allowSpan: false, accepts: {} }],
     };
     expect(validateSlotPlacement({ ...base, parentType: free, slotIndex: null })).toBeNull();
+  });
+});
+
+describe('freeSlots', () => {
+  it('점유(span 포함) 제외한 빈 슬롯 (구 프론트 freeSlots 거동과 동일)', () => {
+    const spec = { slotCount: 6 };
+    expect(freeSlots(spec, [{ slotIndex: 0, slotSpan: 2 }, { slotIndex: 4, slotSpan: 1 }])).toEqual([2, 3, 5]);
+  });
+
+  it('slotSpan null(=1)인 점유자도 1칸만 차지', () => {
+    const spec = { slotCount: 4 };
+    expect(freeSlots(spec, [{ slotIndex: 1, slotSpan: null }])).toEqual([0, 2, 3]);
+  });
+
+  it('slotIndex null인 점유자는 무시(미배치 형제)', () => {
+    const spec = { slotCount: 3 };
+    expect(freeSlots(spec, [{ slotIndex: null, slotSpan: 2 }])).toEqual([0, 1, 2]);
+  });
+
+  it('자유형 컨테이너(slotCount null) → 항상 빈 배열', () => {
+    const spec = { slotCount: null };
+    expect(freeSlots(spec, [{ slotIndex: 0, slotSpan: 1 }])).toEqual([]);
+    expect(freeSlots(spec, [])).toEqual([]);
+  });
+
+  it('점유 없음 → 전체 인덱스', () => {
+    const spec = { slotCount: 3 };
+    expect(freeSlots(spec, [])).toEqual([0, 1, 2]);
+  });
+
+  it('span>1 점유가 경계 슬롯까지 정확히 가린다 (구간 겹침 경계)', () => {
+    const spec = { slotCount: 5 };
+    // occupant [2,4) → 인덱스 2,3 점유. 인접 인덱스 1과 4는 자유.
+    expect(freeSlots(spec, [{ slotIndex: 2, slotSpan: 2 }])).toEqual([0, 1, 4]);
   });
 });
 

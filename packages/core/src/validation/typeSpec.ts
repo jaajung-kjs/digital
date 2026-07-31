@@ -1,4 +1,4 @@
-import type { AssetTypeSpec } from '../catalog/types';
+import type { AssetTypeSpec } from '../catalog/types.js';
 
 export interface TypeSpecIssue { path: string; message: string }
 export interface TypeSpecContext { categoryKeys: string[]; mediumKeys: string[] }

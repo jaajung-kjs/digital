@@ -4,14 +4,21 @@
  * 층 탭바 + canvas + ResizeObserver + rAF 렌더 루프 + 뷰포트(zoom/pan) + 클릭 선택
  * + placeable 팔레트 바 + armed drag-to-draw 배치
  * + 케이블 도구 (종류 Select, 포트 피커, 캔버스 케이블 렌더)
+ *
+ * 상태는 3개의 독립적 FSM으로 나뉜다: 뷰포트(pan/zoom, 단일 useState로 충분),
+ * 케이블 도구(useReducer), 배치(armed/draw) 도구(useReducer). rAF 렌더 루프와
+ * 네이티브 window 리스너(wheel/keydown/pan/draw-drag)는 React 렌더 사이클 밖에서
+ * 실행되므로, 이들이 읽어야 하는 "최신" 렌더 입력값은 매 렌더 갱신되는 단일
+ * `latest` ref 미러(§ latest 정의부 참고)를 통해서만 읽는다 — 클로저에 직접
+ * 캡쳐된 state/props를 읽으면 stale-closure 버그가 생긴다.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../canvas/backgroundRenderer';
 import { renderGrid } from '../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../canvas/renderers';
 import { screenToWorld, snapToGrid } from '../canvas/transform';
-import { findAssetAt } from '../canvas/hitTest';
+import { findAssetAt, type PlacedAsset } from '../canvas/hitTest';
 import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
 import type { DragSession } from '../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../floorPlacement';
@@ -26,7 +33,7 @@ import { AssetResizeHandles } from './AssetResizeHandles';
 import { PortPickerPopover } from './PortPickerPopover';
 import { RemoteEndpointModal } from './RemoteEndpointModal';
 import { SNAP_GRID, SELECTION_STYLES } from '../canvas/constants';
-import type { V2Asset, V2Port } from '../types';
+import type { V2Asset, V2Cable, V2Floor, V2Port } from '../types';
 import type { AssetSearchResult } from '../api';
 import type { PortGroup } from './PortPickerPopover';
 import { expandToPlacedAncestors } from '../traceSelectors';
@@ -64,6 +71,137 @@ interface PickerState {
   firstEndpoint: { portId: string; assetId: string } | null;
   /** 사전 연결 검증 에러 (한글) — 있으면 스테이지 대신 안내 표시 */
   validationError?: string | null;
+}
+
+// ── 케이블 도구 FSM ───────────────────────────────────────────────────────────
+// 상태: idle(armed=false) → armed(자산 클릭 대기) → picker 열림(포트 대기)
+//       → 첫 끝점 확정(armed 유지, 두 번째 자산 대기) → 스테이지 완료(armed 유지, 연속 연결)
+//       원격(대국) 경로는 picker 대신 remoteModalOpen 을 통해 같은 firstEndpoint 를 소비한다.
+interface CableToolState {
+  armed: boolean;
+  categoryId: string;
+  picker: PickerState | null;
+  firstEndpoint: { portId: string; assetId: string } | null;
+  selectedCableId: string | null;
+  remoteModalOpen: boolean;
+  remoteError: string | null;
+}
+
+const initialCableToolState: CableToolState = {
+  armed: false,
+  categoryId: '',
+  picker: null,
+  firstEndpoint: null,
+  selectedCableId: null,
+  remoteModalOpen: false,
+  remoteError: null,
+};
+
+type CableToolAction =
+  | { type: 'ARM' }
+  | { type: 'DISARM' }
+  | { type: 'SET_CATEGORY'; categoryId: string }
+  | { type: 'OPEN_PICKER'; picker: PickerState }
+  | { type: 'CLOSE_PICKER' }
+  | { type: 'SET_PICKER_ERROR'; error: string }
+  | { type: 'CONFIRM_FIRST_ENDPOINT'; endpoint: { portId: string; assetId: string } }
+  | { type: 'ABORT_TO_ARMED' }
+  | { type: 'CABLE_STAGED' }
+  | { type: 'OPEN_REMOTE_MODAL' }
+  | { type: 'CLOSE_REMOTE_MODAL' }
+  | { type: 'SET_REMOTE_ERROR'; error: string | null }
+  | { type: 'REMOTE_CABLE_STAGED' }
+  | { type: 'SELECT_CABLE'; id: string }
+  | { type: 'DESELECT_CABLE' };
+
+function cableToolReducer(state: CableToolState, action: CableToolAction): CableToolState {
+  switch (action.type) {
+    case 'ARM':
+      return { ...state, armed: true, firstEndpoint: null, picker: null };
+    case 'DISARM':
+      return !state.armed && state.picker === null && state.firstEndpoint === null
+        ? state
+        : { ...state, armed: false, firstEndpoint: null, picker: null };
+    case 'SET_CATEGORY':
+      return state.categoryId === action.categoryId ? state : { ...state, categoryId: action.categoryId };
+    case 'OPEN_PICKER':
+      return { ...state, picker: action.picker };
+    case 'CLOSE_PICKER':
+      return state.picker === null ? state : { ...state, picker: null };
+    case 'SET_PICKER_ERROR':
+      return state.picker ? { ...state, picker: { ...state.picker, validationError: action.error } } : state;
+    case 'CONFIRM_FIRST_ENDPOINT':
+      return { ...state, firstEndpoint: action.endpoint, picker: null };
+    case 'ABORT_TO_ARMED':
+      // 첫 끝점 포트를 effective 자산에서 못 찾은 경우 — 무검증 스테이지 금지, armed 는 유지
+      return { ...state, firstEndpoint: null, picker: null };
+    case 'CABLE_STAGED':
+      // 도구 유지(연속 연결), 첫 끝점만 초기화
+      return { ...state, firstEndpoint: null, picker: null };
+    case 'OPEN_REMOTE_MODAL':
+      return { ...state, remoteModalOpen: true, remoteError: null };
+    case 'CLOSE_REMOTE_MODAL':
+      return { ...state, remoteModalOpen: false, remoteError: null };
+    case 'SET_REMOTE_ERROR':
+      return { ...state, remoteError: action.error };
+    case 'REMOTE_CABLE_STAGED':
+      return { ...state, firstEndpoint: null, remoteModalOpen: false, picker: null, remoteError: null };
+    case 'SELECT_CABLE':
+      return { ...state, selectedCableId: action.id };
+    case 'DESELECT_CABLE':
+      return state.selectedCableId === null ? state : { ...state, selectedCableId: null };
+    default:
+      return state;
+  }
+}
+
+// ── 배치(armed/draw) FSM ─────────────────────────────────────────────────────
+// 상태: idle → armed(typeId, drag-to-draw 대기) → modal(드래그 완료 → AddAssetModal).
+// modal 동안에도 typeId 를 들고 있는 것은 원본 거동(armedTypeIdRef 는 모달이 열려 있는
+// 동안 clear 되지 않고 handleModalClose→disarm() 에서만 idle 로 돌아감)과 동일 — 다만
+// Modal 이 항상 전체 화면 backdrop 이라 이 구간의 팔레트 하이라이트/캔버스 커서는 화면에
+// 보이지 않으므로 사용자 가시 차이는 없다.
+// 드래그 중 좌표(drawRef)는 별도 — 마우스 이동마다 갱신되는 고빈도 프리뷰 데이터라
+// movePreviewRef/resizePreviewRef 와 같은 부류(§ 상단 주석)이므로 리듀서에 넣지 않고
+// 순수 ref 로 유지한다(디스패치를 유발하면 드래그 중 마우스무브마다 React 재렌더가 발생).
+type PlacementState =
+  | { mode: 'idle' }
+  | { mode: 'armed'; typeId: string }
+  | { mode: 'modal'; typeId: string; modal: DrawModalState };
+
+const initialPlacementState: PlacementState = { mode: 'idle' };
+
+type PlacementAction =
+  | { type: 'ARM'; typeId: string }
+  | { type: 'DISARM' }
+  | { type: 'OPEN_MODAL'; modal: DrawModalState };
+
+function placementReducer(state: PlacementState, action: PlacementAction): PlacementState {
+  switch (action.type) {
+    case 'ARM':
+      return { mode: 'armed', typeId: action.typeId };
+    case 'DISARM':
+      return state.mode === 'idle' ? state : { mode: 'idle' };
+    case 'OPEN_MODAL':
+      return state.mode === 'armed' ? { mode: 'modal', typeId: state.typeId, modal: action.modal } : state;
+    default:
+      return state;
+  }
+}
+
+/** rAF 렌더 루프·네이티브 window 리스너가 읽는 "최신 렌더 입력값" 미러 — 매 렌더 1회 갱신 */
+interface LatestRenderInputs {
+  viewport: Viewport;
+  placedAssets: PlacedAsset[];
+  selectedAssetId: string | null;
+  activeFloor: V2Floor | null;
+  traceResult: TraceResult | null;
+  effectiveCables: V2Cable[];
+  effectiveAssets: V2Asset[];
+  /** 케이블 도구 FSM에서 미러 — scheduleRender(rAF)의 첫 끝점 강조 렌더용 */
+  firstEndpoint: { portId: string; assetId: string } | null;
+  /** 케이블 도구 FSM에서 미러 — scheduleRender(rAF)의 선택 케이블 강조 렌더용 */
+  selectedCableId: string | null;
 }
 
 export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, traceResult }: Props) {
@@ -120,17 +258,34 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   const isPanning = useRef(false);
   const panStart = useRef({ mouseX: 0, mouseY: 0, panX: 0, panY: 0 });
 
-  // ── render 함수 (최신 상태를 ref 통해 읽음) ───────────────────────────────
-  const viewportRef = useRef(viewport);
-  viewportRef.current = viewport;
-  const placedAssetsRef = useRef(placedAssets);
-  placedAssetsRef.current = placedAssets;
-  const selectedAssetIdRef = useRef(selectedAssetId);
-  selectedAssetIdRef.current = selectedAssetId;
-  const activeFloorRef = useRef(activeFloor);
-  activeFloorRef.current = activeFloor;
-  const traceResultRef = useRef(traceResult ?? null);
-  traceResultRef.current = traceResult ?? null;
+  // ── 케이블 도구 FSM ───────────────────────────────────────────────────────
+  const [cableState, cableDispatch] = useReducer(cableToolReducer, initialCableToolState);
+
+  // ── 배치(armed/draw) FSM + 고빈도 드래그 좌표(ref, 리듀서 밖) ───────────────
+  const [placementState, placementDispatch] = useReducer(placementReducer, initialPlacementState);
+  /** drag-to-draw 진행 중 좌표 — 마우스무브마다 갱신되는 렌더 프리뷰 전용(리듀서 밖 유지 사유는 위 FSM 주석 참고) */
+  const drawRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
+
+  const armedTypeId = placementState.mode !== 'idle' ? placementState.typeId : null;
+  const drawModal = placementState.mode === 'modal' ? placementState.modal : null;
+
+  // ── render 함수(rAF)·네이티브 리스너가 읽는 "최신 렌더 입력값" 단일 미러 ────
+  // 7개 개별 ref(viewportRef/placedAssetsRef/selectedAssetIdRef/activeFloorRef/
+  // traceResultRef/effectiveCablesRef/effectiveAssetsRef)를 하나의 객체로 통합.
+  // firstEndpoint/selectedCableId 는 케이블 FSM 리듀서 상태에서 매 렌더 미러링 —
+  // scheduleRender(rAF)가 리듀서 state 를 직접 클로저로 캡쳐하면(그 클로저가
+  // rafPending 게이팅으로 인해 여러 렌더에 걸쳐 재사용될 수 있으므로) stale 값을
+  // 그릴 위험이 있기 때문.
+  const latest = useRef<LatestRenderInputs>({
+    viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
+    effectiveCables, effectiveAssets,
+    firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
+  });
+  latest.current = {
+    viewport, placedAssets, selectedAssetId, activeFloor, traceResult: traceResult ?? null,
+    effectiveCables, effectiveAssets,
+    firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
+  };
 
   // ── 추적 자산 확장 집합 (per-frame 계산 제거 — traceResult 변경 시 1회 프리컴퓨트) ──
   const traceExpandedIdsRef = useRef<Set<string>>(new Set());
@@ -141,12 +296,6 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       traceExpandedIdsRef.current = expandToPlacedAncestors(traceResult.assetIds, effectiveAssets);
     }
   }, [traceResult, effectiveAssets]);
-
-  // ── 케이블 렌더 refs ───────────────────────────────────────────────────────
-  const effectiveCablesRef = useRef(effectiveCables);
-  effectiveCablesRef.current = effectiveCables;
-  const effectiveAssetsRef = useRef(effectiveAssets);
-  effectiveAssetsRef.current = effectiveAssets;
 
   // ── 이동/리사이즈 프리뷰 refs (드래그 중 stage 금지, 렌더만) ─────────────
   /** 이동 프리뷰: id + 현재 위치 */
@@ -164,20 +313,6 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   /** 이동 드래그 후 클릭 오발 방지 플래그 */
   const wasRecentlyMoving = useRef(false);
 
-  // ── 배치(armed/draw) 상태 refs ───────────────────────────────────────────
-  /** 현재 armed 타입 ID (null이면 배치 모드 아님) */
-  const armedTypeIdRef = useRef<string | null>(null);
-  /** drag-to-draw: 드래그 시작 월드 좌표 */
-  const drawStartRef = useRef<{ x: number; y: number } | null>(null);
-  /** drag-to-draw: 드래그 현재 월드 좌표 */
-  const drawEndRef = useRef<{ x: number; y: number } | null>(null);
-
-  // armed 상태 변경을 React 렌더로 반영 (팔레트 버튼 하이라이트)
-  const [armedTypeId, setArmedTypeId] = useState<string | null>(null);
-
-  // ── AddAssetModal 상태 ────────────────────────────────────────────────────
-  const [drawModal, setDrawModal] = useState<DrawModalState | null>(null);
-
   // ── catalog (placeable 타입 목록, cableGroups) ─────────────────────────
   const catalog = useV2Catalog();
   const placeableTypes = useMemo(
@@ -186,34 +321,13 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   );
   const cableGroups = useMemo(() => catalog.data?.cableGroups ?? [], [catalog.data]);
 
-  // ── 케이블 도구 상태 ──────────────────────────────────────────────────────
-  /** 케이블 도구 armed (boolean) */
-  const [cableArmed, setCableArmed] = useState(false);
-  const cableArmedRef = useRef(false);
-  /** 선택된 케이블 종류 categoryId */
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
-  const selectedCategoryIdRef = useRef('');
-  selectedCategoryIdRef.current = selectedCategoryId;
-  /** 케이블 도구 포트 피커 상태 */
-  const [pickerState, setPickerState] = useState<PickerState | null>(null);
-  /** 첫 번째 끝점 확정 ref (피커 내 선택 후 두 번째 자산 대기) */
-  const firstEndpointRef = useRef<{ portId: string; assetId: string } | null>(null);
-  /** 선택된 케이블 ID (케이블 클릭 선택) */
-  const [selectedCableId, setSelectedCableId] = useState<string | null>(null);
-  /** 대국 검색 모달 열림 여부 */
-  const [remoteModalOpen, setRemoteModalOpen] = useState(false);
-  /** 대국 모달 내 검증 에러 메시지 */
-  const [remoteError, setRemoteError] = useState<string | null>(null);
-  const selectedCableIdRef = useRef<string | null>(null);
-  selectedCableIdRef.current = selectedCableId;
-
   // cableGroups 초기화 시 첫 category 선택
   useEffect(() => {
-    if (cableGroups.length > 0 && selectedCategoryId === '') {
+    if (cableGroups.length > 0 && cableState.categoryId === '') {
       const firstCat = cableGroups[0]?.categories[0];
-      if (firstCat) setSelectedCategoryId(firstCat.id);
+      if (firstCat) cableDispatch({ type: 'SET_CATEGORY', categoryId: firstCat.id });
     }
-  }, [cableGroups, selectedCategoryId]);
+  }, [cableGroups, cableState.categoryId]);
 
   // ── categoryId → color 맵 (렌더용) ───────────────────────────────────────
   const categoryColorMap = useMemo(() => {
@@ -230,18 +344,16 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   const selectedGroupKey = useMemo(() => {
     for (const group of cableGroups) {
       for (const cat of group.categories) {
-        if (cat.id === selectedCategoryId) return group.key;
+        if (cat.id === cableState.categoryId) return group.key;
       }
     }
     return undefined;
-  }, [cableGroups, selectedCategoryId]);
+  }, [cableGroups, cableState.categoryId]);
 
   // ── disarm 헬퍼 ──────────────────────────────────────────────────────────
   const disarm = useCallback(() => {
-    armedTypeIdRef.current = null;
-    drawStartRef.current = null;
-    drawEndRef.current = null;
-    setArmedTypeId(null);
+    placementDispatch({ type: 'DISARM' });
+    drawRef.current = null;
     scheduleRender();
   // scheduleRender 는 아래 정의되지만 ref 기반이므로 deps 불필요
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,10 +361,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
 
   /** 케이블 도구 해제 */
   const disarmCable = useCallback(() => {
-    cableArmedRef.current = false;
-    firstEndpointRef.current = null;
-    setCableArmed(false);
-    setPickerState(null);
+    cableDispatch({ type: 'DISARM' });
     scheduleRender();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -267,7 +376,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const { zoom, panX, panY } = viewportRef.current;
+      const { zoom, panX, panY } = latest.current.viewport;
       const scale = zoom / 100;
       const w = canvas.width;
       const h = canvas.height;
@@ -287,7 +396,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       const bottom = top + h / scale;
 
       // 3. 배경도면
-      const floor = activeFloorRef.current;
+      const floor = latest.current.activeFloor;
       if (floor?.backgroundDrawing) {
         renderBackgroundDrawing(
           ctx,
@@ -302,9 +411,9 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
 
       // 5. 케이블 (그리드 위, 자산 아래)
       const floorId = floor?.id ?? null;
-      const traceRes = traceResultRef.current;
+      const traceRes = latest.current.traceResult;
       if (floorId) {
-        const segs = cableSegments(effectiveCablesRef.current, effectiveAssetsRef.current, floorId);
+        const segs = cableSegments(latest.current.effectiveCables, latest.current.effectiveAssets, floorId);
         if (traceRes) {
           // 추적 결과 있음: 추적 케이블은 선택 스타일, 나머지는 alpha 0.3
           const tracedSegs = segs.filter((s) => traceRes.cableIds.has(s.id));
@@ -328,7 +437,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           const cableRenderSegs = segs.map((seg) => ({
             points: seg.points,
             color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
-            selected: seg.id === selectedCableIdRef.current,
+            selected: seg.id === latest.current.selectedCableId,
           }));
           renderCables(ctx, cableRenderSegs);
         }
@@ -340,22 +449,22 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         // 추적 결과 있음: 추적 자산은 선택 스타일, 나머지는 alpha 0.3
         // expandToPlacedAncestors로 프리컴퓨트된 집합 사용 (per-frame 스캔 제거)
         const expandedIds = traceExpandedIdsRef.current;
-        const tracedAssets = placedAssetsRef.current.filter((a) => expandedIds.has(a.id));
-        const dimmedAssets = placedAssetsRef.current.filter((a) => !expandedIds.has(a.id));
+        const tracedAssets = latest.current.placedAssets.filter((a) => expandedIds.has(a.id));
+        const dimmedAssets = latest.current.placedAssets.filter((a) => !expandedIds.has(a.id));
         ctx.save();
         ctx.globalAlpha = 0.3;
         renderPlacedAssets(ctx, dimmedAssets, null, activePreview);
         ctx.restore();
-        // 추적 자산: selectedAssetIdRef 경유 하이라이트 유지하면서 추적 강조
-        renderPlacedAssets(ctx, tracedAssets, selectedAssetIdRef.current, activePreview);
+        // 추적 자산: selectedAssetId 경유 하이라이트 유지하면서 추적 강조
+        renderPlacedAssets(ctx, tracedAssets, latest.current.selectedAssetId, activePreview);
       } else {
-        renderPlacedAssets(ctx, placedAssetsRef.current, selectedAssetIdRef.current, activePreview);
+        renderPlacedAssets(ctx, latest.current.placedAssets, latest.current.selectedAssetId, activePreview);
       }
 
       // 6.5 케이블 첫 끝점 자산 강조 (점선 스트로크 — 일반 선택과 구분)
-      const firstEp = firstEndpointRef.current;
+      const firstEp = latest.current.firstEndpoint;
       if (firstEp) {
-        const feAsset = placedAssetsRef.current.find((a) => a.id === firstEp.assetId);
+        const feAsset = latest.current.placedAssets.find((a) => a.id === firstEp.assetId);
         if (feAsset) {
           ctx.save();
           ctx.strokeStyle = SELECTION_STYLES.stroke;
@@ -367,8 +476,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       }
 
       // 7. draw 미리보기 (armed 상태 + 드래그 중)
-      if (drawStartRef.current) {
-        renderDrawPreview(ctx, drawStartRef.current, drawEndRef.current);
+      if (drawRef.current) {
+        renderDrawPreview(ctx, drawRef.current.start, drawRef.current.end);
       }
 
       ctx.restore();
@@ -454,7 +563,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
 
   const startPan = (mouseX: number, mouseY: number) => {
     isPanning.current = true;
-    panStart.current = { mouseX, mouseY, panX: viewportRef.current.panX, panY: viewportRef.current.panY };
+    panStart.current = { mouseX, mouseY, panX: latest.current.viewport.panX, panY: latest.current.viewport.panY };
     window.addEventListener('mousemove', onPanMoveRef.current);
     window.addEventListener('mouseup', stopPanRef.current);
   };
@@ -478,24 +587,20 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         spaceDown.current = true;
       }
       if (e.code === 'Escape') {
-        // ESC: 케이블 도구 해제
-        if (cableArmedRef.current) {
-          disarmCable();
-          return;
-        }
-        // ESC: disarm 또는 draw 취소
+        // ESC: 케이블 도구 해제(이미 idle 이면 리듀서가 no-op) — 케이블/배치 도구는
+        // 상호 배타적으로만 armed 되므로(handleArmType/handleArmCable) 둘 다
+        // 무조건 dispatch 해도(원본의 "cableArmed 면 즉시 return" 분기와) 동치.
+        disarmCable();
+        // ESC: 진행 중인 drag-to-draw 취소 (armed 상태 유지 여부와 무관하게 먼저 정리)
         if (isDrawing.current) {
           isDrawing.current = false;
-          drawStartRef.current = null;
-          drawEndRef.current = null;
+          drawRef.current = null;
           window.removeEventListener('mousemove', onDrawMoveRef.current);
           window.removeEventListener('mouseup', stopDrawRef.current);
           scheduleRender();
         }
-        if (armedTypeIdRef.current !== null) {
-          armedTypeIdRef.current = null;
-          setArmedTypeId(null);
-        }
+        // ESC: 배치 도구 해제(이미 idle 이면 리듀서가 no-op)
+        disarm();
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -539,33 +644,32 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     }
 
     // 케이블 armed: 자산 클릭 → 포트 피커 (mousedown 아닌 onClick에서 처리)
-    if (e.button === 0 && cableArmedRef.current) {
+    if (e.button === 0 && cableState.armed) {
       return; // 케이블 도구는 onClick에서 처리
     }
 
     // armed 배치 모드: 좌클릭 drag-to-draw
-    if (e.button === 0 && armedTypeIdRef.current !== null) {
+    if (e.button === 0 && placementState.mode === 'armed') {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      const { zoom, panX, panY } = viewportRef.current;
+      const { zoom, panX, panY } = latest.current.viewport;
       const raw = screenToWorld(e.clientX, e.clientY, rect, panX, panY, zoom);
       const snapped = snapToGrid(raw.x, raw.y, SNAP_GRID);
 
-      drawStartRef.current = snapped;
-      drawEndRef.current = snapped;
+      drawRef.current = { start: snapped, end: snapped };
       isDrawing.current = true;
 
-      const capturedTypeId = armedTypeIdRef.current;
+      const capturedTypeId = placementState.typeId;
       const capturedFloorId = activeFloorId;
 
       onDrawMoveRef.current = (me: MouseEvent) => {
         if (!isDrawing.current) return;
         const r = canvas.getBoundingClientRect();
-        const { zoom: z, panX: px, panY: py } = viewportRef.current;
+        const { zoom: z, panX: px, panY: py } = latest.current.viewport;
         const rawEnd = screenToWorld(me.clientX, me.clientY, r, px, py, z);
         const snappedEnd = snapToGrid(rawEnd.x, rawEnd.y, SNAP_GRID);
-        drawEndRef.current = snappedEnd;
+        if (drawRef.current) drawRef.current = { start: drawRef.current.start, end: snappedEnd };
         scheduleRender();
       };
 
@@ -575,10 +679,9 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         window.removeEventListener('mousemove', onDrawMoveRef.current);
         window.removeEventListener('mouseup', stopDrawRef.current);
 
-        const start = drawStartRef.current;
-        const end = drawEndRef.current;
-        drawStartRef.current = null;
-        drawEndRef.current = null;
+        const start = drawRef.current?.start ?? null;
+        const end = drawRef.current?.end ?? null;
+        drawRef.current = null;
         scheduleRender();
 
         if (!start || !end || !capturedFloorId) return;
@@ -586,7 +689,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         if (!isDrawLargeEnough(rectNorm)) return;
 
         // 모달 열기
-        setDrawModal({ floorId: capturedFloorId, rect: rectNorm, typeId: capturedTypeId ?? '' });
+        placementDispatch({ type: 'OPEN_MODAL', modal: { floorId: capturedFloorId, rect: rectNorm, typeId: capturedTypeId } });
       };
 
       window.addEventListener('mousemove', onDrawMoveRef.current);
@@ -599,9 +702,9 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       const canvas = canvasRef.current;
       if (!canvas) return;
       const canvasRect = canvas.getBoundingClientRect();
-      const { zoom, panX, panY } = viewportRef.current;
+      const { zoom, panX, panY } = latest.current.viewport;
       const world = screenToWorld(e.clientX, e.clientY, canvasRect, panX, panY, zoom);
-      const hit = findAssetAt(world.x, world.y, placedAssetsRef.current);
+      const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
       if (!hit) return;
 
       // 세션 시작
@@ -611,7 +714,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         const session = moveDragRef.current;
         if (!session) return;
         const r = canvas.getBoundingClientRect();
-        const { zoom: z, panX: px, panY: py } = viewportRef.current;
+        const { zoom: z, panX: px, panY: py } = latest.current.viewport;
         const wPos = screenToWorld(me.clientX, me.clientY, r, px, py, z);
 
         if (!isThresholdMet(session, wPos) && !session.moved) return;
@@ -638,7 +741,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         // 이동 완료
         wasRecentlyMoving.current = true;
         const r = canvas.getBoundingClientRect();
-        const { zoom: z, panX: px, panY: py } = viewportRef.current;
+        const { zoom: z, panX: px, panY: py } = latest.current.viewport;
         const wPos = screenToWorld(me.clientX, me.clientY, r, px, py, z);
         const snapped = dragDelta(session, wPos, (p) => snapToGrid(p.x, p.y, SNAP_GRID));
         // 원위치 복귀면 no-op 스테이지 방지 (프리뷰만 클리어)
@@ -666,38 +769,43 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       return;
     }
     if (isPanning.current) return; // 팬 중 클릭 무시
-    if (armedTypeIdRef.current !== null) return; // armed 상태에서는 클릭 선택 무시
+    // armed 뿐 아니라 modal 단계도 무시해야 한다 — 드로우 mouseup 직후 브라우저가
+    // 합성하는 click 이 열린 AddAssetModal 뒤에서 선택을 바꾸는 것을 막는다(구 ref 가드와 동일 범위).
+    if (placementState.mode !== 'idle') return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const { zoom, panX, panY } = viewportRef.current;
+    const { zoom, panX, panY } = latest.current.viewport;
     const world = screenToWorld(e.clientX, e.clientY, rect, panX, panY, zoom);
     const scale = zoom / 100;
 
     // ── 케이블 도구 armed ──────────────────────────────────────────────────
-    if (cableArmedRef.current) {
-      const hit = findAssetAt(world.x, world.y, placedAssetsRef.current);
+    if (cableState.armed) {
+      const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
       if (hit) {
         // 자산 객체 찾기 (V2Asset 형태)
-        const fullAsset = effectiveAssetsRef.current.find((a) => a.id === hit.id);
+        const fullAsset = latest.current.effectiveAssets.find((a) => a.id === hit.id);
         if (!fullAsset) return;
 
         // viewport client 좌표 (fixed 팝오버 — overflow-hidden 클리핑 없음)
-        setPickerState({
-          asset: fullAsset,
-          screenPos: { x: e.clientX, y: e.clientY },
-          firstEndpoint: firstEndpointRef.current,
+        cableDispatch({
+          type: 'OPEN_PICKER',
+          picker: {
+            asset: fullAsset,
+            screenPos: { x: e.clientX, y: e.clientY },
+            firstEndpoint: cableState.firstEndpoint,
+          },
         });
       }
       return;
     }
 
     // ── 자산 히트 우선 (자산이 케이블 위에 그려지므로 시각 순서와 일치) ────
-    const assetHit = findAssetAt(world.x, world.y, placedAssetsRef.current);
+    const assetHit = findAssetAt(world.x, world.y, latest.current.placedAssets);
     if (assetHit) {
-      if (selectedCableId !== null) {
-        setSelectedCableId(null);
+      if (cableState.selectedCableId !== null) {
+        cableDispatch({ type: 'DESELECT_CABLE' });
         scheduleRender();
       }
       onSelectAsset(assetHit.id);
@@ -705,14 +813,14 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     }
 
     // ── 케이블 히트 테스트 (자산 미히트 시에만) ───────────────────────────
-    const floorId = activeFloorRef.current?.id ?? null;
+    const floorId = latest.current.activeFloor?.id ?? null;
     if (floorId) {
-      const segs = cableSegments(effectiveCablesRef.current, effectiveAssetsRef.current, floorId);
+      const segs = cableSegments(latest.current.effectiveCables, latest.current.effectiveAssets, floorId);
       const threshold = CABLE_HIT_THRESHOLD / scale;
       for (let i = segs.length - 1; i >= 0; i--) {
         const seg = segs[i]!;
         if (distanceToPolyline(world, seg.points) <= threshold) {
-          setSelectedCableId(seg.id);
+          cableDispatch({ type: 'SELECT_CABLE', id: seg.id });
           onSelectAsset(null); // 케이블 선택 시 자산 선택 해제
           scheduleRender();
           return;
@@ -721,8 +829,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     }
 
     // ── 빈 공간 클릭: 선택 해제 ───────────────────────────────────────────
-    if (selectedCableId !== null) {
-      setSelectedCableId(null);
+    if (cableState.selectedCableId !== null) {
+      cableDispatch({ type: 'DESELECT_CABLE' });
       scheduleRender();
     }
     onSelectAsset(null);
@@ -738,42 +846,40 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
 
   // ── 포트 선택 핸들러 ──────────────────────────────────────────────────────
   const handlePortSelect = (port: V2Port) => {
-    const state = pickerState;
+    const state = cableState.picker;
     if (!state) return;
 
     if (!state.firstEndpoint) {
       // 첫 끝점 확정
-      firstEndpointRef.current = { portId: port.id, assetId: state.asset.id };
-      setPickerState(null);
+      cableDispatch({ type: 'CONFIRM_FIRST_ENDPOINT', endpoint: { portId: port.id, assetId: state.asset.id } });
       scheduleRender();
     } else {
       // 두 번째 끝점 — 사전 검증 후 스테이지
       const first = state.firstEndpoint;
 
       // 첫 끝점 포트 ref 찾기 (전체 effective assets에서)
-      const aPort = effectiveAssetsRef.current
+      const aPort = latest.current.effectiveAssets
         .flatMap((a) => a.ports)
         .find((p) => p.id === first.portId);
       const bPort = port;
 
       if (!aPort) {
         // 첫 끝점 포트를 effective에서 못 찾음 — 무검증 스테이지 금지
-        // firstEndpointRef + pickerState 모두 초기화해 원격 버튼 무동작 방지
-        firstEndpointRef.current = null;
-        setPickerState(null);
+        // firstEndpoint + picker 모두 초기화해 원격 버튼 무동작 방지
+        cableDispatch({ type: 'ABORT_TO_ARMED' });
         return;
       }
 
-      const occupied = occupiedPortIds(effectiveCablesRef.current);
+      const occupied = occupiedPortIds(latest.current.effectiveCables);
       const err = validateConnection(aPort, bPort, occupied, selectedGroupKey);
       if (err) {
         // 검증 실패 → 피커 내 안내 텍스트, 스테이지 금지
-        setPickerState({ ...state, validationError: connectErrorLabel(err) });
+        cableDispatch({ type: 'SET_PICKER_ERROR', error: connectErrorLabel(err) });
         return;
       }
 
       const substationId = saved.substation?.id ?? '';
-      const categoryId = selectedCategoryIdRef.current || null;
+      const categoryId = cableState.categoryId || null;
 
       useV2WorkingCopy.getState().stageCableCreate({
         id: crypto.randomUUID(),
@@ -788,39 +894,37 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       });
 
       // 도구 유지 (연속 연결), 첫 끝점 초기화
-      firstEndpointRef.current = null;
-      setPickerState(null);
+      cableDispatch({ type: 'CABLE_STAGED' });
       scheduleRender();
     }
   };
 
   // ── 대국 모달에서 포트 선택 → 두 번째 끝점으로 처리 ──────────────────────
   const handleRemotePortSelect = (port: V2Port, _asset: AssetSearchResult) => {
-    const first = firstEndpointRef.current;
+    const first = cableState.firstEndpoint;
     if (!first) return;
 
-    const aPort = effectiveAssetsRef.current
+    const aPort = latest.current.effectiveAssets
       .flatMap((a) => a.ports)
       .find((p) => p.id === first.portId);
     const bPort = port;
 
     if (!aPort) {
       // 첫 끝점을 effective에서 못 찾음 — 모달 유지 + 에러 표기 (침묵 금지)
-      setRemoteError('첫 끝점을 확인할 수 없습니다 — 다시 선택하세요');
+      cableDispatch({ type: 'SET_REMOTE_ERROR', error: '첫 끝점을 확인할 수 없습니다 — 다시 선택하세요' });
       return;
     }
 
-    const occupied = occupiedPortIds(effectiveCablesRef.current);
+    const occupied = occupiedPortIds(latest.current.effectiveCables);
     const err = validateConnection(aPort, bPort, occupied, selectedGroupKey);
     if (err) {
       // 검증 실패 — 모달 유지 + 모달 내 에러 표기 (첫 끝점 유지)
-      setRemoteError(connectErrorLabel(err));
+      cableDispatch({ type: 'SET_REMOTE_ERROR', error: connectErrorLabel(err) });
       return;
     }
-    setRemoteError(null);
 
     const substationId = saved.substation?.id ?? '';
-    const categoryId = selectedCategoryIdRef.current || null;
+    const categoryId = cableState.categoryId || null;
 
     useV2WorkingCopy.getState().stageCableCreate({
       id: crypto.randomUUID(),
@@ -834,42 +938,36 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       updatedAt: '',
     });
 
-    firstEndpointRef.current = null;
-    setRemoteModalOpen(false);
-    setPickerState(null);
+    cableDispatch({ type: 'REMOTE_CABLE_STAGED' });
     scheduleRender();
   };
 
   // ── arm 토글 ─────────────────────────────────────────────────────────────
   const handleArmType = (typeId: string) => {
-    if (cableArmedRef.current) disarmCable();
-    if (armedTypeIdRef.current === typeId) {
+    if (cableState.armed) disarmCable();
+    if (placementState.mode !== 'idle' && placementState.typeId === typeId) {
       // 같은 버튼 재클릭 → disarm
       disarm();
     } else {
-      armedTypeIdRef.current = typeId;
-      setArmedTypeId(typeId);
+      placementDispatch({ type: 'ARM', typeId });
     }
   };
 
   /** 케이블 도구 토글 */
   const handleArmCable = () => {
-    if (cableArmedRef.current) {
+    if (cableState.armed) {
       disarmCable();
     } else {
       // 기존 배치 모드 해제
-      if (armedTypeIdRef.current !== null) disarm();
-      cableArmedRef.current = true;
-      firstEndpointRef.current = null;
-      setCableArmed(true);
+      if (placementState.mode !== 'idle') disarm();
+      cableDispatch({ type: 'ARM' });
       scheduleRender();
     }
   };
 
   // ── modal 닫기 (생성 완료 or 취소) ───────────────────────────────────────
   const handleModalClose = () => {
-    setDrawModal(null);
-    // 생성 후 disarm
+    // 생성 후 disarm (모달 상태도 idle 로 함께 정리됨)
     disarm();
   };
 
@@ -885,22 +983,22 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     : null);
 
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
-  const canvasCursor = (armedTypeId !== null || cableArmed) ? 'crosshair' : undefined;
+  const canvasCursor = (armedTypeId !== null || cableState.armed) ? 'crosshair' : undefined;
 
   // ── 점유 포트 ID 집합 (원격 모달용) ─────────────────────────────────────
   const occupiedCablePortIds = useMemo(() => occupiedPortIds(effectiveCables), [effectiveCables]);
 
   // ── 피커에 넘길 portGroups (루트 + 전이적 자식, 저장된 자산만) ─────────────
   const pickerPortGroups = useMemo((): PortGroup[] => {
-    if (!pickerState) return [];
+    if (!cableState.picker) return [];
     // 저장된 자산만 대상 (staged-create 자식은 서버 포트 없음)
     const savedAssets = effectiveAssets.filter((a) => a.updatedAt !== '');
-    const candidates = withDescendants(savedAssets, pickerState.asset.id);
+    const candidates = withDescendants(savedAssets, cableState.picker.asset.id);
     return candidates.map((a) => ({
       asset: a,
       ports: freePortsOf(a, effectiveCables, selectedGroupKey),
     }));
-  }, [pickerState, effectiveAssets, effectiveCables, selectedGroupKey]);
+  }, [cableState.picker, effectiveAssets, effectiveCables, selectedGroupKey]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -957,7 +1055,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
             <>
               <Button
                 size="sm"
-                variant={cableArmed ? 'primary' : 'secondary'}
+                variant={cableState.armed ? 'primary' : 'secondary'}
                 onClick={handleArmCable}
               >
                 케이블
@@ -965,8 +1063,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
               {/* 종류 Select (그룹별 optgroup) */}
               <div className="w-40">
                 <Select
-                  value={selectedCategoryId}
-                  onChange={(e) => setSelectedCategoryId(e.target.value)}
+                  value={cableState.categoryId}
+                  onChange={(e) => cableDispatch({ type: 'SET_CATEGORY', categoryId: e.target.value })}
                   className="py-0.5 text-xs"
                 >
                   {cableGroups.map((group) => (
@@ -980,24 +1078,24 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
                   ))}
                 </Select>
               </div>
-              {cableArmed && (
+              {cableState.armed && (
                 <span className="text-xs text-content-muted">
-                  {firstEndpointRef.current ? '두 번째 자산 클릭 · ESC 취소' : '자산 클릭으로 포트 선택 · ESC 취소'}
+                  {cableState.firstEndpoint ? '두 번째 자산 클릭 · ESC 취소' : '자산 클릭으로 포트 선택 · ESC 취소'}
                 </span>
               )}
             </>
           )}
 
           {/* 선택된 케이블 삭제 버튼 */}
-          {selectedCableId !== null && (
+          {cableState.selectedCableId !== null && (
             <>
               <span className="h-4 w-px bg-line mx-1" />
               <Button
                 size="sm"
                 variant="danger"
                 onClick={() => {
-                  useV2WorkingCopy.getState().stageCableDelete(selectedCableId);
-                  setSelectedCableId(null);
+                  useV2WorkingCopy.getState().stageCableDelete(cableState.selectedCableId!);
+                  cableDispatch({ type: 'DESELECT_CABLE' });
                   scheduleRender();
                 }}
               >
@@ -1049,37 +1147,37 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         )}
 
         {/* 포트 피커 팝오버 */}
-        {pickerState && (
+        {cableState.picker && (
           <PortPickerPopover
-            screenPos={pickerState.screenPos}
-            asset={pickerState.asset}
+            screenPos={cableState.picker.screenPos}
+            asset={cableState.picker.asset}
             portGroups={pickerPortGroups}
-            isUnsaved={pickerState.asset.updatedAt === ''}
-            excludePortId={pickerState.firstEndpoint?.portId}
-            validationError={pickerState.validationError}
+            isUnsaved={cableState.picker.asset.updatedAt === ''}
+            excludePortId={cableState.picker.firstEndpoint?.portId}
+            validationError={cableState.picker.validationError}
             onSelectPort={handlePortSelect}
             onClose={() => {
-              setPickerState(null);
+              cableDispatch({ type: 'CLOSE_PICKER' });
               // 첫 끝점 대기 중이 아니면 초기화하지 않음 (피커만 닫기)
             }}
-            hasFirstEndpoint={!!pickerState.firstEndpoint}
-            onOpenRemoteModal={() => { setRemoteError(null); setRemoteModalOpen(true); }}
+            hasFirstEndpoint={!!cableState.picker.firstEndpoint}
+            onOpenRemoteModal={() => cableDispatch({ type: 'OPEN_REMOTE_MODAL' })}
           />
         )}
 
         {/* 대국 검색 모달 */}
         <RemoteEndpointModal
-          open={remoteModalOpen}
-          onClose={() => { setRemoteModalOpen(false); setRemoteError(null); }}
+          open={cableState.remoteModalOpen}
+          onClose={() => cableDispatch({ type: 'CLOSE_REMOTE_MODAL' })}
           mediumFilter={selectedGroupKey}
-          excludePortId={firstEndpointRef.current?.portId}
+          excludePortId={cableState.firstEndpoint?.portId}
           occupiedPortIds={occupiedCablePortIds}
           onSelectPort={handleRemotePortSelect}
-          errorText={remoteError}
+          errorText={cableState.remoteError}
         />
 
         {/* 층이 선택됐지만 배치 자산 없음 안내 */}
-        {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && !cableArmed && (
+        {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && !cableState.armed && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <span className="text-xs text-content-faint">
               배치된 자산이 없습니다

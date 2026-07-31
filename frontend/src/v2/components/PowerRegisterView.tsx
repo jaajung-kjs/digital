@@ -18,6 +18,7 @@ import type { PowerRow } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
 import type { FieldDef } from '@twin/core';
 import { PeerCell } from './PeerCell';
+import { InlineEditCell } from './InlineEditCell';
 
 interface Props {
   substationId: string;
@@ -34,8 +35,6 @@ interface BreakerInputProps {
 }
 
 function BreakerInput({ feederId, value }: BreakerInputProps) {
-  const displayValue = value ?? '';
-
   function handleCommit(raw: string) {
     // 무변경 가드: 커밋 시점 getState로 현재 fieldValues 읽기 (stale 클로저 방지)
     const current =
@@ -47,18 +46,7 @@ function BreakerInput({ feederId, value }: BreakerInputProps) {
     });
   }
 
-  return (
-    <input
-      type="text"
-      className="w-full min-w-0 rounded border border-line bg-transparent px-1 py-0.5 text-sm text-content focus:border-primary focus:outline-none"
-      defaultValue={displayValue}
-      key={displayValue}
-      onBlur={(e) => handleCommit(e.currentTarget.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-      }}
-    />
-  );
+  return <InlineEditCell value={value ?? ''} onCommit={handleCommit} />;
 }
 
 // ── 스위치 상태 편집 셀 ───────────────────────────────────────────────────────
@@ -69,8 +57,6 @@ interface SwitchStateCellProps {
 }
 
 function SwitchStateCell({ feederId, value, switchStateDef }: SwitchStateCellProps) {
-  const displayValue = value ?? '';
-
   function handleCommit(next: string) {
     const current =
       useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === feederId)?.fieldValues ?? {};
@@ -81,36 +67,12 @@ function SwitchStateCell({ feederId, value, switchStateDef }: SwitchStateCellPro
   }
 
   // catalog에 switchState select fieldDef가 있으면 Select, 없으면 텍스트 Input
-  if (switchStateDef && switchStateDef.type === 'select' && switchStateDef.options) {
-    return (
-      <Select
-        defaultValue={displayValue}
-        className="py-0.5 text-sm"
-        key={displayValue}
-        onChange={(e) => handleCommit(e.currentTarget.value)}
-      >
-        <option value="">—</option>
-        {switchStateDef.options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </Select>
-    );
-  }
+  const options =
+    switchStateDef && switchStateDef.type === 'select' && switchStateDef.options
+      ? switchStateDef.options
+      : undefined;
 
-  return (
-    <input
-      type="text"
-      className="w-full min-w-0 rounded border border-line bg-transparent px-1 py-0.5 text-sm text-content focus:border-primary focus:outline-none"
-      defaultValue={displayValue}
-      key={displayValue}
-      onBlur={(e) => handleCommit(e.currentTarget.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-      }}
-    />
-  );
+  return <InlineEditCell value={value ?? ''} onCommit={handleCommit} options={options} />;
 }
 
 // ── 전압 인라인 편집 (IN 케이블 없으면 '—' 비편집) ──────────────────────────
@@ -123,7 +85,6 @@ function VoltageInput({ cableId, voltage }: VoltageInputProps) {
   if (!cableId) return <span className="text-content-faint">—</span>;
 
   const resolvedCableId: string = cableId;
-  const displayValue = voltage ?? '';
 
   function handleCommit(raw: string) {
     const effectiveCables = useV2WorkingCopy.getState().effectiveCables();
@@ -140,18 +101,7 @@ function VoltageInput({ cableId, voltage }: VoltageInputProps) {
     });
   }
 
-  return (
-    <input
-      type="text"
-      className="w-full min-w-0 rounded border border-line bg-transparent px-1 py-0.5 text-sm text-content focus:border-primary focus:outline-none"
-      defaultValue={displayValue}
-      key={displayValue}
-      onBlur={(e) => handleCommit(e.currentTarget.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-      }}
-    />
-  );
+  return <InlineEditCell value={voltage ?? ''} onCommit={handleCommit} />;
 }
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────

@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import { RequireAuth, LoginRoute } from '../../App';
-import { useV2AuthStore } from '../authStore';
+import { useV2AuthStore } from '../store/authStore';
 import { tokenStorage, getSessionInvalidHandler } from '../httpClient';
 
 beforeEach(() => {

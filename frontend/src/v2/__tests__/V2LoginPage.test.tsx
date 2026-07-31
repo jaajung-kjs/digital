@@ -14,7 +14,7 @@ import { V2LoginPage } from '../pages/V2LoginPage';
 const mockLogin = vi.fn();
 const mockNavigate = vi.fn();
 
-vi.mock('../authStore', () => ({
+vi.mock('../store/authStore', () => ({
   useV2AuthStore: (sel: (s: { login: typeof mockLogin }) => unknown) =>
     sel({ login: mockLogin }),
 }));

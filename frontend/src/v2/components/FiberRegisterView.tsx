@@ -14,6 +14,7 @@ import { useV2Catalog } from '../hooks';
 import { fiberContainers, buildFiberRows } from '../fiberSelectors';
 import type { FiberRow } from '../fiberSelectors';
 import { PeerCell } from './PeerCell';
+import { InlineEditCell } from './InlineEditCell';
 
 interface Props {
   substationId: string;
@@ -59,31 +60,13 @@ function MetaInput({ value, type, cableId, fieldKey }: MetaInputProps) {
       if (Number.isNaN(next as number) && raw.trim() !== '') return; // invalid input → ignore
       // Compare: both null or equal numbers
       if (current === next) return;
-      if (next === null) {
-        // remove key by setting null
-        useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
-          specParams: { ...existingParams, [fieldKey]: null },
-        });
-      } else {
-        useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
-          specParams: { ...existingParams, [fieldKey]: next },
-        });
-      }
+      useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
+        specParams: { ...existingParams, [fieldKey]: next },
+      });
     }
   }
 
-  return (
-    <input
-      type={type}
-      className="w-full min-w-0 rounded border border-line bg-transparent px-1 py-0.5 text-sm text-content focus:border-primary focus:outline-none"
-      defaultValue={displayValue}
-      key={displayValue} // reset on external change
-      onBlur={(e) => handleCommit(e.currentTarget.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-      }}
-    />
-  );
+  return <InlineEditCell value={displayValue} onCommit={handleCommit} type={type} />;
 }
 
 // PeerCell은 공용 컴포넌트로 추출 (M-2 — PowerRegisterView와 공유)

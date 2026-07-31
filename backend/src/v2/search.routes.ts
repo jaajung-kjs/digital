@@ -4,9 +4,10 @@ import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
 
 export const searchRouter = Router();
+searchRouter.use(authenticate);
 
 /** GET /api/v2/search/assets?q=<부분일치>&limit=<기본 20, 최대 50> */
-searchRouter.get('/search/assets', authenticate, async (req, res, next) => {
+searchRouter.get('/search/assets', async (req, res, next) => {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
     if (!q) throw new HttpError(400, 'BAD_REQUEST', '검색어(q)를 입력하세요');
@@ -34,7 +35,7 @@ searchRouter.get('/search/assets', authenticate, async (req, res, next) => {
 });
 
 /** GET /api/v2/assets/:id/ports — occupied boolean 포함 */
-searchRouter.get('/assets/:id/ports', authenticate, async (req, res, next) => {
+searchRouter.get('/assets/:id/ports', async (req, res, next) => {
   try {
     const asset = await nextDb.asset.findUnique({ where: { id: req.params.id } });
     if (!asset) throw new HttpError(404, 'NOT_FOUND', '자산을 찾을 수 없습니다');

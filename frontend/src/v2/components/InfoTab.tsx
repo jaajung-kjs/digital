@@ -9,13 +9,18 @@
 
 import { Plus } from 'lucide-react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import type { BadgeStatus } from '../../components/ui/Badge';
+import type { BadgeStatus } from '../../components/ui';
 import { Badge, Button, DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../components/ui';
 import { freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
-import type { deriveDetailSections } from './detailSections';
-import type { AddModalContext } from './AssetDetailPanel';
+import type { deriveDetailSections } from '../detailSections';
+
+export interface AddModalContext {
+  parentAssetId: string;
+  spec: V2ContainerSpec;
+  siblings: { slotIndex: number | null; slotSpan: number | null }[];
+}
 
 // ── 상태 배지 tone → BadgeStatus ─────────────────────────────────────────────
 function toneToStatus(tone: string): BadgeStatus {

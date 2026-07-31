@@ -1,25 +1,10 @@
 /** v2 인증 라우트: POST /login, /refresh, /logout · GET /me */
 import { Router } from 'express';
-import { z } from 'zod';
 import { authenticate } from './auth.middleware.js';
 import * as authService from './auth.service.js';
+import { loginSchema, refreshSchema, logoutSchema } from './schemas.js';
 
 export const authRouter = Router();
-
-// ── 스키마 ────────────────────────────────────────────────────────────────────
-
-const loginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
-});
-
-const refreshSchema = z.object({
-  refreshToken: z.string().min(1),
-});
-
-const logoutSchema = z.object({
-  refreshToken: z.string().min(1),
-});
 
 // ── POST /login ───────────────────────────────────────────────────────────────
 

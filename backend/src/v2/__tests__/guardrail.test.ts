@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -346,6 +346,44 @@ describe('v2 가드레일 Stage 7 — 레거시 모델 필드 토큰 재도입 �
         readFileSync(f, 'utf8'),
         `${f}: 구 모델 필드 sourceRole/rackModule 감지 — v2 스키마에 없는 레거시 컬럼입니다 (Stage 7 모델 제거 회귀 핀)`,
       ).not.toMatch(pattern);
+    }
+  });
+});
+
+describe('v2 가드레일 — CONVENTIONS.md 참조 컴포넌트 파일 실존 검증', () => {
+  /**
+   * frontend/src/components/ui/CONVENTIONS.md 는 CLAUDE.md 가 "UI 작업 전 필독"으로
+   * 지정한 문서다 — 문서가 실재하지 않는 파일을 가리키면 그 부정확성은 스타일
+   * 문제가 아니라 기능 결함이다(audit3-consistency 축4: Stage 7 구코드 삭제 후
+   * 문서가 갱신되지 않아 컴포넌트 9개 참조가 유령 참조로 남았던 사례).
+   *
+   * 이 테스트는 문서 안의 백틱 `src/....ts(x)` 형태 파일 경로 참조가 전부 실제
+   * 파일로 존재하는지를 정적으로 검증해, 다음에 파일이 삭제/이동될 때 문서가
+   * 조용히 낡는 것을 막는다.
+   *
+   * 한계(§6-5, 완전 방탄화 비목표): 백틱으로 감싼 명시적 `src/...` 경로만
+   * 검출한다. **`src/` 접두사가 없는 참조는 산문이든 백틱이든 모두 미검출**이다
+   * — "Button 컴포넌트" 같은 산문뿐 아니라 `` `InfoTab.tsx` `` 처럼 백틱으로
+   * 감싼 맨 파일명도 대상이 아니다. 이 문서는 실제 파일을 가리킬 때 경로를
+   * 명시하는 관례이므로 현재 커버리지로 충분하다고 보되, 맨 파일명 참조가
+   * 늘어나면 추출 정규식을 파일명 형태까지 확장할 것. 퍼지 파싱(마크다운 AST)
+   * 은 비용 대비 이득이 낮아 도입하지 않는다.
+   */
+  it('CONVENTIONS.md 가 참조하는 src/... 파일 경로가 전부 실재한다', () => {
+    const conventionsPath = resolve(frontendSrc, 'components', 'ui', 'CONVENTIONS.md');
+    const doc = readFileSync(conventionsPath, 'utf8');
+    const pathPattern = /`(src\/[^`]+\.tsx?)`/g;
+    const referenced = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = pathPattern.exec(doc)) !== null) {
+      referenced.add(m[1]);
+    }
+    // 추출 자체가 깨지지 않았는지(정규식이 0건만 뽑으면 이 테스트는 항상 무의미하게 통과한다)
+    expect(referenced.size).toBeGreaterThan(0);
+
+    for (const rel of referenced) {
+      const abs = resolve(projectRoot, 'frontend', rel);
+      expect(existsSync(abs), `CONVENTIONS.md 참조 파일이 존재하지 않습니다: ${rel}`).toBe(true);
     }
   });
 });

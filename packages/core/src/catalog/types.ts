@@ -95,6 +95,30 @@ export interface CableRef {
 }
 
 /**
+ * POST /v2/catalog/types, PUT /v2/catalog/types/:id 요청 바디 — 정본 1곳.
+ * (백/프론트 각 소비자가 재선언하지 않고 이 타입을 import 한다. HTTP 형상 검증은
+ * 각 소비자의 zod 스키마가 담당 — 코어는 타입만 소유한다.)
+ */
+export interface TypeUpsertBody {
+  key: string;
+  name: string;
+  categoryId: string;
+  sortOrder: number;
+  isActive: boolean;
+  placeable: boolean;
+  defaultWidth: number | null;
+  defaultHeight: number | null;
+  laborType: string | null;
+  installHours: number;
+  removeHours: number;
+  relocateHours: number;
+  fieldDefs: FieldDef[];
+  containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: AcceptRule }>;
+  ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; lineSide?: boolean }>;
+  links: Array<{ fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }>;
+}
+
+/**
  * 배치 판정 필드 목록의 유일 정의 — 백엔드 재검증 트리거와 프론트 이설 판정이 공유한다.
  */
 export const PLACEMENT_FIELDS = [

@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button, IconButton, Input, Modal } from '../../components/ui';
-import { createOrgNode, deleteOrgNode, patchOrgNode, type OrgKind } from '../api';
+import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
-import { useV2OrgTree } from '../hooks';
+import { useOrgMutations, useV2OrgTree } from '../hooks';
 
 const CHILD_KIND: Record<FlatOrgNode['kind'], OrgKind | null> = {
   hq: 'branches',
@@ -32,23 +31,9 @@ interface ModalState {
 
 export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node: FlatOrgNode) => void }) {
   const { data: tree } = useV2OrgTree();
-  const queryClient = useQueryClient();
+  const { createOrgNode: createMut, renameOrgNode: renameMut, deleteOrgNode: deleteMut } = useOrgMutations();
   const [modal, setModal] = useState<ModalState | null>(null);
   const [name, setName] = useState('');
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['v2', 'org-tree'] });
-  const createMut = useMutation({
-    mutationFn: (v: { kind: OrgKind; body: Record<string, string> }) => createOrgNode(v.kind, v.body),
-    onSuccess: invalidate,
-  });
-  const renameMut = useMutation({
-    mutationFn: (v: { kind: OrgKind; id: string; name: string }) => patchOrgNode(v.kind, v.id, { name: v.name }),
-    onSuccess: invalidate,
-  });
-  const deleteMut = useMutation({
-    mutationFn: (v: { kind: OrgKind; id: string }) => deleteOrgNode(v.kind, v.id),
-    onSuccess: invalidate,
-  });
 
   const nodes = tree ? flattenTree(tree) : [];
 

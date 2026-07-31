@@ -2,22 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useV2Catalog, useTypesById } from '../hooks';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import type { V2Asset, V2ContainerSpec } from '../types';
-import { deriveDetailSections } from './detailSections';
+import type { V2Asset } from '../types';
+import { deriveDetailSections } from '../detailSections';
 import { AddAssetModal } from './AddAssetModal';
-import { InfoTab } from './InfoTab';
+import { InfoTab, type AddModalContext } from './InfoTab';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
 import type { TraceResult } from '../traceSelectors';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'info' | 'inspections' | 'logs' | 'connections';
-
-export interface AddModalContext {
-  parentAssetId: string;
-  spec: V2ContainerSpec;
-  siblings: { slotIndex: number | null; slotSpan: number | null }[];
-}
 
 // ── 메인 패널 ─────────────────────────────────────────────────────────────────
 interface AssetDetailPanelProps {

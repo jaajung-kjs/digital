@@ -11,7 +11,7 @@
  */
 import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
 import { Boxes, LogOut } from 'lucide-react';
-import { useV2AuthStore, isAdminRole } from './authStore';
+import { useV2AuthStore, isAdminRole } from './store/authStore';
 
 export function V2Shell() {
   const user = useV2AuthStore((s) => s.user);

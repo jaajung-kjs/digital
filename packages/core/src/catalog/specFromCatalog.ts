@@ -1,4 +1,4 @@
-import type { AcceptRule, AssetTypeSpec, Direction, FieldDef } from './types.js';
+import type { AcceptRule, AssetTypeSpec, Direction, FieldDef, TypeUpsertBody } from './types.js';
 
 export interface CatalogTypeRow {
   key: string; name: string; sortOrder: number;
@@ -32,5 +32,33 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
       .sort((x, y) => x.sortOrder - y.sortOrder)
       .map((p) => ({ group: p.group, count: p.count, direction: p.direction as Direction, medium: p.medium, namePattern: p.namePattern, ...(p.lineSide ? { lineSide: true } : {}) })),
     links: row.linkRules.map((l) => ({ fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping as 'byIndex' | 'all' })),
+  };
+}
+
+/**
+ * 타입 upsert 요청 바디(평평한 wire 형상) → 코어 spec. specFromCatalog(행→spec)의 자매 투영 지점.
+ * categoryId→categoryKey 해소는 호출자 책임(코어는 DB/HTTP 무지) — 이미 해소된 categoryKey를 받는다.
+ */
+export function specFromUpsert(body: TypeUpsertBody, categoryKey: string): AssetTypeSpec {
+  return {
+    key: body.key,
+    name: body.name,
+    categoryKey,
+    sortOrder: body.sortOrder,
+    placement: {
+      placeable: body.placeable,
+      ...(body.defaultWidth !== null ? { defaultWidth: body.defaultWidth } : {}),
+      ...(body.defaultHeight !== null ? { defaultHeight: body.defaultHeight } : {}),
+    },
+    labor: {
+      laborType: body.laborType,
+      installHours: body.installHours,
+      removeHours: body.removeHours,
+      relocateHours: body.relocateHours,
+    },
+    fields: body.fieldDefs,
+    containers: body.containers,
+    ports: body.ports,
+    links: body.links,
   };
 }

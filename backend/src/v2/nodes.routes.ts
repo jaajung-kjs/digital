@@ -4,8 +4,9 @@ import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
 
 export const nodesRouter = Router();
+nodesRouter.use(authenticate);
 
-nodesRouter.get('/nodes/:id/assets', authenticate, async (req, res, next) => {
+nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
   try {
     const id = req.params.id;
     let substationIds: string[] | null = null;

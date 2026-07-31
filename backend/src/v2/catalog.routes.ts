@@ -1,9 +1,10 @@
-import { validateTypeSpec } from '@twin/core';
-import type { AssetTypeSpec } from '@twin/core';
+import { specFromUpsert, validateTypeSpec } from '@twin/core';
+import type { TypeUpsertBody } from '@twin/core';
 import { Router } from 'express';
 import { authenticate, adminOnly } from './auth.middleware.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
+import type { Prisma } from '../generated/next-client/index.js';
 import {
   idParamSchema,
   typeUpsertSchema,
@@ -17,53 +18,7 @@ import {
 export const catalogRouter = Router();
 catalogRouter.use(authenticate);
 
-// ── 타입 인터페이스 ────────────────────────────────────────────────────────────
-
-type TypeUpsertBody = {
-  key: string;
-  name: string;
-  categoryId: string;
-  sortOrder: number;
-  isActive: boolean;
-  placeable: boolean;
-  defaultWidth: number | null;
-  defaultHeight: number | null;
-  laborType: string | null;
-  installHours: number;
-  removeHours: number;
-  relocateHours: number;
-  fieldDefs: unknown[];
-  containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: object }>;
-  ports: Array<{ group: string; count: number; direction: 'IN' | 'OUT' | 'BI'; medium: string; namePattern: string; lineSide?: boolean }>;
-  links: Array<{ fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }>;
-};
-
 // ── 유틸 함수 ────────────────────────────────────────────────────────────────
-
-/** body + categoryKey → 코어 spec 형상 (검증 전용). */
-function bodyToSpec(body: TypeUpsertBody, categoryKey: string): AssetTypeSpec {
-  return {
-    key: body.key,
-    name: body.name,
-    categoryKey,
-    sortOrder: body.sortOrder,
-    placement: {
-      placeable: body.placeable,
-      defaultWidth: body.defaultWidth ?? undefined,
-      defaultHeight: body.defaultHeight ?? undefined,
-    },
-    labor: {
-      laborType: body.laborType,
-      installHours: body.installHours,
-      removeHours: body.removeHours,
-      relocateHours: body.relocateHours,
-    },
-    fields: body.fieldDefs as AssetTypeSpec['fields'],
-    containers: body.containers as AssetTypeSpec['containers'],
-    ports: body.ports.map((p) => ({ ...p, ...(p.lineSide ? { lineSide: true } : {}) })) as AssetTypeSpec['ports'],
-    links: body.links as AssetTypeSpec['links'],
-  };
-}
 
 /** DB로부터 카탈로그 컨텍스트(카테고리 키 + 케이블그룹 키) 조회. */
 async function specContext(tx: typeof nextDb) {
@@ -75,6 +30,33 @@ async function specContext(tx: typeof nextDb) {
     categoryKeys: categories.map((c) => c.key),
     mediumKeys: groups.map((g) => g.key),
   };
+}
+
+/**
+ * 명세 3종(containerSpecs/portTemplates/linkRules)을 typeId 아래 생성.
+ * POST(신규)·PUT(구조 변경 시 delete-then-recreate)의 생성 파트가 동일해 공유한다.
+ * 반드시 호출자의 트랜잭션(tx) 안에서 실행 — 자체 트랜잭션을 열지 않는다.
+ */
+async function createTypeStructure(
+  tx: Prisma.TransactionClient,
+  typeId: string,
+  body: Pick<TypeUpsertBody, 'containers' | 'ports' | 'links'>,
+): Promise<void> {
+  for (const [i, c] of body.containers.entries()) {
+    await tx.assetContainerSpec.create({
+      data: { typeId, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
+    });
+  }
+  for (const [i, p] of body.ports.entries()) {
+    await tx.assetPortTemplate.create({
+      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
+    });
+  }
+  for (const l of body.links) {
+    await tx.assetLinkRule.create({
+      data: { typeId, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
+    });
+  }
 }
 
 /** Prisma unique 위반(P2002) 판별 — 사전 findUnique 는 TOCTOU 라 동시 요청 시 DB @unique 가 최종 방어선. */
@@ -214,7 +196,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
 
     // validateTypeSpec
     const ctx = await specContext(nextDb);
-    const spec = bodyToSpec({ ...body }, category.key);
+    const spec = specFromUpsert(body, category.key);
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
@@ -243,21 +225,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
           },
         });
 
-        for (const [i, c] of body.containers.entries()) {
-          await tx.assetContainerSpec.create({
-            data: { typeId: created.id, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
-          });
-        }
-        for (const [i, p] of body.ports.entries()) {
-          await tx.assetPortTemplate.create({
-            data: { typeId: created.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
-          });
-        }
-        for (const l of body.links) {
-          await tx.assetLinkRule.create({
-            data: { typeId: created.id, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
-          });
-        }
+        await createTypeStructure(tx, created.id, body);
 
         return created;
       });
@@ -297,7 +265,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
 
     // key 는 DB 값 사용 (body.key 무시)
     const ctx = await specContext(nextDb);
-    const spec = bodyToSpec({ ...body, key: existing.key }, category.key);
+    const spec = specFromUpsert({ ...body, key: existing.key }, category.key);
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
@@ -311,7 +279,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
       throw new HttpError(409, 'TYPE_IN_USE', `사용 중인 타입입니다 (자산 ${assetCount}개) — 구조 변경 불가`);
     }
 
-    await nextDb.$transaction(async (tx) => {
+    const updated = await nextDb.$transaction(async (tx) => {
       await tx.assetType.update({
         where: { id },
         data: {
@@ -337,25 +305,22 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
         await tx.assetLinkRule.deleteMany({ where: { typeId: id } });
 
-        for (const [i, c] of body.containers.entries()) {
-          await tx.assetContainerSpec.create({
-            data: { typeId: id, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
-          });
-        }
-        for (const [i, p] of body.ports.entries()) {
-          await tx.assetPortTemplate.create({
-            data: { typeId: id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
-          });
-        }
-        for (const l of body.links) {
-          await tx.assetLinkRule.create({
-            data: { typeId: id, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
-          });
-        }
+        await createTypeStructure(tx, id, body);
       }
+
+      const { _count, ...row } = await tx.assetType.findUniqueOrThrow({
+        where: { id },
+        include: {
+          containerSpecs: { orderBy: { sortOrder: 'asc' } },
+          portTemplates: { orderBy: { sortOrder: 'asc' } },
+          linkRules: { orderBy: { fromGroup: 'asc' } },
+          _count: { select: { assets: true } },
+        },
+      });
+      return { ...row, assetCount: _count.assets };
     });
 
-    res.json({ ok: true });
+    res.json(updated);
   } catch (e) {
     next(e);
   }

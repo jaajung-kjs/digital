@@ -1,5 +1,5 @@
 import type { FieldDef } from '@twin/core';
-import type { V2AssetType, V2ContainerSpec } from '../types';
+import type { V2AssetType, V2ContainerSpec } from './types';
 
 export function deriveDetailSections(type: V2AssetType): {
   showPorts: boolean;

@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Boxes, AlertCircle } from 'lucide-react';
-import { useV2AuthStore } from '../authStore';
+import { useV2AuthStore } from '../store/authStore';
 import { apiErrorMessage } from '../apiError';
 import { Button, Input } from '../../components/ui';
 
