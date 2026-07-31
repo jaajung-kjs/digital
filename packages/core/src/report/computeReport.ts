@@ -25,14 +25,11 @@ export function assetReportItem(
   typeName: string,
   labor: LaborRules,
 ): ReportItem {
-  let hours = 0;
-  if (kind === 'asset-install') {
-    hours = labor.installHours;
-  } else if (kind === 'asset-remove') {
-    hours = labor.removeHours;
-  } else if (kind === 'asset-relocate') {
-    hours = labor.relocateHours;
-  }
+  const hours = {
+    'asset-install': labor.installHours,
+    'asset-remove': labor.removeHours,
+    'asset-relocate': labor.relocateHours,
+  }[kind];
 
   return {
     kind,
