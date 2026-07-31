@@ -279,7 +279,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
       throw new HttpError(409, 'TYPE_IN_USE', `사용 중인 타입입니다 (자산 ${assetCount}개) — 구조 변경 불가`);
     }
 
-    await nextDb.$transaction(async (tx) => {
+    const updated = await nextDb.$transaction(async (tx) => {
       await tx.assetType.update({
         where: { id },
         data: {
@@ -307,9 +307,20 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
 
         await createTypeStructure(tx, id, body);
       }
+
+      const { _count, ...row } = await tx.assetType.findUniqueOrThrow({
+        where: { id },
+        include: {
+          containerSpecs: { orderBy: { sortOrder: 'asc' } },
+          portTemplates: { orderBy: { sortOrder: 'asc' } },
+          linkRules: { orderBy: { fromGroup: 'asc' } },
+          _count: { select: { assets: true } },
+        },
+      });
+      return { ...row, assetCount: _count.assets };
     });
 
-    res.json({ ok: true });
+    res.json(updated);
   } catch (e) {
     next(e);
   }
