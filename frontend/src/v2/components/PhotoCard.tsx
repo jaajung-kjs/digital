@@ -39,8 +39,10 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
   const enlarged = enlargedId != null ? photos.find((p) => p.id === enlargedId) ?? null : null;
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    e.target.value = ''; // 같은 파일 재선택 허용
+    // 프로젝트 관례: 비동기 이전에 e.currentTarget 을 먼저 읽는다.
+    const input = e.currentTarget;
+    const file = input.files?.[0] ?? null;
+    input.value = ''; // 같은 파일 재선택 허용
     if (!file) return;
     setError(null);
     setUploading(true);
