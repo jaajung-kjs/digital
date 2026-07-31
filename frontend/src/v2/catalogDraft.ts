@@ -8,7 +8,7 @@
  * isDraftDirty: 원본 대비 변경 여부
  */
 
-import { validateTypeSpec } from '@twin/core';
+import { specFromUpsert, validateTypeSpec } from '@twin/core';
 import type { TypeSpecIssue } from '@twin/core';
 import type { V2AssetType, V2Catalog, TypeUpsertBody } from './types';
 
@@ -81,33 +81,10 @@ export function emptyDraft(categoryId: string): TypeDraft {
  */
 export function draftIssues(draft: TypeDraft, catalog: V2Catalog): TypeSpecIssue[] {
   const categoryKey = catalog.categories.find((c) => c.id === draft.categoryId)?.key ?? '';
-  return validateTypeSpec(
-    {
-      key: draft.key,
-      name: draft.name,
-      categoryKey,
-      sortOrder: draft.sortOrder,
-      placement: {
-        placeable: draft.placeable,
-        defaultWidth: draft.defaultWidth ?? undefined,
-        defaultHeight: draft.defaultHeight ?? undefined,
-      },
-      labor: {
-        laborType: draft.laborType,
-        installHours: draft.installHours,
-        removeHours: draft.removeHours,
-        relocateHours: draft.relocateHours,
-      },
-      fields: draft.fieldDefs,
-      containers: draft.containers,
-      ports: draft.ports,
-      links: draft.links,
-    },
-    {
-      categoryKeys: catalog.categories.map((c) => c.key),
-      mediumKeys: catalog.cableGroups.map((g) => g.key),
-    },
-  );
+  return validateTypeSpec(specFromUpsert(draft, categoryKey), {
+    categoryKeys: catalog.categories.map((c) => c.key),
+    mediumKeys: catalog.cableGroups.map((g) => g.key),
+  });
 }
 
 /**

@@ -1,6 +1,8 @@
 import { isAccepted } from '@twin/core';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from './types';
 
+export { freeSlots } from '@twin/core';
+
 export function acceptedTypes(
   spec: V2ContainerSpec,
   types: V2AssetType[],
@@ -9,20 +11,6 @@ export function acceptedTypes(
   return types.filter((t) =>
     isAccepted(spec.accepts, { typeKey: t.key, categoryKey: categoryKeyById.get(t.categoryId) ?? '' }),
   );
-}
-
-export function freeSlots(
-  spec: V2ContainerSpec,
-  siblings: { slotIndex: number | null; slotSpan: number | null }[],
-): number[] {
-  if (spec.slotCount === null) return [];
-  const occupied = new Set<number>();
-  for (const s of siblings) {
-    if (s.slotIndex == null) continue;
-    const span = s.slotSpan ?? 1;
-    for (let i = s.slotIndex; i < s.slotIndex + span; i += 1) occupied.add(i);
-  }
-  return Array.from({ length: spec.slotCount }, (_, i) => i).filter((i) => !occupied.has(i));
 }
 
 export type PlacementInput =

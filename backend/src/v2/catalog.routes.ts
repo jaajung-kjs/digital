@@ -1,5 +1,5 @@
-import { validateTypeSpec } from '@twin/core';
-import type { AssetTypeSpec } from '@twin/core';
+import { specFromUpsert, validateTypeSpec } from '@twin/core';
+import type { TypeUpsertBody } from '@twin/core';
 import { Router } from 'express';
 import { authenticate, adminOnly } from './auth.middleware.js';
 import { nextDb } from './db.js';
@@ -17,53 +17,7 @@ import {
 export const catalogRouter = Router();
 catalogRouter.use(authenticate);
 
-// ── 타입 인터페이스 ────────────────────────────────────────────────────────────
-
-type TypeUpsertBody = {
-  key: string;
-  name: string;
-  categoryId: string;
-  sortOrder: number;
-  isActive: boolean;
-  placeable: boolean;
-  defaultWidth: number | null;
-  defaultHeight: number | null;
-  laborType: string | null;
-  installHours: number;
-  removeHours: number;
-  relocateHours: number;
-  fieldDefs: unknown[];
-  containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: object }>;
-  ports: Array<{ group: string; count: number; direction: 'IN' | 'OUT' | 'BI'; medium: string; namePattern: string; lineSide?: boolean }>;
-  links: Array<{ fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }>;
-};
-
 // ── 유틸 함수 ────────────────────────────────────────────────────────────────
-
-/** body + categoryKey → 코어 spec 형상 (검증 전용). */
-function bodyToSpec(body: TypeUpsertBody, categoryKey: string): AssetTypeSpec {
-  return {
-    key: body.key,
-    name: body.name,
-    categoryKey,
-    sortOrder: body.sortOrder,
-    placement: {
-      placeable: body.placeable,
-      defaultWidth: body.defaultWidth ?? undefined,
-      defaultHeight: body.defaultHeight ?? undefined,
-    },
-    labor: {
-      laborType: body.laborType,
-      installHours: body.installHours,
-      removeHours: body.removeHours,
-      relocateHours: body.relocateHours,
-    },
-    fields: body.fieldDefs as AssetTypeSpec['fields'],
-    containers: body.containers as AssetTypeSpec['containers'],
-    ports: body.ports.map((p) => ({ ...p, ...(p.lineSide ? { lineSide: true } : {}) })) as AssetTypeSpec['ports'],
-    links: body.links as AssetTypeSpec['links'],
-  };
-}
 
 /** DB로부터 카탈로그 컨텍스트(카테고리 키 + 케이블그룹 키) 조회. */
 async function specContext(tx: typeof nextDb) {
@@ -214,7 +168,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
 
     // validateTypeSpec
     const ctx = await specContext(nextDb);
-    const spec = bodyToSpec({ ...body }, category.key);
+    const spec = specFromUpsert(body, category.key);
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
@@ -297,7 +251,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
 
     // key 는 DB 값 사용 (body.key 무시)
     const ctx = await specContext(nextDb);
-    const spec = bodyToSpec({ ...body, key: existing.key }, category.key);
+    const spec = specFromUpsert({ ...body, key: existing.key }, category.key);
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
