@@ -33,26 +33,17 @@ export function buildPortIndex(assets: V2Asset[]): PortIndex {
  * 결과는 이름순 정렬.
  */
 export function mediumContainers(assets: V2Asset[], medium: string): V2Asset[] {
-  const assetMap = new Map(assets.map((a) => [a.id, a]));
+  // parentAssetId → 이 medium 포트를 가진 자식 보유 여부, 1패스로 색인 (O(n))
   const containerIds = new Set<string>();
-
   for (const asset of assets) {
-    // Find all children (assets whose parentAssetId is this asset's id)
-    const children = assets.filter((a) => a.parentAssetId === asset.id);
-
-    // Check if any child has a port of this medium
-    const hasChild = children.some((child) => child.ports.some((p) => p.medium === medium));
-
-    if (hasChild) {
-      containerIds.add(asset.id);
+    if (asset.parentAssetId && asset.ports.some((p) => p.medium === medium)) {
+      containerIds.add(asset.parentAssetId);
     }
   }
 
-  const result = Array.from(containerIds)
-    .map((id) => assetMap.get(id)!)
+  return assets
+    .filter((a) => containerIds.has(a.id))
     .sort((a, b) => a.name.localeCompare(b.name));
-
-  return result;
 }
 
 /** cable[] → aPortId/bPortId 로 색인한 Map 쌍 — fiber/power 행 빌더 공유 플러밍 */
