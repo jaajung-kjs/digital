@@ -3,7 +3,7 @@ import { useV2Catalog, useTypesById } from '../hooks';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset } from '../types';
-import { deriveDetailSections } from './detailSections';
+import { deriveDetailSections } from '../detailSections';
 import { AddAssetModal } from './AddAssetModal';
 import { InfoTab, type AddModalContext } from './InfoTab';
 import { RecordsTab } from './RecordsTab';

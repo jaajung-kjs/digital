@@ -14,7 +14,7 @@ import { Badge, Button, DetailCard, DetailCardHeader, DetailRow, Input, Select }
 import { freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
-import type { deriveDetailSections } from './detailSections';
+import type { deriveDetailSections } from '../detailSections';
 
 export interface AddModalContext {
   parentAssetId: string;

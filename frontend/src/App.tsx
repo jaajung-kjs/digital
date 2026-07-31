@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { useV2AuthStore } from './v2/authStore';
+import { useV2AuthStore } from './v2/store/authStore';
 import { V2Shell } from './v2/V2Shell';
 import V2LoginPage from './v2/pages/V2LoginPage';
 import V2WorkspacePage from './v2/pages/V2WorkspacePage';

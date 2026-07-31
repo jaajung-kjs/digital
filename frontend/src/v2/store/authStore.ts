@@ -7,7 +7,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { httpClient, tokenStorage, setSessionInvalidHandler } from './httpClient';
+import { httpClient, tokenStorage, setSessionInvalidHandler } from '../httpClient';
 
 interface V2User {
   id: string;

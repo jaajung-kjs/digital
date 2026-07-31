@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { V2AssetType } from '../types';
-import { deriveDetailSections } from '../components/detailSections';
+import { deriveDetailSections } from '../detailSections';
 
 const base: V2AssetType = {
   id: 't', key: 'X', name: 'X', categoryId: 'c', sortOrder: 1, isActive: true, assetCount: 0,
