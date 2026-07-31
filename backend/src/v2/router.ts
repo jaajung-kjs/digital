@@ -6,6 +6,7 @@ import { catalogRouter } from './catalog.routes.js';
 import { commitRouter } from './commit.routes.js';
 import { nodesRouter } from './nodes.routes.js';
 import { orgRouter } from './org.routes.js';
+import { photosRouter } from './photos.routes.js';
 import { searchRouter } from './search.routes.js';
 import { workingcopyRouter } from './workingcopy.routes.js';
 
@@ -17,6 +18,7 @@ v2Router.get('/health', (_req, res) => {
 
 v2Router.use('/auth', authRouter);
 v2Router.use('/catalog', catalogRouter);
+v2Router.use('/photos', photosRouter);
 v2Router.use('/', orgRouter);
 v2Router.use('/', workingcopyRouter);
 v2Router.use('/', commitRouter);
