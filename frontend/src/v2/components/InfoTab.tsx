@@ -15,6 +15,7 @@ import { freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
 import type { deriveDetailSections } from '../detailSections';
+import { PhotoCard } from './PhotoCard';
 
 export interface AddModalContext {
   parentAssetId: string;
@@ -385,6 +386,9 @@ export function InfoTab({
           })}
         </DetailCard>
       )}
+
+      {/* 사진 카드 */}
+      <PhotoCard assetId={assetId} />
     </>
   );
 }

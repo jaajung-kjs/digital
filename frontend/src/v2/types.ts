@@ -71,7 +71,7 @@ export interface V2CommitPayload {
   records?: {
     maintenance?: V2RecordOps<{ id: string; assetId: string; occurredAt: string; content: string; action?: string | null }, { occurredAt?: string; content?: string; action?: string | null }>;
     inspections?: V2RecordOps<{ id: string; assetId: string; inspectedAt: string; content: string; result?: string | null }, { inspectedAt?: string; content?: string; result?: string | null }>;
-    photos?: V2RecordOps<{ id: string; assetId: string; filePath: string; caption?: string | null }, { filePath?: string; caption?: string | null }>;
+    photos?: V2RecordOps<{ id: string; assetId: string; filePath: string; caption?: string | null }, { caption?: string | null }>;
   };
   baseVersions?: Record<string, string>;
 }
