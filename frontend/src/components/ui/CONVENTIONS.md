@@ -83,6 +83,9 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 ### 입력/선택 → `Input` / `Select`
 별도의 `fieldClass` 유틸은 없다 — `Input`/`Select` 를 직접 쓴다.
 
+### 표 셀 인라인 편집(blur/Enter 커밋) → `InlineEditCell`
+`src/v2/components/InlineEditCell.tsx` — 선번장·계통 뷰처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.
+
 ### 대화상자 → `Modal`
 Esc 닫기·백드롭 클릭 닫기·`size="sm"/"md"` 폭 고정을 내장. 자체 오버레이(`fixed inset-0` 직접 구현)를 새로 만들지 말고 이걸 재사용한다.
 
