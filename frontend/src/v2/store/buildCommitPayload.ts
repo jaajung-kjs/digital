@@ -21,6 +21,20 @@ function toCableCreateInput(c: V2Cable): V2CableCreateInput {
   return { id: c.id, aPortId: c.aPortId, bPortId: c.bPortId, categoryId: c.categoryId, name: c.name, pathPoints: c.pathPoints, specParams: c.specParams };
 }
 
+/** creates/updates/deletes 중 하나라도 있으면 빈 키를 뺀 sparse 객체로, 전부 비면 undefined — assets/cables/records 3곳이 손 복제하던 마무리 래핑. */
+function pruneEmpty<C, U>(
+  creates: C[],
+  updates: U[],
+  deletes: string[],
+): { creates?: C[]; updates?: U[]; deletes?: string[] } | undefined {
+  if (!creates.length && !updates.length && !deletes.length) return undefined;
+  return {
+    ...(creates.length ? { creates } : {}),
+    ...(updates.length ? { updates } : {}),
+    ...(deletes.length ? { deletes } : {}),
+  };
+}
+
 export function buildCommitPayload(
   overlays: OverlaysIn,
   baseVersions: Record<string, string>,
@@ -34,13 +48,8 @@ export function buildCommitPayload(
     .filter(([id]) => !deletedAssets.has(id))
     .map(([id, patch]) => ({ id, patch: patch as V2AssetPatch }));
   const deletes = overlays.assets.deletes;
-  if (creates.length || updates.length || deletes.length) {
-    payload.assets = {
-      ...(creates.length ? { creates } : {}),
-      ...(updates.length ? { updates } : {}),
-      ...(deletes.length ? { deletes } : {}),
-    };
-  }
+  const assetsBlock = pruneEmpty(creates, updates, deletes);
+  if (assetsBlock) payload.assets = assetsBlock;
 
   const bv: Record<string, string> = {};
   for (const id of [...updates.map((u) => u.id), ...deletes]) {
@@ -54,13 +63,8 @@ export function buildCommitPayload(
     .filter(([id]) => !deletedCables.has(id))
     .map(([id, patch]) => ({ id, patch: patch as V2CablePatch }));
   const cableDeletes = overlays.cables.deletes;
-  if (cableCreates.length || cableUpdates.length || cableDeletes.length) {
-    payload.cables = {
-      ...(cableCreates.length ? { creates: cableCreates } : {}),
-      ...(cableUpdates.length ? { updates: cableUpdates } : {}),
-      ...(cableDeletes.length ? { deletes: cableDeletes } : {}),
-    };
-  }
+  const cablesBlock = pruneEmpty(cableCreates, cableUpdates, cableDeletes);
+  if (cablesBlock) payload.cables = cablesBlock;
   for (const id of [...cableUpdates.map((u) => u.id), ...cableDeletes]) {
     if (baseVersions[id]) bv[id] = baseVersions[id]!;
   }
@@ -93,10 +97,5 @@ function recordOps<T extends { id: string; assetId: string; updatedAt: string },
       return { id, patch: rest as Partial<T> };
     });
   const deletes = o.deletes.filter((id) => !deletedAssets.has(recordAssetIds[id] ?? ''));
-  if (!creates.length && !updates.length && !deletes.length) return null;
-  return {
-    ...(creates.length ? { creates } : {}),
-    ...(updates.length ? { updates } : {}),
-    ...(deletes.length ? { deletes } : {}),
-  };
+  return pruneEmpty(creates, updates, deletes) ?? null;
 }
