@@ -187,7 +187,8 @@ git commit -m "feat(v2-be): 사진 업로드·서빙 라우트 (UPLOADS_DIR·경
   ```
 
 **명세**
-- 스키마: `AssetPhoto`에 `updatedAt DateTime @updatedAt` 추가 → `npx prisma migrate dev --schema prisma/next/schema.prisma --name add_asset_photo_updated_at` (backend/ 에서 실행). 가산 마이그레이션이므로 기존 행은 마이그레이션 시각으로 채워진다.
+- 스키마: `AssetPhoto`에 `updatedAt DateTime @updatedAt` 추가 → `npx prisma migrate dev --schema prisma/next/schema.prisma --name add_asset_photo_updated_at` (backend/ 에서 실행).
+  **주의(리뷰發 정정)**: 생성되는 SQL은 `ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL`로 **기본값이 없다** — 행이 하나라도 있는 테이블에서는 실패한다. 안전한 이유는 "백필된다"가 아니라 **`AssetPhoto`에 쓰는 코드가 Stage 7 이후 존재하지 않아 모든 환경에서 이 테이블이 비어 있음**이다. 비어 있지 않은 테이블에 같은 패턴을 복사하지 말 것(그 경우 `@default(now())` 후 제거하거나 2단계 마이그레이션이 필요하다).
 - `schemas.ts`의 `records` 객체에 위 `photos` 한 줄 추가. `recordOps` 헬퍼가 `{id, assetId}` + createShape 를 조립하므로 별도 스키마 작성 불필요.
 - `commit.service.ts`의 `applyRecords`에 **세 번째 평행 블록** 추가(기존 `m`/`i` 블록과 동일 형태):
   ```ts

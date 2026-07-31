@@ -60,9 +60,9 @@ function setStore(assets: V2Asset[], cables: V2Cable[] = []) {
     substationId: 'sub-1',
     saved: {
       substation: { id: 'sub-1', name: '변전소', branchId: 'b1', sortOrder: 1 },
-      floors: [floor], assets, maintenanceLogs: [], inspectionLogs: [], cables,
+      floors: [floor], assets, maintenanceLogs: [], inspectionLogs: [], cables, photos: [],
     },
-    overlays: { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay() },
+    overlays: { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() },
     baseVersions: {},
   });
 }

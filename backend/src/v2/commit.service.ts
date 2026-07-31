@@ -273,6 +273,28 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
       });
     }
   }
+
+  const p = records.photos;
+  if (p) {
+    for (const id of p.deletes ?? []) {
+      const del = await tx.assetPhoto.deleteMany({ where: { id, asset: { substationId } } });
+      if (del.count === 0) throw new HttpError(422, 'INVALID_RECORD', '삭제 대상 사진이 유효하지 않습니다');
+    }
+    for (const u of p.updates ?? []) {
+      const row = await tx.assetPhoto.findUnique({ where: { id: u.id }, include: { asset: { select: { substationId: true } } } });
+      if (!row || row.asset.substationId !== substationId) throw new HttpError(422, 'INVALID_RECORD', '수정 대상 사진이 유효하지 않습니다');
+      await tx.assetPhoto.update({
+        where: { id: u.id },
+        data: { ...(u.patch.caption !== undefined ? { caption: u.patch.caption } : {}) },
+      });
+    }
+    for (const c of p.creates ?? []) {
+      await assertAssetInSubstation(tx, substationId, c.assetId);
+      await tx.assetPhoto.create({
+        data: { id: c.id, assetId: c.assetId, filePath: c.filePath, caption: c.caption ?? null },
+      });
+    }
+  }
 }
 
 async function applyCableDeletes(tx: Tx, substationId: string, ids: string[]): Promise<void> {

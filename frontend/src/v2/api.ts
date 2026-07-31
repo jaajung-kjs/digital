@@ -26,6 +26,20 @@ export async function putCommit(substationId: string, payload: V2CommitPayload):
   return (await api.put(`/v2/substations/${substationId}/commit`, payload)).data;
 }
 
+export async function uploadPhoto(file: File): Promise<{ filePath: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+  // Content-Type을 명시하지 않는다 — 브라우저가 multipart boundary를 채워야 하는데,
+  // httpClient 인스턴스 기본 헤더가 application/json이라 여기서 undefined로 덮어써
+  // axios가 FormData를 JSON으로 오인(stringify)하지 않도록 한다.
+  return (await api.post('/v2/photos', formData, { headers: { 'Content-Type': undefined } })).data;
+}
+
+export function photoUrl(filePath: string): string {
+  const name = filePath.split('/').pop();
+  return `/api/v2/photos/${name}`;
+}
+
 export type OrgKind = 'headquarters' | 'branches' | 'substations' | 'floors';
 export async function createOrgNode(kind: OrgKind, body: Record<string, string>) {
   return (await api.post(`/v2/org/${kind}`, body)).data;

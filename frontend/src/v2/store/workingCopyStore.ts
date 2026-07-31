@@ -2,7 +2,7 @@ import { temporal } from 'zundo';
 import { createStore, useStore } from 'zustand';
 import { shallow } from 'zustand/shallow';
 import { fetchWorkingcopy } from '../api';
-import type { V2Asset, V2Cable, V2InspectionLog, V2MaintenanceLog, V2Workingcopy } from '../types';
+import type { V2Asset, V2AssetPhoto, V2Cable, V2InspectionLog, V2MaintenanceLog, V2Workingcopy } from '../types';
 import { emptyOverlay, mergeEffective, overlayDirtyCount, stageCreate, stageDelete, stageUpdate, type Overlay } from './overlay';
 
 interface Overlays {
@@ -10,12 +10,13 @@ interface Overlays {
   maintenance: Overlay<V2MaintenanceLog>;
   inspections: Overlay<V2InspectionLog>;
   cables: Overlay<V2Cable>;
+  photos: Overlay<V2AssetPhoto>;
 }
 
-const EMPTY_SAVED = { substation: null as V2Workingcopy['substation'] | null, floors: [] as V2Workingcopy['floors'], assets: [] as V2Asset[], maintenanceLogs: [] as V2MaintenanceLog[], inspectionLogs: [] as V2InspectionLog[], cables: [] as V2Cable[] };
+const EMPTY_SAVED = { substation: null as V2Workingcopy['substation'] | null, floors: [] as V2Workingcopy['floors'], assets: [] as V2Asset[], maintenanceLogs: [] as V2MaintenanceLog[], inspectionLogs: [] as V2InspectionLog[], cables: [] as V2Cable[], photos: [] as V2AssetPhoto[] };
 
 function emptyOverlays(): Overlays {
-  return { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay() };
+  return { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() };
 }
 
 export interface V2WorkingCopyState {
@@ -34,6 +35,9 @@ export interface V2WorkingCopyState {
   stageInspectionCreate: (log: V2InspectionLog) => void;
   stageInspectionUpdate: (id: string, patch: Partial<V2InspectionLog>) => void;
   stageInspectionDelete: (id: string) => void;
+  stagePhotoCreate: (photo: V2AssetPhoto) => void;
+  stagePhotoUpdate: (id: string, patch: Partial<V2AssetPhoto>) => void;
+  stagePhotoDelete: (id: string) => void;
   stageCableCreate: (cable: V2Cable) => void;
   stageCableUpdate: (id: string, patch: Partial<V2Cable>) => void;
   stageCableDelete: (id: string) => void;
@@ -60,7 +64,7 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
           const wc = await fetchWorkingcopy(substationId);
           set({
             substationId,
-            saved: { substation: wc.substation, floors: wc.floors, assets: wc.assets, maintenanceLogs: wc.maintenanceLogs, inspectionLogs: wc.inspectionLogs, cables: wc.cables },
+            saved: { substation: wc.substation, floors: wc.floors, assets: wc.assets, maintenanceLogs: wc.maintenanceLogs, inspectionLogs: wc.inspectionLogs, cables: wc.cables, photos: wc.photos },
             overlays: emptyOverlays(),
             baseVersions: {
               ...Object.fromEntries(wc.assets.map((a) => [a.id, a.updatedAt])),
@@ -101,10 +105,12 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
           let assets = st.overlays.assets;
           let maintenance = st.overlays.maintenance;
           let inspections = st.overlays.inspections;
+          let photos = st.overlays.photos;
           for (const tid of targets) {
             assets = stageDelete(assets, tid);
             for (const m of mergeEffective(st.saved.maintenanceLogs, maintenance).filter((r) => r.assetId === tid)) maintenance = stageDelete(maintenance, m.id);
             for (const i of mergeEffective(st.saved.inspectionLogs, inspections).filter((r) => r.assetId === tid)) inspections = stageDelete(inspections, i.id);
+            for (const p of mergeEffective(st.saved.photos, photos).filter((r) => r.assetId === tid)) photos = stageDelete(photos, p.id);
           }
           // cascade cable deletes — compute portIds from pre-delete effective assets
           const effCables = mergeEffective(st.saved.cables, st.overlays.cables);
@@ -116,7 +122,7 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
               cables = stageDelete(cables, cable.id);
             }
           }
-          return { overlays: { assets, maintenance, inspections, cables } };
+          return { overlays: { assets, maintenance, inspections, cables, photos } };
         });
       },
 
@@ -126,6 +132,9 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       stageInspectionCreate: (log) => set((s) => ({ overlays: { ...s.overlays, inspections: stageCreate(s.overlays.inspections, log.id, log) } })),
       stageInspectionUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, inspections: stageUpdate(s.overlays.inspections, id, patch) } })),
       stageInspectionDelete: (id) => set((s) => ({ overlays: { ...s.overlays, inspections: stageDelete(s.overlays.inspections, id) } })),
+      stagePhotoCreate: (photo) => set((s) => ({ overlays: { ...s.overlays, photos: stageCreate(s.overlays.photos, photo.id, photo) } })),
+      stagePhotoUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, photos: stageUpdate(s.overlays.photos, id, patch) } })),
+      stagePhotoDelete: (id) => set((s) => ({ overlays: { ...s.overlays, photos: stageDelete(s.overlays.photos, id) } })),
 
       stageCableCreate: (cable) => set((s) => ({ overlays: { ...s.overlays, cables: stageCreate(s.overlays.cables, cable.id, cable) } })),
       stageCableUpdate: (id, patch) => set((s) => ({ overlays: { ...s.overlays, cables: stageUpdate(s.overlays.cables, id, patch) } })),
@@ -137,7 +146,7 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       effectiveInspectionsFor: (assetId) => mergeEffective(get().saved.inspectionLogs, get().overlays.inspections).filter((r) => r.assetId === assetId),
       dirtyCount: () => {
         const o = get().overlays;
-        return overlayDirtyCount(o.assets) + overlayDirtyCount(o.maintenance) + overlayDirtyCount(o.inspections) + overlayDirtyCount(o.cables);
+        return overlayDirtyCount(o.assets) + overlayDirtyCount(o.maintenance) + overlayDirtyCount(o.inspections) + overlayDirtyCount(o.cables) + overlayDirtyCount(o.photos);
       },
       isTempId: (id) => id in get().overlays.assets.creates,
     }),
