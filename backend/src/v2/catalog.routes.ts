@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { authenticate, adminOnly } from './auth.middleware.js';
 import { nextDb } from './db.js';
 import { HttpError } from './errors.js';
+import type { Prisma } from '../generated/next-client/index.js';
 import {
   idParamSchema,
   typeUpsertSchema,
@@ -29,6 +30,33 @@ async function specContext(tx: typeof nextDb) {
     categoryKeys: categories.map((c) => c.key),
     mediumKeys: groups.map((g) => g.key),
   };
+}
+
+/**
+ * 명세 3종(containerSpecs/portTemplates/linkRules)을 typeId 아래 생성.
+ * POST(신규)·PUT(구조 변경 시 delete-then-recreate)의 생성 파트가 동일해 공유한다.
+ * 반드시 호출자의 트랜잭션(tx) 안에서 실행 — 자체 트랜잭션을 열지 않는다.
+ */
+async function createTypeStructure(
+  tx: Prisma.TransactionClient,
+  typeId: string,
+  body: Pick<TypeUpsertBody, 'containers' | 'ports' | 'links'>,
+): Promise<void> {
+  for (const [i, c] of body.containers.entries()) {
+    await tx.assetContainerSpec.create({
+      data: { typeId, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
+    });
+  }
+  for (const [i, p] of body.ports.entries()) {
+    await tx.assetPortTemplate.create({
+      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
+    });
+  }
+  for (const l of body.links) {
+    await tx.assetLinkRule.create({
+      data: { typeId, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
+    });
+  }
 }
 
 /** Prisma unique 위반(P2002) 판별 — 사전 findUnique 는 TOCTOU 라 동시 요청 시 DB @unique 가 최종 방어선. */
@@ -197,21 +225,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
           },
         });
 
-        for (const [i, c] of body.containers.entries()) {
-          await tx.assetContainerSpec.create({
-            data: { typeId: created.id, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
-          });
-        }
-        for (const [i, p] of body.ports.entries()) {
-          await tx.assetPortTemplate.create({
-            data: { typeId: created.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
-          });
-        }
-        for (const l of body.links) {
-          await tx.assetLinkRule.create({
-            data: { typeId: created.id, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
-          });
-        }
+        await createTypeStructure(tx, created.id, body);
 
         return created;
       });
@@ -291,21 +305,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
         await tx.assetLinkRule.deleteMany({ where: { typeId: id } });
 
-        for (const [i, c] of body.containers.entries()) {
-          await tx.assetContainerSpec.create({
-            data: { typeId: id, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
-          });
-        }
-        for (const [i, p] of body.ports.entries()) {
-          await tx.assetPortTemplate.create({
-            data: { typeId: id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
-          });
-        }
-        for (const l of body.links) {
-          await tx.assetLinkRule.create({
-            data: { typeId: id, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
-          });
-        }
+        await createTypeStructure(tx, id, body);
       }
     });
 
