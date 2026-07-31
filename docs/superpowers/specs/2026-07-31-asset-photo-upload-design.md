@@ -8,7 +8,7 @@
 Stage 7(구코드 제거)에서 구 사진 업로드 라우트·미들웨어·정적 서빙을 삭제했다. `AssetPhoto` 테이블과 `Asset` 관계(`onDelete: Cascade`)는 v2 스키마에 그대로 남아 있어 배선만 없는 상태다. 이 문서는 v2 재구현 설계를 확정한다.
 
 **현재 상태(조사 결과)**
-- `AssetPhoto { id, assetId, filePath, caption?, createdAt }` — 마이그레이션 불필요
+- `AssetPhoto { id, assetId, filePath, caption?, createdAt }` — **`updatedAt` 없음**(계획 작성 중 발견). 다른 두 레코드 종류(`MaintenanceLog`·`InspectionLog`)는 `updatedAt @updatedAt`을 갖고, 프론트 `recordOps` 헬퍼가 `T extends { id, assetId, updatedAt: string }`을 요구하므로 **가산 마이그레이션 1건 필요**
 - 워킹카피 응답은 `maintenanceLogs`, `inspectionLogs`만 반환 — 사진 미포함
 - `/uploads` 정적 서빙과 nginx·vite 프록시는 Stage 7에서 제거됨(현재 `/api`만 프록시)
 - `docker-compose.yml`은 `uploads_data` 볼륨을 `/app/uploads`에 마운트하지만, Stage 7 이후 프로덕션 `WORKDIR`는 `/app/backend` — **상대 경로 저장 시 볼륨 밖에 기록되어 재배포마다 소실**
@@ -58,7 +58,9 @@ Stage 7(구코드 제거)에서 구 사진 업로드 라우트·미들웨어·�
 `GET /api/v2/workingcopy/:substationId` 응답에 `photos`를 추가한다(변전소 소속 자산의 `AssetPhoto` 전체, `createdAt asc`).
 
 ### 스키마
-변경 없음. 자산 삭제 시 사진 행은 `onDelete: Cascade`로 자동 정리되고, 바이너리는 남는다(고아 — 수용).
+`AssetPhoto`에 `updatedAt DateTime @updatedAt` 추가(가산 마이그레이션 1건). 다른 레코드 종류와 형상을 맞춰 프론트 `recordOps`·오버레이 기계를 **특례 없이** 재사용하기 위함이다 — 여기서 형상을 어긋나게 두면 "사진은 세 번째 레코드 종류"라는 설계 전제가 코드에서 깨진다.
+
+자산 삭제 시 사진 행은 `onDelete: Cascade`로 자동 정리되고, 바이너리는 남는다(고아 — 수용).
 
 ## 4. 프론트엔드
 
