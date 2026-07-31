@@ -35,6 +35,10 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       PORT: 3000
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      # 사진 저장 루트 — 아래 uploads_data 볼륨 마운트 지점과 반드시 일치해야 한다.
+      # WORKDIR 이 /app/backend 라 상대 경로로 두면 볼륨 밖(/app/backend/uploads)에 기록되어
+      # 재배포마다 사진이 소실된다.
+      UPLOADS_DIR: /app/uploads
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     volumes:
