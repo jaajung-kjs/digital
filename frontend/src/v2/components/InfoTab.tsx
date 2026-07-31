@@ -15,7 +15,12 @@ import { freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
 import type { deriveDetailSections } from './detailSections';
-import type { AddModalContext } from './AssetDetailPanel';
+
+export interface AddModalContext {
+  parentAssetId: string;
+  spec: V2ContainerSpec;
+  siblings: { slotIndex: number | null; slotSpan: number | null }[];
+}
 
 // ── 상태 배지 tone → BadgeStatus ─────────────────────────────────────────────
 function toneToStatus(tone: string): BadgeStatus {
