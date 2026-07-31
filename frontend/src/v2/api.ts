@@ -33,8 +33,8 @@ export async function createOrgNode(kind: OrgKind, body: Record<string, string>)
 export async function patchOrgNode(kind: OrgKind, id: string, body: { name?: string; sortOrder?: number }) {
   return (await api.patch(`/v2/org/${kind}/${id}`, body)).data;
 }
-export async function deleteOrgNode(kind: OrgKind, id: string) {
-  return (await api.delete(`/v2/org/${kind}/${id}`)).data;
+export async function deleteOrgNode(kind: OrgKind, id: string): Promise<void> {
+  await api.delete(`/v2/org/${kind}/${id}`);
 }
 
 // ── 카탈로그 어드민 API ────────────────────────────────────────────────────────

@@ -172,7 +172,7 @@ for (const { path, delegate, childCount } of orgKinds) {
       const count = await childCount(id);
       if (count > 0) throw new HttpError(409, 'HAS_CHILDREN', '하위 항목이 있어 삭제할 수 없습니다');
       await delegate.delete({ where: { id } });
-      res.json({ ok: true });
+      res.status(204).end();
     } catch (e) {
       next(e);
     }

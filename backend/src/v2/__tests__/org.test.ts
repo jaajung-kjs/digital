@@ -52,10 +52,10 @@ describe('org CRUD + tree', () => {
     await request(app).patch(`/api/v2/org/substations/${subId}`).set(admin).send({}).expect(400);
   });
 
-  it('자식 있는 노드 삭제 → 409, 리프 삭제 → 200', async () => {
+  it('자식 있는 노드 삭제 → 409, 리프 삭제 → 204', async () => {
     await request(app).delete(`/api/v2/org/substations/${subId}`).set(admin).expect(409);
-    await request(app).delete(`/api/v2/org/floors/${floorId}`).set(admin).expect(200);
-    await request(app).delete(`/api/v2/org/substations/${subId}`).set(admin).expect(200);
+    await request(app).delete(`/api/v2/org/floors/${floorId}`).set(admin).expect(204);
+    await request(app).delete(`/api/v2/org/substations/${subId}`).set(admin).expect(204);
   });
 
   it('빈 이름 → 400', async () => {
@@ -128,10 +128,10 @@ describe('org PATCH/DELETE 4종 테이블 회귀 고정핀', () => {
     expect(subRes.body.error).toBe('HAS_CHILDREN');
   });
 
-  it('리프→상위 순차 삭제 → 4종 전부 200, 가드 해제 확인', async () => {
-    await request(app).delete(`/api/v2/org/floors/${floorId2}`).set(admin).expect(200);
-    await request(app).delete(`/api/v2/org/substations/${subId2}`).set(admin).expect(200);
-    await request(app).delete(`/api/v2/org/branches/${brId2}`).set(admin).expect(200);
-    await request(app).delete(`/api/v2/org/headquarters/${hqId2}`).set(admin).expect(200);
+  it('리프→상위 순차 삭제 → 4종 전부 204, 가드 해제 확인', async () => {
+    await request(app).delete(`/api/v2/org/floors/${floorId2}`).set(admin).expect(204);
+    await request(app).delete(`/api/v2/org/substations/${subId2}`).set(admin).expect(204);
+    await request(app).delete(`/api/v2/org/branches/${brId2}`).set(admin).expect(204);
+    await request(app).delete(`/api/v2/org/headquarters/${hqId2}`).set(admin).expect(204);
   });
 });
