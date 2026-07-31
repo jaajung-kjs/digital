@@ -9,7 +9,7 @@
 
 import { Plus } from 'lucide-react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import type { BadgeStatus } from '../../components/ui/Badge';
+import type { BadgeStatus } from '../../components/ui';
 import { Badge, Button, DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../components/ui';
 import { freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';

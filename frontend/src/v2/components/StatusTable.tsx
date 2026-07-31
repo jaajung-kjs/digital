@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import { Badge } from '../../components/ui/Badge';
-import type { BadgeStatus } from '../../components/ui/Badge';
+import { Badge } from '../../components/ui';
+import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
 
 type SortKey = keyof Pick<StatusRow, 'typeName' | 'categoryName' | 'name' | 'location' | 'installDate' | 'manager' | 'lastInspectedAt' | 'status' | 'substationName'>;
