@@ -53,8 +53,8 @@ const slot = asset('slot', '슬롯1', {
 function setStore(assets: V2Asset[], cables: V2Cable[]) {
   v2WorkingCopyStore.setState({
     substationId: 'sub-1',
-    saved: { substation: null, floors: [], assets, maintenanceLogs: [], inspectionLogs: [], cables },
-    overlays: { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay() },
+    saved: { substation: null, floors: [], assets, maintenanceLogs: [], inspectionLogs: [], cables, photos: [] },
+    overlays: { assets: emptyOverlay(), maintenance: emptyOverlay(), inspections: emptyOverlay(), cables: emptyOverlay(), photos: emptyOverlay() },
     baseVersions: {},
   });
 }

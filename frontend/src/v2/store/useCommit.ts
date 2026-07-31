@@ -22,6 +22,7 @@ export function useCommit() {
       const recordAssetIds: Record<string, string> = Object.fromEntries([
         ...s.saved.maintenanceLogs.map((r) => [r.id, r.assetId]),
         ...s.saved.inspectionLogs.map((r) => [r.id, r.assetId]),
+        ...s.saved.photos.map((r) => [r.id, r.assetId]),
       ]);
       const payload = buildCommitPayload(s.overlays, s.baseVersions, recordAssetIds);
       await putCommit(s.substationId, payload);

@@ -25,6 +25,7 @@ vi.mock('../../api', () => {
     maintenanceLogs: [{ id: 'm-1', assetId: 'a-mod', occurredAt: '2026-07-01T00:00:00.000Z', content: '고장', action: null, updatedAt: '2026-07-27T00:00:00.000Z' }],
     inspectionLogs: [],
     cables: [{ id: 'c-1', name: null, substationId: 'sub-1', aPortId: 'p-r1', bPortId: 'p-m1', categoryId: null, pathPoints: [], specParams: {}, updatedAt: '2026-07-27T00:00:02.000Z' }],
+    photos: [],
   };
   let failNext = false;
   return {

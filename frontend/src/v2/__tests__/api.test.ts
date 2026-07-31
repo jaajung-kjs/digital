@@ -27,8 +27,10 @@ import {
   fetchOrgTree,
   fetchWorkingcopy,
   patchOrgNode,
+  photoUrl,
   putCommit,
   searchAssets,
+  uploadPhoto,
 } from '../api';
 
 describe('v2 api 경로', () => {
@@ -69,5 +71,22 @@ describe('v2 api 경로', () => {
     expect(api.patch).toHaveBeenCalledWith('/v2/org/substations/id1', { name: 'x' });
     await deleteOrgNode('floors', 'id2');
     expect(api.delete).toHaveBeenCalledWith('/v2/org/floors/id2');
+  });
+
+  it('uploadPhoto: FormData 전송 + Content-Type 미지정(브라우저 boundary)', async () => {
+    (api.post as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { filePath: 'assets/x.png' } });
+    const file = new File(['a'], 'a.png', { type: 'image/png' });
+
+    const res = await uploadPhoto(file);
+
+    expect(res).toEqual({ filePath: 'assets/x.png' });
+    const [url, body, config] = (api.post as ReturnType<typeof vi.fn>).mock.calls[0]!;
+    expect(url).toBe('/v2/photos');
+    expect(body).toBeInstanceOf(FormData);
+    expect(config?.headers?.['Content-Type']).toBeUndefined();
+  });
+
+  it('photoUrl: filePath의 basename만 취해 서빙 경로 생성', () => {
+    expect(photoUrl('assets/abc-123.png')).toBe('/api/v2/photos/abc-123.png');
   });
 });

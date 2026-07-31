@@ -1,4 +1,4 @@
-import type { V2Asset, V2AssetCreateInput, V2AssetPatch, V2Cable, V2CableCreateInput, V2CablePatch, V2CommitPayload, V2InspectionLog, V2MaintenanceLog } from '../types';
+import type { V2Asset, V2AssetCreateInput, V2AssetPatch, V2AssetPhoto, V2Cable, V2CableCreateInput, V2CablePatch, V2CommitPayload, V2InspectionLog, V2MaintenanceLog } from '../types';
 import type { Overlay } from './overlay';
 
 interface OverlaysIn {
@@ -6,6 +6,7 @@ interface OverlaysIn {
   maintenance: Overlay<V2MaintenanceLog>;
   inspections: Overlay<V2InspectionLog>;
   cables: Overlay<V2Cable>;
+  photos: Overlay<V2AssetPhoto>;
 }
 
 function toCreateInput(a: V2Asset): V2AssetCreateInput {
@@ -77,8 +78,11 @@ export function buildCommitPayload(
   const inspections = recordOps(overlays.inspections, deletedAssets, recordAssetIds, (r) => ({
     id: r.id, assetId: r.assetId, inspectedAt: r.inspectedAt, content: r.content, result: r.result,
   }));
-  if (maintenance || inspections) {
-    payload.records = { ...(maintenance ? { maintenance } : {}), ...(inspections ? { inspections } : {}) };
+  const photos = recordOps(overlays.photos, deletedAssets, recordAssetIds, (r) => ({
+    id: r.id, assetId: r.assetId, filePath: r.filePath, caption: r.caption,
+  }));
+  if (maintenance || inspections || photos) {
+    payload.records = { ...(maintenance ? { maintenance } : {}), ...(inspections ? { inspections } : {}), ...(photos ? { photos } : {}) };
   }
   return payload;
 }
