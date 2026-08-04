@@ -18,6 +18,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 빌드 컨텍스트는 반드시 저장소 루트(`.`)다 — 하위 디렉터리가 아니다.
+      # 두 Dockerfile 모두 npm 워크스페이스 구조를 전제로 루트의 package-lock.json 과
+      # packages/core/ 를 COPY 한다(예: `COPY packages/core/src ./packages/core/src`).
+      # 컨텍스트를 ./backend 로 두면 그 경로들이 컨텍스트 밖이라 빌드가 실패한다.
+      # docker-compose.yml 도 같은 이유로 `context: .` 를 쓴다.
+
       # Backend -> tar
       - name: Build Backend image (export tar)
         run: |
@@ -25,7 +31,7 @@ jobs:
             --load \
             -t digital-backend:latest \
             -f ./backend/Dockerfile \
-            ./backend
+            .
           docker save digital-backend:latest -o backend.tar
 
       # Frontend -> tar
@@ -35,7 +41,7 @@ jobs:
             --load \
             -t digital-frontend:latest \
             -f ./frontend/Dockerfile \
-            ./frontend
+            .
           docker save digital-frontend:latest -o frontend.tar
 
       # (옵션) postgres도 같이 반입하고 싶으면 주석 해제
