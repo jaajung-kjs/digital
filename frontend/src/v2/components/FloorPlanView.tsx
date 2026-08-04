@@ -26,7 +26,10 @@ import { placedAssetsOf } from '../floorPlanSelectors';
 import { cableSegments, distanceToPolyline, freePortsOf, withDescendants, occupiedPortIds } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
+import { isAdminRole, useV2AuthStore } from '../store/authStore';
 import { useV2Catalog } from '../hooks';
+import { deleteBackground, uploadBackground } from '../api';
+import { apiErrorMessage } from '../apiError';
 import { Button, Select } from '../../components/ui';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
@@ -237,6 +240,42 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   }, [floors, activeFloorId]);
 
   const activeFloor = floors.find((f) => f.id === activeFloorId) ?? null;
+
+  // ── 배경 도면 임포트/제거 (관리자 전용, 서버 즉시 확정) ────────────────────
+  const isAdmin = useV2AuthStore((s) => isAdminRole(s.user?.role));
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
+  const [bgBusy, setBgBusy] = useState(false);
+  const [bgError, setBgError] = useState<string | null>(null);
+
+  async function handleBackgroundFile(e: React.ChangeEvent<HTMLInputElement>) {
+    // 프로젝트 관례: 비동기 이전에 e.currentTarget 을 먼저 읽는다.
+    const input = e.currentTarget;
+    const file = input.files?.[0] ?? null;
+    input.value = ''; // 같은 파일 재선택 허용
+    if (!file || activeFloorId == null) return;
+    setBgError(null);
+    setBgBusy(true);
+    try {
+      useV2WorkingCopy.getState().applyFloor(await uploadBackground(activeFloorId, file));
+    } catch (err) {
+      setBgError(apiErrorMessage(err, '배경 도면 임포트에 실패했습니다'));
+    } finally {
+      setBgBusy(false);
+    }
+  }
+
+  async function handleBackgroundRemove() {
+    if (activeFloorId == null) return;
+    setBgError(null);
+    setBgBusy(true);
+    try {
+      useV2WorkingCopy.getState().applyFloor(await deleteBackground(activeFloorId));
+    } catch (err) {
+      setBgError(apiErrorMessage(err, '배경 도면 제거에 실패했습니다'));
+    } finally {
+      setBgBusy(false);
+    }
+  }
 
   // ── 배치 자산 (활성 층) ───────────────────────────────────────────────────
   const placedAssets = useMemo(
@@ -1023,6 +1062,40 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
               {f.name}
             </button>
           ))
+        )}
+
+        {isAdmin && (
+          <div className="ml-auto flex items-center gap-2 px-2">
+            {bgError && <span className="text-xs text-danger">{bgError}</span>}
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={bgBusy || activeFloorId == null}
+              data-testid="background-import-button"
+              onClick={() => backgroundInputRef.current?.click()}
+            >
+              {bgBusy ? '임포트 중…' : '배경 임포트'}
+            </Button>
+            <input
+              ref={backgroundInputRef}
+              type="file"
+              accept=".dwg,.dxf"
+              className="hidden"
+              data-testid="background-import-input"
+              onChange={handleBackgroundFile}
+            />
+            {activeFloor?.backgroundDrawing && (
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={bgBusy}
+                data-testid="background-remove-button"
+                onClick={handleBackgroundRemove}
+              >
+                배경 제거
+              </Button>
+            )}
+          </div>
         )}
       </div>
 

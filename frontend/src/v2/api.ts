@@ -1,5 +1,5 @@
 import { httpClient as api } from './httpClient';
-import type { TypeUpsertBody, V2Catalog, V2CommitPayload, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+import type { TypeUpsertBody, V2Catalog, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
 
@@ -33,6 +33,23 @@ export async function uploadPhoto(file: File): Promise<{ filePath: string }> {
   // httpClient 인스턴스 기본 헤더가 application/json이라 여기서 undefined로 덮어써
   // axios가 FormData를 JSON으로 오인(stringify)하지 않도록 한다.
   return (await api.post('/v2/photos', formData, { headers: { 'Content-Type': undefined } })).data;
+}
+
+/** 층 배경 도면 임포트 — DWG/DXF 를 서버가 파싱해 층에 저장하고 갱신된 층을 돌려준다 */
+export async function uploadBackground(floorId: string, file: File): Promise<V2Floor> {
+  const formData = new FormData();
+  formData.append('file', file);
+  // Content-Type을 명시하지 않는다 — 브라우저가 multipart boundary를 채워야 하는데,
+  // httpClient 인스턴스 기본 헤더가 application/json이라 여기서 undefined로 덮어써
+  // axios가 FormData를 JSON으로 오인(stringify)하지 않도록 한다.
+  return (await api.post(`/v2/floors/${floorId}/background`, formData, {
+    headers: { 'Content-Type': undefined },
+  })).data;
+}
+
+/** 층 배경 도면 제거 — backgroundDrawing 이 null 인 갱신된 층을 돌려준다 */
+export async function deleteBackground(floorId: string): Promise<V2Floor> {
+  return (await api.delete(`/v2/floors/${floorId}/background`)).data;
 }
 
 export function photoUrl(filePath: string): string {
