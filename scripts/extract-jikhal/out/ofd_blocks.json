@@ -1,0 +1,408 @@
+[
+ {
+  "subKey": "guchuncheon",
+  "block": 1,
+  "peerKey": "ext:홍천",
+  "peerRaw": "홍천S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 2,
+  "peerKey": "bukchuncheon",
+  "peerRaw": "북춘천S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 3,
+  "peerKey": "ext:사택계",
+  "peerRaw": "사택계\n(12C)",
+  "cores": 12
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 4,
+  "peerKey": "ext:강원d/d",
+  "peerRaw": "강원D/D\n#3",
+  "cores": 12
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 5,
+  "peerKey": "ext:강원d/d",
+  "peerRaw": "강원D/D\n#2",
+  "cores": 24
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 6,
+  "peerKey": "ext:강원d/d",
+  "peerRaw": "강원D/D\n#1",
+  "cores": 24
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 7,
+  "peerKey": "ext:강원d/d",
+  "peerRaw": "강원D/D\n#1",
+  "cores": 24
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 8,
+  "peerKey": "ext:차세대scada실",
+  "peerRaw": "차세대\nSCADA실\n(12C)",
+  "cores": 12
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 9,
+  "peerKey": "ext:강원d/d",
+  "peerRaw": "강원D/D\n#4",
+  "cores": 24
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 10,
+  "peerKey": "sinchuncheon",
+  "peerRaw": "신춘천\n#1",
+  "cores": 24
+ },
+ {
+  "subKey": "guchuncheon",
+  "block": 11,
+  "peerKey": "sinchuncheon",
+  "peerRaw": "신춘천\n#2",
+  "cores": 24
+ },
+ {
+  "subKey": "sinchuncheon",
+  "block": 1,
+  "peerKey": "guchuncheon",
+  "peerRaw": "구춘천\n#1",
+  "cores": 24
+ },
+ {
+  "subKey": "sinchuncheon",
+  "block": 2,
+  "peerKey": "guchuncheon",
+  "peerRaw": "구춘천\n#2",
+  "cores": 24
+ },
+ {
+  "subKey": "bukchuncheon",
+  "block": 1,
+  "peerKey": "guchuncheon",
+  "peerRaw": "춘천S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "bukchuncheon",
+  "block": 2,
+  "peerKey": "chuncheonhp",
+  "peerRaw": "춘천H/P\n#1",
+  "cores": 24
+ },
+ {
+  "subKey": "bukchuncheon",
+  "block": 3,
+  "peerKey": "chuncheonhp",
+  "peerRaw": "춘천H/P\n#2",
+  "cores": 24
+ },
+ {
+  "subKey": "namchuncheon",
+  "block": 1,
+  "peerKey": "ext:홍천",
+  "peerRaw": "홍천",
+  "cores": 24
+ },
+ {
+  "subKey": "namchuncheon",
+  "block": 2,
+  "peerKey": "yeolbyeonghap",
+  "peerRaw": "열병합S/Y",
+  "cores": 24
+ },
+ {
+  "subKey": "namchuncheon",
+  "block": 3,
+  "peerKey": "ext:강원d/d",
+  "peerRaw": "강원D/D\n비금속",
+  "cores": 24
+ },
+ {
+  "subKey": "namchuncheon",
+  "block": 4,
+  "peerKey": "yeolbyeonghap",
+  "peerRaw": "열병합S/Y\n비금속",
+  "cores": 24
+ },
+ {
+  "subKey": "seohongcheon",
+  "block": 1,
+  "peerKey": "yeolbyeonghap",
+  "peerRaw": "열병합S/Y",
+  "cores": 12
+ },
+ {
+  "subKey": "seohongcheon",
+  "block": 2,
+  "peerKey": "ext:청평p/p",
+  "peerRaw": "청평P/P",
+  "cores": 12
+ },
+ {
+  "subKey": "yeolbyeonghap",
+  "block": 1,
+  "peerKey": "namchuncheon",
+  "peerRaw": "남춘천S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "yeolbyeonghap",
+  "block": 2,
+  "peerKey": "ext:청평p/p",
+  "peerRaw": "청평P/P",
+  "cores": 12
+ },
+ {
+  "subKey": "yeolbyeonghap",
+  "block": 3,
+  "peerKey": "seohongcheon",
+  "peerRaw": "서홍천S/S",
+  "cores": 12
+ },
+ {
+  "subKey": "yeolbyeonghap",
+  "block": 4,
+  "peerKey": "namchuncheon",
+  "peerRaw": "남춘천S/S\n비금속",
+  "cores": 24
+ },
+ {
+  "subKey": "yeolbyeonghap",
+  "block": 5,
+  "peerKey": "ext:홍천b/o",
+  "peerRaw": "홍천B/O\n비금속",
+  "cores": 24
+ },
+ {
+  "subKey": "inje",
+  "block": 1,
+  "peerKey": "ext:간성",
+  "peerRaw": "간성S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "inje",
+  "block": 2,
+  "peerKey": "ext:간성",
+  "peerRaw": "간성S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "inje",
+  "block": 3,
+  "peerKey": "ext:상남",
+  "peerRaw": "상남S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "inje",
+  "block": 4,
+  "peerKey": "yanggu",
+  "peerRaw": "양구S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "inje",
+  "block": 5,
+  "peerKey": "ext:신양양",
+  "peerRaw": "신양양S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "inje",
+  "block": 6,
+  "peerKey": "ext:인제b/o#",
+  "peerRaw": "인제B/O\n#경로A",
+  "cores": 24
+ },
+ {
+  "subKey": "inje",
+  "block": 7,
+  "peerKey": "ext:인제b/o#",
+  "peerRaw": "인제B/O\n#경로B",
+  "cores": 24
+ },
+ {
+  "subKey": "yanggu",
+  "block": 1,
+  "peerKey": "inje",
+  "peerRaw": "인제S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "yanggu",
+  "block": 2,
+  "peerKey": "ext:상남",
+  "peerRaw": "상남S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "yanggu",
+  "block": 3,
+  "peerKey": "hwacheonhp",
+  "peerRaw": "화천H/P",
+  "cores": 24
+ },
+ {
+  "subKey": "yanggu",
+  "block": 4,
+  "peerKey": "ext:양구b/o#",
+  "peerRaw": "양구B/O\n#경로A",
+  "cores": 24
+ },
+ {
+  "subKey": "yanggu",
+  "block": 5,
+  "peerKey": "ext:양구b/o#",
+  "peerRaw": "양구B/O\n#경로B",
+  "cores": 24
+ },
+ {
+  "subKey": "cheorwon",
+  "block": 1,
+  "peerKey": "hwacheon",
+  "peerRaw": "화천S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "cheorwon",
+  "block": 2,
+  "peerKey": "ext:운천",
+  "peerRaw": "운천S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "cheorwon",
+  "block": 3,
+  "peerKey": "ext:철원b/o#",
+  "peerRaw": "철원B/O\n#경로A",
+  "cores": 24
+ },
+ {
+  "subKey": "cheorwon",
+  "block": 4,
+  "peerKey": "ext:철원b/o#",
+  "peerRaw": "철원B/O\n#경로B",
+  "cores": 24
+ },
+ {
+  "subKey": "hwacheon",
+  "block": 1,
+  "peerKey": "hwacheonhp",
+  "peerRaw": "화천H/P",
+  "cores": 24
+ },
+ {
+  "subKey": "hwacheon",
+  "block": 2,
+  "peerKey": "cheorwon",
+  "peerRaw": "철원S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "hwacheon",
+  "block": 3,
+  "peerKey": "ext:화천b/o#",
+  "peerRaw": "화천B/O\n#경로A",
+  "cores": 24
+ },
+ {
+  "subKey": "hwacheon",
+  "block": 4,
+  "peerKey": "ext:화천b/o#",
+  "peerRaw": "화천B/O\n#경로B",
+  "cores": 24
+ },
+ {
+  "subKey": "hwacheonhp",
+  "block": 1,
+  "peerKey": "chuncheonhp",
+  "peerRaw": "춘천H/P",
+  "cores": 24
+ },
+ {
+  "subKey": "hwacheonhp",
+  "block": 2,
+  "peerKey": "hwacheon",
+  "peerRaw": "화천S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "hwacheonhp",
+  "block": 3,
+  "peerKey": "yanggu",
+  "peerRaw": "양구S/S",
+  "cores": 24
+ },
+ {
+  "subKey": "chuncheonhp",
+  "block": 1,
+  "peerKey": "ext:가평",
+  "peerRaw": "가평S/S\n(좌측 2열)",
+  "cores": 24
+ },
+ {
+  "subKey": "chuncheonhp",
+  "block": 2,
+  "peerKey": "hwacheonhp",
+  "peerRaw": "화천H/P",
+  "cores": 24
+ },
+ {
+  "subKey": "chuncheonhp",
+  "block": 3,
+  "peerKey": "bukchuncheon",
+  "peerRaw": "북춘천S/S\n(좌측 2열)",
+  "cores": 24
+ },
+ {
+  "subKey": "chuncheonhp",
+  "block": 4,
+  "peerKey": "bukchuncheon",
+  "peerRaw": "북춘천S/S\n(좌측 4열)",
+  "cores": 24
+ },
+ {
+  "subKey": "chuncheonhp",
+  "block": 5,
+  "peerKey": "ext:mcr실",
+  "peerRaw": "MCR실\n(좌측 2열)",
+  "cores": 8
+ },
+ {
+  "subKey": "chuncheonhp",
+  "block": 6,
+  "peerKey": "ext:mcr실",
+  "peerRaw": "MCR실\n(좌측 4열)",
+  "cores": 12
+ },
+ {
+  "subKey": "soyanghp",
+  "block": 1,
+  "peerKey": "ext:홍천",
+  "peerRaw": "홍천S/S",
+  "cores": 4
+ },
+ {
+  "subKey": "soyanghp",
+  "block": 2,
+  "peerKey": "guchuncheon",
+  "peerRaw": "춘천S/S",
+  "cores": 4
+ }
+]

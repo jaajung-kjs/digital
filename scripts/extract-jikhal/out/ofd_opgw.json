@@ -1,0 +1,102 @@
+[
+ {
+  "pairKey": [
+   "bukchuncheon",
+   "guchuncheon"
+  ],
+  "aKey": "guchuncheon",
+  "bKey": "bukchuncheon",
+  "cores": 24,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "guchuncheon",
+   "sinchuncheon"
+  ],
+  "aKey": "guchuncheon",
+  "bKey": "sinchuncheon",
+  "cores": 24,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "bukchuncheon",
+   "chuncheonhp"
+  ],
+  "aKey": "bukchuncheon",
+  "bKey": "chuncheonhp",
+  "cores": 24,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "namchuncheon",
+   "yeolbyeonghap"
+  ],
+  "aKey": "namchuncheon",
+  "bKey": "yeolbyeonghap",
+  "cores": 24,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "seohongcheon",
+   "yeolbyeonghap"
+  ],
+  "aKey": "seohongcheon",
+  "bKey": "yeolbyeonghap",
+  "cores": 12,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "inje",
+   "yanggu"
+  ],
+  "aKey": "inje",
+  "bKey": "yanggu",
+  "cores": 24,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "cheorwon",
+   "hwacheon"
+  ],
+  "aKey": "cheorwon",
+  "bKey": "hwacheon",
+  "cores": 24,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "hwacheon",
+   "hwacheonhp"
+  ],
+  "aKey": "hwacheon",
+  "bKey": "hwacheonhp",
+  "cores": 24,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "chuncheonhp",
+   "hwacheonhp"
+  ],
+  "aKey": "hwacheonhp",
+  "bKey": "chuncheonhp",
+  "cores": 24,
+  "tlName": null
+ },
+ {
+  "pairKey": [
+   "hwacheonhp",
+   "yanggu"
+  ],
+  "aKey": "hwacheonhp",
+  "bKey": "yanggu",
+  "cores": 24,
+  "tlName": null
+ }
+]

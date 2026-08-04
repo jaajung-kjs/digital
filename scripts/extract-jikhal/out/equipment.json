@@ -1,0 +1,74 @@
+[
+ {
+  "key": "dev-OPT-TERM-guchuncheon",
+  "subKey": "guchuncheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-sinchuncheon",
+  "subKey": "sinchuncheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-bukchuncheon",
+  "subKey": "bukchuncheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-namchuncheon",
+  "subKey": "namchuncheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-seohongcheon",
+  "subKey": "seohongcheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-yeolbyeonghap",
+  "subKey": "yeolbyeonghap",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-inje",
+  "subKey": "inje",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-yanggu",
+  "subKey": "yanggu",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-cheorwon",
+  "subKey": "cheorwon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-hwacheon",
+  "subKey": "hwacheon",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-hwacheonhp",
+  "subKey": "hwacheonhp",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ },
+ {
+  "key": "dev-OPT-TERM-chuncheonhp",
+  "subKey": "chuncheonhp",
+  "typeCode": "OPT-TERM",
+  "name": "송변전광단말장치"
+ }
+]
