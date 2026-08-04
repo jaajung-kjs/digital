@@ -2,7 +2,7 @@ import { specFromUpsert, validateTypeSpec } from '@twin/core';
 import type { TypeUpsertBody } from '@twin/core';
 import { Router } from 'express';
 import { authenticate, adminOnly } from './auth.middleware.js';
-import { nextDb } from './db.js';
+import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import type { Prisma } from '../generated/next-client/index.js';
 import {
@@ -59,10 +59,6 @@ async function createTypeStructure(
   }
 }
 
-/** Prisma unique 위반(P2002) 판별 — 사전 findUnique 는 TOCTOU 라 동시 요청 시 DB @unique 가 최종 방어선. */
-function isUniqueViolation(e: unknown): boolean {
-  return typeof e === 'object' && e !== null && 'code' in e && (e as { code?: unknown }).code === 'P2002';
-}
 
 /**
  * accepts 를 고정 키 순서 + 정렬된 배열로 정규화.
@@ -146,7 +142,7 @@ catalogRouter.post('/categories', adminOnly, async (req, res, next) => {
       const row = await nextDb.assetCategory.create({ data: { key, name, sortOrder } });
       res.status(201).json(row);
     } catch (e) {
-      if (isUniqueViolation(e)) throw new HttpError(409, 'DUPLICATE_KEY', `카테고리 키가 이미 존재합니다: ${key}`);
+      if (isPrismaError(e, 'P2002')) throw new HttpError(409, 'DUPLICATE_KEY', `카테고리 키가 이미 존재합니다: ${key}`);
       throw e;
     }
   } catch (e) {
@@ -230,7 +226,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
         return created;
       });
     } catch (e) {
-      if (isUniqueViolation(e)) throw new HttpError(409, 'DUPLICATE_KEY', `타입 키가 이미 존재합니다: ${body.key}`);
+      if (isPrismaError(e, 'P2002')) throw new HttpError(409, 'DUPLICATE_KEY', `타입 키가 이미 존재합니다: ${body.key}`);
       throw e;
     }
 

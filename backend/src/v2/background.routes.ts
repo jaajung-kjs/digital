@@ -13,7 +13,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import multer, { MulterError } from 'multer';
 import { Prisma } from '../generated/next-client/index.js';
 import { authenticate, adminOnly } from './auth.middleware.js';
-import { nextDb } from './db.js';
+import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import { parseBackground } from './background/parse.js';
 
@@ -31,11 +31,6 @@ const upload = multer({
   limits: { fileSize: MAX_FILE_SIZE },
   defParamCharset: 'utf8',
 });
-
-/** Prisma "레코드 없음"(P2025) 판별 — catalog.routes.ts 의 isUniqueViolation(P2002)과 같은 형태. */
-function isRecordNotFound(e: unknown): boolean {
-  return typeof e === 'object' && e !== null && 'code' in e && (e as { code?: unknown }).code === 'P2025';
-}
 
 /** multer 오류를 v2 HttpError 계약으로 옮긴다. */
 function uploadSingle(req: Request, res: Response, next: NextFunction) {
@@ -71,7 +66,7 @@ backgroundRouter.post(
       });
       res.json(updated);
     } catch (e) {
-      next(isRecordNotFound(e) ? new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다') : e);
+      next(isPrismaError(e, 'P2025') ? new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다') : e);
     }
   },
 );
@@ -84,6 +79,6 @@ backgroundRouter.delete('/floors/:id/background', authenticate, adminOnly, async
     });
     res.json(updated);
   } catch (e) {
-    next(isRecordNotFound(e) ? new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다') : e);
+    next(isPrismaError(e, 'P2025') ? new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다') : e);
   }
 });
