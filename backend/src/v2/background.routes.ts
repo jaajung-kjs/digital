@@ -55,7 +55,7 @@ backgroundRouter.post(
       const drawing = await parseBackground(file.buffer, file.originalname);
       const updated = await nextDb.floor.update({
         where: { id: floor.id },
-        data: { backgroundDrawing: drawing as unknown as object },
+        data: { backgroundDrawing: drawing as unknown as Prisma.InputJsonValue },
       });
       res.json(updated);
     } catch (e) {
@@ -70,7 +70,7 @@ backgroundRouter.delete('/floors/:id/background', authenticate, adminOnly, async
     if (!floor) throw new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다');
     const updated = await nextDb.floor.update({
       where: { id: floor.id },
-      data: { backgroundDrawing: Prisma.JsonNull },
+      data: { backgroundDrawing: Prisma.DbNull },
     });
     res.json(updated);
   } catch (e) {

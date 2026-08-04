@@ -99,6 +99,15 @@ describe('DELETE /api/v2/floors/:id/background', () => {
     expect(res.body.backgroundDrawing).toBeNull();
     const row = await nextDb.floor.findUnique({ where: { id: floorId } });
     expect(row?.backgroundDrawing).toBeNull();
+
+    // Prisma 의 일반 조회는 SQL NULL 과 JSON null 리터럴을 구분하지 않고 둘 다 JS null 로
+    // 돌려준다. 여기서는 raw 로 실제 컬럼 값을 확인해, 삭제가 "새로 만든 층"과 같은
+    // 표현(SQL NULL, Prisma.DbNull)을 쓰는지 검증한다 — JSON null 리터럴(Prisma.JsonNull)
+    // 이었다면 이 단언이 실패한다.
+    const [raw] = await nextDb.$queryRaw<{ is_sql_null: boolean }[]>`
+      SELECT "backgroundDrawing" IS NULL AS is_sql_null FROM "Floor" WHERE id = ${floorId}
+    `;
+    expect(raw.is_sql_null).toBe(true);
   });
 
   it('비관리자는 403', async () => {
