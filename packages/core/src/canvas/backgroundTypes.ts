@@ -53,7 +53,7 @@ export interface BgFilled {
 }
 
 export interface BackgroundDrawing {
-  source: { fileName: string; importedAt: string; fileType: 'DWG' | 'DXF' };
+  source: { fileName: string; importedAt: string; fileType: 'DWG' | 'DXF' | 'DGN' };
   bounds: { minX: number; minY: number; maxX: number; maxY: number };
   layers: BgLayer[];
   paths: BgPath[];

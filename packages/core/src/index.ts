@@ -8,3 +8,4 @@ export * from './validation/typeSpec.js';
 export * from './trace/graph.js';
 export * from './seed/catalog.js';
 export * from './report/computeReport.js';
+export * from './canvas/backgroundTypes.js';

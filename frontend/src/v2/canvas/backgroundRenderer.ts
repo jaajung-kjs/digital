@@ -1,6 +1,6 @@
 // ported from frontend/src/features/editor/renderers/backgroundLayerRenderer.ts (Stage 3)
 
-import type { BackgroundDrawing, BgFilled, BgLayer, BgPath, BgText } from './backgroundTypes';
+import type { BackgroundDrawing, BgFilled, BgLayer, BgPath, BgText } from '@twin/core';
 
 /**
  * Render the imported DWG background as a faded reference layer.

@@ -410,3 +410,22 @@ describe('v2 가드레일 §Minor-5 — 프론트엔드 자산타입 키 리터�
     }
   });
 });
+
+describe('v2 가드레일 — BackgroundDrawing 타입 재정의 금지', () => {
+  it('BackgroundDrawing 타입은 @twin/core 에만 정의된다 (복제 금지)', () => {
+    // 백엔드/프론트에 같은 타입을 다시 선언하면 두 정의가 조용히 갈라진다.
+    // 허용된 정의처: packages/core/src/canvas/backgroundTypes.ts 단 하나.
+    const offenders: string[] = [];
+    const files = [
+      ...srcFiles(backendSrc, ['.ts']),
+      ...srcFiles(frontendSrc, ['.ts', '.tsx']),
+      ...srcFiles(coreSrc, ['.ts']),
+    ];
+    for (const file of files) {
+      if (relToRoot(file) === 'packages/core/src/canvas/backgroundTypes.ts') continue;
+      const src = readFileSync(file, 'utf8');
+      if (/(?:interface|type)\s+BackgroundDrawing\b/.test(src)) offenders.push(file);
+    }
+    expect(offenders).toEqual([]);
+  });
+});
