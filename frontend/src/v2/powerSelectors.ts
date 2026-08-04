@@ -1,9 +1,10 @@
+import type { SeededMediumKey } from '@twin/core';
 import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
 export type { PeerInfo } from './peerResolve';
 
-export const POWER_MEDIUM = 'power';
+export const POWER_MEDIUM: SeededMediumKey = 'power';
 
 /**
  * Returns assets that have at least one child with power ports.

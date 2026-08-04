@@ -1,7 +1,8 @@
+import type { SeededMediumKey } from '@twin/core';
 import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2AssetType, V2Cable } from './types';
 
-export const FIBER_MEDIUM = 'fiber';
+export const FIBER_MEDIUM: SeededMediumKey = 'fiber';
 
 /**
  * Returns assets that have at least one child with fiber ports.

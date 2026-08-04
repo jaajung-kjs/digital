@@ -463,3 +463,12 @@ export const SEED_CABLE_CATEGORIES: { groupKey: string; name: string; sortOrder:
   { groupKey: 'network', name: '챔프케이블',            sortOrder: 16 },
   { groupKey: 'control', name: '데이터/신호케이블',     sortOrder: 17 },
 ];
+
+/**
+ * 시드가 선언한 매체 키의 합집합 타입.
+ *
+ * 전용 뷰(선번장·계통)는 자산 타입 이름을 모르고 medium 키 문자열로 대상을 찾으므로,
+ * 그 키가 이 화면들의 생명줄이다. 셀렉터의 상수를 이 타입으로 묶어 두면 시드에서
+ * 키를 바꾸는 순간 **컴파일이 깨진다** — 런타임에 조용히 빈 화면이 되는 대신.
+ */
+export type SeededMediumKey = (typeof SEED_CABLE_GROUPS)[number]['key'];
