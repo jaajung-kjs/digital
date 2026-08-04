@@ -25,6 +25,26 @@ rm -f backend/src/v2/background/wasm/{package.json,.gitignore,README.md}
 산출물은 정확히 이 4개여야 한다:
 `dgn_background.js` · `dgn_background.d.ts` · `dgn_background_bg.wasm` · `dgn_background_bg.wasm.d.ts`
 
+## 테스트
+
+- 호스트 단위 테스트(팔레트 앵커·색/굵기 override 규칙·테셀레이션 분할 수·이스케이프):
+  `cargo test`
+- 픽스처 전체 파이프라인(경로/문자 개수·bounds·원점 정규화·이중 방출 없음):
+  `npm test -w backend -- background.dgn`
+
+## MicroStation 기본 팔레트 (`MS_PALETTE`)
+
+256색 표는 ezdgn 파이썬 패키지의
+`src/ezdgn/entities.py::_microstation_v7_default_colors()` 출력을 그대로 덤프한 것이다
+(고정 15색 + intensity 240→30 밴드 + 특수 슬롯 2개). 재생성/검증:
+
+```bash
+python3 -m venv /tmp/ezdgn-venv && /tmp/ezdgn-venv/bin/pip install -q ezdgn
+/tmp/ezdgn-venv/bin/python -c "import ezdgn.entities as E; print(E._DEFAULT_V7_COLORS)"
+```
+
+`color_index 0` 만 표에서 벗어난다 — 자세한 이유는 `color_override()` 주석 참조.
+
 ## 왜 `--target web` 인가
 
 백엔드는 `"type": "module"` 패키지다. `--target nodejs` 글루는 CommonJS
