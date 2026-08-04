@@ -24,7 +24,9 @@ export async function parseBackground(
       throw new HttpError(
         400,
         'UNSUPPORTED_FORMAT',
-        `${ext || '알 수 없는 형식'} 는 지원하지 않습니다. CAD 프로그램에서 DXF로 내보낸 뒤 올려주세요`,
+        ext
+          ? `${ext} 파일은 지원하지 않습니다. CAD 프로그램에서 DXF로 내보낸 뒤 올려주세요`
+          : `지원하지 않는 파일 형식입니다. CAD 프로그램에서 DXF로 내보낸 뒤 올려주세요`,
       );
   }
 }
