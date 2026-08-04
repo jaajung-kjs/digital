@@ -108,6 +108,9 @@ export default function V2WorkspacePage() {
   const rows = selected?.kind === 'substation' ? substationRows : nodeRows;
   const nodeScope = isNodeScope;
 
+  // 이 변전소를 실제로 보고 있는가 — 뷰 분기와 '자산 추가' 노출의 공통 전제.
+  const inSubstationScope = selected?.kind === 'substation' && substationId === selected.id;
+
   // 상세 패널: 변전소 스코프 + selectedAssetId 가 effective assets 에 있을 때만
   const showDetailPanel =
     selected?.kind === 'substation' &&
@@ -131,7 +134,7 @@ export default function V2WorkspacePage() {
                 <span className="text-sm font-semibold text-content" data-testid="v2-selected">
                   {selected.name}
                 </span>
-                {selected.kind === 'substation' && substationId === selected.id && (
+                {inSubstationScope && (
                   <div className="ml-4 flex gap-0">
                     {(['현황', '평면도', '선번장', '계통'] as ViewMode[]).map((mode) => (
                       <button
@@ -153,99 +156,60 @@ export default function V2WorkspacePage() {
 
               <div className="flex min-h-0 flex-1 overflow-hidden">
                 {/* 평면도 뷰 */}
-                {selected.kind === 'substation' && substationId === selected.id && viewMode === '평면도' ? (
-                  <>
-                    <FloorPlanView
-                      substationId={substationId}
-                      selectedAssetId={selectedAssetId}
-                      onSelectAsset={handleSelectAssetId}
-                      traceResult={traceResult}
-                    />
-                    {showDetailPanel && (
-                      <AssetDetailPanel
-                        key={selectedAssetId}
-                        assetId={selectedAssetId!}
-                        onSelectAsset={handleSelectAssetId}
-                        onTrace={setTraceResult}
-                        onClearTrace={() => setTraceResult(null)}
-                        traceResult={traceResult}
-                      />
-                    )}
-                  </>
-                ) : selected.kind === 'substation' && substationId === selected.id && viewMode === '선번장' ? (
-                  /* 선번장 뷰 */
-                  <>
-                    <FiberRegisterView
-                      substationId={substationId}
-                      selectedAssetId={selectedAssetId}
-                      onSelectAsset={handleSelectAssetId}
-                    />
-                    {showDetailPanel && (
-                      <AssetDetailPanel
-                        key={selectedAssetId}
-                        assetId={selectedAssetId!}
-                        onSelectAsset={handleSelectAssetId}
-                        onTrace={setTraceResult}
-                        onClearTrace={() => setTraceResult(null)}
-                        traceResult={traceResult}
-                      />
-                    )}
-                  </>
-                ) : selected.kind === 'substation' && substationId === selected.id && viewMode === '계통' ? (
-                  /* 계통 뷰 */
-                  <>
-                    <PowerRegisterView
-                      substationId={substationId}
-                      selectedAssetId={selectedAssetId}
-                      onSelectAsset={handleSelectAssetId}
-                    />
-                    {showDetailPanel && (
-                      <AssetDetailPanel
-                        key={selectedAssetId}
-                        assetId={selectedAssetId!}
-                        onSelectAsset={handleSelectAssetId}
-                        onTrace={setTraceResult}
-                        onClearTrace={() => setTraceResult(null)}
-                        traceResult={traceResult}
-                      />
-                    )}
-                  </>
-                ) : (
-                  /* 현황 뷰 (기본) */
-                  <>
-                    <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-                      {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
-                      {selected.kind === 'substation' && substationId === selected.id && (
-                        <div className="shrink-0 border-b border-line px-3 py-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={<Plus size={14} />}
-                            onClick={() => setAddModalOpen(true)}
-                          >
-                            자산 추가
-                          </Button>
-                        </div>
-                      )}
-                      <StatusTable
-                        rows={rows}
-                        selectedId={selectedAssetId}
-                        onSelectAsset={handleSelectAssetId}
-                        nodeScope={nodeScope}
-                      />
+              {inSubstationScope && viewMode === '평면도' ? (
+                <FloorPlanView
+                  substationId={substationId}
+                  selectedAssetId={selectedAssetId}
+                  onSelectAsset={handleSelectAssetId}
+                  traceResult={traceResult}
+                />
+              ) : inSubstationScope && viewMode === '선번장' ? (
+                <FiberRegisterView
+                  substationId={substationId}
+                  selectedAssetId={selectedAssetId}
+                  onSelectAsset={handleSelectAssetId}
+                />
+              ) : inSubstationScope && viewMode === '계통' ? (
+                <PowerRegisterView
+                  substationId={substationId}
+                  selectedAssetId={selectedAssetId}
+                  onSelectAsset={handleSelectAssetId}
+                />
+              ) : (
+                /* 현황 뷰 (기본) */
+                <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+                  {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
+                  {inSubstationScope && (
+                    <div className="shrink-0 border-b border-line px-3 py-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<Plus size={14} />}
+                        onClick={() => setAddModalOpen(true)}
+                      >
+                        자산 추가
+                      </Button>
                     </div>
-                    {showDetailPanel && (
-                      <AssetDetailPanel
-                        key={selectedAssetId}
-                        assetId={selectedAssetId!}
-                        onSelectAsset={handleSelectAssetId}
-                        onTrace={setTraceResult}
-                        onClearTrace={() => setTraceResult(null)}
-                        traceResult={traceResult}
-                      />
-                    )}
-                  </>
-                )}
+                  )}
+                  <StatusTable
+                    rows={rows}
+                    selectedId={selectedAssetId}
+                    onSelectAsset={handleSelectAssetId}
+                    nodeScope={nodeScope}
+                  />
+                </div>
+              )}
+
+              {showDetailPanel && (
+                <AssetDetailPanel
+                  key={selectedAssetId}
+                  assetId={selectedAssetId!}
+                  onSelectAsset={handleSelectAssetId}
+                  onTrace={setTraceResult}
+                  onClearTrace={() => setTraceResult(null)}
+                  traceResult={traceResult}
+                />
+              )}
               </div>
             </div>
           )}
