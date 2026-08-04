@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { authHeader, makeApp, sweepTestFixtures } from './helpers.js';
 import { nextDb } from '../db.js';
 import request from 'supertest';
@@ -110,6 +110,50 @@ describe('POST /api/v2/floors/:id/background — 한글 파일명 mojibake 복�
     const row = await nextDb.floor.findUnique({ where: { id: floorId } });
     const saved = row?.backgroundDrawing as { source?: { fileName?: string } } | null;
     expect(saved?.source?.fileName).toBe(koreanName);
+  });
+});
+
+describe('층 경합 삭제 시 404 (M-3)', () => {
+  // findUnique 로 존재를 확인한 뒤 update 하는 사이에 층이 삭제되면 Prisma 가
+  // P2025 를 던진다. 진짜 동시 요청으로 그 타이밍 창을 재현하는 건 비결정적이므로,
+  // update 호출만 P2025 로 실패하도록 스텁해 "findUnique 는 통과했지만 update 시점엔
+  // 없다"는 경합 상황을 결정적으로 재현한다.
+  //
+  // nextDb.floor 는 Prisma 가 만드는 Proxy 라 own-property 값이 없다
+  // (Object.getOwnPropertyDescriptor(nextDb.floor, 'update').value === undefined) —
+  // vi.spyOn 은 원래 값을 그 디스크립터로 읽으려다 "Received undefined" 로 실패한다.
+  // 대신 메서드를 직접 재할당(Proxy 의 set 트랩은 일반 대입을 허용함)하고
+  // afterEach 에서 원본으로 되돌린다.
+  const P2025 = Object.assign(new Error('Record to update not found.'), { code: 'P2025' });
+  const originalUpdate = nextDb.floor.update;
+
+  afterEach(() => {
+    nextDb.floor.update = originalUpdate;
+  });
+
+  it('POST 중 층이 삭제되면 500 이 아니라 404 NOT_FOUND', async () => {
+    nextDb.floor.update = (async () => {
+      throw P2025;
+    }) as typeof nextDb.floor.update;
+
+    const res = await request(app)
+      .post(`/api/v2/floors/${floorId}/background`)
+      .set(admin)
+      .attach('file', dwg, { filename: 'plan-sample.dwg' })
+      .expect(404);
+    expect(res.body.error).toBe('NOT_FOUND');
+  });
+
+  it('DELETE 중 층이 삭제되면 500 이 아니라 404 NOT_FOUND', async () => {
+    nextDb.floor.update = (async () => {
+      throw P2025;
+    }) as typeof nextDb.floor.update;
+
+    const res = await request(app)
+      .delete(`/api/v2/floors/${floorId}/background`)
+      .set(admin)
+      .expect(404);
+    expect(res.body.error).toBe('NOT_FOUND');
   });
 });
 

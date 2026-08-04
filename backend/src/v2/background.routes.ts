@@ -38,6 +38,16 @@ function recoverUtf8Filename(name: string): string {
   return Buffer.from(name, 'latin1').toString('utf8');
 }
 
+/**
+ * Prisma "레코드 없음"(P2025) 판별 — catalog.routes.ts 의 isUniqueViolation(P2002)과
+ * 같은 형태다. 사전 findUnique 로 존재를 확인해도 update 시점까지 사이에 층이
+ * 삭제될 수 있는 TOCTOU 이므로, update 가 그 경합을 최종적으로 400/500 이 아닌
+ * 404 로 옮겨준다.
+ */
+function isRecordNotFound(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && 'code' in e && (e as { code?: unknown }).code === 'P2025';
+}
+
 /** multer 오류를 v2 HttpError 계약으로 옮긴다. */
 function uploadSingle(req: Request, res: Response, next: NextFunction) {
   upload.single('file')(req, res, (err: unknown) => {
@@ -67,10 +77,16 @@ backgroundRouter.post(
       if (!file) throw new HttpError(400, 'INVALID_UPLOAD', '도면 파일이 없습니다');
 
       const drawing = await parseBackground(file.buffer, recoverUtf8Filename(file.originalname));
-      const updated = await nextDb.floor.update({
-        where: { id: floor.id },
-        data: { backgroundDrawing: drawing as unknown as Prisma.InputJsonValue },
-      });
+      let updated;
+      try {
+        updated = await nextDb.floor.update({
+          where: { id: floor.id },
+          data: { backgroundDrawing: drawing as unknown as Prisma.InputJsonValue },
+        });
+      } catch (e) {
+        if (isRecordNotFound(e)) throw new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다');
+        throw e;
+      }
       res.json(updated);
     } catch (e) {
       next(e);
@@ -82,10 +98,16 @@ backgroundRouter.delete('/floors/:id/background', authenticate, adminOnly, async
   try {
     const floor = await nextDb.floor.findUnique({ where: { id: req.params.id } });
     if (!floor) throw new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다');
-    const updated = await nextDb.floor.update({
-      where: { id: floor.id },
-      data: { backgroundDrawing: Prisma.DbNull },
-    });
+    let updated;
+    try {
+      updated = await nextDb.floor.update({
+        where: { id: floor.id },
+        data: { backgroundDrawing: Prisma.DbNull },
+      });
+    } catch (e) {
+      if (isRecordNotFound(e)) throw new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다');
+      throw e;
+    }
     res.json(updated);
   } catch (e) {
     next(e);
