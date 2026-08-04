@@ -124,8 +124,14 @@ pub fn dgn_to_background(bytes: &[u8]) -> Result<String, JsValue>
 ```bash
 # 개발 머신에서 1회 (네트워크 필요)
 cd crates/dgn-background
-wasm-pack build --release --target nodejs --out-dir ../../backend/src/v2/background/wasm
+wasm-pack build --release --target web --out-dir ../../backend/src/v2/background/wasm
 ```
+
+`--target nodejs`가 아니라 `--target web`이다 — 백엔드는 `"type": "module"` 패키지라
+`nodejs` 타깃의 CJS 글루(`exports.x = ...` / `require('fs')` / `__dirname`)를 Node가
+ESM으로 파싱해 로드 자체가 실패한다. `web` 타깃 글루는 순수 ESM이고
+`initSync({ module })`로 `.wasm` 바이트를 직접 넘겨 `fetch` 같은 브라우저 API 경로를
+타지 않는다(`crates/dgn-background/README.md` §"왜 --target web 인가" 참조).
 
 `wasm-pack`이 `.wasm` · `.js` 글루 · `.d.ts`를 out-dir에 생성하며 **이 산출물을 저장소에 커밋한다.** 컨테이너 빌드는 Rust 툴체인도 네트워크도 필요 없다. 재빌드가 필요한 경우(크레이트 수정, ezdgn rev 갱신)를 위해 위 명령을 `crates/dgn-background/README.md`에 기록한다. `wasm-pack`이 생성하는 `package.json`은 out-dir에 남기지 않는다 — 백엔드 워크스페이스에 유령 패키지가 잡힌다.
 
