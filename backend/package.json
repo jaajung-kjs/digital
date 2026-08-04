@@ -18,6 +18,7 @@
     "db:next:seed": "tsx prisma/next/seed.ts"
   },
   "dependencies": {
+    "@mlightcad/libredwg-web": "^0.7.0",
     "@prisma/client": "^5.22.0",
     "@twin/core": "*",
     "bcryptjs": "^2.4.3",
