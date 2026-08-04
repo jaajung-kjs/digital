@@ -14,11 +14,16 @@ cargo install wasm-pack
 cd crates/dgn-background
 wasm-pack build --release --target web --out-dir ../../backend/src/v2/background/wasm
 cd ../..
-rm -f backend/src/v2/background/wasm/package.json backend/src/v2/background/wasm/.gitignore
+rm -f backend/src/v2/background/wasm/{package.json,.gitignore,README.md}
 ```
 
 `package.json` 은 반드시 지운다 — 남기면 npm 워크스페이스가 유령 패키지로 인식한다.
 `.gitignore` 도 지운다 — 산출물을 커밋해야 한다.
+`README.md` 는 wasm-pack 이 **이 파일을 out-dir 로 복사한 것**이다(크레이트 README).
+백엔드 트리에 Rust 크레이트 문서가 섞이고 프로덕션 이미지까지 따라가므로 지운다.
+
+산출물은 정확히 이 4개여야 한다:
+`dgn_background.js` · `dgn_background.d.ts` · `dgn_background_bg.wasm` · `dgn_background_bg.wasm.d.ts`
 
 ## 왜 `--target web` 인가
 

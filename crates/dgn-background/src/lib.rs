@@ -71,10 +71,16 @@ impl Bounds {
 }
 
 fn num(v: f64) -> String {
-    if v.is_finite() {
-        format!("{:.4}", v)
+    if !v.is_finite() {
+        return "0".to_string();
+    }
+    let s = format!("{:.4}", v);
+    // Y 뒤집기는 0 을 -0 으로 만든다(반올림으로도 생긴다). 산술상 0 과 같지만
+    // JSON.parse 가 -0 을 돌려주어 비교에서 잡음이 되므로 여기서 정규화한다.
+    if s == "-0.0000" {
+        "0.0000".to_string()
     } else {
-        "0".to_string()
+        s
     }
 }
 
