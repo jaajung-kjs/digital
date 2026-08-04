@@ -134,7 +134,7 @@ describe('층 경합 삭제 시 404 (M-3)', () => {
   it('POST 중 층이 삭제되면 500 이 아니라 404 NOT_FOUND', async () => {
     nextDb.floor.update = (async () => {
       throw P2025;
-    }) as typeof nextDb.floor.update;
+    }) as unknown as typeof nextDb.floor.update;
 
     const res = await request(app)
       .post(`/api/v2/floors/${floorId}/background`)
@@ -147,7 +147,7 @@ describe('층 경합 삭제 시 404 (M-3)', () => {
   it('DELETE 중 층이 삭제되면 500 이 아니라 404 NOT_FOUND', async () => {
     nextDb.floor.update = (async () => {
       throw P2025;
-    }) as typeof nextDb.floor.update;
+    }) as unknown as typeof nextDb.floor.update;
 
     const res = await request(app)
       .delete(`/api/v2/floors/${floorId}/background`)
