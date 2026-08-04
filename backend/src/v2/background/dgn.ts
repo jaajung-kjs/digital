@@ -30,12 +30,14 @@ export async function parseDgn(buffer: Buffer, fileName: string): Promise<Backgr
   let json: string;
   try {
     json = dgn_to_background(buffer);
-  } catch (e) {
+  } catch {
+    // DWG 경로(dwg.ts)와 계약을 맞춘다: details 없이 던진다. ezdgn 내부 오류
+    // 문자열(바이트 오프셋 등)을 클라이언트로 실어 보내지 않는다(M-4). DWG 경로도
+    // 이 실패를 서버 로그로 남기지 않으므로 여기도 새 로깅 관례를 만들지 않는다.
     throw new HttpError(
       400,
       'PARSE_FAILED',
       '도면 파일을 읽을 수 없습니다. (지원되지 않는 형식이거나 손상된 파일)',
-      { cause: String(e) },
     );
   }
   const body = JSON.parse(json) as Omit<BackgroundDrawing, 'source'>;
