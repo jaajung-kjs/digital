@@ -427,7 +427,7 @@ describe('v2 가드레일 — DGN wasm 산출물·Rust 소스 드리프트 감�
   it('crates/dgn-background 의 lib.rs·Cargo.lock 해시가 마지막 wasm 재빌드 시점과 같다', () => {
     const EXPECTED_HASHES: Record<string, string> = {
       'crates/dgn-background/src/lib.rs':
-        '8343ecfb229bcf996afebdf58a424611f773a7089e077f591df0fec25061b3db',
+        'fd4aa072fb72599251166048ae4e1f5e6ecd19fa7277ce7b036daa6839c0b819',
       'crates/dgn-background/Cargo.lock':
         'b83591596d3e719bc4e0f14b06c3b1d4f7089fc8175aea00fd56364eb8fbcbfd',
     };

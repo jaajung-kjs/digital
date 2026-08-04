@@ -220,6 +220,15 @@ fn esc(s: &str) -> String {
     out
 }
 
+/// (M-7) 비유한 분기는 이제 정상 경로에서 도달 불가다 — `all_finite()`가 경로/
+/// 문자 방출 시점에 비유한 좌표를 이미 걸러내고, bounds 는 그렇게 걸러진
+/// 좌표에서만 계산되므로 `num()`에 도달하는 값은 전부 유한하다. 그럼에도
+/// 지우지 않고 남겨둔다 — `format!("{:.4}", NaN)`은 문자열 "NaN"을 만들어
+/// 그대로 JSON 에 섞여 들어가면 프론트의 `JSON.parse`가 깨진다. 이 함수 하나가
+/// 이 크레이트의 유일한 JSON 숫자 직렬화 지점이라, 여기서 막아두면 새 방출
+/// 경로가 추가될 때 같은 필터링을 빠뜨려도 최소한 `JSON.parse` 크래시까지는
+/// 가지 않는다(대신 M-7 이전처럼 그 좌표 하나가 "0"이 된다 — 완전한 방어는
+/// 아니지만 크래시보다는 낫다는 판단).
 fn num(v: f64) -> String {
     if !v.is_finite() {
         return "0".to_string();
@@ -333,6 +342,18 @@ fn has_two_distinct(pts: &[(f64, f64)]) -> bool {
     }
 }
 
+/// 모든 점이 유한한가(NaN·±Inf 없음). 손상된 입력(비정상 좌표)에서만 실패할 수
+/// 있다 — 정상 DGN 좌표는 항상 유한하다.
+///
+/// (M-7) `num()`은 비유한 값을 문자열 `"0"`으로 뭉갠다. `Bounds::add()`는 원값을
+/// 그대로 받으므로 `+Inf` 좌표 하나가 `max_x = Inf`를 만들고, 그게 `num()`을
+/// 거치며 `"0"`이 되어 bounds 가 원점으로 붕괴한다 — 좌표를 원점으로 옮기는
+/// 것보다 그 경로/문자를 통째로 폐기하는 편이 정직하다. `has_two_distinct`와
+/// 같은 자리에서 같은 형태로 걸러낸다.
+fn all_finite(pts: &[(f64, f64)]) -> bool {
+    pts.iter().all(|(x, y)| x.is_finite() && y.is_finite())
+}
+
 #[wasm_bindgen]
 pub fn dgn_to_background(bytes: &[u8]) -> Result<String, JsValue> {
     let doc: V8Document =
@@ -432,6 +453,10 @@ pub fn dgn_to_background(bytes: &[u8]) -> Result<String, JsValue> {
                         continue;
                     }
                     let (x, y) = to_canvas(origin, scale);
+                    // 비유한 좌표는 방출하지 않는다(M-7) — all_finite() 문서 참조.
+                    if !x.is_finite() || !y.is_finite() {
+                        continue;
+                    }
                     bounds.add(x, y);
                     texts.push(TextOut {
                         level,
@@ -456,7 +481,9 @@ pub fn dgn_to_background(bytes: &[u8]) -> Result<String, JsValue> {
             // 도형이 축퇴여서 방출되지 않더라도 레벨은 선언한다(그 레벨을 쓰는 엔티티는
             // 실재하므로). 그래서 path 가 0개인 레이어가 나올 수 있다.
             levels.insert(level);
-            if !has_two_distinct(&canvas_pts) {
+            // 비유한 좌표를 하나라도 포함한 경로는 방출하지 않는다(M-7) —
+            // has_two_distinct 와 같은 자리, 같은 형태로 처리한다. all_finite() 문서 참조.
+            if !has_two_distinct(&canvas_pts) || !all_finite(&canvas_pts) {
                 continue;
             }
             for (x, y) in &canvas_pts {
@@ -626,6 +653,20 @@ mod tests {
         assert!(!has_two_distinct(&[(1.0, 2.0)]));
         assert!(!has_two_distinct(&[(1.0, 2.0), (1.0, 2.0)]));
         assert!(has_two_distinct(&[(1.0, 2.0), (1.0, 2.5)]));
+    }
+
+    /// M-7: 비유한 좌표(NaN/±Inf)가 하나라도 섞이면 경로 전체가 방출되면 안 된다 —
+    /// `num()`이 비유한 값을 "0"으로 뭉개 bounds 를 원점으로 붕괴시키기 때문이다.
+    #[test]
+    fn all_finite_rejects_nan_and_infinity_anywhere_in_the_path() {
+        assert!(all_finite(&[]));
+        assert!(all_finite(&[(1.0, 2.0), (3.0, 4.0)]));
+        assert!(!all_finite(&[(f64::NAN, 2.0)]));
+        assert!(!all_finite(&[(1.0, f64::INFINITY)]));
+        assert!(!all_finite(&[(1.0, 2.0), (f64::NEG_INFINITY, 4.0)]));
+        // 앞쪽 점만 유한해도 뒤쪽 하나가 비유한이면 전체가 거절된다 —
+        // "일부만 원점으로" 가 아니라 "경로 전체 폐기"가 규칙이다.
+        assert!(!all_finite(&[(1.0, 2.0), (3.0, 4.0), (5.0, f64::NAN)]));
     }
 
     #[test]
