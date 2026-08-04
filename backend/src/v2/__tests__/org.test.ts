@@ -28,6 +28,9 @@ describe('org CRUD + tree', () => {
     const tree = (await request(app).get('/api/v2/org-tree').set(admin).expect(200)).body;
     const hq = tree.headquarters.find((h: { id: string }) => h.id === hqId);
     expect(hq.branches[0].substations[0].floors[0].id).toBe(floorId);
+    // 층당 190~835KB 인 backgroundDrawing 을 org-tree 가 실어 나르면 안 된다
+    // (앱 진입 시 로드 + staleTime 30s 로 반복 재조회되는 경로) — select 로 제외돼야 한다.
+    expect(hq.branches[0].substations[0].floors[0]).not.toHaveProperty('backgroundDrawing');
   });
 
   it('VIEWER 쓰기 → 403', async () => {

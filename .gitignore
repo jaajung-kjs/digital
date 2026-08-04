@@ -81,6 +81,9 @@ verify-*.png
 # Local archive (작업 자료)
 필요자료.zip
 
+# Rust 중간 산출물 — wasm 최종 산출물은 backend/src/v2/background/wasm/ 에 커밋한다
+crates/*/target/
+
 # TypeScript incremental build cache
 *.tsbuildinfo
 

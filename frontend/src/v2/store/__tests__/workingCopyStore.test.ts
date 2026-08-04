@@ -17,7 +17,7 @@ function asset(id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset 
 vi.mock('../../api', () => {
   const wc: V2Workingcopy = {
     substation: { id: 'sub-1', name: '변전소A', branchId: 'br-1', sortOrder: 1 },
-    floors: [],
+    floors: [{ id: 'f-1', name: '1층', sortOrder: 1, substationId: 'sub-1' }],
     assets: [
       { id: 'a-rack', name: '랙1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null, fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [{ id: 'p-r1', assetId: 'a-rack', group: 'P', index: 1, name: '포트 1', direction: 'BI', medium: 'network' }] },
       { id: 'a-mod', name: '모듈1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: 'a-rack', containerKey: 'main', slotIndex: 0, slotSpan: 1, fieldValues: {}, updatedAt: '2026-07-27T00:00:01.000Z', ports: [{ id: 'p-m1', assetId: 'a-mod', group: 'P', index: 1, name: '포트 1', direction: 'BI', medium: 'network' }] },
@@ -134,6 +134,26 @@ describe('useV2WorkingCopy', () => {
     expect(useV2WorkingCopy.getState().effectiveCables()).toHaveLength(2);
     expect(useV2WorkingCopy.getState().dirtyCount()).toBe(1);
     s.stageCableDelete('c-tmp');
+    expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
+  });
+
+  it('applyFloor: 해당 층 행만 교체하고 진행 중인 스테이징·undo 히스토리는 보존한다', () => {
+    const s = useV2WorkingCopy.getState();
+    s.stageAssetUpdate('a-rack', { name: '작업중' }); // 저장 안 된 편집
+    s.applyFloor({
+      id: 'f-1', name: '1층', sortOrder: 1, substationId: 'sub-1',
+      backgroundDrawing: {
+        source: { fileName: 'plan.dwg', importedAt: '2026-08-04T00:00:00.000Z', fileType: 'DWG' },
+        bounds: { minX: 0, minY: 0, maxX: 10, maxY: 10 },
+        layers: [], paths: [], texts: [], filled: [],
+      },
+    });
+
+    const next = useV2WorkingCopy.getState();
+    expect(next.saved.floors[0]!.backgroundDrawing?.source.fileName).toBe('plan.dwg');
+    // 층 갱신이 워킹카피 전체를 리셋하지 않는다 (load() 재로드였다면 스테이징이 사라진다)
+    expect(next.dirtyCount()).toBe(1);
+    useV2WorkingCopy.temporal.getState().undo();
     expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
   });
 

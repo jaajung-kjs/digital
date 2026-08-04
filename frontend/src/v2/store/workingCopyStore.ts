@@ -2,7 +2,7 @@ import { temporal } from 'zundo';
 import { createStore, useStore } from 'zustand';
 import { shallow } from 'zustand/shallow';
 import { fetchWorkingcopy } from '../api';
-import type { V2Asset, V2AssetPhoto, V2Cable, V2InspectionLog, V2MaintenanceLog, V2Workingcopy } from '../types';
+import type { V2Asset, V2AssetPhoto, V2Cable, V2Floor, V2InspectionLog, V2MaintenanceLog, V2Workingcopy } from '../types';
 import { emptyOverlay, mergeEffective, overlayDirtyCount, stageCreate, stageDelete, stageUpdate, type Overlay } from './overlay';
 
 interface Overlays {
@@ -25,6 +25,7 @@ export interface V2WorkingCopyState {
   overlays: Overlays;
   baseVersions: Record<string, string>;
   load: (substationId: string) => Promise<void>;
+  applyFloor: (floor: V2Floor) => void;
   revert: () => void;
   stageAssetCreate: (asset: V2Asset) => void;
   stageAssetUpdate: (id: string, patch: Partial<V2Asset>) => void;
@@ -76,6 +77,16 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
           t.resume();
         }
       },
+
+      /**
+       * 서버가 즉시 확정한 층 변경(배경 도면 임포트/제거)의 응답 행을 saved.floors 에 반영한다.
+       * 층은 오버레이 스테이징 대상이 아니므로 커밋 경로를 타지 않는다 — 전체 재로드(load)
+       * 대신 해당 행만 교체해 진행 중인 스테이징과 undo 히스토리를 보존한다.
+       */
+      applyFloor: (floor) =>
+        set((s) => ({
+          saved: { ...s.saved, floors: s.saved.floors.map((f) => (f.id === floor.id ? floor : f)) },
+        })),
 
       revert: () => {
         const t = v2WorkingCopyStore.temporal.getState();

@@ -24,7 +24,7 @@ export interface V2Floor {
   sortOrder: number;
   substationId: string;
   /** DWG/DXF 가져오기 후 서버가 저장한 배경 도면 (없으면 null) */
-  backgroundDrawing?: import('./canvas/backgroundTypes').BackgroundDrawing | null;
+  backgroundDrawing?: import('@twin/core').BackgroundDrawing | null;
   /** 배경 도면 불투명도 0~1 (기본 0.4) */
   backgroundOpacity?: number | null;
 }
