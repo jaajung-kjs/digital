@@ -81,6 +81,14 @@ describe('FloorPlanView — 배경 도면 임포트', () => {
     expect(screen.getByTestId('background-import-button')).toBeTruthy();
   });
 
+  it('파일 input 이 광고한 3개 포맷(dwg/dxf/dgn)을 전부 받는다 — .dgn 회귀 방지', () => {
+    setRole('admin');
+    renderFloorPlan();
+
+    const input = screen.getByTestId('background-import-input') as HTMLInputElement;
+    expect(input.accept).toBe('.dwg,.dxf,.dgn');
+  });
+
   it('비관리자에게는 보이지 않는다', () => {
     setRole('viewer');
     renderFloorPlan();
