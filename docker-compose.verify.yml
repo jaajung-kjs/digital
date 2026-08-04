@@ -1,0 +1,47 @@
+# 배포 검증용 오버라이드 — 개발 환경과 완전히 격리한다.
+#
+# docker-compose.dev.yml 이 같은 container_name(ict-twin-postgres)과 같은 볼륨
+# (postgres_data)을 쓰기 때문에, 기본 compose 를 그대로 올리면 (a) 이름이 충돌하고
+# (b) 프로덕션 스택이 개발 데이터베이스를 그대로 쓰게 된다. 여기서 이름과 볼륨을
+# 전부 갈아끼워 "빈 DB 에서 첫 부팅" 이라는 실제 배포 상황을 재현한다.
+#
+# 사용:
+#   docker compose -f docker-compose.yml -f docker-compose.verify.yml build
+#   docker compose -f docker-compose.yml -f docker-compose.verify.yml up -d
+#   docker compose -f docker-compose.yml -f docker-compose.verify.yml down -v
+#
+# `volumes: !override` 는 Compose 2.24+ 의 리스트 교체 태그다(기본 병합이면 같은
+# 마운트 지점이 두 번 잡혀 오류가 난다).
+
+name: twin-verify
+
+services:
+  postgres:
+    container_name: twin-verify-postgres
+    environment:
+      # .env 의 DB_NAME 이 재구축 이전 값(ict_digital_twin)이라 여기서 바로잡는다.
+      # 실서버 .env 도 digital_next 로 고쳐야 한다.
+      POSTGRES_DB: digital_next
+    ports: !override []          # 5432 는 개발 postgres 가 점유 중 — 게시하지 않는다
+    volumes: !override
+      - verify_postgres_data:/var/lib/postgresql/data
+
+  backend:
+    container_name: twin-verify-backend
+    image: digital-backend:verify
+    environment:
+      DATABASE_URL_NEXT: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres123}@postgres:5432/digital_next
+    ports: !override
+      - "3001:3000"              # 3000 은 개발 백엔드가 점유 중
+    volumes: !override
+      - verify_uploads_data:/app/uploads
+
+  frontend:
+    container_name: twin-verify-frontend
+    image: digital-frontend:verify
+    ports: !override
+      - "8080:8080"              # 컨테이너 쪽 8080 — nginx 가 비루트라 80 을 못 연다
+
+volumes:
+  verify_postgres_data:
+  verify_uploads_data:
