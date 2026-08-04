@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve, sep } from 'node:path';
@@ -407,6 +408,40 @@ describe('v2 가드레일 §Minor-5 — 프론트엔드 자산타입 키 리터�
         readFileSync(f, 'utf8'),
         `${f}: .key === '대문자키' 직접 비교 감지 — 자산 타입 분기는 카탈로그 메타(isPlaceable 등)를 사용하세요 (§Minor-5)`,
       ).not.toMatch(pattern);
+    }
+  });
+});
+
+describe('v2 가드레일 — DGN wasm 산출물·Rust 소스 드리프트 감지', () => {
+  /**
+   * `backend/src/v2/background/wasm/` 의 산출물은 저장소에 커밋되어 있고
+   * (crates/dgn-background/README.md 참조), npm test 는 이 커밋된 wasm 만
+   * 실행한다 — Rust 소스를 고치고 재빌드를 잊어도 npm test 는 낡은 wasm 을
+   * 계속 통과시켜 소스가 산출물을 더 이상 설명하지 못하는 조용한 발산을 못 잡는다.
+   *
+   * 이 테스트는 실제 빌드 동일성을 검증할 수 없다(Rust 툴체인 없이는 불가능)
+   * — 대신 소스·lockfile 의 SHA-256 을 여기 기대값과 비교해, 값이 바뀌면
+   * "재빌드를 잊었을 수 있다"는 신호를 강제로 사람에게 던진다.
+   * `cargo test`는 여기 넣지 않는다 — Rust 툴체인이 없는 머신에서 npm test 가 깨진다.
+   */
+  it('crates/dgn-background 의 lib.rs·Cargo.lock 해시가 마지막 wasm 재빌드 시점과 같다', () => {
+    const EXPECTED_HASHES: Record<string, string> = {
+      'crates/dgn-background/src/lib.rs':
+        '8343ecfb229bcf996afebdf58a424611f773a7089e077f591df0fec25061b3db',
+      'crates/dgn-background/Cargo.lock':
+        'b83591596d3e719bc4e0f14b06c3b1d4f7089fc8175aea00fd56364eb8fbcbfd',
+    };
+
+    for (const [rel, expected] of Object.entries(EXPECTED_HASHES)) {
+      const abs = resolve(projectRoot, rel);
+      const actual = createHash('sha256').update(readFileSync(abs)).digest('hex');
+      expect(
+        actual,
+        `${rel} 이 마지막 wasm 재빌드 이후 바뀌었습니다 — 커밋된 wasm 산출물` +
+          `(backend/src/v2/background/wasm/)이 이 소스를 더 이상 설명하지 못할 수 있습니다.` +
+          ` crates/dgn-background/README.md 의 재빌드 절차를 실행해 wasm 을 갱신·커밋한 뒤,` +
+          ` 이 테스트의 EXPECTED_HASHES 값을 새 해시로 갱신하세요.`,
+      ).toBe(expected);
     }
   });
 });
