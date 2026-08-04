@@ -23,9 +23,12 @@ function ensureWasm(): void {
 }
 
 export async function parseDgn(buffer: Buffer, fileName: string): Promise<BackgroundDrawing> {
+  // 초기화 실패(산출물 누락·손상)는 배포 결함이지 업로드한 파일의 잘못이 아니다.
+  // try 밖에 두어 PARSE_FAILED(400) 로 잘못 귀속되지 않게 한다.
+  ensureWasm();
+
   let json: string;
   try {
-    ensureWasm();
     json = dgn_to_background(buffer);
   } catch (e) {
     throw new HttpError(
