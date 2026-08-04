@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { X, Plus, Pencil, Check, Trash2 } from 'lucide-react';
-import { DetailCard, DetailCardHeader, Input, IconButton, Badge } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, Input, IconButton, Badge, ErrorStrip } from '../../../components/ui';
 import type { V2Catalog, V2CableGroup, V2CableCategory } from '../../types';
 import { useCatalogMutations } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
@@ -63,14 +63,7 @@ function CableGroupRow({ group }: { group: V2CableGroup }) {
 
   return (
     <div className="rounded border border-line bg-surface-2 p-2 space-y-1.5">
-      {error && (
-        <div className="flex items-center gap-1">
-          <span className="flex-1 text-xs text-danger">{error}</span>
-          <IconButton aria-label="오류 닫기" onClick={() => setError(null)}>
-            <X size={11} />
-          </IconButton>
-        </div>
-      )}
+      <ErrorStrip message={error} onDismiss={() => setError(null)} />
 
       {/* key — 표시만 */}
       <div className="flex items-center gap-2">

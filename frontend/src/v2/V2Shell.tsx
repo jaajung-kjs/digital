@@ -12,6 +12,8 @@
 import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
 import { Boxes, LogOut } from 'lucide-react';
 import { useV2AuthStore, isAdminRole } from './store/authStore';
+import { useV2Notice } from './store/noticeStore';
+import { ErrorStrip } from '../components/ui';
 
 export function V2Shell() {
   const user = useV2AuthStore((s) => s.user);
@@ -19,6 +21,7 @@ export function V2Shell() {
   const navigate = useNavigate();
 
   const roleLabel = isAdminRole(user?.role) ? '관리자' : '조회';
+  const notice = useV2Notice((st) => st.error);
 
   const handleLogout = async () => {
     await logout();
@@ -85,6 +88,13 @@ export function V2Shell() {
           </button>
         </div>
       </header>
+
+      {/* 전역 알림 — 조직·카탈로그 변경 실패가 여기로 온다(무음 실패 방지) */}
+      <ErrorStrip
+        message={notice}
+        onDismiss={() => useV2Notice.getState().clearError()}
+        className="shrink-0 border-b border-line bg-danger-bg px-4 py-1"
+      />
 
       {/* ── 콘텐츠 영역 ── */}
       <div className="flex min-h-0 flex-1">

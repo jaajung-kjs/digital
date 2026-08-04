@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { Button, IconButton, Badge } from '../../components/ui';
+import { Button, IconButton, Badge, ErrorStrip } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty } from '../catalogDraft';
 import type { TypeDraft } from '../catalogDraft';
@@ -178,14 +178,11 @@ export default function V2CatalogAdminPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* 분류 관리 오류 배너 */}
-      {categoryError != null && (
-        <div className="shrink-0 flex items-center gap-1 border-b border-line bg-surface px-4 py-1">
-          <span className="flex-1 text-xs text-danger">{categoryError}</span>
-          <IconButton aria-label="분류 오류 닫기" onClick={() => setCategoryError(null)}>
-            <X size={12} />
-          </IconButton>
-        </div>
-      )}
+      <ErrorStrip
+        message={categoryError}
+        onDismiss={() => setCategoryError(null)}
+        className="shrink-0 border-b border-line bg-surface px-4 py-1"
+      />
       <div className="flex min-h-0 flex-1">
         {/* ── 좌측 패널 ────────────────────────────────────────────────── */}
         <TypeListPanel

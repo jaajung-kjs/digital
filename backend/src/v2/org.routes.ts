@@ -1,10 +1,24 @@
 import { Router } from 'express';
 import { adminOnly, authenticate } from './auth.middleware.js';
-import { nextDb } from './db.js';
+import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import { branchCreateSchema, floorCreateSchema, idParamSchema, orgNameSchema, orgPatchSchema, substationCreateSchema } from './schemas.js';
 
 export const orgRouter = Router();
+
+/**
+ * 조직 이름 중복(P2002) → 409. 그 외 오류는 그대로 통과시킨다.
+ *
+ * 조직에는 유니크 제약이 넷 있다 — Headquarters.name(전역), Substation.name(전역),
+ * Branch[headquartersId,name], Floor[substationId,name]. 이걸 잡지 않으면 중복 이름
+ * 입력이 500 INTERNAL_SERVER_ERROR 로 나가 사용자에게 "서버 오류"로 보인다.
+ * 생성 4곳과 이름변경(템플릿 PATCH)이 같은 판단을 하므로 여기 한 곳에 둔다.
+ */
+function asDuplicateName(e: unknown): unknown {
+  return isPrismaError(e, 'P2002')
+    ? new HttpError(409, 'DUPLICATE_NAME', '이미 같은 이름이 있습니다')
+    : e;
+}
 orgRouter.use(authenticate);
 
 // GET /org-tree — 전체 조직 트리 조회
@@ -34,7 +48,7 @@ orgRouter.get('/org-tree', async (_req, res, next) => {
     });
     res.json({ headquarters });
   } catch (e) {
-    next(e);
+    next(asDuplicateName(e));
   }
 });
 
@@ -46,7 +60,7 @@ orgRouter.post('/org/headquarters', adminOnly, async (req, res, next) => {
     const row = await nextDb.headquarters.create({ data: { name, sortOrder: (max._max.sortOrder ?? 0) + 1 } });
     res.status(201).json(row);
   } catch (e) {
-    next(e);
+    next(asDuplicateName(e));
   }
 });
 
@@ -67,7 +81,7 @@ orgRouter.post('/org/branches', adminOnly, async (req, res, next) => {
     });
     res.status(201).json(row);
   } catch (e) {
-    next(e);
+    next(asDuplicateName(e));
   }
 });
 
@@ -88,7 +102,7 @@ orgRouter.post('/org/substations', adminOnly, async (req, res, next) => {
     });
     res.status(201).json(row);
   } catch (e) {
-    next(e);
+    next(asDuplicateName(e));
   }
 });
 
@@ -109,7 +123,7 @@ orgRouter.post('/org/floors', adminOnly, async (req, res, next) => {
     });
     res.status(201).json(row);
   } catch (e) {
-    next(e);
+    next(asDuplicateName(e));
   }
 });
 
@@ -165,7 +179,7 @@ for (const { path, delegate, childCount } of orgKinds) {
       const updated = await delegate.update({ where: { id }, data: patch });
       res.json(updated);
     } catch (e) {
-      next(e);
+      next(asDuplicateName(e));
     }
   });
 
@@ -182,7 +196,7 @@ for (const { path, delegate, childCount } of orgKinds) {
       await delegate.delete({ where: { id } });
       res.status(204).end();
     } catch (e) {
-      next(e);
+      next(asDuplicateName(e));
     }
   });
 }

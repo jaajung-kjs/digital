@@ -8,6 +8,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { httpClient, tokenStorage, setSessionInvalidHandler } from '../httpClient';
+import { setMutationErrorHandler } from '../../lib/queryClient';
+import { apiErrorMessage } from '../apiError';
+import { useV2Notice } from './noticeStore';
 
 interface V2User {
   id: string;
@@ -140,3 +143,10 @@ setSessionInvalidHandler(() => {
 // 헬퍼: 역할 비교 함수로 캡슐화(가드레일: 직접 비교 패턴 금지)
 const ADMIN_ROLE = 'admin';
 export const isAdminRole = (userRole: string | undefined) => userRole === ADMIN_ROLE;
+
+// ── 전역 mutation 실패 → 알림 표면 (모듈 초기화 시 1회 등록) ──────────────────
+// react-query 의 MutationCache 가 모든 mutation 실패를 여기로 보낸다.
+// 문구 번역은 apiErrorMessage(단일 지점)가 하고, 여기서는 전달만 한다.
+setMutationErrorHandler((err) => {
+  useV2Notice.getState().showError(apiErrorMessage(err, '요청을 처리하지 못했습니다'));
+});

@@ -138,3 +138,37 @@ describe('org PATCH/DELETE 4종 테이블 회귀 고정핀', () => {
     await request(app).delete(`/api/v2/org/headquarters/${hqId2}`).set(admin).expect(204);
   });
 });
+
+describe('조직 이름 중복 (DUPLICATE_NAME)', () => {
+  // Headquarters.name 은 전역 @unique 다. P2002 를 잡지 않으면 500 INTERNAL_SERVER_ERROR
+  // 로 나가 사용자에게 "서버 오류"로 보인다 — 실제로 그랬다(UI/UX 감사에서 발견).
+  const NAME = 't7-dup-본부';
+
+  afterAll(async () => {
+    await nextDb.headquarters.deleteMany({ where: { name: { startsWith: 't7-dup-' } } });
+  });
+
+  it('같은 이름으로 생성하면 500 이 아니라 409 DUPLICATE_NAME', async () => {
+    await request(app).post('/api/v2/org/headquarters').set(admin).send({ name: NAME }).expect(201);
+    const res = await request(app)
+      .post('/api/v2/org/headquarters')
+      .set(admin)
+      .send({ name: NAME })
+      .expect(409);
+    expect(res.body.error).toBe('DUPLICATE_NAME');
+  });
+
+  it('같은 이름으로 변경(PATCH)해도 409 DUPLICATE_NAME', async () => {
+    const other = await request(app)
+      .post('/api/v2/org/headquarters')
+      .set(admin)
+      .send({ name: `${NAME}-2` })
+      .expect(201);
+    const res = await request(app)
+      .patch(`/api/v2/org/headquarters/${other.body.id}`)
+      .set(admin)
+      .send({ name: NAME })
+      .expect(409);
+    expect(res.body.error).toBe('DUPLICATE_NAME');
+  });
+});

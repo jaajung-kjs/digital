@@ -1,5 +1,4 @@
-import { X } from 'lucide-react';
-import { Button, IconButton } from '../../components/ui';
+import { Button, ErrorStrip } from '../../components/ui';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 
 interface SaveBarProps {
@@ -31,14 +30,7 @@ export function SaveBar({ onCommit, isCommitting, error, onClearError, onOpenRep
 
   return (
     <div className="shrink-0 flex flex-col border-t border-line bg-surface">
-      {error != null && (
-        <div className="flex items-center gap-1 border-b border-line px-4 py-1">
-          <span className="flex-1 text-xs text-danger">{error}</span>
-          <IconButton aria-label="오류 닫기" onClick={onClearError}>
-            <X size={12} />
-          </IconButton>
-        </div>
-      )}
+      <ErrorStrip message={error} onDismiss={onClearError} className="border-b border-line px-4 py-1" />
       <div className="flex items-center gap-2 px-4 py-2">
       <span className="flex-1 text-xs text-content-muted">변경 {dirty}건</span>
       <Button variant="ghost" size="sm" onClick={handleUndo}>
