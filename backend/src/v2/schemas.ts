@@ -9,7 +9,7 @@ export const branchCreateSchema = orgNameSchema.extend({ headquartersId: z.strin
 export const substationCreateSchema = orgNameSchema.extend({ branchId: z.string().uuid() });
 export const floorCreateSchema = orgNameSchema.extend({ substationId: z.string().uuid() });
 
-export const assetCreateSchema = z.object({
+const assetCreateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1),
   typeId: z.string().uuid(),
@@ -27,7 +27,7 @@ export const assetCreateSchema = z.object({
   portCounts: z.record(z.number().int().min(1)).optional(),
 });
 
-export const assetPatchSchema = assetCreateSchema
+const assetPatchSchema = assetCreateSchema
   .omit({ id: true, typeId: true, portCounts: true })
   .partial();
 
@@ -38,7 +38,7 @@ const recordOps = <T extends z.ZodRawShape>(createShape: T) =>
     deletes: z.array(z.string().uuid()).optional(),
   });
 
-export const cableCreateSchema = z.object({
+const cableCreateSchema = z.object({
   id: z.string().uuid(),
   aPortId: z.string().uuid(),
   bPortId: z.string().uuid(),
@@ -48,7 +48,7 @@ export const cableCreateSchema = z.object({
   specParams: z.record(z.unknown()).optional(),
 });
 
-export const cablePatchSchema = z.object({
+const cablePatchSchema = z.object({
   name: z.string().trim().min(1).nullish().optional(),
   categoryId: z.string().uuid().nullish().optional(),
   pathPoints: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
@@ -57,14 +57,14 @@ export const cablePatchSchema = z.object({
 
 // ---------- 카탈로그 관리 (Stage 6) ----------
 const keyRe = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
-export const fieldDefSchema = z.object({
+const fieldDefSchema = z.object({
   key: z.string().trim().min(1),
   label: z.string().trim().min(1),
   type: z.enum(['text', 'number', 'date', 'select']),
   unit: z.string().optional(),
   options: z.array(z.string()).optional(),
 });
-export const containerSpecBodySchema = z.object({
+const containerSpecBodySchema = z.object({
   key: z.string().regex(keyRe),
   name: z.string().trim().min(1),
   slotCount: z.number().int().min(1).nullable(),
@@ -74,7 +74,7 @@ export const containerSpecBodySchema = z.object({
     typeKeys: z.array(z.string()).optional(),
   }),
 });
-export const portTemplateBodySchema = z.object({
+const portTemplateBodySchema = z.object({
   group: z.string().regex(keyRe),
   count: z.number().int().min(1),
   direction: z.enum(['IN', 'OUT', 'BI']),
@@ -82,7 +82,7 @@ export const portTemplateBodySchema = z.object({
   namePattern: z.string().min(1),
   lineSide: z.boolean().optional(),
 });
-export const linkRuleBodySchema = z.object({
+const linkRuleBodySchema = z.object({
   fromGroup: z.string().min(1),
   toGroup: z.string().min(1),
   mapping: z.enum(['byIndex', 'all']),

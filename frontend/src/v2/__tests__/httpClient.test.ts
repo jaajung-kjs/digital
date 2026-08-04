@@ -24,7 +24,6 @@ import {
   createRequestOnFulfilled,
   createResponseOnRejected,
   setSessionInvalidHandler,
-  getSessionInvalidHandler,
   invokeSessionInvalid,
   productionResponseDeps,
   type ResponseInterceptorDeps,
@@ -276,7 +275,6 @@ describe('invokeSessionInvalid — 핸들러 등록 여부에 따른 분기 (B-V
     const handler = vi.fn();
 
     setSessionInvalidHandler(handler);
-    expect(getSessionInvalidHandler()).toBe(handler);
 
     invokeSessionInvalid();
 
@@ -287,8 +285,6 @@ describe('invokeSessionInvalid — 핸들러 등록 여부에 따른 분기 (B-V
   });
 
   it('핸들러 미등록(테스트/부트 이전) → 하드 리다이렉트 폴백', () => {
-    expect(getSessionInvalidHandler()).toBeNull();
-
     // jsdom 은 실제 navigation 을 구현하지 않으므로 location 을 로컬 stub 으로
     // 교체해 href 대입만 관찰한다(실제 페이지 이동 없이 폴백 분기만 검증).
     const originalLocation = window.location;

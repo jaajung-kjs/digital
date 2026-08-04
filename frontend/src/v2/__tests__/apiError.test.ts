@@ -5,7 +5,7 @@
  * 추출하는 3개 함수를 검증한다. 비-axios 에러는 항상 fallback.
  */
 import { describe, it, expect } from 'vitest';
-import { apiErrorMessage, apiErrorCode, apiErrorIssues } from '../apiError';
+import { apiErrorMessage, apiErrorIssues } from '../apiError';
 
 function axiosError(data: unknown, status = 400) {
   return {
@@ -48,22 +48,6 @@ describe('apiErrorMessage', () => {
   it('response.data.message 가 빈 문자열/공백뿐이면 fallback 을 반환한다 (빈 알림창 방지)', () => {
     expect(apiErrorMessage(axiosError({ message: '' }), '기본 실패')).toBe('기본 실패');
     expect(apiErrorMessage(axiosError({ message: '   ' }), '기본 실패')).toBe('기본 실패');
-  });
-});
-
-describe('apiErrorCode', () => {
-  it('axios 에러의 response.data.error 를 반환한다', () => {
-    const err = axiosError({ error: 'CABLE_CATEGORY_IN_USE', message: '사용 중' });
-    expect(apiErrorCode(err)).toBe('CABLE_CATEGORY_IN_USE');
-  });
-
-  it('response.data.error 가 없으면 null 을 반환한다', () => {
-    const err = axiosError({ message: '실패' });
-    expect(apiErrorCode(err)).toBeNull();
-  });
-
-  it('비-axios 에러는 null 을 반환한다', () => {
-    expect(apiErrorCode(new Error('x'))).toBeNull();
   });
 });
 
