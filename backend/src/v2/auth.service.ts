@@ -23,6 +23,13 @@ interface RefreshResult {
   refreshToken: string;
 }
 
+// 존재하지 않는 사용자에 대해서도 같은 비용의 bcrypt 를 태우기 위한 더미 해시.
+// 없으면 "사용자 없음"은 즉시 반환(2ms)되고 "비밀번호 틀림"은 bcrypt 를 돌아(56ms)
+// 응답 시간만으로 계정 존재 여부가 드러난다(실측 24배 차이). 로그인 시도 제한이
+// 없는 현재 상태와 겹치면 열거 → 무제한 대입으로 바로 이어진다.
+// 값은 임의 문자열의 해시이며 어떤 비밀번호와도 일치하지 않는다(cost 는 시드와 동일한 10).
+const DUMMY_PASSWORD_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+
 // ── 서비스 ────────────────────────────────────────────────────────────────────
 
 /**
@@ -31,10 +38,13 @@ interface RefreshResult {
  */
 export async function login(username: string, password: string): Promise<LoginResult> {
   const user = await nextDb.user.findUnique({ where: { username } });
-  if (!user) throw new HttpError(401, 'INVALID_CREDENTIALS', '아이디 또는 비밀번호가 올바르지 않습니다.');
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) throw new HttpError(401, 'INVALID_CREDENTIALS', '아이디 또는 비밀번호가 올바르지 않습니다.');
+  // 사용자 유무와 무관하게 항상 bcrypt 를 한 번 태운다 — 두 실패 경로의 응답
+  // 시간을 같게 만들어 계정 열거를 막는다(위 DUMMY_PASSWORD_HASH 주석 참조).
+  const valid = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!user || !valid) {
+    throw new HttpError(401, 'INVALID_CREDENTIALS', '아이디 또는 비밀번호가 올바르지 않습니다.');
+  }
 
   const tokenId = uuidv4();
   const accessToken = signAccessToken({ userId: user.id, username: user.username, role: user.role });

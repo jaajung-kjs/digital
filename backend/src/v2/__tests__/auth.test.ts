@@ -5,7 +5,7 @@
  */
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { nextDb } from '../db.js';
 import { makeApp, sweepTestFixtures } from './helpers.js';
 
@@ -66,6 +66,23 @@ describe('POST /api/v2/auth/login', () => {
 
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('INVALID_CREDENTIALS');
+  });
+
+  it('존재하지 않는 사용자도 bcrypt 를 거친다 — 응답 시간으로 계정 열거 불가', async () => {
+    // 사용자가 없을 때 즉시 반환하면 "없음"(2ms)과 "비밀번호 틀림"(56ms)의
+    // 응답 시간이 24배 차이 나 계정 존재 여부가 드러난다(실측). 로그인 시도
+    // 제한이 없는 현재 상태와 겹치면 열거 → 무제한 대입으로 이어진다.
+    // 타이밍 자체는 CI 에서 불안정하므로, 더미 해시 비교가 실제로 일어나는지를 고정한다.
+    const spy = vi.spyOn(bcrypt, 'compare');
+    try {
+      await request(app)
+        .post('/api/v2/auth/login')
+        .send({ username: 'definitely-no-such-user-xyz', password: 'whatever' })
+        .expect(401);
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('body 누락 → 400 BAD_REQUEST', async () => {
