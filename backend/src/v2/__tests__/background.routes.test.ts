@@ -93,6 +93,26 @@ describe('POST /api/v2/floors/:id/background', () => {
   });
 });
 
+describe('POST /api/v2/floors/:id/background — 한글 파일명 mojibake 복구 (M-1)', () => {
+  it('한글 파일명이 source.fileName 에 정확히 복원되어 저장된다', async () => {
+    // supertest 의 .attach 는 실제 브라우저처럼 UTF-8 바이트를 multipart 파일명에
+    // 싣는다 — busboy(멀터 내부)가 이를 latin1 로 잘못 디코드하는 실제 경로를
+    // 그대로 재현한다(직접 확인함: 우회 없이 라우트 코드 경로를 그대로 탄다).
+    const koreanName = 'A08평면도B1.dwg';
+    const res = await request(app)
+      .post(`/api/v2/floors/${floorId}/background`)
+      .set(admin)
+      .attach('file', dwg, { filename: koreanName })
+      .expect(200);
+
+    expect(res.body.backgroundDrawing.source.fileName).toBe(koreanName);
+
+    const row = await nextDb.floor.findUnique({ where: { id: floorId } });
+    const saved = row?.backgroundDrawing as { source?: { fileName?: string } } | null;
+    expect(saved?.source?.fileName).toBe(koreanName);
+  });
+});
+
 describe('DELETE /api/v2/floors/:id/background', () => {
   it('배경을 제거하면 null 이 되고 갱신된 층이 반환된다', async () => {
     await request(app)

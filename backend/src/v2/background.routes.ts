@@ -24,6 +24,20 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024;
 // 원본 파일은 보관하지 않는다(재파싱·다운로드 요구 없음) — 메모리에서 파싱하고 버린다.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE } });
 
+/**
+ * multer(busboy)는 multipart 파일명을 **latin1 로 디코드**한다(RFC 7578 은
+ * 인코딩을 규정하지 않고, busboy 는 안전한 기본값으로 latin1 을 고정한다).
+ * 그런데 브라우저는 실제로 UTF-8 바이트를 보내므로, 비-ASCII(한글 등) 파일명은
+ * 각 UTF-8 바이트가 개별 latin1 문자로 잘못 해석되어 깨진다("mojibake").
+ *
+ * 고치는 법: 그 latin1 문자열을 다시 바이트로 되돌린 뒤 UTF-8 로 재해석하면
+ * 원래 바이트열이 복원된다. 순수 ASCII 파일명은 latin1 왕복이 항등 변환이라
+ * 영향받지 않는다 — 이 함수는 항상 적용해도 안전하다.
+ */
+function recoverUtf8Filename(name: string): string {
+  return Buffer.from(name, 'latin1').toString('utf8');
+}
+
 /** multer 오류를 v2 HttpError 계약으로 옮긴다. */
 function uploadSingle(req: Request, res: Response, next: NextFunction) {
   upload.single('file')(req, res, (err: unknown) => {
@@ -52,7 +66,7 @@ backgroundRouter.post(
       const file = req.file;
       if (!file) throw new HttpError(400, 'INVALID_UPLOAD', '도면 파일이 없습니다');
 
-      const drawing = await parseBackground(file.buffer, file.originalname);
+      const drawing = await parseBackground(file.buffer, recoverUtf8Filename(file.originalname));
       const updated = await nextDb.floor.update({
         where: { id: floor.id },
         data: { backgroundDrawing: drawing as unknown as Prisma.InputJsonValue },
