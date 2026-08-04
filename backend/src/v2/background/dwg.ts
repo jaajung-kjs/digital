@@ -7,9 +7,14 @@ import type {
   DwgDatabase,
   DwgEllipseEntity,
   DwgEntity,
+  DwgHatchEntity,
+  DwgInsertEntity,
+  DwgMTextEntity,
   DwgLWPolylineEntity,
   DwgLineEntity,
+  DwgSolidEntity,
   DwgSplineEntity,
+  DwgTextEntity,
 } from '@mlightcad/libredwg-web';
 import type { BackgroundDrawing, BgFilled, BgLayer, BgPath, BgText } from '@twin/core';
 import { HttpError } from '../errors.js';
@@ -341,11 +346,11 @@ function composeAffine(parent: Affine, child: Affine): Affine {
   ];
 }
 
-function insertAffine(insert: Record<string, unknown>): Affine {
-  const ip = insert.insertionPoint as { x: number; y: number } | undefined;
-  const sx = (insert.xScale as number | undefined) ?? 1;
-  const sy = (insert.yScale as number | undefined) ?? 1;
-  const rot = (insert.rotation as number | undefined) ?? 0;
+function insertAffine(insert: DwgInsertEntity): Affine {
+  const ip = insert.insertionPoint;
+  const sx = insert.xScale ?? 1;
+  const sy = insert.yScale ?? 1;
+  const rot = insert.rotation ?? 0;
   const cosR = Math.cos(rot);
   const sinR = Math.sin(rot);
   return [sx * cosR, -sy * sinR, sx * sinR, sy * cosR, ip?.x ?? 0, ip?.y ?? 0];
@@ -580,7 +585,12 @@ interface HatchEdge {
   radius?: number;
   startAngle?: number;
   endAngle?: number;
-  isCounterClockwise?: number;
+  /**
+   * 반시계 여부. libredwg 의 실제 키는 `isCCW` 이고 **불리언**이다
+   * (이전에는 `isCounterClockwise?: number` 로 선언하고 `=== 1` 로 비교해
+   *  항상 undefined → 항상 반시계로 처리했다 — 시계방향 호 경계가 뒤집혔다).
+   */
+  isCCW?: boolean;
   controlPoints?: Array<{ x: number; y: number }>;
   fitDatum?: Array<{ x: number; y: number }>;
 }
@@ -602,7 +612,7 @@ function hatchEdgesToPolyline(edges: HatchEdge[]): Point[] {
       case 2: { // Arc
         const { center, radius, startAngle, endAngle } = e;
         if (center && radius != null && startAngle != null && endAngle != null) {
-          const ccw = e.isCounterClockwise == null ? true : e.isCounterClockwise === 1;
+            const ccw = e.isCCW ?? true;
           let a0 = startAngle;
           let a1 = endAngle;
           if (!ccw) {
@@ -677,8 +687,8 @@ function extractGeometry(db: DwgDatabase): ExtractedRaw {
     for (const e of entities) {
       if (e.type === 'INSERT') {
         if (depth >= MAX_INSERT_DEPTH) continue;
-        const ins = e as unknown as Record<string, unknown>;
-        const blockName = ins.name as string | undefined;
+        const ins = e as DwgInsertEntity;
+        const blockName = ins.name;
         if (!blockName) continue;
         const block = blockMap.get(blockName);
         const subEntities = block?.entities;
@@ -729,10 +739,12 @@ function extractGeometry(db: DwgDatabase): ExtractedRaw {
 }
 
 function entityToTextRaw(e: DwgEntity, xform: Affine): RawText | null {
-  const any = e as unknown as Record<string, unknown>;
   const isMText = e.type === 'MTEXT';
-  const ip = (any.startPoint ?? any.insertionPoint ?? any.alignmentPoint) as { x: number; y: number } | undefined;
-  const txtRaw = (any.text as string | undefined)?.trim();
+  // TEXT 는 startPoint, MTEXT 는 insertionPoint 를 기준점으로 준다(라이브러리 정의).
+  const t = e as DwgTextEntity;
+  const mt = e as DwgMTextEntity;
+  const ip: { x: number; y: number } | undefined = isMText ? mt.insertionPoint : t.startPoint;
+  const txtRaw = (isMText ? mt.text : t.text)?.trim();
   if (!ip || !txtRaw) return null;
   let cleaned = txtRaw;
   let isMultiLine = false;
@@ -745,24 +757,24 @@ function entityToTextRaw(e: DwgEntity, xform: Affine): RawText | null {
   if (!cleaned) return null;
 
   const [tx, ty] = applyAffine(xform, [ip.x, ip.y]);
-  const entityRot = (any.rotation as number | undefined) ?? 0;
+  const entityRot = (isMText ? mt.rotation : t.rotation) ?? 0;
   // Compose rotation with parent INSERT rotation extracted from xform.
   const xformRot = Math.atan2(xform[2], xform[0]);
   const rotation = entityRot + xformRot;
   // Source-unit text height; scaled by xform's scale magnitude.
   const sx = Math.hypot(xform[0], xform[2]);
-  const heightMm = (any.textHeight as number | undefined) ?? 14;
+  const heightMm = (isMText ? mt.textHeight : t.textHeight) ?? 14;
   const sizeSrc = heightMm * Math.max(0.001, sx);
 
   let hAlign: BgText['hAlign'];
   let vAlign: BgText['vAlign'];
   if (isMText) {
-    const ap = decodeMtextAttach(any.attachmentPoint as number | undefined);
+    const ap = decodeMtextAttach(mt.attachmentPoint);
     hAlign = ap.hAlign;
     vAlign = ap.vAlign;
   } else {
-    hAlign = decodeTextHAlign(any.halign as number | undefined);
-    vAlign = decodeTextVAlign(any.valign as number | undefined);
+    hAlign = decodeTextHAlign(t.halign);
+    vAlign = decodeTextVAlign(t.valign);
   }
 
   return {
@@ -780,11 +792,7 @@ function entityToTextRaw(e: DwgEntity, xform: Affine): RawText | null {
 }
 
 function entityToSolidFilled(e: DwgEntity, xform: Affine): RawFilled | null {
-  const any = e as unknown as Record<string, unknown>;
-  const c1 = any.corner1 as { x: number; y: number } | undefined;
-  const c2 = any.corner2 as { x: number; y: number } | undefined;
-  const c3 = any.corner3 as { x: number; y: number } | undefined;
-  const c4 = any.corner4 as { x: number; y: number } | undefined;
+  const { corner1: c1, corner2: c2, corner3: c3, corner4: c4 } = e as DwgSolidEntity;
   if (!c1 || !c2 || !c3) return null;
   // SOLID corner ordering is non-obvious: actual polygon traversal is
   // c1, c2, c4, c3 (DXF spec); when c4 ≈ c3, it degenerates to a triangle.
@@ -799,11 +807,10 @@ function entityToSolidFilled(e: DwgEntity, xform: Affine): RawFilled | null {
 }
 
 function entityToHatchFilled(e: DwgEntity, xform: Affine): RawFilled | null {
-  const any = e as unknown as Record<string, unknown>;
-  const solidFill = any.solidFill as number | undefined;
-  // v1: only solid fills are rendered. Patterned hatches need pattern instancing.
-  if (solidFill !== 1) return null;
-  const paths = (any.boundaryPaths ?? []) as Array<{ vertices?: Array<{ x: number; y: number }>; edges?: HatchEdge[] }>;
+  const hatch = e as DwgHatchEntity;
+  // v1: 단색 채움만 그린다(패턴 해치는 패턴 인스턴싱이 필요). solidFill 은 숫자 열거다.
+  if (hatch.solidFill !== 1) return null;
+  const paths = (hatch.boundaryPaths ?? []) as Array<{ vertices?: Array<{ x: number; y: number }>; edges?: HatchEdge[] }>;
   if (!paths.length) return null;
   const loops: Point[][] = [];
   for (const p of paths) {
