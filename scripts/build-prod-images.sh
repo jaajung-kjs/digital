@@ -34,14 +34,14 @@ echo "▶ Building digital-backend:latest …"
 docker buildx build --platform "$PLATFORM" \
   --provenance=false \
   -t digital-backend:latest \
-  -f backend/Dockerfile backend/ \
+  -f backend/Dockerfile . \
   --load
 
 echo "▶ Building digital-frontend:latest …"
 docker buildx build --platform "$PLATFORM" \
   --provenance=false \
   -t digital-frontend:latest \
-  -f frontend/Dockerfile frontend/ \
+  -f frontend/Dockerfile . \
   --load
 
 # `--platform`: the host is arm64 (Apple Silicon) but the cached image is a
@@ -198,7 +198,7 @@ run_postgres() {
     --restart unless-stopped \
     -e POSTGRES_USER="${DB_USER:-postgres}" \
     -e POSTGRES_PASSWORD="$DB_PASSWORD" \
-    -e POSTGRES_DB="${DB_NAME:-ict_digital_twin}" \
+    -e POSTGRES_DB="${DB_NAME:-digital_next}" \
     -v postgres_data:/var/lib/postgresql/data \
     --health-cmd="pg_isready -U ${DB_USER:-postgres}" \
     --health-interval=10s \
@@ -214,13 +214,14 @@ run_backend() {
     --network-alias backend \
     --restart unless-stopped \
     -e NODE_ENV=production \
-    -e DATABASE_URL="postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-ict_digital_twin}" \
+    -e DATABASE_URL_NEXT="postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-digital_next}" \
     -e JWT_ACCESS_SECRET="$JWT_ACCESS_SECRET" \
     -e JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET" \
     -e JWT_ACCESS_EXPIRES_IN="${JWT_ACCESS_EXPIRES_IN:-1h}" \
     -e JWT_REFRESH_EXPIRES_IN="${JWT_REFRESH_EXPIRES_IN:-7d}" \
     -e PORT=3000 \
     -e CORS_ORIGIN="$CORS_ORIGIN" \
+    -e UPLOADS_DIR=/app/uploads \
     -v uploads_data:/app/uploads \
     digital-backend:latest
 }
@@ -290,7 +291,7 @@ echo "✅ Done. Volumes preserved across deploys."
 echo "Health check:"
 echo "    $PODMAN ps"
 echo "    $PODMAN logs --tail=20 ict-twin-backend"
-echo "    curl http://localhost:${FRONTEND_PORT:-8080}/api/health"
+echo "    curl http://localhost:${FRONTEND_PORT:-8080}/api/v2/health"
 DECODE
 chmod +x "$TMPDIR/decode-and-deploy.sh"
 
