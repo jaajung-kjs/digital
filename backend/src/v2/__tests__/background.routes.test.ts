@@ -77,23 +77,55 @@ describe('POST /api/v2/floors/:id/background', () => {
     expect(res.body.error).toBe('NOT_FOUND');
   });
 
+  // 권한 검사는 파싱 이전에 끝난다 — 실제 도면을 실을 이유가 없다. 197KB 본문을
+  // 올리면 서버가 본문을 다 읽기 전에 거절해 클라이언트가 EPIPE 로 깨진다(산발적 실패).
+  const tiny = Buffer.from('x');
+
   it('비관리자는 403', async () => {
     await request(app)
       .post(`/api/v2/floors/${floorId}/background`)
       .set(viewer)
-      .attach('file', dwg, { filename: 'plan-sample.dwg' })
+      .attach('file', tiny, { filename: 'plan-sample.dwg' })
       .expect(403);
   });
 
   it('미인증은 401', async () => {
     await request(app)
       .post(`/api/v2/floors/${floorId}/background`)
-      .attach('file', dwg, { filename: 'plan-sample.dwg' })
+      .attach('file', tiny, { filename: 'plan-sample.dwg' })
       .expect(401);
   });
 });
 
+describe('POST /api/v2/floors/:id/background — 한글 파일명 mojibake 복구 (M-1)', () => {
+  it('한글 파일명이 source.fileName 에 정확히 복원되어 저장된다', async () => {
+    // supertest 의 .attach 는 실제 브라우저처럼 UTF-8 바이트를 multipart 파일명에
+    // 싣는다 — busboy(멀터 내부)가 이를 latin1 로 잘못 디코드하는 실제 경로를
+    // 그대로 재현한다(직접 확인함: 우회 없이 라우트 코드 경로를 그대로 탄다).
+    const koreanName = 'A08평면도B1.dwg';
+    const res = await request(app)
+      .post(`/api/v2/floors/${floorId}/background`)
+      .set(admin)
+      .attach('file', dwg, { filename: koreanName })
+      .expect(200);
+
+    expect(res.body.backgroundDrawing.source.fileName).toBe(koreanName);
+
+    const row = await nextDb.floor.findUnique({ where: { id: floorId } });
+    const saved = row?.backgroundDrawing as { source?: { fileName?: string } } | null;
+    expect(saved?.source?.fileName).toBe(koreanName);
+  });
+});
+
 describe('DELETE /api/v2/floors/:id/background', () => {
+  it('없는 층은 404 — update 의 P2025 가 유일한 존재 판정이다', async () => {
+    const res = await request(app)
+      .delete('/api/v2/floors/00000000-0000-0000-0000-000000000000/background')
+      .set(admin)
+      .expect(404);
+    expect(res.body.error).toBe('NOT_FOUND');
+  });
+
   it('배경을 제거하면 null 이 되고 갱신된 층이 반환된다', async () => {
     await request(app)
       .post(`/api/v2/floors/${floorId}/background`)

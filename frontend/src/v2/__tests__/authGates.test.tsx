@@ -10,7 +10,7 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import { RequireAuth, LoginRoute } from '../../App';
 import { useV2AuthStore } from '../store/authStore';
-import { tokenStorage, getSessionInvalidHandler } from '../httpClient';
+import { tokenStorage, invokeSessionInvalid } from '../httpClient';
 
 beforeEach(() => {
   localStorage.clear();
@@ -122,18 +122,14 @@ describe('httpClient 세션-무효 핸들러 → 게이트 연동 (B-V2)', () =>
     renderRoutes('/');
     expect(await screen.findByText('WORKSPACE')).toBeInTheDocument();
 
-    // authStore.ts 모듈 초기화 시 등록된 실제 프로덕션 핸들러 — httpClient 의
-    // refresh 실패 경로(createResponseOnRejected)가 호출하는 바로 그 함수.
-    const handler = getSessionInvalidHandler();
-    expect(typeof handler).toBe('function');
-
     const hrefBefore = window.location.href;
 
     // httpClient 인터셉터가 refresh 실패 시 하는 일을 그대로 재현: 토큰 삭제 후
-    // 주입된 핸들러 호출. window.location 은 건드리지 않는다(하드 리로드 없음).
+    // 세션-무효 진입점 호출. authStore.ts 모듈 초기화가 등록한 실제 프로덕션
+    // 핸들러가 이 안에서 불린다. window.location 은 건드리지 않는다(하드 리로드 없음).
     tokenStorage.clearTokens();
     act(() => {
-      handler!();
+      invokeSessionInvalid();
     });
 
     // React 재렌더만으로(페이지 이동 없이) 폼 도달

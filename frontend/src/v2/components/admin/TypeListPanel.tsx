@@ -68,6 +68,7 @@ export function TypeListPanel({
                 <div className="flex items-center gap-1 px-3 py-1.5 border-b border-line bg-surface-2">
                   {editingCategoryId === cat.id ? (
                     <input
+                      aria-label="분류 이름"
                       className="flex-1 min-w-0 rounded border border-primary bg-surface px-1 py-0.5 text-xs text-content focus:outline-none"
                       value={editingName}
                       autoFocus

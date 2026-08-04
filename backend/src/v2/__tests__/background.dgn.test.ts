@@ -73,6 +73,14 @@ describe('parseDgn — WASM 파이프라인', () => {
       code: 'PARSE_FAILED',
     });
   });
+
+  it('거절 시 details 로 내부 오류 문자열을 클라이언트에 노출하지 않는다 (M-4, dwg.ts 경로와 동일)', async () => {
+    // ezdgn 내부 오류 문자열(바이트 오프셋 등)이 details.cause 로 새 나가면 안 된다.
+    // DWG 파서(dwg.ts)는 애초에 details 없이 던진다 — DGN 도 같은 계약이어야 한다.
+    await expect(parseDgn(Buffer.from('not a dgn'), 'bad.dgn')).rejects.toMatchObject({
+      details: undefined,
+    });
+  });
 });
 
 describe('parseDgn — 엔티티 매핑', () => {

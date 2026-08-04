@@ -174,6 +174,7 @@ export function RemoteEndpointModal({
             autoFocus
             type="text"
             className="w-full rounded border border-line bg-surface px-3 py-2 text-sm text-content placeholder:text-content-faint focus:border-primary focus:outline-none"
+            aria-label="자산 이름 검색"
             placeholder="자산 이름 검색…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}

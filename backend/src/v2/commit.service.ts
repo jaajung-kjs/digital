@@ -1,6 +1,6 @@
 import { instantiatePorts, validateConnection, validateSlotPlacement, PLACEMENT_FIELDS } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
-import { nextDb } from './db.js';
+import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import { TYPE_INCLUDE, typeRowToSpec } from './spec.js';
 import type { CommitPayload } from './schemas.js';
@@ -154,7 +154,7 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
       },
     });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+    if (isPrismaError(e, 'P2002')) {
       throw new HttpError(409, 'CONFLICT', '이미 존재하는 자산 id 입니다 (재시도 중복)', [{ id: input.id, reason: 'exists' }]);
     }
     throw e;
@@ -423,7 +423,7 @@ async function applyCableCreate(
       },
     });
   } catch (e) {
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+    if (isPrismaError(e, 'P2002')) {
       throw new HttpError(409, 'CONFLICT', '이미 존재하는 케이블 id 입니다 (재시도 중복)', [{ id: input.id, reason: 'exists' }]);
     }
     throw e;

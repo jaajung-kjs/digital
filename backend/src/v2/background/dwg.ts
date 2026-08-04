@@ -40,6 +40,27 @@ async function getLibreDwg() {
 
 // ==================== Parsing ====================
 
+// libredwg 상태 코드(M-2, 후속 처리 조사 완료 — 고치지 않기로 함):
+//
+// libredwg 관례상 dwg_read_data 의 내부 상태 코드는 128 미만이 비치명 경고,
+// 128 이상이 치명이다. 실제로 이 라이브러리는 내부에서 그 코드를 계산한다
+// (@mlightcad/libredwg-web/lib/libredwg.js 의 dwg_read_data: `result.error`를
+// 계산해 `console.log`로만 찍고 버린다 — 아래 stdout 의 "Open dwg file with
+// error code: N" 로그가 그 흔적이다).
+//
+// 그러나 우리가 실제로 호출하는 공개 API `LibreDwg#dwg_read_data`(여기서
+// `lib.dwg_read_data(ab, ftCode)`로 부르는 바로 그 메서드)의 타입 정의
+// (node_modules/@mlightcad/libredwg-web/lib/libredwg.d.ts)는
+//   dwg_read_data(fileContent, fileType): number | undefined
+// 로, 반환값이 데이터 포인터 하나뿐이고 상태 코드는 노출하지 않는다 — 내부에서
+// 계산한 값을 로그만 찍고 버린다.
+//
+// 저수준 `dwg_read_file`(상태 코드를 포함한 `{error, data}`를 실제로 반환하는
+// 함수)은 wasm 모듈(MainModule, wasm/libredwg-web.d.ts)에 존재하긴 하지만,
+// `dwg_read_data`가 내부적으로 하는 임시파일 쓰기(FS.writeFile)·읽기·정리
+// (FS.unlink)를 우리가 다시 구현해야 접근할 수 있다 — 이는 라이브러리가
+// 공개 계약으로 노출하지 않는 사적 구현(고정된 임시 파일명, 반환 타입도 `any`)을
+// 그대로 베끼는 것이라 판단했다. 그래서 상태 코드 검사는 추가하지 않는다.
 async function parseFile(buffer: Buffer, fileType: 'DWG' | 'DXF'): Promise<DwgDatabase> {
   const lib = await getLibreDwg();
   const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;

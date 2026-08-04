@@ -29,6 +29,10 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
 
   if (!open) return null;
 
+  // 다이얼로그의 접근 가능한 이름 — 스크린리더가 열릴 때 무엇의 대화상자인지 읽는다.
+  // 제목이 이미 화면에 있으므로 새 텍스트를 만들지 않고 그것을 가리킨다.
+  const titleId = 'modal-title';
+
   return (
     <div
       className="fixed inset-0 z-modal flex items-center justify-center bg-[var(--overlay)]"
@@ -42,7 +46,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md', cla
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
-          <h2 className="text-sm font-semibold text-content">{title}</h2>
+          <h2 id={titleId} className="text-sm font-semibold text-content">{title}</h2>
           <IconButton aria-label="닫기" onClick={onClose}>
             <X size={16} />
           </IconButton>

@@ -51,8 +51,14 @@ function walk(dir: string): string[] {
  *   - generated/                   — Prisma 자동 생성(타입 선언 포함 UserRole 등)
  *   - dist/                        — 빌드 산출물
  */
+/**
+ * 스캔 대상 수집. **0개면 던진다** — 이 파일의 가드레일 대부분은 수집된 파일을
+ * 순회하며 위반을 찾는 형태라, 수집이 비면 위반도 0이 되어 전부 조용히 통과한다.
+ * (walk/필터가 깨지거나 디렉터리가 옮겨진 경우가 그렇다.) 가드가 꺼진 것을
+ * "통과"로 보고하는 것이 가드 자체보다 위험하므로 여기서 끊는다.
+ */
 function srcFiles(dir: string, exts: string[]): string[] {
-  return walk(dir).filter((f) => {
+  const found = walk(dir).filter((f) => {
     if (!exts.some((e) => f.endsWith(e))) return false;
     const parts = f.split(sep);
     if (parts.some((p) => p === '__tests__')) return false;
@@ -61,6 +67,10 @@ function srcFiles(dir: string, exts: string[]): string[] {
     if (f.includes('.test.')) return false;
     return true;
   });
+  if (found.length === 0) {
+    throw new Error(`[guardrail] 스캔 대상 0개: ${dir} (${exts.join(',')}) — 가드레일이 무력화된 상태다`);
+  }
+  return found;
 }
 
 // ── 루트 기준 경로 계산 ─────────────────────────────────────────────────────
@@ -427,7 +437,7 @@ describe('v2 가드레일 — DGN wasm 산출물·Rust 소스 드리프트 감�
   it('crates/dgn-background 의 lib.rs·Cargo.lock 해시가 마지막 wasm 재빌드 시점과 같다', () => {
     const EXPECTED_HASHES: Record<string, string> = {
       'crates/dgn-background/src/lib.rs':
-        '8343ecfb229bcf996afebdf58a424611f773a7089e077f591df0fec25061b3db',
+        'fd4aa072fb72599251166048ae4e1f5e6ecd19fa7277ce7b036daa6839c0b819',
       'crates/dgn-background/Cargo.lock':
         'b83591596d3e719bc4e0f14b06c3b1d4f7089fc8175aea00fd56364eb8fbcbfd',
     };

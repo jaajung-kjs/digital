@@ -22,6 +22,8 @@ describe('코어 순수성 가드레일', () => {
     const forbidden = new RegExp(`from ['"](?:node:|@prisma|express|axios|${bareBuiltinPattern})`);
     const srcDir = new URL('.', import.meta.url).pathname;
     const files = walk(srcDir).filter((f) => f.endsWith('.ts') && !f.includes('.test.'));
+    // 수집이 비면 위반도 0이 되어 순수성 가드가 영원히 조용히 통과한다.
+    expect(files.length, '스캔 대상 0개 — 순수성 가드가 무력화된 상태다').toBeGreaterThan(0);
     for (const f of files) {
       const code = readFileSync(f, 'utf8');
       expect(code, f).not.toMatch(forbidden);

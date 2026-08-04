@@ -50,11 +50,6 @@ export function setSessionInvalidHandler(fn: (() => void) | null): void {
   sessionInvalidHandler = fn;
 }
 
-/** 테스트/디버깅용 조회 — 등록 여부를 확인할 때만 사용. */
-export function getSessionInvalidHandler(): (() => void) | null {
-  return sessionInvalidHandler;
-}
-
 /**
  * 등록된 세션-무효 핸들러 호출, 미등록 시(테스트/부트 이전) 하드 리다이렉트 폴백.
  * createResponseOnRejected 의 프로덕션 등록(파일 하단)에서 deps.onSessionInvalid 로 전달.

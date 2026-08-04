@@ -116,6 +116,9 @@ describe('PortsEditor', () => {
     inputs.forEach((input) => expect((input as HTMLInputElement).disabled).toBe(true));
 
     const spinbuttons = screen.queryAllByRole('spinbutton');
+    // queryAll* 은 없으면 빈 배열을 조용히 돌려준다 — count 입력이 사라지는 회귀가
+    // 나도 아래 forEach 가 0회 돌아 통과해 버린다.
+    expect(spinbuttons.length).toBeGreaterThan(0);
     spinbuttons.forEach((input) => expect((input as HTMLInputElement).disabled).toBe(true));
 
     const selects = screen.getAllByRole('combobox');

@@ -13,7 +13,7 @@ import { Router, type NextFunction, type Request, type Response } from 'express'
 import multer, { MulterError } from 'multer';
 import { Prisma } from '../generated/next-client/index.js';
 import { authenticate, adminOnly } from './auth.middleware.js';
-import { nextDb } from './db.js';
+import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
 import { parseBackground } from './background/parse.js';
 
@@ -22,7 +22,15 @@ export const backgroundRouter = Router();
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 // 원본 파일은 보관하지 않는다(재파싱·다운로드 요구 없음) — 메모리에서 파싱하고 버린다.
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE } });
+//
+// defParamCharset: multer 의 기본값은 'latin1' 이라, 브라우저가 UTF-8 로 보낸
+// 한글 파일명이 바이트 단위로 잘못 해석돼 깨진 채(mojibake) 저장된다. 사후에
+// 되돌리는 대신 디코딩 자체를 UTF-8 로 지정한다 — 파일명이 처음부터 올바르게 들어온다.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE },
+  defParamCharset: 'utf8',
+});
 
 /** multer 오류를 v2 HttpError 계약으로 옮긴다. */
 function uploadSingle(req: Request, res: Response, next: NextFunction) {
@@ -45,35 +53,32 @@ backgroundRouter.post(
   adminOnly,
   uploadSingle,
   async (req, res, next) => {
+    // 층 존재는 update 의 P2025 로만 판정한다 — 사전 findUnique 를 두면 같은 판단이
+    // 두 곳에 생기고(그 사이 삭제되는 TOCTOU 도 그대로 남는다) 쿼리만 하나 늘어난다.
     try {
-      const floor = await nextDb.floor.findUnique({ where: { id: req.params.id } });
-      if (!floor) throw new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다');
-
       const file = req.file;
       if (!file) throw new HttpError(400, 'INVALID_UPLOAD', '도면 파일이 없습니다');
 
       const drawing = await parseBackground(file.buffer, file.originalname);
       const updated = await nextDb.floor.update({
-        where: { id: floor.id },
+        where: { id: req.params.id },
         data: { backgroundDrawing: drawing as unknown as Prisma.InputJsonValue },
       });
       res.json(updated);
     } catch (e) {
-      next(e);
+      next(isPrismaError(e, 'P2025') ? new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다') : e);
     }
   },
 );
 
 backgroundRouter.delete('/floors/:id/background', authenticate, adminOnly, async (req, res, next) => {
   try {
-    const floor = await nextDb.floor.findUnique({ where: { id: req.params.id } });
-    if (!floor) throw new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다');
     const updated = await nextDb.floor.update({
-      where: { id: floor.id },
+      where: { id: req.params.id },
       data: { backgroundDrawing: Prisma.DbNull },
     });
     res.json(updated);
   } catch (e) {
-    next(e);
+    next(isPrismaError(e, 'P2025') ? new HttpError(404, 'NOT_FOUND', '층을 찾을 수 없습니다') : e);
   }
 });

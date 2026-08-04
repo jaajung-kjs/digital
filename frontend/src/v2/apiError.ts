@@ -31,11 +31,6 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
   return typeof message === 'string' && message.trim() !== '' ? message : fallback;
 }
 
-/** axios err.response.data.error (없으면 null) */
-export function apiErrorCode(err: unknown): string | null {
-  return apiErrorData(err)?.error ?? null;
-}
-
 /** INVALID_TYPE_SPEC 의 details 배열 (아니면 null) */
 export function apiErrorIssues(err: unknown): TypeSpecIssue[] | null {
   const data = apiErrorData(err);
