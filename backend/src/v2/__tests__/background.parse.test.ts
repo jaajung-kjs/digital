@@ -16,7 +16,11 @@ describe('parseBackground — DWG', () => {
     // 실측 핀 값 — 엔티티 종류 대부분이 사라지는 회귀가 나도 존재성 단언(length > 0)
     // 만으로는 못 잡는다(dwg.ts, 1,012줄, 이 브랜치의 최대 신규 코드 덩어리).
     expect(bg.layers.length).toBe(24);
-    expect(bg.paths.length).toBe(2630);
+    // 타원 회귀 핀. libredwg 필드명을 틀리면(majorAxisEndPoint/axisRatio) 모든 ELLIPSE 가
+    // `return null` 로 버려진다 — 실제로 그랬고 이 도면의 타원 690 개가 통째로 사라져
+    // paths 가 2630 이었다. 690 은 libredwg 데이터베이스를 직접 세어 얻은 수이며,
+    // 3320 = 2630 + 690 으로 정확히 설명된다.
+    expect(bg.paths.length).toBe(3320);
     expect(bg.texts.length).toBe(151);
     expect(bg.filled.length).toBe(35);
 

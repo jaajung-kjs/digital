@@ -1,7 +1,16 @@
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { LibreDwg, Dwg_File_Type } from '@mlightcad/libredwg-web';
-import type { DwgDatabase, DwgEntity } from '@mlightcad/libredwg-web';
+import type {
+  DwgArcEntity,
+  DwgCircleEntity,
+  DwgDatabase,
+  DwgEllipseEntity,
+  DwgEntity,
+  DwgLWPolylineEntity,
+  DwgLineEntity,
+  DwgSplineEntity,
+} from '@mlightcad/libredwg-web';
 import type { BackgroundDrawing, BgFilled, BgLayer, BgPath, BgText } from '@twin/core';
 import { HttpError } from '../errors.js';
 
@@ -358,21 +367,31 @@ const MAX_INSERT_DEPTH = 4;
 
 // ==================== Entity → primitive ====================
 
+/**
+ * 엔티티 → 폴리라인. **libredwg 의 구체 엔티티 타입으로 좁혀서 읽는다.**
+ *
+ * 이전에는 `e as unknown as Record<string, unknown>` 로 캐스트한 뒤 문자열 키로
+ * 필드를 읽었는데, 그러면 필드명을 틀려도 컴파일이 통과하고 런타임에 undefined 가
+ * 되어 그 엔티티가 통째로 버려진다. 실제로 ELLIPSE 두 필드가 그렇게 틀려 있어
+ * 실무 도면 한 장에서 타원 690 개(전체 엔티티의 19%)가 조용히 사라지고 있었다.
+ * 구체 타입으로 캐스트하면 컴파일러가 라이브러리 정의와 대조해 준다.
+ */
 function entityToPolyline(e: DwgEntity): { pts: Point[]; closed: boolean } | null {
-  const any = e as unknown as Record<string, unknown>;
   switch (e.type) {
     case 'LINE': {
-      const start = any.startPoint as { x: number; y: number } | undefined;
-      const end = any.endPoint as { x: number; y: number } | undefined;
+      const { startPoint: start, endPoint: end } = e as DwgLineEntity;
       if (start && end) return { pts: [[start.x, start.y], [end.x, end.y]], closed: false };
       return null;
     }
     case 'LWPOLYLINE':
     case 'POLYLINE2D':
     case 'POLYLINE3D': {
-      const verts = any.vertices as Array<{ x: number; y: number }> | undefined;
+      const lw = e as DwgLWPolylineEntity;
+      const verts = lw.vertices;
       if (verts && verts.length >= 2) {
-        const closed = any.closed === true;
+        // DXF 70 그룹코드 비트 0 = 닫힘. libredwg 는 `closed` 불리언을 주지 않는다
+        // (이전 코드가 `any.closed === true` 를 읽어 항상 false 였다).
+        const closed = ((lw.flag ?? 0) & 1) === 1;
         const pts: Point[] = verts.map((v) => [v.x, v.y]);
         if (closed) pts.push(pts[0]);
         return { pts, closed };
@@ -380,29 +399,29 @@ function entityToPolyline(e: DwgEntity): { pts: Point[]; closed: boolean } | nul
       return null;
     }
     case 'ARC': {
-      const c = any.center as { x: number; y: number } | undefined;
-      const r = any.radius as number | undefined;
-      const sa = any.startAngle as number | undefined;
-      const ea = any.endAngle as number | undefined;
+      const { center: c, radius: r, startAngle: sa, endAngle: ea } = e as DwgArcEntity;
       if (c && r != null && sa != null && ea != null) {
         return { pts: approximateArc(c.x, c.y, r, sa, ea, 12), closed: false };
       }
       return null;
     }
     case 'CIRCLE': {
-      const c = any.center as { x: number; y: number } | undefined;
-      const r = any.radius as number | undefined;
+      const { center: c, radius: r } = e as DwgCircleEntity;
       if (c && r != null) {
         return { pts: approximateArc(c.x, c.y, r, 0, Math.PI * 2, 24), closed: true };
       }
       return null;
     }
     case 'ELLIPSE': {
-      const c = any.center as { x: number; y: number } | undefined;
-      const major = any.majorAxisEndpoint as { x: number; y: number } | undefined;
-      const ratio = (any.minorAxisRatio as number | undefined) ?? 1;
-      const sa = (any.startAngle as number | undefined) ?? 0;
-      const ea = (any.endAngle as number | undefined) ?? Math.PI * 2;
+      // majorAxisEndPoint / axisRatio — 라이브러리 정의 그대로다.
+      // (이전 코드는 majorAxisEndpoint / minorAxisRatio 로 읽어 항상 undefined 였고
+      //  그 결과 모든 타원이 `return null` 로 버려졌다.)
+      const el = e as DwgEllipseEntity;
+      const c = el.center;
+      const major = el.majorAxisEndPoint;
+      const ratio = el.axisRatio ?? 1;
+      const sa = el.startAngle ?? 0;
+      const ea = el.endAngle ?? Math.PI * 2;
       if (c && major) {
         const a = Math.hypot(major.x, major.y);
         const b = a * ratio;
@@ -421,15 +440,16 @@ function entityToPolyline(e: DwgEntity): { pts: Point[]; closed: boolean } | nul
           const sinR = Math.sin(rotation);
           pts.push([c.x + lx * cosR - ly * sinR, c.y + lx * sinR + ly * cosR]);
         }
-        const closed = Math.abs((a1 - a0) - Math.PI * 2) < 1e-3;
+        const closed = Math.abs(a1 - a0 - Math.PI * 2) < 1e-3;
         return { pts, closed };
       }
       return null;
     }
     case 'SPLINE': {
-      const fit = any.fitPoints as Array<{ x: number; y: number }> | undefined;
-      const ctrl = any.controlPoints as Array<{ x: number; y: number }> | undefined;
-      const verts = (fit && fit.length >= 2) ? fit : (ctrl && ctrl.length >= 2 ? ctrl : null);
+      const sp = e as DwgSplineEntity;
+      const fit = sp.fitPoints;
+      const ctrl = sp.controlPoints;
+      const verts = fit && fit.length >= 2 ? fit : ctrl && ctrl.length >= 2 ? ctrl : null;
       if (verts) return { pts: verts.map((v) => [v.x, v.y]), closed: false };
       return null;
     }
@@ -460,12 +480,11 @@ interface RawStyleOverride {
 }
 
 function readEntityStyleRaw(e: DwgEntity): RawStyleOverride {
-  const any = e as unknown as Record<string, unknown>;
-  return {
-    colorIndex: any.colorIndex as number | undefined,
-    lineType: any.lineType as string | undefined,
-    lineweight: any.lineweight as number | undefined,
-  };
+  // 캐스트하지 않는다 — colorIndex/lineType/lineweight 는 libredwg 의 DwgEntity
+  // 기본 인터페이스에 이미 선언돼 있다. Record<string, unknown> 으로 우회하면
+  // 라이브러리가 필드를 개명해도 컴파일이 통과하고 런타임에 undefined 가 된다.
+  const { colorIndex, lineType, lineweight } = e;
+  return { colorIndex, lineType, lineweight };
 }
 
 interface ResolvedOverride {
