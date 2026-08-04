@@ -179,10 +179,15 @@ fn lineweight_override(w: u32) -> Option<f64> {
     }
 }
 
-/// 타원/원호를 폴리라인으로 근사한다(master 좌표계). sweep 이 2π 면 24분할.
+/// 훑는 각도가 한 바퀴인가. **분할 수와 `closed` 를 같은 판정으로 묶는다** —
+/// 둘이 어긋나면 24분할해 놓고 열린 경로로 내보내는 모순이 생긴다.
+fn is_full_sweep(a0: f64, a1: f64) -> bool {
+    ((a1 - a0).abs() - TAU).abs() < 1e-6
+}
+
+/// 타원/원호를 폴리라인으로 근사한다(master 좌표계). 한 바퀴면 24분할, 아니면 12분할.
 fn tessellate(cx: f64, cy: f64, rx: f64, ry: f64, rot: f64, a0: f64, a1: f64) -> Vec<(f64, f64)> {
-    let sweep = (a1 - a0).abs();
-    let segs = if (sweep - TAU).abs() < 1e-6 {
+    let segs = if is_full_sweep(a0, a1) {
         CIRCLE_SEGMENTS
     } else {
         ARC_SEGMENTS
@@ -379,9 +384,12 @@ pub fn dgn_to_background(bytes: &[u8]) -> Result<String, JsValue> {
                         0.0,
                         TAU,
                     );
+                    // Ellipse 는 항상 한 바퀴를 훑으므로 닫힌 경로다.
+                    // DWG 도 CIRCLE·전체 ELLIPSE 를 `closed: true` 로 낸다
+                    // (`dwg.ts:375`, `dwg.ts:403`) — 같은 소비자로 들어가므로 맞춘다.
                     (
                         pts.iter().map(|(x, y)| (x * scale, -y * scale)).collect(),
-                        false,
+                        true,
                     )
                 }
                 V8ElementData::Arc {
@@ -393,18 +401,22 @@ pub fn dgn_to_background(bytes: &[u8]) -> Result<String, JsValue> {
                     center,
                     ..
                 } => {
+                    let a0 = *start_angle_radians;
+                    let a1 = start_angle_radians + sweep_angle_radians;
                     let pts = tessellate(
                         center.master.x,
                         center.master.y,
                         *primary_axis_master,
                         *secondary_axis_master,
                         rotation_radians.unwrap_or(0.0),
-                        *start_angle_radians,
-                        start_angle_radians + sweep_angle_radians,
+                        a0,
+                        a1,
                     );
+                    // 한 바퀴를 훑는 Arc 는 원이므로 닫힌 경로다. 분할 수와 같은
+                    // 판정을 쓴다(DWG `dwg.ts:403` 의 전체 sweep 판정과 같은 규칙).
                     (
                         pts.iter().map(|(x, y)| (x * scale, -y * scale)).collect(),
-                        false,
+                        is_full_sweep(a0, a1),
                     )
                 }
                 V8ElementData::Text {
@@ -438,7 +450,11 @@ pub fn dgn_to_background(bytes: &[u8]) -> Result<String, JsValue> {
                 _ => continue,
             };
 
-            // 레벨은 도형이 축퇴여도 파일에 존재하는 레벨이므로 레이어로 선언한다.
+            // **우리가 매핑하는 엔티티가 참조한** 레벨만 레이어가 된다. 위의
+            // `_ => continue` 로 빠진 엔티티(컨테이너 헤더·미지원)의 레벨은 들어오지
+            // 않는다 — v8 level table 을 해석하지 않으므로 파일의 레벨 전체는 알 수 없다.
+            // 도형이 축퇴여서 방출되지 않더라도 레벨은 선언한다(그 레벨을 쓰는 엔티티는
+            // 실재하므로). 그래서 path 가 0개인 레이어가 나올 수 있다.
             levels.insert(level);
             if !has_two_distinct(&canvas_pts) {
                 continue;
@@ -583,6 +599,25 @@ mod tests {
         assert_eq!(tessellate(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, TAU).len(), 25);
         let half = tessellate(0.0, 0.0, 1.0, 1.0, 0.0, 0.0, std::f64::consts::PI);
         assert_eq!(half.len(), 13);
+    }
+
+    /// 분할 수와 `closed` 는 같은 판정을 써야 한다 — 24분할인데 열린 경로가 나오면 모순이다.
+    #[test]
+    fn full_sweep_drives_both_segment_count_and_closed() {
+        assert!(is_full_sweep(0.0, TAU));
+        assert!(is_full_sweep(1.0, 1.0 - TAU)); // 음수 sweep 도 한 바퀴다
+        assert!(!is_full_sweep(0.0, std::f64::consts::PI));
+        for (a0, a1) in [(0.0, TAU), (1.0, 1.0 - TAU), (0.0, std::f64::consts::PI)] {
+            let expected = if is_full_sweep(a0, a1) {
+                CIRCLE_SEGMENTS
+            } else {
+                ARC_SEGMENTS
+            };
+            assert_eq!(
+                tessellate(0.0, 0.0, 1.0, 1.0, 0.0, a0, a1).len(),
+                expected + 1
+            );
+        }
     }
 
     #[test]

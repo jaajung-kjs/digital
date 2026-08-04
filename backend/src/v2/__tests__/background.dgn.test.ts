@@ -44,13 +44,21 @@ describe('parseDgn — WASM 파이프라인', () => {
 
   it('모든 좌표가 정규화된 bounds 안에 들어온다', async () => {
     const bg = await parseDgn(dgn, 'test_dgnv8.dgn');
-    for (const p of bg.paths) {
-      for (let i = 0; i < p.points.length; i += 2) {
-        expect(p.points[i]).toBeGreaterThanOrEqual(0);
-        expect(p.points[i + 1]).toBeGreaterThanOrEqual(0);
-        expect(p.points[i]).toBeLessThanOrEqual(bg.bounds.maxX);
-        expect(p.points[i + 1]).toBeLessThanOrEqual(bg.bounds.maxY);
-      }
+    // 문자 앵커도 bounds 에 참여하고 같은 (dx,dy) 로 평행이동되므로 함께 확인한다.
+    const coords: Array<[number, number]> = [
+      ...bg.paths.flatMap((p) => {
+        const xy: Array<[number, number]> = [];
+        for (let i = 0; i < p.points.length; i += 2) xy.push([p.points[i], p.points[i + 1]]);
+        return xy;
+      }),
+      ...bg.texts.map((t): [number, number] => [t.x, t.y]),
+    ];
+    expect(coords.length).toBeGreaterThan(0);
+    for (const [x, y] of coords) {
+      expect(x).toBeGreaterThanOrEqual(0);
+      expect(y).toBeGreaterThanOrEqual(0);
+      expect(x).toBeLessThanOrEqual(bg.bounds.maxX);
+      expect(y).toBeLessThanOrEqual(bg.bounds.maxY);
     }
   });
 
@@ -134,8 +142,11 @@ describe('parseDgn — 엔티티 매핑', () => {
     expect(bg.paths.length).toBe(35);
     const totalPoints = bg.paths.reduce((n, p) => n + p.points.length / 2, 0);
     expect(totalPoints).toBe(258);
-    // SHAPE 6개만 closed — CELL 자식 4개가 겹쳐 방출되면 10이 된다.
-    expect(bg.paths.filter((p) => p.closed === true).length).toBe(6);
+    // closed 는 SHAPE 6 + ELLIPSE 3 = 9.
+    //   ELLIPSE 는 항상 한 바퀴를 훑으므로 닫힘(DWG 의 CIRCLE·전체 ELLIPSE 와 같은 관례).
+    //   ARC 5개는 sweep 이 전부 ±π 라 하나도 닫히지 않는다(전체 원이면 닫힌다).
+    // CELL 자식 SHAPE 4개가 겹쳐 방출되면 13이 되므로 이중 방출도 함께 잡는다.
+    expect(bg.paths.filter((p) => p.closed === true).length).toBe(9);
     // 테셀레이션 분할 수도 함께 고정한다(전체 25점, 부분 13점).
     expect(bg.paths.filter((p) => p.points.length === 50).length).toBe(3);
     expect(bg.paths.filter((p) => p.points.length === 26).length).toBe(5);
