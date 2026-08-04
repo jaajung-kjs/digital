@@ -48,6 +48,16 @@ describe('POST /api/v2/floors/:id/background', () => {
     expect(row?.backgroundDrawing).toBeTruthy();
   });
 
+  it('DGN 을 올리면 파싱 결과가 층에 저장된다', async () => {
+    const dgnBytes = fs.readFileSync(path.join(__dirname, 'fixtures', 'test_dgnv8.dgn'));
+    const res = await request(app)
+      .post(`/api/v2/floors/${floorId}/background`)
+      .set(admin)
+      .attach('file', dgnBytes, { filename: 'test_dgnv8.dgn' })
+      .expect(200);
+    expect(res.body.backgroundDrawing.source.fileType).toBe('DGN');
+  });
+
   it('미지원 확장자는 400 UNSUPPORTED_FORMAT', async () => {
     const res = await request(app)
       .post(`/api/v2/floors/${floorId}/background`)

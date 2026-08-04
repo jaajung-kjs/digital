@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { BackgroundDrawing } from '@twin/core';
 import { HttpError } from '../errors.js';
 import { parseDwg } from './dwg.js';
+import { parseDgn } from './dgn.js';
 
 /**
  * 확장자 → 파서 디스패치. **확장자를 판정하는 유일한 지점**이다.
@@ -17,6 +18,8 @@ export async function parseBackground(
       return parseDwg(buffer, 'DWG', fileName);
     case '.dxf':
       return parseDwg(buffer, 'DXF', fileName);
+    case '.dgn':
+      return parseDgn(buffer, fileName);
     default:
       throw new HttpError(
         400,

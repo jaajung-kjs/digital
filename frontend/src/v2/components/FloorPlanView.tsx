@@ -1079,7 +1079,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
             <input
               ref={backgroundInputRef}
               type="file"
-              accept=".dwg,.dxf"
+              accept=".dwg,.dxf,.dgn"
               className="hidden"
               data-testid="background-import-input"
               onChange={handleBackgroundFile}

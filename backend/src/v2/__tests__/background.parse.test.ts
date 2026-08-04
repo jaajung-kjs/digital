@@ -42,6 +42,19 @@ describe('parseBackground — DWG', () => {
   });
 });
 
+describe('parseBackground — DGN', () => {
+  it('.dgn 을 DGN 파서로 보낸다', async () => {
+    const bg = await parseBackground(fixture('test_dgnv8.dgn'), 'test_dgnv8.dgn');
+    expect(bg.source.fileType).toBe('DGN');
+    expect(bg.paths.length).toBeGreaterThan(0);
+  });
+
+  it('.DGN 대문자도 받는다', async () => {
+    const bg = await parseBackground(fixture('test_dgnv8.dgn'), 'TEST.DGN');
+    expect(bg.source.fileType).toBe('DGN');
+  });
+});
+
 describe('parseBackground — 디스패치', () => {
   it('미지원 확장자는 UNSUPPORTED_FORMAT 과 함께 DXF 변환을 안내한다', async () => {
     await expect(parseBackground(Buffer.from('x'), 'drawing.pdf')).rejects.toMatchObject({
