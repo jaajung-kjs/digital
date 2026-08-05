@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button, IconButton, Input, Modal, useConfirm, PanelHeader } from '../../components/ui';
+import { Button, IconButton, Input, Modal, useConfirm, PanelHeader, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
@@ -89,17 +89,24 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
         {nodes.map((n) => (
           <div
             key={n.id}
-            className={`group flex cursor-pointer items-center gap-1 px-2 py-1 text-sm ${
-              props.selectedId === n.id ? 'bg-surface-2 text-primary' : 'text-content hover:bg-surface-2'
-            }`}
+            className={cn(
+              'group flex items-center gap-1 px-2 py-1 text-sm',
+              SELECTABLE,
+              props.selectedId === n.id ? SELECTED : 'text-content',
+            )}
             style={{ paddingLeft: 8 + n.depth * 14 }}
             onClick={() => props.onSelect(n)}
           >
             <span className="min-w-0 flex-1 truncate">{n.name}</span>
-            <span className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+            {/* 액션은 항상 자리를 차지하고 보이기만 바뀐다.
+                `hidden → group-hover:flex` 로 하면 호버할 때 행에 요소가 끼어들어 폭·높이가
+                바뀌고, 그 바람에 커서가 다른 요소 위로 가면서 호버가 껐다 켜졌다 반복한다
+                (목록이 부르르 떠는 원인). 자리를 미리 잡아 두면 레이아웃이 움직이지 않는다. */}
+            <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               {CHILD_KIND[n.kind] && (
                 <IconButton
                   aria-label="하위 추가"
+                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
                     openCreateModal(CHILD_KIND[n.kind]!, n.id);
@@ -110,6 +117,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
               )}
               <IconButton
                 aria-label="이름 변경"
+                  size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   openRenameModal(SELF_KIND[n.kind], n.id, n.name);
@@ -119,6 +127,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
               </IconButton>
               <IconButton
                 aria-label="삭제"
+                  size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDelete(n);

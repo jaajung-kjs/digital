@@ -53,12 +53,12 @@ export function DetailCardHeader({
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
           {actions}
           {onEdit && (
-            <IconButton aria-label="수정" title="수정" className="p-1 hover:text-primary" onClick={onEdit}>
+            <IconButton aria-label="수정" title="수정" size="sm" className="hover:text-primary" onClick={onEdit}>
               <Pencil size={14} />
             </IconButton>
           )}
           {onDelete && (
-            <IconButton aria-label="삭제" title="삭제" className="p-1 hover:text-danger" onClick={onDelete}>
+            <IconButton aria-label="삭제" title="삭제" size="sm" className="hover:text-danger" onClick={onDelete}>
               <Trash2 size={14} />
             </IconButton>
           )}

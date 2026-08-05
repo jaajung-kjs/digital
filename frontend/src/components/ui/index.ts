@@ -20,6 +20,7 @@ export * from './ErrorStrip';
 export * from './EmptyState';
 export * from './ItemCard';
 export * from './PanelHeader';
+export * from './selection';
 export * from './Table';
 export * from './Tabs';
 export * from './PromptModal';

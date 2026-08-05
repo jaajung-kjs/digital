@@ -183,12 +183,12 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
       {/* 테이블 */}
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <TableCard>
+        <TableCard widths={[22, 14, 12, 26, 26]}>
           <thead>
             <tr className="border-b border-line">
               <Th>피더</Th>
-              <Th className="w-28">차단기 번호</Th>
-              <Th className="w-24">상태</Th>
+              <Th>차단기 번호</Th>
+              <Th>상태</Th>
               <Th>전원 입력</Th>
               <Th>부하 출력</Th>
             </tr>

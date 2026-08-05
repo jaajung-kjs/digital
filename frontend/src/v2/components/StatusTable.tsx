@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import { Badge, TableCard, Th } from '../../components/ui';
+import { Badge, TableCard, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
 
@@ -58,29 +58,29 @@ interface StatusTableProps {
 interface Column {
   key: SortKey;
   label: string;
-  /** table-fixed 기준 폭. */
-  width: string;
+  /** 열 폭 비율(%). 합이 100 이 되게 맞춘다. */
+  width: number;
   render: (row: StatusRow) => ReactNode;
 }
 
 const SUBSTATION_COL: Column = {
   key: 'substationName',
   label: '변전소',
-  width: 'w-36',
+  width: 14,
   render: (r) => r.substationName ?? '—',
 };
 
 const BASE_COLS: Column[] = [
-  { key: 'typeName', label: '종류', width: 'w-36', render: (r) => r.typeName },
-  { key: 'name', label: '이름', width: 'w-56', render: (r) => r.name },
-  { key: 'location', label: '설치장소', width: 'w-52', render: (r) => r.location },
-  { key: 'installDate', label: '설치일', width: 'w-28', render: (r) => formatDate(r.installDate) },
-  { key: 'manager', label: '담당자', width: 'w-24', render: (r) => r.manager ?? '—' },
-  { key: 'lastInspectedAt', label: '마지막점검일', width: 'w-32', render: (r) => formatDate(r.lastInspectedAt) },
+  { key: 'typeName', label: '종류', width: 14, render: (r) => r.typeName },
+  { key: 'name', label: '이름', width: 20, render: (r) => r.name },
+  { key: 'location', label: '설치장소', width: 18, render: (r) => r.location },
+  { key: 'installDate', label: '설치일', width: 13, render: (r) => formatDate(r.installDate) },
+  { key: 'manager', label: '담당자', width: 10, render: (r) => r.manager ?? '—' },
+  { key: 'lastInspectedAt', label: '마지막점검일', width: 13, render: (r) => formatDate(r.lastInspectedAt) },
   {
     key: 'status',
     label: '상태',
-    width: 'w-24',
+    width: 12,
     render: (r) => <Badge status={assetStatusBadge(r.status)}>{assetStatusLabel(r.status)}</Badge>,
   },
 ];
@@ -108,14 +108,14 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
   const cols = nodeScope ? [SUBSTATION_COL, ...BASE_COLS] : BASE_COLS;
 
   return (
-    <TableCard>
+    <TableCard widths={cols.map((c) => c.width)}>
       <thead>
         {/* 머리글은 스크롤해도 남는다 — 긴 목록에서 어느 열인지 잃지 않게. */}
         <tr className="sticky top-0 z-sticky">
           {cols.map((col) => (
             <Th
               key={col.key}
-              className={`cursor-pointer select-none hover:text-content ${col.width}`}
+              className="cursor-pointer select-none hover:text-content"
               onClick={() => handleHeaderClick(col.key)}
             >
               {col.label}
@@ -136,7 +136,7 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
         {sorted.map((row) => (
             <tr
               key={row.id}
-              className={`cursor-pointer border-b border-line last:border-0 hover:bg-surface-2 ${row.id === selectedId ? 'bg-surface-2' : ''}`}
+              className={cn('border-b border-line last:border-0', SELECTABLE, row.id === selectedId && SELECTED)}
               onClick={() => onSelectAsset(row.id)}
             >
               {cols.map((col) => (

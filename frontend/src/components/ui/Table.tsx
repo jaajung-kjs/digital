@@ -2,18 +2,33 @@ import type { ReactNode, ThHTMLAttributes } from 'react';
 import { cn } from './cn';
 
 /**
- * 데이터 표의 껍데기 — 현황·선번장·계통이 같은 테두리·배경·폭을 쓰도록 하는 단일 지점.
+ * 데이터 표의 껍데기 — 현황·선번장·계통이 같은 테두리·배경·열 폭 규칙을 쓰도록 하는 단일 지점.
  *
- * 예전에는 세 뷰가 각자 `<div className="overflow-auto"><table className="w-full text-sm">` 를
- * 써서, 현황만 카드 위에 있고 나머지는 회색 배경에 그대로 떠 있었다. 열 폭도 없어 넓은
- * 화면에서 짧은 열이 200px 로 벌어졌다.
- *
- * `table-fixed` 가 기본이다 — 열 폭은 `<Th className="w-28">` 처럼 머리글이 선언한다.
+ * 열 폭은 **비율(%)** 로만 준다. 고정 폭(`w-36` 등)을 쓰면 `table-fixed` 가 그 합을 표의
+ * 최소 폭으로 강제해서, 상세 패널이 열리거나 화면이 좁아지면 표가 패널 밖으로 밀려난다
+ * (실제로 1280px 에서 표가 화면 오른쪽 밖으로 145px 나갔다). 비율은 남는 폭을 나눠 갖고,
+ * 좁아지면 같이 줄어든다 — 잘리는 내용은 셀의 `truncate` 가 말줄임으로 처리한다.
  */
-export function TableCard({ children, className }: { children: ReactNode; className?: string }) {
+export function TableCard({
+  widths,
+  children,
+  className,
+}: {
+  /** 열 폭 비율. 합이 100 이 되게 준다. 열 개수와 순서가 머리글과 같아야 한다. */
+  widths: readonly number[];
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className={cn('max-w-6xl overflow-auto rounded-lg border border-line bg-surface', className)}>
-      <table className="w-full table-fixed text-sm">{children}</table>
+    <div className={cn('min-w-0 overflow-hidden rounded-lg border border-line bg-surface', className)}>
+      <table className="w-full table-fixed text-sm">
+        <colgroup>
+          {widths.map((w, i) => (
+            <col key={i} style={{ width: `${w}%` }} />
+          ))}
+        </colgroup>
+        {children}
+      </table>
     </div>
   );
 }
@@ -22,7 +37,7 @@ interface ThProps extends ThHTMLAttributes<HTMLTableCellElement> {
   children: ReactNode;
 }
 
-/** 표 머리글 셀 — 라벨 타이포(`text-xs`)와 구분선을 고정한다. 폭은 `className` 으로 준다. */
+/** 표 머리글 셀 — 라벨 타이포(`text-xs`)와 구분선을 고정한다. 폭은 `TableCard widths` 가 정한다. */
 export function Th({ children, className, ...rest }: ThProps) {
   return (
     <th

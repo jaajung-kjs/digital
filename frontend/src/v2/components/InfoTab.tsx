@@ -8,9 +8,22 @@
  */
 
 import { Plus } from 'lucide-react';
-import { ASSET_STATUSES } from '@twin/core';
-import { Button, DetailCard, DetailCardHeader, DetailRow, Input, Select, useConfirm } from '../../components/ui';
+import { ASSET_STATUSES, portDirectionLabel } from '@twin/core';
+import {
+  Badge,
+  Button,
+  DetailCard,
+  DetailCardHeader,
+  DetailRow,
+  Input,
+  Select,
+  useConfirm,
+  cn,
+  SELECTABLE,
+  SELECTED_TILE,
+} from '../../components/ui';
 import { freeSlots } from '../newAsset';
+import { useV2Catalog } from '../hooks';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
 import type { deriveDetailSections } from '../detailSections';
@@ -62,13 +75,10 @@ function SlotGrid({ spec, children, selectedChildId, onSelectChild }: SlotGridPr
       <div
         key={idx}
         style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}
-        className={`min-w-0 truncate rounded border px-1 py-0.5 text-xs ${
-          isSelected
-            ? 'cursor-pointer border-primary bg-primary/10 text-content'
-            : child
-              ? 'cursor-pointer border-line bg-surface-2 text-content hover:bg-surface'
-              : 'border-line text-content-faint'
-        }`}
+        className={cn(
+          'min-w-0 truncate rounded border px-1 py-0.5 text-xs',
+          isSelected ? SELECTED_TILE : child ? cn('border-line bg-surface-2 text-content', SELECTABLE) : 'border-line text-content-faint',
+        )}
         title={child?.name}
         onClick={() => child && onSelectChild(child.id)}
       >
@@ -103,7 +113,7 @@ function FreeChildList({ children, onSelectChild }: FreeChildListProps) {
         <li key={child.id}>
           <button
             type="button"
-            className="w-full truncate rounded px-1 py-0.5 text-left text-xs text-content hover:bg-surface-2"
+            className={cn('w-full truncate rounded px-1 py-0.5 text-left text-sm text-content', SELECTABLE)}
             onClick={() => onSelectChild(child.id)}
           >
             {child.name}
@@ -145,6 +155,9 @@ export function InfoTab({
   onSelectAsset,
 }: InfoTabProps) {
   const { confirm, confirmDialog } = useConfirm();
+  const catalog = useV2Catalog();
+  // 매체 키(fiber·power…) → 케이블 그룹 이름(광·전원…). 카탈로그에 없으면 키를 그대로 쓴다.
+  const mediumLabel = (key: string) => catalog.data?.cableGroups.find((g) => g.key === key)?.name ?? key;
   const location = locationText(asset, floorNameById, assetNameById);
 
   // 하위 자산 총 수 (cascade 삭제 confirm용)
@@ -266,16 +279,20 @@ export function InfoTab({
           <DetailCardHeader title="포트" />
           {type.portTemplates.map((pt) => (
             <div key={pt.id} className="space-y-0.5">
-              <p className="text-xs text-content-muted">{pt.group}</p>
+              {/* 그룹 키는 타입 작성자가 붙인 내부 이름이다("P", "A"…). 그룹이 하나뿐이면
+                  보여줄 정보가 없으므로 생략한다 — 예전에는 "P" 만 덩그러니 떠 있었다. */}
+              {type.portTemplates.length > 1 && (
+                <p className="text-xs font-medium text-content-muted">{pt.group} 그룹</p>
+              )}
               {Array.from({ length: pt.count }, (_, i) => {
                 const portName = pt.namePattern.replace('{n}', String(i + 1));
                 return (
-                  <div key={i} className="flex items-center gap-2 text-xs text-content">
-                    <span>{portName}</span>
-                    <span className="text-content-faint">·</span>
-                    <span className="text-content-faint">{pt.direction}</span>
-                    <span className="text-content-faint">·</span>
-                    <span className="text-content-faint">{pt.medium}</span>
+                  <div key={i} className="flex items-center gap-1.5 text-sm text-content">
+                    <span className="min-w-0 truncate">{portName}</span>
+                    {/* 방향·매체는 내부 값(BI·network)이 아니라 사람이 읽는 이름으로.
+                        매체는 케이블 그룹 키이므로 카탈로그에서 이름을 찾는다. */}
+                    <Badge status="neutral">{portDirectionLabel(pt.direction)}</Badge>
+                    <Badge status="neutral">{mediumLabel(pt.medium)}</Badge>
                   </div>
                 );
               })}

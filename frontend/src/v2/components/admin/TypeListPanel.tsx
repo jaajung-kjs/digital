@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { Badge, IconButton, Input, useConfirm, PanelHeader } from '../../../components/ui';
+import { Badge, IconButton, Input, useConfirm, PanelHeader, cn, SELECTABLE, SELECTED } from '../../../components/ui';
 import type { V2Catalog, V2Category } from '../../types';
 
 interface TypeListPanelProps {
@@ -131,15 +131,12 @@ export function TypeListPanel({
                   <button
                     key={t.id}
                     type="button"
-                    className={[
-                      'flex w-full items-center gap-2 px-4 py-2 text-left text-sm transition-colors',
+                    className={cn(
+                      'flex w-full items-center gap-2 px-4 py-2 text-left text-sm',
+                      SELECTABLE,
                       !t.isActive && 'opacity-50',
-                      selectedTypeId === t.id
-                        ? 'bg-info-bg text-primary font-medium'
-                        : 'text-content hover:bg-surface-2',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
+                      selectedTypeId === t.id ? SELECTED : 'text-content',
+                    )}
                     onClick={() => onSelectType(t.id)}
                   >
                     <span className="flex-1 min-w-0 truncate">{t.name}</span>

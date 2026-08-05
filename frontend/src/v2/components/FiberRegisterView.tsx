@@ -138,6 +138,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   // 컬럼 수: 코어 + groups.length + 3 (길이, 손실, 점검일)
   const totalCols = 1 + groups.length + 3;
 
+  // 코어·수치 열은 좁게 고정, 대국 그룹 열이 남는 폭을 나눠 갖는다(합 100).
+  const fiberWidths = [8, ...groups.map(() => (100 - 8 - 36) / Math.max(groups.length, 1)), 12, 12, 12];
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* 상단 컨테이너 선택 */}
@@ -157,16 +160,16 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
       {/* 테이블 */}
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <TableCard>
+        <TableCard widths={fiberWidths}>
           <thead>
             <tr className="border-b border-line">
-              <Th className="w-20">코어</Th>
+              <Th>코어</Th>
               {groups.map((g) => (
                 <Th key={g}>{g}</Th>
               ))}
-              <Th className="w-24">길이(m)</Th>
-              <Th className="w-24">손실(dB)</Th>
-              <Th className="w-28">점검일</Th>
+              <Th>길이(m)</Th>
+              <Th>손실(dB)</Th>
+              <Th>점검일</Th>
             </tr>
           </thead>
           <tbody>
