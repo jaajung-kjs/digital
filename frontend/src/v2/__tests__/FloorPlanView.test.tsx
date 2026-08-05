@@ -41,6 +41,8 @@ vi.mock('../hooks', () => ({
       ],
     },
   }),
+  // 포트 피커가 매체 키를 사람이 읽는 이름으로 바꿔 보여준다 — 모의에서는 키를 그대로 돌려준다.
+  useMediumLabel: () => (key: string) => key,
 }));
 
 const floor: V2Floor = { id: 'f1', name: '1층', sortOrder: 1, substationId: 'sub-1' };

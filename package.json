@@ -14,10 +14,13 @@
     "dev:backend": "npm run dev --workspace=backend",
     "build": "npm run build -w @twin/core && npm run build --workspace=frontend && npm run build --workspace=backend",
     "start": "npm run start --workspace=backend",
-"lint": "npm run lint --workspaces",
-    "test": "npm run test --workspaces"
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "concurrently": "^8.2.2"
   },
   "overrides": {

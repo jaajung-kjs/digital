@@ -23,7 +23,7 @@ import {
   SELECTED_TILE,
 } from '../../components/ui';
 import { freeSlots } from '../newAsset';
-import { useV2Catalog } from '../hooks';
+import { useMediumLabel } from '../hooks';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
 import type { deriveDetailSections } from '../detailSections';
@@ -155,9 +155,7 @@ export function InfoTab({
   onSelectAsset,
 }: InfoTabProps) {
   const { confirm, confirmDialog } = useConfirm();
-  const catalog = useV2Catalog();
-  // 매체 키(fiber·power…) → 케이블 그룹 이름(광·전원…). 카탈로그에 없으면 키를 그대로 쓴다.
-  const mediumLabel = (key: string) => catalog.data?.cableGroups.find((g) => g.key === key)?.name ?? key;
+  const mediumLabel = useMediumLabel();
   const location = locationText(asset, floorNameById, assetNameById);
 
   // 하위 자산 총 수 (cascade 삭제 confirm용)

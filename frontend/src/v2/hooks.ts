@@ -81,3 +81,16 @@ export function useOrgMutations() {
     }),
   };
 }
+
+/**
+ * 매체 키(fiber·power·network…) → 사람이 읽는 이름(광·전원·네트워크).
+ *
+ * 매체는 케이블 그룹의 키다 — 이름은 카탈로그에 있으므로 거기서 찾는다. 이 해석이
+ * 두 곳에 복제되면 한쪽만 고쳐져 화면마다 다른 말이 나온다(실제로 포트 목록은 키를
+ * 그대로 보여주고 있었다).
+ */
+export function useMediumLabel(): (key: string) => string {
+  const catalog = useV2Catalog();
+  const groups = catalog.data?.cableGroups;
+  return (key: string) => groups?.find((g) => g.key === key)?.name ?? key;
+}

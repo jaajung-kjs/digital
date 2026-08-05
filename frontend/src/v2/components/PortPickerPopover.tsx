@@ -6,6 +6,7 @@
  * CONVENTIONS 준수: text-xs/text-sm, 시맨틱 색 토큰, z-backdrop/z-modal.
  */
 import type { V2Asset, V2Port } from '../types';
+import { useMediumLabel } from '../hooks';
 import { Button } from '../../components/ui';
 
 export interface PortGroup {
@@ -55,6 +56,7 @@ export function PortPickerPopover({
   hasFirstEndpoint,
   onOpenRemoteModal,
 }: Props) {
+  const mediumLabel = useMediumLabel();
   const filteredGroups = excludePortId
     ? portGroups.map((g) => ({ ...g, ports: g.ports.filter((p) => p.id !== excludePortId) }))
     : portGroups;
@@ -121,12 +123,16 @@ export function PortPickerPopover({
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="w-full justify-start text-xs"
+                          className="w-full justify-start"
+                          /* 목록에는 "포트 1" 만 보이지만 그것만으로는 어느 장비의 포트인지
+                             알 수 없다(랙을 클릭하면 자손 장비들의 포트가 함께 뜬다).
+                             읽어 주는 이름에는 장비를 붙인다. */
+                          aria-label={`${group.asset.name} ${port.name}`}
                           onClick={() => onSelectPort(port)}
                         >
                           <span className="text-content-muted mr-1">{port.group}</span>
                           {port.name}
-                          <span className="ml-auto text-content-faint">{port.medium}</span>
+                          <span className="ml-auto text-content-faint">{mediumLabel(port.medium)}</span>
                         </Button>
                       </li>
                     ))}
