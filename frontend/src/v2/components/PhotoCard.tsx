@@ -10,7 +10,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { Button, DetailCard, IconButton, Modal } from '../../components/ui';
+import { DetailCardHeader, Button, DetailCard, IconButton, Modal } from '../../components/ui';
 import { apiErrorMessage } from '../apiError';
 import { photoUrl, uploadPhoto } from '../api';
 import { mergeEffective } from '../store/overlay';
@@ -76,11 +76,15 @@ export function PhotoCard({ assetId }: PhotoCardProps) {
 
   return (
     <DetailCard>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-content-muted">사진</p>
-        <Button variant="secondary" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-          {uploading ? '업로드 중…' : '업로드'}
-        </Button>
+      <div>
+        <DetailCardHeader
+          title="사진"
+          actions={
+            <Button variant="secondary" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
+              {uploading ? '업로드 중…' : '업로드'}
+            </Button>
+          }
+        />
         <input
           ref={fileInputRef}
           type="file"

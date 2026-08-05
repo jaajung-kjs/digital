@@ -9,6 +9,7 @@ import { InfoTab, type AddModalContext } from './InfoTab';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
 import type { TraceResult } from '../traceSelectors';
+import { Tabs, type TabItem } from '../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'info' | 'inspections' | 'logs' | 'connections';
@@ -22,7 +23,13 @@ interface AssetDetailPanelProps {
   traceResult?: TraceResult | null;
 }
 
-export function AssetDetailPanel({ assetId, onSelectAsset, onTrace, onClearTrace, traceResult }: AssetDetailPanelProps) {
+export function AssetDetailPanel({
+  assetId,
+  onSelectAsset,
+  onTrace,
+  onClearTrace,
+  traceResult,
+}: AssetDetailPanelProps) {
   const [tab, setTab] = useState<Tab>('info');
   const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -69,7 +76,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset, onTrace, onClearTrace
   if (!asset) return null;
 
   // ── 탭 바 ──────────────────────────────────────────────────────────────────
-  const tabs: { key: Tab; label: string }[] = [
+  const tabs: TabItem<Tab>[] = [
     { key: 'info', label: '정보' },
     { key: 'inspections', label: '점검' },
     { key: 'logs', label: '고장이력' },
@@ -78,23 +85,7 @@ export function AssetDetailPanel({ assetId, onSelectAsset, onTrace, onClearTrace
 
   return (
     <div className="flex h-full w-96 shrink-0 flex-col border-l border-line bg-surface">
-      {/* 탭 바 */}
-      <div className="flex shrink-0 border-b border-line z-sticky">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            className={`px-4 py-2 text-sm transition-colors ${
-              tab === t.key
-                ? 'border-b-2 border-primary font-medium text-primary'
-                : 'text-content-muted hover:text-content'
-            }`}
-            onClick={() => setTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs items={tabs} value={tab} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
 
       {/* 탭 컨텐츠 */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">

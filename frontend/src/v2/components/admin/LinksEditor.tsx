@@ -4,9 +4,9 @@
  *
  * 구조 잠금(locked=true): 모든 입력 disabled
  */
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DetailCard, DetailCardHeader, Select, IconButton } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, DetailRow, Select, ItemCard } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
@@ -57,9 +57,7 @@ export function LinksEditor({ draft, onChange, locked, issues }: LinksEditorProp
       <DetailCardHeader title="통과 링크 규칙" />
 
       {portGroups.length === 0 && !locked && (
-        <p className="text-xs text-content-faint">
-          포트 템플릿을 먼저 등록해야 링크 규칙을 설정할 수 있습니다.
-        </p>
+        <p className="text-xs text-content-faint">포트 템플릿을 먼저 등록해야 링크 규칙을 설정할 수 있습니다.</p>
       )}
 
       {links.length === 0 && portGroups.length > 0 && !locked && (
@@ -73,101 +71,75 @@ export function LinksEditor({ draft, onChange, locked, issues }: LinksEditorProp
         const pairIssue = issueFor(issues, `links[${i}]`);
 
         return (
-          <div key={i} className="rounded border border-line bg-surface-2 p-2 space-y-1.5">
-            <div className="flex items-center gap-1">
-              <span className="flex-1 text-xs text-content-muted">링크 {i + 1}</span>
-              {!locked && (
-                <IconButton aria-label={`링크 ${i + 1} 삭제`} onClick={() => remove(i)}>
-                  <Trash2 size={13} />
-                </IconButton>
-              )}
-            </div>
+          <ItemCard key={i} title={`링크 ${i + 1}`} onDelete={locked ? undefined : () => remove(i)}>
 
             {pairIssue && <span className="text-xs text-danger">{pairIssue}</span>}
 
             {/* fromGroup */}
-            <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-xs text-content-muted">출발 그룹</span>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <Select
-                  aria-label={`링크 ${i + 1} 출발 그룹`}
-                  value={l.fromGroup}
-                  disabled={locked}
-                  onChange={(e) => {
-                    const val = e.currentTarget.value;
-                    update(i, { fromGroup: val });
-                  }}
-                >
-                  <option value="">-- 선택 --</option>
-                  {portGroups.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </Select>
-                {fromIssue && <span className="text-xs text-danger">{fromIssue}</span>}
-              </div>
-            </div>
+            <DetailRow label="출발 그룹" issue={fromIssue}>
+              <Select
+                aria-label={`링크 ${i + 1} 출발 그룹`}
+                value={l.fromGroup}
+                disabled={locked}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  update(i, { fromGroup: val });
+                }}
+              >
+                <option value="">-- 선택 --</option>
+                {portGroups.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </Select>
+            </DetailRow>
 
             {/* toGroup */}
-            <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-xs text-content-muted">도착 그룹</span>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <Select
-                  aria-label={`링크 ${i + 1} 도착 그룹`}
-                  value={l.toGroup}
-                  disabled={locked}
-                  onChange={(e) => {
-                    const val = e.currentTarget.value;
-                    update(i, { toGroup: val });
-                  }}
-                >
-                  <option value="">-- 선택 --</option>
-                  {portGroups.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </Select>
-                {toIssue && <span className="text-xs text-danger">{toIssue}</span>}
-              </div>
-            </div>
+            <DetailRow label="도착 그룹" issue={toIssue}>
+              <Select
+                aria-label={`링크 ${i + 1} 도착 그룹`}
+                value={l.toGroup}
+                disabled={locked}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  update(i, { toGroup: val });
+                }}
+              >
+                <option value="">-- 선택 --</option>
+                {portGroups.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </Select>
+            </DetailRow>
 
             {/* mapping */}
-            <div className="flex items-center gap-2">
-              <span className="w-16 shrink-0 text-xs text-content-muted">매핑</span>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <Select
-                  aria-label={`링크 ${i + 1} 매핑`}
-                  value={l.mapping}
-                  disabled={locked}
-                  onChange={(e) => {
-                    const val = e.currentTarget.value as 'byIndex' | 'all';
-                    update(i, { mapping: val });
-                  }}
-                >
-                  {MAPPINGS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </Select>
-                {mappingIssue && <span className="text-xs text-danger">{mappingIssue}</span>}
-              </div>
-            </div>
-          </div>
+            <DetailRow label="매핑" issue={mappingIssue}>
+              <Select
+                aria-label={`링크 ${i + 1} 매핑`}
+                value={l.mapping}
+                disabled={locked}
+                onChange={(e) => {
+                  const val = e.currentTarget.value as 'byIndex' | 'all';
+                  update(i, { mapping: val });
+                }}
+              >
+                {MAPPINGS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            </DetailRow>
+          </ItemCard>
         );
       })}
 
-      <button
-        type="button"
-        disabled={locked}
-        onClick={add}
-        className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
-      >
-        <Plus size={13} />
+      <Button variant="secondary" size="sm" disabled={locked} leftIcon={<Plus size={13} />} onClick={add}>
         추가
-      </button>
+      </Button>
     </DetailCard>
   );
 }

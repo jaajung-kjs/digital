@@ -1,10 +1,22 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import { Badge } from '../../components/ui';
+import { Badge, TableCard, Th } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
 
-type SortKey = keyof Pick<StatusRow, 'typeName' | 'categoryName' | 'name' | 'location' | 'installDate' | 'manager' | 'lastInspectedAt' | 'status' | 'substationName'>;
+type SortKey = keyof Pick<
+  StatusRow,
+  | 'typeName'
+  | 'categoryName'
+  | 'name'
+  | 'location'
+  | 'installDate'
+  | 'manager'
+  | 'lastInspectedAt'
+  | 'status'
+  | 'substationName'
+>;
 
 function toneToStatus(tone: string): BadgeStatus {
   if (tone === 'success') return 'success';
@@ -36,14 +48,41 @@ interface StatusTableProps {
   nodeScope?: boolean;
 }
 
-const BASE_COLS: { key: SortKey; label: string }[] = [
-  { key: 'typeName', label: '종류' },
-  { key: 'name', label: '이름' },
-  { key: 'location', label: '설치장소' },
-  { key: 'installDate', label: '설치일' },
-  { key: 'manager', label: '담당자' },
-  { key: 'lastInspectedAt', label: '마지막점검일' },
-  { key: 'status', label: '상태' },
+/**
+ * 열 정의는 여기 한 곳뿐이다 — 라벨·폭·본문 렌더를 함께 둔다.
+ *
+ * 이전에는 머리글을 도는 배열과 본문 `<td>` 나열이 따로 있어, 열을 하나 추가하면 두 곳을
+ * 같이 고쳐야 어긋나지 않았다. 폭도 없어 넓은 화면에서 "설치일" 같은 짧은 열이 200px 로
+ * 벌어졌다. 이제 모든 열이 폭을 갖고, 표 전체는 읽기 좋은 폭에서 멈춘다.
+ */
+interface Column {
+  key: SortKey;
+  label: string;
+  /** table-fixed 기준 폭. */
+  width: string;
+  render: (row: StatusRow) => ReactNode;
+}
+
+const SUBSTATION_COL: Column = {
+  key: 'substationName',
+  label: '변전소',
+  width: 'w-36',
+  render: (r) => r.substationName ?? '—',
+};
+
+const BASE_COLS: Column[] = [
+  { key: 'typeName', label: '종류', width: 'w-36', render: (r) => r.typeName },
+  { key: 'name', label: '이름', width: 'w-56', render: (r) => r.name },
+  { key: 'location', label: '설치장소', width: 'w-52', render: (r) => r.location },
+  { key: 'installDate', label: '설치일', width: 'w-28', render: (r) => formatDate(r.installDate) },
+  { key: 'manager', label: '담당자', width: 'w-24', render: (r) => r.manager ?? '—' },
+  { key: 'lastInspectedAt', label: '마지막점검일', width: 'w-32', render: (r) => formatDate(r.lastInspectedAt) },
+  {
+    key: 'status',
+    label: '상태',
+    width: 'w-24',
+    render: (r) => <Badge status={assetStatusBadge(r.status)}>{assetStatusLabel(r.status)}</Badge>,
+  },
 ];
 
 export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false }: StatusTableProps) {
@@ -66,65 +105,48 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
     return asc ? cmp : -cmp;
   });
 
-  const cols: { key: SortKey; label: string }[] = nodeScope
-    ? [{ key: 'substationName', label: '변전소' }, ...BASE_COLS]
-    : BASE_COLS;
+  const cols = nodeScope ? [SUBSTATION_COL, ...BASE_COLS] : BASE_COLS;
 
   return (
-    <div className="overflow-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-line">
-            {cols.map((col) => (
-              <th
-                key={col.key}
-                className="cursor-pointer select-none px-3 py-2 text-left text-xs font-medium text-content-muted hover:text-content"
-                onClick={() => handleHeaderClick(col.key)}
-              >
-                {col.label}
-                {sortKey === col.key && (
-                  <span className="ml-1">{asc ? '↑' : '↓'}</span>
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.length === 0 && (
+    <TableCard>
+      <thead>
+        {/* 머리글은 스크롤해도 남는다 — 긴 목록에서 어느 열인지 잃지 않게. */}
+        <tr className="sticky top-0 z-sticky">
+          {cols.map((col) => (
+            <Th
+              key={col.key}
+              className={`cursor-pointer select-none hover:text-content ${col.width}`}
+              onClick={() => handleHeaderClick(col.key)}
+            >
+              {col.label}
+              {sortKey === col.key && <span className="ml-1">{asc ? '↑' : '↓'}</span>}
+            </Th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.length === 0 && (
             <tr>
-              <td
-                colSpan={cols.length}
-                className="px-3 py-6 text-center text-sm text-content-faint"
-              >
+              <td colSpan={cols.length} className="px-3 py-6 text-center text-sm text-content-faint">
                 <span className="block">자산이 없습니다</span>
                 <span className="mt-1 block text-xs">위의 &lsquo;자산 추가&rsquo; 로 시작하세요</span>
               </td>
             </tr>
           )}
-          {sorted.map((row) => (
+        {sorted.map((row) => (
             <tr
               key={row.id}
-              className={`cursor-pointer border-b border-line hover:bg-surface-2 ${row.id === selectedId ? 'bg-surface-2' : ''}`}
+              className={`cursor-pointer border-b border-line last:border-0 hover:bg-surface-2 ${row.id === selectedId ? 'bg-surface-2' : ''}`}
               onClick={() => onSelectAsset(row.id)}
             >
-              {nodeScope && (
-                <td className="px-3 py-2 text-content">{row.substationName ?? '—'}</td>
-              )}
-              <td className="px-3 py-2 text-content">{row.typeName}</td>
-              <td className="px-3 py-2 text-content">{row.name}</td>
-              <td className="px-3 py-2 text-content">{row.location}</td>
-              <td className="px-3 py-2 text-content">{formatDate(row.installDate)}</td>
-              <td className="px-3 py-2 text-content">{row.manager ?? '—'}</td>
-              <td className="px-3 py-2 text-content">{formatDate(row.lastInspectedAt)}</td>
-              <td className="px-3 py-2">
-                <Badge status={assetStatusBadge(row.status)}>
-                  {assetStatusLabel(row.status)}
-                </Badge>
-              </td>
+              {cols.map((col) => (
+                <td key={col.key} className="truncate px-3 py-2 text-content">
+                  {col.render(row)}
+                </td>
+              ))}
             </tr>
           ))}
-        </tbody>
-      </table>
-    </div>
+      </tbody>
+    </TableCard>
   );
 }

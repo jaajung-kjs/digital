@@ -175,19 +175,19 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
       {/* 추가 폼 */}
       {showAdd && (
         <DetailCard>
-          <p className="text-xs font-semibold text-content-muted mb-2">새 기록</p>
+          <DetailCardHeader title="새 기록" />
           <DetailRow label={dateLabel}>
             <Input
               type="datetime-local"
               value={addState.date}
-              className="py-0.5 text-sm"
+              size="sm"
               onChange={(e) => { const v = e.currentTarget.value; setAddState((s) => ({ ...s, date: v })); }}
             />
           </DetailRow>
           <DetailRow label="내용">
             <Input
               value={addState.content}
-              className="py-0.5 text-sm"
+              size="sm"
               placeholder="내용 입력"
               onChange={(e) => { const v = e.currentTarget.value; setAddState((s) => ({ ...s, content: v })); }}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
@@ -196,7 +196,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
           <DetailRow label={extraLabel}>
             <Input
               value={addState.extra}
-              className="py-0.5 text-sm"
+              size="sm"
               placeholder="(선택)"
               onChange={(e) => { const v = e.currentTarget.value; setAddState((s) => ({ ...s, extra: v })); }}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
@@ -231,14 +231,14 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
                 <Input
                   type="datetime-local"
                   value={editState.date}
-                  className="py-0.5 text-sm"
+                  size="sm"
                   onChange={(e) => { const v = e.currentTarget.value; setEditState((s) => s && ({ ...s, date: v })); }}
                 />
               </DetailRow>
               <DetailRow label="내용">
                 <Input
                   value={editState.content}
-                  className="py-0.5 text-sm"
+                  size="sm"
                   onChange={(e) => { const v = e.currentTarget.value; setEditState((s) => s && ({ ...s, content: v })); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleEditCommit(); }}
                 />
@@ -246,7 +246,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
               <DetailRow label={extraLabel}>
                 <Input
                   value={editState.extra}
-                  className="py-0.5 text-sm"
+                  size="sm"
                   onChange={(e) => { const v = e.currentTarget.value; setEditState((s) => s && ({ ...s, extra: v })); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleEditCommit(); }}
                 />

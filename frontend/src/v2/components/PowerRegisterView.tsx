@@ -10,7 +10,7 @@
  *   - 행 클릭 → onSelectAsset(feederId)
  */
 import { useMemo, useState } from 'react';
-import { Select } from '../../components/ui';
+import { EmptyState, Select, TableCard, Th } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows } from '../powerSelectors';
@@ -152,15 +152,15 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
   if (containers.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center px-6">
-        <div className="max-w-md text-center">
-          <p className="text-sm text-content-muted">계통에 표시할 전원 자산이 없습니다</p>
-          <p className="mt-1 text-xs text-content-faint">
-            계통은 <strong>전원 포트를 가진 자산을 품고 있는 함체</strong>를 자동으로 찾습니다.
-            분전반 같은 함체를 만들고 그 안에 피더를 넣으면 여기에 나타납니다.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        title="계통에 표시할 전원 자산이 없습니다"
+        description={
+          <>
+            계통은 <strong>전원 포트를 가진 자산을 품고 있는 함체</strong>를 자동으로 찾습니다. 분전반 같은 함체를 만들고
+            그 안에 피더를 넣으면 여기에 나타납니다.
+          </>
+        }
+      />
     );
   }
 
@@ -170,7 +170,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       <div className="shrink-0 border-b border-line px-3 py-2">
         <Select
           value={activeContainerId ?? ''}
-          className="max-w-xs py-0.5 text-sm"
+          size="sm" className="max-w-xs"
           onChange={(e) => setSelectedContainerId(e.currentTarget.value || null)}
         >
           {containers.map((c) => (
@@ -182,15 +182,15 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       </div>
 
       {/* 테이블 */}
-      <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full text-sm">
+      <div className="min-h-0 flex-1 overflow-auto p-4">
+        <TableCard>
           <thead>
             <tr className="border-b border-line">
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">피더</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">차단기 번호</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">상태</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">전원 입력</th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">부하 출력</th>
+              <Th>피더</Th>
+              <Th className="w-28">차단기 번호</Th>
+              <Th className="w-24">상태</Th>
+              <Th>전원 입력</Th>
+              <Th>부하 출력</Th>
             </tr>
           </thead>
           <tbody>
@@ -243,7 +243,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               </tr>
             ))}
           </tbody>
-        </table>
+        </TableCard>
       </div>
     </div>
   );

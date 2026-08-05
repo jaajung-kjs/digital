@@ -30,7 +30,7 @@ export function InlineEditCell({ value, onCommit, type = 'text', options }: Inli
     return (
       <Select
         defaultValue={value}
-        className="py-0.5 text-sm"
+        size="sm"
         key={value}
         onChange={(e) => onCommit(e.currentTarget.value)}
       >

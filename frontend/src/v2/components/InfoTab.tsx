@@ -8,9 +8,8 @@
  */
 
 import { Plus } from 'lucide-react';
-import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import type { BadgeStatus } from '../../components/ui';
-import { Badge, Button, DetailCard, DetailCardHeader, DetailRow, Input, Select, useConfirm } from '../../components/ui';
+import { ASSET_STATUSES } from '@twin/core';
+import { Button, DetailCard, DetailCardHeader, DetailRow, Input, Select, useConfirm } from '../../components/ui';
 import { freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
@@ -21,18 +20,6 @@ export interface AddModalContext {
   parentAssetId: string;
   spec: V2ContainerSpec;
   siblings: { slotIndex: number | null; slotSpan: number | null }[];
-}
-
-// ── 상태 배지 tone → BadgeStatus ─────────────────────────────────────────────
-function toneToStatus(tone: string): BadgeStatus {
-  if (tone === 'success') return 'success';
-  if (tone === 'danger') return 'danger';
-  return 'neutral';
-}
-
-function assetStatusBadge(value: string): BadgeStatus {
-  const entry = ASSET_STATUSES.find((s) => s.value === value);
-  return entry ? toneToStatus(entry.tone) : 'neutral';
 }
 
 // ── 위치 텍스트 (statusRows.ts 와 동일 로직) ────────────────────────────────
@@ -206,7 +193,7 @@ export function InfoTab({
         <DetailRow label="이름">
           <Input
             defaultValue={asset.name}
-            className="py-0.5 text-sm"
+            size="sm"
             onBlur={(e) => handleNameCommit(e.currentTarget.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -219,20 +206,13 @@ export function InfoTab({
 
         {/* 상태 */}
         <DetailRow label="상태">
-          <div className="flex items-center gap-2">
-            <Select
-              value={asset.status}
-              className="py-0.5 text-sm"
-              onChange={(e) => handleStatusChange(e.currentTarget.value)}
-            >
-              {ASSET_STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </Select>
-            <Badge status={assetStatusBadge(asset.status)}>
-              {assetStatusLabel(asset.status)}
-            </Badge>
-          </div>
+          <Select value={asset.status} size="sm" onChange={(e) => handleStatusChange(e.currentTarget.value)}>
+            {ASSET_STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
         </DetailRow>
 
         {/* 위치 */}
@@ -244,7 +224,7 @@ export function InfoTab({
       {/* 커스텀 필드 카드 */}
       {sections && sections.fieldDefs.length > 0 && (
         <DetailCard>
-          <p className="text-xs font-semibold text-content-muted">속성</p>
+          <DetailCardHeader title="속성" />
           {sections.fieldDefs.map((fd) => {
             const rawVal = asset.fieldValues[fd.key];
             const strVal = rawVal != null ? String(rawVal) : '';
@@ -253,7 +233,7 @@ export function InfoTab({
                 {fd.type === 'select' ? (
                   <Select
                     defaultValue={strVal}
-                    className="py-0.5 text-sm"
+                    size="sm"
                     onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
                     key={strVal}
                   >
@@ -266,7 +246,7 @@ export function InfoTab({
                   <Input
                     type={fd.type === 'date' ? 'date' : fd.type === 'number' ? 'number' : 'text'}
                     defaultValue={strVal}
-                    className="py-0.5 text-sm"
+                    size="sm"
                     onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') e.currentTarget.blur();
@@ -283,7 +263,7 @@ export function InfoTab({
       {/* 포트 섹션 */}
       {sections?.showPorts && type && (
         <DetailCard>
-          <p className="text-xs font-semibold text-content-muted">포트</p>
+          <DetailCardHeader title="포트" />
           {type.portTemplates.map((pt) => (
             <div key={pt.id} className="space-y-0.5">
               <p className="text-xs text-content-muted">{pt.group}</p>
@@ -307,7 +287,7 @@ export function InfoTab({
       {/* 수용 섹션 */}
       {sections && sections.containerSpecs.length > 0 && (
         <DetailCard>
-          <p className="text-xs font-semibold text-content-muted">수용</p>
+          <DetailCardHeader title="수용" />
           {sections.containerSpecs.map((spec) => {
             const specChildren = childrenBySpecKey.get(spec.key) ?? [];
             const selectedChild = selectedChildId != null
@@ -337,7 +317,7 @@ export function InfoTab({
                     )}
                   </p>
                   <Button
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     leftIcon={<Plus size={12} />}
                     onClick={() => setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren })}
@@ -366,7 +346,7 @@ export function InfoTab({
                     ) : (
                       <Select
                         value=""
-                        className="py-0.5 text-xs"
+                        size="sm"
                         onChange={(e) => handleSlotMove(e.currentTarget.value)}
                       >
                         <option value="">— 빈 슬롯으로 이동 —</option>

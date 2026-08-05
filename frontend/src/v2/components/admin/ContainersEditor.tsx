@@ -4,10 +4,10 @@
  *
  * 구조 잠금(locked=true): 모든 입력 disabled + 상단 안내 배지
  */
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DetailCard, DetailCardHeader, Input, IconButton } from '../../../components/ui';
+import { Button, DetailCard, DetailCardHeader, DetailRow, Input, ItemCard } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
@@ -61,12 +61,7 @@ function AcceptsPopover({
 
   return (
     <div className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 rounded border border-line bg-surface px-2 py-1 text-xs text-content hover:bg-surface-2 disabled:opacity-50"
-      >
+      <Button variant="secondary" size="sm" disabled={disabled} onClick={() => setOpen((v) => !v)}>
         {isEmpty ? (
           <span className="text-content-muted">모두 수용</span>
         ) : (
@@ -75,13 +70,11 @@ function AcceptsPopover({
           </span>
         )}
         {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-      </button>
+      </Button>
 
       {open && (
         <div className="absolute left-0 top-full z-modal mt-1 min-w-[200px] rounded-lg border border-line bg-surface p-3 shadow-lg space-y-2">
-          <p className="text-xs text-content-muted">
-            빈 선택(모두 체크 해제) = 모두 수용
-          </p>
+          <p className="text-xs text-content-muted">빈 선택(모두 체크 해제) = 모두 수용</p>
 
           {catalog.categories.length > 0 && (
             <div>
@@ -121,13 +114,9 @@ function AcceptsPopover({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="mt-1 w-full rounded border border-line px-2 py-1 text-xs text-content-muted hover:bg-surface-2"
-          >
+          <Button variant="secondary" size="sm" className="mt-1 w-full justify-center" onClick={() => setOpen(false)}>
             닫기
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -167,117 +156,84 @@ export function ContainersEditor({ draft, onChange, catalog, locked, issues }: C
         const isFree = c.slotCount === null;
 
         return (
-          <div key={i} className="rounded border border-line bg-surface-2 p-2 space-y-1.5">
-            <div className="flex items-center gap-1">
-              <span className="flex-1 text-xs text-content-muted">컨테이너 {i + 1}</span>
-              {!locked && (
-                <IconButton aria-label={`컨테이너 ${i + 1} 삭제`} onClick={() => remove(i)}>
-                  <Trash2 size={13} />
-                </IconButton>
-              )}
-            </div>
+          <ItemCard key={i} title={`컨테이너 ${i + 1}`} onDelete={locked ? undefined : () => remove(i)}>
 
             {/* key */}
-            <div className="flex items-center gap-2">
-              <span className="w-14 shrink-0 text-xs text-content-muted">키</span>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <Input
-                  aria-label={`컨테이너 ${i + 1} 키`}
-                  value={c.key}
-                  disabled={locked}
-                  placeholder="예: main"
-                  onChange={(e) => {
-                    const val = e.currentTarget.value;
-                    update(i, { key: val });
-                  }}
-                />
-                {keyIssue && <span className="text-xs text-danger">{keyIssue}</span>}
-              </div>
-            </div>
+            <DetailRow label="키" issue={keyIssue}>
+              <Input
+                aria-label={`컨테이너 ${i + 1} 키`}
+                value={c.key}
+                disabled={locked}
+                placeholder="예: main"
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  update(i, { key: val });
+                }}
+              />
+            </DetailRow>
 
             {/* name */}
-            <div className="flex items-center gap-2">
-              <span className="w-14 shrink-0 text-xs text-content-muted">이름</span>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <Input
-                  aria-label={`컨테이너 ${i + 1} 이름`}
-                  value={c.name}
-                  disabled={locked}
-                  placeholder="예: 슬롯"
-                  onChange={(e) => {
-                    const val = e.currentTarget.value;
-                    update(i, { name: val });
-                  }}
-                />
-                {nameIssue && <span className="text-xs text-danger">{nameIssue}</span>}
-              </div>
-            </div>
+            <DetailRow label="이름" issue={nameIssue}>
+              <Input
+                aria-label={`컨테이너 ${i + 1} 이름`}
+                value={c.name}
+                disabled={locked}
+                placeholder="예: 슬롯"
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  update(i, { name: val });
+                }}
+              />
+            </DetailRow>
 
             {/* slotCount */}
-            <div className="flex items-center gap-2">
-              <span className="w-14 shrink-0 text-xs text-content-muted">슬롯 수</span>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <Input
-                  aria-label={`컨테이너 ${i + 1} 슬롯 수`}
-                  type="number"
-                  disabled={locked}
-                  value={c.slotCount === null ? '' : c.slotCount}
-                  placeholder="비워두면 자유형"
-                  onChange={(e) => {
-                    const raw = e.currentTarget.value;
-                    const val = raw === '' ? null : Number(raw);
-                    update(i, { slotCount: val === null ? null : isNaN(val) ? null : val });
-                  }}
-                />
-                {slotIssue && <span className="text-xs text-danger">{slotIssue}</span>}
-                {isFree && <span className="text-xs text-content-faint">자유형 (슬롯 수 제한 없음)</span>}
-              </div>
-            </div>
+            <DetailRow label="슬롯 수" issue={slotIssue} hint={isFree ? '자유형 (슬롯 수 제한 없음)' : undefined}>
+              <Input
+                aria-label={`컨테이너 ${i + 1} 슬롯 수`}
+                type="number"
+                disabled={locked}
+                value={c.slotCount === null ? '' : c.slotCount}
+                placeholder="비워두면 자유형"
+                onChange={(e) => {
+                  const raw = e.currentTarget.value;
+                  const val = raw === '' ? null : Number(raw);
+                  update(i, { slotCount: val === null ? null : isNaN(val) ? null : val });
+                }}
+              />
+            </DetailRow>
 
             {/* allowSpan */}
-            <div className="flex items-center gap-2">
-              <span className="w-14 shrink-0 text-xs text-content-muted">스팬</span>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <label className="flex items-center gap-2 text-sm text-content">
-                  <input
-                    type="checkbox"
-                    checked={c.allowSpan}
-                    disabled={locked || isFree}
-                    onChange={(e) => {
-                      const val = e.currentTarget.checked;
-                      update(i, { allowSpan: val });
-                    }}
-                  />
-                  슬롯 점유 허용
-                </label>
-                {spanIssue && <span className="text-xs text-danger">{spanIssue}</span>}
-                {isFree && <span className="text-xs text-content-faint">자유형에서는 span 불가</span>}
-              </div>
-            </div>
+            <DetailRow label="스팬" issue={spanIssue} hint={isFree ? '자유형에서는 span 불가' : undefined}>
+              <label className="flex items-center gap-2 text-sm text-content">
+                <input
+                  type="checkbox"
+                  checked={c.allowSpan}
+                  disabled={locked || isFree}
+                  onChange={(e) => {
+                    const val = e.currentTarget.checked;
+                    update(i, { allowSpan: val });
+                  }}
+                />
+                슬롯 점유 허용
+              </label>
+            </DetailRow>
 
             {/* accepts */}
-            <div className="flex items-start gap-2">
-              <span className="w-14 shrink-0 pt-1 text-xs text-content-muted">수용 대상</span>
+            <DetailRow label="수용 대상" align="start">
               <AcceptsPopover
                 accepts={c.accepts}
                 catalog={catalog}
                 disabled={locked}
                 onChange={(next) => update(i, { accepts: next })}
               />
-            </div>
-          </div>
+            </DetailRow>
+          </ItemCard>
         );
       })}
 
-      <button
-        type="button"
-        disabled={locked}
-        onClick={add}
-        className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
-      >
-        <Plus size={13} />
+      <Button variant="secondary" size="sm" disabled={locked} leftIcon={<Plus size={13} />} onClick={add}>
         추가
-      </button>
+      </Button>
     </DetailCard>
   );
 }

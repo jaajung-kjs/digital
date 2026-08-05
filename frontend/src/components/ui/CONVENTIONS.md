@@ -18,11 +18,29 @@
 | --- | --- | --- |
 | 본문·값(value)·입력 | `text-sm` | 카드/필드의 기본 |
 | 라벨·메타·배지·보조설명·카운트 | `text-xs` | 라벨과 부가정보 |
-| 섹션 제목(h3) | `text-sm font-semibold` | |
+| 섹션 제목(h3) | `text-sm font-semibold` | `DetailCardHeader` 가 이미 이 크기다 |
 | (장식용 초소형) | `text-xs` 까지만 | 그리드 타일 번호 등 *예외적*으로만 |
 
 **`text-xs`(12px) 미만은 원칙적으로 쓰지 않는다.** 차단기/포트 그리드 타일처럼 칸이 작아
 불가피한 경우에만 `text-xs` 까지 허용하고, 그 이하는 금지.
+
+**입력에는 `text-xs` 를 쓰지 않는다.** 입력값은 본문이다 — 패널이 좁으면 글자를 줄이지 말고
+`size="sm"`(§3 입력/선택)으로 여백만 줄인다.
+
+## 1.5 크기·간격은 prop 으로, className 으로 덮어쓰지 않는다
+
+공용 컴포넌트의 여백/글자를 `className` 으로 다시 지정하면 같은 컴포넌트가 화면마다 다른
+크기로 나온다(실제로 `<Input className="py-0.5 text-sm">` 가 16곳에 흩어져 있었고, 그래서
+같은 입력이 어떤 패널에서는 26px, 어떤 패널에서는 38px 이었다).
+
+| 무엇 | 어떻게 |
+| --- | --- |
+| 버튼 크기 | `<Button size="sm" \| "md">` |
+| 입력/선택 크기 | `<Input size="sm" \| "md">` · `<Select size="sm" \| "md">` (→ `controlSize.ts`) |
+| 카드 안 항목 블록 | `<ItemCard>` (직접 `rounded border bg-surface-2 p-2` 를 쓰지 않는다) |
+| 폼/상세 한 줄 | `<DetailRow>` (라벨 폭·오류 문구 위치가 여기서 고정된다) |
+
+`className` 은 배치(`flex-1`·`w-full`·`mt-*`)에만 쓴다.
 
 ## 2. 색 토큰 (시맨틱만)
 
@@ -50,7 +68,9 @@
 ## 3. 컴포넌트 카탈로그 — "이걸 쓰세요"
 
 실제로 존재하는 공용 컴포넌트는 전부 `src/components/ui`(배럴 `index.ts`)에 있다:
-`Badge`, `Button`, `IconButton`, `Card`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailNote`, `Input`, `Select`, `Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `CommitBar`, `cn`.
+`Badge`, `Button`, `IconButton`, `Card`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailNote`,
+`ItemCard`, `PanelHeader`, `Tabs`, `Input`, `Select`, `Modal`, `ConfirmModal`, `PromptModal`,
+`useConfirm`, `ErrorStrip`, `CommitBar`, `cn`, `controlSize`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다 — v2(`src/v2/`)와 레거시 잔존 화면 공통.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -72,7 +92,40 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 별도 "리스트 카드" 컴포넌트는 없다 — `RecordsTab.tsx` 가 실증하듯 점검/고장이력 리스트의 각 항목도 그대로 `DetailCard`(+`DetailCardHeader`) 를 재사용한다. 상세 카드와 리스트 카드를 구분해 별도로 만들지 않는다.
 
 ### 작성/편집 폼 한 줄 → `DetailRow`
-`FormRow`/`EditableField` 라는 별도 컴포넌트는 없다. `DetailRow label="...">` 안에 `Input`/`Select` 를 직접 넣는 것이 v2 의 표준 패턴(`InfoTab.tsx` 참고) — 상세 표시 행과 편집 행을 같은 컴포넌트로 겸한다.
+`FormRow`/`EditableField` 라는 별도 컴포넌트는 없다 — `DetailRow` 하나가 상세 표시 행과 편집 행을 겸한다.
+라벨 폭(`w-16`)·검증 문구 위치가 여기서 고정되므로, 라벨+입력 조합을 직접 `<div className="flex">` 로 짜지 않는다.
+```tsx
+<DetailRow label="슬롯 수" issue={slotIssue} hint={isFree ? '자유형' : undefined}>
+  <Input size="sm" value={...} onChange={...} />
+</DetailRow>
+<DetailRow label="수용 대상" align="start">{/* 세로로 긴 값이면 align="start" */}</DetailRow>
+```
+
+### 목록 안에서 되풀이되는 항목(컨테이너 1·포트 2·필드 3…) → `ItemCard`
+`DetailCard` *안*에 들어가는 회색 항목 블록. 제목 + (선택)삭제 버튼을 내장한다.
+```tsx
+<ItemCard title={`포트 ${i + 1}`} onDelete={locked ? undefined : () => remove(i)}>
+  <DetailRow label="그룹">…</DetailRow>
+</ItemCard>
+```
+
+### 패널 상단 바(사이드바 제목·본문 헤더) → `PanelHeader`
+좌우 패널의 첫 구분선이 어긋나지 않도록 높이(`h-10`)를 고정한다. `variant="sidebar"`(작은 라벨) / `"content"`(대상 이름).
+우측 액션은 `actions`, 제목 옆에 붙는 것(뷰 탭 등)은 children.
+
+### 밑줄형 탭(뷰 전환·상세 탭·카탈로그 탭) → `Tabs`
+```tsx
+<Tabs items={VIEW_TABS} value={viewMode} onChange={setViewMode} />
+```
+비활성 탭도 테두리 자리를 차지하므로 탭을 골라도 줄이 밀리지 않는다 — 직접 만들면 이 실수를 반복한다.
+
+### 카드 안 섹션 제목 → `DetailCardHeader`
+`<p className="text-xs font-semibold text-content-muted">속성</p>` 처럼 직접 쓰지 않는다 — 같은 패널 안에서 제목 크기가 갈린다.
+우측 버튼(업로드·추가·지우기)은 `actions`, 수정/삭제는 `onEdit`/`onDelete`.
+```tsx
+<DetailCardHeader title="사진" actions={<Button variant="secondary" size="sm">업로드</Button>} />
+```
+카드 머리줄 액션은 `variant="secondary" size="sm"` 로 통일한다(행 안쪽 인라인 액션만 `ghost`).
 
 ### 상태 배지(ON/OFF·연결상태 등) → `Badge`
 `src/components/ui/Badge.tsx` (`status`: success·warning·danger·info·neutral). `DetailCardHeader` 의 `badgeStatus` 가 이걸 씀.
@@ -81,7 +134,7 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 `Button` 은 `variant`(`primary`/`secondary`/`ghost`/`danger`) + `size`(`sm`/`md`) props 로 톤을 결정한다 — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`.
 
 ### 입력/선택 → `Input` / `Select`
-별도의 `fieldClass` 유틸은 없다 — `Input`/`Select` 를 직접 쓴다.
+별도의 `fieldClass` 유틸은 없다. 크기는 `size` prop(`sm`/`md`) 으로만 정한다(§1.5) — `className` 으로 여백·글자를 덮어쓰지 않는다.
 
 ### 표 셀 인라인 편집(blur/Enter 커밋) → `InlineEditCell`
 `src/v2/components/InlineEditCell.tsx` — 선번장·계통 뷰처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.
@@ -109,7 +162,8 @@ Esc 닫기·백드롭 클릭 닫기·`size="sm"/"md"` 폭 고정을 내장. 자�
 ```tsx
 <ErrorStrip message={error} onDismiss={() => setError(null)} />
 ```
-**주의:** 필드 옆에 붙는 검증 메시지(입력 하나에 대한 이유)는 이것이 아니다 — 닫기가 없는 다른 패턴이므로 인라인 `<span className="text-xs text-danger">` 를 그대로 쓴다.
+**주의:** 필드 하나에 붙는 검증 메시지는 이것이 아니다 — `<DetailRow issue={...}>` 로 넘긴다(입력 바로 아래에 뜬다).
+`ErrorStrip` 은 카드/폼 전체에 대한 오류(서버 응답 등) 전용.
 
 ### 확인 대화상자 → `useConfirm` (`window.confirm` 금지)
 네이티브 `confirm`/`prompt`/`alert` 는 쓰지 않는다. 앱과 생김새가 다르고, 브라우저를 막고, **검증 실패를 그 자리에서 보여줄 수 없다.**

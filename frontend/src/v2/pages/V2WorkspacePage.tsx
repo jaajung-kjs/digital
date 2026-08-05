@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Button, useConfirm } from '../../components/ui';
+import { Button, EmptyState, useConfirm, Tabs, type TabItem } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/AssetDetailPanel';
 import { AddAssetModal } from '../components/AddAssetModal';
@@ -21,6 +21,13 @@ import type { TraceResult } from '../traceSelectors';
 
 type ViewMode = '현황' | '평면도' | '선번장' | '계통';
 
+const VIEW_TABS: readonly TabItem<ViewMode>[] = [
+  { key: '현황', label: '현황' },
+  { key: '평면도', label: '평면도' },
+  { key: '선번장', label: '선번장' },
+  { key: '계통', label: '계통' },
+];
+
 export default function V2WorkspacePage() {
   const { confirm, confirmDialog } = useConfirm();
   const loadingWorkingCopy = useV2WorkingCopy((st) => st.loading);
@@ -31,12 +38,22 @@ export default function V2WorkspacePage() {
   const [traceResult, setTraceResult] = useState<TraceResult | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
 
-  const { commit, isCommitting, conflicts, clearConflicts, error: commitError, clearError: clearCommitError } = useCommit();
+  const {
+    commit,
+    isCommitting,
+    conflicts,
+    clearConflicts,
+    error: commitError,
+    clearError: clearCommitError,
+  } = useCommit();
 
   const handleSelect = async (n: FlatOrgNode) => {
     const st = useV2WorkingCopy.getState();
     if (n.kind === 'substation') {
-      if (n.id === st.substationId) { setSelected(n); return; } // same substation re-click: no reload/discard
+      if (n.id === st.substationId) {
+        setSelected(n);
+        return;
+      } // same substation re-click: no reload/discard
       if (
         st.dirtyCount() > 0 &&
         !(await confirm({
@@ -129,14 +146,17 @@ export default function V2WorkspacePage() {
     mergeEffective(saved.assets, overlays.assets).some((a) => a.id === selectedAssetId);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
         <aside className="w-64 shrink-0 border-r border-line bg-sidebar" data-testid="v2-org-tree">
           <OrgTreePanel selectedId={selected?.id ?? null} onSelect={handleSelect} />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col" data-testid="v2-main">
           {selected == null && (
-            <div className="p-4 text-sm text-content-muted">좌측에서 조직/변전소를 선택하세요</div>
+            <EmptyState
+              title="선택된 조직/변전소가 없습니다"
+              description="좌측 트리에서 변전소를 고르면 현황·평면도·선번장·계통을 볼 수 있습니다."
+            />
           )}
           {selected != null && (
             <div className="flex min-h-0 flex-1 flex-col">
@@ -146,22 +166,15 @@ export default function V2WorkspacePage() {
                   {selected.name}
                 </span>
                 {inSubstationScope && (
-                  <div className="ml-4 flex gap-0">
-                    {(['현황', '평면도', '선번장', '계통'] as ViewMode[]).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        className={`px-3 py-1 text-sm transition-colors ${
-                          viewMode === mode
-                            ? 'border-b-2 border-primary font-medium text-primary'
-                            : 'text-content-muted hover:text-content'
-                        }`}
-                        onClick={() => setViewMode(mode)}
-                      >
-                        {mode}
-                      </button>
-                    ))}
-                  </div>
+                  <Tabs items={VIEW_TABS} value={viewMode} onChange={setViewMode} className="ml-4 -mb-px" />
+                )}
+                {inSubstationScope && (
+                  /* 설계서는 지금 스테이징된 변경의 공량을 보는 화면이다. 예전엔 진입점이
+                     SaveBar 뿐이라 **변경을 만들어야만 볼 수 있었다**(SaveBar 는 dirty===0
+                     이면 사라진다). 상시 노출로 옮긴다. */
+                  <Button variant="secondary" size="sm" className="ml-auto" onClick={() => setReportOpen(true)}>
+                    설계서
+                  </Button>
                 )}
               </div>
 
@@ -170,63 +183,63 @@ export default function V2WorkspacePage() {
                   <span className="text-sm text-content-muted">불러오는 중…</span>
                 </div>
               ) : (
-              <div className="flex min-h-0 flex-1 overflow-hidden">
-                {/* 평면도 뷰 */}
-              {inSubstationScope && viewMode === '평면도' ? (
-                <FloorPlanView
-                  substationId={substationId}
-                  selectedAssetId={selectedAssetId}
-                  onSelectAsset={handleSelectAssetId}
-                  traceResult={traceResult}
-                />
-              ) : inSubstationScope && viewMode === '선번장' ? (
-                <FiberRegisterView
-                  substationId={substationId}
-                  selectedAssetId={selectedAssetId}
-                  onSelectAsset={handleSelectAssetId}
-                />
-              ) : inSubstationScope && viewMode === '계통' ? (
-                <PowerRegisterView
-                  substationId={substationId}
-                  selectedAssetId={selectedAssetId}
-                  onSelectAsset={handleSelectAssetId}
-                />
-              ) : (
-                /* 현황 뷰 (기본) */
-                <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-                  {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
-                  {inSubstationScope && (
-                    <div className="shrink-0 border-b border-line px-3 py-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        leftIcon={<Plus size={14} />}
-                        onClick={() => setAddModalOpen(true)}
-                      >
-                        자산 추가
-                      </Button>
+                <div className="flex min-h-0 flex-1 overflow-hidden">
+                  {/* 평면도 뷰 */}
+                  {inSubstationScope && viewMode === '평면도' ? (
+                    <FloorPlanView
+                      substationId={substationId}
+                      selectedAssetId={selectedAssetId}
+                      onSelectAsset={handleSelectAssetId}
+                      traceResult={traceResult}
+                    />
+                  ) : inSubstationScope && viewMode === '선번장' ? (
+                    <FiberRegisterView
+                      substationId={substationId}
+                      selectedAssetId={selectedAssetId}
+                      onSelectAsset={handleSelectAssetId}
+                    />
+                  ) : inSubstationScope && viewMode === '계통' ? (
+                    <PowerRegisterView
+                      substationId={substationId}
+                      selectedAssetId={selectedAssetId}
+                      onSelectAsset={handleSelectAssetId}
+                    />
+                  ) : (
+                    /* 현황 뷰 (기본) */
+                    <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto p-4">
+                      {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
+                      {inSubstationScope && (
+                        <div className="shrink-0">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Plus size={14} />}
+                            onClick={() => setAddModalOpen(true)}
+                          >
+                            자산 추가
+                          </Button>
+                        </div>
+                      )}
+                      <StatusTable
+                        rows={rows}
+                        selectedId={selectedAssetId}
+                        onSelectAsset={handleSelectAssetId}
+                        nodeScope={nodeScope}
+                      />
                     </div>
                   )}
-                  <StatusTable
-                    rows={rows}
-                    selectedId={selectedAssetId}
-                    onSelectAsset={handleSelectAssetId}
-                    nodeScope={nodeScope}
-                  />
-                </div>
-              )}
 
-              {showDetailPanel && (
-                <AssetDetailPanel
-                  key={selectedAssetId}
-                  assetId={selectedAssetId!}
-                  onSelectAsset={handleSelectAssetId}
-                  onTrace={setTraceResult}
-                  onClearTrace={() => setTraceResult(null)}
-                  traceResult={traceResult}
-                />
-              )}
-              </div>
+                  {showDetailPanel && (
+                    <AssetDetailPanel
+                      key={selectedAssetId}
+                      assetId={selectedAssetId!}
+                      onSelectAsset={handleSelectAssetId}
+                      onTrace={setTraceResult}
+                      onClearTrace={() => setTraceResult(null)}
+                      traceResult={traceResult}
+                    />
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -234,20 +247,11 @@ export default function V2WorkspacePage() {
       </div>
 
       {/* 저장바 (dirty > 0 일 때만 표시) */}
-      <SaveBar
-        onCommit={commit}
-        isCommitting={isCommitting}
-        error={commitError}
-        onClearError={clearCommitError}
-      />
+      <SaveBar onCommit={commit} isCommitting={isCommitting} error={commitError} onClearError={clearCommitError} />
 
       {/* 자산 추가 모달 (미배치 추가) */}
       {substationId != null && (
-        <AddAssetModal
-          open={addModalOpen}
-          onClose={() => setAddModalOpen(false)}
-          substationId={substationId}
-        />
+        <AddAssetModal open={addModalOpen} onClose={() => setAddModalOpen(false)} substationId={substationId} />
       )}
 
       {/* 설계서 패널 (조건부 마운트 — 닫힌 상태에서 store 구독/계산 방지) */}
@@ -255,11 +259,7 @@ export default function V2WorkspacePage() {
 
       {/* 충돌 다이얼로그 */}
       {conflicts != null && conflicts.length > 0 && substationId != null && (
-        <ConflictDialog
-          conflicts={conflicts}
-          substationId={substationId}
-          onClear={clearConflicts}
-        />
+        <ConflictDialog conflicts={conflicts} substationId={substationId} onClear={clearConflicts} />
       )}
       {confirmDialog}
     </div>

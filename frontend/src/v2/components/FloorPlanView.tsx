@@ -1075,7 +1075,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
                 <Select
                   value={cableState.categoryId}
                   onChange={(e) => cableDispatch({ type: 'SET_CATEGORY', categoryId: e.target.value })}
-                  className="py-0.5 text-xs"
+                  size="sm"
                 >
                   {cableGroups.map((group) => (
                     <optgroup key={group.id} label={group.name}>

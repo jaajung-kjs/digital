@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button, IconButton, Input, Modal, useConfirm } from '../../components/ui';
+import { Button, IconButton, Input, Modal, useConfirm, PanelHeader } from '../../components/ui';
 import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
@@ -75,24 +75,22 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-line px-3 py-2">
-        <span className="text-xs font-medium text-content-muted">조직</span>
-        <IconButton
-          aria-label="본부 추가"
-          onClick={() => openCreateModal('headquarters', '')}
-        >
-          <Plus size={14} />
-        </IconButton>
-      </div>
+      <PanelHeader
+        variant="sidebar"
+        title="조직"
+        actions={
+          <IconButton aria-label="본부 추가" onClick={() => openCreateModal('headquarters', '')}>
+            <Plus size={14} />
+          </IconButton>
+        }
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto py-1">
         {nodes.map((n) => (
           <div
             key={n.id}
             className={`group flex cursor-pointer items-center gap-1 px-2 py-1 text-sm ${
-              props.selectedId === n.id
-                ? 'bg-surface-2 text-primary'
-                : 'text-content hover:bg-surface-2'
+              props.selectedId === n.id ? 'bg-surface-2 text-primary' : 'text-content hover:bg-surface-2'
             }`}
             style={{ paddingLeft: 8 + n.depth * 14 }}
             onClick={() => props.onSelect(n)}
@@ -152,7 +150,9 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleConfirm();
+          }}
           placeholder="이름"
         />
       </Modal>

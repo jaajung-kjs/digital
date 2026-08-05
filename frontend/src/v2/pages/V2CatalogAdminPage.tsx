@@ -8,7 +8,18 @@
  */
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { Button, IconButton, Badge, ErrorStrip, PromptModal, useConfirm } from '../../components/ui';
+import {
+  Button,
+  IconButton,
+  Badge,
+  ErrorStrip,
+  PromptModal,
+  useConfirm,
+  EmptyState,
+  PanelHeader,
+  Tabs,
+  type TabItem,
+} from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty } from '../catalogDraft';
 import type { TypeDraft } from '../catalogDraft';
@@ -23,6 +34,11 @@ import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
 
 type Tab = 'type' | 'cable';
+
+const CATALOG_TABS: readonly TabItem<Tab>[] = [
+  { key: 'type', label: '타입 명세' },
+  { key: 'cable', label: '케이블' },
+];
 
 export default function V2CatalogAdminPage() {
   const { confirm, confirmDialog } = useConfirm();
@@ -42,8 +58,7 @@ export default function V2CatalogAdminPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   // 현재 선택된 원본 타입 (신규이면 null)
-  const original: V2AssetType | null =
-    catalog?.types.find((t) => t.id === selectedTypeId) ?? null;
+  const original: V2AssetType | null = catalog?.types.find((t) => t.id === selectedTypeId) ?? null;
 
   // 구조 잠금: assetCount > 0 → 컨테이너/포트/링크 read-only
   const locked = (original?.assetCount ?? 0) > 0;
@@ -142,7 +157,15 @@ export default function V2CatalogAdminPage() {
   // ── 타입 삭제 ────────────────────────────────────────────────────────────
   async function handleDeleteType() {
     if (selectedTypeId == null) return;
-    if (!(await confirm({ title: '타입 삭제', message: '이 자산 타입을 삭제합니다. 이 타입으로 만든 자산이 있으면 거부됩니다.', confirmLabel: '삭제', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: '타입 삭제',
+        message: '이 자산 타입을 삭제합니다. 이 타입으로 만든 자산이 있으면 거부됩니다.',
+        confirmLabel: '삭제',
+        danger: true,
+      }))
+    )
+      return;
     setSaveError(null);
     setIsSaving(true);
     try {
@@ -191,11 +214,13 @@ export default function V2CatalogAdminPage() {
     return <div className="flex h-full items-center justify-center text-sm text-content-muted">로딩 중…</div>;
   }
   if (catalogQuery.isError || catalog == null) {
-    return <div className="flex h-full items-center justify-center text-sm text-danger">카탈로그를 불러오지 못했습니다</div>;
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-danger">카탈로그를 불러오지 못했습니다</div>
+    );
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       {/* 분류 관리 오류 배너 */}
       <ErrorStrip
         message={categoryError}
@@ -203,47 +228,27 @@ export default function V2CatalogAdminPage() {
         className="shrink-0 border-b border-line bg-surface px-4 py-1"
       />
       <div className="flex min-h-0 flex-1">
-        {/* ── 좌측 패널 ────────────────────────────────────────────────── */}
-        <TypeListPanel
-          catalog={catalog}
-          selectedTypeId={selectedTypeId}
-          onSelectType={selectType}
-          onNewType={handleNewType}
-          onRenameCategory={handleRenameCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onAddCategory={() => {
-            setCategoryError(null);
-            setAddCategoryOpen(true);
-          }}
-        />
+        {/* ── 좌측 패널 (워크스페이스 조직 트리와 같은 셸) ─────────────── */}
+        <aside className="w-64 shrink-0 border-r border-line bg-sidebar">
+          <TypeListPanel
+            catalog={catalog}
+            selectedTypeId={selectedTypeId}
+            onSelectType={selectType}
+            onNewType={handleNewType}
+            onRenameCategory={handleRenameCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onAddCategory={() => {
+              setCategoryError(null);
+              setAddCategoryOpen(true);
+            }}
+          />
+        </aside>
 
         {/* ── 우측 영역 ───────────────────────────────────────────────── */}
         <div className="flex min-h-0 flex-1 flex-col">
-          {/* 탭 바 */}
-          <div className="shrink-0 flex items-center gap-0 border-b border-line bg-surface px-4">
-            <button
-              type="button"
-              onClick={() => setActiveTab('type')}
-              className={`px-3 py-2 text-sm border-b-2 transition-colors focus-visible:outline-none ${
-                activeTab === 'type'
-                  ? 'border-primary text-primary font-medium'
-                  : 'border-transparent text-content-muted hover:text-content'
-              }`}
-            >
-              타입 명세
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('cable')}
-              className={`px-3 py-2 text-sm border-b-2 transition-colors focus-visible:outline-none ${
-                activeTab === 'cable'
-                  ? 'border-primary text-primary font-medium'
-                  : 'border-transparent text-content-muted hover:text-content'
-              }`}
-            >
-              케이블
-            </button>
-          </div>
+          <PanelHeader className="px-4">
+            <Tabs items={CATALOG_TABS} value={activeTab} onChange={setActiveTab} className="-mb-px" />
+          </PanelHeader>
 
           {/* ── 케이블 탭 ───────────────────────────────────────────── */}
           {activeTab === 'cable' && (
@@ -256,9 +261,10 @@ export default function V2CatalogAdminPage() {
           {activeTab === 'type' && (
             <>
               {draft == null ? (
-                <div className="flex flex-1 items-center justify-center text-sm text-content-faint">
-                  좌측에서 타입을 선택하거나 + 버튼으로 추가하세요
-                </div>
+                <EmptyState
+                  title="선택된 자산 타입이 없습니다"
+                  description="좌측 목록에서 타입을 고르거나, 상단 + 버튼으로 새 타입을 만드세요."
+                />
               ) : (
                 <>
                   {/* 저장 바 */}
@@ -281,7 +287,8 @@ export default function V2CatalogAdminPage() {
                       <div className="flex items-center gap-2 border-b border-line bg-warning-bg px-4 py-1.5">
                         <Badge status="warning">{original?.assetCount}개 사용 중</Badge>
                         <span className="text-xs text-warning">
-                          자산 {original?.assetCount}개가 이 타입을 사용 중 — 구조(컨테이너·포트·링크)는 변경할 수 없습니다
+                          자산 {original?.assetCount}개가 이 타입을 사용 중 — 구조(컨테이너·포트·링크)는 변경할 수
+                          없습니다
                         </span>
                       </div>
                     )}
@@ -291,7 +298,13 @@ export default function V2CatalogAdminPage() {
                         {dirty && <span className="ml-1 text-warning">●</span>}
                       </span>
                       {selectedTypeId != null && (
-                        <Button variant="ghost" size="sm" disabled={isSaving} onClick={() => void handleDeleteType()} className="text-danger hover:text-danger">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isSaving}
+                          onClick={() => void handleDeleteType()}
+                          className="text-danger hover:text-danger"
+                        >
                           타입 삭제
                         </Button>
                       )}
@@ -305,7 +318,8 @@ export default function V2CatalogAdminPage() {
                   </div>
 
                   {/* 편집 폼 영역 — 스크롤 */}
-                  <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-3">
+                  <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                    <div className="mx-auto max-w-4xl space-y-3">
                     {/* 기본정보 · 배치 · 공량 */}
                     <TypeBasicsForm
                       draft={draft}
@@ -316,11 +330,7 @@ export default function V2CatalogAdminPage() {
                     />
 
                     {/* 필드 정의 (잠금 없음 — 항상 편집 가능) */}
-                    <FieldDefsEditor
-                      draft={draft}
-                      onChange={handleChange}
-                      issues={issues}
-                    />
+                    <FieldDefsEditor draft={draft} onChange={handleChange} issues={issues} />
 
                     {/* 컨테이너 (잠금 대상) */}
                     <ContainersEditor
@@ -348,6 +358,7 @@ export default function V2CatalogAdminPage() {
                       locked={locked}
                       issues={issues}
                     />
+                    </div>
                   </div>
                 </>
               )}

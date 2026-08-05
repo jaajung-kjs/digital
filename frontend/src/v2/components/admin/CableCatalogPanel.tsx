@@ -8,7 +8,19 @@
  */
 import { useState } from 'react';
 import { X, Plus, Pencil, Check, Trash2 } from 'lucide-react';
-import { DetailCard, DetailCardHeader, Input, IconButton, Badge, ErrorStrip, PromptModal, useConfirm } from '../../../components/ui';
+import {
+  Button,
+  DetailCard,
+  DetailCardHeader,
+  Input,
+  IconButton,
+  Badge,
+  ErrorStrip,
+  PromptModal,
+  useConfirm,
+  ItemCard,
+  DetailRow,
+} from '../../../components/ui';
 import type { V2Catalog, V2CableGroup, V2CableCategory } from '../../types';
 import { useCatalogMutations } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
@@ -62,28 +74,20 @@ function CableGroupRow({ group }: { group: V2CableGroup }) {
     parseFloat(editRemove) !== group.removeHoursPerM;
 
   return (
-    <div className="rounded border border-line bg-surface-2 p-2 space-y-1.5">
+    <ItemCard title={<Badge status="neutral">{group.key}</Badge>}>
       <ErrorStrip message={error} onDismiss={() => setError(null)} />
 
-      {/* key — 표시만 */}
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-xs text-content-muted">키</span>
-        <Badge status="neutral">{group.key}</Badge>
-      </div>
-
       {/* name */}
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-xs text-content-muted">이름</span>
+      <DetailRow label="이름">
         <Input
           aria-label={`그룹 ${group.key} 이름`}
           value={editName}
           onChange={(e) => setEditName(e.currentTarget.value)}
         />
-      </div>
+      </DetailRow>
 
       {/* color */}
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-xs text-content-muted">색상</span>
+      <DetailRow label="색상">
         <div className="flex items-center gap-2">
           <input
             type="color"
@@ -94,58 +98,49 @@ function CableGroupRow({ group }: { group: V2CableGroup }) {
           />
           <span className="text-xs text-content-muted">{editColor}</span>
         </div>
-      </div>
+      </DetailRow>
 
       {/* laborType */}
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-xs text-content-muted">노무유형</span>
+      <DetailRow label="노무유형">
         <Input
           aria-label={`그룹 ${group.key} 노무유형`}
           value={editLaborType}
           placeholder="예: 통신내선공"
           onChange={(e) => setEditLaborType(e.currentTarget.value)}
         />
-      </div>
+      </DetailRow>
 
       {/* installHoursPerM */}
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-xs text-content-muted">신설(h/m)</span>
+      <DetailRow label="신설(h/m)">
         <Input
           aria-label={`그룹 ${group.key} 신설 공량`}
           type="number"
           value={editInstall}
           onChange={(e) => setEditInstall(e.currentTarget.value)}
         />
-      </div>
+      </DetailRow>
 
       {/* removeHoursPerM */}
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-xs text-content-muted">철거(h/m)</span>
+      <DetailRow label="철거(h/m)">
         <Input
           aria-label={`그룹 ${group.key} 철거 공량`}
           type="number"
           value={editRemove}
           onChange={(e) => setEditRemove(e.currentTarget.value)}
         />
-      </div>
+      </DetailRow>
 
       {dirty && (
         <div className="flex justify-end">
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => void save()}
-            className="flex items-center gap-1 rounded border border-primary px-2 py-0.5 text-xs text-primary hover:bg-primary/10 disabled:opacity-50"
-          >
-            <Check size={12} />
+          <Button size="sm" disabled={saving} leftIcon={<Check size={12} />} onClick={() => void save()}>
             {saving ? '저장 중…' : '저장'}
-          </button>
+          </Button>
         </div>
       )}
 
       {/* 카테고리 리스트 */}
       <CableCategoryList group={group} />
-    </div>
+    </ItemCard>
   );
 }
 
@@ -185,10 +180,7 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
     }
     setCatError(null);
     try {
-      await mutations.patchCableCategory.mutateAsync({
-        id: cat.id,
-        body: { name: editingName.trim() },
-      });
+      await mutations.patchCableCategory.mutateAsync({ id: cat.id, body: { name: editingName.trim() } });
       setEditingId(null);
     } catch (err: unknown) {
       setCatError(apiErrorMessage(err, '이름 변경 실패'));
@@ -196,7 +188,15 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
   }
 
   async function handleDelete(cat: V2CableCategory) {
-    if (!(await confirm({ title: '케이블 종류 삭제', message: `'${cat.name}' 을 삭제합니다.`, confirmLabel: '삭제', danger: true }))) return;
+    if (
+      !(await confirm({
+        title: '케이블 종류 삭제',
+        message: `'${cat.name}' 을 삭제합니다.`,
+        confirmLabel: '삭제',
+        danger: true,
+      }))
+    )
+      return;
     setCatError(null);
     try {
       await mutations.deleteCableCategory.mutateAsync(cat.id);
@@ -209,14 +209,17 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
     <div className="mt-1 border-t border-line pt-1.5 space-y-1">
       <div className="flex items-center gap-1">
         <span className="flex-1 text-xs font-medium text-content-muted">종류 (카테고리)</span>
-        <button
-          type="button"
-          onClick={() => { setCatError(null); setAddOpen(true); }}
-          className="flex items-center gap-0.5 text-xs text-primary hover:underline focus-visible:outline-none rounded"
+        <Button
+          variant="secondary"
+          size="sm"
+          leftIcon={<Plus size={13} />}
+          onClick={() => {
+            setCatError(null);
+            setAddOpen(true);
+          }}
         >
-          <Plus size={11} />
           추가
-        </button>
+        </Button>
       </div>
 
       <PromptModal
@@ -240,9 +243,7 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
         </div>
       )}
 
-      {group.categories.length === 0 && (
-        <p className="text-xs text-content-faint">종류가 없습니다.</p>
-      )}
+      {group.categories.length === 0 && <p className="text-xs text-content-faint">종류가 없습니다.</p>}
 
       {group.categories.map((cat) => (
         <div key={cat.id} className="flex items-center gap-1.5">
@@ -259,26 +260,17 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
                 }}
                 autoFocus
               />
-              <IconButton
-                aria-label="저장"
-                onClick={() => void commitEdit(cat)}
-              >
+              <IconButton aria-label="저장" onClick={() => void commitEdit(cat)}>
                 <Check size={12} />
               </IconButton>
             </>
           ) : (
             <>
               <span className="flex-1 text-sm text-content">{cat.name}</span>
-              <IconButton
-                aria-label={`${cat.name} 이름 변경`}
-                onClick={() => startEdit(cat)}
-              >
+              <IconButton aria-label={`${cat.name} 이름 변경`} onClick={() => startEdit(cat)}>
                 <Pencil size={12} />
               </IconButton>
-              <IconButton
-                aria-label={`${cat.name} 삭제`}
-                onClick={() => void handleDelete(cat)}
-              >
+              <IconButton aria-label={`${cat.name} 삭제`} onClick={() => void handleDelete(cat)}>
                 <Trash2 size={12} />
               </IconButton>
             </>
@@ -292,7 +284,7 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
 
 export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
   return (
-    <div className="space-y-4 p-4">
+    <div className="mx-auto max-w-4xl space-y-4 p-4">
       <DetailCard>
         <DetailCardHeader title="케이블 그룹 관리" />
         <p className="text-xs text-content-faint">
@@ -300,9 +292,7 @@ export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
         </p>
       </DetailCard>
 
-      {catalog.cableGroups.length === 0 && (
-        <p className="text-sm text-content-faint">케이블 그룹이 없습니다.</p>
-      )}
+      {catalog.cableGroups.length === 0 && <p className="text-xs text-content-faint">케이블 그룹이 없습니다.</p>}
 
       {catalog.cableGroups.map((group) => (
         <CableGroupRow key={group.id} group={group} />

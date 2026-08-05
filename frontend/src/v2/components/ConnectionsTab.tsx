@@ -7,7 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import { Button, DetailCard } from '../../components/ui';
+import { DetailCardHeader, Button, DetailCard } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -107,10 +107,14 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
       {/* 추적 결과 패널 */}
       {traceResult && traceResult.hops.length > 0 && (
         <DetailCard>
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs font-semibold text-content-muted">추적 경로</p>
-            <Button variant="ghost" size="sm" onClick={onClearTrace}>지우기</Button>
-          </div>
+          <DetailCardHeader
+            title="추적 경로"
+            actions={
+              <Button variant="secondary" size="sm" onClick={onClearTrace}>
+                지우기
+              </Button>
+            }
+          />
           <ol className="space-y-0.5">
             {traceResult.hops.map((hop, i) => (
               <li key={i} className="text-xs text-content">
@@ -123,17 +127,21 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
       )}
       {traceResult && traceResult.hops.length === 0 && (
         <DetailCard>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-content-faint">연결된 경로가 없습니다.</p>
-            <Button variant="ghost" size="sm" onClick={onClearTrace}>지우기</Button>
-          </div>
+          <DetailCardHeader
+            title={<span className="font-normal text-content-faint">연결된 경로가 없습니다.</span>}
+            actions={
+              <Button variant="secondary" size="sm" onClick={onClearTrace}>
+                지우기
+              </Button>
+            }
+          />
         </DetailCard>
       )}
 
       {/* 포트 목록 (그룹별) */}
       {[...portsByGroup.entries()].map(([group, ports]) => (
         <DetailCard key={group}>
-          <p className="text-xs font-semibold text-content-muted mb-1">{group} 그룹</p>
+          <DetailCardHeader title={`${group} 그룹`} />
           <div className="space-y-1">
             {ports.map((port) => {
               const conn = cableByPortId.get(port.id);

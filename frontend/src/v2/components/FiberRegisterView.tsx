@@ -7,7 +7,7 @@
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
 import { Fragment, useMemo, useState } from 'react';
-import { Select } from '../../components/ui';
+import { EmptyState, Select, TableCard, Th } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog } from '../hooks';
@@ -110,15 +110,15 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
   if (containers.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center px-6">
-        <div className="max-w-md text-center">
-          <p className="text-sm text-content-muted">선번장에 표시할 광 자산이 없습니다</p>
-          <p className="mt-1 text-xs text-content-faint">
-            선번장은 <strong>광 포트를 가진 자산을 품고 있는 함체</strong>를 자동으로 찾습니다.
-            OFD 같은 함체를 만들고 그 안에 광슬롯을 넣으면 여기에 나타납니다.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        title="선번장에 표시할 광 자산이 없습니다"
+        description={
+          <>
+            선번장은 <strong>광 포트를 가진 자산을 품고 있는 함체</strong>를 자동으로 찾습니다. OFD 같은 함체를 만들고
+            그 안에 광슬롯을 넣으면 여기에 나타납니다.
+          </>
+        }
+      />
     );
   }
 
@@ -144,7 +144,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
       <div className="shrink-0 border-b border-line px-3 py-2">
         <Select
           value={activeContainerId ?? ''}
-          className="max-w-xs py-0.5 text-sm"
+          size="sm" className="max-w-xs"
           onChange={(e) => setSelectedContainerId(e.currentTarget.value || null)}
         >
           {containers.map((c) => (
@@ -156,28 +156,17 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
       </div>
 
       {/* 테이블 */}
-      <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full text-sm">
+      <div className="min-h-0 flex-1 overflow-auto p-4">
+        <TableCard>
           <thead>
             <tr className="border-b border-line">
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">코어</th>
+              <Th className="w-20">코어</Th>
               {groups.map((g) => (
-                <th
-                  key={g}
-                  className="px-3 py-2 text-left text-xs font-medium text-content-muted"
-                >
-                  {g}
-                </th>
+                <Th key={g}>{g}</Th>
               ))}
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">
-                길이(m)
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">
-                손실(dB)
-              </th>
-              <th className="px-3 py-2 text-left text-xs font-medium text-content-muted">
-                점검일
-              </th>
+              <Th className="w-24">길이(m)</Th>
+              <Th className="w-24">손실(dB)</Th>
+              <Th className="w-28">점검일</Th>
             </tr>
           </thead>
           <tbody>
@@ -251,7 +240,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
               </Fragment>
             ))}
           </tbody>
-        </table>
+        </TableCard>
       </div>
     </div>
   );
