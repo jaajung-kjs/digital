@@ -57,6 +57,9 @@ interface SlotGridProps {
   onSelectChild: (id: string) => void;
 }
 
+/** 슬롯 한 칸의 높이(px) — 여러 슬롯을 차지하는 장비는 이 배수만큼 높아진다. */
+const SLOT_ROW_HEIGHT = 26;
+
 function SlotGrid({ spec, children, selectedChildId, onSelectChild }: SlotGridProps) {
   const slotCount = spec.slotCount!;
   // 슬롯 인덱스(0-based) → 자식 자산 매핑
@@ -65,36 +68,42 @@ function SlotGrid({ spec, children, selectedChildId, onSelectChild }: SlotGridPr
     if (child.slotIndex != null) bySlot.set(child.slotIndex, child);
   }
 
-  const cells: React.ReactNode[] = [];
+  const rows: React.ReactNode[] = [];
   let idx = 0;
   while (idx < slotCount) {
     const child = bySlot.get(idx);
     const span = child?.slotSpan ?? 1;
     const isSelected = child != null && child.id === selectedChildId;
-    cells.push(
-      <div
+    // 여러 슬롯을 차지하면 "3–5" 처럼 범위로 적는다.
+    const label = span > 1 ? `${idx + 1}–${idx + span}` : String(idx + 1);
+    rows.push(
+      <li
         key={idx}
-        style={{ gridColumn: span > 1 ? `span ${span}` : undefined }}
+        style={{ minHeight: span * SLOT_ROW_HEIGHT }}
         className={cn(
-          'min-w-0 truncate rounded border px-1 py-0.5 text-xs',
-          isSelected ? SELECTED_TILE : child ? cn('border-line bg-surface-2 text-content', SELECTABLE) : 'border-line text-content-faint',
+          'flex items-center gap-2 rounded border px-2 text-sm',
+          isSelected
+            ? SELECTED_TILE
+            : child
+              ? cn('border-line bg-surface-2 text-content', SELECTABLE)
+              : 'border-line border-dashed text-content-faint',
         )}
         title={child?.name}
         onClick={() => child && onSelectChild(child.id)}
       >
-        <span className="text-content-faint">{idx + 1}</span>
-        {child && <span className="ml-0.5 truncate">{child.name}</span>}
-        {!child && <span className="ml-0.5">—</span>}
-      </div>,
+        <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
+        <span className="min-w-0 flex-1 truncate">{child ? child.name : '비어 있음'}</span>
+      </li>,
     );
     idx += span;
   }
 
-  return (
-    <div className="mt-1 grid grid-cols-6 gap-1">
-      {cells}
-    </div>
-  );
+  /*
+   * 세로로 쌓는 이유: 랙·함체는 세로로 슬롯이 배열된 물리 장비다. 예전에는 `grid-cols-6`
+   * 이라 384px 상세 패널에서 칸이 56px 밖에 안 됐고, 장비 이름이 "SCA…", "통합…" 으로
+   * 잘려 무엇이 꽂혀 있는지 알 수 없었다. 세로로 두면 이름 전체가 들어간다.
+   */
+  return <ul className="mt-1 space-y-1">{rows}</ul>;
 }
 
 // ── 자유형 자식 리스트 ─────────────────────────────────────────────────────────
