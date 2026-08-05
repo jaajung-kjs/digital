@@ -2,6 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import cors from 'cors';
 import helmet from 'helmet';
 import { v2Router } from './v2/router.js';
+import { log, errorFields, requestLogger } from './v2/log.js';
 
 const app = express();
 
@@ -32,6 +33,9 @@ app.use(
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// 요청 로그 — 라우팅보다 먼저 걸어야 404 도 남는다.
+app.use(requestLogger);
+
 // Health check
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -50,8 +54,15 @@ app.use((_req, res) => {
 
 // Fallback 500 handler (catches errors that v2 router passes via next(err))
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('[500]', err);
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+  // 같은 requestId 의 request 로그와 짝지어 보면 어느 요청이 터졌는지 바로 나온다.
+  log.error('unhandled', {
+    requestId: req.requestId,
+    method: req.method,
+    path: req.originalUrl.split('?')[0],
+    userId: req.user?.userId ?? null,
+    ...errorFields(err),
+  });
   res.status(500).json({
     error: 'INTERNAL_SERVER_ERROR',
     message: '서버 오류가 발생했습니다.',
@@ -60,16 +71,15 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 // Last-resort safety net
 process.on('uncaughtException', (err) => {
-  console.error('[uncaughtException]', err);
+  log.error('uncaughtException', errorFields(err));
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('[unhandledRejection]', reason);
+  log.error('unhandledRejection', errorFields(reason));
 });
 
 const port = parseInt(process.env.PORT ?? '3000', 10);
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
-  console.log(`  Environment: ${process.env.NODE_ENV ?? 'development'}`);
+  log.info('server.start', { port, env: process.env.NODE_ENV ?? 'development' });
 });
 
 export default app;
