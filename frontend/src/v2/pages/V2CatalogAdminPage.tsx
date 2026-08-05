@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { Button, IconButton, Badge, ErrorStrip } from '../../components/ui';
+import { Button, IconButton, Badge, ErrorStrip, PromptModal, useConfirm } from '../../components/ui';
 import { useV2Catalog, useCatalogMutations } from '../hooks';
 import { typeToDraft, emptyDraft, draftIssues, isDraftDirty } from '../catalogDraft';
 import type { TypeDraft } from '../catalogDraft';
@@ -25,6 +25,7 @@ import type { V2AssetType, V2Category } from '../types';
 type Tab = 'type' | 'cable';
 
 export default function V2CatalogAdminPage() {
+  const { confirm, confirmDialog } = useConfirm();
   const catalogQuery = useV2Catalog();
   const catalog = catalogQuery.data;
   const mutations = useCatalogMutations();
@@ -37,6 +38,7 @@ export default function V2CatalogAdminPage() {
   const [draft, setDraft] = useState<TypeDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [addCategoryOpen, setAddCategoryOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // 현재 선택된 원본 타입 (신규이면 null)
@@ -58,8 +60,17 @@ export default function V2CatalogAdminPage() {
   }
 
   // ── 타입 선택 ─────────────────────────────────────────────────────────────
-  function selectType(id: string) {
-    if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 폐기하고 이동할까요?')) return;
+  async function selectType(id: string) {
+    if (
+      dirty &&
+      !(await confirm({
+        title: '저장하지 않은 변경',
+        message: '이 타입의 편집 내용이 사라집니다. 이동할까요?',
+        confirmLabel: '이동',
+        danger: true,
+      }))
+    )
+      return;
     setSelectedTypeId(id);
     const type = catalog?.types.find((t) => t.id === id);
     setDraft(type ? typeToDraft(type) : null);
@@ -68,8 +79,17 @@ export default function V2CatalogAdminPage() {
   }
 
   // ── 신규 타입 ─────────────────────────────────────────────────────────────
-  function handleNewType(categoryId: string) {
-    if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 폐기하고 이동할까요?')) return;
+  async function handleNewType(categoryId: string) {
+    if (
+      dirty &&
+      !(await confirm({
+        title: '저장하지 않은 변경',
+        message: '이 타입의 편집 내용이 사라집니다. 이동할까요?',
+        confirmLabel: '이동',
+        danger: true,
+      }))
+    )
+      return;
     setSelectedTypeId(null);
     setDraft(emptyDraft(categoryId));
     setSaveError(null);
@@ -122,7 +142,7 @@ export default function V2CatalogAdminPage() {
   // ── 타입 삭제 ────────────────────────────────────────────────────────────
   async function handleDeleteType() {
     if (selectedTypeId == null) return;
-    if (!window.confirm('이 타입을 삭제하시겠습니까?')) return;
+    if (!(await confirm({ title: '타입 삭제', message: '이 자산 타입을 삭제합니다. 이 타입으로 만든 자산이 있으면 거부됩니다.', confirmLabel: '삭제', danger: true }))) return;
     setSaveError(null);
     setIsSaving(true);
     try {
@@ -155,13 +175,12 @@ export default function V2CatalogAdminPage() {
     }
   }
 
-  async function handleAddCategory() {
-    const name = window.prompt('새 분류 이름을 입력하세요');
-    if (!name?.trim()) return;
+  async function handleAddCategory(name: string) {
     setCategoryError(null);
     const maxOrder = Math.max(0, ...(catalog?.categories.map((c) => c.sortOrder) ?? [0]));
     try {
-      await mutations.createCategory.mutateAsync({ name: name.trim(), key: name.trim(), sortOrder: maxOrder + 1 });
+      await mutations.createCategory.mutateAsync({ name, key: name, sortOrder: maxOrder + 1 });
+      setAddCategoryOpen(false); // 성공했을 때만 닫는다 — 실패하면 오류를 모달 안에서 보여준다
     } catch (err: unknown) {
       setCategoryError(apiErrorMessage(err, '분류 추가 실패'));
     }
@@ -192,7 +211,10 @@ export default function V2CatalogAdminPage() {
           onNewType={handleNewType}
           onRenameCategory={handleRenameCategory}
           onDeleteCategory={handleDeleteCategory}
-          onAddCategory={handleAddCategory}
+          onAddCategory={() => {
+            setCategoryError(null);
+            setAddCategoryOpen(true);
+          }}
         />
 
         {/* ── 우측 영역 ───────────────────────────────────────────────── */}
@@ -333,6 +355,18 @@ export default function V2CatalogAdminPage() {
           )}
         </div>
       </div>
+      <PromptModal
+        open={addCategoryOpen}
+        title="분류 추가"
+        hint="자산 타입을 묶는 상위 분류입니다. 이름이 곧 키가 되므로 나중에 바꿀 수 없습니다."
+        label="분류 이름"
+        placeholder="예: 계측"
+        busy={mutations.createCategory.isPending}
+        error={categoryError}
+        onConfirm={handleAddCategory}
+        onClose={() => setAddCategoryOpen(false)}
+      />
+      {confirmDialog}
     </div>
   );
 }

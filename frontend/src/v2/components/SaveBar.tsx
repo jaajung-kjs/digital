@@ -1,4 +1,4 @@
-import { Button, ErrorStrip } from '../../components/ui';
+import { Button, ErrorStrip, useConfirm } from '../../components/ui';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 
 interface SaveBarProps {
@@ -6,17 +6,17 @@ interface SaveBarProps {
   isCommitting: boolean;
   error?: string | null;
   onClearError?: () => void;
-  onOpenReport?: () => void;
 }
 
-export function SaveBar({ onCommit, isCommitting, error, onClearError, onOpenReport }: SaveBarProps) {
+export function SaveBar({ onCommit, isCommitting, error, onClearError }: SaveBarProps) {
+  const { confirm, confirmDialog } = useConfirm();
   // 반응형 dirty count — 스토어 파생 getter 구독 (primitive 반환, 재렌더 안전)
   const dirty = useV2WorkingCopy((s) => s.dirtyCount());
 
   if (dirty === 0) return null;
 
-  function handleRevert() {
-    if (!window.confirm(`변경 ${dirty}건을 모두 되돌리시겠습니까?`)) return;
+  async function handleRevert() {
+    if (!(await confirm({ title: '변경 되돌리기', message: `저장하지 않은 변경 ${dirty}건이 모두 사라집니다.`, confirmLabel: '되돌리기', danger: true }))) return;
     useV2WorkingCopy.getState().revert();
   }
 
@@ -39,9 +39,6 @@ export function SaveBar({ onCommit, isCommitting, error, onClearError, onOpenRep
       <Button variant="ghost" size="sm" onClick={handleRedo}>
         다시 실행
       </Button>
-      <Button variant="secondary" size="sm" onClick={onOpenReport}>
-        설계서
-      </Button>
       <Button variant="secondary" size="sm" onClick={handleRevert}>
         되돌리기
       </Button>
@@ -49,6 +46,7 @@ export function SaveBar({ onCommit, isCommitting, error, onClearError, onOpenRep
         {isCommitting ? '저장 중…' : '저장'}
       </Button>
       </div>
+      {confirmDialog}
     </div>
   );
 }

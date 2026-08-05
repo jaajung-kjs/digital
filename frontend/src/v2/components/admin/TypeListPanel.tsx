@@ -7,7 +7,7 @@
  */
 import { useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { Badge, Button, IconButton } from '../../../components/ui';
+import { Badge, Button, IconButton, useConfirm } from '../../../components/ui';
 import type { V2Catalog, V2Category } from '../../types';
 
 interface TypeListPanelProps {
@@ -29,6 +29,7 @@ export function TypeListPanel({
   onDeleteCategory,
   onAddCategory,
 }: TypeListPanelProps) {
+  const { confirm, confirmDialog } = useConfirm();
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
@@ -103,12 +104,16 @@ export function TypeListPanel({
                       aria-label={`${cat.name} 분류 삭제`}
                       className="p-0.5"
                       disabled={!canDelete}
-                      onClick={() => {
-                        if (!canDelete) return;
-                        if (window.confirm(`"${cat.name}" 분류를 삭제할까요?`)) {
-                          onDeleteCategory(cat);
-                        }
-                      }}
+                        onClick={async () => {
+                          if (!canDelete) return;
+                          const ok = await confirm({
+                            title: '분류 삭제',
+                            message: `"${cat.name}" 분류를 삭제합니다.`,
+                            confirmLabel: '삭제',
+                            danger: true,
+                          });
+                          if (ok) onDeleteCategory(cat);
+                        }}
                     >
                       <Trash2 size={12} />
                     </IconButton>
@@ -154,6 +159,7 @@ export function TypeListPanel({
           분류 추가
         </Button>
       </div>
+      {confirmDialog}
     </div>
   );
 }

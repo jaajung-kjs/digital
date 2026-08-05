@@ -8,7 +8,7 @@
  */
 import { useState } from 'react';
 import { X, Plus, Pencil, Check, Trash2 } from 'lucide-react';
-import { DetailCard, DetailCardHeader, Input, IconButton, Badge, ErrorStrip } from '../../../components/ui';
+import { DetailCard, DetailCardHeader, Input, IconButton, Badge, ErrorStrip, PromptModal, useConfirm } from '../../../components/ui';
 import type { V2Catalog, V2CableGroup, V2CableCategory } from '../../types';
 import { useCatalogMutations } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
@@ -151,22 +151,23 @@ function CableGroupRow({ group }: { group: V2CableGroup }) {
 
 /** 그룹 내 카테고리 관리 */
 function CableCategoryList({ group }: { group: V2CableGroup }) {
+  const { confirm, confirmDialog } = useConfirm();
   const mutations = useCatalogMutations();
   const [catError, setCatError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
 
-  async function handleAdd() {
-    const name = window.prompt('새 케이블 종류 이름');
-    if (!name?.trim()) return;
+  async function handleAdd(name: string) {
     setCatError(null);
     const maxOrder = Math.max(0, ...group.categories.map((c) => c.sortOrder));
     try {
       await mutations.createCableCategory.mutateAsync({
         groupId: group.id,
-        name: name.trim(),
+        name,
         sortOrder: maxOrder + 1,
       });
+      setAddOpen(false); // 성공했을 때만 닫는다 — 실패는 모달 안에서 보여준다
     } catch (err: unknown) {
       setCatError(apiErrorMessage(err, '추가 실패'));
     }
@@ -195,7 +196,7 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
   }
 
   async function handleDelete(cat: V2CableCategory) {
-    if (!window.confirm(`'${cat.name}' 케이블 종류를 삭제할까요?`)) return;
+    if (!(await confirm({ title: '케이블 종류 삭제', message: `'${cat.name}' 을 삭제합니다.`, confirmLabel: '삭제', danger: true }))) return;
     setCatError(null);
     try {
       await mutations.deleteCableCategory.mutateAsync(cat.id);
@@ -210,13 +211,25 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
         <span className="flex-1 text-xs font-medium text-content-muted">종류 (카테고리)</span>
         <button
           type="button"
-          onClick={() => void handleAdd()}
+          onClick={() => { setCatError(null); setAddOpen(true); }}
           className="flex items-center gap-0.5 text-xs text-primary hover:underline focus-visible:outline-none rounded"
         >
           <Plus size={11} />
           추가
         </button>
       </div>
+
+      <PromptModal
+        open={addOpen}
+        title="케이블 종류 추가"
+        hint={`'${group.name}' 그룹에 속하는 종류입니다.`}
+        label="종류 이름"
+        placeholder="예: 광점퍼코드"
+        busy={mutations.createCableCategory.isPending}
+        error={catError}
+        onConfirm={handleAdd}
+        onClose={() => setAddOpen(false)}
+      />
 
       {catError && (
         <div className="flex items-center gap-1">
@@ -272,6 +285,7 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
           )}
         </div>
       ))}
+      {confirmDialog}
     </div>
   );
 }

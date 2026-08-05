@@ -16,3 +16,6 @@ export type { SelectProps } from './Select';
 export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
 export * from './ErrorStrip';
+export * from './PromptModal';
+export * from './ConfirmModal';
+export * from './useConfirm';

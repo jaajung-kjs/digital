@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Button } from '../../components/ui';
+import { Button, useConfirm } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
 import { AssetDetailPanel } from '../components/AssetDetailPanel';
 import { AddAssetModal } from '../components/AddAssetModal';
@@ -22,6 +22,7 @@ import type { TraceResult } from '../traceSelectors';
 type ViewMode = '현황' | '평면도' | '선번장' | '계통';
 
 export default function V2WorkspacePage() {
+  const { confirm, confirmDialog } = useConfirm();
   const [selected, setSelected] = useState<FlatOrgNode | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -31,11 +32,20 @@ export default function V2WorkspacePage() {
 
   const { commit, isCommitting, conflicts, clearConflicts, error: commitError, clearError: clearCommitError } = useCommit();
 
-  const handleSelect = (n: FlatOrgNode) => {
+  const handleSelect = async (n: FlatOrgNode) => {
     const st = useV2WorkingCopy.getState();
     if (n.kind === 'substation') {
       if (n.id === st.substationId) { setSelected(n); return; } // same substation re-click: no reload/discard
-      if (st.dirtyCount() > 0 && !window.confirm('저장하지 않은 변경이 있습니다. 폐기하고 이동할까요?')) return;
+      if (
+        st.dirtyCount() > 0 &&
+        !(await confirm({
+          title: '저장하지 않은 변경',
+          message: `변경 ${st.dirtyCount()}건이 사라집니다. 이동할까요?`,
+          confirmLabel: '이동',
+          danger: true,
+        }))
+      )
+        return;
     }
     setSelected(n);
     setSelectedAssetId(null);
@@ -222,7 +232,6 @@ export default function V2WorkspacePage() {
         isCommitting={isCommitting}
         error={commitError}
         onClearError={clearCommitError}
-        onOpenReport={() => setReportOpen(true)}
       />
 
       {/* 자산 추가 모달 (미배치 추가) */}
@@ -245,6 +254,7 @@ export default function V2WorkspacePage() {
           onClear={clearConflicts}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

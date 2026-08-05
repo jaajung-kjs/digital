@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Check, X } from 'lucide-react';
-import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input } from '../../components/ui';
+import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm } from '../../components/ui';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { mergeEffective } from '../store/overlay';
 import type { V2MaintenanceLog, V2InspectionLog } from '../types';
@@ -62,6 +62,7 @@ function makeEmpty(): AddState {
 }
 
 export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, extraLabel, emptyMessage }: RecordsTabProps) {
+  const { confirm, confirmDialog } = useConfirm();
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
 
@@ -152,8 +153,8 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
     setEditState(null);
   }
 
-  function handleDelete(id: string) {
-    if (!window.confirm('이 기록을 삭제하시겠습니까?')) return;
+  async function handleDelete(id: string) {
+    if (!(await confirm({ title: '기록 삭제', message: '이 기록을 삭제합니다.', confirmLabel: '삭제', danger: true }))) return;
     stageDelete(id);
     if (editState?.id === id) setEditState(null);
   }
@@ -275,6 +276,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
           </DetailCard>
         );
       })}
+      {confirmDialog}
     </div>
   );
 }

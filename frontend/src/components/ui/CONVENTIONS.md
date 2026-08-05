@@ -50,7 +50,7 @@
 ## 3. 컴포넌트 카탈로그 — "이걸 쓰세요"
 
 실제로 존재하는 공용 컴포넌트는 전부 `src/components/ui`(배럴 `index.ts`)에 있다:
-`Badge`, `Button`, `IconButton`, `Card`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailNote`, `Input`, `Select`, `Modal`, `CommitBar`, `cn`.
+`Badge`, `Button`, `IconButton`, `Card`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailNote`, `Input`, `Select`, `Modal`, `ConfirmModal`, `PromptModal`, `useConfirm`, `ErrorStrip`, `CommitBar`, `cn`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다 — v2(`src/v2/`)와 레거시 잔존 화면 공통.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -103,3 +103,28 @@ Esc 닫기·백드롭 클릭 닫기·`size="sm"/"md"` 폭 고정을 내장. 자�
 3. 타이포는 §1, 색은 §2 안에서
 
 그 패널 파일 안에서 일회용 스타일을 만들지 않는다 — 그게 비일관성의 원인이다.
+
+### 오류 한 줄 표시 → `ErrorStrip`
+`{error && <span className="text-xs text-danger">…` 을 직접 쓰지 않는다. 닫기가 필요하면 `onDismiss` 를 준다.
+```tsx
+<ErrorStrip message={error} onDismiss={() => setError(null)} />
+```
+**주의:** 필드 옆에 붙는 검증 메시지(입력 하나에 대한 이유)는 이것이 아니다 — 닫기가 없는 다른 패턴이므로 인라인 `<span className="text-xs text-danger">` 를 그대로 쓴다.
+
+### 확인 대화상자 → `useConfirm` (`window.confirm` 금지)
+네이티브 `confirm`/`prompt`/`alert` 는 쓰지 않는다. 앱과 생김새가 다르고, 브라우저를 막고, **검증 실패를 그 자리에서 보여줄 수 없다.**
+```tsx
+const { confirm, confirmDialog } = useConfirm();
+// ...
+if (!(await confirm({ title: '자산 삭제', message: `${n}개 하위 자산이 함께 삭제됩니다.`, confirmLabel: '삭제', danger: true }))) return;
+// 렌더 어딘가에
+{confirmDialog}
+```
+`confirmLabel` 은 **동사**로 쓴다(`삭제`·`이동`) — `확인` 보다 결과가 분명하다. 되돌릴 수 없으면 `danger` 를 준다.
+
+### 한 줄 입력 대화상자 → `PromptModal` (`window.prompt` 금지)
+`hint` 로 입력 규칙을 알리고, 실패하면 `error` 로 **모달을 닫지 않고** 그 자리에 이유를 보여준다.
+```tsx
+<PromptModal open={open} title="분류 추가" hint="이름이 곧 키가 되어 나중에 바꿀 수 없습니다."
+  label="분류 이름" busy={mut.isPending} error={err} onConfirm={handleAdd} onClose={() => setOpen(false)} />
+```

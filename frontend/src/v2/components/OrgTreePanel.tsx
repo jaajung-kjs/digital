@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button, IconButton, Input, Modal } from '../../components/ui';
+import { Button, IconButton, Input, Modal, useConfirm } from '../../components/ui';
 import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
@@ -30,6 +30,7 @@ interface ModalState {
 }
 
 export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node: FlatOrgNode) => void }) {
+  const { confirm, confirmDialog } = useConfirm();
   const { data: tree } = useV2OrgTree();
   const { createOrgNode: createMut, renameOrgNode: renameMut, deleteOrgNode: deleteMut } = useOrgMutations();
   const [modal, setModal] = useState<ModalState | null>(null);
@@ -62,10 +63,14 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
     setModal(null);
   }
 
-  function handleDelete(n: FlatOrgNode) {
-    if (window.confirm(`'${n.name}' 을 삭제할까요? (하위 항목이 있으면 거부됩니다)`)) {
-      deleteMut.mutate({ kind: SELF_KIND[n.kind], id: n.id });
-    }
+  async function handleDelete(n: FlatOrgNode) {
+    const ok = await confirm({
+      title: '조직 삭제',
+      message: `'${n.name}' 을 삭제합니다. 하위 항목이 있으면 서버가 거부합니다.`,
+      confirmLabel: '삭제',
+      danger: true,
+    });
+    if (ok) deleteMut.mutate({ kind: SELF_KIND[n.kind], id: n.id });
   }
 
   return (
@@ -151,6 +156,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
           placeholder="이름"
         />
       </Modal>
+      {confirmDialog}
     </div>
   );
 }

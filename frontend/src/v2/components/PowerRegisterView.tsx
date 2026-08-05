@@ -152,8 +152,14 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
   if (containers.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-content-faint">전원 포트를 가진 자산이 없습니다</p>
+      <div className="flex h-full items-center justify-center px-6">
+        <div className="max-w-md text-center">
+          <p className="text-sm text-content-muted">계통에 표시할 전원 자산이 없습니다</p>
+          <p className="mt-1 text-xs text-content-faint">
+            계통은 <strong>전원 포트를 가진 자산을 품고 있는 함체</strong>를 자동으로 찾습니다.
+            분전반 같은 함체를 만들고 그 안에 피더를 넣으면 여기에 나타납니다.
+          </p>
+        </div>
       </div>
     );
   }

@@ -1189,8 +1189,10 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         {/* 층이 선택됐지만 배치 자산 없음 안내 */}
         {activeFloorId != null && placedAssets.length === 0 && armedTypeId === null && !cableState.armed && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <span className="text-xs text-content-faint">
+            <span className="text-center text-xs text-content-faint">
               배치된 자산이 없습니다
+              <br />
+              위 팔레트에서 종류를 고르고 도면 위에 드래그해 그리세요
             </span>
           </div>
         )}

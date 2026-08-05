@@ -96,7 +96,8 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
                 colSpan={cols.length}
                 className="px-3 py-6 text-center text-sm text-content-faint"
               >
-                자산이 없습니다
+                <span className="block">자산이 없습니다</span>
+                <span className="mt-1 block text-xs">위의 &lsquo;자산 추가&rsquo; 로 시작하세요</span>
               </td>
             </tr>
           )}

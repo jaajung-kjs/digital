@@ -10,7 +10,7 @@
 import { Plus } from 'lucide-react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
 import type { BadgeStatus } from '../../components/ui';
-import { Badge, Button, DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../components/ui';
+import { Badge, Button, DetailCard, DetailCardHeader, DetailRow, Input, Select, useConfirm } from '../../components/ui';
 import { freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
@@ -157,6 +157,7 @@ export function InfoTab({
   setAddModalCtx,
   onSelectAsset,
 }: InfoTabProps) {
+  const { confirm, confirmDialog } = useConfirm();
   const location = locationText(asset, floorNameById, assetNameById);
 
   // 하위 자산 총 수 (cascade 삭제 confirm용)
@@ -167,12 +168,12 @@ export function InfoTab({
   const descendantCount = countDescendants(assetId);
 
   // ── 삭제 핸들러 ────────────────────────────────────────────────────────────
-  function handleDelete() {
+  async function handleDelete() {
     const msg =
       descendantCount > 0
         ? `${descendantCount}개 하위 자산이 함께 삭제됩니다. 계속하시겠습니까?`
         : '이 자산을 삭제하시겠습니까?';
-    if (!window.confirm(msg)) return;
+    if (!(await confirm({ title: '자산 삭제', message: msg, confirmLabel: '삭제', danger: true }))) return;
     useV2WorkingCopy.getState().stageAssetDeleteCascade(assetId);
   }
 
@@ -389,6 +390,7 @@ export function InfoTab({
 
       {/* 사진 카드 */}
       <PhotoCard assetId={assetId} />
+      {confirmDialog}
     </>
   );
 }
