@@ -2,6 +2,8 @@ import { temporal } from 'zundo';
 import { createStore, useStore } from 'zustand';
 import { shallow } from 'zustand/shallow';
 import { fetchWorkingcopy } from '../api';
+import { apiErrorMessage } from '../apiError';
+import { useV2Notice } from './noticeStore';
 import type { V2Asset, V2AssetPhoto, V2Cable, V2Floor, V2InspectionLog, V2MaintenanceLog, V2Workingcopy } from '../types';
 import { emptyOverlay, mergeEffective, overlayDirtyCount, stageCreate, stageDelete, stageUpdate, type Overlay } from './overlay';
 
@@ -24,6 +26,8 @@ export interface V2WorkingCopyState {
   saved: typeof EMPTY_SAVED;
   overlays: Overlays;
   baseVersions: Record<string, string>;
+  /** 워킹카피 조회 진행 중 — 이 앱에서 가장 무거운 조회다(배경도면 포함 시 수백 KB). */
+  loading: boolean;
   load: (substationId: string) => Promise<void>;
   applyFloor: (floor: V2Floor) => void;
   revert: () => void;
@@ -54,6 +58,7 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
   temporal(
     (set, get) => ({
       substationId: null,
+      loading: false,
       saved: EMPTY_SAVED,
       overlays: emptyOverlays(),
       baseVersions: {},
@@ -61,10 +66,13 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
       load: async (substationId) => {
         const t = v2WorkingCopyStore.temporal.getState();
         t.pause();
+        // 대상을 먼저 바꾸고 이전 변전소 데이터를 비운다 — 그러지 않으면 조회가
+        // 끝날 때까지 **A 의 자산이 B 의 이름 아래** 그대로 보인다(피드백 부재가
+        // 아니라 틀린 데이터를 보여주는 것이다).
+        set({ substationId, loading: true, saved: EMPTY_SAVED, overlays: emptyOverlays() });
         try {
           const wc = await fetchWorkingcopy(substationId);
           set({
-            substationId,
             saved: { substation: wc.substation, floors: wc.floors, assets: wc.assets, maintenanceLogs: wc.maintenanceLogs, inspectionLogs: wc.inspectionLogs, cables: wc.cables, photos: wc.photos },
             overlays: emptyOverlays(),
             baseVersions: {
@@ -73,7 +81,12 @@ export const v2WorkingCopyStore = createStore<V2WorkingCopyState>()(
             },
           });
           t.clear();
+        } catch (e) {
+          // 조회 실패를 삼키면 화면은 빈 채로 남고 사용자는 이유를 알 수 없다.
+          // 문구 번역은 apiErrorMessage(단일 지점)가 한다.
+          useV2Notice.getState().showError(apiErrorMessage(e, '변전소 데이터를 불러오지 못했습니다'));
         } finally {
+          set({ loading: false });
           t.resume();
         }
       },

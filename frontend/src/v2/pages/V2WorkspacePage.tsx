@@ -23,6 +23,7 @@ type ViewMode = '현황' | '평면도' | '선번장' | '계통';
 
 export default function V2WorkspacePage() {
   const { confirm, confirmDialog } = useConfirm();
+  const loadingWorkingCopy = useV2WorkingCopy((st) => st.loading);
   const [selected, setSelected] = useState<FlatOrgNode | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -164,6 +165,11 @@ export default function V2WorkspacePage() {
                 )}
               </div>
 
+              {loadingWorkingCopy ? (
+                <div className="flex min-h-0 flex-1 items-center justify-center">
+                  <span className="text-sm text-content-muted">불러오는 중…</span>
+                </div>
+              ) : (
               <div className="flex min-h-0 flex-1 overflow-hidden">
                 {/* 평면도 뷰 */}
               {inSubstationScope && viewMode === '평면도' ? (
@@ -221,6 +227,7 @@ export default function V2WorkspacePage() {
                 />
               )}
               </div>
+              )}
             </div>
           )}
         </main>

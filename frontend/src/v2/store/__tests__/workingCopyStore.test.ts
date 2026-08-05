@@ -43,6 +43,7 @@ vi.mock('../../api', () => {
 });
 
 import * as apiMock from '../../api';
+import { useV2Notice } from '../noticeStore';
 import { useV2WorkingCopy } from '../workingCopyStore';
 
 describe('useV2WorkingCopy', () => {
@@ -110,12 +111,28 @@ describe('useV2WorkingCopy', () => {
     expect(useV2WorkingCopy.getState().dirtyCount()).toBe(0);
   });
 
-  it('load 실패(fetch reject) 후에도 stage→undo 동작 (temporal resume 보장)', async () => {
+  it('load 실패: 오류를 표면화하고 화면을 비운다 — 이전 변전소 데이터를 남기지 않는다', async () => {
+    // 예전 계약은 "실패 시 기존 상태 유지" 였는데, 그건 **틀린 데이터를 유지**하는
+    // 것이었다 — 조직 트리는 새 변전소를 가리키는데 화면에는 이전 변전소 자산이
+    // 그대로 남는다. 지금은 대상을 먼저 바꾸고 비운 뒤 조회하며, 실패는 알림으로 알린다.
+    useV2Notice.getState().clearError();
     (apiMock as unknown as { __setFailNext: (v: boolean) => void }).__setFailNext(true);
-    await expect(useV2WorkingCopy.getState().load('sub-1')).rejects.toThrow('network fail');
-    // 기존 상태(성공한 beforeEach load)는 유지되고, temporal은 resume 되어야 한다
+
+    await useV2WorkingCopy.getState().load('sub-2'); // reject 하지 않는다(알림으로 처리)
+
     const s = useV2WorkingCopy.getState();
-    expect(s.effectiveAssets()).toHaveLength(2);
+    expect(s.substationId).toBe('sub-2');
+    expect(s.effectiveAssets()).toHaveLength(0);
+    expect(s.loading).toBe(false);
+    expect(useV2Notice.getState().error).not.toBeNull();
+  });
+
+  it('load 실패 후에도 stage→undo 가 동작한다 (temporal resume 보장)', async () => {
+    (apiMock as unknown as { __setFailNext: (v: boolean) => void }).__setFailNext(true);
+    await useV2WorkingCopy.getState().load('sub-1');
+    // 실패로 비었더라도 temporal 은 resume 되어 이후 편집/undo 가 정상이어야 한다.
+    await useV2WorkingCopy.getState().load('sub-1'); // 성공 재조회
+    const s = useV2WorkingCopy.getState();
     s.stageAssetUpdate('a-rack', { name: '실패후수정' });
     expect(useV2WorkingCopy.getState().dirtyCount()).toBe(1);
     useV2WorkingCopy.temporal.getState().undo();
