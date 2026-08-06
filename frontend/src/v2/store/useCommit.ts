@@ -5,6 +5,7 @@ import { putCommit } from '../api';
 import { apiErrorMessage } from '../apiError';
 import type { V2Conflict } from '../types';
 import { buildCommitPayload } from './buildCommitPayload';
+import { useV2Notice } from './noticeStore';
 import { useV2WorkingCopy } from './workingCopyStore';
 
 export function useCommit() {
@@ -16,6 +17,7 @@ export function useCommit() {
   const commit = useCallback(async () => {
     const s = useV2WorkingCopy.getState();
     if (!s.substationId || s.dirtyCount() === 0) return;
+    const pendingCount = s.dirtyCount();
     setCommitting(true);
     setError(null);
     try {
@@ -29,6 +31,8 @@ export function useCommit() {
       await s.load(s.substationId); // baseVersion 갱신 (2A 계약)
       await queryClient.invalidateQueries({ queryKey: ['v2', 'org-tree'] });
       await queryClient.invalidateQueries({ queryKey: ['v2', 'node-assets'] });
+      // 저장 바가 사라지는 것만으로는 "정말 저장됐나" 를 알 수 없다.
+      useV2Notice.getState().showSuccess(`변경 ${pendingCount}건을 저장했습니다`);
     } catch (e) {
       if (isAxiosError(e) && e.response?.status === 409) {
         const details = e.response.data?.details;

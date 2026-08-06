@@ -31,11 +31,9 @@ export function AssetDetailPanel({
 }: AssetDetailPanelProps) {
   const [tab, setTab] = useState<Tab>('info');
   const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
-  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
   // 자산 전환 시 로컬 상태 리셋 (stale 자식 선택/모달 컨텍스트 방지)
   useEffect(() => {
-    setSelectedChildId(null);
     setAddModalCtx(null);
   }, [assetId]);
 
@@ -96,12 +94,11 @@ export function AssetDetailPanel({
             assetId={assetId}
             asset={asset}
             type={type}
+            typesById={typesById}
             childrenBySpecKey={childrenBySpecKey}
             effectiveAssets={effectiveAssets}
             floorNameById={floorNameById}
             assetNameById={assetNameById}
-            selectedChildId={selectedChildId}
-            setSelectedChildId={setSelectedChildId}
             setAddModalCtx={setAddModalCtx}
             onSelectAsset={onSelectAsset}
           />
@@ -136,6 +133,7 @@ export function AssetDetailPanel({
         {tab === 'connections' && (
           <ConnectionsTab
             assetId={assetId}
+            onSelectAsset={onSelectAsset}
             onTrace={onTrace ?? (() => {})}
             onClearTrace={onClearTrace ?? (() => {})}
             traceResult={traceResult}

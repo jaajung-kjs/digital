@@ -7,11 +7,11 @@
  */
 
 import { useMemo } from 'react';
-import { DetailCardHeader, Button, DetailCard, EmptyState, cn } from '../../components/ui';
+import { DetailCardHeader, Button, DetailCard, EmptyState, cn, SELECTABLE } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { portDirectionLabel } from '@twin/core';
+import { internalLinkMap, portDirectionLabel } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
@@ -19,12 +19,14 @@ import type { V2Cable, V2Port } from '../types';
 
 interface ConnectionsTabProps {
   assetId: string;
+  /** 대국·추적 경로에서 다른 자산으로 이동한다 — 워크스페이스의 단일 이동 지점. */
+  onSelectAsset: (id: string) => void;
   onTrace: (result: TraceResult) => void;
   onClearTrace: () => void;
   traceResult?: TraceResult | null;
 }
 
-export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: ConnectionsTabProps) {
+export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, traceResult }: ConnectionsTabProps) {
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
 
@@ -37,6 +39,21 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
   const types = catalog.data?.types ?? [];
 
   const asset = useMemo(() => effectiveAssets.find((a) => a.id === assetId), [effectiveAssets, assetId]);
+
+  /* 자산 내부 통과 — 타입이 선언한 링크 규칙이 실제로 어느 포트끼리를 잇는지.
+     추적이 이 장비를 왜 통과하는지가 여기서 드러난다(계산은 core 와 공유). */
+  const internalOf = useMemo(() => {
+    const type = types.find((t) => t.id === asset?.typeId);
+    if (!asset || !type || type.linkRules.length === 0) return new Map<string, string[]>();
+    return internalLinkMap(
+      type.linkRules.map((r) => ({ fromGroup: r.fromGroup, toGroup: r.toGroup, mapping: r.mapping })),
+      asset.ports.map((p) => ({ ...p, assetId: asset.id })),
+    );
+  }, [asset, types]);
+  const portNameById = useMemo(
+    () => new Map((asset?.ports ?? []).map((p) => [p.id, p.name])),
+    [asset],
+  );
 
   // portId → cable + peer port 매핑
   const cableByPortId = useMemo(() => {
@@ -122,12 +139,28 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
             }
           />
           <ol className="space-y-0.5">
-            {traceResult.hops.map((hop, i) => (
-              <li key={i} className="text-xs text-content">
-                <span className="text-content-faint mr-1">{i + 1}.</span>
-                {hopText(hop)}
-              </li>
-            ))}
+            {traceResult.hops.map((hop, i) => {
+              // 경로에 나온 자산은 눌러서 그리로 갈 수 있어야 한다 — 예전에는 글자일 뿐이라
+              // 경로를 읽고도 그 장비를 찾으려면 표에서 다시 검색해야 했다.
+              const target = hop.kind === 'internal' ? undefined : portIndex.get(hop.toPortId)?.asset;
+              return (
+                <li key={i} className="text-sm text-content">
+                  <span className="mr-1 text-xs text-content-faint">{i + 1}.</span>
+                  {target ? (
+                    <button
+                      type="button"
+                      className={cn('rounded px-1 text-left text-primary', SELECTABLE)}
+                      title={`${target.name} 으로 이동`}
+                      onClick={() => onSelectAsset(target.id)}
+                    >
+                      {hopText(hop)}
+                    </button>
+                  ) : (
+                    <span className="text-content-muted">{hopText(hop)}</span>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         </DetailCard>
       )}
@@ -183,12 +216,27 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
                     />
                     <span className="w-16 shrink-0 truncate text-content">{port.name}</span>
                     {peerLabel ? (
-                      <span className="min-w-0 flex-1 truncate text-content-muted" title={peerLabel}>
+                      <button
+                        type="button"
+                        className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
+                        title={`${peerLabel} 으로 이동`}
+                        disabled={!peerPortEntry}
+                        onClick={() => peerPortEntry && onSelectAsset(peerPortEntry.asset.id)}
+                      >
                         {peerLabel}
-                      </span>
+                      </button>
                     ) : (
                       <span className="min-w-0 flex-1 text-content-faint">미연결</span>
                     )}
+                    {/* 내부로 이어지는 포트 — 이게 있으면 추적이 이 장비를 통과한다. */}
+                    {internalOf.get(port.id)?.length ? (
+                      <span
+                        className="shrink-0 text-xs text-content-faint"
+                        title="이 장비 안에서 이어진 포트"
+                      >
+                        ↔ {internalOf.get(port.id)!.map((id) => portNameById.get(id) ?? '?').join(', ')}
+                      </span>
+                    ) : null}
                     <span className="shrink-0 text-xs text-content-faint">
                       {mediumLabel(port.medium)} · {portDirectionLabel(port.direction)}
                     </span>

@@ -6,6 +6,7 @@ export * from './validation/slotPlacement.js';
 export * from './validation/connection.js';
 export * from './validation/typeSpec.js';
 export * from './trace/graph.js';
+export * from './trace/internalLinks.js';
 export * from './seed/catalog.js';
 export * from './report/computeReport.js';
 export * from './canvas/backgroundTypes.js';

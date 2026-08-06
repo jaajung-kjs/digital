@@ -22,6 +22,7 @@ export function V2Shell() {
 
   const roleLabel = isAdminRole(user?.role) ? '관리자' : '조회';
   const notice = useV2Notice((st) => st.error);
+  const success = useV2Notice((st) => st.success);
 
   const handleLogout = async () => {
     await logout();
@@ -95,6 +96,17 @@ export function V2Shell() {
         onDismiss={() => useV2Notice.getState().clearError()}
         className="shrink-0 border-b border-line bg-danger-bg px-4 py-1"
       />
+
+      {/* 성공 알림 — 저장 바가 사라지는 것만으로는 저장 여부를 알 수 없다.
+          오류와 달리 조치할 것이 없으므로 잠시 뒤 스스로 사라진다. */}
+      {success && (
+        <div
+          role="status"
+          className="shrink-0 border-b border-line bg-success-bg px-4 py-1 text-xs text-success"
+        >
+          {success}
+        </div>
+      )}
 
       {/* ── 콘텐츠 영역 ── */}
       <div className="flex min-h-0 flex-1">

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useId, type ReactElement, type ReactNode } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { cn } from './cn';
 import { Badge, type BadgeStatus } from './Badge';
@@ -92,11 +92,29 @@ export function DetailRow({
   align?: 'center' | 'start';
   children: ReactNode;
 }) {
+  /* 라벨을 입력과 실제로 연결한다.
+     예전에는 그냥 <span> 이라, 화면에는 "이름" 이라고 쓰여 있어도 스크린리더는 그냥
+     "편집창" 이라고만 읽었고, 라벨을 눌러도 입력에 포커스가 가지 않았다.
+     자식이 하나짜리 컨트롤이면 id 를 붙여 htmlFor 로 잇고, 여러 개(체크박스 묶음 등)면
+     연결할 대상이 모호하므로 예전처럼 단순 텍스트로 둔다. */
+  const generatedId = useId();
+  // Children.count 는 텍스트 노드도 1 로 세므로, 배열로 펼쳐 **엘리먼트 하나**인지 본다.
+  const items = Children.toArray(children);
+  const only = items.length === 1 ? items[0] : null;
+  const linkable = isValidElement<{ id?: string }>(only) && only.props.id === undefined;
+  const controlId = linkable ? generatedId : undefined;
+  const body = linkable ? cloneElement(only as ReactElement<{ id?: string }>, { id: controlId }) : children;
+
   return (
     <div className={cn('flex gap-2', align === 'start' ? 'items-start' : 'items-center')}>
-      <span className={cn('w-16 shrink-0 text-xs text-content-muted', align === 'start' && 'pt-2')}>{label}</span>
+      <label
+        htmlFor={controlId}
+        className={cn('w-16 shrink-0 text-xs text-content-muted', align === 'start' && 'pt-2')}
+      >
+        {label}
+      </label>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-content">
-        {children}
+        {body}
         {issue && <span className="text-xs text-danger">{issue}</span>}
         {hint && <span className="text-xs text-content-faint">{hint}</span>}
       </div>

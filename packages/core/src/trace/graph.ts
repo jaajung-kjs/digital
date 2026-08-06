@@ -1,4 +1,5 @@
 import type { AssetRef, AssetTypeSpec, CableRef, PortRef } from '../catalog/types.js';
+import { internalLinkMap } from './internalLinks.js';
 
 export interface TraceEdge {
   kind: 'cable' | 'internal';
@@ -44,35 +45,13 @@ export function buildTraceGraph(args: {
     else portsByAsset.set(p.assetId, [p]);
   }
 
+  // 자산 내부 통과(포트 ↔ 포트)는 상세 화면도 그대로 보여줘야 하므로 계산을 공유한다.
   for (const asset of args.assets) {
     const spec = args.types[asset.typeKey];
     if (!spec || spec.links.length === 0) continue;
-    const mine = portsByAsset.get(asset.id) ?? [];
-    const byGroup = new Map<string, PortRef[]>();
-    for (const p of mine) {
-      const list = byGroup.get(p.group);
-      if (list) list.push(p);
-      else byGroup.set(p.group, [p]);
-    }
-    for (const rule of spec.links) {
-      const from = byGroup.get(rule.fromGroup) ?? [];
-      const to = byGroup.get(rule.toGroup) ?? [];
-      if (rule.mapping === 'byIndex') {
-        const toByIndex = new Map(to.map((p) => [p.index, p]));
-        for (const f of from) {
-          const t = toByIndex.get(f.index);
-          if (!t) continue;
-          push(f.id, { kind: 'internal', toPortId: t.id });
-          push(t.id, { kind: 'internal', toPortId: f.id });
-        }
-      } else {
-        for (const f of from) {
-          for (const t of to) {
-            push(f.id, { kind: 'internal', toPortId: t.id });
-            push(t.id, { kind: 'internal', toPortId: f.id });
-          }
-        }
-      }
+    const linked = internalLinkMap(spec.links, portsByAsset.get(asset.id) ?? []);
+    for (const [fromId, toIds] of linked) {
+      for (const toPortId of toIds) push(fromId, { kind: 'internal', toPortId });
     }
   }
 

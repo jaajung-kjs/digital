@@ -17,7 +17,6 @@ import {
   useConfirm,
   cn,
   SELECTABLE,
-  SELECTED_TILE,
 } from '../../components/ui';
 import { freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -50,7 +49,6 @@ function locationText(
 interface SlotGridProps {
   spec: V2ContainerSpec;
   children: V2Asset[];
-  selectedChildId: string | null;
   onSelectChild: (id: string) => void;
   /** 빈 슬롯을 눌렀을 때 — 그 자리에 바로 추가한다. */
   onAddAtSlot: (slotIndex: number) => void;
@@ -59,7 +57,7 @@ interface SlotGridProps {
 /** 슬롯 한 칸의 높이(px) — 여러 슬롯을 차지하는 장비는 이 배수만큼 높아진다. */
 const SLOT_ROW_HEIGHT = 26;
 
-function SlotGrid({ spec, children, selectedChildId, onSelectChild, onAddAtSlot }: SlotGridProps) {
+function SlotGrid({ spec, children, onSelectChild, onAddAtSlot }: SlotGridProps) {
   const slotCount = spec.slotCount!;
   // 슬롯 인덱스(0-based) → 자식 자산 매핑
   const bySlot = new Map<number, V2Asset>();
@@ -72,7 +70,6 @@ function SlotGrid({ spec, children, selectedChildId, onSelectChild, onAddAtSlot 
   while (idx < slotCount) {
     const child = bySlot.get(idx);
     const span = child?.slotSpan ?? 1;
-    const isSelected = child != null && child.id === selectedChildId;
     // 여러 슬롯을 차지하면 "3–5" 처럼 범위로 적는다.
     const label = span > 1 ? `${idx + 1}–${idx + span}` : String(idx + 1);
     const slotIndex = idx;
@@ -84,11 +81,9 @@ function SlotGrid({ spec, children, selectedChildId, onSelectChild, onAddAtSlot 
           type="button"
           className={cn(
             'flex h-full w-full items-center gap-2 rounded border px-2 text-left text-sm',
-            isSelected
-              ? SELECTED_TILE
-              : child
-                ? cn('border-line bg-surface-2 text-content', SELECTABLE)
-                : cn('border-dashed border-line text-content-faint', SELECTABLE),
+            child
+              ? cn('border-line bg-surface-2 text-content', SELECTABLE)
+              : cn('border-dashed border-line text-content-faint', SELECTABLE),
           )}
           title={child?.name}
           onClick={() => (child ? onSelectChild(child.id) : onAddAtSlot(slotIndex))}
@@ -164,12 +159,12 @@ interface InfoTabProps {
   assetId: string;
   asset: V2Asset;
   type: V2AssetType | undefined;
+  /** 상위 자산의 컨테이너 명세를 읽기 위한 타입 맵 */
+  typesById: Map<string, V2AssetType>;
   childrenBySpecKey: Map<string, V2Asset[]>;
   effectiveAssets: V2Asset[];
   floorNameById: Map<string, string>;
   assetNameById: Map<string, string>;
-  selectedChildId: string | null;
-  setSelectedChildId: (id: string | null | ((prev: string | null) => string | null)) => void;
   setAddModalCtx: (ctx: AddModalContext | null) => void;
   onSelectAsset: (id: string) => void;
 }
@@ -178,17 +173,30 @@ export function InfoTab({
   assetId,
   asset,
   type,
+  typesById,
   childrenBySpecKey,
   effectiveAssets,
   floorNameById,
   assetNameById,
-  selectedChildId,
-  setSelectedChildId,
   setAddModalCtx,
   onSelectAsset,
 }: InfoTabProps) {
   const { confirm, confirmDialog } = useConfirm();
   const location = locationText(asset, floorNameById, assetNameById);
+
+  /* 상위 자산과 그 컨테이너 명세 — 위치 행이 "어디에 담겨 있는지" 를 다루려면 둘 다 필요하다. */
+  const parentAsset = asset.parentAssetId ? effectiveAssets.find((a) => a.id === asset.parentAssetId) : undefined;
+  const parentType = parentAsset ? typesById.get(parentAsset.typeId) : undefined;
+  const parentSlotSpec = parentType?.containerSpecs.find((c) => c.key === asset.containerKey);
+  const siblingsInParent = parentAsset
+    ? effectiveAssets.filter((a) => a.parentAssetId === parentAsset.id && a.containerKey === asset.containerKey)
+    : [];
+  const freeSlotsInParent = parentSlotSpec?.slotCount != null ? freeSlots(parentSlotSpec, siblingsInParent) : [];
+
+  function handleSlotChange(value: string) {
+    if (value === '' || Number(value) === asset.slotIndex) return;
+    useV2WorkingCopy.getState().stageAssetUpdate(assetId, { slotIndex: parseInt(value, 10) });
+  }
 
   // 하위 자산 총 수 (cascade 삭제 confirm용)
   function countDescendants(rootId: string): number {
@@ -259,8 +267,45 @@ export function InfoTab({
         </DetailRow>
 
         {/* 위치 */}
+        {/* 위치는 읽기 전용 문장이 아니라 **이동 수단**이다.
+            상위 자산을 누르면 그리로 올라가고(수용 자산에서 되돌아올 유일한 길이었다),
+            고정 슬롯이면 여기서 슬롯을 바꾼다 — 자기 위치는 자기 화면에서 고친다. */}
         <DetailRow label="위치">
-          <span className="text-sm text-content">{location}</span>
+          {parentAsset ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                className={cn('min-w-0 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                title={`${parentAsset.name} 으로 이동`}
+                onClick={() => onSelectAsset(parentAsset.id)}
+              >
+                {parentAsset.name}
+              </button>
+              {parentSlotSpec?.slotCount != null ? (
+                <div className="w-28">
+                  <Select
+                    size="sm"
+                    aria-label="슬롯"
+                    value={asset.slotIndex == null ? '' : String(asset.slotIndex)}
+                    onChange={(e) => handleSlotChange(e.currentTarget.value)}
+                  >
+                    {asset.slotIndex != null && (
+                      <option value={String(asset.slotIndex)}>슬롯 {asset.slotIndex + 1}</option>
+                    )}
+                    {freeSlotsInParent.map((idx) => (
+                      <option key={idx} value={String(idx)}>
+                        슬롯 {idx + 1}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : (
+                <span className="shrink-0 text-sm text-content-muted">· {parentSlotSpec?.name ?? ''}</span>
+              )}
+            </div>
+          ) : (
+            <span className="text-sm text-content">{location}</span>
+          )}
         </DetailRow>
       </DetailCard>
 
@@ -313,23 +358,6 @@ export function InfoTab({
           <DetailCardHeader title="수용" />
           {type.containerSpecs.map((spec) => {
             const specChildren = childrenBySpecKey.get(spec.key) ?? [];
-            const selectedChild = selectedChildId != null
-              ? specChildren.find((c) => c.id === selectedChildId) ?? null
-              : null;
-            const freeSlotsForSpec = spec.slotCount != null ? freeSlots(spec, specChildren) : [];
-
-            function handleChildSelect(childId: string) {
-              setSelectedChildId((prev) => (prev === childId ? null : childId));
-            }
-
-            function handleSlotMove(targetSlot: string) {
-              if (!selectedChildId || targetSlot === '') return;
-              useV2WorkingCopy.getState().stageAssetUpdate(selectedChildId, {
-                slotIndex: parseInt(targetSlot, 10),
-              });
-              setSelectedChildId(null);
-            }
-
             return (
               <div key={spec.key} className="space-y-1">
                 {/* 추가 버튼은 목록 안 '비어 있음' 행이 겸한다 — 머리줄에 또 두면
@@ -344,8 +372,7 @@ export function InfoTab({
                   <SlotGrid
                     spec={spec}
                     children={specChildren}
-                    selectedChildId={selectedChildId}
-                    onSelectChild={handleChildSelect}
+                    onSelectChild={onSelectAsset}
                     onAddAtSlot={(slotIndex) =>
                       setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren, slotIndex })
                     }
@@ -357,33 +384,8 @@ export function InfoTab({
                     onAdd={() => setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren })}
                   />
                 )}
-                {/* 슬롯 이동 패널 (고정 슬롯 + 자식 선택 상태) */}
-                {spec.slotCount != null && selectedChild != null && (
-                  <div className="mt-1 space-y-1 rounded border border-line bg-surface-2 p-2">
-                    <p className="text-xs text-content-muted">
-                      <span className="font-medium text-content">{selectedChild.name}</span> 이동
-                    </p>
-                    {freeSlotsForSpec.length === 0 ? (
-                      <p className="text-xs text-content-faint">빈 슬롯 없음</p>
-                    ) : (
-                      <Select
-                        value=""
-                        size="sm"
-                        onChange={(e) => handleSlotMove(e.currentTarget.value)}
-                      >
-                        <option value="">— 빈 슬롯으로 이동 —</option>
-                        {freeSlotsForSpec.map((idx) => (
-                          <option key={idx} value={String(idx)}>
-                            슬롯 {idx + 1}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                    <p className="text-xs text-content-faint">
-                      슬롯 맞교환은 한 번에 한 자산씩, 중간 저장이 필요합니다.
-                    </p>
-                  </div>
-                )}
+                {/* 슬롯 이동은 그 자산의 '위치' 행이 담당한다 — 부모 쪽에 두면
+                    "자식을 누른다" 가 진입인지 이동 선택인지 모호해진다. */}
               </div>
             );
           })}
