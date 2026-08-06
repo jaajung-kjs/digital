@@ -26,7 +26,7 @@ import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
 import type { DragSession } from '../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../floorPlacement';
 import { placedAssetsOf } from '../floorPlanSelectors';
-import { cableSegments, distanceToPolyline, freePortsOf, withDescendants, occupiedPortIds } from '../cableSelectors';
+import { cableSegments, distanceToPolyline, portsWithOccupancy, withDescendants, occupiedPortIds } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { isAdminRole, useV2AuthStore } from '../store/authStore';
@@ -35,12 +35,12 @@ import { Button, IconButton, Select, Tabs, useConfirm } from '../../components/u
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
-import { PortPickerPopover } from './PortPickerPopover';
+import { PortPickerPanel } from './PortPickerPanel';
 import { RemoteEndpointModal } from './RemoteEndpointModal';
 import { SNAP_GRID, SELECTION_STYLES } from '../canvas/constants';
 import type { V2Asset, V2Cable, V2Floor, V2Port } from '../types';
 import type { AssetSearchResult } from '../api';
-import type { PortGroup } from './PortPickerPopover';
+import type { PickerPortGroup } from './PortPickerPanel';
 import { expandToPlacedAncestors } from '../traceSelectors';
 import type { TraceResult } from '../traceSelectors';
 
@@ -1081,14 +1081,15 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   const occupiedCablePortIds = useMemo(() => occupiedPortIds(effectiveCables), [effectiveCables]);
 
   // ── 피커에 넘길 portGroups (루트 + 전이적 자식, 저장된 자산만) ─────────────
-  const pickerPortGroups = useMemo((): PortGroup[] => {
+  const pickerPortGroups = useMemo((): PickerPortGroup[] => {
     if (!cableState.picker) return [];
     // 저장된 자산만 대상 (staged-create 자식은 서버 포트 없음)
     const savedAssets = effectiveAssets.filter((a) => a.updatedAt !== '');
     const candidates = withDescendants(savedAssets, cableState.picker.asset.id);
     return candidates.map((a) => ({
       asset: a,
-      ports: freePortsOf(a, effectiveCables, selectedGroupKey),
+      // 점유된 포트도 넘긴다 — 판에서 번호가 건너뛰면 "몇 번 자리가 비었나" 를 볼 수 없다.
+      ports: portsWithOccupancy(a, effectiveCables, selectedGroupKey),
     }));
   }, [cableState.picker, effectiveAssets, effectiveCables, selectedGroupKey]);
 
@@ -1226,10 +1227,11 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         </div>
       )}
 
-      {/* 캔버스 컨테이너 */}
+      {/* 캔버스 + (포트 선택 시) 우측 패널 — 나란히 놓아 판이 넓게 펼쳐지게 한다 */}
+      <div className="flex min-h-0 min-w-0 flex-1">
       <div
         ref={containerRef}
-        className="relative min-h-0 flex-1 bg-surface-2 overflow-hidden"
+        className="relative min-h-0 min-w-0 flex-1 bg-surface-2 overflow-hidden"
         data-testid="floorplan-canvas-container"
       >
         <canvas
@@ -1298,25 +1300,6 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           />
         )}
 
-        {/* 포트 피커 팝오버 */}
-        {cableState.picker && (
-          <PortPickerPopover
-            screenPos={cableState.picker.screenPos}
-            asset={cableState.picker.asset}
-            portGroups={pickerPortGroups}
-            isUnsaved={cableState.picker.asset.updatedAt === ''}
-            excludePortId={cableState.picker.firstEndpoint?.portId}
-            validationError={cableState.picker.validationError}
-            onSelectPort={handlePortSelect}
-            onClose={() => {
-              cableDispatch({ type: 'CLOSE_PICKER' });
-              // 첫 끝점 대기 중이 아니면 초기화하지 않음 (피커만 닫기)
-            }}
-            hasFirstEndpoint={!!cableState.picker.firstEndpoint}
-            onOpenRemoteModal={() => cableDispatch({ type: 'OPEN_REMOTE_MODAL' })}
-          />
-        )}
-
         {/* 대국 검색 모달 */}
         <RemoteEndpointModal
           open={cableState.remoteModalOpen}
@@ -1357,6 +1340,26 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
             <Plus size={14} />
           </IconButton>
         </div>
+      </div>
+
+      {/* 포트 선택 패널 — 캔버스 오른쪽에 나란히.
+          팝오버(240px)로는 96~288개를 담을 수 없었다(한 번에 9개 · 검색 없음). */}
+      {cableState.picker && (
+        <PortPickerPanel
+          rootAsset={cableState.picker.asset}
+          groups={pickerPortGroups}
+          isUnsaved={cableState.picker.asset.updatedAt === ''}
+          excludePortId={cableState.picker.firstEndpoint?.portId}
+          validationError={cableState.picker.validationError}
+          onSelectPort={handlePortSelect}
+          onClose={() => cableDispatch({ type: 'CLOSE_PICKER' })}
+          onSearchRemote={
+            cableState.picker.firstEndpoint
+              ? () => cableDispatch({ type: 'OPEN_REMOTE_MODAL' })
+              : undefined
+          }
+        />
+      )}
       </div>
 
       {/* 평면도 배치 모달 */}

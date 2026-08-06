@@ -35,6 +35,24 @@ export function freePortsOf(asset: V2Asset, cables: V2Cable[], medium?: string):
   );
 }
 
+/**
+ * 매체가 맞는 포트를 **점유 여부와 함께** 돌려준다.
+ *
+ * `freePortsOf` 는 빈 포트만 남기는데, 그러면 판에서 번호가 건너뛰어 "몇 번 자리가 비었나"
+ * 를 볼 수 없다(3·5·9번만 남은 판은 판이 아니다). 피커는 전부 보여주고 점유된 것을
+ * 고를 수 없게만 한다.
+ */
+export function portsWithOccupancy(
+  asset: V2Asset,
+  cables: V2Cable[],
+  medium?: string,
+): { port: V2Port; occupied: boolean }[] {
+  const occupied = occupiedPortIds(cables);
+  return asset.ports
+    .filter((p) => medium == null || p.medium === medium)
+    .map((p) => ({ port: p, occupied: occupied.has(p.id) }));
+}
+
 // ──────────────────────────────────────────────
 // cableSegments
 // ──────────────────────────────────────────────

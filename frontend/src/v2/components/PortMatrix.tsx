@@ -38,11 +38,18 @@ export function PortMatrix({
   stateOf,
   selectedPortId,
   onSelect,
+  labelPrefix,
 }: {
   ports: readonly V2Port[];
   stateOf: (port: V2Port) => PortState;
   selectedPortId: string | null;
   onSelect: (portId: string) => void;
+  /**
+   * 읽어 주는 이름 앞에 붙일 말 — 보통 그 포트를 가진 장비 이름.
+   * 한 화면에 여러 장비의 판이 함께 뜨면(랙을 눌렀을 때) "포트 1" 만으로는
+   * 어느 장비인지 알 수 없다.
+   */
+  labelPrefix?: string;
 }) {
   return (
     // 백플레인 — 안으로 들어간 판 위에 포트가 붙어 있는 모양
@@ -56,7 +63,7 @@ export function PortMatrix({
               key={p.id}
               type="button"
               title={`${p.name} · ${PORT_STATE_LABEL[state]}`}
-              aria-label={`${p.name} ${PORT_STATE_LABEL[state]}`}
+              aria-label={`${labelPrefix ? `${labelPrefix} ` : ''}${p.name} ${PORT_STATE_LABEL[state]}`}
               aria-pressed={selected}
               onClick={() => onSelect(p.id)}
               className={cn(

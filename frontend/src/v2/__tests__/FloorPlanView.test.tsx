@@ -91,7 +91,8 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
 
     // 첫 번째 자산(A) 클릭 → 포트 피커
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
-    expect(screen.getByText('자산-a')).toBeTruthy();
+    // 패널 머리줄과 그룹 카드 두 곳에 자산 이름이 나온다 — 열렸다는 사실만 확인한다.
+    expect(screen.getAllByText('자산-a').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: /포트 p-a/ }));
 
     // 첫 끝점 확정 → 힌트가 두 번째 자산 대기로 전환
@@ -99,7 +100,7 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
 
     // 두 번째 자산(B) 클릭 → 포트 피커
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
-    expect(screen.getByText('자산-b')).toBeTruthy();
+    expect(screen.getAllByText('자산-b').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: /포트 p-b/ }));
 
     // 스테이지 확인 — 워킹카피 스토어에 케이블 생성 오버레이가 쌓였는가
@@ -124,7 +125,7 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
     // armed 힌트/피커가 전부 사라짐 (idle로 복귀) — 부분 상태 잔존 없음
     expect(screen.queryByText('두 번째 자산 클릭 · ESC 취소')).toBeNull();
     expect(screen.queryByText('자산 클릭으로 포트 선택 · ESC 취소')).toBeNull();
-    expect(screen.queryByText('자산-a')).toBeNull(); // 포트 피커 닫힘
+    expect(screen.queryAllByText('자산-a')).toHaveLength(0); // 포트 선택 패널 닫힘
 
     // 케이블 버튼이 더 이상 armed(primary) 표시가 아님 — 재클릭 시 다시 arm 되어야 함
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));

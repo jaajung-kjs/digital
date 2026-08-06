@@ -207,3 +207,14 @@ export async function resetE2eTypes(page: Page) {
     }
   });
 }
+
+/**
+ * 우측 포트 선택 패널에서 "어느 장비의 몇 번 포트" 를 고른다.
+ *
+ * 랙·함체를 누르면 자손 장비들이 각각 카드로 나열되므로, 장비 이름으로 카드를 먼저
+ * 좁힌 뒤 그 안의 타일을 고른다. 타일 라벨은 `포트 1 미연결` 처럼 상태를 포함한다.
+ */
+export async function pickPortInPanel(page: Page, assetName: string, portName: string) {
+  // 타일이 읽어 주는 이름은 "통합단말-1 포트 1 미연결" 형태다(장비 + 포트 + 상태).
+  await page.getByRole('button', { name: new RegExp(`^${assetName} ${portName} `) }).first().click();
+}
