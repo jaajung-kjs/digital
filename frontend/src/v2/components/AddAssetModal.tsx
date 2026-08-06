@@ -15,6 +15,8 @@ interface AddAssetModalProps {
     spec: V2ContainerSpec;
     /** 현재 형제들 — freeSlots 계산용 */
     siblings: { slotIndex: number | null; slotSpan: number | null }[];
+    /** 빈 슬롯을 눌러 열었으면 그 자리 — 사용자가 방금 고른 것을 다시 묻지 않는다. */
+    slotIndex?: number;
   };
   /** 평면도 배치 컨텍스트: 팔레트 drag-to-draw 후 열릴 때 지정 */
   floorContext?: {
@@ -36,6 +38,12 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
   useEffect(() => {
     if (preselectedTypeId !== undefined) setSelectedTypeId(preselectedTypeId);
   }, [preselectedTypeId]);
+
+  // 빈 슬롯을 눌러 열었으면 그 슬롯을 미리 고른 상태로 연다.
+  const presetSlot = containerContext?.slotIndex;
+  useEffect(() => {
+    if (presetSlot !== undefined) setSelectedSlot(String(presetSlot));
+  }, [presetSlot]);
 
   const catalog = useV2Catalog();
 

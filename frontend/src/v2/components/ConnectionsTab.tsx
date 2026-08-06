@@ -7,12 +7,13 @@
  */
 
 import { useMemo } from 'react';
-import { DetailCardHeader, Button, DetailCard, EmptyState } from '../../components/ui';
+import { DetailCardHeader, Button, DetailCard, EmptyState, cn } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
+import { portDirectionLabel } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
-import { useV2Catalog } from '../hooks';
+import { useV2Catalog, useMediumLabel } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
 import type { V2Cable, V2Port } from '../types';
 
@@ -31,6 +32,7 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
   const effectiveCables = useMemo(() => mergeEffective(saved.cables, overlays.cables), [saved, overlays]);
 
   const catalog = useV2Catalog();
+  const mediumLabel = useMediumLabel();
   const categories = catalog.data?.categories ?? [];
   const types = catalog.data?.types ?? [];
 
@@ -143,52 +145,70 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
       )}
 
       {/* 포트 목록 (그룹별) */}
-      {[...portsByGroup.entries()].map(([group, ports]) => (
-        <DetailCard key={group}>
-          <DetailCardHeader title={`${group} 그룹`} />
-          <div className="space-y-1">
-            {ports.map((port) => {
-              const conn = cableByPortId.get(port.id);
+      {[...portsByGroup.entries()].map(([group, ports]) => {
+        const connectedCount = ports.filter((pt) => cableByPortId.has(pt.id)).length;
+        return (
+          <DetailCard key={group}>
+            {/* 그룹 머리줄에 사용률을 함께 적는다 — 포트가 12개쯤 되면 한 줄 한 줄 세는 대신
+                "몇 개가 물려 있나" 를 먼저 알고 싶다. */}
+            <DetailCardHeader
+              title={`${group} 그룹`}
+              badge={`${connectedCount}/${ports.length} 연결`}
+              badgeStatus={connectedCount > 0 ? 'success' : 'neutral'}
+            />
+            <ul className="space-y-0.5">
+              {ports.map((port) => {
+                const conn = cableByPortId.get(port.id);
 
-              // 3단 peer 해소 — resolvePeer 공유 헬퍼 (B-V1 시정: 인라인 재구현 → 단일화)
-              let peerLabel: string | null = null;
-              if (conn) {
-                const peer = resolvePeer(port, conn.cable, portIndex, asset.substationId);
-                if (peer) {
-                  const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
-                  peerLabel = `${peer.assetName} · ${peer.portName}${sub}`;
+                // 3단 peer 해소 — resolvePeer 공유 헬퍼 (B-V1 시정: 인라인 재구현 → 단일화)
+                let peerLabel: string | null = null;
+                if (conn) {
+                  const peer = resolvePeer(port, conn.cable, portIndex, asset.substationId);
+                  if (peer) {
+                    const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
+                    peerLabel = `${peer.assetName} · ${peer.portName}${sub}`;
+                  }
                 }
-              }
+                const peerPortEntry = conn ? portIndex.get(conn.peerPortId) : undefined;
 
-              const peerPortEntry = conn ? portIndex.get(conn.peerPortId) : undefined;
-
-              return (
-                <div key={port.id} className="flex items-center gap-2 text-xs">
-                  <span className="w-16 shrink-0 text-content">{port.name}</span>
-                  {conn && peerLabel ? (
-                    <>
-                      <span className="flex-1 truncate text-content-muted">
+                return (
+                  <li key={port.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm">
+                    {/* 연결 여부를 점 하나로 — 행마다 배지를 달면 정작 포트 이름보다 무겁다. */}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'size-1.5 shrink-0 rounded-full',
+                        conn ? 'bg-success' : 'bg-content-faint/40',
+                      )}
+                    />
+                    <span className="w-16 shrink-0 truncate text-content">{port.name}</span>
+                    {peerLabel ? (
+                      <span className="min-w-0 flex-1 truncate text-content-muted" title={peerLabel}>
                         {peerLabel}
                       </span>
-                      {peerPortEntry && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleTrace(port.id)}
-                        >
-                          추적
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    <span className="flex-1 text-content-faint">—</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </DetailCard>
-      ))}
+                    ) : (
+                      <span className="min-w-0 flex-1 text-content-faint">미연결</span>
+                    )}
+                    <span className="shrink-0 text-xs text-content-faint">
+                      {mediumLabel(port.medium)} · {portDirectionLabel(port.direction)}
+                    </span>
+                    {peerPortEntry && (
+                      <Button variant="ghost" size="sm" onClick={() => handleTrace(port.id)}>
+                        추적
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </DetailCard>
+        );
+      })}
+
+      {/* 연결은 평면도에서 만든다 — 여기서 할 수 없다는 사실 자체를 알려준다. */}
+      <p className="px-1 text-xs text-content-faint">
+        연결은 평면도 뷰의 <strong className="font-medium">케이블</strong> 도구로 만듭니다.
+      </p>
     </div>
   );
 }

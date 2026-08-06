@@ -3,7 +3,6 @@ import { useV2Catalog, useTypesById } from '../hooks';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset } from '../types';
-import { deriveDetailSections } from '../detailSections';
 import { AddAssetModal } from './AddAssetModal';
 import { InfoTab, type AddModalContext } from './InfoTab';
 import { RecordsTab } from './RecordsTab';
@@ -54,7 +53,6 @@ export function AssetDetailPanel({
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
   const type = asset ? typesById.get(asset.typeId) : undefined;
-  const sections = useMemo(() => (type ? deriveDetailSections(type) : null), [type]);
 
   // 자식 자산 목록 (수용 섹션용)
   const childrenBySpecKey = useMemo(() => {
@@ -98,7 +96,6 @@ export function AssetDetailPanel({
             assetId={assetId}
             asset={asset}
             type={type}
-            sections={sections}
             childrenBySpecKey={childrenBySpecKey}
             effectiveAssets={effectiveAssets}
             floorNameById={floorNameById}

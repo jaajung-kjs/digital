@@ -7,10 +7,8 @@
  * 소유(부모가 자산 전환 시 리셋 + 하단 AddAssetModal 렌더를 관장)하므로 setter 만 prop 으로 받는다.
  */
 
-import { Plus } from 'lucide-react';
-import { ASSET_STATUSES, portDirectionLabel } from '@twin/core';
+import { ASSET_STATUSES } from '@twin/core';
 import {
-  Button,
   DetailCard,
   DetailCardHeader,
   DetailRow,
@@ -22,16 +20,16 @@ import {
   SELECTED_TILE,
 } from '../../components/ui';
 import { freeSlots } from '../newAsset';
-import { useMediumLabel } from '../hooks';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
-import type { deriveDetailSections } from '../detailSections';
 import { PhotoCard } from './PhotoCard';
 
 export interface AddModalContext {
   parentAssetId: string;
   spec: V2ContainerSpec;
   siblings: { slotIndex: number | null; slotSpan: number | null }[];
+  /** 빈 슬롯을 눌러 열었으면 그 자리 — 모달에서 다시 고르게 하지 않는다. */
+  slotIndex?: number;
 }
 
 // ── 위치 텍스트 (statusRows.ts 와 동일 로직) ────────────────────────────────
@@ -54,12 +52,14 @@ interface SlotGridProps {
   children: V2Asset[];
   selectedChildId: string | null;
   onSelectChild: (id: string) => void;
+  /** 빈 슬롯을 눌렀을 때 — 그 자리에 바로 추가한다. */
+  onAddAtSlot: (slotIndex: number) => void;
 }
 
 /** 슬롯 한 칸의 높이(px) — 여러 슬롯을 차지하는 장비는 이 배수만큼 높아진다. */
 const SLOT_ROW_HEIGHT = 26;
 
-function SlotGrid({ spec, children, selectedChildId, onSelectChild }: SlotGridProps) {
+function SlotGrid({ spec, children, selectedChildId, onSelectChild, onAddAtSlot }: SlotGridProps) {
   const slotCount = spec.slotCount!;
   // 슬롯 인덱스(0-based) → 자식 자산 매핑
   const bySlot = new Map<number, V2Asset>();
@@ -75,23 +75,28 @@ function SlotGrid({ spec, children, selectedChildId, onSelectChild }: SlotGridPr
     const isSelected = child != null && child.id === selectedChildId;
     // 여러 슬롯을 차지하면 "3–5" 처럼 범위로 적는다.
     const label = span > 1 ? `${idx + 1}–${idx + span}` : String(idx + 1);
+    const slotIndex = idx;
     rows.push(
-      <li
-        key={idx}
-        style={{ minHeight: span * SLOT_ROW_HEIGHT }}
-        className={cn(
-          'flex items-center gap-2 rounded border px-2 text-sm',
-          isSelected
-            ? SELECTED_TILE
-            : child
-              ? cn('border-line bg-surface-2 text-content', SELECTABLE)
-              : 'border-line border-dashed text-content-faint',
-        )}
-        title={child?.name}
-        onClick={() => child && onSelectChild(child.id)}
-      >
-        <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
-        <span className="min-w-0 flex-1 truncate">{child ? child.name : '비어 있음'}</span>
+      <li key={idx} style={{ minHeight: span * SLOT_ROW_HEIGHT }}>
+        {/* 빈 슬롯도 누를 수 있다 — 예전에는 아무 반응이 없어서, 추가하려면 위 버튼을 눌러
+            모달에서 슬롯 번호를 다시 골라야 했다. 눈앞의 빈칸을 누르는 것이 자연스럽다. */}
+        <button
+          type="button"
+          className={cn(
+            'flex h-full w-full items-center gap-2 rounded border px-2 text-left text-sm',
+            isSelected
+              ? SELECTED_TILE
+              : child
+                ? cn('border-line bg-surface-2 text-content', SELECTABLE)
+                : cn('border-dashed border-line text-content-faint', SELECTABLE),
+          )}
+          title={child?.name}
+          onClick={() => (child ? onSelectChild(child.id) : onAddAtSlot(slotIndex))}
+        >
+          <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
+          <span className="min-w-0 flex-1 truncate">{child ? child.name : '비어 있음'}</span>
+          {!child && <span className="shrink-0 text-xs text-primary">+ 추가</span>}
+        </button>
       </li>,
     );
     idx += span;
@@ -109,25 +114,47 @@ function SlotGrid({ spec, children, selectedChildId, onSelectChild }: SlotGridPr
 interface FreeChildListProps {
   children: V2Asset[];
   onSelectChild: (id: string) => void;
+  onAdd: () => void;
 }
 
-function FreeChildList({ children, onSelectChild }: FreeChildListProps) {
-  if (children.length === 0) {
-    return <p className="text-xs text-content-faint">수용 자산 없음</p>;
-  }
+/*
+ * 자유형 컨테이너(슬롯 수 제한 없음)도 고정 슬롯과 **같은 모양**으로 그린다.
+ * 예전에는 자유형만 밋밋한 텍스트 목록이라, 같은 "수용" 인데 함체 종류에 따라 화면이
+ * 딴판이었다. 다른 것은 번호가 슬롯 위치가 아니라 순번이라는 점뿐이다.
+ */
+function FreeChildList({ children, onSelectChild, onAdd }: FreeChildListProps) {
   return (
-    <ul className="mt-1 space-y-0.5">
-      {children.map((child) => (
-        <li key={child.id}>
+    <ul className="mt-1 space-y-1">
+      {children.map((child, i) => (
+        <li key={child.id} style={{ minHeight: SLOT_ROW_HEIGHT }}>
           <button
             type="button"
-            className={cn('w-full truncate rounded px-1 py-0.5 text-left text-sm text-content', SELECTABLE)}
+            className={cn(
+              'flex h-full w-full items-center gap-2 rounded border border-line bg-surface-2 px-2 text-left text-sm text-content',
+              SELECTABLE,
+            )}
             onClick={() => onSelectChild(child.id)}
+            title={child.name}
           >
-            {child.name}
+            <span className="w-8 shrink-0 text-right text-xs text-content-faint">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate">{child.name}</span>
           </button>
         </li>
       ))}
+      <li style={{ minHeight: SLOT_ROW_HEIGHT }}>
+        <button
+          type="button"
+          className={cn(
+            'flex h-full w-full items-center gap-2 rounded border border-dashed border-line px-2 text-left text-sm text-content-faint',
+            SELECTABLE,
+          )}
+          onClick={onAdd}
+        >
+          <span className="w-8 shrink-0 text-right text-xs text-content-faint">{children.length + 1}</span>
+          <span className="min-w-0 flex-1">비어 있음</span>
+          <span className="shrink-0 text-xs text-primary">+ 추가</span>
+        </button>
+      </li>
     </ul>
   );
 }
@@ -137,7 +164,6 @@ interface InfoTabProps {
   assetId: string;
   asset: V2Asset;
   type: V2AssetType | undefined;
-  sections: ReturnType<typeof deriveDetailSections> | null;
   childrenBySpecKey: Map<string, V2Asset[]>;
   effectiveAssets: V2Asset[];
   floorNameById: Map<string, string>;
@@ -152,7 +178,6 @@ export function InfoTab({
   assetId,
   asset,
   type,
-  sections,
   childrenBySpecKey,
   effectiveAssets,
   floorNameById,
@@ -163,7 +188,6 @@ export function InfoTab({
   onSelectAsset,
 }: InfoTabProps) {
   const { confirm, confirmDialog } = useConfirm();
-  const mediumLabel = useMediumLabel();
   const location = locationText(asset, floorNameById, assetNameById);
 
   // 하위 자산 총 수 (cascade 삭제 confirm용)
@@ -241,10 +265,10 @@ export function InfoTab({
       </DetailCard>
 
       {/* 커스텀 필드 카드 */}
-      {sections && sections.fieldDefs.length > 0 && (
+      {type && type.fieldDefs.length > 0 && (
         <DetailCard>
           <DetailCardHeader title="속성" />
-          {sections.fieldDefs.map((fd) => {
+          {type.fieldDefs.map((fd) => {
             const rawVal = asset.fieldValues[fd.key];
             const strVal = rawVal != null ? String(rawVal) : '';
             return (
@@ -279,40 +303,15 @@ export function InfoTab({
         </DetailCard>
       )}
 
-      {/* 포트 섹션 */}
-      {sections?.showPorts && type && (
-        <DetailCard>
-          <DetailCardHeader title="포트" />
-          {type.portTemplates.map((pt) => (
-            <div key={pt.id} className="space-y-0.5">
-              {/* 그룹 키는 타입 작성자가 붙인 내부 이름이다("P", "A"…). 그룹이 하나뿐이면
-                  보여줄 정보가 없으므로 생략한다 — 예전에는 "P" 만 덩그러니 떠 있었다. */}
-              {type.portTemplates.length > 1 && (
-                <p className="text-xs font-medium text-content-muted">{pt.group} 그룹</p>
-              )}
-              {Array.from({ length: pt.count }, (_, i) => {
-                const portName = pt.namePattern.replace('{n}', String(i + 1));
-                return (
-                  <div key={i} className="flex items-center gap-2 text-sm text-content">
-                    <span className="min-w-0 flex-1 truncate">{portName}</span>
-                    {/* 방향·매체는 이름을 보조하는 메타다 — 배지로 강조하면 정작 포트 이름보다
-                        무거워 보인다. 내부 값(BI·network)이 아니라 사람이 읽는 이름으로 적는다. */}
-                    <span className="shrink-0 text-xs text-content-muted">
-                      {mediumLabel(pt.medium)} · {portDirectionLabel(pt.direction)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </DetailCard>
-      )}
+      {/* 포트는 '연결' 탭이 담당한다 — 여기 있던 섹션은 타입의 **포트 템플릿**을 다시 그린
+          것이라 실제 포트도 아니고 연결 상태도 몰랐다. 같은 "포트" 가 두 탭에 반쪽씩
+          나뉘어 있어, 어느 쪽을 봐야 하는지 알 수 없었다. */}
 
       {/* 수용 섹션 */}
-      {sections && sections.containerSpecs.length > 0 && (
+      {type && type.containerSpecs.length > 0 && (
         <DetailCard>
           <DetailCardHeader title="수용" />
-          {sections.containerSpecs.map((spec) => {
+          {type.containerSpecs.map((spec) => {
             const specChildren = childrenBySpecKey.get(spec.key) ?? [];
             const selectedChild = selectedChildId != null
               ? specChildren.find((c) => c.id === selectedChildId) ?? null
@@ -333,31 +332,30 @@ export function InfoTab({
 
             return (
               <div key={spec.key} className="space-y-1">
-                <div className="flex items-center gap-1">
-                  <p className="flex-1 text-xs text-content-muted">
-                    {spec.name}
-                    {spec.slotCount != null && (
-                      <span className="ml-1 text-content-faint">({spec.slotCount}슬롯)</span>
-                    )}
-                  </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Plus size={12} />}
-                    onClick={() => setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren })}
-                  >
-                    추가
-                  </Button>
-                </div>
+                {/* 추가 버튼은 목록 안 '비어 있음' 행이 겸한다 — 머리줄에 또 두면
+                    같은 동작이 두 곳이 되고, 어느 슬롯에 들어가는지도 알 수 없다. */}
+                <p className="text-xs text-content-muted">
+                  {spec.name}
+                  {spec.slotCount != null && (
+                    <span className="ml-1 text-content-faint">({spec.slotCount}슬롯)</span>
+                  )}
+                </p>
                 {spec.slotCount != null ? (
                   <SlotGrid
                     spec={spec}
                     children={specChildren}
                     selectedChildId={selectedChildId}
                     onSelectChild={handleChildSelect}
+                    onAddAtSlot={(slotIndex) =>
+                      setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren, slotIndex })
+                    }
                   />
                 ) : (
-                  <FreeChildList children={specChildren} onSelectChild={onSelectAsset} />
+                  <FreeChildList
+                    children={specChildren}
+                    onSelectChild={onSelectAsset}
+                    onAdd={() => setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren })}
+                  />
                 )}
                 {/* 슬롯 이동 패널 (고정 슬롯 + 자식 선택 상태) */}
                 {spec.slotCount != null && selectedChild != null && (

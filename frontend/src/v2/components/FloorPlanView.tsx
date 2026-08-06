@@ -29,7 +29,7 @@ import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { isAdminRole, useV2AuthStore } from '../store/authStore';
 import { useV2Catalog } from '../hooks';
-import { Button, IconButton, Select, Tabs } from '../../components/ui';
+import { Button, IconButton, Select, Tabs, useConfirm } from '../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
@@ -202,6 +202,7 @@ interface LatestRenderInputs {
 }
 
 export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, traceResult }: Props) {
+  const { confirm, confirmDialog } = useConfirm();
   // ── 반응형 슬라이스 구독 (함수 참조 구독 금지) ─────────────────────────────
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
@@ -541,10 +542,14 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   const wasRecentlyPanning = useRef(false);
 
   // window 리스너 항등성: add/remove 가 항상 같은 함수 참조를 쓰도록 ref 에 고정
+  /** 이번 팬에서 실제로 이동이 있었는가 — 제자리 클릭과 구분한다. */
+  const panMoved = useRef(false);
+
   const onPanMoveRef = useRef((e: MouseEvent) => {
     if (!isPanning.current) return;
     const dx = e.clientX - panStart.current.mouseX;
     const dy = e.clientY - panStart.current.mouseY;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) panMoved.current = true;
     setViewport((prev) => ({
       ...prev,
       panX: panStart.current.panX + dx,
@@ -554,13 +559,15 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
 
   const stopPanRef = useRef(() => {
     isPanning.current = false;
-    wasRecentlyPanning.current = true;
+    // 움직이지 않았으면 그냥 클릭이다 — 선택 해제가 먹혀야 한다.
+    wasRecentlyPanning.current = panMoved.current;
     window.removeEventListener('mousemove', onPanMoveRef.current);
     window.removeEventListener('mouseup', stopPanRef.current);
   });
 
   const startPan = (mouseX: number, mouseY: number) => {
     isPanning.current = true;
+    panMoved.current = false;
     panStart.current = { mouseX, mouseY, panX: latest.current.viewport.panX, panY: latest.current.viewport.panY };
     window.addEventListener('mousemove', onPanMoveRef.current);
     window.addEventListener('mouseup', stopPanRef.current);
@@ -703,7 +710,14 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       const { zoom, panX, panY } = latest.current.viewport;
       const world = screenToWorld(e.clientX, e.clientY, canvasRect, panX, panY, zoom);
       const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
-      if (!hit) return;
+      if (!hit) {
+        /* 빈 곳 좌드래그 = 도면 이동.
+           예전에는 가운데 버튼이나 Space+드래그뿐이었는데, 트랙패드에는 가운데 버튼이 없고
+           어디에도 안내가 없어서 사실상 못 쓰는 기능이었다. 자산 위에서는 여전히 이동
+           드래그이므로 충돌하지 않는다. */
+        startPan(e.clientX, e.clientY);
+        return;
+      }
 
       // 세션 시작
       moveDragRef.current = createDragSession(hit, world);
@@ -980,6 +994,27 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         width: selectedPlacedAsset.width, height: selectedPlacedAsset.height }
     : null);
 
+  // ── 선택 자산 삭제 ────────────────────────────────────────────────────────
+  async function handleDeleteSelectedAsset() {
+    if (!selectedAssetId) return;
+    const all = useV2WorkingCopy.getState().effectiveAssets();
+    const target = all.find((a) => a.id === selectedAssetId);
+    if (!target) return;
+    const countDescendants = (rootId: string): number =>
+      all.filter((a) => a.parentAssetId === rootId).reduce((n, c) => n + 1 + countDescendants(c.id), 0);
+    const n = countDescendants(selectedAssetId);
+    const ok = await confirm({
+      title: '자산 삭제',
+      message: n > 0 ? `'${target.name}' 과 하위 자산 ${n}개가 함께 삭제됩니다.` : `'${target.name}' 을 삭제합니다.`,
+      confirmLabel: '삭제',
+      danger: true,
+    });
+    if (!ok) return;
+    useV2WorkingCopy.getState().stageAssetDeleteCascade(selectedAssetId);
+    onSelectAsset(null);
+    scheduleRender();
+  }
+
   // ── 줌 버튼 ───────────────────────────────────────────────────────────────
   /** 버튼 줌은 화면 한가운데를 고정한다 — 커서를 고정하는 휠과 계산은 같다. */
   const zoomByButton = useCallback((factor: number) => {
@@ -1107,6 +1142,17 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
                   {cableState.firstEndpoint ? '두 번째 자산 클릭 · ESC 취소' : '자산 클릭으로 포트 선택 · ESC 취소'}
                 </span>
               )}
+            </>
+          )}
+
+          {/* 선택된 자산 삭제 — 예전에는 케이블만 캔버스에서 지울 수 있었고, 자산은
+              상세 패널을 열어야만 지울 수 있었다(평면도에서 잘못 놓은 것을 바로 못 지움). */}
+          {selectedAssetId !== null && placedAssets.some((a) => a.id === selectedAssetId) && (
+            <>
+              <span className="h-4 w-px bg-line mx-1" />
+              <Button size="sm" variant="danger" onClick={() => void handleDeleteSelectedAsset()}>
+                자산 삭제
+              </Button>
             </>
           )}
 
@@ -1241,6 +1287,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           preselectedTypeId={drawModal.typeId}
         />
       )}
+      {confirmDialog}
     </div>
   );
 }

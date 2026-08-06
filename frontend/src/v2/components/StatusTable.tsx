@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import { Badge, TableCard, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
+import { Badge, EmptyState, Input, TableCard, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
 
@@ -88,6 +88,19 @@ const BASE_COLS: Column[] = [
 export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false }: StatusTableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [asc, setAsc] = useState(true);
+  const [query, setQuery] = useState('');
+
+  /* 검색이 없으면 자산이 수백 개가 됐을 때 찾을 방법이 정렬뿐이다.
+     표에 보이는 값(종류·이름·설치장소·담당자)을 통째로 훑는다 — 어느 열인지 고르게 하지
+     않는 이유는, 사용자는 보통 "그 이름" 하나만 기억하지 그것이 몇 번째 열인지는 모르기 때문. */
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+      [r.typeName, r.name, r.location, r.manager, r.substationName]
+        .some((v) => (v ?? '').toLowerCase().includes(q)),
+    );
+  }, [rows, query]);
 
   function handleHeaderClick(key: SortKey) {
     if (sortKey === key) {
@@ -98,7 +111,7 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
     }
   }
 
-  const sorted = [...rows].sort((a, b) => {
+  const sorted = [...filtered].sort((a, b) => {
     const av = a[sortKey] ?? null;
     const bv = b[sortKey] ?? null;
     const cmp = compareValues(av, bv);
@@ -108,6 +121,22 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
   const cols = nodeScope ? [SUBSTATION_COL, ...BASE_COLS] : BASE_COLS;
 
   return (
+    <div className="flex min-h-0 min-w-0 flex-col gap-2">
+      <div className="flex max-w-6xl items-center gap-2">
+        <div className="w-64">
+          <Input
+            size="sm"
+            aria-label="자산 검색"
+            placeholder="이름 · 종류 · 설치장소 · 담당자 검색"
+            value={query}
+            onChange={(e) => setQuery(e.currentTarget.value)}
+          />
+        </div>
+        <span className="text-xs text-content-muted">
+          {query.trim() ? `${filtered.length} / ${rows.length}건` : `${rows.length}건`}
+        </span>
+      </div>
+
     <TableCard widths={cols.map((c) => c.width)}>
       <thead>
         {/* 머리글은 스크롤해도 남는다 — 긴 목록에서 어느 열인지 잃지 않게. */}
@@ -127,9 +156,12 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
       <tbody>
         {sorted.length === 0 && (
             <tr>
-              <td colSpan={cols.length} className="px-3 py-6 text-center text-sm text-content-faint">
-                <span className="block">자산이 없습니다</span>
-                <span className="mt-1 block text-xs">위의 &lsquo;자산 추가&rsquo; 로 시작하세요</span>
+              <td colSpan={cols.length}>
+                {query.trim() ? (
+                  <EmptyState title="검색 결과가 없습니다" description={`'${query.trim()}' 와 맞는 자산이 없습니다.`} />
+                ) : (
+                  <EmptyState title="자산이 없습니다" description="위의 '자산 추가' 로 시작하세요." />
+                )}
               </td>
             </tr>
           )}
@@ -148,5 +180,6 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
           ))}
       </tbody>
     </TableCard>
+    </div>
   );
 }
