@@ -142,3 +142,31 @@ async function rackIdByName(name = `${uniq}-rack`): Promise<string> {
   const rack = await nextDb.asset.findFirstOrThrow({ where: { substationId: subId, name } });
   return rack.id;
 }
+
+describe('자산 상태 어휘', () => {
+  // 상태 어휘는 core 의 ASSET_STATUSES 가 유일한 출처인데 커밋 스키마가 z.string() 이라
+  // 사전에 없는 값이 그대로 저장됐다. 화면은 라벨 조회에 실패하면 값을 그대로 쓰므로
+  // '점검필요' 같은 문자열이 상태처럼 보였다 — 저장 시점에 막는다.
+  it('사전에 없는 상태는 거절한다', async () => {
+    const res = await commit({
+      baseVersions: {},
+      assets: {
+        creates: [
+          { id: randomUUID(), name: `${uniq}-bad-status`, typeId: rackTypeId, status: '점검필요', floorId, x: 0, y: 0, width: 10, height: 10, fieldValues: {} },
+        ],
+      },
+    }).expect(400);
+    expect(res.body.error).toBe('BAD_REQUEST');
+  });
+
+  it('사전에 있는 상태는 통과한다', async () => {
+    await commit({
+      baseVersions: {},
+      assets: {
+        creates: [
+          { id: randomUUID(), name: `${uniq}-ok-status`, typeId: rackTypeId, status: 'standby', floorId, x: 0, y: 0, width: 10, height: 10, fieldValues: {} },
+        ],
+      },
+    }).expect(200);
+  });
+});

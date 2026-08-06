@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ASSET_STATUSES } from '@twin/core';
 
 export const idParamSchema = z.string().uuid();
 export const orgNameSchema = z.object({ name: z.string().trim().min(1) });
@@ -13,7 +14,11 @@ const assetCreateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1),
   typeId: z.string().uuid(),
-  status: z.string().optional(),
+  /* 상태 어휘는 core 의 ASSET_STATUSES 가 유일한 출처다.
+     예전에는 z.string() 이라 어떤 문자열이든 통과했고, 실제로 '점검필요'·'need_check' 같은
+     사전에 없는 값이 저장돼 화면에 원시값 그대로 나왔다(라벨 조회 실패 시 값을 그대로 쓴다).
+     화면의 Select 는 세 값만 주므로 UI 로는 못 만들지만, API 는 막을 것이 없었다. */
+  status: z.enum(ASSET_STATUSES.map((s) => s.value) as [string, ...string[]]).optional(),
   floorId: z.string().uuid().nullish(),
   x: z.number().nullish(),
   y: z.number().nullish(),

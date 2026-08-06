@@ -10,12 +10,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, cn, SELECTABLE } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
+import { withDescendants } from '../cableSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { internalLinkMap, portDirectionLabel } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
-import type { V2Cable, V2Port } from '../types';
+import type { V2Asset, V2Cable, V2Port } from '../types';
 import { PortMatrix, PortLegend, PORT_STATE_LABEL, type PortState } from './PortMatrix';
 
 interface ConnectionsTabProps {
@@ -74,21 +75,25 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
   // hopText·peer 해소 모두 여기서 조회 — 수제 portById/assetByPortId 맵 제거(M-1 시정)
   const portIndex = useMemo(() => buildPortIndex(effectiveAssets), [effectiveAssets]);
 
-  // 포트를 그룹별로 묶기 (early return 위 — 훅 순서 보장; asset 미해소 시 빈 Map)
-  const assetPorts = asset?.ports;
-  const portsByGroup = useMemo(() => {
-    const map = new Map<string, V2Port[]>();
-    for (const p of assetPorts ?? []) {
-      const list = map.get(p.group) ?? [];
-      list.push(p);
-      map.set(p.group, list);
-    }
-    // 각 그룹 내 index 순 정렬
-    for (const [, list] of map) {
-      list.sort((a, b) => a.index - b.index);
-    }
-    return map;
-  }, [assetPorts]);
+  /* 이 자산과 **자손**의 포트를 함께 본다.
+     랙·함체 자체에는 포트가 없고 안에 든 장비가 갖는다. 예전에는 자기 포트만 봐서
+     랙에는 포트 탭조차 뜨지 않았고, 무엇이 어디에 물려 있는지 보려면 장비마다 하나씩
+     들어가야 했다. 케이블 피커는 이미 같은 방식으로 자손 포트를 모아 보여주고 있었다. */
+  const portOwners = useMemo(() => {
+    if (!asset) return [] as { owner: V2Asset; groups: Map<string, V2Port[]> }[];
+    return withDescendants(effectiveAssets, asset.id)
+      .filter((a) => a.ports.length > 0)
+      .map((a) => {
+        const groups = new Map<string, V2Port[]>();
+        for (const p of a.ports) {
+          const list = groups.get(p.group) ?? [];
+          list.push(p);
+          groups.set(p.group, list);
+        }
+        for (const [, list] of groups) list.sort((x, y) => x.index - y.index);
+        return { owner: a, groups };
+      });
+  }, [asset, effectiveAssets]);
 
   /* 포트 점유 상태 — 내부 짝이 있으면 그 짝과 함께 하나의 회선으로 본다.
      짝이 둘 다 물려야 '양측', 하나만이면 '편도'. 짝이 없는 포트는 2단계뿐이다.
@@ -148,7 +153,8 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
 
   if (!asset) return null;
 
-  if (asset.ports.length === 0) {
+  // 자기 포트가 없어도 안에 든 장비가 가질 수 있다 — 랙·함체가 그렇다.
+  if (portOwners.length === 0) {
     return (
       <EmptyState
         title="이 자산에는 포트가 없습니다"
@@ -211,22 +217,44 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
       )}
 
       {/* 포트 매트릭스 (그룹별) — 판을 보고 빈 자리를 찾는다 */}
-      {[...portsByGroup.entries()].map(([group, ports]) => {
-        const connectedCount = ports.filter((pt) => cableByPortId.has(pt.id)).length;
+      {portOwners.map(({ owner, groups }) => {
+        const ownerPorts = [...groups.values()].flat();
+        const connected = ownerPorts.filter((pt) => cableByPortId.has(pt.id)).length;
+        const isSelf = owner.id === assetId;
         return (
-          <DetailCard key={group}>
-            {/* 그룹 머리줄에 사용률을 함께 적는다 — 타일을 세는 대신 먼저 알고 싶은 값. */}
+          <DetailCard key={owner.id}>
+            {/* 자기 포트인지 안에 든 장비의 포트인지 이름으로 구분한다.
+                장비 이름을 누르면 그 장비로 들어간다. */}
             <DetailCardHeader
-              title={`${group} 그룹`}
-              badge={`${connectedCount}/${ports.length} 연결`}
-              badgeStatus={connectedCount > 0 ? 'success' : 'neutral'}
+              title={
+                isSelf ? (
+                  '포트'
+                ) : (
+                  <button
+                    type="button"
+                    className={cn('rounded px-1 text-left text-primary', SELECTABLE)}
+                    title={`${owner.name} 으로 이동`}
+                    onClick={() => onSelectAsset(owner.id)}
+                  >
+                    {owner.name}
+                  </button>
+                )
+              }
+              badge={`${connected}/${ownerPorts.length} 연결`}
+              badgeStatus={connected > 0 ? 'success' : 'neutral'}
             />
-            <PortMatrix
-              ports={ports}
-              stateOf={portState}
-              selectedPortId={selectedPortId}
-              onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
-            />
+            {[...groups.entries()].map(([group, ports]) => (
+              <div key={group} className="space-y-1">
+                {groups.size > 1 && <p className="text-xs text-content-muted">{group} 그룹</p>}
+                <PortMatrix
+                  labelPrefix={isSelf ? undefined : owner.name}
+                  ports={ports}
+                  stateOf={portState}
+                  selectedPortId={selectedPortId}
+                  onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
+                />
+              </div>
+            ))}
             <PortLegend states={hasInternalLinks ? ['empty', 'half', 'full'] : ['empty', 'full']} />
           </DetailCard>
         );

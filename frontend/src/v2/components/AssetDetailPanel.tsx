@@ -3,12 +3,13 @@ import { useV2Catalog, useTypesById } from '../hooks';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset } from '../types';
+import { withDescendants } from '../cableSelectors';
 import { AddAssetModal } from './AddAssetModal';
 import { InfoTab, type AddModalContext } from './InfoTab';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
 import type { TraceResult } from '../traceSelectors';
-import { Button, PanelHeader, Tabs, type TabItem } from '../../components/ui';
+import { Button, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'info' | 'inspections' | 'logs' | 'connections';
@@ -81,8 +82,28 @@ export function AssetDetailPanel({
     return cur?.floorId != null;
   }, [effectiveAssets, assetId]);
 
-  // 포트 없는 자산으로 옮기면 사라진 탭이 선택된 채 남지 않게 한다.
-  const hasPorts = (asset?.ports.length ?? 0) > 0;
+  /* 포트 수 = 이 자산 + **자손**의 포트. 랙·함체 자체에는 포트가 없고 안에 든 장비가
+     갖는데, 자기 포트만 세면 랙에는 포트 탭이 아예 뜨지 않아 "안에 무엇이 어디에 물려
+     있나" 를 보려면 장비마다 하나씩 들어가야 했다. */
+  /* 담고 있는 상위 자산들 — 바깥부터 안쪽 순. 평면도에 놓인 조상(층)까지는 올라가지 않는다. */
+  const ancestors = useMemo(() => {
+    const byId = new Map(effectiveAssets.map((a) => [a.id, a]));
+    const chain: V2Asset[] = [];
+    let cur = byId.get(assetId)?.parentAssetId ?? null;
+    while (cur != null) {
+      const parent = byId.get(cur);
+      if (!parent) break;
+      chain.unshift(parent);
+      cur = parent.parentAssetId;
+    }
+    return chain;
+  }, [effectiveAssets, assetId]);
+
+  const portCount = useMemo(
+    () => withDescendants(effectiveAssets, assetId).reduce((n, a) => n + a.ports.length, 0),
+    [effectiveAssets, assetId],
+  );
+  const hasPorts = portCount > 0;
   useEffect(() => {
     if (!hasPorts) setTab((t) => (t === 'connections' ? 'info' : t));
   }, [hasPorts]);
@@ -112,8 +133,8 @@ export function AssetDetailPanel({
     { key: 'info', label: '정보' },
     { key: 'inspections', label: '점검', count: inspectionCount },
     { key: 'logs', label: '고장이력', count: logCount },
-    ...(asset.ports.length > 0
-      ? [{ key: 'connections' as const, label: '포트', count: asset.ports.length }]
+    ...(hasPorts
+      ? [{ key: 'connections' as const, label: '포트', count: portCount }]
       : []),
   ];
 
@@ -123,7 +144,29 @@ export function AssetDetailPanel({
           예전에는 자산 이름이 '정보' 탭 안의 카드에만 있어서, 점검·고장이력·연결 탭으로
           옮기면 패널만 봐서는 무엇의 기록인지 알 수 없었다. */}
       <PanelHeader
-        title={asset.name}
+        title={
+          <span className="flex min-w-0 items-center gap-1">
+            {/* 담고 있는 상위 자산들을 앞에 붙인다 — 어느 랙·함체 안인지가 늘 보이고,
+                눌러서 그리로 올라간다. 예전에는 '정보' 탭의 위치 행 안에만 있어서
+                다른 탭에서는 맥락이 사라졌고, 있는 줄도 모르기 쉬웠다. */}
+            {ancestors.map((a) => (
+              <span key={a.id} className="flex min-w-0 items-center gap-1">
+                <button
+                  type="button"
+                  className={cn('min-w-0 max-w-28 truncate rounded px-1 text-sm font-normal text-primary', SELECTABLE)}
+                  title={`${a.name} 으로 이동`}
+                  onClick={() => onSelectAsset(a.id)}
+                >
+                  {a.name}
+                </button>
+                <span className="shrink-0 text-content-faint" aria-hidden>
+                  ›
+                </span>
+              </span>
+            ))}
+            <span className="min-w-0 truncate">{asset.name}</span>
+          </span>
+        }
         className="shrink-0"
         actions={
           /* 도면 어디에 있는지 보러 가는 길이 없었다. 자산 자신이 놓여 있지 않아도
