@@ -282,16 +282,14 @@ export default function V2CatalogAdminPage() {
                         입력 오류 {issues.length}건 — 저장 전에 수정하세요
                       </div>
                     )}
-                    {/* 구조 잠금 안내 */}
+                    {/* 구조 잠금 안내 — 개수는 배지가 말하므로 문장에서 되풀이하지 않는다.
+                        (예전에는 "3개 사용 중" 배지 옆에 "자산 3개가 이 타입을 사용 중" 이 또 있었다.) */}
                     {locked && (
-                      <div className="border-b border-line bg-warning-bg">
-                        <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-1.5">
+                      <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-1.5">
                         <Badge status="warning">{original?.assetCount}개 사용 중</Badge>
                         <span className="text-xs text-warning">
-                          자산 {original?.assetCount}개가 이 타입을 사용 중 — 구조(컨테이너·포트·링크)는 변경할 수
-                          없습니다
-                          </span>
-                        </div>
+                          구조(컨테이너·포트·링크)는 변경할 수 없습니다
+                        </span>
                       </div>
                     )}
                     <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-2">

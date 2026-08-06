@@ -10,11 +10,11 @@
  *   - 행 클릭 → onSelectAsset(feederId)
  */
 import { useMemo, useState } from 'react';
-import { EmptyState, Select, TableCard, Th, cn, SELECTABLE } from '../../components/ui';
+import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows } from '../powerSelectors';
-import type { PowerRow } from '../powerSelectors';
+import type { PowerRow, PowerCell } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
 import { AddAssetModal } from './AddAssetModal';
 import type { FieldDef } from '@twin/core';
@@ -154,6 +154,25 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     return buildPowerRows(activeContainer, effectiveAssets, effectiveCables, circuitCount);
   }, [activeContainer, effectiveAssets, effectiveCables, circuitCount]);
 
+  /* 검색이 없으면 회로가 42개인 분전반에서 "그 피더" 를 찾을 방법이 눈으로 훑는 것뿐이다.
+     표에 보이는 값을 통째로 훑는다 — 사용자는 이름만 기억하지 그것이 몇 번째 열인지는 모른다.
+     빈 회로 자리(SPARE)는 검색 중에는 감춘다. 아무 글자와도 맞지 않는데 남아 있으면
+     결과 사이에 빈 줄만 늘어놓는 셈이 된다. */
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    const peerText = (cell: PowerCell) =>
+      cell.peer ? `${cell.peer.assetName} ${cell.peer.portName}` : '';
+    return rows.filter(
+      (r) =>
+        !r.empty &&
+        [r.feederName, r.breakerNo ?? '', peerText(r.inCell), peerText(r.outCell)].some((v) =>
+          v.toLowerCase().includes(q),
+        ),
+    );
+  }, [rows, query]);
+
   const switchStateDefByFeeder = useMemo<Map<string, FieldDef | null>>(() => {
     const map = new Map<string, FieldDef | null>();
     for (const row of rows) {
@@ -181,19 +200,31 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* 상단 컨테이너 선택 */}
-      <div className="shrink-0 border-b border-line px-3 py-2">
-        <Select
-          value={activeContainerId ?? ''}
-          size="sm" className="max-w-xs"
-          onChange={(e) => setSelectedContainerId(e.currentTarget.value || null)}
-        >
-          {containers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
+      {/* 상단 컨테이너 선택 + 검색 */}
+      <div className="shrink-0 flex items-center gap-3 border-b border-line px-3 py-2">
+        {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
+            멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
+        <div className="w-64 shrink-0">
+          <Select
+            value={activeContainerId ?? ''}
+            size="sm"
+            onChange={(e) => setSelectedContainerId(e.currentTarget.value || null)}
+          >
+            {containers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <TableSearch
+          aria-label="회로 검색"
+          placeholder="피더 · 차단기 번호 · 연결 자산 검색"
+          value={query}
+          onChange={setQuery}
+          shown={filtered.length}
+          total={rows.length}
+        />
       </div>
 
       {/* 테이블 */}
@@ -211,14 +242,14 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-3 py-6 text-center text-sm text-content-faint">
-                  피더 데이터가 없습니다
+                  {query.trim() ? `'${query.trim()}' 와 맞는 회로가 없습니다` : '피더 데이터가 없습니다'}
                 </td>
               </tr>
             )}
-            {rows.map((row) =>
+            {filtered.map((row) =>
               /* 빈 회로 자리 — 패널 스케줄의 SPARE. 눌러서 그 자리에 피더를 넣는다
                  (수용 UI 의 '비어 있음' 행과 같은 규칙). */
               row.empty ? (

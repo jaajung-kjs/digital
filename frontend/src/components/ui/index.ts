@@ -12,6 +12,9 @@ export { DetailCard, DetailCardHeader, DetailRow, DetailNote } from './DetailCar
 export * from './controlSize';
 export { Input } from './Input';
 export type { InputProps } from './Input';
+export { StatusDot } from './StatusDot';
+export { TableSearch } from './TableSearch';
+export type { TableSearchProps } from './TableSearch';
 export { Select } from './Select';
 export type { SelectProps } from './Select';
 export { Modal } from './Modal';

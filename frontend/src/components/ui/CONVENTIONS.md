@@ -107,7 +107,7 @@
 실제로 존재하는 공용 컴포넌트는 전부 `src/components/ui`(배럴 `index.ts`)에 있다:
 `Badge`, `Button`, `IconButton`, `Card`, `DetailCard`/`DetailCardHeader`/`DetailRow`/`DetailNote`,
 `ItemCard`, `PanelHeader`, `Tabs`, `Input`, `Select`, `Modal`, `ConfirmModal`, `PromptModal`,
-`useConfirm`, `ErrorStrip`, `CommitBar`, `cn`, `controlSize`.
+`useConfirm`, `ErrorStrip`, `CommitBar`, `TableSearch`, `cn`, `controlSize`.
 아래 항목은 각 용도별로 그중 어떤 걸 쓸지 안내한다 — v2(`src/v2/`)와 레거시 잔존 화면 공통.
 
 ### 클릭하면 아래에 뜨는 "선택 상세 카드" → `DetailCard` 패밀리
@@ -170,11 +170,20 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 ### 상태 배지(ON/OFF·연결상태 등) → `Badge`
 `src/components/ui/Badge.tsx` (`status`: success·warning·danger·info·neutral). `DetailCardHeader` 의 `badgeStatus` 가 이걸 씀.
 
+**표의 한 열로 되풀이되는 상태는 `Badge` 가 아니라 `StatusDot`.** 색 채운 알약은 하나일 때는 좋지만 17행이 전부 초록 알약이 되면 색이 아무것도 말해 주지 않고, 정작 고장 한 줄이 묻힌다. `StatusDot` 은 평상시(정상·예비)를 조용히 두고 눈길을 끌 톤(경고·고장)만 글자까지 색을 준다. 무엇이 "눈길을 끌 상태" 인지는 **상태 어휘가 선언한 톤**에서 나온다 — 화면 코드가 `normal`·`fault` 같은 상태 값 이름을 알지 않는다. 단독 강조(패널 머리말·안내 띠)는 그대로 `Badge`.
+
 ### 버튼 → `Button` / `IconButton`
-`Button` 은 `variant`(`primary`/`secondary`/`ghost`/`danger`) + `size`(`sm`/`md`) props 로 톤을 결정한다 — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`.
+`Button` 은 `variant`(`primary`/`secondary`/`ghost`/`danger`) + `size`(`sm`/`md`) props 로 톤을 결정한다 — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`(`size` `sm`/`md` + `tone` `default`/`danger`).
+
+**되돌리기 어려운 동작(삭제)은 붉은 덩어리 버튼으로 상시 노출하지 않는다.** 도구바에 `Button variant="danger"` 가 늘 떠 있으면 시선을 붙들고 잘못 누르기도 쉽다. `IconButton tone="danger"` + 확인 대화상자로 하고, 키보드 단축키가 있으면 `aria-label`·`title` 에 함께 적는다(`자산 삭제 (Delete)`). 붉은 덩어리 버튼은 확인 대화상자 안의 최종 확인처럼 **그 화면의 주 동작일 때만** 쓴다.
+
+### 표 위 검색 상자 → `TableSearch`
+`src/components/ui/TableSearch.tsx` — 현황·선번장·계통이 같은 검색 헤더를 쓴다. 상자와 `N / M건` 표시를 맡고, **무엇으로 거를지는 호출부**가 정한다(열 구성이 표마다 다르다). 검색 중 결과가 비면 빈 상태 문구도 검색어를 되짚어 준다 — "검색이 잘못됐나" 와 "원래 없다" 가 구분되지 않으면 같은 검색을 반복하게 된다.
 
 ### 입력/선택 → `Input` / `Select`
 별도의 `fieldClass` 유틸은 없다. 크기는 `size` prop(`sm`/`md`) 으로만 정한다(§1.5) — `className` 으로 여백·글자를 덮어쓰지 않는다.
+
+**폭은 감싸는 칸으로 정한다** — `<Select className="max-w-xs">` 처럼 컨트롤에 직접 걸면 안 된다. `Select` 의 화살표는 래퍼 기준 절대배치라 `<select>` 만 좁아지고 화살표는 원래 자리에 남아 따로 논다(선번장·계통이 실제로 그랬다). `<div className="w-64"><Select …/></div>` 로 감싼다.
 
 ### 표 셀 인라인 편집(blur/Enter 커밋) → `InlineEditCell`
 `src/v2/components/InlineEditCell.tsx` — 선번장·계통 뷰처럼 표 셀 안에서 값을 직접 편집하는 경우 전용. `Input`/`Select` 위에 blur/Enter 커밋 셸(uncontrolled `defaultValue` + `key={value}` 리마운트-리셋 + `onBlur`에서 `e.currentTarget.value` 동기 캡처 + Enter → blur)을 얹은 v2 전용 공용 컴포넌트다 — 무엇을 비교/파싱해 커밋할지는 호출부의 `onCommit`이 맡는다. `value`/`onCommit`/`type`/`options`(주면 Select) 외 props는 없다. `DetailRow` 안의 폼 편집(`Input`/`Select` 직접)과는 용도가 다르다 — 이건 표 본문 셀 전용.

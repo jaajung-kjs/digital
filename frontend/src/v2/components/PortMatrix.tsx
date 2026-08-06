@@ -69,7 +69,9 @@ export function PortMatrix({
               className={cn(
                 'relative flex h-8 items-center justify-center rounded border text-xs tabular-nums transition-colors',
                 TILE[state],
-                selected && 'ring-2 ring-primary ring-offset-1',
+                // 링을 **안쪽**에 그린다 — 바깥으로 그리면(`ring-offset-1`) 타일 간격(4px)보다
+                // 두꺼워져 이웃 타일을 침범했다. 점유 상태 색은 가운데에 그대로 남는다.
+                selected && 'ring-2 ring-inset ring-primary font-medium',
               )}
             >
               {p.index}

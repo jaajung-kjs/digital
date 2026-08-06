@@ -13,7 +13,7 @@
  * 캡쳐된 state/props를 읽으면 stale-closure 버그가 생긴다.
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Trash2 } from 'lucide-react';
 import { validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../canvas/backgroundRenderer';
 import { renderGrid } from '../canvas/gridRenderer';
@@ -1069,6 +1069,51 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     scheduleRender();
   }
 
+  // ── 선택 케이블 삭제 ──────────────────────────────────────────────────────
+  function handleDeleteSelectedCable() {
+    const id = latest.current.selectedCableId;
+    if (id === null) return;
+    useV2WorkingCopy.getState().stageCableDelete(id);
+    cableDispatch({ type: 'DESELECT_CABLE' });
+    scheduleRender();
+  }
+
+  /**
+   * Delete / Backspace 로 고른 것을 지운다.
+   *
+   * 도구바 버튼만 두면 "선택 → 시선을 도구바로 옮김 → 클릭" 을 매번 반복해야 한다.
+   * 캔버스 편집기에서 Delete 는 관례이고, 어떤 키인지는 버튼 라벨에 함께 적어 알린다.
+   * 입력 칸 안에서의 Delete 는 글자 지우기이므로 위쪽 keydown 과 같은 방식으로 비켜 간다.
+   *
+   * 창 리스너는 한 번만 달고(재등록하면 그사이 눌린 키를 놓친다), 그때그때의 최신 처리기는
+   * ref 로 읽는다 — 이 파일이 다른 네이티브 리스너에서 쓰는 방식과 같다.
+   */
+  const deleteHandlersRef = useRef({ asset: handleDeleteSelectedAsset, cable: handleDeleteSelectedCable });
+  deleteHandlersRef.current = { asset: handleDeleteSelectedAsset, cable: handleDeleteSelectedCable };
+
+  useEffect(() => {
+    const onDeleteKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Delete' && e.code !== 'Backspace') return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable)) return;
+      // 케이블을 고른 것이 자산 선택보다 좁은 의도다 — 둘 다면 케이블을 지운다.
+      if (latest.current.selectedCableId !== null) {
+        e.preventDefault();
+        deleteHandlersRef.current.cable();
+        return;
+      }
+      // 도구바에 삭제 버튼이 뜨는 조건과 같아야 한다 — 평면도에 놓인 자산만.
+      // (상세 패널에서 고른 랙 **안쪽** 장비까지 키로 지워지면 화면에 없는 동작이 된다.)
+      const id = latest.current.selectedAssetId;
+      if (id !== null && latest.current.placedAssets.some((a) => a.id === id)) {
+        e.preventDefault();
+        void deleteHandlersRef.current.asset();
+      }
+    };
+    window.addEventListener('keydown', onDeleteKey);
+    return () => window.removeEventListener('keydown', onDeleteKey);
+  }, []);
+
   // ── 줌 버튼 ───────────────────────────────────────────────────────────────
   /** 버튼 줌은 화면 한가운데를 고정한다 — 커서를 고정하는 휠과 계산은 같다. */
   const zoomByButton = useCallback((factor: number) => {
@@ -1205,29 +1250,33 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           {selectedAssetId !== null && placedAssets.some((a) => a.id === selectedAssetId) && (
             <>
               <span className="h-4 w-px bg-line mx-1" />
-              <Button size="sm" variant="danger" onClick={() => void handleDeleteSelectedAsset()}>
-                자산 삭제
-              </Button>
+              <IconButton
+                size="sm"
+                tone="danger"
+                aria-label="자산 삭제 (Delete)"
+                title="자산 삭제 (Delete)"
+                onClick={() => void handleDeleteSelectedAsset()}
+              >
+                <Trash2 size={15} />
+              </IconButton>
             </>
           )}
 
-          {/* 선택된 케이블 삭제 버튼 */}
+          {/* 선택된 케이블 삭제 */}
           {cableState.selectedCableId !== null && (
             <>
               <span className="h-4 w-px bg-line mx-1" />
               {/* 경로 편집 방법을 알려주지 않으면 선을 눌러도 아무 일이 없다고 여긴다. */}
               <span className="text-xs text-content-muted">선을 눌러 꺾임 추가 · 점 더블클릭으로 삭제</span>
-              <Button
+              <IconButton
                 size="sm"
-                variant="danger"
-                onClick={() => {
-                  useV2WorkingCopy.getState().stageCableDelete(cableState.selectedCableId!);
-                  cableDispatch({ type: 'DESELECT_CABLE' });
-                  scheduleRender();
-                }}
+                tone="danger"
+                aria-label="케이블 삭제 (Delete)"
+                title="케이블 삭제 (Delete)"
+                onClick={() => void handleDeleteSelectedCable()}
               >
-                케이블 삭제
-              </Button>
+                <Trash2 size={15} />
+              </IconButton>
             </>
           )}
         </div>

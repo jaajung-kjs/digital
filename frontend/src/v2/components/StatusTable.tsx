@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
-import { Badge, EmptyState, Input, TableCard, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
+import { EmptyState, StatusDot, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
 
@@ -18,15 +18,18 @@ type SortKey = keyof Pick<
   | 'substationName'
 >;
 
-function toneToStatus(tone: string): BadgeStatus {
-  if (tone === 'success') return 'success';
-  if (tone === 'danger') return 'danger';
-  return 'neutral';
-}
+/** 상태 어휘가 선언한 톤을 화면 톤으로 옮긴다 — 모르는 톤은 조용한 쪽으로 둔다. */
+const KNOWN_TONES: ReadonlySet<string> = new Set<BadgeStatus>([
+  'success',
+  'warning',
+  'danger',
+  'info',
+  'neutral',
+]);
 
-function assetStatusBadge(value: string): BadgeStatus {
-  const entry = ASSET_STATUSES.find((s) => s.value === value);
-  return entry ? toneToStatus(entry.tone) : 'neutral';
+function assetStatusTone(value: string): BadgeStatus {
+  const tone = ASSET_STATUSES.find((s) => s.value === value)?.tone;
+  return tone != null && KNOWN_TONES.has(tone) ? (tone as BadgeStatus) : 'neutral';
 }
 
 function compareValues(a: string | null, b: string | null): number {
@@ -81,7 +84,7 @@ const BASE_COLS: Column[] = [
     key: 'status',
     label: '상태',
     width: 12,
-    render: (r) => <Badge status={assetStatusBadge(r.status)}>{assetStatusLabel(r.status)}</Badge>,
+    render: (r) => <StatusDot status={assetStatusTone(r.status)}>{assetStatusLabel(r.status)}</StatusDot>,
   },
 ];
 
@@ -123,18 +126,14 @@ export function StatusTable({ rows, selectedId, onSelectAsset, nodeScope = false
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-2">
       <div className="flex max-w-6xl items-center gap-2">
-        <div className="w-64">
-          <Input
-            size="sm"
-            aria-label="자산 검색"
-            placeholder="이름 · 종류 · 설치장소 · 담당자 검색"
-            value={query}
-            onChange={(e) => setQuery(e.currentTarget.value)}
-          />
-        </div>
-        <span className="text-xs text-content-muted">
-          {query.trim() ? `${filtered.length} / ${rows.length}건` : `${rows.length}건`}
-        </span>
+        <TableSearch
+          aria-label="자산 검색"
+          placeholder="이름 · 종류 · 설치장소 · 담당자 검색"
+          value={query}
+          onChange={setQuery}
+          shown={filtered.length}
+          total={rows.length}
+        />
       </div>
 
     <TableCard widths={cols.map((c) => c.width)}>

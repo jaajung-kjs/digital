@@ -7,7 +7,7 @@
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
 import { Fragment, useMemo, useState } from 'react';
-import { EmptyState, Select, TableCard, Th } from '../../components/ui';
+import { EmptyState, Select, TableCard, TableSearch, Th } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog } from '../hooks';
@@ -93,6 +93,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   const types = catalog.data?.types;
 
   const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   // 선택된 컨테이너 (null이면 첫 번째)
   const activeContainerId =
@@ -122,11 +123,25 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
     );
   }
 
+  /* 슬롯 4개 × 코어 24심이면 96행이다 — 검색이 없으면 "그 대국" 을 눈으로 훑어야 한다.
+     슬롯 이름과 각 칸의 대국(자산·포트)을 훑는다. 슬롯 이름이 걸리면 그 슬롯의 심이
+     통째로 남는다 — "슬롯 3" 을 찾는 사람은 그 판 전체를 보려는 것이다. */
+  const filteredRows = (() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => {
+      if (r.slotName.toLowerCase().includes(q)) return true;
+      return r.cells.some((c) =>
+        c.peer ? `${c.peer.assetName} ${c.peer.portName}`.toLowerCase().includes(q) : false,
+      );
+    });
+  })();
+
   // ── 슬롯별 그룹화: 테이블 렌더를 위해 슬롯 변경 지점 찾기 ──────────────
   // rows는 slot 순서로 정렬되어 있음 (buildFiberRows 내부 sort)
   type RowGroup = { slotId: string; slotName: string; rows: FiberRow[] };
   const rowGroups: RowGroup[] = [];
-  for (const row of rows) {
+  for (const row of filteredRows) {
     const last = rowGroups[rowGroups.length - 1];
     if (!last || last.slotId !== row.slotId) {
       rowGroups.push({ slotId: row.slotId, slotName: row.slotName, rows: [row] });
@@ -143,19 +158,31 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* 상단 컨테이너 선택 */}
-      <div className="shrink-0 border-b border-line px-3 py-2">
-        <Select
-          value={activeContainerId ?? ''}
-          size="sm" className="max-w-xs"
-          onChange={(e) => setSelectedContainerId(e.currentTarget.value || null)}
-        >
-          {containers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </Select>
+      {/* 상단 컨테이너 선택 + 검색 */}
+      <div className="shrink-0 flex items-center gap-3 border-b border-line px-3 py-2">
+        {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
+            멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
+        <div className="w-64 shrink-0">
+          <Select
+            value={activeContainerId ?? ''}
+            size="sm"
+            onChange={(e) => setSelectedContainerId(e.currentTarget.value || null)}
+          >
+            {containers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <TableSearch
+          aria-label="심 검색"
+          placeholder="슬롯 · 대국 자산 · 포트 검색"
+          value={query}
+          onChange={setQuery}
+          shown={filteredRows.length}
+          total={rows.length}
+        />
       </div>
 
       {/* 테이블 */}
@@ -179,7 +206,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                   colSpan={totalCols}
                   className="px-3 py-6 text-center text-sm text-content-faint"
                 >
-                  슬롯 데이터가 없습니다
+                  {query.trim() ? `'${query.trim()}' 와 맞는 심이 없습니다` : '슬롯 데이터가 없습니다'}
                 </td>
               </tr>
             )}
