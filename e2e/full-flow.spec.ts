@@ -110,6 +110,11 @@ test('③ 연결 — 케이블을 이으면 저장 대기 변경이 생긴다', 
   await expect(page.getByRole('button', { name: /저장/ }).first()).toBeVisible();
   await page.getByRole('button', { name: /저장/ }).first().click();
 
+  /* 저장이 **끝난 뒤에** 케이블 id 를 읽는다.
+     예전에는 버튼을 누른 직후 읽어서 커밋 전 상태(케이블 없음)를 잡았고, 그래서 정리
+     단계가 지울 대상을 못 받아 케이블이 DB 에 계속 쌓였다 — 테스트는 통과하는데
+     뒷정리만 조용히 실패하는 상태였다. 저장 완료 알림을 신호로 쓴다. */
+  await expect(page.getByRole('status')).toBeVisible();
   created.cables = await currentCableIds(page, subId);
 
   // 커밋 후 연결 탭에서 실제로 케이블이 보여야 한다.

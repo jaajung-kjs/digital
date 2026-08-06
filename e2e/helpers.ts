@@ -117,7 +117,7 @@ export async function deleteEntities(
       if (!assets.length && !cables.length) return;
       const baseVersions: Record<string, string> = {};
       for (const id of [...assets, ...cables]) baseVersions[id] = byId.get(id)!;
-      await fetch(`/api/v2/substations/${subId}/commit`, {
+      const res = await fetch(`/api/v2/substations/${subId}/commit`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({
@@ -126,6 +126,8 @@ export async function deleteEntities(
           cables: { creates: [], updates: [], deletes: cables },
         }),
       });
+      // 응답을 보지 않으면 커밋이 거절돼도 조용히 지나가고 잔재가 DB 에 쌓인다.
+      if (!res.ok) throw new Error(`정리 커밋 실패 ${res.status}: ${(await res.text()).slice(0, 200)}`);
     },
     [substationId, ids.assets ?? [], ids.cables ?? []] as const,
   );
@@ -169,7 +171,7 @@ export async function resetE2eLeftovers(page: Page, substationId: string, endpoi
       const baseVersions: Record<string, string> = {};
       for (const a of deadAssets) baseVersions[a.id] = a.updatedAt;
       for (const c of deadCables) baseVersions[c.id] = c.updatedAt;
-      await fetch(`/api/v2/substations/${subId}/commit`, {
+      const res = await fetch(`/api/v2/substations/${subId}/commit`, {
         method: 'PUT',
         headers,
         body: JSON.stringify({
@@ -178,6 +180,7 @@ export async function resetE2eLeftovers(page: Page, substationId: string, endpoi
           cables: { creates: [], updates: [], deletes: deadCables.map((c) => c.id) },
         }),
       });
+      if (!res.ok) throw new Error(`잔재 정리 실패 ${res.status}: ${(await res.text()).slice(0, 200)}`);
     },
     [substationId, endpointAssetNames] as const,
   );
@@ -196,7 +199,11 @@ export async function resetE2eTypes(page: Page) {
     const cat = await (await fetch('/api/v2/catalog', { headers })).json();
     const dead = (cat.types ?? []).filter((t: { name: string }) => t.name.startsWith('E2E장비'));
     for (const t of dead) {
-      await fetch(`/api/v2/catalog/types/${t.id}`, { method: 'DELETE', headers });
+      const res = await fetch(`/api/v2/catalog/types/${t.id}`, { method: 'DELETE', headers });
+      // 자산이 물려 있으면 409 가 정상이다 — 그 외 실패는 드러나야 한다.
+      if (!res.ok && res.status !== 409) {
+        throw new Error(`타입 정리 실패 ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      }
     }
   });
 }
