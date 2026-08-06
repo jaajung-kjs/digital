@@ -10,12 +10,13 @@
  *   - 행 클릭 → onSelectAsset(feederId)
  */
 import { useMemo, useState } from 'react';
-import { EmptyState, Select, TableCard, Th } from '../../components/ui';
+import { EmptyState, Select, TableCard, Th, cn, SELECTABLE } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows } from '../powerSelectors';
 import type { PowerRow } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
+import { AddAssetModal } from './AddAssetModal';
 import type { FieldDef } from '@twin/core';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from './InlineEditCell';
@@ -130,14 +131,28 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   const activeContainer = containers.find((c) => c.id === activeContainerId) ?? null;
 
-  const rows = useMemo<PowerRow[]>(() => {
-    if (!activeContainer) return [];
-    return buildPowerRows(activeContainer, effectiveAssets, effectiveCables);
-  }, [activeContainer, effectiveAssets, effectiveCables]);
-
   // catalog에서 피더별 switchState fieldDef 조회 (행별 해소 — 혼합 타입 컨테이너 대응)
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
+
+  /* 회로 수 = 이 함체가 선언한 전원 컨테이너의 slotCount.
+     선언돼 있으면 빈 자리까지 표(패널 스케줄)에 나오고, 자유형이면 있는 것만 나온다.
+     "몇 회로짜리인가" 는 타입이 아니라 명세가 말한다 — 코드는 분전반을 모르지 않는다. */
+  const circuitSpec = useMemo(() => {
+    if (!activeContainer) return null;
+    const type = typesById.get(activeContainer.typeId);
+    return type?.containerSpecs[0] ?? null;
+  }, [activeContainer, typesById]);
+  const circuitCount = circuitSpec?.slotCount ?? null;
+
+  /* 빈 회로 자리를 누르면 그 자리에 자산을 넣는다 — 모달은 이 뷰가 소유한다
+     (평면도가 배치 모달을 직접 다루는 것과 같은 규칙). */
+  const [addSlotIndex, setAddSlotIndex] = useState<number | null>(null);
+
+  const rows = useMemo<PowerRow[]>(() => {
+    if (!activeContainer) return [];
+    return buildPowerRows(activeContainer, effectiveAssets, effectiveCables, circuitCount);
+  }, [activeContainer, effectiveAssets, effectiveCables, circuitCount]);
 
   const switchStateDefByFeeder = useMemo<Map<string, FieldDef | null>>(() => {
     const map = new Map<string, FieldDef | null>();
@@ -183,9 +198,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
       {/* 테이블 */}
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <TableCard widths={[22, 14, 12, 26, 26]}>
+        <TableCard widths={[8, 20, 13, 11, 24, 24]}>
           <thead>
             <tr className="border-b border-line">
+              {/* 회로 번호가 맨 앞 — 패널 스케줄에서 번호는 곧 패널에서의 자리다. */}
+              <Th>회로</Th>
               <Th>피더</Th>
               <Th>차단기 번호</Th>
               <Th>상태</Th>
@@ -196,12 +213,32 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-sm text-content-faint">
+                <td colSpan={6} className="px-3 py-6 text-center text-sm text-content-faint">
                   피더 데이터가 없습니다
                 </td>
               </tr>
             )}
-            {rows.map((row) => (
+            {rows.map((row) =>
+              /* 빈 회로 자리 — 패널 스케줄의 SPARE. 눌러서 그 자리에 피더를 넣는다
+                 (수용 UI 의 '비어 있음' 행과 같은 규칙). */
+              row.empty ? (
+                <tr key={`empty-${row.slotNo}`} className="border-b border-line">
+                  <td className="px-3 py-1.5 text-sm text-content-faint tabular-nums">{row.slotNo}</td>
+                  <td colSpan={5} className="px-3 py-1.5">
+                    <button
+                      type="button"
+                      className={cn(
+                        'w-full rounded border border-dashed border-line px-2 py-1 text-left text-sm text-content-faint',
+                        SELECTABLE,
+                      )}
+                      onClick={() => setAddSlotIndex(row.slotNo! - 1)}
+                    >
+                      비어 있음
+                      <span className="ml-2 text-xs text-primary">+ 추가</span>
+                    </button>
+                  </td>
+                </tr>
+              ) : (
               <tr
                 key={row.feederId}
                 className={`cursor-pointer border-b border-line hover:bg-surface-2 ${
@@ -209,6 +246,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                 }`}
                 onClick={() => onSelectAsset(row.feederId)}
               >
+                <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{row.slotNo ?? '—'}</td>
                 {/* 피더 이름 */}
                 <td className="px-3 py-1.5 text-sm text-content">{row.feederName}</td>
 
@@ -241,10 +279,28 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                   <PeerCell peer={row.outCell.peer} />
                 </td>
               </tr>
-            ))}
+              ),
+            )}
           </tbody>
         </TableCard>
       </div>
+
+      {/* 회로 자리에 자산 추가 */}
+      {addSlotIndex != null && activeContainer && circuitSpec && (
+        <AddAssetModal
+          open
+          onClose={() => setAddSlotIndex(null)}
+          substationId={_substationId}
+          containerContext={{
+            parentAssetId: activeContainer.id,
+            spec: circuitSpec,
+            siblings: effectiveAssets
+              .filter((a) => a.parentAssetId === activeContainer.id)
+              .map((a) => ({ slotIndex: a.slotIndex, slotSpan: a.slotSpan })),
+            slotIndex: addSlotIndex,
+          }}
+        />
+      )}
     </div>
   );
 }

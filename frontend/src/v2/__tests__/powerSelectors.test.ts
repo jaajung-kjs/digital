@@ -49,3 +49,44 @@ describe('buildPowerRows', () => {
     expect(rows[0]!.inCell).toMatchObject({ cableId: null, peer: null, voltage: null });
   });
 });
+
+describe('패널 스케줄 — 회로 자리', () => {
+  // 전기 도면의 패널 스케줄은 회로 번호가 곧 패널에서의 위치이고,
+  // 쓰지 않는 자리도 SPARE 로 보여준다. 그 두 성질을 붙잡는다.
+  const mk = (id: string, name: string, breakerNo: string | null, slotIndex: number | null) =>
+    asset(id, name, {
+      parentAssetId: 'panel',
+      slotIndex,
+      fieldValues: breakerNo == null ? {} : { breakerNo },
+      ports: [port(`${id}in`, id, 'IN', 1, 'IN'), port(`${id}out`, id, 'OUT', 1, 'OUT')],
+    });
+
+  it('이름순이 아니라 차단기 번호순으로 읽는다', () => {
+    const assets = [panel, mk('c', '가피더', '10', null), mk('a', '나피더', '2', null)];
+    const rows = buildPowerRows(panel, assets, []);
+    expect(rows.map((r) => r.breakerNo)).toEqual(['2', '10']); // 문자열 정렬이면 '10' 이 앞선다
+  });
+
+  it('차단기 번호가 없으면 슬롯 자리로 물러선다 — 순서를 잃지 않게', () => {
+    const assets = [panel, mk('x', '나중', null, 4), mk('y', '먼저', null, 1)];
+    expect(buildPowerRows(panel, assets, []).map((r) => r.feederName)).toEqual(['먼저', '나중']);
+  });
+
+  it('회로 수를 선언하면 빈 자리도 행이 된다 — 12회로에 2개만 물린 것이 보여야 한다', () => {
+    const assets = [panel, mk('a', '피더A', null, 0), mk('b', '피더B', null, 5)];
+    const rows = buildPowerRows(panel, assets, [], 12);
+    expect(rows).toHaveLength(12);
+    expect(rows.map((r) => r.slotNo)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(rows.filter((r) => r.empty)).toHaveLength(10);
+    expect(rows[0]?.feederName).toBe('피더A');
+    expect(rows[5]?.feederName).toBe('피더B');
+    expect(rows[1]?.empty).toBe(true);
+  });
+
+  it('자유형(회로 수 미선언)이면 있는 것만 나열한다 — 빈 자리를 지어내지 않는다', () => {
+    const assets = [panel, mk('a', '피더A', null, 0)];
+    const rows = buildPowerRows(panel, assets, [], null);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.empty).toBe(false);
+  });
+});

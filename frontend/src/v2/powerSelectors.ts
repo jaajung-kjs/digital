@@ -21,12 +21,29 @@ export interface PowerCell {
 }
 
 export interface PowerRow {
+  /** 회로 자리 번호(1-based) — 컨테이너가 슬롯 수를 선언했을 때만. 자유형이면 null. */
+  slotNo: number | null;
+  /** 비어 있는 회로 자리 — 패널 스케줄의 SPARE. 이 행에는 피더가 없다. */
+  empty: boolean;
   feederId: string;
   feederName: string;
   breakerNo: string | null;
   switchState: string | null;
   inCell: PowerCell & { voltage: string | null };
   outCell: PowerCell;
+}
+
+/**
+ * 이 피더가 몇 번 회로인가 — 차단기 번호가 있으면 그것, 없으면 슬롯 자리.
+ *
+ * 차단기 번호는 사용자가 적는 커스텀 필드라 비어 있거나 숫자가 아닐 수 있다.
+ * 그럴 때 순서를 잃지 않도록 슬롯 인덱스로 물러선다.
+ */
+function circuitNumber(feeder: V2Asset): number | null {
+  const raw = fieldString(feeder.fieldValues?.breakerNo);
+  const n = raw == null ? NaN : parseInt(raw, 10);
+  if (Number.isFinite(n)) return n;
+  return feeder.slotIndex != null ? feeder.slotIndex + 1 : null;
 }
 
 /** fieldValues 값 문자열화 — 없으면 null (런타임 변환, 캐스트 아님) */
@@ -45,14 +62,26 @@ function fieldString(value: unknown): string | null {
 export function buildPowerRows(
   container: V2Asset,
   assets: V2Asset[],
-  cables: V2Cable[]
+  cables: V2Cable[],
+  /** 컨테이너 명세가 선언한 회로 수 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
+  slotCount?: number | null,
 ): PowerRow[] {
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
 
-  // Feeders = children of container with power ports, sorted by name
+  /* 회로 순서 = 물리적 자리 순서.
+     전기 도면의 패널 스케줄은 회로 번호가 곧 패널에서의 위치라 번호순으로 읽는다.
+     예전에는 이름순이라 "1번 옆이 2번" 이라는 감각이 없었다.
+     번호는 차단기 번호(커스텀 필드) → 슬롯 인덱스 → 이름 순으로 찾는다. */
   const feeders = assets
     .filter((a) => a.parentAssetId === container.id && a.ports.some((p) => p.medium === POWER_MEDIUM))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => {
+      const na = circuitNumber(a);
+      const nb = circuitNumber(b);
+      if (na != null && nb != null && na !== nb) return na - nb;
+      if (na != null && nb == null) return -1;
+      if (na == null && nb != null) return 1;
+      return a.name.localeCompare(b.name);
+    });
 
   // portId → { port, asset } index (hoisted — shared helper)
   const portIndex = buildPortIndex(assets);
@@ -97,6 +126,8 @@ export function buildPowerRows(
     }
 
     rows.push({
+      slotNo: feeder.slotIndex != null ? feeder.slotIndex + 1 : null,
+      empty: false,
       feederId: feeder.id,
       feederName: feeder.name,
       breakerNo: fieldString(feeder.fieldValues?.breakerNo),
@@ -104,6 +135,27 @@ export function buildPowerRows(
       inCell,
       outCell,
     });
+  }
+
+  /* 빈 회로 자리 — 패널 스케줄은 쓰지 않는 자리도 보여준다(SPARE).
+     "12회로 분전반에 지금 3개만 물려 있다" 를 보려면 빈 자리가 행으로 있어야 한다.
+     회로 수는 컨테이너 명세가 선언한 slotCount 다 — 자유형(null)이면 있는 것만 나열한다. */
+  if (slotCount != null) {
+    const taken = new Set(rows.map((r) => r.slotNo).filter((n): n is number => n != null));
+    for (let i = 1; i <= slotCount; i++) {
+      if (taken.has(i)) continue;
+      rows.push({
+        slotNo: i,
+        empty: true,
+        feederId: '',
+        feederName: '',
+        breakerNo: null,
+        switchState: null,
+        inCell: { portId: null, cableId: null, peer: null, voltage: null },
+        outCell: { portId: null, cableId: null, peer: null },
+      });
+    }
+    rows.sort((a, b) => (a.slotNo ?? 0) - (b.slotNo ?? 0));
   }
 
   return rows;
