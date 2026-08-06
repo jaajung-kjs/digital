@@ -101,6 +101,11 @@ test('③ 연결 — 케이블을 이으면 저장 대기 변경이 생긴다', 
   // 랙을 클릭하면 랙 자신(포트 없음)과 자손 장비들의 포트가 함께 뜬다.
   // 어느 장비의 포트인지 이름으로 지정한다 — "첫 항목"을 두 번 고르면 자기 자신에게
   // 케이블을 잇는 무의미한 연결이 된다(실제로 그렇게 만들어졌다).
+  /* 이 테스트가 만든 케이블만 나중에 지우기 위해, 잇기 **전에** 목록을 찍어 둔다.
+     예전에는 저장 후 전체 목록을 그대로 정리 대상으로 삼아, 시드나 사용자가 만든 케이블까지
+     함께 지웠다(실제로 전원 계통 케이블 4본이 사라졌다). */
+  const cablesBefore = await currentCableIds(page, subId);
+
   /* 포트 선택은 우측 패널의 매트릭스다 — 타일 라벨은 "포트 1 미연결" 처럼 상태를 포함한다.
      어느 장비의 포트인지는 카드 제목으로 갈린다(랙을 누르면 자손 장비들이 카드로 나열된다). */
   await clickAssetOnCanvas(page, subId, '통신랙 A');
@@ -118,7 +123,8 @@ test('③ 연결 — 케이블을 이으면 저장 대기 변경이 생긴다', 
      단계가 지울 대상을 못 받아 케이블이 DB 에 계속 쌓였다 — 테스트는 통과하는데
      뒷정리만 조용히 실패하는 상태였다. 저장 완료 알림을 신호로 쓴다. */
   await expect(page.getByRole('status')).toBeVisible();
-  created.cables = await currentCableIds(page, subId);
+  const cablesAfter = await currentCableIds(page, subId);
+  created.cables = cablesAfter.filter((id) => !cablesBefore.includes(id));
 
   // 커밋 후 연결 탭에서 실제로 케이블이 보여야 한다.
   await switchView(page, '현황');
