@@ -19,6 +19,8 @@ import { renderBackgroundDrawing } from '../canvas/backgroundRenderer';
 import { renderGrid } from '../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../canvas/renderers';
 import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../canvas/transform';
+import { insertionAt, insertPathPoint, movePathPoint, removePathPoint } from '../canvas/cablePath';
+import { CableWaypointHandles } from './CableWaypointHandles';
 import { findAssetAt, type PlacedAsset } from '../canvas/hitTest';
 import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
 import type { DragSession } from '../canvas/drag';
@@ -438,7 +440,15 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       const floorId = floor?.id ?? null;
       const traceRes = latest.current.traceResult;
       if (floorId) {
-        const segs = cableSegments(latest.current.effectiveCables, latest.current.effectiveAssets, floorId);
+        /* 경로점 드래그 중이면 그 케이블만 프리뷰 경로로 갈아끼운다 —
+           스테이지하지 않고도 손이 가는 대로 선이 따라오게. */
+        const preview = cablePathPreviewRef.current;
+        const cablesForRender = preview
+          ? latest.current.effectiveCables.map((c) =>
+              c.id === preview.id ? { ...c, pathPoints: preview.points } : c,
+            )
+          : latest.current.effectiveCables;
+        const segs = cableSegments(cablesForRender, latest.current.effectiveAssets, floorId);
         if (traceRes) {
           // 추적 결과 있음: 추적 케이블은 선택 스타일, 나머지는 alpha 0.3
           const tracedSegs = segs.filter((s) => traceRes.cableIds.has(s.id));
@@ -847,6 +857,20 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       for (let i = segs.length - 1; i >= 0; i--) {
         const seg = segs[i]!;
         if (distanceToPolyline(world, seg.points) <= threshold) {
+          /* 이미 고른 케이블을 다시 누르면 그 자리에 꺾임을 만든다.
+             선택과 경로 편집을 한 동작에 섞지 않으려고 "선택 → 다시 클릭" 두 단계로 둔다. */
+          if (latest.current.selectedCableId === seg.id) {
+            const spot = insertionAt(seg.points, world, threshold);
+            const cable = latest.current.effectiveCables.find((c) => c.id === seg.id);
+            if (spot && cable) {
+              const snapped = snapToGrid(spot.point.x, spot.point.y, SNAP_GRID);
+              useV2WorkingCopy.getState().stageCableUpdate(seg.id, {
+                pathPoints: insertPathPoint(cable.pathPoints, spot.index, snapped),
+              });
+              scheduleRender();
+              return;
+            }
+          }
           cableDispatch({ type: 'SELECT_CABLE', id: seg.id });
           onSelectAsset(null); // 케이블 선택 시 자산 선택 해제
           scheduleRender();
@@ -1008,6 +1032,15 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     ? { id: selectedPlacedAsset.id, x: selectedPlacedAsset.x, y: selectedPlacedAsset.y,
         width: selectedPlacedAsset.width, height: selectedPlacedAsset.height }
     : null);
+
+  /* 경로점 드래그 중에는 스테이지하지 않고 프리뷰만 그린다 —
+     드래그 한 번에 오버레이가 수십 개 쌓이면 되돌리기가 사실상 못 쓰게 된다. */
+  const [cablePathPreview, setCablePathPreview] = useState<{ x: number; y: number }[] | null>(null);
+  const cablePathPreviewRef = useRef<{ id: string; points: { x: number; y: number }[] } | null>(null);
+  const selectedCable = useMemo(
+    () => effectiveCables.find((c) => c.id === cableState.selectedCableId) ?? null,
+    [effectiveCables, cableState.selectedCableId],
+  );
 
   // ── 선택 자산 삭제 ────────────────────────────────────────────────────────
   async function handleDeleteSelectedAsset() {
@@ -1175,6 +1208,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           {cableState.selectedCableId !== null && (
             <>
               <span className="h-4 w-px bg-line mx-1" />
+              {/* 경로 편집 방법을 알려주지 않으면 선을 눌러도 아무 일이 없다고 여긴다. */}
+              <span className="text-xs text-content-muted">선을 눌러 꺾임 추가 · 점 더블클릭으로 삭제</span>
               <Button
                 size="sm"
                 variant="danger"
@@ -1226,6 +1261,38 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
               // 무동작 리사이즈 — no-op 스테이지 없이 프리뷰만 정리
               resizePreviewRef.current = null;
               setResizePreviewState(null);
+              scheduleRender();
+            }}
+          />
+        )}
+
+        {/* 케이블 경로점 핸들 (선택 케이블 있을 때만) */}
+        {selectedCable && (
+          <CableWaypointHandles
+            viewport={viewport}
+            pathPoints={cablePathPreview ?? selectedCable.pathPoints}
+            onPreview={(pts) => {
+              setCablePathPreview(pts);
+              cablePathPreviewRef.current = { id: selectedCable.id, points: pts };
+              scheduleRender();
+            }}
+            onMoveEnd={(index, point) => {
+              setCablePathPreview(null);
+              cablePathPreviewRef.current = null;
+              useV2WorkingCopy.getState().stageCableUpdate(selectedCable.id, {
+                pathPoints: movePathPoint(selectedCable.pathPoints, index, point),
+              });
+              scheduleRender();
+            }}
+            onCancel={() => {
+              setCablePathPreview(null);
+              cablePathPreviewRef.current = null;
+              scheduleRender();
+            }}
+            onRemove={(index) => {
+              useV2WorkingCopy.getState().stageCableUpdate(selectedCable.id, {
+                pathPoints: removePathPoint(selectedCable.pathPoints, index),
+              });
               scheduleRender();
             }}
           />
