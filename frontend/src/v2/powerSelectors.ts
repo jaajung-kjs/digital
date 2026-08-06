@@ -1,5 +1,5 @@
 import type { SeededMediumKey } from '@twin/core';
-import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
+import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type MediumContainer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
 export type { PeerInfo } from './peerResolve';
@@ -10,7 +10,7 @@ export const POWER_MEDIUM: SeededMediumKey = 'power';
  * Returns assets that have at least one child with power ports.
  * Results are sorted by name.
  */
-export function powerContainers(assets: V2Asset[]): V2Asset[] {
+export function powerContainers(assets: V2Asset[]): MediumContainer[] {
   return mediumContainers(assets, POWER_MEDIUM);
 }
 
@@ -65,6 +65,9 @@ export function buildPowerRows(
   cables: V2Cable[],
   /** 컨테이너 명세가 선언한 회로 수 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
   slotCount?: number | null,
+  /** 이 표가 다루는 컨테이너. 같은 함체의 **다른** 컨테이너 자식은 섞이면 안 된다
+   *  (자리 번호는 컨테이너마다 1부터 다시 시작한다). */
+  containerKey?: string | null,
 ): PowerRow[] {
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
 
@@ -73,7 +76,12 @@ export function buildPowerRows(
      예전에는 이름순이라 "1번 옆이 2번" 이라는 감각이 없었다.
      번호는 차단기 번호(커스텀 필드) → 슬롯 인덱스 → 이름 순으로 찾는다. */
   const feeders = assets
-    .filter((a) => a.parentAssetId === container.id && a.ports.some((p) => p.medium === POWER_MEDIUM))
+    .filter(
+      (a) =>
+        a.parentAssetId === container.id &&
+        (containerKey === undefined || a.containerKey === containerKey) &&
+        a.ports.some((p) => p.medium === POWER_MEDIUM),
+    )
     .sort((a, b) => {
       const na = circuitNumber(a);
       const nb = circuitNumber(b);

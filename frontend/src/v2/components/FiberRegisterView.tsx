@@ -10,7 +10,8 @@ import { Fragment, useMemo, useState } from 'react';
 import { EmptyState, Select, TableCard, TableSearch, Th } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { useV2Catalog } from '../hooks';
+import { useV2Catalog, useTypesById } from '../hooks';
+import { useMediumContainer } from '../useMediumContainer';
 import { fiberContainers, buildFiberRows } from '../fiberSelectors';
 import type { FiberRow } from '../fiberSelectors';
 import { PeerCell } from './PeerCell';
@@ -91,21 +92,19 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   // lineSide 선언 판독을 위한 카탈로그 타입 (meta 케이블 선정 — A-V1)
   const catalog = useV2Catalog();
   const types = catalog.data?.types;
+  const typesById = useTypesById(types);
 
-  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
 
-  // 선택된 컨테이너 (null이면 첫 번째)
-  const activeContainerId =
-    selectedContainerId !== null && containers.some((c) => c.id === selectedContainerId)
-      ? selectedContainerId
-      : containers[0]?.id ?? null;
-
-  const activeContainer = containers.find((c) => c.id === activeContainerId) ?? null;
+  /* 표의 단위는 자산이 아니라 (자산, 컨테이너) — 계통과 같은 훅을 쓴다. */
+  const picked = useMediumContainer(containers, typesById);
+  const activeContainer = picked.active;
 
   const { groups, rows } = useMemo(() => {
     if (!activeContainer) return { groups: [] as string[], rows: [] as FiberRow[] };
-    return buildFiberRows(activeContainer, effectiveAssets, effectiveCables, types ?? []);
+    return buildFiberRows(
+      activeContainer.asset, effectiveAssets, effectiveCables, types ?? [], activeContainer.containerKey,
+    );
   }, [activeContainer, effectiveAssets, effectiveCables, types]);
 
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
@@ -163,14 +162,10 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
         {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
             멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
         <div className="w-64 shrink-0">
-          <Select
-            value={activeContainerId ?? ''}
-            size="sm"
-            onChange={(e) => setSelectedContainerId(e.currentTarget.value || null)}
-          >
-            {containers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+          <Select value={picked.activeKey} size="sm" onChange={(e) => picked.setActiveKey(e.currentTarget.value)}>
+            {picked.options.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
               </option>
             ))}
           </Select>

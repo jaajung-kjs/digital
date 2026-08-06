@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ASSET_STATUSES } from '@twin/core';
+import { ASSET_STATUSES, DIRECTION_VALUES } from '@twin/core';
 
 export const idParamSchema = z.string().uuid();
 export const orgNameSchema = z.object({ name: z.string().trim().min(1) });
@@ -82,7 +82,7 @@ const containerSpecBodySchema = z.object({
 const portTemplateBodySchema = z.object({
   group: z.string().regex(keyRe),
   count: z.number().int().min(1),
-  direction: z.enum(['IN', 'OUT', 'BI']),
+  direction: z.enum(DIRECTION_VALUES),
   medium: z.string().min(1),
   namePattern: z.string().min(1),
   lineSide: z.boolean().optional(),

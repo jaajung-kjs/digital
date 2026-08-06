@@ -1,4 +1,4 @@
-import { isAccepted } from '@twin/core';
+import { isAccepted, DEFAULT_ASSET_STATUS } from '@twin/core';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from './types';
 
 export { freeSlots } from '@twin/core';
@@ -32,7 +32,7 @@ export function makeNewAsset(args: {
     name: args.name,
     typeId: args.type.id,
     substationId: args.substationId,
-    status: 'normal',
+    status: DEFAULT_ASSET_STATUS,
     floorId: isFloor ? p.floorId : null,
     x: isFloor ? p.x : null,
     y: isFloor ? p.y : null,

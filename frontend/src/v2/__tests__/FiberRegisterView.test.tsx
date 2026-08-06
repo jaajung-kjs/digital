@@ -29,6 +29,7 @@ const mockTypes: V2AssetType[] = [
 
 vi.mock('../hooks', () => ({
   useV2Catalog: () => ({ data: { categories: [], types: mockTypes, cableGroups: [] } }),
+  useTypesById: () => new Map(mockTypes.map((t) => [t.id, t])),
 }));
 
 const port = (id: string, assetId: string, group: string, index: number) =>

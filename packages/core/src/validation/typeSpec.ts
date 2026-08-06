@@ -1,10 +1,11 @@
+import { PORT_DIRECTIONS } from '../catalog/types.js';
 import type { AssetTypeSpec } from '../catalog/types.js';
 
 export interface TypeSpecIssue { path: string; message: string }
 export interface TypeSpecContext { categoryKeys: string[]; mediumKeys: string[] }
 
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
-const DIRECTIONS = new Set(['IN', 'OUT', 'BI']);
+const DIRECTIONS: ReadonlySet<string> = new Set<string>(PORT_DIRECTIONS.map((d) => d.value));
 const FIELD_TYPES = new Set(['text', 'number', 'date', 'select']);
 const MAPPINGS = new Set(['byIndex', 'all']);
 
@@ -51,7 +52,8 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
     else if (portGroups.has(p.group)) push(`ports[${i}].group`, `포트 그룹 중복: ${p.group}`);
     portGroups.add(p.group);
     if (p.count < 1) push(`ports[${i}].count`, '포트 수량은 1 이상이어야 합니다');
-    if (!DIRECTIONS.has(p.direction)) push(`ports[${i}].direction`, '방향은 IN/OUT/BI 중 하나여야 합니다');
+    if (!DIRECTIONS.has(p.direction))
+      push(`ports[${i}].direction`, `방향은 ${PORT_DIRECTIONS.map((d) => d.value).join('/')} 중 하나여야 합니다`);
     if (!ctx.mediumKeys.includes(p.medium)) push(`ports[${i}].medium`, `존재하지 않는 매체입니다: ${p.medium}`);
     if (p.count > 1 && !p.namePattern.includes('{n}')) push(`ports[${i}].namePattern`, "이름 패턴에 '{n}' 이 필요합니다 (count > 1)");
     if (p.lineSide === true) {

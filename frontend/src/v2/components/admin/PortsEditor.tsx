@@ -6,6 +6,7 @@
  */
 import { Plus } from 'lucide-react';
 import type { TypeSpecIssue } from '@twin/core';
+import { PORT_DIRECTIONS } from '@twin/core';
 import type { Direction } from '@twin/core';
 import { Button, DetailCard, DetailCardHeader, DetailRow, Input, Select, ItemCard } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
@@ -29,11 +30,8 @@ interface PortsEditorProps {
   issues: TypeSpecIssue[];
 }
 
-const DIRECTIONS: { value: Direction; label: string }[] = [
-  { value: 'IN', label: 'IN' },
-  { value: 'OUT', label: 'OUT' },
-  { value: 'BI', label: 'BI (양방향)' },
-];
+/* 선택지는 어휘에서 그대로 나온다 — 예전에는 여기 따로 적어서 라벨이 갈렸다
+   (여기는 `BI (양방향)`, 자산 패널은 `양방향`). */
 
 function defaultPort(catalog: V2Catalog): PortRow {
   return {
@@ -120,7 +118,7 @@ export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsE
                   update(i, { direction: val });
                 }}
               >
-                {DIRECTIONS.map((d) => (
+                {PORT_DIRECTIONS.map((d) => (
                   <option key={d.value} value={d.value}>
                     {d.label}
                   </option>

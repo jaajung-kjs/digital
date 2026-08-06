@@ -1,5 +1,24 @@
+/**
+ * 포트 방향 어휘 — 값·라벨을 적는 **유일한 곳**.
+ *
+ * 예전에는 같은 목록이 네 군데에 따로 적혀 있었다(타입 선언·검증 Set·zod enum·관리자 선택지).
+ * 그 바람에 라벨까지 갈라져, 카탈로그 관리자는 `BI (양방향)` 이라 쓰고 자산 패널은 `양방향`
+ * 이라 썼다. 타입·검증·스키마·선택지를 전부 여기서 파생한다.
+ */
+export const PORT_DIRECTIONS = [
+  { value: 'IN', label: '입력' },
+  { value: 'OUT', label: '출력' },
+  { value: 'BI', label: '양방향' },
+] as const;
+
 /** 포트 방향. BI = 양방향(일반 통신 포트). */
-export type Direction = 'IN' | 'OUT' | 'BI';
+export type Direction = (typeof PORT_DIRECTIONS)[number]['value'];
+
+export const DIRECTION_VALUES = PORT_DIRECTIONS.map((d) => d.value) as unknown as [Direction, ...Direction[]];
+
+export function portDirectionLabel(value: string): string {
+  return PORT_DIRECTIONS.find((d) => d.value === value)?.label ?? value;
+}
 
 export interface FieldDef {
   key: string;

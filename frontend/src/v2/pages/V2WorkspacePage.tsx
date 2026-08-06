@@ -13,7 +13,10 @@ import { FiberRegisterView } from '../components/FiberRegisterView';
 import { PowerRegisterView } from '../components/PowerRegisterView';
 import { useV2Catalog, useV2NodeAssets, useTypesById } from '../hooks';
 import type { FlatOrgNode } from '../orgTreeSelectors';
-import { buildStatusRows, type StatusRow } from '../statusRows';
+import { buildStatusRows, type StatusRowsResult } from '../statusRows';
+
+/** 스코프 밖일 때의 빈 결과 — 매번 새 객체를 만들면 useMemo 아래가 헛되이 다시 계산된다. */
+const EMPTY_ROWS: StatusRowsResult = { rows: [], fieldColumns: [] };
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useCommit } from '../store/useCommit';
@@ -95,8 +98,8 @@ export default function V2WorkspacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [overlays]);
 
-  const substationRows = useMemo<StatusRow[]>(() => {
-    if (selected?.kind !== 'substation' || substationId !== selected.id) return [];
+  const substationRows = useMemo<StatusRowsResult>(() => {
+    if (selected?.kind !== 'substation' || substationId !== selected.id) return EMPTY_ROWS;
     const assets = mergeEffective(saved.assets, overlays.assets);
     const inspectionsByAsset = new Map<string, string[]>();
     for (const log of mergeEffective(saved.inspectionLogs, overlays.inspections)) {
@@ -117,23 +120,25 @@ export default function V2WorkspacePage() {
   const isNodeScope = selected != null && selected.kind !== 'substation';
   const nodeAssetsQuery = useV2NodeAssets(isNodeScope ? selected.id : null);
 
-  const nodeRows = useMemo<StatusRow[]>(() => {
-    if (!isNodeScope) return [];
-    return (nodeAssetsQuery.data ?? []).map((r) => ({
+  /* 본부·지사 표는 서버 요약(자산 목록)만 받는다 — 커스텀 필드 값은 거기 없으므로 필드 열도 없다.
+     예전에는 `installDate: null, manager: null` 을 채워 넣어 `—` 만 늘어선 죽은 열 두 개가 떴다. */
+  const nodeRows = useMemo<StatusRowsResult>(() => {
+    if (!isNodeScope) return EMPTY_ROWS;
+    const rows = (nodeAssetsQuery.data ?? []).map((r) => ({
       id: r.id,
       typeName: r.typeName,
       categoryName: r.categoryName,
       name: r.name,
       location: r.parentName ?? '—',
-      installDate: null,
-      manager: null,
       lastInspectedAt: null,
       status: r.status,
       substationName: r.substationName,
+      fieldValues: {},
     }));
+    return { rows, fieldColumns: [] };
   }, [isNodeScope, nodeAssetsQuery.data]);
 
-  const rows = selected?.kind === 'substation' ? substationRows : nodeRows;
+  const { rows, fieldColumns } = selected?.kind === 'substation' ? substationRows : nodeRows;
   const nodeScope = isNodeScope;
 
   // 이 변전소를 실제로 보고 있는가 — 뷰 분기와 '자산 추가' 노출의 공통 전제.
@@ -222,6 +227,7 @@ export default function V2WorkspacePage() {
                       )}
                       <StatusTable
                         rows={rows}
+                        fieldColumns={fieldColumns}
                         selectedId={selectedAssetId}
                         onSelectAsset={handleSelectAssetId}
                         nodeScope={nodeScope}

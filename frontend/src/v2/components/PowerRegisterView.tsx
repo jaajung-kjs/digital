@@ -16,6 +16,7 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows } from '../powerSelectors';
 import type { PowerRow, PowerCell } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
+import { useMediumContainer } from '../useMediumContainer';
 import { AddAssetModal } from './AddAssetModal';
 import type { FieldDef } from '@twin/core';
 import { PeerCell } from './PeerCell';
@@ -121,29 +122,16 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => powerContainers(effectiveAssets), [effectiveAssets]);
 
-  const [selectedContainerId, setSelectedContainerId] = useState<string | null>(null);
-
-  // 선택된 컨테이너 (null이면 첫 번째)
-  const activeContainerId =
-    selectedContainerId !== null && containers.some((c) => c.id === selectedContainerId)
-      ? selectedContainerId
-      : containers[0]?.id ?? null;
-
-  const activeContainer = containers.find((c) => c.id === activeContainerId) ?? null;
-
   // catalog에서 피더별 switchState fieldDef 조회 (행별 해소 — 혼합 타입 컨테이너 대응)
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
 
-  /* 회로 수 = 이 함체가 선언한 전원 컨테이너의 slotCount.
-     선언돼 있으면 빈 자리까지 표(패널 스케줄)에 나오고, 자유형이면 있는 것만 나온다.
+  /* 어느 컨테이너를 보고 있나 + 그 컨테이너가 선언한 회로 수.
+     회로 수가 선언돼 있으면 빈 자리까지 표(패널 스케줄)에 나오고, 자유형이면 있는 것만 나온다.
      "몇 회로짜리인가" 는 타입이 아니라 명세가 말한다 — 코드는 분전반을 모르지 않는다. */
-  const circuitSpec = useMemo(() => {
-    if (!activeContainer) return null;
-    const type = typesById.get(activeContainer.typeId);
-    return type?.containerSpecs[0] ?? null;
-  }, [activeContainer, typesById]);
-  const circuitCount = circuitSpec?.slotCount ?? null;
+  const picked = useMediumContainer(containers, typesById);
+  const activeContainer = picked.active;
+  const circuitCount = picked.slotCount;
 
   /* 빈 회로 자리를 누르면 그 자리에 자산을 넣는다 — 모달은 이 뷰가 소유한다
      (평면도가 배치 모달을 직접 다루는 것과 같은 규칙). */
@@ -151,7 +139,9 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   const rows = useMemo<PowerRow[]>(() => {
     if (!activeContainer) return [];
-    return buildPowerRows(activeContainer, effectiveAssets, effectiveCables, circuitCount);
+    return buildPowerRows(
+      activeContainer.asset, effectiveAssets, effectiveCables, circuitCount, activeContainer.containerKey,
+    );
   }, [activeContainer, effectiveAssets, effectiveCables, circuitCount]);
 
   /* 검색이 없으면 회로가 42개인 분전반에서 "그 피더" 를 찾을 방법이 눈으로 훑는 것뿐이다.
@@ -205,14 +195,10 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
         {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
             멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
         <div className="w-64 shrink-0">
-          <Select
-            value={activeContainerId ?? ''}
-            size="sm"
-            onChange={(e) => setSelectedContainerId(e.currentTarget.value || null)}
-          >
-            {containers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
+          <Select value={picked.activeKey} size="sm" onChange={(e) => picked.setActiveKey(e.currentTarget.value)}>
+            {picked.options.map((o) => (
+              <option key={o.key} value={o.key}>
+                {o.label}
               </option>
             ))}
           </Select>
@@ -317,16 +303,21 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       </div>
 
       {/* 회로 자리에 자산 추가 */}
-      {addSlotIndex != null && activeContainer && circuitSpec && (
+      {addSlotIndex != null && activeContainer && picked.spec && (
         <AddAssetModal
           open
           onClose={() => setAddSlotIndex(null)}
           substationId={_substationId}
           containerContext={{
-            parentAssetId: activeContainer.id,
-            spec: circuitSpec,
+            parentAssetId: activeContainer.asset.id,
+            spec: picked.spec,
+            // 자리 점유는 **같은 컨테이너 안에서만** 따진다 — 다른 컨테이너의 0번은 남의 자리다.
             siblings: effectiveAssets
-              .filter((a) => a.parentAssetId === activeContainer.id)
+              .filter(
+                (a) =>
+                  a.parentAssetId === activeContainer.asset.id &&
+                  a.containerKey === activeContainer.containerKey,
+              )
               .map((a) => ({ slotIndex: a.slotIndex, slotSpan: a.slotSpan })),
             slotIndex: addSlotIndex,
           }}

@@ -44,7 +44,7 @@ const dev = asset('dev', '장비1', { ports: [port('d1', 'dev', 'P', 1, 'fiber',
 
 describe('fiberContainers', () => {
   it('광 포트 자식을 실보유한 자산만', () => {
-    expect(fiberContainers([ofd, slot, dev] as never).map((a) => a.id)).toEqual(['ofd']);
+    expect(fiberContainers([ofd, slot, dev] as never).map((c) => c.asset.id)).toEqual(['ofd']);
   });
 });
 

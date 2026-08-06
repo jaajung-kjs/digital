@@ -25,7 +25,7 @@ const load = asset('load', '부하장비', { ports: [port('loadIn', 'load', 'P',
 
 describe('powerContainers', () => {
   it('전원 포트 자식 보유 컨테이너만', () => {
-    expect(powerContainers([panel, feeder, ups] as never).map((a) => a.id)).toEqual(['panel']);
+    expect(powerContainers([panel, feeder, ups] as never).map((c) => c.asset.id)).toEqual(['panel']);
   });
 });
 
@@ -88,5 +88,31 @@ describe('패널 스케줄 — 회로 자리', () => {
     const rows = buildPowerRows(panel, assets, [], null);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.empty).toBe(false);
+  });
+});
+
+/* 자산 타입은 컨테이너를 **여러 개** 선언할 수 있고(카탈로그 관리자에서 추가 가능),
+   슬롯 번호는 백엔드가 (부모, containerKey) 단위로 유일성을 강제한다.
+   그래서 서로 다른 컨테이너의 0번 자리는 둘 다 정상이다 — 표가 이걸 뭉치면 안 된다. */
+describe('컨테이너가 둘 이상일 때', () => {
+  const twoBay = asset('panel2', '분전반2');
+  const left = asset('L', '좌측 1번', {
+    parentAssetId: 'panel2', containerKey: 'left', slotIndex: 0,
+    ports: [port('Lin', 'L', 'IN', 1, 'IN')],
+  });
+  const right = asset('R', '우측 1번', {
+    parentAssetId: 'panel2', containerKey: 'right', slotIndex: 0,
+    ports: [port('Rin', 'R', 'IN', 1, 'IN')],
+  });
+
+  it('다른 컨테이너의 같은 자리 번호를 한 표에 뭉치지 않는다', () => {
+    const rows = buildPowerRows(twoBay as never, [twoBay, left, right] as never, [] as never, 2, 'left');
+    expect(rows.map((r) => r.feederName)).toEqual(['좌측 1번', '']);
+  });
+
+  it('빈 자리 수는 그 컨테이너가 선언한 만큼만 만든다', () => {
+    const rows = buildPowerRows(twoBay as never, [twoBay, left, right] as never, [] as never, 2, 'right');
+    expect(rows.filter((r) => r.empty)).toHaveLength(1);
+    expect(rows.find((r) => !r.empty)?.feederName).toBe('우측 1번');
   });
 });

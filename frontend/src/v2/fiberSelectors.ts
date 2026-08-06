@@ -1,5 +1,5 @@
 import type { SeededMediumKey } from '@twin/core';
-import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
+import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type MediumContainer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2AssetType, V2Cable } from './types';
 
 export const FIBER_MEDIUM: SeededMediumKey = 'fiber';
@@ -8,7 +8,7 @@ export const FIBER_MEDIUM: SeededMediumKey = 'fiber';
  * Returns assets that have at least one child with fiber ports.
  * Results are sorted by name.
  */
-export function fiberContainers(assets: V2Asset[]): V2Asset[] {
+export function fiberContainers(assets: V2Asset[]): MediumContainer[] {
   return mediumContainers(assets, FIBER_MEDIUM);
 }
 
@@ -53,6 +53,8 @@ export function buildFiberRows(
   assets: V2Asset[],
   cables: V2Cable[],
   types: V2AssetType[],
+  /** 이 표가 다루는 컨테이너 — 같은 함체의 다른 컨테이너 슬롯은 섞이면 안 된다. */
+  containerKey?: string | null,
 ): BuildFiberRowsResult {
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
 
@@ -65,7 +67,12 @@ export function buildFiberRows(
 
   // Step 1: Find slots = children of container with fiber ports, sorted by name
   const slots = assets
-    .filter((a) => a.parentAssetId === container.id && a.ports.some((p) => p.medium === FIBER_MEDIUM))
+    .filter(
+      (a) =>
+        a.parentAssetId === container.id &&
+        (containerKey === undefined || a.containerKey === containerKey) &&
+        a.ports.some((p) => p.medium === FIBER_MEDIUM),
+    )
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Step 2: Collect all fiber port groups from slots (preserve port order)

@@ -1,4 +1,7 @@
-import { instantiatePorts, validateConnection, validateSlotPlacement, PLACEMENT_FIELDS } from '@twin/core';
+import {
+  instantiatePorts, validateConnection, validateSlotPlacement, PLACEMENT_FIELDS, DEFAULT_ASSET_STATUS,
+} from '@twin/core';
+import type { Direction } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
 import { isPrismaError, nextDb } from './db.js';
 import { HttpError } from './errors.js';
@@ -140,7 +143,7 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
         name: input.name,
         typeId: input.typeId,
         substationId,
-        status: input.status ?? 'normal',
+        status: input.status ?? DEFAULT_ASSET_STATUS,
         floorId: input.floorId ?? null,
         x: input.x ?? null,
         y: input.y ?? null,
@@ -340,8 +343,8 @@ async function applyCableUpdate(
     const a = existing.aPort;
     const b = existing.bPort;
     const err = validateConnection(
-      { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as 'IN' | 'OUT' | 'BI', medium: a.medium },
-      { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as 'IN' | 'OUT' | 'BI', medium: b.medium },
+      { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as Direction, medium: a.medium },
+      { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as Direction, medium: b.medium },
       new Set<string>(),
       cableMedium,
     );
@@ -399,8 +402,8 @@ async function applyCableCreate(
   }
 
   const err = validateConnection(
-    { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as 'IN' | 'OUT' | 'BI', medium: a.medium },
-    { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as 'IN' | 'OUT' | 'BI', medium: b.medium },
+    { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as Direction, medium: a.medium },
+    { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as Direction, medium: b.medium },
     occupiedPortIds,
     cableMedium,
   );
