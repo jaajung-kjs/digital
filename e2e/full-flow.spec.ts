@@ -133,8 +133,10 @@ test('④ 추적 — 연결된 포트에서 추적하면 경로가 나온다', a
   await page.getByRole('row', { name: /통합단말/ }).first().click();
   await page.getByRole('tab', { name: /포트/ }).click();
 
-  // ③이 이은 케이블 덕분에 [추적] 버튼이 있어야 한다 — 없으면 연결이 안 붙은 것이다.
-  await page.getByRole('button', { name: '추적' }).first().click();
+  /* 포트는 매트릭스 타일이므로 먼저 포트를 고른다 — 타일에는 번호와 상태만 있고
+     대국·추적은 고른 포트의 상세에 있다. ③이 이은 케이블 덕분에 [추적] 이 있어야 한다. */
+  await page.getByRole('button', { name: /포트 1 (양측|편도)/ }).first().click();
+  await page.getByRole('button', { name: '추적' }).click();
 
   // 결과는 "눌렸다" 가 아니라 경로 카드가 뜨는지로 본다.
   await expect(page.getByText('추적 경로')).toBeVisible();

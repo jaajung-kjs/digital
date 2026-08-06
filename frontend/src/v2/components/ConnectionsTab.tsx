@@ -6,8 +6,8 @@
  * 상위 콜백(onTrace)으로 올린다. 추적 중이면 경로 텍스트 목록과 [지우기] 버튼을 표시한다.
  */
 
-import { useMemo } from 'react';
-import { DetailCardHeader, Button, DetailCard, EmptyState, cn, SELECTABLE } from '../../components/ui';
+import { useEffect, useMemo, useState } from 'react';
+import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, cn, SELECTABLE } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -16,6 +16,7 @@ import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
 import type { V2Cable, V2Port } from '../types';
+import { PortMatrix, PortLegend, PORT_STATE_LABEL, type PortState } from './PortMatrix';
 
 interface ConnectionsTabProps {
   assetId: string;
@@ -27,6 +28,10 @@ interface ConnectionsTabProps {
 }
 
 export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, traceResult }: ConnectionsTabProps) {
+  // 타일에는 번호만 있으므로, 고른 포트 하나의 상세를 아래에 펼친다.
+  const [selectedPortId, setSelectedPortId] = useState<string | null>(null);
+  // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다.
+  useEffect(() => setSelectedPortId(null), [assetId]);
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
 
@@ -84,6 +89,34 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
     }
     return map;
   }, [assetPorts]);
+
+  /* 포트 점유 상태 — 내부 짝이 있으면 그 짝과 함께 하나의 회선으로 본다.
+     짝이 둘 다 물려야 '양측', 하나만이면 '편도'. 짝이 없는 포트는 2단계뿐이다.
+     "광" 같은 도메인 단어가 들어가지 않는다 — 내부 통과 규칙이 있으면 무엇이든 이렇게 센다. */
+  const portState = (port: V2Port): PortState => {
+    const mine = cableByPortId.has(port.id);
+    const partners = internalOf.get(port.id) ?? [];
+    if (partners.length === 0) return mine ? 'full' : 'empty';
+    const partnerConnected = partners.some((id) => cableByPortId.has(id));
+    if (mine && partnerConnected) return 'full';
+    if (mine || partnerConnected) return 'half';
+    return 'empty';
+  };
+  const hasInternalLinks = internalOf.size > 0;
+
+  const selectedPort = useMemo(
+    () => (asset?.ports ?? []).find((p) => p.id === selectedPortId) ?? null,
+    [asset, selectedPortId],
+  );
+  const selectedConn = selectedPort ? cableByPortId.get(selectedPort.id) : undefined;
+  const selectedPeerEntry = selectedConn ? portIndex.get(selectedConn.peerPortId) : undefined;
+  const selectedPeerLabel = useMemo(() => {
+    if (!selectedPort || !selectedConn || !asset) return null;
+    const peer = resolvePeer(selectedPort, selectedConn.cable, portIndex, asset.substationId);
+    if (!peer) return null;
+    const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
+    return `${peer.assetName} · ${peer.portName}${sub}`;
+  }, [selectedPort, selectedConn, portIndex, asset]);
 
   // hop → 표시용 텍스트 (portIndex 단일 조회 — portById/assetByPortId 수제 맵 제거)
   function hopText(hop: import('../traceSelectors').TraceResult['hops'][number]): string {
@@ -177,81 +210,72 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
         </DetailCard>
       )}
 
-      {/* 포트 목록 (그룹별) */}
+      {/* 포트 매트릭스 (그룹별) — 판을 보고 빈 자리를 찾는다 */}
       {[...portsByGroup.entries()].map(([group, ports]) => {
         const connectedCount = ports.filter((pt) => cableByPortId.has(pt.id)).length;
         return (
           <DetailCard key={group}>
-            {/* 그룹 머리줄에 사용률을 함께 적는다 — 포트가 12개쯤 되면 한 줄 한 줄 세는 대신
-                "몇 개가 물려 있나" 를 먼저 알고 싶다. */}
+            {/* 그룹 머리줄에 사용률을 함께 적는다 — 타일을 세는 대신 먼저 알고 싶은 값. */}
             <DetailCardHeader
               title={`${group} 그룹`}
               badge={`${connectedCount}/${ports.length} 연결`}
               badgeStatus={connectedCount > 0 ? 'success' : 'neutral'}
             />
-            <ul className="space-y-0.5">
-              {ports.map((port) => {
-                const conn = cableByPortId.get(port.id);
-
-                // 3단 peer 해소 — resolvePeer 공유 헬퍼 (B-V1 시정: 인라인 재구현 → 단일화)
-                let peerLabel: string | null = null;
-                if (conn) {
-                  const peer = resolvePeer(port, conn.cable, portIndex, asset.substationId);
-                  if (peer) {
-                    const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
-                    peerLabel = `${peer.assetName} · ${peer.portName}${sub}`;
-                  }
-                }
-                const peerPortEntry = conn ? portIndex.get(conn.peerPortId) : undefined;
-
-                return (
-                  <li key={port.id} className="flex items-center gap-2 rounded px-1 py-1 text-sm">
-                    {/* 연결 여부를 점 하나로 — 행마다 배지를 달면 정작 포트 이름보다 무겁다. */}
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'size-1.5 shrink-0 rounded-full',
-                        conn ? 'bg-success' : 'bg-content-faint/40',
-                      )}
-                    />
-                    <span className="w-16 shrink-0 truncate text-content">{port.name}</span>
-                    {peerLabel ? (
-                      <button
-                        type="button"
-                        className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
-                        title={`${peerLabel} 으로 이동`}
-                        disabled={!peerPortEntry}
-                        onClick={() => peerPortEntry && onSelectAsset(peerPortEntry.asset.id)}
-                      >
-                        {peerLabel}
-                      </button>
-                    ) : (
-                      <span className="min-w-0 flex-1 text-content-faint">미연결</span>
-                    )}
-                    {/* 내부로 이어지는 포트 — 이게 있으면 추적이 이 장비를 통과한다. */}
-                    {internalOf.get(port.id)?.length ? (
-                      <span
-                        className="shrink-0 text-xs text-content-faint"
-                        title="이 장비 안에서 이어진 포트"
-                      >
-                        ↔ {internalOf.get(port.id)!.map((id) => portNameById.get(id) ?? '?').join(', ')}
-                      </span>
-                    ) : null}
-                    <span className="shrink-0 text-xs text-content-faint">
-                      {mediumLabel(port.medium)} · {portDirectionLabel(port.direction)}
-                    </span>
-                    {peerPortEntry && (
-                      <Button variant="ghost" size="sm" onClick={() => handleTrace(port.id)}>
-                        추적
-                      </Button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <PortMatrix
+              ports={ports}
+              stateOf={portState}
+              selectedPortId={selectedPortId}
+              onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
+            />
+            <PortLegend states={hasInternalLinks ? ['empty', 'half', 'full'] : ['empty', 'full']} />
           </DetailCard>
         );
       })}
+
+      {/* 고른 포트 하나의 상세 — 타일에는 번호와 상태만 있으므로 대국은 여기서 본다. */}
+      {selectedPort && (
+        <DetailCard>
+          <DetailCardHeader
+            title={selectedPort.name}
+            badge={PORT_STATE_LABEL[portState(selectedPort)]}
+            badgeStatus={portState(selectedPort) === 'full' ? 'success' : portState(selectedPort) === 'half' ? 'warning' : 'neutral'}
+            actions={
+              selectedPeerEntry ? (
+                <Button variant="secondary" size="sm" onClick={() => handleTrace(selectedPort.id)}>
+                  추적
+                </Button>
+              ) : undefined
+            }
+          />
+          <DetailRow label="대국">
+            {selectedPeerLabel ? (
+              <button
+                type="button"
+                className={cn('min-w-0 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                title={`${selectedPeerLabel} 으로 이동`}
+                disabled={!selectedPeerEntry}
+                onClick={() => selectedPeerEntry && onSelectAsset(selectedPeerEntry.asset.id)}
+              >
+                {selectedPeerLabel}
+              </button>
+            ) : (
+              <span className="text-sm text-content-faint">미연결</span>
+            )}
+          </DetailRow>
+          {internalOf.get(selectedPort.id)?.length ? (
+            <DetailRow label="내부 통과">
+              <span className="text-sm text-content-muted">
+                {internalOf.get(selectedPort.id)!.map((id) => portNameById.get(id) ?? '?').join(', ')}
+              </span>
+            </DetailRow>
+          ) : null}
+          <DetailRow label="매체">
+            <span className="text-sm text-content-muted">
+              {mediumLabel(selectedPort.medium)} · {portDirectionLabel(selectedPort.direction)}
+            </span>
+          </DetailRow>
+        </DetailCard>
+      )}
 
       {/* 연결은 평면도에서 만든다 — 여기서 할 수 없다는 사실 자체를 알려준다. */}
       <p className="px-1 text-xs text-content-faint">
