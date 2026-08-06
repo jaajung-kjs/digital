@@ -51,7 +51,6 @@ export function AssetDetailPanel({
   const asset = useMemo(() => effectiveAssets.find((a) => a.id === assetId), [effectiveAssets, assetId]);
 
   const floorNameById = useMemo(() => new Map(saved.floors.map((f) => [f.id, f.name])), [saved.floors]);
-  const assetNameById = useMemo(() => new Map(effectiveAssets.map((a) => [a.id, a.name])), [effectiveAssets]);
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
@@ -191,7 +190,6 @@ export function AssetDetailPanel({
             childrenBySpecKey={childrenBySpecKey}
             effectiveAssets={effectiveAssets}
             floorNameById={floorNameById}
-            assetNameById={assetNameById}
             setAddModalCtx={setAddModalCtx}
             onSelectAsset={onSelectAsset}
           />

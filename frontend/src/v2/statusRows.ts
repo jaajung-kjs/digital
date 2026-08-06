@@ -1,3 +1,4 @@
+import { assetLocationPath } from './assetLocation';
 import type { V2Asset, V2AssetType, V2Floor } from './types';
 
 export interface StatusRow {
@@ -21,16 +22,11 @@ export function buildStatusRows(args: {
   inspectionsByAsset: Map<string, string[]>;
 }): StatusRow[] {
   const floorName = new Map(args.floors.map((f) => [f.id, f.name]));
-  const assetName = new Map(args.assets.map((a) => [a.id, a.name]));
+  const assetById = new Map(args.assets.map((a) => [a.id, a]));
 
   return args.assets.map((a) => {
     const type = args.typesById.get(a.typeId);
-    const location =
-      a.floorId != null
-        ? (floorName.get(a.floorId) ?? '—')
-        : a.parentAssetId != null
-          ? `${assetName.get(a.parentAssetId) ?? '—'}${a.slotIndex != null ? ` · 슬롯 ${a.slotIndex + 1}` : ''}`
-          : '미배치';
+    const location = assetLocationPath(a, assetById, floorName);
     const inspections = args.inspectionsByAsset.get(a.id) ?? [];
     return {
       id: a.id,

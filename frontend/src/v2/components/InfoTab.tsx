@@ -7,6 +7,7 @@
  * 소유(부모가 자산 전환 시 리셋 + 하단 AddAssetModal 렌더를 관장)하므로 setter 만 prop 으로 받는다.
  */
 
+import { useMemo } from 'react';
 import { ASSET_STATUSES } from '@twin/core';
 import {
   DetailCard,
@@ -19,6 +20,9 @@ import {
   SELECTABLE,
 } from '../../components/ui';
 import { freeSlots } from '../newAsset';
+import { assetLocationPath } from '../assetLocation';
+import { occupiedPortIds as occupiedPortIdsOf } from '../cableSelectors';
+import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
 import { PhotoCard } from './PhotoCard';
@@ -31,18 +35,24 @@ export interface AddModalContext {
   slotIndex?: number;
 }
 
-// ── 위치 텍스트 (statusRows.ts 와 동일 로직) ────────────────────────────────
-function locationText(
-  asset: V2Asset,
-  floorNameById: Map<string, string>,
-  assetNameById: Map<string, string>,
-): string {
-  if (asset.floorId != null) return floorNameById.get(asset.floorId) ?? '—';
-  if (asset.parentAssetId != null) {
-    const parentName = assetNameById.get(asset.parentAssetId) ?? '—';
-    return asset.slotIndex != null ? `${parentName} · 슬롯 ${asset.slotIndex + 1}` : parentName;
-  }
-  return '미배치';
+/**
+ * 그 자산의 포트 점유 요약 — `2/2` 처럼.
+ *
+ * 수용 목록은 이름만 보여줘서, "이 장비 포트가 다 물렸나" 를 보려면 포트 탭으로 옮겨가야 했다.
+ * 같은 자식에 대한 정보가 두 탭에 갈려 있던 것을 한 줄로 잇는다. 포트가 없으면 아무것도
+ * 적지 않는다(적을 것이 없다).
+ */
+function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortIds: Set<string> }) {
+  if (asset.ports.length === 0) return null;
+  const used = asset.ports.filter((p) => occupiedPortIds.has(p.id)).length;
+  return (
+    <span
+      className={cn('shrink-0 text-xs tabular-nums', used > 0 ? 'text-success' : 'text-content-faint')}
+      title="연결된 포트 / 전체 포트"
+    >
+      {used}/{asset.ports.length}
+    </span>
+  );
 }
 
 // ── 고정 슬롯 그리드 ──────────────────────────────────────────────────────────
@@ -52,12 +62,14 @@ interface SlotGridProps {
   onSelectChild: (id: string) => void;
   /** 빈 슬롯을 눌렀을 때 — 그 자리에 바로 추가한다. */
   onAddAtSlot: (slotIndex: number) => void;
+  /** 케이블이 물린 포트 — 자식별 포트 요약에 쓴다. */
+  occupiedPortIds: Set<string>;
 }
 
 /** 슬롯 한 칸의 높이(px) — 여러 슬롯을 차지하는 장비는 이 배수만큼 높아진다. */
 const SLOT_ROW_HEIGHT = 26;
 
-function SlotGrid({ spec, children, onSelectChild, onAddAtSlot }: SlotGridProps) {
+function SlotGrid({ spec, children, onSelectChild, onAddAtSlot, occupiedPortIds }: SlotGridProps) {
   const slotCount = spec.slotCount!;
   // 슬롯 인덱스(0-based) → 자식 자산 매핑
   const bySlot = new Map<number, V2Asset>();
@@ -90,6 +102,7 @@ function SlotGrid({ spec, children, onSelectChild, onAddAtSlot }: SlotGridProps)
         >
           <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
           <span className="min-w-0 flex-1 truncate">{child ? child.name : '비어 있음'}</span>
+          {child && <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
           {!child && <span className="shrink-0 text-xs text-primary">+ 추가</span>}
         </button>
       </li>,
@@ -110,6 +123,7 @@ interface FreeChildListProps {
   children: V2Asset[];
   onSelectChild: (id: string) => void;
   onAdd: () => void;
+  occupiedPortIds: Set<string>;
 }
 
 /*
@@ -117,7 +131,7 @@ interface FreeChildListProps {
  * 예전에는 자유형만 밋밋한 텍스트 목록이라, 같은 "수용" 인데 함체 종류에 따라 화면이
  * 딴판이었다. 다른 것은 번호가 슬롯 위치가 아니라 순번이라는 점뿐이다.
  */
-function FreeChildList({ children, onSelectChild, onAdd }: FreeChildListProps) {
+function FreeChildList({ children, onSelectChild, onAdd, occupiedPortIds }: FreeChildListProps) {
   return (
     <ul className="mt-1 space-y-1">
       {children.map((child, i) => (
@@ -133,6 +147,7 @@ function FreeChildList({ children, onSelectChild, onAdd }: FreeChildListProps) {
           >
             <span className="w-8 shrink-0 text-right text-xs text-content-faint">{i + 1}</span>
             <span className="min-w-0 flex-1 truncate">{child.name}</span>
+            <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />
           </button>
         </li>
       ))}
@@ -164,7 +179,6 @@ interface InfoTabProps {
   childrenBySpecKey: Map<string, V2Asset[]>;
   effectiveAssets: V2Asset[];
   floorNameById: Map<string, string>;
-  assetNameById: Map<string, string>;
   setAddModalCtx: (ctx: AddModalContext | null) => void;
   onSelectAsset: (id: string) => void;
 }
@@ -177,12 +191,20 @@ export function InfoTab({
   childrenBySpecKey,
   effectiveAssets,
   floorNameById,
-  assetNameById,
   setAddModalCtx,
   onSelectAsset,
 }: InfoTabProps) {
   const { confirm, confirmDialog } = useConfirm();
-  const location = locationText(asset, floorNameById, assetNameById);
+  /* 케이블이 물린 포트 집합 — 자식 목록의 포트 요약이 읽는다. */
+  const savedCables = useV2WorkingCopy((st) => st.saved.cables);
+  const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
+  const occupiedPortIds = useMemo(
+    () => occupiedPortIdsOf(mergeEffective(savedCables, cableOverlays)),
+    [savedCables, cableOverlays],
+  );
+
+  const assetById = useMemo(() => new Map(effectiveAssets.map((a) => [a.id, a])), [effectiveAssets]);
+  const location = assetLocationPath(asset, assetById, floorNameById);
 
   /* 상위 자산과 그 컨테이너 명세 — 위치 행이 "어디에 담겨 있는지" 를 다루려면 둘 다 필요하다. */
   const parentAsset = asset.parentAssetId ? effectiveAssets.find((a) => a.id === asset.parentAssetId) : undefined;
@@ -373,6 +395,7 @@ export function InfoTab({
                     spec={spec}
                     children={specChildren}
                     onSelectChild={onSelectAsset}
+                    occupiedPortIds={occupiedPortIds}
                     onAddAtSlot={(slotIndex) =>
                       setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren, slotIndex })
                     }
@@ -381,6 +404,7 @@ export function InfoTab({
                   <FreeChildList
                     children={specChildren}
                     onSelectChild={onSelectAsset}
+                    occupiedPortIds={occupiedPortIds}
                     onAdd={() => setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren })}
                   />
                 )}

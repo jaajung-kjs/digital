@@ -9,6 +9,22 @@ import type { PlacedAsset } from './hitTest';
 
 const fontSizeCache = new Map<string, number>();
 
+/** 이보다 작으면 읽을 수 없다 — 더 줄이는 대신 말줄임한다. */
+const MIN_LABEL_FONT = 9;
+
+/** 주어진 폭에 들어갈 만큼만 남기고 … 를 붙인다(현재 ctx.font 기준). */
+export function ellipsize(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let lo = 0;
+  let hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (ctx.measureText(`${text.slice(0, mid)}…`).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo > 0 ? `${text.slice(0, lo)}…` : '…';
+}
+
 function renderAssetItem(
   ctx: CanvasRenderingContext2D,
   item: PlacedAsset,
@@ -35,7 +51,7 @@ function renderAssetItem(
     const cacheKey = `${item.name}|${w}|${h}`;
     let fontSize = fontSizeCache.get(cacheKey);
     if (fontSize === undefined) {
-      let lo = 6;
+      let lo = MIN_LABEL_FONT;
       let hi = Math.min(maxHeight, 40);
       while (lo < hi) {
         const mid = Math.ceil((lo + hi) / 2);
@@ -50,7 +66,11 @@ function renderAssetItem(
       fontSizeCache.set(cacheKey, fontSize);
     }
     ctx.font = `bold ${fontSize}px sans-serif`;
-    ctx.fillText(item.name, x + w / 2, y + h / 2, maxWidth);
+    /* 최소 크기에서도 안 들어가면 **줄여서 말줄임**한다.
+       예전에는 fillText 의 maxWidth 로 가로만 눌러 담았는데, 긴 이름은 6px 까지 줄어든 위에
+       17% 까지 찌그러져 글자를 알아볼 수 없었다(측정값). 화면의 다른 목록이 전부
+       `truncate` 로 말줄임하는 것과도 어긋났다. */
+    ctx.fillText(ellipsize(ctx, item.name, maxWidth), x + w / 2, y + h / 2);
   }
 
   ctx.restore();

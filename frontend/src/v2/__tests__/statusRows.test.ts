@@ -23,7 +23,8 @@ describe('buildStatusRows (변전소 스코프)', () => {
       inspectionsByAsset: new Map([['a-1', ['2026-06-01T00:00:00.000Z', '2026-07-01T00:00:00.000Z']]]),
     });
     expect(rows[0]).toMatchObject({ id: 'a-1', typeName: '랙', location: '1층', installDate: '2026-01-01', manager: '홍길동', lastInspectedAt: '2026-07-01T00:00:00.000Z', status: 'normal' });
-    expect(rows[1]).toMatchObject({ id: 'a-2', location: '랙1 · 슬롯 4', lastInspectedAt: null });
+    // 위치는 층까지 거슬러 올라간다 — 예전에는 '랙1 · 슬롯 4' 라서 몇 층인지 알 수 없었다.
+    expect(rows[1]).toMatchObject({ id: 'a-2', location: '1층 · 랙1 · 슬롯 4', lastInspectedAt: null });
     expect(rows[2]).toMatchObject({ id: 'a-3', location: '미배치', status: 'standby', lastInspectedAt: null });
   });
 
