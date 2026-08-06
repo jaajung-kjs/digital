@@ -3,6 +3,11 @@ import { cn } from './cn';
 export interface TabItem<T extends string> {
   key: T;
   label: string;
+  /**
+   * 라벨 옆 개수. 탭을 열어보기 전에 "거기 무엇이 몇 개 있는지" 알려준다 —
+   * 없으면 빈 탭인지 안 열어본 탭인지 구분이 안 된다.
+   */
+  count?: number;
 }
 
 interface TabsProps<T extends string> {
@@ -40,6 +45,16 @@ export function Tabs<T extends string>({ items, value, onChange, className }: Ta
             )}
           >
             {t.label}
+            {t.count != null && (
+              <span
+                className={cn(
+                  'ml-1.5 rounded px-1 text-xs tabular-nums',
+                  active ? 'bg-info-bg text-primary' : 'bg-surface-2 text-content-faint',
+                )}
+              >
+                {t.count}
+              </span>
+            )}
           </button>
         );
       })}

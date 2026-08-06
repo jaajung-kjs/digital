@@ -120,7 +120,7 @@ test('③ 연결 — 케이블을 이으면 저장 대기 변경이 생긴다', 
   // 커밋 후 연결 탭에서 실제로 케이블이 보여야 한다.
   await switchView(page, '현황');
   await page.getByRole('row', { name: /통합단말/ }).first().click();
-  await page.getByRole('tab', { name: '연결' }).click();
+  await page.getByRole('tab', { name: /포트/ }).click();
   // 포트 1 의 대국이 SCADA RTU-1 로 보여야 한다 — 케이블이 실제로 붙었다는 증거.
   await expect(page.getByText('SCADA RTU-1').first()).toBeVisible();
 });
@@ -131,7 +131,7 @@ test('④ 추적 — 연결된 포트에서 추적하면 경로가 나온다', a
   await switchView(page, '현황');
 
   await page.getByRole('row', { name: /통합단말/ }).first().click();
-  await page.getByRole('tab', { name: '연결' }).click();
+  await page.getByRole('tab', { name: /포트/ }).click();
 
   // ③이 이은 케이블 덕분에 [추적] 버튼이 있어야 한다 — 없으면 연결이 안 붙은 것이다.
   await page.getByRole('button', { name: '추적' }).first().click();

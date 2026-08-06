@@ -40,6 +40,7 @@ export function AssetDetailPanel({
     setAddModalCtx(null);
   }, [assetId]);
 
+
   // ── 반응형 슬라이스 구독 (effectiveAssets() 함수 ref 구독 금지)
   const substationId = useV2WorkingCopy((s) => s.substationId) ?? '';
   const saved = useV2WorkingCopy((s) => s.saved);
@@ -80,14 +81,40 @@ export function AssetDetailPanel({
     return cur?.floorId != null;
   }, [effectiveAssets, assetId]);
 
+  // 포트 없는 자산으로 옮기면 사라진 탭이 선택된 채 남지 않게 한다.
+  const hasPorts = (asset?.ports.length ?? 0) > 0;
+  useEffect(() => {
+    if (!hasPorts) setTab((t) => (t === 'connections' ? 'info' : t));
+  }, [hasPorts]);
+
+  /* 탭에 적을 개수 — 저장분과 스테이지된 변경을 합쳐 센다(화면에 보이는 것과 같게). */
+  const inspectionCount = useMemo(
+    () => mergeEffective(saved.inspectionLogs, overlays.inspections).filter((r) => r.assetId === assetId).length,
+    [saved.inspectionLogs, overlays.inspections, assetId],
+  );
+  const logCount = useMemo(
+    () => mergeEffective(saved.maintenanceLogs, overlays.maintenance).filter((r) => r.assetId === assetId).length,
+    [saved.maintenanceLogs, overlays.maintenance, assetId],
+  );
+
   if (!asset) return null;
 
-  // ── 탭 바 ──────────────────────────────────────────────────────────────────
+  /* ── 탭 바 ──────────────────────────────────────────────────────────────────
+   *
+   * capability 가 UI 를 결정한다(재구축 스펙 §3) — 포트가 없는 타입에는 포트 탭이
+   * 아예 생기지 않는다. 역할로 분기하는 것이 아니라 타입이 선언한 것만 비춘다.
+   *
+   * 탭 이름을 '연결' 이 아니라 '포트' 로 두는 이유: 거기 있는 것이 포트다. 이름이
+   * '연결' 이면 이 자산이 어떤 포트를 갖는지 보려고 그 탭을 열 생각을 하지 못한다
+   * (DCIM 표준인 NetBox 도 Interfaces / Power Ports 처럼 대상 이름을 그대로 쓴다).
+   */
   const tabs: TabItem<Tab>[] = [
     { key: 'info', label: '정보' },
-    { key: 'inspections', label: '점검' },
-    { key: 'logs', label: '고장이력' },
-    { key: 'connections', label: '연결' },
+    { key: 'inspections', label: '점검', count: inspectionCount },
+    { key: 'logs', label: '고장이력', count: logCount },
+    ...(asset.ports.length > 0
+      ? [{ key: 'connections' as const, label: '포트', count: asset.ports.length }]
+      : []),
   ];
 
   return (
