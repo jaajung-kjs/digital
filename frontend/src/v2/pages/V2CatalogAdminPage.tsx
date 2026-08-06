@@ -270,7 +270,7 @@ export default function V2CatalogAdminPage() {
                   {/* 저장 바 */}
                   <div className="shrink-0 flex flex-col border-b border-line bg-surface">
                     {saveError != null && (
-                      <div className="flex items-center gap-1 border-b border-line px-4 py-1">
+                      <div className="mx-auto flex w-full max-w-4xl items-center gap-1 border-b border-line px-4 py-1">
                         <span className="flex-1 text-xs text-danger">{saveError}</span>
                         <IconButton aria-label="오류 닫기" onClick={() => setSaveError(null)}>
                           <X size={12} />
@@ -278,21 +278,23 @@ export default function V2CatalogAdminPage() {
                       </div>
                     )}
                     {issues.length > 0 && saveError == null && (
-                      <div className="px-4 py-1 text-xs text-warning">
+                      <div className="mx-auto w-full max-w-4xl px-4 py-1 text-xs text-warning">
                         입력 오류 {issues.length}건 — 저장 전에 수정하세요
                       </div>
                     )}
                     {/* 구조 잠금 안내 */}
                     {locked && (
-                      <div className="flex items-center gap-2 border-b border-line bg-warning-bg px-4 py-1.5">
+                      <div className="border-b border-line bg-warning-bg">
+                        <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-1.5">
                         <Badge status="warning">{original?.assetCount}개 사용 중</Badge>
                         <span className="text-xs text-warning">
                           자산 {original?.assetCount}개가 이 타입을 사용 중 — 구조(컨테이너·포트·링크)는 변경할 수
                           없습니다
-                        </span>
+                          </span>
+                        </div>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 px-4 py-2">
+                    <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-2">
                       <span className="flex-1 text-xs text-content-muted">
                         {selectedTypeId == null ? '신규 타입' : (original?.name ?? '')}
                         {dirty && <span className="ml-1 text-warning">●</span>}

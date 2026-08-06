@@ -9,6 +9,7 @@ import {
   deleteEntities,
   currentCableIds,
   resetE2eLeftovers,
+  resetE2eTypes,
 } from './helpers';
 
 /**
@@ -38,6 +39,7 @@ test.beforeAll(async ({ browser }) => {
   await selectOrgNode(page, '문막변전소');
   const subId = await substationIdByName(page, '문막변전소');
   await resetE2eLeftovers(page, subId, ['통합단말-1', 'SCADA RTU-1']);
+  await resetE2eTypes(page); // 자산을 지운 뒤라야 타입 삭제가 통과한다
   await page.close();
 });
 
@@ -63,10 +65,10 @@ test('② 배치 — 평면도에 드래그로 놓으면 현황에 자산이 생
   await selectOrgNode(page, '문막변전소');
   await switchView(page, '평면도');
 
-  // 배치 도구바는 "배치 가능" 타입만 보여준다 — ①에서 체크한 것이 여기 나와야 한다.
-  const placeBtn = page.getByRole('button', { name: TYPE_NAME, exact: true });
-  await expect(placeBtn).toBeVisible();
-  await placeBtn.click();
+  // 배치 도구바는 "[배치] 버튼 + 타입 Select" 다 — ①에서 배치 가능으로 만든 타입이
+  // Select 에 나와야 한다.
+  await page.getByRole('combobox', { name: '배치할 자산 타입' }).selectOption({ label: TYPE_NAME });
+  await page.getByRole('button', { name: '배치', exact: true }).click();
 
   await dragOnCanvas(page, { x: 420, y: 300 }, { x: 520, y: 380 });
 
@@ -91,7 +93,7 @@ test('③ 연결 — 케이블을 이으면 저장 대기 변경이 생긴다', 
 
   // 케이블 도구를 켜고 네트워크 종류를 고른다.
   await page.getByRole('button', { name: '케이블', exact: true }).click();
-  await page.getByRole('combobox').first().selectOption({ label: 'UTP/S-FTP케이블' });
+  await page.getByRole('combobox', { name: '케이블 종류' }).selectOption({ label: 'UTP/S-FTP케이블' });
 
   // 평면도에 놓인 자산(통신랙 A)을 클릭하면 그 자산과 **자손**의 빈 포트가 뜬다.
   // 랙 자체에는 포트가 없고, 안에 든 통합단말/SCADA RTU 가 네트워크 포트를 갖는다.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Input, Modal, Select } from '../../components/ui';
+import { Button, Input, Modal, Select, DetailRow } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
 import { makeNewAsset, acceptedTypes, freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -143,9 +143,9 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
     >
       <div className="space-y-3">
         {/* 타입 선택 */}
-        <div className="space-y-1">
-          <label className="block text-xs text-content-muted">자산 유형</label>
+        <DetailRow label="자산 유형">
           <Select
+            aria-label="자산 유형"
             value={selectedTypeId}
             onChange={(e) => setSelectedTypeId(e.currentTarget.value)}
           >
@@ -160,12 +160,12 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
               </optgroup>
             ))}
           </Select>
-        </div>
+        </DetailRow>
 
         {/* 이름 입력 */}
-        <div className="space-y-1">
-          <label className="block text-xs text-content-muted">이름</label>
+        <DetailRow label="이름">
           <Input
+            aria-label="이름"
             placeholder="자산 이름 입력"
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
@@ -173,16 +173,16 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
               if (e.key === 'Enter' && canConfirm) handleConfirm();
             }}
           />
-        </div>
+        </DetailRow>
 
         {/* 슬롯 선택 (고정 슬롯 컨테이너에 추가하는 경우) */}
         {hasFixedSlots && (
-          <div className="space-y-1">
-            <label className="block text-xs text-content-muted">슬롯</label>
+          <DetailRow label="슬롯">
             {free.length === 0 ? (
               <p className="text-xs text-content-faint">빈 슬롯 없음</p>
             ) : (
               <Select
+                aria-label="슬롯"
                 value={selectedSlot}
                 onChange={(e) => setSelectedSlot(e.currentTarget.value)}
               >
@@ -194,7 +194,7 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
                 ))}
               </Select>
             )}
-          </div>
+          </DetailRow>
         )}
       </div>
     </Modal>

@@ -10,7 +10,6 @@
 import { Plus } from 'lucide-react';
 import { ASSET_STATUSES, portDirectionLabel } from '@twin/core';
 import {
-  Badge,
   Button,
   DetailCard,
   DetailCardHeader,
@@ -294,12 +293,13 @@ export function InfoTab({
               {Array.from({ length: pt.count }, (_, i) => {
                 const portName = pt.namePattern.replace('{n}', String(i + 1));
                 return (
-                  <div key={i} className="flex items-center gap-1.5 text-sm text-content">
-                    <span className="min-w-0 truncate">{portName}</span>
-                    {/* 방향·매체는 내부 값(BI·network)이 아니라 사람이 읽는 이름으로.
-                        매체는 케이블 그룹 키이므로 카탈로그에서 이름을 찾는다. */}
-                    <Badge status="neutral">{portDirectionLabel(pt.direction)}</Badge>
-                    <Badge status="neutral">{mediumLabel(pt.medium)}</Badge>
+                  <div key={i} className="flex items-center gap-2 text-sm text-content">
+                    <span className="min-w-0 flex-1 truncate">{portName}</span>
+                    {/* 방향·매체는 이름을 보조하는 메타다 — 배지로 강조하면 정작 포트 이름보다
+                        무거워 보인다. 내부 값(BI·network)이 아니라 사람이 읽는 이름으로 적는다. */}
+                    <span className="shrink-0 text-xs text-content-muted">
+                      {mediumLabel(pt.medium)} · {portDirectionLabel(pt.direction)}
+                    </span>
                   </div>
                 );
               })}

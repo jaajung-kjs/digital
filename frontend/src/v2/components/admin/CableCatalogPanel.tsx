@@ -94,9 +94,11 @@ function CableGroupRow({ group }: { group: V2CableGroup }) {
             value={editColor}
             aria-label={`그룹 ${group.key} 색상`}
             onChange={(e) => setEditColor(e.currentTarget.value)}
+            title={editColor}
             className="h-7 w-10 cursor-pointer rounded border border-line"
           />
-          <span className="text-xs text-content-muted">{editColor}</span>
+          {/* hex 코드는 굳이 읽을 것이 아니다 — 스와치가 값을 보여준다.
+              색을 바꿀 때만 알아볼 수 있게 툴팁으로 남긴다. */}
         </div>
       </DetailRow>
 
@@ -246,7 +248,7 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
       {group.categories.length === 0 && <p className="text-xs text-content-faint">종류가 없습니다.</p>}
 
       {group.categories.map((cat) => (
-        <div key={cat.id} className="flex items-center gap-1.5">
+        <div key={cat.id} className="group flex items-center gap-1.5 rounded px-1 hover:bg-surface-2">
           {editingId === cat.id ? (
             <>
               <Input
@@ -267,12 +269,16 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
           ) : (
             <>
               <span className="flex-1 text-sm text-content">{cat.name}</span>
-              <IconButton aria-label={`${cat.name} 이름 변경`} onClick={() => startEdit(cat)}>
-                <Pencil size={12} />
-              </IconButton>
-              <IconButton aria-label={`${cat.name} 삭제`} onClick={() => void handleDelete(cat)}>
-                <Trash2 size={12} />
-              </IconButton>
+              {/* 목록 행의 액션은 호버에서 드러낸다(조직 트리와 같은 규칙).
+                  자리는 항상 차지하므로 호버해도 행이 움직이지 않는다. */}
+              <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <IconButton aria-label={`${cat.name} 이름 변경`} size="sm" onClick={() => startEdit(cat)}>
+                  <Pencil size={12} />
+                </IconButton>
+                <IconButton aria-label={`${cat.name} 삭제`} size="sm" onClick={() => void handleDelete(cat)}>
+                  <Trash2 size={12} />
+                </IconButton>
+              </span>
             </>
           )}
         </div>

@@ -182,3 +182,21 @@ export async function resetE2eLeftovers(page: Page, substationId: string, endpoi
     [substationId, endpointAssetNames] as const,
   );
 }
+
+/**
+ * 이전 실행이 남긴 E2E 타입을 지운다.
+ *
+ * 타입 삭제는 그 타입을 쓰는 자산이 없어야 통과하므로, 자산 정리(resetE2eLeftovers) 뒤에
+ * 부른다. 중간에 실패한 실행의 타입이 카탈로그에 계속 쌓이던 것을 막는다.
+ */
+export async function resetE2eTypes(page: Page) {
+  await page.evaluate(async () => {
+    const token = localStorage.getItem('accessToken');
+    const headers = { Authorization: `Bearer ${token}` };
+    const cat = await (await fetch('/api/v2/catalog', { headers })).json();
+    const dead = (cat.types ?? []).filter((t: { name: string }) => t.name.startsWith('E2E장비'));
+    for (const t of dead) {
+      await fetch(`/api/v2/catalog/types/${t.id}`, { method: 'DELETE', headers });
+    }
+  });
+}

@@ -28,7 +28,7 @@ import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { isAdminRole, useV2AuthStore } from '../store/authStore';
 import { useV2Catalog } from '../hooks';
-import { Button, Select } from '../../components/ui';
+import { Button, Select, Tabs } from '../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
@@ -323,6 +323,17 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     [catalog.data],
   );
   const cableGroups = useMemo(() => catalog.data?.cableGroups ?? [], [catalog.data]);
+
+  /* 배치할 타입 선택 — 도구바는 케이블 도구와 같은 "[도구 버튼] [대상 Select]" 형태다.
+     예전에는 배치 가능 타입마다 버튼을 하나씩 깔았는데, 타입이 늘어나는 만큼 도구바가
+     길어져(시드 7개에서 이미 두 줄) 캔버스를 잡아먹었다. 카탈로그는 사용자가 계속
+     늘리는 것이므로 개수에 비례해 커지는 UI 를 쓰면 안 된다. */
+  const [placeTypeId, setPlaceTypeId] = useState('');
+  useEffect(() => {
+    if (placeableTypes.length > 0 && !placeableTypes.some((t) => t.id === placeTypeId)) {
+      setPlaceTypeId(placeableTypes[0]!.id);
+    }
+  }, [placeableTypes, placeTypeId]);
 
   // cableGroups 초기화 시 첫 category 선택
   useEffect(() => {
@@ -1012,20 +1023,12 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
             층이 없습니다 — 조직 트리에서 추가하세요
           </span>
         ) : (
-          floors.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              className={`px-4 py-2 text-sm transition-colors ${
-                f.id === activeFloorId
-                  ? 'border-b-2 border-primary font-medium text-primary'
-                  : 'text-content-muted hover:text-content'
-              }`}
-              onClick={() => setActiveFloorId(f.id)}
-            >
-              {f.name}
-            </button>
-          ))
+          <Tabs
+            items={floors.map((f) => ({ key: f.id, label: f.name }))}
+            value={activeFloorId ?? ''}
+            onChange={setActiveFloorId}
+            className="-mb-px"
+          />
         )}
 
         {isAdmin && (
@@ -1039,20 +1042,35 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       {/* 도구바: 배치 팔레트 + 케이블 도구 */}
       {activeFloorId != null && (placeableTypes.length > 0 || cableGroups.length > 0) && (
         <div className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-2 py-1 flex-wrap">
-          {/* placeable 팔레트 */}
+          {/* 배치 도구 — 케이블 도구와 같은 형태(도구 버튼 + 대상 Select) */}
           {placeableTypes.length > 0 && (
             <>
-              <span className="text-xs text-content-muted">배치:</span>
-              {placeableTypes.map((t) => (
-                <Button
-                  key={t.id}
+              <Button
+                size="sm"
+                variant={armedTypeId !== null ? 'primary' : 'secondary'}
+                onClick={() => handleArmType(placeTypeId)}
+              >
+                배치
+              </Button>
+              <div className="w-44">
+                <Select
+                  value={armedTypeId ?? placeTypeId}
                   size="sm"
-                  variant={armedTypeId === t.id ? 'primary' : 'secondary'}
-                  onClick={() => handleArmType(t.id)}
+                  aria-label="배치할 자산 타입"
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setPlaceTypeId(id);
+                    // 이미 배치 모드면 고른 타입으로 바로 갈아탄다 — 다시 누르게 하지 않는다.
+                    if (armedTypeId !== null && id !== armedTypeId) placementDispatch({ type: 'ARM', typeId: id });
+                  }}
                 >
-                  {t.name}
-                </Button>
-              ))}
+                  {placeableTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
               {armedTypeId !== null && (
                 <span className="text-xs text-content-muted">드래그로 영역 지정 · ESC 취소</span>
               )}
@@ -1074,6 +1092,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
               <div className="w-40">
                 <Select
                   value={cableState.categoryId}
+                  aria-label="케이블 종류"
                   onChange={(e) => cableDispatch({ type: 'SET_CATEGORY', categoryId: e.target.value })}
                   size="sm"
                 >

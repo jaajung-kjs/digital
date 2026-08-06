@@ -75,7 +75,7 @@ export function TypeListPanel({
             return (
               <div key={cat.id}>
                 {/* 분류 헤더 */}
-                <div className="flex items-center gap-1 px-3 py-1.5 border-b border-line bg-surface-2">
+                <div className="group flex items-center gap-1 border-b border-line bg-surface-2 px-3 py-1.5">
                   {editingCategoryId === cat.id ? (
                     <Input
                       aria-label="분류 이름"
@@ -95,20 +95,20 @@ export function TypeListPanel({
                   ) : (
                     <span className="flex-1 min-w-0 truncate text-xs font-semibold text-content-muted">{cat.name}</span>
                   )}
-                  <div className="ml-auto flex shrink-0 items-center gap-0.5">
-                    <IconButton aria-label={`${cat.name} 이름 변경`} className="p-0.5" onClick={() => startRename(cat)}>
+                  <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                    <IconButton aria-label={`${cat.name} 이름 변경`} size="sm" onClick={() => startRename(cat)}>
                       <Pencil size={12} />
                     </IconButton>
                     <IconButton
                       aria-label={`${cat.name}에 타입 추가`}
-                      className="p-0.5"
+                      size="sm"
                       onClick={() => onNewType(cat.id)}
                     >
                       <Plus size={12} />
                     </IconButton>
                     <IconButton
                       aria-label={`${cat.name} 분류 삭제`}
-                      className="p-0.5"
+                      size="sm"
                       disabled={!canDelete}
                       onClick={async () => {
                         if (!canDelete) return;

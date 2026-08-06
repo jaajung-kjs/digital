@@ -11,7 +11,7 @@
  * 즉 자산 좌표 = 클릭 clientX/clientY로 그대로 맞춰 좌표 변환을 재구현하지 않는다.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { emptyOverlay } from '../store/overlay';
 import { FloorPlanView } from '../components/FloorPlanView';
@@ -143,7 +143,7 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
   it('타입 arm → 힌트 표시 → ESC로 armed 해제(드래그 전)', () => {
     renderFloorPlan();
 
-    fireEvent.click(screen.getByRole('button', { name: '배전반' }));
+    fireEvent.click(screen.getByRole('button', { name: '배치' }));
     expect(screen.getByText('드래그로 영역 지정 · ESC 취소')).toBeTruthy();
 
     fireEvent.keyDown(window, { code: 'Escape' });
@@ -153,7 +153,7 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
   it('arm 후 드래그(mousedown→mousemove→mouseup)로 배치 모달이 열린다', () => {
     renderFloorPlan();
 
-    fireEvent.click(screen.getByRole('button', { name: '배전반' }));
+    fireEvent.click(screen.getByRole('button', { name: '배치' }));
     const canvas = screen.getByTestId('floorplan-canvas');
 
     fireEvent.mouseDown(canvas, { button: 0, clientX: 0, clientY: 0 });
@@ -163,7 +163,8 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
     // AddAssetModal(role=dialog)이 열리고 팔레트에서 고른 타입이 미리 선택돼 있어야 한다
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeTruthy();
-    expect(screen.getByDisplayValue('배전반')).toBeTruthy();
+    // 도구바의 타입 Select 에도 같은 값이 있으므로 모달 안으로 범위를 좁힌다.
+    expect(within(dialog).getByDisplayValue('배전반')).toBeTruthy();
   });
 
   it('드로우 mouseup 직후 합성 click 은 모달 뒤에서 선택을 바꾸지 않는다', () => {
@@ -173,7 +174,7 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
     const onSelectAsset = vi.fn();
     renderFloorPlan(onSelectAsset);
 
-    fireEvent.click(screen.getByRole('button', { name: '배전반' }));
+    fireEvent.click(screen.getByRole('button', { name: '배치' }));
     const canvas = screen.getByTestId('floorplan-canvas');
 
     fireEvent.mouseDown(canvas, { button: 0, clientX: 0, clientY: 0 });
@@ -189,7 +190,7 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
   it('너무 작은 드래그(MIN_DRAW 미만)는 모달을 열지 않는다', () => {
     renderFloorPlan();
 
-    fireEvent.click(screen.getByRole('button', { name: '배전반' }));
+    fireEvent.click(screen.getByRole('button', { name: '배치' }));
     const canvas = screen.getByTestId('floorplan-canvas');
 
     fireEvent.mouseDown(canvas, { button: 0, clientX: 0, clientY: 0 });

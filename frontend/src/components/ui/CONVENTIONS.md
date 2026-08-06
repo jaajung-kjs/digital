@@ -42,6 +42,33 @@
 
 `className` 은 배치(`flex-1`·`w-full`·`mt-*`)에만 쓴다.
 
+## 1.6 개수에 비례해 커지는 UI 를 만들지 않는다
+
+카탈로그(자산 타입·케이블 종류)는 **사용자가 계속 늘리는 데이터**다. 항목마다 버튼을 하나씩
+까는 도구바는 항목이 늘면 두 줄, 세 줄로 번져 정작 작업 영역을 잡아먹는다(평면도 배치
+도구바가 시드 7개에서 이미 두 줄이었다).
+
+목록에서 하나를 고르는 도구는 **`[도구 버튼] + [대상 Select]`** 형태로 만든다 — 항목이
+몇 개든 한 줄이다. 평면도의 배치·케이블 도구가 이 형태다.
+
+## 1.7 목록 행의 액션은 호버에서 드러낸다
+
+행마다 ✏·🗑 를 항상 띄우면 목록이 아이콘으로 시끄러워지고, 무엇이 내용이고 무엇이
+조작인지 흐려진다. 액션은 **자리를 항상 차지한 채 `opacity` 만 바꾼다**:
+
+```tsx
+<div className="group flex items-center ...">
+  <span className="min-w-0 flex-1 truncate">{name}</span>
+  <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+    <IconButton size="sm" aria-label="이름 변경">…</IconButton>
+  </span>
+</div>
+```
+
+`hidden → group-hover:flex` 로 하면 **호버 순간 요소가 행에 끼어들어 폭·높이가 바뀌고**,
+그 바람에 커서가 다른 요소 위로 가면서 호버가 껐다 켜졌다를 반복한다(목록이 떤다).
+행 안의 아이콘 버튼은 `size="sm"` — 행 높이를 넘기면 같은 떨림이 생긴다.
+
 ## 2. 색 토큰 (시맨틱만)
 
 - 글자: `text-content`(본문) · `text-content-muted`(라벨) · `text-content-faint`(보조/빈상태)
@@ -91,7 +118,10 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 ### 리스트 아이템 카드(점검·고장이력 등) → 역시 `DetailCard`
 별도 "리스트 카드" 컴포넌트는 없다 — `RecordsTab.tsx` 가 실증하듯 점검/고장이력 리스트의 각 항목도 그대로 `DetailCard`(+`DetailCardHeader`) 를 재사용한다. 상세 카드와 리스트 카드를 구분해 별도로 만들지 않는다.
 
-### 작성/편집 폼 한 줄 → `DetailRow`
+### 작성/편집 폼 한 줄 → `DetailRow` (모달 안에서도 동일)
+**모달이라고 라벨을 입력 위로 올리지 않는다.** 예전에는 패널은 라벨이 좌측, 모달은 라벨이
+위여서 같은 앱 안에서 폼이 두 가지로 보였다. 어디서든 `DetailRow` 를 쓴다.
+
 `FormRow`/`EditableField` 라는 별도 컴포넌트는 없다 — `DetailRow` 하나가 상세 표시 행과 편집 행을 겸한다.
 라벨 폭(`w-16`)·검증 문구 위치가 여기서 고정되므로, 라벨+입력 조합을 직접 `<div className="flex">` 로 짜지 않는다.
 ```tsx

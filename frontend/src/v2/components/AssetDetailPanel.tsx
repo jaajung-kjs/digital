@@ -9,7 +9,7 @@ import { InfoTab, type AddModalContext } from './InfoTab';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
 import type { TraceResult } from '../traceSelectors';
-import { Tabs, type TabItem } from '../../components/ui';
+import { PanelHeader, Tabs, type TabItem } from '../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'info' | 'inspections' | 'logs' | 'connections';
@@ -85,6 +85,10 @@ export function AssetDetailPanel({
 
   return (
     <div className="flex h-full w-96 shrink-0 flex-col border-l border-line bg-surface">
+      {/* 어느 자산을 보고 있는지는 탭 위에 고정한다.
+          예전에는 자산 이름이 '정보' 탭 안의 카드에만 있어서, 점검·고장이력·연결 탭으로
+          옮기면 패널만 봐서는 무엇의 기록인지 알 수 없었다. */}
+      <PanelHeader title={asset.name} className="shrink-0" />
       <Tabs items={tabs} value={tab} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
 
       {/* 탭 컨텐츠 */}
@@ -114,6 +118,7 @@ export function AssetDetailPanel({
             extraField="result"
             dateLabel="점검일"
             extraLabel="결과"
+            sectionTitle="점검 기록"
             emptyMessage="점검 기록이 없습니다"
           />
         )}
@@ -126,6 +131,7 @@ export function AssetDetailPanel({
             extraField="action"
             dateLabel="발생일"
             extraLabel="조치"
+            sectionTitle="고장이력"
             emptyMessage="고장이력이 없습니다"
           />
         )}

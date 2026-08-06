@@ -7,7 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import { DetailCardHeader, Button, DetailCard } from '../../components/ui';
+import { DetailCardHeader, Button, DetailCard, EmptyState } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -98,7 +98,11 @@ export function ConnectionsTab({ assetId, onTrace, onClearTrace, traceResult }: 
 
   if (asset.ports.length === 0) {
     return (
-      <p className="text-xs text-content-faint px-1">이 자산에는 포트가 없습니다.</p>
+      <EmptyState
+        title="이 자산에는 포트가 없습니다"
+        description="포트는 자산 타입의 명세에서 정의합니다 — 자산 카탈로그에서 이 타입에 포트를 추가하세요."
+        className="py-6"
+      />
     );
   }
 

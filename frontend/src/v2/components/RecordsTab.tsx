@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Check, X } from 'lucide-react';
-import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm } from '../../components/ui';
+import { Check, Plus, X } from 'lucide-react';
+import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState } from '../../components/ui';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { mergeEffective } from '../store/overlay';
 import type { V2MaintenanceLog, V2InspectionLog } from '../types';
@@ -31,6 +31,8 @@ interface RecordsTabProps {
   dateLabel: string;
   /** extra field label */
   extraLabel: string;
+  /** 섹션 제목 — 패널 안에서 이 목록이 무엇인지 밝힌다. */
+  sectionTitle: string;
   /** empty state message */
   emptyMessage: string;
 }
@@ -61,7 +63,16 @@ function makeEmpty(): AddState {
   return { date: '', content: '', extra: '' };
 }
 
-export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, extraLabel, emptyMessage }: RecordsTabProps) {
+export function RecordsTab({
+  assetId,
+  kind,
+  dateField,
+  extraField,
+  dateLabel,
+  extraLabel,
+  sectionTitle,
+  emptyMessage,
+}: RecordsTabProps) {
   const { confirm, confirmDialog } = useConfirm();
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
@@ -161,16 +172,21 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
 
   return (
     <div className="space-y-2">
-      {/* 추가 버튼 */}
-      <div className="flex justify-end">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => { setShowAdd((v) => !v); setAddState(makeEmpty()); }}
-        >
-          {showAdd ? '취소' : '+ 추가'}
-        </Button>
-      </div>
+      {/* 섹션 머리줄 — 예전에는 제목 없이 '+추가' 버튼만 떠 있어서
+          무엇을 추가하는지 패널만 봐서는 알 수 없었다. */}
+      <DetailCardHeader
+        title={sectionTitle}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={showAdd ? undefined : <Plus size={13} />}
+            onClick={() => { setShowAdd((v) => !v); setAddState(makeEmpty()); }}
+          >
+            {showAdd ? '취소' : '추가'}
+          </Button>
+        }
+      />
 
       {/* 추가 폼 */}
       {showAdd && (
@@ -215,9 +231,7 @@ export function RecordsTab({ assetId, kind, dateField, extraField, dateLabel, ex
       )}
 
       {/* 목록 */}
-      {sorted.length === 0 && !showAdd && (
-        <p className="text-sm text-content-faint">{emptyMessage}</p>
-      )}
+      {sorted.length === 0 && !showAdd && <EmptyState title={emptyMessage} className="py-6" />}
 
       {sorted.map((record) => {
         const isEditing = editState?.id === record.id;
