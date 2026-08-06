@@ -1,4 +1,4 @@
-/** v2 자립 인증 서비스 — bcryptjs 비교, RefreshToken rotate, 계정 잠금 미이관(YAGNI). */
+/** v2 자립 인증 서비스 — bcryptjs 비교, RefreshToken rotate, 로그인 시도 제한. */
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { nextDb } from './db.js';
@@ -30,6 +30,11 @@ interface RefreshResult {
 // 값은 임의 문자열의 해시이며 어떤 비밀번호와도 일치하지 않는다(cost 는 시드와 동일한 10).
 const DUMMY_PASSWORD_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
 
+/** 이 횟수만큼 연속 실패하면 잠근다. */
+export const MAX_FAILED_LOGINS = 5;
+/** 잠금 지속 시간(분). 지나면 자동으로 풀린다 — 관리자 개입을 요구하지 않는다. */
+export const LOCKOUT_MINUTES = 15;
+
 // ── 서비스 ────────────────────────────────────────────────────────────────────
 
 /**
@@ -42,8 +47,34 @@ export async function login(username: string, password: string): Promise<LoginRe
   // 사용자 유무와 무관하게 항상 bcrypt 를 한 번 태운다 — 두 실패 경로의 응답
   // 시간을 같게 만들어 계정 열거를 막는다(위 DUMMY_PASSWORD_HASH 주석 참조).
   const valid = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  const lockedUntil = user?.lockedUntil ?? null;
+  const isLocked = lockedUntil != null && lockedUntil > new Date();
+
   if (!user || !valid) {
+    // 잠긴 동안의 실패는 세지 않는다 — 세면 남이 계속 틀려서 잠금을 무한정 늘릴 수 있다.
+    if (user && !isLocked) await registerFailedAttempt(user.id, user.failedLoginCount);
     throw new HttpError(401, 'INVALID_CREDENTIALS', '아이디 또는 비밀번호가 올바르지 않습니다.');
+  }
+
+  /* 비밀번호가 맞은 뒤에야 잠금 사실을 알린다.
+     틀린 사람에게도 "잠김" 이라고 하면 그 계정이 **존재한다**는 것을 알려주는 셈이라,
+     위에서 더미 해시까지 써 가며 막아 둔 계정 열거가 도로 열린다. 비밀번호를 맞힌
+     사람은 이미 그 계정을 아는 사람이므로 이유를 알려주는 편이 낫다. */
+  if (isLocked) {
+    const minutes = Math.max(1, Math.ceil((lockedUntil!.getTime() - Date.now()) / 60000));
+    throw new HttpError(
+      423,
+      'ACCOUNT_LOCKED',
+      `로그인 시도가 너무 많아 잠겼습니다. ${minutes}분 후 다시 시도하세요.`,
+    );
+  }
+
+  // 성공하면 실패 기록을 지운다 — 다음 잠금은 처음부터 센다.
+  if (user.failedLoginCount > 0 || user.lockedUntil != null) {
+    await nextDb.user.update({
+      where: { id: user.id },
+      data: { failedLoginCount: 0, lockedUntil: null },
+    });
   }
 
   const tokenId = uuidv4();
@@ -117,4 +148,25 @@ export async function logout(refreshToken: string): Promise<void> {
   } catch {
     // 이미 삭제됐거나 존재하지 않으면 무시
   }
+}
+
+/**
+ * 로그인 실패 1회 기록 — 임계치에 닿으면 잠근다.
+ *
+ * 잠글 때 카운터를 0 으로 되돌리는 이유: 잠금이 풀린 뒤 한 번만 더 틀려도 바로 다시
+ * 잠기는 것을 막기 위해서다(사용자가 비밀번호를 헷갈리는 정상 상황에서 사실상 영구 잠금이 된다).
+ */
+async function registerFailedAttempt(userId: string, currentCount: number): Promise<void> {
+  const next = currentCount + 1;
+  if (next < MAX_FAILED_LOGINS) {
+    await nextDb.user.update({ where: { id: userId }, data: { failedLoginCount: next } });
+    return;
+  }
+  await nextDb.user.update({
+    where: { id: userId },
+    data: {
+      failedLoginCount: 0,
+      lockedUntil: new Date(Date.now() + LOCKOUT_MINUTES * 60_000),
+    },
+  });
 }

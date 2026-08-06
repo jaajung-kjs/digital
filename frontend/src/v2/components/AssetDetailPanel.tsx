@@ -8,7 +8,7 @@ import { InfoTab, type AddModalContext } from './InfoTab';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
 import type { TraceResult } from '../traceSelectors';
-import { PanelHeader, Tabs, type TabItem } from '../../components/ui';
+import { Button, PanelHeader, Tabs, type TabItem } from '../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'info' | 'inspections' | 'logs' | 'connections';
@@ -20,6 +20,8 @@ interface AssetDetailPanelProps {
   onTrace?: (result: TraceResult) => void;
   onClearTrace?: () => void;
   traceResult?: TraceResult | null;
+  /** 평면도 뷰로 전환한다 — 층 선택은 평면도가 선택된 자산을 따라간다. */
+  onShowOnFloorPlan?: () => void;
 }
 
 export function AssetDetailPanel({
@@ -28,6 +30,7 @@ export function AssetDetailPanel({
   onTrace,
   onClearTrace,
   traceResult,
+  onShowOnFloorPlan,
 }: AssetDetailPanelProps) {
   const [tab, setTab] = useState<Tab>('info');
   const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
@@ -69,6 +72,14 @@ export function AssetDetailPanel({
     return map;
   }, [effectiveAssets, assetId]);
 
+  // 자신이 놓였거나, 놓인 상위가 있으면 평면도에서 찾아갈 수 있다.
+  const placedAncestorExists = useMemo(() => {
+    const byId = new Map(effectiveAssets.map((a) => [a.id, a]));
+    let cur = byId.get(assetId);
+    while (cur && cur.floorId == null && cur.parentAssetId != null) cur = byId.get(cur.parentAssetId);
+    return cur?.floorId != null;
+  }, [effectiveAssets, assetId]);
+
   if (!asset) return null;
 
   // ── 탭 바 ──────────────────────────────────────────────────────────────────
@@ -84,7 +95,19 @@ export function AssetDetailPanel({
       {/* 어느 자산을 보고 있는지는 탭 위에 고정한다.
           예전에는 자산 이름이 '정보' 탭 안의 카드에만 있어서, 점검·고장이력·연결 탭으로
           옮기면 패널만 봐서는 무엇의 기록인지 알 수 없었다. */}
-      <PanelHeader title={asset.name} className="shrink-0" />
+      <PanelHeader
+        title={asset.name}
+        className="shrink-0"
+        actions={
+          /* 도면 어디에 있는지 보러 가는 길이 없었다. 자산 자신이 놓여 있지 않아도
+             (랙 안의 장비 등) 놓인 상위가 있으면 그 자리로 데려간다. */
+          onShowOnFloorPlan && placedAncestorExists ? (
+            <Button variant="secondary" size="sm" onClick={onShowOnFloorPlan}>
+              평면도에서 보기
+            </Button>
+          ) : undefined
+        }
+      />
       <Tabs items={tabs} value={tab} onChange={setTab} className="shrink-0 border-b border-line z-sticky" />
 
       {/* 탭 컨텐츠 */}

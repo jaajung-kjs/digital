@@ -8,6 +8,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { nextDb } from '../db.js';
 import { makeApp, sweepTestFixtures } from './helpers.js';
+import { MAX_FAILED_LOGINS } from '../auth.service.js';
 
 const app = makeApp();
 
@@ -227,5 +228,78 @@ describe('adminOnly 미들웨어', () => {
 
     // 정리
     await nextDb.user.deleteMany({ where: { username: viewerName } });
+  });
+});
+
+describe('로그인 시도 제한', () => {
+  const LOCK_USER = `test_lock_${Date.now()}`;
+  const PW = 'lockPass123!';
+
+  beforeAll(async () => {
+    const hash = await bcrypt.hash(PW, 10);
+    await nextDb.user.upsert({
+      where: { username: LOCK_USER },
+      update: { passwordHash: hash, failedLoginCount: 0, lockedUntil: null },
+      create: { username: LOCK_USER, passwordHash: hash, role: 'viewer' },
+    });
+  });
+
+  const login = (password: string) =>
+    request(app).post('/api/v2/auth/login').send({ username: LOCK_USER, password });
+
+  const reset = () =>
+    nextDb.user.update({ where: { username: LOCK_USER }, data: { failedLoginCount: 0, lockedUntil: null } });
+
+  it('연속 실패가 임계치에 닿으면 잠긴다 — 그 뒤엔 올바른 비밀번호도 거절', async () => {
+    await reset();
+    for (let i = 0; i < MAX_FAILED_LOGINS; i++) await login('wrong').expect(401);
+
+    const res = await login(PW).expect(423);
+    expect(res.body.error).toBe('ACCOUNT_LOCKED');
+
+    const row = await nextDb.user.findUnique({ where: { username: LOCK_USER } });
+    expect(row?.lockedUntil).not.toBeNull();
+  });
+
+  it('잠긴 계정에 **틀린** 비밀번호를 넣으면 잠김 사실을 알리지 않는다 — 계정 열거 방지', async () => {
+    // 비밀번호를 맞힌 사람만 이유를 알 자격이 있다. 틀린 사람에게 "잠김" 이라고 하면
+    // 그 계정이 존재한다는 것을 알려주는 셈이라, 더미 해시로 막아 둔 열거가 도로 열린다.
+    const res = await login('wrong').expect(401);
+    expect(res.body.error).toBe('INVALID_CREDENTIALS');
+  });
+
+  it('잠긴 동안의 실패는 잠금을 연장하지 않는다 — 남이 계속 틀려서 영구 잠금이 되지 않게', async () => {
+    const before = await nextDb.user.findUnique({ where: { username: LOCK_USER } });
+    await login('wrong').expect(401);
+    const after = await nextDb.user.findUnique({ where: { username: LOCK_USER } });
+    expect(after?.lockedUntil?.getTime()).toBe(before?.lockedUntil?.getTime());
+  });
+
+  it('잠금이 풀리면 정상 로그인되고 실패 기록도 지워진다', async () => {
+    await nextDb.user.update({
+      where: { username: LOCK_USER },
+      data: { lockedUntil: new Date(Date.now() - 1000), failedLoginCount: 3 },
+    });
+    await login(PW).expect(200);
+    const row = await nextDb.user.findUnique({ where: { username: LOCK_USER } });
+    expect(row?.failedLoginCount).toBe(0);
+    expect(row?.lockedUntil).toBeNull();
+  });
+
+  it('임계치 미만에서 성공하면 카운터가 초기화된다', async () => {
+    await reset();
+    await login('wrong').expect(401);
+    await login('wrong').expect(401);
+    await login(PW).expect(200);
+    const row = await nextDb.user.findUnique({ where: { username: LOCK_USER } });
+    expect(row?.failedLoginCount).toBe(0);
+  });
+
+  it('없는 계정은 잠금 여부와 무관하게 항상 같은 401 — 존재 여부가 새지 않는다', async () => {
+    const res = await request(app)
+      .post('/api/v2/auth/login')
+      .send({ username: `no_such_user_${Date.now()}`, password: 'whatever' })
+      .expect(401);
+    expect(res.body.error).toBe('INVALID_CREDENTIALS');
   });
 });

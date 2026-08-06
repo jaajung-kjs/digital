@@ -237,6 +237,7 @@ export default function V2WorkspacePage() {
                       onTrace={setTraceResult}
                       onClearTrace={() => setTraceResult(null)}
                       traceResult={traceResult}
+                      onShowOnFloorPlan={() => setViewMode('평면도')}
                     />
                   )}
                 </div>

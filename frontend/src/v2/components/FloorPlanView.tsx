@@ -226,6 +226,21 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   // ── 활성 층 로컬 state ────────────────────────────────────────────────────
   const [activeFloorId, setActiveFloorId] = useState<string | null>(null);
 
+  /* 선택된 자산이 지금 보고 있는 층에 없으면 그 층으로 따라간다.
+     현황·선번장에서 자산을 고른 뒤 평면도로 넘어와도 엉뚱한 층이 떠 있어, 방금 고른
+     자산이 화면에 없는 일이 있었다. 자산이 랙 안에 있으면 랙이 놓인 층을 찾는다. */
+  useEffect(() => {
+    if (!selectedAssetId) return;
+    const all = useV2WorkingCopy.getState().effectiveAssets();
+    const byId = new Map(all.map((a) => [a.id, a]));
+    let cur = byId.get(selectedAssetId);
+    while (cur && cur.floorId == null && cur.parentAssetId != null) cur = byId.get(cur.parentAssetId);
+    const floorId = cur?.floorId ?? null;
+    if (floorId && floorId !== activeFloorId && floors.some((f) => f.id === floorId)) {
+      setActiveFloorId(floorId);
+    }
+  }, [selectedAssetId, floors, activeFloorId]);
+
   // floors 가 변경되면 activeFloorId 가 없거나 사라진 층이면 첫 층으로 초기화
   useEffect(() => {
     if (floors.length === 0) { setActiveFloorId(null); return; }
