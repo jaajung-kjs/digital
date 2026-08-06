@@ -2,6 +2,7 @@
 
 import { SELECTION_STYLES, ELEMENT_COLORS } from './constants';
 import type { PlacedAsset } from './hitTest';
+import { bundleCables, polylineMidpoint } from './cableBundles';
 
 // ============================================
 // Asset 렌더링 (V2 필드: x/y/width/height, rotation 없음)
@@ -107,6 +108,10 @@ export function renderPlacedAssets(
 // ============================================
 
 export interface CableRenderSegment {
+  /** 묶음의 대표를 고르고 선택 상태를 잇기 위해 필요하다. */
+  id: string;
+  /** 종류가 다르면 색이 다르므로 합치지 않는다 — 묶음 판정에 쓴다. */
+  categoryId: string | null;
   points: { x: number; y: number }[];
   color: string;
   selected: boolean;
@@ -121,19 +126,44 @@ export function renderCables(
   ctx: CanvasRenderingContext2D,
   segments: CableRenderSegment[],
 ): void {
-  for (const seg of segments) {
-    if (seg.points.length < 2) continue;
+  /* 같은 자리에 겹치는 케이블은 묶어서 그린다 — 함체 사이 케이블은 양 끝 자산 중심을
+     잇는 같은 선이 되므로, 4본이든 1본처럼 보였다. 묶는 규칙은 cableBundles 참고. */
+  for (const b of bundleCables(segments.map((s) => ({
+    id: s.id,
+    categoryId: s.categoryId,
+    color: s.color,
+    points: s.points,
+    selected: s.selected,
+  })))) {
     ctx.save();
-    ctx.strokeStyle = seg.selected ? SELECTION_STYLES.stroke : seg.color;
-    ctx.lineWidth = seg.selected ? 3 : 1.5;
+    ctx.strokeStyle = b.selected ? SELECTION_STYLES.stroke : b.color;
+    ctx.lineWidth = b.selected ? 3 : 1.5;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(seg.points[0]!.x, seg.points[0]!.y);
-    for (let i = 1; i < seg.points.length; i++) {
-      ctx.lineTo(seg.points[i]!.x, seg.points[i]!.y);
+    ctx.moveTo(b.points[0]!.x, b.points[0]!.y);
+    for (let i = 1; i < b.points.length; i++) {
+      ctx.lineTo(b.points[i]!.x, b.points[i]!.y);
     }
     ctx.stroke();
+
+    // 여러 본이면 몇 본인지 선 위에 적는다(업계 도면이 회선 수를 적는 방식).
+    if (b.count > 1) {
+      const mid = polylineMidpoint(b.points);
+      const label = `×${b.count}`;
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const w = ctx.measureText(label).width + 6;
+      // 선 위에 글자가 겹치지 않도록 배경을 깔아 준다.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(mid.x - w / 2, mid.y - 7, w, 14);
+      ctx.strokeStyle = b.selected ? SELECTION_STYLES.stroke : b.color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(mid.x - w / 2, mid.y - 7, w, 14);
+      ctx.fillStyle = b.selected ? SELECTION_STYLES.stroke : b.color;
+      ctx.fillText(label, mid.x, mid.y);
+    }
     ctx.restore();
   }
 }

@@ -457,6 +457,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           ctx.save();
           ctx.globalAlpha = 0.3;
           renderCables(ctx, dimmedSegs.map((seg) => ({
+            id: seg.id,
+            categoryId: seg.categoryId ?? null,
             points: seg.points,
             color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
             selected: false,
@@ -464,12 +466,16 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           ctx.restore();
           // 추적 케이블 강조
           renderCables(ctx, tracedSegs.map((seg) => ({
+            id: seg.id,
+            categoryId: seg.categoryId ?? null,
             points: seg.points,
             color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
             selected: true,
           })));
         } else {
           const cableRenderSegs = segs.map((seg) => ({
+            id: seg.id,
+            categoryId: seg.categoryId ?? null,
             points: seg.points,
             color: categoryColorMap.get(seg.categoryId ?? '') ?? '#888888',
             selected: seg.id === latest.current.selectedCableId,
