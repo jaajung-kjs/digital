@@ -26,6 +26,8 @@ interface AddAssetModalProps {
 }
 
 export function AddAssetModal({ open, onClose, substationId, containerContext, floorContext, preselectedTypeId }: AddAssetModalProps) {
+  const savedFloors = useV2WorkingCopy((st) => st.saved.floors);
+  const effectiveAssets = useV2WorkingCopy((st) => st.saved.assets);
   const [selectedTypeId, setSelectedTypeId] = useState(preselectedTypeId ?? '');
   const [name, setName] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<string>('');
@@ -119,6 +121,18 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
     handleClose();
   }
 
+  /* 어디에 추가되는지 — 예전에는 모달만 보고는 알 수 없었다(평면도에서 드래그해 열었는지,
+     어느 랙의 + 를 눌렀는지). 층 이름 또는 "상위 자산 · 컨테이너" 로 밝힌다. */
+  const destination = useMemo(() => {
+    if (floorContext) return savedFloors.find((f) => f.id === floorContext.floorId)?.name ?? null;
+    if (containerContext) {
+      const parent = effectiveAssets.find((a) => a.id === containerContext.parentAssetId);
+      if (!parent) return null;
+      return `${parent.name} · ${containerContext.spec.name}`;
+    }
+    return null;
+  }, [floorContext, containerContext, savedFloors, effectiveAssets]);
+
   const canConfirm =
     selectedTypeId !== '' &&
     name.trim() !== '' &&
@@ -142,6 +156,8 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
       }
     >
       <div className="space-y-3">
+        {destination && <DetailRow label="위치">{destination}</DetailRow>}
+
         {/* 타입 선택 */}
         <DetailRow label="자산 유형">
           <Select

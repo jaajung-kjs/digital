@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { Button, IconButton, Input, Modal, useConfirm, PanelHeader, cn, SELECTABLE, SELECTED } from '../../components/ui';
+import {
+  Button,
+  DetailRow,
+  IconButton,
+  Input,
+  Modal,
+  useConfirm,
+  PanelHeader,
+  cn,
+  SELECTABLE,
+  SELECTED,
+} from '../../components/ui';
 import { type OrgKind } from '../api';
 import { flattenTree, type FlatOrgNode } from '../orgTreeSelectors';
 import { useOrgMutations, useV2OrgTree } from '../hooks';
@@ -15,6 +26,14 @@ const SELF_KIND: Record<FlatOrgNode['kind'], OrgKind> = {
   branch: 'branches',
   substation: 'substations',
 };
+/** 화면에 쓰는 조직 종류 이름 — 모달 제목이 "추가" 한 마디로 끝나지 않게 한다. */
+const KIND_LABEL: Record<OrgKind, string> = {
+  headquarters: '본부',
+  branches: '지사',
+  substations: '변전소',
+  floors: '층',
+};
+
 const PARENT_FIELD: Record<OrgKind, string> = {
   headquarters: '',
   branches: 'headquartersId',
@@ -143,7 +162,7 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
       <Modal
         open={modal !== null}
         onClose={() => setModal(null)}
-        title={modal?.mode === 'create' ? '추가' : '이름 변경'}
+        title={modal ? `${KIND_LABEL[modal.kind]} ${modal.mode === 'create' ? '추가' : '이름 변경'}` : ''}
         footer={
           <>
             <Button variant="secondary" size="sm" onClick={() => setModal(null)}>
@@ -155,15 +174,18 @@ export function OrgTreePanel(props: { selectedId: string | null; onSelect: (node
           </>
         }
       >
-        <Input
-          autoFocus
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleConfirm();
-          }}
-          placeholder="이름"
-        />
+        <DetailRow label="이름">
+          <Input
+            autoFocus
+            aria-label={modal ? `${KIND_LABEL[modal.kind]} 이름` : '이름'}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleConfirm();
+            }}
+            placeholder={modal ? `${KIND_LABEL[modal.kind]} 이름 입력` : '이름'}
+          />
+        </DetailRow>
       </Modal>
       {confirmDialog}
     </div>

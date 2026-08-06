@@ -45,3 +45,35 @@ export function screenToWorld(
     y: (clientY - rect.top - panY) / scale,
   };
 }
+
+// ── 줌 ────────────────────────────────────────────────────────────────────────
+
+export interface Viewport {
+  /** 100 = 100% */
+  zoom: number;
+  panX: number;
+  panY: number;
+}
+
+export const MIN_ZOOM = 10;
+export const MAX_ZOOM = 1000;
+/** 버튼 한 번 / 휠 한 칸의 배율 — 휠과 버튼이 같은 보폭으로 움직이게 한 곳에서 정한다. */
+export const ZOOM_STEP = 1.1;
+
+/**
+ * 한 점을 고정한 채 확대/축소한다.
+ *
+ * 휠은 커서를, 버튼은 캔버스 중앙을 고정한다 — **고정점만 다르고 계산은 같다**.
+ * 예전에는 이 계산이 휠 핸들러 안에만 인라인으로 있어서, 버튼을 붙이려면 같은 식을
+ * 한 번 더 쓸 수밖에 없었다. 판정을 여기 한 곳에 둔다.
+ *
+ * @param anchorX/anchorY 캔버스 좌상단 기준 좌표(px) — 이 점 아래의 도면 위치가 그대로 남는다.
+ */
+export function zoomAtPoint(v: Viewport, factor: number, anchorX: number, anchorY: number): Viewport {
+  const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * factor));
+  const oldScale = v.zoom / 100;
+  const newScale = zoom / 100;
+  const worldX = (anchorX - v.panX) / oldScale;
+  const worldY = (anchorY - v.panY) / oldScale;
+  return { zoom, panX: anchorX - worldX * newScale, panY: anchorY - worldY * newScale };
+}

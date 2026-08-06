@@ -13,11 +13,12 @@
  * 캡쳐된 state/props를 읽으면 stale-closure 버그가 생긴다.
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { Minus, Plus } from 'lucide-react';
 import { validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../canvas/backgroundRenderer';
 import { renderGrid } from '../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../canvas/renderers';
-import { screenToWorld, snapToGrid } from '../canvas/transform';
+import { screenToWorld, snapToGrid, zoomAtPoint, ZOOM_STEP, type Viewport } from '../canvas/transform';
 import { findAssetAt, type PlacedAsset } from '../canvas/hitTest';
 import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
 import type { DragSession } from '../canvas/drag';
@@ -28,7 +29,7 @@ import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { isAdminRole, useV2AuthStore } from '../store/authStore';
 import { useV2Catalog } from '../hooks';
-import { Button, Select, Tabs } from '../../components/ui';
+import { Button, IconButton, Select, Tabs } from '../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { AddAssetModal } from './AddAssetModal';
 import { AssetResizeHandles } from './AssetResizeHandles';
@@ -50,12 +51,6 @@ interface Props {
   selectedAssetId: string | null;
   onSelectAsset: (id: string | null) => void;
   traceResult?: TraceResult | null;
-}
-
-interface Viewport {
-  zoom: number; // 100 = 100%
-  panX: number;
-  panY: number;
 }
 
 interface DrawModalState {
@@ -531,19 +526,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       const cursorX = e.clientX - rect.left;
       const cursorY = e.clientY - rect.top;
 
-      setViewport((prev) => {
-        const oldScale = prev.zoom / 100;
-        const newZoom = Math.min(1000, Math.max(10, prev.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
-        const newScale = newZoom / 100;
-
-        // 커서 아래 월드 좌표를 고정
-        const worldX = (cursorX - prev.panX) / oldScale;
-        const worldY = (cursorY - prev.panY) / oldScale;
-        const newPanX = cursorX - worldX * newScale;
-        const newPanY = cursorY - worldY * newScale;
-
-        return { zoom: newZoom, panX: newPanX, panY: newPanY };
-      });
+      // 커서 아래 도면 위치를 고정한 채 확대/축소 — 계산은 zoomAtPoint 한 곳에 있다.
+      setViewport((prev) => zoomAtPoint(prev, e.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP, cursorX, cursorY));
     };
 
     canvas.addEventListener('wheel', onWheel, { passive: false });
@@ -996,6 +980,17 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         width: selectedPlacedAsset.width, height: selectedPlacedAsset.height }
     : null);
 
+  // ── 줌 버튼 ───────────────────────────────────────────────────────────────
+  /** 버튼 줌은 화면 한가운데를 고정한다 — 커서를 고정하는 휠과 계산은 같다. */
+  const zoomByButton = useCallback((factor: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cx = (rect?.width ?? 0) / 2;
+    const cy = (rect?.height ?? 0) / 2;
+    setViewport((prev) => zoomAtPoint(prev, factor, cx, cy));
+  }, []);
+
+  const resetZoom = useCallback(() => setViewport({ zoom: 100, panX: 0, panY: 0 }), []);
+
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
   const canvasCursor = (armedTypeId !== null || cableState.armed) ? 'crosshair' : undefined;
 
@@ -1216,9 +1211,23 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           </div>
         )}
 
-        {/* 줌 레벨 표시 */}
-        <div className="pointer-events-none absolute bottom-2 right-2 rounded bg-surface px-2 py-0.5 text-xs text-content-muted z-legend">
-          {Math.round(viewport.zoom)}%
+        {/* 줌 컨트롤 — 예전에는 배율 표시만 있고 조작은 휠뿐이라,
+            휠이 불편한 환경에서는 확대/축소할 방법이 없었다. */}
+        <div className="absolute bottom-2 right-2 flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 shadow-sm z-legend">
+          <IconButton aria-label="축소" size="sm" onClick={() => zoomByButton(1 / ZOOM_STEP)}>
+            <Minus size={14} />
+          </IconButton>
+          <button
+            type="button"
+            title="100% 로 되돌리기"
+            className="min-w-12 rounded px-1 text-xs tabular-nums text-content-muted hover:bg-surface-2"
+            onClick={resetZoom}
+          >
+            {Math.round(viewport.zoom)}%
+          </button>
+          <IconButton aria-label="확대" size="sm" onClick={() => zoomByButton(ZOOM_STEP)}>
+            <Plus size={14} />
+          </IconButton>
         </div>
       </div>
 
