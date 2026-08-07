@@ -225,7 +225,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
+      { group: 'OPT', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
     links: [],
   },
@@ -297,7 +300,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      { group: 'P', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
     links: [],
   },
@@ -353,9 +357,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'PWR-OUT', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}' },
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
+    links: [
+      { fromGroup: 'PWR-IN', toGroup: 'PWR-OUT', mapping: 'all' },
+    ],
   },
   {
     key: 'PWR-DC',
