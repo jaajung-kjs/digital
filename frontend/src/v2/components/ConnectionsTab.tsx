@@ -12,7 +12,7 @@ import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { withDescendants } from '../cableSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { internalLinkMap, portDirectionLabel, portFieldsFor, portValuesAt, setPortValueAt } from '@twin/core';
+import { internalLinkMap, portDirectionLabel, portFieldsFor, portValue, setPortValueAt } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel, useMediumColor } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
@@ -76,15 +76,14 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
    * 이 포트에 여닫을 값이 있는가 — 차단기의 개폐 같은 것.
    *
    * 화면이 `closed` 라는 키를 알지 않는다. 종류 선언에서 `boolean` 인 포트 값을 찾고,
-   * 그 값의 방향 제한(`direction`)까지 선언이 정한다 — 개폐는 **출력** 쪽 사실이라
-   * 입력 포트에는 스위치가 붙지 않는다.
+   * 적힌 값이 없을 때의 뜻도 선언(`defaultValue`)이 정한다.
    */
   function portToggle(owner: V2Asset, port: V2Port) {
-    const field = portFieldsFor(port.medium, port.direction).find((f) => f.type === 'boolean');
+    const field = portFieldsFor(port.medium).find((f) => f.type === 'boolean');
     if (!field) return null;
     return {
       label: field.label,
-      checked: portValuesAt(port, 1)[field.key] === true,
+      checked: portValue(port, field) === true,
       onChange: (next: boolean) => {
         const ports = owner.ports.map((p) =>
           p.id === port.id ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,

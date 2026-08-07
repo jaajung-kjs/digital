@@ -35,12 +35,13 @@ export interface ValueDef {
   /** 라벨 뒤에 붙는 단위 — `길이(m)` 처럼. */
   unit?: string;
   /**
-   * 이 방향의 포트에만 있는 값(포트 값 전용).
+   * 적힌 값이 없을 때의 뜻.
    *
-   * 차단기의 개폐가 그렇다 — 나가는 회로가 살아 있는가는 **출력** 쪽 사실이고,
-   * 들어오는 쪽은 상대 기기의 출력이 정한다. 없으면 방향을 가리지 않는다.
+   * 개폐가 그렇다 — 살아 있는 계통에서 **투입이 예사이고 개방이 사건**이다. 없는 값을
+   * 개방으로 읽으면 아직 아무도 손대지 않은 판이 통째로 죽은 것처럼 보인다. 판 조서(panel
+   * schedule)가 OFF·SPARE 만 적어 두는 것과 같은 이유다.
    */
-  direction?: Direction;
+  defaultValue?: unknown;
 }
 
 /**
@@ -94,8 +95,10 @@ export const PORT_KINDS: readonly PortKind[] = [
     key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
     cableFields: [{ key: 'voltage', label: '전압', type: 'text' }],
     /* 차단기의 개폐 — 예전에는 피더 **자산**의 필드였는데, 개폐는 자산이 아니라
-       그 회로의 상태다. 출력이 여럿인 기기(콘센트 13구 분배반)는 회로마다 따로 끊긴다. */
-    portFields: [{ key: 'closed', label: '개폐', type: 'boolean', direction: 'OUT' }],
+       그 회로의 상태다. 출력이 여럿인 기기(콘센트 13구 분배반)는 회로마다 따로 끊긴다.
+       입력도 마찬가지다 — 배전반 주차단기, UPS·정류기의 입력 MCCB 가 다 입력 쪽에 있다.
+       상대의 출력 차단기와 내 입력 차단기는 서로 다른 둘이라, 한쪽으로 대신할 수 없다. */
+    portFields: [{ key: 'closed', label: '개폐', type: 'boolean', defaultValue: true }],
   },
   { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   // 점퍼 한 가닥이 어댑터 하나에 꽂히는, 심선 1가닥짜리 보통 광 포트.
@@ -135,15 +138,9 @@ export function cableFieldsFor(medium: string): ValueDef[] {
   return [...COMMON_CABLE_FIELDS, ...(portKind(medium)?.cableFields ?? [])];
 }
 
-/**
- * 이 **포트**에 적을 수 있는 값 — 심선마다 다른 것(광 손실·점검일), 회로마다 다른 것(개폐).
- *
- * 방향을 주면 그 방향에만 있는 값까지 걸러 준다. 안 주면 종류가 가진 값 전부다.
- */
-export function portFieldsFor(medium: string, direction?: Direction): ValueDef[] {
-  const fields = portKind(medium)?.portFields ?? [];
-  if (direction === undefined) return [...fields];
-  return fields.filter((f) => f.direction === undefined || f.direction === direction);
+/** 이 **포트**에 적을 수 있는 값 — 심선마다 다른 것(광 손실·점검일), 회로마다 다른 것(개폐). */
+export function portFieldsFor(medium: string): ValueDef[] {
+  return [...(portKind(medium)?.portFields ?? [])];
 }
 
 /** 이 포트가 심선을 여러 가닥 나르는가. `positions` 이 없거나 1이면 보통 포트다. */
@@ -166,6 +163,21 @@ export function portValuesAt(
   if (!isMultiCorePort(port.positions)) return all;
   const at = all[String(position)];
   return at != null && typeof at === 'object' ? (at as Record<string, unknown>) : {};
+}
+
+/**
+ * 이 포트의 값 하나를 **선언된 기본값까지 얹어** 읽는다.
+ *
+ * 적힌 값이 없다는 것과 값이 없다는 것은 다르다 — 개폐는 아무도 손대지 않았어도 투입이다.
+ * 기본값을 아는 곳이 화면마다 흩어지면 판마다 다른 답이 나오므로 문을 하나로 둔다.
+ */
+export function portValue(
+  port: { medium: string; positions?: number | null; fieldValues?: Record<string, unknown> | null },
+  field: ValueDef,
+  position = 1,
+): unknown {
+  const at = portValuesAt(port, position);
+  return field.key in at ? at[field.key] : field.defaultValue;
 }
 
 /** `portValuesAt` 의 짝 — 코어 하나의 값 하나를 바꾼 **새** `fieldValues` 를 돌려준다. */

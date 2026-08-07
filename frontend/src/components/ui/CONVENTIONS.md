@@ -229,7 +229,7 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 자산 정의를 사용자가 하는 제품이므로 **화면 코드가 필드 키·상태 값·방향 값을 직접 적으면 곧 어긋난다**. 라벨을 바꾸면 머리글만 옛 이름으로 남고, 필드를 지우면 `—` 만 늘어선 죽은 열이 되고, 새 필드는 아무리 넣어도 안 나온다.
 
 - 현황표의 속성 열은 `buildStatusRows` 가 `assetFieldDefs()` 에서 만든다(라벨도 거기서). 자산이 갖는 속성은 종류를 가리지 않고 같다 — 타입마다 필드를 따로 선언하던 길은 걷었다.
-- **어떤 포트에 무엇을 적을 수 있는지도 선언이 정한다.** `portFieldsFor(medium, direction)` — 화면이 `closed`·`lossDb` 같은 키를 알지 않는다. 개폐 스위치가 전원 **출력** 포트에만 붙는 것도 선언(`ValueDef.direction`)이 정한 것이지 화면의 분기가 아니다.
+- **어떤 포트에 무엇을 적을 수 있는지도 선언이 정한다.** `portFieldsFor(medium)` — 화면이 `closed`·`lossDb` 같은 키를 알지 않는다. **적힌 값이 없을 때의 뜻도 선언이 정한다**(`ValueDef.defaultValue`): 개폐는 아무도 손대지 않았어도 투입이다. 없는 값을 개방으로 읽으면 아직 손대지 않은 판이 통째로 죽은 것처럼 보인다. 읽는 문은 `portValue` 하나뿐이다.
 - 상태·포트 방향 같은 어휘는 `@twin/core` 의 `ASSET_STATUSES`·`PORT_DIRECTIONS` 한 곳에만 적는다. 타입·검증·zod 스키마·선택지가 전부 거기서 파생된다. 예외는 §7 이 코드 뷰로 남긴 선번장·계통뿐이다.
 
 ### 표 위 검색 상자 → `TableSearch`

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PORT_KINDS, cableFieldsFor, portFieldsFor, portGroupLabel, portPresets, uniqueGroupKey } from './portKinds.js';
+import { PORT_KINDS, cableFieldsFor, portFieldsFor, portGroupLabel, portPresets, portValue, uniqueGroupKey } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -64,11 +64,19 @@ describe('케이블 파라미터 선언', () => {
     }
   });
 
-  /* 개폐는 자산이 아니라 **그 회로**의 상태다. 나가는 회로가 살아 있는가는 출력 쪽 사실이고,
-     들어오는 쪽은 상대 기기의 출력이 정한다 — 그래서 입력 포트에는 붙지 않는다. */
-  it('전원 개폐는 출력 포트에만 있다', () => {
-    expect(portFieldsFor('power', 'OUT').map((f) => f.key)).toEqual(['closed']);
-    expect(portFieldsFor('power', 'IN')).toEqual([]);
+  /* 개폐는 자산이 아니라 그 회로의 상태다. 입력에도 차단기가 있다 — 배전반 주차단기,
+     UPS·정류기의 입력 MCCB. 상대의 출력 차단기와 내 입력 차단기는 서로 다른 둘이다. */
+  it('전원 개폐는 입력·출력 양쪽에 있다', () => {
+    expect(portFieldsFor('power').map((f) => f.key)).toEqual(['closed']);
+  });
+
+  /* 살아 있는 계통에서 투입이 예사이고 개방이 사건이다 — 없는 값을 개방으로 읽으면
+     아직 아무도 손대지 않은 판이 통째로 죽은 것처럼 보인다. */
+  it('개폐는 적힌 값이 없으면 투입이다', () => {
+    const field = portFieldsFor('power')[0]!;
+    const bare = { medium: 'power', fieldValues: {} };
+    expect(portValue(bare, field)).toBe(true);
+    expect(portValue({ ...bare, fieldValues: { closed: false } }, field)).toBe(false);
   });
 
   /* 길이는 설계서 공량의 근거(품셈 × 길이)라 어느 종류든 적을 수 있어야 한다. */

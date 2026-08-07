@@ -1,4 +1,4 @@
-import { portValuesAt, type SeededMediumKey } from '@twin/core';
+import { portFieldsFor, portValue, type SeededMediumKey } from '@twin/core';
 import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type MediumContainer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
@@ -32,6 +32,9 @@ export interface PowerRow {
    *
    * 차단기가 닫혔는가는 그 회로의 상태이지 기기의 속성이 아니다(출력이 여럿인 기기는
    * 회로마다 따로 끊긴다). 포트가 없으면 적을 곳도 없으므로 null.
+   *
+   * 이 표는 **부하로 나가는 쪽**을 센다. 입력측 차단기도 따로 있고 포트 판에서 여닫지만,
+   * 회로 한 줄이 살았는지를 말하는 자리는 그 회로의 출력이다.
    */
   closed: boolean | null;
   /** 전원 입력 — 대국 + 그 케이블에 적힌 값들(무엇을 적는지는 종류 선언이 정한다). */
@@ -49,6 +52,15 @@ export interface PowerRow {
  */
 function circuitNumber(feeder: V2Asset): number | null {
   return feeder.slotIndex != null ? feeder.slotIndex + 1 : null;
+}
+
+/**
+ * 이 포트가 투입돼 있는가 — 어떤 값을 보는지는 종류 선언이 정한다(화면이 키를 모른다).
+ * 적힌 값이 없으면 선언된 기본값(투입)이다.
+ */
+function closedOf(port: V2Asset['ports'][number]): boolean | null {
+  const field = portFieldsFor(port.medium).find((f) => f.type === 'boolean');
+  return field ? portValue(port, field) === true : null;
 }
 
 
@@ -138,7 +150,7 @@ export function buildPowerRows(
       empty: false,
       feederId: feeder.id,
       feederName: feeder.name,
-      closed: outPort ? portValuesAt(outPort, 1)['closed'] === true : null,
+      closed: outPort ? closedOf(outPort) : null,
       inCell,
       outCell,
     });
