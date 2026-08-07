@@ -8,6 +8,11 @@ import { cn } from './cn';
  * 최소 폭으로 강제해서, 상세 패널이 열리거나 화면이 좁아지면 표가 패널 밖으로 밀려난다
  * (실제로 1280px 에서 표가 화면 오른쪽 밖으로 145px 나갔다). 비율은 남는 폭을 나눠 갖고,
  * 좁아지면 같이 줄어든다 — 잘리는 내용은 셀의 `truncate` 가 말줄임으로 처리한다.
+ *
+ * 모서리를 다듬는 데 `overflow-clip` 을 쓴다. `overflow-hidden` 은 **스크롤 상자**를 만들어서
+ * ① 넘치는 행을 스크롤 없이 잘라 내고 ② `position: sticky` 머리글이 그 상자에 갇혀 고정되지
+ * 않는다(현황표가 21건 중 17행만 보이고 스크롤바도 없었다). `clip` 은 스크롤 상자를 만들지
+ * 않아 스크롤은 바깥 컨테이너가 맡는다.
  */
 export function TableCard({
   widths,
@@ -20,7 +25,7 @@ export function TableCard({
   className?: string;
 }) {
   return (
-    <div className={cn('min-w-0 overflow-hidden rounded-lg border border-line bg-surface', className)}>
+    <div className={cn('min-w-0 overflow-clip rounded-lg border border-line bg-surface', className)}>
       <table className="w-full table-fixed text-sm">
         <colgroup>
           {widths.map((w, i) => (

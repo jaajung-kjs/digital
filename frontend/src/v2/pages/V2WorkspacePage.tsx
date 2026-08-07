@@ -210,8 +210,11 @@ export default function V2WorkspacePage() {
                       onSelectAsset={handleSelectAssetId}
                     />
                   ) : (
-                    /* 현황 뷰 (기본) */
-                    <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto p-4">
+                    /* 현황 뷰 (기본) — 여백은 **스크롤되는 안쪽**에 둔다. 스크롤 상자에 직접
+                       주면 고정 머리글이 그 여백만큼 내려가 붙어, 그 틈으로 지나가는 행이
+                       비쳐 보인다. */
+                    <div className="min-w-0 flex-1 overflow-auto">
+                      <div className="flex flex-col gap-3 p-4">
                       {/* 자산 추가 버튼 (변전소 스코프에서만 표시) */}
                       {inSubstationScope && (
                         <div className="shrink-0">
@@ -232,6 +235,7 @@ export default function V2WorkspacePage() {
                         onSelectAsset={handleSelectAssetId}
                         nodeScope={nodeScope}
                       />
+                      </div>
                     </div>
                   )}
 

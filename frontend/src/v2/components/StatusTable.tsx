@@ -109,6 +109,9 @@ function fieldColumn(fd: FieldDef): Column {
   };
 }
 
+/* 바깥 틀에 `min-h-0` 을 걸지 않는다 — 걸면 flex 가 표를 컨테이너 높이까지 **줄여** 버리는데,
+   `TableCard` 가 넘치는 부분을 잘라 내므로 스크롤바도 없이 행이 사라진다(21건 중 17행만
+   보였다). 스크롤은 바깥(`overflow-auto`)이 맡으므로 여기서 줄어들 이유가 없다. */
 export function StatusTable({
   rows, fieldColumns, selectedId, onSelectAsset, nodeScope = false,
 }: StatusTableProps) {
@@ -158,7 +161,7 @@ export function StatusTable({
   const widths = cols.map((c) => (c.weight / totalWeight) * 100);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-2">
       <div className="flex max-w-6xl items-center gap-2">
         <TableSearch
           aria-label="자산 검색"
