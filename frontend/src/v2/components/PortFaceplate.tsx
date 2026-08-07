@@ -102,7 +102,7 @@ export function PortFaceplate({
           {/* 구획 라벨 — 색은 여기에만 쓴다. 띠 + 이름으로 무슨 구획인지 말한다. */}
           <div className="mb-1 flex items-center gap-1.5">
             <span
-              className="h-3 w-0.5 rounded-full"
+              className="h-3.5 w-1 rounded-sm"
               style={{ backgroundColor: section.accent ?? 'var(--faceplate-silk)' }}
               aria-hidden
             />
