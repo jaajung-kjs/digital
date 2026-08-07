@@ -3,12 +3,9 @@ import { buildStatusRows } from '../statusRows';
 import { emptyOverlay, mergeEffective, stageCreate } from '../store/overlay';
 import type { V2Asset } from '../types';
 
-const COMMON = [
-  { key: 'installDate', label: '설치일', type: 'date' },
-  { key: 'manager', label: '담당자', type: 'text' },
-];
+/* 설치일·담당자는 타입이 선언하지 않는다 — 모든 자산이 갖는 기본이다(`assetFieldDefs`). */
 const types = new Map([
-  ['t-rack', { id: 't-rack', name: '랙', categoryId: 'c-1', fieldDefs: COMMON } as never],
+  ['t-rack', { id: 't-rack', name: '랙', categoryId: 'c-1', fieldDefs: [] } as never],
 ]);
 const categories = new Map([['c-1', '구조']]);
 
@@ -66,26 +63,28 @@ describe('필드 열 도출', () => {
     }).fieldColumns.map((f) => f.key);
 
   it('모든 타입이 선언한 필드만 열이 된다', () => {
-    const typesById = new Map([t('A', COMMON), t('B', [...COMMON, { key: 'breakerNo', label: '차단기 번호', type: 'text' }])]);
+    const typesById = new Map([t('A', []), t('B', [{ key: 'breakerNo', label: '차단기 번호', type: 'text' }])]);
     expect(build([a('1', 'A'), a('2', 'B')], typesById as never)).toEqual(['installDate', 'manager']);
   });
 
   it('한 타입만 담긴 표에서는 그 타입의 필드가 전부 열이 된다', () => {
-    const typesById = new Map([t('A', COMMON), t('B', [...COMMON, { key: 'breakerNo', label: '차단기 번호', type: 'text' }])]);
+    const typesById = new Map([t('A', []), t('B', [{ key: 'breakerNo', label: '차단기 번호', type: 'text' }])]);
     expect(build([a('2', 'B')], typesById as never)).toEqual(['installDate', 'manager', 'breakerNo']);
   });
 
   it('라벨은 선언에서 온다 — 카탈로그에서 이름을 바꾸면 머리글이 따라온다', () => {
-    const typesById = new Map([t('A', [{ key: 'manager', label: '관리자', type: 'text' }])]);
+    const typesById = new Map([t('A', [{ key: 'model', label: '모델', type: 'text' }])]);
     const out = buildStatusRows({
       assets: [a('1', 'A')] as never, floors: [] as never, typesById: typesById as never,
       categoryNameById: new Map(), inspectionsByAsset: new Map(),
     });
-    expect(out.fieldColumns[0]?.label).toBe('관리자');
+    expect(out.fieldColumns.find((f) => f.key === 'model')?.label).toBe('모델');
   });
 
-  it('공통 필드가 하나도 없으면 필드 열도 없다', () => {
+  /* 설치일·담당자는 타입이 선언하지 않아도 모든 자산이 갖는다 — 그래서 언제나 열이 된다.
+     타입 고유 필드만 교집합으로 걸러진다. */
+  it('타입 고유 필드가 서로 다르면 공통 필드만 남는다', () => {
     const typesById = new Map([t('A', [{ key: 'x', label: 'X', type: 'text' }]), t('B', [{ key: 'y', label: 'Y', type: 'text' }])]);
-    expect(build([a('1', 'A'), a('2', 'B')], typesById as never)).toEqual([]);
+    expect(build([a('1', 'A'), a('2', 'B')], typesById as never)).toEqual(['installDate', 'manager']);
   });
 });

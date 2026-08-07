@@ -20,6 +20,27 @@ export function portDirectionLabel(value: string): string {
   return PORT_DIRECTIONS.find((d) => d.value === value)?.label ?? value;
 }
 
+/**
+ * 종류를 가리지 않고 **모든 자산**이 갖는 속성.
+ *
+ * 예전에는 시드가 타입마다 같은 둘(`설치일`·`담당자`)을 복사해 넣었고, 카탈로그 관리자에도
+ * 그대로 나와 새 타입을 만들 때마다 사용자가 같은 필드를 두 번 적어야 했다. 어차피 전부
+ * 같으니 선언이 아니라 **기본**으로 둔다 — 자산마스터의 `필드 정의`는 그 타입만의 필드를
+ * 뜻하게 된다.
+ *
+ * 값은 그대로 `Asset.fieldValues` 에 담긴다(스키마 변경 없음).
+ */
+export const COMMON_ASSET_FIELDS: readonly FieldDef[] = [
+  { key: 'installDate', label: '설치일', type: 'date' },
+  { key: 'manager', label: '담당자', type: 'text' },
+] as const;
+
+/** 타입이 선언한 필드 + 모든 자산이 갖는 공통 필드. 화면은 이것만 읽는다. */
+export function assetFieldDefs(declared: readonly FieldDef[]): FieldDef[] {
+  const extra = declared.filter((d) => !COMMON_ASSET_FIELDS.some((c) => c.key === d.key));
+  return [...COMMON_ASSET_FIELDS, ...extra];
+}
+
 export interface FieldDef {
   key: string;
   label: string;

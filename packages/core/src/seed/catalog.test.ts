@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SEED_ASSET_TYPES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES } from './catalog.js';
+import { assetFieldDefs } from '../catalog/types.js';
 
 const byKey = (key: string) => SEED_ASSET_TYPES.find((t) => t.key === key)!;
 
@@ -60,12 +61,35 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
     for (const n of ['전원', '네트워크', '광']) expect(names).toContain(n);
   });
 
-  it('모든 타입에 공통 필드(installDate/manager)가 있다', () => {
+  /* 설치일·담당자는 이제 타입이 선언하지 않는다 — 모든 자산이 갖는 **기본**이라
+     `assetFieldDefs` 가 얹어 준다. 시드가 같은 둘을 26번 복사해 넣고 있었고, 카탈로그
+     관리자에도 그대로 나와 새 타입마다 사용자가 다시 적어야 했다. */
+  it('공통 필드는 타입이 선언하지 않는다', () => {
     for (const t of SEED_ASSET_TYPES) {
       const keys = t.fields.map((f) => f.key);
+      expect(keys, t.key).not.toContain('installDate');
+      expect(keys, t.key).not.toContain('manager');
+    }
+  });
+
+  it('그래도 모든 타입의 자산은 설치일·담당자를 갖는다', () => {
+    for (const t of SEED_ASSET_TYPES) {
+      const keys = assetFieldDefs(t.fields).map((f) => f.key);
       expect(keys, t.key).toContain('installDate');
       expect(keys, t.key).toContain('manager');
     }
+  });
+
+  it('타입 고유 필드는 공통 뒤에 붙는다 — 피더의 차단기 번호', () => {
+    const feeder = SEED_ASSET_TYPES.find((t) => t.key === 'FEEDER')!;
+    expect(assetFieldDefs(feeder.fields).map((f) => f.key)).toEqual([
+      'installDate', 'manager', 'breakerNo', 'switchState',
+    ]);
+  });
+
+  it('타입이 공통 필드를 다시 선언해도 두 번 나오지 않는다', () => {
+    const dup = [{ key: 'manager', label: '관리자', type: 'text' as const }];
+    expect(assetFieldDefs(dup).map((f) => f.key)).toEqual(['installDate', 'manager']);
   });
 });
 

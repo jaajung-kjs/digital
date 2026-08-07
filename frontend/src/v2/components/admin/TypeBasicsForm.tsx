@@ -91,39 +91,8 @@ export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: T
           </div>
         </DetailRow>
 
-        {/* 정렬 */}
-        <DetailRow label="정렬">
-          <Input
-            aria-label="정렬"
-            type="number"
-            value={draft.sortOrder}
-            onChange={(e) => {
-              const val = parseInt(e.currentTarget.value, 10);
-              onChange({ sortOrder: isNaN(val) ? 0 : val });
-            }}
-          />
-        </DetailRow>
-
-        {/* 활성 */}
-        <DetailRow label="활성">
-          <label className="flex items-center gap-2 text-sm text-content">
-            <input
-              type="checkbox"
-              checked={draft.isActive}
-              onChange={(e) => {
-                const val = e.currentTarget.checked;
-                onChange({ isActive: val });
-              }}
-            />
-            {draft.isActive ? '활성' : '비활성'}
-          </label>
-        </DetailRow>
-      </DetailCard>
-
-      {/* ── 배치 ─────────────────────────────────────────────────────── */}
-      <DetailCard>
-        <DetailCardHeader title="배치" />
-
+        {/* 평면 배치 — 카드를 따로 두지 않는다. 체크 하나와 그에 딸린 크기 둘뿐이라
+            "배치" 라는 제목을 세워 놓으면 기본정보가 두 장으로 갈릴 뿐이다. */}
         <DetailRow label="평면 배치">
           <label className="flex items-center gap-2 text-sm text-content">
             <input
@@ -167,6 +136,24 @@ export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: T
             </DetailRow>
           </>
         )}
+
+        {/* 단종 — 타입은 자산이 하나라도 있으면 지울 수 없다. 그래서 "이제 새로 만들지
+            않는다" 를 표시할 방법이 따로 필요하다. 체크하면 평면도 배치 도구와 자산 추가
+            목록에서 빠지고, 이미 있는 자산은 그대로 남는다.
+            ("활성" 이라는 이름으로는 무엇이 달라지는지 알 수 없어 바꿨다.) */}
+        <DetailRow label="단종">
+          <label className="flex items-center gap-2 text-sm text-content">
+            <input
+              type="checkbox"
+              checked={!draft.isActive}
+              onChange={(e) => {
+                const val = e.currentTarget.checked;
+                onChange({ isActive: !val });
+              }}
+            />
+            새 자산 만들 때 목록에서 숨김
+          </label>
+        </DetailRow>
       </DetailCard>
 
       {/* ── 공량 ─────────────────────────────────────────────────────── */}

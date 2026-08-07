@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import { ASSET_STATUSES } from '@twin/core';
+import { ASSET_STATUSES, assetFieldDefs } from '@twin/core';
 import {
   DetailCard,
   DetailCardHeader,
@@ -348,10 +348,12 @@ export function InfoTab({
       </DetailCard>
 
       {/* 커스텀 필드 카드 */}
-      {type && type.fieldDefs.length > 0 && (
+      {/* 속성 = 모든 자산이 갖는 공통 필드(설치일·담당자) + 이 타입이 선언한 필드.
+          공통은 타입이 선언하지 않는다 — `assetFieldDefs` 가 얹어 준다. */}
+      {type && (
         <DetailCard>
           <DetailCardHeader title="속성" />
-          {type.fieldDefs.map((fd) => {
+          {assetFieldDefs(type.fieldDefs).map((fd) => {
             const rawVal = asset.fieldValues[fd.key];
             const strVal = rawVal != null ? String(rawVal) : '';
             return (

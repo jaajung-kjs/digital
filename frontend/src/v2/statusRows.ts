@@ -1,3 +1,4 @@
+import { assetFieldDefs } from '@twin/core';
 import { assetLocationPath } from './assetLocation';
 import type { V2Asset, V2AssetType, V2Floor } from './types';
 
@@ -62,12 +63,20 @@ export function buildStatusRows(args: {
   return { rows, fieldColumns: commonFieldDefs(args.assets, args.typesById) };
 }
 
-/** 표에 있는 자산들의 타입이 **모두** 선언한 필드 — 첫 타입의 선언 순서를 지킨다. */
+/**
+ * 표에 있는 자산들이 **모두** 갖는 필드.
+ *
+ * 공통 필드(설치일·담당자)는 타입이 선언하지 않아도 모든 자산이 가지므로 언제나 들어간다.
+ * 타입 고유 필드는 교집합만 — 어떤 타입에만 있는 필드를 전체 표의 열로 세우면 대부분의
+ * 행이 빈 칸인 열이 된다.
+ */
 function commonFieldDefs(assets: V2Asset[], typesById: Map<string, V2AssetType>): FieldDef[] {
   const typeIds = new Set(assets.map((a) => a.typeId));
   const types = [...typeIds].map((id) => typesById.get(id)).filter((t): t is V2AssetType => t != null);
   const first = types[0];
   if (types.length === 0 || !first) return [];
 
-  return first.fieldDefs.filter((fd) => types.every((t) => t.fieldDefs.some((o) => o.key === fd.key)));
+  return assetFieldDefs(first.fieldDefs).filter((fd) =>
+    types.every((t) => assetFieldDefs(t.fieldDefs).some((o) => o.key === fd.key)),
+  );
 }

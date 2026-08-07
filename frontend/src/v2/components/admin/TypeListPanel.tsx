@@ -67,9 +67,13 @@ export function TypeListPanel({
           .slice()
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map((cat) => {
+            /* 이름순 — 타입의 `정렬` 값은 없앴다. 이 목록 한 곳에서만 쓰였는데 정작
+               평면도 배치 도구와 자산 추가 목록은 그 순서를 따르지 않아, 값을 고쳐도
+               실제 작업 화면에는 아무 일도 일어나지 않았다. */
             const types = catalog.types
               .filter((t) => t.categoryId === cat.id)
-              .sort((a, b) => a.sortOrder - b.sortOrder);
+              .slice()
+              .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
             const canDelete = types.length === 0;
 
             return (
