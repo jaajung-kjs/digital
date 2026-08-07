@@ -26,7 +26,7 @@ import { createDragSession, dragDelta, isThresholdMet } from '../canvas/drag';
 import type { DragSession } from '../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../floorPlacement';
 import { placedAssetsOf } from '../floorPlanSelectors';
-import { cableSegments, distanceToPolyline, portsWithOccupancy, withDescendants, occupiedPortIds } from '../cableSelectors';
+import { cableCountByPortId, cableSegments, distanceToPolyline, portsWithOccupancy, withDescendants } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { isAdminRole, useV2AuthStore } from '../store/authStore';
@@ -898,6 +898,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     if (code === 'same-port') return '같은 포트';
     if (code === 'port-occupied') return '이미 연결됨';
     if (code === 'medium-mismatch') return '매체 불일치';
+    if (code === 'direction-mismatch') return '같은 방향끼리 연결할 수 없음';
     return code;
   };
 
@@ -927,8 +928,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         return;
       }
 
-      const occupied = occupiedPortIds(latest.current.effectiveCables);
-      const err = validateConnection(aPort, bPort, occupied, selectedGroupKey);
+      const counts = cableCountByPortId(latest.current.effectiveCables);
+      const err = validateConnection(aPort, bPort, counts, selectedGroupKey);
       if (err) {
         // 검증 실패 → 피커 내 안내 텍스트, 스테이지 금지
         cableDispatch({ type: 'SET_PICKER_ERROR', error: connectErrorLabel(err) });
@@ -972,8 +973,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       return;
     }
 
-    const occupied = occupiedPortIds(latest.current.effectiveCables);
-    const err = validateConnection(aPort, bPort, occupied, selectedGroupKey);
+    const counts = cableCountByPortId(latest.current.effectiveCables);
+    const err = validateConnection(aPort, bPort, counts, selectedGroupKey);
     if (err) {
       // 검증 실패 — 모달 유지 + 모달 내 에러 표기 (첫 끝점 유지)
       cableDispatch({ type: 'SET_REMOTE_ERROR', error: connectErrorLabel(err) });
@@ -1128,8 +1129,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   // ── 커서 스타일 ───────────────────────────────────────────────────────────
   const canvasCursor = (armedTypeId !== null || cableState.armed) ? 'crosshair' : undefined;
 
-  // ── 점유 포트 ID 집합 (원격 모달용) ─────────────────────────────────────
-  const occupiedCablePortIds = useMemo(() => occupiedPortIds(effectiveCables), [effectiveCables]);
+  // ── 포트별 케이블 수 (원격 모달용) ──────────────────────────────────────
+  const cableCounts = useMemo(() => cableCountByPortId(effectiveCables), [effectiveCables]);
 
   // ── 피커에 넘길 portGroups (루트 + 전이적 자식, 저장된 자산만) ─────────────
   const pickerPortGroups = useMemo((): PickerPortGroup[] => {
@@ -1361,7 +1362,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
           onClose={() => cableDispatch({ type: 'CLOSE_REMOTE_MODAL' })}
           mediumFilter={selectedGroupKey}
           excludePortId={cableState.firstEndpoint?.portId}
-          occupiedPortIds={occupiedCablePortIds}
+          cableCountByPortId={cableCounts}
           onSelectPort={handleRemotePortSelect}
           errorText={cableState.remoteError}
         />

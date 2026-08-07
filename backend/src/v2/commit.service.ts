@@ -345,7 +345,7 @@ async function applyCableUpdate(
     const err = validateConnection(
       { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as Direction, medium: a.medium },
       { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as Direction, medium: b.medium },
-      new Set<string>(),
+      new Map<string, number>(),
       cableMedium,
     );
     if (err === 'medium-mismatch') {
@@ -385,13 +385,16 @@ async function applyCableCreate(
     throw new HttpError(422, 'INVALID_PORT', '케이블 끝점 포트가 유효하지 않습니다');
   }
 
-  // 실점유 집합 조회: 두 후보 포트에 이미 연결된 케이블의 포트 id 집합.
-  // 코어 validateConnection 이 port-occupied 판정을 담당한다(서비스 선판정 제거).
+  /* 두 후보 포트에 지금 몇 가닥이 물려 있나 — 몇 가닥까지 받는지는 포트 종류가 정한다
+     (`PORT_KINDS.maxCables`; 접지 부스바는 제한 없음). 판정은 코어가 한다. */
   const occupiedCables = await tx.cable.findMany({
     where: { OR: [{ aPortId: { in: [a.id, b.id] } }, { bPortId: { in: [a.id, b.id] } }] },
     select: { aPortId: true, bPortId: true },
   });
-  const occupiedPortIds = new Set<string>(occupiedCables.flatMap((c) => [c.aPortId, c.bPortId]));
+  const cableCountByPortId = new Map<string, number>();
+  for (const id of occupiedCables.flatMap((c) => [c.aPortId, c.bPortId])) {
+    cableCountByPortId.set(id, (cableCountByPortId.get(id) ?? 0) + 1);
+  }
 
   // 매체 검사: categoryId 있으면 group.key를 cableMedium으로
   let cableMedium: string | undefined;
@@ -404,7 +407,7 @@ async function applyCableCreate(
   const err = validateConnection(
     { id: a.id, assetId: a.assetId, group: a.group, index: a.index, name: a.name, direction: a.direction as Direction, medium: a.medium },
     { id: b.id, assetId: b.assetId, group: b.group, index: b.index, name: b.name, direction: b.direction as Direction, medium: b.medium },
-    occupiedPortIds,
+    cableCountByPortId,
     cableMedium,
   );
   if (err) {

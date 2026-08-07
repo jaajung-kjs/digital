@@ -1,7 +1,7 @@
 /**
  * PortsEditor — TDD (5 cases)
  * (a) draft.ports 행이 렌더된다
- * (b) + 추가 클릭 → onChange에 기본 행 추가된 배열 전달
+ * (b) 미리 정의된 포트 버튼 → 규칙에 맞는 행이 만들어진다
  * (c) medium select 옵션이 catalog.cableGroups에서 파생된다
  * (d) locked=true(assetCount>0)이면 입력 전부 disabled
  * (e) lineSide 체크박스: draft에서 읽기 + onChange에 반전값 전달
@@ -61,24 +61,41 @@ describe('PortsEditor', () => {
     expect(screen.getByDisplayValue('코어 {n}')).toBeTruthy();
   });
 
-  it('(b) + 추가 클릭 → onChange에 기본 행 추가된 배열 전달', () => {
+  /* 예전에는 빈 행 하나가 생기고 그룹 키·이름 패턴을 사용자가 지어내야 했다.
+     이제 종류를 고르면 규칙에 맞게 채워져 나오고 손댈 곳은 개수뿐이다. */
+  it('(b) 미리 정의된 포트 버튼 → 규칙에 맞는 행이 만들어진다', () => {
     const draft = mkDraft([]);
     const onChange = vi.fn();
 
     render(<PortsEditor draft={draft} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
 
-    const addBtn = screen.getByRole('button', { name: /추가/i });
-    fireEvent.click(addBtn);
+    fireEvent.click(screen.getByRole('button', { name: '네트워크' }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };
     expect(called.ports).toHaveLength(1);
-    // 기본행은 유효한 medium(첫 cableGroup key) 또는 비어있는 구조를 가진다
-    expect(called.ports[0]).toHaveProperty('group');
-    expect(called.ports[0]).toHaveProperty('count');
-    expect(called.ports[0]).toHaveProperty('direction');
-    expect(called.ports[0]).toHaveProperty('medium');
-    expect(called.ports[0]).toHaveProperty('namePattern');
+    expect(called.ports[0]).toMatchObject({ medium: 'network', direction: 'BI', count: 1 });
+    // 지어낼 필요가 없어야 한다 — 빈칸으로 나오면 예전과 같아진다.
+    expect(called.ports[0]!.group).not.toBe('');
+    expect(called.ports[0]!.namePattern).toContain('{n}');
+  });
+
+  it('(b-2) 전원은 입력·출력이 따로 있다 — 서로 다른 물건이다', () => {
+    const onChange = vi.fn();
+    render(<PortsEditor draft={mkDraft([])} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '전원 출력' }));
+    expect(onChange.mock.calls[0][0].ports[0]).toMatchObject({ medium: 'power', direction: 'OUT' });
+  });
+
+  it('(b-3) 같은 종류를 두 번 넣어도 그룹 키가 겹치지 않는다', () => {
+    const existing = mkDraft([{ group: 'NETWORK', count: 1, direction: 'BI', medium: 'network', namePattern: '네트워크 {n}' }]);
+    const onChange = vi.fn();
+    render(<PortsEditor draft={existing} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '네트워크' }));
+    const ports = onChange.mock.calls[0][0].ports as TypeDraft['ports'];
+    expect(ports[1]!.group).not.toBe(ports[0]!.group);
   });
 
   it('(c) medium select 옵션이 catalog.cableGroups에서 파생된다', () => {
@@ -124,9 +141,8 @@ describe('PortsEditor', () => {
     const selects = screen.getAllByRole('combobox');
     selects.forEach((select) => expect((select as HTMLSelectElement).disabled).toBe(true));
 
-    // + 추가 버튼도 disabled여야 한다
-    const addBtn = screen.getByRole('button', { name: /추가/i });
-    expect((addBtn as HTMLButtonElement).disabled).toBe(true);
+    // 구조가 잠겼으면 포트를 더할 방법이 아예 없어야 한다 — 눌리지 않는 버튼을 늘어놓지 않는다.
+    expect(screen.queryByRole('button', { name: '네트워크' })).toBeNull();
   });
 
   it('(e) lineSide 체크박스: draft.ports[i].lineSide=true이면 체크, onChange로 반전값 전달', () => {

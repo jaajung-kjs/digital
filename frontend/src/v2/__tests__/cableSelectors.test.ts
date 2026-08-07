@@ -1,16 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { cableSegments, distanceToPolyline, freePortsOf, occupiedPortIds, withDescendants } from '../cableSelectors';
+import { cableCountByPortId, cableSegments, distanceToPolyline, freePortsOf, portsWithOccupancy, withDescendants } from '../cableSelectors';
 
 const port = (id: string, assetId: string, medium = 'fiber') => ({ id, assetId, group: 'A', index: 1, name: id, direction: 'BI' as const, medium });
 const cable = (id: string, a: string, b: string, pathPoints: {x:number;y:number}[] = []) => ({ id, name: null, substationId: 's', aPortId: a, bPortId: b, categoryId: null, pathPoints, specParams: {}, updatedAt: 'v' });
 
-describe('freePortsOf / occupiedPortIds', () => {
+describe('freePortsOf / cableCountByPortId', () => {
   const asset = { id: 'a1', ports: [port('p1', 'a1'), port('p2', 'a1', 'power')] } as never;
-  it('점유 제외 + medium 필터', () => {
+  it('가득 찬 포트 제외 + medium 필터', () => {
     const cables = [cable('c1', 'p1', 'px')];
     expect(freePortsOf(asset, cables as never).map((p) => p.id)).toEqual(['p2']);
     expect(freePortsOf(asset, [] as never, 'fiber').map((p) => p.id)).toEqual(['p1']);
-    expect(occupiedPortIds(cables as never)).toEqual(new Set(['p1', 'px']));
+  });
+
+  it('포트마다 몇 가닥인지 센다 — 같은 포트에 여러 가닥이면 그만큼', () => {
+    const cables = [cable('c1', 'bus', 'x'), cable('c2', 'bus', 'y')];
+    expect(cableCountByPortId(cables as never).get('bus')).toBe(2);
+    expect(cableCountByPortId(cables as never).get('x')).toBe(1);
+  });
+
+  /* "가득 찼다" 는 "한 가닥이라도 물렸다" 와 다르다 — 접지 부스바는 계속 고를 수 있어야 한다. */
+  it('접지 포트는 이미 물려 있어도 고를 수 있다', () => {
+    const busAsset = { id: 'g1', ports: [port('bus', 'g1', 'ground'), port('net', 'g1', 'network')] } as never;
+    const cables = [cable('c1', 'bus', 'x'), cable('c2', 'net', 'y')];
+    expect(freePortsOf(busAsset, cables as never).map((p) => p.id)).toEqual(['bus']);
+    const marked = portsWithOccupancy(busAsset, cables as never);
+    expect(marked.find((m) => m.port.id === 'bus')?.occupied).toBe(false);
+    expect(marked.find((m) => m.port.id === 'net')?.occupied).toBe(true);
   });
 });
 

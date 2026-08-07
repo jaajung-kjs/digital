@@ -21,7 +21,7 @@ import {
 } from '../../components/ui';
 import { freeSlots } from '../newAsset';
 import { assetLocationPath } from '../assetLocation';
-import { occupiedPortIds as occupiedPortIdsOf } from '../cableSelectors';
+import { cableCountByPortId } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
@@ -42,7 +42,7 @@ export interface AddModalContext {
  * 같은 자식에 대한 정보가 두 탭에 갈려 있던 것을 한 줄로 잇는다. 포트가 없으면 아무것도
  * 적지 않는다(적을 것이 없다).
  */
-function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortIds: Set<string> }) {
+function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortIds: ReadonlyMap<string, number> }) {
   if (asset.ports.length === 0) return null;
   const used = asset.ports.filter((p) => occupiedPortIds.has(p.id)).length;
   return (
@@ -63,7 +63,7 @@ interface SlotGridProps {
   /** 빈 슬롯을 눌렀을 때 — 그 자리에 바로 추가한다. */
   onAddAtSlot: (slotIndex: number) => void;
   /** 케이블이 물린 포트 — 자식별 포트 요약에 쓴다. */
-  occupiedPortIds: Set<string>;
+  occupiedPortIds: ReadonlyMap<string, number>;
 }
 
 /** 슬롯 한 칸의 높이(px) — 여러 슬롯을 차지하는 장비는 이 배수만큼 높아진다. */
@@ -134,7 +134,7 @@ interface FreeChildListProps {
   children: V2Asset[];
   onSelectChild: (id: string) => void;
   onAdd: () => void;
-  occupiedPortIds: Set<string>;
+  occupiedPortIds: ReadonlyMap<string, number>;
 }
 
 /*
@@ -213,8 +213,9 @@ export function InfoTab({
   /* 케이블이 물린 포트 집합 — 자식 목록의 포트 요약이 읽는다. */
   const savedCables = useV2WorkingCopy((st) => st.saved.cables);
   const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
+  /* 여기서는 "한 가닥이라도 물렸나" 만 쓴다(포트 요약 n/m). Map 이라 `has()` 가 그대로 된다. */
   const occupiedPortIds = useMemo(
-    () => occupiedPortIdsOf(mergeEffective(savedCables, cableOverlays)),
+    () => cableCountByPortId(mergeEffective(savedCables, cableOverlays)),
     [savedCables, cableOverlays],
   );
 

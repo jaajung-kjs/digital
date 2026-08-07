@@ -2,12 +2,13 @@
  * RemoteEndpointModal — 다른 변전소 자산 검색 + 포트 선택 모달.
  *
  * 1. 검색 Input (300ms 디바운스) → 결과 리스트 (이름·변전소명·타입)
- * 2. 자산 선택 → 포트 리스트 (occupied 제외 + medium 필터 + excludePortId 제외)
+ * 2. 자산 선택 → 포트 리스트 (가득 찬 포트 제외 + medium 필터 + excludePortId 제외)
  * 3. 포트 선택 → onSelectPort 콜백
  *
  * CONVENTIONS: text-xs/text-sm, 시맨틱 색 토큰, z-modal (Modal 컴포넌트 내장).
  */
 import { useEffect, useRef, useState } from 'react';
+import { portHasRoom } from '@twin/core';
 import { Button, Modal } from '../../components/ui';
 import { searchAssets, fetchAssetPorts } from '../api';
 import type { AssetSearchResult } from '../api';
@@ -21,7 +22,8 @@ interface Props {
   /** 이미 선택된 첫 끝점 포트 ID — 결과에서 제외 */
   excludePortId?: string;
   /** occupied 포트 ID 집합 — 이미 연결된 포트 제외 */
-  occupiedPortIds: ReadonlySet<string>;
+  /** 포트별 케이블 수 — 가득 찼는지는 종류가 정한다(접지 부스바는 여러 가닥). */
+  cableCountByPortId: ReadonlyMap<string, number>;
   /** 포트 선택 완료 콜백 (모달은 자동으로 닫히지 않음 — 호출자가 닫는다) */
   onSelectPort: (port: V2Port, asset: AssetSearchResult) => void;
   /** 검증 실패 등 에러 메시지 — 포트 리스트 위에 표시 */
@@ -33,7 +35,7 @@ export function RemoteEndpointModal({
   onClose,
   mediumFilter,
   excludePortId,
-  occupiedPortIds,
+  cableCountByPortId,
   onSelectPort,
   errorText,
 }: Props) {
@@ -99,7 +101,7 @@ export function RemoteEndpointModal({
       // occupied 제외 + medium 필터 + excludePortId 제외
       const filtered = data.filter((p) => {
         if (p.occupied) return false;
-        if (occupiedPortIds.has(p.id)) return false;
+        if (!portHasRoom(p.medium, cableCountByPortId.get(p.id) ?? 0)) return false;
         if (p.id === excludePortId) return false;
         if (mediumFilter && p.medium !== mediumFilter) return false;
         return true;

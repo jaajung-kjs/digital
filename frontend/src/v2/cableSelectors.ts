@@ -2,22 +2,28 @@
  * cableSelectors — 케이블/포트 관련 순수 함수 선택자
  */
 
+import { portHasRoom } from '@twin/core';
 import type { V2Asset, V2Cable, V2Port } from './types';
 
 // ──────────────────────────────────────────────
-// occupiedPortIds
+// 포트별 케이블 수
 // ──────────────────────────────────────────────
 
 /**
- * 케이블이 점유하고 있는 모든 포트 ID 집합을 반환한다.
+ * 포트마다 몇 가닥이 물려 있는가.
+ *
+ * 예전에는 "물려 있다/아니다" 만 아는 Set 이었다. 접지 부스바처럼 한 단자에 여러 가닥이
+ * 모이는 곳이 생기면서 **몇 가닥인지**가 필요해졌다(`PORT_KINDS.maxCables`).
+ * `Map` 은 `has()` 도 그대로 되므로 "연결됐나" 만 묻던 표시용 쓰임은 바뀌지 않는다.
  */
-export function occupiedPortIds(cables: V2Cable[]): Set<string> {
-  const ids = new Set<string>();
+export function cableCountByPortId(cables: V2Cable[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  const bump = (id: string) => counts.set(id, (counts.get(id) ?? 0) + 1);
   for (const c of cables) {
-    ids.add(c.aPortId);
-    ids.add(c.bPortId);
+    bump(c.aPortId);
+    bump(c.bPortId);
   }
-  return ids;
+  return counts;
 }
 
 // ──────────────────────────────────────────────
@@ -25,32 +31,35 @@ export function occupiedPortIds(cables: V2Cable[]): Set<string> {
 // ──────────────────────────────────────────────
 
 /**
- * 해당 자산의 미점유 포트 목록.
+ * 해당 자산의 **아직 더 받을 수 있는** 포트 목록.
  * medium 이 지정되면 해당 매체만 반환.
  */
 export function freePortsOf(asset: V2Asset, cables: V2Cable[], medium?: string): V2Port[] {
-  const occupied = occupiedPortIds(cables);
+  const counts = cableCountByPortId(cables);
   return asset.ports.filter(
-    (p) => !occupied.has(p.id) && (medium == null || p.medium === medium),
+    (p) => portHasRoom(p.medium, counts.get(p.id) ?? 0) && (medium == null || p.medium === medium),
   );
 }
 
 /**
- * 매체가 맞는 포트를 **점유 여부와 함께** 돌려준다.
+ * 매체가 맞는 포트를 **가득 찼는지와 함께** 돌려준다.
  *
  * `freePortsOf` 는 빈 포트만 남기는데, 그러면 판에서 번호가 건너뛰어 "몇 번 자리가 비었나"
- * 를 볼 수 없다(3·5·9번만 남은 판은 판이 아니다). 피커는 전부 보여주고 점유된 것을
+ * 를 볼 수 없다(3·5·9번만 남은 판은 판이 아니다). 피커는 전부 보여주고 가득 찬 것을
  * 고를 수 없게만 한다.
+ *
+ * "가득 찼다" 는 "한 가닥이라도 물렸다" 와 다르다 — 접지 부스바는 여러 가닥이 물려 있어도
+ * 계속 고를 수 있어야 한다.
  */
 export function portsWithOccupancy(
   asset: V2Asset,
   cables: V2Cable[],
   medium?: string,
 ): { port: V2Port; occupied: boolean }[] {
-  const occupied = occupiedPortIds(cables);
+  const counts = cableCountByPortId(cables);
   return asset.ports
     .filter((p) => medium == null || p.medium === medium)
-    .map((p) => ({ port: p, occupied: occupied.has(p.id) }));
+    .map((p) => ({ port: p, occupied: !portHasRoom(p.medium, counts.get(p.id) ?? 0) }));
 }
 
 // ──────────────────────────────────────────────
