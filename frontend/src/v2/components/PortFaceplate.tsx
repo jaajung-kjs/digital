@@ -68,11 +68,17 @@ export function PortFaceplate({
   disabledPortIds?: ReadonlySet<string>;
 }) {
   return (
-    <div className="overflow-hidden rounded-md p-2 shadow-inner" style={{ backgroundColor: 'var(--faceplate)' }}>
+    /* 구획을 세로로 쌓지 않고 **가로로 잇는다** — 1U 전면판이 그렇게 생겼다.
+       예전에는 구획마다 한 줄을 통째로 써서 포트 6개짜리 장비가 333×287px 를 차지했다
+       (포트가 실제로 쓰는 가로는 240px 뿐이라 한 줄에 다 들어간다). */
+    <div
+      className="flex flex-wrap items-start gap-x-3 gap-y-2 overflow-hidden rounded-md p-2 shadow-inner"
+      style={{ backgroundColor: 'var(--faceplate)' }}
+    >
       {sections.map((section, i) => (
         <div
           key={section.key}
-          className={cn(i > 0 && 'mt-2 border-t pt-2')}
+          className={cn('min-w-0', i > 0 && 'border-l pl-3')}
           style={i > 0 ? { borderColor: 'var(--faceplate-etch)' } : undefined}
         >
           {/* 구획 라벨 — 색은 여기에만 쓴다. 띠 + 이름으로 무슨 구획인지 말한다. */}

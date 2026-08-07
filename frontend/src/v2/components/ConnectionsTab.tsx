@@ -132,6 +132,37 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
       });
   }, [asset, effectiveAssets]);
 
+  /* 연결 내역 — 물려 있는 것만 한 표로.
+     판(mimic panel)은 빈 자리까지 포함한 **전체 현황**을, 표는 **무엇이 어디로 가는지**를
+     보여 준다. 장비 관리 UI(Meraki·UniFi)가 쓰는 두 벌 구성이다. 예전에는 판만 있어서
+     대국을 알려면 포트를 하나씩 눌러 봐야 했다. */
+  const connectionRows = useMemo(() => {
+    if (!asset) return [];
+    const categories = catalog.data?.cableGroups.flatMap((g) => g.categories) ?? [];
+    return portOwners.flatMap(({ owner, groups }) =>
+      groups.flatMap(({ ports }) =>
+        ports.flatMap((port) =>
+          (cablesByPortId.get(port.id) ?? []).map((conn) => {
+            const peer = resolvePeer(port, conn.cable, portIndex, asset.substationId);
+            const cat = categories.find((c) => c.id === conn.cable.categoryId);
+            const lengthM = (conn.cable.specParams as Record<string, unknown> | null)?.lengthM;
+            const sub = peer?.remote && peer.substationName ? ` (${peer.substationName})` : '';
+            return {
+              key: `${port.id}-${conn.cableId}`,
+              portId: port.id,
+              portLabel: owner.id === asset.id ? port.name : `${owner.name} · ${port.name}`,
+              peerLabel: peer ? `${peer.assetName} · ${peer.portName}${sub}` : null,
+              peerAssetId: portIndex.get(conn.peerPortId)?.asset.id ?? null,
+              cableLabel: [cat?.name, typeof lengthM === 'number' ? `${lengthM}m` : null]
+                .filter(Boolean)
+                .join(' · '),
+            };
+          }),
+        ),
+      ),
+    );
+  }, [asset, portOwners, cablesByPortId, portIndex, catalog.data]);
+
   /* 포트 점유 상태 — 내부 짝이 있으면 그 짝과 함께 하나의 회선으로 본다.
      짝이 둘 다 물려야 '양측', 하나만이면 '편도'. 짝이 없는 포트는 2단계뿐이다.
      "광" 같은 도메인 단어가 들어가지 않는다 — 내부 통과 규칙이 있으면 무엇이든 이렇게 센다. */
@@ -303,7 +334,45 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
         );
       })}
 
-      {/* 고른 포트 하나의 상세 — 타일에는 번호와 상태만 있으므로 대국은 여기서 본다. */}
+      {/* 연결 내역 — 판이 "어디가 비었나" 라면 여기는 "무엇이 어디로 가나" 다. */}
+      {connectionRows.length > 0 && (
+        <DetailCard>
+          <DetailCardHeader title="연결" badge={`${connectionRows.length}`} badgeStatus="neutral" />
+          <ul className="divide-y divide-line">
+            {connectionRows.map((row) => (
+              <li
+                key={row.key}
+                className={cn(
+                  'group flex items-center gap-2 rounded py-1.5',
+                  row.portId === selectedPortId && 'bg-info-bg',
+                )}
+              >
+                <button
+                  type="button"
+                  className={cn('shrink-0 rounded px-1 text-xs tabular-nums text-content-muted', SELECTABLE)}
+                  title={`${row.portLabel} 을 판에서 고르기`}
+                  onClick={() => setSelectedPortId((prev) => (prev === row.portId ? null : row.portId))}
+                >
+                  {row.portLabel}
+                </button>
+                <span className="shrink-0 text-xs text-content-faint" aria-hidden>→</span>
+                <button
+                  type="button"
+                  className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                  title={row.peerLabel ? `${row.peerLabel} 으로 이동` : undefined}
+                  disabled={!row.peerAssetId}
+                  onClick={() => row.peerAssetId && onSelectAsset(row.peerAssetId)}
+                >
+                  {row.peerLabel ?? '—'}
+                </button>
+                {row.cableLabel && <span className="shrink-0 text-xs text-content-faint">{row.cableLabel}</span>}
+              </li>
+            ))}
+          </ul>
+        </DetailCard>
+      )}
+
+      {/* 고른 포트 하나의 상세 — 대국은 위 표가 말하므로 여기는 나머지만 적는다. */}
       {selectedPort && (
         <DetailCard>
           <DetailCardHeader
@@ -318,26 +387,6 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
               ) : undefined
             }
           />
-          <DetailRow label={selectedPeers.length > 1 ? `대국 ${selectedPeers.length}` : '대국'}>
-            {selectedPeers.length > 0 ? (
-              <div className="flex min-w-0 flex-col items-start">
-                {selectedPeers.map((peer) => (
-                  <button
-                    key={peer.cableId}
-                    type="button"
-                    className={cn('min-w-0 max-w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                    title={`${peer.label} 으로 이동`}
-                    disabled={!peer.entry}
-                    onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
-                  >
-                    {peer.label}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <span className="text-sm text-content-faint">미연결</span>
-            )}
-          </DetailRow>
           {internalOf.get(selectedPort.id)?.length ? (
             <DetailRow label="내부 통과">
               <span className="text-sm text-content-muted">
