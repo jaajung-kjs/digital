@@ -3,7 +3,7 @@ import { buildFiberRows, fiberContainers } from '../fiberSelectors';
 import type { V2AssetType } from '../types';
 
 const port = (id: string, assetId: string, group: string, index: number, medium = 'fiber', name?: string) =>
-  ({ id, assetId, group, index, name: name ?? `${group === 'A' ? '성단' : '선로'} ${index}`, direction: 'BI' as const, medium });
+  ({ id, assetId, group, index, name: name ?? `${group === 'A' ? '장비' : '선로'} ${index}`, direction: 'BI' as const, medium });
 const asset = (id: string, name: string, extra: object = {}) => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
@@ -22,7 +22,7 @@ const typeWithLineSide: V2AssetType = {
   laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
   fieldDefs: [], containerSpecs: [], linkRules: [],
   portTemplates: [
-    { id: 'pt-a', group: 'A', count: 2, direction: 'BI', medium: 'fiber', namePattern: '성단 {n}', sortOrder: 1, lineSide: false },
+    { id: 'pt-a', group: 'A', count: 2, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}', sortOrder: 1, lineSide: false },
     { id: 'pt-b', group: 'B', count: 2, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', sortOrder: 2, lineSide: true },
   ],
 };
@@ -62,7 +62,7 @@ describe('buildFiberRows', () => {
   it('로컬 미해소 시 saved refs로 대국 표시', () => {
     const remoteCable = cable('c2', 'b2', 'remote-port', {
       aRef: { portName: '선로 2', portGroup: 'B', portIndex: 2, assetId: 'slot', assetName: '슬롯1', substationId: 'sub-1', substationName: '국사A' },
-      bRef: { portName: '성단 7', portGroup: 'A', portIndex: 7, assetId: 'r-a', assetName: '원격슬롯', substationId: 'sub-2', substationName: '국사B' },
+      bRef: { portName: '장비 7', portGroup: 'A', portIndex: 7, assetId: 'r-a', assetName: '원격슬롯', substationId: 'sub-2', substationName: '국사B' },
     });
     const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [remoteCable] as never, [typeWithLineSide]);
     const r2 = rows[1]!;

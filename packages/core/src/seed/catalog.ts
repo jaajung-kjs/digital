@@ -53,7 +53,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [],
     containers: [],
     ports: [
-      { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '성단 {n}' },
+      { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
       { group: 'B', count: 12, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
     ],
     links: [{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],

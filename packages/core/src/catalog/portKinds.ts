@@ -133,6 +133,18 @@ export interface PortGroupRef {
   group: string;
   medium: string;
   direction: Direction;
+  /**
+   * 그 그룹 포트 하나의 이름(예: `장비 1`). 같은 종류·방향이 둘 이상일 때 이걸로 가른다.
+   * 그룹 키(`A`·`B`)는 영문만 허용되는 **식별자**라 사람에게 보여 줄 이름이 못 된다.
+   */
+  sampleName?: string;
+}
+
+/** 포트 이름에서 번호를 떼어 그룹 이름을 얻는다 — `장비 1` → `장비`. */
+function nameBase(sample: string | undefined): string | null {
+  if (!sample) return null;
+  const base = sample.replace(/\s*\d+\s*$/, '').trim();
+  return base.length > 0 ? base : null;
 }
 
 /**
@@ -153,7 +165,9 @@ export function portGroupLabel(target: PortGroupRef, siblings: readonly PortGrou
   };
   const mine = base(target);
   const ambiguous = siblings.filter((s) => base(s) === mine).length > 1;
-  return ambiguous ? `${mine} ${target.group}` : mine;
+  if (!ambiguous) return mine;
+  // 가를 때는 포트 이름을 쓴다 — 키(`A`·`B`)는 식별자라 사람에게 뜻이 없다.
+  return `${mine} ${nameBase(target.sampleName) ?? target.group}`;
 }
 
 /** 이미 쓰이고 있는 그룹 키를 피해서 고른다 — 그룹 키는 타입 안에서 유일해야 한다. */

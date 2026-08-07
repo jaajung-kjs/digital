@@ -117,7 +117,7 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
         /* 알파벳순이면 `COM · GND · P · PWR-IN` 처럼 뜻 없는 순서가 된다.
            종류 선언 순서(전원 → 네트워크 → 광 → 제어 → 접지)로 읽는다. */
         const refs = [...byGroup.entries()].map(([group, ports]) => ({
-          group, medium: ports[0]!.medium, direction: ports[0]!.direction,
+          group, medium: ports[0]!.medium, direction: ports[0]!.direction, sampleName: ports[0]!.name,
         }));
         const kindOrder = (medium: string) => {
           const i = PORT_KINDS.findIndex((k) => k.key === medium);

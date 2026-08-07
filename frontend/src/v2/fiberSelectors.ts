@@ -41,6 +41,9 @@ export interface FiberRow {
 }
 
 export interface BuildFiberRowsResult {
+  /** 열 머리글에 쓸 그룹 이름 — 포트 이름에서 번호를 뗀 것(`장비 1` → `장비`).
+   *  그룹 키(`A`·`B`)는 영문만 허용되는 식별자라 사람에게 보여 줄 이름이 못 된다. */
+  groupLabels: string[];
   groups: string[];
   rows: FiberRow[];
 }
@@ -83,6 +86,8 @@ export function buildFiberRows(
   // Step 2: Collect all fiber port groups from slots (preserve port order)
   const groupsSet = new Set<string>();
   const groupsOrder: string[] = [];
+  /** 그룹 키 → 열 머리글에 쓸 이름. 포트 이름에서 번호를 뗀다(`장비 1` → `장비`). */
+  const labelByGroup = new Map<string, string>();
 
   for (const slot of slots) {
     const fiberPorts = slot.ports.filter((p) => p.medium === FIBER_MEDIUM);
@@ -90,6 +95,8 @@ export function buildFiberRows(
       if (!groupsSet.has(port.group)) {
         groupsSet.add(port.group);
         groupsOrder.push(port.group);
+        const base = port.name.replace(/\s*\d+\s*$/, '').trim();
+        labelByGroup.set(port.group, base.length > 0 ? base : port.group);
       }
     }
   }
@@ -181,6 +188,7 @@ export function buildFiberRows(
 
   return {
     groups: groupsOrder,
+    groupLabels: groupsOrder.map((g) => labelByGroup.get(g) ?? g),
     rows,
   };
 }

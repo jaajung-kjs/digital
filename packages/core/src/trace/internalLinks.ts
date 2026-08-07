@@ -8,7 +8,7 @@ import type { InternalLinkRule, PortRef } from '../catalog/types.js';
  * `internal` 간선으로 쓰고, 상세 화면은 포트마다 "내부로 어디와 이어지는지" 를 보여준다 —
  * 계산이 두 곳으로 갈라지지 않도록 여기 한 번만 둔다.
  *
- * - `byIndex`: 같은 번호끼리 (A1↔B1, A2↔B2) — 광 성단/선로처럼 코어가 1:1 대응할 때
+ * - `byIndex`: 같은 번호끼리 (A1↔B1, A2↔B2) — 광 장비/선로처럼 코어가 1:1 대응할 때
  * - `all`: 양쪽 그룹의 모든 포트가 서로 (IN 아무거나 ↔ OUT 아무거나) — 분전반 모선처럼
  *
  * @returns portId → 내부로 이어진 portId 목록 (양방향으로 채워진다)

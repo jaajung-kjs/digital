@@ -21,7 +21,7 @@ const mockTypes: V2AssetType[] = [
     laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
     fieldDefs: [], containerSpecs: [], linkRules: [],
     portTemplates: [
-      { id: 'pt-a', group: 'A', count: 2, direction: 'BI', medium: 'fiber', namePattern: '성단 {n}', sortOrder: 1, lineSide: false },
+      { id: 'pt-a', group: 'A', count: 2, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}', sortOrder: 1, lineSide: false },
       { id: 'pt-b', group: 'B', count: 2, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', sortOrder: 2, lineSide: true },
     ],
   },

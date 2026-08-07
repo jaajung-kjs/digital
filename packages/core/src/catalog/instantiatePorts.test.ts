@@ -12,7 +12,7 @@ const slotType: AssetTypeSpec = {
   fields: [],
   containers: [],
   ports: [
-    { group: 'A', count: 4, direction: 'BI', medium: '광', namePattern: '성단 {n}' },
+    { group: 'A', count: 4, direction: 'BI', medium: '광', namePattern: '장비 {n}' },
     { group: 'B', count: 4, direction: 'BI', medium: '광', namePattern: '선로 {n}' },
   ],
   links: [{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],
@@ -26,7 +26,7 @@ describe('instantiatePorts', () => {
       assetId: 'asset-1',
       group: 'A',
       index: 1,
-      name: '성단 1',
+      name: '장비 1',
       direction: 'BI',
       medium: '광',
     });
@@ -36,7 +36,7 @@ describe('instantiatePorts', () => {
   it('그룹별 수량 오버라이드를 적용한다 (24C 슬롯)', () => {
     const ports = instantiatePorts(slotType, 'asset-1', { A: 24, B: 24 });
     expect(ports).toHaveLength(48);
-    expect(ports[23]!.name).toBe('성단 24');
+    expect(ports[23]!.name).toBe('장비 24');
   });
 
   it('포트 템플릿이 없으면 빈 배열', () => {

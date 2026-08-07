@@ -5,7 +5,7 @@ import { PortGlyph, PORT_GLYPH_ASPECT } from './PortGlyph';
 /**
  * 포트 점유 상태.
  *
- * 내부 통과 규칙(성단 N ↔ 선로 N 등)이 있는 포트는 **짝과 함께 하나의 회선**을 이룬다.
+ * 내부 통과 규칙(장비 N ↔ 선로 N 등)이 있는 포트는 **짝과 함께 하나의 회선**을 이룬다.
  * 그래서 3단계가 나온다 — 광 전용 개념이 아니라 내부 짝이 있는 모든 포트에 해당한다.
  */
 export type PortState = 'empty' | 'half' | 'full';

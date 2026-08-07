@@ -186,7 +186,7 @@ function groupByPortGroup(items: { port: V2Port; occupied: boolean }[]) {
  */
 function groupLabelOf(groupKey: string, all: readonly { port: V2Port }[]): string {
   const refs = [...new Map(all.map((i) => [i.port.group, i.port])).values()].map((p) => ({
-    group: p.group, medium: p.medium, direction: p.direction,
+    group: p.group, medium: p.medium, direction: p.direction, sampleName: p.name,
   }));
   const mine = refs.find((r) => r.group === groupKey);
   return mine ? portGroupLabel(mine, refs) : groupKey;

@@ -95,8 +95,8 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   const picked = useMediumContainer(containers, typesById);
   const activeContainer = picked.active;
 
-  const { groups, rows } = useMemo(() => {
-    if (!activeContainer) return { groups: [] as string[], rows: [] as FiberRow[] };
+  const { groups, groupLabels, rows } = useMemo(() => {
+    if (!activeContainer) return { groups: [] as string[], groupLabels: [] as string[], rows: [] as FiberRow[] };
     return buildFiberRows(
       activeContainer.asset, effectiveAssets, effectiveCables, types ?? [], activeContainer.containerKey,
     );
@@ -189,8 +189,8 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
           <thead>
             <tr className="border-b border-line">
               <Th>코어</Th>
-              {groups.map((g) => (
-                <Th key={g}>{g}</Th>
+              {groups.map((g, i) => (
+                <Th key={g}>{groupLabels[i] ?? g}</Th>
               ))}
               {metaFields.map((f) => (
                 <Th key={f.key}>{f.unit ? `${f.label}(${f.unit})` : f.label}</Th>

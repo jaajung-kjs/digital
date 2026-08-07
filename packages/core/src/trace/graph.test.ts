@@ -21,7 +21,7 @@ const slot: AssetTypeSpec = {
   key: 'OFD-SLOT',
   name: '광슬롯',
   ports: [
-    { group: 'A', count: 4, direction: 'BI', medium: '광', namePattern: '성단 {n}' },
+    { group: 'A', count: 4, direction: 'BI', medium: '광', namePattern: '장비 {n}' },
     { group: 'B', count: 4, direction: 'BI', medium: '광', namePattern: '선로 {n}' },
   ],
   links: [{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],
@@ -51,7 +51,7 @@ function makeAsset(typeKey: keyof typeof types, id: string): { asset: AssetRef; 
 }
 
 describe('buildTraceGraph + traceFrom', () => {
-  it('광슬롯 byIndex: 장비→슬롯 성단3→선로3→대국 장비까지 채널 보존 추적', () => {
+  it('광슬롯 byIndex: 장비→슬롯 장비3→선로3→대국 장비까지 채널 보존 추적', () => {
     const a = makeAsset('DEV', 'devA');
     const s = makeAsset('OFD-SLOT', 'slot1');
     const b = makeAsset('DEV', 'devB');
@@ -65,7 +65,7 @@ describe('buildTraceGraph + traceFrom', () => {
       ports: [...a.ports, ...s.ports, ...b.ports],
       cables,
     });
-    expect(graph.ports.get('slot1:A3')?.name).toBe('성단 3');
+    expect(graph.ports.get('slot1:A3')?.name).toBe('장비 3');
     const hops = traceFrom(graph, 'devA:P1');
     expect(hops).toEqual([
       { kind: 'cable', cableId: 'c1', fromPortId: 'devA:P1', toPortId: 'slot1:A3' },

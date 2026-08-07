@@ -9,7 +9,7 @@ const slotType = {
   fieldDefs: [],
   containerSpecs: [],
   portTemplates: [
-    { id: 'pt-a', group: 'A', count: 4, direction: 'BI', medium: 'fiber', namePattern: '성단 {n}', sortOrder: 0 },
+    { id: 'pt-a', group: 'A', count: 4, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}', sortOrder: 0 },
     { id: 'pt-b', group: 'B', count: 4, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', sortOrder: 1 },
   ],
   linkRules: [{ id: 'lr', fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],

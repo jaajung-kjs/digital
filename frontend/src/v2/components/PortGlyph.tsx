@@ -84,7 +84,7 @@ function Inner({ kind, color }: { kind: string; color: string }) {
   if (kind === 'fiber') {
     /* 어댑터 안으로 들여다보이는 페룰(원). 하우징은 바깥 실루엣이 이미 그리고 있다.
        처음에는 LC 듀플렉스(작은 사각 둘)로 그렸는데, 그건 **심선 두 가닥**이 한 어댑터에
-       들어간 모양이다. 우리 광 포트는 성단·선로 각각이 **심선 하나**다. */
+       들어간 모양이다. 우리 광 포트는 장비·선로 각각이 **심선 하나**다. */
     return <circle cx="20" cy="13" r="4" fill="none" stroke={color} strokeWidth="1.8" />;
   }
   if (kind === 'control') {

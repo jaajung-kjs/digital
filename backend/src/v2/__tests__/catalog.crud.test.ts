@@ -58,7 +58,7 @@ const VALID_CONTAINERS = [{ key: 'shelf', name: '선반', slotCount: 8, allowSpa
 
 /** lineSide 왕복용 포트 2그룹 — fiberOut 이 lineSide:true. */
 const LINE_SIDE_PORTS = [
-  { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '성단 {n}' },
+  { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '장비 {n}' },
   { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
 ];
 
@@ -568,7 +568,7 @@ describe('catalog CRUD', () => {
     const ls2CatId = catRes.body.id;
 
     const twoLineSidePorts = [
-      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '성단 {n}', lineSide: true },
+      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '장비 {n}', lineSide: true },
       { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
     ];
 
@@ -619,7 +619,7 @@ describe('catalog CRUD', () => {
 
     // lineSide 플립 (fiberOut.lineSide=false) → 구조 변경 → 409
     const flippedPorts = [
-      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '성단 {n}' },
+      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '장비 {n}' },
       { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}' }, // lineSide 없음 = false
     ];
     const res = await request(app)
