@@ -7,12 +7,12 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, cn, SELECTABLE } from '../../components/ui';
+import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Toggle, cn, SELECTABLE } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { withDescendants } from '../cableSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { internalLinkMap, portDirectionLabel, portFieldsFor, portValue, setPortValueAt } from '@twin/core';
+import { internalLinkMap, portDirectionLabel, portFieldsFor, portValue, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel, useMediumColor } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
@@ -84,19 +84,21 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
    * 화면이 `closed` 라는 키를 알지 않는다. 종류 선언에서 `boolean` 인 포트 값을 찾고,
    * 적힌 값이 없을 때의 뜻도 선언(`defaultValue`)이 정한다.
    */
-  function portToggle(owner: V2Asset, port: V2Port) {
-    const field = portFieldsFor(port.medium).find((f) => f.type === 'boolean');
-    if (!field) return null;
-    return {
-      label: field.label,
-      checked: portValue(port, field) === true,
-      onChange: (next: boolean) => {
-        const ports = owner.ports.map((p) =>
-          p.id === port.id ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
-        );
-        useV2WorkingCopy.getState().stageAssetUpdate(owner.id, { ports });
-      },
-    };
+  function switchField(port: V2Port) {
+    return portFieldsFor(port.medium).find((f) => f.type === 'boolean') ?? null;
+  }
+
+  /** 이 회로가 끊겨 있는가 — 판은 이것만 보여 준다(여닫는 일은 포트 상세가 맡는다). */
+  function isPortOpen(port: V2Port): boolean {
+    const field = switchField(port);
+    return field ? portValue(port, field) !== true : false;
+  }
+
+  function setPortSwitch(owner: V2Asset, port: V2Port, field: ValueDef, next: boolean) {
+    const ports = owner.ports.map((p) =>
+      p.id === port.id ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
+    );
+    useV2WorkingCopy.getState().stageAssetUpdate(owner.id, { ports });
   }
 
   /* portId → 그 포트에 물린 **모든** 케이블.
@@ -210,6 +212,18 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
     () => (asset?.ports ?? []).find((p) => p.id === selectedPortId) ?? null,
     [asset, selectedPortId],
   );
+
+  /* 고른 포트에 여닫을 값이 있으면 그 상태 — 편집은 여기서, 판은 보여 주기만.
+     포트를 가진 자산을 함께 들고 있어야 스테이지 대상이 정해진다(랙을 고르면 자식의
+     포트가 판에 뜨므로 `asset` 이 곧 주인이 아니다). */
+  const selectedSwitch = useMemo(() => {
+    if (!selectedPort) return null;
+    const field = switchField(selectedPort);
+    if (!field) return null;
+    const owner = portOwners.find((o) => o.owner.id === selectedPort.assetId)?.owner;
+    if (!owner) return null;
+    return { field, owner, closed: portValue(selectedPort, field) === true };
+  }, [selectedPort, portOwners]);
   /* 고른 포트에 물린 대국 — 부스바는 여럿이다. 하나만 보여 주면 나머지가 없는 것처럼 읽힌다. */
   const selectedPeers = useMemo(() => {
     if (!selectedPort || !asset) return [];
@@ -354,7 +368,7 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
               }))}
               stateOf={portState}
               cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
-              toggleOf={(port) => portToggle(owner, port)}
+              isOpen={isPortOpen}
               selectedPortId={selectedPortId}
               onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
             />
@@ -417,6 +431,17 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
               ) : undefined
             }
           />
+          {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다(§ 판은 지도, 상세는 서식). */}
+          {selectedSwitch && (
+            <DetailRow label={selectedSwitch.field.label}>
+              <Toggle
+                checked={selectedSwitch.closed}
+                onChange={(next) => setPortSwitch(selectedSwitch.owner, selectedPort, selectedSwitch.field, next)}
+                label={selectedSwitch.closed ? '투입' : '개방'}
+                aria-label={`${selectedPort.name} ${selectedSwitch.field.label}`}
+              />
+            </DetailRow>
+          )}
           {internalOf.get(selectedPort.id)?.length ? (
             <DetailRow label="내부 통과">
               <span className="text-sm text-content-muted">

@@ -1,4 +1,4 @@
-import { Toggle, cn } from '../../components/ui';
+import { cn } from '../../components/ui';
 import type { V2Port } from '../types';
 import { PortGlyph, PORT_GLYPH_ASPECT } from './PortGlyph';
 
@@ -73,7 +73,7 @@ export function PortFaceplate({
   onSelect,
   labelPrefix,
   disabledPortIds,
-  toggleOf,
+  isOpen,
 }: {
   sections: readonly FaceplateSection[];
   stateOf: (port: V2Port) => PortState;
@@ -89,12 +89,13 @@ export function PortFaceplate({
   /** 고를 수 없는 포트(피커에서 가득 찬 자리) — 자리는 지키되 누를 수 없다. */
   disabledPortIds?: ReadonlySet<string>;
   /**
-   * 이 포트에 **여닫을 값**이 있으면 그 상태와 여는 함수 — 차단기의 개폐가 그렇다.
+   * 이 포트의 회로가 끊겨 있는가 — 차단기가 열린 자리.
    *
-   * 판은 어떤 키가 있는지 알지 않는다(종류 선언이 정한다). 스위치가 실제로 붙는 자리는
-   * 부르는 쪽이 `portFieldsFor(medium, direction)` 로 골라 넘긴다.
+   * **판은 상태를 보여 줄 뿐 조작하지 않는다.** 한때 커넥터 밑에 토글을 달았는데, 그 자리
+   * 때문에 전원 포트만 키가 달라져 격자가 깨졌다. 여닫는 일은 포트를 눌렀을 때 아래에
+   * 뜨는 상세가 맡는다 — 판은 지도이고 상세는 서식이다.
    */
-  toggleOf?: (port: V2Port) => { label: string; checked: boolean; onChange: (next: boolean) => void } | null;
+  isOpen?: (port: V2Port) => boolean;
 }) {
   return (
     /* 구획을 세로로 쌓지 않고 **가로로 잇는다** — 1U 전면판이 그렇게 생겼다.
@@ -130,20 +131,21 @@ export function PortFaceplate({
               const selected = p.id === selectedPortId;
               const count = cableCountOf?.(p) ?? 0;
               const disabled = disabledPortIds?.has(p.id) ?? false;
-              const toggle = toggleOf?.(p) ?? null;
+              const open = isOpen?.(p) ?? false;
+              /* 개방은 연결 여부와 다른 사실이라 함께 읽어야 한다 — "물려 있으나 끊겨 있다" */
+              const stateText = `${count > 1 ? `${count}가닥` : PORT_STATE_LABEL[state]}${open ? ' · 개방' : ''}`;
               return (
-                /* 스위치는 포트 버튼 **밖**에 둔다 — 버튼 안에 버튼을 넣을 수 없고,
-                   넣으면 스위치를 누를 때 포트 선택까지 함께 일어난다. */
-                <div key={p.id} className="flex flex-col items-center" style={{ width: PORT_W }}>
                 <button
+                  key={p.id}
                   type="button"
                   disabled={disabled}
-                  title={count > 1 ? `${p.name} · ${count}가닥` : `${p.name} · ${PORT_STATE_LABEL[state]}`}
-                  aria-label={`${labelPrefix ? `${labelPrefix} ` : ''}${p.name} ${count > 1 ? `${count}가닥` : PORT_STATE_LABEL[state]}`}
+                  title={`${p.name} · ${stateText}`}
+                  aria-label={`${labelPrefix ? `${labelPrefix} ` : ''}${p.name} ${stateText}`}
                   aria-pressed={selected}
                   onClick={() => onSelect(p.id)}
+                  style={{ width: PORT_W }}
                   className={cn(
-                    'relative flex w-full flex-col items-center gap-0.5 rounded-sm p-0.5 transition-colors',
+                    'relative flex flex-col items-center gap-0.5 rounded-sm p-0.5 transition-colors',
                     disabled ? 'cursor-not-allowed opacity-45' : 'cursor-pointer hover:brightness-95',
                     selected && 'ring-2 ring-inset ring-primary',
                   )}
@@ -153,6 +155,7 @@ export function PortFaceplate({
                   <PortGlyph
                     medium={p.medium}
                     state={state}
+                    open={open}
                     className="block w-full"
                     style={{ aspectRatio: PORT_GLYPH_ASPECT }}
                   />
@@ -172,17 +175,6 @@ export function PortFaceplate({
                     </span>
                   )}
                 </button>
-                {/* 여닫을 값이 있는 포트만 — 차단기의 개폐. 판 위에 실제로 달린 스위치다. */}
-                {toggle && (
-                  <Toggle
-                    checked={toggle.checked}
-                    onChange={toggle.onChange}
-                    size="sm"
-                    aria-label={`${p.name} ${toggle.label}`}
-                    className="mt-0.5"
-                  />
-                )}
-                </div>
               );
             })}
           </div>

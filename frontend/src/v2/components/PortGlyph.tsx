@@ -131,11 +131,22 @@ export interface PortGlyphProps {
   medium: string;
   /** 물려 있는가 — `'half'` 는 내부 짝 중 한쪽만 물린 상태. */
   state?: 'empty' | 'half' | 'full';
+  /**
+   * 이 회로가 끊겨 있는가 — 차단기가 열린 자리.
+   *
+   * 판은 **상태를 보여 주고 조작은 하지 않는다.** 한때 커넥터 밑에 토글을 달았는데,
+   * 그 자리 때문에 전원 포트만 키가 달라져 격자가 깨졌다. 업계도 그렇게 하지 않는다 —
+   * NetBox 는 상태를 필드(배지)로 두고, SCADA/HMI 는 **심볼 자체**의 모습으로 말한다.
+   *
+   * 평상시(투입)는 아무 표시가 없다. 개방일 때만 실루엣이 죽고 사선이 그어진다 —
+   * 예외만 눈에 띄게 하는 것이 판을 조용하게 유지하는 길이다.
+   */
+  open?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export function PortGlyph({ medium, state = 'empty', className, style }: PortGlyphProps) {
+export function PortGlyph({ medium, state = 'empty', open = false, className, style }: PortGlyphProps) {
   const outline = OUTLINE[medium];
   const filled = state !== 'empty';
   const shape = {
@@ -149,14 +160,23 @@ export function PortGlyph({ medium, state = 'empty', className, style }: PortGly
   };
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={className} style={style} aria-hidden focusable="false">
-      {outline ? (
-        <path d={outline} {...shape} />
-      ) : (
-        // 접지·광처럼 바깥 실루엣이 따로 없는 것과, 어휘에 없는 종류는 공통 사각형.
-        <rect x="2" y="3" width={W - 4} height="20" rx="2.5" {...shape} />
+      <g opacity={open ? 0.4 : 1}>
+        {outline ? (
+          <path d={outline} {...shape} />
+        ) : (
+          // 접지·광처럼 바깥 실루엣이 따로 없는 것과, 어휘에 없는 종류는 공통 사각형.
+          <rect x="2" y="3" width={W - 4} height="20" rx="2.5" {...shape} />
+        )}
+        {/* 핀·기호는 판 색으로 — 채움 위에서 파인 것처럼 보이게. */}
+        <Inner kind={medium} color="var(--faceplate)" />
+      </g>
+      {/* 개방 — 사선 하나. 판 색으로 한 겹 깔아 어떤 채움 위에서도 끊겨 보이게 한다. */}
+      {open && (
+        <g strokeLinecap="round">
+          <line x1="5" y1="24" x2="35" y2="2" stroke="var(--faceplate)" strokeWidth="4" />
+          <line x1="5" y1="24" x2="35" y2="2" stroke="var(--faceplate-silk)" strokeWidth="2" />
+        </g>
       )}
-      {/* 핀·기호는 판 색으로 — 채움 위에서 파인 것처럼 보이게. */}
-      <Inner kind={medium} color="var(--faceplate)" />
     </svg>
   );
 }
