@@ -17,7 +17,7 @@ import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel, useMediumColor } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
 import type { V2Asset, V2Cable, V2Port } from '../types';
-import { PortFaceplate, PortLegend, PORT_STATE_LABEL, type PortState } from './PortFaceplate';
+import { PortFaceplate, PORT_STATE_LABEL, type PortState } from './PortFaceplate';
 import { PORT_KINDS, portGroupLabel } from '@twin/core';
 
 /** 한 장비의 포트를 그룹 단위로 묶은 것 — 이름·정렬은 종류 선언에서 나온다. */
@@ -175,7 +175,6 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
     if (mine || partnerConnected) return 'half';
     return 'empty';
   };
-  const hasInternalLinks = internalOf.size > 0;
 
   const selectedPort = useMemo(
     () => (asset?.ports ?? []).find((p) => p.id === selectedPortId) ?? null,
@@ -328,8 +327,6 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
               selectedPortId={selectedPortId}
               onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
             />
-            {/* 범례는 **연결 상태(LED)** 만 설명한다 — 종류는 모양과 구획 라벨이 말한다. */}
-            <PortLegend states={hasInternalLinks ? ['empty', 'half', 'full'] : ['empty', 'full']} />
           </DetailCard>
         );
       })}

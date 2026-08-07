@@ -73,15 +73,13 @@ export function PortFaceplate({
        예전에는 구획마다 한 줄을 통째로 써서 포트 6개짜리 장비가 333×287px 를 차지했다
        (포트가 실제로 쓰는 가로는 240px 뿐이라 한 줄에 다 들어간다). */
     <div
-      className="flex flex-wrap items-start gap-x-3 gap-y-2 overflow-hidden rounded-md p-2 shadow-inner"
+      className="flex flex-wrap items-start gap-x-6 gap-y-3 overflow-hidden rounded-md p-2 shadow-inner"
       style={{ backgroundColor: 'var(--faceplate)' }}
     >
-      {sections.map((section, i) => (
-        <div
-          key={section.key}
-          className={cn('min-w-0', i > 0 && 'border-l pl-3')}
-          style={i > 0 ? { borderColor: 'var(--faceplate-etch)' } : undefined}
-        >
+      {sections.map((section) => (
+        /* 구분선을 두지 않는다 — 줄바꿈이 일어나면 그 선이 줄 **맨 앞**에 남아, 이미 줄이
+           갈라 놓은 경계를 한 번 더 긋는 꼴이 된다. 경계는 간격과 구획 라벨이 말한다. */
+        <div key={section.key} className="min-w-0">
           {/* 구획 라벨 — 색은 여기에만 쓴다. 띠 + 이름으로 무슨 구획인지 말한다. */}
           <div className="mb-1 flex items-center gap-1.5">
             <span
@@ -143,25 +141,3 @@ export function PortFaceplate({
   );
 }
 
-/**
- * 채움이 무엇을 뜻하는지.
- *
- * 종류는 **모양**과 구획 라벨이 말하므로, 범례는 나머지 축인 **채움(연결 여부)** 만 설명한다.
- * 판마다 종류가 다르므로 특정 커넥터 모양 대신 중립 사각을 쓴다 — 그러지 않으면 그 종류만
- * 뜻하는 것처럼 읽힌다.
- */
-export function PortLegend({ states }: { states: readonly PortState[] }) {
-  return (
-    <div className="flex items-center gap-3">
-      {states.map((s) => (
-        <span key={s} className="flex items-center gap-1.5 text-xs text-content-muted">
-          {/* 타일과 **같은 비율**로 그린다 — 다른 상자에 넣으면 실루엣이 찌그러져 범례가 딴 모양이 된다. */}
-          <span className="block rounded-sm p-0.5" style={{ backgroundColor: 'var(--faceplate)' }} aria-hidden>
-            <PortGlyph medium="" state={s} className="block h-[0.9rem] w-[1.6rem]" />
-          </span>
-          {PORT_STATE_LABEL[s]}
-        </span>
-      ))}
-    </div>
-  );
-}

@@ -11,7 +11,7 @@ import {
 } from '../../components/ui';
 import { portGroupLabel } from '@twin/core';
 import { useMediumColor } from '../hooks';
-import { PortFaceplate, PortLegend } from './PortFaceplate';
+import { PortFaceplate } from './PortFaceplate';
 import type { V2Asset, V2Port } from '../types';
 
 export interface PickerPortGroup {
@@ -144,7 +144,6 @@ export function PortPickerPanel({
                       onSelectPort(item.port);
                     }}
                   />
-                  <PortLegend states={['empty', 'full']} />
                 </DetailCard>
               ))
             )}
