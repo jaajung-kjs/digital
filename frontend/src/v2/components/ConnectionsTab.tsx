@@ -14,7 +14,7 @@ import { withDescendants } from '../cableSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { internalLinkMap, portDirectionLabel } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
-import { useV2Catalog, useMediumLabel } from '../hooks';
+import { useV2Catalog, useMediumLabel, useMediumColor } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
 import type { V2Asset, V2Cable, V2Port } from '../types';
 import { PortMatrix, PortLegend, PORT_STATE_LABEL, type PortState } from './PortMatrix';
@@ -55,6 +55,7 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
 
   const catalog = useV2Catalog();
   const mediumLabel = useMediumLabel();
+  const mediumColor = useMediumColor();
   const categories = catalog.data?.categories ?? [];
   const types = catalog.data?.types ?? [];
 
@@ -285,11 +286,12 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
               badge={`${connected}/${ownerPorts.length} 연결`}
               badgeStatus={connected > 0 ? 'success' : 'neutral'}
             />
-            {groups.map(({ group, label, ports }) => (
+            {groups.map(({ group, label, medium, ports }) => (
               <div key={group} className="space-y-1">
                 {groups.length > 1 && <p className="text-xs text-content-muted">{label}</p>}
                 <PortMatrix
                   labelPrefix={isSelf ? undefined : owner.name}
+                  accent={mediumColor(medium)}
                   ports={ports}
                   stateOf={portState}
                   cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
@@ -298,7 +300,11 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
                 />
               </div>
             ))}
-            <PortLegend states={hasInternalLinks ? ['empty', 'half', 'full'] : ['empty', 'full']} />
+            {/* 범례는 **채움**만 설명한다 — 종류는 모양·색이 말하고 이름은 판 머리말에 있다. */}
+            <PortLegend
+              states={hasInternalLinks ? ['empty', 'half', 'full'] : ['empty', 'full']}
+              accent={groups[0] ? mediumColor(groups[0].medium) : null}
+            />
           </DetailCard>
         );
       })}

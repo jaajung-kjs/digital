@@ -10,6 +10,7 @@ import {
   PanelHeader,
 } from '../../components/ui';
 import { portGroupLabel } from '@twin/core';
+import { useMediumColor } from '../hooks';
 import { PortMatrix, PortLegend } from './PortMatrix';
 import type { V2Asset, V2Port } from '../types';
 
@@ -56,6 +57,7 @@ export function PortPickerPanel({
   onSearchRemote,
 }: Props) {
   const [query, setQuery] = useState('');
+  const mediumColor = useMediumColor();
 
   // 다른 자산을 누르면 이전 검색어가 남지 않게 한다.
   useEffect(() => setQuery(''), [rootAsset.id]);
@@ -131,6 +133,7 @@ export function PortPickerPanel({
                       )}
                       <PortMatrix
                         labelPrefix={g.asset.name}
+                        accent={mediumColor(items[0]?.port.medium ?? '')}
                         ports={items.map((i) => i.port)}
                         stateOf={(p) =>
                           items.find((i) => i.port.id === p.id)?.occupied ? 'full' : 'empty'
@@ -145,7 +148,10 @@ export function PortPickerPanel({
                       />
                     </div>
                   ))}
-                  <PortLegend states={['empty', 'full']} />
+                  <PortLegend
+                    states={['empty', 'full']}
+                    accent={mediumColor(g.ports[0]?.port.medium ?? '')}
+                  />
                 </DetailCard>
               ))
             )}

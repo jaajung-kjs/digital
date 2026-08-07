@@ -1,4 +1,5 @@
 import { cn } from '../../components/ui';
+import { PortGlyph } from './PortGlyph';
 import type { V2Port } from '../types';
 
 /**
@@ -9,19 +10,23 @@ import type { V2Port } from '../types';
  */
 export type PortState = 'empty' | 'half' | 'full';
 
-const TILE: Record<PortState, string> = {
-  empty: 'border-line bg-surface text-content-faint',
-  half: 'border-warning/40 bg-warning-bg text-warning',
-  full: 'border-success/50 bg-success-bg text-success',
-};
-
-const LED: Record<PortState, string> = { empty: '', half: 'bg-warning', full: 'bg-success' };
-
 export const PORT_STATE_LABEL: Record<PortState, string> = {
   empty: '미연결',
   half: '편도',
   full: '양측',
 };
+
+/**
+ * 타일이 읽히는 두 축.
+ *
+ * - **모양 + 색 = 무슨 종류인가**. 모양은 실제 커넥터 규격(`PortGlyph` 참고), 색은 카탈로그가
+ *   선언한 케이블 그룹 색이다 — 평면도가 그 색으로 선을 그리므로 **꽂는 케이블의 색이 곧
+ *   포트의 색**이 된다.
+ * - **채움 = 물려 있는가**. 비었으면 실루엣만, 물렸으면 그 안을 채운다.
+ *
+ * 예전에는 색이 점유만 뜻해서 종류가 달라도 판이 전부 똑같아 보였다. 전원 포트를 찾으려면
+ * 그룹 머리말을 읽어야 했고, 종류가 섞인 장비는 한눈에 파악할 수가 없었다.
+ */
 
 /**
  * 포트 매트릭스 — 패치패널 판을 그대로 본뜬 타일 배치.
@@ -40,6 +45,7 @@ export function PortMatrix({
   onSelect,
   labelPrefix,
   cableCountOf,
+  accent,
 }: {
   ports: readonly V2Port[];
   stateOf: (port: V2Port) => PortState;
@@ -52,6 +58,8 @@ export function PortMatrix({
    * 7가닥이 모인 단자가 1가닥짜리와 똑같이 보이면 판을 봐도 아무것도 알 수 없다.
    */
   cableCountOf?: (port: V2Port) => number;
+  /** 이 판의 종류 색 — 카탈로그가 선언한 케이블 그룹 색. 없으면 점유만 나타낸다. */
+  accent?: string | null;
   /**
    * 읽어 주는 이름 앞에 붙일 말 — 보통 그 포트를 가진 장비 이름.
    * 한 화면에 여러 장비의 판이 함께 뜨면(랙을 눌렀을 때) "포트 1" 만으로는
@@ -76,23 +84,39 @@ export function PortMatrix({
               aria-pressed={selected}
               onClick={() => onSelect(p.id)}
               className={cn(
-                'relative flex h-8 items-center justify-center rounded border text-xs tabular-nums transition-colors',
-                TILE[state],
+                'relative flex flex-col items-center justify-center gap-0.5 rounded py-1 tabular-nums transition-colors',
+                'hover:bg-surface-3',
                 // 링을 **안쪽**에 그린다 — 바깥으로 그리면(`ring-offset-1`) 타일 간격(4px)보다
-                // 두꺼워져 이웃 타일을 침범했다. 점유 상태 색은 가운데에 그대로 남는다.
-                selected && 'ring-2 ring-inset ring-primary font-medium',
+                // 두꺼워져 이웃 타일을 침범했다.
+                selected && 'ring-2 ring-inset ring-primary',
               )}
             >
-              {p.index}
+              {/* 실루엣이 곧 포트다 — 종류(모양·색)와 점유(채움)를 함께 나타낸다.
+                  번호는 실루엣 **아래**에 둔다 — 안에 겹치면 핀·기호와 뒤엉켜 둘 다 못 읽는다
+                  (실제 페이스플레이트도 커넥터 옆·아래에 번호를 적는다). */}
+              <PortGlyph
+                medium={p.medium}
+                color={accent ?? null}
+                filled={state !== 'empty'}
+                dashed={state === 'half'}
+                className="h-5 w-full"
+              />
+              <span
+                className={cn(
+                  'text-[0.625rem] leading-none',
+                  state === 'empty' ? 'text-content-faint' : 'font-medium text-content',
+                )}
+              >
+                {p.index}
+              </span>
               {/* 여러 가닥이 모이면 개수가 곧 정보다 — 점 하나로는 1가닥과 구분되지 않는다. */}
-              {count > 1 ? (
-                <span className="absolute -right-0.5 -top-1 rounded-full bg-success px-1 text-[0.625rem] font-medium leading-tight text-white">
+              {count > 1 && (
+                <span
+                  className="absolute -right-0.5 -top-0.5 rounded-full px-1 text-[0.625rem] font-medium leading-tight text-white"
+                  style={{ backgroundColor: accent ?? undefined }}
+                >
                   {count}
                 </span>
-              ) : (
-                state !== 'empty' && (
-                  <span className={cn('absolute right-1 top-1 size-1 rounded-full', LED[state])} aria-hidden />
-                )
               )}
             </button>
           );
@@ -102,13 +126,20 @@ export function PortMatrix({
   );
 }
 
-/** 색이 무엇을 뜻하는지 — 색만 있고 설명이 없으면 읽을 수 없다. */
-export function PortLegend({ states }: { states: readonly PortState[] }) {
+/**
+ * 채움이 무엇을 뜻하는지.
+ *
+ * 색은 **종류**를 뜻하고 그 이름은 판 머리말에 적혀 있으므로, 범례는 나머지 축인
+ * **채움(물려 있는가)** 만 설명하면 된다. 색까지 여기서 되풀이하면 판마다 같은 줄이 붙는다.
+ * 예시는 실제 판 색으로 그려야 눈이 이어진다.
+ */
+export function PortLegend({ states, accent }: { states: readonly PortState[]; accent?: string | null }) {
   return (
     <div className="flex items-center gap-3">
       {states.map((s) => (
         <span key={s} className="flex items-center gap-1 text-xs text-content-muted">
-          <span className={cn('size-2.5 rounded-sm border', TILE[s])} aria-hidden />
+          {/* 중립 사각 — 판마다 종류가 다르므로 특정 커넥터 모양을 쓰면 그 종류만 뜻하는 것처럼 읽힌다. */}
+          <PortGlyph medium="" color={accent ?? null} filled={s !== 'empty'} dashed={s === 'half'} className="h-4 w-6" />
           {PORT_STATE_LABEL[s]}
         </span>
       ))}

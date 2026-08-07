@@ -94,3 +94,18 @@ export function useMediumLabel(): (key: string) => string {
   const groups = catalog.data?.cableGroups;
   return (key: string) => groups?.find((g) => g.key === key)?.name ?? key;
 }
+
+/**
+ * 매체 키 → 그 종류의 색.
+ *
+ * 색은 카탈로그(케이블 그룹)가 선언한다. 평면도가 케이블을 그 색으로 그리고 있으므로,
+ * 포트도 같은 색을 쓰면 **꽂는 케이블의 색이 곧 포트의 색**이 된다 — 실제 배선판에서
+ * 전원 단자와 통신 단자를 색으로 구분하는 것과 같다.
+ *
+ * 카탈로그에서 색을 바꾸면 선과 포트가 함께 따라온다. 여기서 색을 다시 적으면 그 둘이 갈린다.
+ */
+export function useMediumColor(): (key: string) => string | null {
+  const catalog = useV2Catalog();
+  const groups = catalog.data?.cableGroups;
+  return (key: string) => groups?.find((g) => g.key === key)?.color ?? null;
+}
