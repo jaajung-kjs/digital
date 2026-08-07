@@ -18,6 +18,12 @@
   --success-bg-rgb:220 252 231; --warning-bg-rgb:254 243 199; --danger-bg-rgb:254 226 226; --info-bg-rgb:219 234 254;
   --eq-1-rgb:68 64 60; --eq-2-rgb:120 113 108; --eq-3-rgb:168 162 158; --eq-4-rgb:214 211 209;
 
+  /* 장비 전면판 — 포트 판은 "웹 카드" 가 아니라 **설비 그 자체**로 보여야 한다.
+     밝은 앱 안에서 장비 그래픽만 어둡게 두는 것은 장비 관리 UI 의 관례다.
+     panel=금속판, hole=포트 구멍(판보다 더 어둡다), etch=구획선, silk=실크스크린 글자 */
+  --faceplate-rgb:55 61 68; --faceplate-hole-rgb:26 29 33;
+  --faceplate-etch-rgb:78 86 95; --faceplate-silk-rgb:148 156 165;
+
   --bg:rgb(var(--bg-rgb)); --surface:rgb(var(--surface-rgb)); --surface-2:rgb(var(--surface-2-rgb)); --surface-3:rgb(var(--surface-3-rgb)); --sidebar:rgb(var(--sidebar-rgb));
   --border:rgb(var(--border-rgb)); --border-2:rgb(var(--border-2-rgb));
   --text:rgb(var(--text-rgb)); --text-2:rgb(var(--text-2-rgb)); --text-muted:rgb(var(--text-muted-rgb));
@@ -25,6 +31,8 @@
   --success:rgb(var(--success-rgb)); --warning:rgb(var(--warning-rgb)); --danger:rgb(var(--danger-rgb)); --info:rgb(var(--info-rgb));
   --success-bg:rgb(var(--success-bg-rgb)); --warning-bg:rgb(var(--warning-bg-rgb)); --danger-bg:rgb(var(--danger-bg-rgb)); --info-bg:rgb(var(--info-bg-rgb));
   --eq-1:rgb(var(--eq-1-rgb)); --eq-2:rgb(var(--eq-2-rgb)); --eq-3:rgb(var(--eq-3-rgb)); --eq-4:rgb(var(--eq-4-rgb));
+  --faceplate:rgb(var(--faceplate-rgb)); --faceplate-hole:rgb(var(--faceplate-hole-rgb));
+  --faceplate-etch:rgb(var(--faceplate-etch-rgb)); --faceplate-silk:rgb(var(--faceplate-silk-rgb));
 
   /* 오버레이 스크림 — 모달 백드롭 통일 */
   --overlay: rgb(0 0 0 / 0.45); --overlay-strong: rgb(0 0 0 / 0.8);

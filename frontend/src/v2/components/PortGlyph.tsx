@@ -16,6 +16,11 @@
  * (NetBox 도 `DE-9`·`IEC 60320 C14`·`LC`·`8P8C` 를 커넥터 어휘로 쓰지만 모양은 그리지 않는다.
  *  "표준 포트 아이콘 세트" 라는 것은 없고, 표준은 커넥터 모양 그 자체다.)
  *
+ * **구멍으로 그린다.** 실제 포트는 색 테두리로 그린 도형이 아니라 전면판에 뚫린 어두운
+ * 구멍이다. 예전에는 원색 아웃라인 + 옅은 채움이라 스티커·클립아트처럼 보였다.
+ *   - 비었으면 어두운 구멍만
+ *   - 물렸으면 그 안에 **플러그가 꽂힌 것**처럼 종류 색이 차오른다
+ *
  * 테두리와 채움이 모양을 따라가야 하므로 CSS `clip-path` 가 아니라 SVG 로 그린다
  * (clip-path 는 테두리를 잘라 내서 "비었다/찼다" 를 나타낼 수가 없다).
  */
@@ -94,9 +99,9 @@ function Inner({ kind, color }: { kind: string; color: string }) {
 
 export interface PortGlyphProps {
   medium: string;
-  /** 이 종류의 색(카탈로그 선언). 없으면 현재 글자색을 따른다. */
+  /** 이 종류의 색(카탈로그 선언) — 꽂힌 플러그의 색. 없으면 중성 회색. */
   color: string | null;
-  /** 물려 있으면 실루엣 안을 채운다 — "무엇인가"(모양·색)와 "찼는가"(채움)를 따로 읽게. */
+  /** 물려 있으면 구멍 안이 차오른다 — "무엇인가"(모양)와 "찼는가"(채움)를 따로 읽게. */
   filled: boolean;
   /** 반만 물린 상태(내부 짝 중 한쪽만) — 테두리를 점선으로. */
   dashed?: boolean;
@@ -104,36 +109,25 @@ export interface PortGlyphProps {
 }
 
 export function PortGlyph({ medium, color, filled, dashed, className }: PortGlyphProps) {
-  const stroke = color ?? 'currentColor';
+  const plug = color ?? '#9aa3ad';
   const outline = OUTLINE[medium];
+  // 빈 구멍은 판보다 어둡고, 꽂히면 플러그 색이 찬다.
+  const fill = filled ? plug : 'var(--faceplate-hole)';
+  const edge = filled ? plug : 'var(--faceplate-etch)';
+  const shape = { fill, fillOpacity: filled ? 0.85 : 1, stroke: edge, strokeWidth: 1.2,
+    strokeDasharray: dashed ? '3 2' : undefined };
+  // 꽂힌 포트의 핀은 어둡게(플러그 위에 보이는 접점), 빈 구멍의 핀은 판 색으로 희미하게.
+  const innerColor = filled ? 'var(--faceplate-hole)' : 'var(--faceplate-etch)';
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={className} aria-hidden focusable="false">
       {outline ? (
-        <path
-          d={outline}
-          fill={filled ? stroke : 'none'}
-          fillOpacity={filled ? 0.18 : 0}
-          stroke={stroke}
-          strokeOpacity={filled ? 1 : 0.45}
-          strokeWidth="1.6"
-          strokeDasharray={dashed ? '3 2' : undefined}
-        />
+        <path d={outline} {...shape} />
       ) : (
         // 접지·광처럼 바깥 실루엣이 따로 없는 것과, 어휘에 없는 종류는 공통 사각형.
-        <rect
-          x="2" y="2" width={W - 4} height={H - 4} rx="3"
-          fill={filled ? stroke : 'none'}
-          fillOpacity={filled ? 0.18 : 0}
-          stroke={stroke}
-          strokeOpacity={filled ? 1 : 0.45}
-          strokeWidth="1.6"
-          strokeDasharray={dashed ? '3 2' : undefined}
-        />
+        <rect x="2" y="2" width={W - 4} height={H - 4} rx="2.5" {...shape} />
       )}
-      <g opacity={filled ? 1 : 0.45}>
-        <Inner kind={medium} color={stroke} />
-      </g>
+      <Inner kind={medium} color={innerColor} />
     </svg>
   );
 }

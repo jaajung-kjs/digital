@@ -11,7 +11,7 @@ import {
 } from '../../components/ui';
 import { portGroupLabel } from '@twin/core';
 import { useMediumColor } from '../hooks';
-import { PortMatrix, PortLegend } from './PortMatrix';
+import { PortFaceplate, PortLegend } from './PortFaceplate';
 import type { V2Asset, V2Port } from '../types';
 
 export interface PickerPortGroup {
@@ -44,7 +44,7 @@ interface Props {
  * 그 사이 그룹 머리줄이 위로 사라져 지금 몇 번 슬롯인지도 잃는다.
  *
  * 넓은 패널에 판(매트릭스)으로 펼치면 "어디가 비었나" 가 한눈에 들어오고, 검색으로
- * 장비·포트 이름을 좁힐 수 있다. 판 자체는 상세 화면과 같은 `PortMatrix` 를 쓴다.
+ * 장비·포트 이름을 좁힐 수 있다. 판 자체는 상세 화면과 같은 `PortFaceplate` 를 쓴다.
  */
 export function PortPickerPanel({
   rootAsset,
@@ -126,28 +126,24 @@ export function PortPickerPanel({
                     badge={`빈 ${g.ports.filter((p) => !p.occupied).length}/${g.ports.length}`}
                     badgeStatus="neutral"
                   />
-                  {[...groupByPortGroup(g.ports)].map(([groupKey, items]) => (
-                    <div key={groupKey} className="space-y-1">
-                      {items.length > 0 && groupKeyVisible(g.ports) && (
-                        <p className="text-xs text-content-muted">{groupLabelOf(groupKey, g.ports)}</p>
-                      )}
-                      <PortMatrix
-                        labelPrefix={g.asset.name}
-                        accent={mediumColor(items[0]?.port.medium ?? '')}
-                        ports={items.map((i) => i.port)}
-                        stateOf={(p) =>
-                          items.find((i) => i.port.id === p.id)?.occupied ? 'full' : 'empty'
-                        }
-                        selectedPortId={null}
-                        onSelect={(portId) => {
-                          const item = items.find((i) => i.port.id === portId);
-                          // 점유된 자리는 자리만 지킨다 — 고를 수는 없다.
-                          if (!item || item.occupied) return;
-                          onSelectPort(item.port);
-                        }}
-                      />
-                    </div>
-                  ))}
+                  <PortFaceplate
+                    labelPrefix={g.asset.name}
+                    sections={[...groupByPortGroup(g.ports)].map(([groupKey, items]) => ({
+                      key: groupKey,
+                      label: groupLabelOf(groupKey, g.ports),
+                      accent: mediumColor(items[0]?.port.medium ?? ''),
+                      ports: items.map((i) => i.port),
+                    }))}
+                    stateOf={(p) => (g.ports.find((i) => i.port.id === p.id)?.occupied ? 'full' : 'empty')}
+                    // 가득 찬 자리는 자리만 지킨다 — 고를 수는 없다.
+                    disabledPortIds={new Set(g.ports.filter((i) => i.occupied).map((i) => i.port.id))}
+                    selectedPortId={null}
+                    onSelect={(portId) => {
+                      const item = g.ports.find((i) => i.port.id === portId);
+                      if (!item || item.occupied) return;
+                      onSelectPort(item.port);
+                    }}
+                  />
                   <PortLegend
                     states={['empty', 'full']}
                     accent={mediumColor(g.ports[0]?.port.medium ?? '')}
@@ -200,7 +196,4 @@ function groupLabelOf(groupKey: string, all: readonly { port: V2Port }[]): strin
   return mine ? portGroupLabel(mine, refs) : groupKey;
 }
 
-/** 그룹이 하나뿐이면 머리줄이 정보를 더하지 않는다. */
-function groupKeyVisible(items: { port: V2Port }[]) {
-  return new Set(items.map((i) => i.port.group)).size > 1;
-}
+

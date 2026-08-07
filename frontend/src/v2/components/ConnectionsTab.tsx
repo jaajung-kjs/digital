@@ -17,7 +17,7 @@ import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel, useMediumColor } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
 import type { V2Asset, V2Cable, V2Port } from '../types';
-import { PortMatrix, PortLegend, PORT_STATE_LABEL, type PortState } from './PortMatrix';
+import { PortFaceplate, PortLegend, PORT_STATE_LABEL, type PortState } from './PortFaceplate';
 import { PORT_KINDS, portGroupLabel } from '@twin/core';
 
 /** 한 장비의 포트를 그룹 단위로 묶은 것 — 이름·정렬은 종류 선언에서 나온다. */
@@ -286,20 +286,17 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
               badge={`${connected}/${ownerPorts.length} 연결`}
               badgeStatus={connected > 0 ? 'success' : 'neutral'}
             />
-            {groups.map(({ group, label, medium, ports }) => (
-              <div key={group} className="space-y-1">
-                {groups.length > 1 && <p className="text-xs text-content-muted">{label}</p>}
-                <PortMatrix
-                  labelPrefix={isSelf ? undefined : owner.name}
-                  accent={mediumColor(medium)}
-                  ports={ports}
-                  stateOf={portState}
-                  cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
-                  selectedPortId={selectedPortId}
-                  onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
-                />
-              </div>
-            ))}
+            {/* 장비 하나에 전면판 한 장 — 구획은 그 판 위에서 나뉜다. */}
+            <PortFaceplate
+              labelPrefix={isSelf ? undefined : owner.name}
+              sections={groups.map(({ group, label, medium, ports }) => ({
+                key: group, label, accent: mediumColor(medium), ports,
+              }))}
+              stateOf={portState}
+              cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
+              selectedPortId={selectedPortId}
+              onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
+            />
             {/* 범례는 **채움**만 설명한다 — 종류는 모양·색이 말하고 이름은 판 머리말에 있다. */}
             <PortLegend
               states={hasInternalLinks ? ['empty', 'half', 'full'] : ['empty', 'full']}
