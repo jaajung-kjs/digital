@@ -101,10 +101,11 @@ export const PORT_KINDS: readonly PortKind[] = [
     portFields: [{ key: 'closed', label: '개폐', type: 'boolean', defaultValue: true }],
   },
   { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
-  // 점퍼 한 가닥이 어댑터 하나에 꽂히는, 심선 1가닥짜리 보통 광 포트.
-  { key: 'fiber', name: '광', connectsTo: ['fiber'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   /*
    * 다심 인입 — OPGW·광케이블처럼 **한 가닥 안에 여러 심선**이 든 케이블이 물리는 자리.
+   *
+   * 단심 광보다 **앞에 둔다**: 이 표의 순서가 곧 화면의 구획 순서다. 성단 판을 읽는 사람은
+   * "밖에서 무엇이 들어오는가" 를 먼저 보고 그것이 어디로 갈렸는지를 뒤에 본다.
    *
    * 왜 `fiber` 와 다른 종류인가: 물리적으로 붙는 상대가 다르다(점퍼코드를 OPGW 자리에
    * 꽂을 수 없다). 그리고 OTDR 로 재는 심선 손실은 **여기에만** 있다 — 장비쪽 광 포트에는
@@ -121,6 +122,8 @@ export const PORT_KINDS: readonly PortKind[] = [
       { key: 'inspectedAt', label: '점검일', type: 'date' },
     ],
   },
+  // 점퍼 한 가닥이 어댑터 하나에 꽂히는, 심선 1가닥짜리 보통 광 포트.
+  { key: 'fiber', name: '광', connectsTo: ['fiber'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   // 제어는 널모뎀처럼 같은 쪽끼리 직결하는 배선이 실제로 있어 방향을 따지지 않는다.
   { key: 'control', name: '제어', connectsTo: ['control'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   // 접지 부스바에는 여러 기기의 접지선이 한 단자로 모인다 — 여기만 다중 결선이다.

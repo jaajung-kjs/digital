@@ -18,7 +18,7 @@ const mockTypes: V2AssetType[] = [
     id: 't', key: 'SLOT-X', name: '경로슬롯', categoryId: 'c', sortOrder: 1, isActive: true,
     assetCount: 0, placeable: false, defaultWidth: null, defaultHeight: null,
     laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
-    fieldDefs: [], containerSpecs: [], linkRules: [],
+    containerSpecs: [],
     portTemplates: [
       { id: 'pt-a', group: 'CORE', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', sortOrder: 1, positions: 1 },
       { id: 'pt-b', group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', sortOrder: 2, positions: 2 },
@@ -104,6 +104,25 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     const staged = v2WorkingCopyStore.getState().effectiveAssets().find((a) => a.id === 'slot')!;
     const trunk = staged.ports.find((p) => p.id === 't1')!;
     expect(trunk.fieldValues).toEqual({ 1: { lossDb: 1.4 }, 2: { lossDb: 0.9 } });
+  });
+
+  /* 표의 단위는 자산이 아니라 심선이다. 자산 id 로 칠하면 그 슬롯의 24행이 한꺼번에
+     물들어, 어느 심선을 눌렀는지가 화면에서 사라진다(실제로 그랬다). */
+  it('행을 고르면 그 심선 한 줄만 선택된다', () => {
+    setStore([ofd, slot], []);
+    const onSelect = vi.fn();
+    const { container } = render(
+      <FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={onSelect} />,
+    );
+    const dataRows = [...container.querySelectorAll('tbody tr')].filter((r) => r.querySelectorAll('td').length > 3);
+    expect(dataRows).toHaveLength(2); // 코어 2가닥
+
+    fireEvent.click(dataRows[0]!);
+    const selected = dataRows.filter((r) => r.className.includes('bg-info-bg'));
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toBe(dataRows[0]);
+    // 오른쪽 패널은 자산 단위다 — 둘 다 맞춰 준다.
+    expect(onSelect).toHaveBeenCalledWith('slot');
   });
 
   /* 인입이 없는 자산은 선번장 대상이 아니다 — OTDR 로 잴 것이 없다. */

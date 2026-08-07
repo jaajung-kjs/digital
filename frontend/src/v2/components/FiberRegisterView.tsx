@@ -6,7 +6,7 @@
  *   컬럼: 코어 | {groups 동적} | 길이(m) | 손실(dB) | 점검일
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -132,9 +132,18 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   const typesById = useTypesById(types);
 
   const [query, setQuery] = useState('');
+  /* 고른 심선 — 표의 단위는 자산이 아니라 **심선**이다. 자산 id 로 칠하면 그 슬롯의 24행이
+     한꺼번에 물들어, 어느 심선을 눌렀는지가 화면에서 사라진다(실제로 그랬다). */
+  const [selectedCore, setSelectedCore] = useState<{ slotId: string; coreIndex: number } | null>(null);
 
   /* 표의 단위는 자산이 아니라 (자산, 컨테이너) — 계통과 같은 훅을 쓴다. */
   const picked = useMediumContainer(containers, typesById);
+
+  /* 패널이 다른 자산으로 옮겨 가면 표의 선택도 놓는다 — 둘이 서로 다른 것을 가리키면
+     "선택" 이라는 말이 화면에서 두 가지 뜻이 된다. */
+  useEffect(() => {
+    setSelectedCore((cur) => (cur && cur.slotId === selectedAssetId ? cur : null));
+  }, [selectedAssetId]);
   const activeContainer = picked.active;
 
   const { groups, groupLabels, rows } = useMemo(() => {
@@ -193,16 +202,19 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   const metaFields = [...cableMetaFields, ...portMetaFields];
   const totalCols = 1 + groups.length + 1 + metaFields.length;
 
-  /* 코어 번호는 한두 자리라 좁게, 값 열도 좁게 — 남는 폭은 대국 그룹이 나눠 갖는다.
-     대국 이름은 '통신랙 A · OFD-1 · 슬롯 1 · 포트 3' 처럼 길어질 수 있어 여기가 넓어야 한다. */
-  const META_WIDTH = 11;
-  const metaTotal = META_WIDTH * metaFields.length;
+  /* 코어 번호는 한두 자리지만 **머리글이 접히지 않을 만큼**은 있어야 한다 — 5% 로 뒀더니
+     `코어` 두 글자가 두 줄로 갈라져 머리글 줄만 키가 커졌다.
+     값 열은 무엇을 적는 칸인지에 따라 다르다: 날짜 칸에는 달력 아이콘이 함께 들어가므로
+     숫자 칸과 같은 폭을 주면 아이콘이 날짜 위에 겹친다. */
+  const CORE_WIDTH = 8;
+  const metaWidth = (f: ValueDef) => (f.type === 'date' ? 20 : 10);
+  const metaTotal = metaFields.reduce((sum, f) => sum + metaWidth(f), 0);
   /* 대국 열은 두 홉을 건너간 이름이라 가장 길다 — 성단 열과 같은 몫을 준다. */
   const peerCols = groups.length + 1;
   const fiberWidths = [
-    5,
-    ...Array.from({ length: peerCols }, () => (100 - 5 - metaTotal) / peerCols),
-    ...metaFields.map(() => META_WIDTH),
+    CORE_WIDTH,
+    ...Array.from({ length: peerCols }, () => (100 - CORE_WIDTH - metaTotal) / peerCols),
+    ...metaFields.map(metaWidth),
   ];
 
   return (
@@ -272,9 +284,15 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                     className={cn(
                       'h-9 border-b border-line',
                       SELECTABLE,
-                      selectedAssetId === row.slotId && SELECTED,
+                      selectedCore?.slotId === row.slotId &&
+                        selectedCore.coreIndex === row.coreIndex &&
+                        SELECTED,
                     )}
-                    onClick={() => onSelectAsset(row.slotId)}
+                    /* 행은 심선이고 오른쪽 패널은 자산 단위다 — 둘 다 맞춰 준다. */
+                    onClick={() => {
+                      setSelectedCore({ slotId: row.slotId, coreIndex: row.coreIndex });
+                      onSelectAsset(row.slotId);
+                    }}
                   >
                     {/* 코어 번호 */}
                     <td className="px-3 py-1.5 text-sm text-content-muted">{row.coreIndex}</td>
