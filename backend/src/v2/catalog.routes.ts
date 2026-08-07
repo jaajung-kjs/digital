@@ -49,7 +49,7 @@ async function createTypeStructure(
   }
   for (const [i, p] of body.ports.entries()) {
     await tx.assetPortTemplate.create({
-      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false, sortOrder: i },
+      data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, sortOrder: i },
     });
   }
   for (const l of body.links) {
@@ -80,7 +80,7 @@ function canonicalizeAccepts(accepts: unknown): { categoryKeys: string[]; typeKe
  */
 function structuralKey(
   containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: unknown }>,
-  ports: Array<{ group: string; count: number; direction: string; medium: string; namePattern: string; lineSide?: boolean | null }>,
+  ports: Array<{ group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null }>,
   links: Array<{ fromGroup: string; toGroup: string; mapping: string }>,
 ): string {
   const canon = {
@@ -89,7 +89,7 @@ function structuralKey(
       .map((c) => ({ key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: canonicalizeAccepts(c.accepts) })),
     ports: [...ports]
       .sort((a, b) => a.group.localeCompare(b.group))
-      .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, lineSide: p.lineSide ?? false })),
+      .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1 })),
     links: [...links]
       .sort((a, b) => `${a.fromGroup}→${a.toGroup}`.localeCompare(`${b.fromGroup}→${b.toGroup}`))
       .map((l) => ({ fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping })),

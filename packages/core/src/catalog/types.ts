@@ -82,14 +82,29 @@ export interface PortTemplate {
   direction: Direction;
   medium: string; // CableGroup.key 와 대응하는 안정 키 (e.g. 'fiber' | 'power' | 'network' | 'control' | 'ground')
   namePattern: string; // '{n}' 치환 (예: '코어 {n}')
-  /** 선로측 그룹 선언 — 선번장 meta(lengthM/lossDb/inspectedAt) 기록 대상. 타입당 최대 1개 그룹. */
-  lineSide?: boolean;
+  /**
+   * 이 포트 하나가 나르는 심선 수. 1 = 보통 포트, N = **다심 포트**.
+   *
+   * OPGW 한 가닥은 케이블 한 본인데 그 안에 24심이 들어 있다. 예전에는 그 24심을
+   * 포트 24개 + 케이블 24본으로 폈고, 그래서 설계서 공량이 심선 수만큼 부풀었다
+   * (40m 한 가닥 → 160m). 이제 케이블은 1본이 인입 포트 하나에 물리고, 그 안의
+   * 코어는 `positions` 으로 센다 — NetBox 의 RearPort(positions)/FrontPort 와 같다.
+   */
+  positions?: number;
 }
+
+export type LinkMapping =
+  /** 같은 번호끼리 — 앞 그룹 i번 ↔ 뒷 그룹 i번. */
+  | 'byIndex'
+  /** 모두 서로 통한다 — 모선처럼. */
+  | 'all'
+  /** 다심 포트의 i번 **코어** ↔ 상대 그룹 i번 포트. 경로슬롯의 인입↔심선이 이것이다. */
+  | 'byPosition';
 
 export interface InternalLinkRule {
   fromGroup: string;
   toGroup: string;
-  mapping: 'byIndex' | 'all';
+  mapping: LinkMapping;
 }
 
 export interface AssetTypeSpec {
@@ -125,6 +140,8 @@ export interface PortRef {
   name: string;
   direction: Direction;
   medium: string;
+  /** 이 포트가 나르는 심선 수. 없거나 1이면 보통 포트. @see PortTemplate.positions */
+  positions?: number;
 }
 
 export interface CableRef {
@@ -154,8 +171,8 @@ export interface TypeUpsertBody {
   relocateHours: number;
   fieldDefs: FieldDef[];
   containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: AcceptRule }>;
-  ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; lineSide?: boolean }>;
-  links: Array<{ fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }>;
+  ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number }>;
+  links: Array<{ fromGroup: string; toGroup: string; mapping: LinkMapping }>;
 }
 
 /**

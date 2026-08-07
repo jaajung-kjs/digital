@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { buildFiberRows, fiberContainers } from '../fiberSelectors';
-import type { V2AssetType } from '../types';
 
-const port = (id: string, assetId: string, group: string, index: number, medium = 'fiber', name?: string) =>
-  ({ id, assetId, group, index, name: name ?? `${group === 'A' ? '장비' : '선로'} ${index}`, direction: 'BI' as const, medium });
+const port = (
+  id: string, assetId: string, group: string, index: number,
+  extra: { medium?: string; name?: string; positions?: number; fieldValues?: Record<string, unknown> } = {},
+) => ({
+  id, assetId, group, index,
+  name: extra.name ?? `광 ${index}`,
+  direction: 'BI' as const,
+  medium: extra.medium ?? 'fiber',
+  positions: extra.positions ?? 1,
+  fieldValues: extra.fieldValues ?? {},
+});
+/** 다심 인입 포트 하나 — 코어 수만큼 심선을 나른다. */
+const trunk = (id: string, assetId: string, positions: number, fieldValues: Record<string, unknown> = {}) =>
+  port(id, assetId, 'TRUNK', 1, { medium: 'fiber-trunk', name: '광 인입', positions, fieldValues });
+
 const asset = (id: string, name: string, extra: object = {}) => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
@@ -15,100 +27,97 @@ const cable = (id: string, a: string, b: string, extra: object = {}) => ({
   pathPoints: [], specParams: {}, updatedAt: 'v', ...extra,
 });
 
-// Type with B group declared as lineSide (OFD-SLOT 시드 구조)
-const typeWithLineSide: V2AssetType = {
-  id: 't', key: 'OFD-SLOT', name: '광슬롯', categoryId: 'c', sortOrder: 1, isActive: true,
-  assetCount: 0, placeable: false, defaultWidth: null, defaultHeight: null,
-  laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
-  fieldDefs: [], containerSpecs: [], linkRules: [],
-  portTemplates: [
-    { id: 'pt-a', group: 'A', count: 2, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}', sortOrder: 1, lineSide: false },
-    { id: 'pt-b', group: 'B', count: 2, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', sortOrder: 2, lineSide: true },
-  ],
-};
-
-// Type with NO lineSide declared
-const typeNoLineSide: V2AssetType = {
-  ...typeWithLineSide,
-  id: 't2',
-  portTemplates: typeWithLineSide.portTemplates.map((p) => ({ ...p, lineSide: false })),
-};
-
 const ofd = asset('ofd', 'OFD-1');
+/** 2심짜리 경로슬롯 — 성단 2 + 인입 1. */
 const slot = asset('slot', '슬롯1', {
   parentAssetId: 'ofd',
-  typeId: 't',
-  ports: [port('a1', 'slot', 'A', 1), port('a2', 'slot', 'A', 2), port('b1', 'slot', 'B', 1), port('b2', 'slot', 'B', 2)],
+  ports: [
+    port('a1', 'slot', 'CORE', 1),
+    port('a2', 'slot', 'CORE', 2),
+    trunk('t1', 'slot', 2, { 1: { lossDb: 0.3 } }),
+  ],
 });
-const dev = asset('dev', '장비1', { ports: [port('d1', 'dev', 'P', 1, 'fiber', '포트 1')] });
+const dev = asset('dev', '장비1', { ports: [port('d1', 'dev', 'P', 1, { name: '포트 1' })] });
 
 describe('fiberContainers', () => {
-  it('광 포트 자식을 실보유한 자산만', () => {
-    expect(fiberContainers([ofd, slot, dev] as never).map((c) => c.asset.id)).toEqual(['ofd']);
+  /* 예전에는 "광 포트를 가진 자식" 이면 다 걸려서 장비쪽 광 포트만 있는 광단말까지 대상이 됐다.
+     선번장에 적는 것은 OTDR 로 재는 인입 심선의 값이라, 인입이 없는 자산에는 적을 것이 없다. */
+  it('인입 포트를 가진 자식을 보유한 자산만 — 단심 광만 있는 자산은 아니다', () => {
+    const optTerm = asset('opt', '광단말-1', {
+      parentAssetId: 'rack',
+      ports: [port('o1', 'opt', 'CORE', 1)],
+    });
+    const rack = asset('rack', '통신랙 A');
+    expect(fiberContainers([ofd, slot, dev, rack, optTerm] as never).map((c) => c.asset.id)).toEqual(['ofd']);
   });
 });
 
 describe('buildFiberRows', () => {
-  it('그룹 동적 컬럼 + 코어별 행 + 로컬 peer 해소', () => {
+  it('행은 인입의 코어 수만큼 — 성단 열은 단심 광 그룹에서 나온다', () => {
     const cables = [cable('c1', 'd1', 'a1')];
-    const { groups, rows } = buildFiberRows(ofd as never, [ofd, slot, dev] as never, cables as never, [typeWithLineSide]);
-    expect(groups).toEqual(['A', 'B']);
-    expect(rows).toHaveLength(2); // core 1, 2
-    const r1 = rows[0]!;
-    expect(r1.cells[0]).toMatchObject({ group: 'A', cableId: 'c1', peer: { assetName: '장비1', portName: '포트 1', remote: false } });
-    expect(r1.cells[1]).toMatchObject({ group: 'B', cableId: null, peer: null });
-  });
-
-  it('로컬 미해소 시 saved refs로 대국 표시', () => {
-    const remoteCable = cable('c2', 'b2', 'remote-port', {
-      aRef: { portName: '선로 2', portGroup: 'B', portIndex: 2, assetId: 'slot', assetName: '슬롯1', substationId: 'sub-1', substationName: '국사A' },
-      bRef: { portName: '장비 7', portGroup: 'A', portIndex: 7, assetId: 'r-a', assetName: '원격슬롯', substationId: 'sub-2', substationName: '국사B' },
+    const { groups, rows } = buildFiberRows(ofd as never, [ofd, slot, dev] as never, cables as never);
+    expect(groups).toEqual(['CORE']);
+    expect(rows).toHaveLength(2); // 인입 positions=2
+    expect(rows[0]!.cells[0]).toMatchObject({
+      group: 'CORE', cableId: 'c1', peer: { assetName: '장비1', portName: '포트 1', remote: false },
     });
-    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [remoteCable] as never, [typeWithLineSide]);
-    const r2 = rows[1]!;
-    expect(r2.cells[1]!.peer).toMatchObject({ assetName: '원격슬롯', substationName: '국사B', remote: true });
+    expect(rows[1]!.cells[0]).toMatchObject({ cableId: null, peer: null });
   });
 
-  // ── A-V1 휴리스틱 제거 관련 테스트 ─────────────────────────────────────────
-
-  it('[lineSide 선언] B 그룹(lineSide=true)에 케이블 있으면 meta에 해당 케이블 선정', () => {
-    // 구 테스트명: 'meta는 마지막 그룹 케이블의 specParams' → 선언 기반으로 대체
-    const c = cable('c3', 'b1', 'x', { specParams: { lengthM: 12.5, lossDb: 0.3, inspectedAt: '2026-07-01' } });
-    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [c as never] as never, [typeWithLineSide]);
-    // B 그룹이 lineSide=true → c3가 meta 케이블
-    expect(rows[0]!.meta.cableId).toBe('c3');
-    // 케이블의 값(길이)은 케이블에서, 심선의 값(손실·점검일)은 포트에서 온다.
-    expect(rows[0]!.meta.cableValues).toMatchObject({ lengthM: 12.5 });
-    // core 2에는 b2에 케이블 없음 → meta null
-    expect(rows[1]!.meta.cableId).toBeNull();
+  /* 손실은 인입 포트 하나에 코어 번호 아래 담긴다 — 심선마다 포트를 만들지 않는다. */
+  it('심선 값은 인입 포트에서 코어 번호로 갈라져 나온다', () => {
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [] as never);
+    expect(rows[0]!.meta.portId).toBe('t1');
+    expect(rows[0]!.meta.portValues).toEqual({ lossDb: 0.3 });
+    expect(rows[1]!.meta.portValues).toEqual({}); // 코어 2는 아직 안 잼
   });
 
-  it('[lineSide 미선언] lineSide 그룹이 없으면 meta.cableId는 null', () => {
-    // 구 테스트명: 없음(신규) — B 그룹에 케이블 있어도 lineSide 미선언이면 meta null
-    const slotNoLineSide = { ...slot, typeId: 't2' };
-    const c = cable('c5', 'b1', 'x', { specParams: { lengthM: 5 } });
-    const { rows } = buildFiberRows(
-      ofd as never,
-      [ofd, slotNoLineSide as never, dev as never] as never,
-      [c as never] as never,
-      [typeNoLineSide],
-    );
-    expect(rows[0]!.meta.cableId).toBeNull();
+  /* 40m 짜리 OPGW 는 24심이어도 40m 다 — 길이는 케이블 한 가닥의 값이라 모든 심선이 같은 수를 본다.
+     예전 모델은 심선마다 케이블을 뒀기 때문에 이 40m 가 심선 수만큼 곱해져 집계됐다. */
+  it('길이는 인입 케이블 한 가닥의 값 — 모든 코어 행이 같은 케이블을 가리킨다', () => {
+    const c = cable('trunk-c', 't1', 'far-trunk', { specParams: { lengthM: 40 } });
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [c] as never);
+    expect(rows.map((r) => r.meta.cableId)).toEqual(['trunk-c', 'trunk-c']);
+    expect(rows.map((r) => r.meta.cableValues)).toEqual([{ lengthM: 40 }, { lengthM: 40 }]);
   });
 
-  it('[폴백 부재 단언] A 그룹에만 케이블 있고 B 그룹(lineSide=true)엔 없으면 meta는 null (위치 폴백 없음)', () => {
-    // 구 테스트명: 'meta 폴백: 마지막 그룹에 케이블 없으면 앞 그룹 케이블' → 역동작 단언으로 대체
-    // 이 케이스가 OLD 폴백의 회귀 핀: A 그룹만 케이블 있어도 meta null이어야 함
-    const c = cable('c4', 'a2', 'x', { specParams: { lengthM: 7 } }); // A그룹 index2에만 연결
-    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [c as never] as never, [typeWithLineSide]);
-    // B 그룹(lineSide=true)에 케이블 없음 → meta null (위치 폴백으로 A 케이블 선정 금지)
-    expect(rows[1]!.meta.cableId).toBeNull();
+  /* 예전 모델에서는 대국을 슬롯 하나 더 만들어 표현해 추적이 거기서 끊겼다. */
+  it('대국은 인입 건너편 슬롯의 같은 번호 심선을 지나 그 장비까지 이어진다', () => {
+    const farSlot = asset('far', '슬롯3', {
+      parentAssetId: 'ofd2',
+      ports: [port('f1', 'far', 'CORE', 1), port('f2', 'far', 'CORE', 2), trunk('ft', 'far', 2)],
+    });
+    const farDev = asset('fdev', '대국장비', { ports: [port('fd1', 'fdev', 'P', 1, { name: '포트 5' })] });
+    const cables = [
+      cable('trunk-c', 't1', 'ft', { specParams: { lengthM: 40 } }),
+      cable('far-jumper', 'f1', 'fd1'),
+    ];
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot, farSlot, farDev] as never, cables as never);
+    expect(rows[0]!.farEnd).toMatchObject({ assetName: '대국장비', portName: '포트 5' });
+    // 코어 2는 건너편 심선까지는 있으나 아직 장비로 안 나갔다 — 성단까지가 끝이다.
+    expect(rows[1]!.farEnd).toMatchObject({ assetName: '슬롯3', portName: '광 2' });
   });
 
-  it('슬롯별 core max — 작은 슬롯은 빈 필러 행 없음', () => {
-    const small = asset('slot2', '슬롯2', { parentAssetId: 'ofd', ports: [port('s2a1', 'slot2', 'A', 1), port('s2b1', 'slot2', 'B', 1)] });
-    const { rows } = buildFiberRows(ofd as never, [ofd, slot, small] as never, [] as never, [typeWithLineSide]);
-    expect(rows.filter((r) => r.slotId === 'slot2')).toHaveLength(1);
+  it('인입 건너편이 로컬에 없으면 saved refs 로 대국 슬롯까지 표시', () => {
+    const remote = cable('rc', 't1', 'remote-trunk', {
+      aRef: { portName: '광 인입', portGroup: 'TRUNK', portIndex: 1, assetId: 'slot', assetName: '슬롯1', substationId: 'sub-1', substationName: '국사A' },
+      bRef: { portName: '광 인입', portGroup: 'TRUNK', portIndex: 1, assetId: 'r-a', assetName: '원격슬롯', substationId: 'sub-2', substationName: '국사B' },
+    });
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [remote] as never);
+    expect(rows[0]!.farEnd).toMatchObject({ assetName: '원격슬롯', substationName: '국사B', remote: true });
+  });
+
+  /* 12심 판과 24심 판이 한 함체에 섞여 있어도 각자 자기 코어 수만큼만 나온다 —
+     예전에는 그 슬롯의 포트 최대 번호로 셌기 때문에 열의 정의와 행의 정의가 따로 놀았다. */
+  it('행 수는 그 슬롯 인입의 코어 수 — 판마다 다르다', () => {
+    const big = asset('slot2', '슬롯2', {
+      parentAssetId: 'ofd',
+      ports: [port('s2a1', 'slot2', 'CORE', 1), trunk('t2', 'slot2', 4)],
+    });
+    const { rows } = buildFiberRows(ofd as never, [ofd, slot, big] as never, [] as never);
     expect(rows.filter((r) => r.slotId === 'slot')).toHaveLength(2);
+    expect(rows.filter((r) => r.slotId === 'slot2')).toHaveLength(4);
+    // 성단 포트가 없는 코어도 행은 있다 — 아직 안 나간 심선에도 손실을 적어야 한다.
+    expect(rows.filter((r) => r.slotId === 'slot2').at(-1)!.cells[0]).toMatchObject({ portId: null });
   });
 });

@@ -13,7 +13,7 @@
  */
 import { Plus } from 'lucide-react';
 import type { TypeSpecIssue } from '@twin/core';
-import { PORT_DIRECTIONS, portPresets, uniqueGroupKey } from '@twin/core';
+import { DEFAULT_CORE_COUNT, PORT_DIRECTIONS, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction, PortPreset } from '@twin/core';
 import { Button, DetailCard, DetailCardHeader, DetailRow, Input, Select, ItemCard } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
@@ -26,7 +26,7 @@ interface PortRow {
   direction: Direction;
   medium: string;
   namePattern: string;
-  lineSide?: boolean;
+  positions?: number;
 }
 
 interface PortsEditorProps {
@@ -45,6 +45,7 @@ function rowFromPreset(preset: PortPreset, taken: readonly string[]): PortRow {
     direction: preset.direction,
     medium: preset.medium,
     namePattern: preset.namePattern,
+    positions: preset.positions,
   };
 }
 
@@ -85,9 +86,9 @@ export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsE
         const dirIssue = issueFor(issues, `ports[${i}].direction`);
         const mediumIssue = issueFor(issues, `ports[${i}].medium`);
         const patternIssue = issueFor(issues, `ports[${i}].namePattern`);
-        const lineSideIssue = issueFor(issues, `ports[${i}].lineSide`);
+        const positionsIssue = issueFor(issues, `ports[${i}].positions`);
         // 접어 둔 안쪽에 문제가 있으면 열어 둔다 — 안 그러면 저장이 막힌 이유가 안 보인다.
-        const hasHiddenIssue = Boolean(groupIssue || dirIssue || mediumIssue || patternIssue || lineSideIssue);
+        const hasHiddenIssue = Boolean(groupIssue || dirIssue || mediumIssue || patternIssue || positionsIssue);
 
         return (
           <ItemCard key={i} title={rowTitle(p, presets)} onDelete={locked ? undefined : () => remove(i)}>
@@ -162,18 +163,20 @@ export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsE
                   )}
                 </DetailRow>
 
-                <DetailRow label="선로측" issue={lineSideIssue}>
-                  <label className="flex items-center gap-2 text-xs text-content">
-                    <input
-                      type="checkbox"
-                      aria-label={`포트 ${i + 1} 선로측`}
-                      checked={p.lineSide ?? false}
+                {/* 심선 수는 **다심 종류에만** 뜻이 있다 — 보통 포트에 칸을 두면 어휘가 흐려진다.
+                    OPGW 한 가닥이 코어 몇 가닥을 나르는가가 여기서 정해진다. */}
+                {portKind(p.medium)?.multiCore && (
+                  <DetailRow label="심선 수" issue={positionsIssue}>
+                    <Input
+                      type="number"
+                      aria-label={`포트 ${i + 1} 심선 수`}
+                      value={String(p.positions ?? DEFAULT_CORE_COUNT)}
                       disabled={locked}
-                      onChange={(e) => update(i, { lineSide: e.currentTarget.checked })}
+                      onChange={(e) => update(i, { positions: Number(e.currentTarget.value) })}
                     />
-                    선로측 (meta 기록 대상)
-                  </label>
-                </DetailRow>
+                    <span className="text-xs text-content-faint">케이블 한 가닥 안의 코어 수</span>
+                  </DetailRow>
+                )}
               </div>
             </details>
           </ItemCard>

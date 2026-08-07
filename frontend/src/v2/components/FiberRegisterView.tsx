@@ -11,9 +11,9 @@ import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTE
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog, useTypesById } from '../hooks';
-import { cableFieldsFor, portFieldsFor, type CableFieldDef } from '@twin/core';
+import { cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type CableFieldDef } from '@twin/core';
 import { useMediumContainer } from '../useMediumContainer';
-import { fiberContainers, buildFiberRows, FIBER_MEDIUM } from '../fiberSelectors';
+import { fiberContainers, buildFiberRows, FIBER_TRUNK_MEDIUM } from '../fiberSelectors';
 import type { FiberRow } from '../fiberSelectors';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from './InlineEditCell';
@@ -77,8 +77,8 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
  * (별도 OCC 축을 만들지 않는다).
  */
 function PortFieldInput({
-  value, field, portId, assetId,
-}: { value: unknown; field: CableFieldDef; portId: string | null; assetId: string | null }) {
+  value, field, portId, assetId, position,
+}: { value: unknown; field: CableFieldDef; portId: string | null; assetId: string | null; position: number }) {
   if (!portId || !assetId) return <span className="text-content-faint">—</span>;
   const resolvedPortId: string = portId;
   const resolvedAssetId: string = assetId;
@@ -92,13 +92,14 @@ function PortFieldInput({
 
     const next = isNumber ? (raw.trim() === '' ? null : Number(raw)) : (raw.trim() || null);
     if (isNumber && typeof next === 'number' && Number.isNaN(next)) return;
-    const current = port.fieldValues?.[field.key] ?? null;
+    const current = portValuesAt(port, position)[field.key] ?? null;
     if (current === next) return; // 무변경 가드
 
     /* 포트 배열째로 스테이지한다 — 화면(effective)이 곧바로 새 값을 보여야 하고,
-       커밋 페이로드는 이 배열에서 `portFieldValues` 를 뽑아 낸다. */
+       커밋 페이로드는 이 배열에서 `portFieldValues` 를 뽑아 낸다.
+       다심 포트의 저장 형상(코어 번호 중첩)을 아는 곳은 `setPortValueAt` 하나뿐이다. */
     const ports = asset.ports.map((p) =>
-      p.id === resolvedPortId ? { ...p, fieldValues: { ...(p.fieldValues ?? {}), [field.key]: next } } : p,
+      p.id === resolvedPortId ? { ...p, fieldValues: setPortValueAt(p, position, field.key, next) } : p,
     );
     useV2WorkingCopy.getState().stageAssetUpdate(resolvedAssetId, { ports });
   }
@@ -125,7 +126,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => fiberContainers(effectiveAssets), [effectiveAssets]);
 
-  // lineSide 선언 판독을 위한 카탈로그 타입 (meta 케이블 선정 — A-V1)
+  // 컨테이너 이름표를 만드는 데 쓰는 카탈로그 타입(useMediumContainer)
   const catalog = useV2Catalog();
   const types = catalog.data?.types;
   const typesById = useTypesById(types);
@@ -139,9 +140,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   const { groups, groupLabels, rows } = useMemo(() => {
     if (!activeContainer) return { groups: [] as string[], groupLabels: [] as string[], rows: [] as FiberRow[] };
     return buildFiberRows(
-      activeContainer.asset, effectiveAssets, effectiveCables, types ?? [], activeContainer.containerKey,
+      activeContainer.asset, effectiveAssets, effectiveCables, activeContainer.containerKey,
     );
-  }, [activeContainer, effectiveAssets, effectiveCables, types]);
+  }, [activeContainer, effectiveAssets, effectiveCables]);
 
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
   if (containers.length === 0) {
@@ -150,8 +151,8 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
         title="선번장에 표시할 광 자산이 없습니다"
         description={
           <>
-            선번장은 <strong>광 포트를 가진 자산을 품고 있는 함체</strong>를 자동으로 찾습니다. OFD 같은 함체를 만들고
-            그 안에 광슬롯을 넣으면 여기에 나타납니다.
+            선번장은 <strong>광 인입 포트를 가진 자산을 품고 있는 함체</strong>를 자동으로 찾습니다. OFD 같은 함체를
+            만들고 그 안에 경로슬롯을 넣으면 여기에 나타납니다.
           </>
         }
       />
@@ -166,9 +167,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
     if (!q) return rows;
     return rows.filter((r) => {
       if (r.slotName.toLowerCase().includes(q)) return true;
-      return r.cells.some((c) =>
-        c.peer ? `${c.peer.assetName} ${c.peer.portName}`.toLowerCase().includes(q) : false,
-      );
+      const hit = (p: { assetName: string; portName: string } | null) =>
+        p ? `${p.assetName} ${p.portName}`.toLowerCase().includes(q) : false;
+      return r.cells.some((c) => hit(c.peer)) || hit(r.farEnd);
     });
   })();
 
@@ -185,19 +186,22 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
     }
   }
 
-  /* 선로측에 적는 값 — 무엇이 케이블의 것이고 무엇이 심선의 것인지는 종류 선언이 정한다. */
-  const cableMetaFields = cableFieldsFor(FIBER_MEDIUM);
-  const portMetaFields = portFieldsFor(FIBER_MEDIUM);
+  /* 인입에 적는 값 — 무엇이 케이블의 것이고 무엇이 심선의 것인지는 종류 선언이 정한다.
+     장비쪽 광 포트에는 이 값들이 아예 선언돼 있지 않다(OTDR 로 잴 것이 없다). */
+  const cableMetaFields = cableFieldsFor(FIBER_TRUNK_MEDIUM);
+  const portMetaFields = portFieldsFor(FIBER_TRUNK_MEDIUM);
   const metaFields = [...cableMetaFields, ...portMetaFields];
-  const totalCols = 1 + groups.length + metaFields.length;
+  const totalCols = 1 + groups.length + 1 + metaFields.length;
 
   /* 코어 번호는 한두 자리라 좁게, 값 열도 좁게 — 남는 폭은 대국 그룹이 나눠 갖는다.
      대국 이름은 '통신랙 A · OFD-1 · 슬롯 1 · 포트 3' 처럼 길어질 수 있어 여기가 넓어야 한다. */
   const META_WIDTH = 11;
   const metaTotal = META_WIDTH * metaFields.length;
+  /* 대국 열은 두 홉을 건너간 이름이라 가장 길다 — 성단 열과 같은 몫을 준다. */
+  const peerCols = groups.length + 1;
   const fiberWidths = [
     5,
-    ...groups.map(() => (100 - 5 - metaTotal) / Math.max(groups.length, 1)),
+    ...Array.from({ length: peerCols }, () => (100 - 5 - metaTotal) / peerCols),
     ...metaFields.map(() => META_WIDTH),
   ];
 
@@ -235,6 +239,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
               {groups.map((g, i) => (
                 <Th key={g}>{groupLabels[i] ?? g}</Th>
               ))}
+              <Th>대국</Th>
               {metaFields.map((f) => (
                 <Th key={f.key}>{f.unit ? `${f.label}(${f.unit})` : f.label}</Th>
               ))}
@@ -279,6 +284,10 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                         <PeerCell peer={cell.peer} />
                       </td>
                     ))}
+                    {/* 인입 건너편에서 이 심선이 닿는 곳 — 예전에는 대국 슬롯에서 끊겼다. */}
+                    <td className="px-3 py-1.5">
+                      <PeerCell peer={row.farEnd} />
+                    </td>
                     {/* 선로측 케이블에 적는 값 — 어떤 칸이 있는지는 종류 선언이 정한다. */}
                     {cableMetaFields.map((f) => (
                       <td key={f.key} className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
@@ -292,6 +301,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                           field={f}
                           portId={row.meta.portId}
                           assetId={row.meta.portAssetId}
+                          position={row.coreIndex}
                         />
                       </td>
                     ))}

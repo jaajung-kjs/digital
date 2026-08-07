@@ -1,4 +1,5 @@
 import { PORT_DIRECTIONS } from '../catalog/types.js';
+import { portKind } from '../catalog/portKinds.js';
 import type { AssetTypeSpec } from '../catalog/types.js';
 
 export interface TypeSpecIssue { path: string; message: string }
@@ -7,7 +8,7 @@ export interface TypeSpecContext { categoryKeys: string[]; mediumKeys: string[] 
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const DIRECTIONS: ReadonlySet<string> = new Set<string>(PORT_DIRECTIONS.map((d) => d.value));
 const FIELD_TYPES = new Set(['text', 'number', 'date', 'select']);
-const MAPPINGS = new Set(['byIndex', 'all']);
+const MAPPINGS: ReadonlySet<string> = new Set(['byIndex', 'all', 'byPosition']);
 
 /**
  * 타입 스펙 구조 검증 — 저장 가능 여부 판정의 유일 구현.
@@ -46,7 +47,8 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
   });
 
   const portGroups = new Set<string>();
-  let lineSideCount = 0;
+  /** 그룹 키 → 그 그룹이 나르는 코어 수. `byPosition` 링크 검증에 쓴다. */
+  const positionsByGroup = new Map<string, number>();
   spec.ports.forEach((p, i) => {
     if (!KEY_RE.test(p.group)) push(`ports[${i}].group`, '포트 그룹은 영문/숫자/대시/언더스코어만 허용됩니다');
     else if (portGroups.has(p.group)) push(`ports[${i}].group`, `포트 그룹 중복: ${p.group}`);
@@ -56,10 +58,15 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
       push(`ports[${i}].direction`, `방향은 ${PORT_DIRECTIONS.map((d) => d.value).join('/')} 중 하나여야 합니다`);
     if (!ctx.mediumKeys.includes(p.medium)) push(`ports[${i}].medium`, `존재하지 않는 매체입니다: ${p.medium}`);
     if (p.count > 1 && !p.namePattern.includes('{n}')) push(`ports[${i}].namePattern`, "이름 패턴에 '{n}' 이 필요합니다 (count > 1)");
-    if (p.lineSide === true) {
-      lineSideCount += 1;
-      if (lineSideCount > 1) push(`ports[${i}].lineSide`, '선로측 그룹은 타입당 1개만 지정할 수 있습니다');
-    }
+
+    const positions = p.positions ?? 1;
+    positionsByGroup.set(p.group, positions);
+    if (positions < 1) push(`ports[${i}].positions`, '심선 수는 1 이상이어야 합니다');
+    // 다심은 종류가 정한다 — 아무 포트에나 코어 수를 적으면 어휘가 뜻을 잃는다.
+    if (positions > 1 && !portKind(p.medium)?.multiCore)
+      push(`ports[${i}].positions`, `${portKind(p.medium)?.name ?? p.medium} 포트는 심선을 여러 가닥 나를 수 없습니다`);
+    if (positions === 1 && portKind(p.medium)?.multiCore)
+      push(`ports[${i}].positions`, `${portKind(p.medium)?.name ?? p.medium} 포트는 심선 수가 2 이상이어야 합니다`);
   });
 
   const linkPairs = new Set<string>();
@@ -67,7 +74,11 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
     if (!portGroups.has(l.fromGroup)) push(`links[${i}].fromGroup`, `존재하지 않는 포트 그룹: ${l.fromGroup}`);
     if (!portGroups.has(l.toGroup)) push(`links[${i}].toGroup`, `존재하지 않는 포트 그룹: ${l.toGroup}`);
     else if (l.fromGroup === l.toGroup) push(`links[${i}].toGroup`, '자기 그룹으로의 링크는 허용되지 않습니다');
-    if (!MAPPINGS.has(l.mapping)) push(`links[${i}].mapping`, '매핑은 byIndex/all 중 하나여야 합니다');
+    if (!MAPPINGS.has(l.mapping)) push(`links[${i}].mapping`, `매핑은 ${[...MAPPINGS].join('/')} 중 하나여야 합니다`);
+    // byPosition 은 다심 포트의 코어를 상대 그룹의 포트에 1:1로 태우는 것이라,
+    // 앞이 다심이 아니면 태울 코어가 없다.
+    if (l.mapping === 'byPosition' && (positionsByGroup.get(l.fromGroup) ?? 1) < 2)
+      push(`links[${i}].mapping`, 'byPosition 은 앞 그룹이 다심 포트일 때만 쓸 수 있습니다');
     const pair = `${l.fromGroup}→${l.toGroup}`;
     if (linkPairs.has(pair)) push(`links[${i}]`, `링크 룰 중복: ${pair}`);
     linkPairs.add(pair);

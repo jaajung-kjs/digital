@@ -62,8 +62,16 @@ export interface PortKind {
    * 광 손실(dB)·점검일이 그렇다. 예전에는 케이블에 담았는데, 그러려면 OPGW 한 가닥을
    * 심선 수만큼 케이블로 복제해야 했고 그 탓에 설계서 공량이 그 배로 부풀었다
    * (40m 4심 → 160m). 값이 심선의 것이면 심선(포트)에 담는다.
+   *
+   * **다심 포트(`positions > 1`)에서는 코어마다 한 벌씩** 담긴다 — `portValuesAt` 참고.
    */
   portFields: readonly CableFieldDef[];
+  /**
+   * 이 종류의 포트는 심선을 여러 가닥 나른다 — 케이블 1본에 코어 N개.
+   *
+   * 다심 포트끼리만 서로 붙고(`connectsTo`), 코어 대응은 번호로 한다.
+   */
+  multiCore?: boolean;
 }
 
 export const PORT_KINDS: readonly PortKind[] = [
@@ -73,10 +81,21 @@ export const PORT_KINDS: readonly PortKind[] = [
     cableFields: [{ key: 'voltage', label: '전압', type: 'text' }], portFields: [],
   },
   { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
+  // 점퍼 한 가닥이 어댑터 하나에 꽂히는, 심선 1가닥짜리 보통 광 포트.
+  { key: 'fiber', name: '광', connectsTo: ['fiber'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
+  /*
+   * 다심 인입 — OPGW·광케이블처럼 **한 가닥 안에 여러 심선**이 든 케이블이 물리는 자리.
+   *
+   * 왜 `fiber` 와 다른 종류인가: 물리적으로 붙는 상대가 다르다(점퍼코드를 OPGW 자리에
+   * 꽂을 수 없다). 그리고 OTDR 로 재는 심선 손실은 **여기에만** 있다 — 장비쪽 광 포트에는
+   * 잴 것이 없다. 종류를 가르면 그 사실이 어휘로 표현되어, 화면이 "이 포트만 예외" 라고
+   * 걸러 내는 분기를 둘 필요가 없어진다.
+   */
   {
-    key: 'fiber', name: '광', connectsTo: ['fiber'], pairing: 'any', maxCables: 1,
+    key: 'fiber-trunk', name: '광 인입', connectsTo: ['fiber-trunk'], pairing: 'any', maxCables: 1,
+    multiCore: true,
     cableFields: [],
-    // 손실·점검일은 **심선마다** 다르다 — 케이블이 아니라 포트의 값이다.
+    // 코어마다 한 벌 — 24심이면 손실 24개·점검일 24개가 이 포트 하나에 담긴다.
     portFields: [
       { key: 'lossDb', label: '손실', type: 'number', unit: 'dB' },
       { key: 'inspectedAt', label: '점검일', type: 'date' },
@@ -104,6 +123,44 @@ export function portFieldsFor(medium: string): CableFieldDef[] {
   return [...(portKind(medium)?.portFields ?? [])];
 }
 
+/** 이 포트가 심선을 여러 가닥 나르는가. `positions` 이 없거나 1이면 보통 포트다. */
+export function isMultiCorePort(positions: number | null | undefined): boolean {
+  return (positions ?? 1) > 1;
+}
+
+/**
+ * 다심 포트의 코어 하나에 적힌 값.
+ *
+ * 저장 형상은 코어 번호를 키로 한 한 겹 중첩이다 — `{ "1": { lossDb: 0.6 }, "2": {…} }`.
+ * 보통 포트는 중첩 없이 통째로 쓰므로 `position` 을 무시한다. 읽고 쓰는 곳이 이 형상을
+ * 직접 알면 저장과 표시가 어긋나므로, 드나드는 문은 이 둘뿐이다.
+ */
+export function portValuesAt(
+  port: { positions?: number | null; fieldValues?: Record<string, unknown> | null },
+  position: number,
+): Record<string, unknown> {
+  const all = port.fieldValues ?? {};
+  if (!isMultiCorePort(port.positions)) return all;
+  const at = all[String(position)];
+  return at != null && typeof at === 'object' ? (at as Record<string, unknown>) : {};
+}
+
+/** `portValuesAt` 의 짝 — 코어 하나의 값 하나를 바꾼 **새** `fieldValues` 를 돌려준다. */
+export function setPortValueAt(
+  port: { positions?: number | null; fieldValues?: Record<string, unknown> | null },
+  position: number,
+  key: string,
+  value: unknown,
+): Record<string, unknown> {
+  const all = { ...(port.fieldValues ?? {}) };
+  if (!isMultiCorePort(port.positions)) {
+    all[key] = value;
+    return all;
+  }
+  all[String(position)] = { ...portValuesAt(port, position), [key]: value };
+  return all;
+}
+
 export function portKind(key: string): PortKind | null {
   return PORT_KINDS.find((k) => k.key === key) ?? null;
 }
@@ -118,7 +175,12 @@ export interface PortPreset {
   groupKey: string;
   /** `{n}` 이 번호로 치환된다. */
   namePattern: string;
+  /** 다심 포트 프리셋의 기본 코어 수. 보통 포트는 1. */
+  positions: number;
 }
+
+/** 다심 포트를 처음 놓을 때의 코어 수 — OPGW 는 24심이 가장 흔하다. */
+export const DEFAULT_CORE_COUNT = 24;
 
 /**
  * 포트 프리셋 — 어휘에서 **파생**된다. 따로 적어 두는 목록이 아니다.
@@ -133,12 +195,13 @@ export interface PortPreset {
  */
 export function portPresets(): PortPreset[] {
   return PORT_KINDS.flatMap((kind) => {
+    const positions = kind.multiCore ? DEFAULT_CORE_COUNT : 1;
     if (kind.pairing !== 'opposite') {
-      return [{ name: kind.name, medium: kind.key, direction: 'BI' as Direction, groupKey: kind.key.toUpperCase(), namePattern: `${kind.name} {n}` }];
+      return [{ name: kind.name, medium: kind.key, direction: 'BI' as Direction, groupKey: kind.key.toUpperCase(), namePattern: `${kind.name} {n}`, positions }];
     }
     return (['IN', 'OUT'] as const).map((direction) => {
       const label = `${kind.name} ${portDirectionLabel(direction)}`;
-      return { name: label, medium: kind.key, direction, groupKey: `${kind.key.toUpperCase()}-${direction}`, namePattern: `${label} {n}` };
+      return { name: label, medium: kind.key, direction, groupKey: `${kind.key.toUpperCase()}-${direction}`, namePattern: `${label} {n}`, positions };
     });
   });
 }

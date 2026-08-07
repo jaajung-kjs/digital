@@ -51,13 +51,15 @@ describe('케이블 파라미터 선언', () => {
   /* 값이 무엇의 것인지가 갈린다 — 길이는 케이블 한 가닥의 것이고, 손실·점검일은 심선마다
      다르다. 예전에는 손실도 케이블에 담아서, OPGW 한 가닥을 심선 수만큼 케이블로 복제해야
      했고 그 탓에 설계서 공량이 그 배로 부풀었다. */
-  it('광의 손실·점검일은 케이블이 아니라 포트의 값이다', () => {
-    expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM']);
-    expect(portFieldsFor('fiber').map((f) => f.key)).toEqual(['lossDb', 'inspectedAt']);
+  it('손실·점검일은 케이블이 아니라 **광 인입** 포트의 값이다', () => {
+    expect(cableFieldsFor('fiber-trunk').map((f) => f.key)).toEqual(['lengthM']);
+    expect(portFieldsFor('fiber-trunk').map((f) => f.key)).toEqual(['lossDb', 'inspectedAt']);
   });
 
-  it('나머지 종류는 포트에 딸린 값이 없다', () => {
-    for (const k of ['power', 'network', 'control', 'ground']) {
+  /* OTDR 로 재는 것은 인입(성단) 심선이다 — 장비쪽 광 포트에는 잴 것이 없다.
+     화면이 "이 포트만 예외" 라고 걸러 내지 않도록, 그 사실을 어휘가 말해야 한다. */
+  it('광 인입을 뺀 나머지 종류는 포트에 딸린 값이 없다 — 장비쪽 광 포트 포함', () => {
+    for (const k of ['power', 'network', 'fiber', 'control', 'ground']) {
       expect(portFieldsFor(k), k).toEqual([]);
     }
   });

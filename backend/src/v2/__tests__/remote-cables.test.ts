@@ -10,7 +10,7 @@ const admin = { Authorization: authHeader('admin') };
 let subAId: string, subBId: string, slotAId: string, slotBId: string, fiberCatId: string;
 
 const portOf = async (assetId: string, index: number) =>
-  (await nextDb.port.findFirstOrThrow({ where: { assetId, group: 'A', index } })).id;
+  (await nextDb.port.findFirstOrThrow({ where: { assetId, group: 'CORE', index } })).id;
 
 beforeAll(async () => {
   await sweepTestFixtures();
@@ -56,7 +56,7 @@ describe('대국 케이블', () => {
   it('워킹카피 refs: 대국 끝점의 자산·변전소명 포함', async () => {
     const wc = (await request(app).get(`/api/v2/substations/${subAId}/workingcopy`).set(admin).expect(200)).body;
     const c = wc.cables[0];
-    expect(c.aRef).toMatchObject({ assetName: `${uniq}-슬롯A`, substationName: `${uniq}-국사A`, portGroup: 'A', portIndex: 1 });
+    expect(c.aRef).toMatchObject({ assetName: `${uniq}-슬롯A`, substationName: `${uniq}-국사A`, portGroup: 'CORE', portIndex: 1 });
     expect(c.bRef).toMatchObject({ assetName: `${uniq}-슬롯B`, substationName: `${uniq}-국사B` });
   });
 
@@ -98,9 +98,9 @@ describe('검색/포트 API', () => {
   });
   it('포트 목록 + occupied', async () => {
     const ports = (await request(app).get(`/api/v2/assets/${slotBId}/ports`).set(admin).expect(200)).body;
-    const p1 = ports.find((p: { group: string; index: number }) => p.group === 'A' && p.index === 1);
+    const p1 = ports.find((p: { group: string; index: number }) => p.group === 'CORE' && p.index === 1);
     expect(p1.occupied).toBe(true);
-    const p5 = ports.find((p: { group: string; index: number }) => p.group === 'A' && p.index === 5);
+    const p5 = ports.find((p: { group: string; index: number }) => p.group === 'CORE' && p.index === 5);
     expect(p5.occupied).toBe(false);
   });
   it('미존재 자산 포트 → 404', async () => {

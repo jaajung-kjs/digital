@@ -162,7 +162,7 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
     }
     throw e;
   }
-  const ports = instantiatePorts(spec, input.id, input.portCounts);
+  const ports = instantiatePorts(spec, input.id, input.portCounts, input.portPositions);
   if (ports.length > 0) await tx.port.createMany({ data: ports });
 }
 

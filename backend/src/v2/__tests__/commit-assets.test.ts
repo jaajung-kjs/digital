@@ -70,17 +70,22 @@ describe('PUT /commit — assets', () => {
     expect(res.body.error).toBe('PLACEMENT_NOT_ACCEPTED');
   });
 
-  it('portCounts 오버라이드: OFD 슬롯 24C → 포트 48개', async () => {
+  /* 12심 판과 24심 판이 한 함체에 섞인다 — 성단은 개수가, 인입은 코어 수가 달라진다. */
+  it('오버라이드: 12심 경로슬롯 → 성단 12 + 인입 1(코어 12)', async () => {
     const ofdId = randomUUID(), slotId = randomUUID();
     await commit({
       assets: {
         creates: [
           { id: ofdId, name: `${uniq}-ofd`, typeId: ofdTypeId, floorId, x: 100, y: 0, width: 40, height: 40 },
-          { id: slotId, name: `${uniq}-slot24`, typeId: slotTypeId, parentAssetId: ofdId, containerKey: 'main', portCounts: { A: 24, B: 24 } },
+          { id: slotId, name: `${uniq}-slot12`, typeId: slotTypeId, parentAssetId: ofdId, containerKey: 'main', portCounts: { CORE: 12 }, portPositions: { TRUNK: 12 } },
         ],
       },
     }).expect(200);
-    expect(await nextDb.port.count({ where: { assetId: slotId } })).toBe(48);
+    const ports = await nextDb.port.findMany({ where: { assetId: slotId } });
+    expect(ports.filter((p) => p.group === 'CORE')).toHaveLength(12);
+    const trunk = ports.find((p) => p.group === 'TRUNK')!;
+    // 인입은 언제나 포트 **하나** — 심선 수만큼 펴지 않는다.
+    expect([ports.length, trunk.positions]).toEqual([13, 12]);
   });
 
   it('OCC: 낡은 baseVersion 으로 update → 409 + conflicts', async () => {

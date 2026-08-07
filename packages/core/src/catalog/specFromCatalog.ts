@@ -1,4 +1,4 @@
-import type { AcceptRule, AssetTypeSpec, Direction, FieldDef, TypeUpsertBody } from './types.js';
+import type { AcceptRule, AssetTypeSpec, Direction, FieldDef, LinkMapping, TypeUpsertBody } from './types.js';
 
 export interface CatalogTypeRow {
   key: string; name: string; sortOrder: number;
@@ -7,7 +7,7 @@ export interface CatalogTypeRow {
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
   fieldDefs: unknown;
   containerSpecs: { key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: unknown; sortOrder: number }[];
-  portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; lineSide?: boolean | null; sortOrder: number }[];
+  portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; sortOrder: number }[];
   linkRules: { fromGroup: string; toGroup: string; mapping: string }[];
 }
 
@@ -30,8 +30,8 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
       .map((c) => ({ key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as AcceptRule })),
     ports: [...row.portTemplates]
       .sort((x, y) => x.sortOrder - y.sortOrder)
-      .map((p) => ({ group: p.group, count: p.count, direction: p.direction as Direction, medium: p.medium, namePattern: p.namePattern, ...(p.lineSide ? { lineSide: true } : {}) })),
-    links: row.linkRules.map((l) => ({ fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping as 'byIndex' | 'all' })),
+      .map((p) => ({ group: p.group, count: p.count, direction: p.direction as Direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1 })),
+    links: row.linkRules.map((l) => ({ fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping as LinkMapping })),
   };
 }
 
@@ -58,7 +58,8 @@ export function specFromUpsert(body: TypeUpsertBody, categoryKey: string): Asset
     },
     fields: body.fieldDefs,
     containers: body.containers,
-    ports: body.ports,
+    // 심선 수는 안 적으면 1 — 두 투영이 같은 spec 을 내야 한다(specFromCatalog 도 같게 채운다).
+    ports: body.ports.map((p) => ({ ...p, positions: p.positions ?? 1 })),
     links: body.links,
   };
 }

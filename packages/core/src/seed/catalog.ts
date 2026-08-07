@@ -52,11 +52,19 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     labor: NO_LABOR,
     fields: [],
     containers: [],
+    /*
+     * 성단 판 한 장의 실제 모습: 뒤로 OPGW **한 가닥**이 들어와 그 안의 24심이 어댑터에
+     * 성단되고, 앞에서는 어댑터마다 점퍼 한 가닥이 장비로 나간다.
+     *
+     * 예전에는 뒤쪽도 포트 12개로 펴 놓고 대국 슬롯을 하나 더 만들어 심선마다 케이블을
+     * 이었다. 그래서 (a) 40m 한 가닥이 공량에서 160m 가 됐고, (b) 대국이 슬롯에서 끊겨
+     * 그 너머 장비를 추적할 수 없었다. 인입을 다심 포트 하나로 두면 둘 다 사라진다.
+     */
     ports: [
-      { group: 'A', count: 12, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
-      { group: 'B', count: 12, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
+      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
     ],
-    links: [{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],
+    links: [{ fromGroup: 'TRUNK', toGroup: 'CORE', mapping: 'byPosition' }],
   },
   // ── 구 role: panel ──
   {
@@ -445,6 +453,16 @@ export const SEED_CABLE_GROUPS = [
     removeHoursPerM: 0.02,
     sortOrder: 3,
   },
+  // 다심 인입 — 한 가닥 안에 여러 심선이 든 것. 점퍼(단심)와는 포설 품도 다르다.
+  {
+    key: 'fiber-trunk',
+    name: '광 인입',
+    color: '#15803d',
+    laborType: '통신외선공',
+    installHoursPerM: 0.06,
+    removeHoursPerM: 0.03,
+    sortOrder: 4,
+  },
   {
     key: 'control',
     name: '제어',
@@ -452,7 +470,7 @@ export const SEED_CABLE_GROUPS = [
     laborType: '통신내선공',
     installHoursPerM: 0.025,
     removeHoursPerM: 0.012,
-    sortOrder: 4,
+    sortOrder: 5,
   },
   {
     key: 'ground',
@@ -461,7 +479,7 @@ export const SEED_CABLE_GROUPS = [
     laborType: '통신내선공',
     installHoursPerM: 0.02,
     removeHoursPerM: 0.01,
-    sortOrder: 5,
+    sortOrder: 6,
   },
 ] as const;
 
@@ -472,10 +490,12 @@ export const SEED_CABLE_CATEGORIES: { groupKey: string; name: string; sortOrder:
   { groupKey: 'power',   name: '캡타이어 VCT',         sortOrder: 3 },
   { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4 },
   { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5 },
-  { groupKey: 'fiber',   name: '광케이블',              sortOrder: 6 },
-  { groupKey: 'fiber',   name: '광점퍼코드',            sortOrder: 7 },
-  { groupKey: 'fiber',   name: '브레이크아웃케이블',    sortOrder: 8 },
-  { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 9 },
+  // 광 4종은 심선 수로 갈린다 — 점퍼코드만 한 가닥에 한 심이고, 나머지 셋은 다심이다.
+  // 그래서 점퍼는 어댑터 앞면(광 포트)에, 나머지는 인입(광 인입 포트)에 물린다.
+  { groupKey: 'fiber',       name: '광점퍼코드',            sortOrder: 6 },
+  { groupKey: 'fiber-trunk', name: '광케이블',              sortOrder: 7 },
+  { groupKey: 'fiber-trunk', name: '브레이크아웃케이블',    sortOrder: 8 },
+  { groupKey: 'fiber-trunk', name: 'OPGW(광복합가공지선)', sortOrder: 9 },
   { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10 },
   { groupKey: 'ground',  name: '나동연선',              sortOrder: 11 },
   // 제어케이블은 제어 그룹이다 — 예전에는 전원 그룹에 들어가 있어, 제어 포트에 물릴 수 있는

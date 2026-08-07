@@ -1,11 +1,11 @@
 /**
  * LinksEditor — 통과 링크 규칙 편집
- * fromGroup / toGroup (draft.ports의 group 목록에서 select) / mapping(byIndex·all)
+ * fromGroup / toGroup (draft.ports의 group 목록에서 select) / mapping(byIndex·all·byPosition)
  *
  * 구조 잠금(locked=true): 모든 입력 disabled
  */
 import { Plus } from 'lucide-react';
-import type { TypeSpecIssue } from '@twin/core';
+import type { LinkMapping, TypeSpecIssue } from '@twin/core';
 import { Button, DetailCard, DetailCardHeader, DetailRow, Select, ItemCard } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
@@ -14,7 +14,7 @@ import { issueFor } from './adminUtils';
 interface LinkRow {
   fromGroup: string;
   toGroup: string;
-  mapping: 'byIndex' | 'all';
+  mapping: LinkMapping;
 }
 
 interface LinksEditorProps {
@@ -25,9 +25,11 @@ interface LinksEditorProps {
   issues: TypeSpecIssue[];
 }
 
-const MAPPINGS: { value: 'byIndex' | 'all'; label: string }[] = [
-  { value: 'byIndex', label: '인덱스 매핑 (byIndex)' },
-  { value: 'all', label: '전체 매핑 (all)' },
+const MAPPINGS: { value: LinkMapping; label: string }[] = [
+  { value: 'byIndex', label: '번호끼리 (byIndex)' },
+  { value: 'all', label: '모두 서로 (all)' },
+  // 다심 포트 한 개가 상대 그룹의 포트 여럿에 코어 번호로 대응한다 — 경로슬롯의 인입↔심선.
+  { value: 'byPosition', label: '코어 번호끼리 (byPosition)' },
 ];
 
 function defaultLink(): LinkRow {
@@ -122,7 +124,7 @@ export function LinksEditor({ draft, onChange, locked, issues }: LinksEditorProp
                 value={l.mapping}
                 disabled={locked}
                 onChange={(e) => {
-                  const val = e.currentTarget.value as 'byIndex' | 'all';
+                  const val = e.currentTarget.value as LinkMapping;
                   update(i, { mapping: val });
                 }}
               >

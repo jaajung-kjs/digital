@@ -56,11 +56,12 @@ const VALID_PORTS = [
 const VALID_LINKS = [{ fromGroup: 'fiberIn', toGroup: 'fiberOut', mapping: 'byIndex' as const }];
 const VALID_CONTAINERS = [{ key: 'shelf', name: '선반', slotCount: 8, allowSpan: false, accepts: {} }];
 
-/** lineSide 왕복용 포트 2그룹 — fiberOut 이 lineSide:true. */
-const LINE_SIDE_PORTS = [
-  { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '장비 {n}' },
-  { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
+/** 다심 포트 왕복용 — trunk 하나가 코어 24가닥을 나르는 인입 포트. */
+const MULTI_CORE_PORTS = [
+  { group: 'core', count: 24, direction: 'BI' as const, medium: 'fiber', namePattern: '광 {n}' },
+  { group: 'trunk', count: 1, direction: 'BI' as const, medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
 ];
+const MULTI_CORE_LINKS = [{ fromGroup: 'trunk', toGroup: 'core', mapping: 'byPosition' as const }];
 
 /**
  * both-key accepts: categoryKeys + typeKeys 모두 포함, 2개 이상 (순서 민감성까지 커버).
@@ -521,128 +522,114 @@ describe('catalog CRUD', () => {
     await nextDb.assetCategory.delete({ where: { id: cId } });
   });
 
-  // ── lineSide 왕복 테스트 ────────────────────────────────────────────────────
+  // ── 다심 포트(positions) 왕복 테스트 ────────────────────────────────────────
 
-  it('lineSide:true 그룹 포함 타입 생성 → GET에서 lineSide 필드 왕복', async () => {
+  it('다심 포트 포함 타입 생성 → GET에서 positions 왕복', async () => {
     const catRes = await request(app)
       .post('/api/v2/catalog/categories')
       .set(admin)
-      .send({ key: `${KEY_PREFIX}_CAT_LS`, name: '분류_LS', sortOrder: 996 })
+      .send({ key: `${KEY_PREFIX}_CAT_MC`, name: '분류_MC', sortOrder: 996 })
       .expect(201);
-    const lsCatId = catRes.body.id;
+    const mcCatId = catRes.body.id;
 
     const typeRes = await request(app)
       .post('/api/v2/catalog/types')
       .set(admin)
-      .send(makeTypeBody(lsCatId, {
-        key: `${KEY_PREFIX}_TYPE_LS`,
-        ports: LINE_SIDE_PORTS,
-        links: VALID_LINKS,
+      .send(makeTypeBody(mcCatId, {
+        key: `${KEY_PREFIX}_TYPE_MC`,
+        ports: MULTI_CORE_PORTS,
+        links: MULTI_CORE_LINKS,
       }))
       .expect(201);
-    const lsTypeId = typeRes.body.id;
+    const mcTypeId = typeRes.body.id;
 
-    // GET에서 lineSide 필드 확인
     const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
-    const found = catalog.types.find((t: { id: string }) => t.id === lsTypeId);
+    const found = catalog.types.find((t: { id: string }) => t.id === mcTypeId);
     expect(found).toBeTruthy();
-    const fiberOutPort = found.portTemplates.find((p: { group: string }) => p.group === 'fiberOut');
-    const fiberInPort = found.portTemplates.find((p: { group: string }) => p.group === 'fiberIn');
-    expect(fiberOutPort).toBeTruthy();
-    expect(fiberOutPort.lineSide).toBe(true);
-    expect(fiberInPort.lineSide).toBe(false); // default false
+    const trunk = found.portTemplates.find((p: { group: string }) => p.group === 'trunk');
+    const core = found.portTemplates.find((p: { group: string }) => p.group === 'core');
+    // 인입은 **포트 1개**가 코어 24를 나른다 — 코어 수만큼 포트를 펴지 않는다.
+    expect([trunk.count, trunk.positions]).toEqual([1, 24]);
+    expect([core.count, core.positions]).toEqual([24, 1]); // 안 적으면 1
 
-    // 정리
-    await nextDb.assetPortTemplate.deleteMany({ where: { typeId: lsTypeId } });
-    await nextDb.assetLinkRule.deleteMany({ where: { typeId: lsTypeId } });
-    await nextDb.assetType.delete({ where: { id: lsTypeId } });
-    await nextDb.assetCategory.delete({ where: { id: lsCatId } });
+    await nextDb.assetPortTemplate.deleteMany({ where: { typeId: mcTypeId } });
+    await nextDb.assetLinkRule.deleteMany({ where: { typeId: mcTypeId } });
+    await nextDb.assetType.delete({ where: { id: mcTypeId } });
+    await nextDb.assetCategory.delete({ where: { id: mcCatId } });
   });
 
-  it('lineSide:true 그룹 2개 → POST 400 INVALID_TYPE_SPEC (validateTypeSpec 위반)', async () => {
+  it('다심 아닌 종류에 positions>1 → POST 400 INVALID_TYPE_SPEC (validateTypeSpec 위반)', async () => {
     const catRes = await request(app)
       .post('/api/v2/catalog/categories')
       .set(admin)
-      .send({ key: `${KEY_PREFIX}_CAT_LS2`, name: '분류_LS2', sortOrder: 995 })
+      .send({ key: `${KEY_PREFIX}_CAT_MC2`, name: '분류_MC2', sortOrder: 995 })
       .expect(201);
-    const ls2CatId = catRes.body.id;
+    const mc2CatId = catRes.body.id;
 
-    const twoLineSidePorts = [
-      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '장비 {n}', lineSide: true },
-      { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
+    // 다심은 **종류**가 정한다 — 보통 광 포트에 코어 수를 적으면 어휘가 뜻을 잃는다.
+    const badPorts = [
+      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '장비 {n}', positions: 24 },
+      { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}' },
     ];
 
     const res = await request(app)
       .post('/api/v2/catalog/types')
       .set(admin)
-      .send(makeTypeBody(ls2CatId, {
-        key: `${KEY_PREFIX}_TYPE_LS2`,
-        ports: twoLineSidePorts,
-        links: VALID_LINKS,
-      }))
+      .send(makeTypeBody(mc2CatId, { key: `${KEY_PREFIX}_TYPE_MC2`, ports: badPorts, links: VALID_LINKS }))
       .expect(400);
     expect(res.body.error).toBe('INVALID_TYPE_SPEC');
     const paths = res.body.details.map((d: { path: string }) => d.path) as string[];
-    expect(paths.some((p) => p.includes('lineSide') || p.includes('ports'))).toBe(true);
+    expect(paths.some((p) => p.includes('positions'))).toBe(true);
 
-    // 정리 (타입은 생성 안 됨)
-    await nextDb.assetCategory.delete({ where: { id: ls2CatId } });
+    await nextDb.assetCategory.delete({ where: { id: mc2CatId } });
   });
 
-  it('lineSide 변경은 구조 변경 — 인스턴스 있는 타입 lineSide 플립 → 409 TYPE_IN_USE', async () => {
+  it('positions 변경은 구조 변경 — 인스턴스 있는 타입의 코어 수 변경 → 409 TYPE_IN_USE', async () => {
     const catRes = await request(app)
       .post('/api/v2/catalog/categories')
       .set(admin)
-      .send({ key: `${KEY_PREFIX}_CAT_LS3`, name: '분류_LS3', sortOrder: 994 })
+      .send({ key: `${KEY_PREFIX}_CAT_MC3`, name: '분류_MC3', sortOrder: 994 })
       .expect(201);
-    const ls3CatId = catRes.body.id;
+    const mc3CatId = catRes.body.id;
 
     const typeRes = await request(app)
       .post('/api/v2/catalog/types')
       .set(admin)
-      .send(makeTypeBody(ls3CatId, {
-        key: `${KEY_PREFIX}_TYPE_LS3`,
-        ports: LINE_SIDE_PORTS, // fiberOut.lineSide=true
-        links: VALID_LINKS,
+      .send(makeTypeBody(mc3CatId, {
+        key: `${KEY_PREFIX}_TYPE_MC3`,
+        ports: MULTI_CORE_PORTS,
+        links: MULTI_CORE_LINKS,
       }))
       .expect(201);
-    const ls3TypeId = typeRes.body.id;
+    const mc3TypeId = typeRes.body.id;
 
-    // 인스턴스 생성
     const sub = await nextDb.substation.create({
       data: {
-        name: `${uniq}-ss-ls3`,
-        branch: { create: { name: `${uniq}-br-ls3`, headquarters: { create: { name: `${uniq}-hq-ls3` } } } },
+        name: `${uniq}-ss-mc3`,
+        branch: { create: { name: `${uniq}-br-mc3`, headquarters: { create: { name: `${uniq}-hq-mc3` } } } },
       },
     });
-    const asset = await nextDb.asset.create({ data: { name: `${uniq}-asset-ls3`, typeId: ls3TypeId, substationId: sub.id } });
+    const asset = await nextDb.asset.create({ data: { name: `${uniq}-asset-mc3`, typeId: mc3TypeId, substationId: sub.id } });
 
-    // lineSide 플립 (fiberOut.lineSide=false) → 구조 변경 → 409
-    const flippedPorts = [
-      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '장비 {n}' },
-      { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}' }, // lineSide 없음 = false
-    ];
+    // 24심 → 12심 은 심선이 12가닥 사라지는 것이라 구조 변경이다.
+    const shrunkPorts = MULTI_CORE_PORTS.map((p) => (p.group === 'trunk' ? { ...p, positions: 12 } : p));
     const res = await request(app)
-      .put(`/api/v2/catalog/types/${ls3TypeId}`)
+      .put(`/api/v2/catalog/types/${mc3TypeId}`)
       .set(admin)
-      .send(makeTypeBody(ls3CatId, {
-        key: `${KEY_PREFIX}_TYPE_LS3`,
-        ports: flippedPorts,
-        links: VALID_LINKS,
-      }))
+      .send(makeTypeBody(mc3CatId, { key: `${KEY_PREFIX}_TYPE_MC3`, ports: shrunkPorts, links: MULTI_CORE_LINKS }))
       .expect(409);
     expect(res.body.error).toBe('TYPE_IN_USE');
 
     // 정리
     await nextDb.asset.delete({ where: { id: asset.id } });
     await nextDb.substation.delete({ where: { id: sub.id } });
-    const branch = await nextDb.branch.findFirst({ where: { name: `${uniq}-br-ls3` } });
+    const branch = await nextDb.branch.findFirst({ where: { name: `${uniq}-br-mc3` } });
     if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
-    const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq-ls3` } });
+    const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq-mc3` } });
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
-    await nextDb.assetPortTemplate.deleteMany({ where: { typeId: ls3TypeId } });
-    await nextDb.assetLinkRule.deleteMany({ where: { typeId: ls3TypeId } });
-    await nextDb.assetType.delete({ where: { id: ls3TypeId } });
-    await nextDb.assetCategory.delete({ where: { id: ls3CatId } });
+    await nextDb.assetPortTemplate.deleteMany({ where: { typeId: mc3TypeId } });
+    await nextDb.assetLinkRule.deleteMany({ where: { typeId: mc3TypeId } });
+    await nextDb.assetType.delete({ where: { id: mc3TypeId } });
+    await nextDb.assetCategory.delete({ where: { id: mc3CatId } });
   });
 });

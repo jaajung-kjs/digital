@@ -1,28 +1,27 @@
 /**
  * FiberRegisterView — 배선(wiring) 테스트
  *
- * 셀렉터 단위 테스트만으로는 콜사이트가 types 인자를 빠뜨려도 통과하는 갭이 있었다
- * (R-3 리뷰 P1: buildFiberRows 4번째 인자 누락 → 프로덕션에서 meta 전부 비활성).
- * 이 테스트는 컴포넌트를 실제 렌더해 카탈로그 lineSide 선언이 meta 입력까지
+ * 셀렉터 단위 테스트만으로는 콜사이트가 배선을 빠뜨려도 통과하는 갭이 있었다
+ * (R-3 리뷰 P1: buildFiberRows 인자 누락 → 프로덕션에서 meta 전부 비활성).
+ * 이 테스트는 컴포넌트를 실제 렌더해, 다심 인입 선언이 **코어별** 값 입력까지
  * 관통하는지 단언한다 — 배선이 끊기면 실패한다.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { emptyOverlay } from '../store/overlay';
 import { FiberRegisterView } from '../components/FiberRegisterView';
 import type { V2Asset, V2AssetType, V2Cable } from '../types';
 
-// useV2Catalog 만 목킹 — lineSide 선언이 담긴 카탈로그를 공급
 const mockTypes: V2AssetType[] = [
   {
-    id: 't', key: 'SLOT-X', name: '광슬롯', categoryId: 'c', sortOrder: 1, isActive: true,
+    id: 't', key: 'SLOT-X', name: '경로슬롯', categoryId: 'c', sortOrder: 1, isActive: true,
     assetCount: 0, placeable: false, defaultWidth: null, defaultHeight: null,
     laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
     fieldDefs: [], containerSpecs: [], linkRules: [],
     portTemplates: [
-      { id: 'pt-a', group: 'A', count: 2, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}', sortOrder: 1, lineSide: false },
-      { id: 'pt-b', group: 'B', count: 2, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', sortOrder: 2, lineSide: true },
+      { id: 'pt-a', group: 'CORE', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', sortOrder: 1, positions: 1 },
+      { id: 'pt-b', group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', sortOrder: 2, positions: 2 },
     ],
   },
 ];
@@ -32,8 +31,17 @@ vi.mock('../hooks', () => ({
   useTypesById: () => new Map(mockTypes.map((t) => [t.id, t])),
 }));
 
-const port = (id: string, assetId: string, group: string, index: number, fieldValues: Record<string, unknown> = {}) =>
-  ({ id, assetId, group, index, name: `${group} ${index}`, direction: 'BI' as const, medium: 'fiber', fieldValues });
+const port = (
+  id: string, assetId: string, group: string, index: number,
+  extra: { medium?: string; name?: string; positions?: number; fieldValues?: Record<string, unknown> } = {},
+) => ({
+  id, assetId, group, index,
+  name: extra.name ?? `광 ${index}`,
+  direction: 'BI' as const,
+  medium: extra.medium ?? 'fiber',
+  positions: extra.positions ?? 1,
+  fieldValues: extra.fieldValues ?? {},
+});
 const asset = (id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
@@ -46,12 +54,16 @@ const cable = (id: string, a: string, b: string, extra: Partial<V2Cable> = {}): 
 });
 
 const ofd = asset('ofd', 'OFD-1');
-/* 심선 값(손실)은 **선로측 포트**에 담긴다 — 케이블이 아니다. */
+/* 심선 값(손실)은 **인입 포트**에 코어 번호 아래 담긴다 — 케이블도, 심선별 포트도 아니다. */
 const slot = asset('slot', '슬롯1', {
   parentAssetId: 'ofd',
   ports: [
-    port('a1', 'slot', 'A', 1), port('a2', 'slot', 'A', 2),
-    port('b1', 'slot', 'B', 1, { lossDb: 0.3 }), port('b2', 'slot', 'B', 2),
+    port('a1', 'slot', 'CORE', 1),
+    port('a2', 'slot', 'CORE', 2),
+    port('t1', 'slot', 'TRUNK', 1, {
+      medium: 'fiber-trunk', name: '광 인입', positions: 2,
+      fieldValues: { 1: { lossDb: 0.3 }, 2: { lossDb: 0.9 } },
+    }),
   ],
 });
 
@@ -64,30 +76,42 @@ function setStore(assets: V2Asset[], cables: V2Cable[]) {
   });
 }
 
-describe('FiberRegisterView 배선 — 카탈로그 lineSide → meta 입력 관통', () => {
+describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입력까지 관통', () => {
   beforeEach(() => {
     setStore([], []);
   });
 
-  it('lineSide(B) 선언이 케이블 값·심선 값 양쪽 입력까지 관통한다 (types 배선 회귀 핀)', () => {
-    const c = cable('c1', 'b1', 'x', { specParams: { lengthM: 12.5 } });
-    setStore([ofd, slot], [c]);
+  it('길이는 인입 케이블에서, 손실은 인입 포트의 코어 번호에서 온다', () => {
+    setStore([ofd, slot], [cable('c1', 't1', 'x', { specParams: { lengthM: 40 } })]);
 
     render(<FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
-    // 길이는 **케이블**에서 — 콜사이트가 types 를 빠뜨리면 lineSide 판독 불가 → '—' 렌더 → 실패.
-    expect(screen.getByDisplayValue('12.5')).toBeTruthy();
-    // 손실은 **심선(선로측 포트)** 에서.
+    // 길이는 케이블 한 가닥의 값 — 두 코어 행이 **같은** 40 을 본다(예전에는 심선마다 케이블이었다).
+    expect(screen.getAllByDisplayValue('40')).toHaveLength(2);
+    // 손실은 코어마다 다르다 — 같은 포트 하나에서 번호로 갈라져 나온다.
     expect(screen.getByDisplayValue('0.3')).toBeTruthy();
+    expect(screen.getByDisplayValue('0.9')).toBeTruthy();
   });
 
-  it('A 그룹(비-lineSide)에만 케이블이 있으면 meta 입력은 비활성 (폴백 부재)', () => {
-    const c = cable('c2', 'a2', 'x', { specParams: { lengthM: 7 } });
-    setStore([ofd, slot], [c]);
-
+  it('코어 손실을 고치면 그 코어 자리만 바뀐다 — 옆 코어 값은 그대로다', () => {
+    setStore([ofd, slot], []);
     render(<FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
-    // 비-lineSide 그룹 케이블의 값이 meta 로 새어들면 안 된다.
-    expect(screen.queryByDisplayValue('7')).toBeNull();
+    const input = screen.getByDisplayValue('0.3');
+    fireEvent.change(input, { target: { value: '1.4' } });
+    fireEvent.blur(input);
+
+    const staged = v2WorkingCopyStore.getState().effectiveAssets().find((a) => a.id === 'slot')!;
+    const trunk = staged.ports.find((p) => p.id === 't1')!;
+    expect(trunk.fieldValues).toEqual({ 1: { lossDb: 1.4 }, 2: { lossDb: 0.9 } });
+  });
+
+  /* 인입이 없는 자산은 선번장 대상이 아니다 — OTDR 로 잴 것이 없다. */
+  it('단심 광 포트만 가진 자산은 선번장에 오르지 않는다', () => {
+    const optTerm = asset('opt', '광단말-1', { parentAssetId: 'rack', ports: [port('o1', 'opt', 'CORE', 1)] });
+    setStore([asset('rack', '통신랙 A'), optTerm], []);
+
+    render(<FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
+    expect(screen.getByText(/선번장에 표시할 광 자산이 없습니다/)).toBeTruthy();
   });
 });

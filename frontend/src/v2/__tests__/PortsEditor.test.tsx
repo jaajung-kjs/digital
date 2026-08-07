@@ -19,6 +19,7 @@ const mkCatalog = (): V2Catalog => ({
   cableGroups: [
     { id: 'cg-1', key: 'fiber', name: '광', color: '#8B5CF6', laborType: null, installHoursPerM: 0, removeHoursPerM: 0, sortOrder: 1, categories: [] },
     { id: 'cg-2', key: 'network', name: '통신', color: '#3B82F6', laborType: null, installHoursPerM: 0, removeHoursPerM: 0, sortOrder: 2, categories: [] },
+    { id: 'cg-3', key: 'fiber-trunk', name: '광 인입', color: '#15803D', laborType: null, installHoursPerM: 0, removeHoursPerM: 0, sortOrder: 3, categories: [] },
   ],
 });
 
@@ -145,22 +146,27 @@ describe('PortsEditor', () => {
     expect(screen.queryByRole('button', { name: '네트워크' })).toBeNull();
   });
 
-  it('(e) lineSide 체크박스: draft.ports[i].lineSide=true이면 체크, onChange로 반전값 전달', () => {
+  /* 심선 수는 다심 종류에만 뜻이 있다 — 보통 광 포트에 칸이 뜨면 어휘가 흐려진다. */
+  it('(e) 심선 수 칸은 다심 종류에만 뜬다', () => {
     const draft = mkDraft([
-      { group: 'B', count: 2, direction: 'BI', medium: 'fiber', namePattern: '선로 {n}', lineSide: true },
+      { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
+    ]);
+    render(<PortsEditor draft={draft} onChange={vi.fn()} catalog={catalog} locked={false} issues={[]} />);
+
+    expect(screen.queryByLabelText(/포트 1 심선 수/i)).toBeNull(); // 단심 광
+    expect((screen.getByLabelText(/포트 2 심선 수/i) as HTMLInputElement).value).toBe('24');
+  });
+
+  it('(e-2) 심선 수를 고치면 onChange 로 positions 가 전달된다', () => {
+    const draft = mkDraft([
+      { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
     ]);
     const onChange = vi.fn();
-
     render(<PortsEditor draft={draft} onChange={onChange} catalog={catalog} locked={false} issues={[]} />);
 
-    // 선로측 체크박스가 체크 상태여야 한다
-    const checkbox = screen.getByRole('checkbox', { name: /포트 1 선로측/i }) as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
-
-    // 클릭하면 onChange가 lineSide: false로 호출되어야 한다
-    fireEvent.click(checkbox);
-    expect(onChange).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByLabelText(/포트 1 심선 수/i), { target: { value: '12' } });
     const called = onChange.mock.calls[0][0] as { ports: TypeDraft['ports'] };
-    expect(called.ports[0]).toMatchObject({ lineSide: false });
+    expect(called.ports[0]).toMatchObject({ positions: 12 });
   });
 });

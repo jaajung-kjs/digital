@@ -1,10 +1,10 @@
-import type { Direction, FieldDef } from '@twin/core';
+import type { Direction, FieldDef, LinkMapping } from '@twin/core';
 export type { TypeUpsertBody } from '@twin/core';
 
 export interface V2Category { id: string; key: string; name: string; sortOrder: number }
 export interface V2ContainerSpec { id: string; key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: { categoryKeys?: string[]; typeKeys?: string[] }; sortOrder: number }
-export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; lineSide: boolean }
-export interface V2LinkRule { id: string; fromGroup: string; toGroup: string; mapping: 'byIndex' | 'all' }
+export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number }
+export interface V2LinkRule { id: string; fromGroup: string; toGroup: string; mapping: LinkMapping }
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number; isActive: boolean;
   assetCount: number;
@@ -35,7 +35,9 @@ export interface V2OrgTree { headquarters: V2Hq[] }
 
 export interface V2Port {
   id: string; assetId: string; group: string; index: number; name: string; direction: Direction; medium: string;
-  /** 이 포트 하나에 딸린 값 — 광 심선의 손실(dB)·점검일처럼 **심선마다 다른** 것. */
+  /** 이 포트가 나르는 심선 수. 1 = 보통 포트, N = 다심 인입(OPGW 한 가닥에 N심). */
+  positions: number;
+  /** 이 포트에 딸린 값. 다심 포트에서는 코어 번호를 키로 한 겹 중첩된다 — `portValuesAt` 로만 읽는다. */
   fieldValues: Record<string, unknown>;
 }
 export interface V2Asset {
@@ -63,9 +65,9 @@ export interface V2AssetCreateInput {
   id: string; name: string; typeId: string; status?: string;
   floorId?: string | null; x?: number | null; y?: number | null; width?: number | null; height?: number | null;
   parentAssetId?: string | null; containerKey?: string | null; slotIndex?: number | null; slotSpan?: number | null;
-  fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>;
+  fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>; portPositions?: Record<string, number>;
 }
-export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts'>> & {
+export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts' | 'portPositions'>> & {
   /** 이 자산 포트에 딸린 값 — 포트는 타입 명세가 만드므로 값만 고친다. */
   portFieldValues?: { portId: string; fieldValues: Record<string, unknown> }[];
 };

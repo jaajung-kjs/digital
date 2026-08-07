@@ -30,10 +30,12 @@ const assetCreateSchema = z.object({
   slotSpan: z.number().int().min(1).nullish(),
   fieldValues: z.record(z.unknown()).optional(),
   portCounts: z.record(z.number().int().min(1)).optional(),
+  /** 다심 포트의 코어 수 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
+  portPositions: z.record(z.number().int().min(1)).optional(),
 });
 
 const assetPatchSchema = assetCreateSchema
-  .omit({ id: true, typeId: true, portCounts: true })
+  .omit({ id: true, typeId: true, portCounts: true, portPositions: true })
   .partial()
   .extend({
     /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 타입 명세에서 만들어지므로
@@ -92,12 +94,13 @@ const portTemplateBodySchema = z.object({
   direction: z.enum(DIRECTION_VALUES),
   medium: z.string().min(1),
   namePattern: z.string().min(1),
-  lineSide: z.boolean().optional(),
+  /** 이 포트가 나르는 심선 수. 안 적으면 1(보통 포트). */
+  positions: z.number().int().min(1).optional(),
 });
 const linkRuleBodySchema = z.object({
   fromGroup: z.string().min(1),
   toGroup: z.string().min(1),
-  mapping: z.enum(['byIndex', 'all']),
+  mapping: z.enum(['byIndex', 'all', 'byPosition']),
 });
 export const typeUpsertSchema = z.object({
   key: z.string().regex(keyRe),

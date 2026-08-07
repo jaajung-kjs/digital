@@ -23,19 +23,21 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
     expect(ofd.containers[0]).toMatchObject({ slotCount: null, accepts: { typeKeys: ['OFD-SLOT'] } });
   });
 
-  it('OFD-SLOT: A/B 광 포트 + byIndex 패스스루 (구 slot role의 채널 보존)', () => {
+  /* 성단 판의 실제 모습 — 뒤로 OPGW 한 가닥(다심 포트 1개), 앞으로 점퍼 24가닥. */
+  it('OFD-SLOT: 광 24 + 다심 인입 1 + byPosition 매핑', () => {
     const slot = byKey('OFD-SLOT');
-    expect(slot.ports.map((p) => p.group)).toEqual(['A', 'B']);
-    expect(slot.ports.every((p) => p.medium === 'fiber')).toBe(true);
-    expect(slot.links).toEqual([{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }]);
+    const core = slot.ports.find((p) => p.group === 'CORE')!;
+    const trunk = slot.ports.find((p) => p.group === 'TRUNK')!;
+    expect([core.medium, core.count, core.positions ?? 1]).toEqual(['fiber', 24, 1]);
+    expect([trunk.medium, trunk.count, trunk.positions]).toEqual(['fiber-trunk', 1, 24]);
+    expect(slot.links).toEqual([{ fromGroup: 'TRUNK', toGroup: 'CORE', mapping: 'byPosition' }]);
   });
 
-  it('OFD-SLOT: B 그룹(선로)에 lineSide=true 선언, A 그룹은 미선언', () => {
-    const slot = byKey('OFD-SLOT');
-    const groupA = slot.ports.find((p) => p.group === 'A')!;
-    const groupB = slot.ports.find((p) => p.group === 'B')!;
-    expect(groupB.lineSide).toBe(true);
-    expect(groupA.lineSide).toBeFalsy();
+  /* 케이블 1본 = 심선 24가닥. 예전처럼 심선마다 케이블을 두면 40m 가 960m 로 집계된다. */
+  it('OFD-SLOT: 인입은 포트 1개다 — 심선 수만큼 펴지 않는다', () => {
+    const trunk = byKey('OFD-SLOT').ports.find((p) => p.group === 'TRUNK')!;
+    expect(trunk.count).toBe(1);
+    expect(trunk.positions).toBeGreaterThan(1);
   });
 
   it('DIST(분전반): 피더만 수용 (구 panel role)', () => {
