@@ -38,6 +38,9 @@
 const W = 40;
 const H = 26;
 
+/** 커넥터 실루엣의 가로:세로. 칸이 커지면 실루엣도 같이 커져야 하므로 호출부가 이 비율을 쓴다. */
+export const PORT_GLYPH_ASPECT = `${W} / ${H}`;
+
 /** 종류별 바깥 실루엣 — 모두 x 2..38, y 3..23 을 채운다. 어휘에 없는 종류는 사각형. */
 const OUTLINE: Record<string, string> = {
   // IEC 60320 — 위 모서리 두 곳이 깎인 사각(가전 전원 인렛의 그 모양).
@@ -111,9 +114,10 @@ export interface PortGlyphProps {
   /** 물려 있는가 — `'half'` 는 내부 짝 중 한쪽만 물린 상태. */
   state?: 'empty' | 'half' | 'full';
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function PortGlyph({ medium, state = 'empty', className }: PortGlyphProps) {
+export function PortGlyph({ medium, state = 'empty', className, style }: PortGlyphProps) {
   const outline = OUTLINE[medium];
   const filled = state !== 'empty';
   const shape = {
@@ -126,7 +130,7 @@ export function PortGlyph({ medium, state = 'empty', className }: PortGlyphProps
     strokeDasharray: state === 'half' ? '3 2' : undefined,
   };
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className={className} aria-hidden focusable="false">
+    <svg viewBox={`0 0 ${W} ${H}`} className={className} style={style} aria-hidden focusable="false">
       {outline ? (
         <path d={outline} {...shape} />
       ) : (

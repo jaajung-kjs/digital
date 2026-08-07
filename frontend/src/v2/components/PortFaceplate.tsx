@@ -1,6 +1,6 @@
 import { cn } from '../../components/ui';
 import type { V2Port } from '../types';
-import { PortGlyph } from './PortGlyph';
+import { PortGlyph, PORT_GLYPH_ASPECT } from './PortGlyph';
 
 /**
  * 포트 점유 상태.
@@ -23,13 +23,18 @@ export const PORT_STATE_LABEL: Record<PortState, string> = {
  * 폭에 맡기면(`flex-wrap` 만) 패널 크기에 따라 7개가 들어갔다 5개가 들어갔다 해서 같은
  * 장비가 화면마다 다른 모양이 된다.
  *
- * 칸 폭·간격은 클래스가 아니라 **이 숫자에서** 나온다. 최대 폭(6칸)을 이 둘로 계산하는데
- * 클래스에도 따로 적혀 있으면 한쪽만 바꿨을 때 줄이 조용히 7개가 된다.
+ * 칸 폭은 고정하지 않고 **판 너비에서 나눠 갖는다** — 6칸이 판을 정확히 채운다. 폭을 40px 로
+ * 못 박았더니 6개로 줄인 만큼 오른쪽에 빈 자리가 남았다. 칸이 커지면 실루엣도 함께 커진다.
+ *
+ * `cqw`(컨테이너 너비의 1%)를 쓰는 이유: 칸은 **판** 너비를 기준으로 나뉘어야 하는데, 칸이
+ * 속한 구획은 내용만큼만 넓다. `%` 로는 구획 너비가 기준이 되어 버린다.
  */
-const PORT_W = 40; // px — 타일 한 칸
 const PORT_GAP = 4; // px — 칸 사이
 const PORTS_PER_ROW = 6;
-const ROW_MAX_W = PORTS_PER_ROW * PORT_W + (PORTS_PER_ROW - 1) * PORT_GAP;
+/** 한 칸 = (판 너비 − 칸 사이 간격 전부) ÷ 6 */
+const PORT_W = `calc((100cqw - ${(PORTS_PER_ROW - 1) * PORT_GAP}px) / ${PORTS_PER_ROW})`;
+/** 한 줄은 딱 6칸에서 끊는다 — 실제 판이 12구·24구라 2줄·4줄로 떨어진다. */
+const ROW_MAX_W = '100cqw';
 
 export interface FaceplateSection {
   key: string;
@@ -87,10 +92,9 @@ export function PortFaceplate({
     /* 구획을 세로로 쌓지 않고 **가로로 잇는다** — 1U 전면판이 그렇게 생겼다.
        예전에는 구획마다 한 줄을 통째로 써서 포트 6개짜리 장비가 333×287px 를 차지했다
        (포트가 실제로 쓰는 가로는 240px 뿐이라 한 줄에 다 들어간다). */
-    <div
-      className="flex flex-wrap items-start gap-x-6 gap-y-3 overflow-hidden rounded-md p-2 shadow-inner"
-      style={{ backgroundColor: 'var(--faceplate)' }}
-    >
+    <div className="overflow-hidden rounded-md p-2 shadow-inner" style={{ backgroundColor: 'var(--faceplate)' }}>
+      {/* 칸 폭의 기준이 되는 상자 — 안쪽 여백이 없어야 `100cqw` 가 곧 포트가 쓸 수 있는 너비다. */}
+      <div className="flex flex-wrap items-start gap-x-6 gap-y-3" style={{ containerType: 'inline-size' }}>
       {sections.map((section) => (
         /* 구분선을 두지 않는다 — 줄바꿈이 일어나면 그 선이 줄 **맨 앞**에 남아, 이미 줄이
            갈라 놓은 경계를 한 번 더 긋는 꼴이 된다. 경계는 간격과 구획 라벨이 말한다. */
@@ -135,7 +139,13 @@ export function PortFaceplate({
                   )}
                 >
                   {/* 채움이 곧 연결 표시다 — 점 하나보다 면이 먼저 읽힌다. */}
-                  <PortGlyph medium={p.medium} state={state} className="block h-5 w-full" />
+                  {/* 칸이 커지면 실루엣도 같이 커진다 — 높이를 못 박으면 칸만 넓어지고 그림은 그대로다. */}
+                  <PortGlyph
+                    medium={p.medium}
+                    state={state}
+                    className="block w-full"
+                    style={{ aspectRatio: PORT_GLYPH_ASPECT }}
+                  />
                   {/* 실크스크린 번호 — 작고 흐리게. 포트보다 시선을 끌면 안 된다. */}
                   <span
                     className="text-[0.5625rem] leading-none tabular-nums"
@@ -157,6 +167,7 @@ export function PortFaceplate({
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 }
