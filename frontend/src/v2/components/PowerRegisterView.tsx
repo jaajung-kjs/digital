@@ -2,15 +2,14 @@
  * PowerRegisterView — 계통 뷰
  *
  * 상단: 컨테이너(전원 포트를 가진 자산) Select
- * 테이블 컬럼: 피더 | 차단기 번호 | 상태 | 전원 입력(peer + 전압) | 부하 출력(peer)
- *   - 차단기 번호: 인라인 Input (blur/Enter 무변경 가드) → stageAssetUpdate fieldValues 병합
+ * 테이블 컬럼: 회로 | 피더 | 상태 | 전원 입력(peer) | 전압 | 부하 출력(peer)
  *   - 상태: catalog fieldDefs switchState Select(옵션 데이터 기반) 또는 텍스트 Input → fieldValues 병합
  *   - 전압: 인라인 Input → stageCableUpdate specParams 병합 (IN 케이블 없으면 '—')
  *   - peer: 선번장과 동일(원격 Badge)
  *   - 행 클릭 → onSelectAsset(feederId)
  */
 import { useMemo, useState } from 'react';
-import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE } from '../../components/ui';
+import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows } from '../powerSelectors';
@@ -29,27 +28,6 @@ interface Props {
 }
 
 // PeerCell은 공용 컴포넌트 사용 (M-2 — FiberRegisterView와 공유)
-
-// ── 차단기 번호 인라인 편집 ───────────────────────────────────────────────────
-interface BreakerInputProps {
-  feederId: string;
-  value: string | null;
-}
-
-function BreakerInput({ feederId, value }: BreakerInputProps) {
-  function handleCommit(raw: string) {
-    // 무변경 가드: 커밋 시점 getState로 현재 fieldValues 읽기 (stale 클로저 방지)
-    const current =
-      useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === feederId)?.fieldValues ?? {};
-    const next = raw.trim();
-    if (String(current['breakerNo'] ?? '') === next) return;
-    useV2WorkingCopy.getState().stageAssetUpdate(feederId, {
-      fieldValues: { ...current, breakerNo: next },
-    });
-  }
-
-  return <InlineEditCell value={value ?? ''} onCommit={handleCommit} />;
-}
 
 // ── 스위치 상태 편집 셀 ───────────────────────────────────────────────────────
 interface SwitchStateCellProps {
@@ -157,7 +135,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     return rows.filter(
       (r) =>
         !r.empty &&
-        [r.feederName, r.breakerNo ?? '', peerText(r.inCell), peerText(r.outCell)].some((v) =>
+        [r.feederName, peerText(r.inCell), peerText(r.outCell)].some((v) =>
           v.toLowerCase().includes(q),
         ),
     );
@@ -215,15 +193,19 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
       {/* 테이블 */}
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <TableCard widths={[8, 20, 13, 11, 24, 24]}>
+        <TableCard widths={[8, 24, 12, 24, 10, 22]}>
           <thead>
             <tr className="border-b border-line">
-              {/* 회로 번호가 맨 앞 — 패널 스케줄에서 번호는 곧 패널에서의 자리다. */}
+              {/* 회로 번호가 맨 앞 — 패널 스케줄에서 번호는 곧 패널에서의 자리다.
+                  그래서 '차단기 번호' 열은 두지 않는다: 같은 것을 두 번 적는 셈이었다
+                  (필드 자체는 남아 있어 자산 상세에서 적을 수 있다). */}
               <Th>회로</Th>
               <Th>피더</Th>
-              <Th>차단기 번호</Th>
               <Th>상태</Th>
               <Th>전원 입력</Th>
+              {/* 전압은 제 열을 갖는다 — 대국 아래에 끼워 넣으니 그 행만 두 줄이 되어
+                  표의 행 높이가 43~63px 로 들쭉날쭉했다. */}
+              <Th>전압</Th>
               <Th>부하 출력</Th>
             </tr>
           </thead>
@@ -239,38 +221,37 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               /* 빈 회로 자리 — 패널 스케줄의 SPARE. 눌러서 그 자리에 피더를 넣는다
                  (수용 UI 의 '비어 있음' 행과 같은 규칙). */
               row.empty ? (
-                <tr key={`empty-${row.slotNo}`} className="border-b border-line">
+                /* 빈 자리도 **같은 격자** 위에 있어야 한다 — 예전에는 표 폭을 통째로 가로지르는
+                   점선 상자여서 행 경계선과 겹쳐 보이고 열 정렬이 끊겼다.
+                   '추가' 는 손이 닿을 때만 뜨되 자리는 미리 비워 둔다(§1.7 — 안 그러면 행이 떤다). */
+                <tr
+                  key={`empty-${row.slotNo}`}
+                  className={cn('group h-11 border-b border-line', SELECTABLE)}
+                  onClick={() => setAddSlotIndex(row.slotNo! - 1)}
+                >
                   <td className="px-3 py-1.5 text-sm text-content-faint tabular-nums">{row.slotNo}</td>
-                  <td colSpan={5} className="px-3 py-1.5">
-                    <button
-                      type="button"
-                      className={cn(
-                        'w-full rounded border border-dashed border-line px-2 py-1 text-left text-sm text-content-faint',
-                        SELECTABLE,
-                      )}
-                      onClick={() => setAddSlotIndex(row.slotNo! - 1)}
-                    >
-                      비어 있음
-                      <span className="ml-2 text-xs text-primary">+ 추가</span>
-                    </button>
+                  <td className="px-3 py-1.5 text-sm text-content-faint">
+                    비어 있음
+                    <span className="ml-2 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      + 추가
+                    </span>
                   </td>
+                  <td colSpan={4} />
                 </tr>
               ) : (
               <tr
                 key={row.feederId}
-                className={`cursor-pointer border-b border-line hover:bg-surface-2 ${
-                  selectedAssetId === row.feederId ? 'bg-surface-2' : ''
-                }`}
+                /* 모든 행이 같은 높이 — 패널 스케줄은 눈으로 회로를 세는 표다. 빈 자리 행에는
+                   컨트롤이 없어 10px 낮았고, 그 바람에 번호 간격이 들쭉날쭉했다. */
+                className={cn(
+                  'h-11 border-b border-line',
+                  SELECTABLE,
+                  selectedAssetId === row.feederId && SELECTED,
+                )}
                 onClick={() => onSelectAsset(row.feederId)}
               >
                 <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{row.slotNo ?? '—'}</td>
-                {/* 피더 이름 */}
-                <td className="px-3 py-1.5 text-sm text-content">{row.feederName}</td>
-
-                {/* 차단기 번호 인라인 편집 */}
-                <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
-                  <BreakerInput feederId={row.feederId} value={row.breakerNo} />
-                </td>
+                <td className="truncate px-3 py-1.5 text-sm text-content">{row.feederName}</td>
 
                 {/* 스위치 상태 편집 */}
                 <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
@@ -281,18 +262,15 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                   />
                 </td>
 
-                {/* 전원 입력: peer + 전압 */}
-                <td className="px-3 py-1.5">
-                  <div className="flex flex-col gap-1">
-                    <PeerCell peer={row.inCell.peer} />
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <VoltageInput cableId={row.inCell.cableId} voltage={row.inCell.voltage} />
-                    </div>
-                  </div>
+                <td className="truncate px-3 py-1.5">
+                  <PeerCell peer={row.inCell.peer} />
                 </td>
 
-                {/* 부하 출력: peer */}
-                <td className="px-3 py-1.5">
+                <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+                  <VoltageInput cableId={row.inCell.cableId} voltage={row.inCell.voltage} />
+                </td>
+
+                <td className="truncate px-3 py-1.5">
                   <PeerCell peer={row.outCell.peer} />
                 </td>
               </tr>

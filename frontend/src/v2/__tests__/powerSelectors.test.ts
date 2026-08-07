@@ -30,7 +30,7 @@ describe('powerContainers', () => {
 });
 
 describe('buildPowerRows', () => {
-  it('피더 행 — IN/OUT 연결·차단기·전압', () => {
+  it('피더 행 — IN/OUT 연결·상태·전압', () => {
     const cables = [
       cable('cin', 'upsOut', 'f1in', { specParams: { voltage: 'AC 220V' } }),
       cable('cout', 'f1out', 'loadIn'),
@@ -38,7 +38,7 @@ describe('buildPowerRows', () => {
     const rows = buildPowerRows(panel as never, [panel, feeder, ups, load] as never, cables as never);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      feederName: '피더1', breakerNo: 'NFB-3', switchState: 'ON',
+      feederName: '피더1', switchState: 'ON',
       inCell: { cableId: 'cin', voltage: 'AC 220V', peer: { assetName: 'UPS-1', remote: false } },
       outCell: { cableId: 'cout', peer: { assetName: '부하장비' } },
     });
@@ -61,15 +61,21 @@ describe('패널 스케줄 — 회로 자리', () => {
       ports: [port(`${id}in`, id, 'IN', 1, 'IN'), port(`${id}out`, id, 'OUT', 1, 'OUT')],
     });
 
-  it('이름순이 아니라 차단기 번호순으로 읽는다', () => {
-    const assets = [panel, mk('c', '가피더', '10', null), mk('a', '나피더', '2', null)];
-    const rows = buildPowerRows(panel, assets, []);
-    expect(rows.map((r) => r.breakerNo)).toEqual(['2', '10']); // 문자열 정렬이면 '10' 이 앞선다
-  });
-
-  it('차단기 번호가 없으면 슬롯 자리로 물러선다 — 순서를 잃지 않게', () => {
+  /* 회로 번호 = 패널에서의 자리. 예전에는 커스텀 필드 `breakerNo` 를 먼저 봤는데,
+     그러면 표에 보이는 번호(자리)와 정렬 기준이 서로 달랐다. */
+  it('자리 번호순으로 읽는다 — 이름순이 아니다', () => {
     const assets = [panel, mk('x', '나중', null, 4), mk('y', '먼저', null, 1)];
     expect(buildPowerRows(panel, assets, []).map((r) => r.feederName)).toEqual(['먼저', '나중']);
+  });
+
+  it('자리 번호는 문자열이 아니라 수로 센다 — 10이 2보다 앞서면 안 된다', () => {
+    const assets = [panel, mk('c', '열번', null, 9), mk('a', '두번', null, 1)];
+    expect(buildPowerRows(panel, assets, []).map((r) => r.slotNo)).toEqual([2, 10]);
+  });
+
+  it('자리 번호가 없으면(자유형) 이름순으로 물러선다', () => {
+    const assets = [panel, mk('x', '나피더', null, null), mk('y', '가피더', null, null)];
+    expect(buildPowerRows(panel, assets, []).map((r) => r.feederName)).toEqual(['가피더', '나피더']);
   });
 
   it('회로 수를 선언하면 빈 자리도 행이 된다 — 12회로에 2개만 물린 것이 보여야 한다', () => {

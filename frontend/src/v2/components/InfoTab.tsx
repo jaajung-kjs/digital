@@ -92,10 +92,9 @@ function SlotGrid({ spec, children, onSelectChild, onAddAtSlot, occupiedPortIds 
         <button
           type="button"
           className={cn(
-            'flex h-full w-full items-center gap-2 rounded border px-2 text-left text-sm',
-            child
-              ? cn('border-line bg-surface-2 text-content', SELECTABLE)
-              : cn('border-dashed border-line text-content-faint', SELECTABLE),
+            'group flex h-full w-full items-center gap-2 rounded px-2 text-left text-sm',
+            // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
+            child ? cn('border border-line bg-surface text-content', SELECTABLE) : cn('text-content-faint', SELECTABLE),
           )}
           title={child?.name}
           onClick={() => (child ? onSelectChild(child.id) : onAddAtSlot(slotIndex))}
@@ -103,7 +102,11 @@ function SlotGrid({ spec, children, onSelectChild, onAddAtSlot, occupiedPortIds 
           <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
           <span className="min-w-0 flex-1 truncate">{child ? child.name : '비어 있음'}</span>
           {child && <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
-          {!child && <span className="shrink-0 text-xs text-primary">+ 추가</span>}
+          {!child && (
+            <span className="shrink-0 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+              + 추가
+            </span>
+          )}
         </button>
       </li>,
     );
@@ -114,8 +117,16 @@ function SlotGrid({ spec, children, onSelectChild, onAddAtSlot, occupiedPortIds 
    * 세로로 쌓는 이유: 랙·함체는 세로로 슬롯이 배열된 물리 장비다. 예전에는 `grid-cols-6`
    * 이라 384px 상세 패널에서 칸이 56px 밖에 안 됐고, 장비 이름이 "SCA…", "통합…" 으로
    * 잘려 무엇이 꽂혀 있는지 알 수 없었다. 세로로 두면 이름 전체가 들어간다.
+   *
+   * 바깥 테두리 하나가 함체이고 그 안에 자리가 있다 — 포트 매트릭스의 백플레인과 같은 어법이다.
+   * 예전에는 **자리마다** 점선 상자를 둘러 12칸짜리 랙이 점선 12개 + 파란 `+ 추가` 12개가 되어,
+   * 정작 무엇이 꽂혀 있는지보다 빈칸이 더 눈에 띄었다.
    */
-  return <ul className="mt-1 space-y-1">{rows}</ul>;
+  return (
+    <div className="mt-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner">
+      <ul className="space-y-0.5">{rows}</ul>
+    </div>
+  );
 }
 
 // ── 자유형 자식 리스트 ─────────────────────────────────────────────────────────
@@ -133,39 +144,43 @@ interface FreeChildListProps {
  */
 function FreeChildList({ children, onSelectChild, onAdd, occupiedPortIds }: FreeChildListProps) {
   return (
-    <ul className="mt-1 space-y-1">
-      {children.map((child, i) => (
-        <li key={child.id} style={{ minHeight: SLOT_ROW_HEIGHT }}>
+    <div className="mt-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner">
+      <ul className="space-y-0.5">
+        {children.map((child, i) => (
+          <li key={child.id} style={{ minHeight: SLOT_ROW_HEIGHT }}>
+            <button
+              type="button"
+              className={cn(
+                'flex h-full w-full items-center gap-2 rounded border border-line bg-surface px-2 text-left text-sm text-content',
+                SELECTABLE,
+              )}
+              onClick={() => onSelectChild(child.id)}
+              title={child.name}
+            >
+              <span className="w-8 shrink-0 text-right text-xs text-content-faint">{i + 1}</span>
+              <span className="min-w-0 flex-1 truncate">{child.name}</span>
+              <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />
+            </button>
+          </li>
+        ))}
+        <li style={{ minHeight: SLOT_ROW_HEIGHT }}>
           <button
             type="button"
             className={cn(
-              'flex h-full w-full items-center gap-2 rounded border border-line bg-surface-2 px-2 text-left text-sm text-content',
+              'group flex h-full w-full items-center gap-2 rounded px-2 text-left text-sm text-content-faint',
               SELECTABLE,
             )}
-            onClick={() => onSelectChild(child.id)}
-            title={child.name}
+            onClick={onAdd}
           >
-            <span className="w-8 shrink-0 text-right text-xs text-content-faint">{i + 1}</span>
-            <span className="min-w-0 flex-1 truncate">{child.name}</span>
-            <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />
+            <span className="w-8 shrink-0 text-right text-xs text-content-faint">{children.length + 1}</span>
+            <span className="min-w-0 flex-1">비어 있음</span>
+            <span className="shrink-0 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+              + 추가
+            </span>
           </button>
         </li>
-      ))}
-      <li style={{ minHeight: SLOT_ROW_HEIGHT }}>
-        <button
-          type="button"
-          className={cn(
-            'flex h-full w-full items-center gap-2 rounded border border-dashed border-line px-2 text-left text-sm text-content-faint',
-            SELECTABLE,
-          )}
-          onClick={onAdd}
-        >
-          <span className="w-8 shrink-0 text-right text-xs text-content-faint">{children.length + 1}</span>
-          <span className="min-w-0 flex-1">비어 있음</span>
-          <span className="shrink-0 text-xs text-primary">+ 추가</span>
-        </button>
-      </li>
-    </ul>
+      </ul>
+    </div>
   );
 }
 

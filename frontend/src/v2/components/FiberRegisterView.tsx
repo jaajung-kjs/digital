@@ -7,7 +7,7 @@
  * 메타 인라인 편집: blur/Enter, 무변경 가드
  */
 import { Fragment, useMemo, useState } from 'react';
-import { EmptyState, Select, TableCard, TableSearch, Th } from '../../components/ui';
+import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog, useTypesById } from '../hooks';
@@ -152,8 +152,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
   // 컬럼 수: 코어 + groups.length + 3 (길이, 손실, 점검일)
   const totalCols = 1 + groups.length + 3;
 
-  // 코어·수치 열은 좁게 고정, 대국 그룹 열이 남는 폭을 나눠 갖는다(합 100).
-  const fiberWidths = [8, ...groups.map(() => (100 - 8 - 36) / Math.max(groups.length, 1)), 12, 12, 12];
+  /* 코어 번호는 한두 자리라 좁게, 수치 열도 좁게 — 남는 폭은 대국 그룹이 나눠 갖는다.
+     대국 이름은 '통신랙 A · OFD-1 · 슬롯 1 · 포트 3' 처럼 길어질 수 있어 여기가 넓어야 한다. */
+  const fiberWidths = [5, ...groups.map(() => (100 - 5 - 33) / Math.max(groups.length, 1)), 11, 11, 11];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -207,12 +208,10 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
             )}
             {rowGroups.map(({ slotId, slotName, rows: slotRows }) => (
               <Fragment key={slotId}>
-                {/* 슬롯 그룹헤더 행 */}
-                <tr className="bg-surface-2">
-                  <td
-                    colSpan={totalCols}
-                    className="px-3 py-1 text-xs font-medium text-content-muted"
-                  >
+                {/* 슬롯 구분 머리행 — 심 행보다 낮으면 구분자가 오히려 눌려 보인다.
+                    같은 높이로 두고 색과 굵기로만 구분한다. */}
+                <tr className="h-9 border-b border-line bg-surface-2">
+                  <td colSpan={totalCols} className="px-3 text-xs font-medium text-content-muted">
                     {slotName}
                   </td>
                 </tr>
@@ -220,9 +219,11 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                 {slotRows.map((row) => (
                   <tr
                     key={`${row.slotId}-${row.coreIndex}`}
-                    className={`cursor-pointer border-b border-line hover:bg-surface-2 ${
-                      selectedAssetId === row.slotId ? 'bg-surface-2' : ''
-                    }`}
+                    className={cn(
+                      'h-9 border-b border-line',
+                      SELECTABLE,
+                      selectedAssetId === row.slotId && SELECTED,
+                    )}
                     onClick={() => onSelectAsset(row.slotId)}
                   >
                     {/* 코어 번호 */}

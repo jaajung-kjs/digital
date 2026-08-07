@@ -132,7 +132,7 @@ export function TypeListPanel({
                     key={t.id}
                     type="button"
                     className={cn(
-                      'flex w-full items-center gap-2 px-4 py-2 text-left text-sm',
+                      'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm',
                       SELECTABLE,
                       !t.isActive && 'opacity-50',
                       selectedTypeId === t.id ? SELECTED : 'text-content',
@@ -148,7 +148,7 @@ export function TypeListPanel({
                   </button>
                 ))}
 
-                {types.length === 0 && <div className="px-4 py-2 text-xs text-content-faint">타입 없음</div>}
+                {types.length === 0 && <div className="px-3 py-1.5 text-xs text-content-faint">타입 없음</div>}
               </div>
             );
           })}

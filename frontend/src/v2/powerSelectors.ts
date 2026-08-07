@@ -27,22 +27,20 @@ export interface PowerRow {
   empty: boolean;
   feederId: string;
   feederName: string;
-  breakerNo: string | null;
   switchState: string | null;
   inCell: PowerCell & { voltage: string | null };
   outCell: PowerCell;
 }
 
 /**
- * 이 피더가 몇 번 회로인가 — 차단기 번호가 있으면 그것, 없으면 슬롯 자리.
+ * 이 피더가 몇 번 회로인가 — **패널에서의 자리**가 곧 회로 번호다.
  *
- * 차단기 번호는 사용자가 적는 커스텀 필드라 비어 있거나 숫자가 아닐 수 있다.
- * 그럴 때 순서를 잃지 않도록 슬롯 인덱스로 물러선다.
+ * 예전에는 커스텀 필드 `breakerNo` 를 먼저 보고 없을 때만 자리로 물러섰다. 그런데 표에는
+ * 자리 번호와 차단기 번호가 나란히 떠서 같은 값을 두 번 적는 꼴이었고(1/1, 2/2 …),
+ * 정렬 기준은 화면에 안 보이는 쪽이었다. 보이는 것으로 센다.
+ * 자유형 컨테이너(자리 번호 없음)면 null — 그때는 이름순으로 물러선다.
  */
 function circuitNumber(feeder: V2Asset): number | null {
-  const raw = fieldString(feeder.fieldValues?.breakerNo);
-  const n = raw == null ? NaN : parseInt(raw, 10);
-  if (Number.isFinite(n)) return n;
   return feeder.slotIndex != null ? feeder.slotIndex + 1 : null;
 }
 
@@ -56,7 +54,7 @@ function fieldString(value: unknown): string | null {
  * Feeders are children of container with power ports, sorted by name.
  * inCell/outCell: first port with direction 'IN'/'OUT' respectively (port data field, not role branching).
  * 3-tier peer resolution via shared helper: local effective -> saved refs -> null.
- * breakerNo/switchState: fieldValues stringified or null.
+ * switchState: fieldValues stringified or null.
  * voltage: IN cable specParams.voltage or null.
  */
 export function buildPowerRows(
@@ -138,7 +136,6 @@ export function buildPowerRows(
       empty: false,
       feederId: feeder.id,
       feederName: feeder.name,
-      breakerNo: fieldString(feeder.fieldValues?.breakerNo),
       switchState: fieldString(feeder.fieldValues?.switchState),
       inCell,
       outCell,
@@ -157,7 +154,6 @@ export function buildPowerRows(
         empty: true,
         feederId: '',
         feederName: '',
-        breakerNo: null,
         switchState: null,
         inCell: { portId: null, cableId: null, peer: null, voltage: null },
         outCell: { portId: null, cableId: null, peer: null },
