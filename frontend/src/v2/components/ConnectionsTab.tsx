@@ -339,6 +339,9 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
             {connectionRows.map((row) => (
               <li
                 key={row.key}
+                /* 케이블 정보는 툴팁으로 — 384px 패널에서 대국 이름과 자리를 다투면
+                   정작 어디로 가는지가 잘린다(`접지단자함 G1 · 접지 부…`). */
+                title={row.cableLabel || undefined}
                 className={cn(
                   'group flex items-center gap-2 rounded py-1.5',
                   row.portId === selectedPortId && 'bg-info-bg',
@@ -362,7 +365,6 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
                 >
                   {row.peerLabel ?? '—'}
                 </button>
-                {row.cableLabel && <span className="shrink-0 text-xs text-content-faint">{row.cableLabel}</span>}
               </li>
             ))}
           </ul>
