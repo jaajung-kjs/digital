@@ -28,7 +28,9 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     containers: [
       { key: 'main', name: '슬롯', slotCount: 12, allowSpan: true, accepts: { categoryKeys: ['통신', '전원', '공조'] } },
     ],
-    ports: [],
+    ports: [
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
+    ],
     links: [],
   },
   // ── 구 role: ofd ──
@@ -103,11 +105,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '접지함체',
     categoryKey: '구조',
     sortOrder: 31,
-    placement: { placeable: true },
+    placement: { placeable: true, defaultWidth: 60, defaultHeight: 60 },
     labor: NO_LABOR,
     fields: [...COMMON_FIELDS],
     containers: [],
-    ports: [],
+    ports: [
+      { group: 'BUS', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지 부스바' },
+    ],
     links: [],
   },
   {
@@ -134,6 +138,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      // 현장 기기와 잇는 직렬 회선 — 방향을 따지지 않는다(널모뎀 배선이 실제로 있다).
+      { group: 'COM', count: 2, direction: 'BI', medium: 'control', namePattern: 'COM{n}' },
+      { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
     links: [],
   },
@@ -147,9 +155,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: 'power', namePattern: '전원 {n}' },
+      { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력' },
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
+    links: [
+      { fromGroup: 'PWR-IN', toGroup: 'PWR-OUT', mapping: 'all' },
+    ],
   },
   {
     key: 'UPS',
@@ -161,9 +173,13 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: 'power', namePattern: '전원 {n}' },
+      { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'PWR-OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}' },
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
+    links: [
+      { fromGroup: 'PWR-IN', toGroup: 'PWR-OUT', mapping: 'all' },
+    ],
   },
   {
     key: 'BATTERY',
@@ -175,7 +191,9 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     fields: [...COMMON_FIELDS],
     containers: [],
     ports: [
-      { group: 'P', count: 2, direction: 'BI', medium: 'power', namePattern: '전원 {n}' },
+      { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '충전 입력' },
+      { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '방전 출력' },
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
     links: [],
   },
@@ -191,6 +209,9 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+      { group: 'COM', count: 1, direction: 'BI', medium: 'control', namePattern: 'COM1' },
+      { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
+      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
     links: [],
   },
@@ -456,7 +477,9 @@ export const SEED_CABLE_CATEGORIES: { groupKey: string; name: string; sortOrder:
   { groupKey: 'fiber',   name: 'OPGW(광복합가공지선)', sortOrder: 9 },
   { groupKey: 'ground',  name: '접지전선 IV/F-GV',      sortOrder: 10 },
   { groupKey: 'ground',  name: '나동연선',              sortOrder: 11 },
-  { groupKey: 'power',   name: '제어케이블 CVV-S',      sortOrder: 12 },
+  // 제어케이블은 제어 그룹이다 — 예전에는 전원 그룹에 들어가 있어, 제어 포트에 물릴 수 있는
+  // 케이블 종류가 하나도 없었다(포트 종류와 케이블 그룹이 어긋난 자리).
+  { groupKey: 'control', name: '제어케이블 CVV-S',      sortOrder: 12 },
   { groupKey: 'network', name: '통신케이블 CPEV-S',     sortOrder: 13 },
   { groupKey: 'control', name: 'PCM케이블',             sortOrder: 14 },
   { groupKey: 'control', name: '동축케이블',            sortOrder: 15 },

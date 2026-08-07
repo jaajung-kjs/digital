@@ -61,12 +61,19 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
     [asset],
   );
 
-  // portId → cable + peer port 매핑
-  const cableByPortId = useMemo(() => {
-    const map = new Map<string, { cableId: string; peerPortId: string; cable: V2Cable }>();
+  /* portId → 그 포트에 물린 **모든** 케이블.
+     예전에는 포트당 하나만 담는 Map 이라 `set` 이 앞의 것을 덮어썼다. 접지 부스바처럼
+     한 단자에 여러 가닥이 모이면 마지막 한 가닥만 보이고 나머지는 화면에서 사라졌다. */
+  const cablesByPortId = useMemo(() => {
+    const map = new Map<string, { cableId: string; peerPortId: string; cable: V2Cable }[]>();
+    const add = (portId: string, entry: { cableId: string; peerPortId: string; cable: V2Cable }) => {
+      const list = map.get(portId);
+      if (list) list.push(entry);
+      else map.set(portId, [entry]);
+    };
     for (const cable of effectiveCables) {
-      map.set(cable.aPortId, { cableId: cable.id, peerPortId: cable.bPortId, cable });
-      map.set(cable.bPortId, { cableId: cable.id, peerPortId: cable.aPortId, cable });
+      add(cable.aPortId, { cableId: cable.id, peerPortId: cable.bPortId, cable });
+      add(cable.bPortId, { cableId: cable.id, peerPortId: cable.aPortId, cable });
     }
     return map;
   }, [effectiveCables]);
@@ -99,10 +106,10 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
      짝이 둘 다 물려야 '양측', 하나만이면 '편도'. 짝이 없는 포트는 2단계뿐이다.
      "광" 같은 도메인 단어가 들어가지 않는다 — 내부 통과 규칙이 있으면 무엇이든 이렇게 센다. */
   const portState = (port: V2Port): PortState => {
-    const mine = cableByPortId.has(port.id);
+    const mine = cablesByPortId.has(port.id);
     const partners = internalOf.get(port.id) ?? [];
     if (partners.length === 0) return mine ? 'full' : 'empty';
-    const partnerConnected = partners.some((id) => cableByPortId.has(id));
+    const partnerConnected = partners.some((id) => cablesByPortId.has(id));
     if (mine && partnerConnected) return 'full';
     if (mine || partnerConnected) return 'half';
     return 'empty';
@@ -113,15 +120,20 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
     () => (asset?.ports ?? []).find((p) => p.id === selectedPortId) ?? null,
     [asset, selectedPortId],
   );
-  const selectedConn = selectedPort ? cableByPortId.get(selectedPort.id) : undefined;
-  const selectedPeerEntry = selectedConn ? portIndex.get(selectedConn.peerPortId) : undefined;
-  const selectedPeerLabel = useMemo(() => {
-    if (!selectedPort || !selectedConn || !asset) return null;
-    const peer = resolvePeer(selectedPort, selectedConn.cable, portIndex, asset.substationId);
-    if (!peer) return null;
-    const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
-    return `${peer.assetName} · ${peer.portName}${sub}`;
-  }, [selectedPort, selectedConn, portIndex, asset]);
+  /* 고른 포트에 물린 대국 — 부스바는 여럿이다. 하나만 보여 주면 나머지가 없는 것처럼 읽힌다. */
+  const selectedPeers = useMemo(() => {
+    if (!selectedPort || !asset) return [];
+    return (cablesByPortId.get(selectedPort.id) ?? []).flatMap((conn) => {
+      const peer = resolvePeer(selectedPort, conn.cable, portIndex, asset.substationId);
+      if (!peer) return [];
+      const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
+      return [{
+        cableId: conn.cableId,
+        label: `${peer.assetName} · ${peer.portName}${sub}`,
+        entry: portIndex.get(conn.peerPortId),
+      }];
+    });
+  }, [selectedPort, cablesByPortId, portIndex, asset]);
 
   // hop → 표시용 텍스트 (portIndex 단일 조회 — portById/assetByPortId 수제 맵 제거)
   function hopText(hop: import('../traceSelectors').TraceResult['hops'][number]): string {
@@ -134,7 +146,8 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
       return `${entry.asset.name} · ${entry.port.name}`;
     }
     // 로컬 미해소 포트 — 해당 케이블 saved refs로 표기 (끝점 자신의 ref — endpointRef 한 곳 규칙)
-    const cableEntry = cableByPortId.get(hop.toPortId);
+    // 추적 경로의 한 홉은 케이블 하나를 따라간 것이므로 첫 가닥으로 이름을 짓는다.
+    const cableEntry = cablesByPortId.get(hop.toPortId)?.[0];
     if (cableEntry) {
       const ref = endpointRef(cableEntry.cable, hop.toPortId);
       if (ref) {
@@ -219,7 +232,7 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
       {/* 포트 매트릭스 (그룹별) — 판을 보고 빈 자리를 찾는다 */}
       {portOwners.map(({ owner, groups }) => {
         const ownerPorts = [...groups.values()].flat();
-        const connected = ownerPorts.filter((pt) => cableByPortId.has(pt.id)).length;
+        const connected = ownerPorts.filter((pt) => cablesByPortId.has(pt.id)).length;
         const isSelf = owner.id === assetId;
         return (
           <DetailCard key={owner.id}>
@@ -268,24 +281,29 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
             badge={PORT_STATE_LABEL[portState(selectedPort)]}
             badgeStatus={portState(selectedPort) === 'full' ? 'success' : portState(selectedPort) === 'half' ? 'warning' : 'neutral'}
             actions={
-              selectedPeerEntry ? (
+              selectedPeers.length > 0 ? (
                 <Button variant="secondary" size="sm" onClick={() => handleTrace(selectedPort.id)}>
                   추적
                 </Button>
               ) : undefined
             }
           />
-          <DetailRow label="대국">
-            {selectedPeerLabel ? (
-              <button
-                type="button"
-                className={cn('min-w-0 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                title={`${selectedPeerLabel} 으로 이동`}
-                disabled={!selectedPeerEntry}
-                onClick={() => selectedPeerEntry && onSelectAsset(selectedPeerEntry.asset.id)}
-              >
-                {selectedPeerLabel}
-              </button>
+          <DetailRow label={selectedPeers.length > 1 ? `대국 ${selectedPeers.length}` : '대국'}>
+            {selectedPeers.length > 0 ? (
+              <div className="flex min-w-0 flex-col items-start">
+                {selectedPeers.map((peer) => (
+                  <button
+                    key={peer.cableId}
+                    type="button"
+                    className={cn('min-w-0 max-w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                    title={`${peer.label} 으로 이동`}
+                    disabled={!peer.entry}
+                    onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
+                  >
+                    {peer.label}
+                  </button>
+                ))}
+              </div>
             ) : (
               <span className="text-sm text-content-faint">미연결</span>
             )}
