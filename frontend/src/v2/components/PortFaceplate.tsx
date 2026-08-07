@@ -16,6 +16,21 @@ export const PORT_STATE_LABEL: Record<PortState, string> = {
   full: '양측',
 };
 
+/**
+ * 한 줄에 놓이는 포트 수 — **6개로 고정**한다.
+ *
+ * 실제 판은 12구·24구처럼 6의 배수로 나오므로 6개씩 끊으면 2줄·4줄로 딱 맞아떨어진다.
+ * 폭에 맡기면(`flex-wrap` 만) 패널 크기에 따라 7개가 들어갔다 5개가 들어갔다 해서 같은
+ * 장비가 화면마다 다른 모양이 된다.
+ *
+ * 칸 폭·간격은 클래스가 아니라 **이 숫자에서** 나온다. 최대 폭(6칸)을 이 둘로 계산하는데
+ * 클래스에도 따로 적혀 있으면 한쪽만 바꿨을 때 줄이 조용히 7개가 된다.
+ */
+const PORT_W = 40; // px — 타일 한 칸
+const PORT_GAP = 4; // px — 칸 사이
+const PORTS_PER_ROW = 6;
+const ROW_MAX_W = PORTS_PER_ROW * PORT_W + (PORTS_PER_ROW - 1) * PORT_GAP;
+
 export interface FaceplateSection {
   key: string;
   /** 구획 이름 — 종류 어휘에서 나온다(`portGroupLabel`). */
@@ -92,8 +107,12 @@ export function PortFaceplate({
             </span>
           </div>
 
-          {/* 포트는 촘촘히 — 실제 전면판이 그렇다. */}
-          <div className="flex flex-wrap gap-x-1 gap-y-1.5">
+          {/* 포트는 촘촘히 — 실제 전면판이 그렇다. 한 줄 6개에서 끊는다(포트가 6개 미만인
+              구획은 그만큼만 차지하므로 옆 구획이 바로 이어 붙는다). */}
+          <div
+            className="flex flex-wrap"
+            style={{ maxWidth: ROW_MAX_W, columnGap: PORT_GAP, rowGap: PORT_GAP + 2 }}
+          >
             {section.ports.map((p) => {
               const state = stateOf(p);
               const selected = p.id === selectedPortId;
@@ -108,8 +127,9 @@ export function PortFaceplate({
                   aria-label={`${labelPrefix ? `${labelPrefix} ` : ''}${p.name} ${count > 1 ? `${count}가닥` : PORT_STATE_LABEL[state]}`}
                   aria-pressed={selected}
                   onClick={() => onSelect(p.id)}
+                  style={{ width: PORT_W }}
                   className={cn(
-                    'relative flex w-10 flex-col items-center gap-0.5 rounded-sm p-0.5 transition-colors',
+                    'relative flex flex-col items-center gap-0.5 rounded-sm p-0.5 transition-colors',
                     disabled ? 'cursor-not-allowed opacity-45' : 'cursor-pointer hover:brightness-95',
                     selected && 'ring-2 ring-inset ring-primary',
                   )}
