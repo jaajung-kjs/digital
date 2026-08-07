@@ -33,7 +33,11 @@ export interface V2Branch { id: string; name: string; sortOrder: number; headqua
 export interface V2Hq { id: string; name: string; sortOrder: number; branches: V2Branch[] }
 export interface V2OrgTree { headquarters: V2Hq[] }
 
-export interface V2Port { id: string; assetId: string; group: string; index: number; name: string; direction: Direction; medium: string }
+export interface V2Port {
+  id: string; assetId: string; group: string; index: number; name: string; direction: Direction; medium: string;
+  /** 이 포트 하나에 딸린 값 — 광 심선의 손실(dB)·점검일처럼 **심선마다 다른** 것. */
+  fieldValues: Record<string, unknown>;
+}
 export interface V2Asset {
   id: string; name: string; typeId: string; substationId: string; status: string;
   floorId: string | null; x: number | null; y: number | null; width: number | null; height: number | null;
@@ -61,7 +65,10 @@ export interface V2AssetCreateInput {
   parentAssetId?: string | null; containerKey?: string | null; slotIndex?: number | null; slotSpan?: number | null;
   fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>;
 }
-export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts'>>;
+export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts'>> & {
+  /** 이 자산 포트에 딸린 값 — 포트는 타입 명세가 만드므로 값만 고친다. */
+  portFieldValues?: { portId: string; fieldValues: Record<string, unknown> }[];
+};
 export interface V2CableCreateInput { id: string; aPortId: string; bPortId: string; categoryId?: string | null; name?: string | null; pathPoints?: { x: number; y: number }[]; specParams?: Record<string, unknown> }
 export type V2CablePatch = Partial<Omit<V2CableCreateInput, 'id'>>
 export interface V2RecordOps<TCreate, TPatch> { creates?: TCreate[]; updates?: { id: string; patch: TPatch }[]; deletes?: string[] }

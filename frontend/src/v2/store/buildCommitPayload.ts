@@ -18,6 +18,22 @@ function toCreateInput(a: V2Asset): V2AssetCreateInput {
   };
 }
 
+/**
+ * 오버레이의 자산 패치 → 서버가 받는 패치.
+ *
+ * 화면은 심선 값을 고칠 때 **포트 배열째로** 스테이지한다(그래야 effective 가 곧바로 새 값을
+ * 보여 준다). 서버는 포트를 만들거나 지우지 않고 값만 고치므로, 여기서 `portFieldValues`
+ * 로 옮겨 담고 `ports` 배열 자체는 보내지 않는다.
+ */
+function toAssetPatch(patch: Partial<V2Asset>): V2AssetPatch {
+  const { ports, ...rest } = patch;
+  const out = rest as V2AssetPatch;
+  if (ports) {
+    out.portFieldValues = ports.map((p) => ({ portId: p.id, fieldValues: p.fieldValues ?? {} }));
+  }
+  return out;
+}
+
 function toCableCreateInput(c: V2Cable): V2CableCreateInput {
   return { id: c.id, aPortId: c.aPortId, bPortId: c.bPortId, categoryId: c.categoryId, name: c.name, pathPoints: c.pathPoints, specParams: c.specParams };
 }
@@ -47,7 +63,7 @@ export function buildCommitPayload(
   const creates = Object.values(overlays.assets.creates).map(toCreateInput);
   const updates = Object.entries(overlays.assets.updates)
     .filter(([id]) => !deletedAssets.has(id))
-    .map(([id, patch]) => ({ id, patch: patch as V2AssetPatch }));
+    .map(([id, patch]) => ({ id, patch: toAssetPatch(patch) }));
   const deletes = overlays.assets.deletes;
   const assetsBlock = pruneEmpty(creates, updates, deletes);
   if (assetsBlock) payload.assets = assetsBlock;

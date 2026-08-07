@@ -32,8 +32,8 @@ vi.mock('../hooks', () => ({
   useTypesById: () => new Map(mockTypes.map((t) => [t.id, t])),
 }));
 
-const port = (id: string, assetId: string, group: string, index: number) =>
-  ({ id, assetId, group, index, name: `${group} ${index}`, direction: 'BI' as const, medium: 'fiber' });
+const port = (id: string, assetId: string, group: string, index: number, fieldValues: Record<string, unknown> = {}) =>
+  ({ id, assetId, group, index, name: `${group} ${index}`, direction: 'BI' as const, medium: 'fiber', fieldValues });
 const asset = (id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
@@ -46,9 +46,13 @@ const cable = (id: string, a: string, b: string, extra: Partial<V2Cable> = {}): 
 });
 
 const ofd = asset('ofd', 'OFD-1');
+/* 심선 값(손실)은 **선로측 포트**에 담긴다 — 케이블이 아니다. */
 const slot = asset('slot', '슬롯1', {
   parentAssetId: 'ofd',
-  ports: [port('a1', 'slot', 'A', 1), port('a2', 'slot', 'A', 2), port('b1', 'slot', 'B', 1), port('b2', 'slot', 'B', 2)],
+  ports: [
+    port('a1', 'slot', 'A', 1), port('a2', 'slot', 'A', 2),
+    port('b1', 'slot', 'B', 1, { lossDb: 0.3 }), port('b2', 'slot', 'B', 2),
+  ],
 });
 
 function setStore(assets: V2Asset[], cables: V2Cable[]) {
@@ -65,15 +69,15 @@ describe('FiberRegisterView 배선 — 카탈로그 lineSide → meta 입력 관
     setStore([], []);
   });
 
-  it('lineSide(B) 그룹 케이블의 specParams가 meta 입력에 채워진다 (types 배선 회귀 핀)', () => {
-    const c = cable('c1', 'b1', 'x', { specParams: { lengthM: 12.5, lossDb: 0.3 } });
+  it('lineSide(B) 선언이 케이블 값·심선 값 양쪽 입력까지 관통한다 (types 배선 회귀 핀)', () => {
+    const c = cable('c1', 'b1', 'x', { specParams: { lengthM: 12.5 } });
     setStore([ofd, slot], [c]);
 
     render(<FiberRegisterView substationId="sub-1" selectedAssetId={null} onSelectAsset={vi.fn()} />);
 
-    // meta 길이 입력이 활성(input)이고 값이 채워져 있어야 한다.
-    // 콜사이트가 types 를 빠뜨리면 lineSide 판독 불가 → cableId null → 입력 대신 '—' 렌더 → 실패.
+    // 길이는 **케이블**에서 — 콜사이트가 types 를 빠뜨리면 lineSide 판독 불가 → '—' 렌더 → 실패.
     expect(screen.getByDisplayValue('12.5')).toBeTruthy();
+    // 손실은 **심선(선로측 포트)** 에서.
     expect(screen.getByDisplayValue('0.3')).toBeTruthy();
   });
 

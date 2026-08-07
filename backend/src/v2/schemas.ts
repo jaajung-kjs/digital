@@ -34,7 +34,14 @@ const assetCreateSchema = z.object({
 
 const assetPatchSchema = assetCreateSchema
   .omit({ id: true, typeId: true, portCounts: true })
-  .partial();
+  .partial()
+  .extend({
+    /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 타입 명세에서 만들어지므로
+       생성·삭제는 없고 값만 고친다 — 그래서 자산 패치에 얹는다(별도 OCC 축을 만들지 않음). */
+    portFieldValues: z
+      .array(z.object({ portId: z.string().uuid(), fieldValues: z.record(z.unknown()) }))
+      .optional(),
+  });
 
 const recordOps = <T extends z.ZodRawShape>(createShape: T) =>
   z.object({

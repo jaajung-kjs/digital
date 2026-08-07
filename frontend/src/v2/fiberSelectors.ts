@@ -28,8 +28,13 @@ export interface FiberRowCell {
  * `cableFieldsFor('fiber')` 가 말하고, 여기는 그 값을 그대로 담기만 한다.
  */
 export interface FiberRowMeta {
+  /** 선로측 케이블 — 길이처럼 **케이블 한 가닥**의 값이 여기 담긴다. */
   cableId: string | null;
-  values: Record<string, unknown>;
+  cableValues: Record<string, unknown>;
+  /** 이 심선(선로측 포트) — 손실·점검일처럼 **심선마다 다른** 값이 여기 담긴다. */
+  portId: string | null;
+  portAssetId: string | null;
+  portValues: Record<string, unknown>;
 }
 
 export interface FiberRow {
@@ -170,10 +175,19 @@ export function buildFiberRows(
       const lineSideGroupIdx = lineSideGroup !== undefined ? groupsOrder.indexOf(lineSideGroup) : -1;
       const metaCable: V2Cable | null =
         lineSideGroupIdx >= 0 ? (cableByGroupIdx[lineSideGroupIdx] ?? null) : null;
+      /* 심선 값은 케이블이 아니라 **선로측 포트**에 담긴다 — 케이블이 없어도 적을 수 있다
+         (아직 안 이어진 심선에도 성단 손실을 기록한다). */
+      const metaPort =
+        lineSideGroup !== undefined
+          ? slot.ports.find((p) => p.group === lineSideGroup && p.index === coreIndex) ?? null
+          : null;
 
       const meta: FiberRowMeta = {
         cableId: metaCable?.id ?? null,
-        values: metaCable?.specParams ?? {},
+        cableValues: metaCable?.specParams ?? {},
+        portId: metaPort?.id ?? null,
+        portAssetId: metaPort ? slot.id : null,
+        portValues: metaPort?.fieldValues ?? {},
       };
 
       rows.push({

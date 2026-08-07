@@ -11,7 +11,7 @@ import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTE
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog, useTypesById } from '../hooks';
-import { cableFieldsFor, type CableFieldDef } from '@twin/core';
+import { cableFieldsFor, portFieldsFor, type CableFieldDef } from '@twin/core';
 import { useMediumContainer } from '../useMediumContainer';
 import { fiberContainers, buildFiberRows, FIBER_MEDIUM } from '../fiberSelectors';
 import type { FiberRow } from '../fiberSelectors';
@@ -63,6 +63,47 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
   }
 
   return <InlineEditCell value={displayValue} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} />;
+}
+
+// ── 심선 값 인라인 편집 ───────────────────────────────────────────────────────
+/**
+ * 손실·점검일처럼 **심선마다 다른** 값은 케이블이 아니라 포트에 담긴다.
+ *
+ * 예전에는 케이블에 담았는데, 그러려면 OPGW 한 가닥을 심선 수만큼 케이블로 복제해야 했고
+ * 그 탓에 설계서 공량이 그 배로 부풀었다(40m 4심 → 160m). 그리고 아직 이어지지 않은 심선에는
+ * 케이블이 없어 성단 손실을 적을 곳조차 없었다.
+ *
+ * 포트는 타입 명세가 만드는 것이라 생성·삭제가 없고 값만 바뀐다 — 그래서 자산 패치에 얹는다
+ * (별도 OCC 축을 만들지 않는다).
+ */
+function PortFieldInput({
+  value, field, portId, assetId,
+}: { value: unknown; field: CableFieldDef; portId: string | null; assetId: string | null }) {
+  if (!portId || !assetId) return <span className="text-content-faint">—</span>;
+  const resolvedPortId: string = portId;
+  const resolvedAssetId: string = assetId;
+  const isNumber = field.type === 'number';
+  const shown = value === null || value === undefined ? '' : String(value);
+
+  function handleCommit(raw: string) {
+    const asset = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === resolvedAssetId);
+    const port = asset?.ports.find((p) => p.id === resolvedPortId);
+    if (!asset || !port) return;
+
+    const next = isNumber ? (raw.trim() === '' ? null : Number(raw)) : (raw.trim() || null);
+    if (isNumber && typeof next === 'number' && Number.isNaN(next)) return;
+    const current = port.fieldValues?.[field.key] ?? null;
+    if (current === next) return; // 무변경 가드
+
+    /* 포트 배열째로 스테이지한다 — 화면(effective)이 곧바로 새 값을 보여야 하고,
+       커밋 페이로드는 이 배열에서 `portFieldValues` 를 뽑아 낸다. */
+    const ports = asset.ports.map((p) =>
+      p.id === resolvedPortId ? { ...p, fieldValues: { ...(p.fieldValues ?? {}), [field.key]: next } } : p,
+    );
+    useV2WorkingCopy.getState().stageAssetUpdate(resolvedAssetId, { ports });
+  }
+
+  return <InlineEditCell value={shown} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} />;
 }
 
 // PeerCell은 공용 컴포넌트로 추출 (M-2 — PowerRegisterView와 공유)
@@ -144,8 +185,10 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
     }
   }
 
-  /* 선로측 케이블에 적는 값 — 몇 칸인지는 종류 선언이 정한다(예전에는 3으로 박혀 있었다). */
-  const metaFields = cableFieldsFor(FIBER_MEDIUM);
+  /* 선로측에 적는 값 — 무엇이 케이블의 것이고 무엇이 심선의 것인지는 종류 선언이 정한다. */
+  const cableMetaFields = cableFieldsFor(FIBER_MEDIUM);
+  const portMetaFields = portFieldsFor(FIBER_MEDIUM);
+  const metaFields = [...cableMetaFields, ...portMetaFields];
   const totalCols = 1 + groups.length + metaFields.length;
 
   /* 코어 번호는 한두 자리라 좁게, 값 열도 좁게 — 남는 폭은 대국 그룹이 나눠 갖는다.
@@ -237,9 +280,19 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                       </td>
                     ))}
                     {/* 선로측 케이블에 적는 값 — 어떤 칸이 있는지는 종류 선언이 정한다. */}
-                    {metaFields.map((f) => (
+                    {cableMetaFields.map((f) => (
                       <td key={f.key} className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
-                        <MetaInput value={row.meta.values[f.key]} field={f} cableId={row.meta.cableId} />
+                        <MetaInput value={row.meta.cableValues[f.key]} field={f} cableId={row.meta.cableId} />
+                      </td>
+                    ))}
+                    {portMetaFields.map((f) => (
+                      <td key={f.key} className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+                        <PortFieldInput
+                          value={row.meta.portValues[f.key]}
+                          field={f}
+                          portId={row.meta.portId}
+                          assetId={row.meta.portAssetId}
+                        />
                       </td>
                     ))}
                   </tr>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PORT_KINDS, cableFieldsFor, portGroupLabel, portPresets, uniqueGroupKey } from './portKinds.js';
+import { PORT_KINDS, cableFieldsFor, portFieldsFor, portGroupLabel, portPresets, uniqueGroupKey } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -45,8 +45,21 @@ describe('그룹 키 중복 피하기', () => {
 
 describe('케이블 파라미터 선언', () => {
   it('공통 + 종류별로 합쳐진다', () => {
-    expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM', 'lossDb', 'inspectedAt']);
     expect(cableFieldsFor('power').map((f) => f.key)).toEqual(['lengthM', 'voltage']);
+  });
+
+  /* 값이 무엇의 것인지가 갈린다 — 길이는 케이블 한 가닥의 것이고, 손실·점검일은 심선마다
+     다르다. 예전에는 손실도 케이블에 담아서, OPGW 한 가닥을 심선 수만큼 케이블로 복제해야
+     했고 그 탓에 설계서 공량이 그 배로 부풀었다. */
+  it('광의 손실·점검일은 케이블이 아니라 포트의 값이다', () => {
+    expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM']);
+    expect(portFieldsFor('fiber').map((f) => f.key)).toEqual(['lossDb', 'inspectedAt']);
+  });
+
+  it('나머지 종류는 포트에 딸린 값이 없다', () => {
+    for (const k of ['power', 'network', 'control', 'ground']) {
+      expect(portFieldsFor(k), k).toEqual([]);
+    }
   });
 
   /* 길이는 설계서 공량의 근거(품셈 × 길이)라 어느 종류든 적을 수 있어야 한다. */

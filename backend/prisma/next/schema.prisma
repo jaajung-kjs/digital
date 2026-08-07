@@ -241,6 +241,10 @@ model Port {
   name        String
   direction   String // 'IN' | 'OUT' | 'BI'
   medium      String
+  /// 이 포트 하나에 딸린 값 — 광 심선의 손실(dB)·점검일처럼 **심선마다 다른** 것.
+  /// 예전에는 선로측 심선마다 케이블을 하나씩 만들어 거기 담았는데, OPGW 한 가닥을
+  /// 심선 수만큼 복제하는 셈이라 설계서 공량이 그 배로 부풀었다(40m 4심 → 160m).
+  fieldValues Json    @default("{}")
   cablesA     Cable[] @relation("CableA")
   cablesB     Cable[] @relation("CableB")
 
