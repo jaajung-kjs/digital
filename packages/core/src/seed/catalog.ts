@@ -64,7 +64,9 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
     ],
-    links: [{ fromGroup: 'TRUNK', toGroup: 'CORE', mapping: 'byPosition' }],
+    // 인입 ↔ 장비 통과는 선언하지 않는다 — 다심 인입이 앞면으로 펼쳐지는 것은
+    // 판의 생김새라 포트 선언에서 그대로 나온다(`derivedLinks`).
+    links: [],
   },
   // ── 구 role: panel ──
   {
@@ -98,7 +100,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
       { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
     ],
-    links: [{ fromGroup: 'IN', toGroup: 'OUT', mapping: 'all' }],
+    // 전원 입력↔출력 통과는 선언하지 않는다 — 방향을 나눠 선언한 것 자체가 그 뜻이다.
+    links: [],
   },
   // ── 구 role: standalone ──
   {
@@ -160,9 +163,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [
-      { fromGroup: 'PWR-IN', toGroup: 'PWR-OUT', mapping: 'all' },
-    ],
+    links: [],
   },
   {
     key: 'UPS',
@@ -178,9 +179,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'PWR-OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [
-      { fromGroup: 'PWR-IN', toGroup: 'PWR-OUT', mapping: 'all' },
-    ],
+    links: [],
   },
   {
     key: 'BATTERY',
@@ -362,9 +361,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'PWR-OUT', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [
-      { fromGroup: 'PWR-IN', toGroup: 'PWR-OUT', mapping: 'all' },
-    ],
+    links: [],
   },
   {
     key: 'PWR-DC',

@@ -45,10 +45,12 @@ export function buildTraceGraph(args: {
     else portsByAsset.set(p.assetId, [p]);
   }
 
-  // 자산 내부 통과(포트 ↔ 포트)는 상세 화면도 그대로 보여줘야 하므로 계산을 공유한다.
+  /* 자산 내부 통과(포트 ↔ 포트)는 상세 화면도 그대로 보여줘야 하므로 계산을 공유한다.
+     `links` 가 비었다고 건너뛰면 안 된다 — 규칙 대부분은 포트 선언에서 유도되므로
+     선언이 0개인 것이 곧 통과가 없다는 뜻이 아니다. */
   for (const asset of args.assets) {
     const spec = args.types[asset.typeKey];
-    if (!spec || spec.links.length === 0) continue;
+    if (!spec) continue;
     const linked = internalLinkMap(spec.links, portsByAsset.get(asset.id) ?? []);
     for (const [fromId, toIds] of linked) {
       for (const toPortId of toIds) push(fromId, { kind: 'internal', toPortId });

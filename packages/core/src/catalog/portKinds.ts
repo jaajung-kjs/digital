@@ -72,6 +72,13 @@ export interface PortKind {
    * 다심 포트끼리만 서로 붙고(`connectsTo`), 코어 대응은 번호로 한다.
    */
   multiCore?: boolean;
+  /**
+   * 다심 포트가 함체 **안에서** 펼쳐지는 상대 종류 — 인입 코어 i → 앞면 i번 포트.
+   *
+   * 이 관계가 있으면 내부 연결을 선언하지 않아도 된다(`derivedLinks`). 성단 판에서
+   * 뒤로 들어온 코어가 앞면 어댑터로 나오는 것은 판의 생김새이지 설정이 아니다.
+   */
+  expandsTo?: string;
 }
 
 export const PORT_KINDS: readonly PortKind[] = [
@@ -93,7 +100,7 @@ export const PORT_KINDS: readonly PortKind[] = [
    */
   {
     key: 'fiber-trunk', name: '광 인입', connectsTo: ['fiber-trunk'], pairing: 'any', maxCables: 1,
-    multiCore: true,
+    multiCore: true, expandsTo: 'fiber',
     cableFields: [],
     // 코어마다 한 벌 — 24심이면 손실 24개·점검일 24개가 이 포트 하나에 담긴다.
     portFields: [

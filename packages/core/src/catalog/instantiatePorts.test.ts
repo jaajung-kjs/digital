@@ -29,6 +29,7 @@ describe('instantiatePorts', () => {
       name: '장비 1',
       direction: 'BI',
       medium: '광',
+      positions: 1,
     });
     expect(ports[7]!.name).toBe('선로 4');
   });

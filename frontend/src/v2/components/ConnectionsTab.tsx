@@ -61,11 +61,13 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
 
   const asset = useMemo(() => effectiveAssets.find((a) => a.id === assetId), [effectiveAssets, assetId]);
 
-  /* 자산 내부 통과 — 타입이 선언한 링크 규칙이 실제로 어느 포트끼리를 잇는지.
-     추적이 이 장비를 왜 통과하는지가 여기서 드러난다(계산은 core 와 공유). */
+  /* 자산 내부 통과 — 실제로 어느 포트끼리가 이어지는지.
+     규칙은 포트 선언에서 유도된 것과 사용자가 적은 것이 더해진다(계산은 core 와 공유) —
+     그래서 링크 규칙이 하나도 없어도 전원 입력↔출력은 통과한다. 예전에는 여기서
+     `linkRules.length === 0` 이면 곧바로 빈 map 을 돌려줘 유도가 통째로 죽었다. */
   const internalOf = useMemo(() => {
     const type = types.find((t) => t.id === asset?.typeId);
-    if (!asset || !type || type.linkRules.length === 0) return new Map<string, string[]>();
+    if (!asset || !type) return new Map<string, string[]>();
     return internalLinkMap(
       type.linkRules.map((r) => ({ fromGroup: r.fromGroup, toGroup: r.toGroup, mapping: r.mapping })),
       asset.ports.map((p) => ({ ...p, assetId: asset.id })),

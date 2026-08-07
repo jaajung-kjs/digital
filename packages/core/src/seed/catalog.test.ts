@@ -30,7 +30,8 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
     const trunk = slot.ports.find((p) => p.group === 'TRUNK')!;
     expect([core.medium, core.count, core.positions ?? 1]).toEqual(['fiber', 24, 1]);
     expect([trunk.medium, trunk.count, trunk.positions]).toEqual(['fiber-trunk', 1, 24]);
-    expect(slot.links).toEqual([{ fromGroup: 'TRUNK', toGroup: 'CORE', mapping: 'byPosition' }]);
+    // 통과는 선언하지 않는다 — 포트 선언에서 그대로 나온다(derivedLinks).
+    expect(slot.links).toEqual([]);
   });
 
   /* 케이블 1본 = 심선 24가닥. 예전처럼 심선마다 케이블을 두면 40m 가 960m 로 집계된다. */
@@ -44,13 +45,18 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
     expect(byKey('DIST').containers[0]!.accepts).toEqual({ typeKeys: ['FEEDER'] });
   });
 
-  it('FEEDER: 전원 IN 1 + OUT 1 + all 패스스루 (구 feeder role의 방향성)', () => {
+  it('FEEDER: 전원 IN 1 + OUT 1 (구 feeder role의 방향성)', () => {
     const feeder = byKey('FEEDER');
     expect(feeder.ports).toEqual([
       { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
       { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
     ]);
-    expect(feeder.links).toEqual([{ fromGroup: 'IN', toGroup: 'OUT', mapping: 'all' }]);
+  });
+
+  /* 통과는 아무 타입도 선언하지 않는다 — 전원 입력↔출력도, 인입↔장비도 포트 선언에서
+     그대로 나온다. 예전에는 시드에 손으로 적었고, 그래서 축전지 하나가 빠져 있었다. */
+  it('시드 전 타입: 내부 통과 선언이 하나도 없다 (전부 유도)', () => {
+    expect(SEED_ASSET_TYPES.filter((t) => t.links.length > 0)).toEqual([]);
   });
 
   it('구 seed의 타입 전수가 이관되었다 (26종 이상)', () => {
