@@ -188,25 +188,9 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
     );
   }, [asset, portOwners, cablesByPortId, portIndex, catalog.data]);
 
-  /* 포트 점유 상태 — 내부 짝이 있으면 그 짝과 함께 하나의 회선으로 본다.
-     짝이 둘 다 물려야 '양측', 하나만이면 '편도'. 짝이 없는 포트는 2단계뿐이다.
-     "광" 같은 도메인 단어가 들어가지 않는다 — 내부 통과 규칙이 있으면 무엇이든 이렇게 센다.
-
-     **편도는 짝이 양방향으로 하나뿐일 때만 따진다.** 전원분배처럼 입력 1개가 출력 13개와
-     이어지는 모선(mapping `all`)에서는 "반대쪽 끝" 이라는 것이 없다 — 그런데도 편도로 세면
-     입력 한 가닥만 물려도 쓰지 않는 출력 12개가 전부 점선으로 떠서, 실제로 케이블이 있는
-     한 개와 구분되지 않는다(실제로 그렇게 보였다). */
-  const portState = (port: V2Port): PortState => {
-    const mine = cablesByPortId.has(port.id);
-    const partners = internalOf.get(port.id) ?? [];
-    const exclusivePair =
-      partners.length === 1 && (internalOf.get(partners[0]!) ?? []).length === 1;
-    if (!exclusivePair) return mine ? 'full' : 'empty';
-    const partnerConnected = cablesByPortId.has(partners[0]!);
-    if (mine && partnerConnected) return 'full';
-    if (mine || partnerConnected) return 'half';
-    return 'empty';
-  };
+  /* 포트 점유 상태 — 케이블이 물렸는가, 아닌가. 그 사이는 없다.
+     회선의 반대쪽이 비었다는 사실은 아래 `내부 통과` 가 말한다. */
+  const portState = (port: V2Port): PortState => (cablesByPortId.has(port.id) ? 'full' : 'empty');
 
   const selectedPort = useMemo(
     () => (asset?.ports ?? []).find((p) => p.id === selectedPortId) ?? null,
@@ -422,7 +406,7 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
           <DetailCardHeader
             title={selectedPort.name}
             badge={PORT_STATE_LABEL[portState(selectedPort)]}
-            badgeStatus={portState(selectedPort) === 'full' ? 'success' : portState(selectedPort) === 'half' ? 'warning' : 'neutral'}
+            badgeStatus={portState(selectedPort) === 'full' ? 'success' : 'neutral'}
             actions={
               selectedPeers.length > 0 ? (
                 <Button variant="secondary" size="sm" onClick={() => handleTrace(selectedPort.id)}>
@@ -442,10 +426,14 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
               />
             </DetailRow>
           )}
+          {/* 회선의 반대쪽 — 여기가 비어 있으면 이 회선은 아직 반쪽이다.
+              그 사실을 포트의 그림에 얹지 않는다(포트 자신은 물려 있으니까). */}
           {internalOf.get(selectedPort.id)?.length ? (
             <DetailRow label="내부 통과">
               <span className="text-sm text-content-muted">
-                {internalOf.get(selectedPort.id)!.map((id) => portNameById.get(id) ?? '?').join(', ')}
+                {internalOf.get(selectedPort.id)!
+                  .map((id) => `${portNameById.get(id) ?? '?'}${cablesByPortId.has(id) ? '' : ' (미연결)'}`)
+                  .join(', ')}
               </span>
             </DetailRow>
           ) : null}

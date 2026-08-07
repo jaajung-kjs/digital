@@ -60,9 +60,9 @@ describe('DetailCard', () => {
   });
 
   it('헤더는 제목 + 상태 배지(Badge)를 렌더', () => {
-    render(<DetailCardHeader title="포트 3" badge="양측" badgeStatus="success" />);
+    render(<DetailCardHeader title="포트 3" badge="연결" badgeStatus="success" />);
     expect(screen.getByText('포트 3')).toBeInTheDocument();
-    const badge = screen.getByText('양측');
+    const badge = screen.getByText('연결');
     expect(badge).toHaveClass('text-success');
   });
 

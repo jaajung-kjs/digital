@@ -129,8 +129,8 @@ function Inner({ kind, color }: { kind: string; color: string }) {
 
 export interface PortGlyphProps {
   medium: string;
-  /** 물려 있는가 — `'half'` 는 내부 짝 중 한쪽만 물린 상태. */
-  state?: 'empty' | 'half' | 'full';
+  /** 케이블이 물려 있는가. */
+  state?: 'empty' | 'full';
   /**
    * 이 회로가 끊겨 있는가 — 차단기가 열린 자리.
    *
@@ -152,11 +152,8 @@ export function PortGlyph({ medium, state = 'empty', open = false, className, st
   const shape = {
     // 빈 자리는 판보다 살짝 어두운 얕은 홈, 물린 자리는 테마색으로 꽉 찬다.
     fill: filled ? 'var(--primary)' : 'var(--faceplate-etch)',
-    fillOpacity: state === 'half' ? 0.5 : 1,
     stroke: filled ? 'var(--primary)' : 'var(--faceplate-hole)',
     strokeWidth: 1,
-    // 편도는 반만 물린 것 — 테두리를 끊어 "아직 한쪽" 임을 알린다.
-    strokeDasharray: state === 'half' ? '3 2' : undefined,
   };
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={className} style={style} aria-hidden focusable="false">

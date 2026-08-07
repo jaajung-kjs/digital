@@ -3,17 +3,20 @@ import type { V2Port } from '../types';
 import { PortGlyph, PORT_GLYPH_ASPECT } from './PortGlyph';
 
 /**
- * 포트 점유 상태.
+ * 포트 점유 상태 — **케이블이 물렸는가, 아닌가.** 그 사이는 없다.
  *
- * 내부 통과 규칙(장비 N ↔ 선로 N 등)이 있는 포트는 **짝과 함께 하나의 회선**을 이룬다.
- * 그래서 3단계가 나온다 — 광 전용 개념이 아니라 내부 짝이 있는 모든 포트에 해당한다.
+ * 한때 `편도` 라는 세 번째 상태가 있었다. "내부 짝 중 한쪽만 물렸다" 는 뜻이었는데, 그건
+ * 포트의 상태가 아니라 **회선의 상태**다. 피더 조명의 OUT 은 UPS 에 실제로 물려 있는데도
+ * IN 이 비었다는 이유로 반쯤 물린 것처럼 그려졌다 — 그 포트에 대해 틀린 말이다.
+ * 게다가 다심 인입 모델로 옮긴 뒤로는 정작 OFD 에서 걸리지 않고 피더에서만 걸렸다.
+ *
+ * 회선의 반대쪽이 비었다는 사실은 포트 상세의 `내부 통과` 가 말한다.
  */
-export type PortState = 'empty' | 'half' | 'full';
+export type PortState = 'empty' | 'full';
 
 export const PORT_STATE_LABEL: Record<PortState, string> = {
   empty: '미연결',
-  half: '편도',
-  full: '양측',
+  full: '연결',
 };
 
 /**
