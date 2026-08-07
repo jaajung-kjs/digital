@@ -36,6 +36,8 @@ export default function V2WorkspacePage() {
   const loadingWorkingCopy = useV2WorkingCopy((st) => st.loading);
   const [selected, setSelected] = useState<FlatOrgNode | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  /** 상세 패널이 열자마자 골라 줄 포트 — 표의 한 줄이 포트 하나를 가리킬 때 쓴다. */
+  const [focusPortId, setFocusPortId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('현황');
   const [traceResult, setTraceResult] = useState<TraceResult | null>(null);
@@ -74,8 +76,16 @@ export default function V2WorkspacePage() {
     if (n.kind === 'substation') void st.load(n.id);
   };
 
-  const handleSelectAssetId = useCallback((id: string | null) => {
+  /**
+   * 자산 선택의 단일 지점.
+   *
+   * `portId` 까지 주면 상세 패널이 **포트 탭을 열고 그 포트를 고른 상태**로 뜬다.
+   * 선번장의 한 줄은 심선 하나라, 그 줄을 누르면 포트 판에서 그 포트를 직접 누른 것과
+   * 같아야 한다 — 안 그러면 표에서 고른 것과 패널이 보여 주는 것이 서로 다른 뜻이 된다.
+   */
+  const handleSelectAssetId = useCallback((id: string | null, portId?: string | null) => {
     setSelectedAssetId(id);
+    setFocusPortId(portId ?? null);
     setTraceResult(null); // 자산 선택 변경 시 추적 결과 클리어
   }, []);
 
@@ -243,6 +253,7 @@ export default function V2WorkspacePage() {
                     <AssetDetailPanel
                       key={selectedAssetId}
                       assetId={selectedAssetId!}
+                      focusPortId={focusPortId}
                       onSelectAsset={handleSelectAssetId}
                       onTrace={setTraceResult}
                       onClearTrace={() => setTraceResult(null)}

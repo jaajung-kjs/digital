@@ -121,8 +121,8 @@ describe('FiberRegisterView 배선 — 다심 인입 선언이 코어별 값 입
     const selected = dataRows.filter((r) => r.className.includes('bg-info-bg'));
     expect(selected).toHaveLength(1);
     expect(selected[0]).toBe(dataRows[0]);
-    // 오른쪽 패널은 자산 단위다 — 둘 다 맞춰 준다.
-    expect(onSelect).toHaveBeenCalledWith('slot');
+    // 패널은 그 심선의 **포트까지** 골라 준다 — 표의 줄과 판의 선택이 어긋나면 안 된다.
+    expect(onSelect).toHaveBeenCalledWith('slot', 'a1');
   });
 
   /* 인입이 없는 자산은 선번장 대상이 아니다 — OTDR 로 잴 것이 없다. */

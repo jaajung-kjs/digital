@@ -35,6 +35,8 @@ interface PortOwner {
 
 interface ConnectionsTabProps {
   assetId: string;
+  /** 밖에서 골라 준 포트 — 선번장의 한 줄이 포트 하나를 가리킬 때 넘어온다. */
+  focusPortId?: string | null;
   /** 대국·추적 경로에서 다른 자산으로 이동한다 — 워크스페이스의 단일 이동 지점. */
   onSelectAsset: (id: string) => void;
   onTrace: (result: TraceResult) => void;
@@ -42,11 +44,15 @@ interface ConnectionsTabProps {
   traceResult?: TraceResult | null;
 }
 
-export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, traceResult }: ConnectionsTabProps) {
+export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, onClearTrace, traceResult }: ConnectionsTabProps) {
   // 타일에는 번호만 있으므로, 고른 포트 하나의 상세를 아래에 펼친다.
-  const [selectedPortId, setSelectedPortId] = useState<string | null>(null);
+  const [selectedPortId, setSelectedPortId] = useState<string | null>(focusPortId ?? null);
   // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다.
   useEffect(() => setSelectedPortId(null), [assetId]);
+  // 밖에서 다른 포트를 가리키면 따라간다 — 표의 줄과 판의 선택이 어긋나면 안 된다.
+  useEffect(() => {
+    if (focusPortId) setSelectedPortId(focusPortId);
+  }, [focusPortId]);
   const saved = useV2WorkingCopy((s) => s.saved);
   const overlays = useV2WorkingCopy((s) => s.overlays);
 

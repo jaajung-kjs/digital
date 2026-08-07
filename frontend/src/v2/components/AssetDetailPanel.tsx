@@ -23,6 +23,11 @@ interface AssetDetailPanelProps {
   traceResult?: TraceResult | null;
   /** 평면도 뷰로 전환한다 — 층 선택은 평면도가 선택된 자산을 따라간다. */
   onShowOnFloorPlan?: () => void;
+  /**
+   * 열자마자 골라 줄 포트 — 선번장처럼 **표의 한 줄이 포트 하나**인 화면에서 넘어온다.
+   * 주어지면 포트 탭이 열린다(정보 탭에 떨어뜨려 두면 무엇을 골랐는지 안 보인다).
+   */
+  focusPortId?: string | null;
 }
 
 export function AssetDetailPanel({
@@ -32,14 +37,21 @@ export function AssetDetailPanel({
   onClearTrace,
   traceResult,
   onShowOnFloorPlan,
+  focusPortId,
 }: AssetDetailPanelProps) {
-  const [tab, setTab] = useState<Tab>('info');
+  const [tab, setTab] = useState<Tab>(focusPortId ? 'connections' : 'info');
   const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
 
   // 자산 전환 시 로컬 상태 리셋 (stale 자식 선택/모달 컨텍스트 방지)
   useEffect(() => {
     setAddModalCtx(null);
   }, [assetId]);
+
+  /* 같은 자산 안에서 다른 포트로 옮겨 올 때도 포트 탭이 열려 있어야 한다
+     (자산이 바뀌면 패널이 통째로 다시 뜨므로 초기값이 맡는다). */
+  useEffect(() => {
+    if (focusPortId) setTab('connections');
+  }, [focusPortId]);
 
 
   // ── 반응형 슬라이스 구독 (effectiveAssets() 함수 ref 구독 금지)
@@ -224,6 +236,7 @@ export function AssetDetailPanel({
         {tab === 'connections' && (
           <ConnectionsTab
             assetId={assetId}
+            focusPortId={focusPortId}
             onSelectAsset={onSelectAsset}
             onTrace={onTrace ?? (() => {})}
             onClearTrace={onClearTrace ?? (() => {})}

@@ -21,7 +21,8 @@ import { InlineEditCell } from './InlineEditCell';
 interface Props {
   substationId: string;
   selectedAssetId: string | null;
-  onSelectAsset: (id: string | null) => void;
+  /** 포트까지 주면 상세 패널이 포트 탭을 열고 그 포트를 고른 상태로 뜬다. */
+  onSelectAsset: (id: string | null, portId?: string | null) => void;
 }
 
 // ── 메타 셀 인라인 편집 ───────────────────────────────────────────────────────
@@ -288,10 +289,13 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                         selectedCore.coreIndex === row.coreIndex &&
                         SELECTED,
                     )}
-                    /* 행은 심선이고 오른쪽 패널은 자산 단위다 — 둘 다 맞춰 준다. */
+                    /* 이 줄은 심선 하나다 — 패널도 그 포트를 고른 상태로 열어 준다.
+                       줄에 대응하는 포트는 그 코어의 장비쪽 성단이고, 아직 성단되지 않은
+                       코어(12구 판의 13번 같은)는 그 심선을 나르는 인입 포트로 물러선다. */
                     onClick={() => {
                       setSelectedCore({ slotId: row.slotId, coreIndex: row.coreIndex });
-                      onSelectAsset(row.slotId);
+                      const corePortId = row.cells.find((c) => c.portId)?.portId ?? null;
+                      onSelectAsset(row.slotId, corePortId ?? row.meta.portId);
                     }}
                   >
                     {/* 코어 번호 */}
