@@ -76,9 +76,11 @@ describe('buildFiberRows', () => {
     const c = cable('c3', 'b1', 'x', { specParams: { lengthM: 12.5, lossDb: 0.3, inspectedAt: '2026-07-01' } });
     const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [c as never] as never, [typeWithLineSide]);
     // B 그룹이 lineSide=true → c3가 meta 케이블
-    expect(rows[0]!.meta).toMatchObject({ cableId: 'c3', lengthM: 12.5, lossDb: 0.3, inspectedAt: '2026-07-01' });
+    expect(rows[0]!.meta.cableId).toBe('c3');
+    // 어떤 값이 있는지는 종류 선언이 정한다 — 행은 케이블에 적힌 것을 그대로 담는다.
+    expect(rows[0]!.meta.values).toMatchObject({ lengthM: 12.5, lossDb: 0.3, inspectedAt: '2026-07-01' });
     // core 2에는 b2에 케이블 없음 → meta null
-    expect(rows[1]!.meta).toMatchObject({ cableId: null, lengthM: null });
+    expect(rows[1]!.meta).toEqual({ cableId: null, values: {} });
   });
 
   it('[lineSide 미선언] lineSide 그룹이 없으면 meta.cableId는 null', () => {
@@ -91,7 +93,7 @@ describe('buildFiberRows', () => {
       [c as never] as never,
       [typeNoLineSide],
     );
-    expect(rows[0]!.meta).toMatchObject({ cableId: null, lengthM: null });
+    expect(rows[0]!.meta).toEqual({ cableId: null, values: {} });
   });
 
   it('[폴백 부재 단언] A 그룹에만 케이블 있고 B 그룹(lineSide=true)엔 없으면 meta는 null (위치 폴백 없음)', () => {
@@ -100,7 +102,7 @@ describe('buildFiberRows', () => {
     const c = cable('c4', 'a2', 'x', { specParams: { lengthM: 7 } }); // A그룹 index2에만 연결
     const { rows } = buildFiberRows(ofd as never, [ofd, slot] as never, [c as never] as never, [typeWithLineSide]);
     // B 그룹(lineSide=true)에 케이블 없음 → meta null (위치 폴백으로 A 케이블 선정 금지)
-    expect(rows[1]!.meta).toMatchObject({ cableId: null, lengthM: null });
+    expect(rows[1]!.meta).toEqual({ cableId: null, values: {} });
   });
 
   it('슬롯별 core max — 작은 슬롯은 빈 필러 행 없음', () => {

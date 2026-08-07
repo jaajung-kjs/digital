@@ -11,8 +11,9 @@ import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTE
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog, useTypesById } from '../hooks';
+import { cableFieldsFor, type CableFieldDef } from '@twin/core';
 import { useMediumContainer } from '../useMediumContainer';
-import { fiberContainers, buildFiberRows } from '../fiberSelectors';
+import { fiberContainers, buildFiberRows, FIBER_MEDIUM } from '../fiberSelectors';
 import type { FiberRow } from '../fiberSelectors';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from './InlineEditCell';
@@ -25,19 +26,21 @@ interface Props {
 
 // ── 메타 셀 인라인 편집 ───────────────────────────────────────────────────────
 interface MetaInputProps {
-  value: number | string | null;
-  type: 'number' | 'date';
+  value: unknown;
+  /** 어떤 값을 적는 칸인지 — 키·자료형이 여기서 나온다. 화면이 키를 알지 않는다. */
+  field: CableFieldDef;
   cableId: string | null;
-  fieldKey: 'lengthM' | 'lossDb' | 'inspectedAt';
 }
 
-function MetaInput({ value, type, cableId, fieldKey }: MetaInputProps) {
+function MetaInput({ value, field, cableId }: MetaInputProps) {
+  const { key: fieldKey, type } = field;
   // cableId 없으면 비편집 대시
   if (!cableId) return <span className="text-content-faint">—</span>;
 
   // After the null-guard, capture as string for TypeScript narrowing in closures
   const resolvedCableId: string = cableId;
   const displayValue = value !== null && value !== undefined ? String(value) : '';
+  const isNumber = type === 'number';
 
   function handleCommit(raw: string) {
     // 무변경 가드: 렌더 시점의 effective 케이블 읽기 (stale 클로저 방지)
@@ -47,27 +50,19 @@ function MetaInput({ value, type, cableId, fieldKey }: MetaInputProps) {
 
     const existingParams = cable.specParams ?? {};
 
-    if (fieldKey === 'inspectedAt') {
-      const current = (existingParams[fieldKey] as string | null) ?? null;
-      const next = raw.trim() || null;
-      if (current === next) return;
-      useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
-        specParams: { ...existingParams, [fieldKey]: next },
-      });
-    } else {
-      // number field
-      const current = (existingParams[fieldKey] as number | null) ?? null;
-      const next = raw.trim() === '' ? null : Number(raw);
-      if (Number.isNaN(next as number) && raw.trim() !== '') return; // invalid input → ignore
-      // Compare: both null or equal numbers
-      if (current === next) return;
-      useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
-        specParams: { ...existingParams, [fieldKey]: next },
-      });
-    }
+    // 숫자 칸만 수로 바꿔 담는다 — 나머지(글자·날짜)는 적힌 그대로다.
+    const next = isNumber
+      ? (raw.trim() === '' ? null : Number(raw))
+      : (raw.trim() || null);
+    if (isNumber && typeof next === 'number' && Number.isNaN(next)) return; // 숫자가 아니면 무시
+    const current = existingParams[fieldKey] ?? null;
+    if (current === next) return; // 무변경 가드
+    useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
+      specParams: { ...existingParams, [fieldKey]: next },
+    });
   }
 
-  return <InlineEditCell value={displayValue} onCommit={handleCommit} type={type} />;
+  return <InlineEditCell value={displayValue} onCommit={handleCommit} type={isNumber ? 'number' : 'date'} />;
 }
 
 // PeerCell은 공용 컴포넌트로 추출 (M-2 — PowerRegisterView와 공유)
@@ -149,12 +144,19 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
     }
   }
 
-  // 컬럼 수: 코어 + groups.length + 3 (길이, 손실, 점검일)
-  const totalCols = 1 + groups.length + 3;
+  /* 선로측 케이블에 적는 값 — 몇 칸인지는 종류 선언이 정한다(예전에는 3으로 박혀 있었다). */
+  const metaFields = cableFieldsFor(FIBER_MEDIUM);
+  const totalCols = 1 + groups.length + metaFields.length;
 
-  /* 코어 번호는 한두 자리라 좁게, 수치 열도 좁게 — 남는 폭은 대국 그룹이 나눠 갖는다.
+  /* 코어 번호는 한두 자리라 좁게, 값 열도 좁게 — 남는 폭은 대국 그룹이 나눠 갖는다.
      대국 이름은 '통신랙 A · OFD-1 · 슬롯 1 · 포트 3' 처럼 길어질 수 있어 여기가 넓어야 한다. */
-  const fiberWidths = [5, ...groups.map(() => (100 - 5 - 33) / Math.max(groups.length, 1)), 11, 11, 11];
+  const META_WIDTH = 11;
+  const metaTotal = META_WIDTH * metaFields.length;
+  const fiberWidths = [
+    5,
+    ...groups.map(() => (100 - 5 - metaTotal) / Math.max(groups.length, 1)),
+    ...metaFields.map(() => META_WIDTH),
+  ];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -190,9 +192,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
               {groups.map((g) => (
                 <Th key={g}>{g}</Th>
               ))}
-              <Th>길이(m)</Th>
-              <Th>손실(dB)</Th>
-              <Th>점검일</Th>
+              {metaFields.map((f) => (
+                <Th key={f.key}>{f.unit ? `${f.label}(${f.unit})` : f.label}</Th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -234,33 +236,12 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
                         <PeerCell peer={cell.peer} />
                       </td>
                     ))}
-                    {/* 메타: 길이 */}
-                    <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
-                      <MetaInput
-                        value={row.meta.lengthM}
-                        type="number"
-                        cableId={row.meta.cableId}
-                        fieldKey="lengthM"
-                      />
-                    </td>
-                    {/* 메타: 손실 */}
-                    <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
-                      <MetaInput
-                        value={row.meta.lossDb}
-                        type="number"
-                        cableId={row.meta.cableId}
-                        fieldKey="lossDb"
-                      />
-                    </td>
-                    {/* 메타: 점검일 */}
-                    <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
-                      <MetaInput
-                        value={row.meta.inspectedAt}
-                        type="date"
-                        cableId={row.meta.cableId}
-                        fieldKey="inspectedAt"
-                      />
-                    </td>
+                    {/* 선로측 케이블에 적는 값 — 어떤 칸이 있는지는 종류 선언이 정한다. */}
+                    {metaFields.map((f) => (
+                      <td key={f.key} className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+                        <MetaInput value={row.meta.values[f.key]} field={f} cableId={row.meta.cableId} />
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </Fragment>

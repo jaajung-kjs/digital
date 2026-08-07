@@ -12,7 +12,8 @@ import { useMemo, useState } from 'react';
 import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { powerContainers, buildPowerRows } from '../powerSelectors';
+import { powerContainers, buildPowerRows, POWER_MEDIUM } from '../powerSelectors';
+import { cableFieldsFor, type CableFieldDef } from '@twin/core';
 import type { PowerRow, PowerCell } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
 import { useMediumContainer } from '../useMediumContainer';
@@ -55,16 +56,19 @@ function SwitchStateCell({ feederId, value, switchStateDef }: SwitchStateCellPro
   return <InlineEditCell value={value ?? ''} onCommit={handleCommit} options={options} />;
 }
 
-// ── 전압 인라인 편집 (IN 케이블 없으면 '—' 비편집) ──────────────────────────
-interface VoltageInputProps {
+// ── 케이블 값 인라인 편집 (케이블 없으면 '—' 비편집) ────────────────────────
+interface CableFieldInputProps {
   cableId: string | null;
-  voltage: string | null;
+  value: unknown;
+  /** 어떤 값을 적는 칸인지 — 키·자료형이 여기서 나온다. 화면이 키를 알지 않는다. */
+  field: CableFieldDef;
 }
 
-function VoltageInput({ cableId, voltage }: VoltageInputProps) {
+function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
   if (!cableId) return <span className="text-content-faint">—</span>;
 
   const resolvedCableId: string = cableId;
+  const isNumber = field.type === 'number';
 
   function handleCommit(raw: string) {
     const effectiveCables = useV2WorkingCopy.getState().effectiveCables();
@@ -72,16 +76,18 @@ function VoltageInput({ cableId, voltage }: VoltageInputProps) {
     if (!cable) return;
 
     const existingParams = cable.specParams ?? {};
-    const next = raw.trim() || null;
-    const current = (existingParams['voltage'] as string | null) ?? null;
+    const next = isNumber ? (raw.trim() === '' ? null : Number(raw)) : (raw.trim() || null);
+    if (isNumber && typeof next === 'number' && Number.isNaN(next)) return;
+    const current = existingParams[field.key] ?? null;
     if (current === next) return;
 
     useV2WorkingCopy.getState().stageCableUpdate(resolvedCableId, {
-      specParams: { ...existingParams, voltage: next },
+      specParams: { ...existingParams, [field.key]: next },
     });
   }
 
-  return <InlineEditCell value={voltage ?? ''} onCommit={handleCommit} />;
+  const shown = value === null || value === undefined ? '' : String(value);
+  return <InlineEditCell value={shown} onCommit={handleCommit} type={isNumber ? 'number' : field.type === 'date' ? 'date' : undefined} />;
 }
 
 // ── 메인 뷰 ──────────────────────────────────────────────────────────────────
@@ -107,6 +113,19 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
   /* 어느 컨테이너를 보고 있나 + 그 컨테이너가 선언한 회로 수.
      회로 수가 선언돼 있으면 빈 자리까지 표(패널 스케줄)에 나오고, 자유형이면 있는 것만 나온다.
      "몇 회로짜리인가" 는 타입이 아니라 명세가 말한다 — 코드는 분전반을 모르지 않는다. */
+  /* 케이블에 적는 값 — 몇 칸인지는 종류 선언이 정한다(예전에는 전압 하나로 박혀 있었다). */
+  const cableFields = cableFieldsFor(POWER_MEDIUM);
+  const totalCols = 4 + cableFields.length; // 회로·피더·상태·부하 출력 + 값 칸들
+  const FIELD_WIDTH = 10;
+  const powerWidths = [
+    8, // 회로
+    24, // 피더
+    12, // 상태
+    100 - 8 - 24 - 12 - 22 - FIELD_WIDTH * cableFields.length, // 전원 입력 — 남는 폭
+    ...cableFields.map(() => FIELD_WIDTH),
+    22, // 부하 출력
+  ];
+
   const picked = useMediumContainer(containers, typesById);
   const activeContainer = picked.active;
   const circuitCount = picked.slotCount;
@@ -193,7 +212,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
       {/* 테이블 */}
       <div className="min-h-0 flex-1 overflow-auto p-4">
-        <TableCard widths={[8, 24, 12, 24, 10, 22]}>
+        <TableCard widths={powerWidths}>
           <thead>
             <tr className="border-b border-line">
               {/* 회로 번호가 맨 앞 — 패널 스케줄에서 번호는 곧 패널에서의 자리다.
@@ -203,16 +222,19 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
               <Th>피더</Th>
               <Th>상태</Th>
               <Th>전원 입력</Th>
-              {/* 전압은 제 열을 갖는다 — 대국 아래에 끼워 넣으니 그 행만 두 줄이 되어
-                  표의 행 높이가 43~63px 로 들쭉날쭉했다. */}
-              <Th>전압</Th>
+              {/* 케이블에 적는 값은 각자 제 열을 갖는다 — 대국 아래에 끼워 넣으니 그 행만
+                  두 줄이 되어 표의 행 높이가 43~63px 로 들쭉날쭉했다.
+                  몇 칸인지는 종류 선언이 정한다. */}
+              {cableFields.map((f) => (
+                <Th key={f.key}>{f.unit ? `${f.label}(${f.unit})` : f.label}</Th>
+              ))}
               <Th>부하 출력</Th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-sm text-content-faint">
+                <td colSpan={totalCols} className="px-3 py-6 text-center text-sm text-content-faint">
                   {query.trim() ? `'${query.trim()}' 와 맞는 회로가 없습니다` : '피더 데이터가 없습니다'}
                 </td>
               </tr>
@@ -236,7 +258,8 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                       + 추가
                     </span>
                   </td>
-                  <td colSpan={4} />
+                  {/* 회로 번호·이름 다음은 전부 비운다 — 빈 자리 행에도 격자는 그대로 있어야 한다. */}
+                  <td colSpan={totalCols - 2} />
                 </tr>
               ) : (
               <tr
@@ -266,9 +289,11 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                   <PeerCell peer={row.inCell.peer} />
                 </td>
 
-                <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
-                  <VoltageInput cableId={row.inCell.cableId} voltage={row.inCell.voltage} />
-                </td>
+                {cableFields.map((f) => (
+                  <td key={f.key} className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
+                    <CableFieldInput cableId={row.inCell.cableId} value={row.inCell.values[f.key]} field={f} />
+                  </td>
+                ))}
 
                 <td className="truncate px-3 py-1.5">
                   <PeerCell peer={row.outCell.peer} />

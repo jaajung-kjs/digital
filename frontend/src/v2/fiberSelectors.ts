@@ -20,11 +20,16 @@ export interface FiberRowCell {
   peer: PeerInfo | null;
 }
 
+/**
+ * 이 심의 선로측 케이블에 적힌 값들.
+ *
+ * 예전에는 `lengthM`·`lossDb`·`inspectedAt` 세 키가 여기 타입으로 박혀 있었다. 값을 하나
+ * 늘리려면 이 타입과 화면 두 곳을 같이 고쳐야 했다. 이제 무엇을 적을 수 있는지는
+ * `cableFieldsFor('fiber')` 가 말하고, 여기는 그 값을 그대로 담기만 한다.
+ */
 export interface FiberRowMeta {
   cableId: string | null;
-  lengthM: number | null;
-  lossDb: number | null;
-  inspectedAt: string | null;
+  values: Record<string, unknown>;
 }
 
 export interface FiberRow {
@@ -161,9 +166,7 @@ export function buildFiberRows(
 
       const meta: FiberRowMeta = {
         cableId: metaCable?.id ?? null,
-        lengthM: (metaCable?.specParams?.lengthM as number | null) ?? null,
-        lossDb: (metaCable?.specParams?.lossDb as number | null) ?? null,
-        inspectedAt: (metaCable?.specParams?.inspectedAt as string | null) ?? null,
+        values: metaCable?.specParams ?? {},
       };
 
       rows.push({

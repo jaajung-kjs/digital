@@ -28,7 +28,8 @@ export interface PowerRow {
   feederId: string;
   feederName: string;
   switchState: string | null;
-  inCell: PowerCell & { voltage: string | null };
+  /** 전원 입력 — 대국 + 그 케이블에 적힌 값들(무엇을 적는지는 종류 선언이 정한다). */
+  inCell: PowerCell & { values: Record<string, unknown> };
   outCell: PowerCell;
 }
 
@@ -55,7 +56,7 @@ function fieldString(value: unknown): string | null {
  * inCell/outCell: first port with direction 'IN'/'OUT' respectively (port data field, not role branching).
  * 3-tier peer resolution via shared helper: local effective -> saved refs -> null.
  * switchState: fieldValues stringified or null.
- * voltage: IN cable specParams.voltage or null.
+ * inCell.values: IN 케이블의 specParams 그대로.
  */
 export function buildPowerRows(
   container: V2Asset,
@@ -100,11 +101,11 @@ export function buildPowerRows(
     const outPort = feeder.ports.find((p) => p.medium === POWER_MEDIUM && p.direction === 'OUT');
 
     // Resolve inCell
-    const inCell: PowerCell & { voltage: string | null } = {
+    const inCell: PowerCell & { values: Record<string, unknown> } = {
       portId: inPort?.id ?? null,
       cableId: null,
       peer: null,
-      voltage: null,
+      values: {},
     };
 
     if (inPort) {
@@ -112,7 +113,7 @@ export function buildPowerRows(
       if (inCable) {
         inCell.cableId = inCable.id;
         inCell.peer = resolvePeer(inPort, inCable, portIndex, container.substationId);
-        inCell.voltage = fieldString(inCable.specParams?.voltage);
+        inCell.values = inCable.specParams ?? {};
       }
     }
 
@@ -155,7 +156,7 @@ export function buildPowerRows(
         feederId: '',
         feederName: '',
         switchState: null,
-        inCell: { portId: null, cableId: null, peer: null, voltage: null },
+        inCell: { portId: null, cableId: null, peer: null, values: {} },
         outCell: { portId: null, cableId: null, peer: null },
       });
     }

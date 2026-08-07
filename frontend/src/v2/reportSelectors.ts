@@ -1,4 +1,4 @@
-import { assetReportItem, cableReportItem, PLACEMENT_FIELDS } from '@twin/core';
+import { assetReportItem, cableReportItem, COMMON_CABLE_FIELDS, PLACEMENT_FIELDS } from '@twin/core';
 import type { ReportItem } from '@twin/core';
 import { mergeEffective } from './store/overlay';
 import { buildPortIndex, cableEndpointName } from './peerResolve';
@@ -29,6 +29,18 @@ function unresolvedCableItem(kind: 'cable-install' | 'cable-remove', name: strin
 
 /** PLACEMENT_FIELDS 집합 — @twin/core 상수에서 파생 (B-V3 시정: 로컬 재정의 금지) */
 const PLACEMENT_FIELDS_SET = new Set<string>(PLACEMENT_FIELDS);
+
+/**
+ * 공량 계산에 쓰는 케이블 길이.
+ *
+ * 어느 종류든 갖는 공통 값이라 키를 여기 적지 않고 선언에서 가져온다 —
+ * 키가 바뀌면 설계서 공량이 조용히 0이 되는 자리다.
+ */
+function cableLengthM(specParams: unknown): number | null {
+  const key = COMMON_CABLE_FIELDS[0]!.key;
+  const v = (specParams as Record<string, unknown> | null | undefined)?.[key];
+  return typeof v === 'number' ? v : null;
+}
 
 export function buildReportItems(args: {
   saved: { assets: V2Asset[]; cables: V2Cable[] };
@@ -117,9 +129,7 @@ export function buildReportItems(args: {
     const aName = portIndex.get(cable.aPortId)?.asset.name;
     const bName = portIndex.get(cable.bPortId)?.asset.name;
     const name = aName && bName ? `${aName}↔${bName}` : '케이블';
-    const lengthM = typeof (cable.specParams as Record<string, unknown>).lengthM === 'number'
-      ? (cable.specParams as Record<string, unknown>).lengthM as number
-      : null;
+    const lengthM = cableLengthM(cable.specParams);
     items.push(cableReportItem('cable-install', name, {
       name: group.name,
       laborType: group.laborType,
@@ -145,9 +155,7 @@ export function buildReportItems(args: {
     const aName = cableEndpointName(cable, cable.aPortId, portIndex);
     const bName = cableEndpointName(cable, cable.bPortId, portIndex);
     const name = cable.name ?? (aName && bName ? `${aName}↔${bName}` : '케이블');
-    const lengthM = typeof (cable.specParams as Record<string, unknown>).lengthM === 'number'
-      ? (cable.specParams as Record<string, unknown>).lengthM as number
-      : null;
+    const lengthM = cableLengthM(cable.specParams);
     items.push(cableReportItem('cable-remove', name, {
       name: group.name,
       laborType: group.laborType,

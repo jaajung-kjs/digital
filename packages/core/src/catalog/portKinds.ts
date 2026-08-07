@@ -27,6 +27,24 @@ export type PortPairing =
   /** 반대 방향끼리만 — 전원처럼 공급과 소비가 갈리는 경우. `BI`(양방향)는 어느 쪽과도 맞는다. */
   | 'opposite';
 
+/** 케이블 한 가닥에 기록하는 값 하나 — `Cable.specParams` 의 키가 된다. */
+export interface CableFieldDef {
+  key: string;
+  label: string;
+  type: 'number' | 'text' | 'date';
+  /** 라벨 뒤에 붙는 단위 — `길이(m)` 처럼. */
+  unit?: string;
+}
+
+/**
+ * 종류를 가리지 않고 모든 케이블이 갖는 값.
+ *
+ * 길이는 **설계서 공량**의 근거다(품셈 × 길이). 그래서 어느 종류든 적을 수 있어야 한다.
+ */
+export const COMMON_CABLE_FIELDS: readonly CableFieldDef[] = [
+  { key: 'lengthM', label: '길이', type: 'number', unit: 'm' },
+] as const;
+
 export interface PortKind {
   /** `CableGroup.key` 이자 `PortTemplate.medium` 값. */
   key: string;
@@ -36,18 +54,40 @@ export interface PortKind {
   pairing: PortPairing;
   /** 한 포트에 물릴 수 있는 케이블 수. `null` = 제한 없음(접지 부스바). */
   maxCables: number | null;
+  /** 이 종류의 케이블에만 있는 값. 공통 필드는 여기 되풀이하지 않는다. */
+  cableFields: readonly CableFieldDef[];
 }
 
 export const PORT_KINDS: readonly PortKind[] = [
   // 전원은 공급(OUT)과 소비(IN)가 갈린다 — 출력끼리 잇는 것은 물리적으로 불가능하다.
-  { key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1 },
-  { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1 },
-  { key: 'fiber', name: '광', connectsTo: ['fiber'], pairing: 'any', maxCables: 1 },
+  {
+    key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
+    cableFields: [{ key: 'voltage', label: '전압', type: 'text' }],
+  },
+  { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1, cableFields: [] },
+  {
+    key: 'fiber', name: '광', connectsTo: ['fiber'], pairing: 'any', maxCables: 1,
+    cableFields: [
+      { key: 'lossDb', label: '손실', type: 'number', unit: 'dB' },
+      { key: 'inspectedAt', label: '점검일', type: 'date' },
+    ],
+  },
   // 제어는 널모뎀처럼 같은 쪽끼리 직결하는 배선이 실제로 있어 방향을 따지지 않는다.
-  { key: 'control', name: '제어', connectsTo: ['control'], pairing: 'any', maxCables: 1 },
+  { key: 'control', name: '제어', connectsTo: ['control'], pairing: 'any', maxCables: 1, cableFields: [] },
   // 접지 부스바에는 여러 기기의 접지선이 한 단자로 모인다 — 여기만 다중 결선이다.
-  { key: 'ground', name: '접지', connectsTo: ['ground'], pairing: 'any', maxCables: null },
+  { key: 'ground', name: '접지', connectsTo: ['ground'], pairing: 'any', maxCables: null, cableFields: [] },
 ] as const;
+
+/**
+ * 이 종류의 케이블에 적을 수 있는 값 — 공통 + 종류별.
+ *
+ * 예전에는 화면이 `lengthM`·`lossDb`·`inspectedAt`·`voltage` 라는 키를 직접 알고 있었다
+ * (선번장 meta 3열, 계통 전압열, 설계서 공량). 그래서 값을 하나 늘리려면 그 키를 읽는 곳을
+ * 전부 찾아 고쳐야 했고, 종류마다 무엇을 적을 수 있는지는 코드를 읽어야만 알 수 있었다.
+ */
+export function cableFieldsFor(medium: string): CableFieldDef[] {
+  return [...COMMON_CABLE_FIELDS, ...(portKind(medium)?.cableFields ?? [])];
+}
 
 export function portKind(key: string): PortKind | null {
   return PORT_KINDS.find((k) => k.key === key) ?? null;

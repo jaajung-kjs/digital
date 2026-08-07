@@ -39,14 +39,14 @@ describe('buildPowerRows', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       feederName: '피더1', switchState: 'ON',
-      inCell: { cableId: 'cin', voltage: 'AC 220V', peer: { assetName: 'UPS-1', remote: false } },
+      inCell: { cableId: 'cin', values: { voltage: 'AC 220V' }, peer: { assetName: 'UPS-1', remote: false } },
       outCell: { cableId: 'cout', peer: { assetName: '부하장비' } },
     });
   });
 
   it('연결 없는 피더 — 셀 null, 필드만', () => {
     const rows = buildPowerRows(panel as never, [panel, feeder] as never, [] as never);
-    expect(rows[0]!.inCell).toMatchObject({ cableId: null, peer: null, voltage: null });
+    expect(rows[0]!.inCell).toMatchObject({ cableId: null, peer: null, values: {} });
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PORT_KINDS, portPresets, uniqueGroupKey } from './portKinds.js';
+import { PORT_KINDS, cableFieldsFor, portPresets, uniqueGroupKey } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -40,5 +40,29 @@ describe('그룹 키 중복 피하기', () => {
 
   it('중간이 비어 있으면 그 자리를 쓴다', () => {
     expect(uniqueGroupKey('NETWORK', ['NETWORK', 'NETWORK-3'])).toBe('NETWORK-2');
+  });
+});
+
+describe('케이블 파라미터 선언', () => {
+  it('공통 + 종류별로 합쳐진다', () => {
+    expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM', 'lossDb', 'inspectedAt']);
+    expect(cableFieldsFor('power').map((f) => f.key)).toEqual(['lengthM', 'voltage']);
+  });
+
+  /* 길이는 설계서 공량의 근거(품셈 × 길이)라 어느 종류든 적을 수 있어야 한다. */
+  it('종류별 값이 없어도 공통 값은 남는다', () => {
+    expect(cableFieldsFor('network').map((f) => f.key)).toEqual(['lengthM']);
+    expect(cableFieldsFor('ground').map((f) => f.key)).toEqual(['lengthM']);
+  });
+
+  it('어휘에 없는 종류도 공통 값은 준다 — 화면이 빈 표가 되지 않게', () => {
+    expect(cableFieldsFor('미지의매체').map((f) => f.key)).toEqual(['lengthM']);
+  });
+
+  it('키는 종류 안에서 겹치지 않는다', () => {
+    for (const kind of PORT_KINDS) {
+      const keys = cableFieldsFor(kind.key).map((f) => f.key);
+      expect(new Set(keys).size).toBe(keys.length);
+    }
   });
 });
