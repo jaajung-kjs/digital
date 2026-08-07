@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PORT_KINDS, cableFieldsFor, portPresets, uniqueGroupKey } from './portKinds.js';
+import { PORT_KINDS, cableFieldsFor, portGroupLabel, portPresets, uniqueGroupKey } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -64,5 +64,40 @@ describe('케이블 파라미터 선언', () => {
       const keys = cableFieldsFor(kind.key).map((f) => f.key);
       expect(new Set(keys).size).toBe(keys.length);
     }
+  });
+});
+
+describe('포트 그룹 이름', () => {
+  const g = (group, medium, direction = 'BI') => ({ group, medium, direction });
+
+  /* 그룹 키(`P`·`GND`·`PWR-IN`)는 타입 안에서 유일해야 하는 식별자이지 이름이 아니다.
+     화면이 `GND 그룹` 이라고 적고 있었다 — 쓰는 사람에게는 아무 뜻이 없는 글자다. */
+  it('종류 이름으로 부른다 — 내부 키를 그대로 보여 주지 않는다', () => {
+    const all = [g('P', 'network'), g('GND', 'ground'), g('COM', 'control')];
+    expect(portGroupLabel(all[0]!, all)).toBe('네트워크');
+    expect(portGroupLabel(all[1]!, all)).toBe('접지');
+    expect(portGroupLabel(all[2]!, all)).toBe('제어');
+  });
+
+  it('방향이 뜻을 갖는 종류는 방향까지 — 입력과 출력은 다른 물건이다', () => {
+    const all = [g('PWR-IN', 'power', 'IN'), g('PWR-OUT', 'power', 'OUT')];
+    expect(portGroupLabel(all[0]!, all)).toBe('전원 입력');
+    expect(portGroupLabel(all[1]!, all)).toBe('전원 출력');
+  });
+
+  it('같은 이름이 둘이면 그때만 키를 덧붙인다 — 광슬롯의 A·B', () => {
+    const all = [g('A', 'fiber'), g('B', 'fiber')];
+    expect(portGroupLabel(all[0]!, all)).toBe('광 A');
+    expect(portGroupLabel(all[1]!, all)).toBe('광 B');
+  });
+
+  it('하나뿐이면 키를 붙이지 않는다 — 구분이 필요할 때까지 이름을 길게 만들지 않는다', () => {
+    const all = [g('A', 'fiber')];
+    expect(portGroupLabel(all[0]!, all)).toBe('광');
+  });
+
+  it('어휘에 없는 종류는 그 값을 쓴다 — 빈 이름이 되지 않게', () => {
+    const all = [g('X', '미지의매체')];
+    expect(portGroupLabel(all[0]!, all)).toBe('미지의매체');
   });
 });

@@ -128,6 +128,34 @@ export function portPresets(): PortPreset[] {
   });
 }
 
+/** 그룹 하나를 사람 말로 부르기 위해 필요한 최소 정보. */
+export interface PortGroupRef {
+  group: string;
+  medium: string;
+  direction: Direction;
+}
+
+/**
+ * 포트 그룹을 화면에 뭐라고 부를 것인가.
+ *
+ * 그룹 키(`P`·`GND`·`PWR-IN`·`COM`)는 **타입 안에서 유일해야 하는 식별자**이지 이름이 아니다.
+ * 그런데 화면이 `GND 그룹`·`PWR-IN 그룹` 이라고 그대로 적고 있었다 — 쓰는 사람에게는 아무
+ * 뜻이 없는 글자다(`BI`·`network` 를 그대로 보여 주던 것과 같은 계열).
+ *
+ * 그래서 **종류 이름**으로 부른다. 방향이 뜻을 갖는 종류(전원)는 방향까지 붙여야 입력과
+ * 출력이 갈린다. 같은 이름이 둘 이상 나오면 그때만 키를 덧붙인다 — 광슬롯의 `A`·`B` 처럼
+ * 키 자체가 유일한 이름인 경우가 그렇다. 구분이 필요할 때까지 이름을 길게 만들지 않는다.
+ */
+export function portGroupLabel(target: PortGroupRef, siblings: readonly PortGroupRef[]): string {
+  const base = (g: PortGroupRef) => {
+    const name = portKind(g.medium)?.name ?? g.medium;
+    return portKind(g.medium)?.pairing === 'opposite' ? `${name} ${portDirectionLabel(g.direction)}` : name;
+  };
+  const mine = base(target);
+  const ambiguous = siblings.filter((s) => base(s) === mine).length > 1;
+  return ambiguous ? `${mine} ${target.group}` : mine;
+}
+
 /** 이미 쓰이고 있는 그룹 키를 피해서 고른다 — 그룹 키는 타입 안에서 유일해야 한다. */
 export function uniqueGroupKey(candidate: string, taken: readonly string[]): string {
   if (!taken.includes(candidate)) return candidate;

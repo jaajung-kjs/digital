@@ -39,11 +39,19 @@ export function PortMatrix({
   selectedPortId,
   onSelect,
   labelPrefix,
+  cableCountOf,
 }: {
   ports: readonly V2Port[];
   stateOf: (port: V2Port) => PortState;
   selectedPortId: string | null;
   onSelect: (portId: string) => void;
+  /**
+   * 이 포트에 몇 가닥이 물려 있나 — 2 이상이면 타일에 적는다.
+   *
+   * 접지 부스바처럼 한 단자에 여러 가닥이 모이는 곳은 "연결됨" 만으로는 부족하다.
+   * 7가닥이 모인 단자가 1가닥짜리와 똑같이 보이면 판을 봐도 아무것도 알 수 없다.
+   */
+  cableCountOf?: (port: V2Port) => number;
   /**
    * 읽어 주는 이름 앞에 붙일 말 — 보통 그 포트를 가진 장비 이름.
    * 한 화면에 여러 장비의 판이 함께 뜨면(랙을 눌렀을 때) "포트 1" 만으로는
@@ -58,12 +66,13 @@ export function PortMatrix({
         {ports.map((p) => {
           const state = stateOf(p);
           const selected = p.id === selectedPortId;
+          const count = cableCountOf?.(p) ?? 0;
           return (
             <button
               key={p.id}
               type="button"
-              title={`${p.name} · ${PORT_STATE_LABEL[state]}`}
-              aria-label={`${labelPrefix ? `${labelPrefix} ` : ''}${p.name} ${PORT_STATE_LABEL[state]}`}
+              title={count > 1 ? `${p.name} · ${count}가닥` : `${p.name} · ${PORT_STATE_LABEL[state]}`}
+              aria-label={`${labelPrefix ? `${labelPrefix} ` : ''}${p.name} ${count > 1 ? `${count}가닥` : PORT_STATE_LABEL[state]}`}
               aria-pressed={selected}
               onClick={() => onSelect(p.id)}
               className={cn(
@@ -75,8 +84,15 @@ export function PortMatrix({
               )}
             >
               {p.index}
-              {state !== 'empty' && (
-                <span className={cn('absolute right-1 top-1 size-1 rounded-full', LED[state])} aria-hidden />
+              {/* 여러 가닥이 모이면 개수가 곧 정보다 — 점 하나로는 1가닥과 구분되지 않는다. */}
+              {count > 1 ? (
+                <span className="absolute -right-0.5 -top-1 rounded-full bg-success px-1 text-[0.625rem] font-medium leading-tight text-white">
+                  {count}
+                </span>
+              ) : (
+                state !== 'empty' && (
+                  <span className={cn('absolute right-1 top-1 size-1 rounded-full', LED[state])} aria-hidden />
+                )
               )}
             </button>
           );

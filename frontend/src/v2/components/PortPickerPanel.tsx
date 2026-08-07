@@ -9,6 +9,7 @@ import {
   Input,
   PanelHeader,
 } from '../../components/ui';
+import { portGroupLabel } from '@twin/core';
 import { PortMatrix, PortLegend } from './PortMatrix';
 import type { V2Asset, V2Port } from '../types';
 
@@ -126,7 +127,7 @@ export function PortPickerPanel({
                   {[...groupByPortGroup(g.ports)].map(([groupKey, items]) => (
                     <div key={groupKey} className="space-y-1">
                       {items.length > 0 && groupKeyVisible(g.ports) && (
-                        <p className="text-xs text-content-muted">{groupKey} 그룹</p>
+                        <p className="text-xs text-content-muted">{groupLabelOf(groupKey, g.ports)}</p>
                       )}
                       <PortMatrix
                         labelPrefix={g.asset.name}
@@ -177,6 +178,20 @@ function groupByPortGroup(items: { port: V2Port; occupied: boolean }[]) {
   }
   for (const [, list] of map) list.sort((a, b) => a.port.index - b.port.index);
   return map;
+}
+
+/**
+ * 그룹 머리줄에 적을 이름 — 종류 어휘에서 나온다.
+ *
+ * 예전에는 `GND 그룹`·`PWR-IN 그룹` 처럼 **내부 키를 그대로** 적었다. 그룹 키는 타입 안에서
+ * 유일해야 하는 식별자이지 이름이 아니라, 쓰는 사람에게는 아무 뜻이 없는 글자다.
+ */
+function groupLabelOf(groupKey: string, all: readonly { port: V2Port }[]): string {
+  const refs = [...new Map(all.map((i) => [i.port.group, i.port])).values()].map((p) => ({
+    group: p.group, medium: p.medium, direction: p.direction,
+  }));
+  const mine = refs.find((r) => r.group === groupKey);
+  return mine ? portGroupLabel(mine, refs) : groupKey;
 }
 
 /** 그룹이 하나뿐이면 머리줄이 정보를 더하지 않는다. */

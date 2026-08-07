@@ -18,6 +18,20 @@ import { useV2Catalog, useMediumLabel } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
 import type { V2Asset, V2Cable, V2Port } from '../types';
 import { PortMatrix, PortLegend, PORT_STATE_LABEL, type PortState } from './PortMatrix';
+import { PORT_KINDS, portGroupLabel } from '@twin/core';
+
+/** 한 장비의 포트를 그룹 단위로 묶은 것 — 이름·정렬은 종류 선언에서 나온다. */
+interface PortGroupView {
+  group: string;
+  label: string;
+  medium: string;
+  direction: V2Port['direction'];
+  ports: V2Port[];
+}
+interface PortOwner {
+  owner: V2Asset;
+  groups: PortGroupView[];
+}
 
 interface ConnectionsTabProps {
   assetId: string;
@@ -86,18 +100,33 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
      랙·함체 자체에는 포트가 없고 안에 든 장비가 갖는다. 예전에는 자기 포트만 봐서
      랙에는 포트 탭조차 뜨지 않았고, 무엇이 어디에 물려 있는지 보려면 장비마다 하나씩
      들어가야 했다. 케이블 피커는 이미 같은 방식으로 자손 포트를 모아 보여주고 있었다. */
-  const portOwners = useMemo(() => {
-    if (!asset) return [] as { owner: V2Asset; groups: Map<string, V2Port[]> }[];
+  const portOwners = useMemo<PortOwner[]>(() => {
+    if (!asset) return [];
     return withDescendants(effectiveAssets, asset.id)
       .filter((a) => a.ports.length > 0)
       .map((a) => {
-        const groups = new Map<string, V2Port[]>();
+        const byGroup = new Map<string, V2Port[]>();
         for (const p of a.ports) {
-          const list = groups.get(p.group) ?? [];
+          const list = byGroup.get(p.group) ?? [];
           list.push(p);
-          groups.set(p.group, list);
+          byGroup.set(p.group, list);
         }
-        for (const [, list] of groups) list.sort((x, y) => x.index - y.index);
+        for (const [, list] of byGroup) list.sort((x, y) => x.index - y.index);
+
+        /* 알파벳순이면 `COM · GND · P · PWR-IN` 처럼 뜻 없는 순서가 된다.
+           종류 선언 순서(전원 → 네트워크 → 광 → 제어 → 접지)로 읽는다. */
+        const refs = [...byGroup.entries()].map(([group, ports]) => ({
+          group, medium: ports[0]!.medium, direction: ports[0]!.direction,
+        }));
+        const kindOrder = (medium: string) => {
+          const i = PORT_KINDS.findIndex((k) => k.key === medium);
+          return i < 0 ? PORT_KINDS.length : i; // 어휘에 없는 것은 뒤로
+        };
+        const groups = refs
+          .slice()
+          .sort((x, y) => kindOrder(x.medium) - kindOrder(y.medium) || x.group.localeCompare(y.group))
+          .map((ref) => ({ ...ref, label: portGroupLabel(ref, refs), ports: byGroup.get(ref.group)! }));
+
         return { owner: a, groups };
       });
   }, [asset, effectiveAssets]);
@@ -231,7 +260,7 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
 
       {/* 포트 매트릭스 (그룹별) — 판을 보고 빈 자리를 찾는다 */}
       {portOwners.map(({ owner, groups }) => {
-        const ownerPorts = [...groups.values()].flat();
+        const ownerPorts = groups.flatMap((g) => g.ports);
         const connected = ownerPorts.filter((pt) => cablesByPortId.has(pt.id)).length;
         const isSelf = owner.id === assetId;
         return (
@@ -256,13 +285,14 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
               badge={`${connected}/${ownerPorts.length} 연결`}
               badgeStatus={connected > 0 ? 'success' : 'neutral'}
             />
-            {[...groups.entries()].map(([group, ports]) => (
+            {groups.map(({ group, label, ports }) => (
               <div key={group} className="space-y-1">
-                {groups.size > 1 && <p className="text-xs text-content-muted">{group} 그룹</p>}
+                {groups.length > 1 && <p className="text-xs text-content-muted">{label}</p>}
                 <PortMatrix
                   labelPrefix={isSelf ? undefined : owner.name}
                   ports={ports}
                   stateOf={portState}
+                  cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
                   selectedPortId={selectedPortId}
                   onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
                 />
