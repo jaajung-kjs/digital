@@ -149,19 +149,34 @@ export async function currentCableIds(page: Page, substationId: string): Promise
  *
  * 정리를 마지막 단계에만 두면, 중간에 실패했을 때 잔재가 남아 다음 실행이 연달아
  * 깨진다(실제로 그렇게 됐다: 포트가 이미 점유돼 두 번째 끝점을 고를 수 없었다).
- * 지우는 대상은 이 테스트가 쓰는 것으로 한정한다 — 이름이 `E2E자산` 으로 시작하는
- * 자산과, 테스트가 잇는 두 장비(통합단말-1·SCADA RTU-1)에 걸린 케이블.
+ * 지우는 대상은 이 테스트가 쓰는 것으로 한정한다 — 이름이 `E2E자산` 으로 시작하는 자산과,
+ * 테스트가 **실제로 잇는 포트**에 걸린 케이블.
+ *
+ * 예전에는 "그 장비에 걸린 케이블" 전부였다. 그 장비들이 네트워크 포트만 갖고 그 포트를
+ * 이 테스트만 쓰던 동안에는 같은 뜻이었지만, 시드가 같은 장비에 전원·제어·접지 배선을
+ * 갖게 되자 **시드 케이블 6본을 함께 지웠다**. 포트까지 짚어야 테스트 것만 지운다.
  */
-export async function resetE2eLeftovers(page: Page, substationId: string, endpointAssetNames: string[]) {
+export interface E2eEndpoint {
+  assetName: string;
+  portName: string;
+}
+
+export async function resetE2eLeftovers(page: Page, substationId: string, endpoints: E2eEndpoint[]) {
   await page.evaluate(
     async ([subId, names]) => {
       const token = localStorage.getItem('accessToken');
       const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
       const wc = await (await fetch(`/api/v2/substations/${subId}/workingcopy`, { headers })).json();
 
-      const assets = (wc.assets ?? []) as { id: string; name: string; updatedAt: string; ports?: { id: string }[] }[];
+      const assets = (wc.assets ?? []) as {
+        id: string; name: string; updatedAt: string; ports?: { id: string; name: string }[];
+      }[];
       const targetPortIds = new Set(
-        assets.filter((a) => names.includes(a.name)).flatMap((a) => (a.ports ?? []).map((p) => p.id)),
+        names.flatMap(({ assetName, portName }) =>
+          assets
+            .filter((a) => a.name === assetName)
+            .flatMap((a) => (a.ports ?? []).filter((p) => p.name === portName).map((p) => p.id)),
+        ),
       );
       const deadAssets = assets.filter((a) => a.name.startsWith('E2E자산'));
       const deadCables = ((wc.cables ?? []) as { id: string; aPortId: string; bPortId: string; updatedAt: string }[])
@@ -182,7 +197,7 @@ export async function resetE2eLeftovers(page: Page, substationId: string, endpoi
       });
       if (!res.ok) throw new Error(`잔재 정리 실패 ${res.status}: ${(await res.text()).slice(0, 200)}`);
     },
-    [substationId, endpointAssetNames] as const,
+    [substationId, endpoints] as const,
   );
 }
 

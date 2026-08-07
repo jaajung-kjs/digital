@@ -39,7 +39,10 @@ test.beforeAll(async ({ browser }) => {
   await login(page);
   await selectOrgNode(page, '문막변전소');
   const subId = await substationIdByName(page, '문막변전소');
-  await resetE2eLeftovers(page, subId, ['통합단말-1', 'SCADA RTU-1']);
+  await resetE2eLeftovers(page, subId, [
+    { assetName: '통합단말-1', portName: '포트 1' },
+    { assetName: 'SCADA RTU-1', portName: '포트 1' },
+  ]);
   await resetE2eTypes(page); // 자산을 지운 뒤라야 타입 삭제가 통과한다
   await page.close();
 });
