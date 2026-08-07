@@ -4,9 +4,9 @@ import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
 import { EmptyState, StatusDot, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import type { BadgeStatus } from '../../components/ui';
 import type { StatusRow } from '../statusRows';
-import type { V2AssetType } from '../types';
+import type { StatusRowsResult } from '../statusRows';
 
-type FieldDef = V2AssetType['fieldDefs'][number];
+type FieldDef = StatusRowsResult['fieldColumns'][number];
 
 
 /** 상태 어휘가 선언한 톤을 화면 톤으로 옮긴다 — 모르는 톤은 조용한 쪽으로 둔다. */

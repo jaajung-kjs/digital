@@ -11,7 +11,7 @@ import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTE
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { useV2Catalog, useTypesById } from '../hooks';
-import { cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type CableFieldDef } from '@twin/core';
+import { cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { useMediumContainer } from '../useMediumContainer';
 import { fiberContainers, buildFiberRows, FIBER_TRUNK_MEDIUM } from '../fiberSelectors';
 import type { FiberRow } from '../fiberSelectors';
@@ -28,7 +28,7 @@ interface Props {
 interface MetaInputProps {
   value: unknown;
   /** 어떤 값을 적는 칸인지 — 키·자료형이 여기서 나온다. 화면이 키를 알지 않는다. */
-  field: CableFieldDef;
+  field: ValueDef;
   cableId: string | null;
 }
 
@@ -78,7 +78,7 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
  */
 function PortFieldInput({
   value, field, portId, assetId, position,
-}: { value: unknown; field: CableFieldDef; portId: string | null; assetId: string | null; position: number }) {
+}: { value: unknown; field: ValueDef; portId: string | null; assetId: string | null; position: number }) {
   if (!portId || !assetId) return <span className="text-content-faint">—</span>;
   const resolvedPortId: string = portId;
   const resolvedAssetId: string = assetId;

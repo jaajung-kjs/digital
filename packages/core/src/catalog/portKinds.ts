@@ -27,13 +27,20 @@ export type PortPairing =
   /** 반대 방향끼리만 — 전원처럼 공급과 소비가 갈리는 경우. `BI`(양방향)는 어느 쪽과도 맞는다. */
   | 'opposite';
 
-/** 케이블 한 가닥에 기록하는 값 하나 — `Cable.specParams` 의 키가 된다. */
-export interface CableFieldDef {
+/** 케이블 한 가닥 또는 포트 하나에 기록하는 값. `Cable.specParams` · `Port.fieldValues` 의 키가 된다. */
+export interface ValueDef {
   key: string;
   label: string;
-  type: 'number' | 'text' | 'date';
+  type: 'number' | 'text' | 'date' | 'boolean';
   /** 라벨 뒤에 붙는 단위 — `길이(m)` 처럼. */
   unit?: string;
+  /**
+   * 이 방향의 포트에만 있는 값(포트 값 전용).
+   *
+   * 차단기의 개폐가 그렇다 — 나가는 회로가 살아 있는가는 **출력** 쪽 사실이고,
+   * 들어오는 쪽은 상대 기기의 출력이 정한다. 없으면 방향을 가리지 않는다.
+   */
+  direction?: Direction;
 }
 
 /**
@@ -41,7 +48,7 @@ export interface CableFieldDef {
  *
  * 길이는 **설계서 공량**의 근거다(품셈 × 길이). 그래서 어느 종류든 적을 수 있어야 한다.
  */
-export const COMMON_CABLE_FIELDS: readonly CableFieldDef[] = [
+export const COMMON_CABLE_FIELDS: readonly ValueDef[] = [
   { key: 'lengthM', label: '길이', type: 'number', unit: 'm' },
 ] as const;
 
@@ -55,7 +62,7 @@ export interface PortKind {
   /** 한 포트에 물릴 수 있는 케이블 수. `null` = 제한 없음(접지 부스바). */
   maxCables: number | null;
   /** 이 종류의 케이블에만 있는 값. 공통 필드는 여기 되풀이하지 않는다. */
-  cableFields: readonly CableFieldDef[];
+  cableFields: readonly ValueDef[];
   /**
    * **포트 하나**에 딸린 값 — 케이블이 아니라 심선마다 다른 것.
    *
@@ -65,7 +72,7 @@ export interface PortKind {
    *
    * **다심 포트(`positions > 1`)에서는 코어마다 한 벌씩** 담긴다 — `portValuesAt` 참고.
    */
-  portFields: readonly CableFieldDef[];
+  portFields: readonly ValueDef[];
   /**
    * 이 종류의 포트는 심선을 여러 가닥 나른다 — 케이블 1본에 코어 N개.
    *
@@ -85,7 +92,10 @@ export const PORT_KINDS: readonly PortKind[] = [
   // 전원은 공급(OUT)과 소비(IN)가 갈린다 — 출력끼리 잇는 것은 물리적으로 불가능하다.
   {
     key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
-    cableFields: [{ key: 'voltage', label: '전압', type: 'text' }], portFields: [],
+    cableFields: [{ key: 'voltage', label: '전압', type: 'text' }],
+    /* 차단기의 개폐 — 예전에는 피더 **자산**의 필드였는데, 개폐는 자산이 아니라
+       그 회로의 상태다. 출력이 여럿인 기기(콘센트 13구 분배반)는 회로마다 따로 끊긴다. */
+    portFields: [{ key: 'closed', label: '개폐', type: 'boolean', direction: 'OUT' }],
   },
   { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   // 점퍼 한 가닥이 어댑터 하나에 꽂히는, 심선 1가닥짜리 보통 광 포트.
@@ -121,13 +131,19 @@ export const PORT_KINDS: readonly PortKind[] = [
  * (선번장 meta 3열, 계통 전압열, 설계서 공량). 그래서 값을 하나 늘리려면 그 키를 읽는 곳을
  * 전부 찾아 고쳐야 했고, 종류마다 무엇을 적을 수 있는지는 코드를 읽어야만 알 수 있었다.
  */
-export function cableFieldsFor(medium: string): CableFieldDef[] {
+export function cableFieldsFor(medium: string): ValueDef[] {
   return [...COMMON_CABLE_FIELDS, ...(portKind(medium)?.cableFields ?? [])];
 }
 
-/** 이 종류의 **포트**에 적을 수 있는 값 — 심선마다 다른 것(광 손실·점검일). */
-export function portFieldsFor(medium: string): CableFieldDef[] {
-  return [...(portKind(medium)?.portFields ?? [])];
+/**
+ * 이 **포트**에 적을 수 있는 값 — 심선마다 다른 것(광 손실·점검일), 회로마다 다른 것(개폐).
+ *
+ * 방향을 주면 그 방향에만 있는 값까지 걸러 준다. 안 주면 종류가 가진 값 전부다.
+ */
+export function portFieldsFor(medium: string, direction?: Direction): ValueDef[] {
+  const fields = portKind(medium)?.portFields ?? [];
+  if (direction === undefined) return [...fields];
+  return fields.filter((f) => f.direction === undefined || f.direction === direction);
 }
 
 /** 이 포트가 심선을 여러 가닥 나르는가. `positions` 이 없거나 1이면 보통 포트다. */

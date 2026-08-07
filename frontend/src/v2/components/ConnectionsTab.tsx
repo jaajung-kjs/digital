@@ -12,7 +12,7 @@ import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { withDescendants } from '../cableSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { internalLinkMap, portDirectionLabel } from '@twin/core';
+import { internalLinkMap, portDirectionLabel, portFieldsFor, portValuesAt, setPortValueAt } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel, useMediumColor } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
@@ -62,21 +62,37 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
   const asset = useMemo(() => effectiveAssets.find((a) => a.id === assetId), [effectiveAssets, assetId]);
 
   /* 자산 내부 통과 — 실제로 어느 포트끼리가 이어지는지.
-     규칙은 포트 선언에서 유도된 것과 사용자가 적은 것이 더해진다(계산은 core 와 공유) —
-     그래서 링크 규칙이 하나도 없어도 전원 입력↔출력은 통과한다. 예전에는 여기서
-     `linkRules.length === 0` 이면 곧바로 빈 map 을 돌려줘 유도가 통째로 죽었다. */
+     규칙은 **포트 선언에서만** 나온다(계산은 core 와 공유). */
   const internalOf = useMemo(() => {
-    const type = types.find((t) => t.id === asset?.typeId);
-    if (!asset || !type) return new Map<string, string[]>();
-    return internalLinkMap(
-      type.linkRules.map((r) => ({ fromGroup: r.fromGroup, toGroup: r.toGroup, mapping: r.mapping })),
-      asset.ports.map((p) => ({ ...p, assetId: asset.id })),
-    );
-  }, [asset, types]);
+    if (!asset) return new Map<string, string[]>();
+    return internalLinkMap(asset.ports.map((p) => ({ ...p, assetId: asset.id })));
+  }, [asset]);
   const portNameById = useMemo(
     () => new Map((asset?.ports ?? []).map((p) => [p.id, p.name])),
     [asset],
   );
+
+  /**
+   * 이 포트에 여닫을 값이 있는가 — 차단기의 개폐 같은 것.
+   *
+   * 화면이 `closed` 라는 키를 알지 않는다. 종류 선언에서 `boolean` 인 포트 값을 찾고,
+   * 그 값의 방향 제한(`direction`)까지 선언이 정한다 — 개폐는 **출력** 쪽 사실이라
+   * 입력 포트에는 스위치가 붙지 않는다.
+   */
+  function portToggle(owner: V2Asset, port: V2Port) {
+    const field = portFieldsFor(port.medium, port.direction).find((f) => f.type === 'boolean');
+    if (!field) return null;
+    return {
+      label: field.label,
+      checked: portValuesAt(port, 1)[field.key] === true,
+      onChange: (next: boolean) => {
+        const ports = owner.ports.map((p) =>
+          p.id === port.id ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
+        );
+        useV2WorkingCopy.getState().stageAssetUpdate(owner.id, { ports });
+      },
+    };
+  }
 
   /* portId → 그 포트에 물린 **모든** 케이블.
      예전에는 포트당 하나만 담는 Map 이라 `set` 이 앞의 것을 덮어썼다. 접지 부스바처럼
@@ -333,6 +349,7 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
               }))}
               stateOf={portState}
               cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
+              toggleOf={(port) => portToggle(owner, port)}
               selectedPortId={selectedPortId}
               onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
             />

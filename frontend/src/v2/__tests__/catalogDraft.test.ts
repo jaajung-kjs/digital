@@ -18,14 +18,12 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   installHours: 2,
   removeHours: 1,
   relocateHours: 3,
-  fieldDefs: [{ key: 'model', label: '모델', type: 'text' }],
   containerSpecs: [
     { id: 'cs-1', key: 'main', name: '슬롯', slotCount: 24, allowSpan: true, accepts: { categoryKeys: ['통신'] }, sortOrder: 1 },
   ],
   portTemplates: [
     { id: 'pt-1', group: 'A', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'A', sortOrder: 1 },
   ],
-  linkRules: [{ id: 'lr-1', fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],
   ...overrides,
 });
 
@@ -64,7 +62,6 @@ describe('catalogDraft', () => {
     expect(draft.installHours).toBe(type.installHours);
     expect(draft.removeHours).toBe(type.removeHours);
     expect(draft.relocateHours).toBe(type.relocateHours);
-    expect(draft.fieldDefs).toEqual(type.fieldDefs);
 
     // containerSpecs → containers: id·sortOrder 제거
     expect(draft.containers).toHaveLength(1);
@@ -78,11 +75,6 @@ describe('catalogDraft', () => {
     expect('id' in draft.ports[0]).toBe(false);
     expect('sortOrder' in draft.ports[0]).toBe(false);
     expect(draft.ports[0].group).toBe('A');
-
-    // linkRules → links: id 제거
-    expect(draft.links).toHaveLength(1);
-    expect('id' in draft.links[0]).toBe(false);
-    expect(draft.links[0].fromGroup).toBe('A');
   });
 
   it('draftIssues: categoryId 를 key 로 해소해 validateTypeSpec 에 위임한다 (미지 categoryId → categoryKey 이슈)', () => {
@@ -90,8 +82,7 @@ describe('catalogDraft', () => {
 
     // 유효한 categoryId 는 이슈 없음 (최소 유효 스펙)
     const draft = typeToDraft(mkType({ key: 'RACK', name: '랙', categoryId: 'cat-comm' }));
-    // linkRules 에 'B' 그룹이 없어서 이슈 발생하므로 links 제거
-    const cleanDraft = { ...draft, links: [] };
+    const cleanDraft = draft;
     const issues = draftIssues(cleanDraft, catalog);
     const catIssues = issues.filter((i) => i.path === 'categoryKey');
     expect(catIssues).toHaveLength(0);

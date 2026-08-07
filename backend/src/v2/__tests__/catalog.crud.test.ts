@@ -34,10 +34,8 @@ function makeTypeBody(categoryId: string, extra: Partial<Record<string, unknown>
     installHours: 0,
     removeHours: 0,
     relocateHours: 0,
-    fieldDefs: [],
     containers: [],
     ports: [],
-    links: [],
     ...extra,
   };
 }
@@ -53,7 +51,6 @@ const VALID_PORTS = [
   { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '입력 {n}' },
   { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '출력 {n}' },
 ];
-const VALID_LINKS = [{ fromGroup: 'fiberIn', toGroup: 'fiberOut', mapping: 'byIndex' as const }];
 const VALID_CONTAINERS = [{ key: 'shelf', name: '선반', slotCount: 8, allowSpan: false, accepts: {} }];
 
 /** 다심 포트 왕복용 — trunk 하나가 코어 24가닥을 나르는 인입 포트. */
@@ -61,7 +58,6 @@ const MULTI_CORE_PORTS = [
   { group: 'core', count: 24, direction: 'BI' as const, medium: 'fiber', namePattern: '광 {n}' },
   { group: 'trunk', count: 1, direction: 'BI' as const, medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
 ];
-const MULTI_CORE_LINKS = [{ fromGroup: 'trunk', toGroup: 'core', mapping: 'byPosition' as const }];
 
 /**
  * both-key accepts: categoryKeys + typeKeys 모두 포함, 2개 이상 (순서 민감성까지 커버).
@@ -157,11 +153,10 @@ describe('catalog CRUD', () => {
     catId = c2.body.id;
   });
 
-  it('타입 생성: 유효 payload 201 + GET 재조회 시 명세(containers/ports/links) 왕복 일치', async () => {
+  it('타입 생성: 유효 payload 201 + GET 재조회 시 명세(containers/ports) 왕복 일치', async () => {
     const body = makeTypeBody(catId, {
       key: `${KEY_PREFIX}_TYPE_A`,
       ports: VALID_PORTS,
-      links: VALID_LINKS,
       containers: VALID_CONTAINERS,
     });
 
@@ -174,8 +169,6 @@ describe('catalog CRUD', () => {
     expect(found).toBeTruthy();
     expect(found.portTemplates).toHaveLength(2);
     expect(found.portTemplates[0]).toMatchObject({ group: 'fiberIn', count: 2, direction: 'IN', medium: 'fiber', namePattern: '입력 {n}' });
-    expect(found.linkRules).toHaveLength(1);
-    expect(found.linkRules[0]).toMatchObject({ fromGroup: 'fiberIn', toGroup: 'fiberOut', mapping: 'byIndex' });
     expect(found.containerSpecs).toHaveLength(1);
     expect(found.containerSpecs[0]).toMatchObject({ key: 'shelf', name: '선반', slotCount: 8, allowSpan: false });
   });
@@ -218,7 +211,7 @@ describe('catalog CRUD', () => {
     await request(app).delete(`/api/v2/catalog/types/${created[0].body.id}`).set(admin).expect(204);
   });
 
-  it('PUT: 비구조 필드(이름/공량/fieldDefs/배치)는 인스턴스가 있어도 수정된다', async () => {
+  it('PUT: 비구조 필드(이름/공량/배치)는 인스턴스가 있어도 수정된다', async () => {
     // typeId(TYPE_A)에 asset 인스턴스 직접 생성
     const sub = await nextDb.substation.create({
       data: {
@@ -235,7 +228,6 @@ describe('catalog CRUD', () => {
       name: '수정된 이름',
       installHours: 3,
       ports: VALID_PORTS,
-      links: VALID_LINKS,
       containers: VALID_CONTAINERS,
     });
 
@@ -273,7 +265,6 @@ describe('catalog CRUD', () => {
     const body = makeTypeBody(catId, {
       name: '수정된 이름',
       ports: changedPorts,
-      links: VALID_LINKS,
       containers: VALID_CONTAINERS,
     });
 
@@ -304,7 +295,6 @@ describe('catalog CRUD', () => {
     const body = makeTypeBody(catId, {
       name: '같은 구조 다른 이름',
       ports: VALID_PORTS,
-      links: VALID_LINKS,
       containers: VALID_CONTAINERS,
     });
 
@@ -538,7 +528,6 @@ describe('catalog CRUD', () => {
       .send(makeTypeBody(mcCatId, {
         key: `${KEY_PREFIX}_TYPE_MC`,
         ports: MULTI_CORE_PORTS,
-        links: MULTI_CORE_LINKS,
       }))
       .expect(201);
     const mcTypeId = typeRes.body.id;
@@ -553,7 +542,6 @@ describe('catalog CRUD', () => {
     expect([core.count, core.positions]).toEqual([24, 1]); // 안 적으면 1
 
     await nextDb.assetPortTemplate.deleteMany({ where: { typeId: mcTypeId } });
-    await nextDb.assetLinkRule.deleteMany({ where: { typeId: mcTypeId } });
     await nextDb.assetType.delete({ where: { id: mcTypeId } });
     await nextDb.assetCategory.delete({ where: { id: mcCatId } });
   });
@@ -575,7 +563,7 @@ describe('catalog CRUD', () => {
     const res = await request(app)
       .post('/api/v2/catalog/types')
       .set(admin)
-      .send(makeTypeBody(mc2CatId, { key: `${KEY_PREFIX}_TYPE_MC2`, ports: badPorts, links: VALID_LINKS }))
+      .send(makeTypeBody(mc2CatId, { key: `${KEY_PREFIX}_TYPE_MC2`, ports: badPorts }))
       .expect(400);
     expect(res.body.error).toBe('INVALID_TYPE_SPEC');
     const paths = res.body.details.map((d: { path: string }) => d.path) as string[];
@@ -598,7 +586,6 @@ describe('catalog CRUD', () => {
       .send(makeTypeBody(mc3CatId, {
         key: `${KEY_PREFIX}_TYPE_MC3`,
         ports: MULTI_CORE_PORTS,
-        links: MULTI_CORE_LINKS,
       }))
       .expect(201);
     const mc3TypeId = typeRes.body.id;
@@ -616,7 +603,7 @@ describe('catalog CRUD', () => {
     const res = await request(app)
       .put(`/api/v2/catalog/types/${mc3TypeId}`)
       .set(admin)
-      .send(makeTypeBody(mc3CatId, { key: `${KEY_PREFIX}_TYPE_MC3`, ports: shrunkPorts, links: MULTI_CORE_LINKS }))
+      .send(makeTypeBody(mc3CatId, { key: `${KEY_PREFIX}_TYPE_MC3`, ports: shrunkPorts }))
       .expect(409);
     expect(res.body.error).toBe('TYPE_IN_USE');
 
@@ -628,7 +615,6 @@ describe('catalog CRUD', () => {
     const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq-mc3` } });
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
     await nextDb.assetPortTemplate.deleteMany({ where: { typeId: mc3TypeId } });
-    await nextDb.assetLinkRule.deleteMany({ where: { typeId: mc3TypeId } });
     await nextDb.assetType.delete({ where: { id: mc3TypeId } });
     await nextDb.assetCategory.delete({ where: { id: mc3CatId } });
   });

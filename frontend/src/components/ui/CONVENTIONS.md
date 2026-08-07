@@ -180,6 +180,11 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 
 **표의 한 열로 되풀이되는 상태는 `Badge` 가 아니라 `StatusDot`.** 색 채운 알약은 하나일 때는 좋지만 17행이 전부 초록 알약이 되면 색이 아무것도 말해 주지 않고, 정작 고장 한 줄이 묻힌다. `StatusDot` 은 평상시(정상·예비)를 조용히 두고 눈길을 끌 톤(경고·고장)만 글자까지 색을 준다. 무엇이 "눈길을 끌 상태" 인지는 **상태 어휘가 선언한 톤**에서 나온다 — 화면 코드가 `normal`·`fault` 같은 상태 값 이름을 알지 않는다. 단독 강조(패널 머리말·안내 띠)는 그대로 `Badge`.
 
+### 켜짐/꺼짐이 곧 값인 자리 → `Toggle`
+`src/components/ui/Toggle.tsx` — 차단기의 개폐처럼 **지금 어느 쪽인가**가 값 자체인 자리. 체크박스는 "고를 것인가" 를 묻고 스위치는 "지금 어느 쪽인가" 를 보여 준다. `size="sm"` 은 포트 판처럼 칸이 작은 자리용이다. 글자는 스위치 **옆에만** 두고 트랙 안에 넣지 않는다(넣으면 `text-xs` 밑으로 내려가야 한다 → §1 위반).
+
+포트 판 위의 스위치는 포트 버튼 **밖**에 둔다 — 버튼 안에 버튼을 넣을 수 없고, 넣으면 스위치를 누를 때 포트 선택까지 함께 일어난다.
+
 ### 버튼 → `Button` / `IconButton`
 `Button` 은 `variant`(`primary`/`secondary`/`ghost`/`danger`) + `size`(`sm`/`md`) props 로 톤을 결정한다 — 별도의 `PrimaryButton`/`GhostButton`/`IconAction` 컴포넌트는 없다. 아이콘 전용 버튼은 `IconButton`(`size` `sm`/`md` + `tone` `default`/`danger`).
 
@@ -223,7 +228,8 @@ import { DetailCard, DetailCardHeader, DetailRow, DetailNote } from '../../compo
 ### 표의 열은 어휘·선언에서 나온다 — 화면이 키를 알지 않는다
 자산 정의를 사용자가 하는 제품이므로 **화면 코드가 필드 키·상태 값·방향 값을 직접 적으면 곧 어긋난다**. 라벨을 바꾸면 머리글만 옛 이름으로 남고, 필드를 지우면 `—` 만 늘어선 죽은 열이 되고, 새 필드는 아무리 넣어도 안 나온다.
 
-- 현황표의 커스텀 필드 열은 `buildStatusRows` 가 **표에 있는 자산들의 타입이 모두 선언한 필드**로 만든다(라벨도 선언에서). 어떤 타입에만 있는 필드를 전체 표의 열로 세우면 대부분이 빈 칸인 열이 되므로 교집합이다.
+- 현황표의 속성 열은 `buildStatusRows` 가 `assetFieldDefs()` 에서 만든다(라벨도 거기서). 자산이 갖는 속성은 종류를 가리지 않고 같다 — 타입마다 필드를 따로 선언하던 길은 걷었다.
+- **어떤 포트에 무엇을 적을 수 있는지도 선언이 정한다.** `portFieldsFor(medium, direction)` — 화면이 `closed`·`lossDb` 같은 키를 알지 않는다. 개폐 스위치가 전원 **출력** 포트에만 붙는 것도 선언(`ValueDef.direction`)이 정한 것이지 화면의 분기가 아니다.
 - 상태·포트 방향 같은 어휘는 `@twin/core` 의 `ASSET_STATUSES`·`PORT_DIRECTIONS` 한 곳에만 적는다. 타입·검증·zod 스키마·선택지가 전부 거기서 파생된다. 예외는 §7 이 코드 뷰로 남긴 선번장·계통뿐이다.
 
 ### 표 위 검색 상자 → `TableSearch`

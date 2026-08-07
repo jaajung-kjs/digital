@@ -3,7 +3,7 @@
  *
  * 좌: TypeListPanel (280px, 분류·타입 목록)
  * 우: 탭(타입 | 케이블)
- *   타입 탭: TypeBasicsForm + FieldDefsEditor + ContainersEditor + PortsEditor + LinksEditor + 저장바
+ *   타입 탭: TypeBasicsForm + ContainersEditor + PortsEditor + 저장바
  *   케이블 탭: CableCatalogPanel
  */
 import { useState } from 'react';
@@ -26,10 +26,8 @@ import type { TypeDraft } from '../catalogDraft';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
-import { FieldDefsEditor } from '../components/admin/FieldDefsEditor';
 import { ContainersEditor } from '../components/admin/ContainersEditor';
 import { PortsEditor } from '../components/admin/PortsEditor';
-import { LinksEditor } from '../components/admin/LinksEditor';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
 
@@ -329,9 +327,6 @@ export default function V2CatalogAdminPage() {
                       issues={issues}
                     />
 
-                    {/* 필드 정의 (잠금 없음 — 항상 편집 가능) */}
-                    <FieldDefsEditor draft={draft} onChange={handleChange} issues={issues} />
-
                     {/* 컨테이너 (잠금 대상) */}
                     <ContainersEditor
                       draft={draft}
@@ -351,13 +346,6 @@ export default function V2CatalogAdminPage() {
                     />
 
                     {/* 통과 링크 규칙 (잠금 대상) */}
-                    <LinksEditor
-                      draft={draft}
-                      onChange={handleChange}
-                      catalog={catalog}
-                      locked={locked}
-                      issues={issues}
-                    />
                     </div>
                   </div>
                 </>

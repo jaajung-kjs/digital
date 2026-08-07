@@ -81,10 +81,8 @@ export function buildTraceInputs(args: {
       installHours: t.installHours,
       removeHours: t.removeHours,
       relocateHours: t.relocateHours,
-      fieldDefs: t.fieldDefs,
       containerSpecs: t.containerSpecs,
       portTemplates: t.portTemplates,
-      linkRules: t.linkRules,
     };
     types[t.key] = specFromCatalog(row);
   }
@@ -115,6 +113,9 @@ export function buildTraceInputs(args: {
         name: p.name,
         direction: p.direction,
         medium: p.medium,
+        // 다심 인입은 코어 수까지 넘겨야 한다 — 빠뜨리면 코어 1가닥만 이어진 것으로 보여
+        // 2번 이후 심선의 추적이 슬롯에서 끊긴다.
+        positions: p.positions,
       });
     }
   }

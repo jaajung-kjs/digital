@@ -9,8 +9,7 @@ function base(over: Partial<AssetTypeSpec> = {}): AssetTypeSpec {
   return {
     key: 'T1', name: '테스트', categoryKey: '통신', sortOrder: 0,
     placement: { placeable: false },
-    labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
-    fields: [], containers: [], ports: [], links: [],
+    labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 }, containers: [], ports: [], links: [],
     ...over,
   };
 }
@@ -30,15 +29,6 @@ describe('validateTypeSpec', () => {
   it('음수 공량을 거부한다', () => {
     const s = base({ labor: { laborType: '통신내선공', installHours: -1, removeHours: 0, relocateHours: 0 } });
     expect(validateTypeSpec(s, CTX).some((i) => i.path === 'labor.installHours')).toBe(true);
-  });
-  it('필드 key 중복과 select 옵션 없음을 거부한다', () => {
-    const dup = base({ fields: [
-      { key: 'a', label: 'A', type: 'text' },
-      { key: 'a', label: 'B', type: 'text' },
-    ] });
-    expect(validateTypeSpec(dup, CTX).some((i) => i.path === 'fields[1].key')).toBe(true);
-    const noOpt = base({ fields: [{ key: 's', label: 'S', type: 'select', options: [] }] });
-    expect(validateTypeSpec(noOpt, CTX).some((i) => i.path === 'fields[0].options')).toBe(true);
   });
   it('컨테이너 key 중복·slotCount 0·자유형 span 을 거부한다', () => {
     const c = { name: '슬롯', allowSpan: false, accepts: {} };
@@ -69,32 +59,7 @@ describe('validateTypeSpec', () => {
     ] });
     expect(validateTypeSpec(single, CTX)).toEqual([]);
   });
-  it('링크 룰: 미존재 그룹·자기 참조·중복 쌍을 거부한다', () => {
-    const ports = [
-      { group: 'A', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'A {n}' },
-      { group: 'B', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'B {n}' },
-    ];
-    const ghost = base({ ports, links: [{ fromGroup: 'A', toGroup: 'X', mapping: 'byIndex' }] });
-    expect(validateTypeSpec(ghost, CTX).some((i) => i.path === 'links[0].toGroup')).toBe(true);
-    const self = base({ ports, links: [{ fromGroup: 'A', toGroup: 'A', mapping: 'all' }] });
-    expect(validateTypeSpec(self, CTX).some((i) => i.path === 'links[0].toGroup')).toBe(true);
-    const dup = base({ ports, links: [
-      { fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' },
-      { fromGroup: 'A', toGroup: 'B', mapping: 'all' },
-    ] });
-    expect(validateTypeSpec(dup, CTX).some((i) => i.path === 'links[1]')).toBe(true);
-  });
   /* 다심은 **종류**가 정한다 — 아무 포트에나 코어 수를 적을 수 있으면 어휘가 뜻을 잃는다. */
-  it('다심 포트 1개 + byPosition 링크는 이슈 없음', () => {
-    const s = base({
-      ports: [
-        { group: 'CORE', count: 24, direction: 'BI' as const, medium: 'fiber', namePattern: '광 {n}' },
-        { group: 'TRUNK', count: 1, direction: 'BI' as const, medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
-      ],
-      links: [{ fromGroup: 'TRUNK', toGroup: 'CORE', mapping: 'byPosition' as const }],
-    });
-    expect(validateTypeSpec(s, CTX)).toEqual([]);
-  });
   it('다심 아닌 종류에 positions>1 을 적으면 이슈 발화', () => {
     const s = base({ ports: [
       { group: 'A', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'A {n}', positions: 24 },
@@ -106,16 +71,6 @@ describe('validateTypeSpec', () => {
       { group: 'T', count: 1, direction: 'BI' as const, medium: 'fiber-trunk', namePattern: '인입' },
     ] });
     expect(validateTypeSpec(s, CTX).some((i) => i.path === 'ports[0].positions')).toBe(true);
-  });
-  it('byPosition 인데 앞 그룹이 다심이 아니면 이슈 발화', () => {
-    const s = base({
-      ports: [
-        { group: 'A', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'A {n}' },
-        { group: 'B', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'B {n}' },
-      ],
-      links: [{ fromGroup: 'A', toGroup: 'B', mapping: 'byPosition' as const }],
-    });
-    expect(validateTypeSpec(s, CTX).some((i) => i.path === 'links[0].mapping')).toBe(true);
   });
   it('시드 전 타입이 시드 카테고리/매체 컨텍스트에서 이슈 0 (모델 증명)', () => {
     const ctx = {

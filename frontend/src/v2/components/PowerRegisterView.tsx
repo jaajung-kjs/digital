@@ -3,22 +3,21 @@
  *
  * 상단: 컨테이너(전원 포트를 가진 자산) Select
  * 테이블 컬럼: 회로 | 피더 | 상태 | 전원 입력(peer) | 전압 | 부하 출력(peer)
- *   - 상태: catalog fieldDefs switchState Select(옵션 데이터 기반) 또는 텍스트 Input → fieldValues 병합
+ *   - 개폐: 출력 포트의 `closed` 값을 여닫는 스위치
  *   - 전압: 인라인 Input → stageCableUpdate specParams 병합 (IN 케이블 없으면 '—')
  *   - peer: 선번장과 동일(원격 Badge)
  *   - 행 클릭 → onSelectAsset(feederId)
  */
 import { useMemo, useState } from 'react';
-import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
+import { EmptyState, Select, TableCard, TableSearch, Th, Toggle, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows, POWER_MEDIUM } from '../powerSelectors';
-import { cableFieldsFor, type CableFieldDef } from '@twin/core';
+import { cableFieldsFor, setPortValueAt, type ValueDef } from '@twin/core';
 import type { PowerRow, PowerCell } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
 import { useMediumContainer } from '../useMediumContainer';
 import { AddAssetModal } from './AddAssetModal';
-import type { FieldDef } from '@twin/core';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from './InlineEditCell';
 
@@ -30,30 +29,35 @@ interface Props {
 
 // PeerCell은 공용 컴포넌트 사용 (M-2 — FiberRegisterView와 공유)
 
-// ── 스위치 상태 편집 셀 ───────────────────────────────────────────────────────
-interface SwitchStateCellProps {
-  feederId: string;
-  value: string | null;
-  switchStateDef: FieldDef | null;
-}
+/**
+ * 개폐 — 값은 **출력 포트**에 담긴다(자산 필드가 아니다).
+ *
+ * 회로가 없는 빈 자리에는 적을 곳이 없으므로 대시. 저장 형상을 아는 곳은
+ * `setPortValueAt` 하나뿐이다.
+ */
+function ClosedCell({ feederId, portId, closed }: { feederId: string; portId: string | null; closed: boolean | null }) {
+  if (!portId) return <span className="text-content-faint">—</span>;
+  const resolvedPortId: string = portId;
 
-function SwitchStateCell({ feederId, value, switchStateDef }: SwitchStateCellProps) {
-  function handleCommit(next: string) {
-    const current =
-      useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === feederId)?.fieldValues ?? {};
-    if (String(current['switchState'] ?? '') === next) return;
-    useV2WorkingCopy.getState().stageAssetUpdate(feederId, {
-      fieldValues: { ...current, switchState: next },
-    });
+  function toggle(next: boolean) {
+    const asset = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === feederId);
+    const port = asset?.ports.find((p) => p.id === resolvedPortId);
+    if (!asset || !port) return;
+    const ports = asset.ports.map((p) =>
+      p.id === resolvedPortId ? { ...p, fieldValues: setPortValueAt(p, 1, 'closed', next) } : p,
+    );
+    useV2WorkingCopy.getState().stageAssetUpdate(feederId, { ports });
   }
 
-  // catalog에 switchState select fieldDef가 있으면 Select, 없으면 텍스트 Input
-  const options =
-    switchStateDef && switchStateDef.type === 'select' && switchStateDef.options
-      ? switchStateDef.options
-      : undefined;
-
-  return <InlineEditCell value={value ?? ''} onCommit={handleCommit} options={options} />;
+  return (
+    <Toggle
+      checked={closed === true}
+      onChange={toggle}
+      size="sm"
+      label={closed === true ? 'ON' : 'OFF'}
+      aria-label="개폐"
+    />
+  );
 }
 
 // ── 케이블 값 인라인 편집 (케이블 없으면 '—' 비편집) ────────────────────────
@@ -61,7 +65,7 @@ interface CableFieldInputProps {
   cableId: string | null;
   value: unknown;
   /** 어떤 값을 적는 칸인지 — 키·자료형이 여기서 나온다. 화면이 키를 알지 않는다. */
-  field: CableFieldDef;
+  field: ValueDef;
 }
 
 function CableFieldInput({ cableId, value, field }: CableFieldInputProps) {
@@ -159,16 +163,6 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
         ),
     );
   }, [rows, query]);
-
-  const switchStateDefByFeeder = useMemo<Map<string, FieldDef | null>>(() => {
-    const map = new Map<string, FieldDef | null>();
-    for (const row of rows) {
-      const feeder = effectiveAssets.find((a) => a.id === row.feederId);
-      const type = feeder ? typesById.get(feeder.typeId) : undefined;
-      map.set(row.feederId, type?.fieldDefs.find((fd) => fd.key === 'switchState') ?? null);
-    }
-    return map;
-  }, [rows, effectiveAssets, typesById]);
 
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
   if (containers.length === 0) {
@@ -276,13 +270,9 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                 <td className="px-3 py-1.5 text-sm text-content-muted tabular-nums">{row.slotNo ?? '—'}</td>
                 <td className="truncate px-3 py-1.5 text-sm text-content">{row.feederName}</td>
 
-                {/* 스위치 상태 편집 */}
+                {/* 개폐 — 그 회로의 상태이지 기기의 속성이 아니다. 값은 출력 포트에 있다. */}
                 <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
-                  <SwitchStateCell
-                    feederId={row.feederId}
-                    value={row.switchState}
-                    switchStateDef={switchStateDefByFeeder.get(row.feederId) ?? null}
-                  />
+                  <ClosedCell feederId={row.feederId} portId={row.outCell.portId} closed={row.closed} />
                 </td>
 
                 <td className="truncate px-3 py-1.5">

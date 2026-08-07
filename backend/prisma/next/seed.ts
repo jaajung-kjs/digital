@@ -47,7 +47,6 @@ async function main() {
         installHours: t.labor.installHours,
         removeHours: t.labor.removeHours,
         relocateHours: t.labor.relocateHours,
-        fieldDefs: t.fields,
       };
       const type = await tx.assetType.upsert({
         where: { key: t.key },
@@ -57,7 +56,6 @@ async function main() {
       // 명세는 delete-and-recreate (타입 편집 전 단계라 참조 없음 — 멱등)
       await tx.assetContainerSpec.deleteMany({ where: { typeId: type.id } });
       await tx.assetPortTemplate.deleteMany({ where: { typeId: type.id } });
-      await tx.assetLinkRule.deleteMany({ where: { typeId: type.id } });
       for (const [i, c] of t.containers.entries()) {
         await tx.assetContainerSpec.create({
           data: { typeId: type.id, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts, sortOrder: i },
@@ -66,11 +64,6 @@ async function main() {
       for (const [i, p] of t.ports.entries()) {
         await tx.assetPortTemplate.create({
           data: { typeId: type.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, sortOrder: i },
-        });
-      }
-      for (const l of t.links) {
-        await tx.assetLinkRule.create({
-          data: { typeId: type.id, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
         });
       }
     }
@@ -97,7 +90,6 @@ async function main() {
       types: await tx.assetType.count(),
       containerSpecs: await tx.assetContainerSpec.count(),
       portTemplates: await tx.assetPortTemplate.count(),
-      linkRules: await tx.assetLinkRule.count(),
       cableGroups: await tx.cableGroup.count(),
       cableCategories: await tx.cableCategory.count(),
     };

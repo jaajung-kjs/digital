@@ -71,13 +71,6 @@ const cablePatchSchema = z.object({
 
 // ---------- 카탈로그 관리 (Stage 6) ----------
 const keyRe = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
-const fieldDefSchema = z.object({
-  key: z.string().trim().min(1),
-  label: z.string().trim().min(1),
-  type: z.enum(['text', 'number', 'date', 'select']),
-  unit: z.string().optional(),
-  options: z.array(z.string()).optional(),
-});
 const containerSpecBodySchema = z.object({
   key: z.string().regex(keyRe),
   name: z.string().trim().min(1),
@@ -97,11 +90,6 @@ const portTemplateBodySchema = z.object({
   /** 이 포트가 나르는 심선 수. 안 적으면 1(보통 포트). */
   positions: z.number().int().min(1).optional(),
 });
-const linkRuleBodySchema = z.object({
-  fromGroup: z.string().min(1),
-  toGroup: z.string().min(1),
-  mapping: z.enum(['byIndex', 'all', 'byPosition']),
-});
 export const typeUpsertSchema = z.object({
   key: z.string().regex(keyRe),
   name: z.string().trim().min(1),
@@ -115,10 +103,8 @@ export const typeUpsertSchema = z.object({
   installHours: z.number().min(0),
   removeHours: z.number().min(0),
   relocateHours: z.number().min(0),
-  fieldDefs: z.array(fieldDefSchema),
   containers: z.array(containerSpecBodySchema),
   ports: z.array(portTemplateBodySchema),
-  links: z.array(linkRuleBodySchema),
 });
 export const categoryCreateSchema = z.object({ key: z.string().min(1), name: z.string().trim().min(1), sortOrder: z.number().int() });
 export const categoryPatchSchema = z.object({ name: z.string().trim().min(1).optional(), sortOrder: z.number().int().optional() });

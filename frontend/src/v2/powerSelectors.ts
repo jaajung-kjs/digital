@@ -1,4 +1,4 @@
-import type { SeededMediumKey } from '@twin/core';
+import { portValuesAt, type SeededMediumKey } from '@twin/core';
 import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type MediumContainer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
@@ -27,7 +27,13 @@ export interface PowerRow {
   empty: boolean;
   feederId: string;
   feederName: string;
-  switchState: string | null;
+  /**
+   * 이 회로의 개폐 — **출력 포트**에 담긴다. 자산의 필드가 아니다.
+   *
+   * 차단기가 닫혔는가는 그 회로의 상태이지 기기의 속성이 아니다(출력이 여럿인 기기는
+   * 회로마다 따로 끊긴다). 포트가 없으면 적을 곳도 없으므로 null.
+   */
+  closed: boolean | null;
   /** 전원 입력 — 대국 + 그 케이블에 적힌 값들(무엇을 적는지는 종류 선언이 정한다). */
   inCell: PowerCell & { values: Record<string, unknown> };
   outCell: PowerCell;
@@ -45,17 +51,12 @@ function circuitNumber(feeder: V2Asset): number | null {
   return feeder.slotIndex != null ? feeder.slotIndex + 1 : null;
 }
 
-/** fieldValues 값 문자열화 — 없으면 null (런타임 변환, 캐스트 아님) */
-function fieldString(value: unknown): string | null {
-  return value == null ? null : String(value);
-}
 
 /**
  * Builds power rows for a container.
  * Feeders are children of container with power ports, sorted by name.
  * inCell/outCell: first port with direction 'IN'/'OUT' respectively (port data field, not role branching).
  * 3-tier peer resolution via shared helper: local effective -> saved refs -> null.
- * switchState: fieldValues stringified or null.
  * inCell.values: IN 케이블의 specParams 그대로.
  */
 export function buildPowerRows(
@@ -137,7 +138,7 @@ export function buildPowerRows(
       empty: false,
       feederId: feeder.id,
       feederName: feeder.name,
-      switchState: fieldString(feeder.fieldValues?.switchState),
+      closed: outPort ? portValuesAt(outPort, 1)['closed'] === true : null,
       inCell,
       outCell,
     });
@@ -155,7 +156,7 @@ export function buildPowerRows(
         empty: true,
         feederId: '',
         feederName: '',
-        switchState: null,
+        closed: null,
         inCell: { portId: null, cableId: null, peer: null, values: {} },
         outCell: { portId: null, cableId: null, peer: null },
       });

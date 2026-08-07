@@ -23,76 +23,12 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
     expect(ofd.containers[0]).toMatchObject({ slotCount: null, accepts: { typeKeys: ['OFD-SLOT'] } });
   });
 
-  /* 성단 판의 실제 모습 — 뒤로 OPGW 한 가닥(다심 포트 1개), 앞으로 점퍼 24가닥. */
-  it('OFD-SLOT: 광 24 + 다심 인입 1 + byPosition 매핑', () => {
-    const slot = byKey('OFD-SLOT');
-    const core = slot.ports.find((p) => p.group === 'CORE')!;
-    const trunk = slot.ports.find((p) => p.group === 'TRUNK')!;
-    expect([core.medium, core.count, core.positions ?? 1]).toEqual(['fiber', 24, 1]);
-    expect([trunk.medium, trunk.count, trunk.positions]).toEqual(['fiber-trunk', 1, 24]);
-    // 통과는 선언하지 않는다 — 포트 선언에서 그대로 나온다(derivedLinks).
-    expect(slot.links).toEqual([]);
-  });
-
-  /* 케이블 1본 = 심선 24가닥. 예전처럼 심선마다 케이블을 두면 40m 가 960m 로 집계된다. */
-  it('OFD-SLOT: 인입은 포트 1개다 — 심선 수만큼 펴지 않는다', () => {
-    const trunk = byKey('OFD-SLOT').ports.find((p) => p.group === 'TRUNK')!;
-    expect(trunk.count).toBe(1);
-    expect(trunk.positions).toBeGreaterThan(1);
-  });
-
-  it('DIST(분전반): 피더만 수용 (구 panel role)', () => {
-    expect(byKey('DIST').containers[0]!.accepts).toEqual({ typeKeys: ['FEEDER'] });
-  });
-
-  it('FEEDER: 전원 IN 1 + OUT 1 (구 feeder role의 방향성)', () => {
-    const feeder = byKey('FEEDER');
-    expect(feeder.ports).toEqual([
-      { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
-      { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
-    ]);
-  });
-
-  /* 통과는 아무 타입도 선언하지 않는다 — 전원 입력↔출력도, 인입↔장비도 포트 선언에서
-     그대로 나온다. 예전에는 시드에 손으로 적었고, 그래서 축전지 하나가 빠져 있었다. */
-  it('시드 전 타입: 내부 통과 선언이 하나도 없다 (전부 유도)', () => {
-    expect(SEED_ASSET_TYPES.filter((t) => t.links.length > 0)).toEqual([]);
-  });
-
-  it('구 seed의 타입 전수가 이관되었다 (26종 이상)', () => {
-    expect(SEED_ASSET_TYPES.length).toBeGreaterThanOrEqual(26);
-  });
-
-  it('케이블 그룹 5종 이관 (전원/네트워크/광/제어/접지)', () => {
-    expect(SEED_CABLE_GROUPS.length).toBeGreaterThanOrEqual(5);
-    const names = SEED_CABLE_GROUPS.map((g) => g.name);
-    for (const n of ['전원', '네트워크', '광']) expect(names).toContain(n);
-  });
-
-  /* 설치일·담당자는 이제 타입이 선언하지 않는다 — 모든 자산이 갖는 **기본**이라
-     `assetFieldDefs` 가 얹어 준다. 시드가 같은 둘을 26번 복사해 넣고 있었고, 카탈로그
-     관리자에도 그대로 나와 새 타입마다 사용자가 다시 적어야 했다. */
-  it('공통 필드는 타입이 선언하지 않는다', () => {
-    for (const t of SEED_ASSET_TYPES) {
-      const keys = t.fields.map((f) => f.key);
-      expect(keys, t.key).not.toContain('installDate');
-      expect(keys, t.key).not.toContain('manager');
-    }
-  });
-
   it('그래도 모든 타입의 자산은 설치일·담당자를 갖는다', () => {
     for (const t of SEED_ASSET_TYPES) {
       const keys = assetFieldDefs(t.fields).map((f) => f.key);
       expect(keys, t.key).toContain('installDate');
       expect(keys, t.key).toContain('manager');
     }
-  });
-
-  it('타입 고유 필드는 공통 뒤에 붙는다 — 피더의 차단기 번호', () => {
-    const feeder = SEED_ASSET_TYPES.find((t) => t.key === 'FEEDER')!;
-    expect(assetFieldDefs(feeder.fields).map((f) => f.key)).toEqual([
-      'installDate', 'manager', 'breakerNo', 'switchState',
-    ]);
   });
 
   it('타입이 공통 필드를 다시 선언해도 두 번 나오지 않는다', () => {

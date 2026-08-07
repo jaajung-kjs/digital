@@ -33,14 +33,14 @@ async function specContext(tx: typeof nextDb) {
 }
 
 /**
- * 명세 3종(containerSpecs/portTemplates/linkRules)을 typeId 아래 생성.
+ * 명세 2종(containerSpecs/portTemplates)을 typeId 아래 생성.
  * POST(신규)·PUT(구조 변경 시 delete-then-recreate)의 생성 파트가 동일해 공유한다.
  * 반드시 호출자의 트랜잭션(tx) 안에서 실행 — 자체 트랜잭션을 열지 않는다.
  */
 async function createTypeStructure(
   tx: Prisma.TransactionClient,
   typeId: string,
-  body: Pick<TypeUpsertBody, 'containers' | 'ports' | 'links'>,
+  body: Pick<TypeUpsertBody, 'containers' | 'ports'>,
 ): Promise<void> {
   for (const [i, c] of body.containers.entries()) {
     await tx.assetContainerSpec.create({
@@ -50,11 +50,6 @@ async function createTypeStructure(
   for (const [i, p] of body.ports.entries()) {
     await tx.assetPortTemplate.create({
       data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, sortOrder: i },
-    });
-  }
-  for (const l of body.links) {
-    await tx.assetLinkRule.create({
-      data: { typeId, fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping },
     });
   }
 }
@@ -75,13 +70,12 @@ function canonicalizeAccepts(accepts: unknown): { categoryKeys: string[]; typeKe
 }
 
 /**
- * 구조(containers/ports/links) 동일성 비교 키 — id/sortOrder 제외 캐노니컬 JSON.
+ * 구조(containers/ports) 동일성 비교 키 — id/sortOrder 제외 캐노니컬 JSON.
  * accepts 는 canonicalizeAccepts 를 통해 키 순서 및 배열 순서를 정규화한다.
  */
 function structuralKey(
   containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: unknown }>,
   ports: Array<{ group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null }>,
-  links: Array<{ fromGroup: string; toGroup: string; mapping: string }>,
 ): string {
   const canon = {
     containers: [...containers]
@@ -90,9 +84,6 @@ function structuralKey(
     ports: [...ports]
       .sort((a, b) => a.group.localeCompare(b.group))
       .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1 })),
-    links: [...links]
-      .sort((a, b) => `${a.fromGroup}→${a.toGroup}`.localeCompare(`${b.fromGroup}→${b.toGroup}`))
-      .map((l) => ({ fromGroup: l.fromGroup, toGroup: l.toGroup, mapping: l.mapping })),
   };
   return JSON.stringify(canon);
 }
@@ -107,7 +98,6 @@ catalogRouter.get('/', async (_req, res, next) => {
         include: {
           containerSpecs: { orderBy: { sortOrder: 'asc' } },
           portTemplates: { orderBy: { sortOrder: 'asc' } },
-          linkRules: { orderBy: { fromGroup: 'asc' } },
           _count: { select: { assets: true } },
         },
         orderBy: { sortOrder: 'asc' },
@@ -217,8 +207,7 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
             installHours: body.installHours,
             removeHours: body.removeHours,
             relocateHours: body.relocateHours,
-            fieldDefs: body.fieldDefs as object[],
-          },
+              },
         });
 
         await createTypeStructure(tx, created.id, body);
@@ -249,7 +238,6 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         category: { select: { key: true } },
         containerSpecs: true,
         portTemplates: true,
-        linkRules: true,
         _count: { select: { assets: true } },
       },
     });
@@ -266,8 +254,8 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
     // 구조 변경 여부 확인 (한 번만 계산해 가드/교체 판단에 재사용)
-    const oldKey = structuralKey(existing.containerSpecs, existing.portTemplates, existing.linkRules);
-    const newKey = structuralKey(body.containers, body.ports, body.links);
+    const oldKey = structuralKey(existing.containerSpecs, existing.portTemplates);
+    const newKey = structuralKey(body.containers, body.ports);
     const structureChanged = oldKey !== newKey;
 
     const assetCount = existing._count.assets;
@@ -290,8 +278,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
           installHours: body.installHours,
           removeHours: body.removeHours,
           relocateHours: body.relocateHours,
-          fieldDefs: body.fieldDefs as object[],
-          // key 불변
+            // key 불변
         },
       });
 
@@ -299,8 +286,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
       if (structureChanged) {
         await tx.assetContainerSpec.deleteMany({ where: { typeId: id } });
         await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
-        await tx.assetLinkRule.deleteMany({ where: { typeId: id } });
-
+    
         await createTypeStructure(tx, id, body);
       }
 
@@ -309,7 +295,6 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
         include: {
           containerSpecs: { orderBy: { sortOrder: 'asc' } },
           portTemplates: { orderBy: { sortOrder: 'asc' } },
-          linkRules: { orderBy: { fromGroup: 'asc' } },
           _count: { select: { assets: true } },
         },
       });

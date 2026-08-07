@@ -18,14 +18,12 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 10,
     placement: { placeable: true, defaultWidth: 60, defaultHeight: 80 },
     labor: { laborType: '통신내선공', installHours: 2.0, removeHours: 1.0, relocateHours: 3.0 },
-    fields: [],
     containers: [
       { key: 'main', name: '슬롯', slotCount: 12, allowSpan: true, accepts: { categoryKeys: ['통신', '전원', '공조'] } },
     ],
     ports: [
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   // ── 구 role: ofd ──
   {
@@ -35,12 +33,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 20,
     placement: { placeable: true, defaultWidth: 40, defaultHeight: 40 },
     labor: { laborType: '통신내선공', installHours: 1.5, removeHours: 0.8, relocateHours: 0 },
-    fields: [],
     containers: [
       { key: 'main', name: '슬롯', slotCount: null, allowSpan: false, accepts: { typeKeys: ['OFD-SLOT'] } },
     ],
     ports: [],
-    links: [],
   },
   // ── 구 role: slot ──
   {
@@ -50,7 +46,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 21,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     /*
      * 성단 판 한 장의 실제 모습: 뒤로 OPGW **한 가닥**이 들어와 그 안의 24심이 어댑터에
@@ -64,9 +59,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
     ],
-    // 인입 ↔ 장비 통과는 선언하지 않는다 — 다심 인입이 앞면으로 펼쳐지는 것은
-    // 판의 생김새라 포트 선언에서 그대로 나온다(`derivedLinks`).
-    links: [],
   },
   // ── 구 role: panel ──
   {
@@ -76,12 +68,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 30,
     placement: { placeable: true, defaultWidth: 40, defaultHeight: 60 },
     labor: NO_LABOR,
-    fields: [],
     containers: [
       { key: 'main', name: '회로', slotCount: null, allowSpan: false, accepts: { typeKeys: ['FEEDER'] } },
     ],
     ports: [],
-    links: [],
   },
   // ── 구 role: feeder ──
   {
@@ -91,17 +81,11 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 33,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [
-      { key: 'breakerNo', label: '차단기 번호', type: 'text' },
-      { key: 'switchState', label: '개폐 상태', type: 'select', options: ['ON', 'OFF'] },
-    ],
     containers: [],
     ports: [
       { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
       { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
     ],
-    // 전원 입력↔출력 통과는 선언하지 않는다 — 방향을 나눠 선언한 것 자체가 그 뜻이다.
-    links: [],
   },
   // ── 구 role: standalone ──
   {
@@ -111,12 +95,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 31,
     placement: { placeable: true, defaultWidth: 60, defaultHeight: 60 },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'BUS', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지 부스바' },
     ],
-    links: [],
   },
   {
     key: 'HVAC',
@@ -125,10 +107,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 32,
     placement: { placeable: true },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [],
-    links: [],
   },
   // ── 구 role: device ──
   {
@@ -138,7 +118,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 50,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 4.0, removeHours: 2.0, relocateHours: 5.0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -147,7 +126,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   {
     key: 'CHARGER',
@@ -156,14 +134,12 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 70,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   {
     key: 'UPS',
@@ -172,14 +148,12 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 80,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 1.5 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   {
     key: 'BATTERY',
@@ -188,14 +162,12 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 90,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '충전 입력' },
       { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '방전 출력' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   // ── 광전송 하위종류 ──
   {
@@ -205,7 +177,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 61,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -213,7 +184,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   {
     key: 'OPT-TERM',
@@ -222,7 +192,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 63,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'OPT', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
@@ -230,7 +199,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   {
     key: 'PCM',
@@ -239,12 +207,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 64,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   // ── 계통보호전송장치 ──
   {
@@ -254,12 +220,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 41,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 3.0, removeHours: 1.5, relocateHours: 0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   {
     key: 'PITR-5000',
@@ -268,12 +232,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 42,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 3.0, removeHours: 1.5, relocateHours: 0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   // ── 기타 통신장비 ──
   {
@@ -283,12 +245,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 51,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 4.0, removeHours: 2.0, relocateHours: 5.0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   {
     key: 'NET-SW',
@@ -297,13 +257,11 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 104,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.5, removeHours: 0.3, relocateHours: 0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   {
     key: 'SPD',
@@ -312,12 +270,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 105,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.3, removeHours: 0.15, relocateHours: 0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   {
     key: 'UTM',
@@ -326,12 +282,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 108,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   {
     key: 'NAC',
@@ -340,12 +294,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 109,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   {
     key: 'PWR-AC',
@@ -354,14 +306,12 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 113,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
     ],
-    links: [],
   },
   {
     key: 'PWR-DC',
@@ -370,12 +320,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 114,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   // ── 직할 통신자산 신규 종류 (2026-06-19) ──
   {
@@ -385,12 +333,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 60,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   {
     key: 'OPT-SWITCH',
@@ -399,12 +345,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 145,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.5, removeHours: 0.3, relocateHours: 0 },
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
   {
     key: 'OPT-CONV',
@@ -413,12 +357,10 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 146,
     placement: { placeable: false },
     labor: NO_LABOR,
-    fields: [],
     containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
-    links: [],
   },
 ];
 

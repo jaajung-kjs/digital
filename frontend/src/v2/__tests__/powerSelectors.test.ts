@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildPowerRows, powerContainers } from '../powerSelectors';
 
-const port = (id: string, assetId: string, group: string, index: number, direction: 'IN' | 'OUT' | 'BI', medium = 'power', name?: string) =>
-  ({ id, assetId, group, index, name: name ?? `${group}${index}`, direction, medium });
+const port = (
+  id: string, assetId: string, group: string, index: number, direction: 'IN' | 'OUT' | 'BI',
+  medium = 'power', name?: string, fieldValues: Record<string, unknown> = {},
+) => ({ id, assetId, group, index, name: name ?? `${group}${index}`, direction, medium, positions: 1, fieldValues });
 const asset = (id: string, name: string, extra: object = {}) => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
@@ -17,8 +19,11 @@ const cable = (id: string, a: string, b: string, extra: object = {}) => ({
 const panel = asset('panel', '분전반1');
 const feeder = asset('f1', '피더1', {
   parentAssetId: 'panel',
-  fieldValues: { breakerNo: 'NFB-3', switchState: 'ON' },
-  ports: [port('f1in', 'f1', 'IN', 1, 'IN', 'power', 'IN'), port('f1out', 'f1', 'OUT', 1, 'OUT', 'power', 'OUT')],
+  /* 개폐는 **출력 포트**에 담긴다 — 자산의 필드가 아니다(회로의 상태다). */
+  ports: [
+    port('f1in', 'f1', 'IN', 1, 'IN', 'power', 'IN'),
+    port('f1out', 'f1', 'OUT', 1, 'OUT', 'power', 'OUT', { closed: true }),
+  ],
 });
 const ups = asset('ups', 'UPS-1', { ports: [port('upsOut', 'ups', 'P', 1, 'OUT')] });
 const load = asset('load', '부하장비', { ports: [port('loadIn', 'load', 'P', 1, 'IN')] });
@@ -38,7 +43,7 @@ describe('buildPowerRows', () => {
     const rows = buildPowerRows(panel as never, [panel, feeder, ups, load] as never, cables as never);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      feederName: '피더1', switchState: 'ON',
+      feederName: '피더1', closed: true,
       inCell: { cableId: 'cin', values: { voltage: 'AC 220V' }, peer: { assetName: 'UPS-1', remote: false } },
       outCell: { cableId: 'cout', peer: { assetName: '부하장비' } },
     });

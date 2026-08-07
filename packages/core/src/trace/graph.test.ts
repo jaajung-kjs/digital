@@ -12,19 +12,20 @@ const device: AssetTypeSpec = {
   labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
   fields: [],
   containers: [],
-  ports: [{ group: 'P', count: 2, direction: 'BI', medium: '광', namePattern: '포트 {n}' }],
-  links: [], // 내부 통과 없음 → 추적 종단
+  // 방향을 따지지 않는 종류라 내부 통과가 유도되지 않는다 → 추적 종단
+  ports: [{ group: 'P', count: 2, direction: 'BI', medium: 'fiber', namePattern: '포트 {n}' }],
 };
 
 const slot: AssetTypeSpec = {
   ...device,
   key: 'OFD-SLOT',
   name: '광슬롯',
+  /* 성단 판 — 인입 한 가닥(4심)이 앞면 4포트로 펼쳐진다. 통과는 선언하지 않는다:
+     다심 인입이 앞면으로 나오는 것은 판의 생김새라 포트 선언에서 그대로 나온다. */
   ports: [
-    { group: 'A', count: 4, direction: 'BI', medium: '광', namePattern: '장비 {n}' },
-    { group: 'B', count: 4, direction: 'BI', medium: '광', namePattern: '선로 {n}' },
+    { group: 'A', count: 4, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
+    { group: 'B', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', positions: 4 },
   ],
-  links: [{ fromGroup: 'A', toGroup: 'B', mapping: 'byIndex' }],
 };
 
 const feeder: AssetTypeSpec = {
@@ -32,10 +33,9 @@ const feeder: AssetTypeSpec = {
   key: 'FEEDER',
   name: '피더',
   ports: [
-    { group: 'IN', count: 1, direction: 'IN', medium: '전원', namePattern: 'IN' },
-    { group: 'OUT', count: 1, direction: 'OUT', medium: '전원', namePattern: 'OUT' },
+    { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
+    { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
   ],
-  links: [{ fromGroup: 'IN', toGroup: 'OUT', mapping: 'all' }],
 };
 
 const types = { DEV: device, 'OFD-SLOT': slot, FEEDER: feeder };
@@ -51,13 +51,13 @@ function makeAsset(typeKey: keyof typeof types, id: string): { asset: AssetRef; 
 }
 
 describe('buildTraceGraph + traceFrom', () => {
-  it('광슬롯 byIndex: 장비→슬롯 장비3→선로3→대국 장비까지 채널 보존 추적', () => {
+  it('경로슬롯: 장비3 → 인입 → 대국 인입 → 대국 장비3 까지 코어 보존 추적', () => {
     const a = makeAsset('DEV', 'devA');
     const s = makeAsset('OFD-SLOT', 'slot1');
     const b = makeAsset('DEV', 'devB');
     const cables: CableRef[] = [
       { id: 'c1', aPortId: 'devA:P1', bPortId: 'slot1:A3' },
-      { id: 'c2', aPortId: 'slot1:B3', bPortId: 'devB:P1' },
+      { id: 'c2', aPortId: 'slot1:B1', bPortId: 'devB:P1' },
     ];
     const graph = buildTraceGraph({
       types,
@@ -69,22 +69,33 @@ describe('buildTraceGraph + traceFrom', () => {
     const hops = traceFrom(graph, 'devA:P1');
     expect(hops).toEqual([
       { kind: 'cable', cableId: 'c1', fromPortId: 'devA:P1', toPortId: 'slot1:A3' },
-      { kind: 'internal', fromPortId: 'slot1:A3', toPortId: 'slot1:B3' },
-      { kind: 'cable', cableId: 'c2', fromPortId: 'slot1:B3', toPortId: 'devB:P1' },
+      { kind: 'internal', fromPortId: 'slot1:A3', toPortId: 'slot1:B1' },
+      { kind: 'cable', cableId: 'c2', fromPortId: 'slot1:B1', toPortId: 'devB:P1' },
     ]);
   });
 
-  it('byIndex는 다른 채널로 새지 않는다 (A3 → B4 없음)', () => {
+  /* 인입을 포트 하나로 접으면 그 포트는 앞면 4포트와 모두 이어진다. 코어 번호를 들고
+     다니지 않으면 추적이 코어 3으로 들어가 코어 1로 나오는, 실제로는 없는 길을 찾아 낸다. */
+  it('다심 인입을 지나도 코어를 가로지르지 않는다 (장비3 → 장비1 없음)', () => {
     const s = makeAsset('OFD-SLOT', 'slot1');
     const graph = buildTraceGraph({ types, assets: [s.asset], ports: s.ports, cables: [] });
-    const hops = traceFrom(graph, 'slot1:A3');
-    expect(hops).toEqual([{ kind: 'internal', fromPortId: 'slot1:A3', toPortId: 'slot1:B3' }]);
+    expect(traceFrom(graph, 'slot1:A3')).toEqual([
+      { kind: 'internal', fromPortId: 'slot1:A3', toPortId: 'slot1:B1' },
+    ]);
+  });
+
+  /* 인입 포트 자체에서 시작하면 들고 갈 번호가 없다 — 그 한 가닥이 나르는 코어 전부가 답이다. */
+  it('인입에서 시작하면 코어 전부로 퍼진다', () => {
+    const s = makeAsset('OFD-SLOT', 'slot1');
+    const graph = buildTraceGraph({ types, assets: [s.asset], ports: s.ports, cables: [] });
+    expect(traceFrom(graph, 'slot1:B1').map((h) => h.toPortId))
+      .toEqual(['slot1:A1', 'slot1:A2', 'slot1:A3', 'slot1:A4']);
   });
 
   it('피더 all 매핑: IN→OUT 패스스루 후 하류 케이블 추적', () => {
     const f = makeAsset('FEEDER', 'fdr1');
     const d = makeAsset('DEV', 'load1');
-    const powerDev = { ...d, ports: d.ports.map((p) => ({ ...p, medium: '전원' })) };
+    const powerDev = { ...d, ports: d.ports.map((p) => ({ ...p, medium: 'power' })) };
     const cables: CableRef[] = [{ id: 'c1', aPortId: 'fdr1:OUT1', bPortId: 'load1:P1' }];
     const graph = buildTraceGraph({
       types,
@@ -122,10 +133,10 @@ describe('buildTraceGraph + traceFrom', () => {
     const s = makeAsset('OFD-SLOT', 'slot1');
     const cables: CableRef[] = [{ id: 'c1', aPortId: 'devA:P1', bPortId: 'slot1:A2' }];
     const graph = buildTraceGraph({ types, assets: [a.asset, s.asset], ports: [...a.ports, ...s.ports], cables });
-    const hops = traceFrom(graph, 'slot1:B2');
+    const hops = traceFrom(graph, 'slot1:A2');
     expect(hops).toEqual([
-      { kind: 'internal', fromPortId: 'slot1:B2', toPortId: 'slot1:A2' },
       { kind: 'cable', cableId: 'c1', fromPortId: 'slot1:A2', toPortId: 'devA:P1' },
+      { kind: 'internal', fromPortId: 'slot1:A2', toPortId: 'slot1:B1' },
     ]);
   });
 });

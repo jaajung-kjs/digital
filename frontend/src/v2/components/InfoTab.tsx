@@ -347,13 +347,13 @@ export function InfoTab({
         </DetailRow>
       </DetailCard>
 
-      {/* 커스텀 필드 카드 */}
-      {/* 속성 = 모든 자산이 갖는 공통 필드(설치일·담당자) + 이 타입이 선언한 필드.
-          공통은 타입이 선언하지 않는다 — `assetFieldDefs` 가 얹어 준다. */}
+      {/* 속성 — 자산이 갖는 것은 종류를 가리지 않고 같다(설치일·담당자).
+          타입마다 필드를 따로 선언하던 길은 걷었다: 실제로 쓰인 것은 피더의 개폐 상태뿐이었고,
+          그건 자산이 아니라 회로의 상태라 전원 출력 포트로 옮겼다. */}
       {type && (
         <DetailCard>
           <DetailCardHeader title="속성" />
-          {assetFieldDefs(type.fieldDefs).map((fd) => {
+          {assetFieldDefs().map((fd) => {
             const rawVal = asset.fieldValues[fd.key];
             const strVal = rawVal != null ? String(rawVal) : '';
             return (

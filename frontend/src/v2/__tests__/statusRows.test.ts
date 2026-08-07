@@ -48,11 +48,10 @@ describe('buildStatusRows (변전소 스코프)', () => {
   });
 });
 
-/* 표의 커스텀 필드 열은 **타입 선언**에서 나온다. 예전에는 화면이 `installDate`·`manager`
-   라는 키를 직접 알아서, 라벨을 바꾸면 머리글만 옛 이름으로 남고 새 필드는 영영 안 나왔다. */
+/* 자산이 갖는 속성은 종류를 가리지 않고 같다. 화면이 `installDate`·`manager` 라는 키를
+   직접 알지 않도록 선언에서 받아 온다. */
 describe('필드 열 도출', () => {
-  const t = (id: string, fieldDefs: object[]) =>
-    [id, { id, name: id, categoryId: 'c-1', fieldDefs } as never] as const;
+  const t = (id: string) => [id, { id, name: id, categoryId: 'c-1' } as never] as const;
   const a = (id: string, typeId: string) =>
     ({ id, name: id, typeId, status: 'normal', floorId: null, parentAssetId: null,
        containerKey: null, slotIndex: null, fieldValues: {} });
@@ -62,29 +61,8 @@ describe('필드 열 도출', () => {
       categoryNameById: new Map(), inspectionsByAsset: new Map(),
     }).fieldColumns.map((f) => f.key);
 
-  it('모든 타입이 선언한 필드만 열이 된다', () => {
-    const typesById = new Map([t('A', []), t('B', [{ key: 'breakerNo', label: '차단기 번호', type: 'text' }])]);
-    expect(build([a('1', 'A'), a('2', 'B')], typesById as never)).toEqual(['installDate', 'manager']);
-  });
-
-  it('한 타입만 담긴 표에서는 그 타입의 필드가 전부 열이 된다', () => {
-    const typesById = new Map([t('A', []), t('B', [{ key: 'breakerNo', label: '차단기 번호', type: 'text' }])]);
-    expect(build([a('2', 'B')], typesById as never)).toEqual(['installDate', 'manager', 'breakerNo']);
-  });
-
-  it('라벨은 선언에서 온다 — 카탈로그에서 이름을 바꾸면 머리글이 따라온다', () => {
-    const typesById = new Map([t('A', [{ key: 'model', label: '모델', type: 'text' }])]);
-    const out = buildStatusRows({
-      assets: [a('1', 'A')] as never, floors: [] as never, typesById: typesById as never,
-      categoryNameById: new Map(), inspectionsByAsset: new Map(),
-    });
-    expect(out.fieldColumns.find((f) => f.key === 'model')?.label).toBe('모델');
-  });
-
-  /* 설치일·담당자는 타입이 선언하지 않아도 모든 자산이 갖는다 — 그래서 언제나 열이 된다.
-     타입 고유 필드만 교집합으로 걸러진다. */
-  it('타입 고유 필드가 서로 다르면 공통 필드만 남는다', () => {
-    const typesById = new Map([t('A', [{ key: 'x', label: 'X', type: 'text' }]), t('B', [{ key: 'y', label: 'Y', type: 'text' }])]);
+  it('타입이 섞여도 열은 같다 — 자산 속성은 종류를 가리지 않는다', () => {
+    const typesById = new Map([t('A'), t('B')]);
     expect(build([a('1', 'A'), a('2', 'B')], typesById as never)).toEqual(['installDate', 'manager']);
   });
 });

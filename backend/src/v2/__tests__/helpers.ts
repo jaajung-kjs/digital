@@ -49,7 +49,6 @@ export async function sweepTestFixtures(): Promise<void> {
   // 2. catalog: assets by type key
   for (const p of keyStartsWith) {
     try { await nextDb.asset.deleteMany({ where: { type: { key: { startsWith: p } } } }); } catch { /* ignore */ }
-    try { await nextDb.assetLinkRule.deleteMany({ where: { type: { key: { startsWith: p } } } }); } catch { /* ignore */ }
     try { await nextDb.assetPortTemplate.deleteMany({ where: { type: { key: { startsWith: p } } } }); } catch { /* ignore */ }
     try { await nextDb.assetContainerSpec.deleteMany({ where: { type: { key: { startsWith: p } } } }); } catch { /* ignore */ }
     try { await nextDb.assetType.deleteMany({ where: { key: { startsWith: p } } }); } catch { /* ignore */ }

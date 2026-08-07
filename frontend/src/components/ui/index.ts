@@ -25,6 +25,7 @@ export * from './ItemCard';
 export * from './PanelHeader';
 export * from './selection';
 export * from './Table';
+export * from './Toggle';
 export * from './Tabs';
 export * from './PromptModal';
 export * from './ConfirmModal';

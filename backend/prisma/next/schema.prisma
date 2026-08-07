@@ -111,11 +111,8 @@ model AssetType {
   installHours   Float               @default(0)
   removeHours    Float               @default(0)
   relocateHours  Float               @default(0)
-  // 커스텀 필드 정의 (FieldDef[])
-  fieldDefs      Json                @default("[]")
   containerSpecs AssetContainerSpec[]
   portTemplates  AssetPortTemplate[]
-  linkRules      AssetLinkRule[]
   assets         Asset[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
@@ -150,17 +147,6 @@ model AssetPortTemplate {
   sortOrder   Int       @default(0)
 
   @@unique([typeId, group])
-}
-
-model AssetLinkRule {
-  id        String    @id @default(uuid())
-  typeId    String
-  type      AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
-  fromGroup String
-  toGroup   String
-  mapping   String // 'byIndex' | 'all' | 'byPosition'
-
-  @@unique([typeId, fromGroup, toGroup])
 }
 
 // ---------- 케이블 카탈로그 ----------

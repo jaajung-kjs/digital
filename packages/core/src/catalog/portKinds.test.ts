@@ -58,10 +58,17 @@ describe('케이블 파라미터 선언', () => {
 
   /* OTDR 로 재는 것은 인입(성단) 심선이다 — 장비쪽 광 포트에는 잴 것이 없다.
      화면이 "이 포트만 예외" 라고 걸러 내지 않도록, 그 사실을 어휘가 말해야 한다. */
-  it('광 인입을 뺀 나머지 종류는 포트에 딸린 값이 없다 — 장비쪽 광 포트 포함', () => {
-    for (const k of ['power', 'network', 'fiber', 'control', 'ground']) {
+  it('장비쪽 광 포트에는 딸린 값이 없다 — OTDR 로 잴 것이 없다', () => {
+    for (const k of ['network', 'fiber', 'control', 'ground']) {
       expect(portFieldsFor(k), k).toEqual([]);
     }
+  });
+
+  /* 개폐는 자산이 아니라 **그 회로**의 상태다. 나가는 회로가 살아 있는가는 출력 쪽 사실이고,
+     들어오는 쪽은 상대 기기의 출력이 정한다 — 그래서 입력 포트에는 붙지 않는다. */
+  it('전원 개폐는 출력 포트에만 있다', () => {
+    expect(portFieldsFor('power', 'OUT').map((f) => f.key)).toEqual(['closed']);
+    expect(portFieldsFor('power', 'IN')).toEqual([]);
   });
 
   /* 길이는 설계서 공량의 근거(품셈 × 길이)라 어느 종류든 적을 수 있어야 한다. */

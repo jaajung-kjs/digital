@@ -29,7 +29,6 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
     installHours: t.installHours,
     removeHours: t.removeHours,
     relocateHours: t.relocateHours,
-    fieldDefs: t.fieldDefs.map((f) => ({ ...f })),
     containers: t.containerSpecs.map(({ key, name, slotCount, allowSpan, accepts }) => ({
       key,
       name,
@@ -44,11 +43,6 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
       medium,
       namePattern,
       positions,
-    })),
-    links: t.linkRules.map(({ fromGroup, toGroup, mapping }) => ({
-      fromGroup,
-      toGroup,
-      mapping,
     })),
   };
 }
@@ -68,10 +62,8 @@ export function emptyDraft(categoryId: string): TypeDraft {
     installHours: 0,
     removeHours: 0,
     relocateHours: 0,
-    fieldDefs: [],
     containers: [],
     ports: [],
-    links: [],
   };
 }
 

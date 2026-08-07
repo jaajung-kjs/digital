@@ -2,7 +2,7 @@ import { assetFieldDefs } from '@twin/core';
 import { assetLocationPath } from './assetLocation';
 import type { V2Asset, V2AssetType, V2Floor } from './types';
 
-type FieldDef = V2AssetType['fieldDefs'][number];
+type FieldDef = ReturnType<typeof assetFieldDefs>[number];
 
 export interface StatusRow {
   id: string;
@@ -20,17 +20,9 @@ export interface StatusRow {
 export interface StatusRowsResult {
   rows: StatusRow[];
   /**
-   * 표에 열로 세울 커스텀 필드 — **여기 있는 자산의 타입이 모두 선언한 것**만.
+   * 표에 열로 세울 속성 — 자산이 갖는 것은 종류를 가리지 않고 같다(설치일·담당자).
    *
-   * 예전에는 화면이 `installDate`·`manager` 라는 키를 직접 알고 있었다. 자산 정의를
-   * 사용자가 하는 제품에서 그건 곧 어긋난다 — 라벨을 바꾸면 표 머리글만 옛 이름으로 남고,
-   * 필드를 지우면 `—` 만 늘어선 죽은 열이 되고, 새 필드는 아무리 넣어도 표에 안 나온다.
-   *
-   * 교집합인 이유: 어떤 타입에만 있는 필드(피더의 차단기 번호 같은 것)를 전체 표의 열로
-   * 세우면 대부분의 행이 빈 칸인 열이 된다. 반대로 모든 타입이 선언한 필드는 그 표의
-   * 모든 행에 뜻이 있다. 표가 피더만 담고 있으면 차단기 번호가 자동으로 열이 된다.
-   *
-   * 라벨도 선언에서 그대로 가져오므로 카탈로그에서 이름을 바꾸면 머리글이 따라온다.
+   * 화면이 `installDate`·`manager` 라는 키를 직접 알지 않도록 선언에서 받아 온다.
    */
   fieldColumns: FieldDef[];
 }
@@ -60,23 +52,6 @@ export function buildStatusRows(args: {
     };
   });
 
-  return { rows, fieldColumns: commonFieldDefs(args.assets, args.typesById) };
+  return { rows, fieldColumns: assetFieldDefs() };
 }
 
-/**
- * 표에 있는 자산들이 **모두** 갖는 필드.
- *
- * 공통 필드(설치일·담당자)는 타입이 선언하지 않아도 모든 자산이 가지므로 언제나 들어간다.
- * 타입 고유 필드는 교집합만 — 어떤 타입에만 있는 필드를 전체 표의 열로 세우면 대부분의
- * 행이 빈 칸인 열이 된다.
- */
-function commonFieldDefs(assets: V2Asset[], typesById: Map<string, V2AssetType>): FieldDef[] {
-  const typeIds = new Set(assets.map((a) => a.typeId));
-  const types = [...typeIds].map((id) => typesById.get(id)).filter((t): t is V2AssetType => t != null);
-  const first = types[0];
-  if (types.length === 0 || !first) return [];
-
-  return assetFieldDefs(first.fieldDefs).filter((fd) =>
-    types.every((t) => assetFieldDefs(t.fieldDefs).some((o) => o.key === fd.key)),
-  );
-}

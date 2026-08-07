@@ -57,22 +57,22 @@ describe('derivedLinks — 포트 선언에서 저절로 나오는 내부 통과
   });
 });
 
-describe('internalLinkMap — 유도와 선언이 더해진다', () => {
-  it('선언이 하나도 없어도 전원은 통과한다', () => {
+describe('internalLinkMap — 규칙은 포트 선언에서만 나온다', () => {
+  it('선언 없이 전원이 통과한다', () => {
     const ports = [port('i', 'PWR-IN', 1, 'power', 'IN'), port('o', 'PWR-OUT', 1, 'power', 'OUT')];
-    expect(internalLinkMap([], ports).get('i')).toEqual(['o']);
+    expect(internalLinkMap(ports).get('i')).toEqual(['o']);
   });
 
-  /* 한 함체 안 모듈 사이의 버스는 포트 선언에서 나오지 않는다(PITR 같은) — 그건 적어야 하고,
-     적은 것이 유도와 함께 살아 있어야 한다. */
-  it('선언한 규칙은 유도와 함께 남는다', () => {
+  /* 방향을 따지지 않는 종류끼리는 통과하지 않는다 — 없는 사실을 지어내면 24구 스위치의
+     모든 포트가 서로 통한다고 해 버려 추적이 아무 데나 뚫린다. */
+  it('방향 없는 종류의 포트들은 서로 통하지 않는다', () => {
     const ports = [
       port('i', 'PWR-IN', 1, 'power', 'IN'), port('o', 'PWR-OUT', 1, 'power', 'OUT'),
       port('m1', 'MOD1', 1, 'control', 'BI'), port('m2', 'MOD2', 1, 'control', 'BI'),
     ];
-    const map = internalLinkMap([{ fromGroup: 'MOD1', toGroup: 'MOD2', mapping: 'byIndex' }], ports);
-    expect(map.get('m1')).toEqual(['m2']); // 선언
-    expect(map.get('i')).toEqual(['o']);   // 유도
+    const map = internalLinkMap(ports);
+    expect(map.get('m1')).toBeUndefined();
+    expect(map.get('i')).toEqual(['o']);
   });
 
   /* 24심 인입 옆에 48구 판이 있어도 없는 코어까지 이어졌다고 하면 안 된다. */
@@ -81,7 +81,7 @@ describe('internalLinkMap — 유도와 선언이 더해진다', () => {
       port('t', 'TRUNK', 1, 'fiber-trunk', 'BI', 2),
       port('c1', 'CORE', 1, 'fiber', 'BI'), port('c2', 'CORE', 2, 'fiber', 'BI'), port('c3', 'CORE', 3, 'fiber', 'BI'),
     ];
-    expect(internalLinkMap([], ports).get('t')).toEqual(['c1', 'c2']);
-    expect(internalLinkMap([], ports).get('c3')).toBeUndefined();
+    expect(internalLinkMap(ports).get('t')).toEqual(['c1', 'c2']);
+    expect(internalLinkMap(ports).get('c3')).toBeUndefined();
   });
 });

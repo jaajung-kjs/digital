@@ -1,17 +1,15 @@
-import type { Direction, FieldDef, LinkMapping } from '@twin/core';
+import type { Direction } from '@twin/core';
 export type { TypeUpsertBody } from '@twin/core';
 
 export interface V2Category { id: string; key: string; name: string; sortOrder: number }
 export interface V2ContainerSpec { id: string; key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: { categoryKeys?: string[]; typeKeys?: string[] }; sortOrder: number }
 export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number }
-export interface V2LinkRule { id: string; fromGroup: string; toGroup: string; mapping: LinkMapping }
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number; isActive: boolean;
   assetCount: number;
   placeable: boolean; defaultWidth: number | null; defaultHeight: number | null;
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
-  fieldDefs: FieldDef[];
-  containerSpecs: V2ContainerSpec[]; portTemplates: V2PortTemplate[]; linkRules: V2LinkRule[];
+  containerSpecs: V2ContainerSpec[]; portTemplates: V2PortTemplate[];
 }
 
 export interface V2CableCategory { id: string; name: string; sortOrder: number }
