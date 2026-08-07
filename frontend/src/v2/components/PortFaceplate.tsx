@@ -34,10 +34,13 @@ export interface FaceplateSection {
  *
  * 그래서 바꾼 것:
  * - 장비 하나에 판 **한 장**. 구획은 박스가 아니라 판 위의 구분선 + 실크스크린 라벨.
- * - 판은 짙은 회색 금속, 포트는 그보다 더 어두운 구멍. 밝은 앱 안에서 장비 그래픽만 어둡게
- *   두는 것은 장비 관리 UI 의 관례이고, "이건 설비다" 라는 신호가 가장 강하다.
- * - 색은 포트 테두리가 아니라 **구획 띠**와 꽂힌 플러그에만. 원색 아웃라인이 스티커처럼
- *   보이던 원인이 그것이었다.
+ * - 판은 **밝은** 회색, 포트는 어두운 구멍. 물리감은 이 **대비**에서 나오지 판을 검게
+ *   만드는 데서 나오지 않는다 — 밝은 상세 패널 안의 검은 덩어리는 그냥 튄다(한 번 그렇게
+ *   만들어 보고 되돌렸다).
+ * - **포트에는 색을 칠하지 않는다.** 실제 장비의 포트는 종류와 무관하게 전부 같은 어두운
+ *   구멍이고, 연결 상태는 포트 옆 **LED** 로 본다. 종류를 가르는 일은 모양이 한다.
+ * - 종류 색은 **구획 띠**에만 — 2px. 평면도의 선 색을 면에 칠하면 판마다 조합이 제각각이
+ *   되고, 회색 종류는 아예 묻힌다.
  * - 포트는 촘촘히 붙인다. 실제 페이스플레이트가 그렇다.
  * - 번호는 작고 흐리게 — 실크스크린이지 본문 글자가 아니다.
  */
@@ -102,17 +105,24 @@ export function PortFaceplate({
                   onClick={() => onSelect(p.id)}
                   className={cn(
                     'relative flex w-10 flex-col items-center gap-0.5 rounded-sm p-0.5 transition-colors',
-                    disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:brightness-125',
+                    disabled ? 'cursor-not-allowed opacity-45' : 'cursor-pointer hover:brightness-95',
                     selected && 'ring-2 ring-inset ring-primary',
                   )}
                 >
-                  <PortGlyph
-                    medium={p.medium}
-                    color={section.accent}
-                    filled={state !== 'empty'}
-                    dashed={state === 'half'}
-                    className="h-5 w-full"
-                  />
+                  <span className="relative w-full">
+                    <PortGlyph medium={p.medium} filled={state !== 'empty'} className="block h-5 w-full" />
+                    {/* LED — 실제 장비가 연결 상태를 알리는 방식. 종류 색과 섞이지 않게 따로 쓴다. */}
+                    {state !== 'empty' && (
+                      <span
+                        className="absolute right-0 top-0 size-1.5 rounded-full"
+                        style={{
+                          backgroundColor:
+                            state === 'half' ? 'var(--faceplate-led-half)' : 'var(--faceplate-led)',
+                        }}
+                        aria-hidden
+                      />
+                    )}
+                  </span>
                   {/* 실크스크린 번호 — 작고 흐리게. 포트보다 시선을 끌면 안 된다. */}
                   <span
                     className="text-[0.5625rem] leading-none tabular-nums"
@@ -122,8 +132,8 @@ export function PortFaceplate({
                   </span>
                   {count > 1 && (
                     <span
-                      className="absolute -right-0.5 -top-0.5 rounded-full px-1 text-[0.5625rem] font-medium leading-tight text-white"
-                      style={{ backgroundColor: section.accent ?? 'var(--faceplate-silk)' }}
+                      className="absolute -right-1 -top-1 rounded-full px-1 text-[0.5625rem] font-medium leading-tight text-white"
+                      style={{ backgroundColor: 'var(--faceplate-led)' }}
                     >
                       {count}
                     </span>
@@ -141,17 +151,24 @@ export function PortFaceplate({
 /**
  * 채움이 무엇을 뜻하는지.
  *
- * 색은 **종류**를 뜻하고 그 이름은 구획 라벨에 적혀 있으므로, 범례는 나머지 축인
- * **채움(물려 있는가)** 만 설명하면 된다. 판마다 종류가 다르므로 특정 커넥터 모양 대신
- * 중립 사각을 쓴다 — 그러지 않으면 그 종류만 뜻하는 것처럼 읽힌다.
+ * 종류는 **모양**과 구획 라벨이 말하므로, 범례는 나머지 축인 **연결 상태(LED)** 만 설명한다.
+ * 판마다 종류가 다르므로 특정 커넥터 모양 대신 중립 사각을 쓴다 — 그러지 않으면 그 종류만
+ * 뜻하는 것처럼 읽힌다.
  */
-export function PortLegend({ states, accent }: { states: readonly PortState[]; accent?: string | null }) {
+export function PortLegend({ states }: { states: readonly PortState[] }) {
   return (
     <div className="flex items-center gap-3">
       {states.map((s) => (
-        <span key={s} className="flex items-center gap-1 text-xs text-content-muted">
-          <span className="rounded-sm p-0.5" style={{ backgroundColor: 'var(--faceplate)' }} aria-hidden>
-            <PortGlyph medium="" color={accent ?? null} filled={s !== 'empty'} dashed={s === 'half'} className="h-3 w-5" />
+        <span key={s} className="flex items-center gap-1.5 text-xs text-content-muted">
+          {/* 타일과 **같은 비율**로 그린다 — 다른 상자에 넣으면 실루엣이 찌그러져 범례가 딴 모양이 된다. */}
+          <span className="relative block rounded-sm p-0.5" style={{ backgroundColor: 'var(--faceplate)' }} aria-hidden>
+            <PortGlyph medium="" filled={s !== 'empty'} className="block h-[0.9rem] w-[1.6rem]" />
+            {s !== 'empty' && (
+              <span
+                className="absolute right-0.5 top-0.5 size-1 rounded-full"
+                style={{ backgroundColor: s === 'half' ? 'var(--faceplate-led-half)' : 'var(--faceplate-led)' }}
+              />
+            )}
           </span>
           {PORT_STATE_LABEL[s]}
         </span>

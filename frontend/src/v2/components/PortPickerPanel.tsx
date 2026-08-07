@@ -144,10 +144,7 @@ export function PortPickerPanel({
                       onSelectPort(item.port);
                     }}
                   />
-                  <PortLegend
-                    states={['empty', 'full']}
-                    accent={mediumColor(g.ports[0]?.port.medium ?? '')}
-                  />
+                  <PortLegend states={['empty', 'full']} />
                 </DetailCard>
               ))
             )}

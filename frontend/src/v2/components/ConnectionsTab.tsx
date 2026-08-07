@@ -297,11 +297,8 @@ export function ConnectionsTab({ assetId, onSelectAsset, onTrace, onClearTrace, 
               selectedPortId={selectedPortId}
               onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
             />
-            {/* 범례는 **채움**만 설명한다 — 종류는 모양·색이 말하고 이름은 판 머리말에 있다. */}
-            <PortLegend
-              states={hasInternalLinks ? ['empty', 'half', 'full'] : ['empty', 'full']}
-              accent={groups[0] ? mediumColor(groups[0].medium) : null}
-            />
+            {/* 범례는 **연결 상태(LED)** 만 설명한다 — 종류는 모양과 구획 라벨이 말한다. */}
+            <PortLegend states={hasInternalLinks ? ['empty', 'half', 'full'] : ['empty', 'full']} />
           </DetailCard>
         );
       })}
