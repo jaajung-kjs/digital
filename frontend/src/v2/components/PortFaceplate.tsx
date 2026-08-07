@@ -37,8 +37,9 @@ export interface FaceplateSection {
  * - 판은 **밝은** 회색, 포트는 어두운 구멍. 물리감은 이 **대비**에서 나오지 판을 검게
  *   만드는 데서 나오지 않는다 — 밝은 상세 패널 안의 검은 덩어리는 그냥 튄다(한 번 그렇게
  *   만들어 보고 되돌렸다).
- * - **포트에는 색을 칠하지 않는다.** 실제 장비의 포트는 종류와 무관하게 전부 같은 어두운
- *   구멍이고, 연결 상태는 포트 옆 **LED** 로 본다. 종류를 가르는 일은 모양이 한다.
+ * - **채움 = 연결 여부.** 비면 얕게 파인 빈 자리, 물리면 테마색으로 꽉 찬다. 한때 LED 점
+ *   하나로만 구분했는데 색으로 한눈에 읽히지 않았다 — 판을 훑는 눈은 점보다 면을 먼저 본다.
+ *   종류를 가르는 일은 **모양**이 한다.
  * - 종류 색은 **구획 띠**에만 — 2px. 평면도의 선 색을 면에 칠하면 판마다 조합이 제각각이
  *   되고, 회색 종류는 아예 묻힌다.
  * - 포트는 촘촘히 붙인다. 실제 페이스플레이트가 그렇다.
@@ -115,20 +116,8 @@ export function PortFaceplate({
                     selected && 'ring-2 ring-inset ring-primary',
                   )}
                 >
-                  <span className="relative w-full">
-                    <PortGlyph medium={p.medium} filled={state !== 'empty'} className="block h-5 w-full" />
-                    {/* LED — 실제 장비가 연결 상태를 알리는 방식. 종류 색과 섞이지 않게 따로 쓴다. */}
-                    {state !== 'empty' && (
-                      <span
-                        className="absolute right-0 top-0 size-1.5 rounded-full"
-                        style={{
-                          backgroundColor:
-                            state === 'half' ? 'var(--faceplate-led-half)' : 'var(--faceplate-led)',
-                        }}
-                        aria-hidden
-                      />
-                    )}
-                  </span>
+                  {/* 채움이 곧 연결 표시다 — 점 하나보다 면이 먼저 읽힌다. */}
+                  <PortGlyph medium={p.medium} state={state} className="block h-5 w-full" />
                   {/* 실크스크린 번호 — 작고 흐리게. 포트보다 시선을 끌면 안 된다. */}
                   <span
                     className="text-[0.5625rem] leading-none tabular-nums"
@@ -157,7 +146,7 @@ export function PortFaceplate({
 /**
  * 채움이 무엇을 뜻하는지.
  *
- * 종류는 **모양**과 구획 라벨이 말하므로, 범례는 나머지 축인 **연결 상태(LED)** 만 설명한다.
+ * 종류는 **모양**과 구획 라벨이 말하므로, 범례는 나머지 축인 **채움(연결 여부)** 만 설명한다.
  * 판마다 종류가 다르므로 특정 커넥터 모양 대신 중립 사각을 쓴다 — 그러지 않으면 그 종류만
  * 뜻하는 것처럼 읽힌다.
  */
@@ -167,14 +156,8 @@ export function PortLegend({ states }: { states: readonly PortState[] }) {
       {states.map((s) => (
         <span key={s} className="flex items-center gap-1.5 text-xs text-content-muted">
           {/* 타일과 **같은 비율**로 그린다 — 다른 상자에 넣으면 실루엣이 찌그러져 범례가 딴 모양이 된다. */}
-          <span className="relative block rounded-sm p-0.5" style={{ backgroundColor: 'var(--faceplate)' }} aria-hidden>
-            <PortGlyph medium="" filled={s !== 'empty'} className="block h-[0.9rem] w-[1.6rem]" />
-            {s !== 'empty' && (
-              <span
-                className="absolute right-0.5 top-0.5 size-1 rounded-full"
-                style={{ backgroundColor: s === 'half' ? 'var(--faceplate-led-half)' : 'var(--faceplate-led)' }}
-              />
-            )}
+          <span className="block rounded-sm p-0.5" style={{ backgroundColor: 'var(--faceplate)' }} aria-hidden>
+            <PortGlyph medium="" state={s} className="block h-[0.9rem] w-[1.6rem]" />
           </span>
           {PORT_STATE_LABEL[s]}
         </span>

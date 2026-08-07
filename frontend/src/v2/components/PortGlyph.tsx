@@ -16,14 +16,15 @@
  * (NetBox 도 `DE-9`·`IEC 60320 C14`·`LC`·`8P8C` 를 커넥터 어휘로 쓰지만 모양은 그리지 않는다.
  *  "표준 포트 아이콘 세트" 라는 것은 없고, 표준은 커넥터 모양 그 자체다.)
  *
- * **구멍으로 그린다. 색은 칠하지 않는다.**
+ * **모양이 종류를, 채움이 연결을 말한다.**
  *
- * 실제 장비의 포트는 **종류와 무관하게 전부 같은 어두운 구멍**이다. 색으로 구분하지 않는다 —
- * 색은 케이블·패치코드 쪽 일이고, 연결 상태는 포트 옆 **LED** 로 본다. 처음에는 평면도의
- * 선 색을 포트 채움으로 그대로 옮겼는데, 그건 실물과 다를 뿐 아니라 화면에서도 무너졌다
- * (선 색으로 고른 채도를 면에 칠하니 판마다 조합이 제각각이 됐고, 회색 종류는 아예 묻혔다).
+ * 종류를 가르는 일은 **모양**이 한다 — IEC·RJ45·DE-9 는 헷갈릴 수 없다. 처음에는 평면도의
+ * 선 색을 포트 채움으로 옮겼는데, 선으로 고른 채도를 면에 칠하니 판마다 조합이 제각각이
+ * 됐고 회색 종류는 아예 묻혔다. 종류 색은 구획 띠로 물러났다.
  *
- * 종류를 가르는 일은 **모양**이 한다. IEC·RJ45·DE-9 는 헷갈릴 수 없다.
+ * 그래서 **채움은 오롯이 연결 여부**를 뜻한다. 비면 얕게 파인 빈 자리, 물리면 테마색으로
+ * 꽉 찬다. 한때 채움을 거의 같게 두고 작은 LED 점 하나로만 구분했는데, 색으로 한눈에
+ * 읽히지 않았다 — 판을 훑는 눈이 먼저 보는 것은 점이 아니라 면이다.
  *
  * 모든 실루엣은 **같은 상자**(x 2..38, y 3..23)를 채운다. 실제 커넥터는 크기가 저마다 다르지만
  * 판 위에 늘어놓으면 "제각각" 으로 읽힌다 — 실제로 제어(DE-9)만 세로가 18% 작고 위로
@@ -107,19 +108,22 @@ function Inner({ kind, color }: { kind: string; color: string }) {
 
 export interface PortGlyphProps {
   medium: string;
-  /** 꽂혀 있으면 구멍을 조금 밝게 — 플러그가 들어차 그림자가 얕아진 모양. */
-  filled?: boolean;
+  /** 물려 있는가 — `'half'` 는 내부 짝 중 한쪽만 물린 상태. */
+  state?: 'empty' | 'half' | 'full';
   className?: string;
 }
 
-export function PortGlyph({ medium, filled, className }: PortGlyphProps) {
+export function PortGlyph({ medium, state = 'empty', className }: PortGlyphProps) {
   const outline = OUTLINE[medium];
-  // 종류를 가리지 않고 같은 구멍이다 — 실제 장비가 그렇다. 종류는 **모양**이 말한다.
+  const filled = state !== 'empty';
   const shape = {
-    fill: 'var(--faceplate-hole)',
-    fillOpacity: filled ? 0.82 : 1,
-    stroke: 'var(--faceplate-hole)',
+    // 빈 자리는 판보다 살짝 어두운 얕은 홈, 물린 자리는 테마색으로 꽉 찬다.
+    fill: filled ? 'var(--primary)' : 'var(--faceplate-etch)',
+    fillOpacity: state === 'half' ? 0.5 : 1,
+    stroke: filled ? 'var(--primary)' : 'var(--faceplate-hole)',
     strokeWidth: 1,
+    // 편도는 반만 물린 것 — 테두리를 끊어 "아직 한쪽" 임을 알린다.
+    strokeDasharray: state === 'half' ? '3 2' : undefined,
   };
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={className} aria-hidden focusable="false">
@@ -129,7 +133,7 @@ export function PortGlyph({ medium, filled, className }: PortGlyphProps) {
         // 접지·광처럼 바깥 실루엣이 따로 없는 것과, 어휘에 없는 종류는 공통 사각형.
         <rect x="2" y="3" width={W - 4} height="20" rx="2.5" {...shape} />
       )}
-      {/* 핀·기호는 판 색으로 — 구멍 안에서 비어 보이게. */}
+      {/* 핀·기호는 판 색으로 — 채움 위에서 파인 것처럼 보이게. */}
       <Inner kind={medium} color="var(--faceplate)" />
     </svg>
   );
