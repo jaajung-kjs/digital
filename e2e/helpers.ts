@@ -40,13 +40,6 @@ export async function dragOnCanvas(page: Page, from: { x: number; y: number }, t
   await page.mouse.up();
 }
 
-/** 저장 대기 중인 변경을 커밋한다. */
-export async function commitChanges(page: Page) {
-  const save = page.getByRole('button', { name: /저장/ }).first();
-  await expect(save).toBeVisible();
-  await save.click();
-}
-
 /**
  * 평면도 캔버스에 그려진 자산을 클릭한다.
  *

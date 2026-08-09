@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PORT_KINDS, cableFieldsFor, portFieldsFor, portGroupLabel, portPresets, portValue, uniqueGroupKey } from './portKinds.js';
+import { PORT_KINDS, cableFieldsFor, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -73,10 +73,16 @@ describe('케이블 파라미터 선언', () => {
   /* 살아 있는 계통에서 투입이 예사이고 개방이 사건이다 — 없는 값을 개방으로 읽으면
      아직 아무도 손대지 않은 판이 통째로 죽은 것처럼 보인다. */
   it('개폐는 적힌 값이 없으면 투입이다', () => {
-    const field = portFieldsFor('power')[0]!;
     const bare = { medium: 'power', fieldValues: {} };
-    expect(portValue(bare, field)).toBe(true);
-    expect(portValue({ ...bare, fieldValues: { closed: false } }, field)).toBe(false);
+    expect(portValuesAt(bare, 1)['closed']).toBe(true);
+    expect(portValuesAt({ ...bare, fieldValues: { closed: false } }, 1)['closed']).toBe(false);
+  });
+
+  /* 쓰기가 읽기와 같은 문을 쓰면 값 하나를 고칠 때마다 기본값이 저장에 눌러앉는다 —
+     "아무도 손대지 않음" 과 "투입이라고 적음" 이 구분되지 않게 된다. */
+  it('값을 적어도 기본값이 저장에 새어 들어가지 않는다', () => {
+    const port = { medium: 'fiber-trunk', positions: 4, fieldValues: {} };
+    expect(setPortValueAt(port, 2, 'lossDb', 0.7)).toEqual({ 2: { lossDb: 0.7 } });
   });
 
   /* 길이는 설계서 공량의 근거(품셈 × 길이)라 어느 종류든 적을 수 있어야 한다. */

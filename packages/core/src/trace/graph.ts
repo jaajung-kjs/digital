@@ -1,4 +1,5 @@
 import type { AssetRef, AssetTypeSpec, CableRef, PortRef } from '../catalog/types.js';
+import { isMultiCorePort } from '../catalog/portKinds.js';
 import { internalLinkMap } from './internalLinks.js';
 
 export interface TraceEdge {
@@ -27,7 +28,7 @@ export interface TraceHop {
   toPortId: string;
 }
 
-/** 포트 노드 + 케이블 엣지 + 타입 InternalLinkRule 에서 파생한 내부 엣지로 그래프를 만든다. */
+/** 포트 노드 + 케이블 엣지 + 포트 선언에서 유도된 내부 엣지(`derivedLinks`)로 그래프를 만든다. */
 export function buildTraceGraph(args: {
   types: Record<string, AssetTypeSpec>;
   assets: AssetRef[];
@@ -54,7 +55,7 @@ export function buildTraceGraph(args: {
   }
 
   const portById = new Map(args.ports.map((p) => [p.id, p]));
-  const isMulti = (id: string) => (portById.get(id)?.positions ?? 1) > 1;
+  const isMulti = (id: string) => isMultiCorePort(portById.get(id)?.positions);
 
   // 자산 내부 통과(포트 ↔ 포트)는 상세 화면도 그대로 보여줘야 하므로 계산을 공유한다.
   for (const asset of args.assets) {
@@ -84,7 +85,7 @@ export function buildTraceGraph(args: {
  */
 export function traceFrom(graph: TraceGraph, startPortId: string): TraceHop[] {
   const hops: TraceHop[] = [];
-  const isMulti = (id: string) => (graph.ports.get(id)?.positions ?? 1) > 1;
+  const isMulti = (id: string) => isMultiCorePort(graph.ports.get(id)?.positions);
 
   /* 방문 표시는 **포트 하나에 한 번**이다. 코어 번호는 어느 길로 빠져나갈지를 거르는 데만
      쓴다 — 번호까지 키에 넣으면 인입 포트가 코어마다 다른 노드로 보여, 앞면 4포트를 거쳐

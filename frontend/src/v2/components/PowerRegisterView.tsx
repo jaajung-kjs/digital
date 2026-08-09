@@ -13,7 +13,7 @@ import { EmptyState, Select, TableCard, TableSearch, Th, Toggle, cn, SELECTABLE,
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows, POWER_MEDIUM } from '../powerSelectors';
-import { cableFieldsFor, setPortValueAt, type ValueDef } from '@twin/core';
+import { cableFieldsFor, portFieldsFor, setPortValueAt, type ValueDef } from '@twin/core';
 import type { PowerRow, PowerCell } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
 import { useMediumContainer } from '../useMediumContainer';
@@ -33,7 +33,8 @@ interface Props {
  * 개폐 — 값은 **출력 포트**에 담긴다(자산 필드가 아니다).
  *
  * 회로가 없는 빈 자리에는 적을 곳이 없으므로 대시. 저장 형상을 아는 곳은
- * `setPortValueAt` 하나뿐이다.
+ * `setPortValueAt` 하나뿐이고, **어떤 키에 적는지는 종류 선언이 정한다** —
+ * 한때 여기만 `'closed'` 를 직접 적고 있어서 읽기는 선언 기반인데 쓰기만 키를 알았다.
  */
 function ClosedCell({ feederId, portId, closed }: { feederId: string; portId: string | null; closed: boolean | null }) {
   if (!portId) return <span className="text-content-faint">—</span>;
@@ -43,8 +44,10 @@ function ClosedCell({ feederId, portId, closed }: { feederId: string; portId: st
     const asset = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === feederId);
     const port = asset?.ports.find((p) => p.id === resolvedPortId);
     if (!asset || !port) return;
+    const field = portFieldsFor(port.medium).find((f) => f.type === 'boolean');
+    if (!field) return;
     const ports = asset.ports.map((p) =>
-      p.id === resolvedPortId ? { ...p, fieldValues: setPortValueAt(p, 1, 'closed', next) } : p,
+      p.id === resolvedPortId ? { ...p, fieldValues: setPortValueAt(p, 1, field.key, next) } : p,
     );
     useV2WorkingCopy.getState().stageAssetUpdate(feederId, { ports });
   }

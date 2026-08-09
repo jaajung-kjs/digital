@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 /**
  * 포트 실루엣 — 종류마다 **실제 커넥터 규격의 모양**을 그린다.
  *
@@ -35,6 +37,9 @@
  * 그 사각형은 실물에 없는 것이라 테두리가 두 겹으로 보이고(광), 아이콘을 상자에 담아 놓은
  * 모양이 된다(접지). 실제로 그 둘만 그렇게 그려져 있었다.
  *
+ * 종류별 그림은 **표 하나**(`GLYPHS`)에 모은다 — 실루엣과 안쪽 세부가 따로 있으면 종류를
+ * 더할 때 한쪽만 넣어도 아무 말 없이 지나간다.
+ *
  * 테두리와 채움이 모양을 따라가야 하므로 CSS `clip-path` 가 아니라 SVG 로 그린다
  * (clip-path 는 테두리를 잘라 내서 "비었다/찼다" 를 나타낼 수가 없다).
  */
@@ -46,59 +51,78 @@ const H = 26;
 /** 커넥터 실루엣의 가로:세로. 칸이 커지면 실루엣도 같이 커져야 하므로 호출부가 이 비율을 쓴다. */
 export const PORT_GLYPH_ASPECT = `${W} / ${H}`;
 
-/** 종류별 바깥 실루엣 — 모두 y 3..23 을 채우고 세로 가운데가 맞는다. 어휘에 없는 종류는 사각형. */
-const OUTLINE: Record<string, string> = {
-  // IEC 60320 — 위 모서리 두 곳이 깎인 사각(가전 전원 인렛의 그 모양).
-  power: `M8 3 H32 L38 9 V21 Q38 23 36 23 H4 Q2 23 2 21 V9 L8 3 Z`,
-  // 8P8C — 사각 아래 가운데로 걸림쇠 탭이 내려온다.
-  network: `M3 3 H37 Q38 3 38 4 V16 Q38 17 37 17 H26 V22 Q26 23 25 23 H15 Q14 23 14 22 V17 H3 Q2 17 2 16 V4 Q2 3 3 3 Z`,
-  // DE-9 — 위가 넓은 D형 사다리꼴.
-  control: `M5 3 H35 Q37.6 3 38 5 L35.8 21 Q35.4 23 33.4 23 H6.6 Q4.6 23 4.2 21 L2 5 Q2.4 3 5 3 Z`,
-  // SC 어댑터 — 위쪽 가운데가 키 홈으로 파인 사각. 이 사각이 곧 커넥터다(안에 또 두르지 않는다).
-  fiber: `M11 3 H17 V6 H23 V3 H29 Q31 3 31 5 V21 Q31 23 29 23 H11 Q9 23 9 21 V5 Q9 3 11 3 Z`,
-  /* 다심 인입 — 케이블이 통째로 들어오는 원형 인입구. 어댑터(사각)가 아니라 **구멍**이라
-     동그랗다. 안에 코어가 여럿 보이는 것이 단심 광(SC, 페룰 하나)과 갈리는 지점이다. */
-  'fiber-trunk': `M30 13 A10 10 0 1 1 10 13 A10 10 0 1 1 30 13 Z`,
-  // 접지 나사 단자 — 육각 볼트 머리. 데이터 포트가 아니므로 사각이 아니다.
-  ground: `M31.5 13 L25.8 23 H14.2 L8.5 13 L14.2 3 H25.8 Z`,
-};
+/**
+ * 종류별 그림 — 바깥 실루엣과 안쪽 세부를 **한 자리에** 둔다.
+ *
+ * 예전에는 실루엣만 표(`Record`)이고 안쪽은 `if (kind === …)` 사슬이라, 종류를 더할 때
+ * 두 곳을 따로 손대야 했고 한쪽만 넣어도 아무 말 없이 지나갔다. 어휘가 늘 때 손댈 곳은
+ * 이 표의 한 줄이다.
+ *
+ * 실루엣은 모두 y 3..23 을 채우고 세로 가운데가 맞는다 — 나란히 놓았을 때 흐트러지지
+ * 않게. 가로 폭은 커넥터마다 다를 수 있다(실제 전면판이 그렇다).
+ */
+interface GlyphSpec {
+  /** 바깥 실루엣 = 커넥터 단면 그 자체. 없으면 공통 사각형으로 그린다. */
+  outline: string;
+  /** 실루엣 안쪽(핀·접점·페룰). 판 색으로 그려 파인 것처럼 보인다. */
+  inner?: (color: string) => ReactNode;
+}
 
-/** 다심 인입 안에 보이는 코어 — 실제 광케이블 단면의 그 배치(가운데 하나 + 둘레 여섯). */
+/** 어댑터 안으로 들여다보이는 페룰·나사 구멍 — 광(SC)과 접지(볼트)가 같은 원을 쓴다. */
+const bore = (color: string) => <circle cx="20" cy="13" r="4" fill="none" stroke={color} strokeWidth="1.8" />;
+
+/** 다심 인입 안에 보이는 코어 — 실제 광케이블 단면의 그 배치(가운데 하나 + 둘레 여섯).
+ *  일곱은 실제 심선 수가 아니라 "여러 가닥" 이라는 표시다 — 24개를 그리면 뭉개진다. */
 const TRUNK_CORES: readonly [number, number][] = [
   [20, 13], [25.2, 13], [22.6, 17.5], [17.4, 17.5], [14.8, 13], [17.4, 8.5], [22.6, 8.5],
 ];
 
-/** 실루엣 **안쪽**에 그리는 것들(핀·탭·기호). 종류를 더 확실히 갈라 준다. */
-function Inner({ kind, color }: { kind: string; color: string }) {
-  if (kind === 'power') {
-    // 접지핀 하나 + 전원핀 둘 (IEC 인렛의 핀 배치)
-    return (
+const GLYPHS: Record<string, GlyphSpec> = {
+  // IEC 60320 — 위 모서리 두 곳이 깎인 사각(가전 전원 인렛의 그 모양) + 접지핀 하나·전원핀 둘.
+  power: {
+    outline: `M8 3 H32 L38 9 V21 Q38 23 36 23 H4 Q2 23 2 21 V9 L8 3 Z`,
+    inner: (color) => (
       <g fill={color}>
         <rect x="18.5" y="7.5" width="3" height="4" rx="1" />
         <rect x="11" y="15" width="3" height="4" rx="1" />
         <rect x="26" y="15" width="3" height="4" rx="1" />
       </g>
-    );
-  }
-  if (kind === 'network') {
-    // 8핀 접점
-    return (
+    ),
+  },
+  // 8P8C — 사각 아래 가운데로 걸림쇠 탭이 내려오고, 안에 8핀 접점.
+  network: {
+    outline: `M3 3 H37 Q38 3 38 4 V16 Q38 17 37 17 H26 V22 Q26 23 25 23 H15 Q14 23 14 22 V17 H3 Q2 17 2 16 V4 Q2 3 3 3 Z`,
+    inner: (color) => (
       <g fill={color}>
         {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
           <rect key={i} x={7.5 + i * 3.2} y="6" width="1.6" height="5" rx="0.6" />
         ))}
       </g>
-    );
-  }
-  if (kind === 'fiber') {
-    /* 어댑터 안으로 들여다보이는 페룰(원). 하우징은 바깥 실루엣이 이미 그리고 있다.
-       처음에는 LC 듀플렉스(작은 사각 둘)로 그렸는데, 그건 **심선 두 가닥**이 한 어댑터에
-       들어간 모양이다. 우리 광 포트는 장비·선로 각각이 **심선 하나**다. */
-    return <circle cx="20" cy="13" r="4" fill="none" stroke={color} strokeWidth="1.8" />;
-  }
-  if (kind === 'control') {
-    // DE-9 — 위 5핀, 아래 4핀
-    return (
+    ),
+  },
+  /* 다심 인입 — 케이블이 통째로 들어오는 원형 인입구. 어댑터(사각)가 아니라 **구멍**이라
+     동그랗다. 안에 코어가 여럿 보이는 것이 단심 광(SC, 페룰 하나)과 갈리는 지점이다. */
+  'fiber-trunk': {
+    outline: `M30 13 A10 10 0 1 1 10 13 A10 10 0 1 1 30 13 Z`,
+    inner: (color) => (
+      <g fill={color}>
+        {TRUNK_CORES.map(([cx, cy], i) => (
+          <circle key={i} cx={cx} cy={cy} r="1.5" />
+        ))}
+      </g>
+    ),
+  },
+  /* SC 어댑터 — 위쪽 가운데가 키 홈으로 파인 사각. 이 사각이 곧 커넥터다(안에 또 두르지
+     않는다). 처음에는 LC 듀플렉스(작은 사각 둘)로 그렸는데, 그건 **심선 두 가닥**이 한
+     어댑터에 들어간 모양이다. 우리 광 포트는 심선 하나다. */
+  fiber: {
+    outline: `M11 3 H17 V6 H23 V3 H29 Q31 3 31 5 V21 Q31 23 29 23 H11 Q9 23 9 21 V5 Q9 3 11 3 Z`,
+    inner: bore,
+  },
+  // DE-9 — 위가 넓은 D형 사다리꼴(이름부터 D-sub) + 위 5핀·아래 4핀.
+  control: {
+    outline: `M5 3 H35 Q37.6 3 38 5 L35.8 21 Q35.4 23 33.4 23 H6.6 Q4.6 23 4.2 21 L2 5 Q2.4 3 5 3 Z`,
+    inner: (color) => (
       <g fill={color}>
         {[0, 1, 2, 3, 4].map((i) => (
           <circle key={`t${i}`} cx={11 + i * 4.5} cy="10.5" r="1.3" />
@@ -107,25 +131,16 @@ function Inner({ kind, color }: { kind: string; color: string }) {
           <circle key={`b${i}`} cx={13.2 + i * 4.5} cy="16.5" r="1.3" />
         ))}
       </g>
-    );
-  }
-  if (kind === 'fiber-trunk') {
-    // 코어 일곱은 실제 심선 수가 아니라 "여러 가닥" 이라는 표시다 — 24개를 그리면 뭉개진다.
-    return (
-      <g fill={color}>
-        {TRUNK_CORES.map(([cx, cy], i) => (
-          <circle key={i} cx={cx} cy={cy} r="1.5" />
-        ))}
-      </g>
-    );
-  }
-  if (kind === 'ground') {
-    // 볼트 가운데의 나사 구멍. 접지 기호(IEC 60417-5019)는 상자에 담아 놓은 아이콘이 되므로
-    // 쓰지 않는다 — 무엇인지는 구획 라벨과 색 띠가 말한다.
-    return <circle cx="20" cy="13" r="4" fill="none" stroke={color} strokeWidth="1.8" />;
-  }
-  return null;
-}
+    ),
+  },
+  /* 접지 나사 단자 — 육각 볼트 머리 + 가운데 나사 구멍. 데이터 포트가 아니므로 사각이
+     아니다. 접지 기호(IEC 60417-5019)는 상자에 담아 놓은 아이콘이 되므로 쓰지 않는다 —
+     무엇인지는 구획 라벨과 색 띠가 말한다. */
+  ground: {
+    outline: `M31.5 13 L25.8 23 H14.2 L8.5 13 L14.2 3 H25.8 Z`,
+    inner: bore,
+  },
+};
 
 export interface PortGlyphProps {
   medium: string;
@@ -147,7 +162,7 @@ export interface PortGlyphProps {
 }
 
 export function PortGlyph({ medium, state = 'empty', open = false, className, style }: PortGlyphProps) {
-  const outline = OUTLINE[medium];
+  const glyph = GLYPHS[medium];
   const filled = state !== 'empty';
   const shape = {
     // 빈 자리는 판보다 살짝 어두운 얕은 홈, 물린 자리는 테마색으로 꽉 찬다.
@@ -158,14 +173,14 @@ export function PortGlyph({ medium, state = 'empty', open = false, className, st
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className={className} style={style} aria-hidden focusable="false">
       <g opacity={open ? 0.4 : 1}>
-        {outline ? (
-          <path d={outline} {...shape} />
+        {glyph ? (
+          <path d={glyph.outline} {...shape} />
         ) : (
-          // 접지·광처럼 바깥 실루엣이 따로 없는 것과, 어휘에 없는 종류는 공통 사각형.
+          // 어휘에 없는 종류는 공통 사각형 — 데이터가 앞서 나가도 화면이 비지 않게.
           <rect x="2" y="3" width={W - 4} height="20" rx="2.5" {...shape} />
         )}
         {/* 핀·기호는 판 색으로 — 채움 위에서 파인 것처럼 보이게. */}
-        <Inner kind={medium} color="var(--faceplate)" />
+        {glyph?.inner?.('var(--faceplate)')}
       </g>
       {/* 개방 — 사선 하나. 판 색으로 한 겹 깔아 어떤 채움 위에서도 끊겨 보이게 한다. */}
       {open && (

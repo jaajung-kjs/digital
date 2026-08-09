@@ -12,7 +12,7 @@ import { mergeEffective } from '../store/overlay';
 import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
 import { withDescendants } from '../cableSelectors';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { internalLinkMap, portDirectionLabel, portFieldsFor, portValue, setPortValueAt, type ValueDef } from '@twin/core';
+import { internalLinkMap, portDirectionLabel, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../traceSelectors';
 import { useV2Catalog, useMediumLabel, useMediumColor } from '../hooks';
 import type { TraceResult } from '../traceSelectors';
@@ -91,7 +91,7 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
   /** 이 회로가 끊겨 있는가 — 판은 이것만 보여 준다(여닫는 일은 포트 상세가 맡는다). */
   function isPortOpen(port: V2Port): boolean {
     const field = switchField(port);
-    return field ? portValue(port, field) !== true : false;
+    return field ? portValuesAt(port, 1)[field.key] !== true : false;
   }
 
   function setPortSwitch(owner: V2Asset, port: V2Port, field: ValueDef, next: boolean) {
@@ -206,7 +206,7 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
     if (!field) return null;
     const owner = portOwners.find((o) => o.owner.id === selectedPort.assetId)?.owner;
     if (!owner) return null;
-    return { field, owner, closed: portValue(selectedPort, field) === true };
+    return { field, owner, closed: portValuesAt(selectedPort, 1)[field.key] === true };
   }, [selectedPort, portOwners]);
   /* 고른 포트에 물린 대국 — 부스바는 여럿이다. 하나만 보여 주면 나머지가 없는 것처럼 읽힌다. */
   const selectedPeers = useMemo(() => {

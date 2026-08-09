@@ -1,4 +1,4 @@
-import { portFieldsFor, portValue, type SeededMediumKey } from '@twin/core';
+import { portFieldsFor, portValuesAt, type SeededMediumKey } from '@twin/core';
 import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type MediumContainer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
@@ -60,7 +60,7 @@ function circuitNumber(feeder: V2Asset): number | null {
  */
 function closedOf(port: V2Asset['ports'][number]): boolean | null {
   const field = portFieldsFor(port.medium).find((f) => f.type === 'boolean');
-  return field ? portValue(port, field) === true : null;
+  return field ? portValuesAt(port, 1)[field.key] === true : null;
 }
 
 

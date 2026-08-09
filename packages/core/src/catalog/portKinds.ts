@@ -152,13 +152,34 @@ export function isMultiCorePort(positions: number | null | undefined): boolean {
 }
 
 /**
- * 다심 포트의 코어 하나에 적힌 값.
+ * 이 포트(다심이면 그 코어 하나)에 적힌 값 — **선언된 기본값까지 얹어서**.
  *
- * 저장 형상은 코어 번호를 키로 한 한 겹 중첩이다 — `{ "1": { lossDb: 0.6 }, "2": {…} }`.
- * 보통 포트는 중첩 없이 통째로 쓰므로 `position` 을 무시한다. 읽고 쓰는 곳이 이 형상을
- * 직접 알면 저장과 표시가 어긋나므로, 드나드는 문은 이 둘뿐이다.
+ * 저장 형상은 다심일 때 코어 번호를 키로 한 한 겹 중첩이다
+ * (`{ "1": { lossDb: 0.6 }, "2": {…} }`). 보통 포트는 중첩 없이 통째로 쓴다.
+ *
+ * 적힌 값이 **없다는 것**과 값이 **없다는 것**은 다르다 — 개폐는 아무도 손대지 않았어도
+ * 투입이다. 한때 기본값을 얹는 문(`portValue`)과 안 얹는 문(`portValuesAt`)이 따로 있었고,
+ * 선번장만 안 얹는 쪽을 써서 같은 값을 화면마다 다르게 읽을 수 있었다. 문은 하나다.
  */
 export function portValuesAt(
+  port: { medium: string; positions?: number | null; fieldValues?: Record<string, unknown> | null },
+  position: number,
+): Record<string, unknown> {
+  const stored = storedValuesAt(port, position);
+  const defaults: Record<string, unknown> = {};
+  for (const f of portFieldsFor(port.medium)) {
+    if (f.defaultValue !== undefined && !(f.key in stored)) defaults[f.key] = f.defaultValue;
+  }
+  return Object.keys(defaults).length > 0 ? { ...defaults, ...stored } : stored;
+}
+
+/**
+ * **적힌 그대로** — 기본값을 얹지 않는다.
+ *
+ * 쓰기가 `portValuesAt` 을 거치면 값 하나를 고칠 때마다 선언된 기본값이 통째로 저장에
+ * 눌러앉는다("아무도 손대지 않음" 과 "투입이라고 적음" 이 구분되지 않게 된다).
+ */
+function storedValuesAt(
   port: { positions?: number | null; fieldValues?: Record<string, unknown> | null },
   position: number,
 ): Record<string, unknown> {
@@ -166,21 +187,6 @@ export function portValuesAt(
   if (!isMultiCorePort(port.positions)) return all;
   const at = all[String(position)];
   return at != null && typeof at === 'object' ? (at as Record<string, unknown>) : {};
-}
-
-/**
- * 이 포트의 값 하나를 **선언된 기본값까지 얹어** 읽는다.
- *
- * 적힌 값이 없다는 것과 값이 없다는 것은 다르다 — 개폐는 아무도 손대지 않았어도 투입이다.
- * 기본값을 아는 곳이 화면마다 흩어지면 판마다 다른 답이 나오므로 문을 하나로 둔다.
- */
-export function portValue(
-  port: { medium: string; positions?: number | null; fieldValues?: Record<string, unknown> | null },
-  field: ValueDef,
-  position = 1,
-): unknown {
-  const at = portValuesAt(port, position);
-  return field.key in at ? at[field.key] : field.defaultValue;
 }
 
 /** `portValuesAt` 의 짝 — 코어 하나의 값 하나를 바꾼 **새** `fieldValues` 를 돌려준다. */
@@ -195,7 +201,7 @@ export function setPortValueAt(
     all[key] = value;
     return all;
   }
-  all[String(position)] = { ...portValuesAt(port, position), [key]: value };
+  all[String(position)] = { ...storedValuesAt(port, position), [key]: value };
   return all;
 }
 

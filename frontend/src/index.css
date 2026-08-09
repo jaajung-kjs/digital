@@ -25,7 +25,7 @@
   --faceplate-rgb:226 229 233; --faceplate-hole-rgb:71 78 86;
   --faceplate-etch-rgb:198 203 209; --faceplate-silk-rgb:113 120 128;
   /* 포트 LED — 실제 장비가 연결 상태를 알리는 방식. 종류 색과 섞이지 않게 따로 둔다. */
-  --faceplate-led-rgb:34 160 84; --faceplate-led-half-rgb:202 138 4;
+  --faceplate-led-rgb:34 160 84;
 
   --bg:rgb(var(--bg-rgb)); --surface:rgb(var(--surface-rgb)); --surface-2:rgb(var(--surface-2-rgb)); --surface-3:rgb(var(--surface-3-rgb)); --sidebar:rgb(var(--sidebar-rgb));
   --border:rgb(var(--border-rgb)); --border-2:rgb(var(--border-2-rgb));
@@ -36,7 +36,7 @@
   --eq-1:rgb(var(--eq-1-rgb)); --eq-2:rgb(var(--eq-2-rgb)); --eq-3:rgb(var(--eq-3-rgb)); --eq-4:rgb(var(--eq-4-rgb));
   --faceplate:rgb(var(--faceplate-rgb)); --faceplate-hole:rgb(var(--faceplate-hole-rgb));
   --faceplate-etch:rgb(var(--faceplate-etch-rgb)); --faceplate-silk:rgb(var(--faceplate-silk-rgb));
-  --faceplate-led:rgb(var(--faceplate-led-rgb)); --faceplate-led-half:rgb(var(--faceplate-led-half-rgb));
+  --faceplate-led:rgb(var(--faceplate-led-rgb));
 
   /* 오버레이 스크림 — 모달 백드롭 통일 */
   --overlay: rgb(0 0 0 / 0.45); --overlay-strong: rgb(0 0 0 / 0.8);

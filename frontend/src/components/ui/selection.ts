@@ -26,5 +26,3 @@ export const SELECTABLE = 'cursor-pointer transition-colors hover:bg-surface-2';
  */
 export const SELECTED = 'bg-info-bg font-medium text-primary hover:bg-info-bg';
 
-/** 테두리가 있는 타일(슬롯·포트 등)에서 골라진 상태. */
-export const SELECTED_TILE = 'border-primary bg-info-bg font-medium text-primary hover:bg-info-bg';
