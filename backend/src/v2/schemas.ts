@@ -25,6 +25,8 @@ const assetCreateSchema = z.object({
   width: z.number().nullish(),
   height: z.number().nullish(),
   parentAssetId: z.string().uuid().nullish(),
+  /** 형판에서 나왔으면 그때의 형판 이름 — 뿌리에만 적힌다(스냅샷). */
+  assemblyName: z.string().trim().min(1).nullish(),
   containerKey: z.string().nullish(),
   col: z.number().int().min(0).nullish(),
   row: z.number().int().min(0).nullish(),
@@ -93,6 +95,30 @@ const portTemplateBodySchema = z.object({
   /** 이 포트가 나르는 심선 수. 안 적으면 1(보통 포트). */
   positions: z.number().int().min(1).optional(),
 });
+/** 형판 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
+const assemblyItemSchema = z.object({
+  id: z.string().min(1),
+  parentItemId: z.string().min(1).nullable(),
+  typeId: z.string().uuid(),
+  name: z.string().trim().min(1),
+  containerKey: z.string().nullable(),
+  col: z.number().int().min(0).nullable(),
+  row: z.number().int().min(0).nullable(),
+  colSpan: z.number().int().min(1).nullable(),
+  rowSpan: z.number().int().min(1).nullable(),
+  portCounts: z.record(z.number().int().min(1)).optional(),
+  portPositions: z.record(z.number().int().min(1)).optional(),
+});
+
+export const assemblyUpsertSchema = z.object({
+  key: z.string().regex(keyRe),
+  name: z.string().trim().min(1),
+  categoryId: z.string().uuid().nullable(),
+  sortOrder: z.number().int(),
+  isActive: z.boolean(),
+  items: z.array(assemblyItemSchema).min(1),
+});
+
 export const typeUpsertSchema = z.object({
   key: z.string().regex(keyRe),
   name: z.string().trim().min(1),

@@ -90,6 +90,7 @@ model AssetCategory {
   name      String
   sortOrder Int         @default(0)
   types     AssetType[]
+  assemblies Assembly[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 }
@@ -114,6 +115,7 @@ model AssetType {
   containerSpecs AssetContainerSpec[]
   portTemplates  AssetPortTemplate[]
   assets         Asset[]
+  assemblyItems  AssemblyItem[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 }
@@ -150,6 +152,50 @@ model AssetPortTemplate {
   sortOrder   Int       @default(0)
 
   @@unique([typeId, group])
+}
+
+// ---------- 설비 형판 (부품 조립) ----------
+
+/// 부품을 조립해 만든 **한 설비**의 형판 — 「송변전광단말장치 1식」 같은 표준 구성.
+///
+/// 자산 타입이 곧 도면에 놓이는 것이면, 랙을 만들고 자리를 세고 장비를 넣는 일을 매번
+/// 손으로 해야 하고 현황에도 그 부산물이 다 올라온다. 형판은 그 조립을 한 번 해 두고
+/// 계속 쓰기 위한 것이다.
+model Assembly {
+  id         String         @id @default(uuid())
+  key        String         @unique
+  name       String
+  categoryId String?
+  category   AssetCategory? @relation(fields: [categoryId], references: [id])
+  sortOrder  Int            @default(0)
+  isActive   Boolean        @default(true)
+  items      AssemblyItem[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+/// 형판을 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에.
+model AssemblyItem {
+  id           String         @id @default(uuid())
+  assemblyId   String
+  assembly     Assembly       @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
+  /// null = 뿌리(도면에 놓이는 것). 형판마다 뿌리는 하나다.
+  parentItemId String?
+  parentItem   AssemblyItem?  @relation("AssemblyTree", fields: [parentItemId], references: [id], onDelete: Cascade)
+  children     AssemblyItem[] @relation("AssemblyTree")
+  typeId       String
+  type         AssetType      @relation(fields: [typeId], references: [id])
+  /// 만들어질 자산의 이름 — 뿌리는 놓을 때 사용자가 다시 정한다.
+  name         String
+  containerKey String?
+  col          Int?
+  row          Int?
+  colSpan      Int?
+  rowSpan      Int?
+  /// 포트 수·심선 수 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다.
+  portCounts    Json          @default("{}")
+  portPositions Json          @default("{}")
+  sortOrder    Int            @default(0)
 }
 
 // ---------- 케이블 카탈로그 ----------
@@ -203,6 +249,11 @@ model Asset {
   parentAsset   Asset?      @relation("AssetChildren", fields: [parentAssetId], references: [id], onDelete: Restrict)
   children      Asset[]     @relation("AssetChildren")
   containerKey  String?
+  /// 이 자산이 어느 형판에서 나왔는가 — **놓을 때의 이름을 그대로 굳힌다(스냅샷)**.
+  /// 형판을 나중에 고쳐도 이미 놓인 설비는 그때 만든 모습 그대로다. 현장 설비는 형판이
+  /// 바뀌어도 물리적으로 그대로이고, 랙마다 다른 구성이 들어가 있는 것이 정상이다.
+  /// 형판의 **뿌리** 자산에만 적힌다 — 그 아래는 이 자산의 자손이라는 사실로 충분하다.
+  assemblyName  String?
   /// 함체 격자에서의 자리(0-based). 자리 번호는 저장하지 않고 격자에서 유도한다.
   col           Int?
   row           Int?

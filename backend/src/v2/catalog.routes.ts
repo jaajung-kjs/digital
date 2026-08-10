@@ -1,4 +1,5 @@
-import { specFromUpsert, validateTypeSpec } from '@twin/core';
+import { specFromUpsert, validateAssembly, validateTypeSpec } from '@twin/core';
+import { z } from 'zod';
 import type { TypeUpsertBody } from '@twin/core';
 import { Router } from 'express';
 import { authenticate, adminOnly } from './auth.middleware.js';
@@ -13,6 +14,7 @@ import {
   cableGroupPatchSchema,
   cableCategoryCreateSchema,
   cableCategoryPatchSchema,
+  assemblyUpsertSchema,
 } from './schemas.js';
 
 export const catalogRouter = Router();
@@ -92,7 +94,7 @@ function structuralKey(
 
 catalogRouter.get('/', async (_req, res, next) => {
   try {
-    const [categories, types, cableGroups] = await Promise.all([
+    const [categories, types, cableGroups, assemblies] = await Promise.all([
       nextDb.assetCategory.findMany({ orderBy: { sortOrder: 'asc' } }),
       nextDb.assetType.findMany({
         include: {
@@ -106,6 +108,10 @@ catalogRouter.get('/', async (_req, res, next) => {
         include: { categories: { orderBy: { sortOrder: 'asc' } } },
         orderBy: { sortOrder: 'asc' },
       }),
+      nextDb.assembly.findMany({
+        include: { items: { orderBy: { sortOrder: 'asc' } } },
+        orderBy: { sortOrder: 'asc' },
+      }),
     ]);
 
     const typesWithCount = types.map(({ _count, ...t }) => ({
@@ -113,7 +119,7 @@ catalogRouter.get('/', async (_req, res, next) => {
       assetCount: _count.assets,
     }));
 
-    res.json({ categories, types: typesWithCount, cableGroups });
+    res.json({ categories, types: typesWithCount, cableGroups, assemblies });
   } catch (e) {
     next(e);
   }
@@ -384,6 +390,120 @@ catalogRouter.delete('/cable-categories/:id', adminOnly, async (req, res, next) 
     await nextDb.cableCategory.delete({ where: { id } });
     res.status(204).end();
   } catch (e) {
+    next(e);
+  }
+});
+
+
+// ── 설비 형판 ────────────────────────────────────────────────────────────────
+
+/**
+ * 형판은 **덮어쓰기**로 저장한다 — 부품 목록을 통째로 갈아 끼운다.
+ *
+ * 이미 놓인 설비는 놓을 때의 모습을 자산으로 굳혀 두었으므로(스냅샷) 형판을 고쳐도
+ * 건드릴 것이 없다. 그래서 타입 명세와 달리 "쓰이는 중이면 잠금" 이 필요 없다.
+ */
+async function writeAssemblyItems(
+  tx: Prisma.TransactionClient,
+  assemblyId: string,
+  items: z.infer<typeof assemblyUpsertSchema>['items'],
+): Promise<void> {
+  await tx.assemblyItem.deleteMany({ where: { assemblyId } });
+  /* 자식이 부모를 가리키므로 **부모부터** 넣는다. 형판 안의 id 를 실제 행 id 로 바꿔 가며
+     내려간다 — 화면이 임시 id 를 쓰든 기존 id 를 쓰든 여기서 한 번에 해소된다. */
+  const rowIdByItemId = new Map<string, string>();
+  const remaining = [...items];
+  let guard = remaining.length + 1;
+  while (remaining.length > 0 && guard-- > 0) {
+    const ready = remaining.filter((i) => i.parentItemId === null || rowIdByItemId.has(i.parentItemId));
+    if (ready.length === 0) break; // validateAssembly 가 걸렀어야 한다(고리·미아)
+    for (const [i, item] of ready.entries()) {
+      const row = await tx.assemblyItem.create({
+        data: {
+          assemblyId,
+          parentItemId: item.parentItemId === null ? null : rowIdByItemId.get(item.parentItemId)!,
+          typeId: item.typeId,
+          name: item.name,
+          containerKey: item.containerKey,
+          col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
+          portCounts: (item.portCounts ?? {}) as object,
+          portPositions: (item.portPositions ?? {}) as object,
+          sortOrder: i,
+        },
+      });
+      rowIdByItemId.set(item.id, row.id);
+      remaining.splice(remaining.indexOf(item), 1);
+    }
+  }
+}
+
+/** 형판 명세를 코어가 판정할 수 있는 형태로 — 타입 id 를 키로 바꾼다. */
+async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
+  const types = await nextDb.assetType.findMany({ where: { id: { in: body.items.map((i) => i.typeId) } } });
+  const keyById = new Map(types.map((t) => [t.id, t.key]));
+  return {
+    spec: {
+      key: body.key,
+      name: body.name,
+      items: body.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
+    },
+    typeKeys: new Set(types.map((t) => t.key)),
+  };
+}
+
+catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
+  try {
+    const body = assemblyUpsertSchema.parse(req.body);
+    const { spec, typeKeys } = await assemblySpecOf(body);
+    const issue = validateAssembly(spec, typeKeys);
+    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '형판 명세가 유효하지 않습니다', [{ reason: issue }]);
+
+    const created = await nextDb.$transaction(async (tx) => {
+      const row = await tx.assembly.create({
+        data: { key: body.key, name: body.name, categoryId: body.categoryId, sortOrder: body.sortOrder, isActive: body.isActive },
+      });
+      await writeAssemblyItems(tx, row.id, body.items);
+      return row;
+    });
+    res.status(201).json(created);
+  } catch (e) {
+    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 형판 키입니다'));
+    next(e);
+  }
+});
+
+catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
+  try {
+    const id = idParamSchema.parse(req.params.id);
+    const body = assemblyUpsertSchema.parse(req.body);
+    const { spec, typeKeys } = await assemblySpecOf(body);
+    const issue = validateAssembly(spec, typeKeys);
+    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '형판 명세가 유효하지 않습니다', [{ reason: issue }]);
+
+    const updated = await nextDb.$transaction(async (tx) => {
+      const row = await tx.assembly.update({
+        where: { id },
+        data: { key: body.key, name: body.name, categoryId: body.categoryId, sortOrder: body.sortOrder, isActive: body.isActive },
+      });
+      await writeAssemblyItems(tx, row.id, body.items);
+      return row;
+    });
+    res.json(updated);
+  } catch (e) {
+    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '형판을 찾을 수 없습니다'));
+    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 형판 키입니다'));
+    next(e);
+  }
+});
+
+catalogRouter.delete('/assemblies/:id', adminOnly, async (req, res, next) => {
+  try {
+    const id = idParamSchema.parse(req.params.id);
+    // 이미 놓인 설비는 스냅샷이라 형판이 사라져도 그대로 남는다 — 막을 이유가 없다.
+    await nextDb.assembly.delete({ where: { id } });
+    res.status(204).end();
+  } catch (e) {
+    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '형판을 찾을 수 없습니다'));
     next(e);
   }
 });

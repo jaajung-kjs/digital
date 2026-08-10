@@ -152,6 +152,7 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
         width: input.width ?? null,
         height: input.height ?? null,
         parentAssetId: input.parentAssetId ?? null,
+        assemblyName: input.assemblyName ?? null,
         containerKey: input.containerKey ?? null,
         col: input.col ?? null,
         row: input.row ?? null,
