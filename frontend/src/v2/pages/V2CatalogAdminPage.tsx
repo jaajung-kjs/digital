@@ -12,11 +12,7 @@
  * 어느 목록이 지금 편집 대상인지 화면이 말해 주지 않았다.
  */
 import { useState } from 'react';
-import { X } from 'lucide-react';
 import {
-  Button,
-  IconButton,
-  Badge,
   ErrorStrip,
   PromptModal,
   useConfirm,
@@ -30,6 +26,7 @@ import { typeToDraft, emptyDraft, draftIssues, isDraftDirty } from '../catalogDr
 import type { TypeDraft } from '../catalogDraft';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
+import { CatalogEditorBar, InUseNotice } from '../components/admin/CatalogEditorBar';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { PortsEditor } from '../components/admin/PortsEditor';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
@@ -237,22 +234,21 @@ export default function V2CatalogAdminPage() {
         <Tabs items={CATALOG_TABS} value={activeTab} onChange={setActiveTab} className="-mb-px" />
       </PanelHeader>
       <div className="flex min-h-0 flex-1">
-        {/* 목록은 탭이 각자 갖는다 — 지금 편집하는 것 옆에만 그 목록이 선다. */}
+        {/* 목록은 탭이 각자 갖는다 — 지금 편집하는 것 옆에만 그 목록이 선다.
+            폭·테두리·검색은 `CatalogList` 가 소유한다(세 탭이 같은 판). */}
         {activeTab === 'type' && (
-          <aside className="w-64 shrink-0 border-r border-line bg-sidebar">
-            <TypeListPanel
-              catalog={catalog}
-              selectedTypeId={selectedTypeId}
-              onSelectType={selectType}
-              onNewType={handleNewType}
-              onRenameCategory={handleRenameCategory}
-              onDeleteCategory={handleDeleteCategory}
-              onAddCategory={() => {
-                setCategoryError(null);
-                setAddCategoryOpen(true);
-              }}
-            />
-          </aside>
+          <TypeListPanel
+            catalog={catalog}
+            selectedTypeId={selectedTypeId}
+            onSelectType={selectType}
+            onNewType={handleNewType}
+            onRenameCategory={handleRenameCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onAddCategory={() => {
+              setCategoryError(null);
+              setAddCategoryOpen(true);
+            }}
+          />
         )}
 
         {/* ── 우측 영역 ───────────────────────────────────────────────── */}
@@ -281,55 +277,21 @@ export default function V2CatalogAdminPage() {
                 />
               ) : (
                 <>
-                  {/* 저장 바 */}
-                  <div className="shrink-0 flex flex-col border-b border-line bg-surface">
-                    {saveError != null && (
-                      <div className="mx-auto flex w-full max-w-4xl items-center gap-1 border-b border-line px-4 py-1">
-                        <span className="flex-1 text-xs text-danger">{saveError}</span>
-                        <IconButton aria-label="오류 닫기" onClick={() => setSaveError(null)}>
-                          <X size={12} />
-                        </IconButton>
-                      </div>
-                    )}
-                    {issues.length > 0 && saveError == null && (
-                      <div className="mx-auto w-full max-w-4xl px-4 py-1 text-xs text-warning">
-                        입력 오류 {issues.length}건 — 저장 전에 수정하세요
-                      </div>
-                    )}
-                    {/* 구조 잠금 안내 — 개수는 배지가 말하므로 문장에서 되풀이하지 않는다.
-                        (예전에는 "3개 사용 중" 배지 옆에 "자산 3개가 이 종류를 사용 중" 이 또 있었다.) */}
-                    {locked && (
-                      <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-1.5">
-                        <Badge status="warning">{original?.assetCount}개 사용 중</Badge>
-                        <span className="text-xs text-warning">
-                          포트 구조는 변경할 수 없습니다
-                        </span>
-                      </div>
-                    )}
-                    <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-2">
-                      <span className="flex-1 text-xs text-content-muted">
-                        {selectedTypeId == null ? '새 자산 종류' : (original?.name ?? '')}
-                        {dirty && <span className="ml-1 text-warning">●</span>}
-                      </span>
-                      {selectedTypeId != null && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={isSaving}
-                          onClick={() => void handleDeleteType()}
-                          className="text-danger hover:text-danger"
-                        >
-                          종류 삭제
-                        </Button>
-                      )}
-                      <Button variant="secondary" size="sm" disabled={!dirty || isSaving} onClick={handleCancel}>
-                        취소
-                      </Button>
-                      <Button size="sm" disabled={!dirty || isSaving} onClick={() => void handleSave()}>
-                        {isSaving ? '저장 중…' : '저장'}
-                      </Button>
-                    </div>
-                  </div>
+                  <CatalogEditorBar
+                    title={selectedTypeId == null ? '새 자산 종류' : (original?.name ?? '')}
+                    dirty={dirty}
+                    saving={isSaving}
+                    issueCount={issues.length}
+                    error={saveError}
+                    onDismissError={() => setSaveError(null)}
+                    notice={
+                      locked ? <InUseNotice count={original?.assetCount ?? 0} message="포트 구조는 변경할 수 없습니다" /> : null
+                    }
+                    onDelete={selectedTypeId != null ? () => void handleDeleteType() : undefined}
+                    deleteLabel="종류 삭제"
+                    onCancel={handleCancel}
+                    onSave={() => void handleSave()}
+                  />
 
                   {/* 편집 폼 영역 — 스크롤 */}
                   <div className="min-h-0 flex-1 overflow-y-auto p-4">

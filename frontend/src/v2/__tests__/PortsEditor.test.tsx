@@ -28,8 +28,6 @@ const mkDraft = (portOverrides: TypeDraft['ports'] = []): TypeDraft => ({
   name: '랙',
   categoryId: 'cat-1',
   sortOrder: 1,
-  isActive: true,
-  placeable: false,
   defaultWidth: null,
   defaultHeight: null,
   laborType: null,

@@ -43,7 +43,7 @@ export function AddAssetModal({ open, onClose, substationId, gridContext }: AddA
   );
 
   const allActiveTypes = useMemo(
-    () => (catalog.data?.types ?? []).filter((t) => t.isActive),
+    () => catalog.data?.types ?? [],
     [catalog.data],
   );
 

@@ -169,7 +169,6 @@ export interface TypeUpsertBody {
   name: string;
   categoryId: string;
   sortOrder: number;
-  isActive: boolean;
   laborType: string | null;
   installHours: number;
   removeHours: number;

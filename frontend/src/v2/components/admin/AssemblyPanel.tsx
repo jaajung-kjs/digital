@@ -85,7 +85,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
 
   const selected = draft.items.find((i) => i.id === selectedItemId) ?? null;
   /* 무엇을 놓을지는 설비 종류를 짜는 사람이 정한다 — 수용 규칙(컨테이너의 것이었다)은 없다. */
-  const addable = catalog.types.filter((t) => t.isActive);
+  const addable = catalog.types;
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-3 p-4">

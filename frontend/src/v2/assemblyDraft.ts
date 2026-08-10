@@ -22,7 +22,6 @@ export interface AssemblyDraft {
   removeHours: number | null;
   relocateHours: number | null;
   sortOrder: number;
-  isActive: boolean;
   items: AssemblyDraftItem[];
 }
 
@@ -40,7 +39,6 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
     removeHours: a.removeHours,
     relocateHours: a.relocateHours,
     sortOrder: a.sortOrder,
-    isActive: a.isActive,
     items: [...a.items]
       .sort((x, y) => x.sortOrder - y.sortOrder)
       .map(({ sortOrder: _s, ...rest }) => ({ ...rest })),
@@ -52,7 +50,7 @@ export function emptyAssemblyDraft(): AssemblyDraft {
   return {
     key: '', name: '', categoryId: null, gridCols: 4, gridRows: 12,
     laborType: null, installHours: null, removeHours: null, relocateHours: null,
-    sortOrder: 0, isActive: true, items: [],
+    sortOrder: 0, items: [],
   };
 }
 
@@ -116,7 +114,6 @@ export function draftToAssemblyBody(draft: AssemblyDraft) {
     removeHours: draft.removeHours,
     relocateHours: draft.relocateHours,
     sortOrder: draft.sortOrder,
-    isActive: draft.isActive,
     items: draft.items,
   };
 }

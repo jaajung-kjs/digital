@@ -4,7 +4,7 @@ export type { TypeUpsertBody } from '@twin/core';
 export interface V2Category { id: string; key: string; name: string; sortOrder: number }
 export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number }
 export interface V2AssetType {
-  id: string; key: string; name: string; categoryId: string; sortOrder: number; isActive: boolean;
+  id: string; key: string; name: string; categoryId: string; sortOrder: number;
   assetCount: number;
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
   portTemplates: V2PortTemplate[];
@@ -41,7 +41,7 @@ export interface V2Assembly {
   installHours: number | null;
   removeHours: number | null;
   relocateHours: number | null;
-  sortOrder: number; isActive: boolean;
+  sortOrder: number;
   items: V2AssemblyItem[];
 }
 
@@ -54,7 +54,7 @@ export interface AssemblyUpsertBody {
   installHours: number | null;
   removeHours: number | null;
   relocateHours: number | null;
-  sortOrder: number; isActive: boolean;
+  sortOrder: number;
   items: Omit<V2AssemblyItem, 'sortOrder'>[];
 }
 

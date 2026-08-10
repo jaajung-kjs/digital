@@ -1,178 +1,238 @@
 /**
- * CableCatalogPanel — 케이블 카탈로그 관리 탭
+ * CableCatalogPanel — 대장의 「케이블 종류」 탭
  *
- * 그룹 테이블: 이름/색/노무유형/설치공량(per m)/철거공량(per m) 인라인 편집
- *   — key는 표시만
- * 그룹별 종류(카테고리) 리스트: 추가/이름변경/삭제
- *   — 삭제 409(CABLE_CATEGORY_IN_USE) 에러 표면화
+ * 다른 두 탭과 **같은 모양**이다: 왼쪽 목록에서 그룹을 고르고, 오른쪽에서 그 그룹을 고친다.
+ * 예전에는 여섯 그룹을 한 장에 세로로 늘어놓고 카드마다 저장 버튼을 달았다 — 셋 다 「분류 →
+ * 항목」 2단인데 케이블만 손길이 달라서, 탭을 옮길 때마다 무엇을 어디서 누르는지 다시
+ * 익혀야 했다.
+ *
+ * 그룹은 늘리지 않는다(포트가 무엇과 이어지는지를 이 키로 판정한다) — 그래서 `+` 가 없고,
+ * 늘어나는 것은 그룹 안의 **종류**다.
  */
-import { useState } from 'react';
-import { X, Plus, Pencil, Check, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Pencil, Check, Trash2 } from 'lucide-react';
 import {
   Button,
   DetailCard,
   DetailCardHeader,
+  DetailRow,
+  EmptyState,
   Input,
   IconButton,
-  Badge,
-  ErrorStrip,
   PromptModal,
   useConfirm,
-  ItemCard,
-  DetailRow,
 } from '../../../components/ui';
 import type { V2Catalog, V2CableGroup, V2CableCategory } from '../../types';
 import { useCatalogMutations } from '../../hooks';
 import { apiErrorMessage } from '../../apiError';
+import { CatalogList } from './CatalogList';
+import { CatalogEditorBar } from './CatalogEditorBar';
 
 interface CableCatalogPanelProps {
   catalog: V2Catalog;
 }
 
-/** 그룹 행 인라인 편집 */
-function CableGroupRow({ group }: { group: V2CableGroup }) {
-  const mutations = useCatalogMutations();
-  const [editName, setEditName] = useState(group.name);
-  const [editColor, setEditColor] = useState(group.color);
-  const [editLaborType, setEditLaborType] = useState(group.laborType ?? '');
-  const [editInstall, setEditInstall] = useState(String(group.installHoursPerM));
-  const [editRemove, setEditRemove] = useState(String(group.removeHoursPerM));
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+/** 편집 중인 그룹 — 서버 형상에서 고칠 수 있는 것만. */
+interface GroupDraft {
+  name: string;
+  color: string;
+  laborType: string;
+  installHoursPerM: string;
+  removeHoursPerM: string;
+}
 
-  async function save() {
-    if (saving) return;
+const toDraft = (g: V2CableGroup): GroupDraft => ({
+  name: g.name,
+  color: g.color,
+  laborType: g.laborType ?? '',
+  installHoursPerM: String(g.installHoursPerM),
+  removeHoursPerM: String(g.removeHoursPerM),
+});
+
+/** 공량은 미터당 값이라 소수다 — 빈칸이나 글자면 원래 값을 지킨다. */
+const num = (raw: string, fallback: number) => (Number.isFinite(parseFloat(raw)) ? parseFloat(raw) : fallback);
+
+export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
+  const mutations = useCatalogMutations();
+  const groups = catalog.cableGroups;
+
+  const [selectedId, setSelectedId] = useState<string | null>(groups[0]?.id ?? null);
+  const [draft, setDraft] = useState<GroupDraft | null>(groups[0] ? toDraft(groups[0]) : null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const original = groups.find((g) => g.id === selectedId) ?? null;
+
+  /* 고른 것이 사라졌거나(첫 로드) 바뀌면 초안을 새로 뜬다 — 편집 중이면 그대로 둔다. */
+  const selectGroup = (id: string) => {
+    const g = groups.find((x) => x.id === id);
+    if (!g) return;
+    setSelectedId(id);
+    setDraft(toDraft(g));
+    setSaveError(null);
+  };
+  if (original == null && groups.length > 0 && selectedId != null) {
+    // 목록이 갱신되며 고른 것이 사라진 경우
+    setSelectedId(groups[0]!.id);
+    setDraft(toDraft(groups[0]!));
+  }
+
+  const dirty = useMemo(() => {
+    if (!original || !draft) return false;
+    return (
+      draft.name.trim() !== original.name ||
+      draft.color !== original.color ||
+      (draft.laborType.trim() || null) !== original.laborType ||
+      num(draft.installHoursPerM, original.installHoursPerM) !== original.installHoursPerM ||
+      num(draft.removeHoursPerM, original.removeHoursPerM) !== original.removeHoursPerM
+    );
+  }, [draft, original]);
+
+  async function handleSave() {
+    if (!original || !draft || saving) return;
     setSaving(true);
-    setError(null);
-    const installVal = parseFloat(editInstall);
-    const removeVal = parseFloat(editRemove);
-    // 빈 문자열 → null 전송 (백엔드의 명시적 clear 신호; undefined 는 기존값 유지)
-    const laborTypeVal = editLaborType.trim() === '' ? null : editLaborType.trim();
+    setSaveError(null);
     try {
       await mutations.patchCableGroup.mutateAsync({
-        id: group.id,
+        id: original.id,
         body: {
-          name: editName.trim() || group.name,
-          color: editColor,
-          laborType: laborTypeVal,
-          installHoursPerM: isNaN(installVal) ? group.installHoursPerM : installVal,
-          removeHoursPerM: isNaN(removeVal) ? group.removeHoursPerM : removeVal,
+          name: draft.name.trim() || original.name,
+          color: draft.color,
+          // 빈 문자열 → null 전송(백엔드의 명시적 clear 신호; undefined 는 기존값 유지)
+          laborType: draft.laborType.trim() === '' ? null : draft.laborType.trim(),
+          installHoursPerM: num(draft.installHoursPerM, original.installHoursPerM),
+          removeHoursPerM: num(draft.removeHoursPerM, original.removeHoursPerM),
         },
       });
     } catch (err: unknown) {
-      setError(apiErrorMessage(err, '저장 실패'));
+      setSaveError(apiErrorMessage(err, '저장하지 못했습니다'));
     } finally {
       setSaving(false);
     }
   }
 
-  const dirty =
-    editName.trim() !== group.name ||
-    editColor !== group.color ||
-    (editLaborType.trim() || null) !== group.laborType ||
-    parseFloat(editInstall) !== group.installHoursPerM ||
-    parseFloat(editRemove) !== group.removeHoursPerM;
+  const listGroups = [
+    {
+      key: 'all',
+      label: null,
+      items: groups.map((g) => ({ id: g.id, name: g.name, hint: String(g.categories.length) })),
+    },
+  ];
 
   return (
-    <ItemCard title={<Badge status="neutral">{group.key}</Badge>}>
-      <ErrorStrip message={error} onDismiss={() => setError(null)} />
+    <div className="flex min-h-0 flex-1">
+      <CatalogList
+        title="케이블 그룹"
+        groups={listGroups}
+        selectedId={selectedId}
+        onSelect={selectGroup}
+        emptyText="케이블 그룹이 없습니다"
+      />
 
-      {/* name */}
-      <DetailRow label="이름">
-        <Input
-          aria-label={`그룹 ${group.key} 이름`}
-          value={editName}
-          onChange={(e) => setEditName(e.currentTarget.value)}
-        />
-      </DetailRow>
-
-      {/* color */}
-      <DetailRow label="색상">
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            value={editColor}
-            aria-label={`그룹 ${group.key} 색상`}
-            onChange={(e) => setEditColor(e.currentTarget.value)}
-            title={editColor}
-            className="h-7 w-10 cursor-pointer rounded border border-line"
+      <div className="flex min-h-0 flex-1 flex-col">
+        {original == null || draft == null ? (
+          <EmptyState
+            title="선택된 케이블 그룹이 없습니다"
+            description="좌측 목록에서 그룹을 고르세요. 그룹은 미터당 공량과 도면 색을 정하고, 그 안의 종류가 실제로 케이블에 붙습니다."
           />
-          {/* hex 코드는 굳이 읽을 것이 아니다 — 스와치가 값을 보여준다.
-              색을 바꿀 때만 알아볼 수 있게 툴팁으로 남긴다. */}
-        </div>
-      </DetailRow>
+        ) : (
+          <>
+            <CatalogEditorBar
+              title={original.name}
+              dirty={dirty}
+              saving={saving}
+              error={saveError}
+              onDismissError={() => setSaveError(null)}
+              onCancel={() => setDraft(toDraft(original))}
+              onSave={() => void handleSave()}
+            />
 
-      {/* laborType */}
-      <DetailRow label="노무유형">
-        <Input
-          aria-label={`그룹 ${group.key} 노무유형`}
-          value={editLaborType}
-          placeholder="예: 통신내선공"
-          onChange={(e) => setEditLaborType(e.currentTarget.value)}
-        />
-      </DetailRow>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="mx-auto w-full max-w-4xl space-y-3 p-4">
+                <DetailCard>
+                  <DetailCardHeader title="그룹" />
+                  <DetailRow label="이름">
+                    <Input
+                      aria-label="그룹 이름"
+                      value={draft.name}
+                      onChange={(e) => setDraft({ ...draft, name: e.currentTarget.value })}
+                    />
+                  </DetailRow>
+                  <DetailRow label="색상" hint="도면에서 이 그룹의 케이블이 그려지는 색">
+                    {/* hex 코드는 굳이 읽을 것이 아니다 — 스와치가 값을 보여준다. */}
+                    <input
+                      type="color"
+                      aria-label="그룹 색상"
+                      value={draft.color}
+                      title={draft.color}
+                      onChange={(e) => setDraft({ ...draft, color: e.currentTarget.value })}
+                      className="h-7 w-10 cursor-pointer rounded border border-line"
+                    />
+                  </DetailRow>
+                </DetailCard>
 
-      {/* installHoursPerM */}
-      <DetailRow label="신설(h/m)">
-        <Input
-          aria-label={`그룹 ${group.key} 신설 공량`}
-          type="number"
-          value={editInstall}
-          onChange={(e) => setEditInstall(e.currentTarget.value)}
-        />
-      </DetailRow>
+                {/* 공량은 미터당이다 — 자산·설비가 「대」 단위인 것과 다르므로 단위를 라벨에 적는다. */}
+                <DetailCard>
+                  <DetailCardHeader title="공량" />
+                  <DetailRow label="노무유형">
+                    <Input
+                      aria-label="노무유형"
+                      value={draft.laborType}
+                      placeholder="예: 통신내선공"
+                      onChange={(e) => setDraft({ ...draft, laborType: e.currentTarget.value })}
+                    />
+                  </DetailRow>
+                  <DetailRow label="신설(h/m)">
+                    <Input
+                      aria-label="신설 공량"
+                      type="number"
+                      value={draft.installHoursPerM}
+                      onChange={(e) => setDraft({ ...draft, installHoursPerM: e.currentTarget.value })}
+                    />
+                  </DetailRow>
+                  <DetailRow label="철거(h/m)">
+                    <Input
+                      aria-label="철거 공량"
+                      type="number"
+                      value={draft.removeHoursPerM}
+                      onChange={(e) => setDraft({ ...draft, removeHoursPerM: e.currentTarget.value })}
+                    />
+                  </DetailRow>
+                </DetailCard>
 
-      {/* removeHoursPerM */}
-      <DetailRow label="철거(h/m)">
-        <Input
-          aria-label={`그룹 ${group.key} 철거 공량`}
-          type="number"
-          value={editRemove}
-          onChange={(e) => setEditRemove(e.currentTarget.value)}
-        />
-      </DetailRow>
-
-      {dirty && (
-        <div className="flex justify-end">
-          <Button size="sm" disabled={saving} leftIcon={<Check size={12} />} onClick={() => void save()}>
-            {saving ? '저장 중…' : '저장'}
-          </Button>
-        </div>
-      )}
-
-      {/* 카테고리 리스트 */}
-      <CableCategoryList group={group} />
-    </ItemCard>
+                <CableCategoryCard group={original} />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
-/** 그룹 내 카테고리 관리 */
-function CableCategoryList({ group }: { group: V2CableGroup }) {
+/**
+ * 그룹 안의 종류 — 실제로 케이블에 붙는 것.
+ *
+ * 그룹은 늘리지 않지만 종류는 계속 는다. 저장 바를 거치지 않고 바로 반영되는 이유: 이름 하나뿐이라
+ * 「고치는 중」 상태를 둘 것이 없고, 삭제는 쓰이는 중이면 서버가 거부한다.
+ */
+function CableCategoryCard({ group }: { group: V2CableGroup }) {
   const { confirm, confirmDialog } = useConfirm();
   const mutations = useCatalogMutations();
-  const [catError, setCatError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [addOpen, setAddOpen] = useState(false);
 
   async function handleAdd(name: string) {
-    setCatError(null);
+    setError(null);
     const maxOrder = Math.max(0, ...group.categories.map((c) => c.sortOrder));
     try {
-      await mutations.createCableCategory.mutateAsync({
-        groupId: group.id,
-        name,
-        sortOrder: maxOrder + 1,
-      });
+      await mutations.createCableCategory.mutateAsync({ groupId: group.id, name, sortOrder: maxOrder + 1 });
       setAddOpen(false); // 성공했을 때만 닫는다 — 실패는 모달 안에서 보여준다
     } catch (err: unknown) {
-      setCatError(apiErrorMessage(err, '추가 실패'));
+      setError(apiErrorMessage(err, '추가하지 못했습니다'));
     }
-  }
-
-  function startEdit(cat: V2CableCategory) {
-    setEditingId(cat.id);
-    setEditingName(cat.name);
   }
 
   async function commitEdit(cat: V2CableCategory) {
@@ -180,49 +240,88 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
       setEditingId(null);
       return;
     }
-    setCatError(null);
+    setError(null);
     try {
       await mutations.patchCableCategory.mutateAsync({ id: cat.id, body: { name: editingName.trim() } });
       setEditingId(null);
     } catch (err: unknown) {
-      setCatError(apiErrorMessage(err, '이름 변경 실패'));
+      setError(apiErrorMessage(err, '이름을 바꾸지 못했습니다'));
     }
   }
 
   async function handleDelete(cat: V2CableCategory) {
-    if (
-      !(await confirm({
-        title: '케이블 종류 삭제',
-        message: `'${cat.name}' 을 삭제합니다.`,
-        confirmLabel: '삭제',
-        danger: true,
-      }))
-    )
-      return;
-    setCatError(null);
+    const ok = await confirm({
+      title: '케이블 종류 삭제',
+      message: `'${cat.name}' 을 삭제합니다. 이 종류를 쓰는 케이블이 있으면 거부됩니다.`,
+      confirmLabel: '삭제',
+      danger: true,
+    });
+    if (!ok) return;
+    setError(null);
     try {
       await mutations.deleteCableCategory.mutateAsync(cat.id);
     } catch (err: unknown) {
-      setCatError(apiErrorMessage(err, '삭제 실패'));
+      setError(apiErrorMessage(err, '삭제하지 못했습니다'));
     }
   }
 
   return (
-    <div className="mt-1 border-t border-line pt-1.5 space-y-1">
-      <div className="flex items-center gap-1">
-        <span className="flex-1 text-xs font-medium text-content-muted">종류 (카테고리)</span>
-        <Button
-          variant="secondary"
-          size="sm"
-          leftIcon={<Plus size={13} />}
-          onClick={() => {
-            setCatError(null);
-            setAddOpen(true);
-          }}
-        >
-          추가
-        </Button>
-      </div>
+    <DetailCard>
+      <DetailCardHeader
+        title="종류"
+        badge={String(group.categories.length)}
+        badgeStatus="neutral"
+        actions={
+          <Button variant="secondary" size="sm" onClick={() => { setError(null); setAddOpen(true); }}>
+            추가
+          </Button>
+        }
+      />
+      {error && <p className="text-xs text-danger">{error}</p>}
+      {group.categories.length === 0 && <p className="text-xs text-content-faint">종류가 없습니다.</p>}
+
+      <ul className="space-y-0.5">
+        {group.categories.map((cat) => (
+          <li key={cat.id} className="group flex items-center gap-1.5 rounded px-1 py-0.5 hover:bg-surface-2">
+            {editingId === cat.id ? (
+              <>
+                <Input
+                  aria-label="종류 이름 편집"
+                  value={editingName}
+                  className="flex-1"
+                  autoFocus
+                  onChange={(e) => setEditingName(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void commitEdit(cat);
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                />
+                <IconButton aria-label="저장" onClick={() => void commitEdit(cat)}>
+                  <Check size={12} />
+                </IconButton>
+              </>
+            ) : (
+              <>
+                <span className="min-w-0 flex-1 truncate text-sm text-content">{cat.name}</span>
+                {/* 목록 행의 액션은 호버에서 드러낸다(조직 트리와 같은 규칙).
+                    자리는 항상 차지하므로 호버해도 행이 움직이지 않는다. */}
+                <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <IconButton
+                    aria-label={`${cat.name} 이름 변경`}
+                    size="sm"
+                    onClick={() => { setEditingId(cat.id); setEditingName(cat.name); }}
+                  >
+                    <Pencil size={12} />
+                  </IconButton>
+                  <IconButton aria-label={`${cat.name} 삭제`} size="sm" onClick={() => void handleDelete(cat)}>
+                    <Trash2 size={12} />
+                  </IconButton>
+                </span>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
 
       <PromptModal
         open={addOpen}
@@ -231,78 +330,11 @@ function CableCategoryList({ group }: { group: V2CableGroup }) {
         label="종류 이름"
         placeholder="예: 광점퍼코드"
         busy={mutations.createCableCategory.isPending}
-        error={catError}
+        error={error}
         onConfirm={handleAdd}
         onClose={() => setAddOpen(false)}
       />
-
-      {catError && (
-        <div className="flex items-center gap-1">
-          <span className="flex-1 text-xs text-danger">{catError}</span>
-          <IconButton aria-label="카테고리 오류 닫기" onClick={() => setCatError(null)}>
-            <X size={11} />
-          </IconButton>
-        </div>
-      )}
-
-      {group.categories.length === 0 && <p className="text-xs text-content-faint">종류가 없습니다.</p>}
-
-      {group.categories.map((cat) => (
-        <div key={cat.id} className="group flex items-center gap-1.5 rounded px-1 hover:bg-surface-2">
-          {editingId === cat.id ? (
-            <>
-              <Input
-                aria-label="종류 이름 편집"
-                value={editingName}
-                className="flex-1"
-                onChange={(e) => setEditingName(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void commitEdit(cat);
-                  if (e.key === 'Escape') setEditingId(null);
-                }}
-                autoFocus
-              />
-              <IconButton aria-label="저장" onClick={() => void commitEdit(cat)}>
-                <Check size={12} />
-              </IconButton>
-            </>
-          ) : (
-            <>
-              <span className="flex-1 text-sm text-content">{cat.name}</span>
-              {/* 목록 행의 액션은 호버에서 드러낸다(조직 트리와 같은 규칙).
-                  자리는 항상 차지하므로 호버해도 행이 움직이지 않는다. */}
-              <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                <IconButton aria-label={`${cat.name} 이름 변경`} size="sm" onClick={() => startEdit(cat)}>
-                  <Pencil size={12} />
-                </IconButton>
-                <IconButton aria-label={`${cat.name} 삭제`} size="sm" onClick={() => void handleDelete(cat)}>
-                  <Trash2 size={12} />
-                </IconButton>
-              </span>
-            </>
-          )}
-        </div>
-      ))}
       {confirmDialog}
-    </div>
-  );
-}
-
-export function CableCatalogPanel({ catalog }: CableCatalogPanelProps) {
-  return (
-    <div className="mx-auto max-w-4xl space-y-4 p-4">
-      <DetailCard>
-        <DetailCardHeader title="케이블 그룹 관리" />
-        <p className="text-xs text-content-faint">
-          그룹 키는 변경할 수 없습니다. 이름·색상·노무유형·공량을 수정하고 저장 버튼을 누르세요.
-        </p>
-      </DetailCard>
-
-      {catalog.cableGroups.length === 0 && <p className="text-xs text-content-faint">케이블 그룹이 없습니다.</p>}
-
-      {catalog.cableGroups.map((group) => (
-        <CableGroupRow key={group.id} group={group} />
-      ))}
-    </div>
+    </DetailCard>
   );
 }

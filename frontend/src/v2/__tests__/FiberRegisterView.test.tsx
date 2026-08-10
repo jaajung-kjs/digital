@@ -15,8 +15,8 @@ import type { V2Asset, V2AssetType, V2Cable } from '../types';
 
 const mockTypes: V2AssetType[] = [
   {
-    id: 't', key: 'SLOT-X', name: '경로슬롯', categoryId: 'c', sortOrder: 1, isActive: true,
-    assetCount: 0, placeable: false, defaultWidth: null, defaultHeight: null,
+    id: 't', key: 'SLOT-X', name: '경로슬롯', categoryId: 'c', sortOrder: 1,
+    assetCount: 0,
     laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
     containerSpecs: [],
     portTemplates: [

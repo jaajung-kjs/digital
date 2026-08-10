@@ -75,23 +75,6 @@ export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsF
           </div>
         </DetailRow>
 
-        {/* 단종 — 종류는 자산이 하나라도 있으면 지울 수 없다. 그래서 "이제 새로 만들지
-            않는다" 를 표시할 방법이 따로 필요하다. 체크하면 설비 종류를 짤 때의 목록에서
-            빠지고, 이미 있는 자산은 그대로 남는다.
-            ("활성" 이라는 이름으로는 무엇이 달라지는지 알 수 없어 바꿨다.) */}
-        <DetailRow label="단종">
-          <label className="flex items-center gap-2 text-sm text-content">
-            <input
-              type="checkbox"
-              checked={!draft.isActive}
-              onChange={(e) => {
-                const val = e.currentTarget.checked;
-                onChange({ isActive: !val });
-              }}
-            />
-            새 자산 만들 때 목록에서 숨김
-          </label>
-        </DetailRow>
       </DetailCard>
 
       {/* ── 공량 ─────────────────────────────────────────────────────── */}

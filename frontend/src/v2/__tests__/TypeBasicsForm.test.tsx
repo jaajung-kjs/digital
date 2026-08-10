@@ -30,7 +30,6 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   name: '광단말',
   categoryId: 'cat-comm',
   sortOrder: 1,
-  isActive: true,
   assetCount: 0,
   laborType: '통신내선공',
   installHours: 2,

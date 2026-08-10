@@ -26,7 +26,7 @@ describe('specFromCatalog', () => {
 describe('specFromUpsert', () => {
   // row 와 같은 종류를 upsert 바디(평평한 wire 형상)로 표현 — 포트는 배열 순서가 곧 sortOrder 다.
   const body: TypeUpsertBody = {
-    key: 'PITR-5000', name: 'PITR-5000', categoryId: 'cat-통신', sortOrder: 10, isActive: true,
+    key: 'PITR-5000', name: 'PITR-5000', categoryId: 'cat-통신', sortOrder: 10,
     laborType: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3,
     ports: [{ group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' }],
   };

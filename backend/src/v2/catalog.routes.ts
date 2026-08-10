@@ -205,7 +205,6 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
             name: body.name,
             categoryId: body.categoryId,
             sortOrder: body.sortOrder,
-            isActive: body.isActive,
             laborType: body.laborType,
             installHours: body.installHours,
             removeHours: body.removeHours,
@@ -272,7 +271,6 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
           name: body.name,
           categoryId: body.categoryId,
           sortOrder: body.sortOrder,
-          isActive: body.isActive,
           laborType: body.laborType,
           installHours: body.installHours,
           removeHours: body.removeHours,
@@ -446,7 +444,7 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
           gridCols: body.gridCols, gridRows: body.gridRows,
           laborType: body.laborType, installHours: body.installHours,
           removeHours: body.removeHours, relocateHours: body.relocateHours,
-          sortOrder: body.sortOrder, isActive: body.isActive,
+          sortOrder: body.sortOrder,
         },
       });
       await writeAssemblyItems(tx, row.id, body.items);
@@ -476,7 +474,7 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
           gridCols: body.gridCols, gridRows: body.gridRows,
           laborType: body.laborType, installHours: body.installHours,
           removeHours: body.removeHours, relocateHours: body.relocateHours,
-          sortOrder: body.sortOrder, isActive: body.isActive,
+          sortOrder: body.sortOrder,
         },
       });
       await writeAssemblyItems(tx, row.id, body.items);

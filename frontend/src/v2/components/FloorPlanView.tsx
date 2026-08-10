@@ -342,10 +342,10 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
    *
    * 구성이 비어 있어도 뺄 수 없다: 분전반은 회로를 **놓고 나서** 채우는 것이라 처음부터
    * 비어 있다. 예전에는 `items.length > 0` 으로 걸러서 분전반을 도면에 놓을 방법이 아예
-   * 없었다.
+   * 없었다. 「단종」 딱지도 걷었다 — 목록의 검색이 그 일을 대신한다.
    */
   const assemblies = useMemo(
-    () => (catalog.data?.assemblies ?? []).filter((a) => a.isActive),
+    () => catalog.data?.assemblies ?? [],
     [catalog.data],
   );
   /** 지금 그린 설비 종류 — 모달이 이름을 물을 때 무엇이 함께 생기는지 보여 준다. */

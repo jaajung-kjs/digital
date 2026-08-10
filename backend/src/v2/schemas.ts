@@ -112,7 +112,6 @@ export const assemblyUpsertSchema = z.object({
   removeHours: z.number().min(0).nullable().default(null),
   relocateHours: z.number().min(0).nullable().default(null),
   sortOrder: z.number().int(),
-  isActive: z.boolean(),
   // 빈 설비 종류도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
   items: z.array(assemblyItemSchema),
 });
@@ -123,7 +122,6 @@ export const typeUpsertSchema = z.object({
   name: z.string().trim().min(1),
   categoryId: z.string().uuid(),
   sortOrder: z.number().int(),
-  isActive: z.boolean(),
   laborType: z.string().trim().min(1).nullable(),
   installHours: z.number().min(0),
   removeHours: z.number().min(0),

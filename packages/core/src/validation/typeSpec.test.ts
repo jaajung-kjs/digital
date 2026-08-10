@@ -8,7 +8,6 @@ const CTX = { categoryKeys: ['통신', '전원'], mediumKeys: ['fiber', 'fiber-t
 function base(over: Partial<AssetTypeSpec> = {}): AssetTypeSpec {
   return {
     key: 'T1', name: '테스트', categoryKey: '통신', sortOrder: 0,
-    placement: { placeable: false },
     labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 }, containers: [], ports: [], links: [],
     ...over,
   };

@@ -88,7 +88,7 @@ function resolvePlacement(p: { floorId?: string | null; parentAssetId?: string |
 
 async function loadTypeSpec(tx: Tx, typeId: string) {
   const row = await tx.assetType.findUnique({ where: { id: typeId }, include: TYPE_INCLUDE });
-  if (!row || !row.isActive) throw new HttpError(422, 'INVALID_TYPE', '유효하지 않은 자산 종류입니다');
+  if (!row) throw new HttpError(422, 'INVALID_TYPE', '유효하지 않은 자산 종류입니다');
   return { row, spec: typeRowToSpec(row) };
 }
 

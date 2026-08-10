@@ -4,13 +4,13 @@
  * 설비 종류는 **한 번 만들어 계속 쓰는 것**이다. 그래서 목록에서 고르고 고치고 지운다 —
  * 배치할 때 그때그때 조립하는 일회성 도구가 아니다.
  *
- * 고쳐도 **이미 놓인 설비는 그대로다**(스냅샷). 놓을 때의 설비 종류 이름을 자산에 굳혀 두므로
- * 설비 종류를 고치거나 지워도 현장 데이터는 건드릴 것이 없다 — 그래서 자산 종류 명세와 달리
- * "쓰이는 중이면 잠금" 이 없다.
+ * 고쳐도 **이미 놓인 설비의 구성은 그대로다**(스냅샷) — 분류만 이 종류를 계속 가리킨다.
+ * 그래서 자산 종류와 달리 "쓰이는 중이면 구조 잠금" 이 없다.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
-import { Button, EmptyState, IconButton, cn, useConfirm, SELECTABLE } from '../../../components/ui';
+import { EmptyState, useConfirm } from '../../../components/ui';
+import { CatalogList } from './CatalogList';
+import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
 import {
   assemblyIssues, assemblyToDraft, draftToAssemblyBody, emptyAssemblyDraft,
@@ -74,88 +74,63 @@ export function AssemblyCatalogPanel({ catalog }: { catalog: V2Catalog }) {
     setDraft(null);
   }
 
+  /* 목록은 **분류로 묶는다** — 자산 종류 탭과 같은 어법이다. 예전에는 설비 종류만 평면
+     목록이라, 같은 2단 구조인데 탭마다 다른 모양으로 보였다. */
+  const listGroups = useMemo(() => {
+    const byCategory = new Map<string, typeof catalog.assemblies>();
+    for (const a of catalog.assemblies) {
+      const key = a.categoryId ?? '';
+      byCategory.set(key, [...(byCategory.get(key) ?? []), a]);
+    }
+    const named = catalog.categories
+      .filter((c) => byCategory.has(c.id))
+      .map((c) => ({
+        key: c.id,
+        label: c.name,
+        items: (byCategory.get(c.id) ?? []).map((a) => ({ id: a.id, name: a.name, hint: String(a.items.length) })),
+      }));
+    // 분류를 정하지 않은 것도 잃지 않는다 — 맨 아래 한 묶음으로.
+    const loose = byCategory.get('') ?? [];
+    return loose.length > 0
+      ? [...named, { key: '', label: '분류 없음', items: loose.map((a) => ({ id: a.id, name: a.name, hint: String(a.items.length) })) }]
+      : named;
+  }, [catalog.assemblies, catalog.categories]);
+
   return (
     <div className="flex min-h-0 flex-1">
-      {/* 목록 */}
-      <aside className="w-56 shrink-0 border-r border-line">
-        <div className="flex items-center gap-1 border-b border-line px-3 py-2">
-          <span className="flex-1 text-xs text-content-muted">설비 종류 {catalog.assemblies.length}</span>
-          <IconButton
-            aria-label="설비 종류 추가"
-            onClick={() => {
-              setSelectedId(null);
-              setDraft(emptyAssemblyDraft());
-            }}
-          >
-            <Plus size={14} />
-          </IconButton>
-        </div>
-        <ul className="p-1">
-          {catalog.assemblies.map((a) => (
-            <li key={a.id}>
-              <button
-                type="button"
-                className={cn(
-                  'w-full truncate rounded px-2 py-1.5 text-left text-sm',
-                  SELECTABLE,
-                  selectedId === a.id && 'bg-info-bg font-medium text-primary hover:bg-info-bg',
-                )}
-                onClick={() => setSelectedId(a.id)}
-              >
-                {a.name}
-                <span className="ml-1 text-xs text-content-faint">{a.items.length}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
+      <CatalogList
+        title="설비 종류"
+        groups={listGroups}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onAdd={() => {
+          setSelectedId(null);
+          setDraft(emptyAssemblyDraft());
+        }}
+        addLabel="설비 종류 추가"
+        emptyText="설비 종류가 없습니다"
+      />
 
-      {/* 편집 */}
       <div className="flex min-h-0 flex-1 flex-col">
         {draft == null ? (
           <EmptyState
             title="선택된 설비 종류가 없습니다"
-            description="좌측 목록에서 설비 종류를 고르거나, + 버튼으로 새 설비 종류를 만드세요. 설비 종류는 「송변전광단말장치 1식」처럼 부품을 조립해 둔 한 설비입니다."
+            description="좌측 목록에서 고르거나, + 버튼으로 새로 만드세요. 설비 종류는 도면에 놓이고 현황에 집계되는 단위입니다."
           />
         ) : (
           <>
-            <div className="shrink-0 border-b border-line bg-surface">
-              {saveError != null && (
-                <p className="mx-auto w-full max-w-4xl px-4 py-1 text-xs text-danger">{saveError}</p>
-              )}
-              {issues.length > 0 && saveError == null && (
-                <p className="mx-auto w-full max-w-4xl px-4 py-1 text-xs text-warning">
-                  입력 오류 {issues.length}건 — 저장 전에 수정하세요
-                </p>
-              )}
-              <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-2">
-                <span className="flex-1 text-xs text-content-muted">
-                  {selectedId == null ? '신규 설비 종류' : (original?.name ?? '')}
-                  {dirty && <span className="ml-1 text-warning">●</span>}
-                </span>
-                {selectedId != null && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-danger hover:text-danger"
-                    onClick={() => void handleDelete()}
-                  >
-                    설비 종류 삭제
-                  </Button>
-                )}
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={!dirty || isSaving}
-                  onClick={() => setDraft(original ? assemblyToDraft(original) : emptyAssemblyDraft())}
-                >
-                  취소
-                </Button>
-                <Button size="sm" disabled={!dirty || isSaving || issues.length > 0} onClick={() => void handleSave()}>
-                  {isSaving ? '저장 중…' : '저장'}
-                </Button>
-              </div>
-            </div>
+            <CatalogEditorBar
+              title={selectedId == null ? '새 설비 종류' : (original?.name ?? '')}
+              dirty={dirty}
+              saving={isSaving}
+              issueCount={issues.length}
+              error={saveError}
+              onDismissError={() => setSaveError(null)}
+              onDelete={selectedId != null ? () => void handleDelete() : undefined}
+              deleteLabel="종류 삭제"
+              onCancel={() => setDraft(original ? assemblyToDraft(original) : emptyAssemblyDraft())}
+              onSave={() => void handleSave()}
+            />
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               <AssemblyPanel draft={draft} onChange={setDraft} catalog={catalog} issues={issues} />

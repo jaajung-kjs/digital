@@ -9,7 +9,6 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   name: 'PITR',
   categoryId: 'cat-comm',
   sortOrder: 1,
-  isActive: true,
   assetCount: 0,
   laborType: '통신내선공',
   installHours: 2,
@@ -48,7 +47,6 @@ describe('catalogDraft', () => {
     expect(draft.name).toBe(type.name);
     expect(draft.categoryId).toBe(type.categoryId);
     expect(draft.sortOrder).toBe(type.sortOrder);
-    expect(draft.isActive).toBe(type.isActive);
     expect(draft.laborType).toBe(type.laborType);
     expect(draft.installHours).toBe(type.installHours);
     expect(draft.removeHours).toBe(type.removeHours);

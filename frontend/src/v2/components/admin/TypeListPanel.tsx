@@ -1,14 +1,18 @@
 /**
- * TypeListPanel — 좌측 사이드바 내용(폭·테두리·배경은 부모 aside 가 소유한다)
- * - 분류(카테고리)별 그룹 타입 리스트
- * - 타입명 + assetCount 배지 + 비활성 흐림
- * - 분류 행 우측: 연필(이름 변경), +(타입 추가), 휴지통(빈 분류만)
- * - 헤더 우측 + 버튼으로 분류 추가(조직 트리와 같은 형태)
+ * TypeListPanel — 「자산 종류」 탭의 목록.
+ *
+ * 판은 세 탭이 공유하는 `CatalogList` 가 그린다 — 여기서는 **이 대장에만 있는 것**만 얹는다:
+ * 분류를 새로 만들고, 이름을 바꾸고, 비어 있으면 지우는 일. 설비·케이블 탭은 분류를 손대지
+ * 않으므로 그 자리에 아무것도 없다.
+ *
+ * 예전에는 이 파일이 목록 전체(머리줄·묶음·행·선택 표시)를 따로 그렸다. 그래서 설비 종류
+ * 목록과 미묘하게 달랐고(폭 64 vs 56, 분류 묶음 유무), 검색은 어느 쪽에도 없었다.
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { Badge, IconButton, Input, useConfirm, PanelHeader, cn, SELECTABLE, SELECTED } from '../../../components/ui';
+import { IconButton, Input } from '../../../components/ui';
 import type { V2Catalog, V2Category } from '../../types';
+import { CatalogList } from './CatalogList';
 
 interface TypeListPanelProps {
   catalog: V2Catalog;
@@ -29,136 +33,87 @@ export function TypeListPanel({
   onDeleteCategory,
   onAddCategory,
 }: TypeListPanelProps) {
-  const { confirm, confirmDialog } = useConfirm();
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  function startRename(cat: V2Category) {
-    setEditingCategoryId(cat.id);
-    setEditingName(cat.name);
-  }
-
   function commitRename(cat: V2Category) {
     const trimmed = editingName.trim();
-    if (trimmed && trimmed !== cat.name) {
-      onRenameCategory(cat, trimmed);
-    }
+    if (trimmed && trimmed !== cat.name) onRenameCategory(cat, trimmed);
     setEditingCategoryId(null);
   }
 
-  function cancelRename() {
-    setEditingCategoryId(null);
-  }
+  const groups = useMemo(
+    () =>
+      catalog.categories.map((cat) => {
+        const items = catalog.types
+          .filter((t) => t.categoryId === cat.id)
+          .map((t) => ({ id: t.id, name: t.name, hint: t.assetCount > 0 ? String(t.assetCount) : undefined }));
+        return {
+          key: cat.id,
+          label:
+            editingCategoryId === cat.id ? (
+              /* 이름을 고치는 중에는 묶음 머리줄 자리에 상자가 선다 — 모달을 띄우면
+                 어느 분류를 고치는 중인지 화면에서 사라진다. */
+              <Input
+                aria-label="분류 이름 편집"
+                size="sm"
+                value={editingName}
+                autoFocus
+                onChange={(e) => setEditingName(e.currentTarget.value)}
+                onBlur={() => commitRename(cat)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitRename(cat);
+                  if (e.key === 'Escape') setEditingCategoryId(null);
+                }}
+              />
+            ) : (
+              cat.name
+            ),
+          labelText: cat.name,
+          items,
+          actions: (
+            <>
+              <IconButton
+                aria-label={`${cat.name} 이름 변경`}
+                size="sm"
+                onClick={() => {
+                  setEditingCategoryId(cat.id);
+                  setEditingName(cat.name);
+                }}
+              >
+                <Pencil size={12} />
+              </IconButton>
+              <IconButton aria-label={`${cat.name}에 종류 추가`} size="sm" onClick={() => onNewType(cat.id)}>
+                <Plus size={12} />
+              </IconButton>
+              {/* 빈 분류만 지울 수 있다 — 종류가 남아 있으면 서버가 거부하므로 아예 막는다. */}
+              <IconButton
+                aria-label={`${cat.name} 분류 삭제`}
+                size="sm"
+                disabled={items.length > 0}
+                onClick={() => onDeleteCategory(cat)}
+              >
+                <Trash2 size={12} />
+              </IconButton>
+            </>
+          ),
+        };
+      }),
+    [catalog.categories, catalog.types, editingCategoryId, editingName],
+  );
 
   return (
-    <div className="flex h-full flex-col">
-      <PanelHeader
-        variant="sidebar"
-        title="자산 종류"
-        actions={
-          <IconButton aria-label="분류 추가" onClick={onAddCategory}>
-            <Plus size={14} />
-          </IconButton>
-        }
-      />
-      {/* 분류별 섹션 */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {catalog.categories
-          .slice()
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((cat) => {
-            /* 이름순 — 타입의 `정렬` 값은 없앴다. 이 목록 한 곳에서만 쓰였는데 정작
-               평면도 배치 도구와 자산 추가 목록은 그 순서를 따르지 않아, 값을 고쳐도
-               실제 작업 화면에는 아무 일도 일어나지 않았다. */
-            const types = catalog.types
-              .filter((t) => t.categoryId === cat.id)
-              .slice()
-              .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-            const canDelete = types.length === 0;
-
-            return (
-              <div key={cat.id}>
-                {/* 분류 헤더 */}
-                <div className="group flex items-center gap-1 border-b border-line bg-surface-2 px-3 py-1.5">
-                  {editingCategoryId === cat.id ? (
-                    <Input
-                      aria-label="분류 이름"
-                      size="sm"
-                      className="flex-1 border-primary"
-                      value={editingName}
-                      autoFocus
-                      onChange={(e) => setEditingName(e.currentTarget.value)}
-                      onBlur={() => commitRename(cat)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.currentTarget.blur();
-                        }
-                        if (e.key === 'Escape') cancelRename();
-                      }}
-                    />
-                  ) : (
-                    <span className="flex-1 min-w-0 truncate text-xs font-semibold text-content-muted">{cat.name}</span>
-                  )}
-                  <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                    <IconButton aria-label={`${cat.name} 이름 변경`} size="sm" onClick={() => startRename(cat)}>
-                      <Pencil size={12} />
-                    </IconButton>
-                    <IconButton
-                      aria-label={`${cat.name}에 타입 추가`}
-                      size="sm"
-                      onClick={() => onNewType(cat.id)}
-                    >
-                      <Plus size={12} />
-                    </IconButton>
-                    <IconButton
-                      aria-label={`${cat.name} 분류 삭제`}
-                      size="sm"
-                      disabled={!canDelete}
-                      onClick={async () => {
-                        if (!canDelete) return;
-                        const ok = await confirm({
-                          title: '분류 삭제',
-                          message: `"${cat.name}" 분류를 삭제합니다.`,
-                          confirmLabel: '삭제',
-                          danger: true,
-                        });
-                        if (ok) onDeleteCategory(cat);
-                      }}
-                    >
-                      <Trash2 size={12} />
-                    </IconButton>
-                  </div>
-                </div>
-
-                {/* 타입 목록 */}
-                {types.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    className={cn(
-                      'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm',
-                      SELECTABLE,
-                      !t.isActive && 'opacity-50',
-                      selectedTypeId === t.id ? SELECTED : 'text-content',
-                    )}
-                    onClick={() => onSelectType(t.id)}
-                  >
-                    <span className="flex-1 min-w-0 truncate">{t.name}</span>
-                    {t.assetCount > 0 && (
-                      <Badge status="neutral" className="shrink-0">
-                        {t.assetCount}
-                      </Badge>
-                    )}
-                  </button>
-                ))}
-
-                {types.length === 0 && <div className="px-3 py-1.5 text-xs text-content-faint">없음</div>}
-              </div>
-            );
-          })}
-      </div>
-
-      {confirmDialog}
-    </div>
+    <CatalogList
+      title="자산 종류"
+      groups={groups}
+      selectedId={selectedTypeId}
+      onSelect={onSelectType}
+      headerActions={
+        <IconButton aria-label="분류 추가" onClick={onAddCategory}>
+          <Plus size={14} />
+        </IconButton>
+      }
+      emptyText="자산 종류가 없습니다"
+    />
   );
 }

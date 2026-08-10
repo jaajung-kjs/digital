@@ -21,7 +21,7 @@ import type { V2Asset, V2AssetType, V2Cable, V2Floor } from '../types';
    없다). 케이블 그룹 1개(카테고리 1개)도 공급한다. */
 const mockTypes: V2AssetType[] = [
   {
-    id: 't-panel', key: 'PANEL', name: '배전반', categoryId: 'c1', sortOrder: 1, isActive: true,
+    id: 't-panel', key: 'PANEL', name: '배전반', categoryId: 'c1', sortOrder: 1,
     assetCount: 0, laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
     portTemplates: [],
   },
@@ -29,7 +29,7 @@ const mockTypes: V2AssetType[] = [
 const mockAssemblies = [
   {
     id: 'asm-panel', key: 'PANEL-SET', name: '배전반', categoryId: 'c1',
-    gridCols: 1, gridRows: 1, sortOrder: 1, isActive: true,
+    gridCols: 1, gridRows: 1, sortOrder: 1,
     items: [{ id: 'it1', typeId: 't-panel', name: '배전반', col: 0, row: 0, colSpan: 1, rowSpan: 1, sortOrder: 0 }],
   },
 ];

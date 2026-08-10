@@ -61,8 +61,7 @@ describe('validateAssembly', () => {
 
 describe('instantiateAssembly', () => {
   const devType: AssetTypeSpec = {
-    key: 'OPT-TERM', name: '광단말', categoryKey: '통신', sortOrder: 1,
-    placement: { placeable: false }, labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
+    key: 'OPT-TERM', name: '광단말', categoryKey: '통신', sortOrder: 1, labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
     ports: [{ group: 'OPT', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' }],
   };
   const swType: AssetTypeSpec = {

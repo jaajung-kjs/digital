@@ -8,7 +8,6 @@ const device: AssetTypeSpec = {
   name: '장비',
   categoryKey: '통신',
   sortOrder: 1,
-  placement: { placeable: true },
   labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
   fields: [],
   containers: [],

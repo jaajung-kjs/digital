@@ -3,7 +3,7 @@ import { emptyOverlay } from '../store/overlay';
 import { buildReportItems } from '../reportSelectors';
 
 const labor = { laborType: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3 };
-const rackType = { id: 't-rack', key: 'SW', name: 'L3 스위치', categoryId: 'c', sortOrder: 1, isActive: true, ...labor, portTemplates: [] };
+const rackType = { id: 't-rack', key: 'SW', name: 'L3 스위치', categoryId: 'c', sortOrder: 1, ...labor, portTemplates: [] };
 const fiberCat = 'cat-f';
 const groups = [{ id: 'g-f', key: 'fiber', name: '광', color: '#0f0', laborType: '통신외선공', installHoursPerM: 0.04, removeHoursPerM: 0.02, sortOrder: 1, categories: [{ id: fiberCat, name: '광케이블', sortOrder: 1 }] }];
 
@@ -79,7 +79,7 @@ describe('buildReportItems', () => {
 describe('1식 공량', () => {
   const optSet = {
     id: 'asm-1', key: 'OPT-SET', name: '송변전광단말장치', categoryId: 'c',
-    gridCols: 4, gridRows: 12, sortOrder: 1, isActive: true, items: [],
+    gridCols: 4, gridRows: 12, sortOrder: 1, items: [],
     laborType: '통신내선공', installHours: 40, removeHours: 20, relocateHours: 30,
   };
   /** 1식 공량을 안 적어 둔 설비 종류 — 안에 든 자산의 공량을 합쳐 센다. */
@@ -165,7 +165,7 @@ describe('1식 공량', () => {
 describe('1식 공량이 없을 때의 폴백', () => {
   const bare = {
     id: 'asm-b', key: 'BARE', name: '무명설비', categoryId: 'c',
-    gridCols: 4, gridRows: 12, sortOrder: 1, isActive: true, items: [],
+    gridCols: 4, gridRows: 12, sortOrder: 1, items: [],
     laborType: null, installHours: null, removeHours: null, relocateHours: null,
   };
   const 설비 = mkAsset('e1', '무명 A', { typeId: null, assemblyId: 'asm-b', floorId: 'f1' });
