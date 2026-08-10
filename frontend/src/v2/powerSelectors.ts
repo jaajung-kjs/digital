@@ -1,16 +1,13 @@
 import { portFieldsFor, portValuesAt, slotNumber, type SeededMediumKey } from '@twin/core';
-import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type MediumContainer, type PeerInfo } from './peerResolve';
+import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
 export type { PeerInfo } from './peerResolve';
 
 export const POWER_MEDIUM: SeededMediumKey = 'power';
 
-/**
- * Returns assets that have at least one child with power ports.
- * Results are sorted by name.
- */
-export function powerContainers(assets: V2Asset[]): MediumContainer[] {
+/** 전원 포트를 가진 부품을 담고 있는 설비들 — 이름순. */
+export function powerContainers(assets: V2Asset[]): V2Asset[] {
   return mediumContainers(assets, POWER_MEDIUM);
 }
 
@@ -21,7 +18,7 @@ export interface PowerCell {
 }
 
 export interface PowerRow {
-  /** 회로 자리 번호(1-based) — 컨테이너가 슬롯 수를 선언했을 때만. 자유형이면 null. */
+  /** 회로 자리 번호(1-based) — 그 설비의 형판 격자에서 유도한다. 자리가 없으면 null. */
   slotNo: number | null;
   /** 비어 있는 회로 자리 — 패널 스케줄의 SPARE. 이 행에는 피더가 없다. */
   empty: boolean;
@@ -48,7 +45,7 @@ export interface PowerRow {
  * 예전에는 커스텀 필드 `breakerNo` 를 먼저 보고 없을 때만 자리로 물러섰다. 그런데 표에는
  * 자리 번호와 차단기 번호가 나란히 떠서 같은 값을 두 번 적는 꼴이었고(1/1, 2/2 …),
  * 정렬 기준은 화면에 안 보이는 쪽이었다. 보이는 것으로 센다.
- * 자유형 컨테이너(자리 번호 없음)면 null — 그때는 이름순으로 물러선다.
+ * 격자에 놓이지 않았으면(자리 없음) null — 그때는 이름순으로 물러선다.
  */
 function circuitNumber(feeder: V2Asset, cols: number): number | null {
   return feeder.col != null && feeder.row != null ? slotNumber(cols, feeder.col, feeder.row) : null;
@@ -75,11 +72,8 @@ export function buildPowerRows(
   container: V2Asset,
   assets: V2Asset[],
   cables: V2Cable[],
-  /** 컨테이너 명세가 선언한 회로 수 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
-  grid?: { cols: number; rows: number | null } | null,
-  /** 이 표가 다루는 컨테이너. 같은 함체의 **다른** 컨테이너 자식은 섞이면 안 된다
-   *  (자리 번호는 컨테이너마다 1부터 다시 시작한다). */
-  containerKey?: string | null,
+  /** 형판이 선언한 격자 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
+  grid?: { cols: number; rows: number } | null,
 ): PowerRow[] {
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
 
@@ -91,7 +85,6 @@ export function buildPowerRows(
     .filter(
       (a) =>
         a.parentAssetId === container.id &&
-        (containerKey === undefined || a.containerKey === containerKey) &&
         a.ports.some((p) => p.medium === POWER_MEDIUM),
     )
     .sort((a, b) => {
@@ -158,7 +151,7 @@ export function buildPowerRows(
 
   /* 빈 회로 자리 — 패널 스케줄은 쓰지 않는 자리도 보여준다(SPARE).
      "12회로 분전반에 지금 3개만 물려 있다" 를 보려면 빈 자리가 행으로 있어야 한다.
-     회로 수는 컨테이너 명세가 선언한 격자 칸 수다 — 자유형(null)이면 있는 것만 나열한다. */
+     회로 수는 형판이 선언한 격자 칸 수다 — 격자를 모르면 있는 것만 나열한다. */
   if (grid?.rows != null) {
     const taken = new Set(rows.map((r) => r.slotNo).filter((n): n is number => n != null));
     for (let i = 1; i <= grid.cols * grid.rows; i++) {

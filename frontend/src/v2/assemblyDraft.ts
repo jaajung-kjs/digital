@@ -12,6 +12,9 @@ export interface AssemblyDraft {
   key: string;
   name: string;
   categoryId: string | null;
+  /** 이 설비 안의 자리 — 형판이 격자를 갖는다. */
+  gridCols: number;
+  gridRows: number;
   sortOrder: number;
   isActive: boolean;
   items: AssemblyDraftItem[];
@@ -24,6 +27,8 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
     key: a.key,
     name: a.name,
     categoryId: a.categoryId,
+    gridCols: a.gridCols,
+    gridRows: a.gridRows,
     sortOrder: a.sortOrder,
     isActive: a.isActive,
     items: [...a.items]
@@ -33,7 +38,8 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
 }
 
 export function emptyAssemblyDraft(): AssemblyDraft {
-  return { key: '', name: '', categoryId: null, sortOrder: 0, isActive: true, items: [] };
+  // 19인치 랙 한 대가 가장 흔한 모양이라 그것을 기본으로 둔다.
+  return { key: '', name: '', categoryId: null, gridCols: 4, gridRows: 12, sortOrder: 0, isActive: true, items: [] };
 }
 
 /** 아직 저장되지 않은 부품의 임시 id — 저장할 때 백엔드가 실제 id 로 바꾼다. */
@@ -41,48 +47,16 @@ export function newItemId(): string {
   return `tmp-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** 뿌리 부품 — 도면에 놓이는 것. 형판마다 하나다. */
-export function rootItem(draft: AssemblyDraft): AssemblyDraftItem | null {
-  return draft.items.find((i) => i.parentItemId === null) ?? null;
-}
-
-export function childrenOf(draft: AssemblyDraft, parentItemId: string, containerKey: string): AssemblyDraftItem[] {
-  return draft.items.filter((i) => i.parentItemId === parentItemId && i.containerKey === containerKey);
-}
-
-/**
- * 부품 하나와 **그 자손 전부**를 걷어낸다.
- *
- * 랙을 지웠는데 그 안의 장비가 부모 없는 미아로 남으면 저장이 통째로 막힌다
- * (`validateAssembly` 의 `cycle` 로 걸린다). 지울 때 같이 지운다.
- */
-export function removeItem(draft: AssemblyDraft, itemId: string): AssemblyDraft {
-  const doomed = new Set<string>([itemId]);
-  let grew = true;
-  while (grew) {
-    grew = false;
-    for (const i of draft.items) {
-      if (i.parentItemId && doomed.has(i.parentItemId) && !doomed.has(i.id)) {
-        doomed.add(i.id);
-        grew = true;
-      }
-    }
-  }
-  return { ...draft, items: draft.items.filter((i) => !doomed.has(i.id)) };
-}
-
 export interface AssemblyIssue {
-  path: 'key' | 'name' | 'items';
+  path: 'key' | 'name' | 'grid' | 'items';
   message: string;
 }
 
 const ERROR_MESSAGE: Record<AssemblyError, string> = {
-  'no-root': '도면에 놓일 것을 하나 골라야 합니다',
-  'many-roots': '도면에 놓이는 것은 하나여야 합니다',
-  'unknown-parent': '없는 부품 안에 든 것이 있습니다',
-  cycle: '부품이 서로를 담고 있습니다',
+  'bad-grid': '격자는 가로·세로 1 이상이어야 합니다',
   'unknown-type': '없는 자산 타입을 가리키는 부품이 있습니다',
-  'child-without-container': '어느 자리에 들어가는지 정해지지 않은 부품이 있습니다',
+  'out-of-range': '격자 밖에 놓인 부품이 있습니다',
+  overlap: '같은 자리에 겹쳐 놓인 부품이 있습니다',
 };
 
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
@@ -102,6 +76,7 @@ export function assemblyIssues(draft: AssemblyDraft, types: V2AssetType[]): Asse
     {
       key: draft.key,
       name: draft.name,
+      grid: { cols: draft.gridCols, rows: draft.gridRows },
       items: draft.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
     },
     new Set(types.map((t) => t.key)),
@@ -116,6 +91,8 @@ export function draftToAssemblyBody(draft: AssemblyDraft) {
     key: draft.key,
     name: draft.name.trim(),
     categoryId: draft.categoryId,
+    gridCols: draft.gridCols,
+    gridRows: draft.gridRows,
     sortOrder: draft.sortOrder,
     isActive: draft.isActive,
     items: draft.items,

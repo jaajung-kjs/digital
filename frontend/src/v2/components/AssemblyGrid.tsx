@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react';
-import { slotNumber } from '@twin/core';
+import { slotNumber, type Grid } from '@twin/core';
 import { cn, SELECTABLE } from '../../components/ui';
 import {
   cellAt, gridDragTo, gridPlacementChanged, startGridDrag,
@@ -21,23 +21,15 @@ export interface GridItem {
   rowSpan: number | null;
 }
 
-/** 격자를 가진 자리 명세 — 열·행과 span 허용 여부만 본다. */
-export interface GridSpec {
-  name: string;
-  cols: number;
-  rows: number | null;
-  allowSpan: boolean;
-}
-
-export interface SlotGridProps<T extends GridItem> {
-  spec: GridSpec;
+export interface AssemblyGridProps<T extends GridItem> {
+  grid: Grid;
   items: readonly T[];
   onSelect: (item: T) => void;
   /** 빈 자리를 눌렀을 때 — 그 칸에 바로 추가한다. */
   onAddAtCell: (cell: GridCell) => void;
   /** 자리를 옮기거나 크기를 바꿨을 때 — 검증을 통과한 것만 온다. */
   onMove: (itemId: string, placement: GridPlacement) => void;
-  /** 이 자리에 놓을 수 있는가 — 겹침·범위·span 허용을 부르는 쪽이 판정한다. */
+  /** 이 자리에 놓을 수 있는가 — 겹침·범위를 부르는 쪽이 판정한다. */
   canPlace: (itemId: string, placement: GridPlacement) => boolean;
   /** 이름 뒤에 붙는 것 — 자산이면 포트 요약, 형판이면 타입 이름. */
   trailing?: (item: T) => ReactNode;
@@ -45,32 +37,37 @@ export interface SlotGridProps<T extends GridItem> {
   selectedId?: string | null;
 }
 
-/** 자리 한 칸의 높이(px) — 여러 칸을 차지하는 장비는 이 배수만큼 높아진다.
- *  자유형 목록도 같은 높이를 써야 함체 종류에 따라 화면이 딴판이 되지 않는다. */
-export const SLOT_ROW_HEIGHT = 26;
+/**
+ * 한 단(段)의 높이(px) — **열 폭은 상자를 꽉 채우고, 높이만 못 박는다**.
+ *
+ * 칸을 정사각형으로 두면 상자 오른쪽에 죽은 여백이 남고(4열이면 208/333px), 12행짜리 판은
+ * 세로로 넘쳐 스크롤이 생긴다. 무엇보다 물리적으로 거짓이다 — 19인치 랙의 1U 는 483×44mm 로
+ * 가로가 열 배 넘게 길다. DCIM 들도 그렇게 그린다(NetBox 기본값 `unit_width=300,
+ * unit_height=35`).
+ *
+ * 세로로만 쌓이는 판으로 보였던 원인은 칸 모양이 아니라 **1열**이었다. 열이 여럿이면
+ * 납작한 칸이라도 XY 격자로 읽힌다 — 랙 정면도가 그렇다.
+ */
+export const GRID_ROW_H = 30;
 
 /**
- * 함체 안의 자리 — **격자**로 그린다.
+ * 설비 안의 자리 — **XY 격자**다.
  *
- * 세로로 쌓는 이유: 랙·함체는 세로로 자리가 배열된 물리 장비다. 예전에는 `grid-cols-6`
- * 이라 384px 상세 패널에서 칸이 56px 밖에 안 됐고, 장비 이름이 "SCA…", "통합…" 으로
- * 잘려 무엇이 꽂혀 있는지 알 수 없었다.
+ * 예전에는 자리가 1차원 슬롯이었다(랙의 「슬롯 12칸」). 그래서 세로로 쌓이는 것밖에 표현할
+ * 수 없었는데, 실제 판에는 가로로 나란한 모듈도 있고 세로로 긴 모듈도 있다. 슬롯은 폭이
+ * 격자 전체인 1열짜리 격자였을 뿐이라, 격자를 그대로 두면 슬롯은 그 특수한 경우가 된다.
  *
- * 그래서 **열은 명세가 선언한 만큼만** 나눈다 — 랙은 1열이라 한 줄씩 쌓이고, 분전반
- * 조서처럼 2열이면 좌우로 갈린다(1·2가 첫 행). 번호는 저장하지 않고 격자에서 유도하므로
- * 자리와 번호가 어긋날 수 없다.
+ * 그래서 칸은 **정사각형**이고, 부품은 격자 안 아무 자리에나 놓이며 **두 축 모두** 늘어난다
+ * (오른쪽 아래 모서리 손잡이). 열이 몇이든 번호는 저장하지 않고 격자에서 유도하므로
+ * 자리와 번호가 어긋날 수 없다(행 우선).
  *
- * 바깥 테두리 하나가 함체이고 그 안에 자리가 있다 — 포트 판의 백플레인과 같은 어법이다.
- * 예전에는 **자리마다** 점선 상자를 둘러 12칸짜리 랙이 점선 12개 + 파란 `+ 추가` 12개가 되어,
- * 정작 무엇이 꽂혀 있는지보다 빈칸이 더 눈에 띄었다.
- *
- * 끌어서 옮기고 아래 손잡이로 크기를 바꾼다 — 수학은 `gridDrag.ts` 에 순수 함수로 있다.
+ * 끌어서 옮기고 모서리로 크기를 바꾼다 — 수학은 `gridDrag.ts` 에 순수 함수로 있다.
  */
-export function SlotGrid<T extends GridItem>({
-  spec, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId,
-}: SlotGridProps<T>) {
-  const rows = spec.rows!;
-  const cols = Math.max(spec.cols, 1);
+export function AssemblyGrid<T extends GridItem>({
+  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId,
+}: AssemblyGridProps<T>) {
+  const rows = Math.max(grid.rows, 1);
+  const cols = Math.max(grid.cols, 1);
 
   const boxRef = useRef<HTMLUListElement | null>(null);
   const sessionRef = useRef<GridDragSession | null>(null);
@@ -86,7 +83,6 @@ export function SlotGrid<T extends GridItem>({
   }
 
   function beginDrag(kind: GridDragKind, item: T, e: React.PointerEvent) {
-    if (kind === 'resize' && !spec.allowSpan) return;
     const origin: GridPlacement = {
       col: item.col ?? 0, row: item.row ?? 0, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1,
     };
@@ -139,16 +135,11 @@ export function SlotGrid<T extends GridItem>({
       /* 끌고 있는 중이면 그것은 미리보기 자리에 그린다 — 원래 자리에는 빈칸이 남는다. */
       const pv = item && preview?.itemId === item.id ? preview : null;
       const at = pv ? pv.placement : { col, row, colSpan: item?.colSpan ?? 1, rowSpan: item?.rowSpan ?? 1 };
-      const first = slotNumber(cols, at.col, at.row);
-      // 여러 칸을 차지하면 "3–5" 처럼 범위로 적는다.
-      const last = slotNumber(cols, at.col + at.colSpan - 1, at.row + at.rowSpan - 1);
-      const label = last > first ? `${first}–${last}` : String(first);
 
       cells.push(
         <li
           key={key}
           style={{
-            minHeight: at.rowSpan * SLOT_ROW_HEIGHT,
             gridColumn: `${at.col + 1} / span ${at.colSpan}`,
             gridRow: `${at.row + 1} / span ${at.rowSpan}`,
           }}
@@ -158,36 +149,48 @@ export function SlotGrid<T extends GridItem>({
           <button
             type="button"
             className={cn(
-              'group relative flex h-full w-full items-center gap-2 rounded px-2 text-left text-sm',
+              'group relative flex h-full w-full items-center justify-center overflow-hidden rounded px-1 text-center text-xs',
               // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
-              item ? cn('border border-line bg-surface text-content', SELECTABLE) : cn('text-content-faint', SELECTABLE),
+              item
+                ? cn('border border-line bg-surface text-content', SELECTABLE)
+                : cn('border border-dashed border-line/50 text-content-faint', SELECTABLE),
               item && 'cursor-grab touch-none active:cursor-grabbing',
               item && selectedId === item.id && 'ring-2 ring-inset ring-primary',
               // 놓을 수 없는 자리면 그렇다고 말한다 — 놓아 봐야 되돌아가는 것보다 낫다.
               pv && (pv.ok ? 'ring-2 ring-primary' : 'ring-2 ring-danger opacity-70'),
             )}
-            title={item?.name}
+            title={
+              item
+                ? `${item.name} · 자리 ${slotNumber(cols, at.col, at.row)}`
+                : `자리 ${slotNumber(cols, col, row)} (비어 있음)`
+            }
             onClick={() => (item ? onSelect(item) : onAddAtCell({ col, row }))}
             onPointerDown={(e) => item && e.button === 0 && beginDrag('move', item, e)}
             onPointerMove={onPointerMove}
             onPointerUp={endDrag}
             onPointerCancel={endDrag}
           >
-            <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
-            <span className="min-w-0 flex-1 truncate">{item ? item.name : '비어 있음'}</span>
-            {item && trailing?.(item)}
-            {!item && (
-              <span className="shrink-0 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                + 추가
+            {/* 번호는 칸이 아니라 왼쪽 눈금이 맡는다 — 칸마다 번호를 박으면 4열 12행에서 번호가
+                48개 흩어지고, 정작 부품이 놓인 칸은 이름과 번호가 자리를 다툰다.
+                랙 정면도의 어법대로 「몇 단」은 눈금이, 「무엇인가」는 칸이 말한다. */}
+            {item ? (
+              /* 한 칸짜리에는 이름만 — 두 줄을 욱여넣으면 둘 다 못 읽는다. 전체 이름은 툴팁에 있다. */
+              <span className="flex min-w-0 max-w-full flex-col items-center leading-tight">
+                <span className="min-w-0 max-w-full truncate">{item.name}</span>
+                {at.rowSpan > 1 && trailing?.(item)}
+              </span>
+            ) : (
+              <span className="text-base leading-none text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                +
               </span>
             )}
-            {/* 크기 손잡이 — 아래 모서리. span 을 허용하지 않는 컨테이너에는 달지 않는다.
-                평면도 핸들과 같은 어법으로 **반대변(왼쪽 위)을 고정**하고 끈다. */}
-            {item && spec.allowSpan && (
+            {/* 크기 손잡이 — 오른쪽 아래 모서리. **두 축 모두** 늘어난다(왼쪽 위 고정).
+                예전에는 아래 변에만 있어서 세로로밖에 못 늘렸고, 그래서 판이 슬롯처럼 굳었다. */}
+            {item && (
               <span
                 role="separator"
                 aria-label={`${item.name} 크기 조절`}
-                className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none opacity-0 transition-opacity group-hover:opacity-100"
+                className="absolute bottom-0 right-0 h-2.5 w-2.5 cursor-nwse-resize touch-none opacity-0 transition-opacity group-hover:opacity-100"
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   beginDrag('resize', item, e);
@@ -196,7 +199,7 @@ export function SlotGrid<T extends GridItem>({
                 onPointerUp={endDrag}
                 onPointerCancel={endDrag}
               >
-                <span className="mx-auto block h-full w-8 rounded-full bg-primary/40" />
+                <span className="block h-full w-full rounded-br bg-primary/50" />
               </span>
             )}
           </button>
@@ -205,16 +208,28 @@ export function SlotGrid<T extends GridItem>({
     }
   }
 
+  const rowRule = { gridTemplateRows: `repeat(${rows}, ${GRID_ROW_H}px)` };
+
   return (
-    <div className="mt-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner">
-      {/* 행 높이를 못 박아 둔다 — 포인터 좌표에서 칸을 셈하려면 격자가 균일해야 한다. */}
+    <div className="mt-1 flex gap-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner">
+      {/* 단 눈금 — 랙 정면도의 U 눈금과 같다. 「몇 단인가」를 판 옆에서 한 번에 읽는다.
+          격자 바깥에 두는 이유: 포인터 좌표를 칸으로 셈하는 상자(`boxRef`)에 섞이면
+          눈금 폭만큼 칸 계산이 밀린다. */}
+      <ol
+        aria-hidden
+        className="grid shrink-0 gap-0.5 text-right text-[10px] tabular-nums text-content-faint"
+        style={rowRule}
+      >
+        {Array.from({ length: rows }, (_, r) => (
+          <li key={r} className="flex items-center justify-end pr-0.5 leading-none">{r + 1}</li>
+        ))}
+      </ol>
+      {/* 칸은 균일해야 한다 — 포인터 좌표에서 칸을 셈하려면 그렇다. 열은 상자를 꽉 채우고
+          행 높이만 못 박는다(랙 1U 처럼 가로로 넓고 세로로 낮다). */}
       <ul
         ref={boxRef}
-        className="grid gap-0.5"
-        style={{
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${rows}, ${SLOT_ROW_HEIGHT}px)`,
-        }}
+        className="grid min-w-0 flex-1 gap-0.5"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, ...rowRule }}
       >
         {cells}
       </ul>

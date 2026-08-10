@@ -2,14 +2,13 @@ import type { Direction } from '@twin/core';
 export type { TypeUpsertBody } from '@twin/core';
 
 export interface V2Category { id: string; key: string; name: string; sortOrder: number }
-export interface V2ContainerSpec { id: string; key: string; name: string; cols: number; rows: number | null; allowSpan: boolean; accepts: { categoryKeys?: string[]; typeKeys?: string[] }; sortOrder: number }
 export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number }
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number; isActive: boolean;
   assetCount: number;
   placeable: boolean; defaultWidth: number | null; defaultHeight: number | null;
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
-  containerSpecs: V2ContainerSpec[]; portTemplates: V2PortTemplate[];
+  portTemplates: V2PortTemplate[];
 }
 
 export interface V2CableCategory { id: string; name: string; sortOrder: number }
@@ -17,11 +16,8 @@ export interface V2CableGroup { id: string; key: string; name: string; color: st
 /** 형판을 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 export interface V2AssemblyItem {
   id: string;
-  /** null = 뿌리(도면에 놓이는 것). 형판마다 뿌리는 하나다. */
-  parentItemId: string | null;
   typeId: string;
   name: string;
-  containerKey: string | null;
   col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
   portCounts?: Record<string, number>;
   portPositions?: Record<string, number>;
@@ -35,13 +31,17 @@ export interface V2AssemblyItem {
  */
 export interface V2Assembly {
   id: string; key: string; name: string; categoryId: string | null;
+  /** 이 설비 안의 자리 — 형판이 격자를 갖는다(자산 타입이 아니라). */
+  gridCols: number; gridRows: number;
   sortOrder: number; isActive: boolean;
   items: V2AssemblyItem[];
 }
 
 /** 형판 저장 바디 — 부품 목록을 통째로 갈아 끼운다(덮어쓰기). */
 export interface AssemblyUpsertBody {
-  key: string; name: string; categoryId: string | null; sortOrder: number; isActive: boolean;
+  key: string; name: string; categoryId: string | null;
+  gridCols: number; gridRows: number;
+  sortOrder: number; isActive: boolean;
   items: Omit<V2AssemblyItem, 'sortOrder'>[];
 }
 
@@ -70,9 +70,12 @@ export interface V2Port {
   fieldValues: Record<string, unknown>;
 }
 export interface V2Asset {
-  id: string; name: string; typeId: string; substationId: string; status: string;
+  id: string; name: string;
+  /** 부품이면 그 타입. **형판으로 놓은 설비는 타입이 없다** — 분류는 형판이다. */
+  typeId: string | null;
+  substationId: string; status: string;
   floorId: string | null; x: number | null; y: number | null; width: number | null; height: number | null;
-  parentAssetId: string | null; containerKey: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
+  parentAssetId: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
   /** 이 설비를 만든 형판 — **분류**다(글자가 아니라 참조). 뿌리에만 적힌다. */
   assemblyId?: string | null;
   /** 만들 때만 쓰는 포트 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
@@ -96,9 +99,9 @@ export interface V2NodeAssetRow {
 export interface V2Conflict { id: string; reason: 'modified' | 'deleted' | 'exists'; serverUpdatedAt?: string }
 
 export interface V2AssetCreateInput {
-  id: string; name: string; typeId: string; status?: string;
+  id: string; name: string; typeId: string | null; status?: string;
   floorId?: string | null; x?: number | null; y?: number | null; width?: number | null; height?: number | null;
-  parentAssetId?: string | null; containerKey?: string | null; col?: number | null; row?: number | null; colSpan?: number | null; rowSpan?: number | null;
+  parentAssetId?: string | null; col?: number | null; row?: number | null; colSpan?: number | null; rowSpan?: number | null;
   assemblyId?: string | null;
   fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>; portPositions?: Record<string, number>;
 }

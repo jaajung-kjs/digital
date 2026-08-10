@@ -5,8 +5,8 @@ import { draftIssues, emptyDraft, isDraftDirty, typeToDraft } from '../catalogDr
 // 최소 V2AssetType 팩토리
 const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   id: 'type-1',
-  key: 'RACK',
-  name: '랙',
+  key: 'PITR-5000',
+  name: 'PITR',
   categoryId: 'cat-comm',
   sortOrder: 1,
   isActive: true,
@@ -18,9 +18,6 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   installHours: 2,
   removeHours: 1,
   relocateHours: 3,
-  containerSpecs: [
-    { id: 'cs-1', key: 'main', name: '슬롯', cols: 1, rows: 24, allowSpan: true, accepts: { categoryKeys: ['통신'] }, sortOrder: 1 },
-  ],
   portTemplates: [
     { id: 'pt-1', group: 'A', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'A', sortOrder: 1 },
   ],
@@ -63,13 +60,6 @@ describe('catalogDraft', () => {
     expect(draft.removeHours).toBe(type.removeHours);
     expect(draft.relocateHours).toBe(type.relocateHours);
 
-    // containerSpecs → containers: id·sortOrder 제거
-    expect(draft.containers).toHaveLength(1);
-    expect('id' in draft.containers[0]).toBe(false);
-    expect('sortOrder' in draft.containers[0]).toBe(false);
-    expect(draft.containers[0].key).toBe('main');
-    expect([draft.containers[0].cols, draft.containers[0].rows]).toEqual([1, 24]);
-
     // portTemplates → ports: id·sortOrder 제거
     expect(draft.ports).toHaveLength(1);
     expect('id' in draft.ports[0]).toBe(false);
@@ -81,7 +71,7 @@ describe('catalogDraft', () => {
     const catalog = mkCatalog();
 
     // 유효한 categoryId 는 이슈 없음 (최소 유효 스펙)
-    const draft = typeToDraft(mkType({ key: 'RACK', name: '랙', categoryId: 'cat-comm' }));
+    const draft = typeToDraft(mkType({ key: 'PITR-5000', name: 'PITR', categoryId: 'cat-comm' }));
     const cleanDraft = draft;
     const issues = draftIssues(cleanDraft, catalog);
     const catIssues = issues.filter((i) => i.path === 'categoryKey');

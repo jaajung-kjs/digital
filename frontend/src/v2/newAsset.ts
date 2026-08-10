@@ -1,20 +1,16 @@
-import { isAccepted, DEFAULT_ASSET_STATUS } from '@twin/core';
-import type { V2Asset, V2AssetType, V2ContainerSpec } from './types';
+import { DEFAULT_ASSET_STATUS } from '@twin/core';
+import type { V2Asset, V2AssetType } from './types';
 
-export { freeSlots } from '@twin/core';
+export { freeCells } from '@twin/core';
 
-export function acceptedTypes(
-  spec: V2ContainerSpec,
-  types: V2AssetType[],
-  categoryKeyById: Map<string, string>,
-): V2AssetType[] {
-  return types.filter((t) =>
-    isAccepted(spec.accepts, { typeKey: t.key, categoryKey: categoryKeyById.get(t.categoryId) ?? '' }),
-  );
-}
-
+/**
+ * 자산이 놓이는 자리 — 도면 위이거나, 설비 격자 안이거나.
+ *
+ * 예전에는 "어느 컨테이너의" 라는 축이 하나 더 있었다. 자리를 자산 타입이 선언했기
+ * 때문인데, 이제 자리는 형판 격자 하나뿐이라 그 축이 사라졌다.
+ */
 export type PlacementInput =
-  | { kind: 'container'; parentAssetId: string; containerKey: string; col: number | null; row: number | null; colSpan: number; rowSpan: number }
+  | { kind: 'grid'; parentAssetId: string; col: number | null; row: number | null; colSpan: number; rowSpan: number }
   | { kind: 'floor'; floorId: string; x: number; y: number; width: number; height: number };
 
 export function makeNewAsset(args: {
@@ -24,7 +20,7 @@ export function makeNewAsset(args: {
   placement?: PlacementInput;
 }): V2Asset {
   const p = args.placement;
-  const isContainer = p?.kind === 'container';
+  const isContainer = p?.kind === 'grid';
   const isFloor = p?.kind === 'floor';
 
   return {
@@ -39,7 +35,6 @@ export function makeNewAsset(args: {
     width: isFloor ? p.width : null,
     height: isFloor ? p.height : null,
     parentAssetId: isContainer ? p.parentAssetId : null,
-    containerKey: isContainer ? p.containerKey : null,
     col: isContainer ? p.col : null,
     row: isContainer ? p.row : null,
     colSpan: isContainer ? p.colSpan : null,

@@ -95,9 +95,9 @@ export default function V2WorkspacePage() {
     () => new Map((catalog.data?.categories ?? []).map((c) => [c.id, c.name])),
     [catalog.data],
   );
-  /** 형판으로 놓은 설비는 형판이 곧 분류 — 이름을 여기서 읽는다(글자로 굳혀 두지 않는다). */
-  const assemblyNameById = useMemo(
-    () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a.name])),
+  /** 형판으로 놓은 설비는 형판이 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */
+  const assembliesById = useMemo(
+    () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
     [catalog.data],
   );
 
@@ -128,9 +128,9 @@ export default function V2WorkspacePage() {
       typesById,
       categoryNameById,
       inspectionsByAsset,
-      assemblyNameById,
+      assembliesById,
     });
-  }, [selected, substationId, saved, overlays, typesById, categoryNameById]);
+  }, [selected, substationId, saved, overlays, typesById, categoryNameById, assembliesById]);
 
   // ── 노드 스코프 (본부/지사): useV2NodeAssets ────────────────────────────
   const isNodeScope = selected != null && selected.kind !== 'substation';

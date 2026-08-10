@@ -29,14 +29,6 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
     installHours: t.installHours,
     removeHours: t.removeHours,
     relocateHours: t.relocateHours,
-    containers: t.containerSpecs.map(({ key, name, cols, rows, allowSpan, accepts }) => ({
-      key,
-      name,
-      cols,
-      rows,
-      allowSpan,
-      accepts: { ...accepts },
-    })),
     ports: t.portTemplates.map(({ group, count, direction, medium, namePattern, positions }) => ({
       group,
       count,
@@ -63,7 +55,6 @@ export function emptyDraft(categoryId: string): TypeDraft {
     installHours: 0,
     removeHours: 0,
     relocateHours: 0,
-    containers: [],
     ports: [],
   };
 }

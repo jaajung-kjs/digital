@@ -1,6 +1,6 @@
 import { assetFieldDefs } from '@twin/core';
 import { assetLocationPath } from './assetLocation';
-import type { V2Asset, V2AssetType, V2Floor } from './types';
+import type { V2Asset, V2Assembly, V2AssetType, V2Floor } from './types';
 
 type FieldDef = ReturnType<typeof assetFieldDefs>[number];
 
@@ -43,8 +43,8 @@ export function buildStatusRows(args: {
   typesById: Map<string, V2AssetType>;
   categoryNameById: Map<string, string>;
   inspectionsByAsset: Map<string, string[]>;
-  /** 형판 id → 이름. 형판으로 놓은 설비는 **형판이 곧 분류**다. */
-  assemblyNameById?: Map<string, string>;
+  /** 형판 id → 형판. 형판으로 놓은 설비는 **형판이 곧 분류**이고, 격자도 여기서 나온다. */
+  assembliesById?: Map<string, V2Assembly>;
 }): StatusRowsResult {
   const floorName = new Map(args.floors.map((f) => [f.id, f.name]));
   const assetById = new Map(args.assets.map((a) => [a.id, a]));
@@ -70,17 +70,17 @@ export function buildStatusRows(args: {
   }
 
   const rows = args.assets.map((a) => {
-    const type = args.typesById.get(a.typeId);
+    const type = a.typeId ? args.typesById.get(a.typeId) : undefined;
     const inspections = args.inspectionsByAsset.get(a.id) ?? [];
     const inAssembly = assemblyRootOf(a);
     return {
       id: a.id,
       /* 형판으로 놓은 설비는 **형판이 곧 분류**다 — 업무에서 "랙이 몇 개" 는 묻지 않는다.
          이름을 글자로 굳히지 않고 형판을 가리키므로, 형판 이름을 고치면 여기도 따라 바뀐다. */
-      typeName: (a.assemblyId && args.assemblyNameById?.get(a.assemblyId)) || type?.name || '—',
+      typeName: (a.assemblyId && args.assembliesById?.get(a.assemblyId)?.name) || type?.name || '—',
       categoryName: (type && args.categoryNameById.get(type.categoryId)) ?? '—',
       name: a.name,
-      location: assetLocationPath(a, assetById, floorName, args.typesById),
+      location: assetLocationPath(a, assetById, floorName, args.assembliesById),
       lastInspectedAt: inspections.length ? [...inspections].sort().at(-1)! : null,
       status: a.status,
       fieldValues: a.fieldValues,

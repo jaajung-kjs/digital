@@ -13,7 +13,7 @@ function toCreateInput(a: V2Asset): V2AssetCreateInput {
   return {
     id: a.id, name: a.name, typeId: a.typeId, status: a.status,
     floorId: a.floorId, x: a.x, y: a.y, width: a.width, height: a.height,
-    parentAssetId: a.parentAssetId, containerKey: a.containerKey, col: a.col, row: a.row, colSpan: a.colSpan, rowSpan: a.rowSpan,
+    parentAssetId: a.parentAssetId, col: a.col, row: a.row, colSpan: a.colSpan, rowSpan: a.rowSpan,
     fieldValues: a.fieldValues,
     // 형판으로 놓은 것 — 분류(형판 참조)와 포트 오버라이드를 함께 실어 보낸다.
     ...(a.assemblyId ? { assemblyId: a.assemblyId } : {}),

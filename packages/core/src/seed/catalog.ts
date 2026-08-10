@@ -316,37 +316,41 @@ export const SEED_ASSEMBLIES: {
            portCounts?: Record<string, number>; portPositions?: Record<string, number> }[];
 }[] = [
   {
-    // 성단 판을 담는 함체 — 도면에 이것을 놓는다(예전의 OFD 자산 + 그 안의 슬롯들).
+    /* 성단 판을 담는 함체 — 도면에 이것을 놓는다(예전의 OFD 자산 + 그 안의 슬롯들).
+       판은 가로로 나란히 꽂힌다. 세로 1열로 두면 세로로만 쌓는 판이 되어 버린다. */
     key: 'OFD', name: 'OFD(광분배함)', categoryKey: '통신', sortOrder: 20,
-    grid: { cols: 1, rows: 12 },
+    grid: { cols: 4, rows: 6 },
     items: Array.from({ length: 4 }, (_, i) => ({
-      typeKey: 'OFD-SLOT', name: `슬롯 ${i + 1}`, col: 0, row: i, colSpan: 1, rowSpan: 1,
+      typeKey: 'OFD-SLOT', name: `슬롯 ${i + 1}`, col: i, row: 0, colSpan: 1, rowSpan: 2,
     })),
   },
   {
-    // 분전반 조서는 좌우 2열 — 홀수 왼쪽, 짝수 오른쪽이 표준이다.
+    // 분전반 조서는 좌우 2열 — 홀수 왼쪽, 짝수 오른쪽이 표준이라 회로 번호가 그대로 나온다.
     key: 'DIST', name: '분전반', categoryKey: '전원', sortOrder: 30,
-    grid: { cols: 2, rows: 6 },
+    grid: { cols: 2, rows: 12 },
     items: [],
   },
   {
-    // 「1식」 — 랙 한 대에 들어가는 표준 구성. 랙 자체는 자산이 아니라 이 형판의 겉모습이다.
+    /* 「1식」 — 랙 한 대에 들어가는 표준 구성. 랙 자체는 자산이 아니라 이 형판의 겉모습이다.
+       19인치 랙 정면을 4칸으로 나눈 격자다: 전폭 모듈은 4칸을 걸치고, 반폭 모듈 둘은
+       나란히 놓이며, 세로로 긴 모듈은 아래로 걸친다 — 그게 실제 판의 모습이다. */
     key: 'OPT-SET', name: '송변전광단말장치', categoryKey: '통신', sortOrder: 63,
-    grid: { cols: 1, rows: 12 },
+    grid: { cols: 4, rows: 12 },
     items: [
-      { typeKey: 'OPT-TERM', name: '광단말', col: 0, row: 0, colSpan: 1, rowSpan: 1 },
-      { typeKey: 'OPT-COT', name: '통합단말', col: 0, row: 1, colSpan: 1, rowSpan: 1 },
-      { typeKey: 'NET-SW', name: '네트워크스위치', col: 0, row: 2, colSpan: 1, rowSpan: 1 },
+      { typeKey: 'OPT-TERM', name: '광단말', col: 0, row: 0, colSpan: 4, rowSpan: 1 },
+      { typeKey: 'OPT-COT', name: '통합단말', col: 0, row: 1, colSpan: 2, rowSpan: 1 },
+      { typeKey: 'NET-SW', name: '네트워크스위치', col: 2, row: 1, colSpan: 2, rowSpan: 1 },
     ],
   },
   {
+    // 전원반도 같은 4칸 격자 — 축전지는 여러 단을 차지하므로 아래로 걸친다.
     key: 'PWR-SET', name: '전원설비', categoryKey: '전원', sortOrder: 70,
-    grid: { cols: 1, rows: 12 },
+    grid: { cols: 4, rows: 12 },
     items: [
-      { typeKey: 'UPS', name: 'UPS', col: 0, row: 0, colSpan: 1, rowSpan: 1 },
-      { typeKey: 'CHARGER', name: '충전기', col: 0, row: 1, colSpan: 1, rowSpan: 1 },
-      { typeKey: 'BATTERY', name: '축전지', col: 0, row: 2, colSpan: 1, rowSpan: 1 },
-      { typeKey: 'PWR-AC', name: '전원분배', col: 0, row: 3, colSpan: 1, rowSpan: 1 },
+      { typeKey: 'UPS', name: 'UPS', col: 0, row: 0, colSpan: 2, rowSpan: 2 },
+      { typeKey: 'CHARGER', name: '충전기', col: 2, row: 0, colSpan: 2, rowSpan: 2 },
+      { typeKey: 'BATTERY', name: '축전지', col: 0, row: 2, colSpan: 4, rowSpan: 3 },
+      { typeKey: 'PWR-AC', name: '전원분배', col: 0, row: 5, colSpan: 4, rowSpan: 1 },
     ],
   },
 ];

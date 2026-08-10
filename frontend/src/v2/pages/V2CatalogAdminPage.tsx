@@ -3,7 +3,7 @@
  *
  * 좌: TypeListPanel (280px, 분류·타입 목록)
  * 우: 탭(타입 | 케이블)
- *   타입 탭: TypeBasicsForm + ContainersEditor + PortsEditor + 저장바
+ *   타입 탭: TypeBasicsForm + PortsEditor + 저장바
  *   케이블 탭: CableCatalogPanel
  */
 import { useState } from 'react';
@@ -26,7 +26,6 @@ import type { TypeDraft } from '../catalogDraft';
 import { apiErrorMessage, apiErrorIssues } from '../apiError';
 import { TypeListPanel } from '../components/admin/TypeListPanel';
 import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
-import { ContainersEditor } from '../components/admin/ContainersEditor';
 import { PortsEditor } from '../components/admin/PortsEditor';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
 import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
@@ -61,7 +60,7 @@ export default function V2CatalogAdminPage() {
   // 현재 선택된 원본 타입 (신규이면 null)
   const original: V2AssetType | null = catalog?.types.find((t) => t.id === selectedTypeId) ?? null;
 
-  // 구조 잠금: assetCount > 0 → 컨테이너/포트/링크 read-only
+  // 구조 잠금: assetCount > 0 → 포트 read-only
   const locked = (original?.assetCount ?? 0) > 0;
 
   // dirty 여부
@@ -296,7 +295,7 @@ export default function V2CatalogAdminPage() {
                       <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-1.5">
                         <Badge status="warning">{original?.assetCount}개 사용 중</Badge>
                         <span className="text-xs text-warning">
-                          구조(컨테이너·포트·링크)는 변경할 수 없습니다
+                          포트 구조는 변경할 수 없습니다
                         </span>
                       </div>
                     )}
@@ -334,15 +333,6 @@ export default function V2CatalogAdminPage() {
                       original={original}
                       catalog={catalog}
                       onChange={handleChange}
-                      issues={issues}
-                    />
-
-                    {/* 컨테이너 (잠금 대상) */}
-                    <ContainersEditor
-                      draft={draft}
-                      onChange={handleChange}
-                      catalog={catalog}
-                      locked={locked}
                       issues={issues}
                     />
 

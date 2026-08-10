@@ -26,48 +26,20 @@ export function buildPortIndex(assets: V2Asset[]): PortIndex {
   return index;
 }
 
-/** 선번장·계통이 한 표로 다루는 단위 — 자산 하나가 아니라 **자산의 컨테이너 하나**. */
-export interface MediumContainer {
-  asset: V2Asset;
-  /** 이 매체 자식들이 들어 있는 컨테이너 키. 자리에 놓이지 않은 자식은 null. */
-  containerKey: string | null;
-}
-
 /**
- * medium(fiber/power) 포트를 가진 자식을 보유한 **컨테이너** 목록 — fiber/power 셀렉터 공유 판정.
- * medium 값 자체(FIBER_MEDIUM/POWER_MEDIUM)는 각 셀렉터 모듈에 그대로 선언된 §6-1 뷰 파라미터이며,
- * 이 함수는 그 값을 인자로 받을 뿐 재선언하지 않는다.
+ * 이 매체의 포트를 가진 **부품을 담고 있는 설비** 목록.
  *
- * **왜 자산이 아니라 (자산, 컨테이너) 인가**: 타입은 컨테이너를 여러 개 선언할 수 있고
- * (카탈로그 관리자에서 추가 가능), 자리 번호는 백엔드가 `(부모, containerKey)` 단위로
- * 유일성을 강제한다. 그래서 서로 다른 컨테이너의 0번 자리는 **둘 다 정상**이다.
- * 자산 단위로 뭉치면 그 둘이 같은 회로 번호를 가진 두 행이 되고, 빈 자리도 잘못 세어진다.
+ * 예전에는 (자산, 컨테이너) 쌍을 돌려줬다 — 자리를 자산 타입이 선언했고 컨테이너가 여럿일
+ * 수 있었기 때문이다. 이제 자리는 형판 격자 하나뿐이라 단위가 설비 하나로 줄었다.
  *
- * 결과는 자산 이름 → 컨테이너 키 순 정렬.
+ * 결과는 이름순.
  */
-export function mediumContainers(assets: V2Asset[], medium: string): MediumContainer[] {
-  // (부모, 컨테이너) → 이 medium 포트를 가진 자식 보유 여부, 1패스로 색인 (O(n))
-  const byParent = new Map<string, Set<string | null>>();
+export function mediumContainers(assets: V2Asset[], medium: string): V2Asset[] {
+  const holders = new Set<string>();
   for (const asset of assets) {
-    if (asset.parentAssetId && asset.ports.some((p) => p.medium === medium)) {
-      const keys = byParent.get(asset.parentAssetId) ?? new Set<string | null>();
-      keys.add(asset.containerKey);
-      byParent.set(asset.parentAssetId, keys);
-    }
+    if (asset.parentAssetId && asset.ports.some((p) => p.medium === medium)) holders.add(asset.parentAssetId);
   }
-
-  const result: MediumContainer[] = [];
-  for (const asset of assets) {
-    const keys = byParent.get(asset.id);
-    if (!keys) continue;
-    for (const containerKey of keys) result.push({ asset, containerKey });
-  }
-
-  return result.sort(
-    (a, b) =>
-      a.asset.name.localeCompare(b.asset.name) ||
-      (a.containerKey ?? '').localeCompare(b.containerKey ?? ''),
-  );
+  return assets.filter((a) => holders.has(a.id)).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /** cable[] → aPortId/bPortId 로 색인한 Map 쌍 — fiber/power 행 빌더 공유 플러밍 */

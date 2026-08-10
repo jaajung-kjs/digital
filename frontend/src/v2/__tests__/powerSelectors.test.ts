@@ -8,7 +8,7 @@ const port = (
 const asset = (id: string, name: string, extra: object = {}) => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
-  parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
+  parentAssetId: null, assemblyId: null, col: null, row: null, colSpan: null, rowSpan: null,
   fieldValues: {}, updatedAt: 'v', ports: [], ...extra,
 });
 const cable = (id: string, a: string, b: string, extra: object = {}) => ({
@@ -30,7 +30,7 @@ const load = asset('load', '부하장비', { ports: [port('loadIn', 'load', 'P',
 
 describe('powerContainers', () => {
   it('전원 포트 자식 보유 컨테이너만', () => {
-    expect(powerContainers([panel, feeder, ups] as never).map((c) => c.asset.id)).toEqual(['panel']);
+    expect(powerContainers([panel, feeder, ups] as never).map((c) => c.id)).toEqual(['panel']);
   });
 });
 
@@ -104,28 +104,27 @@ describe('패널 스케줄 — 회로 자리', () => {
   });
 });
 
-/* 자산 타입은 컨테이너를 **여러 개** 선언할 수 있고(카탈로그 관리자에서 추가 가능),
-   슬롯 번호는 백엔드가 (부모, containerKey) 단위로 유일성을 강제한다.
-   그래서 서로 다른 컨테이너의 0번 자리는 둘 다 정상이다 — 표가 이걸 뭉치면 안 된다. */
-describe('컨테이너가 둘 이상일 때', () => {
-  const twoBay = asset('panel2', '분전반2');
+/* 분전반 조서는 좌우 두 줄이다 — 격자가 2열이면 번호는 행 우선으로 1·2가 첫 행이다.
+   예전에는 이것을 컨테이너 두 개로 표현해서 양쪽 다 0번 자리를 갖는 표가 둘로 갈렸다.
+   격자 하나로 두면 한 표 안에서 번호가 이어진다. */
+describe('2열 격자', () => {
+  const twoCol = asset('panel2', '분전반2');
   const left = asset('L', '좌측 1번', {
-    parentAssetId: 'panel2', containerKey: 'left', col: 0, row: 0,
+    parentAssetId: 'panel2', col: 0, row: 0,
     ports: [port('Lin', 'L', 'IN', 1, 'IN')],
   });
   const right = asset('R', '우측 1번', {
-    parentAssetId: 'panel2', containerKey: 'right', col: 0, row: 0,
+    parentAssetId: 'panel2', col: 1, row: 0,
     ports: [port('Rin', 'R', 'IN', 1, 'IN')],
   });
 
-  it('다른 컨테이너의 같은 자리 번호를 한 표에 뭉치지 않는다', () => {
-    const rows = buildPowerRows(twoBay as never, [twoBay, left, right] as never, [] as never, { cols: 1, rows: 2 }, 'left');
-    expect(rows.map((r) => r.feederName)).toEqual(['좌측 1번', '']);
+  it('같은 행의 옆 칸은 다음 회로 번호다', () => {
+    const rows = buildPowerRows(twoCol as never, [twoCol, left, right] as never, [] as never, { cols: 2, rows: 1 });
+    expect(rows.map((r) => [r.slotNo, r.feederName])).toEqual([[1, '좌측 1번'], [2, '우측 1번']]);
   });
 
-  it('빈 자리 수는 그 컨테이너가 선언한 만큼만 만든다', () => {
-    const rows = buildPowerRows(twoBay as never, [twoBay, left, right] as never, [] as never, { cols: 1, rows: 2 }, 'right');
-    expect(rows.filter((r) => r.empty)).toHaveLength(1);
-    expect(rows.find((r) => !r.empty)?.feederName).toBe('우측 1번');
+  it('빈 자리 수는 격자가 선언한 칸 수에서 채워진 만큼을 뺀 것', () => {
+    const rows = buildPowerRows(twoCol as never, [twoCol, left] as never, [] as never, { cols: 2, rows: 2 });
+    expect(rows.filter((r) => r.empty).map((r) => r.slotNo)).toEqual([2, 3, 4]);
   });
 });

@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import { ASSET_STATUSES, assetFieldDefs, slotNumber, validateSlotPlacement } from '@twin/core';
+import { ASSET_STATUSES, assetFieldDefs, slotNumber, validateGridPlacement } from '@twin/core';
 import {
   DetailCard,
   DetailCardHeader,
@@ -19,20 +19,20 @@ import {
   cn,
   SELECTABLE,
 } from '../../components/ui';
-import { freeSlots } from '../newAsset';
+import { freeCells } from '../newAsset';
 import { assetLocationPath } from '../assetLocation';
 import type { GridPlacement } from '../gridDrag';
-import { SlotGrid, SLOT_ROW_HEIGHT } from './SlotGrid';
+import { AssemblyGrid } from './AssemblyGrid';
 import { cableCountByPortId } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { useV2Catalog } from '../hooks';
-import type { V2Asset, V2AssetType, V2ContainerSpec } from '../types';
+import type { V2Asset, V2AssetType, V2Assembly } from '../types';
 import { PhotoCard } from './PhotoCard';
 
 export interface AddModalContext {
   parentAssetId: string;
-  spec: V2ContainerSpec;
+  /** 그 설비의 격자 — 형판이 정한 자리다. */
+  grid: { cols: number; rows: number };
   siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
   /** 빈 자리를 눌러 열었으면 그 칸 — 모달에서 다시 고르게 하지 않는다. */
   cell?: { col: number; row: number };
@@ -58,69 +58,15 @@ function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortI
   );
 }
 
-// ── 자유형 자식 리스트 ─────────────────────────────────────────────────────────
-interface FreeChildListProps {
-  children: V2Asset[];
-  onSelectChild: (id: string) => void;
-  onAdd: () => void;
-  occupiedPortIds: ReadonlyMap<string, number>;
-}
-
-/*
- * 자유형 컨테이너(슬롯 수 제한 없음)도 고정 슬롯과 **같은 모양**으로 그린다.
- * 예전에는 자유형만 밋밋한 텍스트 목록이라, 같은 "수용" 인데 함체 종류에 따라 화면이
- * 딴판이었다. 다른 것은 번호가 슬롯 위치가 아니라 순번이라는 점뿐이다.
- */
-function FreeChildList({ children, onSelectChild, onAdd, occupiedPortIds }: FreeChildListProps) {
-  return (
-    <div className="mt-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner">
-      <ul className="space-y-0.5">
-        {children.map((child, i) => (
-          <li key={child.id} style={{ minHeight: SLOT_ROW_HEIGHT }}>
-            <button
-              type="button"
-              className={cn(
-                'flex h-full w-full items-center gap-2 rounded border border-line bg-surface px-2 text-left text-sm text-content',
-                SELECTABLE,
-              )}
-              onClick={() => onSelectChild(child.id)}
-              title={child.name}
-            >
-              <span className="w-8 shrink-0 text-right text-xs text-content-faint">{i + 1}</span>
-              <span className="min-w-0 flex-1 truncate">{child.name}</span>
-              <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />
-            </button>
-          </li>
-        ))}
-        <li style={{ minHeight: SLOT_ROW_HEIGHT }}>
-          <button
-            type="button"
-            className={cn(
-              'group flex h-full w-full items-center gap-2 rounded px-2 text-left text-sm text-content-faint',
-              SELECTABLE,
-            )}
-            onClick={onAdd}
-          >
-            <span className="w-8 shrink-0 text-right text-xs text-content-faint">{children.length + 1}</span>
-            <span className="min-w-0 flex-1">비어 있음</span>
-            <span className="shrink-0 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-              + 추가
-            </span>
-          </button>
-        </li>
-      </ul>
-    </div>
-  );
-}
-
 // ── props ─────────────────────────────────────────────────────────────────────
 interface InfoTabProps {
   assetId: string;
   asset: V2Asset;
   type: V2AssetType | undefined;
-  /** 상위 자산의 컨테이너 명세를 읽기 위한 타입 맵 */
-  typesById: Map<string, V2AssetType>;
-  childrenBySpecKey: Map<string, V2Asset[]>;
+  /** 설비의 분류이자 자리 명세 — 격자가 여기서 나온다. */
+  assembliesById: Map<string, V2Assembly>;
+  /** 이 설비 안에 놓인 부품들 — 자리 순. */
+  parts: V2Asset[];
   effectiveAssets: V2Asset[];
   floorNameById: Map<string, string>;
   setAddModalCtx: (ctx: AddModalContext | null) => void;
@@ -131,8 +77,8 @@ export function InfoTab({
   assetId,
   asset,
   type,
-  typesById,
-  childrenBySpecKey,
+  assembliesById,
+  parts,
   effectiveAssets,
   floorNameById,
   setAddModalCtx,
@@ -149,51 +95,37 @@ export function InfoTab({
   );
 
   const assetById = useMemo(() => new Map(effectiveAssets.map((a) => [a.id, a])), [effectiveAssets]);
-  const location = assetLocationPath(asset, assetById, floorNameById, typesById);
+  const location = assetLocationPath(asset, assetById, floorNameById, assembliesById);
 
-  /* 자리 판정에는 자식 타입의 **분류 키**가 필요하다(수용 규칙이 분류로도 걸린다). */
-  const catalog = useV2Catalog();
-  const categoryKeyById = useMemo(
-    () => new Map((catalog.data?.categories ?? []).map((c) => [c.id, c.key])),
-    [catalog.data],
-  );
+  /* 이 설비의 자리 — 형판이 격자를 갖는다. 형판으로 놓은 것만 안에 무언가를 담는다. */
+  const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
+  const grid = assembly ? { cols: assembly.gridCols, rows: assembly.gridRows } : null;
 
-  /* 상위 자산과 그 컨테이너 명세 — 위치 행이 "어디에 담겨 있는지" 를 다루려면 둘 다 필요하다. */
+  /* 상위 설비와 그 격자 — 위치 행이 "어느 자리에 놓여 있는지" 를 다루려면 둘 다 필요하다. */
   const parentAsset = asset.parentAssetId ? effectiveAssets.find((a) => a.id === asset.parentAssetId) : undefined;
-  const parentType = parentAsset ? typesById.get(parentAsset.typeId) : undefined;
-  const parentSlotSpec = parentType?.containerSpecs.find((c) => c.key === asset.containerKey);
+  const parentAssembly = parentAsset?.assemblyId ? assembliesById.get(parentAsset.assemblyId) : undefined;
+  const parentGrid = parentAssembly
+    ? { cols: parentAssembly.gridCols, rows: parentAssembly.gridRows }
+    : null;
   const siblingsInParent = parentAsset
-    ? effectiveAssets.filter((a) => a.parentAssetId === parentAsset.id && a.containerKey === asset.containerKey)
+    ? effectiveAssets.filter((a) => a.parentAssetId === parentAsset.id)
     : [];
-  const freeSlotsInParent = parentSlotSpec?.rows != null ? freeSlots(parentSlotSpec, siblingsInParent) : [];
+  const freeCellsInParent = parentGrid ? freeCells(parentGrid, siblingsInParent) : [];
 
   /**
-   * 이 자리에 놓을 수 있는가 — 판정은 core 가 한다(겹침·범위·span 허용).
+   * 이 자리에 놓을 수 있는가 — 판정은 core 가 한다(격자 안·겹침).
    *
    * 화면이 규칙을 다시 쓰면 저장 때 튕기는 자리를 드래그로는 놓을 수 있게 되어,
    * 눈에 보이는 것과 저장되는 것이 갈린다. 같은 함수를 부른다.
    */
-  function canPlaceInContainer(containerKey: string, movingId: string, at: GridPlacement): boolean {
-    if (!type) return false;
-    const moving = effectiveAssets.find((a) => a.id === movingId);
-    const movingType = moving ? typesById.get(moving.typeId) : undefined;
-    if (!moving || !movingType) return false;
+  function canPlaceInGrid(movingId: string, at: GridPlacement): boolean {
+    if (!grid) return false;
     return (
-      validateSlotPlacement({
-        // 판정에 쓰이는 것은 컨테이너 명세뿐이다 — 타입 전체를 지어내지 않는다.
-        parentType: { containers: type.containerSpecs } as never,
-        containerKey,
-        child: {
-          typeKey: movingType.key,
-          categoryKey: categoryKeyById.get(movingType.categoryId) ?? '',
-        },
+      validateGridPlacement({
+        grid,
         ...at,
-        occupants: effectiveAssets
-          .filter(
-            (a) =>
-              a.parentAssetId === assetId && a.containerKey === containerKey && a.id !== movingId &&
-              a.col != null && a.row != null,
-          )
+        occupants: parts
+          .filter((a) => a.id !== movingId && a.col != null && a.row != null)
           .map((a) => ({
             assetId: a.id, col: a.col!, row: a.row!, colSpan: a.colSpan ?? 1, rowSpan: a.rowSpan ?? 1,
           })),
@@ -249,7 +181,8 @@ export function InfoTab({
     <>
       {/* 기본 정보 카드 */}
       <DetailCard>
-        <DetailCardHeader title={type?.name ?? '—'} onDelete={handleDelete} />
+        {/* 종류 — 부품은 타입이, 형판으로 놓은 설비는 **형판**이 그 분류다. */}
+        <DetailCardHeader title={type?.name ?? assembly?.name ?? '—'} onDelete={handleDelete} />
 
         {/* 이름 */}
         <DetailRow label="이름">
@@ -292,29 +225,27 @@ export function InfoTab({
               >
                 {parentAsset.name}
               </button>
-              {parentSlotSpec?.rows != null ? (
+              {parentGrid ? (
                 <div className="w-28">
                   <Select
                     size="sm"
-                    aria-label={parentSlotSpec.name}
+                    aria-label="자리"
                     value={asset.col == null || asset.row == null ? '' : `${asset.col},${asset.row}`}
                     onChange={(e) => handleSlotChange(e.currentTarget.value)}
                   >
                     {asset.col != null && asset.row != null && (
                       <option value={`${asset.col},${asset.row}`}>
-                        {parentSlotSpec.name} {slotNumber(parentSlotSpec.cols, asset.col, asset.row)}
+                        자리 {slotNumber(parentGrid.cols, asset.col, asset.row)}
                       </option>
                     )}
-                    {freeSlotsInParent.map((cell) => (
+                    {freeCellsInParent.map((cell) => (
                       <option key={`${cell.col},${cell.row}`} value={`${cell.col},${cell.row}`}>
-                        {parentSlotSpec.name} {slotNumber(parentSlotSpec.cols, cell.col, cell.row)}
+                        자리 {slotNumber(parentGrid.cols, cell.col, cell.row)}
                       </option>
                     ))}
                   </Select>
                 </div>
-              ) : (
-                <span className="shrink-0 text-sm text-content-muted">· {parentSlotSpec?.name ?? ''}</span>
-              )}
+              ) : null}
             </div>
           ) : (
             <span className="text-sm text-content">{location}</span>
@@ -322,94 +253,71 @@ export function InfoTab({
         </DetailRow>
       </DetailCard>
 
-      {/* 속성 — 자산이 갖는 것은 종류를 가리지 않고 같다(설치일·담당자).
+      {/* 속성 — 자산이 갖는 것은 종류를 가리지 않고 같다(설치일·담당자). 타입이 있든(부품)
+          없든(형판으로 놓은 설비) 자산은 자산이다. 예전에는 `type` 이 있을 때만 그려서 설비에는
+          설치일·담당자를 적을 길이 아예 없었다 — 현황표에는 그 열이 있는데도.
           타입마다 필드를 따로 선언하던 길은 걷었다: 실제로 쓰인 것은 피더의 개폐 상태뿐이었고,
           그건 자산이 아니라 회로의 상태라 전원 출력 포트로 옮겼다. */}
-      {type && (
-        <DetailCard>
-          <DetailCardHeader title="속성" />
-          {assetFieldDefs().map((fd) => {
-            const rawVal = asset.fieldValues[fd.key];
-            const strVal = rawVal != null ? String(rawVal) : '';
-            return (
-              <DetailRow key={fd.key} label={fd.label}>
-                {fd.type === 'select' ? (
-                  <Select
-                    defaultValue={strVal}
-                    size="sm"
-                    onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
-                    key={strVal}
-                  >
-                    <option value="">—</option>
-                    {(fd.options ?? []).map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </Select>
-                ) : (
-                  <Input
-                    type={fd.type === 'date' ? 'date' : fd.type === 'number' ? 'number' : 'text'}
-                    defaultValue={strVal}
-                    size="sm"
-                    onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.currentTarget.blur();
-                    }}
-                    key={strVal}
-                  />
-                )}
-              </DetailRow>
-            );
-          })}
-        </DetailCard>
-      )}
+      <DetailCard>
+        <DetailCardHeader title="속성" />
+        {assetFieldDefs().map((fd) => {
+          const rawVal = asset.fieldValues[fd.key];
+          const strVal = rawVal != null ? String(rawVal) : '';
+          return (
+            <DetailRow key={fd.key} label={fd.label}>
+              {fd.type === 'select' ? (
+                <Select
+                  defaultValue={strVal}
+                  size="sm"
+                  onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
+                  key={strVal}
+                >
+                  <option value="">—</option>
+                  {(fd.options ?? []).map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </Select>
+              ) : (
+                <Input
+                  type={fd.type === 'date' ? 'date' : fd.type === 'number' ? 'number' : 'text'}
+                  defaultValue={strVal}
+                  size="sm"
+                  onBlur={(e) => handleFieldCommit(fd.key, e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                  }}
+                  key={strVal}
+                />
+              )}
+            </DetailRow>
+          );
+        })}
+      </DetailCard>
 
       {/* 포트는 '연결' 탭이 담당한다 — 여기 있던 섹션은 타입의 **포트 템플릿**을 다시 그린
           것이라 실제 포트도 아니고 연결 상태도 몰랐다. 같은 "포트" 가 두 탭에 반쪽씩
           나뉘어 있어, 어느 쪽을 봐야 하는지 알 수 없었다. */}
 
-      {/* 수용 섹션 */}
-      {type && type.containerSpecs.length > 0 && (
+      {/* 구성 — 형판으로 놓은 설비만 안에 부품을 담는다.
+          자리는 그 형판의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
+      {grid && assembly && (
         <DetailCard>
-          <DetailCardHeader title="수용" />
-          {type.containerSpecs.map((spec) => {
-            const specChildren = childrenBySpecKey.get(spec.key) ?? [];
-            return (
-              <div key={spec.key} className="space-y-1">
-                {/* 추가 버튼은 목록 안 '비어 있음' 행이 겸한다 — 머리줄에 또 두면
-                    같은 동작이 두 곳이 되고, 어느 슬롯에 들어가는지도 알 수 없다. */}
-                <p className="text-xs text-content-muted">
-                  {spec.name}
-                  {spec.rows != null && (
-                    <span className="ml-1 text-content-faint">
-                      ({spec.cols > 1 ? `${spec.cols}열 × ${spec.rows}행` : `${spec.rows}자리`})
-                    </span>
-                  )}
-                </p>
-                {spec.rows != null ? (
-                  <SlotGrid
-                    spec={spec}
-                    items={specChildren}
-                    onSelect={(child) => onSelectAsset(child.id)}
-                    trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
-                    onAddAtCell={(cell) =>
-                      setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren, cell })
-                    }
-                    canPlace={(id, at) => canPlaceInContainer(spec.key, id, at)}
-                    onMove={(id, at) => useV2WorkingCopy.getState().stageAssetUpdate(id, at)}
-                  />
-                ) : (
-                  <FreeChildList
-                    children={specChildren}
-                    onSelectChild={onSelectAsset}
-                    occupiedPortIds={occupiedPortIds}
-                    onAdd={() => setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren })}
-                  />
-                )}
-                {/* 슬롯 이동은 그 자산의 '위치' 행이 담당한다 — 부모 쪽에 두면
-                    "자식을 누른다" 가 진입인지 이동 선택인지 모호해진다. */}
-              </div>
-            );
-          })}
+          {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다.
+              부품 수만 적으면 이 판에 아직 자리가 남았는지를 알 수 없다. */}
+          <DetailCardHeader
+            title="구성"
+            badge={`${grid.cols * grid.rows - freeCells(grid, parts).length}/${grid.cols * grid.rows}칸`}
+            badgeStatus="neutral"
+          />
+          <AssemblyGrid
+            grid={grid}
+            items={parts}
+            onSelect={(child) => onSelectAsset(child.id)}
+            trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
+            onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, grid, siblings: parts, cell })}
+            canPlace={canPlaceInGrid}
+            onMove={(id, at) => useV2WorkingCopy.getState().stageAssetUpdate(id, at)}
+          />
         </DetailCard>
       )}
 

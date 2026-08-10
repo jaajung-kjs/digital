@@ -16,7 +16,7 @@ beforeAll(async () => {
   const floor = await nextDb.floor.create({ data: { name: `${uniq}-1층`, substationId: sub.id } });
   subId = sub.id;
   floorId = floor.id;
-  const rackType = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'RACK' } });
+  const rackType = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'GROUNDING' } });
   const asset = await nextDb.asset.create({
     data: { name: `${uniq}-rack`, typeId: rackType.id, substationId: sub.id, floorId: floor.id, x: 10, y: 20, width: 60, height: 80 },
   });

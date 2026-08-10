@@ -19,7 +19,7 @@ const trunk = (id: string, assetId: string, positions: number, fieldValues: Reco
 const asset = (id: string, name: string, extra: object = {}) => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
-  parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
+  parentAssetId: null, assemblyId: null, col: null, row: null, colSpan: null, rowSpan: null,
   fieldValues: {}, updatedAt: 'v', ports: [], ...extra,
 });
 const cable = (id: string, a: string, b: string, extra: object = {}) => ({
@@ -48,7 +48,7 @@ describe('fiberContainers', () => {
       ports: [port('o1', 'opt', 'CORE', 1)],
     });
     const rack = asset('rack', '통신랙 A');
-    expect(fiberContainers([ofd, slot, dev, rack, optTerm] as never).map((c) => c.asset.id)).toEqual(['ofd']);
+    expect(fiberContainers([ofd, slot, dev, rack, optTerm] as never).map((c) => c.id)).toEqual(['ofd']);
   });
 });
 

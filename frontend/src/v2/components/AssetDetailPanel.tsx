@@ -66,24 +66,22 @@ export function AssetDetailPanel({
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
-  const type = asset ? typesById.get(asset.typeId) : undefined;
+  /* 형판으로 놓은 설비는 타입이 없다 — 그 분류는 형판이다. */
+  const type = asset?.typeId ? typesById.get(asset.typeId) : undefined;
 
-  // 자식 자산 목록 (수용 섹션용)
-  const childrenBySpecKey = useMemo(() => {
-    const map = new Map<string, V2Asset[]>();
-    for (const a of effectiveAssets) {
-      if (a.parentAssetId === assetId && a.containerKey) {
-        const list = map.get(a.containerKey) ?? [];
-        list.push(a);
-        map.set(a.containerKey, list);
-      }
-    }
-    // 자리 순 정렬 — 격자는 행 우선이라 번호 순서와 같다.
-    for (const [, list] of map) {
-      list.sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || (a.col ?? 0) - (b.col ?? 0));
-    }
-    return map;
-  }, [effectiveAssets, assetId]);
+  const assembliesById = useMemo(
+    () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
+    [catalog.data],
+  );
+
+  /* 이 설비 안에 놓인 부품들 — 자리 순(격자가 행 우선이라 번호 순서와 같다). */
+  const parts = useMemo(
+    () =>
+      effectiveAssets
+        .filter((a) => a.parentAssetId === assetId)
+        .sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || (a.col ?? 0) - (b.col ?? 0)),
+    [effectiveAssets, assetId],
+  );
 
   // 자신이 놓였거나, 놓인 상위가 있으면 평면도에서 찾아갈 수 있다.
   const placedAncestorExists = useMemo(() => {
@@ -198,8 +196,8 @@ export function AssetDetailPanel({
             assetId={assetId}
             asset={asset}
             type={type}
-            typesById={typesById}
-            childrenBySpecKey={childrenBySpecKey}
+            assembliesById={assembliesById}
+            parts={parts}
             effectiveAssets={effectiveAssets}
             floorNameById={floorNameById}
             setAddModalCtx={setAddModalCtx}
@@ -245,13 +243,13 @@ export function AssetDetailPanel({
         )}
       </div>
 
-      {/* 자산 추가 모달 (수용 섹션 + 버튼에서 열림) */}
+      {/* 자산 추가 모달 (구성 격자의 빈 자리에서 열림) */}
       {addModalCtx && (
         <AddAssetModal
           open={true}
           onClose={() => setAddModalCtx(null)}
           substationId={substationId}
-          containerContext={addModalCtx}
+          gridContext={addModalCtx}
         />
       )}
     </div>

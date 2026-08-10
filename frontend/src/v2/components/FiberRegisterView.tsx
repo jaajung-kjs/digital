@@ -1,7 +1,7 @@
 /**
  * FiberRegisterView — 선번장 뷰
  *
- * 상단: 컨테이너(광 포트를 가진 자산) Select
+ * 상단: 설비(광 인입 포트를 가진 부품을 담은 것) Select
  * 테이블: 슬롯 그룹헤더 행 + 코어별 데이터 행
  *   컬럼: 코어 | {groups 동적} | 길이(m) | 손실(dB) | 점검일
  * 메타 인라인 편집: blur/Enter, 무변경 가드
@@ -10,7 +10,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { EmptyState, Select, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { useV2Catalog, useTypesById } from '../hooks';
+import { useV2Catalog } from '../hooks';
 import { cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { useMediumContainer } from '../useMediumContainer';
 import { fiberContainers, buildFiberRows, FIBER_TRUNK_MEDIUM } from '../fiberSelectors';
@@ -127,18 +127,20 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => fiberContainers(effectiveAssets), [effectiveAssets]);
 
-  // 컨테이너 이름표를 만드는 데 쓰는 카탈로그 타입(useMediumContainer)
+  /* 설비의 격자를 아는 것은 그 형판이다 — 표가 자리 번호를 매길 때 쓴다. */
   const catalog = useV2Catalog();
-  const types = catalog.data?.types;
-  const typesById = useTypesById(types);
+  const assembliesById = useMemo(
+    () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
+    [catalog.data],
+  );
 
   const [query, setQuery] = useState('');
   /* 고른 심선 — 표의 단위는 자산이 아니라 **심선**이다. 자산 id 로 칠하면 그 슬롯의 24행이
      한꺼번에 물들어, 어느 심선을 눌렀는지가 화면에서 사라진다(실제로 그랬다). */
   const [selectedCore, setSelectedCore] = useState<{ slotId: string; coreIndex: number } | null>(null);
 
-  /* 표의 단위는 자산이 아니라 (자산, 컨테이너) — 계통과 같은 훅을 쓴다. */
-  const picked = useMediumContainer(containers, typesById);
+  /* 표의 단위는 설비 하나 — 계통과 같은 훅을 쓴다. */
+  const picked = useMediumContainer(containers, assembliesById);
 
   /* 패널이 다른 자산으로 옮겨 가면 표의 선택도 놓는다 — 둘이 서로 다른 것을 가리키면
      "선택" 이라는 말이 화면에서 두 가지 뜻이 된다. */
@@ -149,9 +151,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   const { groups, groupLabels, rows } = useMemo(() => {
     if (!activeContainer) return { groups: [] as string[], groupLabels: [] as string[], rows: [] as FiberRow[] };
-    return buildFiberRows(
-      activeContainer.asset, effectiveAssets, effectiveCables, activeContainer.containerKey,
-    );
+    return buildFiberRows(activeContainer, effectiveAssets, effectiveCables);
   }, [activeContainer, effectiveAssets, effectiveCables]);
 
   // ── 빈 상태 ────────────────────────────────────────────────────────────────
@@ -161,8 +161,8 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
         title="선번장에 표시할 광 자산이 없습니다"
         description={
           <>
-            선번장은 <strong>광 인입 포트를 가진 자산을 품고 있는 함체</strong>를 자동으로 찾습니다. OFD 같은 함체를
-            만들고 그 안에 경로슬롯을 넣으면 여기에 나타납니다.
+            선번장은 <strong>광 인입 포트를 가진 부품을 품고 있는 설비</strong>를 자동으로 찾습니다. OFD 형판처럼
+            경로슬롯을 담은 형판을 도면에 놓으면 여기에 나타납니다.
           </>
         }
       />
@@ -220,7 +220,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* 상단 컨테이너 선택 + 검색 */}
+      {/* 상단 설비 선택 + 검색 */}
       <div className="shrink-0 flex items-center gap-3 border-b border-line px-3 py-2">
         {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
             멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}

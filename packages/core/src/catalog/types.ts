@@ -187,7 +187,7 @@ export interface TypeUpsertBody {
  */
 export const PLACEMENT_FIELDS = [
   'floorId', 'x', 'y', 'width', 'height',
-  'parentAssetId', 'containerKey', 'col', 'row', 'colSpan', 'rowSpan',
+  'parentAssetId', 'col', 'row', 'colSpan', 'rowSpan',
 ] as const;
 
 export type PlacementField = (typeof PLACEMENT_FIELDS)[number];

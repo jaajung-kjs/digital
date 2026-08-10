@@ -65,6 +65,10 @@ async function main() {
     /* 형판 — **도면에 놓이는 것**은 이것들이다. 부품 목록은 초기 구성이라, 놓고 나서
        그 설비만 따로 고칠 수 있다. */
     for (const a of SEED_ASSEMBLIES) {
+      /* 이미 있으면 손대지 않는다 — 형판은 사용자가 고치는 것이라 참조 데이터가 아니다.
+         시드는 컨테이너가 뜰 때마다 도는데(배포 멱등성), 덮어쓰면 매 재시작마다
+         현장에서 짠 구성이 원본으로 되돌아간다. 첫 배포(빈 DB)에만 만든다. */
+      if (await tx.assembly.findUnique({ where: { key: a.key } })) continue;
       const category = await tx.assetCategory.findUniqueOrThrow({ where: { key: a.categoryKey } });
       const asm = await tx.assembly.create({
         data: {

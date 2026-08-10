@@ -13,7 +13,9 @@ export const floorCreateSchema = orgNameSchema.extend({ substationId: z.string()
 const assetCreateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1),
-  typeId: z.string().uuid(),
+  /* 도면에 놓이는 것은 둘이다: 형판으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
+     둘 중 하나는 있어야 한다는 판정은 커밋이 한다(형판·타입이 실재하는지도 거기서 본다). */
+  typeId: z.string().uuid().nullish(),
   /* 상태 어휘는 core 의 ASSET_STATUSES 가 유일한 출처다.
      예전에는 z.string() 이라 어떤 문자열이든 통과했고, 실제로 '점검필요'·'need_check' 같은
      사전에 없는 값이 저장돼 화면에 원시값 그대로 나왔다(라벨 조회 실패 시 값을 그대로 쓴다).
@@ -27,7 +29,6 @@ const assetCreateSchema = z.object({
   parentAssetId: z.string().uuid().nullish(),
   /** 이 설비를 만든 형판 — **분류**다. 뿌리에만 적힌다. */
   assemblyId: z.string().uuid().nullish(),
-  containerKey: z.string().nullish(),
   col: z.number().int().min(0).nullish(),
   row: z.number().int().min(0).nullish(),
   colSpan: z.number().int().min(1).nullish(),
@@ -39,7 +40,7 @@ const assetCreateSchema = z.object({
 });
 
 const assetPatchSchema = assetCreateSchema
-  .omit({ id: true, typeId: true, portCounts: true, portPositions: true })
+  .omit({ id: true, typeId: true, assemblyId: true, portCounts: true, portPositions: true })
   .partial()
   .extend({
     /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 타입 명세에서 만들어지므로
@@ -75,17 +76,6 @@ const cablePatchSchema = z.object({
 
 // ---------- 카탈로그 관리 (Stage 6) ----------
 const keyRe = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
-const containerSpecBodySchema = z.object({
-  key: z.string().regex(keyRe),
-  name: z.string().trim().min(1),
-  cols: z.number().int().min(1),
-  rows: z.number().int().min(1).nullable(),
-  allowSpan: z.boolean(),
-  accepts: z.object({
-    categoryKeys: z.array(z.string()).optional(),
-    typeKeys: z.array(z.string()).optional(),
-  }),
-});
 const portTemplateBodySchema = z.object({
   group: z.string().regex(keyRe),
   count: z.number().int().min(1),
@@ -134,7 +124,6 @@ export const typeUpsertSchema = z.object({
   installHours: z.number().min(0),
   removeHours: z.number().min(0),
   relocateHours: z.number().min(0),
-  containers: z.array(containerSpecBodySchema),
   ports: z.array(portTemplateBodySchema),
 });
 export const categoryCreateSchema = z.object({ key: z.string().min(1), name: z.string().trim().min(1), sortOrder: z.number().int() });

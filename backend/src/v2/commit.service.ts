@@ -224,7 +224,6 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
       ...(p.width !== undefined ? { width: p.width } : {}),
       ...(p.height !== undefined ? { height: p.height } : {}),
       ...(p.parentAssetId !== undefined ? { parentAssetId: p.parentAssetId } : {}),
-      ...(p.containerKey !== undefined ? { containerKey: p.containerKey } : {}),
       ...(p.col !== undefined ? { col: p.col } : {}),
       ...(p.row !== undefined ? { row: p.row } : {}),
       ...(p.colSpan !== undefined ? { colSpan: p.colSpan } : {}),

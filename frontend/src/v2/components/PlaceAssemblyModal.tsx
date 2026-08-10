@@ -20,10 +20,7 @@ export function PlaceAssemblyModal({
   /** 함께 생기는 것 — 타입이 아니라 형판이 적어 둔 이름으로 센다. */
   const parts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const i of assembly.items) {
-      if (i.parentItemId === null) continue; // 뿌리는 이름을 지금 정한다
-      counts.set(i.name, (counts.get(i.name) ?? 0) + 1);
-    }
+    for (const i of assembly.items) counts.set(i.name, (counts.get(i.name) ?? 0) + 1);
     return [...counts.entries()];
   }, [assembly]);
 

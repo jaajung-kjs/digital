@@ -1,5 +1,5 @@
 import { isMultiCorePort, portValuesAt, type SeededMediumKey } from '@twin/core';
-import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type MediumContainer, type PeerInfo, type PortIndex } from './peerResolve';
+import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo, type PortIndex } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
 export const FIBER_MEDIUM: SeededMediumKey = 'fiber';
@@ -7,13 +7,13 @@ export const FIBER_MEDIUM: SeededMediumKey = 'fiber';
 export const FIBER_TRUNK_MEDIUM: SeededMediumKey = 'fiber-trunk';
 
 /**
- * 선번장 대상 — **인입 포트를 가진 슬롯**을 품은 함체.
+ * 선번장 대상 — **인입 포트를 가진 부품**을 품은 설비(OFD 형판 등).
  *
  * 예전에는 "광 포트를 가진 자식" 이면 다 걸려서, 장비쪽 광 포트만 있는 광단말까지 대상이 됐다.
  * 선번장에 적는 것(성단 손실·점검일)은 OTDR 로 재는 인입 심선의 값이라 인입이 없는 자산에는
  * 적을 것이 없다. 조건을 인입 포트로 바꾸면 그 사실이 선언에서 그대로 나온다.
  */
-export function fiberContainers(assets: V2Asset[]): MediumContainer[] {
+export function fiberContainers(assets: V2Asset[]): V2Asset[] {
   return mediumContainers(assets, FIBER_TRUNK_MEDIUM);
 }
 
@@ -107,7 +107,7 @@ function resolveFarEnd(
 }
 
 /**
- * 한 함체(컨테이너)의 선번장 행을 만든다.
+ * 한 설비의 선번장 행을 만든다.
  *
  * 행의 단위는 **인입 포트의 코어**다 — 슬롯 × 코어 1..positions. 열은 그 슬롯의 단심 광 포트
  * 그룹들(장비쪽 성단)과 대국이다.
@@ -116,19 +116,12 @@ export function buildFiberRows(
   container: V2Asset,
   assets: V2Asset[],
   cables: V2Cable[],
-  /** 이 표가 다루는 컨테이너 — 같은 함체의 다른 컨테이너 슬롯은 섞이면 안 된다. */
-  containerKey?: string | null,
 ): BuildFiberRowsResult {
   const { cablesByAPortId: byA, cablesByBPortId: byB } = indexCablesByPort(cables);
   const portIndex = buildPortIndex(assets);
 
   const slots = assets
-    .filter(
-      (a) =>
-        a.parentAssetId === container.id &&
-        (containerKey === undefined || a.containerKey === containerKey) &&
-        trunkPortOf(a) !== null,
-    )
+    .filter((a) => a.parentAssetId === container.id && trunkPortOf(a) !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // 열 = 슬롯들이 가진 단심 광 포트 그룹의 합집합(포트 순서 보존).

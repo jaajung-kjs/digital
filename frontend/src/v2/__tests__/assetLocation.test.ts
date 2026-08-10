@@ -14,7 +14,7 @@ const asset = (id: string, name: string, over: Partial<V2Asset> = {}): V2Asset =
   width: null,
   height: null,
   parentAssetId: null,
-  containerKey: null,
+  assemblyId: null,
   col: null, row: null,
   colSpan: null, rowSpan: null,
   fieldValues: {},
@@ -26,10 +26,10 @@ const asset = (id: string, name: string, over: Partial<V2Asset> = {}): V2Asset =
 const floors = new Map([['f1', '1층']]);
 const build = (...list: V2Asset[]) => new Map(list.map((a) => [a.id, a]));
 
-/* 자리 이름·번호는 상위 타입의 컨테이너 명세에서 나온다 — 랙은 1열, 분전반 조서는 2열. */
-const types = new Map([
-  ['t', { id: 't', containerSpecs: [{ key: null, name: '슬롯', cols: 1, rows: 12 }] } as never],
-  ['panel', { id: 'panel', containerSpecs: [{ key: null, name: '회로', cols: 2, rows: 6 }] } as never],
+/* 자리 번호는 상위 **설비의 형판 격자**에서 나온다 — 랙 모양은 1열, 분전반 조서는 2열. */
+const assemblies = new Map([
+  ['rack-asm', { id: 'rack-asm', gridCols: 1, gridRows: 12 } as never],
+  ['panel-asm', { id: 'panel-asm', gridCols: 2, gridRows: 6 } as never],
 ]);
 
 describe('자산 위치 경로', () => {
@@ -38,35 +38,28 @@ describe('자산 위치 경로', () => {
     expect(assetLocationPath(rack, build(rack), floors)).toBe('1층');
   });
 
-  it('랙 안의 장비는 층까지 거슬러 올라간다 — 예전에는 층이 사라졌다', () => {
-    const rack = asset('rack', '전원랙 A', { floorId: 'f1' });
+  it('설비 안의 부품은 층까지 거슬러 올라간다 — 예전에는 층이 사라졌다', () => {
+    const rack = asset('rack', '전원랙 A', { floorId: 'f1', typeId: null, assemblyId: 'rack-asm' });
     const ups = asset('ups', 'UPS-1', { parentAssetId: 'rack', col: 0, row: 0 });
-    expect(assetLocationPath(ups, build(rack, ups), floors, types)).toBe('1층 · 전원랙 A · 슬롯 1');
+    expect(assetLocationPath(ups, build(rack, ups), floors, assemblies)).toBe('1층 · 전원랙 A · 자리 1');
   });
 
-  it('두 단계 중첩도 끝까지 — 층 · 함체 · 슬롯 · 안의 장비', () => {
-    const rack = asset('rack', '통신랙 A', { floorId: 'f1' });
-    const ofd = asset('ofd', 'OFD-1', { parentAssetId: 'rack', col: 0, row: 1 });
-    const slot = asset('slot', '슬롯 1', { parentAssetId: 'ofd', col: 0, row: 2 });
-    expect(assetLocationPath(slot, build(rack, ofd, slot), floors, types)).toBe(
-      '1층 · 통신랙 A · 슬롯 2 · OFD-1 · 슬롯 3',
-    );
-  });
-
-  it('슬롯 번호가 없으면 이름만 붙는다(자유형 컨테이너)', () => {
-    const ofd = asset('ofd', 'OFD-1', { floorId: 'f1' });
+  /* 부품이 또 부품을 담지 않는다(평평하다) — OFD 도 도면에 바로 놓이는 형판이다.
+     그래도 경로 계산은 깊이를 가정하지 않는다: 데이터가 그렇게 되면 그대로 따라간다. */
+  it('자리 번호가 없으면 이름만 붙는다', () => {
+    const ofd = asset('ofd', 'OFD-1', { floorId: 'f1', typeId: null, assemblyId: 'rack-asm' });
     const child = asset('c', '슬롯 1', { parentAssetId: 'ofd' });
-    expect(assetLocationPath(child, build(ofd, child), floors)).toBe('1층 · OFD-1');
+    expect(assetLocationPath(child, build(ofd, child), floors, assemblies)).toBe('1층 · OFD-1');
   });
 
   /* 열이 여럿이면 번호는 행 우선이다 — 2열짜리 조서의 (1,0)은 2번 회로다. */
   it('여러 열 격자에서는 자리 번호가 행 우선으로 매겨진다', () => {
-    const panel = asset('p', '분전반 P1', { floorId: 'f1', typeId: 'panel' });
+    const panel = asset('p', '분전반 P1', { floorId: 'f1', typeId: null, assemblyId: 'panel-asm' });
     const feeder = asset('f', '피더 콘센트', { parentAssetId: 'p', col: 1, row: 0 });
-    expect(assetLocationPath(feeder, build(panel, feeder), floors, types)).toBe('1층 · 분전반 P1 · 회로 2');
+    expect(assetLocationPath(feeder, build(panel, feeder), floors, assemblies)).toBe('1층 · 분전반 P1 · 자리 2');
   });
 
-  it('상위 타입을 모르면 자리 번호를 생략한다 — 이름만으로도 어디인지는 읽힌다', () => {
+  it('상위 형판을 모르면 자리 번호를 1열로 매긴다 — 이름만으로도 어디인지는 읽힌다', () => {
     const rack = asset('rack', '전원랙 A', { floorId: 'f1' });
     const ups = asset('ups', 'UPS-1', { parentAssetId: 'rack', col: 0, row: 0 });
     expect(assetLocationPath(ups, build(rack, ups), floors)).toBe('1층 · 전원랙 A · 자리 1');

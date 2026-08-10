@@ -1451,11 +1451,11 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
         <PlaceAssemblyModal
           assembly={drawnAssembly}
           onClose={handleModalClose}
-          onPlace={(rootName: string) => {
+          onPlace={(name: string) => {
             for (const asset of assemblyToAssets({
               assembly: drawnAssembly,
               substationId,
-              rootName,
+              name,
               floorId: drawModal.floorId,
               rect: drawModal.rect,
             })) {

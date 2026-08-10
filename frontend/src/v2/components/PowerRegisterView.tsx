@@ -1,7 +1,7 @@
 /**
  * PowerRegisterView — 계통 뷰
  *
- * 상단: 컨테이너(전원 포트를 가진 자산) Select
+ * 상단: 설비(전원 포트를 가진 부품을 담은 것) Select
  * 테이블 컬럼: 회로 | 피더 | 상태 | 전원 입력(peer) | 전압 | 부하 출력(peer)
  *   - 개폐: 출력 포트의 `closed` 값을 여닫는 스위치
  *   - 전압: 인라인 Input → stageCableUpdate specParams 병합 (IN 케이블 없으면 '—')
@@ -15,7 +15,7 @@ import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows, POWER_MEDIUM } from '../powerSelectors';
 import { cableFieldsFor, portFieldsFor, setPortValueAt, slotCell, type ValueDef } from '@twin/core';
 import type { PowerRow, PowerCell } from '../powerSelectors';
-import { useV2Catalog, useTypesById } from '../hooks';
+import { useV2Catalog } from '../hooks';
 import { useMediumContainer } from '../useMediumContainer';
 import { AddAssetModal } from './AddAssetModal';
 import { PeerCell } from './PeerCell';
@@ -113,11 +113,14 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => powerContainers(effectiveAssets), [effectiveAssets]);
 
-  // catalog에서 피더별 switchState fieldDef 조회 (행별 해소 — 혼합 타입 컨테이너 대응)
+  /* 설비의 격자를 아는 것은 그 형판이다 — 회로 번호와 빈 자리가 여기서 나온다. */
   const catalog = useV2Catalog();
-  const typesById = useTypesById(catalog.data?.types);
+  const assembliesById = useMemo(
+    () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
+    [catalog.data],
+  );
 
-  /* 어느 컨테이너를 보고 있나 + 그 컨테이너가 선언한 회로 수.
+  /* 어느 설비를 보고 있나 + 그 형판이 선언한 회로 수.
      회로 수가 선언돼 있으면 빈 자리까지 표(패널 스케줄)에 나오고, 자유형이면 있는 것만 나온다.
      "몇 회로짜리인가" 는 타입이 아니라 명세가 말한다 — 코드는 분전반을 모르지 않는다. */
   /* 케이블에 적는 값 — 몇 칸인지는 종류 선언이 정한다(예전에는 전압 하나로 박혀 있었다). */
@@ -133,7 +136,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
     22, // 부하 출력
   ];
 
-  const picked = useMediumContainer(containers, typesById);
+  const picked = useMediumContainer(containers, assembliesById);
   const activeContainer = picked.active;
 
   /* 빈 회로 자리를 누르면 그 자리에 자산을 넣는다 — 모달은 이 뷰가 소유한다
@@ -143,9 +146,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   const rows = useMemo<PowerRow[]>(() => {
     if (!activeContainer) return [];
-    return buildPowerRows(
-      activeContainer.asset, effectiveAssets, effectiveCables, picked.grid, activeContainer.containerKey,
-    );
+    return buildPowerRows(activeContainer, effectiveAssets, effectiveCables, picked.grid);
   }, [activeContainer, effectiveAssets, effectiveCables, picked.grid]);
 
   /* 검색이 없으면 회로가 42개인 분전반에서 "그 피더" 를 찾을 방법이 눈으로 훑는 것뿐이다.
@@ -184,7 +185,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* 상단 컨테이너 선택 + 검색 */}
+      {/* 상단 설비 선택 + 검색 */}
       <div className="shrink-0 flex items-center gap-3 border-b border-line px-3 py-2">
         {/* 폭은 **감싸는 칸**이 정한다 — `<select>` 에 직접 걸면 화살표(래퍼 기준 절대배치)만
             멀찍이 떨어져 남는다. 실제로 그렇게 돼 있었다. */}
@@ -246,7 +247,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                 <tr
                   key={`empty-${row.slotNo}`}
                   className={cn('group h-11 border-b border-line', SELECTABLE)}
-                  onClick={() => setAddCell(slotCell(picked.spec?.cols ?? 1, row.slotNo!))}
+                  onClick={() => setAddCell(slotCell(picked.grid?.cols ?? 1, row.slotNo!))}
                 >
                   <td className="px-3 py-1.5 text-sm text-content-faint tabular-nums">{row.slotNo}</td>
                   <td className="px-3 py-1.5 text-sm text-content-faint">
@@ -299,21 +300,16 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       </div>
 
       {/* 회로 자리에 자산 추가 */}
-      {addCell != null && activeContainer && picked.spec && (
+      {addCell != null && activeContainer && picked.grid && (
         <AddAssetModal
           open
           onClose={() => setAddCell(null)}
           substationId={_substationId}
-          containerContext={{
-            parentAssetId: activeContainer.asset.id,
-            spec: picked.spec,
-            // 자리 점유는 **같은 컨테이너 안에서만** 따진다 — 다른 컨테이너의 0번은 남의 자리다.
+          gridContext={{
+            parentAssetId: activeContainer.id,
+            grid: picked.grid,
             siblings: effectiveAssets
-              .filter(
-                (a) =>
-                  a.parentAssetId === activeContainer.asset.id &&
-                  a.containerKey === activeContainer.containerKey,
-              )
+              .filter((a) => a.parentAssetId === activeContainer.id)
               .map((a) => ({ col: a.col, row: a.row, colSpan: a.colSpan, rowSpan: a.rowSpan })),
             cell: addCell,
           }}

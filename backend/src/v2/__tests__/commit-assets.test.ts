@@ -8,7 +8,9 @@ const app = makeApp();
 const uniq = `t2a-cm-${Date.now()}`;
 const admin = { Authorization: authHeader('admin') };
 let subId: string, floorId: string;
-let rackTypeId: string, pitrTypeId: string, slotTypeId: string, ofdTypeId: string, groundingTypeId: string;
+let pitrTypeId: string, slotTypeId: string, groundingTypeId: string;
+/** 설비는 형판으로 놓는다 — 타입이 아니라 형판이 그 분류다. */
+let optSetId: string, ofdAssemblyId: string;
 
 const commit = (payload: unknown) =>
   request(app).put(`/api/v2/substations/${subId}/commit`).set(admin).send(payload as object);
@@ -22,11 +24,12 @@ beforeAll(async () => {
   subId = sub.id;
   floorId = floor.id;
   const key = (k: string) => nextDb.assetType.findUniqueOrThrow({ where: { key: k } });
-  rackTypeId = (await key('RACK')).id;
   pitrTypeId = (await key('PITR-5000')).id;
   slotTypeId = (await key('OFD-SLOT')).id;
-  ofdTypeId = (await key('OFD')).id;
   groundingTypeId = (await key('GROUNDING')).id;
+  const asmKey = (k: string) => nextDb.assembly.findUniqueOrThrow({ where: { key: k } });
+  optSetId = (await asmKey('OPT-SET')).id;
+  ofdAssemblyId = (await asmKey('OFD')).id;
 });
 
 afterAll(async () => {
@@ -35,49 +38,63 @@ afterAll(async () => {
 });
 
 describe('PUT /commit — assets', () => {
-  it('랙+모듈 2개를 한 커밋으로 생성(부모가 같은 커밋의 create), 포트 자동 인스턴스화', async () => {
+  it('설비+부품 2개를 한 커밋으로 생성(부모가 같은 커밋의 create), 포트 자동 인스턴스화', async () => {
     const rackId = randomUUID();
     const m1 = randomUUID(), m2 = randomUUID();
     await commit({
       assets: {
         creates: [
           // 자식을 먼저 배열에 넣어 위상정렬을 강제 검증
-          { id: m1, name: `${uniq}-m1`, typeId: pitrTypeId, parentAssetId: rackId, containerKey: 'main', col: 0, row: 0, colSpan: 1, rowSpan: 2 },
-          { id: rackId, name: `${uniq}-rack`, typeId: rackTypeId, floorId, x: 0, y: 0, width: 60, height: 80 },
-          { id: m2, name: `${uniq}-m2`, typeId: pitrTypeId, parentAssetId: rackId, containerKey: 'main', col: 0, row: 2, colSpan: 1, rowSpan: 1 },
+          { id: m1, name: `${uniq}-m1`, typeId: pitrTypeId, parentAssetId: rackId, col: 0, row: 0, colSpan: 1, rowSpan: 2 },
+          { id: rackId, name: `${uniq}-rack`, assemblyId: optSetId, floorId, x: 0, y: 0, width: 60, height: 80 },
+          { id: m2, name: `${uniq}-m2`, typeId: pitrTypeId, parentAssetId: rackId, col: 0, row: 2, colSpan: 1, rowSpan: 1 },
         ],
       },
     }).expect(200);
     const m1Ports = await nextDb.port.findMany({ where: { assetId: m1 } });
     expect(m1Ports.length).toBe(2); // device 기본 포트 템플릿 (network 2)
+    // 설비 자신에게는 포트가 없다 — 포트를 갖는 것은 안에 든 부품이다.
+    expect(await nextDb.port.count({ where: { assetId: rackId } })).toBe(0);
   });
 
-  it('슬롯 겹침 → 422 PLACEMENT_OVERLAP', async () => {
+  it('자리 겹침 → 422 PLACEMENT_OVERLAP', async () => {
     const res = await commit({
       assets: {
-        creates: [{ id: randomUUID(), name: `${uniq}-ov`, typeId: pitrTypeId, parentAssetId: await rackIdByName(), containerKey: 'main', col: 0, row: 1, colSpan: 1, rowSpan: 1 }],
+        creates: [{ id: randomUUID(), name: `${uniq}-ov`, typeId: pitrTypeId, parentAssetId: await rackIdByName(), col: 0, row: 1, colSpan: 1, rowSpan: 1 }],
       },
     }).expect(422);
     expect(res.body.error).toBe('PLACEMENT_OVERLAP');
   });
 
-  it('수용 불가 타입(GROUNDING, 구조 카테고리) → 422 PLACEMENT_NOT_ACCEPTED', async () => {
+  /* 담을 수 있는 것은 형판으로 놓은 설비뿐이다 — 부품 안에 부품을 넣을 수는 없다.
+     무엇을 담을지는 형판을 짜는 사람이 정하지, 자리가 정하지 않는다(수용 규칙은 걷었다). */
+  it('부품을 부모로 삼으면 422 INVALID_PARENT', async () => {
+    const part = await nextDb.asset.findFirstOrThrow({ where: { substationId: subId, name: `${uniq}-m1` } });
     const res = await commit({
       assets: {
-        creates: [{ id: randomUUID(), name: `${uniq}-na`, typeId: groundingTypeId, parentAssetId: await rackIdByName(), containerKey: 'main', col: 0, row: 5, colSpan: 1, rowSpan: 1 }],
+        creates: [{ id: randomUUID(), name: `${uniq}-na`, typeId: groundingTypeId, parentAssetId: part.id, col: 0, row: 0, colSpan: 1, rowSpan: 1 }],
       },
     }).expect(422);
-    expect(res.body.error).toBe('PLACEMENT_NOT_ACCEPTED');
+    expect(res.body.error).toBe('INVALID_PARENT');
   });
 
-  /* 12심 판과 24심 판이 한 함체에 섞인다 — 성단은 개수가, 인입은 코어 수가 달라진다. */
+  it('격자 밖 자리 → 422 PLACEMENT_OUT_OF_RANGE', async () => {
+    const res = await commit({
+      assets: {
+        creates: [{ id: randomUUID(), name: `${uniq}-oor`, typeId: pitrTypeId, parentAssetId: await rackIdByName(), col: 0, row: 99, colSpan: 1, rowSpan: 1 }],
+      },
+    }).expect(422);
+    expect(res.body.error).toBe('PLACEMENT_OUT_OF_RANGE');
+  });
+
+  /* 12심 판과 24심 판이 한 설비에 섞인다 — 성단은 개수가, 인입은 코어 수가 달라진다. */
   it('오버라이드: 12심 경로슬롯 → 성단 12 + 인입 1(코어 12)', async () => {
     const ofdId = randomUUID(), slotId = randomUUID();
     await commit({
       assets: {
         creates: [
-          { id: ofdId, name: `${uniq}-ofd`, typeId: ofdTypeId, floorId, x: 100, y: 0, width: 40, height: 40 },
-          { id: slotId, name: `${uniq}-slot12`, typeId: slotTypeId, parentAssetId: ofdId, containerKey: 'main', portCounts: { CORE: 12 }, portPositions: { TRUNK: 12 } },
+          { id: ofdId, name: `${uniq}-ofd`, assemblyId: ofdAssemblyId, floorId, x: 100, y: 0, width: 40, height: 40 },
+          { id: slotId, name: `${uniq}-slot12`, typeId: slotTypeId, parentAssetId: ofdId, col: 0, row: 0, portCounts: { CORE: 12 }, portPositions: { TRUNK: 12 } },
         ],
       },
     }).expect(200);
@@ -157,7 +174,7 @@ describe('자산 상태 어휘', () => {
       baseVersions: {},
       assets: {
         creates: [
-          { id: randomUUID(), name: `${uniq}-bad-status`, typeId: rackTypeId, status: '점검필요', floorId, x: 0, y: 0, width: 10, height: 10, fieldValues: {} },
+          { id: randomUUID(), name: `${uniq}-bad-status`, assemblyId: optSetId, status: '점검필요', floorId, x: 0, y: 0, width: 10, height: 10, fieldValues: {} },
         ],
       },
     }).expect(400);
@@ -169,7 +186,7 @@ describe('자산 상태 어휘', () => {
       baseVersions: {},
       assets: {
         creates: [
-          { id: randomUUID(), name: `${uniq}-ok-status`, typeId: rackTypeId, status: 'standby', floorId, x: 0, y: 0, width: 10, height: 10, fieldValues: {} },
+          { id: randomUUID(), name: `${uniq}-ok-status`, assemblyId: optSetId, status: 'standby', floorId, x: 0, y: 0, width: 10, height: 10, fieldValues: {} },
         ],
       },
     }).expect(200);

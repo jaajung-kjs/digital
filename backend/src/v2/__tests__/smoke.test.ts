@@ -26,6 +26,7 @@ describe('v2 전체 흐름 스모크', () => {
 
     const catalog = (await request(app).get('/api/v2/catalog').set(admin).expect(200)).body;
     const typeId = (key: string) => catalog.types.find((t: { key: string }) => t.key === key).id;
+    const assemblyId = (key: string) => catalog.assemblies.find((a: { key: string }) => a.key === key).id;
 
     const rackId = randomUUID();
     const moduleId = randomUUID();
@@ -35,8 +36,8 @@ describe('v2 전체 흐름 스모크', () => {
       .send({
         assets: {
           creates: [
-            { id: rackId, name: `${uniq}-rack`, typeId: typeId('RACK'), floorId, x: 0, y: 0, width: 60, height: 80 },
-            { id: moduleId, name: `${uniq}-pitr`, typeId: typeId('PITR-5000'), parentAssetId: rackId, containerKey: 'main', col: 0, row: 0, colSpan: 1, rowSpan: 2 },
+            { id: rackId, name: `${uniq}-rack`, assemblyId: assemblyId('OPT-SET'), floorId, x: 0, y: 0, width: 60, height: 80 },
+            { id: moduleId, name: `${uniq}-pitr`, typeId: typeId('PITR-5000'), parentAssetId: rackId, col: 0, row: 0, colSpan: 1, rowSpan: 2 },
           ],
         },
         records: {

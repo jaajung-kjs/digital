@@ -5,35 +5,37 @@ import type { V2Asset } from '../types';
 
 /* 설치일·담당자는 타입이 선언하지 않는다 — 모든 자산이 갖는 기본이다(`assetFieldDefs`). */
 const types = new Map([
-  // 자리 이름·번호는 상위 타입의 컨테이너 명세에서 나온다.
-  ['t-rack', { id: 't-rack', name: '랙', categoryId: 'c-1', containerSpecs: [{ key: 'main', name: '슬롯', cols: 1, rows: 12 }] } as never],
+  ['t-mod', { id: 't-mod', name: 'PITR', categoryId: 'c-1' } as never],
 ]);
-const categories = new Map([['c-1', '구조']]);
+const categories = new Map([['c-1', '통신']]);
+/* 자리 번호는 상위 **설비의 형판 격자**에서 나온다. 형판으로 놓은 설비는 형판이 곧 분류다. */
+const assemblies = new Map([['asm-rack', { id: 'asm-rack', name: '송변전광단말장치', gridCols: 1, gridRows: 12 } as never]]);
 
 describe('buildStatusRows (변전소 스코프)', () => {
   const floors = [{ id: 'f-1', name: '1층', sortOrder: 1, substationId: 's' }];
-  const rack = { id: 'a-1', name: '랙1', typeId: 't-rack', status: 'normal', floorId: 'f-1', parentAssetId: null, containerKey: null, col: null, row: null, fieldValues: { installDate: '2026-01-01', manager: '홍길동' } };
-  const mod = { id: 'a-2', name: '모듈', typeId: 't-rack', status: 'fault', floorId: null, parentAssetId: 'a-1', containerKey: 'main', col: 0, row: 3, fieldValues: {} };
-  const unplaced = { id: 'a-3', name: '미배치자산', typeId: 't-rack', status: 'standby', floorId: null, parentAssetId: null, containerKey: null, col: null, row: null, fieldValues: {} };
+  const rack = { id: 'a-1', name: '랙1', typeId: null, assemblyId: 'asm-rack', status: 'normal', floorId: 'f-1', parentAssetId: null, col: null, row: null, fieldValues: { installDate: '2026-01-01', manager: '홍길동' } };
+  const mod = { id: 'a-2', name: '모듈', typeId: 't-mod', status: 'fault', floorId: null, parentAssetId: 'a-1', col: 0, row: 3, fieldValues: {} };
+  const unplaced = { id: 'a-3', name: '미배치자산', typeId: 't-mod', status: 'standby', floorId: null, parentAssetId: null, col: null, row: null, fieldValues: {} };
 
-  it('층 배치·컨테이너 배치·미배치 location + 필드·최근점검 계산', () => {
+  it('층 배치·격자 배치·미배치 location + 필드·최근점검 계산', () => {
     const { rows } = buildStatusRows({
       assets: [rack, mod, unplaced] as never,
       floors: floors as never,
       typesById: types,
       categoryNameById: categories,
       inspectionsByAsset: new Map([['a-1', ['2026-06-01T00:00:00.000Z', '2026-07-01T00:00:00.000Z']]]),
+      assembliesById: assemblies,
     });
-    expect(rows[0]).toMatchObject({ id: 'a-1', typeName: '랙', location: '1층', lastInspectedAt: '2026-07-01T00:00:00.000Z', status: 'normal' });
+    expect(rows[0]).toMatchObject({ id: 'a-1', typeName: '송변전광단말장치', location: '1층', lastInspectedAt: '2026-07-01T00:00:00.000Z', status: 'normal' });
     expect(rows[0]?.fieldValues).toMatchObject({ installDate: '2026-01-01', manager: '홍길동' });
-    // 위치는 층까지 거슬러 올라간다 — 예전에는 '랙1 · 슬롯 4' 라서 몇 층인지 알 수 없었다.
-    expect(rows[1]).toMatchObject({ id: 'a-2', location: '1층 · 랙1 · 슬롯 4', lastInspectedAt: null });
+    // 위치는 층까지 거슬러 올라간다 — 예전에는 '랙1 · 자리 4' 라서 몇 층인지 알 수 없었다.
+    expect(rows[1]).toMatchObject({ id: 'a-2', location: '1층 · 랙1 · 자리 4', lastInspectedAt: null });
     expect(rows[2]).toMatchObject({ id: 'a-3', location: '미배치', status: 'standby', lastInspectedAt: null });
   });
 
   it('overlay에 스테이지된 자산 create가 mergeEffective→buildStatusRows 경로로 행에 포함된다', () => {
     const saved = [rack] as unknown as V2Asset[];
-    const staged = { id: 'tmp-1', name: '신규자산', typeId: 't-rack', status: 'normal', floorId: 'f-1', parentAssetId: null, containerKey: null, col: null, row: null, fieldValues: {} } as unknown as V2Asset;
+    const staged = { id: 'tmp-1', name: '신규자산', typeId: 't-mod', status: 'normal', floorId: 'f-1', parentAssetId: null, col: null, row: null, fieldValues: {} } as unknown as V2Asset;
     const overlay = stageCreate(emptyOverlay<V2Asset>(), staged.id, staged);
 
     const { rows } = buildStatusRows({
@@ -45,7 +47,7 @@ describe('buildStatusRows (변전소 스코프)', () => {
     });
 
     expect(rows.map((r) => r.id)).toEqual(['a-1', 'tmp-1']);
-    expect(rows[1]).toMatchObject({ id: 'tmp-1', name: '신규자산', typeName: '랙', location: '1층', status: 'normal' });
+    expect(rows[1]).toMatchObject({ id: 'tmp-1', name: '신규자산', typeName: 'PITR', location: '1층', status: 'normal' });
   });
 });
 
@@ -55,7 +57,7 @@ describe('필드 열 도출', () => {
   const t = (id: string) => [id, { id, name: id, categoryId: 'c-1' } as never] as const;
   const a = (id: string, typeId: string) =>
     ({ id, name: id, typeId, status: 'normal', floorId: null, parentAssetId: null,
-       containerKey: null, col: null, row: null, fieldValues: {} });
+       col: null, row: null, fieldValues: {} });
   const build = (assets: object[], typesById: Map<string, never>) =>
     buildStatusRows({
       assets: assets as never, floors: [] as never, typesById,
@@ -72,25 +74,25 @@ describe('필드 열 도출', () => {
    묶음 하나이므로 표가 접을 수 있어야 한다 — 어느 행이 어느 묶음에 드는지는 여기서 나온다. */
 describe('형판 묶음', () => {
   const types = new Map([
-    ['t', { id: 't', name: '랙', categoryId: 'c-1', containerSpecs: [{ key: 'main', name: '슬롯', cols: 1, rows: 12 }] } as never],
+    ['t', { id: 't', name: 'PITR', categoryId: 'c-1' } as never],
   ]);
   const a = (id: string, over: object = {}) =>
     ({ id, name: id, typeId: 't', status: 'normal', floorId: null, parentAssetId: null,
-       containerKey: null, col: null, row: null, fieldValues: {}, ...over });
+       col: null, row: null, fieldValues: {}, ...over });
 
   /* 형판 이름은 글자로 굳혀 두지 않고 형판을 가리킨다 — 이름은 카탈로그에서 읽는다. */
-  const assemblyNameById = new Map([['asm-1', '송변전광단말장치 1식']]);
+  const assembliesById = new Map([['asm-1', { id: 'asm-1', name: '송변전광단말장치 1식', gridCols: 1, gridRows: 12 } as never]]);
   const build = (assets: object[]) =>
     buildStatusRows({
       assets: assets as never, floors: [] as never, typesById: types as never,
-      categoryNameById: new Map(), inspectionsByAsset: new Map(), assemblyNameById,
+      categoryNameById: new Map(), inspectionsByAsset: new Map(), assembliesById,
     }).rows;
 
   it('뿌리에만 형판 이름이 적히고, 자손은 그 뿌리에 매인다', () => {
     const rows = build([
-      a('root', { floorId: 'f1', assemblyId: 'asm-1' }),
-      a('kid', { parentAssetId: 'root', containerKey: 'main', col: 0, row: 1 }),
-      a('grand', { parentAssetId: 'kid', containerKey: 'main', col: 0, row: 0 }),
+      a('root', { floorId: 'f1', typeId: null, assemblyId: 'asm-1' }),
+      a('kid', { parentAssetId: 'root', col: 0, row: 1 }),
+      a('grand', { parentAssetId: 'kid', col: 0, row: 0 }),
     ]);
     expect(rows.map((r) => [r.id, r.assemblyRootId, r.depth])).toEqual([
       ['root', 'root', 0],
@@ -103,12 +105,12 @@ describe('형판 묶음', () => {
   /* 형판 이름을 고치면 이미 놓인 설비의 분류도 따라 바뀐다 — 같은 형판이니까.
      글자로 굳혀 두면 이름을 고치는 순간 같은 형판인데 집계가 둘로 갈린다. */
   it('뿌리의 종류는 형판을 따라간다 — 이름을 굳혀 두지 않는다', () => {
-    const rows = build([a('root', { floorId: 'f1', assemblyId: 'asm-1' })]);
+    const rows = build([a('root', { floorId: 'f1', typeId: null, assemblyId: 'asm-1' })]);
     expect(rows[0]!.typeName).toBe('송변전광단말장치 1식');
   });
 
-  it('형판 밖 자산은 매이지 않는다 — 손으로 만든 랙 안의 장비도 그대로 보인다', () => {
-    const rows = build([a('rack', { floorId: 'f1' }), a('dev', { parentAssetId: 'rack', containerKey: 'main', col: 0, row: 0 })]);
+  it('형판 밖 자산은 매이지 않는다 — 도면에 바로 놓은 단품도 그대로 보인다', () => {
+    const rows = build([a('rack', { floorId: 'f1' }), a('dev', { parentAssetId: 'rack', col: 0, row: 0 })]);
     expect(rows.every((r) => r.assemblyRootId === null)).toBe(true);
   });
 

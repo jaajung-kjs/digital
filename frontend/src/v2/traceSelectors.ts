@@ -81,7 +81,6 @@ export function buildTraceInputs(args: {
       installHours: t.installHours,
       removeHours: t.removeHours,
       relocateHours: t.relocateHours,
-      containerSpecs: t.containerSpecs,
       portTemplates: t.portTemplates,
     };
     types[t.key] = specFromCatalog(row);
@@ -91,15 +90,16 @@ export function buildTraceInputs(args: {
   const assets: AssetRef[] = [];
   const ports: PortRef[] = [];
   for (const a of args.assets) {
-    const typeKey = typeKeyById.get(a.typeId);
-    if (!typeKey) continue; // 타입 없으면 건너뜀
+    /* 설비(형판으로 놓은 것)는 타입이 없다 — 포트도 없으므로 추적 그래프에 들어갈 것이 없다.
+       추적은 부품의 포트끼리 잇는 일이다. */
+    const typeKey = a.typeId ? typeKeyById.get(a.typeId) : undefined;
+    if (!typeKey) continue;
 
     assets.push({
       id: a.id,
       typeKey,
       name: a.name,
       parentAssetId: a.parentAssetId,
-      containerKey: a.containerKey,
       col: a.col,
       row: a.row,
       colSpan: a.colSpan,

@@ -18,7 +18,7 @@ const KEY_PREFIX = `TEST_${Date.now()}`;
 
 /**
  * 유효한 typeUpsert payload 생성 헬퍼.
- * 기본값은 ports/links/containers 없음 (단순 배치형 타입).
+ * 기본값은 ports 없음 (단순 배치형 타입).
  */
 function makeTypeBody(categoryId: string, extra: Partial<Record<string, unknown>> = {}) {
   return {
@@ -34,7 +34,6 @@ function makeTypeBody(categoryId: string, extra: Partial<Record<string, unknown>
     installHours: 0,
     removeHours: 0,
     relocateHours: 0,
-    containers: [],
     ports: [],
     ...extra,
   };
@@ -44,28 +43,18 @@ function makeTypeBody(categoryId: string, extra: Partial<Record<string, unknown>
  * 포트 2그룹 + 링크 조합 (validSpec 기준):
  * - fiberIn(IN, count=2) / fiberOut(OUT, count=2)
  * - link: fiberIn → fiberOut byIndex
- * - container: shelf (slotCount=8)
  * namePattern 에 {n} 필수 (count > 1)
  */
 const VALID_PORTS = [
   { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '입력 {n}' },
   { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '출력 {n}' },
 ];
-const VALID_CONTAINERS = [{ key: 'shelf', name: '선반', cols: 1, rows: 8, allowSpan: false, accepts: {} }];
 
 /** 다심 포트 왕복용 — trunk 하나가 코어 24가닥을 나르는 인입 포트. */
 const MULTI_CORE_PORTS = [
   { group: 'core', count: 24, direction: 'BI' as const, medium: 'fiber', namePattern: '광 {n}' },
   { group: 'trunk', count: 1, direction: 'BI' as const, medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
 ];
-
-/**
- * both-key accepts: categoryKeys + typeKeys 모두 포함, 2개 이상 (순서 민감성까지 커버).
- * Postgres jsonb 는 typeKeys 를 먼저 반환하고 zod 는 categoryKeys 를 먼저 구성하므로,
- * 정규화 없이는 accepts 키 순서 불일치가 항상 발생한다.
- */
-const BOTH_KEY_ACCEPTS = { categoryKeys: ['통신', '전원'], typeKeys: ['RACK', 'UPS'] };
-const BOTH_KEY_CONTAINERS = [{ key: 'bay', name: '베이', cols: 1, rows: 4, allowSpan: false, accepts: BOTH_KEY_ACCEPTS }];
 
 describe('catalog CRUD', () => {
   // 테스트에서 생성한 카테고리/타입 ID
@@ -153,11 +142,10 @@ describe('catalog CRUD', () => {
     catId = c2.body.id;
   });
 
-  it('타입 생성: 유효 payload 201 + GET 재조회 시 명세(containers/ports) 왕복 일치', async () => {
+  it('타입 생성: 유효 payload 201 + GET 재조회 시 포트 명세 왕복 일치', async () => {
     const body = makeTypeBody(catId, {
       key: `${KEY_PREFIX}_TYPE_A`,
       ports: VALID_PORTS,
-      containers: VALID_CONTAINERS,
     });
 
     const res = await request(app).post('/api/v2/catalog/types').set(admin).send(body).expect(201);
@@ -169,8 +157,6 @@ describe('catalog CRUD', () => {
     expect(found).toBeTruthy();
     expect(found.portTemplates).toHaveLength(2);
     expect(found.portTemplates[0]).toMatchObject({ group: 'fiberIn', count: 2, direction: 'IN', medium: 'fiber', namePattern: '입력 {n}' });
-    expect(found.containerSpecs).toHaveLength(1);
-    expect(found.containerSpecs[0]).toMatchObject({ key: 'shelf', name: '선반', cols: 1, rows: 8, allowSpan: false });
   });
 
   it('타입 생성: medium 이 케이블그룹에 없으면 400 INVALID_TYPE_SPEC + details 에 ports[i].medium', async () => {
@@ -228,7 +214,6 @@ describe('catalog CRUD', () => {
       name: '수정된 이름',
       installHours: 3,
       ports: VALID_PORTS,
-      containers: VALID_CONTAINERS,
     });
 
     await request(app).put(`/api/v2/catalog/types/${typeId}`).set(admin).send(body).expect(200);
@@ -265,7 +250,6 @@ describe('catalog CRUD', () => {
     const body = makeTypeBody(catId, {
       name: '수정된 이름',
       ports: changedPorts,
-      containers: VALID_CONTAINERS,
     });
 
     const res = await request(app).put(`/api/v2/catalog/types/${typeId}`).set(admin).send(body).expect(409);
@@ -295,7 +279,6 @@ describe('catalog CRUD', () => {
     const body = makeTypeBody(catId, {
       name: '같은 구조 다른 이름',
       ports: VALID_PORTS,
-      containers: VALID_CONTAINERS,
     });
 
     await request(app).put(`/api/v2/catalog/types/${typeId}`).set(admin).send(body).expect(200);
@@ -307,66 +290,6 @@ describe('catalog CRUD', () => {
     if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
     const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq3` } });
     if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
-  });
-
-  it('PUT: accepts에 categoryKeys+typeKeys 두 키가 모두 있어도 비구조 편집은 200, 구조 변경은 409 (JSON 키순서 정규화 회귀)', async () => {
-    // 두 키를 모두 가진 accepts 를 포함한 타입 생성
-    const catRes = await request(app)
-      .post('/api/v2/catalog/categories')
-      .set(admin)
-      .send({ key: `${KEY_PREFIX}_CAT_BK`, name: '분류_양키', sortOrder: 997 })
-      .expect(201);
-    const bkCatId = catRes.body.id;
-
-    const typeRes = await request(app)
-      .post('/api/v2/catalog/types')
-      .set(admin)
-      .send(makeTypeBody(bkCatId, {
-        key: `${KEY_PREFIX}_TYPE_BK`,
-        containers: BOTH_KEY_CONTAINERS,
-      }))
-      .expect(201);
-    const bkTypeId = typeRes.body.id;
-
-    // 인스턴스 생성 — DB 에 저장된 accepts 를 jsonb 로 읽어오게 만들기 위함
-    const sub = await nextDb.substation.create({
-      data: {
-        name: `${uniq}-ss-bk`,
-        branch: { create: { name: `${uniq}-br-bk`, headquarters: { create: { name: `${uniq}-hq-bk` } } } },
-      },
-    });
-    const asset = await nextDb.asset.create({
-      data: { name: `${uniq}-asset-bk`, typeId: bkTypeId, substationId: sub.id },
-    });
-
-    // 비구조 편집 (이름만 변경, accepts 구조 동일): jsonb 키순서 vs zod 키순서 불일치가 있으면 false positive 409
-    const sameStructBody = makeTypeBody(bkCatId, {
-      key: `${KEY_PREFIX}_TYPE_BK`,
-      name: '양키 타입 이름 수정',
-      containers: BOTH_KEY_CONTAINERS,
-    });
-    await request(app).put(`/api/v2/catalog/types/${bkTypeId}`).set(admin).send(sameStructBody).expect(200);
-
-    // 구조 변경 (categoryKeys 에서 항목 하나 제거): 진짜 구조 변경이므로 409
-    const changedAcceptsContainers = [{ key: 'bay', name: '베이', cols: 1, rows: 4, allowSpan: false, accepts: { categoryKeys: ['통신'], typeKeys: ['RACK', 'UPS'] } }];
-    const changedStructBody = makeTypeBody(bkCatId, {
-      key: `${KEY_PREFIX}_TYPE_BK`,
-      name: '양키 타입 이름 수정',
-      containers: changedAcceptsContainers,
-    });
-    const res = await request(app).put(`/api/v2/catalog/types/${bkTypeId}`).set(admin).send(changedStructBody).expect(409);
-    expect(res.body.error).toBe('TYPE_IN_USE');
-
-    // 정리
-    await nextDb.asset.delete({ where: { id: asset.id } });
-    await nextDb.substation.delete({ where: { id: sub.id } });
-    const branch = await nextDb.branch.findFirst({ where: { name: `${uniq}-br-bk` } });
-    if (branch) await nextDb.branch.delete({ where: { id: branch.id } });
-    const hq = await nextDb.headquarters.findFirst({ where: { name: `${uniq}-hq-bk` } });
-    if (hq) await nextDb.headquarters.delete({ where: { id: hq.id } });
-    await nextDb.assetContainerSpec.deleteMany({ where: { typeId: bkTypeId } });
-    await nextDb.assetType.delete({ where: { id: bkTypeId } });
-    await nextDb.assetCategory.delete({ where: { id: bkCatId } });
   });
 
   it('DELETE: 인스턴스 존재 시 409 TYPE_IN_USE, 없으면 204 후 GET 에서 사라짐', async () => {
@@ -437,10 +360,10 @@ describe('catalog CRUD', () => {
         branch: { create: { name: `${uniq}-br5`, headquarters: { create: { name: `${uniq}-hq5` } } } },
       },
     });
-    const rackType = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'RACK' } });
+    const rackType = await nextDb.assetType.findUniqueOrThrow({ where: { key: 'GROUNDING' } });
     const assetA = await nextDb.asset.create({ data: { name: `${uniq}-assetA`, typeId: rackType.id, substationId: sub.id } });
     const assetB = await nextDb.asset.create({ data: { name: `${uniq}-assetB`, typeId: rackType.id, substationId: sub.id } });
-    // RACK 은 포트 없음 — 직접 포트 생성
+    // 접지는 포트 없음 — 직접 포트 생성
     const portA = await nextDb.port.create({ data: { assetId: assetA.id, group: 'g', index: 0, name: 'PA', direction: 'BI', medium: 'TEST' } });
     const portB = await nextDb.port.create({ data: { assetId: assetB.id, group: 'g', index: 0, name: 'PB', direction: 'BI', medium: 'TEST' } });
     const cable = await nextDb.cable.create({
