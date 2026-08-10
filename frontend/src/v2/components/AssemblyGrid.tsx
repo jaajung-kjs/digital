@@ -97,7 +97,26 @@ export function AssemblyGrid<T extends GridItem>({
     return () => ro.disconnect();
   }, []);
   const colWidth = boxWidth > 0 ? boxWidth / cols : 0;
-  const sessionRef = useRef<GridDragSession | null>(null);
+  /**
+   * 지금 벌어지고 있는 제스처 — **격자 하나가 소유한다**.
+   *
+   * 예전에는 칸마다 pointer 핸들러가 붙고 그 위에 `onClick` 이 따로 있었다. 그래서 한 번의
+   * 손짓이 두 번 해석됐다: 크기 손잡이의 pointerup 이 버튼으로 버블링해 세션이 이미 지워진
+   * 채로 「그냥 누른 것」으로 읽혀 상세 패널로 튀었고, 포인터 캡처가 풀리면 click 이 엉뚱한
+   * 빈 칸에서 나 자산 추가 모달이 열렸다.
+   *
+   * 손짓의 시작(pointerdown)은 칸이 알리지만, 그 뒤의 이동·끝냄은 격자가 받는다. 끝날 때
+   * **누른 것이었나 끈 것이었나**를 한 곳에서 판정하므로 두 번 해석될 자리가 없다.
+   */
+  interface Gesture {
+    /** `tap` = 끌 수 없는 것을 눌렀다(빈 칸). */
+    kind: GridDragKind | 'tap';
+    /** 눌러서 시작한 칸 — 끌지 않았으면 이 칸에 대해 행동한다. */
+    cell: GridCell;
+    item: T | null;
+    session: GridDragSession | null;
+  }
+  const gestureRef = useRef<Gesture | null>(null);
   /** 끌고 있는 동안의 미리보기 — 놓기 전에는 저장하지 않는다. */
   const [preview, setPreview] = useState<{ itemId: string; placement: GridPlacement; ok: boolean } | null>(null);
 
@@ -109,17 +128,25 @@ export function AssemblyGrid<T extends GridItem>({
     return cellAt({ width: r.width, height: r.height, cols, rows }, e.clientX - r.left, e.clientY - r.top);
   }
 
-  function beginDrag(kind: GridDragKind, item: T, e: React.PointerEvent) {
-    const origin: GridPlacement = {
-      col: item.col ?? 0, row: item.row ?? 0, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1,
-    };
-    const grab = cellFromPointer(e) ?? { col: origin.col, row: origin.row };
-    sessionRef.current = startGridDrag(kind, item.id, origin, grab);
-    e.currentTarget.setPointerCapture(e.pointerId);
+  /** 눌렀을 때 — 무엇을 시작하는지만 정하고, 그 뒤는 격자가 받는다. */
+  function beginGesture(kind: GridDragKind | 'tap', item: T | null, cell: GridCell, e: React.PointerEvent) {
+    if (e.button !== 0) return;
+    const session =
+      item && kind !== 'tap'
+        ? startGridDrag(
+            kind,
+            item.id,
+            { col: item.col ?? 0, row: item.row ?? 0, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1 },
+            cellFromPointer(e) ?? cell,
+          )
+        : null;
+    gestureRef.current = { kind, cell, item, session };
+    /* 캡처는 **격자**가 쥔다 — 칸이 쥐면 끌려간 자리에서 다른 칸이 같은 손짓을 또 받는다. */
+    boxRef.current?.setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    const session = sessionRef.current;
+    const session = gestureRef.current?.session;
     if (!session) return;
     const target = cellFromPointer(e);
     if (!target) return;
@@ -129,14 +156,45 @@ export function AssemblyGrid<T extends GridItem>({
     setPreview({ itemId: session.assetId, placement, ok: canPlace(session.assetId, placement) });
   }
 
-  function endDrag() {
-    const session = sessionRef.current;
-    sessionRef.current = null;
+  /**
+   * 끌던 것을 물린다 — 평면도의 배치 취소와 같은 어법(ESC).
+   *
+   * 없으면 잘못 잡았을 때 빠져나갈 길이 「원래 칸에 정확히 도로 놓기」뿐이다. 겹치는 자리에서
+   * 손을 떼면 아무 일도 안 일어나긴 하지만, 그것을 알 수가 없어 손이 굳는다.
+   */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !gestureRef.current) return;
+      gestureRef.current = null;
+      setPreview(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  /** 눌러서 시작한 칸에 대한 행동 — 고르거나, 빈 자리면 채운다. */
+  function tap(gesture: Gesture) {
+    if (gesture.item) onSelect(gesture.item);
+    else onAddAtCell(gesture.cell);
+  }
+
+  function endGesture(commit: boolean) {
+    const gesture = gestureRef.current;
+    gestureRef.current = null;
     const pv = preview;
     setPreview(null);
-    // 끌지 않았으면 그냥 누른 것이다 — 선택은 버튼의 onClick 이 맡는다.
-    if (!session || !session.moved || !pv) return;
-    if (pv.ok && gridPlacementChanged(session.origin, pv.placement)) onMove(session.assetId, pv.placement);
+    if (!gesture) return;
+
+    const session = gesture.session;
+    /* 끈 것은 누른 것이 아니다 — 자리를 옮기려던 손짓이 상세 패널을 열거나 추가 모달을
+       띄우면 안 된다. 판정이 여기 한 곳뿐이라 두 번 해석될 자리가 없다. */
+    if (session?.moved) {
+      if (commit && pv?.ok && gridPlacementChanged(session.origin, pv.placement)) {
+        onMove(session.assetId, pv.placement);
+      }
+      return;
+    }
+    if (commit) tap(gesture);
   }
 
   /** `열,행` → 그 칸에서 시작하는 것. */
@@ -146,8 +204,14 @@ export function AssemblyGrid<T extends GridItem>({
   for (const item of items) {
     if (item.col == null || item.row == null) continue;
     byCell.set(`${item.col},${item.row}`, item);
-    for (let r = 0; r < (item.rowSpan ?? 1); r++) {
-      for (let c = 0; c < (item.colSpan ?? 1); c++) covered.add(`${item.col + c},${item.row + r}`);
+    /* 덮인 칸은 **지금 보이는 자리** 기준이다 — 끌고 있는 것은 미리보기 자리를 덮는다.
+       저장된 자리로 계산하면 떠나온 자리가 빈 칸조차 없는 구멍으로 남아, 어디가 비었는지
+       읽을 수 없다(정작 그 자리는 이제 놓을 수 있는 자리인데). */
+    const at = preview?.itemId === item.id
+      ? preview.placement
+      : { col: item.col, row: item.row, colSpan: item.colSpan ?? 1, rowSpan: item.rowSpan ?? 1 };
+    for (let r = 0; r < at.rowSpan; r++) {
+      for (let c = 0; c < at.colSpan; c++) covered.add(`${at.col + c},${at.row + r}`);
     }
   }
 
@@ -179,7 +243,7 @@ export function AssemblyGrid<T extends GridItem>({
           <button
             type="button"
             className={cn(
-              'group relative flex h-full w-full items-center justify-center overflow-hidden rounded px-1 text-center text-xs',
+              'group relative flex h-full w-full select-none items-center justify-center overflow-hidden rounded px-1 text-center text-xs',
               // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
               item
                 ? cn('border border-line bg-surface text-content', SELECTABLE)
@@ -194,11 +258,23 @@ export function AssemblyGrid<T extends GridItem>({
                 ? `${item.name} · 자리 ${slotNumber(cols, at.col, at.row)}`
                 : `자리 ${slotNumber(cols, col, row)} (비어 있음)`
             }
-            onClick={() => (item ? onSelect(item) : onAddAtCell({ col, row }))}
-            onPointerDown={(e) => item && e.button === 0 && beginDrag('move', item, e)}
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
+            /* `title` 은 마우스를 얹어야 뜬다 — 읽어 주는 이름은 따로 준다. 칸 안의 글씨는
+               좁으면 잘리고 세로로 눕기까지 하므로 그것만으로는 무엇인지 알 수 없다. */
+            aria-label={
+              item
+                ? `${item.name}, 자리 ${slotNumber(cols, at.col, at.row)}`
+                : `자리 ${slotNumber(cols, col, row)}, 비어 있음. 눌러서 추가`
+            }
+            /* 누름만 알린다 — 이동·끝냄은 격자가 받는다(한 손짓이 두 번 해석되지 않게).
+               `onClick` 은 두지 않는다: 끈 뒤에도 click 이 뒤따라 나서 상세 패널이 열렸다.
+               키보드는 아래 `onKeyDown` 이 맡는다 — 손짓과 다른 길이라 섞이지 않는다. */
+            onPointerDown={(e) => beginGesture(item ? 'move' : 'tap', item ?? null, { col, row }, e)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              if (item) onSelect(item);
+              else onAddAtCell({ col, row });
+            }}
           >
             {/* 번호는 칸이 아니라 왼쪽 눈금이 맡는다 — 칸마다 번호를 박으면 4열 12행에서 번호가
                 48개 흩어지고, 정작 부품이 놓인 칸은 이름과 번호가 자리를 다툰다.
@@ -208,9 +284,15 @@ export function AssemblyGrid<T extends GridItem>({
               <span
                 className={cn(
                   'flex min-h-0 min-w-0 max-h-full max-w-full items-center leading-tight',
-                  vertical ? 'flex-row' : 'flex-col',
+                  /* 세로로 세운 글씨는 칸 높이가 곧 글자 수다 — 반고 카드(3단=90px)에 12px 로
+                     쓰면 「광스위치 상단」과 「광스위치 하단」이 둘 다 「광스위치 …」가 되어
+                     구분이 사라진다. 좁은 칸에 맞춰 한 급 줄인다(전체 이름은 툴팁·읽어주기에). */
+                  vertical ? 'flex-row text-[10px]' : 'flex-col',
                 )}
-                style={vertical ? { writingMode: 'vertical-rl' } : undefined}
+                /* `text-orientation: upright` — 기본값(`mixed`)은 영문·숫자를 눕혀서
+                   「광단말 A」의 A 만 옆으로 누웠다. 실물 카드 라벨의 짧은 영숫자 꼬리표는
+                   세워서 인쇄된다. */
+                style={vertical ? { writingMode: 'vertical-rl', textOrientation: 'upright' } : undefined}
               >
                 <span className="min-h-0 min-w-0 max-h-full max-w-full truncate">{item.name}</span>
                 {at.rowSpan > 1 && !vertical && trailing?.(item)}
@@ -226,14 +308,17 @@ export function AssemblyGrid<T extends GridItem>({
               <span
                 role="separator"
                 aria-label={`${item.name} 크기 조절`}
-                className="absolute bottom-0 right-0 h-2.5 w-2.5 cursor-nwse-resize touch-none opacity-0 transition-opacity group-hover:opacity-100"
+                className={cn(
+                  'absolute bottom-0 right-0 h-2.5 w-2.5 cursor-nwse-resize touch-none transition-opacity',
+                  'opacity-0 group-hover:opacity-100',
+                  // 터치에는 hover 가 없다 — 고른 것에는 늘 보인다.
+                  selectedId === item.id && 'opacity-100',
+                )}
                 onPointerDown={(e) => {
+                  // 손잡이를 잡은 것은 옮기려는 것이 아니다 — 칸의 '이동' 시작을 가로챈다.
                   e.stopPropagation();
-                  beginDrag('resize', item, e);
+                  beginGesture('resize', item, { col: at.col, row: at.row }, e);
                 }}
-                onPointerMove={onPointerMove}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
               >
                 <span className="block h-full w-full rounded-br bg-primary/50" />
               </span>
@@ -264,9 +349,13 @@ export function AssemblyGrid<T extends GridItem>({
           최소 폭 아래로는 줄지 않고 가로로 넘긴다(랙 정면도는 스크롤해서 보는 그림이다).
           포인터 셈은 화면 좌표 기준이라 가로로 밀려 있어도 그대로 맞는다. */}
       <div className="min-w-0 flex-1 overflow-x-auto">
+        {/* 손짓의 이동·끝냄은 여기서 한 번만 받는다 — 캡처도 이 상자가 쥔다. */}
         <ul
           ref={boxRef}
           className="grid gap-0.5"
+          onPointerMove={onPointerMove}
+          onPointerUp={() => endGesture(true)}
+          onPointerCancel={() => endGesture(false)}
           style={{
             gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
             minWidth: cols * GRID_COL_MIN,
