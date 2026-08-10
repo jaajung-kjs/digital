@@ -39,7 +39,7 @@
   --faceplate-led:rgb(var(--faceplate-led-rgb));
 
   /* 오버레이 스크림 — 모달 백드롭 통일 */
-  --overlay: rgb(0 0 0 / 0.45); --overlay-strong: rgb(0 0 0 / 0.8);
+  --overlay: rgb(0 0 0 / 0.45);
   --radius:8px;
 }
 
