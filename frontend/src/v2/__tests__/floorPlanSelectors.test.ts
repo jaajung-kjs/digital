@@ -4,7 +4,7 @@ import { placedAssetsOf } from '../floorPlanSelectors';
 const asset = (id: string, extra: object) => ({
   id, name: id, typeId: 't', substationId: 's', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
-  parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null,
+  parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
   fieldValues: {}, updatedAt: '', ports: [], ...extra,
 });
 

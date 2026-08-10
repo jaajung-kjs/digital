@@ -19,7 +19,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     placement: { placeable: true, defaultWidth: 60, defaultHeight: 80 },
     labor: { laborType: '통신내선공', installHours: 2.0, removeHours: 1.0, relocateHours: 3.0 },
     containers: [
-      { key: 'main', name: '슬롯', slotCount: 12, allowSpan: true, accepts: { categoryKeys: ['통신', '전원', '공조'] } },
+      // 19인치 랙 — 세로 한 줄에 U 단위로 쌓인다. 2U·4U 장비가 있으므로 span 을 허용한다.
+      { key: 'main', name: '슬롯', cols: 1, rows: 12, allowSpan: true, accepts: { categoryKeys: ['통신', '전원', '공조'] } },
     ],
     ports: [
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
@@ -34,7 +35,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     placement: { placeable: true, defaultWidth: 40, defaultHeight: 40 },
     labor: { laborType: '통신내선공', installHours: 1.5, removeHours: 0.8, relocateHours: 0 },
     containers: [
-      { key: 'main', name: '슬롯', slotCount: null, allowSpan: false, accepts: { typeKeys: ['OFD-SLOT'] } },
+      // 성단 판은 넣는 만큼 늘어난다 — 자유형.
+      { key: 'main', name: '슬롯', cols: 1, rows: null, allowSpan: false, accepts: { typeKeys: ['OFD-SLOT'] } },
     ],
     ports: [],
   },
@@ -69,7 +71,8 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     placement: { placeable: true, defaultWidth: 40, defaultHeight: 60 },
     labor: NO_LABOR,
     containers: [
-      { key: 'main', name: '회로', slotCount: null, allowSpan: false, accepts: { typeKeys: ['FEEDER'] } },
+      // 분전반 조서는 좌우 2열 — 홀수 왼쪽, 짝수 오른쪽이 표준이다.
+      { key: 'main', name: '회로', cols: 2, rows: 6, allowSpan: false, accepts: { typeKeys: ['FEEDER'] } },
     ],
     ports: [],
   },

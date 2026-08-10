@@ -2,7 +2,7 @@ import type { Direction } from '@twin/core';
 export type { TypeUpsertBody } from '@twin/core';
 
 export interface V2Category { id: string; key: string; name: string; sortOrder: number }
-export interface V2ContainerSpec { id: string; key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: { categoryKeys?: string[]; typeKeys?: string[] }; sortOrder: number }
+export interface V2ContainerSpec { id: string; key: string; name: string; cols: number; rows: number | null; allowSpan: boolean; accepts: { categoryKeys?: string[]; typeKeys?: string[] }; sortOrder: number }
 export interface V2PortTemplate { id: string; group: string; count: number; direction: Direction; medium: string; namePattern: string; sortOrder: number; positions: number }
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number; isActive: boolean;
@@ -41,7 +41,7 @@ export interface V2Port {
 export interface V2Asset {
   id: string; name: string; typeId: string; substationId: string; status: string;
   floorId: string | null; x: number | null; y: number | null; width: number | null; height: number | null;
-  parentAssetId: string | null; containerKey: string | null; slotIndex: number | null; slotSpan: number | null;
+  parentAssetId: string | null; containerKey: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
   fieldValues: Record<string, unknown>; updatedAt: string; ports: V2Port[];
 }
 export interface V2MaintenanceLog { id: string; assetId: string; occurredAt: string; content: string; action: string | null; updatedAt: string }
@@ -62,7 +62,7 @@ export interface V2Conflict { id: string; reason: 'modified' | 'deleted' | 'exis
 export interface V2AssetCreateInput {
   id: string; name: string; typeId: string; status?: string;
   floorId?: string | null; x?: number | null; y?: number | null; width?: number | null; height?: number | null;
-  parentAssetId?: string | null; containerKey?: string | null; slotIndex?: number | null; slotSpan?: number | null;
+  parentAssetId?: string | null; containerKey?: string | null; col?: number | null; row?: number | null; colSpan?: number | null; rowSpan?: number | null;
   fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>; portPositions?: Record<string, number>;
 }
 export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts' | 'portPositions'>> & {

@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import { ASSET_STATUSES, assetFieldDefs } from '@twin/core';
+import { ASSET_STATUSES, assetFieldDefs, slotNumber } from '@twin/core';
 import {
   DetailCard,
   DetailCardHeader,
@@ -30,9 +30,9 @@ import { PhotoCard } from './PhotoCard';
 export interface AddModalContext {
   parentAssetId: string;
   spec: V2ContainerSpec;
-  siblings: { slotIndex: number | null; slotSpan: number | null }[];
-  /** 빈 슬롯을 눌러 열었으면 그 자리 — 모달에서 다시 고르게 하지 않는다. */
-  slotIndex?: number;
+  siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
+  /** 빈 자리를 눌러 열었으면 그 칸 — 모달에서 다시 고르게 하지 않는다. */
+  cell?: { col: number; row: number };
 }
 
 /**
@@ -55,76 +55,111 @@ function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortI
   );
 }
 
-// ── 고정 슬롯 그리드 ──────────────────────────────────────────────────────────
+// ── 자리 격자 ────────────────────────────────────────────────────────────────
 interface SlotGridProps {
   spec: V2ContainerSpec;
   children: V2Asset[];
   onSelectChild: (id: string) => void;
-  /** 빈 슬롯을 눌렀을 때 — 그 자리에 바로 추가한다. */
-  onAddAtSlot: (slotIndex: number) => void;
+  /** 빈 자리를 눌렀을 때 — 그 칸에 바로 추가한다. */
+  onAddAtCell: (cell: { col: number; row: number }) => void;
   /** 케이블이 물린 포트 — 자식별 포트 요약에 쓴다. */
   occupiedPortIds: ReadonlyMap<string, number>;
 }
 
-/** 슬롯 한 칸의 높이(px) — 여러 슬롯을 차지하는 장비는 이 배수만큼 높아진다. */
+/** 자리 한 칸의 높이(px) — 여러 칸을 차지하는 장비는 이 배수만큼 높아진다. */
 const SLOT_ROW_HEIGHT = 26;
 
-function SlotGrid({ spec, children, onSelectChild, onAddAtSlot, occupiedPortIds }: SlotGridProps) {
-  const slotCount = spec.slotCount!;
-  // 슬롯 인덱스(0-based) → 자식 자산 매핑
-  const bySlot = new Map<number, V2Asset>();
+/**
+ * 함체 안의 자리 — **격자**로 그린다.
+ *
+ * 세로로 쌓는 이유: 랙·함체는 세로로 자리가 배열된 물리 장비다. 예전에는 `grid-cols-6`
+ * 이라 384px 상세 패널에서 칸이 56px 밖에 안 됐고, 장비 이름이 "SCA…", "통합…" 으로
+ * 잘려 무엇이 꽂혀 있는지 알 수 없었다.
+ *
+ * 그래서 **열은 명세가 선언한 만큼만** 나눈다 — 랙은 1열이라 예전과 똑같이 한 줄씩 쌓이고,
+ * 분전반 조서처럼 2열이면 좌우로 갈린다(1·2가 첫 행). 번호는 저장하지 않고 격자에서
+ * 유도하므로 자리와 번호가 어긋날 수 없다.
+ *
+ * 바깥 테두리 하나가 함체이고 그 안에 자리가 있다 — 포트 판의 백플레인과 같은 어법이다.
+ * 예전에는 **자리마다** 점선 상자를 둘러 12칸짜리 랙이 점선 12개 + 파란 `+ 추가` 12개가 되어,
+ * 정작 무엇이 꽂혀 있는지보다 빈칸이 더 눈에 띄었다.
+ */
+function SlotGrid({ spec, children, onSelectChild, onAddAtCell, occupiedPortIds }: SlotGridProps) {
+  const rows = spec.rows!;
+  const cols = Math.max(spec.cols, 1);
+
+  /** `열,행` → 그 칸에서 시작하는 자식. */
+  const byCell = new Map<string, V2Asset>();
+  /** 이미 어떤 자산이 덮고 있는 칸 — span 이 지나가는 자리다. */
+  const covered = new Set<string>();
   for (const child of children) {
-    if (child.slotIndex != null) bySlot.set(child.slotIndex, child);
+    if (child.col == null || child.row == null) continue;
+    byCell.set(`${child.col},${child.row}`, child);
+    for (let r = 0; r < (child.rowSpan ?? 1); r++) {
+      for (let c = 0; c < (child.colSpan ?? 1); c++) {
+        covered.add(`${child.col + c},${child.row + r}`);
+      }
+    }
   }
 
-  const rows: React.ReactNode[] = [];
-  let idx = 0;
-  while (idx < slotCount) {
-    const child = bySlot.get(idx);
-    const span = child?.slotSpan ?? 1;
-    // 여러 슬롯을 차지하면 "3–5" 처럼 범위로 적는다.
-    const label = span > 1 ? `${idx + 1}–${idx + span}` : String(idx + 1);
-    const slotIndex = idx;
-    rows.push(
-      <li key={idx} style={{ minHeight: span * SLOT_ROW_HEIGHT }}>
-        {/* 빈 슬롯도 누를 수 있다 — 예전에는 아무 반응이 없어서, 추가하려면 위 버튼을 눌러
-            모달에서 슬롯 번호를 다시 골라야 했다. 눈앞의 빈칸을 누르는 것이 자연스럽다. */}
-        <button
-          type="button"
-          className={cn(
-            'group flex h-full w-full items-center gap-2 rounded px-2 text-left text-sm',
-            // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
-            child ? cn('border border-line bg-surface text-content', SELECTABLE) : cn('text-content-faint', SELECTABLE),
-          )}
-          title={child?.name}
-          onClick={() => (child ? onSelectChild(child.id) : onAddAtSlot(slotIndex))}
+  const cells: React.ReactNode[] = [];
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const key = `${col},${row}`;
+      const child = byCell.get(key);
+      // 시작 칸이 아니면서 누가 덮고 있으면 그 칸은 그리지 않는다(span 이 대신 차지한다).
+      if (!child && covered.has(key)) continue;
+
+      const rowSpan = child?.rowSpan ?? 1;
+      const colSpan = child?.colSpan ?? 1;
+      const first = slotNumber(cols, col, row);
+      // 여러 칸을 차지하면 "3–5" 처럼 범위로 적는다.
+      const last = slotNumber(cols, col + colSpan - 1, row + rowSpan - 1);
+      const label = last > first ? `${first}–${last}` : String(first);
+
+      cells.push(
+        <li
+          key={key}
+          style={{
+            minHeight: rowSpan * SLOT_ROW_HEIGHT,
+            gridColumn: `${col + 1} / span ${colSpan}`,
+            gridRow: `${row + 1} / span ${rowSpan}`,
+          }}
         >
-          <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
-          <span className="min-w-0 flex-1 truncate">{child ? child.name : '비어 있음'}</span>
-          {child && <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
-          {!child && (
-            <span className="shrink-0 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-              + 추가
-            </span>
-          )}
-        </button>
-      </li>,
-    );
-    idx += span;
+          {/* 빈 자리도 누를 수 있다 — 예전에는 아무 반응이 없어서, 추가하려면 위 버튼을 눌러
+              모달에서 자리를 다시 골라야 했다. 눈앞의 빈칸을 누르는 것이 자연스럽다. */}
+          <button
+            type="button"
+            className={cn(
+              'group flex h-full w-full items-center gap-2 rounded px-2 text-left text-sm',
+              // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
+              child ? cn('border border-line bg-surface text-content', SELECTABLE) : cn('text-content-faint', SELECTABLE),
+            )}
+            title={child?.name}
+            onClick={() => (child ? onSelectChild(child.id) : onAddAtCell({ col, row }))}
+          >
+            <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
+            <span className="min-w-0 flex-1 truncate">{child ? child.name : '비어 있음'}</span>
+            {child && <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
+            {!child && (
+              <span className="shrink-0 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                + 추가
+              </span>
+            )}
+          </button>
+        </li>,
+      );
+    }
   }
 
-  /*
-   * 세로로 쌓는 이유: 랙·함체는 세로로 슬롯이 배열된 물리 장비다. 예전에는 `grid-cols-6`
-   * 이라 384px 상세 패널에서 칸이 56px 밖에 안 됐고, 장비 이름이 "SCA…", "통합…" 으로
-   * 잘려 무엇이 꽂혀 있는지 알 수 없었다. 세로로 두면 이름 전체가 들어간다.
-   *
-   * 바깥 테두리 하나가 함체이고 그 안에 자리가 있다 — 포트 매트릭스의 백플레인과 같은 어법이다.
-   * 예전에는 **자리마다** 점선 상자를 둘러 12칸짜리 랙이 점선 12개 + 파란 `+ 추가` 12개가 되어,
-   * 정작 무엇이 꽂혀 있는지보다 빈칸이 더 눈에 띄었다.
-   */
   return (
     <div className="mt-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner">
-      <ul className="space-y-0.5">{rows}</ul>
+      <ul
+        className="grid gap-0.5"
+        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+      >
+        {cells}
+      </ul>
     </div>
   );
 }
@@ -220,7 +255,7 @@ export function InfoTab({
   );
 
   const assetById = useMemo(() => new Map(effectiveAssets.map((a) => [a.id, a])), [effectiveAssets]);
-  const location = assetLocationPath(asset, assetById, floorNameById);
+  const location = assetLocationPath(asset, assetById, floorNameById, typesById);
 
   /* 상위 자산과 그 컨테이너 명세 — 위치 행이 "어디에 담겨 있는지" 를 다루려면 둘 다 필요하다. */
   const parentAsset = asset.parentAssetId ? effectiveAssets.find((a) => a.id === asset.parentAssetId) : undefined;
@@ -229,11 +264,14 @@ export function InfoTab({
   const siblingsInParent = parentAsset
     ? effectiveAssets.filter((a) => a.parentAssetId === parentAsset.id && a.containerKey === asset.containerKey)
     : [];
-  const freeSlotsInParent = parentSlotSpec?.slotCount != null ? freeSlots(parentSlotSpec, siblingsInParent) : [];
+  const freeSlotsInParent = parentSlotSpec?.rows != null ? freeSlots(parentSlotSpec, siblingsInParent) : [];
 
+  /** 고른 값은 격자 칸(`열,행`)이다 — 번호는 저장하지 않는다. */
   function handleSlotChange(value: string) {
-    if (value === '' || Number(value) === asset.slotIndex) return;
-    useV2WorkingCopy.getState().stageAssetUpdate(assetId, { slotIndex: parseInt(value, 10) });
+    if (value === '') return;
+    const [col, row] = value.split(',').map(Number);
+    if (col === asset.col && row === asset.row) return;
+    useV2WorkingCopy.getState().stageAssetUpdate(assetId, { col, row });
   }
 
   // 하위 자산 총 수 (cascade 삭제 confirm용)
@@ -319,20 +357,22 @@ export function InfoTab({
               >
                 {parentAsset.name}
               </button>
-              {parentSlotSpec?.slotCount != null ? (
+              {parentSlotSpec?.rows != null ? (
                 <div className="w-28">
                   <Select
                     size="sm"
-                    aria-label="슬롯"
-                    value={asset.slotIndex == null ? '' : String(asset.slotIndex)}
+                    aria-label={parentSlotSpec.name}
+                    value={asset.col == null || asset.row == null ? '' : `${asset.col},${asset.row}`}
                     onChange={(e) => handleSlotChange(e.currentTarget.value)}
                   >
-                    {asset.slotIndex != null && (
-                      <option value={String(asset.slotIndex)}>슬롯 {asset.slotIndex + 1}</option>
+                    {asset.col != null && asset.row != null && (
+                      <option value={`${asset.col},${asset.row}`}>
+                        {parentSlotSpec.name} {slotNumber(parentSlotSpec.cols, asset.col, asset.row)}
+                      </option>
                     )}
-                    {freeSlotsInParent.map((idx) => (
-                      <option key={idx} value={String(idx)}>
-                        슬롯 {idx + 1}
+                    {freeSlotsInParent.map((cell) => (
+                      <option key={`${cell.col},${cell.row}`} value={`${cell.col},${cell.row}`}>
+                        {parentSlotSpec.name} {slotNumber(parentSlotSpec.cols, cell.col, cell.row)}
                       </option>
                     ))}
                   </Select>
@@ -404,18 +444,20 @@ export function InfoTab({
                     같은 동작이 두 곳이 되고, 어느 슬롯에 들어가는지도 알 수 없다. */}
                 <p className="text-xs text-content-muted">
                   {spec.name}
-                  {spec.slotCount != null && (
-                    <span className="ml-1 text-content-faint">({spec.slotCount}슬롯)</span>
+                  {spec.rows != null && (
+                    <span className="ml-1 text-content-faint">
+                      ({spec.cols > 1 ? `${spec.cols}열 × ${spec.rows}행` : `${spec.rows}자리`})
+                    </span>
                   )}
                 </p>
-                {spec.slotCount != null ? (
+                {spec.rows != null ? (
                   <SlotGrid
                     spec={spec}
                     children={specChildren}
                     onSelectChild={onSelectAsset}
                     occupiedPortIds={occupiedPortIds}
-                    onAddAtSlot={(slotIndex) =>
-                      setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren, slotIndex })
+                    onAddAtCell={(cell) =>
+                      setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren, cell })
                     }
                   />
                 ) : (

@@ -8,7 +8,7 @@ const port = (
 const asset = (id: string, name: string, extra: object = {}) => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
-  parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null,
+  parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
   fieldValues: {}, updatedAt: 'v', ports: [], ...extra,
 });
 const cable = (id: string, a: string, b: string, extra: object = {}) => ({
@@ -61,7 +61,9 @@ describe('패널 스케줄 — 회로 자리', () => {
   const mk = (id: string, name: string, breakerNo: string | null, slotIndex: number | null) =>
     asset(id, name, {
       parentAssetId: 'panel',
-      slotIndex,
+      // 1열 격자에서는 행이 곧 자리 번호(0-based)다.
+      col: slotIndex == null ? null : 0,
+      row: slotIndex,
       fieldValues: breakerNo == null ? {} : { breakerNo },
       ports: [port(`${id}in`, id, 'IN', 1, 'IN'), port(`${id}out`, id, 'OUT', 1, 'OUT')],
     });
@@ -85,7 +87,7 @@ describe('패널 스케줄 — 회로 자리', () => {
 
   it('회로 수를 선언하면 빈 자리도 행이 된다 — 12회로에 2개만 물린 것이 보여야 한다', () => {
     const assets = [panel, mk('a', '피더A', null, 0), mk('b', '피더B', null, 5)];
-    const rows = buildPowerRows(panel, assets, [], 12);
+    const rows = buildPowerRows(panel, assets, [], { cols: 1, rows: 12 });
     expect(rows).toHaveLength(12);
     expect(rows.map((r) => r.slotNo)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     expect(rows.filter((r) => r.empty)).toHaveLength(10);
@@ -108,21 +110,21 @@ describe('패널 스케줄 — 회로 자리', () => {
 describe('컨테이너가 둘 이상일 때', () => {
   const twoBay = asset('panel2', '분전반2');
   const left = asset('L', '좌측 1번', {
-    parentAssetId: 'panel2', containerKey: 'left', slotIndex: 0,
+    parentAssetId: 'panel2', containerKey: 'left', col: 0, row: 0,
     ports: [port('Lin', 'L', 'IN', 1, 'IN')],
   });
   const right = asset('R', '우측 1번', {
-    parentAssetId: 'panel2', containerKey: 'right', slotIndex: 0,
+    parentAssetId: 'panel2', containerKey: 'right', col: 0, row: 0,
     ports: [port('Rin', 'R', 'IN', 1, 'IN')],
   });
 
   it('다른 컨테이너의 같은 자리 번호를 한 표에 뭉치지 않는다', () => {
-    const rows = buildPowerRows(twoBay as never, [twoBay, left, right] as never, [] as never, 2, 'left');
+    const rows = buildPowerRows(twoBay as never, [twoBay, left, right] as never, [] as never, { cols: 1, rows: 2 }, 'left');
     expect(rows.map((r) => r.feederName)).toEqual(['좌측 1번', '']);
   });
 
   it('빈 자리 수는 그 컨테이너가 선언한 만큼만 만든다', () => {
-    const rows = buildPowerRows(twoBay as never, [twoBay, left, right] as never, [] as never, 2, 'right');
+    const rows = buildPowerRows(twoBay as never, [twoBay, left, right] as never, [] as never, { cols: 1, rows: 2 }, 'right');
     expect(rows.filter((r) => r.empty)).toHaveLength(1);
     expect(rows.find((r) => !r.empty)?.feederName).toBe('우측 1번');
   });

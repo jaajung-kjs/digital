@@ -14,7 +14,7 @@ export function acceptedTypes(
 }
 
 export type PlacementInput =
-  | { kind: 'container'; parentAssetId: string; containerKey: string; slotIndex: number | null; slotSpan: number }
+  | { kind: 'container'; parentAssetId: string; containerKey: string; col: number | null; row: number | null; colSpan: number; rowSpan: number }
   | { kind: 'floor'; floorId: string; x: number; y: number; width: number; height: number };
 
 export function makeNewAsset(args: {
@@ -40,8 +40,10 @@ export function makeNewAsset(args: {
     height: isFloor ? p.height : null,
     parentAssetId: isContainer ? p.parentAssetId : null,
     containerKey: isContainer ? p.containerKey : null,
-    slotIndex: isContainer ? p.slotIndex : null,
-    slotSpan: isContainer ? p.slotSpan : null,
+    col: isContainer ? p.col : null,
+    row: isContainer ? p.row : null,
+    colSpan: isContainer ? p.colSpan : null,
+    rowSpan: isContainer ? p.rowSpan : null,
     fieldValues: {},
     updatedAt: '',
     ports: [],

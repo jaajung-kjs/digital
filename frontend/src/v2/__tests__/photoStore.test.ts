@@ -5,7 +5,7 @@ function asset(id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset 
   return {
     id, name, typeId: 't-1', substationId: 'sub-1', status: 'normal',
     floorId: null, x: null, y: null, width: null, height: null,
-    parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null,
+    parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
     fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [],
     ...extra,
   };

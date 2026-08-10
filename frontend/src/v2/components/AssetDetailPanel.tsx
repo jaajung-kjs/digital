@@ -78,9 +78,9 @@ export function AssetDetailPanel({
         map.set(a.containerKey, list);
       }
     }
-    // 슬롯 인덱스 순 정렬
+    // 자리 순 정렬 — 격자는 행 우선이라 번호 순서와 같다.
     for (const [, list] of map) {
-      list.sort((a, b) => (a.slotIndex ?? 0) - (b.slotIndex ?? 0));
+      list.sort((a, b) => (a.row ?? 0) - (b.row ?? 0) || (a.col ?? 0) - (b.col ?? 0));
     }
     return map;
   }, [effectiveAssets, assetId]);

@@ -42,9 +42,9 @@ describe('PUT /commit — assets', () => {
       assets: {
         creates: [
           // 자식을 먼저 배열에 넣어 위상정렬을 강제 검증
-          { id: m1, name: `${uniq}-m1`, typeId: pitrTypeId, parentAssetId: rackId, containerKey: 'main', slotIndex: 0, slotSpan: 2 },
+          { id: m1, name: `${uniq}-m1`, typeId: pitrTypeId, parentAssetId: rackId, containerKey: 'main', col: 0, row: 0, colSpan: 1, rowSpan: 2 },
           { id: rackId, name: `${uniq}-rack`, typeId: rackTypeId, floorId, x: 0, y: 0, width: 60, height: 80 },
-          { id: m2, name: `${uniq}-m2`, typeId: pitrTypeId, parentAssetId: rackId, containerKey: 'main', slotIndex: 2, slotSpan: 1 },
+          { id: m2, name: `${uniq}-m2`, typeId: pitrTypeId, parentAssetId: rackId, containerKey: 'main', col: 0, row: 2, colSpan: 1, rowSpan: 1 },
         ],
       },
     }).expect(200);
@@ -55,7 +55,7 @@ describe('PUT /commit — assets', () => {
   it('슬롯 겹침 → 422 PLACEMENT_OVERLAP', async () => {
     const res = await commit({
       assets: {
-        creates: [{ id: randomUUID(), name: `${uniq}-ov`, typeId: pitrTypeId, parentAssetId: await rackIdByName(), containerKey: 'main', slotIndex: 1, slotSpan: 1 }],
+        creates: [{ id: randomUUID(), name: `${uniq}-ov`, typeId: pitrTypeId, parentAssetId: await rackIdByName(), containerKey: 'main', col: 0, row: 1, colSpan: 1, rowSpan: 1 }],
       },
     }).expect(422);
     expect(res.body.error).toBe('PLACEMENT_OVERLAP');
@@ -64,7 +64,7 @@ describe('PUT /commit — assets', () => {
   it('수용 불가 타입(GROUNDING, 구조 카테고리) → 422 PLACEMENT_NOT_ACCEPTED', async () => {
     const res = await commit({
       assets: {
-        creates: [{ id: randomUUID(), name: `${uniq}-na`, typeId: groundingTypeId, parentAssetId: await rackIdByName(), containerKey: 'main', slotIndex: 5, slotSpan: 1 }],
+        creates: [{ id: randomUUID(), name: `${uniq}-na`, typeId: groundingTypeId, parentAssetId: await rackIdByName(), containerKey: 'main', col: 0, row: 5, colSpan: 1, rowSpan: 1 }],
       },
     }).expect(422);
     expect(res.body.error).toBe('PLACEMENT_NOT_ACCEPTED');

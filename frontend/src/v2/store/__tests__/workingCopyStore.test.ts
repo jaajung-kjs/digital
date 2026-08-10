@@ -5,7 +5,7 @@ function asset(id: string, name: string, extra: Partial<V2Asset> = {}): V2Asset 
   return {
     id, name, typeId: 't-1', substationId: 'sub-1', status: 'normal',
     floorId: null, x: null, y: null, width: null, height: null,
-    parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null,
+    parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
     fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [],
     ...extra,
   };
@@ -19,8 +19,8 @@ vi.mock('../../api', () => {
     substation: { id: 'sub-1', name: '변전소A', branchId: 'br-1', sortOrder: 1 },
     floors: [{ id: 'f-1', name: '1층', sortOrder: 1, substationId: 'sub-1' }],
     assets: [
-      { id: 'a-rack', name: '랙1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null, fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [{ id: 'p-r1', assetId: 'a-rack', group: 'P', index: 1, name: '포트 1', direction: 'BI', medium: 'network' }] },
-      { id: 'a-mod', name: '모듈1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: 'a-rack', containerKey: 'main', slotIndex: 0, slotSpan: 1, fieldValues: {}, updatedAt: '2026-07-27T00:00:01.000Z', ports: [{ id: 'p-m1', assetId: 'a-mod', group: 'P', index: 1, name: '포트 1', direction: 'BI', medium: 'network' }] },
+      { id: 'a-rack', name: '랙1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null, fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [{ id: 'p-r1', assetId: 'a-rack', group: 'P', index: 1, name: '포트 1', direction: 'BI', medium: 'network' }] },
+      { id: 'a-mod', name: '모듈1', typeId: 't-1', substationId: 'sub-1', status: 'normal', floorId: null, x: null, y: null, width: null, height: null, parentAssetId: 'a-rack', containerKey: 'main', col: 0, row: 0, colSpan: 1, rowSpan: 1, fieldValues: {}, updatedAt: '2026-07-27T00:00:01.000Z', ports: [{ id: 'p-m1', assetId: 'a-mod', group: 'P', index: 1, name: '포트 1', direction: 'BI', medium: 'network' }] },
     ],
     maintenanceLogs: [{ id: 'm-1', assetId: 'a-mod', occurredAt: '2026-07-01T00:00:00.000Z', content: '고장', action: null, updatedAt: '2026-07-27T00:00:00.000Z' }],
     inspectionLogs: [],

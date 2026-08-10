@@ -1,4 +1,5 @@
-import type { V2Asset } from './types';
+import { slotNumber } from '@twin/core';
+import type { V2Asset, V2AssetType } from './types';
 
 /**
  * 자산이 어디에 있는가 — 층부터 슬롯까지 전체 경로.
@@ -9,11 +10,15 @@ import type { V2Asset } from './types';
  *
  * 같은 계산이 현황표와 상세 패널에 각각 복제돼 있었다(한쪽만 고치면 두 화면이 달라진다).
  * 여기 한 곳에 둔다.
+ *
+ * 자리 번호는 격자에서 유도한다 — 열이 몇인지는 **상위 타입의 컨테이너 명세**가 안다.
+ * 타입을 못 주면 번호를 생략한다(이름만으로도 어디인지는 읽힌다).
  */
 export function assetLocationPath(
   asset: V2Asset,
   assetById: Map<string, V2Asset>,
   floorNameById: Map<string, string>,
+  typesById?: Map<string, V2AssetType>,
 ): string {
   const parts: string[] = [];
   let cur: V2Asset | undefined = asset;
@@ -31,8 +36,14 @@ export function assetLocationPath(
       break;
     }
     const parent: V2Asset | undefined = assetById.get(cur.parentAssetId);
-    // 슬롯 번호는 "그 상위의 몇 번 자리인가" 이므로 상위 이름 뒤에 붙인다.
-    const slot = cur.slotIndex != null ? ` · 슬롯 ${cur.slotIndex + 1}` : '';
+    /* 자리 번호는 "그 상위의 몇 번 자리인가" 이므로 상위 이름 뒤에 붙인다.
+       격자가 몇 열인지는 상위 타입이 선언한다 — 2열짜리 분전반은 1·2 가 첫 행이다. */
+    const spec = typesById?.get(parent?.typeId ?? '')?.containerSpecs
+      ?.find((c) => c.key === cur!.containerKey);
+    const slot =
+      cur.col != null && cur.row != null
+        ? ` · ${spec?.name ?? '자리'} ${slotNumber(spec?.cols ?? 1, cur.col, cur.row)}`
+        : '';
     parts.unshift(`${parent?.name ?? '—'}${slot}`);
     cur = parent;
   }

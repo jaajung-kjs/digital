@@ -36,7 +36,7 @@ describe('v2 전체 흐름 스모크', () => {
         assets: {
           creates: [
             { id: rackId, name: `${uniq}-rack`, typeId: typeId('RACK'), floorId, x: 0, y: 0, width: 60, height: 80 },
-            { id: moduleId, name: `${uniq}-pitr`, typeId: typeId('PITR-5000'), parentAssetId: rackId, containerKey: 'main', slotIndex: 0, slotSpan: 2 },
+            { id: moduleId, name: `${uniq}-pitr`, typeId: typeId('PITR-5000'), parentAssetId: rackId, containerKey: 'main', col: 0, row: 0, colSpan: 1, rowSpan: 2 },
           ],
         },
         records: {

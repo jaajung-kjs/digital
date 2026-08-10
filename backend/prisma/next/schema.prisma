@@ -124,7 +124,10 @@ model AssetContainerSpec {
   type        AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
   key         String
   name        String
-  slotCount   Int? // null = 자유형
+  /// 격자 열 수 — 랙은 1, 분전반 회로는 2(홀수 왼쪽·짝수 오른쪽).
+  cols        Int       @default(1)
+  /// 격자 행 수. null = 자유형(넣는 만큼 늘어나고 자리 검증이 없다).
+  rows        Int?
   allowSpan   Boolean   @default(false)
   // AcceptRule (categoryKeys/typeKeys)
   accepts     Json      @default("{}")
@@ -200,8 +203,11 @@ model Asset {
   parentAsset   Asset?      @relation("AssetChildren", fields: [parentAssetId], references: [id], onDelete: Restrict)
   children      Asset[]     @relation("AssetChildren")
   containerKey  String?
-  slotIndex     Int?
-  slotSpan      Int?
+  /// 함체 격자에서의 자리(0-based). 자리 번호는 저장하지 않고 격자에서 유도한다.
+  col           Int?
+  row           Int?
+  colSpan       Int?
+  rowSpan       Int?
   // 커스텀 필드 값 { [fieldKey]: value }
   fieldValues   Json        @default("{}")
   ports         Port[]

@@ -15,7 +15,8 @@ import { issueFor } from './adminUtils';
 interface ContainerRow {
   key: string;
   name: string;
-  slotCount: number | null;
+  cols: number;
+  rows: number | null;
   allowSpan: boolean;
   accepts: { categoryKeys?: string[]; typeKeys?: string[] };
 }
@@ -29,7 +30,7 @@ interface ContainersEditorProps {
 }
 
 function defaultContainer(): ContainerRow {
-  return { key: '', name: '', slotCount: null, allowSpan: false, accepts: {} };
+  return { key: '', name: '', cols: 1, rows: null, allowSpan: false, accepts: {} };
 }
 
 /** accepts 체크박스 팝오버 */
@@ -151,9 +152,10 @@ export function ContainersEditor({ draft, onChange, catalog, locked, issues }: C
       {containers.map((c, i) => {
         const keyIssue = issueFor(issues, `containers[${i}].key`);
         const nameIssue = issueFor(issues, `containers[${i}].name`);
-        const slotIssue = issueFor(issues, `containers[${i}].slotCount`);
+        const colsIssue = issueFor(issues, `containers[${i}].cols`);
+        const rowsIssue = issueFor(issues, `containers[${i}].rows`);
         const spanIssue = issueFor(issues, `containers[${i}].allowSpan`);
-        const isFree = c.slotCount === null;
+        const isFree = c.rows === null;
 
         return (
           <ItemCard key={i} title={`컨테이너 ${i + 1}`} onDelete={locked ? undefined : () => remove(i)}>
@@ -186,18 +188,35 @@ export function ContainersEditor({ draft, onChange, catalog, locked, issues }: C
               />
             </DetailRow>
 
-            {/* slotCount */}
-            <DetailRow label="슬롯 수" issue={slotIssue} hint={isFree ? '자유형 (슬롯 수 제한 없음)' : undefined}>
+            {/* 격자 — 행이 자리 번호의 세로축, 열이 가로축이다. 번호는 행 우선으로 매겨진다. */}
+            <DetailRow label="행 수" issue={rowsIssue} hint={isFree ? '자유형 (넣는 만큼 늘어난다)' : undefined}>
               <Input
-                aria-label={`컨테이너 ${i + 1} 슬롯 수`}
+                aria-label={`컨테이너 ${i + 1} 행 수`}
                 type="number"
                 disabled={locked}
-                value={c.slotCount === null ? '' : c.slotCount}
+                value={c.rows === null ? '' : c.rows}
                 placeholder="비워두면 자유형"
                 onChange={(e) => {
                   const raw = e.currentTarget.value;
                   const val = raw === '' ? null : Number(raw);
-                  update(i, { slotCount: val === null ? null : isNaN(val) ? null : val });
+                  update(i, { rows: val === null || isNaN(val) ? null : val });
+                }}
+              />
+            </DetailRow>
+
+            <DetailRow
+              label="열 수"
+              issue={colsIssue}
+              hint={isFree ? '자유형은 한 줄이다' : '분전반 조서처럼 좌우로 나뉘면 2 — 번호는 1·2가 첫 행이 된다'}
+            >
+              <Input
+                aria-label={`컨테이너 ${i + 1} 열 수`}
+                type="number"
+                disabled={locked || isFree}
+                value={c.cols}
+                onChange={(e) => {
+                  const val = Number(e.currentTarget.value);
+                  update(i, { cols: isNaN(val) || val < 1 ? 1 : val });
                 }}
               />
             </DetailRow>

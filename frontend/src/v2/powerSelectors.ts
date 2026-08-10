@@ -1,4 +1,4 @@
-import { portFieldsFor, portValuesAt, type SeededMediumKey } from '@twin/core';
+import { portFieldsFor, portValuesAt, slotNumber, type SeededMediumKey } from '@twin/core';
 import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type MediumContainer, type PeerInfo } from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
@@ -50,8 +50,8 @@ export interface PowerRow {
  * 정렬 기준은 화면에 안 보이는 쪽이었다. 보이는 것으로 센다.
  * 자유형 컨테이너(자리 번호 없음)면 null — 그때는 이름순으로 물러선다.
  */
-function circuitNumber(feeder: V2Asset): number | null {
-  return feeder.slotIndex != null ? feeder.slotIndex + 1 : null;
+function circuitNumber(feeder: V2Asset, cols: number): number | null {
+  return feeder.col != null && feeder.row != null ? slotNumber(cols, feeder.col, feeder.row) : null;
 }
 
 /**
@@ -76,7 +76,7 @@ export function buildPowerRows(
   assets: V2Asset[],
   cables: V2Cable[],
   /** 컨테이너 명세가 선언한 회로 수 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
-  slotCount?: number | null,
+  grid?: { cols: number; rows: number | null } | null,
   /** 이 표가 다루는 컨테이너. 같은 함체의 **다른** 컨테이너 자식은 섞이면 안 된다
    *  (자리 번호는 컨테이너마다 1부터 다시 시작한다). */
   containerKey?: string | null,
@@ -95,8 +95,8 @@ export function buildPowerRows(
         a.ports.some((p) => p.medium === POWER_MEDIUM),
     )
     .sort((a, b) => {
-      const na = circuitNumber(a);
-      const nb = circuitNumber(b);
+      const na = circuitNumber(a, grid?.cols ?? 1);
+      const nb = circuitNumber(b, grid?.cols ?? 1);
       if (na != null && nb != null && na !== nb) return na - nb;
       if (na != null && nb == null) return -1;
       if (na == null && nb != null) return 1;
@@ -146,7 +146,7 @@ export function buildPowerRows(
     }
 
     rows.push({
-      slotNo: feeder.slotIndex != null ? feeder.slotIndex + 1 : null,
+      slotNo: circuitNumber(feeder, grid?.cols ?? 1),
       empty: false,
       feederId: feeder.id,
       feederName: feeder.name,
@@ -158,10 +158,10 @@ export function buildPowerRows(
 
   /* 빈 회로 자리 — 패널 스케줄은 쓰지 않는 자리도 보여준다(SPARE).
      "12회로 분전반에 지금 3개만 물려 있다" 를 보려면 빈 자리가 행으로 있어야 한다.
-     회로 수는 컨테이너 명세가 선언한 slotCount 다 — 자유형(null)이면 있는 것만 나열한다. */
-  if (slotCount != null) {
+     회로 수는 컨테이너 명세가 선언한 격자 칸 수다 — 자유형(null)이면 있는 것만 나열한다. */
+  if (grid?.rows != null) {
     const taken = new Set(rows.map((r) => r.slotNo).filter((n): n is number => n != null));
-    for (let i = 1; i <= slotCount; i++) {
+    for (let i = 1; i <= grid.cols * grid.rows; i++) {
       if (taken.has(i)) continue;
       rows.push({
         slotNo: i,

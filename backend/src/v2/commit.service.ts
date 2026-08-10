@@ -95,7 +95,7 @@ async function loadTypeSpec(tx: Tx, typeId: string) {
 async function validateContainerPlacement(
   tx: Tx,
   substationId: string,
-  args: { parentAssetId: string; containerKey: string | null | undefined; slotIndex: number | null | undefined; slotSpan: number | null | undefined },
+  args: { parentAssetId: string; containerKey: string | null | undefined; col: number | null | undefined; row: number | null | undefined; colSpan: number | null | undefined; rowSpan: number | null | undefined },
   child: { typeKey: string; categoryKey: string },
   excludeAssetId: string | null,
 ): Promise<void> {
@@ -104,17 +104,19 @@ async function validateContainerPlacement(
   if (!args.containerKey) throw new HttpError(422, 'INVALID_PLACEMENT', 'containerKey 가 필요합니다');
   const siblings = await tx.asset.findMany({
     where: { parentAssetId: parent.id, containerKey: args.containerKey, ...(excludeAssetId ? { id: { not: excludeAssetId } } : {}) },
-    select: { id: true, slotIndex: true, slotSpan: true },
+    select: { id: true, col: true, row: true, colSpan: true, rowSpan: true },
   });
   const err = validateSlotPlacement({
     parentType: typeRowToSpec(parent.type),
     containerKey: args.containerKey,
     child,
-    slotIndex: args.slotIndex ?? null,
-    slotSpan: args.slotSpan ?? 1,
+    col: args.col ?? null,
+    row: args.row ?? null,
+    colSpan: args.colSpan ?? 1,
+    rowSpan: args.rowSpan ?? 1,
     occupants: siblings
-      .filter((s) => s.slotIndex !== null)
-      .map((s) => ({ assetId: s.id, slotIndex: s.slotIndex as number, slotSpan: s.slotSpan ?? 1 })),
+      .filter((s) => s.col !== null && s.row !== null)
+      .map((s) => ({ assetId: s.id, col: s.col as number, row: s.row as number, colSpan: s.colSpan ?? 1, rowSpan: s.rowSpan ?? 1 })),
   });
   if (err) throw new HttpError(422, `PLACEMENT_${err.toUpperCase().replace(/-/g, '_')}`, `배치할 수 없습니다: ${err}`);
 }
@@ -131,7 +133,7 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
     await validateContainerPlacement(
       tx,
       substationId,
-      { parentAssetId: input.parentAssetId as string, containerKey: input.containerKey, slotIndex: input.slotIndex, slotSpan: input.slotSpan },
+      { parentAssetId: input.parentAssetId as string, containerKey: input.containerKey, col: input.col, row: input.row, colSpan: input.colSpan, rowSpan: input.rowSpan },
       { typeKey: row.key, categoryKey: spec.categoryKey },
       null,
     );
@@ -151,8 +153,10 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
         height: input.height ?? null,
         parentAssetId: input.parentAssetId ?? null,
         containerKey: input.containerKey ?? null,
-        slotIndex: input.slotIndex ?? null,
-        slotSpan: input.slotSpan ?? null,
+        col: input.col ?? null,
+        row: input.row ?? null,
+        colSpan: input.colSpan ?? null,
+        rowSpan: input.rowSpan ?? null,
         fieldValues: (input.fieldValues ?? {}) as Prisma.InputJsonValue,
       },
     });
@@ -177,8 +181,10 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
       floorId: p.floorId !== undefined ? p.floorId : existing.floorId,
       parentAssetId: p.parentAssetId !== undefined ? p.parentAssetId : existing.parentAssetId,
       containerKey: p.containerKey !== undefined ? p.containerKey : existing.containerKey,
-      slotIndex: p.slotIndex !== undefined ? p.slotIndex : existing.slotIndex,
-      slotSpan: p.slotSpan !== undefined ? p.slotSpan : existing.slotSpan,
+      col: p.col !== undefined ? p.col : existing.col,
+      row: p.row !== undefined ? p.row : existing.row,
+      colSpan: p.colSpan !== undefined ? p.colSpan : existing.colSpan,
+      rowSpan: p.rowSpan !== undefined ? p.rowSpan : existing.rowSpan,
     };
     const placement = resolvePlacement(merged);
     if (placement === 'floor') {
@@ -191,7 +197,7 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
       await validateContainerPlacement(
         tx,
         substationId,
-        { parentAssetId: merged.parentAssetId as string, containerKey: merged.containerKey, slotIndex: merged.slotIndex, slotSpan: merged.slotSpan },
+        { parentAssetId: merged.parentAssetId as string, containerKey: merged.containerKey, col: merged.col, row: merged.row, colSpan: merged.colSpan, rowSpan: merged.rowSpan },
         { typeKey: existing.type.key, categoryKey: existing.type.category.key },
         existing.id,
       );
@@ -210,8 +216,10 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
       ...(p.height !== undefined ? { height: p.height } : {}),
       ...(p.parentAssetId !== undefined ? { parentAssetId: p.parentAssetId } : {}),
       ...(p.containerKey !== undefined ? { containerKey: p.containerKey } : {}),
-      ...(p.slotIndex !== undefined ? { slotIndex: p.slotIndex } : {}),
-      ...(p.slotSpan !== undefined ? { slotSpan: p.slotSpan } : {}),
+      ...(p.col !== undefined ? { col: p.col } : {}),
+      ...(p.row !== undefined ? { row: p.row } : {}),
+      ...(p.colSpan !== undefined ? { colSpan: p.colSpan } : {}),
+      ...(p.rowSpan !== undefined ? { rowSpan: p.rowSpan } : {}),
       ...(p.fieldValues !== undefined ? { fieldValues: p.fieldValues as Prisma.InputJsonValue } : {}),
     },
   });

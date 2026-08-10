@@ -19,7 +19,7 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   removeHours: 1,
   relocateHours: 3,
   containerSpecs: [
-    { id: 'cs-1', key: 'main', name: '슬롯', slotCount: 24, allowSpan: true, accepts: { categoryKeys: ['통신'] }, sortOrder: 1 },
+    { id: 'cs-1', key: 'main', name: '슬롯', cols: 1, rows: 24, allowSpan: true, accepts: { categoryKeys: ['통신'] }, sortOrder: 1 },
   ],
   portTemplates: [
     { id: 'pt-1', group: 'A', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'A', sortOrder: 1 },
@@ -68,7 +68,7 @@ describe('catalogDraft', () => {
     expect('id' in draft.containers[0]).toBe(false);
     expect('sortOrder' in draft.containers[0]).toBe(false);
     expect(draft.containers[0].key).toBe('main');
-    expect(draft.containers[0].slotCount).toBe(24);
+    expect([draft.containers[0].cols, draft.containers[0].rows]).toEqual([1, 24]);
 
     // portTemplates → ports: id·sortOrder 제거
     expect(draft.ports).toHaveLength(1);

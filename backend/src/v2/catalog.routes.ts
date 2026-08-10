@@ -44,7 +44,7 @@ async function createTypeStructure(
 ): Promise<void> {
   for (const [i, c] of body.containers.entries()) {
     await tx.assetContainerSpec.create({
-      data: { typeId, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
+      data: { typeId, key: c.key, name: c.name, cols: c.cols, rows: c.rows, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
     });
   }
   for (const [i, p] of body.ports.entries()) {
@@ -74,13 +74,13 @@ function canonicalizeAccepts(accepts: unknown): { categoryKeys: string[]; typeKe
  * accepts 는 canonicalizeAccepts 를 통해 키 순서 및 배열 순서를 정규화한다.
  */
 function structuralKey(
-  containers: Array<{ key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: unknown }>,
+  containers: Array<{ key: string; name: string; cols: number; rows: number | null; allowSpan: boolean; accepts: unknown }>,
   ports: Array<{ group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null }>,
 ): string {
   const canon = {
     containers: [...containers]
       .sort((a, b) => a.key.localeCompare(b.key))
-      .map((c) => ({ key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: canonicalizeAccepts(c.accepts) })),
+      .map((c) => ({ key: c.key, name: c.name, cols: c.cols, rows: c.rows, allowSpan: c.allowSpan, accepts: canonicalizeAccepts(c.accepts) })),
     ports: [...ports]
       .sort((a, b) => a.group.localeCompare(b.group))
       .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1 })),

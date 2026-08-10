@@ -100,8 +100,10 @@ export function buildTraceInputs(args: {
       name: a.name,
       parentAssetId: a.parentAssetId,
       containerKey: a.containerKey,
-      slotIndex: a.slotIndex,
-      slotSpan: a.slotSpan,
+      col: a.col,
+      row: a.row,
+      colSpan: a.colSpan,
+      rowSpan: a.rowSpan,
     });
 
     for (const p of a.ports) {

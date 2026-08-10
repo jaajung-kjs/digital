@@ -26,8 +26,10 @@ const assetCreateSchema = z.object({
   height: z.number().nullish(),
   parentAssetId: z.string().uuid().nullish(),
   containerKey: z.string().nullish(),
-  slotIndex: z.number().int().nullish(),
-  slotSpan: z.number().int().min(1).nullish(),
+  col: z.number().int().min(0).nullish(),
+  row: z.number().int().min(0).nullish(),
+  colSpan: z.number().int().min(1).nullish(),
+  rowSpan: z.number().int().min(1).nullish(),
   fieldValues: z.record(z.unknown()).optional(),
   portCounts: z.record(z.number().int().min(1)).optional(),
   /** 다심 포트의 코어 수 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
@@ -74,7 +76,8 @@ const keyRe = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const containerSpecBodySchema = z.object({
   key: z.string().regex(keyRe),
   name: z.string().trim().min(1),
-  slotCount: z.number().int().min(1).nullable(),
+  cols: z.number().int().min(1),
+  rows: z.number().int().min(1).nullable(),
   allowSpan: z.boolean(),
   accepts: z.object({
     categoryKeys: z.array(z.string()).optional(),

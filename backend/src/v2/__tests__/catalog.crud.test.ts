@@ -51,7 +51,7 @@ const VALID_PORTS = [
   { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '입력 {n}' },
   { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '출력 {n}' },
 ];
-const VALID_CONTAINERS = [{ key: 'shelf', name: '선반', slotCount: 8, allowSpan: false, accepts: {} }];
+const VALID_CONTAINERS = [{ key: 'shelf', name: '선반', cols: 1, rows: 8, allowSpan: false, accepts: {} }];
 
 /** 다심 포트 왕복용 — trunk 하나가 코어 24가닥을 나르는 인입 포트. */
 const MULTI_CORE_PORTS = [
@@ -65,7 +65,7 @@ const MULTI_CORE_PORTS = [
  * 정규화 없이는 accepts 키 순서 불일치가 항상 발생한다.
  */
 const BOTH_KEY_ACCEPTS = { categoryKeys: ['통신', '전원'], typeKeys: ['RACK', 'UPS'] };
-const BOTH_KEY_CONTAINERS = [{ key: 'bay', name: '베이', slotCount: 4, allowSpan: false, accepts: BOTH_KEY_ACCEPTS }];
+const BOTH_KEY_CONTAINERS = [{ key: 'bay', name: '베이', cols: 1, rows: 4, allowSpan: false, accepts: BOTH_KEY_ACCEPTS }];
 
 describe('catalog CRUD', () => {
   // 테스트에서 생성한 카테고리/타입 ID
@@ -170,7 +170,7 @@ describe('catalog CRUD', () => {
     expect(found.portTemplates).toHaveLength(2);
     expect(found.portTemplates[0]).toMatchObject({ group: 'fiberIn', count: 2, direction: 'IN', medium: 'fiber', namePattern: '입력 {n}' });
     expect(found.containerSpecs).toHaveLength(1);
-    expect(found.containerSpecs[0]).toMatchObject({ key: 'shelf', name: '선반', slotCount: 8, allowSpan: false });
+    expect(found.containerSpecs[0]).toMatchObject({ key: 'shelf', name: '선반', cols: 1, rows: 8, allowSpan: false });
   });
 
   it('타입 생성: medium 이 케이블그룹에 없으면 400 INVALID_TYPE_SPEC + details 에 ports[i].medium', async () => {
@@ -348,7 +348,7 @@ describe('catalog CRUD', () => {
     await request(app).put(`/api/v2/catalog/types/${bkTypeId}`).set(admin).send(sameStructBody).expect(200);
 
     // 구조 변경 (categoryKeys 에서 항목 하나 제거): 진짜 구조 변경이므로 409
-    const changedAcceptsContainers = [{ key: 'bay', name: '베이', slotCount: 4, allowSpan: false, accepts: { categoryKeys: ['통신'], typeKeys: ['RACK', 'UPS'] } }];
+    const changedAcceptsContainers = [{ key: 'bay', name: '베이', cols: 1, rows: 4, allowSpan: false, accepts: { categoryKeys: ['통신'], typeKeys: ['RACK', 'UPS'] } }];
     const changedStructBody = makeTypeBody(bkCatId, {
       key: `${KEY_PREFIX}_TYPE_BK`,
       name: '양키 타입 이름 수정',

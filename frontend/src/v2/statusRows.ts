@@ -45,7 +45,7 @@ export function buildStatusRows(args: {
       typeName: type?.name ?? '—',
       categoryName: (type && args.categoryNameById.get(type.categoryId)) ?? '—',
       name: a.name,
-      location: assetLocationPath(a, assetById, floorName),
+      location: assetLocationPath(a, assetById, floorName, args.typesById),
       lastInspectedAt: inspections.length ? [...inspections].sort().at(-1)! : null,
       status: a.status,
       fieldValues: a.fieldValues,

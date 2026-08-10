@@ -8,8 +8,8 @@ const row = {
   placeable: true, defaultWidth: 60, defaultHeight: 80,
   laborType: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3,
   containerSpecs: [
-    { key: 'b', name: 'B', slotCount: null, allowSpan: false, accepts: {}, sortOrder: 2 },
-    { key: 'a', name: 'A', slotCount: 12, allowSpan: true, accepts: { categoryKeys: ['통신'] }, sortOrder: 1 },
+    { key: 'b', name: 'B', cols: 1, rows: null, allowSpan: false, accepts: {}, sortOrder: 2 },
+    { key: 'a', name: 'A', cols: 1, rows: 12, allowSpan: true, accepts: { categoryKeys: ['통신'] }, sortOrder: 1 },
   ],
   portTemplates: [{ group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}', sortOrder: 0 }],
 };
@@ -37,8 +37,8 @@ describe('specFromUpsert', () => {
     placeable: true, defaultWidth: 60, defaultHeight: 80,
     laborType: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3,
     containers: [
-      { key: 'a', name: 'A', slotCount: 12, allowSpan: true, accepts: { categoryKeys: ['통신'] } },
-      { key: 'b', name: 'B', slotCount: null, allowSpan: false, accepts: {} },
+      { key: 'a', name: 'A', cols: 1, rows: 12, allowSpan: true, accepts: { categoryKeys: ['통신'] } },
+      { key: 'b', name: 'B', cols: 1, rows: null, allowSpan: false, accepts: {} },
     ],
     ports: [{ group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' }],
   };

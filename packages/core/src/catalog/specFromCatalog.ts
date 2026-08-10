@@ -5,7 +5,7 @@ export interface CatalogTypeRow {
   category: { key: string };
   placeable: boolean; defaultWidth: number | null; defaultHeight: number | null;
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
-  containerSpecs: { key: string; name: string; slotCount: number | null; allowSpan: boolean; accepts: unknown; sortOrder: number }[];
+  containerSpecs: { key: string; name: string; cols: number; rows: number | null; allowSpan: boolean; accepts: unknown; sortOrder: number }[];
   portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; sortOrder: number }[];
 }
 
@@ -24,7 +24,7 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
     labor: { laborType: row.laborType, installHours: row.installHours, removeHours: row.removeHours, relocateHours: row.relocateHours },
     containers: [...row.containerSpecs]
       .sort((x, y) => x.sortOrder - y.sortOrder)
-      .map((c) => ({ key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts as AcceptRule })),
+      .map((c) => ({ key: c.key, name: c.name, cols: c.cols, rows: c.rows, allowSpan: c.allowSpan, accepts: c.accepts as AcceptRule })),
     ports: [...row.portTemplates]
       .sort((x, y) => x.sortOrder - y.sortOrder)
       .map((p) => ({ group: p.group, count: p.count, direction: p.direction as Direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1 })),

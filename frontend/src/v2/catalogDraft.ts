@@ -29,10 +29,11 @@ export function typeToDraft(t: V2AssetType): TypeDraft {
     installHours: t.installHours,
     removeHours: t.removeHours,
     relocateHours: t.relocateHours,
-    containers: t.containerSpecs.map(({ key, name, slotCount, allowSpan, accepts }) => ({
+    containers: t.containerSpecs.map(({ key, name, cols, rows, allowSpan, accepts }) => ({
       key,
       name,
-      slotCount,
+      cols,
+      rows,
       allowSpan,
       accepts: { ...accepts },
     })),

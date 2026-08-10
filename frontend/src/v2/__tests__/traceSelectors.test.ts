@@ -18,7 +18,7 @@ const mkPort = (id: string, assetId: string, group: string, index: number, mediu
   ({ id, assetId, group, index, name: `${group}${index}`, direction: 'BI' as const, medium, positions, fieldValues: {} });
 const mkAsset = (id: string, typeId: string, ports: ReturnType<typeof mkPort>[]) => ({
   id, name: id, typeId, substationId: 's', status: 'normal', floorId: null, x: null, y: null, width: null, height: null,
-  parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null, fieldValues: {}, updatedAt: '', ports,
+  parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null, fieldValues: {}, updatedAt: '', ports,
 });
 
 const assets = [

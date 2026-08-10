@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button, Input, Modal, Select, DetailRow } from '../../components/ui';
 import { useV2Catalog } from '../hooks';
+import { slotNumber } from '@twin/core';
 import { makeNewAsset, acceptedTypes, freeSlots } from '../newAsset';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import type { V2ContainerSpec } from '../types';
@@ -14,9 +15,9 @@ interface AddAssetModalProps {
     parentAssetId: string;
     spec: V2ContainerSpec;
     /** 현재 형제들 — freeSlots 계산용 */
-    siblings: { slotIndex: number | null; slotSpan: number | null }[];
-    /** 빈 슬롯을 눌러 열었으면 그 자리 — 사용자가 방금 고른 것을 다시 묻지 않는다. */
-    slotIndex?: number;
+    siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
+    /** 빈 자리를 눌러 열었으면 그 칸 — 사용자가 방금 고른 것을 다시 묻지 않는다. */
+    cell?: { col: number; row: number };
   };
   /** 평면도 배치 컨텍스트: 팔레트 drag-to-draw 후 열릴 때 지정 */
   floorContext?: {
@@ -39,11 +40,12 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
     if (preselectedTypeId !== undefined) setSelectedTypeId(preselectedTypeId);
   }, [preselectedTypeId]);
 
-  // 빈 슬롯을 눌러 열었으면 그 슬롯을 미리 고른 상태로 연다.
-  const presetSlot = containerContext?.slotIndex;
+  // 빈 자리를 눌러 열었으면 그 칸을 미리 고른 상태로 연다.
+  const presetCell = containerContext?.cell;
+  const presetKey = presetCell ? `${presetCell.col},${presetCell.row}` : undefined;
   useEffect(() => {
-    if (presetSlot !== undefined) setSelectedSlot(String(presetSlot));
-  }, [presetSlot]);
+    if (presetKey !== undefined) setSelectedSlot(presetKey);
+  }, [presetKey]);
 
   const catalog = useV2Catalog();
 
@@ -77,7 +79,7 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
     return freeSlots(containerContext.spec, containerContext.siblings);
   }, [containerContext]);
 
-  const hasFixedSlots = containerContext != null && containerContext.spec.slotCount != null;
+  const hasFixedSlots = containerContext != null && containerContext.spec.rows != null;
 
   // 카테고리별 그룹핑
   const grouped = useMemo(() => {
@@ -112,15 +114,16 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
         height: floorContext.rect.height,
       };
     } else if (containerContext) {
-      const slotIndex = hasFixedSlots
-        ? (selectedSlot !== '' ? parseInt(selectedSlot, 10) : null)
-        : null;
+      /* 고른 자리는 격자 칸이다 — `열,행` 으로 실어 보낸다(번호는 저장하지 않는다). */
+      const cell = hasFixedSlots && selectedSlot !== '' ? selectedSlot.split(',').map(Number) : null;
       placement = {
         kind: 'container',
         parentAssetId: containerContext.parentAssetId,
         containerKey: containerContext.spec.key,
-        slotIndex,
-        slotSpan: 1,
+        col: cell ? cell[0]! : null,
+        row: cell ? cell[1]! : null,
+        colSpan: 1,
+        rowSpan: 1,
       };
     }
 
@@ -203,19 +206,22 @@ export function AddAssetModal({ open, onClose, substationId, containerContext, f
         {hasFixedSlots && (
           <DetailRow label="슬롯">
             {free.length === 0 ? (
-              <p className="text-xs text-content-faint">빈 슬롯 없음</p>
+              <p className="text-xs text-content-faint">빈 자리 없음</p>
             ) : (
               <Select
                 aria-label="슬롯"
                 value={selectedSlot}
                 onChange={(e) => setSelectedSlot(e.currentTarget.value)}
               >
-                <option value="">— 슬롯 선택 —</option>
-                {free.map((idx) => (
-                  <option key={idx} value={String(idx)}>
-                    슬롯 {idx + 1}
-                  </option>
-                ))}
+                <option value="">— 자리 선택 —</option>
+                {free.map((cell) => {
+                  const key = `${cell.col},${cell.row}`;
+                  return (
+                    <option key={key} value={key}>
+                      {containerContext!.spec.name} {slotNumber(containerContext!.spec.cols, cell.col, cell.row)}
+                    </option>
+                  );
+                })}
               </Select>
             )}
           </DetailRow>

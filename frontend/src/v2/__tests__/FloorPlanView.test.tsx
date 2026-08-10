@@ -54,7 +54,7 @@ const port = (id: string, assetId: string) =>
 const asset = (id: string, x: number, y: number, extra: Partial<V2Asset> = {}): V2Asset => ({
   id, name: `자산-${id}`, typeId: 't-panel', substationId: 'sub-1', status: 'normal',
   floorId: 'f1', x, y, width: 50, height: 50,
-  parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null,
+  parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
   fieldValues: {}, updatedAt: 'v1', ports: [port(`p-${id}`, id)], ...extra,
 });
 

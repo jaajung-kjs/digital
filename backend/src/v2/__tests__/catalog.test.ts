@@ -14,7 +14,7 @@ describe('GET /api/v2/catalog', () => {
     expect(res.body.categories.length).toBeGreaterThanOrEqual(4);
     expect(res.body.types.length).toBeGreaterThanOrEqual(26);
     const rack = res.body.types.find((t: { key: string }) => t.key === 'RACK');
-    expect(rack.containerSpecs[0]).toMatchObject({ slotCount: 12, allowSpan: true });
+    expect(rack.containerSpecs[0]).toMatchObject({ cols: 1, rows: 12, allowSpan: true });
     const groups = res.body.cableGroups;
     expect(groups.length).toBeGreaterThanOrEqual(5);
     expect(groups.flatMap((g: { categories: unknown[] }) => g.categories).length).toBeGreaterThanOrEqual(17);

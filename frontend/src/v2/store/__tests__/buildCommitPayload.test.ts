@@ -7,7 +7,7 @@ import { isoToLocalInput } from '../../components/RecordsTab';
 const baseAsset: V2Asset = {
   id: 'a-1', name: '자산', typeId: 't-1', substationId: 's-1', status: 'normal',
   floorId: null, x: null, y: null, width: null, height: null,
-  parentAssetId: null, containerKey: null, slotIndex: null, slotSpan: null,
+  parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
   fieldValues: {}, updatedAt: '2026-07-27T00:00:00.000Z', ports: [],
 };
 

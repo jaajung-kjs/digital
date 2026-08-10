@@ -58,7 +58,7 @@ async function main() {
       await tx.assetPortTemplate.deleteMany({ where: { typeId: type.id } });
       for (const [i, c] of t.containers.entries()) {
         await tx.assetContainerSpec.create({
-          data: { typeId: type.id, key: c.key, name: c.name, slotCount: c.slotCount, allowSpan: c.allowSpan, accepts: c.accepts, sortOrder: i },
+          data: { typeId: type.id, key: c.key, name: c.name, cols: c.cols, rows: c.rows, allowSpan: c.allowSpan, accepts: c.accepts, sortOrder: i },
         });
       }
       for (const [i, p] of t.ports.entries()) {

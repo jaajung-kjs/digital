@@ -13,7 +13,7 @@ import { EmptyState, Select, TableCard, TableSearch, Th, Toggle, cn, SELECTABLE,
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
 import { powerContainers, buildPowerRows, POWER_MEDIUM } from '../powerSelectors';
-import { cableFieldsFor, portFieldsFor, setPortValueAt, type ValueDef } from '@twin/core';
+import { cableFieldsFor, portFieldsFor, setPortValueAt, slotCell, type ValueDef } from '@twin/core';
 import type { PowerRow, PowerCell } from '../powerSelectors';
 import { useV2Catalog, useTypesById } from '../hooks';
 import { useMediumContainer } from '../useMediumContainer';
@@ -135,18 +135,18 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   const picked = useMediumContainer(containers, typesById);
   const activeContainer = picked.active;
-  const circuitCount = picked.slotCount;
 
   /* 빈 회로 자리를 누르면 그 자리에 자산을 넣는다 — 모달은 이 뷰가 소유한다
      (평면도가 배치 모달을 직접 다루는 것과 같은 규칙). */
-  const [addSlotIndex, setAddSlotIndex] = useState<number | null>(null);
+  /** 「+ 추가」를 누른 빈 자리 — 격자 칸이다(번호가 아니라). */
+  const [addCell, setAddCell] = useState<{ col: number; row: number } | null>(null);
 
   const rows = useMemo<PowerRow[]>(() => {
     if (!activeContainer) return [];
     return buildPowerRows(
-      activeContainer.asset, effectiveAssets, effectiveCables, circuitCount, activeContainer.containerKey,
+      activeContainer.asset, effectiveAssets, effectiveCables, picked.grid, activeContainer.containerKey,
     );
-  }, [activeContainer, effectiveAssets, effectiveCables, circuitCount]);
+  }, [activeContainer, effectiveAssets, effectiveCables, picked.grid]);
 
   /* 검색이 없으면 회로가 42개인 분전반에서 "그 피더" 를 찾을 방법이 눈으로 훑는 것뿐이다.
      표에 보이는 값을 통째로 훑는다 — 사용자는 이름만 기억하지 그것이 몇 번째 열인지는 모른다.
@@ -246,7 +246,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                 <tr
                   key={`empty-${row.slotNo}`}
                   className={cn('group h-11 border-b border-line', SELECTABLE)}
-                  onClick={() => setAddSlotIndex(row.slotNo! - 1)}
+                  onClick={() => setAddCell(slotCell(picked.spec?.cols ?? 1, row.slotNo!))}
                 >
                   <td className="px-3 py-1.5 text-sm text-content-faint tabular-nums">{row.slotNo}</td>
                   <td className="px-3 py-1.5 text-sm text-content-faint">
@@ -299,10 +299,10 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
       </div>
 
       {/* 회로 자리에 자산 추가 */}
-      {addSlotIndex != null && activeContainer && picked.spec && (
+      {addCell != null && activeContainer && picked.spec && (
         <AddAssetModal
           open
-          onClose={() => setAddSlotIndex(null)}
+          onClose={() => setAddCell(null)}
           substationId={_substationId}
           containerContext={{
             parentAssetId: activeContainer.asset.id,
@@ -314,8 +314,8 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
                   a.parentAssetId === activeContainer.asset.id &&
                   a.containerKey === activeContainer.containerKey,
               )
-              .map((a) => ({ slotIndex: a.slotIndex, slotSpan: a.slotSpan })),
-            slotIndex: addSlotIndex,
+              .map((a) => ({ col: a.col, row: a.row, colSpan: a.colSpan, rowSpan: a.rowSpan })),
+            cell: addCell,
           }}
         />
       )}

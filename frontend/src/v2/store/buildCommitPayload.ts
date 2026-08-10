@@ -13,7 +13,7 @@ function toCreateInput(a: V2Asset): V2AssetCreateInput {
   return {
     id: a.id, name: a.name, typeId: a.typeId, status: a.status,
     floorId: a.floorId, x: a.x, y: a.y, width: a.width, height: a.height,
-    parentAssetId: a.parentAssetId, containerKey: a.containerKey, slotIndex: a.slotIndex, slotSpan: a.slotSpan,
+    parentAssetId: a.parentAssetId, containerKey: a.containerKey, col: a.col, row: a.row, colSpan: a.colSpan, rowSpan: a.rowSpan,
     fieldValues: a.fieldValues,
   };
 }
