@@ -35,20 +35,15 @@ async function specContext(tx: typeof nextDb) {
 }
 
 /**
- * 명세 2종(containerSpecs/portTemplates)을 typeId 아래 생성.
+ * 포트 템플릿을 typeId 아래 생성.
  * POST(신규)·PUT(구조 변경 시 delete-then-recreate)의 생성 파트가 동일해 공유한다.
  * 반드시 호출자의 트랜잭션(tx) 안에서 실행 — 자체 트랜잭션을 열지 않는다.
  */
 async function createTypeStructure(
   tx: Prisma.TransactionClient,
   typeId: string,
-  body: Pick<TypeUpsertBody, 'containers' | 'ports'>,
+  body: Pick<TypeUpsertBody, 'ports'>,
 ): Promise<void> {
-  for (const [i, c] of body.containers.entries()) {
-    await tx.assetContainerSpec.create({
-      data: { typeId, key: c.key, name: c.name, cols: c.cols, rows: c.rows, allowSpan: c.allowSpan, accepts: c.accepts as object, sortOrder: i },
-    });
-  }
   for (const [i, p] of body.ports.entries()) {
     await tx.assetPortTemplate.create({
       data: { typeId, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, sortOrder: i },
@@ -57,37 +52,20 @@ async function createTypeStructure(
 }
 
 
-/**
- * accepts 를 고정 키 순서 + 정렬된 배열로 정규화.
- * Postgres jsonb 는 키를 길이 우선(typeKeys < categoryKeys)으로 반환하고,
- * zod 파싱은 스키마 선언 순(categoryKeys 우선)으로 재구성하므로, 양쪽을 동일 형상으로 맞춘다.
- * absent == undefined == [] (accept-all 의미가 동일하므로).
- */
-function canonicalizeAccepts(accepts: unknown): { categoryKeys: string[]; typeKeys: string[] } {
-  const a = (accepts ?? {}) as { categoryKeys?: string[]; typeKeys?: string[] };
-  return {
-    categoryKeys: [...(a.categoryKeys ?? [])].sort(),
-    typeKeys: [...(a.typeKeys ?? [])].sort(),
-  };
-}
 
 /**
- * 구조(containers/ports) 동일성 비교 키 — id/sortOrder 제외 캐노니컬 JSON.
- * accepts 는 canonicalizeAccepts 를 통해 키 순서 및 배열 순서를 정규화한다.
+ * 구조(포트) 동일성 비교 키 — id/sortOrder 제외 캐노니컬 JSON.
+ *
+ * 포트가 바뀌면 이미 만들어진 자산의 포트와 어긋나므로, 인스턴스가 있는 타입에서는 막는다.
  */
 function structuralKey(
-  containers: Array<{ key: string; name: string; cols: number; rows: number | null; allowSpan: boolean; accepts: unknown }>,
   ports: Array<{ group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null }>,
 ): string {
-  const canon = {
-    containers: [...containers]
-      .sort((a, b) => a.key.localeCompare(b.key))
-      .map((c) => ({ key: c.key, name: c.name, cols: c.cols, rows: c.rows, allowSpan: c.allowSpan, accepts: canonicalizeAccepts(c.accepts) })),
-    ports: [...ports]
+  return JSON.stringify(
+    [...ports]
       .sort((a, b) => a.group.localeCompare(b.group))
       .map((p) => ({ group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1 })),
-  };
-  return JSON.stringify(canon);
+  );
 }
 
 // ── GET / — 카탈로그 전체 조회 (기존 유지 + assetCount 추가) ────────────────
@@ -98,7 +76,6 @@ catalogRouter.get('/', async (_req, res, next) => {
       nextDb.assetCategory.findMany({ orderBy: { sortOrder: 'asc' } }),
       nextDb.assetType.findMany({
         include: {
-          containerSpecs: { orderBy: { sortOrder: 'asc' } },
           portTemplates: { orderBy: { sortOrder: 'asc' } },
           _count: { select: { assets: true } },
         },
@@ -242,7 +219,6 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
       where: { id },
       include: {
         category: { select: { key: true } },
-        containerSpecs: true,
         portTemplates: true,
         _count: { select: { assets: true } },
       },
@@ -260,8 +236,8 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
     // 구조 변경 여부 확인 (한 번만 계산해 가드/교체 판단에 재사용)
-    const oldKey = structuralKey(existing.containerSpecs, existing.portTemplates);
-    const newKey = structuralKey(body.containers, body.ports);
+    const oldKey = structuralKey(existing.portTemplates);
+    const newKey = structuralKey(body.ports);
     const structureChanged = oldKey !== newKey;
 
     const assetCount = existing._count.assets;
@@ -290,8 +266,7 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
 
       // 구조가 변경된 경우(인스턴스 없음 확정) 명세 교체
       if (structureChanged) {
-        await tx.assetContainerSpec.deleteMany({ where: { typeId: id } });
-        await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
+            await tx.assetPortTemplate.deleteMany({ where: { typeId: id } });
     
         await createTypeStructure(tx, id, body);
       }
@@ -299,7 +274,6 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
       const { _count, ...row } = await tx.assetType.findUniqueOrThrow({
         where: { id },
         include: {
-          containerSpecs: { orderBy: { sortOrder: 'asc' } },
           portTemplates: { orderBy: { sortOrder: 'asc' } },
           _count: { select: { assets: true } },
         },
@@ -409,31 +383,18 @@ async function writeAssemblyItems(
   items: z.infer<typeof assemblyUpsertSchema>['items'],
 ): Promise<void> {
   await tx.assemblyItem.deleteMany({ where: { assemblyId } });
-  /* 자식이 부모를 가리키므로 **부모부터** 넣는다. 형판 안의 id 를 실제 행 id 로 바꿔 가며
-     내려간다 — 화면이 임시 id 를 쓰든 기존 id 를 쓰든 여기서 한 번에 해소된다. */
-  const rowIdByItemId = new Map<string, string>();
-  const remaining = [...items];
-  let guard = remaining.length + 1;
-  while (remaining.length > 0 && guard-- > 0) {
-    const ready = remaining.filter((i) => i.parentItemId === null || rowIdByItemId.has(i.parentItemId));
-    if (ready.length === 0) break; // validateAssembly 가 걸렀어야 한다(고리·미아)
-    for (const [i, item] of ready.entries()) {
-      const row = await tx.assemblyItem.create({
-        data: {
-          assemblyId,
-          parentItemId: item.parentItemId === null ? null : rowIdByItemId.get(item.parentItemId)!,
-          typeId: item.typeId,
-          name: item.name,
-          containerKey: item.containerKey,
-          col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
-          portCounts: (item.portCounts ?? {}) as object,
-          portPositions: (item.portPositions ?? {}) as object,
-          sortOrder: i,
-        },
-      });
-      rowIdByItemId.set(item.id, row.id);
-      remaining.splice(remaining.indexOf(item), 1);
-    }
+  for (const [i, item] of items.entries()) {
+    await tx.assemblyItem.create({
+      data: {
+        assemblyId,
+        typeId: item.typeId,
+        name: item.name,
+        col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
+        portCounts: (item.portCounts ?? {}) as object,
+        portPositions: (item.portPositions ?? {}) as object,
+        sortOrder: i,
+      },
+    });
   }
 }
 
@@ -445,6 +406,7 @@ async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
     spec: {
       key: body.key,
       name: body.name,
+      grid: { cols: body.gridCols, rows: body.gridRows },
       items: body.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
     },
     typeKeys: new Set(types.map((t) => t.key)),
@@ -460,7 +422,7 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
 
     const created = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.create({
-        data: { key: body.key, name: body.name, categoryId: body.categoryId, sortOrder: body.sortOrder, isActive: body.isActive },
+        data: { key: body.key, name: body.name, categoryId: body.categoryId, gridCols: body.gridCols, gridRows: body.gridRows, sortOrder: body.sortOrder, isActive: body.isActive },
       });
       await writeAssemblyItems(tx, row.id, body.items);
       return row;
@@ -483,7 +445,7 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
     const updated = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.update({
         where: { id },
-        data: { key: body.key, name: body.name, categoryId: body.categoryId, sortOrder: body.sortOrder, isActive: body.isActive },
+        data: { key: body.key, name: body.name, categoryId: body.categoryId, gridCols: body.gridCols, gridRows: body.gridRows, sortOrder: body.sortOrder, isActive: body.isActive },
       });
       await writeAssemblyItems(tx, row.id, body.items);
       return row;

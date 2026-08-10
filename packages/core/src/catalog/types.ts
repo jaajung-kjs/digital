@@ -61,36 +61,6 @@ export interface LaborRules {
   relocateHours: number;
 }
 
-/** 빈 객체({}) = 모두 수용. 둘 다 있으면 OR. */
-export interface AcceptRule {
-  categoryKeys?: string[];
-  typeKeys?: string[];
-}
-
-/**
- * 함체 안의 자리 — **격자**다.
- *
- * 예전에는 1차원 슬롯 번호(`slotCount` + `slotIndex`)뿐이었다. 그런데 도면 위는 이미
- * 2차원 자유 배치(`x·y·width·height`)라, 같은 "어디에 놓였나" 가 안팎에서 다른 모델로
- * 표현되고 있었다. 그리고 실제 설비는 1차원이 아니다 — 분전반 회로는 좌우 2열이고,
- * 랙에는 하프-랙 장비가 나란히 들어간다.
- *
- * **번호는 저장하지 않고 격자에서 유도한다**(`slotNumber`). 번호를 따로 들고 있으면
- * 위치와 어긋날 수 있고, 실제로 그런 전례가 있었다(피더의 `차단기 번호` 가 자리 번호와
- * 따로 놀아 같은 값을 두 번 적는 꼴이었다).
- */
-export interface ContainerSpec {
-  key: string; // 타입 내 유일 (예: 'main')
-  name: string; // 표시명 (예: '슬롯')
-  /** 격자 열 수 — 랙은 1, 분전반 회로는 2(홀수 왼쪽·짝수 오른쪽). */
-  cols: number;
-  /** 격자 행 수. `null` = 자유형(넣는 만큼 늘어나고 자리 검증이 없다). */
-  rows: number | null;
-  /** 한 자산이 여러 칸을 차지할 수 있는가 — 2U 장비, 2P 차단기. */
-  allowSpan: boolean;
-  accepts: AcceptRule;
-}
-
 /**
  * 격자 칸의 자리 번호 — 행 우선(row-major), 1부터.
  *
@@ -141,6 +111,13 @@ export interface InternalLinkRule {
   mapping: LinkMapping;
 }
 
+/**
+ * 자산 타입 = **부품** 하나의 명세.
+ *
+ * 예전에는 타입이 자리(컨테이너)를 선언했다. 그래서 담기 위한 랙이라는 자산이 따로
+ * 있어야 했고 그 랙이 현황에 올라왔다. 이제 자리는 **형판 격자**가 갖는다 — 타입은
+ * 무엇을 어떻게 잇는가(포트)만 말한다.
+ */
 export interface AssetTypeSpec {
   key: string;
   name: string;
@@ -148,7 +125,6 @@ export interface AssetTypeSpec {
   sortOrder: number;
   placement: PlacementSpec;
   labor: LaborRules;
-  containers: ContainerSpec[];
   ports: PortTemplate[];
 }
 
@@ -159,8 +135,7 @@ export interface AssetRef {
   typeKey: string;
   name: string;
   parentAssetId?: string | null;
-  containerKey?: string | null;
-  /** 격자에서의 자리(0-based). 자유형 컨테이너면 열은 0, 행이 곧 순서다. */
+  /** 설비 격자에서의 자리(0-based). */
   col?: number | null;
   row?: number | null;
   colSpan?: number | null;
@@ -204,7 +179,6 @@ export interface TypeUpsertBody {
   installHours: number;
   removeHours: number;
   relocateHours: number;
-  containers: Array<{ key: string; name: string; cols: number; rows: number | null; allowSpan: boolean; accepts: AcceptRule }>;
   ports: Array<{ group: string; count: number; direction: Direction; medium: string; namePattern: string; positions?: number }>;
 }
 

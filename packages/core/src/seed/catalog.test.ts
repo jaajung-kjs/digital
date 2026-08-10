@@ -12,17 +12,6 @@ describe('시드 카탈로그 — 구 role 7종의 데이터 표현 증명', () 
     for (const t of SEED_ASSET_TYPES) expect(cats.has(t.categoryKey)).toBe(true);
   });
 
-  it('RACK: 배치 가능 + 12자리 1열 격자, span 허용 (구 rack role)', () => {
-    const rack = byKey('RACK');
-    expect(rack.placement.placeable).toBe(true);
-    expect(rack.containers[0]).toMatchObject({ cols: 1, rows: 12, allowSpan: true });
-  });
-
-  it('OFD: 경로슬롯만 수용하는 자유형 컨테이너 (구 ofd role)', () => {
-    const ofd = byKey('OFD');
-    expect(ofd.containers[0]).toMatchObject({ cols: 1, rows: null, accepts: { typeKeys: ['OFD-SLOT'] } });
-  });
-
   it('그래도 모든 타입의 자산은 설치일·담당자를 갖는다', () => {
     for (const t of SEED_ASSET_TYPES) {
       const keys = assetFieldDefs(t.fields).map((f) => f.key);

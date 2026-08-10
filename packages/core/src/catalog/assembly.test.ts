@@ -3,96 +3,92 @@ import { instantiateAssembly, validateAssembly, type AssemblySpec } from './asse
 import type { AssetTypeSpec } from './types.js';
 
 const item = (over: Partial<AssemblySpec['items'][number]> & { id: string }) => ({
-  parentItemId: null, typeKey: 'RACK', name: '이름', containerKey: null,
-  col: null, row: null, colSpan: null, rowSpan: null, ...over,
+  typeKey: 'OPT-TERM', name: '이름', col: 0, row: 0, colSpan: 1, rowSpan: 1, ...over,
 });
 
-/** 랙 하나 + 그 안의 장비 하나 — 가장 작은 「1식」. */
-const oneSet: AssemblySpec = {
-  key: 'OPT-SET', name: '송변전광단말장치 1식',
+/** 격자 하나에 부품을 놓은 것 — 그게 형판의 전부다(담는 중간 자산이 없다). */
+const optSet: AssemblySpec = {
+  key: 'OPT-SET', name: '송변전광단말장치',
+  grid: { cols: 1, rows: 12 },
   items: [
-    item({ id: 'r', typeKey: 'RACK', name: '랙' }),
-    item({ id: 'd', parentItemId: 'r', typeKey: 'OPT-TERM', name: '광단말', containerKey: 'main', col: 0, row: 0, colSpan: 1, rowSpan: 1 }),
+    item({ id: 'a', typeKey: 'OPT-TERM', name: '광단말', row: 0 }),
+    item({ id: 'b', typeKey: 'NET-SW', name: '네트워크스위치', row: 1 }),
   ],
 };
-const types = new Set(['RACK', 'OPT-TERM']);
+const types = new Set(['OPT-TERM', 'NET-SW']);
 
 describe('validateAssembly', () => {
-  it('뿌리 하나 + 자식이면 유효', () => {
-    expect(validateAssembly(oneSet, types)).toBeNull();
+  it('격자 안에 겹치지 않게 놓였으면 유효', () => {
+    expect(validateAssembly(optSet, types)).toBeNull();
   });
 
-  /* 도면에 "무엇을" 놓는지가 정해지려면 뿌리가 하나여야 한다. */
-  it('뿌리가 없거나 둘이면 거부한다', () => {
-    expect(validateAssembly({ ...oneSet, items: [item({ id: 'a', parentItemId: 'b' })] }, types)).toBe('no-root');
-    expect(validateAssembly({ ...oneSet, items: [item({ id: 'a' }), item({ id: 'b' })] }, types)).toBe('many-roots');
-  });
-
-  it('없는 부모를 가리키면 거부한다', () => {
-    const bad = { ...oneSet, items: [item({ id: 'r' }), item({ id: 'x', parentItemId: 'nope', containerKey: 'main' })] };
-    expect(validateAssembly(bad, types)).toBe('unknown-parent');
-  });
-
-  /* 부모가 있으면 그 부모의 **어느 컨테이너**인지가 있어야 자리가 정해진다. */
-  it('부모는 있는데 컨테이너를 안 정하면 거부한다', () => {
-    const bad = { ...oneSet, items: [item({ id: 'r' }), item({ id: 'x', parentItemId: 'r', typeKey: 'OPT-TERM' })] };
-    expect(validateAssembly(bad, types)).toBe('child-without-container');
+  it('격자가 0이면 거부한다', () => {
+    expect(validateAssembly({ ...optSet, grid: { cols: 0, rows: 12 } }, types)).toBe('bad-grid');
+    expect(validateAssembly({ ...optSet, grid: { cols: 1, rows: 0 } }, types)).toBe('bad-grid');
   });
 
   it('어휘에 없는 타입은 거부한다', () => {
-    const bad = { ...oneSet, items: [item({ id: 'r', typeKey: 'NOPE' })] };
-    expect(validateAssembly(bad, types)).toBe('unknown-type');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', typeKey: 'NOPE' })] }, types)).toBe('unknown-type');
   });
 
-  /* 고리가 있으면 인스턴스화가 끝나지 않는다 — 저장 전에 걸러야 배치할 때 안 터진다. */
-  it('고리가 있으면 거부한다', () => {
-    const bad: AssemblySpec = {
-      ...oneSet,
-      items: [
-        item({ id: 'r' }),
-        item({ id: 'a', parentItemId: 'b', typeKey: 'OPT-TERM', containerKey: 'main' }),
-        item({ id: 'b', parentItemId: 'a', typeKey: 'OPT-TERM', containerKey: 'main' }),
-      ],
+  /* 저장 전에 걸러야 배치할 때 터지지 않는다 — 형판에서는 놓였는데 실제 배치에서 튕기면
+     짠 사람이 무엇이 잘못됐는지 알 길이 없다. */
+  it('격자 밖은 거부한다', () => {
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 12 })] }, types)).toBe('out-of-range');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', col: 1 })] }, types)).toBe('out-of-range');
+    expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 11, rowSpan: 2 })] }, types)).toBe('out-of-range');
+  });
+
+  it('같은 자리에 둘을 놓으면 거부한다', () => {
+    const clash = { ...optSet, items: [item({ id: 'a', row: 0 }), item({ id: 'b', typeKey: 'NET-SW', row: 0 })] };
+    expect(validateAssembly(clash, types)).toBe('overlap');
+  });
+
+  /* 가로·세로 둘 다 겹쳐야 겹친 것이다 — 2열 격자의 옆 칸은 남의 자리가 아니다. */
+  it('열이 다르면 같은 행이라도 겹치지 않는다', () => {
+    const twoCol: AssemblySpec = {
+      ...optSet,
+      grid: { cols: 2, rows: 6 },
+      items: [item({ id: 'a', col: 0, row: 0 }), item({ id: 'b', typeKey: 'NET-SW', col: 1, row: 0 })],
     };
-    expect(validateAssembly(bad, types)).toBe('cycle');
+    expect(validateAssembly(twoCol, types)).toBeNull();
+  });
+
+  it('빈 형판도 유효하다 — 놓고 나서 채울 수 있다', () => {
+    expect(validateAssembly({ ...optSet, items: [] }, types)).toBeNull();
   });
 });
 
 describe('instantiateAssembly', () => {
-  const rackType: AssetTypeSpec = {
-    key: 'RACK', name: '랙', categoryKey: '구조', sortOrder: 1,
-    placement: { placeable: true }, labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
-    containers: [{ key: 'main', name: '슬롯', cols: 1, rows: 12, allowSpan: true, accepts: {} }],
-    ports: [{ group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' }],
-  };
   const devType: AssetTypeSpec = {
-    ...rackType, key: 'OPT-TERM', name: '광단말', containers: [],
+    key: 'OPT-TERM', name: '광단말', categoryKey: '통신', sortOrder: 1,
+    placement: { placeable: false }, labor: { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 },
     ports: [{ group: 'OPT', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' }],
   };
-  const specs = new Map([['RACK', rackType], ['OPT-TERM', devType]]);
+  const swType: AssetTypeSpec = {
+    ...devType, key: 'NET-SW', name: '네트워크스위치',
+    ports: [{ group: 'P', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' }],
+  };
+  const specs = new Map([['OPT-TERM', devType], ['NET-SW', swType]]);
 
-  it('뿌리 이름만 놓는 사람이 정하고 나머지는 형판이 적은 그대로', () => {
-    const out = instantiateAssembly(oneSet, specs, '통신랙 A');
-    expect(out.map((a) => a.name)).toEqual(['통신랙 A', '광단말']);
-  });
-
-  it('자리와 부모 관계가 그대로 실려 나온다', () => {
-    const out = instantiateAssembly(oneSet, specs, '통신랙 A');
-    expect(out[1]).toMatchObject({ parentItemId: 'r', containerKey: 'main', col: 0, row: 0 });
+  /* 설비 자신(이름·도면 위치)은 놓는 쪽이 만든다 — 여기서는 그 안에 들어갈 것만 낸다. */
+  it('부품 이름과 자리를 형판이 적은 그대로 낸다', () => {
+    const out = instantiateAssembly(optSet, specs);
+    expect(out.map((p) => [p.name, p.row])).toEqual([['광단말', 0], ['네트워크스위치', 1]]);
   });
 
   it('포트도 타입 선언대로 함께 만들어진다', () => {
-    const out = instantiateAssembly(oneSet, specs, '통신랙 A');
-    expect(out[0]!.ports.map((p) => p.name)).toEqual(['접지']);
-    expect(out[1]!.ports).toHaveLength(12);
+    const out = instantiateAssembly(optSet, specs);
+    expect(out[0]!.ports).toHaveLength(12);
+    expect(out[1]!.ports).toHaveLength(24);
   });
 
   /* 12심 판과 24심 판이 같은 타입일 수 있다 — 부품마다 오버라이드를 실어 보낸다. */
-  it('부품이 선언한 포트 수·심선 수 오버라이드를 반영한다', () => {
+  it('부품이 선언한 포트 수 오버라이드를 반영한다', () => {
     const withOverride: AssemblySpec = {
-      ...oneSet,
-      items: [oneSet.items[0]!, { ...oneSet.items[1]!, portCounts: { OPT: 4 } }],
+      ...optSet,
+      items: [{ ...optSet.items[0]!, portCounts: { OPT: 4 } }],
     };
-    expect(instantiateAssembly(withOverride, specs, 'x')[1]!.ports).toHaveLength(4);
+    expect(instantiateAssembly(withOverride, specs)[0]!.ports).toHaveLength(4);
   });
 });

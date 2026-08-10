@@ -27,6 +27,7 @@ nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
         type: { include: { category: true } },
         substation: { select: { name: true } },
         parentAsset: { select: { name: true } },
+        assembly: { include: { category: true } },
       },
       orderBy: [{ substation: { name: 'asc' } }, { name: 'asc' }],
     });
@@ -38,9 +39,10 @@ nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
         updatedAt: a.updatedAt,
         substationId: a.substationId,
         substationName: a.substation.name,
-        typeKey: a.type.key,
-        typeName: a.type.name,
-        categoryName: a.type.category.name,
+        // 형판으로 놓은 설비는 타입이 없다 — 그때는 형판이 곧 분류다.
+        typeKey: a.type?.key ?? null,
+        typeName: a.assembly?.name ?? a.type?.name ?? '—',
+        categoryName: a.assembly?.category?.name ?? a.type?.category.name ?? '—',
         parentAssetId: a.parentAssetId,
         parentName: a.parentAsset?.name ?? null,
         floorId: a.floorId,

@@ -1,5 +1,5 @@
 import {
-  instantiatePorts, validateConnection, validateSlotPlacement, PLACEMENT_FIELDS, DEFAULT_ASSET_STATUS,
+  instantiatePorts, validateConnection, validateGridPlacement, PLACEMENT_FIELDS, DEFAULT_ASSET_STATUS,
 } from '@twin/core';
 import type { Direction } from '@twin/core';
 import { Prisma } from '../generated/next-client/index.js';
@@ -92,24 +92,28 @@ async function loadTypeSpec(tx: Tx, typeId: string) {
   return { row, spec: typeRowToSpec(row) };
 }
 
-async function validateContainerPlacement(
+/**
+ * 부품을 **설비 격자**에 놓을 수 있는가.
+ *
+ * 격자는 설비가 가리키는 형판이 선언한다 — 자산 타입이 아니다. 그래서 부모는 반드시
+ * 형판으로 놓인 설비여야 한다(부품 안에 부품을 담지 않는다).
+ */
+async function validateGridSlot(
   tx: Tx,
   substationId: string,
-  args: { parentAssetId: string; containerKey: string | null | undefined; col: number | null | undefined; row: number | null | undefined; colSpan: number | null | undefined; rowSpan: number | null | undefined },
-  child: { typeKey: string; categoryKey: string },
+  args: { parentAssetId: string; col: number | null | undefined; row: number | null | undefined; colSpan: number | null | undefined; rowSpan: number | null | undefined },
   excludeAssetId: string | null,
 ): Promise<void> {
-  const parent = await tx.asset.findUnique({ where: { id: args.parentAssetId }, include: { type: { include: TYPE_INCLUDE } } });
+  const parent = await tx.asset.findUnique({ where: { id: args.parentAssetId }, include: { assembly: true } });
   if (!parent || parent.substationId !== substationId) throw new HttpError(422, 'INVALID_PARENT', '부모 자산이 유효하지 않습니다');
-  if (!args.containerKey) throw new HttpError(422, 'INVALID_PLACEMENT', 'containerKey 가 필요합니다');
+  if (!parent.assembly) throw new HttpError(422, 'INVALID_PARENT', '부품을 담을 수 있는 것은 형판으로 놓은 설비뿐입니다');
+
   const siblings = await tx.asset.findMany({
-    where: { parentAssetId: parent.id, containerKey: args.containerKey, ...(excludeAssetId ? { id: { not: excludeAssetId } } : {}) },
+    where: { parentAssetId: parent.id, ...(excludeAssetId ? { id: { not: excludeAssetId } } : {}) },
     select: { id: true, col: true, row: true, colSpan: true, rowSpan: true },
   });
-  const err = validateSlotPlacement({
-    parentType: typeRowToSpec(parent.type),
-    containerKey: args.containerKey,
-    child,
+  const err = validateGridPlacement({
+    grid: { cols: parent.assembly.gridCols, rows: parent.assembly.gridRows },
     col: args.col ?? null,
     row: args.row ?? null,
     colSpan: args.colSpan ?? 1,
@@ -122,19 +126,23 @@ async function validateContainerPlacement(
 }
 
 async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Promise<void> {
-  const { row, spec } = await loadTypeSpec(tx, input.typeId);
+  /* 도면에 놓이는 것은 둘이다: 형판으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
+     설비는 형판이 분류이므로 타입을 요구하지 않는다. */
+  if (!input.typeId && !input.assemblyId) {
+    throw new HttpError(422, 'INVALID_ASSET', '자산 타입이나 형판 중 하나는 있어야 합니다');
+  }
+  const spec = input.typeId ? (await loadTypeSpec(tx, input.typeId)).spec : null;
   const placement = resolvePlacement(input);
   if (placement === 'floor') {
-    if (!spec.placement.placeable) throw new HttpError(422, 'NOT_PLACEABLE', '평면도에 배치할 수 없는 타입입니다');
+    if (spec && !spec.placement.placeable) throw new HttpError(422, 'NOT_PLACEABLE', '평면도에 배치할 수 없는 타입입니다');
     const floor = await tx.floor.findUnique({ where: { id: input.floorId as string } });
     if (!floor || floor.substationId !== substationId) throw new HttpError(422, 'INVALID_FLOOR', '층이 유효하지 않습니다');
   }
   if (placement === 'container') {
-    await validateContainerPlacement(
+    await validateGridSlot(
       tx,
       substationId,
-      { parentAssetId: input.parentAssetId as string, containerKey: input.containerKey, col: input.col, row: input.row, colSpan: input.colSpan, rowSpan: input.rowSpan },
-      { typeKey: row.key, categoryKey: spec.categoryKey },
+      { parentAssetId: input.parentAssetId as string, col: input.col, row: input.row, colSpan: input.colSpan, rowSpan: input.rowSpan },
       null,
     );
   }
@@ -143,7 +151,7 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
       data: {
         id: input.id,
         name: input.name,
-        typeId: input.typeId,
+        typeId: input.typeId ?? null,
         substationId,
         status: input.status ?? DEFAULT_ASSET_STATUS,
         floorId: input.floorId ?? null,
@@ -153,7 +161,6 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
         height: input.height ?? null,
         parentAssetId: input.parentAssetId ?? null,
         assemblyId: input.assemblyId ?? null,
-        containerKey: input.containerKey ?? null,
         col: input.col ?? null,
         row: input.row ?? null,
         colSpan: input.colSpan ?? null,
@@ -167,7 +174,8 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
     }
     throw e;
   }
-  const ports = instantiatePorts(spec, input.id, input.portCounts, input.portPositions);
+  // 설비 자신은 포트가 없다 — 포트는 부품의 것이다.
+  const ports = spec ? instantiatePorts(spec, input.id, input.portCounts, input.portPositions) : [];
   if (ports.length > 0) await tx.port.createMany({ data: ports });
 }
 
@@ -181,7 +189,6 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
     const merged = {
       floorId: p.floorId !== undefined ? p.floorId : existing.floorId,
       parentAssetId: p.parentAssetId !== undefined ? p.parentAssetId : existing.parentAssetId,
-      containerKey: p.containerKey !== undefined ? p.containerKey : existing.containerKey,
       col: p.col !== undefined ? p.col : existing.col,
       row: p.row !== undefined ? p.row : existing.row,
       colSpan: p.colSpan !== undefined ? p.colSpan : existing.colSpan,
@@ -189,17 +196,18 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
     };
     const placement = resolvePlacement(merged);
     if (placement === 'floor') {
-      const spec = typeRowToSpec(existing.type);
-      if (!spec.placement.placeable) throw new HttpError(422, 'NOT_PLACEABLE', '평면도에 배치할 수 없는 타입입니다');
+      // 형판으로 놓은 설비는 타입이 없다 — 배치 가능 여부는 타입이 있을 때만 따진다.
+      if (existing.type && !typeRowToSpec(existing.type).placement.placeable) {
+        throw new HttpError(422, 'NOT_PLACEABLE', '평면도에 배치할 수 없는 타입입니다');
+      }
       const floor = await tx.floor.findUnique({ where: { id: merged.floorId as string } });
       if (!floor || floor.substationId !== substationId) throw new HttpError(422, 'INVALID_FLOOR', '층이 유효하지 않습니다');
     }
     if (placement === 'container') {
-      await validateContainerPlacement(
+      await validateGridSlot(
         tx,
         substationId,
-        { parentAssetId: merged.parentAssetId as string, containerKey: merged.containerKey, col: merged.col, row: merged.row, colSpan: merged.colSpan, rowSpan: merged.rowSpan },
-        { typeKey: existing.type.key, categoryKey: existing.type.category.key },
+        { parentAssetId: merged.parentAssetId as string, col: merged.col, row: merged.row, colSpan: merged.colSpan, rowSpan: merged.rowSpan },
         existing.id,
       );
     }

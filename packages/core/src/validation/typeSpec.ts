@@ -24,18 +24,6 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
     if (spec.labor[k] < 0) push(`labor.${k}`, '공량은 0 이상이어야 합니다');
   }
 
-  const containerKeys = new Set<string>();
-  spec.containers.forEach((c, i) => {
-    if (!KEY_RE.test(c.key)) push(`containers[${i}].key`, '컨테이너 키는 영문/숫자/대시/언더스코어만 허용됩니다');
-    else if (containerKeys.has(c.key)) push(`containers[${i}].key`, `컨테이너 키 중복: ${c.key}`);
-    containerKeys.add(c.key);
-    if (c.name.trim() === '') push(`containers[${i}].name`, '컨테이너 이름을 입력하세요');
-    if (c.cols < 1) push(`containers[${i}].cols`, '열 수는 1 이상이어야 합니다');
-    if (c.rows !== null && c.rows < 1) push(`containers[${i}].rows`, '행 수는 1 이상이거나 자유형(null)이어야 합니다');
-    if (c.rows === null && c.cols > 1) push(`containers[${i}].cols`, '자유형 컨테이너는 열을 나눌 수 없습니다');
-    if (c.rows === null && c.allowSpan) push(`containers[${i}].allowSpan`, '자유형 컨테이너는 span 을 가질 수 없습니다');
-  });
-
   const portGroups = new Set<string>();
   spec.ports.forEach((p, i) => {
     if (!KEY_RE.test(p.group)) push(`ports[${i}].group`, '포트 그룹은 영문/숫자/대시/언더스코어만 허용됩니다');

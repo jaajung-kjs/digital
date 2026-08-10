@@ -1,16 +1,14 @@
 import { specFromCatalog } from '@twin/core';
 import type { AssetTypeSpec } from '@twin/core';
-import type { AssetCategory, AssetContainerSpec, AssetPortTemplate, AssetType } from '../generated/next-client/index.js';
+import type { AssetCategory, AssetPortTemplate, AssetType } from '../generated/next-client/index.js';
 
 export type TypeRow = AssetType & {
   category: AssetCategory;
-  containerSpecs: AssetContainerSpec[];
   portTemplates: AssetPortTemplate[];
 };
 
 export const TYPE_INCLUDE = {
   category: true,
-  containerSpecs: true,
   portTemplates: true,
 } as const;
 

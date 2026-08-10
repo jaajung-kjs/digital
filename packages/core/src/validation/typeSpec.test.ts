@@ -30,18 +30,6 @@ describe('validateTypeSpec', () => {
     const s = base({ labor: { laborType: '통신내선공', installHours: -1, removeHours: 0, relocateHours: 0 } });
     expect(validateTypeSpec(s, CTX).some((i) => i.path === 'labor.installHours')).toBe(true);
   });
-  it('컨테이너 key 중복·행 수 0·자유형 span 을 거부한다', () => {
-    const c = { name: '슬롯', allowSpan: false, accepts: {} };
-    const dup = base({ containers: [
-      { key: 'm', cols: 1, rows: 4, ...c },
-      { key: 'm', cols: 1, rows: 4, ...c },
-    ] });
-    expect(validateTypeSpec(dup, CTX).some((i) => i.path === 'containers[1].key')).toBe(true);
-    const zero = base({ containers: [{ key: 'm', cols: 1, rows: 0, ...c }] });
-    expect(validateTypeSpec(zero, CTX).some((i) => i.path === 'containers[0].rows')).toBe(true);
-    const freeSpan = base({ containers: [{ key: 'm', cols: 1, rows: null, name: '슬롯', allowSpan: true, accepts: {} }] });
-    expect(validateTypeSpec(freeSpan, CTX).some((i) => i.path === 'containers[0].allowSpan')).toBe(true);
-  });
   it('포트 group 중복·count 0·미지 매체·{n} 누락 패턴을 거부한다', () => {
     const p = { count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: '코어 {n}' };
     const dup = base({ ports: [ { group: 'A', ...p }, { group: 'A', ...p } ] });

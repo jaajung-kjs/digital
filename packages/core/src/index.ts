@@ -4,7 +4,7 @@ export * from './catalog/status.js';
 export * from './catalog/portKinds.js';
 export * from './catalog/specFromCatalog.js';
 export * from './catalog/assembly.js';
-export * from './validation/slotPlacement.js';
+export * from './validation/gridPlacement.js';
 export * from './validation/connection.js';
 export * from './validation/typeSpec.js';
 export * from './trace/graph.js';

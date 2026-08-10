@@ -98,10 +98,8 @@ const portTemplateBodySchema = z.object({
 /** 형판 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 const assemblyItemSchema = z.object({
   id: z.string().min(1),
-  parentItemId: z.string().min(1).nullable(),
   typeId: z.string().uuid(),
   name: z.string().trim().min(1),
-  containerKey: z.string().nullable(),
   col: z.number().int().min(0).nullable(),
   row: z.number().int().min(0).nullable(),
   colSpan: z.number().int().min(1).nullable(),
@@ -114,9 +112,13 @@ export const assemblyUpsertSchema = z.object({
   key: z.string().regex(keyRe),
   name: z.string().trim().min(1),
   categoryId: z.string().uuid().nullable(),
+  /** 이 설비 안의 자리 — 형판이 격자를 갖는다(자산 타입이 아니라). */
+  gridCols: z.number().int().min(1),
+  gridRows: z.number().int().min(1),
   sortOrder: z.number().int(),
   isActive: z.boolean(),
-  items: z.array(assemblyItemSchema).min(1),
+  // 빈 형판도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
+  items: z.array(assemblyItemSchema),
 });
 
 export const typeUpsertSchema = z.object({

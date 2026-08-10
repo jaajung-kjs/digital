@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { SEED_ASSET_TYPES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES } from '@twin/core';
+import { SEED_ASSET_TYPES, SEED_ASSEMBLIES, SEED_CATEGORIES, SEED_CABLE_GROUPS, SEED_CABLE_CATEGORIES } from '@twin/core';
 import { PrismaClient } from '../../src/generated/next-client/index.js';
 
 const prisma = new PrismaClient();
@@ -54,16 +54,34 @@ async function main() {
         create: { key: t.key, ...base },
       });
       // 명세는 delete-and-recreate (타입 편집 전 단계라 참조 없음 — 멱등)
-      await tx.assetContainerSpec.deleteMany({ where: { typeId: type.id } });
       await tx.assetPortTemplate.deleteMany({ where: { typeId: type.id } });
-      for (const [i, c] of t.containers.entries()) {
-        await tx.assetContainerSpec.create({
-          data: { typeId: type.id, key: c.key, name: c.name, cols: c.cols, rows: c.rows, allowSpan: c.allowSpan, accepts: c.accepts, sortOrder: i },
-        });
-      }
       for (const [i, p] of t.ports.entries()) {
         await tx.assetPortTemplate.create({
           data: { typeId: type.id, group: p.group, count: p.count, direction: p.direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1, sortOrder: i },
+        });
+      }
+    }
+
+    /* 형판 — **도면에 놓이는 것**은 이것들이다. 부품 목록은 초기 구성이라, 놓고 나서
+       그 설비만 따로 고칠 수 있다. */
+    for (const a of SEED_ASSEMBLIES) {
+      const category = await tx.assetCategory.findUniqueOrThrow({ where: { key: a.categoryKey } });
+      const asm = await tx.assembly.create({
+        data: {
+          key: a.key, name: a.name, categoryId: category.id,
+          gridCols: a.grid.cols, gridRows: a.grid.rows, sortOrder: a.sortOrder,
+        },
+      });
+      for (const [i, item] of a.items.entries()) {
+        const type = await tx.assetType.findUniqueOrThrow({ where: { key: item.typeKey } });
+        await tx.assemblyItem.create({
+          data: {
+            assemblyId: asm.id, typeId: type.id, name: item.name,
+            col: item.col, row: item.row, colSpan: item.colSpan, rowSpan: item.rowSpan,
+            portCounts: (item.portCounts ?? {}) as object,
+            portPositions: (item.portPositions ?? {}) as object,
+            sortOrder: i,
+          },
         });
       }
     }
@@ -88,8 +106,8 @@ async function main() {
     return {
       categories: await tx.assetCategory.count(),
       types: await tx.assetType.count(),
-      containerSpecs: await tx.assetContainerSpec.count(),
       portTemplates: await tx.assetPortTemplate.count(),
+      assemblies: await tx.assembly.count(),
       cableGroups: await tx.cableGroup.count(),
       cableCategories: await tx.cableCategory.count(),
     };

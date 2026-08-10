@@ -17,7 +17,12 @@ searchRouter.get('/search/assets', async (req, res, next) => {
 
     const rows = await nextDb.asset.findMany({
       where: { name: { contains: q, mode: 'insensitive' } },
-      include: { substation: { select: { id: true, name: true } }, type: { select: { name: true } } },
+      include: {
+        substation: { select: { id: true, name: true } },
+        type: { select: { name: true } },
+        // 형판으로 놓은 설비는 타입이 없다 — 그때는 형판이 곧 분류다.
+        assembly: { select: { name: true } },
+      },
       orderBy: [{ name: 'asc' }, { substation: { name: 'asc' } }],
       take: limit,
     });
@@ -27,7 +32,7 @@ searchRouter.get('/search/assets', async (req, res, next) => {
       name: r.name,
       substationId: r.substationId,
       substationName: r.substation.name,
-      typeName: r.type.name,
+      typeName: r.assembly?.name ?? r.type?.name ?? '—',
     })));
   } catch (e) {
     next(e);

@@ -7,22 +7,10 @@ const row = {
   category: { key: '구조' },
   placeable: true, defaultWidth: 60, defaultHeight: 80,
   laborType: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3,
-  containerSpecs: [
-    { key: 'b', name: 'B', cols: 1, rows: null, allowSpan: false, accepts: {}, sortOrder: 2 },
-    { key: 'a', name: 'A', cols: 1, rows: 12, allowSpan: true, accepts: { categoryKeys: ['통신'] }, sortOrder: 1 },
-  ],
   portTemplates: [{ group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}', sortOrder: 0 }],
 };
 
 describe('specFromCatalog', () => {
-  it('구조적 행 → AssetTypeSpec (컨테이너 sortOrder 정렬 포함)', () => {
-    const spec = specFromCatalog(row);
-    expect(spec.key).toBe('RACK');
-    expect(spec.categoryKey).toBe('구조');
-    expect(spec.placement).toEqual({ placeable: true, defaultWidth: 60, defaultHeight: 80 });
-    expect(spec.containers.map((c) => c.key)).toEqual(['a', 'b']);
-    expect(spec.ports[0]).toMatchObject({ group: 'P', medium: 'network' });
-  });
   it('null 기본크기는 placement에서 생략', () => {
     const spec = specFromCatalog({ ...row, defaultWidth: null, defaultHeight: null });
     expect('defaultWidth' in spec.placement).toBe(false);
@@ -36,10 +24,6 @@ describe('specFromUpsert', () => {
     key: 'RACK', name: '랙', categoryId: 'cat-구조', sortOrder: 10, isActive: true,
     placeable: true, defaultWidth: 60, defaultHeight: 80,
     laborType: '통신내선공', installHours: 2, removeHours: 1, relocateHours: 3,
-    containers: [
-      { key: 'a', name: 'A', cols: 1, rows: 12, allowSpan: true, accepts: { categoryKeys: ['통신'] } },
-      { key: 'b', name: 'B', cols: 1, rows: null, allowSpan: false, accepts: {} },
-    ],
     ports: [{ group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' }],
   };
 

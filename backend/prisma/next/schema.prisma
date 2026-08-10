@@ -112,30 +112,11 @@ model AssetType {
   installHours   Float               @default(0)
   removeHours    Float               @default(0)
   relocateHours  Float               @default(0)
-  containerSpecs AssetContainerSpec[]
   portTemplates  AssetPortTemplate[]
   assets         Asset[]
   assemblyItems  AssemblyItem[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
-}
-
-model AssetContainerSpec {
-  id          String    @id @default(uuid())
-  typeId      String
-  type        AssetType @relation(fields: [typeId], references: [id], onDelete: Cascade)
-  key         String
-  name        String
-  /// 격자 열 수 — 랙은 1, 분전반 회로는 2(홀수 왼쪽·짝수 오른쪽).
-  cols        Int       @default(1)
-  /// 격자 행 수. null = 자유형(넣는 만큼 늘어나고 자리 검증이 없다).
-  rows        Int?
-  allowSpan   Boolean   @default(false)
-  // AcceptRule (categoryKeys/typeKeys)
-  accepts     Json      @default("{}")
-  sortOrder   Int       @default(0)
-
-  @@unique([typeId, key])
 }
 
 model AssetPortTemplate {
@@ -167,6 +148,13 @@ model Assembly {
   name       String
   categoryId String?
   category   AssetCategory? @relation(fields: [categoryId], references: [id])
+  /// 이 설비 안의 **격자** — 부품을 놓을 자리다.
+  ///
+  /// 예전에는 자리를 자산 타입이 선언했고(랙의 「슬롯 12칸」), 그래서 담기 위한 랙이라는
+  /// 자산이 따로 있어야 했다. 슬롯은 사실 폭이 격자 전체인 1열짜리 격자였을 뿐이라,
+  /// 격자를 형판이 직접 가지면 그 층이 통째로 사라진다.
+  gridCols   Int            @default(1)
+  gridRows   Int            @default(12)
   sortOrder  Int            @default(0)
   isActive   Boolean        @default(true)
   items      AssemblyItem[]
@@ -175,20 +163,18 @@ model Assembly {
   updatedAt  DateTime       @updatedAt
 }
 
-/// 형판을 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에.
+/// 형판 격자에 놓인 부품 하나 — 어느 타입을, 격자의 어느 자리에.
+///
+/// **평평하다.** 부품이 또 부품을 담지 않는다 — 담는 일은 형판 격자가 하므로, 담기 위한
+/// 중간 자산(랙·함체)이 필요 없다. OFD 도 「경로슬롯 4장이 놓인 형판」이면 된다.
 model AssemblyItem {
   id           String         @id @default(uuid())
   assemblyId   String
   assembly     Assembly       @relation(fields: [assemblyId], references: [id], onDelete: Cascade)
-  /// null = 뿌리(도면에 놓이는 것). 형판마다 뿌리는 하나다.
-  parentItemId String?
-  parentItem   AssemblyItem?  @relation("AssemblyTree", fields: [parentItemId], references: [id], onDelete: Cascade)
-  children     AssemblyItem[] @relation("AssemblyTree")
   typeId       String
   type         AssetType      @relation(fields: [typeId], references: [id])
-  /// 만들어질 자산의 이름 — 뿌리는 놓을 때 사용자가 다시 정한다.
+  /// 만들어질 자산의 이름.
   name         String
-  containerKey String?
   col          Int?
   row          Int?
   colSpan      Int?
@@ -233,8 +219,9 @@ model CableCategory {
 model Asset {
   id            String      @id @default(uuid())
   name          String
-  typeId        String
-  type          AssetType   @relation(fields: [typeId], references: [id])
+  /// 부품이면 그 부품의 타입. **설비(형판으로 놓은 것)는 타입이 없다** — 분류는 형판이다.
+  typeId        String?
+  type          AssetType?  @relation(fields: [typeId], references: [id])
   substationId  String
   substation    Substation  @relation(fields: [substationId], references: [id])
   status        String      @default("normal")
@@ -245,11 +232,10 @@ model Asset {
   y             Float?
   width         Float?
   height        Float?
-  // 위치 B: 컨테이너 수용
+  // 위치 B: 설비 격자 안의 자리
   parentAssetId String?
   parentAsset   Asset?      @relation("AssetChildren", fields: [parentAssetId], references: [id], onDelete: Restrict)
   children      Asset[]     @relation("AssetChildren")
-  containerKey  String?
   /// 이 설비가 어느 형판으로 만들어졌는가 — **분류**다. 형판의 뿌리 자산에만 적힌다.
   ///
   /// 이름을 글자로 굳히지 않고 형판을 계속 가리킨다: 형판 이름을 고치면 이미 놓인 설비의

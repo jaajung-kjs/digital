@@ -10,36 +10,6 @@ export const SEED_CATEGORIES = [
 const NO_LABOR = { laborType: null, installHours: 0, removeHours: 0, relocateHours: 0 };
 
 export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
-  // ── 구 role: rack ──
-  {
-    key: 'RACK',
-    name: '랙',
-    categoryKey: '구조',
-    sortOrder: 10,
-    placement: { placeable: true, defaultWidth: 60, defaultHeight: 80 },
-    labor: { laborType: '통신내선공', installHours: 2.0, removeHours: 1.0, relocateHours: 3.0 },
-    containers: [
-      // 19인치 랙 — 세로 한 줄에 U 단위로 쌓인다. 2U·4U 장비가 있으므로 span 을 허용한다.
-      { key: 'main', name: '슬롯', cols: 1, rows: 12, allowSpan: true, accepts: { categoryKeys: ['통신', '전원', '공조'] } },
-    ],
-    ports: [
-      { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
-    ],
-  },
-  // ── 구 role: ofd ──
-  {
-    key: 'OFD',
-    name: 'OFD(광분배함)',
-    categoryKey: '통신',
-    sortOrder: 20,
-    placement: { placeable: true, defaultWidth: 40, defaultHeight: 40 },
-    labor: { laborType: '통신내선공', installHours: 1.5, removeHours: 0.8, relocateHours: 0 },
-    containers: [
-      // 성단 판은 넣는 만큼 늘어난다 — 자유형.
-      { key: 'main', name: '슬롯', cols: 1, rows: null, allowSpan: false, accepts: { typeKeys: ['OFD-SLOT'] } },
-    ],
-    ports: [],
-  },
   // ── 구 role: slot ──
   {
     key: 'OFD-SLOT',
@@ -48,7 +18,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 21,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     /*
      * 성단 판 한 장의 실제 모습: 뒤로 OPGW **한 가닥**이 들어와 그 안의 24심이 어댑터에
      * 성단되고, 앞에서는 어댑터마다 점퍼 한 가닥이 장비로 나간다.
@@ -62,20 +31,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
       { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
     ],
   },
-  // ── 구 role: panel ──
-  {
-    key: 'DIST',
-    name: '분전반',
-    categoryKey: '전원',
-    sortOrder: 30,
-    placement: { placeable: true, defaultWidth: 40, defaultHeight: 60 },
-    labor: NO_LABOR,
-    containers: [
-      // 분전반 조서는 좌우 2열 — 홀수 왼쪽, 짝수 오른쪽이 표준이다.
-      { key: 'main', name: '회로', cols: 2, rows: 6, allowSpan: false, accepts: { typeKeys: ['FEEDER'] } },
-    ],
-    ports: [],
-  },
   // ── 구 role: feeder ──
   {
     key: 'FEEDER',
@@ -84,7 +39,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 33,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
       { group: 'OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: 'OUT' },
@@ -98,7 +52,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 31,
     placement: { placeable: true, defaultWidth: 60, defaultHeight: 60 },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'BUS', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지 부스바' },
     ],
@@ -110,7 +63,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 32,
     placement: { placeable: true },
     labor: NO_LABOR,
-    containers: [],
     ports: [],
   },
   // ── 구 role: device ──
@@ -121,7 +73,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 50,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 4.0, removeHours: 2.0, relocateHours: 5.0 },
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       // 현장 기기와 잇는 직렬 회선 — 방향을 따지지 않는다(널모뎀 배선이 실제로 있다).
@@ -137,7 +88,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 70,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '전원 출력' },
@@ -151,7 +101,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 80,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 1.5 },
-    containers: [],
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 2, direction: 'OUT', medium: 'power', namePattern: '전원 출력 {n}' },
@@ -165,7 +114,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 90,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '충전 입력' },
       { group: 'PWR-OUT', count: 1, direction: 'OUT', medium: 'power', namePattern: '방전 출력' },
@@ -180,7 +128,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 61,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       { group: 'COM', count: 1, direction: 'BI', medium: 'control', namePattern: 'COM1' },
@@ -195,7 +142,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 63,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'OPT', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -210,7 +156,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 64,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -223,7 +168,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 41,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 3.0, removeHours: 1.5, relocateHours: 0 },
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -235,7 +179,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 42,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 3.0, removeHours: 1.5, relocateHours: 0 },
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -248,7 +191,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 51,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 4.0, removeHours: 2.0, relocateHours: 5.0 },
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -260,7 +202,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 104,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.5, removeHours: 0.3, relocateHours: 0 },
-    containers: [],
     ports: [
       { group: 'P', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
       { group: 'GND', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지' },
@@ -273,7 +214,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 105,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.3, removeHours: 0.15, relocateHours: 0 },
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -285,7 +225,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 108,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 0 },
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -297,7 +236,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 109,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 0 },
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -309,7 +247,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 113,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
       { group: 'PWR-OUT', count: 13, direction: 'OUT', medium: 'power', namePattern: '출력 {n}' },
@@ -323,7 +260,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 114,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -336,7 +272,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 60,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -348,7 +283,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 145,
     placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.5, removeHours: 0.3, relocateHours: 0 },
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
     ],
@@ -360,9 +294,59 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     sortOrder: 146,
     placement: { placeable: false },
     labor: NO_LABOR,
-    containers: [],
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
+    ],
+  },
+];
+
+/**
+ * 시드 형판 — **도면에 놓이는 것**은 이것들이다.
+ *
+ * 예전에는 랙·OFD·분전반이 자산 타입이었고, 그 안에 자리(컨테이너)가 선언돼 있었다.
+ * 그래서 담기 위한 자산이 현황에 올라왔고, 자리는 세로 한 줄로만 나뉘었다. 이제 담는
+ * 일은 형판 격자가 하고, 랙 같은 껍데기는 형판의 겉모습일 뿐이라 자산이 아니다.
+ *
+ * 부품 목록은 **초기 구성**이다 — 놓고 나서 그 설비만 따로 고칠 수 있다.
+ */
+export const SEED_ASSEMBLIES: {
+  key: string; name: string; categoryKey: string; sortOrder: number;
+  grid: { cols: number; rows: number };
+  items: { typeKey: string; name: string; col: number; row: number; colSpan: number; rowSpan: number;
+           portCounts?: Record<string, number>; portPositions?: Record<string, number> }[];
+}[] = [
+  {
+    // 성단 판을 담는 함체 — 도면에 이것을 놓는다(예전의 OFD 자산 + 그 안의 슬롯들).
+    key: 'OFD', name: 'OFD(광분배함)', categoryKey: '통신', sortOrder: 20,
+    grid: { cols: 1, rows: 12 },
+    items: Array.from({ length: 4 }, (_, i) => ({
+      typeKey: 'OFD-SLOT', name: `슬롯 ${i + 1}`, col: 0, row: i, colSpan: 1, rowSpan: 1,
+    })),
+  },
+  {
+    // 분전반 조서는 좌우 2열 — 홀수 왼쪽, 짝수 오른쪽이 표준이다.
+    key: 'DIST', name: '분전반', categoryKey: '전원', sortOrder: 30,
+    grid: { cols: 2, rows: 6 },
+    items: [],
+  },
+  {
+    // 「1식」 — 랙 한 대에 들어가는 표준 구성. 랙 자체는 자산이 아니라 이 형판의 겉모습이다.
+    key: 'OPT-SET', name: '송변전광단말장치', categoryKey: '통신', sortOrder: 63,
+    grid: { cols: 1, rows: 12 },
+    items: [
+      { typeKey: 'OPT-TERM', name: '광단말', col: 0, row: 0, colSpan: 1, rowSpan: 1 },
+      { typeKey: 'OPT-COT', name: '통합단말', col: 0, row: 1, colSpan: 1, rowSpan: 1 },
+      { typeKey: 'NET-SW', name: '네트워크스위치', col: 0, row: 2, colSpan: 1, rowSpan: 1 },
+    ],
+  },
+  {
+    key: 'PWR-SET', name: '전원설비', categoryKey: '전원', sortOrder: 70,
+    grid: { cols: 1, rows: 12 },
+    items: [
+      { typeKey: 'UPS', name: 'UPS', col: 0, row: 0, colSpan: 1, rowSpan: 1 },
+      { typeKey: 'CHARGER', name: '충전기', col: 0, row: 1, colSpan: 1, rowSpan: 1 },
+      { typeKey: 'BATTERY', name: '축전지', col: 0, row: 2, colSpan: 1, rowSpan: 1 },
+      { typeKey: 'PWR-AC', name: '전원분배', col: 0, row: 3, colSpan: 1, rowSpan: 1 },
     ],
   },
 ];
