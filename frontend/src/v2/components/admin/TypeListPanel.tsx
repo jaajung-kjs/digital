@@ -9,7 +9,7 @@
  * 목록과 미묘하게 달랐고(폭 64 vs 56, 분류 묶음 유무), 검색은 어느 쪽에도 없었다.
  */
 import { useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { IconButton, Input } from '../../../components/ui';
 import type { V2Catalog, V2Category } from '../../types';
 import { CatalogList } from './CatalogList';
@@ -18,7 +18,8 @@ interface TypeListPanelProps {
   catalog: V2Catalog;
   selectedTypeId: string | null;
   onSelectType: (id: string) => void;
-  onNewType: (categoryId: string) => void;
+  /** 새 자산 종류 — 분류는 편집 화면에서 고른다. */
+  onNewType: () => void;
   onRenameCategory: (category: V2Category, newName: string) => void;
   onDeleteCategory: (category: V2Category) => void;
   onAddCategory: () => void;
@@ -83,9 +84,6 @@ export function TypeListPanel({
               >
                 <Pencil size={12} />
               </IconButton>
-              <IconButton aria-label={`${cat.name}에 종류 추가`} size="sm" onClick={() => onNewType(cat.id)}>
-                <Plus size={12} />
-              </IconButton>
               {/* 빈 분류만 지울 수 있다 — 종류가 남아 있으면 서버가 거부하므로 아예 막는다. */}
               <IconButton
                 aria-label={`${cat.name} 분류 삭제`}
@@ -108,11 +106,9 @@ export function TypeListPanel({
       groups={groups}
       selectedId={selectedTypeId}
       onSelect={onSelectType}
-      headerActions={
-        <IconButton aria-label="분류 추가" onClick={onAddCategory}>
-          <Plus size={14} />
-        </IconButton>
-      }
+      onAdd={onNewType}
+      addLabel="자산 종류 추가"
+      onAddGroup={onAddCategory}
       emptyText="자산 종류가 없습니다"
     />
   );

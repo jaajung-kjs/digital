@@ -90,7 +90,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   return (
     <div className="mx-auto w-full max-w-4xl space-y-3 p-4">
       <DetailCard>
-        <DetailCardHeader title="설비 종류" />
+        <DetailCardHeader title="기본정보" />
         {/* 키는 묻지 않는다 — 시드·마이그레이션이 가리키는 참조용 식별자이지 현장에서 부르는
             이름이 아니다. 새로 만들 때는 서버가 붙인다. */}
         <DetailRow label="이름" issue={issueOf(issues, 'name')}>
@@ -101,13 +101,14 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             onChange={(e) => onChange({ ...draft, name: e.currentTarget.value })}
           />
         </DetailRow>
-        <DetailRow label="분류">
+        <DetailRow label="분류" issue={issueOf(issues, 'category')}>
+          {/* 자산 종류와 **같은 분류 체계**다 — 어느 탭에서 분류를 만들든 양쪽에 나타난다. */}
           <Select
-            aria-label="설비 종류 분류"
-            value={draft.categoryId ?? ''}
-            onChange={(e) => onChange({ ...draft, categoryId: e.currentTarget.value || null })}
+            aria-label="분류"
+            value={draft.categoryId}
+            onChange={(e) => onChange({ ...draft, categoryId: e.currentTarget.value })}
           >
-            <option value="">—</option>
+            <option value="">— 분류 선택 —</option>
             {catalog.categories.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
@@ -142,8 +143,8 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           그때는 그 자산 종류의 공량을 쓴다 — 어느 쪽인지는 설계서가 변경 집합에서 안다.
           비워 두면 안에 든 자산의 공량을 합쳐 센다(0 은 「품이 안 든다」는 뜻이라 다르다). */}
       <DetailCard>
-        <DetailCardHeader title="1식 공량" />
-        <DetailRow label="노무유형">
+        <DetailCardHeader title="공량" />
+        <DetailRow label="노무유형" hint="설비를 통째로 놓거나 걷을 때의 품(1식)">
           <Input
             aria-label="1식 노무유형"
             value={draft.laborType ?? ''}

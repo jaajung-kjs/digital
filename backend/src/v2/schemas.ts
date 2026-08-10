@@ -102,8 +102,8 @@ export const assemblyUpsertSchema = z.object({
   /** 새로 만들 때는 비워 둔다 — 서버가 붙인다(참조용 식별자이지 현장에서 쓰는 값이 아니다). */
   key: z.string().regex(keyRe).optional(),
   name: z.string().trim().min(1),
-  categoryId: z.string().uuid().nullable(),
-  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류이 아니라). */
+  categoryId: z.string().uuid(),
+  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류가 아니라). */
   gridCols: z.number().int().min(1),
   gridRows: z.number().int().min(1),
   /* 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */

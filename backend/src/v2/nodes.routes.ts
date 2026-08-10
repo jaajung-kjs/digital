@@ -24,10 +24,10 @@ nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
     const assets = await nextDb.asset.findMany({
       where: { substationId: { in: substationIds } },
       include: {
-        type: { include: { category: true } },
+        type: true,
         substation: { select: { name: true } },
         parentAsset: { select: { name: true } },
-        assembly: { include: { category: true } },
+        assembly: true,
       },
       orderBy: [{ substation: { name: 'asc' } }, { name: 'asc' }],
     });
@@ -39,10 +39,9 @@ nodesRouter.get('/nodes/:id/assets', async (req, res, next) => {
         updatedAt: a.updatedAt,
         substationId: a.substationId,
         substationName: a.substation.name,
-        // 설비 종류으로 놓은 설비는 타입이 없다 — 그때는 설비 종류가 곧 분류다.
+        // 설비 종류로 놓은 설비는 자산 종류가 없다 — 그때는 설비 종류 이름이 곧 종류다.
         typeKey: a.type?.key ?? null,
         typeName: a.assembly?.name ?? a.type?.name ?? '—',
-        categoryName: a.assembly?.category?.name ?? a.type?.category.name ?? '—',
         parentAssetId: a.parentAssetId,
         parentName: a.parentAsset?.name ?? null,
         floorId: a.floorId,

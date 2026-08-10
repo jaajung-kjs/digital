@@ -97,7 +97,10 @@ export default function V2CatalogAdminPage() {
   }
 
   // ── 신규 타입 ─────────────────────────────────────────────────────────────
-  async function handleNewType(categoryId: string) {
+  /* 새 자산 종류 — 분류는 편집 화면에서 고른다. 예전에는 분류마다 `+` 를 달아 그 자리에서
+     정하게 했는데, 그러면 머리줄의 `+` 는 「분류 추가」가 되어 설비 종류 탭의 `+`(종류 추가)와
+     같은 자리에서 다른 뜻이 됐다. */
+  async function handleNewType() {
     if (
       dirty &&
       !(await confirm({
@@ -109,7 +112,7 @@ export default function V2CatalogAdminPage() {
     )
       return;
     setSelectedTypeId(null);
-    setDraft(emptyDraft(categoryId));
+    setDraft(emptyDraft(catalog?.categories[0]?.id ?? ''));
     setSaveError(null);
     setActiveTab('type');
   }
@@ -256,7 +259,15 @@ export default function V2CatalogAdminPage() {
           {/* ── 설비 종류 탭 ─────────────────────────────────────────── */}
           {activeTab === 'assembly' && (
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <AssemblyCatalogPanel catalog={catalog} />
+              <AssemblyCatalogPanel
+                catalog={catalog}
+                onRenameCategory={handleRenameCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onAddCategory={() => {
+                  setCategoryError(null);
+                  setAddCategoryOpen(true);
+                }}
+              />
             </div>
           )}
 

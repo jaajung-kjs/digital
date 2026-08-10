@@ -28,11 +28,17 @@ export interface CatalogListProps {
   groups: CatalogListGroup[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  /** 새로 만들기 — 없으면 `+` 를 달지 않는다(케이블 그룹은 늘리지 않는다). */
+  /**
+   * **이 대장의 것을 새로 만든다** — 설비 종류·자산 종류. 세 탭이 같은 뜻으로 쓴다.
+   *
+   * 케이블 그룹은 늘리지 않으므로(매체라서 고정) 주지 않는다. 그래도 머리줄 높이는 같다 —
+   * 버튼 유무로 줄 높이가 달라지면 탭을 옮길 때 화면이 덜컹거린다.
+   */
   onAdd?: () => void;
   addLabel?: string;
-  /** 머리줄 오른쪽 끝 — 분류 추가처럼 목록 전체에 걸리는 것. */
-  headerActions?: ReactNode;
+  /** 분류를 새로 만든다 — 있으면 목록 맨 아래에 행으로 선다. */
+  onAddGroup?: () => void;
+  addGroupLabel?: string;
   emptyText?: string;
 }
 
@@ -49,7 +55,7 @@ export interface CatalogListProps {
  * 검색이 그 일을 대신하기 때문이다.
  */
 export function CatalogList({
-  title, groups, selectedId, onSelect, onAdd, addLabel, headerActions, emptyText,
+  title, groups, selectedId, onSelect, onAdd, addLabel, onAddGroup, addGroupLabel, emptyText,
 }: CatalogListProps) {
   const [query, setQuery] = useState('');
 
@@ -71,11 +77,12 @@ export function CatalogList({
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-sidebar">
-      <div className="flex shrink-0 items-center gap-1 border-b border-line px-3 py-2">
+      {/* 머리줄 높이는 버튼 유무와 무관하게 같다 — `+` 가 없는 탭에서 줄이 얇아지면
+          탭을 옮길 때마다 목록이 위아래로 덜컹거린다(케이블 탭이 그랬다). */}
+      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line px-3">
         <span className="flex-1 truncate text-xs font-medium text-content-muted">
           {title} <span className="text-content-faint tabular-nums">{total}</span>
         </span>
-        {headerActions}
         {onAdd && (
           <IconButton aria-label={addLabel ?? `${title} 추가`} onClick={onAdd}>
             <Plus size={14} />
@@ -101,10 +108,15 @@ export function CatalogList({
         )}
         {filtered.map((g) => (
           <div key={g.key}>
-            {/* 분류 머리줄 — 분류가 없는 대장에서는 그리지 않는다(빈 줄만 남는다). */}
+            {/* 분류 머리줄 — 분류가 없는 대장에서는 그리지 않는다(빈 줄만 남는다).
+                띠를 깔고 글자를 눌러 **항목과 확실히 가른다**: 예전에는 둘 다 왼쪽 같은
+                자리에 서서 크기만 한 급 달랐고, 그래서 어디까지가 분류이고 어디부터가
+                그 안의 것인지 읽히지 않았다. 항목은 들여쓴다. */}
             {g.label != null && (
-              <div className="group flex items-center gap-1 px-2 pb-0.5 pt-2">
-                <span className="flex-1 truncate text-xs font-medium text-content-muted">{g.label}</span>
+              <div className="group flex items-center gap-1 rounded bg-surface-2 px-2 py-1">
+                <span className="flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-content-faint">
+                  {g.label}
+                </span>
                 {g.actions && (
                   /* 목록 행의 액션은 호버에서 드러낸다(조직 트리와 같은 규칙).
                      자리는 항상 차지하므로 호버해도 줄이 움직이지 않는다. */
@@ -120,7 +132,8 @@ export function CatalogList({
                   <button
                     type="button"
                     className={cn(
-                      'flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-sm text-content',
+                      // 들여쓰기가 「이것은 위 분류에 속한다」를 말한다.
+                      'flex w-full items-center gap-1.5 rounded py-1.5 pl-4 pr-2 text-left text-sm text-content',
                       SELECTABLE,
                       selectedId === item.id && 'bg-info-bg font-medium text-primary hover:bg-info-bg',
                     )}
@@ -136,6 +149,23 @@ export function CatalogList({
             </ul>
           </div>
         ))}
+
+        {/* 분류 추가는 목록 **맨 아래**에 — 드물게 쓰는 일이 머리줄의 `+` 를 차지하고 있으면
+            자주 쓰는 「새로 만들기」가 갈 자리가 없다. 설비·자산 두 탭이 **같은 분류 체계**를
+            쓰므로 어느 쪽에서 만들든 양쪽에 나타난다. */}
+        {onAddGroup && (
+          <button
+            type="button"
+            className={cn(
+              'mt-2 flex w-full items-center gap-1 rounded px-2 py-1.5 text-left text-xs text-content-faint',
+              SELECTABLE,
+            )}
+            onClick={onAddGroup}
+          >
+            <Plus size={12} />
+            {addGroupLabel ?? '분류 추가'}
+          </button>
+        )}
       </div>
     </aside>
   );

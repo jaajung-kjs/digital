@@ -29,7 +29,7 @@ export interface V2AssemblyItem {
  * 고쳐도 이미 놓인 설비는 그대로다(스냅샷) — 놓을 때의 이름을 뿌리 자산에 굳혀 둔다.
  */
 export interface V2Assembly {
-  id: string; key: string; name: string; categoryId: string | null;
+  id: string; key: string; name: string; categoryId: string;
   /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류가 아니라). */
   gridCols: number; gridRows: number;
   /**
@@ -48,7 +48,7 @@ export interface V2Assembly {
 /** 설비 종류 저장 바디 — 부품 목록을 통째로 갈아 끼운다(덮어쓰기). */
 export interface AssemblyUpsertBody {
   /** 새로 만들 때는 보내지 않는다 — 서버가 붙인다(참조용 식별자다). */
-  key?: string; name: string; categoryId: string | null;
+  key?: string; name: string; categoryId: string;
   gridCols: number; gridRows: number;
   laborType: string | null;
   installHours: number | null;
@@ -107,7 +107,7 @@ export interface V2Workingcopy {
 }
 export interface V2NodeAssetRow {
   id: string; name: string; status: string; updatedAt: string; substationId: string; substationName: string;
-  typeKey: string; typeName: string; categoryName: string; parentAssetId: string | null; parentName: string | null; floorId: string | null;
+  typeKey: string; typeName: string; parentAssetId: string | null; parentName: string | null; floorId: string | null;
 }
 export interface V2Conflict { id: string; reason: 'modified' | 'deleted' | 'exists'; serverUpdatedAt?: string }
 

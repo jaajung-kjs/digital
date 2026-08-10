@@ -8,7 +8,8 @@
  * 그래서 자산 종류와 달리 "쓰이는 중이면 구조 잠금" 이 없다.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { EmptyState, useConfirm } from '../../../components/ui';
+import { Pencil, Trash2 } from 'lucide-react';
+import { EmptyState, IconButton, Input, useConfirm } from '../../../components/ui';
 import { CatalogList } from './CatalogList';
 import { CatalogEditorBar } from './CatalogEditorBar';
 import { useCatalogMutations } from '../../hooks';
@@ -17,15 +18,34 @@ import {
   type AssemblyDraft,
 } from '../../assemblyDraft';
 import { AssemblyPanel } from './AssemblyPanel';
-import type { V2Catalog } from '../../types';
+import type { V2Catalog, V2Category } from '../../types';
 
-export function AssemblyCatalogPanel({ catalog }: { catalog: V2Catalog }) {
+interface AssemblyCatalogPanelProps {
+  catalog: V2Catalog;
+  /* 분류는 **자산 종류와 같은 체계**(AssetCategory)다 — 관리 로직은 한 곳(페이지)에 두고
+     두 탭이 같은 것을 부른다. 어느 탭에서 만들든 양쪽 목록에 나타난다. */
+  onRenameCategory: (category: V2Category, newName: string) => void;
+  onDeleteCategory: (category: V2Category) => void;
+  onAddCategory: () => void;
+}
+
+export function AssemblyCatalogPanel({
+  catalog, onRenameCategory, onDeleteCategory, onAddCategory,
+}: AssemblyCatalogPanelProps) {
   const { confirm, confirmDialog } = useConfirm();
   const m = useCatalogMutations();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AssemblyDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  function commitRename(cat: V2Category) {
+    const trimmed = editingName.trim();
+    if (trimmed && trimmed !== cat.name) onRenameCategory(cat, trimmed);
+    setEditingCategoryId(null);
+  }
 
   const original = useMemo(
     () => catalog.assemblies.find((a) => a.id === selectedId) ?? null,
@@ -76,25 +96,57 @@ export function AssemblyCatalogPanel({ catalog }: { catalog: V2Catalog }) {
 
   /* 목록은 **분류로 묶는다** — 자산 종류 탭과 같은 어법이다. 예전에는 설비 종류만 평면
      목록이라, 같은 2단 구조인데 탭마다 다른 모양으로 보였다. */
-  const listGroups = useMemo(() => {
-    const byCategory = new Map<string, typeof catalog.assemblies>();
-    for (const a of catalog.assemblies) {
-      const key = a.categoryId ?? '';
-      byCategory.set(key, [...(byCategory.get(key) ?? []), a]);
-    }
-    const named = catalog.categories
-      .filter((c) => byCategory.has(c.id))
-      .map((c) => ({
-        key: c.id,
-        label: c.name,
-        items: (byCategory.get(c.id) ?? []).map((a) => ({ id: a.id, name: a.name, hint: String(a.items.length) })),
-      }));
-    // 분류를 정하지 않은 것도 잃지 않는다 — 맨 아래 한 묶음으로.
-    const loose = byCategory.get('') ?? [];
-    return loose.length > 0
-      ? [...named, { key: '', label: '분류 없음', items: loose.map((a) => ({ id: a.id, name: a.name, hint: String(a.items.length) })) }]
-      : named;
-  }, [catalog.assemblies, catalog.categories]);
+  const listGroups = useMemo(
+    () =>
+      catalog.categories.map((cat) => ({
+        key: cat.id,
+        label:
+          editingCategoryId === cat.id ? (
+            <Input
+              aria-label="분류 이름 편집"
+              size="sm"
+              value={editingName}
+              autoFocus
+              onChange={(e) => setEditingName(e.currentTarget.value)}
+              onBlur={() => commitRename(cat)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename(cat);
+                if (e.key === 'Escape') setEditingCategoryId(null);
+              }}
+            />
+          ) : (
+            cat.name
+          ),
+        labelText: cat.name,
+        items: catalog.assemblies
+          .filter((a) => a.categoryId === cat.id)
+          .map((a) => ({ id: a.id, name: a.name, hint: String(a.items.length) })),
+        actions: (
+          <>
+            <IconButton
+              aria-label={`${cat.name} 이름 변경`}
+              size="sm"
+              onClick={() => { setEditingCategoryId(cat.id); setEditingName(cat.name); }}
+            >
+              <Pencil size={12} />
+            </IconButton>
+            {/* 빈 분류만 지울 수 있다 — 자산 종류 탭과 같은 규칙이다(같은 분류를 지운다). */}
+            <IconButton
+              aria-label={`${cat.name} 분류 삭제`}
+              size="sm"
+              disabled={
+                catalog.assemblies.some((a) => a.categoryId === cat.id) ||
+                catalog.types.some((t) => t.categoryId === cat.id)
+              }
+              onClick={() => onDeleteCategory(cat)}
+            >
+              <Trash2 size={12} />
+            </IconButton>
+          </>
+        ),
+      })),
+    [catalog.assemblies, catalog.categories, catalog.types, editingCategoryId, editingName, onDeleteCategory],
+  );
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -108,6 +160,7 @@ export function AssemblyCatalogPanel({ catalog }: { catalog: V2Catalog }) {
           setDraft(emptyAssemblyDraft());
         }}
         addLabel="설비 종류 추가"
+        onAddGroup={onAddCategory}
         emptyText="설비 종류가 없습니다"
       />
 

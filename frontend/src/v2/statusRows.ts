@@ -7,7 +7,6 @@ type FieldDef = ReturnType<typeof assetFieldDefs>[number];
 export interface StatusRow {
   id: string;
   typeName: string;
-  categoryName: string;
   name: string;
   location: string;
   lastInspectedAt: string | null;
@@ -41,7 +40,6 @@ export function buildStatusRows(args: {
   assets: V2Asset[];
   floors: V2Floor[];
   typesById: Map<string, V2AssetType>;
-  categoryNameById: Map<string, string>;
   inspectionsByAsset: Map<string, string[]>;
   /** 설비 종류 id → 설비 종류. 설비 종류으로 놓은 설비는 **설비 종류가 곧 분류**이고, 격자도 여기서 나온다. */
   assembliesById?: Map<string, V2Assembly>;
@@ -78,7 +76,6 @@ export function buildStatusRows(args: {
       /* 설비 종류으로 놓은 설비는 **설비 종류가 곧 분류**다 — 업무에서 "랙이 몇 개" 는 묻지 않는다.
          이름을 글자로 굳히지 않고 설비 종류를 가리키므로, 설비 종류 이름을 고치면 여기도 따라 바뀐다. */
       typeName: (a.assemblyId && args.assembliesById?.get(a.assemblyId)?.name) || type?.name || '—',
-      categoryName: (type && args.categoryNameById.get(type.categoryId)) ?? '—',
       name: a.name,
       location: assetLocationPath(a, assetById, floorName, args.assembliesById),
       lastInspectedAt: inspections.length ? [...inspections].sort().at(-1)! : null,

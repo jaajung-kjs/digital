@@ -12,7 +12,7 @@ export interface AssemblyDraft {
   /** 새로 만들 때는 빈 문자열 — 저장할 때 서버가 붙인다(참조용 식별자다). */
   key: string;
   name: string;
-  categoryId: string | null;
+  categoryId: string;
   /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다. */
   gridCols: number;
   gridRows: number;
@@ -48,7 +48,7 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
 export function emptyAssemblyDraft(): AssemblyDraft {
   // 19인치 랙 한 대가 가장 흔한 모양이라 그것을 기본으로 둔다.
   return {
-    key: '', name: '', categoryId: null, gridCols: 4, gridRows: 12,
+    key: '', name: '', categoryId: '', gridCols: 4, gridRows: 12,
     laborType: null, installHours: null, removeHours: null, relocateHours: null,
     sortOrder: 0, items: [],
   };
@@ -60,7 +60,7 @@ export function newItemId(): string {
 }
 
 export interface AssemblyIssue {
-  path: 'key' | 'name' | 'grid' | 'items';
+  path: 'key' | 'name' | 'category' | 'grid' | 'items';
   message: string;
 }
 
@@ -85,6 +85,9 @@ export function assemblyIssues(draft: AssemblyDraft, types: V2AssetType[]): Asse
     issues.push({ path: 'key', message: '키 형식이 올바르지 않습니다' });
   }
   if (draft.name.trim() === '') issues.push({ path: 'name', message: '이름을 입력하세요' });
+  /* 분류는 자산 종류와 **같은 체계**라 필수도 같다 — 한쪽만 선택이면 「분류 없음」 묶음이
+     설비 종류에만 생긴다. */
+  if (draft.categoryId === '') issues.push({ path: 'category', message: '분류를 고르세요' });
 
   const keyById = new Map(types.map((t) => [t.id, t.key]));
   const issue = validateAssembly(
