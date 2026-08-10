@@ -155,3 +155,54 @@ describe('1식 공량', () => {
     expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치', 1]]);
   });
 });
+
+/**
+ * 1식 공량이 없을 때 「부품 합」으로 물러서는 길.
+ *
+ * 놓고 걷을 때는 자손도 함께 변경 집합에 오지만 **옮길 때는 뿌리만 온다** — 그래서 변경
+ * 집합만 보면 이설이 설계서에서 통째로 사라졌다(실제로 그랬다). 자손은 **그 설비**에서 찾는다.
+ */
+describe('1식 공량이 없을 때의 폴백', () => {
+  const bare = {
+    id: 'asm-b', key: 'BARE', name: '무명설비', categoryId: 'c',
+    gridCols: 4, gridRows: 12, sortOrder: 1, isActive: true, items: [],
+    laborType: null, installHours: null, removeHours: null, relocateHours: null,
+  };
+  const 설비 = mkAsset('e1', '무명 A', { typeId: null, assemblyId: 'asm-b', floorId: 'f1' });
+  const 부품A = mkAsset('p1', 'L3 스위치 1', { parentAssetId: 'e1', col: 0, row: 0 });
+  const 부품B = mkAsset('p2', 'L3 스위치 2', { parentAssetId: 'e1', col: 0, row: 1 });
+
+  const build = (o: object, saved: object[]) =>
+    buildReportItems({
+      saved: { assets: saved as never, cables: [] as never },
+      overlays: overlays(o) as never,
+      types: [rackType] as never,
+      assemblies: [bare] as never,
+      cableGroups: groups as never,
+    });
+
+  it('옮기면 안의 부품들이 각자 이설 공량을 낸다 — 뿌리만 왔어도', () => {
+    const items = build(
+      { assets: { creates: {}, updates: { e1: { x: 10, y: 20 } }, deletes: [] } },
+      [설비, 부품A, 부품B],
+    );
+    expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치 1', 3], ['L3 스위치 2', 3]]);
+  });
+
+  /* 놓고 걷을 때는 자손도 함께 오므로, 두 번 세지 않는지가 관건이다. */
+  it('걷으면 자손을 한 번만 센다', () => {
+    const items = build(
+      { assets: { creates: {}, updates: {}, deletes: ['e1', 'p1', 'p2'] } },
+      [설비, 부품A, 부품B],
+    );
+    expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치 1', 1], ['L3 스위치 2', 1]]);
+  });
+
+  it('놓으면 자손을 한 번만 센다', () => {
+    const items = build(
+      { assets: { creates: { e1: 설비, p1: 부품A, p2: 부품B }, updates: {}, deletes: [] } },
+      [],
+    );
+    expect(items.map((i) => [i.name, i.hours])).toEqual([['L3 스위치 1', 2], ['L3 스위치 2', 2]]);
+  });
+});

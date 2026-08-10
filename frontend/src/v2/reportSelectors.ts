@@ -98,65 +98,61 @@ export function buildReportItems(args: {
   /**
    * 이 작업의 **단위**가 무엇인가 — 1식인가, 부품 하나인가.
    *
-   * 설비를 통째로 놓거나 걷으면 단위는 그 설비 하나다(「송광치 1식 설치」). 안의 부품은 그
-   * 1식에 포함되므로 따로 세지 않는다. 이미 놓인 설비에서 L3 스위치 하나만 걷어내면 단위는
-   * 그 부품이다.
+   * 설비를 통째로 놓거나 걷거나 옮기면 단위는 그 설비 하나다(「송광치 1식 설치」). 이미 놓인
+   * 설비에서 L3 스위치 하나만 걷어내면 단위는 그 부품이다. 어느 쪽인지는 **변경 집합이 그대로
+   * 말한다** — 뿌리 설비가 같이 왔는가. 따로 표시할 것도, 사용자에게 물을 것도 없다.
    *
-   * 어느 쪽인지는 **변경 집합이 그대로 말한다** — 뿌리 설비가 같이 왔는가. 따로 표시할 것도,
-   * 사용자에게 물을 것도 없다.
+   * 1식 공량을 안 적어 둔 설비 종류면 셀 값이 없으므로 **그 설비 안의 자산들**을 대신 센다.
+   * 「변경 집합 안의 자손」이 아니라 **그 설비의 자손**이어야 한다: 놓고 걷을 때는 자손도 함께
+   * 오지만 **옮길 때는 뿌리만 온다**. 변경 집합만 보면 이설이 설계서에서 통째로 사라진다
+   * (실제로 그랬다).
    *
-   * 1식 공량을 안 적어 둔 설비 종류면 1식으로 셀 값이 없으므로 부품들이 각자 낸다.
+   * @param resolve  변경 집합의 자산을 찾는 길(신설이면 creates, 철거·이설이면 saved).
+   * @param childrenOf  그 설비 안의 자산들 — 같은 상태에서 찾는다.
    */
-  function unitOf(
+  function pushAssetItems(
     ids: Iterable<string>,
     resolve: (id: string) => V2Asset | undefined,
+    childrenOf: (rootId: string) => V2Asset[],
     kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
-  ): { oneSik: { asset: V2Asset; asm: V2Assembly }[]; parts: V2Asset[] } {
-    const inChange = new Set(ids);
-    const oneSik: { asset: V2Asset; asm: V2Assembly }[] = [];
-    /** 1식으로 세어진 설비의 id — 그 자손은 세지 않는다. */
+  ) {
+    const inChange = [...ids];
+    /** 단위가 이미 정해진 자산 — 그 자손은 따로 세지 않는다. */
     const covered = new Set<string>();
+    /** 이 설비의 몫으로 세어야 할 부품들(1식 공량이 없어 자손으로 물러선 것). */
+    const expanded: V2Asset[] = [];
 
     for (const id of inChange) {
       const asset = resolve(id);
       if (!asset?.assemblyId) continue;
       const asm = assembliesById.get(asset.assemblyId);
-      if (!assemblyLabor(asm, kind)) continue; // 1식 공량 미기재 — 부품들이 각자 낸다
-      oneSik.push({ asset, asm: asm! });
+      const labor = assemblyLabor(asm, kind);
       covered.add(id);
+      if (labor) {
+        items.push(assetReportItem(kind, asset.name, `${asm!.name} 1식`, labor));
+      } else {
+        expanded.push(...childrenOf(id));
+      }
     }
 
-    const parts: V2Asset[] = [];
-    for (const id of inChange) {
-      if (covered.has(id)) continue;
-      const asset = resolve(id);
-      if (!asset) continue;
-      // 1식으로 세어진 설비의 자손인가 — 상위를 거슬러 본다(데이터가 순환해도 멈추게).
+    /** 1식으로 세어진(또는 자손으로 편) 설비의 자손인가 — 상위를 거슬러 본다. */
+    const insideCovered = (asset: V2Asset): boolean => {
       const seen = new Set<string>();
       let cur: V2Asset | undefined = asset;
-      let inside = false;
       while (cur?.parentAssetId != null && !seen.has(cur.id)) {
         seen.add(cur.id);
-        if (covered.has(cur.parentAssetId)) { inside = true; break; }
+        if (covered.has(cur.parentAssetId)) return true;
         cur = resolve(cur.parentAssetId);
       }
-      if (!inside) parts.push(asset);
-    }
-    return { oneSik, parts };
-  }
+      return false;
+    };
 
-  /** 자산 한 건을 설계서 항목으로 — 설비면 1식 공량, 부품이면 그 종류의 공량. */
-  function pushAssetItems(
-    ids: Iterable<string>,
-    resolve: (id: string) => V2Asset | undefined,
-    kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
-  ) {
-    const { oneSik, parts } = unitOf(ids, resolve, kind);
-    for (const { asset, asm } of oneSik) {
-      items.push(assetReportItem(kind, asset.name, `${asm.name} 1식`, assemblyLabor(asm, kind)!));
-    }
+    const parts = [
+      ...inChange.map(resolve).filter((a): a is V2Asset => a != null && !covered.has(a.id) && !insideCovered(a)),
+      ...expanded,
+    ];
     for (const asset of parts) {
-      // 설비인데 1식 공량이 없으면 낼 것이 없다 — 안의 부품이 각자 낸다.
+      // 설비인데 1식 공량이 없으면 낼 것이 없다 — 위에서 자손으로 폈다.
       const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
       if (!t) continue;
       items.push(assetReportItem(kind, asset.name, t.name, {
@@ -168,19 +164,51 @@ export function buildReportItems(args: {
     }
   }
 
+  /** 어느 상태에서 「이 설비 안의 자산들」을 찾는가 — 뿌리부터 아래로 전부. */
+  function descendantsIn(all: V2Asset[]): (rootId: string) => V2Asset[] {
+    const byParent = new Map<string, V2Asset[]>();
+    for (const a of all) {
+      if (a.parentAssetId == null) continue;
+      const list = byParent.get(a.parentAssetId) ?? [];
+      list.push(a);
+      byParent.set(a.parentAssetId, list);
+    }
+    return (rootId) => {
+      const out: V2Asset[] = [];
+      const stack = [rootId];
+      const seen = new Set<string>(); // 데이터가 순환해도 멈추게 한다
+      while (stack.length > 0) {
+        const id = stack.pop()!;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        for (const child of byParent.get(id) ?? []) {
+          out.push(child);
+          stack.push(child.id);
+        }
+      }
+      return out;
+    };
+  }
+
   // --- assets.creates → asset-install ---
   const createdById = new Map(Object.entries(overlays.assets.creates) as [string, V2Asset][]);
-  pushAssetItems(createdById.keys(), (id) => createdById.get(id), 'asset-install');
+  pushAssetItems(
+    createdById.keys(),
+    (id) => createdById.get(id),
+    descendantsIn([...createdById.values()]),
+    'asset-install',
+  );
 
   // --- assets.deletes → asset-remove (saved 에서 해소) ---
-  pushAssetItems(overlays.assets.deletes, (id) => savedAssetsById.get(id), 'asset-remove');
+  const savedDescendants = descendantsIn(saved.assets);
+  pushAssetItems(overlays.assets.deletes, (id) => savedAssetsById.get(id), savedDescendants, 'asset-remove');
 
   /* --- assets.updates → 배치 필드가 바뀐 것만 asset-relocate ---
-     이설은 놓인 것을 옮기는 일이라 설비 뿌리만 움직여도 1식이 옮겨 간 것이다. */
+     이설은 놓인 것을 옮기는 일이라 **뿌리만** 변경 집합에 온다 — 안의 부품은 그대로 딸려 간다. */
   const relocatedIds = Object.entries(overlays.assets.updates)
     .filter(([, patch]) => Object.keys(patch).some((k) => PLACEMENT_FIELDS_SET.has(k)))
     .map(([id]) => id);
-  pushAssetItems(relocatedIds, (id) => savedAssetsById.get(id), 'asset-relocate');
+  pushAssetItems(relocatedIds, (id) => savedAssetsById.get(id), savedDescendants, 'asset-relocate');
 
   // --- cables.creates → cable-install ---
   for (const cable of Object.values(overlays.cables.creates) as V2Cable[]) {
