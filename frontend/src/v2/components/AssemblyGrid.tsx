@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { slotNumber, type Grid } from '@twin/core';
 import { cn, SELECTABLE } from '../../components/ui';
 import {
@@ -51,6 +51,23 @@ export interface AssemblyGridProps<T extends GridItem> {
 export const GRID_ROW_H = 30;
 
 /**
+ * 열 하나의 최소 폭(px) — 이보다 좁아지면 판이 가로로 넘친다.
+ *
+ * 카드 슬롯 단위로 잘게 나눈 판(섀시가 든 랙이면 10열)을 좁은 상세 패널에 그대로 욱여넣으면
+ * 칸이 뭉개진다. 줄이는 대신 넘긴다 — 랙 정면도는 원래 스크롤해서 보는 그림이다.
+ */
+const GRID_COL_MIN = 30;
+
+/**
+ * 가로쓰기가 들어가는 최소 칸 폭(px) — 한글 서너 자.
+ *
+ * 이보다 좁고 세로로 긴 칸은 **글씨를 세로로 돌린다**. 실물이 그렇다: 섀시에 꽂히는 카드는
+ * 좁고 길어서 라벨을 세로로 읽는다(CTRU·MCU·PIU·LIU). 가로로 쓰면 「CT…」로 잘릴 뿐이다.
+ * `text-orientation: mixed` 라서 한글은 세워지고 영문만 눕는다.
+ */
+const LABEL_MIN_W = 52;
+
+/**
  * 설비 안의 자리 — **XY 격자**다.
  *
  * 예전에는 자리가 1차원 슬롯이었다(랙의 「슬롯 12칸」). 그래서 세로로 쌓이는 것밖에 표현할
@@ -70,6 +87,16 @@ export function AssemblyGrid<T extends GridItem>({
   const cols = Math.max(grid.cols, 1);
 
   const boxRef = useRef<HTMLUListElement | null>(null);
+  /** 칸 폭 — 글씨를 눕힐지 판단하려면 실제 폭을 알아야 한다(열 수만으로는 모른다). */
+  const [boxWidth, setBoxWidth] = useState(0);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setBoxWidth(entry!.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const colWidth = boxWidth > 0 ? boxWidth / cols : 0;
   const sessionRef = useRef<GridDragSession | null>(null);
   /** 끌고 있는 동안의 미리보기 — 놓기 전에는 저장하지 않는다. */
   const [preview, setPreview] = useState<{ itemId: string; placement: GridPlacement; ok: boolean } | null>(null);
@@ -135,6 +162,9 @@ export function AssemblyGrid<T extends GridItem>({
       /* 끌고 있는 중이면 그것은 미리보기 자리에 그린다 — 원래 자리에는 빈칸이 남는다. */
       const pv = item && preview?.itemId === item.id ? preview : null;
       const at = pv ? pv.placement : { col, row, colSpan: item?.colSpan ?? 1, rowSpan: item?.rowSpan ?? 1 };
+      /* 좁고 세로로 긴 칸이면 글씨를 눕힌다 — 섀시 카드가 실물에서 그렇게 읽힌다. */
+      const cellW = at.colSpan * colWidth;
+      const vertical = colWidth > 0 && cellW < LABEL_MIN_W && at.rowSpan * GRID_ROW_H > cellW;
 
       cells.push(
         <li
@@ -175,9 +205,15 @@ export function AssemblyGrid<T extends GridItem>({
                 랙 정면도의 어법대로 「몇 단」은 눈금이, 「무엇인가」는 칸이 말한다. */}
             {item ? (
               /* 한 칸짜리에는 이름만 — 두 줄을 욱여넣으면 둘 다 못 읽는다. 전체 이름은 툴팁에 있다. */
-              <span className="flex min-w-0 max-w-full flex-col items-center leading-tight">
-                <span className="min-w-0 max-w-full truncate">{item.name}</span>
-                {at.rowSpan > 1 && trailing?.(item)}
+              <span
+                className={cn(
+                  'flex min-h-0 min-w-0 max-h-full max-w-full items-center leading-tight',
+                  vertical ? 'flex-row' : 'flex-col',
+                )}
+                style={vertical ? { writingMode: 'vertical-rl' } : undefined}
+              >
+                <span className="min-h-0 min-w-0 max-h-full max-w-full truncate">{item.name}</span>
+                {at.rowSpan > 1 && !vertical && trailing?.(item)}
               </span>
             ) : (
               <span className="text-base leading-none text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -224,15 +260,22 @@ export function AssemblyGrid<T extends GridItem>({
           <li key={r} className="flex items-center justify-end pr-0.5 leading-none">{r + 1}</li>
         ))}
       </ol>
-      {/* 칸은 균일해야 한다 — 포인터 좌표에서 칸을 셈하려면 그렇다. 열은 상자를 꽉 채우고
-          행 높이만 못 박는다(랙 1U 처럼 가로로 넓고 세로로 낮다). */}
-      <ul
-        ref={boxRef}
-        className="grid min-w-0 flex-1 gap-0.5"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, ...rowRule }}
-      >
-        {cells}
-      </ul>
+      {/* 칸은 균일해야 한다 — 포인터 좌표에서 칸을 셈하려면 그렇다. 열은 상자를 꽉 채우되
+          최소 폭 아래로는 줄지 않고 가로로 넘긴다(랙 정면도는 스크롤해서 보는 그림이다).
+          포인터 셈은 화면 좌표 기준이라 가로로 밀려 있어도 그대로 맞는다. */}
+      <div className="min-w-0 flex-1 overflow-x-auto">
+        <ul
+          ref={boxRef}
+          className="grid gap-0.5"
+          style={{
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            minWidth: cols * GRID_COL_MIN,
+            ...rowRule,
+          }}
+        >
+          {cells}
+        </ul>
+      </div>
     </div>
   );
 }

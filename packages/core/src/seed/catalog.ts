@@ -332,14 +332,35 @@ export const SEED_ASSEMBLIES: {
   },
   {
     /* 「1식」 — 랙 한 대에 들어가는 표준 구성. 랙 자체는 자산이 아니라 이 형판의 겉모습이다.
-       19인치 랙 정면을 4칸으로 나눈 격자다: 전폭 모듈은 4칸을 걸치고, 반폭 모듈 둘은
-       나란히 놓이며, 세로로 긴 모듈은 아래로 걸친다 — 그게 실제 판의 모습이다. */
+     *
+     * 격자는 **1행 = 1U, 1열 = 섀시 카드 슬롯 하나**다. 한 판에 두 가지 모양이 섞이기 때문에
+     * 이만큼 잘게 나눈다:
+     *   - 전원경보분배반·L3 스위치는 랙을 가로지르는 **1U 슬라이스**(colSpan 10)
+     *   - 섀시에 꽂히는 카드는 **좁고 세로로 긴 것**(colSpan 1, rowSpan 여러 단)
+     * 4열짜리 성긴 격자로는 카드가 표현되지 않고, 반대로 카드에 맞춰 열을 나누면 1U 장비는
+     * 열을 다 걸치면 된다 — 잘게 나눈 쪽이 둘 다 담는다.
+     *
+     * 같은 섀시 안에서도 카드 높이가 다르다: 제어 카드는 전고(全高)로 서고, 접속 카드는
+     * 반고라 위아래 두 단으로 겹친다. 빈 슬롯(BLANK 공판넬)은 자산이 아니므로 비워 둔다.
+     */
     key: 'OPT-SET', name: '송변전광단말장치', categoryKey: '통신', sortOrder: 63,
-    grid: { cols: 4, rows: 12 },
+    grid: { cols: 10, rows: 20 },
     items: [
-      { typeKey: 'OPT-TERM', name: '광단말', col: 0, row: 0, colSpan: 4, rowSpan: 1 },
-      { typeKey: 'OPT-COT', name: '통합단말', col: 0, row: 1, colSpan: 2, rowSpan: 1 },
-      { typeKey: 'NET-SW', name: '네트워크스위치', col: 2, row: 1, colSpan: 2, rowSpan: 1 },
+      { typeKey: 'PWR-DC', name: '전원경보분배반(DC)', col: 0, row: 0, colSpan: 10, rowSpan: 2 },
+      { typeKey: 'PWR-AC', name: '전원경보분배반(AC)', col: 0, row: 2, colSpan: 10, rowSpan: 2 },
+      // 섀시 — 전고 제어 카드 둘과 통합단말 하나가 왼쪽에 선다.
+      { typeKey: 'OPT-TERM', name: '광단말 A', col: 0, row: 5, colSpan: 1, rowSpan: 6 },
+      { typeKey: 'OPT-TERM', name: '광단말 B', col: 1, row: 5, colSpan: 1, rowSpan: 6 },
+      { typeKey: 'OPT-COT', name: '통합단말', col: 4, row: 5, colSpan: 1, rowSpan: 6 },
+      // 같은 섀시 오른쪽 — 반고 카드라 위아래 두 단.
+      { typeKey: 'OPT-SWITCH', name: '광스위치 상단', col: 5, row: 5, colSpan: 1, rowSpan: 3 },
+      { typeKey: 'OPT-SWITCH', name: '광스위치 하단', col: 5, row: 8, colSpan: 1, rowSpan: 3 },
+      { typeKey: 'OPT-CONV', name: '광컨버터 상단', col: 8, row: 5, colSpan: 1, rowSpan: 3 },
+      { typeKey: 'OPT-CONV', name: '광컨버터 하단', col: 8, row: 8, colSpan: 1, rowSpan: 3 },
+      // 다시 1U 슬라이스 — 랙을 가로지른다.
+      { typeKey: 'NET-SW', name: 'L3 스위치 1', col: 0, row: 12, colSpan: 10, rowSpan: 1 },
+      { typeKey: 'NET-SW', name: 'L3 스위치 2', col: 0, row: 13, colSpan: 10, rowSpan: 1 },
+      { typeKey: 'UTM', name: '방화벽', col: 0, row: 15, colSpan: 10, rowSpan: 1 },
     ],
   },
   {
