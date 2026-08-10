@@ -34,6 +34,8 @@ import { useV2Catalog } from '../hooks';
 import { Button, IconButton, Select, Tabs, useConfirm } from '../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { AddAssetModal } from './AddAssetModal';
+import { PlaceAssemblyModal } from './PlaceAssemblyModal';
+import { assemblyToAssets } from '../placeAssembly';
 import { AssetResizeHandles } from './AssetResizeHandles';
 import { PortPickerPanel } from './PortPickerPanel';
 import { RemoteEndpointModal } from './RemoteEndpointModal';
@@ -336,17 +338,31 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
     [catalog.data],
   );
   const cableGroups = useMemo(() => catalog.data?.cableGroups ?? [], [catalog.data]);
+  /* 도면에는 **부품(타입)도 형판도** 놓을 수 있다. 팔레트는 하나로 두고 id 로만 가른다 —
+     둘의 id 는 서로 다른 표에서 나오므로 섞일 일이 없다. */
+  const assemblies = useMemo(
+    () => (catalog.data?.assemblies ?? []).filter((a) => a.isActive && a.items.length > 0),
+    [catalog.data],
+  );
+  /** 지금 그린 것이 형판인가 — 모달이 열릴 때 무엇을 물을지 가른다. */
+  const drawnAssembly = useMemo(
+    () => assemblies.find((a) => a.id === (drawModal?.typeId ?? '')) ?? null,
+    [assemblies, drawModal],
+  );
 
   /* 배치할 타입 선택 — 도구바는 케이블 도구와 같은 "[도구 버튼] [대상 Select]" 형태다.
      예전에는 배치 가능 타입마다 버튼을 하나씩 깔았는데, 타입이 늘어나는 만큼 도구바가
      길어져(시드 7개에서 이미 두 줄) 캔버스를 잡아먹었다. 카탈로그는 사용자가 계속
      늘리는 것이므로 개수에 비례해 커지는 UI 를 쓰면 안 된다. */
   const [placeTypeId, setPlaceTypeId] = useState('');
+  /* 고른 것이 목록에서 사라졌을 때만 되돌린다 — **형판도 후보**이므로 부품 목록만 보고
+     판단하면 형판을 고르는 순간 첫 부품으로 덮어써진다(실제로 그랬다). */
   useEffect(() => {
-    if (placeableTypes.length > 0 && !placeableTypes.some((t) => t.id === placeTypeId)) {
-      setPlaceTypeId(placeableTypes[0]!.id);
+    const candidates = [...placeableTypes.map((t) => t.id), ...assemblies.map((a) => a.id)];
+    if (candidates.length > 0 && !candidates.includes(placeTypeId)) {
+      setPlaceTypeId(candidates[0]!);
     }
-  }, [placeableTypes, placeTypeId]);
+  }, [placeableTypes, assemblies, placeTypeId]);
 
   // cableGroups 초기화 시 첫 category 선택
   useEffect(() => {
@@ -1195,11 +1211,22 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
                     if (armedTypeId !== null && id !== armedTypeId) placementDispatch({ type: 'ARM', typeId: id });
                   }}
                 >
-                  {placeableTypes.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
+                  {assemblies.length > 0 && (
+                    <optgroup label="설비 형판">
+                      {assemblies.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label="부품">
+                    {placeableTypes.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </optgroup>
                 </Select>
               </div>
               {armedTypeId !== null && (
@@ -1419,7 +1446,26 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       </div>
 
       {/* 평면도 배치 모달 */}
-      {drawModal && (
+      {/* 형판을 놓는 중 — 물어볼 것은 현장 이름 하나뿐이다(무엇이 들어가는지는 형판이 안다). */}
+      {drawModal && drawnAssembly && (
+        <PlaceAssemblyModal
+          assembly={drawnAssembly}
+          onClose={handleModalClose}
+          onPlace={(rootName: string) => {
+            for (const asset of assemblyToAssets({
+              assembly: drawnAssembly,
+              substationId,
+              rootName,
+              floorId: drawModal.floorId,
+              rect: drawModal.rect,
+            })) {
+              useV2WorkingCopy.getState().stageAssetCreate(asset);
+            }
+            handleModalClose();
+          }}
+        />
+      )}
+      {drawModal && !drawnAssembly && (
         <AddAssetModal
           open={true}
           onClose={handleModalClose}

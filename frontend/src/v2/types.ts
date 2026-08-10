@@ -75,6 +75,9 @@ export interface V2Asset {
   parentAssetId: string | null; containerKey: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
   /** 형판에서 나왔으면 그때의 형판 이름(스냅샷) — 뿌리에만 적힌다. */
   assemblyName?: string | null;
+  /** 만들 때만 쓰는 포트 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
+  portCounts?: Record<string, number>;
+  portPositions?: Record<string, number>;
   fieldValues: Record<string, unknown>; updatedAt: string; ports: V2Port[];
 }
 export interface V2MaintenanceLog { id: string; assetId: string; occurredAt: string; content: string; action: string | null; updatedAt: string }
