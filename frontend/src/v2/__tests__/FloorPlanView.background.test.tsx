@@ -12,7 +12,7 @@ import type { BackgroundDrawing } from '@twin/core';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { useV2AuthStore } from '../store/authStore';
 import { emptyOverlay } from '../store/overlay';
-import { FloorPlanView } from '../components/FloorPlanView';
+import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import type { V2Floor } from '../types';
 
 // 카탈로그는 비어 있어도 층 탭바는 렌더된다 — 배치 팔레트/케이블 도구는 이 테스트의 관심사가 아니다.

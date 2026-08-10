@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { emptyOverlay } from '../store/overlay';
-import { FiberRegisterView } from '../components/FiberRegisterView';
+import { FiberRegisterView } from '../components/registers/FiberRegisterView';
 import type { V2Asset, V2AssetType, V2Cable } from '../types';
 
 const mockTypes: V2AssetType[] = [

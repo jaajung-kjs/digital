@@ -1,5 +1,5 @@
-import { cn } from '../../components/ui';
-import type { V2Port } from '../types';
+import { cn } from '../../../components/ui';
+import type { V2Port } from '../../types';
 import { PortGlyph, PORT_GLYPH_ASPECT } from './PortGlyph';
 
 /**

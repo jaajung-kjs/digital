@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Check, Plus, X } from 'lucide-react';
-import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState } from '../../components/ui';
-import { useV2WorkingCopy } from '../store/workingCopyStore';
-import { mergeEffective } from '../store/overlay';
-import type { V2MaintenanceLog, V2InspectionLog } from '../types';
+import { Button, DetailCard, DetailCardHeader, DetailRow, IconButton, Input, useConfirm, EmptyState } from '../../../components/ui';
+import { useV2WorkingCopy } from '../../store/workingCopyStore';
+import { mergeEffective } from '../../store/overlay';
+import type { V2MaintenanceLog, V2InspectionLog } from '../../types';
 
 // ── ISO 변환 헬퍼 ─────────────────────────────────────────────────────────────
 /** datetime-local 입력값(yyyy-MM-ddTHH:mm) → 로컬 시간 기준 ISO 8601 문자열 */

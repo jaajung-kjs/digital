@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Button, DetailRow, Input, Modal } from '../../components/ui';
-import type { V2Assembly } from '../types';
+import { Button, DetailRow, Input, Modal } from '../../../components/ui';
+import type { V2Assembly } from '../../types';
 
 /**
  * 설비 종류를 도면에 놓을 때 — **물어볼 것은 현장 이름 하나뿐**이다.

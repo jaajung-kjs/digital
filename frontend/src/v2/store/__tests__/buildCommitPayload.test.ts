@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { V2Asset, V2AssetPhoto, V2Cable, V2MaintenanceLog } from '../../types';
 import { emptyOverlay, type Overlay } from '../overlay';
 import { buildCommitPayload } from '../buildCommitPayload';
-import { isoToLocalInput } from '../../components/RecordsTab';
+import { isoToLocalInput } from '../../components/detail/RecordsTab';
 
 const baseAsset: V2Asset = {
   id: 'a-1', name: '자산', typeId: 't-1', substationId: 's-1', status: 'normal',

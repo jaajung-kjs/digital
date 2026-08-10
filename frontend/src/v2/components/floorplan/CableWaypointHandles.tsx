@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import { SNAP_GRID } from '../canvas/constants';
-import { snapToGrid } from '../canvas/transform';
-import type { Point } from '../canvas/cablePath';
+import { SNAP_GRID } from '../../canvas/constants';
+import { snapToGrid } from '../../canvas/transform';
+import type { Point } from '../../canvas/cablePath';
 
 const HANDLE_SIZE = 9; // px (스크린) — 자산 리사이즈 핸들과 같은 크기
 const HALF = HANDLE_SIZE / 2;

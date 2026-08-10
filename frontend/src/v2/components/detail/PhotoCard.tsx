@@ -10,13 +10,13 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import { DetailCardHeader, Button, DetailCard, IconButton, Modal } from '../../components/ui';
-import { apiErrorMessage } from '../apiError';
-import { photoUrl, uploadPhoto } from '../api';
-import { mergeEffective } from '../store/overlay';
-import { useV2WorkingCopy } from '../store/workingCopyStore';
-import type { V2AssetPhoto } from '../types';
-import { InlineEditCell } from './InlineEditCell';
+import { DetailCardHeader, Button, DetailCard, IconButton, Modal } from '../../../components/ui';
+import { apiErrorMessage } from '../../apiError';
+import { photoUrl, uploadPhoto } from '../../api';
+import { mergeEffective } from '../../store/overlay';
+import { useV2WorkingCopy } from '../../store/workingCopyStore';
+import type { V2AssetPhoto } from '../../types';
+import { InlineEditCell } from '../InlineEditCell';
 
 interface PhotoCardProps {
   assetId: string;

@@ -7,10 +7,10 @@
  *  캔버스 상태를 공유해 떼어낼 수 없다. 이건 공유하지 않으므로 떼어낸다.)
  */
 import { useRef, useState } from 'react';
-import { Button } from '../../components/ui';
-import { deleteBackground, uploadBackground } from '../api';
-import { apiErrorMessage } from '../apiError';
-import { useV2WorkingCopy } from '../store/workingCopyStore';
+import { Button } from '../../../components/ui';
+import { deleteBackground, uploadBackground } from '../../api';
+import { apiErrorMessage } from '../../apiError';
+import { useV2WorkingCopy } from '../../store/workingCopyStore';
 
 interface BackgroundImportControlsProps {
   /** 대상 층. null 이면 버튼이 비활성된다. */

@@ -9,10 +9,10 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { portHasRoom } from '@twin/core';
-import { Button, Modal } from '../../components/ui';
-import { searchAssets, fetchAssetPorts } from '../api';
-import type { AssetSearchResult } from '../api';
-import type { V2Port } from '../types';
+import { Button, Modal } from '../../../components/ui';
+import { searchAssets, fetchAssetPorts } from '../../api';
+import type { AssetSearchResult } from '../../api';
+import type { V2Port } from '../../types';
 
 interface Props {
   open: boolean;

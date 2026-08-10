@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useV2Catalog, useTypesById } from '../hooks';
-import { mergeEffective } from '../store/overlay';
-import { useV2WorkingCopy } from '../store/workingCopyStore';
-import type { V2Asset } from '../types';
-import { withDescendants } from '../cableSelectors';
-import { AddAssetModal } from './AddAssetModal';
+import { useV2Catalog, useTypesById } from '../../hooks';
+import { mergeEffective } from '../../store/overlay';
+import { useV2WorkingCopy } from '../../store/workingCopyStore';
+import type { V2Asset } from '../../types';
+import { withDescendants } from '../../cableSelectors';
+import { AddAssetModal } from '../AddAssetModal';
 import { InfoTab, type AddModalContext } from './InfoTab';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
-import type { TraceResult } from '../traceSelectors';
-import { Button, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../components/ui';
+import type { TraceResult } from '../../traceSelectors';
+import { Button, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
 type Tab = 'info' | 'inspections' | 'logs' | 'connections';

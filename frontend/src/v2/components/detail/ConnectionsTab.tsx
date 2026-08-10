@@ -7,16 +7,16 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Toggle, cn, SELECTABLE } from '../../components/ui';
-import { mergeEffective } from '../store/overlay';
-import { buildPortIndex, endpointRef, resolvePeer } from '../peerResolve';
-import { withDescendants } from '../cableSelectors';
-import { useV2WorkingCopy } from '../store/workingCopyStore';
+import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Toggle, cn, SELECTABLE } from '../../../components/ui';
+import { mergeEffective } from '../../store/overlay';
+import { buildPortIndex, endpointRef, resolvePeer } from '../../peerResolve';
+import { withDescendants } from '../../cableSelectors';
+import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { internalLinkMap, portDirectionLabel, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
-import { buildTraceInputs, traceHighlight } from '../traceSelectors';
-import { useV2Catalog, useMediumLabel, useMediumColor } from '../hooks';
-import type { TraceResult } from '../traceSelectors';
-import type { V2Asset, V2Cable, V2Port } from '../types';
+import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
+import { useV2Catalog, useMediumLabel, useMediumColor } from '../../hooks';
+import type { TraceResult } from '../../traceSelectors';
+import type { V2Asset, V2Cable, V2Port } from '../../types';
 import { PortFaceplate, PORT_STATE_LABEL, type PortState } from './PortFaceplate';
 import { PORT_KINDS, portGroupLabel } from '@twin/core';
 
@@ -224,7 +224,7 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
   }, [selectedPort, cablesByPortId, portIndex, asset]);
 
   // hop → 표시용 텍스트 (portIndex 단일 조회 — portById/assetByPortId 수제 맵 제거)
-  function hopText(hop: import('../traceSelectors').TraceResult['hops'][number]): string {
+  function hopText(hop: import('../../traceSelectors').TraceResult['hops'][number]): string {
     if (hop.kind === 'internal') {
       return '↔ 내부';
     }

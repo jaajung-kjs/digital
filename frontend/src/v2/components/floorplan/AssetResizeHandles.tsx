@@ -6,9 +6,9 @@
  * 드래그 → 로컬 프리뷰 → mouseup 에 onResizeEnd 호출 (변화 없으면 onResizeCancel)
  */
 import { useRef } from 'react';
-import { HANDLES, applyResize } from '../canvas/resize';
-import type { HandleKey } from '../canvas/resize';
-import { SNAP_GRID } from '../canvas/constants';
+import { HANDLES, applyResize } from '../../canvas/resize';
+import type { HandleKey } from '../../canvas/resize';
+import { SNAP_GRID } from '../../canvas/constants';
 
 const HANDLE_SIZE = 9; // px (스크린)
 const HALF = HANDLE_SIZE / 2;

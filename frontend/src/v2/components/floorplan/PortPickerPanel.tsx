@@ -8,11 +8,11 @@ import {
   IconButton,
   Input,
   PanelHeader,
-} from '../../components/ui';
+} from '../../../components/ui';
 import { portGroupLabel } from '@twin/core';
-import { useMediumColor } from '../hooks';
-import { PortFaceplate } from './PortFaceplate';
-import type { V2Asset, V2Port } from '../types';
+import { useMediumColor } from '../../hooks';
+import { PortFaceplate } from '../detail/PortFaceplate';
+import type { V2Asset, V2Port } from '../../types';
 
 export interface PickerPortGroup {
   asset: V2Asset;

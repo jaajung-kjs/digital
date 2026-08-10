@@ -18,15 +18,15 @@ import {
   useConfirm,
   cn,
   SELECTABLE,
-} from '../../components/ui';
-import { freeCells } from '../newAsset';
-import { assetLocationPath } from '../assetLocation';
-import type { GridPlacement } from '../gridDrag';
-import { AssemblyGrid } from './AssemblyGrid';
-import { cableCountByPortId } from '../cableSelectors';
-import { mergeEffective } from '../store/overlay';
-import { useV2WorkingCopy } from '../store/workingCopyStore';
-import type { V2Asset, V2AssetType, V2Assembly } from '../types';
+} from '../../../components/ui';
+import { freeCells } from '../../newAsset';
+import { assetLocationPath } from '../../assetLocation';
+import type { GridPlacement } from '../../gridDrag';
+import { AssemblyGrid } from '../AssemblyGrid';
+import { cableCountByPortId } from '../../cableSelectors';
+import { mergeEffective } from '../../store/overlay';
+import { useV2WorkingCopy } from '../../store/workingCopyStore';
+import type { V2Asset, V2AssetType, V2Assembly } from '../../types';
 import { PhotoCard } from './PhotoCard';
 
 export interface AddModalContext {

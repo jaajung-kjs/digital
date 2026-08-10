@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { emptyOverlay } from '../store/overlay';
-import { PhotoCard } from '../components/PhotoCard';
+import { PhotoCard } from '../components/detail/PhotoCard';
 import type { V2Asset, V2AssetPhoto } from '../types';
 
 vi.mock('../api', async (importOriginal) => {

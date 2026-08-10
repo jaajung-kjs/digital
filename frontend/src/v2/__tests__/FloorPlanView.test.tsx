@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { emptyOverlay } from '../store/overlay';
-import { FloorPlanView } from '../components/FloorPlanView';
+import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import type { V2Asset, V2AssetType, V2Cable, V2Floor } from '../types';
 
 /* useV2Catalog 만 목킹 — 도면에 놓이는 것은 **설비 종류**뿐이다(자산 종류에는 배치 개념이

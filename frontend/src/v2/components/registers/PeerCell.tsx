@@ -4,8 +4,8 @@
  * FiberRegisterView / PowerRegisterView 양쪽에서 완전 동일한 PeerCell이
  * 복제되어 있었으므로 공용 추출.
  */
-import { Badge } from '../../components/ui';
-import type { PeerInfo } from '../peerResolve';
+import { Badge } from '../../../components/ui';
+import type { PeerInfo } from '../../peerResolve';
 
 interface PeerCellProps {
   peer: PeerInfo | null;
