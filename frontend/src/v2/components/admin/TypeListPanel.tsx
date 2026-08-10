@@ -54,7 +54,7 @@ export function TypeListPanel({
     <div className="flex h-full flex-col">
       <PanelHeader
         variant="sidebar"
-        title="자산 타입"
+        title="자산 종류"
         actions={
           <IconButton aria-label="분류 추가" onClick={onAddCategory}>
             <Plus size={14} />
@@ -152,7 +152,7 @@ export function TypeListPanel({
                   </button>
                 ))}
 
-                {types.length === 0 && <div className="px-3 py-1.5 text-xs text-content-faint">타입 없음</div>}
+                {types.length === 0 && <div className="px-3 py-1.5 text-xs text-content-faint">없음</div>}
               </div>
             );
           })}

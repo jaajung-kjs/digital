@@ -1,9 +1,11 @@
 /**
- * TypeBasicsForm — TDD
+ * TypeBasicsForm — 자산 종류의 기본정보·공량 입력
+ *
  * (a) 원본 값이 화면에 렌더된다
  * (b) 이름 변경 시 onChange({name}) 1회 호출
  * (c) draftIssues 결과의 해당 path 이슈가 필드 하단 text-xs text-danger 로 표시
- * (d) 기존 타입은 key input 이 disabled
+ * (d) **키도 배치 여부도 묻지 않는다** — 키는 서버가 붙이는 참조용 식별자이고, 도면에
+ *     놓이는 것은 설비 종류뿐이라 자산 종류에는 배치라는 개념이 없다.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -24,23 +26,17 @@ const mkCatalog = (): V2Catalog => ({
 
 const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   id: 'type-1',
-  key: 'RACK',
-  name: '랙',
+  key: 'OPT-TERM',
+  name: '광단말',
   categoryId: 'cat-comm',
   sortOrder: 1,
   isActive: true,
   assetCount: 0,
-  placeable: true,
-  defaultWidth: 60,
-  defaultHeight: 80,
   laborType: '통신내선공',
   installHours: 2,
   removeHours: 1,
   relocateHours: 3,
-  fieldDefs: [],
-  containerSpecs: [],
   portTemplates: [],
-  linkRules: [],
   ...overrides,
 });
 
@@ -56,7 +52,6 @@ describe('TypeBasicsForm', () => {
     render(
       <TypeBasicsForm
         draft={draft}
-        original={type}
         catalog={catalog}
         onChange={onChange}
         issues={[]}
@@ -66,11 +61,7 @@ describe('TypeBasicsForm', () => {
 
     // 이름 input에 원본 값
     const nameInput = screen.getByRole('textbox', { name: /이름/i });
-    expect((nameInput as HTMLInputElement).value).toBe('랙');
-
-    // key input에 원본 값
-    const keyInput = screen.getByRole('textbox', { name: /키/i });
-    expect((keyInput as HTMLInputElement).value).toBe('RACK');
+    expect((nameInput as HTMLInputElement).value).toBe('광단말');
   });
 
   it('(b) 이름 변경 시 onChange({ name }) 를 1회 호출한다', () => {
@@ -81,7 +72,6 @@ describe('TypeBasicsForm', () => {
     render(
       <TypeBasicsForm
         draft={draft}
-        original={type}
         catalog={catalog}
         onChange={onChange}
         issues={[]}
@@ -90,10 +80,10 @@ describe('TypeBasicsForm', () => {
     );
 
     const nameInput = screen.getByRole('textbox', { name: /이름/i });
-    fireEvent.change(nameInput, { target: { value: '새 랙' } });
+    fireEvent.change(nameInput, { target: { value: '광단말 B' } });
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenCalledWith({ name: '새 랙' });
+    expect(onChange).toHaveBeenCalledWith({ name: '광단말 B' });
   });
 
   it('(c) path=name 이슈가 이름 필드 하단에 text-xs text-danger 로 표시된다', () => {
@@ -105,7 +95,6 @@ describe('TypeBasicsForm', () => {
     render(
       <TypeBasicsForm
         draft={draft}
-        original={type}
         catalog={catalog}
         onChange={onChange}
         issues={issues}
@@ -118,62 +107,24 @@ describe('TypeBasicsForm', () => {
     expect(errorEl.className).toContain('text-danger');
   });
 
-  it('(d) 기존 타입(original != null)이면 key input이 disabled다', () => {
+  /* 키는 시드·마이그레이션이 종류를 가리키는 참조용 식별자다. 필수 입력으로 두면 새 종류를
+     만들 때마다 아무도 읽지 않을 영문 키를 지어내야 했다 — 서버가 붙인다. */
+  it('(d) 키는 묻지 않는다', () => {
     const type = mkType();
-    const draft: TypeDraft = typeToDraft(type);
-    const onChange = vi.fn();
-
     render(
-      <TypeBasicsForm
-        draft={draft}
-        original={type}
-        catalog={catalog}
-        onChange={onChange}
-        issues={[]}
-        locked={false}
-      />,
+      <TypeBasicsForm draft={typeToDraft(type)} catalog={catalog} onChange={vi.fn()} issues={[]} locked={false} />,
     );
-
-    const keyInput = screen.getByRole('textbox', { name: /키/i });
-    expect((keyInput as HTMLInputElement).disabled).toBe(true);
+    expect(screen.queryByRole('textbox', { name: /키/i })).toBeNull();
   });
 
-  it('(e) 신규 타입(original == null)이면 key input이 편집 가능하다', () => {
-    const draft: TypeDraft = {
-      key: '',
-      name: '',
-      categoryId: 'cat-comm',
-      sortOrder: 0,
-      isActive: true,
-      placeable: false,
-      defaultWidth: null,
-      defaultHeight: null,
-      laborType: null,
-      installHours: 0,
-      removeHours: 0,
-      relocateHours: 0,
-      fieldDefs: [],
-      containers: [],
-      ports: [],
-      links: [],
-    };
-    const onChange = vi.fn();
-
+  /* 도면에 놓이는 것은 설비 종류뿐이다 — 자산 종류에는 배치라는 개념이 없다.
+     (기본 W/H 는 저장·편집만 되고 읽는 곳이 한 군데도 없는 죽은 값이기도 했다.) */
+  it('(e) 배치 여부도 기본 크기도 묻지 않는다', () => {
+    const type = mkType();
     render(
-      <TypeBasicsForm
-        draft={draft}
-        original={null}
-        catalog={catalog}
-        onChange={onChange}
-        issues={[]}
-        locked={false}
-      />,
+      <TypeBasicsForm draft={typeToDraft(type)} catalog={catalog} onChange={vi.fn()} issues={[]} locked={false} />,
     );
-
-    const keyInput = screen.getByRole('textbox', { name: /키/i });
-    expect((keyInput as HTMLInputElement).disabled).toBe(false);
-
-    fireEvent.change(keyInput, { target: { value: 'NEW_TYPE' } });
-    expect(onChange).toHaveBeenCalledWith({ key: 'NEW_TYPE' });
+    expect(screen.queryByText(/평면도에 배치/)).toBeNull();
+    expect(screen.queryByRole('spinbutton', { name: /기본 [WH]/ })).toBeNull();
   });
 });

@@ -3,20 +3,18 @@
  *
  * Props:
  *   draft    — TypeDraft (V2CatalogAdminPage 가 owns, spread-patch 로만 수정)
- *   original — V2AssetType | null (null = 신규)
  *   catalog  — V2Catalog (분류 목록 등)
  *   onChange — (patch: Partial<TypeDraft>) => void
  *   issues   — TypeSpecIssue[] (draftIssues 결과)
  */
 import type { TypeSpecIssue } from '@twin/core';
 import { DetailCard, DetailCardHeader, DetailRow, Input, Select } from '../../../components/ui';
-import type { V2AssetType, V2Catalog } from '../../types';
+import type { V2Catalog } from '../../types';
 import type { TypeDraft } from '../../catalogDraft';
 import { issueFor } from './adminUtils';
 
 interface TypeBasicsFormProps {
   draft: TypeDraft;
-  original: V2AssetType | null;
   catalog: V2Catalog;
   onChange: (patch: Partial<TypeDraft>) => void;
   issues: TypeSpecIssue[];
@@ -28,8 +26,7 @@ function FieldError({ message }: { message: string | null }) {
   return <span className="text-xs text-danger">{message}</span>;
 }
 
-export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: TypeBasicsFormProps) {
-  const isNew = original === null;
+export function TypeBasicsForm({ draft, catalog, onChange, issues }: TypeBasicsFormProps) {
 
   return (
     <div className="flex flex-col gap-3">
@@ -37,22 +34,9 @@ export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: T
       <DetailCard>
         <DetailCardHeader title="기본정보" />
 
-        {/* 키 (신규만 편집) */}
-        <DetailRow label="키">
-          <div className="flex flex-col gap-0.5">
-            <Input
-              aria-label="키"
-              value={draft.key}
-              disabled={!isNew}
-              onChange={(e) => {
-                const val = e.currentTarget.value;
-                onChange({ key: val });
-              }}
-              placeholder="예: RACK"
-            />
-            <FieldError message={issueFor(issues, 'key')} />
-          </div>
-        </DetailRow>
+        {/* 키는 묻지 않는다 — 시드·마이그레이션이 종류를 가리키는 참조용 식별자이지 현장에서
+            부르는 이름이 아니다. 필수 입력으로 두면 새 종류를 만들 때마다 아무도 읽지 않을
+            영문 키를 지어내야 했다. 새로 만들 때는 서버가 붙인다. */}
 
         {/* 이름 */}
         <DetailRow label="이름">
@@ -64,7 +48,7 @@ export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: T
                 const val = e.currentTarget.value;
                 onChange({ name: val });
               }}
-              placeholder="예: 랙"
+              placeholder="예: 광단말"
             />
             <FieldError message={issueFor(issues, 'name')} />
           </div>
@@ -91,55 +75,9 @@ export function TypeBasicsForm({ draft, original, catalog, onChange, issues }: T
           </div>
         </DetailRow>
 
-        {/* 평면 배치 — 카드를 따로 두지 않는다. 체크 하나와 그에 딸린 크기 둘뿐이라
-            "배치" 라는 제목을 세워 놓으면 기본정보가 두 장으로 갈릴 뿐이다. */}
-        <DetailRow label="평면 배치">
-          <label className="flex items-center gap-2 text-sm text-content">
-            <input
-              type="checkbox"
-              checked={draft.placeable}
-              onChange={(e) => {
-                const val = e.currentTarget.checked;
-                onChange({ placeable: val });
-              }}
-            />
-            평면도에 배치 가능
-          </label>
-        </DetailRow>
-
-        {draft.placeable && (
-          <>
-            <DetailRow label="기본 W">
-              <Input
-                aria-label="기본 W"
-                type="number"
-                value={draft.defaultWidth ?? ''}
-                onChange={(e) => {
-                  const raw = e.currentTarget.value;
-                  onChange({ defaultWidth: raw === '' ? null : parseInt(raw, 10) });
-                }}
-                placeholder="px"
-              />
-            </DetailRow>
-
-            <DetailRow label="기본 H">
-              <Input
-                aria-label="기본 H"
-                type="number"
-                value={draft.defaultHeight ?? ''}
-                onChange={(e) => {
-                  const raw = e.currentTarget.value;
-                  onChange({ defaultHeight: raw === '' ? null : parseInt(raw, 10) });
-                }}
-                placeholder="px"
-              />
-            </DetailRow>
-          </>
-        )}
-
-        {/* 단종 — 타입은 자산이 하나라도 있으면 지울 수 없다. 그래서 "이제 새로 만들지
-            않는다" 를 표시할 방법이 따로 필요하다. 체크하면 평면도 배치 도구와 자산 추가
-            목록에서 빠지고, 이미 있는 자산은 그대로 남는다.
+        {/* 단종 — 종류는 자산이 하나라도 있으면 지울 수 없다. 그래서 "이제 새로 만들지
+            않는다" 를 표시할 방법이 따로 필요하다. 체크하면 설비 종류를 짤 때의 목록에서
+            빠지고, 이미 있는 자산은 그대로 남는다.
             ("활성" 이라는 이름으로는 무엇이 달라지는지 알 수 없어 바꿨다.) */}
         <DetailRow label="단종">
           <label className="flex items-center gap-2 text-sm text-content">

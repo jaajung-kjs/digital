@@ -8,7 +8,7 @@ const mkType = (id: string, key: string, categoryId: string): V2AssetType => ({
   portTemplates: [],
 });
 
-/* 무엇을 담을 수 있는가는 이제 판정할 것이 없다 — 형판을 짜는 사람이 정한다.
+/* 무엇을 담을 수 있는가는 이제 판정할 것이 없다 — 설비 종류를 짜는 사람이 정한다.
    자리가 타입을 걸러내던 수용 규칙(accepts)은 개념째 걷었다. */
 describe('freeCells', () => {
   it('점유(span 포함) 제외한 빈 자리', () => {

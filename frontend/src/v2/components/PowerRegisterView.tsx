@@ -113,14 +113,14 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => powerContainers(effectiveAssets), [effectiveAssets]);
 
-  /* 설비의 격자를 아는 것은 그 형판이다 — 회로 번호와 빈 자리가 여기서 나온다. */
+  /* 설비의 격자를 아는 것은 그 설비 종류가다 — 회로 번호와 빈 자리가 여기서 나온다. */
   const catalog = useV2Catalog();
   const assembliesById = useMemo(
     () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
     [catalog.data],
   );
 
-  /* 어느 설비를 보고 있나 + 그 형판이 선언한 회로 수.
+  /* 어느 설비를 보고 있나 + 그 설비 종류가 선언한 회로 수.
      회로 수가 선언돼 있으면 빈 자리까지 표(패널 스케줄)에 나오고, 자유형이면 있는 것만 나온다.
      "몇 회로짜리인가" 는 타입이 아니라 명세가 말한다 — 코드는 분전반을 모르지 않는다. */
   /* 케이블에 적는 값 — 몇 칸인지는 종류 선언이 정한다(예전에는 전압 하나로 박혀 있었다). */

@@ -3,7 +3,6 @@ import type { AssetTypeSpec, Direction, TypeUpsertBody } from './types.js';
 export interface CatalogTypeRow {
   key: string; name: string; sortOrder: number;
   category: { key: string };
-  placeable: boolean; defaultWidth: number | null; defaultHeight: number | null;
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
   portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; sortOrder: number }[];
 }
@@ -15,11 +14,6 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
     name: row.name,
     categoryKey: row.category.key,
     sortOrder: row.sortOrder,
-    placement: {
-      placeable: row.placeable,
-      ...(row.defaultWidth !== null ? { defaultWidth: row.defaultWidth } : {}),
-      ...(row.defaultHeight !== null ? { defaultHeight: row.defaultHeight } : {}),
-    },
     labor: { laborType: row.laborType, installHours: row.installHours, removeHours: row.removeHours, relocateHours: row.relocateHours },
     ports: [...row.portTemplates]
       .sort((x, y) => x.sortOrder - y.sortOrder)
@@ -33,15 +27,10 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
  */
 export function specFromUpsert(body: TypeUpsertBody, categoryKey: string): AssetTypeSpec {
   return {
-    key: body.key,
+    key: body.key ?? '',
     name: body.name,
     categoryKey,
     sortOrder: body.sortOrder,
-    placement: {
-      placeable: body.placeable,
-      ...(body.defaultWidth !== null ? { defaultWidth: body.defaultWidth } : {}),
-      ...(body.defaultHeight !== null ? { defaultHeight: body.defaultHeight } : {}),
-    },
     labor: {
       laborType: body.laborType,
       installHours: body.installHours,

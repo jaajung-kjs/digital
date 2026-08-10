@@ -31,7 +31,7 @@ import { PhotoCard } from './PhotoCard';
 
 export interface AddModalContext {
   parentAssetId: string;
-  /** 그 설비의 격자 — 형판이 정한 자리다. */
+  /** 그 설비의 격자 — 설비 종류가 정한 자리다. */
   grid: { cols: number; rows: number };
   siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
   /** 빈 자리를 눌러 열었으면 그 칸 — 모달에서 다시 고르게 하지 않는다. */
@@ -97,7 +97,7 @@ export function InfoTab({
   const assetById = useMemo(() => new Map(effectiveAssets.map((a) => [a.id, a])), [effectiveAssets]);
   const location = assetLocationPath(asset, assetById, floorNameById, assembliesById);
 
-  /* 이 설비의 자리 — 형판이 격자를 갖는다. 형판으로 놓은 것만 안에 무언가를 담는다. */
+  /* 이 설비의 자리 — 설비 종류가 격자를 갖는다. 설비 종류으로 놓은 것만 안에 무언가를 담는다. */
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
   const grid = assembly ? { cols: assembly.gridCols, rows: assembly.gridRows } : null;
 
@@ -181,7 +181,7 @@ export function InfoTab({
     <>
       {/* 기본 정보 카드 */}
       <DetailCard>
-        {/* 종류 — 부품은 타입이, 형판으로 놓은 설비는 **형판**이 그 분류다. */}
+        {/* 종류 — 부품은 타입이, 설비 종류으로 놓은 설비는 **설비 종류**이 그 분류다. */}
         <DetailCardHeader title={type?.name ?? assembly?.name ?? '—'} onDelete={handleDelete} />
 
         {/* 이름 */}
@@ -254,7 +254,7 @@ export function InfoTab({
       </DetailCard>
 
       {/* 속성 — 자산이 갖는 것은 종류를 가리지 않고 같다(설치일·담당자). 타입이 있든(부품)
-          없든(형판으로 놓은 설비) 자산은 자산이다. 예전에는 `type` 이 있을 때만 그려서 설비에는
+          없든(설비 종류으로 놓은 설비) 자산은 자산이다. 예전에는 `type` 이 있을 때만 그려서 설비에는
           설치일·담당자를 적을 길이 아예 없었다 — 현황표에는 그 열이 있는데도.
           타입마다 필드를 따로 선언하던 길은 걷었다: 실제로 쓰인 것은 피더의 개폐 상태뿐이었고,
           그건 자산이 아니라 회로의 상태라 전원 출력 포트로 옮겼다. */}
@@ -298,8 +298,8 @@ export function InfoTab({
           것이라 실제 포트도 아니고 연결 상태도 몰랐다. 같은 "포트" 가 두 탭에 반쪽씩
           나뉘어 있어, 어느 쪽을 봐야 하는지 알 수 없었다. */}
 
-      {/* 구성 — 형판으로 놓은 설비만 안에 부품을 담는다.
-          자리는 그 형판의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
+      {/* 구성 — 설비 종류으로 놓은 설비만 안에 부품을 담는다.
+          자리는 그 설비 종류의 격자다: 랙이라는 자산을 따로 두고 그 타입이 자리를 선언하던 층은 걷었다. */}
       {grid && assembly && (
         <DetailCard>
           {/* 「몇 칸 중 몇 칸」 — DCIM 이 랙을 12U 중 5U 사용으로 세는 것과 같다.

@@ -17,13 +17,20 @@ import { emptyOverlay } from '../store/overlay';
 import { FloorPlanView } from '../components/FloorPlanView';
 import type { V2Asset, V2AssetType, V2Cable, V2Floor } from '../types';
 
-// useV2Catalog 만 목킹 — placeable 타입 1개 + 케이블 그룹 1개(카테고리 1개) 공급
+/* useV2Catalog 만 목킹 — 도면에 놓이는 것은 **설비 종류**뿐이다(자산 종류에는 배치 개념이
+   없다). 케이블 그룹 1개(카테고리 1개)도 공급한다. */
 const mockTypes: V2AssetType[] = [
   {
     id: 't-panel', key: 'PANEL', name: '배전반', categoryId: 'c1', sortOrder: 1, isActive: true,
-    assetCount: 0, placeable: true, defaultWidth: 50, defaultHeight: 50,
-    laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
-    fieldDefs: [], containerSpecs: [], portTemplates: [], linkRules: [],
+    assetCount: 0, laborType: null, installHours: 0, removeHours: 0, relocateHours: 0,
+    portTemplates: [],
+  },
+];
+const mockAssemblies = [
+  {
+    id: 'asm-panel', key: 'PANEL-SET', name: '배전반', categoryId: 'c1',
+    gridCols: 1, gridRows: 1, sortOrder: 1, isActive: true,
+    items: [{ id: 'it1', typeId: 't-panel', name: '배전반', col: 0, row: 0, colSpan: 1, rowSpan: 1, sortOrder: 0 }],
   },
 ];
 
@@ -32,6 +39,7 @@ vi.mock('../hooks', () => ({
     data: {
       categories: [{ id: 'c1', key: 'panel', name: '배전반류', sortOrder: 1 }],
       types: mockTypes,
+      assemblies: mockAssemblies,
       cableGroups: [
         {
           id: 'g1', key: 'power', name: '전력', color: '#333333', laborType: null,
@@ -54,7 +62,7 @@ const port = (id: string, assetId: string) =>
 const asset = (id: string, x: number, y: number, extra: Partial<V2Asset> = {}): V2Asset => ({
   id, name: `자산-${id}`, typeId: 't-panel', substationId: 'sub-1', status: 'normal',
   floorId: 'f1', x, y, width: 50, height: 50,
-  parentAssetId: null, containerKey: null, col: null, row: null, colSpan: null, rowSpan: null,
+  parentAssetId: null, assemblyId: null, col: null, row: null, colSpan: null, rowSpan: null,
   fieldValues: {}, updatedAt: 'v1', ports: [port(`p-${id}`, id)], ...extra,
 });
 
@@ -162,11 +170,11 @@ describe('FloorPlanView — 배치(armed/draw) 팔레트', () => {
     fireEvent.mouseMove(window, { clientX: 60, clientY: 60 });
     fireEvent.mouseUp(window, { clientX: 60, clientY: 60 });
 
-    // AddAssetModal(role=dialog)이 열리고 팔레트에서 고른 타입이 미리 선택돼 있어야 한다
+    /* 물어볼 것은 **현장 이름 하나뿐**이다 — 무엇이 몇 개 들어가는지는 설비 종류가 이미 안다.
+       예전에는 자산 종류를 다시 고르게 했는데, 그러면 대장에서 짜 둔 뜻이 없다. */
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toBeTruthy();
-    // 도구바의 타입 Select 에도 같은 값이 있으므로 모달 안으로 범위를 좁힌다.
-    expect(within(dialog).getByDisplayValue('배전반')).toBeTruthy();
+    expect(within(dialog).getByRole('textbox', { name: '설비 이름' })).toBeTruthy();
+    expect(dialog.textContent).toContain('배전반');
   });
 
   it('드로우 mouseup 직후 합성 click 은 모달 뒤에서 선택을 바꾸지 않는다', () => {

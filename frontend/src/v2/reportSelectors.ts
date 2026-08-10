@@ -73,7 +73,7 @@ export function buildReportItems(args: {
 
   // --- assets.creates → asset-install ---
   for (const asset of Object.values(overlays.assets.creates) as V2Asset[]) {
-    // 설비(형판으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
+    // 설비(설비 종류으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
     const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
     if (!t) continue;
     items.push(assetReportItem('asset-install', asset.name, t.name, {
@@ -88,7 +88,7 @@ export function buildReportItems(args: {
   for (const id of overlays.assets.deletes) {
     const asset = savedAssetsById.get(id);
     if (!asset) continue; // temp 소거는 creates에서 처리되며 deletes에 안 남음
-    // 설비(형판으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
+    // 설비(설비 종류으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
     const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
     if (!t) continue;
     items.push(assetReportItem('asset-remove', asset.name, t.name, {
@@ -105,7 +105,7 @@ export function buildReportItems(args: {
     if (!hasBatchField) continue;
     const asset = savedAssetsById.get(id);
     if (!asset) continue;
-    // 설비(형판으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
+    // 설비(설비 종류으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
     const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
     if (!t) continue;
     items.push(assetReportItem('asset-relocate', asset.name, t.name, {

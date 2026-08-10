@@ -74,7 +74,7 @@ function MetaInput({ value, field, cableId }: MetaInputProps) {
  * 그 탓에 설계서 공량이 그 배로 부풀었다(40m 4심 → 160m). 그리고 아직 이어지지 않은 심선에는
  * 케이블이 없어 성단 손실을 적을 곳조차 없었다.
  *
- * 포트는 타입 명세가 만드는 것이라 생성·삭제가 없고 값만 바뀐다 — 그래서 자산 패치에 얹는다
+ * 포트는 자산 종류 명세가 만드는 것이라 생성·삭제가 없고 값만 바뀐다 — 그래서 자산 패치에 얹는다
  * (별도 OCC 축을 만들지 않는다).
  */
 function PortFieldInput({
@@ -127,7 +127,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   const containers = useMemo(() => fiberContainers(effectiveAssets), [effectiveAssets]);
 
-  /* 설비의 격자를 아는 것은 그 형판이다 — 표가 자리 번호를 매길 때 쓴다. */
+  /* 설비의 격자를 아는 것은 그 설비 종류가다 — 표가 자리 번호를 매길 때 쓴다. */
   const catalog = useV2Catalog();
   const assembliesById = useMemo(
     () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
@@ -161,8 +161,8 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
         title="선번장에 표시할 광 자산이 없습니다"
         description={
           <>
-            선번장은 <strong>광 인입 포트를 가진 부품을 품고 있는 설비</strong>를 자동으로 찾습니다. OFD 형판처럼
-            경로슬롯을 담은 형판을 도면에 놓으면 여기에 나타납니다.
+            선번장은 <strong>광 인입 포트를 가진 부품을 품고 있는 설비</strong>를 자동으로 찾습니다. OFD 설비 종류처럼
+            경로슬롯을 담은 설비 종류를 도면에 놓으면 여기에 나타납니다.
           </>
         }
       />

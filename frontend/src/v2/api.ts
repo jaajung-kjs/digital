@@ -111,7 +111,7 @@ export async function deleteCableCategory(id: string): Promise<void> {
   await api.delete(`/v2/catalog/cable-categories/${id}`);
 }
 
-// ── 설비 형판 ────────────────────────────────────────────────────────────────
+// ── 설비 종류 ────────────────────────────────────────────────────────────────
 
 export async function createAssembly(body: AssemblyUpsertBody): Promise<{ id: string }> {
   return (await api.post('/v2/catalog/assemblies', body)).data;

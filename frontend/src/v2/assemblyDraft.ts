@@ -2,17 +2,18 @@ import { validateAssembly, type AssemblyError } from '@twin/core';
 import type { V2Assembly, V2AssemblyItem, V2AssetType } from './types';
 
 /**
- * 편집 중인 형판 — 서버 형상(`V2Assembly`)에서 저장에 필요 없는 것만 걷어낸 모양.
+ * 편집 중인 설비 종류 — 서버 형상(`V2Assembly`)에서 저장에 필요 없는 것만 걷어낸 모양.
  *
- * 타입 명세의 `catalogDraft` 와 같은 짜임이다: 화면은 초안을 들고 고치고, 저장할 때
+ * 자산 종류 명세의 `catalogDraft` 와 같은 짜임이다: 화면은 초안을 들고 고치고, 저장할 때
  * 서버 바디로 옮긴다. 아직 저장되지 않은 부품은 임시 id 를 쓰고, 백엔드가 넣으면서
  * 실제 id 로 바꾼다(`writeAssemblyItems`).
  */
 export interface AssemblyDraft {
+  /** 새로 만들 때는 빈 문자열 — 저장할 때 서버가 붙인다(참조용 식별자다). */
   key: string;
   name: string;
   categoryId: string | null;
-  /** 이 설비 안의 자리 — 형판이 격자를 갖는다. */
+  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다. */
   gridCols: number;
   gridRows: number;
   sortOrder: number;
@@ -54,7 +55,7 @@ export interface AssemblyIssue {
 
 const ERROR_MESSAGE: Record<AssemblyError, string> = {
   'bad-grid': '격자는 가로·세로 1 이상이어야 합니다',
-  'unknown-type': '없는 자산 타입을 가리키는 부품이 있습니다',
+  'unknown-type': '없는 자산 종류을 가리키는 부품이 있습니다',
   'out-of-range': '격자 밖에 놓인 부품이 있습니다',
   overlap: '같은 자리에 겹쳐 놓인 부품이 있습니다',
 };
@@ -64,11 +65,14 @@ const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 /**
  * 저장할 수 있는가 — 형상 검사는 여기서, 조립이 말이 되는지는 core 가 본다.
  *
- * 화면이 조립 규칙을 다시 쓰면 저장 때 튕기는 형판을 만들 수 있게 된다. 같은 함수를 부른다.
+ * 화면이 조립 규칙을 다시 쓰면 저장 때 튕기는 설비 종류를 만들 수 있게 된다. 같은 함수를 부른다.
  */
 export function assemblyIssues(draft: AssemblyDraft, types: V2AssetType[]): AssemblyIssue[] {
   const issues: AssemblyIssue[] = [];
-  if (!KEY_RE.test(draft.key)) issues.push({ path: 'key', message: '키는 영문/숫자/대시/언더스코어만 허용됩니다' });
+  // 키는 사람이 짓지 않는다 — 이미 붙어 있는 것만 형상을 본다(새 것은 서버가 붙인다).
+  if (draft.key !== '' && !KEY_RE.test(draft.key)) {
+    issues.push({ path: 'key', message: '키 형식이 올바르지 않습니다' });
+  }
   if (draft.name.trim() === '') issues.push({ path: 'name', message: '이름을 입력하세요' });
 
   const keyById = new Map(types.map((t) => [t.id, t.key]));
@@ -88,7 +92,8 @@ export function assemblyIssues(draft: AssemblyDraft, types: V2AssetType[]): Asse
 /** 초안 → 저장 바디. 부품 순서는 배열 순서가 곧 `sortOrder` 다. */
 export function draftToAssemblyBody(draft: AssemblyDraft) {
   return {
-    key: draft.key,
+    // 빈 키는 보내지 않는다 — 서버가 붙일 자리를 비워 둔다.
+    ...(draft.key === '' ? {} : { key: draft.key }),
     name: draft.name.trim(),
     categoryId: draft.categoryId,
     gridCols: draft.gridCols,

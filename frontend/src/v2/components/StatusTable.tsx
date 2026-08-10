@@ -119,7 +119,7 @@ export function StatusTable({
   const [sortKey, setSortKey] = useState<string>('name');
   const [asc, setAsc] = useState(true);
   const [query, setQuery] = useState('');
-  /** 펼쳐 둔 형판 묶음 — 기본은 접힘(세는 단위가 설비 하나이므로). */
+  /** 펼쳐 둔 설비 묶음 — 기본은 접힘(세는 단위가 설비 하나이므로). */
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
   /* 구조 열 → 선언된 필드 열 → 이력·상태. 필드 열은 카탈로그가 정하므로 개수가 화면마다 다르다. */
@@ -160,7 +160,7 @@ export function StatusTable({
   });
 
   /**
-   * 형판 묶음은 **뿌리 뒤에 붙여 둔다** — 정렬은 뿌리끼리만 겨룬다.
+   * 설비 묶음은 **뿌리 뒤에 붙여 둔다** — 정렬은 뿌리끼리만 겨룬다.
    *
    * 정렬을 행 전체에 그대로 걸면 펼쳤을 때 안쪽 자산이 이름순 자리로 흩어져, 어느 설비에
    * 든 것인지 알 수 없게 된다(실제로 그랬다). 안쪽은 **위치 경로**로 늘어놓는다 — 경로가
@@ -186,7 +186,7 @@ export function StatusTable({
   }, [sorted]);
 
   /**
-   * 형판으로 놓은 묶음은 **한 줄로 접는다** — 업무에서 세는 단위가 그 설비 하나다.
+   * 설비 종류으로 놓은 묶음은 **한 줄로 접는다** — 업무에서 세는 단위가 그 설비 하나다.
    *
    * 접는 것이지 숨기는 것이 아니다. 점검·고장이력은 여전히 개별 자산에 붙으므로 들어갈
    * 길이 사라지면 안 된다. 그리고 검색 중에는 접지 않는다 — 찾은 것이 안쪽에 있으면

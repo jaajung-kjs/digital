@@ -7,7 +7,7 @@ export const FIBER_MEDIUM: SeededMediumKey = 'fiber';
 export const FIBER_TRUNK_MEDIUM: SeededMediumKey = 'fiber-trunk';
 
 /**
- * 선번장 대상 — **인입 포트를 가진 부품**을 품은 설비(OFD 형판 등).
+ * 선번장 대상 — **인입 포트를 가진 부품**을 품은 설비(OFD 설비 종류 등).
  *
  * 예전에는 "광 포트를 가진 자식" 이면 다 걸려서, 장비쪽 광 포트만 있는 광단말까지 대상이 됐다.
  * 선번장에 적는 것(성단 손실·점검일)은 OTDR 로 재는 인입 심선의 값이라 인입이 없는 자산에는

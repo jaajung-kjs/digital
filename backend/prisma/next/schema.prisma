@@ -103,10 +103,6 @@ model AssetType {
   category       AssetCategory       @relation(fields: [categoryId], references: [id])
   sortOrder      Int                 @default(0)
   isActive       Boolean             @default(true)
-  // 배치 명세
-  placeable      Boolean             @default(false)
-  defaultWidth   Float?
-  defaultHeight  Float?
   // 공량 규칙
   laborType      String?
   installHours   Float               @default(0)
@@ -135,12 +131,12 @@ model AssetPortTemplate {
   @@unique([typeId, group])
 }
 
-// ---------- 설비 형판 (부품 조립) ----------
+// ---------- 설비 종류 (부품 조립) ----------
 
-/// 부품을 조립해 만든 **한 설비**의 형판 — 「송변전광단말장치 1식」 같은 표준 구성.
+/// 부품을 조립해 만든 **한 설비**의 설비 종류 — 「송변전광단말장치 1식」 같은 표준 구성.
 ///
 /// 자산 타입이 곧 도면에 놓이는 것이면, 랙을 만들고 자리를 세고 장비를 넣는 일을 매번
-/// 손으로 해야 하고 현황에도 그 부산물이 다 올라온다. 형판은 그 조립을 한 번 해 두고
+/// 손으로 해야 하고 현황에도 그 부산물이 다 올라온다. 설비 종류는 그 조립을 한 번 해 두고
 /// 계속 쓰기 위한 것이다.
 model Assembly {
   id         String         @id @default(uuid())
@@ -152,7 +148,7 @@ model Assembly {
   ///
   /// 예전에는 자리를 자산 타입이 선언했고(랙의 「슬롯 12칸」), 그래서 담기 위한 랙이라는
   /// 자산이 따로 있어야 했다. 슬롯은 사실 폭이 격자 전체인 1열짜리 격자였을 뿐이라,
-  /// 격자를 형판이 직접 가지면 그 층이 통째로 사라진다.
+  /// 격자를 설비 종류가 직접 가지면 그 층이 통째로 사라진다.
   gridCols   Int            @default(1)
   gridRows   Int            @default(12)
   sortOrder  Int            @default(0)
@@ -163,10 +159,10 @@ model Assembly {
   updatedAt  DateTime       @updatedAt
 }
 
-/// 형판 격자에 놓인 부품 하나 — 어느 타입을, 격자의 어느 자리에.
+/// 설비 종류의 격자에 놓인 부품 하나 — 어느 타입을, 격자의 어느 자리에.
 ///
-/// **평평하다.** 부품이 또 부품을 담지 않는다 — 담는 일은 형판 격자가 하므로, 담기 위한
-/// 중간 자산(랙·함체)이 필요 없다. OFD 도 「경로슬롯 4장이 놓인 형판」이면 된다.
+/// **평평하다.** 부품이 또 부품을 담지 않는다 — 담는 일은 설비 종류의 격자가 하므로, 담기 위한
+/// 중간 자산(랙·함체)이 필요 없다. OFD 도 「경로슬롯 4장이 놓인 설비 종류」이면 된다.
 model AssemblyItem {
   id           String         @id @default(uuid())
   assemblyId   String
@@ -219,7 +215,7 @@ model CableCategory {
 model Asset {
   id            String      @id @default(uuid())
   name          String
-  /// 부품이면 그 부품의 타입. **설비(형판으로 놓은 것)는 타입이 없다** — 분류는 형판이다.
+  /// 부품이면 그 부품의 타입. **설비(설비 종류으로 놓은 것)는 타입이 없다** — 분류는 설비 종류가다.
   typeId        String?
   type          AssetType?  @relation(fields: [typeId], references: [id])
   substationId  String
@@ -236,13 +232,13 @@ model Asset {
   parentAssetId String?
   parentAsset   Asset?      @relation("AssetChildren", fields: [parentAssetId], references: [id], onDelete: Restrict)
   children      Asset[]     @relation("AssetChildren")
-  /// 이 설비가 어느 형판으로 만들어졌는가 — **분류**다. 형판의 뿌리 자산에만 적힌다.
+  /// 이 설비가 어느 설비 종류으로 만들어졌는가 — **분류**다. 설비 종류의 뿌리 자산에만 적힌다.
   ///
-  /// 이름을 글자로 굳히지 않고 형판을 계속 가리킨다: 형판 이름을 고치면 이미 놓인 설비의
-  /// 분류 표시도 따라 바뀌어야 한다(같은 형판이니까). 글자로 굳혀 두면 이름을 고치는 순간
-  /// 같은 형판인데 집계가 둘로 갈린다.
+  /// 이름을 글자로 굳히지 않고 설비 종류를 계속 가리킨다: 설비 종류 이름을 고치면 이미 놓인 설비의
+  /// 분류 표시도 따라 바뀌어야 한다(같은 설비 종류가니까). 글자로 굳혀 두면 이름을 고치는 순간
+  /// 같은 설비 종류인데 집계가 둘로 갈린다.
   ///
-  /// **구성은 스냅샷, 분류는 참조**다 — 형판을 고쳐도 이미 놓인 설비의 안쪽 구성은 그대로고
+  /// **구성은 스냅샷, 분류는 참조**다 — 설비 종류를 고쳐도 이미 놓인 설비의 안쪽 구성은 그대로고
   /// 사용자가 언제든 그 설비만 따로 고칠 수 있다.
   assemblyId    String?
   assembly      Assembly? @relation(fields: [assemblyId], references: [id])

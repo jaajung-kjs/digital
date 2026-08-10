@@ -209,7 +209,7 @@ export function portKind(key: string): PortKind | null {
   return PORT_KINDS.find((k) => k.key === key) ?? null;
 }
 
-/** 자산 타입을 만들 때 "이 포트를 몇 개" 로 고를 수 있는 미리 정의된 묶음. */
+/** 자산 종류을 만들 때 "이 포트를 몇 개" 로 고를 수 있는 미리 정의된 묶음. */
 export interface PortPreset {
   /** 버튼에 적히는 이름 — `전원 입력` 처럼 방향까지 담는다. */
   name: string;

@@ -6,14 +6,13 @@ export interface V2PortTemplate { id: string; group: string; count: number; dire
 export interface V2AssetType {
   id: string; key: string; name: string; categoryId: string; sortOrder: number; isActive: boolean;
   assetCount: number;
-  placeable: boolean; defaultWidth: number | null; defaultHeight: number | null;
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
   portTemplates: V2PortTemplate[];
 }
 
 export interface V2CableCategory { id: string; name: string; sortOrder: number }
 export interface V2CableGroup { id: string; key: string; name: string; color: string; laborType: string | null; installHoursPerM: number; removeHoursPerM: number; sortOrder: number; categories: V2CableCategory[] }
-/** 형판을 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
+/** 설비 종류를 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 export interface V2AssemblyItem {
   id: string;
   typeId: string;
@@ -25,21 +24,22 @@ export interface V2AssemblyItem {
 }
 
 /**
- * 설비 형판 — 부품을 조립해 만든 **한 설비**(「송변전광단말장치 1식」).
+ * 설비 종류 — 부품을 조립해 만든 **한 설비**(「송변전광단말장치 1식」).
  *
  * 고쳐도 이미 놓인 설비는 그대로다(스냅샷) — 놓을 때의 이름을 뿌리 자산에 굳혀 둔다.
  */
 export interface V2Assembly {
   id: string; key: string; name: string; categoryId: string | null;
-  /** 이 설비 안의 자리 — 형판이 격자를 갖는다(자산 타입이 아니라). */
+  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류이 아니라). */
   gridCols: number; gridRows: number;
   sortOrder: number; isActive: boolean;
   items: V2AssemblyItem[];
 }
 
-/** 형판 저장 바디 — 부품 목록을 통째로 갈아 끼운다(덮어쓰기). */
+/** 설비 종류 저장 바디 — 부품 목록을 통째로 갈아 끼운다(덮어쓰기). */
 export interface AssemblyUpsertBody {
-  key: string; name: string; categoryId: string | null;
+  /** 새로 만들 때는 보내지 않는다 — 서버가 붙인다(참조용 식별자다). */
+  key?: string; name: string; categoryId: string | null;
   gridCols: number; gridRows: number;
   sortOrder: number; isActive: boolean;
   items: Omit<V2AssemblyItem, 'sortOrder'>[];
@@ -71,12 +71,12 @@ export interface V2Port {
 }
 export interface V2Asset {
   id: string; name: string;
-  /** 부품이면 그 타입. **형판으로 놓은 설비는 타입이 없다** — 분류는 형판이다. */
+  /** 부품이면 그 타입. **설비 종류으로 놓은 설비는 타입이 없다** — 분류는 설비 종류가다. */
   typeId: string | null;
   substationId: string; status: string;
   floorId: string | null; x: number | null; y: number | null; width: number | null; height: number | null;
   parentAssetId: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
-  /** 이 설비를 만든 형판 — **분류**다(글자가 아니라 참조). 뿌리에만 적힌다. */
+  /** 이 설비를 만든 설비 종류 — **분류**다(글자가 아니라 참조). 뿌리에만 적힌다. */
   assemblyId?: string | null;
   /** 만들 때만 쓰는 포트 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
   portCounts?: Record<string, number>;
@@ -106,7 +106,7 @@ export interface V2AssetCreateInput {
   fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>; portPositions?: Record<string, number>;
 }
 export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts' | 'portPositions'>> & {
-  /** 이 자산 포트에 딸린 값 — 포트는 타입 명세가 만드므로 값만 고친다. */
+  /** 이 자산 포트에 딸린 값 — 포트는 자산 종류 명세가 만드므로 값만 고친다. */
   portFieldValues?: { portId: string; fieldValues: Record<string, unknown> }[];
 };
 export interface V2CableCreateInput { id: string; aPortId: string; bPortId: string; categoryId?: string | null; name?: string | null; pathPoints?: { x: number; y: number }[]; specParams?: Record<string, unknown> }

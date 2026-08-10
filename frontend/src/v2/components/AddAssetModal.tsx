@@ -12,33 +12,20 @@ interface AddAssetModalProps {
   /** 격자 컨텍스트: 설비 구성의 빈 자리에서 열릴 때 지정 */
   gridContext?: {
     parentAssetId: string;
-    /** 그 설비의 격자 — 형판이 정한 자리다. */
+    /** 그 설비의 격자 — 설비 종류가 정한 자리다. */
     grid: { cols: number; rows: number };
     /** 현재 형제들 — 빈 자리 계산용 */
     siblings: { col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null }[];
     /** 빈 자리를 눌러 열었으면 그 칸 — 사용자가 방금 고른 것을 다시 묻지 않는다. */
     cell?: { col: number; row: number };
   };
-  /** 평면도 배치 컨텍스트: 팔레트 drag-to-draw 후 열릴 때 지정 */
-  floorContext?: {
-    floorId: string;
-    rect: { x: number; y: number; width: number; height: number };
-  };
-  /** 미리 선택할 타입 ID (팔레트 armed 상태에서 전달) */
-  preselectedTypeId?: string;
 }
 
-export function AddAssetModal({ open, onClose, substationId, gridContext, floorContext, preselectedTypeId }: AddAssetModalProps) {
-  const savedFloors = useV2WorkingCopy((st) => st.saved.floors);
+export function AddAssetModal({ open, onClose, substationId, gridContext }: AddAssetModalProps) {
   const effectiveAssets = useV2WorkingCopy((st) => st.saved.assets);
-  const [selectedTypeId, setSelectedTypeId] = useState(preselectedTypeId ?? '');
+  const [selectedTypeId, setSelectedTypeId] = useState('');
   const [name, setName] = useState('');
   const [selectedSlot, setSelectedSlot] = useState<string>('');
-
-  // preselectedTypeId 가 변경되면 선택 동기화
-  useEffect(() => {
-    if (preselectedTypeId !== undefined) setSelectedTypeId(preselectedTypeId);
-  }, [preselectedTypeId]);
 
   // 빈 자리를 눌러 열었으면 그 칸을 미리 고른 상태로 연다.
   const presetCell = gridContext?.cell;
@@ -60,12 +47,9 @@ export function AddAssetModal({ open, onClose, substationId, gridContext, floorC
     [catalog.data],
   );
 
-  /* 타입 필터: 평면도에 놓는 것은 placeable 만. 격자 안에는 **무엇이든** 넣는다 —
-     무엇을 담을지는 형판을 짜는 사람이 정하지, 자리가 정하지 않는다(수용 규칙은 걷었다). */
-  const availableTypes = useMemo(
-    () => (floorContext ? allActiveTypes.filter((t) => t.placeable) : allActiveTypes),
-    [floorContext, allActiveTypes],
-  );
+  /* 격자 안에는 **무엇이든** 넣는다 — 무엇을 담을지는 설비 종류를 짜는 사람이 정하지,
+     자리가 정하지 않는다(수용 규칙은 걷었다). */
+  const availableTypes = allActiveTypes;
 
   const free = useMemo(
     () => (gridContext ? freeCells(gridContext.grid, gridContext.siblings) : []),
@@ -95,16 +79,7 @@ export function AddAssetModal({ open, onClose, substationId, gridContext, floorC
     if (!type || !name.trim()) return;
 
     let placement: Parameters<typeof makeNewAsset>[0]['placement'];
-    if (floorContext) {
-      placement = {
-        kind: 'floor',
-        floorId: floorContext.floorId,
-        x: floorContext.rect.x,
-        y: floorContext.rect.y,
-        width: floorContext.rect.width,
-        height: floorContext.rect.height,
-      };
-    } else if (gridContext) {
+    if (gridContext) {
       /* 고른 자리는 격자 칸이다 — `열,행` 으로 실어 보낸다(번호는 저장하지 않는다). */
       const cell = selectedSlot !== '' ? selectedSlot.split(',').map(Number) : null;
       placement = {
@@ -122,13 +97,11 @@ export function AddAssetModal({ open, onClose, substationId, gridContext, floorC
     handleClose();
   }
 
-  /* 어디에 추가되는지 — 예전에는 모달만 보고는 알 수 없었다(평면도에서 드래그해 열었는지,
-     어느 설비의 빈 자리를 눌렀는지). 층 이름 또는 설비 이름으로 밝힌다. */
-  const destination = useMemo(() => {
-    if (floorContext) return savedFloors.find((f) => f.id === floorContext.floorId)?.name ?? null;
-    if (gridContext) return effectiveAssets.find((a) => a.id === gridContext.parentAssetId)?.name ?? null;
-    return null;
-  }, [floorContext, gridContext, savedFloors, effectiveAssets]);
+  /* 어디에 추가되는지 — 모달만 보고는 어느 설비의 빈 자리를 눌렀는지 알 수 없었다. */
+  const destination = useMemo(
+    () => (gridContext ? effectiveAssets.find((a) => a.id === gridContext.parentAssetId)?.name ?? null : null),
+    [gridContext, effectiveAssets],
+  );
 
   const canConfirm =
     selectedTypeId !== '' &&

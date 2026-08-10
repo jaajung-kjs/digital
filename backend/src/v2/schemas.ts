@@ -13,8 +13,8 @@ export const floorCreateSchema = orgNameSchema.extend({ substationId: z.string()
 const assetCreateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1),
-  /* 도면에 놓이는 것은 둘이다: 형판으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
-     둘 중 하나는 있어야 한다는 판정은 커밋이 한다(형판·타입이 실재하는지도 거기서 본다). */
+  /* 도면에 놓이는 것은 둘이다: 설비 종류으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
+     둘 중 하나는 있어야 한다는 판정은 커밋이 한다(설비 종류·타입이 실재하는지도 거기서 본다). */
   typeId: z.string().uuid().nullish(),
   /* 상태 어휘는 core 의 ASSET_STATUSES 가 유일한 출처다.
      예전에는 z.string() 이라 어떤 문자열이든 통과했고, 실제로 '점검필요'·'need_check' 같은
@@ -27,7 +27,7 @@ const assetCreateSchema = z.object({
   width: z.number().nullish(),
   height: z.number().nullish(),
   parentAssetId: z.string().uuid().nullish(),
-  /** 이 설비를 만든 형판 — **분류**다. 뿌리에만 적힌다. */
+  /** 이 설비를 만든 설비 종류 — **분류**다. 뿌리에만 적힌다. */
   assemblyId: z.string().uuid().nullish(),
   col: z.number().int().min(0).nullish(),
   row: z.number().int().min(0).nullish(),
@@ -43,7 +43,7 @@ const assetPatchSchema = assetCreateSchema
   .omit({ id: true, typeId: true, assemblyId: true, portCounts: true, portPositions: true })
   .partial()
   .extend({
-    /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 타입 명세에서 만들어지므로
+    /* 포트 하나에 딸린 값(광 심선의 손실·점검일 등). 포트는 자산 종류 명세에서 만들어지므로
        생성·삭제는 없고 값만 고친다 — 그래서 자산 패치에 얹는다(별도 OCC 축을 만들지 않음). */
     portFieldValues: z
       .array(z.object({ portId: z.string().uuid(), fieldValues: z.record(z.unknown()) }))
@@ -85,7 +85,7 @@ const portTemplateBodySchema = z.object({
   /** 이 포트가 나르는 심선 수. 안 적으면 1(보통 포트). */
   positions: z.number().int().min(1).optional(),
 });
-/** 형판 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
+/** 설비 종류 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
 const assemblyItemSchema = z.object({
   id: z.string().min(1),
   typeId: z.string().uuid(),
@@ -99,27 +99,26 @@ const assemblyItemSchema = z.object({
 });
 
 export const assemblyUpsertSchema = z.object({
-  key: z.string().regex(keyRe),
+  /** 새로 만들 때는 비워 둔다 — 서버가 붙인다(참조용 식별자이지 현장에서 쓰는 값이 아니다). */
+  key: z.string().regex(keyRe).optional(),
   name: z.string().trim().min(1),
   categoryId: z.string().uuid().nullable(),
-  /** 이 설비 안의 자리 — 형판이 격자를 갖는다(자산 타입이 아니라). */
+  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류이 아니라). */
   gridCols: z.number().int().min(1),
   gridRows: z.number().int().min(1),
   sortOrder: z.number().int(),
   isActive: z.boolean(),
-  // 빈 형판도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
+  // 빈 설비 종류도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
   items: z.array(assemblyItemSchema),
 });
 
 export const typeUpsertSchema = z.object({
-  key: z.string().regex(keyRe),
+  /** 새로 만들 때는 비워 둔다 — 서버가 붙인다. */
+  key: z.string().regex(keyRe).optional(),
   name: z.string().trim().min(1),
   categoryId: z.string().uuid(),
   sortOrder: z.number().int(),
   isActive: z.boolean(),
-  placeable: z.boolean(),
-  defaultWidth: z.number().positive().nullable(),
-  defaultHeight: z.number().positive().nullable(),
   laborType: z.string().trim().min(1).nullable(),
   installHours: z.number().min(0),
   removeHours: z.number().min(0),

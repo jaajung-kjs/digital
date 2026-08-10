@@ -26,7 +26,7 @@ const asset = (id: string, name: string, over: Partial<V2Asset> = {}): V2Asset =
 const floors = new Map([['f1', '1층']]);
 const build = (...list: V2Asset[]) => new Map(list.map((a) => [a.id, a]));
 
-/* 자리 번호는 상위 **설비의 형판 격자**에서 나온다 — 랙 모양은 1열, 분전반 조서는 2열. */
+/* 자리 번호는 상위 **설비의 설비 종류의 격자**에서 나온다 — 랙 모양은 1열, 분전반 조서는 2열. */
 const assemblies = new Map([
   ['rack-asm', { id: 'rack-asm', gridCols: 1, gridRows: 12 } as never],
   ['panel-asm', { id: 'panel-asm', gridCols: 2, gridRows: 6 } as never],
@@ -44,7 +44,7 @@ describe('자산 위치 경로', () => {
     expect(assetLocationPath(ups, build(rack, ups), floors, assemblies)).toBe('1층 · 전원랙 A · 자리 1');
   });
 
-  /* 부품이 또 부품을 담지 않는다(평평하다) — OFD 도 도면에 바로 놓이는 형판이다.
+  /* 부품이 또 부품을 담지 않는다(평평하다) — OFD 도 도면에 바로 놓이는 설비 종류가다.
      그래도 경로 계산은 깊이를 가정하지 않는다: 데이터가 그렇게 되면 그대로 따라간다. */
   it('자리 번호가 없으면 이름만 붙는다', () => {
     const ofd = asset('ofd', 'OFD-1', { floorId: 'f1', typeId: null, assemblyId: 'rack-asm' });
@@ -59,7 +59,7 @@ describe('자산 위치 경로', () => {
     expect(assetLocationPath(feeder, build(panel, feeder), floors, assemblies)).toBe('1층 · 분전반 P1 · 자리 2');
   });
 
-  it('상위 형판을 모르면 자리 번호를 1열로 매긴다 — 이름만으로도 어디인지는 읽힌다', () => {
+  it('상위 설비 종류를 모르면 자리 번호를 1열로 매긴다 — 이름만으로도 어디인지는 읽힌다', () => {
     const rack = asset('rack', '전원랙 A', { floorId: 'f1' });
     const ups = asset('ups', 'UPS-1', { parentAssetId: 'rack', col: 0, row: 0 });
     expect(assetLocationPath(ups, build(rack, ups), floors)).toBe('1층 · 전원랙 A · 자리 1');

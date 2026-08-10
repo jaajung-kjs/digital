@@ -152,12 +152,35 @@ catalogRouter.delete('/categories/:id', adminOnly, async (req, res, next) => {
   }
 });
 
+/**
+ * 참조용 식별자를 붙인다 — 사람이 짓지 않는다.
+ *
+ * 키는 시드와 마이그레이션이 종류를 가리키는 데 쓰는 값이지 현장에서 부르는 이름이 아니다.
+ * 필수 입력으로 노출하면 새 종류를 만들 때마다 영문 키를 지어내야 하는데, 그렇게 지어진
+ * 키는 아무도 읽지 않는다. 이미 있는 키(시드가 참조하는 것)는 그대로 둔다.
+ *
+ * 붙이는 일은 **서버가** 한다 — 화면이 목록에서 셈하면 둘이 동시에 만들 때 같은 키가 난다.
+ * 서버에서도 동시에 만들면 부딪힐 수 있는데, 그때는 unique 제약이 잡아 409 로 돌려준다.
+ */
+async function nextKey(table: 'assetType' | 'assembly', prefix: string): Promise<string> {
+  const rows = await (table === 'assetType'
+    ? nextDb.assetType.findMany({ where: { key: { startsWith: `${prefix}-` } }, select: { key: true } })
+    : nextDb.assembly.findMany({ where: { key: { startsWith: `${prefix}-` } }, select: { key: true } }));
+  const max = rows.reduce((acc, r) => {
+    const n = Number(r.key.slice(prefix.length + 1));
+    return Number.isInteger(n) && n > acc ? n : acc;
+  }, 0);
+  return `${prefix}-${max + 1}`;
+}
+
 // ── 타입 CRUD ────────────────────────────────────────────────────────────────
 
 /** POST /catalog/types */
 catalogRouter.post('/types', adminOnly, async (req, res, next) => {
   try {
-    const body = typeUpsertSchema.parse(req.body) as TypeUpsertBody;
+    const parsed = typeUpsertSchema.parse(req.body) as TypeUpsertBody;
+    /* 키를 **먼저 붙이고** 검증한다 — 명세 검사는 키 형상도 보므로 빈 채로 넣으면 걸린다. */
+    const body = { ...parsed, key: parsed.key ?? (await nextKey('assetType', 'AT')) } satisfies TypeUpsertBody & { key: string };
 
     // 카테고리 조회
     const category = await nextDb.assetCategory.findUnique({ where: { id: body.categoryId } });
@@ -169,9 +192,9 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
     const issues = validateTypeSpec(spec, ctx);
     if (issues.length > 0) throw new HttpError(400, 'INVALID_TYPE_SPEC', '타입 정의가 유효하지 않습니다', issues);
 
-    // key 중복 확인 (친절한 공통 경로 — 동시성은 아래 P2002 폴백이 방어)
+    // 중복 확인 (친절한 공통 경로 — 동시성은 아래 P2002 폴백이 방어)
     const existing = await nextDb.assetType.findUnique({ where: { key: body.key } });
-    if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `타입 키가 이미 존재합니다: ${body.key}`);
+    if (existing) throw new HttpError(409, 'DUPLICATE_KEY', `자산 종류 키가 이미 존재합니다: ${body.key}`);
 
     let type;
     try {
@@ -183,9 +206,6 @@ catalogRouter.post('/types', adminOnly, async (req, res, next) => {
             categoryId: body.categoryId,
             sortOrder: body.sortOrder,
             isActive: body.isActive,
-            placeable: body.placeable,
-            defaultWidth: body.defaultWidth,
-            defaultHeight: body.defaultHeight,
             laborType: body.laborType,
             installHours: body.installHours,
             removeHours: body.removeHours,
@@ -253,9 +273,6 @@ catalogRouter.put('/types/:id', adminOnly, async (req, res, next) => {
           categoryId: body.categoryId,
           sortOrder: body.sortOrder,
           isActive: body.isActive,
-          placeable: body.placeable,
-          defaultWidth: body.defaultWidth,
-          defaultHeight: body.defaultHeight,
           laborType: body.laborType,
           installHours: body.installHours,
           removeHours: body.removeHours,
@@ -369,13 +386,13 @@ catalogRouter.delete('/cable-categories/:id', adminOnly, async (req, res, next) 
 });
 
 
-// ── 설비 형판 ────────────────────────────────────────────────────────────────
+// ── 설비 종류 ────────────────────────────────────────────────────────────────
 
 /**
- * 형판은 **덮어쓰기**로 저장한다 — 부품 목록을 통째로 갈아 끼운다.
+ * 설비 종류는 **덮어쓰기**로 저장한다 — 부품 목록을 통째로 갈아 끼운다.
  *
- * 이미 놓인 설비는 놓을 때의 모습을 자산으로 굳혀 두었으므로(스냅샷) 형판을 고쳐도
- * 건드릴 것이 없다. 그래서 타입 명세와 달리 "쓰이는 중이면 잠금" 이 필요 없다.
+ * 이미 놓인 설비는 놓을 때의 모습을 자산으로 굳혀 두었으므로(스냅샷) 설비 종류를 고쳐도
+ * 건드릴 것이 없다. 그래서 자산 종류 명세와 달리 "쓰이는 중이면 잠금" 이 필요 없다.
  */
 async function writeAssemblyItems(
   tx: Prisma.TransactionClient,
@@ -398,13 +415,14 @@ async function writeAssemblyItems(
   }
 }
 
-/** 형판 명세를 코어가 판정할 수 있는 형태로 — 타입 id 를 키로 바꾼다. */
+/** 설비 종류 명세를 코어가 판정할 수 있는 형태로 — 타입 id 를 키로 바꾼다. */
 async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
   const types = await nextDb.assetType.findMany({ where: { id: { in: body.items.map((i) => i.typeId) } } });
   const keyById = new Map(types.map((t) => [t.id, t.key]));
   return {
     spec: {
-      key: body.key,
+      // 키는 검사에 쓰이지 않는다(격자 안·겹침만 본다) — 아직 안 붙었으면 빈 값으로 둔다.
+      key: body.key ?? '',
       name: body.name,
       grid: { cols: body.gridCols, rows: body.gridRows },
       items: body.items.map((i) => ({ ...i, typeKey: keyById.get(i.typeId) ?? '' })),
@@ -415,10 +433,11 @@ async function assemblySpecOf(body: z.infer<typeof assemblyUpsertSchema>) {
 
 catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
   try {
-    const body = assemblyUpsertSchema.parse(req.body);
+    const parsed = assemblyUpsertSchema.parse(req.body);
+    const body = { ...parsed, key: parsed.key ?? (await nextKey('assembly', 'AS')) };
     const { spec, typeKeys } = await assemblySpecOf(body);
     const issue = validateAssembly(spec, typeKeys);
-    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '형판 명세가 유효하지 않습니다', [{ reason: issue }]);
+    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '설비 종류 명세가 유효하지 않습니다', [{ reason: issue }]);
 
     const created = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.create({
@@ -429,7 +448,7 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
     });
     res.status(201).json(created);
   } catch (e) {
-    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 형판 키입니다'));
+    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 설비 종류 키입니다'));
     next(e);
   }
 });
@@ -437,10 +456,11 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
 catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
   try {
     const id = idParamSchema.parse(req.params.id);
-    const body = assemblyUpsertSchema.parse(req.body);
+    const parsed = assemblyUpsertSchema.parse(req.body);
+    const body = { ...parsed, key: parsed.key ?? (await nextKey('assembly', 'AS')) };
     const { spec, typeKeys } = await assemblySpecOf(body);
     const issue = validateAssembly(spec, typeKeys);
-    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '형판 명세가 유효하지 않습니다', [{ reason: issue }]);
+    if (issue) throw new HttpError(400, 'INVALID_ASSEMBLY', '설비 종류 명세가 유효하지 않습니다', [{ reason: issue }]);
 
     const updated = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.update({
@@ -452,8 +472,8 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
     });
     res.json(updated);
   } catch (e) {
-    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '형판을 찾을 수 없습니다'));
-    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 형판 키입니다'));
+    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '설비 종류를 찾을 수 없습니다'));
+    if (isPrismaError(e, 'P2002')) return next(new HttpError(409, 'CONFLICT', '이미 있는 설비 종류 키입니다'));
     next(e);
   }
 });
@@ -461,16 +481,16 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
 catalogRouter.delete('/assemblies/:id', adminOnly, async (req, res, next) => {
   try {
     const id = idParamSchema.parse(req.params.id);
-    /* 형판은 이미 놓인 설비의 **분류**다 — 지우면 그 설비들이 무엇인지 말할 수 없게 되고
+    /* 설비 종류는 이미 놓인 설비의 **분류**다 — 지우면 그 설비들이 무엇인지 말할 수 없게 되고
        현황 집계가 깨진다. 안 쓰이게 하려면 `isActive` 를 끄면 된다. */
     const inUse = await nextDb.asset.count({ where: { assemblyId: id } });
     if (inUse > 0) {
-      throw new HttpError(409, 'ASSEMBLY_IN_USE', '이 형판으로 놓인 설비가 있습니다', [{ count: inUse }]);
+      throw new HttpError(409, 'ASSEMBLY_IN_USE', '이 설비 종류으로 놓인 설비가 있습니다', [{ count: inUse }]);
     }
     await nextDb.assembly.delete({ where: { id } });
     res.status(204).end();
   } catch (e) {
-    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '형판을 찾을 수 없습니다'));
+    if (isPrismaError(e, 'P2025')) return next(new HttpError(404, 'NOT_FOUND', '설비 종류를 찾을 수 없습니다'));
     next(e);
   }
 });

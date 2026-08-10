@@ -16,7 +16,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '광슬롯',
     categoryKey: '통신',
     sortOrder: 21,
-    placement: { placeable: false },
     labor: NO_LABOR,
     /*
      * 성단 판 한 장의 실제 모습: 뒤로 OPGW **한 가닥**이 들어와 그 안의 24심이 어댑터에
@@ -37,7 +36,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '피더',
     categoryKey: '전원',
     sortOrder: 33,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'IN', count: 1, direction: 'IN', medium: 'power', namePattern: 'IN' },
@@ -50,7 +48,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '접지함체',
     categoryKey: '구조',
     sortOrder: 31,
-    placement: { placeable: true, defaultWidth: 60, defaultHeight: 60 },
     labor: NO_LABOR,
     ports: [
       { group: 'BUS', count: 1, direction: 'BI', medium: 'ground', namePattern: '접지 부스바' },
@@ -61,7 +58,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '공조설비',
     categoryKey: '공조',
     sortOrder: 32,
-    placement: { placeable: true },
     labor: NO_LABOR,
     ports: [],
   },
@@ -71,7 +67,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'SCADA RTU',
     categoryKey: '통신',
     sortOrder: 50,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 4.0, removeHours: 2.0, relocateHours: 5.0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -86,7 +81,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '충전기',
     categoryKey: '전원',
     sortOrder: 70,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
@@ -99,7 +93,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'UPS',
     categoryKey: '전원',
     sortOrder: 80,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 1.5 },
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
@@ -112,7 +105,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '축전지',
     categoryKey: '전원',
     sortOrder: 90,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '충전 입력' },
@@ -126,7 +118,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '통합단말',
     categoryKey: '통신',
     sortOrder: 61,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -140,7 +131,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '송변전광단말장치',
     categoryKey: '통신',
     sortOrder: 63,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'OPT', count: 12, direction: 'BI', medium: 'fiber', namePattern: '광 {n}' },
@@ -154,7 +144,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'PCM',
     categoryKey: '통신',
     sortOrder: 64,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -166,7 +155,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'PITR-2000',
     categoryKey: '통신',
     sortOrder: 41,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 3.0, removeHours: 1.5, relocateHours: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -177,7 +165,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'PITR-5000',
     categoryKey: '통신',
     sortOrder: 42,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 3.0, removeHours: 1.5, relocateHours: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -189,7 +176,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'SCADA',
     categoryKey: '통신',
     sortOrder: 51,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 4.0, removeHours: 2.0, relocateHours: 5.0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -200,7 +186,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '네트워크스위치',
     categoryKey: '통신',
     sortOrder: 104,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.5, removeHours: 0.3, relocateHours: 0 },
     ports: [
       { group: 'P', count: 24, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -212,7 +197,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '서지보호기',
     categoryKey: '통신',
     sortOrder: 105,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.3, removeHours: 0.15, relocateHours: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -223,7 +207,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'UTM',
     categoryKey: '통신',
     sortOrder: 108,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -234,7 +217,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: 'NAC',
     categoryKey: '통신',
     sortOrder: 109,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 1.0, removeHours: 0.5, relocateHours: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -245,7 +227,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '전원(AC)',
     categoryKey: '통신',
     sortOrder: 113,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'PWR-IN', count: 1, direction: 'IN', medium: 'power', namePattern: '전원 입력' },
@@ -258,7 +239,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '전원(DC)',
     categoryKey: '통신',
     sortOrder: 114,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -270,7 +250,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '권역망전송장치',
     categoryKey: '통신',
     sortOrder: 60,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -281,7 +260,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '광스위치',
     categoryKey: '통신',
     sortOrder: 145,
-    placement: { placeable: false },
     labor: { laborType: '통신내선공', installHours: 0.5, removeHours: 0.3, relocateHours: 0 },
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -292,7 +270,6 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
     name: '광컨버터',
     categoryKey: '통신',
     sortOrder: 146,
-    placement: { placeable: false },
     labor: NO_LABOR,
     ports: [
       { group: 'P', count: 2, direction: 'BI', medium: 'network', namePattern: '포트 {n}' },
@@ -301,13 +278,17 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
 ];
 
 /**
- * 시드 형판 — **도면에 놓이는 것**은 이것들이다.
+ * 시드 설비 종류 — **도면에 놓이는 것은 이것들뿐**이다.
  *
- * 예전에는 랙·OFD·분전반이 자산 타입이었고, 그 안에 자리(컨테이너)가 선언돼 있었다.
- * 그래서 담기 위한 자산이 현황에 올라왔고, 자리는 세로 한 줄로만 나뉘었다. 이제 담는
- * 일은 형판 격자가 하고, 랙 같은 껍데기는 형판의 겉모습일 뿐이라 자산이 아니다.
+ * 예전에는 랙·OFD·분전반이 자산 종류였고 그 안에 자리(컨테이너)가 선언돼 있었다. 그래서
+ * 담기 위한 자산이 현황에 올라왔고, 자리는 세로 한 줄로만 나뉘었다. 이제 담는 일은 설비
+ * 종류의 격자가 하고, 랙 같은 껍데기는 그 겉모습일 뿐이라 자산이 아니다.
  *
- * 부품 목록은 **초기 구성**이다 — 놓고 나서 그 설비만 따로 고칠 수 있다.
+ * 접지함체·공조설비처럼 **단품**인 것도 여기 1칸짜리로 둔다. 예전에는 자산 종류에
+ * 「평면도에 배치 가능」 딱지를 달아 그것만 따로 놓았는데, 그러면 도면에 놓는 길이 둘로
+ * 갈리고 현황의 「종류」도 때로는 자산·때로는 설비를 가리켰다. 놓는 길은 하나여야 한다.
+ *
+ * 구성 목록은 **초기 구성**이다 — 놓고 나서 그 설비만 따로 고칠 수 있다.
  */
 export const SEED_ASSEMBLIES: {
   key: string; name: string; categoryKey: string; sortOrder: number;
@@ -325,13 +306,25 @@ export const SEED_ASSEMBLIES: {
     })),
   },
   {
-    // 분전반 조서는 좌우 2열 — 홀수 왼쪽, 짝수 오른쪽이 표준이라 회로 번호가 그대로 나온다.
+    /* 분전반 조서는 좌우 2열 — 홀수 왼쪽, 짝수 오른쪽이 표준이라 회로 번호가 그대로 나온다.
+       구성이 비어 있는 것은 회로를 놓고 나서 계통 화면에서 채우기 때문이다. */
     key: 'DIST', name: '분전반', categoryKey: '전원', sortOrder: 30,
     grid: { cols: 2, rows: 12 },
     items: [],
   },
+  // ── 단품 — 안에 든 것이 하나뿐이라 격자도 한 칸이다. ──
   {
-    /* 「1식」 — 랙 한 대에 들어가는 표준 구성. 랙 자체는 자산이 아니라 이 형판의 겉모습이다.
+    key: 'GROUNDING-SET', name: '접지함체', categoryKey: '구조', sortOrder: 31,
+    grid: { cols: 1, rows: 1 },
+    items: [{ typeKey: 'GROUNDING', name: '접지함체', col: 0, row: 0, colSpan: 1, rowSpan: 1 }],
+  },
+  {
+    key: 'HVAC-SET', name: '공조설비', categoryKey: '공조', sortOrder: 32,
+    grid: { cols: 1, rows: 1 },
+    items: [{ typeKey: 'HVAC', name: '공조설비', col: 0, row: 0, colSpan: 1, rowSpan: 1 }],
+  },
+  {
+    /* 「1식」 — 랙 한 대에 들어가는 표준 구성. 랙 자체는 자산이 아니라 이 설비 종류의 겉모습이다.
      *
      * 격자는 **1행 = 1U, 1열 = 섀시 카드 슬롯 하나**다. 한 판에 두 가지 모양이 섞이기 때문에
      * 이만큼 잘게 나눈다:
@@ -462,7 +455,7 @@ export const SEED_CABLE_CATEGORIES: { groupKey: string; name: string; sortOrder:
 /**
  * 시드가 선언한 매체 키의 합집합 타입.
  *
- * 전용 뷰(선번장·계통)는 자산 타입 이름을 모르고 medium 키 문자열로 대상을 찾으므로,
+ * 전용 뷰(선번장·계통)는 자산 종류 이름을 모르고 medium 키 문자열로 대상을 찾으므로,
  * 그 키가 이 화면들의 생명줄이다. 셀렉터의 상수를 이 타입으로 묶어 두면 시드에서
  * 키를 바꾸는 순간 **컴파일이 깨진다** — 런타임에 조용히 빈 화면이 되는 대신.
  */

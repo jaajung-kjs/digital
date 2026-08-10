@@ -11,9 +11,6 @@ const mkType = (overrides: Partial<V2AssetType> = {}): V2AssetType => ({
   sortOrder: 1,
   isActive: true,
   assetCount: 0,
-  placeable: true,
-  defaultWidth: 60,
-  defaultHeight: 80,
   laborType: '통신내선공',
   installHours: 2,
   removeHours: 1,
@@ -52,9 +49,6 @@ describe('catalogDraft', () => {
     expect(draft.categoryId).toBe(type.categoryId);
     expect(draft.sortOrder).toBe(type.sortOrder);
     expect(draft.isActive).toBe(type.isActive);
-    expect(draft.placeable).toBe(type.placeable);
-    expect(draft.defaultWidth).toBe(type.defaultWidth);
-    expect(draft.defaultHeight).toBe(type.defaultHeight);
     expect(draft.laborType).toBe(type.laborType);
     expect(draft.installHours).toBe(type.installHours);
     expect(draft.removeHours).toBe(type.removeHours);

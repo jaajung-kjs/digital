@@ -13,7 +13,7 @@ describe('GET /api/v2/catalog', () => {
     const res = await request(app).get('/api/v2/catalog').set('Authorization', authHeader()).expect(200);
     expect(res.body.categories.length).toBeGreaterThanOrEqual(4);
     expect(res.body.types.length).toBeGreaterThanOrEqual(23);
-    /* 자리는 형판의 것이다 — 랙이라는 타입은 없어졌고 OFD 는 경로슬롯을 담은 형판이다. */
+    /* 자리는 설비 종류의 것이다 — 랙이라는 타입은 없어졌고 OFD 는 경로슬롯을 담은 설비 종류가다. */
     const ofd = res.body.assemblies.find((a: { key: string }) => a.key === 'OFD');
     expect(ofd).toMatchObject({ gridCols: 4, gridRows: 6 });
     expect(ofd.items).toHaveLength(4);

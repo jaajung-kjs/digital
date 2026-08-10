@@ -2,7 +2,7 @@
  * FloorPlanView — 평면도 캔버스 뷰
  *
  * 층 탭바 + canvas + ResizeObserver + rAF 렌더 루프 + 뷰포트(zoom/pan) + 클릭 선택
- * + placeable 팔레트 바 + armed drag-to-draw 배치
+ * + 설비 종류 팔레트 바 + armed drag-to-draw 배치
  * + 케이블 도구 (종류 Select, 포트 피커, 캔버스 케이블 렌더)
  *
  * 상태는 3개의 독립적 FSM으로 나뉜다: 뷰포트(pan/zoom, 단일 useState로 충분),
@@ -33,7 +33,6 @@ import { isAdminRole, useV2AuthStore } from '../store/authStore';
 import { useV2Catalog } from '../hooks';
 import { Button, IconButton, Select, Tabs, useConfirm } from '../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
-import { AddAssetModal } from './AddAssetModal';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
 import { assemblyToAssets } from '../placeAssembly';
 import { AssetResizeHandles } from './AssetResizeHandles';
@@ -331,38 +330,41 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   /** 이동 드래그 후 클릭 오발 방지 플래그 */
   const wasRecentlyMoving = useRef(false);
 
-  // ── catalog (placeable 타입 목록, cableGroups) ─────────────────────────
+  // ── catalog (설비 종류 목록, cableGroups) ────────────────────────────
   const catalog = useV2Catalog();
-  const placeableTypes = useMemo(
-    () => (catalog.data?.types ?? []).filter((t) => t.isActive && t.placeable),
-    [catalog.data],
-  );
   const cableGroups = useMemo(() => catalog.data?.cableGroups ?? [], [catalog.data]);
-  /* 도면에는 **부품(타입)도 형판도** 놓을 수 있다. 팔레트는 하나로 두고 id 로만 가른다 —
-     둘의 id 는 서로 다른 표에서 나오므로 섞일 일이 없다. */
+  /**
+   * 도면에 놓이는 것은 **설비 종류**뿐이다.
+   *
+   * 예전에는 「평면도에 배치 가능」 딱지를 단 자산 종류도 함께 놓을 수 있어 팔레트가 두
+   * 갈래였고, 현황의 「종류」가 때로는 자산·때로는 설비를 가리켰다. 접지함체처럼 단품인
+   * 것도 1칸짜리 설비 종류로 둔다 — 놓는 길은 하나여야 한다.
+   *
+   * 구성이 비어 있어도 뺄 수 없다: 분전반은 회로를 **놓고 나서** 채우는 것이라 처음부터
+   * 비어 있다. 예전에는 `items.length > 0` 으로 걸러서 분전반을 도면에 놓을 방법이 아예
+   * 없었다.
+   */
   const assemblies = useMemo(
-    () => (catalog.data?.assemblies ?? []).filter((a) => a.isActive && a.items.length > 0),
+    () => (catalog.data?.assemblies ?? []).filter((a) => a.isActive),
     [catalog.data],
   );
-  /** 지금 그린 것이 형판인가 — 모달이 열릴 때 무엇을 물을지 가른다. */
+  /** 지금 그린 설비 종류 — 모달이 이름을 물을 때 무엇이 함께 생기는지 보여 준다. */
   const drawnAssembly = useMemo(
     () => assemblies.find((a) => a.id === (drawModal?.typeId ?? '')) ?? null,
     [assemblies, drawModal],
   );
 
-  /* 배치할 타입 선택 — 도구바는 케이블 도구와 같은 "[도구 버튼] [대상 Select]" 형태다.
-     예전에는 배치 가능 타입마다 버튼을 하나씩 깔았는데, 타입이 늘어나는 만큼 도구바가
-     길어져(시드 7개에서 이미 두 줄) 캔버스를 잡아먹었다. 카탈로그는 사용자가 계속
-     늘리는 것이므로 개수에 비례해 커지는 UI 를 쓰면 안 된다. */
+  /* 배치할 설비 종류 선택 — 도구바는 케이블 도구와 같은 "[도구 버튼] [대상 Select]" 형태다.
+     예전에는 배치 가능한 것마다 버튼을 하나씩 깔았는데, 종류가 늘어나는 만큼 도구바가
+     길어져(시드 7개에서 이미 두 줄) 캔버스를 잡아먹었다. 대장은 사용자가 계속 늘리는
+     것이므로 개수에 비례해 커지는 UI 를 쓰면 안 된다. */
   const [placeTypeId, setPlaceTypeId] = useState('');
-  /* 고른 것이 목록에서 사라졌을 때만 되돌린다 — **형판도 후보**이므로 부품 목록만 보고
-     판단하면 형판을 고르는 순간 첫 부품으로 덮어써진다(실제로 그랬다). */
+  // 고른 것이 목록에서 사라졌을 때만 되돌린다.
   useEffect(() => {
-    const candidates = [...placeableTypes.map((t) => t.id), ...assemblies.map((a) => a.id)];
-    if (candidates.length > 0 && !candidates.includes(placeTypeId)) {
-      setPlaceTypeId(candidates[0]!);
+    if (assemblies.length > 0 && !assemblies.some((a) => a.id === placeTypeId)) {
+      setPlaceTypeId(assemblies[0]!.id);
     }
-  }, [placeableTypes, assemblies, placeTypeId]);
+  }, [assemblies, placeTypeId]);
 
   // cableGroups 초기화 시 첫 category 선택
   useEffect(() => {
@@ -1187,10 +1189,10 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       </div>
 
       {/* 도구바: 배치 팔레트 + 케이블 도구 */}
-      {activeFloorId != null && (placeableTypes.length > 0 || cableGroups.length > 0) && (
+      {activeFloorId != null && (assemblies.length > 0 || cableGroups.length > 0) && (
         <div className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-2 py-1 flex-wrap">
           {/* 배치 도구 — 케이블 도구와 같은 형태(도구 버튼 + 대상 Select) */}
-          {placeableTypes.length > 0 && (
+          {assemblies.length > 0 && (
             <>
               <Button
                 size="sm"
@@ -1203,7 +1205,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
                 <Select
                   value={armedTypeId ?? placeTypeId}
                   size="sm"
-                  aria-label="배치할 자산 타입"
+                  aria-label="배치할 설비 종류"
                   onChange={(e) => {
                     const id = e.target.value;
                     setPlaceTypeId(id);
@@ -1211,22 +1213,11 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
                     if (armedTypeId !== null && id !== armedTypeId) placementDispatch({ type: 'ARM', typeId: id });
                   }}
                 >
-                  {assemblies.length > 0 && (
-                    <optgroup label="설비 형판">
-                      {assemblies.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  <optgroup label="부품">
-                    {placeableTypes.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </optgroup>
+                  {assemblies.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
                 </Select>
               </div>
               {armedTypeId !== null && (
@@ -1446,7 +1437,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
       </div>
 
       {/* 평면도 배치 모달 */}
-      {/* 형판을 놓는 중 — 물어볼 것은 현장 이름 하나뿐이다(무엇이 들어가는지는 형판이 안다). */}
+      {/* 설비 종류를 놓는 중 — 물어볼 것은 현장 이름 하나뿐이다(무엇이 들어가는지는 설비 종류가 안다). */}
       {drawModal && drawnAssembly && (
         <PlaceAssemblyModal
           assembly={drawnAssembly}
@@ -1463,15 +1454,6 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
             }
             handleModalClose();
           }}
-        />
-      )}
-      {drawModal && !drawnAssembly && (
-        <AddAssetModal
-          open={true}
-          onClose={handleModalClose}
-          substationId={substationId}
-          floorContext={{ floorId: drawModal.floorId, rect: drawModal.rect }}
-          preselectedTypeId={drawModal.typeId}
         />
       )}
       {confirmDialog}

@@ -11,8 +11,8 @@ const asset = (id: string, name: string, extra: object = {}) => ({
   fieldValues: {}, updatedAt: 'v', ports: [], ...extra,
 });
 
-/* 표의 단위는 **설비 하나**다. 예전에는 (자산, 컨테이너) 쌍이었다 — 자리를 자산 타입이
-   선언했고 타입이 컨테이너를 여럿 가질 수 있었기 때문인데, 이제 자리는 형판 격자
+/* 표의 단위는 **설비 하나**다. 예전에는 (자산, 컨테이너) 쌍이었다 — 자리를 자산 종류이
+   선언했고 타입이 컨테이너를 여럿 가질 수 있었기 때문인데, 이제 자리는 설비 종류의 격자
    하나뿐이라 그 축이 사라졌다. */
 const rack = asset('rack', '랙 A', { typeId: null, assemblyId: 'asm-1' });
 

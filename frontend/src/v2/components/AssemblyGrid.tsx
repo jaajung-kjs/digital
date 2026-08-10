@@ -7,10 +7,10 @@ import {
 } from '../gridDrag';
 
 /**
- * 격자에 놓이는 것 — **자산이든 형판 부품이든** 이만큼만 있으면 그린다.
+ * 격자에 놓이는 것 — **자산이든 설비 종류 부품이든** 이만큼만 있으면 그린다.
  *
- * 상세 패널은 실제 자산을, 형판 편집기는 아직 자산이 아닌 부품을 놓는다. 둘은 같은 판을
- * 봐야 한다 — 형판에서 짠 모습이 놓고 나면 달라 보이면 짜는 뜻이 없다.
+ * 상세 패널은 실제 자산을, 설비 종류 편집기는 아직 자산이 아닌 부품을 놓는다. 둘은 같은 판을
+ * 봐야 한다 — 설비 종류에서 짠 모습이 놓고 나면 달라 보이면 짜는 뜻이 없다.
  */
 export interface GridItem {
   id: string;
@@ -31,9 +31,9 @@ export interface AssemblyGridProps<T extends GridItem> {
   onMove: (itemId: string, placement: GridPlacement) => void;
   /** 이 자리에 놓을 수 있는가 — 겹침·범위를 부르는 쪽이 판정한다. */
   canPlace: (itemId: string, placement: GridPlacement) => boolean;
-  /** 이름 뒤에 붙는 것 — 자산이면 포트 요약, 형판이면 타입 이름. */
+  /** 이름 뒤에 붙는 것 — 자산이면 포트 요약, 설비 종류가면 타입 이름. */
   trailing?: (item: T) => ReactNode;
-  /** 지금 골라져 있는 것 — 형판 편집기가 고른 부품을 표시할 때 쓴다. */
+  /** 지금 골라져 있는 것 — 설비 종류 편집기가 고른 부품을 표시할 때 쓴다. */
   selectedId?: string | null;
 }
 

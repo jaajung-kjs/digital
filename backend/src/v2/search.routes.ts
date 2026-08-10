@@ -20,7 +20,7 @@ searchRouter.get('/search/assets', async (req, res, next) => {
       include: {
         substation: { select: { id: true, name: true } },
         type: { select: { name: true } },
-        // 형판으로 놓은 설비는 타입이 없다 — 그때는 형판이 곧 분류다.
+        // 설비 종류으로 놓은 설비는 타입이 없다 — 그때는 설비 종류가 곧 분류다.
         assembly: { select: { name: true } },
       },
       orderBy: [{ name: 'asc' }, { substation: { name: 'asc' } }],

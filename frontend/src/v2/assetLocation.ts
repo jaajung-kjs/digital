@@ -11,8 +11,8 @@ import type { V2Asset, V2Assembly } from './types';
  * 같은 계산이 현황표와 상세 패널에 각각 복제돼 있었다(한쪽만 고치면 두 화면이 달라진다).
  * 여기 한 곳에 둔다.
  *
- * 자리 번호는 격자에서 유도한다 — 열이 몇인지는 **상위 설비의 형판**이 안다.
- * 형판을 못 주면 번호를 생략한다(이름만으로도 어디인지는 읽힌다).
+ * 자리 번호는 격자에서 유도한다 — 열이 몇인지는 **상위 설비의 설비 종류**이 안다.
+ * 설비 종류를 못 주면 번호를 생략한다(이름만으로도 어디인지는 읽힌다).
  */
 export function assetLocationPath(
   asset: V2Asset,
@@ -37,7 +37,7 @@ export function assetLocationPath(
     }
     const parent: V2Asset | undefined = assetById.get(cur.parentAssetId);
     /* 자리 번호는 "그 상위의 몇 번 자리인가" 이므로 상위 이름 뒤에 붙인다.
-       격자가 몇 열인지는 상위 설비의 형판이 선언한다 — 2열짜리 분전반은 1·2 가 첫 행이다. */
+       격자가 몇 열인지는 상위 설비의 설비 종류가 선언한다 — 2열짜리 분전반은 1·2 가 첫 행이다. */
     const assembly = parent?.assemblyId ? assembliesById?.get(parent.assemblyId) : undefined;
     const slot =
       cur.col != null && cur.row != null

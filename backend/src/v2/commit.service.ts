@@ -88,15 +88,15 @@ function resolvePlacement(p: { floorId?: string | null; parentAssetId?: string |
 
 async function loadTypeSpec(tx: Tx, typeId: string) {
   const row = await tx.assetType.findUnique({ where: { id: typeId }, include: TYPE_INCLUDE });
-  if (!row || !row.isActive) throw new HttpError(422, 'INVALID_TYPE', '유효하지 않은 자산 타입입니다');
+  if (!row || !row.isActive) throw new HttpError(422, 'INVALID_TYPE', '유효하지 않은 자산 종류입니다');
   return { row, spec: typeRowToSpec(row) };
 }
 
 /**
  * 부품을 **설비 격자**에 놓을 수 있는가.
  *
- * 격자는 설비가 가리키는 형판이 선언한다 — 자산 타입이 아니다. 그래서 부모는 반드시
- * 형판으로 놓인 설비여야 한다(부품 안에 부품을 담지 않는다).
+ * 격자는 설비가 가리키는 설비 종류가 선언한다 — 자산 종류이 아니다. 그래서 부모는 반드시
+ * 설비 종류으로 놓인 설비여야 한다(부품 안에 부품을 담지 않는다).
  */
 async function validateGridSlot(
   tx: Tx,
@@ -106,7 +106,7 @@ async function validateGridSlot(
 ): Promise<void> {
   const parent = await tx.asset.findUnique({ where: { id: args.parentAssetId }, include: { assembly: true } });
   if (!parent || parent.substationId !== substationId) throw new HttpError(422, 'INVALID_PARENT', '부모 자산이 유효하지 않습니다');
-  if (!parent.assembly) throw new HttpError(422, 'INVALID_PARENT', '부품을 담을 수 있는 것은 형판으로 놓은 설비뿐입니다');
+  if (!parent.assembly) throw new HttpError(422, 'INVALID_PARENT', '부품을 담을 수 있는 것은 설비 종류으로 놓은 설비뿐입니다');
 
   const siblings = await tx.asset.findMany({
     where: { parentAssetId: parent.id, ...(excludeAssetId ? { id: { not: excludeAssetId } } : {}) },
@@ -126,15 +126,18 @@ async function validateGridSlot(
 }
 
 async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Promise<void> {
-  /* 도면에 놓이는 것은 둘이다: 형판으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
-     설비는 형판이 분류이므로 타입을 요구하지 않는다. */
+  /* 도면에 놓이는 것은 둘이다: 설비 종류으로 만든 **설비**(타입 없음)와 단품 **부품**(타입 있음).
+     설비는 설비 종류가 분류이므로 타입을 요구하지 않는다. */
   if (!input.typeId && !input.assemblyId) {
-    throw new HttpError(422, 'INVALID_ASSET', '자산 타입이나 형판 중 하나는 있어야 합니다');
+    throw new HttpError(422, 'INVALID_ASSET', '자산 종류나 설비 종류 중 하나는 있어야 합니다');
   }
   const spec = input.typeId ? (await loadTypeSpec(tx, input.typeId)).spec : null;
   const placement = resolvePlacement(input);
   if (placement === 'floor') {
-    if (spec && !spec.placement.placeable) throw new HttpError(422, 'NOT_PLACEABLE', '평면도에 배치할 수 없는 타입입니다');
+    /* 도면에 놓이는 것은 **설비 하나뿐**이다. 예전에는 자산 종류에 「배치 가능」 딱지를 달아
+       단품도 따로 놓았는데, 그러면 놓는 길이 둘로 갈리고 현황의 「종류」도 때로는 자산·때로는
+       설비를 가리켰다. 접지함체처럼 단품인 것도 1칸짜리 설비 종류로 만들어 놓는다. */
+    if (!input.assemblyId) throw new HttpError(422, 'NOT_PLACEABLE', '도면에는 설비만 놓을 수 있습니다');
     const floor = await tx.floor.findUnique({ where: { id: input.floorId as string } });
     if (!floor || floor.substationId !== substationId) throw new HttpError(422, 'INVALID_FLOOR', '층이 유효하지 않습니다');
   }
@@ -196,10 +199,8 @@ async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promis
     };
     const placement = resolvePlacement(merged);
     if (placement === 'floor') {
-      // 형판으로 놓은 설비는 타입이 없다 — 배치 가능 여부는 타입이 있을 때만 따진다.
-      if (existing.type && !typeRowToSpec(existing.type).placement.placeable) {
-        throw new HttpError(422, 'NOT_PLACEABLE', '평면도에 배치할 수 없는 타입입니다');
-      }
+      // 도면에 놓이는 것은 설비뿐 — 부품을 층으로 끌어낼 수는 없다.
+      if (!existing.assemblyId) throw new HttpError(422, 'NOT_PLACEABLE', '도면에는 설비만 놓을 수 있습니다');
       const floor = await tx.floor.findUnique({ where: { id: merged.floorId as string } });
       if (!floor || floor.substationId !== substationId) throw new HttpError(422, 'INVALID_FLOOR', '층이 유효하지 않습니다');
     }

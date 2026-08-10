@@ -1,10 +1,15 @@
 /**
- * V2CatalogAdminPage — 관리자 카탈로그 화면
+ * V2CatalogAdminPage — 설비관리대장
  *
- * 좌: TypeListPanel (280px, 분류·타입 목록)
- * 우: 탭(타입 | 케이블)
- *   타입 탭: TypeBasicsForm + PortsEditor + 저장바
- *   케이블 탭: CableCatalogPanel
+ * 대장이 정하는 것은 현황표의 **「종류」 열**이다. 그래서 탭 이름도 그 말로 통일한다:
+ *
+ *   설비 종류 — 도면에 놓이고 현황에 집계되는 단위. 격자 + 구성.
+ *   자산 종류 — 설비 안에 들어가는 것. 포트와 공량을 갖는다.
+ *   케이블 종류 — 잇는 것.
+ *
+ * **목록은 탭이 각자 갖는다.** 예전에는 자산 목록이 화면 왼쪽에 고정돼 있어, 설비 종류
+ * 탭을 열면 목록이 둘(자산 | 설비) 나란히 뜨고 왼쪽 264px 는 아무 일도 하지 않았다 —
+ * 어느 목록이 지금 편집 대상인지 화면이 말해 주지 않았다.
  */
 import { useState } from 'react';
 import { X } from 'lucide-react';
@@ -34,10 +39,10 @@ import type { V2AssetType, V2Category } from '../types';
 type Tab = 'type' | 'assembly' | 'cable';
 
 const CATALOG_TABS: readonly TabItem<Tab>[] = [
-  { key: 'type', label: '타입 명세' },
-  // 부품(타입)을 조립해 만든 **한 설비** — 도면에는 이것을 놓는다.
-  { key: 'assembly', label: '설비 형판' },
-  { key: 'cable', label: '케이블' },
+  // 도면에 놓이고 현황에 집계되는 단위 — 대장의 주인공이라 맨 앞에 둔다.
+  { key: 'assembly', label: '설비 종류' },
+  { key: 'type', label: '자산 종류' },
+  { key: 'cable', label: '케이블 종류' },
 ];
 
 export default function V2CatalogAdminPage() {
@@ -47,7 +52,8 @@ export default function V2CatalogAdminPage() {
   const mutations = useCatalogMutations();
 
   // ── 탭 상태 ──────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<Tab>('type');
+  // 대장을 열면 **설비 종류**부터 — 도면에 놓이고 현황에 집계되는 단위가 주인공이다.
+  const [activeTab, setActiveTab] = useState<Tab>('assembly');
 
   // ── 선택 상태 ────────────────────────────────────────────────────────────
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
@@ -80,7 +86,7 @@ export default function V2CatalogAdminPage() {
       dirty &&
       !(await confirm({
         title: '저장하지 않은 변경',
-        message: '이 타입의 편집 내용이 사라집니다. 이동할까요?',
+        message: '편집 내용이 사라집니다. 이동할까요?',
         confirmLabel: '이동',
         danger: true,
       }))
@@ -99,7 +105,7 @@ export default function V2CatalogAdminPage() {
       dirty &&
       !(await confirm({
         title: '저장하지 않은 변경',
-        message: '이 타입의 편집 내용이 사라집니다. 이동할까요?',
+        message: '편집 내용이 사라집니다. 이동할까요?',
         confirmLabel: '이동',
         danger: true,
       }))
@@ -154,13 +160,13 @@ export default function V2CatalogAdminPage() {
     setSaveError(null);
   }
 
-  // ── 타입 삭제 ────────────────────────────────────────────────────────────
+  // ── 자산 종류 삭제 ────────────────────────────────────────────────────────────
   async function handleDeleteType() {
     if (selectedTypeId == null) return;
     if (
       !(await confirm({
-        title: '타입 삭제',
-        message: '이 자산 타입을 삭제합니다. 이 타입으로 만든 자산이 있으면 거부됩니다.',
+        title: '자산 종류 삭제',
+        message: '이 자산 종류를 삭제합니다. 이 종류로 만든 자산이 있으면 거부됩니다.',
         confirmLabel: '삭제',
         danger: true,
       }))
@@ -173,7 +179,7 @@ export default function V2CatalogAdminPage() {
       setSelectedTypeId(null);
       setDraft(null);
     } catch (err: unknown) {
-      setSaveError(apiErrorMessage(err, '타입 삭제 실패'));
+      setSaveError(apiErrorMessage(err, '자산 종류 삭제 실패'));
     } finally {
       setIsSaving(false);
     }
@@ -227,50 +233,51 @@ export default function V2CatalogAdminPage() {
         onDismiss={() => setCategoryError(null)}
         className="shrink-0 border-b border-line bg-surface px-4 py-1"
       />
+      <PanelHeader className="px-4">
+        <Tabs items={CATALOG_TABS} value={activeTab} onChange={setActiveTab} className="-mb-px" />
+      </PanelHeader>
       <div className="flex min-h-0 flex-1">
-        {/* ── 좌측 패널 (워크스페이스 조직 트리와 같은 셸) ─────────────── */}
-        <aside className="w-64 shrink-0 border-r border-line bg-sidebar">
-          <TypeListPanel
-            catalog={catalog}
-            selectedTypeId={selectedTypeId}
-            onSelectType={selectType}
-            onNewType={handleNewType}
-            onRenameCategory={handleRenameCategory}
-            onDeleteCategory={handleDeleteCategory}
-            onAddCategory={() => {
-              setCategoryError(null);
-              setAddCategoryOpen(true);
-            }}
-          />
-        </aside>
+        {/* 목록은 탭이 각자 갖는다 — 지금 편집하는 것 옆에만 그 목록이 선다. */}
+        {activeTab === 'type' && (
+          <aside className="w-64 shrink-0 border-r border-line bg-sidebar">
+            <TypeListPanel
+              catalog={catalog}
+              selectedTypeId={selectedTypeId}
+              onSelectType={selectType}
+              onNewType={handleNewType}
+              onRenameCategory={handleRenameCategory}
+              onDeleteCategory={handleDeleteCategory}
+              onAddCategory={() => {
+                setCategoryError(null);
+                setAddCategoryOpen(true);
+              }}
+            />
+          </aside>
+        )}
 
         {/* ── 우측 영역 ───────────────────────────────────────────────── */}
         <div className="flex min-h-0 flex-1 flex-col">
-          <PanelHeader className="px-4">
-            <Tabs items={CATALOG_TABS} value={activeTab} onChange={setActiveTab} className="-mb-px" />
-          </PanelHeader>
-
-          {/* ── 설비 형판 탭 ─────────────────────────────────────────── */}
+          {/* ── 설비 종류 탭 ─────────────────────────────────────────── */}
           {activeTab === 'assembly' && (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <AssemblyCatalogPanel catalog={catalog} />
             </div>
           )}
 
-          {/* ── 케이블 탭 ───────────────────────────────────────────── */}
+          {/* ── 케이블 종류 탭 ───────────────────────────────────────── */}
           {activeTab === 'cable' && (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <CableCatalogPanel catalog={catalog} />
             </div>
           )}
 
-          {/* ── 타입 탭 ─────────────────────────────────────────────── */}
+          {/* ── 자산 종류 탭 ─────────────────────────────────────────── */}
           {activeTab === 'type' && (
             <>
               {draft == null ? (
                 <EmptyState
-                  title="선택된 자산 타입이 없습니다"
-                  description="좌측 목록에서 타입을 고르거나, 상단 + 버튼으로 새 타입을 만드세요."
+                  title="선택된 자산 종류가 없습니다"
+                  description="좌측 목록에서 고르거나, + 버튼으로 새로 만드세요. 자산 종류는 설비 안에 들어가는 것입니다."
                 />
               ) : (
                 <>
@@ -290,7 +297,7 @@ export default function V2CatalogAdminPage() {
                       </div>
                     )}
                     {/* 구조 잠금 안내 — 개수는 배지가 말하므로 문장에서 되풀이하지 않는다.
-                        (예전에는 "3개 사용 중" 배지 옆에 "자산 3개가 이 타입을 사용 중" 이 또 있었다.) */}
+                        (예전에는 "3개 사용 중" 배지 옆에 "자산 3개가 이 종류를 사용 중" 이 또 있었다.) */}
                     {locked && (
                       <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-1.5">
                         <Badge status="warning">{original?.assetCount}개 사용 중</Badge>
@@ -301,7 +308,7 @@ export default function V2CatalogAdminPage() {
                     )}
                     <div className="mx-auto flex w-full max-w-4xl items-center gap-2 px-4 py-2">
                       <span className="flex-1 text-xs text-content-muted">
-                        {selectedTypeId == null ? '신규 타입' : (original?.name ?? '')}
+                        {selectedTypeId == null ? '새 자산 종류' : (original?.name ?? '')}
                         {dirty && <span className="ml-1 text-warning">●</span>}
                       </span>
                       {selectedTypeId != null && (
@@ -312,7 +319,7 @@ export default function V2CatalogAdminPage() {
                           onClick={() => void handleDeleteType()}
                           className="text-danger hover:text-danger"
                         >
-                          타입 삭제
+                          종류 삭제
                         </Button>
                       )}
                       <Button variant="secondary" size="sm" disabled={!dirty || isSaving} onClick={handleCancel}>
@@ -330,7 +337,6 @@ export default function V2CatalogAdminPage() {
                     {/* 기본정보 · 배치 · 공량 */}
                     <TypeBasicsForm
                       draft={draft}
-                      original={original}
                       catalog={catalog}
                       onChange={handleChange}
                       issues={issues}
@@ -357,7 +363,7 @@ export default function V2CatalogAdminPage() {
       <PromptModal
         open={addCategoryOpen}
         title="분류 추가"
-        hint="자산 타입을 묶는 상위 분류입니다. 이름이 곧 키가 되므로 나중에 바꿀 수 없습니다."
+        hint="자산·설비 종류를 묶는 상위 분류입니다. 이름이 곧 키가 되므로 나중에 바꿀 수 없습니다."
         label="분류 이름"
         placeholder="예: 계측"
         busy={mutations.createCategory.isPending}

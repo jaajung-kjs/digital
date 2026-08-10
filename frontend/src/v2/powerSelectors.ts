@@ -18,7 +18,7 @@ export interface PowerCell {
 }
 
 export interface PowerRow {
-  /** 회로 자리 번호(1-based) — 그 설비의 형판 격자에서 유도한다. 자리가 없으면 null. */
+  /** 회로 자리 번호(1-based) — 그 설비의 설비 종류의 격자에서 유도한다. 자리가 없으면 null. */
   slotNo: number | null;
   /** 비어 있는 회로 자리 — 패널 스케줄의 SPARE. 이 행에는 피더가 없다. */
   empty: boolean;
@@ -72,7 +72,7 @@ export function buildPowerRows(
   container: V2Asset,
   assets: V2Asset[],
   cables: V2Cable[],
-  /** 형판이 선언한 격자 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
+  /** 설비 종류가 선언한 격자 — 주면 빈 자리도 행으로 만든다(패널 스케줄). */
   grid?: { cols: number; rows: number } | null,
 ): PowerRow[] {
   const { cablesByAPortId, cablesByBPortId } = indexCablesByPort(cables);
@@ -151,7 +151,7 @@ export function buildPowerRows(
 
   /* 빈 회로 자리 — 패널 스케줄은 쓰지 않는 자리도 보여준다(SPARE).
      "12회로 분전반에 지금 3개만 물려 있다" 를 보려면 빈 자리가 행으로 있어야 한다.
-     회로 수는 형판이 선언한 격자 칸 수다 — 격자를 모르면 있는 것만 나열한다. */
+     회로 수는 설비 종류가 선언한 격자 칸 수다 — 격자를 모르면 있는 것만 나열한다. */
   if (grid?.rows != null) {
     const taken = new Set(rows.map((r) => r.slotNo).filter((n): n is number => n != null));
     for (let i = 1; i <= grid.cols * grid.rows; i++) {

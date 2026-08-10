@@ -95,7 +95,7 @@ export default function V2WorkspacePage() {
     () => new Map((catalog.data?.categories ?? []).map((c) => [c.id, c.name])),
     [catalog.data],
   );
-  /** 형판으로 놓은 설비는 형판이 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */
+  /** 설비 종류으로 놓은 설비는 설비 종류가 곧 분류 — 이름·격자를 여기서 읽는다(글자로 굳혀 두지 않는다). */
   const assembliesById = useMemo(
     () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a])),
     [catalog.data],
@@ -150,7 +150,7 @@ export default function V2WorkspacePage() {
       status: r.status,
       substationName: r.substationName,
       fieldValues: {},
-      // 본부·지사 표는 서버 요약이라 형판 묶음을 알 수 없다 — 접을 것이 없다.
+      // 본부·지사 표는 서버 요약이라 설비 묶음을 알 수 없다 — 접을 것이 없다.
       assemblyRootId: null,
       depth: 0,
     }));

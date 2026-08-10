@@ -6,7 +6,7 @@ const item = (over: Partial<AssemblySpec['items'][number]> & { id: string }) => 
   typeKey: 'OPT-TERM', name: '이름', col: 0, row: 0, colSpan: 1, rowSpan: 1, ...over,
 });
 
-/** 격자 하나에 부품을 놓은 것 — 그게 형판의 전부다(담는 중간 자산이 없다). */
+/** 격자 하나에 부품을 놓은 것 — 그게 설비 종류의 전부다(담는 중간 자산이 없다). */
 const optSet: AssemblySpec = {
   key: 'OPT-SET', name: '송변전광단말장치',
   grid: { cols: 1, rows: 12 },
@@ -31,7 +31,7 @@ describe('validateAssembly', () => {
     expect(validateAssembly({ ...optSet, items: [item({ id: 'x', typeKey: 'NOPE' })] }, types)).toBe('unknown-type');
   });
 
-  /* 저장 전에 걸러야 배치할 때 터지지 않는다 — 형판에서는 놓였는데 실제 배치에서 튕기면
+  /* 저장 전에 걸러야 배치할 때 터지지 않는다 — 설비 종류에서는 놓였는데 실제 배치에서 튕기면
      짠 사람이 무엇이 잘못됐는지 알 길이 없다. */
   it('격자 밖은 거부한다', () => {
     expect(validateAssembly({ ...optSet, items: [item({ id: 'x', row: 12 })] }, types)).toBe('out-of-range');
@@ -54,7 +54,7 @@ describe('validateAssembly', () => {
     expect(validateAssembly(twoCol, types)).toBeNull();
   });
 
-  it('빈 형판도 유효하다 — 놓고 나서 채울 수 있다', () => {
+  it('빈 설비 종류도 유효하다 — 놓고 나서 채울 수 있다', () => {
     expect(validateAssembly({ ...optSet, items: [] }, types)).toBeNull();
   });
 });
@@ -72,7 +72,7 @@ describe('instantiateAssembly', () => {
   const specs = new Map([['OPT-TERM', devType], ['NET-SW', swType]]);
 
   /* 설비 자신(이름·도면 위치)은 놓는 쪽이 만든다 — 여기서는 그 안에 들어갈 것만 낸다. */
-  it('부품 이름과 자리를 형판이 적은 그대로 낸다', () => {
+  it('부품 이름과 자리를 설비 종류가 적은 그대로 낸다', () => {
     const out = instantiateAssembly(optSet, specs);
     expect(out.map((p) => [p.name, p.row])).toEqual([['광단말', 0], ['네트워크스위치', 1]]);
   });

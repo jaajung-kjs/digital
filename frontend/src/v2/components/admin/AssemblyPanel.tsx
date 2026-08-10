@@ -1,13 +1,13 @@
 /**
- * AssemblyPanel — 설비 형판 편집
+ * AssemblyPanel — 설비 종류 편집
  *
  * 부품을 조립해 **한 설비**를 만든다. 격자 크기를 정하고 그 위 아무 자리에나 부품을 놓는다.
  *
  * 예전에는 「도면에 놓이는 것(랙)」을 먼저 고르고 그 타입이 선언한 자리에 넣어야 했다.
  * 그래서 담기 위한 랙이라는 자산이 필요했고, 자리는 그 타입이 정한 대로만 쓸 수 있었다.
- * 이제 자리는 형판 자신의 것이라 랙이라는 층이 통째로 사라졌다 — 랙은 이 형판의 겉모습이다.
+ * 이제 자리는 설비 종류 자신의 것이라 랙이라는 층이 통째로 사라졌다 — 랙은 이 설비 종류의 겉모습이다.
  *
- * 자리는 상세 패널과 **같은 격자**(`AssemblyGrid`)를 쓴다 — 형판에서 짠 모습이 놓고 나면
+ * 자리는 상세 패널과 **같은 격자**(`AssemblyGrid`)를 쓴다 — 설비 종류에서 짠 모습이 놓고 나면
  * 달라 보이면 짜는 뜻이 없다.
  */
 import { useMemo, useState } from 'react';
@@ -64,7 +64,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   /**
    * 이 자리에 놓을 수 있는가 — 판정은 core 가 한다(격자 안·겹침).
    *
-   * 화면이 규칙을 다시 쓰면 형판에서는 놓이는데 실제 배치에서 튕기는 조립을 만들 수 있다.
+   * 화면이 규칙을 다시 쓰면 설비 종류에서는 놓이는데 실제 배치에서 튕기는 조립을 만들 수 있다.
    */
   function canPlace(movingId: string, at: GridPlacement): boolean {
     return validateGridPlacement({
@@ -77,24 +77,18 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
   }
 
   const selected = draft.items.find((i) => i.id === selectedItemId) ?? null;
-  /* 무엇을 놓을지는 형판을 짜는 사람이 정한다 — 수용 규칙(컨테이너의 것이었다)은 없다. */
+  /* 무엇을 놓을지는 설비 종류를 짜는 사람이 정한다 — 수용 규칙(컨테이너의 것이었다)은 없다. */
   const addable = catalog.types.filter((t) => t.isActive);
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-3 p-4">
       <DetailCard>
-        <DetailCardHeader title="형판" />
-        <DetailRow label="키" issue={issueOf(issues, 'key')}>
-          <Input
-            aria-label="형판 키"
-            value={draft.key}
-            placeholder="예: OPT-SET"
-            onChange={(e) => onChange({ ...draft, key: e.currentTarget.value })}
-          />
-        </DetailRow>
+        <DetailCardHeader title="설비 종류" />
+        {/* 키는 묻지 않는다 — 시드·마이그레이션이 가리키는 참조용 식별자이지 현장에서 부르는
+            이름이 아니다. 새로 만들 때는 서버가 붙인다. */}
         <DetailRow label="이름" issue={issueOf(issues, 'name')}>
           <Input
-            aria-label="형판 이름"
+            aria-label="설비 종류 이름"
             value={draft.name}
             placeholder="예: 송변전광단말장치"
             onChange={(e) => onChange({ ...draft, name: e.currentTarget.value })}
@@ -102,7 +96,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
         </DetailRow>
         <DetailRow label="분류">
           <Select
-            aria-label="형판 분류"
+            aria-label="설비 종류 분류"
             value={draft.categoryId ?? ''}
             onChange={(e) => onChange({ ...draft, categoryId: e.currentTarget.value || null })}
           >
@@ -182,7 +176,7 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
           title={`자리 ${slotNumber(draft.gridCols, addCell.col, addCell.row)} 에 넣기`}
         >
           {addable.length === 0 ? (
-            <EmptyState title="넣을 수 있는 타입이 없습니다" description="자산 타입을 먼저 만드세요." />
+            <EmptyState title="넣을 수 있는 자산 종류가 없습니다" description="「자산 종류」 탭에서 먼저 만드세요." />
           ) : (
             <ul className="max-h-80 space-y-1 overflow-y-auto">
               {addable.map((t) => (

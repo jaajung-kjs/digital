@@ -48,12 +48,6 @@ export interface FieldDef {
   options?: string[];
 }
 
-export interface PlacementSpec {
-  placeable: boolean;
-  defaultWidth?: number;
-  defaultHeight?: number;
-}
-
 export interface LaborRules {
   laborType: string | null;
   installHours: number;
@@ -112,18 +106,21 @@ export interface InternalLinkRule {
 }
 
 /**
- * 자산 타입 = **부품** 하나의 명세.
+ * 자산 종류 = **설비 안에 들어가는 것** 하나의 명세.
  *
- * 예전에는 타입이 자리(컨테이너)를 선언했다. 그래서 담기 위한 랙이라는 자산이 따로
- * 있어야 했고 그 랙이 현황에 올라왔다. 이제 자리는 **형판 격자**가 갖는다 — 타입은
- * 무엇을 어떻게 잇는가(포트)만 말한다.
+ * 예전에는 종류가 자리(컨테이너)를 선언했고 「평면도에 배치 가능」 이라는 딱지도 달았다.
+ * 그래서 담기 위한 랙이라는 자산이 따로 있어야 했고, 도면에 놓이는 길이 둘(단품 종류 /
+ * 조립된 설비)로 갈렸다.
+ *
+ * 이제 자리는 **설비 종류의 격자**가 갖고, **도면에 놓이는 것은 설비 하나뿐**이다 —
+ * 접지함체처럼 단품인 것도 1칸짜리 설비 종류로 만들어 놓는다. 자산 종류는 무엇을 어떻게
+ * 잇는가(포트)와 얼마나 품이 드는가(공량)만 말한다.
  */
 export interface AssetTypeSpec {
   key: string;
   name: string;
   categoryKey: string;
   sortOrder: number;
-  placement: PlacementSpec;
   labor: LaborRules;
   ports: PortTemplate[];
 }
@@ -167,14 +164,12 @@ export interface CableRef {
  * 각 소비자의 zod 스키마가 담당 — 코어는 타입만 소유한다.)
  */
 export interface TypeUpsertBody {
-  key: string;
+  /** 새로 만들 때는 비워 둔다 — 서버가 붙인다(현장에서 쓰는 값이 아니라 참조용 식별자다). */
+  key?: string;
   name: string;
   categoryId: string;
   sortOrder: number;
   isActive: boolean;
-  placeable: boolean;
-  defaultWidth: number | null;
-  defaultHeight: number | null;
   laborType: string | null;
   installHours: number;
   removeHours: number;
