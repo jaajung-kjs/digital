@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import {
+  createAssembly,
   createCategory,
   createCableCategory,
   createOrgNode,
   createType,
   deleteCategory,
+  deleteAssembly,
   deleteCableCategory,
   deleteOrgNode,
   deleteType,
@@ -16,6 +18,7 @@ import {
   patchCableCategory,
   patchCableGroup,
   patchOrgNode,
+  updateAssembly,
   updateType,
   type OrgKind,
 } from './api';
@@ -58,6 +61,10 @@ export function useCatalogMutations() {
     createCableCategory: useMutation({ mutationFn: createCableCategory, onSuccess: invalidate }),
     patchCableCategory: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof patchCableCategory>[1] }) => patchCableCategory(id, body), onSuccess: invalidate }),
     deleteCableCategory: useMutation({ mutationFn: deleteCableCategory, onSuccess: invalidate }),
+
+    createAssembly: useMutation({ mutationFn: createAssembly, onSuccess: invalidate }),
+    updateAssembly: useMutation({ mutationFn: ({ id, body }: { id: string; body: Parameters<typeof updateAssembly>[1] }) => updateAssembly(id, body), onSuccess: invalidate }),
+    deleteAssembly: useMutation({ mutationFn: deleteAssembly, onSuccess: invalidate }),
   };
 }
 

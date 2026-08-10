@@ -14,7 +14,38 @@ export interface V2AssetType {
 
 export interface V2CableCategory { id: string; name: string; sortOrder: number }
 export interface V2CableGroup { id: string; key: string; name: string; color: string; laborType: string | null; installHoursPerM: number; removeHoursPerM: number; sortOrder: number; categories: V2CableCategory[] }
-export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[] }
+/** 형판을 이루는 부품 하나 — 어느 타입을, 누구 안의 어느 자리에. */
+export interface V2AssemblyItem {
+  id: string;
+  /** null = 뿌리(도면에 놓이는 것). 형판마다 뿌리는 하나다. */
+  parentItemId: string | null;
+  typeId: string;
+  name: string;
+  containerKey: string | null;
+  col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
+  portCounts?: Record<string, number>;
+  portPositions?: Record<string, number>;
+  sortOrder: number;
+}
+
+/**
+ * 설비 형판 — 부품을 조립해 만든 **한 설비**(「송변전광단말장치 1식」).
+ *
+ * 고쳐도 이미 놓인 설비는 그대로다(스냅샷) — 놓을 때의 이름을 뿌리 자산에 굳혀 둔다.
+ */
+export interface V2Assembly {
+  id: string; key: string; name: string; categoryId: string | null;
+  sortOrder: number; isActive: boolean;
+  items: V2AssemblyItem[];
+}
+
+/** 형판 저장 바디 — 부품 목록을 통째로 갈아 끼운다(덮어쓰기). */
+export interface AssemblyUpsertBody {
+  key: string; name: string; categoryId: string | null; sortOrder: number; isActive: boolean;
+  items: Omit<V2AssemblyItem, 'sortOrder'>[];
+}
+
+export interface V2Catalog { categories: V2Category[]; types: V2AssetType[]; cableGroups: V2CableGroup[]; assemblies: V2Assembly[] }
 
 export interface V2Floor {
   id: string;
@@ -42,6 +73,8 @@ export interface V2Asset {
   id: string; name: string; typeId: string; substationId: string; status: string;
   floorId: string | null; x: number | null; y: number | null; width: number | null; height: number | null;
   parentAssetId: string | null; containerKey: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
+  /** 형판에서 나왔으면 그때의 형판 이름(스냅샷) — 뿌리에만 적힌다. */
+  assemblyName?: string | null;
   fieldValues: Record<string, unknown>; updatedAt: string; ports: V2Port[];
 }
 export interface V2MaintenanceLog { id: string; assetId: string; occurredAt: string; content: string; action: string | null; updatedAt: string }
@@ -63,6 +96,7 @@ export interface V2AssetCreateInput {
   id: string; name: string; typeId: string; status?: string;
   floorId?: string | null; x?: number | null; y?: number | null; width?: number | null; height?: number | null;
   parentAssetId?: string | null; containerKey?: string | null; col?: number | null; row?: number | null; colSpan?: number | null; rowSpan?: number | null;
+  assemblyName?: string | null;
   fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>; portPositions?: Record<string, number>;
 }
 export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts' | 'portPositions'>> & {

@@ -29,12 +29,15 @@ import { TypeBasicsForm } from '../components/admin/TypeBasicsForm';
 import { ContainersEditor } from '../components/admin/ContainersEditor';
 import { PortsEditor } from '../components/admin/PortsEditor';
 import { CableCatalogPanel } from '../components/admin/CableCatalogPanel';
+import { AssemblyCatalogPanel } from '../components/admin/AssemblyCatalogPanel';
 import type { V2AssetType, V2Category } from '../types';
 
-type Tab = 'type' | 'cable';
+type Tab = 'type' | 'assembly' | 'cable';
 
 const CATALOG_TABS: readonly TabItem<Tab>[] = [
   { key: 'type', label: '타입 명세' },
+  // 부품(타입)을 조립해 만든 **한 설비** — 도면에는 이것을 놓는다.
+  { key: 'assembly', label: '설비 형판' },
   { key: 'cable', label: '케이블' },
 ];
 
@@ -247,6 +250,13 @@ export default function V2CatalogAdminPage() {
           <PanelHeader className="px-4">
             <Tabs items={CATALOG_TABS} value={activeTab} onChange={setActiveTab} className="-mb-px" />
           </PanelHeader>
+
+          {/* ── 설비 형판 탭 ─────────────────────────────────────────── */}
+          {activeTab === 'assembly' && (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <AssemblyCatalogPanel catalog={catalog} />
+            </div>
+          )}
 
           {/* ── 케이블 탭 ───────────────────────────────────────────── */}
           {activeTab === 'cable' && (

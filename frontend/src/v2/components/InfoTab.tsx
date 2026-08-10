@@ -7,7 +7,7 @@
  * 소유(부모가 자산 전환 시 리셋 + 하단 AddAssetModal 렌더를 관장)하므로 setter 만 prop 으로 받는다.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import { ASSET_STATUSES, assetFieldDefs, slotNumber, validateSlotPlacement } from '@twin/core';
 import {
   DetailCard,
@@ -21,10 +21,8 @@ import {
 } from '../../components/ui';
 import { freeSlots } from '../newAsset';
 import { assetLocationPath } from '../assetLocation';
-import {
-  cellAt, gridDragTo, gridPlacementChanged, startGridDrag,
-  type GridCell, type GridDragKind, type GridDragSession, type GridPlacement,
-} from '../gridDrag';
+import type { GridPlacement } from '../gridDrag';
+import { SlotGrid, SLOT_ROW_HEIGHT } from './SlotGrid';
 import { cableCountByPortId } from '../cableSelectors';
 import { mergeEffective } from '../store/overlay';
 import { useV2WorkingCopy } from '../store/workingCopyStore';
@@ -57,197 +55,6 @@ function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortI
     >
       {used}/{asset.ports.length}
     </span>
-  );
-}
-
-// ── 자리 격자 ────────────────────────────────────────────────────────────────
-interface SlotGridProps {
-  spec: V2ContainerSpec;
-  children: V2Asset[];
-  onSelectChild: (id: string) => void;
-  /** 빈 자리를 눌렀을 때 — 그 칸에 바로 추가한다. */
-  onAddAtCell: (cell: { col: number; row: number }) => void;
-  /** 케이블이 물린 포트 — 자식별 포트 요약에 쓴다. */
-  occupiedPortIds: ReadonlyMap<string, number>;
-  /** 자리를 옮기거나 크기를 바꿨을 때 — 검증을 통과한 것만 온다. */
-  onMove: (assetId: string, placement: GridPlacement) => void;
-  /** 이 자리에 놓을 수 있는가 — 겹침·범위·span 허용을 상위가 판정한다. */
-  canPlace: (assetId: string, placement: GridPlacement) => boolean;
-}
-
-/** 자리 한 칸의 높이(px) — 여러 칸을 차지하는 장비는 이 배수만큼 높아진다. */
-const SLOT_ROW_HEIGHT = 26;
-
-/**
- * 함체 안의 자리 — **격자**로 그린다.
- *
- * 세로로 쌓는 이유: 랙·함체는 세로로 자리가 배열된 물리 장비다. 예전에는 `grid-cols-6`
- * 이라 384px 상세 패널에서 칸이 56px 밖에 안 됐고, 장비 이름이 "SCA…", "통합…" 으로
- * 잘려 무엇이 꽂혀 있는지 알 수 없었다.
- *
- * 그래서 **열은 명세가 선언한 만큼만** 나눈다 — 랙은 1열이라 예전과 똑같이 한 줄씩 쌓이고,
- * 분전반 조서처럼 2열이면 좌우로 갈린다(1·2가 첫 행). 번호는 저장하지 않고 격자에서
- * 유도하므로 자리와 번호가 어긋날 수 없다.
- *
- * 바깥 테두리 하나가 함체이고 그 안에 자리가 있다 — 포트 판의 백플레인과 같은 어법이다.
- * 예전에는 **자리마다** 점선 상자를 둘러 12칸짜리 랙이 점선 12개 + 파란 `+ 추가` 12개가 되어,
- * 정작 무엇이 꽂혀 있는지보다 빈칸이 더 눈에 띄었다.
- */
-function SlotGrid({ spec, children, onSelectChild, onAddAtCell, occupiedPortIds, onMove, canPlace }: SlotGridProps) {
-  const rows = spec.rows!;
-  const cols = Math.max(spec.cols, 1);
-
-  const boxRef = useRef<HTMLUListElement | null>(null);
-  const sessionRef = useRef<GridDragSession | null>(null);
-  /** 끌고 있는 동안의 미리보기 — 놓기 전에는 저장하지 않는다. */
-  const [preview, setPreview] = useState<{ assetId: string; placement: GridPlacement; ok: boolean } | null>(null);
-
-  /** 포인터가 가리키는 칸 — 격자 상자 기준 상대 좌표로 셈한다. */
-  function cellFromPointer(e: { clientX: number; clientY: number }): GridCell | null {
-    const el = boxRef.current;
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    return cellAt({ width: r.width, height: r.height, cols, rows }, e.clientX - r.left, e.clientY - r.top);
-  }
-
-  function beginDrag(kind: GridDragKind, child: V2Asset, e: React.PointerEvent) {
-    if (kind === 'resize' && !spec.allowSpan) return;
-    const origin: GridPlacement = {
-      col: child.col ?? 0, row: child.row ?? 0,
-      colSpan: child.colSpan ?? 1, rowSpan: child.rowSpan ?? 1,
-    };
-    const grab = cellFromPointer(e) ?? { col: origin.col, row: origin.row };
-    sessionRef.current = startGridDrag(kind, child.id, origin, grab);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-
-  function onPointerMove(e: React.PointerEvent) {
-    const session = sessionRef.current;
-    if (!session) return;
-    const target = cellFromPointer(e);
-    if (!target) return;
-    const placement = gridDragTo(session, target);
-    session.moved = session.moved || gridPlacementChanged(session.origin, placement);
-    if (!session.moved) return;
-    setPreview({ assetId: session.assetId, placement, ok: canPlace(session.assetId, placement) });
-  }
-
-  function endDrag() {
-    const session = sessionRef.current;
-    sessionRef.current = null;
-    const pv = preview;
-    setPreview(null);
-    // 끌지 않았으면 그냥 누른 것이다 — 선택은 버튼의 onClick 이 맡는다.
-    if (!session || !session.moved || !pv) return;
-    if (pv.ok && gridPlacementChanged(session.origin, pv.placement)) onMove(session.assetId, pv.placement);
-  }
-
-  /** `열,행` → 그 칸에서 시작하는 자식. */
-  const byCell = new Map<string, V2Asset>();
-  /** 이미 어떤 자산이 덮고 있는 칸 — span 이 지나가는 자리다. */
-  const covered = new Set<string>();
-  for (const child of children) {
-    if (child.col == null || child.row == null) continue;
-    byCell.set(`${child.col},${child.row}`, child);
-    for (let r = 0; r < (child.rowSpan ?? 1); r++) {
-      for (let c = 0; c < (child.colSpan ?? 1); c++) {
-        covered.add(`${child.col + c},${child.row + r}`);
-      }
-    }
-  }
-
-  const cells: React.ReactNode[] = [];
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const key = `${col},${row}`;
-      const child = byCell.get(key);
-      // 시작 칸이 아니면서 누가 덮고 있으면 그 칸은 그리지 않는다(span 이 대신 차지한다).
-      if (!child && covered.has(key)) continue;
-
-      /* 끌고 있는 중이면 그 자산은 미리보기 자리에 그린다 — 원래 자리에는 빈칸이 남는다. */
-      const pv = child && preview?.assetId === child.id ? preview : null;
-      const at = pv ? pv.placement : { col, row, colSpan: child?.colSpan ?? 1, rowSpan: child?.rowSpan ?? 1 };
-      const rowSpan = at.rowSpan;
-      const colSpan = at.colSpan;
-      const first = slotNumber(cols, at.col, at.row);
-      // 여러 칸을 차지하면 "3–5" 처럼 범위로 적는다.
-      const last = slotNumber(cols, at.col + colSpan - 1, at.row + rowSpan - 1);
-      const label = last > first ? `${first}–${last}` : String(first);
-
-      cells.push(
-        <li
-          key={key}
-          style={{
-            minHeight: rowSpan * SLOT_ROW_HEIGHT,
-            gridColumn: `${at.col + 1} / span ${colSpan}`,
-            gridRow: `${at.row + 1} / span ${rowSpan}`,
-          }}
-        >
-          {/* 빈 자리도 누를 수 있다 — 예전에는 아무 반응이 없어서, 추가하려면 위 버튼을 눌러
-              모달에서 자리를 다시 골라야 했다. 눈앞의 빈칸을 누르는 것이 자연스럽다. */}
-          <button
-            type="button"
-            className={cn(
-              'group relative flex h-full w-full items-center gap-2 rounded px-2 text-left text-sm',
-              // 꽂혀 있는 것만 칸으로 보인다 — 빈 자리는 배경 그대로 둔다.
-              child ? cn('border border-line bg-surface text-content', SELECTABLE) : cn('text-content-faint', SELECTABLE),
-              child && 'cursor-grab touch-none active:cursor-grabbing',
-              // 놓을 수 없는 자리면 그렇다고 말한다 — 놓아 봐야 되돌아가는 것보다 낫다.
-              pv && (pv.ok ? 'ring-2 ring-primary' : 'ring-2 ring-danger opacity-70'),
-            )}
-            title={child?.name}
-            onClick={() => (child ? onSelectChild(child.id) : onAddAtCell({ col, row }))}
-            onPointerDown={(e) => child && e.button === 0 && beginDrag('move', child, e)}
-            onPointerMove={onPointerMove}
-            onPointerUp={endDrag}
-            onPointerCancel={endDrag}
-          >
-            <span className="w-8 shrink-0 text-right text-xs text-content-faint">{label}</span>
-            <span className="min-w-0 flex-1 truncate">{child ? child.name : '비어 있음'}</span>
-            {child && <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
-            {!child && (
-              <span className="shrink-0 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                + 추가
-              </span>
-            )}
-            {/* 크기 손잡이 — 아래 모서리. span 을 허용하지 않는 컨테이너에는 달지 않는다.
-                평면도 핸들과 같은 어법으로 **반대변(왼쪽 위)을 고정**하고 끈다. */}
-            {child && spec.allowSpan && (
-              <span
-                role="separator"
-                aria-label={`${child.name} 크기 조절`}
-                className="absolute inset-x-0 bottom-0 h-1.5 cursor-ns-resize touch-none opacity-0 transition-opacity group-hover:opacity-100"
-                onPointerDown={(e) => {
-                  e.stopPropagation();
-                  beginDrag('resize', child, e);
-                }}
-                onPointerMove={onPointerMove}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
-              >
-                <span className="mx-auto block h-full w-8 rounded-full bg-primary/40" />
-              </span>
-            )}
-          </button>
-        </li>,
-      );
-    }
-  }
-
-  return (
-    <div className="mt-1 rounded border border-line bg-surface-2 p-1.5 shadow-inner">
-      {/* 행 높이를 못 박아 둔다 — 포인터 좌표에서 칸을 셈하려면 격자가 균일해야 한다. */}
-      <ul
-        ref={boxRef}
-        className="grid gap-0.5"
-        style={{
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${rows}, ${SLOT_ROW_HEIGHT}px)`,
-        }}
-      >
-        {cells}
-      </ul>
-    </div>
   );
 }
 
@@ -581,9 +388,9 @@ export function InfoTab({
                 {spec.rows != null ? (
                   <SlotGrid
                     spec={spec}
-                    children={specChildren}
-                    onSelectChild={onSelectAsset}
-                    occupiedPortIds={occupiedPortIds}
+                    items={specChildren}
+                    onSelect={(child) => onSelectAsset(child.id)}
+                    trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
                     onAddAtCell={(cell) =>
                       setAddModalCtx({ parentAssetId: assetId, spec, siblings: specChildren, cell })
                     }

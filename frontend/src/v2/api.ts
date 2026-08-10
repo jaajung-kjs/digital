@@ -1,5 +1,5 @@
 import { httpClient as api } from './httpClient';
-import type { TypeUpsertBody, V2Catalog, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
+import type { AssemblyUpsertBody, TypeUpsertBody, V2Catalog, V2CommitPayload, V2Floor, V2NodeAssetRow, V2OrgTree, V2Port, V2Workingcopy } from './types';
 
 export interface AssetSearchResult { id: string; name: string; substationId: string; substationName: string; typeName: string }
 
@@ -109,4 +109,16 @@ export async function patchCableCategory(id: string, body: { name?: string; sort
 }
 export async function deleteCableCategory(id: string): Promise<void> {
   await api.delete(`/v2/catalog/cable-categories/${id}`);
+}
+
+// ── 설비 형판 ────────────────────────────────────────────────────────────────
+
+export async function createAssembly(body: AssemblyUpsertBody): Promise<{ id: string }> {
+  return (await api.post('/v2/catalog/assemblies', body)).data;
+}
+export async function updateAssembly(id: string, body: AssemblyUpsertBody): Promise<void> {
+  await api.put(`/v2/catalog/assemblies/${id}`, body);
+}
+export async function deleteAssembly(id: string): Promise<void> {
+  await api.delete(`/v2/catalog/assemblies/${id}`);
 }
