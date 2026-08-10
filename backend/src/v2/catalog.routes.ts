@@ -499,7 +499,12 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
 catalogRouter.delete('/assemblies/:id', adminOnly, async (req, res, next) => {
   try {
     const id = idParamSchema.parse(req.params.id);
-    // 이미 놓인 설비는 스냅샷이라 형판이 사라져도 그대로 남는다 — 막을 이유가 없다.
+    /* 형판은 이미 놓인 설비의 **분류**다 — 지우면 그 설비들이 무엇인지 말할 수 없게 되고
+       현황 집계가 깨진다. 안 쓰이게 하려면 `isActive` 를 끄면 된다. */
+    const inUse = await nextDb.asset.count({ where: { assemblyId: id } });
+    if (inUse > 0) {
+      throw new HttpError(409, 'ASSEMBLY_IN_USE', '이 형판으로 놓인 설비가 있습니다', [{ count: inUse }]);
+    }
     await nextDb.assembly.delete({ where: { id } });
     res.status(204).end();
   } catch (e) {

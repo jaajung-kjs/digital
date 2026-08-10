@@ -25,8 +25,8 @@ const assetCreateSchema = z.object({
   width: z.number().nullish(),
   height: z.number().nullish(),
   parentAssetId: z.string().uuid().nullish(),
-  /** 형판에서 나왔으면 그때의 형판 이름 — 뿌리에만 적힌다(스냅샷). */
-  assemblyName: z.string().trim().min(1).nullish(),
+  /** 이 설비를 만든 형판 — **분류**다. 뿌리에만 적힌다. */
+  assemblyId: z.string().uuid().nullish(),
   containerKey: z.string().nullish(),
   col: z.number().int().min(0).nullish(),
   row: z.number().int().min(0).nullish(),

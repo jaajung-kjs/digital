@@ -78,15 +78,17 @@ describe('형판 묶음', () => {
     ({ id, name: id, typeId: 't', status: 'normal', floorId: null, parentAssetId: null,
        containerKey: null, col: null, row: null, fieldValues: {}, ...over });
 
+  /* 형판 이름은 글자로 굳혀 두지 않고 형판을 가리킨다 — 이름은 카탈로그에서 읽는다. */
+  const assemblyNameById = new Map([['asm-1', '송변전광단말장치 1식']]);
   const build = (assets: object[]) =>
     buildStatusRows({
       assets: assets as never, floors: [] as never, typesById: types as never,
-      categoryNameById: new Map(), inspectionsByAsset: new Map(),
+      categoryNameById: new Map(), inspectionsByAsset: new Map(), assemblyNameById,
     }).rows;
 
   it('뿌리에만 형판 이름이 적히고, 자손은 그 뿌리에 매인다', () => {
     const rows = build([
-      a('root', { floorId: 'f1', assemblyName: '송변전광단말장치 1식' }),
+      a('root', { floorId: 'f1', assemblyId: 'asm-1' }),
       a('kid', { parentAssetId: 'root', containerKey: 'main', col: 0, row: 1 }),
       a('grand', { parentAssetId: 'kid', containerKey: 'main', col: 0, row: 0 }),
     ]);
@@ -98,8 +100,10 @@ describe('형판 묶음', () => {
   });
 
   /* 업무에서 "랙이 몇 개" 는 묻지 않는다 — 뿌리는 형판 이름으로 센다. */
-  it('뿌리의 종류는 형판 이름으로 읽힌다', () => {
-    const rows = build([a('root', { floorId: 'f1', assemblyName: '송변전광단말장치 1식' })]);
+  /* 형판 이름을 고치면 이미 놓인 설비의 분류도 따라 바뀐다 — 같은 형판이니까.
+     글자로 굳혀 두면 이름을 고치는 순간 같은 형판인데 집계가 둘로 갈린다. */
+  it('뿌리의 종류는 형판을 따라간다 — 이름을 굳혀 두지 않는다', () => {
+    const rows = build([a('root', { floorId: 'f1', assemblyId: 'asm-1' })]);
     expect(rows[0]!.typeName).toBe('송변전광단말장치 1식');
   });
 

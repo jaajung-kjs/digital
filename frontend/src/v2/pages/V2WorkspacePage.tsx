@@ -95,6 +95,11 @@ export default function V2WorkspacePage() {
     () => new Map((catalog.data?.categories ?? []).map((c) => [c.id, c.name])),
     [catalog.data],
   );
+  /** 형판으로 놓은 설비는 형판이 곧 분류 — 이름을 여기서 읽는다(글자로 굳혀 두지 않는다). */
+  const assemblyNameById = useMemo(
+    () => new Map((catalog.data?.assemblies ?? []).map((a) => [a.id, a.name])),
+    [catalog.data],
+  );
 
   // ── 변전소 스코프: working copy effective state (반응형 슬라이스 구독) ──
   const substationId = useV2WorkingCopy((s) => s.substationId);
@@ -123,6 +128,7 @@ export default function V2WorkspacePage() {
       typesById,
       categoryNameById,
       inspectionsByAsset,
+      assemblyNameById,
     });
   }, [selected, substationId, saved, overlays, typesById, categoryNameById]);
 

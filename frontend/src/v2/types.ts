@@ -73,8 +73,8 @@ export interface V2Asset {
   id: string; name: string; typeId: string; substationId: string; status: string;
   floorId: string | null; x: number | null; y: number | null; width: number | null; height: number | null;
   parentAssetId: string | null; containerKey: string | null; col: number | null; row: number | null; colSpan: number | null; rowSpan: number | null;
-  /** 형판에서 나왔으면 그때의 형판 이름(스냅샷) — 뿌리에만 적힌다. */
-  assemblyName?: string | null;
+  /** 이 설비를 만든 형판 — **분류**다(글자가 아니라 참조). 뿌리에만 적힌다. */
+  assemblyId?: string | null;
   /** 만들 때만 쓰는 포트 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
   portCounts?: Record<string, number>;
   portPositions?: Record<string, number>;
@@ -99,7 +99,7 @@ export interface V2AssetCreateInput {
   id: string; name: string; typeId: string; status?: string;
   floorId?: string | null; x?: number | null; y?: number | null; width?: number | null; height?: number | null;
   parentAssetId?: string | null; containerKey?: string | null; col?: number | null; row?: number | null; colSpan?: number | null; rowSpan?: number | null;
-  assemblyName?: string | null;
+  assemblyId?: string | null;
   fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>; portPositions?: Record<string, number>;
 }
 export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts' | 'portPositions'>> & {

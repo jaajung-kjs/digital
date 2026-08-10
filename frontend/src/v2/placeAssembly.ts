@@ -7,9 +7,10 @@ import type { V2Assembly, V2Asset } from './types';
  * 배치에 새 API 를 두지 않는다. 커밋 경로가 이미 자산 여러 개를 부모·자리와 함께 만들 수
  * 있으므로, 형판을 펴서 그대로 스테이지하면 검증·OCC·워킹카피가 전부 지금 길을 탄다.
  *
- * 놓을 때의 **형판 이름을 뿌리에 굳힌다**(스냅샷). 형판을 나중에 고쳐도 이미 놓인 설비는
- * 그때 만든 모습 그대로다 — 현장 설비는 형판이 바뀌어도 물리적으로 그대로이고, 랙마다
- * 다른 구성이 들어가 있는 것이 정상이다.
+ * 뿌리에 **형판을 가리켜 둔다** — 그 설비의 분류다. 이름을 글자로 굳히지 않는 이유는,
+ * 형판 이름을 고치면 이미 놓인 설비의 분류 표시도 따라 바뀌어야 하기 때문이다(같은 형판이니까).
+ *
+ * **구성은 스냅샷, 분류는 참조**다 — 형판을 고쳐도 이미 놓인 설비의 안쪽 구성은 그대로다.
  *
  * @returns 부모가 자식보다 먼저 오도록 정렬된 자산 목록. 커밋이 이 순서대로 만든다.
  */
@@ -49,7 +50,7 @@ export function assemblyToAssets(args: {
       width: isRoot ? args.rect.width : null,
       height: isRoot ? args.rect.height : null,
       parentAssetId: isRoot ? null : assetIdByItemId.get(item.parentItemId!) ?? null,
-      assemblyName: isRoot ? args.assembly.name : null,
+      assemblyId: isRoot ? args.assembly.id : null,
       containerKey: item.containerKey,
       col: item.col,
       row: item.row,
