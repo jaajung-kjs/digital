@@ -144,6 +144,9 @@ export default function V2WorkspacePage() {
       status: r.status,
       substationName: r.substationName,
       fieldValues: {},
+      // 본부·지사 표는 서버 요약이라 형판 묶음을 알 수 없다 — 접을 것이 없다.
+      assemblyRootId: null,
+      depth: 0,
     }));
     return { rows, fieldColumns: [] };
   }, [isNodeScope, nodeAssetsQuery.data]);

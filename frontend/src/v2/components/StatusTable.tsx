@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ASSET_STATUSES, assetStatusLabel } from '@twin/core';
 import { EmptyState, StatusDot, TableCard, TableSearch, Th, cn, SELECTABLE, SELECTED } from '../../components/ui';
@@ -118,6 +119,8 @@ export function StatusTable({
   const [sortKey, setSortKey] = useState<string>('name');
   const [asc, setAsc] = useState(true);
   const [query, setQuery] = useState('');
+  /** 펼쳐 둔 형판 묶음 — 기본은 접힘(세는 단위가 설비 하나이므로). */
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
   /* 구조 열 → 선언된 필드 열 → 이력·상태. 필드 열은 카탈로그가 정하므로 개수가 화면마다 다르다. */
   const cols = useMemo<Column[]>(
@@ -156,6 +159,50 @@ export function StatusTable({
     return asc ? cmp : -cmp;
   });
 
+  /**
+   * 형판 묶음은 **뿌리 뒤에 붙여 둔다** — 정렬은 뿌리끼리만 겨룬다.
+   *
+   * 정렬을 행 전체에 그대로 걸면 펼쳤을 때 안쪽 자산이 이름순 자리로 흩어져, 어느 설비에
+   * 든 것인지 알 수 없게 된다(실제로 그랬다). 안쪽은 **위치 경로**로 늘어놓는다 — 경로가
+   * 곧 트리 순서라 부모가 자식보다 앞선다.
+   */
+  const ordered = useMemo(() => {
+    const kids = new Map<string, StatusRow[]>();
+    for (const r of sorted) {
+      if (r.assemblyRootId === null || r.id === r.assemblyRootId) continue;
+      const list = kids.get(r.assemblyRootId) ?? [];
+      list.push(r);
+      kids.set(r.assemblyRootId, list);
+    }
+    for (const list of kids.values()) list.sort((a, b) => a.location.localeCompare(b.location, 'ko'));
+
+    const out: StatusRow[] = [];
+    for (const r of sorted) {
+      if (r.assemblyRootId !== null && r.id !== r.assemblyRootId) continue;
+      out.push(r);
+      if (r.assemblyRootId === r.id) out.push(...(kids.get(r.id) ?? []));
+    }
+    return out;
+  }, [sorted]);
+
+  /**
+   * 형판으로 놓은 묶음은 **한 줄로 접는다** — 업무에서 세는 단위가 그 설비 하나다.
+   *
+   * 접는 것이지 숨기는 것이 아니다. 점검·고장이력은 여전히 개별 자산에 붙으므로 들어갈
+   * 길이 사라지면 안 된다. 그리고 검색 중에는 접지 않는다 — 찾은 것이 안쪽에 있으면
+   * 접힌 채로는 "없다" 로 읽힌다.
+   */
+  const searching = query.trim().length > 0;
+  const visible = ordered.filter(
+    (r) => searching || r.assemblyRootId === null || r.id === r.assemblyRootId || expanded.has(r.assemblyRootId),
+  );
+  /** 이 뿌리가 접을 자손을 실제로 갖고 있는가 — 없으면 화살표를 달지 않는다. */
+  const hasChildren = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) if (r.assemblyRootId !== null && r.id !== r.assemblyRootId) set.add(r.assemblyRootId);
+    return set;
+  }, [rows]);
+
   // 가중치를 100 으로 정규화 — 필드 열 개수를 미리 알 수 없어 절대 비율을 못 쓴다.
   const totalWeight = cols.reduce((n, c) => n + c.weight, 0) || 1;
   const widths = cols.map((c) => (c.weight / totalWeight) * 100);
@@ -168,7 +215,7 @@ export function StatusTable({
           placeholder="표에 보이는 값으로 검색"
           value={query}
           onChange={setQuery}
-          shown={filtered.length}
+          shown={visible.length}
           total={rows.length}
         />
       </div>
@@ -201,19 +248,50 @@ export function StatusTable({
               </td>
             </tr>
           )}
-        {sorted.map((row) => (
-            <tr
-              key={row.id}
-              className={cn('border-b border-line last:border-0', SELECTABLE, row.id === selectedId && SELECTED)}
-              onClick={() => onSelectAsset(row.id)}
-            >
-              {cols.map((col) => (
-                <td key={col.key} className="truncate px-3 py-2 text-content">
-                  {col.render(row)}
-                </td>
-              ))}
-            </tr>
-          ))}
+        {visible.map((row) => {
+            const isRoot = row.assemblyRootId !== null && row.id === row.assemblyRootId;
+            const canExpand = isRoot && hasChildren.has(row.id);
+            return (
+              <tr
+                key={row.id}
+                className={cn('border-b border-line last:border-0', SELECTABLE, row.id === selectedId && SELECTED)}
+                onClick={() => onSelectAsset(row.id)}
+              >
+                {cols.map((col, i) => (
+                  <td key={col.key} className="truncate px-3 py-2 text-content">
+                    {/* 접기 화살표는 첫 열에만 — 들여쓰기도 여기서 준다(안쪽임을 한눈에). */}
+                    {i === 0 ? (
+                      <span className="flex items-center gap-1" style={{ paddingLeft: row.depth * 14 }}>
+                        {canExpand ? (
+                          <button
+                            type="button"
+                            aria-label={`${row.name} ${expanded.has(row.id) ? '접기' : '펼치기'}`}
+                            className="shrink-0 text-content-faint hover:text-content"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpanded((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(row.id)) next.delete(row.id);
+                                else next.add(row.id);
+                                return next;
+                              });
+                            }}
+                          >
+                            {expanded.has(row.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          </button>
+                        ) : (
+                          row.depth > 0 && <span className="w-3.5 shrink-0" aria-hidden />
+                        )}
+                        <span className="min-w-0 truncate">{col.render(row)}</span>
+                      </span>
+                    ) : (
+                      col.render(row)
+                    )}
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
       </tbody>
     </TableCard>
     </div>

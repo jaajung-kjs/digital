@@ -67,3 +67,48 @@ describe('필드 열 도출', () => {
     expect(build([a('1', 'A'), a('2', 'B')], typesById as never)).toEqual(['installDate', 'manager']);
   });
 });
+
+/* 형판으로 놓으면 자산이 여럿 생긴다(랙·송광치·OFD·경로슬롯…). 업무에서 세는 단위는 그
+   묶음 하나이므로 표가 접을 수 있어야 한다 — 어느 행이 어느 묶음에 드는지는 여기서 나온다. */
+describe('형판 묶음', () => {
+  const types = new Map([
+    ['t', { id: 't', name: '랙', categoryId: 'c-1', containerSpecs: [{ key: 'main', name: '슬롯', cols: 1, rows: 12 }] } as never],
+  ]);
+  const a = (id: string, over: object = {}) =>
+    ({ id, name: id, typeId: 't', status: 'normal', floorId: null, parentAssetId: null,
+       containerKey: null, col: null, row: null, fieldValues: {}, ...over });
+
+  const build = (assets: object[]) =>
+    buildStatusRows({
+      assets: assets as never, floors: [] as never, typesById: types as never,
+      categoryNameById: new Map(), inspectionsByAsset: new Map(),
+    }).rows;
+
+  it('뿌리에만 형판 이름이 적히고, 자손은 그 뿌리에 매인다', () => {
+    const rows = build([
+      a('root', { floorId: 'f1', assemblyName: '송변전광단말장치 1식' }),
+      a('kid', { parentAssetId: 'root', containerKey: 'main', col: 0, row: 1 }),
+      a('grand', { parentAssetId: 'kid', containerKey: 'main', col: 0, row: 0 }),
+    ]);
+    expect(rows.map((r) => [r.id, r.assemblyRootId, r.depth])).toEqual([
+      ['root', 'root', 0],
+      ['kid', 'root', 1],
+      ['grand', 'root', 2],
+    ]);
+  });
+
+  /* 업무에서 "랙이 몇 개" 는 묻지 않는다 — 뿌리는 형판 이름으로 센다. */
+  it('뿌리의 종류는 형판 이름으로 읽힌다', () => {
+    const rows = build([a('root', { floorId: 'f1', assemblyName: '송변전광단말장치 1식' })]);
+    expect(rows[0]!.typeName).toBe('송변전광단말장치 1식');
+  });
+
+  it('형판 밖 자산은 매이지 않는다 — 손으로 만든 랙 안의 장비도 그대로 보인다', () => {
+    const rows = build([a('rack', { floorId: 'f1' }), a('dev', { parentAssetId: 'rack', containerKey: 'main', col: 0, row: 0 })]);
+    expect(rows.every((r) => r.assemblyRootId === null)).toBe(true);
+  });
+
+  it('상위가 순환해도 멈춘다 — 데이터가 망가져도 표가 얼지 않게', () => {
+    expect(() => build([a('x', { parentAssetId: 'y' }), a('y', { parentAssetId: 'x' })])).not.toThrow();
+  });
+});
