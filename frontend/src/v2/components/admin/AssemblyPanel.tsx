@@ -30,6 +30,13 @@ interface AssemblyPanelProps {
 const issueOf = (issues: AssemblyIssue[], path: AssemblyIssue['path']) =>
   issues.find((i) => i.path === path)?.message;
 
+/** 1식 공량의 작업 종류 — 자산 종류의 공량 카드와 같은 순서다. */
+const LABOR_HOURS = [
+  { key: 'installHours', label: '신설(h)' },
+  { key: 'removeHours', label: '철거(h)' },
+  { key: 'relocateHours', label: '이설(h)' },
+] as const;
+
 export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPanelProps) {
   /** 어느 칸에 무엇을 넣을지 고르는 중. */
   const [addCell, setAddCell] = useState<{ col: number; row: number } | null>(null);
@@ -128,6 +135,36 @@ export function AssemblyPanel({ draft, onChange, catalog, issues }: AssemblyPane
             onChange={(e) => onChange({ ...draft, gridCols: Math.max(Number(e.currentTarget.value) || 1, 1) })}
           />
         </DetailRow>
+      </DetailCard>
+
+      {/* ── 1식 공량 ─────────────────────────────────────────────────────
+          설비를 **통째로** 놓거나 걷을 때의 품이다. 완성된 1식에서 부품 하나만 걷어내면
+          그때는 그 자산 종류의 공량을 쓴다 — 어느 쪽인지는 설계서가 변경 집합에서 안다.
+          비워 두면 안에 든 자산의 공량을 합쳐 센다(0 은 「품이 안 든다」는 뜻이라 다르다). */}
+      <DetailCard>
+        <DetailCardHeader title="1식 공량" />
+        <DetailRow label="노무유형">
+          <Input
+            aria-label="1식 노무유형"
+            value={draft.laborType ?? ''}
+            placeholder="예: 통신내선공"
+            onChange={(e) => onChange({ ...draft, laborType: e.currentTarget.value.trim() || null })}
+          />
+        </DetailRow>
+        {LABOR_HOURS.map(({ key, label }) => (
+          <DetailRow key={key} label={label} hint={draft[key] == null ? '비우면 부품 공량의 합' : undefined}>
+            <Input
+              aria-label={`1식 ${label}`}
+              type="number"
+              value={draft[key] == null ? '' : String(draft[key])}
+              placeholder="부품 합"
+              onChange={(e) => {
+                const raw = e.currentTarget.value;
+                onChange({ ...draft, [key]: raw === '' ? null : Math.max(Number(raw) || 0, 0) });
+              }}
+            />
+          </DetailRow>
+        ))}
       </DetailCard>
 
       <DetailCard>

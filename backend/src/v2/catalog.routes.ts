@@ -441,7 +441,13 @@ catalogRouter.post('/assemblies', adminOnly, async (req, res, next) => {
 
     const created = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.create({
-        data: { key: body.key, name: body.name, categoryId: body.categoryId, gridCols: body.gridCols, gridRows: body.gridRows, sortOrder: body.sortOrder, isActive: body.isActive },
+        data: {
+          key: body.key, name: body.name, categoryId: body.categoryId,
+          gridCols: body.gridCols, gridRows: body.gridRows,
+          laborType: body.laborType, installHours: body.installHours,
+          removeHours: body.removeHours, relocateHours: body.relocateHours,
+          sortOrder: body.sortOrder, isActive: body.isActive,
+        },
       });
       await writeAssemblyItems(tx, row.id, body.items);
       return row;
@@ -465,7 +471,13 @@ catalogRouter.put('/assemblies/:id', adminOnly, async (req, res, next) => {
     const updated = await nextDb.$transaction(async (tx) => {
       const row = await tx.assembly.update({
         where: { id },
-        data: { key: body.key, name: body.name, categoryId: body.categoryId, gridCols: body.gridCols, gridRows: body.gridRows, sortOrder: body.sortOrder, isActive: body.isActive },
+        data: {
+          key: body.key, name: body.name, categoryId: body.categoryId,
+          gridCols: body.gridCols, gridRows: body.gridRows,
+          laborType: body.laborType, installHours: body.installHours,
+          removeHours: body.removeHours, relocateHours: body.relocateHours,
+          sortOrder: body.sortOrder, isActive: body.isActive,
+        },
       });
       await writeAssemblyItems(tx, row.id, body.items);
       return row;

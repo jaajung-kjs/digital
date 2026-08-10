@@ -16,6 +16,11 @@ export interface AssemblyDraft {
   /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다. */
   gridCols: number;
   gridRows: number;
+  /** 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */
+  laborType: string | null;
+  installHours: number | null;
+  removeHours: number | null;
+  relocateHours: number | null;
   sortOrder: number;
   isActive: boolean;
   items: AssemblyDraftItem[];
@@ -30,6 +35,10 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
     categoryId: a.categoryId,
     gridCols: a.gridCols,
     gridRows: a.gridRows,
+    laborType: a.laborType,
+    installHours: a.installHours,
+    removeHours: a.removeHours,
+    relocateHours: a.relocateHours,
     sortOrder: a.sortOrder,
     isActive: a.isActive,
     items: [...a.items]
@@ -40,7 +49,11 @@ export function assemblyToDraft(a: V2Assembly): AssemblyDraft {
 
 export function emptyAssemblyDraft(): AssemblyDraft {
   // 19인치 랙 한 대가 가장 흔한 모양이라 그것을 기본으로 둔다.
-  return { key: '', name: '', categoryId: null, gridCols: 4, gridRows: 12, sortOrder: 0, isActive: true, items: [] };
+  return {
+    key: '', name: '', categoryId: null, gridCols: 4, gridRows: 12,
+    laborType: null, installHours: null, removeHours: null, relocateHours: null,
+    sortOrder: 0, isActive: true, items: [],
+  };
 }
 
 /** 아직 저장되지 않은 부품의 임시 id — 저장할 때 백엔드가 실제 id 로 바꾼다. */
@@ -98,6 +111,10 @@ export function draftToAssemblyBody(draft: AssemblyDraft) {
     categoryId: draft.categoryId,
     gridCols: draft.gridCols,
     gridRows: draft.gridRows,
+    laborType: draft.laborType,
+    installHours: draft.installHours,
+    removeHours: draft.removeHours,
+    relocateHours: draft.relocateHours,
     sortOrder: draft.sortOrder,
     isActive: draft.isActive,
     items: draft.items,

@@ -2,7 +2,7 @@ import { assetReportItem, cableReportItem, COMMON_CABLE_FIELDS, PLACEMENT_FIELDS
 import type { ReportItem } from '@twin/core';
 import { mergeEffective } from './store/overlay';
 import { buildPortIndex, cableEndpointName } from './peerResolve';
-import type { V2Asset, V2AssetType, V2Cable, V2CableGroup, V2InspectionLog, V2MaintenanceLog } from './types';
+import type { V2Assembly, V2Asset, V2AssetType, V2Cable, V2CableGroup, V2InspectionLog, V2MaintenanceLog } from './types';
 import type { Overlay } from './store/overlay';
 
 /** 스토어 Overlays의 구조적 타입 (import 없이 인라인) */
@@ -42,15 +42,39 @@ function cableLengthM(specParams: unknown): number | null {
   return typeof v === 'number' ? v : null;
 }
 
+/** 이 작업 종류에 「1식」 공량이 적혀 있는가 — 없으면(null) 안에 든 자산의 공량을 합쳐 센다. */
+function assemblyLabor(
+  asm: V2Assembly | undefined,
+  kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
+): { laborType: string | null; installHours: number; removeHours: number; relocateHours: number } | null {
+  if (!asm) return null;
+  const hours = {
+    'asset-install': asm.installHours,
+    'asset-remove': asm.removeHours,
+    'asset-relocate': asm.relocateHours,
+  }[kind];
+  /* 작업 종류마다 따로 본다 — 1식 설치 공량은 표준이 있어도 철거는 부품별로 잡는 일이 흔하다.
+     0 은 「품이 안 든다」는 뜻이므로 적힌 것으로 친다(null 만 「안 적었다」). */
+  if (hours == null) return null;
+  return {
+    laborType: asm.laborType,
+    installHours: kind === 'asset-install' ? hours : 0,
+    removeHours: kind === 'asset-remove' ? hours : 0,
+    relocateHours: kind === 'asset-relocate' ? hours : 0,
+  };
+}
+
 export function buildReportItems(args: {
   saved: { assets: V2Asset[]; cables: V2Cable[] };
   overlays: Overlays;
   types: V2AssetType[];
+  assemblies: V2Assembly[];
   cableGroups: V2CableGroup[];
 }): ReportItem[] {
-  const { saved, overlays, types, cableGroups } = args;
+  const { saved, overlays, types, assemblies, cableGroups } = args;
 
   const typesById = new Map(types.map((t) => [t.id, t]));
+  const assembliesById = new Map(assemblies.map((a) => [a.id, a]));
 
   // categoryId → group 매핑 (categories를 flatten)
   const groupByCategoryId = new Map<string, V2CableGroup>();
@@ -71,50 +95,92 @@ export function buildReportItems(args: {
 
   const items: ReportItem[] = [];
 
+  /**
+   * 이 작업의 **단위**가 무엇인가 — 1식인가, 부품 하나인가.
+   *
+   * 설비를 통째로 놓거나 걷으면 단위는 그 설비 하나다(「송광치 1식 설치」). 안의 부품은 그
+   * 1식에 포함되므로 따로 세지 않는다. 이미 놓인 설비에서 L3 스위치 하나만 걷어내면 단위는
+   * 그 부품이다.
+   *
+   * 어느 쪽인지는 **변경 집합이 그대로 말한다** — 뿌리 설비가 같이 왔는가. 따로 표시할 것도,
+   * 사용자에게 물을 것도 없다.
+   *
+   * 1식 공량을 안 적어 둔 설비 종류면 1식으로 셀 값이 없으므로 부품들이 각자 낸다.
+   */
+  function unitOf(
+    ids: Iterable<string>,
+    resolve: (id: string) => V2Asset | undefined,
+    kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
+  ): { oneSik: { asset: V2Asset; asm: V2Assembly }[]; parts: V2Asset[] } {
+    const inChange = new Set(ids);
+    const oneSik: { asset: V2Asset; asm: V2Assembly }[] = [];
+    /** 1식으로 세어진 설비의 id — 그 자손은 세지 않는다. */
+    const covered = new Set<string>();
+
+    for (const id of inChange) {
+      const asset = resolve(id);
+      if (!asset?.assemblyId) continue;
+      const asm = assembliesById.get(asset.assemblyId);
+      if (!assemblyLabor(asm, kind)) continue; // 1식 공량 미기재 — 부품들이 각자 낸다
+      oneSik.push({ asset, asm: asm! });
+      covered.add(id);
+    }
+
+    const parts: V2Asset[] = [];
+    for (const id of inChange) {
+      if (covered.has(id)) continue;
+      const asset = resolve(id);
+      if (!asset) continue;
+      // 1식으로 세어진 설비의 자손인가 — 상위를 거슬러 본다(데이터가 순환해도 멈추게).
+      const seen = new Set<string>();
+      let cur: V2Asset | undefined = asset;
+      let inside = false;
+      while (cur?.parentAssetId != null && !seen.has(cur.id)) {
+        seen.add(cur.id);
+        if (covered.has(cur.parentAssetId)) { inside = true; break; }
+        cur = resolve(cur.parentAssetId);
+      }
+      if (!inside) parts.push(asset);
+    }
+    return { oneSik, parts };
+  }
+
+  /** 자산 한 건을 설계서 항목으로 — 설비면 1식 공량, 부품이면 그 종류의 공량. */
+  function pushAssetItems(
+    ids: Iterable<string>,
+    resolve: (id: string) => V2Asset | undefined,
+    kind: 'asset-install' | 'asset-remove' | 'asset-relocate',
+  ) {
+    const { oneSik, parts } = unitOf(ids, resolve, kind);
+    for (const { asset, asm } of oneSik) {
+      items.push(assetReportItem(kind, asset.name, `${asm.name} 1식`, assemblyLabor(asm, kind)!));
+    }
+    for (const asset of parts) {
+      // 설비인데 1식 공량이 없으면 낼 것이 없다 — 안의 부품이 각자 낸다.
+      const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
+      if (!t) continue;
+      items.push(assetReportItem(kind, asset.name, t.name, {
+        laborType: t.laborType,
+        installHours: t.installHours,
+        removeHours: t.removeHours,
+        relocateHours: t.relocateHours,
+      }));
+    }
+  }
+
   // --- assets.creates → asset-install ---
-  for (const asset of Object.values(overlays.assets.creates) as V2Asset[]) {
-    // 설비(설비 종류으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
-    const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
-    if (!t) continue;
-    items.push(assetReportItem('asset-install', asset.name, t.name, {
-      laborType: t.laborType,
-      installHours: t.installHours,
-      removeHours: t.removeHours,
-      relocateHours: t.relocateHours,
-    }));
-  }
+  const createdById = new Map(Object.entries(overlays.assets.creates) as [string, V2Asset][]);
+  pushAssetItems(createdById.keys(), (id) => createdById.get(id), 'asset-install');
 
-  // --- assets.deletes → asset-remove (saved에서 해소) ---
-  for (const id of overlays.assets.deletes) {
-    const asset = savedAssetsById.get(id);
-    if (!asset) continue; // temp 소거는 creates에서 처리되며 deletes에 안 남음
-    // 설비(설비 종류으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
-    const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
-    if (!t) continue;
-    items.push(assetReportItem('asset-remove', asset.name, t.name, {
-      laborType: t.laborType,
-      installHours: t.installHours,
-      removeHours: t.removeHours,
-      relocateHours: t.relocateHours,
-    }));
-  }
+  // --- assets.deletes → asset-remove (saved 에서 해소) ---
+  pushAssetItems(overlays.assets.deletes, (id) => savedAssetsById.get(id), 'asset-remove');
 
-  // --- assets.updates → 배치 필드 존재 시 asset-relocate 1건 ---
-  for (const [id, patch] of Object.entries(overlays.assets.updates)) {
-    const hasBatchField = Object.keys(patch).some((k) => PLACEMENT_FIELDS_SET.has(k));
-    if (!hasBatchField) continue;
-    const asset = savedAssetsById.get(id);
-    if (!asset) continue;
-    // 설비(설비 종류으로 놓은 것)는 타입이 없다 — 공량은 부품이 낸다.
-    const t = asset.typeId ? typesById.get(asset.typeId) : undefined;
-    if (!t) continue;
-    items.push(assetReportItem('asset-relocate', asset.name, t.name, {
-      laborType: t.laborType,
-      installHours: t.installHours,
-      removeHours: t.removeHours,
-      relocateHours: t.relocateHours,
-    }));
-  }
+  /* --- assets.updates → 배치 필드가 바뀐 것만 asset-relocate ---
+     이설은 놓인 것을 옮기는 일이라 설비 뿌리만 움직여도 1식이 옮겨 간 것이다. */
+  const relocatedIds = Object.entries(overlays.assets.updates)
+    .filter(([, patch]) => Object.keys(patch).some((k) => PLACEMENT_FIELDS_SET.has(k)))
+    .map(([id]) => id);
+  pushAssetItems(relocatedIds, (id) => savedAssetsById.get(id), 'asset-relocate');
 
   // --- cables.creates → cable-install ---
   for (const cable of Object.values(overlays.cables.creates) as V2Cable[]) {

@@ -30,8 +30,17 @@ export interface V2AssemblyItem {
  */
 export interface V2Assembly {
   id: string; key: string; name: string; categoryId: string | null;
-  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류이 아니라). */
+  /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류가 아니라). */
   gridCols: number; gridRows: number;
+  /**
+   * 「1식」 공량 — 설비를 **통째로** 놓거나 걷을 때의 품.
+   *
+   * null = 안 적었다(안에 든 자산의 공량을 합쳐 센다), 0 = 품이 안 든다.
+   */
+  laborType: string | null;
+  installHours: number | null;
+  removeHours: number | null;
+  relocateHours: number | null;
   sortOrder: number; isActive: boolean;
   items: V2AssemblyItem[];
 }
@@ -41,6 +50,10 @@ export interface AssemblyUpsertBody {
   /** 새로 만들 때는 보내지 않는다 — 서버가 붙인다(참조용 식별자다). */
   key?: string; name: string; categoryId: string | null;
   gridCols: number; gridRows: number;
+  laborType: string | null;
+  installHours: number | null;
+  removeHours: number | null;
+  relocateHours: number | null;
   sortOrder: number; isActive: boolean;
   items: Omit<V2AssemblyItem, 'sortOrder'>[];
 }

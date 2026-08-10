@@ -63,8 +63,9 @@ export function ReportPanel({ open, onClose }: ReportPanelProps) {
 
   const report = useMemo(() => {
     const types = catalog.data?.types ?? [];
+    const assemblies = catalog.data?.assemblies ?? [];
     const cableGroups = catalog.data?.cableGroups ?? [];
-    const items = buildReportItems({ saved, overlays, types, cableGroups });
+    const items = buildReportItems({ saved, overlays, types, assemblies, cableGroups });
     return computeReport(items);
   }, [saved, overlays, catalog.data]);
 

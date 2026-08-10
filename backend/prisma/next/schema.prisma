@@ -153,6 +153,14 @@ model Assembly {
   gridRows   Int            @default(12)
   sortOrder  Int            @default(0)
   isActive   Boolean        @default(true)
+  /// 「1식」 공량 — 설비를 **통째로** 놓거나 걷을 때의 품.
+  ///
+  /// 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. 0 은 「품이 안 든다」는 뜻이라
+  /// 「안 적었다」와 구별해야 하므로 nullable 이다.
+  laborType     String?
+  installHours  Float?
+  removeHours   Float?
+  relocateHours Float?
   items      AssemblyItem[]
   assets     Asset[]
   createdAt  DateTime       @default(now())

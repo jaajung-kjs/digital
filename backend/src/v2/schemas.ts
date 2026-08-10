@@ -106,6 +106,11 @@ export const assemblyUpsertSchema = z.object({
   /** 이 설비 안의 자리 — 설비 종류가 격자를 갖는다(자산 종류이 아니라). */
   gridCols: z.number().int().min(1),
   gridRows: z.number().int().min(1),
+  /* 「1식」 공량 — 비워 두면(null) 안에 든 자산의 공량을 합쳐 센다. */
+  laborType: z.string().trim().min(1).nullable().default(null),
+  installHours: z.number().min(0).nullable().default(null),
+  removeHours: z.number().min(0).nullable().default(null),
+  relocateHours: z.number().min(0).nullable().default(null),
   sortOrder: z.number().int(),
   isActive: z.boolean(),
   // 빈 설비 종류도 저장할 수 있다 — 놓고 나서 그 설비만 채울 수 있다.
