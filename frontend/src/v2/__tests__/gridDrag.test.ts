@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cellAt, gridDragTo, gridPlacementChanged, startGridDrag } from '../gridDrag';
+import { cellAt, edgeScroll, gridDragTo, gridPlacementChanged, scrollableAncestor, startGridDrag } from '../gridDrag';
 
 const box = { width: 200, height: 120, cols: 2, rows: 6 }; // 칸 = 100 × 20
 
@@ -63,5 +63,69 @@ describe('gridPlacementChanged', () => {
     expect(gridPlacementChanged(p, { ...p })).toBe(false);
     expect(gridPlacementChanged(p, { ...p, row: 3 })).toBe(true);
     expect(gridPlacementChanged(p, { ...p, rowSpan: 2 })).toBe(true);
+  });
+});
+
+describe('edgeScroll', () => {
+  const view = { left: 0, top: 0, right: 200, bottom: 400 };
+  const opts = { margin: 20, maxSpeed: 10 };
+
+  it('가운데에서는 밀지 않는다', () => {
+    expect(edgeScroll(view, { x: 100, y: 200 }, opts)).toEqual({ dx: 0, dy: 0 });
+  });
+
+  /* 깊이 들어갈수록 빨라야 한다 — 한 칸 넘길 때와 끝까지 갈 때가 같은 속도면 답답하다. */
+  it('가장자리에 깊이 들어갈수록 빨라진다', () => {
+    const shallow = edgeScroll(view, { x: 100, y: 390 }, opts).dy;
+    const deep = edgeScroll(view, { x: 100, y: 398 }, opts).dy;
+    expect(shallow).toBeGreaterThan(0);
+    expect(deep).toBeGreaterThan(shallow);
+  });
+
+  it('위·왼쪽은 음수로 민다', () => {
+    expect(edgeScroll(view, { x: 2, y: 2 }, opts)).toEqual({ dx: -9, dy: -9 });
+  });
+
+  /* 손이 창 밖으로 나가도 폭주하면 안 된다. */
+  it('밖으로 나가도 최대 속도로 묶는다', () => {
+    expect(edgeScroll(view, { x: 100, y: 9999 }, opts).dy).toBe(10);
+    expect(edgeScroll(view, { x: -9999, y: 200 }, opts).dx).toBe(-10);
+  });
+});
+
+/* jsdom 에는 레이아웃이 없어 scrollHeight/clientWidth 가 전부 0 이다 — 굴러갈 여유를 지어 준다. */
+function scrollBox(overflow: Partial<CSSStyleDeclaration>, room: { x?: number; y?: number } = {}) {
+  const el = document.createElement('div');
+  Object.assign(el.style, overflow);
+  Object.defineProperty(el, 'scrollHeight', { value: room.y ?? 0 });
+  Object.defineProperty(el, 'clientHeight', { value: 0 });
+  Object.defineProperty(el, 'scrollWidth', { value: room.x ?? 0 });
+  Object.defineProperty(el, 'clientWidth', { value: 0 });
+  return el;
+}
+
+describe('scrollableAncestor', () => {
+  it('그 축으로 굴러가는 가장 가까운 조상을 찾는다', () => {
+    const outer = scrollBox({ overflowY: 'auto' }, { y: 500 });
+    const inner = document.createElement('div');
+    outer.append(inner);
+    expect(scrollableAncestor(inner, 'y')).toBe(outer);
+  });
+
+  /* `overflow-x: auto` 만 걸어도 CSS 는 세로를 `auto` 로 계산한다 — 굴러갈 여유가 없으면
+     세로 상자로 오인하면 안 된다(격자 자신의 가로 상자가 그렇다). */
+  it('굴러갈 여유가 없으면 그 상자가 아니다', () => {
+    const hOnly = scrollBox({ overflowX: 'auto' }, { x: 500 });
+    const outer = scrollBox({ overflowY: 'auto' }, { y: 500 });
+    const inner = document.createElement('div');
+    hOnly.append(inner);
+    outer.append(hOnly);
+    expect(scrollableAncestor(inner, 'y')).toBe(outer);
+    expect(scrollableAncestor(inner, 'x')).toBe(hOnly);
+  });
+
+  it('굴러가는 조상이 없으면 null', () => {
+    const el = document.createElement('div');
+    expect(scrollableAncestor(el, 'y')).toBeNull();
   });
 });

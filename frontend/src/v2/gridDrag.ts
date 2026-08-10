@@ -96,3 +96,48 @@ export function gridDragTo(session: GridDragSession, target: GridCell): GridPlac
 export function gridPlacementChanged(a: GridPlacement, b: GridPlacement): boolean {
   return a.col !== b.col || a.row !== b.row || a.colSpan !== b.colSpan || a.rowSpan !== b.rowSpan;
 }
+
+/**
+ * 가장자리에 손이 닿아 있으면 판을 밀어 준다 — 얼마나 밀지의 순수 계산.
+ *
+ * 20단짜리 판은 좁은 상세 패널에 다 들어가지 않는다. 자동으로 밀어 주지 않으면 화면 밖
+ * 자리로는 아예 끌어다 놓을 수가 없다(손을 떼면 그 자리에 놓여 버리므로 「끌다 말고 스크롤」
+ * 도 안 된다).
+ *
+ * 가장자리에 **깊이 들어갈수록 빨라진다** — 한 칸만 넘길 때와 판 끝까지 갈 때가 같은 속도면
+ * 둘 중 하나는 반드시 답답하다. 밖으로 나가도 최대 속도로 묶는다(손이 창을 벗어나도 폭주하지
+ * 않게).
+ */
+export function edgeScroll(
+  view: { left: number; top: number; right: number; bottom: number },
+  point: { x: number; y: number },
+  opts: { margin: number; maxSpeed: number },
+): { dx: number; dy: number } {
+  const { margin, maxSpeed } = opts;
+  const speed = (depth: number) => Math.min(depth / margin, 1) * maxSpeed;
+  let dx = 0;
+  let dy = 0;
+  if (point.x < view.left + margin) dx = -speed(view.left + margin - point.x);
+  else if (point.x > view.right - margin) dx = speed(point.x - (view.right - margin));
+  if (point.y < view.top + margin) dy = -speed(view.top + margin - point.y);
+  else if (point.y > view.bottom - margin) dy = speed(point.y - (view.bottom - margin));
+  return { dx, dy };
+}
+
+/**
+ * 이 축으로 실제로 굴러가는 가장 가까운 조상 — 없으면 null.
+ *
+ * 「스크롤되는 상자」는 화면마다 다르다(상세 패널의 세로 상자, 격자 자신의 가로 상자,
+ * 카탈로그 편집기의 본문). 찾아서 그것을 민다 — 어느 상자인지 화면이 알려 주게 하면
+ * 격자를 새 자리에 놓을 때마다 배선이 하나씩 는다.
+ */
+export function scrollableAncestor(el: Element | null, axis: 'x' | 'y'): Element | null {
+  for (let cur = el; cur; cur = cur.parentElement) {
+    const style = getComputedStyle(cur);
+    const overflow = axis === 'x' ? style.overflowX : style.overflowY;
+    if (!/(auto|scroll)/.test(overflow)) continue;
+    const room = axis === 'x' ? cur.scrollWidth - cur.clientWidth : cur.scrollHeight - cur.clientHeight;
+    if (room > 1) return cur;
+  }
+  return null;
+}
