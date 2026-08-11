@@ -181,8 +181,8 @@ export function InfoTab({
 
   /* 이 설비의 자리 — 설비 종류가 격자를 갖는다. 설비 종류로 놓은 것만 안에 무언가를 담는다.
      **어디에 놓여 있는가는 여기서 다루지 않는다.** 위치는 사람이 적는 값이 아니라 놓은 결과로
-     기록되는 값이고, 읽는 자리는 현황표의 「설치장소」 열이다. 자리를 옮기는 일도 상위 설비의
-     구성 격자에서 끌어서 한다 — 눈에 보이는 판이 곧 자리다. */
+     기록되는 값이다. 자리를 옮기는 일도 상위 설비의 구성 격자에서 끌어서 한다 — 눈에 보이는
+     판이 곧 자리다. */
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
   const grid = assembly ? { cols: assembly.gridCols, rows: assembly.gridRows } : null;
 

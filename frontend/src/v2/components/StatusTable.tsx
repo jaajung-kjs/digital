@@ -75,7 +75,9 @@ const SUBSTATION_COL: Column = {
 const STRUCTURAL_COLS: Column[] = [
   { key: 'typeName', label: '종류', weight: 14, value: (r) => r.typeName, render: (r) => r.typeName },
   { key: 'name', label: '이름', weight: 20, value: (r) => r.name, render: (r) => r.name },
-  { key: 'location', label: '설치장소', weight: 18, value: (r) => r.location, render: (r) => r.location },
+  /* 「설치장소」 열은 없앴다 — 자리는 표에서 이미 두 번 말한다. 설비는 이름이 곧 자리이고
+     (「판암 OFD」), 부품은 그 설비 밑에 물려 나오므로 어느 판에 꽂혔는지가 줄의 위치다.
+     `location` 자체는 남는다 — 아래에서 같은 설비의 부품 차례를 정할 때 쓴다. */
 ];
 
 const TRAILING_COLS: Column[] = [
@@ -174,6 +176,7 @@ export function StatusTable({
       list.push(r);
       kids.set(r.assemblyRootId, list);
     }
+    // 한 설비 안의 부품 차례는 자리순 — 판을 위에서 아래로 읽는 순서와 같다.
     for (const list of kids.values()) list.sort((a, b) => a.location.localeCompare(b.location, 'ko'));
 
     const out: StatusRow[] = [];
