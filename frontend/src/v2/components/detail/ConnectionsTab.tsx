@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Toggle, cn, SELECTABLE } from '../../../components/ui';
+import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Select, Toggle, cn, SELECTABLE } from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../cableSelectors';
@@ -193,22 +193,31 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
   /* 고른 포트에 물린 대국 — 부스바는 여럿이다. 하나만 보여 주면 나머지가 없는 것처럼 읽힌다. */
   const selectedPeers = useMemo(() => {
     if (!selectedPort || !asset) return [];
-    const categories = catalog.data?.cableGroups.flatMap((g) => g.categories) ?? [];
     return (cablesByPortId.get(selectedPort.id) ?? []).flatMap((conn) => {
       const peer = resolvePeer(selectedPort, conn.cable, portIndex, asset.substationId);
       if (!peer) return [];
       const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
-      const cat = categories.find((c) => c.id === conn.cable.categoryId);
       const lengthM = (conn.cable.specParams as Record<string, unknown> | null)?.lengthM;
       return [{
         cableId: conn.cableId,
         label: `${endpointLabel(peer)}${sub}`,
-        // 「뭘로」 — 종류와 길이. 케이블 이름은 사람이 안 적는 일이 많아 종류를 앞에 둔다.
-        cableLabel: [cat?.name, typeof lengthM === 'number' ? `${lengthM}m` : null].filter(Boolean).join(' · '),
+        categoryId: conn.cable.categoryId,
+        lengthM: typeof lengthM === 'number' ? `${lengthM}m` : null,
         entry: portIndex.get(conn.peerPortId),
       }];
     });
-  }, [selectedPort, cablesByPortId, portIndex, asset, catalog.data]);
+  }, [selectedPort, cablesByPortId, portIndex, asset]);
+
+  /**
+   * 이 포트에 물릴 수 있는 케이블 종류 — **그 포트의 매체 것만**.
+   *
+   * 매체 키는 곧 케이블 그룹의 키다(포트 종류 하나당 그룹 하나). 광 어댑터에 전력케이블을
+   * 고를 수 있게 두면 저장할 때 서버가 튕기고, 그때는 왜 튕겼는지 화면에 남지 않는다.
+   */
+  const cableChoices = useMemo(
+    () => catalog.data?.cableGroups.find((g) => g.key === selectedPort?.medium)?.categories ?? [],
+    [catalog.data, selectedPort],
+  );
 
   // hop → 표시용 텍스트 (portIndex 단일 조회 — portById/assetByPortId 수제 맵 제거)
   function hopText(hop: import('../../traceSelectors').TraceResult['hops'][number]): string {
@@ -312,19 +321,45 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
                 {selectedPeers.length === 0 ? (
                   <span className="text-sm text-content-faint">연결 없음</span>
                 ) : (
-                  /* 부스바는 여럿이 물린다 — 하나만 적으면 나머지가 없는 것처럼 읽힌다. */
+                  /* 부스바는 여럿이 물린다 — 하나만 적으면 나머지가 없는 것처럼 읽힌다.
+                     **어디로 가나**와 **뭘로 가나**는 줄을 나눈다. 한 줄에 나란히 두면
+                     384px 패널에서 둘이 폭을 다투다 대국 이름부터 잘렸다. */
                   selectedPeers.map((peer) => (
-                    <div key={peer.cableId} className="flex items-baseline gap-2">
+                    <div key={peer.cableId} className="space-y-1">
                       <button
                         type="button"
-                        className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                        title={peer.entry ? `${peer.label} 으로 이동` : undefined}
+                        className={cn('block w-full truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                        title={peer.entry ? `${peer.label} 으로 이동` : peer.label}
                         disabled={!peer.entry}
                         onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
                       >
                         {peer.label}
                       </button>
-                      <span className="shrink-0 text-xs text-content-muted">{peer.cableLabel || '—'}</span>
+                      <div className="flex items-center gap-2">
+                        {/* 케이블 종류는 **여기서 고친다** — 예전에는 그리기 전에 고른 종류가
+                            끝이라, 잘못 고르면 지우고 다시 그리는 수밖에 없었다(경로점까지
+                            함께 사라진다). 고를 수 있는 것은 이 포트의 매체 것뿐이다. */}
+                        <Select
+                          aria-label="케이블 종류"
+                          size="sm"
+                          value={peer.categoryId ?? ''}
+                          onChange={(e) =>
+                            useV2WorkingCopy
+                              .getState()
+                              .stageCableUpdate(peer.cableId, { categoryId: e.currentTarget.value || null })
+                          }
+                        >
+                          <option value="">종류 없음</option>
+                          {cableChoices.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </Select>
+                        {peer.lengthM && (
+                          <span className="shrink-0 text-xs tabular-nums text-content-muted">{peer.lengthM}</span>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
