@@ -334,10 +334,6 @@ export function AssemblyGrid<T extends GridItem>({
               item && selectedId === item.id && 'ring-2 ring-inset ring-primary',
               // 놓을 수 없는 자리면 그렇다고 말한다 — 놓아 봐야 되돌아가는 것보다 낫다.
               pv && (pv.ok ? 'ring-2 ring-primary' : 'ring-2 ring-danger opacity-70'),
-              /* 세로 글씨는 표시등과 같은 자리를 다툰다(28px 폭 카드에서 「광」이 불에 가렸다).
-                 비켜 주되 **옆으로** 비킨다 — 세로쓰기에서 모자란 것은 높이(=글자 수)이고
-                 폭은 남는다. 위를 비우면 「광스위치 상단」이 다시 「광스위치 …」가 된다. */
-              tone && vertical && 'pr-2.5',
             )}
             title={
               item
@@ -397,9 +393,11 @@ export function AssemblyGrid<T extends GridItem>({
               <span
                 aria-hidden
                 className={cn(
-                  /* 10px — 8px 는 밀집한 판에서 색을 가리기에 모자랐다. 옅은 테를 두른다:
-                     흰 카드 위의 노랑은 테가 없으면 경계가 번져 색이 흐려 보인다. */
-                  'pointer-events-none absolute right-1 top-1 h-2.5 w-2.5 rounded-full',
+                  /* 8px 로 족하다 — 안 보이던 원인은 크기가 아니라 색이었다(글자용 상태색은
+                     셋의 명도가 비슷해 뭉쳤다). 키우면 좁은 칸에서 글씨와 자리를 다툰다.
+                     옅은 테: 흰 카드 위의 노랑은 테가 없으면 경계가 번져 색이 흐려 보인다.
+                     `absolute` 라 글의 가운데 정렬에는 관여하지 않는다. */
+                  'pointer-events-none absolute right-1 top-1 h-2 w-2 rounded-full',
                   'ring-1 ring-content-faint/60',
                   LAMP[tone],
                 )}
