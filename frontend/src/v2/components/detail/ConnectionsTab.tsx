@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import {
-  DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, ItemCard, Select, Toggle,
+  DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Input, ItemCard, Select, Toggle,
   useConfirm, cn, SELECTABLE,
 } from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
@@ -28,6 +28,7 @@ import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
 import type { V2Asset, V2Cable, V2Port } from '../../types';
 import { PortFaceplate, type PortState } from './PortFaceplate';
+import type { CablePickRequest } from '../../cablePick';
 import { PORT_KINDS, portGroupLabel } from '@twin/core';
 
 /** 한 장비의 포트를 그룹 단위로 묶은 것 — 이름·정렬은 종류 선언에서 나온다. */
@@ -60,10 +61,17 @@ interface ConnectionsTabProps {
    * 다시 골라야 했다 — 같은 선택을 세 번 하는 셈이다.
    */
   onConnectPort?: (portId: string) => void;
+  /**
+   * 「포트를 골라 달라」 — 평면도의 케이블 도구가 보낸 요청.
+   *
+   * 이 모드에서는 포트를 눌러도 상세가 열리지 않고 **끝점으로 골라진다**. 판은 그대로다 —
+   * 조회하던 판과 고르는 판이 같아야 「빈 자리가 어디였지」를 다시 배우지 않는다.
+   */
+  cablePick?: CablePickRequest | null;
 }
 
 export function ConnectionsTab({
-  assetId, focusPortId, onSelectAsset, onTrace, onClearTrace, traceResult, onConnectPort,
+  assetId, focusPortId, onSelectAsset, onTrace, onClearTrace, traceResult, onConnectPort, cablePick,
 }: ConnectionsTabProps) {
   // 타일에는 번호만 있으므로, 고른 포트 하나의 상세를 아래에 펼친다.
   const [selectedPortId, setSelectedPortId] = useState<string | null>(focusPortId ?? null);
@@ -73,6 +81,11 @@ export function ConnectionsTab({
   /* 케이블 종류를 고치는 중인 가닥 — 읽는 줄이 기본이고, 고칠 때만 상자가 선다. */
   const [editingCableId, setEditingCableId] = useState<string | null>(null);
   const { confirm, confirmDialog } = useConfirm();
+  /* 고르는 중인가 — 요청이 **이 자산**을 가리킬 때만. 다른 자산을 보고 있는 동안에는
+     판이 평소대로 조회로 남아야 한다(엉뚱한 포트를 끝점으로 집지 않게). */
+  const picking = cablePick && cablePick.assetId === assetId ? cablePick : null;
+  const [pickQuery, setPickQuery] = useState('');
+  useEffect(() => setPickQuery(''), [picking?.assetId]);
   // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다.
   useEffect(() => {
     setSelectedPortId(null);
@@ -158,11 +171,21 @@ export function ConnectionsTab({
      들어가야 했다. 케이블 피커는 이미 같은 방식으로 자손 포트를 모아 보여주고 있었다. */
   const portOwners = useMemo<PortOwner[]>(() => {
     if (!asset) return [];
+    /* 고르는 중에는 **이을 수 있는 것만** 남긴다 — 같은 매체, 첫 끝점 제외, 검색어.
+       평소에는 그 장비의 판을 있는 그대로 보여 준다(빈 자리를 세는 판이므로). */
+    const visible = (p: V2Port, ownerName: string) => {
+      if (!picking) return true;
+      if (picking.medium != null && p.medium !== picking.medium) return false;
+      if (p.id === picking.firstEndpoint?.portId) return false;
+      const q = pickQuery.trim().toLowerCase();
+      return q === '' || p.name.toLowerCase().includes(q) || ownerName.toLowerCase().includes(q);
+    };
     return withDescendants(effectiveAssets, asset.id)
       .filter((a) => a.ports.length > 0)
       .map((a) => {
         const byGroup = new Map<string, V2Port[]>();
         for (const p of a.ports) {
+          if (!visible(p, a.name)) continue;
           const list = byGroup.get(p.group) ?? [];
           list.push(p);
           byGroup.set(p.group, list);
@@ -171,7 +194,7 @@ export function ConnectionsTab({
 
         /* 알파벳순이면 `COM · GND · P · PWR-IN` 처럼 뜻 없는 순서가 된다.
            종류 선언 순서(전원 → 네트워크 → 광 → 제어 → 접지)로 읽는다. */
-        const refs = [...byGroup.entries()].map(([group, ports]) => ({
+        const refs = [...byGroup.entries()].filter(([, ports]) => ports.length > 0).map(([group, ports]) => ({
           group, medium: ports[0]!.medium, direction: ports[0]!.direction, sampleName: ports[0]!.name,
         }));
         const kindOrder = (medium: string) => {
@@ -184,8 +207,9 @@ export function ConnectionsTab({
           .map((ref) => ({ ...ref, label: portGroupLabel(ref, refs, mediumLabel), ports: byGroup.get(ref.group)! }));
 
         return { owner: a, groups };
-      });
-  }, [asset, effectiveAssets]);
+      })
+      .filter((o) => o.groups.length > 0);
+  }, [asset, effectiveAssets, mediumLabel, picking, pickQuery]);
 
   /* 포트 점유 상태 — 케이블이 물렸는가, 아닌가. 그 사이는 없다.
      회선의 반대쪽이 비었다는 사실은 아래 `내부 통과` 가 말한다. */
@@ -296,6 +320,29 @@ export function ConnectionsTab({
 
   // 자기 포트가 없어도 안에 든 장비가 가질 수 있다 — 랙·함체가 그렇다.
   if (portOwners.length === 0) {
+    /* 고르는 중이라면 「포트가 없다」가 아니라 **이을 수 있는 포트가 없다**는 뜻이다 —
+       매체가 다르거나 검색에 안 걸린 것뿐인데 종류 대장으로 보내면 헛걸음을 시킨다. */
+    if (picking) {
+      return (
+        <div className="space-y-3">
+          <EmptyState
+            title={pickQuery.trim() ? '검색 결과가 없습니다' : '이을 수 있는 포트가 없습니다'}
+            description={pickQuery.trim() ? undefined : '이 설비에 같은 매체의 포트가 없습니다.'}
+            className="py-6"
+          />
+          <div className="flex justify-center gap-2">
+            {picking.onSearchRemote && (
+              <Button variant="secondary" size="sm" onClick={picking.onSearchRemote}>
+                다른 변전소에서 찾기
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={picking.onCancel}>
+              취소
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <EmptyState
         title="이 자산에는 포트가 없습니다"
@@ -305,8 +352,44 @@ export function ConnectionsTab({
     );
   }
 
+  const freeCount = portOwners
+    .flatMap((o) => o.groups.flatMap((g) => g.ports))
+    .filter((p) => portState(p) === 'empty').length;
+
   return (
     <div className="space-y-3">
+      {/* 고르는 중임을 판 위에 적는다 — 하단 안내만으로는 「이 판에서 고르라」는 뜻이
+          전해지지 않는다. 검색은 여기 있어야 한다: 광슬롯 넷을 담은 OFD 는 포트가 100개다. */}
+      {picking && (
+        <DetailCard>
+          <DetailCardHeader
+            title={picking.firstEndpoint ? `${picking.firstEndpoint.label} 에 이을 포트` : '시작할 포트'}
+            badge={`빈 포트 ${freeCount}`}
+            badgeStatus={freeCount > 0 ? 'success' : 'neutral'}
+            actions={
+              <Button variant="secondary" size="sm" onClick={picking.onCancel}>
+                취소
+              </Button>
+            }
+          />
+          {picking.error && (
+            <p className="rounded bg-danger-bg px-2 py-1 text-xs text-danger">{picking.error}</p>
+          )}
+          <Input
+            size="sm"
+            autoFocus
+            aria-label="포트 검색"
+            placeholder="장비 · 포트 이름 검색"
+            value={pickQuery}
+            onChange={(e) => setPickQuery(e.currentTarget.value)}
+          />
+          {picking.onSearchRemote && (
+            <Button variant="secondary" size="sm" onClick={picking.onSearchRemote}>
+              다른 변전소에서 찾기
+            </Button>
+          )}
+        </DetailCard>
+      )}
       {/* 부품 한 대에 카드 한 장 — 판·고른 포트·연결 내역이 **한 곳에** 모인다.
           예전에는 판만 여기 있고 「연결」과 「고른 포트 상세」는 맨 아래 따로 있었다. 부품이
           열둘이면 판 열두 장을 지나야 그것들이 나오므로, 포트를 눌러 놓고도 무엇이 어떻게
@@ -315,7 +398,8 @@ export function ConnectionsTab({
         const ownerPorts = groups.flatMap((g) => g.ports);
         const connected = ownerPorts.filter((pt) => cablesByPortId.has(pt.id)).length;
         // 고른 포트가 이 부품 것일 때만 상세를 편다.
-        const sel = selectedPort && selectedPort.assetId === owner.id ? selectedPort : null;
+        // 고르는 중에는 상세를 열지 않는다 — 지금 하는 일은 「고르기」 하나뿐이다.
+        const sel = !picking && selectedPort && selectedPort.assetId === owner.id ? selectedPort : null;
         return (
           <DetailCard key={owner.id}>
             <DetailCardHeader
@@ -333,7 +417,15 @@ export function ConnectionsTab({
               cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
               isOpen={isPortOpen}
               selectedPortId={selectedPortId}
-              onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
+              /* 고르는 중에는 **끝점으로 잡힌다** — 상세를 여는 대신. 판은 같고 뜻만 다르다. */
+              onSelect={(id) => {
+                if (picking) {
+                  const port = allPorts.find((p) => p.id === id);
+                  if (port) picking.onSelect(port);
+                  return;
+                }
+                setSelectedPortId((prev) => (prev === id ? null : id));
+              }}
             />
 
             {/* 고른 포트 하나 — **어디랑 · 뭘로 · 추적** 셋만.
@@ -493,7 +585,7 @@ export function ConnectionsTab({
 
       {/* 빈 포트를 눌러 잇는 길이 생겼으므로 「평면도에서만 만든다」는 안내는 거짓이 됐다.
           대신 어디서 시작하는지를 알린다 — 판을 봐도 무엇을 눌러야 하는지는 안 보인다. */}
-      {onConnectPort && (
+      {onConnectPort && !picking && (
         <p className="px-1 text-xs text-content-faint">
           빈 포트를 누르면 <strong className="font-medium">케이블 연결</strong> 로 이을 수 있습니다.
         </p>

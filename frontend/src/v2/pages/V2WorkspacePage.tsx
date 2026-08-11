@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { CablePickRequest } from '../cablePick';
 import { Plus } from 'lucide-react';
 import { Button, EmptyState, useConfirm, Tabs, type TabItem } from '../../components/ui';
 import { OrgTreePanel } from '../components/OrgTreePanel';
@@ -49,6 +50,13 @@ export default function V2WorkspacePage() {
    * 들어올 때마다 케이블 도구가 저 혼자 켜진다.
    */
   const [cableStartPortId, setCableStartPortId] = useState<string | null>(null);
+  /**
+   * 평면도가 보낸 「포트를 골라 달라」 — 상세 패널의 포트 탭이 고르는 모드로 돌아간다.
+   *
+   * 이 페이지가 들고 있는 이유: 평면도와 상세 패널을 나란히 놓는 것이 여기다. 예전에는
+   * 평면도가 제 안에 판을 하나 더 그려서, 상세 패널이 열려 있으면 384px 패널이 둘 섰다.
+   */
+  const [cablePick, setCablePick] = useState<CablePickRequest | null>(null);
   const [traceResult, setTraceResult] = useState<TraceResult | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -175,6 +183,18 @@ export default function V2WorkspacePage() {
   // 이 변전소를 실제로 보고 있는가 — 뷰 분기와 '자산 추가' 노출의 공통 전제.
   const inSubstationScope = selected?.kind === 'substation' && substationId === selected.id;
 
+  /**
+   * 포트를 고르라는 요청을 받으면 **상세 패널을 그 자산으로 옮긴다**.
+   *
+   * 다 고른 뒤(`null`) 원래 자산으로 되돌리지는 **않는다**. 고를 자산은 도면에서 눌러
+   * 정한 것이라 캔버스의 선택도 이미 그리로 가 있다 — 패널만 되돌리면 도면은 송광치를
+   * 고른 채인데 패널은 OFD 를 보여 주는, 둘이 어긋난 화면이 된다.
+   */
+  const handlePickPort = useCallback((req: CablePickRequest | null) => {
+    setCablePick(req);
+    if (req) setSelectedAssetId((cur) => (cur === req.assetId ? cur : req.assetId));
+  }, []);
+
   // 상세 패널: 변전소 스코프 + selectedAssetId 가 effective assets 에 있을 때만
   const showDetailPanel =
     selected?.kind === 'substation' &&
@@ -229,6 +249,7 @@ export default function V2WorkspacePage() {
                       traceResult={traceResult}
                       cableStartPortId={cableStartPortId}
                       onCableStartConsumed={() => setCableStartPortId(null)}
+                      onPickPort={handlePickPort}
                     />
                   ) : inSubstationScope && viewMode === '선번장' ? (
                     <FiberRegisterView
@@ -282,6 +303,7 @@ export default function V2WorkspacePage() {
                       onTrace={setTraceResult}
                       onClearTrace={() => setTraceResult(null)}
                       traceResult={traceResult}
+                      cablePick={cablePick}
                       onShowOnFloorPlan={() => setViewMode('평면도')}
                       onConnectPort={(portId) => {
                         // 이을 자리는 평면도에 있다 — 화면부터 옮기고 그 포트로 도구를 무장한다.

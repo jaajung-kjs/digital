@@ -9,6 +9,7 @@ import { InfoTab, type AddModalContext } from './InfoTab';
 import { PhotoCard } from './PhotoCard';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
+import type { CablePickRequest } from '../../cablePick';
 import type { TraceResult } from '../../traceSelectors';
 import { Button, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../../components/ui';
 
@@ -37,6 +38,8 @@ interface AssetDetailPanelProps {
   focusPartId?: string | null;
   /** 빈 포트에서 케이블을 잇기 시작한다 — 평면도로 넘어가 그 포트를 첫 끝점으로 무장한다. */
   onConnectPort?: (portId: string) => void;
+  /** 평면도가 「포트를 골라 달라」고 보낸 요청 — 포트 탭이 고르는 모드로 돌아간다. */
+  cablePick?: CablePickRequest | null;
 }
 
 export function AssetDetailPanel({
@@ -49,6 +52,7 @@ export function AssetDetailPanel({
   focusPortId,
   focusPartId,
   onConnectPort,
+  cablePick,
 }: AssetDetailPanelProps) {
   const [tab, setTab] = useState<Tab>(focusPortId ? 'connections' : 'info');
   /** 부품 카드에서 「포트 보기」로 넘어올 때 고를 포트 — 밖에서 온 지목보다 우선한다. */
@@ -66,6 +70,11 @@ export function AssetDetailPanel({
   useEffect(() => {
     if (focusPortId) setTab('connections');
   }, [focusPortId]);
+  /* 고르라는 요청이 오면 판이 있는 탭으로 — 정보 탭에 떨어뜨려 두면 무엇을 고르라는 건지
+     화면에 보이지 않는다(하단 안내만 뜬 채 아무 판도 없는 꼴이 된다). */
+  useEffect(() => {
+    if (cablePick) setTab('connections');
+  }, [cablePick]);
 
 
   // ── 반응형 슬라이스 구독 (effectiveAssets() 함수 ref 구독 금지)
@@ -268,6 +277,7 @@ export function AssetDetailPanel({
             onClearTrace={onClearTrace ?? (() => {})}
             traceResult={traceResult}
             onConnectPort={onConnectPort}
+            cablePick={cablePick}
           />
         )}
       </div>

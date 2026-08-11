@@ -11,11 +11,12 @@
  * 즉 자산 좌표 = 클릭 clientX/clientY로 그대로 맞춰 좌표 변환을 재구현하지 않는다.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import { v2WorkingCopyStore } from '../store/workingCopyStore';
 import { emptyOverlay } from '../store/overlay';
 import { FloorPlanView } from '../components/floorplan/FloorPlanView';
 import type { V2Asset, V2AssetType, V2Cable, V2Floor } from '../types';
+import type { CablePickRequest } from '../cablePick';
 
 /* useV2Catalog 만 목킹 — 도면에 놓이는 것은 **설비 종류**뿐이다(자산 종류에는 배치 개념이
    없다). 케이블 그룹 1개(카테고리 1개)도 공급한다. */
@@ -80,10 +81,36 @@ function setStore(assets: V2Asset[], cables: V2Cable[] = []) {
   });
 }
 
+/**
+ * 포트를 고르는 판은 이제 **상세 패널의 포트 탭**에 있다 — 평면도는 「이 자산에서 골라
+ * 달라」는 요청을 내보내고 고른 결과를 콜백으로 받을 뿐이다(`cablePick.ts`).
+ *
+ * 그래서 테스트도 그 계약을 그대로 친다: 마지막 요청을 붙잡아 두고, 거기 실려 온
+ * `onSelect` 에 포트를 넘겨 다음 전이를 일으킨다. 판을 여기서 다시 그리지 않는다.
+ */
 function renderFloorPlan(onSelectAsset: (id: string | null) => void = vi.fn()) {
-  return render(
-    <FloorPlanView substationId="sub-1" selectedAssetId={null} onSelectAsset={onSelectAsset} />,
+  const pick: { current: CablePickRequest | null } = { current: null };
+  const utils = render(
+    <FloorPlanView
+      substationId="sub-1"
+      selectedAssetId={null}
+      onSelectAsset={onSelectAsset}
+      onPickPort={(req) => { pick.current = req; }}
+    />,
   );
+  return { ...utils, pick };
+}
+
+/** 지금 고르라고 온 자산에서 포트 하나를 고른다 — 판이 하던 일을 그대로. */
+function choosePort(pick: { current: CablePickRequest | null }, portId: string) {
+  const req = pick.current;
+  if (!req) throw new Error('포트를 고르라는 요청이 오지 않았다');
+  const target = v2WorkingCopyStore.getState().saved.assets
+    .flatMap((a) => a.ports)
+    .find((p) => p.id === portId);
+  if (!target) throw new Error(`포트 ${portId} 없음`);
+  // 판이 아니라 콜백으로 부르므로 React 밖의 호출이다 — act 로 감싸야 전이가 반영된다.
+  act(() => req.onSelect(target as never));
 }
 
 describe('FloorPlanView — 케이블 도구 FSM', () => {
@@ -94,25 +121,24 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
   });
 
   it('arm → 종류 선택(자동) → 자산 클릭 → 포트 선택 → 두 번째 끝점 → 스테이지', () => {
-    renderFloorPlan();
+    const { pick } = renderFloorPlan();
 
     // 케이블 도구 arm
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
     expect(screen.getByText('이을 자산을 클릭하세요')).toBeTruthy();
 
-    // 첫 번째 자산(A) 클릭 → 포트 피커
+    // 첫 번째 자산(A) 클릭 → 그 자산에서 고르라는 요청
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
-    // 패널 머리줄과 그룹 카드 두 곳에 자산 이름이 나온다 — 열렸다는 사실만 확인한다.
-    expect(screen.getAllByText('자산-a').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: /포트 p-a/ }));
+    expect(pick.current?.assetId).toBe('a');
+    choosePort(pick, 'p-a');
 
     // 첫 끝점 확정 → 안내가 반대쪽 자산 대기로 전환
     expect(screen.getByText(/반대쪽 자산을 클릭하세요/)).toBeTruthy();
 
-    // 두 번째 자산(B) 클릭 → 포트 피커
+    // 두 번째 자산(B) 클릭 → 그 자산에서 고르라는 요청
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 225, clientY: 25 });
-    expect(screen.getAllByText('자산-b').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: /포트 p-b/ }));
+    expect(pick.current?.assetId).toBe('b');
+    choosePort(pick, 'p-b');
 
     // 스테이지 확인 — 워킹카피 스토어에 케이블 생성 오버레이가 쌓였는가
     const creates = Object.values(v2WorkingCopyStore.getState().overlays.cables.creates);
@@ -124,19 +150,19 @@ describe('FloorPlanView — 케이블 도구 FSM', () => {
   });
 
   it('ESC — 첫 끝점 확정 후에도 FSM을 idle로 되돌리고 아무것도 스테이지하지 않는다', () => {
-    renderFloorPlan();
+    const { pick } = renderFloorPlan();
 
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
     fireEvent.click(screen.getByTestId('floorplan-canvas'), { clientX: 25, clientY: 25 });
-    fireEvent.click(screen.getByRole('button', { name: /포트 p-a/ }));
+    choosePort(pick, 'p-a');
     expect(screen.getByText(/반대쪽 자산을 클릭하세요/)).toBeTruthy();
 
     fireEvent.keyDown(window, { code: 'Escape' });
 
-    // armed 안내/피커가 전부 사라짐 (idle로 복귀) — 부분 상태 잔존 없음
+    // armed 안내가 사라지고, 고르라는 요청도 걷힌다 (idle 복귀) — 부분 상태 잔존 없음
     expect(screen.queryByText(/반대쪽 자산을 클릭하세요/)).toBeNull();
     expect(screen.queryByText('이을 자산을 클릭하세요')).toBeNull();
-    expect(screen.queryAllByText('자산-a')).toHaveLength(0); // 포트 선택 패널 닫힘
+    expect(pick.current).toBeNull();
 
     // 케이블 버튼이 더 이상 armed(primary) 표시가 아님 — 재클릭 시 다시 arm 되어야 함
     fireEvent.click(screen.getByRole('button', { name: '케이블' }));
