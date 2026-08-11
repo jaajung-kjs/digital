@@ -93,6 +93,13 @@
 - 면: `bg-surface`(카드) · `bg-surface-2`(보조/hover)
 - 선: `border-line`
 - 강조/상태: `text-primary` · `text-success`/`bg-success-bg` · `text-warning`/`bg-warning-bg` · `text-danger`/`bg-danger-bg` · `text-info`/`bg-info-bg`
+- **표시등(LED)**: `bg-lamp-success` · `bg-lamp-warning` · `bg-lamp-danger`
+
+  운전 상태를 **색만으로** 알리는 점·불에만 쓴다(구성 격자의 상태등). 위의 `text-*` 상태색을
+  쓰지 말 것 — 그 셋은 흰 바탕에 읽히라고 어둡게 깎은 글자색이라 명도가 서로 비슷하고
+  `text-warning` 은 노랑이 아니라 갈색이다. 8~10px 점으로 찍으면 셋이 「어두운 점」으로
+  뭉쳐 구분되지 않는다. 표시등은 채도를 높이고 명도를 벌린다(노랑>초록>빨강).
+  글자·배지에는 여전히 `text-*`/`bg-*-bg` 를 쓴다.
 
 ## 2.5 z-index 스케일 (토큰만 — tailwind.config `zIndex`)
 

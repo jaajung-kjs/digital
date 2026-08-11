@@ -62,6 +62,10 @@ export default {
         'warning-bg': 'rgb(var(--warning-bg-rgb) / <alpha-value>)',
         'danger-bg': 'rgb(var(--danger-bg-rgb) / <alpha-value>)',
         'info-bg': 'rgb(var(--info-bg-rgb) / <alpha-value>)',
+        // 운전 상태 표시등 — 글자용 상태색과 다른 색이다(index.css 주석 참고).
+        'lamp-success': 'rgb(var(--lamp-success-rgb) / <alpha-value>)',
+        'lamp-warning': 'rgb(var(--lamp-warning-rgb) / <alpha-value>)',
+        'lamp-danger': 'rgb(var(--lamp-danger-rgb) / <alpha-value>)',
         eq: {
           1: 'rgb(var(--eq-1-rgb) / <alpha-value>)',
           2: 'rgb(var(--eq-2-rgb) / <alpha-value>)',

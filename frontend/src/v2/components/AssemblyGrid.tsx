@@ -61,13 +61,13 @@ export const GRID_ROW_H = 30;
 /**
  * 표시등의 빛 — 어휘의 `tone` 하나당 한 줄.
  *
- * 배지와 같은 토큰을 쓴다(`bg-success` 계열). 배지가 초록인데 판의 불이 다른 초록이면
- * 같은 상태가 두 색으로 보인다.
+ * **글자용 상태색이 아니라 표시등 토큰(`--lamp-*`)을 쓴다.** 글자색은 흰 바탕에 읽히라고
+ * 어둡게 깎은 색이라 셋의 명도가 비슷하고, 그래서 8px 점으로는 색이 갈리지 않았다.
  */
 const LAMP: Record<BadgeStatus, string> = {
-  success: 'bg-success',
-  warning: 'bg-warning',
-  danger: 'bg-danger',
+  success: 'bg-lamp-success',
+  warning: 'bg-lamp-warning',
+  danger: 'bg-lamp-danger',
   info: 'bg-info',
   neutral: 'bg-content-faint',
 };
@@ -397,7 +397,10 @@ export function AssemblyGrid<T extends GridItem>({
               <span
                 aria-hidden
                 className={cn(
-                  'pointer-events-none absolute right-1 top-1 h-2 w-2 rounded-full ring-1 ring-surface',
+                  /* 10px — 8px 는 밀집한 판에서 색을 가리기에 모자랐다. 옅은 테를 두른다:
+                     흰 카드 위의 노랑은 테가 없으면 경계가 번져 색이 흐려 보인다. */
+                  'pointer-events-none absolute right-1 top-1 h-2.5 w-2.5 rounded-full',
+                  'ring-1 ring-content-faint/60',
                   LAMP[tone],
                 )}
               />

@@ -26,6 +26,12 @@
   --faceplate-etch-rgb:198 203 209; --faceplate-silk-rgb:113 120 128;
   /* 포트 LED — 실제 장비가 연결 상태를 알리는 방식. 종류 색과 섞이지 않게 따로 둔다. */
   --faceplate-led-rgb:34 160 84;
+  /* 운전 상태 표시등 — **글자색(`--success`·`--warning`·`--danger`)을 쓰지 않는다.**
+     그 셋은 흰 바탕에 읽히라고 어둡게 깎은 색이라(21 128 61 / 180 83 9 / 185 28 28)
+     명도가 서로 비슷하고 warning 은 노랑이 아니라 갈색이다 — 8px 점으로 찍으면 셋이
+     그냥 「어두운 점」으로 뭉친다. 표시등은 실물 LED 처럼 채도를 높이고 **명도를 벌린다**
+     (노랑이 가장 밝고 빨강이 가장 어둡다). 신호등이 색맹에게도 읽히는 이유가 그것이다. */
+  --lamp-success-rgb:34 197 94; --lamp-warning-rgb:234 179 8; --lamp-danger-rgb:239 68 68;
 
   --bg:rgb(var(--bg-rgb)); --surface:rgb(var(--surface-rgb)); --surface-2:rgb(var(--surface-2-rgb)); --surface-3:rgb(var(--surface-3-rgb)); --sidebar:rgb(var(--sidebar-rgb));
   --border:rgb(var(--border-rgb)); --border-2:rgb(var(--border-2-rgb));
@@ -37,6 +43,7 @@
   --faceplate:rgb(var(--faceplate-rgb)); --faceplate-hole:rgb(var(--faceplate-hole-rgb));
   --faceplate-etch:rgb(var(--faceplate-etch-rgb)); --faceplate-silk:rgb(var(--faceplate-silk-rgb));
   --faceplate-led:rgb(var(--faceplate-led-rgb));
+  --lamp-success:rgb(var(--lamp-success-rgb)); --lamp-warning:rgb(var(--lamp-warning-rgb)); --lamp-danger:rgb(var(--lamp-danger-rgb));
 
   /* 오버레이 스크림 — 모달 백드롭 통일 */
   --overlay: rgb(0 0 0 / 0.45);
