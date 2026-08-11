@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { validateConnection } from '@twin/core';
+import { portHasRoom, validateConnection } from '@twin/core';
 import { renderBackgroundDrawing } from '../../canvas/backgroundRenderer';
 import { renderGrid } from '../../canvas/gridRenderer';
 import { renderPlacedAssets, renderDrawPreview, renderCables } from '../../canvas/renderers';
@@ -26,7 +26,7 @@ import { createDragSession, dragDelta, isThresholdMet } from '../../canvas/drag'
 import type { DragSession } from '../../canvas/drag';
 import { normalizeRect, isDrawLargeEnough } from '../../floorPlacement';
 import { placedAssetsOf } from '../../floorPlanSelectors';
-import { cableCountByPortId, cableSegments, distanceToPolyline } from '../../cableSelectors';
+import { cableCountByPortId, cableSegments, distanceToPolyline, withDescendants } from '../../cableSelectors';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { CablePickRequest } from '../../cablePick';
@@ -315,6 +315,12 @@ export function FloorPlanView({
     firstEndpoint: cableState.firstEndpoint, selectedCableId: cableState.selectedCableId,
   };
 
+  /* 케이블 도구용 렌더 입력 — `traceExpandedIdsRef` 와 같은 부류다(프리컴퓨트한 값을
+     rAF 렌더가 읽는다). 위 `latest` 미러에 못 넣는 것은 이 값들이 그보다 아래에서
+     계산되기 때문이다(케이블 종류 → 매체 해석이 먼저 있어야 한다). */
+  const connectableIdsRef = useRef<Set<string> | null>(null);
+  const hoveredAssetIdRef = useRef<string | null>(null);
+
   // ── 추적 자산 확장 집합 (per-frame 계산 제거 — traceResult 변경 시 1회 프리컴퓨트) ──
   const traceExpandedIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -387,6 +393,7 @@ export function FloorPlanView({
     }
   }, [cableGroups, cableState.categoryId]);
 
+
   /**
    * 상세 패널이 보낸 「이 포트에서 시작」 명령을 소비한다.
    *
@@ -406,7 +413,6 @@ export function FloorPlanView({
     }
     onCableStartConsumed?.();
   }, [cableStartPortId, effectiveAssets, cableGroups, onCableStartConsumed]);
-
   /**
    * 케이블 도구가 지금 어느 단계인가 — 안내 문구와 딤을 여기 한 곳에서 정한다.
    *
@@ -444,6 +450,35 @@ export function FloorPlanView({
     }
     return undefined;
   }, [cableGroups, cableState.categoryId]);
+
+  /**
+   * 케이블 도구가 켜져 있을 때 **이을 수 있는 설비**의 id.
+   *
+   * 매체가 맞고 자리가 남은 포트를 하나라도 가진 것만(안에 든 부품의 포트까지 센다).
+   * 예전에는 아무 설비나 눌렸고, 접지함체를 눌러 놓고 나서야 빈 판을 보고 되돌아왔다.
+   * 「누를 수 있는 것」을 색으로 먼저 말하면 그 헛걸음이 없어진다.
+   */
+  const connectableAssetIds = useMemo(() => {
+    if (!cableState.armed) return null;
+    const counts = cableCountByPortId(effectiveCables);
+    const usable = (a: V2Asset) =>
+      a.ports.some(
+        (p) =>
+          (selectedGroupKey == null || p.medium === selectedGroupKey) &&
+          p.id !== cableState.firstEndpoint?.portId &&
+          portHasRoom(p.medium, counts.get(p.id) ?? 0),
+      );
+    const ids = new Set<string>();
+    for (const placed of placedAssets) {
+      // 저장 전 자산은 서버 포트가 없다 — 이을 수 없다는 사실을 도면에서 미리 말한다.
+      if (withDescendants(effectiveAssets, placed.id).some((a) => a.updatedAt !== '' && usable(a))) {
+        ids.add(placed.id);
+      }
+    }
+    return ids;
+  }, [cableState.armed, cableState.firstEndpoint, effectiveCables, effectiveAssets, placedAssets, selectedGroupKey]);
+
+  connectableIdsRef.current = connectableAssetIds;
 
   // ── disarm 헬퍼 ──────────────────────────────────────────────────────────
   const disarm = useCallback(() => {
@@ -566,6 +601,28 @@ export function FloorPlanView({
         ctx.restore();
         // 추적 자산: selectedAssetId 경유 하이라이트 유지하면서 추적 강조
         renderPlacedAssets(ctx, tracedAssets, latest.current.selectedAssetId, activePreview);
+      } else if (connectableIdsRef.current) {
+        /* 케이블 도구가 켜져 있다 — **이을 수 있는 것만 또렷하게**. 추적의 어법과 같다
+           (관계 없는 것은 alpha 0.3). 눌러 보고 나서 빈 판을 만나는 헛걸음이 없어진다. */
+        const ids = connectableIdsRef.current;
+        const off = latest.current.placedAssets.filter((a) => !ids.has(a.id));
+        const on = latest.current.placedAssets.filter((a) => ids.has(a.id));
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        renderPlacedAssets(ctx, off, null, activePreview);
+        ctx.restore();
+        renderPlacedAssets(ctx, on, latest.current.selectedAssetId, activePreview);
+
+        // 가리키고 있는 것 — 누를 수 있다는 사실을 손이 가기 전에 알린다.
+        const hoverId = hoveredAssetIdRef.current;
+        const hovered = hoverId && ids.has(hoverId) ? on.find((a) => a.id === hoverId) : null;
+        if (hovered) {
+          ctx.save();
+          ctx.strokeStyle = SELECTION_STYLES.stroke;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(hovered.x - 2, hovered.y - 2, hovered.width + 4, hovered.height + 4);
+          ctx.restore();
+        }
       } else {
         renderPlacedAssets(ctx, latest.current.placedAssets, latest.current.selectedAssetId, activePreview);
       }
@@ -868,6 +925,36 @@ export function FloorPlanView({
   };
 
   // ── 클릭: 케이블 도구 / 자산 선택 / 케이블 선택 ─────────────────────────
+  /**
+   * 가리키고 있는 설비를 좇는다 — **케이블 도구가 켜져 있을 때만**.
+   *
+   * 늘 좇으면 마우스가 움직일 때마다 rAF 렌더가 도는데, 그 강조가 쓰이는 곳은 여기뿐이다.
+   * 바뀌었을 때만 다시 그린다(같은 것을 가리키는 동안에는 아무 일도 하지 않는다).
+   */
+  const onCanvasHover = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!connectableIdsRef.current) {
+      if (hoveredAssetIdRef.current !== null) {
+        hoveredAssetIdRef.current = null;
+        scheduleRender();
+      }
+      return;
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const { zoom, panX, panY } = latest.current.viewport;
+    const world = screenToWorld(e.clientX, e.clientY, rect, panX, panY, zoom);
+    const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
+    const next = hit && connectableIdsRef.current.has(hit.id) ? hit.id : null;
+    if (next === hoveredAssetIdRef.current) return;
+    hoveredAssetIdRef.current = next;
+    /* 커서는 **직접** 바꾼다 — 이 손짓은 rAF 캔버스 렌더만 돌리지 React 렌더를 돌리지
+       않는다(마우스가 움직일 때마다 리렌더하지 않으려는 것이 애초에 ref 를 쓴 이유다).
+       누를 수 있는 것 위에서만 손가락이 되어야, 흐리게 그린 설비가 눌릴 것처럼 보이지 않는다. */
+    canvas.style.cursor = next ? 'pointer' : 'crosshair';
+    scheduleRender();
+  };
+
   const onCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     // 팬 종료(mouseup) 직후 발생하는 click 은 선택으로 취급하지 않는다
     if (wasRecentlyPanning.current) {
@@ -894,7 +981,8 @@ export function FloorPlanView({
     // ── 케이블 도구 armed ──────────────────────────────────────────────────
     if (cableState.armed) {
       const hit = findAssetAt(world.x, world.y, latest.current.placedAssets);
-      if (hit) {
+      // 흐리게 그린 것은 눌러도 열리지 않는다 — 보이는 것과 되는 것이 같아야 한다.
+      if (hit && connectableIdsRef.current?.has(hit.id) !== false) {
         // 자산 객체 찾기 (V2Asset 형태)
         const fullAsset = latest.current.effectiveAssets.find((a) => a.id === hit.id);
         if (!fullAsset) return;
@@ -1382,6 +1470,12 @@ export function FloorPlanView({
           className="absolute inset-0 w-full h-full"
           style={{ display: 'block', cursor: canvasCursor }}
           onMouseDown={onCanvasMouseDown}
+          onMouseMove={onCanvasHover}
+          onMouseLeave={() => {
+            if (hoveredAssetIdRef.current === null) return;
+            hoveredAssetIdRef.current = null;
+            scheduleRender();
+          }}
           onClick={onCanvasClick}
           data-testid="floorplan-canvas"
         />

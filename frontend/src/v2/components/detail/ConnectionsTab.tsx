@@ -22,7 +22,7 @@ import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../cableSelectors';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
@@ -352,9 +352,22 @@ export function ConnectionsTab({
     );
   }
 
+  const pickDisabledPortIds = useMemo(() => {
+    if (!picking) return undefined;
+    const full = new Set<string>();
+    for (const { groups } of portOwners) {
+      for (const { ports } of groups) {
+        for (const p of ports) {
+          if (!portHasRoom(p.medium, cablesByPortId.get(p.id)?.length ?? 0)) full.add(p.id);
+        }
+      }
+    }
+    return full;
+  }, [picking, portOwners, cablesByPortId]);
+
   const freeCount = portOwners
     .flatMap((o) => o.groups.flatMap((g) => g.ports))
-    .filter((p) => portState(p) === 'empty').length;
+    .filter((p) => portHasRoom(p.medium, cablesByPortId.get(p.id)?.length ?? 0)).length;
 
   return (
     <div className="space-y-3">
@@ -414,6 +427,11 @@ export function ConnectionsTab({
                 key: group, label, accent: mediumColor(medium), ports,
               }))}
               stateOf={portState}
+              /* 고르는 중에는 **꽉 찬 포트를 못 누르게** 한다. 눌러 보고 나서 「이미 물려
+                 있습니다」로 되돌리면, 어느 자리가 남았는지를 눌러 가며 알아내야 한다.
+                 판이 이미 상태를 색으로 말하고 있으니 누를 수 없다는 것도 판이 말한다.
+                 규칙은 `portHasRoom` 한 곳 — 접지 부스바는 여러 가닥이 물린다. */
+              disabledPortIds={pickDisabledPortIds}
               cableCountOf={(port) => cablesByPortId.get(port.id)?.length ?? 0}
               isOpen={isPortOpen}
               selectedPortId={selectedPortId}
