@@ -95,9 +95,11 @@ const JUMPER = categoryByName['광점퍼코드'];
 const OPGW = categoryByName['OPGW(광복합가공지선)'];
 
 /** 변전소 하나를 채운다 — OFD 와 송광치를 놓고 구내 점퍼로 잇는다. */
-async function fillSubstation(substationId, floorId, ofdName) {
-  const ofd = place('OFD', ofdName, floorId, 40);
-  const opt = place('OPT-SET', '송광치 A', floorId, 160);
+async function fillSubstation(substationId, floorId, prefix) {
+  /* 설비 이름에 변전소를 붙인다 — 두 국에 같은 이름을 쓰면 선번장의 「장비」와 「대국」이
+     한 글자도 다르지 않게 찍혀, 대국이 제대로 건너갔는지를 화면으로 확인할 수가 없다. */
+  const ofd = place('OFD', `${prefix} OFD`, floorId, 40);
+  const opt = place('OPT-SET', `${prefix} 송광치`, floorId, 160);
   await call(`/substations/${substationId}/commit`, 'PUT', {
     assets: { creates: [...ofd.creates, ...opt.creates] },
   });
@@ -140,8 +142,8 @@ if (local.assetCount > 0 || remote.assetCount > 0) {
   process.exit(0);
 }
 
-const a = await fillSubstation(local.id, local.floorId, '신탄진 OFD');
-const b = await fillSubstation(remote.id, remote.floorId, '판암 OFD');
+const a = await fillSubstation(local.id, local.floorId, '신탄진');
+const b = await fillSubstation(remote.id, remote.floorId, '판암');
 
 /* 구간: 두 변전소의 경로슬롯을 OPGW 한 가닥으로 잇는다.
    다심 포트라 24심이 이 한 가닥에 실린다 — 심선마다 케이블을 만들지 않는다(공량이 부풀지 않게).

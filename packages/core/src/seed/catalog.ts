@@ -1,3 +1,4 @@
+import { PORT_KINDS, type PortKindKey } from '../catalog/portKinds.js';
 import type { AssetTypeSpec } from '../catalog/types.js';
 
 export const SEED_CATEGORIES = [
@@ -370,63 +371,39 @@ export const SEED_ASSEMBLIES: {
   },
 ];
 
-export const SEED_CABLE_GROUPS = [
-  {
-    key: 'power',
-    name: '전원',
-    color: '#ef4444',
-    laborType: '통신내선공',
-    installHoursPerM: 0.03,
-    removeHoursPerM: 0.015,
-    sortOrder: 1,
-  },
-  {
-    key: 'network',
-    name: '네트워크',
-    color: '#3b82f6',
-    laborType: '통신내선공',
-    installHoursPerM: 0.02,
-    removeHoursPerM: 0.01,
-    sortOrder: 2,
-  },
-  {
-    key: 'fiber',
-    name: '광',
-    color: '#22c55e',
-    laborType: '통신외선공',
-    installHoursPerM: 0.04,
-    removeHoursPerM: 0.02,
-    sortOrder: 4,
-  },
+/**
+ * 케이블 그룹의 **품셈과 색** — 이름·키·순서는 여기 없다.
+ *
+ * 그 셋은 `PORT_KINDS` 가 이미 선언한다(포트 종류 하나 = 케이블 그룹 하나). 예전에는 이
+ * 표가 키·이름·순서까지 통째로 되풀이해서, 「광 인입」을 OPGW 로 바꾸는 데 어휘와 시드 두
+ * 곳을 고쳐야 했고 한쪽만 고치면 화면마다 다른 말이 나왔다(판 구획은 OPGW, 자산 만들 때
+ * 매체 고르는 칸은 「광 인입」). 이름은 한 곳에서만 적는다.
+ *
+ * `Record<PortKindKey, …>` 라 **포트 종류를 늘리면 여기가 빌 때 컴파일이 깨진다** — 품셈
+ * 없는 그룹이 조용히 0시간으로 새는 대신.
+ */
+const CABLE_GROUP_RATES: Record<PortKindKey, {
+  color: string;
+  laborType: string | null;
+  installHoursPerM: number;
+  removeHoursPerM: number;
+}> = {
+  power:   { color: '#ef4444', laborType: '통신내선공', installHoursPerM: 0.03,  removeHoursPerM: 0.015 },
+  network: { color: '#3b82f6', laborType: '통신내선공', installHoursPerM: 0.02,  removeHoursPerM: 0.01  },
   // 다심 인입 — 한 가닥 안에 여러 심선이 든 것. 점퍼(단심)와는 포설 품도 다르다.
-  {
-    key: 'fiber-trunk',
-    name: 'OPGW',
-    color: '#15803d',
-    laborType: '통신외선공',
-    installHoursPerM: 0.06,
-    removeHoursPerM: 0.03,
-    sortOrder: 3,
-  },
-  {
-    key: 'control',
-    name: '제어',
-    color: '#6b7280',
-    laborType: '통신내선공',
-    installHoursPerM: 0.025,
-    removeHoursPerM: 0.012,
-    sortOrder: 5,
-  },
-  {
-    key: 'ground',
-    name: '접지',
-    color: '#eab308',
-    laborType: '통신내선공',
-    installHoursPerM: 0.02,
-    removeHoursPerM: 0.01,
-    sortOrder: 6,
-  },
-] as const;
+  'fiber-trunk': { color: '#15803d', laborType: '통신외선공', installHoursPerM: 0.06, removeHoursPerM: 0.03 },
+  fiber:   { color: '#22c55e', laborType: '통신외선공', installHoursPerM: 0.04,  removeHoursPerM: 0.02  },
+  control: { color: '#6b7280', laborType: '통신내선공', installHoursPerM: 0.025, removeHoursPerM: 0.012 },
+  ground:  { color: '#eab308', laborType: '통신내선공', installHoursPerM: 0.02,  removeHoursPerM: 0.01  },
+};
+
+/** 시드가 넣는 케이블 그룹 — 어휘 순서가 곧 화면 순서다(`sortOrder`). */
+export const SEED_CABLE_GROUPS = PORT_KINDS.map((kind, i) => ({
+  key: kind.key,
+  name: kind.name,
+  sortOrder: i + 1,
+  ...CABLE_GROUP_RATES[kind.key],
+}));
 
 /** 구 MaterialCategory.CABLE 17종 — 레거시 groupName을 CableGroup.key 로 매핑 */
 export const SEED_CABLE_CATEGORIES: { groupKey: string; name: string; sortOrder: number }[] = [

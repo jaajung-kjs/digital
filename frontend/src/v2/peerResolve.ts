@@ -1,26 +1,49 @@
 import type { V2Asset, V2Cable, V2CableRef } from './types';
 
 /** Peer(대국) 표시 정보 — fiber/power 셀렉터 공유 형태 */
-export interface PeerInfo {
-  assetName: string;
-  portName: string;
+export interface PeerInfo extends Endpoint {
   substationName: string | null;
   remote: boolean;
+}
+
+/**
+ * 끝점 하나를 부르는 데 필요한 것 — **`설비명 - 장비이름#포트번호`**.
+ *
+ * 장비 이름만으로는 어느 것인지 못 고른다. 「광단말 A」는 송광치마다 하나씩 있고, 「슬롯 1」은
+ * OFD 마다 있다. 포트도 이름(`광 3`·`포트 12`·`전원 출력 1`)은 종류마다 제각각이라 두 자리를
+ * 견줄 수가 없어 번호로 적는다.
+ */
+export interface Endpoint {
+  /** 이 장비를 담고 있는 설비. 설비 자신이 끝점이면 없다. */
+  assemblyName: string | null;
+  assetName: string;
+  portName: string;
+  portIndex: number;
+}
+
+/** 끝점을 부르는 **한 가지** 이름 — 화면마다 다르게 적던 것을 여기로 모았다. */
+export function endpointLabel(e: Endpoint): string {
+  const own = `${e.assetName}#${e.portIndex}`;
+  return e.assemblyName ? `${e.assemblyName} - ${own}` : own;
 }
 
 export interface PortIndexEntry {
   port: V2Asset['ports'][number];
   asset: V2Asset;
+  /** 이 장비를 담고 있는 설비의 이름 — 끝점을 부를 때 앞에 붙는다. */
+  assemblyName: string | null;
 }
 
 export type PortIndex = Map<string, PortIndexEntry>;
 
 /** portId → { port, asset } 인덱스 (호이스트해 O(1) 조회) */
 export function buildPortIndex(assets: V2Asset[]): PortIndex {
+  const nameById = new Map(assets.map((a) => [a.id, a.name]));
   const index: PortIndex = new Map();
   for (const a of assets) {
+    const assemblyName = a.parentAssetId ? nameById.get(a.parentAssetId) ?? null : null;
     for (const p of a.ports) {
-      index.set(p.id, { port: p, asset: a });
+      index.set(p.id, { port: p, asset: a, assemblyName });
     }
   }
   return index;
@@ -115,30 +138,25 @@ export function resolvePeer(
   if (entry) {
     // Tier 1: local effective peer
     return {
+      assemblyName: entry.assemblyName,
       assetName: entry.asset.name,
       portName: entry.port.name,
+      portIndex: entry.port.index,
       substationName: null,
       remote: false,
     };
   }
 
-  if (cable.aPortId === port.id && cable.bRef) {
-    // Tier 2: saved bRef
+  // Tier 2: 저장된 ref — 이 워킹카피에 없는 끝점(상대 국·삭제된 자산)은 이게 아는 전부다.
+  const ref = endpointRef(cable, otherPortId);
+  if (ref) {
     return {
-      assetName: cable.bRef.assetName,
-      portName: cable.bRef.portName,
-      substationName: cable.bRef.substationName ?? null,
-      remote: cable.bRef.substationId !== localSubstationId,
-    };
-  }
-
-  if (cable.bPortId === port.id && cable.aRef) {
-    // Tier 2: saved aRef
-    return {
-      assetName: cable.aRef.assetName,
-      portName: cable.aRef.portName,
-      substationName: cable.aRef.substationName ?? null,
-      remote: cable.aRef.substationId !== localSubstationId,
+      assemblyName: ref.assemblyName ?? null,
+      assetName: ref.assetName,
+      portName: ref.portName,
+      portIndex: ref.portIndex,
+      substationName: ref.substationName ?? null,
+      remote: ref.substationId !== localSubstationId,
     };
   }
 

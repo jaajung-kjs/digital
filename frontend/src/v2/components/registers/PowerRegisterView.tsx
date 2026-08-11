@@ -276,7 +276,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             </td>
 
             <td className="truncate px-3 py-1.5">
-              <PeerCell peer={row.inCell.peer} showPort />
+              <PeerCell peer={row.inCell.peer} />
             </td>
 
             {cableFields.map((f) => (
@@ -286,7 +286,7 @@ export function PowerRegisterView({ substationId: _substationId, selectedAssetId
             ))}
 
             <td className="truncate px-3 py-1.5">
-              <PeerCell peer={row.outCell.peer} showPort />
+              <PeerCell peer={row.outCell.peer} />
             </td>
           </tr>
           ),

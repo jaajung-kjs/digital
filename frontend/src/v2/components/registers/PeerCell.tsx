@@ -1,29 +1,26 @@
 /**
  * PeerCell — 선번장·계통 표의 대국 칸.
  *
- * **장비 이름만 적는다.** 포트 이름은 행이 이미 말하고 있다 — 선번장의 한 줄은 코어 하나이고
- * 그 번호가 첫 칸에 있으므로, 칸마다 「광단말 A · 광 1」로 적으면 「1」을 세 번 말하는 셈이다.
- * 실제로 그렇게 되어 있었고, 384px 표에서 정작 어느 장비인지가 잘렸다.
- *
- * 포트가 행 번호와 다를 수 있는 자리(계통의 대국처럼)에서는 `showPort` 로 켠다.
+ * 이름은 `endpointLabel` 하나가 짓는다(`설비 - 장비#번호`). 예전에는 칸마다 제 손으로
+ * 이어 붙여서 「광단말 A · 광 1」·「광단말A-광1」처럼 화면마다 다른 말이 나왔고, 장비
+ * 이름만으로는 어느 송광치의 광단말 A 인지 고를 수도 없었다.
  */
-import { Badge } from '../../../components/ui';
-import type { PeerInfo } from '../../peerResolve';
+import { endpointLabel, type PeerInfo } from '../../peerResolve';
 
 interface PeerCellProps {
   peer: PeerInfo | null;
-  /** 포트 이름까지 적는다 — 행 번호가 그 포트를 가리키지 않을 때만. */
-  showPort?: boolean;
 }
 
-export function PeerCell({ peer, showPort = false }: PeerCellProps) {
+export function PeerCell({ peer }: PeerCellProps) {
   if (!peer) return <span className="text-content-faint">—</span>;
+  const label = endpointLabel(peer);
+  /* 상대 변전소는 **배지로 달지 않는다** — 대국이 상대 국에 있다는 것은 OPGW 를 탔다는
+     뜻이고 그건 그 줄이 이미 말한다. 좁은 칸에서 배지가 정작 장비 이름을 밀어냈다.
+     정보 자체는 버리지 않고 툴팁에 남긴다. */
+  const full = peer.remote && peer.substationName ? `${label} (${peer.substationName})` : label;
   return (
-    <span className="flex flex-wrap items-center gap-1">
-      <span className="min-w-0 truncate text-sm text-content" title={`${peer.assetName} · ${peer.portName}`}>
-        {showPort ? `${peer.assetName} · ${peer.portName}` : peer.assetName}
-      </span>
-      {peer.remote && peer.substationName && <Badge status="info">{peer.substationName}</Badge>}
+    <span className="min-w-0 truncate text-sm text-content" title={full}>
+      {label}
     </span>
   );
 }

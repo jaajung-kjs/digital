@@ -1,7 +1,9 @@
 /** 자산 상태 어휘 — 표시·선택지는 이 상수만 읽는다 (추후 카탈로그 데이터로 승격 가능). */
 export const ASSET_STATUSES = [
   { value: 'normal', label: '정상', tone: 'success' },
-  { value: 'standby', label: '예비', tone: 'neutral' },
+  /* 예비는 **노랑**이다 — 회색이면 「아무것도 아님」과 같아 보인다. 판을 훑는 사람이
+     알고 싶은 것은 셋 중 어느 것이냐이고, 그 셋은 신호등의 셋과 같다. */
+  { value: 'standby', label: '예비', tone: 'warning' },
   { value: 'fault', label: '고장', tone: 'danger' },
 ] as const;
 
@@ -18,6 +20,13 @@ export const DEFAULT_ASSET_STATUS: AssetStatusValue = 'normal';
 export function assetStatusLabel(value: string): string {
   return ASSET_STATUSES.find((s) => s.value === value)?.label ?? value;
 }
+
+/** 이 상태를 무슨 빛으로 보일 것인가 — 배지도 구성 격자의 표시등도 이걸 읽는다. */
+export function assetStatusTone(value: string): AssetStatusTone | null {
+  return ASSET_STATUSES.find((s) => s.value === value)?.tone ?? null;
+}
+
+export type AssetStatusTone = (typeof ASSET_STATUSES)[number]['tone'];
 
 /* 포트 방향 어휘는 `catalog/types.ts` 에 있다 — 타입(`Direction`) 이 그 어휘에서 파생되므로
    값과 타입이 한 곳에 있어야 갈라지지 않는다. */

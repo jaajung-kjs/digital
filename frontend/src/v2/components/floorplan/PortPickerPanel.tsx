@@ -10,7 +10,7 @@ import {
   PanelHeader,
 } from '../../../components/ui';
 import { portGroupLabel } from '@twin/core';
-import { useMediumColor } from '../../hooks';
+import { useMediumColor, useMediumLabel } from '../../hooks';
 import { PortFaceplate } from '../detail/PortFaceplate';
 import type { V2Asset, V2Port } from '../../types';
 
@@ -58,6 +58,7 @@ export function PortPickerPanel({
 }: Props) {
   const [query, setQuery] = useState('');
   const mediumColor = useMediumColor();
+  const mediumLabel = useMediumLabel();
 
   // 다른 자산을 누르면 이전 검색어가 남지 않게 한다.
   useEffect(() => setQuery(''), [rootAsset.id]);
@@ -130,7 +131,7 @@ export function PortPickerPanel({
                     labelPrefix={g.asset.name}
                     sections={[...groupByPortGroup(g.ports)].map(([groupKey, items]) => ({
                       key: groupKey,
-                      label: groupLabelOf(groupKey, g.ports),
+                      label: groupLabelOf(groupKey, g.ports, mediumLabel),
                       accent: mediumColor(items[0]?.port.medium ?? ''),
                       ports: items.map((i) => i.port),
                     }))}
@@ -184,12 +185,17 @@ function groupByPortGroup(items: { port: V2Port; occupied: boolean }[]) {
  * 예전에는 `GND 그룹`·`PWR-IN 그룹` 처럼 **내부 키를 그대로** 적었다. 그룹 키는 타입 안에서
  * 유일해야 하는 식별자이지 이름이 아니라, 쓰는 사람에게는 아무 뜻이 없는 글자다.
  */
-function groupLabelOf(groupKey: string, all: readonly { port: V2Port }[]): string {
+function groupLabelOf(
+  groupKey: string,
+  all: readonly { port: V2Port }[],
+  /** 매체 이름은 카탈로그가 준다 — 어휘의 기본 이름은 시드값일 뿐이다. */
+  mediumName: (medium: string) => string,
+): string {
   const refs = [...new Map(all.map((i) => [i.port.group, i.port])).values()].map((p) => ({
     group: p.group, medium: p.medium, direction: p.direction, sampleName: p.name,
   }));
   const mine = refs.find((r) => r.group === groupKey);
-  return mine ? portGroupLabel(mine, refs) : groupKey;
+  return mine ? portGroupLabel(mine, refs, mediumName) : groupKey;
 }
 
 

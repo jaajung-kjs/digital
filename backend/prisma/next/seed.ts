@@ -18,6 +18,22 @@ async function main() {
       console.log('[seed:next] users already exist — skip admin seed');
     }
 
+    /*
+     * 케이블 그룹은 **고정 어휘**다 — 사용자가 늘리거나 지울 수 없고(`PORT_KINDS` 가
+     * 그 목록이다), 고치는 것은 이름·색·품셈뿐이다. 그래서 아래 카탈로그 skip 가드보다
+     * 위에 둔다: 어휘에 종류가 하나 늘면 이미 쓰고 있는 DB 에도 그 그룹이 생겨야 한다
+     * (안 그러면 그 매체의 포트에 물릴 케이블 종류가 하나도 없다).
+     *
+     * **없는 것만 만든다** — 이름·색·품셈은 현장이 고친 값일 수 있어 덮지 않는다.
+     */
+    for (const g of SEED_CABLE_GROUPS) {
+      await tx.cableGroup.upsert({
+        where: { key: g.key },
+        update: {},
+        create: { key: g.key, name: g.name, color: g.color, laborType: g.laborType, installHoursPerM: g.installHoursPerM, removeHoursPerM: g.removeHoursPerM, sortOrder: g.sortOrder },
+      });
+    }
+
     // Stage 6 이후 카탈로그는 관리자 편집 대상(운영 데이터) — 빈 카탈로그일 때만 시드.
     // (운영 데이터 원복 방지 원칙: 참조데이터 upsert 는 편집 UI 가 없던 Stage 5 까지의 정책)
     const existing = await tx.assetType.count();
@@ -85,14 +101,6 @@ async function main() {
           },
         });
       }
-    }
-
-    for (const g of SEED_CABLE_GROUPS) {
-      await tx.cableGroup.upsert({
-        where: { key: g.key },
-        update: { name: g.name, color: g.color, laborType: g.laborType, installHoursPerM: g.installHoursPerM, removeHoursPerM: g.removeHoursPerM, sortOrder: g.sortOrder },
-        create: { key: g.key, name: g.name, color: g.color, laborType: g.laborType, installHoursPerM: g.installHoursPerM, removeHoursPerM: g.removeHoursPerM, sortOrder: g.sortOrder },
-      });
     }
 
     for (const cat of SEED_CABLE_CATEGORIES) {

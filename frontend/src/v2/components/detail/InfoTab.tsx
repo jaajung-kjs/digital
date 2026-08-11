@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { ASSET_STATUSES, assetFieldDefs, freeCells, validateGridPlacement } from '@twin/core';
+import { ASSET_STATUSES, assetFieldDefs, assetStatusTone, freeCells, validateGridPlacement } from '@twin/core';
 import {
   DetailCard,
   DetailCardHeader,
@@ -356,6 +356,8 @@ export function InfoTab({
             onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, grid, siblings: parts, cell })}
             canPlace={canPlaceInGrid}
             onMove={(id, at) => useV2WorkingCopy.getState().stageAssetUpdate(id, at)}
+            /* 칸마다 운전 상태 불 — 색은 어휘가 정한다(정상 초록·예비 노랑·고장 빨강). */
+            toneOf={(part) => assetStatusTone(part.status)}
           />
         </DetailCard>
       )}

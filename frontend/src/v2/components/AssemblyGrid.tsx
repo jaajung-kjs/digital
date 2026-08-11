@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { slotNumber, type Grid } from '@twin/core';
-import { cn, SELECTABLE } from '../../components/ui';
+import { cn, SELECTABLE, type BadgeStatus } from '../../components/ui';
 import {
   cellAt, edgeScroll, gridDragTo, gridPlacementChanged, scrollableAncestor, startGridDrag,
   type GridCell, type GridDragKind, type GridDragSession, type GridPlacement,
@@ -35,6 +35,14 @@ export interface AssemblyGridProps<T extends GridItem> {
   trailing?: (item: T) => ReactNode;
   /** 지금 골라져 있는 것 — 설비 종류 편집기가 고른 부품을 표시할 때 쓴다. */
   selectedId?: string | null;
+  /**
+   * 이 칸에 표시등을 켤 것인가 — 켠다면 무슨 빛으로.
+   *
+   * 어휘가 정한 빛(`assetStatusTone`)을 그대로 받는다. 여기서 상태값을 보고 색을 고르면
+   * (`if (status === 'fault')`) 상태를 하나 늘릴 때 판이 조용히 무색으로 남는다.
+   * 설비 종류 편집기의 부품은 아직 자산이 아니라 상태가 없으므로 이 프롭을 주지 않는다.
+   */
+  toneOf?: (item: T) => BadgeStatus | null;
 }
 
 /**
@@ -49,6 +57,20 @@ export interface AssemblyGridProps<T extends GridItem> {
  * 납작한 칸이라도 XY 격자로 읽힌다 — 랙 정면도가 그렇다.
  */
 export const GRID_ROW_H = 30;
+
+/**
+ * 표시등의 빛 — 어휘의 `tone` 하나당 한 줄.
+ *
+ * 배지와 같은 토큰을 쓴다(`bg-success` 계열). 배지가 초록인데 판의 불이 다른 초록이면
+ * 같은 상태가 두 색으로 보인다.
+ */
+const LAMP: Record<BadgeStatus, string> = {
+  success: 'bg-success',
+  warning: 'bg-warning',
+  danger: 'bg-danger',
+  info: 'bg-info',
+  neutral: 'bg-content-faint',
+};
 
 /** 가장자리에서 판이 밀리기 시작하는 폭(px)과 최대 속도(px/프레임). */
 const EDGE = { margin: 28, maxSpeed: 12 };
@@ -84,7 +106,7 @@ const LABEL_MIN_W = 52;
  * 끌어서 옮기고 모서리로 크기를 바꾼다 — 수학은 `gridDrag.ts` 에 순수 함수로 있다.
  */
 export function AssemblyGrid<T extends GridItem>({
-  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId,
+  grid, items, onSelect, onAddAtCell, onMove, canPlace, trailing, selectedId, toneOf,
 }: AssemblyGridProps<T>) {
   const rows = Math.max(grid.rows, 1);
   const cols = Math.max(grid.cols, 1);
@@ -288,6 +310,7 @@ export function AssemblyGrid<T extends GridItem>({
       /* 좁고 세로로 긴 칸이면 글씨를 눕힌다 — 섀시 카드가 실물에서 그렇게 읽힌다. */
       const cellW = at.colSpan * colWidth;
       const vertical = colWidth > 0 && cellW < LABEL_MIN_W && at.rowSpan * GRID_ROW_H > cellW;
+      const tone = item ? toneOf?.(item) ?? null : null;
 
       cells.push(
         <li
@@ -311,6 +334,10 @@ export function AssemblyGrid<T extends GridItem>({
               item && selectedId === item.id && 'ring-2 ring-inset ring-primary',
               // 놓을 수 없는 자리면 그렇다고 말한다 — 놓아 봐야 되돌아가는 것보다 낫다.
               pv && (pv.ok ? 'ring-2 ring-primary' : 'ring-2 ring-danger opacity-70'),
+              /* 세로 글씨는 표시등과 같은 자리를 다툰다(28px 폭 카드에서 「광」이 불에 가렸다).
+                 비켜 주되 **옆으로** 비킨다 — 세로쓰기에서 모자란 것은 높이(=글자 수)이고
+                 폭은 남는다. 위를 비우면 「광스위치 상단」이 다시 「광스위치 …」가 된다. */
+              tone && vertical && 'pr-2.5',
             )}
             title={
               item
@@ -361,6 +388,21 @@ export function AssemblyGrid<T extends GridItem>({
                 +
               </span>
             )}
+            {/* 운전 상태 표시등 — 오른쪽 **위** 모서리(손잡이가 오른쪽 아래라 겹치지 않는다).
+                판을 훑는 사람이 먼저 보는 것은 「어느 게 죽었나」다. 이름을 한 줄씩 읽어
+                내려가지 않고 색만으로 훑을 수 있어야 하므로 글자와 자리를 다투지 않는
+                모서리에 둔다 — 랙 실물의 상태 LED 도 전면 모서리에 있다.
+                색은 상태 어휘가 정한다(`assetStatusTone`). 여기서 고르지 않는다. */}
+            {tone && (
+              <span
+                aria-hidden
+                className={cn(
+                  'pointer-events-none absolute right-1 top-1 h-2 w-2 rounded-full ring-1 ring-surface',
+                  LAMP[tone],
+                )}
+              />
+            )}
+
             {/* 크기 손잡이 — 오른쪽 아래 모서리. **두 축 모두** 늘어난다(왼쪽 위 고정).
                 예전에는 아래 변에만 있어서 세로로밖에 못 늘렸고, 그래서 판이 슬롯처럼 굳었다. */}
             {item && (

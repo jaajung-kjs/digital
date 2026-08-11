@@ -89,7 +89,12 @@ export interface PortKind {
   expandsTo?: string;
 }
 
-export const PORT_KINDS: readonly PortKind[] = [
+/**
+ * `satisfies` 로 적는다 — 주석(`: readonly PortKind[]`)을 달면 `key` 가 `string` 으로
+ * 넓어져 아래 `PortKindKey` 가 뜻을 잃는다. 시드의 품셈 표가 이 키로 **빠짐없이** 열거되게
+ * 하려면 리터럴 타입이 살아 있어야 한다.
+ */
+export const PORT_KINDS = [
   // 전원은 공급(OUT)과 소비(IN)가 갈린다 — 출력끼리 잇는 것은 물리적으로 불가능하다.
   {
     key: 'power', name: '전원', connectsTo: ['power'], pairing: 'opposite', maxCables: 1,
@@ -128,7 +133,10 @@ export const PORT_KINDS: readonly PortKind[] = [
   { key: 'control', name: '제어', connectsTo: ['control'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   // 접지 부스바에는 여러 기기의 접지선이 한 단자로 모인다 — 여기만 다중 결선이다.
   { key: 'ground', name: '접지', connectsTo: ['ground'], pairing: 'any', maxCables: null, cableFields: [], portFields: [] },
-] as const;
+] as const satisfies readonly PortKind[];
+
+/** 이 어휘가 아는 매체 키 — 시드·검증이 이걸로 빠짐을 컴파일 때 잡는다. */
+export type PortKindKey = (typeof PORT_KINDS)[number]['key'];
 
 /**
  * 이 종류의 케이블에 적을 수 있는 값 — 공통 + 종류별.
@@ -238,7 +246,9 @@ export const DEFAULT_CORE_COUNT = 24;
  * 방향을 따지지 않는 종류는 하나면 된다.
  */
 export function portPresets(): PortPreset[] {
-  return PORT_KINDS.flatMap((kind) => {
+  /* `kind: PortKind` 로 넓혀 받는다 — `as const` 배열은 선언하지 않은 선택 속성
+     (`multiCore`)이 그 항목의 타입에서 아예 사라져 읽을 수가 없다. */
+  return PORT_KINDS.flatMap((kind: PortKind) => {
     const positions = kind.multiCore ? DEFAULT_CORE_COUNT : 1;
     if (kind.pairing !== 'opposite') {
       return [{ name: kind.name, medium: kind.key, direction: 'BI' as Direction, groupKey: kind.key.toUpperCase(), namePattern: `${kind.name} {n}`, positions }];
@@ -280,9 +290,20 @@ function nameBase(sample: string | undefined): string | null {
  * 출력이 갈린다. 같은 이름이 둘 이상 나오면 그때만 키를 덧붙인다 — 광슬롯의 `A`·`B` 처럼
  * 키 자체가 유일한 이름인 경우가 그렇다. 구분이 필요할 때까지 이름을 길게 만들지 않는다.
  */
-export function portGroupLabel(target: PortGroupRef, siblings: readonly PortGroupRef[]): string {
+export function portGroupLabel(
+  target: PortGroupRef,
+  siblings: readonly PortGroupRef[],
+  /**
+   * 매체 키 → 현장이 쓰는 이름. **카탈로그(케이블 그룹)가 준다.**
+   *
+   * 없으면 어휘의 기본 이름으로 떨어진다. 예전에는 여기서 늘 어휘 이름을 읽었는데, 그
+   * 이름은 설비관리대장에서 고칠 수 있어(`CableGroup.name`) 화면마다 다른 말이 나왔다 —
+   * 판 구획은 「OPGW」, 자산 만들 때 매체 고르는 칸은 「광 인입」. 표시는 한 곳에서 나온다.
+   */
+  mediumName?: (medium: string) => string,
+): string {
   const base = (g: PortGroupRef) => {
-    const name = portKind(g.medium)?.name ?? g.medium;
+    const name = mediumName?.(g.medium) ?? portKind(g.medium)?.name ?? g.medium;
     return portKind(g.medium)?.pairing === 'opposite' ? `${name} ${portDirectionLabel(g.direction)}` : name;
   };
   const mine = base(target);

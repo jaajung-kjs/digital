@@ -107,8 +107,10 @@ function resolveFarEnd(
     const core = ref?.cores?.find((c) => c.index === coreIndex);
     if (core) {
       return {
+        assemblyName: core.assemblyName,
         assetName: core.assetName,
         portName: core.portName,
+        portIndex: core.portIndex,
         substationName: ref!.substationName,
         remote: ref!.substationId !== localSubstationId,
       };
@@ -121,7 +123,14 @@ function resolveFarEnd(
   const jumper = cableOf(peerCore.id, byA, byB);
   if (!jumper) {
     // 건너편 심선은 있는데 아직 장비로 안 나갔다 — 성단까지가 끝이다.
-    return { assetName: peerSlot.name, portName: peerCore.name, substationName: null, remote: false };
+    return {
+      assemblyName: portIndex.get(peerCore.id)?.assemblyName ?? null,
+      assetName: peerSlot.name,
+      portName: peerCore.name,
+      portIndex: peerCore.index,
+      substationName: null,
+      remote: false,
+    };
   }
   return resolvePeer(peerCore, jumper, portIndex, localSubstationId);
 }

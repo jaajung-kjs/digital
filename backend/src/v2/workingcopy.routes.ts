@@ -32,8 +32,8 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
           ],
         },
         include: {
-          aPort: { include: { asset: { include: { substation: true } } } },
-          bPort: { include: { asset: { include: { substation: true } } } },
+          aPort: { include: { asset: { include: { substation: true, parentAsset: true } } } },
+          bPort: { include: { asset: { include: { substation: true, parentAsset: true } } } },
         },
         orderBy: { createdAt: 'asc' },
       }),
@@ -52,7 +52,10 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
       .flatMap((c) => [c.aPort, c.bPort])
       .filter((p) => p.positions > 1 && p.asset.substationId !== substation.id)
       .map((p) => p.id);
-    const remoteCores = new Map<string, { index: number; assetName: string; portName: string }[]>();
+    const remoteCores = new Map<
+      string,
+      { index: number; assemblyName: string | null; assetName: string; portName: string; portIndex: number }[]
+    >();
     if (trunkPortIds.length > 0) {
       const slots = await nextDb.port.findMany({
         where: { id: { in: trunkPortIds } },
@@ -62,8 +65,9 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
               ports: {
                 where: { positions: 1 },
                 include: {
-                  cablesA: { include: { bPort: { include: { asset: true } } } },
-                  cablesB: { include: { aPort: { include: { asset: true } } } },
+                  // 대국 장비의 **설비**까지 — 끝점은 `설비 - 장비#번호` 로 부른다.
+                  cablesA: { include: { bPort: { include: { asset: { include: { parentAsset: true } } } } } },
+                  cablesB: { include: { aPort: { include: { asset: { include: { parentAsset: true } } } } } },
                 },
               },
             },
@@ -74,7 +78,15 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
         const cores = trunk.asset.ports.flatMap((core) => {
           // 그 심선에 물린 점퍼의 반대쪽 — 거기 있는 것이 대국 장비다.
           const far = core.cablesA[0]?.bPort ?? core.cablesB[0]?.aPort;
-          return far ? [{ index: core.index, assetName: far.asset.name, portName: far.name }] : [];
+          return far
+            ? [{
+                index: core.index,
+                assemblyName: far.asset.parentAsset?.name ?? null,
+                assetName: far.asset.name,
+                portName: far.name,
+                portIndex: far.index,
+              }]
+            : [];
         });
         if (cores.length > 0) remoteCores.set(trunk.id, cores);
       }
@@ -88,6 +100,7 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
         portIndex: aPort.index,
         assetId: aPort.assetId,
         assetName: aPort.asset.name,
+        assemblyName: aPort.asset.parentAsset?.name ?? null,
         substationId: aPort.asset.substationId,
         substationName: aPort.asset.substation.name,
         ...(remoteCores.has(aPort.id) ? { cores: remoteCores.get(aPort.id) } : {}),
@@ -98,6 +111,7 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
         portIndex: bPort.index,
         assetId: bPort.assetId,
         assetName: bPort.asset.name,
+        assemblyName: bPort.asset.parentAsset?.name ?? null,
         substationId: bPort.asset.substationId,
         substationName: bPort.asset.substation.name,
         ...(remoteCores.has(bPort.id) ? { cores: remoteCores.get(bPort.id) } : {}),

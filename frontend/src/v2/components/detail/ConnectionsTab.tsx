@@ -10,17 +10,17 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Badge, DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Toggle, cn, SELECTABLE } from '../../../components/ui';
+import { DetailCardHeader, Button, DetailCard, DetailRow, EmptyState, Toggle, cn, SELECTABLE } from '../../../components/ui';
 import { mergeEffective } from '../../store/overlay';
-import { buildPortIndex, endpointRef, resolvePeer } from '../../peerResolve';
+import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../cableSelectors';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { internalLinkMap, portDirectionLabel, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
-import { useV2Catalog, useMediumLabel, useMediumColor } from '../../hooks';
+import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
 import type { V2Asset, V2Cable, V2Port } from '../../types';
-import { PortFaceplate, PORT_STATE_LABEL, type PortState } from './PortFaceplate';
+import { PortFaceplate, type PortState } from './PortFaceplate';
 import { PORT_KINDS, portGroupLabel } from '@twin/core';
 
 /** 한 장비의 포트를 그룹 단위로 묶은 것 — 이름·정렬은 종류 선언에서 나온다. */
@@ -63,8 +63,8 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
   const effectiveCables = useMemo(() => mergeEffective(saved.cables, overlays.cables), [saved, overlays]);
 
   const catalog = useV2Catalog();
-  const mediumLabel = useMediumLabel();
   const mediumColor = useMediumColor();
+  const mediumLabel = useMediumLabel();
   const categories = catalog.data?.categories ?? [];
   const types = catalog.data?.types ?? [];
 
@@ -81,20 +81,6 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
     () => (asset ? withDescendants(effectiveAssets, asset.id).flatMap((a) => a.ports) : []),
     [asset, effectiveAssets],
   );
-
-  /* 자산 내부 통과 — 실제로 어느 포트끼리가 이어지는지.
-     규칙은 **포트 선언에서만** 나온다(계산은 core 와 공유).
-     자산마다 따로 셈한다 — 통과는 **한 자산 안**의 일이라 섞으면 남의 포트와 이어진다. */
-  const internalOf = useMemo(() => {
-    if (!asset) return new Map<string, string[]>();
-    const out = new Map<string, string[]>();
-    for (const a of withDescendants(effectiveAssets, asset.id)) {
-      if (a.ports.length === 0) continue;
-      for (const [k, v] of internalLinkMap(a.ports.map((p) => ({ ...p, assetId: a.id })))) out.set(k, v);
-    }
-    return out;
-  }, [asset, effectiveAssets]);
-  const portNameById = useMemo(() => new Map(allPorts.map((p) => [p.id, p.name])), [allPorts]);
 
   /**
    * 이 포트에 여닫을 값이 있는가 — 차단기의 개폐 같은 것.
@@ -169,7 +155,7 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
         const groups = refs
           .slice()
           .sort((x, y) => kindOrder(x.medium) - kindOrder(y.medium) || x.group.localeCompare(y.group))
-          .map((ref) => ({ ...ref, label: portGroupLabel(ref, refs), ports: byGroup.get(ref.group)! }));
+          .map((ref) => ({ ...ref, label: portGroupLabel(ref, refs, mediumLabel), ports: byGroup.get(ref.group)! }));
 
         return { owner: a, groups };
       });
@@ -190,19 +176,15 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
             const cat = categories.find((c) => c.id === conn.cable.categoryId);
             const lengthM = (conn.cable.specParams as Record<string, unknown> | null)?.lengthM;
             const sub = peer?.remote && peer.substationName ? ` (${peer.substationName})` : '';
-            /* 대국 포트의 **번호** — 로컬이면 포트에서, 원격이면 케이블에 실려 온 ref 에서.
-               이름(`광 3`)이 아니라 번호로 적는 이유: 이름은 종류마다 제각각이라(`광 3`·
-               `포트 12`·`전원 출력 1`) 두 자리를 견줄 수가 없다. `장비#번호` 는 어디서나 같다. */
-            const peerIndex =
-              portIndex.get(conn.peerPortId)?.port.index ?? endpointRef(conn.cable, conn.peerPortId)?.portIndex ?? null;
             return {
               key: `${port.id}-${conn.cableId}`,
               portId: port.id,
               ownerId: owner.id,
               group,
               medium,
-              portLabel: `${owner.name}#${port.index}`,
-              peerLabel: peer ? `${peer.assetName}#${peerIndex ?? '?'}${sub}` : null,
+              /* 양쪽 다 `endpointLabel` 이 짓는다 — 두 자리를 같은 어법으로 적어야 견줄 수 있다. */
+              portLabel: endpointLabel({ assemblyName: null, assetName: owner.name, portName: port.name, portIndex: port.index }),
+              peerLabel: peer ? `${endpointLabel(peer)}${sub}` : null,
               groupLabel: label,
               peerAssetId: portIndex.get(conn.peerPortId)?.asset.id ?? null,
               cableLabel: [cat?.name, typeof lengthM === 'number' ? `${lengthM}m` : null]
@@ -238,17 +220,22 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
   /* 고른 포트에 물린 대국 — 부스바는 여럿이다. 하나만 보여 주면 나머지가 없는 것처럼 읽힌다. */
   const selectedPeers = useMemo(() => {
     if (!selectedPort || !asset) return [];
+    const categories = catalog.data?.cableGroups.flatMap((g) => g.categories) ?? [];
     return (cablesByPortId.get(selectedPort.id) ?? []).flatMap((conn) => {
       const peer = resolvePeer(selectedPort, conn.cable, portIndex, asset.substationId);
       if (!peer) return [];
       const sub = peer.remote && peer.substationName ? ` (${peer.substationName})` : '';
+      const cat = categories.find((c) => c.id === conn.cable.categoryId);
+      const lengthM = (conn.cable.specParams as Record<string, unknown> | null)?.lengthM;
       return [{
         cableId: conn.cableId,
-        label: `${peer.assetName} · ${peer.portName}${sub}`,
+        label: `${endpointLabel(peer)}${sub}`,
+        // 「뭘로」 — 종류와 길이. 케이블 이름은 사람이 안 적는 일이 많아 종류를 앞에 둔다.
+        cableLabel: [cat?.name, typeof lengthM === 'number' ? `${lengthM}m` : null].filter(Boolean).join(' · '),
         entry: portIndex.get(conn.peerPortId),
       }];
     });
-  }, [selectedPort, cablesByPortId, portIndex, asset]);
+  }, [selectedPort, cablesByPortId, portIndex, asset, catalog.data]);
 
   // hop → 표시용 텍스트 (portIndex 단일 조회 — portById/assetByPortId 수제 맵 제거)
   function hopText(hop: import('../../traceSelectors').TraceResult['hops'][number]): string {
@@ -258,7 +245,12 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
     // cable hop: portIndex에서 toPort의 asset명 + port명 조회
     const entry = portIndex.get(hop.toPortId);
     if (entry) {
-      return `${entry.asset.name} · ${entry.port.name}`;
+      return endpointLabel({
+        assemblyName: entry.assemblyName,
+        assetName: entry.asset.name,
+        portName: entry.port.name,
+        portIndex: entry.port.index,
+      });
     }
     // 로컬 미해소 포트 — 해당 케이블 saved refs로 표기 (끝점 자신의 ref — endpointRef 한 곳 규칙)
     // 추적 경로의 한 홉은 케이블 하나를 따라간 것이므로 첫 가닥으로 이름을 짓는다.
@@ -267,7 +259,7 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
       const ref = endpointRef(cableEntry.cable, hop.toPortId);
       if (ref) {
         const sub = ref.substationName ? ` (${ref.substationName})` : '';
-        return `${ref.assetName} · ${ref.portName}${sub}`;
+        return `${endpointLabel({ ...ref, assemblyName: ref.assemblyName ?? null })}${sub}`;
       }
     }
     return `포트 —`;
@@ -374,21 +366,41 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
               onSelect={(id) => setSelectedPortId((prev) => (prev === id ? null : id))}
             />
 
-            {/* 고른 포트 하나의 상세 — **누른 판 바로 아래**에 편다. */}
+            {/* 고른 포트 하나 — **어디랑 · 뭘로 · 추적** 셋만.
+                포트를 누르는 사람이 알고 싶은 것은 그 셋이다. 예전에는 매체·방향·상태 배지·
+                내부 통과까지 얹혀 있었는데, 매체와 방향은 판의 구획이 이미 말하고 상태는
+                대국이 적혀 있으면 자명하며 내부 통과는 추적이 끝까지 보여 준다. */}
             {sel && (
-              <div className="rounded border border-line bg-surface-2 p-2">
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-content">{sel.name}</span>
-                  <Badge status={portState(sel) === 'full' ? 'success' : 'neutral'}>
-                    {PORT_STATE_LABEL[portState(sel)]}
-                  </Badge>
-                  {selectedPeers.length > 0 && (
-                    <Button variant="secondary" size="sm" onClick={() => handleTrace(sel.id)}>
-                      추적
-                    </Button>
-                  )}
+              <div className="space-y-1.5 rounded border border-line bg-surface-2 p-2">
+                <div className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-content">
+                    {endpointLabel({ assemblyName: null, assetName: owner.name, portName: sel.name, portIndex: sel.index })}
+                  </span>
+                  <Button variant="secondary" size="sm" onClick={() => handleTrace(sel.id)}>
+                    추적
+                  </Button>
                 </div>
-                {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다(§ 판은 지도, 상세는 서식). */}
+                {selectedPeers.length === 0 ? (
+                  <span className="text-sm text-content-faint">연결 없음</span>
+                ) : (
+                  /* 부스바는 여럿이 물린다 — 하나만 적으면 나머지가 없는 것처럼 읽힌다. */
+                  selectedPeers.map((peer) => (
+                    <div key={peer.cableId} className="flex items-baseline gap-2">
+                      <button
+                        type="button"
+                        className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                        title={peer.entry ? `${peer.label} 으로 이동` : undefined}
+                        disabled={!peer.entry}
+                        onClick={() => peer.entry && onSelectAsset(peer.entry.asset.id)}
+                      >
+                        {peer.label}
+                      </button>
+                      <span className="shrink-0 text-xs text-content-muted">{peer.cableLabel || '—'}</span>
+                    </div>
+                  ))
+                )}
+                {/* 여닫는 일은 여기서 — 판은 상태만 보여 준다. 이 값을 쓰는 문은 여기뿐이라
+                    (계통 표는 **출력** 포트만 다룬다) 빼면 입력측 차단기를 적을 곳이 없어진다. */}
                 {selectedSwitch && (
                   <DetailRow label={selectedSwitch.field.label}>
                     <Toggle
@@ -399,22 +411,6 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
                     />
                   </DetailRow>
                 )}
-                {/* 회선의 반대쪽 — 여기가 비어 있으면 이 회선은 아직 반쪽이다.
-                    그 사실을 포트의 그림에 얹지 않는다(포트 자신은 물려 있으니까). */}
-                {internalOf.get(sel.id)?.length ? (
-                  <DetailRow label="내부 통과">
-                    <span className="text-sm text-content-muted">
-                      {internalOf.get(sel.id)!
-                        .map((id) => `${portNameById.get(id) ?? '?'}${cablesByPortId.has(id) ? '' : ' (미연결)'}`)
-                        .join(', ')}
-                    </span>
-                  </DetailRow>
-                ) : null}
-                <DetailRow label="매체">
-                  <span className="text-sm text-content-muted">
-                    {mediumLabel(sel.medium)} · {portDirectionLabel(sel.direction)}
-                  </span>
-                </DetailRow>
               </div>
             )}
 
