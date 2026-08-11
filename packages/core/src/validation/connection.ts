@@ -1,7 +1,7 @@
 import type { PortRef } from '../catalog/types.js';
-import { portHasRoom, portKind } from '../catalog/portKinds.js';
+import { coreCountsMatch, portHasRoom, portKind } from '../catalog/portKinds.js';
 
-export type ConnectError = 'same-port' | 'port-occupied' | 'medium-mismatch' | 'direction-mismatch';
+export type ConnectError = 'same-port' | 'port-occupied' | 'medium-mismatch' | 'direction-mismatch' | 'core-count-mismatch';
 
 /**
  * 케이블을 두 포트에 물릴 수 있는지 판정.
@@ -35,6 +35,11 @@ export function validateConnection(
   const accepts = kind ? kind.connectsTo.includes(b.medium) : a.medium === b.medium;
   if (!accepts) return 'medium-mismatch';
   if (cableMedium !== undefined && a.medium !== cableMedium) return 'medium-mismatch';
+
+  /* 심선 수가 맞아야 한다 — 24심 성단을 1심 어댑터에 물릴 수는 없다.
+     예전에는 이 사실을 매체 키가 날랐다(`fiber` vs `fiber-trunk`). 심선 수는 이미 포트가
+     들고 있으므로 그 값을 직접 묻는다. */
+  if (!coreCountsMatch(a, b)) return 'core-count-mismatch';
 
   if (kind?.pairing === 'opposite' && a.direction === b.direction && a.direction !== 'BI') {
     return 'direction-mismatch';

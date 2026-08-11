@@ -75,18 +75,29 @@ export interface PortKind {
    */
   portFields: readonly ValueDef[];
   /**
-   * 이 종류의 포트는 심선을 여러 가닥 나른다 — 케이블 1본에 코어 N개.
+   * 이 종류의 포트는 심선을 여러 가닥 나를 **수 있다** — 케이블 1본에 코어 N개.
    *
-   * 다심 포트끼리만 서로 붙고(`connectsTo`), 코어 대응은 번호로 한다.
+   * 실제로 몇 심인지는 포트마다 다르다(`positions`). 이 깃발은 「이 종류에는 다심이라는
+   * 것이 있다」는 뜻이고, 그래서 포트를 놓을 때 다심 프리셋이 하나 더 생긴다.
    */
   multiCore?: boolean;
   /**
-   * 다심 포트가 함체 **안에서** 펼쳐지는 상대 종류 — 인입 코어 i → 앞면 i번 포트.
+   * 붙을 상대를 **심선 수로** 가른다 — 다심은 다심끼리, 단심은 단심끼리.
    *
-   * 이 관계가 있으면 내부 연결을 선언하지 않아도 된다(`derivedLinks`). 성단 판에서
-   * 뒤로 들어온 코어가 앞면 어댑터로 나오는 것은 판의 생김새이지 설정이 아니다.
+   * 광이 그렇다. 24심 성단을 1심 어댑터에 물릴 수는 없다. 이 규칙이 없으면 같은 매체
+   * 안에서 아무 포트끼리나 붙는다(네트워크·접지가 그렇다 — 거기엔 다심이 없다).
+   *
+   * 다심 포트가 함체 **안에서** 펼쳐지는 규칙도 여기서 나온다: 코어 i → 같은 자산의
+   * 단심 i 번(`derivedLinks`). 성단 판의 생김새이지 설정이 아니다.
    */
-  expandsTo?: string;
+  pairsByCoreCount?: boolean;
+  /**
+   * **코어마다** 한 벌씩 적는 값 — 다심 포트에만 있다.
+   *
+   * 광 손실·점검일이 그렇다. 단심 어댑터에는 잴 것이 없으므로 `portFields` 가 아니라
+   * 여기 둔다. 저장 형상은 코어 번호를 키로 한 한 겹 중첩이다(`portValuesAt`).
+   */
+  coreFields?: readonly ValueDef[];
 }
 
 /**
@@ -107,28 +118,31 @@ export const PORT_KINDS = [
   },
   { key: 'network', name: '네트워크', connectsTo: ['network'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   /*
-   * 다심 인입 — OPGW·광케이블처럼 **한 가닥 안에 여러 심선**이 든 케이블이 물리는 자리.
+   * 광 — 점퍼코드 한 가닥(1심)부터 OPGW 한 가닥(24심)까지 **한 종류**다.
    *
-   * 단심 광보다 **앞에 둔다**: 이 표의 순서가 곧 화면의 구획 순서다. 성단 판을 읽는 사람은
-   * "밖에서 무엇이 들어오는가" 를 먼저 보고 그것이 어디로 갈렸는지를 뒤에 본다.
+   * 예전에는 `fiber` 와 `fiber-trunk` 로 갈라 두었다. 그런데 그 둘을 가르던 것은 결국
+   * **심선 수**였고, 심선 수는 이미 포트가 `positions` 로 들고 있다 — 케이블에는 심선 수
+   * 필드가 아예 없다. 같은 사실을 매체 키가 한 번 더 나르고 있었던 셈이라, 화면에는 뜻이
+   * 겹치는 「광」과 「OPGW」 두 그룹이 나란히 섰다.
    *
-   * 왜 `fiber` 와 다른 종류인가: 물리적으로 붙는 상대가 다르다(점퍼코드를 OPGW 자리에
-   * 꽂을 수 없다). 그리고 OTDR 로 재는 심선 손실은 **여기에만** 있다 — 장비쪽 광 포트에는
-   * 잴 것이 없다. 종류를 가르면 그 사실이 어휘로 표현되어, 화면이 "이 포트만 예외" 라고
-   * 걸러 내는 분기를 둘 필요가 없어진다.
+   * 그래서 가르는 일은 `positions` 에 맡긴다:
+   *   - 붙을 상대     : 다심은 다심끼리, 단심은 단심끼리(`pairsByCoreCount`).
+   *                     24심 성단을 1심 어댑터에 물릴 수는 없다.
+   *   - 코어별 값     : 손실·점검일은 **다심 포트에만** 있다(`coreFields`).
+   *                     장비쪽 어댑터에는 OTDR 로 잴 것이 없다.
+   *   - 함체 안 통과  : 다심 포트의 코어 i 는 같은 자산의 **단심** i 번으로 나온다.
    */
   {
-    key: 'fiber-trunk', name: 'OPGW', connectsTo: ['fiber-trunk'], pairing: 'any', maxCables: 1,
-    multiCore: true, expandsTo: 'fiber',
+    key: 'fiber', name: '광', connectsTo: ['fiber'], pairing: 'any', maxCables: 1,
+    multiCore: true, pairsByCoreCount: true,
     cableFields: [],
-    // 코어마다 한 벌 — 24심이면 손실 24개·점검일 24개가 이 포트 하나에 담긴다.
-    portFields: [
+    portFields: [],
+    // 코어마다 한 벌 — 24심이면 손실 24개·점검일 24개가 그 포트 하나에 담긴다.
+    coreFields: [
       { key: 'lossDb', label: '손실', type: 'number', unit: 'dB' },
       { key: 'inspectedAt', label: '점검일', type: 'date' },
     ],
   },
-  // 점퍼 한 가닥이 어댑터 하나에 꽂히는, 심선 1가닥짜리 보통 광 포트.
-  { key: 'fiber', name: '광', connectsTo: ['fiber'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   // 제어는 널모뎀처럼 같은 쪽끼리 직결하는 배선이 실제로 있어 방향을 따지지 않는다.
   { key: 'control', name: '제어', connectsTo: ['control'], pairing: 'any', maxCables: 1, cableFields: [], portFields: [] },
   // 접지 부스바에는 여러 기기의 접지선이 한 단자로 모인다 — 여기만 다중 결선이다.
@@ -149,9 +163,16 @@ export function cableFieldsFor(medium: string): ValueDef[] {
   return [...COMMON_CABLE_FIELDS, ...(portKind(medium)?.cableFields ?? [])];
 }
 
-/** 이 **포트**에 적을 수 있는 값 — 심선마다 다른 것(광 손실·점검일), 회로마다 다른 것(개폐). */
-export function portFieldsFor(medium: string): ValueDef[] {
-  return [...(portKind(medium)?.portFields ?? [])];
+/**
+ * 이 **포트**에 적을 수 있는 값 — 회로마다 다른 것(개폐), 코어마다 다른 것(광 손실·점검일).
+ *
+ * 심선 수를 함께 묻는다: 코어별 값(`coreFields`)은 다심 포트에만 있다. 장비쪽 광 어댑터에는
+ * OTDR 로 잴 것이 없는데, 예전에는 매체가 갈려 있어 그 사실이 매체 키로 표현됐다.
+ */
+export function portFieldsFor(medium: string, positions?: number | null): ValueDef[] {
+  const kind = portKind(medium);
+  if (!kind) return [];
+  return isMultiCorePort(positions) ? [...kind.portFields, ...(kind.coreFields ?? [])] : [...kind.portFields];
 }
 
 /** 이 포트가 심선을 여러 가닥 나르는가. `positions` 이 없거나 1이면 보통 포트다. */
@@ -175,7 +196,7 @@ export function portValuesAt(
 ): Record<string, unknown> {
   const stored = storedValuesAt(port, position);
   const defaults: Record<string, unknown> = {};
-  for (const f of portFieldsFor(port.medium)) {
+  for (const f of portFieldsFor(port.medium, port.positions)) {
     if (f.defaultValue !== undefined && !(f.key in stored)) defaults[f.key] = f.defaultValue;
   }
   return Object.keys(defaults).length > 0 ? { ...defaults, ...stored } : stored;
@@ -249,13 +270,21 @@ export function portPresets(): PortPreset[] {
   /* `kind: PortKind` 로 넓혀 받는다 — `as const` 배열은 선언하지 않은 선택 속성
      (`multiCore`)이 그 항목의 타입에서 아예 사라져 읽을 수가 없다. */
   return PORT_KINDS.flatMap((kind: PortKind) => {
-    const positions = kind.multiCore ? DEFAULT_CORE_COUNT : 1;
     if (kind.pairing !== 'opposite') {
-      return [{ name: kind.name, medium: kind.key, direction: 'BI' as Direction, groupKey: kind.key.toUpperCase(), namePattern: `${kind.name} {n}`, positions }];
+      const single = { name: kind.name, medium: kind.key, direction: 'BI' as Direction, groupKey: kind.key.toUpperCase(), namePattern: `${kind.name} {n}`, positions: 1 };
+      /* 다심이 있는 종류는 **둘로 내놓는다** — 「광」(어댑터 1심)과 「광 다심」(성단 N심).
+         하나로 두면 24심 인입을 놓을 방법이 없거나, 반대로 어댑터가 24심이 된다. */
+      return kind.multiCore
+        ? [single, {
+            name: `${kind.name} 다심`, medium: kind.key, direction: 'BI' as Direction,
+            groupKey: `${kind.key.toUpperCase()}-TRUNK`, namePattern: 'OPGW', positions: DEFAULT_CORE_COUNT,
+          }]
+        : [single];
     }
     return (['IN', 'OUT'] as const).map((direction) => {
       const label = `${kind.name} ${portDirectionLabel(direction)}`;
-      return { name: label, medium: kind.key, direction, groupKey: `${kind.key.toUpperCase()}-${direction}`, namePattern: `${label} {n}`, positions };
+      // 방향이 뜻을 갖는 종류(전원)에는 다심이 없다 — 1심 고정.
+      return { name: label, medium: kind.key, direction, groupKey: `${kind.key.toUpperCase()}-${direction}`, namePattern: `${label} {n}`, positions: 1 };
     });
   });
 }
@@ -323,11 +352,26 @@ export function uniqueGroupKey(candidate: string, taken: readonly string[]): str
 }
 
 /**
+ * 두 포트의 **심선 수가 맞는가** — 다심은 다심끼리, 단심은 단심끼리.
+ *
+ * 예전에는 이 사실을 매체 키가 날랐다(`fiber` vs `fiber-trunk`). 그런데 심선 수는 이미
+ * 포트가 들고 있으므로, 같은 것을 두 곳에 적어 두면 어긋날 자리만 생긴다. 물어야 할 것을
+ * 직접 묻는다: 24심 성단을 1심 어댑터에 물릴 수는 없다.
+ */
+/**
  * 이 포트에 케이블을 더 물릴 수 있는가.
  *
  * 어휘에 없는 종류는 **막지 않는다** — 카탈로그에서 그룹 이름만 바꿨거나 데이터가 앞서 나간
  * 경우에 화면이 통째로 잠기는 편보다, 예전과 같은 1가닥 규칙으로 두는 편이 안전하다.
  */
+export function coreCountsMatch(
+  a: { medium: string; positions?: number | null },
+  b: { positions?: number | null },
+): boolean {
+  if (!portKind(a.medium)?.pairsByCoreCount) return true;
+  return isMultiCorePort(a.positions) === isMultiCorePort(b.positions);
+}
+
 export function portHasRoom(medium: string, currentCableCount: number): boolean {
   const kind = portKind(medium);
   // `?? 1` 로 줄여 쓰면 안 된다 — "제한 없음" 을 뜻하는 `null` 까지 기본값 1로 삼켜서

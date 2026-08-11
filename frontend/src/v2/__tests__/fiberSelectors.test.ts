@@ -14,7 +14,7 @@ const port = (
 });
 /** 다심 인입 포트 하나 — 코어 수만큼 심선을 나른다. */
 const trunk = (id: string, assetId: string, positions: number, fieldValues: Record<string, unknown> = {}) =>
-  port(id, assetId, 'TRUNK', 1, { medium: 'fiber-trunk', name: '광 인입', positions, fieldValues });
+  port(id, assetId, 'TRUNK', 1, { medium: 'fiber', name: 'OPGW', positions, fieldValues });
 
 const asset = (id: string, name: string, extra: object = {}) => ({
   id, name, typeId: 't', substationId: 'sub-1', status: 'normal',

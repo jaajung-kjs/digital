@@ -3,7 +3,7 @@ import { validateTypeSpec } from './typeSpec';
 import { SEED_ASSET_TYPES, SEED_CATEGORIES, SEED_CABLE_GROUPS } from '../seed/catalog';
 import type { AssetTypeSpec } from '../catalog/types';
 
-const CTX = { categoryKeys: ['통신', '전원'], mediumKeys: ['fiber', 'fiber-trunk', 'power'] };
+const CTX = { categoryKeys: ['통신', '전원'], mediumKeys: ['fiber', 'power'] };
 
 function base(over: Partial<AssetTypeSpec> = {}): AssetTypeSpec {
   return {
@@ -46,18 +46,22 @@ describe('validateTypeSpec', () => {
     ] });
     expect(validateTypeSpec(single, CTX)).toEqual([]);
   });
-  /* 다심은 **종류**가 정한다 — 아무 포트에나 코어 수를 적을 수 있으면 어휘가 뜻을 잃는다. */
+  /* 다심을 **가질 수 있는지**는 종류가 정한다 — 아무 포트에나 코어 수를 적을 수 있으면
+     어휘가 뜻을 잃는다. 전원에는 다심이 없다. */
   it('다심 아닌 종류에 positions>1 을 적으면 이슈 발화', () => {
     const s = base({ ports: [
-      { group: 'A', count: 2, direction: 'BI' as const, medium: 'fiber', namePattern: 'A {n}', positions: 24 },
+      { group: 'A', count: 2, direction: 'BI' as const, medium: 'power', namePattern: 'A {n}', positions: 24 },
     ] });
     expect(validateTypeSpec(s, CTX).some((i) => i.path === 'ports[0].positions')).toBe(true);
   });
-  it('광 인입인데 positions 를 안 적으면 이슈 발화 — 코어 수 없는 인입은 뜻이 없다', () => {
-    const s = base({ ports: [
-      { group: 'T', count: 1, direction: 'BI' as const, medium: 'fiber-trunk', namePattern: '인입' },
-    ] });
-    expect(validateTypeSpec(s, CTX).some((i) => i.path === 'ports[0].positions')).toBe(true);
+  /* 몇 심인지는 포트마다 다르다 — 같은 광이라도 성단은 24심이고 장비쪽 어댑터는 1심이다. */
+  it('광은 1심도 24심도 이슈 없음', () => {
+    for (const positions of [1, 24]) {
+      const s = base({ ports: [
+        { group: 'T', count: 1, direction: 'BI' as const, medium: 'fiber', namePattern: '광 {n}', positions },
+      ] });
+      expect(validateTypeSpec(s, CTX).some((i) => i.path === 'ports[0].positions')).toBe(false);
+    }
   });
   it('시드 전 타입이 시드 카테고리/매체 컨텍스트에서 이슈 0 (모델 증명)', () => {
     const ctx = {

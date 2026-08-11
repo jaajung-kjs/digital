@@ -51,7 +51,7 @@ const VALID_PORTS = [
 /** 다심 포트 왕복용 — trunk 하나가 코어 24가닥을 나르는 인입 포트. */
 const MULTI_CORE_PORTS = [
   { group: 'core', count: 24, direction: 'BI' as const, medium: 'fiber', namePattern: '광 {n}' },
-  { group: 'trunk', count: 1, direction: 'BI' as const, medium: 'fiber-trunk', namePattern: '광 인입', positions: 24 },
+  { group: 'trunk', count: 1, direction: 'BI' as const, medium: 'fiber', namePattern: 'OPGW', positions: 24 },
 ];
 
 describe('catalog CRUD', () => {

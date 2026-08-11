@@ -12,9 +12,9 @@ import { RegisterLayout } from './RegisterLayout';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { useV2Catalog } from '../../hooks';
-import { cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { DEFAULT_CORE_COUNT, cableFieldsFor, portFieldsFor, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { useMediumContainer } from '../../useMediumContainer';
-import { fiberContainers, buildFiberRows, FIBER_TRUNK_MEDIUM } from '../../fiberSelectors';
+import { fiberContainers, buildFiberRows, FIBER_MEDIUM } from '../../fiberSelectors';
 import type { FiberRow } from '../../fiberSelectors';
 import { PeerCell } from './PeerCell';
 import { InlineEditCell } from '../InlineEditCell';
@@ -184,8 +184,9 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
 
   /* 인입에 적는 값 — 무엇이 케이블의 것이고 무엇이 심선의 것인지는 종류 선언이 정한다.
      장비쪽 광 포트에는 이 값들이 아예 선언돼 있지 않다(OTDR 로 잴 것이 없다). */
-  const cableMetaFields = cableFieldsFor(FIBER_TRUNK_MEDIUM);
-  const portMetaFields = portFieldsFor(FIBER_TRUNK_MEDIUM);
+  const cableMetaFields = cableFieldsFor(FIBER_MEDIUM);
+  // 코어별 값(손실·점검일)은 **다심** 포트에만 선언돼 있다 — 심선 수를 함께 묻는다.
+  const portMetaFields = portFieldsFor(FIBER_MEDIUM, DEFAULT_CORE_COUNT);
   const metaFields = [...cableMetaFields, ...portMetaFields];
   const totalCols = 1 + groups.length + 1 + metaFields.length;
 

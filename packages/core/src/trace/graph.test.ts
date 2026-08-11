@@ -23,7 +23,7 @@ const slot: AssetTypeSpec = {
      다심 인입이 앞면으로 나오는 것은 판의 생김새라 포트 선언에서 그대로 나온다. */
   ports: [
     { group: 'A', count: 4, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
-    { group: 'B', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', positions: 4 },
+    { group: 'B', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', positions: 4 },
   ],
 };
 

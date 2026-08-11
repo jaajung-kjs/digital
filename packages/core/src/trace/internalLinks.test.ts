@@ -27,13 +27,13 @@ describe('derivedLinks — 포트 선언에서 저절로 나오는 내부 통과
   });
 
   it('다심 인입은 앞면 광 그룹과 코어 번호로 통한다', () => {
-    expect(derivedLinks([tpl('CORE', 'fiber', 'BI'), tpl('TRUNK', 'fiber-trunk', 'BI', 24)]))
+    expect(derivedLinks([tpl('CORE', 'fiber', 'BI'), tpl('TRUNK', 'fiber', 'BI', 24)]))
       .toEqual([{ fromGroup: 'TRUNK', toGroup: 'CORE', mapping: 'byPosition' }]);
   });
 
   it('앞면 후보가 둘이면 유도하지 않는다 — 어느 쪽인지는 선언해야 안다', () => {
     expect(derivedLinks([
-      tpl('CORE-A', 'fiber', 'BI'), tpl('CORE-B', 'fiber', 'BI'), tpl('TRUNK', 'fiber-trunk', 'BI', 24),
+      tpl('CORE-A', 'fiber', 'BI'), tpl('CORE-B', 'fiber', 'BI'), tpl('TRUNK', 'fiber', 'BI', 24),
     ])).toEqual([]);
   });
 
@@ -78,7 +78,7 @@ describe('internalLinkMap — 규칙은 포트 선언에서만 나온다', () =>
   /* 24심 인입 옆에 48구 판이 있어도 없는 코어까지 이어졌다고 하면 안 된다. */
   it('byPosition 은 인입의 코어 수까지만 이어진다', () => {
     const ports = [
-      port('t', 'TRUNK', 1, 'fiber-trunk', 'BI', 2),
+      port('t', 'TRUNK', 1, 'fiber', 'BI', 2),
       port('c1', 'CORE', 1, 'fiber', 'BI'), port('c2', 'CORE', 2, 'fiber', 'BI'), port('c3', 'CORE', 3, 'fiber', 'BI'),
     ];
     expect(internalLinkMap(ports).get('t')).toEqual(['c1', 'c2']);

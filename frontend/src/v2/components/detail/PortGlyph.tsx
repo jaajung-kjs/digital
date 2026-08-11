@@ -1,3 +1,4 @@
+import { isMultiCorePort } from '@twin/core';
 import type { ReactNode } from 'react';
 
 /**
@@ -102,7 +103,7 @@ const GLYPHS: Record<string, GlyphSpec> = {
   },
   /* 다심 인입 — 케이블이 통째로 들어오는 원형 인입구. 어댑터(사각)가 아니라 **구멍**이라
      동그랗다. 안에 코어가 여럿 보이는 것이 단심 광(SC, 페룰 하나)과 갈리는 지점이다. */
-  'fiber-trunk': {
+  'fiber:multi': {
     outline: `M30 13 A10 10 0 1 1 10 13 A10 10 0 1 1 30 13 Z`,
     inner: (color) => (
       <g fill={color}>
@@ -144,6 +145,14 @@ const GLYPHS: Record<string, GlyphSpec> = {
 
 export interface PortGlyphProps {
   medium: string;
+  /**
+   * 이 포트가 나르는 심선 수 — 그림을 가르는 데 쓴다.
+   *
+   * 같은 광이라도 성단(다심)은 케이블이 통째로 들어오는 **원형 인입구**이고 장비쪽은
+   * SC 어댑터(사각)다. 예전에는 매체 키가 갈려 있어 그 사실이 키로 표현됐는데, 심선 수는
+   * 포트가 이미 들고 있으므로 그 값을 직접 본다.
+   */
+  positions?: number | null;
   /** 케이블이 물려 있는가. */
   state?: 'empty' | 'full';
   /**
@@ -161,8 +170,9 @@ export interface PortGlyphProps {
   style?: React.CSSProperties;
 }
 
-export function PortGlyph({ medium, state = 'empty', open = false, className, style }: PortGlyphProps) {
-  const glyph = GLYPHS[medium];
+export function PortGlyph({ medium, positions, state = 'empty', open = false, className, style }: PortGlyphProps) {
+  // 다심 전용 그림이 있으면 그걸 먼저 찾는다 — 없으면 그 매체의 보통 그림.
+  const glyph = (isMultiCorePort(positions) ? GLYPHS[`${medium}:multi`] : undefined) ?? GLYPHS[medium];
   const filled = state !== 'empty';
   const shape = {
     // 빈 자리는 판보다 살짝 어두운 얕은 홈, 물린 자리는 테마색으로 꽉 찬다.

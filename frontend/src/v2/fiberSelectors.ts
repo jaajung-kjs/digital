@@ -11,8 +11,14 @@ import {
 import type { V2Asset, V2Cable } from './types';
 
 export const FIBER_MEDIUM: SeededMediumKey = 'fiber';
-/** 다심 인입 — OPGW 한 가닥이 물리는 자리. 선번장이 다루는 판은 이 포트를 가진 슬롯이다. */
-export const FIBER_TRUNK_MEDIUM: SeededMediumKey = 'fiber-trunk';
+
+/**
+ * 인입(성단)인가 — **심선 수로** 가른다.
+ *
+ * 예전에는 매체 키가 갈려 있었다(`fiber` vs `fiber-trunk`). 그런데 그 둘을 가르던 것이
+ * 결국 심선 수였고 심선 수는 포트가 이미 들고 있으므로, 물어야 할 것을 직접 묻는다.
+ */
+const isTrunk = (p: { positions?: number | null }) => isMultiCorePort(p.positions);
 
 /**
  * 선번장 대상 — **인입 포트를 가진 부품**을 품은 설비(OFD 설비 종류 등).
@@ -22,7 +28,7 @@ export const FIBER_TRUNK_MEDIUM: SeededMediumKey = 'fiber-trunk';
  * 적을 것이 없다. 조건을 인입 포트로 바꾸면 그 사실이 선언에서 그대로 나온다.
  */
 export function fiberContainers(assets: V2Asset[]): V2Asset[] {
-  return mediumContainers(assets, FIBER_TRUNK_MEDIUM);
+  return mediumContainers(assets, FIBER_MEDIUM, isTrunk);
 }
 
 export interface FiberRowCell {
@@ -76,7 +82,7 @@ export interface BuildFiberRowsResult {
 
 /** 이 슬롯의 인입 포트. 없으면 선번장에 올릴 판이 아니다. */
 function trunkPortOf(slot: V2Asset) {
-  return slot.ports.find((p) => p.medium === FIBER_TRUNK_MEDIUM && isMultiCorePort(p.positions)) ?? null;
+  return slot.ports.find((p) => p.medium === FIBER_MEDIUM && isTrunk(p)) ?? null;
 }
 
 function cableOf(portId: string, byA: Map<string, V2Cable>, byB: Map<string, V2Cable>): V2Cable | null {
@@ -118,7 +124,8 @@ function resolveFarEnd(
     // 건너편 심선이 아직 장비로 안 나갔다 — 인입 케이블이 말해 주는 슬롯까지가 끝이다.
     return resolvePeer({ id: trunkPortId }, trunkCable, portIndex, localSubstationId);
   }
-  const peerCore = peerSlot.ports.find((p) => p.medium === FIBER_MEDIUM && p.index === coreIndex);
+  // 건너편의 **단심** 성단 — 인입 자신(index 1)을 집지 않도록 심선 수로 가른다.
+  const peerCore = peerSlot.ports.find((p) => p.medium === FIBER_MEDIUM && !isTrunk(p) && p.index === coreIndex);
   if (!peerCore) return null;
   const jumper = cableOf(peerCore.id, byA, byB);
   if (!jumper) {
@@ -158,7 +165,8 @@ export function buildFiberRows(
   const labelByGroup = new Map<string, string>();
   for (const slot of slots) {
     for (const port of slot.ports) {
-      if (port.medium !== FIBER_MEDIUM || labelByGroup.has(port.group)) continue;
+      // 인입은 열이 아니다 — 행이 그 인입의 코어다. 매체가 같아졌으니 심선 수로 가른다.
+      if (port.medium !== FIBER_MEDIUM || isTrunk(port) || labelByGroup.has(port.group)) continue;
       groupsOrder.push(port.group);
       const base = port.name.replace(/\s*\d+\s*$/, '').trim();
       labelByGroup.set(port.group, base.length > 0 ? base : port.group);
@@ -172,7 +180,9 @@ export function buildFiberRows(
 
     for (let coreIndex = 1; coreIndex <= trunk.positions; coreIndex++) {
       const cells: FiberRowCell[] = groupsOrder.map((group) => {
-        const port = slot.ports.find((p) => p.medium === FIBER_MEDIUM && p.group === group && p.index === coreIndex);
+        const port = slot.ports.find(
+          (p) => p.medium === FIBER_MEDIUM && !isTrunk(p) && p.group === group && p.index === coreIndex,
+        );
         if (!port) return { group, portId: null, portName: null, cableId: null, peer: null };
         const cable = cableOf(port.id, byA, byB);
         return {

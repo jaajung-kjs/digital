@@ -157,6 +157,7 @@ export function PortFaceplate({
                   {/* 칸이 커지면 실루엣도 같이 커진다 — 높이를 못 박으면 칸만 넓어지고 그림은 그대로다. */}
                   <PortGlyph
                     medium={p.medium}
+                    positions={p.positions}
                     state={state}
                     open={open}
                     className="block w-full"

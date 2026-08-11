@@ -37,11 +37,11 @@ export function validateTypeSpec(spec: AssetTypeSpec, ctx: TypeSpecContext): Typ
 
     const positions = p.positions ?? 1;
     if (positions < 1) push(`ports[${i}].positions`, '심선 수는 1 이상이어야 합니다');
-    // 다심은 종류가 정한다 — 아무 포트에나 코어 수를 적으면 어휘가 뜻을 잃는다.
+    /* 다심을 **가질 수 있는지**는 종류가 정한다 — 아무 포트에나 코어 수를 적으면 어휘가
+       뜻을 잃는다. 다만 몇 심인지는 포트마다 다르다: 같은 광이라도 성단은 24심이고
+       장비쪽 어댑터는 1심이다. 그래서 「1이면 안 된다」는 규칙은 두지 않는다. */
     if (positions > 1 && !portKind(p.medium)?.multiCore)
       push(`ports[${i}].positions`, `${portKind(p.medium)?.name ?? p.medium} 포트는 심선을 여러 가닥 나를 수 없습니다`);
-    if (positions === 1 && portKind(p.medium)?.multiCore)
-      push(`ports[${i}].positions`, `${portKind(p.medium)?.name ?? p.medium} 포트는 심선 수가 2 이상이어야 합니다`);
   });
 
   return issues;

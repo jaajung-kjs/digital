@@ -57,10 +57,16 @@ export function buildPortIndex(assets: V2Asset[]): PortIndex {
  *
  * 결과는 이름순.
  */
-export function mediumContainers(assets: V2Asset[], medium: string): V2Asset[] {
+export function mediumContainers(
+  assets: V2Asset[],
+  medium: string,
+  /** 그 매체 안에서 더 좁히고 싶을 때 — 선번장은 **다심** 포트를 가진 것만 본다. */
+  where?: (port: V2Asset['ports'][number]) => boolean,
+): V2Asset[] {
   const holders = new Set<string>();
   for (const asset of assets) {
-    if (asset.parentAssetId && asset.ports.some((p) => p.medium === medium)) holders.add(asset.parentAssetId);
+    const has = asset.ports.some((p) => p.medium === medium && (where?.(p) ?? true));
+    if (asset.parentAssetId && has) holders.add(asset.parentAssetId);
   }
   return assets.filter((a) => holders.has(a.id)).sort((a, b) => a.name.localeCompare(b.name));
 }

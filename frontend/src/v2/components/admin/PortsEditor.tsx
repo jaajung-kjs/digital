@@ -13,7 +13,7 @@
  */
 import { Plus } from 'lucide-react';
 import type { TypeSpecIssue } from '@twin/core';
-import { DEFAULT_CORE_COUNT, PORT_DIRECTIONS, portKind, portPresets, uniqueGroupKey } from '@twin/core';
+import { PORT_DIRECTIONS, portKind, portPresets, uniqueGroupKey } from '@twin/core';
 import type { Direction, PortPreset } from '@twin/core';
 import { Button, DetailCard, DetailCardHeader, DetailRow, Input, Select, ItemCard } from '../../../components/ui';
 import type { V2Catalog } from '../../types';
@@ -163,18 +163,19 @@ export function PortsEditor({ draft, onChange, catalog, locked, issues }: PortsE
                   )}
                 </DetailRow>
 
-                {/* 심선 수는 **다심 종류에만** 뜻이 있다 — 보통 포트에 칸을 두면 어휘가 흐려진다.
-                    OPGW 한 가닥이 코어 몇 가닥을 나르는가가 여기서 정해진다. */}
+                {/* 심선 수는 **다심이 있는 종류에만** 뜻이 있다(광). 전원·접지에 칸을 두면
+                    어휘가 흐려진다. 광 안에서 어댑터(1)와 성단(24)을 가르는 값이 이것이다 —
+                    예전에는 매체 키가 그 둘을 갈랐고 여기 값은 늘 24였다. */}
                 {portKind(p.medium)?.multiCore && (
                   <DetailRow label="심선 수" issue={positionsIssue}>
                     <Input
                       type="number"
                       aria-label={`포트 ${i + 1} 심선 수`}
-                      value={String(p.positions ?? DEFAULT_CORE_COUNT)}
+                      value={String(p.positions ?? 1)}
                       disabled={locked}
                       onChange={(e) => update(i, { positions: Number(e.currentTarget.value) })}
                     />
-                    <span className="text-xs text-content-faint">케이블 한 가닥 안의 코어 수</span>
+                    <span className="text-xs text-content-faint">1 = 어댑터 한 자리, 2 이상 = 성단(코어 수)</span>
                   </DetailRow>
                 )}
               </div>

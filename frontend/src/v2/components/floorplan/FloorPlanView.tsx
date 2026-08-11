@@ -1055,6 +1055,8 @@ export function FloorPlanView({
     if (code === 'port-occupied') return '이미 연결됨';
     if (code === 'medium-mismatch') return '매체 불일치';
     if (code === 'direction-mismatch') return '같은 방향끼리 연결할 수 없음';
+    // 24심 성단을 1심 어댑터에 물릴 수는 없다 — 왜 안 되는지까지 적는다.
+    if (code === 'core-count-mismatch') return '심선 수가 다름 (다심은 다심끼리)';
     return code;
   };
 

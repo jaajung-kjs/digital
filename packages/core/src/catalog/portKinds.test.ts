@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PORT_KINDS, cableFieldsFor, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey } from './portKinds.js';
+import { DEFAULT_CORE_COUNT, PORT_KINDS, cableFieldsFor, portFieldsFor, portGroupLabel, portPresets, portValuesAt, setPortValueAt, uniqueGroupKey } from './portKinds.js';
 
 describe('포트 프리셋', () => {
   const presets = portPresets();
@@ -23,8 +23,16 @@ describe('포트 프리셋', () => {
     expect(new Set(presets.map((p) => p.groupKey)).size).toBe(presets.length);
   });
 
-  it('이름 패턴에 번호 자리가 있다', () => {
-    expect(presets.every((p) => p.namePattern.includes('{n}'))).toBe(true);
+  /* 다심 프리셋(OPGW)만 예외다 — 성단은 자산마다 한 자리라 번호를 붙일 것이 없다. */
+  it('이름 패턴에 번호 자리가 있다 (다심 프리셋 제외)', () => {
+    expect(presets.filter((p) => p.positions === 1).every((p) => p.namePattern.includes('{n}'))).toBe(true);
+  });
+
+  /* 다심이 있는 종류는 단심·다심 둘로 나온다 — 하나로 두면 24심 인입을 놓을 방법이 없거나
+     반대로 어댑터가 24심이 된다. */
+  it('광은 단심과 다심 프리셋이 함께 나온다', () => {
+    const fiber = presets.filter((p) => p.medium === 'fiber');
+    expect(fiber.map((p) => p.positions).sort()).toEqual([1, DEFAULT_CORE_COUNT].sort());
   });
 });
 
@@ -51,9 +59,14 @@ describe('케이블 파라미터 선언', () => {
   /* 값이 무엇의 것인지가 갈린다 — 길이는 케이블 한 가닥의 것이고, 손실·점검일은 심선마다
      다르다. 예전에는 손실도 케이블에 담아서, OPGW 한 가닥을 심선 수만큼 케이블로 복제해야
      했고 그 탓에 설계서 공량이 그 배로 부풀었다. */
-  it('손실·점검일은 케이블이 아니라 **광 인입** 포트의 값이다', () => {
-    expect(cableFieldsFor('fiber-trunk').map((f) => f.key)).toEqual(['lengthM']);
-    expect(portFieldsFor('fiber-trunk').map((f) => f.key)).toEqual(['lossDb', 'inspectedAt']);
+  it('손실·점검일은 케이블이 아니라 **다심 광** 포트의 값이다', () => {
+    expect(cableFieldsFor('fiber').map((f) => f.key)).toEqual(['lengthM']);
+    expect(portFieldsFor('fiber', 24).map((f) => f.key)).toEqual(['lossDb', 'inspectedAt']);
+  });
+
+  /* 장비쪽 어댑터(1심)에는 OTDR 로 잴 것이 없다 — 예전에는 매체를 갈라 그 사실을 표현했다. */
+  it('단심 광 포트에는 손실·점검일이 없다', () => {
+    expect(portFieldsFor('fiber', 1)).toEqual([]);
   });
 
   /* OTDR 로 재는 것은 인입(성단) 심선이다 — 장비쪽 광 포트에는 잴 것이 없다.
@@ -81,7 +94,7 @@ describe('케이블 파라미터 선언', () => {
   /* 쓰기가 읽기와 같은 문을 쓰면 값 하나를 고칠 때마다 기본값이 저장에 눌러앉는다 —
      "아무도 손대지 않음" 과 "투입이라고 적음" 이 구분되지 않게 된다. */
   it('값을 적어도 기본값이 저장에 새어 들어가지 않는다', () => {
-    const port = { medium: 'fiber-trunk', positions: 4, fieldValues: {} };
+    const port = { medium: 'fiber', positions: 4, fieldValues: {} };
     expect(setPortValueAt(port, 2, 'lossDb', 0.7)).toEqual({ 2: { lossDb: 0.7 } });
   });
 

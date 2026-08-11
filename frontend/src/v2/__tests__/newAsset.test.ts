@@ -46,7 +46,7 @@ describe('makeNewAsset', () => {
 describe('새 자산의 포트', () => {
   const slotType = mkType('t-slot', 'OFD-SLOT', 'c-comm');
   slotType.portTemplates = [
-    { id: 'p1', group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', sortOrder: 0, positions: 24 },
+    { id: 'p1', group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', sortOrder: 0, positions: 24 },
     { id: 'p2', group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}', sortOrder: 1, positions: 1 },
   ];
 
@@ -55,7 +55,7 @@ describe('새 자산의 포트', () => {
     expect(a.ports).toHaveLength(25);
     expect(a.ports.filter((p) => p.group === 'CORE')).toHaveLength(24);
     // 다심 인입은 포트 **하나**가 심선 수를 나른다 — 심선마다 펴지 않는다.
-    expect(a.ports.find((p) => p.group === 'TRUNK')).toMatchObject({ positions: 24, name: '광 인입' });
+    expect(a.ports.find((p) => p.group === 'TRUNK')).toMatchObject({ positions: 24, name: 'OPGW' });
   });
 
   it('포트마다 id 가 붙는다 — 저장 전에 케이블을 이을 수 있어야 한다', () => {

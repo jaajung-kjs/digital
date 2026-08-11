@@ -67,12 +67,12 @@ describe('GET /workingcopy — 구간 케이블', () => {
     const mk = async (subId: string, name: string) => {
       const a = await nextDb.asset.create({ data: { name, typeId: type.id, substationId: subId } });
       return nextDb.port.create({
-        data: { assetId: a.id, group: 'TRUNK', index: 1, name: 'OPGW', direction: 'BI', medium: 'fiber-trunk', positions: 24 },
+        data: { assetId: a.id, group: 'TRUNK', index: 1, name: 'OPGW', direction: 'BI', medium: 'fiber', positions: 24 },
       });
     };
     const near = await mk(subId, `${uniq}-near`);
     const far = await mk(other.id, `${uniq}-far`);
-    const cat = await nextDb.cableCategory.findFirstOrThrow({ where: { group: { key: 'fiber-trunk' } } });
+    const cat = await nextDb.cableCategory.findFirstOrThrow({ where: { name: 'OPGW(광복합가공지선)' } });
     // 커밋은 한쪽 국에서 한다 — 케이블의 substationId 는 그 국이 된다.
     await nextDb.cable.create({
       data: { aPortId: near.id, bPortId: far.id, categoryId: cat.id, substationId: subId },

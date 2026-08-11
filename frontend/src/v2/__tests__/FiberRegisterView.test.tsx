@@ -21,7 +21,7 @@ const mockTypes: V2AssetType[] = [
     containerSpecs: [],
     portTemplates: [
       { id: 'pt-a', group: 'CORE', count: 2, direction: 'BI', medium: 'fiber', namePattern: '광 {n}', sortOrder: 1, positions: 1 },
-      { id: 'pt-b', group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', sortOrder: 2, positions: 2 },
+      { id: 'pt-b', group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber', namePattern: 'OPGW', sortOrder: 2, positions: 2 },
     ],
   },
 ];
@@ -61,7 +61,7 @@ const slot = asset('slot', '슬롯1', {
     port('a1', 'slot', 'CORE', 1),
     port('a2', 'slot', 'CORE', 2),
     port('t1', 'slot', 'TRUNK', 1, {
-      medium: 'fiber-trunk', name: '광 인입', positions: 2,
+      medium: 'fiber', name: 'OPGW', positions: 2,
       fieldValues: { 1: { lossDb: 0.3 }, 2: { lossDb: 0.9 } },
     }),
   ],

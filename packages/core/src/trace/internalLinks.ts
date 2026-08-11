@@ -1,4 +1,4 @@
-import { portKind } from '../catalog/portKinds.js';
+import { isMultiCorePort, portKind } from '../catalog/portKinds.js';
 import type { Direction, InternalLinkRule, PortRef } from '../catalog/types.js';
 
 /**
@@ -55,9 +55,11 @@ export function derivedLinks(ports: readonly LinkablePort[]): InternalLinkRule[]
       }
     }
 
-    // 다심 인입 — 코어 번호로 앞면에 펼쳐진다.
-    if (kind.multiCore && kind.expandsTo) {
-      const front = all.filter((t) => t.medium === kind.expandsTo);
+    /* 다심 인입 — 코어 번호로 앞면에 펼쳐진다.
+       앞면은 **같은 매체의 단심 그룹**이다(예전에는 다른 매체 키였다 — 심선 수를 매체가
+       나르고 있었기 때문). 후보가 둘 이상이면 어느 쪽인지 알 수 없어 유도하지 않는다. */
+    if (kind.pairsByCoreCount && isMultiCorePort(from.positions)) {
+      const front = all.filter((t) => t.medium === from.medium && !isMultiCorePort(t.positions));
       if (front.length === 1) add(from.group, front[0]!.group, 'byPosition');
     }
   }
