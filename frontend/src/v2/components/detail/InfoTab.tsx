@@ -7,7 +7,7 @@
  * 소유(부모가 자산 전환 시 리셋 + 하단 AddAssetModal 렌더를 관장)하므로 setter 만 prop 으로 받는다.
  */
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ASSET_STATUSES, assetFieldDefs, freeCells, validateGridPlacement } from '@twin/core';
 import {
   DetailCard,
@@ -17,6 +17,7 @@ import {
   Select,
   useConfirm,
   cn,
+  SELECTABLE,
 } from '../../../components/ui';
 import type { GridPlacement } from '../../gridDrag';
 import { AssemblyGrid } from '../AssemblyGrid';
@@ -54,6 +55,84 @@ function PortSummary({ asset, occupiedPortIds }: { asset: V2Asset; occupiedPortI
   );
 }
 
+/**
+ * 고른 부품 — **설비에서 갈라지는 것만** 적는다.
+ *
+ * 부품마다 다를 수 있는 것은 상태·설치일·담당자다(L3 스위치만 나중에 갈아 끼우면 설치일이
+ * 다르다). 사진·점검·고장이력은 **설비의 것**이고, 포트는 설비의 포트 탭이 이미 부품별로
+ * 묶어 보여준다 — 그래서 여기 다시 두지 않는다.
+ */
+function PartCard({
+  part, typeName, portCount, onOpenPorts, onDelete,
+}: {
+  part: V2Asset;
+  typeName: string;
+  portCount: number;
+  onOpenPorts: () => void;
+  onDelete: () => void;
+}) {
+  const commit = (patch: Partial<V2Asset>) => useV2WorkingCopy.getState().stageAssetUpdate(part.id, patch);
+  const field = (key: string, value: string) => {
+    const current = useV2WorkingCopy.getState().effectiveAssets().find((a) => a.id === part.id)?.fieldValues ?? {};
+    if (String(current[key] ?? '') === value) return;
+    commit({ fieldValues: { ...current, [key]: value } });
+  };
+
+  return (
+    <DetailCard>
+      <DetailCardHeader title={part.name} badge={typeName} badgeStatus="neutral" onDelete={onDelete} />
+      <DetailRow label="이름">
+        <Input
+          key={part.id + part.name}
+          aria-label="부품 이름"
+          defaultValue={part.name}
+          size="sm"
+          onBlur={(e) => {
+            const v = e.currentTarget.value.trim();
+            if (v && v !== part.name) commit({ name: v });
+          }}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+        />
+      </DetailRow>
+      <DetailRow label="상태">
+        <Select value={part.status} size="sm" onChange={(e) => commit({ status: e.currentTarget.value })}>
+          {ASSET_STATUSES.map((st) => (
+            <option key={st.value} value={st.value}>{st.label}</option>
+          ))}
+        </Select>
+      </DetailRow>
+      {assetFieldDefs().map((fd) => {
+        const raw = part.fieldValues[fd.key];
+        const str = raw != null ? String(raw) : '';
+        return (
+          <DetailRow key={fd.key} label={fd.label}>
+            <Input
+              key={part.id + fd.key + str}
+              type={fd.type === 'date' ? 'date' : fd.type === 'number' ? 'number' : 'text'}
+              defaultValue={str}
+              size="sm"
+              onBlur={(e) => field(fd.key, e.currentTarget.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+            />
+          </DetailRow>
+        );
+      })}
+      {portCount > 0 && (
+        <DetailRow label="포트">
+          {/* 포트는 설비의 포트 탭이 부품별로 묶어 보여준다 — 여기서는 그리로 보낸다. */}
+          <button
+            type="button"
+            className={cn('rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+            onClick={onOpenPorts}
+          >
+            {portCount}개 보기
+          </button>
+        </DetailRow>
+      )}
+    </DetailCard>
+  );
+}
+
 // ── props ─────────────────────────────────────────────────────────────────────
 interface InfoTabProps {
   assetId: string;
@@ -63,9 +142,14 @@ interface InfoTabProps {
   assembliesById: Map<string, V2Assembly>;
   /** 이 설비 안에 놓인 부품들 — 자리 순. */
   parts: V2Asset[];
+  /** 자산 종류 이름을 부품 카드에 적는다. */
+  typesById: Map<string, V2AssetType>;
+  /** 밖에서 부품을 지목해 온 경우(현황표에서 부품 행을 눌렀을 때). */
+  focusPartId?: string | null;
+  /** 그 부품의 포트를 보러 간다 — 포트 탭이 부품별로 묶어 보여준다. */
+  onOpenPorts: (partId: string) => void;
   effectiveAssets: V2Asset[];
   setAddModalCtx: (ctx: AddModalContext | null) => void;
-  onSelectAsset: (id: string) => void;
 }
 
 export function InfoTab({
@@ -74,11 +158,18 @@ export function InfoTab({
   type,
   assembliesById,
   parts,
+  typesById,
+  focusPartId,
+  onOpenPorts,
   effectiveAssets,
   setAddModalCtx,
-  onSelectAsset,
 }: InfoTabProps) {
   const { confirm, confirmDialog } = useConfirm();
+  /** 격자에서 고른 부품 — 패널을 바꾸지 않고 아래에 카드로 편다. */
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(focusPartId ?? null);
+  // 다른 설비로 옮겨 가거나 밖에서 부품을 지목해 오면 그것을 고른다.
+  useEffect(() => setSelectedPartId(focusPartId ?? null), [assetId, focusPartId]);
+  const selectedPart = parts.find((p) => p.id === selectedPartId) ?? null;
   /* 케이블이 물린 포트 집합 — 자식 목록의 포트 요약이 읽는다. */
   const savedCables = useV2WorkingCopy((st) => st.saved.cables);
   const cableOverlays = useV2WorkingCopy((st) => st.overlays.cables);
@@ -131,6 +222,17 @@ export function InfoTab({
         : '이 자산을 삭제하시겠습니까?';
     if (!(await confirm({ title: '자산 삭제', message: msg, confirmLabel: '삭제', danger: true }))) return;
     useV2WorkingCopy.getState().stageAssetDeleteCascade(assetId);
+  }
+
+  /** 부품 하나 걷어내기 — 설비는 그대로 둔다. */
+  async function handleDeletePart(part: V2Asset) {
+    const ok = await confirm({
+      title: '부품 삭제', message: `'${part.name}' 을 이 설비에서 걷어냅니다.`,
+      confirmLabel: '삭제', danger: true,
+    });
+    if (!ok) return;
+    useV2WorkingCopy.getState().stageAssetDeleteCascade(part.id);
+    setSelectedPartId(null);
   }
 
   // ── 인라인 편집 핸들러 ─────────────────────────────────────────────────────
@@ -243,13 +345,30 @@ export function InfoTab({
           <AssemblyGrid
             grid={grid}
             items={parts}
-            onSelect={(child) => onSelectAsset(child.id)}
+            selectedId={selectedPartId}
+            /* 부품을 골라도 **패널은 그대로** 둔다 — 아래에 그 부품 카드만 연다.
+               예전에는 패널이 통째로 그 부품으로 바뀌었다. 부품마다 다른 것은 상태·설치일·
+               담당자 네 줄뿐인데, 그것을 보려고 맥락(지금 어느 설비를 보고 있나)이 사라지고
+               대부분 빈 탭 넷이 다시 떴다(사진·점검·고장이력은 설비의 것이고, 포트는 설비
+               포트 탭이 이미 부품별로 묶어 보여준다). */
+            onSelect={(child) => setSelectedPartId((cur: string | null) => (cur === child.id ? null : child.id))}
             trailing={(child) => <PortSummary asset={child} occupiedPortIds={occupiedPortIds} />}
             onAddAtCell={(cell) => setAddModalCtx({ parentAssetId: assetId, grid, siblings: parts, cell })}
             canPlace={canPlaceInGrid}
             onMove={(id, at) => useV2WorkingCopy.getState().stageAssetUpdate(id, at)}
           />
         </DetailCard>
+      )}
+
+      {/* 고른 부품 — 설비에서 갈라지는 것만 적는다. */}
+      {selectedPart && (
+        <PartCard
+          part={selectedPart}
+          typeName={typesById.get(selectedPart.typeId ?? '')?.name ?? '—'}
+          portCount={selectedPart.ports.length}
+          onOpenPorts={() => onOpenPorts(selectedPart.id)}
+          onDelete={() => void handleDeletePart(selectedPart)}
+        />
       )}
 
       {confirmDialog}

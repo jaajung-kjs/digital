@@ -279,13 +279,17 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
           ...(u.patch.occurredAt !== undefined ? { occurredAt: new Date(u.patch.occurredAt) } : {}),
           ...(u.patch.content !== undefined ? { content: u.patch.content } : {}),
           ...(u.patch.action !== undefined ? { action: u.patch.action } : {}),
+          ...(u.patch.partAssetId !== undefined ? { partAssetId: u.patch.partAssetId } : {}),
         },
       });
     }
     for (const c of m.creates ?? []) {
       await assertAssetInSubstation(tx, substationId, c.assetId);
       await tx.maintenanceLog.create({
-        data: { id: c.id, assetId: c.assetId, occurredAt: new Date(c.occurredAt), content: c.content, action: c.action ?? null },
+        data: {
+          id: c.id, assetId: c.assetId, partAssetId: c.partAssetId ?? null,
+          occurredAt: new Date(c.occurredAt), content: c.content, action: c.action ?? null,
+        },
       });
     }
   }
@@ -305,13 +309,17 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
           ...(u.patch.inspectedAt !== undefined ? { inspectedAt: new Date(u.patch.inspectedAt) } : {}),
           ...(u.patch.content !== undefined ? { content: u.patch.content } : {}),
           ...(u.patch.result !== undefined ? { result: u.patch.result } : {}),
+          ...(u.patch.partAssetId !== undefined ? { partAssetId: u.patch.partAssetId } : {}),
         },
       });
     }
     for (const c of i.creates ?? []) {
       await assertAssetInSubstation(tx, substationId, c.assetId);
       await tx.inspectionLog.create({
-        data: { id: c.id, assetId: c.assetId, inspectedAt: new Date(c.inspectedAt), content: c.content, result: c.result ?? null },
+        data: {
+          id: c.id, assetId: c.assetId, partAssetId: c.partAssetId ?? null,
+          inspectedAt: new Date(c.inspectedAt), content: c.content, result: c.result ?? null,
+        },
       });
     }
   }
@@ -327,13 +335,19 @@ async function applyRecords(tx: Tx, substationId: string, records: CommitPayload
       if (!row || row.asset.substationId !== substationId) throw new HttpError(422, 'INVALID_RECORD', '수정 대상 사진이 유효하지 않습니다');
       await tx.assetPhoto.update({
         where: { id: u.id },
-        data: { ...(u.patch.caption !== undefined ? { caption: u.patch.caption } : {}) },
+        data: {
+          ...(u.patch.caption !== undefined ? { caption: u.patch.caption } : {}),
+          ...(u.patch.partAssetId !== undefined ? { partAssetId: u.patch.partAssetId } : {}),
+        },
       });
     }
     for (const c of p.creates ?? []) {
       await assertAssetInSubstation(tx, substationId, c.assetId);
       await tx.assetPhoto.create({
-        data: { id: c.id, assetId: c.assetId, filePath: c.filePath, caption: c.caption ?? null },
+        data: {
+          id: c.id, assetId: c.assetId, partAssetId: c.partAssetId ?? null,
+          filePath: c.filePath, caption: c.caption ?? null,
+        },
       });
     }
   }

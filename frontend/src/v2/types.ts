@@ -96,9 +96,15 @@ export interface V2Asset {
   portPositions?: Record<string, number>;
   fieldValues: Record<string, unknown>; updatedAt: string; ports: V2Port[];
 }
-export interface V2MaintenanceLog { id: string; assetId: string; occurredAt: string; content: string; action: string | null; updatedAt: string }
-export interface V2InspectionLog { id: string; assetId: string; inspectedAt: string; content: string; result: string | null; updatedAt: string }
-export interface V2AssetPhoto { id: string; assetId: string; filePath: string; caption: string | null; updatedAt: string }
+/**
+ * 기록의 주인은 **설비**(`assetId`)이고, `partAssetId` 는 그 안에서 이 기록이 가리키는 부품이다
+ * — 「L3 스위치 고장」처럼. 비우면 설비 전체에 대한 기록이다.
+ *
+ * 예전에는 부품에도 따로 매달 수 있어서, 설비 이력을 열면 안의 부품 기록이 보이지 않았다.
+ */
+export interface V2MaintenanceLog { id: string; assetId: string; partAssetId?: string | null; occurredAt: string; content: string; action: string | null; updatedAt: string }
+export interface V2InspectionLog { id: string; assetId: string; partAssetId?: string | null; inspectedAt: string; content: string; result: string | null; updatedAt: string }
+export interface V2AssetPhoto { id: string; assetId: string; partAssetId?: string | null; filePath: string; caption: string | null; updatedAt: string }
 export interface V2CableRef { portName: string; portGroup: string; portIndex: number; assetId: string; assetName: string; substationId: string; substationName: string }
 export interface V2Cable { id: string; name: string | null; substationId: string; aPortId: string; bPortId: string; categoryId: string | null; pathPoints: { x: number; y: number }[]; specParams: Record<string, unknown>; updatedAt: string; aRef?: V2CableRef; bRef?: V2CableRef }
 export interface V2Workingcopy {

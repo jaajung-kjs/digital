@@ -260,6 +260,10 @@ model Asset {
   logs          MaintenanceLog[]
   inspections   InspectionLog[]
   photos        AssetPhoto[]
+  /// 이 자산을 **대상으로 가리키는** 기록들 — 기록의 주인은 그 자산이 속한 설비다.
+  logsAsPart        MaintenanceLog[] @relation("RecordPartM")
+  inspectionsAsPart InspectionLog[]  @relation("RecordPartI")
+  photosAsPart      AssetPhoto[]     @relation("RecordPartP")
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -321,6 +325,14 @@ model MaintenanceLog {
   id         String   @id @default(uuid())
   assetId    String
   asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    /// 이 기록이 가리키는 **부품** — 「L3 스위치 고장」처럼 설비 안의 무엇에 대한 것인지.
+  /// 비우면 설비 전체에 대한 기록이다.
+  ///
+  /// 기록의 주인은 **설비**다: 설비 이력을 훑을 때 안의 부품 일도 한 줄로 읽혀야 하고,
+  /// 부품마다 따로 쌓으면 「어디에 남겼더라」가 생긴다(실제로 설비 패널에서 부품 기록이
+  /// 보이지 않았다).
+  partAssetId String?
+  partAsset   Asset?   @relation("RecordPartM", fields: [partAssetId], references: [id], onDelete: SetNull)
   occurredAt DateTime
   content    String
   action     String?
@@ -336,6 +348,14 @@ model InspectionLog {
   id          String   @id @default(uuid())
   assetId     String
   asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    /// 이 기록이 가리키는 **부품** — 「L3 스위치 고장」처럼 설비 안의 무엇에 대한 것인지.
+  /// 비우면 설비 전체에 대한 기록이다.
+  ///
+  /// 기록의 주인은 **설비**다: 설비 이력을 훑을 때 안의 부품 일도 한 줄로 읽혀야 하고,
+  /// 부품마다 따로 쌓으면 「어디에 남겼더라」가 생긴다(실제로 설비 패널에서 부품 기록이
+  /// 보이지 않았다).
+  partAssetId String?
+  partAsset   Asset?   @relation("RecordPartI", fields: [partAssetId], references: [id], onDelete: SetNull)
   inspectedAt DateTime
   content     String
   result      String?
@@ -351,6 +371,14 @@ model AssetPhoto {
   id        String   @id @default(uuid())
   assetId   String
   asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+    /// 이 기록이 가리키는 **부품** — 「L3 스위치 고장」처럼 설비 안의 무엇에 대한 것인지.
+  /// 비우면 설비 전체에 대한 기록이다.
+  ///
+  /// 기록의 주인은 **설비**다: 설비 이력을 훑을 때 안의 부품 일도 한 줄로 읽혀야 하고,
+  /// 부품마다 따로 쌓으면 「어디에 남겼더라」가 생긴다(실제로 설비 패널에서 부품 기록이
+  /// 보이지 않았다).
+  partAssetId String?
+  partAsset   Asset?   @relation("RecordPartP", fields: [partAssetId], references: [id], onDelete: SetNull)
   filePath  String
   caption   String?
   createdAt DateTime @default(now())

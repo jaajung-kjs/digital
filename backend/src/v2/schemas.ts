@@ -58,12 +58,24 @@ const assetPatchSchema = assetCreateSchema
       .optional(),
   });
 
-const recordOps = <T extends z.ZodRawShape>(createShape: T) =>
-  z.object({
-    creates: z.array(z.object({ id: z.string().uuid(), assetId: z.string().uuid() }).extend(createShape)).optional(),
-    updates: z.array(z.object({ id: z.string().uuid(), patch: z.object(createShape).partial() })).optional(),
+/**
+ * 기록(점검·고장이력·사진)의 공통 형상.
+ *
+ * `assetId` 는 **설비**(기록의 주인), `partAssetId` 는 그 안에서 이 기록이 가리키는 부품이다
+ * — 「L3 스위치 고장」처럼. 비우면 설비 전체에 대한 기록이다.
+ */
+const recordOps = <T extends z.ZodRawShape>(createShape: T) => {
+  const target = { partAssetId: z.string().uuid().nullish() };
+  return z.object({
+    creates: z
+      .array(z.object({ id: z.string().uuid(), assetId: z.string().uuid() }).extend(target).extend(createShape))
+      .optional(),
+    updates: z
+      .array(z.object({ id: z.string().uuid(), patch: z.object({ ...target, ...createShape }).partial() }))
+      .optional(),
     deletes: z.array(z.string().uuid()).optional(),
   });
+};
 
 const cableCreateSchema = z.object({
   id: z.string().uuid(),

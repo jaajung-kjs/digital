@@ -98,13 +98,16 @@ export function buildCommitPayload(
   if (Object.keys(bv).length) payload.baseVersions = bv;
 
   const maintenance = recordOps(overlays.maintenance, deletedAssets, recordAssetIds, (r) => ({
-    id: r.id, assetId: r.assetId, occurredAt: r.occurredAt, content: r.content, action: r.action,
+    id: r.id, assetId: r.assetId, partAssetId: r.partAssetId ?? null,
+    occurredAt: r.occurredAt, content: r.content, action: r.action,
   }));
   const inspections = recordOps(overlays.inspections, deletedAssets, recordAssetIds, (r) => ({
-    id: r.id, assetId: r.assetId, inspectedAt: r.inspectedAt, content: r.content, result: r.result,
+    id: r.id, assetId: r.assetId, partAssetId: r.partAssetId ?? null,
+    inspectedAt: r.inspectedAt, content: r.content, result: r.result,
   }));
   const photos = recordOps(overlays.photos, deletedAssets, recordAssetIds, (r) => ({
-    id: r.id, assetId: r.assetId, filePath: r.filePath, caption: r.caption,
+    id: r.id, assetId: r.assetId, partAssetId: r.partAssetId ?? null,
+    filePath: r.filePath, caption: r.caption,
   }));
   if (maintenance || inspections || photos) {
     payload.records = { ...(maintenance ? { maintenance } : {}), ...(inspections ? { inspections } : {}), ...(photos ? { photos } : {}) };

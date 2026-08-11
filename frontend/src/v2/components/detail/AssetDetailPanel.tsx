@@ -29,6 +29,12 @@ interface AssetDetailPanelProps {
    * 주어지면 포트 탭이 열린다(정보 탭에 떨어뜨려 두면 무엇을 골랐는지 안 보인다).
    */
   focusPortId?: string | null;
+  /**
+   * 밖에서 지목해 온 **부품** — 현황표에서 부품 행을 눌렀을 때.
+   *
+   * 부품은 제 패널을 갖지 않는다: 설비 패널을 열고 그 부품을 구성 격자에서 고른 상태로 둔다.
+   */
+  focusPartId?: string | null;
 }
 
 export function AssetDetailPanel({
@@ -39,8 +45,12 @@ export function AssetDetailPanel({
   traceResult,
   onShowOnFloorPlan,
   focusPortId,
+  focusPartId,
 }: AssetDetailPanelProps) {
   const [tab, setTab] = useState<Tab>(focusPortId ? 'connections' : 'info');
+  /** 부품 카드에서 「포트 보기」로 넘어올 때 고를 포트 — 밖에서 온 지목보다 우선한다. */
+  const [localFocusPort, setLocalFocusPort] = useState<string | null>(null);
+  useEffect(() => setLocalFocusPort(null), [assetId]);
   const [addModalCtx, setAddModalCtx] = useState<AddModalContext | null>(null);
 
   // 자산 전환 시 로컬 상태 리셋 (stale 자식 선택/모달 컨텍스트 방지)
@@ -207,8 +217,14 @@ export function AssetDetailPanel({
             assembliesById={assembliesById}
             parts={parts}
             effectiveAssets={effectiveAssets}
+            typesById={typesById}
+            focusPartId={focusPartId}
+            onOpenPorts={(partId) => {
+              // 그 부품의 첫 포트를 골라 둔다 — 포트 탭은 부품별로 묶여 있으니 그리로 열린다.
+              setLocalFocusPort(parts.find((a) => a.id === partId)?.ports[0]?.id ?? null);
+              setTab('connections');
+            }}
             setAddModalCtx={setAddModalCtx}
-            onSelectAsset={onSelectAsset}
           />
         )}
 
@@ -243,7 +259,7 @@ export function AssetDetailPanel({
         {tab === 'connections' && (
           <ConnectionsTab
             assetId={assetId}
-            focusPortId={focusPortId}
+            focusPortId={localFocusPort ?? focusPortId}
             onSelectAsset={onSelectAsset}
             onTrace={onTrace ?? (() => {})}
             onClearTrace={onClearTrace ?? (() => {})}

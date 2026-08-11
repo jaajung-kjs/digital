@@ -38,6 +38,8 @@ export default function V2WorkspacePage() {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   /** 상세 패널이 열자마자 골라 줄 포트 — 표의 한 줄이 포트 하나를 가리킬 때 쓴다. */
   const [focusPortId, setFocusPortId] = useState<string | null>(null);
+  /** 설비 패널을 열되 구성 격자에서 고른 상태로 둘 부품. */
+  const [focusPartId, setFocusPartId] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('현황');
   const [traceResult, setTraceResult] = useState<TraceResult | null>(null);
@@ -84,7 +86,16 @@ export default function V2WorkspacePage() {
    * 같아야 한다 — 안 그러면 표에서 고른 것과 패널이 보여 주는 것이 서로 다른 뜻이 된다.
    */
   const handleSelectAssetId = useCallback((id: string | null, portId?: string | null) => {
-    setSelectedAssetId(id);
+    /* **부품은 제 패널을 갖지 않는다.** 설비 패널을 열고 그 부품을 구성 격자에서 고른 상태로
+       둔다 — 부품마다 다른 것은 상태·설치일·담당자 네 줄뿐인데, 그것을 보려고 패널이 통째로
+       바뀌면 「지금 어느 설비를 보고 있나」가 사라지고 대부분 빈 탭 넷이 다시 뜬다.
+       (사진·점검·고장이력은 설비의 것이고, 포트는 설비 포트 탭이 부품별로 묶어 보여준다.) */
+    const assets = useV2WorkingCopy.getState().effectiveAssets();
+    const target = id ? assets.find((a) => a.id === id) : null;
+    const parent = target?.parentAssetId ? assets.find((a) => a.id === target.parentAssetId) : null;
+
+    setSelectedAssetId(parent ? parent.id : id);
+    setFocusPartId(parent ? target!.id : null);
     setFocusPortId(portId ?? null);
     setTraceResult(null); // 자산 선택 변경 시 추적 결과 클리어
   }, []);
@@ -111,7 +122,7 @@ export default function V2WorkspacePage() {
 
   const substationRows = useMemo<StatusRowsResult>(() => {
     if (selected?.kind !== 'substation' || substationId !== selected.id) return EMPTY_ROWS;
-    const assets = mergeEffective(saved.assets, overlays.assets);
+    const assets = useV2WorkingCopy.getState().effectiveAssets();
     const inspectionsByAsset = new Map<string, string[]>();
     for (const log of mergeEffective(saved.inspectionLogs, overlays.inspections)) {
       const list = inspectionsByAsset.get(log.assetId);
@@ -257,6 +268,7 @@ export default function V2WorkspacePage() {
                       key={selectedAssetId}
                       assetId={selectedAssetId!}
                       focusPortId={focusPortId}
+                      focusPartId={focusPartId}
                       onSelectAsset={handleSelectAssetId}
                       onTrace={setTraceResult}
                       onClearTrace={() => setTraceResult(null)}
