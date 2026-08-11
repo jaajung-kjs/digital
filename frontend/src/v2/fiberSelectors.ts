@@ -1,5 +1,13 @@
 import { isMultiCorePort, portValuesAt, type SeededMediumKey } from '@twin/core';
-import { buildPortIndex, indexCablesByPort, mediumContainers, resolvePeer, type PeerInfo, type PortIndex } from './peerResolve';
+import {
+  buildPortIndex,
+  endpointRef,
+  indexCablesByPort,
+  mediumContainers,
+  resolvePeer,
+  type PeerInfo,
+  type PortIndex,
+} from './peerResolve';
 import type { V2Asset, V2Cable } from './types';
 
 export const FIBER_MEDIUM: SeededMediumKey = 'fiber';
@@ -93,7 +101,19 @@ function resolveFarEnd(
   const otherTrunkId = trunkCable.aPortId === trunkPortId ? trunkCable.bPortId : trunkCable.aPortId;
   const peerSlot = portIndex.get(otherTrunkId)?.asset;
   if (!peerSlot) {
-    // 건너편 슬롯이 로컬에 없다 — 인입 케이블이 말해 주는 대국 슬롯까지만 안다.
+    /* 건너편 슬롯이 상대 국에 있다 — 서버가 풀어 실어 준 **코어별 대국**을 읽는다.
+       대국은 「OPGW 를 타고 넘어가 같은 번호에 물린 장비」이지 건너편 슬롯이 아니다. */
+    const ref = endpointRef(trunkCable, otherTrunkId);
+    const core = ref?.cores?.find((c) => c.index === coreIndex);
+    if (core) {
+      return {
+        assetName: core.assetName,
+        portName: core.portName,
+        substationName: ref!.substationName,
+        remote: ref!.substationId !== localSubstationId,
+      };
+    }
+    // 건너편 심선이 아직 장비로 안 나갔다 — 인입 케이블이 말해 주는 슬롯까지가 끝이다.
     return resolvePeer({ id: trunkPortId }, trunkCable, portIndex, localSubstationId);
   }
   const peerCore = peerSlot.ports.find((p) => p.medium === FIBER_MEDIUM && p.index === coreIndex);

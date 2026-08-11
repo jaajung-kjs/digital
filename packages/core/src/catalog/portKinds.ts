@@ -113,7 +113,7 @@ export const PORT_KINDS: readonly PortKind[] = [
    * 걸러 내는 분기를 둘 필요가 없어진다.
    */
   {
-    key: 'fiber-trunk', name: '광 인입', connectsTo: ['fiber-trunk'], pairing: 'any', maxCables: 1,
+    key: 'fiber-trunk', name: 'OPGW', connectsTo: ['fiber-trunk'], pairing: 'any', maxCables: 1,
     multiCore: true, expandsTo: 'fiber',
     cableFields: [],
     // 코어마다 한 벌 — 24심이면 손실 24개·점검일 24개가 이 포트 하나에 담긴다.

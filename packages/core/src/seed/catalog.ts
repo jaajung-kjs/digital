@@ -26,9 +26,7 @@ export const SEED_ASSET_TYPES: AssetTypeSpec[] = [
      * 그 너머 장비를 추적할 수 없었다. 인입을 다심 포트 하나로 두면 둘 다 사라진다.
      */
     ports: [
-      /* 뒤로 들어오는 한 가닥 — 현장에서 부르는 이름 그대로 적는다. 매체(`fiber-trunk`)는
-         「광 인입」이라 OPGW·광케이블·브레이크아웃을 아우르지만, 이 자리에 실제로 오는 것은
-         OPGW 다. 포트 이름은 그 자리가 무엇인지를 말해야 한다. */
+      // 뒤로 들어오는 한 가닥 — 현장에서 부르는 이름 그대로 OPGW 다.
       { group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: 'OPGW', positions: 24 },
       { group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}' },
     ],
@@ -403,7 +401,7 @@ export const SEED_CABLE_GROUPS = [
   // 다심 인입 — 한 가닥 안에 여러 심선이 든 것. 점퍼(단심)와는 포설 품도 다르다.
   {
     key: 'fiber-trunk',
-    name: '광 인입',
+    name: 'OPGW',
     color: '#15803d',
     laborType: '통신외선공',
     installHoursPerM: 0.06,
@@ -438,7 +436,7 @@ export const SEED_CABLE_CATEGORIES: { groupKey: string; name: string; sortOrder:
   { groupKey: 'power',   name: '비닐절연전선 HIV',      sortOrder: 4 },
   { groupKey: 'network', name: 'UTP/S-FTP케이블',      sortOrder: 5 },
   // 광 4종은 심선 수로 갈린다 — 점퍼코드만 한 가닥에 한 심이고, 나머지 셋은 다심이다.
-  // 그래서 점퍼는 어댑터 앞면(광 포트)에, 나머지는 인입(광 인입 포트)에 물린다.
+  // 그래서 점퍼는 어댑터 앞면(광 포트)에, 나머지는 OPGW 포트에 물린다.
   { groupKey: 'fiber-trunk', name: 'OPGW(광복합가공지선)', sortOrder: 6 },
   { groupKey: 'fiber-trunk', name: '광케이블',              sortOrder: 7 },
   { groupKey: 'fiber-trunk', name: '브레이크아웃케이블',    sortOrder: 8 },

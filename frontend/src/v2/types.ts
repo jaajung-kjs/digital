@@ -105,7 +105,17 @@ export interface V2Asset {
 export interface V2MaintenanceLog { id: string; assetId: string; partAssetId?: string | null; occurredAt: string; content: string; action: string | null; updatedAt: string }
 export interface V2InspectionLog { id: string; assetId: string; partAssetId?: string | null; inspectedAt: string; content: string; result: string | null; updatedAt: string }
 export interface V2AssetPhoto { id: string; assetId: string; partAssetId?: string | null; filePath: string; caption: string | null; updatedAt: string }
-export interface V2CableRef { portName: string; portGroup: string; portIndex: number; assetId: string; assetName: string; substationId: string; substationName: string }
+export interface V2CableRef {
+  portName: string; portGroup: string; portIndex: number;
+  assetId: string; assetName: string; substationId: string; substationName: string;
+  /**
+   * 다심 인입 건너편의 **코어별 대국** — 구간 케이블에만 실린다.
+   *
+   * 선번장의 대국은 「OPGW 를 타고 넘어가 같은 코어 번호에 물린 장비」다. 그 계산은 상대 국의
+   * 자산을 봐야 하는데 이 워킹카피에는 없으므로, 서버가 풀어 실어 준다.
+   */
+  cores?: { index: number; assetName: string; portName: string }[];
+}
 export interface V2Cable { id: string; name: string | null; substationId: string; aPortId: string; bPortId: string; categoryId: string | null; pathPoints: { x: number; y: number }[]; specParams: Record<string, unknown>; updatedAt: string; aRef?: V2CableRef; bRef?: V2CableRef }
 export interface V2Workingcopy {
   substation: { id: string; name: string; branchId: string; sortOrder: number };

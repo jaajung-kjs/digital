@@ -1,7 +1,7 @@
 /**
  * FiberRegisterView — 선번장 뷰
  *
- * 상단: 설비(광 인입 포트를 가진 부품을 담은 것) Select
+ * 상단: 설비(OPGW 포트를 가진 부품을 담은 것) Select
  * 테이블: 슬롯 그룹헤더 행 + 코어별 데이터 행
  *   컬럼: 코어 | {groups 동적} | 길이(m) | 손실(dB) | 점검일
  * 메타 인라인 편집: blur/Enter, 무변경 가드
@@ -211,7 +211,7 @@ export function FiberRegisterView({ substationId: _substationId, selectedAssetId
         title: '선번장에 표시할 광 자산이 없습니다',
         description: (
           <>
-        선번장은 <strong>광 인입 포트를 가진 부품을 품고 있는 설비</strong>를 자동으로 찾습니다. OFD 설비
+        선번장은 <strong>OPGW 포트를 가진 부품을 품고 있는 설비</strong>를 자동으로 찾습니다. OFD 설비
         종류처럼 경로슬롯을 담은 설비 종류를 도면에 놓으면 여기에 나타납니다.
           </>
         ),

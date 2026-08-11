@@ -39,6 +39,47 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
       }),
     ]);
 
+    /**
+     * 구간 케이블 건너편의 **코어별 대국** — 다심 인입에만 붙는다.
+     *
+     * 선번장의 대국은 「OPGW 를 타고 넘어가 같은 코어 번호에 물린 **장비**」다. 그 계산은
+     * 건너편 슬롯의 코어 포트와 거기 물린 점퍼를 봐야 하는데, 그 자산은 상대 국에 있어
+     * 이 워킹카피에 없다. 서버는 DB 전체를 보므로 여기서 풀어 실어 준다.
+     *
+     * 로컬끼리 이은 구간이면 화면이 제 손으로 풀 수 있으므로 붙이지 않는다.
+     */
+    const trunkPortIds = cables
+      .flatMap((c) => [c.aPort, c.bPort])
+      .filter((p) => p.positions > 1 && p.asset.substationId !== substation.id)
+      .map((p) => p.id);
+    const remoteCores = new Map<string, { index: number; assetName: string; portName: string }[]>();
+    if (trunkPortIds.length > 0) {
+      const slots = await nextDb.port.findMany({
+        where: { id: { in: trunkPortIds } },
+        include: {
+          asset: {
+            include: {
+              ports: {
+                where: { positions: 1 },
+                include: {
+                  cablesA: { include: { bPort: { include: { asset: true } } } },
+                  cablesB: { include: { aPort: { include: { asset: true } } } },
+                },
+              },
+            },
+          },
+        },
+      });
+      for (const trunk of slots) {
+        const cores = trunk.asset.ports.flatMap((core) => {
+          // 그 심선에 물린 점퍼의 반대쪽 — 거기 있는 것이 대국 장비다.
+          const far = core.cablesA[0]?.bPort ?? core.cablesB[0]?.aPort;
+          return far ? [{ index: core.index, assetName: far.asset.name, portName: far.name }] : [];
+        });
+        if (cores.length > 0) remoteCores.set(trunk.id, cores);
+      }
+    }
+
     const enrichedCables = cables.map(({ aPort, bPort, ...rest }) => ({
       ...rest,
       aRef: {
@@ -49,6 +90,7 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
         assetName: aPort.asset.name,
         substationId: aPort.asset.substationId,
         substationName: aPort.asset.substation.name,
+        ...(remoteCores.has(aPort.id) ? { cores: remoteCores.get(aPort.id) } : {}),
       },
       bRef: {
         portName: bPort.name,
@@ -58,6 +100,7 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
         assetName: bPort.asset.name,
         substationId: bPort.asset.substationId,
         substationName: bPort.asset.substation.name,
+        ...(remoteCores.has(bPort.id) ? { cores: remoteCores.get(bPort.id) } : {}),
       },
     }));
 

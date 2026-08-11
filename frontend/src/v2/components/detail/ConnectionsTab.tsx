@@ -183,20 +183,27 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
     if (!asset) return [];
     const categories = catalog.data?.cableGroups.flatMap((g) => g.categories) ?? [];
     return portOwners.flatMap(({ owner, groups }) =>
-      groups.flatMap(({ ports }) =>
+      groups.flatMap(({ group, label, medium, ports }) =>
         ports.flatMap((port) =>
           (cablesByPortId.get(port.id) ?? []).map((conn) => {
             const peer = resolvePeer(port, conn.cable, portIndex, asset.substationId);
             const cat = categories.find((c) => c.id === conn.cable.categoryId);
             const lengthM = (conn.cable.specParams as Record<string, unknown> | null)?.lengthM;
             const sub = peer?.remote && peer.substationName ? ` (${peer.substationName})` : '';
+            /* 대국 포트의 **번호** — 로컬이면 포트에서, 원격이면 케이블에 실려 온 ref 에서.
+               이름(`광 3`)이 아니라 번호로 적는 이유: 이름은 종류마다 제각각이라(`광 3`·
+               `포트 12`·`전원 출력 1`) 두 자리를 견줄 수가 없다. `장비#번호` 는 어디서나 같다. */
+            const peerIndex =
+              portIndex.get(conn.peerPortId)?.port.index ?? endpointRef(conn.cable, conn.peerPortId)?.portIndex ?? null;
             return {
               key: `${port.id}-${conn.cableId}`,
               portId: port.id,
               ownerId: owner.id,
-              // 이 목록은 그 부품 카드 안에 있으므로 부품 이름을 되풀이하지 않는다.
-              portLabel: port.name,
-              peerLabel: peer ? `${peer.assetName} · ${peer.portName}${sub}` : null,
+              group,
+              medium,
+              portLabel: `${owner.name}#${port.index}`,
+              peerLabel: peer ? `${peer.assetName}#${peerIndex ?? '?'}${sub}` : null,
+              groupLabel: label,
               peerAssetId: portIndex.get(conn.peerPortId)?.asset.id ?? null,
               cableLabel: [cat?.name, typeof lengthM === 'number' ? `${lengthM}m` : null]
                 .filter(Boolean)
@@ -411,41 +418,71 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
               </div>
             )}
 
-            {/* 연결 내역 — 판이 "어디가 비었나" 라면 여기는 "무엇이 어디로 가나" 다. */}
+            {/* 연결 내역 — 판이 "어디가 비었나" 라면 여기는 "무엇이 어디로 가나" 다.
+                **종류별로 묶는다**: 광과 전원과 접지를 한 줄에 섞어 놓으면 스물다섯 줄에서
+                무엇이 무엇인지 가릴 수가 없다. DCIM 들도 포트를 종류별 구획으로 나눈다
+                (NetBox 의 Interfaces / Power Ports / Console Ports). 판의 구획과 같은 색을
+                쓰므로 위아래가 같은 것을 가리킨다는 사실이 눈에 보인다. */}
             {rows.length > 0 && (
-              <ul className="divide-y divide-line">
-                {rows.map((row) => (
-                  <li
-                    key={row.key}
-                    /* 케이블 정보는 툴팁으로 — 384px 패널에서 대국 이름과 자리를 다투면
-                       정작 어디로 가는지가 잘린다(`접지단자함 G1 · 접지 부…`). */
-                    title={row.cableLabel || undefined}
-                    className={cn(
-                      'group flex items-center gap-2 rounded py-1.5',
-                      row.portId === selectedPortId && 'bg-info-bg',
-                    )}
-                  >
-                    <button
-                      type="button"
-                      className={cn('shrink-0 rounded px-1 text-xs tabular-nums text-content-muted', SELECTABLE)}
-                      title={`${row.portLabel} 을 판에서 고르기`}
-                      onClick={() => setSelectedPortId((prev) => (prev === row.portId ? null : row.portId))}
-                    >
-                      {row.portLabel}
-                    </button>
-                    <span className="shrink-0 text-xs text-content-faint" aria-hidden>→</span>
-                    <button
-                      type="button"
-                      className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                      title={row.peerLabel ? `${row.peerLabel} 으로 이동` : undefined}
-                      disabled={!row.peerAssetId}
-                      onClick={() => row.peerAssetId && onSelectAsset(row.peerAssetId)}
-                    >
-                      {row.peerLabel ?? '—'}
-                    </button>
-                  </li>
+              <div className="space-y-1.5">
+                {[...new Map(rows.map((r) => [r.group, r])).values()].map((head) => (
+                  <div key={head.group}>
+                    <div className="mb-0.5 flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-sm"
+                        style={{ background: mediumColor(head.medium) ?? undefined }}
+                      />
+                      <span className="text-xs font-medium text-content-muted">{head.groupLabel}</span>
+                    </div>
+                    <ul className="divide-y divide-line">
+                      {rows.filter((r) => r.group === head.group).map((row) => (
+                        <li
+                          key={row.key}
+                          /* 케이블 정보는 툴팁으로 — 384px 패널에서 대국 이름과 자리를 다투면
+                             정작 어디로 가는지가 잘린다(`접지단자함 G1 · 접지 부…`). */
+                          title={row.cableLabel || undefined}
+                          className={cn(
+                            'flex items-center gap-1.5 rounded py-1.5',
+                            row.portId === selectedPortId && 'bg-info-bg',
+                          )}
+                        >
+                          <button
+                            type="button"
+                            /* 이름이 길어도(`전원경보분배반 DC#1`) 대국을 밀어내지 않게 폭을 묶는다 —
+                               두 자리가 폭을 다투면 정작 어디로 가는지가 먼저 잘린다. */
+                            className={cn(
+                              'max-w-[45%] shrink-0 truncate rounded px-1 text-xs tabular-nums text-content-muted',
+                              SELECTABLE,
+                            )}
+                            title={`${row.portLabel} 을 판에서 고르기`}
+                            onClick={() => setSelectedPortId((prev) => (prev === row.portId ? null : row.portId))}
+                          >
+                            {row.portLabel}
+                          </button>
+                          {/* 화살표도 그 종류의 색 — 줄이 길어져도 어느 계통인지 눈으로 따라간다. */}
+                          <span
+                            aria-hidden
+                            className="shrink-0 text-xs"
+                            style={{ color: mediumColor(row.medium) ?? undefined }}
+                          >
+                            →
+                          </span>
+                          <button
+                            type="button"
+                            className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
+                            title={row.peerLabel ? `${row.peerLabel} 으로 이동` : undefined}
+                            disabled={!row.peerAssetId}
+                            onClick={() => row.peerAssetId && onSelectAsset(row.peerAssetId)}
+                          >
+                            {row.peerLabel ?? '—'}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </DetailCard>
         );
