@@ -21,8 +21,16 @@ workingcopyRouter.get('/substations/:id/workingcopy', async (req, res, next) => 
       nextDb.maintenanceLog.findMany({ where: { asset: { substationId: substation.id } }, orderBy: { occurredAt: 'desc' } }),
       nextDb.inspectionLog.findMany({ where: { asset: { substationId: substation.id } }, orderBy: { inspectedAt: 'desc' } }),
       nextDb.assetPhoto.findMany({ where: { asset: { substationId: substation.id } }, orderBy: { createdAt: 'asc' } }),
+      /* **구간 케이블은 두 국에 걸친다.** `substationId` 로만 가져오면 커밋한 쪽에서만 보이고,
+         상대 국에서는 제 OPGW 가 어디로 가는지 알 수 없다(대국 자리가 `—` 로 비었다).
+         이 변전소의 포트를 **한쪽 끝으로 갖는** 케이블을 모두 가져온다. */
       nextDb.cable.findMany({
-        where: { substationId: substation.id },
+        where: {
+          OR: [
+            { aPort: { asset: { substationId: substation.id } } },
+            { bPort: { asset: { substationId: substation.id } } },
+          ],
+        },
         include: {
           aPort: { include: { asset: { include: { substation: true } } } },
           bPort: { include: { asset: { include: { substation: true } } } },
