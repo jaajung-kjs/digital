@@ -97,7 +97,7 @@ export function instantiateAssembly(
   return spec.items.map((item) => {
     const typeSpec = typeSpecByKey.get(item.typeKey);
     const ports = typeSpec
-      ? instantiatePorts(typeSpec, '', item.portCounts ?? {}, item.portPositions ?? {}).map(
+      ? instantiatePorts(typeSpec.ports, '', item.portCounts ?? {}, item.portPositions ?? {}).map(
           ({ assetId: _assetId, ...rest }) => rest,
         )
       : [];

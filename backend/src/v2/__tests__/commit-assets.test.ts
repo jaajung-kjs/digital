@@ -192,3 +192,57 @@ describe('자산 상태 어휘', () => {
     }).expect(200);
   });
 });
+
+/**
+ * 화면이 정한 포트 id 를 서버가 그대로 쓴다.
+ *
+ * 워킹카피는 「저장하면 이렇게 된다」이므로 화면도 놓는 순간 포트를 만든다(저장 전에도 포트
+ * 탭·선번장·계통이 보여야 하고, 케이블도 이을 수 있어야 한다). 그때 이어 둔 케이블이 저장
+ * 뒤에도 같은 포트를 가리키려면 id 가 바뀌면 안 된다.
+ *
+ * **구조는 명세가 정한다** — 화면이 없는 포트를 지어내도 서버 명세가 이긴다.
+ */
+describe('PUT /commit — 화면이 정한 포트 id', () => {
+  it('준 id 로 포트가 만들어지고, 같은 커밋의 케이블이 그것을 가리킬 수 있다', async () => {
+    const ofdId = randomUUID(), slotA = randomUUID(), slotB = randomUUID();
+    const idsA = { 'TRUNK:1': randomUUID(), 'CORE:1': randomUUID() };
+    const idsB = { 'TRUNK:1': randomUUID(), 'CORE:1': randomUUID() };
+    const cableId = randomUUID();
+    // 매체가 맞아야 이어진다 — 광 포트끼리는 광 그룹의 종류로만 잇는다.
+    const cat = await nextDb.cableCategory.findFirstOrThrow({ where: { group: { key: 'fiber' } } });
+
+    await commit({
+      assets: {
+        creates: [
+          { id: ofdId, name: `${uniq}-ofd-pid`, assemblyId: ofdAssemblyId, floorId, x: 300, y: 0, width: 40, height: 40 },
+          { id: slotA, name: `${uniq}-sA`, typeId: slotTypeId, parentAssetId: ofdId, col: 0, row: 0, portIds: idsA },
+          { id: slotB, name: `${uniq}-sB`, typeId: slotTypeId, parentAssetId: ofdId, col: 1, row: 0, portIds: idsB },
+        ],
+      },
+      // 저장 전에 이어 둔 케이블 — 포트가 그 id 로 만들어지지 않으면 여기서 터진다.
+      cables: { creates: [{ id: cableId, aPortId: idsA['CORE:1'], bPortId: idsB['CORE:1'], categoryId: cat.id }] },
+    }).expect(200);
+
+    const trunk = await nextDb.port.findUnique({ where: { id: idsA['TRUNK:1'] } });
+    expect(trunk).toMatchObject({ assetId: slotA, group: 'TRUNK', index: 1, positions: 24 });
+    const cable = await nextDb.cable.findUniqueOrThrow({ where: { id: cableId } });
+    expect([cable.aPortId, cable.bPortId]).toEqual([idsA['CORE:1'], idsB['CORE:1']]);
+  });
+
+  /* 구조는 명세가 정한다 — 없는 포트의 id 를 줘도 그 포트가 생기지는 않는다. */
+  it('명세에 없는 포트 id 는 무시된다', async () => {
+    const ofdId = randomUUID(), slotId = randomUUID();
+    const ghost = randomUUID();
+    await commit({
+      assets: {
+        creates: [
+          { id: ofdId, name: `${uniq}-ofd-ghost`, assemblyId: ofdAssemblyId, floorId, x: 400, y: 0, width: 40, height: 40 },
+          { id: slotId, name: `${uniq}-ghost`, typeId: slotTypeId, parentAssetId: ofdId, col: 0, row: 0, portIds: { 'NOPE:9': ghost } },
+        ],
+      },
+    }).expect(200);
+    expect(await nextDb.port.findUnique({ where: { id: ghost } })).toBeNull();
+    // 명세대로 25개는 그대로 생긴다(인입 1 + 성단 24).
+    expect(await nextDb.port.count({ where: { assetId: slotId } })).toBe(25);
+  });
+});

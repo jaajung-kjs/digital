@@ -15,10 +15,15 @@ function toCreateInput(a: V2Asset): V2AssetCreateInput {
     floorId: a.floorId, x: a.x, y: a.y, width: a.width, height: a.height,
     parentAssetId: a.parentAssetId, col: a.col, row: a.row, colSpan: a.colSpan, rowSpan: a.rowSpan,
     fieldValues: a.fieldValues,
-    // 설비 종류으로 놓은 것 — 분류(설비 종류 참조)와 포트 오버라이드를 함께 실어 보낸다.
+    // 설비 종류로 놓은 것 — 분류(설비 종류 참조)와 포트 오버라이드를 함께 실어 보낸다.
     ...(a.assemblyId ? { assemblyId: a.assemblyId } : {}),
     ...(a.portCounts ? { portCounts: a.portCounts } : {}),
     ...(a.portPositions ? { portPositions: a.portPositions } : {}),
+    /* 화면이 정해 둔 포트 id — 저장 전에 그 포트에 이어 둔 케이블이 저장 뒤에도 같은 포트를
+       가리켜야 한다. **구조는 서버 명세가 정하고** 여기서는 id 만 준다. */
+    ...(a.ports.length > 0
+      ? { portIds: Object.fromEntries(a.ports.map((p) => [`${p.group}:${p.index}`, p.id])) }
+      : {}),
   };
 }
 

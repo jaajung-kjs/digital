@@ -30,7 +30,7 @@ import { cableCountByPortId, cableSegments, distanceToPolyline, portsWithOccupan
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import { isAdminRole, useV2AuthStore } from '../../store/authStore';
-import { useV2Catalog } from '../../hooks';
+import { useTypesById, useV2Catalog } from '../../hooks';
 import { Button, IconButton, Select, Tabs, useConfirm } from '../../../components/ui';
 import { BackgroundImportControls } from './BackgroundImportControls';
 import { PlaceAssemblyModal } from './PlaceAssemblyModal';
@@ -333,6 +333,8 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
   // ── catalog (설비 종류 목록, cableGroups) ────────────────────────────
   const catalog = useV2Catalog();
   const cableGroups = useMemo(() => catalog.data?.cableGroups ?? [], [catalog.data]);
+  /* 부품의 포트를 놓는 순간 만들려면 자산 종류가 필요하다 — 저장 전에도 포트가 보여야 한다. */
+  const typesById = useTypesById(catalog.data?.types);
   /**
    * 도면에 놓이는 것은 **설비 종류**뿐이다.
    *
@@ -1449,6 +1451,7 @@ export function FloorPlanView({ substationId, selectedAssetId, onSelectAsset, tr
               name,
               floorId: drawModal.floorId,
               rect: drawModal.rect,
+              typesById,
             })) {
               useV2WorkingCopy.getState().stageAssetCreate(asset);
             }

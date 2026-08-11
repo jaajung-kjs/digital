@@ -37,6 +37,14 @@ const assetCreateSchema = z.object({
   portCounts: z.record(z.number().int().min(1)).optional(),
   /** 다심 포트의 코어 수 오버라이드 — 12심 판과 24심 판이 같은 타입일 수 있다. */
   portPositions: z.record(z.number().int().min(1)).optional(),
+  /**
+   * 화면이 정해 둔 포트 id — 키는 `그룹:번호`.
+   *
+   * 자산을 놓는 순간 화면도 포트를 만든다(저장 전에도 포트 탭·선번장·계통이 보여야 하므로).
+   * 그때 그 포트에 케이블을 이어 두었다면, 저장 뒤에도 같은 포트를 가리켜야 한다.
+   * **구조는 명세가 정하고 id 만 받는다** — 없는 포트를 지어낼 수는 없다.
+   */
+  portIds: z.record(z.string().uuid()).optional(),
 });
 
 const assetPatchSchema = assetCreateSchema

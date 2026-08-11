@@ -17,7 +17,9 @@ import type { V2Floor } from '../types';
 
 // 카탈로그는 비어 있어도 층 탭바는 렌더된다 — 배치 팔레트/케이블 도구는 이 테스트의 관심사가 아니다.
 vi.mock('../hooks', () => ({
-  useV2Catalog: () => ({ data: { categories: [], types: [], cableGroups: [] } }),
+  useV2Catalog: () => ({ data: { categories: [], types: [], assemblies: [], cableGroups: [] } }),
+  // 부품의 포트를 놓는 순간 만들려면 자산 종류가 필요하다(저장 전에도 포트가 보여야 한다).
+  useTypesById: () => new Map(),
 }));
 
 vi.mock('../api', async (importOriginal) => {

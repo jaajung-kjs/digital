@@ -1,5 +1,6 @@
 import { DEFAULT_ASSET_STATUS } from '@twin/core';
-import type { V2Assembly, V2Asset } from './types';
+import { portsForNewAsset } from './newAsset';
+import type { V2Assembly, V2Asset, V2AssetType } from './types';
 
 /**
  * 설비 종류를 도면에 놓는다 — **설비 하나 + 그 안의 부품들**.
@@ -7,8 +8,8 @@ import type { V2Assembly, V2Asset } from './types';
  * 배치에 새 API 를 두지 않는다. 커밋 경로가 이미 자산 여러 개를 부모·자리와 함께 만들 수
  * 있으므로, 설비 종류를 펴서 그대로 스테이지하면 검증·OCC·워킹카피가 전부 지금 길을 탄다.
  *
- * 설비는 **타입이 없다** — 분류가 설비 종류가다. 설비 종류를 가리켜 두면 설비 종류 이름을 고쳐도 분류가
- * 따라온다(글자로 굳혀 두면 같은 설비 종류인데 집계가 둘로 갈린다).
+ * 설비는 **자산 종류가 없다** — 분류가 설비 종류다. 설비 종류를 가리켜 두면 그 이름을 고쳐도
+ * 분류가 따라온다(글자로 굳혀 두면 같은 설비 종류인데 집계가 둘로 갈린다).
  *
  * **구성은 스냅샷** — 설비 종류를 고쳐도 이미 놓인 설비의 안쪽은 그대로고, 그 설비만 따로
  * 고칠 수 있다.
@@ -22,6 +23,8 @@ export function assemblyToAssets(args: {
   name: string;
   floorId: string;
   rect: { x: number; y: number; width: number; height: number };
+  /** 부품의 포트를 지금 만들기 위한 자산 종류들 — 저장 전에도 포트가 보여야 한다. */
+  typesById: Map<string, V2AssetType>;
 }): V2Asset[] {
   const equipmentId = crypto.randomUUID();
 
@@ -47,8 +50,11 @@ export function assemblyToAssets(args: {
     ports: [],
   };
 
-  const parts: V2Asset[] = args.assembly.items.map((item) => ({
-    id: crypto.randomUUID(),
+  const parts: V2Asset[] = args.assembly.items.map((item) => {
+    const id = crypto.randomUUID();
+    const type = args.typesById.get(item.typeId);
+    return {
+    id,
     name: item.name,
     typeId: item.typeId,
     substationId: args.substationId,
@@ -63,11 +69,14 @@ export function assemblyToAssets(args: {
     rowSpan: item.rowSpan,
     fieldValues: {},
     updatedAt: '',
-    ports: [],
-    // 포트는 서버가 자산 종류 명세대로 만든다 — 부품이 선언한 오버라이드를 실어 보낸다.
+    /* 포트를 **지금** 만든다 — 저장 전에도 포트 탭·선번장·계통이 보이고 케이블을 이을 수
+       있어야 한다. 구조는 서버가 제 명세로 다시 만들고 여기서 정한 id 만 받는다. */
+    ports: type ? portsForNewAsset(type, id, item.portCounts ?? {}, item.portPositions ?? {}) : [],
+    // 오버라이드는 서버도 알아야 한다 — 12심 판과 24심 판이 같은 타입일 수 있다.
     ...(item.portCounts ? { portCounts: item.portCounts } : {}),
     ...(item.portPositions ? { portPositions: item.portPositions } : {}),
-  }));
+    };
+  });
 
   return [equipment, ...parts];
 }

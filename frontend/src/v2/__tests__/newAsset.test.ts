@@ -35,3 +35,38 @@ describe('makeNewAsset', () => {
     expect(a).toMatchObject({ floorId: 'f1', x: 10, y: 20, width: 60, height: 80, parentAssetId: null });
   });
 });
+
+/**
+ * 워킹카피는 「저장하면 이렇게 된다」 — **포트도 그 그림에 들어간다**.
+ *
+ * 예전에는 포트를 서버가 커밋 때만 만들어서, 저장하기 전에는 상세 패널의 포트 탭이 사라지고
+ * 선번장·계통에도 안 나타나고 케이블을 이을 수도 없었다. 설비를 놓고 케이블을 이어 한 번에
+ * 저장하는 길이 막혀 있었다(저장부터 해야 했다).
+ */
+describe('새 자산의 포트', () => {
+  const slotType = mkType('t-slot', 'OFD-SLOT', 'c-comm');
+  slotType.portTemplates = [
+    { id: 'p1', group: 'TRUNK', count: 1, direction: 'BI', medium: 'fiber-trunk', namePattern: '광 인입', sortOrder: 0, positions: 24 },
+    { id: 'p2', group: 'CORE', count: 24, direction: 'BI', medium: 'fiber', namePattern: '장비 {n}', sortOrder: 1, positions: 1 },
+  ];
+
+  it('놓는 순간 명세대로 포트가 생긴다', () => {
+    const a = makeNewAsset({ type: slotType, name: '슬롯 1', substationId: 'ss' });
+    expect(a.ports).toHaveLength(25);
+    expect(a.ports.filter((p) => p.group === 'CORE')).toHaveLength(24);
+    // 다심 인입은 포트 **하나**가 심선 수를 나른다 — 심선마다 펴지 않는다.
+    expect(a.ports.find((p) => p.group === 'TRUNK')).toMatchObject({ positions: 24, name: '광 인입' });
+  });
+
+  it('포트마다 id 가 붙는다 — 저장 전에 케이블을 이을 수 있어야 한다', () => {
+    const a = makeNewAsset({ type: slotType, name: '슬롯 1', substationId: 'ss' });
+    const ids = new Set(a.ports.map((p) => p.id));
+    expect(ids.size).toBe(a.ports.length);
+    expect(a.ports.every((p) => p.assetId === a.id)).toBe(true);
+  });
+
+  it('포트가 없는 종류는 빈 채로 둔다', () => {
+    const a = makeNewAsset({ type: mkType('t2', 'HVAC', 'c-comm'), name: '공조', substationId: 'ss' });
+    expect(a.ports).toEqual([]);
+  });
+});

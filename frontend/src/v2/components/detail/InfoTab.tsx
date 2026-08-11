@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import { ASSET_STATUSES, assetFieldDefs, slotNumber, validateGridPlacement } from '@twin/core';
+import { ASSET_STATUSES, assetFieldDefs, freeCells, validateGridPlacement } from '@twin/core';
 import {
   DetailCard,
   DetailCardHeader,
@@ -17,17 +17,13 @@ import {
   Select,
   useConfirm,
   cn,
-  SELECTABLE,
 } from '../../../components/ui';
-import { freeCells } from '../../newAsset';
-import { assetLocationPath } from '../../assetLocation';
 import type { GridPlacement } from '../../gridDrag';
 import { AssemblyGrid } from '../AssemblyGrid';
 import { cableCountByPortId } from '../../cableSelectors';
 import { mergeEffective } from '../../store/overlay';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
 import type { V2Asset, V2AssetType, V2Assembly } from '../../types';
-import { PhotoCard } from './PhotoCard';
 
 export interface AddModalContext {
   parentAssetId: string;
@@ -68,7 +64,6 @@ interface InfoTabProps {
   /** 이 설비 안에 놓인 부품들 — 자리 순. */
   parts: V2Asset[];
   effectiveAssets: V2Asset[];
-  floorNameById: Map<string, string>;
   setAddModalCtx: (ctx: AddModalContext | null) => void;
   onSelectAsset: (id: string) => void;
 }
@@ -80,7 +75,6 @@ export function InfoTab({
   assembliesById,
   parts,
   effectiveAssets,
-  floorNameById,
   setAddModalCtx,
   onSelectAsset,
 }: InfoTabProps) {
@@ -94,23 +88,12 @@ export function InfoTab({
     [savedCables, cableOverlays],
   );
 
-  const assetById = useMemo(() => new Map(effectiveAssets.map((a) => [a.id, a])), [effectiveAssets]);
-  const location = assetLocationPath(asset, assetById, floorNameById, assembliesById);
-
-  /* 이 설비의 자리 — 설비 종류가 격자를 갖는다. 설비 종류으로 놓은 것만 안에 무언가를 담는다. */
+  /* 이 설비의 자리 — 설비 종류가 격자를 갖는다. 설비 종류로 놓은 것만 안에 무언가를 담는다.
+     **어디에 놓여 있는가는 여기서 다루지 않는다.** 위치는 사람이 적는 값이 아니라 놓은 결과로
+     기록되는 값이고, 읽는 자리는 현황표의 「설치장소」 열이다. 자리를 옮기는 일도 상위 설비의
+     구성 격자에서 끌어서 한다 — 눈에 보이는 판이 곧 자리다. */
   const assembly = asset.assemblyId ? assembliesById.get(asset.assemblyId) : undefined;
   const grid = assembly ? { cols: assembly.gridCols, rows: assembly.gridRows } : null;
-
-  /* 상위 설비와 그 격자 — 위치 행이 "어느 자리에 놓여 있는지" 를 다루려면 둘 다 필요하다. */
-  const parentAsset = asset.parentAssetId ? effectiveAssets.find((a) => a.id === asset.parentAssetId) : undefined;
-  const parentAssembly = parentAsset?.assemblyId ? assembliesById.get(parentAsset.assemblyId) : undefined;
-  const parentGrid = parentAssembly
-    ? { cols: parentAssembly.gridCols, rows: parentAssembly.gridRows }
-    : null;
-  const siblingsInParent = parentAsset
-    ? effectiveAssets.filter((a) => a.parentAssetId === parentAsset.id)
-    : [];
-  const freeCellsInParent = parentGrid ? freeCells(parentGrid, siblingsInParent) : [];
 
   /**
    * 이 자리에 놓을 수 있는가 — 판정은 core 가 한다(격자 안·겹침).
@@ -131,14 +114,6 @@ export function InfoTab({
           })),
       }) === null
     );
-  }
-
-  /** 고른 값은 격자 칸(`열,행`)이다 — 번호는 저장하지 않는다. */
-  function handleSlotChange(value: string) {
-    if (value === '') return;
-    const [col, row] = value.split(',').map(Number);
-    if (col === asset.col && row === asset.row) return;
-    useV2WorkingCopy.getState().stageAssetUpdate(assetId, { col, row });
   }
 
   // 하위 자산 총 수 (cascade 삭제 confirm용)
@@ -210,56 +185,12 @@ export function InfoTab({
           </Select>
         </DetailRow>
 
-        {/* 위치 */}
-        {/* 위치는 읽기 전용 문장이 아니라 **이동 수단**이다.
-            상위 자산을 누르면 그리로 올라가고(수용 자산에서 되돌아올 유일한 길이었다),
-            고정 슬롯이면 여기서 슬롯을 바꾼다 — 자기 위치는 자기 화면에서 고친다. */}
-        <DetailRow label="위치">
-          {parentAsset ? (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                className={cn('min-w-0 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                title={`${parentAsset.name} 으로 이동`}
-                onClick={() => onSelectAsset(parentAsset.id)}
-              >
-                {parentAsset.name}
-              </button>
-              {parentGrid ? (
-                <div className="w-28">
-                  <Select
-                    size="sm"
-                    aria-label="자리"
-                    value={asset.col == null || asset.row == null ? '' : `${asset.col},${asset.row}`}
-                    onChange={(e) => handleSlotChange(e.currentTarget.value)}
-                  >
-                    {asset.col != null && asset.row != null && (
-                      <option value={`${asset.col},${asset.row}`}>
-                        자리 {slotNumber(parentGrid.cols, asset.col, asset.row)}
-                      </option>
-                    )}
-                    {freeCellsInParent.map((cell) => (
-                      <option key={`${cell.col},${cell.row}`} value={`${cell.col},${cell.row}`}>
-                        자리 {slotNumber(parentGrid.cols, cell.col, cell.row)}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <span className="text-sm text-content">{location}</span>
-          )}
-        </DetailRow>
-      </DetailCard>
 
-      {/* 속성 — 자산이 갖는 것은 종류를 가리지 않고 같다(설치일·담당자). 타입이 있든(부품)
-          없든(설비 종류으로 놓은 설비) 자산은 자산이다. 예전에는 `type` 이 있을 때만 그려서 설비에는
-          설치일·담당자를 적을 길이 아예 없었다 — 현황표에는 그 열이 있는데도.
-          타입마다 필드를 따로 선언하던 길은 걷었다: 실제로 쓰인 것은 피더의 개폐 상태뿐이었고,
-          그건 자산이 아니라 회로의 상태라 전원 출력 포트로 옮겼다. */}
-      <DetailCard>
-        <DetailCardHeader title="속성" />
+        {/* 설치일·담당자도 **같은 카드**에 둔다 — 자산 하나를 두고 「이름·상태」와 「설치일·
+            담당자」로 카드를 가를 이유가 없다. 넷 다 이 자산에 적는 값이고, 카드를 나누면
+            스크롤만 늘고 어느 카드에 무엇이 있는지 기억해야 한다.
+            타입마다 필드를 따로 선언하던 길은 걷었다: 실제로 쓰인 것은 피더의 개폐 상태뿐이었고,
+            그건 자산이 아니라 회로의 상태라 전원 출력 포트로 옮겼다. */}
         {assetFieldDefs().map((fd) => {
           const rawVal = asset.fieldValues[fd.key];
           const strVal = rawVal != null ? String(rawVal) : '';
@@ -321,8 +252,6 @@ export function InfoTab({
         </DetailCard>
       )}
 
-      {/* 사진 카드 */}
-      <PhotoCard assetId={assetId} />
       {confirmDialog}
     </>
   );

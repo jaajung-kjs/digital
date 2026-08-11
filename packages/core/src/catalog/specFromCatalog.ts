@@ -1,10 +1,32 @@
-import type { AssetTypeSpec, Direction, TypeUpsertBody } from './types.js';
+import type { AssetTypeSpec, Direction, PortTemplate, TypeUpsertBody } from './types.js';
 
 export interface CatalogTypeRow {
   key: string; name: string; sortOrder: number;
   category: { key: string };
   laborType: string | null; installHours: number; removeHours: number; relocateHours: number;
   portTemplates: { group: string; count: number; direction: string; medium: string; namePattern: string; positions?: number | null; sortOrder: number }[];
+}
+
+/**
+ * 포트 템플릿 행 → 코어 형상. **번호가 붙는 순서**라 `sortOrder` 로 정렬한다.
+ *
+ * 따로 뽑아 둔 이유: 자산을 새로 놓을 때 **화면도** 포트를 만들어야 한다(저장 전에도 포트
+ * 탭·선번장·계통이 보여야 하므로). 그때 필요한 것은 포트 템플릿뿐인데 spec 전체를 지어내려면
+ * 쓰지도 않는 분류 키를 가짜로 채워야 했다.
+ */
+export function portTemplatesFrom(
+  rows: CatalogTypeRow['portTemplates'],
+): PortTemplate[] {
+  return [...rows]
+    .sort((x, y) => x.sortOrder - y.sortOrder)
+    .map((p) => ({
+      group: p.group,
+      count: p.count,
+      direction: p.direction as Direction,
+      medium: p.medium,
+      namePattern: p.namePattern,
+      positions: p.positions ?? 1,
+    }));
 }
 
 /** 카탈로그 행(백엔드 Prisma include / 프론트 V2AssetType+category) → 코어 spec. 유일한 투영 지점. */
@@ -15,9 +37,7 @@ export function specFromCatalog(row: CatalogTypeRow): AssetTypeSpec {
     categoryKey: row.category.key,
     sortOrder: row.sortOrder,
     labor: { laborType: row.laborType, installHours: row.installHours, removeHours: row.removeHours, relocateHours: row.relocateHours },
-    ports: [...row.portTemplates]
-      .sort((x, y) => x.sortOrder - y.sortOrder)
-      .map((p) => ({ group: p.group, count: p.count, direction: p.direction as Direction, medium: p.medium, namePattern: p.namePattern, positions: p.positions ?? 1 })),
+    ports: portTemplatesFrom(row.portTemplates),
   };
 }
 

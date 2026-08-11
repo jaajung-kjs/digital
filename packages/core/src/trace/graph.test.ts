@@ -42,7 +42,7 @@ const types = { DEV: device, 'OFD-SLOT': slot, FEEDER: feeder };
 /** 헬퍼: 자산 + 포트 인스턴스 생성 (포트 id = `${assetId}:${group}${index}`) */
 function makeAsset(typeKey: keyof typeof types, id: string): { asset: AssetRef; ports: PortRef[] } {
   const asset: AssetRef = { id, typeKey, name: id };
-  const ports = instantiatePorts(types[typeKey], id).map((p) => ({
+  const ports = instantiatePorts(types[typeKey]!.ports, id).map((p) => ({
     ...p,
     id: `${id}:${p.group}${p.index}`,
   }));

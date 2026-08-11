@@ -50,6 +50,8 @@ vi.mock('../hooks', () => ({
     },
   }),
   // 포트 피커가 매체 키를 사람이 읽는 이름으로 바꿔 보여준다 — 모의에서는 키를 그대로 돌려준다.
+  // 부품의 포트를 놓는 순간 만들려면 자산 종류가 필요하다(저장 전에도 포트가 보여야 한다).
+  useTypesById: (types?: { id: string }[]) => new Map((types ?? []).map((t) => [t.id, t])),
   useMediumLabel: () => (key: string) => key,
   useMediumColor: () => () => null,
 }));

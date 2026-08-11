@@ -19,7 +19,7 @@ const slotType: AssetTypeSpec = {
 
 describe('instantiatePorts', () => {
   it('템플릿 수량만큼 1-based 인덱스와 이름 패턴으로 생성한다', () => {
-    const ports = instantiatePorts(slotType, 'asset-1');
+    const ports = instantiatePorts(slotType.ports, 'asset-1');
     expect(ports).toHaveLength(8);
     expect(ports[0]).toEqual({
       assetId: 'asset-1',
@@ -34,13 +34,13 @@ describe('instantiatePorts', () => {
   });
 
   it('그룹별 수량 오버라이드를 적용한다 (24C 슬롯)', () => {
-    const ports = instantiatePorts(slotType, 'asset-1', { A: 24, B: 24 });
+    const ports = instantiatePorts(slotType.ports, 'asset-1', { A: 24, B: 24 });
     expect(ports).toHaveLength(48);
     expect(ports[23]!.name).toBe('장비 24');
   });
 
   it('포트 템플릿이 없으면 빈 배열', () => {
     const bare = { ...slotType, ports: [], links: [] };
-    expect(instantiatePorts(bare, 'x')).toEqual([]);
+    expect(instantiatePorts(bare.ports, 'x')).toEqual([]);
   });
 });

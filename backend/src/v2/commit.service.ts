@@ -178,8 +178,18 @@ async function applyCreate(tx: Tx, substationId: string, input: AssetCreate): Pr
     throw e;
   }
   // 설비 자신은 포트가 없다 — 포트는 부품의 것이다.
-  const ports = spec ? instantiatePorts(spec, input.id, input.portCounts, input.portPositions) : [];
-  if (ports.length > 0) await tx.port.createMany({ data: ports });
+  /* 포트 구조는 **명세가 정한다** — 화면이 보낸 것을 그대로 믿지 않는다. 다만 id 는
+     화면이 정한 것을 쓴다(자산 id 를 그렇게 하는 것과 같은 어법): 저장 전에 그 포트에
+     이어 둔 케이블이 저장 뒤에도 같은 포트를 가리켜야 한다. */
+  const ports = spec ? instantiatePorts(spec.ports, input.id, input.portCounts, input.portPositions) : [];
+  if (ports.length > 0) {
+    await tx.port.createMany({
+      data: ports.map((p) => {
+        const id = input.portIds?.[`${p.group}:${p.index}`];
+        return id ? { ...p, id } : p;
+      }),
+    });
+  }
 }
 
 async function applyUpdate(tx: Tx, substationId: string, u: AssetUpdate): Promise<void> {

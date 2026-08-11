@@ -6,13 +6,14 @@ import type { V2Asset } from '../../types';
 import { withDescendants } from '../../cableSelectors';
 import { AddAssetModal } from '../AddAssetModal';
 import { InfoTab, type AddModalContext } from './InfoTab';
+import { PhotoCard } from './PhotoCard';
 import { RecordsTab } from './RecordsTab';
 import { ConnectionsTab } from './ConnectionsTab';
 import type { TraceResult } from '../../traceSelectors';
 import { Button, PanelHeader, Tabs, cn, SELECTABLE, type TabItem } from '../../../components/ui';
 
 // ── 탭 타입 ──────────────────────────────────────────────────────────────────
-type Tab = 'info' | 'inspections' | 'logs' | 'connections';
+type Tab = 'info' | 'photos' | 'inspections' | 'logs' | 'connections';
 
 // ── 메인 패널 ─────────────────────────────────────────────────────────────────
 interface AssetDetailPanelProps {
@@ -62,7 +63,6 @@ export function AssetDetailPanel({
   const effectiveAssets = useMemo(() => mergeEffective(saved.assets, overlays.assets), [saved, overlays]);
   const asset = useMemo(() => effectiveAssets.find((a) => a.id === assetId), [effectiveAssets, assetId]);
 
-  const floorNameById = useMemo(() => new Map(saved.floors.map((f) => [f.id, f.name])), [saved.floors]);
 
   const catalog = useV2Catalog();
   const typesById = useTypesById(catalog.data?.types);
@@ -126,6 +126,10 @@ export function AssetDetailPanel({
     () => mergeEffective(saved.maintenanceLogs, overlays.maintenance).filter((r) => r.assetId === assetId).length,
     [saved.maintenanceLogs, overlays.maintenance, assetId],
   );
+  const photoCount = useMemo(
+    () => mergeEffective(saved.photos, overlays.photos).filter((r) => r.assetId === assetId).length,
+    [saved.photos, overlays.photos, assetId],
+  );
 
   if (!asset) return null;
 
@@ -140,6 +144,10 @@ export function AssetDetailPanel({
    */
   const tabs: TabItem<Tab>[] = [
     { key: 'info', label: '정보' },
+    /* 사진은 제 탭을 갖는다 — 예전에는 '정보' 탭 맨 아래 카드였다. 그러면 속성을 보러 온
+       사람에게는 스크롤 끝의 군더더기이고, 사진을 보러 온 사람은 그것이 거기 있는 줄 모른다.
+       점검·고장이력과 같은 성격(자산에 딸려 쌓이는 기록)이므로 같은 층위에 세운다. */
+    { key: 'photos', label: '사진', count: photoCount },
     { key: 'inspections', label: '점검', count: inspectionCount },
     { key: 'logs', label: '고장이력', count: logCount },
     ...(hasPorts
@@ -199,11 +207,12 @@ export function AssetDetailPanel({
             assembliesById={assembliesById}
             parts={parts}
             effectiveAssets={effectiveAssets}
-            floorNameById={floorNameById}
             setAddModalCtx={setAddModalCtx}
             onSelectAsset={onSelectAsset}
           />
         )}
+
+        {tab === 'photos' && <PhotoCard assetId={assetId} />}
 
         {tab === 'inspections' && (
           <RecordsTab

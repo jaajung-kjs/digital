@@ -117,8 +117,10 @@ export interface V2AssetCreateInput {
   parentAssetId?: string | null; col?: number | null; row?: number | null; colSpan?: number | null; rowSpan?: number | null;
   assemblyId?: string | null;
   fieldValues?: Record<string, unknown>; portCounts?: Record<string, number>; portPositions?: Record<string, number>;
+  /** 화면이 정해 둔 포트 id — 키는 `그룹:번호`. 구조는 서버 명세가 정하고 id 만 받는다. */
+  portIds?: Record<string, string>;
 }
-export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts' | 'portPositions'>> & {
+export type V2AssetPatch = Partial<Omit<V2AssetCreateInput, 'id' | 'typeId' | 'portCounts' | 'portPositions' | 'portIds'>> & {
   /** 이 자산 포트에 딸린 값 — 포트는 자산 종류 명세가 만드므로 값만 고친다. */
   portFieldValues?: { portId: string; fieldValues: Record<string, unknown> }[];
 };
