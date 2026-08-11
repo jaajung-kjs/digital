@@ -475,10 +475,11 @@ describe('catalog CRUD', () => {
       .expect(201);
     const mc2CatId = catRes.body.id;
 
-    // 다심은 **종류**가 정한다 — 보통 광 포트에 코어 수를 적으면 어휘가 뜻을 잃는다.
+    /* 다심을 **가질 수 있는지**는 종류가 정한다 — 아무 포트에나 코어 수를 적을 수 있으면
+       어휘가 뜻을 잃는다. 광에는 다심이 있고(성단), 전원에는 없다. */
     const badPorts = [
-      { group: 'fiberIn', count: 2, direction: 'IN' as const, medium: 'fiber', namePattern: '장비 {n}', positions: 24 },
-      { group: 'fiberOut', count: 2, direction: 'OUT' as const, medium: 'fiber', namePattern: '선로 {n}' },
+      { group: 'pwrIn', count: 2, direction: 'IN' as const, medium: 'power', namePattern: '전원 입력 {n}', positions: 24 },
+      { group: 'pwrOut', count: 2, direction: 'OUT' as const, medium: 'power', namePattern: '전원 출력 {n}' },
     ];
 
     const res = await request(app)

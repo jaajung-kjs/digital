@@ -22,7 +22,7 @@ import { mergeEffective } from '../../store/overlay';
 import { buildPortIndex, endpointLabel, endpointRef, resolvePeer } from '../../peerResolve';
 import { withDescendants } from '../../cableSelectors';
 import { useV2WorkingCopy } from '../../store/workingCopyStore';
-import { portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
+import { isMultiCorePort, portFieldsFor, portHasRoom, portValuesAt, setPortValueAt, type ValueDef } from '@twin/core';
 import { buildTraceInputs, traceHighlight } from '../../traceSelectors';
 import { useV2Catalog, useMediumColor, useMediumLabel } from '../../hooks';
 import type { TraceResult } from '../../traceSelectors';
@@ -195,15 +195,25 @@ export function ConnectionsTab({
         /* 알파벳순이면 `COM · GND · P · PWR-IN` 처럼 뜻 없는 순서가 된다.
            종류 선언 순서(전원 → 네트워크 → 광 → 제어 → 접지)로 읽는다. */
         const refs = [...byGroup.entries()].filter(([, ports]) => ports.length > 0).map(([group, ports]) => ({
-          group, medium: ports[0]!.medium, direction: ports[0]!.direction, sampleName: ports[0]!.name,
+          group, medium: ports[0]!.medium, direction: ports[0]!.direction,
+          sampleName: ports[0]!.name, positions: ports[0]!.positions,
         }));
         const kindOrder = (medium: string) => {
           const i = PORT_KINDS.findIndex((k) => k.key === medium);
           return i < 0 ? PORT_KINDS.length : i; // 어휘에 없는 것은 뒤로
         };
+        /* 같은 매체 안에서는 **성단(다심)이 먼저**다. 판을 읽는 사람은 「밖에서 무엇이
+           들어오는가」를 먼저 보고 그것이 어디로 갈렸는지를 뒤에 본다. 예전에는 매체가
+           갈려 있어 어휘 순서가 그 일을 했다(인입이 단심 광보다 앞). */
+        const trunkFirst = (r: { positions?: number | null }) => (isMultiCorePort(r.positions) ? 0 : 1);
         const groups = refs
           .slice()
-          .sort((x, y) => kindOrder(x.medium) - kindOrder(y.medium) || x.group.localeCompare(y.group))
+          .sort(
+            (x, y) =>
+              kindOrder(x.medium) - kindOrder(y.medium) ||
+              trunkFirst(x) - trunkFirst(y) ||
+              x.group.localeCompare(y.group),
+          )
           .map((ref) => ({ ...ref, label: portGroupLabel(ref, refs, mediumLabel), ports: byGroup.get(ref.group)! }));
 
         return { owner: a, groups };
