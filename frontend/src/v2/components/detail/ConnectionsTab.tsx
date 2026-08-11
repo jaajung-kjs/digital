@@ -1,12 +1,15 @@
 /**
- * ConnectionsTab — 상세 패널 4번째 탭 '연결'
+ * ConnectionsTab — 상세 패널의 '포트' 탭.
  *
- * **부품 한 대에 카드 한 장** — 그 안에 포트 판, 고른 포트의 상세, 그 부품의 연결 내역이
- * 차례로 담긴다. 설비에는 제 포트가 없고 안에 든 부품이 갖는데, 예전에는 판만 여기 있고
- * 「연결」과 「고른 포트 상세」가 맨 아래 따로 있었다. 부품이 열둘이면 판 열두 장을 지나야
- * 그것들이 나오므로, 포트를 눌러 놓고도 무엇이 어떻게 바뀌었는지 보이지 않았다.
+ * **부품 한 대에 카드 한 장**, 그 안에서 위에서 아래로: 포트 판 → 고른 포트 → 그 포트의
+ * 추적 경로. 설비에는 제 포트가 없고 안에 든 부품이 갖는다.
  *
- * 연결된 포트에는 [추적] 이 있고, 누르면 traceHighlight 결과를 상위 콜백(onTrace)으로 올린다.
+ * 무엇을 누르든 **답은 누른 자리 바로 아래**에 나온다. 예전에는 고른 포트의 상세도, 추적
+ * 결과도, 부품별 연결 목록도 다른 자리에 있었다 — 부품이 열둘이면 판 열두 장을 지나야
+ * 그것들이 나오므로, 누르고도 아무 일이 없는 것처럼 보였다.
+ *
+ * 부품마다 딸려 있던 **연결 목록은 걷었다**. 스물다섯 줄이 판 밑에 늘어서도 읽는 사람이
+ * 알고 싶은 것은 「내가 누른 이 포트가 어디로 가나」였고, 그건 고른 포트 카드가 말한다.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -50,8 +53,14 @@ interface ConnectionsTabProps {
 export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, onClearTrace, traceResult }: ConnectionsTabProps) {
   // 타일에는 번호만 있으므로, 고른 포트 하나의 상세를 아래에 펼친다.
   const [selectedPortId, setSelectedPortId] = useState<string | null>(focusPortId ?? null);
+  /* 어느 포트에서 추적을 걸었나 — 결과를 **그 포트 밑**에 펴기 위해.
+     `TraceResult` 는 출발 포트를 담지 않는다(평면도 강조가 쓰는 형상이라 그럴 이유도 없다). */
+  const [tracedPortId, setTracedPortId] = useState<string | null>(null);
   // 자산을 옮기면 이전 자산의 포트가 골라진 채 남지 않게 한다.
-  useEffect(() => setSelectedPortId(null), [assetId]);
+  useEffect(() => {
+    setSelectedPortId(null);
+    setTracedPortId(null);
+  }, [assetId]);
   // 밖에서 다른 포트를 가리키면 따라간다 — 표의 줄과 판의 선택이 어긋나면 안 된다.
   useEffect(() => {
     if (focusPortId) setSelectedPortId(focusPortId);
@@ -161,42 +170,6 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
       });
   }, [asset, effectiveAssets]);
 
-  /* 연결 내역 — 물려 있는 것만 한 표로.
-     판(mimic panel)은 빈 자리까지 포함한 **전체 현황**을, 표는 **무엇이 어디로 가는지**를
-     보여 준다. 장비 관리 UI(Meraki·UniFi)가 쓰는 두 벌 구성이다. 예전에는 판만 있어서
-     대국을 알려면 포트를 하나씩 눌러 봐야 했다. */
-  const connectionRows = useMemo(() => {
-    if (!asset) return [];
-    const categories = catalog.data?.cableGroups.flatMap((g) => g.categories) ?? [];
-    return portOwners.flatMap(({ owner, groups }) =>
-      groups.flatMap(({ group, label, medium, ports }) =>
-        ports.flatMap((port) =>
-          (cablesByPortId.get(port.id) ?? []).map((conn) => {
-            const peer = resolvePeer(port, conn.cable, portIndex, asset.substationId);
-            const cat = categories.find((c) => c.id === conn.cable.categoryId);
-            const lengthM = (conn.cable.specParams as Record<string, unknown> | null)?.lengthM;
-            const sub = peer?.remote && peer.substationName ? ` (${peer.substationName})` : '';
-            return {
-              key: `${port.id}-${conn.cableId}`,
-              portId: port.id,
-              ownerId: owner.id,
-              group,
-              medium,
-              /* 양쪽 다 `endpointLabel` 이 짓는다 — 두 자리를 같은 어법으로 적어야 견줄 수 있다. */
-              portLabel: endpointLabel({ assemblyName: null, assetName: owner.name, portName: port.name, portIndex: port.index }),
-              peerLabel: peer ? `${endpointLabel(peer)}${sub}` : null,
-              groupLabel: label,
-              peerAssetId: portIndex.get(conn.peerPortId)?.asset.id ?? null,
-              cableLabel: [cat?.name, typeof lengthM === 'number' ? `${lengthM}m` : null]
-                .filter(Boolean)
-                .join(' · '),
-            };
-          }),
-        ),
-      ),
-    );
-  }, [asset, portOwners, cablesByPortId, portIndex, catalog.data]);
-
   /* 포트 점유 상태 — 케이블이 물렸는가, 아닌가. 그 사이는 없다.
      회선의 반대쪽이 비었다는 사실은 아래 `내부 통과` 가 말한다. */
   const portState = (port: V2Port): PortState => (cablesByPortId.has(port.id) ? 'full' : 'empty');
@@ -258,7 +231,9 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
     if (cableEntry) {
       const ref = endpointRef(cableEntry.cable, hop.toPortId);
       if (ref) {
-        const sub = ref.substationName ? ` (${ref.substationName})` : '';
+        // 변전소는 **다른 국일 때만** 적는다 — 지금 보고 있는 국 이름을 덧붙이면 군더더기다.
+        const remote = asset != null && ref.substationId !== asset.substationId;
+        const sub = remote && ref.substationName ? ` (${ref.substationName})` : '';
         return `${endpointLabel({ ...ref, assemblyName: ref.assemblyName ?? null })}${sub}`;
       }
     }
@@ -267,8 +242,13 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
 
   function handleTrace(portId: string) {
     const inputs = buildTraceInputs({ types, categories, assets: effectiveAssets, cables: effectiveCables });
-    const result = traceHighlight(inputs, portId);
-    onTrace(result);
+    onTrace(traceHighlight(inputs, portId));
+    setTracedPortId(portId);
+  }
+
+  function clearTrace() {
+    setTracedPortId(null);
+    onClearTrace();
   }
 
   if (!asset) return null;
@@ -286,56 +266,6 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
 
   return (
     <div className="space-y-3">
-      {/* 추적 결과 패널 */}
-      {traceResult && traceResult.hops.length > 0 && (
-        <DetailCard>
-          <DetailCardHeader
-            title="추적 경로"
-            actions={
-              <Button variant="secondary" size="sm" onClick={onClearTrace}>
-                지우기
-              </Button>
-            }
-          />
-          <ol className="space-y-0.5">
-            {traceResult.hops.map((hop, i) => {
-              // 경로에 나온 자산은 눌러서 그리로 갈 수 있어야 한다 — 예전에는 글자일 뿐이라
-              // 경로를 읽고도 그 장비를 찾으려면 표에서 다시 검색해야 했다.
-              const target = hop.kind === 'internal' ? undefined : portIndex.get(hop.toPortId)?.asset;
-              return (
-                <li key={i} className="text-sm text-content">
-                  <span className="mr-1 text-xs text-content-faint">{i + 1}.</span>
-                  {target ? (
-                    <button
-                      type="button"
-                      className={cn('rounded px-1 text-left text-primary', SELECTABLE)}
-                      title={`${target.name} 으로 이동`}
-                      onClick={() => onSelectAsset(target.id)}
-                    >
-                      {hopText(hop)}
-                    </button>
-                  ) : (
-                    <span className="text-content-muted">{hopText(hop)}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </DetailCard>
-      )}
-      {traceResult && traceResult.hops.length === 0 && (
-        <DetailCard>
-          <DetailCardHeader
-            title={<span className="font-normal text-content-faint">연결된 경로가 없습니다.</span>}
-            actions={
-              <Button variant="secondary" size="sm" onClick={onClearTrace}>
-                지우기
-              </Button>
-            }
-          />
-        </DetailCard>
-      )}
-
       {/* 부품 한 대에 카드 한 장 — 판·고른 포트·연결 내역이 **한 곳에** 모인다.
           예전에는 판만 여기 있고 「연결」과 「고른 포트 상세」는 맨 아래 따로 있었다. 부품이
           열둘이면 판 열두 장을 지나야 그것들이 나오므로, 포트를 눌러 놓고도 무엇이 어떻게
@@ -343,7 +273,6 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
       {portOwners.map(({ owner, groups }) => {
         const ownerPorts = groups.flatMap((g) => g.ports);
         const connected = ownerPorts.filter((pt) => cablesByPortId.has(pt.id)).length;
-        const rows = connectionRows.filter((r) => r.ownerId === owner.id);
         // 고른 포트가 이 부품 것일 때만 상세를 편다.
         const sel = selectedPort && selectedPort.assetId === owner.id ? selectedPort : null;
         return (
@@ -411,75 +340,50 @@ export function ConnectionsTab({ assetId, focusPortId, onSelectAsset, onTrace, o
                     />
                   </DetailRow>
                 )}
+
+                {/* 추적 결과 — **누른 자리 바로 아래**에 편다.
+                    맨 위 카드에 띄우면 부품이 열둘일 때 결과가 화면 밖으로 나가, 누르고도
+                    아무 일이 없는 것처럼 보였다. 경로는 이 포트에서 출발한 것이므로
+                    이 포트 밑이 그 경로의 자리다. */}
+                {tracedPortId === sel.id && traceResult && (
+                  <div className="border-t border-line pt-1.5">
+                    <div className="mb-0.5 flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-content-muted">
+                        {traceResult.hops.length > 0 ? '추적 경로' : '연결된 경로가 없습니다'}
+                      </span>
+                      <Button variant="secondary" size="sm" onClick={clearTrace}>
+                        지우기
+                      </Button>
+                    </div>
+                    <ol className="space-y-0.5">
+                      {traceResult.hops.map((hop, i) => {
+                        // 경로에 나온 자산은 눌러서 그리로 갈 수 있어야 한다 — 예전에는 글자일
+                        // 뿐이라 그 장비를 찾으려면 표에서 다시 검색해야 했다.
+                        const target = hop.kind === 'internal' ? undefined : portIndex.get(hop.toPortId)?.asset;
+                        return (
+                          <li key={i} className="flex items-baseline gap-1 text-sm text-content">
+                            <span className="shrink-0 text-xs tabular-nums text-content-faint">{i + 1}.</span>
+                            {target ? (
+                              <button
+                                type="button"
+                                className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-primary', SELECTABLE)}
+                                title={`${target.name} 으로 이동`}
+                                onClick={() => onSelectAsset(target.id)}
+                              >
+                                {hopText(hop)}
+                              </button>
+                            ) : (
+                              <span className="min-w-0 flex-1 truncate px-1 text-content-muted">{hopText(hop)}</span>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 연결 내역 — 판이 "어디가 비었나" 라면 여기는 "무엇이 어디로 가나" 다.
-                **종류별로 묶는다**: 광과 전원과 접지를 한 줄에 섞어 놓으면 스물다섯 줄에서
-                무엇이 무엇인지 가릴 수가 없다. DCIM 들도 포트를 종류별 구획으로 나눈다
-                (NetBox 의 Interfaces / Power Ports / Console Ports). 판의 구획과 같은 색을
-                쓰므로 위아래가 같은 것을 가리킨다는 사실이 눈에 보인다. */}
-            {rows.length > 0 && (
-              <div className="space-y-1.5">
-                {[...new Map(rows.map((r) => [r.group, r])).values()].map((head) => (
-                  <div key={head.group}>
-                    <div className="mb-0.5 flex items-center gap-1.5">
-                      <span
-                        aria-hidden
-                        className="h-2 w-2 shrink-0 rounded-sm"
-                        style={{ background: mediumColor(head.medium) ?? undefined }}
-                      />
-                      <span className="text-xs font-medium text-content-muted">{head.groupLabel}</span>
-                    </div>
-                    <ul className="divide-y divide-line">
-                      {rows.filter((r) => r.group === head.group).map((row) => (
-                        <li
-                          key={row.key}
-                          /* 케이블 정보는 툴팁으로 — 384px 패널에서 대국 이름과 자리를 다투면
-                             정작 어디로 가는지가 잘린다(`접지단자함 G1 · 접지 부…`). */
-                          title={row.cableLabel || undefined}
-                          className={cn(
-                            'flex items-center gap-1.5 rounded py-1.5',
-                            row.portId === selectedPortId && 'bg-info-bg',
-                          )}
-                        >
-                          <button
-                            type="button"
-                            /* 이름이 길어도(`전원경보분배반 DC#1`) 대국을 밀어내지 않게 폭을 묶는다 —
-                               두 자리가 폭을 다투면 정작 어디로 가는지가 먼저 잘린다. */
-                            className={cn(
-                              'max-w-[45%] shrink-0 truncate rounded px-1 text-xs tabular-nums text-content-muted',
-                              SELECTABLE,
-                            )}
-                            title={`${row.portLabel} 을 판에서 고르기`}
-                            onClick={() => setSelectedPortId((prev) => (prev === row.portId ? null : row.portId))}
-                          >
-                            {row.portLabel}
-                          </button>
-                          {/* 화살표도 그 종류의 색 — 줄이 길어져도 어느 계통인지 눈으로 따라간다. */}
-                          <span
-                            aria-hidden
-                            className="shrink-0 text-xs"
-                            style={{ color: mediumColor(row.medium) ?? undefined }}
-                          >
-                            →
-                          </span>
-                          <button
-                            type="button"
-                            className={cn('min-w-0 flex-1 truncate rounded px-1 text-left text-sm text-primary', SELECTABLE)}
-                            title={row.peerLabel ? `${row.peerLabel} 으로 이동` : undefined}
-                            disabled={!row.peerAssetId}
-                            onClick={() => row.peerAssetId && onSelectAsset(row.peerAssetId)}
-                          >
-                            {row.peerLabel ?? '—'}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
           </DetailCard>
         );
       })}
